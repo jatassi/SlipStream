@@ -276,7 +276,7 @@ func checkAwaiting(t *testing.T, p *pairing.Pairing, pend pairing.Pending, start
 		"Can't reach the Controller at 127.0.0.9:8485.",
 		"Paste this Node address into the Add a Node dialog on the Controller:",
 		"  " + pend.Address.String(),
-		"Waiting for the Controller to dial until " + start.Add(10*time.Minute).Format("15:04") + ". Press Ctrl-C to stop.",
+		"Waiting until " + start.Add(10*time.Minute).Format("15:04") + " for the Controller to connect. Press Ctrl-C to stop.",
 	}
 	if !slices.Equal(pend.Lines(), want) {
 		t.Fatalf("the pending claim reads %q, want %q", pend.Lines(), want)
@@ -329,7 +329,7 @@ func TestAClaimNoControllerDialsFailsAtAwaitDial(t *testing.T) {
 		start := time.Now()
 		pend, done := claiming(t, p, code)
 		err := <-done
-		if want := "the Controller didn't dial this Node by " + pend.Until.Format("15:04") + ". Ask for a new Join Code."; kind(err) != pairing.Unreachable || err.Error() != want {
+		if want := "the Controller didn't connect to this Node by " + pend.Until.Format("15:04") + ". Ask for a new Join Code."; kind(err) != pairing.Unreachable || err.Error() != want {
 			t.Fatalf("Claim = %v, want %s", err, want)
 		}
 		if waited := time.Since(start); waited < 10*time.Minute {

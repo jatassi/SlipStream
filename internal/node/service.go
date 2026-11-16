@@ -85,7 +85,7 @@ func uninstallUserService(env Env, layout install.Layout) int {
 		fmt.Println("no slipstream user service is installed")
 		return ExitOK
 	}
-	fmt.Println("Removed the slipstream service. Linger is still on, and loginctl disable-linger turns it off.")
+	fmt.Println("Removed the slipstream service. Lingering is still on for your user. To turn it off, run loginctl disable-linger.")
 	return ExitOK
 }
 

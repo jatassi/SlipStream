@@ -55,13 +55,13 @@ export const attentionOf: { readonly [id: string]: TrackersAttention[] } = {
   [seedpoolId]: [
     {
       level: "warn",
-      text: "2 torrents are seeding. 2 still owe seedpool, and 1 of those isn't seeding.",
+      text: "2 torrents are seeding. 2 haven't met seedpool's seeding rule yet, and 1 of those isn't seeding.",
     },
   ],
   [aitherTrackerId]: [
     {
       level: "info",
-      text: "Aither's Releases don't state a seeding rule. Set one so its seeding goal can run.",
+      text: "Aither's releases don't include a seeding rule. SlipStream keeps seeding its private torrents until you set one.",
     },
   ],
 };

@@ -21,7 +21,7 @@ type TestAnswer = { readonly tested: Tested } | { readonly refused: string };
 const fallbackWords: { readonly [F in Tested["fallback"]]: string } = {
   available: "The Controller sends changes while the Node it connects from is offline.",
   none: "Changes wait while the Node it connects from is offline, because the Controller can't reach the server.",
-  untested: "The Controller's route wasn't tested.",
+  untested: "The Controller didn't test the fallback address.",
 };
 
 function TestResult({ answer }: { answer: TestAnswer }) {
@@ -42,7 +42,7 @@ function TestResult({ answer }: { answer: TestAnswer }) {
   );
 }
 
-/** What the server needs, then Test, which runs both routes, Refresh whole library, and Confirm on a new server Id. */
+/** What the server needs, then Test, which runs both routes, Refresh libraries, and Confirm on a new server Id. */
 export function ServerHeader({ server }: { server: Server }) {
   const queryClient = useQueryClient();
   const [answer, setAnswer] = useState<TestAnswer>();

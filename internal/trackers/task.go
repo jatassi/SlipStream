@@ -35,10 +35,10 @@ func (t *Trackers) Task() tasks.Task {
 	return tasks.Task{
 		ID:   TaskID,
 		Name: "Seeding goals",
-		About: "Reads each Tracker's seeding rule from its Releases, and finds the Tracker of each torrent that has none from its announce hosts. " +
-			"Then it records each private torrent's hit and run window: when it opens, when its Tracker's rule is met, and when a torrent that still owes stops seeding. " +
-			"Once a torrent's goal and its Tracker's rule with the margin are both met, it pauses the torrent, removes it, or removes it and deletes its download copy, as the goal sets. " +
-			"It keeps the download copy when a Grab on the torrent didn't import. On a Node draining Downloading, a goal that pauses removes the torrent and keeps its copy instead.",
+		About: "Reads each Tracker's seeding rule from its releases. For a torrent with no known Tracker, it finds the Tracker from the torrent's tracker URLs. " +
+			"Then it records each private torrent's hit and run window: when it opens, when its Tracker's rule is met, and when a torrent at hit and run risk stops seeding. " +
+			"Once a torrent's goal and its Tracker's rule plus the extra seeding time are both met, it pauses the torrent, removes it, or removes it and deletes its download copy, as the goal sets. " +
+			"It keeps the download copy when a Grab on the torrent didn't import. On a Node that is finishing its Downloading work, a goal that pauses removes the torrent and keeps its copy instead.",
 		Group:   tasks.ControllerGroup,
 		Cadence: tasks.Every{Interval: Cadence, AtStart: true},
 		Noun:    setting.Noun{One: "Tracker", Many: "Trackers"},

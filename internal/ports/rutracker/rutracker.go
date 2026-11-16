@@ -1829,9 +1829,9 @@ func MoveFirstTagsToEndOfReleaseTitle(input string) string {
 type RuTrackerSettings struct {
 	port.UserPass
 	// SlipStream: labels and help reworded per WRITING.md.
-	RussianLetters                   bool `port:"russianLetters" label:"Strip Russian letters" help:"Remove Cyrillic letters from each Release title."`
-	UseMagnetLinks                   bool `port:"useMagnetLinks" label:"Use Magnet links" help:"Grab each Release by its Magnet link in place of its .torrent."`
-	AddRussianToTitle                bool `port:"addRussianToTitle" label:"Add RUS to titles" help:"Add RUS to the end of each movie and TV Release title, because every RuTracker Release has a Russian track. English-only Releases then read as Russian too."`
-	MoveFirstTagsToEndOfReleaseTitle bool `port:"moveFirstTagsToEndOfReleaseTitle" label:"Move leading tags to the end of the title" help:"Move the bracketed tags at the start of each Release title to its end."`
-	MoveAllTagsToEndOfReleaseTitle   bool `port:"moveAllTagsToEndOfReleaseTitle" label:"Move all tags to the end of the title" help:"Move every bracketed tag in each Release title to its end, in place of only the leading ones."`
+	RussianLetters                   bool `port:"russianLetters" label:"Strip Russian letters" help:"Remove Cyrillic letters from each release title."`
+	UseMagnetLinks                   bool `port:"useMagnetLinks" label:"Use Magnet links" help:"Grab each release by its Magnet link in place of its .torrent."`
+	AddRussianToTitle                bool `port:"addRussianToTitle" label:"Add RUS to titles" help:"Add RUS to the end of each movie and TV release title, because every RuTracker release has a Russian track. English-only releases then read as Russian too."`
+	MoveFirstTagsToEndOfReleaseTitle bool `port:"moveFirstTagsToEndOfReleaseTitle" label:"Move leading tags to the end of the title" help:"Move the bracketed tags at the start of each release title to its end."`
+	MoveAllTagsToEndOfReleaseTitle   bool `port:"moveAllTagsToEndOfReleaseTitle" label:"Move all tags to the end of the title" help:"Move every bracketed tag in each release title to its end, in place of only the leading ones."`
 }

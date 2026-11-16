@@ -19,9 +19,9 @@ var stopSaid = map[Cause]string{
 	searching.CaptchaNeeded:        "%[1]s needs a captcha to sign in again.",
 	searching.ChallengeUnsolved:    "%[1]s is behind a browser challenge, and %[3]s has no Challenge solver.",
 	searching.CookieExpired:        "%[1]s no longer accepts the browser cookie.",
-	searching.DefinitionUnloadable: "%[1]s's definition doesn't load.",
-	searching.AccountRefused:       "%[1]s refused the API key with '%[2]s'.",
-	searching.RequestRejected:      "%[1]s refused a search with '%[2]s'.",
+	searching.DefinitionUnloadable: "SlipStream can't load %[1]s's definition.",
+	searching.AccountRefused:       "%[1]s refused the API key and responded '%[2]s'.",
+	searching.RequestRejected:      "%[1]s refused a search and responded '%[2]s'.",
 	searching.CodeNeeded:           "%[1]s needs a two-factor code to sign in again.",
 	searching.PortRetired:          "SlipStream no longer supports %[1]s, because %[2]s.",
 }
@@ -38,7 +38,7 @@ var testSaid = map[Cause]string{
 // the sign-in fields credentials_rejected names ("email or password").
 var portSaid = map[variant]string{
 	refusedKey:     "%[1]s refused the %[4]s.",
-	refusedKeyWith: "%[1]s refused the %[4]s with '%[2]s'.",
+	refusedKeyWith: "%[1]s refused the %[4]s and responded '%[2]s'.",
 	rejectedSignIn: "%[1]s rejected the %[5]s.",
 }
 
@@ -102,9 +102,9 @@ var stopFormFixes = map[Cause]string{
 	searching.CaptchaNeeded:        "Type the code and test again.",
 	searching.ChallengeUnsolved:    "Set one on %[3]s, or paste a browser cookie.",
 	searching.CookieExpired:        "Paste a new one and test again.",
-	searching.DefinitionUnloadable: "Replace the custom definition, or wait for a catalog fix.",
+	searching.DefinitionUnloadable: "Replace it with a fixed custom definition, or wait for the next catalog refresh.",
 	searching.AccountRefused:       "Check the account, then test again.",
-	searching.RequestRejected:      "Test again after the feed is fixed.",
+	searching.RequestRejected:      "Test again once the site fixes the problem.",
 	searching.CodeNeeded:           "Type the current code and test again.",
 	searching.PortRetired:          "Delete the Indexer.",
 }
@@ -125,7 +125,7 @@ var refusalWords = map[searching.RSSRefusal]string{
 // refusedSignIn is a sign-in the site refused in its own words, which may
 // be about the captcha's code as well as the password.
 const (
-	refusedSignInSaid    = "%[1]s refused the sign-in with '%[2]s'."
+	refusedSignInSaid    = "%[1]s refused the sign-in and responded '%[2]s'."
 	refusedSignInFormFix = "Check the username, password and any code, then test again."
 	refusedSignInItemFix = "Check the username, password and any code on the Indexer, then test it."
 )
@@ -191,7 +191,7 @@ func (x *Indexers) Unreached(err error) string {
 	case errors.As(err, &wait):
 		name := x.cfg.Roster.Name(wait.Outcome.Node)
 		if wait.Outcome.Since.IsZero() {
-			return name + " can't search now. Test again once it holds Searching."
+			return name + " can't search right now. Check that it has the Searching Role on the Nodes page, then test again."
 		}
 		return fmt.Sprintf("%s has been offline since %s. Test again once it's back.", name, x.Clock(wait.Outcome.Since))
 	case errors.Is(err, ErrLate):
@@ -223,16 +223,16 @@ var stoppedWords = map[Cause]string{
 	searching.CaptchaNeeded:        "Stopped because %[1]s needs a captcha to sign in again.",
 	searching.ChallengeUnsolved:    "Stopped because %[1]s is behind a browser challenge and %[3]s has no Challenge solver.",
 	searching.CookieExpired:        "Stopped because %[1]s no longer accepts the browser cookie.",
-	searching.DefinitionUnloadable: "Stopped because %[1]s's definition doesn't load.",
-	searching.AccountRefused:       "Stopped because %[1]s refused the API key with '%[2]s'.",
-	searching.RequestRejected:      "Stopped because %[1]s refused a search with '%[2]s'.",
+	searching.DefinitionUnloadable: "Stopped because SlipStream can't load %[1]s's definition.",
+	searching.AccountRefused:       "Stopped because %[1]s refused the API key and responded '%[2]s'.",
+	searching.RequestRejected:      "Stopped because %[1]s refused a search and responded '%[2]s'.",
 	searching.CodeNeeded:           "Stopped because %[1]s needs a two-factor code to sign in again.",
 	searching.PortRetired:          "SlipStream no longer supports %[1]s, because %[2]s.",
 }
 
 var portStopped = map[variant]string{
 	refusedKey:     "Stopped because %[1]s refused the %[4]s.",
-	refusedKeyWith: "Stopped because %[1]s refused the %[4]s with '%[2]s'.",
+	refusedKeyWith: "Stopped because %[1]s refused the %[4]s and responded '%[2]s'.",
 	rejectedSignIn: "Stopped because %[1]s rejected the %[5]s.",
 }
 
@@ -244,15 +244,15 @@ var stoppedLines = map[Cause]string{
 	searching.CaptchaNeeded:        "Stopped because signing in again needs a captcha.",
 	searching.ChallengeUnsolved:    "Stopped at a browser challenge because {node} has no Challenge solver.",
 	searching.CookieExpired:        "Stopped because the browser cookie is no longer accepted.",
-	searching.DefinitionUnloadable: "Stopped because its definition doesn't load.",
-	searching.AccountRefused:       "Stopped because the API key was refused with '{text}'.",
-	searching.RequestRejected:      "Stopped because a search was refused with '{text}'.",
+	searching.DefinitionUnloadable: "Stopped because SlipStream can't load its definition.",
+	searching.AccountRefused:       "Stopped because the site refused the API key and responded '{text}'.",
+	searching.RequestRejected:      "Stopped because the site refused a search and responded '{text}'.",
 	searching.CodeNeeded:           "Stopped because signing in again needs a two-factor code.",
 	searching.PortRetired:          "Stopped because SlipStream no longer supports it.",
 }
 
 const (
-	refusedSignInLine = "Stopped because the sign-in was refused with '{text}'."
+	refusedSignInLine = "Stopped because the site refused the sign-in and responded '{text}'."
 	// refusedKeyLine is a port's account_refused, whose site gave no words
 	// and whose key a stored line doesn't name.
 	refusedKeyLine = "Stopped because its key was refused."
@@ -265,9 +265,9 @@ var stoppedFixes = map[Cause]string{
 	searching.CaptchaNeeded:        "Test the Indexer and type the code.",
 	searching.ChallengeUnsolved:    "Set a Challenge solver on {node}, or paste a browser cookie with Edit.",
 	searching.CookieExpired:        "Paste a new browser cookie with Edit.",
-	searching.DefinitionUnloadable: "Replace the custom definition, or wait for a catalog fix.",
+	searching.DefinitionUnloadable: "Replace it with a fixed custom definition, or wait for the next catalog refresh.",
 	searching.AccountRefused:       "Check the account, then test the Indexer.",
-	searching.RequestRejected:      "Test the Indexer after the feed is fixed.",
+	searching.RequestRejected:      "Test the Indexer once the site fixes the problem.",
 	searching.CodeNeeded:           "Test the Indexer and type the current code.",
 	searching.PortRetired:          "Delete the Indexer.",
 }
@@ -280,7 +280,7 @@ var portStoppedFixes = map[variant]string{
 const (
 	solverTriedStopped   = "Stopped because %[3]s's Challenge solver couldn't clear %[1]s's challenge."
 	solverTriedFix       = "Paste a browser cookie with Edit."
-	refusedSignInStopped = "Stopped because %[1]s refused the sign-in with '%[2]s'."
+	refusedSignInStopped = "Stopped because %[1]s refused the sign-in and responded '%[2]s'."
 )
 
 // stoppedFormat is the stoppedWords format of a stop with cause and the
@@ -335,7 +335,7 @@ func (x *Indexers) waitWords(v View, w Outcome) (sentence, fix string) {
 			fix = "Allow failover to search from another Node."
 		}
 		if w.Since.IsZero() {
-			return fmt.Sprintf("%s is waiting for %s.", name, home), fix
+			return fmt.Sprintf("%s searches only from %s, and %s can't search right now.", name, home, home), fix
 		}
 		return fmt.Sprintf("%s is waiting for %s, which has been offline since %s.", name, home, x.Clock(w.Since)), fix
 	case Found, NoReleases, Late, NoCategories, Removed, RSSOnly:
@@ -413,9 +413,9 @@ var stopItemFixes = map[Cause]string{
 	searching.CaptchaNeeded:        "Open the Indexer and type the code.",
 	searching.ChallengeUnsolved:    "Set one on %[3]s, or paste a browser cookie on the Indexer.",
 	searching.CookieExpired:        "Paste a new one on the Indexer.",
-	searching.DefinitionUnloadable: "Replace the custom definition, or wait for a catalog fix.",
+	searching.DefinitionUnloadable: "Replace it with a fixed custom definition, or wait for the next catalog refresh.",
 	searching.AccountRefused:       "Check the account, then test the Indexer.",
-	searching.RequestRejected:      "Test the Indexer after the feed is fixed.",
+	searching.RequestRejected:      "Test the Indexer once the site fixes the problem.",
 	searching.CodeNeeded:           "Open the Indexer and type the current code.",
 	searching.PortRetired:          "Delete the Indexer.",
 }

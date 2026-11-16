@@ -75,7 +75,7 @@ func TestUntickingTheLastDownloaderDrainsItAndHandsDownloadingToTheController(t 
 		t.Fatalf("next = %v, blocked %v", out.Next, out.Blocked())
 	}
 	wantWords(t, out,
-		"seedbox takes no new Downloading work. It keeps 3 torrents that have no seeding end until you remove, move or write them off.",
+		"seedbox takes no new Downloading work. 3 torrents have no seeding goal and stay until you remove, move or give them up.",
 		"home takes over Downloading, since SlipStream always needs a Node that downloads.")
 }
 
@@ -83,7 +83,7 @@ func TestADrainThatFinishesSaysSo(t *testing.T) {
 	s := seedboxDownloading()
 	s.Seats[1].Held[role.Downloading] = nodes.Held{Units: 1, Noun: torrents.Noun, Bytes: 2_500_000_000}
 	out := nodes.Plan(s, nodes.SetRoles{Want: nodes.Roles{seedbox.ID: role.Of(role.Searching)}})
-	if got := out.Effects[0].Words(); got != "seedbox takes no new Downloading work and finishes the 1 torrent (2.3 GB) it holds." {
+	if got := out.Effects[0].Words(); got != "seedbox takes no new Downloading work and finishes the 1 torrent (2.3 GB) it has." {
 		t.Fatalf("words = %q", got)
 	}
 }
@@ -91,7 +91,7 @@ func TestADrainThatFinishesSaysSo(t *testing.T) {
 func TestUntickingARoleWithNothingHeldLetsItGo(t *testing.T) {
 	s := situation(seat(home, homeRoles), seat(seedbox, role.Of(role.Searching, role.Subtitles)))
 	out := nodes.Plan(s, nodes.SetRoles{Want: nodes.Roles{seedbox.ID: role.Of(role.Searching)}})
-	wantWords(t, out, "seedbox stops Subtitles.")
+	wantWords(t, out, "seedbox loses the Subtitles Role.")
 	if _, ok := out.Next[seedbox.ID]; !ok || out.Next[seedbox.ID].Has(role.Subtitles) {
 		t.Fatalf("next = %v", out.Next)
 	}
@@ -113,7 +113,7 @@ func TestASecondRelayIsBlockedNamingTheHolderAndAMovePasses(t *testing.T) {
 	if !add.Blocked() || !slices.Equal(reasons(add), []nodes.Reason{nodes.RoleTaken}) || add.Checks[0].Node != seedbox {
 		t.Fatalf("checks = %+v", add.Checks)
 	}
-	wantWords(t, add, "seedbox starts Relaying.", "relay-fra already relays. Drag Relaying to move it.")
+	wantWords(t, add, "seedbox gets the Relaying Role.", "relay-fra already relays. Drag Relaying to move it.")
 
 	move := nodes.Plan(s, nodes.SetRoles{Want: nodes.Roles{
 		seedbox.ID: role.Of(role.Searching, role.Relaying),
@@ -122,7 +122,7 @@ func TestASecondRelayIsBlockedNamingTheHolderAndAMovePasses(t *testing.T) {
 	if move.Blocked() {
 		t.Fatalf("move blocked: %+v", move.Checks)
 	}
-	wantWords(t, move, "seedbox starts Relaying.", "relay-fra stops Relaying.")
+	wantWords(t, move, "seedbox gets the Relaying Role.", "relay-fra loses the Relaying Role.")
 }
 
 func TestUntickingServingOnTheControllerIsPinned(t *testing.T) {
@@ -134,7 +134,7 @@ func TestUntickingServingOnTheControllerIsPinned(t *testing.T) {
 	if !out.Same(s) || out.Blocked() {
 		t.Fatalf("next = %v", out.Next)
 	}
-	wantWords(t, out, "home keeps Serving, because the Controller always serves SlipStream.")
+	wantWords(t, out, "home keeps Serving, because the Controller always serves the SlipStream web app.")
 }
 
 func TestProbesGuardAnAddedRole(t *testing.T) {
@@ -165,7 +165,7 @@ func TestProbesGuardAnAddedRole(t *testing.T) {
 			if len(out.Checks) != 1 || out.Checks[0].Verdict != tc.verdict || out.Checks[0].Reason != tc.reason {
 				t.Fatalf("checks = %+v", out.Checks)
 			}
-			wantWords(t, out, "seedbox starts Downloading.", tc.words)
+			wantWords(t, out, "seedbox gets the Downloading Role.", tc.words)
 		})
 	}
 
@@ -231,7 +231,7 @@ func TestReachTestsGuardAnAddedNotifying(t *testing.T) {
 	s := situation(seat(home, homeRoles), seat(seedbox, 0))
 
 	untested := nodes.Plan(s, tick)
-	wantWords(t, untested, "seedbox starts Notifying.", "Nothing to test yet for Notifying on seedbox.")
+	wantWords(t, untested, "seedbox gets the Notifying Role.", "No mail server is set up yet, so SlipStream can't test Notifying on seedbox.")
 	if untested.Blocked() {
 		t.Fatal("no target blocked")
 	}
@@ -242,7 +242,7 @@ func TestReachTestsGuardAnAddedNotifying(t *testing.T) {
 	if !failed.Blocked() || !slices.Equal(reasons(failed), []nodes.Reason{nodes.ReachFailed}) {
 		t.Fatalf("checks = %+v", failed.Checks)
 	}
-	wantWords(t, failed, "seedbox starts Notifying.", "seedbox can't reach smtp.example.com:587 (connection refused).")
+	wantWords(t, failed, "seedbox gets the Notifying Role.", "seedbox can't reach smtp.example.com:587 (connection refused).")
 
 	s.Reach[at] = nodes.ReachResult{Target: "smtp.example.com:587", OK: true, Millis: 42}
 	if ok := nodes.Plan(s, tick); ok.Blocked() || !slices.Equal(reasons(ok), []nodes.Reason{nodes.Reached}) {
@@ -262,7 +262,7 @@ func TestUntickingSearchingMovesItsIndexersToTheHeir(t *testing.T) {
 	if !reflect.DeepEqual(out.Effects, want) {
 		t.Fatalf("effects = %#v", out.Effects)
 	}
-	wantWords(t, out, "seedbox stops Searching.", "3 Indexers move to home.")
+	wantWords(t, out, "seedbox loses the Searching Role.", "3 Indexers move to home.")
 }
 
 func TestTheSameSetIsANoOpAndAnAppliedChangeMovesTheBasis(t *testing.T) {
@@ -316,7 +316,7 @@ func TestWritingOffAStillTickedRoleUnticksIt(t *testing.T) {
 		t.Fatalf("next = %v, forfeit = %v", out.Next, out.Forfeit)
 	}
 	wantWords(t, out,
-		"The 3 torrents (41 GB) seedbox holds for Downloading are written off. No files are deleted.",
+		"SlipStream gives up the 3 torrents (41 GB) seedbox has for Downloading. No files are deleted.",
 		"home takes over Downloading, since SlipStream always needs a Node that downloads.")
 
 	after := applied(s, out)
@@ -349,7 +349,7 @@ func TestWritingOffNothingIsRefused(t *testing.T) {
 	if !out.Blocked() || !slices.Equal(reasons(out), []nodes.Reason{nodes.NothingHeld}) {
 		t.Fatalf("checks = %+v", out.Checks)
 	}
-	wantWords(t, out, "seedbox holds nothing to write off for Downloading.")
+	wantWords(t, out, "seedbox has nothing to give up for Downloading.")
 }
 
 func TestTheLastHolderCantWriteOffWhatItKeeps(t *testing.T) {
@@ -377,8 +377,8 @@ func TestRemoval(t *testing.T) {
 	if !holding.Blocked() || !slices.Equal(reasons(holding), []nodes.Reason{nodes.HoldsWork}) {
 		t.Fatalf("checks = %+v", holding.Checks)
 	}
-	if got := holding.Checks[0].Words; got != "seedbox still holds 3 torrents (41 GB) for Downloading. "+
-		"Untick its Roles and remove it when they finish, or remove it now and write them off." {
+	if got := holding.Checks[0].Words; got != "seedbox still has 3 torrents (41 GB) for Downloading. "+
+		"Untick its Roles and remove seedbox once that work finishes, or remove it now and give up that work." {
 		t.Fatalf("words = %q", got)
 	}
 
@@ -433,7 +433,7 @@ func TestGesturesAreThePlansVerdicts(t *testing.T) {
 		{find(role.Relaying, relay, seedbox), nodes.Allow, "Moves Relaying", ""},
 		{find(role.Notifying, home, seedbox), nodes.Allow, "Tested when you drop", ""},
 		{find(role.Serving, home, seedbox), nodes.Allow, "Moves Serving",
-			"home keeps Serving, because the Controller always serves SlipStream."},
+			"home keeps Serving, because the Controller always serves the SlipStream web app."},
 	} {
 		if tc.g.Verdict != tc.verdict || tc.g.Word != tc.word || tc.g.Note != tc.note {
 			t.Errorf("%s from %v to %v = %+v", tc.g.Role, tc.g.From, tc.g.To, tc.g)
@@ -459,8 +459,8 @@ func TestUntickingDownloadingOnANodeWithExternalClientsIsBlocked(t *testing.T) {
 		kept []string
 		want string
 	}{
-		{[]string{"Transmission"}, "seedbox still has Transmission. Delete it, or move it to another Node that downloads, first."},
-		{[]string{"Transmission", "qBittorrent"}, "seedbox still has Transmission and qBittorrent. Delete them, or move them to another Node that downloads, first."},
+		{[]string{"Transmission"}, "seedbox still has Transmission. First delete it, or move it to another Node that downloads."},
+		{[]string{"Transmission", "qBittorrent"}, "seedbox still has Transmission and qBittorrent. First delete them, or move them to another Node that downloads."},
 	} {
 		s := seedboxWithClients(c.kept...)
 		out := nodes.Plan(s, nodes.SetRoles{Want: nodes.Roles{seedbox.ID: role.Of(role.Searching)}})

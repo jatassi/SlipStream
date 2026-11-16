@@ -7,9 +7,11 @@ const clearsOf = (window: TrackersWindow) => window.rule?.clears ?? "both";
 const at = (verb: string, iso: string | null, clock: Clock) =>
   iso === null ? verb : `${verb} at ${sinceWords(iso, clock)}`;
 
-/** What an open window still needs: "Owes 3 days 4 h of seeding". */
+/** What an open window still needs: "Still needs 3 days 4 h of seeding". */
 export const owesWords = (window: TrackersWindow): string =>
-  window.owes === null ? "No rule known" : `Owes ${owedWords(window.owes, clearsOf(window))}`;
+  window.owes === null
+    ? "No rule known"
+    : `Still needs ${owedWords(window.owes, clearsOf(window))}`;
 
 type EndedState = Exclude<TrackersWindowState, "owing">;
 
@@ -20,7 +22,7 @@ const endedWords: {
 } = {
   met: (window, clock) => at("Met", window.metAt, clock),
   missed: (window, clock) => at("Missed", window.closedAt, clock),
-  released: (window, clock) => at("Released", window.closedAt, clock),
+  released: (window, clock) => at("Closed", window.closedAt, clock),
 };
 
 /** A window as the history tells it: one grabbed again after its miss reads as that miss. */
@@ -52,7 +54,7 @@ export function windowSentences(window: TrackersWindow, tracker: string, clock: 
         : `It was missed at ${sinceWords(window.closedAt, clock)} and grabbed again at ${sinceWords(window.regrabbedAt, clock)}.`;
   const owed =
     window.state === "missed" && window.owed !== null
-      ? `It still owed ${owedWords(window.owed, clearsOf(window))} when its last torrent was removed.`
+      ? `It still needed ${owedWords(window.owed, clearsOf(window))} when its last torrent was removed.`
       : undefined;
   return [
     ...(window.state === "owing" && risk !== undefined ? [risk] : []),

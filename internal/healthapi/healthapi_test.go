@@ -54,7 +54,7 @@ func serve(t *testing.T) *ownertest.Owner {
 			{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.MediaServersID, Label: "Media Servers", Phrase: "Media Servers"}, Source: health.Source{Answer: answer(health.Answer{})}},
-			{About: health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still owe a Tracker"}, Source: health.Source{Answer: answer(health.Answer{})}},
+			{About: health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still need seeding"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.ScheduledTasksID, Label: "Scheduled tasks", Phrase: "scheduled tasks"}, Source: health.Source{Answer: answer(health.Answer{
 				Items: []health.Item{{Key: "housekeeping", Level: health.Warn, Says: health.Says{Subject: "Housekeeping", Text: "Housekeeping failed.", Action: health.RunAction("housekeeping")}}},
@@ -95,7 +95,7 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 			`{"id":"nodes","label":"Nodes","phrase":"Nodes","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"download-clients","label":"Download Clients","phrase":"download clients","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"media-servers","label":"Media Servers","phrase":"Media Servers","level":null,"canCheck":false,"items":[]},`+
-			`{"id":"seeding","label":"Seeding","phrase":"torrents that still owe a Tracker","level":null,"canCheck":false,"items":[]},`+
+			`{"id":"seeding","label":"Seeding","phrase":"torrents that still need seeding","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"indexers","label":"Indexers","phrase":"Indexers","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"scheduled-tasks","label":"Scheduled tasks","phrase":"scheduled tasks","level":"warn","canCheck":false,"items":[{"key":"housekeeping","level":"warn","subject":"Housekeeping",`+
 			`"text":"Housekeeping failed.","detail":[],"action":{"kind":"run","taskId":"housekeeping"},"since":"T","changedAt":"T","unsure":false}]}]}`)
@@ -105,9 +105,9 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 		t.Fatalf("checkHealthItem on an offline volume = %s, want it unreached", checked)
 	}
 	s.Expect(t, http.MethodPost, "/api/v1/system/health/nodes/check", "", http.StatusNotFound,
-		`{"status":404,"code":"no_check","title":"There is no Check now for that"}`)
+		`{"status":404,"code":"no_check","title":"This Health item has no Check now action"}`)
 	s.Expect(t, http.MethodPost, "/api/v1/system/health/scheduled-tasks/items/housekeeping/check", "", http.StatusNotFound,
-		`{"status":404,"code":"no_check","title":"There is no Check now for that"}`)
+		`{"status":404,"code":"no_check","title":"This Health item has no Check now action"}`)
 	s.Expect(t, http.MethodPost, "/api/v1/system/health/storage/items/nothing/check", "", http.StatusNotFound,
 		`{"status":404,"code":"health_item_not_found","title":"The category has no item with that key"}`)
 	s.Expect(t, http.MethodPost, "/api/v1/system/health/widgets/check", "", http.StatusNotFound,
@@ -117,7 +117,7 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 func TestTheLevelsAreSetGloballyAndPerVolume(t *testing.T) {
 	s := serve(t)
 	s.Expect(t, http.MethodPatch, "/api/v1/system/health/settings", `{"errorBelow":{"amount":214748364800,"unit":"bytes"}}`, http.StatusUnprocessableEntity,
-		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"No more than the warning level, 100 GB."}`)
+		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Set the error level at or below the warning level, 100 GB."}`)
 	s.Expect(t, http.MethodPatch, "/api/v1/system/health/volumes", `{"nodeId":"`+storage.NewUUID().String()+`","mount":"E:\\","warnBelow":{"amount":5,"unit":"percent"}}`,
 		http.StatusNotFound, `{"status":404,"code":"health_volume_not_found","title":"No volume reports at that Node and mount"}`)
 	_, row := s.Call(t, http.MethodPatch, "/api/v1/system/health/volumes", `{"nodeId":"`+media.String()+`","mount":"D:\\","warnBelow":{"amount":0,"unit":"percent"},"errorBelow":{"amount":0,"unit":"percent"}}`)

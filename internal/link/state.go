@@ -115,7 +115,7 @@ var (
 	ErrDisconnected = errors.New("no live link session to the peer")
 	// ErrMismatched is a lockstep call refused before sending: the peer
 	// runs another version.
-	ErrMismatched = errors.New("the peer runs another version, so lockstep services are closed")
+	ErrMismatched = errors.New("the peer runs another version of SlipStream, and calls between versions are off until both match")
 	// ErrKeyMismatch is a Pair whose peer's key is not the Join Code's.
 	ErrKeyMismatch = errors.New("the Controller's key doesn't match the Join Code")
 )

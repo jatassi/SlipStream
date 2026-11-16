@@ -95,13 +95,12 @@ func (h healthRead) itemsOf(root roots.Root, subject, works string) []health.Ite
 }
 
 // putBackItem is the Warn item of p, imported into a library of works:
-// "A file imported into Movies went back to its holding folder because
-// another file already has its name, Heat (1995).mkv. Rename or remove
-// that file." It opens the Work, whose files list it.
+// "A file couldn't be imported into Movies because another file already
+// has the name Heat (1995).mkv. ..." It opens the Work, whose files list it.
 func putBackItem(subject, works string, p files.PutBack) health.Item {
 	return health.Item{Key: health.KeyOf("put_back", p.File.String()), Level: health.Warn, Says: health.Says{
 		Subject: subject,
-		Text:    "A file imported into " + works + " went back to its holding folder because another file already has its name, " + p.Name + ". Rename or remove that file.",
+		Text:    "A file couldn't be imported into " + works + " because another file already has the name " + p.Name + ". SlipStream keeps it in a hidden folder in the library root. Rename or remove the other file.",
 		Action:  health.LinkAction("/works/"+p.Work.String(), "Open the Work"),
 	}}
 }

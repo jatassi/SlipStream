@@ -148,7 +148,7 @@ func TestARunningTaskSaysSinceWhenInTheNodesZone(t *testing.T) {
 		synctest.Wait()
 		o.Expect(t, http.MethodPost, "/api/v1/tasks/tidy/runs", "", http.StatusAccepted, `{"runId":1}`)
 		o.Expect(t, http.MethodPost, "/api/v1/tasks/tidy/runs", "", http.StatusConflict,
-			`{"status":409,"code":"task_running","title":"The task has a run open","detail":"The task has been running since 19:00."}`)
+			`{"status":409,"code":"task_running","title":"This task is already running","detail":"The task has been running since 19:00."}`)
 	})
 }
 
@@ -158,7 +158,7 @@ func TestRunNowAnswersItsRunThenThatTheTaskRuns(t *testing.T) {
 		synctest.Wait()
 		o.Expect(t, http.MethodPost, "/api/v1/tasks/tidy/runs", "", http.StatusAccepted, `{"runId":1}`)
 		o.Expect(t, http.MethodPost, "/api/v1/tasks/tidy/runs", "", http.StatusConflict,
-			`{"status":409,"code":"task_running","title":"The task has a run open","detail":"The task has been running since 00:00."}`)
+			`{"status":409,"code":"task_running","title":"This task is already running","detail":"The task has been running since 00:00."}`)
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/runs/open", "", http.StatusOK,
 			`{"headerDelaySeconds":5,"runs":[{"runId":1,"taskId":"tidy","name":"Tidy","noun":{"one":"step","many":"steps"},"trigger":"run-now","startedAt":"T","nodes":["home"],"done":0,"total":2}]}`)
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/tidy", "", http.StatusOK, `{"task":`+
@@ -198,7 +198,7 @@ func TestACadenceOutsideItsRangeAnswersItsSentenceAndNullResets(t *testing.T) {
 			`,"units":[{"key":"a","label":"A","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":null,"cause":null,"endedAt":null,"lastSuccessAt":null,"dueOnReturn":false}],"runs":[],"tuning":[]}`)
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/tidy", `{"cadence":null}`, http.StatusOK, tidyTask(8, idle, "", available))
 		o.Expect(t, http.MethodPatch, "/api/v1/tasks/nothing", `{"cadence":null}`, http.StatusNotFound,
-			`{"status":404,"code":"task_unknown","title":"No task shown has this id"}`)
+			`{"status":404,"code":"task_unknown","title":"No task has this id"}`)
 	})
 }
 
@@ -222,8 +222,8 @@ func schedule(window, runsKept, overdue string) string {
 		`"jitterPercent":{"key":"tasks.jitterPercent","label":"Jitter",` + about + `"isDefault":true,"pendingRestart":false,"kind":"count","value":10,"running":10,"default":10,"min":0,"max":50,"unit":{"one":"%","many":"%"}},` +
 		`"jitterCap":{"key":"tasks.jitterCap","label":"Longest jitter",` + about + `"isDefault":true,"pendingRestart":false,"kind":"duration","value":300,"running":300,"default":300,"min":0,"max":3600,"step":1},` +
 		`"runsKept":{"key":"tasks.runsKept","label":"Runs kept per task",` + about + runsKept + `,"default":50,"min":1,"max":1000,"unit":{"one":"run","many":"runs"}},` +
-		`"headerDelay":{"key":"tasks.headerDelay","label":"Show a scheduled run in the header after",` + about + `"isDefault":true,"pendingRestart":false,"kind":"duration","value":5,"running":5,"default":5,"min":0,"max":300,"step":1},` +
-		`"partialWarnIntervals":{"key":"tasks.partialWarnIntervals","label":"Warn when a unit has not succeeded for",` + about + `"isDefault":true,"pendingRestart":false,"kind":"count","value":3,"running":3,"default":3,"min":1,"max":100,"unit":{"one":"interval","many":"intervals"}},` +
+		`"headerDelay":{"key":"tasks.headerDelay","label":"Show a scheduled run in the top bar after",` + about + `"isDefault":true,"pendingRestart":false,"kind":"duration","value":5,"running":5,"default":5,"min":0,"max":300,"step":1},` +
+		`"partialWarnIntervals":{"key":"tasks.partialWarnIntervals","label":"Warn on Health when a unit hasn't succeeded for",` + about + `"isDefault":true,"pendingRestart":false,"kind":"count","value":3,"running":3,"default":3,"min":1,"max":100,"unit":{"one":"interval","many":"intervals"}},` +
 		`"overdue":{"key":"tasks.overdue","label":"Overdue tasks",` + about + overdue + `,"default":"catch-up",` + overdueOptions + `}}`
 }
 
@@ -234,11 +234,11 @@ func TestTheTasksPageListsShownTasksAndWhatWaits(t *testing.T) {
 		o := serve(t, task("tidy", onController("a")), task("hidden"), far)
 		synctest.Wait()
 		o.Expect(t, http.MethodPost, "/api/v1/tasks/far/runs", "", http.StatusConflict,
-			`{"status":409,"code":"task_waiting","title":"Every unit waits for a Node that can't start work","detail":"Every unit waits for seedbox, offline since 16 Oct 2026, 21:31."}`)
+			`{"status":409,"code":"task_waiting","title":"This task's Node can't run it right now","detail":"Every part of this task runs on seedbox, which has been offline since 16 Oct 2026, 21:31. Run it again once seedbox is back online."}`)
 		o.Expect(t, http.MethodPost, "/api/v1/tasks/hidden/runs", "", http.StatusNotFound,
-			`{"status":404,"code":"task_unknown","title":"No task shown has this id"}`)
+			`{"status":404,"code":"task_unknown","title":"No task has this id"}`)
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/hidden", "", http.StatusNotFound,
-			`{"status":404,"code":"task_unknown","title":"No task shown has this id"}`)
+			`{"status":404,"code":"task_unknown","title":"No task has this id"}`)
 		status, body := o.Call(t, http.MethodGet, "/api/v1/tasks", "")
 		farTask := `{"id":"far","name":"Far","about":"Tidies up.","group":"acquire","noun":{"one":"step","many":"steps"},` +
 			`"cadence":{"words":"Every 8 h","inWindow":false,"field":{"key":"tasks.tidy.cadence","label":"Runs every","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"duration","value":28800,"running":28800,"default":28800,"min":3600,"max":86400,"step":3600}},` +

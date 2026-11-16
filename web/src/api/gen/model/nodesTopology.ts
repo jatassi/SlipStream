@@ -7,6 +7,6 @@ export interface NodesTopology {
   links: NodesTopologyLink[];
   /** Every Node, in id order */
   nodes: NodesTopologyNode[];
-  /** What stands out across the Nodes, in plain words */
+  /** One sentence naming the Nodes that are offline, reconnecting, finishing their work or covered for, or saying every Node is online */
   sentence: string;
 }

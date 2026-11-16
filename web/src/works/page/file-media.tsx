@@ -98,17 +98,13 @@ function useImportRows({ placedBy, grab }: FilesListedFile): readonly ImportRow[
   const nodeId = grabs.find(({ id }) => id === grab?.id)?.nodeId;
   const node = nodes.find(({ id }) => id === nodeId)?.name ?? "another Node";
   return [
-    ...(placedBy === null ? [] : [{ label: "Placed", value: placedWords[placedBy](node) }]),
+    ...(placedBy === null ? [] : [{ label: "Import method", value: placedWords[placedBy](node) }]),
     ...(grab === null
       ? []
       : [
           {
-            label: "From",
-            value: (
-              <>
-                Grab <Data>{grab.release}</Data>
-              </>
-            ),
+            label: "Release",
+            value: <Data>{grab.release}</Data>,
           },
         ]),
   ];

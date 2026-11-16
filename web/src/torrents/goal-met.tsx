@@ -13,6 +13,7 @@ import { actionLabels } from "../trackers/words";
 import { Skeleton } from "../ui/skeleton";
 import type { Row } from "./model";
 import type { Names } from "./names";
+import { resumedSentence } from "./seeding";
 
 const keptWords: {
   readonly [W in TrackersKept["why"]]: (name: string, node: string) => string;
@@ -20,11 +21,11 @@ const keptWords: {
   "not-imported": (name) =>
     `SlipStream removes ${name} and keeps its download copy, because its Grab didn't import.`,
   draining: (name, node) =>
-    `SlipStream removes ${name} and keeps its download copy, because ${node} is draining Downloading.`,
+    `SlipStream removes ${name} and keeps its download copy, because ${node} is finishing its Downloading work.`,
 };
 
 const waiting = "Goal met, waiting";
-const notActing = "Goal met, not acting";
+const notActing = "Goal met, nothing to do";
 const waitGroups = [waiting, notActing] as const;
 
 const waitWords: {
@@ -36,25 +37,29 @@ const waitWords: {
   removing: { group: notActing, words: "It's being removed." },
   resumed: {
     group: notActing,
-    words: "You resumed it after its goal was met, so it seeds with no end.",
+    words: resumedSentence,
   },
-  ran: { group: notActing, words: "Its goal already acted on it." },
+  ran: { group: notActing, words: "SlipStream already applied its seeding goal." },
   incomplete: {
     group: waiting,
-    words: "Its goal waits until all of its selected files are there.",
+    words: "SlipStream applies its seeding goal once all of its selected files are there.",
   },
   "grab-downloading": {
     group: waiting,
-    words: "Its goal waits until its Grab finishes downloading.",
+    words: "SlipStream applies its seeding goal once its Grab finishes downloading.",
   },
-  "grab-importing": { group: waiting, words: "Its goal waits until its Grab finishes importing." },
+  "grab-importing": {
+    group: waiting,
+    words: "SlipStream applies its seeding goal once its Grab finishes importing.",
+  },
   "import-waiting": {
     group: waiting,
-    words: "Its goal waits until you decide on its Pending import.",
+    words: "SlipStream applies its seeding goal once you decide on its Pending import.",
   },
   reconciling: {
     group: waiting,
-    words: "Its goal waits until SlipStream finishes reconciling the library after a restore.",
+    words:
+      "SlipStream applies its seeding goal once it finishes matching a restored Backup to what each Node has.",
   },
 };
 
@@ -76,11 +81,11 @@ function WouldAct({
   names: Names;
 }) {
   return (
-    <Section title="Would act now" count={acts.length + kept.length}>
+    <Section title="Next Seeding goals run" count={acts.length + kept.length}>
       {acts.length + kept.length === 0 ? (
-        <p className="text-ink-3">No goal would act if Seeding goals ran now.</p>
+        <p className="text-ink-3">The next Seeding goals run won&apos;t change any torrent.</p>
       ) : (
-        <List label="Would act now">
+        <List label="Next Seeding goals run">
           {acts.map((act) => (
             <ListRow
               key={act.torrent.id}

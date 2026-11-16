@@ -224,10 +224,10 @@ func TestAPickPastASoftRefusalNamesItsLiftAndRecordsIt(t *testing.T) {
 		}
 		bare := lifted
 		bare.Lifts = nil
-		refusedWith(t, a.grabbed(t, v, bare)[0], grabs.PickChanged, "What this Release gets you changed since the plan. Check the plan and grab again.")
+		refusedWith(t, a.grabbed(t, v, bare)[0], grabs.PickChanged, "The files this release would download changed after the plan was made. Check the plan and grab again.")
 
 		g := a.view(t, made(t, a.grabbed(t, v, lifted)[0]))
-		want := []string{"It was grabbed through the API key although its name gives The Atticus (2020), which isn't this Work."}
+		want := []string{"An app using the API key grabbed it although its name is for The Atticus (2020), a different shelf."}
 		if !slices.Equal(g.Overrides, want) {
 			t.Fatalf("the Grab's overrides are %q, want %q", g.Overrides, want)
 		}
@@ -265,7 +265,7 @@ func TestRemoveFromBlocklistAndGrab(t *testing.T) {
 
 		blocked.Unblock = true
 		g := a.view(t, made(t, a.grabbed(t, v, blocked)[0]))
-		if want := []string{"It was removed from the Blocklist through the API key to grab it."}; !slices.Equal(g.Overrides, want) {
+		if want := []string{"An app using the API key removed it from the Blocklist to grab it."}; !slices.Equal(g.Overrides, want) {
 			t.Fatalf("the Grab's overrides are %q, want %q", g.Overrides, want)
 		}
 		if page := a.page(t, grabs.BlocklistQuery{}); page.Total != 0 {
@@ -288,7 +288,7 @@ func TestAPickSentToTheRoutedClientRecordsNoRouting(t *testing.T) {
 		if g.Sent == nil || g.Sent.BuiltInOn != home {
 			t.Fatalf("the Grab is sent to %+v, want home's built-in client", g.Sent)
 		}
-		want := "It was sent to the built-in client on home through the API key."
+		want := "An app using the API key sent it to the built-in client on home."
 		if !slices.Equal(g.Overrides, []string{want}) {
 			t.Fatalf("the Grab's overrides are %q, want %q", g.Overrides, want)
 		}
@@ -356,7 +356,7 @@ func TestAReleaseOnlyAHeldCellTakesFoldsAsHeld(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := []grabs.FoldGroup{{Words: "2 would fill cells a Grab is already downloading."}}
+		want := []grabs.FoldGroup{{Words: "2 are for a file a Grab is already downloading."}}
 		if !slices.Equal(after.Folded.Groups, want) {
 			t.Fatalf("the folded groups read %+v, want %+v", after.Folded.Groups, want)
 		}

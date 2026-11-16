@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/files"
@@ -43,7 +44,7 @@ var (
 	targetNotFound      = api.NewCode(http.StatusUnprocessableEntity, "target_not_found", "No Target has that id")
 	noSuchTarget        = api.NewCode(http.StatusNotFound, "target_not_found", "No Target has that id")
 	qualityNotInTarget  = api.NewCode(http.StatusUnprocessableEntity, "quality_not_in_target", "The Target doesn't accept that quality")
-	targetInUse         = api.NewCode(http.StatusConflict, "target_in_use", "Profiles hold the Target")
+	targetInUse         = api.NewCode(http.StatusConflict, "target_in_use", "Profiles use the Target")
 	noSuchProfile       = api.NewCode(http.StatusNotFound, "profile_not_found", "No Profile has that id")
 	workNotFound        = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 	formatNotFound      = api.NewCode(http.StatusUnprocessableEntity, "format_not_found", "No Custom Format has that id")
@@ -64,7 +65,11 @@ var codes = []struct {
 
 func answer(err error) error {
 	if inUse, ok := errors.AsType[*targets.InUseError](err); ok {
-		return targetInUse.Because(inUse.Error())
+		fix := " Remove it from that Profile first."
+		if len(inUse.By) > 1 {
+			fix = " Remove it from those Profiles first."
+		}
+		return targetInUse.Because(usesWords(inUse.By, "this Target") + fix)
 	}
 	if taken, ok := errors.AsType[*targets.TargetNameTakenError](err); ok {
 		fix := "Choose another name."
@@ -73,16 +78,16 @@ func answer(err error) error {
 		}
 		return targetNameTaken.Because(fmt.Sprintf("Another Target is named %s. %s", taken.Other, fix))
 	}
+	if errors.Is(err, targets.ErrQualityNotInTarget) {
+		return qualityNotInTarget.Because(specWords(err))
+	}
 	for _, bad := range []struct {
 		err   error
 		field string
 	}{{targets.ErrBadTiers, "tiers"}, {targets.ErrBadSize, "sizes"}, {targets.ErrBadFilter, "filters"}, {targets.ErrTargetTwice, "targets"}, {targets.ErrNoCuts, "editions.cuts"}, {targets.ErrCutTwice, "editions.cuts"}, {targets.ErrBadIncrement, "scores.increment"}} {
 		if errors.Is(err, bad.err) {
-			return api.Invalid.On(bad.field, err.Error())
+			return api.Invalid.On(bad.field, specWords(err))
 		}
-	}
-	if errors.Is(err, targets.ErrQualityNotInTarget) {
-		return qualityNotInTarget.Because(err.Error())
 	}
 	for _, c := range codes {
 		if errors.Is(err, c.err) {
@@ -90,6 +95,46 @@ func answer(err error) error {
 		}
 	}
 	return err
+}
+
+// usesWords is the sentence that the things by names use thing.
+func usesWords(by []string, thing string) string {
+	if len(by) == 1 {
+		return by[0] + " uses " + thing + "."
+	}
+	return strings.Join(by[:len(by)-1], ", ") + " and " + by[len(by)-1] + " use " + thing + "."
+}
+
+// specWords is the sentence of err, a Target or Profile that targets
+// refused as written.
+func specWords(err error) string {
+	se, _ := errors.AsType[*targets.SpecError](err)
+	name := func() string { return se.Quality.Info().Name }
+	switch {
+	case errors.Is(err, targets.ErrQualityNotInTarget) && se.Size:
+		return "No tier has " + name() + ", so it can't have a size. Add " + name() + " to a tier, or remove its size."
+	case errors.Is(err, targets.ErrQualityNotInTarget):
+		return "No tier has the cutoff, " + name() + ". Add it to a tier, or choose another cutoff."
+	case errors.Is(err, targets.ErrBadTiers) && se == nil:
+		return "Add at least one tier."
+	case errors.Is(err, targets.ErrBadTiers) && se.Tier > 0:
+		return fmt.Sprintf("Tier %d has no qualities. Add one, or remove the tier.", se.Tier)
+	case errors.Is(err, targets.ErrBadTiers):
+		return name() + " is in the tiers twice. Keep it in one place."
+	case errors.Is(err, targets.ErrBadSize):
+		return "The size for " + name() + " needs a minimum of 0 or more and a maximum no lower than the minimum."
+	case errors.Is(err, targets.ErrBadFilter):
+		return "Use only values SlipStream lists for the attribute, each once. A filter set to Any takes no values, and one set to Only or Not takes at least one."
+	case errors.Is(err, targets.ErrTargetTwice):
+		return "Add each Target to the Profile once."
+	case errors.Is(err, targets.ErrNoCuts):
+		return "Choose at least one cut."
+	case errors.Is(err, targets.ErrCutTwice):
+		return "Choose each cut once."
+	case errors.Is(err, targets.ErrBadIncrement):
+		return "Use a score increment of 1 or more."
+	}
+	panic("targetsapi: no words for " + err.Error())
 }
 
 func Routes(r *api.Router, goals Goals) {
@@ -163,7 +208,7 @@ func Routes(r *api.Router, goals Goals) {
 		ID:      "listProfiles",
 		Method:  http.MethodGet,
 		Path:    "/profiles",
-		Summary: "List the Profiles, each with the count of Works wanting from it",
+		Summary: "List the Profiles, each with the number of Works that use it",
 		Status:  http.StatusOK,
 	}, h.listProfiles)
 	api.Register(o, api.Admin, api.Op{
@@ -233,7 +278,7 @@ func Routes(r *api.Router, goals Goals) {
 		ID:      "getWorkWants",
 		Method:  http.MethodGet,
 		Path:    "/works/{workId}/wants",
-		Summary: "Get the Profile a Work wants from and its Edition list",
+		Summary: "Get the Profile a Work uses and its Edition list",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{workNotFound},
 	}, h.getWorkWants)

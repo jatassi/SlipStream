@@ -28,10 +28,10 @@ type idInput struct {
 type draftBody struct {
 	Kind            string `json:"kind" minLength:"1" doc:"One of the kinds listMediaServerKinds lists"`
 	Name            string `json:"name" minLength:"1" maxLength:"100" doc:"Such as Living room Plex"`
-	Address         string `json:"address,omitempty" maxLength:"2048" doc:"What the reaching Node calls, such as http://localhost:8096; absent for Plex, whose address SlipStream picks from the server's connections"`
-	FallbackAddress string `json:"fallbackAddress,omitempty" maxLength:"2048" doc:"What the Controller calls; absent for address"`
-	BrowserAddress  string `json:"browserAddress,omitempty" maxLength:"2048" doc:"Jellyfin and Emby: where Open in sends a browser; absent for no Open in button"`
-	ReachingNodeID  string `json:"reachingNodeId" format:"uuid" doc:"The Controller, or a Node that holds Media Server link"`
+	Address         string `json:"address,omitempty" maxLength:"2048" doc:"The address the Connect from Node uses, such as http://localhost:8096; absent for Plex, whose address SlipStream picks from the server's connections"`
+	FallbackAddress string `json:"fallbackAddress,omitempty" maxLength:"2048" doc:"The address the Controller uses while the Connect from Node is offline; absent when it uses address"`
+	BrowserAddress  string `json:"browserAddress,omitempty" maxLength:"2048" doc:"Jellyfin and Emby: the address the Open in button opens; absent when there is no Open in button"`
+	ReachingNodeID  string `json:"reachingNodeId" format:"uuid" doc:"The Controller, or a Node with the Media Server link Role"`
 	RunsOnNodeID    string `json:"runsOnNodeId,omitempty" format:"uuid" doc:"The Node the server runs on; absent when it runs on none"`
 	APIKey          string `json:"apiKey,omitempty" maxLength:"1024" doc:"Jellyfin and Emby. Write-only"`
 	DeviceID        string `json:"deviceId,omitempty" maxLength:"256" doc:"Jellyfin and Emby: the deviceId an administrator sign-in returned"`
@@ -43,8 +43,8 @@ type addInput struct{ Body draftBody }
 type patchBody struct {
 	Name            *string           `json:"name,omitempty" minLength:"1" maxLength:"100"`
 	Address         *string           `json:"address,omitempty" minLength:"1" maxLength:"2048"`
-	FallbackAddress api.Patch[string] `json:"fallbackAddress,omitempty" doc:"null for address"`
-	BrowserAddress  api.Patch[string] `json:"browserAddress,omitempty" doc:"null for no Open in button"`
+	FallbackAddress api.Patch[string] `json:"fallbackAddress,omitempty" doc:"null to use address"`
+	BrowserAddress  api.Patch[string] `json:"browserAddress,omitempty" doc:"null to hide the Open in button"`
 	ReachingNodeID  *string           `json:"reachingNodeId,omitempty" format:"uuid"`
 	RunsOnNodeID    api.Patch[string] `json:"runsOnNodeId,omitempty" doc:"A Node id; null when the server runs on no Node"`
 	APIKey          *string           `json:"apiKey,omitempty" minLength:"1" maxLength:"1024" doc:"Jellyfin and Emby. Write-only. A key from signInToMediaServer keeps the server's saved deviceId, since the key isn't tied to a device"`
@@ -79,7 +79,7 @@ type changesInput struct {
 type signInBody struct {
 	Kind     string `json:"kind" minLength:"1"`
 	Address  string `json:"address" minLength:"1" maxLength:"2048"`
-	NodeID   string `json:"nodeId" format:"uuid" doc:"The reaching Node the draft names. The Controller signs in when it reaches the server, else this Node does"`
+	NodeID   string `json:"nodeId" format:"uuid" doc:"The Connect from Node the draft names. The Controller signs in when it reaches the server, else this Node does"`
 	User     string `json:"user" minLength:"1" maxLength:"256" doc:"An administrator of the server"`
 	Password string `json:"password" maxLength:"1024" doc:"Write-only. Used for this one sign-in and never stored"`
 }
@@ -529,7 +529,7 @@ func Routes(r *api.Router, servers Servers) {
 	}, h.list)
 	api.Register(o, api.Admin, api.Op{
 		ID: "addMediaServer", Method: http.MethodPost, Path: base, Status: http.StatusCreated,
-		Summary: "Add a Media Server once it responds from its reaching Node and accepts SlipStream's sign-in",
+		Summary: "Add a Media Server once it responds from its Connect from Node and accepts SlipStream's sign-in",
 		Errors:  add,
 	}, h.add)
 	api.Register(o, api.Admin, api.Op{
@@ -539,7 +539,7 @@ func Routes(r *api.Router, servers Servers) {
 	}, h.get)
 	api.Register(o, api.Admin, api.Op{
 		ID: "updateMediaServer", Method: http.MethodPatch, Path: base + "/{id}", Status: http.StatusOK,
-		Summary: "Change a Media Server, testing it again when the change is to its address, reaching Node or API key",
+		Summary: "Change a Media Server, testing it again when the change is to its address, Connect from Node or API key",
 		Errors:  update,
 	}, h.update)
 	api.Register(o, api.Admin, api.Op{
@@ -549,12 +549,12 @@ func Routes(r *api.Router, servers Servers) {
 	}, h.remove)
 	api.Register(o, api.Admin, api.Op{
 		ID: "testMediaServer", Method: http.MethodPost, Path: base + "/{id}/test", Status: http.StatusOK,
-		Summary: "Test a Media Server from its reaching Node at its address and from the Controller at its fallback address",
+		Summary: "Test a Media Server from its Connect from Node at its address and from the Controller at its fallback address",
 		Errors:  []*api.Code{serverNotFound},
 	}, h.test)
 	api.Register(o, api.Admin, api.Op{
 		ID: "confirmMediaServerIdentity", Method: http.MethodPost, Path: base + "/{id}/confirm-identity", Status: http.StatusOK,
-		Summary: "Accept the server that responds at a Media Server's address now as that Media Server",
+		Summary: "Confirm that the server now responding at a Media Server's address is that Media Server",
 		Errors:  []*api.Code{serverNotFound, unreached, otherServer, tooOld, signInRefused},
 	}, h.confirmIdentity)
 	api.Register(o, api.Admin, api.Op{
@@ -574,7 +574,7 @@ func Routes(r *api.Router, servers Servers) {
 	}, h.refresh)
 	api.Register(o, api.Admin, api.Op{
 		ID: "listMediaServerSessions", Method: http.MethodGet, Path: base + "/{id}/sessions", Status: http.StatusOK,
-		Summary: "List what plays on a Media Server now, as its reaching Node last saw it",
+		Summary: "List what plays on a Media Server now, as its Connect from Node last saw it",
 		Errors:  []*api.Code{serverNotFound},
 	}, h.sessions)
 	api.Register(o, api.Admin, api.Op{

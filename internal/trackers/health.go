@@ -24,7 +24,7 @@ import (
 var HealthAbout = health.About{
 	ID:     health.SeedingID,
 	Label:  "Seeding",
-	Phrase: "torrents that still owe a Tracker",
+	Phrase: "torrents that still need seeding",
 	Events: []live.Event{SeedingChangedEvent, downloadclients.ChangedEvent, nodes.ChangedEvent},
 }
 
@@ -110,7 +110,7 @@ func atRisk(s Summary, quiet []time.Time) health.Item {
 	}
 	return health.Item{Key: health.KeyOf(s.ID.String(), "at-risk"), Level: health.Warn, Says: health.Says{
 		Subject: "Torrents on " + s.Name,
-		Text: fmt.Sprintf("%s on %s stopped seeding before %s's rule was met. Resume or retry %s before %s counts a hit and run.",
+		Text: fmt.Sprintf("%s on %s stopped seeding before %s's seeding rule was met. Seed %s again before %s counts a hit and run.",
 			torrents, s.Name, s.Name, them, s.Name),
 		Detail: []health.Fact{{Label: "Not seeding since", At: slices.MinFunc(quiet, time.Time.Compare)}},
 		Action: health.LinkAction("/settings/trackers/"+s.ID.String()+"?tab=problems", "Open "+s.Name+"'s torrents"),

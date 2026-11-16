@@ -17,7 +17,7 @@ export function TableHead({
       <tr aria-rowindex={1} data-library-row="" className="h-8 text-label text-ink-3">
         <th scope="col" data-col="pick">
           <Checkbox
-            label="Pick every shown Work"
+            label="Select all shown Works"
             hideLabel
             checked={picked > 0 && picked === shown}
             indeterminate={picked > 0 && picked < shown}

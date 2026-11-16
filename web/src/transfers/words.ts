@@ -111,9 +111,9 @@ export function routeWords(route: TransfersTransferRoute, transfer: TransfersTra
   const destination = transfer.destination.nodeName;
   switch (route) {
     case "receiver_dials":
-      return `${destination} dials ${source}`;
+      return `${destination} connects to ${source}`;
     case "sender_dials":
-      return `${source} dials ${destination}`;
+      return `${source} connects to ${destination}`;
     case "node_link":
       return "The Node link";
     default:

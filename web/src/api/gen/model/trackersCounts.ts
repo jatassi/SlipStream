@@ -1,6 +1,6 @@
 export interface TrackersCounts {
   /**
-   * The ones that owe it seeding and aren't seeding
+   * The ones that haven't met its seeding rule and aren't seeding
    * @minimum 0
    */
   atRisk: number;
@@ -10,7 +10,7 @@ export interface TrackersCounts {
    */
   goalMet: number;
   /**
-   * The ones that still owe it seeding
+   * The ones that haven't met its seeding rule yet
    * @minimum 0
    */
   owing: number;

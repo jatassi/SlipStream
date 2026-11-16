@@ -111,7 +111,7 @@ func TestATakenWebPortFallsBackPastTheNodesOwnPorts(t *testing.T) {
 		}
 		var warned []string
 		for _, r := range records(t, string(logged)) {
-			if r["msg"] == "web port taken, serving on a later one" {
+			if r["msg"] == "the web port was taken, so the web server listens on the next free port" {
 				warned = append(warned, fmt.Sprintf("%v %v %v", r["level"], r["configured"], r["bound"]))
 			}
 		}

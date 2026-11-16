@@ -22,7 +22,7 @@ test("Pending imports lists downloads first, then each root, then the folders im
     "From downloads",
     "Films library root on home",
     "Shows library root on home",
-    "Imported by hand",
+    "From Import files",
   ]);
 });
 
@@ -55,7 +55,7 @@ test("Force names the file it deletes before it forces the file in", async () =>
   await expect
     .element(
       confirm.getByText(
-        "This deletes Severance - S01E01 - Good News About Hell.mkv, because it fills no other Target.",
+        "This deletes Severance - S01E01 - Good News About Hell.mkv, because no other Target uses it.",
       ),
     )
     .toBeVisible();
@@ -103,6 +103,8 @@ test("on a phone a download opens as a pushed page that links back to Pending im
     .element(page.getByRole("banner").getByRole("link", { name: "Pending imports" }))
     .toHaveAttribute("href", "/library/pending");
   await userEvent.click(episodeOne().getByRole("button", { name: "Don't import" }));
-  await expect.element(page.getByText("Nothing in this download waits for you now.")).toBeVisible();
+  await expect
+    .element(page.getByText("Nothing in this download needs attention now."))
+    .toBeVisible();
   expect(sent.acted).toEqual([{ id: packEntry.id, position: 0, action: "decline" }]);
 });

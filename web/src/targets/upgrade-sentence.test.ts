@@ -211,7 +211,7 @@ test("a repack, a minimum and the scores say why in words", () => {
   ]);
   expect(said(plain("remux-1080p", { score: 30 }), plain("bluray-1080p", { score: 40 }))).toEqual([
     true,
-    "Bluray-1080p scores 40 and Remux-1080p scores 30, a gain of at least 10.",
+    "Bluray-1080p scores 40 and Remux-1080p scores 30. The gain of 10 meets this Target's increment of 10.",
   ]);
   expect(said(plain("webdl-1080p", { score: 100 }), plain("webrip-1080p", { score: 200 }))).toEqual(
     [
@@ -232,7 +232,7 @@ test("the starter Target grabs any 720p and upgrades to the 1080p discs", () => 
   }
   const { sentence, samples } = upgradeSentence(rulesOf(starter), table, name);
   expect(sentence).toBe(
-    "Grabs HDTV-720p, WEBRip-720p or WEBDL-720p or better. Upgrades until Bluray-1080p or Remux-1080p, then stops.",
+    "This Target grabs HDTV-720p, WEBRip-720p or WEBDL-720p or better. It upgrades until Bluray-1080p or Remux-1080p, then stops.",
   );
   expect(samples.map(({ from, to, allowed, reason }) => [from, to, allowed, reason])).toEqual([
     ["hdtv-720p", "bluray-720p", true, "Bluray-720p ranks above HDTV-720p."],
@@ -251,7 +251,7 @@ test("a cutoff at the bottom tier keeps the first file", () => {
     name,
   );
   expect(sentence).toBe(
-    "Grabs WEBDL-1080p or WEBRip-1080p or better. Keeps the first file it grabs.",
+    "This Target grabs WEBDL-1080p or WEBRip-1080p or better. It keeps the first file it grabs.",
   );
   expect(samples[0]).toMatchObject({
     from: "webdl-1080p",
@@ -267,7 +267,9 @@ test("a cutoff below the top lets files above it in but stops upgrading at it", 
     table,
     name,
   );
-  expect(sentence).toBe("Grabs WEBDL-1080p or better. Upgrades until Bluray-1080p, then stops.");
+  expect(sentence).toBe(
+    "This Target grabs WEBDL-1080p or better. It upgrades until Bluray-1080p, then stops.",
+  );
   expect(samples.map(({ from, to, allowed }) => [from, to, allowed])).toEqual([
     ["webdl-1080p", "bluray-1080p", true],
     ["webdl-1080p", "remux-1080p", true],
@@ -279,9 +281,9 @@ test("a cutoff below the top lets files above it in but stops upgrading at it", 
 test("one tier grabs and never upgrades, and no tier grabs nothing", () => {
   expect(
     upgradeSentence(unscored({ tiers: [["webdl-1080p"]], cutoff: 0 }), table, name).sentence,
-  ).toBe("Grabs WEBDL-1080p. Keeps the first file it grabs.");
+  ).toBe("This Target grabs WEBDL-1080p. It keeps the first file it grabs.");
   expect(upgradeSentence(unscored({ tiers: [], cutoff: 0 }), table, name)).toEqual({
-    sentence: "Accepts no quality yet, so it grabs nothing.",
+    sentence: "This Target accepts no quality yet, so it grabs nothing.",
     samples: [],
   });
 });

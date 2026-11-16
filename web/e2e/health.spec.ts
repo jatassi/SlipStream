@@ -78,7 +78,7 @@ async function calmPage(page: Page): Promise<void> {
   await expect(page.getByText("Everything is working.")).toBeVisible();
   await expect(
     page.getByText(
-      "Checked storage, the library, Nodes, download clients, Media Servers, torrents that still owe a Tracker, Indexers and scheduled tasks",
+      "Checked storage, the library, Nodes, download clients, Media Servers, torrents that still need seeding, Indexers and scheduled tasks",
     ),
   ).toBeVisible();
   for (const [label, phrase] of [
@@ -87,7 +87,7 @@ async function calmPage(page: Page): Promise<void> {
     ["Nodes", "Nodes"],
     ["Download Clients", "download clients"],
     ["Media Servers", "Media Servers"],
-    ["Seeding", "torrents that still owe a Tracker"],
+    ["Seeding", "torrents that still need seeding"],
     ["Indexers", "Indexers"],
     ["Scheduled tasks", "scheduled tasks"],
   ] as const) {
@@ -129,7 +129,9 @@ async function levelsOnHealth(page: Page): Promise<void> {
   await storage.getByRole("radio", { name: "%" }).nth(1).click();
   await error.fill("5");
   await storage.getByRole("button", { name: "Save" }).click();
-  await expect(storage.getByRole("alert")).toHaveText("No more than the warning level, 2%.");
+  await expect(storage.getByRole("alert")).toHaveText(
+    "Set the error level at or below the warning level, 2%.",
+  );
   await expect(storage).toContainText(storageSummary("2%", "0 GB"));
 
   await warn.fill("100");
@@ -213,7 +215,7 @@ async function nodeOffline(page: Page, world: World): Promise<void> {
 
   await world.fw.node("stop", "seedbox");
   const nodes = category(page, "Nodes");
-  const offline = "seedbox has been offline past the offline grace.";
+  const offline = "seedbox has been offline for longer than the Offline grace.";
   await expect(itemRow(nodes, offline)).toContainText("Error", { timeout: 150_000 });
   await expect(page.getByRole("link", { name: new RegExp(`^${offline}`, "u") })).toBeVisible();
   await expect(itemRow(nodes, "Searching on home")).toContainText("Warning");

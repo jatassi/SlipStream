@@ -2,9 +2,9 @@ import type { FilesFailedCellState } from "./filesFailedCellState.ts";
 import type { FilesLibraryFile } from "./filesLibraryFile.ts";
 
 export interface FilesFailedCell {
-  /** any under any cut, else the key of the cut the cell wants */
+  /** any under any cut, else the key of the cut this Item needs at this Target */
   edition: string;
-  /** The file the Grab would have replaced; null when it fills no file */
+  /** The file the Grab would have replaced; null when it replaced none */
   file: FilesLibraryFile | null;
   /** The Grab that failed */
   grabId: string;

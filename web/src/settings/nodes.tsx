@@ -22,7 +22,7 @@ const groups: readonly { readonly title: string; readonly about: string; readonl
   {
     title: "Offline Nodes",
     about:
-      "How long a Node can be offline before its searches and other movable work go to another Node. Its downloads wait for it either way.",
+      "How long a Node can be offline before its searches, and other work that can run elsewhere, move to another Node. Its downloads wait for it either way.",
     key: "offlineGrace",
   },
 ];

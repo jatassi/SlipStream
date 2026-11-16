@@ -42,7 +42,7 @@ test("the address step suggests the address in use and Continue saves it before 
   await expect
     .element(field)
     .toHaveAccessibleDescription(
-      "Not set yet. SlipStream can't send Signup, Reset or email links until it is.",
+      "Not set yet. SlipStream can't send Signup, Reset or email confirmation links until it is.",
     );
   await userEvent.click(page.getByRole("button", { name: "Continue" }));
   await expect.element(stepHeading("Language and region")).toBeVisible();

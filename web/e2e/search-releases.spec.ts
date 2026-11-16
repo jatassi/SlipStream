@@ -99,7 +99,7 @@ test("a search's Details list every Release it saw, the grabbed one first, and w
   await expect(lines.nth(0)).toContainText(`Bluray-1080p · FKW · 9.8 GB${bluray}`);
   await expect(lines.nth(0)).toContainText("Grabbed for 1080p and HD.");
   const tier =
-    "Its quality is WEBDL-1080p. The grabbed Release is Bluray-1080p, a higher tier at 1080p.";
+    "Its quality is WEBDL-1080p. The grabbed release is Bluray-1080p, a higher tier at 1080p.";
   await expect(lines.nth(1)).toContainText(extended);
   await expect(lines.nth(1)).toContainText(tier);
   await expect(lines.nth(2)).toContainText(webdl);

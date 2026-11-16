@@ -159,7 +159,7 @@ func (f *Files) putBack(ctx context.Context, m move) ([]works.WorkID, error) {
 				went = append(went, fact{file: b.m.file, root: b.m.root, from: b.m.origin, to: b.to})
 			}
 		}
-		f.cfg.Log.Warn("another file is at a file's new path, and the file stays where it was", "root", m.root.String(), "path", m.path, "files", len(backs))
+		f.cfg.Log.Warn("a file's new path is taken, so the file wasn't moved", "root", m.root.String(), "path", m.path, "files", len(backs))
 		return f.tell(ctx, tx, went)
 	})
 	return put, err

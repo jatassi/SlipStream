@@ -180,7 +180,7 @@ export const getGetIndexerCatalogUrl = () => {
 };
 
 /**
- * @summary List the sites SlipStream includes, the Indexer catalog's definitions but those an included site replaces, and the custom definitions, with when the catalog last refreshed
+ * @summary List SlipStream's built-in sites, the Indexer catalog's definitions except those a built-in site replaces, and the custom definitions, with when the catalog last refreshed
  */
 export const getIndexerCatalog = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -274,7 +274,7 @@ export function useGetIndexerCatalogSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List the sites SlipStream includes, the Indexer catalog's definitions but those an included site replaces, and the custom definitions, with when the catalog last refreshed
+ * @summary List SlipStream's built-in sites, the Indexer catalog's definitions except those a built-in site replaces, and the custom definitions, with when the catalog last refreshed
  */
 
 export function useGetIndexerCatalogSuspense<
@@ -666,7 +666,7 @@ export const getGetCatalogDefinitionUrl = (id: string) => {
 };
 
 /**
- * @summary Get the add form of an included site or a definition: the site with the id, else the custom definition with it, else the catalog's
+ * @summary Get the add form of a built-in site or a definition: the site with the id, else the custom definition with it, else the catalog's
  */
 export const getCatalogDefinition = async (
   id: string,
@@ -797,7 +797,7 @@ export function useGetCatalogDefinitionSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get the add form of an included site or a definition: the site with the id, else the custom definition with it, else the catalog's
+ * @summary Get the add form of a built-in site or a definition: the site with the id, else the custom definition with it, else the catalog's
  */
 
 export function useGetCatalogDefinitionSuspense<
@@ -2401,7 +2401,7 @@ export const getGetChallengeSolverUrl = (id: string) => {
 };
 
 /**
- * @summary Get the Challenge solver of a Node that stands in Searching
+ * @summary Get the Challenge solver of a Node with the Searching Role
  */
 export const getChallengeSolver = async (
   id: string,
@@ -2522,7 +2522,7 @@ export function useGetChallengeSolverSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get the Challenge solver of a Node that stands in Searching
+ * @summary Get the Challenge solver of a Node with the Searching Role
  */
 
 export function useGetChallengeSolverSuspense<

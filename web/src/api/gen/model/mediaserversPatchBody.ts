@@ -11,12 +11,12 @@ export interface MediaserversPatchBody {
    */
   apiKey?: string;
   /**
-   * null for no Open in button
+   * null to hide the Open in button
    * @nullable
    */
   browserAddress?: string | null;
   /**
-   * null for address
+   * null to use address
    * @nullable
    */
   fallbackAddress?: string | null;

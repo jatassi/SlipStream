@@ -12,7 +12,9 @@ export function DialLine({ dial, controller }: { dial: Dial; controller: string 
     return null;
   }
   if (dial.kind === "dialing") {
-    return <Waiting text={`${controller} is dialing the new Node at ${where(dial.addresses)}…`} />;
+    return (
+      <Waiting text={`${controller} is connecting to the new Node at ${where(dial.addresses)}…`} />
+    );
   }
   return (
     <p role="alert" className="flex items-start gap-1.5 text-warn-ink">

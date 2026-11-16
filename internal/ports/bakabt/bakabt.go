@@ -310,8 +310,8 @@ func getCategoryName(row *dom.Node) string {
 
 type BakaBTSettings struct {
 	port.UserPass
-	FreeleechOnly  bool `port:"freeleechOnly" label:"Freeleech only" help:"Show only the freeleech Releases of each search."`
-	AddRomajiTitle bool `port:"addRomajiTitle" label:"Add Romaji titles" help:"Also list each Release under its Romaji title."`
+	FreeleechOnly  bool `port:"freeleechOnly" label:"Freeleech only" help:"Show only the freeleech releases of each search."`
+	AddRomajiTitle bool `port:"addRomajiTitle" label:"Add Romaji titles" help:"Also list each release under its Romaji title."`
 	AppendSeason   bool `port:"appendSeason" label:"Append season" help:"Add Season 1 to each title that names no season, since BakaBT lists only full seasons."`
-	AdultContent   bool `port:"adultContent" label:"Adult content" help:"Include adult Releases. Turn on adult content in your BakaBT settings too."`
+	AdultContent   bool `port:"adultContent" label:"Adult content" help:"Include adult releases. Turn on adult content in your BakaBT settings too."`
 }

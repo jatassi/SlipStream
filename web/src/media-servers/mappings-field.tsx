@@ -40,7 +40,7 @@ function Editor({ server, libraries, onSaved, onLater }: Props) {
           ))}
         </datalist>
         <p className="text-pretty text-ink-1">
-          {`Give each library root the folder ${server.name} sees it at. ${server.name} gets changes only for the roots it shows.`}
+          {`For each library root, enter the path ${server.name} uses for that folder. ${server.name} gets changes only for roots that are in one of its libraries.`}
         </p>
         {libraries.mappings.map((view, index) => (
           <MappingRow
@@ -71,7 +71,7 @@ function Editor({ server, libraries, onSaved, onLater }: Props) {
 export function MappingsEditor(props: Props) {
   return props.libraries.mappings.length === 0 ? (
     <Empty>
-      No library roots yet. Once a Node holds Storage and has a root, its Path mapping shows here.
+      No library roots yet. Each library root you add appears here with its Path mapping.
     </Empty>
   ) : (
     <Editor {...props} />

@@ -44,14 +44,14 @@ export const UpdateOwnAccountBody = OwnPatchInputBody;
 export const UpdateOwnAccountResponse = IdentitySession;
 
 /**
- * @summary Change your email by sending a confirm link to the new address. The email changes when the link is followed
+ * @summary Change your email by sending a confirmation link to the new address. The email changes when the link is opened
  */
 export const StartEmailChangeBody = EmailChangeInputBody;
 
 export const StartEmailChangeResponse = IdentityEmailChangeStarted;
 
 /**
- * @summary Change your PIN, or set a new one after a passkey sign-in on a turned-off PIN
+ * @summary Change your PIN, or set a new one after a passkey sign-in on a locked PIN
  */
 export const ChangePINBody = IdentityPinChange;
 
@@ -141,7 +141,7 @@ export const GetAPIKeyResponse = IdentityApiKeyMade;
 export const RegenerateAPIKeyResponse = IdentityRegeneratedAPIKey;
 
 /**
- * @summary Get what a confirm link's page shows: the new email, or why it no longer works
+ * @summary Get what a confirmation link's page shows: the new email, or why it no longer works
  */
 export const getEmailLinkByTokenPathTokenMax = 128;
 
@@ -152,7 +152,7 @@ export const GetEmailLinkByTokenParams = zod.object({
 export const GetEmailLinkByTokenResponse = IdentityLinkView;
 
 /**
- * @summary Change an Account's email to the one a confirm link proved
+ * @summary Change an Account's email to the one a confirmation link proved
  */
 export const confirmEmailPathTokenMax = 128;
 
@@ -197,7 +197,7 @@ export const ListPasskeysResponse = IdentityPasskeyRows;
 export const StartPasskeySignInResponse = IdentityCeremony;
 
 /**
- * @summary Sign in with the browser's passkey response. On a turned-off PIN, the session must set a new PIN first
+ * @summary Sign in with the browser's passkey response. On a locked PIN, the session must set a new PIN first
  */
 export const finishPasskeySignInPathCeremonyMax = 64;
 

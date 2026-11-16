@@ -76,8 +76,8 @@ func TestAGrabsFileItsNameCantPlaceWaitsWithItsSentenceAndActions(t *testing.T) 
 		recommended    ActionKind
 		also           []ActionKind
 	}{
-		{"01.mkv", "This file's name has no Thing number. The folder says box.", ActMatch, []ActionKind{ActDecline}},
-		{"Clip 9.mkv", "This file's name doesn't name a Thing of Shelf s1.", ActMatch, []ActionKind{ActDecline}},
+		{"01.mkv", "This file's name has no thing number. The folder says box.", ActMatch, []ActionKind{ActDecline}},
+		{"Clip 9.mkv", "This file's name doesn't match a thing of Shelf s1.", ActMatch, []ActionKind{ActDecline}},
 	} {
 		p := positionOf(imp, c.base)
 		f := imp.Files[p]

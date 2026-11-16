@@ -12,5 +12,5 @@ test("the jobs moving are the Grabs the server says are in flight", async () => 
   renderKit(<JobsStatus grabs={grabs} failed={grabs.filter((grab) => isFailed(grab))} />);
   await expect
     .element(page.getByRole("paragraph"))
-    .toHaveTextContent("2 jobs moving · 1 failure · 1 imported");
+    .toHaveTextContent("2 in progress · 1 failure · 1 imported");
 });

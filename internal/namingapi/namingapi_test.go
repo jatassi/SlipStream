@@ -87,7 +87,7 @@ func folderOf(t *testing.T, tn typeNaming) string {
 
 const (
 	fileKey  = "fixture.naming.file.standard"
-	noTarget = "The file name has no {Target}. Add {Target} so each file of a Work gets its own name."
+	noTarget = "The file name has no {Target}. Add {Target} so the file for each Target gets its own name."
 )
 
 func TestASavedTemplateListsWithTheTypesOtherSettings(t *testing.T) {
@@ -119,7 +119,7 @@ func TestARefusedSaveNamesEachProblemAtItsKeyAndStoresNothing(t *testing.T) {
 	want := []api.FieldError{
 		{Location: "body.values." + fileKey, Message: noTarget},
 		{Location: "body.values." + fileKey, Message: "The file name has no Edition token. Add {Edition Tag} or {Edition} so each cut gets its own name."},
-		{Location: "body.values." + fileKey, Message: "' - ' doesn't come right after {Thing}. Put it there, because Plex, Jellyfin and Emby show an Item's files as one item only when every name does."},
+		{Location: "body.values." + fileKey, Message: "' - ' doesn't come right after {Thing}. Put it there, because Plex, Jellyfin and Emby group an episode's files into one item only when every file name starts that way."},
 	}
 	if got.Code != "naming_template_refused" || !slices.Equal(got.Errors, want) {
 		t.Errorf("setNaming = %s %v, want naming_template_refused %v", got.Code, got.Errors, want)

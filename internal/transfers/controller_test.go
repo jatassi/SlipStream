@@ -593,7 +593,7 @@ func TestFailedFiresOnceWithItsSentence(t *testing.T) {
 		r.homeEnd.report(t, failed(id, tv1.Failed_CODE_DAMAGED, ""))
 		r.fresh(t)
 		_, f, after := r.purpose.seen()
-		check(t, "Failed", f, []string{"heat: seedbox's torrent client failed heat 0.mkv: file not found."})
+		check(t, "Failed", f, []string{"heat: seedbox's torrent client couldn't read heat 0.mkv: file not found."})
 		check(t, "After", after, []string{"heat"})
 		if v := r.view(t, id); v.State != transfers.Failed || v.Failure.Code != transfers.SourceFailed {
 			t.Errorf("the failed Transfer reads %v, want failed source_failed", v.State)

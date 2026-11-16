@@ -183,7 +183,7 @@ func decoded(g Grab, raw []byte, f fetched) outcome {
 	case err != nil:
 		return fail{TorrentInvalid, "The Indexer sent a .torrent file SlipStream can't read."}
 	case g.Release.InfoHash != nil && *g.Release.InfoHash != m.InfoHash:
-		return fail{InfohashMismatch, fmt.Sprintf("The .torrent's info hash is %s and the Indexer's is %s", m.InfoHash, g.Release.InfoHash)}
+		return fail{InfohashMismatch, fmt.Sprintf("The .torrent file's info hash is %s, but the Indexer listed %s.", m.InfoHash, g.Release.InfoHash)}
 	}
 	return advance{to: Downloading, torrent: &dotTorrent{metainfo: m, raw: raw}, fetched: &f}
 }
@@ -197,21 +197,21 @@ func (gr *Grabs) downloaded(_ context.Context, g Grab) outcome {
 	case downloadclients.Gone:
 		return failOfGone(o)
 	case downloadclients.Errored:
-		return fail{ClientError, fmt.Sprintf("%s on %s reported an error for more than %s. Search can try another Release.",
+		return fail{ClientError, fmt.Sprintf("%s on %s reported an error for more than %s.",
 			g.Torrent.Client.Name, g.Torrent.ClientError.Node, setting.Words(o.After))}
 	}
 	panic("grabs: a Grab whose Torrent is Pending is never due")
 }
 
-const writtenOffWords = "The Admin wrote off what this Grab's Node downloads"
+const writtenOffWords = "An Admin had SlipStream stop waiting for the Node downloading this Grab."
 
 func failOfGone(g downloadclients.Gone) fail {
 	switch g.Reason {
 	case downloadclients.ByAdmin:
-		return fail{Removed, "The Admin removed this Grab's torrent"}
+		return fail{Removed, "An Admin removed this Grab's torrent."}
 	case downloadclients.ByMarkFailed:
 		if g.By == "" {
-			return fail{MarkedFailed, "Marked failed through the API key."}
+			return fail{MarkedFailed, "An app using the API key marked its download failed."}
 		}
 		return fail{MarkedFailed, g.By + " marked its download failed."}
 	case downloadclients.NodeWrittenOff:
@@ -219,7 +219,7 @@ func failOfGone(g downloadclients.Gone) fail {
 	case downloadclients.ByClient:
 		return fail{ClientRemoved, g.Client + " removed the torrent before SlipStream imported it."}
 	case downloadclients.ClientDeleted:
-		return fail{ClientDeleted, "The Admin deleted " + g.Client + " before SlipStream imported this torrent."}
+		return fail{ClientDeleted, "An Admin deleted " + g.Client + " before SlipStream imported this torrent."}
 	case downloadclients.GoalMet:
 		return fail{GoalMet, "SlipStream removed this Grab's torrent once it met its seeding goal."}
 	case downloadclients.ReleaseFaulted:

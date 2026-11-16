@@ -286,7 +286,7 @@ func TestRehomeRefusals(t *testing.T) {
 	}
 	s.Expect(t, http.MethodPatch, "/api/v1/roots/"+id, `{"nodeId":"`+away.String()+`"}`, http.StatusUnprocessableEntity, unusable("node_offline", ""))
 	s.Expect(t, http.MethodPatch, "/api/v1/roots/"+id, `{"nodeId":"`+bare.String()+`"}`, http.StatusConflict,
-		`{"status":409,"code":"node_not_storage","title":"The Node doesn't hold Storage"}`)
+		`{"status":409,"code":"node_not_storage","title":"The Node doesn't have the Storage Role"}`)
 	if r := s.roots(t)[0]; r.Path != dir || r.NodeID != self.String() {
 		t.Fatalf("listRoots after refused re-homes = %+v, want it where it was", r)
 	}
@@ -371,7 +371,7 @@ func TestDeleteMovesWorksToAnotherRootOfTheirType(t *testing.T) {
 	s.add(t, "w2", `,"rootId":"`+second+`"`)
 
 	s.Expect(t, http.MethodDelete, "/api/v1/roots/"+first, "", http.StatusConflict,
-		`{"status":409,"code":"root_is_default","title":"The root is its Content Type's default while another root exists"}`)
+		`{"status":409,"code":"root_is_default","title":"The root is the default for its kind of media. Make another root the default, then delete this one."}`)
 	s.Expect(t, http.MethodDelete, "/api/v1/roots/"+second, "", http.StatusUnprocessableEntity,
 		`{"status":422,"code":"works_to_required","title":"The root's Works need another root of their Content Type to go to"}`)
 	s.Expect(t, http.MethodDelete, "/api/v1/roots/"+second+"?worksTo="+second, "", http.StatusUnprocessableEntity,

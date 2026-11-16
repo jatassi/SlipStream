@@ -38,7 +38,7 @@ function ItemFacts({ type, view: { item } }: { type: WorksContentType; view: Ite
   const still = item.artwork.find(({ kind }) => stills.has(kind));
   const overview = at("overview").at(0);
   const details = at("details");
-  const record = `${type.source} lists this ${type.item.one.toLowerCase()} as ${item.key}.`;
+  const record = `${type.source} ID: ${item.key}`;
   return (
     <div className="flex flex-col gap-4">
       {still !== undefined && (

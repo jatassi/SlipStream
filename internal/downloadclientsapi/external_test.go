@@ -211,8 +211,8 @@ func TestAMoveIsTestedFromTheNewNodeAndRefusedWithTorrents(t *testing.T) {
 	torrent := w.holdIn(t, "Orchard", downloadclients.Target{Node: w.self, Client: &id}, nil)
 
 	w.o.Expect(t, http.MethodPatch, "/api/v1/external-download-clients/"+c.ID, `{"nodeId":"`+media.String()+`"}`, http.StatusConflict,
-		`{"status":409,"code":"download_client_has_torrents","title":"This client holds torrents SlipStream tracks",`+
-			`"detail":"Transmission holds 1 torrent SlipStream tracks. Remove it, or delete the client with Stop tracking, then move the client."}`)
+		`{"status":409,"code":"download_client_has_torrents","title":"This client has torrents that SlipStream tracks",`+
+			`"detail":"Transmission can't move to another Node while it has 1 torrent that SlipStream tracks. Remove the torrent first, or select Stop tracking and delete, then add the client again on the other Node."}`)
 	if len(w.node.tests) != 1 {
 		t.Errorf("a refused move ran %d Tests, want none", len(w.node.tests)-1)
 	}
@@ -275,8 +275,8 @@ func TestDeleteRefusesAClientWithTorrents(t *testing.T) {
 	w.holdIn(t, "Orchard", downloadclients.Target{Node: w.self, Client: &id}, nil)
 	w.holdIn(t, "Harbor", downloadclients.Target{Node: w.self, Client: &id}, nil)
 	w.o.Expect(t, http.MethodDelete, "/api/v1/external-download-clients/"+c.ID, "", http.StatusConflict,
-		`{"status":409,"code":"download_client_has_torrents","title":"This client holds torrents SlipStream tracks",`+
-			`"detail":"Transmission holds 2 torrents SlipStream tracks. Stop tracking them to delete it."}`)
+		`{"status":409,"code":"download_client_has_torrents","title":"This client has torrents that SlipStream tracks",`+
+			`"detail":"Transmission has 2 torrents that SlipStream tracks. Stop tracking them to delete the client."}`)
 	if got := w.externals(t, w.self); len(got) != 1 || got[0].Torrents != 2 {
 		t.Errorf("after the refusal the card lists %+v, want Transmission with its 2 torrents", got)
 	}
@@ -413,7 +413,7 @@ func TestATestOnAnOfflineNodeCouldNotRun(t *testing.T) {
 		`{"status":502,"code":"download_client_unavailable","title":"The Test couldn't run",`+
 			`"detail":"SlipStream couldn't reach home to run the Test. Test again once home is back."}`)
 	w.o.Expect(t, http.MethodPost, "/api/v1/external-download-clients/test", `{"nodeId":"0b0e3b9c-7c0a-4c8e-9a51-2f7d1e7f9a10","kind":"transmission","address":"http://192.168.1.20:9091"}`,
-		http.StatusConflict, `{"status":409,"code":"node_not_downloading","title":"That Node doesn't hold Downloading"}`)
+		http.StatusConflict, `{"status":409,"code":"node_not_downloading","title":"That Node doesn't have the Downloading Role"}`)
 }
 
 func TestADraftTestAnswersTheVersionAndWarnings(t *testing.T) {

@@ -28,7 +28,7 @@ export interface IndexersIndexerEdit {
    */
   automaticSearch?: boolean | null;
   /**
-   * A catalog Indexer's: one of its definition's addresses. A native Indexer's: one its port knows or a typed http or https one
+   * A catalog Indexer's: one of its definition's addresses. A built-in site's: one the site lists or a typed http or https one
    * @maxLength 2048
    */
   baseAddress?: string;
@@ -48,7 +48,7 @@ export interface IndexersIndexerEdit {
   cookie?: IndexersPastedCookie;
   /** Null turns the limit off */
   grabs?: IndexersLimit | null;
-  /** A Node that holds Searching */
+  /** A Node with the Searching Role */
   homeNodeId?: string;
   /** An RSS feed's Content Types */
   media?: string[];
@@ -76,6 +76,6 @@ export interface IndexersIndexerEdit {
   rss?: boolean | null;
   /** Null turns the limit off */
   searches?: IndexersLimit | null;
-  /** A catalog or native Indexer's settings to change, by name; a sealed one sent empty keeps its saved value */
+  /** A catalog or built-in site Indexer's settings to change, by name; a secret one sent empty keeps its saved value */
   values?: IndexersIndexerEditValues;
 }

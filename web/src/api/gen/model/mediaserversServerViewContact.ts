@@ -1,5 +1,5 @@
 /**
- * As the reaching Node last reported it; unknown until it reports and while it is offline
+ * As the Connect from Node last reported it; unknown until it reports and while it is offline
  */
 export type MediaserversServerViewContact =
   | "unknown"

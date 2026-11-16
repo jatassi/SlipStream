@@ -186,7 +186,7 @@ func attentionOf(s Summary, c Counts, seeds int) []Attention {
 		out = append(out, Attention{Level: level, Text: seedingSentence(s.Name, seeds, c)})
 	}
 	if rule, _ := s.Rules.InForce(); rule == nil && s.Privacy == indexers.Private {
-		out = append(out, Attention{Level: AttentionInfo, Text: s.Name + "'s Releases don't state a seeding rule. Set one so its seeding goal can run."})
+		out = append(out, Attention{Level: AttentionInfo, Text: s.Name + "'s releases don't include a seeding rule. SlipStream keeps seeding its private torrents until you set one."})
 	}
 	return out
 }
@@ -203,11 +203,11 @@ func seedingSentence(name string, seeds int, c Counts) string {
 	case c.Owing == 0:
 		return text
 	case c.Owing == 1 && c.AtRisk == 1:
-		return text + " 1 still owes " + name + ", and it isn't seeding."
+		return text + " 1 hasn't met " + name + "'s seeding rule yet, and it isn't seeding."
 	case c.Owing == 1:
-		return text + " 1 still owes " + name + "."
+		return text + " 1 hasn't met " + name + "'s seeding rule yet."
 	}
-	text += fmt.Sprintf(" %d still owe %s", c.Owing, name)
+	text += fmt.Sprintf(" %d haven't met %s's seeding rule yet", c.Owing, name)
 	switch c.AtRisk {
 	case 0:
 		return text + "."

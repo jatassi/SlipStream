@@ -22,7 +22,7 @@ import (
 
 var (
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
-	templateRefused     = api.NewCode(http.StatusUnprocessableEntity, "naming_template_refused", "The naming settings fail the save check")
+	templateRefused     = api.NewCode(http.StatusUnprocessableEntity, "naming_template_refused", "A naming setting has a problem")
 	rootNotReady        = api.NewCode(http.StatusConflict, "root_not_ready", "A library root isn't ready")
 )
 
@@ -135,7 +135,7 @@ func planRefused(err error) error {
 // files at a plan's new paths now.
 func surveyed(err error) error {
 	if _, ok := errors.AsType[*storing.NotReady](err); ok {
-		return rootNotReady.Because("A plan lists the files at each new path on the root's Node first. Try again once the root is ready.")
+		return rootNotReady.Because("SlipStream checks each new path on the root's Node before it plans renames. Try again once the root is ready.")
 	}
 	return err
 }

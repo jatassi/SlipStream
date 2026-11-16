@@ -436,7 +436,7 @@ export const getGetJoinCodeUrl = (id: string) => {
 };
 
 /**
- * @summary Get whether a Join Code is open, used or expired, and its dial
+ * @summary Get whether a Join Code is open, used or expired, and the Controller's connection to its Node
  */
 export const getJoinCode = async (
   id: string,
@@ -558,7 +558,7 @@ export function useGetJoinCodeSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get whether a Join Code is open, used or expired, and its dial
+ * @summary Get whether a Join Code is open, used or expired, and the Controller's connection to its Node
  */
 
 export function useGetJoinCodeSuspense<
@@ -596,7 +596,7 @@ export const getDialForCodeUrl = (id: string) => {
 };
 
 /**
- * @summary Dial the Node waiting at a Node address, which pairs with the code over that session
+ * @summary Connect to the Node waiting at a Node address, which pairs with the code over that connection
  */
 export const dialForCode = async (
   id: string,
@@ -688,7 +688,7 @@ export type DialForCodeMutationError = ErrorType<
 export type DialForCodeMutationVariables = { id: string; data: DialInputBody };
 
 /**
- * @summary Dial the Node waiting at a Node address, which pairs with the code over that session
+ * @summary Connect to the Node waiting at a Node address, which pairs with the code over that connection
  */
 export const useDialForCode = <
   TError = ErrorType<
@@ -1855,7 +1855,7 @@ export const getSetNodeDialUrl = (id: string) => {
 };
 
 /**
- * @summary Set the Node address the Controller dials a Node at, or stop dialing it
+ * @summary Set the Node address the Controller connects to a Node at, or stop connecting to it
  */
 export const setNodeDial = async (
   id: string,
@@ -1947,7 +1947,7 @@ export type SetNodeDialMutationError = ErrorType<
 export type SetNodeDialMutationVariables = { id: string; data: NodesNodeDial };
 
 /**
- * @summary Set the Node address the Controller dials a Node at, or stop dialing it
+ * @summary Set the Node address the Controller connects to a Node at, or stop connecting to it
  */
 export const useSetNodeDial = <
   TError = ErrorType<

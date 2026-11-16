@@ -132,7 +132,7 @@ test("each grabbed row still says Grabbed. after the plan read again leaves its 
   await expect.element(rows.nth(1).getByText("WEBDL-1080p · FLUX")).toBeVisible();
   await expect.element(rows.nth(1).getByText("Grabbed.")).toBeVisible();
   await expect
-    .element(sheet.getByRole("list", { name: "Cells a Grab is downloading" }))
+    .element(sheet.getByRole("list", { name: "Files already downloading" }))
     .not.toBeInTheDocument();
   await expect.element(sheet.getByRole("button", { name: "Grab 0" })).toBeDisabled();
 });
@@ -181,7 +181,7 @@ test("Other choices reads a blocked Release's since and why, and a lift as an am
 });
 
 const editionWords =
-  "Its name gives the Extended Edition, which the Work doesn't want. It's grabbed as the Standard Edition.";
+  "Its title names the Extended Edition, which isn't one of this movie's Editions. SlipStream grabs it as the Standard Edition.";
 
 const asStandard = (row: GrabsPlanRow): GrabsPlanRow =>
   row.pick === null

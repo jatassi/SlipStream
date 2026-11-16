@@ -57,8 +57,8 @@ export function RehomeForm({
   return (
     <PlaceForm editing={editing} onSubmit={() => void saving.run()}>
       <p className="text-ink-3">
-        Point the root at the folder that holds its files now. SlipStream checks every file it
-        recorded there first, and moves nothing.
+        Point the root at the folder where its files are now. SlipStream first checks that every
+        recorded file is there. It doesn&apos;t move any files.
       </p>
       {saving.busy && <RehomeProgress progress={root.rehome} />}
       {!saving.busy && missing !== undefined && <MissingFiles missing={missing} label={label} />}

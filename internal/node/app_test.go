@@ -11,7 +11,7 @@ func TestTrayLine(t *testing.T) {
 		reply StatusReply
 		want  string
 	}{
-		{StatusReply{Claim: system.Unclaimed}, "Unclaimed · open SlipStream to set up"},
+		{StatusReply{Claim: system.Unclaimed}, "Not set up · open SlipStream to set it up"},
 		{StatusReply{Claim: system.Controller}, "Controller · running"},
 		{StatusReply{Claim: system.Worker, Controller: &ControllerStatus{Name: "home", Reachable: true}}, "Worker of home · running"},
 		{StatusReply{Claim: system.Worker, Controller: &ControllerStatus{Name: "home"}}, "Worker of home · Controller unreachable"},

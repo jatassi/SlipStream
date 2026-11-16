@@ -68,7 +68,7 @@ test("Accounts lists every Account and the pending Signup links", async () => {
   await expect.poll(rowTexts).toHaveLength(3);
   expect(rowTexts().slice(1)).toEqual([
     `Ada Okaforada@example.testAdminFine2${clock("2026-10-15T08:30:00Z")}On`,
-    "Grace Lindqvistgrace@example.testMemberTurned off0NeverTurned off",
+    "Grace Lindqvistgrace@example.testMemberLocked0NeverTurned off",
   ]);
   await expect
     .element(page.getByRole("link", { name: "Grace Lindqvist" }))

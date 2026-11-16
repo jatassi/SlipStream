@@ -381,11 +381,11 @@ func (s storedScope) shown() (ShownScope, error) {
 func (c storedCell) key() (*files.CellKey, error) {
 	item, err := storage.ParseUUID(c.Item)
 	if err != nil {
-		return nil, fmt.Errorf("decode a Manual search's cell: %w", err)
+		return nil, fmt.Errorf("decode a Manual search's Edition and Target: %w", err)
 	}
 	target, err := storage.ParseUUID(c.Target)
 	if err != nil {
-		return nil, fmt.Errorf("decode a Manual search's cell: %w", err)
+		return nil, fmt.Errorf("decode a Manual search's Edition and Target: %w", err)
 	}
 	return &files.CellKey{Item: works.ItemID{UUID: item}, Edition: targets.Edition(c.Edition), Target: targets.TargetID{UUID: target}}, nil
 }
@@ -528,6 +528,8 @@ type sheet struct {
 type runSheet struct {
 	run Search
 	planIn
+	// nouns name the Work's Content Type in its reasons.
+	nouns works.Description
 	// held is the unfinished Grab of each of item's cells it holds.
 	held map[int]db.ListCellGrabsOfWorkRow
 	// failure is the failure of the latest Grab of each failed cell.
@@ -551,7 +553,7 @@ func worked(in manualIn, pins []Pin) (sheet, error) {
 	gs := grabsByID(in.grabs)
 	pinned := map[files.CellKey]SearchID{}
 	for _, run := range in.runs {
-		rs := runSheet{run: run, planIn: planIn{take: in.standings.Take}}
+		rs := runSheet{run: run, planIn: planIn{take: in.standings.Take}, nouns: in.nouns}
 		judgeRun(&rs, in, gs)
 		pin(&rs, pins)
 		for k := range rs.pins {

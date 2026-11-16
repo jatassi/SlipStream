@@ -30,7 +30,7 @@ export const release = (
   seeders: 40,
   freeleech: false,
   formatIds: [],
-  verdicts: ["It would fill 1080p."],
+  verdicts: ["It would be the 1080p file."],
   lostAt: null,
   blocked: null,
   ...part,
@@ -94,7 +94,7 @@ const orchardRow: GrabsPlanRow = {
     routed: "qBittorrent on Den",
   },
   pinned: false,
-  outcome: "It gets you 1080p for The Quiet Orchard (2021).",
+  outcome: "It downloads 1080p for The Quiet Orchard (2021).",
   choices: [lowScoreChoice, blockedChoice],
 };
 
@@ -103,7 +103,7 @@ const orchardGap: GrabsPlanRow = {
   pick: null,
   pinned: false,
   missing: "Missing: 2160p HDR for The Quiet Orchard (2021).",
-  cause: "No Indexer listed a 2160p Release.",
+  cause: "No Indexer listed a 2160p release.",
   choices: [],
 };
 
@@ -138,14 +138,14 @@ export const filmPlan: GrabsManualSearch = {
   ],
   plan: {
     headline:
-      "1 Grab gets you 1 of the 2 files you're missing. SlipStream hasn't found a Release for 2160p HDR yet.",
+      "1 Grab downloads 1 of the 2 files you're missing. SlipStream hasn't found a release for 2160p HDR yet.",
     rows: [orchardRow, orchardGap],
     held: [],
   },
   folded: {
-    line: "SlipStream wouldn't grab 4 more Releases.",
+    line: "SlipStream wouldn't grab 4 more releases.",
     groups: [
-      { words: "3 are 720p, which no Target here takes.", fault: false },
+      { words: "3 are 720p, which no Target here accepts.", fault: false },
       { words: "1 is on the Blocklist.", fault: false },
     ],
   },
@@ -180,7 +180,10 @@ export const pinnedFilmPlan: GrabsManualSearch = {
 const story = (position: number, title: string): GrabsReleaseDetails =>
   release(`${seasonId}.${position}`, title, "WEBDL-1080p · NTb · 1.2 GB", {
     size: 1_288_490_189,
-    verdicts: ["It would fill 1080p.", "2160p HDR refuses it because its quality isn't in it."],
+    verdicts: [
+      "It would be the 1080p file.",
+      "2160p HDR refuses it because its quality isn't in it.",
+    ],
   });
 
 /** A season's plan, still searching: two Grabs, a cell nothing fills and a cell a Grab downloads. */
@@ -214,7 +217,7 @@ export const seasonPlan: GrabsManualSearch = {
   ],
   plan: {
     headline:
-      "2 Grabs get you 2 of the 3 files you're missing. SlipStream hasn't found a Release for S03 yet.",
+      "2 Grabs download 2 of the 3 files you're missing. SlipStream hasn't found a release for S03 yet.",
     rows: [
       {
         key: `cell-${storyOne?.id}`,
@@ -226,7 +229,7 @@ export const seasonPlan: GrabsManualSearch = {
           routed: "the built-in client on home",
         },
         pinned: false,
-        outcome: "It gets you 1080p for S01.",
+        outcome: "It downloads 1080p for S01.",
         choices: [],
       },
       {
@@ -239,7 +242,7 @@ export const seasonPlan: GrabsManualSearch = {
           routed: "the built-in client on home",
         },
         pinned: false,
-        outcome: "It gets you 1080p for S02.",
+        outcome: "It downloads 1080p for S02.",
         choices: [],
       },
       {
@@ -247,7 +250,7 @@ export const seasonPlan: GrabsManualSearch = {
         pick: null,
         pinned: false,
         missing: "Missing: 1080p for S03.",
-        cause: "No Indexer listed a 1080p Release.",
+        cause: "No Indexer listed a 1080p release.",
         choices: [],
       },
     ],
@@ -259,7 +262,7 @@ export const seasonPlan: GrabsManualSearch = {
       },
     ],
   },
-  folded: { line: "SlipStream wouldn't grab 3 more Releases.", groups: [] },
+  folded: { line: "SlipStream wouldn't grab 3 more releases.", groups: [] },
   releaseCount: 17,
   pins: [],
 };

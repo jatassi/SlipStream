@@ -2,7 +2,7 @@ import type { ImportsFileHoldCode } from "./importsFileHoldCode.ts";
 
 export interface ImportsFileHold {
   /**
-   * The tries that ran into the hold
+   * How many tries ran into this hold
    * @minimum 0
    */
   attempts: number;

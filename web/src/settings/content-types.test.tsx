@@ -108,7 +108,7 @@ test("turning off a type that holds Works is refused with a link to its Library"
           return refused(
             409,
             "content_type_in_use",
-            "Remove its Works before turning this Content Type off",
+            "Delete every Work of this kind of media before turning it off",
           );
         }),
       ],
@@ -144,7 +144,7 @@ test("Make default in a type's row makes that root the default for new Works", a
   });
   await userEvent.click(page.getByRole("combobox", { name: "Default root" }));
   await userEvent.click(page.getByRole("option", { name: "/mnt/archive/films" }));
-  await expect.element(page.getByText("New Films now go into /mnt/archive/films.")).toBeVisible();
+  await expect.element(page.getByText("New films now go into /mnt/archive/films.")).toBeVisible();
   expect(made).toEqual([archiveRoot.id]);
 });
 
@@ -168,8 +168,29 @@ test("Refresh all starts a run and reads its last run", async () => {
   });
   await expect.element(page.getByText("It last ran", { exact: false })).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Refresh all" }));
-  await expect.element(page.getByText("Refreshing every Film from TMDB.")).toBeVisible();
+  await expect.element(page.getByText("Refreshing every film from TMDB.")).toBeVisible();
   await expect.element(page.getByText("It's running now.", { exact: false })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Refresh all" })).toBeDisabled();
   expect(started).toBe(1);
+});
+
+test("Refresh all while Metadata refresh runs says the next run refreshes them", async () => {
+  renderApp({
+    path: "/settings/content-types",
+    handlers: handlers({
+      handlers: [
+        http.post("*/api/v1/content-types/cinema/refresh", () =>
+          HttpResponse.json({ runId: null }, { status: 202 }),
+        ),
+      ],
+    }),
+  });
+  await userEvent.click(page.getByRole("button", { name: "Refresh all" }));
+  await expect
+    .element(
+      page.getByText(
+        "Metadata refresh is already running. The next run refreshes every film from TMDB.",
+      ),
+    )
+    .toBeVisible();
 });

@@ -2,7 +2,7 @@ import type { FormatsCondition } from "./formatsCondition.ts";
 
 export interface FormatsDraft {
   conditions: FormatsCondition[];
-  /** The saved Custom Format the draft stands in for, whose app it is written in; left out, the draft is a new format in SlipStream's own values */
+  /** The saved Custom Format the draft replaces in the test, whose app the draft's values use; omit it to test the draft as a new SlipStream format */
   formatId?: string;
   includeWhenRenaming?: boolean;
   /**

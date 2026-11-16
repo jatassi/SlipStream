@@ -7,7 +7,7 @@ import { renderApp } from "../test/render-app";
 import { planned } from "../test/tracker-seeding";
 import { seedpoolId, seedpoolRows, trackersServer } from "../test/trackers";
 
-const wouldAct = () => page.getByRole("list", { name: "Would act now" });
+const wouldAct = () => page.getByRole("list", { name: "Next Seeding goals run" });
 const waiting = () => page.getByRole("list", { name: "Goal met, waiting" });
 const rowOf = (list: ReturnType<typeof wouldAct>, name: string) =>
   list.getByRole("listitem").filter({ hasText: name });
@@ -43,7 +43,7 @@ test("the Goal met tab leads with what the goals would do now, each kept copy an
     .toBeVisible();
   await expect
     .element(rowOf(waiting(), "Salt.Line.2022.1080p.WEB-DL"))
-    .toMatchTextContent("Its goal waits until its Grab finishes importing.");
+    .toMatchTextContent("SlipStream applies its seeding goal once its Grab finishes importing.");
   expect(preview.asked).toEqual(["/api/v1/torrents/goals/preview"]);
 });
 
@@ -66,16 +66,18 @@ test("a goal met that won't act sits apart from one that waits, each under a hea
       }).handlers,
     ],
   });
-  const notActing = page.getByRole("list", { name: "Goal met, not acting" });
+  const notActing = page.getByRole("list", { name: "Goal met, nothing to do" });
   await expect
     .element(rowOf(notActing, "Hold.Fast.2024.1080p.WEB-DL"))
-    .toMatchTextContent("Its goal already acted on it.");
+    .toMatchTextContent("SlipStream already applied its seeding goal.");
   await expect
     .element(rowOf(notActing, "Low.Tide.2023.1080p.WEB-DL"))
-    .toMatchTextContent("You resumed it after its goal was met, so it seeds with no end.");
+    .toMatchTextContent(
+      "You resumed it after its seeding goal was met. It seeds until you stop it.",
+    );
   await expect
     .element(rowOf(waiting(), "Salt.Line.2022.1080p.WEB-DL"))
-    .toMatchTextContent("Its goal waits until its Grab finishes importing.");
+    .toMatchTextContent("SlipStream applies its seeding goal once its Grab finishes importing.");
   expect(waiting().getByText("Hold.Fast.2024.1080p.WEB-DL").query()).toBeNull();
 });
 
@@ -101,6 +103,8 @@ test("with nothing for the goals to do the tab says so, and no other tab asks fo
   await expect.element(page.getByRole("table", { name: "Torrents" })).toBeVisible();
   expect(preview.asked).toEqual([]);
   await router.navigate({ to: "/activity/torrents", search: { tab: "goal-met" } });
-  await expect.element(page.getByText("No goal would act if Seeding goals ran now.")).toBeVisible();
+  await expect
+    .element(page.getByText("The next Seeding goals run won't change any torrent."))
+    .toBeVisible();
   expect(page.getByRole("list", { name: "Goal met, waiting" }).query()).toBeNull();
 });

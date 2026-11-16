@@ -10,7 +10,7 @@ export interface IndexersPortFacts {
   /** The least time between two requests to the site */
   spacingSeconds: number;
   /**
-   * When the Prowlarr commit SlipStream's support for the site was synced to was made
+   * The date of the Prowlarr commit that SlipStream's support for this site is based on
    * @nullable
    */
   synced: string | null;

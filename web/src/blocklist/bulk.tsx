@@ -20,7 +20,7 @@ export function BulkBar({ picked, onClear }: { picked: readonly string[]; onClea
   return (
     <div
       role="toolbar"
-      aria-label="Picked entries"
+      aria-label="Selected entries"
       className="mb-4 flex flex-wrap items-center gap-2 rounded-card bg-glass px-4 py-2 ring-1 ring-hairline ring-inset"
     >
       <span className="mr-auto text-ink-1">

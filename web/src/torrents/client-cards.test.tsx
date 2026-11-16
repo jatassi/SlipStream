@@ -54,7 +54,7 @@ test("a client that isn't responding leads the view with a red card, and its row
     );
   await expect
     .element(table().getByRole("row", { name: /^The\.Attic/u }))
-    .toMatchTextContent("Last known at 14:02");
+    .toMatchTextContent("Last reported at 14:02");
   await expect
     .element(table().getByRole("row", { name: /^The\.Attic/u }))
     .toMatchTextContent("homeTransmission");

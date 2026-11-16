@@ -23,10 +23,10 @@ var (
 	UTP             = setting.Switch{Key: "downloading.utp", Label: "uTP, incoming and outgoing", Default: true}
 	DHT             = setting.Switch{Key: "downloading.dht", Label: "DHT for public torrents", Default: true}
 	StalledAfter    = setting.Duration{Key: "downloading.stalledAfter", Label: "Stalled after", Default: 10 * time.Minute, Min: time.Minute, Max: 24 * time.Hour, Step: time.Minute}
-	FaultStall      = setting.Duration{Key: "downloading.faultStall", Label: "A download with no data at all is bad after", Default: 12 * time.Hour, Min: time.Hour, Max: 30 * 24 * time.Hour, Step: time.Hour}
-	UnregisteredGap = setting.Duration{Key: "downloading.unregisteredGap", Label: "Unregistered twice, this far apart", Default: 30 * time.Minute, Min: time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
+	FaultStall      = setting.Duration{Key: "downloading.faultStall", Label: "A download with no data at all fails after", Default: 12 * time.Hour, Min: time.Hour, Max: 30 * 24 * time.Hour, Step: time.Hour}
+	UnregisteredGap = setting.Duration{Key: "downloading.unregisteredGap", Label: "Tracker reports unregistered twice, this far apart", Default: 30 * time.Minute, Min: time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
 	MetadataWait    = setting.Duration{Key: "downloading.metadataWait", Label: "A magnet link with no metadata fails after", Default: 30 * time.Minute, Min: time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
-	ClientErrorFail = setting.Duration{Key: "downloading.clientErrorFail", Label: "A client error fails its Grab after", Default: time.Hour, Min: 5 * time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
+	ClientErrorFail = setting.Duration{Key: "downloading.clientErrorFail", Label: "Grabs fail after a client error of", Default: time.Hour, Min: 5 * time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
 	CheckEvery      = setting.Duration{Key: "downloadClients.checkEvery", Label: "Check every", Default: 10 * time.Second, Min: 2 * time.Second, Max: time.Hour, Step: time.Second}
 	ImportDelay     = setting.Duration{Key: "downloadClients.importDelay", Label: "Import delay", Default: 0, Min: 0, Max: 24 * time.Hour, Step: time.Minute}
 )

@@ -1,6 +1,6 @@
 import type { NodesDialViewBy, NodesNode, NodesTopology } from "../api/gen/model";
 
-/** Which side dialed the Node's live session: "seedbox dials home" or "home dials seedbox". */
+/** Which side opened the Node's live connection: "seedbox connects to home" or "home connects to seedbox". */
 export function reachedBy(
   controller: string,
   node: { readonly name: string; readonly dial: { readonly by?: NodesDialViewBy | undefined } },
@@ -9,8 +9,8 @@ export function reachedBy(
     return "Not connected";
   }
   return node.dial.by === "node"
-    ? `${node.name} dials ${controller}`
-    : `${controller} dials ${node.name}`;
+    ? `${node.name} connects to ${controller}`
+    : `${controller} connects to ${node.name}`;
 }
 
 /** The side that dialed a Worker's live session in Topology, as listNodes reports it. */

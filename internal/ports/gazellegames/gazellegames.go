@@ -498,7 +498,7 @@ func getInfoURL(ix *indexer, groupID, torrentID int) string {
 type gazelleGamesSettings struct {
 	port.APIKeyField `help:"Find your API key in your GazelleGames settings, under Access Settings. It needs the User and Torrents permissions."`
 	SearchGroupNames bool `port:"searchGroupNames" label:"Search group names" help:"Search by group name."`
-	FreeleechOnly    bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
+	FreeleechOnly    bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
 }
 
 type gazelleGamesResponse struct {

@@ -59,7 +59,7 @@ func TestCheckNowForgetsTheReportsSkippedFromANode(t *testing.T) {
 		}
 		want := health.Item{Key: key, Level: health.Warn, Says: health.Says{
 			Subject: "home",
-			Text:    "SlipStream can't apply 2 reports from home and skipped them. The log has an error for each one. Read them, then Check now.",
+			Text:    "SlipStream skipped 2 results home sent because it couldn't apply them. Find the errors in the Controller's log, fix their cause, then Check now.",
 			Detail:  []health.Fact{{Label: "Last skipped", At: time.Now().UTC().Truncate(time.Microsecond)}},
 			Action:  health.CheckAction(),
 		}}

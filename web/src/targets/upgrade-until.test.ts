@@ -23,15 +23,15 @@ const twoTiers: Layout = { tiers: [["bluray-1080p"], ["webdl-1080p", "webrip-108
 
 test("an upgrade-until score joins the cutoff in the sentence", () => {
   expect(upgradeSentence(scoring(twoTiers, 50), table, name).sentence).toBe(
-    "Grabs WEBDL-1080p or WEBRip-1080p or better. Upgrades until Bluray-1080p and a score of 50, then stops.",
+    "This Target grabs WEBDL-1080p or WEBRip-1080p or better. It upgrades until Bluray-1080p and a score of 50, then stops.",
   );
 });
 
 test("with the cutoff at the bottom, an upgrade-until score alone upgrades", () => {
   expect(upgradeSentence(scoring({ ...twoTiers, cutoff: 1 }, -10), table, name).sentence).toBe(
-    "Grabs WEBDL-1080p or WEBRip-1080p or better. Upgrades until a score of -10, then stops.",
+    "This Target grabs WEBDL-1080p or WEBRip-1080p or better. It upgrades until a score of -10, then stops.",
   );
   expect(upgradeSentence(scoring({ ...twoTiers, cutoff: 1 }, 0), table, name).sentence).toBe(
-    "Grabs WEBDL-1080p or WEBRip-1080p or better. Keeps the first file it grabs.",
+    "This Target grabs WEBDL-1080p or WEBRip-1080p or better. It keeps the first file it grabs.",
   );
 });

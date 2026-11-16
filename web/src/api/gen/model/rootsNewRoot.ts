@@ -3,7 +3,7 @@ export interface RootsNewRoot {
   contentType: string;
   /** Make it its Content Type's default; a Content Type's first root is its default whatever this says */
   makeDefault?: boolean;
-  /** A Node that holds Storage */
+  /** A Node with the Storage Role */
   nodeId: string;
   /**
    * An absolute path to an existing folder on the Node, in its own path style

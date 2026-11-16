@@ -141,13 +141,13 @@ func TestANativeIndexerIsAddedFromItsPortAndShownWithIt(t *testing.T) {
 	}
 
 	for _, tc := range []struct{ body, want string }{
-		{`{"kind":"native","name":"Nowhere","port":"nowhere"}`, invalid + `"detail":"Choose one of the sites SlipStream includes.","errors":[{"location":"body.port","message":"Choose one of the sites SlipStream includes."}]}`},
+		{`{"kind":"native","name":"Nowhere","port":"nowhere"}`, invalid + `"detail":"Choose one of SlipStream's built-in sites.","errors":[{"location":"body.port","message":"Choose one of SlipStream's built-in sites."}]}`},
 		{`{"kind":"native","name":"Bare","port":"lantern","baseAddress":"lantern.test"}`, invalid + `"detail":"Choose one of the site's addresses, or type one that starts with http:// or https://.","errors":[{"location":"body.baseAddress","message":"Choose one of the site's addresses, or type one that starts with http:// or https://."}]}`},
 		{`{"kind":"native","name":"Bad","port":"lantern","values":{"passkey":""}}`, invalid + `"detail":"Passkey is required.","errors":[{"location":"body.values.passkey","message":"Passkey is required."}]}`},
 		{`{"kind":"native","name":"Bad","port":"lantern","values":{"passkey":"pk","codecs":"1,9"}}`, invalid + `"detail":"Choose from the options for Codecs.","errors":[{"location":"body.values.codecs","message":"Choose from the options for Codecs."}]}`},
-		{`{"kind":"native","name":"Bad","port":"lantern","values":{"passkey":"pk","pages":"9"}}`, invalid + `"detail":"Pages is a whole number from 1 to 5.","errors":[{"location":"body.values.pages","message":"Pages is a whole number from 1 to 5."}]}`},
+		{`{"kind":"native","name":"Bad","port":"lantern","values":{"passkey":"pk","pages":"9"}}`, invalid + `"detail":"Enter a whole number from 1 to 5 for Pages.","errors":[{"location":"body.values.pages","message":"Enter a whole number from 1 to 5 for Pages."}]}`},
 		{`{"kind":"native","name":"Bad","port":"lantern","cookie":{"cookie":"a=b"}}`, invalid + `"detail":"Only a site that signs in with a browser cookie takes one.","errors":[{"location":"body.cookie","message":"Only a site that signs in with a browser cookie takes one."}]}`},
-		{`{"kind":"native","name":"Ported","address":"https://lantern.test/"}`, invalid + `"errors":[{"location":"body.port","message":"Choose the site."},{"location":"body.address","message":"A ported site takes its address as baseAddress."}]}`},
+		{`{"kind":"native","name":"Ported","address":"https://lantern.test/"}`, invalid + `"errors":[{"location":"body.port","message":"Choose the site."},{"location":"body.address","message":"A built-in site takes its address as baseAddress."}]}`},
 	} {
 		s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", tc.body, http.StatusUnprocessableEntity, tc.want)
 	}

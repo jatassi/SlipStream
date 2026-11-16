@@ -29,7 +29,7 @@ export const ListImportsQueryParams = zod.object({
   rootId: zod
     .uuid()
     .exactOptional()
-    .describe("Only this root's Imports and lead; every root's when left out"),
+    .describe("Only this root's Imports and its scan summary; every root's when left out"),
   work: zod
     .uuid()
     .exactOptional()

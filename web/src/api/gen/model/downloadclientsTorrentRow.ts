@@ -14,7 +14,7 @@ import type { DownloadclientsTrackerRef } from "./downloadclientsTrackerRef.ts";
 
 export interface DownloadclientsTorrentRow {
   addedAt: string;
-  /** Absent when its metainfo names no announce URL */
+  /** Absent when its .torrent lists no tracker */
   announce?: DownloadclientsTrackerCell;
   /** It was in its external client before SlipStream attached to it, so removing it only stops tracking it */
   attached?: boolean;
@@ -48,7 +48,7 @@ export interface DownloadclientsTorrentRow {
   importAt?: string;
   /** When its Node last reported it, set while the row is stale for lastKnownCause */
   lastKnown?: string;
-  /** Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off */
+  /** Why the row shows its last report: its Node isn't connected, its external client isn't responding or refused the sign-in, or its external client is off */
   lastKnownCause?: DownloadclientsTorrentRowLastKnownCause;
   /** The release's name in its metainfo, shown for a Torrent whose Work was deleted */
   name: string;
@@ -91,7 +91,7 @@ export interface DownloadclientsTorrentRow {
   tabs: DownloadclientsTorrentRowTabsItem[];
   /** The Tracker its first Grab's Release reached, null when none did or it is in an external client */
   tracker: DownloadclientsTrackerRef | null;
-  /** When a window hold starts it, or a check resumes it */
+  /** When it starts after its trackers allow another announce, or resumes after a check */
   until?: string;
   /**
    * All-time bytes uploaded

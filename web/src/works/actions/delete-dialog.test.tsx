@@ -14,7 +14,7 @@ function Opened({ subjects }: { subjects: readonly Subject[] }) {
 }
 
 const offline =
-  "seedbox is offline, so its files can't be deleted. Delete it and leave its files, or try again once seedbox is back.";
+  "seedbox is offline. Leave the files on disk, or try again once seedbox is back online.";
 
 // The Quiet Orchard's files sit on seedbox, which is offline, so only leaving them deletes it.
 function deleteServer(subjects: readonly Subject[]) {

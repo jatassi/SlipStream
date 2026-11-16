@@ -32,14 +32,14 @@ export const ruleSentence = (name: string, rule: TrackersRule): string =>
   `${name} requires ${ruleParts[rule.clears](rule)}`;
 
 export const ruleSource = (name: string, rule: TrackersRule): string =>
-  rule.source === "admin" ? "Set by you" : `From ${name}'s Releases`;
+  rule.source === "admin" ? "Set by you" : `From ${name}'s releases`;
 
 /** What a Tracker with no rule in force says instead of its rule. */
 export function noRuleSentence(name: string, privacy: TrackersTrackerItemPrivacy): string {
   if (privacy === "public") {
-    return `${name} is public, so its torrents follow your seeding goal alone.`;
+    return `${name} is public and has no seeding rule. Its torrents seed until your seeding goal is met.`;
   }
-  return `${name}'s Releases don't state a seeding rule, so SlipStream never stops its private torrents. Set ${name}'s rule to let its goal run.`;
+  return `${name}'s releases don't include a seeding rule. SlipStream keeps seeding its private torrents until you set one.`;
 }
 
 const actionSentences: { readonly [A in Action]: string } = {
@@ -68,7 +68,7 @@ function reaches(goal: TrackersGoal): string {
 /** A goal in sentences: how far each torrent seeds, then what happens to it. */
 export function goalSentence(goal: TrackersGoal): string {
   if (goal.combine === "forever" || goal.action === null) {
-    return "Each torrent seeds with no end until you remove it.";
+    return "Each torrent seeds until you remove it.";
   }
   return `Each torrent seeds until it reaches ${reaches(goal)}. ${actionSentences[goal.action]}`;
 }

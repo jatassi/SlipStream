@@ -28,7 +28,7 @@ test("an Admin monitors, refreshes and changes the Profile of two picked Works t
 
   await page.goto("/library/movie");
   await pick(page, orchard, saltRoad);
-  await expect(bar(page)).toContainText("2 Movies picked");
+  await expect(bar(page)).toContainText("2 movies selected");
   await barAction(page, "Monitor");
   await expect(toasts(page)).toContainText(`Monitored ${orchard} and ${saltRoad}.`);
   await expect
@@ -124,7 +124,7 @@ test("the picked bar stays in view without moving the grid", async ({
   await page.goto("/library/movie");
   const before = await documentTop(page, orchard);
   await pick(page, orchard, saltRoad);
-  await expect(bar(page)).toContainText("2 Movies picked");
+  await expect(bar(page)).toContainText("2 movies selected");
   expect(await documentTop(page, orchard), "the grid holds still as the bar opens").toBe(before);
   await expectInView(page, "bottom");
   await page.screenshot({ path: testInfo.outputPath("bulk-bar.png") });

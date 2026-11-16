@@ -5,7 +5,7 @@ import { nameOf } from "../works/paths";
 const outcomeWords: { readonly [O in ImportsImportFileOutcome]: string } = {
   pending: "Reading",
   left_out: "Left out",
-  not_better: "Not better than the file you have",
+  not_better: "Current files kept",
   waiting: "Waiting for you",
   sending: "Sending",
   placing: "Importing",

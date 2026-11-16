@@ -20,9 +20,9 @@ export interface NodesNode {
   pairedAt: string;
   /** The last verdict of each probe the Node ran, kept while it is away */
   probes: NodesProbe[];
-  /** Every Role the Node stands in, in table order */
+  /** Every Role the Node has, in the order of the Roles table */
   roles: NodesRoleView[];
   self: boolean;
-  /** How the Node stands with the Controller since link.since: in step, reconnecting within the blip, offline, lapsed past the offline grace, or on another version */
+  /** The Node's connection to the Controller since link.since: in-step (connected), reconnecting (a short drop), offline, lapsed (offline longer than the offline grace) or mismatched (another version) */
   standing: NodesNodeStanding;
 }

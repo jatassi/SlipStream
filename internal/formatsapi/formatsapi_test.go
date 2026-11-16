@@ -369,11 +369,11 @@ func TestAFormatThatWontRunIsRefusedWithWhatToFix(t *testing.T) {
 		},
 		{
 			"a kind SlipStream doesn't have", "/api/v1/custom-formats", format(title("x") + `,{"name":"Mine","kind":"MineSpecification","negate":false,"required":false,"fields":{}}`),
-			422, refusal(422, "format_kind_unknown", unknownKind, `The condition \"Mine\" has the kind MineSpecification. Pick one of the kinds the schema lists.`, "conditions[1].kind"),
+			422, refusal(422, "format_kind_unknown", unknownKind, `The condition \"Mine\" has the kind MineSpecification, which SlipStream doesn't have. Choose a kind from the list.`, "conditions[1].kind"),
 		},
 		{
 			"a pasted kind SlipStream doesn't have", "/api/v1/custom-formats/paste", pasteBody(trash("Mine", "MineSpecification", `{}`), `,"app":"sonarr"`),
-			422, refusal(422, "format_kind_unknown", unknownKind, `The condition \"Mine\" has the kind MineSpecification. Remove the condition and paste again.`, "text"),
+			422, refusal(422, "format_kind_unknown", unknownKind, `The condition \"Mine\" has the kind MineSpecification, which SlipStream doesn't have. Remove the condition and paste again.`, "text"),
 		},
 		{
 			"a value the app doesn't have", "/api/v1/custom-formats/paste", pasteBody(trash("Odd", "SourceSpecification", `{"value":99}`), `,"app":"sonarr"`),

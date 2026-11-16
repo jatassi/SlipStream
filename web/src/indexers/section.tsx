@@ -31,7 +31,7 @@ function IndexersSection() {
         <div className="flex flex-col gap-5">
           {indexers.length === 0 ? (
             <Empty action={addIndexer}>
-              No Indexers yet. Every search asks each Indexer added here that is on.
+              No Indexers yet. Every search uses each Indexer added here that is on.
             </Empty>
           ) : (
             <p className="text-ink-1">{summaryOf(indexers)}</p>

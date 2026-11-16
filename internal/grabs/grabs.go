@@ -176,7 +176,7 @@ type Publisher[T any] interface {
 
 var (
 	ErrNoWork        = works.ErrNoWork
-	ErrNothingWanted = errors.New("the Work has no wanted cell to search for")
+	ErrNothingWanted = errors.New("the Work has nothing to search for")
 	ErrNoIndexer     = errors.New("no Indexer is set up")
 	ErrNoRoot        = roots.ErrNoRoot
 	ErrNotSearchable = errors.New("the Work's Content Type can't be searched")

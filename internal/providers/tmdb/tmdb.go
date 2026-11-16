@@ -102,7 +102,7 @@ func classify(status int, _ http.Header, body []byte, _ time.Time) (metadata.Out
 		}
 		return metadata.Outcome{Kind: metadata.Refused, Words: words}, true
 	case status == http.StatusNotFound && b.Code != notFoundCode:
-		return metadata.Outcome{Kind: metadata.Unreachable, Words: "responded with 404 Not Found but no not-found body"}, true
+		return metadata.Outcome{Kind: metadata.Unreachable, Words: "responded with 404 Not Found and a body SlipStream doesn't recognize"}, true
 	}
 	return metadata.Outcome{}, false
 }

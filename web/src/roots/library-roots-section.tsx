@@ -30,8 +30,8 @@ export function LibraryRootsSection() {
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-ink-2">
-          A library root is a folder on a Storage Node where SlipStream keeps one Content
-          Type&apos;s Works. New Works go into their type&apos;s default root.
+          A library root is a folder on a Storage Node where SlipStream keeps one kind of media,
+          such as movies. New movies or series go into the default root for their kind.
         </p>
         <Button
           icon={Add01Icon}

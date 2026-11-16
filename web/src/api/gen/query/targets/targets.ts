@@ -602,7 +602,7 @@ export const getListProfilesUrl = () => {
 };
 
 /**
- * @summary List the Profiles, each with the count of Works wanting from it
+ * @summary List the Profiles, each with the number of Works that use it
  */
 export const listProfiles = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -684,7 +684,7 @@ export function useListProfilesSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List the Profiles, each with the count of Works wanting from it
+ * @summary List the Profiles, each with the number of Works that use it
  */
 
 export function useListProfilesSuspense<
@@ -2154,7 +2154,7 @@ export const getGetWorkWantsUrl = (workId: string) => {
 };
 
 /**
- * @summary Get the Profile a Work wants from and its Edition list
+ * @summary Get the Profile a Work uses and its Edition list
  */
 export const getWorkWants = async (
   workId: string,
@@ -2278,7 +2278,7 @@ export function useGetWorkWantsSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get the Profile a Work wants from and its Edition list
+ * @summary Get the Profile a Work uses and its Edition list
  */
 
 export function useGetWorkWantsSuspense<

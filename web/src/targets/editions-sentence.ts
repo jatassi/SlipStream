@@ -13,7 +13,7 @@ export type EditionsSentence = { readonly text: string; readonly warning: boolea
 export function editionsSentence(list: EditionList): EditionsSentence {
   if (list.kind === "any") {
     return {
-      text: "Each Item wants one file at every Target, of whatever cut. A file's cut only sets its name.",
+      text: "SlipStream keeps one file at each Target, whatever its cut. A file's cut only changes its name.",
       warning: false,
     };
   }
@@ -21,15 +21,15 @@ export function editionsSentence(list: EditionList): EditionsSentence {
   if (others.length === list.cuts.length) {
     const them = others.length === 1 ? "it" : "them";
     return {
-      text: `Every Item wants ${listed(others)} outright, even where no Release of ${them} has been seen. A Release that names no cut is Standard, which this list doesn't want.`,
+      text: `SlipStream searches for ${listed(others)} every time, even if no release of ${them} has turned up. It skips releases that name no cut, because they count as Standard.`,
       warning: true,
     };
   }
   if (others.length === 0) {
-    return { text: "Every Item always wants Standard.", warning: false };
+    return { text: "SlipStream always gets Standard.", warning: false };
   }
   return {
-    text: `Every Item always wants Standard. It wants ${listed(others)} only once a Release or file of that cut has been seen for it.`,
+    text: `SlipStream always gets Standard. It also gets ${listed(others)} once a release or file of that cut turns up.`,
     warning: false,
   };
 }

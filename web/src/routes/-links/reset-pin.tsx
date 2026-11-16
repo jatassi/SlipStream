@@ -46,8 +46,8 @@ export function NewPin({ flow, next }: StepProps<Flow>) {
       }}
     >
       <p>
-        Choose a new four-digit PIN for <span className="text-ink-1">{flow.email}</span>. Every
-        device signed in as you is signed out.
+        Choose a new four-digit PIN for <span className="text-ink-1">{flow.email}</span>. Saving it
+        signs you out on every device.
       </p>
       <form.AppForm>
         <form.AppField name="pin">{(field) => <field.NewPinPad />}</form.AppField>

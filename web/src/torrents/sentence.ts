@@ -50,8 +50,8 @@ function heldSentence(row: Row, { node, clock }: Place): string {
   switch (row.hold) {
     case "window":
       return row.until === undefined
-        ? "Waiting until its announce URLs accept an announce again."
-        : `Waiting for an announce. It resumes at ${sinceWords(row.until, clock)}, when every announce URL accepts one again.`;
+        ? "Waiting until its trackers allow another announce."
+        : `Waiting until its trackers allow another announce. It resumes at ${sinceWords(row.until, clock)}.`;
     case "disk_full":
       return `Paused because ${node} ran out of disk space. It resumes once there is space.`;
     case "slot":
@@ -63,7 +63,7 @@ function heldSentence(row: Row, { node, clock }: Place): string {
     case "disk_guard":
       return `Waiting for disk space on ${node}. It starts once there is room.`;
     case "draining":
-      return `Waiting because ${node} is draining.`;
+      return `Waiting. ${node} is finishing its Downloading work and starts no new downloads.`;
     case "controller":
       return `Waiting for the Controller to send it to ${node}.`;
     case "client_error":

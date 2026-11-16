@@ -10,12 +10,12 @@ import {
 } from "../slipStream.schemas.zod.ts";
 
 /**
- * @summary List each Content Type's naming settings, with what the save check refuses once renaming is on
+ * @summary List each Content Type's naming settings, with their problems once renaming is on
  */
 export const ListNamingResponse = NamingNamingList;
 
 /**
- * @summary Change a Content Type's naming settings by key, all or none. Every setting must pass the save check as the change leaves them
+ * @summary Change a Content Type's naming settings by key, all or none. Every setting must be free of problems as the change leaves them
  */
 export const setNamingPathContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
@@ -28,7 +28,7 @@ export const SetNamingBody = SetNamingInputBody;
 export const SetNamingResponse = NamingTypeNaming;
 
 /**
- * @summary Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with what the save check refuses. Nothing is stored
+ * @summary Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with their problems. Nothing is stored
  */
 export const previewNamingPathContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 

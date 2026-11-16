@@ -45,7 +45,7 @@ function refusalWords(reasons: readonly GrabsWordedReason[]): string {
   if (reasons.some((reason) => reason.soft)) {
     return "An automatic search skips it. A Manual search can grab it.";
   }
-  return "No Target this search was for can take it.";
+  return "No Target this search was for accepts it.";
 }
 
 const outcomes: Record<
@@ -55,11 +55,11 @@ const outcomes: Record<
   grabbed: (_, { grabbedFor }) =>
     grabbedFor.length === 0 ? "This search grabbed it." : `Grabbed for ${list.format(grabbedFor)}.`,
   not_taken: () =>
-    "It ranked above the grabbed Release. Its Indexer stopped, reached its limit or dropped it.",
+    "It ranked above the grabbed release, but its Indexer had stopped, reached its limit or no longer listed it.",
   outranked: (release, names) =>
-    lost(release, names, "grabbed") ?? "It ties the grabbed Release at every step.",
+    lost(release, names, "grabbed") ?? "It ties the grabbed release at every step.",
   kept: (release, names) =>
-    lost(release, names, "first") ?? "It ranked first. The search grabbed nothing.",
+    lost(release, names, "first") ?? "It ranked first, but this search grabbed nothing.",
   refused: (release) => refusalWords(release.reasons),
 };
 
@@ -69,7 +69,7 @@ export const outcomeWords = (release: GrabsListedRelease, names: RunNames): stri
 
 function copyWords(release: GrabsListedRelease, names: RunNames): string {
   const original = release.copyOf === null ? undefined : names.indexerAt.get(release.copyOf);
-  return original === undefined ? "" : ` It's the same Release as the one ${original} listed.`;
+  return original === undefined ? "" : ` It's the same release as the one ${original} listed.`;
 }
 
 function scoreWords(release: GrabsListedRelease, names: RunNames): string | undefined {

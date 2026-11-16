@@ -82,9 +82,7 @@ export function Seeding({
   const tracker = detail.tracker?.name ?? "its Tracker";
   const sentences = [
     ruleSentence(tracker, seeding),
-    seeding.owes === undefined
-      ? undefined
-      : `It still owes ${owedWords(seeding.owes, seeding.clears)}.`,
+    seeding.owes === undefined ? undefined : `It needs ${owedWords(seeding.owes, seeding.clears)}.`,
     seeding.owes === undefined ? undefined : marginSentence(tracker, seeding),
     goalSentence(seeding),
     endlessSentence(tracker, seeding),

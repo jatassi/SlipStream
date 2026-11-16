@@ -78,7 +78,7 @@ func hostAddressError(err error) string {
 	if errors.Is(err, ErrAddressIP) {
 		return "the address must be a name, not an IP address"
 	}
-	return "expected http:// or https:// then a host name and an optional port"
+	return "start with http:// or https://, then a host name and an optional port, such as https://slipstream.example.com"
 }
 
 func hostAddress(ctx context.Context, q *db.Queries, address Address) error {

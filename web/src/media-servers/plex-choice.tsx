@@ -38,7 +38,7 @@ const reachedWords = (names: readonly string[]): string =>
 
 function choiceWords(server: PlexServer, nameOf: NameOf): string {
   const names = reachedBy(server.connections, nameOf);
-  const typed = names.length === 0 ? " Type an address it responds at under Details." : "";
+  const typed = names.length === 0 ? " Enter the server's address under Details." : "";
   return `Plex ${server.version}. ${reachedWords(names)}${typed}`;
 }
 
@@ -89,7 +89,7 @@ export function PlexDetails({
       fields
       open={sheet.detailsOpen}
       onOpenChange={sheet.setDetailsOpen}
-      summary="SlipStream uses the first of the server's addresses that responds from the Node it connects from, local before remote. It never uses a Plex relay."
+      summary="SlipStream uses the first of the server's addresses that responds from the Connect from Node, local before remote. It never uses a Plex relay."
     >
       <div className="mt-2 flex flex-col gap-4">
         <form.AppField name="address">

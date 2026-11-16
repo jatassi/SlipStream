@@ -298,7 +298,7 @@ func (c suite) failsAClientErrorPastTheSetting(t *testing.T) {
 
 	g := simtest.Await(t, w)
 	saved := r.saved()
-	if want := saved.Name + " on home reported an error for more than 5 min. Search can try another Release."; g.Stage != "failed" || g.Failure.Code != "client_error" || g.Failure.Message != want {
+	if want := saved.Name + " on home reported an error for more than 5 min."; g.Stage != "failed" || g.Failure.Code != "client_error" || g.Failure.Message != want {
 		t.Fatalf("the Grab ended %s with %+v, want failed client_error: %q", g.Stage, g.Failure, want)
 	}
 	if r.torrent().ID == "" {

@@ -70,11 +70,11 @@ export function IndexerRows({
 
 const privacyWords = ({ name, privacy }: TrackersTracker): string =>
   privacy === "unknown"
-    ? `Its first torrent shows whether ${name} is private.`
+    ? `SlipStream doesn't know yet whether ${name} is private. It finds out from the first torrent it grabs there.`
     : `${name} is ${privacy}.`;
 
 const unreached =
-  "No Indexer reaches this Tracker. Its Grabs and torrents stay with it. If another Tracker is the same site, merge this one into it.";
+  "No Indexer searches this Tracker. SlipStream keeps its Grabs and torrents. If another Tracker is the same site, merge this one into it.";
 
 const lines = (values: readonly string[]): ReactNode =>
   values.length === 0 ? (
@@ -120,8 +120,8 @@ function NoTrackerGroup({
         No Tracker yet
       </h3>
       <p className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
-        A feed of many sites reaches a Tracker for each site once SlipStream grabs a Release from
-        it.
+        A feed that lists several sites gets a Tracker for each site the first time SlipStream grabs
+        a release from that site.
       </p>
       <IndexerRows label="Indexers with no Tracker yet" indexers={indexers} nodes={nodes} />
     </section>
@@ -164,7 +164,7 @@ export function TrackerGroup({
       {indexers.length > 0 && (
         <div className="mt-1">
           <IndexerRows
-            label={`Indexers reaching ${tracker.name}`}
+            label={`Indexers searching ${tracker.name}`}
             indexers={indexers}
             nodes={nodes}
           />

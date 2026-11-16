@@ -15,7 +15,7 @@ type Cause = Omit<Signal, "anchor" | "rows"> & { readonly key: string };
 
 function causeOf(row: Row, node: string, clock: Clock): Cause | undefined {
   const host =
-    row.announce === undefined || row.announce.host === "" ? "Its announce URL" : row.announce.host;
+    row.announce === undefined || row.announce.host === "" ? "Its tracker" : row.announce.host;
   switch (row.severity) {
     case "none":
       return undefined;

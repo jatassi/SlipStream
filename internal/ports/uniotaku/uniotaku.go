@@ -261,5 +261,5 @@ func ParseResponse(ix *ix, indexerResponse *port.IndexerResponse) ([]port.Torren
 type UniotakuSettings struct {
 	port.UserPass
 	// SlipStream: help reworded per WRITING.md.
-	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
+	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
 }

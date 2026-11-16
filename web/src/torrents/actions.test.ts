@@ -160,13 +160,13 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     "a tracker's window says when it accepts",
     { code: "window", acceptsAt: "2026-10-20T14:32:00Z" },
     "announce",
-    "An announce URL of The Quiet Orchard would reject an announce until 14:32.",
+    "A tracker of The Quiet Orchard won't accept another announce until 14:32.",
   ],
   [
     "an offline Node says it waits",
     { code: "offline" },
     "recheck",
-    "The Node holding The Quiet Orchard is offline. Try again once it reconnects.",
+    "The Node with The Quiet Orchard is offline. Try again once it reconnects.",
   ],
   [
     "an external client that isn't responding names it and its Node",
@@ -184,7 +184,7 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     "a torrent its Node no longer holds",
     { code: "not_found" },
     "announce",
-    "The Quiet Orchard is no longer there.",
+    "SlipStream no longer tracks The Quiet Orchard.",
   ],
   [
     "a paused torrent has nothing to announce",
@@ -208,13 +208,13 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     "a torrent whose Import waits for the Admin points to its Pending import",
     { code: "use_not_this_release" },
     "mark-failed",
-    "Use Not this Release on its Pending import.",
+    "The Quiet Orchard is waiting in Pending imports. To reject this release, choose Not this Release on its Pending import.",
   ],
   [
     "nothing is marked failed while Reconciling",
     { code: "reconciling" },
     "mark-failed",
-    "SlipStream is Reconciling after a restore, so nothing was marked failed. Try again once it finishes.",
+    "SlipStream is still matching a restored Backup to what each Node has, so nothing was marked failed. Try again once that finishes.",
   ],
 ])("%s", (_, refusal, action, sentence) => {
   expect(outcomeWords([{ id: "a", done: false, refusal }], [orchard], context(action))).toEqual({

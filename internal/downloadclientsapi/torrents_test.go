@@ -154,7 +154,7 @@ func TestTheTorrentsListAnswersEachRowsWordsAndCountsEveryTorrent(t *testing.T) 
 	harborRow := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Harbor","contentType":"fixture","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"announce":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` + unjudged + `,` +
-		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"retryable":false,"held":false,"addedAt":"T"}`
+		`"fault":{"kind":"unregistered","at":"T","sentence":"The tracker reports that this torrent is no longer registered."},"retryable":false,"held":false,"addedAt":"T"}`
 	w.o.Expect(t, http.MethodGet, "/api/v1/torrents?ids="+harbor.String(), "", http.StatusOK, `{"rows":[`+harborRow+`],`+counts("id2"))
 
 	var got struct {
@@ -193,7 +193,7 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 	want := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Harbor","contentType":"fixture","workId":"id3","quality":"hdtv-720p","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"announce":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` + unjudged + `,` +
-		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"retryable":false,"held":false,"addedAt":"T",` +
+		`"fault":{"kind":"unregistered","at":"T","sentence":"The tracker reports that this torrent is no longer registered."},"retryable":false,"held":false,"addedAt":"T",` +
 		`"downloaded":0,"activeSeconds":0,"infoHash":"` + w.hashes[harbor] + `","pieceSize":16384,"private":true,` +
 		`"trackers":[{"url":"https://beacon.test/announce/•••","tier":0,"status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
 		`{"url":"udp://backup.test:6969/announce","tier":1,"status":"working","answeredAt":"T","minIntervalSeconds":1800}],` +
@@ -299,13 +299,13 @@ func TestDownloadClientsListEachDownloadingNodesCardAndTheThresholds(t *testing.
 		Libtorrent: "2.0.11.0", PeerIdPrefix: "-LT20B0-", UserAgent: "libtorrent/2.0.11.0", Listen: "0.0.0.0:6881", Bound: "192.0.2.4:6881",
 		IncomingAtUnixMs: reportedAt.UnixMilli(),
 	}
-	thresholds := `"thresholds":{"faultStall":{"key":"downloading.faultStall","label":"A download with no data at all is bad after","source":"database","applies":"live",` +
+	thresholds := `"thresholds":{"faultStall":{"key":"downloading.faultStall","label":"A download with no data at all fails after","source":"database","applies":"live",` +
 		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":43200,"running":43200,"default":43200,"min":3600,"max":2592000,"step":3600},` +
-		`"unregisteredGap":{"key":"downloading.unregisteredGap","label":"Unregistered twice, this far apart","source":"database","applies":"live",` +
+		`"unregisteredGap":{"key":"downloading.unregisteredGap","label":"Tracker reports unregistered twice, this far apart","source":"database","applies":"live",` +
 		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":1800,"min":60,"max":604800,"step":60},` +
 		`"metadataWait":{"key":"downloading.metadataWait","label":"A magnet link with no metadata fails after","source":"database","applies":"live",` +
 		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":1800,"min":60,"max":604800,"step":60},` +
-		`"clientErrorFail":{"key":"downloading.clientErrorFail","label":"A client error fails its Grab after","source":"database","applies":"live",` +
+		`"clientErrorFail":{"key":"downloading.clientErrorFail","label":"Grabs fail after a client error of","source":"database","applies":"live",` +
 		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":3600,"running":3600,"default":3600,"min":300,"max":604800,"step":60}}`
 	acts := `"actions":["pause","resume","recheck","announce"]`
 	kinds := `"kinds":[` +
@@ -331,7 +331,7 @@ func TestDownloadClientsListEachDownloadingNodesCardAndTheThresholds(t *testing.
 	if _, reply := w.o.Call(t, http.MethodPatch, "/api/v1/download-clients/thresholds", `{"clientErrorFail":600}`); !strings.Contains(reply, `"value":600,`) {
 		t.Errorf("setDownloadClientThresholds = %s, want the client error to fail its Grab after 10 minutes", reply)
 	}
-	if _, reply := w.o.Call(t, http.MethodGet, "/api/v1/download-clients", ""); !strings.Contains(reply, `"clientErrorFail":{"key":"downloading.clientErrorFail","label":"A client error fails its Grab after","source":"database","applies":"live","isDefault":false`) {
+	if _, reply := w.o.Call(t, http.MethodGet, "/api/v1/download-clients", ""); !strings.Contains(reply, `"clientErrorFail":{"key":"downloading.clientErrorFail","label":"Grabs fail after a client error of","source":"database","applies":"live","isDefault":false`) {
 		t.Errorf("listDownloadClients = %s, want the stored client error setting", reply)
 	}
 	w.o.Expect(t, http.MethodPatch, "/api/v1/download-clients/thresholds", `{"clientErrorFail":60}`, http.StatusUnprocessableEntity,

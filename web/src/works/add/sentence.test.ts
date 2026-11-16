@@ -34,25 +34,25 @@ test.each([
     "the defaults",
     orchard,
     defaults,
-    "Adds The Quiet Orchard (2021) to Films on /srv/media/films, monitored, wanting Films' 1 Target.",
+    "Adds The Quiet Orchard (2021) to Films on /srv/media/films. SlipStream monitors it. Its Profile, Films, has 1 Target.",
   ],
   [
     "another Profile, not monitored",
     orchard,
     { ...defaults, profileId: ultra.id, preset: "none" as const },
-    "Adds The Quiet Orchard (2021) to Films on /srv/media/films, not monitored, wanting Ultra's 2 Targets.",
+    "Adds The Quiet Orchard (2021) to Films on /srv/media/films. It isn't monitored. Its Profile, Ultra, has 2 Targets.",
   ],
   [
     "no root",
     orchard,
     { ...defaults, rootId: undefined },
-    "Adds The Quiet Orchard (2021) to Films with no library root, monitored, wanting Films' 1 Target.",
+    "Adds The Quiet Orchard (2021) to Films with no library root. SlipStream monitors it. Its Profile, Films, has 1 Target.",
   ],
   [
     "no year",
     { label: "The Quiet Orchard", fields: [] },
     defaults,
-    "Adds The Quiet Orchard to Films on /srv/media/films, monitored, wanting Films' 1 Target.",
+    "Adds The Quiet Orchard to Films on /srv/media/films. SlipStream monitors it. Its Profile, Films, has 1 Target.",
   ],
 ])("the sentence for %s", (_case, work, choices, sentence) => {
   expect(addSentence(work, choices, context)).toBe(sentence);
@@ -68,7 +68,7 @@ test("a Profile with no Targets says the Work wants nothing", () => {
   expect(
     addSentence(orchard, { ...defaults, profileId: empty.id }, { ...context, profiles: [empty] }),
   ).toBe(
-    "Adds The Quiet Orchard (2021) to Films on /srv/media/films, monitored, wanting nothing, because Empty has no Targets.",
+    "Adds The Quiet Orchard (2021) to Films on /srv/media/films. SlipStream monitors it. Its Profile, Empty, has no Targets, so SlipStream won't download anything for it.",
   );
 });
 
@@ -92,20 +92,20 @@ const shelfChoices = startChoices({
 });
 
 test.each([
-  ["all", false, "monitoring all 1176 stories and new ones as they come out"],
-  ["all", true, "monitoring all 1200 stories and new ones as they come out"],
-  ["first", false, "monitoring 49 stories and no new ones"],
-  ["first", true, "monitoring 73 stories and no new ones"],
-  ["future", false, "monitoring only new stories as they come out"],
-  ["none", false, "monitoring no stories"],
+  ["all", false, "SlipStream monitors all 1176 stories and new ones as they come out."],
+  ["all", true, "SlipStream monitors all 1200 stories and new ones as they come out."],
+  ["first", false, "SlipStream monitors 49 stories and no new ones."],
+  ["first", true, "SlipStream monitors 73 stories and no new ones."],
+  ["future", false, "SlipStream monitors only new stories as they come out."],
+  ["none", false, "SlipStream monitors no stories."],
 ] as const)("the %s preset, extras included %s, says %s", (preset, asides, monitoring) => {
   expect(addSentence(shelf, { ...shelfChoices, preset, asides }, anthology)).toBe(
-    `Adds The Long Shelf to Anthologies on /srv/media/anthologies, ${monitoring}, wanting Shelves' 1 Target.`,
+    `Adds The Long Shelf to Anthologies on /srv/media/anthologies. ${monitoring} Its Profile, Shelves, has 1 Target.`,
   );
 });
 
 test("a Work already in the library has no counts, so the sentence leaves monitoring out", () => {
   expect(addSentence(shelf, shelfChoices, { ...anthology, counts: null })).toBe(
-    "Adds The Long Shelf to Anthologies on /srv/media/anthologies, wanting Shelves' 1 Target.",
+    "Adds The Long Shelf to Anthologies on /srv/media/anthologies. Its Profile, Shelves, has 1 Target.",
   );
 });

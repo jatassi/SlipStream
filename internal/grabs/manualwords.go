@@ -225,7 +225,7 @@ func (s sheet) gets(cs []files.Cell) string {
 	}
 	freshParts, betterParts := alike(items, fresh), alike(items, better)
 	if len(freshParts) == 1 && len(betterParts) == 1 && slices.Equal(freshParts[0].items, betterParts[0].items) {
-		return "It gets you " + freshParts[0].names + " for " + s.itemsWords(freshParts[0].items, false) + ", and " + betterParts[0].names + " as an upgrade."
+		return "It downloads " + freshParts[0].names + " for " + s.itemsWords(freshParts[0].items, false) + ", and " + betterParts[0].names + " as an upgrade."
 	}
 	var clauses []string
 	for _, p := range freshParts {
@@ -235,9 +235,9 @@ func (s sheet) gets(cs []files.Cell) string {
 		clauses = append(clauses, p.names+" for "+s.itemsWords(p.items, false)+" as an upgrade")
 	}
 	if len(clauses) == 1 {
-		return "It gets you " + clauses[0] + "."
+		return "It downloads " + clauses[0] + "."
 	}
-	return "It gets you " + strings.Join(clauses[:len(clauses)-1], ", ") + ", and " + clauses[len(clauses)-1] + "."
+	return "It downloads " + strings.Join(clauses[:len(clauses)-1], ", ") + ", and " + clauses[len(clauses)-1] + "."
 }
 
 // namedItems is the Items whose cells a Grab fills by the same names.
@@ -307,13 +307,13 @@ func (s sheet) outcome(rs runSheet, g int, cs []int) string {
 }
 
 // gapWords is a gap's cells in words, all of one state and one Target:
-// "Missing: 720p for E05, E06 and E08 to E10.", "Could be better: 1080p
-// SDR.", "Failed: 1080p for E10."
+// "Missing: 720p for E05, E06 and E08 to E10.", "Upgrade: 1080p SDR.",
+// "Failed: 1080p for E10."
 func (s sheet) gapWords(cs []files.Cell) string {
 	label := "Missing"
 	switch cs[0].State {
 	case files.Upgradable:
-		label = "Could be better"
+		label = "Upgrade"
 	case files.Failed:
 		label = "Failed"
 	case files.Unreleased, files.Missing, files.Downloading, files.Met:
@@ -342,13 +342,13 @@ func (rs runSheet) causeAt(w int, gap planned) string {
 	}
 	switch {
 	case lifted:
-		return "Every " + name + " Release needs an override. Other choices lists them."
+		return "Every " + name + " release was skipped for a reason you can override. Pick one under Other choices to grab it anyway."
 	case blocked:
-		return "Every " + name + " Release is on the Blocklist."
+		return "Every " + name + " release is on the Blocklist."
 	case rs.run.Finished.IsZero():
-		return "No Indexer has listed a " + name + " Release yet."
+		return "No Indexer has listed a " + name + " release yet."
 	}
-	return "No Indexer listed a " + name + " Release."
+	return "No Indexer listed a " + name + " release."
 }
 
 // plan is the sheet's plan in words, and the pins still in effect.
@@ -499,11 +499,11 @@ func (s sheet) cellsOf(keys []files.CellKey) []files.Cell {
 	return out
 }
 
-// headline counts a plan's Grabs and cells: "2 Grabs get you
-// everything.", "1 Grab gets you 2 of the 3 files you're missing.
-// SlipStream hasn't found a Release for 4K yet."
+// headline counts a plan's Grabs and cells: "2 Grabs download every
+// file you're missing.", "1 Grab downloads 2 of the 3 files you're
+// missing. SlipStream hasn't found a release for 4K yet."
 func headline(walked, filled, grabs, held int, unfound []string) string {
-	missing := func() string { return "SlipStream hasn't found a Release for " + joinWords(unfound) + " yet." }
+	missing := func() string { return "SlipStream hasn't found a release for " + joinWords(unfound) + " yet." }
 	switch {
 	case walked == 0 && held == 0:
 		return "Every Target here already has its file."
@@ -512,11 +512,11 @@ func headline(walked, filled, grabs, held int, unfound []string) string {
 	case grabs == 0:
 		return missing()
 	}
-	n := plural(grabs, "1 Grab gets", "%d Grabs get")
+	n := plural(grabs, "1 Grab downloads", "%d Grabs download")
 	if filled == walked {
-		return n + " you everything."
+		return n + " every file you're missing."
 	}
-	return fmt.Sprintf("%s you %d of the %d files you're missing. %s", n, filled, walked, missing())
+	return fmt.Sprintf("%s %d of the %d files you're missing. %s", n, filled, walked, missing())
 }
 
 // plural is one when n is 1, else many with n.
@@ -544,7 +544,7 @@ func (s sheet) heldCell(c files.Cell, g db.ListCellGrabsOfWorkRow) HeldCell {
 func (rs runSheet) worded(reasons []Reason, g int) []Worded {
 	out := make([]Worded, len(reasons))
 	for i, r := range reasons {
-		out[i] = Worded{Reason: r, Words: reasonWords(r, rs.targetOf(r.Target), rs.as[g].read.Facts)}
+		out[i] = Worded{Reason: r, Words: reasonWords(r, rs.targetOf(r.Target), rs.as[g].read.Facts, rs.nouns)}
 		if r.Code == targets.NotAnUpgrade {
 			out[i].Words = rs.replaces(r, g)
 		}
@@ -566,7 +566,7 @@ func (rs runSheet) replaces(r Reason, g int) string {
 	if len(held) == 1 {
 		return "It isn't better than " + path.Base(held[0].File.Path) + ", the file at " + name + ". Grabbing it replaces that file."
 	}
-	return "It isn't better than the files at " + name + " it would fill. Grabbing it replaces them."
+	return "It isn't better than the files you have at " + name + ". Grabbing it replaces them."
 }
 
 // override is the Edition override of as[g] standing st at cell k, nil
@@ -575,8 +575,8 @@ func (s sheet) override(rs runSheet, g, k int, st stance) *EditionOverride {
 	if st.edition == "" {
 		return nil
 	}
-	return &EditionOverride{Edition: st.edition, Words: "Its name gives the " + editionWords(s.cutName(rs.js[g].verdictOf(k).cut)) + ", which the Work doesn't want. " +
-		"It's grabbed as the " + editionWords(s.cutName(release.CutKey(st.edition))) + "."}
+	return &EditionOverride{Edition: st.edition, Words: "Its title names the " + editionWords(s.cutName(rs.js[g].verdictOf(k).cut)) + ", which isn't one of this " + strings.ToLower(s.in.nouns.Work.One) + "'s Editions. " +
+		"SlipStream grabs it as the " + editionWords(s.cutName(release.CutKey(st.edition))) + "."}
 }
 
 // cutName is the name of the cut keyed k.
@@ -651,9 +651,9 @@ func becauseClause(e BlockEntry) string {
 	case e.Cause == CauseNoPayload:
 		return "it never downloaded any data."
 	case e.Cause == CauseMarkedFailed && e.By.Name == "":
-		return "it was marked failed through the API key."
+		return "an app using the API key marked it failed."
 	case e.Cause == CauseByHand && e.By.Name == "":
-		return "it was blocklisted through the API key when its Grab was canceled."
+		return "an app using the API key blocklisted it when canceling its Grab."
 	}
 	return e.because()
 }
@@ -706,9 +706,9 @@ func (rs runSheet) verdictAt(g, k int) string {
 	switch {
 	case st.kind == standsAuto || st.kind == standsBlocked && len(st.lifts) == 0 && st.edition == "":
 		if c.File != nil {
-			return "It would fill " + name + " as an upgrade."
+			return "It would upgrade the " + name + " file."
 		}
-		return "It would fill " + name + "."
+		return "It would be the " + name + " file."
 	case !v.v.Meets():
 		return wordsOf(rs.worded(st.why, g))
 	}
@@ -721,7 +721,7 @@ func (rs runSheet) verdictAt(g, k int) string {
 		}
 	}
 	if st.edition != "" {
-		says = append(says, reasonWords(Reason{Reason: targets.Reason{Code: targets.CutNotWanted, Value: string(v.cut)}, Target: c.Target.ID}, &c.Target, rs.as[g].read.Facts))
+		says = append(says, reasonWords(Reason{Reason: targets.Reason{Code: targets.CutNotWanted, Value: string(v.cut)}, Target: c.Target.ID}, &c.Target, rs.as[g].read.Facts, rs.nouns))
 	}
 	return "It meets " + name + ". " + strings.Join(says, " ")
 }
@@ -802,7 +802,7 @@ func (s sheet) folded() Folded {
 		return Folded{}
 	}
 	slices.SortStableFunc(order, func(a, b foldKey) int { return cmp.Compare(counts[b], counts[a]) })
-	f := Folded{Line: "SlipStream wouldn't grab " + plural(n, "1 more Release.", "%d more Releases.")}
+	f := Folded{Line: "SlipStream wouldn't grab " + plural(n, "1 more release.", "%d more releases.")}
 	for _, key := range order {
 		f.Groups = append(f.Groups, FoldGroup{Words: s.foldWords(key, counts[key]), Fault: key.code == targets.Blocklisted})
 	}
@@ -888,20 +888,20 @@ func sameOf(r indexers.Release) listingKey {
 func (s sheet) foldWords(key foldKey, n int) string {
 	item := strings.ToLower(s.in.nouns.Item.One)
 	if key.held {
-		return plural(n, "1 would fill a cell", "%d would fill cells") + " a Grab is already downloading."
+		return plural(n, "1 is", "%d are") + " for a file a Grab is already downloading."
 	}
 	switch key.code {
 	case targets.QualityNotInTarget:
 		if key.quality == "" {
 			return plural(n, "1 has", "%d have") + " no Quality SlipStream can read."
 		}
-		return plural(n, "1 is", "%d are") + " " + key.quality + ", which no Target here takes."
+		return plural(n, "1 is", "%d are") + " " + key.quality + ", which no Target here accepts."
 	case targets.Blocklisted:
 		return plural(n, "1 is", "%d are") + " on the Blocklist."
 	case targets.WrongWork:
-		return plural(n, "1 names", "%d name") + " another Work."
+		return plural(n, "1 names", "%d name") + " a different " + strings.ToLower(s.in.nouns.Work.One) + "."
 	case targets.WrongItem:
-		return plural(n, "1 names", "%d name") + " another " + item + "."
+		return plural(n, "1 names", "%d name") + " a different " + item + "."
 	case targets.FilterFailed:
 		return plural(n, "1 fails", "%d fail") + " a filter of every Target here."
 	case targets.NotAnUpgrade:
@@ -909,7 +909,7 @@ func (s sheet) foldWords(key foldKey, n int) string {
 	case targets.WrongTitle, targets.CutNotWanted, targets.SizeBelow, targets.SizeAbove, targets.SizeNotChecked,
 		targets.ScoreBelowMinimum, targets.RepackOtherGroup:
 	}
-	return plural(n, "1 is", "%d are") + " refused at every Target here."
+	return plural(n, "1 fails", "%d fail") + " a title, cut, size, score or repack check at every Target here."
 }
 
 // indexerLines is each Indexer across the runs, whether one hasn't

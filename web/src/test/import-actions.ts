@@ -81,7 +81,7 @@ const openingOf = (world: ImportsWorld, sent: Sent) => [
       return refused(
         409,
         "import_move_seeding",
-        "A tracked torrent seeds one of these files. Move files can't take a file while it seeds.",
+        "A torrent SlipStream tracks is still seeding one of these files. Move files can't move a file while it seeds.",
       );
     }
     for (const entry of named) {

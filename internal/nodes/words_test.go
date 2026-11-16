@@ -16,17 +16,17 @@ func TestADrainSaysWhichTorrentsItsSeedingGoalsFinish(t *testing.T) {
 		want string
 	}{
 		{role.Downloading, nodes.Held{Units: 12, Noun: torrent, Bytes: 41 << 30},
-			"seedbox takes no new Downloading work and finishes the 12 torrents (41 GB) it holds."},
+			"seedbox takes no new Downloading work and finishes the 12 torrents (41 GB) it has."},
 		{role.Downloading, nodes.Held{Units: 12, Noun: torrent, Bytes: 41 << 30, EndlessUnits: 12},
-			"seedbox takes no new Downloading work. It keeps 12 torrents that have no seeding end until you remove, move or write them off."},
+			"seedbox takes no new Downloading work. 12 torrents have no seeding goal and stay until you remove, move or give them up."},
 		{role.Downloading, nodes.Held{Units: 12, Noun: torrent, Bytes: 41 << 30, EndlessUnits: 4},
-			"seedbox takes no new Downloading work. It finishes 8 torrents as their seeding goals are met, and keeps 4 that have no seeding end until you remove, move or write them off."},
+			"seedbox takes no new Downloading work. It finishes 8 torrents once they reach their seeding goals. 4 torrents have no seeding goal and stay until you remove, move or give them up."},
 		{role.Downloading, nodes.Held{Units: 1, Noun: torrent, EndlessUnits: 1},
-			"seedbox takes no new Downloading work. It keeps 1 torrent that has no seeding end until you remove, move or write it off."},
+			"seedbox takes no new Downloading work. 1 torrent has no seeding goal and stays until you remove, move or give it up."},
 		{role.Downloading, nodes.Held{Units: 2, Noun: torrent, EndlessUnits: 1},
-			"seedbox takes no new Downloading work. It finishes 1 torrent as its seeding goal is met, and keeps 1 that has no seeding end until you remove, move or write it off."},
+			"seedbox takes no new Downloading work. It finishes 1 torrent once it reaches its seeding goal. 1 torrent has no seeding goal and stays until you remove, move or give it up."},
 		{role.Storage, nodes.Held{Units: 2, Noun: root, EndlessUnits: 2},
-			"seedbox takes no new Storage work. It keeps its 2 roots until you move or write them off."},
+			"seedbox takes no new Storage work. It keeps its 2 roots until you move them or give them up."},
 	} {
 		got := nodes.Drains{Node: seedbox, Role: c.role, Held: c.held}.Words()
 		if got != c.want {

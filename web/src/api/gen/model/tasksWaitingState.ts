@@ -5,7 +5,7 @@ export interface TasksWaitingState {
   kind: TasksWaitingStateKind;
   /** The Node every unit waits for */
   node: string;
-  /** The Node's last Sync frame, or the Controller's start when it sent none since */
+  /** When the Controller last heard from the Node, or when the Controller started if it hasn't heard from it since */
   since: string;
   standing: TasksWaitingStateStanding;
 }

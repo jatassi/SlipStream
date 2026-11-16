@@ -162,7 +162,7 @@ func (a *Actor) Watching(ctx context.Context) {
 	}()
 }
 
-var errStopped = errors.New("the client's actor has stopped")
+var errStopped = errors.New("SlipStream stopped polling the client")
 
 // Check polls now, refused or not, and returns once the ClientPoll
 // carrying token is in the outbox.

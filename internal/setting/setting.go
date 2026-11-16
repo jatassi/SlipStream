@@ -72,7 +72,7 @@ func (d Duration) Parse(seconds *int64) (Stored[int64], error) {
 	v := time.Duration(*seconds) * time.Second
 	switch {
 	case v < d.Min && d.Floor != "":
-		return Stored[int64]{}, refuse(d.Key, "No faster than %s. %s", Words(d.Min), d.Floor)
+		return Stored[int64]{}, refuse(d.Key, "Use %s or longer. %s", Words(d.Min), d.Floor)
 	case v < d.Min || v > d.Max:
 		return Stored[int64]{}, refuse(d.Key, "Between %s and %s.", Words(d.Min), Words(d.Max))
 	case v%d.Step != 0:
@@ -305,7 +305,7 @@ func (w Window) Parse(t *Times) (Stored[Span], error) {
 		return Stored[Span]{}, refuse(w.Key, "Times are 00:00 to 23:59.")
 	}
 	if start == end {
-		return Stored[Span]{}, refuse(w.Key, "The window needs an end after its start.")
+		return Stored[Span]{}, refuse(w.Key, "The start and end are the same time. Choose a different end. A window can cross midnight, such as 22:00 to 04:00.")
 	}
 	return override(Span{Start: start, End: end}), nil
 }

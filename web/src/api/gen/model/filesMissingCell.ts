@@ -1,7 +1,7 @@
 import type { FilesMissingCellState } from "./filesMissingCellState.ts";
 
 export interface FilesMissingCell {
-  /** any under any cut, else the key of the cut the cell wants */
+  /** any under any cut, else the key of the cut this Item needs at this Target */
   edition: string;
   itemId: string;
   state: FilesMissingCellState;

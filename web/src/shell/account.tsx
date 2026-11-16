@@ -5,7 +5,7 @@ import { usePref, writePref } from "./prefs";
 import { restartSelf, useRestartSelf } from "./restart/use-restart-self";
 import { askSignOut } from "./sign-out";
 
-export const startupLabel = "Startup sequence";
+export const startupLabel = "Startup animation";
 
 /** An Admin's way into the portal, to see what Members see, and back. */
 export const toPortal = { label: "Open the portal", icon: UserGroupIcon, to: "/portal" } as const;

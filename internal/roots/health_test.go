@@ -24,7 +24,7 @@ func TestARootInTroubleIsAStorageItem(t *testing.T) {
 		{name: "ready", state: storagev1.RootState_ROOT_STATE_READY},
 		{name: "missing", state: storagev1.RootState_ROOT_STATE_MISSING, item: "The folder isn't there. Restore it, or edit the root to where it is now."},
 		{name: "unmounted", state: storagev1.RootState_ROOT_STATE_UNMOUNTED, item: "The folder is there but looks unmounted. Plug in or mount the disk."},
-		{name: "foreign", state: storagev1.RootState_ROOT_STATE_FOREIGN, item: "The folder holds another library root's marker. Edit the root to a folder of its own."},
+		{name: "foreign", state: storagev1.RootState_ROOT_STATE_FOREIGN, item: "Another library root already uses this folder. Edit the root to point at a different folder."},
 		{name: "unwritable", state: storagev1.RootState_ROOT_STATE_UNWRITABLE, item: "SlipStream can't write to the folder. Let SlipStream write to it."},
 		{name: "unresponsive", state: storagev1.RootState_ROOT_STATE_UNRESPONSIVE, item: "The folder isn't responding. Check the disk or share it is on."},
 		{name: "checking", unsure: "Waiting for Media server to check the folder."},

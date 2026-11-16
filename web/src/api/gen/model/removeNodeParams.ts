@@ -1,6 +1,6 @@
 export type RemoveNodeParams = {
   /**
-   * Write off the work the Node holds, files kept, instead of refusing while it holds any
+   * Give up the work the Node has, keeping its files, instead of refusing while it has any
    */
   writeOff?: boolean;
 };

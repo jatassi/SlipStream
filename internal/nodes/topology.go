@@ -178,7 +178,7 @@ func sentence(b *Board) string {
 		}
 		switch {
 		case v.Settling:
-			parts = append(parts, v.Name+" is back and settling.")
+			parts = append(parts, v.Name+" is back online and takes new work again shortly.")
 		case v.Standing == Reconnecting:
 			parts = append(parts, v.Name+" is reconnecting.")
 		case v.Standing == Offline, v.Standing == LapsedNode:
@@ -203,10 +203,10 @@ func sentence(b *Board) string {
 			}
 		}
 		if len(draining) > 0 {
-			parts = append(parts, v.Name+" is draining "+labels(draining)+".")
+			parts = append(parts, v.Name+" is finishing its "+labels(draining)+" work.")
 		}
 		if len(writingOff) > 0 {
-			parts = append(parts, v.Name+" is writing off "+labels(writingOff)+".")
+			parts = append(parts, "SlipStream is giving up "+v.Name+"'s "+labels(writingOff)+" work.")
 		}
 	}
 	switch {

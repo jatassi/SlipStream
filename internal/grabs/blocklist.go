@@ -149,12 +149,12 @@ func (e BlockEntry) because() string {
 		return e.Client + " couldn't read it."
 	case CauseMarkedFailed:
 		if e.By.Name == "" {
-			return "Marked failed through the API key."
+			return "An app using the API key marked its download failed."
 		}
 		return e.By.Name + " marked its download failed."
 	case CauseByHand:
 		if e.By.Name == "" {
-			return "Blocklisted through the API key when its Grab was canceled."
+			return "An app using the API key blocklisted it when canceling its Grab."
 		}
 		return e.By.Name + " blocklisted it when canceling its Grab."
 	case CauseNoVideo:

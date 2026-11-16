@@ -53,23 +53,23 @@ type ServerView struct {
 	ID              string         `json:"id" format:"uuid"`
 	Kind            api.Enum[Kind] `json:"kind"`
 	Name            string         `json:"name"`
-	Address         string         `json:"address" doc:"What the reaching Node calls, such as http://localhost:8096"`
-	FallbackAddress string         `json:"fallbackAddress,omitempty" doc:"What the Controller calls; absent when it calls address"`
-	BrowserAddress  string         `json:"browserAddress,omitempty" doc:"Where Open in sends a browser, for Jellyfin and Emby; absent for no Open in button"`
+	Address         string         `json:"address" doc:"The address the Connect from Node uses, such as http://localhost:8096"`
+	FallbackAddress string         `json:"fallbackAddress,omitempty" doc:"The address the Controller uses while the Connect from Node is offline; absent when it uses address"`
+	BrowserAddress  string         `json:"browserAddress,omitempty" doc:"The address the Open in button opens, for Jellyfin and Emby; absent when there is no Open in button"`
 	Version         string         `json:"version" doc:"As the server last reported it"`
 	Identity        string         `json:"identity" doc:"Plex's machineIdentifier, or the Jellyfin or Emby server Id"`
 	ReachingNode    NodeRef        `json:"reachingNode" doc:"The Node that sends changes and watches sessions"`
 	RunsOnNode      *NodeRef       `json:"runsOnNode,omitempty" doc:"The Node the server runs on; absent when it runs on no Node"`
-	Fallback        string         `json:"fallback" enum:"available,none,untested" doc:"Whether the Controller reaches the server itself, which it does while the reaching Node is offline"`
+	Fallback        string         `json:"fallback" enum:"available,none,untested" doc:"Whether the Controller can connect to the server itself, which it does while the Connect from Node is offline"`
 	CheckedAt       *time.Time     `json:"checkedAt,omitempty" doc:"When both routes were last tested"`
-	Contact         string         `json:"contact" enum:"unknown,responding,not_responding,sign_in_refused,other_server" doc:"As the reaching Node last reported it; unknown until it reports and while it is offline"`
+	Contact         string         `json:"contact" enum:"unknown,responding,not_responding,sign_in_refused,other_server" doc:"As the Connect from Node last reported it; unknown until it reports and while it is offline"`
 	ContactSince    *time.Time     `json:"contactSince,omitempty"`
 	Sends           string         `json:"sends" enum:"ok,failing"`
 	LastContactAt   *time.Time     `json:"lastContactAt,omitempty"`
 	LastSendAt      *time.Time     `json:"lastSendAt,omitempty"`
 	Unhealthy       *Unhealthy     `json:"unhealthy,omitempty" doc:"Set while the server is unhealthy"`
 	State           State          `json:"state"`
-	MappingsNeeded  int            `json:"mappingsNeeded" minimum:"0" doc:"Shown roots without a confirmed Path mapping"`
+	MappingsNeeded  int            `json:"mappingsNeeded" minimum:"0" doc:"Roots with shown true and no confirmed Path mapping"`
 	PlexPass        *bool          `json:"plexPass,omitempty" doc:"Plex only: whether the signed-in account has Plex Pass"`
 }
 
@@ -119,11 +119,11 @@ type LibraryView struct {
 
 type MappingView struct {
 	RootID       string   `json:"rootId" format:"uuid"`
-	RootName     string   `json:"rootName" doc:"The root as copy names it, such as Movies library root on Media server"`
+	RootName     string   `json:"rootName" doc:"The root's display name, such as Movies library root on Media server"`
 	RootNode     NodeRef  `json:"rootNode" doc:"The Storage Node whose disk holds the root"`
-	Shown        bool     `json:"shown" doc:"false for a root this server doesn't show, which gets no changes"`
-	ServerFolder string   `json:"serverFolder,omitempty" doc:"The root's folder as the server sees it; absent when not shown"`
-	Library      *Library `json:"library,omitempty" doc:"The library the folder sits inside; absent when not shown"`
+	Shown        bool     `json:"shown" doc:"false for a root that isn't in one of this server's libraries, which gets no changes"`
+	ServerFolder string   `json:"serverFolder,omitempty" doc:"The path the server uses for the root's folder; absent when shown is false"`
+	Library      *Library `json:"library,omitempty" doc:"The library the folder sits inside; absent when shown is false"`
 	Guess        bool     `json:"guess" doc:"SlipStream pre-filled the folder from shared trailing folder names"`
 	Confirmed    bool     `json:"confirmed" doc:"false while a guess or after the root was re-homed, and changes under it wait"`
 	Scanned      bool     `json:"scanned" doc:"The server has content under the folder, or a full scan of its library ended"`
@@ -169,23 +169,23 @@ type SessionView struct {
 }
 
 type Sessions struct {
-	Reachable bool          `json:"reachable" doc:"false while the reaching Node is offline, when sessions is empty"`
+	Reachable bool          `json:"reachable" doc:"false while the Connect from Node is offline, when sessions is empty"`
 	Sessions  []SessionView `json:"sessions" nullable:"false"`
 }
 
 type HolderView struct {
 	Node      NodeRef   `json:"node"`
 	FetchedAt time.Time `json:"fetchedAt"`
-	Current   bool      `json:"current" doc:"The server's reaching Node now"`
+	Current   bool      `json:"current" doc:"This Node is the server's Connect from Node now"`
 }
 
 type RouteTest struct {
 	OK    bool   `json:"ok"`
-	Words string `json:"words" doc:"What the test found, such as Den reached Living room Plex."`
+	Words string `json:"words" doc:"What the test found, such as Den connected to Living room Plex."`
 }
 
 type Tested struct {
-	Reaching   RouteTest `json:"reaching" doc:"From the reaching Node at address"`
+	Reaching   RouteTest `json:"reaching" doc:"From the Connect from Node at address"`
 	Controller RouteTest `json:"controller" doc:"From the Controller at the fallback address"`
 	Fallback   string    `json:"fallback" enum:"available,none,untested"`
 }
@@ -233,7 +233,7 @@ type PlexConnection struct {
 	URI         string    `json:"uri" format:"uri"`
 	Local       bool      `json:"local"`
 	HTTPS       bool      `json:"https"`
-	ReachedFrom []Reached `json:"reachedFrom" nullable:"false" doc:"The Controller and each Node that holds Media Server link"`
+	ReachedFrom []Reached `json:"reachedFrom" nullable:"false" doc:"The Controller and each Node with the Media Server link Role"`
 }
 
 type PlexServerView struct {

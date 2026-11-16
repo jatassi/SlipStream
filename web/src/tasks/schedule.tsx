@@ -9,7 +9,7 @@ import { Section } from "../ui/section";
 import { SettingField, SettingGroup } from "../ui/setting-field";
 
 const summary = ({ jitterPercent, jitterCap, headerDelay, partialWarnIntervals }: TasksSchedule) =>
-  `Interval tasks start up to ${countWords(jitterPercent.value, jitterPercent.unit)} late, at most ${durationWords(jitterCap.value)}. A scheduled run shows in the header after ${durationWords(headerDelay.value)}. A Partial run warns once a unit has gone ${countWords(partialWarnIntervals.value, partialWarnIntervals.unit)} without success.`;
+  `Tasks that repeat on an interval start up to ${countWords(jitterPercent.value, jitterPercent.unit)} late, at most ${durationWords(jitterCap.value)}. The top bar shows a scheduled run after ${durationWords(headerDelay.value)}. Health warns when one of a task's units hasn't succeeded for ${countWords(partialWarnIntervals.value, partialWarnIntervals.unit)}.`;
 
 export function Schedule({ settings }: { settings: TasksSchedule }) {
   const queryClient = useQueryClient();

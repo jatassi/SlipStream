@@ -246,7 +246,7 @@ func TestWorkHomedOnANodeWaitsForItWithinTheGraceThenMoves(t *testing.T) {
 	in := cluster()
 	in.node(box).seen = start.Add(31 * time.Minute)
 	in.detach(box, start.Add(31*time.Minute))
-	offline := "seedbox is offline since 2000-01-01T21:31:00Z"
+	offline := "seedbox has been offline since Jan 1 21:31 UTC"
 	for _, step := range []struct {
 		at    time.Time
 		away  Absence
@@ -296,10 +296,10 @@ func TestWhyNamesEveryHolderThatMayNot(t *testing.T) {
 	in.detach(box, start)
 	in.node(box).mismatched = true
 	if got, want := in.at(start.Add(2*time.Minute)).Who(role.Searching).Why(),
-		"seedbox is on another version since 2000-01-01T21:00:00Z and crate is offline since 2000-01-01T21:00:00Z"; got != want {
+		"seedbox has run another version of SlipStream since Jan 1 21:00 UTC and crate has been offline since Jan 1 21:00 UTC"; got != want {
 		t.Errorf("Why() = %q, want %q", got, want)
 	}
-	if got, want := in.at(start).Who(role.Relaying).Why(), "no Node holds Relaying"; got != want {
+	if got, want := in.at(start).Who(role.Relaying).Why(), "no Node has the Relaying Role"; got != want {
 		t.Errorf("Why() for an unheld Role = %q, want %q", got, want)
 	}
 	if got := in.at(start).Who(role.Metadata).Why(); got != "" {

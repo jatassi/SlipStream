@@ -88,7 +88,7 @@ export function AddForm({
         }}
       />
       <p className={note}>
-        Adding doesn&apos;t search. To search now, use Search on its Work page.
+        {`Adding a ${type.work.one.toLowerCase()} doesn't start a search. To search now, open its page and select Search.`}
       </p>
       <DialogActions>
         <DialogClose>

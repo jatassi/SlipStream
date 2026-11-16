@@ -20,7 +20,7 @@ const outcomeOrder: Record<GrabsListedReleaseOutcome, number> = {
   refused: 4,
 };
 
-/** The grabbed Release first, then the ones not taken, outranked and kept, then the refused ones. */
+/** The grabbed release first, then the ones not taken, outranked and kept, then the refused ones. */
 const byOutcome = (releases: readonly GrabsListedRelease[]): GrabsListedRelease[] =>
   releases.toSorted((a, b) => outcomeOrder[a.outcome] - outcomeOrder[b.outcome]);
 
@@ -54,7 +54,7 @@ type Opened = { search: GrabsSearch; onTest: (title: string) => void };
 function SearchReleases({ search, onTest }: Opened) {
   const { releases, names } = useRunNames(search);
   if (releases.length === 0) {
-    return <p className="text-ink-3">A later search of this Item replaced this list.</p>;
+    return <p className="text-ink-3">A later search replaced this list.</p>;
   }
   return (
     <ul aria-label="Releases" className="flex flex-col divide-y divide-hairline">
@@ -69,7 +69,7 @@ function SearchReleases({ search, onTest }: Opened) {
 export function RunReleases({ search, onTest }: Opened) {
   return (
     <Details>
-      <Suspense fallback={<Skeleton label="Loading the Releases" />}>
+      <Suspense fallback={<Skeleton label="Loading the releases" />}>
         <SearchReleases search={search} onTest={onTest} />
       </Suspense>
     </Details>

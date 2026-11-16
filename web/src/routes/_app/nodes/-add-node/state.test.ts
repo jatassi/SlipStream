@@ -78,7 +78,7 @@ test("a used code waits for its Node's row, then names who dials whom", () => {
     addNodeState(
       facts({ answer: used, nodes: [home, { ...vps, dial: { by: "node", controllerDials: [] } }] }),
     ),
-  ).toMatchObject({ kind: "paired", reached: "vps dials home" });
+  ).toMatchObject({ kind: "paired", reached: "vps connects to home" });
   expect(
     addNodeState(
       facts({
@@ -89,7 +89,7 @@ test("a used code waits for its Node's row, then names who dials whom", () => {
         ],
       }),
     ),
-  ).toMatchObject({ kind: "paired", reached: "home dials vps" });
+  ).toMatchObject({ kind: "paired", reached: "home connects to vps" });
   expect(addNodeState(facts({ answer: used, nodes: [home, vps] }))).toMatchObject({
     kind: "paired",
     reached: "Not connected",

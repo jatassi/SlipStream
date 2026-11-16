@@ -52,7 +52,7 @@ test("adding Transmission sends only the fields it takes, tests it on its Node a
 
   await userEvent.click(adding().getByRole("button", { name: "Test" }));
   await expect
-    .element(adding().getByText("The Test passed. home reached Transmission 4.1.1."))
+    .element(adding().getByText("The Test passed. home connected to Transmission 4.1.1."))
     .toBeVisible();
   const draft = {
     nodeId: homeId,
@@ -109,7 +109,7 @@ test("a saved client shows its username, its secrets read Saved, and an edit sen
   await userEvent.fill(editing.getByRole("textbox", { name: "Name" }), "Attic");
   await userEvent.click(editing.getByRole("button", { name: "Test" }));
   await expect
-    .element(editing.getByText("The Test passed. home reached Transmission 4.1.1."))
+    .element(editing.getByText("The Test passed. home connected to Transmission 4.1.1."))
     .toBeVisible();
   await userEvent.click(editing.getByRole("button", { name: "Save" }));
   await expect.element(page.getByText("Saved Attic")).toBeVisible();
@@ -146,7 +146,7 @@ test("a failed Test shows its sentence and marks the fields it names, opening De
 
   clients.state.answers.test = testFailed(
     ["folder"],
-    "home can't open /downloads, the folder Transmission saves to. Under Client folders, pair /downloads with the folder home sees.",
+    "home can't open /downloads, the folder Transmission saves to. Under Remote path mappings, pair /downloads with the folder home sees.",
   );
   await userEvent.click(editing.getByRole("button", { name: "Test" }));
   await expect.element(editing.getByRole("textbox", { name: "Download folder" })).toBeVisible();
@@ -220,7 +220,7 @@ test("a Deluge whose web UI lists more than one daemon offers them and tests aga
   await pick("Daemon", "192.168.1.30:58846");
   await userEvent.click(adding().getByRole("button", { name: "Test" }));
   await expect
-    .element(adding().getByText("The Test passed. home reached Deluge 2.1.1."))
+    .element(adding().getByText("The Test passed. home connected to Deluge 2.1.1."))
     .toBeVisible();
   expect(clients.writes.at(-1)).toEqual({
     path: "test",

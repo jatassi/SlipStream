@@ -17,7 +17,7 @@ export function RefreshServer({ server }: { server: Server }) {
           setOpen(true);
         }}
       >
-        Refresh whole library
+        Refresh libraries
       </Button>
       <ConfirmDialog
         title={`Refresh every library on ${server.name}?`}
@@ -30,7 +30,7 @@ export function RefreshServer({ server }: { server: Server }) {
         }}
       >
         <p>
-          {`${server.name} scans each library its confirmed Path mappings lead into, which can take a while on a large library. Waiting changes in those libraries count as sent once ${server.name} accepts the refresh.`}
+          {`${server.name} scans every library a confirmed Path mapping points to. This can take a while on a large library. Waiting changes in those libraries count as sent once ${server.name} accepts the refresh.`}
         </p>
       </ConfirmDialog>
     </>

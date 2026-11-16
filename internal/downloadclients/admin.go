@@ -184,7 +184,7 @@ func fits(e External, s clients.Secrets) error {
 	return nil
 }
 
-var ErrNotDownloading = errors.New("the Node doesn't hold Downloading")
+var ErrNotDownloading = errors.New("the Node doesn't have the Downloading Role")
 
 // TestReport is what a passing Test of Subject learned.
 type TestReport struct {

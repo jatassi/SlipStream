@@ -37,7 +37,7 @@ export function ImportingSection() {
   return (
     <div className="flex flex-col gap-4">
       <Section title="Importing">
-        <Details summary="An Import takes a file of a download or a folder when its extension is a video extension and it is at least the smallest video file. After it reads a file's media info, a video that runs shorter than the sample share of its runtime is a sample. Library scan reads the extensions too, and never the size or the runtime rule.">
+        <Details summary="SlipStream imports a file from a download or a folder when its extension is one of the video file extensions and it's at least the smallest video file size. A video shorter than the Sample when shorter than share of its runtime is a sample, and SlipStream doesn't import it. Library scan checks only the extension.">
           <div className="mt-2 w-full">
             <SettingGroup>
               {settings.map((field) => {
@@ -58,7 +58,7 @@ export function ImportingSection() {
         </Details>
       </Section>
       <p className="text-ink-2">
-        How often Library scan runs is in{" "}
+        Set how often Library scan runs in Settings &gt;{" "}
         <Link
           to="/settings/$section"
           params={{ section: "library-scan" }}

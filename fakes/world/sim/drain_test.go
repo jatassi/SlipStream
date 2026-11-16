@@ -218,7 +218,7 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 			}
 			return failed.Stage == "failed" && forfeits(t, w) == 0
 		})
-		expectFailed(t, failed, "importing", "node_written_off", "The Admin wrote off what this Grab's Node downloads")
+		expectFailed(t, failed, "importing", "node_written_off", "An Admin had SlipStream stop waiting for the Node downloading this Grab.")
 
 		w.Node("seedbox").Start()
 		a = w.API()

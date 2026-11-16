@@ -196,7 +196,7 @@ export const getListOpenTaskRunsUrl = () => {
 };
 
 /**
- * @summary List every open run, with how long a scheduled one waits before the header shows it
+ * @summary List every open run, with how long a scheduled one waits before the top bar shows it
  */
 export const listOpenTaskRuns = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -290,7 +290,7 @@ export function useListOpenTaskRunsSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List every open run, with how long a scheduled one waits before the header shows it
+ * @summary List every open run, with how long a scheduled one waits before the top bar shows it
  */
 
 export function useListOpenTaskRunsSuspense<
@@ -680,7 +680,7 @@ export const getGetTaskUrl = (taskId: string) => {
 };
 
 /**
- * @summary Get one shown task with its units and its runs
+ * @summary Get one task with its units and its runs
  */
 export const getTask = async (
   taskId: string,
@@ -763,7 +763,7 @@ export function useGetTaskSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get one shown task with its units and its runs
+ * @summary Get one task with its units and its runs
  */
 
 export function useGetTaskSuspense<
@@ -905,7 +905,7 @@ export const getRunTaskUrl = (taskId: string) => {
 };
 
 /**
- * @summary Run a task now over every unit, or add each unit its open run lacks. Its schedule stays as it was
+ * @summary Run every unit of a task now, or start the units its open run doesn't have yet. Its schedule stays as it was
  */
 export const runTask = async (
   taskId: string,
@@ -963,7 +963,7 @@ export type RunTaskMutationError = ErrorType<
 export type RunTaskMutationVariables = { taskId: string };
 
 /**
- * @summary Run a task now over every unit, or add each unit its open run lacks. Its schedule stays as it was
+ * @summary Run every unit of a task now, or start the units its open run doesn't have yet. Its schedule stays as it was
  */
 export const useRunTask = <
   TError = ErrorType<RunTask401 | RunTask403 | RunTask404 | RunTask409 | RunTask422 | RunTask500>,

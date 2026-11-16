@@ -36,7 +36,7 @@ function EmailForm({ account, onDone }: { account: IdentityAccountRow; onDone: (
       }}
     >
       <p className="text-ink-2">
-        It changes at once, with no confirm link. SlipStream emails the old address about the
+        It changes at once, with no confirmation link. SlipStream emails the old address about the
         change.
       </p>
       <form.AppForm>

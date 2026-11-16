@@ -491,7 +491,7 @@ export const getPreviewCatalogRecordUrl = (contentType: string, key: string) => 
 };
 
 /**
- * @summary Read a record of a Content Type's metadata source as the Work adding it would make, without adding it or reading ratings
+ * @summary Preview the Work that adding a metadata record would create, without adding it or fetching ratings
  */
 export const previewCatalogRecord = async (
   contentType: string,
@@ -627,7 +627,7 @@ export function usePreviewCatalogRecordSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Read a record of a Content Type's metadata source as the Work adding it would make, without adding it or reading ratings
+ * @summary Preview the Work that adding a metadata record would create, without adding it or fetching ratings
  */
 
 export function usePreviewCatalogRecordSuspense<
@@ -963,7 +963,7 @@ export const getUpdateContentTypeSettingsUrl = (contentType: string) => {
 };
 
 /**
- * @summary Change a Content Type's own settings by key, all or none. Every Work of the type may then read differently
+ * @summary Change a Content Type's own settings by key, all or none. A change can alter every Work of the type, such as its availability dates
  */
 export const updateContentTypeSettings = async (
   contentType: string,
@@ -1060,7 +1060,7 @@ export type UpdateContentTypeSettingsMutationVariables = {
 };
 
 /**
- * @summary Change a Content Type's own settings by key, all or none. Every Work of the type may then read differently
+ * @summary Change a Content Type's own settings by key, all or none. A change can alter every Work of the type, such as its availability dates
  */
 export const useUpdateContentTypeSettings = <
   TError = ErrorType<

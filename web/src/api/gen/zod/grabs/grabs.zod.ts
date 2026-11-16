@@ -135,7 +135,7 @@ export const GetManualSearchQueryParams = zod.object({
 export const GetManualSearchResponse = GrabsManualSearch;
 
 /**
- * @summary Start a Manual search of a Work, or of some of its levels and Items or one cell. 200 answers the Work's Manual search when it already has this scope and query
+ * @summary Start a Manual search of a Work, or of some of its levels and Items, or of one Item at one Target. Responds 200 with the existing Manual search when it already has this scope and query
  */
 export const StartManualSearchParams = zod.object({
   workId: zod.uuid(),

@@ -9,10 +9,10 @@ export interface FilesCellList {
   cells: FilesCell[];
   /** Every Item in tree order */
   items: FilesItemStatus[];
-  /** What each level's cells add up to, in the order its first Item comes; empty for a type with no levels */
+  /** The states of each level's Items at their Targets, added up, in the order its first Item comes; empty for a type with no levels */
   levels: FilesLevelRollup[];
   /** What the Work needs from an Admin, failures first */
   needsYou: FilesNeed[];
-  /** What the cells add up to for the Work */
+  /** The states of the Work's Items at their Targets, added up */
   summary: FilesSummary;
 }

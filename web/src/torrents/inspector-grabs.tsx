@@ -14,7 +14,7 @@ import type { Names } from "./names";
 const grabStageWords: { readonly [S in DownloadclientsTorrentGrabStage]: string } = {
   downloading: "Downloading",
   importing: "Importing",
-  waiting: "Waiting for you",
+  waiting: "Waiting in Pending imports",
   imported: "Imported",
   failed: "Failed",
 };
@@ -73,7 +73,7 @@ export function Machinery({
           ],
           ["Added", sinceWords(detail.addedAt, clock)],
           ["Piece size", <Data key="p">{bytes(detail.pieceSize)}</Data>],
-          ["Private", detail.private ? "Yes, peers come only from its announce URLs" : "No"],
+          ["Private", detail.private ? "Yes, peers come only from its trackers" : "No"],
           [
             "Content Type",
             types.find((type) => type.id === detail.contentType)?.name ?? detail.contentType,

@@ -6,7 +6,7 @@ export type View = "diagram" | "roster";
 
 const views: readonly { readonly view: View; readonly label: string }[] = [
   { view: "diagram", label: "Diagram" },
-  { view: "roster", label: "Roster" },
+  { view: "roster", label: "List" },
 ];
 
 /** The landing's two views, beside the title. The one shown by default has no `view` in the address. */

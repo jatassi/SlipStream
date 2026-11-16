@@ -22,7 +22,7 @@ export interface TasksUnit {
   lastSuccessAt: string | null;
   /** The Node it runs on */
   node: string;
-  /** The Node it runs on now: where the roster routes portable work */
+  /** The Node it runs on now, which can change when Roles move between Nodes */
   nodeId: string;
   /** The Node it runs on was removed */
   nodeRemoved: boolean;

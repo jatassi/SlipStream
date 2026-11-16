@@ -30,7 +30,7 @@ const columns: readonly [Column<Row>, ...Column<Row>[]] = [
     header: "",
     cell: ({ entry, picking }) => (
       <Checkbox
-        label={`Pick ${entry.title}`}
+        label={`Select ${entry.title}`}
         hideLabel
         checked={picking.has(entry.infoHash)}
         onCheckedChange={(_, by) => {

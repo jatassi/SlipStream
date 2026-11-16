@@ -105,7 +105,7 @@ func resolve(global, own Pair, total int64) VolumeLevels {
 func ordered(v VolumeLevels) error {
 	w, e := v.Warn.Amount, v.Error.Amount
 	if w.Unit == e.Unit && e.N > w.N {
-		return &setting.RangeError{Key: StorageErrorBelow.Key, Sentence: fmt.Sprintf("No more than the warning level, %s.", w.Words())}
+		return &setting.RangeError{Key: StorageErrorBelow.Key, Sentence: fmt.Sprintf("Set the error level at or below the warning level, %s.", w.Words())}
 	}
 	return nil
 }

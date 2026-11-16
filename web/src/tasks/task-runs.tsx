@@ -50,7 +50,7 @@ function UnitLine({ unit }: { unit: TasksRunUnit }) {
 
 function RunUnits({ run }: { run: TasksRun }) {
   if (run.units.length === 0) {
-    return <p className="text-ink-3">Its units report when the run ends.</p>;
+    return <p className="text-ink-3">Each unit&apos;s outcome shows here when the run ends.</p>;
   }
   return (
     <ul aria-label="Units in this run" className="rounded-item bg-well">

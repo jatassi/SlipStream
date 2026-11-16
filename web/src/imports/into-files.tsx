@@ -53,8 +53,8 @@ function FileChoices({
     return (
       <p>
         {entry.files.length === 1
-          ? `Its file joins ${row.label}.`
-          : `Its ${filesWords(entry.files.length)} join ${row.label}.`}
+          ? `The file goes into ${row.label}.`
+          : `The ${filesWords(entry.files.length)} go into ${row.label}.`}
       </p>
     );
   }

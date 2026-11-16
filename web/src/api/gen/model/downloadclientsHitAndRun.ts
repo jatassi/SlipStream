@@ -3,11 +3,11 @@ import type { DownloadclientsOwes } from "./downloadclientsOwes.ts";
 import type { DownloadclientsTrackerRef } from "./downloadclientsTrackerRef.ts";
 
 export interface DownloadclientsHitAndRun {
-  /** What meets the rule it owes, or none while no rule is known */
+  /** What meets its Tracker's rule, or none while no rule is known */
   clears: DownloadclientsHitAndRunClears;
-  /** What it still owes, absent while its Tracker's rule isn't known */
+  /** What it still needs, absent while its Tracker's rule isn't known */
   owes?: DownloadclientsOwes;
   torrentId: string;
-  /** The Tracker it owes, null while that Tracker isn't known */
+  /** The Tracker it needs more seeding for, null while that Tracker isn't known */
   tracker: DownloadclientsTrackerRef | null;
 }

@@ -278,7 +278,7 @@ func TestLoginOutcomeIsRecordedOnce(t *testing.T) {
 		requested []string
 	}{
 		{"a refused key", "typo", "", 0, metadata.Refused, works.ErrRefused, "refused the key: 401 Unauthorized", []string{"/login"}},
-		{"a refused PIN", "k", "0000", 0, metadata.PinRefused, works.ErrRefused, "refused the PIN", []string{"/login"}},
+		{"a refused PIN", "k", "0000", 0, metadata.PinRefused, works.ErrPinRefused, "refused the PIN", []string{"/login"}},
 		{"no key", "", "", 0, metadata.Refused, works.ErrRefused, "can't be called without a key", nil},
 		{"a login that fails each try", "k", "", http.StatusBadGateway, metadata.Unreachable, works.ErrUnavailable, "responded with 502 Bad Gateway", []string{"/login", "/login", "/login"}},
 	} {

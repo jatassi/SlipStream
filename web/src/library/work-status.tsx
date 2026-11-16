@@ -40,9 +40,11 @@ function Mark({
   );
 }
 
-/** For a Work of many Items, how far along it is, such as "12 of 40 met". */
+/** For a Work of many Items, how far along it is, such as "12 of 40 episodes met". */
 const tallyOf = (work: LibraryWork) =>
-  work.type.items === "many" ? `${work.itemStatus.met ?? 0} of ${work.items} met` : undefined;
+  work.type.items === "many"
+    ? `${work.itemStatus.met ?? 0} of ${work.items} ${work.type.item.many.toLowerCase()} met`
+    : undefined;
 
 /** A Work's status in its words and icons. Failed carries its count of failed cells, such as "Failed 3". */
 export function WorkStatus({ work }: { work: LibraryWork }) {

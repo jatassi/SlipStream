@@ -646,7 +646,7 @@ export const getDeleteCustomFormatUrl = (formatId: string, params?: DeleteCustom
 };
 
 /**
- * @summary Delete a Custom Format and every Target's score for it, refilling the Works of the Targets that scored it, or preview the change's Impact
+ * @summary Delete a Custom Format and every Target's score for it, and re-rank the files of every Work whose Targets scored it, or preview what the change would do
  */
 export const deleteCustomFormat = async (
   formatId: string,
@@ -722,7 +722,7 @@ export type DeleteCustomFormatMutationVariables = {
 };
 
 /**
- * @summary Delete a Custom Format and every Target's score for it, refilling the Works of the Targets that scored it, or preview the change's Impact
+ * @summary Delete a Custom Format and every Target's score for it, and re-rank the files of every Work whose Targets scored it, or preview what the change would do
  */
 export const useDeleteCustomFormat = <
   TError = ErrorType<
@@ -934,7 +934,7 @@ export const getUpdateCustomFormatUrl = (formatId: string, params?: UpdateCustom
 };
 
 /**
- * @summary Replace a Custom Format's name, renaming flag and conditions, refilling the Works of the Targets that score it, or preview the change's Impact
+ * @summary Replace a Custom Format's name, renaming flag and conditions, and re-rank the files of every Work whose Targets score it, or preview what the change would do
  */
 export const updateCustomFormat = async (
   formatId: string,
@@ -1035,7 +1035,7 @@ export type UpdateCustomFormatMutationVariables = {
 };
 
 /**
- * @summary Replace a Custom Format's name, renaming flag and conditions, refilling the Works of the Targets that score it, or preview the change's Impact
+ * @summary Replace a Custom Format's name, renaming flag and conditions, and re-rank the files of every Work whose Targets score it, or preview what the change would do
  */
 export const useUpdateCustomFormat = <
   TError = ErrorType<

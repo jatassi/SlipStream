@@ -38,7 +38,7 @@ test("a Work with files stays in its library root, and Delete takes its files fr
   });
   await dialog.getByRole("combobox", { name: "Library root" }).click();
   await page.getByRole("option", { name: /archive/u }).click();
-  const stays = `${orchard} has files, so it stays in its library root. Moving a Work that has files isn't supported yet.`;
+  const stays = `${orchard} has files, so it stays in its library root. SlipStream can't move files between library roots yet.`;
   await expect(dialog.getByText(stays)).toBeVisible();
   await dialog.getByRole("button", { name: "Set library root" }).click();
   await expect(toasts(page)).toContainText(`Set the library root of ${saltRoad}. ${stays}`);

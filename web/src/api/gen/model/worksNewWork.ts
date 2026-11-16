@@ -11,11 +11,11 @@ export interface WorksNewWork {
    * @maxLength 200
    */
   key: string;
-  /** Put a new Work's files in a folder per level; left out, the type's add default. Unread for a Content Type with no levels */
+  /** Put a new Work's files in a folder per level; left out, the type's add default. Ignored for a Content Type with no levels */
   levelFolders?: boolean;
   /** The monitoring preset a new Work's Items follow; left out, the type's add default. Adding a Work already in the library changes nothing */
   preset?: WorksNewWorkPreset;
-  /** The Profile of the Content Type a new Work wants from; left out, the type's default */
+  /** The Profile the new Work gets; left out, the type's default */
   profileId?: string;
   /** Make each choice given here its type's default for the next add. Adding a Work already in the library changes no default */
   remember?: boolean;

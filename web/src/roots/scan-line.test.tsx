@@ -125,7 +125,7 @@ test("Cancel library scan cancels the whole run the root's unit is in", async ()
   await expect
     .element(
       page.getByText(
-        "Library scan canceled for every root in the run. It keeps what it already recorded.",
+        "Library scan canceled for every root in the run. The files it already recorded stay recorded.",
       ),
     )
     .toBeVisible();
@@ -160,7 +160,7 @@ test("a stopped scan shows why, and Mark them gone states the count before it ma
 test("Mark them gone after the stop cleared says no files are waiting", async () => {
   serveRoots({
     roots: [{ ...filmsRoot, scan: stopped }],
-    gone: () => refused(409, "scan_not_stopped", "The root's last library scan didn't stop"),
+    gone: () => refused(409, "scan_not_stopped", "No files are waiting to be marked gone"),
   });
   openRoots();
   await act(filmsRoot, "Mark them gone");
@@ -169,7 +169,7 @@ test("Mark them gone after the stop cleared says no files are waiting", async ()
   await expect
     .element(
       dialog.getByText(
-        "This root's last library scan didn't stop, so no files are waiting to be marked gone.",
+        "No files are waiting to be marked gone. The root's last library scan finished without stopping.",
       ),
     )
     .toBeVisible();

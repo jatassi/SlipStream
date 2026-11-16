@@ -33,12 +33,12 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
     "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKWWEBDL-1080p1080pImported",
     { timeout: 60_000 },
   );
-  await expect(page.getByText("Nothing moving · 1 imported")).toBeVisible();
+  await expect(page.getByText("Nothing in progress · 1 imported")).toBeVisible();
 
   await page.getByRole("link", { name: "The Quiet Orchard", exact: true }).click();
   const file = page.getByRole("list", { name: "Files" }).getByRole("listitem");
   await expect(file).toContainText(
-    "The Quiet Orchard (2021) - 1080p.mkvThe Quiet Orchard (2021) · Fills 1080pWEBDL-1080p · 1920×1080",
+    "The Quiet Orchard (2021) - 1080p.mkvThe Quiet Orchard (2021) · Used for 1080pWEBDL-1080p · 1920×1080",
   );
 
   const completed = await world.fw.capture("announces").list({ where: { event: "completed" } });

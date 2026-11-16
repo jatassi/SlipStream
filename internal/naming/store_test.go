@@ -126,7 +126,7 @@ func refusedWith(t *testing.T, err error, want ...naming.Problem) {
 
 const (
 	defaultName = "Attic/Box 01/Attic - B01T01 - Scarf 1080p.mkv"
-	noTarget    = "The file name has no {Target}. Add {Target} so each file of a Work gets its own name."
+	noTarget    = "The file name has no {Target}. Add {Target} so the file for each Target gets its own name."
 )
 
 func TestAStoredTemplateNamesTheNextFileAndAChangeIsPublished(t *testing.T) {
@@ -198,7 +198,7 @@ func TestTheSaveCheckNamesSamplesWithinTheSmallestRootBudget(t *testing.T) {
 	err := s.naming.Panel(shelf).Apply(t.Context(), patch(map[string]string{"shelf.naming.colon": `"dash"`}))
 	refusedWith(t, err, naming.Problem{
 		Key:      "shelf.naming.file.standard",
-		Sentence: `For the sample "A scarf" with a Standard file, the path in the root is 39 bytes long and the limit there is 30 bytes. Shorten the template.`,
+		Sentence: `For the sample "A scarf" with a Standard file, the path in the root is 39 bytes, and the root allows 30. Shorten the template.`,
 	})
 }
 

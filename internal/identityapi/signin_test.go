@@ -33,22 +33,22 @@ func (n *node) signInFrom(from, email, pin string, headers map[string]string) an
 }
 
 func waitProblem(code, title string, until time.Time, seconds int) answer {
-	body := fmt.Sprintf(`{"status":429,"code":%q,"title":%q,"detail":"You can try again at %s.","until":%q}`,
+	body := fmt.Sprintf(`{"status":429,"code":%q,"title":%q,"detail":"Try again at %s.","until":%q}`,
 		code, title, until.UTC().Format("15:04"), until.UTC().Format(time.RFC3339)) + "\n"
 	return answer{status: 429, body: body, retryAfter: strconv.Itoa(seconds)}
 }
 
 var (
 	wrongAnswer = answer{status: 401, body: pinWrong}
-	offAnswer   = answer{status: 403, body: problem(403, "pin_off", "This PIN is turned off. Use a passkey or ask an Admin for a Reset link.")}
+	offAnswer   = answer{status: 403, body: problem(403, "pin_off", "This PIN is locked after too many wrong PINs. Sign in with a passkey or ask an Admin for a Reset link.")}
 )
 
 func pinWaitAnswer(until time.Time, seconds int) answer {
-	return waitProblem("pin_wait", "Too many wrong PINs. Wait before trying again.", until, seconds)
+	return waitProblem("pin_wait", "Too many wrong PINs", until, seconds)
 }
 
 func tooManyAnswer(until time.Time) answer {
-	return waitProblem("too_many_attempts", "Too many failed attempts from this address. Wait before trying again.", until, 900)
+	return waitProblem("too_many_attempts", "Too many failed sign-ins from this IP address", until, 900)
 }
 
 func want(t *testing.T, step string, got, want answer) {
@@ -65,8 +65,8 @@ func TestAWaitSaysWhenToTryAgainInTheNodesZone(t *testing.T) {
 		for i := 1; i <= 5; i++ {
 			want(t, fmt.Sprintf("wrong PIN %d", i), n.signInFrom("192.0.2.1:1", "admin@example.com", "9999", nil), wrongAnswer)
 		}
-		body := `{"status":429,"code":"pin_wait","title":"Too many wrong PINs. Wait before trying again.",` +
-			`"detail":"You can try again at 09:15.","until":"2000-01-01T00:15:00Z"}` + "\n"
+		body := `{"status":429,"code":"pin_wait","title":"Too many wrong PINs",` +
+			`"detail":"Try again at 09:15.","until":"2000-01-01T00:15:00Z"}` + "\n"
 		want(t, "the right PIN during the wait", n.signInFrom("192.0.2.1:1", "admin@example.com", "1234", nil), answer{status: 429, body: body, retryAfter: "900"})
 	})
 }
@@ -105,7 +105,7 @@ func TestFiveWrongPINsWaitAndTenTurnThePINOff(t *testing.T) {
 		want(t, "the right PIN once it is off", n.signInFrom("192.0.2.1:1", "admin@example.com", "1234", nil), offAnswer)
 		notice := n.mail.Wait(t, "admin@example.com")
 		synctest.Wait()
-		if notice.Subject != "Your SlipStream PIN was turned off" || !strings.HasPrefix(notice.Text, "Someone typed the wrong PIN for admin@example.com 10 times in a row") {
+		if notice.Subject != "Your SlipStream PIN is locked" || !strings.HasPrefix(notice.Text, "Someone typed the wrong PIN for admin@example.com 10 times in a row") {
 			t.Fatalf("notice = %q %q", notice.Subject, notice.Text)
 		}
 		if sent := n.mail.Sent(); len(sent) != 1 {
@@ -315,7 +315,7 @@ func TestEverySettingHasAFloorAndACeiling(t *testing.T) {
 		{"pinWaitAfter", 5, 3, 10, `,"pinOffAfter":20`, "Between 3 and 10 wrong PINs."},
 		{"pinWait", 900, 60, 86400, "", "Between 1 min and 1 day."},
 		{"pinOffAfter", 10, 4, 20, `,"pinWaitAfter":3`, "Between 4 and 20 wrong PINs."},
-		{"addressFailures", 30, 10, 1000, "", "Between 10 and 1000 attempts."},
+		{"addressFailures", 30, 10, 1000, "", "Between 10 and 1000 sign-ins."},
 		{"addressWindow", 900, 60, 86400, "", "Between 1 min and 1 day."},
 		{"reconfirmWindow", 900, 60, 86400, "", "Between 1 min and 1 day."},
 		{"sessionLifetime", 2592000, 3600, 31536000, "", "Between 1 h and 365 days."},
@@ -384,7 +384,7 @@ func TestTheAddressIsAnOriginWithAName(t *testing.T) {
 	expect(t, put(`{"address":"http://192.168.1.4:8484"}`), 422,
 		problem(422, "address_ip", "The address must be a name, not an IP address"))
 	expect(t, put(`{"address":"ftp://media.example.com"}`), 422,
-		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body.address","message":"expected http:// or https:// then a host name and an optional port"}]}`+"\n")
+		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"body.address","message":"Start with http:// or https://, then a host name and an optional port, such as https://slipstream.example.com."}]}`+"\n")
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/identity/address", host: "media.example.com:8484", headers: apiKey}), 200,
 		`{"address":"https://media.example.com","suggestedAddress":"http://media.example.com:8484"}`+"\n")
 }

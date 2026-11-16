@@ -89,7 +89,7 @@ func TestTheRootViewCarriesItsLastScanAndTheRunningStep(t *testing.T) {
 func TestMarkThemGoneConfirmsOnlyAStoppedScan(t *testing.T) {
 	s := serve(t)
 	id := s.create(t, body("fixture", t.TempDir()))
-	notStopped := `{"status":409,"code":"scan_not_stopped","title":"The root's last library scan didn't stop"}`
+	notStopped := `{"status":409,"code":"scan_not_stopped","title":"No files are waiting to be marked gone"}`
 	s.Expect(t, http.MethodPost, "/api/v1/roots/"+id+"/gone", "", http.StatusConflict, notStopped)
 	s.compared(t, id, 0, 0, nil)
 	s.Expect(t, http.MethodPost, "/api/v1/roots/"+id+"/gone", "", http.StatusConflict, notStopped)

@@ -278,9 +278,9 @@ func parseResponse(c *ix, r *port.IndexerResponse) ([]port.TorrentInfo, error) {
 
 	if jsonResponse.Data == nil {
 		if jsonResponse.Message != "" {
-			return nil, port.IndexerError("the Indexer's search response holds no Releases: %s", jsonResponse.Message)
+			return nil, port.IndexerError("the Indexer's search response has no releases: %s", jsonResponse.Message)
 		}
-		return nil, port.IndexerError("the Indexer's search response holds no Releases")
+		return nil, port.IndexerError("the Indexer's search response has no releases")
 	}
 
 	hasUserVip := slices.ContainsFunc(vipFreeleechUserClasses, func(class string) bool { return strings.EqualFold(class, c.Derived["userClass"]) })
@@ -422,11 +422,11 @@ func orderedValues(s string) ([]string, error) {
 // SlipStream: the mam_id is the pasted session's cookie, so it isn't a
 // setting here.
 type myAnonamouseSettings struct {
-	SearchType          myAnonamouseSearchType       `port:"searchType" label:"Search type" default:"0" help:"MyAnonamouse searches only Releases of this type."`
-	SearchInDescription bool                         `port:"searchInDescription" label:"Search in descriptions" help:"Also match the search text in each Release's description."`
+	SearchType          myAnonamouseSearchType       `port:"searchType" label:"Search type" default:"0" help:"MyAnonamouse searches only releases of this type."`
+	SearchInDescription bool                         `port:"searchInDescription" label:"Search in descriptions" help:"Also match the search text in each release's description."`
 	SearchInSeries      bool                         `port:"searchInSeries" label:"Search in series" help:"Also match the search text in series names."`
-	SearchInFilenames   bool                         `port:"searchInFilenames" label:"Search in file names" help:"Also match the search text in the names of each Release's files."`
-	SearchLanguages     []myAnonamouseSearchLanguage `port:"searchLanguages" label:"Search languages" help:"Search only Releases in these languages. With none chosen, every language is searched."`
+	SearchInFilenames   bool                         `port:"searchInFilenames" label:"Search in file names" help:"Also match the search text in the names of each release's files."`
+	SearchLanguages     []myAnonamouseSearchLanguage `port:"searchLanguages" label:"Search languages" help:"Search only releases in these languages. With none chosen, every language is searched."`
 	UseFreeleechWedge   bool                         `port:"useFreeleechWedge" label:"Use freeleech wedges" help:"Spend a freeleech wedge on each Grab that isn't freeleech. The wedge makes the torrent freeleech for your account."`
 }
 
@@ -445,7 +445,7 @@ const (
 // adds.
 func (myAnonamouseSearchType) Options() []port.Option {
 	return []port.Option{
-		{Value: "0", Label: "All Releases"},
+		{Value: "0", Label: "All releases"},
 		{Value: "1", Label: "Only active, with a seeder at the last update"},
 		{Value: "2", Label: "Freeleech"},
 		{Value: "3", Label: "Freeleech or VIP"},

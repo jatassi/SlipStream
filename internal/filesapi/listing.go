@@ -26,11 +26,11 @@ type ListedFile struct {
 	Codec      api.Nullable[api.Enum[videoCodec]] `json:"codec" doc:"Its video codec in the words a Target filters on; null for a codec they have no word for"`
 	Cut        string                             `json:"cut" doc:"The key of its own cut"`
 	Label      string                             `json:"label" doc:"The Target name its file name carries, before any suffix"`
-	Kept       bool                               `json:"kept" doc:"A Kept file, which fills no cell"`
-	Fills      []fill                             `json:"fills" nullable:"false" doc:"The cells it fills; empty for a Kept or gone file"`
+	Kept       bool                               `json:"kept" doc:"A Kept file, which no Target uses"`
+	Fills      []fill                             `json:"fills" nullable:"false" doc:"The Items and Targets it is the file for; empty for a Kept or gone file"`
 	ModifiedAt *time.Time                         `json:"modifiedAt" doc:"Its modification time as a library scan or its import last read it; null until one did"`
 	GoneAt     *time.Time                         `json:"goneAt" doc:"When a library scan found it missing from its root; null while it is there"`
-	ProbeError *string                            `json:"probeError" doc:"The first line ffprobe printed when the last library scan couldn't read it, and media is then the read before; null when that read worked"`
+	ProbeError *string                            `json:"probeError" doc:"The first line ffprobe printed when the last library scan couldn't read the file, in which case media is from the read before; null when the last read worked"`
 	Media      api.Nullable[mediaInfo]            `json:"media" doc:"What ffprobe read of it; null for a file read before SlipStream kept its tracks"`
 	PlacedBy   api.Nullable[string]               `json:"placedBy" enum:"link,clone,copy,transfer,move,in_place" doc:"How its import put it into the library; null for a file no import recorded"`
 	Grab       api.Nullable[fileGrab]             `json:"grab" doc:"The Grab whose download it came from; null for a file no Grab brought"`
@@ -43,7 +43,7 @@ type fileGrab struct {
 
 type fill struct {
 	ItemID   string `json:"itemId" format:"uuid"`
-	Edition  string `json:"edition" doc:"any under any cut, else the key of the cut the cell wants"`
+	Edition  string `json:"edition" doc:"any under any cut, else the key of the cut this Item needs at this Target"`
 	TargetID string `json:"targetId" format:"uuid"`
 }
 

@@ -54,14 +54,14 @@ const duration = (key: string, label: string, value: number) => ({
 const identitySettings: IdentitySettings = {
   pinWaitAfter: count("pinWaitAfter", "Wrong PINs before a wait", 5, 3, 10),
   pinWait: duration("pinWait", "Wait after too many wrong PINs", 900),
-  pinOffAfter: count("pinOffAfter", "Wrong PINs in a row before the PIN turns off", 10, 6, 20),
-  addressFailures: count("addressFailures", "Failed attempts per address", 30, 10, 1000),
-  addressWindow: duration("addressWindow", "Per-address window", 900),
-  reconfirmWindow: duration("reconfirmWindow", "Re-confirm window", 900),
+  pinOffAfter: count("pinOffAfter", "Wrong PINs in a row before the PIN locks", 10, 6, 20),
+  addressFailures: count("addressFailures", "Failed sign-ins from one IP address", 30, 10, 1000),
+  addressWindow: duration("addressWindow", "Count failed sign-ins over", 900),
+  reconfirmWindow: duration("reconfirmWindow", "Ask to confirm it's you again after", 900),
   sessionLifetime: duration("sessionLifetime", "Session lifetime", 2_592_000),
   signupLinkLifetime: duration("signupLinkLifetime", "Signup link lifetime", 604_800),
   resetLinkLifetime: duration("resetLinkLifetime", "Reset link lifetime", 86_400),
-  emailLinkLifetime: duration("emailLinkLifetime", "Email confirm link lifetime", 86_400),
+  emailLinkLifetime: duration("emailLinkLifetime", "Email confirmation link lifetime", 86_400),
 };
 
 const mail: MailSettings = {
@@ -101,7 +101,7 @@ test("a plain-HTTP address at a .localhost name holds passkeys, so it gets no wa
   });
   await expect.element(field("Address")).toHaveValue("http://home.localhost:8484");
   await expect
-    .element(page.getByText("Signup, Reset and email links use this address."))
+    .element(page.getByText("Signup, Reset and email confirmation links use this address."))
     .toBeVisible();
   await userEvent.fill(field("Address"), "http://media-pc:8484");
   await expect
@@ -265,8 +265,8 @@ test("Sign-in groups its settings and saves one, reading them again after", asyn
       .map((heading) => heading.element().textContent),
   ).toEqual([
     "Wrong PINs",
-    "Failed attempts from one address",
-    "Sessions and re-confirm",
+    "Failed sign-ins from one IP address",
+    "Sessions and confirmation",
     "Link lifetimes",
   ]);
   const readsBefore = reads;

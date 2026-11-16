@@ -21,9 +21,9 @@ test("typing groups the library's Works, then the catalog's results, then comman
   await openFromCapsule();
   await userEvent.keyboard("or");
 
-  await expect.poll(groupLabels).toEqual(["Works", "Add a Film", "Commands"]);
+  await expect.poll(groupLabels).toEqual(["Works", "Add a film", "Commands"]);
   expect(optionTexts("Works")).toEqual(["The Quiet Orchard2021 · Film · Missing"]);
-  expect(optionTexts("Add a Film")).toEqual([
+  expect(optionTexts("Add a film")).toEqual([
     "The Quiet Orchard2021",
     "Orchard Harvest2019 · In the library",
     "See all resultsFilms",
@@ -39,14 +39,14 @@ test("the Add groups hold every type's results, and one its source doesn't list 
   await openFromCapsule();
   await userEvent.keyboard("or");
 
-  await expect.poll(groupLabels).toEqual(["Works", "Add a Film", "Add an Anthology", "Commands"]);
-  expect(optionTexts("Add an Anthology")).toEqual([
+  await expect.poll(groupLabels).toEqual(["Works", "Add a film", "Add an anthology", "Commands"]);
+  expect(optionTexts("Add an anthology")).toEqual([
     "The Long ShelfHarbor Press",
-    "The Lost ShelfTide Books · Fixture source doesn't list this anthology. SlipStream needs Fixture source to keep it up to date.",
+    "The Lost ShelfTide Books · Fixture source doesn't list this anthology, so it can't be added. SlipStream gets the details of each anthology from Fixture source.",
     "See all resultsAnthologies",
   ]);
   await userEvent.click(
-    group("Add an Anthology").getByRole("option", { name: /^The Lost Shelf/u }),
+    group("Add an anthology").getByRole("option", { name: /^The Lost Shelf/u }),
   );
   await expect.element(palette()).not.toBeInTheDocument();
   expect(router.state.location.href).toBe("/add?contentType=anthology&query=or");
@@ -71,7 +71,7 @@ test("the catalog is asked once typing pauses, and never for one character", asy
   expect(server.searched).toEqual([]);
 
   await userEvent.keyboard("rch");
-  await expect.poll(() => optionTexts("Add a Film")).toHaveLength(3);
+  await expect.poll(() => optionTexts("Add a film")).toHaveLength(3);
   await wait(600);
   expect(server.searched).toEqual(["orch"]);
 });
@@ -82,7 +82,7 @@ test("typing replaces the query in place and pushes no history entry", async () 
   const before = router.history.length;
   await openFromCapsule();
   await userEvent.keyboard("orchard");
-  await expect.poll(() => optionTexts("Add a Film")).toHaveLength(3);
+  await expect.poll(() => optionTexts("Add a film")).toHaveLength(3);
   expect(router.history.length).toBe(before);
   expect(router.state.location.href).toBe("/activity");
 });
@@ -91,7 +91,7 @@ test("a catalog result already in the library opens its Work page", async () => 
   const { router } = renderApp({ path: "/activity", handlers: library().handlers });
   await openFromCapsule();
   await userEvent.keyboard("orch");
-  await userEvent.click(group("Add a Film").getByRole("option", { name: /^Orchard Harvest/u }));
+  await userEvent.click(group("Add a film").getByRole("option", { name: /^Orchard Harvest/u }));
   await expect.poll(() => router.state.location.pathname).toBe(`/works/${harvestId}`);
   await expect.element(palette()).not.toBeInTheDocument();
 });
@@ -100,7 +100,7 @@ test("any other catalog result opens the add sheet over the page", async () => {
   const { router } = renderApp({ path: "/activity", handlers: library().handlers });
   await openFromCapsule();
   await userEvent.keyboard("orch");
-  await userEvent.click(group("Add a Film").getByRole("option", { name: /^The Quiet Orchard/u }));
+  await userEvent.click(group("Add a film").getByRole("option", { name: /^The Quiet Orchard/u }));
   const sheet = page.getByRole("dialog", { name: "Add The Quiet Orchard" });
   await expect.element(sheet.getByText(/^Adds The Quiet Orchard \(2021\)/u)).toBeVisible();
   await expect.element(palette()).not.toBeInTheDocument();
@@ -111,6 +111,6 @@ test("See all results opens the add page with the query", async () => {
   const { router } = renderApp({ path: "/activity", handlers: library().handlers });
   await openFromCapsule();
   await userEvent.keyboard("orch");
-  await userEvent.click(group("Add a Film").getByRole("option", { name: /^See all results/u }));
+  await userEvent.click(group("Add a film").getByRole("option", { name: /^See all results/u }));
   await expect.poll(() => router.state.location.href).toBe("/add?contentType=cinema&query=orch");
 });

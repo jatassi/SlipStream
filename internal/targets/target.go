@@ -73,7 +73,7 @@ type Filters struct {
 	Language Filter[release.Language]
 }
 
-var ErrBadFilter = errors.New("a filter is Any with values, Only or Not with none, or names a value twice")
+var ErrBadFilter = errors.New("a filter set to Only or Not needs at least one value, Any takes none, and no value can repeat")
 
 // ParseMode reads a mode by name: any, only or not.
 func ParseMode(s string) (Mode, error) {
@@ -231,6 +231,30 @@ var (
 	ErrBadIncrement       = errors.New("the score increment is below 1")
 )
 
+// SpecError is a Spec that NewTarget refused, Err, with the part it
+// names: Tier, from 1, for an empty tier, or Quality, a size's when Size
+// is set.
+type SpecError struct {
+	Err     error
+	Quality release.Quality
+	Tier    int
+	Size    bool
+}
+
+func (e *SpecError) Error() string {
+	switch {
+	case e.Tier > 0:
+		return fmt.Sprintf("%s: tier %d is empty", e.Err, e.Tier)
+	case e.Size:
+		return fmt.Sprintf("%s: the size for %s", e.Err, e.Quality)
+	case errors.Is(e.Err, ErrBadTiers):
+		return fmt.Sprintf("%s: %s twice", e.Err, e.Quality)
+	}
+	return fmt.Sprintf("%s: the cutoff %s", e.Err, e.Quality)
+}
+
+func (e *SpecError) Unwrap() error { return e.Err }
+
 // NewTarget checks s and lays it out as a Target with no id yet.
 func NewTarget(s Spec) (Target, error) {
 	tiers, cutoff, err := layTiers(s.Tiers, s.Cutoff)
@@ -239,10 +263,10 @@ func NewTarget(s Spec) (Target, error) {
 	}
 	for q, size := range s.Sizes {
 		if _, _, ok := (Target{Tiers: tiers}).accepted(q); !ok {
-			return Target{}, fmt.Errorf("%w: a size for %s", ErrQualityNotInTarget, q)
+			return Target{}, &SpecError{Err: ErrQualityNotInTarget, Quality: q, Size: true}
 		}
 		if size.Min < 0 || math.IsNaN(size.Min) || size.Max != nil && (math.IsNaN(*size.Max) || *size.Max < size.Min) {
-			return Target{}, fmt.Errorf("%w: %s", ErrBadSize, q)
+			return Target{}, &SpecError{Err: ErrBadSize, Quality: q, Size: true}
 		}
 	}
 	for _, tier := range tiers {
@@ -276,7 +300,7 @@ func layTiers(qualities [][]release.Quality, cutoff release.Quality) ([]Tier, in
 	at := -1
 	for i, qs := range qualities {
 		if len(qs) == 0 {
-			return nil, 0, fmt.Errorf("%w: tier %d is empty", ErrBadTiers, i+1)
+			return nil, 0, &SpecError{Err: ErrBadTiers, Tier: i + 1}
 		}
 		if slices.Contains(qs, cutoff) {
 			at = i
@@ -284,7 +308,7 @@ func layTiers(qualities [][]release.Quality, cutoff release.Quality) ([]Tier, in
 		tier := make(Tier, len(qs))
 		for j, q := range qs {
 			if slices.Contains(seen, q) {
-				return nil, 0, fmt.Errorf("%w: %s twice", ErrBadTiers, q)
+				return nil, 0, &SpecError{Err: ErrBadTiers, Quality: q}
 			}
 			seen = append(seen, q)
 			tier[j] = Accepted{Quality: q, Size: Floor(q)}
@@ -292,7 +316,7 @@ func layTiers(qualities [][]release.Quality, cutoff release.Quality) ([]Tier, in
 		tiers = append(tiers, tier)
 	}
 	if at < 0 {
-		return nil, 0, fmt.Errorf("%w: the cutoff %s", ErrQualityNotInTarget, cutoff)
+		return nil, 0, &SpecError{Err: ErrQualityNotInTarget, Quality: cutoff}
 	}
 	return tiers, at, nil
 }

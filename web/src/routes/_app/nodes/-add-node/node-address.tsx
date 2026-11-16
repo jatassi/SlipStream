@@ -48,7 +48,7 @@ function AddressForm({ id, controller }: { id: string; controller: string }) {
         </form.AppField>
         <form.FormAlert />
         <div className="flex justify-end">
-          <form.SubmitButton label={`${controller} dials it`} />
+          <form.SubmitButton label={`Connect from ${controller}`} />
         </div>
       </form.AppForm>
     </form>

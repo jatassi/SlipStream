@@ -6,7 +6,7 @@ export interface MediaserversSignInBody {
   address: string;
   /** @minLength 1 */
   kind: string;
-  /** The reaching Node the draft names. The Controller signs in when it reaches the server, else this Node does */
+  /** The Connect from Node the draft names. The Controller signs in when it reaches the server, else this Node does */
   nodeId: string;
   /**
    * Write-only. Used for this one sign-in and never stored

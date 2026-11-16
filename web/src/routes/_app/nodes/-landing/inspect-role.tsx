@@ -17,7 +17,7 @@ function storageWords(storage: NodesStorageResource | undefined): string {
   }
   const held = countWords(storage.roots.length, roots);
   if (storage.volumes.length === 0) {
-    return `${held}, not checked yet`;
+    return `${held}, free space not checked yet`;
   }
   const free = storage.volumes.reduce((sum, volume) => sum + volume.free, 0);
   return `${held} on ${countWords(storage.volumes.length, volumes)}, ${bytes(free)} free`;
@@ -81,7 +81,9 @@ export function RoleWords({ node, chip }: { node: NodeRow; chip: RoleChip }) {
         <p>
           {chip.note === "" ? `${node.name} holds ${chip.label}.` : `${chip.label}: ${chip.note}.`}
         </p>
-        {!movesWithWork(chip.role) && <p className="mt-2 text-ink-3">No live figures yet</p>}
+        {!movesWithWork(chip.role) && (
+          <p className="mt-2 text-ink-3">No live figures for this Role</p>
+        )}
         {chip.role === "storage" && <StorageFigures storage={node.storage} />}
         {live && node.torrents.length === 0 && (
           <p className="mt-2 text-ink-3">No torrents right now.</p>

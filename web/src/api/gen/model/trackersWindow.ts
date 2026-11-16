@@ -7,14 +7,14 @@ export interface TrackersWindow {
   /** Whether it is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline */
   atRisk: TrackersWindowAtRisk;
   /**
-   * Its latest miss or release; a regrab keeps it
+   * When it was last missed or released; grabbing it again doesn't clear this
    * @nullable
    */
   closedAt: string | null;
   /** @pattern ^[0-9a-f]{40}$ */
   infoHash: string;
   /**
-   * When its Tracker's rule and the margin were met; null unless met
+   * When its Tracker's rule and the extra seeding time were met; null unless met
    * @nullable
    */
   metAt: string | null;
@@ -22,12 +22,12 @@ export interface TrackersWindow {
   name: string;
   /** Its torrent's first downloaded byte */
   openedAt: string;
-  /** What its latest miss still owed; null before a miss */
+  /** What it still needed when it was last missed; null before a miss */
   owed: TrackersOwed | null;
-  /** What it still needs to meet its Tracker's rule and the margin; null unless it owes under a known rule */
+  /** What it still needs to meet its Tracker's rule and the extra seeding time; null when it needs nothing or the rule isn't known */
   owes: TrackersOwed | null;
   /**
-   * When it stopped seeding while it owes; null while it seeds
+   * When it stopped seeding while it still needed seeding; null while it seeds
    * @nullable
    */
   quietSince: string | null;
@@ -36,7 +36,7 @@ export interface TrackersWindow {
    * @nullable
    */
   regrabbedAt: string | null;
-  /** The rule it snapshot when it opened; null while none is known */
+  /** The rule recorded when the window opened; null while none is known */
   rule: TrackersRuleShape | null;
   state: TrackersWindowState;
   /** Its live Torrents' ids, in added order; empty once none is live */

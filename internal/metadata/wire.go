@@ -80,6 +80,7 @@ var failureKinds = []struct {
 	kind metadatav1.FailureKind
 }{
 	{works.ErrNotFound, metadatav1.FailureKind_FAILURE_KIND_NOT_FOUND},
+	{works.ErrPinRefused, metadatav1.FailureKind_FAILURE_KIND_PIN_REFUSED},
 	{works.ErrRefused, metadatav1.FailureKind_FAILURE_KIND_REFUSED},
 	{works.ErrUnavailable, metadatav1.FailureKind_FAILURE_KIND_UNAVAILABLE},
 	{works.ErrInvalid, metadatav1.FailureKind_FAILURE_KIND_INVALID},
