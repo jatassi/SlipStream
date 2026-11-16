@@ -15,8 +15,6 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-
-	"github.com/jatassi/slipstream/fakes/capturescript"
 )
 
 func main() {
@@ -47,20 +45,29 @@ func main() {
 	os.Exit(*exit)
 }
 
+// run is what the fake keeps as a capturescript.Run. The binary doesn't
+// import the fake, which would build the whole Node into it.
+type run struct {
+	Argv  []string          `json:"argv"`
+	Env   map[string]string `json:"env"`
+	Event json.RawMessage   `json:"event"`
+	Exit  int               `json:"exit"`
+}
+
 func send(url string, exit int) error {
-	run := capturescript.Run{Argv: os.Args, Env: map[string]string{}, Exit: exit}
+	r := run{Argv: os.Args, Env: map[string]string{}, Exit: exit}
 	for _, kv := range os.Environ() {
 		name, value, _ := strings.Cut(kv, "=")
-		run.Env[name] = value
+		r.Env[name] = value
 	}
 	if path := os.Getenv("NOTIFICATION_EVENT_FILE"); path != "" {
 		event, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("read the event file: %w", err)
 		}
-		run.Event = event
+		r.Event = event
 	}
-	body, err := json.Marshal(run)
+	body, err := json.Marshal(r)
 	if err != nil {
 		return fmt.Errorf("encode the run: %w", err)
 	}
