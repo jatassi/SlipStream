@@ -50,6 +50,13 @@ systemctl disable --now systemd-timesyncd > /dev/null 2>&1 || true
 # Jobs on different runners run apt at the same time, so apt waits for the
 # lock instead of failing.
 echo 'DPkg::Lock::Timeout "900";' > /etc/apt/apt.conf.d/90slipstream-ci-lock
+# The timeout covers dpkg's lock but not the download cache's, so two
+# Playwright installs failed at once. apt and apt-get in /usr/local/sbin,
+# ahead of /usr/bin in root's and sudo's PATH, take turns.
+for tool in apt apt-get; do
+  printf '#!/bin/sh\nexec flock /run/slipstream-ci-apt.lock /usr/bin/%s "$@"\n' "$tool" > "/usr/local/sbin/$tool"
+  chmod 755 "/usr/local/sbin/$tool"
+done
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
   build-essential ca-certificates curl gawk gh git iproute2 jq python3 sudo systemd-oomd unzip xz-utils zip zstd > /dev/null
