@@ -76,7 +76,7 @@ func (s SMTP) Send(ctx context.Context, m Message) (Outcome, error) {
 }
 
 // deliver runs the envelope and the data itself rather than through
-// go-mail's Send, whose errors hide the server's reply and where it came.
+// go-mail's Send, whose errors hide the server's reply and its step.
 func (s SMTP) deliver(c *smtp.Client, to Address, msg *gomail.Msg) (Step, error) {
 	if err := c.Mail(s.Server.From.Email); err != nil {
 		return StepFrom, fmt.Errorf("MAIL FROM: %w", err)

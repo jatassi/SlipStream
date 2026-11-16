@@ -72,8 +72,8 @@ type Env struct {
 	// Media probes video files: the bundled ffprobe for a process, which
 	// Run finds beside the executable.
 	Media media.Prober
-	// Scripts runs Custom Scripts for the Notifying Role: processes with a
-	// clean environment for a process.
+	// Scripts runs the Notifying Role's Custom Scripts: a ProcessRunner for
+	// a process.
 	Scripts notifying.Runner
 	// Disk opens every filesystem call the Storage Role makes, with data
 	// the folder no root may overlap: the OS's own for a process.
