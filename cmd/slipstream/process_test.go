@@ -701,6 +701,8 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.media_servers.index_age", Value: "24h0m0s", Default: "24h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_INDEX_AGE"},
 			{Key: "timings.media_servers.sent_age", Value: "168h0m0s", Default: "168h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_SENT_AGE"},
 			{Key: "timings.media_servers.index_page", Value: "500", Default: "500", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_INDEX_PAGE"},
+			{Key: "timings.notifications.send", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NOTIFICATIONS_SEND"},
+			{Key: "timings.notifications.ladder", Value: "1m0s,5m0s,15m0s,30m0s,1h0m0s,3h0m0s,6h0m0s,12h0m0s", Default: "1m0s,5m0s,15m0s,30m0s,1h0m0s,3h0m0s,6h0m0s,12h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NOTIFICATIONS_LADDER"},
 		},
 		Census: []string{
 			"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.plex_tv.api", "endpoints.plex_tv.auth", "endpoints.plex_tv.desktop", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog",

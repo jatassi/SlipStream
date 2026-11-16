@@ -38,6 +38,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/node/surface"
+	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/ports/all"
 	"github.com/jatassi/slipstream/internal/ports/port"
@@ -219,6 +220,10 @@ type Node struct {
 	cacheRand *rand.Rand
 	// systemRand draws the Controller's waits on an offline Node's log.
 	systemRand *rand.Rand
+	// notificationsRand draws the jitter of a failing connection's retries.
+	notificationsRand *rand.Rand
+	// notifications records events and sends them, on a Controller.
+	notifications *notifications.Service
 	// host is what NodeSystemService serves for this Node, and hostMu
 	// orders its reports to the holder half.
 	host   *nodeHost
@@ -429,6 +434,7 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	n.tasksRand = streams.Stream("tasks")
 	n.metadataRand = streams.Stream("metadata")
 	n.cacheRand = streams.Stream("metadata-cache")
+	n.notificationsRand = streams.Stream("notifications")
 	if err := n.startTorrent(cfg, l, streams.Stream("torrent"), streams.Stream("download-clients")); err != nil {
 		return 0, "", err
 	}
