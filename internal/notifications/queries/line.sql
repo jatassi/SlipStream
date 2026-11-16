@@ -7,6 +7,3 @@ VALUES (sqlc.arg(connection_id), sqlc.arg(state), sqlc.arg(state_at), sqlc.narg(
 ON CONFLICT (connection_id) DO UPDATE SET
     state = excluded.state, state_at = excluded.state_at, reason = excluded.reason, attempts = excluded.attempts,
     next_at = excluded.next_at, revision = excluded.revision, last_sent_at = excluded.last_sent_at, given_up = excluded.given_up;
-
--- name: AddGivenUp :exec
-UPDATE notifications_line SET given_up = given_up + sqlc.arg(n) WHERE connection_id = sqlc.arg(connection_id);

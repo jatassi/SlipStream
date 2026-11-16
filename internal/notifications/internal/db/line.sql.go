@@ -11,20 +11,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-const addGivenUp = `-- name: AddGivenUp :exec
-UPDATE notifications_line SET given_up = given_up + ?1 WHERE connection_id = ?2
-`
-
-type AddGivenUpParams struct {
-	N            int64
-	ConnectionID ConnectionID
-}
-
-func (q *Queries) AddGivenUp(ctx context.Context, arg AddGivenUpParams) error {
-	_, err := q.db.ExecContext(ctx, addGivenUp, arg.N, arg.ConnectionID)
-	return err
-}
-
 const listLines = `-- name: ListLines :many
 SELECT connection_id, state, state_at, reason, attempts, next_at, revision, last_sent_at, given_up FROM notifications_line ORDER BY connection_id
 `
