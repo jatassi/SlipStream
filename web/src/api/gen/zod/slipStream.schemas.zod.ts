@@ -3943,10 +3943,8 @@ export type GrabsIndexerLine = zod.input<typeof GrabsIndexerLine>;
 export type GrabsIndexerLineOutput = zod.output<typeof GrabsIndexerLine>;
 
 export const GrabsItemRange = zod.object({
-  first: zod.string().describe("The label of the first Item of the run"),
-  last: zod
-    .string()
-    .describe("The label of the last Item of the run, the first's for a run of one"),
+  first: zod.string().describe("The code of the first Item of the run, such as S02E01"),
+  last: zod.string().describe("The code of the last Item of the run, the first's for a run of one"),
 });
 
 export type GrabsItemRange = zod.input<typeof GrabsItemRange>;
@@ -5000,7 +4998,9 @@ export const GrabsWantedRow = zod.object({
   others: zod
     .record(zod.string(), zod.int())
     .describe("The count of Items under each other reason, by reason"),
-  ranges: zod.array(GrabsItemRange).describe("The Items it lists, as runs in tree order"),
+  ranges: zod
+    .array(GrabsItemRange)
+    .describe("The Items it lists, as runs in tree order; empty for a Work of one Item"),
   reason: zod
     .enum(["failed", "missing", "upgrade", "gone"])
     .describe("The reason the row lists, the first in this order the Work has"),
