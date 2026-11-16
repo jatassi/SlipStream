@@ -23,7 +23,7 @@ export interface GrabsWantedRow {
   nextSearchAt: string | null;
   /** The count of Items under each other reason, by reason */
   others: GrabsWantedRowOthers;
-  /** The Items it lists, as runs in tree order */
+  /** The Items it lists, as runs in tree order; empty for a Work of one Item */
   ranges: GrabsItemRange[];
   /** The reason the row lists, the first in this order the Work has */
   reason: GrabsWantedRowReason;

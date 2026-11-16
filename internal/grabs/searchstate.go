@@ -184,6 +184,8 @@ type states struct {
 	runs    []db.ListRunItemsRow
 	waits   []db.ListWaitsRow
 	backlog bool
+	// upgrades is whether Backlog search looks for upgrades.
+	upgrades bool
 }
 
 func readStates(ctx context.Context, r storage.Reader[file], ws works.Among[works.WorkID]) (states, error) {
@@ -215,7 +217,7 @@ func readStates(ctx context.Context, r storage.Reader[file], ws works.Among[work
 	if err != nil {
 		return states{}, err
 	}
-	s.backlog = BacklogOn.Value(settings.BacklogOn)
+	s.backlog, s.upgrades = BacklogOn.Value(settings.BacklogOn), BacklogUpgrades.Value(settings.BacklogUpgrades)
 	return s, nil
 }
 
