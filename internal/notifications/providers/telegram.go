@@ -50,7 +50,7 @@ var telegram = Provider{
 	Build:    buildTelegram,
 	Classify: reading{image: true, auth: "botToken", gone: "botToken", own: telegramAnswer}.classify,
 	Words: map[ReasonCode]string{
-		ChatNotFound: "Telegram responded that it can't find this chat. Check the chat id, and that the bot is in the chat.",
+		ChatNotFound: "Telegram responded that the chat doesn't exist or the bot isn't in it. Check the chat id, and add the bot to the chat.",
 		Unauthorized: "Telegram responded that the bot can't send to this chat. Check the bot token, and that the bot is still in the chat.",
 		Gone:         "Telegram responded that there is no bot with this token. Paste the token BotFather gave you.",
 	},
