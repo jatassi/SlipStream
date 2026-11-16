@@ -21,14 +21,17 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/link"
+	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/notifications"
+	notificationproviders "github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/notifying"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
@@ -135,6 +138,7 @@ func (n *Node) startController(ctx context.Context) error {
 		seeding      *trackers.Trackers
 		pipeline     *grabs.Grabs
 		scheduler    *tasks.Scheduler
+		meta         *metadata.Metadata
 		searchQueue  = &searches.Late{}
 	)
 	clients := downloadclients.New(downloadclients.Config{
@@ -226,12 +230,19 @@ func (n *Node) startController(ctx context.Context) error {
 	})
 	linked = mediaserverlink.Def.Serve(servers.Intent, servers.Apply)
 	n.notifications = notifications.New(notifications.Config{
-		Library: lib.db,
-		Sealer:  lib.sealer,
-		Timings: n.cfg.Timings.Notifications,
-		Rand:    n.notificationsRand,
-		Zone:    n.zone(),
-		Log:     n.rootLog.With("subsystem", "notifications"),
+		Library:   lib.db,
+		Sealer:    lib.sealer,
+		Providers: notificationproviders.Table,
+		Courier:   lateCourier{&cluster},
+		Roster:    openedRoster{&side},
+		Mail:      lib.mail,
+		Artwork:   lateArtwork{&meta},
+		Changed:   unboundChanged{},
+		Seen:      unboundSeen{},
+		Timings:   n.cfg.Timings.Notifications,
+		Rand:      n.notificationsRand,
+		Zone:      n.zone(),
+		Log:       n.rootLog.With("subsystem", "notifications"),
 	})
 	arrivals := roots.NewArrivals()
 	var systems *nodesystem.Nodes
@@ -300,7 +311,7 @@ func (n *Node) startController(ctx context.Context) error {
 		providers[i] = t.Provider()
 	}
 	typeChanged := works.TypeChangedEvent.Bind(n.hub)
-	meta, err := metadata.Open(ctx, metadata.Config{
+	meta, err = metadata.Open(ctx, metadata.Config{
 		Library: lib.db,
 		Sealer:  lib.sealer,
 		Roster:  side,
@@ -316,6 +327,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Minter:      lib.minter,
 		Local:       local,
 		ArtworkDir:  n.env.DataDir.ArtworkDir(),
+		Sources:     holder.Sources(),
 	})
 	if err != nil {
 		return err
@@ -529,7 +541,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Tidy: func(node role.NodeID) housekeepingv1connect.HousekeepingServiceHandler {
 				return housekeepingv1connect.HousekeepingService.On(cluster, node)
 			},
-			Steps: []housekeeping.Step{{Key: "indexer-queries", Label: "Indexer queries and sessions", Run: registry.Prune}, servers.Housekeeping()},
+			Steps: []housekeeping.Step{{Key: "indexer-queries", Label: "Indexer queries and sessions", Run: registry.Prune}, servers.Housekeeping(), n.notifications.Housekeeping()},
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
@@ -591,6 +603,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Now: n.today, Released: pipeline.Released, Log: n.rootLog.With("subsystem", "availability"),
 	}).Run)
 	n.claimed.Go("health", h.health.Run)
+	n.claimed.Go("notifications", n.notifications.Run)
 	n.claimed.Go("first setup", h.firstRun.Run)
 	n.env.Test.started(started)
 	return nil
@@ -626,6 +639,50 @@ func (r openedRoster) Holds(name role.Name, node role.NodeID) bool {
 func (r openedRoster) Draining(name role.Name, node role.NodeID) bool {
 	return (*r.side).Draining(name, node)
 }
+
+func (r openedRoster) Pick(name role.Name, prefer role.NodeID) (role.NodeID, bool) {
+	return (*r.side).Pick(name, prefer)
+}
+
+func (r openedRoster) Name(node role.NodeID) string { return (*r.side).Name(node) }
+
+// lateCourier reaches the Nodes once the cluster opens: notifications is
+// made before the nodes service, which the cluster runs over.
+type lateCourier struct{ cluster **rpc.Cluster }
+
+func (c lateCourier) Post(ctx context.Context, node role.NodeID, r notifying.Request) (notifying.Response, error) {
+	return notifying.Client{Cluster: *c.cluster}.Post(ctx, node, r)
+}
+
+func (c lateCourier) Run(ctx context.Context, node role.NodeID, s notifying.Script) (notifying.Ran, error) {
+	return notifying.Client{Cluster: *c.cluster}.Run(ctx, node, s)
+}
+
+func (c lateCourier) Send(ctx context.Context, node role.NodeID, s mail.Server, m mail.Message) (mail.Outcome, error) {
+	return notifying.Client{Cluster: *c.cluster}.Send(ctx, node, s, m)
+}
+
+// lateArtwork is the metadata store once it opens.
+type lateArtwork struct{ meta **metadata.Metadata }
+
+func (a lateArtwork) Image(ctx context.Context, ref artwork.Ref, size artwork.Size) (artwork.Image, error) {
+	return (*a.meta).Image(ctx, ref, size)
+}
+
+func (a lateArtwork) PublicURL(ref artwork.Ref, size artwork.Size) (string, error) {
+	return (*a.meta).PublicURL(ref, size)
+}
+
+// unboundChanged and unboundSeen stand in for notifications' live events
+// until they join surface.Events with the screens that read them.
+type (
+	unboundChanged struct{}
+	unboundSeen    struct{}
+)
+
+func (unboundChanged) Publish(context.Context, notifications.Changed) {}
+
+func (unboundSeen) Publish(context.Context, storage.UUID, notifications.Seen) {}
 
 // lateTasks is the Scheduled tasks once they open: the Media Servers and
 // grabs are made before them, since the tasks' catalog lists their tasks.

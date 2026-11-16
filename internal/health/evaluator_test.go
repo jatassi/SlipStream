@@ -323,6 +323,11 @@ func TestEachChangeIsOneTransition(t *testing.T) {
 		if cleared.Subject != "Media server" || cleared.Text != "Media server is slow to answer." || cleared.Level() != health.Warn {
 			t.Fatalf("cleared transition %+v, want the last words at warn", cleared)
 		}
+		for _, tr := range w.sink.ts {
+			if !tr.Since.Equal(raisedAt) {
+				t.Fatalf("%s transition since %v, want %v, when the item appeared", tr.Kind, tr.Since, raisedAt)
+			}
+		}
 		if len(items(t, r, health.NodesID)) != 0 || r.Level != health.None || r.First != nil {
 			t.Fatalf("after the clear the report is %+v, want nothing wrong", r)
 		}
@@ -483,6 +488,28 @@ func TestARestartKeepsSince(t *testing.T) {
 		}
 		if got := w.sink.kinds(); !slices.Equal(got, []health.Kind{health.Raised}) {
 			t.Fatalf("transitions %v, want the one raise before the restart", got)
+		}
+	})
+}
+
+func TestAClearAfterARestartKeepsSinceAndNamesTheCategory(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWorld(t)
+		w.nodes.set(health.Answer{Items: []health.Item{node(health.Fail, "Media server is offline.")}}, nil)
+		since := time.Now()
+		stop := run(t, w.open(t))
+		synctest.Wait()
+		stop()
+		time.Sleep(time.Hour)
+		w.nodes.set(health.Answer{}, nil)
+		run(t, w.open(t))
+		synctest.Wait()
+		ts := w.sink.ts
+		if len(ts) != 2 || ts[1].Kind != health.Cleared {
+			t.Fatalf("transitions %+v, want the raise, then the clear", ts)
+		}
+		if got := ts[1]; got.Subject != "Nodes: an item that cleared while SlipStream was stopped" || !got.Since.Equal(since) {
+			t.Fatalf("the clear after a restart is %q since %v, want the category's words since %v", got.Subject, got.Since, since)
 		}
 	})
 }
@@ -728,6 +755,18 @@ func TestAnEvaluationThatChangesNothingReadsNoStorage(t *testing.T) {
 			if c.ID == health.NodesID && c.Unread == "" {
 				t.Fatal("clearing an item with the library closed left nodes read, want why it couldn't be written")
 			}
+		}
+	})
+}
+
+func TestTheFirstEvaluationAfterAStartHandsOverItsTransitions(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWorld(t)
+		w.nodes.set(health.Answer{Items: []health.Item{node(health.Fail, "Media server is offline.")}}, nil)
+		run(t, w.open(t))
+		synctest.Wait()
+		if got := w.sink.kinds(); !slices.Equal(got, []health.Kind{health.Raised}) {
+			t.Fatalf("with no event published the start handed over %v, want one raise", got)
 		}
 	})
 }

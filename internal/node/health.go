@@ -42,16 +42,17 @@ func storageParts(h *half) health.StorageParts {
 
 func (n *Node) openHealth(ctx context.Context, lib *storage.DB[storage.Library], h *half) (*health.Health, error) {
 	return health.Open(ctx, health.Config{
-		Library:    lib,
-		Hub:        n.hub,
-		Changed:    health.ChangedEvent.Bind(n.hub),
-		Storage:    storageParts(h),
-		Categories: healthCategories(h),
-		Names:      liveNames,
-		Roster:     h.nodes,
-		Zone:       n.zone(),
-		Timings:    n.cfg.Timings.Health,
-		Log:        n.rootLog.With("subsystem", "health"),
+		Library:     lib,
+		Hub:         n.hub,
+		Changed:     health.ChangedEvent.Bind(n.hub),
+		Storage:     storageParts(h),
+		Categories:  healthCategories(h),
+		Names:       liveNames,
+		Roster:      h.nodes,
+		Zone:        n.zone(),
+		Timings:     n.cfg.Timings.Health,
+		Log:         n.rootLog.With("subsystem", "health"),
+		Transitions: n.notifications.Transitions,
 	})
 }
 

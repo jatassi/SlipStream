@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -146,13 +147,18 @@ func (q *Queries) ReplaceItem(ctx context.Context, arg ReplaceItemParams) error 
 const waitingItem = `-- name: WaitingItem :one
 SELECT i.event_id, i."key", i.level, i.subject, i.text, i.since_at, i.cleared_at FROM notifications_item i
 JOIN notifications_event e ON e.id = i.event_id
-WHERE i.key = ?1 AND e.released_at IS NULL
+WHERE i.key = ?1 AND e.kind = ?2 AND e.released_at IS NULL
 ORDER BY i.event_id DESC
 LIMIT 1
 `
 
-func (q *Queries) WaitingItem(ctx context.Context, key string) (NotificationsItem, error) {
-	row := q.db.QueryRowContext(ctx, waitingItem, key)
+type WaitingItemParams struct {
+	Key  string
+	Kind notice.Kind
+}
+
+func (q *Queries) WaitingItem(ctx context.Context, arg WaitingItemParams) (NotificationsItem, error) {
+	row := q.db.QueryRowContext(ctx, waitingItem, arg.Key, arg.Kind)
 	var i NotificationsItem
 	err := row.Scan(
 		&i.EventID,

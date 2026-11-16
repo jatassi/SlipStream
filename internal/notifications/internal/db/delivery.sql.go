@@ -106,6 +106,32 @@ func (q *Queries) DeleteDelivery(ctx context.Context, arg DeleteDeliveryParams) 
 	return err
 }
 
+const getDelivery = `-- name: GetDelivery :one
+SELECT event_id, connection_id, state, attempts, items, accepted, ended_at, reason, response FROM notifications_delivery WHERE event_id = ?1 AND connection_id = ?2
+`
+
+type GetDeliveryParams struct {
+	EventID      EventID
+	ConnectionID ConnectionID
+}
+
+func (q *Queries) GetDelivery(ctx context.Context, arg GetDeliveryParams) (NotificationsDelivery, error) {
+	row := q.db.QueryRowContext(ctx, getDelivery, arg.EventID, arg.ConnectionID)
+	var i NotificationsDelivery
+	err := row.Scan(
+		&i.EventID,
+		&i.ConnectionID,
+		&i.State,
+		&i.Attempts,
+		&i.Items,
+		&i.Accepted,
+		&i.EndedAt,
+		&i.Reason,
+		&i.Response,
+	)
+	return i, err
+}
+
 const giveUp = `-- name: GiveUp :execrows
 UPDATE notifications_delivery
 SET state = 'given_up', ended_at = ?1, reason = ?2, response = ?3
@@ -148,6 +174,50 @@ type InsertDeliveryParams struct {
 func (q *Queries) InsertDelivery(ctx context.Context, arg InsertDeliveryParams) error {
 	_, err := q.db.ExecContext(ctx, insertDelivery, arg.EventID, arg.ConnectionID, arg.Items)
 	return err
+}
+
+const listDueIn = `-- name: ListDueIn :many
+SELECT event_id, connection_id FROM notifications_delivery
+WHERE state = 'due' AND event_id IN (/*SLICE:events*/?)
+ORDER BY event_id, connection_id
+`
+
+type ListDueInRow struct {
+	EventID      EventID
+	ConnectionID ConnectionID
+}
+
+func (q *Queries) ListDueIn(ctx context.Context, events []EventID) ([]ListDueInRow, error) {
+	query := listDueIn
+	var queryParams []interface{}
+	if len(events) > 0 {
+		for _, v := range events {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:events*/?", strings.Repeat(",?", len(events))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:events*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDueInRow
+	for rows.Next() {
+		var i ListDueInRow
+		if err := rows.Scan(&i.EventID, &i.ConnectionID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listDueOff = `-- name: ListDueOff :many
@@ -251,6 +321,21 @@ func (q *Queries) OldestDue(ctx context.Context, connectionID ConnectionID) (Not
 		&i.Response,
 	)
 	return i, err
+}
+
+const oldestDueAt = `-- name: OldestDueAt :one
+SELECT e.at FROM notifications_delivery d
+JOIN notifications_event e ON e.id = d.event_id
+WHERE d.state = 'due'
+ORDER BY d.event_id
+LIMIT 1
+`
+
+func (q *Queries) OldestDueAt(ctx context.Context) (storage.Time, error) {
+	row := q.db.QueryRowContext(ctx, oldestDueAt)
+	var at storage.Time
+	err := row.Scan(&at)
+	return at, err
 }
 
 const setItems = `-- name: SetItems :exec

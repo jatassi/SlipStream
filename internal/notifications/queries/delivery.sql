@@ -8,6 +8,9 @@ WHERE connection_id = sqlc.arg(connection_id) AND state = 'due'
 ORDER BY event_id
 LIMIT 1;
 
+-- name: GetDelivery :one
+SELECT * FROM notifications_delivery WHERE event_id = sqlc.arg(event_id) AND connection_id = sqlc.arg(connection_id);
+
 -- name: UpdateDue :exec
 UPDATE notifications_delivery
 SET attempts = sqlc.arg(attempts), accepted = sqlc.arg(accepted)
@@ -52,3 +55,15 @@ SELECT DISTINCT i.key, d.connection_id FROM notifications_item i
 JOIN notifications_delivery d ON d.event_id = i.event_id AND d.state = 'due'
 WHERE i.key IN (sqlc.slice(keys))
 ORDER BY i.key, d.connection_id;
+
+-- name: ListDueIn :many
+SELECT event_id, connection_id FROM notifications_delivery
+WHERE state = 'due' AND event_id IN (sqlc.slice(events))
+ORDER BY event_id, connection_id;
+
+-- name: OldestDueAt :one
+SELECT e.at FROM notifications_delivery d
+JOIN notifications_event e ON e.id = d.event_id
+WHERE d.state = 'due'
+ORDER BY d.event_id
+LIMIT 1;

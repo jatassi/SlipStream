@@ -5,7 +5,7 @@ VALUES (sqlc.arg(event_id), sqlc.arg(key), sqlc.arg(level), sqlc.arg(subject), s
 -- name: WaitingItem :one
 SELECT i.* FROM notifications_item i
 JOIN notifications_event e ON e.id = i.event_id
-WHERE i.key = sqlc.arg(key) AND e.released_at IS NULL
+WHERE i.key = sqlc.arg(key) AND e.kind = sqlc.arg(kind) AND e.released_at IS NULL
 ORDER BY i.event_id DESC
 LIMIT 1;
 

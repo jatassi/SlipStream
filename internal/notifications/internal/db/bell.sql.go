@@ -127,14 +127,14 @@ func (q *Queries) ListFeed(ctx context.Context, arg ListFeedParams) ([]ListFeedR
 }
 
 const newestSeq = `-- name: NewestSeq :one
-SELECT COALESCE(MAX(seq), 0) FROM notifications_shown
+SELECT seq FROM notifications_shown ORDER BY seq DESC LIMIT 1
 `
 
-func (q *Queries) NewestSeq(ctx context.Context) (interface{}, error) {
+func (q *Queries) NewestSeq(ctx context.Context) (Seq, error) {
 	row := q.db.QueryRowContext(ctx, newestSeq)
-	var coalesce interface{}
-	err := row.Scan(&coalesce)
-	return coalesce, err
+	var seq Seq
+	err := row.Scan(&seq)
+	return seq, err
 }
 
 const newestSeqAt = `-- name: NewestSeqAt :one
