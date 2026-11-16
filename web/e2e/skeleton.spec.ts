@@ -21,7 +21,7 @@ test("an Admin adds a movie, its search on add grabs it, and it imports", async 
   );
   await expect(page.getByRole("heading", { name: "The Quiet Orchard", exact: true })).toBeVisible();
   await expect(page.getByRole("list", { name: "Searches" })).toContainText(
-    /^Grabbed 1 ReleaseAdded · 2 Releases found · .+Fixture SiteFound 2 Releases/u,
+    /^Grabbed 1 releaseAdded · 2 Releases found · .+Fixture SiteFound 2 Releases/u,
   );
 
   await navigate(page, "Activity");

@@ -94,10 +94,10 @@ test("Items read as episode codes, a movie lists none, and a row never searched 
   await openWanted(page);
   if (isPhone(page)) {
     await expect(row(page, "The Lantern Keepers")).toContainText(
-      /Missing\. S01E01 to S02E03\. Next search .+ at \d{2}:\d{2}\./u,
+      /Missing\. S01E01 to S02E03\. Next search (?:.+ )?at \d{2}:\d{2}\./u,
     );
     await expect(row(page, "Meadowlark")).toContainText(
-      /Missing\. Next search .+ at \d{2}:\d{2}\./u,
+      /Missing\. Next search (?:.+ )?at \d{2}:\d{2}\./u,
     );
     return;
   }

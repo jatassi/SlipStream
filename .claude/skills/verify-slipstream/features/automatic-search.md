@@ -4,14 +4,15 @@ SlipStream searches a Work by itself when it is added with `Search after adding`
 
 ## Sub-features
 
-- `auto-search-on-add-pack` on `pack-beats-singles`, adding The Copper Coast with `Search after adding` at `Everything monitored` toasts `Added The Copper Coast. Searching now.`, and the hero reads `Grabbed 2 Releases`: the pack `The.Copper.Coast.S01E01-E09.1080p.WEB-DL.H264-NTB`, whose `chosenBecause` is `fewer_releases` filling 9, and the Bluray single of S01E10, both through to `imported` (P-138, P-132, P-210).
-- `auto-upgrade-singles` the hero's `Search` on the same Work, every cell filled by the pack's WEB-DL under the Bluray cutoff, reads `Grabbed 9 Releases`: the Bluray singles of S01E01 to S01E09, one Grab each (P-132).
+- `auto-search-on-add-pack` on `pack-beats-singles`, adding The Copper Coast with `Search after adding` at `Everything monitored` toasts `Added The Copper Coast. Searching now.`, and the hero reads `Grabbed 2 releases`: the pack `The.Copper.Coast.S01E01-E09.1080p.WEB-DL.H264-NTB`, whose `chosenBecause` is `fewer_releases` filling 9, and the Bluray single of S01E10, both through to `imported` (P-138, P-132, P-210).
+- `auto-upgrade-singles` the hero's `Search` on the same Work, every cell filled by the pack's WEB-DL under the Bluray cutoff, reads `Grabbed 9 releases`: the Bluray singles of S01E01 to S01E09, one Grab each (P-132).
 - `auto-press-merges` on `five-indexers-one-late`, a second `Search` while the first waits for Tamarack toasts `Already searching The Quiet Orchard`, and the hero reads `Searching` until the run decides (P-046, P-133).
-- `auto-late-indexer` with `Wait for each Indexer up to` set to 15 s under Settings > Automatic search's Details, the search decides 15 seconds after it started: the Searches list reads `Grabbed 1 Release`, four Indexers `Found 1 Release` and Tamarack `Didn't finish in time`, and the API's line for Tamarack reads `late` (P-132).
+- `auto-late-indexer` with `Wait for each Indexer up to` set to 15 s under Settings > Automatic search's Details, the search decides 15 seconds after it started: the Searches list reads `Grabbed 1 release`, four Indexers `Found 1 Release` and Tamarack `Didn't finish in time`, and the API's line for Tamarack reads `late` (P-132).
+- `auto-restart-mid-search` on `five-indexers-one-late`, `fakeworld node restart home` while a search waits for Tamarack leaves the hero reading `Searching` after the restart, and the run decides once, at its first deadline: the Searches list gains one run, with Tamarack `Didn't finish in time` (ADR 0025, A Controller restart searches once).
 
 ## How to get to it (user POV)
 
-- Desktop shell: the add sheet's `Search after adding` (a switch for a movie, a choice of `Everything monitored`, `First season`, `Latest season`, `First episode` or `Don't search` for a series); `Search` in a Work's hero, `Search Season N` on a season header and `Search S01E01` on an episode row; Settings > Automatic search with `Details` for the search wait.
+- Desktop shell: the add sheet's `Search after adding` (a switch for a movie, a choice of `Everything monitored`, `First season`, `Latest season`, `First episode` or `Nothing` for a series); `Search` in a Work's hero, `Search Season N` on a season header and `Search S01E01` on an episode row; Settings > Automatic search with `Details` for the search wait.
 - Phone shell: the same add sheet and hero; the season header's search button; an episode's sheet.
 - API: `POST /api/v1/works` with `search`, `POST /api/v1/works/{workId}/search`, `GET /api/v1/works/{workId}/searching` (each group's `state`, `lane`, `trigger` and `behind`), `GET /api/v1/works/{workId}/searches`, `GET /api/v1/grabs` (`source`, `chosenBecause`), `GET` and `PATCH /api/v1/search-settings`.
 
@@ -19,11 +20,11 @@ SlipStream searches a Work by itself when it is added with `Search after adding`
 
 Preconditions:
 
-- A `pack-beats-singles` run for the first two sub-features and a `five-indexers-one-late` run for the last two, each launched and doctor passing, with `RUN`, `FW` and `PW` set as in the skill's Launch, and `{runId}-admin-desktop` signed in.
+- A `pack-beats-singles` run for the first two sub-features and a `five-indexers-one-late` run for the last three, each launched and doctor passing, with `RUN`, `FW` and `PW` set as in the skill's Launch, and `{runId}-admin-desktop` signed in.
 
 Steps:
 
-- **Add a series that searches on add.** On `pack-beats-singles`, open the add sheet and add with its defaults. The hero reads `Grabbed 2 Releases`, and the Grabs read the pack with `fewer_releases` and the single of S01E10.
+- **Add a series that searches on add.** On `pack-beats-singles`, open the add sheet and add with its defaults. The hero reads `Grabbed 2 releases`, and the Grabs read the pack with `fewer_releases` and the single of S01E10.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=series&query=copper'
@@ -35,11 +36,11 @@ Steps:
   $FW exec $RUN --proof automatic-search/auto-search-on-add-pack -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
   ```
 
-- **Upgrade episode by episode.** Choose the hero's `Search` once the pack is imported. The hero reads `Grabbed 9 Releases`.
+- **Upgrade episode by episode.** Choose the hero's `Search` once the pack is imported. The hero reads `Grabbed 9 releases`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true }).first()'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("status", { name: "Search" }).getByText("Grabbed 9 Releases").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("status", { name: "Search" }).getByText("Grabbed 9 releases").waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof automatic-search/auto-upgrade-singles -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/automatic-search/auto-upgrade-singles/work.png
   $FW exec $RUN --proof automatic-search/auto-upgrade-singles -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
   ```
@@ -71,6 +72,22 @@ Steps:
   ```
 
   Read the Work's id from that answer's `workId`, then `GET /api/v1/works/<id>/searches`: `finishedAt` is 15 seconds after `startedAt`, and Tamarack's line reads `late`.
+
+- **Restart mid-search.** On `five-indexers-one-late`, with the search wait at 15 s, add The Salt Road with `Search after adding` on, and restart the Controller while the hero reads `Searching`. After doctor passes, reload: the hero still reads `Searching` until the run's deadline, then a result, and `GET /api/v1/works/<id>/searches` lists one run.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=movie&query=salt+road'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Salt Road" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Salt Road" }).getByRole("button", { name: "Add Movie" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("status", { name: "Search" }).getByText("Searching").waitFor({ timeout: 10000 }); }'
+  $FW node restart $RUN home
+  $FW doctor $RUN
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop reload
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("status", { name: "Search" }).getByText(/^(Grabbed|Found)/).waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN --proof automatic-search/auto-restart-mid-search -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/automatic-search/auto-restart-mid-search/after-restart.png
+  ```
+
+  Read the Work's id from the page's URL, then `GET /api/v1/works/<id>/searches` with `--proof automatic-search/auto-restart-mid-search`: one run, Tamarack's line `late`.
 
 - **Phone.** Open `{runId}-admin-phone`, go to the Work's page and screenshot it into `proof/automatic-search/auto-late-indexer/work-phone.png`; on `pack-beats-singles`, the series into `proof/automatic-search/auto-search-on-add-pack/work-phone.png`.
 

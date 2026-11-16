@@ -4,11 +4,11 @@ Wanted, under Library, lists every Work SlipStream is looking for, with its Item
 
 ## Sub-features
 
-- `wanted-rows` on `limited-tracker`, Wanted lists ten rows `Missing.`, `Not searched yet`, with the next search time, a `Search <Work>` and `More for <Work>` per row, `Search 10 Works` and the status line `Nothing queued · Next Backlog search <time>`; on phone each row is a button reading `<Work> Missing. Next search <time>.` (P-053).
+- `wanted-rows` on `limited-tracker`, Wanted lists ten rows `Missing`, `Not searched yet`, with the next search time, a `Search <Work>` and `More for <Work>` per row, `Search 10 Works` and the status line `Nothing queued · Next Backlog search <time>`; on phone each row is a button reading `<Work> Missing. Next search <time>.` (P-053).
 - `wanted-search-all` `Search 10 Works` queues them: the status reads `2 searching · 7 queued · Next Backlog search <time> ·` and the link `Waiting for Heron's search limit until <time>` to Heron's page, and the API's `status.limits` names Heron with its `until` (P-135).
 - `wanted-row-search` `Search Copper Kettle` while it is queued toasts `Already searching Copper Kettle`, and it searches at once in the `now` lane: Fixture Site and Heron each read `No Releases`, spending Heron's second search this hour (P-037, P-132).
 - `wanted-press-skips` `Search Nightfall Ferry` with Heron at its limit searches at once, Heron's line reading `Limit reached until <time>` (`limit_reached`) (P-132).
-- `wanted-cancel` `Cancel queued searches` toasts `Canceled 5 queued searches.`, the status loses its queued count, and each canceled row keeps its next search time.
+- `wanted-cancel` `Cancel queued searches` toasts `Canceled 5 queued searches.`, the status loses its queued count, and each canceled row's next search reads the time of the next Backlog search, which queues it again.
 - `wanted-starved` after Heron's limit drops to 1 an hour, which RSS sync's reserve takes whole, the status line links `RSS sync uses all of Heron's search limit`, `status.limits` reads Heron `starved` with no `until`, and an open bulk run's group reads `behind` Heron `starved`.
 
 ## How to get to it (user POV)

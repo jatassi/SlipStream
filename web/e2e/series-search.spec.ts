@@ -24,7 +24,7 @@ const Items = z.object({ items: z.array(z.object({ id: z.string(), label: z.stri
 
 const notifications = (page: Page) => page.getByRole("region", { name: "Notifications" });
 const searches = (page: Page) => page.getByRole("list", { name: "Searches" });
-const grabbed = (page: Page) => searches(page).getByText("Grabbed 1 Release");
+const grabbed = (page: Page) => searches(page).getByText("Grabbed 1 release");
 
 /** The titles of the episodes that hold a library file. */
 async function filed(world: World, workId: string): Promise<string[]> {
@@ -80,7 +80,7 @@ test("turning an episode on grabs its release, and the episode keeps its file on
   await page.goto(`/works/${workId}`);
   await openLevel(page, "Specials");
   await setEpisodeMonitored(page, "S00E02", true);
-  await expect(searches(page)).toContainText(/^Grabbed 1 ReleaseMonitoring turned on/u);
+  await expect(searches(page)).toContainText(/^Grabbed 1 releaseMonitoring turned on/u);
   await expect.poll(() => filed(world, workId), { timeout: 90_000 }).toEqual(["A Winter Light"]);
 
   const dvd = await world.api("PUT", `/api/v1/works/${workId}/options`, {

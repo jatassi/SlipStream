@@ -91,7 +91,7 @@ test("a search's Details list every Release it saw, the grabbed one first, and w
   const workId = await searchedFourReleases(world);
   await page.goto(`/works/${workId}`);
   const run = page.getByRole("list", { name: "Searches" });
-  await expect(run).toContainText("Grabbed 1 Release");
+  await expect(run).toContainText("Grabbed 1 release");
   await run.getByRole("button", { name: "Details" }).click();
 
   const lines = run.getByRole("list", { name: "Releases" }).locator(":scope > li");

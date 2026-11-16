@@ -5,7 +5,7 @@ An Admin searches a Work's Indexers from the Work page. SlipStream asks every In
 ## Sub-features
 
 - `grab-indexer-429` a search whose Indexer answers 429 ends `Found nothing acceptable`, its Fixture Site line reading `Limit reached until HH:MM`, with no Grab.
-- `grab-search` a search that reaches the fake Indexer ends `Grabbed 1 Release` with `2 Releases found`, the stage its Grab is at now, such as `Downloading`, `Imported` or `Failed`, and the line `Fixture Site` `Found 2 Releases`, and starts a Grab on the seedbox, through the Fake world's fake Indexer, tracker and seeders (P-256).
+- `grab-search` a search that reaches the fake Indexer ends `Grabbed 1 release` with `2 Releases found`, the stage its Grab is at now, such as `Downloading`, `Imported` or `Failed`, and the line `Fixture Site` `Found 2 Releases`, and starts a Grab on the seedbox, through the Fake world's fake Indexer, tracker and seeders (P-256).
 - `grab-held` a throttled swarm holds the Grab at `Downloading` with a progress bar, and the seedbox's `started` announce reaches the tracker.
 - `grab-complete-now` clearing the throttle completes the torrent at once while the seedbox's libtorrent still hashes every piece (P-257).
 - `grab-transfer-import` the finished download hands off to its Import, which reads the file on seedbox, sends it to home in a Transfer and places it. The Grab moves from `downloading` to `importing` to `Imported`, its `import` reads `placed` 1, and the Admin's live stream carries `grabs.changed` (P-074).
@@ -60,12 +60,12 @@ Steps:
   $FW exec $RUN --proof search-and-grab/grab-indexer-429 -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/search-and-grab/grab-indexer-429/work.png
   ```
 
-- **Search again.** Wait out the 2s Retry-After, then choose `Search`. The list gains `Grabbed 1 Release` with `2 Releases found` and Fixture Site's line `Found 2 Releases`, and the seedbox announces `started` to the tracker.
+- **Search again.** Wait out the 2s Retry-After, then choose `Search`. The list gains `Grabbed 1 release` with `2 Releases found` and Fixture Site's line `Found 2 Releases`, and the seedbox announces `started` to the tracker.
 
   ```sh
   sleep 2
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed 1 Release").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed 1 release").waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof search-and-grab/grab-search -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/search-and-grab/grab-search/work.png
   $FW announces wait $RUN --node seedbox --where event=started --after $FIRED --timeout 60s
   ```

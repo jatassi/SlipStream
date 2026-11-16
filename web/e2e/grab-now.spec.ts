@@ -43,9 +43,9 @@ test("a search on add waits for a better Release, and the hero's Grab now grabs 
   );
 
   await searchLine(page).getByRole("button", { name: "Grab now" }).click();
-  await expect(notifications(page)).toContainText("Grabbing 1 Release");
-  await expect(searchLine(page)).toHaveText("Grabbed 1 Release");
-  await expect(searches(page)).toContainText(/^Grabbed 1 ReleaseAdded/u);
+  await expect(notifications(page)).toContainText("Grabbing 1 release");
+  await expect(searchLine(page)).toHaveText("Grabbed 1 release");
+  await expect(searches(page)).toContainText(/^Grabbed 1 releaseAdded/u);
   await expect(orchardCells(page)).not.toContainText("found so far");
 });
 
@@ -61,7 +61,7 @@ test("a waiting season reads Waiting, and its menu's Grab now grabs the pack it 
   await clickWhenStill(
     page.getByRole(isPhone(page) ? "button" : "menuitem", { name: "Grab now", exact: true }),
   );
-  await expect(notifications(page)).toContainText("Grabbing 1 Release");
+  await expect(notifications(page)).toContainText("Grabbing 1 release");
   await expect(levelHeader(page, "Season 1")).not.toContainText("Waiting");
-  await expect(searchLine(page)).toHaveText("Grabbed 1 Release");
+  await expect(searchLine(page)).toHaveText("Grabbed 1 release");
 });

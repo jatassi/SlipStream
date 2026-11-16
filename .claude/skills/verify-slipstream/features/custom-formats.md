@@ -58,7 +58,7 @@ Steps:
   W=$($FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000001","preset":"all"}' '{nodes.home.url}/api/v1/works' | jq -r .work.id)
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$W"
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed 1 Release").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed 1 release").waitFor({ timeout: 30000 }); }'
   S1=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$W/searches" | jq -r '.searches[0].id')
   $FW exec $RUN --proof custom-formats/formats-grab-changes -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/searches/$S1/releases"
   ```

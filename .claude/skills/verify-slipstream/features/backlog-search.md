@@ -5,7 +5,7 @@ Backlog search runs every 8 hours by default and queues each search group whose 
 ## Sub-features
 
 - `backlog-run-now` on `limited-tracker`, `Run now: Backlog search` on the task's page ends a run `succeeded` whose one unit `Due searches` reads `Queued 0 searches.` while every group's due time is still to come (P-136, P-137).
-- `backlog-off` with `search.backlogOn` off through `PATCH /api/v1/search-settings`, `Run now` ends the run `skipped` with the cause `Backlog search is off in Settings.`, and Wanted's status line reads `Backlog search is off` in place of `Next Backlog search …` (P-136).
+- `backlog-off` with `search.backlogOn` off through `PATCH /api/v1/search-settings`, `Run now` ends the run `skipped` with the cause `Backlog search is off in Settings.`, the task's header and its Tasks row read `Off` in place of `Next run …`, and Wanted's status line reads `Backlog search is off` in place of `Next Backlog search …` (P-136).
 
 ## How to get to it (user POV)
 
@@ -46,6 +46,7 @@ Steps:
 
 ## Gotchas
 
-- Backlog search's first scheduled run comes 8 hours after the Controller starts, and its first reconcile spreads new groups' due times over the interval, so a group's due time can fall after the next run. Use `Run now` and read the note; a run that queues groups needs a group whose due time has passed, which a verify run of minutes rarely holds.
+- A fresh Controller runs Backlog search as a `Catch up` run at launch, and the next scheduled run comes one interval, 8 hours by default, after that. The first reconcile spreads new groups' due times over the interval, and a group is searched at the first run at or after its due time, which is the time Wanted and the hero show. Use `Run now` and read the note; a run that queues groups needs a group whose due time has passed, which a verify run of minutes rarely holds.
 - A run's note counts groups, not Works: a series' season is one group.
-- `Cancel queued searches` on Wanted keeps each group's due time, so the next Backlog search queues them again.
+- `Cancel queued searches` on Wanted keeps each group's due time, so the next Backlog search queues them again, and each canceled row's next search reads that run's time.
+- Turned off, the task's header and its Tasks row read `Off` in place of the next run.

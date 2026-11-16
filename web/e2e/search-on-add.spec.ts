@@ -48,8 +48,8 @@ test("a movie added with Search after adding grabs its Release, and the switch i
   await orchard.getByRole("button", { name: "Add Movie" }).click();
   await expect(page.getByRole("heading", { name: "The Quiet Orchard", level: 1 })).toBeVisible();
   await expect(notifications(page)).toContainText("Added The Quiet Orchard. Searching now.");
-  await expect(searchLine(page)).toHaveText("Grabbed 1 Release", { timeout: 30_000 });
-  await expect(searches(page)).toContainText(/^Grabbed 1 ReleaseAdded/u);
+  await expect(searchLine(page)).toHaveText("Grabbed 1 release", { timeout: 30_000 });
+  await expect(searches(page)).toContainText(/^Grabbed 1 releaseAdded/u);
 });
 
 test("a series' search choice warns when it misses what is monitored, and searches only its season", async ({
@@ -68,6 +68,6 @@ test("a series' search choice warns when it misses what is monitored, and search
   await sheet.getByRole("button", { name: "Add Series" }).click();
   await expect(page.getByRole("heading", { name: "The Lantern Keepers", level: 1 })).toBeVisible();
   await expect(notifications(page)).toContainText("Added The Lantern Keepers. Searching now.");
-  await expect(searchLine(page)).toHaveText("Grabbed 1 Release", { timeout: 30_000 });
+  await expect(searchLine(page)).toHaveText("Grabbed 1 release", { timeout: 30_000 });
   await expect(searches(page).locator(":scope > li")).toHaveCount(1);
 });

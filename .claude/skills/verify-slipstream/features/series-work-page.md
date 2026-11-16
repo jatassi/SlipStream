@@ -9,7 +9,7 @@ A series' Work page shows the series' facts in the hero, then one collapsible se
 - `series-rows` `S01E01` reads `First Flame`, `January 10, 2020` and its cell `S01E01 1080p, Missing`; opening Season 2 shows `S02E01` `The Northern Lamp` with `Not monitored` (P-050).
 - `series-popover` hovering `S01E01 1080p, Missing` opens the detail `S01E01 1080p` reading `Missing`, clicking pins it while the pointer leaves, and `Escape` closes it.
 - `series-fold` after fake-tvdb announces a fourth season and a refresh, Season 4 reads one line `Episodes 1 to 3 air <day> to <day>` in place of three rows, and dropping `Fog Signal` leaves Season 2 with `S02E01` and `S02E03` and no row for it (P-050).
-- `series-work-search` with First season, the hero's `Search` toasts `Searching 3 episodes`, `searches` records one `tvsearch` with `tvdbid` 1001 and `season` 1 and no `ep`, and `Searches` reads `Grabbed 1 Release` once: the `The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW` pack, which covers all three episodes (P-050).
+- `series-work-search` with First season, the hero's `Search` toasts `Searching 3 episodes`, `searches` records one `tvsearch` with `tvdbid` 1001 and `season` 1 and no `ep`, and `Searches` reads `Grabbed 1 release` once: the `The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW` pack, which covers all three episodes (P-050).
 - `series-level-search` with only S02E01 of Season 2 monitored, `Search Season 2` toasts `Searching 1 episode` and searches `season` 2 `ep` 1 alone (P-050).
 - `series-episode-search` with S00E02 monitored, `Search S00E02` toasts `Searching 1 episode`, sends `season` 0 and `ep` 2, and A Winter Light imports (P-050).
 - `series-withdrawn-file` after the order changes to DVD, which doesn't list A Winter Light, the last heading is `No longer listed by TVDB` with `1 episode` and a `1 Met` bar, after one `Specials`, and holds S00E02 with its file (P-050).
@@ -69,7 +69,7 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$WORK"
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN --proof series-work-page/series-work-search -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/series-work-page/series-work-search/toast.png
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed 1 Release").first().waitFor(); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed 1 release").first().waitFor(); }'
   $FW exec $RUN --proof series-work-page/series-work-search -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/series-work-page/series-work-search/searches.aria.yml
   $FW searches list $RUN --where t=tvsearch
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Season 2", exact: true })'

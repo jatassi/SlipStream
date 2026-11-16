@@ -1,13 +1,13 @@
 # Holds
 
-A Target can hold an automatic grab for a set time after a Release is published, so a better Release posted soon after wins. While a cell waits, the hero reads `Waiting for a better Release until …` with `Grab now`, the cell says how many Releases it has so far and when it grabs, and a season header reads `Waiting`. A wait survives a restart of the Controller. The Admin's own Search never waits, and `Grab now` grabs the best Release the wait holds at once.
+A Target can hold an automatic grab for a set time after a Release is published, so a better Release posted soon after wins. While a cell waits, the hero reads `Waiting for a better release until …` with `Grab now`, the cell says how many Releases it has so far and when it grabs, and a season header reads `Waiting`. A wait survives a restart of the Controller. The Admin's own Search never waits, and `Grab now` grabs the best Release the wait holds at once.
 
 ## Sub-features
 
-- `hold-wait` on `hold`, adding The Quiet Orchard with `Search after adding` reads `Waiting for a better Release until <time>` with `Grab now`, the cell reads `1 Release found so far. SlipStream grabs the best one <time> unless a better one arrives.`, and the API's `waits` lists the cell with `candidates` 1 and its `until`.
-- `hold-restart` after `fakeworld node restart home`, which runs `slipstream restart` on its data dir, the wait reads the same `until`, and the hero still reads `Waiting for a better Release until …`.
-- `hold-grab-now` the hero's `Grab now` toasts `Grabbing 1 Release` and the hero reads `Grabbed 1 Release`, with the WEB-DL through to `imported`.
-- `hold-press-skips` adding The Lantern Keepers waits too, its season header reading `Waiting`, and `Search Season 1` grabs the season pack at once: the hero reads `Grabbed 1 Release`.
+- `hold-wait` on `hold`, adding The Quiet Orchard with `Search after adding` reads `Waiting for a better release until <time>` with `Grab now`, the cell reads `1 release found so far. SlipStream grabs the best one <time> unless a better one arrives.`, and the API's `waits` lists the cell with `candidates` 1 and its `until`.
+- `hold-restart` after `fakeworld node restart home`, which runs `slipstream restart` on its data dir, the wait reads the same `until`, and the hero still reads `Waiting for a better release until …`.
+- `hold-grab-now` the hero's `Grab now` toasts `Grabbing 1 release` and the hero reads `Grabbed 1 release`, with the WEB-DL through to `imported`.
+- `hold-press-skips` adding The Lantern Keepers waits too, its season header reading `Waiting`, and `Search Season 1` grabs the season pack at once: the hero reads `Grabbed 1 release`.
 
 ## How to get to it (user POV)
 
@@ -30,7 +30,7 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=movie&query=quiet+orchard'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Quiet Orchard" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Quiet Orchard" }).getByRole("button", { name: "Add Movie" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("status", { name: "Search" }).getByText(/^Waiting for a better Release until /).waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("status", { name: "Search" }).getByText(/^Waiting for a better release until /).waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof holds/hold-wait -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/holds/hold-wait/work.aria.yml
   $FW exec $RUN --proof holds/hold-wait -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/holds/hold-wait/work.png
   ```
@@ -43,7 +43,7 @@ Steps:
   $FW node restart $RUN home
   $FW doctor $RUN
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop reload
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("status", { name: "Search" }).getByText(/^Waiting for a better Release until /).waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("status", { name: "Search" }).getByText(/^Waiting for a better release until /).waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof holds/hold-restart -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/holds/hold-restart/work.png
   ```
 
@@ -53,7 +53,7 @@ Steps:
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("status", { name: "Search" }).getByRole("button", { name: "Grab now" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("status", { name: "Search" }).getByText("Grabbed 1 Release").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("status", { name: "Search" }).getByText("Grabbed 1 release").waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof holds/hold-grab-now -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/holds/hold-grab-now/work.png
   $FW exec $RUN --proof holds/hold-grab-now -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
   ```
@@ -72,7 +72,7 @@ Steps:
   $FW exec $RUN --proof holds/hold-press-skips -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
   ```
 
-- **Phone.** Open `{runId}-admin-phone` on The Lantern Keepers while Season 1 waits and screenshot it into `proof/holds/hold-press-skips/waiting-phone.png`: the hero reads `Waiting for a better Release until …` above `Grab now`.
+- **Phone.** Open `{runId}-admin-phone` on The Lantern Keepers while Season 1 waits and screenshot it into `proof/holds/hold-press-skips/waiting-phone.png`: the hero reads `Waiting for a better release until …` above `Grab now`.
 
 ## Gotchas
 
