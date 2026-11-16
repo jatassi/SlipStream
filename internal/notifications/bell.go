@@ -99,7 +99,9 @@ func (s *Service) SetBell(ctx context.Context, events []notice.Kind, warnings *b
 // chosen.
 type UnknownEventError struct{ Kind notice.Kind }
 
-func (e *UnknownEventError) Error() string { return fmt.Sprintf("notifications: %s isn't an event that can be chosen", e.Kind) }
+func (e *UnknownEventError) Error() string {
+	return fmt.Sprintf("notifications: %s isn't an event that can be chosen", e.Kind)
+}
 
 func (s *Service) checkEvents(events []notice.Kind) error {
 	specs := s.Events()

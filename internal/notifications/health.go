@@ -46,9 +46,9 @@ func (s *Service) Transitions(ctx context.Context, tx *storage.Tx[file], ts []he
 
 // evaluation makes one evaluation's events when it first needs them.
 type evaluation struct {
-	q                *db.Queries
-	wait             time.Duration
-	raised, cleared  EventID
+	q               *db.Queries
+	wait            time.Duration
+	raised, cleared EventID
 }
 
 func (ev *evaluation) raise(ctx context.Context, t health.Transition, key string) error {

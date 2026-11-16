@@ -152,19 +152,19 @@ func (s *Service) pass(ctx context.Context, unsettled []result, busy map[Connect
 
 // passing is one pass's state inside its Write.
 type passing struct {
-	s        *Service
-	q        *db.Queries
-	now      time.Time
-	conns    []Connection
-	byID     map[ConnectionID]Connection
-	lines    map[ConnectionID]Line
-	dirty    map[ConnectionID]bool
+	s           *Service
+	q           *db.Queries
+	now         time.Time
+	conns       []Connection
+	byID        map[ConnectionID]Connection
+	lines       map[ConnectionID]Line
+	dirty       map[ConnectionID]bool
 	giveUpAfter time.Duration
-	warn     time.Duration
-	hit      bool
-	pub      published
-	claimed  []job
-	next     time.Time
+	warn        time.Duration
+	hit         bool
+	pub         published
+	claimed     []job
+	next        time.Time
 }
 
 func (s *Service) begin(ctx context.Context, tx *storage.Tx[file]) (*passing, error) {
