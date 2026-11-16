@@ -30,11 +30,11 @@ func autoRun(id, work, item storage.UUID, started, finished int, outcome string,
 	return tableRow{"grabs_search", r}
 }
 
-func fetchingGrab(id, work, item, node storage.UUID, stage string) tableRow {
+func fetchingGrab(id, work, item, node storage.UUID) tableRow {
 	return tableRow{"grabs_grab", row{
 		"id": id, "work_id": work, "item_id": item, "edition": "any", "source": "search", "node_id": node,
 		"release_title": "Dune.S01E01.1080p.WEB", "release_size": 1 << 30, "release_magnet": "magnet:?xt=urn:btih:00",
-		"stage": stage, "created_at": 0, "updated_at": 0,
+		"stage": "fetching", "created_at": 0, "updated_at": 0,
 	}}
 }
 
@@ -94,8 +94,8 @@ func TestTheSearchQueueMigrationMakesGroupRunsAndKeepsEachItemsLastResult(t *tes
 		tableRow{"works_item", row{"id": first, "work_id": work, "level_id": level, "key": "i1", "label": "One", "position": 1}},
 		tableRow{"works_item", row{"id": second, "work_id": work, "level_id": level, "key": "i2", "label": "Two", "position": 2}},
 		tableRow{"works_item", row{"id": lone, "work_id": work, "key": "i3", "label": "Three", "position": 3}},
-		fetchingGrab(fetching, work, first, node, "fetching"),
-		fetchingGrab(joined, work, lone, node, "fetching"),
+		fetchingGrab(fetching, work, first, node),
+		fetchingGrab(joined, work, lone, node),
 		autoRun(older, work, first, 1, 2, "nothing_acceptable", 3, nil),
 		release(older, 0, "kept", 1, false),
 		tableRow{"grabs_search_indexer", row{"search_id": older, "position": 0, "indexer_name": "TorrentLeech", "query_id": storage.NewUUID(), "outcome": "found", "releases": 3}},
@@ -216,7 +216,7 @@ func eachQueueRuleRefusesItsRow(t *testing.T, lib library, work, item, grab stor
 		},
 		"grabs_grab": func() row {
 			position++
-			r := fetchingGrab(storage.NewUUID(), work, item, storage.NewUUID(), "fetching").r
+			r := fetchingGrab(storage.NewUUID(), work, item, storage.NewUUID()).r
 			run(t, lib, insertRows(tableRow{"nodes_node", row{"id": r["node_id"], "public_key": hash(32), "name": fmt.Sprint("n", position), "paired_at": 0}}))
 			return with(r, row{"source": "rss", "release_guid": "https://site.test/t/1", "chosen_fills": 2})
 		},

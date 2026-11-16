@@ -221,7 +221,7 @@ func (q *Queries) ForgetTracker(ctx context.Context, trackerID indexers.TrackerI
 }
 
 const getGrab = `-- name: GetGrab :one
-SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab WHERE id = ?1
+SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id, found_by FROM grabs_grab WHERE id = ?1
 `
 
 func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
@@ -264,6 +264,7 @@ func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
 		&i.MetadataStartedAt,
 		&i.SentBuiltInOn,
 		&i.SentClientID,
+		&i.FoundBy,
 	)
 	return i, err
 }
@@ -323,16 +324,16 @@ func (q *Queries) GetSearchOfGrab(ctx context.Context, grabID GrabID) (GrabsSear
 }
 
 const insertGrab = `-- name: InsertGrab :exec
-INSERT INTO grabs_grab (id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id,
+INSERT INTO grabs_grab (id, work_id, item_id, edition, source, found_by, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id,
     tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills,
     fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, created_at, updated_at)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6,
-    ?7, ?8, ?9, ?10, ?11,
-    ?12,
-    ?13, ?14, ?15, ?16,
-    ?17, ?18, ?19, ?20, ?21,
-    ?22,
-    ?23, ?24, 'fetching', ?25, ?25)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
+    ?8, ?9, ?10, ?11, ?12,
+    ?13,
+    ?14, ?15, ?16, ?17,
+    ?18, ?19, ?20, ?21, ?22,
+    ?23,
+    ?24, ?25, 'fetching', ?26, ?26)
 `
 
 type InsertGrabParams struct {
@@ -341,6 +342,7 @@ type InsertGrabParams struct {
 	ItemID            works.ItemID
 	Edition           targets.Edition
 	Source            Source
+	FoundBy           FoundBy
 	ManualID          ManualID
 	GrabbedBy         identity.AccountID
 	GrabbedByName     *string
@@ -370,6 +372,7 @@ func (q *Queries) InsertGrab(ctx context.Context, arg InsertGrabParams) error {
 		arg.ItemID,
 		arg.Edition,
 		arg.Source,
+		arg.FoundBy,
 		arg.ManualID,
 		arg.GrabbedBy,
 		arg.GrabbedByName,
@@ -790,7 +793,7 @@ func (q *Queries) ListGrabItemsOf(ctx context.Context, grabIds []GrabID) ([]Grab
 }
 
 const listGrabs = `-- name: ListGrabs :many
-SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab ORDER BY created_at DESC, id DESC
+SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id, found_by FROM grabs_grab ORDER BY created_at DESC, id DESC
 `
 
 func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -839,6 +842,7 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.MetadataStartedAt,
 			&i.SentBuiltInOn,
 			&i.SentClientID,
+			&i.FoundBy,
 		); err != nil {
 			return nil, err
 		}
@@ -854,7 +858,7 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 }
 
 const listGrabsOfIndexer = `-- name: ListGrabsOfIndexer :many
-SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab WHERE indexer_id = ?1 ORDER BY created_at DESC, id DESC
+SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id, found_by FROM grabs_grab WHERE indexer_id = ?1 ORDER BY created_at DESC, id DESC
 LIMIT ?3 OFFSET ?2
 `
 
@@ -910,6 +914,7 @@ func (q *Queries) ListGrabsOfIndexer(ctx context.Context, arg ListGrabsOfIndexer
 			&i.MetadataStartedAt,
 			&i.SentBuiltInOn,
 			&i.SentClientID,
+			&i.FoundBy,
 		); err != nil {
 			return nil, err
 		}
@@ -1082,17 +1087,15 @@ func (q *Queries) ListKeptReleasesOfSearch(ctx context.Context, searchID SearchI
 }
 
 const listMadeRunsOf = `-- name: ListMadeRunsOf :many
-SELECT sg.grab_id, s.id AS search_id, s.trigger FROM grabs_search_grab sg JOIN grabs_search s ON s.id = sg.search_id
-WHERE sg.grab_id IN (/*SLICE:grab_ids*/?) AND sg.made = 1 ORDER BY sg.grab_id
+SELECT grab_id, search_id FROM grabs_search_grab WHERE grab_id IN (/*SLICE:grab_ids*/?) AND made = 1 ORDER BY grab_id
 `
 
 type ListMadeRunsOfRow struct {
 	GrabID   GrabID
 	SearchID SearchID
-	Trigger  *string
 }
 
-// The run that made each Grab, for what found its Release.
+// The run that made each Grab, while it is kept.
 func (q *Queries) ListMadeRunsOf(ctx context.Context, grabIds []GrabID) ([]ListMadeRunsOfRow, error) {
 	query := listMadeRunsOf
 	var queryParams []interface{}
@@ -1112,7 +1115,7 @@ func (q *Queries) ListMadeRunsOf(ctx context.Context, grabIds []GrabID) ([]ListM
 	var items []ListMadeRunsOfRow
 	for rows.Next() {
 		var i ListMadeRunsOfRow
-		if err := rows.Scan(&i.GrabID, &i.SearchID, &i.Trigger); err != nil {
+		if err := rows.Scan(&i.GrabID, &i.SearchID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1127,7 +1130,7 @@ func (q *Queries) ListMadeRunsOf(ctx context.Context, grabIds []GrabID) ([]ListM
 }
 
 const listOpenGrabs = `-- name: ListOpenGrabs :many
-SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
+SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id, found_by FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
 `
 
 func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -1176,6 +1179,7 @@ func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.MetadataStartedAt,
 			&i.SentBuiltInOn,
 			&i.SentClientID,
+			&i.FoundBy,
 		); err != nil {
 			return nil, err
 		}
@@ -1191,7 +1195,7 @@ func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
 }
 
 const listOpenGrabsOfWork = `-- name: ListOpenGrabsOfWork :many
-SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab WHERE work_id = ?1 AND stage NOT IN ('imported', 'failed') ORDER BY created_at, id
+SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id, found_by FROM grabs_grab WHERE work_id = ?1 AND stage NOT IN ('imported', 'failed') ORDER BY created_at, id
 `
 
 func (q *Queries) ListOpenGrabsOfWork(ctx context.Context, workID works.WorkID) ([]GrabsGrab, error) {
@@ -1240,6 +1244,7 @@ func (q *Queries) ListOpenGrabsOfWork(ctx context.Context, workID works.WorkID) 
 			&i.MetadataStartedAt,
 			&i.SentBuiltInOn,
 			&i.SentClientID,
+			&i.FoundBy,
 		); err != nil {
 			return nil, err
 		}
@@ -1255,7 +1260,7 @@ func (q *Queries) ListOpenGrabsOfWork(ctx context.Context, workID works.WorkID) 
 }
 
 const listOpenGrabsOfWorks = `-- name: ListOpenGrabsOfWorks :many
-SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab WHERE work_id IN (/*SLICE:work_ids*/?) AND stage NOT IN ('imported', 'failed') ORDER BY created_at, id
+SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id, found_by FROM grabs_grab WHERE work_id IN (/*SLICE:work_ids*/?) AND stage NOT IN ('imported', 'failed') ORDER BY created_at, id
 `
 
 func (q *Queries) ListOpenGrabsOfWorks(ctx context.Context, workIds []works.WorkID) ([]GrabsGrab, error) {
@@ -1314,6 +1319,7 @@ func (q *Queries) ListOpenGrabsOfWorks(ctx context.Context, workIds []works.Work
 			&i.MetadataStartedAt,
 			&i.SentBuiltInOn,
 			&i.SentClientID,
+			&i.FoundBy,
 		); err != nil {
 			return nil, err
 		}
