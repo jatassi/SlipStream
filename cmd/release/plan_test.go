@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -404,5 +405,91 @@ func TestCIRunsEveryLane(t *testing.T) {
 	}
 	if !slices.Equal(needs, gateNeeds) {
 		t.Errorf("gate needs %s, want %s", strings.Join(needs, ", "), strings.Join(gateNeeds, ", "))
+	}
+}
+
+// onPool counts each lane's jobs for target that run on runner.
+func onPool(p Plan, target, runner string) map[string]int {
+	counts := map[string]int{}
+	for kind, m := range p.Lanes {
+		for _, e := range m.Include {
+			if e.Target == target && e.Runner == runner {
+				counts[kind]++
+			}
+		}
+	}
+	return counts
+}
+
+func TestSelfHostFillsTheStartingLanesFirst(t *testing.T) {
+	p, err := plan(planInputs, events["dispatch"], changescope.PR, touched{}, nil, "all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.selfHost("linux-amd64", pool{"self-linux", 8})
+	// Seven jobs start with the run. The build's slot goes back to the pool
+	// when the browser lane starts, so browser takes the last two, and e2e
+	// stays on its hosted runners.
+	want := map[string]int{"build": 1, "lint": 1, "lint-repo": 1, "go": 2, "component": 1, "diagram": 1, "browser": 2}
+	if got := onPool(p, "linux-amd64", "self-linux"); !maps.Equal(got, want) {
+		t.Errorf("self-hosted jobs = %v, want %v", got, want)
+	}
+	if got := onPool(p, "windows-amd64", "self-linux"); len(got) != 0 {
+		t.Errorf("windows-amd64 jobs on the linux pool = %v, want none", got)
+	}
+}
+
+func TestSelfHostKeepsAPackagingBuildHosted(t *testing.T) {
+	p, err := plan(planInputs, events["schedule"], changescope.PR, touched{}, nil, "all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.selfHost("linux-amd64", pool{"self-linux", 3})
+	want := map[string]int{"lint": 1, "lint-repo": 1, "go": 1}
+	if got := onPool(p, "linux-amd64", "self-linux"); !maps.Equal(got, want) {
+		t.Errorf("self-hosted jobs = %v, want %v", got, want)
+	}
+}
+
+func TestParsePools(t *testing.T) {
+	got, err := parsePools("linux-amd64=self-linux:8,windows-amd64=self-windows:4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]pool{"linux-amd64": {"self-linux", 8}, "windows-amd64": {"self-windows", 4}}
+	if !maps.Equal(got, want) {
+		t.Errorf("parsePools = %v, want %v", got, want)
+	}
+	for _, bad := range []string{"linux-amd64", "linux-amd64=self-linux", "linux-amd64=:2", "=self-linux:2", "linux-amd64=self-linux:0"} {
+		if _, err := parsePools(bad); err == nil {
+			t.Errorf("parsePools(%q) succeeded, want an error", bad)
+		}
+	}
+}
+
+func TestSetShardsReplacesALanesCountOnEveryTarget(t *testing.T) {
+	saved := slices.Clone(lanes)
+	t.Cleanup(func() { lanes = saved })
+	if err := setShards("browser=2,go=1"); err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range lanes {
+		for target, n := range l.shards {
+			want := saved[slices.IndexFunc(saved, func(s lane) bool { return s.kind == l.kind })].shards[target]
+			switch l.kind {
+			case "browser":
+				want = 2
+			case "go":
+				want = 1
+			}
+			if n != want {
+				t.Errorf("%s on %s has %d shards, want %d", l.kind, target, n, want)
+			}
+		}
+	}
+	for _, bad := range []string{"browser", "browser=0", "nosuch=1", "browser=x"} {
+		if err := setShards(bad); err == nil {
+			t.Errorf("setShards(%q) succeeded, want an error", bad)
+		}
 	}
 }

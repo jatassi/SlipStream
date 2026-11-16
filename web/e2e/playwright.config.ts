@@ -1,3 +1,4 @@
+import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { arch, env, platform } from "node:process";
 
@@ -89,6 +90,11 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   fullyParallel: true,
+  // Playwright's default is half of os.cpus(), which counts every CPU on the
+  // host. availableParallelism counts the ones this process may run on, so a
+  // self-hosted runner pinned to some CPUs starts as many workers as a hosted
+  // runner of that size.
+  workers: Math.max(1, Math.floor(availableParallelism() / 2)),
   use: { trace: "retain-on-failure" },
   // Playwright empties its outputDir at start, and the Go tier leaves its
   // failed run dirs directly under TEST_FAKEWORLD_RUNS.

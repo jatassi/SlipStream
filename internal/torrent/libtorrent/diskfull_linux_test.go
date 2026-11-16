@@ -50,7 +50,10 @@ func TestADownloadThatFillsTheDiskPausesUntilResumed(t *testing.T) {
 	}
 	waitFor(t, leecher.Events(), func(p engine.Paused) bool { return p.Torrent == h })
 
-	if out, err := exec.CommandContext(t.Context(), "mount", "-o", "remount,size=4m", volume).CombinedOutput(); err != nil {
+	// Newer kernels list the tmpfs's owner among its options, and mount
+	// passes them back on a remount. That uid isn't mapped in the namespace,
+	// so the remount fails unless mount sends size alone.
+	if out, err := exec.CommandContext(t.Context(), "mount", "--options-source", "disable", "-o", "remount,size=4m", volume).CombinedOutput(); err != nil {
 		t.Fatalf("grow the volume: %v: %s", err, out)
 	}
 	if err := leecher.Resume(h); err != nil {

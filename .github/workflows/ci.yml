@@ -26,8 +26,16 @@ on:
         description: Run each test this many times, as go test -count and playwright --repeat-each
         type: number
         default: 1
+      shards:
+        description: Shard counts that replace the lanes' own, as lane=n pairs such as go=1,browser=2
+        type: string
+        default: ""
       update-shapes:
         description: Rewrite each conformance suite's shape.json from the real services and upload them
+        type: boolean
+        default: false
+      plan-self-hosted:
+        description: Plan on the maintainer's Linux runners instead of a hosted one, which waits while they're offline
         type: boolean
         default: false
 
@@ -46,9 +54,14 @@ defaults:
     shell: bash
 
 jobs:
+  # The plan finds which self-hosted runners are online, so it runs on one
+  # only when a dispatch asks: a run the maintainer dispatched waits for them,
+  # and every other run plans on a hosted runner.
   plan:
     name: Plan CI lanes
-    runs-on: ubuntu-24.04
+    runs-on: >-
+      ${{ (github.event_name == 'workflow_dispatch' && inputs.plan-self-hosted && github.repository == 'jatassi/SlipStream' &&
+        github.actor == 'jatassi' && github.triggering_actor == 'jatassi') && 'slipstream-linux' || 'ubuntu-24.04' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -92,11 +105,37 @@ jobs:
         id: tag
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         run: go run ./cmd/release tag "$GITHUB_REF_NAME"
+      # The maintainer's self-hosted runners take jobs only from the
+      # maintainer's own runs, and only while each pool was provisioned from
+      # this commit's scripts/self-hosted/<os>, which its label names. Every
+      # job they can't take stays on its hosted runner. See
+      # docs/self-hosted-runners.md.
+      - name: Find the self-hosted runners
+        id: self-hosted
+        env:
+          GH_TOKEN: ${{ secrets.RUNNER_STATUS_TOKEN }}
+          TRUSTED: >-
+            ${{ github.repository == 'jatassi/SlipStream' && github.actor == 'jatassi' && github.triggering_actor == 'jatassi' &&
+              (github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository) }}
+          PAUSED: ${{ vars.SELF_HOSTED_RUNNERS == 'paused' }}
+        run: |
+          pools=""
+          if [ "$TRUSTED" = true ] && [ "$PAUSED" != true ] && [ -n "$GH_TOKEN" ]; then
+            labels=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runners" \
+              --jq '.runners[] | select(.status == "online") | .labels[].name') || labels=""
+            for os in linux windows; do
+              runner="slipstream-$os-$(git rev-parse "HEAD:scripts/self-hosted/$os" | cut -c1-12)"
+              slots=$(grep -cx "$runner" <<< "$labels" || true)
+              if [ "$slots" -gt 0 ]; then pools="${pools:+$pools,}$os-amd64=$runner:$slots"; fi
+            done
+          fi
+          echo "Self-hosted pools: ${pools:-none}"
+          echo "pools=$pools" >> "$GITHUB_OUTPUT"
       # A pull request into another pull request's branch is stacked: it
       # runs linux-amd64 alone unless labelled ci: full.
       - name: Plan the lanes and matrices
         id: plan
-        run: go run ./cmd/release plan -event "$EVENT" -scope "${SCOPE:-native}" -package="${PACKAGE:-false}" -diagram="${DIAGRAM:-false}" -targets "$TARGETS" -tier "$TIER"
+        run: go run ./cmd/release plan -event "$EVENT" -scope "${SCOPE:-native}" -package="${PACKAGE:-false}" -diagram="${DIAGRAM:-false}" -targets "$TARGETS" -tier "$TIER" -shards "$SHARDS" -self-hosted "$POOLS"
         env:
           EVENT: >-
             ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'workflow_dispatch' && 'dispatch' ||
@@ -107,6 +146,8 @@ jobs:
           DIAGRAM: ${{ steps.scope.outputs.diagram }}
           TARGETS: ${{ inputs.targets }}
           TIER: ${{ inputs.tier || 'all' }}
+          POOLS: ${{ steps.self-hosted.outputs.pools }}
+          SHARDS: ${{ inputs.shards }}
       # Every go, e2e and browser shard splits its tier by the same timings:
       # the go-timings artifact of the last run that recorded them. They are
       # kept as an artifact because a cache entry was evicted within the hour
@@ -342,9 +383,10 @@ jobs:
         run: sudo ifconfig lo0 alias 127.0.0.2 up
       # With one address besides loopback a host announces once whatever the
       # engine does, so TestEachTorrentAnnouncesStartedOnce needs a second.
+      # A self-hosted runner keeps the address from its last run.
       - name: Add a second IPv4 address to the default interface
         if: matrix.goos == 'linux'
-        run: sudo ip addr add 198.51.100.7/32 dev "$(ip -4 route show default | awk '{print $5; exit}')"
+        run: sudo ip addr replace 198.51.100.7/32 dev "$(ip -4 route show default | awk '{print $5; exit}')"
       - name: Run Go test shard
         run: go run ./cmd/release test -tier go -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-go-${{ matrix.shard }}.json"
       - name: Upload this shard's test timings
@@ -535,9 +577,12 @@ jobs:
   online:
     name: Online conformance suites
     needs: plan
+    # A dispatch for one tier runs only that tier's lanes, and these suites
+    # call the real metadata providers with the repository's keys.
     if: >-
       ${{ !cancelled() && (
-        github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
+        github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tier == 'all') ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
         (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.plan.outputs.online == 'true')
       ) }}
     runs-on: ubuntu-24.04
@@ -571,7 +616,9 @@ jobs:
     name: All required checks passed
     if: ${{ always() && (needs.plan.result != 'success' || needs.target.result != (fromJSON(needs.plan.outputs.planned)['target'] && 'success' || 'skipped') || needs.lint.result != (fromJSON(needs.plan.outputs.planned)['lint'] && 'success' || 'skipped') || needs.lint-repo.result != (fromJSON(needs.plan.outputs.planned)['lint-repo'] && 'success' || 'skipped') || needs.go.result != (fromJSON(needs.plan.outputs.planned)['go'] && 'success' || 'skipped') || needs.component.result != (fromJSON(needs.plan.outputs.planned)['component'] && 'success' || 'skipped') || needs.diagram.result != (fromJSON(needs.plan.outputs.planned)['diagram'] && 'success' || 'skipped')) }}
     needs: [plan, target, lint, lint-repo, go, component, diagram]
-    runs-on: ubuntu-24.04
+    runs-on: >-
+      ${{ (github.event_name == 'workflow_dispatch' && inputs.plan-self-hosted && github.repository == 'jatassi/SlipStream' &&
+        github.actor == 'jatassi' && github.triggering_actor == 'jatassi') && 'slipstream-linux' || 'ubuntu-24.04' }}
     timeout-minutes: 5
     steps:
       - name: Check every planned lane passed and the rest skipped

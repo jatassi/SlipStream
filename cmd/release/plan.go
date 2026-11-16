@@ -28,6 +28,9 @@ type lane struct {
 	onlyWhen func(touched) bool
 	// savesCaches says the lane's jobs save caches on a push to main.
 	savesCaches bool
+	// hosted keeps the lane's jobs on hosted runners when a self-hosted pool
+	// has slots.
+	hosted bool
 }
 
 // touched says what the change touches that a lane or the packages
@@ -56,7 +59,10 @@ var lanes = []lane{
 	{kind: "lint", tier: "lint", savesCaches: true, shards: map[string]int{"linux-amd64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
 	{kind: "lint-repo", tier: "lint", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "go", tier: "go", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 3}},
-	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 2, "darwin-arm64": 2}},
+	// An e2e shard runs several packages at once that each start worlds of
+	// processes, and outgrew a 10.7 GB self-hosted runner where a hosted one
+	// has 16 GB.
+	{kind: "e2e", tier: "e2e", hosted: true, shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 2, "darwin-arm64": 2}},
 	{kind: "browser", tier: "browser", shards: map[string]int{"linux-amd64": 5, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 6}},
 	{kind: "component", tier: "component", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "diagram", tier: "component", shards: map[string]int{"linux-amd64": 1}, onlyWhen: func(t touched) bool { return t.diagram }},
@@ -149,8 +155,17 @@ func runPlan(_ context.Context, args []string) error {
 	fs.BoolVar(&t.diagram, "diagram", false, "the change touches what the Diagram check reads, as the scope command's diagram output says")
 	targets := fs.String("targets", "", "comma-separated targets to keep; empty keeps every target the event runs")
 	tier := fs.String("tier", "all", "lanes to run: all, "+strings.Join(laneTiers(), ", "))
+	shards := fs.String("shards", "", "comma-separated shard counts that replace a lane's on every target that runs it, as lane=n, such as browser=2")
+	selfHosted := fs.String("self-hosted", "", "comma-separated pools of self-hosted runners as target=runner:slots, such as linux-amd64=slipstream-linux-0a1b2c:8")
 	if err := fs.Parse(args); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
+	}
+	pools, err := parsePools(*selfHosted)
+	if err != nil {
+		return err
+	}
+	if err := setShards(*shards); err != nil {
+		return err
 	}
 	e, ok := events[*eventName]
 	if !ok {
@@ -167,6 +182,9 @@ func runPlan(_ context.Context, args []string) error {
 	p, err := plan(in, e, scope, t, keep, *tier)
 	if err != nil {
 		return err
+	}
+	for target, pool := range pools {
+		p.selfHost(target, pool)
 	}
 	for _, l := range lanes {
 		m, err := json.Marshal(p.Lanes[l.kind])
@@ -298,6 +316,98 @@ func (l lane) selected(tier string, packaging bool) bool {
 		return packaging || slices.ContainsFunc(lanes, func(o lane) bool { return o.tier == tier && slices.Contains(lanesOnBuild, o.kind) })
 	default:
 		return l.tier == tier
+	}
+}
+
+// setShards replaces lanes' shard counts on every target that runs them,
+// for a dispatch that measures how a lane splits.
+func setShards(s string) error {
+	if s == "" {
+		return nil
+	}
+	for item := range strings.SplitSeq(s, ",") {
+		kind, count, ok := strings.Cut(item, "=")
+		n, err := strconv.Atoi(count)
+		i := slices.IndexFunc(lanes, func(l lane) bool { return l.kind == kind })
+		if !ok || err != nil || n < 1 || i < 0 {
+			return fmt.Errorf("-shards %q isn't lane=n with a lane of %s and n of at least 1", item, strings.Join(laneKinds(), ", "))
+		}
+		lanes[i].shards = maps.Clone(lanes[i].shards)
+		for target := range lanes[i].shards {
+			lanes[i].shards[target] = n
+		}
+	}
+	return nil
+}
+
+func laneKinds() []string {
+	kinds := make([]string, len(lanes))
+	for i, l := range lanes {
+		kinds[i] = l.kind
+	}
+	return kinds
+}
+
+// pool is a set of self-hosted runners for one target: the label that
+// selects them and how many jobs they run at once.
+type pool struct {
+	runner string
+	slots  int
+}
+
+func parsePools(s string) (map[string]pool, error) {
+	pools := map[string]pool{}
+	if s == "" {
+		return pools, nil
+	}
+	for item := range strings.SplitSeq(s, ",") {
+		target, rest, ok := strings.Cut(item, "=")
+		runner, slots, ok2 := strings.Cut(rest, ":")
+		n, err := strconv.Atoi(slots)
+		if !ok || !ok2 || target == "" || runner == "" || err != nil || n < 1 {
+			return nil, fmt.Errorf("-self-hosted %q isn't target=runner:slots with at least one slot", item)
+		}
+		pools[target] = pool{runner, n}
+	}
+	return pools, nil
+}
+
+// selfHost moves up to the pool's slots of a target's jobs onto the pool,
+// and leaves the rest on the target's hosted runner. The lanes that start
+// with the run take slots first. The lanes on the build's dist/ start when
+// the build ends, so they get the build's slot and whatever the others left.
+// A packaging build stays on its hosted runner, because its smoke tests
+// install the packages system-wide, and so does a lane marked hosted.
+func (p Plan) selfHost(target string, pl pool) {
+	used := 0
+	take := func(kind string) bool {
+		if slices.ContainsFunc(lanes, func(l lane) bool { return l.kind == kind && l.hosted }) {
+			return false
+		}
+		taken := false
+		for i, e := range p.Lanes[kind].Include {
+			if e.Target == target && used < pl.slots {
+				p.Lanes[kind].Include[i].Runner = pl.runner
+				used++
+				taken = true
+			}
+		}
+		return taken
+	}
+	build := false
+	for _, l := range lanes {
+		switch {
+		case l.kind == "build":
+			build = !p.Package && take(l.kind)
+		case !slices.Contains(lanesOnBuild, l.kind):
+			take(l.kind)
+		}
+	}
+	if build {
+		used--
+	}
+	for _, kind := range lanesOnBuild {
+		take(kind)
 	}
 }
 
