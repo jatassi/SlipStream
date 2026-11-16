@@ -202,3 +202,30 @@ func TestWhatJoinsAnUnwindingStackStopsAtOnce(t *testing.T) {
 		t.Fatalf("a canceled late goroutine failed the stack: %v", s.Err())
 	}
 }
+
+func TestAHaltedSubsGoroutinesEndBeforeTheStopsAboveItRun(t *testing.T) {
+	s := newStack(slog.New(slog.DiscardHandler))
+	r := new(stopRecorder)
+	claimed := s.Sub("claimed")
+	ended := make(chan struct{})
+	claimed.Go("tasks", func(ctx context.Context) error {
+		<-ctx.Done()
+		defer close(ended)
+		return r.stop("tasks")(ctx)
+	})
+	claimed.OnStop("library.db", r.stop("library.db"))
+	s.OnStop("link", r.stop("link"))
+
+	claimed.Halt()
+	select {
+	case <-ended:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Halt did not end the Sub's goroutine")
+	}
+	if err := s.unwind(time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"tasks", "link", "library.db"}; !slices.Equal(r.order, want) {
+		t.Fatalf("order = %v, want %v", r.order, want)
+	}
+}

@@ -243,6 +243,7 @@ func TestANodeRestartedMidSearchKeepsTheDeadline(t *testing.T) {
 		var n atomic.Int64
 		w := sim.Launch(t, magnetic(t, privateMagnet), sim.WithWalk(), fetches(&n))
 		metadataWait(t, w, 3*time.Minute)
+		stopAtFirstFailure(t, w)
 		start := time.Now()
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		time.Sleep(2 * time.Minute)
