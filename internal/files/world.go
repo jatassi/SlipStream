@@ -30,6 +30,7 @@ type world struct {
 	// scoring is what the files match of the formats goals score.
 	scoring *scoring
 	grabs   map[CellKey]GrabCell
+	search  map[CellKey]SearchFact
 	lost    map[roots.ID]bool
 	timing  map[works.ItemID]targets.Timing
 	// seen is each Item's sighted cuts and its files' cuts; cuts is every
@@ -128,6 +129,10 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	if err != nil {
 		return nil, err
 	}
+	search, err := f.cfg.Grabs.Searching(ctx, r, among)
+	if err != nil {
+		return nil, err
+	}
 	lost, err := roots.LostIn(ctx, r)
 	if err != nil {
 		return nil, err
@@ -141,7 +146,7 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	for i, t := range trees {
 		out[i] = world{
 			tree: t, goals: goals[t.ID], root: homes[t.ID], scoring: newScoring(catalog, goals[t.ID], originals[t.ID]),
-			grabs: grabs, lost: lost, timing: timing, seen: seen, cuts: known, today: today,
+			grabs: grabs, search: search, lost: lost, timing: timing, seen: seen, cuts: known, today: today,
 		}
 	}
 	if err := shelve(ctx, db.New(r), out, among, read, seen); err != nil {
@@ -316,11 +321,19 @@ func (w world) byID() map[ID]*File {
 // keeping the file it would replace. Else a filled cell is upgradable, an
 // empty one unreleased until the Item is out, else missing. A file in a
 // lost root leaves its cell empty. A cut not seen for the Item makes no
-// cell, so it never counts.
+// cell, so it never counts. An empty cell a gone file would fill is Gone.
 func cells(w world) []Cell { return appendCells(nil, w) }
 
 func appendCells(out []Cell, w world) []Cell {
 	files := w.byID()
+	goneOf := map[works.ItemID][]*File{}
+	for i, f := range w.files {
+		if f.Gone() {
+			for _, it := range f.Items {
+				goneOf[it] = append(goneOf[it], &w.files[i])
+			}
+		}
+	}
 	for _, it := range w.tree.Items {
 		timing := w.timing[it.ID]
 		released := timing.ReleasedBy(w.today)
@@ -331,6 +344,8 @@ func appendCells(out []Cell, w world) []Cell {
 				if fill, ok := w.fills[key]; ok && !w.lost[files[fill.File].RootID] {
 					c.File, c.Score = files[fill.File], fill.Score
 				}
+				c.Gone = c.File == nil && slices.ContainsFunc(goneOf[it.ID], func(g *File) bool { return wouldFill(c, *g) })
+				c.Search = w.searchOf(key)
 				out = append(out, stated(c, w.grabs[key]))
 			}
 		}
@@ -357,6 +372,13 @@ func stated(c Cell, g GrabCell) Cell {
 		c.State = Unreleased
 	}
 	return c
+}
+
+// wouldFill reports whether f is of a cut c's Edition takes and of a
+// quality c's Target ranks.
+func wouldFill(c Cell, f File) bool {
+	_, ranked := c.Target.RankOf(f.Quality)
+	return c.Edition.Takes(f.Cut) && ranked
 }
 
 // final reports whether f, scoring score, is final at t. A file whose
@@ -437,4 +459,13 @@ func (s *scoring) compare(t targets.Target, a, b File) int {
 		}
 	}
 	return 0
+}
+
+// searchOf is key's search fact, with its Item's latest search.
+func (w world) searchOf(key CellKey) SearchFact {
+	f := w.search[key]
+	if of, ok := w.search[ItemKey(key.Item)]; ok {
+		f.NotFound, f.Group = of.NotFound, of.Group
+	}
+	return f
 }

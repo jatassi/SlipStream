@@ -44,6 +44,44 @@ type GrabsCarry struct {
 	Fills     string
 }
 
+type GrabsDue struct {
+	WorkID      works.WorkID
+	GroupKey    indexers.GroupKey
+	Lane        *int64
+	QueuedAt    storage.Time
+	Trigger     *string
+	IncludeGone bool
+	UpgradeOnly bool
+	Fresh       bool
+	ReleasedAt  storage.Time
+	DueAt       storage.Time
+	GapSeconds  int64
+	SearchID    SearchID
+	ChangedAt   storage.Time
+}
+
+type GrabsDueItem struct {
+	WorkID   works.WorkID
+	GroupKey indexers.GroupKey
+	ItemID   works.ItemID
+}
+
+type GrabsFailure struct {
+	GrabID    GrabID
+	WorkID    works.WorkID
+	ItemID    works.ItemID
+	Edition   targets.Edition
+	TargetID  targets.TargetID
+	Code      Code
+	InfoHash  []byte
+	IndexerID indexers.ID
+	Guid      *string
+	FailedAt  storage.Time
+	Counted   bool
+	Refuses   bool
+	StoppedAt storage.Time
+}
+
 type GrabsFaultSettled struct {
 	TorrentID downloadclients.ID
 	SettledAt storage.Time
@@ -67,6 +105,8 @@ type GrabsGrab struct {
 	ReleaseLinkSealed secret.Sealed
 	ReleaseMagnet     *string
 	ReleaseInfoHash   []byte
+	ReleaseGuid       *string
+	ChosenFills       *int64
 	FetchQueryID      indexers.QueryID
 	MinRatio          *float64
 	MinSeedSeconds    *int64
@@ -84,12 +124,18 @@ type GrabsGrab struct {
 	MetadataStartedAt storage.Time
 	SentBuiltInOn     *role.NodeID
 	SentClientID      *downloadclients.ClientID
+	FoundBy           FoundBy
 }
 
 type GrabsGrabItem struct {
 	GrabID   GrabID
 	ItemID   works.ItemID
 	Position int64
+}
+
+type GrabsItemSearch struct {
+	ItemID          works.ItemID
+	FirstSearchedAt storage.Time
 }
 
 type GrabsManual struct {
@@ -100,6 +146,15 @@ type GrabsManual struct {
 	StartedBy     identity.AccountID
 	StartedByName *string
 	StartedAt     storage.Time
+}
+
+type GrabsNudge struct {
+	ID        NudgeID
+	WorkID    works.WorkID
+	Trigger   string
+	Lane      *int64
+	Items     *string
+	CreatedAt storage.Time
 }
 
 type GrabsRelease struct {
@@ -124,35 +179,65 @@ type GrabsRelease struct {
 	Release      *string
 	LinkSealed   secret.Sealed
 	Read         *Reading
+	HeardAt      storage.Time
 }
 
 type GrabsSearch struct {
-	ID         SearchID
-	WorkID     works.WorkID
-	ItemID     works.ItemID
-	ManualID   ManualID
-	StartedAt  storage.Time
-	FinishedAt storage.Time
-	Outcome    *Outcome
-	Candidates int64
-	GrabID     GrabID
-	Notes      *string
+	ID          SearchID
+	WorkID      works.WorkID
+	GroupKey    *indexers.GroupKey
+	Lane        *int64
+	Trigger     *string
+	IncludeGone bool
+	Phase       int64
+	ManualID    ManualID
+	StartedAt   storage.Time
+	FinishedAt  storage.Time
+	Outcome     *Outcome
+	Candidates  int64
+	Grabs       int64
+	Notes       *string
+}
+
+type GrabsSearchGrab struct {
+	SearchID SearchID
+	GrabID   GrabID
+	Made     bool
 }
 
 type GrabsSearchIndexer struct {
-	SearchID    SearchID
-	Position    int64
-	IndexerID   indexers.ID
-	IndexerName string
-	QueryID     indexers.QueryID
-	Outcome     *indexers.OutcomeKind
-	Releases    *int64
-	UntilAt     storage.Time
-	SinceAt     storage.Time
-	NodeID      role.NodeID
-	Lapsed      *bool
-	Cause       *indexers.Cause
-	Text        *string
+	SearchID     SearchID
+	Position     int64
+	IndexerID    indexers.ID
+	IndexerName  string
+	ItemID       works.ItemID
+	QueryID      indexers.QueryID
+	DispatchedAt storage.Time
+	DeadlineAt   storage.Time
+	Outcome      *indexers.OutcomeKind
+	Releases     *int64
+	UntilAt      storage.Time
+	SinceAt      storage.Time
+	NodeID       role.NodeID
+	Lapsed       *bool
+	Cause        *indexers.Cause
+	Text         *string
+}
+
+type GrabsSearchItem struct {
+	SearchID SearchID
+	ItemID   works.ItemID
+}
+
+type GrabsSetting struct {
+	ID                Singleton
+	BacklogOn         *bool
+	BacklogUpgrades   *bool
+	RssOn             *bool
+	LongestGapSeconds *int64
+	FullPaceSeconds   *int64
+	StopCount         *int64
+	StopWindowSeconds *int64
 }
 
 type GrabsStage struct {
@@ -169,4 +254,21 @@ type GrabsTarget struct {
 	Forced    bool
 	Settled   *Settled
 	SettledAt storage.Time
+}
+
+type GrabsWait struct {
+	WorkID    works.WorkID
+	ItemID    works.ItemID
+	Edition   targets.Edition
+	TargetID  targets.TargetID
+	UntilAt   storage.Time
+	StartedAt storage.Time
+}
+
+type GrabsWaitCandidate struct {
+	ItemID   works.ItemID
+	Edition  targets.Edition
+	TargetID targets.TargetID
+	SearchID SearchID
+	Position int64
 }

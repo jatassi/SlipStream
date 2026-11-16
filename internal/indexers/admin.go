@@ -55,6 +55,8 @@ type Draft struct {
 	Categories    []newznab.ID
 	Searches      Limit
 	Grabs         Limit
+	// SearchesAtOnce is DefaultSearchesAtOnce when 0.
+	SearchesAtOnce int
 }
 
 // Edit is a change to a saved Indexer: nil leaves a field. Categories
@@ -68,6 +70,7 @@ type Edit struct {
 	Address, APIKey                    *string
 	On, AutoSearch, RSS, AllowFailover *bool
 	Priority                           *int
+	SearchesAtOnce                     *int
 	Categories                         *[]newznab.ID
 	Searches, Grabs                    *Limit
 	Media                              *[]works.TypeID
@@ -203,7 +206,7 @@ func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit,
 		n, err := db.New(tx).UpdateIndexer(ctx, db.UpdateIndexerParams{
 			Name: p.Name, HomeNodeID: p.HomeNodeID, IsOn: p.IsOn, AutoSearch: p.AutoSearch, Rss: p.Rss, AllowFailover: p.AllowFailover,
 			Priority: p.Priority, Categories: p.Categories, Media: p.Media, SearchLimit: p.SearchLimit, SearchWindow: p.SearchWindow,
-			GrabLimit: p.GrabLimit, GrabWindow: p.GrabWindow, BaseAddress: p.BaseAddress, Plain: p.Plain, SecretsSealed: p.SecretsSealed,
+			SearchesAtOnce: p.SearchesAtOnce, GrabLimit: p.GrabLimit, GrabWindow: p.GrabWindow, BaseAddress: p.BaseAddress, Plain: p.Plain, SecretsSealed: p.SecretsSealed,
 			FeedHost: p.FeedHost, TrackerName: p.TrackerName, AllowNoSize: p.AllowNoSize, RssReading: p.RssReading, Caps: p.Caps, Revision: p.Revision,
 			UpdatedAt: now, ID: id,
 		})
@@ -260,6 +263,7 @@ func (x *Indexers) edited(ctx context.Context, idx Indexer, e Edit) (Indexer, er
 	set(&idx.RSS, e.RSS)
 	set(&idx.AllowFailover, e.AllowFailover)
 	set(&idx.Priority, e.Priority)
+	set(&idx.SearchesAtOnce, e.SearchesAtOnce)
 	set(&idx.Categories, e.Categories)
 	set(&idx.Searches, e.Searches)
 	set(&idx.Grabs, e.Grabs)
@@ -376,7 +380,7 @@ func (x *Indexers) testSaved(ctx context.Context, id ID, t Typed) (Indexer, Repo
 		return idx, Report{}, err
 	}
 	err = x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return insertQuery(ctx, tx, q, idx, UseTest, storage.Now())
+		return insertQuery(ctx, tx, q, idx, UseTest, 0, storage.Now())
 	})
 	if err != nil {
 		return idx, Report{}, err
@@ -433,7 +437,7 @@ func (x *Indexers) test(ctx context.Context, idx Indexer, session *searching.Ses
 // session and caps, and the session pasted for it unless nil, inside the
 // Write that saves idx.
 func (x *Indexers) recordTest(ctx context.Context, tx *storage.Tx[file], q QueryID, node role.NodeID, idx Indexer, a searching.Answer, session *searching.Session, now storage.Time) error {
-	if err := insertQuery(ctx, tx, q, idx, UseTest, now); err != nil {
+	if err := insertQuery(ctx, tx, q, idx, UseTest, 0, now); err != nil {
 		return err
 	}
 	if session != nil {
@@ -450,7 +454,7 @@ func reportOf(r *searching.Report) Report {
 	if r == nil {
 		return Report{}
 	}
-	return Report{Caps: Caps{Modes: r.Capabilities.Modes, Categories: CategoriesOf(r.Capabilities.Categories)}, Items: r.Items, Sources: r.Sources}
+	return Report{Caps: Caps{Modes: r.Capabilities.Modes, Categories: CategoriesOf(r.Capabilities.Categories), RecentPaging: r.Capabilities.RecentPaging}, Items: r.Items, Sources: r.Sources}
 }
 
 // Delete removes Indexer id with its status, sessions and query rows in
@@ -533,6 +537,8 @@ type View struct {
 	// Sealed is the names of a catalog or native Indexer's sealed settings
 	// that hold a value, in order.
 	Sealed []string
+	// Feed is its last RSS fetch, nil before its first.
+	Feed *FeedFact
 }
 
 // List is every Indexer by name, viewed.
@@ -589,6 +595,10 @@ func (x *Indexers) views(ctx context.Context, r storage.Reader[file], all []Inde
 	if err != nil {
 		return nil, err
 	}
+	feeds, err := feedFacts(ctx, r)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]View, len(all))
 	for i, idx := range all {
 		st, ok := byID[idx.ID]
@@ -598,6 +608,9 @@ func (x *Indexers) views(ctx context.Context, r storage.Reader[file], all []Inde
 		v := View{Indexer: idx, Status: st, Usage: usage(idx, reserved, now)}
 		if s, ok := sessions[idx.ID]; ok {
 			v.Session = &s
+		}
+		if f, ok := feeds[idx.ID]; ok {
+			v.Feed = &f
 		}
 		_, v.Waits = gate(idx, st, v.Usage, x.cfg.Roster, UseSearch, now)
 		v.SignsIn, v.Trackers = holdsSession(idx), reach.trackers[idx.ID]

@@ -63,10 +63,10 @@ func (w *walked) grabsFrom(t *testing.T, name, id string, indexers int) {
 			t.Errorf("%s's search ended %v with %d Releases: %s, want its one release found", l.Name, l.Outcome, l.Releases, l.Sentence)
 		}
 	}
-	if len(found.Indexers) != indexers || found.GrabID == nil {
+	if len(found.Indexers) != indexers || len(found.GrabIDs) != 1 {
 		t.Fatalf("the search = %+v, want a line for each of the %d Indexers and a Grab", found, indexers)
 	}
-	w.ended(t, *found.GrabID)
+	w.ended(t, found.GrabIDs[0])
 	if w.grab.Stage != "imported" {
 		t.Fatalf("%s's Grab ended %s with %+v after %v, want imported", name, w.grab.Stage, w.grab.Failure, w.grab.stages())
 	}

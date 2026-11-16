@@ -1,5 +1,5 @@
 /**
- * Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.
+ * Why the release was refused, or a note on it. wrong_item is a release whose title names another Item, no Item, or none of the searched Items. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist. not_aired is a pack listing an Item that hasn't aired, its value the Item's code. tried is a release a failed Grab of the Work already tried.
  */
 export type GrabsWordedReasonCode =
   | "wrong_work"
@@ -14,4 +14,6 @@ export type GrabsWordedReasonCode =
   | "score_below_minimum"
   | "not_an_upgrade"
   | "repack_other_group"
-  | "blocklisted";
+  | "blocklisted"
+  | "not_aired"
+  | "tried";

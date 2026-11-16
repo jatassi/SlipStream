@@ -24,7 +24,12 @@ var (
 // Status is what a shown task does now: Idle, Running or Waiting.
 type Status interface{ status() }
 
-type Idle struct{ Next time.Time }
+// Idle is a task between runs: when it runs next, and Off while its
+// owner's setting has each run skip.
+type Idle struct {
+	Next time.Time
+	Off  bool
+}
 
 type Running struct {
 	Run         RunID
@@ -112,6 +117,8 @@ type Line struct {
 	NodeRemoved bool
 	Outcome     Outcome
 	Cause       string
+	// Note is how a succeeded unit ended, in the task's words.
+	Note string
 }
 
 // UnitView is one unit a task lists now, with its last outcome. Outcome
@@ -176,6 +183,7 @@ type Active struct {
 type look struct {
 	snap   snapshot
 	shown  map[TaskID]bool
+	off    map[TaskID]bool
 	listed map[TaskID][]Unit
 	rows   map[TaskID][]db.TasksUnit
 	nodes  map[role.NodeID]nodes.Named
@@ -189,7 +197,7 @@ func (s *Scheduler) look(ctx context.Context, detail TaskID) (look, error) {
 	if err != nil {
 		return look{}, err
 	}
-	l := look{shown: map[TaskID]bool{}, listed: map[TaskID][]Unit{}, rows: map[TaskID][]db.TasksUnit{}, nodes: names}
+	l := look{shown: map[TaskID]bool{}, off: map[TaskID]bool{}, listed: map[TaskID][]Unit{}, rows: map[TaskID][]db.TasksUnit{}, nodes: names}
 	for _, n := range names {
 		if !n.Removed {
 			l.count++
@@ -222,6 +230,11 @@ func (l look) read(ctx context.Context, r storage.Reader[file], t Task, list boo
 	}
 	if l.shown[t.ID], err = shownIn(ctx, r, t, l.listed[t.ID]); err != nil {
 		return fmt.Errorf("ask whether %s is shown: %w", t.ID, err)
+	}
+	if t.Off != nil {
+		if l.off[t.ID], err = t.Off(ctx, r); err != nil {
+			return fmt.Errorf("ask whether %s is off: %w", t.ID, err)
+		}
 	}
 	l.rows[t.ID], err = db.New(r).ListUnits(ctx, t.ID)
 	return err
@@ -393,11 +406,11 @@ func (s *Scheduler) status(l look, t Task, units []Unit, next time.Time) Status 
 	}
 	s.mu.Unlock()
 	if len(units) == 0 {
-		return Idle{Next: next}
+		return Idle{Next: next, Off: l.off[t.ID]}
 	}
 	for _, u := range units {
 		if u.Place.kind != tiedTo || s.reaches(u.Place.node) {
-			return Idle{Next: next}
+			return Idle{Next: next, Off: l.off[t.ID]}
 		}
 	}
 	node := units[0].Place.node
@@ -423,7 +436,7 @@ func (l look) runOf(row db.TasksRun) Run {
 			node = role.NodeID{UUID: id}
 		}
 		name := l.name(node)
-		r.Lines = append(r.Lines, Line{Key: ln.Key, Label: ln.Label, Node: name, NodeID: node, NodeRemoved: l.removed(node), Outcome: ln.Outcome, Cause: ln.Cause})
+		r.Lines = append(r.Lines, Line{Key: ln.Key, Label: ln.Label, Node: name, NodeID: node, NodeRemoved: l.removed(node), Outcome: ln.Outcome, Cause: ln.Cause, Note: ln.Note})
 		if name != "" {
 			r.Nodes = appendNew(r.Nodes, name)
 		}

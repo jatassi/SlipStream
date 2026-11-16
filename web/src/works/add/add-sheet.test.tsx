@@ -123,6 +123,7 @@ test("Remember writes the preset, Include extras and Volume folders with the Pro
       preset: "latest",
       includeAsides: true,
       levelFolders: false,
+      search: "monitored",
       remember: true,
     },
   ]);
@@ -176,6 +177,7 @@ test("a one-Item type keeps the Monitor switch, which posts all or none and noth
       profileId: films.id,
       rootId: filmsRoot.id,
       preset: "none",
+      search: "monitored",
       remember: true,
     },
   ]);

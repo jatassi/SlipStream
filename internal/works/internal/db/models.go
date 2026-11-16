@@ -13,6 +13,7 @@ type WorksAddDefault struct {
 	Monitor      *string
 	Asides       *bool
 	LevelFolders *bool
+	Search       *string
 }
 
 type WorksArtwork struct {

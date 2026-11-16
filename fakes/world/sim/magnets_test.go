@@ -59,6 +59,15 @@ func metadataWait(t *testing.T, w *sim.World, wait time.Duration) {
 	}
 }
 
+// stopAtFirstFailure stops a cell at its first failed Grab, so a failure
+// doesn't search it again and grab the scenario's other Release.
+func stopAtFirstFailure(t *testing.T, w *sim.World) {
+	t.Helper()
+	if r := w.API().Admin("home", http.MethodPatch, "/api/v1/search-settings", `{"values":{"search.stopCount":1}}`); r.Status != http.StatusOK {
+		t.Fatalf("updateSearchSettings = %d %s", r.Status, r.Body)
+	}
+}
+
 type torrentRows struct {
 	Rows []struct {
 		Name string `json:"name"`
@@ -134,6 +143,7 @@ func TestAPrivateMagnetLinkFailsOnceTheMetadataWaitPasses(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, magnetic(t, privateMagnet), sim.WithWalk())
 		metadataWait(t, w, 2*time.Minute)
+		stopAtFirstFailure(t, w)
 		start := time.Now()
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		g := simtest.Await(t, w)
@@ -233,6 +243,7 @@ func TestANodeRestartedMidSearchKeepsTheDeadline(t *testing.T) {
 		var n atomic.Int64
 		w := sim.Launch(t, magnetic(t, privateMagnet), sim.WithWalk(), fetches(&n))
 		metadataWait(t, w, 3*time.Minute)
+		stopAtFirstFailure(t, w)
 		start := time.Now()
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		time.Sleep(2 * time.Minute)

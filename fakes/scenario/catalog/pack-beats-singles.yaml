@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller, for a season search that fills its
+  empty cells with the fewest Releases. fake-tvdb lists The Copper Coast,
+  one season of ten one-minute episodes. Fixture Site lists a 1080p WEB-DL
+  pack of episodes 1 to 9 and a 1080p Bluray single of every episode, each
+  better than the pack's copy. The search takes the pack, which fills nine
+  cells with one Release, and the single of episode 10, which the pack
+  leaves empty. The library's Importing settings keep the 8-second videos.
+  The library has a TV root, and no Work until a test adds one.
+seed: pack-beats-singles
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 15s
+tvdb:
+  series:
+    - id: 1101
+      name: The Copper Coast
+      status: ended
+      network: Coastline
+      imdb: tt1101001
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 110111, number: 1, name: Low Tide, aired: 2022-03-04, runtime: 1}
+            - {id: 110112, number: 2, name: The Wreckers, aired: 2022-03-11, runtime: 1}
+            - {id: 110113, number: 3, name: Signal Fires, aired: 2022-03-18, runtime: 1}
+            - {id: 110114, number: 4, name: Brass and Salt, aired: 2022-03-25, runtime: 1}
+            - {id: 110115, number: 5, name: The Harbor Master, aired: 2022-04-01, runtime: 1}
+            - {id: 110116, number: 6, name: Undertow, aired: 2022-04-08, runtime: 1}
+            - {id: 110117, number: 7, name: Copper Bells, aired: 2022-04-15, runtime: 1}
+            - {id: 110118, number: 8, name: A Ship in Fog, aired: 2022-04-22, runtime: 1}
+            - {id: 110119, number: 9, name: The Long Pier, aired: 2022-04-29, runtime: 1}
+            - {id: 110120, number: 10, name: High Water, aired: 2022-05-06, runtime: 1}
+releases:
+  - name: The.Copper.Coast.S01E01-E09.1080p.WEB-DL.H264-NTB
+    tvdb: {series: 1101, season: 1}
+    seeders: 30
+    seeded: true
+    advertised_size: 11.0GiB
+    files:
+      - {path: The.Copper.Coast.S01E01.1080p.WEB-DL.H264-NTB.mkv, items: [{season: 1, episode: 1}], video: &episode {width: 1920, height: 1080, seconds: 8, hdr: sdr}, size: 2MiB}
+      - {path: The.Copper.Coast.S01E02.1080p.WEB-DL.H264-NTB.mkv, items: [{season: 1, episode: 2}], video: *episode, size: 2MiB}
+      - {path: The.Copper.Coast.S01E03.1080p.WEB-DL.H264-NTB.mkv, items: [{season: 1, episode: 3}], video: *episode, size: 2MiB}
+      - {path: The.Copper.Coast.S01E04.1080p.WEB-DL.H264-NTB.mkv, items: [{season: 1, episode: 4}], video: *episode, size: 2MiB}
+      - {path: The.Copper.Coast.S01E05.1080p.WEB-DL.H264-NTB.mkv, items: [{season: 1, episode: 5}], video: *episode, size: 2MiB}
+      - {path: The.Copper.Coast.S01E06.1080p.WEB-DL.H264-NTB.mkv, items: [{season: 1, episode: 6}], video: *episode, size: 2MiB}
+      - {path: The.Copper.Coast.S01E07.1080p.WEB-DL.H264-NTB.mkv, items: [{season: 1, episode: 7}], video: *episode, size: 2MiB}
+      - {path: The.Copper.Coast.S01E08.1080p.WEB-DL.H264-NTB.mkv, items: [{season: 1, episode: 8}], video: *episode, size: 2MiB}
+      - {path: The.Copper.Coast.S01E09.1080p.WEB-DL.H264-NTB.mkv, items: [{season: 1, episode: 9}], video: *episode, size: 2MiB}
+  - name: The.Copper.Coast.S01E01.1080p.BluRay.x264-FKW
+    tvdb: {series: 1101, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 12
+    seeded: true
+    advertised_size: 1.6GiB
+  - name: The.Copper.Coast.S01E02.1080p.BluRay.x264-FKW
+    tvdb: {series: 1101, season: 1, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 12
+    seeded: true
+    advertised_size: 1.6GiB
+  - name: The.Copper.Coast.S01E03.1080p.BluRay.x264-FKW
+    tvdb: {series: 1101, season: 1, episode: 3}
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 12
+    seeded: true
+    advertised_size: 1.6GiB
+  - name: The.Copper.Coast.S01E04.1080p.BluRay.x264-FKW
+    tvdb: {series: 1101, season: 1, episode: 4}
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 12
+    seeded: true
+    advertised_size: 1.6GiB
+  - name: The.Copper.Coast.S01E05.1080p.BluRay.x264-FKW
+    tvdb: {series: 1101, season: 1, episode: 5}
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 12
+    seeded: true
+    advertised_size: 1.6GiB
+  - name: The.Copper.Coast.S01E06.1080p.BluRay.x264-FKW
+    tvdb: {series: 1101, season: 1, episode: 6}
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 12
+    seeded: true
+    advertised_size: 1.6GiB
+  - name: The.Copper.Coast.S01E07.1080p.BluRay.x264-FKW
+    tvdb: {series: 1101, season: 1, episode: 7}
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 12
+    seeded: true
+    advertised_size: 1.6GiB
+  - name: The.Copper.Coast.S01E08.1080p.BluRay.x264-FKW
+    tvdb: {series: 1101, season: 1, episode: 8}
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 12
+    seeded: true
+    advertised_size: 1.6GiB
+  - name: The.Copper.Coast.S01E09.1080p.BluRay.x264-FKW
+    tvdb: {series: 1101, season: 1, episode: 9}
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 12
+    seeded: true
+    advertised_size: 1.6GiB
+  - name: The.Copper.Coast.S01E10.1080p.BluRay.x264-FKW
+    tvdb: {series: 1101, season: 1, episode: 10}
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 12
+    seeded: true
+    advertised_size: 1.6GiB
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: series, folder: tv}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]
+  importing: {smallest_video_file: 1MiB, sample_shorter_than: 5}

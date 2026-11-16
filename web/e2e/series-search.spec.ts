@@ -23,8 +23,8 @@ const Cells = z.object({
 const Items = z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })) });
 
 const notifications = (page: Page) => page.getByRole("region", { name: "Notifications" });
-const grabbed = (page: Page) =>
-  page.getByRole("list", { name: "Searches" }).getByText("Grabbed a Release");
+const searches = (page: Page) => page.getByRole("list", { name: "Searches" });
+const grabbed = (page: Page) => searches(page).getByText("Grabbed 1 release");
 
 /** The titles of the episodes that hold a library file. */
 async function filed(world: World, workId: string): Promise<string[]> {
@@ -61,13 +61,18 @@ test("the series' Search counts every wanted episode, and a season's only its mo
   // The season pack fills both wanted episodes, so one Grab does.
   await expect(grabbed(page)).toHaveCount(1);
 
+  // Turning S02E01 on searches it, and the Fake world has no release of it.
   await openLevel(page, "Season 2");
   await setEpisodeMonitored(page, "S02E01", true);
+  await expect(searches(page)).toContainText(/^Found nothingMonitoring turned on/u);
+  await searchEpisode(page, "S02E01");
+  await expect(notifications(page)).toContainText("Searching 1 episode");
+  await expect(searches(page)).toContainText(/^Found nothingSearch/u);
   await seasons(page).getByRole("button", { name: "Search Season 2" }).click();
   await expect(notifications(page)).toContainText("Searching 1 episode");
 });
 
-test("an episode's Search grabs its release, and the episode keeps its file once TVDB's order no longer lists it", async ({
+test("turning an episode on grabs its release, and the episode keeps its file once TVDB's order no longer lists it", async ({
   adminPage: page,
   world,
 }) => {
@@ -75,9 +80,7 @@ test("an episode's Search grabs its release, and the episode keeps its file once
   await page.goto(`/works/${workId}`);
   await openLevel(page, "Specials");
   await setEpisodeMonitored(page, "S00E02", true);
-  await searchEpisode(page, "S00E02");
-  await expect(notifications(page)).toContainText("Searching 1 episode");
-  await expect(grabbed(page)).toHaveCount(1);
+  await expect(searches(page)).toContainText(/^Grabbed 1 releaseMonitoring turned on/u);
   await expect.poll(() => filed(world, workId), { timeout: 90_000 }).toEqual(["A Winter Light"]);
 
   const dvd = await world.api("PUT", `/api/v1/works/${workId}/options`, {

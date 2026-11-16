@@ -61,6 +61,12 @@ export const prioritySchema = z
   .regex(/^\d{1,2}$/u, "Enter a number from 1 to 50")
   .refine((value) => Number(value) >= 1 && Number(value) <= 50, "Enter a number from 1 to 50");
 
+export const searchesAtOnceSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{1,2}$/u, "Enter a number from 1 to 10")
+  .refine((value) => Number(value) >= 1 && Number(value) <= 10, "Enter a number from 1 to 10");
+
 /** A limit as the API takes it, from the form's count. */
 export const limitOf = (limit: z.output<typeof limitSchema>) => ({
   count: Number(limit.count),
@@ -79,6 +85,7 @@ export const editSchema = z.object({
   priority: prioritySchema,
   searches: limitSchema,
   grabs: limitSchema,
+  searchesAtOnce: searchesAtOnceSchema,
 });
 
 export type EditValues = z.input<typeof editSchema>;
@@ -107,6 +114,7 @@ export const valuesOf = (indexer: IndexersIndexer, settings?: SettingsForm): Edi
   priority: String(indexer.priority),
   searches: { count: String(indexer.searches.count), per: indexer.searches.per },
   grabs: { count: String(indexer.grabs.count), per: indexer.grabs.per },
+  searchesAtOnce: String(indexer.searchesAtOnce),
 });
 
 /** The settings that changed: a plain one whose value differs, a sealed one replaced. */
@@ -123,6 +131,26 @@ function changedSettings(
       return holdsValue(field) && changed ? [[field.name, value]] : [];
     }),
   );
+}
+
+/** The limits and Searches at once that changed. */
+function pacingEdit(
+  indexer: IndexersIndexer,
+  next: z.output<typeof editSchema>,
+): IndexersIndexerEdit {
+  const edit: IndexersIndexerEdit = {};
+  const searches = limitOf(next.searches);
+  if (searches.count !== indexer.searches.count || searches.per !== indexer.searches.per) {
+    edit.searches = searches;
+  }
+  const grabs = limitOf(next.grabs);
+  if (grabs.count !== indexer.grabs.count || grabs.per !== indexer.grabs.per) {
+    edit.grabs = grabs;
+  }
+  if (Number(next.searchesAtOnce) !== indexer.searchesAtOnce) {
+    edit.searchesAtOnce = Number(next.searchesAtOnce);
+  }
+  return edit;
 }
 
 /**
@@ -160,14 +188,7 @@ export function editOf(
   if (Number(next.priority) !== indexer.priority) {
     edit.priority = Number(next.priority);
   }
-  const searches = limitOf(next.searches);
-  if (searches.count !== indexer.searches.count || searches.per !== indexer.searches.per) {
-    edit.searches = searches;
-  }
-  const grabs = limitOf(next.grabs);
-  if (grabs.count !== indexer.grabs.count || grabs.per !== indexer.grabs.per) {
-    edit.grabs = grabs;
-  }
+  Object.assign(edit, pacingEdit(indexer, next));
   if (codeShown && Object.keys(edit).length > 0) {
     edit.code = next.code.trim();
   }

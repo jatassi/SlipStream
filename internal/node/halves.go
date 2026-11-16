@@ -51,6 +51,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/scanning"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -133,6 +134,7 @@ func (n *Node) startController(ctx context.Context) error {
 		seeding      *trackers.Trackers
 		pipeline     *grabs.Grabs
 		scheduler    *tasks.Scheduler
+		searchQueue  = &searches.Late{}
 	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -320,6 +322,9 @@ func (n *Node) startController(ctx context.Context) error {
 		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
 		TypeChanged:  typeChanged,
 		Log:          n.rootLog.With("subsystem", "works"),
+		ItemsAdded: func(ctx context.Context, tx *storage.Tx[storage.Library], work works.WorkID, items []works.ItemID) error {
+			return searchQueue.Queue(ctx, tx, searches.Refresh, searches.Ask{Work: work, Items: items})
+		},
 	})
 	if err != nil {
 		return err
@@ -352,23 +357,28 @@ func (n *Node) startController(ctx context.Context) error {
 		Searching: func(node role.NodeID) searching.Remote {
 			return searching.RemoteOf(searchv1connect.SearchingService.On(cluster, node))
 		},
-		Ports:     n.ports,
-		Types:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
-		Works:     tree,
-		Changed:   indexers.ChangedEvent.Bind(n.hub),
-		Status:    indexers.StatusChangedEvent.Bind(n.hub),
-		Catalogs:  indexers.CatalogChangedEvent.Bind(n.hub),
-		Trackers:  indexers.TrackersEvent.Bind(n.hub),
-		Settings:  indexers.SettingsChangedEvent.Bind(n.hub),
-		Repoints:  []indexers.Repoint{grabs.RepointTracker, downloadclients.RepointTracker, trackers.RepointTracker},
-		HTTP:      client,
-		Endpoints: n.cfg.Endpoints.Indexers,
+		Ports:      n.ports,
+		Types:      contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
+		Works:      tree,
+		Changed:    indexers.ChangedEvent.Bind(n.hub),
+		Status:     indexers.StatusChangedEvent.Bind(n.hub),
+		Catalogs:   indexers.CatalogChangedEvent.Bind(n.hub),
+		Trackers:   indexers.TrackersEvent.Bind(n.hub),
+		Settings:   indexers.SettingsChangedEvent.Bind(n.hub),
+		RSSChanged: indexers.RSSChangedEvent.Bind(n.hub),
+		Repoints:   []indexers.Repoint{grabs.RepointTracker, downloadclients.RepointTracker, trackers.RepointTracker},
+		HTTP:       client,
+		Endpoints:  n.cfg.Endpoints.Indexers,
 		CatalogNext: func(ctx context.Context) (time.Time, error) {
 			return scheduler.Next(ctx, indexers.CatalogRefreshTaskID)
 		},
 		Timings: n.cfg.Timings.Indexers,
-		Zone:    n.zone(),
-		Log:     n.rootLog.With("subsystem", "indexers"),
+		JobCap:  n.cfg.Timings.Searching.JobCap,
+		RSS: func(ctx context.Context, r storage.Reader[storage.Library]) (time.Duration, bool, error) {
+			return pipeline.RSSIn(ctx, r)
+		},
+		Zone: n.zone(),
+		Log:  n.rootLog.With("subsystem", "indexers"),
 	})
 	goals, err := targets.Open(ctx, targets.Config{
 		Library: lib.db,
@@ -413,6 +423,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
 	})
 	shelf, err := files.Open(ctx, files.Config{
+		Queue:   searchQueue,
 		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn, MediaServers: servers,
 		Naming:  names,
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
@@ -449,8 +460,14 @@ func (n *Node) startController(ctx context.Context) error {
 		BlocklistChanged: grabs.BlocklistChangedEvent.Bind(n.hub),
 		Reconciling:      trackers.NotReconciling,
 		BeforeStep:       n.env.Test.BeforeStep,
+		Tasks:            lateTasks{&scheduler},
+		GapCap:           grabs.NoGapCap,
+		QueueChanged:     grabs.QueueChangedEvent.Bind(n.hub),
+		Clock:            time.Now,
+		Today:            n.today,
 		Log:              n.rootLog.With("subsystem", "grabs"),
 	})
+	searchQueue.Bind(pipeline)
 	var composer *library.Library
 	found := imports.New(imports.Config{
 		Library: lib.db,
@@ -487,7 +504,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err := found.Carry(ctx); err != nil {
 		return err
 	}
-	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found})
+	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue})
 
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
@@ -508,7 +525,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}, found), append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask()), n.env.Test.tasks(started)...)...),
+		}, found), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,
@@ -558,7 +575,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("metadata", meta.Run)
 	n.claimed.Go("availability", metadata.NewAvailability(metadata.AvailabilityConfig{
 		Library: lib.db, Local: local, Targets: goals, Hub: n.hub, Changed: works.ChangedEvent.Bind(n.hub),
-		Now: n.today, Released: metadata.NoBacklog, Log: n.rootLog.With("subsystem", "availability"),
+		Now: n.today, Released: pipeline.Released, Log: n.rootLog.With("subsystem", "availability"),
 	}).Run)
 	n.claimed.Go("health", h.health.Run)
 	n.claimed.Go("first setup", h.firstRun.Run)
@@ -597,12 +614,20 @@ func (r openedRoster) Draining(name role.Name, node role.NodeID) bool {
 	return (*r.side).Draining(name, node)
 }
 
-// lateTasks is the Scheduled tasks once they open: the Media Servers are
-// made before them, since the tasks' catalog lists the renewal task.
+// lateTasks is the Scheduled tasks once they open: the Media Servers and
+// grabs are made before them, since the tasks' catalog lists their tasks.
 type lateTasks struct{ tasks **tasks.Scheduler }
 
 func (t lateTasks) Every(ctx context.Context, id tasks.TaskID) (*int64, error) {
 	return (*t.tasks).Every(ctx, id)
+}
+
+func (t lateTasks) EveryIn(ctx context.Context, r storage.Reader[storage.Library], id tasks.TaskID) (*int64, error) {
+	return (*t.tasks).EveryIn(ctx, r, id)
+}
+
+func (t lateTasks) Next(ctx context.Context, id tasks.TaskID) (time.Time, error) {
+	return (*t.tasks).Next(ctx, id)
 }
 
 func (t lateTasks) SetCadence(ctx context.Context, id tasks.TaskID, v setting.Stored[int64]) error {
@@ -638,12 +663,15 @@ func (n *Node) zone() *time.Location {
 }
 
 // searchingService is the Searching service a half mounts, reaching each
-// site through endpoints.searching ahead of the Node's network.
+// site through endpoints.searching ahead of the Node's network. Its jobs
+// stop with the Node.
 func (n *Node) searchingService() *searching.Service {
 	client := n.httpClient(n.cfg.Endpoints.Searching.Dial(n.env.Net.DialContext))
-	return searching.New(searching.Config{
+	svc := searching.New(searching.Config{
 		HTTP: client, Native: port.Driver(n.ports), Timings: n.cfg.Timings.Searching, Log: n.rootLog.With("subsystem", "searching"),
 	})
+	n.claimed.OnStop("searching jobs", svc.Stop)
+	return svc
 }
 
 // httpClient is a half's client for the hosts the Node reaches, dialing

@@ -2,11 +2,11 @@ import type { FilesCellList } from "../api/gen/model";
 import { downloading } from "./grabs";
 import { orchardItemId } from "./library";
 import { keeper, starter } from "./targets";
-import { hdtv } from "./work-cells";
+import { hdtv, unsearched } from "./work-cells";
 
 const hd = starter.id;
 const uhd = keeper.id;
-const base = { itemId: orchardItemId, edition: "any" } as const;
+const base = { itemId: orchardItemId, edition: "any", ...unsearched } as const;
 
 /** 1080p's upgrade downloads, its HDTV file kept until the new one imports. */
 export const upgrading: FilesCellList = {

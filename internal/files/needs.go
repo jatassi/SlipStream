@@ -34,7 +34,14 @@ type Need struct {
 	ClientError *ClientError
 	Hold        *ImportHold
 	FailedAt    string
+	// Group is the key of the search group whose latest search found a
+	// NeedNotFound's Items nothing.
+	Group string
 }
+
+// Flags reports whether n counts toward the Library's Needs you flag. A
+// NeedNotFound shows on its Work's page only.
+func (n Need) Flags() bool { return n.Kind != NeedNotFound }
 
 // NeedKind is a Need's kind, in the order Needs you lists them.
 type NeedKind uint8
@@ -42,6 +49,9 @@ type NeedKind uint8
 const (
 	NeedFailed NeedKind = iota + 1
 	NeedUpgrade
+	// NeedNotFound is missing Items whose latest search found no Release,
+	// or none acceptable.
+	NeedNotFound
 	NeedWaiting
 	NeedNoRoot
 )
@@ -49,7 +59,8 @@ const (
 // needs is a Work's Needs you from its cells, in tree order, and the Grab
 // of each. Each counted Item and Edition gives one entry from its wanted
 // cells: a failure, which its still missing Targets wait on, else its
-// upgrades. Each Grab that waits on an Admin for a counted Item gives one,
+// upgrades and, when its latest search found nothing, its missing cells.
+// Each Grab that waits on an Admin for a counted Item gives one,
 // and a rootless Work with a wanted cell one more. An Item that doesn't
 // count gives none. Entries sort by kind, then Edition, then tree order,
 // so the entries of consecutive Items sit side by side, and an entry the
@@ -63,35 +74,15 @@ func needs(items []works.Item, cells []Cell, grabs map[CellKey]GrabCell, rooted 
 		if !head.Item.Counts() {
 			continue
 		}
-		var failed, missing, upgrades []targets.TargetID
 		for _, c := range group {
 			g := grabs[c.key()]
 			if g.Waiting != "" && !waits[g.Grab] {
 				waits[g.Grab] = true
 				out = append(out, Need{Kind: NeedWaiting, Items: []works.ItemID{c.Item.ID}, Edition: c.Edition, Grab: g.Grab, Code: g.Waiting, ClientError: g.ClientError, Hold: g.Hold})
 			}
-			if !c.Wanted() {
-				continue
-			}
-			wanted = true
-			switch c.State {
-			case Failed:
-				failed = append(failed, c.Target.ID)
-			case Missing:
-				missing = append(missing, c.Target.ID)
-			case Upgradable:
-				upgrades = append(upgrades, c.Target.ID)
-			case Unreleased, Downloading, Met:
-			}
+			wanted = wanted || c.Wanted()
 		}
-		at := []works.ItemID{head.Item.ID}
-		switch {
-		case len(failed) > 0:
-			g := grabs[CellKey{Item: head.Item.ID, Edition: head.Edition, Target: failed[0]}]
-			out = append(out, Need{Kind: NeedFailed, Items: at, Edition: head.Edition, Target: failed[0], Waiting: missing, Grab: g.Grab, FailedAt: g.FailedAt})
-		case len(upgrades) > 0:
-			out = append(out, Need{Kind: NeedUpgrade, Items: at, Edition: head.Edition, Upgrades: upgrades})
-		}
+		out = append(out, wantedNeeds(group, grabs)...)
 	}
 	if !rooted && wanted {
 		out = append(out, Need{Kind: NeedNoRoot})
@@ -101,6 +92,44 @@ func needs(items []works.Item, cells []Cell, grabs map[CellKey]GrabCell, rooted 
 		return cmp.Or(cmp.Compare(a.Kind, b.Kind), cmp.Compare(editions[a.Edition], editions[b.Edition]))
 	})
 	return runs(items, out)
+}
+
+// wantedNeeds is the entries of group, the cells of one counted Item and
+// Edition, from its wanted cells.
+func wantedNeeds(group []Cell, grabs map[CellKey]GrabCell) []Need {
+	var failed, missing, upgrades []targets.TargetID
+	var notFound *SearchFact
+	for _, c := range group {
+		if !c.Wanted() {
+			continue
+		}
+		switch c.State {
+		case Failed:
+			failed = append(failed, c.Target.ID)
+		case Missing:
+			missing = append(missing, c.Target.ID)
+			if c.Search.NotFound && notFound == nil {
+				notFound = &c.Search
+			}
+		case Upgradable:
+			upgrades = append(upgrades, c.Target.ID)
+		case Unreleased, Downloading, Met:
+		}
+	}
+	head := group[0]
+	at := []works.ItemID{head.Item.ID}
+	if len(failed) > 0 {
+		g := grabs[CellKey{Item: head.Item.ID, Edition: head.Edition, Target: failed[0]}]
+		return []Need{{Kind: NeedFailed, Items: at, Edition: head.Edition, Target: failed[0], Waiting: missing, Grab: g.Grab, FailedAt: g.FailedAt}}
+	}
+	var out []Need
+	if len(upgrades) > 0 {
+		out = append(out, Need{Kind: NeedUpgrade, Items: at, Edition: head.Edition, Upgrades: upgrades})
+	}
+	if notFound != nil {
+		out = append(out, Need{Kind: NeedNotFound, Items: at, Edition: head.Edition, Group: notFound.Group})
+	}
+	return out
 }
 
 // ranksOf ranks each Edition of cells by where it first appears.
@@ -154,7 +183,7 @@ func runs(items []works.Item, ns []Need) []Need {
 func same(a, b Need) bool {
 	failuresOfAnyGrabJoin := a.Kind == NeedFailed
 	return a.Kind == b.Kind && a.Edition == b.Edition && a.Target == b.Target && (failuresOfAnyGrabJoin || a.Grab == b.Grab) &&
-		a.Code == b.Code && a.FailedAt == b.FailedAt && slices.Equal(a.Waiting, b.Waiting) && slices.Equal(a.Upgrades, b.Upgrades)
+		a.Code == b.Code && a.FailedAt == b.FailedAt && a.Group == b.Group && slices.Equal(a.Waiting, b.Waiting) && slices.Equal(a.Upgrades, b.Upgrades)
 }
 
 func (c Cell) key() CellKey { return CellKey{Item: c.Item.ID, Edition: c.Edition, Target: c.Target.ID} }

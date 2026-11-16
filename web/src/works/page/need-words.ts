@@ -1,6 +1,7 @@
 import type {
   FilesClientError,
   FilesFailedNeed,
+  FilesNotFoundNeed,
   FilesSpace,
   FilesUpgradeNeed,
   WorksContentType,
@@ -59,6 +60,12 @@ export function failedWords(naming: Naming, need: FilesFailedNeed, grab: FailedG
   }
   const waiting = list.format(need.waiting.map((id) => naming.targetName(id)));
   return `${failed} · ${waiting} ${need.waiting.length === 1 ? "is" : "are"} made from it and can't start`;
+}
+
+/** "S02E01 to S02E08 not found", or the Work's own label for a Work of one Item. */
+export function notFoundSubject(naming: Naming, need: FilesNotFoundNeed): string {
+  const cells = cellsOf(naming, need, []).trim();
+  return `${cells === "" ? naming.work.label : cells} not found`;
 }
 
 export const upgradeWords = (naming: Naming, need: FilesUpgradeNeed): string =>

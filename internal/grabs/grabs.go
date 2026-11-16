@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -48,6 +49,7 @@ type (
 	Step           = db.Step
 	ManualID       = db.ManualID
 	Source         = db.Source
+	FoundBy        = db.FoundBy
 	BlockCause     = db.BlockCause
 	Settled        = db.Settled
 )
@@ -57,7 +59,24 @@ const (
 	FromSearch Source = "search"
 	// FromManual is a Grab an Admin picked in a Manual search.
 	FromManual Source = "manual"
+	// FromRSS is a Grab RSS sync's decision took from an Indexer's new
+	// uploads.
+	FromRSS Source = "rss"
 )
+
+// Sources is every Source, in the order the wire lists them.
+var Sources = []Source{FromSearch, FromManual, FromRSS}
+
+const (
+	FoundBySearch     FoundBy = "search"
+	FoundByBacklog    FoundBy = "backlog"
+	FoundByRSS        FoundBy = "rss"
+	FoundByFailedGrab FoundBy = "failed_grab"
+	FoundByManual     FoundBy = "manual"
+)
+
+// FoundBys is every FoundBy.
+var FoundBys = []FoundBy{FoundBySearch, FoundByBacklog, FoundByRSS, FoundByFailedGrab, FoundByManual}
 
 const (
 	CauseUnregistered BlockCause = "unregistered"
@@ -128,12 +147,26 @@ var Codes = []Code{
 }
 
 const (
-	Grabbed           Outcome = "grabbed"
+	Grabbed Outcome = "grabbed"
+	// Waiting is a run that holds a cell for a better Release.
+	Waiting Outcome = "waiting"
+	// NothingFound is a run that found no Release.
+	NothingFound Outcome = "nothing_found"
+	// NothingAcceptable is a run whose Releases fit no Target.
 	NothingAcceptable Outcome = "nothing_acceptable"
+	// NoIndexer is a run that no Indexer it asked responded to, or that no
+	// Indexer serves.
+	NoIndexer Outcome = "no_indexer"
+	// NoRoot is a run whose Work had no reachable root when it would
+	// start.
+	NoRoot Outcome = "no_root"
 	// ManualListed is a Manual run's outcome: it finished and took nothing
 	// by design.
 	ManualListed Outcome = "listed"
 )
+
+// Outcomes is every Outcome, in the order the wire lists them.
+var Outcomes = []Outcome{Grabbed, Waiting, NothingFound, NothingAcceptable, NoIndexer, NoRoot, ManualListed}
 
 type Timings struct {
 	// RetryMin and RetryMax bound the backoff before a step retries after
@@ -143,10 +176,21 @@ type Timings struct {
 	// Progress is the least time between two grabs.changed for one Grab's
 	// download progress.
 	Progress time.Duration `yaml:"progress"`
+	// DrainBatch is the most nudged Works one drain Write turns into queue
+	// rows, so a bulk change never holds the writer long.
+	DrainBatch int `yaml:"drain_batch"`
+	// StartsPerPass is the most runs one dispatch Write starts.
+	StartsPerPass int `yaml:"starts_per_pass"`
+	// BacklogChunk is the most queue rows one Backlog search Write
+	// reconciles.
+	BacklogChunk int `yaml:"backlog_chunk"`
 }
 
 func DefaultTimings() Timings {
-	return Timings{RetryMin: time.Second, RetryMax: time.Minute, Progress: time.Second}
+	return Timings{
+		RetryMin: time.Second, RetryMax: time.Minute, Progress: time.Second,
+		DrainBatch: 100, StartsPerPass: 50, BacklogChunk: 500,
+	}
 }
 
 type Changed struct {
@@ -164,10 +208,17 @@ type SearchChanged struct {
 // BlocklistChanged is the Blocklist gaining or losing entries.
 type BlocklistChanged struct{}
 
+// QueueChanged is the Works whose queued searches, dispatch or last
+// result changed in one of grabs' Writes.
+type QueueChanged struct {
+	WorkIDs []string `json:"workIds" nullable:"false"`
+}
+
 var (
 	ChangedEvent          = live.AdminEvent[Changed]("grabs.changed")
 	SearchChangedEvent    = live.AdminEvent[SearchChanged]("grabs.search-changed")
 	BlocklistChangedEvent = live.AdminEvent[BlocklistChanged]("grabs.blocklist-changed")
+	QueueChangedEvent     = live.AdminEvent[QueueChanged]("grabs.queue-changed")
 )
 
 type Publisher[T any] interface {
@@ -271,7 +322,27 @@ type Config struct {
 	// BeforeStep sees each step before it runs: the simulation tier's
 	// hook, nil in production.
 	BeforeStep func(context.Context, Stage)
-	Log        *slog.Logger
+	// Tasks stores the cadences of Backlog search and RSS sync. It is read
+	// once the Scheduled tasks open.
+	Tasks Cadences
+	// GapCap is the longest a group's Backlog gap may grow for work's
+	// items, false for no cap of its own.
+	GapCap func(ctx context.Context, r storage.Reader[file], work works.WorkID, items []works.ItemID) (time.Duration, bool)
+	// QueueChanged publishes once a Write that changes a Work's queued
+	// searches, dispatch or last result commits.
+	QueueChanged Publisher[QueueChanged]
+	// Clock is the time now: time.Now, which testing/synctest drives in
+	// tests.
+	Clock func() time.Time
+	// Today is the time now in the Controller's zone, whose calendar date
+	// decides which Items have aired.
+	Today func() time.Time
+	Log   *slog.Logger
+}
+
+// NoGapCap is GapCap with no cap: a group's gap grows to the longest gap.
+func NoGapCap(context.Context, storage.Reader[file], works.WorkID, []works.ItemID) (time.Duration, bool) {
+	return 0, false
 }
 
 type Grabs struct {
@@ -386,12 +457,20 @@ type Grab struct {
 	// Source is how it was chosen: by a search's decision, or by an Admin
 	// in a Manual search.
 	Source Source
+	// FoundBy is what found its Release: the trigger of the run that made
+	// it, or a Manual search.
+	FoundBy FoundBy
 	// Manual is the Manual search it came from, zero for an automatic Grab
 	// and once that search is replaced.
 	Manual ManualID
 	// By is the Admin who grabbed it, nil for an automatic Grab.
 	By        *Actor
 	Overrides Overrides
+	// GUID is its Release's GUID, "" when its Indexer sent none.
+	GUID string
+	// ChosenFills is the Items it was chosen to fill when the
+	// fewer-Releases step decided, 0 otherwise.
+	ChosenFills int
 }
 
 // Done reports whether the Grab has no step left.
@@ -416,11 +495,15 @@ type related struct {
 	torrents map[downloadclients.ID]downloadclients.Attached
 }
 
+// readRelated reads the Items, cells and history of rows' Grabs only,
+// works.Batch Grabs at a time.
 func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) (related, error) {
 	q := db.New(r)
 	rel := related{items: map[GrabID][]works.ItemID{}, targets: map[GrabID][]db.GrabsTarget{}, history: map[GrabID][]Entered{}}
 	var ids []downloadclients.ID
-	for _, row := range rows {
+	grabs := make([]GrabID, len(rows))
+	for i, row := range rows {
+		grabs[i] = row.ID
 		if !row.TorrentID.IsZero() {
 			ids = append(ids, row.TorrentID)
 		}
@@ -429,26 +512,28 @@ func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGra
 	if rel.torrents, err = downloadclients.Outcomes(ctx, r, ids); err != nil {
 		return related{}, err
 	}
-	is, err := q.ListGrabItems(ctx)
-	if err != nil {
-		return related{}, err
-	}
-	for _, i := range is {
-		rel.items[i.GrabID] = append(rel.items[i.GrabID], i.ItemID)
-	}
-	ts, err := q.ListTargets(ctx)
-	if err != nil {
-		return related{}, err
-	}
-	for _, t := range ts {
-		rel.targets[t.GrabID] = append(rel.targets[t.GrabID], t)
-	}
-	ss, err := q.ListStages(ctx)
-	if err != nil {
-		return related{}, err
-	}
-	for _, s := range ss {
-		rel.history[s.GrabID] = append(rel.history[s.GrabID], Entered{Stage: s.Stage, At: s.EnteredAt.Time()})
+	for chunk := range slices.Chunk(grabs, works.Batch) {
+		is, err := q.ListGrabItemsOf(ctx, chunk)
+		if err != nil {
+			return related{}, err
+		}
+		for _, i := range is {
+			rel.items[i.GrabID] = append(rel.items[i.GrabID], i.ItemID)
+		}
+		ts, err := q.ListTargetsOf(ctx, chunk)
+		if err != nil {
+			return related{}, err
+		}
+		for _, t := range ts {
+			rel.targets[t.GrabID] = append(rel.targets[t.GrabID], t)
+		}
+		ss, err := q.ListStagesOf(ctx, chunk)
+		if err != nil {
+			return related{}, err
+		}
+		for _, s := range ss {
+			rel.history[s.GrabID] = append(rel.history[s.GrabID], Entered{Stage: s.Stage, At: s.EnteredAt.Time()})
+		}
 	}
 	return rel, nil
 }
@@ -461,7 +546,11 @@ func load(row db.GrabsGrab, rel related) (Grab, error) {
 		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, link: row.ReleaseLinkSealed, magnet: deref(row.ReleaseMagnet)},
 		Ticket:  indexers.Ticket{Indexer: row.IndexerID, Query: row.FetchQueryID, Tracker: row.TrackerID},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
-		History: rel.history[row.ID], Created: row.CreatedAt.Time(), Source: row.Source, Manual: row.ManualID,
+		History: rel.history[row.ID], Created: row.CreatedAt.Time(), Source: row.Source, FoundBy: row.FoundBy,
+		Manual: row.ManualID, GUID: deref(row.ReleaseGuid),
+	}
+	if row.ChosenFills != nil {
+		g.ChosenFills = int(*row.ChosenFills)
 	}
 	for _, t := range rel.targets[row.ID] {
 		g.Targets = append(g.Targets, Cell{

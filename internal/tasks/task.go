@@ -81,6 +81,9 @@ type Task struct {
 	// shown task with no units still opens a run, which succeeds with
 	// "0 <Noun.Many>".
 	Shown func(ctx context.Context, r storage.Reader[storage.Library]) (bool, error)
+	// Off reports whether its owner's setting has each run skip, so the
+	// Tasks page says the task is off instead of when it runs next.
+	Off func(ctx context.Context, r storage.Reader[storage.Library]) (bool, error)
 	// Prepare runs in the run's goroutine once the run is open and before
 	// Units lists its units, outside any Read, so it may reach the network
 	// and record what it learns in its owner's rows for Units to read. It
@@ -175,9 +178,10 @@ func PortableOn(r role.Name, home role.NodeID) Place {
 // Node is the Node the unit runs on, false on the Controller.
 func (p Place) Node() (role.NodeID, bool) { return p.node, p.kind != onController }
 
-// Progress reports how far one unit is.
+// Progress reports how far one unit is, and how it ended.
 type Progress struct {
 	step func(Step)
+	note string
 }
 
 // Step is how far a unit is in its current phase. Phase is the task's own
@@ -191,6 +195,11 @@ type Step struct {
 // Step reports the unit's step. Frames are throttled per unit, so a unit
 // that steps often never hides another's.
 func (p *Progress) Step(st Step) { p.step(st) }
+
+// Note is the unit's outcome in one sentence, such as "Queued 212 groups for
+// search.". Its line shows it when the unit succeeds, and a run of that one
+// unit is summarized by it.
+func (p *Progress) Note(text string) { p.note = text }
 
 // SkipError ends a unit Skipped with Cause. An Owned skip's cause is raised
 // by its feature's own Health category, so it never counts toward the task's

@@ -36,14 +36,7 @@ func searchingSeries(t *testing.T) (*walked, seriesView) {
 // returns the runs, which must be n.
 func (w *walked) searchWithin(t *testing.T, body string, n int) []string {
 	t.Helper()
-	reply := w.a.Admin("home", http.MethodPost, "/api/v1/works/"+w.work+"/search", body)
-	var started struct {
-		SearchIDs []string `json:"searchIds"`
-	}
-	if err := json.Unmarshal([]byte(reply.Body), &started); err != nil || reply.Status != http.StatusAccepted || len(started.SearchIDs) != n {
-		t.Fatalf("searchWork %s = %d %s, want 202 with %d searches", body, reply.Status, reply.Body, n)
-	}
-	return started.SearchIDs
+	return w.a.Searched(w.work, body, n)
 }
 
 func itemsBody(ids ...string) string {
@@ -53,9 +46,9 @@ func itemsBody(ids ...string) string {
 // episodeRun is a finished search run of one episode.
 type episodeRun struct {
 	ID       string     `json:"id"`
-	ItemID   string     `json:"itemId"`
+	ItemIDs  []string   `json:"itemIds"`
 	Outcome  *string    `json:"outcome"`
-	GrabID   *string    `json:"grabId"`
+	GrabIDs  []string   `json:"grabIds"`
 	Indexers []lineView `json:"indexers"`
 }
 
@@ -124,12 +117,12 @@ func filed(t *testing.T, w *walked) map[string]bool {
 func (w *walked) imported(t *testing.T, runs map[string]episodeRun) {
 	t.Helper()
 	for id, r := range runs {
-		if r.GrabID == nil {
-			t.Fatalf("search %s of %s grabbed nothing: %+v", id, r.ItemID, r)
+		if len(r.GrabIDs) != 1 {
+			t.Fatalf("search %s of %s grabbed nothing: %+v", id, r.ItemIDs, r)
 		}
-		w.ended(t, *r.GrabID)
+		w.ended(t, r.GrabIDs[0])
 		if w.grab.Stage != "imported" {
-			t.Fatalf("the Grab of %s ended %s with %+v, want imported", r.ItemID, w.grab.Stage, w.grab.Failure)
+			t.Fatalf("the Grab of %s ended %s with %+v, want imported", r.ItemIDs, w.grab.Stage, w.grab.Failure)
 		}
 	}
 }
@@ -150,21 +143,21 @@ func TestEpisodeSearchSendsSeasonAndEp(t *testing.T) {
 		want := []string{
 			"The.Lantern.Keepers.S01E02.720p.WEB-DL.H264-FKW wrong_item S01E02",
 		}
-		if r.ItemID == special {
+		if slices.Equal(r.ItemIDs, []string{special}) {
 			want = nil
 		}
 		if r.Outcome == nil || *r.Outcome != "grabbed" || !slices.Equal(w.refusals(t, r), want) {
-			t.Fatalf("the search of %s ended %v refusing %q, want grabbed refusing %q", r.ItemID, r.Outcome, w.refusals(t, r), want)
+			t.Fatalf("the search of %s ended %v refusing %q, want grabbed refusing %q", r.ItemIDs, r.Outcome, w.refusals(t, r), want)
 		}
 	}
 	var pack episodeRun
 	for id, r := range runs {
-		if r.ItemID == s01e03 {
+		if slices.Equal(r.ItemIDs, []string{s01e03}) {
 			pack = r
 			delete(runs, id)
 		}
 	}
-	g := decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+*pack.GrabID, ""), &grabView{})
+	g := decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+pack.GrabIDs[0], ""), &grabView{})
 	if g.ReleaseTitle != "The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW" {
 		t.Fatalf("the search of S01E03 grabbed %s, want the season pack, which has the most seeders", g.ReleaseTitle)
 	}
@@ -174,7 +167,7 @@ func TestEpisodeSearchSendsSeasonAndEp(t *testing.T) {
 	}
 }
 
-func TestLevelSearchSearchesEachWantedEpisode(t *testing.T) {
+func TestALevelSearchSearchesItsWantedEpisodesAsOneSeason(t *testing.T) {
 	t.Parallel()
 	w, v := searchingSeries(t)
 	var season1 string
@@ -192,32 +185,31 @@ func TestLevelSearchSearchesEachWantedEpisode(t *testing.T) {
 		} `json:"indexers"`
 	}
 	decode(t, "listIndexers", w.a.Admin("home", http.MethodGet, "/api/v1/indexers", ""), &listed)
-	if r := w.a.Admin("home", http.MethodPatch, "/api/v1/indexers/"+listed.Indexers[0].ID, `{"searches":{"count":2,"per":"hour"}}`); r.Status != http.StatusOK {
+	if r := w.a.Admin("home", http.MethodPatch, "/api/v1/indexers/"+listed.Indexers[0].ID, `{"searches":{"count":1,"per":"hour"}}`); r.Status != http.StatusOK {
 		t.Fatalf("updateIndexer = %d %s, want 200", r.Status, r.Body)
 	}
 
-	runs := w.finished(t, w.searchWithin(t, `{"levelIds":["`+season1+`"],"itemIds":[]}`, 2))
+	runs := w.finished(t, w.searchWithin(t, `{"levelIds":["`+season1+`"],"itemIds":[]}`, 1))
 	searched := map[string]bool{}
 	for _, r := range runs {
-		searched[r.ItemID] = true
+		for _, item := range r.ItemIDs {
+			searched[item] = true
+		}
 	}
-	if !searched[v.item(t, "100111").ID] || !searched[v.item(t, "100113").ID] {
+	if len(searched) != 2 || !searched[v.item(t, "100111").ID] || !searched[v.item(t, "100113").ID] {
 		t.Fatalf("Season 1's Search searched %v, want S01E01 and S01E03, the wanted episodes, and not S01E02", searched)
 	}
-	if got, want := tvSearches(t, w), []string{
-		`torznab t=tvsearch q="" tvdbid=1001 season="1" ep=1`,
-		`torznab t=tvsearch q="" tvdbid=1001 season="1" ep=3`,
-	}; !slices.Equal(got, want) {
-		t.Fatalf("fixture-site served %q, want one tvsearch per wanted episode", got)
+	if got, want := tvSearches(t, w), []string{`torznab t=tvsearch q="" tvdbid=1001 season="1" ep=`}; !slices.Equal(got, want) {
+		t.Fatalf("fixture-site served %q, want one tvsearch of the season", got)
 	}
 
-	limited := w.finished(t, w.searchWithin(t, "", 8))
+	limited := w.finished(t, w.searchWithin(t, "", 4))
 	var lines []string
 	for _, r := range limited {
 		lines = append(lines, r.Indexers[0].Name+" "+*r.Indexers[0].Outcome)
 	}
-	if n := len(tvSearches(t, w)); n != 2 || slices.ContainsFunc(lines, func(l string) bool { return l != "Fixture Site limit_reached" }) {
-		t.Fatalf("the series' Search of its 8 other wanted episodes ran lines %q with %d tvsearches served, want each held at the Indexer's limit of 2 searches an hour", lines, n)
+	if n := len(tvSearches(t, w)); n != 1 || slices.ContainsFunc(lines, func(l string) bool { return l != "Fixture Site limit_reached" }) {
+		t.Fatalf("the series' Search of its other 2 seasons and 2 specials ran lines %q with %d tvsearches served, want each held at the Indexer's limit of 1 search an hour", lines, n)
 	}
 }
 

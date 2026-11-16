@@ -14,8 +14,10 @@ import (
 // Stack is a Node's lifecycle: each subsystem pushes its stop function as it
 // starts, and the Node pops them in reverse within one deadline.
 type Stack struct {
-	log   *slog.Logger
-	fails *failure
+	log    *slog.Logger
+	fails  *failure
+	halted context.Context
+	halt   context.CancelFunc
 
 	mu      sync.Mutex
 	entries []stopEntry
@@ -53,7 +55,13 @@ type PanicError struct {
 func (e *PanicError) Error() string { return fmt.Sprintf("panic: %v", e.Value) }
 
 func newStack(log *slog.Logger) *Stack {
-	return &Stack{log: log, fails: &failure{failed: make(chan struct{})}}
+	return stackOf(log, &failure{failed: make(chan struct{})})
+}
+
+func stackOf(log *slog.Logger, fails *failure) *Stack {
+	s := &Stack{log: log, fails: fails}
+	s.halted, s.halt = context.WithCancel(context.Background())
+	return s
 }
 
 // Sub is a Stack whose stops run as one entry of s, pushed now: whatever
@@ -61,7 +69,7 @@ func newStack(log *slog.Logger) *Stack {
 // subsystem that starts after the Node is ready pushes onto a Sub made at
 // start, so it stops before what was there first and after what came later.
 func (s *Stack) Sub(name string) *Stack {
-	sub := &Stack{log: s.log, fails: s.fails}
+	sub := stackOf(s.log, s.fails)
 	s.push(stopEntry{name: name, sub: sub, stop: func(ctx context.Context) error {
 		s.mu.Lock()
 		limit := s.limit
@@ -91,12 +99,12 @@ func (s *Stack) push(e stopEntry) {
 	}
 }
 
-// Go runs fn until the Stack unwinds to it, when its context is canceled
-// and the Stack waits for it to return. If fn returns an error or panics
-// first, the Node fails. Once the Stack began to unwind, fn's context is
-// canceled from the start and Go waits for fn to return.
+// Go runs fn until the Stack halts or unwinds to it, when its context is
+// canceled, and the unwind waits for it to return. If fn returns an error
+// or panics first, the Node fails. Once the Stack began to unwind, fn's
+// context is canceled from the start and Go waits for fn to return.
 func (s *Stack) Go(name string, fn func(context.Context) error) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(s.halted)
 	s.mu.Lock()
 	if s.unwinding {
 		cancel()
@@ -119,6 +127,10 @@ func (s *Stack) Go(name string, fn func(context.Context) error) {
 		}
 	})
 }
+
+// Halt cancels the context of every fn Go runs on s, now and later,
+// ahead of the unwind, which still waits for each where it was pushed.
+func (s *Stack) Halt() { s.halt() }
 
 func recovered(ctx context.Context, fn func(context.Context) error) (err error) {
 	defer func() {

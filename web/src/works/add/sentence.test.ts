@@ -27,6 +27,7 @@ const defaults = startChoices({
   preset: "all",
   asides: undefined,
   levelFolders: undefined,
+  search: "monitored",
 });
 
 test.each([
@@ -89,6 +90,7 @@ const shelfChoices = startChoices({
   preset: "all",
   asides: false,
   levelFolders: true,
+  search: "monitored",
 });
 
 test.each([

@@ -48,16 +48,17 @@ func (d torznabDriver) Search(ctx context.Context, s *Site, q Query) ([]Release,
 	return releases(items[:min(len(items), d.results)]), nil
 }
 
-// Recent is the feed's newest page.
-func (d torznabDriver) Recent(ctx context.Context, s *Site) ([]Release, error) {
-	items, err := d.feed(ctx, s, torznab.Query{Mode: "search", Categories: s.Categories}.Page(0, pageSize))
+// Recent is the feed's page of the newest Releases after offset.
+func (d torznabDriver) Recent(ctx context.Context, s *Site, offset int) ([]Release, error) {
+	items, err := d.feed(ctx, s, torznab.Query{Mode: "search", Categories: s.Categories}.Page(offset, pageSize))
 	if err != nil {
 		return nil, err
 	}
 	return releases(items), nil
 }
 
-// Test reads the caps, then the newest page, and the sources it names.
+// Test reads the caps, then the newest page, and the sources it names. A
+// Torznab feed pages Recent as it pages Search.
 func (d torznabDriver) Test(ctx context.Context, s *Site, _ *CaptchaAnswer) (Report, error) {
 	body, err := d.api(ctx, s, url.Values{"t": {"caps"}})
 	if err != nil {
@@ -67,11 +68,11 @@ func (d torznabDriver) Test(ctx context.Context, s *Site, _ *CaptchaAnswer) (Rep
 	if err != nil {
 		return Report{}, &Failing{Err: err}
 	}
-	recent, err := d.Recent(ctx, s)
+	recent, err := d.Recent(ctx, s, 0)
 	if err != nil {
 		return Report{}, err
 	}
-	r := Report{Capabilities: Capabilities{Modes: caps.Modes, Categories: caps.Categories}, Items: len(recent)}
+	r := Report{Capabilities: Capabilities{Modes: caps.Modes, Categories: caps.Categories, RecentPaging: true}, Items: len(recent)}
 	for _, rel := range recent {
 		if rel.Source != nil && !slices.Contains(r.Sources, rel.Source.Name) {
 			r.Sources = append(r.Sources, rel.Source.Name)
@@ -148,7 +149,7 @@ func releases(items []torznab.Item) []Release {
 			Link: LinkOf(it.Link), Magnet: LinkOf(it.Magnet), InfoHash: it.InfoHash, Categories: it.Categories, IDs: it.IDs,
 			Factors: Factors{Download: it.DownloadFactor, Upload: it.UploadFactor},
 			Floor:   Floor{MinRatio: it.MinRatio, MinSeed: it.MinSeed},
-			Details: it.Details,
+			Details: it.Details, GUID: it.GUID,
 		}
 		if src := it.Source; src != nil {
 			out[i].Source = &Source{ID: src.ID, Name: src.Name, Privacy: src.Privacy, Origin: src.Origin}

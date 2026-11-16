@@ -158,10 +158,10 @@ func fresh(feedHost, switches string, priority, revision int, categories string)
 		sentence = "Fixture Site is off."
 	}
 	return `{"id":"id1","name":"Fixture Site","kind":"torznab","homeNodeId":"id2",` + switches + `,"priority":` + strconv.Itoa(priority) +
-		`,"categories":` + categories + `,"media":null,"allowNoSize":false,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
+		`,"searchesAtOnce":2,"recentPaging":true,"categories":` + categories + `,"media":null,"allowNoSize":false,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},` +
 		`"sentence":"` + sentence + `","fix":null,"signsIn":false,"trackerIds":["id3"],` +
-		`"waits":null,"session":null,"feedHost":"` + feedHost + `","definition":null,"port":null,` + modes + `,"notes":[],"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
+		`"waits":null,"session":null,"feedHost":"` + feedHost + `","definition":null,"port":null,` + modes + `,"notes":[],"rssFetch":null,"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
 }
 
 const on = `"on":true,"automaticSearch":true,"rss":true,"allowFailover":false`
@@ -279,6 +279,29 @@ func TestAPatchChangesOnlyWhatItSends(t *testing.T) {
 	}
 }
 
+func TestSearchesAtOnceIsSetOnCreateAndPatchedBackToItsDefault(t *testing.T) {
+	s := serve(t, indexerstest.Alone(self), role.NodeID{})
+	body := strings.TrimSuffix(s.body(s.address(), s.key), "}") + `,"searchesAtOnce":4}`
+	code, reply := s.owner.Call(t, http.MethodPost, "/api/v1/indexers", body)
+	if code != http.StatusCreated || !strings.Contains(reply, `"searchesAtOnce":4,`) {
+		t.Fatalf("createIndexer with 4 searches at once = %d %s, want 201 with 4", code, reply)
+	}
+	path := "/api/v1/indexers/" + ownertest.FirstID(reply)
+	host := site.Host("torznab")
+	at := func(n string, revision int) string {
+		return strings.Replace(fresh(host, on, 25, revision, "null"), `"searchesAtOnce":2,`, `"searchesAtOnce":`+n+`,`, 1)
+	}
+	s.owner.Expect(t, http.MethodPatch, path, `{"searchesAtOnce":10}`, http.StatusOK, at("10", 2))
+	s.owner.Expect(t, http.MethodGet, path, "", http.StatusOK, at("10", 2))
+	s.owner.Expect(t, http.MethodPatch, path, `{"priority":5}`, http.StatusOK, strings.Replace(at("10", 3), `"priority":25`, `"priority":5`, 1))
+	s.owner.Expect(t, http.MethodPatch, path, `{"searchesAtOnce":null,"priority":null}`, http.StatusOK, at("2", 4))
+	for _, n := range []string{"0", "11"} {
+		if code, reply := s.owner.Call(t, http.MethodPatch, path, `{"searchesAtOnce":`+n+`}`); code != http.StatusUnprocessableEntity {
+			t.Errorf("patching searchesAtOnce to %s = %d %s, want 422", n, code, reply)
+		}
+	}
+}
+
 func TestDeleteRemovesTheIndexerOnce(t *testing.T) {
 	s := serve(t, indexerstest.Alone(self), role.NodeID{})
 	id := s.create(t)
@@ -353,32 +376,24 @@ func TestAnIndexerSaysItWaitsForItsHomeUntilTheGrace(t *testing.T) {
 
 func TestTheSettingsChangeAllOrNone(t *testing.T) {
 	s := serve(t, indexerstest.Alone(self), role.NodeID{})
-	field := func(wait, backoff int) string {
-		about := func(value, def int) string {
-			v := strconv.Itoa(value)
-			return `"source":"database","applies":"live","isDefault":` + strconv.FormatBool(value == def) +
-				`,"pendingRestart":false,"kind":"duration","value":` + v + `,"running":` + v + `,"default":` + strconv.Itoa(def)
-		}
-		return `{"settings":[{"key":"indexers.searchWait","label":"Wait for each Indexer up to",` + about(wait, 120) + `,"min":10,"max":600,"step":1},` +
-			`{"key":"indexers.longBackoff","label":"Warn when every request has failed for",` + about(backoff, 21600) + `,"min":3600,"max":604800,"step":3600}]}`
+	field := func(backoff int) string {
+		v := strconv.Itoa(backoff)
+		return `{"settings":[{"key":"indexers.longBackoff","label":"Warn when every request has failed for","source":"database","applies":"live","isDefault":` +
+			strconv.FormatBool(backoff == 21600) + `,"pendingRestart":false,"kind":"duration","value":` + v + `,"running":` + v + `,"default":21600,"min":3600,"max":604800,"step":3600}]}`
 	}
-	s.owner.Expect(t, http.MethodGet, "/api/v1/indexer-settings", "", http.StatusOK, field(120, 21600))
-	s.owner.Expect(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":7200,"indexers.searchWait":45}}`, http.StatusOK, field(45, 7200))
+	s.owner.Expect(t, http.MethodGet, "/api/v1/indexer-settings", "", http.StatusOK, field(21600))
+	s.owner.Expect(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":7200}}`, http.StatusOK, field(7200))
 	for _, refused := range []string{
 		`{"values":{"indexers.longBackoff":60}}`,
-		`{"values":{"indexers.longBackoff":3600,"indexers.searchWait":9}}`,
-		`{"values":{"indexers.longBackoff":3600,"indexers.searchWait":601}}`,
+		`{"values":{"indexers.longBackoff":3600,"indexers.searchWait":45}}`,
+		`{"values":{"indexers.longBackoff":3600,"indexers.other":1}}`,
 	} {
 		if code, _ := s.owner.Call(t, http.MethodPatch, "/api/v1/indexer-settings", refused); code != http.StatusUnprocessableEntity {
 			t.Fatalf("PATCH %s answered %d, want 422", refused, code)
 		}
 	}
-	code, _ := s.owner.Call(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":3600,"indexers.other":1}}`)
-	if code == http.StatusOK {
-		t.Fatal("a patch with an unknown key was applied")
-	}
-	s.owner.Expect(t, http.MethodGet, "/api/v1/indexer-settings", "", http.StatusOK, field(45, 7200))
-	s.owner.Expect(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":null,"indexers.searchWait":null}}`, http.StatusOK, field(120, 21600))
+	s.owner.Expect(t, http.MethodGet, "/api/v1/indexer-settings", "", http.StatusOK, field(7200))
+	s.owner.Expect(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":null}}`, http.StatusOK, field(21600))
 }
 
 func TestAnIndexerListsTheTrackersItReaches(t *testing.T) {

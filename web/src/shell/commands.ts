@@ -3,6 +3,7 @@ import {
   FingerPrintAddIcon,
   Link01Icon,
   Logout01Icon,
+  Search01Icon,
   SidebarLeftIcon,
   UserCircleIcon,
 } from "@hugeicons/core-free-icons";
@@ -40,6 +41,15 @@ const commands: readonly Command[] = [
     audience: "admin",
     shell: "desktop",
     run: toggleSidebar,
+  },
+  {
+    id: "open-wanted",
+    label: "Open Wanted",
+    icon: Search01Icon,
+    audience: "admin",
+    run: ({ navigate }) => {
+      void navigate({ to: "/library/wanted" });
+    },
   },
   {
     id: "new-signup-link",

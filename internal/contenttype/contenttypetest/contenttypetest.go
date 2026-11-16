@@ -733,6 +733,17 @@ func (*Fixture) SearchTerms(context.Context, storage.Reader[storage.Library], wo
 	return indexers.Terms{}, nil
 }
 
+// Groups searches each Item alone.
+func (*Fixture) Groups(_ context.Context, _ storage.Reader[storage.Library], _ works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
+	return indexers.Singles(items, ""), nil
+}
+
+// GroupTerms answers indexers' empty answer: the Fixture can't be
+// searched.
+func (*Fixture) GroupTerms(context.Context, storage.Reader[storage.Library], works.WorkID, indexers.Group) (indexers.Terms, error) {
+	return indexers.Terms{}, nil
+}
+
 // Categories are none: the Fixture can't be searched.
 func (*Fixture) Categories() []newznab.ID { return nil }
 

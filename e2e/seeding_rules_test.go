@@ -53,11 +53,11 @@ func (w *walked) grabWork(t *testing.T) string {
 	if s.Outcome == nil || *s.Outcome != "grabbed" {
 		t.Fatalf("the search ended %+v, want a Grab", s)
 	}
-	w.ended(t, *s.GrabID)
+	w.ended(t, s.GrabIDs[0])
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the Grab ended %s with %+v, want imported", w.grab.Stage, w.grab.Failure)
 	}
-	return *s.GrabID
+	return s.GrabIDs[0]
 }
 
 func expectRule(t *testing.T, when string, tr ruledTracker, want string) {

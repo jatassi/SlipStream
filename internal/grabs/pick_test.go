@@ -12,7 +12,6 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabs/grabstest"
 	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -282,7 +281,7 @@ func TestAPickSentToTheRoutedClientRecordsNoRouting(t *testing.T) {
 		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 9, "a")}}}})
 		v := a.searchedByHand(t)
 		p := rowPick(t, v)
-		home := a.home(t)
+		home := a.home
 		p.Client = &downloadclients.Choice{BuiltInOn: home}
 		g := a.view(t, made(t, a.grabbed(t, v, p)[0]))
 		if g.Sent == nil || g.Sent.BuiltInOn != home {
@@ -293,16 +292,6 @@ func TestAPickSentToTheRoutedClientRecordsNoRouting(t *testing.T) {
 			t.Fatalf("the Grab's overrides are %q, want %q", g.Overrides, want)
 		}
 	})
-}
-
-// home is the world's one Node.
-func (a atticWorld) home(t *testing.T) role.NodeID {
-	t.Helper()
-	r, ok := a.cfg.Roster.(*roster)
-	if !ok {
-		t.Fatalf("the world's roster is %T", a.cfg.Roster)
-	}
-	return r.node
 }
 
 // TestAReleasesDetailsNameTheTrackerItsIndexerReaches reads a plan row's

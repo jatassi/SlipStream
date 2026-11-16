@@ -104,6 +104,56 @@ func (q *Queries) CountMonitoredOfWorks(ctx context.Context, workIds []WorkID) (
 	return items, nil
 }
 
+const listUnmonitoredOfWorks = `-- name: ListUnmonitoredOfWorks :many
+SELECT work_id, id FROM works_item
+WHERE aside = ?1 AND withdrawn_at IS NULL AND NOT monitored AND work_id IN (/*SLICE:work_ids*/?)
+ORDER BY work_id, id
+`
+
+type ListUnmonitoredOfWorksParams struct {
+	Aside   bool
+	WorkIds []WorkID
+}
+
+type ListUnmonitoredOfWorksRow struct {
+	WorkID WorkID
+	ID     ItemID
+}
+
+func (q *Queries) ListUnmonitoredOfWorks(ctx context.Context, arg ListUnmonitoredOfWorksParams) ([]ListUnmonitoredOfWorksRow, error) {
+	query := listUnmonitoredOfWorks
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Aside)
+	if len(arg.WorkIds) > 0 {
+		for _, v := range arg.WorkIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(arg.WorkIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUnmonitoredOfWorksRow
+	for rows.Next() {
+		var i ListUnmonitoredOfWorksRow
+		if err := rows.Scan(&i.WorkID, &i.ID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWorksOf = `-- name: ListWorksOf :many
 SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders, added_by FROM works_work WHERE id IN (/*SLICE:ids*/?) ORDER BY id
 `

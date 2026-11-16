@@ -30,7 +30,7 @@ const say = (action: WorkAction, outcomes: WorksOutcome[], subjects: Subject[], 
 const actionCases: { action: WorkAction; done: string; already: string }[] = [
   {
     action: { kind: "monitor", on: true },
-    done: "Monitored The Quiet Orchard.",
+    done: "Monitored The Quiet Orchard. Searching now.",
     already: "The Quiet Orchard was already monitored.",
   },
   {

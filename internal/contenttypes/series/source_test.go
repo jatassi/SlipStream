@@ -363,7 +363,8 @@ func TestSuccessiveRatingsDueRefreshesReachEverySeason(t *testing.T) {
 	serve(t, "series-scale", func(t *testing.T, p *providers) {
 		lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(Def))...)
 		w, err := works.Open(t.Context(), works.Config{
-			Library: lib, Catalogs: map[works.TypeID]works.Catalog{Def.ID(): Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)}, Def.Endpoints())},
+			ItemsAdded: works.NoItemsAdded,
+			Library:    lib, Catalogs: map[works.TypeID]works.Catalog{Def.ID(): Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)}, Def.Endpoints())},
 			Timings: works.DefaultTimings(), Source: ratingsDue{p}, Artwork: noPrefetch{}, Changed: discard[works.Changed]{},
 			TypesChanged: discard[works.ContentTypesChanged]{}, TypeChanged: discard[works.TypeChanged]{}, Removed: discard[works.Removed]{}, Log: slog.New(slog.DiscardHandler),
 		})

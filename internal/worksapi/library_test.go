@@ -162,6 +162,7 @@ type row struct {
 	Items       int             `json:"items"`
 	ItemStatus  map[string]int  `json:"itemStatus"`
 	NeedsYou    int             `json:"needsYou"`
+	Wanted      *string         `json:"wanted"`
 	Values      json.RawMessage `json:"values"`
 }
 
@@ -175,6 +176,14 @@ func (s *shelved) rows(t *testing.T, query string) []row {
 		t.Fatalf("listLibrary%s = %d %s", query, code, body)
 	}
 	return out.Rows
+}
+
+// orEmpty is *s, "" for nil.
+func orEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func TestEachLibraryRowRollsUpItsCellsAndFiles(t *testing.T) {
@@ -223,14 +232,17 @@ func TestEachLibraryRowRollsUpItsCellsAndFiles(t *testing.T) {
 	for i, c := range []struct {
 		label, status, monitored string
 		needsYou                 int
-		available                string
+		available, wanted        string
 	}{
-		{"Arrival", "missing", "all", 0, "2000-01-01"},
-		{"Brazil", "downloading", "all", 0, "2000-01-01"},
-		{"Contact", "failed", "all", 1, "2000-01-01"},
-		{"Dune", "unreleased", "all", 0, "2026-12"},
-		{"Eraser", "upgradable", "all", 1, "2000-01-01"},
+		{"Arrival", "missing", "all", 0, "2000-01-01", "missing"},
+		{"Brazil", "downloading", "all", 0, "2000-01-01", ""},
+		{"Contact", "failed", "all", 1, "2000-01-01", "failed"},
+		{"Dune", "unreleased", "all", 0, "2026-12", ""},
+		{"Eraser", "upgradable", "all", 1, "2000-01-01", "upgrade"},
 	} {
+		if wanted := orEmpty(got[i].Wanted); wanted != c.wanted {
+			t.Errorf("%s's row is wanted for %q, want %q", c.label, wanted, c.wanted)
+		}
 		r := got[i]
 		if r.Label != c.label || *r.Status != c.status || !reflect.DeepEqual(r.Cells, map[string]int{c.status: 1}) || r.Monitored != c.monitored ||
 			r.NeedsYou != c.needsYou || *r.AvailableOn != c.available || r.ProfileID != s.one.ID.String() ||

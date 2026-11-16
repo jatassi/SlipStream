@@ -107,13 +107,24 @@ func (s *Scheduler) Every(ctx context.Context, id TaskID) (*int64, error) {
 	}
 	var every *int64
 	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		rows, err := db.New(r).ListTasks(ctx)
-		if i := slices.IndexFunc(rows, func(row db.TasksTask) bool { return row.ID == id }); i >= 0 {
-			every = rows[i].EverySeconds
-		}
+		var err error
+		every, err = s.EveryIn(ctx, r, id)
 		return err
 	})
 	return every, err
+}
+
+// EveryIn is Every read in r, for a reader that is already inside a Read
+// or a Write.
+func (s *Scheduler) EveryIn(ctx context.Context, r storage.Reader[file], id TaskID) (*int64, error) {
+	if _, ok := s.byID[id]; !ok {
+		return nil, ErrUnknownTask
+	}
+	rows, err := db.New(r).ListTasks(ctx)
+	if i := slices.IndexFunc(rows, func(row db.TasksTask) bool { return row.ID == id }); i >= 0 {
+		return rows[i].EverySeconds, err
+	}
+	return nil, err
 }
 
 // SetCadence stores the task's cadence override in seconds, which the

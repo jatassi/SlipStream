@@ -3,6 +3,7 @@ import type { FilesStateCounts } from "./filesStateCounts.ts";
 import type { WorksLibraryRowAddedBy } from "./worksLibraryRowAddedBy.ts";
 import type { WorksLibraryRowMonitored } from "./worksLibraryRowMonitored.ts";
 import type { WorksLibraryRowValues } from "./worksLibraryRowValues.ts";
+import type { WorksLibraryRowWanted } from "./worksLibraryRowWanted.ts";
 import type { WorksRowRating } from "./worksRowRating.ts";
 
 export interface WorksLibraryRow {
@@ -57,7 +58,7 @@ export interface WorksLibraryRow {
   /** How many of the Items its source still lists are monitored */
   monitored: WorksLibraryRowMonitored;
   /**
-   * The entries of its Needs you
+   * The entries of its Needs you, leaving out not_found ones, which show on the Work page only
    * @minimum 0
    */
   needsYou: number;
@@ -80,4 +81,9 @@ export interface WorksLibraryRow {
   status: FilesState | null;
   /** Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out */
   values: WorksLibraryRowValues;
+  /**
+   * The first reason Wanted lists it for, in this order; null while Wanted doesn't list it
+   * @nullable
+   */
+  wanted: WorksLibraryRowWanted;
 }

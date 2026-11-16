@@ -98,11 +98,12 @@ type Followed struct {
 	next    Stage
 }
 
-// Follow brings importing Grab id in line with r in tx. Each cell r
-// settles is settled for good. Then, once something was placed and every
-// cell settled, the Grab is imported; once nothing was placed and the
-// Import ended, it fails as the Import ended. Else it stays importing.
-// A Grab gone or past importing is nothing to do.
+// Follow brings importing Grab id in line with r in tx. Once nothing was
+// placed and the Import ended, the Grab fails as the Import ended, its
+// open cells left unsettled, so its failure is theirs as any failed
+// Grab's is. Else each cell r settles is settled for good, and once
+// something was placed and every cell settled, the Grab is imported.
+// Else it stays importing. A Grab gone or past importing is nothing to do.
 func (gr *Grabs) Follow(ctx context.Context, tx *storage.Tx[storage.Library], id GrabID, r Report) (Followed, error) {
 	g, err := grabIn(ctx, tx, id)
 	if errors.Is(err, ErrNoGrab) {
@@ -111,8 +112,13 @@ func (gr *Grabs) Follow(ctx context.Context, tx *storage.Tx[storage.Library], id
 	if err != nil || g.Stage != Importing {
 		return Followed{}, err
 	}
-	q, now := db.New(tx), storage.Now()
-	out, open := Followed{grab: g}, 0
+	out := Followed{grab: g}
+	if !r.Placed && r.Ended != nil {
+		params, err := gr.move(ctx, tx, g, fail{r.Ended.Code, r.Ended.Message})
+		out.next = params.Next
+		return out, err
+	}
+	q, now, open := db.New(tx), storage.Now(), 0
 	for _, c := range g.Targets {
 		if c.Settled != nil {
 			continue
@@ -128,16 +134,10 @@ func (gr *Grabs) Follow(ctx context.Context, tx *storage.Tx[storage.Library], id
 		}
 		out.settled = true
 	}
-	var o outcome
-	switch {
-	case r.Placed && open == 0:
-		o = advance{to: Imported}
-	case !r.Placed && r.Ended != nil:
-		o = fail{r.Ended.Code, r.Ended.Message}
-	default:
+	if !r.Placed || open > 0 {
 		return out, nil
 	}
-	params, err := gr.move(ctx, tx, g, o)
+	params, err := gr.move(ctx, tx, g, advance{to: Imported})
 	out.next = params.Next
 	return out, err
 }

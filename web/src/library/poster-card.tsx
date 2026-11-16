@@ -4,6 +4,7 @@ import { memo, useState } from "react";
 import { Checkbox } from "../ui/checkbox";
 import { type CellHandlers, focusTarget } from "./picking";
 import type { LibraryWork } from "./rows";
+import { WorkMenu } from "./row-menu";
 import { leadFact } from "./values";
 import { WorkStatus } from "./work-status";
 
@@ -42,7 +43,8 @@ export type PosterCardProps = {
 /**
  * One Work in the grid: its poster, quiet when nothing of it is monitored,
  * its label, its first fact and its status. It draws again only when its
- * row or its pick changes.
+ * row or its pick changes. Its menu, shown on hover or focus, holds Search
+ * and Manual search.
  */
 export const PosterCard = memo(function PosterCard({
   work,
@@ -87,6 +89,9 @@ export const PosterCard = memo(function PosterCard({
             onPick(work.id, by.shiftKey);
           }}
         />
+      </span>
+      <span className="absolute top-2 right-2 rounded-capsule bg-popover opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 has-aria-expanded:opacity-100">
+        <WorkMenu work={work} />
       </span>
     </li>
   );

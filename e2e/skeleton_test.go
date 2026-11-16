@@ -102,9 +102,10 @@ func (w *walked) tookTheAdvertised(t *testing.T, search string) {
 	reply := w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/searches", "")
 	var list struct {
 		Searches []struct {
-			ItemID     string `json:"itemId"`
-			StartedAt  string `json:"startedAt"`
-			FinishedAt string `json:"finishedAt"`
+			GroupKey   string   `json:"groupKey"`
+			ItemIDs    []string `json:"itemIds"`
+			StartedAt  string   `json:"startedAt"`
+			FinishedAt string   `json:"finishedAt"`
 			Indexers   []struct {
 				IndexerID string `json:"indexerId"`
 			} `json:"indexers"`
@@ -115,10 +116,10 @@ func (w *walked) tookTheAdvertised(t *testing.T, search string) {
 		t.Fatalf("listSearches = %s, want one search of one Indexer", reply.Body)
 	}
 	r := list.Searches[0]
-	worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + search + `","itemId":"` + r.ItemID +
-		`","startedAt":"` + r.StartedAt + `","indexers":[{"indexerId":"` + r.Indexers[0].IndexerID +
+	worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + search + `","groupKey":"` + r.GroupKey + `","groupLabel":null,"lane":"now","trigger":"search","itemIds":["` + r.ItemIDs[0] +
+		`"],"startedAt":"` + r.StartedAt + `","indexers":[{"indexerId":"` + r.Indexers[0].IndexerID +
 		`","name":"Fixture Site","outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"` + r.FinishedAt + `","outcome":"grabbed","candidates":2,` +
-		`"grabId":"` + w.grab.ID + `","notes":[]}]}` + "\n"})
+		`"grabs":1,"grabIds":["` + w.grab.ID + `"],"notes":[]}]}` + "\n"})
 }
 
 // begin launches the catalog Scenario name, and its Admin finds the
@@ -149,7 +150,7 @@ func beginIn(t *testing.T, s scenario.Scenario, run *world.Run) walked {
 	target := cells(t, w.a, w.work).Cells[0].TargetID
 	worldtest.Expect(t, "getWorkCells before the search", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/cells", ""), worldtest.Reply{
 		Status: 200,
-		Body: `{"cells":[{"itemId":"` + tr.Items[0].ID + `","edition":"any","targetId":"` + target + `","targetName":"1080p","wanted":true,` +
+		Body: `{"cells":[{"itemId":"` + tr.Items[0].ID + `","edition":"any","targetId":"` + target + `","targetName":"1080p","wanted":true,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,` +
 			`"state":"missing"}],"items":[{"itemId":"` + tr.Items[0].ID + `","status":"missing","released":true}],` +
 			`"summary":{"status":"missing","cells":{"missing":1},"items":1,"itemStatus":{"missing":1}},"levels":[],"needsYou":[]}` + "\n",
 	})
@@ -159,15 +160,7 @@ func beginIn(t *testing.T, s scenario.Scenario, run *world.Run) walked {
 // search starts a search of w's Work and returns its run's id.
 func (w *walked) search(t *testing.T) string {
 	t.Helper()
-	reply := w.a.Admin("home", http.MethodPost, "/api/v1/works/"+w.work+"/search", "")
-	var started struct {
-		SearchIDs []string `json:"searchIds"`
-	}
-	if err := json.Unmarshal([]byte(reply.Body), &started); err != nil || reply.Status != http.StatusAccepted || len(started.SearchIDs) != 1 {
-		t.Fatalf("searchWork = %d %s, want 202 with one search", reply.Status, reply.Body)
-	}
-	worldtest.Expect(t, "searchWork", reply, worldtest.Reply{Status: http.StatusAccepted, Body: `{"searchIds":["` + started.SearchIDs[0] + `"]}` + "\n"})
-	return started.SearchIDs[0]
+	return w.a.Searched(w.work, "", 1)[0]
 }
 
 // ended reads the Grab id until it is imported or failed.
@@ -364,7 +357,7 @@ func checkUpgradable(t *testing.T, w walked) {
 	}
 	worldtest.Expect(t, "getWorkCells after the import", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/cells", ""), worldtest.Reply{
 		Status: 200,
-		Body: `{"cells":[{"itemId":"` + c.ItemID + `","edition":"any","targetId":"` + c.TargetID + `","targetName":"1080p","wanted":true,"state":"upgradable",` +
+		Body: `{"cells":[{"itemId":"` + c.ItemID + `","edition":"any","targetId":"` + c.TargetID + `","targetName":"1080p","wanted":true,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"upgradable",` +
 			`"file":{"id":"` + c.File.ID + `","path":"The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv","size":` + strconv.FormatInt(c.File.Size, 10) +
 			`,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}}],"items":[{"itemId":"` + c.ItemID + `","status":"upgradable","released":true}],` +
 			`"summary":{"status":"upgradable","cells":{"upgradable":1},"items":1,"itemStatus":{"upgradable":1}},"levels":[],` +

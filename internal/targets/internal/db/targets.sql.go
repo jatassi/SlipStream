@@ -231,7 +231,7 @@ func (q *Queries) GetStarter(ctx context.Context) (TargetsStarter, error) {
 }
 
 const getTarget = `-- name: GetTarget :one
-SELECT id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers, name_folded FROM targets_target WHERE id = ?1
+SELECT id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers, name_folded, hold_seconds FROM targets_target WHERE id = ?1
 `
 
 func (q *Queries) GetTarget(ctx context.Context, id TargetID) (TargetsTarget, error) {
@@ -247,6 +247,7 @@ func (q *Queries) GetTarget(ctx context.Context, id TargetID) (TargetsTarget, er
 		&i.ScoreIncrement,
 		&i.Propers,
 		&i.NameFolded,
+		&i.HoldSeconds,
 	)
 	return i, err
 }
@@ -461,9 +462,9 @@ func (q *Queries) InsertStarter(ctx context.Context, targetID *TargetID) error {
 }
 
 const insertTarget = `-- name: InsertTarget :exec
-INSERT INTO targets_target (id, name, name_folded, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers)
+INSERT INTO targets_target (id, name, name_folded, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers, hold_seconds)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
-    ?8, ?9)
+    ?8, ?9, ?10)
 `
 
 type InsertTargetParams struct {
@@ -476,6 +477,7 @@ type InsertTargetParams struct {
 	UpgradeUntil   int64
 	ScoreIncrement int64
 	Propers        string
+	HoldSeconds    int64
 }
 
 func (q *Queries) InsertTarget(ctx context.Context, arg InsertTargetParams) error {
@@ -489,6 +491,7 @@ func (q *Queries) InsertTarget(ctx context.Context, arg InsertTargetParams) erro
 		arg.UpgradeUntil,
 		arg.ScoreIncrement,
 		arg.Propers,
+		arg.HoldSeconds,
 	)
 	return err
 }
@@ -1015,7 +1018,7 @@ func (q *Queries) ListTargetNames(ctx context.Context) ([]ListTargetNamesRow, er
 }
 
 const listTargets = `-- name: ListTargets :many
-SELECT id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers, name_folded FROM targets_target ORDER BY name, id
+SELECT id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers, name_folded, hold_seconds FROM targets_target ORDER BY name, id
 `
 
 func (q *Queries) ListTargets(ctx context.Context) ([]TargetsTarget, error) {
@@ -1037,6 +1040,7 @@ func (q *Queries) ListTargets(ctx context.Context) ([]TargetsTarget, error) {
 			&i.ScoreIncrement,
 			&i.Propers,
 			&i.NameFolded,
+			&i.HoldSeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -1289,6 +1293,23 @@ func (q *Queries) SetDefault(ctx context.Context, id ProfileID) error {
 	return err
 }
 
+const setHold = `-- name: SetHold :execrows
+UPDATE targets_target SET hold_seconds = ?1 WHERE id = ?2
+`
+
+type SetHoldParams struct {
+	HoldSeconds int64
+	ID          TargetID
+}
+
+func (q *Queries) SetHold(ctx context.Context, arg SetHoldParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setHold, arg.HoldSeconds, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const setWants = `-- name: SetWants :exec
 UPDATE targets_wants SET editions = ?1 WHERE work_id = ?2
 `
@@ -1320,8 +1341,9 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) er
 
 const updateTarget = `-- name: UpdateTarget :exec
 UPDATE targets_target SET name = ?1, name_folded = ?2, cutoff_tier = ?3, min_score = ?4,
-    upgrade_until = ?5, score_increment = ?6, propers = ?7
-WHERE id = ?8
+    upgrade_until = ?5, score_increment = ?6, propers = ?7,
+    hold_seconds = ?8
+WHERE id = ?9
 `
 
 type UpdateTargetParams struct {
@@ -1332,6 +1354,7 @@ type UpdateTargetParams struct {
 	UpgradeUntil   int64
 	ScoreIncrement int64
 	Propers        string
+	HoldSeconds    int64
 	ID             TargetID
 }
 
@@ -1344,6 +1367,7 @@ func (q *Queries) UpdateTarget(ctx context.Context, arg UpdateTargetParams) erro
 		arg.UpgradeUntil,
 		arg.ScoreIncrement,
 		arg.Propers,
+		arg.HoldSeconds,
 		arg.ID,
 	)
 	return err

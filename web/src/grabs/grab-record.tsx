@@ -1,5 +1,6 @@
 import type { GrabsGrab } from "../api/gen/model";
 import { clock } from "../format";
+import { foundByWords } from "./search-words";
 import { failureWords, needsYou, stageWord } from "./stages";
 
 const lead = "text-sentence in-data-[density=touch]:text-sentence-touch";
@@ -21,10 +22,10 @@ export function GrabOutcome({ grab }: { grab: GrabsGrab }) {
   );
 }
 
-const madeWords = ({ grabbedBy, createdAt }: GrabsGrab) =>
-  grabbedBy === null
-    ? `Automatic search, ${clock(createdAt)}.`
-    : `Manual search by ${grabbedBy}, ${clock(createdAt)}.`;
+const madeWords = (grab: GrabsGrab) =>
+  grab.grabbedBy === null
+    ? `Found by ${foundByWords[grab.foundBy](grab)}, ${clock(grab.createdAt)}.`
+    : `Found by ${grab.grabbedBy} in Manual search, ${clock(grab.createdAt)}.`;
 
 export function GrabRecord({ grab }: { grab: GrabsGrab }) {
   return (

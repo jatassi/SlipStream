@@ -141,6 +141,10 @@ func (c Cells) Holding(ctx context.Context, r storage.Reader[file]) (map[roots.I
 	return out, nil
 }
 
+func (c Cells) Searching(ctx context.Context, r storage.Reader[file], ws works.Among[works.WorkID]) (map[files.CellKey]files.SearchFact, error) {
+	return c.Grabs.Searching(ctx, r, ws)
+}
+
 func (c Cells) ReleaseTitles(ctx context.Context, r storage.Reader[file]) (map[storage.UUID]string, error) {
 	return c.Grabs.ReleaseTitles(ctx, r)
 }

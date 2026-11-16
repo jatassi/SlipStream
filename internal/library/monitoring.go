@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -22,7 +23,8 @@ type MonitoringOutcome struct {
 // SetMonitoring applies c to each of ws in one Write, all or none;
 // preview rolls it back. A Work that moves nothing is skipped as already;
 // an unknown one fails. One works.changed names every Work that moved.
-// Searches nothing.
+// The Items it turns on are queued for search in the same Write, in one
+// call for the whole change.
 func (l *Library) SetMonitoring(ctx context.Context, _ identity.Admin, ws []works.WorkID, c works.Choice, preview bool) ([]MonitoringOutcome, error) {
 	ids := distinct(ws)
 	var (
@@ -37,7 +39,16 @@ func (l *Library) SetMonitoring(ctx context.Context, _ identity.Admin, ws []work
 		if preview {
 			return errPreview
 		}
-		return nil
+		var asks []searches.Ask
+		for _, id := range ids {
+			if on := deltas[id].On; len(on) > 0 {
+				asks = append(asks, searches.Ask{Work: id, Items: on})
+			}
+		}
+		if len(asks) == 0 {
+			return nil
+		}
+		return l.cfg.Queue.Queue(ctx, tx, searches.Monitor, asks...)
 	})
 	if err != nil && !errors.Is(err, errPreview) {
 		return nil, err
@@ -101,11 +112,24 @@ func (l *Library) applyIn(ctx context.Context, tx *storage.Tx[storage.Library], 
 
 // SetMonitored turns monitoring on or off for the levels and Items part
 // names of Work id, each level standing for every live Item under it,
-// leaving the Work's rule. A *works.NotInWorkError answers an id of
-// another Work. Searches nothing.
-func (l *Library) SetMonitored(ctx context.Context, by identity.Admin, id works.WorkID, part works.Within, on bool) error {
-	_, err := l.cfg.Works.SetMonitored(ctx, by, id, part, on)
-	return err
+// leaving the Work's rule. Turning Items on queues them for search in the
+// same Write. A *works.NotInWorkError answers an id of another Work.
+func (l *Library) SetMonitored(ctx context.Context, _ identity.Admin, id works.WorkID, part works.Within, on bool) error {
+	var moved []works.ItemID
+	err := l.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		if moved, err = works.SetMonitoredIn(ctx, tx, id, part, on); err != nil || !on || len(moved) == 0 {
+			return err
+		}
+		return l.cfg.Queue.Queue(ctx, tx, searches.Monitor, searches.Ask{Work: id, Items: moved})
+	})
+	if err != nil {
+		return err
+	}
+	if len(moved) > 0 {
+		l.cfg.Works.Touched(ctx, []works.WorkID{id})
+	}
+	return nil
 }
 
 // SetOptions changes Work id's options; preview reports what the change

@@ -61,6 +61,7 @@ const outcomes: Record<
   kept: (release, names) =>
     lost(release, names, "first") ?? "It ranked first, but this search grabbed nothing.",
   refused: (release) => refusalWords(release.reasons),
+  waiting: () => "SlipStream grabs this or a better release when the Hold ends.",
 };
 
 /** Its outcome in words: what it was grabbed for, where it lost, or what refused it. */

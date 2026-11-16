@@ -50,11 +50,12 @@ func expectLines(t *testing.T, when string, s searchView, want ...string) {
 	}
 }
 
-// TestTwoSearchesAtOnceAskEveryIndexerWithinItsSearchLimit gives both
-// Indexers a search limit of one an hour and searches twice at once. The
-// first asks both, counts the Release each lists once and grabs it from
-// Fixture Mirror, the better priority; the second is skipped on both.
-func TestTwoSearchesAtOnceAskEveryIndexerWithinItsSearchLimit(t *testing.T) {
+// TestASecondSearchMergesIntoTheRunningOneWithinEachIndexersSearchLimit
+// gives both Indexers a search limit of one an hour and searches twice
+// while the first run waits on a slow feed. The second merges into it, so
+// the one run asks each Indexer once, counts the Release each lists once
+// and grabs it from Fixture Mirror, the better priority.
+func TestASecondSearchMergesIntoTheRunningOneWithinEachIndexersSearchLimit(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "home")
 	mirror := w.addMirror(t, `,"searches":{"count":1,"per":"hour"}`)
@@ -72,22 +73,25 @@ func TestTwoSearchesAtOnceAskEveryIndexerWithinItsSearchLimit(t *testing.T) {
 	}
 	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab.api", Times: 2}, "slow-body=1KiB/s")
 
-	first, second := w.search(t), w.search(t)
-	skipped := w.searched(t, second)
-	lines := skipped.lines()
-	if *skipped.Outcome != "nothing_acceptable" || skipped.Candidates != 0 || len(lines) != 2 ||
-		!strings.HasPrefix(lines[0], "Fixture Mirror limit_reached: Limit reached until ") ||
-		!strings.HasPrefix(lines[1], "Fixture Site limit_reached: Limit reached until ") {
-		t.Fatalf("the second search ended %+v with lines %q, want nothing_acceptable with both Indexers at their search limit", skipped, lines)
+	first := w.search(t)
+	if r := w.a.Admin("home", http.MethodPost, "/api/v1/works/"+w.work+"/search", ""); r.Status != http.StatusAccepted || !strings.Contains(r.Body, `"state":"merged"`) {
+		t.Fatalf("the second searchWork = %d %s, want 202 merged into the running search", r.Status, r.Body)
 	}
 
 	grabbed := w.searched(t, first)
 	expectLines(t, "first", grabbed, "Fixture Mirror found: Found 2 Releases", "Fixture Site found: Found 2 Releases")
-	if *grabbed.Outcome != "grabbed" || grabbed.Candidates != 2 || grabbed.GrabID == nil {
+	if *grabbed.Outcome != "grabbed" || grabbed.Candidates != 2 || len(grabbed.GrabIDs) != 1 {
 		t.Fatalf("the first search ended %+v, want 2 candidates and a Grab", grabbed)
 	}
-	if got := w.grabbedFrom(t, *grabbed.GrabID); got != mirror {
+	if got := w.grabbedFrom(t, grabbed.GrabIDs[0]); got != mirror {
 		t.Fatalf("the Grab is from Indexer %s, want Fixture Mirror %s", got, mirror)
+	}
+	var list struct {
+		Searches []searchView `json:"searches"`
+	}
+	decode(t, "listSearches", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/searches", ""), &list)
+	if len(list.Searches) != 1 {
+		t.Fatalf("the Work's searches are %+v, want the one run both presses share", list.Searches)
 	}
 }
 
@@ -106,7 +110,7 @@ func TestAnIndexerTheSiteLimitsLeavesTheOtherToAnswer(t *testing.T) {
 	if *s.Outcome != "grabbed" || s.Candidates != 2 || len(lines) != 2 || limited < 0 || found < 0 {
 		t.Fatalf("the search ended %+v with lines %q, want one Indexer limited and the other's 2 Releases grabbed", s, lines)
 	}
-	if got := w.grabbedFrom(t, *s.GrabID); got != s.Indexers[found].IndexerID {
+	if got := w.grabbedFrom(t, s.GrabIDs[0]); got != s.Indexers[found].IndexerID {
 		t.Fatalf("the Grab is from Indexer %s, want %s, the one that answered", got, s.Indexers[found].IndexerID)
 	}
 }
@@ -119,8 +123,8 @@ func TestAnIndexerPastTheSearchWaitIsLateAndItsAnswerStillLands(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "home")
 	w.addMirror(t, "")
-	if r := w.a.Admin("home", http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.searchWait":10}}`); r.Status != http.StatusOK {
-		t.Fatalf("updateIndexerSettings = %d %s, want 200", r.Status, r.Body)
+	if r := w.a.Admin("home", http.MethodPatch, "/api/v1/search-settings", `{"values":{"indexers.searchWait":10}}`); r.Status != http.StatusOK {
+		t.Fatalf("updateSearchSettings = %d %s, want 200", r.Status, r.Body)
 	}
 	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab.api", Times: 1}, "delay=15s")
 

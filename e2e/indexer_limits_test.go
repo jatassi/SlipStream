@@ -54,7 +54,7 @@ func TestSearchAndGrabLimitsHoldAcrossAControllerRestart(t *testing.T) {
 	w.patchIndexer(t, quarry, `{"priority":1,"searches":{"count":2,"per":"hour"},"grabs":{"count":1,"per":"day"}}`)
 
 	first := w.searched(t, w.search(t))
-	if *first.Outcome != "grabbed" || w.grabbedFrom(t, *first.GrabID) != quarry {
+	if *first.Outcome != "grabbed" || w.grabbedFrom(t, first.GrabIDs[0]) != quarry {
 		t.Fatalf("the first search ended %+v, want a Grab from Quarry", first)
 	}
 
@@ -70,7 +70,7 @@ func TestSearchAndGrabLimitsHoldAcrossAControllerRestart(t *testing.T) {
 	lines := w.searchAnother(t, "9000002")
 	expectLine(t, "within the search limit", lines, "Quarry", "found: Found 1 Release")
 	second := w.searched(t, w.lastSearch(t))
-	if second.GrabID == nil || w.grabbedFrom(t, *second.GrabID) == quarry {
+	if len(second.GrabIDs) != 1 || w.grabbedFrom(t, second.GrabIDs[0]) == quarry {
 		t.Errorf("the second search ended %+v with lines %q, want a Grab from another Indexer than Quarry, at its grab limit", second, second.lines())
 	}
 	lines = w.searchAnother(t, "9000003")

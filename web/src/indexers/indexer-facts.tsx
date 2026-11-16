@@ -11,6 +11,7 @@ import { Data } from "../ui/data";
 import { Meter } from "../ui/meter";
 import { Section } from "../ui/section";
 import { SettingGroup } from "../ui/setting-field";
+import { RSSFetch } from "./rss-fetch";
 import { IndexerSwitch, type SwitchName } from "./switches";
 import { kindOf, limitWords, nodeName } from "./words";
 
@@ -38,6 +39,10 @@ function trackerWords(indexer: IndexersIndexer, trackers: readonly TrackersTrack
 }
 
 const words = (text: string): ReactNode => <span>{text}</span>;
+
+function rssRow(indexer: IndexersIndexer): (readonly [string, ReactNode])[] {
+  return indexer.rss ? [["RSS sync", <RSSFetch key="rss" indexer={indexer} />]] : [];
+}
 
 /** The account it signs in with, so two Indexers on one site tell apart. */
 function usernameRow(indexer: IndexersIndexer): (readonly [string, ReactNode])[] {
@@ -70,6 +75,7 @@ export function IndexerFacts({
             ["Priority", words(String(indexer.priority))],
             ["Searches", <LimitUse key="searches" label="Searches" limit={indexer.searches} />],
             ["Grabs", <LimitUse key="grabs" label="Grabs" limit={indexer.grabs} />],
+            ...rssRow(indexer),
           ]}
         />
         <SettingGroup>

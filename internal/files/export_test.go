@@ -7,6 +7,8 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+var SearchesOf = searchesOf
+
 // ScoresFromScratch is the score of each cell of work that refill fills
 // in r when no file fills any cell yet.
 func (f *Files) ScoresFromScratch(ctx context.Context, r storage.Reader[file], work works.WorkID) (map[CellKey]int, error) {

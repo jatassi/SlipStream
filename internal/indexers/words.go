@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/works"
@@ -208,12 +209,13 @@ func (x *Indexers) Clock(t time.Time) string { return x.inZone(t).Format("15:04"
 // day is t's date in sentences, such as "3 Oct".
 func (x *Indexers) day(t time.Time) string { return x.inZone(t).Format("2 Jan") }
 
-func (x *Indexers) inZone(t time.Time) time.Time {
-	zone := x.cfg.Zone
-	if zone == nil {
-		zone = time.Local
+func (x *Indexers) inZone(t time.Time) time.Time { return t.In(x.zone()) }
+
+func (x *Indexers) zone() *time.Location {
+	if x.cfg.Zone == nil {
+		return time.Local
 	}
-	return t.In(zone)
+	return x.cfg.Zone
 }
 
 // stoppedWords is a stop in words, as the Indexer's status: %[1]s is the
@@ -362,7 +364,7 @@ func (x *Indexers) Line(typ works.TypeID, o *Outcome) string {
 		if o.Until.IsZero() {
 			return "Limit reached"
 		}
-		return "Limit reached until " + x.Clock(o.Until)
+		return "Limit reached until " + api.TimeWords(o.Until, time.Now(), x.zone())
 	case Waiting:
 		return "Waiting for " + x.cfg.Roster.Name(o.Node)
 	case IsFailing:
@@ -454,6 +456,30 @@ func (e *SolverUnreachableError) Sentence() string {
 
 // unservedWords is the Health item of a Content Type whose Works, many,
 // no usable Indexer searches for.
-func unservedWords(many string) string {
-	return "No Indexer can search for " + strings.ToLower(many) + ". Add an Indexer or turn one on."
+func unservedWords(many string, feeds int) string {
+	out := "No Indexer can search for " + strings.ToLower(many) + "."
+	switch feeds {
+	case 0:
+	case 1:
+		out += " RSS sync still reads new uploads from 1 feed."
+	default:
+		out += fmt.Sprintf(" RSS sync still reads new uploads from %d feeds.", feeds)
+	}
+	return out + " Add an Indexer or turn one on."
+}
+
+// gapWords is why RSS sync may have missed Releases on Indexer name, for
+// gap.
+func (x *Indexers) gapWords(name string, gap GapKind) string {
+	out := "RSS sync may have missed releases on " + name + ". "
+	switch gap {
+	case GapNoPaging:
+		out += fmt.Sprintf("More releases were added to %[1]s between two RSS syncs than one fetch returns, and %[1]s can't list older ones.", name)
+	case GapPageCap:
+		out += fmt.Sprintf("More releases were added to %s between two RSS syncs than %d pages list.", name, x.cfg.Timings.RSSPages)
+	case GapLate:
+		return out + name + " took too long to list older uploads. Search from Wanted to find what was missed."
+	case GapNone:
+	}
+	return out + " Search from Wanted to find what was missed, or run RSS sync more often."
 }

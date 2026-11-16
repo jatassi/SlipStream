@@ -2,6 +2,7 @@ package searching
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -24,7 +25,10 @@ const (
 // values, or a *Limited, *Failing or *Stopped outcome.
 type Driver interface {
 	Search(ctx context.Context, s *Site, q Query) ([]Release, error)
-	Recent(ctx context.Context, s *Site) ([]Release, error)
+	// Recent lists the newest Releases after skipping offset of them. A
+	// kind whose Capabilities don't say RecentPaging refuses an offset
+	// past 0 with NewestOnly.
+	Recent(ctx context.Context, s *Site, offset int) ([]Release, error)
 	Fetch(ctx context.Context, s *Site, link Link) (Got, error)
 	// Test signs in when the Indexer signs in, with answer when the
 	// Admin answered a captcha, then reads its capabilities and its
@@ -80,7 +84,8 @@ type Call interface{ call() }
 
 type (
 	SearchCall struct{ Query Query }
-	RecentCall struct{}
+	// RecentCall skips Offset of the newest Releases, to page back.
+	RecentCall struct{ Offset int }
 	FetchCall  struct{ Link Link }
 	// TestCall signs in with Captcha when the Admin answered one, and
 	// with Code when the Admin typed a two-factor code.
@@ -169,6 +174,8 @@ type Release struct {
 	// Source is the site a Torznab feed says the Release came from.
 	Source *Source
 	Flags  []Flag
+	// GUID is the item's GUID as the site sent it, "" for none.
+	GUID string
 }
 
 // Flag is one of Radarr's indexer flags.
@@ -222,6 +229,17 @@ type Report struct {
 type Capabilities struct {
 	Modes      map[string][]string
 	Categories []int
+	// RecentPaging is whether Recent lists older Releases by offset.
+	RecentPaging bool
+}
+
+// NewestOnly refuses a Recent call that pages back, for a kind that lists
+// only its newest Releases.
+func NewestOnly(offset int) error {
+	if offset == 0 {
+		return nil
+	}
+	return &Failing{Err: fmt.Errorf("the Indexer lists only its newest Releases and can't skip %d of them", offset)}
 }
 
 // Session is one Indexer's cookies, User-Agent and bearer token on one

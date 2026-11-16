@@ -180,8 +180,8 @@ type offerList struct {
 type offerListOutput struct{ Body offerList }
 
 type liftKey struct {
-	Code     string `json:"code" enum:"wrong_title,size_below,size_above,score_below_minimum,not_an_upgrade,repack_other_group"`
-	TargetID string `json:"targetId,omitempty" format:"uuid" doc:"Absent for wrong_title"`
+	Code     string `json:"code" enum:"wrong_title,size_below,size_above,score_below_minimum,not_an_upgrade,repack_other_group,not_aired,tried"`
+	TargetID string `json:"targetId,omitempty" format:"uuid" doc:"Absent for a release's own refusals: wrong_title, not_aired and tried"`
 }
 
 type clientChoice struct {

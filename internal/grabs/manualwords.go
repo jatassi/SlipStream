@@ -71,7 +71,7 @@ func (s sheet) title() string {
 	}
 	var items []works.ItemID
 	for _, rs := range s.runs {
-		items = append(items, rs.run.ItemID)
+		items = append(items, rs.run.item())
 	}
 	if code := s.codeOf(items[0]); len(items) == 1 && code != "" {
 		return code + " of " + t.Label
@@ -82,17 +82,8 @@ func (s sheet) title() string {
 // codeOf is the code the Work page leads item with, "S02E10", "" when its
 // type places none.
 func (s sheet) codeOf(item works.ItemID) string {
-	i := slices.IndexFunc(s.in.nouns.Fields, func(f works.FieldSpec) bool { return slices.Contains(f.In, works.PlaceCode) })
-	if i < 0 {
-		return ""
-	}
 	j := slices.IndexFunc(s.in.tree.Items, func(it works.Item) bool { return it.ID == item })
-	for _, v := range s.in.tree.Items[j].Fields {
-		if v.Key == s.in.nouns.Fields[i].Key && v.Kind == works.KindText {
-			return v.Text
-		}
-	}
-	return ""
+	return itemCode(s.in.nouns, s.in.tree.Items[j])
 }
 
 func liveItems(t works.Tree) []works.Item {
@@ -457,7 +448,7 @@ func (s sheet) heldIn(rs runSheet) []HeldCell {
 	var out []HeldCell
 	for _, k := range slices.Sorted(maps.Keys(rs.held)) {
 		c := rs.item[k]
-		if c.Item.ID == rs.run.ItemID && (s.in.cell == nil || *s.in.cell == keyOf(c)) {
+		if c.Item.ID == rs.run.item() && (s.in.cell == nil || *s.in.cell == keyOf(c)) {
 			out = append(out, s.heldCell(c, rs.held[k]))
 		}
 	}
@@ -675,7 +666,7 @@ func (rs runSheet) verdicts(g int) []string {
 	}
 	var own []int
 	for k, c := range rs.item {
-		if c.Item.ID == rs.run.ItemID {
+		if c.Item.ID == rs.run.item() {
 			own = append(own, k)
 		}
 	}
@@ -907,7 +898,7 @@ func (s sheet) foldWords(key foldKey, n int) string {
 	case targets.NotAnUpgrade:
 		return plural(n, "1 isn't", "%d aren't") + " better than the files you have."
 	case targets.WrongTitle, targets.CutNotWanted, targets.SizeBelow, targets.SizeAbove, targets.SizeNotChecked,
-		targets.ScoreBelowMinimum, targets.RepackOtherGroup:
+		targets.ScoreBelowMinimum, targets.RepackOtherGroup, targets.NotAired, targets.Tried:
 	}
 	return plural(n, "1 fails", "%d fail") + " a title, cut, size, score or repack check at every Target here."
 }

@@ -75,6 +75,12 @@ export interface IndexersNewIndexer {
   rss?: boolean;
   searches?: IndexersLimit;
   /**
+   * How many background searches go to it at a time
+   * @minimum 1
+   * @maximum 10
+   */
+  searchesAtOnce?: number;
+  /**
    * The Tracker an RSS feed's torrents belong to when its items don't name their source; required for an RSS feed, omitted for a Torznab feed
    * @maxLength 100
    */

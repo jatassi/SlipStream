@@ -38,3 +38,24 @@ test("Space presses an icon button named by its label", async () => {
   await userEvent.keyboard(" ");
   expect(pressed).toBe(1);
 });
+
+test("a busy icon button shows a spinner in its icon's place, keeps its focus and can't be pressed", async () => {
+  let pressed = 0;
+  renderKit(
+    <IconButton
+      icon={Cancel01Icon}
+      label="Search Volume 3"
+      busy
+      onClick={() => {
+        pressed += 1;
+      }}
+    />,
+  );
+  const button = page.getByRole("button", { name: "Search Volume 3" });
+  await expect.element(button).toHaveAttribute("aria-busy", "true");
+  expect(button.element().querySelector("svg.animate-spinner")).not.toBeNull();
+  await userEvent.tab();
+  await expect.element(button).toHaveFocus();
+  await userEvent.keyboard(" ");
+  expect(pressed).toBe(0);
+});

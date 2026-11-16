@@ -1,4 +1,6 @@
-import { expect, expectAccessible, test } from "./fixtures.ts";
+import type { Page, TestInfo } from "@playwright/test";
+
+import { type World, expect, expectAccessible, test } from "./fixtures.ts";
 import {
   closeSheet,
   failedGrab,
@@ -62,6 +64,29 @@ test("Manual search from the hero shows each Indexer's Releases as it responds, 
   await frame(page, testInfo, "open-answered");
 });
 
+// Automatic search grabs the season pack and its Grab fails, so the pack's
+// Needs you card opens a Manual search of every episode the pack held,
+// where the pack is refused tried and singles fill what they can.
+async function failedPackNeedsYou(page: Page, world: World, series: string, testInfo: TestInfo) {
+  const e10 = await itemId(world, series, "S02E10");
+  await failedGrab(world, series, e10);
+  await page.goto(`/works/${series}`);
+  await needsYouAction(page, "Manual search");
+  const failed = sheet(page, lanternKeepers);
+  await searched(failed);
+  await expect(failed).toContainText("5 Grabs download 5 of the 6 files you're missing.");
+  const e09 = failed
+    .getByRole("list", { name: "Files with no release found" })
+    .getByRole("listitem")
+    .filter({ hasText: "Failed: 1080p for E09." });
+  await e09.getByRole("button", { name: "Other choices" }).click();
+  await expect(e09.getByRole("list", { name: "Other choices" })).toContainText(
+    "A Grab of this release already failed for this series. You can still grab it here.",
+  );
+  await expectAccessible(page);
+  await frame(page, testInfo, "open-needs-you");
+}
+
 test("Manual search opens from a cell, a season, an episode and a Needs you card, each titled with its scope", async ({
   adminPage: page,
   world,
@@ -74,25 +99,12 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   await closeSheet(page);
 
   const series = await workId(world, lanternKeepers);
-  const e10 = await itemId(world, series, "S02E10");
-  await failedGrab(world, series, e10);
-
   await page.goto(`/works/${series}`);
-  // Automatic search grabbed the season pack, so its Needs you card opens
-  // a Manual search of every episode the pack fills.
-  await needsYouAction(page, "Manual search");
-  await searched(sheet(page, lanternKeepers));
-  await expect(sheet(page, lanternKeepers)).toContainText(
-    "It downloads 1080p for E05 to E10. E01 to E04 keep their files.",
-  );
-  await expectAccessible(page);
-  await frame(page, testInfo, "open-needs-you");
-  await closeSheet(page);
-
   await reveal(page, seasons(page));
   await page.getByRole("button", { name: "More actions for Season 2" }).click();
   await menuAction(page, "Actions for Season 2", "Manual search");
   const season = sheet(page, lanternKeepers);
+  await expect(season).toContainText("Searching 4 Indexers.");
   await searched(season);
   await expect(season).toContainText("1 Grab downloads every file you're missing.");
   await expect(season).toContainText(
@@ -109,4 +121,7 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   await searched(episode);
   await expect(episode).toContainText("It downloads 1080p for E06.");
   await expect(episode).not.toContainText("for E05");
+  await closeSheet(page);
+
+  await failedPackNeedsYou(page, world, series, testInfo);
 });

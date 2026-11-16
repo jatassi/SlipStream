@@ -6,8 +6,10 @@ import type { CellPopoverControls } from "../../ui/cell-popover";
 import type { PoppedCell } from "./cell-detail";
 import { FoldRow, ItemRow, type RowActions } from "./item-row";
 import { FooterRow, type HeaderActions, LevelHeader } from "./level-header";
+import type { LevelSearch } from "./level-search";
 import type { LevelContext } from "./model";
 import { PhoneItemRow } from "./phone-row";
+// oxlint-disable-next-line import/max-dependencies -- every drawn row reads the rows' shared state, each level's search state included
 import type { Row } from "./rows";
 
 /** What every drawn row shares, each the same object across a page's renders. */
@@ -17,6 +19,8 @@ export type Drawn = {
   readonly controls: CellPopoverControls<PoppedCell>;
   readonly rowActions: RowActions;
   readonly headerActions: HeaderActions;
+  /** Each level's search state, by level id. */
+  readonly searches: ReadonlyMap<string, LevelSearch>;
 };
 
 function sizeOf(row: Row | undefined, index: number, phone: boolean): number {
@@ -37,7 +41,7 @@ function sizeOf(row: Row | undefined, index: number, phone: boolean): number {
 }
 
 function RowView({ row, first, drawn }: { row: Row; first: boolean; drawn: Drawn }) {
-  const { phone, context, controls, rowActions, headerActions } = drawn;
+  const { phone, context, controls, rowActions, headerActions, searches } = drawn;
   const source = context.type.source;
   switch (row.kind) {
     case "header":
@@ -49,6 +53,7 @@ function RowView({ row, first, drawn }: { row: Row; first: boolean; drawn: Drawn
           phone={phone}
           targets={context.targets}
           item={context.type.item}
+          search={searches.get(row.level.id)}
           actions={headerActions}
         />
       );

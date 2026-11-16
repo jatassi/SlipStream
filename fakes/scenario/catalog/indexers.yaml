@@ -86,6 +86,9 @@ tracker:
   interval: 5s
 library:
   storage_levels: {warn_below: 0B, error_below: 0B}
+  # Its specs count each Indexer's searches and backoff rungs, so only the
+  # searches they start may run.
+  automatic_search: {backlog_search: false, rss_sync: false}
   roots: [{content_type: movie, folder: movies}]
   indexers:
     - {name: Quarry, kind: catalog, site: quarry, home: seedbox}

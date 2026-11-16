@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 
 import { anthologies } from "../../test/anthology";
+import { addSearch } from "../../test/add-search";
 import { addMonitor, anthologyCatalog, anthologiesRoot, shelves } from "../../test/adding";
 import { cinema } from "../../test/library";
 import { films, ultra } from "../../test/profiles";
@@ -13,6 +14,7 @@ const defaults: AddDefaults = {
   preset: "all",
   asides: undefined,
   levelFolders: undefined,
+  search: "monitored",
 };
 
 const cinemaSetup = (on: boolean) =>
@@ -20,8 +22,20 @@ const cinemaSetup = (on: boolean) =>
     type: cinema,
     profiles: [films, ultra],
     roots: [filmsRoot],
-    settings: [addMonitor(on)],
+    settings: [addMonitor(on), addSearch(true)],
   });
+
+const cinemaSearch = (on: boolean) =>
+  addSetupOf({
+    type: cinema,
+    profiles: [films, ultra],
+    roots: [filmsRoot],
+    settings: [addMonitor(true), addSearch(on)],
+  }).defaults.search;
+
+test("a search switch maps to everything monitored or nothing", () => {
+  expect([cinemaSearch(true), cinemaSearch(false)]).toEqual(["monitored", "none"]);
+});
 
 test("a switch maps to all or none and asks with a switch", () => {
   expect(cinemaSetup(true)).toEqual({ defaults, monitor: { kind: "switch" } });
@@ -29,7 +43,12 @@ test("a switch maps to all or none and asks with a switch", () => {
 });
 
 test("a choice asks with its presets and reads the aside and folder defaults", () => {
-  const { settings } = anthologyCatalog({ preset: "latest", asides: true, levelFolders: false });
+  const { settings } = anthologyCatalog({
+    preset: "latest",
+    asides: true,
+    levelFolders: false,
+    search: "first_level",
+  });
   const setup = addSetupOf({
     type: anthologies,
     profiles: [shelves],
@@ -42,6 +61,7 @@ test("a choice asks with its presets and reads the aside and folder defaults", (
     preset: "latest",
     asides: true,
     levelFolders: false,
+    search: "first_level",
   });
   expect(setup.monitor).toMatchObject({ kind: "choice", label: "Stories to monitor" });
   expect(
@@ -63,6 +83,7 @@ test("each changed choice moves its default while Remember is on", () => {
     preset: "first" as const,
     asides: true,
     levelFolders: false,
+    search: "none" as const,
     remember: true,
   };
   expect(movedDefaults(changed, start)).toEqual([
@@ -71,6 +92,7 @@ test("each changed choice moves its default while Remember is on", () => {
     "monitor",
     "asides",
     "levelFolders",
+    "search",
   ]);
   expect(movedDefaults({ ...startChoices(start), preset: "none" }, start)).toEqual(["monitor"]);
 });

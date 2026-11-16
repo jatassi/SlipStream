@@ -7,6 +7,8 @@ import type {
   GrabsSearch,
   GrabsSearchIndexer,
   GrabsSearchList,
+  GrabsSearchQueued,
+  GrabsWorkSearching,
   TargetsWants,
   WorksWorkView,
 } from "../api/gen/model";
@@ -37,6 +39,7 @@ import { home, nodesAre, seedbox } from "./nodes";
 import { profileHandlers, ultra } from "./profiles";
 import { filmsRoot, mediaVolumes } from "./roots";
 import { targetHandlers } from "./targets";
+import { aWorkSearching, queueWorld } from "./searching";
 import { filesOf, missing } from "./work-cells";
 
 const otherWork: GrabsGrab = {
@@ -49,11 +52,24 @@ const otherWork: GrabsGrab = {
 const searchId = "2b4d6f8a-0c2e-4a6c-8e0a-2c4e6a8c0e2a";
 const mirrorId = "8a0c2e4f-6b8d-4f0a-9c2e-4f6a8b0d2e4f";
 
-const run: Pick<GrabsSearch, "id" | "itemId" | "startedAt" | "notes"> = {
+const run: Pick<
+  GrabsSearch,
+  "id" | "groupKey" | "groupLabel" | "lane" | "trigger" | "itemIds" | "startedAt" | "notes"
+> = {
   id: searchId,
-  itemId: orchardItemId,
+  groupKey: `i:${orchardItemId}`,
+  groupLabel: null,
+  lane: "now",
+  trigger: "search",
+  itemIds: [orchardItemId],
   startedAt: "2026-10-12T09:00:58Z",
   notes: [],
+};
+
+const pressed: GrabsSearchQueued = {
+  groups: [
+    { key: run.groupKey ?? "", label: orchard.label, itemIds: [orchardItemId], state: "queued" },
+  ],
 };
 
 const line = (
@@ -81,7 +97,8 @@ export const searching: GrabsSearchList = {
       finishedAt: null,
       outcome: null,
       candidates: 0,
-      grabId: null,
+      grabs: 0,
+      grabIds: [],
     },
   ],
 };
@@ -96,7 +113,8 @@ export const grabbed: GrabsSearchList = {
       finishedAt: "2026-10-12T09:01:00Z",
       outcome: "grabbed",
       candidates: 2,
-      grabId,
+      grabs: 1,
+      grabIds: [grabId],
     },
   ],
 };
@@ -146,7 +164,8 @@ export const everyOutcome: GrabsSearchList = {
       finishedAt: "2026-10-12T09:01:00Z",
       outcome: "nothing_acceptable",
       candidates: 1,
-      grabId: null,
+      grabs: 0,
+      grabIds: [],
     },
   ],
 };
@@ -216,6 +235,14 @@ function filesWorld(
   };
 }
 
+type WorkServerOptions = {
+  readonly work?: WorksWorkView;
+  readonly startCells?: FilesCellList;
+  readonly files?: FilesFileList;
+  /** What the search queue is doing for the Work. */
+  readonly queue?: GrabsWorkSearching;
+};
+
 /**
  * The Work page's reads, of The Quiet Orchard on Ultra unless work names
  * another Work and its cells. Its files are the ones its cells hold, unless
@@ -225,32 +252,32 @@ export function workServer({
   work = orchardOnUltra,
   startCells = missing,
   files,
-}: { work?: WorksWorkView; startCells?: FilesCellList; files?: FilesFileList } = {}) {
+  queue: queued = aWorkSearching({ groups: [] }),
+}: WorkServerOptions = {}) {
   let cells = startCells;
   let searches: GrabsSearchList = { searches: [] };
   let grabs: GrabsGrab[] = [otherWork];
-  const searched: string[] = [];
   const { handler, send } = liveStream();
   const changed = () => {
     send({ event: "files.changed", data: { workId: work.id } });
   };
   const filed = filesWorld(files, () => cells, changed);
+  const queue = queueWorld({ workId: work.id, initial: queued, pressed, send });
   const handlers = [
+    ...queue.handlers,
     ...fixedHandlers(work),
     getGetWorkCellsMockHandler(() => cells),
     ...filed.handlers,
     getListSearchesMockHandler(() => searches),
     getListGrabsMockHandler(() => ({ grabs })),
-    http.post("*/api/v1/works/:workId/search", ({ params }) => {
-      searched.push(String(params["workId"]));
-      return HttpResponse.json({ searchIds: [searchId] }, { status: 202 });
-    }),
     handler,
   ];
   return {
     handlers,
-    searched,
+    searched: queue.searched,
+    grabbed: queue.grabbed,
     forgot: filed.forgot,
+    queueMoves: queue.moves,
     fileArrives(next: FilesCellList) {
       cells = next;
       send({ event: "files.changed", data: { workId: orchardId } });

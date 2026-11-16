@@ -38,15 +38,16 @@ func (w *walked) searchedOnce(t *testing.T, candidates int, refused []string, no
 	t.Helper()
 	id := w.search(t)
 	found := w.searched(t, id)
-	if found.Outcome == nil || *found.Outcome != "grabbed" || found.GrabID == nil {
+	if found.Outcome == nil || *found.Outcome != "grabbed" || len(found.GrabIDs) != 1 {
 		t.Fatalf("the search ended %+v, want a release grabbed", found)
 	}
 	reply := w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/searches", "")
 	var list struct {
 		Searches []struct {
-			ItemID     string `json:"itemId"`
-			StartedAt  string `json:"startedAt"`
-			FinishedAt string `json:"finishedAt"`
+			GroupKey   string   `json:"groupKey"`
+			ItemIDs    []string `json:"itemIds"`
+			StartedAt  string   `json:"startedAt"`
+			FinishedAt string   `json:"finishedAt"`
 			Indexers   []struct {
 				IndexerID string `json:"indexerId"`
 			} `json:"indexers"`
@@ -61,10 +62,10 @@ func (w *walked) searchedOnce(t *testing.T, candidates int, refused []string, no
 	if candidates == 1 {
 		sentence = "Found 1 Release"
 	}
-	worldtest.Expect(t, "getWorkSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + id + `","itemId":"` + s.ItemID +
-		`","startedAt":"` + s.StartedAt + `","indexers":[{"indexerId":"` + s.Indexers[0].IndexerID + `","name":"Fixture Site","outcome":"found","releases":` +
+	worldtest.Expect(t, "getWorkSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + id + `","groupKey":"` + s.GroupKey + `","groupLabel":null,"lane":"now","trigger":"search","itemIds":["` + s.ItemIDs[0] +
+		`"],"startedAt":"` + s.StartedAt + `","indexers":[{"indexerId":"` + s.Indexers[0].IndexerID + `","name":"Fixture Site","outcome":"found","releases":` +
 		strconv.Itoa(candidates) + `,"sentence":"` + sentence + `"}],"finishedAt":"` + s.FinishedAt + `","outcome":"grabbed","candidates":` +
-		strconv.Itoa(candidates) + `,"grabId":"` + *found.GrabID + `","notes":` + notes + `}]}` + "\n"})
+		strconv.Itoa(candidates) + `,"grabs":1,"grabIds":["` + found.GrabIDs[0] + `"],"notes":` + notes + `}]}` + "\n"})
 	var got []string
 	for _, r := range w.refused(t, id) {
 		reasons, err := json.Marshal(r.Reasons)
@@ -76,7 +77,7 @@ func (w *walked) searchedOnce(t *testing.T, candidates int, refused []string, no
 	if !slices.Equal(got, refused) {
 		t.Fatalf("the search refused %q, want %q", got, refused)
 	}
-	w.ended(t, *found.GrabID)
+	w.ended(t, found.GrabIDs[0])
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
 	}
@@ -124,10 +125,10 @@ func TestAFileProbedAtAVideoCodecItsTargetRefusesWaitsMeetingNothing(t *testing.
 	t.Parallel()
 	w, target := sized(t, "9000003", "Encodes", "Encoded")
 	found := w.searched(t, w.search(t))
-	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != 1 || found.GrabID == nil {
+	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != 1 || len(found.GrabIDs) != 1 {
 		t.Fatalf("the search ended %+v, want the one listed release grabbed", found)
 	}
-	w.waits(t, *found.GrabID, "The.Copper.Bell.2020.1080p.WEB-DL-FKW.mkv: waiting meets_nothing")
+	w.waits(t, found.GrabIDs[0], "The.Copper.Bell.2020.1080p.WEB-DL-FKW.mkv: waiting meets_nothing")
 	holdsOnly(t, w.m)
 	cells := w.cells(t)
 	if got, _ := cells.summary(t); !slices.Equal(got, []string{"Encoded downloading"}) || cells.Cells[0].TargetID != target {

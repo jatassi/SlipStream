@@ -9,8 +9,8 @@ An Admin comes to Settings with a question, such as "where do my files go?" or "
 | Group | The Admin is asking | Sections today | Sections expected later |
 | --- | --- | --- | --- |
 | Library | What do I collect, where does it live, and what is it called? | Content Types, Library roots, Library scan, Importing, Naming, Metadata | Subtitles, which makes seven and splits the group |
-| Files to keep | Which versions of each Work do I want? | Targets, Profiles, Custom Formats, Editions | Conversion |
-| Search and download | How does SlipStream find and fetch releases? | Indexers, Trackers, Download Clients (built-in and external) | Automatic search |
+| Targets and Profiles | Which versions of each Work do I want? | Targets, Profiles, Custom Formats, Editions | Conversion |
+| Search and download | How does SlipStream find and fetch releases? | Indexers, Automatic search, Trackers, Download Clients (built-in and external) | |
 | Access | Who can reach SlipStream, and how? | Address, Sign-in, API key | Requests, Member portal |
 | System | How do the Nodes and the server itself run? | Nodes, Email, Media Servers | Backups, Updates, Notifications |
 
@@ -34,7 +34,7 @@ Regroup after a feature lands that adds sections, and at least once before each 
 - Its label no longer describes every section in it. Rename it or move the odd section out.
 - An Admin has to guess between two groups for one section. Merge the groups or sharpen their labels.
 
-A group label is a short noun phrase. It never repeats a glossary term in a different sense. For example, "Quality" is a glossary term for one kind of release, so the Targets group is "Files to keep", not "Quality". "Downloading" is a Role, so the download group is "Search and download".
+A group label is a short noun phrase. It never repeats a glossary term in a different sense. For example, "Quality" is a glossary term for one kind of release, so the Targets group is "Targets and Profiles", not "Quality". "Downloading" is a Role, so the download group is "Search and download".
 
 ## What stays out of Settings
 
@@ -46,7 +46,11 @@ Naming is the one exception. Each Content Type's rename switch, templates, colon
 
 A setting the Controller stores for each Node, such as where that Node's Grabs go, stays in its feature's section on that Node's card. "New Grabs go to" sits on each downloading Node's card in Download Clients, beside that Node's external clients. A setting of one record stays on that record's sheet. Check every and Import delay belong to one external Download Client, so they sit under Details on its sheet.
 
-"Wait for each Indexer up to" sits in Indexers under its own "Searching" heading, above the "Warnings" heading that holds how long an Indexer may fail before Health warns. When S34 (Automatic search, Backlog search and RSS sync) adds the Automatic search section, the wait may move there, since it applies to every search.
+Automatic search sits right after Indexers, because an Admin sets up Indexers first and then says when SlipStream searches them without being asked. It leads with a sentence built from its switches and the two tasks' frequencies: "SlipStream searches for missing files and upgrades every 8 hours and reads new uploads every 15 minutes. Searches never go past an Indexer's limits." Below that sit "Backlog search", "Backlog search looks for upgrades", "Backlog search runs every", "RSS sync" and "RSS sync runs every". Under Details sit "Search for a file that keeps coming up empty at least every", "Don't space out searches for anything released in the last", "Stop searching again after" with its window on one line ("Stop searching again after 3 failed Grabs in 7 days"), and "Wait for each Indexer up to". The two "runs every" settings are the Backlog search and RSS sync tasks' frequencies (`tasks.backlog-search.cadence` and `tasks.rss-sync.cadence`), so they show on the Tasks page too, and "RSS sync runs every" shows in Indexers beside Catalog refresh as well, read from the RSS sync task while it is listed and from the Automatic search section's own field while no Indexer has RSS on. Each has one stored value. A longest gap shorter than Backlog search's interval is refused on whichever of the two the Admin changed.
+
+"Wait for each Indexer up to" (`indexers.searchWait`) moved from its own "Searching" heading in Indexers to Automatic search, since it applies to every search. indexers still stores it under the same key. Indexers keeps the "Warnings" heading that holds how long an Indexer may fail before Health warns.
+
+A setting of one Indexer or one Target stays on its sheet. "Searches at once" sits on each Indexer's Edit sheet beside its limits. A Target's Hold, "Wait for a better release for", sits in that Target's editor under its own Hold section.
 
 "A client error fails its Grab after" sits in Download Clients under its own "Client errors" heading, after "When a Release counts as bad" and "Magnet links". It applies to every external Download Client, so it sits in the section and not on each client's sheet.
 

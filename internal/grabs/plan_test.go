@@ -26,7 +26,7 @@ var (
 // j, whose run Better Site answered with ls and whose Item has cells.
 func manualOf(j judging, cs []files.Cell, ls ...listed) manualIn {
 	run := Search{
-		ID: SearchID{UUID: storage.NewUUID()}, ItemID: item.ID, Finished: time.Now(),
+		ID: SearchID{UUID: storage.NewUUID()}, Items: []works.ItemID{item.ID}, Finished: time.Now(),
 		Indexers: []SearchIndexer{{Indexer: betterSite, Name: "Better Site", Outcome: &indexers.Outcome{Kind: indexers.Found, Releases: len(ls)}}},
 	}
 	in := manualIn{
@@ -86,6 +86,11 @@ func TestEachRefusalIsGrabbableOrNotAsTheSpecsTableSays(t *testing.T) {
 	open := []files.Cell{cell(hd, files.Missing)}
 	long := lasting(orchard, 100*time.Minute)
 	blocked := hashed(offered("Orchard.2021.1080p.BluRay-GRP", 5, 10, nil), 'b')
+	unaired := lanternS01E03
+	unaired.unaired = map[works.ItemID]string{s01e02: "S01E02"}
+	failed := hashed(offered("Orchard.2021.1080p.WEB-DL", 5, 10, nil), 'f')
+	tried := orchard
+	tried.tried = []triedRelease{{hash: failed.Release.InfoHash}}
 	for _, c := range []struct {
 		code      targets.ReasonCode
 		j         judging
@@ -108,6 +113,8 @@ func TestEachRefusalIsGrabbableOrNotAsTheSpecsTableSays(t *testing.T) {
 		{targets.CutNotWanted, orchard, []files.Cell{cellOf(targets.Edition("extended"), hd, files.Missing)}, offered("Orchard.2021.1080p.WEB-DL", 5, 10, nil), true, "Its title names the Standard Edition, which isn't one of this shelf's Editions. SlipStream grabs it as the Extended Edition."},
 		{targets.NotAnUpgrade, orchard, []files.Cell{upgradable}, offered("Orchard.2021.1080p.WEB-DL-GRP2", 5, 10, nil), true, "It isn't better than Orchard (2021) WEBDL-1080p.mkv, the file at Web. Grabbing it replaces that file."},
 		{targets.Blocklisted, orchard, open, blocked, true, "It's been on the Blocklist since"},
+		{targets.NotAired, unaired, open, offered("Lantern.Keepers.S01.1080p.WEB-DL", 5, 10, nil), true, "This pack lists S01E02, which hasn't aired. You can still grab it here."},
+		{targets.Tried, tried, open, failed, true, "A Grab of this release already failed for this shelf. You can still grab it here."},
 	} {
 		in := manualOf(c.j, c.cells, c.l)
 		if c.code == targets.Blocklisted {
@@ -344,7 +351,7 @@ func TestAnIndexersLineAcrossItemsSaysWhatItSearched(t *testing.T) {
 			return lines[o.Kind]
 		}
 		skipped := in.runs[0]
-		skipped.ID, skipped.ItemID = SearchID{UUID: storage.NewUUID()}, works.ItemID{UUID: storage.NewUUID()}
+		skipped.ID, skipped.Items = SearchID{UUID: storage.NewUUID()}, []works.ItemID{{UUID: storage.NewUUID()}}
 		skipped.Indexers = []SearchIndexer{{Indexer: betterSite, Name: "Better Site", Outcome: &c.skipped}}
 		in.runs = append(in.runs, skipped)
 		if got := viewOf(t, in).Indexers[0].Sentence; got != c.want {

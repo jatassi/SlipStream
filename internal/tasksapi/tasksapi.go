@@ -108,6 +108,7 @@ func (state) Variants() (discriminator string, variants []any) {
 type idleState struct {
 	Kind string    `json:"kind" enum:"idle"`
 	Next time.Time `json:"next" doc:"When the next run is due; now when it is due already"`
+	Off  bool      `json:"off" doc:"A setting has each run skip, so the task is off until it changes"`
 }
 
 type runningState struct {
@@ -133,7 +134,7 @@ func stateOf(s tasks.Status) api.OneOf[state] {
 	case tasks.Waiting:
 		return api.NewOneOf[state](waitingState{Kind: "waiting", Node: s.Node, Standing: s.Standing.String(), Since: s.Since})
 	case tasks.Idle:
-		return api.NewOneOf[state](idleState{Kind: "idle", Next: s.Next})
+		return api.NewOneOf[state](idleState{Kind: "idle", Next: s.Next, Off: s.Off})
 	}
 	panic(fmt.Sprintf("tasksapi: status %T", s))
 }
@@ -203,6 +204,7 @@ type runUnit struct {
 	NodeRemoved bool    `json:"nodeRemoved" doc:"The Node it ran on was removed since"`
 	Outcome     string  `json:"outcome" enum:"succeeded,failed,skipped,canceled"`
 	Cause       *string `json:"cause" doc:"Why it failed or was skipped, null when it succeeded"`
+	Note        *string `json:"note" doc:"How it ended, such as Queued 212 searches.; null when it didn't succeed or has none"`
 }
 
 func runOf(r tasks.Run) run {
@@ -212,7 +214,7 @@ func runOf(r tasks.Run) run {
 		out.EndedAt, out.Result = &ended, &result
 	}
 	for _, l := range r.Lines {
-		out.Units = append(out.Units, runUnit{Key: string(l.Key), Label: l.Label, Node: l.Node, NodeID: l.NodeID.String(), NodeRemoved: l.NodeRemoved, Outcome: string(l.Outcome), Cause: optional(l.Cause)})
+		out.Units = append(out.Units, runUnit{Key: string(l.Key), Label: l.Label, Node: l.Node, NodeID: l.NodeID.String(), NodeRemoved: l.NodeRemoved, Outcome: string(l.Outcome), Cause: optional(l.Cause), Note: optional(l.Note)})
 	}
 	return out
 }

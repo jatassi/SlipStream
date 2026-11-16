@@ -16,8 +16,9 @@ import (
 // any Grab in flight holds it unsettled, fetching included, and reads from
 // the latest such Grab, whatever finished after it. Else it reads from its
 // latest Grab, failed once failed, and from no Grab once that Grab settled
-// the cell. A failure that doesn't need the Admin, such as a cancel,
-// leaves the cell as no Grab would, as an import does.
+// the cell. A failure that doesn't need the Admin, such as a cancel, or
+// whose cell is searched again, leaves the cell as no Grab would, as an
+// import does. A stopped cell, a setup fault and a Manual pick read Failed.
 // An unfinished Grab whose Node is out of step waits on it, node_away, as
 // does a fetching one whose route names a client on a Node out of step.
 // A fetching one pinned to a client that can't take it waits on that
@@ -45,6 +46,55 @@ const (
 	ClientErrorWait = "client_error"
 )
 
+// Searching is files.Inflight's search facts, projected from the read
+// model: which cells failed Grabs stopped, each waiting cell's wait, and
+// each searched Item's latest run, keyed by files.ItemKey.
+func (g GrabCells) Searching(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[files.CellKey]files.SearchFact, error) {
+	stopped, err := stoppedOf(ctx, r, ws)
+	if err != nil {
+		return nil, err
+	}
+	s, err := readStates(ctx, r, ws)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[files.CellKey]files.SearchFact, len(stopped)+len(s.waits))
+	for k := range stopped {
+		out[k] = files.SearchFact{Stopped: true}
+	}
+	for _, w := range s.waits {
+		k := files.CellKey{Item: w.ItemID, Edition: w.Edition, Target: w.TargetID}
+		f := out[k]
+		f.WaitUntil, f.Candidates = w.UntilAt.Time(), int(w.Candidates)
+		out[k] = f
+	}
+	for item, f := range s.items() {
+		out[files.ItemKey(item)] = f
+	}
+	return out, nil
+}
+
+// stoppedOf is the cells of ws that failed Grabs stopped.
+func stoppedOf(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[files.CellKey]bool, error) {
+	q := db.New(r)
+	rows, err := works.Read(ws, func() ([]db.ListStoppedRow, error) { return q.ListStopped(ctx) }, func(ids []works.WorkID) ([]db.ListStoppedRow, error) {
+		rows, err := q.ListStoppedOfWorks(ctx, ids)
+		out := make([]db.ListStoppedRow, len(rows))
+		for i, row := range rows {
+			out[i] = db.ListStoppedRow(row)
+		}
+		return out, err
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[files.CellKey]bool, len(rows))
+	for _, row := range rows {
+		out[files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}] = true
+	}
+	return out, nil
+}
+
 func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
 	q := db.New(r)
 	rows, err := works.Read(ws, func() ([]db.ListTargetsOfWorksRow, error) {
@@ -58,7 +108,11 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 	if err != nil {
 		return nil, err
 	}
-	waits, err := g.waits(ctx, r)
+	waits, err := g.waits(ctx, r, ws)
+	if err != nil {
+		return nil, err
+	}
+	stopped, err := stoppedOf(ctx, r, ws)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +120,7 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 	for key, row := range readFrom(rows) {
 		cell := files.GrabCell{Grab: row.ID.UUID}
 		switch {
-		case row.Settled != nil, row.Stage == Imported, row.Stage == Failed && !(Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}).NeedsYou():
+		case row.Settled != nil, row.Stage == Imported, row.Stage == Failed && !readsFailed(row, stopped[key]):
 			continue
 		case row.Stage == Failed:
 			cell.State, cell.FailedAt = files.GrabFailed, string(*row.FailedStage)
@@ -79,6 +133,13 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 		out[key] = cell
 	}
 	return out, nil
+}
+
+// readsFailed is whether failed row's Grab makes its cell read Failed: it
+// needs the Admin, and its cell isn't searched again.
+func readsFailed(row db.ListTargetsOfWorksRow, stopped bool) bool {
+	g := Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}
+	return g.NeedsYou() && !searchingAgain(g, stopped)
 }
 
 func readFrom(oldestFirst []db.ListTargetsOfWorksRow) map[files.CellKey]db.ListTargetsOfWorksRow {
@@ -145,9 +206,12 @@ func doingOf(row db.ListTargetsOfWorksRow, w waiting) files.Doing {
 // step: a fetching one's pinned client that can't take it, client_off,
 // or its route's Node out of step, node_away, or its Torrent's away
 // client, client_away, or a downloading one's client reporting an error,
-// client_error.
-func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library]) (map[GrabID]waiting, error) {
-	open, err := db.New(r).ListOpenGrabs(ctx)
+// client_error. It reads only ws's unfinished Grabs.
+func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[GrabID]waiting, error) {
+	q := db.New(r)
+	open, err := works.Read(ws, func() ([]db.GrabsGrab, error) { return q.ListOpenGrabs(ctx) }, func(ids []works.WorkID) ([]db.GrabsGrab, error) {
+		return q.ListOpenGrabsOfWorks(ctx, ids)
+	})
 	if err != nil {
 		return nil, err
 	}

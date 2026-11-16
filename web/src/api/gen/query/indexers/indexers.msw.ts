@@ -1237,8 +1237,23 @@ export const getListIndexersResponseMock = (
         null,
       ]),
       priority: faker.number.int({ min: 1, max: 50 }),
+      recentPaging: faker.datatype.boolean(),
       revision: faker.number.int({ min: 1 }),
       rss: faker.datatype.boolean(),
+      rssFetch: faker.helpers.arrayElement([
+        {
+          gapKind: faker.helpers.arrayElement([
+            faker.helpers.arrayElement(["no_paging", "page_cap", "late"] as const),
+            null,
+          ]),
+          gapSince: faker.helpers.arrayElement([
+            faker.date.past().toISOString().slice(0, 19) + "Z",
+            null,
+          ]),
+          lastFetchAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+        },
+        null,
+      ]),
       searchModes: Array.from(
         { length: faker.number.int({ min: 1, max: 10 }) },
         (_, i) => i + 1,
@@ -1257,6 +1272,7 @@ export const getListIndexersResponseMock = (
         per: faker.helpers.arrayElement(["hour", "day"] as const),
         used: faker.number.int({ min: 0 }),
       },
+      searchesAtOnce: faker.number.int({ min: 1, max: 10 }),
       sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
       session: faker.helpers.arrayElement([
         {
@@ -1433,8 +1449,23 @@ export const getCreateIndexerResponseMock = (
     null,
   ]),
   priority: faker.number.int({ min: 1, max: 50 }),
+  recentPaging: faker.datatype.boolean(),
   revision: faker.number.int({ min: 1 }),
   rss: faker.datatype.boolean(),
+  rssFetch: faker.helpers.arrayElement([
+    {
+      gapKind: faker.helpers.arrayElement([
+        faker.helpers.arrayElement(["no_paging", "page_cap", "late"] as const),
+        null,
+      ]),
+      gapSince: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      lastFetchAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    },
+    null,
+  ]),
   searchModes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       mode: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1449,6 +1480,7 @@ export const getCreateIndexerResponseMock = (
     per: faker.helpers.arrayElement(["hour", "day"] as const),
     used: faker.number.int({ min: 0 }),
   },
+  searchesAtOnce: faker.number.int({ min: 1, max: 10 }),
   sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
   session: faker.helpers.arrayElement([
     {
@@ -1634,8 +1666,23 @@ export const getGetIndexerResponseMock = (
     null,
   ]),
   priority: faker.number.int({ min: 1, max: 50 }),
+  recentPaging: faker.datatype.boolean(),
   revision: faker.number.int({ min: 1 }),
   rss: faker.datatype.boolean(),
+  rssFetch: faker.helpers.arrayElement([
+    {
+      gapKind: faker.helpers.arrayElement([
+        faker.helpers.arrayElement(["no_paging", "page_cap", "late"] as const),
+        null,
+      ]),
+      gapSince: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      lastFetchAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    },
+    null,
+  ]),
   searchModes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       mode: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1650,6 +1697,7 @@ export const getGetIndexerResponseMock = (
     per: faker.helpers.arrayElement(["hour", "day"] as const),
     used: faker.number.int({ min: 0 }),
   },
+  searchesAtOnce: faker.number.int({ min: 1, max: 10 }),
   sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
   session: faker.helpers.arrayElement([
     {
@@ -1808,8 +1856,23 @@ export const getUpdateIndexerResponseMock = (
     null,
   ]),
   priority: faker.number.int({ min: 1, max: 50 }),
+  recentPaging: faker.datatype.boolean(),
   revision: faker.number.int({ min: 1 }),
   rss: faker.datatype.boolean(),
+  rssFetch: faker.helpers.arrayElement([
+    {
+      gapKind: faker.helpers.arrayElement([
+        faker.helpers.arrayElement(["no_paging", "page_cap", "late"] as const),
+        null,
+      ]),
+      gapSince: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      lastFetchAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    },
+    null,
+  ]),
   searchModes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       mode: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1824,6 +1887,7 @@ export const getUpdateIndexerResponseMock = (
     per: faker.helpers.arrayElement(["hour", "day"] as const),
     used: faker.number.int({ min: 0 }),
   },
+  searchesAtOnce: faker.number.int({ min: 1, max: 10 }),
   sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
   session: faker.helpers.arrayElement([
     {

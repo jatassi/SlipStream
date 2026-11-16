@@ -37,6 +37,7 @@ export const getListTasksResponseTasksIdleStateMock = (
   ...{
     kind: faker.helpers.arrayElement(["idle"] as const),
     next: faker.date.past().toISOString().slice(0, 19) + "Z",
+    off: faker.datatype.boolean(),
   },
   ...overrideResponse,
 });
@@ -217,6 +218,10 @@ export const getListTasksResponseMock = (
                     node: faker.string.alpha({ length: { min: 10, max: 20 } }),
                     nodeId: faker.string.uuid(),
                     nodeRemoved: faker.datatype.boolean(),
+                    note: faker.helpers.arrayElement([
+                      faker.string.alpha({ length: { min: 10, max: 20 } }),
+                      null,
+                    ]),
                     outcome: faker.helpers.arrayElement([
                       "succeeded",
                       "failed",
@@ -1037,6 +1042,7 @@ export const getGetTaskResponseTasksIdleStateMock = (
   ...{
     kind: faker.helpers.arrayElement(["idle"] as const),
     next: faker.date.past().toISOString().slice(0, 19) + "Z",
+    off: faker.datatype.boolean(),
   },
   ...overrideResponse,
 });
@@ -1569,6 +1575,10 @@ export const getGetTaskResponseMock = (
         node: faker.string.alpha({ length: { min: 10, max: 20 } }),
         nodeId: faker.string.uuid(),
         nodeRemoved: faker.datatype.boolean(),
+        note: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
         outcome: faker.helpers.arrayElement([
           "succeeded",
           "failed",
@@ -1671,6 +1681,10 @@ export const getGetTaskResponseMock = (
               node: faker.string.alpha({ length: { min: 10, max: 20 } }),
               nodeId: faker.string.uuid(),
               nodeRemoved: faker.datatype.boolean(),
+              note: faker.helpers.arrayElement([
+                faker.string.alpha({ length: { min: 10, max: 20 } }),
+                null,
+              ]),
               outcome: faker.helpers.arrayElement([
                 "succeeded",
                 "failed",
@@ -1775,6 +1789,7 @@ export const getUpdateTaskResponseTasksIdleStateMock = (
   ...{
     kind: faker.helpers.arrayElement(["idle"] as const),
     next: faker.date.past().toISOString().slice(0, 19) + "Z",
+    off: faker.datatype.boolean(),
   },
   ...overrideResponse,
 });
@@ -1908,6 +1923,10 @@ export const getUpdateTaskResponseMock = (
               node: faker.string.alpha({ length: { min: 10, max: 20 } }),
               nodeId: faker.string.uuid(),
               nodeRemoved: faker.datatype.boolean(),
+              note: faker.helpers.arrayElement([
+                faker.string.alpha({ length: { min: 10, max: 20 } }),
+                null,
+              ]),
               outcome: faker.helpers.arrayElement([
                 "succeeded",
                 "failed",

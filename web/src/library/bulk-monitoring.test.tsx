@@ -89,7 +89,7 @@ test("bulk Monitor and Unmonitor still send on and off, which mean All and None"
   await startPicking();
   await userEvent.click(pickBox(longShelfRow.label));
   await userEvent.click(bar.getByRole("button", { name: "Monitor", exact: true }));
-  await expect.element(page.getByText("Monitored The Long Shelf.")).toBeVisible();
+  await expect.element(page.getByText("Monitored The Long Shelf. Searching now.")).toBeVisible();
   await userEvent.click(bar.getByRole("button", { name: "Unmonitor" }));
   await expect.element(page.getByText("Stopped monitoring The Long Shelf.")).toBeVisible();
   expect(server.monitored).toEqual([

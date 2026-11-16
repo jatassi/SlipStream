@@ -28,12 +28,23 @@ function useWorkGrabs(workId: string) {
   );
 }
 
+/** What the Grabs section says while it lists none, pointing at the failed ones under Needs you. */
+function emptyGrabsWords(failed: number): string {
+  if (failed === 0) {
+    return "No Grabs yet. A search that finds a Release grabs it.";
+  }
+  return failed === 1
+    ? "No other Grabs. The failed one is under Needs you."
+    : `No other Grabs. The ${String(failed)} failed ones are under Needs you.`;
+}
+
 export function Grabs({ workId, work }: { workId: string; work: string }) {
-  const grabs = useWorkGrabs(workId).filter((grab) => !needsYou(grab));
+  const all = useWorkGrabs(workId);
+  const grabs = all.filter((grab) => !needsYou(grab));
   return (
     <Section title="Grabs" count={grabs.length}>
       {grabs.length === 0 ? (
-        <p className="text-ink-3">No Grabs yet. A search that finds a Release grabs it.</p>
+        <p className="text-ink-3">{emptyGrabsWords(all.length - grabs.length)}</p>
       ) : (
         <GrabTable layout="work" rows={grabs.map((grab) => ({ grab, work }))} />
       )}

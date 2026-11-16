@@ -20,7 +20,7 @@ type peer struct {
 // returned a SkipError.
 type result struct {
 	outcome     Outcome
-	cause       string
+	cause, note string
 	node, short string
 	dueOnReturn bool
 	owned       bool
@@ -95,6 +95,8 @@ func rollUp(noun setting.Noun, results []result, canceled bool) (run Result, sum
 	switch {
 	case canceled:
 		return RunCanceled, done, ""
+	case total == 1 && results[0].note != "":
+		return RunSucceeded, results[0].note, ""
 	case counts[Succeeded] == total:
 		return RunSucceeded, fmt.Sprintf("%d %s", total, nouns), ""
 	case counts[Skipped] == total && skips == 0:

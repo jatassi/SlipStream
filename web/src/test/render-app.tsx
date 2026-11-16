@@ -28,14 +28,18 @@ export const settled = ({ router, queryClient }: AppInstance) =>
   router.state.status === "idle" && queryClient.isFetching() === 0;
 
 // An app torn down mid-load keeps loading, and its requests then reach the next
-// test's handlers, so each app settles against its own test's server first.
+// test's handlers, so each app settles against its own test's server first. A
+// query to an unreachable Node retries twice with 1s and 2s backoff, so settling
+// can take longer than expect.poll's default second.
 export async function unmountApps() {
   const apps = [...mounted];
   mounted.clear();
   try {
     await Promise.all(
       apps.map(({ app }) =>
-        expect.poll(() => settled(app), { message: "the app settles before teardown" }).toBe(true),
+        expect
+          .poll(() => settled(app), { message: "the app settles before teardown", timeout: 10_000 })
+          .toBe(true),
       ),
     );
   } finally {

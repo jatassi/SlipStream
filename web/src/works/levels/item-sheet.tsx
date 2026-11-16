@@ -53,7 +53,9 @@ function Cells({
             <span className="text-ink-1">
               {cell === undefined ? label : `${label}, ${statusMarks[cell.state].word}`}
             </span>
-            {cell !== undefined && <CellFacts cell={cell} grabs={shown.grabs} />}
+            {cell !== undefined && (
+              <CellFacts cell={cell} grabs={shown.grabs} workId={shown.work.id} />
+            )}
           </span>
         </li>
       ))}
