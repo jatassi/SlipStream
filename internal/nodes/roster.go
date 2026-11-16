@@ -410,7 +410,7 @@ func (s *Service) settle(ctx context.Context) error {
 
 // situation is what Plan reads now: each live Node as a Seat, away unless
 // board has it in step, with its last probes and the work each owner
-// counts on it, and the Reach Roles whose owner has a target.
+// counts on it, and each Reach Role's targets.
 func (s *Service) situation(ctx context.Context, r storage.Reader[file], board *Board) (Situation, error) {
 	rows, err := loadRows(ctx, r)
 	if err != nil {
@@ -441,17 +441,13 @@ func (s *Service) situation(ctx context.Context, r storage.Reader[file], board *
 			seats[i].Probes[p.Probe] = p
 		}
 	}
-	sit := Situation{Controller: s.self, Seats: seats}
+	sit := Situation{Controller: s.self, Seats: seats, Targets: map[role.Name][]Target{}}
 	for _, name := range role.Names() {
 		if !name.Rule().Reach {
 			continue
 		}
-		_, ok, err := s.owners[name].Reach(ctx, r)
-		if err != nil {
-			return Situation{}, fmt.Errorf("read the %s target: %w", name, err)
-		}
-		if ok {
-			sit.Targets = sit.Targets.With(name)
+		if sit.Targets[name], err = s.owners[name].Reach(ctx, r); err != nil {
+			return Situation{}, fmt.Errorf("read the %s targets: %w", name, err)
 		}
 	}
 	return sit, nil

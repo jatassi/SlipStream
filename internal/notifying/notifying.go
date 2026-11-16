@@ -20,18 +20,18 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Owner is the Notifying Role's owner. It keeps no work, and a Node is
-// tested against the SMTP server before it sends mail.
-var Owner = nodes.Owner{Role: role.Notifying, Held: nodes.HoldsNothing, Unassigned: nodes.MovesNothing, Reach: target}
+// Owner is the Notifying Role's owner. It keeps no work, and a Node that
+// can't reach the SMTP server can't gain the Role.
+var Owner = nodes.Owner{Role: role.Notifying, Held: nodes.HoldsNothing, Unassigned: nodes.MovesNothing, Reach: targets}
 
-// target is the SMTP server's host and port, false while mail isn't set
+// targets is the SMTP server's host and port, none while mail isn't set
 // up. Only implicit TLS starts with a handshake.
-func target(ctx context.Context, r storage.Reader[storage.Library]) (nodesystem.Target, bool, error) {
+func targets(ctx context.Context, r storage.Reader[storage.Library]) ([]nodes.Target, error) {
 	s, err := mail.ReadSettings(ctx, r)
 	if err != nil || s.Host == "" {
-		return nodesystem.Target{}, false, err
+		return nil, err
 	}
-	return nodesystem.Target{Host: s.Host, Port: s.Port, TLS: s.Security == mail.TLS}, true, nil
+	return []nodes.Target{{Target: nodesystem.Target{Host: s.Host, Port: s.Port, TLS: s.Security == mail.TLS}, What: "the mail server", Block: true}}, nil
 }
 
 // Dial reaches a host from the Node.

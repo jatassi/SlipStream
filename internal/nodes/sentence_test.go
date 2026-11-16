@@ -62,7 +62,7 @@ func TestEveryRoleHasWordsForWhatItsHolderIsDoing(t *testing.T) {
 		role.Subtitles:       "fetching subtitles",
 		role.Metadata:        "reading metadata",
 		role.MediaServerLink: "sending changes to Media Servers",
-		role.Notifying:       "sending mail",
+		role.Notifying:       "sending notifications and mail",
 		role.Relaying:        "relaying",
 		role.Serving:         "serving the SlipStream web app",
 	}
@@ -71,7 +71,7 @@ func TestEveryRoleHasWordsForWhatItsHolderIsDoing(t *testing.T) {
 			t.Errorf("doing(%s) = %q, want %q", r, got, want[r])
 		}
 	}
-	if got := doingAll(role.Of(role.Searching, role.Metadata, role.Notifying)); got != "searching, reading metadata and sending mail" {
+	if got := doingAll(role.Of(role.Searching, role.Metadata, role.Notifying)); got != "searching, reading metadata and sending notifications and mail" {
 		t.Errorf("doing three Roles reads %q", got)
 	}
 }

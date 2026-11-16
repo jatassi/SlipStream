@@ -182,7 +182,7 @@ func TestAMailServerSeedboxCantReachBlocksNotifyingThere(t *testing.T) {
 		a := w.API()
 		setMail(t, a, smtpAt)
 		checks := blockedChecks(t, notifyingOnSeedbox(t, a))
-		if len(checks) != 1 || checks[0].Reason != "reach_failed" || !strings.HasPrefix(checks[0].Words, "seedbox can't reach 127.0.0.40:2525 (") {
+		if len(checks) != 1 || checks[0].Reason != "reach_failed" || checks[0].Target != "127.0.0.40:2525" || !strings.HasPrefix(checks[0].Words, "seedbox can't reach 127.0.0.40:2525 (") {
 			t.Fatalf("the blocked set checks %+v, want seedbox's failed reach test", checks)
 		}
 	})
@@ -190,6 +190,7 @@ func TestAMailServerSeedboxCantReachBlocksNotifyingThere(t *testing.T) {
 
 type check struct {
 	Reason string `json:"reason"`
+	Target string `json:"target"`
 	Words  string `json:"words"`
 }
 

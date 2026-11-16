@@ -153,30 +153,39 @@ func TestApplyAnswersOnceTheNodesInStepHoldTheirRoles(t *testing.T) {
 	})
 }
 
-// mailTarget owns Notifying with a mail server's target set.
-func mailTarget(cfg *nodes.Config) {
-	for i, o := range cfg.Owners {
-		if o.Role == role.Notifying {
-			cfg.Owners[i].Reach = func(context.Context, storage.Reader[storage.Library]) (nodesystem.Target, bool, error) {
-				return nodesystem.Target{Host: "smtp.example.com", Port: 587}, true, nil
+var mailServer = nodes.Target{Target: nodesystem.Target{Host: "smtp.example.com", Port: 587}, What: "the mail server", Block: true}
+
+// reachTargets owns Notifying with targets set.
+func reachTargets(targets ...nodes.Target) func(*nodes.Config) {
+	return func(cfg *nodes.Config) {
+		for i, o := range cfg.Owners {
+			if o.Role == role.Notifying {
+				cfg.Owners[i].Reach = func(context.Context, storage.Reader[storage.Library]) ([]nodes.Target, error) {
+					return targets, nil
+				}
 			}
 		}
 	}
 }
 
-// reacher answers each reach test with its answer, or waits out the test
-// while hang is set, and records the Nodes it ran from.
+// reacher answers each reach test with its answer, or the one refused
+// names for that target, or waits out the test while hang is set, and
+// records the Nodes it ran from.
 type reacher struct {
-	mu     sync.Mutex
-	answer nodesystem.Reached
-	hang   bool
-	from   []nodes.ID
+	mu      sync.Mutex
+	answer  nodesystem.Reached
+	refused map[string]string
+	hang    bool
+	from    []nodes.ID
 }
 
-func (r *reacher) reach(ctx context.Context, node nodes.ID, _ nodesystem.Target) (nodesystem.Reached, error) {
+func (r *reacher) reach(ctx context.Context, node nodes.ID, t nodesystem.Target) (nodesystem.Reached, error) {
 	r.mu.Lock()
 	r.from = append(r.from, node)
 	answer, hang := r.answer, r.hang
+	if why, ok := r.refused[t.String()]; ok {
+		answer = nodesystem.Reached{Err: why}
+	}
 	r.mu.Unlock()
 	if hang {
 		<-ctx.Done()
@@ -192,10 +201,10 @@ func (r *reacher) ran() int {
 }
 
 // notifyingFor is a set giving a paired box in step Notifying, on a
-// controller whose reach tests r answers.
-func notifyingFor(t *testing.T, r *reacher) (*controller, nodes.ID, nodes.SetRoles) {
+// controller whose reach tests r answers for targets.
+func notifyingFor(t *testing.T, r *reacher, targets ...nodes.Target) (*controller, nodes.ID, nodes.SetRoles) {
 	t.Helper()
-	c := startController(t, mailTarget, func(cfg *nodes.Config) { cfg.Reach = r.reach })
+	c := startController(t, reachTargets(targets...), func(cfg *nodes.Config) { cfg.Reach = r.reach })
 	w := c.worker(t, "box", "127.0.0.3")
 	_, box := c.pair(t, w, c.mint(t), "box")
 	c.hold(t, w)
@@ -214,7 +223,7 @@ func notifyingFor(t *testing.T, r *reacher) (*controller, nodes.ID, nodes.SetRol
 func TestApplyTestsAnAddedNotifyingFromItsNode(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := &reacher{answer: nodesystem.Reached{Took: 3 * time.Millisecond, Err: "connect: connection refused"}}
-		c, box, set := notifyingFor(t, r)
+		c, box, set := notifyingFor(t, r, mailServer)
 
 		plain, err := c.svc.Preview(t.Context(), set, false)
 		if err != nil || len(plain.Checks) != 0 || r.ran() != 0 {
@@ -252,10 +261,41 @@ func TestApplyTestsAnAddedNotifyingFromItsNode(t *testing.T) {
 // test never answers, so the test fails at timings.nodes.reach.
 func TestAReachTestPastItsTimeFails(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		c, _, set := notifyingFor(t, &reacher{hang: true})
+		c, _, set := notifyingFor(t, &reacher{hang: true}, mailServer)
 		late, err := c.svc.Preview(t.Context(), set, true)
 		if want := "box can't reach smtp.example.com:587 (timed out after 10s)."; err != nil || len(late.Checks) != 1 || late.Checks[0].Words != want {
 			t.Fatalf("a hung reach test checks %+v (%v), want %q", late.Checks, err, want)
+		}
+	})
+}
+
+// TestAConnectionHostBoxCantReachWarnsAndLetsNotifyingThrough gives box
+// Notifying while box reaches the mail server and not Gotify's host: the
+// set applies with a warning naming the connection. Once box can't reach
+// the mail server either, the set is blocked.
+func TestAConnectionHostBoxCantReachWarnsAndLetsNotifyingThrough(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		gotify := nodes.Target{Target: nodesystem.Target{Host: "gotify.lan", Port: 443, TLS: true}, What: "Gotify 'Home'"}
+		r := &reacher{answer: nodesystem.Reached{OK: true, Took: 5 * time.Millisecond}, refused: map[string]string{"gotify.lan:443": "no such host"}}
+		c, box, set := notifyingFor(t, r, mailServer, gotify)
+
+		r.mu.Lock()
+		r.refused["smtp.example.com:587"] = "connect: connection refused"
+		r.mu.Unlock()
+		if _, err := c.svc.Apply(t.Context(), set); !blockedBy(err, nodes.ReachFailed) {
+			t.Fatalf("Apply with the mail server out of reach = %v, want blocked by reach_failed", err)
+		}
+
+		r.mu.Lock()
+		delete(r.refused, "smtp.example.com:587")
+		r.mu.Unlock()
+		out, err := c.svc.Apply(t.Context(), set)
+		want := "box can't reach gotify.lan. Messages to Gotify 'Home' fail while box sends them."
+		if err != nil || len(out.Checks) != 2 || out.Checks[1].Verdict != nodes.Warn || out.Checks[1].Words != want {
+			t.Fatalf("Apply with Gotify out of reach = %+v, %v; want a warning %q", out.Checks, err, want)
+		}
+		if got := c.rolesOf(t, box); !slices.Equal(got, []role.Name{role.Notifying}) {
+			t.Fatalf("box holds %v, want Notifying", got)
 		}
 	})
 }

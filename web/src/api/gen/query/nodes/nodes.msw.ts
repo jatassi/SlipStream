@@ -558,6 +558,7 @@ export const getSetRolesResponseMock = (
         "probe_weak",
         "offline_unchecked",
         "reach_failed",
+        "reach_warned",
         "reached",
         "nothing_to_test",
         "node_is_controller",
@@ -581,6 +582,9 @@ export const getSetRolesResponseMock = (
               "serving",
             ] as const),
           }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { target: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       verdict: faker.helpers.arrayElement(["allow", "warn", "block"] as const),
       words: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -843,6 +847,7 @@ export const getPlanRolesResponseMock = (
         "probe_weak",
         "offline_unchecked",
         "reach_failed",
+        "reach_warned",
         "reached",
         "nothing_to_test",
         "node_is_controller",
@@ -866,6 +871,9 @@ export const getPlanRolesResponseMock = (
               "serving",
             ] as const),
           }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { target: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       verdict: faker.helpers.arrayElement(["allow", "warn", "block"] as const),
       words: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1764,6 +1772,7 @@ export const getWriteOffResponseMock = (
         "probe_weak",
         "offline_unchecked",
         "reach_failed",
+        "reach_warned",
         "reached",
         "nothing_to_test",
         "node_is_controller",
@@ -1787,6 +1796,9 @@ export const getWriteOffResponseMock = (
               "serving",
             ] as const),
           }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { target: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       verdict: faker.helpers.arrayElement(["allow", "warn", "block"] as const),
       words: faker.string.alpha({ length: { min: 10, max: 20 } }),

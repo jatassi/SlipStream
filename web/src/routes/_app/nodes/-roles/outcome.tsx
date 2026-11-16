@@ -37,7 +37,7 @@ export function Checks({ checks }: { checks: readonly NodesCheck[] }) {
         const { signal, chip } = checkSignals[check.verdict];
         return (
           <li
-            key={`${check.node.id}:${check.role ?? ""}:${check.reason}`}
+            key={`${check.node.id}:${check.role ?? ""}:${check.target ?? ""}:${check.reason}`}
             className="flex items-start gap-2"
           >
             <SignalChip kind={signal}>{chip}</SignalChip>
