@@ -35,4 +35,3 @@ func (s *Service) open(id ConnectionID, sealed secret.Sealed) (providers.Values,
 	}
 	return v, nil
 }
-
