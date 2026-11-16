@@ -1,6 +1,6 @@
 import { Field } from "@base-ui/react/field";
 import { Input } from "@base-ui/react/input";
-import { useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 
 import { Button } from "./button";
 import { Data, dataFont } from "./data";
@@ -22,6 +22,8 @@ type Props = {
   description?: string | undefined;
   /** An optional secret: Remove sets the field to null, which a save sends to remove it. */
   removable?: boolean;
+  /** A secret of several lines, such as one URL per line, typed in a text area of this many rows. */
+  rows?: number | undefined;
 };
 
 function Removed({ label }: { label: string }) {
@@ -87,6 +89,45 @@ function Saved({
   );
 }
 
+function SecretInput({
+  input,
+  type,
+  required,
+  rows,
+}: {
+  required: boolean | undefined;
+  rows: number | undefined;
+  input: RefObject<HTMLInputElement | null>;
+  type: NonNullable<Props["type"]>;
+}) {
+  const field = useFieldContext<string | null>();
+  if (rows === undefined) {
+    return (
+      <Input
+        ref={input}
+        type={type}
+        aria-required={required}
+        autoComplete="new-password"
+        spellCheck={false}
+        value={field.state.value ?? ""}
+        onValueChange={field.handleChange}
+        onBlur={field.handleBlur}
+        className={`text-ink-1 ${wellLook} ${type === "url" ? dataFont : ""}`}
+      />
+    );
+  }
+  return (
+    <Field.Control
+      render={<textarea rows={rows} spellCheck={false} />}
+      aria-required={required}
+      value={field.state.value ?? ""}
+      onValueChange={field.handleChange}
+      onBlur={field.handleBlur}
+      className={`min-w-0 flex-1 resize-y rounded-item bg-well px-3 py-2 text-body text-ink-1 ring-1 ring-hairline ring-inset in-data-[density=touch]:text-input-touch ${dataFont}`}
+    />
+  );
+}
+
 /**
  * A secret the server never sends back. Once saved it reads "Saved", with
  * what may be shown of it such as a feed's host, until Replace opens an empty
@@ -115,17 +156,7 @@ export function SecretField(props: Props) {
     <Field.Root name={field.name} invalid={error !== undefined} className="flex flex-col gap-1.5">
       <Field.Label className={labelLook}>{label}</Field.Label>
       <div className="flex items-center gap-2">
-        <Input
-          ref={input}
-          type={type}
-          aria-required={props.required}
-          autoComplete="new-password"
-          spellCheck={false}
-          value={field.state.value ?? ""}
-          onValueChange={field.handleChange}
-          onBlur={field.handleBlur}
-          className={`text-ink-1 ${wellLook} ${type === "url" ? dataFont : ""}`}
-        />
+        <SecretInput input={input} type={type} required={props.required} rows={props.rows} />
         {saved && (
           <Button
             look="ghost"
