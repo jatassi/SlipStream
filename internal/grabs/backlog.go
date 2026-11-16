@@ -46,13 +46,15 @@ type dueStep struct {
 }
 
 // backlogPlan is one Backlog search's snapshot, taken at seen, as the
-// keys its chunked Writes apply: every row's step, sorted, and the cells
-// whose failure rows go, since the snapshot found them not Paced.
+// keys its chunked Writes apply: every row's step, sorted, the cells
+// whose failure rows go, since the snapshot found them not Paced, and the
+// searched Items it found wanting nothing, whose first search goes.
 type backlogPlan struct {
-	seen     storage.Time
-	upgrades bool
-	steps    []dueStep
-	cleared  []files.CellKey
+	seen      storage.Time
+	upgrades  bool
+	steps     []dueStep
+	cleared   []files.CellKey
+	forgotten []works.ItemID
 }
 
 // backlog is Backlog search's one unit: it reconciles the queue with what
@@ -82,8 +84,8 @@ func queuedWords(n int) string {
 }
 
 // planBacklog reads the snapshot in one Read: the settings, every Work's
-// wanted groups, every row's key and every cell with failure rows. It is
-// false while Backlog search is off.
+// wanted groups, every row's key, every cell with failure rows and every
+// searched Item. It is false while Backlog search is off.
 func (gr *Grabs) planBacklog(ctx context.Context) (backlogPlan, bool, error) {
 	interval, err := gr.interval(ctx)
 	if err != nil {
@@ -115,11 +117,16 @@ func (gr *Grabs) planBacklog(ctx context.Context) (backlogPlan, bool, error) {
 		}
 		plan.steps = stepsOf(wants, keys)
 		failing, err := q.ListFailureCells(ctx)
+		if err != nil {
+			return err
+		}
 		for _, f := range failing {
 			if k := (files.CellKey{Item: f.ItemID, Edition: f.Edition, Target: f.TargetID}); !paced[k] {
 				plan.cleared = append(plan.cleared, k)
 			}
 		}
+		searched, err := q.ListItemSearches(ctx)
+		plan.forgotten = slices.DeleteFunc(searched, wanting(ws))
 		return err
 	})
 	return plan, on, err
@@ -163,6 +170,21 @@ func (gr *Grabs) wantsOf(ctx context.Context, r storage.Reader[file], ws []files
 	return wants, paced, nil
 }
 
+// wanting reports whether an Item of ws wants anything: a wanted cell,
+// gone or stopped, or an unseen listed cut.
+func wanting(ws []files.WorkWanted) func(works.ItemID) bool {
+	items := map[works.ItemID]bool{}
+	for _, w := range ws {
+		for _, c := range w.Cells {
+			items[c.Item.ID] = true
+		}
+		for _, it := range w.Unseen {
+			items[it] = true
+		}
+	}
+	return func(it works.ItemID) bool { return items[it] }
+}
+
 // stepsOf is a step for each wanted group and each row of keys no group
 // wants, sorted by key.
 func stepsOf(wants map[dueKey]want, keys []db.ListDueKeysRow) []dueStep {
@@ -188,8 +210,10 @@ func has(wants map[dueKey]want, k dueKey) bool {
 // and answers how many rows it queued. In each Write a wanted group lacking
 // a row gets one, spread over its gap; a row refreshes its order keys; a
 // due, idle row joins the backlog lane; a row nothing wants and nothing
-// touched since the snapshot goes; and a cell's failure rows go unless it
-// failed since or a Grab holds it. A crash between Writes leaves the
+// touched since the snapshot goes; a cell's failure rows go unless it
+// failed since or a Grab holds it; and a forgotten Item's first search
+// goes, though a run may have searched it since, which costs it one more
+// search alone at most. A crash between Writes leaves the
 // earlier ones applied, and the next run reconciles the rest.
 func (gr *Grabs) applyBacklog(ctx context.Context, plan backlogPlan) (int, error) {
 	queued := 0
@@ -208,6 +232,20 @@ func (gr *Grabs) applyBacklog(ctx context.Context, plan backlogPlan) (int, error
 	for chunk := range slices.Chunk(plan.cleared, gr.cfg.Timings.BacklogChunk) {
 		err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 			return clearStale(ctx, tx, plan.seen, chunk)
+		})
+		if err != nil {
+			return queued, err
+		}
+	}
+	for chunk := range slices.Chunk(plan.forgotten, gr.cfg.Timings.BacklogChunk) {
+		err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+			q := db.New(tx)
+			for _, it := range chunk {
+				if err := q.DeleteItemSearch(ctx, it); err != nil {
+					return err
+				}
+			}
+			return nil
 		})
 		if err != nil {
 			return queued, err
