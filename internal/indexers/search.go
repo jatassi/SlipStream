@@ -161,7 +161,7 @@ func (x *Indexers) Search(ctx context.Context, s Search, each func(Answer) error
 	var wg sync.WaitGroup
 	for i, l := range s.Asked {
 		wg.Go(func() {
-			answers[i], errs[i] = x.searchOne(jobs, l, s, wait, time.Now().Add(wait))
+			answers[i], errs[i] = x.searchOne(jobs, l, s, wait, time.Now().Add(wait), false)
 			if each == nil || errs[i] != nil {
 				return
 			}
@@ -189,7 +189,9 @@ func (x *Indexers) Search(ctx context.Context, s Search, each func(Answer) error
 // restart: asked again with the same line, it joins the job the Searching
 // Node runs or kept under the line's query id, so one reservation never
 // searches twice. A line past its deadline answers late without asking.
-// Its outcomes are Search's.
+// While no Node may take it, as when a restarted Controller's Searching
+// Node hasn't linked again yet, it fails with ErrAway and keeps its query
+// in flight, so the line asks again. Its other outcomes are Search's.
 func (x *Indexers) SearchOne(ctx context.Context, l Line, s Search, deadline time.Time) (Answer, error) {
 	if !time.Now().Before(deadline) {
 		return Answer{Indexer: l.Indexer, Outcome: Outcome{Kind: Late}}, nil
@@ -203,10 +205,12 @@ func (x *Indexers) SearchOne(ctx context.Context, l Line, s Search, deadline tim
 	if err != nil {
 		return Answer{}, err
 	}
-	return x.searchOne(ctx, l, s, wait, deadline)
+	return x.searchOne(ctx, l, s, wait, deadline, true)
 }
 
-func (x *Indexers) searchOne(ctx context.Context, l Line, s Search, wait time.Duration, deadline time.Time) (Answer, error) {
+// searchOne asks line l of s. A line that rejoins its query's job fails
+// with ErrAway while no Node may take it; any other answers Waiting.
+func (x *Indexers) searchOne(ctx context.Context, l Line, s Search, wait time.Duration, deadline time.Time, rejoins bool) (Answer, error) {
 	out := Answer{Indexer: l.Indexer}
 	idx, err := x.get(ctx, x.cfg.Library, l.Indexer)
 	if errors.Is(err, ErrNoIndexer) {
@@ -217,12 +221,15 @@ func (x *Indexers) searchOne(ctx context.Context, l Line, s Search, wait time.Du
 		return Answer{}, err
 	}
 	j, err := x.routed(ctx, l.Query, idx, UseSearch, searching.SearchCall{Query: s.query(idx.Caps)})
-	if wait, ok := errors.AsType[*WaitError](err); ok {
+	held, waits := errors.AsType[*WaitError](err)
+	switch {
+	case waits && rejoins && held.Outcome.Kind == Waiting:
+		return Answer{}, ErrAway
+	case waits:
 		x.lose(ctx, l.Query)
-		out.Outcome = wait.Outcome
+		out.Outcome = held.Outcome
 		return out, nil
-	}
-	if err != nil {
+	case err != nil:
 		x.lose(ctx, l.Query)
 		return Answer{}, err
 	}

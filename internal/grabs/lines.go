@@ -236,6 +236,9 @@ func (gr *Grabs) ask(ctx context.Context, s sent) result {
 	if ctx.Err() != nil {
 		return halted
 	}
+	if errors.Is(err, indexers.ErrAway) {
+		return waited
+	}
 	if err != nil {
 		return gr.lineWaits(ctx, s, err)
 	}
