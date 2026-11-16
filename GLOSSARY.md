@@ -507,7 +507,7 @@ _Avoid_: Snatch, download (for the decision)
 
 **Hold**:
 How long a Target waits after a Release is published before grabbing it automatically, so a better one can arrive first. A Release that would end the Target's upgrades doesn't wait.
-_In UI_: "Hold", with its hover definition. A cell that waits reads "Waiting for a better release".
+_In UI_: "Hold", with its hover definition. While it runs, the Work reads "Waiting for a better release until 22:40".
 _Avoid_: Delay, delay profile
 
 **Automatic search**:
@@ -522,7 +522,7 @@ _Avoid_: Search unit, batch, season (as the generic term)
 
 **Search all**:
 Searching every Work that Wanted lists under its filter, or every Work picked in the Library, behind the Admin's searches of one Work.
-_In UI_: "Search all" as a search's trigger. Wanted's button names its count, such as "Search 140 Works".
+_In UI_: "Search all" as a search's trigger. Wanted's button names its count in the Content Type's noun, such as "Search 140 series", or "Search 140 Works" on All.
 _Avoid_: Bulk search, search missing
 
 **Backlog search**:

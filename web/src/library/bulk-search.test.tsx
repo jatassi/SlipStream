@@ -20,6 +20,6 @@ test("bulk Search queues the picked Works in the bulk lane and says how many", a
   await expect.element(bar.getByText("2 Films picked")).toBeVisible();
 
   await userEvent.click(bar.getByRole("button", { name: "Search" }));
-  await expect.element(page.getByText("Queued 2 Works for search.")).toBeVisible();
+  await expect.element(page.getByText("Queued 2 films for search.")).toBeVisible();
   expect(wanted.searched).toEqual([{ workIds: [ember.id, orchardRow.id] }]);
 });

@@ -67,7 +67,7 @@ export function useBulkSearch(picked: readonly LibraryWork[]): {
 } {
   const [first] = picked;
   const oneType = picked.every(({ type }) => type.id === first?.type.id);
-  const several = useSearchSeveral(oneType ? first?.type.id : undefined);
+  const several = useSearchSeveral(oneType ? first?.type : undefined);
   return {
     action: {
       ...plain,

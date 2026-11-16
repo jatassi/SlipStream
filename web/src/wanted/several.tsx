@@ -2,29 +2,31 @@ import { useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 
 import { sentenceOf } from "../api/errors";
-import type { GrabsSeveralBody, GrabsSeveralQueued } from "../api/gen/model";
+import type { GrabsSeveralBody, GrabsSeveralQueued, WorksContentType } from "../api/gen/model";
 import { searchSeveralWorks } from "../api/gen/query/grabs/grabs";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { toast } from "../ui/toast";
-import { worksWords } from "./wanted-words";
+import type { Noun } from "../format";
+import { worksNounOf, worksWords } from "./wanted-words";
 
 /** Above this many Works a search of several asks first, because it can take days to drain. */
 const askAbove = 100;
 
-/** What a search of several Works did, as its toast. */
-export function severalWords({ queued, leftGone }: GrabsSeveralQueued): string {
+/** What a search of several Works did, as its toast, counted in `works`. */
+export function severalWords({ queued, leftGone }: GrabsSeveralQueued, works: Noun): string {
   if (queued === 0) {
-    return "Nothing to search. Every listed Work is already queued or has only gone files.";
+    return `Nothing to search. Each of these ${works.many} is already queued or has only gone files.`;
   }
-  const done = `Queued ${worksWords(queued)} for search.`;
+  const done = `Queued ${worksWords(queued, works)} for search.`;
   return leftGone === 0
     ? done
-    : `${done} ${worksWords(leftGone)} with gone files weren't queued. Search them from their Work pages.`;
+    : `${done} ${worksWords(leftGone, works)} with gone files ${leftGone === 1 ? "wasn't" : "weren't"} queued. Search each one from its own page.`;
 }
 
 /** Searches several Works, toasting what it queued; a toast that leaves out gone files offers Wanted filtered to them. */
-function useSeveralRun(contentType: string | undefined) {
+function useSeveralRun(type: WorksContentType | undefined) {
   const navigate = useNavigate();
+  const contentType = type?.id;
   const [busy, setBusy] = useState(false);
   const showGone = () => {
     const search = { reason: "gone" };
@@ -37,7 +39,7 @@ function useSeveralRun(contentType: string | undefined) {
     try {
       const answer = await searchSeveralWorks(body);
       toast(
-        severalWords(answer),
+        severalWords(answer, worksNounOf(type)),
         answer.queued > 0 && answer.leftGone > 0
           ? { action: { label: "Show", onClick: showGone } }
           : {},
@@ -49,13 +51,13 @@ function useSeveralRun(contentType: string | undefined) {
   return { busy, run };
 }
 
-/** Searches several Works in the bulk lane, first asking when there are more than 100. */
-export function useSearchSeveral(contentType: string | undefined): {
+/** Searches several Works of `type`, or of any type, in the bulk lane, first asking when there are more than 100. */
+export function useSearchSeveral(type: WorksContentType | undefined): {
   busy: boolean;
   ask: (body: GrabsSeveralBody, count: number) => void;
   dialog: ReactNode;
 } {
-  const { busy, run } = useSeveralRun(contentType);
+  const { busy, run } = useSeveralRun(type);
   const [asking, setAsking] = useState<{ body: GrabsSeveralBody; count: number }>();
   const ask = (body: GrabsSeveralBody, count: number) => {
     if (count > askAbove) {
@@ -68,7 +70,7 @@ export function useSearchSeveral(contentType: string | undefined): {
   };
   const dialog = (
     <ConfirmDialog
-      title={`Search ${worksWords(asking?.count ?? 0)}?`}
+      title={`Search ${worksWords(asking?.count ?? 0, worksNounOf(type))}?`}
       confirmLabel="Search"
       open={asking !== undefined}
       onOpenChange={(open) => {

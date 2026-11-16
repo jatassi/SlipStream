@@ -3458,11 +3458,11 @@ export type GrabsChoice = zod.input<typeof GrabsChoice>;
 export type GrabsChoiceOutput = zod.output<typeof GrabsChoice>;
 
 export const GrabsChosenWhy = zod.object({
-  fills: zod.int().min(1).describe("The Items it was chosen to fill"),
+  fills: zod.int().min(1).describe("How many of the group's Items it was chosen for"),
   kind: zod
     .enum(["fewer_releases"])
     .describe(
-      "fewer_releases is a Release that fills more Items, so fewer Releases fill the group",
+      "fewer_releases is a Release with more of the group's Items, so the group needs fewer Releases",
     ),
 });
 
@@ -10476,7 +10476,7 @@ export const TasksRunUnit = zod.object({
     .string()
     .nullable()
     .describe(
-      "How it ended, such as Queued 212 groups for search.; null when it didn't succeed or has none",
+      "How it ended, such as Queued 212 searches.; null when it didn't succeed or has none",
     ),
   outcome: zod.enum(["succeeded", "failed", "skipped", "canceled"]),
 });

@@ -5880,13 +5880,13 @@
         "additionalProperties": false,
         "properties": {
           "fills": {
-            "description": "The Items it was chosen to fill",
+            "description": "How many of the group's Items it was chosen for",
             "format": "int64",
             "minimum": 1,
             "type": "integer"
           },
           "kind": {
-            "description": "fewer_releases is a Release that fills more Items, so fewer Releases fill the group",
+            "description": "fewer_releases is a Release with more of the group's Items, so the group needs fewer Releases",
             "enum": [
               "fewer_releases"
             ],
@@ -21429,7 +21429,7 @@
             "type": "boolean"
           },
           "note": {
-            "description": "How it ended, such as Queued 212 groups for search.; null when it didn't succeed or has none",
+            "description": "How it ended, such as Queued 212 searches.; null when it didn't succeed or has none",
             "type": [
               "string",
               "null"

@@ -121,7 +121,7 @@ func TestAControllerRestartedMidRSSGrabsTheFeedOnce(t *testing.T) {
 			got = append(got, r.lines()...)
 		}
 		expect(t, "RSS sync's runs", got, []string{
-			"schedule|succeeded", "Fixture Site|seedbox|succeeded||Read 2 new Releases. 2 matched a Work, and 1 was grabbed.",
+			"schedule|succeeded", "Fixture Site|seedbox|succeeded||Read 2 new releases. 2 matched a Work, and 1 was grabbed.",
 			"run-now|canceled", "Fixture Site||canceled||",
 		})
 	})

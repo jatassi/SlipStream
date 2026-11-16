@@ -10,9 +10,17 @@ import type {
   GrabsStopped,
   GrabsWorkSearching,
 } from "../api/gen/model";
-import { type Clock, type Noun, atWords, countWords, laterWords, pastAtWords } from "../format";
+import {
+  type Clock,
+  type Noun,
+  countWords,
+  laterAtWords,
+  laterWords,
+  pastAtWords,
+} from "../format";
 
 const releases: Noun = { one: "Release", many: "Releases" };
+const releasesInSentence: Noun = { one: "release", many: "releases" };
 const works: Noun = { one: "Work", many: "Works" };
 const grabWord: Noun = { one: "Grab", many: "Grabs" };
 const days: Noun = { one: "day", many: "days" };
@@ -99,12 +107,11 @@ export const waitingWords = (until: string, clock: Clock): string =>
 
 /** A waiting cell's fact: how many Releases it holds and when it grabs the best. */
 export function waitWords(candidates: number, until: string, clock: Clock): string {
-  const { words, today } = laterWords(until, clock);
-  return `${countWords(candidates, releases)} found so far. SlipStream grabs the best one ${today ? `at ${words}` : words} unless a better one arrives.`;
+  return `${countWords(candidates, releasesInSentence)} found so far. SlipStream grabs the best one ${laterAtWords(until, clock)} unless a better one arrives.`;
 }
 
 const nextWords = (at: string | null, clock: Clock): string =>
-  at === null ? "" : ` Next search ${atWords(at, clock)}.`;
+  at === null ? "" : ` Next search ${laterAtWords(at, clock)}.`;
 
 export type LastResult = NonNullable<GrabsGroupStateLastResult>;
 
@@ -117,7 +124,7 @@ export const lastWords: Readonly<
   nothing_found: ({ lastSearchedAt, nextSearchAt }, clock) =>
     `Found nothing ${lastSearchedAt === null ? "" : pastAtWords(lastSearchedAt, clock)}.${nextWords(nextSearchAt, clock)}`,
   nothing_acceptable: ({ lastFound, nextSearchAt }, clock) =>
-    `Found ${countWords(lastFound, releases)}, but none fits a Target.${nextWords(nextSearchAt, clock)}`,
+    `Found ${countWords(lastFound, releasesInSentence)}, but none fits a Target.${nextWords(nextSearchAt, clock)}`,
   no_indexer: () => "No Indexer could search. Check Indexers in Health.",
   no_root: () => "No library root was reachable. Check Library roots in Settings.",
 };
@@ -192,16 +199,16 @@ export function queuedToast(
   return held ? `Queued ${searched} for search` : `Searching ${searched}`;
 }
 
-/** A stopped cell's card: how many Grabs failed over how long, and when Backlog search tries next. */
+/** A stopped cell's card: how many Grabs failed over how long, and when Backlog search looks again. */
 export function stoppedWords(stop: GrabsStopped, clock: Clock): string {
   const first = stop.failures.at(0);
   const last = stop.failures.at(-1);
   const span =
     first === undefined || last === undefined ? 0 : Date.parse(last.at) - Date.parse(first.at);
-  const failed = `${countWords(stop.failures.length, grabWord)} failed here in ${countWords(Math.max(1, Math.ceil(span / dayMs)), days)}.`;
+  const failed = `${countWords(stop.failures.length, grabWord)} failed for this file in ${countWords(Math.max(1, Math.ceil(span / dayMs)), days)}.`;
   return stop.nextSearchAt === null
-    ? `${failed} Backlog search is off, so only Search again searches it.`
-    : `${failed} SlipStream searches again at Backlog pace, next ${atWords(stop.nextSearchAt, clock)}.`;
+    ? `${failed} Backlog search is off, so SlipStream searches for it only when you press Search again.`
+    : `${failed} Backlog search looks for it again ${laterAtWords(stop.nextSearchAt, clock)}.`;
 }
 
 /** A Not found row's detail: when the last search found nothing, and when the next one runs. */
@@ -213,5 +220,5 @@ export function notFoundWords(
   const found = `Found nothing ${pastAtWords(lastSearchedAt, clock)}.`;
   return nextSearchAt === null
     ? found
-    : `${found} SlipStream searches again ${atWords(nextSearchAt, clock)}.`;
+    : `${found} SlipStream searches again ${laterAtWords(nextSearchAt, clock)}.`;
 }

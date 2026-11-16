@@ -339,12 +339,12 @@ func claimedItems(tree works.Tree, d decisionOut) []works.ItemID {
 // rssTally is what one RSS sync unit read, matched and grabbed.
 type rssTally struct{ read, matched, grabbed int }
 
-// words is t as the unit's note: "Read 87 new Releases. 3 matched a
+// words is t as the unit's note: "Read 87 new releases. 3 matched a
 // Work, and 1 was grabbed."
 func (t rssTally) words() string {
 	switch {
 	case t.read == 0:
-		return "Read no new Releases."
+		return "Read no new releases."
 	case t.matched == 0:
 		return fmt.Sprintf("Read %s. None matched a Work.", releasesWords(t.read))
 	}
@@ -361,7 +361,7 @@ func (t rssTally) words() string {
 
 func releasesWords(n int) string {
 	if n == 1 {
-		return "1 new Release"
+		return "1 new release"
 	}
-	return fmt.Sprintf("%d new Releases", n)
+	return fmt.Sprintf("%d new releases", n)
 }

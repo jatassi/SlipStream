@@ -213,8 +213,6 @@ test("an Indexer with RSS on shows when RSS sync last read it, and a gap", async
   await userEvent.click(page.getByRole("button", { name: "Details" }));
   await expect.element(page.getByText("Read 5 minutes ago")).toBeVisible();
   await expect
-    .element(
-      page.getByText("RSS sync may have missed releases. Search Wanted from its Health item."),
-    )
+    .element(page.getByText("RSS sync may have missed releases. Its Health item says what to do."))
     .toBeVisible();
 });

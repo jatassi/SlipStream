@@ -2,21 +2,20 @@ import { Suspense } from "react";
 
 import type { GrabsGrab } from "../api/gen/model";
 import { useGetWorkSuspense, useListContentTypesSuspense } from "../api/gen/query/works/works";
-import { countWords } from "../format";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { useShell } from "../ui/shell-context";
 import { Skeleton } from "../ui/skeleton";
 import { lowered } from "../works/monitoring/labels";
 import { CancelGrab } from "./cancel-grab";
-// oxlint-disable-next-line import/max-dependencies -- Details shows the Grab, its download's files and each sheet acting on it
 import { GrabFacts } from "./grab-facts";
+// oxlint-disable-next-line import/max-dependencies -- Details shows the Grab, its download's files and each sheet acting on it
 import { GrabOutcome, GrabRecord, GrabStages } from "./grab-record";
 import { ImportByHand, ImportLines } from "./import-lines";
 import { SendToSheet } from "./send-to-sheet";
 import { byHand } from "./stages";
 
-/** "Chosen because it fills 24 episodes with one Release." when the decision chose it to fill a group. */
+/** "Chosen because it has 24 of the missing episodes, so fewer downloads are needed." for a pack the decision chose for its group. */
 function ChosenBecause({ grab }: { grab: GrabsGrab }) {
   const work = useGetWorkSuspense(grab.workId).data;
   const type = useListContentTypesSuspense().data.contentTypes.find(
@@ -27,8 +26,8 @@ function ChosenBecause({ grab }: { grab: GrabsGrab }) {
   }
   return (
     <p>
-      Chosen because it fills {countWords(grab.chosenBecause.fills, lowered(type.item))} with one
-      Release.
+      Chosen because it has {grab.chosenBecause.fills} of the missing {lowered(type.item).many}, so
+      fewer downloads are needed.
     </p>
   );
 }

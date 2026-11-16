@@ -42,7 +42,7 @@ var updateSearchSettingsOp = api.Op{
 	Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown, gapTooShort},
 }
 
-var gapTooShort = api.NewCode(http.StatusUnprocessableEntity, "longest_gap_too_short", "The longest gap is shorter than the Backlog search interval")
+var gapTooShort = api.NewCode(http.StatusUnprocessableEntity, "longest_gap_too_short", "Backlog search runs less often than a file that keeps coming up empty is searched for")
 
 func (h handlers) getSearchSettings(ctx context.Context, _ identity.Admin, _ *struct{}) (*searchSettingsOutput, error) {
 	return searchSettingsOf(ctx, open(h.p).Settings())

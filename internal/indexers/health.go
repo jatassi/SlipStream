@@ -187,7 +187,7 @@ func (x *Indexers) gapItem(idx Indexer, f FeedFact) health.Item {
 		Subject: idx.Name,
 		Text:    x.gapWords(idx.Name, f.Gap),
 		Detail:  []health.Fact{{Label: "Last RSS sync", At: f.Fetched}},
-		Action:  health.LinkAction(wantedHref(types), "Search Wanted"),
+		Action:  health.LinkAction(wantedHref(types), "Open Wanted"),
 	}}
 }
 

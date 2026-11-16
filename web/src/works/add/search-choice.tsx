@@ -37,7 +37,7 @@ export function mismatchWords(type: WorksContentType, choices: AddChoices): stri
     choices.search === "monitored" || scope === undefined
       ? "Nothing"
       : `Nothing in the ${scope.label.toLowerCase()}`;
-  return `${where} is monitored. Adding searches nothing.`;
+  return `${where} is monitored, so SlipStream won't search after adding.`;
 }
 
 /** "Search after adding": a switch for a type of one Item, else its scopes, with the mismatch note. */

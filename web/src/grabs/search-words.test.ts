@@ -135,7 +135,7 @@ test("the hero reads Queued with what holds it, then a wait, then the latest res
   expect(leadWords(found, clock, true)).toEqual({
     kind: "result",
     result: "nothing_found",
-    words: "Found nothing Today at 09:12. Next search Tomorrow at 14:00.",
+    words: "Found nothing today at 09:12. Next search tomorrow at 14:00.",
   });
 });
 
@@ -149,7 +149,7 @@ test("the hero shows nothing before the first search", () => {
 test("the last result reads as the spec words it", () => {
   const at = { lastSearchedAt: "2026-11-14T09:12:00Z", nextSearchAt: "2026-11-15T14:00:00Z" };
   expect(lastWords.nothing_acceptable(aGroupState(1, { ...at, lastFound: 14 }), clock)).toBe(
-    "Found 14 Releases, but none fits a Target. Next search Tomorrow at 14:00.",
+    "Found 14 releases, but none fits a Target. Next search tomorrow at 14:00.",
   );
   expect(lastWords.grabbed(aGroupState(1, { lastGrabs: 3 }), clock)).toBe("Grabbed 3 Releases");
   expect(lastWords.no_indexer(aGroupState(1), clock)).toBe(
@@ -176,27 +176,27 @@ describe("the toast after Search", () => {
   });
 });
 
-test("a waiting cell says how many Releases it holds and when it grabs", () => {
+test("a waiting cell says how many releases it holds and when it grabs", () => {
   expect(waitWords(2, "2026-11-14T22:40:00Z", clock)).toBe(
-    "2 Releases found so far. SlipStream grabs the best one at 22:40 unless a better one arrives.",
+    "2 releases found so far. SlipStream grabs the best one at 22:40 unless a better one arrives.",
   );
   expect(waitWords(1, "2026-11-15T09:00:00Z", clock)).toBe(
-    "1 Release found so far. SlipStream grabs the best one Tomorrow at 09:00 unless a better one arrives.",
+    "1 release found so far. SlipStream grabs the best one tomorrow at 09:00 unless a better one arrives.",
   );
 });
 
 test("a stopped cell counts its failed Grabs and names Backlog search's next time", () => {
   expect(stoppedWords(aStopped(1), clock)).toBe(
-    "3 Grabs failed here in 2 days. SlipStream searches again at Backlog pace, next Fri at 22:00.",
+    "3 Grabs failed for this file in 2 days. Backlog search looks for it again Fri at 22:00.",
   );
   expect(stoppedWords(aStopped(1, { nextSearchAt: null }), clock)).toBe(
-    "3 Grabs failed here in 2 days. Backlog search is off, so only Search again searches it.",
+    "3 Grabs failed for this file in 2 days. Backlog search is off, so SlipStream searches for it only when you press Search again.",
   );
 });
 
 test("a Not found row says when the last search found nothing and when SlipStream searches again", () => {
   expect(notFoundWords("2026-11-09T09:12:00Z", "2026-11-15T14:00:00Z", clock)).toBe(
-    "Found nothing on Mon at 09:12. SlipStream searches again Tomorrow at 14:00.",
+    "Found nothing on Mon at 09:12. SlipStream searches again tomorrow at 14:00.",
   );
-  expect(notFoundWords("2026-11-14T09:12:00Z", null, clock)).toBe("Found nothing Today at 09:12.");
+  expect(notFoundWords("2026-11-14T09:12:00Z", null, clock)).toBe("Found nothing today at 09:12.");
 });

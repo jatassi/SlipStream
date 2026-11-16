@@ -24,13 +24,13 @@ func TestRSSSyncReadsTheFeedWhereSearchingRuns(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := launch(t, switches(false, true))
 		synctest.Wait()
-		expect(t, "the first run", w.ran(rssTask).lines(), []string{"run-now|succeeded", "Fixture Site|seedbox|succeeded||Read 2 new Releases. None matched a Work."})
+		expect(t, "the first run", w.ran(rssTask).lines(), []string{"run-now|succeeded", "Fixture Site|seedbox|succeeded||Read 2 new releases. None matched a Work."})
 
 		down := simtest.Partition(t, w.World)
 		expect(t, "the run with seedbox cut off", w.ran(rssTask).lines(), []string{"run-now|skipped", "Fixture Site|seedbox|skipped|seedbox is offline|"})
 		time.Sleep(time.Until(down.Add(nodes.OfflineGrace.Default + time.Minute)))
 		synctest.Wait()
-		expect(t, "the run once seedbox lapsed", w.ran(rssTask).lines(), []string{"run-now|succeeded", "Fixture Site|home|succeeded||Read no new Releases."})
+		expect(t, "the run once seedbox lapsed", w.ran(rssTask).lines(), []string{"run-now|succeeded", "Fixture Site|home|succeeded||Read no new releases."})
 
 		w.Path("home", "seedbox").Clear("")
 		simtest.Eventually(t, "seedbox's link is up again", func() bool {
@@ -38,6 +38,6 @@ func TestRSSSyncReadsTheFeedWhereSearchingRuns(t *testing.T) {
 		})
 		time.Sleep(node.Defaults(contenttype.Set{}, install.Dev).Timings.Nodes.Settle)
 		synctest.Wait()
-		expect(t, "the run once seedbox settled", w.ran(rssTask).lines(), []string{"run-now|succeeded", "Fixture Site|seedbox|succeeded||Read no new Releases."})
+		expect(t, "the run once seedbox settled", w.ran(rssTask).lines(), []string{"run-now|succeeded", "Fixture Site|seedbox|succeeded||Read no new releases."})
 	})
 }

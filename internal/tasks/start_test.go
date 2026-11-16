@@ -356,7 +356,7 @@ func noting(keys ...tasks.UnitKey) tasks.Task {
 		return here(keys...), nil
 	}
 	t.Run = func(_ context.Context, u tasks.Unit, p *tasks.Progress) error {
-		p.Note("Read 87 new Releases. 3 matched a Work, and 1 was grabbed.")
+		p.Note("Read 87 new releases. 3 matched a Work, and 1 was grabbed.")
 		if u.Key == "b" {
 			return errors.New("database is locked")
 		}
@@ -379,7 +379,7 @@ func TestANoteShowsOnASucceededLine(t *testing.T) {
 			t.Fatalf("runs = %+v, want one partial run summarized by its counts", d.Runs)
 		}
 		want := []tasks.Line{
-			{Key: "a", Label: "a", Node: "home", NodeID: home, Outcome: tasks.Succeeded, Note: "Read 87 new Releases. 3 matched a Work, and 1 was grabbed."},
+			{Key: "a", Label: "a", Node: "home", NodeID: home, Outcome: tasks.Succeeded, Note: "Read 87 new releases. 3 matched a Work, and 1 was grabbed."},
 			{Key: "b", Label: "b", Node: "home", NodeID: home, Outcome: tasks.Failed, Cause: "database is locked"},
 		}
 		if got := d.Runs[0].Lines; !slices.Equal(got, want) {
@@ -394,7 +394,7 @@ func TestARunOfOneUnitIsSummarizedByItsNote(t *testing.T) {
 		s := open(t, lib, noting("a"))
 		clock(t, s)
 		start(t, s, scan(tasks.ByRunNow, "a"))
-		if got := rows(t, lib, "SELECT result, summary FROM tasks_run"); !equal(got, []string{"succeeded|Read 87 new Releases. 3 matched a Work, and 1 was grabbed."}) {
+		if got := rows(t, lib, "SELECT result, summary FROM tasks_run"); !equal(got, []string{"succeeded|Read 87 new releases. 3 matched a Work, and 1 was grabbed."}) {
 			t.Fatalf("runs = %q, want the unit's note as the summary", got)
 		}
 	})

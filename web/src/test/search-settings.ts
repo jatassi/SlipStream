@@ -121,11 +121,14 @@ function gapRefusal(settings: readonly SettingField[], values: Record<string, un
   if (moved === undefined || next(gapKey) >= next(everyKey)) {
     return null;
   }
-  const words = `Use a longest gap of at least the Backlog search interval, ${spelled(next(everyKey))}.`;
+  const words =
+    moved === gapKey
+      ? `Use ${spelled(next(everyKey))} or longer. Backlog search runs every ${spelled(next(everyKey))}.`
+      : `Use ${spelled(next(gapKey))} or shorter. A file that keeps coming up empty is searched for at least every ${spelled(next(gapKey))}.`;
   return refused(
     422,
     "longest_gap_too_short",
-    "The longest gap is shorter than the Backlog search interval",
+    "Backlog search runs less often than a file that keeps coming up empty is searched for",
     {
       detail: words,
       errors: [{ location: `body.values.${moved}`, message: words }],

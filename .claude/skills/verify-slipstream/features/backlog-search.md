@@ -1,10 +1,10 @@
 # Backlog search
 
-Backlog search runs every 8 hours by default and queues each search group whose due time has come, missing before upgrades, at Backlog pace behind an Indexer's limit. The task's page holds its interval and `Run now`, each run's outcome reads `Queued N groups for search.`, and turned off in Settings > Automatic search its run is skipped with `Backlog search is off in Settings.` Wanted's status line names the next run, or that Backlog search is off.
+Backlog search runs every 8 hours by default and queues each search group whose due time has come, missing before upgrades, at Backlog pace behind an Indexer's limit. The task's page holds its interval and `Run now`, each run's outcome reads `Queued N searches.`, and turned off in Settings > Automatic search its run is skipped with `Backlog search is off in Settings.` Wanted's status line names the next run, or that Backlog search is off.
 
 ## Sub-features
 
-- `backlog-run-now` on `limited-tracker`, `Run now: Backlog search` on the task's page ends a run `succeeded` whose one unit `Due searches` reads `Queued 0 groups for search.` while every group's due time is still to come (P-136, P-137).
+- `backlog-run-now` on `limited-tracker`, `Run now: Backlog search` on the task's page ends a run `succeeded` whose one unit `Due searches` reads `Queued 0 searches.` while every group's due time is still to come (P-136, P-137).
 - `backlog-off` with `search.backlogOn` off through `PATCH /api/v1/search-settings`, `Run now` ends the run `skipped` with the cause `Backlog search is off in Settings.`, and Wanted's status line reads `Backlog search is off` in place of `Next Backlog search …` (P-136).
 
 ## How to get to it (user POV)
@@ -21,13 +21,13 @@ Preconditions:
 
 Steps:
 
-- **Run it now.** Open the task and choose `Run now: Backlog search`. The run reads `Queued 0 groups for search.`: a first Backlog search spreads new groups' due times over its interval, so none is due yet.
+- **Run it now.** Open the task and choose `Run now: Backlog search`. The run reads `Queued 0 searches.`: a first Backlog search spreads new groups' due times over its interval, so none is due yet.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/tasks/backlog-search'
   $FW exec $RUN --proof backlog-search/backlog-run-now -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/backlog-search/backlog-run-now/before.png
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Run now: Backlog search" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText("Queued 0 groups for search.").first().waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText("Queued 0 searches.").first().waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof backlog-search/backlog-run-now -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/backlog-search/backlog-run-now/ran.png
   $FW exec $RUN --proof backlog-search/backlog-run-now -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/tasks/backlog-search'
   ```

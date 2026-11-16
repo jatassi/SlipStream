@@ -68,7 +68,7 @@ test("Wanted opens on what the queue is doing, its parts joined by dots, a limit
   const sentence = page.getByText(/^3 searching/u);
   await expect.element(sentence).toBeVisible();
   expect(sentence.element().closest("p")?.textContent).toMatch(
-    /^3 searching · 142 queued · Next Backlog search Tomorrow at 22:00 · Waiting for TorrentLeech's search limit until /u,
+    /^3 searching · 142 queued · Next Backlog search tomorrow at 22:00 · Waiting for TorrentLeech's search limit until /u,
   );
   await expect
     .element(page.getByRole("link", { name: /^Waiting for TorrentLeech's search limit until /u }))
@@ -106,13 +106,13 @@ test("the sort menu asks for the rows in the chosen order", async () => {
   expect(server.asked.at(-1)?.get("sort")).toBe("last");
 });
 
-test("Search all searches the filtered list at once at 100 Works", async () => {
+test("Search all searches the filtered list at once at 100 films", async () => {
   const server = wantedServer([aWantedPage(rowsOf(3), { total: 100 })], {
     several: { queued: 100, merged: 0, leftGone: 0, works: [] },
   });
   openWanted("/library/wanted/cinema", server);
-  await userEvent.click(page.getByRole("button", { name: "Search 100 Works" }));
-  await expect.element(page.getByText("Queued 100 Works for search.")).toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Search 100 films" }));
+  await expect.element(page.getByText("Queued 100 films for search.")).toBeVisible();
   expect(server.searched).toEqual([
     { wanted: { contentType: "cinema", reasons: ["failed", "missing", "upgrade"] } },
   ]);
@@ -137,7 +137,7 @@ test("Search all asks first above 100 Works, and Cancel sends nothing", async ()
   await expect
     .element(
       page.getByText(
-        "Queued 1,192 Works for search. 12 Works with gone files weren't queued. Search them from their Work pages.",
+        "Queued 1,192 Works for search. 12 Works with gone files weren't queued. Search each one from its own page.",
       ),
     )
     .toBeVisible();
@@ -153,7 +153,7 @@ test("a search that queues nothing says why", async () => {
   await expect
     .element(
       page.getByText(
-        "Nothing to search. Every listed Work is already queued or has only gone files.",
+        "Nothing to search. Each of these Works is already queued or has only gone files.",
       ),
     )
     .toBeVisible();
@@ -166,17 +166,38 @@ test("Cancel queued searches empties the bulk lane, and shows only while searche
   expect(server.canceled).toBe(1);
 });
 
-test("with nothing queued there is no Cancel, and an empty list says nothing is wanted", async () => {
+test("with nothing queued there is no Cancel, and an empty list says there is nothing to search for", async () => {
   openWanted(
     "/library/wanted",
     wantedServer([
       aWantedPage([], { status: aQueueStatus({ searching: 0, queued: 0, nextBacklogAt: null }) }),
     ]),
   );
-  await expect.element(page.getByText("Nothing is wanted.")).toBeVisible();
+  await expect.element(page.getByText("Nothing to search for.")).toBeVisible();
   await expect.element(page.getByText(/^Nothing queued · Backlog search is off$/u)).toBeVisible();
   expect(page.getByRole("button", { name: "Cancel queued searches" }).query()).toBeNull();
   await expect.element(page.getByRole("button", { name: "Search 0 Works" })).toBeDisabled();
+});
+
+test("the headers name the Content Type's nouns, Work where types mix, and Items only for a type of many", async () => {
+  openWanted("/library/wanted/anthology");
+  const table = page.getByRole("table", { name: "Wanted" });
+  await expect.element(table.getByRole("columnheader", { name: "Anthology" })).toBeVisible();
+  await expect.element(table.getByRole("columnheader", { name: "Stories" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Search 3 anthologies" })).toBeVisible();
+});
+
+test("on All the Work header is Work, and a film's Wanted has no Items column", async () => {
+  const { app } = openWanted();
+  const table = page.getByRole("table", { name: "Wanted" });
+  await expect.element(table.getByRole("columnheader", { name: "Work" })).toBeVisible();
+  await expect.element(table.getByRole("columnheader", { name: "Stories" })).toBeVisible();
+  await app.router.navigate({
+    to: "/library/wanted/$contentType",
+    params: { contentType: "cinema" },
+  });
+  await expect.element(table.getByRole("columnheader", { name: "Film" })).toBeVisible();
+  expect(table.getByRole("columnheader", { name: "Stories" }).query()).toBeNull();
 });
 
 test("Load more reads the next page by its cursor", async () => {

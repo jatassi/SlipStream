@@ -3,7 +3,7 @@ import { page, userEvent } from "vitest/browser";
 
 import type { FilesNeed, GrabsGrab } from "../../api/gen/model";
 import { getListGrabsMockHandler } from "../../api/gen/query/grabs/grabs.msw";
-import { atWords, pastAtWords } from "../../format";
+import { laterAtWords, pastAtWords } from "../../format";
 import { longShelf } from "../../test/anthology";
 import { failedImport } from "../../test/grabs";
 import { orchardId, orchardItemId } from "../../test/library";
@@ -49,7 +49,7 @@ test("a Not found row merges the Items into a range, says when SlipStream search
   await expect
     .element(row)
     .toHaveTextContent(
-      `V01S01 to V01S08 not foundFound nothing ${pastAtWords(lastSearchedAt, reading)}. SlipStream searches again ${atWords(nextSearchAt, reading)}.SearchManual search`,
+      `V01S01 to V01S08 not foundFound nothing ${pastAtWords(lastSearchedAt, reading)}. SlipStream searches again ${laterAtWords(nextSearchAt, reading)}.SearchManual search`,
     );
   await expect.element(needsYou().getByRole("heading")).toHaveTextContent("Needs you1");
   await userEvent.click(row.getByRole("button", { name: "Search", exact: true }));
@@ -101,10 +101,13 @@ test("a stopped cell's card counts its failed Grabs, names Backlog search's next
     .element(card)
     .toMatchTextContent(
       new RegExp(
-        `3 Grabs failed here in 2 days\\. SlipStream searches again at Backlog pace, next ${atWords(stop.nextSearchAt ?? "", reading)}\\.Failures`,
+        `3 Grabs failed for this file in 2 days\\. Backlog search looks for it again ${laterAtWords(stop.nextSearchAt ?? "", reading)}\\.Failures`,
         "u",
       ),
     );
   await expect.element(card.getByRole("button", { name: "Search again" })).toBeVisible();
   await expect.element(card.getByRole("button", { name: "Manual search" })).toBeVisible();
+  await expect
+    .element(page.getByRole("region", { name: "Grabs" }))
+    .toHaveTextContent("Grabs0No other Grabs. The failed one is under Needs you.");
 });

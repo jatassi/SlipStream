@@ -102,7 +102,7 @@ test.each<[string, GrabsListedRelease, string]>([
   [
     "waiting",
     listed({ outcome: "waiting", rank: 1 }),
-    "It's a candidate. SlipStream grabs the best one when the Hold ends.",
+    "SlipStream grabs this or a better release when the Hold ends.",
   ],
 ])("a %s Release says so in words", (_, release, words) => {
   expect(outcomeWords(release, names)).toBe(words);

@@ -18,7 +18,9 @@ test("the Library counts what Wanted lists, its failed Works apart, and opens Wa
     path: "/library",
     handlers: [...cinemaLibrary(rows).handlers, ...wantedServer().handlers],
   });
-  await expect.element(link()).toMatchTextContent(/^2 wanted\. 1 failed\./u);
+  await expect
+    .element(link())
+    .toMatchTextContent(/^2 films need files or upgrades\. 1 has a failed Grab\./u);
   await userEvent.click(link());
   await expect.poll(() => router.state.location.pathname).toBe("/library/wanted/cinema");
 });

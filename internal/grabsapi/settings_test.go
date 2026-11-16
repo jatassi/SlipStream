@@ -129,14 +129,16 @@ func TestTheGapRefusalLandsOnTheFieldThatMoved(t *testing.T) {
 	if code, body := patch(`{"values":{"search.longestGap":86400}}`); code != http.StatusOK {
 		t.Fatalf("a longest gap of 1 day over an 8 hour interval = %d %s", code, body)
 	}
-	for _, c := range []struct{ patch, field string }{
-		{`{"values":{"tasks.backlog-search.cadence":172800}}`, "values.tasks.backlog-search.cadence"},
-		{`{"values":{"search.longestGap":86400,"tasks.backlog-search.cadence":172800}}`, "values.search.longestGap"},
+	for _, c := range []struct{ patch, field, words string }{
+		{`{"values":{"tasks.backlog-search.cadence":172800}}`, "values.tasks.backlog-search.cadence",
+			"Use 1 day or shorter. A file that keeps coming up empty is searched for at least every 1 day."},
+		{`{"values":{"search.longestGap":86400,"tasks.backlog-search.cadence":172800}}`, "values.search.longestGap",
+			"Use 2 days or longer. Backlog search runs every 2 days."},
 	} {
 		code, body := patch(c.patch)
 		if code != http.StatusUnprocessableEntity || !strings.Contains(body, `"location":"body.`+c.field+`"`) ||
-			!strings.Contains(body, "Use a longest gap of at least the Backlog search interval, 2 days.") {
-			t.Errorf("PATCH %s = %d %s, want 422 on %s naming 2 days", c.patch, code, body, c.field)
+			!strings.Contains(body, c.words) {
+			t.Errorf("PATCH %s = %d %s, want 422 on %s saying %q", c.patch, code, body, c.field, c.words)
 		}
 	}
 	if code, body := patch(`{"values":{"tasks.backlog-search.cadence":86400}}`); code != http.StatusOK {

@@ -10,7 +10,7 @@ const sheetOf = (label: string) => page.getByRole("dialog", { name: `Add ${label
 const shelfSheet = () => sheetOf("The Long Shelf");
 const searchPicker = () => shelfSheet().getByRole("combobox", { name: "Search after adding" });
 const mismatch = (where: string) =>
-  shelfSheet().getByText(`${where} is monitored. Adding searches nothing.`);
+  shelfSheet().getByText(`${where} is monitored, so SlipStream won't search after adding.`);
 
 function openShelf(catalog = anthologyCatalog()) {
   const server = addServer({ catalogs: [catalog], added: longShelf });
@@ -49,7 +49,7 @@ test("a search that misses what the preset monitors says so under the choice", a
   await expect.element(searchPicker()).toBeVisible();
   expect(
     shelfSheet()
-      .getByText(/Adding searches nothing\.$/u)
+      .getByText(/so SlipStream won't search after adding\.$/u)
       .query(),
   ).toBeNull();
 
@@ -64,7 +64,7 @@ test("a search that misses what the preset monitors says so under the choice", a
   await choose("Search after adding", "Nothing");
   expect(
     shelfSheet()
-      .getByText(/Adding searches nothing\.$/u)
+      .getByText(/so SlipStream won't search after adding\.$/u)
       .query(),
   ).toBeNull();
 
@@ -92,7 +92,7 @@ test("a one-Item type asks with a switch, and warns while it isn't monitored", a
 
   await userEvent.click(orchard.getByRole("switch", { name: "Monitor" }));
   await expect
-    .element(orchard.getByText("Nothing is monitored. Adding searches nothing."))
+    .element(orchard.getByText("Nothing is monitored, so SlipStream won't search after adding."))
     .toBeVisible();
   await userEvent.click(orchard.getByRole("switch", { name: "Search after adding" }));
   await userEvent.click(orchard.getByRole("button", { name: "Add Film" }));

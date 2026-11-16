@@ -19,7 +19,7 @@ func TestBacklogSearchQueuesAGroupOnceItIsDueAndSkipsWhileOff(t *testing.T) {
 		w := launch(t, switches(true, false))
 		synctest.Wait()
 		work := w.add(lanterns, "")
-		expect(t, "the first run", w.ran(backlogTask).lines(), []string{"run-now|succeeded", "Due searches|home|succeeded||Queued 0 groups for search."})
+		expect(t, "the first run", w.ran(backlogTask).lines(), []string{"run-now|succeeded", "Due searches|home|succeeded||Queued 0 searches."})
 		due := w.wantedRow(work).NextAt
 		if due == nil {
 			t.Fatal("after Backlog search Wanted gives the movie no next search")
@@ -27,7 +27,7 @@ func TestBacklogSearchQueuesAGroupOnceItIsDueAndSkipsWhileOff(t *testing.T) {
 
 		time.Sleep(time.Until(*due))
 		synctest.Wait()
-		expect(t, "the run once it is due", w.ran(backlogTask).lines(), []string{"run-now|succeeded", "Due searches|home|succeeded||Queued 1 group for search."})
+		expect(t, "the run once it is due", w.ran(backlogTask).lines(), []string{"run-now|succeeded", "Due searches|home|succeeded||Queued 1 search."})
 		simtest.Eventually(t, "the queued run finds nothing", func() bool {
 			r := w.wantedRow(work)
 			return r.Last != nil && *r.Last == "nothing_found" && r.State == "idle"

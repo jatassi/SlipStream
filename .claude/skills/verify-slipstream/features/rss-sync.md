@@ -1,12 +1,12 @@
 # RSS sync
 
-RSS sync reads each Indexer's new uploads every 15 minutes by default, one unit per Indexer with RSS on, and judges each Release as a search would, so a wanted Work grabs from the feed. A busy feed is paged back to the position the last fetch stored, and a feed that can't list older uploads leaves a gap that Health reports with `Search Wanted`. A gone file's cell waits for the Admin's own Search, so RSS sync never grabs for it.
+RSS sync reads each Indexer's new uploads every 15 minutes by default, one unit per Indexer with RSS on, and judges each Release as a search would, so a wanted Work grabs from the feed. A busy feed is paged back to the position the last fetch stored, and a feed that can't list older uploads leaves a gap that Health reports with `Open Wanted`. A gone file's cell waits for the Admin's own Search, so RSS sync never grabs for it.
 
 ## Sub-features
 
-- `rss-first-fetch` on `busy-feed`, `Run now: RSS sync` runs one unit per Indexer, each `succeeded` with `Read no new Releases.`, which stores each feed's position (P-139).
-- `rss-gap` after the `fixture-site-feed` cue posts 250 uploads on each site, the next run reads Fixture Site `Read 250 new Releases. None matched a Work.` over three pages, and Heron, which lists its newest page at every offset, `Read 100 new Releases. None matched a Work.` Heron's `rssFetch.gapKind` reads `no_paging`, and Health's Indexers category warns `RSS sync may have missed Releases on Heron. More Releases were added to Heron between two RSS syncs than one fetch returns, and Heron can't list older ones. Search Wanted to find what was missed, or run RSS sync more often.` with a `Search Wanted` link to Wanted filtered to Missing and Failed (P-141).
-- `rss-gone-waits` on `gone-with-rss`, with The Quiet Orchard's and The Salt Road's files marked gone and both Releases listed by `fixture-site-list`, the run reads `Read 2 new Releases. 2 matched a Work, and 1 was grabbed.`: it grabs Long Division, `source` `rss`, and leaves The Quiet Orchard's gone cell, which Wanted lists under `File gone` (P-140).
+- `rss-first-fetch` on `busy-feed`, `Run now: RSS sync` runs one unit per Indexer, each `succeeded` with `Read no new releases.`, which stores each feed's position (P-139).
+- `rss-gap` after the `fixture-site-feed` cue posts 250 uploads on each site, the next run reads Fixture Site `Read 250 new releases. None matched a Work.` over three pages, and Heron, which lists its newest page at every offset, `Read 100 new releases. None matched a Work.` Heron's `rssFetch.gapKind` reads `no_paging`, and Health's Indexers category warns `RSS sync may have missed releases on Heron. More releases were added to Heron between two RSS syncs than one fetch returns, and Heron can't list older ones. Search from Wanted to find what was missed, or run RSS sync more often.` with an `Open Wanted` link to Wanted filtered to Missing and Failed (P-141).
+- `rss-gone-waits` on `gone-with-rss`, with The Quiet Orchard's and The Salt Road's files marked gone and both Releases listed by `fixture-site-list`, the run reads `Read 2 new releases. 2 matched a Work, and 1 was grabbed.`: it grabs Long Division, `source` `rss`, and leaves The Quiet Orchard's gone cell, which Wanted lists under `File gone` (P-140).
 - `rss-gone-admin-search` the hero's `Search` on The Quiet Orchard then grabs its Bluray at once, `source` `search` (P-132).
 
 ## How to get to it (user POV)
@@ -38,7 +38,7 @@ Steps:
   $FW cue $RUN fixture-site-feed '{"site":"heron","uploads":250,"noPaging":true}'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop reload
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Run now: RSS sync" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText(/^Read 250 new Releases/).first().waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText(/^Read 250 new releases/).first().waitFor({ timeout: 60000 }); }'
   $FW exec $RUN --proof rss-sync/rss-gap -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/rss-sync/rss-gap/ran.png
   $FW exec $RUN --proof rss-sync/rss-gap -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/tasks/rss-sync'
   $FW exec $RUN --proof rss-sync/rss-gap -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/indexers'

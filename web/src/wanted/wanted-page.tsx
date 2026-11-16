@@ -10,7 +10,7 @@ import { type WantedFilter, wantedQuery } from "./wanted-query";
 import { WantedRows } from "./wanted-rows";
 import { ReasonChips, SortMenu, TypeLinks } from "./wanted-toolbar";
 // oxlint-disable-next-line import/max-dependencies -- the page lays out the status, the filters, its actions and the rows
-import { statusParts } from "./wanted-words";
+import { headersOf, statusParts } from "./wanted-words";
 
 const minuteMs = 60_000;
 
@@ -32,10 +32,11 @@ export function WantedPage({
   if (first === undefined) {
     throw new Error("Wanted loaded no page");
   }
+  const type = types.find(({ id }) => id === filter.contentType);
   return (
     <Page
       beside={types.length < 2 ? undefined : <TypeLinks types={types} />}
-      action={<SearchAll filter={filter} total={first.total} />}
+      action={<SearchAll filter={filter} type={type} total={first.total} />}
     >
       <div className="mb-4">
         <StatusSentence parts={statusParts(first.status, clock)} />
@@ -55,7 +56,11 @@ export function WantedPage({
         />
         {first.status.queued > 0 && <CancelQueued />}
       </div>
-      <WantedRows filter={filter} clock={clock} />
+      <WantedRows
+        filter={filter}
+        headers={headersOf(type === undefined ? types : [type])}
+        clock={clock}
+      />
     </Page>
   );
 }

@@ -350,8 +350,8 @@ type grab struct {
 }
 
 type chosenWhy struct {
-	Kind  string `json:"kind" enum:"fewer_releases" doc:"fewer_releases is a Release that fills more Items, so fewer Releases fill the group"`
-	Fills int    `json:"fills" minimum:"1" doc:"The Items it was chosen to fill"`
+	Kind  string `json:"kind" enum:"fewer_releases" doc:"fewer_releases is a Release with more of the group's Items, so the group needs fewer Releases"`
+	Fills int    `json:"fills" minimum:"1" doc:"How many of the group's Items it was chosen for"`
 }
 
 type grabImport struct {

@@ -189,9 +189,12 @@ func (e *GapTooShortError) Error() string {
 	return fmt.Sprintf("the longest gap %s is shorter than Backlog search's interval %s", e.Gap, e.Interval)
 }
 
-// Words is the refusal as the Admin reads it.
+// Words is the refusal as the Admin reads it under the setting Key names.
 func (e *GapTooShortError) Words() string {
-	return "Use a longest gap of at least the Backlog search interval, " + spelled(e.Interval) + "."
+	if e.Key == LongestGap.Key {
+		return "Use " + spelled(e.Interval) + " or longer. Backlog search runs every " + spelled(e.Interval) + "."
+	}
+	return "Use " + spelled(e.Gap) + " or shorter. A file that keeps coming up empty is searched for at least every " + spelled(e.Gap) + "."
 }
 
 func gapRefusal(patch setting.Patch, gap, interval time.Duration) error {

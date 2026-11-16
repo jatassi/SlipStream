@@ -83,25 +83,25 @@ func TestBacklogSearchRunTwiceGivesTheSameRowsAndQueuesOnlyWhatIsDue(t *testing.
 		w := backlogWorld(t)
 		w.AddWork()
 		w.AddWork()
-		if note := backlogRun(t, w); note != "Queued 0 groups for search." {
+		if note := backlogRun(t, w); note != "Queued 0 searches." {
 			t.Fatalf("the first run's note is %q, want nothing queued before the first due times", note)
 		}
 		first := w.Queue(t)
 		if len(first.Due) != 3 || slices.ContainsFunc(first.Due, not(idle)) {
 			t.Fatalf("after the first run the queue holds %+v, want a row per Work's group, each idle until it is due", first)
 		}
-		if note := backlogRun(t, w); note != "Queued 0 groups for search." || !reflect.DeepEqual(w.Queue(t), first) {
+		if note := backlogRun(t, w); note != "Queued 0 searches." || !reflect.DeepEqual(w.Queue(t), first) {
 			t.Fatalf("Run now noted %q and left %+v, want nothing queued and the same rows %+v", note, w.Queue(t), first)
 		}
 		later(backlogEvery)
-		if note := backlogRun(t, w); note != "Queued 3 groups for search." {
+		if note := backlogRun(t, w); note != "Queued 3 searches." {
 			t.Fatalf("a run one interval later noted %q, want every group queued", note)
 		}
 		queued := w.Queue(t)
 		if slices.ContainsFunc(queued.Due, not(byBacklog)) {
 			t.Fatalf("the queue holds %+v, want every whole group in backlog by Backlog search", queued.Due)
 		}
-		if note := backlogRun(t, w); note != "Queued 0 groups for search." || !reflect.DeepEqual(w.Queue(t), queued) {
+		if note := backlogRun(t, w); note != "Queued 0 searches." || !reflect.DeepEqual(w.Queue(t), queued) {
 			t.Fatalf("a second run noted %q and left %+v, want the same rows %+v", note, w.Queue(t), queued)
 		}
 	})
@@ -197,7 +197,7 @@ func TestAStoppedCellKeepsItsRowAndOnlyBacklogSearchOpensIt(t *testing.T) {
 		}
 		backlogRun(t, w)
 		later(backlogEvery)
-		if note := backlogRun(t, w); note != "Queued 1 group for search." {
+		if note := backlogRun(t, w); note != "Queued 1 search." {
 			t.Fatalf("Backlog search noted %q, want the stopped cell's group queued", note)
 		}
 		synctest.Wait()
@@ -239,7 +239,7 @@ func TestWithUpgradesOffBacklogSearchQueuesOnlyMissingRows(t *testing.T) {
 		settings(t, w, map[string]string{grabs.BacklogUpgrades.Key: "false"})
 		backlogRun(t, w)
 		later(backlogEvery)
-		if note := backlogRun(t, w); note != "Queued 1 group for search." {
+		if note := backlogRun(t, w); note != "Queued 1 search." {
 			t.Fatalf("Backlog search noted %q, want only the missing Work's group queued", note)
 		}
 		for _, d := range w.Queue(t).Due {
@@ -248,7 +248,7 @@ func TestWithUpgradesOffBacklogSearchQueuesOnlyMissingRows(t *testing.T) {
 			}
 		}
 		settings(t, w, map[string]string{grabs.BacklogUpgrades.Key: "true"})
-		if note := backlogRun(t, w); note != "Queued 1 group for search." {
+		if note := backlogRun(t, w); note != "Queued 1 search." {
 			t.Fatalf("with upgrades on Backlog search noted %q, want the upgradable Work's group queued too", note)
 		}
 	})

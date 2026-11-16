@@ -15,7 +15,7 @@ export interface TasksRunUnit {
   /** The Node it ran on was removed since */
   nodeRemoved: boolean;
   /**
-   * How it ended, such as Queued 212 groups for search.; null when it didn't succeed or has none
+   * How it ended, such as Queued 212 searches.; null when it didn't succeed or has none
    * @nullable
    */
   note: string | null;

@@ -5,8 +5,17 @@ import type {
   GrabsWantedRow,
   GrabsWantedRowReason,
   ListWantedSort,
+  WorksContentType,
 } from "../api/gen/model";
-import { type Clock, type Noun, atWords, countWords, pastAtWords, sinceWords } from "../format";
+import {
+  type Clock,
+  type Noun,
+  atWords,
+  countWords,
+  laterAtWords,
+  pastAtWords,
+  sinceWords,
+} from "../format";
 import type { StatusPart } from "../ui/status-sentence";
 
 export type Reason = GrabsWantedRowReason;
@@ -42,12 +51,41 @@ export const sortLabels: { readonly [S in Sort]: string } = {
   released: "Release date",
 };
 
-export const works: Noun = { one: "Work", many: "Works" };
+const anyWork: Noun = { one: "Work", many: "Works" };
+
+/** How a count of Works reads: in the one type's noun, such as "series", or "Works" where types mix. */
+export const worksNounOf = (type: WorksContentType | undefined): Noun =>
+  type === undefined
+    ? anyWork
+    : { one: type.work.one.toLowerCase(), many: type.work.many.toLowerCase() };
+
+const list = new Intl.ListFormat("en", { type: "conjunction" });
+
+export type Headers = { readonly work: string; readonly items: string | undefined };
+
+/**
+ * The table's Work and Items headers in the nouns of the types in view,
+ * such as "Series" and "Episodes", and "Work" where types mix. Items is
+ * undefined when no type in view has many Items.
+ */
+export function headersOf(types: readonly WorksContentType[]): Headers {
+  const [only] = types;
+  const many = [
+    ...new Set(types.filter(({ items }) => items === "many").map(({ item }) => item.many)),
+  ];
+  return {
+    work: types.length === 1 && only !== undefined ? only.work.one : anyWork.one,
+    items:
+      many.length === 0
+        ? undefined
+        : list.format(many.map((noun, i) => (i === 0 ? noun : noun.toLowerCase()))),
+  };
+}
 
 const counted = new Intl.NumberFormat("en");
 
-/** A count of Works with its thousands grouped, such as "1,204 Works". */
-export const worksWords = (count: number): string =>
+/** A count of Works with its thousands grouped, such as "1,204 series". */
+export const worksWords = (count: number, works: Noun): string =>
   `${counted.format(count)} ${count === 1 ? works.one : works.many}`;
 
 const possessive = (name: string): string => (name.endsWith("s") ? `${name}'` : `${name}'s`);
@@ -84,7 +122,7 @@ export function statusParts(status: GrabsQueueStatus, clock: Clock): StatusPart[
       text:
         status.nextBacklogAt === null
           ? "Backlog search is off"
-          : `Next Backlog search ${atWords(status.nextBacklogAt, clock)}`,
+          : `Next Backlog search ${laterAtWords(status.nextBacklogAt, clock)}`,
     },
     ...status.limits.map((limit) => limitPart(limit, clock)),
   ];
@@ -113,7 +151,7 @@ const resultWords: {
   nothing_found: (when) => `Found nothing ${when}`,
   nothing_acceptable: (when) => `Found nothing that fits a Target ${when}`,
   no_indexer: (when) => `No Indexer could search ${when}`,
-  no_root: (when) => `Couldn't search ${when} because the Work has no library root`,
+  no_root: (when) => `Couldn't search ${when} because no library root was reachable`,
 };
 
 /** How the last search went and when: "Found nothing on Mon at 09:12". */
@@ -135,12 +173,12 @@ export function nextWords(row: GrabsWantedRow, clock: Clock): string {
   return row.nextSearchAt === null ? "Only when you search" : atWords(row.nextSearchAt, clock);
 }
 
-/** A phone row's second line: "Missing. S02E01 to S02E08. Next search Tomorrow at 14:00." */
+/** A phone row's second line: "Missing. S02E01 to S02E08. Next search tomorrow at 14:00." */
 export function phoneLine(row: GrabsWantedRow, clock: Clock): string {
   const items = rangesWords(row.ranges);
   const next =
     row.state === "idle" && row.nextSearchAt !== null
-      ? `Next search ${nextWords(row, clock)}.`
+      ? `Next search ${laterAtWords(row.nextSearchAt, clock)}.`
       : `${nextWords(row, clock)}.`;
   return [`${reasonLabels[row.reason]}.`, ...(items === "" ? [] : [`${items}.`]), next].join(" ");
 }

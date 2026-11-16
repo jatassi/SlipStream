@@ -59,7 +59,7 @@ test("a series' search choice warns when it misses what is monitored, and search
   await choose(page, sheet, "Episodes to monitor", /^Latest season/u);
   await choose(page, sheet, "Search after adding", "First season");
   const note = sheet.getByText(
-    "Nothing in the first season is monitored. Adding searches nothing.",
+    "Nothing in the first season is monitored, so SlipStream won't search after adding.",
   );
   await expect(note).toBeVisible();
   await choose(page, sheet, "Episodes to monitor", /^All/u);

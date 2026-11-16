@@ -16,7 +16,7 @@ export function RSSFetch({ indexer }: { indexer: IndexersIndexer }) {
       <span>{`Read ${agoWords(fetch.lastFetchAt, now)}`}</span>
       {fetch.gapKind !== null && (
         <span className="text-warn-ink">
-          RSS sync may have missed releases. Search Wanted from its Health item.
+          RSS sync may have missed releases. Its Health item says what to do.
         </span>
       )}
     </span>

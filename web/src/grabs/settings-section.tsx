@@ -47,9 +47,10 @@ export function everyWords(interval: number): string {
 
 type Schedule = { on: boolean; every: number };
 
-/** The section's lead, from whether Backlog search and RSS sync are on and how often each runs. */
-export function leadSentence(backlog: Schedule, rss: Schedule): string {
-  const searches = `searches for what's wanted ${everyWords(backlog.every)}`;
+/** The section's lead, from whether Backlog search, its upgrades and RSS sync are on and how often each runs. */
+export function leadSentence(backlog: Schedule & { upgrades: boolean }, rss: Schedule): string {
+  const what = backlog.upgrades ? "missing files and upgrades" : "missing files";
+  const searches = `searches for ${what} ${everyWords(backlog.every)}`;
   const reads = `reads new uploads ${everyWords(rss.every)}`;
   if (backlog.on && rss.on) {
     return `SlipStream ${searches} and ${reads}. ${limits}`;
@@ -119,9 +120,9 @@ function StopLine({ settings, save }: { settings: readonly Field[]; save: Save }
         />
       </p>
       <p className={noteLook}>
-        After this many failed Grabs for a file, SlipStream stops searching for it again at once.
-        With 1, the first failed Grab stops it. Backlog search still searches for it at its own
-        pace.
+        After a Grab fails, SlipStream searches for the file again right away. After this many
+        failed Grabs, it stops, and only Backlog search looks for the file. With 1, SlipStream never
+        searches again right away.
       </p>
     </div>
   );
@@ -161,7 +162,11 @@ function AutomaticSearchSection() {
       <div className="flex flex-col gap-5">
         <p className="text-ink-2">
           {leadSentence(
-            { on: on(keys.backlogOn), every: every(keys.backlogEvery) },
+            {
+              on: on(keys.backlogOn),
+              upgrades: on(keys.backlogUpgrades),
+              every: every(keys.backlogEvery),
+            },
             { on: on(keys.rssOn), every: every(keys.rssEvery) },
           )}
         </p>

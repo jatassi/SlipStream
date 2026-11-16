@@ -78,9 +78,9 @@ func (gr *Grabs) backlog(ctx context.Context, _ tasks.Unit, p *tasks.Progress) e
 
 func queuedWords(n int) string {
 	if n == 1 {
-		return "Queued 1 group for search."
+		return "Queued 1 search."
 	}
-	return fmt.Sprintf("Queued %d groups for search.", n)
+	return fmt.Sprintf("Queued %d searches.", n)
 }
 
 // planBacklog reads the snapshot in one Read: the settings, every Work's

@@ -478,8 +478,8 @@ func (x *Indexers) gapWords(name string, gap GapKind) string {
 	case GapPageCap:
 		out += fmt.Sprintf("More releases were added to %s between two RSS syncs than %d pages list.", name, x.cfg.Timings.RSSPages)
 	case GapLate:
-		return out + name + " took too long to list older uploads. Search Wanted to find what was missed."
+		return out + name + " took too long to list older uploads. Search from Wanted to find what was missed."
 	case GapNone:
 	}
-	return out + " Search Wanted to find what was missed, or run RSS sync more often."
+	return out + " Search from Wanted to find what was missed, or run RSS sync more often."
 }

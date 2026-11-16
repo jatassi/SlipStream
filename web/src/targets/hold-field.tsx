@@ -23,7 +23,7 @@ export function HoldField({ draft, onChange }: SectionProps<TargetDraft>) {
           value={draft.hold.amount}
           inputMode="decimal"
           error={holdProblem(draft.hold)}
-          description="A Release that meets the cutoff and the upgrade-until score is grabbed at once."
+          description="A release that meets the cutoff and the upgrade-until score is grabbed at once."
           onChange={(amount) => {
             set({ ...draft.hold, amount });
           }}

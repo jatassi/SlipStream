@@ -8,6 +8,7 @@ import { useShell } from "../ui/shell-context";
 import { WantedList } from "./wanted-phone";
 import { type WantedFilter, wantedQuery } from "./wanted-query";
 import { WantedTable } from "./wanted-table";
+import type { Headers } from "./wanted-words";
 
 /** Loads the next page once the end of a phone's list scrolls into view. */
 function NextOnScroll({ onNext }: { onNext: () => void }) {
@@ -30,14 +31,22 @@ function NextOnScroll({ onNext }: { onNext: () => void }) {
 }
 
 /** Every loaded page's rows, a table on desktop ending in Load more, a list on phone that loads as it scrolls. */
-export function WantedRows({ filter, clock }: { filter: WantedFilter; clock: Clock }) {
+export function WantedRows({
+  filter,
+  headers,
+  clock,
+}: {
+  filter: WantedFilter;
+  headers: Headers;
+  clock: Clock;
+}) {
   const phone = useShell() === "phone";
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage } = useSuspenseInfiniteQuery(
     wantedQuery(filter),
   );
   const rows = data.pages.flatMap((page) => page.rows);
   if (rows.length === 0) {
-    return <Empty>Nothing is wanted.</Empty>;
+    return <Empty>Nothing to search for.</Empty>;
   }
   const more = () => {
     if (hasNextPage && !isFetchingNextPage) {
@@ -46,7 +55,11 @@ export function WantedRows({ filter, clock }: { filter: WantedFilter; clock: Clo
   };
   return (
     <>
-      {phone ? <WantedList rows={rows} clock={clock} /> : <WantedTable rows={rows} clock={clock} />}
+      {phone ? (
+        <WantedList rows={rows} clock={clock} />
+      ) : (
+        <WantedTable rows={rows} headers={headers} clock={clock} />
+      )}
       {hasNextPage &&
         (phone ? (
           <NextOnScroll onNext={more} />

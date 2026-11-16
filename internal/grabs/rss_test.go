@@ -124,7 +124,7 @@ func TestRSSSyncGrabsANewUploadOnceAndMovesPastIt(t *testing.T) {
 		web := uploaded("E01", "1080p.WEB-DL", 'a', time.Hour)
 		other := searching.Release{Title: "Another.Show.2019.1080p.WEB-DL-GRP", Size: 4 << 30, GUID: "other", Published: time.Now().Add(-time.Hour)}
 		feeds(w, web, other)
-		if got, want := syncFeed(t, w), "Read 2 new Releases. 1 matched a Work, and 1 was grabbed."; got != want {
+		if got, want := syncFeed(t, w), "Read 2 new releases. 1 matched a Work, and 1 was grabbed."; got != want {
 			t.Fatalf("the note is %q, want %q", got, want)
 		}
 		if got, want := grabsOf(t, w), []string{web.Title + " by rss"}; !slices.Equal(got, want) {
@@ -137,7 +137,7 @@ func TestRSSSyncGrabsANewUploadOnceAndMovesPastIt(t *testing.T) {
 		if len(runs) != 1 || runs[0].Trigger != searches.RSS || runs[0].Outcome != grabs.Grabbed || !slices.Equal(runs[0].Items, []works.ItemID{w.Item}) {
 			t.Fatalf("the Searches list is %+v, want one RSS run that grabbed for the first Item", runs)
 		}
-		if got, want := syncFeed(t, w), "Read no new Releases."; got != want {
+		if got, want := syncFeed(t, w), "Read no new releases."; got != want {
 			t.Fatalf("the next note is %q, want %q: the feed's position is past the upload", got, want)
 		}
 		if got := grabsOf(t, w); len(got) != 1 {
@@ -161,10 +161,10 @@ func TestRSSSyncSkipsWhileReconcilingAndAfterARestartDecidesTheSameUploadsOnce(t
 		}
 		w.Restart()
 		w.Reconciling(false)
-		if got, want := syncFeed(t, w), "Read 1 new Release. 1 matched a Work, and 1 was grabbed."; got != want {
+		if got, want := syncFeed(t, w), "Read 1 new release. 1 matched a Work, and 1 was grabbed."; got != want {
 			t.Fatalf("after the restart the note is %q, want %q: the skipped fetch wrote no position", got, want)
 		}
-		if got := syncFeed(t, w); got != "Read no new Releases." {
+		if got := syncFeed(t, w); got != "Read no new releases." {
 			t.Fatalf("the next note is %q, want the upload decided once", got)
 		}
 		if got := grabsOf(t, w); len(got) != 1 {
@@ -201,7 +201,7 @@ func TestTheHoldAppliesToAnRSSGrab(t *testing.T) {
 		w.Hold(0, 2*time.Hour)
 		web := uploaded("E01", "1080p.WEB-DL", 'a', 30*time.Minute)
 		feeds(w, web)
-		if got, want := syncFeed(t, w), "Read 1 new Release. 1 matched a Work, and none was grabbed."; got != want {
+		if got, want := syncFeed(t, w), "Read 1 new release. 1 matched a Work, and none was grabbed."; got != want {
 			t.Fatalf("the note is %q, want %q", got, want)
 		}
 		if got := grabsOf(t, w); len(got) != 0 {
@@ -255,7 +255,7 @@ func TestRSSSyncNeverGrabsForAGoneCell(t *testing.T) {
 		w := rssWorld(t)
 		heldFile(t, w, true)
 		feeds(w, uploaded("E01", "1080p.BluRay", 'a', time.Hour))
-		if got, want := syncFeed(t, w), "Read 1 new Release. 1 matched a Work, and none was grabbed."; got != want {
+		if got, want := syncFeed(t, w), "Read 1 new release. 1 matched a Work, and none was grabbed."; got != want {
 			t.Fatalf("the note is %q, want %q", got, want)
 		}
 		if got := grabsOf(t, w); len(got) != 0 {

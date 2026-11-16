@@ -12,7 +12,7 @@ import { Spinner } from "../ui/spinner";
 // oxlint-disable-next-line import/max-dependencies -- each column draws its own part of a row
 import { type Column, Table } from "../ui/table";
 import { type RowSearch, useRowSearch, workLink } from "./row-search";
-import { lastWords, nextWords, rangesWords, reasonWords } from "./wanted-words";
+import { type Headers, lastWords, nextWords, rangesWords, reasonWords } from "./wanted-words";
 
 function WorkCell({ row }: { row: GrabsWantedRow }) {
   return (
@@ -73,9 +73,18 @@ function RowActions({ row, search }: { row: GrabsWantedRow; search: RowSearch })
 
 type Columns = readonly [Column<GrabsWantedRow>, ...Column<GrabsWantedRow>[]];
 
-const columnsOf = (clock: Clock, search: RowSearch): Columns => [
-  { id: "work", header: "Work", cell: (row) => <WorkCell row={row} /> },
-  { id: "items", header: "Episodes", hideBelow: 900, cell: (row) => rangesWords(row.ranges) },
+const columnsOf = (headers: Headers, clock: Clock, search: RowSearch): Columns => [
+  { id: "work", header: headers.work, cell: (row) => <WorkCell row={row} /> },
+  ...(headers.items === undefined
+    ? []
+    : [
+        {
+          id: "items",
+          header: headers.items,
+          hideBelow: 900,
+          cell: (row: GrabsWantedRow) => rangesWords(row.ranges),
+        },
+      ]),
   { id: "reason", header: "Reason", cell: reasonWords },
   { id: "last", header: "Last searched", hideBelow: 760, cell: (row) => lastWords(row, clock) },
   { id: "next", header: "Next search", cell: (row) => <NextCell row={row} clock={clock} /> },
@@ -88,12 +97,20 @@ const columnsOf = (clock: Clock, search: RowSearch): Columns => [
 ];
 
 /** Wanted's rows as a table: the Work, its Items, why, the last search and the next. */
-export function WantedTable({ rows, clock }: { rows: readonly GrabsWantedRow[]; clock: Clock }) {
+export function WantedTable({
+  rows,
+  headers,
+  clock,
+}: {
+  rows: readonly GrabsWantedRow[];
+  headers: Headers;
+  clock: Clock;
+}) {
   const search = useRowSearch();
   return (
     <Table
       label="Wanted"
-      columns={columnsOf(clock, search)}
+      columns={columnsOf(headers, clock, search)}
       rows={rows}
       rowKey={(row) => row.work.id}
       lines={2}

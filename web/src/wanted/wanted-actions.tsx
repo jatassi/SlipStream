@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import type { WorksContentType } from "../api/gen/model";
 import { sentenceOf } from "../api/errors";
 import { cancelQueuedSearches } from "../api/gen/query/grabs/grabs";
 import { countWords } from "../format";
@@ -7,7 +8,7 @@ import { Button } from "../ui/button";
 import { toast } from "../ui/toast";
 import { useSearchSeveral } from "./several";
 import type { WantedFilter } from "./wanted-query";
-import { worksWords } from "./wanted-words";
+import { worksNounOf, worksWords } from "./wanted-words";
 
 const queuedSearches = { one: "queued search", many: "queued searches" } as const;
 
@@ -32,9 +33,17 @@ export function CancelQueued() {
   );
 }
 
-/** Searches every Work the filter lists, labelled with their count. */
-export function SearchAll({ filter, total }: { filter: WantedFilter; total: number }) {
-  const several = useSearchSeveral(filter.contentType);
+/** Searches every Work the filter lists, labelled with their count in `type`'s noun. */
+export function SearchAll({
+  filter,
+  type,
+  total,
+}: {
+  filter: WantedFilter;
+  type: WorksContentType | undefined;
+  total: number;
+}) {
+  const several = useSearchSeveral(type);
   return (
     <>
       <Button
@@ -53,7 +62,7 @@ export function SearchAll({ filter, total }: { filter: WantedFilter; total: numb
           );
         }}
       >
-        {`Search ${worksWords(total)}`}
+        {`Search ${worksWords(total, worksNounOf(type))}`}
       </Button>
       {several.dialog}
     </>

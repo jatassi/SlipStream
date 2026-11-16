@@ -13,7 +13,7 @@ export function useGrabNow(workId: string) {
       onSuccess: ({ grabbing }) => {
         toast(
           grabbing === 0
-            ? "Nothing is waiting. The wait already ended."
+            ? "Nothing is left to grab. The Hold already ended."
             : `Grabbing ${countWords(grabbing, releases)}`,
         );
       },

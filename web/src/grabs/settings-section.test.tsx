@@ -20,7 +20,7 @@ test("the section leads with what Backlog search and RSS sync do, and the lead f
   await expect
     .element(
       section.getByText(
-        "SlipStream searches for what's wanted every 8 hours and reads new uploads every 15 minutes. Searches never go past an Indexer's limits.",
+        "SlipStream searches for missing files and upgrades every 8 hours and reads new uploads every 15 minutes. Searches never go past an Indexer's limits.",
       ),
     )
     .toBeVisible();
@@ -127,7 +127,9 @@ test("Backlog search's interval sits beside its switches, and a longest gap shor
     .element(
       section
         .getByRole("alert")
-        .getByText("Use a longest gap of at least the Backlog search interval, 2 days."),
+        .getByText(
+          "Use 1 day or shorter. A file that keeps coming up empty is searched for at least every 1 day.",
+        ),
     )
     .toBeVisible();
   expect(world.writes.at(-1)).toEqual({ values: { "tasks.backlog-search.cadence": 172_800 } });
@@ -149,7 +151,7 @@ test("RSS sync's interval sits beside its switch, and the lead reads the new int
   await expect
     .element(
       section.getByText(
-        "SlipStream searches for what's wanted every 8 hours and reads new uploads every 30 minutes. Searches never go past an Indexer's limits.",
+        "SlipStream searches for missing files and upgrades every 8 hours and reads new uploads every 30 minutes. Searches never go past an Indexer's limits.",
       ),
     )
     .toBeVisible();

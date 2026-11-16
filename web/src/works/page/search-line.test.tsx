@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { FilesCellList, GrabsWorkSearching } from "../../api/gen/model";
-import { laterWords, pastAtWords } from "../../format";
+import { laterAtWords, laterWords, pastAtWords } from "../../format";
 import { orchardId, orchardItemId } from "../../test/library";
 import { renderApp } from "../../test/render-app";
 import {
@@ -87,7 +87,7 @@ test("a search that found Releases no Target takes offers Manual search", async 
   await expect
     .element(line)
     .toMatchTextContent(
-      /^Found 14 Releases, but none fits a Target\. Next search .+Manual search$/u,
+      /^Found 14 releases, but none fits a Target\. Next search .+Manual search$/u,
     );
 });
 
@@ -124,11 +124,10 @@ test("a waiting cell says how many Releases it holds, and its Grab now ends that
     ...missing,
     cells: [{ ...first, waitUntil: until, candidates: 2 }, second],
   });
-  const later = laterWords(until, reading);
   await expect
     .element(
       page.getByText(
-        `2 Releases found so far. SlipStream grabs the best one ${later.today ? `at ${later.words}` : later.words} unless a better one arrives.`,
+        `2 releases found so far. SlipStream grabs the best one ${laterAtWords(until, reading)} unless a better one arrives.`,
       ),
     )
     .toBeVisible();
