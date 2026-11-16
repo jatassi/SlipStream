@@ -26,7 +26,7 @@ Adopt a library for standards, file formats and accessibility, and build the dur
 
 ## Checks
 
-Run the fast checks locally and leave the full tiers to CI. On a 4-core cloud session the full tiers take more than 80 minutes (the Go tier about 21, e2e 18, component 8, browser 30 for Chromium alone), and a PR's CI runs all of them on every target.
+Run the fast checks locally and leave the full tiers to CI. On a 4-core cloud session the full tiers take more than 80 minutes (the Go tier about 21, e2e 18, component 8, browser 30 for Chromium alone), and a PR into main runs all of them on every target. A PR into a feature branch runs linux-amd64 alone and skips the e2e and browser tiers unless it carries the `ci: full` label.
 
 Before each push, run:
 

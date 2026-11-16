@@ -63,7 +63,7 @@ func TestPlanTargets(t *testing.T) {
 			t.Fatal(err)
 		}
 		for kind, m := range got.Lanes {
-			if kind == "lint-repo" || kind == "component" || kind == "diagram" {
+			if kind == "lint-repo" || kind == "component" || kind == "diagram" || slices.Contains(events[tt.event].skips, kind) {
 				continue
 			}
 			if targets := laneTargets(m); !slices.Equal(targets, tt.want) {
@@ -72,6 +72,32 @@ func TestPlanTargets(t *testing.T) {
 		}
 		if got.Package != tt.pack {
 			t.Errorf("plan(%s, %s, touched %t) packages %t, want %t", tt.event, tt.scope, tt.touched, got.Package, tt.pack)
+		}
+	}
+}
+
+func TestOnlyPullRequestsIntoMainRunTheE2EAndBrowserTiers(t *testing.T) {
+	for _, tt := range []struct {
+		event string
+		scope changescope.Scope
+		want  bool
+	}{
+		{"pr", changescope.PR, true},
+		{"pr", changescope.Native, true},
+		{"stacked", changescope.PR, false},
+		{"stacked", changescope.Native, false},
+	} {
+		got, err := plan(planInputs, events[tt.event], tt.scope, touched{}, nil, "all")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, kind := range []string{"e2e", "browser"} {
+			if planned := len(got.Lanes[kind].Include) > 0; planned != tt.want {
+				t.Errorf("plan(%s, %s) plans %s %t, want %t", tt.event, tt.scope, kind, planned, tt.want)
+			}
+		}
+		if jobs := got.PlannedJobs(); !jobs["target"] || !jobs["go"] {
+			t.Errorf("plan(%s, %s) plans %v, want the build and go lanes", tt.event, tt.scope, jobs)
 		}
 	}
 }
