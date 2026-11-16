@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -58,9 +59,22 @@ func hookProvider(words map[providers.ReasonCode]string) providers.Provider {
 			{Key: "token", Label: "Token", Kind: providers.Text, Secret: true},
 			{Key: "signing", Label: "Signing key", Kind: providers.Text, Secret: true, Optional: true},
 		},
+		Host:     hookHost,
 		Build:    buildHook,
 		Classify: classifyHook,
 	}
+}
+
+func hookHost(values providers.Values, _ providers.Endpoints) (*url.URL, bool) {
+	var raw string
+	if err := json.Unmarshal(values["url"], &raw); err != nil {
+		return nil, false
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return nil, false
+	}
+	return &url.URL{Scheme: u.Scheme, Host: u.Host}, true
 }
 
 // body is what the Hook posts.
@@ -74,8 +88,8 @@ type body struct {
 }
 
 func buildHook(p providers.Payload) (providers.Outbound, error) {
-	var url, token string
-	if err := json.Unmarshal(p.Settings["url"], &url); err != nil {
+	var target, token string
+	if err := json.Unmarshal(p.Settings["url"], &target); err != nil {
 		return providers.Outbound{}, fmt.Errorf("read the url: %w", err)
 	}
 	if err := json.Unmarshal(p.Secrets["token"], &token); err != nil {
@@ -97,7 +111,7 @@ func buildHook(p providers.Payload) (providers.Outbound, error) {
 		}
 		header.Set("X-Signing", signing)
 	}
-	return providers.Outbound{Post: &providers.Request{Method: http.MethodPost, URL: url, Header: header, Body: raw}}, nil
+	return providers.Outbound{Post: &providers.Request{Method: http.MethodPost, URL: target, Header: header, Body: raw}}, nil
 }
 
 func classifyHook(r providers.Reply, now time.Time) providers.Verdict {
@@ -150,6 +164,7 @@ func scriptProvider() providers.Provider {
 			{Key: "path", Label: "Path", Kind: providers.Text},
 			{Key: "node", Label: "Node", Kind: providers.NodeField},
 		},
+		Host: func(providers.Values, providers.Endpoints) (*url.URL, bool) { return nil, false },
 		Build: func(p providers.Payload) (providers.Outbound, error) {
 			var path string
 			if err := json.Unmarshal(p.Settings["path"], &path); err != nil {

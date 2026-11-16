@@ -337,7 +337,7 @@ func (s *Service) check(c Connection, secrets providers.Values) error {
 	if (c.Provider == scriptProvider) != c.script() {
 		return &FieldError{Field: "node", Reason: "Pick the Node that runs this script."}
 	}
-	if c.script() && !s.cfg.Roster.Holds(role.Notifying, c.Node) {
+	if c.script() && c.Node != s.cfg.Roster.Self() && !s.cfg.Roster.Holds(role.Notifying, c.Node) {
 		return &FieldError{Field: "node", Reason: s.names(c.Node) + " doesn't have the Notifying Role. Pick a Node that has it."}
 	}
 	if err := s.checkEvents(c.Events); err != nil {

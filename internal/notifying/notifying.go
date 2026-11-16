@@ -82,7 +82,7 @@ func (c Courier) Deliver(ctx context.Context, s mail.Server, m mail.Message) (ma
 	out, err := Client{Cluster: c.Cluster}.Send(ctx, node, s, m)
 	if err != nil {
 		v, _ := board.Node(node)
-		return mail.Outcome{Kind: mail.Failed, Reply: fmt.Sprintf("%s, which sends notifications and mail, didn't respond: %v", v.Name, err)}, nil
+		return mail.Outcome{Kind: mail.Failed, Reply: fmt.Sprintf("%s, which sends notifications, didn't respond: %v", v.Name, err)}, nil
 	}
 	return out, nil
 }

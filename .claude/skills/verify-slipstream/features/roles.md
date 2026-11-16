@@ -15,7 +15,7 @@ An Admin changes which Node holds which Role through one plan, from each Node's 
 - `roles-blocked` adding Relaying to a second Node answers 409 `roles_blocked`, whose check reads `seedbox already relays. Drag Relaying to move it.`
 - `roles-probes` `GET /api/v1/nodes` lists each Node's `probes`, `engine-starts`, `data-writable` and `listener-up`, each `fits` with its time. The board's Nodes carry the same `probes` and `suggested`, `searching` and `downloading` while engine-starts fits.
 - `roles-reach` a plan with `"test": true` moving Notifying to seedbox checks `seedbox reached 127.0.0.1:<port> in 0 ms.`, the `smtp` front, with the check's `target` `127.0.0.1:<port>`, and a plan without it checks nothing. With the front refused the set answers 409 `roles_blocked`, whose `reach_failed` check reads `seedbox can't reach 127.0.0.1:<port> (connect: connection refused).` With no mail server saved the plan's `nothing_to_test` check reads `No mail server or connection is set up yet, so SlipStream can't test the Notifying Role on seedbox.`
-- `roles-notifying` with Notifying on seedbox alone, `POST /api/v1/mail/test` answers `{"outcome":"sent"}` and the `mail` capture holds it. With seedbox stopped it answers `failed` with `seedbox is reconnecting, and no other Node sends notifications and mail`, and nothing reaches the capture.
+- `roles-notifying` with Notifying on seedbox alone, `POST /api/v1/mail/test` answers `{"outcome":"sent"}` and the `mail` capture holds it. With seedbox stopped it answers `failed` with `seedbox is reconnecting, and no other Node sends notifications, including email`, and nothing reaches the capture.
 - `roles-metadata` with Metadata on home, a catalog search answers through home's `tmdb` front, and with that front reset it answers 502 `metadata_unavailable` naming TMDB in its `detail`. With Metadata on seedbox alone the search and `POST /api/v1/works` answer through seedbox's `tmdb` front while home's is still reset. With seedbox stopped the search answers 502 `metadata_unavailable` with `Metadata: seedbox is reconnecting, and no other Node reads metadata`, and once seedbox is back it answers again.
 - `roles-roster` `GET /api/v1/nodes` lists each Node's `roles` as `{role, state}`, `holding` while it is in step.
 - `roles-drain` unticking Downloading on seedbox while it seeds an imported Grab answers a `drains` effect, `seedbox takes no new Downloading work. It keeps its 1 torrent (3.5 MB) until you move or write it off.`, and the roster lists seedbox `draining` in Downloading with `held`, its facts running `downloading` with only `searching` assigned.
@@ -114,7 +114,7 @@ Steps:
   $FW mail list $RUN
   ```
 
-- **Stop seedbox and send it again.** It answers `failed` with `seedbox is reconnecting, and no other Node sends notifications and mail`, and the capture holds no new message. Start seedbox and wait for its link: the next test email is `sent`.
+- **Stop seedbox and send it again.** It answers `failed` with `seedbox is reconnecting, and no other Node sends notifications, including email`, and the capture holds no new message. Start seedbox and wait for its link: the next test email is `sent`.
 
   ```sh
   $FW node stop $RUN seedbox

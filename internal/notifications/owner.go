@@ -17,8 +17,9 @@ import (
 
 // Owner is the Notifying Role's owner. It keeps no work. A Node that can't
 // reach the mail server can't gain the Role, one that can't reach a
-// connection's host gains it with a warning, and a Node a Custom Script
-// runs on keeps the Role until the script moves.
+// connection's host gains it with a warning, and a Worker a Custom Script
+// runs on keeps the Role until the script moves. The Controller runs its
+// own scripts whatever Roles it has, since the Role lapses to it.
 func (s *Service) Owner() nodes.Owner {
 	return nodes.Owner{
 		Role: role.Notifying, Held: nodes.HoldsNothing, Unassigned: nodes.MovesNothing,
@@ -95,8 +96,12 @@ func targetOf(u *url.URL) (nodesystem.Target, bool) {
 	return t, t.Host != ""
 }
 
-// scriptsOn names the Custom Script connections that run on node, by name.
+// scriptsOn names the Custom Script connections that run on node, by
+// name, and none on the Controller.
 func (s *Service) scriptsOn(ctx context.Context, r storage.Reader[storage.Library], node role.NodeID) ([]string, error) {
+	if node == s.cfg.Roster.Self() {
+		return nil, nil
+	}
 	rows, err := db.New(r).ListScriptsOn(ctx, node)
 	if err != nil {
 		return nil, err

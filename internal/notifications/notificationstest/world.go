@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
+	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/notifications"
@@ -60,7 +61,7 @@ type World struct {
 func New(t *testing.T, timings notifications.Timings) *World {
 	t.Helper()
 	ctx := t.Context()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), notifications.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), mail.Schema(), nodes.Schema(), notifications.Schema())
 	keys, err := secret.Open(ctx, lib, filepath.Join(t.TempDir(), secret.KeyFile))
 	if err != nil {
 		t.Fatal(err)
