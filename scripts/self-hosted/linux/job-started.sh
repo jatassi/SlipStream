@@ -34,3 +34,6 @@ if wr and (wr.get("head_repository") or {}).get("full_name") != repo:
 PY
 
 echo "Job authorized for $OWNER on $REPO"
+# The post-job hook clears these too, but a runner restarted mid-job never
+# ran it.
+"$(dirname "$0")/clear-strays.sh"

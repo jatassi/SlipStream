@@ -55,7 +55,7 @@ apt-get install -y -qq --no-install-recommends \
   build-essential ca-certificates curl gawk gh git iproute2 jq python3 sudo unzip xz-utils zip zstd > /dev/null
 
 install -d -m 755 "$HOOKS"
-for hook in job-started.sh job-completed.sh; do
+for hook in job-started.sh job-completed.sh clear-strays.sh; do
   sed 's/\r$//' "$KIT_DIR/$hook" > "$HOOKS/$hook"
   chmod 755 "$HOOKS/$hook"
 done
