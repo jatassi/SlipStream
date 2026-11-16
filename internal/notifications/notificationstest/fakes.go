@@ -352,6 +352,13 @@ func (r *Roster) Name(node role.NodeID) string {
 	return r.names[node]
 }
 
+func (r *Roster) Holds(_ role.Name, node role.NodeID) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, ok := r.names[node]
+	return ok && !r.removed[node]
+}
+
 func (r *Roster) WrittenOff(_ role.Name, node role.NodeID) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()

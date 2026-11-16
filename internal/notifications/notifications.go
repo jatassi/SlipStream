@@ -55,6 +55,7 @@ type Roster interface {
 	Self() role.NodeID
 	Changed() <-chan struct{}
 	Pick(r role.Name, prefer role.NodeID) (role.NodeID, bool)
+	Holds(r role.Name, node role.NodeID) bool
 	InStep(node role.NodeID) bool
 	Name(node role.NodeID) string
 	WrittenOff(r role.Name, node role.NodeID) bool
