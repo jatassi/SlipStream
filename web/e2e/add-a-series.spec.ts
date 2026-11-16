@@ -63,7 +63,9 @@ async function expectRemembered(page: Page) {
   );
   await expect(next.getByRole("switch", { name: "Include specials" })).toBeChecked();
   await expect(next.getByRole("switch", { name: "Season folders" })).not.toBeChecked();
-  await expect(sentence(next)).toContainText("SlipStream monitors 2 episodes and new ones as they air.");
+  await expect(sentence(next)).toContainText(
+    "SlipStream monitors 2 episodes and new ones as they air.",
+  );
 }
 
 test("a series found by its alternative title adds with the preset, specials and folders chosen, and Remember keeps them", async ({
@@ -91,7 +93,9 @@ test("a series found by its alternative title adds with the preset, specials and
   const specials = sheet.getByRole("switch", { name: "Include specials" });
   await expect(specials).not.toBeChecked();
   await specials.click();
-  await expect(sentence(sheet)).toContainText("SlipStream monitors 5 episodes and new ones as they air.");
+  await expect(sentence(sheet)).toContainText(
+    "SlipStream monitors 5 episodes and new ones as they air.",
+  );
   const folders = sheet.getByRole("switch", { name: "Season folders" });
   await expect(folders).toBeChecked();
   await folders.click();
