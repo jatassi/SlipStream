@@ -33,6 +33,8 @@ type Transition struct {
 	// for Cleared the last answer this process saw.
 	Subject, Text string
 	At            time.Time
+	// Since is when the item first appeared: At for Raised.
+	Since time.Time
 }
 
 // Level is the item's level after the change, or before it when cleared.
