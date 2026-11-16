@@ -43,3 +43,9 @@ SELECT EXISTS (
     WHERE t.item_id = sqlc.arg(item_id) AND t.target_id = sqlc.arg(target_id) AND g.edition = sqlc.arg(edition)
         AND t.settled IS NULL AND g.stage NOT IN ('imported', 'failed')
 );
+
+-- name: ListItemSearches :many
+SELECT item_id FROM grabs_item_search ORDER BY item_id;
+
+-- name: DeleteItemSearch :exec
+DELETE FROM grabs_item_search WHERE item_id = sqlc.arg(item_id);

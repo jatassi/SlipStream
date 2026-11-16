@@ -130,6 +130,32 @@ func TestBacklogSearchSearchesItemsAloneOnlyOnTheirFirstSearchOrAtTheLongestGap(
 	})
 }
 
+func TestAnItemWantedAgainAfterBacklogSearchFoundItWantingNothingIsSearchedAloneAgain(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		site := &byQuery{}
+		w := queueWorld(t, grabstest.Options{Sites: []string{"Quick Site"}, Season: 3, Remote: site})
+		steady(t, w)
+		settings(t, w, map[string]string{grabs.LongestGap.Key: "86400"})
+		w.Run()
+		e02 := works.Within{Items: []works.ItemID{w.Items[1]}}
+		enqueue(t, w, searches.Backlog)
+		if got := site.asked(); len(got) != 4 {
+			t.Fatalf("the first Backlog search searched %q, want the season, then each Item alone", got)
+		}
+		if _, err := w.Config.Works.SetMonitored(t.Context(), identity.Admin{}, w.Work, e02, false); err != nil {
+			t.Fatal(err)
+		}
+		backlogRun(t, w)
+		if _, err := w.Config.Works.SetMonitored(t.Context(), identity.Admin{}, w.Work, e02, true); err != nil {
+			t.Fatal(err)
+		}
+		enqueue(t, w, searches.Backlog)
+		if got, want := site.asked(), []string{"The Attic", "The Attic E02"}; !slices.Equal(got, want) {
+			t.Fatalf("after E02 wanted nothing and is wanted again, Backlog search searched %q, want %q: E02's first search since its Wants opened", got, want)
+		}
+	})
+}
+
 func TestTheGapResetsAfterAGrabDoublesAfterNothingAndStaysWhenEveryIndexerFailed(t *testing.T) {
 	grabbable := searching.Answer{Releases: []searching.Release{{
 		Title: "The.Attic.2020.1080p.BluRay.x264", Size: 8 << 30, Seeders: 10, Link: searching.LinkOf("https://site.test/attic.torrent"),
