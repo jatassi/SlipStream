@@ -5,7 +5,7 @@ import type { IdentityAccount } from "../api/gen/model";
 import { getGetSessionQueryKey } from "../api/gen/query/identity/identity";
 
 import { type LiveMap, ada, problem } from "./handlers";
-import type { renderApp } from "./render-app";
+import { type renderApp, settled } from "./render-app";
 
 type Client = Parameters<Parameters<typeof sse<LiveMap>>[1]>[0]["client"];
 
@@ -53,16 +53,20 @@ export function liveServer() {
 }
 
 // The stream reports open before it reads the server's opening live.resync,
-// which would invalidate anything seeded in between. That resync refetches the
-// session the shell loaded on entry, so its second answer marks it handled.
-export async function synced({ live, queryClient }: ReturnType<typeof renderApp>) {
-  await expect.poll(() => live.getState()).toBe("open");
+// which would invalidate anything seeded in between. The shell's guard loads
+// the session before the stream connects, so the resync always marks it
+// invalid, and only the shell mounting refetches it. A fetch still in flight
+// when a test seeds its key would land after the seed and read as a refetch.
+// A file's first page load compiles that page's modules, which on a loaded
+// runner takes several seconds.
+export async function synced(app: ReturnType<typeof renderApp>) {
   await expect
-    .poll(() => queryClient.getQueryState(getGetSessionQueryKey())?.dataUpdateCount)
-    .toBe(2);
-  // A fetch the page started before a test seeds its key would land after the
-  // seed and read as a refetch.
-  await expect.poll(() => queryClient.isFetching()).toBe(0);
+    .poll(() => {
+      const session = app.queryClient.getQueryState(getGetSessionQueryKey());
+      return session !== undefined && (session.isInvalidated || session.dataUpdateCount > 1);
+    })
+    .toBe(true);
+  await expect.poll(() => settled(app), { timeout: 10_000 }).toBe(true);
 }
 
 // seeded caches an empty answer under each key and reads which were since
