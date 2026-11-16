@@ -102,7 +102,8 @@ func TestAControllerRestartedMidWaitGrabsWhenTheHoldEnds(t *testing.T) {
 // TestAControllerRestartedMidRSSGrabsTheFeedOnce restarts home while RSS
 // sync reads Fixture Site's feed. The read never moved the feed's
 // position, so the next scheduled run reads the same uploads and grabs
-// the movie once.
+// the movie once. The cut-off run ends canceled, or skipped when home's
+// link to seedbox closes before its tasks stop.
 func TestAControllerRestartedMidRSSGrabsTheFeedOnce(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
@@ -116,13 +117,12 @@ func TestAControllerRestartedMidRSSGrabsTheFeedOnce(t *testing.T) {
 		time.Sleep(20 * time.Minute)
 		synctest.Wait()
 		w.expectOneGrab(work, "rss", 2)
-		var got []string
-		for _, r := range w.runs(rssTask) {
-			got = append(got, r.lines()...)
-		}
-		expect(t, "RSS sync's runs", got, []string{
+		runs := w.runs(rssTask)
+		expect(t, "RSS sync's scheduled run", runs[0].lines(), []string{
 			"schedule|succeeded", "Fixture Site|seedbox|succeeded||Read 2 new Releases. 2 matched a Work, and 1 was grabbed.",
-			"run-now|canceled", "Fixture Site||canceled||",
 		})
+		if len(runs) != 2 || runs[1].Trigger != "run-now" || runs[1].Result == "succeeded" {
+			t.Fatalf("RSS sync's runs are %+v, want the scheduled one after the Run now the restart cut off", runs)
+		}
 	})
 }

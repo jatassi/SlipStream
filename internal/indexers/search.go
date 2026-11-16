@@ -189,9 +189,10 @@ func (x *Indexers) Search(ctx context.Context, s Search, each func(Answer) error
 // restart: asked again with the same line, it joins the job the Searching
 // Node runs or kept under the line's query id, so one reservation never
 // searches twice. A line past its deadline answers late without asking.
-// While no Node may take it, as when a restarted Controller's Searching
-// Node hasn't linked again yet, it fails with ErrAway and keeps its query
-// in flight, so the line asks again. Its other outcomes are Search's.
+// While no Node may take it, or its call is cut off as the link closes,
+// as when the Controller restarts mid-search, it fails with ErrAway and
+// keeps its query in flight, so the line asks again. Its other outcomes
+// are Search's.
 func (x *Indexers) SearchOne(ctx context.Context, l Line, s Search, deadline time.Time) (Answer, error) {
 	if !time.Now().Before(deadline) {
 		return Answer{Indexer: l.Indexer, Outcome: Outcome{Kind: Late}}, nil
@@ -209,7 +210,7 @@ func (x *Indexers) SearchOne(ctx context.Context, l Line, s Search, deadline tim
 }
 
 // searchOne asks line l of s. A line that rejoins its query's job fails
-// with ErrAway while no Node may take it; any other answers Waiting.
+// with ErrAway where any other answers Waiting.
 func (x *Indexers) searchOne(ctx context.Context, l Line, s Search, wait time.Duration, deadline time.Time, rejoins bool) (Answer, error) {
 	out := Answer{Indexer: l.Indexer}
 	idx, err := x.get(ctx, x.cfg.Library, l.Indexer)
@@ -233,7 +234,7 @@ func (x *Indexers) searchOne(ctx context.Context, l Line, s Search, wait time.Du
 		x.lose(ctx, l.Query)
 		return Answer{}, err
 	}
-	j.wait, j.deadline = wait, deadline
+	j.wait, j.deadline, j.rejoins = wait, deadline, rejoins
 	for _, c := range served(idx, x.categories(s.Type)) {
 		j.wire.Categories = append(j.wire.Categories, int(c))
 	}
@@ -243,6 +244,8 @@ func (x *Indexers) searchOne(ctx context.Context, l Line, s Search, wait time.Du
 		return Answer{}, fmt.Errorf("search Indexer %s: %w", idx.Name, ctx.Err())
 	case errors.Is(err, ErrLate):
 		out.Outcome = Outcome{Kind: Late}
+	case j.asksAgain(err):
+		return Answer{}, ErrAway
 	case errors.As(err, new(*UnavailableError)):
 		out.Outcome = Outcome{Kind: Waiting, Node: j.node}
 	case err != nil:

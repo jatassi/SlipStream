@@ -331,7 +331,8 @@ var (
 	ErrNotSearching    = errors.New("that Node doesn't hold Searching")
 	// ErrLate is a job that passed its deadline.
 	ErrLate = errors.New("the Indexer didn't respond in time")
-	// ErrAway is a line asked again while no Node may take its query.
+	// ErrAway is a queue line that no Node took this time, whose query stays
+	// in flight for the line to ask again.
 	ErrAway = errors.New("no Node can take the Indexer's search now")
 )
 

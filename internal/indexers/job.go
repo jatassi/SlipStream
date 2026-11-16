@@ -31,6 +31,9 @@ type job struct {
 	// deadline is a search job's, counted from when its line was first
 	// asked, zero for every other use.
 	deadline time.Time
+	// rejoins is a queue line's job, which its line asks again under the
+	// same query while no Node can take it.
+	rejoins bool
 }
 
 // answer is a as record reads it.
@@ -133,13 +136,21 @@ func (x *Indexers) where(ctx context.Context, idx Indexer) (role.NodeID, error) 
 func (x *Indexers) run(ctx context.Context, j job) (searching.Answer, Status, error) {
 	a, err := x.ask(ctx, j)
 	if err != nil {
-		if !errors.Is(err, ErrLate) && ctx.Err() == nil {
+		if !errors.Is(err, ErrLate) && ctx.Err() == nil && !j.asksAgain(err) {
 			x.lose(ctx, j.q)
 		}
 		return searching.Answer{}, Status{}, err
 	}
 	st, err := x.record(context.WithoutCancel(ctx), j.q, j.idx.ID, j.answer(a))
 	return a, st, err
+}
+
+// asksAgain is whether err leaves j's query in flight for its line to ask
+// again: a queue line's call that may go through once the roster changes,
+// as when the Controller's link closes while it stops.
+func (j job) asksAgain(err error) bool {
+	u, ok := errors.AsType[*UnavailableError](err)
+	return j.rejoins && ok && u.Wait
 }
 
 // lose completes q as lost: its job never answered.
