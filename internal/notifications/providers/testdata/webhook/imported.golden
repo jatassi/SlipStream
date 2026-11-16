@@ -17,7 +17,7 @@ X-Hook-Secret: [set]
   "work": {
     "id": "w2",
     "title": "Severance",
-    "contentType": "series"
+    "contentType": "fixture"
   },
   "files": [
     {

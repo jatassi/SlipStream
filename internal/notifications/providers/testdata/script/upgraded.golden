@@ -14,7 +14,7 @@ Stop: 45s
   "work": {
     "id": "w1",
     "title": "Heat (1995)",
-    "contentType": "movie"
+    "contentType": "fixture"
   },
   "files": [
     {

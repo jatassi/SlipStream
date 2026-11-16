@@ -6,12 +6,12 @@ import "github.com/jatassi/slipstream/internal/notifications/providers"
 // built with and notify-sink's tests send to the sink.
 var Cases = map[providers.ID]Case{
 	"apprise": {
-		Settings: Raw(map[string]any{"serverUrl": "http://apprise.lan:8000", "tags": []string{"family", "phones"}, "username": "slipstream"}),
+		Settings: Raw(map[string]any{"serverUrl": "http://apprise.example:8000", "tags": []string{"family", "phones"}, "username": "slipstream"}),
 		Secrets:  Raw(map[string]any{"key": "apprise-key", "password": "apprise-password"}),
 	},
 	"discord": {
 		Settings: Raw(map[string]any{"username": "SlipStream"}),
-		Secrets:  Raw(map[string]any{"webhookUrl": "https://discord.com/api/webhooks/1180000000000000000/discord-token"}),
+		Secrets:  Raw(map[string]any{"webhookUrl": "https://discord.example/api/webhooks/1180000000000000000/discord-token"}),
 	},
 	"email": {
 		Settings: Raw(map[string]any{"addresses": []string{"sam@example.com", "alex@example.com"}}),
@@ -36,7 +36,7 @@ var Cases = map[providers.ID]Case{
 		Settings: Raw(map[string]any{"node": "n1", "path": "/opt/notify.sh", "args": []string{"--quiet"}, "stop": 45}),
 	},
 	"slack": {
-		Secrets: Raw(map[string]any{"webhookUrl": "https://hooks.slack.com/services/T0000/B0000/slack-token"}),
+		Secrets: Raw(map[string]any{"webhookUrl": "https://slack.example/services/T0000/B0000/slack-token"}),
 	},
 	"telegram": {
 		Settings: Raw(map[string]any{"chatId": "-1001234567890", "topicId": 42, "silent": true}),

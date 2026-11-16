@@ -21,7 +21,7 @@ type Fixture struct {
 	Poster bool
 }
 
-var heat = &notice.BodyWork{ID: "w1", Title: "Heat (1995)", ContentType: "movie"}
+var heat = &notice.BodyWork{ID: "w1", Title: "Heat (1995)", ContentType: "fixture"}
 
 // Fixtures are one message per kind, in the words the spec's table gives.
 var Fixtures = []Fixture{
@@ -56,7 +56,7 @@ var Fixtures = []Fixture{
 		Link: notice.Link{Path: "https://slipstream.example/works/w2"},
 		Tone: notice.Good,
 		Body: notice.Body{
-			Work:  &notice.BodyWork{ID: "w2", Title: "Severance", ContentType: "series"},
+			Work:  &notice.BodyWork{ID: "w2", Title: "Severance", ContentType: "fixture"},
 			Files: []notice.BodyFile{{Items: []string{"S02E01", "S02E02"}, Quality: "WEBDL-2160p", PlacedBy: "hardlink"}},
 		},
 	}},
@@ -122,7 +122,7 @@ func PosterFor(p providers.Provider) *providers.Poster {
 	case providers.Bytes:
 		return &providers.Poster{Bytes: PosterBytes, Type: "image/jpeg", Name: "poster.jpg"}
 	case providers.PublicURL, providers.BodyURL:
-		return &providers.Poster{URL: "https://image.tmdb.org/t/p/w500/heat.jpg"}
+		return &providers.Poster{URL: "https://images.example/t/p/w500/heat.jpg"}
 	case providers.NoImage:
 	}
 	return nil

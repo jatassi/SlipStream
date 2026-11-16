@@ -33,9 +33,9 @@ var apprise = Provider{
 	ID:    "apprise",
 	Label: "Apprise",
 	Fields: []Field{
-		{Key: "serverUrl", Label: "Server URL", Kind: URL, Help: "The address of your Apprise API server, such as http://apprise.lan:8000."},
+		{Key: "serverUrl", Label: "Server URL", Kind: URL, Help: "The address of your Apprise API server, with its port."},
 		{Key: "key", Label: "Configuration key", Kind: Text, Secret: true, Optional: true, Help: "The key of a configuration saved on the server. Leave it empty to list Apprise URLs instead."},
-		{Key: "urls", Label: "Apprise URLs", Kind: List, Secret: true, Optional: true, Help: "The services to send to, such as join://apikey/device. Used when no key is set."},
+		{Key: "urls", Label: "Apprise URLs", Kind: List, Secret: true, Optional: true, Help: "The services to send to, each an Apprise URL such as a join:// or mailto:// one. Used when no key is set."},
 		{Key: "tags", Label: "Tags", Kind: List, Optional: true, Details: true, Help: "With a key, sends only to the services that have one of these tags."},
 		{Key: "username", Label: "Username", Kind: Text, Optional: true, Details: true, Help: "Needed only when the server asks for a sign-in."},
 		{Key: "password", Label: "Password", Kind: Text, Secret: true, Optional: true, Details: true},

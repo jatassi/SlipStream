@@ -14,7 +14,7 @@ X-Gotify-Key: [set]
       "click": {
         "url": "https://slipstream.example/works/w1"
       },
-      "bigImageUrl": "https://image.tmdb.org/t/p/w500/heat.jpg"
+      "bigImageUrl": "https://images.example/t/p/w500/heat.jpg"
     }
   }
 }

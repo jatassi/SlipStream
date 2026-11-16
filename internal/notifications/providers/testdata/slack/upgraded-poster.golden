@@ -12,7 +12,7 @@ Content-Type: application/json
       },
       "accessory": {
         "type": "image",
-        "image_url": "https://image.tmdb.org/t/p/w500/heat.jpg",
+        "image_url": "https://images.example/t/p/w500/heat.jpg",
         "alt_text": "Upgraded Heat (1995) to Remux-2160p"
       }
     }

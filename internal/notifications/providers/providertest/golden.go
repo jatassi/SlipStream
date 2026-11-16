@@ -9,11 +9,21 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/notifications/outbound"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 )
 
 var update = flag.Bool("update", false, "rewrite the provider golden files")
+
+// Endpoints stand in for the fixed hosts. A dump drops the host, so a
+// golden reads the same for the provider's own host.
+var Endpoints = providers.Endpoints{
+	Telegram:   endpoint.MustParseURL("https://telegram.example"),
+	Pushover:   endpoint.MustParseURL("https://pushover.example"),
+	Pushbullet: endpoint.MustParseURL("https://pushbullet.example"),
+	Ntfy:       endpoint.MustParseURL("https://ntfy.example"),
+}
 
 // Case is one connection's settings and opened secrets, which every
 // fixture is built with.
@@ -52,7 +62,7 @@ func Golden(t *testing.T, p providers.Provider, c Case) {
 				continue
 			}
 			t.Run(Name(f, poster), func(t *testing.T) {
-				out, err := p.Build(Payload(p, c, f, poster, providers.DefaultEndpoints()))
+				out, err := p.Build(Payload(p, c, f, poster, Endpoints))
 				if err != nil {
 					t.Fatal(err)
 				}

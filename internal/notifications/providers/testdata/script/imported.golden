@@ -16,7 +16,7 @@ Stop: 45s
   "work": {
     "id": "w2",
     "title": "Severance",
-    "contentType": "series"
+    "contentType": "fixture"
   },
   "files": [
     {
