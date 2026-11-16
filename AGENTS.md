@@ -14,7 +14,7 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/ag
 
 ## Writing
 
-Every string a person reads follows [WRITING.md](WRITING.md). Its Scope section lists those strings, and its Reviewing section sets how a review checks them.
+Every string a person reads follows [WRITING.md](WRITING.md). Its Scope section lists those strings, and its Reviewing section sets how a review checks them. GLOSSARY.md names concepts for code and docs and isn't a UI word list. Before you add or change a string a person reads, read WRITING.md's House words in copy section, which lets a glossary term onto a screen only through its `_In UI_` line.
 
 ## Settings
 

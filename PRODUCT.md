@@ -50,7 +50,7 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 ## Brand Commitments
 
 - The name is SlipStream, written with a capital second S.
-- UI copy uses [GLOSSARY.md](GLOSSARY.md) terms and avoids each term's _Avoid_ list: Work, not title or show; Target, not quality version; Conversion, not transcode; Node, not instance; Member, not user.
+- UI copy names each glossary concept by its `_In UI_` line in [GLOSSARY.md](GLOSSARY.md) and follows [WRITING.md](WRITING.md). A movie or series, not a title or show. A Target, not a quality version. A Node, not an instance. A Member, not a user.
 - The colour palette and the logo (P-017) are settled in [DESIGN.md](DESIGN.md). The logo masters live in `brand/`.
 
 ## Evidence on Hand
@@ -63,7 +63,7 @@ Success for an Admin: Works arrive at every wanted Edition and Target without ba
 1. **Members never see machinery.** The portal speaks in a Request's stages: Pending, Approved, Searching, Downloading, Processing, Available and Denied, plus the Delayed flag.
 2. **Answer "is it moving, and what broke" first.** Admin surfaces lead with live state and name the stage and cause of any failure.
 3. **Parity is a floor.** Nothing a v1 user relied on disappears without the maintainer's recorded yes.
-4. **One vocabulary everywhere.** The glossary is the UI's language, so docs, logs and screens agree.
+4. **One name per thing.** Docs, logs and screens call the same thing by the same name, and screens use the glossary's `_In UI_` words.
 5. **Distributed, not complicated.** A single-machine install should feel complete; more Nodes add capacity without adding ceremony.
 
 ## Accessibility & Inclusion
