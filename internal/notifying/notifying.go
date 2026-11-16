@@ -1,7 +1,7 @@
 // Package notifying is the Notifying Role's wire: the link service that
 // sends mail, posts HTTP requests and runs scripts from the Node with the
-// Role, the Client the Controller calls it through, the courier that hands
-// the Controller's mail to that Node, and the Role's owner.
+// Role, the Client the Controller calls it through, and the courier that
+// hands the Controller's mail to that Node.
 package notifying
 
 import (
@@ -12,27 +12,11 @@ import (
 
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/nodes"
-	"github.com/jatassi/slipstream/internal/nodesystem"
 	notifyv1 "github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1/notifyv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
-	"github.com/jatassi/slipstream/internal/storage"
 )
-
-// Owner is the Notifying Role's owner. It keeps no work, and a Node that
-// can't reach the SMTP server can't gain the Role.
-var Owner = nodes.Owner{Role: role.Notifying, Held: nodes.HoldsNothing, Unassigned: nodes.MovesNothing, Reach: targets}
-
-// targets is the SMTP server's host and port, none while mail isn't set
-// up. Only implicit TLS starts with a handshake.
-func targets(ctx context.Context, r storage.Reader[storage.Library]) ([]nodes.Target, error) {
-	s, err := mail.ReadSettings(ctx, r)
-	if err != nil || s.Host == "" {
-		return nil, err
-	}
-	return []nodes.Target{{Target: nodesystem.Target{Host: s.Host, Port: s.Port, TLS: s.Security == mail.TLS}, What: "the mail server", Block: true}}, nil
-}
 
 // Dial reaches a host from the Node.
 type Dial func(ctx context.Context, network, address string) (net.Conn, error)

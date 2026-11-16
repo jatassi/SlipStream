@@ -34,6 +34,7 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/namingapi"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/nodesapi"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/pairingapi"
@@ -102,6 +103,8 @@ var Events = []live.Event{
 	mediaservers.UnhealthyEvent,
 	mediaservers.RecoveredEvent,
 	mediaservers.ItemsFoundEvent,
+	notifications.ChangedEvent,
+	notifications.SeenEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the
