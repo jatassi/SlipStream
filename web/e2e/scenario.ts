@@ -23,4 +23,10 @@ export type Scenario =
   | "imports"
   | "media-servers"
   | "auto-search"
-  | "hold";
+  | "hold"
+  | "pack-beats-singles"
+  | "busy-feed"
+  | "fault-loop"
+  | "gone-with-rss"
+  | "five-indexers-one-late"
+  | "limited-tracker";

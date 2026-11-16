@@ -94,6 +94,13 @@ func TestAScenarioIndexerSetsItsSitesListingUntilAFeedCuePlays(t *testing.T) {
 	if got := recent(site.Torznab, 0); len(got) != 0 {
 		t.Fatalf("the Torznab site lists %v, want nothing: the scenario sets Heron's listing alone", got)
 	}
+	f.Cue(t, site.Feed.Name, site.FeedArgs{Site: site.Torznab, Uploads: 2})
+	if got := recent(site.Heron, 2); !slices.Equal(got, first) {
+		t.Fatalf("after a Feed cue on the Torznab site Heron lists %v at offset 2, want its own listing %v", got, first)
+	}
+	if got := recent(site.Torznab, 0); len(got) != 2 {
+		t.Fatalf("after a Feed cue on the Torznab site it lists %v, want the cue's 2 uploads", got)
+	}
 	f.Cue(t, site.Feed.Name, site.FeedArgs{})
 	if got := recent(site.Heron, 0); len(got) != 0 {
 		t.Fatalf("after a Feed cue Heron lists %v, want the cue's plain listing", got)

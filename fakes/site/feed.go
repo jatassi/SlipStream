@@ -14,14 +14,17 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 )
 
-// Feed sets how every Torznab site lists its newest uploads, the listing
-// RSS sync reads, from now on. The arguments are FeedArgs, and {} lists
-// them plainly again.
+// Feed sets how every Torznab site, or the one Site names, lists its
+// newest uploads, the listing RSS sync reads, from now on. The arguments
+// are FeedArgs, and {} lists them plainly again.
 var Feed = fake.CueSpec{Name: "fixture-site-feed"}
 
 // FeedArgs are the Feed cue's plays of the newest uploads listing, which
 // is the world's releases newest first.
 type FeedArgs struct {
+	// Site is the label of the one site the cue plays on, keeping every
+	// other site's listing. Empty plays on every site.
+	Site string `json:"site,omitempty"`
 	// NoPaging lists the newest page at every offset.
 	NoPaging bool `json:"noPaging,omitempty"`
 	// Late holds every listing past the longest search wait.
@@ -51,10 +54,24 @@ func (s *site) setFeed(_ context.Context, a FeedArgs) (any, error) {
 	if a.Uploads < 0 {
 		return nil, fmt.Errorf("uploads is %d, below 0", a.Uploads)
 	}
+	l := listing{FeedArgs: a, at: time.Now().UTC().Truncate(time.Second)}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.listing, s.listingAt, s.listings = a, time.Now().UTC().Truncate(time.Second), nil
+	if a.Site == "" {
+		s.listing, s.listings = l, nil
+		return struct{}{}, nil
+	}
+	if s.listings == nil {
+		s.listings = map[string]listing{}
+	}
+	s.listings[a.Site] = l
 	return struct{}{}, nil
+}
+
+// listing is how one site lists its newest uploads, and since when.
+type listing struct {
+	FeedArgs
+	at time.Time
 }
 
 // feedArgs is how the site labeled label lists its newest uploads, and
@@ -62,21 +79,22 @@ func (s *site) setFeed(_ context.Context, a FeedArgs) (any, error) {
 func (s *site) feedArgs(label string) (FeedArgs, time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if a, ok := s.listings[label]; ok {
-		return a, s.listingAt
+	if l, ok := s.listings[label]; ok {
+		return l.FeedArgs, l.at
 	}
-	return s.listing, s.listingAt
+	return s.listing.FeedArgs, s.listing.at
 }
 
-// listingsOf is the listing each library Indexer of sc sets for its site.
-func listingsOf(sc scenario.Scenario) map[string]FeedArgs {
-	out := map[string]FeedArgs{}
+// listingsOf is the listing each library Indexer of sc sets for its site
+// from at.
+func listingsOf(sc scenario.Scenario, at time.Time) map[string]listing {
+	out := map[string]listing{}
 	if sc.Library == nil {
 		return out
 	}
 	for _, ix := range sc.Library.Indexers {
 		if ix.Uploads > 0 || ix.NoPaging || ix.AlwaysLate {
-			out[ix.Site] = FeedArgs{Uploads: ix.Uploads, NoPaging: ix.NoPaging, Late: ix.AlwaysLate}
+			out[ix.Site] = listing{FeedArgs: FeedArgs{Uploads: ix.Uploads, NoPaging: ix.NoPaging, Late: ix.AlwaysLate}, at: at}
 		}
 	}
 	return out

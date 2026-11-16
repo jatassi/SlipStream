@@ -11,13 +11,14 @@ An Admin searches a Work's Indexers from the Work page. SlipStream asks every In
 - `grab-transfer-import` the finished download hands off to its Import, which reads the file on seedbox, sends it to home in a Transfer and places it. The Grab moves from `downloading` to `importing` to `Imported`, its `import` reads `placed` 1, and the Admin's live stream carries `grabs.changed` (P-074).
 - `grab-activity` Activity lists the Grab with its Work, Release and stage.
 - `grab-files` the Work page lists the imported file, and the file in the real media root matches the Release byte for byte (P-258).
+- `grab-fault-loop` on `fault-loop`, adding The Quiet Orchard with `Search after adding` grabs one of its four Releases, each only rar parts, which fails `no_video_file`. SlipStream searches again at once with trigger `failed_grab`, skipping the Releases already tried, until the third failure in 7 days stops the cell: Needs you reads `3 Grabs failed here in 1 day.` with Backlog search's pace and `Search again`, which clears the count and grabs the fourth (P-134).
 
 ## How to get to it (user POV)
 
 - Desktop shell: the sidebar's `Library`, a Work's link, then `Search` in the Work page's hero; or the palette (Ctrl+K, ⌘K on macOS) with part of the Work's name. `Manual search` beside it opens the sheet in [manual-search.md](manual-search.md).
 - Phone shell: the `Library` tab, a Work's link (a pushed page with the back link `Movies`), then `Search` in the hero; or the `Search` tab's palette.
 - Desktop shell: the sidebar's `Activity`, which reads `Activity 1 live` while a Grab moves. Phone shell: the `Activity` tab, badged with the same count.
-- API: `POST /api/v1/works/{workId}/search`, `GET /api/v1/works/{workId}/searches`, `GET /api/v1/grabs`, and `POST /api/v1/grabs/{grabId}/send-to` with `{clientId}` or `{builtInOn}` for a downloading Grab.
+- API: `POST /api/v1/works/{workId}/search`, `GET /api/v1/works/{workId}/searches`, `GET /api/v1/grabs`, and `POST /api/v1/grabs/{grabId}/send-to` with `{clientId}` or `{builtInOn}` for a downloading Grab. `GET /api/v1/works/{workId}/searching` lists a stopped cell under `stops`; Settings > Automatic search's Details holds `Stop searching again after` and its window.
 
 
 ## Driving it with fakeworld and playwright cli
@@ -106,6 +107,20 @@ Steps:
 
 - **Phone.** Open `{runId}-admin-phone` as in the skill's Drive with `phone`, choose the `Activity` tab, and screenshot the same Grab into `proof/search-and-grab/grab-activity/activity-phone.png`.
 
+- **Search again after bad Releases.** On a fresh `fault-loop` run, add The Quiet Orchard with its defaults. Each Grab fails `no_video_file` within seconds; wait for the third, then read the Work.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=movie&query=quiet+orchard'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Quiet Orchard" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Quiet Orchard" }).getByRole("button", { name: "Add Movie" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText(/^3 Grabs failed here/).first().waitFor({ timeout: 120000 }); }'
+  $FW exec $RUN --proof search-and-grab/grab-fault-loop -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/search-and-grab/grab-fault-loop/work.aria.yml
+  $FW exec $RUN --proof search-and-grab/grab-fault-loop -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/search-and-grab/grab-fault-loop/work.png
+  $FW exec $RUN --proof search-and-grab/grab-fault-loop -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
+  ```
+
+  Read the Work's id from that answer's `workId`, and `GET /api/v1/works/<id>/searches` and `/searching` with `--proof search-and-grab/grab-fault-loop`: three runs, the later two with trigger `failed_grab`, and the cell under `stops`.
+
 ## Gotchas
 
 - `announces wait` and `sse wait` default `--after` to the previous step's start. The `started` announce arrives while the second search's click or wait step runs, so pass `--after $FIRED`, the seq of the 429's `fault.fired`.
@@ -117,3 +132,4 @@ Steps:
 - libtorrent announces again only every five minutes. Wait for `started` and `completed`, never a regular announce.
 - Grab and Work ids are drawn fresh in each run. Address the Work by its link name and read ids from `GET /api/v1/grabs`.
 - The Indexer lives on the seedbox, which holds Searching, so Torznab faults target `fixture-site@seedbox`. A rule on `fixture-site@home` never fires.
+- `fault-loop`'s Releases download whole and fail at importing, so each failure lands within seconds of its Grab. Its Backlog search and RSS sync are off, so every run after the first is a search again.

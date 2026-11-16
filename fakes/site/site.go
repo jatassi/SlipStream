@@ -262,11 +262,10 @@ type site struct {
 	listed    map[string]bool
 	rssListed map[string]bool
 	refusal   int
-	listing   FeedArgs
-	listingAt time.Time
+	listing   listing
 	// listings are the scenario's listings of each Torznab site, by label,
-	// until a Feed cue plays.
-	listings map[string]FeedArgs
+	// until a Feed cue plays on every site, and each site a Feed cue names.
+	listings map[string]listing
 	// sessions are the catalog sites' sessions, by token.
 	sessions map[string]session
 	// minted counts the tokens and pre-login nonces handed out.
@@ -326,10 +325,11 @@ func Routes(s scenario.Scenario, releases []Release, announce Announce) fake.Rou
 }
 
 func newSite(s scenario.Scenario, releases []Release, announce Announce) *site {
+	start := time.Now().UTC().Truncate(time.Second)
 	return &site{
 		scenario: s, apiKey: APIKey(s), releases: releases, announce: announce, cookie: Cookie(s),
 		listed: map[string]bool{}, rssListed: map[string]bool{}, sessions: map[string]session{}, down: map[string]bool{},
-		expired: map[string]bool{}, thanked: map[string]bool{}, listings: listingsOf(s), listingAt: time.Now().UTC().Truncate(time.Second),
+		expired: map[string]bool{}, thanked: map[string]bool{}, listing: listing{at: start}, listings: listingsOf(s, start),
 	}
 }
 
