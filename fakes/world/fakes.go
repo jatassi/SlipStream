@@ -3,6 +3,7 @@ package world
 import (
 	"slices"
 
+	"github.com/jatassi/slipstream/fakes/capturescript"
 	"github.com/jatassi/slipstream/fakes/catalog"
 	"github.com/jatassi/slipstream/fakes/challengesolver"
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/coverart"
@@ -26,7 +27,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/tvdb"
 )
 
-var fakes = []fake.Spec{musicmeta.Fake, coverart.Fake, tmdb.Fake, tvdb.Fake, omdb.Fake, imagecdn.Fake, tracker.Fake, tracker.UDP, dht.Fake, site.Fake, catalog.Fake, challengesolver.Fake, smtp.Fake, qbittorrent.Fake, transmission.Fake, deluge.Fake, rtorrent.Fake, plex.Fake, jellyfin.Fake, emby.Fake, plextv.Fake, plextv.Auth}
+var fakes = []fake.Spec{musicmeta.Fake, coverart.Fake, tmdb.Fake, tvdb.Fake, omdb.Fake, imagecdn.Fake, tracker.Fake, tracker.UDP, dht.Fake, site.Fake, catalog.Fake, challengesolver.Fake, smtp.Fake, qbittorrent.Fake, transmission.Fake, deluge.Fake, rtorrent.Fake, plex.Fake, jellyfin.Fake, emby.Fake, plextv.Fake, plextv.Auth, capturescript.Fake}
 
 // Cues are the cues the world's fakes declare, each a name fakeworld cue
 // takes.
