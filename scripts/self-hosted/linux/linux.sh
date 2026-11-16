@@ -67,10 +67,11 @@ if [ ! -f "$PACKAGE" ]; then
 fi
 
 # actions/cache versions a cache by its absolute paths, which name
-# runner.temp. Every runner's service sees its own work directory at the
-# hosted runners' /home/runner/work, so caches saved on hosted runners
-# restore here and the other way around.
-install -d -m 755 /home/runner/work
+# runner.temp, and some caches hold paths relative to the workspace, such as
+# ../../../.bun. Every runner's service sees its own home at the hosted
+# runners' /home/runner, so caches saved on hosted runners restore here and
+# the other way around.
+install -d -m 755 /home/runner
 
 groupadd -f slipstream-ci
 echo '%slipstream-ci ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/slipstream-ci
@@ -86,7 +87,8 @@ After=network-online.target
 [Service]
 User=gha%i
 WorkingDirectory=/home/gha%i/actions-runner
-BindPaths=/home/gha%i/work:/home/runner/work
+BindPaths=/home/gha%i:/home/runner
+Environment=HOME=/home/runner
 ExecStart=/home/gha%i/actions-runner/run.sh
 KillMode=mixed
 KillSignal=SIGINT
@@ -113,16 +115,19 @@ MemoryMax=${memory_mib}M
 MemorySwapMax=0
 EOF
 done
-# Each runner's memory every 2 s, to size the runners from what jobs use.
+# Each runner's memory every 2 s, to size the runners from what jobs use:
+# n=current/anon in MiB, where anon is what its processes allocated and
+# current also counts the file cache.
 install -d -m 755 /var/log/slipstream-ci
 cat > /usr/local/bin/slipstream-ci-memory <<'EOF'
 #!/bin/bash
 while sleep 2; do
   line=$(date -u +%FT%TZ)
-  for f in /sys/fs/cgroup/system.slice/system-slipstream\\x2dci\\x2drunner.slice/slipstream-ci-runner@*.service/memory.current; do
-    [ -e "$f" ] || continue
-    n=${f%.service/memory.current}
-    line+=" ${n##*@}=$(( $(cat "$f") / 1048576 ))"
+  for d in /sys/fs/cgroup/system.slice/system-slipstream*runner.slice/slipstream-ci-runner@*.service; do
+    [ -e "$d/memory.current" ] || continue
+    n=${d%.service}
+    anon=$(awk '$1 == "anon" {print $2}' "$d/memory.stat")
+    line+=" ${n##*@}=$(( $(cat "$d/memory.current") / 1048576 ))/$(( anon / 1048576 ))"
   done
   echo "$line"
 done >> /var/log/slipstream-ci/memory.log

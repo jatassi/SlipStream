@@ -11,7 +11,7 @@ Each Linux runner has its own CPUs and an equal share of the WSL VM's memory, le
 
 Each runner has two labels: the pool's (`slipstream-linux`) and the pool's with its kit's hash (`slipstream-linux-0a1b2c3d4e5f`). A pool's kit is `scripts/self-hosted/linux` or `scripts/self-hosted/windows`, and its hash is the first 12 characters of `git rev-parse HEAD:scripts/self-hosted/<os>`.
 
-Each Linux runner's service sees its own work directory at `/home/runner/work`, the hosted runners' path. `actions/cache` versions a cache by its absolute paths, so with any other path no cache a hosted runner saved would restore on these runners. The distro takes its clock from Windows with NTP off, because the two corrected each other every few seconds when Windows was a minute off. Windows has to keep its own clock in time.
+Each Linux runner's service sees its own home at `/home/runner`, the hosted runners' path. `actions/cache` versions a cache by its absolute paths, and the Bun cache holds paths relative to the workspace, so with any other home no cache a hosted runner saved would restore on these runners. The distro takes its clock from Windows with NTP off, because the two corrected each other every few seconds when Windows was a minute off. Windows has to keep its own clock in time.
 
 ## Which jobs they take
 
