@@ -52,7 +52,7 @@ systemctl disable --now systemd-timesyncd > /dev/null 2>&1 || true
 echo 'DPkg::Lock::Timeout "900";' > /etc/apt/apt.conf.d/90slipstream-ci-lock
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
-  build-essential ca-certificates curl gawk gh git iproute2 jq python3 sudo unzip xz-utils zip zstd > /dev/null
+  build-essential ca-certificates curl gawk gh git iproute2 jq python3 sudo systemd-oomd unzip xz-utils zip zstd > /dev/null
 
 install -d -m 755 "$HOOKS"
 for hook in job-started.sh job-completed.sh clear-strays.sh; do
@@ -106,6 +106,11 @@ EOF
 # that outgrows its memory is killed alone, instead of the VM running out.
 cpus=$(( $(nproc) / RUNNERS ))
 memory_mib=$(( ($(awk '/^MemTotal:/ {print $2}' /proc/meminfo) / 1024 - 2048) / RUNNERS ))
+# go test runs as many packages, and as many tests in each, as there are
+# CPUs, and every e2e test starts a world of processes. Half the e2e suite on
+# 16 CPUs and 10.7 GB peaked at 8 GB with six of each, and the whole suite
+# outgrew it, so the share of memory sets them.
+go_parallel=$(( memory_mib / 1800 > 2 ? memory_mib / 1800 : 2 ))
 for i in $(seq 1 "$RUNNERS"); do
   install -d "/etc/systemd/system/slipstream-ci-runner@$i.service.d"
   cat > "/etc/systemd/system/slipstream-ci-runner@$i.service.d/limits.conf" <<EOF
@@ -115,6 +120,14 @@ MemoryMax=${memory_mib}M
 MemorySwapMax=0
 EOF
 done
+# A job at its memory limit can reclaim page cache just fast enough never to
+# be killed, and then stalls for good: one starved its runner past its job's
+# limit until GitHub lost the runner. systemd-oomd kills a runner whose
+# memory stalls most of a minute, and the service starts it again.
+install -d /etc/systemd/oomd.conf.d "/etc/systemd/system/system-slipstream\\x2dci\\x2drunner.slice.d"
+printf '[OOM]\nDefaultMemoryPressureDurationSec=60s\n' > /etc/systemd/oomd.conf.d/slipstream-ci.conf
+printf '[Slice]\nManagedOOMMemoryPressure=kill\nManagedOOMMemoryPressureLimit=50%%\n' \
+  > "/etc/systemd/system/system-slipstream\\x2dci\\x2drunner.slice.d/oomd.conf"
 # Each runner's memory every 2 s, to size the runners from what jobs use:
 # n=current/anon in MiB, where anon is what its processes allocated and
 # current also counts the file cache.
@@ -147,6 +160,8 @@ EOF
 systemctl daemon-reload
 systemctl enable --now slipstream-ci-memory > /dev/null 2>&1
 systemctl restart slipstream-ci-memory
+systemctl enable systemd-oomd > /dev/null 2>&1
+systemctl restart systemd-oomd
 
 deps_installed=false
 for i in $(seq 1 "$RUNNERS"); do
@@ -173,8 +188,8 @@ for i in $(seq 1 "$RUNNERS"); do
     --name "slipstream-linux-$i" \
     --labels "slipstream-linux,slipstream-linux-$KIT" \
     --work /home/runner/work > /dev/null
-  printf 'ACTIONS_RUNNER_HOOK_JOB_STARTED=%s\nACTIONS_RUNNER_HOOK_JOB_COMPLETED=%s\n' \
-    "$HOOKS/job-started.sh" "$HOOKS/job-completed.sh" | sudo -u "$user" tee "$dir/.env" > /dev/null
+  printf 'ACTIONS_RUNNER_HOOK_JOB_STARTED=%s\nACTIONS_RUNNER_HOOK_JOB_COMPLETED=%s\nGOFLAGS=-p=%s -parallel=%s\n' \
+    "$HOOKS/job-started.sh" "$HOOKS/job-completed.sh" "$go_parallel" "$go_parallel" | sudo -u "$user" tee "$dir/.env" > /dev/null
   systemctl enable --now "slipstream-ci-runner@$i" > /dev/null 2>&1
   echo "slipstream-linux-$i configured"
 done
