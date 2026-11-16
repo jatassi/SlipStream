@@ -24,6 +24,8 @@ import (
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/notifications/notice"
+	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	mediav1 "github.com/jatassi/slipstream/internal/pb/slipstream/media/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
 	"github.com/jatassi/slipstream/internal/release"
@@ -63,6 +65,9 @@ type world struct {
 	probe media.Record
 	// disk is files' Disk, the roots its Imports place through.
 	disk *heldDisk
+	// notices and shelved keep the events the Imports and the library
+	// record.
+	notices, shelved *noticetest.Recorder
 }
 
 // heldDisk is a files.Disk that follows the roots a test moves w onto.
@@ -168,7 +173,10 @@ func newWorld(t *testing.T) *world {
 		t.Fatal(err)
 	}
 	w.probe = media.Record{Version: media.Version, Container: "matroska,webm", Video: media.Video{Codec: "hevc", Width: 1920, Height: 1080}}
+	var rec notice.Recorder
+	rec, w.notices = noticetest.New("imports", Notices())
 	w.cfg = Config{
+		Notices: rec,
 		Library: w.lib, Roots: w.roots, Files: w.files, Works: w.works, Targets: goals, Probes: w.probes,
 		Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: shelfFacet{}},
 		Add: func(ctx context.Context, by identity.Admin, a library.Adding) (library.Added, error) {
@@ -187,7 +195,9 @@ func newWorld(t *testing.T) *world {
 		Log: slog.New(slog.DiscardHandler),
 	}
 	w.im = w.newImports(w.cfg)
-	w.library = library.New(library.Config{Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Imports: w.im, Leaver: w.im})
+	var shelf notice.Recorder
+	shelf, w.shelved = noticetest.New("library", library.Notices())
+	w.library = library.New(library.Config{Notices: shelf, Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Imports: w.im, Leaver: w.im})
 	return w
 }
 

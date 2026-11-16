@@ -741,7 +741,7 @@ func (q *Queries) ListFileItemsOfImports(ctx context.Context, ids []ImportID) ([
 }
 
 const listFilesOf = `-- name: ListFilesOf :many
-SELECT import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order, placed_by, file_id, source_removed_at, seeded FROM imports_file WHERE import_id = ? ORDER BY position
+SELECT import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order, placed_by, file_id, source_removed_at, seeded, told_at FROM imports_file WHERE import_id = ? ORDER BY position
 `
 
 func (q *Queries) ListFilesOf(ctx context.Context, importID ImportID) ([]ImportsFile, error) {
@@ -779,6 +779,7 @@ func (q *Queries) ListFilesOf(ctx context.Context, importID ImportID) ([]Imports
 			&i.FileID,
 			&i.SourceRemovedAt,
 			&i.Seeded,
+			&i.ToldAt,
 		); err != nil {
 			return nil, err
 		}
@@ -794,7 +795,7 @@ func (q *Queries) ListFilesOf(ctx context.Context, importID ImportID) ([]Imports
 }
 
 const listFilesOfImports = `-- name: ListFilesOfImports :many
-SELECT import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order, placed_by, file_id, source_removed_at, seeded FROM imports_file WHERE import_id IN (/*SLICE:ids*/?) ORDER BY import_id, position
+SELECT import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order, placed_by, file_id, source_removed_at, seeded, told_at FROM imports_file WHERE import_id IN (/*SLICE:ids*/?) ORDER BY import_id, position
 `
 
 func (q *Queries) ListFilesOfImports(ctx context.Context, ids []ImportID) ([]ImportsFile, error) {
@@ -842,6 +843,7 @@ func (q *Queries) ListFilesOfImports(ctx context.Context, ids []ImportID) ([]Imp
 			&i.FileID,
 			&i.SourceRemovedAt,
 			&i.Seeded,
+			&i.ToldAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1363,6 +1365,50 @@ func (q *Queries) ListUnfinishedRootImports(ctx context.Context) ([]ImportsImpor
 		return nil, err
 	}
 	return items, nil
+}
+
+const listUntoldPlaced = `-- name: ListUntoldPlaced :many
+SELECT position FROM imports_file
+WHERE import_id = ?1 AND outcome = 'placed' AND told_at IS NULL
+ORDER BY position
+`
+
+func (q *Queries) ListUntoldPlaced(ctx context.Context, importID ImportID) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listUntoldPlaced, importID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var position int64
+		if err := rows.Scan(&position); err != nil {
+			return nil, err
+		}
+		items = append(items, position)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markTold = `-- name: MarkTold :exec
+UPDATE imports_file SET told_at = ?1
+WHERE import_id = ?2 AND outcome = 'placed' AND told_at IS NULL
+`
+
+type MarkToldParams struct {
+	ToldAt   storage.Time
+	ImportID ImportID
+}
+
+func (q *Queries) MarkTold(ctx context.Context, arg MarkToldParams) error {
+	_, err := q.db.ExecContext(ctx, markTold, arg.ToldAt, arg.ImportID)
+	return err
 }
 
 const recordComparison = `-- name: RecordComparison :exec

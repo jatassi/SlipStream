@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -87,7 +88,10 @@ type Config struct {
 	// each Import file's IO before it runs, in tests.
 	BeforeStep   func(ctx context.Context, root roots.ID, phase Phase)
 	BeforeImport func(ctx context.Context, at Step)
-	Log          *slog.Logger
+	// Notices records Imported, Upgraded and Works added by a Library
+	// scan.
+	Notices notice.Recorder
+	Log     *slog.Logger
 }
 
 // Timings are the reconciler's, the grabs backoff: an import wait retries

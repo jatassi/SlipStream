@@ -1,0 +1,104 @@
+{
+  "work": {
+    "id": "019a8f5e-0000-7000-8000-000000000002",
+    "label": "Ark (2019)",
+    "type": "zine",
+    "nouns": {
+      "work": {
+        "One": "Zine",
+        "Many": "Zines"
+      },
+      "levels": [
+        {
+          "One": "Volume",
+          "Many": "Volumes"
+        }
+      ],
+      "item": {
+        "One": "Issue",
+        "Many": "Issues"
+      },
+      "single": false
+    },
+    "poster": {
+      "Source": "tmdb",
+      "Shape": "poster",
+      "Path": "/cover.jpg"
+    }
+  },
+  "root": "Zines library root on Den",
+  "files": [
+    {
+      "items": [
+        {
+          "level": "Volume 1",
+          "number": 1
+        }
+      ],
+      "quality": "bluray-1080p",
+      "size": 536870912,
+      "placedBy": "link",
+      "replaced": [
+        "hdtv-720p"
+      ]
+    },
+    {
+      "items": [
+        {
+          "level": "Volume 1",
+          "number": 2
+        }
+      ],
+      "quality": "bluray-1080p",
+      "size": 536870912,
+      "placedBy": "link",
+      "replaced": [
+        "hdtv-720p"
+      ]
+    },
+    {
+      "items": [
+        {
+          "level": "Volume 1",
+          "number": 3
+        }
+      ],
+      "quality": "bluray-1080p",
+      "size": 536870912,
+      "placedBy": "link",
+      "replaced": [
+        "hdtv-720p"
+      ]
+    },
+    {
+      "items": [
+        {
+          "level": "Volume 1",
+          "number": 4
+        }
+      ],
+      "quality": "bluray-1080p",
+      "size": 536870912,
+      "placedBy": "link",
+      "replaced": [
+        "hdtv-720p"
+      ]
+    },
+    {
+      "items": [
+        {
+          "level": "Volume 1",
+          "number": 5
+        }
+      ],
+      "quality": "bluray-1080p",
+      "size": 536870912,
+      "placedBy": "link",
+      "replaced": [
+        "hdtv-720p"
+      ]
+    }
+  ],
+  "failed": 0,
+  "waiting": 0
+}

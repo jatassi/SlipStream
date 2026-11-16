@@ -89,8 +89,10 @@ func (im *Imports) writeIn(ctx context.Context, tx *storage.Tx[file], id ImportI
 		a.roots = append(a.roots, imp.Root)
 	}
 	a.sent = a.sent || imp.Source != FromRoot
-	err = save(ctx, tx, &imp)
-	return imp, err
+	if err := save(ctx, tx, &imp); err != nil {
+		return imp, err
+	}
+	return imp, im.announce(ctx, tx, imp)
 }
 
 // converge brings everything derived from imp's rows into line in tx: a

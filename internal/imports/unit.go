@@ -116,10 +116,7 @@ func (im *Imports) unit(ctx context.Context, u tasks.Unit, p *tasks.Progress) er
 	if isStopped {
 		c.Stopped = &stopped
 	}
-	err = im.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return record(ctx, tx, root.ID, c, storage.Now())
-	})
-	if err != nil {
+	if err := im.recordScan(ctx, root, c); err != nil {
 		return err
 	}
 	im.cfg.Roots.Publish(ctx, []roots.ID{root.ID})
@@ -469,4 +466,19 @@ type troubleError struct{ state roots.State }
 func (e troubleError) Error() string {
 	sentence, fix, _ := roots.Trouble(e.state)
 	return sentence + " " + fix
+}
+
+// recordScan records root's comparison c and the Works the scan adopted
+// since the comparison before it.
+func (im *Imports) recordScan(ctx context.Context, root roots.Root, c Comparison) error {
+	return im.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		since, err := comparedAt(ctx, tx, root.ID)
+		if err != nil {
+			return err
+		}
+		if err := record(ctx, tx, root.ID, c, storage.Now()); err != nil {
+			return err
+		}
+		return im.announceScan(ctx, tx, root, since)
+	})
 }
