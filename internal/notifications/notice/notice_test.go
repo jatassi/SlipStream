@@ -37,8 +37,8 @@ var otherRow = notice.Row[struct{}]{Spec: notice.Spec{Kind: "other"}}
 
 var heat = deletedFacts{
 	Work: notice.Work{
-		ID: works.WorkID{UUID: storage.NewUUID()}, Label: "Heat (1995)", Type: "movie",
-		Nouns:  notice.Nouns{Work: works.Noun{One: "movie", Many: "movies"}, Item: works.Noun{One: "movie", Many: "movies"}, Single: true},
+		ID: works.WorkID{UUID: storage.NewUUID()}, Label: "Heat (1995)", Type: "book",
+		Nouns:  notice.Nouns{Work: works.Noun{One: "book", Many: "books"}, Item: works.Noun{One: "book", Many: "books"}, Single: true},
 		Poster: artwork.Ref{Source: "tmdb", Shape: artwork.ShapePoster, Path: "/heat.jpg"},
 	},
 	By:    notice.Actor{Name: "Sam"},
@@ -64,7 +64,7 @@ func TestARecordedEventRendersAsItsFactsDo(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := notice.Message{
-		Title:  "Deleted 20000 movies",
+		Title:  "Deleted 20000 books",
 		Lines:  []string{"Alien (1979)", "Heat (1995)", "Ran (1985)", "19997 more were deleted.", "Sam deleted them at 14:02."},
 		Link:   notice.Link{Path: "/works/" + heat.Work.ID.String()},
 		Poster: heat.Work.Poster,
