@@ -242,7 +242,7 @@ func TestAnImportItsWorksDeleteEndsRecordsNoImported(t *testing.T) {
 	tree, imp, _ := w.pack(t, "w1", 3)
 	second := positionOf(imp, "Clip 2.mkv")
 	held, resume := make(chan struct{}), make(chan struct{})
-	hold := func(ctx context.Context, s Step) {
+	hold := func(_ context.Context, s Step) {
 		if s.Import == imp.ID && s.Position == second && s.At == AtPlace {
 			w.stop.Store(nil)
 			close(held)
