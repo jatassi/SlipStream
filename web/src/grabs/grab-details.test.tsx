@@ -8,7 +8,7 @@ import { getListIndexersMockHandler } from "../api/gen/query/indexers/indexers.m
 import { getListTrackersMockHandler } from "../api/gen/query/trackers/trackers.msw";
 import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 import { clock } from "../format";
-import { downloading, waitingToFetch } from "../test/grabs";
+import { downloading, fetchFailure, waitingToFetch } from "../test/grabs";
 // oxlint-disable-next-line import/max-dependencies -- Details read Grabs, Works, Targets, Indexers, Trackers and Torrents
 import { problem } from "../test/handlers";
 import { torrentLeech, torrentLeechTrackerId, trackers } from "../test/indexers";
@@ -155,6 +155,8 @@ test("a canceled Grab sits under Jobs with who canceled it, never under Needs yo
     failure: {
       stage: "fetching",
       code: "canceled",
+      cause: "An Admin canceled this Grab.",
+      recovery: "Search again to pick another release.",
       message: "Ada Okafor canceled this Grab.",
       needsYou: false,
       current: true,
@@ -187,13 +189,7 @@ test("Details on a Needs you card opens its Grab's record", async () => {
   const failed: GrabsGrab = {
     ...manual,
     stage: "failed",
-    failure: {
-      stage: "fetching",
-      code: "torrent_unreachable",
-      message: "the Indexer answered 404 for the .torrent",
-      needsYou: true,
-      current: true,
-    },
+    failure: fetchFailure,
     actions: { cancel: false, blocklistable: false, sendTo: false },
   };
   renderApp({ path: "/activity", handlers: grabServer(failed).handlers });

@@ -194,6 +194,7 @@ test("a stopped cell counts its failed Grabs and names Backlog search's next tim
   );
   const seconds = ["07:20:01", "07:20:05", "07:20:09"].map((time) => ({
     code: "no_video_file" as const,
+    cause: "The download holds no video file.",
     at: `2026-11-14T${time}Z`,
     grabId: null,
   }));

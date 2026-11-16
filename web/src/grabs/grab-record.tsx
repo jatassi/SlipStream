@@ -1,7 +1,7 @@
 import type { GrabsGrab } from "../api/gen/model";
 import { clock } from "../format";
 import { foundByWords } from "./search-words";
-import { failureWords, needsYou, stageWord } from "./stages";
+import { needsYou, stageWord } from "./stages";
 
 const lead = "text-sentence in-data-[density=touch]:text-sentence-touch";
 
@@ -12,11 +12,11 @@ export function GrabOutcome({ grab }: { grab: GrabsGrab }) {
   if (!needsYou(grab)) {
     return <p className={`${lead} text-ink-1`}>{grab.failure.message}</p>;
   }
-  const { cause, recovery } = failureWords[grab.failure.code];
+  const { cause, recovery } = grab.failure;
   return (
     <div className="flex flex-col gap-1">
       <p className={`${lead} text-fail-ink`}>{cause}</p>
-      {recovery !== undefined && <p>{recovery}</p>}
+      {recovery !== null && <p>{recovery}</p>}
       <p className="text-fail-dim">{grab.failure.message}</p>
     </div>
   );

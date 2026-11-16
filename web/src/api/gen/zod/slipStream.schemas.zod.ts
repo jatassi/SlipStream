@@ -3504,6 +3504,7 @@ export type GrabsEntered = zod.input<typeof GrabsEntered>;
 export type GrabsEnteredOutput = zod.output<typeof GrabsEntered>;
 
 export const GrabsFailure = zod.object({
+  cause: zod.string().describe("Why the Grab failed, in words"),
   code: zod.enum([
     "indexer_unavailable",
     "indexer_removed",
@@ -3549,6 +3550,10 @@ export const GrabsFailure = zod.object({
     .describe(
       "True when Needs you lists the failure. False for a cancel, for a failure SlipStream searches again by itself, and for a Manual Grab whose fetched torrent was on the Blocklist, because the Manual search sheet already showed that.",
     ),
+  recovery: zod
+    .string()
+    .nullable()
+    .describe("What to do next, in words; null when there is nothing to do"),
   stage: zod.enum(["fetching", "downloading", "importing"]),
 });
 
@@ -3557,6 +3562,7 @@ export type GrabsFailureOutput = zod.output<typeof GrabsFailure>;
 
 export const GrabsFailureAt = zod.object({
   at: zod.iso.datetime({ offset: true }),
+  cause: zod.string().describe("Why the Grab failed, in words"),
   code: zod.enum([
     "indexer_unavailable",
     "indexer_removed",

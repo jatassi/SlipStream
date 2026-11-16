@@ -1,4 +1,4 @@
-import type { GrabsGrab } from "../api/gen/model";
+import type { GrabsFailure, GrabsGrab } from "../api/gen/model";
 import { orchardId, orchardItemId } from "./library";
 import { seedboxId } from "./nodes";
 
@@ -83,19 +83,36 @@ export const imported: GrabsGrab = {
   ],
 };
 
+/** A fetch failure that needs an Admin. */
+export const fetchFailure: GrabsFailure = {
+  stage: "fetching",
+  code: "torrent_unreachable",
+  cause:
+    "SlipStream couldn't download the release's .torrent file or magnet link from the Indexer.",
+  recovery: "Search again to pick another release.",
+  message: "the Indexer answered 404 for the .torrent",
+  needsYou: true,
+  current: true,
+};
+
+/** An Import failure that needs an Admin. */
+export const importFailure: GrabsFailure = {
+  stage: "importing",
+  code: "import_failed",
+  cause: "SlipStream couldn't put the file in the library.",
+  recovery: null,
+  message: "place movies/The Quiet Orchard (2021): permission denied",
+  needsYou: true,
+  current: true,
+};
+
 /** An import that failed on a permission error, which needs an Admin. */
 export const failedImport: GrabsGrab = {
   ...imported,
   stage: "failed",
   targets: fetched.targets,
   history: [...imported.history.slice(0, -1), { stage: "failed", at: "2026-10-12T09:03:02Z" }],
-  failure: {
-    stage: "importing",
-    code: "import_failed",
-    message: "place movies/The Quiet Orchard (2021): permission denied",
-    needsYou: true,
-    current: true,
-  },
+  failure: importFailure,
 };
 
 /** A season pack at importing: 6 of its 10 episodes placed, one waiting for the Admin. */

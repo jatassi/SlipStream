@@ -64,6 +64,7 @@ type stopped struct {
 
 type failureAt struct {
 	Code   string    `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault,client_error,declined,unreadable"`
+	Cause  string    `json:"cause" doc:"Why the Grab failed, in words"`
 	At     time.Time `json:"at"`
 	GrabID *string   `json:"grabId" format:"uuid" doc:"The failed Grab; null once it is pruned"`
 }
@@ -150,7 +151,7 @@ func waitingOf(w grabs.Wait) waiting {
 func stoppedOf(s grabs.Stop) stopped {
 	out := stopped{Cell: wireCellKey(s.Cell), Failures: make([]failureAt, len(s.Failures)), NextAt: timeOrNil(s.Next)}
 	for i, f := range s.Failures {
-		out.Failures[i] = failureAt{Code: string(f.Code), At: f.At, GrabID: idOrNil(f.Grab.UUID)}
+		out.Failures[i] = failureAt{Code: string(f.Code), Cause: grabs.WordsOf(f.Code).Cause, At: f.At, GrabID: idOrNil(f.Grab.UUID)}
 	}
 	return out
 }

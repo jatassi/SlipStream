@@ -104,6 +104,7 @@ export const getListGrabsResponseMock = (
     ...(faker.datatype.boolean()
       ? {
           failure: {
+            cause: faker.string.alpha({ length: { min: 10, max: 20 } }),
             code: faker.helpers.arrayElement([
               "indexer_unavailable",
               "indexer_removed",
@@ -141,6 +142,10 @@ export const getListGrabsResponseMock = (
             current: faker.datatype.boolean(),
             message: faker.string.alpha({ length: { min: 10, max: 20 } }),
             needsYou: faker.datatype.boolean(),
+            recovery: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
             stage: faker.helpers.arrayElement(["fetching", "downloading", "importing"] as const),
           },
         }
@@ -332,6 +337,7 @@ export const getGetGrabResponseMock = (
   ...(faker.datatype.boolean()
     ? {
         failure: {
+          cause: faker.string.alpha({ length: { min: 10, max: 20 } }),
           code: faker.helpers.arrayElement([
             "indexer_unavailable",
             "indexer_removed",
@@ -369,6 +375,10 @@ export const getGetGrabResponseMock = (
           current: faker.datatype.boolean(),
           message: faker.string.alpha({ length: { min: 10, max: 20 } }),
           needsYou: faker.datatype.boolean(),
+          recovery: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
           stage: faker.helpers.arrayElement(["fetching", "downloading", "importing"] as const),
         },
       }
@@ -560,6 +570,7 @@ export const getListIndexerGrabsResponseMock = (
     ...(faker.datatype.boolean()
       ? {
           failure: {
+            cause: faker.string.alpha({ length: { min: 10, max: 20 } }),
             code: faker.helpers.arrayElement([
               "indexer_unavailable",
               "indexer_removed",
@@ -597,6 +608,10 @@ export const getListIndexerGrabsResponseMock = (
             current: faker.datatype.boolean(),
             message: faker.string.alpha({ length: { min: 10, max: 20 } }),
             needsYou: faker.datatype.boolean(),
+            recovery: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
             stage: faker.helpers.arrayElement(["fetching", "downloading", "importing"] as const),
           },
         }
@@ -2627,6 +2642,7 @@ export const getGetWorkSearchingResponseMock = (
     failures: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         at: faker.date.past().toISOString().slice(0, 19) + "Z",
+        cause: faker.string.alpha({ length: { min: 10, max: 20 } }),
         code: faker.helpers.arrayElement([
           "indexer_unavailable",
           "indexer_removed",

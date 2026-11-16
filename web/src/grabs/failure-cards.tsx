@@ -7,7 +7,7 @@ import { Data } from "../ui/data";
 import { FailureCard } from "../ui/failure-card";
 import { type GrabView, GrabDialogs } from "./grab-details";
 import { useStartSearch } from "./search";
-import { type FailedGrab, failureWords, skippedStages, trackStage } from "./stages";
+import { type FailedGrab, skippedStages, trackStage } from "./stages";
 import { type Stop, useRecoveryFacts } from "./stopped-facts";
 
 export const failureAnchor = (grab: FailedGrab): string => `failed-${grab.id}`;
@@ -59,7 +59,7 @@ export function GrabFailure({
   const search = useStartSearch();
   const recovery = useRecoveryFacts(grab, stop);
   const [view, setView] = useState<GrabView>();
-  const { cause } = failureWords[grab.failure.code];
+  const { cause } = grab.failure;
   const actions = useCardActions(grab, form, () => {
     setView("details");
   });
