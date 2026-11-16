@@ -93,7 +93,9 @@ func daily(r golden.Row) error {
 }
 
 func airsIn(days int) string {
-	return time.Now().AddDate(0, 0, days).Format("A.Talk.Show.2006.01.02.1080p.WEB-DL.H264-Sonarr")
+	// Only the date goes through Format: it would read the 1 of 1080p and the
+	// 2 of H264 as the month and the day.
+	return "A.Talk.Show." + time.Now().AddDate(0, 0, days).Format("2006.01.02") + ".1080p.WEB-DL.H264-Sonarr"
 }
 
 func expand(layout string, day time.Time) string {
