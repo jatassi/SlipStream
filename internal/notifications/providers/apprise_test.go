@@ -7,13 +7,8 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-var appriseCase = providertest.Case{
-	Settings: providertest.Raw(map[string]any{"serverUrl": "http://apprise.lan:8000", "tags": []string{"family", "phones"}, "username": "slipstream"}),
-	Secrets:  providertest.Raw(map[string]any{"key": "apprise-key", "password": "apprise-password"}),
-}
-
 func TestAppriseBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "apprise"), appriseCase)
+	providertest.Golden(t, provider(t, "apprise"), providertest.Cases["apprise"])
 }
 
 func TestAppriseSendsToItsURLsWithNoKey(t *testing.T) {

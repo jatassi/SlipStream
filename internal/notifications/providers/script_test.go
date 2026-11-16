@@ -8,21 +8,17 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-var scriptCase = providertest.Case{
-	Settings: providertest.Raw(map[string]any{"node": "n1", "path": "/opt/notify.sh", "args": []string{"--quiet"}, "stop": 45}),
-}
-
 func TestCustomScriptBuildsEachRunAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "script"), scriptCase)
+	providertest.Golden(t, provider(t, "script"), providertest.Cases["script"])
 }
 
 func TestTheScriptsEventFileIsTheWebhookBody(t *testing.T) {
 	for _, f := range providertest.Fixtures {
-		run, err := provider(t, "script").Build(providertest.Payload(provider(t, "script"), scriptCase, f, false, providers.DefaultEndpoints()))
+		run, err := provider(t, "script").Build(providertest.Payload(provider(t, "script"), providertest.Cases["script"], f, false, providers.DefaultEndpoints()))
 		if err != nil {
 			t.Fatal(err)
 		}
-		hook, err := provider(t, "webhook").Build(providertest.Payload(provider(t, "webhook"), webhookCase, f, false, providers.DefaultEndpoints()))
+		hook, err := provider(t, "webhook").Build(providertest.Payload(provider(t, "webhook"), providertest.Cases["webhook"], f, false, providers.DefaultEndpoints()))
 		if err != nil {
 			t.Fatal(err)
 		}

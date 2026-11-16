@@ -8,22 +8,13 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-var webhookCase = providertest.Case{
-	Settings: providertest.Raw(map[string]any{"method": "PUT", "username": "slipstream"}),
-	Secrets: providertest.Raw(map[string]any{
-		"url":      "https://hooks.example.com/slipstream/webhook-token",
-		"password": "webhook-password",
-		"headers":  []providers.Header{{Name: "X-Hook-Secret", Value: "webhook-header-secret"}},
-	}),
-}
-
 func TestWebhookBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "webhook"), webhookCase)
+	providertest.Golden(t, provider(t, "webhook"), providertest.Cases["webhook"])
 }
 
 func TestTheWebhookBodyIsVersionOne(t *testing.T) {
 	p := provider(t, "webhook")
-	out, err := p.Build(providertest.Payload(p, webhookCase, providertest.FixtureOf("upgraded"), true, providers.DefaultEndpoints()))
+	out, err := p.Build(providertest.Payload(p, providertest.Cases["webhook"], providertest.FixtureOf("upgraded"), true, providers.DefaultEndpoints()))
 	if err != nil {
 		t.Fatal(err)
 	}

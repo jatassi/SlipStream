@@ -8,13 +8,8 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-var pushbulletCase = providertest.Case{
-	Settings: providertest.Raw(map[string]any{"device": "ujpah72o0sjAoRtnM0jc"}),
-	Secrets:  providertest.Raw(map[string]any{"accessToken": "o.pushbullet-token"}),
-}
-
 func TestPushbulletBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "pushbullet"), pushbulletCase)
+	providertest.Golden(t, provider(t, "pushbullet"), providertest.Cases["pushbullet"])
 }
 
 func TestPushbulletReadsItsResponses(t *testing.T) {

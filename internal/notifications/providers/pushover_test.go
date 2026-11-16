@@ -8,13 +8,8 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-var pushoverCase = providertest.Case{
-	Settings: providertest.Raw(map[string]any{"devices": []string{"phone", "tablet"}, "priority": "1", "sound": "pushover"}),
-	Secrets:  providertest.Raw(map[string]any{"appToken": "pushover-app-token", "userKey": "pushover-user-key"}),
-}
-
 func TestPushoverBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "pushover"), pushoverCase)
+	providertest.Golden(t, provider(t, "pushover"), providertest.Cases["pushover"])
 }
 
 func TestPushoverReadsItsResponses(t *testing.T) {

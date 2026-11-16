@@ -8,20 +8,19 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-var ntfyCase = providertest.Case{
-	Settings: providertest.Raw(map[string]any{"priority": "4"}),
-	Secrets:  providertest.Raw(map[string]any{"topic": "slipstream-ntfy-topic", "accessToken": "tk_ntfy"}),
-}
-
 func TestNtfyBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "ntfy"), ntfyCase)
+	providertest.Golden(t, provider(t, "ntfy"), providertest.Cases["ntfy"])
 }
 
 func TestNtfySendsToTheServerEnteredOrNtfySh(t *testing.T) {
 	p := provider(t, "ntfy")
-	own := providertest.Case{Settings: providertest.Raw(map[string]any{"serverUrl": "https://ntfy.lan/push", "priority": "3"}), Secrets: ntfyCase.Secrets}
-	for c, want := range map[*providertest.Case]string{&ntfyCase: "https://ntfy.sh/slipstream-ntfy-topic", &own: "https://ntfy.lan/push/slipstream-ntfy-topic"} {
-		out, err := p.Build(providertest.Payload(p, *c, providertest.FixtureOf("test"), false, providers.DefaultEndpoints()))
+	own := providertest.Case{Settings: providertest.Raw(map[string]any{"serverUrl": "https://ntfy.lan/push", "priority": "3"}), Secrets: providertest.Cases["ntfy"].Secrets}
+	for _, c := range []struct {
+		providertest.Case
+		want string
+	}{{providertest.Cases["ntfy"], "https://ntfy.sh/slipstream-ntfy-topic"}, {own, "https://ntfy.lan/push/slipstream-ntfy-topic"}} {
+		want := c.want
+		out, err := p.Build(providertest.Payload(p, c.Case, providertest.FixtureOf("test"), false, providers.DefaultEndpoints()))
 		if err != nil {
 			t.Fatal(err)
 		}

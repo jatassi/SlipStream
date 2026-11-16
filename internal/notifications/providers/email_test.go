@@ -7,17 +7,13 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-var emailCase = providertest.Case{
-	Settings: providertest.Raw(map[string]any{"addresses": []string{"sam@example.com", "alex@example.com"}}),
-}
-
 func TestEmailBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "email"), emailCase)
+	providertest.Golden(t, provider(t, "email"), providertest.Cases["email"])
 }
 
 func TestEmailSendsAgainOnlyToTheAddressesThatDidntTakeIt(t *testing.T) {
 	p := provider(t, "email")
-	payload := providertest.Payload(p, emailCase, providertest.FixtureOf("test"), false, providers.DefaultEndpoints())
+	payload := providertest.Payload(p, providertest.Cases["email"], providertest.FixtureOf("test"), false, providers.DefaultEndpoints())
 	payload.Accepted = []string{"sam@example.com"}
 	out, err := p.Build(payload)
 	if err != nil {

@@ -11,13 +11,8 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-var telegramCase = providertest.Case{
-	Settings: providertest.Raw(map[string]any{"chatId": "-1001234567890", "topicId": 42, "silent": true}),
-	Secrets:  providertest.Raw(map[string]any{"botToken": "123456:telegram-token"}),
-}
-
 func TestTelegramBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "telegram"), telegramCase)
+	providertest.Golden(t, provider(t, "telegram"), providertest.Cases["telegram"])
 }
 
 func TestTelegramEscapesHTMLAndCutsTheTextToItsLimit(t *testing.T) {
@@ -25,7 +20,7 @@ func TestTelegramEscapesHTMLAndCutsTheTextToItsLimit(t *testing.T) {
 	f := providertest.FixtureOf("imported")
 	f.Message.Title = "Tom & Jerry <Uncut>"
 	f.Message.Lines = []string{strings.Repeat("🎬", 3000)}
-	out, err := p.Build(providertest.Payload(p, telegramCase, f, false, providers.DefaultEndpoints()))
+	out, err := p.Build(providertest.Payload(p, providertest.Cases["telegram"], f, false, providers.DefaultEndpoints()))
 	if err != nil {
 		t.Fatal(err)
 	}

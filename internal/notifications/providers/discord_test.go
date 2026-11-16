@@ -19,13 +19,8 @@ func provider(t *testing.T, id providers.ID) providers.Provider {
 	return p
 }
 
-var discordCase = providertest.Case{
-	Settings: providertest.Raw(map[string]any{"username": "SlipStream"}),
-	Secrets:  providertest.Raw(map[string]any{"webhookUrl": "https://discord.com/api/webhooks/1180000000000000000/discord-token"}),
-}
-
 func TestDiscordBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "discord"), discordCase)
+	providertest.Golden(t, provider(t, "discord"), providertest.Cases["discord"])
 }
 
 func TestDiscordReadsItsResponses(t *testing.T) {

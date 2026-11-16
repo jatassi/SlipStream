@@ -7,13 +7,8 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-var gotifyCase = providertest.Case{
-	Settings: providertest.Raw(map[string]any{"serverUrl": "https://gotify.example.com", "priority": 8}),
-	Secrets:  providertest.Raw(map[string]any{"appToken": "gotify-app-token"}), //nolint:gosec // a fixture token
-}
-
 func TestGotifyBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "gotify"), gotifyCase)
+	providertest.Golden(t, provider(t, "gotify"), providertest.Cases["gotify"])
 }
 
 func TestGotifyReadsItsResponses(t *testing.T) {

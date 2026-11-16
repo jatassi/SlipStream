@@ -9,19 +9,15 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-var slackCase = providertest.Case{
-	Secrets: providertest.Raw(map[string]any{"webhookUrl": "https://hooks.slack.com/services/T0000/B0000/slack-token"}),
-}
-
 func TestSlackBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "slack"), slackCase)
+	providertest.Golden(t, provider(t, "slack"), providertest.Cases["slack"])
 }
 
 func TestSlackEscapesMrkdwn(t *testing.T) {
 	p := provider(t, "slack")
 	f := providertest.FixtureOf("works_added")
 	f.Message.Title = "Added <Tom & Jerry> to Movies"
-	out, err := p.Build(providertest.Payload(p, slackCase, f, false, providers.DefaultEndpoints()))
+	out, err := p.Build(providertest.Payload(p, providertest.Cases["slack"], f, false, providers.DefaultEndpoints()))
 	if err != nil {
 		t.Fatal(err)
 	}
