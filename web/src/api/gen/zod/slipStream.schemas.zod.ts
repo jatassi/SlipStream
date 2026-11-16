@@ -36,6 +36,14 @@ export const Bare = zod.union([zod.number(), zod.string(), zod.array(zod.string(
 export type Bare = zod.input<typeof Bare>;
 export type BareOutput = zod.output<typeof Bare>;
 
+export const BellInputBody = zod.object({
+  events: zod.array(zod.string()).nullish().describe("The events it shows; left out, unchanged"),
+  warnings: zod.boolean().exactOptional(),
+});
+
+export type BellInputBody = zod.input<typeof BellInputBody>;
+export type BellInputBodyOutput = zod.output<typeof BellInputBody>;
+
 export const CancelInputBody = zod.object({
   blocklist: zod
     .boolean()
@@ -64,6 +72,63 @@ export const CheckFolderInputBody = zod.object({
 
 export type CheckFolderInputBody = zod.input<typeof CheckFolderInputBody>;
 export type CheckFolderInputBodyOutput = zod.output<typeof CheckFolderInputBody>;
+
+export const NotificationsStatus = zod.object({
+  givenUp: zod
+    .int()
+    .describe(
+      "Messages given up since the connection was last saved or tested, because they waited too long or the provider refused them.",
+    ),
+  lastSent: zod.iso.datetime({ offset: true }).nullable(),
+  reason: zod.string().describe("Why it isn't sending, worded when read. Empty when it is."),
+  shown: zod.enum(["off", "ok", "failing", "waiting", "paused", "holding"]),
+  since: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When it started failing, waiting or paused; null otherwise"),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a waiting connection sends again; null otherwise"),
+  waiting: zod.int().describe("Messages waiting to be sent."),
+});
+
+export type NotificationsStatus = zod.input<typeof NotificationsStatus>;
+export type NotificationsStatusOutput = zod.output<typeof NotificationsStatus>;
+
+export const NotificationsConnection = zod.object({
+  events: zod.array(zod.string()),
+  id: zod.uuid(),
+  name: zod.string(),
+  node: zod
+    .string()
+    .nullable()
+    .describe("The Node a Custom Script runs on; null for every other provider"),
+  on: zod.boolean(),
+  posters: zod.boolean(),
+  provider: zod.string(),
+  sealed: zod
+    .array(zod.string())
+    .describe("The secret fields that have a value. Secrets are never returned"),
+  shown: zod
+    .record(zod.string(), zod.string())
+    .describe("A part of a secret value that is safe to show, such as a webhook URL's host"),
+  status: NotificationsStatus,
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("The provider's settings that aren't secret"),
+  warnings: zod.boolean().describe("Whether it gets Health warnings as well as errors"),
+});
+
+export type NotificationsConnection = zod.input<typeof NotificationsConnection>;
+export type NotificationsConnectionOutput = zod.output<typeof NotificationsConnection>;
+
+export const ConnectionsOutputBody = zod.object({
+  connections: zod.array(NotificationsConnection).describe("By name"),
+});
+
+export type ConnectionsOutputBody = zod.input<typeof ConnectionsOutputBody>;
+export type ConnectionsOutputBodyOutput = zod.output<typeof ConnectionsOutputBody>;
 
 export const DialInputBody = zod.object({
   nodeAddress: zod.string().describe("The SLN1 text the waiting Node printed"),
@@ -1610,6 +1675,27 @@ export const EmailChangeInputBody = zod.object({
 
 export type EmailChangeInputBody = zod.input<typeof EmailChangeInputBody>;
 export type EmailChangeInputBodyOutput = zod.output<typeof EmailChangeInputBody>;
+
+export const NotificationsEvent = zod.object({
+  bellByDefault: zod.boolean(),
+  fixed: zod.boolean().describe("Never chosen: a Test is sent only when the Admin asks"),
+  group: zod.enum(["grabs", "imports", "library", "health", "system"]),
+  id: zod.string(),
+  label: zod.string(),
+  onByDefault: zod.boolean().describe("A new connection gets it unless the Admin picks otherwise"),
+});
+
+export type NotificationsEvent = zod.input<typeof NotificationsEvent>;
+export type NotificationsEventOutput = zod.output<typeof NotificationsEvent>;
+
+export const EventsOutputBody = zod.object({
+  events: zod
+    .array(NotificationsEvent)
+    .describe("Grouped by group, in the order the sheet shows them"),
+});
+
+export type EventsOutputBody = zod.input<typeof EventsOutputBody>;
+export type EventsOutputBodyOutput = zod.output<typeof EventsOutputBody>;
 
 export const FieldError = zod.object({
   location: zod.string(),
@@ -5143,6 +5229,7 @@ export const HealthCategoryID = zod.enum([
   "seeding",
   "indexers",
   "scheduled-tasks",
+  "notifications",
 ]);
 
 export type HealthCategoryID = zod.input<typeof HealthCategoryID>;
@@ -9196,6 +9283,157 @@ export const NodesWriteOffBody = zod.object({
 export type NodesWriteOffBody = zod.input<typeof NodesWriteOffBody>;
 export type NodesWriteOffBodyOutput = zod.output<typeof NodesWriteOffBody>;
 
+export const NotificationsBell = zod.object({
+  events: zod.array(zod.string()),
+  warnings: zod.boolean().describe("Whether it shows Health warnings as well as errors"),
+});
+
+export type NotificationsBell = zod.input<typeof NotificationsBell>;
+export type NotificationsBellOutput = zod.output<typeof NotificationsBell>;
+
+export const NotificationsChanged = zod.object({
+  connections: zod.boolean(),
+  feed: zod.boolean(),
+});
+
+export type NotificationsChanged = zod.input<typeof NotificationsChanged>;
+export type NotificationsChangedOutput = zod.output<typeof NotificationsChanged>;
+
+export const notificationsDraftBodyNameMax = 100;
+
+export const NotificationsDraftBody = zod.object({
+  events: zod
+    .array(zod.string())
+    .nullish()
+    .describe("The events it gets; left out, the recommended ones"),
+  name: zod.string().max(notificationsDraftBodyNameMax),
+  node: zod
+    .uuid()
+    .exactOptional()
+    .describe("The Node a Custom Script runs on; left out for every other provider"),
+  on: zod.boolean(),
+  posters: zod.boolean(),
+  provider: zod.string().describe("One of the ids listNotificationProviders lists"),
+  secrets: zod
+    .record(zod.string(), zod.string())
+    .exactOptional()
+    .describe("The secret settings by key. Write-only"),
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .exactOptional()
+    .describe("The provider's settings that aren't secret, by key"),
+  warnings: zod.boolean(),
+});
+
+export type NotificationsDraftBody = zod.input<typeof NotificationsDraftBody>;
+export type NotificationsDraftBodyOutput = zod.output<typeof NotificationsDraftBody>;
+
+export const NotificationsEditBody = zod.object({
+  events: zod.array(zod.string()).nullish(),
+  name: zod.string().nullish(),
+  node: zod.string().nullish().describe("A Custom Script's Node id"),
+  on: zod.boolean().nullish(),
+  posters: zod.boolean().nullish(),
+  secrets: zod
+    .record(zod.string(), zod.string().nullable())
+    .exactOptional()
+    .describe(
+      "A secret to replace. Left out or empty keeps it; null removes an optional one. Write-only",
+    ),
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .exactOptional()
+    .describe("Settings to change, by key; the others keep their values"),
+  warnings: zod.boolean().nullish(),
+});
+
+export type NotificationsEditBody = zod.input<typeof NotificationsEditBody>;
+export type NotificationsEditBodyOutput = zod.output<typeof NotificationsEditBody>;
+
+export const NotificationsFeedRow = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  event: zod.string(),
+  line: zod.string().describe("The message's first line; empty for none"),
+  link: zod.string().nullable().describe("Where the row leads; null while no Address is set"),
+  seq: zod.int(),
+  title: zod.string(),
+  unread: zod.boolean().nullable().describe("Null when the API key reads it"),
+});
+
+export type NotificationsFeedRow = zod.input<typeof NotificationsFeedRow>;
+export type NotificationsFeedRowOutput = zod.output<typeof NotificationsFeedRow>;
+
+export const NotificationsFeed = zod.object({
+  before: zod.int().nullable().describe("The cursor for the next page; null at the end"),
+  rows: zod.array(NotificationsFeedRow).describe("Newest first"),
+  unread: zod
+    .int()
+    .nullable()
+    .describe("How many rows are unread, at most 100; null when the API key reads it"),
+});
+
+export type NotificationsFeed = zod.input<typeof NotificationsFeed>;
+export type NotificationsFeedOutput = zod.output<typeof NotificationsFeed>;
+
+export const NotificationsOption = zod.object({
+  label: zod.string(),
+  value: zod.string(),
+});
+
+export type NotificationsOption = zod.input<typeof NotificationsOption>;
+export type NotificationsOptionOutput = zod.output<typeof NotificationsOption>;
+
+export const NotificationsField = zod.object({
+  default: zod.unknown().exactOptional(),
+  details: zod.boolean().describe("Shown under Details in the sheet"),
+  help: zod.string(),
+  key: zod.string(),
+  kind: zod.enum([
+    "text",
+    "url",
+    "number",
+    "select",
+    "switch",
+    "list",
+    "headers",
+    "node",
+    "duration",
+  ]),
+  label: zod.string(),
+  max: zod.int().exactOptional().describe("A number's highest value, or a duration's, in seconds"),
+  min: zod.int().exactOptional().describe("A number's lowest value, or a duration's, in seconds"),
+  optional: zod.boolean(),
+  options: zod.array(NotificationsOption).nullish().describe("A select's choices"),
+  secret: zod.boolean().describe("Its value is never returned"),
+});
+
+export type NotificationsField = zod.input<typeof NotificationsField>;
+export type NotificationsFieldOutput = zod.output<typeof NotificationsField>;
+
+export const NotificationsProvider = zod.object({
+  fields: zod.array(NotificationsField).describe("In the order the sheet shows them"),
+  id: zod.string(),
+  image: zod
+    .enum(["none", "bytes", "publicUrl", "bodyUrl"])
+    .describe("How the provider takes a poster"),
+  label: zod.string(),
+});
+
+export type NotificationsProvider = zod.input<typeof NotificationsProvider>;
+export type NotificationsProviderOutput = zod.output<typeof NotificationsProvider>;
+
+export const NotificationsSeen = zod.object({});
+
+export type NotificationsSeen = zod.input<typeof NotificationsSeen>;
+export type NotificationsSeenOutput = zod.output<typeof NotificationsSeen>;
+
+export const NotificationsTestPassed = zod.object({
+  node: zod.string().describe("The Node that sent the Test"),
+});
+
+export type NotificationsTestPassed = zod.input<typeof NotificationsTestPassed>;
+export type NotificationsTestPassedOutput = zod.output<typeof NotificationsTestPassed>;
+
 export const ownPatchInputBodyDisplayNameMax = 100;
 
 export const OwnPatchInputBody = zod.object({
@@ -9298,6 +9536,13 @@ export const Problem = zod.object({
 
 export type Problem = zod.input<typeof Problem>;
 export type ProblemOutput = zod.output<typeof Problem>;
+
+export const ProvidersOutputBody = zod.object({
+  providers: zod.array(NotificationsProvider),
+});
+
+export type ProvidersOutputBody = zod.input<typeof ProvidersOutputBody>;
+export type ProvidersOutputBodyOutput = zod.output<typeof ProvidersOutputBody>;
 
 export const rehomeRootInputBodyForgetMin = 0;
 
@@ -9721,6 +9966,18 @@ export const SearchSettingsInputBody = zod.object({
 export type SearchSettingsInputBody = zod.input<typeof SearchSettingsInputBody>;
 export type SearchSettingsInputBodyOutput = zod.output<typeof SearchSettingsInputBody>;
 
+export const seenInputBodyThroughMin = 0;
+
+export const SeenInputBody = zod.object({
+  through: zod
+    .int()
+    .min(seenInputBodyThroughMin)
+    .describe("The seq of the newest row the Admin has seen"),
+});
+
+export type SeenInputBody = zod.input<typeof SeenInputBody>;
+export type SeenInputBodyOutput = zod.output<typeof SeenInputBody>;
+
 export const SendToInputBody = zod.object({
   builtInOn: zod
     .uuid()
@@ -9773,6 +10030,17 @@ export const SettingsInputBody = zod.object({
 
 export type SettingsInputBody = zod.input<typeof SettingsInputBody>;
 export type SettingsInputBodyOutput = zod.output<typeof SettingsInputBody>;
+
+export const SettingsOutputBody = zod.object({
+  settings: zod
+    .array(SettingField)
+    .describe(
+      "Wait before sending a new Health item, Give up on a message after, Warn when a connection has failed for, and Keep notifications for",
+    ),
+});
+
+export type SettingsOutputBody = zod.input<typeof SettingsOutputBody>;
+export type SettingsOutputBodyOutput = zod.output<typeof SettingsOutputBody>;
 
 export const ShellAlerts = zod.object({
   health: zod
@@ -12881,6 +13149,22 @@ export const LiveEventNodesTraffic = zod.object({
 export type LiveEventNodesTraffic = zod.input<typeof LiveEventNodesTraffic>;
 export type LiveEventNodesTrafficOutput = zod.output<typeof LiveEventNodesTraffic>;
 
+export const LiveEventNotificationsChanged = zod.object({
+  event: zod.enum(["notifications.changed"]),
+  data: NotificationsChanged,
+});
+
+export type LiveEventNotificationsChanged = zod.input<typeof LiveEventNotificationsChanged>;
+export type LiveEventNotificationsChangedOutput = zod.output<typeof LiveEventNotificationsChanged>;
+
+export const LiveEventNotificationsSeen = zod.object({
+  event: zod.enum(["notifications.seen"]),
+  data: NotificationsSeen,
+});
+
+export type LiveEventNotificationsSeen = zod.input<typeof LiveEventNotificationsSeen>;
+export type LiveEventNotificationsSeenOutput = zod.output<typeof LiveEventNotificationsSeen>;
+
 export const LiveEventRootsChanged = zod.object({
   event: zod.enum(["roots.changed"]),
   data: RootsChanged,
@@ -13031,6 +13315,8 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventNodeSettingsChanged,
   LiveEventNodesChanged,
   LiveEventNodesTraffic,
+  LiveEventNotificationsChanged,
+  LiveEventNotificationsSeen,
   LiveEventRootsChanged,
   LiveEventTargetsChanged,
   LiveEventTasksChanged,
