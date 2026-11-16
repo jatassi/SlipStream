@@ -405,8 +405,18 @@ _Avoid_: Health check, section
 
 **Health item**:
 One thing wrong in a Health category, keyed by its subject's own id, at Warning when something will go wrong if nobody acts or Error when something is wrong now, with what to do first and since when.
-_In UI_: none. Show the item's own sentence.
+_In UI_: "Health item" in notification labels only, such as New Health item and Health item cleared. Elsewhere none. Show the item's own sentence.
 _Avoid_: Alert, issue, warning (for an item at either level)
+
+**Notification connection**:
+One place an Admin's notifications go, through one provider: a Discord or Slack webhook, a Telegram chat, a Pushover, Gotify, ntfy, Pushbullet or Apprise target, email addresses, a Webhook URL or a Custom Script on one Node. It has its own events, and SlipStream sends each event it wants at least once and in order.
+_In UI_: "connection" inside Notifications. Elsewhere the provider and the name, such as Discord 'Family'.
+_Avoid_: Notifier, agent, channel, integration
+
+**Notification event**:
+One thing that happened that an Admin can hear about, such as Grabbed, Imported or New Health item, recorded in the Write that makes it true and kept for "Keep notifications for". Each kind is a catalog row that a Notification connection or the bell turns on.
+_In UI_: "event", and each kind's label.
+_Avoid_: Alert, trigger, notification (for the record itself)
 
 ## Acquisition
 

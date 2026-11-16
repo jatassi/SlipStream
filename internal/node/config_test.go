@@ -51,6 +51,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.media_servers.step_poll", "timings.media_servers.rename_snapshot", "timings.media_servers.upgrade_pairing",
 		"timings.media_servers.section_folders", "timings.media_servers.session_cap", "timings.media_servers.index_age",
 		"timings.media_servers.sent_age", "timings.media_servers.index_page",
+		"timings.notifications.send", "timings.notifications.ladder",
 	}
 	if !slices.Equal(paths, want) {
 		t.Fatalf("leaves = %v, want %v", paths, want)
