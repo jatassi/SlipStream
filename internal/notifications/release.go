@@ -31,6 +31,21 @@ type event struct {
 	Items []item
 }
 
+// cut is a Health event with only the items keys names, as its subject.
+// Other kinds keep their subject.
+func (e event) cut(keys []string) (event, error) {
+	if !isHealth(e.Kind) {
+		return e, nil
+	}
+	e.Items = slices.DeleteFunc(slices.Clone(e.Items), func(it item) bool { return !slices.Contains(keys, it.key()) })
+	subject, err := json.Marshal(healthFacts{Items: e.Items})
+	if err != nil {
+		return event{}, fmt.Errorf("encode the Health items of event %d: %w", e.ID, err)
+	}
+	e.Subject = subject
+	return e, nil
+}
+
 func isHealth(k notice.Kind) bool { return k == newItemsRow.Kind || k == clearedRow.Kind }
 
 // itemKey is a Health item's key among notifications: "<category>.<key>".

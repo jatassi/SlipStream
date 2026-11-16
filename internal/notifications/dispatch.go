@@ -407,13 +407,8 @@ func (p *passing) oldest(ctx context.Context, c Connection) (*job, bool, error) 
 			d.Items = keep
 		}
 	}
-	if isHealth(e.Kind) {
-		e.Items = slices.DeleteFunc(e.Items, func(it item) bool { return !slices.Contains(d.Items, it.key()) })
-		subject, err := json.Marshal(healthFacts{Items: e.Items})
-		if err != nil {
-			return nil, false, fmt.Errorf("encode the Health items of event %d: %w", e.ID, err)
-		}
-		e.Subject = subject
+	if e, err = e.cut(d.Items); err != nil {
+		return nil, false, err
 	}
 	return &job{conn: c, event: e, items: d.Items, accepted: d.Accepted}, true, nil
 }

@@ -22,7 +22,7 @@ SELECT COUNT(*) FROM (
 );
 
 -- name: NewestSeq :one
-SELECT COALESCE(MAX(seq), 0) FROM notifications_shown;
+SELECT seq FROM notifications_shown ORDER BY seq DESC LIMIT 1;
 
 -- name: NewestSeqAt :one
 SELECT seq FROM notifications_shown WHERE shown_at <= sqlc.arg(at) ORDER BY shown_at DESC, seq DESC LIMIT 1;
