@@ -112,12 +112,11 @@ func TestNotFoundNeedsListMissingItemsAndLeaveTheLibraryFlagAlone(t *testing.T) 
 	l := open(t)
 	tree := l.stocked(t, "w1", true, box("b1", false, "Scarf", "Mittens", "Gloves"))
 	starter := must[[]targets.Target](t)(l.targets.ListTargets(t.Context(), admin))[0]
-	searched, next := today.Add(-time.Hour), today.Add(5*time.Hour)
 	scarf, mittens, gloves := itemOf(t, tree, "Scarf"), itemOf(t, tree, "Mittens"), itemOf(t, tree, "Gloves")
 	key := func(item works.ItemID) files.CellKey {
 		return files.CellKey{Item: item, Edition: targets.AnyEdition, Target: starter.ID}
 	}
-	notFound := files.SearchFact{NotFound: true, SearchedAt: searched, NextAt: next}
+	notFound := files.SearchFact{NotFound: true, Group: "b1"}
 	svc := l.files(searching{
 		grabbing: grabbing{key(gloves): {State: files.GrabFailed, Grab: storage.NewUUID()}},
 		facts:    map[files.CellKey]files.SearchFact{key(scarf): notFound, key(mittens): notFound, key(gloves): notFound},
@@ -130,12 +129,12 @@ func TestNotFoundNeedsListMissingItemsAndLeaveTheLibraryFlagAlone(t *testing.T) 
 	var got []string
 	flagged := 0
 	for _, n := range rollup.Needs {
-		got = append(got, fmt.Sprintf("%s %d %s %s", kinds[n.Kind], len(n.Items), n.SearchedAt.Format(time.Kitchen), n.NextAt.Format(time.Kitchen)))
+		got = append(got, fmt.Sprintf("%s %d %q", kinds[n.Kind], len(n.Items), n.Group))
 		if n.Flags() {
 			flagged++
 		}
 	}
-	want := []string{"failed 1 12:00AM 12:00AM", "not found 2 8:00AM 2:00PM"}
+	want := []string{`failed 1 ""`, `not found 2 "b1"`}
 	if !slices.Equal(got, want) || flagged != 1 {
 		t.Fatalf("Needs you = %q, %d flagged; want Scarf and Mittens not found in one run after the failure, the failure alone flagged", got, flagged)
 	}

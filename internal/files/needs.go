@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"iter"
 	"slices"
-	"time"
 
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -35,9 +34,9 @@ type Need struct {
 	ClientError *ClientError
 	Hold        *ImportHold
 	FailedAt    string
-	// SearchedAt is when a NeedNotFound's latest search finished, and
-	// NextAt when its group searches next, zero while nothing will.
-	SearchedAt, NextAt time.Time
+	// Group is the key of the search group whose latest search found a
+	// NeedNotFound's Items nothing.
+	Group string
 }
 
 // Flags reports whether n counts toward the Library's Needs you flag. A
@@ -128,7 +127,7 @@ func wantedNeeds(group []Cell, grabs map[CellKey]GrabCell) []Need {
 		out = append(out, Need{Kind: NeedUpgrade, Items: at, Edition: head.Edition, Upgrades: upgrades})
 	}
 	if notFound != nil {
-		out = append(out, Need{Kind: NeedNotFound, Items: at, Edition: head.Edition, SearchedAt: notFound.SearchedAt, NextAt: notFound.NextAt})
+		out = append(out, Need{Kind: NeedNotFound, Items: at, Edition: head.Edition, Group: notFound.Group})
 	}
 	return out
 }
@@ -184,7 +183,7 @@ func runs(items []works.Item, ns []Need) []Need {
 func same(a, b Need) bool {
 	failuresOfAnyGrabJoin := a.Kind == NeedFailed
 	return a.Kind == b.Kind && a.Edition == b.Edition && a.Target == b.Target && (failuresOfAnyGrabJoin || a.Grab == b.Grab) &&
-		a.Code == b.Code && a.FailedAt == b.FailedAt && a.SearchedAt.Equal(b.SearchedAt) && a.NextAt.Equal(b.NextAt) && slices.Equal(a.Waiting, b.Waiting) && slices.Equal(a.Upgrades, b.Upgrades)
+		a.Code == b.Code && a.FailedAt == b.FailedAt && a.Group == b.Group && slices.Equal(a.Waiting, b.Waiting) && slices.Equal(a.Upgrades, b.Upgrades)
 }
 
 func (c Cell) key() CellKey { return CellKey{Item: c.Item.ID, Edition: c.Edition, Target: c.Target.ID} }

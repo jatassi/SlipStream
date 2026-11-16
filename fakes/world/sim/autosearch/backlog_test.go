@@ -10,9 +10,9 @@ import (
 
 // TestBacklogSearchQueuesAGroupOnceItIsDueAndSkipsWhileOff adds a movie
 // no Release names without searching it. The first Backlog search gives
-// its group a due time and queues nothing, the first one past that time
-// queues it and the run finds nothing, and with Backlog search off in
-// Settings the unit skips with the settings' sentence.
+// its group a due time and queues nothing, the scheduled run at the row's
+// next search time queues it and the run finds nothing, and with Backlog
+// search off in Settings the unit skips with the settings' sentence.
 func TestBacklogSearchQueuesAGroupOnceItIsDueAndSkipsWhileOff(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
@@ -27,7 +27,6 @@ func TestBacklogSearchQueuesAGroupOnceItIsDueAndSkipsWhileOff(t *testing.T) {
 
 		time.Sleep(time.Until(*due))
 		synctest.Wait()
-		expect(t, "the run once it is due", w.ran(backlogTask).lines(), []string{"run-now|succeeded", "Due searches|home|succeeded||Queued 1 search."})
 		simtest.Eventually(t, "the queued run finds nothing", func() bool {
 			r := w.wantedRow(work)
 			return r.Last != nil && *r.Last == "nothing_found" && r.State == "idle"

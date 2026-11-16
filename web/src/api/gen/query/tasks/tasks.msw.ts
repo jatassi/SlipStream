@@ -37,6 +37,7 @@ export const getListTasksResponseTasksIdleStateMock = (
   ...{
     kind: faker.helpers.arrayElement(["idle"] as const),
     next: faker.date.past().toISOString().slice(0, 19) + "Z",
+    off: faker.datatype.boolean(),
   },
   ...overrideResponse,
 });
@@ -1041,6 +1042,7 @@ export const getGetTaskResponseTasksIdleStateMock = (
   ...{
     kind: faker.helpers.arrayElement(["idle"] as const),
     next: faker.date.past().toISOString().slice(0, 19) + "Z",
+    off: faker.datatype.boolean(),
   },
   ...overrideResponse,
 });
@@ -1787,6 +1789,7 @@ export const getUpdateTaskResponseTasksIdleStateMock = (
   ...{
     kind: faker.helpers.arrayElement(["idle"] as const),
     next: faker.date.past().toISOString().slice(0, 19) + "Z",
+    off: faker.datatype.boolean(),
   },
   ...overrideResponse,
 });

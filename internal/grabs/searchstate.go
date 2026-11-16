@@ -221,8 +221,9 @@ func readStates(ctx context.Context, r storage.Reader[file], ws works.Among[work
 	return s, nil
 }
 
-// byWork is each Work's search, its groups in key order and unlabeled.
-func (s states) byWork() map[works.WorkID]*WorkSearch {
+// byWork is each Work's search, its groups in key order and unlabeled. An
+// idle group's next search is the Backlog search of runs that queues it.
+func (s states) byWork(runs backlogRuns) map[works.WorkID]*WorkSearch {
 	out := map[works.WorkID]*WorkSearch{}
 	of := func(w works.WorkID) *WorkSearch {
 		if out[w] == nil {
@@ -247,7 +248,7 @@ func (s states) byWork() map[works.WorkID]*WorkSearch {
 		case d.Lane != nil:
 			g.Phase = InQueue
 		case s.backlog:
-			g.Next = d.DueAt.Time()
+			g.Next = runs.queuing(d.DueAt.Time())
 		}
 		if d.Lane != nil {
 			g.Lane, g.Trigger = laneOf(d.Lane).String(), searches.Trigger(*d.Trigger)
@@ -272,23 +273,13 @@ func lastOf(run db.ListRunItemsRow) *LastRun {
 	return &LastRun{At: run.FinishedAt.Time(), Outcome: *run.Outcome, Found: int(run.Candidates), Grabs: int(run.Grabs)}
 }
 
-// items is each Item's search fact: its latest run, and its group's due
-// time while that group is idle and Backlog search is on.
+// items is each Item's search fact from its latest run.
 func (s states) items() map[works.ItemID]files.SearchFact {
-	due := map[works.WorkID]map[indexers.GroupKey]time.Time{}
-	for _, d := range s.due {
-		if s.backlog && d.SearchID.IsZero() && d.Lane == nil {
-			if due[d.WorkID] == nil {
-				due[d.WorkID] = map[indexers.GroupKey]time.Time{}
-			}
-			due[d.WorkID][d.GroupKey] = d.DueAt.Time()
-		}
-	}
 	out := map[works.ItemID]files.SearchFact{}
 	for _, run := range s.runs {
 		out[run.ItemID] = files.SearchFact{
-			NotFound:   *run.Outcome == NothingFound || *run.Outcome == NothingAcceptable,
-			SearchedAt: run.FinishedAt.Time(), NextAt: due[run.WorkID][*run.GroupKey],
+			NotFound: *run.Outcome == NothingFound || *run.Outcome == NothingAcceptable,
+			Group:    string(*run.GroupKey),
 		}
 	}
 	return out
@@ -298,8 +289,12 @@ func (s states) items() map[works.ItemID]files.SearchFact {
 // its counted Items in tree order with its state, its waits and its
 // stopped cells.
 func (gr *Grabs) Searching(ctx context.Context, work works.WorkID) (WorkSearch, error) {
+	runs, err := gr.backlogRuns(ctx)
+	if err != nil {
+		return WorkSearch{}, err
+	}
 	var out WorkSearch
-	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+	err = gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		bare, err := works.BareIn(ctx, r, work)
 		if err != nil {
 			return err
@@ -309,7 +304,7 @@ func (gr *Grabs) Searching(ctx context.Context, work works.WorkID) (WorkSearch, 
 			return err
 		}
 		read := WorkSearch{Work: work}
-		if ws := s.byWork()[work]; ws != nil {
+		if ws := s.byWork(runs)[work]; ws != nil {
 			read = *ws
 		}
 		groups, err := gr.groupsOf(ctx, r, bare)

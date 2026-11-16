@@ -405,15 +405,11 @@ export const getGetWorkCellsResponseFilesNotFoundNeedMock = (
 ): FilesNotFoundNeed => ({
   ...{
     edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    groupKey: faker.string.alpha({ length: { min: 10, max: 20 } }),
     itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => faker.string.alpha({ length: { min: 10, max: 20 } }),
     ),
     kind: faker.helpers.arrayElement(["not_found"] as const),
-    lastSearchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
-    nextSearchAt: faker.helpers.arrayElement([
-      faker.date.past().toISOString().slice(0, 19) + "Z",
-      null,
-    ]),
   },
   ...overrideResponse,
 });

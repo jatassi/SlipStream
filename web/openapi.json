@@ -3867,6 +3867,10 @@
             "description": "any under any cut, else the key of the cut these Items need at this Target",
             "type": "string"
           },
+          "groupKey": {
+            "description": "The key of the search group whose latest search found them nothing. Its state in the Work's searching says when it searched and when it searches next",
+            "type": "string"
+          },
           "itemIds": {
             "description": "A run of Items in tree order whose entries match",
             "items": {
@@ -3880,27 +3884,13 @@
               "not_found"
             ],
             "type": "string"
-          },
-          "lastSearchedAt": {
-            "description": "When the latest search finished",
-            "format": "date-time",
-            "type": "string"
-          },
-          "nextSearchAt": {
-            "description": "When SlipStream searches them next; null while nothing will",
-            "format": "date-time",
-            "type": [
-              "string",
-              "null"
-            ]
           }
         },
         "required": [
           "kind",
           "itemIds",
           "edition",
-          "lastSearchedAt",
-          "nextSearchAt"
+          "groupKey"
         ],
         "type": "object"
       },
@@ -5666,7 +5656,7 @@
             ]
           },
           "starved": {
-            "description": "RSS sync uses all of the Indexer's search limit, so Backlog search waits for it",
+            "description": "RSS sync uses all of the Indexer's search limit, so Backlog search and Search all wait for it",
             "type": "boolean"
           },
           "until": {
@@ -6037,7 +6027,7 @@
             "type": "string"
           },
           "needsYou": {
-            "description": "True when Needs you lists the failure. False for a cancel, and for a Manual Grab whose fetched torrent was on the Blocklist, because the Manual search sheet already showed that.",
+            "description": "True when Needs you lists the failure. False for a cancel, for a failure SlipStream searches again by itself, and for a Manual Grab whose fetched torrent was on the Blocklist, because the Manual search sheet already showed that.",
             "type": "boolean"
           },
           "stage": {
@@ -7048,7 +7038,7 @@
             "type": "string"
           },
           "starved": {
-            "description": "RSS sync uses all of its search limit, so Backlog search waits for it",
+            "description": "RSS sync uses all of its search limit, so Backlog search and Search all wait for it",
             "type": "boolean"
           },
           "until": {
@@ -21086,11 +21076,16 @@
             "description": "When the next run is due; now when it is due already",
             "format": "date-time",
             "type": "string"
+          },
+          "off": {
+            "description": "A setting has each run skip, so the task is off until it changes",
+            "type": "boolean"
           }
         },
         "required": [
           "kind",
-          "next"
+          "next",
+          "off"
         ],
         "type": "object"
       },

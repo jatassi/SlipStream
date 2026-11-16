@@ -288,11 +288,10 @@ type SearchFact struct {
 	WaitUntil  time.Time
 	Candidates int
 	// NotFound is whether the latest finished search of its Item found no
-	// Release, or none acceptable; SearchedAt is when it finished.
-	NotFound   bool
-	SearchedAt time.Time
-	// NextAt is when its group searches next, zero while nothing will.
-	NextAt time.Time
+	// Release, or none acceptable, and Group the key of that search's
+	// group, whose state says when it searched and searches next.
+	NotFound bool
+	Group    string
 }
 
 // ItemKey is the key of a search fact about every cell of item: its
@@ -409,8 +408,8 @@ type Inflight interface {
 	// ReleaseTitles reads the Release title of every Grab with a record.
 	ReleaseTitles(ctx context.Context, r storage.Reader[storage.Library]) (map[storage.UUID]string, error)
 	// Searching reads the search facts of each cell of ws that has any.
-	// A fact keyed by ItemKey holds NotFound, SearchedAt and NextAt for
-	// each cell of its Item.
+	// A fact keyed by ItemKey holds NotFound and Group for each cell of
+	// its Item.
 	Searching(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[CellKey]SearchFact, error)
 }
 

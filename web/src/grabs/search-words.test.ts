@@ -64,10 +64,10 @@ describe("every wire value has words", () => {
 
 test("a run says what started it and how it finished", () => {
   expect(triggerWords.failed_grab).toBe("After a failed Grab");
-  expect(outcomeWords.grabbed({ grabs: 3, candidates: 14 })).toBe("Grabbed 3 Releases");
-  expect(outcomeWords.grabbed({ grabs: 1, candidates: 1 })).toBe("Grabbed 1 Release");
+  expect(outcomeWords.grabbed({ grabs: 3, candidates: 14 })).toBe("Grabbed 3 releases");
+  expect(outcomeWords.grabbed({ grabs: 1, candidates: 1 })).toBe("Grabbed 1 release");
   expect(outcomeWords.nothing_acceptable({ grabs: 0, candidates: 14 })).toBe(
-    "Found 14 Releases, but none fits a Target",
+    "Found 14 releases, but none fits a Target",
   );
   expect(foundByWords.rss({ rssIndexerName: "TorrentLeech" })).toBe("RSS sync from TorrentLeech");
 });
@@ -78,7 +78,7 @@ test("a queued group's popover says what holds it", () => {
     "Waiting for TorrentLeech's search limit until 14:00.",
   );
   expect(behindWords(starvedByRSS(1).behind, clock)).toBe(
-    "Backlog search waits for TorrentLeech. RSS sync uses all of its search limit.",
+    "This search waits for TorrentLeech. RSS sync uses all of TorrentLeech's search limit.",
   );
   expect(behindWords(null, clock)).toBeUndefined();
 });
@@ -104,7 +104,7 @@ test("a searching group whose line waits for a starved Indexer says what it wait
   expect(leadWords(searching, clock, false)).toEqual({
     kind: "searching",
     words: "Searching",
-    behind: "Backlog search waits for TorrentLeech. RSS sync uses all of its search limit.",
+    behind: "This search waits for TorrentLeech. RSS sync uses all of TorrentLeech's search limit.",
   });
 });
 
@@ -151,7 +151,7 @@ test("the last result reads as the spec words it", () => {
   expect(lastWords.nothing_acceptable(aGroupState(1, { ...at, lastFound: 14 }), clock)).toBe(
     "Found 14 releases, but none fits a Target. Next search tomorrow at 14:00.",
   );
-  expect(lastWords.grabbed(aGroupState(1, { lastGrabs: 3 }), clock)).toBe("Grabbed 3 Releases");
+  expect(lastWords.grabbed(aGroupState(1, { lastGrabs: 3 }), clock)).toBe("Grabbed 3 releases");
   expect(lastWords.no_indexer(aGroupState(1), clock)).toBe(
     "No Indexer could search. Check Indexers in Health.",
   );
@@ -168,7 +168,7 @@ describe("the toast after Search", () => {
   });
   test("says Queued while every group it queued waits behind something", () => {
     const now = aWorkSearching({ groups: [{ ...queuedBehind(3) }] });
-    expect(queuedToast(pressed, now, "12 episodes")).toBe("Queued 12 episodes for search");
+    expect(queuedToast(pressed, now, "12 episodes")).toBe("Queued 12 episodes for search.");
   });
   test("says Already searching when every group merged", () => {
     const merged = aSearchQueued([queuedGroupOf(3, "merged")]);
@@ -192,11 +192,27 @@ test("a stopped cell counts its failed Grabs and names Backlog search's next tim
   expect(stoppedWords(aStopped(1, { nextSearchAt: null }), clock)).toBe(
     "3 Grabs failed for this file in 2 days. Backlog search is off, so SlipStream searches for it only when you press Search again.",
   );
+  const seconds = ["07:20:01", "07:20:05", "07:20:09"].map((time) => ({
+    code: "no_video_file" as const,
+    at: `2026-11-14T${time}Z`,
+    grabId: null,
+  }));
+  expect(stoppedWords(aStopped(1, { failures: seconds }), clock)).toMatch(
+    /^3 Grabs failed for this file today\. /u,
+  );
 });
 
-test("a Not found row says when the last search found nothing and when SlipStream searches again", () => {
-  expect(notFoundWords("2026-11-09T09:12:00Z", "2026-11-15T14:00:00Z", clock)).toBe(
+test("a Not found row says what its group's last search found and when SlipStream searches again", () => {
+  expect(notFoundWords(aGroupState(1, { nextSearchAt: "2026-11-15T14:00:00Z" }), clock)).toBe(
     "Found nothing on Mon at 09:12. SlipStream searches again tomorrow at 14:00.",
   );
-  expect(notFoundWords("2026-11-14T09:12:00Z", null, clock)).toBe("Found nothing today at 09:12.");
+  const today = aGroupState(1, { lastSearchedAt: "2026-11-14T09:12:00Z", nextSearchAt: null });
+  expect(notFoundWords(today, clock)).toBe("Found nothing today at 09:12.");
+  const acceptable = aGroupState(1, {
+    lastResult: "nothing_acceptable",
+    lastFound: 4,
+    nextSearchAt: null,
+  });
+  expect(notFoundWords(acceptable, clock)).toBe("Found 4 releases, but none fits a Target.");
+  expect(lastWords.nothing_acceptable(acceptable, clock)).toBe(notFoundWords(acceptable, clock));
 });

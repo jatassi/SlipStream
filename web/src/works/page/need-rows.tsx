@@ -6,6 +6,7 @@ import { Button } from "../../ui/button";
 import { List, ListRow } from "../../ui/list";
 import { WarningLine } from "../../ui/warning-line";
 import { notFoundWords } from "../../grabs/search-words";
+import { useWorkSearching } from "../../grabs/searching-query";
 import { useNow } from "../../tasks/use-now";
 import { type Naming, notFoundSubject, upgradeWords } from "./need-words";
 
@@ -56,7 +57,7 @@ const itemsSearched = (naming: Naming, itemIds: readonly string[]) =>
     ? { name: naming.work.label }
     : { count: itemIds.length, item: naming.type.item };
 
-/** Missing Items whose last search found nothing, with when SlipStream searches them next. */
+/** Missing Items whose group's last search found nothing, with when SlipStream searches them next, as the hero reads that group. */
 export function NotFound({
   naming,
   needs,
@@ -66,36 +67,40 @@ export function NotFound({
 }) {
   const search = useStartSearch();
   const now = useNow(30_000);
+  const { groups } = useWorkSearching(naming.work.id);
   return (
     <List label="Not found">
-      {needs.map((need) => (
-        <ListRow
-          key={`${need.itemIds.join(" ")} ${need.edition}`}
-          title={notFoundSubject(naming, need)}
-          meta={notFoundWords(need.lastSearchedAt, need.nextSearchAt, { now, zone: undefined })}
-          trailing={
-            <span className="flex gap-2">
-              <Button
-                size="small"
-                busy={search.isPending}
-                onClick={() => {
-                  search.start(naming.work.id, itemsSearched(naming, need.itemIds), {
-                    levelIds: [],
-                    itemIds: need.itemIds,
-                  });
-                }}
-              >
-                Search
-              </Button>
-              <ManualSearchButton
-                workId={naming.work.id}
-                scope={{ itemIds: need.itemIds }}
-                size="small"
-              />
-            </span>
-          }
-        />
-      ))}
+      {needs.map((need) => {
+        const group = groups.find(({ key }) => key === need.groupKey);
+        return (
+          <ListRow
+            key={`${need.itemIds.join(" ")} ${need.edition}`}
+            title={notFoundSubject(naming, need)}
+            meta={group === undefined ? undefined : notFoundWords(group, { now, zone: undefined })}
+            trailing={
+              <span className="flex gap-2">
+                <Button
+                  size="small"
+                  busy={search.isPending}
+                  onClick={() => {
+                    search.start(naming.work.id, itemsSearched(naming, need.itemIds), {
+                      levelIds: [],
+                      itemIds: need.itemIds,
+                    });
+                  }}
+                >
+                  Search
+                </Button>
+                <ManualSearchButton
+                  workId={naming.work.id}
+                  scope={{ itemIds: need.itemIds }}
+                  size="small"
+                />
+              </span>
+            }
+          />
+        );
+      })}
     </List>
   );
 }

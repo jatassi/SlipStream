@@ -54,11 +54,10 @@ type upgradeNeed struct {
 }
 
 type notFoundNeed struct {
-	Kind           string     `json:"kind" enum:"not_found" doc:"Missing Items whose latest search found no Release, or none acceptable. It shows on the Work page only, and the Library's Needs you count leaves it out"`
-	ItemIDs        []string   `json:"itemIds" nullable:"false" doc:"A run of Items in tree order whose entries match"`
-	Edition        string     `json:"edition" doc:"any under any cut, else the key of the cut these Items need at this Target"`
-	LastSearchedAt time.Time  `json:"lastSearchedAt" doc:"When the latest search finished"`
-	NextSearchAt   *time.Time `json:"nextSearchAt" doc:"When SlipStream searches them next; null while nothing will"`
+	Kind     string   `json:"kind" enum:"not_found" doc:"Missing Items whose latest search found no Release, or none acceptable. It shows on the Work page only, and the Library's Needs you count leaves it out"`
+	ItemIDs  []string `json:"itemIds" nullable:"false" doc:"A run of Items in tree order whose entries match"`
+	Edition  string   `json:"edition" doc:"any under any cut, else the key of the cut these Items need at this Target"`
+	GroupKey string   `json:"groupKey" doc:"The key of the search group whose latest search found them nothing. Its state in the Work's searching says when it searched and when it searches next"`
 }
 
 type waitingNeed struct {
@@ -98,11 +97,7 @@ var needVariants = map[files.NeedKind]func(files.Need) any{
 		return upgradeNeed{Kind: "upgrade", ItemIDs: itemIDs(n.Items), Edition: string(n.Edition), Upgrades: targetIDs(n.Upgrades)}
 	},
 	files.NeedNotFound: func(n files.Need) any {
-		out := notFoundNeed{Kind: "not_found", ItemIDs: itemIDs(n.Items), Edition: string(n.Edition), LastSearchedAt: n.SearchedAt}
-		if !n.NextAt.IsZero() {
-			out.NextSearchAt = new(n.NextAt)
-		}
-		return out
+		return notFoundNeed{Kind: "not_found", ItemIDs: itemIDs(n.Items), Edition: string(n.Edition), GroupKey: n.Group}
 	},
 	files.NeedWaiting: func(n files.Need) any {
 		w := waitingNeed{Kind: "waiting", GrabID: n.Grab.String(), Code: n.Code}

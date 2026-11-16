@@ -106,6 +106,24 @@ func TestANeverSearchedRowIsNextSearchedByTheNextBacklogSearch(t *testing.T) {
 	})
 }
 
+func TestARowsNextSearchIsTheBacklogSearchThatQueuesIt(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := queueWorld(t, grabstest.Options{Sites: []string{"Quick Site"}})
+		w.Answer("Quick Site", time.Minute, searching.Answer{})
+		press(t, w, grabs.Scope{})
+		w.Run()
+		time.Sleep(2 * time.Minute)
+		page := wantedPage(t, w, grabs.WantedQuery{})
+		row, every := rowOf(t, page, w.Work), grabs.BacklogEvery.Default
+		if row.Phase != grabs.Idle || row.Next.Before(page.Status.NextBacklog) || row.Next.Sub(page.Status.NextBacklog)%every != 0 {
+			t.Fatalf("after a run found nothing the row is next searched at %v with Backlog search next at %v every %v, want one of those runs, which alone queue it", row.Next, page.Status.NextBacklog, every)
+		}
+		if lead := searchOf(t, w).Lead(); lead.Group == nil || !lead.Group.Next.Equal(row.Next) {
+			t.Fatalf("the hero leads with %+v, want its next search at the row's %v", lead.Group, row.Next)
+		}
+	})
+}
+
 func TestWantedsItemsReadAsTheWorkPagesCodes(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := queueWorld(t, grabstest.Options{Sites: []string{"Quick Site"}, Season: 3, Coded: true})
@@ -175,8 +193,8 @@ func TestANotFoundRowLeavesTheLibrarysCountsAlone(t *testing.T) {
 				after.Status, after.Counted, flagged(after), after.Reason, before.Status, before.Counted, flagged(before), before.Reason)
 		}
 		i := slices.IndexFunc(after.Needs, func(n files.Need) bool { return n.Kind == files.NeedNotFound })
-		if i < 0 || after.Needs[i].SearchedAt.IsZero() || after.Needs[i].NextAt.IsZero() {
-			t.Fatalf("the Work's needs are %+v, want a not found row with its last and next search", after.Needs)
+		if i < 0 || after.Needs[i].Group != string(searchOf(t, w).Groups[0].Key) {
+			t.Fatalf("the Work's needs are %+v, want a not found row naming the group the hero reads", after.Needs)
 		}
 		if row := rowOf(t, wantedPage(t, w, grabs.WantedQuery{}), w.Work); row.Reason != files.ReasonMissing || row.Last.Outcome != grabs.NothingFound {
 			t.Fatalf("Wanted's row is %+v, want it missing with its search finding nothing", row)

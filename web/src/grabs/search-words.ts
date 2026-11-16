@@ -14,13 +14,13 @@ import {
   type Clock,
   type Noun,
   countWords,
+  isToday,
   laterAtWords,
   laterWords,
   pastAtWords,
 } from "../format";
 
-const releases: Noun = { one: "Release", many: "Releases" };
-const releasesInSentence: Noun = { one: "release", many: "releases" };
+const releases: Noun = { one: "release", many: "releases" };
 const works: Noun = { one: "Work", many: "Works" };
 const grabWord: Noun = { one: "Grab", many: "Grabs" };
 const days: Noun = { one: "day", many: "days" };
@@ -89,7 +89,7 @@ export function behindWords(behind: GrabsBehind | null, clock: Clock): string | 
     return undefined;
   }
   if (behind.indexerName !== null && behind.starved) {
-    return `Backlog search waits for ${behind.indexerName}. RSS sync uses all of its search limit.`;
+    return `This search waits for ${behind.indexerName}. RSS sync uses all of ${behind.indexerName}'s search limit.`;
   }
   if (behind.indexerName !== null && behind.until !== null) {
     return `Waiting for ${behind.indexerName}'s search limit until ${laterWords(behind.until, clock).words}.`;
@@ -107,7 +107,7 @@ export const waitingWords = (until: string, clock: Clock): string =>
 
 /** A waiting cell's fact: how many Releases it holds and when it grabs the best. */
 export function waitWords(candidates: number, until: string, clock: Clock): string {
-  return `${countWords(candidates, releasesInSentence)} found so far. SlipStream grabs the best one ${laterAtWords(until, clock)} unless a better one arrives.`;
+  return `${countWords(candidates, releases)} found so far. SlipStream grabs the best one ${laterAtWords(until, clock)} unless a better one arrives.`;
 }
 
 const nextWords = (at: string | null, clock: Clock): string =>
@@ -115,16 +115,29 @@ const nextWords = (at: string | null, clock: Clock): string =>
 
 export type LastResult = NonNullable<GrabsGroupStateLastResult>;
 
+type FoundNothing = Extract<LastResult, "nothing_found" | "nothing_acceptable">;
+
+/** What a group's last search found when it grabbed nothing. */
+const foundWords: Readonly<Record<FoundNothing, (group: GrabsGroupState, clock: Clock) => string>> =
+  {
+    nothing_found: ({ lastSearchedAt }, clock) =>
+      lastSearchedAt === null
+        ? "Found nothing."
+        : `Found nothing ${pastAtWords(lastSearchedAt, clock)}.`,
+    nothing_acceptable: ({ lastFound }) =>
+      `Found ${countWords(lastFound, releases)}, but none fits a Target.`,
+  };
+
 /** A group's last search, as the hero says it. */
 export const lastWords: Readonly<
   Record<LastResult, (group: GrabsGroupState, clock: Clock) => string>
 > = {
   grabbed: ({ lastGrabs }) => `Grabbed ${countWords(lastGrabs, releases)}`,
   waiting: () => "Waiting for a better release",
-  nothing_found: ({ lastSearchedAt, nextSearchAt }, clock) =>
-    `Found nothing ${lastSearchedAt === null ? "" : pastAtWords(lastSearchedAt, clock)}.${nextWords(nextSearchAt, clock)}`,
-  nothing_acceptable: ({ lastFound, nextSearchAt }, clock) =>
-    `Found ${countWords(lastFound, releasesInSentence)}, but none fits a Target.${nextWords(nextSearchAt, clock)}`,
+  nothing_found: (group, clock) =>
+    `${foundWords.nothing_found(group, clock)}${nextWords(group.nextSearchAt, clock)}`,
+  nothing_acceptable: (group, clock) =>
+    `${foundWords.nothing_acceptable(group, clock)}${nextWords(group.nextSearchAt, clock)}`,
   no_indexer: () => "No Indexer could search. Check Indexers in Health.",
   no_root: () => "No library root was reachable. Check Library roots in Settings.",
 };
@@ -196,7 +209,7 @@ export function queuedToast(
     const group = now.groups.find((candidate) => candidate.key === key);
     return group?.state === "queued" && group.behind !== null;
   });
-  return held ? `Queued ${searched} for search` : `Searching ${searched}`;
+  return held ? `Queued ${searched} for search.` : `Searching ${searched}`;
 }
 
 /** A stopped cell's card: how many Grabs failed over how long, and when Backlog search looks again. */
@@ -205,20 +218,22 @@ export function stoppedWords(stop: GrabsStopped, clock: Clock): string {
   const last = stop.failures.at(-1);
   const span =
     first === undefined || last === undefined ? 0 : Date.parse(last.at) - Date.parse(first.at);
-  const failed = `${countWords(stop.failures.length, grabWord)} failed for this file in ${countWords(Math.max(1, Math.ceil(span / dayMs)), days)}.`;
+  const over =
+    first !== undefined && isToday(first.at, clock)
+      ? "today"
+      : `in ${countWords(Math.max(1, Math.ceil(span / dayMs)), days)}`;
+  const failed = `${countWords(stop.failures.length, grabWord)} failed for this file ${over}.`;
   return stop.nextSearchAt === null
     ? `${failed} Backlog search is off, so SlipStream searches for it only when you press Search again.`
     : `${failed} Backlog search looks for it again ${laterAtWords(stop.nextSearchAt, clock)}.`;
 }
 
-/** A Not found row's detail: when the last search found nothing, and when the next one runs. */
-export function notFoundWords(
-  lastSearchedAt: string,
-  nextSearchAt: string | null,
-  clock: Clock,
-): string {
-  const found = `Found nothing ${pastAtWords(lastSearchedAt, clock)}.`;
-  return nextSearchAt === null
+/** A Not found row's detail: what its group's last search found, as the hero says it, and when the next one runs. */
+export function notFoundWords(group: GrabsGroupState, clock: Clock): string {
+  const found = foundWords[
+    group.lastResult === "nothing_acceptable" ? "nothing_acceptable" : "nothing_found"
+  ](group, clock);
+  return group.nextSearchAt === null
     ? found
-    : `${found} SlipStream searches again ${laterAtWords(nextSearchAt, clock)}.`;
+    : `${found} SlipStream searches again ${laterAtWords(group.nextSearchAt, clock)}.`;
 }

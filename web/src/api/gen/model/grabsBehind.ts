@@ -27,7 +27,7 @@ export interface GrabsBehind {
    * @nullable
    */
   indexerName: string | null;
-  /** RSS sync uses all of the Indexer's search limit, so Backlog search waits for it */
+  /** RSS sync uses all of the Indexer's search limit, so Backlog search and Search all wait for it */
   starved: boolean;
   /**
    * When the Indexer's search limit frees a search; null when it waits for none

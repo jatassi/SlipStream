@@ -343,9 +343,13 @@ func TestAnImportThatPlacesNothingCountsLikeAnyFailedGrab(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := failureWorld(t)
 		settings(t, w, map[string]string{grabs.StopCount.Key: "2"})
-		importEnded(t, w, grabbedOver(t, w, heard(w, "E01", "1080p.WEB-DL", 'a')), grabs.NoVideoFile)
+		first := grabbedOver(t, w, heard(w, "E01", "1080p.WEB-DL", 'a'))
+		importEnded(t, w, first, grabs.NoVideoFile)
 		if got := reads(cellOf(t, w)); got != "Missing" {
 			t.Fatalf("after the first failed Import the cell reads %q, want Missing", got)
+		}
+		if v, err := w.Grabs.Get(t.Context(), identity.Admin{}, first); err != nil || !v.SearchingAgain {
+			t.Fatalf("the first failed Grab reads searching again %v, %v: want true, so Needs you doesn't list it while its cell reads Missing", v.SearchingAgain, err)
 		}
 		if got := len(w.Queue(t).Nudged); got != 1 {
 			t.Fatalf("after the first failed Import the queue holds %d nudges, want 1: it searches again at once", got)
@@ -362,8 +366,8 @@ func TestAnImportThatPlacesNothingCountsLikeAnyFailedGrab(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !v.Current || !v.NeedsYou() {
-			t.Fatalf("the stopping Grab reads current %v, needs you %v: want both, so Needs you lists it", v.Current, v.NeedsYou())
+		if !v.Current || !v.NeedsYou() || v.SearchingAgain {
+			t.Fatalf("the stopping Grab reads current %v, needs you %v, searching again %v: want current and needs you only, so Needs you lists it", v.Current, v.NeedsYou(), v.SearchingAgain)
 		}
 	})
 }

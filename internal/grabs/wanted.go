@@ -125,7 +125,7 @@ func (gr *Grabs) Wanted(ctx context.Context, _ identity.Admin, q WantedQuery) (W
 	if err != nil {
 		return WantedPage{}, err
 	}
-	next, err := gr.nextBacklog(ctx)
+	runs, err := gr.backlogRuns(ctx)
 	if err != nil {
 		return WantedPage{}, err
 	}
@@ -143,11 +143,11 @@ func (gr *Grabs) Wanted(ctx context.Context, _ identity.Admin, q WantedQuery) (W
 			return err
 		}
 		if s.backlog {
-			page.Status.NextBacklog = next
+			page.Status.NextBacklog = runs.next
 		}
 		rows, left := filtered(ws, q.Filter)
 		page.Total, page.LeftGone = len(rows), left
-		if err := keyed(ctx, r, rows, s, page.Status.NextBacklog, q.Sort); err != nil {
+		if err := keyed(ctx, r, rows, s, runs, page.Status.NextBacklog, q.Sort); err != nil {
 			return err
 		}
 		slices.SortFunc(rows, func(a, b wantedListing) int { return a.key.compare(b.key) })
@@ -191,8 +191,8 @@ func filtered(ws []files.WorkWanted, f WantedFilter) (listed []wantedListing, le
 
 // keyed sets each row's search, from s, its next search and its key under
 // sort.
-func keyed(ctx context.Context, r storage.Reader[file], rows []wantedListing, s states, backlog time.Time, sort WantedSort) error {
-	byWork := s.byWork()
+func keyed(ctx context.Context, r storage.Reader[file], rows []wantedListing, s states, runs backlogRuns, backlog time.Time, sort WantedSort) error {
+	byWork := s.byWork(runs)
 	labels := map[works.WorkID]string{}
 	if sort == ByTitle {
 		ids := make([]works.WorkID, len(rows))
@@ -367,17 +367,38 @@ func (gr *Grabs) status(ctx context.Context, r storage.Reader[file], s states) (
 	return out, nil
 }
 
-// nextBacklog is when Backlog search next opens on schedule, now while it
-// runs and until Backlog search registers its task.
-func (gr *Grabs) nextBacklog(ctx context.Context) (time.Time, error) {
+// backlogRuns is Backlog search's schedule: its next run, then one each
+// interval.
+type backlogRuns struct {
+	next  time.Time
+	every time.Duration
+}
+
+// backlogRuns reads Backlog search's schedule. Its next run is now while
+// it runs and until Backlog search registers its task.
+func (gr *Grabs) backlogRuns(ctx context.Context) (backlogRuns, error) {
 	next, err := gr.cfg.Tasks.Next(ctx, BacklogTaskID)
 	if err != nil && !errors.Is(err, tasks.ErrUnknownTask) {
-		return time.Time{}, err
+		return backlogRuns{}, err
 	}
 	if next.IsZero() {
-		return storage.Now().Time(), nil
+		next = storage.Now().Time()
 	}
-	return next, nil
+	every, err := gr.interval(ctx)
+	return backlogRuns{next: next, every: every}, err
+}
+
+// queuing is when the Backlog search run starts that queues a group due
+// at due: the first at or after it, since each run queues only the groups
+// already due.
+func (b backlogRuns) queuing(due time.Time) time.Time {
+	if !due.After(b.next) {
+		return b.next
+	}
+	if past := due.Sub(b.next) % b.every; past > 0 {
+		return due.Add(b.every - past)
+	}
+	return due
 }
 
 func parseCursor(q WantedQuery) (*sortKey, error) {

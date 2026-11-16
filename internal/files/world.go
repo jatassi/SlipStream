@@ -465,7 +465,7 @@ func (s *scoring) compare(t targets.Target, a, b File) int {
 func (w world) searchOf(key CellKey) SearchFact {
 	f := w.search[key]
 	if of, ok := w.search[ItemKey(key.Item)]; ok {
-		f.NotFound, f.SearchedAt, f.NextAt = of.NotFound, of.SearchedAt, of.NextAt
+		f.NotFound, f.Group = of.NotFound, of.Group
 	}
 	return f
 }

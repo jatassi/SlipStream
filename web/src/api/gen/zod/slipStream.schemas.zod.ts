@@ -2079,17 +2079,17 @@ export const FilesNotFoundNeed = zod.object({
   edition: zod
     .string()
     .describe("any under any cut, else the key of the cut these Items need at this Target"),
+  groupKey: zod
+    .string()
+    .describe(
+      "The key of the search group whose latest search found them nothing. Its state in the Work's searching says when it searched and when it searches next",
+    ),
   itemIds: zod.array(zod.string()).describe("A run of Items in tree order whose entries match"),
   kind: zod
     .enum(["not_found"])
     .describe(
       "Missing Items whose latest search found no Release, or none acceptable. It shows on the Work page only, and the Library's Needs you count leaves it out",
     ),
-  lastSearchedAt: zod.iso.datetime({ offset: true }).describe("When the latest search finished"),
-  nextSearchAt: zod.iso
-    .datetime({ offset: true })
-    .nullable()
-    .describe("When SlipStream searches them next; null while nothing will"),
 });
 
 export type FilesNotFoundNeed = zod.input<typeof FilesNotFoundNeed>;
@@ -3272,7 +3272,9 @@ export const GrabsBehind = zod.object({
   indexerName: zod.string().nullable().describe("That Indexer's name; null when it waits for none"),
   starved: zod
     .boolean()
-    .describe("RSS sync uses all of the Indexer's search limit, so Backlog search waits for it"),
+    .describe(
+      "RSS sync uses all of the Indexer's search limit, so Backlog search and Search all wait for it",
+    ),
   until: zod.iso
     .datetime({ offset: true })
     .nullable()
@@ -3545,7 +3547,7 @@ export const GrabsFailure = zod.object({
   needsYou: zod
     .boolean()
     .describe(
-      "True when Needs you lists the failure. False for a cancel, and for a Manual Grab whose fetched torrent was on the Blocklist, because the Manual search sheet already showed that.",
+      "True when Needs you lists the failure. False for a cancel, for a failure SlipStream searches again by itself, and for a Manual Grab whose fetched torrent was on the Blocklist, because the Manual search sheet already showed that.",
     ),
   stage: zod.enum(["fetching", "downloading", "importing"]),
 });
@@ -4038,7 +4040,9 @@ export const GrabsLimitUntil = zod.object({
   indexerName: zod.string(),
   starved: zod
     .boolean()
-    .describe("RSS sync uses all of its search limit, so Backlog search waits for it"),
+    .describe(
+      "RSS sync uses all of its search limit, so Backlog search and Search all wait for it",
+    ),
   until: zod.iso
     .datetime({ offset: true })
     .nullable()
@@ -10529,6 +10533,7 @@ export const TasksIdleState = zod.object({
   next: zod.iso
     .datetime({ offset: true })
     .describe("When the next run is due; now when it is due already"),
+  off: zod.boolean().describe("A setting has each run skip, so the task is off until it changes"),
 });
 
 export type TasksIdleState = zod.input<typeof TasksIdleState>;
