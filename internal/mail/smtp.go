@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -65,35 +66,35 @@ func (s SMTP) Send(ctx context.Context, m Message) (Outcome, error) {
 	defer cancel()
 	conn, err := client.DialToSMTPClientWithContext(ctx)
 	if err != nil {
-		return Outcome{Kind: Failed, Reply: reply(err)}, nil
+		return failed(StepConnect, err), nil
 	}
 	defer func() { _ = client.CloseWithSMTPClient(conn) }()
-	if err := s.deliver(conn, m.To, msg); err != nil {
-		return Outcome{Kind: Failed, Reply: reply(err)}, nil
+	if step, err := s.deliver(conn, m.To, msg); err != nil {
+		return failed(step, err), nil
 	}
 	return Outcome{Kind: Sent}, nil
 }
 
 // deliver runs the envelope and the data itself rather than through
-// go-mail's Send, whose errors hide the server's reply.
-func (s SMTP) deliver(c *smtp.Client, to Address, msg *gomail.Msg) error {
+// go-mail's Send, whose errors hide the server's reply and where it came.
+func (s SMTP) deliver(c *smtp.Client, to Address, msg *gomail.Msg) (Step, error) {
 	if err := c.Mail(s.Server.From.Email); err != nil {
-		return fmt.Errorf("MAIL FROM: %w", err)
+		return StepFrom, fmt.Errorf("MAIL FROM: %w", err)
 	}
 	if err := c.Rcpt(to.Email); err != nil {
-		return fmt.Errorf("RCPT TO: %w", err)
+		return StepRcpt, fmt.Errorf("RCPT TO: %w", err)
 	}
 	w, err := c.Data()
 	if err != nil {
-		return fmt.Errorf("DATA: %w", err)
+		return StepData, fmt.Errorf("DATA: %w", err)
 	}
 	if _, err := msg.WriteTo(w); err != nil {
-		return fmt.Errorf("DATA: %w", err)
+		return StepData, fmt.Errorf("DATA: %w", err)
 	}
 	if err := w.Close(); err != nil {
-		return fmt.Errorf("DATA: %w", err)
+		return StepData, fmt.Errorf("DATA: %w", err)
 	}
-	return nil
+	return "", nil
 }
 
 func (s SMTP) message(m Message) (*gomail.Msg, error) {
@@ -107,6 +108,11 @@ func (s SMTP) message(m Message) (*gomail.Msg, error) {
 	msg.Subject(m.Subject)
 	msg.SetBodyString(gomail.TypeTextPlain, m.Text)
 	msg.AddAlternativeString(gomail.TypeTextHTML, m.HTML)
+	for _, p := range m.Inline {
+		if err := msg.EmbedReader(p.Name, bytes.NewReader(p.Body), gomail.WithFileContentID("<"+p.ContentID+">"), gomail.WithFileContentType(gomail.ContentType(p.Type))); err != nil {
+			return nil, fmt.Errorf("inline part %q: %w", p.Name, err)
+		}
+	}
 	return msg, nil
 }
 
@@ -160,9 +166,10 @@ func (s SMTP) dialer(config *tls.Config) gomail.DialContextFunc {
 	}
 }
 
-func reply(err error) string {
+// failed is a send the server refused at step, or that never reached it.
+func failed(step Step, err error) Outcome {
 	if r, ok := errors.AsType[*textproto.Error](err); ok {
-		return fmt.Sprintf("%d %s", r.Code, r.Msg)
+		return Outcome{Kind: Failed, Reply: fmt.Sprintf("%d %s", r.Code, r.Msg), Permanent: r.Code >= 500, Step: step}
 	}
-	return err.Error()
+	return Outcome{Kind: Failed, Reply: err.Error(), Step: step}
 }
