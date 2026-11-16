@@ -96,9 +96,7 @@ func (w *world) stopAt(id ImportID, at StepAt) <-chan struct{} {
 // reconcile runs a reconciler over w until the test ends, as a restarted
 // Controller would.
 func (w *world) reconcile(t *testing.T) {
-	cfg := w.cfg
-	cfg.BeforeImport = nil
-	im := w.newImports(cfg)
+	im := w.newImports(w.cfg)
 	ctx, cancel := context.WithCancel(context.WithoutCancel(t.Context()))
 	done := make(chan struct{})
 	go func() {

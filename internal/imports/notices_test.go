@@ -1,6 +1,7 @@
 package imports
 
 import (
+	"context"
 	"flag"
 	"path/filepath"
 	"slices"
@@ -156,25 +157,27 @@ func TestAScanRecordsEveryWorkAdoptedInItsRootSinceTheScanBefore(t *testing.T) {
 	t.Parallel()
 	w := newWorld(t)
 	other := w.newRoot(t)
-	for _, k := range []works.Key{"a1", "a2", "a3", "a4", "a5"} {
-		w.adopt(t, k, w.root.ID)
+	for i := range 500 {
+		w.adopt(t, works.Key("a"+strconv.Itoa(i+1)), w.root.ID)
 	}
-	w.adopt(t, "b1", other.ID)
+	for i := range 10 {
+		w.adopt(t, works.Key("b"+strconv.Itoa(i+1)), other.ID)
+	}
 	w.add(t, "manual", w.root.ID)
 	got := w.recordScan(t, w.root)
-	if len(got) != 1 || got[0].Count != 5 || len(got[0].First) != 3 || !strings.HasPrefix(got[0].Root, "Shelves library root") {
-		t.Fatalf("the first scan of the root recorded %+v, want one event counting its 5 adopted Works with 3 titles", got)
+	if len(got) != 1 || got[0].Count != 500 || len(got[0].First) != 3 || slices.ContainsFunc(got[0].First, func(l string) bool { return !strings.HasPrefix(l, "Shelf a") }) || !strings.HasPrefix(got[0].Root, "Shelves library root") {
+		t.Fatalf("the first scan of the root recorded %+v, want one event counting its 500 adopted Works with 3 of their titles", got)
 	}
 	if got = w.recordScan(t, w.root); len(got) != 1 {
 		t.Fatalf("a scan that adopted nothing recorded %+v", got[1:])
 	}
-	w.adopt(t, "a6", w.root.ID)
-	w.adopt(t, "a7", w.root.ID)
+	w.adopt(t, "a501", w.root.ID)
+	w.adopt(t, "a502", w.root.ID)
 	if got = w.recordScan(t, w.root); len(got) != 2 || got[1].Count != 2 {
-		t.Fatalf("after a scan that adopted a6 and failed, the next recorded %+v, want both a6 and a7", got[1:])
+		t.Fatalf("after a scan that adopted a501 and failed, the next recorded %+v, want both a501 and a502", got[1:])
 	}
-	if got = w.recordScan(t, other); len(got) != 3 || got[2].Count != 1 || got[2].First[0] != "Shelf b1" {
-		t.Fatalf("a scan of the other root recorded %+v, want its one Work alone", got[2:])
+	if got = w.recordScan(t, other); len(got) != 3 || got[2].Count != 10 || !strings.HasPrefix(got[2].First[0], "Shelf b") {
+		t.Fatalf("a scan of the other root recorded %+v, want its 10 Works alone", got[2:])
 	}
 	if n := w.shelved.Len(); n != 0 {
 		t.Errorf("adopting and adding without the add flow recorded %d library events", n)
@@ -230,5 +233,35 @@ func TestFilesARootImportPlacesRecordNothing(t *testing.T) {
 	}
 	if n := w.notices.Len(); n != 0 {
 		t.Errorf("a root Import that placed its file recorded %d events", n)
+	}
+}
+
+func TestAnImportItsWorksDeleteEndsRecordsNoImported(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	tree, imp, _ := w.pack(t, "w1", 3)
+	second := positionOf(imp, "Clip 2.mkv")
+	held, resume := make(chan struct{}), make(chan struct{})
+	hold := func(ctx context.Context, s Step) {
+		if s.Import == imp.ID && s.Position == second && s.At == AtPlace {
+			w.stop.Store(nil)
+			close(held)
+			<-resume
+		}
+	}
+	w.stop.Store(&hold)
+	if _, err := w.im.ConfirmAll(t.Context(), identity.Admin{}, []ImportID{imp.ID}); err != nil {
+		t.Fatal(err)
+	}
+	<-held
+	first := positionOf(imp, "Clip 1.mkv")
+	w.until(t, "clip 1 is placed while clip 2 is held", imp.ID, func(imp *Import) bool { return fileAt(imp, first).Outcome == Placed })
+	if _, _, err := w.library.Delete(t.Context(), identity.Admin{}, []works.WorkID{tree.ID}, library.Deleting{Files: library.DeleteFiles}); err != nil {
+		t.Fatal(err)
+	}
+	close(resume)
+	w.until(t, "the delete ends the Import", imp.ID, func(imp *Import) bool { return !imp.Finished.IsZero() })
+	if got := noticetest.Of(w.notices, importedRow); len(got) != 0 {
+		t.Errorf("an Import its Work's delete ended recorded Imported %+v", got)
 	}
 }
