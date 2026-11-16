@@ -16,6 +16,13 @@ import (
 type Facet interface {
 	Expect(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) (Expect, error)
 	SearchTerms(ctx context.Context, r storage.Reader[storage.Library], item works.ItemID) (Terms, error)
+	// Groups splits items, Items of work, into search groups, each first
+	// listed where its first Item is in items. Every Item is in exactly
+	// one group.
+	Groups(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID, items []works.ItemID) ([]Group, error)
+	// GroupTerms is how to search g, a group Groups answered: its Items'
+	// common Terms, or a lone Item's own SearchTerms.
+	GroupTerms(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID, g Group) (Terms, error)
 	Categories() []newznab.ID
 }
 

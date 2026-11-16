@@ -137,34 +137,9 @@ test("the long backoff saves in hours, beside the health check's cadence", async
   await expect.element(page.getByRole("button", { name: "Reset to default" })).toBeVisible();
 });
 
-test("the search wait saves under Searching, apart from the long backoff", async () => {
-  const server = indexersServer();
-  renderApp({ path, handlers: server.handlers });
-  const searching = page.getByRole("region", { name: "Searching", exact: true });
+test("the wait for each Indexer has left the Indexers section for Automatic search", async () => {
+  renderApp({ path, handlers: indexersServer().handlers });
   await expect.element(page.getByRole("heading", { name: "Warnings" })).toBeVisible();
-  await expect
-    .element(
-      searching.getByText(
-        "SlipStream waits this long for each Indexer to respond to a search. Set it longer than the Challenge solver's timeout, or searches stop before the solver clears the challenge.",
-      ),
-    )
-    .toBeVisible();
-  await expect
-    .element(
-      page.getByRole("region", { name: "Warnings" }).getByText("Wait for each Indexer up to"),
-    )
-    .not.toBeInTheDocument();
-  await userEvent.fill(
-    searching.getByRole("textbox", { name: "Wait for each Indexer up to" }),
-    "5",
-  );
-  await userEvent.click(searching.getByRole("button", { name: "Save" }));
-  await expect
-    .poll(() => server.writes.at(-1))
-    .toEqual({
-      method: "PATCH",
-      id: "settings",
-      body: { values: { "indexers.searchWait": 300 } },
-    });
-  await expect.element(searching.getByRole("button", { name: "Reset to default" })).toBeVisible();
+  expect(page.getByRole("region", { name: "Searching", exact: true }).query()).toBeNull();
+  expect(page.getByText("Wait for each Indexer up to").query()).toBeNull();
 });

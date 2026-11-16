@@ -3,6 +3,7 @@ package library_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -35,6 +37,7 @@ type shelf struct {
 	roots *roots.Roots
 	root  roots.Root
 	hd    targets.TargetID
+	queue *asked
 }
 
 func newShelf(t *testing.T) shelf {
@@ -76,11 +79,11 @@ func newShelf(t *testing.T) shelf {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return shelf{lib: lib, fx: fx, works: w, roots: homes, root: root.Root, hd: hd.ID, files: fs}
+	return shelf{lib: lib, fx: fx, works: w, roots: homes, root: root.Root, hd: hd.ID, files: fs, queue: newAsked(t, lib)}
 }
 
 func (s shelf) library(leaver library.Leaver) *library.Library {
-	return library.New(library.Config{Library: s.lib, Works: s.works, Roots: s.roots, Files: s.files, Imports: noImports{}, Leaver: leaver})
+	return library.New(library.Config{Library: s.lib, Works: s.works, Roots: s.roots, Files: s.files, Imports: noImports{}, Leaver: leaver, Queue: s.queue})
 }
 
 type noImports struct{}
@@ -183,5 +186,60 @@ func TestAddByAnAdminReadsAddedByAdmin(t *testing.T) {
 	}
 	if added.Tree.AddedBy != works.AddedByAdmin {
 		t.Fatalf("a Work an Admin adds reads added by %q, want admin", added.Tree.AddedBy)
+	}
+}
+
+func TestAnAddQueuesWhatItsScopeSearchesInItsWrite(t *testing.T) {
+	t.Parallel()
+	s := newShelf(t)
+	l := s.library(nil)
+	for _, key := range []works.Key{"w1", "w2", "w3", "w4"} {
+		s.stock(key)
+	}
+	add := func(a library.Adding) library.Added {
+		t.Helper()
+		a.Type = contenttypetest.ID
+		added, err := l.Add(t.Context(), identity.Admin{}, a)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return added
+	}
+	first := add(library.Adding{Key: "w1", Search: new(works.SearchFirstItem)})
+	want := []call{{trigger: searches.Add, asks: []searches.Ask{{Work: first.Tree.ID, Items: idsOf(first.Tree.Items[0])}}}}
+	if got := s.queue.took(t); !reflect.DeepEqual(got, want) {
+		t.Fatalf("an add searching the first Item queued %v, want one add call asking for Clip 1", got)
+	}
+	add(library.Adding{Key: "w2"})
+	add(library.Adding{Key: "w3", By: works.AddedByScan})
+	add(library.Adding{Key: "w4", Search: new(works.SearchNone)})
+	add(library.Adding{Key: "w1", Search: new(works.SearchMonitored)})
+	if got := s.queue.took(t); !reflect.DeepEqual(got, want) {
+		t.Fatalf("adds with no scope, from a scan, searching nothing and of a Work already there queued %v, want nothing more", got[1:])
+	}
+}
+
+func TestAnAddWhoseQueueFailsAddsNothing(t *testing.T) {
+	t.Parallel()
+	s := newShelf(t)
+	s.stock("w1")
+	s.queue.refuse = errors.New("the queue is closed")
+	_, err := s.library(nil).Add(t.Context(), identity.Admin{}, library.Adding{Type: contenttypetest.ID, Key: "w1", Search: new(works.SearchMonitored)})
+	if !errors.Is(err, s.queue.refuse) {
+		t.Fatalf("an add whose Queue fails answers %v, want its error", err)
+	}
+	if got := s.queue.took(t); len(got) != 0 {
+		t.Fatalf("an add whose Queue failed left %v queued, want nothing", got)
+	}
+	var rows []works.Row
+	err = s.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		rows, err = s.works.RowsIn(ctx, r, works.Scope{})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("after an add whose Queue failed the library lists %d Works, want none", len(rows))
 	}
 }

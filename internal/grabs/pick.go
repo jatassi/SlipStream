@@ -22,6 +22,7 @@ import (
 // not_an_upgrade forces its file into the cells it lifts it at.
 var Liftable = []targets.ReasonCode{
 	targets.WrongTitle, targets.SizeBelow, targets.SizeAbove, targets.ScoreBelowMinimum, targets.NotAnUpgrade, targets.RepackOtherGroup,
+	targets.NotAired, targets.Tried,
 }
 
 // ManualPick is one ticked row, or one Release's Grab, as the sheet sends
@@ -359,13 +360,13 @@ func (s sheet) conflictWords(c chosen) string {
 // follows.
 func (g *grabbing) grab(ctx context.Context, c chosen) (GrabID, *PickError, error) {
 	p := g.picks[c.picks[0]]
+	if c.stance.kind == standsBlocked && !p.Unblock {
+		return GrabID{}, &PickError{Code: PickChanged, Words: "This Release is on the Blocklist now. Remove it from the Blocklist to grab it."}, nil
+	}
 	for _, l := range c.stance.lifts {
 		if !slices.ContainsFunc(c.picks, func(i int) bool { return slices.Contains(g.picks[i].Lifts, LiftKey{Code: l.Code, Target: l.Target}) }) {
 			return GrabID{}, changedPick, nil
 		}
-	}
-	if c.stance.kind == standsBlocked && !p.Unblock {
-		return GrabID{}, &PickError{Code: PickChanged, Words: "This Release is on the Blocklist now. Remove it from the Blocklist to grab it."}, nil
 	}
 	cancel, same, e, err := g.held(ctx, c, p)
 	if !same.IsZero() || e != nil || err != nil {
@@ -446,7 +447,7 @@ func (g *grabbing) clear(ctx context.Context, c chosen, p ManualPick) (cleared, 
 func (g *grabbing) make(ctx context.Context, c chosen, cl cleared) (GrabID, error) {
 	rs := g.s.runs[c.run]
 	p := g.picks[c.picks[0]]
-	n := newGrab{work: g.s.in.tree.ID, item: rs.run.ItemID, source: FromManual, manual: g.s.in.manual.ID, by: &g.by, sent: p.Client}
+	n := newGrab{work: g.s.in.tree.ID, item: rs.run.item(), source: FromManual, foundBy: FoundByManual, manual: g.s.in.manual.ID, by: &g.by, sent: p.Client}
 	for _, w := range rs.worded(c.stance.lifts, c.group) {
 		n.overrides.Lifted = append(n.overrides.Lifted, Lifted{Code: w.Code, Words: w.Words})
 	}
@@ -579,13 +580,16 @@ func (g *grabbing) publish(ctx context.Context) {
 // sameRelease reports whether r is j's Release or a copy of it: the same
 // info hash, or the same title and size when either lacks one.
 func sameRelease(r Release, j judged) bool {
-	same := func(o indexers.Release) bool {
-		if r.InfoHash != nil && o.InfoHash != nil {
-			return *r.InfoHash == *o.InfoHash
-		}
-		return r.Title == o.Title && r.Size == o.Size
+	return r.is(j.Release) || slices.ContainsFunc(j.copies, func(c copied) bool { return r.is(c.Release) })
+}
+
+// is reports whether o is r: the same info hash, or the same title and
+// size when either lacks one.
+func (r Release) is(o indexers.Release) bool {
+	if r.InfoHash != nil && o.InfoHash != nil {
+		return *r.InfoHash == *o.InfoHash
 	}
-	return same(j.Release) || slices.ContainsFunc(j.copies, func(c copied) bool { return same(c.Release) })
+	return r.Title == o.Title && r.Size == o.Size
 }
 
 // clientRefusal is err, a chosen client Usable refused, as a pick's

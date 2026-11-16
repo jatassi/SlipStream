@@ -42,10 +42,9 @@ test("an offline seedbox lights the Nodes dot, its Indexer's search says what it
   await page.getByRole("searchbox", { name: "Title" }).fill("quiet orchard");
   await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "Add The Quiet Orchard" }).click();
-  await page
-    .getByRole("dialog", { name: "Add The Quiet Orchard" })
-    .getByRole("button", { name: "Add Movie" })
-    .click();
+  const sheet = page.getByRole("dialog", { name: "Add The Quiet Orchard" });
+  await sheet.getByRole("switch", { name: "Search after adding" }).click();
+  await sheet.getByRole("button", { name: "Add Movie" }).click();
   await expect(page.getByRole("heading", { name: "The Quiet Orchard", exact: true })).toBeVisible();
   await expectNodesRow(page, "", 5000);
 
@@ -54,7 +53,7 @@ test("an offline seedbox lights the Nodes dot, its Indexer's search says what it
 
   await workSearch(page).click();
   await expect(page.getByRole("list", { name: "Searches" })).toContainText(
-    /^Found nothing acceptable0 Releases found · .+Fixture SiteWaiting for seedbox/u,
+    /^No Indexer could searchSearch · 0 Releases found · .+Fixture SiteWaiting for seedbox/u,
   );
 
   await expectNodesRow(page, " failed", 150_000);

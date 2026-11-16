@@ -2,10 +2,12 @@ package grabsapi
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/searches"
 )
 
 func enumOf[T any](t *testing.T, field string) string {
@@ -37,7 +39,7 @@ func TestTheManualSearchEnumsNameEveryDomainValueInOrder(t *testing.T) {
 	}
 }
 
-func TestTheGrabEnumsNameEveryStageCodeAndStepInOrder(t *testing.T) {
+func TestTheGrabEnumsNameEveryStageCodeStepOutcomeAndSourceInOrder(t *testing.T) {
 	var inFlight []grabs.Stage
 	for _, s := range grabs.Stages {
 		if s.InFlight() {
@@ -51,6 +53,26 @@ func TestTheGrabEnumsNameEveryStageCodeAndStepInOrder(t *testing.T) {
 		{"heldCell.Stage", enumOf[heldCell](t, "Stage"), joined(inFlight)},
 		{"failure.Code", enumOf[failure](t, "Code"), joined(grabs.Codes)},
 		{"lostAt.Step", enumOf[lostAt](t, "Step"), joined(grabs.Steps)},
+		{"search.Outcome", enumOf[search](t, "Outcome"), joined(grabs.Outcomes)},
+		{"grab.Source", enumOf[grab](t, "Source"), joined(grabs.Sources)},
+		{"grab.FoundBy", enumOf[grab](t, "FoundBy"), joined(grabs.FoundBys)},
+	} {
+		if c.got != c.want {
+			t.Errorf("%s enum = %q, want %q", c.name, c.got, c.want)
+		}
+	}
+}
+
+func TestTheSearchQueueEnumsNameEveryTriggerOutcomeAndCodeInOrder(t *testing.T) {
+	queued := slices.DeleteFunc(searches.Triggers(), func(tr searches.Trigger) bool { return tr == searches.RSS })
+	automatic := slices.DeleteFunc(slices.Clone(grabs.Outcomes), func(o grabs.Outcome) bool { return o == grabs.ManualListed })
+	for _, c := range []struct{ name, got, want string }{
+		{"search.Trigger", enumOf[search](t, "Trigger"), joined(searches.Triggers())},
+		{"groupState.Trigger", enumOf[groupState](t, "Trigger"), joined(queued)},
+		{"behind.AheadFrom", enumOf[behind](t, "AheadFrom"), joined(queued)},
+		{"groupState.Last", enumOf[groupState](t, "Last"), joined(automatic)},
+		{"wantedRow.Last", enumOf[wantedRow](t, "Last"), joined(automatic)},
+		{"failureAt.Code", enumOf[failureAt](t, "Code"), joined(grabs.Codes)},
 	} {
 		if c.got != c.want {
 			t.Errorf("%s enum = %q, want %q", c.name, c.got, c.want)

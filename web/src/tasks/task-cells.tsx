@@ -91,5 +91,5 @@ export function TaskState({
       </span>
     );
   }
-  return <span>{nextWords(task, state.next, clock)}</span>;
+  return <span>{state.off ? "Off" : nextWords(task, state.next, clock)}</span>;
 }

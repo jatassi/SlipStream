@@ -3,19 +3,28 @@ import * as zod from "zod";
 import {
   CancelInputBody,
   GrabManualInputBody,
+  GrabWaitingInputBody,
   GrabsBlocklist,
   GrabsGrab,
   GrabsGrabList,
+  GrabsGrabbing,
   GrabsIndexerGrabList,
   GrabsManualSearch,
   GrabsManualStarted,
   GrabsOfferList,
   GrabsPickResults,
+  GrabsQueuedCanceled,
   GrabsReleaseList,
   GrabsSearchList,
+  GrabsSearchQueued,
   GrabsSearchScope,
-  GrabsSearchStarted,
+  GrabsSearchSettings,
+  GrabsSeveralBody,
+  GrabsSeveralQueued,
   GrabsStartManual,
+  GrabsWantedPage,
+  GrabsWorkSearching,
+  SearchSettingsInputBody,
   SendToInputBody,
   UnblockInputBody,
 } from "../slipStream.schemas.zod.ts";
@@ -105,6 +114,27 @@ export const ListIndexerGrabsQueryParams = zod.object({
 export const ListIndexerGrabsResponse = GrabsIndexerGrabList;
 
 /**
+ * @summary Cancel every search queued in a lane
+ */
+export const CancelQueuedSearchesQueryParams = zod.object({
+  lane: zod.enum(["bulk"]).describe("The lane to empty. Only bulk can be canceled"),
+});
+
+export const CancelQueuedSearchesResponse = GrabsQueuedCanceled;
+
+/**
+ * @summary Get the Automatic search settings
+ */
+export const GetSearchSettingsResponse = GrabsSearchSettings;
+
+/**
+ * @summary Change Automatic search settings by key, all or none
+ */
+export const UpdateSearchSettingsBody = SearchSettingsInputBody;
+
+export const UpdateSearchSettingsResponse = GrabsSearchSettings;
+
+/**
  * @summary List the Releases a search run saw, with what it did with each and why
  */
 export const ListSearchReleasesParams = zod.object({
@@ -112,6 +142,46 @@ export const ListSearchReleasesParams = zod.object({
 });
 
 export const ListSearchReleasesResponse = GrabsReleaseList;
+
+/**
+ * @summary List the Works that want a Release, 100 at a time, with what the search queue is doing
+ */
+export const listWantedQueryContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const listWantedQuerySortDefault = `next`;
+export const listWantedQueryLimitDefault = 100;
+export const listWantedQueryLimitMax = 100;
+
+export const ListWantedQueryParams = zod.object({
+  contentType: zod
+    .string()
+    .regex(listWantedQueryContentTypeRegExp)
+    .exactOptional()
+    .describe("Left out, every Content Type"),
+  reason: zod
+    .array(zod.enum(["failed", "missing", "upgrade", "gone"]))
+    .nullish()
+    .describe("Left out, every reason but gone"),
+  sort: zod
+    .enum(["next", "last", "title", "released"])
+    .default(listWantedQuerySortDefault)
+    .describe(
+      "next is the next Backlog search first, last the longest since the last search first",
+    ),
+  cursor: zod
+    .string()
+    .exactOptional()
+    .describe("The next value of the page before; left out, the first page"),
+  limit: zod.int().min(1).max(listWantedQueryLimitMax).default(listWantedQueryLimitDefault),
+});
+
+export const ListWantedResponse = GrabsWantedPage;
+
+/**
+ * @summary Queue a search of several Works, by id or by a Wanted filter, behind every search already queued
+ */
+export const SearchSeveralWorksBody = GrabsSeveralBody;
+
+export const SearchSeveralWorksResponse = GrabsSeveralQueued;
 
 /**
  * @summary Get a Work's Manual search with its plan worked out around the pins
@@ -166,7 +236,7 @@ export const ListManualSearchReleasesParams = zod.object({
 export const ListManualSearchReleasesResponse = GrabsOfferList;
 
 /**
- * @summary Search for each wanted Item of a Work, or of some of its levels and Items, and grab the best release
+ * @summary Queue a search of each wanted Item of a Work, or of some of its levels and Items, to grab the best release
  */
 export const SearchWorkParams = zod.object({
   workId: zod.uuid(),
@@ -174,7 +244,7 @@ export const SearchWorkParams = zod.object({
 
 export const SearchWorkBody = GrabsSearchScope;
 
-export const SearchWorkResponse = GrabsSearchStarted;
+export const SearchWorkResponse = GrabsSearchQueued;
 
 /**
  * @summary List a Work's search runs and their outcomes
@@ -184,3 +254,23 @@ export const ListSearchesParams = zod.object({
 });
 
 export const ListSearchesResponse = GrabsSearchList;
+
+/**
+ * @summary Get what Automatic search is doing for a Work: each search group's state, its waits and the Items and Targets it stopped searching again for
+ */
+export const GetWorkSearchingParams = zod.object({
+  workId: zod.uuid(),
+});
+
+export const GetWorkSearchingResponse = GrabsWorkSearching;
+
+/**
+ * @summary End a Work's waits for a better Release and grab the best one found for each now
+ */
+export const GrabWaitingParams = zod.object({
+  workId: zod.uuid(),
+});
+
+export const GrabWaitingBody = GrabWaitingInputBody;
+
+export const GrabWaitingResponse = GrabsGrabbing;

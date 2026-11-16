@@ -30,6 +30,8 @@ const (
 	// ReleaseListed is a Manual run's Release: stored as heard, judged on
 	// read.
 	ReleaseListed ReleaseOutcome = "listed"
+	// ReleaseWaiting is a candidate a cell's wait holds, kept whole.
+	ReleaseWaiting ReleaseOutcome = "waiting"
 )
 
 // TargetScore is a Release's score at one Target.
@@ -69,15 +71,16 @@ func (j judged) offers() []judged {
 }
 
 // outcomes is every Release d judged, copies included, by position, with
-// its outcome. taken is the position of the Release the run grabbed, or
-// of its copy, -1 for none. An outranked or kept Release says where it
-// lost to the reference: the grabbed Release as its best Indexer listed
-// it, else the first a search may take.
-func outcomes(d Decision, c cells, taken int) []row {
+// its outcome. taken is the positions of the Releases the run grabbed, or
+// of their copies, and waited those of the Releases its cells wait for.
+// An outranked or kept Release says where it lost to the
+// reference: the first grabbed Release as its best Indexer listed it,
+// else the first a search may take.
+func outcomes(d Decision, c cells, taken, waited []int) []row {
 	var ref *judged
 	for i, j := range d.Ranked {
-		grabbed := slices.ContainsFunc(j.offers(), func(o judged) bool { return o.at == taken })
-		if len(j.refusals) == 0 && (grabbed || taken < 0 && ref == nil) {
+		grabbed := slices.ContainsFunc(j.offers(), func(o judged) bool { return slices.Contains(taken, o.at) })
+		if len(j.refusals) == 0 && ref == nil && (grabbed || len(taken) == 0) {
 			ref = &d.Ranked[i]
 		}
 	}
@@ -90,9 +93,11 @@ func outcomes(d Decision, c cells, taken int) []row {
 			switch {
 			case len(j.refusals) > 0:
 				r.outcome = ReleaseRefused
-			case taken < 0:
+			case slices.Contains(waited, o.at):
+				r.outcome = ReleaseWaiting
+			case len(taken) == 0:
 				r.outcome = ReleaseKept
-			case o.at == taken:
+			case slices.Contains(taken, o.at):
 				r.outcome, passed = ReleaseGrabbed, true
 			case !passed:
 				r.outcome = ReleaseNotTaken
@@ -134,7 +139,8 @@ func rowOf(j, o judged) row {
 // storeReleases inserts rows as run's Releases, with names[at] the name
 // of the Indexer that listed the Release at. While a rerun may take them,
 // rerunnable, each keeps its Release, and its link unless it is the
-// grabbed one or gone, taken by an earlier Grab of the run.
+// grabbed one or gone, taken by an earlier Grab of the run. A waiting
+// Release keeps both for its wait.
 func (gr *Grabs) storeReleases(ctx context.Context, q *db.Queries, run SearchID, rows []row, names map[int]string, rerunnable bool, gone map[int]bool) error {
 	for _, r := range rows {
 		p, err := releaseRow(run, r)
@@ -142,7 +148,7 @@ func (gr *Grabs) storeReleases(ctx context.Context, q *db.Queries, run SearchID,
 			return err
 		}
 		p.IndexerName = names[r.at]
-		if rerunnable {
+		if rerunnable || r.outcome == ReleaseWaiting {
 			k, err := encodeKept(r.release)
 			if err != nil {
 				return err
@@ -237,9 +243,8 @@ type Listed struct {
 var ErrNoSearch = errors.New("no search run has that id")
 
 // Releases is run's Releases, ranked first in rank order, then the rest
-// by position. A run keeps them while it is its Item's latest finished
-// run, or its Grab still fetches, and lists none after. A Manual run's
-// Releases are its Manual search's to show, so it answers ErrNoSearch.
+// by position. A run the bound pruned, and a Manual run, whose Releases
+// are its Manual search's to show, answer ErrNoSearch.
 func (gr *Grabs) Releases(ctx context.Context, by identity.Admin, run SearchID) ([]Listed, error) {
 	all, err := gr.cfg.Targets.ListTargets(ctx, by)
 	if err != nil {

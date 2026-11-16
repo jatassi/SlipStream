@@ -91,6 +91,14 @@ func (Facet) SearchTerms(context.Context, storage.Reader[storage.Library], works
 	return indexers.Terms{}, nil
 }
 
+func (Facet) Groups(_ context.Context, _ storage.Reader[storage.Library], _ works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
+	return indexers.Singles(items, ""), nil
+}
+
+func (Facet) GroupTerms(context.Context, storage.Reader[storage.Library], works.WorkID, indexers.Group) (indexers.Terms, error) {
+	return indexers.Terms{}, nil
+}
+
 func (Facet) Categories() []newznab.ID { return newznab.Family(2000) }
 
 // Caps are a saved Torznab Indexer's: a free-text search, a search by
@@ -111,7 +119,7 @@ func Torznab(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secre
 	}
 	err = db.New(tx).InsertIndexer(ctx, db.InsertIndexerParams{
 		ID: id, Name: name, Kind: string(indexers.Torznab), HomeNodeID: home, IsOn: true, AutoSearch: true, Rss: true,
-		Priority: 25, SearchWindow: "hour", GrabWindow: "hour", Plain: "{}",
+		Priority: 25, SearchWindow: "hour", SearchesAtOnce: indexers.DefaultSearchesAtOnce, GrabWindow: "hour", Plain: "{}",
 		SecretsSealed: sealer.Seal(plain, secret.NewColumn("indexers_indexer.secrets_sealed").Row(id.String())),
 		FeedHost:      &u.Host, TrackerName: &name, Caps: Caps, Notes: "[]", Revision: 1, CreatedAt: storage.Now(), UpdatedAt: storage.Now(),
 	})
@@ -136,7 +144,7 @@ func Catalog(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secre
 	base := ""
 	err = db.New(tx).InsertIndexer(ctx, db.InsertIndexerParams{
 		ID: id, Name: name, Kind: string(indexers.Catalog), HomeNodeID: home, IsOn: true, AutoSearch: true, Rss: true,
-		Priority: 25, SearchWindow: "hour", GrabWindow: "hour", DefinitionID: &definition, DefinitionSha: &sha, BaseAddress: &base,
+		Priority: 25, SearchWindow: "hour", SearchesAtOnce: indexers.DefaultSearchesAtOnce, GrabWindow: "hour", DefinitionID: &definition, DefinitionSha: &sha, BaseAddress: &base,
 		Plain: string(settings), SecretsSealed: sealer.Seal(secrets, secret.NewColumn("indexers_indexer.secrets_sealed").Row(id.String())),
 		Caps: `{"modes":{}}`, Notes: "[]", Revision: 1, CreatedAt: storage.Now(), UpdatedAt: storage.Now(),
 	})
@@ -160,7 +168,7 @@ func Native(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secret
 	}
 	err = db.New(tx).InsertIndexer(ctx, db.InsertIndexerParams{
 		ID: id, Name: name, Kind: string(indexers.Native), HomeNodeID: home, IsOn: true, AutoSearch: true, Rss: true,
-		Priority: 25, SearchWindow: "hour", GrabWindow: "hour", PortID: &port, BaseAddress: &address,
+		Priority: 25, SearchWindow: "hour", SearchesAtOnce: indexers.DefaultSearchesAtOnce, GrabWindow: "hour", PortID: &port, BaseAddress: &address,
 		Plain: string(settings), SecretsSealed: sealer.Seal(secrets, secret.NewColumn("indexers_indexer.secrets_sealed").Row(id.String())),
 		Caps: Caps, Notes: "[]", Revision: 1, CreatedAt: storage.Now(), UpdatedAt: storage.Now(),
 	})
@@ -184,12 +192,14 @@ func SetCaps(ctx context.Context, tx *storage.Tx[storage.Library], id indexers.I
 
 // Node is a searching.Remote whose Indexers answer each job a set time
 // after its first Run: inside a testing/synctest bubble, at that virtual
-// time. An Indexer with no answer set has none, which reads as no
+// time. A job takes the script of its call kind and offset, else its
+// Indexer's. An Indexer with no answer set has none, which reads as no
 // Releases, at once. A Run holds up to hold, as a Node's does, so a caller
 // learns when the job started and its deadline can pass.
 type Node struct {
 	mu       sync.Mutex
 	answers  map[string]timed
+	calls    map[scripted]timed
 	started  map[string]time.Time
 	jobs     []searching.Job
 	canceled []string
@@ -202,6 +212,47 @@ const hold = 20 * time.Second
 type timed struct {
 	after  time.Duration
 	answer searching.Answer
+}
+
+// Call is which of an Indexer's calls a script answers: every search, or
+// the recent call at one offset.
+type Call struct {
+	Recent bool
+	Offset int
+}
+
+// Searches is every search call.
+var Searches = Call{}
+
+// Recent is the recent call that skips offset of the newest Releases.
+func Recent(offset int) Call { return Call{Recent: true, Offset: offset} }
+
+type scripted struct {
+	indexer string
+	call    Call
+}
+
+// callOf is c as a script names it, false for a call no script names.
+func callOf(c searching.Call) (Call, bool) {
+	switch c := c.(type) {
+	case searching.SearchCall:
+		return Searches, true
+	case searching.RecentCall:
+		return Recent(c.Offset), true
+	}
+	return Call{}, false
+}
+
+// AnswerCall has Indexer id answer every later job of call c with a,
+// after the job's first Run, in place of its Answer. A late answer is an
+// after past the caller's wait.
+func (n *Node) AnswerCall(id indexers.ID, c Call, after time.Duration, a searching.Answer) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.calls == nil {
+		n.calls = map[scripted]timed{}
+	}
+	n.calls[scripted{indexer: id.String(), call: c}] = timed{after: after, answer: a}
 }
 
 // Answer has Indexer id answer every later job with a, after the job's
@@ -231,6 +282,11 @@ func (n *Node) Run(ctx context.Context, j searching.Job) (searching.Poll, error)
 		n.jobs = append(n.jobs, j)
 	}
 	script := n.answers[j.Indexer]
+	if c, ok := callOf(j.Call); ok {
+		if s, ok := n.calls[scripted{indexer: j.Indexer, call: c}]; ok {
+			script = s
+		}
+	}
 	n.mu.Unlock()
 	at := started.Add(script.after)
 	held := time.NewTimer(min(time.Until(at), hold))

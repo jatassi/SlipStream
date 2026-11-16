@@ -322,8 +322,11 @@ func (s *Scheduler) unit(a *active, u Unit, node role.NodeID) result {
 	standing, _ := s.cfg.Roster.Standing(node)
 	switch who := s.peerOf(ctx, node); {
 	case node == s.self || standing == nodes.InStep:
-		err := r.task.Run(a.runCtx, placedOn(u, node), &Progress{step: func(st Step) { s.stepped(a, u.Key, st) }})
-		res = classify(a.runCtx, err, u.Place, who)
+		p := &Progress{step: func(st Step) { s.stepped(a, u.Key, st) }}
+		res = classify(a.runCtx, r.task.Run(a.runCtx, placedOn(u, node), p), u.Place, who)
+		if res.outcome == Succeeded {
+			res.note = p.note
+		}
 	case who.name == "":
 		res = unsent(rpc.NotHolder, "", u.Place, peer{name: "the Node"})
 	case standing == nodes.MismatchedNode:

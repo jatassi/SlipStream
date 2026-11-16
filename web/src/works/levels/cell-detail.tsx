@@ -39,7 +39,7 @@ export function CellDetail({
     <div className="flex flex-col items-start gap-2">
       <span className="font-semibold text-ink-1">{cellLabel(popped)}</span>
       <StateChip state={cell.state} />
-      <CellFacts cell={cell} grabs={shown.grabs} />
+      <CellFacts cell={cell} grabs={shown.grabs} workId={shown.work.id} />
       {file !== null && (
         <span className="break-all text-meta text-ink-2">
           <Data>{nameOf(file.path)}</Data>

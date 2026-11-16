@@ -32,6 +32,8 @@ export function indexer(over: Partial<IndexersIndexer> & Pick<IndexersIndexer, "
     rss: true,
     allowFailover: false,
     priority: 25,
+    searchesAtOnce: 2,
+    recentPaging: false,
     categories: null,
     media: null,
     allowNoSize: false,
@@ -49,6 +51,7 @@ export function indexer(over: Partial<IndexersIndexer> & Pick<IndexersIndexer, "
     port: null,
     searchModes: [{ mode: "search", params: ["q"] }],
     notes: [],
+    rssFetch: null,
     revision: 3,
     createdAt: "2026-10-20T08:00:00Z",
     ...over,
@@ -170,22 +173,6 @@ export const searchingSeedbox: NodesNode = {
   standing: "in-step",
   link: { state: "up", since: "2026-10-12T10:00:00Z" },
   roles: [{ role: "searching", state: "holding" }],
-};
-
-export const searchWait: SettingDurationField = {
-  source: "database",
-  applies: "live",
-  pendingRestart: false,
-  isDefault: true,
-  kind: "duration",
-  key: "indexers.searchWait",
-  label: "Wait for each Indexer up to",
-  value: 120,
-  running: 120,
-  default: 120,
-  min: 10,
-  max: 600,
-  step: 1,
 };
 
 export const longBackoff: SettingDurationField = {

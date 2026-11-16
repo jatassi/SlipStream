@@ -363,8 +363,8 @@ func TestManualAndAutomaticRunsKeepEachOthersReleases(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(searches) != 2 || slices.ContainsFunc(searches, func(r grabs.Search) bool { return !r.Manual.IsZero() }) {
-			t.Fatalf("the Work's searches are %+v, want its 2 automatic runs alone", searches)
+		if len(searches) != 1 || !searches[0].Manual.IsZero() {
+			t.Fatalf("the Work's searches are %+v, want its latest automatic run alone", searches)
 		}
 		if _, err := g.Releases(t.Context(), identity.Admin{}, manualRun(t, s)); !errors.Is(err, grabs.ErrNoSearch) {
 			t.Fatalf("the Releases of a Manual run = %v, want ErrNoSearch", err)

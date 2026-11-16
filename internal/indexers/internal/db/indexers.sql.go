@@ -256,7 +256,7 @@ func (q *Queries) GetDefinition(ctx context.Context, arg GetDefinitionParams) (I
 }
 
 const getIndexer = `-- name: GetIndexer :one
-SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.port_id, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
+SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.port_id, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, i.searches_at_once, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
     EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 WHERE i.id = ?1
@@ -303,6 +303,7 @@ func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (GetIndexerRow, 
 		&i.IndexersIndexer.Revision,
 		&i.IndexersIndexer.CreatedAt,
 		&i.IndexersIndexer.UpdatedAt,
+		&i.IndexersIndexer.SearchesAtOnce,
 		&i.DefinitionSummary,
 		&i.DefinitionFetchedAt,
 		&i.Pasted,
@@ -397,6 +398,81 @@ func (q *Queries) GetTrackerOfKey(ctx context.Context, key string) (TrackerID, e
 	return tracker_id, err
 }
 
+const inFlightSearches = `-- name: InFlightSearches :many
+SELECT indexer_id, claim, reserved_at FROM indexers_query
+WHERE completed_at IS NULL AND use = 'search' AND reserved_at > ?1
+ORDER BY indexer_id, reserved_at
+`
+
+type InFlightSearchesRow struct {
+	IndexerID  IndexerID
+	Claim      *string
+	ReservedAt storage.Time
+}
+
+func (q *Queries) InFlightSearches(ctx context.Context, since storage.Time) ([]InFlightSearchesRow, error) {
+	rows, err := q.db.QueryContext(ctx, inFlightSearches, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InFlightSearchesRow
+	for rows.Next() {
+		var i InFlightSearchesRow
+		if err := rows.Scan(&i.IndexerID, &i.Claim, &i.ReservedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const inFlightSearchesOf = `-- name: InFlightSearchesOf :many
+SELECT indexer_id, claim, reserved_at FROM indexers_query
+WHERE indexer_id = ?1 AND completed_at IS NULL AND use = 'search' AND reserved_at > ?2
+ORDER BY reserved_at
+`
+
+type InFlightSearchesOfParams struct {
+	IndexerID IndexerID
+	Since     storage.Time
+}
+
+type InFlightSearchesOfRow struct {
+	IndexerID  IndexerID
+	Claim      *string
+	ReservedAt storage.Time
+}
+
+func (q *Queries) InFlightSearchesOf(ctx context.Context, arg InFlightSearchesOfParams) ([]InFlightSearchesOfRow, error) {
+	rows, err := q.db.QueryContext(ctx, inFlightSearchesOf, arg.IndexerID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InFlightSearchesOfRow
+	for rows.Next() {
+		var i InFlightSearchesOfRow
+		if err := rows.Scan(&i.IndexerID, &i.Claim, &i.ReservedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertCatalogEntry = `-- name: InsertCatalogEntry :exec
 INSERT INTO indexers_catalog (id, file, sha, name, description, privacy, language, categories)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
@@ -461,48 +537,49 @@ func (q *Queries) InsertDefinition(ctx context.Context, arg InsertDefinitionPara
 const insertIndexer = `-- name: InsertIndexer :exec
 INSERT INTO indexers_indexer (
     id, name, kind, home_node_id, is_on, auto_search, rss, allow_failover, priority, categories, media,
-    search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, port_id, base_address, plain,
+    search_limit, search_window, searches_at_once, grab_limit, grab_window, definition_id, definition_sha, port_id, base_address, plain,
     secrets_sealed, feed_host, tracker_name, allow_no_size, rss_reading, caps, notes, revision, created_at, updated_at)
 VALUES (
     ?1, ?2, ?3, ?4, ?5, ?6, ?7,
     ?8, ?9, ?10, ?11, ?12,
-    ?13, ?14, ?15, ?16, ?17,
-    ?18, ?19, ?20, ?21, ?22, ?23,
-    ?24, ?25, ?26, ?27, ?28, ?29,
-    ?30)
+    ?13, ?14, ?15, ?16, ?17, ?18,
+    ?19, ?20, ?21, ?22, ?23, ?24,
+    ?25, ?26, ?27, ?28, ?29, ?30,
+    ?31)
 `
 
 type InsertIndexerParams struct {
-	ID            IndexerID
-	Name          string
-	Kind          string
-	HomeNodeID    role.NodeID
-	IsOn          bool
-	AutoSearch    bool
-	Rss           bool
-	AllowFailover bool
-	Priority      int64
-	Categories    *string
-	Media         *string
-	SearchLimit   int64
-	SearchWindow  string
-	GrabLimit     int64
-	GrabWindow    string
-	DefinitionID  *string
-	DefinitionSha *string
-	PortID        *string
-	BaseAddress   *string
-	Plain         string
-	SecretsSealed secret.Sealed
-	FeedHost      *string
-	TrackerName   *string
-	AllowNoSize   bool
-	RssReading    *string
-	Caps          string
-	Notes         string
-	Revision      int64
-	CreatedAt     storage.Time
-	UpdatedAt     storage.Time
+	ID             IndexerID
+	Name           string
+	Kind           string
+	HomeNodeID     role.NodeID
+	IsOn           bool
+	AutoSearch     bool
+	Rss            bool
+	AllowFailover  bool
+	Priority       int64
+	Categories     *string
+	Media          *string
+	SearchLimit    int64
+	SearchWindow   string
+	SearchesAtOnce int64
+	GrabLimit      int64
+	GrabWindow     string
+	DefinitionID   *string
+	DefinitionSha  *string
+	PortID         *string
+	BaseAddress    *string
+	Plain          string
+	SecretsSealed  secret.Sealed
+	FeedHost       *string
+	TrackerName    *string
+	AllowNoSize    bool
+	RssReading     *string
+	Caps           string
+	Notes          string
+	Revision       int64
+	CreatedAt      storage.Time
+	UpdatedAt      storage.Time
 }
 
 func (q *Queries) InsertIndexer(ctx context.Context, arg InsertIndexerParams) error {
@@ -520,6 +597,7 @@ func (q *Queries) InsertIndexer(ctx context.Context, arg InsertIndexerParams) er
 		arg.Media,
 		arg.SearchLimit,
 		arg.SearchWindow,
+		arg.SearchesAtOnce,
 		arg.GrabLimit,
 		arg.GrabWindow,
 		arg.DefinitionID,
@@ -542,14 +620,15 @@ func (q *Queries) InsertIndexer(ctx context.Context, arg InsertIndexerParams) er
 }
 
 const insertQuery = `-- name: InsertQuery :exec
-INSERT INTO indexers_query (id, indexer_id, use, reserved_at, revision, sha)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+INSERT INTO indexers_query (id, indexer_id, use, claim, reserved_at, revision, sha)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
 `
 
 type InsertQueryParams struct {
 	ID         QueryID
 	IndexerID  IndexerID
 	Use        string
+	Claim      *string
 	ReservedAt storage.Time
 	Revision   int64
 	Sha        *string
@@ -560,6 +639,7 @@ func (q *Queries) InsertQuery(ctx context.Context, arg InsertQueryParams) error 
 		arg.ID,
 		arg.IndexerID,
 		arg.Use,
+		arg.Claim,
 		arg.ReservedAt,
 		arg.Revision,
 		arg.Sha,
@@ -711,7 +791,7 @@ func (q *Queries) ListDefinitionKeys(ctx context.Context) ([]ListDefinitionKeysR
 }
 
 const listIndexers = `-- name: ListIndexers :many
-SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.port_id, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
+SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.port_id, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, i.searches_at_once, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
     EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 ORDER BY i.name
@@ -764,6 +844,7 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]ListIndexersRow, error) {
 			&i.IndexersIndexer.Revision,
 			&i.IndexersIndexer.CreatedAt,
 			&i.IndexersIndexer.UpdatedAt,
+			&i.IndexersIndexer.SearchesAtOnce,
 			&i.DefinitionSummary,
 			&i.DefinitionFetchedAt,
 			&i.Pasted,
@@ -831,7 +912,7 @@ func (q *Queries) ListPins(ctx context.Context) ([]ListPinsRow, error) {
 }
 
 const listQueries = `-- name: ListQueries :many
-SELECT id, indexer_id, use, reserved_at, started_at, completed_at, node_id, outcome, releases, revision, sha FROM indexers_query WHERE indexer_id = ?1
+SELECT id, indexer_id, use, claim, reserved_at, started_at, completed_at, node_id, outcome, releases, revision, sha FROM indexers_query WHERE indexer_id = ?1
 ORDER BY reserved_at DESC, id DESC
 LIMIT ?3 OFFSET ?2
 `
@@ -855,6 +936,7 @@ func (q *Queries) ListQueries(ctx context.Context, arg ListQueriesParams) ([]Ind
 			&i.ID,
 			&i.IndexerID,
 			&i.Use,
+			&i.Claim,
 			&i.ReservedAt,
 			&i.StartedAt,
 			&i.CompletedAt,
@@ -1549,38 +1631,39 @@ UPDATE indexers_indexer SET
     name = ?1, home_node_id = ?2, is_on = ?3, auto_search = ?4,
     rss = ?5, allow_failover = ?6, priority = ?7,
     categories = ?8, media = ?9, search_limit = ?10,
-    search_window = ?11, grab_limit = ?12, grab_window = ?13,
-    base_address = ?14, plain = ?15, secrets_sealed = ?16,
-    feed_host = ?17, tracker_name = ?18, allow_no_size = ?19,
-    rss_reading = ?20, caps = ?21, revision = ?22, updated_at = ?23
-WHERE id = ?24
+    search_window = ?11, searches_at_once = ?12, grab_limit = ?13, grab_window = ?14,
+    base_address = ?15, plain = ?16, secrets_sealed = ?17,
+    feed_host = ?18, tracker_name = ?19, allow_no_size = ?20,
+    rss_reading = ?21, caps = ?22, revision = ?23, updated_at = ?24
+WHERE id = ?25
 `
 
 type UpdateIndexerParams struct {
-	Name          string
-	HomeNodeID    role.NodeID
-	IsOn          bool
-	AutoSearch    bool
-	Rss           bool
-	AllowFailover bool
-	Priority      int64
-	Categories    *string
-	Media         *string
-	SearchLimit   int64
-	SearchWindow  string
-	GrabLimit     int64
-	GrabWindow    string
-	BaseAddress   *string
-	Plain         string
-	SecretsSealed secret.Sealed
-	FeedHost      *string
-	TrackerName   *string
-	AllowNoSize   bool
-	RssReading    *string
-	Caps          string
-	Revision      int64
-	UpdatedAt     storage.Time
-	ID            IndexerID
+	Name           string
+	HomeNodeID     role.NodeID
+	IsOn           bool
+	AutoSearch     bool
+	Rss            bool
+	AllowFailover  bool
+	Priority       int64
+	Categories     *string
+	Media          *string
+	SearchLimit    int64
+	SearchWindow   string
+	SearchesAtOnce int64
+	GrabLimit      int64
+	GrabWindow     string
+	BaseAddress    *string
+	Plain          string
+	SecretsSealed  secret.Sealed
+	FeedHost       *string
+	TrackerName    *string
+	AllowNoSize    bool
+	RssReading     *string
+	Caps           string
+	Revision       int64
+	UpdatedAt      storage.Time
+	ID             IndexerID
 }
 
 func (q *Queries) UpdateIndexer(ctx context.Context, arg UpdateIndexerParams) (int64, error) {
@@ -1596,6 +1679,7 @@ func (q *Queries) UpdateIndexer(ctx context.Context, arg UpdateIndexerParams) (i
 		arg.Media,
 		arg.SearchLimit,
 		arg.SearchWindow,
+		arg.SearchesAtOnce,
 		arg.GrabLimit,
 		arg.GrabWindow,
 		arg.BaseAddress,

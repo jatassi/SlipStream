@@ -1,12 +1,13 @@
 -- name: InsertGrab :exec
-INSERT INTO grabs_grab (id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id,
-    tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id,
-    min_ratio, min_seed_seconds, download_factor, upload_factor, stage, created_at, updated_at)
-VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(source), sqlc.arg(manual_id),
+INSERT INTO grabs_grab (id, work_id, item_id, edition, source, found_by, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id,
+    tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills,
+    fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, created_at, updated_at)
+VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(source), sqlc.arg(found_by), sqlc.arg(manual_id),
     sqlc.arg(grabbed_by), sqlc.narg(grabbed_by_name), sqlc.arg(overrides), sqlc.arg(indexer_id), sqlc.arg(tracker_id),
     sqlc.arg(node_id),
     sqlc.arg(release_title), sqlc.arg(release_size), sqlc.arg(release_link_sealed), sqlc.narg(release_magnet),
-    sqlc.narg(release_info_hash), sqlc.narg(fetch_query_id), sqlc.arg(min_ratio), sqlc.arg(min_seed_seconds),
+    sqlc.narg(release_info_hash), sqlc.narg(release_guid), sqlc.narg(chosen_fills), sqlc.narg(fetch_query_id), sqlc.arg(min_ratio),
+    sqlc.arg(min_seed_seconds),
     sqlc.arg(download_factor), sqlc.arg(upload_factor), 'fetching', sqlc.arg(created_at), sqlc.arg(created_at));
 
 -- name: InsertGrabItem :exec
@@ -45,20 +46,23 @@ SELECT * FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY crea
 -- name: ListOpenGrabsOfWork :many
 SELECT * FROM grabs_grab WHERE work_id = sqlc.arg(work_id) AND stage NOT IN ('imported', 'failed') ORDER BY created_at, id;
 
+-- name: ListOpenGrabsOfWorks :many
+SELECT * FROM grabs_grab WHERE work_id IN (sqlc.slice(work_ids)) AND stage NOT IN ('imported', 'failed') ORDER BY created_at, id;
+
 -- name: CountMoving :one
 SELECT COUNT(*) FROM grabs_grab WHERE stage IN (sqlc.slice(stages));
 
 -- name: GetGrab :one
 SELECT * FROM grabs_grab WHERE id = sqlc.arg(id);
 
--- name: ListTargets :many
-SELECT * FROM grabs_target ORDER BY grab_id, position;
+-- name: ListTargetsOf :many
+SELECT * FROM grabs_target WHERE grab_id IN (sqlc.slice(grab_ids)) ORDER BY grab_id, position;
 
--- name: ListGrabItems :many
-SELECT * FROM grabs_grab_item ORDER BY grab_id, position;
+-- name: ListGrabItemsOf :many
+SELECT * FROM grabs_grab_item WHERE grab_id IN (sqlc.slice(grab_ids)) ORDER BY grab_id, position;
 
--- name: ListStages :many
-SELECT * FROM grabs_stage ORDER BY grab_id, entered_at, rowid;
+-- name: ListStagesOf :many
+SELECT * FROM grabs_stage WHERE grab_id IN (sqlc.slice(grab_ids)) ORDER BY grab_id, entered_at, rowid;
 
 -- name: ListGrabsOfTorrents :many
 SELECT id, torrent_id, work_id, item_id, edition, release_title, stage, min_ratio, min_seed_seconds, created_at FROM grabs_grab
@@ -71,14 +75,41 @@ WHERE g.torrent_id IN (sqlc.slice(torrent_ids))
 ORDER BY i.grab_id, i.position;
 
 -- name: InsertSearch :exec
-INSERT INTO grabs_search (id, work_id, item_id, started_at)
-VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(started_at));
+INSERT INTO grabs_search (id, work_id, group_key, lane, trigger, include_gone, started_at)
+VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(group_key), sqlc.arg(lane), sqlc.arg(trigger), sqlc.arg(include_gone),
+    sqlc.arg(started_at));
+
+-- name: InsertSearchItem :exec
+INSERT INTO grabs_search_item (search_id, item_id) VALUES (sqlc.arg(search_id), sqlc.arg(item_id));
+
+-- name: ListSearchItems :many
+SELECT search_id, item_id FROM grabs_search_item WHERE search_id IN (sqlc.slice(search_ids)) ORDER BY search_id, item_id;
+
+-- name: InsertSearchGrab :exec
+INSERT INTO grabs_search_grab (search_id, grab_id, made) VALUES (sqlc.arg(search_id), sqlc.arg(grab_id), sqlc.arg(made));
+
+-- name: DeleteSearchGrab :exec
+DELETE FROM grabs_search_grab WHERE search_id = sqlc.arg(search_id) AND grab_id = sqlc.arg(grab_id);
+
+-- name: ListSearchGrabs :many
+-- Each run's Grabs, the ones it made first.
+SELECT search_id, grab_id, made FROM grabs_search_grab WHERE search_id IN (sqlc.slice(search_ids))
+ORDER BY search_id, made DESC, grab_id;
+
+-- name: ListMadeRunsOf :many
+-- The run that made each Grab, while it is kept.
+SELECT grab_id, search_id FROM grabs_search_grab WHERE grab_id IN (sqlc.slice(grab_ids)) AND made = 1 ORDER BY grab_id;
+
+-- name: InsertItemSearch :exec
+INSERT INTO grabs_item_search (item_id, first_searched_at) VALUES (sqlc.arg(item_id), sqlc.arg(first_searched_at))
+ON CONFLICT (item_id) DO NOTHING;
 
 -- name: InsertSearchIndexer :exec
-INSERT INTO grabs_search_indexer (search_id, position, indexer_id, indexer_name, query_id, outcome, releases, until_at, since_at,
-    node_id, lapsed, cause, text)
-VALUES (sqlc.arg(search_id), sqlc.arg(position), sqlc.arg(indexer_id), sqlc.arg(indexer_name), sqlc.narg(query_id), sqlc.narg(outcome),
-    sqlc.narg(releases), sqlc.narg(until_at), sqlc.narg(since_at), sqlc.narg(node_id), sqlc.narg(lapsed), sqlc.narg(cause), sqlc.narg(text));
+INSERT INTO grabs_search_indexer (search_id, position, indexer_id, indexer_name, query_id, dispatched_at, deadline_at, outcome, releases,
+    until_at, since_at, node_id, lapsed, cause, text)
+VALUES (sqlc.arg(search_id), sqlc.arg(position), sqlc.arg(indexer_id), sqlc.arg(indexer_name), sqlc.narg(query_id), sqlc.narg(dispatched_at),
+    sqlc.narg(deadline_at), sqlc.narg(outcome), sqlc.narg(releases), sqlc.narg(until_at), sqlc.narg(since_at), sqlc.narg(node_id),
+    sqlc.narg(lapsed), sqlc.narg(cause), sqlc.narg(text));
 
 -- name: ListSearchIndexersOfSearch :many
 SELECT * FROM grabs_search_indexer WHERE search_id = sqlc.arg(search_id) ORDER BY position;
@@ -97,11 +128,11 @@ ORDER BY grabs_search_indexer.search_id, grabs_search_indexer.position;
 
 -- name: FinishSearch :exec
 UPDATE grabs_search SET finished_at = sqlc.arg(finished_at), outcome = sqlc.arg(outcome), candidates = sqlc.arg(candidates),
-    grab_id = sqlc.narg(grab_id), notes = sqlc.narg(notes)
+    grabs = sqlc.arg(grabs), notes = sqlc.narg(notes)
 WHERE id = sqlc.arg(id) AND finished_at IS NULL;
 
 -- name: Redecide :exec
-UPDATE grabs_search SET outcome = sqlc.arg(outcome), grab_id = sqlc.narg(grab_id), notes = sqlc.narg(notes)
+UPDATE grabs_search SET outcome = sqlc.arg(outcome), grabs = sqlc.arg(grabs), notes = sqlc.narg(notes)
 WHERE id = sqlc.arg(id);
 
 -- name: GetSearch :one
@@ -109,7 +140,8 @@ SELECT * FROM grabs_search WHERE id = sqlc.arg(id);
 
 -- name: GetSearchOfGrab :one
 -- The run that made the Grab: a later run that picked its Release joined it.
-SELECT * FROM grabs_search WHERE grab_id = sqlc.arg(grab_id) ORDER BY started_at, id LIMIT 1;
+SELECT grabs_search.* FROM grabs_search JOIN grabs_search_grab ON grabs_search_grab.search_id = grabs_search.id
+WHERE grabs_search_grab.grab_id = sqlc.arg(grab_id) AND grabs_search_grab.made = 1;
 
 -- name: InsertRelease :exec
 INSERT INTO grabs_release (search_id, position, title, indexer_id, indexer_name, size, seeders, outcome, rank, reasons, lost_step,
@@ -126,21 +158,36 @@ SELECT * FROM grabs_release WHERE search_id = sqlc.arg(search_id) ORDER BY rank 
 SELECT * FROM grabs_release WHERE search_id = sqlc.arg(search_id) AND release IS NOT NULL ORDER BY position;
 
 -- name: EndReleasesOfGrab :exec
--- No rerun follows once a run's Grab leaves fetching other than by a drop.
+-- No rerun follows once a run's Grab leaves fetching other than by a drop,
+-- unless another Grab the run made still fetches. A candidate a wait holds
+-- stays whole.
 UPDATE grabs_release SET release = NULL, link_sealed = NULL
-WHERE search_id IN (SELECT id FROM grabs_search WHERE grab_id = sqlc.arg(grab_id));
+WHERE search_id IN (SELECT r.search_id FROM grabs_search_grab r WHERE r.grab_id = sqlc.arg(grab_id)) AND outcome <> 'waiting'
+AND NOT EXISTS (
+    SELECT 1 FROM grabs_search_grab o JOIN grabs_grab g ON g.id = o.grab_id
+    WHERE o.search_id = grabs_release.search_id AND o.made = 1 AND o.grab_id <> sqlc.arg(grab_id) AND g.stage = 'fetching'
+);
 
 -- name: DeleteReleasesOfSearch :exec
 DELETE FROM grabs_release WHERE search_id = sqlc.arg(search_id);
 
--- name: DeleteOlderReleasesOfItem :exec
--- Finishing a run deletes the rows of its Item's other runs but those whose
--- Grab still fetches, which a rerun reads.
-DELETE FROM grabs_release WHERE search_id IN (
-    SELECT grabs_search.id FROM grabs_search
-    LEFT JOIN grabs_grab ON grabs_grab.id = grabs_search.grab_id
-    WHERE grabs_search.item_id = sqlc.arg(item_id) AND grabs_search.id <> sqlc.arg(search_id) AND grabs_search.manual_id IS NULL
-        AND (grabs_grab.stage IS NULL OR grabs_grab.stage <> 'fetching'));
+-- name: PruneGroup :exec
+-- The run bound, as grabs 00014 applies it: a finished queue run of the
+-- group goes once every Item it searched is in a later finished queue run
+-- of the group, no wait holds one of its Releases and no Grab it made
+-- still fetches, which a rerun reads.
+DELETE FROM grabs_search WHERE id IN (
+    SELECT s.id FROM grabs_search s
+    WHERE s.work_id = sqlc.arg(work_id) AND s.group_key = sqlc.arg(group_key) AND s.manual_id IS NULL AND s.finished_at IS NOT NULL
+        AND NOT EXISTS (
+            SELECT 1 FROM grabs_search_item si WHERE si.search_id = s.id AND NOT EXISTS (
+                SELECT 1 FROM grabs_search_item ti JOIN grabs_search t ON t.id = ti.search_id
+                WHERE ti.item_id = si.item_id AND t.work_id = s.work_id AND t.group_key = s.group_key AND t.manual_id IS NULL
+                    AND t.finished_at IS NOT NULL AND (t.finished_at, t.id) > (s.finished_at, s.id)))
+        AND NOT EXISTS (SELECT 1 FROM grabs_wait_candidate c WHERE c.search_id = s.id)
+        AND NOT EXISTS (
+            SELECT 1 FROM grabs_search_grab sg JOIN grabs_grab g ON g.id = sg.grab_id
+            WHERE sg.search_id = s.id AND sg.made = 1 AND g.stage = 'fetching'));
 
 -- name: ListOpenSearches :many
 SELECT * FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id;

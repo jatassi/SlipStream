@@ -82,11 +82,7 @@ func (x *Indexers) healthUnits(ctx context.Context, r storage.Reader[storage.Lib
 		if !idx.On || !checked(st) {
 			continue
 		}
-		place := tasks.TiedTo(idx.Home)
-		if portable(idx, st) {
-			place = tasks.PortableOn(role.Searching, idx.Home)
-		}
-		out = append(out, tasks.Unit{Key: tasks.UnitKey(idx.ID.String()), Label: idx.Name, Place: place})
+		out = append(out, tasks.Unit{Key: tasks.UnitKey(idx.ID.String()), Label: idx.Name, Place: placeOf(idx, st)})
 	}
 	return out, nil
 }

@@ -1,6 +1,7 @@
 package grabs_test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -122,7 +123,10 @@ func eachNewRuleRefusesItsRow(t *testing.T, lib library, work, item, grab storag
 	for _, step := range []string{"fewer_releases", "chosen_by_another", "fewer_unwanted", "lost_by_luck"} {
 		search := storage.NewUUID()
 		err := lib.Write(ctx, insertRows(
-			tableRow{"grabs_search", row{"id": search, "work_id": work, "item_id": item, "started_at": 0, "finished_at": 1, "outcome": "nothing_acceptable"}},
+			tableRow{"grabs_search", row{
+				"id": search, "work_id": work, "group_key": "i:" + hex.EncodeToString(item.Bytes()), "lane": 10, "trigger": "search", "started_at": 0,
+				"finished_at": 1, "outcome": "nothing_acceptable",
+			}},
 			tableRow{"grabs_release", row{
 				"search_id": search, "position": 0, "title": "Heat.1995.S01.1080p.BluRay", "indexer_name": "TorrentLeech", "size": 1 << 30,
 				"seeders": 9, "outcome": "outranked", "rank": 2, "reasons": "[]", "scores": "[]", "formats": "[]", "covers": "[]",

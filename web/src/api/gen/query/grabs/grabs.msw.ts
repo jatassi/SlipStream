@@ -7,14 +7,33 @@ import type {
   GrabsBlocklist,
   GrabsGrab,
   GrabsGrabList,
+  GrabsGrabbing,
   GrabsIndexerGrabList,
   GrabsManualSearch,
   GrabsManualStarted,
   GrabsOfferList,
   GrabsPickResults,
+  GrabsQueuedCanceled,
   GrabsReleaseList,
   GrabsSearchList,
-  GrabsSearchStarted,
+  GrabsSearchQueued,
+  GrabsSearchSettings,
+  GrabsSeveralQueued,
+  GrabsWantedPage,
+  GrabsWorkSearching,
+  SettingAddressField,
+  SettingChoiceField,
+  SettingCountField,
+  SettingDurationField,
+  SettingFolderField,
+  SettingListField,
+  SettingPortField,
+  SettingRateField,
+  SettingSizeField,
+  SettingSpaceField,
+  SettingSwitchField,
+  SettingTemplateField,
+  SettingWindowField,
 } from "../../model";
 
 export const getListBlocklistResponseMock = (
@@ -60,6 +79,13 @@ export const getListGrabsResponseMock = (
       cancel: faker.datatype.boolean(),
       sendTo: faker.datatype.boolean(),
     },
+    chosenBecause: faker.helpers.arrayElement([
+      {
+        fills: faker.number.int({ min: 1 }),
+        kind: faker.helpers.arrayElement(["fewer_releases"] as const),
+      },
+      null,
+    ]),
     createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
     downloadClient: faker.helpers.arrayElement([
       {
@@ -131,6 +157,13 @@ export const getListGrabsResponseMock = (
           },
         }
       : {}),
+    foundBy: faker.helpers.arrayElement([
+      "search",
+      "backlog",
+      "rss",
+      "failed_grab",
+      "manual",
+    ] as const),
     grabbedBy: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
@@ -211,7 +244,12 @@ export const getListGrabsResponseMock = (
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
     releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    source: faker.helpers.arrayElement(["search", "manual"] as const),
+    rssIndexerName: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    searchId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    source: faker.helpers.arrayElement(["search", "manual", "rss"] as const),
     stage: faker.helpers.arrayElement([
       "fetching",
       "downloading",
@@ -269,6 +307,13 @@ export const getGetGrabResponseMock = (
     cancel: faker.datatype.boolean(),
     sendTo: faker.datatype.boolean(),
   },
+  chosenBecause: faker.helpers.arrayElement([
+    {
+      fills: faker.number.int({ min: 1 }),
+      kind: faker.helpers.arrayElement(["fewer_releases"] as const),
+    },
+    null,
+  ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   downloadClient: faker.helpers.arrayElement([
     {
@@ -340,6 +385,13 @@ export const getGetGrabResponseMock = (
         },
       }
     : {}),
+  foundBy: faker.helpers.arrayElement([
+    "search",
+    "backlog",
+    "rss",
+    "failed_grab",
+    "manual",
+  ] as const),
   grabbedBy: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -420,7 +472,12 @@ export const getGetGrabResponseMock = (
   releaseSize: faker.number.int({ min: 0 }),
   releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
   releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  source: faker.helpers.arrayElement(["search", "manual"] as const),
+  rssIndexerName: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  searchId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  source: faker.helpers.arrayElement(["search", "manual", "rss"] as const),
   stage: faker.helpers.arrayElement([
     "fetching",
     "downloading",
@@ -478,6 +535,13 @@ export const getListIndexerGrabsResponseMock = (
       cancel: faker.datatype.boolean(),
       sendTo: faker.datatype.boolean(),
     },
+    chosenBecause: faker.helpers.arrayElement([
+      {
+        fills: faker.number.int({ min: 1 }),
+        kind: faker.helpers.arrayElement(["fewer_releases"] as const),
+      },
+      null,
+    ]),
     createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
     downloadClient: faker.helpers.arrayElement([
       {
@@ -549,6 +613,13 @@ export const getListIndexerGrabsResponseMock = (
           },
         }
       : {}),
+    foundBy: faker.helpers.arrayElement([
+      "search",
+      "backlog",
+      "rss",
+      "failed_grab",
+      "manual",
+    ] as const),
     grabbedBy: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
@@ -629,7 +700,12 @@ export const getListIndexerGrabsResponseMock = (
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
     releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    source: faker.helpers.arrayElement(["search", "manual"] as const),
+    rssIndexerName: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    searchId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    source: faker.helpers.arrayElement(["search", "manual", "rss"] as const),
     stage: faker.helpers.arrayElement([
       "fetching",
       "downloading",
@@ -680,6 +756,958 @@ export const getListIndexerGrabsResponseMock = (
   ...overrideResponse,
 });
 
+export const getCancelQueuedSearchesResponseMock = (
+  overrideResponse: Partial<Extract<GrabsQueuedCanceled, object>> = {},
+): GrabsQueuedCanceled => ({ canceled: faker.number.int({ min: 0 }), ...overrideResponse });
+
+export const getGetSearchSettingsResponseSettingDurationFieldMock = (
+  overrideResponse: Partial<SettingDurationField> = {},
+): SettingDurationField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseSettingCountFieldMock = (
+  overrideResponse: Partial<SettingCountField> = {},
+): SettingCountField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["count"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseSettingChoiceFieldMock = (
+  overrideResponse: Partial<SettingChoiceField> = {},
+): SettingChoiceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["choice"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseSettingWindowFieldMock = (
+  overrideResponse: Partial<SettingWindowField> = {},
+): SettingWindowField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["window"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    zone: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseSettingPortFieldMock = (
+  overrideResponse: Partial<SettingPortField> = {},
+): SettingPortField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["port"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseSettingSwitchFieldMock = (
+  overrideResponse: Partial<SettingSwitchField> = {},
+): SettingSwitchField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.datatype.boolean(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["switch"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.datatype.boolean(),
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseSettingRateFieldMock = (
+  overrideResponse: Partial<SettingRateField> = {},
+): SettingRateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["rate"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseSettingAddressFieldMock = (
+  overrideResponse: Partial<SettingAddressField> = {},
+): SettingAddressField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["address"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseSettingFolderFieldMock = (
+  overrideResponse: Partial<SettingFolderField> = {},
+): SettingFolderField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["folder"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    purpose: faker.helpers.arrayElement(["downloads"] as const),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseSettingSpaceFieldMock = (
+  overrideResponse: Partial<SettingSpaceField> = {},
+): SettingSpaceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["space"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    maxBytes: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseSettingListFieldMock = (
+  overrideResponse: Partial<SettingListField> = {},
+): SettingListField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    item: faker.helpers.arrayElement(["extension"] as const),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["list"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    min: faker.number.int({ min: 0 }),
+    pendingRestart: faker.datatype.boolean(),
+    running: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseSettingSizeFieldMock = (
+  overrideResponse: Partial<SettingSizeField> = {},
+): SettingSizeField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["size"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
+export const getGetSearchSettingsResponseMock = (
+  overrideResponse: Partial<Extract<GrabsSearchSettings, object>> = {},
+): GrabsSearchSettings => ({
+  settings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getGetSearchSettingsResponseSettingDurationFieldMock() },
+      { ...getGetSearchSettingsResponseSettingCountFieldMock() },
+      { ...getGetSearchSettingsResponseSettingChoiceFieldMock() },
+      { ...getGetSearchSettingsResponseSettingWindowFieldMock() },
+      { ...getGetSearchSettingsResponseSettingPortFieldMock() },
+      { ...getGetSearchSettingsResponseSettingSwitchFieldMock() },
+      { ...getGetSearchSettingsResponseSettingRateFieldMock() },
+      { ...getGetSearchSettingsResponseSettingAddressFieldMock() },
+      { ...getGetSearchSettingsResponseSettingFolderFieldMock() },
+      { ...getGetSearchSettingsResponseSettingSpaceFieldMock() },
+      { ...getGetSearchSettingsResponseSettingTemplateFieldMock() },
+      { ...getGetSearchSettingsResponseSettingListFieldMock() },
+      { ...getGetSearchSettingsResponseSettingSizeFieldMock() },
+    ]),
+  ),
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingDurationFieldMock = (
+  overrideResponse: Partial<SettingDurationField> = {},
+): SettingDurationField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingCountFieldMock = (
+  overrideResponse: Partial<SettingCountField> = {},
+): SettingCountField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["count"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unit: {
+      many: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      one: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingChoiceFieldMock = (
+  overrideResponse: Partial<SettingChoiceField> = {},
+): SettingChoiceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["choice"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingWindowFieldMock = (
+  overrideResponse: Partial<SettingWindowField> = {},
+): SettingWindowField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["window"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    zone: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingPortFieldMock = (
+  overrideResponse: Partial<SettingPortField> = {},
+): SettingPortField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["port"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingSwitchFieldMock = (
+  overrideResponse: Partial<SettingSwitchField> = {},
+): SettingSwitchField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.datatype.boolean(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["switch"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.datatype.boolean(),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingRateFieldMock = (
+  overrideResponse: Partial<SettingRateField> = {},
+): SettingRateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["rate"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { zero: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingAddressFieldMock = (
+  overrideResponse: Partial<SettingAddressField> = {},
+): SettingAddressField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["address"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingFolderFieldMock = (
+  overrideResponse: Partial<SettingFolderField> = {},
+): SettingFolderField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["folder"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    purpose: faker.helpers.arrayElement(["downloads"] as const),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingSpaceFieldMock = (
+  overrideResponse: Partial<SettingSpaceField> = {},
+): SettingSpaceField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["space"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    maxBytes: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: {
+      amount: faker.number.int({ min: 0 }),
+      unit: faker.helpers.arrayElement(["bytes", "percent"] as const),
+    },
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingListFieldMock = (
+  overrideResponse: Partial<SettingListField> = {},
+): SettingListField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    item: faker.helpers.arrayElement(["extension"] as const),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["list"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    min: faker.number.int({ min: 0 }),
+    pendingRestart: faker.datatype.boolean(),
+    running: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseSettingSizeFieldMock = (
+  overrideResponse: Partial<SettingSizeField> = {},
+): SettingSizeField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["size"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateSearchSettingsResponseMock = (
+  overrideResponse: Partial<Extract<GrabsSearchSettings, object>> = {},
+): GrabsSearchSettings => ({
+  settings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.helpers.arrayElement([
+      { ...getUpdateSearchSettingsResponseSettingDurationFieldMock() },
+      { ...getUpdateSearchSettingsResponseSettingCountFieldMock() },
+      { ...getUpdateSearchSettingsResponseSettingChoiceFieldMock() },
+      { ...getUpdateSearchSettingsResponseSettingWindowFieldMock() },
+      { ...getUpdateSearchSettingsResponseSettingPortFieldMock() },
+      { ...getUpdateSearchSettingsResponseSettingSwitchFieldMock() },
+      { ...getUpdateSearchSettingsResponseSettingRateFieldMock() },
+      { ...getUpdateSearchSettingsResponseSettingAddressFieldMock() },
+      { ...getUpdateSearchSettingsResponseSettingFolderFieldMock() },
+      { ...getUpdateSearchSettingsResponseSettingSpaceFieldMock() },
+      { ...getUpdateSearchSettingsResponseSettingTemplateFieldMock() },
+      { ...getUpdateSearchSettingsResponseSettingListFieldMock() },
+      { ...getUpdateSearchSettingsResponseSettingSizeFieldMock() },
+    ]),
+  ),
+  ...overrideResponse,
+});
+
 export const getListSearchReleasesResponseMock = (
   overrideResponse: Partial<Extract<GrabsReleaseList, object>> = {},
 ): GrabsReleaseList => ({
@@ -722,6 +1750,7 @@ export const getListSearchReleasesResponseMock = (
         "outranked",
         "kept",
         "refused",
+        "waiting",
       ] as const),
       position: faker.number.int({ min: 0 }),
       rank: faker.helpers.arrayElement([faker.number.int({ min: 1 }), null]),
@@ -752,6 +1781,8 @@ export const getListSearchReleasesResponseMock = (
             "not_an_upgrade",
             "repack_other_group",
             "blocklisted",
+            "not_aired",
+            "tried",
           ] as const),
           soft: faker.datatype.boolean(),
           ...(faker.datatype.boolean() ? { targetId: faker.string.uuid() } : {}),
@@ -770,6 +1801,97 @@ export const getListSearchReleasesResponseMock = (
       words: faker.string.alpha({ length: { min: 10, max: 20 } }),
     }),
   ),
+  ...overrideResponse,
+});
+
+export const getListWantedResponseMock = (
+  overrideResponse: Partial<Extract<GrabsWantedPage, object>> = {},
+): GrabsWantedPage => ({
+  leftGone: faker.number.int({ min: 0 }),
+  next: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    lastResult: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        "grabbed",
+        "waiting",
+        "nothing_found",
+        "nothing_acceptable",
+        "no_indexer",
+        "no_root",
+      ] as const),
+      null,
+    ]),
+    lastSearchedAt: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    nextSearchAt: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    others: {
+      [faker.string.alphanumeric(5)]: faker.number.int(),
+    },
+    ranges: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        first: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        last: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
+    reason: faker.helpers.arrayElement(["failed", "missing", "upgrade", "gone"] as const),
+    state: faker.helpers.arrayElement(["idle", "queued", "searching"] as const),
+    work: {
+      contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+      id: faker.string.uuid(),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      posterUrl: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+    },
+  })),
+  status: {
+    limits: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        indexerId: faker.string.uuid(),
+        indexerName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        starved: faker.datatype.boolean(),
+        until: faker.helpers.arrayElement([
+          faker.date.past().toISOString().slice(0, 19) + "Z",
+          null,
+        ]),
+      }),
+    ),
+    nextBacklogAt: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    queued: faker.number.int({ min: 0 }),
+    searching: faker.number.int({ min: 0 }),
+  },
+  total: faker.number.int({ min: 0 }),
+  ...overrideResponse,
+});
+
+export const getSearchSeveralWorksResponseMock = (
+  overrideResponse: Partial<Extract<GrabsSeveralQueued, object>> = {},
+): GrabsSeveralQueued => ({
+  leftGone: faker.number.int({ min: 0 }),
+  merged: faker.number.int({ min: 0 }),
+  queued: faker.number.int({ min: 0 }),
+  works: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    outcome: faker.helpers.arrayElement(["queued", "merged", "skipped"] as const),
+    reason: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        "nothing_wanted",
+        "gone_only",
+        "no_root",
+        "not_searchable",
+      ] as const),
+      null,
+    ]),
+    workId: faker.string.uuid(),
+  })),
   ...overrideResponse,
 });
 
@@ -857,6 +1979,8 @@ export const getGetManualSearchResponseMock = (
                 "not_an_upgrade",
                 "repack_other_group",
                 "blocklisted",
+                "not_aired",
+                "tried",
               ] as const),
               soft: faker.datatype.boolean(),
               ...(faker.datatype.boolean() ? { targetId: faker.string.uuid() } : {}),
@@ -976,6 +2100,8 @@ export const getGetManualSearchResponseMock = (
                 "not_an_upgrade",
                 "repack_other_group",
                 "blocklisted",
+                "not_aired",
+                "tried",
               ] as const),
               soft: faker.datatype.boolean(),
               ...(faker.datatype.boolean() ? { targetId: faker.string.uuid() } : {}),
@@ -1161,6 +2287,8 @@ export const getListManualSearchReleasesResponseMock = (
               "not_an_upgrade",
               "repack_other_group",
               "blocklisted",
+              "not_aired",
+              "tried",
             ] as const),
             soft: faker.datatype.boolean(),
             ...(faker.datatype.boolean() ? { targetId: faker.string.uuid() } : {}),
@@ -1242,10 +2370,17 @@ export const getListManualSearchReleasesResponseMock = (
 });
 
 export const getSearchWorkResponseMock = (
-  overrideResponse: Partial<Extract<GrabsSearchStarted, object>> = {},
-): GrabsSearchStarted => ({
-  searchIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
-    () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+  overrideResponse: Partial<Extract<GrabsSearchQueued, object>> = {},
+): GrabsSearchQueued => ({
+  groups: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.uuid(),
+      ),
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      state: faker.helpers.arrayElement(["queued", "merged"] as const),
+    }),
   ),
   ...overrideResponse,
 });
@@ -1260,7 +2395,18 @@ export const getListSearchesResponseMock = (
         faker.date.past().toISOString().slice(0, 19) + "Z",
         null,
       ]),
-      grabId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      grabIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.uuid(),
+      ),
+      grabs: faker.number.int({ min: 0 }),
+      groupKey: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      groupLabel: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
       id: faker.string.uuid(),
       indexers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
@@ -1286,7 +2432,13 @@ export const getListSearchesResponseMock = (
           sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
         }),
       ),
-      itemId: faker.string.uuid(),
+      itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.uuid(),
+      ),
+      lane: faker.helpers.arrayElement([
+        faker.helpers.arrayElement(["now", "bulk", "backlog"] as const),
+        null,
+      ]),
       notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           ...(faker.datatype.boolean()
@@ -1314,6 +2466,8 @@ export const getListSearchesResponseMock = (
             "not_an_upgrade",
             "repack_other_group",
             "blocklisted",
+            "not_aired",
+            "tried",
           ] as const),
           soft: faker.datatype.boolean(),
           ...(faker.datatype.boolean() ? { targetId: faker.string.uuid() } : {}),
@@ -1323,14 +2477,213 @@ export const getListSearchesResponseMock = (
         }),
       ),
       outcome: faker.helpers.arrayElement([
-        faker.helpers.arrayElement(["grabbed", "nothing_acceptable", "listed"] as const),
+        faker.helpers.arrayElement([
+          "grabbed",
+          "waiting",
+          "nothing_found",
+          "nothing_acceptable",
+          "no_indexer",
+          "no_root",
+          "listed",
+        ] as const),
         null,
       ]),
       startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+      trigger: faker.helpers.arrayElement([
+        faker.helpers.arrayElement([
+          "search",
+          "search_all",
+          "add",
+          "monitor",
+          "profile",
+          "editions",
+          "retarget",
+          "release_date",
+          "refresh",
+          "backlog",
+          "failed_grab",
+          "rss",
+        ] as const),
+        null,
+      ]),
     }),
   ),
   ...overrideResponse,
 });
+
+export const getGetWorkSearchingResponseMock = (
+  overrideResponse: Partial<Extract<GrabsWorkSearching, object>> = {},
+): GrabsWorkSearching => ({
+  groups: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      again: faker.datatype.boolean(),
+      behind: faker.helpers.arrayElement([
+        {
+          ahead: faker.number.int({ min: 0 }),
+          aheadFrom: faker.helpers.arrayElement([
+            faker.helpers.arrayElement([
+              "search",
+              "search_all",
+              "add",
+              "monitor",
+              "profile",
+              "editions",
+              "retarget",
+              "release_date",
+              "refresh",
+              "backlog",
+              "failed_grab",
+            ] as const),
+            null,
+          ]),
+          aheadLane: faker.helpers.arrayElement([
+            faker.helpers.arrayElement(["now", "bulk", "backlog"] as const),
+            null,
+          ]),
+          indexerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+          indexerName: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+          starved: faker.datatype.boolean(),
+          until: faker.helpers.arrayElement([
+            faker.date.past().toISOString().slice(0, 19) + "Z",
+            null,
+          ]),
+        },
+        null,
+      ]),
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      lane: faker.helpers.arrayElement([
+        faker.helpers.arrayElement(["now", "bulk", "backlog"] as const),
+        null,
+      ]),
+      lastFound: faker.number.int({ min: 0 }),
+      lastGrabs: faker.number.int({ min: 0 }),
+      lastResult: faker.helpers.arrayElement([
+        faker.helpers.arrayElement([
+          "grabbed",
+          "waiting",
+          "nothing_found",
+          "nothing_acceptable",
+          "no_indexer",
+          "no_root",
+        ] as const),
+        null,
+      ]),
+      lastSearchedAt: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      nextSearchAt: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      state: faker.helpers.arrayElement(["idle", "queued", "searching"] as const),
+      trigger: faker.helpers.arrayElement([
+        faker.helpers.arrayElement([
+          "search",
+          "search_all",
+          "add",
+          "monitor",
+          "profile",
+          "editions",
+          "retarget",
+          "release_date",
+          "refresh",
+          "backlog",
+          "failed_grab",
+        ] as const),
+        null,
+      ]),
+    }),
+  ),
+  lead: {
+    groupKey: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    of: faker.number.int({ min: 0 }),
+    wait: faker.helpers.arrayElement([
+      {
+        candidates: faker.number.int({ min: 1 }),
+        cell: {
+          edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          itemId: faker.string.uuid(),
+          targetId: faker.string.uuid(),
+        },
+        until: faker.date.past().toISOString().slice(0, 19) + "Z",
+      },
+      null,
+    ]),
+  },
+  stops: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    cell: {
+      edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      itemId: faker.string.uuid(),
+      targetId: faker.string.uuid(),
+    },
+    failures: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        at: faker.date.past().toISOString().slice(0, 19) + "Z",
+        code: faker.helpers.arrayElement([
+          "indexer_unavailable",
+          "indexer_removed",
+          "indexer_stopped",
+          "home_offline",
+          "torrent_unreachable",
+          "magnet_invalid",
+          "no_metadata",
+          "no_peer_source",
+          "torrent_invalid",
+          "infohash_mismatch",
+          "torrent_v2_only",
+          "download_failed",
+          "marked_failed",
+          "removed",
+          "client_removed",
+          "client_deleted",
+          "goal_met",
+          "no_video_file",
+          "probe_failed",
+          "fills_nothing",
+          "name_taken",
+          "name_too_long",
+          "transfer_failed",
+          "import_failed",
+          "node_written_off",
+          "root_changed",
+          "canceled",
+          "blocklisted",
+          "release_fault",
+          "client_error",
+          "declined",
+          "unreadable",
+        ] as const),
+        grabId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      }),
+    ),
+    nextSearchAt: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+  })),
+  waits: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    candidates: faker.number.int({ min: 1 }),
+    cell: {
+      edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      itemId: faker.string.uuid(),
+      targetId: faker.string.uuid(),
+    },
+    until: faker.date.past().toISOString().slice(0, 19) + "Z",
+  })),
+  ...overrideResponse,
+});
+
+export const getGrabWaitingResponseMock = (
+  overrideResponse: Partial<Extract<GrabsGrabbing, object>> = {},
+): GrabsGrabbing => ({ grabbing: faker.number.int({ min: 0 }), ...overrideResponse });
 
 export const getListBlocklistMockHandler = (
   overrideResponse?:
@@ -1483,6 +2836,78 @@ export const getListIndexerGrabsMockHandler = (
   );
 };
 
+export const getCancelQueuedSearchesMockHandler = (
+  overrideResponse?:
+    | GrabsQueuedCanceled
+    | ((
+        info: Parameters<Parameters<typeof http.delete>[1]>[0],
+      ) => Promise<GrabsQueuedCanceled> | GrabsQueuedCanceled),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/search-queue",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCancelQueuedSearchesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getGetSearchSettingsMockHandler = (
+  overrideResponse?:
+    | GrabsSearchSettings
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<GrabsSearchSettings> | GrabsSearchSettings),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/search-settings",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetSearchSettingsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getUpdateSearchSettingsMockHandler = (
+  overrideResponse?:
+    | GrabsSearchSettings
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0],
+      ) => Promise<GrabsSearchSettings> | GrabsSearchSettings),
+  options?: RequestHandlerOptions,
+) => {
+  return http.patch(
+    "*/api/v1/search-settings",
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getUpdateSearchSettingsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getListSearchReleasesMockHandler = (
   overrideResponse?:
     | GrabsReleaseList
@@ -1501,6 +2926,54 @@ export const getListSearchReleasesMockHandler = (
             : overrideResponse
           : getListSearchReleasesResponseMock(),
         { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getListWantedMockHandler = (
+  overrideResponse?:
+    | GrabsWantedPage
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<GrabsWantedPage> | GrabsWantedPage),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/wanted",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListWantedResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSearchSeveralWorksMockHandler = (
+  overrideResponse?:
+    | GrabsSeveralQueued
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<GrabsSeveralQueued> | GrabsSeveralQueued),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/works/search",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSearchSeveralWorksResponseMock(),
+        { status: 202 },
       );
     },
     options,
@@ -1605,10 +3078,10 @@ export const getListManualSearchReleasesMockHandler = (
 
 export const getSearchWorkMockHandler = (
   overrideResponse?:
-    | GrabsSearchStarted
+    | GrabsSearchQueued
     | ((
         info: Parameters<Parameters<typeof http.post>[1]>[0],
-      ) => Promise<GrabsSearchStarted> | GrabsSearchStarted),
+      ) => Promise<GrabsSearchQueued> | GrabsSearchQueued),
   options?: RequestHandlerOptions,
 ) => {
   return http.post(
@@ -1650,6 +3123,54 @@ export const getListSearchesMockHandler = (
     options,
   );
 };
+
+export const getGetWorkSearchingMockHandler = (
+  overrideResponse?:
+    | GrabsWorkSearching
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<GrabsWorkSearching> | GrabsWorkSearching),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/works/:workId/searching",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetWorkSearchingResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getGrabWaitingMockHandler = (
+  overrideResponse?:
+    | GrabsGrabbing
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<GrabsGrabbing> | GrabsGrabbing),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/works/:workId/waits/grab",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGrabWaitingResponseMock(),
+        { status: 202 },
+      );
+    },
+    options,
+  );
+};
 export const getGrabsMock = () => [
   getListBlocklistMockHandler(),
   getRemoveFromBlocklistMockHandler(),
@@ -1658,11 +3179,18 @@ export const getGrabsMock = () => [
   getCancelGrabMockHandler(),
   getSendGrabToMockHandler(),
   getListIndexerGrabsMockHandler(),
+  getCancelQueuedSearchesMockHandler(),
+  getGetSearchSettingsMockHandler(),
+  getUpdateSearchSettingsMockHandler(),
   getListSearchReleasesMockHandler(),
+  getListWantedMockHandler(),
+  getSearchSeveralWorksMockHandler(),
   getGetManualSearchMockHandler(),
   getStartManualSearchMockHandler(),
   getGrabFromManualSearchMockHandler(),
   getListManualSearchReleasesMockHandler(),
   getSearchWorkMockHandler(),
   getListSearchesMockHandler(),
+  getGetWorkSearchingMockHandler(),
+  getGrabWaitingMockHandler(),
 ];

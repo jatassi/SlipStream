@@ -875,7 +875,7 @@ func TestReleasesCarryTheSitesFlagsAndTheFactorsFlags(t *testing.T) {
 			t.Errorf("Releases = %v, want %v", got, want)
 		}
 		r := a.Releases[0]
-		if r.InfoHash == nil || r.InfoHash.String() != hash || r.Leechers != 2 || r.Link.Reveal() != "https://lantern.test/dl/1" || !slices.Equal(r.Categories, []int{2000, 100001}) {
+		if r.InfoHash == nil || r.InfoHash.String() != hash || r.Leechers != 2 || r.Link.Reveal() != "https://lantern.test/dl/1" || !slices.Equal(r.Categories, []int{2000, 100001}) || r.GUID != "lantern-1" {
 			t.Errorf("the first Release = %+v", r)
 		}
 	})
@@ -956,7 +956,7 @@ func TestATestSignsInAndReportsTheStaticCapabilities(t *testing.T) {
 		if want := []string{"POST lantern.test/login.php", "GET lantern.test/browse.php"}; !slices.Equal(w.requests(), want) {
 			t.Errorf("requests = %v, want a sign-in although the Node held a session, then Recent: %v", w.requests(), want)
 		}
-		if got := fmt.Sprint(a.Report.Capabilities); got != "{map[movie:[q imdbid] search:[q]] [2000 100001]}" {
+		if got := fmt.Sprint(a.Report.Capabilities); got != "{map[movie:[q imdbid] search:[q]] [2000 100001] false}" {
 			t.Errorf("capabilities = %s", got)
 		}
 	})

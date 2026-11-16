@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller with ten wanted movies and two Torznab
+  Indexers, for the spec's limited tracker. Fixture Site has no search
+  limit. Heron allows 2 searches an hour, and RSS sync keeps one of them
+  for Heron's feed, so Backlog search and Search all get the other and
+  then wait for Heron, while the Admin's Search skips Heron at its limit
+  and Manual search goes first. No site lists a Release, so every
+  search finds nothing and the movies stay wanted. Each movie is added
+  monitored with no search on add, and Backlog search and RSS sync are on
+  as the product ships them.
+seed: limited-tracker
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+    - id: 9000005
+      imdb_id: tt9000005
+      title: The Salt Road
+      released: 2022-09-14
+      runtime: 112m
+    - id: 9000006
+      imdb_id: tt9000006
+      title: Meadowlark
+      released: 2023-05-12
+      runtime: 98m
+    - id: 9000007
+      imdb_id: tt9000007
+      title: Harbor Lights
+      released: 2017-02-03
+      runtime: 101m
+    - id: 9100002
+      imdb_id: tt9100002
+      title: Long Division
+      released: 2019-11-22
+      runtime: 95m
+    - id: 9200001
+      imdb_id: tt9200001
+      title: Copper Kettle
+      released: 2012-06-01
+      runtime: 92m
+    - id: 9200002
+      imdb_id: tt9200002
+      title: Nightfall Ferry
+      released: 2014-10-10
+      runtime: 108m
+    - id: 9200003
+      imdb_id: tt9200003
+      title: Saltmarsh Radio
+      released: 2018-03-23
+      runtime: 99m
+    - id: 9200004
+      imdb_id: tt9200004
+      title: The Glass Meridian
+      released: 2020-08-14
+      runtime: 117m
+    - id: 9200005
+      imdb_id: tt9200005
+      title: Low Water Mark
+      released: 2016-01-29
+      runtime: 103m
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  indexers:
+    - {name: Fixture Site, kind: torznab, site: torznab}
+    - {name: Heron, kind: torznab, site: heron, limit: {count: 2, per: hour}}
+  works: {content_type: movie, preset: all}

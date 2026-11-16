@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller, for the loop of searching again after
+  a bad Release and its stop. fake-tmdb lists The Quiet Orchard, and
+  Fixture Site lists four 1080p WEB-DL Releases of it, each only rar parts
+  and an nfo, so every Grab downloads and fails no_video_file. Each failure
+  searches again at once, skipping the Releases already tried, and the
+  third failure in 7 days stops the cell, which reads Failed until the
+  Admin presses Search again, which grabs the fourth. Backlog search and
+  RSS sync are off, so only the failures search. The library has a Movies
+  root, and no Work until a test adds one.
+seed: fault-loop
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-RAR
+    tmdb_id: 9000001
+    seeders: 30
+    seeded: true
+    advertised_size: 8.2GiB
+    files:
+      - {path: the.quiet.orchard.2021.1080p.web-dl.h264-rar.rar, size: 1MiB}
+      - {path: the.quiet.orchard.2021.1080p.web-dl.h264-rar.r00, size: 1MiB}
+      - {path: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-RAR.nfo, size: 2KiB}
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-SFV
+    tmdb_id: 9000001
+    seeders: 24
+    seeded: true
+    advertised_size: 8.2GiB
+    files:
+      - {path: the.quiet.orchard.2021.1080p.web-dl.h264-sfv.rar, size: 1MiB}
+      - {path: the.quiet.orchard.2021.1080p.web-dl.h264-sfv.r00, size: 1MiB}
+      - {path: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-SFV.nfo, size: 2KiB}
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-PAR
+    tmdb_id: 9000001
+    seeders: 18
+    seeded: true
+    advertised_size: 8.2GiB
+    files:
+      - {path: the.quiet.orchard.2021.1080p.web-dl.h264-par.rar, size: 1MiB}
+      - {path: the.quiet.orchard.2021.1080p.web-dl.h264-par.r00, size: 1MiB}
+      - {path: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-PAR.nfo, size: 2KiB}
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-NFO
+    tmdb_id: 9000001
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+    files:
+      - {path: the.quiet.orchard.2021.1080p.web-dl.h264-nfo.rar, size: 1MiB}
+      - {path: the.quiet.orchard.2021.1080p.web-dl.h264-nfo.r00, size: 1MiB}
+      - {path: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-NFO.nfo, size: 2KiB}
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]
+  automatic_search: {backlog_search: false, rss_sync: false}

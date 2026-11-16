@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -35,6 +36,52 @@ type View struct {
 	// Current is whether a cell reads from it. A failure stays under
 	// Needs you only while it is.
 	Current bool
+	// SearchingAgain is whether SlipStream searches a failure's cells again
+	// by itself, so its cells read Missing or Upgradable and Needs you
+	// doesn't list it.
+	SearchingAgain bool
+	// Search is the run that made it, zero for a Manual Grab and once the
+	// run is pruned.
+	Search SearchID
+	// RSSIndexer is the name of the Indexer whose feed RSS sync found it
+	// in, "" unless FoundBy is FoundByRSS or once the Indexer is deleted.
+	RSSIndexer string
+}
+
+// madeRunsOf is the kept run that made each of grabs that has one.
+func madeRunsOf(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[GrabID]SearchID, error) {
+	ids := make([]GrabID, len(grabs))
+	for i, g := range grabs {
+		ids[i] = g.ID
+	}
+	q, out := db.New(r), map[GrabID]SearchID{}
+	for chunk := range slices.Chunk(ids, works.Batch) {
+		rows, err := q.ListMadeRunsOf(ctx, chunk)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			out[row.GrabID] = row.SearchID
+		}
+	}
+	return out, nil
+}
+
+// rssIndexersOf is the name of each Indexer an RSS Grab of grabs came
+// from, nil when none of grabs is an RSS Grab.
+func rssIndexersOf(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[indexers.ID]string, error) {
+	if !slices.ContainsFunc(grabs, func(g Grab) bool { return g.Source == FromRSS }) {
+		return nil, nil
+	}
+	all, err := indexers.All(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[indexers.ID]string, len(all))
+	for _, idx := range all {
+		out[idx.ID] = idx.Name
+	}
+	return out, nil
 }
 
 // Actions is what an Admin can do to a Grab now.
@@ -54,6 +101,9 @@ type reads struct {
 	releaseWords map[GrabID]string
 	imports      map[GrabID]ImportView
 	current      map[GrabID]bool
+	again        map[GrabID]bool
+	made         map[GrabID]SearchID
+	rssIndexers  map[indexers.ID]string
 }
 
 func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Grab) (reads, error) {
@@ -75,14 +125,20 @@ func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Gr
 	if out.imports, err = gr.importsOf(ctx, r, grabs, types); err != nil {
 		return reads{}, err
 	}
-	if out.current, err = grabsCellsReadFrom(ctx, r, grabs); err != nil {
+	if out.current, out.again, err = grabsCellsReadFrom(ctx, r, grabs); err != nil {
+		return reads{}, err
+	}
+	if out.made, err = madeRunsOf(ctx, r, grabs); err != nil {
+		return reads{}, err
+	}
+	if out.rssIndexers, err = rssIndexersOf(ctx, r, grabs); err != nil {
 		return reads{}, err
 	}
 	out.metadataWait, err = metadataWaitIn(ctx, r)
 	return out, err
 }
 
-func grabsCellsReadFrom(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[GrabID]bool, error) {
+func grabsCellsReadFrom(ctx context.Context, r storage.Reader[file], grabs []Grab) (current, again map[GrabID]bool, err error) {
 	seen := map[works.WorkID]bool{}
 	var ids []works.WorkID
 	for _, g := range grabs {
@@ -96,15 +152,29 @@ func grabsCellsReadFrom(ctx context.Context, r storage.Reader[file], grabs []Gra
 		return q.ListTargetsOfWorks(ctx, ids)
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	out := map[GrabID]bool{}
+	stopped, err := stoppedOf(ctx, r, works.Only(ids))
+	if err != nil {
+		return nil, nil, err
+	}
+	current, again = map[GrabID]bool{}, map[GrabID]bool{}
 	for _, row := range readFrom(rows) {
 		if row.Settled == nil {
-			out[row.ID] = true
+			current[row.ID] = true
 		}
 	}
-	return out, nil
+	for _, row := range rows {
+		if row.Stage != Failed {
+			continue
+		}
+		g := Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}
+		key := files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}
+		if prior, seen := again[row.ID]; prior || !seen {
+			again[row.ID] = searchingAgain(g, stopped[key])
+		}
+	}
+	return current, again, nil
 }
 
 // typesOf is the Content Type of each of grabs' Works.
@@ -257,6 +327,11 @@ func (gr *Grabs) views(grabs []Grab, rd reads) ([]View, error) {
 		}
 		out[i].Overrides = g.overrideWords()
 		out[i].Current = rd.current[g.ID]
+		out[i].SearchingAgain = rd.again[g.ID]
+		out[i].Search = rd.made[g.ID]
+		if g.FoundBy == FoundByRSS {
+			out[i].RSSIndexer = rd.rssIndexers[g.Ticket.Indexer]
+		}
 	}
 	return out, nil
 }

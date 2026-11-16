@@ -9,8 +9,11 @@ import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
 import { bytes } from "../../format";
 import { ProgressCell } from "../../grabs/progress-cell";
 import { failureWords, isFailed } from "../../grabs/stages";
+import { waitWords } from "../../grabs/search-words";
+import { useNow } from "../../tasks/use-now";
 import { useQualityNames } from "../../targets/quality-names";
 import { Data } from "../../ui/data";
+import { GrabNowButton } from "./grab-now";
 
 function FileFacts({ file }: { file: FilesLibraryFile }) {
   const quality = useQualityNames();
@@ -63,11 +66,36 @@ function HeldFacts({ held, grabs }: { held: Held; grabs: readonly GrabsGrab[] })
 }
 
 /**
- * What a cell's state adds under its chip: its file's quality, its download,
- * the step a Grab holding it is at and the file it replaces, or why it failed
- * and the file it kept. A downloading cell's Import names its own step.
+ * What the search adds to a cell it can fill: that its file is gone, and
+ * the Releases a wait holds for it, with Grab now.
  */
-export function CellFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly GrabsGrab[] }) {
+function SearchFacts({ cell, workId }: { cell: Searchable; workId: string }) {
+  const now = useNow(30_000);
+  return (
+    <>
+      {cell.gone && <span className="text-meta text-ink-3">File gone</span>}
+      {cell.waitUntil !== null && (
+        <>
+          <span className="text-meta text-ink-2">
+            {waitWords(cell.candidates, cell.waitUntil, { now, zone: undefined })}
+          </span>
+          <GrabNowButton
+            workId={workId}
+            cells={[{ itemId: cell.itemId, edition: cell.edition, targetId: cell.targetId }]}
+            size="small"
+          />
+        </>
+      )}
+    </>
+  );
+}
+
+type Searchable = Pick<
+  FilesCell,
+  "gone" | "waitUntil" | "candidates" | "itemId" | "edition" | "targetId"
+>;
+
+function StateFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly GrabsGrab[] }) {
   switch (cell.state) {
     case "met":
       return (
@@ -108,4 +136,29 @@ export function CellFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly Gr
     default:
       return cell satisfies never;
   }
+}
+
+/**
+ * What a cell's state adds under its chip: its file's quality, its download,
+ * the step a Grab holding it is at and the file it replaces, or why it failed
+ * and the file it kept. A downloading cell's Import names its own step. A
+ * cell a search can fill adds what its search is doing.
+ */
+export function CellFacts({
+  cell,
+  grabs,
+  workId,
+}: {
+  cell: FilesCell;
+  grabs: readonly GrabsGrab[];
+  workId: string;
+}) {
+  const searchable =
+    cell.state === "missing" || cell.state === "failed" || cell.state === "upgradable";
+  return (
+    <>
+      <StateFacts cell={cell} grabs={grabs} />
+      {searchable && <SearchFacts cell={cell} workId={workId} />}
+    </>
+  );
 }

@@ -1,6 +1,6 @@
 # Series Work page
 
-A series' Work page shows the series' facts in the hero, then one collapsible section per season in order with Specials last. Each season's header has its name, a state bar, a tally and a Monitor switch, rolled up by the server, and a season opens while an episode it monitors has a cell wanted or downloading. Each episode is a row with its code, title, air date, its cells its own Monitor switch and a Search, and each season's header has a Search too. The hero's Search searches every wanted episode, a season's its wanted episodes and an episode's that episode, one Torznab `tvsearch` by TVDB id, season and episode each. Unmonitored episodes read `Not monitored`, a run of announced episodes folds into one line, and an episode TVDB drops leaves its season. On a phone each row opens a sheet with the episode's cells and actions. When TVDB's order stops listing an episode that holds a file along with its season, the episode trails the list in one section named `No longer listed by TVDB`, whose header counts the episodes it holds.
+A series' Work page shows the series' facts in the hero, then one collapsible section per season in order with Specials last. Each season's header has its name, a state bar, a tally and a Monitor switch, rolled up by the server, and a season opens while an episode it monitors has a cell wanted or downloading. Each episode is a row with its code, title, air date, its cells its own Monitor switch and a Search, and each season's header has a Search too. The hero's Search searches every wanted episode, a season's its wanted episodes and an episode's that episode. Each season is one Torznab `tvsearch` by TVDB id and season, with the episode too when the season has one wanted episode, and each special is searched alone by season 0 and its episode. Unmonitored episodes read `Not monitored`, a run of announced episodes folds into one line, and an episode TVDB drops leaves its season. On a phone each row opens a sheet with the episode's cells and actions. When TVDB's order stops listing an episode that holds a file along with its season, the episode trails the list in one section named `No longer listed by TVDB`, whose header counts the episodes it holds.
 
 ## Sub-features
 
@@ -9,7 +9,7 @@ A series' Work page shows the series' facts in the hero, then one collapsible se
 - `series-rows` `S01E01` reads `First Flame`, `January 10, 2020` and its cell `S01E01 1080p, Missing`; opening Season 2 shows `S02E01` `The Northern Lamp` with `Not monitored` (P-050).
 - `series-popover` hovering `S01E01 1080p, Missing` opens the detail `S01E01 1080p` reading `Missing`, clicking pins it while the pointer leaves, and `Escape` closes it.
 - `series-fold` after fake-tvdb announces a fourth season and a refresh, Season 4 reads one line `Episodes 1 to 3 air <day> to <day>` in place of three rows, and dropping `Fog Signal` leaves Season 2 with `S02E01` and `S02E03` and no row for it (P-050).
-- `series-work-search` with First season, the hero's `Search` toasts `Searching 3 episodes`, `Searches` reads `Grabbed a Release` twice, for S01E01 and S01E03, and `searches` records three `tvsearch` searches with `tvdbid` 1001, `season` 1 and `ep` 1, 2 and 3 (P-050).
+- `series-work-search` with First season, the hero's `Search` toasts `Searching 3 episodes`, `searches` records one `tvsearch` with `tvdbid` 1001 and `season` 1 and no `ep`, and `Searches` reads `Grabbed 1 release` once: the `The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW` pack, which covers all three episodes (P-050).
 - `series-level-search` with only S02E01 of Season 2 monitored, `Search Season 2` toasts `Searching 1 episode` and searches `season` 2 `ep` 1 alone (P-050).
 - `series-episode-search` with S00E02 monitored, `Search S00E02` toasts `Searching 1 episode`, sends `season` 0 and `ep` 2, and A Winter Light imports (P-050).
 - `series-withdrawn-file` after the order changes to DVD, which doesn't list A Winter Light, the last heading is `No longer listed by TVDB` with `1 episode` and a `1 Met` bar, after one `Specials`, and holds S00E02 with its file (P-050).
@@ -63,13 +63,13 @@ Steps:
   $FW exec $RUN --proof series-work-page/series-fold -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/series-work-page/series-fold/season-2.aria.yml
   ```
 
-- **Search.** On the `preset` `first` Work, search the series, wait for the two grabs, read the searches the site answered, then monitor S02E01 alone and search Season 2.
+- **Search.** On the `preset` `first` Work, search the series, wait for the pack's grab, read the searches the site answered, then monitor S02E01 alone and search Season 2.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$WORK"
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN --proof series-work-page/series-work-search -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/series-work-page/series-work-search/toast.png
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed a Release").nth(1).waitFor(); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed 1 release").first().waitFor(); }'
   $FW exec $RUN --proof series-work-page/series-work-search -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/series-work-page/series-work-search/searches.aria.yml
   $FW searches list $RUN --where t=tvsearch
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Seasons" }).getByRole("button", { name: "Season 2", exact: true })'

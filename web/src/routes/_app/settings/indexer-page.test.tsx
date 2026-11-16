@@ -116,6 +116,23 @@ test("Edit saves the priority and a limit without testing", async () => {
   ]);
 });
 
+test("Edit saves Searches at once from 1 to 10", async () => {
+  const server = indexersServer();
+  renderApp({ path: pageOf(prowlarrId), handlers: server.handlers });
+  await userEvent.click(page.getByRole("button", { name: "Edit" }));
+  const atOnce = dialog().getByRole("textbox", { name: "Searches at once" });
+  await expect.element(atOnce).toHaveValue("2");
+  await userEvent.fill(atOnce, "11");
+  await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+  await expect.element(dialog().getByText("Enter a number from 1 to 10")).toBeVisible();
+  expect(server.writes).toEqual([]);
+  await userEvent.fill(atOnce, "4");
+  await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+  await expect
+    .poll(() => server.writes)
+    .toEqual([{ method: "PATCH", id: prowlarrId, body: { searchesAtOnce: 4 } }]);
+});
+
 test("moving an Indexer that signs in warns of the new address, then saves its home", async () => {
   const server = indexersServer();
   renderApp({ path: pageOf(torrentLeechId), handlers: server.handlers });
@@ -183,4 +200,19 @@ test("an Indexer waiting on a lapsed home leads with Allow failover", async () =
       id: torrentLeechId,
       body: { allowFailover: true },
     });
+});
+
+test("an Indexer with RSS on shows when RSS sync last read it, and a gap", async () => {
+  const read = new Date(Date.now() - 5 * 60_000).toISOString();
+  const missed: IndexersIndexer = {
+    ...prowlarr,
+    rssFetch: { lastFetchAt: read, gapKind: "page_cap", gapSince: read },
+  };
+  const server = indexersServer({ indexers: [torrentLeech, missed, larkspur] });
+  renderApp({ path: pageOf(prowlarrId), handlers: server.handlers });
+  await userEvent.click(page.getByRole("button", { name: "Details" }));
+  await expect.element(page.getByText("Read 5 minutes ago")).toBeVisible();
+  await expect
+    .element(page.getByText("RSS sync may have missed releases. Its Health item says what to do."))
+    .toBeVisible();
 });

@@ -95,7 +95,7 @@ func TestPruneDeletesOldQueriesAndTheSessionsOfNodesThatNoLongerSearch(t *testin
 	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[file]) error {
 		for name, at := range rows {
 			ids[name] = QueryID{UUID: storage.NewUUID()}
-			if err := insertQuery(ctx, tx, ids[name], idx, UseSearch, storage.FromTime(at)); err != nil {
+			if err := insertQuery(ctx, tx, ids[name], idx, UseSearch, ClaimPress, storage.FromTime(at)); err != nil {
 				return err
 			}
 		}

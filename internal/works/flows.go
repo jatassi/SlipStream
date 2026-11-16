@@ -368,7 +368,7 @@ func insert(ctx context.Context, tx *storage.Tx[file], reg registered, w Summary
 	if err := q.InsertWork(ctx, work); err != nil {
 		return err
 	}
-	if _, err := converge(ctx, tx, reg.catalog, w.ID, p, w.AddedAt); err != nil {
+	if _, _, err := converge(ctx, tx, reg.catalog, w.ID, p, w.AddedAt); err != nil {
 		return err
 	}
 	if a.Also == nil {
@@ -429,8 +429,11 @@ func (w *Works) refresh(ctx context.Context, id WorkID, via role.NodeID) (bool, 
 	}
 	var changed bool
 	err = w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		changed, err = converge(ctx, tx, reg.catalog, id, p, storage.Now())
-		return err
+		var added []ItemID
+		if changed, added, err = converge(ctx, tx, reg.catalog, id, p, storage.Now()); err != nil || len(added) == 0 {
+			return err
+		}
+		return w.cfg.ItemsAdded(ctx, tx, id, added)
 	})
 	return changed, err
 }
@@ -496,77 +499,73 @@ func sourced(t TypeID, op string, err error) error {
 // converge writes p over Work id and reports whether anything but the
 // refresh times moved: the labels, a level or Item, a rating's value or
 // votes, an artwork reference, the gone-upstream mark, or the type's own
-// rows. A rating source or artwork kind p lacks keeps its stored row.
-func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p parsed, now storage.Time) (bool, error) {
+// rows. added is the Items it inserted monitored. A rating source or
+// artwork kind p lacks keeps its stored row.
+func converge(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID, p parsed, now storage.Time) (changed bool, added []ItemID, err error) {
 	q := db.New(tx)
 	row, err := q.GetWork(ctx, id)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
-	at, moved, err := writeNodes(ctx, q, Summary(row), p, now)
+	at, moved, added, err := writeNodes(ctx, q, Summary(row), p, now)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	if p.RatingsRead {
 		if err := q.SetRatingsRead(ctx, db.SetRatingsReadParams{RatingsReadAt: now, ID: id}); err != nil {
-			return false, err
+			return false, nil, err
 		}
 	}
 	rated, err := writeRatings(ctx, q, id, at.Items, p.Ratings, now)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	drawn, err := writeArtwork(ctx, q, at, p.Artwork)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	own, err := c.Store(ctx, tx, at, p.Detail)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	if err := indexTitles(ctx, tx, c, id, p.Label, p.SortLabel); err != nil {
-		return false, err
+		return false, nil, err
 	}
 	relabeled := p.Label != row.Label || p.SortLabel != row.SortLabel
-	return relabeled || !row.GoneUpstreamAt.IsZero() || moved || rated || drawn || own, nil
+	return relabeled || !row.GoneUpstreamAt.IsZero() || moved || rated || drawn || own, added, nil
 }
 
 // writeNodes merges p's levels and Items over Work w's, clears its
-// gone-upstream mark, and reports where each node sits and whether any
-// level or Item moved. A new Item arrives monitored as w's rule says.
-func writeNodes(ctx context.Context, q *db.Queries, w Summary, p parsed, now storage.Time) (Placed, bool, error) {
+// gone-upstream mark, and reports where each node sits, whether any level
+// or Item moved, and the Items it inserted monitored. A new Item arrives
+// monitored as w's rule says.
+func writeNodes(ctx context.Context, q *db.Queries, w Summary, p parsed, now storage.Time) (_ Placed, moved bool, added []ItemID, _ error) {
 	id := w.ID
 	stored, levelIDs, itemIDs, err := storedNodes(ctx, q, id)
 	if err != nil {
-		return Placed{}, false, err
+		return Placed{}, false, nil, err
 	}
 	pl := planMerge(stored, p, now)
 	if err := q.UpdateWork(ctx, db.UpdateWorkParams{Label: pl.Label, SortLabel: pl.SortLabel, RefreshedAt: pl.RefreshedAt, ID: id}); err != nil {
-		return Placed{}, false, err
+		return Placed{}, false, nil, err
 	}
-	for _, c := range pl.Levels {
-		l := c.Node
-		if c.Insert {
-			levelIDs[l.Key] = LevelID{UUID: storage.NewUUID()}
-			err = q.InsertLevel(ctx, db.InsertLevelParams{ID: levelIDs[l.Key], WorkID: id, ParentID: levelIDs[l.Parent], Depth: int64(l.Depth), Key: l.Key, Label: l.Label, Position: int64(l.Position), WithdrawnAt: l.WithdrawnAt, Aside: l.Aside})
-		} else {
-			err = q.UpdateLevel(ctx, db.UpdateLevelParams{ParentID: levelIDs[l.Parent], Depth: int64(l.Depth), Label: l.Label, Position: int64(l.Position), WithdrawnAt: l.WithdrawnAt, Aside: l.Aside, ID: levelIDs[l.Key]})
-		}
-		if err != nil {
-			return Placed{}, false, err
-		}
+	if err := writeLevels(ctx, q, id, pl.Levels, levelIDs); err != nil {
+		return Placed{}, false, nil, err
 	}
 	for _, c := range pl.Items {
 		it := c.Node
 		if c.Insert {
 			itemIDs[it.Key] = ItemID{UUID: storage.NewUUID()}
 			monitored := w.MonitorNew && (!it.Aside || w.MonitorAsides)
+			if monitored {
+				added = append(added, itemIDs[it.Key])
+			}
 			err = q.InsertItem(ctx, db.InsertItemParams{ID: itemIDs[it.Key], WorkID: id, LevelID: levelIDs[it.Parent], Key: it.Key, Label: it.Label, Position: int64(it.Position), WithdrawnAt: it.WithdrawnAt, Aside: it.Aside, Monitored: monitored})
 		} else {
 			err = q.UpdateItem(ctx, db.UpdateItemParams{LevelID: levelIDs[it.Parent], Label: it.Label, Position: int64(it.Position), WithdrawnAt: it.WithdrawnAt, Aside: it.Aside, ID: itemIDs[it.Key]})
 		}
 		if err != nil {
-			return Placed{}, false, err
+			return Placed{}, false, nil, err
 		}
 	}
 	at := Placed{Work: id, Levels: map[Key]LevelID{}, Items: map[Key]ItemID{}}
@@ -576,7 +575,26 @@ func writeNodes(ctx context.Context, q *db.Queries, w Summary, p parsed, now sto
 	for _, n := range p.Items {
 		at.Items[n.Key] = itemIDs[n.Key]
 	}
-	return at, len(pl.Levels) > 0 || len(pl.Items) > 0, nil
+	return at, len(pl.Levels) > 0 || len(pl.Items) > 0, added, nil
+}
+
+// writeLevels inserts or updates each of changes under Work id, giving
+// each it inserts a new id in levelIDs.
+func writeLevels(ctx context.Context, q *db.Queries, id WorkID, changes []change[level], levelIDs map[Key]LevelID) error {
+	for _, c := range changes {
+		l := c.Node
+		var err error
+		if c.Insert {
+			levelIDs[l.Key] = LevelID{UUID: storage.NewUUID()}
+			err = q.InsertLevel(ctx, db.InsertLevelParams{ID: levelIDs[l.Key], WorkID: id, ParentID: levelIDs[l.Parent], Depth: int64(l.Depth), Key: l.Key, Label: l.Label, Position: int64(l.Position), WithdrawnAt: l.WithdrawnAt, Aside: l.Aside})
+		} else {
+			err = q.UpdateLevel(ctx, db.UpdateLevelParams{ParentID: levelIDs[l.Parent], Depth: int64(l.Depth), Label: l.Label, Position: int64(l.Position), WithdrawnAt: l.WithdrawnAt, Aside: l.Aside, ID: levelIDs[l.Key]})
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func storedNodes(ctx context.Context, q *db.Queries, id WorkID) (stored nodes, levelIDs map[Key]LevelID, itemIDs map[Key]ItemID, err error) {

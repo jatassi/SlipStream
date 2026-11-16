@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -269,7 +270,33 @@ type Cell struct {
 	Doing    Doing
 	Timing   targets.Timing
 	Released bool
+	// Gone is whether the file that would fill the cell is gone: no file
+	// fills it, and a gone file holding its Item, of a cut its Edition
+	// takes, is of a quality its Target ranks. It still reads Missing.
+	Gone   bool
+	Search SearchFact
 }
+
+// SearchFact is what grabs knows of a cell's search, through
+// Inflight.Searching.
+type SearchFact struct {
+	// Stopped is whether failed Grabs stopped SlipStream searching the
+	// cell again at once. Backlog search still paces it.
+	Stopped bool
+	// WaitUntil is when its wait for a better Release ends, zero unless it
+	// waits, and Candidates the Releases the wait holds.
+	WaitUntil  time.Time
+	Candidates int
+	// NotFound is whether the latest finished search of its Item found no
+	// Release, or none acceptable, and Group the key of that search's
+	// group, whose state says when it searched and searches next.
+	NotFound bool
+	Group    string
+}
+
+// ItemKey is the key of a search fact about every cell of item: its
+// latest search, which searched the whole Item.
+func ItemKey(item works.ItemID) CellKey { return CellKey{Item: item} }
 
 // Step is what a Grab in flight, or its Import, does for a cell, in the
 // order a download walks it.
@@ -306,6 +333,14 @@ type Fill struct {
 func (c Cell) Wanted() bool {
 	return c.Item.Counts() && c.Released && (c.State == Missing || c.State == Failed || c.State == Upgradable)
 }
+
+// Searchable is whether automatic search may fill the cell: wanted, not
+// gone and not stopped. A waiting cell is Searchable.
+func (c Cell) Searchable() bool { return c.Paced() && !c.Search.Stopped }
+
+// Paced is whether Backlog search keeps a due time for the cell: wanted
+// and not gone, stopped or not.
+func (c Cell) Paced() bool { return c.Wanted() && !c.Gone }
 
 // Status rolls one Item's cells up to the first State any holds, in the
 // glossary's order, false for an Item with no cell.
@@ -372,6 +407,10 @@ type Inflight interface {
 	Holding(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]map[string]bool, error)
 	// ReleaseTitles reads the Release title of every Grab with a record.
 	ReleaseTitles(ctx context.Context, r storage.Reader[storage.Library]) (map[storage.UUID]string, error)
+	// Searching reads the search facts of each cell of ws that has any.
+	// A fact keyed by ItemKey holds NotFound and Group for each cell of
+	// its Item.
+	Searching(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[CellKey]SearchFact, error)
 }
 
 // NoGrabs is Inflight while nothing grabs.
@@ -386,6 +425,10 @@ func (NoGrabs) Holding(context.Context, storage.Reader[storage.Library]) (map[ro
 }
 
 func (NoGrabs) ReleaseTitles(context.Context, storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
+	return nil, nil
+}
+
+func (NoGrabs) Searching(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[CellKey]SearchFact, error) {
 	return nil, nil
 }
 
@@ -414,9 +457,13 @@ type Config struct {
 	// MediaServers is told every change of a file's bytes, NoMediaServers
 	// when nil.
 	MediaServers MediaServers
-	Timings      Timings
-	Rand         *rand.Rand
-	Log          *slog.Logger
+	// Queue is told, in the Write that saves a Change, the Works it
+	// touched, so a Preview rolls it back with the Change. searches.None
+	// when nil.
+	Queue   searches.Queue
+	Timings Timings
+	Rand    *rand.Rand
+	Log     *slog.Logger
 }
 
 type Files struct {

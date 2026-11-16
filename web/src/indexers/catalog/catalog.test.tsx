@@ -4,13 +4,17 @@ import { page, userEvent } from "vitest/browser";
 import { catalogServer, readableAddress } from "../../test/catalog-server";
 import { indexersServer } from "../../test/indexers-server";
 import { renderApp } from "../../test/render-app";
+import { searchSettingsWorld } from "../../test/search-settings";
 
 const path = "/settings/indexers";
 const catalog = () => page.getByRole("region", { name: "Indexer catalog" });
 
 function render(options: { inUse?: string } = {}) {
   const server = catalogServer(options);
-  renderApp({ path, handlers: [...server.handlers, ...indexersServer().handlers] });
+  renderApp({
+    path,
+    handlers: [...server.handlers, ...indexersServer().handlers, ...searchSettingsWorld().handlers],
+  });
   return server;
 }
 
@@ -35,6 +39,9 @@ test("under Details the address saves only where a catalog is read, beside the r
   await userEvent.click(catalog().getByRole("button", { name: "Details" }));
   await expect
     .element(catalog().getByRole("button", { name: "Runs every: Every day" }))
+    .toBeVisible();
+  await expect
+    .element(catalog().getByRole("button", { name: "RSS sync runs every: 15 min" }))
     .toBeVisible();
   const address = catalog().getByRole("textbox", { name: "Address" });
   await userEvent.fill(address, "https://elsewhere.example.test");

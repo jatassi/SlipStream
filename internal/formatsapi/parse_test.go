@@ -50,6 +50,14 @@ func (claims) SearchTerms(context.Context, storage.Reader[storage.Library], work
 	return indexers.Terms{}, nil
 }
 
+func (claims) Groups(_ context.Context, _ storage.Reader[storage.Library], _ works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
+	return indexers.Singles(items, ""), nil
+}
+
+func (claims) GroupTerms(context.Context, storage.Reader[storage.Library], works.WorkID, indexers.Group) (indexers.Terms, error) {
+	return indexers.Terms{}, nil
+}
+
 func (claims) Categories() []newznab.ID { return nil }
 
 type parsedName struct {

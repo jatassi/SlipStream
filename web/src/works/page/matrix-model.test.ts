@@ -4,6 +4,7 @@ import type { FilesCell, TargetsWants } from "../../api/gen/model";
 import { orchardItemId } from "../../test/library";
 import { blackAndChrome, ultra } from "../../test/profiles";
 import { keeper, starter } from "../../test/targets";
+import { unsearched } from "../../test/work-cells";
 import { matrixOf } from "./matrix-model";
 
 const cell = (edition: string, targetId: string): FilesCell => ({
@@ -12,6 +13,7 @@ const cell = (edition: string, targetId: string): FilesCell => ({
   targetId,
   targetName: targetId === keeper.id ? keeper.name : starter.name,
   wanted: true,
+  ...unsearched,
   state: "missing",
 });
 

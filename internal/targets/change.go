@@ -6,6 +6,7 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/release"
@@ -27,6 +28,13 @@ type Change interface {
 type UpdateTarget struct {
 	ID   TargetID
 	Spec Spec
+}
+
+// SetHold sets Target ID's Hold. No cell reads a Hold, so it touches no
+// Work: it refills nothing and has no Impact.
+type SetHold struct {
+	ID   TargetID
+	Hold time.Duration
 }
 
 // UpdateProfile replaces Profile ID's name, Targets and Edition list with
@@ -167,6 +175,7 @@ func (c UpdateTarget) touches(ctx context.Context, q *db.Queries, tm formats.Tim
 	}
 	before, after := was.Scores.Formats, next.Scores.Formats
 	was.Scores.Formats, next.Scores.Formats = nil, nil
+	was.Hold, next.Hold = 0, 0
 	if !reflect.DeepEqual(was, next) {
 		return Touched{Works: ws}, nil
 	}
@@ -228,7 +237,7 @@ func (c UpdateTarget) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
 	}
 	err = q.UpdateTarget(ctx, db.UpdateTargetParams{
 		ID: t.ID, Name: t.Name, NameFolded: &folded, CutoffTier: int64(t.Cutoff), MinScore: int64(t.Scores.Minimum), UpgradeUntil: int64(t.Scores.UpgradeUntil),
-		ScoreIncrement: int64(t.Scores.Increment), Propers: t.Propers.String(),
+		ScoreIncrement: int64(t.Scores.Increment), Propers: t.Propers.String(), HoldSeconds: int64(t.Hold / time.Second),
 	})
 	if err != nil {
 		return err
@@ -552,4 +561,19 @@ func (c AddFormats) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
 		}
 	}
 	return nil
+}
+
+func (SetHold) touches(context.Context, *db.Queries, formats.Timings) (Touched, error) {
+	return Touched{}, nil
+}
+
+func (c SetHold) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
+	if err := checkHold(c.Hold); err != nil {
+		return err
+	}
+	n, err := q.SetHold(ctx, db.SetHoldParams{ID: c.ID, HoldSeconds: int64(c.Hold / time.Second)})
+	if err == nil && n == 0 {
+		return ErrNoTarget
+	}
+	return err
 }

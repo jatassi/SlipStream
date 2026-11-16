@@ -12,6 +12,12 @@ export interface TargetsTarget {
   cutoff: string;
   /** Every attribute that isn't Any, in attribute order */
   filters: TargetsFilter[];
+  /**
+   * How long an automatic grab waits after a Release's publish time for a better one, in whole minutes. 0 grabs at once
+   * @minimum 0
+   * @maximum 604800
+   */
+  holdSeconds: number;
   id: string;
   name: string;
   /** The Profiles holding it, by name */

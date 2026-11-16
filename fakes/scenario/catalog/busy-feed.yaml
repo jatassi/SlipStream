@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller with two Torznab Indexers whose feeds
+  RSS sync reads, for a feed busier than one fetch. Fixture Site pages back
+  by offset, and Heron lists its newest page at every offset. Once a first
+  RSS sync has stored each feed's position, the fixture-site-feed cue posts
+  250 uploads on each site, more than one page of 100. The next RSS sync
+  pages Fixture Site back three pages to its position, and stops on
+  Heron's first page with a gap, which RSS sync's run and Heron's page
+  report with a scoped search. fake-tmdb lists The Quiet Orchard, which no
+  site lists, and Backlog search is off, so only RSS sync asks the sites.
+  The library has a Movies root, and no Work until a test adds one.
+seed: busy-feed
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  automatic_search: {backlog_search: false}
+  indexers:
+    - {name: Fixture Site, kind: torznab, site: torznab}
+    - {name: Heron, kind: torznab, site: heron, no_paging: true}

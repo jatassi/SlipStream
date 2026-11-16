@@ -24,7 +24,7 @@ function targetsSentence(profile: TargetsProfile): string {
     : `Its Profile, ${profile.name}, has ${countWords(profile.targets.length, targetNoun)}.`;
 }
 
-function countOf(counts: WorksPresetCounts, preset: Preset) {
+export function countOf(counts: WorksPresetCounts, preset: Preset) {
   const choice = counts.choices.find((each) => each.preset === preset);
   if (choice === undefined) {
     throw new Error(`the preview counts no ${preset} preset`);

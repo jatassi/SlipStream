@@ -55,7 +55,7 @@ func newFaulty(t *testing.T, answers ...answer) *faulty {
 		Library: f.lib, Touch: func(...role.NodeID) {}, Changed: discard[downloadclients.Changed]{},
 		Uses: grabs.TorrentUses{}, Log: slog.New(slog.DiscardHandler),
 	})
-	f.cfg.Targets, f.cfg.Names = goals, map[works.TypeID]rel.Names{contenttypetest.ID: dated{}}
+	f.cfg.Targets, f.cfg.Names = goals, map[works.TypeID]rel.Names{contenttypetest.ID: grabstest.Dated{}}
 	f.cfg.Downloads = removing{swarm: f.swarm, clients: clients}
 	f.g = grabs.New(f.cfg)
 	f.imports = &importer{g: f.g}

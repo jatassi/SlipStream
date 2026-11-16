@@ -8,7 +8,6 @@ package grabsapi
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"slices"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -27,6 +27,17 @@ import (
 type Pipeline interface {
 	// Grabs is the grab pipeline, false unless the Node is a Controller.
 	Grabs() (*grabs.Grabs, bool)
+	// Minter signs the artwork URLs the answers carry, false unless the
+	// Node is a Controller.
+	Minter() (artwork.Minter, bool)
+}
+
+func minter(p Pipeline) artwork.Minter {
+	m, ok := p.Minter()
+	if !ok {
+		panic("grabsapi: an operation ran on a Node that is no Controller")
+	}
+	return m
 }
 
 func open(p Pipeline) *grabs.Grabs {
@@ -95,24 +106,8 @@ type workInput struct {
 	WorkID string `path:"workId" format:"uuid"`
 }
 
-type searchWorkInput struct {
-	WorkID string `path:"workId" format:"uuid"`
-	Body   *searchScope
-}
-
-type searchScope struct {
-	LevelIDs []string `json:"levelIds" format:"uuid" maxItems:"20000" nullable:"false" doc:"Each level stands for every Item under it"`
-	ItemIDs  []string `json:"itemIds" format:"uuid" maxItems:"20000" nullable:"false"`
-}
-
-type searchStarted struct {
-	SearchIDs []string `json:"searchIds" nullable:"false" doc:"One run per Item in the scope with a missing, failed or upgradable file"`
-}
-
-type searchStartedOutput struct{ Body searchStarted }
-
 type reason struct {
-	Code      string `json:"code" enum:"wrong_work,wrong_item,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group,blocklisted" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist."`
+	Code      string `json:"code" enum:"wrong_work,wrong_item,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group,blocklisted,not_aired,tried" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item, no Item, or none of the searched Items. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist. not_aired is a pack listing an Item that hasn't aired, its value the Item's code. tried is a release a failed Grab of the Work already tried."`
 	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title"`
 	Attribute string `json:"attribute,omitempty" enum:"hdr,video_codec,audio_codec,channels,language" doc:"The attribute a failed filter rules on"`
 	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut the Edition doesn't include, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)"`
@@ -145,13 +140,18 @@ type searchIndexer struct {
 
 type search struct {
 	ID         string          `json:"id" format:"uuid"`
-	ItemID     string          `json:"itemId" format:"uuid"`
+	GroupKey   *string         `json:"groupKey" doc:"The search group the run searched, to compare and never to parse; null for a Manual search's run"`
+	GroupLabel *string         `json:"groupLabel" doc:"The group in words, such as season 3; null for a Manual search's run, and until its Content Type names its groups"`
+	Lane       *string         `json:"lane" enum:"now,bulk,backlog" doc:"The lane it was queued in; null for a Manual search's run"`
+	Trigger    *string         `json:"trigger" enum:"search,search_all,add,monitor,profile,editions,retarget,release_date,refresh,backlog,failed_grab,rss" doc:"What started it; null for a Manual search's run"`
+	ItemIDs    []string        `json:"itemIds" format:"uuid" nullable:"false" doc:"The Items the run searched"`
 	StartedAt  time.Time       `json:"startedAt"`
 	Indexers   []searchIndexer `json:"indexers" nullable:"false" doc:"Each Indexer the run asked or skipped, by priority"`
 	FinishedAt *time.Time      `json:"finishedAt" doc:"Null while the run searches"`
-	Outcome    *string         `json:"outcome" enum:"grabbed,nothing_acceptable,listed" doc:"Null while the run searches. listed is a Manual search's run, which takes nothing."`
+	Outcome    *string         `json:"outcome" enum:"grabbed,waiting,nothing_found,nothing_acceptable,no_indexer,no_root,listed" doc:"Null while the run searches. waiting is a run that waits out a Target's Hold for a better Release. nothing_found is a run that found no Release, and nothing_acceptable one whose Releases fit no Target. no_indexer is a run that no Indexer responded to, and no_root one whose Work had no reachable root. listed is a Manual search's run, which takes nothing."`
 	Candidates int             `json:"candidates" minimum:"0" doc:"The Releases the Indexers found, each Release listed twice counted once"`
-	GrabID     *string         `json:"grabId" format:"uuid" doc:"The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none"`
+	Grabs      int             `json:"grabs" minimum:"0" doc:"The Grabs it made or joined when it finished, still counted once one is pruned"`
+	GrabIDs    []string        `json:"grabIds" format:"uuid" nullable:"false" doc:"The Grabs the run made, then those it joined: the decision's, or the rerun's once a dropped Grab reran it"`
 	Notes      []reason        `json:"notes" nullable:"false" doc:"The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for"`
 }
 
@@ -175,7 +175,7 @@ type listedRelease struct {
 	Name     string               `json:"indexerName" doc:"The Indexer's name when the run started"`
 	Size     int64                `json:"size" minimum:"0" doc:"Bytes"`
 	Seeders  int                  `json:"seeders" minimum:"0"`
-	Outcome  string               `json:"outcome" enum:"grabbed,not_taken,outranked,kept,refused" doc:"grabbed is the run's Grab. not_taken ranked above it, but its Indexer had stopped, reached its limit or no longer listed it. outranked ranked below it. kept ranked, but the run grabbed nothing. refused has a refusal of its own, or no Target accepts it."`
+	Outcome  string               `json:"outcome" enum:"grabbed,not_taken,outranked,kept,refused,waiting" doc:"grabbed is the run's Grab. not_taken ranked above it, but its Indexer had stopped, reached its limit or no longer listed it. outranked ranked below it. kept ranked, but the run grabbed nothing. refused has a refusal of its own, or no Target accepts it. waiting is a candidate SlipStream keeps during a Target's Hold, until it grabs the best one."`
 	Rank     *int                 `json:"rank" minimum:"1" doc:"Its place among the releases some Target accepts, from 1; null for one no Target accepts"`
 	CopyOf   *int                 `json:"copyOf" minimum:"0" doc:"The position of the Release this is a copy of, listed by an Indexer of no better priority; null when it is no copy"`
 	Covers   []string             `json:"covers" format:"uuid" nullable:"false" doc:"The Items of the Work it holds"`
@@ -186,7 +186,7 @@ type listedRelease struct {
 }
 
 type releaseList struct {
-	Releases []listedRelease `json:"releases" nullable:"false" doc:"Ranked ones first, in rank order, then the rest in the order they were listed. Empty once a later run of the Item finished."`
+	Releases []listedRelease `json:"releases" nullable:"false" doc:"Ranked ones first, in rank order, then the rest in the order they were listed"`
 }
 
 type releaseListOutput struct{ Body releaseList }
@@ -229,8 +229,17 @@ type searchListOutput struct{ Body searchList }
 
 func searchOf(s grabs.Search) search {
 	out := search{
-		ID: s.ID.String(), ItemID: s.ItemID.String(), StartedAt: s.Started, Indexers: []searchIndexer{}, Candidates: s.Candidates,
-		Notes: reasonsOf(s.Notes),
+		ID: s.ID.String(), Lane: text(s.Lane), Trigger: text(s.Trigger), ItemIDs: []string{}, StartedAt: s.Started, Indexers: []searchIndexer{},
+		Candidates: s.Candidates, Grabs: s.Took, GrabIDs: []string{}, Notes: reasonsOf(s.Notes),
+	}
+	if s.Group != "" {
+		out.GroupKey = new(string(s.Group))
+	}
+	for _, it := range s.Items {
+		out.ItemIDs = append(out.ItemIDs, it.String())
+	}
+	for _, g := range s.Grabs {
+		out.GrabIDs = append(out.GrabIDs, g.String())
 	}
 	for _, l := range s.Indexers {
 		w := searchIndexer{IndexerID: idOrNil(l.Indexer.UUID), Name: l.Name, Sentence: l.Line}
@@ -243,11 +252,15 @@ func searchOf(s grabs.Search) search {
 		finished, outcome := s.Finished, string(s.Outcome)
 		out.FinishedAt, out.Outcome = &finished, &outcome
 	}
-	if !s.GrabID.IsZero() {
-		id := s.GrabID.String()
-		out.GrabID = &id
-	}
 	return out
+}
+
+// text is s, nil when it is empty.
+func text[S ~string](s S) *string {
+	if s == "" {
+		return nil
+	}
+	return new(string(s))
 }
 
 func idOrNil(id storage.UUID) *string {
@@ -261,7 +274,7 @@ type failure struct {
 	Stage    string `json:"stage" enum:"fetching,downloading,importing"`
 	Code     string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault,client_error,declined,unreadable"`
 	Message  string `json:"message"`
-	NeedsYou bool   `json:"needsYou" doc:"True when Needs you lists the failure. False for a cancel, and for a Manual Grab whose fetched torrent was on the Blocklist, because the Manual search sheet already showed that."`
+	NeedsYou bool   `json:"needsYou" doc:"True when Needs you lists the failure. False for a cancel, for a failure SlipStream searches again by itself, and for a Manual Grab whose fetched torrent was on the Blocklist, because the Manual search sheet already showed that."`
 	Current  bool   `json:"current" doc:"No later Grab is downloading any of the same files. Needs you lists a failure only while it is current."`
 }
 
@@ -325,11 +338,20 @@ type grab struct {
 	FetchWait    *fetchWait               `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
 	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it"`
 	CreatedAt    time.Time                `json:"createdAt"`
-	Source       string                   `json:"source" enum:"search,manual" doc:"How it was chosen: by a search's decision, or by an Admin in a Manual search"`
+	Source       string                   `json:"source" enum:"search,manual,rss" doc:"How it was chosen: by a search's decision, by an Admin in a Manual search, or by RSS sync's decision"`
+	SearchID     *string                  `json:"searchId" format:"uuid" doc:"The search run that made it; null for a Manual Grab and once the run is pruned"`
+	FoundBy      string                   `json:"foundBy" enum:"search,backlog,rss,failed_grab,manual" doc:"What found its Release: a press of Search, Backlog search, RSS sync, a search again after a failed Grab, or an Admin in a Manual search"`
+	RSSIndexer   *string                  `json:"rssIndexerName" doc:"The Indexer whose feed RSS sync found it in; null unless foundBy is rss, and once the Indexer is deleted"`
+	Chosen       api.Nullable[chosenWhy]  `json:"chosenBecause" doc:"Why the decision chose its Release; null when the ranking alone chose it"`
 	GrabbedBy    *string                  `json:"grabbedBy" doc:"A name, or the API key; null for a search's Grab"`
 	ManualSearch *string                  `json:"manualSearchId" format:"uuid" doc:"The Manual search it came from; null for a search's Grab and once a later Manual search of the Work replaced it"`
 	Overrides    []string                 `json:"overrides" nullable:"false" doc:"Each choice the Admin made past the decision, as a sentence"`
 	Actions      grabActions              `json:"actions"`
+}
+
+type chosenWhy struct {
+	Kind  string `json:"kind" enum:"fewer_releases" doc:"fewer_releases is a Release with more of the group's Items, so the group needs fewer Releases"`
+	Fills int    `json:"fills" minimum:"1" doc:"How many of the group's Items it was chosen for"`
 }
 
 type grabImport struct {
@@ -383,11 +405,17 @@ func grabOf(v grabs.View) grab {
 		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition),
 		Items: []string{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), InFlight: v.Stage.InFlight(), History: []entered{}, CreatedAt: v.Created,
-		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...), Import: importOf(v.Import),
+		Source: string(v.Source), SearchID: idOrNil(v.Search.UUID), FoundBy: string(v.FoundBy), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...), Import: importOf(v.Import),
 		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},
 	}
 	if v.By != nil {
 		out.GrabbedBy = new(v.By.Words())
+	}
+	if v.RSSIndexer != "" {
+		out.RSSIndexer = new(v.RSSIndexer)
+	}
+	if v.ChosenFills > 0 {
+		out.Chosen = api.Some(chosenWhy{Kind: "fewer_releases", Fills: v.ChosenFills})
 	}
 	if !v.FetchNode.IsZero() {
 		id := v.FetchNode.String()
@@ -408,7 +436,7 @@ func grabOf(v grabs.View) grab {
 		}
 	}
 	if v.Failed != nil {
-		out.Failure = &failure{Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message, NeedsYou: v.NeedsYou(), Current: v.Current}
+		out.Failure = &failure{Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message, NeedsYou: v.NeedsYou() && !v.SearchingAgain, Current: v.Current}
 	}
 	for _, e := range v.History {
 		out.History = append(out.History, entered{Stage: string(e.Stage), At: e.At})
@@ -464,14 +492,14 @@ func Routes(r *api.Router, p Pipeline) {
 	o := r.Owner("grabs", api.Admin)
 	h := handlers{p}
 
-	api.Register(o, api.Admin, api.Op{
-		ID:      "searchWork",
-		Method:  http.MethodPost,
-		Path:    "/works/{workId}/search",
-		Summary: "Search for each wanted Item of a Work, or of some of its levels and Items, and grab the best release",
-		Status:  http.StatusAccepted,
-		Errors:  []*api.Code{workNotFound, nothingWanted, noIndexer, noRoot, rootUnreachable, notSearchable},
-	}, h.searchWork)
+	api.Register(o, api.Admin, searchWorkOp, h.searchWork)
+	api.Register(o, api.Admin, searchSeveralWorksOp, h.searchSeveralWorks)
+	api.Register(o, api.Admin, cancelQueuedSearchesOp, h.cancelQueuedSearches)
+	api.Register(o, api.Admin, getWorkSearchingOp, h.getWorkSearching)
+	api.Register(o, api.Admin, grabWaitingOp, h.grabWaiting)
+	api.Register(o, api.Admin, listWantedOp, h.listWanted)
+	api.Register(o, api.Admin, getSearchSettingsOp, h.getSearchSettings)
+	api.Register(o, api.Admin, updateSearchSettingsOp, h.updateSearchSettings)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listSearches",
 		Method:  http.MethodGet,
@@ -577,73 +605,6 @@ func Routes(r *api.Router, p Pipeline) {
 }
 
 type handlers struct{ p Pipeline }
-
-func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchWorkInput) (*searchStartedOutput, error) {
-	u, err := storage.ParseUUID(in.WorkID)
-	if err != nil {
-		return nil, workNotFound
-	}
-	scope, err := scopeOf(in.Body)
-	if err != nil {
-		return nil, err
-	}
-	ids, err := open(h.p).SearchWork(ctx, by, works.WorkID{UUID: u}, scope)
-	if e, ok := errors.AsType[*works.NotInWorkError](err); ok {
-		return nil, notInWork(e)
-	}
-	if err != nil {
-		return nil, answer(err)
-	}
-	out := searchStarted{SearchIDs: []string{}}
-	for _, id := range ids {
-		out.SearchIDs = append(out.SearchIDs, id.String())
-	}
-	return &searchStartedOutput{Body: out}, nil
-}
-
-// scopeOf is the search scope body names, the whole Work when it is left
-// out.
-func scopeOf(body *searchScope) (grabs.Scope, error) {
-	if body == nil {
-		return grabs.Scope{}, nil
-	}
-	if len(body.LevelIDs) == 0 && len(body.ItemIDs) == 0 {
-		return grabs.Scope{}, api.Invalid.On("levelIds", "Send at least one level or Item id, or leave the body out to search the whole Work.")
-	}
-	part, err := withinOf(body.LevelIDs, body.ItemIDs)
-	if err != nil {
-		return grabs.Scope{}, err
-	}
-	return grabs.Within(part), nil
-}
-
-func withinOf(levels, items []string) (works.Within, error) {
-	var part works.Within
-	for _, s := range levels {
-		u, err := storage.ParseUUID(s)
-		if err != nil {
-			return works.Within{}, api.Invalid
-		}
-		part.Levels = append(part.Levels, works.LevelID{UUID: u})
-	}
-	for _, s := range items {
-		u, err := storage.ParseUUID(s)
-		if err != nil {
-			return works.Within{}, api.Invalid
-		}
-		part.Items = append(part.Items, works.ItemID{UUID: u})
-	}
-	return part, nil
-}
-
-// notInWork is e as the field it names.
-func notInWork(e *works.NotInWorkError) error {
-	field, noun := "itemIds", "Item"
-	if e.Level {
-		field, noun = "levelIds", "level"
-	}
-	return api.Invalid.On(fmt.Sprintf("%s[%d]", field, e.Index), "The Work has no "+noun+" with that id.")
-}
 
 func (h handlers) listSearches(ctx context.Context, by identity.Admin, in *workInput) (*searchListOutput, error) {
 	u, err := storage.ParseUUID(in.WorkID)

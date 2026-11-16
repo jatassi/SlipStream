@@ -65,17 +65,13 @@ test("the sheet opens on the preview and adds with the defaults, remembering, th
     .toBeChecked();
   expect(sheet().getByRole("combobox", { name: "Library root" }).query()).toBeNull();
   expect(willStart().query()).toBeNull();
-  await expect
-    .element(
-      sheet().getByText(
-        "Adding a film doesn't start a search. To search now, open its page and select Search.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(sheet().getByRole("switch", { name: "Search after adding" })).toBeChecked();
 
   await userEvent.click(sheet().getByRole("button", { name: "Add Film" }));
   await expect.element(page.getByRole("heading", { name: "The Quiet Orchard" })).toBeVisible();
-  await expect.element(notifications().getByText("Added The Quiet Orchard")).toBeVisible();
+  await expect
+    .element(notifications().getByText("Added The Quiet Orchard. Searching now."))
+    .toBeVisible();
   expect(server.posted).toEqual([
     {
       contentType: "cinema",
@@ -83,6 +79,7 @@ test("the sheet opens on the preview and adds with the defaults, remembering, th
       profileId: films.id,
       rootId: filmsRoot.id,
       preset: "all",
+      search: "monitored",
       remember: true,
     },
   ]);
@@ -115,6 +112,7 @@ test("a changed choice says new Works will start with it, until Remember is off"
       profileId: ultra.id,
       rootId: filmsRoot.id,
       preset: "none",
+      search: "monitored",
       remember: false,
     },
   ]);

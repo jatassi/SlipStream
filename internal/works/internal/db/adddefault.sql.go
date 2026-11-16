@@ -10,7 +10,7 @@ import (
 )
 
 const getAddDefault = `-- name: GetAddDefault :one
-SELECT content_type, monitor, asides, level_folders FROM works_add_default WHERE content_type = ?1
+SELECT content_type, monitor, asides, level_folders, search FROM works_add_default WHERE content_type = ?1
 `
 
 func (q *Queries) GetAddDefault(ctx context.Context, contentType TypeID) (WorksAddDefault, error) {
@@ -21,15 +21,16 @@ func (q *Queries) GetAddDefault(ctx context.Context, contentType TypeID) (WorksA
 		&i.Monitor,
 		&i.Asides,
 		&i.LevelFolders,
+		&i.Search,
 	)
 	return i, err
 }
 
 const putAddDefault = `-- name: PutAddDefault :exec
-INSERT INTO works_add_default (content_type, monitor, asides, level_folders)
-VALUES (?1, ?2, ?3, ?4)
+INSERT INTO works_add_default (content_type, monitor, asides, level_folders, search)
+VALUES (?1, ?2, ?3, ?4, ?5)
 ON CONFLICT (content_type) DO UPDATE SET monitor = excluded.monitor, asides = excluded.asides,
-    level_folders = excluded.level_folders
+    level_folders = excluded.level_folders, search = excluded.search
 `
 
 type PutAddDefaultParams struct {
@@ -37,6 +38,7 @@ type PutAddDefaultParams struct {
 	Monitor      *string
 	Asides       *bool
 	LevelFolders *bool
+	Search       *string
 }
 
 func (q *Queries) PutAddDefault(ctx context.Context, arg PutAddDefaultParams) error {
@@ -45,6 +47,7 @@ func (q *Queries) PutAddDefault(ctx context.Context, arg PutAddDefaultParams) er
 		arg.Monitor,
 		arg.Asides,
 		arg.LevelFolders,
+		arg.Search,
 	)
 	return err
 }

@@ -35,15 +35,18 @@ func (d *stall) Search(ctx context.Context, s *Site, _ Query) ([]Release, error)
 	}
 }
 
-func (*stall) Recent(context.Context, *Site) ([]Release, error) { panic("not asked") }
+func (*stall) Recent(context.Context, *Site, int) ([]Release, error) { panic("not asked") }
 
-func (*stall) Fetch(context.Context, *Site, Link) (Got, error) { panic("not asked") }
+func (d *stall) Fetch(context.Context, *Site, Link) (Got, error) {
+	d.runs.Add(1)
+	return Torrent{Raw: []byte("d4:infod4:name1:xee")}, nil
+}
 
 func (*stall) Test(context.Context, *Site, *CaptchaAnswer) (Report, error) { panic("not asked") }
 
 func (*stall) Captcha(context.Context, *Site) (Captcha, error) { panic("not asked") }
 
-var testTimings = Timings{Request: time.Minute, Hold: 20 * time.Second, JobCap: 10 * time.Minute, Keep: 2 * time.Minute, Results: 1000}
+var testTimings = Timings{Request: time.Minute, Hold: 20 * time.Second, JobCap: 11 * time.Minute, Keep: 2 * time.Minute, Results: 1000}
 
 func stalled(d *stall) *Service {
 	s := New(Config{HTTP: &http.Client{}, Timings: testTimings, Log: slog.New(slog.DiscardHandler)})
@@ -52,7 +55,11 @@ func stalled(d *stall) *Service {
 }
 
 func request(id string) *searchv1.RunRequest {
-	return &searchv1.RunRequest{Job: encodeJob(Job{ID: id, Indexer: "i", Kind: Torznab, Address: "https://site.test/torznab", Call: SearchCall{}})}
+	return asking(id, SearchCall{})
+}
+
+func asking(id string, call Call) *searchv1.RunRequest {
+	return &searchv1.RunRequest{Job: encodeJob(Job{ID: id, Indexer: "i", Kind: Torznab, Address: "https://site.test/torznab", Call: call})}
 }
 
 func TestAJobIsHeldJoinedAndKeptForALostAnswer(t *testing.T) {
@@ -75,13 +82,31 @@ func TestAJobIsHeldJoinedAndKeptForALostAnswer(t *testing.T) {
 		if got := answer.GetDone(); got.GetStartedUnixMs() != began.UnixMilli() || len(got.GetReleases().GetReleases()) != 1 || got.GetOutcome().GetOk() == nil {
 			t.Fatalf("the joined call = %v, want the one Release, ok, started %d", answer, began.UnixMilli())
 		}
-		time.Sleep(testTimings.Keep - time.Second)
-		if res, _ := s.Run(t.Context(), request("j1")); res.GetDone() == nil || d.runs.Load() != 1 {
-			t.Fatalf("a call within keep = %v after %d runs, want the kept answer of one run", res, d.runs.Load())
+		time.Sleep(10 * time.Minute)
+		if res, _ := s.Run(t.Context(), request("j1")); res.GetDone().GetStartedUnixMs() != began.UnixMilli() || d.runs.Load() != 1 {
+			t.Fatalf("a search asked again 10 minutes after its answer = %v after %d runs, want the kept answer of one run", res, d.runs.Load())
+		}
+		time.Sleep(testTimings.JobCap - 10*time.Minute + time.Second)
+		if res, _ := s.Run(t.Context(), request("j1")); res.GetDone() == nil || d.runs.Load() != 2 {
+			t.Fatalf("a search asked again past JobCap = %v after %d runs, want a second run", res, d.runs.Load())
+		}
+	})
+}
+
+func TestAFetchsAnswerIsKeptOnlyForKeep(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		d := &stall{}
+		s := stalled(d)
+		fetch := asking("f1", FetchCall{Link: LinkOf("https://site.test/dl/1")})
+		for _, after := range []time.Duration{0, testTimings.Keep - time.Second} {
+			time.Sleep(after)
+			if res, _ := s.Run(t.Context(), fetch); res.GetDone().GetGot() == nil || d.runs.Load() != 1 {
+				t.Fatalf("a fetch asked again %s later = %v after %d runs, want the kept answer of one run", after, res, d.runs.Load())
+			}
 		}
 		time.Sleep(2 * time.Second)
-		if res, _ := s.Run(t.Context(), request("j1")); res.GetDone() == nil || d.runs.Load() != 2 {
-			t.Fatalf("a call past keep = %v after %d runs, want a second run", res, d.runs.Load())
+		if res, _ := s.Run(t.Context(), fetch); res.GetDone().GetGot() == nil || d.runs.Load() != 2 {
+			t.Fatalf("a fetch asked again past keep = %v after %d runs, want a second run", res, d.runs.Load())
 		}
 	})
 }
@@ -109,8 +134,8 @@ func TestAJobEndsAtItsCap(t *testing.T) {
 				t.Fatal(err)
 			}
 			if done := res.GetDone(); done != nil {
-				if got := done.GetOutcome().GetFailing().GetText(); got != "the job ran past 10m0s" || time.Since(began) != testTimings.JobCap {
-					t.Fatalf("the capped job = %q after %s, want failing past 10m0s", got, time.Since(began))
+				if got := done.GetOutcome().GetFailing().GetText(); got != "the job ran past 11m0s" || time.Since(began) != testTimings.JobCap {
+					t.Fatalf("the capped job = %q after %s, want failing past 11m0s", got, time.Since(began))
 				}
 				return
 			}

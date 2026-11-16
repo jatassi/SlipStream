@@ -76,6 +76,7 @@ export const succeededRun: TasksRun = {
       nodeRemoved: false,
       outcome: "succeeded",
       cause: null,
+      note: null,
     },
     {
       key: "node:seedbox",
@@ -85,6 +86,7 @@ export const succeededRun: TasksRun = {
       nodeRemoved: false,
       outcome: "succeeded",
       cause: null,
+      note: null,
     },
   ],
 };
@@ -97,7 +99,7 @@ export const housekeeping: TasksTask = {
   noun: steps,
   cadence: { words: "Daily in the Maintenance window", inWindow: true, field: dailyCadence },
   overdue: waitOverdue,
-  state: { kind: "idle", next: local(17, 4) },
+  state: { kind: "idle", next: local(17, 4), off: false },
   lastRun: succeededRun,
   nodes: ["home", "seedbox"],
   runNow: { available: true },

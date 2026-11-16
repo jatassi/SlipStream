@@ -1,6 +1,6 @@
 # Custom Formats
 
-An Admin reads what SlipStream reads from release names and steers which Release a search grabs. Settings > Files to keep > Custom Formats lists the library's formats, pastes TRaSH Guides', Radarr's or Sonarr's JSON as written, and holds the tester, which reads pasted names, matches each to a Work, lists every format with each condition's result and gives the Score and verdict at each Target. Each Target scores each format and holds a minimum, an upgrade-until score and an increment. A search keeps every Release it saw with its outcome, the Work page lists them under Details, and a Release that lost names the step it lost at. A repack replaces the held file only from its Release group, and a release whose title or year doesn't match the Work is refused as `wrong_title`.
+An Admin reads what SlipStream reads from release names and steers which Release a search grabs. Settings > Targets and Profiles > Custom Formats lists the library's formats, pastes TRaSH Guides', Radarr's or Sonarr's JSON as written, and holds the tester, which reads pasted names, matches each to a Work, lists every format with each condition's result and gives the Score and verdict at each Target. Each Target scores each format and holds a minimum, an upgrade-until score and an increment. A search keeps every Release it saw with its outcome, the Work page lists them under Details, and a Release that lost names the step it lost at. A repack replaces the held file only from its Release group, and a release whose title or year doesn't match the Work is refused as `wrong_title`.
 
 ## Sub-features
 
@@ -15,7 +15,7 @@ An Admin reads what SlipStream reads from release names and steers which Release
 
 ## How to get to it (user POV)
 
-- Desktop shell: the sidebar's `Settings`, then `Custom Formats` under Files to keep, `/settings/custom-formats`. `Paste` opens `Paste Custom Formats`, `New Custom Format` opens `/settings/custom-formats/new`, and a format's name opens `/settings/custom-formats/<id>`. The `Tester` region sits under the section's intro, above `New Custom Format` and `Paste`. A format editor's `Try it` and a Release's `Open in tester` open the same tester as the `Tester` dialog. The Target editor's `Scores` region and `Propers and repacks` choice are on `/settings/targets/<id>`.
+- Desktop shell: the sidebar's `Settings`, then `Custom Formats` under Targets and Profiles, `/settings/custom-formats`. `Paste` opens `Paste Custom Formats`, `New Custom Format` opens `/settings/custom-formats/new`, and a format's name opens `/settings/custom-formats/<id>`. The `Tester` region sits under the section's intro, above `New Custom Format` and `Paste`. A format editor's `Try it` and a Release's `Open in tester` open the same tester as the `Tester` dialog. The Target editor's `Scores` region and `Propers and repacks` choice are on `/settings/targets/<id>`.
 - Phone shell: `More`, then `Settings`, then `Custom Formats`; the editor is a pushed page, and `Paste` and the tester open as bottom sheets.
 - The Work page: the `Searches` list, where each Item's latest search lists its `Releases` under its `Details`.
 - API (Admin): `GET`, `POST /api/v1/custom-formats`, `GET /api/v1/custom-formats/schema`, `GET`, `PUT`, `DELETE /api/v1/custom-formats/{formatId}`, `POST /api/v1/custom-formats/{formatId}/duplicate`, `POST /api/v1/custom-formats/paste`, `POST /api/v1/releases/parse`, `PUT /api/v1/targets/{targetId}` with `scores` and `propers`, `GET /api/v1/searches/{searchId}/releases`.
@@ -58,7 +58,7 @@ Steps:
   W=$($FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"contentType":"movie","key":"9000001","preset":"all"}' '{nodes.home.url}/api/v1/works' | jq -r .work.id)
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$W"
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed a Release").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed 1 release").waitFor({ timeout: 30000 }); }'
   S1=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$W/searches" | jq -r '.searches[0].id')
   $FW exec $RUN --proof custom-formats/formats-grab-changes -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/searches/$S1/releases"
   ```

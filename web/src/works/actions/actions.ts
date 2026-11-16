@@ -77,7 +77,9 @@ export const actions: { readonly [K in ActionKind]: Entry<K> } = {
   monitor: {
     post: (workIds, { on }) => setWorksMonitored({ workIds, on }),
     done: (named, { on }) =>
-      on ? `Monitored ${named.words}.` : `Stopped monitoring ${named.words}.`,
+      on
+        ? `Monitored ${named.words}.${named.one ? " Searching now." : ""}`
+        : `Stopped monitoring ${named.words}.`,
     already: (named, { on }) =>
       on
         ? `${named.words} ${was(named)} already monitored.`

@@ -433,6 +433,15 @@
             "unanswered": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "rss_pages": {
+              "type": "integer"
+            },
+            "rss_page_items": {
+              "type": "integer"
+            },
+            "guid_bytes": {
+              "type": "integer"
             }
           },
           "additionalProperties": false,
@@ -554,6 +563,15 @@
             "progress": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "drain_batch": {
+              "type": "integer"
+            },
+            "starts_per_pass": {
+              "type": "integer"
+            },
+            "backlog_chunk": {
+              "type": "integer"
             }
           },
           "additionalProperties": false,
@@ -2393,6 +2411,10 @@
                 },
                 "additionalProperties": false,
                 "type": "object"
+              },
+              "hold": {
+                "type": "string",
+                "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
               }
             },
             "additionalProperties": false,
@@ -2495,6 +2517,43 @@
                 "type": "integer",
                 "maximum": 50,
                 "minimum": 0
+              },
+              "searches_at_once": {
+                "type": "integer",
+                "maximum": 10,
+                "minimum": 0
+              },
+              "limit": {
+                "properties": {
+                  "count": {
+                    "type": "integer",
+                    "maximum": 100000,
+                    "minimum": 1
+                  },
+                  "per": {
+                    "type": "string",
+                    "enum": [
+                      "hour",
+                      "day"
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "count",
+                  "per"
+                ]
+              },
+              "uploads": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "no_paging": {
+                "type": "boolean"
+              },
+              "always_late": {
+                "type": "boolean"
               }
             },
             "additionalProperties": false,
@@ -2520,6 +2579,18 @@
             "cadence": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "automatic_search": {
+          "properties": {
+            "backlog_search": {
+              "type": "boolean"
+            },
+            "rss_sync": {
+              "type": "boolean"
             }
           },
           "additionalProperties": false,

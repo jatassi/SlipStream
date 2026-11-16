@@ -99,6 +99,11 @@ test.each<[string, GrabsListedRelease, string]>([
     "No search can grab it.",
   ],
   ["refused with only notes", refused([note]), "No Target this search was for accepts it."],
+  [
+    "waiting",
+    listed({ outcome: "waiting", rank: 1 }),
+    "SlipStream grabs this or a better release when the Hold ends.",
+  ],
 ])("a %s Release says so in words", (_, release, words) => {
   expect(outcomeWords(release, names)).toBe(words);
 });

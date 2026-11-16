@@ -17,9 +17,8 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/downloadclients"
-	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
-	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/grabs/grabstest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -32,12 +31,10 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/rpc"
-	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
-	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/trackers"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
@@ -186,7 +183,7 @@ type pipeline struct {
 
 func newPipeline(t *testing.T, answers ...answer) *pipeline {
 	t.Helper()
-	lib := storagetest.Library(t, schemas()...)
+	lib := storagetest.Library(t, grabstest.Schemas()...)
 	p := &pipeline{
 		t: t, lib: lib, swarm: &swarm{answers: answers}, changed: &published{},
 		node: role.NodeID{UUID: storage.NewUUID()}, indexer: indexers.ID{UUID: storage.NewUUID()},
@@ -225,14 +222,14 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 		Rerouted: func() { p.g.Rerouted() }, Sealer: sealer, Roster: p.roster, Uses: grabs.TorrentUses{}, Log: slog.New(slog.DiscardHandler),
 	})
 	p.cfg = grabs.Config{
-		Library: lib, Works: w, Sealer: sealer, Names: map[works.TypeID]releases.Names{contenttypetest.ID: dated{}},
+		Library: lib, Works: w, Sealer: sealer, Names: map[works.TypeID]releases.Names{contenttypetest.ID: grabstest.Dated{}},
 		Indexers: indexers.New(indexers.Config{
 			Library: lib, Sealer: sealer, Roster: p.roster, Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
 		}),
 		Roster: p.roster, Downloads: p.swarm, Imports: imports.GrabImports{},
 		Router:  downloadclients.Router{Roster: p.roster, Routes: trackers.Routing{Roster: p.roster}},
-		Timings: grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
-		Changed: p.changed, BlocklistChanged: discard[grabs.BlocklistChanged]{}, Log: slog.New(slog.DiscardHandler),
+		Timings: grabs.DefaultTimings(), Today: time.Now, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
+		Changed: p.changed, BlocklistChanged: discard[grabs.BlocklistChanged]{}, Tasks: grabstest.Cadences{}, Log: slog.New(slog.DiscardHandler),
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return p.reconciling.Load(), nil },
 		BeforeStep: func(ctx context.Context, s grabs.Stage) {
 			if p.beforeStep != nil {
@@ -280,13 +277,6 @@ func (i *importer) handed() []grabs.GrabID {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return slices.Clone(i.started)
-}
-
-func schemas() []storage.Schema[storage.Library] {
-	return []storage.Schema[storage.Library]{
-		secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), health.Schema(), roots.Schema(),
-		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema(), transfers.LibrarySchema(), imports.Schema(),
-	}
 }
 
 func (p *pipeline) grab(link string, hint *bencode.InfoHash) grabs.GrabID {

@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
@@ -48,6 +49,8 @@ func (g goals) Targets() (*targets.Targets, bool) { return g.t, true }
 func (g goals) Files() (*files.Files, bool) { return g.f, true }
 
 func (g goals) Grabs() (*grabs.Grabs, bool) { return g.g, true }
+
+func (goals) Minter() (artwork.Minter, bool) { return artwork.Minter{}, false }
 
 type discard[T any] struct{}
 
@@ -92,7 +95,7 @@ func serve(t *testing.T) *served {
 	g := grabs.New(grabs.Config{
 		Library: lib, Works: w, Targets: svc, Files: shelf,
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: claims{w}}, Names: map[works.TypeID]release.Names{contenttypetest.ID: dated{}},
-		Timings: grabs.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
+		Timings: grabs.DefaultTimings(), Today: time.Now, Log: slog.New(slog.DiscardHandler),
 	})
 	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) {
 		targetsapi.Routes(r, goals{svc, shelf, g})

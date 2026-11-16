@@ -77,11 +77,16 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 	return addIndexers(ctx, c, s, claims, controller, sites[site.Fake.Name])
 }
 
-// settings sets the library's seeding settings, when it has them, and its
-// Importing settings on the Controller.
+// settings sets the library's seeding and Automatic search settings, when
+// it has them, and its Importing settings on the Controller.
 func settings(ctx context.Context, c *http.Client, lib *scenario.Library, controller, apiKey string) error {
 	if sd := lib.Seeding; sd != nil {
 		if err := nodeapi.SetSeeding(ctx, c, controller, apiKey, *sd); err != nil {
+			return err
+		}
+	}
+	if a := lib.AutomaticSearch; a != nil {
+		if err := nodeapi.SetAutomaticSearch(ctx, c, controller, apiKey, *a); err != nil {
 			return err
 		}
 	}
@@ -140,7 +145,13 @@ func addIndexers(ctx context.Context, c *http.Client, s scenario.Scenario, claim
 		}
 	}
 	for _, ix := range s.Library.Indexers {
-		body := nodeapi.NewIndexer{Kind: ix.Kind, Name: ix.Name, AllowFailover: ix.AllowFailover, Priority: ix.Priority, AutomaticSearch: ix.AutomaticSearch}
+		body := nodeapi.NewIndexer{
+			Kind: ix.Kind, Name: ix.Name, AllowFailover: ix.AllowFailover, Priority: ix.Priority, AutomaticSearch: ix.AutomaticSearch,
+			SearchesAtOnce: ix.SearchesAtOnce,
+		}
+		if l := ix.Limit; l != nil {
+			body.Searches = &nodeapi.IndexerLimit{Count: l.Count, Per: l.Per}
+		}
 		if ix.Home != "" {
 			body.HomeNodeID = claims.Members[slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Name == ix.Home })].ID
 		}

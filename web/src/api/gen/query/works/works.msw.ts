@@ -50,6 +50,21 @@ export const getListContentTypesResponseMock = (
 ): WorksContentTypeList => ({
   contentTypes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
+      addSearch: {
+        choices: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => ({
+            label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            value: faker.helpers.arrayElement([
+              "monitored",
+              "first_level",
+              "latest_level",
+              "first_item",
+              "none",
+            ] as const),
+          }),
+        ),
+        kind: faker.helpers.arrayElement(["switch", "choice"] as const),
+      },
       art: {
         backdrop: faker.helpers.arrayElement([
           faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -396,6 +411,19 @@ export const getPreviewCatalogRecordResponseMock = (
             "latest",
             "none",
           ] as const),
+          searches: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            items: faker.number.int({ min: 0 }),
+            scope: faker.helpers.arrayElement([
+              "monitored",
+              "first_level",
+              "latest_level",
+              "first_item",
+              "none",
+            ] as const),
+          })),
         }),
       ),
     },
@@ -530,6 +558,21 @@ export const getPreviewCatalogRecordResponseMock = (
 export const getSetContentTypeEnabledResponseMock = (
   overrideResponse: Partial<Extract<WorksContentType, object>> = {},
 ): WorksContentType => ({
+  addSearch: {
+    choices: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        value: faker.helpers.arrayElement([
+          "monitored",
+          "first_level",
+          "latest_level",
+          "first_item",
+          "none",
+        ] as const),
+      }),
+    ),
+    kind: faker.helpers.arrayElement(["switch", "choice"] as const),
+  },
   art: {
     backdrop: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1655,6 +1698,10 @@ export const getListLibraryResponseMock = (
         ),
       ]),
     },
+    wanted: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(["failed", "missing", "upgrade", "gone"] as const),
+      null,
+    ]),
   })),
   ...overrideResponse,
 });
@@ -2513,6 +2560,19 @@ export const getSetWorksMonitoringResponseWorksMonitoringDoneOutcomeMock = (
               "latest",
               "none",
             ] as const),
+            searches: Array.from(
+              { length: faker.number.int({ min: 1, max: 10 }) },
+              (_, i) => i + 1,
+            ).map(() => ({
+              items: faker.number.int({ min: 0 }),
+              scope: faker.helpers.arrayElement([
+                "monitored",
+                "first_level",
+                "latest_level",
+                "first_item",
+                "none",
+              ] as const),
+            })),
           }),
         ),
       },
@@ -2546,6 +2606,19 @@ export const getSetWorksMonitoringResponseWorksMonitoringSkippedOutcomeMock = (
               "latest",
               "none",
             ] as const),
+            searches: Array.from(
+              { length: faker.number.int({ min: 1, max: 10 }) },
+              (_, i) => i + 1,
+            ).map(() => ({
+              items: faker.number.int({ min: 0 }),
+              scope: faker.helpers.arrayElement([
+                "monitored",
+                "first_level",
+                "latest_level",
+                "first_item",
+                "none",
+              ] as const),
+            })),
           }),
         ),
       },
@@ -2845,6 +2918,10 @@ export const getSearchWorksResponseMock = (
         ),
       ]),
     },
+    wanted: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(["failed", "missing", "upgrade", "gone"] as const),
+      null,
+    ]),
   })),
   workIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),

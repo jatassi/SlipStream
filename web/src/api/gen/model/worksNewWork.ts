@@ -1,4 +1,5 @@
 import type { WorksNewWorkPreset } from "./worksNewWorkPreset.ts";
+import type { WorksNewWorkSearch } from "./worksNewWorkSearch.ts";
 
 export interface WorksNewWork {
   /** @pattern ^[a-z][a-z0-9]{1,15}$ */
@@ -21,4 +22,6 @@ export interface WorksNewWork {
   remember?: boolean;
   /** The root of the Content Type a new Work lives in; left out, the type's default, or none while the type has no root */
   rootId?: string;
+  /** What to search once the Work is added, one of its Content Type's addSearch choices; left out, nothing */
+  search?: WorksNewWorkSearch;
 }

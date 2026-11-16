@@ -7,6 +7,7 @@ import { type EditForm, useEditForm } from "./edit-form";
 import { EditSettings } from "./edit-settings";
 import { CodeField } from "./fields/captcha";
 import { LimitField } from "./fields/limit-field";
+import { SearchesAtOnceField } from "./fields/searches-at-once";
 
 function Secrets({ form, indexer }: { form: EditForm; indexer: IndexersIndexer }) {
   if (indexer.kind === "catalog" || indexer.kind === "native") {
@@ -75,6 +76,7 @@ function EditFields({
         </form.AppField>
         <LimitField form={form} fields="searches" label="Searches" />
         <LimitField form={form} fields="grabs" label="Grabs" />
+        <SearchesAtOnceField form={form} />
         {codeShown && <CodeField form={form} fields={{ code: "code" }} name={indexer.name} />}
         <form.FormAlert />
         <div className="flex flex-wrap justify-end gap-2">

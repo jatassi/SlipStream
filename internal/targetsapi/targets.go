@@ -61,6 +61,7 @@ type target struct {
 	Sizes     []size       `json:"sizes" nullable:"false" doc:"Every accepted quality's size, in tier order"`
 	Scores    scores       `json:"scores"`
 	Propers   string       `json:"propers" enum:"prefer_and_upgrade,prefer_no_upgrade,dont_prefer" doc:"prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores"`
+	Hold      int          `json:"holdSeconds" minimum:"0" maximum:"604800" doc:"How long an automatic grab waits after a Release's publish time for a better one, in whole minutes. 0 grabs at once"`
 	Profiles  []profileRef `json:"profiles" nullable:"false" doc:"The Profiles holding it, by name"`
 	Contains  []string     `json:"contains" nullable:"false" format:"uuid" doc:"The other Targets every file of which also meets this one"`
 	CreatedAt time.Time    `json:"createdAt"`
@@ -73,7 +74,7 @@ func targetOf(t targets.Target) target {
 		Scores: scores{
 			Formats: []formatScore{}, Minimum: t.Scores.Minimum, UpgradeUntil: t.Scores.UpgradeUntil, Increment: t.Scores.Increment,
 		},
-		Propers: t.Propers.String(), Profiles: []profileRef{}, Contains: []string{}, CreatedAt: t.CreatedAt.Time(),
+		Propers: t.Propers.String(), Hold: int(t.Hold / time.Second), Profiles: []profileRef{}, Contains: []string{}, CreatedAt: t.CreatedAt.Time(),
 	}
 	for id, score := range t.Scores.Formats {
 		out.Scores.Formats = append(out.Scores.Formats, formatScore{FormatID: id.String(), Score: score})
@@ -106,6 +107,7 @@ type newTarget struct {
 	Sizes   []size     `json:"sizes,omitempty" doc:"An accepted quality left out takes its floor and no maximum"`
 	Scores  newScores  `json:"scores,omitempty" doc:"Left out, every score is 0 and the increment is 1"`
 	Propers string     `json:"propers,omitempty" enum:"prefer_and_upgrade,prefer_no_upgrade,dont_prefer" default:"prefer_and_upgrade" doc:"prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores"`
+	Hold    int        `json:"holdSeconds,omitempty" minimum:"0" maximum:"604800" multipleOf:"60" doc:"How long an automatic grab waits after a Release's publish time for a better one, in whole minutes; left out, 0 grabs at once. Changing only the Hold changes no Work"`
 }
 
 // specOf parses a Target's body. Checks the document can't state answer
@@ -155,6 +157,7 @@ func specOf(in newTarget) (targets.Spec, error) {
 		s.Scores.Formats[id] = fs.Score
 	}
 	s.Propers, _ = targets.ParsePropers(in.Propers)
+	s.Hold = time.Duration(in.Hold) * time.Second
 	if len(bad) > 0 {
 		return targets.Spec{}, api.Invalid.Fields(bad...)
 	}

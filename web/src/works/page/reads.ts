@@ -1,6 +1,7 @@
 import type { WorksWorkView } from "../../api/gen/model";
 import { useGetWorkCellsSuspense, useListWorkFilesSuspense } from "../../api/gen/query/files/files";
 import { useListGrabsSuspense } from "../../api/gen/query/grabs/grabs";
+import { useWorkSearching } from "../../grabs/searching-query";
 import {
   useGetWorkWantsSuspense,
   useListCutsSuspense,
@@ -17,6 +18,7 @@ export function useWorkReads(work: WorksWorkView) {
   const { cuts } = useListCutsSuspense().data;
   const { targets } = useListTargetsSuspense().data;
   const profile = useListProfilesSuspense().data.profiles.find(({ id }) => id === work.profile.id);
+  const searching = useWorkSearching(work.id);
   const grabs = useListGrabsSuspense().data.grabs.filter(({ workId }) => workId === work.id);
   if (profile === undefined) {
     throw new Error(`the Work's Profile ${work.profile.id} isn't listed`);
@@ -30,6 +32,7 @@ export function useWorkReads(work: WorksWorkView) {
     targets,
     profile,
     grabs,
+    searching,
     cutName: cutNameOf(cuts),
     targetName: (id: string) => targets.find((target) => target.id === id)?.name ?? id,
   };

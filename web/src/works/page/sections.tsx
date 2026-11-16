@@ -26,11 +26,16 @@ export function WorkSections({
   save: (change: ImpactChange) => Promise<void>;
   wantAnother: (trigger: ReactElement) => ReactNode;
 }) {
-  const { cells, matrix, wants, listing, grabs, cutName, targetName } = reads;
+  const { cells, matrix, wants, listing, grabs, searching, cutName, targetName } = reads;
   const shown = { work, wants, grabs, files: listing.files, cutName, targetName, save };
   return (
     <div className="mt-7">
-      <NeedsYou naming={{ type, work, targetName, cutName }} needs={cells.needsYou} grabs={grabs} />
+      <NeedsYou
+        naming={{ type, work, targetName, cutName }}
+        needs={cells.needsYou}
+        grabs={grabs}
+        stops={searching.stops}
+      />
       {type.items === "many" ? (
         <LevelsSection type={type} work={work} reads={reads} shown={shown} />
       ) : (

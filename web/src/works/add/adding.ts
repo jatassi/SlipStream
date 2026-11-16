@@ -8,13 +8,14 @@ import { ensureQuery } from "../../api/query-client";
 import { toast } from "../../ui/toast";
 import { closeAddSheet } from "./sheet-state";
 
-export function useAdding() {
+/** Adds a Work and opens it; `searches` says whether the add's search scope searches anything. */
+export function useAdding(searches: boolean) {
   const navigate = useNavigate();
   return useAddWork({
     mutation: {
       onSuccess: async ({ created, work }) => {
         closeAddSheet();
-        toast(created ? `Added ${work.label}` : `${work.label} is already in the library.`);
+        toast(addedWords(work.label, created, searches));
         await navigate({ to: "/works/$workId", params: { workId: work.id } });
       },
       onError: (error) => {
@@ -22,6 +23,13 @@ export function useAdding() {
       },
     },
   });
+}
+
+export function addedWords(label: string, created: boolean, searches: boolean): string {
+  if (!created) {
+    return `${label} is already in the library.`;
+  }
+  return searches ? `Added ${label}. Searching now.` : `Added ${label}`;
 }
 
 export async function loadCandidates(

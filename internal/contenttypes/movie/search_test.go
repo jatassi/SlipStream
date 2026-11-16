@@ -146,3 +146,29 @@ func TestTheYearSlackJudgesAReleaseYear(t *testing.T) {
 		}
 	}
 }
+
+func TestAMovieSearchesItsItemAloneByItsTitle(t *testing.T) {
+	sh, tree := added(t, saltRoad)
+	item := tree.Items[0].ID
+	var groups []indexers.Group
+	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		groups, err = sh.m.Groups(ctx, r, tree.ID, []works.ItemID{item})
+		return err
+	})
+	if len(groups) != 1 || groups[0].Key != indexers.ItemGroup(item) || groups[0].Label != "The Salt Road" || !slices.Equal(groups[0].Items, []works.ItemID{item}) {
+		t.Fatalf("the movie's groups are %+v, want its Item alone labeled The Salt Road", groups)
+	}
+	var group, own indexers.Terms
+	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		if group, err = sh.m.GroupTerms(ctx, r, tree.ID, groups[0]); err != nil {
+			return err
+		}
+		own, err = sh.m.SearchTerms(ctx, r, item)
+		return err
+	})
+	if group.Mode != "movie" || group.Mode != own.Mode || group.Query != own.Query {
+		t.Fatalf("the movie's group terms are %+v, want its SearchTerms %+v", group, own)
+	}
+}

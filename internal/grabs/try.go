@@ -197,7 +197,11 @@ func (tr trier) againstWork(ctx context.Context, r storage.Reader[file], name st
 	if err != nil {
 		return Tried{}, err
 	}
-	j, err := tr.gr.judgingOf(ctx, r, w.ContentType, Search{WorkID: w.ID}, expect)
+	tree, err := tr.gr.cfg.Works.TreeIn(ctx, r, w.ID)
+	if err != nil {
+		return Tried{}, err
+	}
+	j, err := tr.gr.judgingOf(ctx, r, tree, nil, expect)
 	if err != nil {
 		return Tried{}, err
 	}
@@ -436,6 +440,10 @@ func reasonWords(r Reason, t *targets.Target, f release.Facts, n works.Descripti
 		return from + ", and the file at " + at + " is from " + r.Value + "."
 	case targets.Blocklisted:
 		return "It's on the Blocklist."
+	case targets.NotAired:
+		return "This pack lists " + r.Value + ", which hasn't aired. You can still grab it here."
+	case targets.Tried:
+		return "A Grab of this release already failed for this " + work + ". You can still grab it here."
 	}
 	panic("grabs: no words for the reason " + string(r.Code))
 }

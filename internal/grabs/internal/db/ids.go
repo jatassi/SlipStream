@@ -14,6 +14,10 @@ type (
 	GrabID   struct{ storage.UUID }
 	SearchID struct{ storage.UUID }
 	ManualID struct{ storage.UUID }
+	// NudgeID orders the nudges a reconciler drains, oldest first.
+	NudgeID int64
+	// Singleton is the id of a table's one row.
+	Singleton int64
 )
 
 // Stage is where a Grab is in the pipeline.
@@ -73,6 +77,9 @@ type Step string
 // Source is how a Grab was chosen: by a search's decision, or by an Admin
 // in a Manual search.
 type Source string
+
+// FoundBy is what found a Grab's Release.
+type FoundBy string
 
 // BlockCause is why a Release is on the Blocklist.
 type BlockCause string

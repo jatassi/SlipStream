@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller whose Movies root holds four films from
+  its first library scan, for gone files while RSS sync runs. fake-tmdb
+  lists them, The Quiet Orchard, The Salt Road, Meadowlark and Harbor
+  Lights, and Long Division, which has no file. Fixture Site holds back a
+  1080p Bluray of The Quiet Orchard and one of Long Division until the
+  fixture-site-list cue lists each, posted later than anything RSS sync
+  has read. Once two of the four files leave the disk, a library scan stops
+  for Mark them gone, and RSS sync then grabs Long Division but leaves The
+  Quiet Orchard's gone cell for the Admin's own Search. Backlog search is
+  off, so only RSS sync and the Admin search.
+seed: gone-with-rss
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+    - id: 9000005
+      imdb_id: tt9000005
+      title: The Salt Road
+      released: 2022-09-14
+      runtime: 112m
+    - id: 9000006
+      imdb_id: tt9000006
+      title: Meadowlark
+      released: 2023-05-12
+      runtime: 98m
+    - id: 9000007
+      imdb_id: tt9000007
+      title: Harbor Lights
+      released: 2017-02-03
+      runtime: 101m
+    - id: 9100002
+      imdb_id: tt9100002
+      title: Long Division
+      released: 2019-11-22
+      runtime: 95m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 9.4GiB
+    unlisted: true
+    published: 2026-11-01T00:00:00Z
+  - name: Long.Division.2019.1080p.BluRay.x264-FKW
+    tmdb_id: 9100002
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 9
+    seeded: true
+    advertised_size: 8.8GiB
+    unlisted: true
+    published: 2026-11-01T00:00:00Z
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]
+  automatic_search: {backlog_search: false}
+  folders:
+    - folder: movies
+      files:
+        - path: The Quiet Orchard (2021) {tmdb-9000001}/The Quiet Orchard (2021).mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+        - path: The Salt Road (2022) {tmdb-9000005}/The Salt Road (2022).mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+        - path: Meadowlark (2023) {tmdb-9000006}/Meadowlark (2023).mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+        - path: Harbor Lights (2017) {tmdb-9000007}/Harbor Lights (2017).mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}

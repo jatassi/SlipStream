@@ -28,7 +28,11 @@ func (s *Service) Run(ctx context.Context, req *searchv1.RunRequest) (*searchv1.
 	if (job.Kind == Native) != (job.Port != "") {
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "a native Indexer's job names its port, and no other job names one")
 	}
-	r := s.jobs.join(job.ID, func(r *run) Answer { return s.do(job, site, r) })
+	keep := s.cfg.Timings.Keep
+	if _, ok := job.Call.(SearchCall); ok {
+		keep = s.cfg.Timings.JobCap
+	}
+	r := s.jobs.join(job.ID, keep, func(ctx context.Context, r *run) Answer { return s.do(ctx, job, site, r) })
 	hold := time.NewTimer(s.cfg.Timings.Hold)
 	defer hold.Stop()
 	select {
@@ -58,9 +62,13 @@ func (s *Service) ReachSolver(ctx context.Context, req *searchv1.ReachSolverRequ
 	return &searchv1.ReachSolverResponse{Status: int32(status)}, nil //nolint:gosec // an HTTP status fits
 }
 
-// do runs job on its own context, bounded by Timings.JobCap.
-func (s *Service) do(job Job, site *Site, r *run) Answer {
-	ctx, cancel := context.WithTimeout(context.Background(), s.cfg.Timings.JobCap)
+// Stop cancels the jobs running on this Node and waits for them to
+// answer, so none outlives the Node.
+func (s *Service) Stop(ctx context.Context) error { return s.jobs.stop(ctx) }
+
+// do runs job on life, bounded by Timings.JobCap.
+func (s *Service) do(life context.Context, job Job, site *Site, r *run) Answer {
+	ctx, cancel := context.WithTimeout(life, s.cfg.Timings.JobCap)
 	defer cancel()
 	site.svc, site.run, site.slot = s, r, s.sessions.slot(job)
 	d := s.drivers[job.Kind]
@@ -79,7 +87,7 @@ func (s *Service) do(job Job, site *Site, r *run) Answer {
 	case SearchCall:
 		a.Releases, err = d.Search(ctx, site, c.Query)
 	case RecentCall:
-		a.Releases, err = d.Recent(ctx, site)
+		a.Releases, err = d.Recent(ctx, site, c.Offset)
 	case FetchCall:
 		a.Got, err = d.Fetch(ctx, site, c.Link)
 	case TestCall:

@@ -67,6 +67,10 @@ const (
 // DefaultPriority is an Indexer's priority until an Admin sets one.
 const DefaultPriority = 25
 
+// DefaultSearchesAtOnce is an Indexer's Searches at once until an Admin
+// sets it.
+const DefaultSearchesAtOnce = 2
+
 // Indexer is one Indexer as the Controller keeps it.
 type Indexer struct {
 	ID            ID
@@ -86,7 +90,10 @@ type Indexer struct {
 	Media    []works.TypeID
 	Searches Limit
 	Grabs    Limit
-	Source   Source
+	// SearchesAtOnce is 1 to 10: how many background searches go to the
+	// Indexer at a time. A press gets one more.
+	SearchesAtOnce int
+	Source         Source
 	// Secrets is one sealed Secrets.
 	Secrets secret.Sealed
 	// FeedHost is shown in place of a feed's sealed address.
@@ -216,6 +223,9 @@ var secretsColumn = secret.NewColumn("indexers_indexer.secrets_sealed")
 type Caps struct {
 	Modes      map[string][]string `json:"modes"`
 	Categories []newznab.ID        `json:"categories,omitempty"`
+	// RecentPaging is whether the Indexer lists older uploads by offset, so
+	// RSS sync can page back to where it last read.
+	RecentPaging bool `json:"recentPaging,omitempty"`
 }
 
 type Timings struct {
@@ -243,6 +253,14 @@ type Timings struct {
 	// a query row whose job never answered as lost. It is longer than a
 	// Node runs a job and keeps its answer.
 	Unanswered time.Duration `yaml:"unanswered"`
+	// RSSPages is how many pages one RSS fetch reads back at most.
+	RSSPages int `yaml:"rss_pages"`
+	// RSSPageItems is the most uploads a Searching Worker's page may hold:
+	// a longer one is cut and read as a gap.
+	RSSPageItems int `yaml:"rss_page_items"`
+	// GUIDBytes is the longest GUID kept. A longer one is dropped, since it
+	// can't be stored as a feed position.
+	GUIDBytes int `yaml:"guid_bytes"`
 }
 
 func DefaultTimings() Timings {
@@ -254,6 +272,7 @@ func DefaultTimings() Timings {
 		},
 		PackageShare: 25, CatalogRequest: 2 * time.Minute, Captcha: 5 * time.Minute,
 		KeepQueries: 30 * 24 * time.Hour, Unanswered: time.Hour,
+		RSSPages: 10, RSSPageItems: 1000, GUIDBytes: 512,
 	}
 }
 
@@ -280,6 +299,11 @@ type TrackerChanged struct {
 	TrackerID string `json:"trackerId" format:"uuid"`
 }
 
+// RSSChanged is a feed whose RSS position or gap changed.
+type RSSChanged struct {
+	IndexerID string `json:"indexerId" format:"uuid"`
+}
+
 // SettingsChanged tells Admins that the Indexer settings changed.
 type SettingsChanged struct{}
 
@@ -293,6 +317,7 @@ var (
 	CatalogChangedEvent  = live.AdminEvent[CatalogChanged]("indexers.catalog-changed")
 	SettingsChangedEvent = live.AdminEvent[SettingsChanged]("indexers.settings-changed")
 	TrackersEvent        = live.AdminEvent[TrackerChanged]("trackers.changed")
+	RSSChangedEvent      = live.AdminEvent[RSSChanged]("indexers.rss-changed")
 )
 
 type Publisher[T any] interface {
@@ -306,6 +331,8 @@ var (
 	ErrNotSearching    = errors.New("that Node doesn't have the Searching Role")
 	// ErrLate is a job that passed its deadline.
 	ErrLate = errors.New("the Indexer didn't respond in time")
+	// ErrAway is a line asked again while no Node may take its query.
+	ErrAway = errors.New("no Node can take the Indexer's search now")
 )
 
 // UnavailableError is a call that didn't reach the Indexer's site: its
@@ -359,6 +386,8 @@ type Config struct {
 	Catalogs Publisher[CatalogChanged]
 	Trackers Publisher[TrackerChanged]
 	Settings Publisher[SettingsChanged]
+	// RSSChanged is told of each feed whose position or gap Saw wrote.
+	RSSChanged Publisher[RSSChanged]
 	// Repoints move the rows naming a Tracker when it merges into another.
 	Repoints []Repoint
 	// HTTP reaches the Indexer catalog from the Controller.
@@ -368,6 +397,12 @@ type Config struct {
 	// it isn't waiting for a slot.
 	CatalogNext func(context.Context) (time.Time, error)
 	Timings     Timings
+	// JobCap is searching's: the longest a job runs on its Node, so a
+	// search query reserved longer ago is no longer in flight.
+	JobCap time.Duration
+	// RSS is RSS sync's cadence and whether it is on, read in r. Nil is
+	// off, so RSS sync keeps no slots of any search limit.
+	RSS func(ctx context.Context, r storage.Reader[file]) (every time.Duration, on bool, err error)
 	// Zone is the zone of the times inside sentences.
 	Zone *time.Location
 	Log  *slog.Logger
@@ -507,7 +542,7 @@ func (x *Indexers) ported(idx Indexer) Indexer {
 func indexerOf(row db.IndexersIndexer, summary *string, fetched storage.Time, pasted bool) (Indexer, error) {
 	idx := Indexer{
 		ID: row.ID, Name: row.Name, Kind: Kind(row.Kind), Home: row.HomeNodeID, On: row.IsOn, AutoSearch: row.AutoSearch,
-		RSS: row.Rss, AllowFailover: row.AllowFailover, Priority: int(row.Priority),
+		RSS: row.Rss, AllowFailover: row.AllowFailover, Priority: int(row.Priority), SearchesAtOnce: int(row.SearchesAtOnce),
 		Searches: Limit{Count: int(row.SearchLimit), Per: Window(row.SearchWindow)},
 		Grabs:    Limit{Count: int(row.GrabLimit), Per: Window(row.GrabWindow)},
 		Secrets:  row.SecretsSealed, FeedHost: deref(row.FeedHost), Pasted: pasted, Revision: row.Revision, Created: row.CreatedAt.Time(),
@@ -567,7 +602,7 @@ func row(idx Indexer, updated storage.Time) (db.InsertIndexerParams, error) {
 		ID: idx.ID, Name: idx.Name, Kind: string(idx.Kind), HomeNodeID: idx.Home, IsOn: idx.On, AutoSearch: idx.AutoSearch,
 		Rss: idx.RSS, AllowFailover: idx.AllowFailover, Priority: int64(idx.Priority),
 		SearchLimit: int64(idx.Searches.Count), SearchWindow: string(window(idx.Searches.Per)),
-		GrabLimit: int64(idx.Grabs.Count), GrabWindow: string(window(idx.Grabs.Per)),
+		GrabLimit: int64(idx.Grabs.Count), GrabWindow: string(window(idx.Grabs.Per)), SearchesAtOnce: int64(idx.SearchesAtOnce),
 		SecretsSealed: idx.Secrets, FeedHost: orNil(idx.FeedHost), Plain: "{}", Notes: "[]",
 		Revision: idx.Revision, CreatedAt: storage.FromTime(idx.Created), UpdatedAt: updated,
 	}

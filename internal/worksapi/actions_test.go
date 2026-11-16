@@ -38,6 +38,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -202,7 +203,7 @@ func shelve(t *testing.T) *shelves {
 		t.Fatal(err)
 	}
 	shelf := node{w: w, t: s.goals, mint: artwork.NewMinter([]byte("actions")), lib: library.New(library.Config{
-		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue, Imports: noImports{},
+		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue, Imports: noImports{}, Queue: searches.None{},
 	})}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) { worksapi.Routes(r, shelf) })
 	s.web, err = s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "Web", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p})

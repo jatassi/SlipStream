@@ -52,6 +52,21 @@ type harness struct {
 	types   *recorder[works.ContentTypesChanged]
 	log     *bytes.Buffer
 	art     *prefetched
+	added   *told
+}
+
+// told records what ItemsAdded heard, and answers refuse.
+type told struct {
+	mu     sync.Mutex
+	items  map[works.WorkID][]works.ItemID
+	refuse error
+}
+
+func (t *told) ItemsAdded(_ context.Context, _ *storage.Tx[storage.Library], work works.WorkID, items []works.ItemID) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.items[work] = append(t.items[work], items...)
+	return t.refuse
 }
 
 type prefetched struct {
@@ -67,13 +82,14 @@ func (p *prefetched) Prefetch(wants []artwork.Want) {
 
 func open(t testing.TB, lib *storage.DB[storage.Library], catalogs map[works.TypeID]works.Catalog, source works.Source) (*works.Works, *harness) {
 	t.Helper()
-	h := &harness{lib: lib, changed: &recorder[works.Changed]{}, types: &recorder[works.ContentTypesChanged]{}, log: &bytes.Buffer{}, art: &prefetched{}}
+	h := &harness{lib: lib, changed: &recorder[works.Changed]{}, types: &recorder[works.ContentTypesChanged]{}, log: &bytes.Buffer{}, art: &prefetched{}, added: &told{items: map[works.WorkID][]works.ItemID{}}}
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
 		Catalogs:     catalogs,
 		Source:       source,
 		Artwork:      h.art,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
+		ItemsAdded:   h.added.ItemsAdded,
 		Changed:      h.changed,
 		TypesChanged: h.types,
 		Log:          slog.New(slog.NewTextHandler(h.log, &slog.HandlerOptions{ReplaceAttr: dropTime})),

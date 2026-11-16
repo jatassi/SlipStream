@@ -11,7 +11,9 @@ test("a search shows each Indexer's line in the server's words", async () => {
   renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
   server.searchRuns(everyOutcome);
   const searches = page.getByRole("list", { name: "Searches" });
-  await expect.element(searches).toMatchTextContent(/^Found nothing acceptable1 Release found/u);
+  await expect
+    .element(searches)
+    .toMatchTextContent(/^Found 1 release, but none fits a TargetSearch · 1 Release found/u);
   expect(
     searches
       .getByRole("list", { name: "Indexers" })

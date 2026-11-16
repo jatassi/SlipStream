@@ -3,6 +3,7 @@ package indexers
 import (
 	"context"
 	"errors"
+	"net/url"
 	"slices"
 	"time"
 
@@ -25,7 +26,7 @@ var HealthAbout = health.About{
 	Label:  "Indexers",
 	Phrase: "Indexers",
 	Events: []live.Event{
-		ChangedEvent, StatusChangedEvent, CatalogChangedEvent, SettingsChangedEvent,
+		ChangedEvent, StatusChangedEvent, CatalogChangedEvent, SettingsChangedEvent, RSSChangedEvent,
 		tasks.ChangedEvent, nodes.ChangedEvent, works.ChangedEvent,
 	},
 }
@@ -36,7 +37,8 @@ var HealthAbout = health.About{
 // Indexer waiting for a home that lapsed, a Fail for each Content Type
 // with Works that no usable Indexer serves, and a Warn for each catalog
 // Indexer whose definition left the catalog or whose new version doesn't
-// load. An Indexer whose calls wait for its home is unsure. Next is the
+// load, and a Warn for each Indexer with RSS on whose last RSS fetches
+// didn't reach its feed's position. An Indexer whose calls wait for its home is unsure. Next is the
 // soonest long-backoff edge or retry.
 func (x *Indexers) HealthSource() health.Source {
 	return health.Source{Answer: func(ctx context.Context) (health.Answer, error) {
@@ -69,13 +71,24 @@ func (x *Indexers) healthAnswer(ctx context.Context, r storage.Reader[file], now
 	if err != nil {
 		return health.Answer{}, err
 	}
+	feeds, err := feedFacts(ctx, r)
+	if err != nil {
+		return health.Answer{}, err
+	}
+	plan, err := x.rssPlan(ctx, r)
+	if err != nil {
+		return health.Answer{}, err
+	}
 	var a health.Answer
 	for _, idx := range all {
 		if idx.On {
 			x.judge(&a, idx, statuses[idx.ID], long, now)
 		}
+		if f, ok := feeds[idx.ID]; ok && idx.On && idx.RSS && f.Gap != GapNone {
+			a.Items = append(a.Items, x.gapItem(idx, f))
+		}
 	}
-	a.Items = append(a.Items, x.unserved(held, all, statuses)...)
+	a.Items = append(a.Items, x.unserved(held, all, statuses, plan.on)...)
 	pins, err := x.pinItems(ctx, q)
 	a.Items = append(a.Items, pins...)
 	return a, err
@@ -166,10 +179,34 @@ func indexerLink(idx Indexer) health.Action {
 	return health.LinkAction("/settings/indexers/"+idx.ID.String(), "Open "+idx.Name)
 }
 
+// gapItem is the Warn of idx's RSS fetches missing uploads since f,
+// linking to Wanted for the Content Types its feed may match.
+func (x *Indexers) gapItem(idx Indexer, f FeedFact) health.Item {
+	types, _ := x.feedTypes(idx)
+	return health.Item{Key: health.KeyOf("rss-gap", idx.ID.String()), Level: health.Warn, Says: health.Says{
+		Subject: idx.Name,
+		Text:    x.gapWords(idx.Name, f.Gap),
+		Detail:  []health.Fact{{Label: "Last RSS sync", At: f.Fetched}},
+		Action:  health.LinkAction(wantedHref(types), "Open Wanted"),
+	}}
+}
+
+// wantedHref is Wanted filtered to missing and failed files: the one
+// Content Type's page when types holds one, every type's otherwise.
+func wantedHref(types []works.TypeID) string {
+	path := "/library/wanted"
+	if len(types) == 1 {
+		path += "/" + url.PathEscape(string(types[0]))
+	}
+	return path + "?" + url.Values{"reason": {"missing,failed"}}.Encode()
+}
+
 // unserved is a Fail for each Content Type of held, those holding a Work,
 // that has categories and that no usable Indexer serves: one that is on,
-// isn't an RSS feed, isn't stopped and serves one of its categories.
-func (x *Indexers) unserved(held []works.TypeID, all []Indexer, statuses map[ID]Status) []health.Item {
+// isn't an RSS feed, isn't stopped and serves one of its categories. While
+// RSS sync is on it says how many RSS feeds that are on still read the
+// type's new uploads.
+func (x *Indexers) unserved(held []works.TypeID, all []Indexer, statuses map[ID]Status, rssOn bool) []health.Item {
 	var items []health.Item
 	for _, typ := range slices.Sorted(slices.Values(held)) {
 		cats := x.categories(typ)
@@ -184,11 +221,26 @@ func (x *Indexers) unserved(held []works.TypeID, all []Indexer, statuses map[ID]
 		d, _ := x.cfg.Works.Describe(typ)
 		items = append(items, health.Item{Key: health.KeyOf("unserved", string(typ)), Level: health.Fail, Says: health.Says{
 			Subject: d.Work.Many,
-			Text:    unservedWords(d.Work.Many),
+			Text:    unservedWords(d.Work.Many, feedsOf(all, typ, rssOn)),
 			Action:  health.LinkAction("/settings/indexers", "Open Indexers"),
 		}})
 	}
 	return items
+}
+
+// feedsOf is how many RSS feeds that are on with RSS on carry typ, none
+// while RSS sync is off.
+func feedsOf(all []Indexer, typ works.TypeID, rssOn bool) int {
+	if !rssOn {
+		return 0
+	}
+	n := 0
+	for _, idx := range all {
+		if idx.On && idx.RSS && idx.Kind == RSS && slices.Contains(idx.Media, typ) {
+			n++
+		}
+	}
+	return n
 }
 
 func (x *Indexers) pinItems(ctx context.Context, q *db.Queries) ([]health.Item, error) {

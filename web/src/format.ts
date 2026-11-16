@@ -200,6 +200,53 @@ export function atWords(iso: string, reading: Clock): string {
   return `${days < 7 ? formats.weekday.format(at) : formats.date.format(at)} at ${time}`;
 }
 
+/** atWords inside a sentence: "tomorrow at 14:00", "Mon at 14:00", "now". */
+const inSentence = (words: string): string =>
+  words === "Due now"
+    ? "now"
+    : words.replace(/^(?:Today|Tonight|Tomorrow)\b/u, (word) => word.toLowerCase());
+
+/**
+ * A coming time as "until" reads it: the time alone today, else as atWords
+ * says it inside a sentence ("tomorrow at 14:00").
+ */
+export function laterWords(iso: string, reading: Clock): { words: string; today: boolean } {
+  const at = new Date(iso);
+  const today = at > reading.now && daysFrom(reading.now, at, reading.zone) === 0;
+  return {
+    words: today ? formatsOf(reading.zone).time.format(at) : inSentence(atWords(iso, reading)),
+    today,
+  };
+}
+
+/** A coming time after a verb: "at 14:00" today, else "tomorrow at 14:00" or "Mon at 14:00". */
+export function laterAtWords(iso: string, reading: Clock): string {
+  const { words, today } = laterWords(iso, reading);
+  return today ? `at ${words}` : words;
+}
+
+/**
+ * A past time as it reads after a verb: "today at 09:12", "yesterday at
+ * 09:12", "on Mon at 09:12" within the week, else "on Nov 3 at 09:12".
+ */
+/** Whether a past time falls on the reader's today. */
+export const isToday = (iso: string, { now, zone }: Clock): boolean =>
+  daysFrom(new Date(iso), now, zone) <= 0;
+
+export function pastAtWords(iso: string, { now, zone }: Clock): string {
+  const at = new Date(iso);
+  const formats = formatsOf(zone);
+  const time = formats.time.format(at);
+  const days = daysFrom(at, now, zone);
+  if (days <= 0) {
+    return `today at ${time}`;
+  }
+  if (days === 1) {
+    return `yesterday at ${time}`;
+  }
+  return `on ${days < 7 ? formats.weekday.format(at) : formats.date.format(at)} at ${time}`;
+}
+
 const ago = new Intl.RelativeTimeFormat("en", { numeric: "always" });
 
 /** How long ago a past time was, to the minute: "just now", "2 hours ago", "3 days ago". */

@@ -1,3 +1,4 @@
+import type { WorksAddSearch } from "./worksAddSearch.ts";
 import type { WorksArtRoles } from "./worksArtRoles.ts";
 import type { WorksArtworkKind } from "./worksArtworkKind.ts";
 import type { WorksContentTypeIcon } from "./worksContentTypeIcon.ts";
@@ -6,6 +7,8 @@ import type { WorksFieldSpec } from "./worksFieldSpec.ts";
 import type { WorksNoun } from "./worksNoun.ts";
 
 export interface WorksContentType {
+  /** What the add sheet's Search after adding offers */
+  addSearch: WorksAddSearch;
   art: WorksArtRoles;
   /** The kinds of image its Works and Items carry */
   artwork: WorksArtworkKind[];

@@ -1,9 +1,11 @@
+import type { GrabsChosenWhy } from "./grabsChosenWhy.ts";
 import type { GrabsClientWait } from "./grabsClientWait.ts";
 import type { GrabsEntered } from "./grabsEntered.ts";
 import type { GrabsFailure } from "./grabsFailure.ts";
 import type { GrabsFetchWait } from "./grabsFetchWait.ts";
 import type { GrabsGrabActions } from "./grabsGrabActions.ts";
 import type { GrabsGrabClient } from "./grabsGrabClient.ts";
+import type { GrabsGrabFoundBy } from "./grabsGrabFoundBy.ts";
 import type { GrabsGrabImport } from "./grabsGrabImport.ts";
 import type { GrabsGrabQuality } from "./grabsGrabQuality.ts";
 import type { GrabsGrabSource } from "./grabsGrabSource.ts";
@@ -14,6 +16,8 @@ import type { GrabsProgress } from "./grabsProgress.ts";
 
 export interface GrabsGrab {
   actions: GrabsGrabActions;
+  /** Why the decision chose its Release; null when the ranking alone chose it */
+  chosenBecause: GrabsChosenWhy | null;
   createdAt: string;
   /** Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched */
   downloadClient: GrabsGrabClient | null;
@@ -28,6 +32,8 @@ export interface GrabsGrab {
   fetchNodeId: string | null;
   /** Why fetching the .torrent waits on its Indexer, absent unless it does */
   fetchWait?: GrabsFetchWait;
+  /** What found its Release: a press of Search, Backlog search, RSS sync, a search again after a failed Grab, or an Admin in a Manual search */
+  foundBy: GrabsGrabFoundBy;
   /**
    * A name, or the API key; null for a search's Grab
    * @nullable
@@ -72,7 +78,17 @@ export interface GrabsGrab {
   releaseTitle: string;
   /** Its Release in words, such as Bluray-1080p · FKW · 9.8 GB */
   releaseWords: string;
-  /** How it was chosen: by a search's decision, or by an Admin in a Manual search */
+  /**
+   * The Indexer whose feed RSS sync found it in; null unless foundBy is rss, and once the Indexer is deleted
+   * @nullable
+   */
+  rssIndexerName: string | null;
+  /**
+   * The search run that made it; null for a Manual Grab and once the run is pruned
+   * @nullable
+   */
+  searchId: string | null;
+  /** How it was chosen: by a search's decision, by an Admin in a Manual search, or by RSS sync's decision */
   source: GrabsGrabSource;
   stage: GrabsGrabStage;
   /** The Targets it was grabbed for, in Profile order */

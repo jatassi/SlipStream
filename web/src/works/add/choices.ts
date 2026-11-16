@@ -3,6 +3,7 @@ import type {
   SettingField,
   TargetsProfile,
   WorksContentType,
+  WorksSearchChoiceValue,
 } from "../../api/gen/model";
 import { type Preset, isPreset } from "../monitoring/labels";
 
@@ -23,13 +24,15 @@ export type AddDefaults = {
   readonly asides: boolean | undefined;
   /** Undefined while the type has no add.levelFolders setting. */
   readonly levelFolders: boolean | undefined;
+  /** What an add searches, one of the type's addSearch choices. */
+  readonly search: WorksSearchChoiceValue;
 };
 
 export type AddChoices = AddDefaults & { readonly remember: boolean };
 
 export type AddSetup = { readonly defaults: AddDefaults; readonly monitor: MonitorControl };
 
-const defaultKinds = ["profile", "root", "monitor", "asides", "levelFolders"] as const;
+const defaultKinds = ["profile", "root", "monitor", "asides", "levelFolders", "search"] as const;
 
 export type Default = (typeof defaultKinds)[number];
 
@@ -73,6 +76,22 @@ function switchOf(
   return field.value;
 }
 
+/** The type's add.search setting: a switch whose on searches everything monitored, or a choice of its addSearch values. */
+function searchOf(
+  type: WorksContentType,
+  settings: readonly SettingField[],
+): WorksSearchChoiceValue {
+  const field = settings.find((each) => each.key === keyOf(type, "search"));
+  if (field?.kind === "switch") {
+    return field.value ? "monitored" : "none";
+  }
+  const chosen = type.addSearch.choices.find(({ value }) => value === field?.value);
+  if (field?.kind !== "choice" || chosen === undefined) {
+    throw new Error(`${type.id} has no ${keyOf(type, "search")} switch or choice of its addSearch`);
+  }
+  return chosen.value;
+}
+
 export function addSetupOf({
   type,
   profiles,
@@ -96,6 +115,7 @@ export function addSetupOf({
       preset: monitor.preset,
       asides: switchOf(type, settings, "asides"),
       levelFolders: switchOf(type, settings, "levelFolders"),
+      search: searchOf(type, settings),
     },
     monitor: monitor.control,
   };
@@ -112,6 +132,7 @@ const comparisons: { readonly [D in Default]: (c: AddChoices, d: AddDefaults) =>
   monitor: (c, d) => c.preset !== d.preset,
   asides: (c, d) => c.asides !== d.asides,
   levelFolders: (c, d) => c.levelFolders !== d.levelFolders,
+  search: (c, d) => c.search !== d.search,
 };
 
 /** The defaults an add with these choices would move while Remember is on. */

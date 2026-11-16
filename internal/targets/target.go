@@ -6,6 +6,7 @@ import (
 	"maps"
 	"math"
 	"slices"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/release"
@@ -195,6 +196,9 @@ type Target struct {
 	Filters Filters
 	Scores  Scores
 	Propers Propers
+	// Hold is how long an automatic grab waits after a Release's publish
+	// time for a better one.
+	Hold time.Duration
 	// Profiles is every Profile holding the Target, by name, and Contains
 	// every other Target it contains. Both are read only.
 	Profiles  []ProfileRef
@@ -208,8 +212,9 @@ type ProfileRef struct {
 }
 
 // Spec is a Target as an Admin writes it: tiers of qualities, a cutoff
-// naming a quality of the cutoff tier, sizes by quality, scores and the
-// propers setting. An accepted quality Sizes leaves out takes its Floor.
+// naming a quality of the cutoff tier, sizes by quality, scores, the
+// propers setting and the Hold. An accepted quality Sizes leaves out takes
+// its Floor.
 type Spec struct {
 	Name    string
 	Tiers   [][]release.Quality
@@ -218,18 +223,31 @@ type Spec struct {
 	Sizes   map[release.Quality]Size
 	Scores  Scores
 	Propers Propers
+	Hold    time.Duration
 }
+
+// MaxHold is the longest Hold.
+const MaxHold = 7 * 24 * time.Hour
 
 // ErrQualityNotInTarget is a cutoff or a size naming a quality the Target
 // doesn't accept. ErrBadTiers is no tier, an empty tier or a quality in
 // two places. ErrBadSize is a negative minimum or a maximum below it.
-// ErrBadIncrement is a score increment below 1.
+// ErrBadIncrement is a score increment below 1. ErrBadHold is a Hold
+// below 0, over MaxHold or not in whole minutes.
 var (
 	ErrQualityNotInTarget = errors.New("the Target doesn't accept that quality")
 	ErrBadTiers           = errors.New("tiers are missing, empty or repeat a quality")
 	ErrBadSize            = errors.New("a size is negative or its maximum is below its minimum")
 	ErrBadIncrement       = errors.New("the score increment is below 1")
+	ErrBadHold            = errors.New("the Hold isn't whole minutes from 0 to 7 days")
 )
+
+func checkHold(h time.Duration) error {
+	if h < 0 || h > MaxHold || h%time.Minute != 0 {
+		return ErrBadHold
+	}
+	return nil
+}
 
 // SpecError is a Spec that NewTarget refused, Err, with the part it
 // names: Tier, from 1, for an empty tier, or Quality, a size's when Size
@@ -279,6 +297,9 @@ func NewTarget(s Spec) (Target, error) {
 	if s.Scores.Increment < 1 {
 		return Target{}, ErrBadIncrement
 	}
+	if err := checkHold(s.Hold); err != nil {
+		return Target{}, err
+	}
 	scores := s.Scores
 	scores.Formats = map[formats.ID]int{}
 	for id, n := range s.Scores.Formats {
@@ -286,7 +307,7 @@ func NewTarget(s Spec) (Target, error) {
 			scores.Formats[id] = n
 		}
 	}
-	return Target{Name: s.Name, Tiers: tiers, Cutoff: cutoff, Filters: s.Filters, Scores: scores, Propers: s.Propers}, nil
+	return Target{Name: s.Name, Tiers: tiers, Cutoff: cutoff, Filters: s.Filters, Scores: scores, Propers: s.Propers, Hold: s.Hold}, nil
 }
 
 // layTiers lays qualities out as tiers at their floors, with the index of
@@ -323,7 +344,7 @@ func layTiers(qualities [][]release.Quality, cutoff release.Quality) ([]Tier, in
 
 // Spec is t as an Admin writes it, every size named.
 func (t Target) Spec() Spec {
-	s := Spec{Name: t.Name, Filters: t.Filters, Cutoff: t.Tiers[t.Cutoff][0].Quality, Sizes: map[release.Quality]Size{}, Scores: t.Scores, Propers: t.Propers}
+	s := Spec{Name: t.Name, Filters: t.Filters, Cutoff: t.Tiers[t.Cutoff][0].Quality, Sizes: map[release.Quality]Size{}, Scores: t.Scores, Propers: t.Propers, Hold: t.Hold}
 	s.Scores.Formats = maps.Clone(t.Scores.Formats)
 	for _, tier := range t.Tiers {
 		var qs []release.Quality

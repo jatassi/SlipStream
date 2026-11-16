@@ -349,6 +349,57 @@ func TestSkipRollUp(t *testing.T) {
 	})
 }
 
+// noting lists a and b. Each notes its outcome, and b then fails.
+func noting(keys ...tasks.UnitKey) tasks.Task {
+	t := tidy(nil)
+	t.Units = func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
+		return here(keys...), nil
+	}
+	t.Run = func(_ context.Context, u tasks.Unit, p *tasks.Progress) error {
+		p.Note("Read 87 new releases. 3 matched a Work, and 1 was grabbed.")
+		if u.Key == "b" {
+			return errors.New("database is locked")
+		}
+		return nil
+	}
+	return t
+}
+
+func TestANoteShowsOnASucceededLine(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		lib := storagetest.Library(t, tasks.Schema())
+		s := open(t, lib, noting("a", "b"))
+		clock(t, s)
+		start(t, s, scan(tasks.ByRunNow, "a", "b"))
+		d, err := s.Task(t.Context(), "tidy")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(d.Runs) != 1 || d.Runs[0].Summary != "1 of 2 steps, 1 failed" {
+			t.Fatalf("runs = %+v, want one partial run summarized by its counts", d.Runs)
+		}
+		want := []tasks.Line{
+			{Key: "a", Label: "a", Node: "home", NodeID: home, Outcome: tasks.Succeeded, Note: "Read 87 new releases. 3 matched a Work, and 1 was grabbed."},
+			{Key: "b", Label: "b", Node: "home", NodeID: home, Outcome: tasks.Failed, Cause: "database is locked"},
+		}
+		if got := d.Runs[0].Lines; !slices.Equal(got, want) {
+			t.Fatalf("lines = %+v, want a's note shown and b's dropped", got)
+		}
+	})
+}
+
+func TestARunOfOneUnitIsSummarizedByItsNote(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		lib := storagetest.Library(t, tasks.Schema())
+		s := open(t, lib, noting("a"))
+		clock(t, s)
+		start(t, s, scan(tasks.ByRunNow, "a"))
+		if got := rows(t, lib, "SELECT result, summary FROM tasks_run"); !equal(got, []string{"succeeded|Read 87 new releases. 3 matched a Work, and 1 was grabbed."}) {
+			t.Fatalf("runs = %q, want the unit's note as the summary", got)
+		}
+	})
+}
+
 func TestOwnedSkipRaisesNoWarning(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		lib := storagetest.Library(t, tasks.Schema())

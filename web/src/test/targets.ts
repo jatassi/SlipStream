@@ -142,6 +142,7 @@ export const starter: TargetsTarget = {
   ],
   scores: { formats: [], minimum: 0, upgradeUntil: 0, increment: 1 },
   propers: "prefer_and_upgrade",
+  holdSeconds: 0,
   profiles: [{ id: "0199e1f2-7a3b-7c4d-8e5f-000000000001", name: "Movies" }],
   contains: [],
 };
@@ -161,6 +162,7 @@ export const keeper: TargetsTarget = {
   ],
   scores: { formats: [], minimum: 0, upgradeUntil: 0, increment: 1 },
   propers: "prefer_and_upgrade",
+  holdSeconds: 0,
   profiles: [],
   contains: [],
 };

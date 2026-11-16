@@ -9,15 +9,16 @@ import { Section } from "../ui/section";
 import { Spinner } from "../ui/spinner";
 import { RunReleases } from "./search-releases";
 // oxlint-disable-next-line import/max-dependencies -- a grabbed run reads its Grab's stage
+import { outcomeWords, triggerWords } from "./search-words";
 import { stageWord } from "./stages";
 
-const outcomeText: Record<NonNullable<GrabsSearch["outcome"]>, string> = {
-  grabbed: "Grabbed a Release",
-  nothing_acceptable: "Found nothing acceptable",
-  listed: "Listed Releases",
-};
-
 const found = (count: number) => (count === 1 ? "1 Release found" : `${count} Releases found`);
+
+/** What started the run, and its group: "Backlog search · season 3". */
+const startedBy = ({ trigger, groupLabel }: GrabsSearch): string =>
+  [trigger === null ? "Manual search" : triggerWords[trigger], groupLabel]
+    .filter((part) => part !== null)
+    .join(" · ");
 
 function IndexerLines({ search }: { search: GrabsSearch }) {
   return (
@@ -30,17 +31,6 @@ function IndexerLines({ search }: { search: GrabsSearch }) {
       ))}
     </ul>
   );
-}
-
-/** Each Item's latest finished run, the only runs whose Releases are kept. */
-function latestRuns(searches: readonly GrabsSearch[]): ReadonlySet<string> {
-  const latest = new Map<string, string>();
-  for (const search of searches) {
-    if (search.outcome !== null && !latest.has(search.itemId)) {
-      latest.set(search.itemId, search.id);
-    }
-  }
-  return new Set(latest.values());
 }
 
 type Run = {
@@ -77,14 +67,18 @@ function SearchRow({ search, grab, releases, onTest }: Run) {
   // take the row's full width.
   return (
     <ListRow
-      title={search.outcome === null ? "Searching" : outcomeText[search.outcome]}
+      title={search.outcome === null ? "Searching" : outcomeWords[search.outcome](search)}
       meta={
-        search.outcome === null ? undefined : (
-          <>
-            {found(search.candidates)} · {stage}
-            {time}
-          </>
-        )
+        <>
+          {startedBy(search)}
+          {search.outcome !== null && (
+            <>
+              {" · "}
+              {found(search.candidates)} · {stage}
+              {time}
+            </>
+          )}
+        </>
       }
       detail={
         search.indexers.length === 0 && !releases ? undefined : (
@@ -107,7 +101,6 @@ function SearchRow({ search, grab, releases, onTest }: Run) {
 export function Searches({ work }: { work: WorkRef }) {
   const { searches } = useListSearchesSuspense(work.id).data;
   const { grabs } = useListGrabsSuspense().data;
-  const latest = latestRuns(searches);
   const tester = useTester();
   const onTest = (title: string) => {
     tester.open({ names: [title], work });
@@ -122,8 +115,8 @@ export function Searches({ work }: { work: WorkRef }) {
             <SearchRow
               key={search.id}
               search={search}
-              grab={grabs.find(({ id }) => id === search.grabId)}
-              releases={latest.has(search.id) && search.candidates > 0}
+              grab={grabs.find(({ id }) => id === search.grabIds[0])}
+              releases={search.outcome !== null && search.candidates > 0}
               onTest={onTest}
             />
           ))}

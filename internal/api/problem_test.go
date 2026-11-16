@@ -17,8 +17,8 @@ func TestTimeWordsAddTheDayOnlyOffNowsDayInTheZone(t *testing.T) {
 		{time.Date(2026, 11, 8, 4, 59, 0, 0, time.UTC), "23:59"},
 		{time.Date(2025, 10, 3, 14, 5, 0, 0, time.UTC), "3 Oct 2025, 09:05"},
 	} {
-		if got := timeWords(c.t, now, zone); got != c.want {
-			t.Errorf("timeWords(%s) = %q, want %q", c.t, got, c.want)
+		if got := TimeWords(c.t, now, zone); got != c.want {
+			t.Errorf("TimeWords(%s) = %q, want %q", c.t, got, c.want)
 		}
 	}
 }

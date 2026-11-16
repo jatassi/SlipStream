@@ -39,6 +39,10 @@ type planned struct {
 	ids  map[string]indexers.ID
 	// repointed is each merge's from and into, as the Repoints saw them.
 	repointed [][2]indexers.TrackerID
+	// rssEvery is RSS sync's cadence, zero while it is off.
+	rssEvery time.Duration
+	// rssChanged is each indexers.rss-changed published.
+	rssChanged *heard[indexers.RSSChanged]
 }
 
 var self = role.NodeID{UUID: storage.NewUUID()}
@@ -53,7 +57,7 @@ func plannedIn(t *testing.T, roster indexerstest.Roster, home role.NodeID, names
 	t.Helper()
 	sealer := secrettest.Sealer(t)
 	lib := storagetest.Library(t, secret.Schema(), nodes.Schema(), works.Schema(), indexers.Schema())
-	p := &planned{t: t, lib: lib, node: &indexerstest.Node{}, ids: map[string]indexers.ID{}}
+	p := &planned{t: t, lib: lib, node: &indexerstest.Node{}, ids: map[string]indexers.ID{}, rssChanged: &heard[indexers.RSSChanged]{}}
 	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for _, n := range roster.Holders {
 			if err := nodestest.Insert(ctx, tx, n, roster.Name(n)); err != nil {
@@ -73,7 +77,8 @@ func plannedIn(t *testing.T, roster indexerstest.Roster, home role.NodeID, names
 	}
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
-		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
+		ItemsAdded: works.NoItemsAdded,
+		Library:    lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
 		Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	})
 	if err != nil {
@@ -85,11 +90,15 @@ func plannedIn(t *testing.T, roster indexerstest.Roster, home role.NodeID, names
 		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}, contenttypetest.ID: fx},
 		Works:     w,
 		Changed:   discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
+		RSSChanged: p.rssChanged,
 		Repoints: []indexers.Repoint{func(_ context.Context, _ *storage.Tx[storage.Library], from, into indexers.TrackerID) error {
 			p.repointed = append(p.repointed, [2]indexers.TrackerID{from, into})
 			return nil
 		}},
-		Timings: indexers.DefaultTimings(), Zone: time.UTC,
+		Timings: indexers.DefaultTimings(), JobCap: searching.DefaultTimings().JobCap, Zone: time.UTC,
+		RSS: func(context.Context, storage.Reader[storage.Library]) (time.Duration, bool, error) {
+			return p.rssEvery, p.rssEvery > 0, nil
+		},
 		Log: slog.New(slog.DiscardHandler),
 	})
 	return p
@@ -338,8 +347,6 @@ func TestEachOutcomeLineSaysItInWords(t *testing.T) {
 		{&indexers.Outcome{Kind: indexers.Found, Releases: 1}, "Found 1 Release"},
 		{&indexers.Outcome{Kind: indexers.Found, Releases: 12}, "Found 12 Releases"},
 		{&indexers.Outcome{Kind: indexers.NoReleases}, "No Releases"},
-		{&indexers.Outcome{Kind: indexers.IsLimited, Until: at}, "Limit reached until 14:05"},
-		{&indexers.Outcome{Kind: indexers.LimitReached, Until: at}, "Limit reached until 14:05"},
 		{&indexers.Outcome{Kind: indexers.Waiting, Node: self}, "Waiting for home"},
 		{&indexers.Outcome{Kind: indexers.IsFailing, Until: at}, "Isn't responding. SlipStream retries at 14:05."},
 		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CredentialsRejected}, "Stopped because the username or password was rejected."},
@@ -359,6 +366,24 @@ func TestEachOutcomeLineSaysItInWords(t *testing.T) {
 			t.Errorf("Line(%+v) = %q, want %q", tc.o, got, tc.want)
 		}
 	}
+}
+
+func TestALimitEndingAnotherDayNamesTheDay(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := plannedWith(t)
+		now := time.Now().UTC()
+		for _, tc := range []struct {
+			until time.Time
+			want  string
+		}{
+			{now.Add(14*time.Hour + 5*time.Minute), "Limit reached until 14:05"},
+			{now.Add(44*time.Hour + 59*time.Minute), "Limit reached until 2 Jan, 20:59"},
+		} {
+			if got := p.x.Line(contenttypetest.ID, &indexers.Outcome{Kind: indexers.LimitReached, Until: tc.until}); got != tc.want {
+				t.Errorf("a limit until %s at %s reads %q, want %q", tc.until, now, got, tc.want)
+			}
+		}
+	})
 }
 
 func TestPlanNeverAsksAnRSSFeed(t *testing.T) {

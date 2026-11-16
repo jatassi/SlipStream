@@ -59,7 +59,7 @@ var lanes = []lane{
 	{kind: "lint-repo", tier: "lint", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "go", tier: "go", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 3}},
 	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 3}},
-	{kind: "browser", tier: "browser", shards: map[string]int{"linux-amd64": 5, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 6}},
+	{kind: "browser", tier: "browser", shards: map[string]int{"linux-amd64": 6, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 6}},
 	{kind: "component", tier: "component", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "diagram", tier: "component", shards: map[string]int{"linux-amd64": 1}, onlyWhen: func(t touched) bool { return t.diagram }},
 }
