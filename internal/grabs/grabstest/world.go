@@ -30,6 +30,8 @@ import (
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
+	"github.com/jatassi/slipstream/internal/notifications/notice"
+	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	rel "github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -133,6 +135,8 @@ type World struct {
 	Sites map[string]indexers.ID
 	// Goals is the Work's Targets in Profile order.
 	Goals []targets.TargetID
+	// Notices keeps the events the Grabs record.
+	Notices *noticetest.Recorder
 
 	t           testing.TB
 	o           Options
@@ -236,6 +240,8 @@ func New(t testing.TB, o Options) *World {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
+	var rec notice.Recorder
+	rec, w.Notices = noticetest.New("grabs", grabs.Notices())
 	w.Config = grabs.Config{
 		Library: lib, Sealer: sealer, Works: tree, Targets: wanted, Files: shelf, Indexers: w.Indexers,
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Names: map[works.TypeID]rel.Names{contenttypetest.ID: Dated{}},
@@ -245,6 +251,7 @@ func New(t testing.TB, o Options) *World {
 		BlocklistChanged: discard[grabs.BlocklistChanged]{}, QueueChanged: discard[grabs.QueueChanged]{},
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return w.reconciling.Load(), nil },
 		Tasks:       Cadences{Backlog: o.BacklogEvery, RSS: o.RSSEvery}, GapCap: grabs.NoGapCap, Clock: time.Now, Today: time.Now, Log: log,
+		Notices: rec,
 	}
 	w.open()
 	t.Cleanup(w.halt)

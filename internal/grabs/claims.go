@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -26,6 +27,8 @@ type claim struct {
 	ticket indexers.Ticket
 	fills  int
 	until  time.Time
+	facts  release.Facts
+	scores []ScoreAt
 }
 
 // claimsOf is c's walk with take: its open cells in Want order, then its
@@ -72,10 +75,14 @@ func claimsOf(c cells, as []assessed, take taker, gone map[int]bool, holds bool,
 		if r.group < 0 {
 			continue
 		}
-		cl := claim{covers: as[r.group].covers, pick: r.pick, ticket: r.ticket, fills: r.fills, until: r.until}
-		for _, k := range r.cells {
+		a := &as[r.group]
+		cl := claim{covers: a.covers, pick: r.pick, ticket: r.ticket, fills: r.fills, until: r.until, facts: a.read.Facts}
+		held := make([]files.Cell, len(r.cells))
+		for i, k := range r.cells {
 			cl.cells = append(cl.cells, keyOf(in.item[k]))
+			held[i] = in.item[k]
 		}
+		cl.scores = scoresOf(a, held)
 		out = append(out, cl)
 	}
 	return out, nil
@@ -138,7 +145,7 @@ func (gr *Grabs) commitClaims(ctx context.Context, tx *storage.Tx[file], run Sea
 			for i, k := range c.cells {
 				cells[i] = Cell{Key: k}
 			}
-			n := newGrab{work: run.WorkID, item: c.cells[0].Item, items: c.covers, cells: cells, pick: c.pick, ticket: c.ticket, source: sourceOf(run), foundBy: foundByOf(run), fills: c.fills}
+			n := newGrab{work: run.WorkID, item: c.cells[0].Item, items: c.covers, cells: cells, pick: c.pick, ticket: c.ticket, source: sourceOf(run), foundBy: foundByOf(run), fills: c.fills, facts: c.facts, scores: c.scores}
 			g, err = gr.insertGrab(ctx, tx, n, now)
 		}
 		if err != nil {

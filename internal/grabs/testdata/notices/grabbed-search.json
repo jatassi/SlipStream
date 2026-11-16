@@ -1,0 +1,67 @@
+{
+  "work": {
+    "id": "019a8f5e-0000-7000-8000-000000000001",
+    "label": "Heat (1995)",
+    "type": "book",
+    "nouns": {
+      "work": {
+        "One": "book",
+        "Many": "books"
+      },
+      "levels": null,
+      "item": {
+        "One": "book",
+        "Many": "books"
+      },
+      "single": true
+    },
+    "poster": {
+      "Source": "tmdb",
+      "Shape": "poster",
+      "Path": "/heat.jpg"
+    }
+  },
+  "release": {
+    "Quality": "webdl-1080p",
+    "Source": null,
+    "Resolution": null,
+    "Modifier": null,
+    "Revision": {
+      "Version": 0,
+      "Real": 0,
+      "Repack": false
+    },
+    "Group": "FLUX",
+    "Cut": "",
+    "Edition": null,
+    "HDR": null,
+    "Video": null,
+    "Audio": null,
+    "Channels": null,
+    "Languages": null,
+    "IDs": null,
+    "Size": 6200000000,
+    "Flags": null,
+    "Coverage": {
+      "Runtime": null,
+      "Original": null
+    }
+  },
+  "indexer": "TorrentLeech",
+  "source": "search",
+  "foundBy": "search",
+  "by": {
+    "name": "Sam",
+    "apiKey": false
+  },
+  "scores": [
+    {
+      "target": "1080p",
+      "score": 1250
+    },
+    {
+      "target": "720p",
+      "score": 900
+    }
+  ]
+}
