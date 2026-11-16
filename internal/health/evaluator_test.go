@@ -758,3 +758,15 @@ func TestAnEvaluationThatChangesNothingReadsNoStorage(t *testing.T) {
 		}
 	})
 }
+
+func TestTheFirstEvaluationAfterAStartHandsOverItsTransitions(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWorld(t)
+		w.nodes.set(health.Answer{Items: []health.Item{node(health.Fail, "Media server is offline.")}}, nil)
+		run(t, w.open(t))
+		synctest.Wait()
+		if got := w.sink.kinds(); !slices.Equal(got, []health.Kind{health.Raised}) {
+			t.Fatalf("with no event published the start handed over %v, want one raise", got)
+		}
+	})
+}
