@@ -26,7 +26,7 @@ export interface GrabsManualSearch {
    * @minimum 0
    */
   releaseCount: number;
-  /** What it was started for; no levels, Items or cell for the whole Work */
+  /** What it was started for; no levels, Items or Target for the whole Work */
   scope: GrabsManualScope;
   /** An Indexer asked hasn't responded yet */
   searching: boolean;

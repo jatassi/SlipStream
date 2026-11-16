@@ -11,8 +11,8 @@ function statusParts(grabs: readonly GrabsGrab[], failed: readonly FailedGrab[])
   const [firstFailed] = failed;
   return [
     moving === 0
-      ? { kind: "plain", text: "Nothing moving" }
-      : { kind: "live", text: count(moving, "job moving", "jobs moving") },
+      ? { kind: "plain", text: "Nothing in progress" }
+      : { kind: "live", text: `${moving} in progress` },
     ...(firstFailed === undefined
       ? []
       : [

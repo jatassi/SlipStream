@@ -21,7 +21,7 @@ export interface WorksLibraryRow {
    * @minimum 0
    */
   bytes: number;
-  /** Its monitored Items' cells by state */
+  /** Its monitored Items' Editions at each Target, counted by state */
   cells: FilesStateCounts;
   /** @pattern ^[a-z][a-z0-9]{1,15}$ */
   contentType: string;
@@ -41,7 +41,7 @@ export interface WorksLibraryRow {
    */
   goneUpstreamAt: string | null;
   id: string;
-  /** Its monitored Items by status; an Item with no cell isn't counted */
+  /** Its monitored Items by status; an Item with no Target isn't counted */
   itemStatus: FilesStateCounts;
   /**
    * Its monitored Items that its source still lists, the only Items the status and counts read
@@ -77,12 +77,12 @@ export interface WorksLibraryRow {
    */
   rootId: string | null;
   sortLabel: string;
-  /** The first status its monitored Items hold, in the glossary's order; null while none holds a cell */
+  /** The most urgent status among its monitored Items, in the order failed, missing, downloading, upgradable, unreleased, met; null while none of them has a Target */
   status: FilesState | null;
   /** Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out */
   values: WorksLibraryRowValues;
   /**
-   * The first reason Wanted lists it for, in this order; null while it wants nothing
+   * The first reason Wanted lists it for, in this order; null while Wanted doesn't list it
    * @nullable
    */
   wanted: WorksLibraryRowWanted;

@@ -69,7 +69,7 @@ function HeldCells({
   const left = held.filter(({ grabId }) => !shown.has(grabId));
   return (
     left.length > 0 && (
-      <ul aria-label="Cells a Grab is downloading" className="flex flex-col gap-1 text-ink-2">
+      <ul aria-label="Files already downloading" className="flex flex-col gap-1 text-ink-2">
         {left.map((cell) => (
           <li key={cell.grabId}>{cell.words}</li>
         ))}

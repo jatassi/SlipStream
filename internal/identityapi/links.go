@@ -108,7 +108,7 @@ type emailChangeInput struct {
 }
 
 type emailChangeStarted struct {
-	Email mailapi.Outcome `json:"email" doc:"What became of the confirm link's email to the new address"`
+	Email mailapi.Outcome `json:"email" doc:"What became of the confirmation link's email to the new address"`
 }
 
 type (

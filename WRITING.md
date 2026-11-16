@@ -1,6 +1,6 @@
 # Writing
 
-How SlipStream writes the words people read. [GLOSSARY.md](GLOSSARY.md) sets the vocabulary, [PRODUCT.md](PRODUCT.md) the principles and [DESIGN.md](DESIGN.md) where text sits on screen. This file sets how a sentence reads.
+How SlipStream writes the words people read. [GLOSSARY.md](GLOSSARY.md) names the concepts and gives each one's words on screen in its `_In UI_` line, [PRODUCT.md](PRODUCT.md) the principles and [DESIGN.md](DESIGN.md) where text sits on screen. This file sets how a sentence reads.
 
 ## Scope
 
@@ -32,11 +32,11 @@ These rules come from established guides. For a case this file doesn't cover, fo
 2. **Be specific.** Name the thing and the cause. Never write "Something went wrong", "An error occurred" or "Invalid input". (GOV.UK, Microsoft)
 3. **Describe the problem, not the person.** "That PIN is wrong." is fine. "You entered a wrong PIN." blames. (Google)
 4. **No apologies, courtesy words, jokes or cheer.** Leave out "sorry", "please", "oops", "whoops" and exclamation marks. (Google, GOV.UK, Microsoft)
-5. **No harsh or vague verdicts.** Leave out "invalid", "illegal", "forbidden", "bad" and "fatal". Say what is wrong and what would be right: "Use 100 characters or fewer." Glossary terms such as Mark bad are exempt. (GOV.UK, Microsoft)
+5. **No harsh or vague verdicts.** Leave out "invalid", "illegal", "forbidden", "bad" and "fatal". Say what is wrong and what would be right: "Use 100 characters or fewer." A UI term from GLOSSARY.md, such as Mark bad, is exempt. (GOV.UK, Microsoft)
 
 ## Plain, literal words
 
-6. **Don't give software human verbs.** A program, Node, disk or server does not answer, tell, think, know better or act on its own. Microsoft's guide forbids this outright. Glossary verbs such as a Node *holds* a Role or an Item *wants* a Target are defined terms, so use them as the glossary does.
+6. **Don't give software human verbs.** A program, Node, disk or server does not answer, tell, think, know better or act on its own. Microsoft's guide forbids this outright. This holds for glossary verbs too (rule 21).
 7. **Use the standard word for a standard thing.** A server *responds*, a request gets a *response*, a retry happens *automatically*. A plain word that no other software uses is harder to read than the common one.
 8. **No figures of speech.** Say the literal thing. "Its rules go with it" becomes "Deleting it also deletes its rules."
 9. **Use contractions.** "can't", "isn't" and "doesn't" read as speech. (Microsoft) Read the message aloud. If you wouldn't say it, rewrite it. (GOV.UK)
@@ -56,9 +56,38 @@ Large language models write in recognisable patterns ([Wikipedia](https://en.wik
 18. **Over-compression.** Messages are whole sentences with their articles and verbs. Labels, buttons and headings may be fragments. "Down. Nothing is getting through." becomes "The link is down."
 19. **Uniform clipped rhythm.** A paragraph of four-word sentences reads as generated just as a wall of clauses does. Join two clauses with "and" or "because" when they are one idea.
 
+## House words in copy
+
+GLOSSARY.md is written for engineers. The person at a screen hasn't read it.
+
+20. **A glossary term reaches the screen only through its `_In UI_` line.** A term whose line is none stays out of copy, and the string says what the concept means for the reader instead. "3 cells become wanted." becomes "SlipStream will look for 3 more files."
+21. **Glossary verbs aren't sentence verbs.** Don't make holds, wants, fills, owes, reaches, dials, covers or writes off the verb of a sentence. Say the action. "Den doesn't hold Downloading." becomes "Den doesn't have the Downloading Role." "2 torrents owe seeding." becomes "2 torrents need more seeding."
+22. **Use the Content Type's noun.** Where the type is known, say movie, series, season or episode, not Work or Item. "The Work has no Item S01E02." becomes "This series has no episode S01E02."
+23. **Write for the screen, not from the definition.** Don't paste a glossary entry into copy. The string says what the person sees and what they can do. "Their cells read missing until they return." becomes "They show as missing until the files are back."
+24. **No code words.** API fields, enum values, state names and task internals stay out of copy: `writeOff`, "reads checking", "unit", "shown", "in step", "guardrail". Name the thing the person sees.
+25. **Standard term, short definition on hover.** A technical state uses the term the rest of the industry uses, such as Direct play, Direct stream, Transcode, Hit and run or Remote path mapping, with a one-sentence definition on hover. Don't swap an industry term for a house one. When rule 7 and a glossary _Avoid_ list disagree, the `_In UI_` line settles it, and it takes the standard word.
+26. **Point only at what exists.** An instruction names a button, page or setting that this build has. If the person can do nothing, say what SlipStream does next (rule 1). "The Controller can't be removed. Hand it over instead." is wrong while Handover isn't built.
+27. **A Go error never reaches a person on its own.** A problem detail, toast or Health item is a sentence written for it. `err.Error()` goes to the log. "TMDB: didn't respond: dial tcp: ..." becomes "TMDB isn't responding. SlipStream retries automatically."
+
+## Patterns from longer prose
+
+Help text, settings descriptions and OpenAPI docs run long enough to pick up these patterns too. Rules 8, 13 and 18 already cover three of them, and the table numbers the other six as rules 28 to 33.
+
+| Pattern | Rule | Fix | Before | After |
+|---|---|---|---|---|
+| Negation-first reveal | 13 | State the positive claim. Drop the contrast setup. | It is not a wrong answer. It is a non-answer. | The response restates the question and gives no answer. |
+| Significance designation | 28 | Say what the thing does, not that it matters. | It is the leg that answers the actual question. | Leg 4 measures accuracy on held-out questions. Use its result to decide. |
+| Abstraction agency | 29 | Make a person, system or number the subject of the verb. | Median hides it. The table shows it. | The median latency is 1.2 s, but 3 of 40 runs took over 10 s. Rows 3 to 5 list those runs. |
+| Deferred noun | 30 | Name the items in the first sentence. | Five of those six rows are one cluster. The sixth is not. | Rows 1 to 5 used the default sampler. Row 6 used top-k sampling. |
+| Coy or thesis-shaped header | 31 | Write a header that labels the topic. Put the claim in the body. | What "exhausted" means | Definition of "exhausted" |
+| Aphoristic closer | 32 | State the specific defect, or delete the sentence. | It is the kind of number that looks like evidence and is not. | The 12% gain comes from one run with no variance estimate. |
+| Straw-man knockdown | 33 | State the correct reading and its evidence. Mention the wrong reading only if the reader holds it. | "It thinks twice as long" is the obvious reading, and it is wrong. | Output tokens doubled, but reasoning tokens stayed flat. |
+| Fragment cadence | 18 | Use full sentences with a subject and a verb. | Six legs. One GPU, one server build. | The test has six legs. All six use the same GPU and server build. |
+| Dressed metaphor | 8 | Name the literal action and its effect. | That is information loss wearing the costume of a style fix. | The edit removed the confidence intervals. The commit called it a style fix, but it changed the content. |
+
 ## Mechanics
 
-- Sentence case everywhere. Glossary terms keep their capitals: Work, Node, Target, Profile, Grab.
+- Sentence case everywhere. A term whose `_In UI_` line capitalizes it keeps its capitals: Node, Target, Profile, Grab. Other house words don't appear (rule 20).
 - A full sentence ends with a period. Labels, buttons, headings and menu items don't.
 - Straight quotes (`"` and `'`) in source. The ellipsis character `…` marks only an in-progress state or a menu item that opens a dialog, as DESIGN.md sets.
 - Go error strings start lowercase, end without punctuation and add context as they wrap: `fmt.Errorf("read the volumes: %w", err)`. Their words still follow every rule above.
@@ -77,7 +106,13 @@ Large language models write in recognisable patterns ([Wikipedia](https://en.wik
 | Accept them only on purpose; they rank below every other quality. | They rank below every other quality. Accept them only if you want cinema recordings. | 11 |
 | You're all set, Sam. | Your Account is ready, Sam. | 14 |
 | Another cut already goes by this name or one of these phrases. | Another cut already uses this name or one of these phrases. | 8 |
+| 3 cells become wanted. | SlipStream will look for 3 more files. | 20 |
+| That Node doesn't hold Downloading. | That Node doesn't have the Downloading Role. | 21 |
+| 2 torrents owe seeding. | 2 torrents need more seeding. | 21 |
+| Announce error | Tracker error | 25 |
+| The Controller can't be removed. Hand it over instead. | The Controller can't be removed. | 26 |
+| Couldn't refresh the metadata of Heat. TMDB: didn't respond: dial tcp: lookup api.themoviedb.org: no such host | Couldn't refresh the metadata of Heat. TMDB isn't responding. SlipStream retries automatically. | 27 |
 
 ## Reviewing
 
-Every review of a diff that adds or changes a string in scope checks it against this file, including poteto-mode's interrogate reviewers, `/deslop` and verification swarms. Quote the string, name the rule number and give the rewrite. The `copy-words` lint fails on the fixed phrases and words from rules 2, 4, 14 and 15 and on any em or en dash, except a string that is only a dash, such as an empty-cell marker. It checks Go string literals and `doc:` tags in product code, and web string literals, template text and JSX text outside tests, `e2e/` and `harness/`. The Go and web checks read one list, `web/lint/copy-words.json`. Everything else needs a reviewer.
+Every review of a diff that adds or changes a string in scope checks it against this file, including poteto-mode's interrogate reviewers, `/deslop` and verification swarms. Quote the string, name the rule number and give the rewrite. The `copy-words` lint fails on the fixed phrases and words from rules 2, 4, 14 and 15 and on any em or en dash, except a string that is only a dash, such as an empty-cell marker. It checks Go string literals and `doc:` tags in product code, and web string literals, template text and JSX text outside tests, `e2e/` and `harness/`. The Go and web checks read one list, `web/lint/copy-words.json`. The `house-words` lint does the same for the glossary words of rules 20 to 24, listed in `web/lint/house-words.json`. It allows only the matches `web/lint/house-words-baseline.json` records, and that count only goes down: after a fix, run `bun lint/house-words-baseline.js` from `web/` to lower it. The `problem-detail-from-error` lint enforces rule 27, and `glossary-format` requires an `_In UI_` line on every glossary entry. Everything else needs a reviewer.

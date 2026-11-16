@@ -84,7 +84,7 @@ export const LibraryRow = memo(function LibraryRow({
     >
       <td data-col="pick">
         <Checkbox
-          label={`Pick ${work.label}`}
+          label={`Select ${work.label}`}
           hideLabel
           checked={picked}
           onCheckedChange={(_, by) => {

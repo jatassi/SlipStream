@@ -328,6 +328,9 @@ func (r *Router) failure(ctx context.Context, op Op, declared []*Code, err error
 	}
 	switch {
 	case isCode && slices.Contains(declared, code):
+		if e != nil && e.cause != nil {
+			r.services.Log.Warn("operation "+op.ID+" answered "+code.name, append(attrs, "error", e.cause)...)
+		}
 		return e.answer(code, cmp.Or(r.services.Zone, time.Local))
 	case isCode:
 		r.services.Log.Error("operation "+op.ID+" returned undeclared code "+code.name, attrs...)

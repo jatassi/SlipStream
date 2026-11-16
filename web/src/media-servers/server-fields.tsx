@@ -61,7 +61,7 @@ export function NodeFields({
         {(field) => (
           <div className="flex flex-col gap-1.5">
             <Select
-              label="Reached from"
+              label="Connect from"
               options={reachingChoices(reaching).map((node) => ({
                 value: node.id,
                 label: node.id === reaching.controller.id ? `${node.name} (Controller)` : node.name,
@@ -126,7 +126,7 @@ function AddressField({ sheet: { form }, kind, nodes, reaching }: Omit<Props, "k
           autoComplete="off"
           spellCheck={false}
           placeholder={example}
-          description={`The whole address, such as ${example}, as the Node that reaches ${kind.label} calls it.`}
+          description={`The full address the Connect from Node uses for ${kind.label}, such as ${example}.`}
         />
       )}
     </form.AppField>
@@ -176,7 +176,7 @@ function PlexAddressField({ sheet: { form } }: Pick<Props, "sheet">) {
           data
           autoComplete="off"
           spellCheck={false}
-          description="The address SlipStream found from those plex.tv lists. Type another when the server responds at an address plex.tv doesn't list."
+          description="SlipStream picked this address from the ones plex.tv lists. Enter another if the server responds at an address plex.tv doesn't list."
         />
       )}
     </form.AppField>
@@ -191,7 +191,7 @@ function AddressDetails({ sheet, kind }: Pick<Props, "sheet" | "kind">) {
       fields
       open={sheet.detailsOpen}
       onOpenChange={sheet.setDetailsOpen}
-      summary="SlipStream calls the address from the Node it's reached from, and the fallback address from the Controller while that Node is offline."
+      summary="The Connect from Node uses the address. The Controller uses the fallback address while that Node is offline."
     >
       <div className="mt-2 flex flex-col gap-4">
         {kind.signIn === "plex_pin" && <PlexAddressField sheet={sheet} />}
@@ -203,7 +203,7 @@ function AddressDetails({ sheet, kind }: Pick<Props, "sheet" | "kind">) {
               data
               autoComplete="off"
               spellCheck={false}
-              description="What the Controller calls. Leave it empty when the Controller can use the address."
+              description="The address the Controller uses while the Connect from Node is offline. Leave it empty if the Controller can use the main address."
             />
           )}
         </form.AppField>
@@ -216,7 +216,7 @@ function AddressDetails({ sheet, kind }: Pick<Props, "sheet" | "kind">) {
                 data
                 autoComplete="off"
                 spellCheck={false}
-                description={`Where Open in takes a browser to ${kind.label}. Leave it empty for no Open in button.`}
+                description={`The address the Open in ${kind.label} button opens. Leave it empty to hide the button.`}
               />
             )}
           </form.AppField>

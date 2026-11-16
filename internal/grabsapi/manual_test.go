@@ -77,9 +77,9 @@ func TestGetManualSearchPlansTheWorksManualSearch(t *testing.T) {
 			t.Fatalf("getManualSearch = %d %s, want 200", code, got)
 		}
 	}
-	if v.Line != "SlipStream searched 2 Indexers." || v.Plan.Headline != "1 Grab gets you everything." || len(v.Plan.Rows) != 1 ||
+	if v.Line != "SlipStream searched 2 Indexers." || v.Plan.Headline != "1 Grab downloads every file you're missing." || len(v.Plan.Rows) != 1 ||
 		v.Plan.Rows[0].Pick == nil || v.Plan.Rows[0].Pick.Release.Title != "The.Attic.1080p.WEB" || v.ReleaseCount != 2 ||
-		v.Folded.Line != "SlipStream wouldn't grab 1 more Release." {
+		v.Folded.Line != "SlipStream wouldn't grab 1 more release." {
 		t.Fatalf("getManualSearch = %+v, want one row grabbing Better Site's 1080p and the 720p folded", v)
 	}
 	code, got := f.s.Call(t, http.MethodGet, path+"/releases", "")

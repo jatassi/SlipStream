@@ -28,7 +28,7 @@ func (gr *Grabs) rssTask() tasks.Task {
 	return tasks.Task{
 		ID:      RSSTaskID,
 		Name:    "RSS sync",
-		About:   "Reads the new uploads of each Indexer with RSS on, and grabs the ones a Work wants.",
+		About:   "Reads the new uploads of each Indexer with RSS on, and grabs any that are missing from the library or upgrade a file there.",
 		Group:   tasks.GroupOf(role.Searching.Group()),
 		Cadence: tasks.Every{Interval: RSSEvery},
 		Noun:    setting.Noun{One: "Indexer", Many: "Indexers"},

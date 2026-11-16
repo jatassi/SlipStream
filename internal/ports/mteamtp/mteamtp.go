@@ -362,7 +362,7 @@ func (f *fields) fail(name, s string, err error) {
 // SlipStream: Prowlarr's validator is the required flag on the API key.
 type mTeamTpSettings struct {
 	port.APIKeyField `help:"Find your API key on M-Team under User Control Panel > Laboratory."`
-	FreeleechOnly    bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
+	FreeleechOnly    bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
 }
 
 type mTeamTpRequestType string

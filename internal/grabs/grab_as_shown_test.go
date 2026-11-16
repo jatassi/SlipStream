@@ -60,8 +60,8 @@ func TestEveryRowOfAPlanWhoseLaterReleaseAlsoFillsAnEarlierCellIsGrabbed(t *test
 				rows = append(rows, r.Pick.Release.Title+": "+r.Outcome)
 			}
 		}
-		want := []string{bluRay + ": It gets you Disc for T01.", webDL + ": It gets you Web for T01."}
-		if v.Plan.Headline != "2 Grabs get you everything." || !slices.Equal(rows, want) {
+		want := []string{bluRay + ": It downloads Disc for T01.", webDL + ": It downloads Web for T01."}
+		if v.Plan.Headline != "2 Grabs download every file you're missing." || !slices.Equal(rows, want) {
 			t.Fatalf("the plan is %q with rows %q, want 2 Grabs with rows %q", v.Plan.Headline, rows, want)
 		}
 		for _, r := range a.grabbed(t, v, rowPicks(v)...) {
@@ -87,7 +87,7 @@ func TestAReleaseShowsEveryLiftItsGrabNeeds(t *testing.T) {
 		v := a.searchedByHand(t)
 		want := []string{"Score 0 is below the minimum of 1 at Disc.", "Score 0 is below the minimum of 1 at Web."}
 		o := a.offer(t, lq)
-		if got := liftsOf(o.Grab.Lifts); !slices.Equal(got, want) || o.Grab.Outcome != "It gets you Disc and Web for T01." {
+		if got := liftsOf(o.Grab.Lifts); !slices.Equal(got, want) || o.Grab.Outcome != "It downloads Disc and Web for T01." {
 			t.Fatalf("All Releases offers %s getting past %q for %q, want %q for both cells", lq, got, o.Grab.Outcome, want)
 		}
 		_, c := choice(t, v, lq)
@@ -118,7 +118,7 @@ func TestARowPinnedAfterACellNothingFillsGrabsTheCellsItShows(t *testing.T) {
 			t.Fatal(err)
 		}
 		r := v.Plan.Rows[1]
-		if r.Pick == nil || r.Outcome != "It gets you Web for T01." || !slices.Equal(liftsOf(r.Pick.Lifts), []string{"Score 0 is below the minimum of 1 at Web."}) {
+		if r.Pick == nil || r.Outcome != "It downloads Web for T01." || !slices.Equal(liftsOf(r.Pick.Lifts), []string{"Score 0 is below the minimum of 1 at Web."}) {
 			t.Fatalf("the pinned row is %+v, want %s for Web alone", r, lq)
 		}
 		made(t, a.grabbed(t, v, rowPicks(v)...)[0])
@@ -145,7 +145,7 @@ func TestALaterRowPinnedToAReleaseThatAlsoFillsAnEarlierCellGrabsBothRows(t *tes
 			t.Fatal(err)
 		}
 		r := v.Plan.Rows[1]
-		if r.Pick == nil || r.Pick.Release.Title != other || r.Outcome != "It gets you Web for T01." {
+		if r.Pick == nil || r.Pick.Release.Title != other || r.Outcome != "It downloads Web for T01." {
 			t.Fatalf("the pinned row is %+v, want %s for Web alone", r, other)
 		}
 		for _, r := range a.grabbed(t, v, rowPicks(v)...) {

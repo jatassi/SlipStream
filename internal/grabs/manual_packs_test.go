@@ -99,11 +99,11 @@ func TestAPackRowFillsTheEpisodesItBeatsAndNamesTheOnesThatKeepTheirFiles(t *tes
 	if want := []files.CellKey{keyOf(cs[0]), keyOf(cs[1]), keyOf(cs[2])}; !slices.Equal(r.Cells, want) {
 		t.Errorf("the pack's row fills %v, want episodes 1 to 3", r.Cells)
 	}
-	if want := "It gets you 1080p for E01 to E03. E04 keeps its file."; r.Outcome != want {
+	if want := "It downloads 1080p for E01 to E03. E04 keeps its file."; r.Outcome != want {
 		t.Errorf("the pack's row says %q, want %q", r.Outcome, want)
 	}
-	if v.Plan.Headline != "1 Grab gets you everything." {
-		t.Errorf("the headline is %q, want 1 Grab gets you everything", v.Plan.Headline)
+	if v.Plan.Headline != "1 Grab downloads every file you're missing." {
+		t.Errorf("the headline is %q, want 1 Grab downloads everything", v.Plan.Headline)
 	}
 	if offers := offersOf(t, in); len(offers) != 1 {
 		t.Errorf("All Releases lists %d, want the pack once", len(offers))

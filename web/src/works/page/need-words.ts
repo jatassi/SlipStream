@@ -52,14 +52,14 @@ export type FailedEntry = {
 export const failedKey = ({ need }: FailedEntry) =>
   `${need.itemIds.join()} ${need.targetId} ${need.edition}`;
 
-/** "2160p HDR failed at Import · 1080p and 720p wait on it" */
+/** "2160p HDR failed at Import · 1080p and 720p are made from it and can't start" */
 export function failedWords(naming: Naming, need: FilesFailedNeed, grab: FailedGrab): string {
   const failed = `${cellsOf(naming, need, [need.targetId])} failed at ${stageLabel[trackStage(grab)]}`;
   if (need.waiting.length === 0) {
     return failed;
   }
   const waiting = list.format(need.waiting.map((id) => naming.targetName(id)));
-  return `${failed} · ${waiting} ${need.waiting.length === 1 ? "waits" : "wait"} on it`;
+  return `${failed} · ${waiting} ${need.waiting.length === 1 ? "is" : "are"} made from it and can't start`;
 }
 
 /** "S02E01 to S02E08 not found", or the Work's own label for a Work of one Item. */
@@ -85,7 +85,7 @@ export type ImportWait = "no_space" | "root_not_ready" | "probe_timeout";
  */
 export function importWaitWords(code: ImportWait, root: string, space: FilesSpace | null): string {
   if (code === "probe_timeout") {
-    return "Reading a file of this download timed out 3 times. Retry, or check the Node's disk.";
+    return "Reading a file of this download timed out 3 times. Retry the import, or check the disk the file is on.";
   }
   if (code === "root_not_ready") {
     return `The ${root} isn't ready. SlipStream retries once it is.`;

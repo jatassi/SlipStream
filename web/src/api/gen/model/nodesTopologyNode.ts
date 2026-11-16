@@ -12,13 +12,13 @@ export interface NodesTopologyNode {
   /** The last verdict of each probe the Node ran, kept while it is away */
   probes: NodesProbe[];
   resources: NodesResources;
-  /** Every Role the Node stands in, in table order */
+  /** Every Role the Node has, in the order of the Roles table */
   roles: NodesRoleView[];
   /** The Node that responded, which is the Controller */
   self: boolean;
-  /** When it came in step; while away, its last Sync frame */
+  /** When it connected; while away, when it last reported */
   since: string;
   state: NodesTopologyNodeState;
-  /** Whether any Media Server the Node reaches responds; false unless it stands in Media Server link */
+  /** Whether any Media Server the Node reaches responds; false unless it has the Media Server link Role */
   television: boolean;
 }

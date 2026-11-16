@@ -40,7 +40,7 @@ func (s *Scheduler) HealthSource(category health.ID) health.Source {
 			if wait, ok := v.Status.(Waiting); ok {
 				a.Unsure = append(a.Unsure, health.Unsure{Key: key, Says: health.Says{
 					Subject: v.Task.Name,
-					Text:    v.Task.Name + " is waiting for " + wait.Node + " and runs again once it is back.",
+					Text:    v.Task.Name + " is waiting for " + wait.Node + ". It runs again once " + wait.Node + " is back online.",
 					Detail:  []health.Fact{{Label: "Waiting since", At: wait.Since}},
 				}})
 				continue
@@ -62,7 +62,7 @@ func saysOf(w Warning) health.Says {
 		says.Text = w.Text + ". Run it again once the cause is fixed."
 		says.Detail = []health.Fact{{Label: "Failed at", At: w.At}}
 	} else {
-		says.Text = w.Text + ". Run it now to try " + w.Unit + " again."
+		says.Text = w.Text + ". Run it now to retry " + w.Unit + "."
 		says.Detail = []health.Fact{{Label: "Not finished", Text: w.Unit}, {Label: "Unfinished since", At: w.At}}
 	}
 	if w.Cause != "" {

@@ -31,7 +31,7 @@ test("each Role's state reads as a line", () => {
     "Holding 3 torrents (41 GB)",
   );
   expect(line({ role: "downloading", state: "draining", held: torrents })).toBe(
-    "Draining, 3 torrents (41 GB) stay",
+    "Finishing its work, 3 torrents (41 GB) stay",
   );
   expect(
     line({
@@ -39,27 +39,27 @@ test("each Role's state reads as a line", () => {
       state: "draining",
       held: { units: 2, noun: "roots", bytes: 0, endlessUnits: 2 },
     }),
-  ).toBe("Draining, 2 roots stay");
+  ).toBe("Finishing its work, 2 roots stay");
   expect(
     line({
       role: "storage",
       state: "draining",
       held: { units: 1, noun: "root", bytes: 12 * 1024 ** 3, endlessUnits: 1 },
     }),
-  ).toBe("Draining, 1 root (12 GB) stays");
+  ).toBe("Finishing its work, 1 root (12 GB) stays");
   expect(
     line({
       role: "searching",
       state: "draining",
       held: { units: 3, noun: "Indexers", bytes: 0, endlessUnits: 0 },
     }),
-  ).toBe("Draining · 3 Indexers left");
+  ).toBe("Finishing its work · 3 Indexers left");
   expect(line({ role: "downloading", state: "writing-off", held: torrents })).toBe(
-    "Writing off 3 torrents (41 GB)",
+    "Giving up 3 torrents (41 GB)",
   );
   expect(line({ role: "downloading", state: "away" }, offline)).toBe("Offline since 21:31");
   expect(line({ role: "downloading", state: "lapsed" }, offline)).toBe(
-    "Offline since 21:31 · past the offline grace",
+    "Offline since 21:31 · longer than the Offline grace",
   );
   expect(line({ role: "searching", state: "covering" })).toBe("Covering for seedbox");
 });

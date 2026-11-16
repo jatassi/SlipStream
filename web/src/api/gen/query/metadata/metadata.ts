@@ -99,7 +99,7 @@ export const getGetContentTypeRefreshUrl = (contentType: string) => {
 };
 
 /**
- * @summary Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open
+ * @summary Get when every Work of a Content Type was last refreshed together, and whether a run doing it is in progress
  */
 export const getContentTypeRefresh = async (
   contentType: string,
@@ -227,7 +227,7 @@ export function useGetContentTypeRefreshSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open
+ * @summary Get when every Work of a Content Type was last refreshed together, and whether a run doing it is in progress
  */
 
 export function useGetContentTypeRefreshSuspense<
@@ -265,7 +265,7 @@ export const getRefreshContentTypeUrl = (contentType: string) => {
 };
 
 /**
- * @summary Refresh every Work of a Content Type as a run of Metadata refresh now, or at its next run while one is open
+ * @summary Refresh every Work of a Content Type in a Metadata refresh run now, or in the next run if one is in progress
  */
 export const refreshContentType = async (
   contentType: string,
@@ -337,7 +337,7 @@ export type RefreshContentTypeMutationError = ErrorType<
 export type RefreshContentTypeMutationVariables = { contentType: string };
 
 /**
- * @summary Refresh every Work of a Content Type as a run of Metadata refresh now, or at its next run while one is open
+ * @summary Refresh every Work of a Content Type in a Metadata refresh run now, or in the next run if one is in progress
  */
 export const useRefreshContentType = <
   TError = ErrorType<
@@ -373,7 +373,7 @@ export const getClearMetadataCacheUrl = () => {
 };
 
 /**
- * @summary Have every Node reading metadata drop what it cached, the next time it reads
+ * @summary Clear the metadata cache on every Node that reads metadata
  */
 export const clearMetadataCache = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -423,7 +423,7 @@ export type ClearMetadataCacheMutationError = ErrorType<
 >;
 
 /**
- * @summary Have every Node reading metadata drop what it cached, the next time it reads
+ * @summary Clear the metadata cache on every Node that reads metadata
  */
 export const useClearMetadataCache = <
   TError = ErrorType<

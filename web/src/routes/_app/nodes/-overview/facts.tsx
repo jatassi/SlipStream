@@ -26,7 +26,7 @@ function reached({ node, nodes, act }: Props) {
   };
   return [
     [
-      "Reached by",
+      "Connection",
       <Labelled
         key="reached"
         text={reachedBy(controller, node)}

@@ -78,7 +78,7 @@ func TestFailedMiddlePageChangesNothing(t *testing.T) {
 	cue(t, run, "tvdb-add-season", `{"id":`+longSeries+`}`)
 	setFault(t, run, fault.Rule{ID: "middle-page", Target: "tvdb", Route: "episodes", Skip: 1}, "status=500")
 	worldtest.Expect(t, "refreshWorks with the second page failing", a.Admin("home", http.MethodPost, "/api/v1/works/refresh", `{"workIds":["`+added.ID+`"]}`),
-		worldtest.Reply{Status: 200, Body: `{"outcomes":[{"workId":"` + added.ID + `","outcome":"failed","problem":{"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later.","detail":"TVDB: responded with 500 Internal Server Error"}}]}` + "\n"})
+		worldtest.Reply{Status: 200, Body: `{"outcomes":[{"workId":"` + added.ID + `","outcome":"failed","problem":{"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later.","detail":"TVDB isn't available right now. Try again later."}}]}` + "\n"})
 	if fired := selected(t, run, events.Query{Kind: events.FaultFired, Match: map[string]string{"rule": "middle-page"}}); len(fired) == 0 {
 		t.Fatal("no episodes page failed")
 	}

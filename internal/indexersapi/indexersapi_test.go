@@ -215,7 +215,7 @@ func TestANewIndexersSwitchesAreOnUnlessSentFalse(t *testing.T) {
 func TestEachCreateErrorAnswersItsProblem(t *testing.T) {
 	s := serve(t, indexerstest.Alone(self), role.NodeID{})
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(s.address(), "wrong"), http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again.","cause":"account_refused"}`)
+		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site refused the API key and responded 'Invalid API Key'. Check the account, then test again.","cause":"account_refused"}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body(s.site.Address.URL("/elsewhere"), s.key), http.StatusUnprocessableEntity,
 		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site failed the Test with 'the Indexer responded with status 404'. Check the address and test again."}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", s.body("ftp://example.test/torznab", "k"), http.StatusUnprocessableEntity,
@@ -229,10 +229,10 @@ func TestEachCreateErrorAnswersItsProblem(t *testing.T) {
 
 	none := serve(t, indexerstest.Roster{Controller: self}, role.NodeID{})
 	none.owner.Expect(t, http.MethodPost, "/api/v1/indexers", none.body(none.address(), none.key), http.StatusConflict,
-		`{"status":409,"code":"no_searching_node","title":"No Node holds Searching. Give one the Searching Role first."}`)
+		`{"status":409,"code":"no_searching_node","title":"No Node has the Searching Role. Give one the Searching Role first."}`)
 	elsewhere := `{"kind":"torznab","name":"Fixture Site","address":"https://site.test","apiKey":"k","homeNodeId":"` + worker.String() + `"}`
 	none.owner.Expect(t, http.MethodPost, "/api/v1/indexers", elsewhere, http.StatusConflict,
-		`{"status":409,"code":"node_not_searching","title":"That Node doesn't stand in Searching"}`)
+		`{"status":409,"code":"node_not_searching","title":"That Node doesn't have the Searching Role"}`)
 
 	down := serve(t, indexerstest.Roster{Controller: self, Holders: []role.NodeID{worker}}, worker)
 	down.owner.Expect(t, http.MethodPost, "/api/v1/indexers", down.body(down.address(), down.key), http.StatusBadGateway,
@@ -264,7 +264,7 @@ func TestAPatchChangesOnlyWhatItSends(t *testing.T) {
 	}
 
 	s.owner.Expect(t, http.MethodPatch, path, `{"apiKey":"wrong"}`, http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again.","cause":"account_refused"}`)
+		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Fixture Site refused the API key and responded 'Invalid API Key'. Check the account, then test again.","cause":"account_refused"}`)
 	s.owner.Expect(t, http.MethodGet, path, "", http.StatusOK, fresh(host, on, 25, 3, "null"))
 	s.owner.Expect(t, http.MethodPatch, path, `{"apiKey":"`+s.key+`","searches":{"count":5,"per":"day"}}`, http.StatusOK,
 		strings.Replace(fresh(host, on, 25, 4, "null"), `"searches":{"count":0,"per":"hour"`, `"searches":{"count":5,"per":"day"`, 1))
@@ -327,10 +327,10 @@ func TestATestReportsWhatItLearnedOrWhyItFailed(t *testing.T) {
 
 	stopped := s.plant(t, "Suspended Site", site.PlayKey(101))
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers/"+stopped+"/test", "", http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Suspended Site refused the API key with 'Account suspended'. Check the account, then test again.","cause":"account_refused"}`)
+		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Suspended Site refused the API key and responded 'Account suspended'. Check the account, then test again.","cause":"account_refused"}`)
 	_, v := s.owner.Call(t, http.MethodGet, "/api/v1/indexers/"+stopped, "")
 	if !strings.Contains(v, `"status":{"state":"stopped","cause":"account_refused","text":"Account suspended"`) ||
-		!strings.Contains(v, `"sentence":"Stopped because Suspended Site refused the API key with 'Account suspended'.","fix":"Check the account, then test the Indexer."`) ||
+		!strings.Contains(v, `"sentence":"Stopped because Suspended Site refused the API key and responded 'Account suspended'.","fix":"Check the account, then test the Indexer."`) ||
 		!strings.Contains(v, `"waits":{"kind":"stopped"`) {
 		t.Fatalf("after a failed Test the Indexer is %s, want stopped for account_refused", v)
 	}

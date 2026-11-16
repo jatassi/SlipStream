@@ -63,8 +63,8 @@ function RemoveKey({ provider }: { provider: MetadataProvider }) {
         onConfirm={() => clearMetadataKey(provider.id)}
       >
         <p>
-          Calls to {provider.label} go back to SlipStream&apos;s key, or stop if this build has
-          none.
+          SlipStream switches back to its bundled {provider.label} key. If this build has none,
+          SlipStream stops getting metadata from {provider.label}.
         </p>
       </ConfirmDialog>
     </>

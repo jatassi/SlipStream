@@ -257,6 +257,6 @@ func cleanTitle(title string) string {
 
 type SpeedCDSettings struct {
 	port.UserPass
-	FreeleechOnly   bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
-	ExcludeArchives bool `port:"excludeArchives" label:"Exclude archives" help:"Leave out Releases that hold RAR files."`
+	FreeleechOnly   bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
+	ExcludeArchives bool `port:"excludeArchives" label:"Exclude archives" help:"Leave out releases that hold RAR files."`
 }

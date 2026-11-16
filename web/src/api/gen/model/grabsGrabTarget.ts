@@ -5,7 +5,7 @@ export interface GrabsGrabTarget {
   forced: boolean;
   itemId: string;
   /**
-   * How the Grab finished with the cell: a file placed into it, no file filled it, or the Admin declined it. Null while the Grab holds it
+   * How the Grab finished at this Target: it placed a file, it placed none, or the Admin declined it. Null while the Grab is still downloading for it
    * @nullable
    */
   settled: GrabsGrabTargetSettled;

@@ -29,7 +29,7 @@ type anyCut struct {
 }
 
 type namedCuts struct {
-	Kind string   `json:"kind" enum:"cuts" doc:"Named cuts: with Standard, each other cut once seen for an Item; without it, every cut outright"`
+	Kind string   `json:"kind" enum:"cuts" doc:"Named cuts: with Standard, each other cut once a release or file of it turns up for an Item; without it, every cut every time"`
 	Cuts []string `json:"cuts" nullable:"false" minItems:"1" uniqueItems:"true" doc:"Cut keys in list order"`
 }
 
@@ -67,10 +67,10 @@ type Profile struct {
 	ID          string              `json:"id" format:"uuid"`
 	Name        string              `json:"name"`
 	ContentType string              `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
-	Default     bool                `json:"default" doc:"Whether a Work added with no Profile takes it"`
-	Targets     []entry             `json:"targets" nullable:"false" doc:"In Profile order: a file is named after the first it fills"`
+	Default     bool                `json:"default" doc:"Whether a Work added with no Profile uses it"`
+	Targets     []entry             `json:"targets" nullable:"false" doc:"In Profile order: a file is named after the first Target it is the file for"`
 	Editions    api.OneOf[editions] `json:"editions"`
-	Works       int                 `json:"works" minimum:"0" doc:"The Works wanting from it"`
+	Works       int                 `json:"works" minimum:"0" doc:"The Works that use it"`
 }
 
 func profileOf(p targets.Profile) Profile {
@@ -98,7 +98,7 @@ type profileDetail struct {
 type newProfile struct {
 	Name        string              `json:"name" minLength:"1" maxLength:"100"`
 	ContentType string              `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
-	Targets     []entry             `json:"targets" nullable:"false" uniqueItems:"true" doc:"In Profile order; none is a Profile whose Works want nothing"`
+	Targets     []entry             `json:"targets" nullable:"false" uniqueItems:"true" doc:"In Profile order; none is a Profile whose Works need no files"`
 	Editions    api.OneOf[editions] `json:"editions"`
 }
 

@@ -66,7 +66,7 @@ func TestTrashFilmTemplatesPassOnlyWithTheFolderRewrite(t *testing.T) {
 		}
 		imported.Templates["folder"] = &folder
 		got = problemsOf(t, filmDecl, imported)
-		if len(got) != 1 || got[0].Key != "file.standard" || !strings.HasPrefix(got[0].Sentence, `For the sample "Nothing known" with no release facts, `) {
+		if len(got) != 1 || got[0].Key != "file.standard" || !strings.HasPrefix(got[0].Sentence, `For the sample "Nothing known" with no release details, `) {
 			t.Errorf("%s without the folder rewrite: problems = %q; want one on the sample with no year", key, got)
 		}
 	}

@@ -101,7 +101,7 @@ function activityServer() {
   };
 }
 
-const sentence = () => page.getByRole("paragraph").filter({ hasText: "moving" });
+const sentence = () => page.getByRole("paragraph").filter({ hasText: "in progress" });
 const quietOrchard = () => page.getByRole("row", { name: /^The Quiet Orchard /u });
 const harvestCard = () => page.getByRole("article", { name: "Orchard Harvest" });
 
@@ -109,7 +109,7 @@ test("Activity leads with what moves and what failed, then the failure, then eac
   renderApp({ path: "/activity", handlers: activityServer().handlers });
   await expect.element(page.getByRole("heading", { name: "Activity" })).toBeVisible();
 
-  await expect.element(sentence()).toHaveTextContent("1 job moving · 1 failure");
+  await expect.element(sentence()).toHaveTextContent("1 in progress · 1 failure");
   await expect
     .element(page.getByRole("link", { name: "1 failure" }))
     .toHaveAttribute("href", `#failed-${failed.id}`);
@@ -121,9 +121,9 @@ test("Activity leads with what moves and what failed, then the failure, then eac
     .toMatchTextContent(
       "Orchard Harvest" +
         "Cause" +
-        "SlipStream couldn't download the Release's .torrent file or magnet link from the Indexer." +
+        "SlipStream couldn't download the release's .torrent file or magnet link from the Indexer." +
         "Recovery" +
-        "Search again to pick another Release." +
+        "Search again to pick another release." +
         "Release" +
         "Orchard.Harvest.2019.720p.HDTV" +
         "Detail" +
@@ -168,7 +168,9 @@ test("grabs.changed moves a Grab to Imported without a reload", async () => {
     .toHaveTextContent(
       "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLWEBDL-1080p1080pImported",
     );
-  await expect.element(sentence()).toHaveTextContent("Nothing moving · 1 failure · 1 imported");
+  await expect
+    .element(sentence())
+    .toHaveTextContent("Nothing in progress · 1 failure · 1 imported");
   expect(page.getByRole("progressbar").all()).toHaveLength(0);
 });
 
@@ -289,10 +291,10 @@ test("an imported Job opens its torrent and offers no pause", async () => {
 
 test("the Content Type filter narrows Jobs and its failures", async () => {
   const { router } = renderApp({ path: "/activity", handlers: activityServer().handlers });
-  await expect.element(sentence()).toHaveTextContent("1 job moving · 1 failure");
+  await expect.element(sentence()).toHaveTextContent("1 in progress · 1 failure");
   await userEvent.click(page.getByRole("combobox", { name: "Content Type" }));
   await userEvent.click(page.getByRole("option", { name: "Zines" }));
-  await expect.element(sentence()).toHaveTextContent("Nothing moving · 1 failure");
+  await expect.element(sentence()).toHaveTextContent("Nothing in progress · 1 failure");
   await expect.element(quietOrchard()).not.toBeInTheDocument();
   expect(router.state.location.search).toEqual({ type: "zines" });
 });

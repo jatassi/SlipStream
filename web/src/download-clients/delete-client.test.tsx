@@ -36,8 +36,9 @@ test("deleting a client that holds torrents says how many stay in it, stops trac
   clients.state.answers.remove = () =>
     refusal(409, {
       code: "download_client_has_torrents",
-      title: "This client holds torrents SlipStream tracks",
-      detail: "Transmission holds 3 torrents SlipStream tracks. Stop tracking them to delete it.",
+      title: "This client has torrents that SlipStream tracks",
+      detail:
+        "Transmission has 3 torrents that SlipStream tracks. Stop tracking them to delete the client.",
     });
   renderApp({ path, handlers: clients.handlers });
   await openDelete();
@@ -53,7 +54,7 @@ test("deleting a client that holds torrents says how many stay in it, stops trac
   await expect
     .element(
       confirm().getByText(
-        "Transmission holds 3 torrents SlipStream tracks. Stop tracking them to delete it.",
+        "Transmission has 3 torrents that SlipStream tracks. Stop tracking them to delete the client.",
       ),
     )
     .toBeVisible();

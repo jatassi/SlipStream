@@ -11,7 +11,9 @@ export function Ways({ code, left }: { code: string; left: string | undefined })
         label="Join Code"
         value={code}
         description={
-          left === undefined ? "It pairs one Node." : `Expires in ${left}. It pairs one Node.`
+          left === undefined
+            ? "Each code works for one Node."
+            : `Expires in ${left}. Each code works for one Node.`
         }
       />
       <ol aria-label="Ways to use the code" className="flex flex-col gap-3 text-ink-2">
@@ -52,8 +54,9 @@ export function Unshown({ left, mint }: { left: string | undefined; mint: Mint }
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-card bg-fill px-4 py-3">
       <p className="flex-1 text-ink-2">
-        A Join Code shows only when it is made.
-        {left === undefined ? "" : ` This one still works for ${left}.`}
+        SlipStream shows a Join Code only once, when you make it.
+        {left === undefined ? "" : ` This one still works for ${left}.`} If you don&apos;t have it,
+        make a new one.
       </p>
       <MintButton {...mint} />
     </div>

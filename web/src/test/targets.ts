@@ -45,7 +45,7 @@ const qualityList: TargetsQualityList = {
   presets: [
     {
       key: "disc-or-resolution",
-      name: "Upgrade for disc or resolution",
+      name: "Upgrade for Blu-ray or higher resolution",
       tiers: [
         ["bluray-2160p", "remux-2160p"],
         ["hdtv-2160p", "webrip-2160p", "webdl-2160p"],
@@ -60,7 +60,7 @@ const qualityList: TargetsQualityList = {
     },
     {
       key: "anything-better",
-      name: "Upgrade for anything better",
+      name: "Upgrade for any better quality",
       tiers: [
         ["remux-2160p"],
         ["bluray-2160p"],
@@ -84,7 +84,7 @@ const qualityList: TargetsQualityList = {
     },
     {
       key: "resolution-only",
-      name: "Upgrade for resolution only",
+      name: "Upgrade for higher resolution only",
       tiers: [
         ["hdtv-2160p", "webrip-2160p", "webdl-2160p", "bluray-2160p", "remux-2160p"],
         ["hdtv-1080p", "webrip-1080p", "webdl-1080p", "bluray-1080p", "remux-1080p"],

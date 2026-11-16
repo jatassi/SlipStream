@@ -45,7 +45,7 @@ test("unticking Downloading on seedbox reviews the handback to home, then applie
   await page.getByRole("button", { name: "Review", exact: true }).click();
 
   const changes = review(page).getByRole("list", { name: "What changes" });
-  await expect(changes).toContainText("seedbox stops Downloading.");
+  await expect(changes).toContainText("seedbox loses the Downloading Role.");
   await expect(changes).toContainText(
     "home takes over Downloading, since SlipStream always needs a Node that downloads.",
   );
@@ -68,7 +68,7 @@ test("a change someone made since the Review opened comes back as a fresh Review
   await role(page, "Subtitles").click();
   await page.getByRole("button", { name: "Review", exact: true }).click();
   await expect(review(page).getByRole("list", { name: "What changes" })).toHaveText(
-    "seedbox starts Subtitles.",
+    "seedbox gets the Subtitles Role.",
   );
 
   const { basis } = await boardOf(world);
@@ -80,10 +80,12 @@ test("a change someone made since the Review opened comes back as a fresh Review
 
   await review(page).getByRole("button", { name: "Apply" }).click();
   await expect(
-    review(page).getByText("Roles changed since you opened this. Here is the change as it is now."),
+    review(page).getByText(
+      "Someone changed Roles while this was open. The list below shows your change against the current Roles.",
+    ),
   ).toBeVisible();
   await expect(review(page).getByRole("list", { name: "What changes" })).toContainText(
-    "seedbox stops Converting.",
+    "seedbox loses the Converting Role.",
   );
   await review(page).getByRole("button", { name: "Apply" }).click();
   await expect(review(page)).toHaveCount(0);
@@ -110,16 +112,16 @@ test("Write off shows what seedbox holds first, then gives it up", async ({
 
   await page.goto(`/nodes/${idOf(world, "seedbox")}/roles`);
   await expect(page.getByText(/^Holding 1 torrent \(/u)).toBeVisible();
-  await page.getByRole("button", { name: "Write off what seedbox holds" }).click();
-  const dialog = page.getByRole("dialog", { name: "Write off what seedbox holds" });
+  await page.getByRole("button", { name: "Give up seedbox's work" }).click();
+  const dialog = page.getByRole("dialog", { name: "Give up seedbox's work" });
   await expect(dialog).toContainText(
-    /seedbox holds 1 torrent \([\d.]+ [KMGT]?B\) for Downloading\./u,
+    /seedbox has 1 torrent \([\d.]+ [KMGT]?B\) for Downloading\./u,
   );
   await expect(dialog).toContainText("This also unticks Downloading on seedbox.");
   await dialog.getByRole("button", { name: "Write off" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(role(page, "Downloading")).not.toBeChecked();
-  await expect(page.getByRole("button", { name: "Write off what seedbox holds" })).toHaveCount(0, {
+  await expect(page.getByRole("button", { name: "Give up seedbox's work" })).toHaveCount(0, {
     timeout: 60_000,
   });
 });

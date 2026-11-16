@@ -44,9 +44,9 @@ test("a Release under a Target's minimum score is grabbed past it, the row sayin
   const manual = await opened(page, world);
   const row = grabRows(manual).first();
   await useChoice(row, "WEBDL-1080p · LQ · 8.0 GB");
-  await expect(manual).toContainText("1 Grab gets you everything.");
+  await expect(manual).toContainText("1 Grab downloads every file you're missing.");
   await expect(row).toContainText(
-    "It gets you 1080p (standard) for The Quiet Orchard, and HD (standard) as an upgrade.",
+    "It downloads 1080p (standard) for The Quiet Orchard, and HD (standard) as an upgrade.",
   );
   await expect(row.getByText(/^Score -5 is below/u)).toHaveText([
     "Score -5 is below the minimum of 0 at 1080p.",
@@ -62,7 +62,7 @@ test("a Release under a Target's minimum score is grabbed past it, the row sayin
   const fkw = "WEBDL-1080p · FKW · 8.2 GB";
   const upgrade = grabRows(manual).filter({ has: page.getByRole("checkbox", { name: fkw }) });
   await expect(upgrade).toContainText(
-    "It gets you 1080p (standard) and HD (standard) for The Quiet Orchard as an upgrade.",
+    "It downloads 1080p (standard) and HD (standard) for The Quiet Orchard as an upgrade.",
     { timeout: 60_000 },
   );
   await expect(upgrade.getByRole("checkbox", { name: fkw })).toBeChecked();
@@ -82,12 +82,12 @@ test("a Release of a cut the Work doesn't want is grabbed as its Standard Editio
   const row = grabRows(manual).first();
   await useChoice(row, "WEBDL-1080p · FKW · 8.9 GB");
   await expect(row).toContainText(
-    "Its name gives the Extended Edition, which the Work doesn't want. It's grabbed as the Standard Edition.",
+    "Its title names the Extended Edition, which isn't one of this movie's Editions. SlipStream grabs it as the Standard Edition.",
   );
   await row.getByRole("button", { name: "Details" }).last().click();
   await expect(row).toContainText("The.Quiet.Orchard.2021.EXTENDED.1080p.WEB-DL.H264-FKW");
   await expect(row).toContainText(
-    "It meets 1080p (standard). The Work doesn't want the extended cut at 1080p.",
+    "It meets 1080p (standard). This movie's Editions at 1080p don't include the extended cut.",
   );
   await expectAccessible(page);
   await frame(page, testInfo, "overrides-edition");
@@ -141,13 +141,13 @@ test("a blocklisted Release says since when and why, and Remove from Blocklist a
     .locator(":scope > li")
     .filter({ hasText: webdl });
   await expect(choice).toContainText(
-    /It's been on the Blocklist since .+ because it was blocklisted through the API key when its Grab was canceled\./u,
+    /It's been on the Blocklist since .+ because an app using the API key blocklisted it when canceling its Grab\./u,
   );
   await expectAccessible(page);
   await frame(page, testInfo, "overrides-blocklist");
 
   await choice.getByRole("button", { name: "Remove from Blocklist and grab" }).click();
-  await expect(manual).toContainText("1 Grab gets you everything.");
+  await expect(manual).toContainText("1 Grab downloads every file you're missing.");
   await expect(first).toContainText("Grabbing it removes it from the Blocklist.");
   await manual.getByRole("button", { name: "Grab 1" }).click();
   await page.keyboard.press("Escape");

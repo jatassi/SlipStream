@@ -43,13 +43,13 @@ type Counted = Pick<GrabsSearch, "grabs" | "candidates">;
 /** How a run finished, as the Searches list says it. */
 export const outcomeWords: Readonly<Record<Outcome, (run: Counted) => string>> = {
   grabbed: ({ grabs }) => `Grabbed ${countWords(grabs, releases)}`,
-  waiting: () => "Waiting for a better Release",
+  waiting: () => "Waiting for a better release",
   nothing_found: () => "Found nothing",
   nothing_acceptable: ({ candidates }) =>
     `Found ${countWords(candidates, releases)}, but none fits a Target`,
   no_indexer: () => "No Indexer could search",
   no_root: () => "No library root",
-  listed: () => "Listed Releases",
+  listed: () => "Listed releases",
 };
 
 /** What found a Grab's Release, for Grab Details' "Found by". */
@@ -93,9 +93,9 @@ export function behindWords(behind: GrabsBehind | null, clock: Clock): string | 
   return `Queued behind ${countWords(behind.ahead, works)}${from}.`;
 }
 
-/** "Waiting for a better Release until 22:40" */
+/** "Waiting for a better release until 22:40" */
 export const waitingWords = (until: string, clock: Clock): string =>
-  `Waiting for a better Release until ${laterWords(until, clock).words}`;
+  `Waiting for a better release until ${laterWords(until, clock).words}`;
 
 /** A waiting cell's fact: how many Releases it holds and when it grabs the best. */
 export function waitWords(candidates: number, until: string, clock: Clock): string {
@@ -113,7 +113,7 @@ export const lastWords: Readonly<
   Record<LastResult, (group: GrabsGroupState, clock: Clock) => string>
 > = {
   grabbed: ({ lastGrabs }) => `Grabbed ${countWords(lastGrabs, releases)}`,
-  waiting: () => "Waiting for a better Release",
+  waiting: () => "Waiting for a better release",
   nothing_found: ({ lastSearchedAt, nextSearchAt }, clock) =>
     `Found nothing ${lastSearchedAt === null ? "" : pastAtWords(lastSearchedAt, clock)}.${nextWords(nextSearchAt, clock)}`,
   nothing_acceptable: ({ lastFound, nextSearchAt }, clock) =>

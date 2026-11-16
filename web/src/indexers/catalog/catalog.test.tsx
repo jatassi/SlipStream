@@ -69,7 +69,7 @@ test("a custom definition deletes after asking, and one an Indexer runs keeps th
   await userEvent.click(custom.getByRole("button", { name: "Delete Marsh" }));
   const dialog = page.getByRole("dialog");
   await expect
-    .element(dialog.getByText("Add Indexer offers the catalog's Marsh again."))
+    .element(dialog.getByText("Marsh from the catalog appears in Add Indexer again."))
     .toBeVisible();
   await userEvent.click(dialog.getByRole("button", { name: "Delete" }));
   await expect

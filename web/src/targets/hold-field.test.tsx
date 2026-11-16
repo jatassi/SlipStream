@@ -28,7 +28,7 @@ test("a saved Target's Hold opens in its largest whole unit and saves in seconds
     ],
   });
   const hold = page.getByRole("textbox", {
-    name: "Wait for a better Release for",
+    name: "Wait for a better release for",
   });
   await expect.element(hold).toHaveValue("90");
   await expect.element(page.getByRole("radio", { name: "minutes" })).toBeChecked();

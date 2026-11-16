@@ -63,14 +63,14 @@ test("the machinery sits under Details, each value saved on its own", async () =
   await expect
     .element(
       section.getByRole("textbox", {
-        name: "Search a Want that keeps coming up empty at least every",
+        name: "Search for a file that keeps coming up empty at least every",
       }),
     )
     .toBeVisible();
   await expect
     .element(
       section.getByRole("textbox", {
-        name: "Don't space out searches for Items released in the last",
+        name: "Don't space out searches for anything released in the last",
       }),
     )
     .toBeVisible();
@@ -115,7 +115,7 @@ test("Backlog search's interval sits beside its switches, and a longest gap shor
   await userEvent.click(section.getByRole("button", { name: "Details" }));
   await userEvent.fill(
     section.getByRole("textbox", {
-      name: "Search a Want that keeps coming up empty at least every",
+      name: "Search for a file that keeps coming up empty at least every",
     }),
     "1",
   );

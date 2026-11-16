@@ -10,16 +10,16 @@ export interface DownloadclientsTrackerDetail {
    * @minimum 0
    */
   leechers?: number;
-  /** The announce URL's failure reason or warning, verbatim */
+  /** The tracker's failure reason or warning, verbatim */
   message?: string;
   /**
-   * Its min interval as the announce policy holds to it, set while live
+   * The tracker's minimum announce interval that SlipStream follows, set while live
    * @minimum 0
    */
   minIntervalSeconds?: number;
   /** When its next announce is due, set while live */
   nextAnnounce?: string;
-  /** When it tries a failing announce URL again, from the last report */
+  /** When it tries a failing tracker again, from the last report */
   retryAt?: string;
   /**
    * The seeders its last announce response counted, set while live and the response carried a count

@@ -50,10 +50,10 @@ func open(p Pipeline) *grabs.Grabs {
 
 var (
 	workNotFound    = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
-	nothingWanted   = api.NewCode(http.StatusConflict, "nothing_wanted", "The Work has no wanted cell to search for")
+	nothingWanted   = api.NewCode(http.StatusConflict, "nothing_wanted", "Nothing to search for. Every monitored, released file meets its Target or is downloading.")
 	noIndexer       = api.NewCode(http.StatusConflict, "no_indexer", "No Indexer is set up")
 	noRoot          = api.NewCode(http.StatusConflict, "no_root", "The Work's Content Type has no library root")
-	rootUnreachable = api.NewCode(http.StatusConflict, "root_unreachable", "The Work's library root is on a Node that takes no new files now")
+	rootUnreachable = api.NewCode(http.StatusConflict, "root_unreachable", "SlipStream can't put new files in this library root now")
 	notSearchable   = api.NewCode(http.StatusConflict, "not_searchable", "The Work's Content Type can't be searched")
 	grabNotFound    = api.NewCode(http.StatusNotFound, "grab_not_found", "No Grab has that id")
 	searchNotFound  = api.NewCode(http.StatusNotFound, "search_not_found", "No search run has that id")
@@ -63,12 +63,12 @@ var (
 	grabTorrentInClient = api.NewCode(http.StatusConflict, "grab_torrent_in_client", "This client's Node already has the torrent")
 	clientNotFound      = api.NewCode(http.StatusNotFound, "download_client_not_found", "No Download Client has this id")
 	clientRefused       = api.NewCode(http.StatusUnprocessableEntity, "download_client_field_refused", "SlipStream can't use a value in this client's settings")
-	nodeNotDownloading  = api.NewCode(http.StatusConflict, "node_not_downloading", "That Node doesn't hold Downloading")
+	nodeNotDownloading  = api.NewCode(http.StatusConflict, "node_not_downloading", "That Node doesn't have the Downloading Role")
 
 	reconciling          = api.NewCode(http.StatusConflict, "reconciling", "SlipStream is Reconciling after a restore")
 	noManualSearch       = api.NewCode(http.StatusNotFound, "no_manual_search", "The Work has no Manual search")
-	manualSearchReplaced = api.NewCode(http.StatusConflict, "manual_search_replaced", "Someone searched this Work again, so this list is gone. Open Manual search again to see the new one.")
-	queryNeedsOneItem    = api.NewCode(http.StatusUnprocessableEntity, "query_needs_one_item", "A typed query searches one Item. Open Manual search on one Item to type a query.")
+	manualSearchReplaced = api.NewCode(http.StatusConflict, "manual_search_replaced", "A newer Manual search replaced this list. Open Manual search again to see it.")
+	queryNeedsOneItem    = api.NewCode(http.StatusUnprocessableEntity, "query_needs_one_item", "A typed query can search only one episode. Open Manual search on one episode to type a query.")
 	grabBusy             = api.NewCode(http.StatusConflict, "grab_busy", "This Grab is placing its file in the library. It can't be canceled until that finishes.")
 	grabFinished         = api.NewCode(http.StatusConflict, "grab_finished", "This Grab already finished, so there's nothing to cancel")
 )
@@ -110,7 +110,7 @@ type reason struct {
 	Code      string `json:"code" enum:"wrong_work,wrong_item,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group,blocklisted,not_aired,tried" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item, no Item, or none of the searched Items. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist. not_aired is a pack listing an Item that hasn't aired, its value the Item's code. tried is a release a failed Grab of the Work already tried."`
 	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title"`
 	Attribute string `json:"attribute,omitempty" enum:"hdr,video_codec,audio_codec,channels,language" doc:"The attribute a failed filter rules on"`
-	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)"`
+	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut the Edition doesn't include, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)"`
 	Soft      bool   `json:"soft" doc:"Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note."`
 }
 
@@ -148,7 +148,7 @@ type search struct {
 	StartedAt  time.Time       `json:"startedAt"`
 	Indexers   []searchIndexer `json:"indexers" nullable:"false" doc:"Each Indexer the run asked or skipped, by priority"`
 	FinishedAt *time.Time      `json:"finishedAt" doc:"Null while the run searches"`
-	Outcome    *string         `json:"outcome" enum:"grabbed,waiting,nothing_found,nothing_acceptable,no_indexer,no_root,listed" doc:"Null while the run searches. waiting holds a cell for a better Release. nothing_found is a run that found no Release, and nothing_acceptable one whose Releases fit no Target. no_indexer is a run that no Indexer responded to, and no_root one whose Work had no reachable root. listed is a Manual search's run, which takes nothing."`
+	Outcome    *string         `json:"outcome" enum:"grabbed,waiting,nothing_found,nothing_acceptable,no_indexer,no_root,listed" doc:"Null while the run searches. waiting is a run that waits out a Target's Hold for a better Release. nothing_found is a run that found no Release, and nothing_acceptable one whose Releases fit no Target. no_indexer is a run that no Indexer responded to, and no_root one whose Work had no reachable root. listed is a Manual search's run, which takes nothing."`
 	Candidates int             `json:"candidates" minimum:"0" doc:"The Releases the Indexers found, each Release listed twice counted once"`
 	Grabs      int             `json:"grabs" minimum:"0" doc:"The Grabs it made or joined when it finished, still counted once one is pruned"`
 	GrabIDs    []string        `json:"grabIds" format:"uuid" nullable:"false" doc:"The Grabs the run made, then those it joined: the decision's, or the rerun's once a dropped Grab reran it"`
@@ -158,7 +158,7 @@ type search struct {
 type lostAt struct {
 	Step     string  `json:"step" enum:"want,fewer_releases,tier,revision,score,chosen_by_another,fewer_unwanted,priority,freeleech,seeders,size,title" doc:"The first step of the ranking where the reference Release ranked above this one"`
 	TargetID *string `json:"targetId" format:"uuid" doc:"The Target the tier, revision and score steps compare at; null at the other steps and once the Target is deleted"`
-	Own      string  `json:"own" doc:"This Release's value at the step: a Target's name for want, a count of the Items with no file it fills for fewer_releases, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, whether another Want chose it for chosen_by_another, a count of the Items it covers that aren't wanted for fewer_unwanted, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title"`
+	Own      string  `json:"own" doc:"This Release's value at the step: a Target's name for want, a count of the missing files it has for fewer_releases, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, whether SlipStream already picked it for another missing file for chosen_by_another, a count of the files it has that SlipStream doesn't need for fewer_unwanted, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title"`
 	Ref      string  `json:"ref" doc:"The reference Release's value at the step, written as own is. The reference is the grabbed Release, or the first a search could take when the run grabbed none."`
 }
 
@@ -175,13 +175,13 @@ type listedRelease struct {
 	Name     string               `json:"indexerName" doc:"The Indexer's name when the run started"`
 	Size     int64                `json:"size" minimum:"0" doc:"Bytes"`
 	Seeders  int                  `json:"seeders" minimum:"0"`
-	Outcome  string               `json:"outcome" enum:"grabbed,not_taken,outranked,kept,refused,waiting" doc:"grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell. waiting is a candidate a cell's Hold keeps until it grabs the best one."`
-	Rank     *int                 `json:"rank" minimum:"1" doc:"Its place among the Releases grabbable at some cell, from 1; null for one grabbable at none"`
+	Outcome  string               `json:"outcome" enum:"grabbed,not_taken,outranked,kept,refused,waiting" doc:"grabbed is the run's Grab. not_taken ranked above it, but its Indexer had stopped, reached its limit or no longer listed it. outranked ranked below it. kept ranked, but the run grabbed nothing. refused has a refusal of its own, or no Target accepts it. waiting is a candidate SlipStream keeps during a Target's Hold, until it grabs the best one."`
+	Rank     *int                 `json:"rank" minimum:"1" doc:"Its place among the releases some Target accepts, from 1; null for one no Target accepts"`
 	CopyOf   *int                 `json:"copyOf" minimum:"0" doc:"The position of the Release this is a copy of, listed by an Indexer of no better priority; null when it is no copy"`
 	Covers   []string             `json:"covers" format:"uuid" nullable:"false" doc:"The Items of the Work it holds"`
 	Scores   []targetScore        `json:"scores" nullable:"false" doc:"Its score at each Target it was judged at, in Profile order"`
 	Formats  []string             `json:"formatIds" format:"uuid" nullable:"false" doc:"The Custom Formats it matched of those the Work's Targets score, as the run saw them"`
-	Reasons  []wordedReason       `json:"reasons" nullable:"false" doc:"Its own refusals, then each cell's failures and notes, in Profile order"`
+	Reasons  []wordedReason       `json:"reasons" nullable:"false" doc:"Its own refusals, then the failures and notes at each Target, in Profile order"`
 	LostAt   api.Nullable[lostAt] `json:"lostAt" doc:"Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step"`
 }
 
@@ -274,8 +274,8 @@ type failure struct {
 	Stage    string `json:"stage" enum:"fetching,downloading,importing"`
 	Code     string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault,client_error,declined,unreadable"`
 	Message  string `json:"message"`
-	NeedsYou bool   `json:"needsYou" doc:"It goes under Needs you. False for a cancel and for a Manual Grab whose Release the Blocklist held after its fetch, which its sheet already said."`
-	Current  bool   `json:"current" doc:"No later Grab holds any of its cells. Needs you lists a failure only while it is current."`
+	NeedsYou bool   `json:"needsYou" doc:"True when Needs you lists the failure. False for a cancel, and for a Manual Grab whose fetched torrent was on the Blocklist, because the Manual search sheet already showed that."`
+	Current  bool   `json:"current" doc:"No later Grab is downloading any of the same files. Needs you lists a failure only while it is current."`
 }
 
 type entered struct {
@@ -307,29 +307,29 @@ type grabClient struct {
 type clientWait struct {
 	NodeID string                   `json:"nodeId" format:"uuid" doc:"The client's Node"`
 	Client api.Nullable[grabClient] `json:"client" doc:"The external client; null for the Node's built-in client"`
-	Off    bool                     `json:"off" doc:"The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't hold Downloading. False while the client's Node is offline"`
+	Off    bool                     `json:"off" doc:"The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't have the Downloading Role. False while the client's Node is offline"`
 }
 
 type grab struct {
 	ID           string                   `json:"id" format:"uuid"`
 	WorkID       string                   `json:"workId" format:"uuid"`
 	Items        []string                 `json:"items" nullable:"false" doc:"The ids of the Items its Release covers in the Work, in tree order"`
-	Edition      string                   `json:"edition" doc:"The Edition it was grabbed to fill: any under any cut, else a cut key"`
+	Edition      string                   `json:"edition" doc:"The Edition it was grabbed for: any when the Work takes any cut, else a cut key"`
 	TargetIDs    []string                 `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
-	Targets      []grabTarget             `json:"targets" nullable:"false" doc:"Each cell it holds, in plan order"`
+	Targets      []grabTarget             `json:"targets" nullable:"false" doc:"Each Target of its Items it downloads for, in plan order"`
 	ReleaseTitle string                   `json:"releaseTitle"`
 	ReleaseWords string                   `json:"releaseWords" doc:"Its Release in words, such as Bluray-1080p · FKW · 9.8 GB"`
 	Quality      string                   `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
 	ReleaseSize  int64                    `json:"releaseSize" minimum:"0"`
 	IndexerID    *string                  `json:"indexerId" format:"uuid" doc:"The Indexer it was grabbed from, null once the Indexer is deleted"`
-	TrackerID    *string                  `json:"trackerId" format:"uuid" doc:"The Tracker its Release reached, null for a Grab older than Trackers"`
+	TrackerID    *string                  `json:"trackerId" format:"uuid" doc:"The Tracker its release came from, null for a Grab older than Trackers"`
 	NodeID       string                   `json:"nodeId" format:"uuid" doc:"The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to"`
 	FetchNodeID  *string                  `json:"fetchNodeId" format:"uuid" doc:"The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did"`
 	TorrentID    *string                  `json:"torrentId" format:"uuid" doc:"The Torrent it downloads, null until the .torrent is fetched"`
 	Client       api.Nullable[grabClient] `json:"downloadClient" doc:"Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched"`
 	InfoHash     *string                  `json:"infoHash" doc:"The v1 info hash in hex, null until the .torrent is fetched"`
 	Stage        string                   `json:"stage" enum:"fetching,downloading,importing,imported,failed"`
-	InFlight     bool                     `json:"inFlight" doc:"It holds its cells and counts in Activity: it is neither imported nor failed"`
+	InFlight     bool                     `json:"inFlight" doc:"It is neither imported nor failed, so it counts in Activity and no other Grab can download the same files"`
 	Failure      *failure                 `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
 	Import       api.Nullable[grabImport] `json:"import" doc:"Its download's Import, from importing on; null before"`
 	History      []entered                `json:"history" nullable:"false" doc:"Each stage it entered, when it last entered it, oldest first"`
@@ -374,7 +374,7 @@ type grabTarget struct {
 	TargetID string               `json:"targetId" format:"uuid"`
 	ItemID   string               `json:"itemId" format:"uuid"`
 	Forced   bool                 `json:"forced" doc:"An Admin forced it: a file goes in even when it isn't an upgrade"`
-	Settled  api.Nullable[string] `json:"settled" enum:"placed,none,declined" doc:"How the Grab finished with the cell: a file placed into it, no file filled it, or the Admin declined it. Null while the Grab holds it"`
+	Settled  api.Nullable[string] `json:"settled" enum:"placed,none,declined" doc:"How the Grab finished at this Target: it placed a file, it placed none, or the Admin declined it. Null while the Grab is still downloading for it"`
 }
 
 type grabActions struct {
@@ -559,7 +559,7 @@ func Routes(r *api.Router, p Pipeline) {
 		ID:      "startManualSearch",
 		Method:  http.MethodPost,
 		Path:    "/works/{workId}/manual-search",
-		Summary: "Start a Manual search of a Work, or of some of its levels and Items or one cell. 200 answers the Work's Manual search when it already has this scope and query",
+		Summary: "Start a Manual search of a Work, or of some of its levels and Items, or of one Item at one Target. Responds 200 with the existing Manual search when it already has this scope and query",
 		Status:  http.StatusAccepted,
 		Also:    []int{http.StatusOK},
 		Errors:  []*api.Code{workNotFound, reconciling, notSearchable, noIndexer, noRoot, queryNeedsOneItem},

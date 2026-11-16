@@ -721,8 +721,8 @@ func TestDeleteRefusesAWorkWhoseFilesSitOnAnOfflineNode(t *testing.T) {
 	boxedWork := s.add(t, contenttypetest.ID, "w1", &s.boxed, nil)
 	homeWork := s.add(t, contenttypetest.ID, "w2", nil, nil)
 	s.record(t, boxedWork, s.boxed, "Shelf w1/Shelf w1.mkv")
-	refused := "w1 failed storage_unreachable: The Work's files can't be deleted. " +
-		"seedbox is offline, so this Work's files there can't be deleted. Delete the Work and leave its files, or try again once seedbox is back."
+	refused := "w1 failed storage_unreachable: The files can't be deleted. " +
+		"seedbox is offline. Leave the files on disk, or try again once seedbox is back online."
 
 	got, _ := s.act(t, http.MethodPost, "/api/v1/works/delete", ids(boxedWork)+`,"files":"delete","preview":true}`)
 	expectOutcomes(t, "a preview while seedbox is online", got, "w1 done")

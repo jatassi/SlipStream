@@ -56,8 +56,7 @@ export function ProfileDialog({
         <div className="flex flex-col gap-4">
           <ProfilePicker profiles={profiles} value={picked} onValueChange={setPicked} />
           <p className="text-ink-2">
-            A Work with its own Edition list keeps that list. Next shows what changes before
-            anything is saved.
+            {`A ${type.work.one.toLowerCase()} with its own Edition list keeps it. Select Next to see what changes before anything is saved.`}
           </p>
           <AttemptActions
             attempt={saving}

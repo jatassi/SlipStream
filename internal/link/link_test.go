@@ -174,7 +174,7 @@ func TestMismatchedPeersServeOnlyTheFrozenPackage(t *testing.T) {
 			t.Fatalf("the Worker's state of the Controller is %+v", p.Worker.State(p.Controller.Key))
 		}
 		_, err := syncOnce(t.Context(), p.Worker.Link, p.Controller.Key)
-		if !errors.Is(err, link.ErrMismatched) || err.Error() != "failed_precondition: the peer runs another version, so lockstep services are closed" {
+		if !errors.Is(err, link.ErrMismatched) || err.Error() != "failed_precondition: the peer runs another version of SlipStream, and calls between versions are off until both match" {
 			t.Fatalf("a lockstep call between versions = %v", err)
 		}
 		select {

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "hold",
+    "pattern": "\\b(?:[Hh]olds?|[Hh]eld|[Hh]olding)\\s+(?:Searching|Downloading|Storage|Converting|Subtitles|Metadata|Media Server link|Notifying|Relaying|Serving)\\b",
+    "caseSensitive": true
+  },
+  {
+    "name": "stand in",
+    "pattern": "\\b[Ss]tand(?:s|ing)?\\s+in(?:\\s+[A-Z]|[,.;]|$)",
+    "caseSensitive": true
+  },
+  { "name": "owe", "pattern": "\\bow(?:es?|ing)\\b" },
+  { "name": "write off", "pattern": "\\bwrites?\\s+off\\b", "alone": true },
+  { "name": "written off", "pattern": "\\b(?:written|wrote|writing)\\s+off\\b" },
+  { "name": "cell", "pattern": "\\bcells?\\b" },
+  {
+    "name": "fill",
+    "pattern": "\\b(?:fills?|filling)\\s+(?:nothing|no\\b|a Target|this Target|\\d)|\\bwould(?:n['’]t| not)?\\s+fill\\b"
+  },
+  { "name": "dial", "pattern": "\\bdial(?:s|ed)\\b" },
+  { "name": "reads", "pattern": "\\breads\\s+(?:checking|missing|met|failed)\\b" },
+  { "name": "glossary", "pattern": "\\bglossary\\b" },
+  { "name": "Reached from", "pattern": "\\bReached from\\b" },
+  { "name": "Reaching Node", "pattern": "\\bReaching Node\\b" },
+  { "name": "Want", "pattern": "[a-z,] Wants?\\b", "caseSensitive": true }
+]

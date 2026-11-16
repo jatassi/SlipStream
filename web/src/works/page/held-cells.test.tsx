@@ -98,7 +98,7 @@ test("a file's Details say how its import placed it and the Grab it came from", 
       file.getByText("Hard linked. The download and the library share the same data on disk."),
     )
     .toBeVisible();
-  await expect.element(file.getByText(`Grab ${awayGrab.releaseTitle}`)).toBeVisible();
+  await expect.element(file.getByText(awayGrab.releaseTitle, { exact: true })).toBeVisible();
 });
 
 test("a file sent between Nodes names the Node it came from", async () => {

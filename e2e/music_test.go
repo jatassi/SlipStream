@@ -200,7 +200,7 @@ func TestMusic(t *testing.T) {
 	}
 
 	addBay := `{"contentType":"music","key":"` + marrowBay + `","preset":"none"}`
-	worldtest.Expect(t, "addWork for Marrow Bay", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), problemBecause(502, "metadata_unavailable", "The metadata source didn't respond. Try again later.", "MusicBrainz: responded with 503 Service Unavailable"))
+	worldtest.Expect(t, "addWork for Marrow Bay", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), problemBecause(502, "metadata_unavailable", "The metadata source didn't respond. Try again later.", "MusicBrainz isn't available right now. Try again later."))
 	bay := decode(t, "addWork for Marrow Bay again", a.Admin("home", http.MethodPost, "/api/v1/works", addBay), &added{})
 	var bayTree tree
 	if err := json.Unmarshal(bay.Work, &bayTree); err != nil || !bay.Created {
@@ -215,7 +215,7 @@ func TestMusic(t *testing.T) {
 		problem(404, "metadata_not_found", "The metadata source has no record with that key"))
 
 	worldtest.Expect(t, "turning music off while it holds Works", a.Admin("home", http.MethodPut, "/api/v1/content-types/music/enabled", `{"enabled":false}`),
-		problem(409, "content_type_in_use", "Remove its Works before turning this Content Type off"))
+		problem(409, "content_type_in_use", "Delete every Work of this kind of media before turning it off"))
 	t.Run("a fresh run with no Works", turnOffAndOn)
 }
 

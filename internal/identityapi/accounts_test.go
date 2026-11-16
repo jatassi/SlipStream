@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	lastAdmin       = problem(409, "last_admin", "SlipStream needs at least one Admin who is turned on")
+	lastAdmin       = problem(409, "last_admin", "SlipStream needs at least one active Admin. Make another Account an Admin first.")
 	accountDisabled = problem(403, "account_disabled", "This Account is turned off. Ask an Admin to turn it back on.")
 	accountNotFound = problem(404, "account_not_found", "No Account has that id")
 	sessionNotFound = problem(404, "session_not_found", "The Account has no session with that id")

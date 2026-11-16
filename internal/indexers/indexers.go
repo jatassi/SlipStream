@@ -326,9 +326,9 @@ type Publisher[T any] interface {
 
 var (
 	ErrNameTaken       = errors.New("another Indexer has that name")
-	ErrNoSearchingNode = errors.New("no Node holds Searching")
+	ErrNoSearchingNode = errors.New("no Node has the Searching Role")
 	ErrNoIndexer       = errors.New("no such Indexer")
-	ErrNotSearching    = errors.New("that Node doesn't hold Searching")
+	ErrNotSearching    = errors.New("that Node doesn't have the Searching Role")
 	// ErrLate is a job that passed its deadline.
 	ErrLate = errors.New("the Indexer didn't respond in time")
 	// ErrAway is a line asked again while no Node may take its query.
@@ -363,7 +363,7 @@ func (e *UnavailableError) Unwrap() error { return e.Err }
 type WaitError struct{ Outcome Outcome }
 
 func (e *WaitError) Error() string {
-	return "the Indexer can't be asked now: " + string(e.Outcome.Kind)
+	return "the Indexer can't take a request now: " + string(e.Outcome.Kind)
 }
 
 type Config struct {

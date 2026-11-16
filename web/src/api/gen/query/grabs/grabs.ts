@@ -2060,7 +2060,7 @@ export const getStartManualSearchUrl = (workId: string) => {
 };
 
 /**
- * @summary Start a Manual search of a Work, or of some of its levels and Items or one cell. 200 answers the Work's Manual search when it already has this scope and query
+ * @summary Start a Manual search of a Work, or of some of its levels and Items, or of one Item at one Target. Responds 200 with the existing Manual search when it already has this scope and query
  */
 export const startManualSearch = async (
   workId: string,
@@ -2154,7 +2154,7 @@ export type StartManualSearchMutationError = ErrorType<
 export type StartManualSearchMutationVariables = { workId: string; data?: GrabsStartManual };
 
 /**
- * @summary Start a Manual search of a Work, or of some of its levels and Items or one cell. 200 answers the Work's Manual search when it already has this scope and query
+ * @summary Start a Manual search of a Work, or of some of its levels and Items, or of one Item at one Target. Responds 200 with the existing Manual search when it already has this scope and query
  */
 export const useStartManualSearch = <
   TError = ErrorType<
@@ -2762,7 +2762,7 @@ export const getGetWorkSearchingUrl = (workId: string) => {
 };
 
 /**
- * @summary Get what Automatic search is doing for a Work: each search group's state, its waits and its stopped cells
+ * @summary Get what Automatic search is doing for a Work: each search group's state, its waits and the Items and Targets it stopped searching again for
  */
 export const getWorkSearching = async (
   workId: string,
@@ -2888,7 +2888,7 @@ export function useGetWorkSearchingSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get what Automatic search is doing for a Work: each search group's state, its waits and its stopped cells
+ * @summary Get what Automatic search is doing for a Work: each search group's state, its waits and the Items and Targets it stopped searching again for
  */
 
 export function useGetWorkSearchingSuspense<
@@ -2926,7 +2926,7 @@ export const getGrabWaitingUrl = (workId: string) => {
 };
 
 /**
- * @summary End a Work's waits for a better Release and grab the best Release each holds now
+ * @summary End a Work's waits for a better Release and grab the best one found for each now
  */
 export const grabWaiting = async (
   workId: string,
@@ -3018,7 +3018,7 @@ export type GrabWaitingMutationError = ErrorType<
 export type GrabWaitingMutationVariables = { workId: string; data: GrabWaitingInputBody };
 
 /**
- * @summary End a Work's waits for a better Release and grab the best Release each holds now
+ * @summary End a Work's waits for a better Release and grab the best one found for each now
  */
 export const useGrabWaiting = <
   TError = ErrorType<

@@ -1,0 +1,8 @@
+{
+  "internal/filesapi/filesapi.go": {
+    "cell": 1
+  },
+  "internal/grabsapi/manual.go": {
+    "cell": 4
+  }
+}

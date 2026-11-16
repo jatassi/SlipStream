@@ -1,7 +1,7 @@
 import type { FilesFailedNeedKind } from "./filesFailedNeedKind.ts";
 
 export interface FilesFailedNeed {
-  /** any under any cut, else the key of the cut the cells want */
+  /** any under any cut, else the key of the cut these Items need at this Target */
   edition: string;
   /** The Grab that failed */
   grabId: string;

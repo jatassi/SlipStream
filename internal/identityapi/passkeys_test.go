@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	passkeyUnavailable = problem(409, "passkey_unavailable", "A passkey can't be used at this address")
+	passkeyUnavailable = problem(409, "passkey_unavailable", "You have no passkey for this address, or passkeys don't work here. Sign in with your PIN.")
 	passkeyNotFound    = problem(404, "passkey_not_found", "You have no passkey with that id")
 )
 

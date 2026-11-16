@@ -125,7 +125,7 @@ func TestUntickingTheLastHolderHandsTheRoleToTheController(t *testing.T) {
 			t.Fatalf("home holds %v, want Downloading on box alone", got)
 		}
 		out := c.apply(t, nodes.Roles{box: 0})
-		wantWords(t, out, "box stops Downloading.", "home takes over Downloading, since SlipStream always needs a Node that downloads.")
+		wantWords(t, out, "box loses the Downloading Role.", "home takes over Downloading, since SlipStream always needs a Node that downloads.")
 		if got := c.rolesOf(t, c.svc.Self()); !slices.Contains(got, role.Downloading) {
 			t.Fatalf("home holds %v after box let Downloading go, want Downloading", got)
 		}

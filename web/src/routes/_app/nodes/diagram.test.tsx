@@ -97,9 +97,9 @@ test("the Roster says everything the Diagram draws, from the same Nodes", async 
   );
   expect(drawn.length).toBeGreaterThan(topology.nodes.length);
   await userEvent.click(
-    page.getByRole("navigation", { name: "View" }).getByRole("link", { name: "Roster" }),
+    page.getByRole("navigation", { name: "View" }).getByRole("link", { name: "List" }),
   );
-  const roster = page.getByRole("list", { name: "Roster" });
+  const roster = page.getByRole("list", { name: "Nodes list" });
   await expect.element(roster).toBeVisible();
   const said = roster.element().textContent.toLowerCase();
   expect(drawn.filter((text) => !said.includes(text))).toEqual([]);

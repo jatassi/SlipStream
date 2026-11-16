@@ -109,7 +109,7 @@ const resultWords: {
   readonly [R in NonNullable<GrabsWantedRow["lastResult"]>]: (when: string) => string;
 } = {
   grabbed: (when) => `Grabbed ${when}`,
-  waiting: () => "Waiting for a better Release",
+  waiting: () => "Waiting for a better release",
   nothing_found: (when) => `Found nothing ${when}`,
   nothing_acceptable: (when) => `Found nothing that fits a Target ${when}`,
   no_indexer: (when) => `No Indexer could search ${when}`,

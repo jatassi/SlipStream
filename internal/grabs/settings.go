@@ -24,11 +24,11 @@ var (
 	BacklogUpgrades = setting.Switch{Key: "search.backlogUpgrades", Label: "Backlog search looks for upgrades", Default: true}
 	RSSOn           = setting.Switch{Key: "search.rssOn", Label: "RSS sync", Default: true}
 	LongestGap      = setting.Duration{
-		Key: "search.longestGap", Label: "Search a Want that keeps coming up empty at least every",
+		Key: "search.longestGap", Label: "Search for a file that keeps coming up empty at least every",
 		Default: 7 * day, Min: day, Max: 90 * day, Step: time.Hour,
 	}
 	FullPace = setting.Duration{
-		Key: "search.fullPace", Label: "Don't space out searches for Items released in the last",
+		Key: "search.fullPace", Label: "Don't space out searches for anything released in the last",
 		Default: 14 * day, Min: 0, Max: 90 * day, Step: day,
 	}
 	StopCount = setting.Count{

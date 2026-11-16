@@ -10,7 +10,7 @@ export interface DownloadclientsKind {
   apiKey: boolean;
   /** Its web UI connects to a daemon the Admin may choose */
   daemon: boolean;
-  /** Its remove deletes data itself */
+  /** Removing a torrent in this client also deletes its data */
   deletesData: boolean;
   /** The oldest version SlipStream supports, such as 4.0 */
   floor: string;
@@ -20,7 +20,7 @@ export interface DownloadclientsKind {
   /** The product's name, a new client's name by default */
   name: string;
   password: DownloadclientsKindPassword;
-  /** The path an address with none takes; empty for a kind with none */
+  /** The path used when the address has none; empty for a kind with no usual path */
   path: string;
   username: DownloadclientsKindUsername;
 }

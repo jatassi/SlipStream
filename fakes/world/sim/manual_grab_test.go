@@ -198,7 +198,7 @@ func TestAGrabPastEachLiftableRefusalImports(t *testing.T) {
 	t.Parallel()
 	for _, c := range []lifting{
 		{lift: "wrong_title", title: "The.Quiet.Orchard.2019.1080p.WEB-DL.H264-FKW", untagged: true,
-			overrides: "although its name gives The Quiet Orchard (2019), which isn't this Work."},
+			overrides: "although its name is for The Quiet Orchard (2019), a different movie."},
 		{lift: "size_below", title: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-SML", size: 100 << 20,
 			overrides: "although it's smaller than 1080p allows."},
 		{lift: "size_above", title: fkw, edit: func(r *rules) {
@@ -241,7 +241,7 @@ func (c lifting) imports(t *testing.T) {
 	}
 	g := awaitGrab(t, w, grabByHand(t, w, work, v, o))
 	simtest.ExpectImported(t, g.GrabView)
-	want := []string{"It was grabbed through the API key " + c.overrides}
+	want := []string{"An app using the API key grabbed it " + c.overrides}
 	if g.Source != "manual" || g.GrabbedBy == nil || *g.GrabbedBy != "the API key" || !slices.Equal(g.Overrides, want) {
 		t.Fatalf("the Grab is from %s by %v with overrides %q, want a Manual Grab through the API key with %q", g.Source, g.GrabbedBy, g.Overrides, want)
 	}
@@ -261,12 +261,12 @@ func TestAGrabAsAnotherEditionKeepsItsFillAfterARefill(t *testing.T) {
 		}
 		v := searchByHand(t, w, work, "")
 		o := v.offered(t, fkw)
-		if want := "Its name gives the Standard Edition, which the Work doesn't want. It's grabbed as the Director's Cut Edition."; o.Edition == nil || o.Edition.Edition != "directors-cut" || o.Edition.Words != want {
+		if want := "Its title names the Standard Edition, which isn't one of this movie's Editions. SlipStream grabs it as the Director's Cut Edition."; o.Edition == nil || o.Edition.Edition != "directors-cut" || o.Edition.Words != want {
 			t.Fatalf("the plan grabs it as %+v, want the Director's Cut saying %q", o.Edition, want)
 		}
 		g := awaitGrab(t, w, grabByHand(t, w, work, v, o))
 		simtest.ExpectImported(t, g.GrabView)
-		if want := []string{"It was grabbed through the API key as the Director's Cut Edition."}; !slices.Equal(g.Overrides, want) {
+		if want := []string{"An app using the API key grabbed it as the Director's Cut Edition."}; !slices.Equal(g.Overrides, want) {
 			t.Fatalf("the Grab's overrides are %q, want %q", g.Overrides, want)
 		}
 		filled := func() string {
@@ -310,7 +310,7 @@ func TestARepackFromAnotherGroupGrabbedPastItsRefusalImports(t *testing.T) {
 		}
 		g := awaitGrab(t, w, grabByHand(t, w, work, v, o))
 		simtest.ExpectImported(t, g.GrabView)
-		want := []string{"It was grabbed through the API key although it's a repack from OTH, and the file at 1080p is from FKW."}
+		want := []string{"An app using the API key grabbed it although it's a repack from OTH, and the file at 1080p is from FKW."}
 		if !slices.Equal(g.Overrides, want) {
 			t.Fatalf("the Grab's overrides are %q, want %q", g.Overrides, want)
 		}

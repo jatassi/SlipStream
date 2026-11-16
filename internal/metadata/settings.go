@@ -16,19 +16,19 @@ import (
 
 const day = 24 * time.Hour
 
-const sharedKeys = "Every SlipStream install shares the bundled keys."
+const sharedKeys = "Every SlipStream install shares the bundled metadata keys and their rate limits."
 
 var (
 	LanguageChoice = setting.Choice[string]{Key: "metadata.language", Label: "Metadata language", Default: DefaultLanguage, Options: languages}
 	RegionChoice   = setting.Choice[string]{Key: "metadata.region", Label: "Metadata region", Default: DefaultRegion, Options: regions}
-	CacheFor       = setting.Duration{Key: "metadata.cacheFor", Label: "Metadata cache keeps responses for", Default: time.Hour, Min: 0, Max: day, Step: time.Minute}
-	RatingsEvery   = setting.Duration{Key: "metadata.ratingsEvery", Label: "OMDb ratings no more often than every", Default: 7 * day, Min: day, Max: 365 * day, Step: day}
+	CacheFor       = setting.Duration{Key: "metadata.cacheFor", Label: "Cache metadata responses for", Default: time.Hour, Min: 0, Max: day, Step: time.Minute}
+	RatingsEvery   = setting.Duration{Key: "metadata.ratingsEvery", Label: "Refresh OMDb ratings at most every", Default: 7 * day, Min: day, Max: 365 * day, Step: day}
 	ArtworkStore   = setting.Count{Key: "metadata.artworkStore", Label: "Artwork store size", Default: 2048, Min: 100, Max: 1 << 20, Unit: setting.Noun{One: "MB", Many: "MB"}}
 
-	UnreleasedEvery = setting.Duration{Key: "metadata.refresh.unreleased", Label: "Unreleased Works refresh every", Default: day, Min: day, Max: 30 * day, Step: day, Floor: sharedKeys}
-	GrowingEvery    = setting.Duration{Key: "metadata.refresh.growing", Label: "Growing Works refresh every", Default: day, Min: day, Max: 30 * day, Step: day, Floor: sharedKeys}
-	OthersEvery     = setting.Duration{Key: "metadata.refresh.others", Label: "Every other Work refresh every", Default: 30 * day, Min: day, Max: 365 * day, Step: day, Floor: sharedKeys}
-	FollowChanges   = setting.Switch{Key: "metadata.refresh.changes", Label: "Refresh what the provider reports changed", Default: true}
+	UnreleasedEvery = setting.Duration{Key: "metadata.refresh.unreleased", Label: "Refresh unreleased Works every", Default: day, Min: day, Max: 30 * day, Step: day, Floor: sharedKeys}
+	GrowingEvery    = setting.Duration{Key: "metadata.refresh.growing", Label: "Refresh continuing Works every", Default: day, Min: day, Max: 30 * day, Step: day, Floor: sharedKeys}
+	OthersEvery     = setting.Duration{Key: "metadata.refresh.others", Label: "Refresh all other Works every", Default: 30 * day, Min: day, Max: 365 * day, Step: day, Floor: sharedKeys}
+	FollowChanges   = setting.Switch{Key: "metadata.refresh.changes", Label: "Refresh Works the provider reports as changed", Default: true}
 )
 
 // stored is each metadata setting's override, nil at its default.

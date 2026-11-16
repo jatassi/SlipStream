@@ -22,8 +22,8 @@ type newWork struct {
 	Key           string `json:"key" minLength:"1" maxLength:"200" doc:"The Work's key at its metadata source"`
 	Preset        string `json:"preset,omitempty" enum:"all,future,missing,existing,first,latest,none" doc:"The monitoring preset a new Work's Items follow; left out, the type's add default. Adding a Work already in the library changes nothing"`
 	IncludeAsides *bool  `json:"includeAsides,omitempty" doc:"Add every Item of the aside levels, such as Specials, to what the preset monitors, now and as new ones arrive; left out, the type's add default"`
-	LevelFolders  *bool  `json:"levelFolders,omitempty" doc:"Put a new Work's files in a folder per level; left out, the type's add default. Unread for a Content Type with no levels"`
-	ProfileID     string `json:"profileId,omitempty" format:"uuid" doc:"The Profile of the Content Type a new Work wants from; left out, the type's default"`
+	LevelFolders  *bool  `json:"levelFolders,omitempty" doc:"Put a new Work's files in a folder per level; left out, the type's add default. Ignored for a Content Type with no levels"`
+	ProfileID     string `json:"profileId,omitempty" format:"uuid" doc:"The Profile the new Work gets; left out, the type's default"`
 	RootID        string `json:"rootId,omitempty" format:"uuid" doc:"The root of the Content Type a new Work lives in; left out, the type's default, or none while the type has no root"`
 	Search        string `json:"search,omitempty" enum:"monitored,first_level,latest_level,first_item,none" doc:"What to search once the Work is added, one of its Content Type's addSearch choices; left out, nothing"`
 	Remember      bool   `json:"remember,omitempty" doc:"Make each choice given here its type's default for the next add. Adding a Work already in the library changes no default"`

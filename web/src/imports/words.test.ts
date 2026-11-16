@@ -32,7 +32,7 @@ const every: {
   elsewhere: [
     { code: "elsewhere", sentence: null, title: "Heat", year: 1995, root: filmsVault },
     cinema,
-    "Heat (1995) is in the Films library root on vault. A Work's files all live in one root. Move these files there, or ignore them.",
+    "Heat (1995) is in the Films library root on vault, and all its files must be in one root. Move these files there, or ignore them.",
   ],
   unlisted: [
     { code: "unlisted", sentence: null, title: "Heat", year: 1995 },

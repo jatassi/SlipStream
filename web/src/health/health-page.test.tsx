@@ -42,7 +42,7 @@ test("with nothing wrong the page says everything is working and names what it c
   await expect
     .element(
       page.getByText(
-        "Checked storage, Nodes, torrents that still owe a Tracker, Indexers and scheduled tasks",
+        "Checked storage, Nodes, torrents that still need seeding, Indexers and scheduled tasks",
       ),
     )
     .toBeVisible();
@@ -53,7 +53,7 @@ test("with nothing wrong the page says everything is working and names what it c
   await expect.element(region("Nodes")).toHaveTextContent("Nothing is wrong with Nodes.Check now");
   await expect
     .element(region("Seeding"))
-    .toHaveTextContent("Nothing is wrong with torrents that still owe a Tracker.");
+    .toHaveTextContent("Nothing is wrong with torrents that still need seeding.");
   expect(region("Seeding").getByRole("button").query()).toBeNull();
   await expect.element(region("Indexers")).toHaveTextContent("Nothing is wrong with Indexers.");
   expect(region("Indexers").getByRole("button").query()).toBeNull();

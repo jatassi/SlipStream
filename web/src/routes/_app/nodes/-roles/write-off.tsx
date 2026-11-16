@@ -22,7 +22,7 @@ type Holding = { readonly role: RoleName; readonly work: NodesHeld };
 
 async function writeOffOrSay(nodeId: string, roles: readonly RoleName[]): Promise<void> {
   if (roles.length === 0) {
-    throw new Error("Choose what to write off.");
+    throw new Error("Choose the work to give up.");
   }
   try {
     await writeOff(nodeId, { roles: [...roles] });
@@ -51,13 +51,13 @@ function HeldList({
   if (held.length === 1 && only !== undefined) {
     return (
       <p className="text-ink-1">
-        {seat.name} holds {heldWords(only.work)} for {labelOf(board, only.role)}.
+        {seat.name} has {heldWords(only.work)} for {labelOf(board, only.role)}.
       </p>
     );
   }
   return (
     <fieldset className="flex flex-col">
-      <legend className="mb-1 text-ink-1">{seat.name} holds:</legend>
+      <legend className="mb-1 text-ink-1">{seat.name} has:</legend>
       {held.map(({ role, work }) => (
         <Checkbox
           key={role}
@@ -93,9 +93,9 @@ function RootPaths({ seat }: { seat: NodesBoardNode }) {
 }
 
 const leavesWork =
-  "SlipStream stops waiting for it. What isn't imported yet goes back to wanted, so SlipStream searches for it again.";
+  "SlipStream stops waiting for this Node. Its downloads that aren't imported yet fail, and SlipStream searches for them again.";
 const leavesRoots =
-  "Its library roots stay, marked Node written off, and their files count as missing until you re-home the roots onto a live Node.";
+  'Its library roots stay, marked "Node given up". Their files show as missing until you edit each root to use a folder on a Node that\'s online.';
 
 /** What a write-off leaves behind for the Roles chosen, ending on the files it keeps. */
 const leftWords = (roles: readonly RoleName[]): string =>
@@ -128,7 +128,7 @@ export function WriteOffDialog({
   const unticks = roles.filter((role) => seat.assigned.includes(role));
   return (
     <ConfirmDialog
-      title={`Write off what ${seat.name} holds`}
+      title={`Give up ${seat.name}'s work`}
       confirmLabel="Write off"
       look="fail"
       open

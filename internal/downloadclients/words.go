@@ -41,7 +41,7 @@ func Says(p clients.Problem, s Subject, node string) string {
 	case clients.LockedOut:
 		return fmt.Sprintf("%s locked out %s after too many failed sign-ins. Restart %s, then select Check now.", name, node, name)
 	case clients.VersionTooOld:
-		return fmt.Sprintf("%s reached %s %s, which is older than SlipStream supports. Update it to %s or later and test again.",
+		return fmt.Sprintf("%s connected to %s %s, which is older than SlipStream supports. Update it to %s or later and test again.",
 			node, product, p.Version, s.Kind.Facts().Floor)
 	case clients.LabelPluginOff:
 		return fmt.Sprintf("%s's Label plugin is off. Turn it on in %s's preferences and test again.", name, name)
@@ -49,7 +49,7 @@ func Says(p clients.Problem, s Subject, node string) string {
 		if p.Paired != "" {
 			return fmt.Sprintf("%s can't open %s, which is paired with %s. Check the pair, and check that %s can read that folder.", node, p.Folder, p.Paired, node)
 		}
-		return fmt.Sprintf("%s can't open %s, the folder %s saves to. Under Client folders, pair %s with the folder %s sees.", node, p.Folder, name, p.Folder, node)
+		return fmt.Sprintf("%s can't open %s, the folder %s saves to. Under Remote path mappings, pair %s with the folder %s sees.", node, p.Folder, name, p.Folder, node)
 	case clients.FolderInRoot:
 		return fmt.Sprintf("%s saves to %s, which overlaps a library root on %s. Choose a download folder outside every library root and test again.", name, p.Folder, node)
 	case clients.AddressRefused:
@@ -61,7 +61,7 @@ func Says(p clients.Problem, s Subject, node string) string {
 	case clients.WrongDaemon:
 		return name + "'s web UI is connected to another daemon. Choose the daemon SlipStream uses and test again."
 	case clients.NotKept:
-		return fmt.Sprintf("%s didn't keep the torrent SlipStream sent it. Check %s's log for the reason.", name, name)
+		return fmt.Sprintf("%s accepted a torrent from SlipStream but no longer lists it. Check %s's log for the reason.", name, name)
 	case clients.MostMissing:
 		return fmt.Sprintf("%s no longer lists %d of SlipStream's torrents. Check that the address points at the right %s.", name, p.Missing, product)
 	}
@@ -120,17 +120,15 @@ func InUse(node string) string {
 // HasTorrents is the sentence of a refusal to delete or move client name
 // while it holds count Torrents SlipStream tracks.
 func HasTorrents(name string, count int, moving bool) string {
-	if count == 1 {
-		if moving {
-			return name + " holds 1 torrent SlipStream tracks. Remove it, or delete the client with Stop tracking, then move the client."
-		}
-		return name + " holds 1 torrent SlipStream tracks. Stop tracking it to delete the client."
+	switch {
+	case count == 1 && moving:
+		return name + " can't move to another Node while it has 1 torrent that SlipStream tracks. Remove the torrent first, or select Stop tracking and delete, then add the client again on the other Node."
+	case count == 1:
+		return name + " has 1 torrent that SlipStream tracks. Stop tracking it to delete the client."
+	case moving:
+		return fmt.Sprintf("%s can't move to another Node while it has %d torrents that SlipStream tracks. Remove the torrents first, or select Stop tracking and delete, then add the client again on the other Node.", name, count)
 	}
-	held := fmt.Sprintf("%s holds %d torrents SlipStream tracks.", name, count)
-	if moving {
-		return held + " Remove them, or delete the client with Stop tracking, then move it."
-	}
-	return held + " Stop tracking them to delete it."
+	return fmt.Sprintf("%s has %d torrents that SlipStream tracks. Stop tracking them to delete the client.", name, count)
 }
 
 // Importing is the sentence of a refusal to delete client name while a
@@ -146,7 +144,7 @@ func InClient(client, node string) string {
 	if client == "" {
 		client = node + "'s built-in client"
 	}
-	return client + " already has this torrent. Send it to a client on another Node, or remove it in Activity."
+	return client + " already has this torrent. Send it to a client on another Node, or first remove the copy in " + client + " from Activity."
 }
 
 // AddressTaken is the sentence of a refusal of an address client name on

@@ -205,7 +205,7 @@ func (t *typed[S]) fetch(ctx context.Context, s *searching.Site, e Entry, link s
 	case Magnet:
 		return searching.Magnet{Link: searching.LinkOf(g.Link)}, nil
 	}
-	return nil, &searching.Failing{Err: errors.New("the download led to nothing SlipStream can use")}
+	return nil, &searching.Failing{Err: errors.New("the download link returned no .torrent file or magnet link")}
 }
 
 // test signs in, always for a sign-in family so a new password or a

@@ -164,7 +164,7 @@ test("Add sits under its Content Type's library", async () => {
     path: "/add?contentType=cinema",
     handlers: [getListContentTypesMockHandler({ contentTypes: [cinema] })],
   });
-  await expect.element(page.getByRole("heading", { name: "Add a Film" })).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "Add a film" })).toBeVisible();
   await expect.element(backLink()).toHaveAccessibleName("Films");
   await expect.element(backLink()).toHaveAttribute("href", "/library/cinema");
 });
@@ -189,7 +189,7 @@ test("a Content Type's page shows its Works, is titled with them and adds one", 
   await expect.poll(() => document.title).toBe("Films · SlipStream");
   await expect.element(page.getByRole("link", { name: "The Quiet Orchard" })).toBeVisible();
   await expect
-    .element(page.getByRole("banner").getByRole("button", { name: "Add a Film" }))
+    .element(page.getByRole("banner").getByRole("button", { name: "Add a film" }))
     .toHaveAttribute("href", "/add?contentType=cinema");
 });
 

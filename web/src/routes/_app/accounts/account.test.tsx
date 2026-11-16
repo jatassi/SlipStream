@@ -67,7 +67,7 @@ test("an Account shows its profile, PIN state, passkeys and sessions", async () 
     `${clock("2026-10-15T08:30:00Z")}Last sign-in`,
   ]);
   expect(listItems("PIN")).toEqual([
-    "The PIN was turned off after too many wrong PINs. Send a Reset link to set a new one.Send a Reset link",
+    "The PIN is locked after too many wrong PINs. Send a Reset link to set a new one.Send a Reset link",
   ]);
   expect(listItems("Passkeys")).toEqual([
     `iCloud Keychainmedia.example.test · Added ${clock("2026-10-02T12:00:00Z")}`,
@@ -83,7 +83,11 @@ test("the last Admin's demotion is refused inside the dialog", async () => {
     handlers: [
       getGetAccountMockHandler(adaDetail),
       http.patch("*/api/v1/accounts/:id", () =>
-        problem(409, "last_admin", "SlipStream needs at least one Admin who is turned on"),
+        problem(
+          409,
+          "last_admin",
+          "SlipStream needs at least one active Admin. Make another Account an Admin first.",
+        ),
       ),
     ],
   });
@@ -92,7 +96,9 @@ test("the last Admin's demotion is refused inside the dialog", async () => {
   await userEvent.click(dialog.getByRole("button", { name: "Make Member" }));
   await expect
     .element(dialog.getByRole("alert"))
-    .toHaveTextContent("SlipStream needs at least one Admin who is turned on");
+    .toHaveTextContent(
+      "SlipStream needs at least one active Admin. Make another Account an Admin first.",
+    );
 });
 
 test("Turn off and Sign out everywhere ask first, then send the change", async () => {

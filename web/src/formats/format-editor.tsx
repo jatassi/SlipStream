@@ -61,7 +61,8 @@ function NameFields({
           }}
         />
         <p className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
-          The Custom Formats naming token lists this format when a file matches it.
+          When a file matches this format, its name goes into the file&apos;s {"{Custom Formats}"}
+          token.
         </p>
       </div>
     </div>

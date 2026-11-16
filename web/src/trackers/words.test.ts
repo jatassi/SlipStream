@@ -33,10 +33,10 @@ test("a rule reads as what the Tracker requires for each torrent, each way it cl
 
 test("a Tracker with no rule says why", () => {
   expect(noRuleSentence("nyaa", "public")).toBe(
-    "nyaa is public, so its torrents follow your seeding goal alone.",
+    "nyaa is public and has no seeding rule. Its torrents seed until your seeding goal is met.",
   );
   expect(noRuleSentence("seedpool", "private")).toBe(
-    "seedpool's Releases don't state a seeding rule, so SlipStream never stops its private torrents. Set seedpool's rule to let its goal run.",
+    "seedpool's releases don't include a seeding rule. SlipStream keeps seeding its private torrents until you set one.",
   );
 });
 
@@ -53,6 +53,6 @@ test("a goal reads as how far each torrent seeds and what happens then", () => {
     "Each torrent seeds until it reaches 2 h of seeding. Then SlipStream removes it.",
   );
   expect(goalSentence({ combine: "forever", ratio: null, seedSeconds: null, action: null })).toBe(
-    "Each torrent seeds with no end until you remove it.",
+    "Each torrent seeds until you remove it.",
   );
 });

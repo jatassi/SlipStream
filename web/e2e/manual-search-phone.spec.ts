@@ -36,7 +36,7 @@ async function grabFromEpisodeSheet(page: Page, world: World, testInfo: TestInfo
   await expect(page.getByRole("dialog")).toHaveCount(1);
   await searched(manual);
   const row = grabRows(manual).first();
-  await expect(row).toContainText("It gets you 1080p for E06.");
+  await expect(row).toContainText("It downloads 1080p for E06.");
   await row.getByRole("button", { name: "Details" }).click();
   await expect(row).toContainText(e06);
   await expect(row).toContainText("IndexersFixture Site, Heron");
@@ -82,7 +82,7 @@ test("on a phone Manual search opens from an episode's sheet, its Details open i
   await openBlocklist(page);
   await expect(page.getByRole("main")).toContainText(webdlTitle);
   await expect(page.getByRole("main")).toContainText(
-    "Blocklisted through the API key when its Grab was canceled.",
+    "An app using the API key blocklisted it when canceling its Grab.",
   );
   await expectAccessible(page);
   await frame(page, testInfo, "phone-blocklist");

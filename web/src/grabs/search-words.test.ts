@@ -122,7 +122,7 @@ test("the hero reads Queued with what holds it, then a wait, then the latest res
     waits: [aWaiting(2)],
     lead: { groupKey: null, of: 0, wait: aWaiting(2) },
   });
-  expect(leadWords(waiting, clock, true)?.words).toBe("Waiting for a better Release until 18:30");
+  expect(leadWords(waiting, clock, true)?.words).toBe("Waiting for a better release until 18:30");
   const found = aWorkSearching({
     groups: [
       aGroupState(1, { lastSearchedAt: "2026-11-13T09:12:00Z" }),

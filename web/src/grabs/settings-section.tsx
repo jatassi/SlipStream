@@ -119,8 +119,9 @@ function StopLine({ settings, save }: { settings: readonly Field[]; save: Save }
         />
       </p>
       <p className={noteLook}>
-        A cell stops searching again after this many failed Grabs. With 1, the first failed Grab
-        stops it. Backlog search still searches it at its own pace.
+        After this many failed Grabs for a file, SlipStream stops searching for it again at once.
+        With 1, the first failed Grab stops it. Backlog search still searches for it at its own
+        pace.
       </p>
     </div>
   );
@@ -139,7 +140,8 @@ function Machinery({ settings, save }: { settings: readonly Field[]; save: Save 
           <div className="flex flex-col gap-1">
             {full(keys.wait)}
             <p className={noteLook}>
-              A wait shorter than a Challenge solver&apos;s timeout ends a solve before it finishes.
+              Set it longer than the Challenge solver&apos;s timeout, or searches stop before the
+              solver clears the challenge.
             </p>
           </div>
         </SettingGroup>

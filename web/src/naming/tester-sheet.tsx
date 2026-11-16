@@ -41,9 +41,9 @@ export function TesterSheet({
     <Dialog title="Test file names" size={940} trigger={<Button>Test file names</Button>}>
       <div className="flex flex-col gap-4">
         <p className="text-ink-2">
-          Paste file names to see the Work each one matches, what SlipStream reads in it and the
-          path it would be imported at. Each path follows its Content Type&apos;s card as it stands,
-          unsaved changes included.
+          Paste file names to see the movie or series each one matches, what SlipStream finds in its
+          name and where it would be imported. Each path uses the naming settings on its card,
+          including unsaved changes.
         </p>
         <NamesBox kind="file" text={text} problem={problem} onText={setText} />
         <div>

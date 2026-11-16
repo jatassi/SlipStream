@@ -81,7 +81,7 @@ test("the name filter ignores case and keeps the catalog's order", () => {
 
 test("the lead says how many formats score and what the three totals do", () => {
   expect(scoresInWords(loaded)).toEqual({
-    lead: "Scores 2 of 3 Custom Formats. A Release needs a score of 0 or more to be grabbed. In the same tier, a Release replaces a file when it scores 10 more, until the file scores 1500.",
+    lead: "This Target scores 2 of 3 Custom Formats. A release needs a score of 0 or more to be grabbed. In the same tier, a release replaces a file when it scores at least 10 more, until the file scores 1500.",
     warnings: [],
   });
 });
@@ -92,17 +92,17 @@ test("a Target scoring nothing ranks by quality alone", () => {
     catalog,
   );
   expect(scoresInWords(unscored).lead).toBe(
-    "No Custom Format has a score here, so this Target ranks Releases by quality alone. Score a Custom Format to prefer the Releases that match it.",
+    "No Custom Format has a score here, so this Target ranks releases by quality alone. Score a Custom Format to prefer the releases that match it.",
   );
   expect(scoresInWords({ ...unscored, formats: [] }).lead).toBe(
-    "No Custom Formats exist yet, so this Target ranks Releases by quality alone.",
+    "No Custom Formats exist yet, so this Target ranks releases by quality alone.",
   );
 });
 
 test("a minimum or upgrade-until past the best possible score warns", () => {
   expect(scoresInWords({ ...loaded, minimum: "2000", upgradeUntil: "1801" }).warnings).toEqual([
-    "No Release can reach the minimum of 2000, because the most a Release can score here is 1800. Lower the minimum or raise a score.",
-    "No file can reach the upgrade-until score of 1801, because the most a Release can score here is 1800. Files stay wanted past the cutoff. Lower upgrade-until or raise a score.",
+    "No release can reach the minimum of 2000, because the most a release can score here is 1800. Lower the minimum or raise a score.",
+    "No file can reach the upgrade-until score of 1801, because the most a release can score here is 1800. Files keep upgrading past the cutoff and never stop. Lower upgrade-until or raise a score.",
   ]);
   expect(scoresInWords({ ...loaded, minimum: "1800", upgradeUntil: "1800" }).warnings).toEqual([]);
 });

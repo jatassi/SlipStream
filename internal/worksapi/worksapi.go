@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/metadataapi"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -59,14 +60,14 @@ func composer(s Shelf) *library.Library {
 var (
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
 	contentTypeDisabled = api.NewCode(http.StatusConflict, "content_type_disabled", "That Content Type is turned off")
-	contentTypeInUse    = api.NewCode(http.StatusConflict, "content_type_in_use", "Remove its Works before turning this Content Type off")
+	contentTypeInUse    = api.NewCode(http.StatusConflict, "content_type_in_use", "Delete every Work of this kind of media before turning it off")
 	contentTypeLast     = api.NewCode(http.StatusConflict, "content_type_last", "Turn on another Content Type before turning this one off")
 	workNotFound        = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 	workGoneUpstream    = api.NewCode(http.StatusConflict, "work_gone_upstream", "The metadata source no longer has this Work")
 	metadataNotFound    = api.NewCode(http.StatusNotFound, "metadata_not_found", "The metadata source has no record with that key")
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't respond. Try again later.")
 	metadataInvalid     = api.NewCode(http.StatusBadGateway, "metadata_invalid", "The metadata source sent a record SlipStream can't use")
-	metadataRefused     = api.NewCode(http.StatusBadGateway, "metadata_refused", "The metadata source refused SlipStream's key")
+	metadataRefused     = api.NewCode(http.StatusBadGateway, "metadata_refused", "The metadata source refused the API key or PIN")
 	notOnSource         = api.NewCode(http.StatusUnprocessableEntity, "not_on_source", "The metadata source doesn't list this record")
 	orderUnavailable    = api.NewCode(http.StatusUnprocessableEntity, "order_unavailable", "The metadata source doesn't list this Work in that order")
 	profileNotFound     = api.NewCode(http.StatusUnprocessableEntity, "profile_not_found", "No Profile has that id")
@@ -98,13 +99,11 @@ var codes = []struct {
 }
 
 func answer(err error) error {
-	if source, ok := errors.AsType[*works.SourceError](err); ok {
-		switch {
-		case errors.Is(err, works.ErrRefused):
-			return metadataRefused.Because(source.Source + " refused SlipStream's key")
-		case errors.Is(err, works.ErrUnavailable):
-			return metadataUnavailable.Because(source.Error())
-		}
+	switch {
+	case errors.Is(err, works.ErrRefused):
+		return metadataapi.Refused(metadataRefused, err)
+	case errors.Is(err, works.ErrUnavailable):
+		return metadataapi.Unavailable(metadataUnavailable, err)
 	}
 	for _, c := range codes {
 		if errors.Is(err, c.err) {
@@ -196,7 +195,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		ID:      "updateContentTypeSettings",
 		Method:  http.MethodPatch,
 		Path:    "/content-types/{contentType}/settings",
-		Summary: "Change a Content Type's own settings by key, all or none. Every Work of the type may then read differently",
+		Summary: "Change a Content Type's own settings by key, all or none. A change can alter every Work of the type, such as its availability dates",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{contentTypeNotFound, settingapi.ErrOutOfRange, settingapi.ErrUnknown},
 	}, h.updateContentTypeSettings)
@@ -214,7 +213,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		ID:      "previewCatalogRecord",
 		Method:  http.MethodGet,
 		Path:    "/content-types/{contentType}/catalog/{key}",
-		Summary: "Read a record of a Content Type's metadata source as the Work adding it would make, without adding it or reading ratings",
+		Summary: "Preview the Work that adding a metadata record would create, without adding it or fetching ratings",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, metadataNotFound, metadataUnavailable, metadataInvalid, metadataRefused, notOnSource},
 	}, h.previewCatalogRecord)

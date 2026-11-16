@@ -106,7 +106,7 @@ function RowLine({ row: shown }: { row: Row }) {
           title={shown.folder.name}
           trailing={
             <>
-              <span className="shrink-0 text-meta text-ink-3">Not allowed</span>
+              <span className="shrink-0 text-meta text-ink-3">No access</span>
               {opens}
             </>
           }

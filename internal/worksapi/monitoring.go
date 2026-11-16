@@ -40,7 +40,7 @@ type monitoringChange struct {
 	Preset        string   `json:"preset" enum:"all,future,missing,existing,first,latest,none"`
 	IncludeAsides bool     `json:"includeAsides" doc:"Monitor the aside Items the preset picks, and new ones when it monitors new Items"`
 	MonitorNew    *bool    `json:"monitorNew,omitempty" doc:"Whether to monitor Items a refresh adds; left out, the preset decides"`
-	Preview       bool     `json:"preview" doc:"Answer what the change would move and write nothing"`
+	Preview       bool     `json:"preview" doc:"Return what the change would start and stop monitoring, and save nothing"`
 }
 
 type monitoringOutcome struct{}
@@ -96,7 +96,7 @@ type optionsChanged struct {
 	LevelFolders bool                          `json:"levelFolders"`
 	Options      []api.OneOf[settingapi.Field] `json:"options" nullable:"false" doc:"The Content Type's own options for the Work"`
 	Moves        bool                          `json:"moves" doc:"The change fetches the Work again, so its Items may move between levels"`
-	Withdraws    int                           `json:"withdraws" doc:"Live Items the change withdraws: the source doesn't list them under the new options, and they keep their files"`
+	Withdraws    int                           `json:"withdraws" doc:"Items the source no longer lists under the new options; they keep their files"`
 }
 
 type optionsChangedOutput struct{ Body optionsChanged }

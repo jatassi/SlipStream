@@ -195,7 +195,7 @@ export function PickRows({ rows, acts }: { rows: readonly ShownRow[]; acts: RowA
 
 export function GapRows({ rows, acts }: { rows: readonly GrabsPlanRow[]; acts: RowActs }) {
   return (
-    <ul aria-label="Cells nothing fills" className={list}>
+    <ul aria-label="Files with no release found" className={list}>
       {rows.map((row) => (
         <GapRow key={row.key} row={row} acts={acts} />
       ))}

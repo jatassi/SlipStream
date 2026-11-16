@@ -21,7 +21,7 @@ function RowFields({ form, index, view, server, folders }: Row & { folders: stri
         {(field) => (
           <div>
             <Switch
-              label={`Shown on ${server}`}
+              label={`In a ${server} library`}
               checked={field.state.value}
               onCheckedChange={field.handleChange}
             />

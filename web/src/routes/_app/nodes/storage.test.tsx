@@ -149,17 +149,15 @@ function rolesOf(seat: NodesBoardNode, writing: ReturnType<typeof writeOffServer
 
 test("a Node draining Storage says its roots stay", async () => {
   rolesOf(drainingStorage, writeOffServer(outcome({})));
-  await expect.element(page.getByText("Draining, 2 roots (12 GB) stay")).toBeVisible();
+  await expect.element(page.getByText("Finishing its work, 2 roots (12 GB) stay")).toBeVisible();
 });
 
 test("writing off Storage lists the Node's roots and says their files count as missing", async () => {
   const writing = writeOffServer(outcome({}));
   rolesOf(drainingStorage, writing);
-  await userEvent.click(page.getByRole("button", { name: "Write off what seedbox holds" }));
-  const confirm = page.getByRole("dialog", { name: "Write off what seedbox holds" });
-  await expect
-    .element(confirm.getByText("seedbox holds 2 roots (12 GB) for Storage."))
-    .toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Give up seedbox's work" }));
+  const confirm = page.getByRole("dialog", { name: "Give up seedbox's work" });
+  await expect.element(confirm.getByText("seedbox has 2 roots (12 GB) for Storage.")).toBeVisible();
   const listed = confirm.getByRole("list", { name: "Library roots on seedbox" });
   await expect.element(listed).toBeVisible();
   expect(
@@ -171,7 +169,7 @@ test("writing off Storage lists the Node's roots and says their files count as m
   await expect
     .element(
       confirm.getByText(
-        "Its library roots stay, marked Node written off, and their files count as missing until you re-home the roots onto a live Node. No files are deleted.",
+        'Its library roots stay, marked "Node given up". Their files show as missing until you edit each root to use a folder on a Node that\'s online. No files are deleted.',
       ),
     )
     .toBeVisible();
@@ -186,12 +184,12 @@ test("writing off torrents and roots together says what happens to each", async 
     roles: [...seedboxSeat.roles, { role: "storage", state: "holding", held: storageHeld }],
   };
   rolesOf(both, writeOffServer(outcome({})));
-  await userEvent.click(page.getByRole("button", { name: "Write off what seedbox holds" }));
-  const confirm = page.getByRole("dialog", { name: "Write off what seedbox holds" });
+  await userEvent.click(page.getByRole("button", { name: "Give up seedbox's work" }));
+  const confirm = page.getByRole("dialog", { name: "Give up seedbox's work" });
   await expect
     .element(
       confirm.getByText(
-        "SlipStream stops waiting for it. What isn't imported yet goes back to wanted, so SlipStream searches for it again. Its library roots stay, marked Node written off, and their files count as missing until you re-home the roots onto a live Node. No files are deleted.",
+        "SlipStream stops waiting for this Node. Its downloads that aren't imported yet fail, and SlipStream searches for them again. Its library roots stay, marked \"Node given up\". Their files show as missing until you edit each root to use a folder on a Node that's online. No files are deleted.",
       ),
     )
     .toBeVisible();
@@ -201,7 +199,7 @@ test("writing off torrents and roots together says what happens to each", async 
   await expect
     .element(
       confirm.getByText(
-        "Its library roots stay, marked Node written off, and their files count as missing until you re-home the roots onto a live Node. No files are deleted.",
+        'Its library roots stay, marked "Node given up". Their files show as missing until you edit each root to use a folder on a Node that\'s online. No files are deleted.',
       ),
     )
     .toBeVisible();

@@ -53,7 +53,7 @@ type Config struct {
 var (
 	ErrNoCategory = errors.New("no Health category has that id")
 	ErrNoItem     = errors.New("the category has no item with that key")
-	ErrNoCheck    = errors.New("there is no Check now for that")
+	ErrNoCheck    = errors.New("this Health item has no Check now action")
 	errMoved      = errors.New("the health item moved under the evaluator")
 )
 

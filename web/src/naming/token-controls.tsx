@@ -9,7 +9,7 @@ import { type TokenChoice, cases, separators, takesWords, wraps } from "./token-
 /** The labels of a modifier's text box and of its switch, when it has one. */
 const modifierWords = {
   pad: { text: "Digits", invert: undefined, digits: true },
-  cut: { text: "Longest, in bytes", invert: "Keep the end", digits: true },
+  cut: { text: "Maximum length (bytes)", invert: "Keep the end", digits: true },
   languages: { text: "Languages, such as EN+DE", invert: "Leave these out", digits: false },
   formats: {
     text: "Custom Formats, such as IMAX,HDR10+",

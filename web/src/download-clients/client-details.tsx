@@ -21,10 +21,10 @@ function summaryOf(values: ClientValues, kind: Kind, node: string): string {
   const saves = `SlipStream labels its torrents ${values.label.trim()}, and ${kind.name} saves them in ${folder === "" ? "its own download folder" : folder}.`;
   const pairs = values.clientFolders.length;
   if (pairs === 0) {
-    return `${saves} ${node} opens the paths ${kind.name} reports as they are.`;
+    return `${saves} ${node} uses the paths ${kind.name} reports without changing them.`;
   }
-  const folders = pairs === 1 ? "1 Client folder" : `${pairs} Client folders`;
-  return `${saves} ${node} opens ${kind.name}'s paths through ${folders}.`;
+  const mappings = pairs === 1 ? "1 remote path mapping" : `${pairs} remote path mappings`;
+  return `${saves} ${node} translates ${kind.name}'s paths with ${mappings}.`;
 }
 
 /** The label SlipStream sets and the folder the client saves to. */
@@ -56,9 +56,9 @@ function LabelAndFolder({ form, kind }: { form: ClientForm; kind: Kind }) {
 }
 
 const timingsLater =
-  "Check every and Import delay start at their defaults. Change them once the client is saved.";
+  "The Check every and Import delay settings start at their defaults. You can change them after you save the client.";
 
-/** The machinery under Details: label, download folder, Client folders, Deluge's daemon and the timings. */
+/** The machinery under Details: label, download folder, remote path mappings, Deluge's daemon and the timings. */
 export function ClientDetails({
   form,
   kind,

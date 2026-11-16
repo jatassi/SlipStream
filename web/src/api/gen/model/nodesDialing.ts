@@ -1,6 +1,6 @@
 export interface NodesDialing {
   address: string;
-  /** Where the Controller dials the Node, in order */
+  /** Where the Controller connects to the Node, in order */
   addresses: string[];
   since: string;
   /** The Node hasn't paired within timings.nodes.dial_report of the paste */

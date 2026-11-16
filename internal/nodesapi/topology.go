@@ -10,7 +10,7 @@ import (
 
 type topology struct {
 	At       time.Time      `json:"at"`
-	Sentence string         `json:"sentence" doc:"What stands out across the Nodes, in plain words"`
+	Sentence string         `json:"sentence" doc:"One sentence naming the Nodes that are offline, reconnecting, finishing their work or covered for, or saying every Node is online"`
 	Nodes    []topologyNode `json:"nodes" nullable:"false" doc:"Every Node, in id order"`
 	Links    []topologyLink `json:"links" nullable:"false" doc:"The link between the Controller and each Worker, in the Workers' id order"`
 }
@@ -25,17 +25,17 @@ type topologyNode struct {
 	Self       bool       `json:"self" doc:"The Node that responded, which is the Controller"`
 	Controller bool       `json:"controller"`
 	State      string     `json:"state" enum:"online,reconnecting,offline,lapsed,mismatched"`
-	Since      time.Time  `json:"since" doc:"When it came in step; while away, its last Sync frame"`
+	Since      time.Time  `json:"since" doc:"When it connected; while away, when it last reported"`
 	LastSeenAt *time.Time `json:"lastSeenAt,omitempty" doc:"Its last Sync frame; absent while it is online"`
-	Roles      []roleView `json:"roles" nullable:"false" doc:"Every Role the Node stands in, in table order"`
+	Roles      []roleView `json:"roles" nullable:"false" doc:"Every Role the Node has, in the order of the Roles table"`
 	Probes     []probe    `json:"probes" nullable:"false" doc:"The last verdict of each probe the Node ran, kept while it is away"`
 	Resources  resources  `json:"resources"`
-	Television bool       `json:"television" doc:"Whether any Media Server the Node reaches responds; false unless it stands in Media Server link"`
+	Television bool       `json:"television" doc:"Whether any Media Server the Node reaches responds; false unless it has the Media Server link Role"`
 }
 
 type resources struct {
-	Downloading *downloadingResource `json:"downloading,omitempty" doc:"Its torrent client; absent unless the Node stands in Downloading and is in step"`
-	Storage     *storageResource     `json:"storage,omitempty" doc:"Its library roots and the volumes they sit on; absent unless the Node stands in Storage. While it is away, as it last reported them"`
+	Downloading *downloadingResource `json:"downloading,omitempty" doc:"Its torrent client; absent unless the Node has the Downloading Role and is connected"`
+	Storage     *storageResource     `json:"storage,omitempty" doc:"Its library roots and the volumes they sit on; absent unless the Node has the Storage Role. While it is away, as it last reported them"`
 }
 
 type storageResource struct {
@@ -76,7 +76,7 @@ type torrentView struct {
 type topologyLink struct {
 	A      string `json:"a" format:"uuid" doc:"The Controller"`
 	B      string `json:"b" format:"uuid" doc:"The Worker"`
-	Dialer string `json:"dialer,omitempty" format:"uuid" doc:"The Node that dialed the live session; absent while the link is down"`
+	Dialer string `json:"dialer,omitempty" format:"uuid" doc:"The Node that opened the live connection; absent while it is down"`
 	State  string `json:"state" enum:"up,down,mismatched"`
 	RTTMs  int64  `json:"rttMs,omitempty" doc:"The live session's round trip; absent until its first ping is answered"`
 }

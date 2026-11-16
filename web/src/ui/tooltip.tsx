@@ -8,6 +8,8 @@ export type TooltipProps = {
   count?: number;
   alert?: AlertTone;
   side?: "top" | "right" | "bottom" | "left";
+  /** The trigger's accessible name when it differs from the tooltip's words. */
+  name?: string;
   children: ReactElement;
 };
 
@@ -15,10 +17,19 @@ const popup =
   "flex items-center gap-2 rounded-item bg-popover px-2.5 py-1.5 text-meta font-medium text-ink-1 shadow-float backdrop-blur-[30px] backdrop-saturate-[1.7] transition-opacity duration-(--duration-menu) ease-standard data-instant:duration-0 data-starting-style:opacity-0 data-ending-style:opacity-0";
 
 // Base UI tooltips are visual only, so the trigger carries the same words as its name.
-export function Tooltip({ label, count, alert, side = "top", children }: TooltipProps) {
-  const name = [label, count, alert === undefined ? undefined : dotWord(alert)]
-    .filter((part) => part !== undefined)
-    .join(", ");
+export function Tooltip({
+  label,
+  count,
+  alert,
+  side = "top",
+  name: given,
+  children,
+}: TooltipProps) {
+  const name =
+    given ??
+    [label, count, alert === undefined ? undefined : dotWord(alert)]
+      .filter((part) => part !== undefined)
+      .join(", ");
   return (
     <BaseTooltip.Root>
       <BaseTooltip.Trigger render={children} aria-label={name} />

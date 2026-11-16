@@ -21,9 +21,9 @@ const closing = (onClose: () => void) => (open: boolean) => {
   }
 };
 
-/** Why the Controller stays, and what retires it instead. */
+/** Why the Controller stays. */
 export const controllerStays = (name: string): string =>
-  `${name} is the Controller, which keeps the library, so it can't be removed. To retire it, hand the Controller over to another Node first. Handover comes in a later version of SlipStream.`;
+  `${name} is the Controller and keeps the library, so it can't be removed.`;
 
 function ControllerStays({ seat, onClose }: Pick<Props, "seat" | "onClose">) {
   return (
@@ -41,7 +41,7 @@ const heldLines = (board: NodesRoleBoard, seat: NodesBoardNode): string[] =>
     held === undefined
       ? []
       : [
-          `${seat.name} still holds ${heldWords(held)} for ${labelOf(board, role)}. Untick its Roles and remove it when they finish, or remove it now and write them off.`,
+          `${seat.name} still has ${heldWords(held)} for ${labelOf(board, role)}. Untick its Roles and remove ${seat.name} once that work finishes, or remove it now and give up that work.`,
         ],
   );
 
@@ -54,17 +54,17 @@ function RemoveWords({ name, holds }: { name: string; holds: readonly string[] }
         </p>
       ))}
       <p>
-        {name} leaves the Roster, and its Roles fall back as if you unticked them. History keeps its
-        name, marked removed.
+        {name} comes off the Nodes list, and its Roles move to other Nodes as if you unticked them.
+        Past activity still shows its name, marked removed.
       </p>
       {holds.length > 0 && (
         <p>
-          Writing off sends what isn&apos;t imported yet back to wanted, so SlipStream searches for
-          it again. No files are deleted.
+          Its downloads that aren&apos;t imported yet fail, and SlipStream searches for them again.
+          No files are deleted.
         </p>
       )}
       <p>
-        {name} stops working for this SlipStream and keeps its files. To use it again, join it with
+        {name} stops working with this Controller and keeps its files. To use it again, join it with
         a new Join Code.
       </p>
     </>
@@ -85,7 +85,7 @@ export function RemoveDialog({ board, seat, onClose, onRemoved }: Props) {
   return (
     <ConfirmDialog
       title={`Remove ${seat.name}?`}
-      confirmLabel={writeOff ? "Remove and write off" : "Remove"}
+      confirmLabel={writeOff ? "Remove and give up its work" : "Remove"}
       look="fail"
       open
       onOpenChange={closing(onClose)}

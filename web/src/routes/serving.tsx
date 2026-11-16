@@ -35,7 +35,7 @@ function holdingLine(holding: readonly string[], seeding: number): string {
   const seeds = countWords(seeding, torrents);
   return holding.length === 0
     ? `Seeding ${seeds}.`
-    : `Holding ${andList(holding)} · seeding ${seeds}.`;
+    : `Roles: ${andList(holding)} · seeding ${seeds}.`;
 }
 
 // The Worker's own app shell boots here while its Controller can't be
@@ -54,7 +54,7 @@ function Serving() {
   const { since } = data;
   const when = since === undefined ? "" : ` since ${sinceWords(since, { now, zone: undefined })}`;
   return (
-    <EntryPage title={`${data.controller} can't be reached from ${data.name}${when}.`}>
+    <EntryPage title={`${data.name} hasn't been able to reach ${data.controller}${when}.`}>
       <p>{`${data.name} keeps seeding and finishes what it started.`}</p>
       <p>{holdingLine(data.holding, data.seeding)}</p>
     </EntryPage>

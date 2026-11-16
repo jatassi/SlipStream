@@ -120,8 +120,8 @@ const refusalWords: {
 } = {
   not_found: ({ names }) =>
     names.length === 1
-      ? `${names[0]} is no longer there.`
-      : `${torrents(names.length)} are no longer there.`,
+      ? `SlipStream no longer tracks ${names[0]}.`
+      : `SlipStream no longer tracks ${torrents(names.length)}.`,
   removed: ({ names }) =>
     names.length === 1
       ? `${names[0]} is already being removed.`
@@ -130,19 +130,20 @@ const refusalWords: {
     `SlipStream is finishing the import of ${(refusal.workId === undefined ? undefined : work(refusal.workId)) ?? names[0]}. Try again once it's done.`,
   not_held: ({ names }) =>
     `No Grab is downloading ${names.join(", ")}, so nothing was marked failed.`,
-  use_not_this_release: () => "Use Not this Release on its Pending import.",
+  use_not_this_release: ({ names }) =>
+    `${names.join(", ")} is waiting in Pending imports. To reject this release, choose Not this Release on its Pending import.`,
   reconciling: () =>
-    "SlipStream is Reconciling after a restore, so nothing was marked failed. Try again once it finishes.",
+    "SlipStream is still matching a restored Backup to what each Node has, so nothing was marked failed. Try again once that finishes.",
   offline: ({ names }) =>
-    `The Node holding ${names.join(", ")} is offline. Try again once it reconnects.`,
+    `The Node with ${names.join(", ")} is offline. Try again once it reconnects.`,
   client_away: ({ refusal }) =>
     `${refusal.client ?? "The client"} on ${refusal.node ?? "its Node"} isn't responding. Try again once it responds.`,
   client_off: ({ refusal }) =>
     `SlipStream isn't checking ${refusal.client ?? "the client"} while it's turned off. Turn it on, then try again.`,
   window: ({ names, refusal }, { clock }) =>
     refusal.acceptsAt === undefined
-      ? `An announce URL of ${names.join(", ")} would reject an announce now.`
-      : `An announce URL of ${names.join(", ")} would reject an announce until ${sinceWords(refusal.acceptsAt, clock)}.`,
+      ? `A tracker of ${names.join(", ")} won't accept another announce yet.`
+      : `A tracker of ${names.join(", ")} won't accept another announce until ${sinceWords(refusal.acceptsAt, clock)}.`,
   not_running: ({ names }) => `${names.join(", ")} isn't running, so it has nothing to announce.`,
   failed: ({ names }, { action }) =>
     `${names.join(", ")} failed in the torrent client and can't ${verbs[action]}. Remove it instead.`,

@@ -208,7 +208,7 @@ const refusal = (problems: readonly NamingProblem[]) =>
     {
       status: 422,
       code: "naming_template_refused",
-      title: "The naming settings don't pass the save check",
+      title: "A naming setting has a problem",
       errors: problems.map(({ key, sentence }) => ({
         location: `body.values.${key}`,
         message: sentence,

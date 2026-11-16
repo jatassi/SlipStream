@@ -470,6 +470,6 @@ func MoveFirstTagsToEndOfReleaseTitle(input string) string {
 type TolokaSettings struct {
 	port.UserPass
 	// SlipStream: labels and help reworded per WRITING.md.
-	FreeleechOnly        bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
-	StripCyrillicLetters bool `port:"stripCyrillicLetters" label:"Strip Cyrillic letters" default:"true" help:"Remove Cyrillic letters from each Release title."`
+	FreeleechOnly        bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
+	StripCyrillicLetters bool `port:"stripCyrillicLetters" label:"Strip Cyrillic letters" default:"true" help:"Remove Cyrillic letters from each release title."`
 }

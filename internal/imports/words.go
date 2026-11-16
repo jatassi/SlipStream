@@ -111,9 +111,10 @@ func (w treeWording) edition(cut release.CutKey) string {
 	return string(cut)
 }
 
-func (w treeWording) item() string  { return w.nouns.Item.One }
-func (w treeWording) work() string  { return strings.ToLower(w.nouns.Work.One) }
-func (w treeWording) label() string { return w.tree.Label }
+func (w treeWording) item() string     { return strings.ToLower(w.nouns.Item.One) }
+func (w treeWording) itemMany() string { return strings.ToLower(w.nouns.Item.Many) }
+func (w treeWording) work() string     { return strings.ToLower(w.nouns.Work.One) }
+func (w treeWording) label() string    { return w.tree.Label }
 
 // FileWords is what Pending imports reads about one file of an Import.
 // Sentence is its reason worded, empty for none. A file that waits on its
@@ -254,7 +255,7 @@ func verdictSentence(v files.Verdict, target targets.TargetID, w treeWording) st
 	name := w.names[target]
 	switch {
 	case of(v.Fills):
-		return "Fills " + name + " for " + w.label() + "."
+		return "Would be the " + name + " file for " + w.label() + "."
 	case of(v.Meets):
 		return "This isn't better than the file you have for " + name + "."
 	}

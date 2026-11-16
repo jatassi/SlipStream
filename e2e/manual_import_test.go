@@ -112,7 +112,7 @@ func TestAFolderInADownloadFolderImportsIntoTwoWorksByHandAndStartsNoSearch(t *t
 	worldtest.Expect(t, "importFolder outside", a.Admin("home", http.MethodPost, "/api/v1/imports", `{"nodeId":"`+home+`","folder":`+strconv.Quote(t.TempDir())+`}`),
 		worldtest.Reply{Status: http.StatusUnprocessableEntity, Body: `{"status":422,"code":"import_outside","title":"The folder isn't in one of the Node's library roots or download folders"}` + "\n"})
 	worldtest.Expect(t, "setImportMoveFiles", a.Admin("home", http.MethodPost, "/api/v1/imports/move-files", `{"importIds":["`+strings.Join(opened.ids(), `","`)+`"],"on":true}`),
-		worldtest.Reply{Status: http.StatusConflict, Body: `{"status":409,"code":"import_move_seeding","title":"A tracked torrent seeds one of these files. Move files can't take a file while it seeds."}` + "\n"})
+		worldtest.Reply{Status: http.StatusConflict, Body: `{"status":409,"code":"import_move_seeding","title":"A torrent SlipStream tracks is still seeding one of these files. Move files can't move a file while it seeds."}` + "\n"})
 
 	read := func(what string, done func([]string) bool) folderImports {
 		t.Helper()

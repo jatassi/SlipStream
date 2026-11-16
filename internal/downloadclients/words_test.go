@@ -84,18 +84,18 @@ func TestTheSpecsSentencesReadAsTheSpecWritesThem(t *testing.T) {
 		},
 		{
 			tc.Problem{Cause: tc.VersionTooOld, Version: version(t, "4.5.2")}, qbittorrent,
-			"Media server reached qBittorrent 4.5.2, which is older than SlipStream supports. Update it to 4.6 or later and test again.",
+			"Media server connected to qBittorrent 4.5.2, which is older than SlipStream supports. Update it to 4.6 or later and test again.",
 		},
 		{tc.Problem{Cause: tc.LabelPluginOff}, deluge, "Deluge's Label plugin is off. Turn it on in Deluge's preferences and test again."},
 		{
 			tc.Problem{Cause: tc.FolderUnreadable, Folder: "/downloads"}, transmission,
-			"Media server can't open /downloads, the folder Transmission saves to. Under Client folders, pair /downloads with the folder Media server sees.",
+			"Media server can't open /downloads, the folder Transmission saves to. Under Remote path mappings, pair /downloads with the folder Media server sees.",
 		},
 		{
 			tc.Problem{Cause: tc.FolderUnreadable, Folder: `D:\Torrents`, Paired: "/downloads"}, transmission,
 			`Media server can't open D:\Torrents, which is paired with /downloads. Check the pair, and check that Media server can read that folder.`,
 		},
-		{tc.Problem{Cause: tc.NotKept}, transmission, "Transmission didn't keep the torrent SlipStream sent it. Check Transmission's log for the reason."},
+		{tc.Problem{Cause: tc.NotKept}, transmission, "Transmission accepted a torrent from SlipStream but no longer lists it. Check Transmission's log for the reason."},
 		{
 			tc.Problem{Cause: tc.MostMissing, Missing: 14}, transmission,
 			"Transmission no longer lists 14 of SlipStream's torrents. Check that the address points at the right Transmission.",
@@ -156,7 +156,10 @@ func TestEveryWarningAndRefusalHasASentence(t *testing.T) {
 	} {
 		readsAsWritten(t, "refusal", got)
 	}
-	if got, want := dc.HasTorrents("Transmission", 1, false), "Transmission holds 1 torrent SlipStream tracks. Stop tracking it to delete the client."; got != want {
+	if got, want := dc.HasTorrents("Transmission", 1, false), "Transmission has 1 torrent that SlipStream tracks. Stop tracking it to delete the client."; got != want {
 		t.Errorf("one held torrent reads %q, want %q", got, want)
+	}
+	if got, want := dc.HasTorrents("Transmission", 2, true), "Transmission can't move to another Node while it has 2 torrents that SlipStream tracks. Remove the torrents first, or select Stop tracking and delete, then add the client again on the other Node."; got != want {
+		t.Errorf("a move with torrents reads %q, want %q", got, want)
 	}
 }

@@ -75,7 +75,7 @@ type Columns = readonly [Column<GrabsWantedRow>, ...Column<GrabsWantedRow>[]];
 
 const columnsOf = (clock: Clock, search: RowSearch): Columns => [
   { id: "work", header: "Work", cell: (row) => <WorkCell row={row} /> },
-  { id: "items", header: "Items", hideBelow: 900, cell: (row) => rangesWords(row.ranges) },
+  { id: "items", header: "Episodes", hideBelow: 900, cell: (row) => rangesWords(row.ranges) },
   { id: "reason", header: "Reason", cell: reasonWords },
   { id: "last", header: "Last searched", hideBelow: 760, cell: (row) => lastWords(row, clock) },
   { id: "next", header: "Next search", cell: (row) => <NextCell row={row} clock={clock} /> },

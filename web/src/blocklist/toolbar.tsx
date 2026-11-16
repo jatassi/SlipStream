@@ -15,7 +15,7 @@ export function Toolbar({
     <div className="mb-4 flex flex-wrap items-center gap-3">
       {picks !== undefined && (
         <Checkbox
-          label="Pick all"
+          label="Select all"
           checked={picks.all === "every"}
           indeterminate={picks.all === "some"}
           onCheckedChange={picks.toggleAll}

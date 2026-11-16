@@ -35,18 +35,18 @@ async function expectEachPreset(page: Page, sheet: Locator) {
   ]);
   await page.keyboard.press("Escape");
   const monitoring = [
-    [/^Future/u, "monitoring only new episodes as they air"],
-    [/^Missing/u, "monitoring all 9 episodes and new ones as they air"],
-    [/^Existing/u, "monitoring no episodes"],
-    [/^First season/u, "monitoring 3 episodes and no new ones"],
-    [/^None/u, "monitoring no episodes"],
-    [/^Latest season/u, "monitoring 3 episodes and new ones as they air"],
+    [/^Future/u, "SlipStream monitors only new episodes as they air."],
+    [/^Missing/u, "SlipStream monitors all 9 episodes and new ones as they air."],
+    [/^Existing/u, "SlipStream monitors no episodes."],
+    [/^First season/u, "SlipStream monitors 3 episodes and no new ones."],
+    [/^None/u, "SlipStream monitors no episodes."],
+    [/^Latest season/u, "SlipStream monitors 3 episodes and new ones as they air."],
   ] as const;
   for (const [preset, words] of monitoring) {
     // oxlint-disable-next-line no-await-in-loop -- each choice reads the sentence the last one left
     await choose(page, sheet, preset);
     // oxlint-disable-next-line no-await-in-loop -- as above
-    await expect(sentence(sheet)).toContainText(`, ${words}, `);
+    await expect(sentence(sheet)).toContainText(words);
   }
 }
 
@@ -63,7 +63,9 @@ async function expectRemembered(page: Page) {
   );
   await expect(next.getByRole("switch", { name: "Include specials" })).toBeChecked();
   await expect(next.getByRole("switch", { name: "Season folders" })).not.toBeChecked();
-  await expect(sentence(next)).toContainText(", monitoring 2 episodes and new ones as they air, ");
+  await expect(sentence(next)).toContainText(
+    "SlipStream monitors 2 episodes and new ones as they air.",
+  );
 }
 
 test("a series found by its alternative title adds with the preset, specials and folders chosen, and Remember keeps them", async ({
@@ -72,8 +74,8 @@ test("a series found by its alternative title adds with the preset, specials and
 }) => {
   await page.goto("/library/series");
   await expect(page.getByText("No Series in the library yet.")).toBeVisible();
-  await page.getByRole("main").getByRole("button", { name: "Add a Series" }).last().click();
-  await expect(page.getByRole("heading", { name: "Add a Series", level: 1 })).toBeVisible();
+  await page.getByRole("main").getByRole("button", { name: "Add a series" }).last().click();
+  await expect(page.getByRole("heading", { name: "Add a series", level: 1 })).toBeVisible();
 
   await search(page, "Nights at the Harbor");
   await expect(results(page).getByRole("listitem")).toHaveCount(1);
@@ -84,14 +86,16 @@ test("a series found by its alternative title adds with the preset, specials and
   const sheet = page.getByRole("dialog", { name: "Add The Lantern Keepers" });
   await expect(sheet).toContainText("3 seasons · 9 episodes");
   await expect(sentence(sheet)).toHaveText(
-    /^Adds The Lantern Keepers \(2020\) to TV on .+[/\\]tv, monitoring all 9 episodes and new ones as they air, wanting TV's 1 Target\.$/u,
+    /^Adds The Lantern Keepers \(2020\) to TV on .+[/\\]tv\. SlipStream monitors all 9 episodes and new ones as they air\. Its Profile, TV, has 1 Target\.$/u,
   );
   await expectEachPreset(page, sheet);
 
   const specials = sheet.getByRole("switch", { name: "Include specials" });
   await expect(specials).not.toBeChecked();
   await specials.click();
-  await expect(sentence(sheet)).toContainText(", monitoring 5 episodes and new ones as they air, ");
+  await expect(sentence(sheet)).toContainText(
+    "SlipStream monitors 5 episodes and new ones as they air.",
+  );
   const folders = sheet.getByRole("switch", { name: "Season folders" });
   await expect(folders).toBeChecked();
   await folders.click();
@@ -126,7 +130,7 @@ test("while TVDB search fails, TMDB's results show, and one TVDB doesn't list ca
   await page.goto("/add?contentType=series&query=harbor");
   const unlisted = results(page).getByRole("listitem").filter({ hasText: "Harbor Lights" });
   await expect(unlisted).toContainText(
-    "TVDB doesn't list this series. SlipStream needs TVDB to keep it up to date.",
+    "TVDB doesn't list this series, so it can't be added. SlipStream gets the details of each series from TVDB.",
   );
   await expect(unlisted.getByRole("button")).toHaveCount(0);
 

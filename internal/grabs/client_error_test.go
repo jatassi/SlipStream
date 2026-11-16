@@ -45,7 +45,7 @@ func TestAClientErrorWaitsInNeedsYouThenFailsTheGrabWithNoBlocklistEntry(t *test
 		run(t, s.lib, sql(`UPDATE downloadclients_torrent SET client_error_ms = ?`, time.Hour.Milliseconds()))
 		time.Sleep(time.Minute)
 		v := s.view(s.grab)
-		if v.Stage != grabs.Failed || v.Failed.Code != grabs.ClientError || v.Failed.Message != "Transmission on home reported an error for more than 1 h. Search can try another Release." {
+		if v.Stage != grabs.Failed || v.Failed.Code != grabs.ClientError || v.Failed.Message != "Transmission on home reported an error for more than 1 h." {
 			t.Fatalf("with an hour of the error counted the Grab is %s with %+v, want failed client_error", v.Stage, v.Failed)
 		}
 		var blocked int

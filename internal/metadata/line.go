@@ -239,7 +239,7 @@ var failures = map[OutcomeKind]error{
 	Limited:     works.ErrUnavailable,
 	Capped:      works.ErrUnavailable,
 	Unreachable: works.ErrUnavailable,
-	PinRefused:  works.ErrRefused,
+	PinRefused:  works.ErrPinRefused,
 }
 
 // verdict is what one try settled: an outcome, the answer when it is OK,
@@ -388,7 +388,7 @@ func (l *Line) send(ctx context.Context, o outgoing, lookup bool) (verdict, erro
 	}
 	req, err := http.NewRequestWithContext(ctx, o.method, o.url.String(), sent)
 	if err != nil {
-		return verdict{Outcome: l.outcome(Unreachable, "can't be requested at "+o.url.Redacted())}, nil
+		return verdict{Outcome: l.outcome(Unreachable, "has an address SlipStream can't send a request to: "+o.url.Redacted())}, nil
 	}
 	req.Header.Set("User-Agent", l.lines.userAgent)
 	if o.body != nil {
@@ -429,7 +429,7 @@ func (l *Line) classify(a answer, status string, lookup bool) verdict {
 		v.Outcome = l.outcome(OK, "")
 	case a.status == http.StatusTooManyRequests:
 		until := now.Add(l.retryAfter(a.header, now))
-		v.Outcome = l.outcome(Limited, "is rate limited until "+until.UTC().Format(time.RFC3339))
+		v.Outcome = l.outcome(Limited, "is rate limiting SlipStream")
 		v.Until = until
 	case a.status == http.StatusUnauthorized || a.status == http.StatusForbidden:
 		v.Outcome = l.outcome(Refused, "refused the key: "+status)

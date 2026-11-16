@@ -9,7 +9,7 @@ export function KeyCheck({ node, reached }: { node: NodesNode; reached: string }
       <KeyValues
         rows={[
           ["Key", node.key],
-          ["Reached by", reached],
+          ["Connection", reached],
         ]}
       />
       <p className="text-ink-2">

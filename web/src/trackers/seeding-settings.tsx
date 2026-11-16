@@ -44,9 +44,9 @@ export function RuleSettings() {
     <Section title="Rules and warnings">
       <div className="flex flex-col gap-3">
         <p className="text-ink-2">
-          A rule&apos;s seeding time is met only once the margin past it has passed too, in case a
-          Tracker counts its time a little differently. Health warns when a torrent that still owes
-          seeding hasn&apos;t announced for the warning time.
+          SlipStream counts a rule&apos;s seeding time as met only once the extra seeding time has
+          passed too, in case a Tracker counts time a little differently. Health warns when a
+          torrent at hit and run risk hasn&apos;t announced for the warning time.
         </p>
         <SettingGroup>
           {settings.map((field) => (
@@ -63,10 +63,10 @@ export function RuleSettings() {
           ))}
         </SettingGroup>
         <p className="text-ink-2">
-          The Seeding goals task reads each Tracker&apos;s rule and records what each of its
-          torrents still owes. Once a torrent has met its goal and its Tracker&apos;s rule with the
-          margin, the task pauses it, removes it, or removes it and deletes its download copy, as
-          the goal sets.
+          The Seeding goals task reads each Tracker&apos;s rule and records how much more seeding
+          each of its torrents needs. Once a torrent has met its goal and its Tracker&apos;s rule
+          with the extra seeding time, the task pauses it, removes it, or removes it and deletes its
+          download copy, as the goal sets.
         </p>
         <KeyValues rows={[["Seeding goals", <TaskCadence key="goals" task="seeding-goals" />]]} />
       </div>

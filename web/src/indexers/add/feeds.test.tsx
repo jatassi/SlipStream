@@ -68,7 +68,7 @@ test("a feed with results from many sources warns that they share one Indexer's 
 
 test("a failed Test shows Go's sentence, and changing the feed asks for a new Test", async () => {
   const failTest =
-    "Brook refused the API key with 'Invalid API Key'. Check the account, then test again.";
+    "Brook refused the API key and responded 'Invalid API Key'. Check the account, then test again.";
   renderApp({
     path: "/settings/indexers/new/torznab",
     handlers: addIndexerServer({ failTest }).handlers,

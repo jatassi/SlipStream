@@ -231,7 +231,7 @@ func TestANativeIndexersEditTestsTheChangeFirstAndKeepsASealedSettingSentEmpty(t
 	ids := w.indexers(t)
 	bytes, ipt := "/api/v1/indexers/"+ids["Torrent Bytes"].ID, "/api/v1/indexers/"+ids["IPTorrents"].ID
 	refusedBecause(t, "updateIndexer Torrent Bytes with a wrong password", w.a.Admin("home", http.MethodPatch, bytes, `{"values":{"password":"wrong"}}`),
-		"credentials_rejected", "Torrent Bytes refused the sign-in with '"+site.TorrentBytesRefused+"'. Check the username, password and any code, then test again.")
+		"credentials_rejected", "Torrent Bytes refused the sign-in and responded '"+site.TorrentBytesRefused+"'. Check the username, password and any code, then test again.")
 	w.patchIndexer(t, ids["Torrent Bytes"].ID, `{"values":{"password":""}}`)
 
 	cookie := func(userAgent string) string {

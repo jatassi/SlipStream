@@ -22,7 +22,7 @@ var (
 	ErrNoManualSearch       = errors.New("the Work has no Manual search")
 	ErrManualSearchReplaced = errors.New("another Manual search of the Work replaced this one")
 	ErrQueryNeedsOneItem    = errors.New("a typed query searches one Item")
-	ErrNoCell               = errors.New("the Work's Item has no cell of that Edition and Target")
+	ErrNoCell               = errors.New("the Item has no file of that Edition and Target")
 )
 
 // ManualScope is the part of a Work a Manual search covers. Cell narrows

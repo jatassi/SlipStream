@@ -18,12 +18,10 @@ function labelled(label: string, fields: WorksFieldValue[]) {
   return year === undefined ? label : `${label} (${year})`;
 }
 
-const possessive = (name: string): string => (name.endsWith("s") ? `${name}'` : `${name}'s`);
-
-function wanting(profile: TargetsProfile): string {
+function targetsSentence(profile: TargetsProfile): string {
   return profile.targets.length === 0
-    ? `wanting nothing, because ${profile.name} has no Targets`
-    : `wanting ${possessive(profile.name)} ${countWords(profile.targets.length, targetNoun)}`;
+    ? `Its Profile, ${profile.name}, has no Targets, so SlipStream won't download anything for it.`
+    : `Its Profile, ${profile.name}, has ${countWords(profile.targets.length, targetNoun)}.`;
 }
 
 export function countOf(counts: WorksPresetCounts, preset: Preset) {
@@ -53,15 +51,15 @@ function monitoringWords(
   const asThey = `as they ${releaseVerb(type)}`;
   if (monitors === 0) {
     return monitorsNew
-      ? `monitoring only new ${items.many} ${asThey}`
-      : `monitoring no ${items.many}`;
+      ? `SlipStream monitors only new ${items.many} ${asThey}.`
+      : `SlipStream monitors no ${items.many}.`;
   }
   const every = monitoringOf(counts, { ...choices, preset: "all" }).monitors;
   const all = monitors === every && monitors > 1 ? "all " : "";
-  return `monitoring ${all}${countWords(monitors, items)} and ${monitorsNew ? `new ones ${asThey}` : "no new ones"}`;
+  return `SlipStream monitors ${all}${countWords(monitors, items)} and ${monitorsNew ? `new ones ${asThey}` : "no new ones"}.`;
 }
 
-/** The monitoring clause, or none while a choice has no counts because the Work is in the library. */
+/** The monitoring sentence, or none while a choice has no counts because the Work is in the library. */
 function monitoringClause(
   type: WorksContentType,
   monitor: MonitorControl,
@@ -69,7 +67,7 @@ function monitoringClause(
   choices: AddChoices,
 ): string[] {
   if (monitor.kind === "switch") {
-    return [choices.preset === "none" ? "not monitored" : "monitored"];
+    return [choices.preset === "none" ? "It isn't monitored." : "SlipStream monitors it."];
   }
   return counts === null ? [] : [monitoringWords(type, counts, choices)];
 }
@@ -97,8 +95,8 @@ export function addSentence(
   }
   const root = roots.find((each) => each.id === choices.rootId);
   return [
-    `Adds ${labelled(work.label, work.fields)} to ${type.name} ${root === undefined ? "with no library root" : `on ${root.path}`}`,
+    `Adds ${labelled(work.label, work.fields)} to ${type.name} ${root === undefined ? "with no library root" : `on ${root.path}`}.`,
     ...monitoringClause(type, monitor, counts, choices),
-    `${wanting(profile)}.`,
-  ].join(", ");
+    targetsSentence(profile),
+  ].join(" ");
 }

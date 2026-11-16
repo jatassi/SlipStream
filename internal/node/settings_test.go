@@ -211,7 +211,7 @@ func TestSetRefusesALinkedConfigFile(t *testing.T) {
 		t.Skipf("no symlinks here: %v", err)
 	}
 	_, _, err := f.set(t.Context(), nil, []nodesystem.Change{{Key: "log.level", Value: nodesystem.Text("debug")}})
-	want := nodesystem.Refusal{Reason: nodesystem.NotWritable, Sentence: "SlipStream can't rewrite config.yaml, a link or a mounted file. Edit it by hand."}
+	want := nodesystem.Refusal{Reason: nodesystem.NotWritable, Sentence: "config.yaml is a link or a mounted file, so SlipStream can't rewrite it. Edit it by hand."}
 	if refused, ok := errors.AsType[*nodesystem.Refusal](err); !ok || *refused != want {
 		t.Fatalf("err = %#v, want %#v", err, want)
 	}

@@ -18,7 +18,7 @@ export interface ImportsImportFile {
    * @nullable
    */
   fileId: string | null;
-  /** The cells it fills, or would fill once confirmed */
+  /** The Items and Targets it is the file for, or will be once confirmed */
   fills: ImportsCellRef[];
   /** Each Target it can be forced into, with the files that deletes */
   forces: ImportsForceOption[];
@@ -26,7 +26,7 @@ export interface ImportsImportFile {
   hold: ImportsFileHold | null;
   /** The Items of the Work it holds, in tree order; empty until a Work places it */
   itemIds: string[];
-  /** Move files may take it: no tracked torrent seeds it */
+  /** Move files can move it, because no torrent SlipStream tracks is seeding it */
   movable: boolean;
   outcome: ImportsImportFileOutcome;
   /** For a root Import relative to the root, / separated */

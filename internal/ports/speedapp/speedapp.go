@@ -21,7 +21,7 @@ var Port = speedappbase.Define(port.Entry{
 	Name:         "SpeedApp.io",
 	IndexerURLs:  []string{"https://speedapp.io/"},
 	LegacyURLs:   []string{"https://speedapp.io"},
-	Description:  "SpeedApp is a private Romanian Tracker for movies, TV and general Releases.",
+	Description:  "SpeedApp is a private Romanian Tracker for movies, TV and general releases.",
 	Language:     "ro-RO",
 	Privacy:      port.Private,
 	Capabilities: setCapabilities(),

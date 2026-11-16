@@ -17,7 +17,8 @@ export function RemoveRow({ node, act }: { node: NodesNode; act: (acting: Acting
     <Section title="Remove">
       <div className="flex flex-col items-start gap-3">
         <p className="max-w-[640px] text-ink-2">
-          {node.name} leaves the Roster and stops working for this SlipStream. Its files stay on it.
+          {node.name} comes off the Nodes list and stops working with this Controller. Its files
+          stay on it.
         </p>
         <Button
           look="fail"

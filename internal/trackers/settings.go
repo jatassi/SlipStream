@@ -14,13 +14,13 @@ var (
 	// Margin is added to every rule's seeding time, for what a Tracker
 	// counts that nobody can see from outside.
 	Margin = setting.Duration{
-		Key: "trackers.margin", Label: "Margin past a rule",
+		Key: "trackers.margin", Label: "Extra seeding time",
 		Default: 2 * time.Hour, Min: 0, Max: 7 * 24 * time.Hour, Step: time.Minute,
 	}
 	// WarnAfter is how long a torrent that owes may go without announcing
 	// before Health warns.
 	WarnAfter = setting.Duration{
-		Key: "trackers.warnAfter", Label: "Warn when a torrent that owes hasn't announced for",
+		Key: "trackers.warnAfter", Label: "Warn when a torrent at hit and run risk hasn't announced for",
 		Default: 6 * time.Hour, Min: time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute,
 	}
 )

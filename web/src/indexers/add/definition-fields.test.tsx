@@ -109,7 +109,7 @@ test("a definition with no session says it searches from home; its address and c
 
 test("a failed Test shows Go's sentence above the buttons, and nothing is added", async () => {
   const sentence =
-    "Quarry refused the API key with 'Invalid API Key'. Check the account, then test again.";
+    "Quarry refused the API key and responded 'Invalid API Key'. Check the account, then test again.";
   const { router } = renderApp({
     path: formOf("quarry"),
     handlers: addIndexerServer({ failSaves: [sentence] }).handlers,

@@ -35,7 +35,7 @@ export function folderNoteOf(view: MappingView, folder: string, server: string):
     return `Save checks that the folder is inside one of ${server}'s library folders.`;
   }
   if (view.guess) {
-    return `SlipStream guessed this folder from the folder names. Check that ${server} sees the root here.`;
+    return `SlipStream guessed this folder from the folder names. Check that it's the path ${server} uses for this root.`;
   }
-  return view.library === undefined ? "" : `In ${view.library.name}.`;
+  return view.library === undefined ? "" : `In the ${view.library.name} library.`;
 }

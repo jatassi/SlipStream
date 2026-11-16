@@ -26,13 +26,13 @@ const day = 24 * time.Hour
 var catalogCadence = setting.Duration{
 	Key: "tasks." + string(CatalogRefreshTaskID) + ".cadence", Label: "Runs every",
 	Default: day, Min: time.Hour, Max: 7 * day, Step: time.Hour,
-	Floor: "Every Prowlarr and SlipStream install downloads from the same free catalog.",
+	Floor: "Every Prowlarr and SlipStream install downloads from the same free catalog, and shorter intervals add load to its servers.",
 }
 
 var healthCheckCadence = setting.Duration{
 	Key: "tasks." + string(HealthCheckTaskID) + ".cadence", Label: "Runs every",
 	Default: 6 * time.Hour, Min: time.Hour, Max: 7 * day, Step: time.Hour,
-	Floor: "Each run sends a request to the site of every Indexer that is on.",
+	Floor: "Each run sends a request to the site of every Indexer that is on, and sites may limit accounts that send too many.",
 }
 
 // Tasks are the Indexers' scheduled tasks.
@@ -52,7 +52,7 @@ func (x *Indexers) Tasks() []tasks.Task {
 	}, {
 		ID:      HealthCheckTaskID,
 		Name:    "Indexer health check",
-		About:   "Tests each Indexer that is on from the Node it searches from. An Indexer stopped because its site rejected the sign-in or the account isn't tested again until you test it or save a change.",
+		About:   "Tests each Indexer that is on from the Node it searches from. It skips an Indexer that stopped because its site refused the sign-in or the account. Test that Indexer or save a change to it to include it again.",
 		Group:   tasks.GroupOf(role.Searching.Group()),
 		Cadence: tasks.Every{Interval: healthCheckCadence},
 		Noun:    setting.Noun{One: "Indexer", Many: "Indexers"},

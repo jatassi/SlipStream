@@ -152,13 +152,13 @@ func TestTheNodesItemsSayWhatToDo(t *testing.T) {
 	want := []health.Item{
 		{Key: key(box.String()), Level: health.Fail, Says: health.Says{
 			Subject: "seedbox",
-			Text:    "seedbox has been offline past the offline grace. Start SlipStream on it, or remove it if it is gone.",
+			Text:    "seedbox has been offline for longer than the Offline grace. Start SlipStream on it, or remove it if you no longer use it.",
 			Detail:  []health.Fact{{Label: "Offline since", At: start.Add(time.Hour)}},
 			Action:  health.LinkAction("/nodes/"+box.String(), "Open seedbox"),
 		}},
 		{Key: key("covering", "searching"), Level: health.Warn, Says: health.Says{
 			Subject: "Searching on home",
-			Text:    "home searches in place of seedbox. Bring seedbox back, or give Searching to another Node.",
+			Text:    "seedbox has been offline for longer than the Offline grace, so home is searching in its place. Bring seedbox back online, or give Searching to another Node.",
 			Action:  health.LinkAction("/nodes/"+box.String(), "Open seedbox"),
 		}},
 	}
@@ -178,7 +178,7 @@ func TestTheNodesItemsSayWhatToDo(t *testing.T) {
 	skipped := itemsOf(cluster().at(start), everyFit(), map[ID]role.Rejected{box: {Count: 1, Last: start}})
 	if got, want := skipped.Items, []health.Item{{Key: key(box.String(), "rejected"), Level: health.Warn, Says: health.Says{
 		Subject: "seedbox",
-		Text:    "SlipStream can't apply a report from seedbox and skipped it. The log has its error. Read it, then Check now.",
+		Text:    "SlipStream skipped a result seedbox sent because it couldn't apply it. Find the error in the Controller's log, fix its cause, then Check now.",
 		Detail:  []health.Fact{{Label: "Last skipped", At: start}},
 		Action:  health.CheckAction(),
 	}}}; !slices.EqualFunc(got, want, sameItem) {

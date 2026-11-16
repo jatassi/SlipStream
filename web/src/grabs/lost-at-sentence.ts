@@ -5,17 +5,15 @@ import { bytes, countWords } from "../format";
 export type Reference = "grabbed" | "first";
 
 const referenceWords: Record<Reference, { subject: string; object: string }> = {
-  grabbed: { subject: "The grabbed Release", object: "the grabbed Release" },
-  first: { subject: "The first-ranked Release", object: "the first-ranked Release" },
+  grabbed: { subject: "The grabbed release", object: "the grabbed release" },
+  first: { subject: "The first-ranked release", object: "the first-ranked release" },
 };
 
 const percent = (factor: string): string => `${Math.round(Number(factor) * 100)}%`;
 
 const seeders = { one: "seeder", many: "seeders" };
 
-const missing = { one: "Item with no file", many: "Items with no file" };
-
-const unwanted = { one: "Item that isn't wanted", many: "Items that aren't wanted" };
+const unneeded = { one: "file SlipStream doesn't need", many: "files SlipStream doesn't need" };
 
 type Step = (
   values: { own: string; ref: string; at: string },
@@ -24,22 +22,22 @@ type Step = (
 
 const steps: Record<GrabsLostAtStep, Step> = {
   want: ({ own, ref }, { subject }) =>
-    `It would fill ${own}. ${subject} would fill ${ref}, which comes first in the Profile.`,
+    `It's for ${own}. ${subject} is for ${ref}, which comes first in the Profile.`,
   fewer_releases: ({ own, ref }, { subject }) =>
-    `It would fill ${countWords(Number(own), missing)}. ${subject} would fill ${countWords(Number(ref), missing)}, so fewer Releases fill the Work.`,
+    `It has ${own} of the missing files. ${subject} has ${ref}, so fewer downloads are needed.`,
   tier: ({ own, ref, at }, { subject }) =>
     `Its quality is ${own}. ${subject} is ${ref}, a higher tier${at}.`,
   revision: ({ own, ref, at }, { subject }) =>
     `Its revision is ${own}. ${subject} is ${ref}, a newer revision${at}.`,
   score: ({ own, ref, at }, { subject }) => `Its score${at} is ${own}. ${subject} scores ${ref}.`,
   chosen_by_another: (_, { object }) =>
-    `It ties ${object} up to score. Another Want already chose that one, so it comes first.`,
+    `It ties ${object} on every step through score. SlipStream already picked that one for another missing file, so it comes first.`,
   fewer_unwanted: ({ own, ref }, { subject }) =>
-    `It covers ${countWords(Number(own), unwanted)}. ${subject} covers ${countWords(Number(ref), unwanted)}.`,
+    `It includes ${countWords(Number(own), unneeded)}. ${subject} includes ${countWords(Number(ref), unneeded)}.`,
   priority: ({ own, ref }, { subject }) =>
     `Its Indexer's priority is ${own}. ${subject}'s is ${ref}, and a lower number comes first.`,
   freeleech: ({ own, ref }, { subject }) =>
-    `Its download counts ${percent(own)} toward the ratio. ${subject}'s counts ${percent(ref)}.`,
+    `Its download counts ${percent(own)} toward your ratio. ${subject}'s download counts ${percent(ref)}.`,
   seeders: ({ own, ref }, { subject }) =>
     `It has ${countWords(Number(own), seeders)}. ${subject} has ${countWords(Number(ref), seeders)}.`,
   size: ({ own, ref }, { subject }) =>

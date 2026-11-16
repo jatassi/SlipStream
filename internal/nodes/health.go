@@ -67,7 +67,7 @@ func itemsOf(b *Board, probes map[ID][]role.ProbeResult, rejected map[ID]role.Re
 		case Reconnecting, Offline:
 			a.Unsure = append(a.Unsure, health.Unsure{Key: key, Says: health.Says{Subject: v.Name, Text: awayWords(v)}})
 		case LapsedNode:
-			a.Items = append(a.Items, nodeItem(v, v.Name+" has been offline past the offline grace. Start SlipStream on it, or remove it if it is gone.", "Offline since"))
+			a.Items = append(a.Items, nodeItem(v, v.Name+" has been offline for longer than the Offline grace. Start SlipStream on it, or remove it if you no longer use it.", "Offline since"))
 		case MismatchedNode:
 			a.Items = append(a.Items, nodeItem(v, v.Name+" runs another version of SlipStream. Update it to the Controller's version.", "Since"))
 		}
@@ -84,9 +84,9 @@ func itemsOf(b *Board, probes map[ID][]role.ProbeResult, rejected map[ID]role.Re
 			verdict, ok := verdictOf(probes[v.ID], p)
 			switch {
 			case v.Standing != InStep:
-				a.Unsure = append(a.Unsure, health.Unsure{Key: pk, Says: health.Says{Subject: subject, Text: awayWords(v) + " Its probes run again once it is back."}})
+				a.Unsure = append(a.Unsure, health.Unsure{Key: pk, Says: health.Says{Subject: subject, Text: awayWords(v) + " SlipStream checks " + labels(roles) + " on it again once it's back."}})
 			case !ok:
-				a.Unsure = append(a.Unsure, health.Unsure{Key: pk, Says: health.Says{Subject: subject, Text: v.Name + " hasn't reported its probes since SlipStream started."}})
+				a.Unsure = append(a.Unsure, health.Unsure{Key: pk, Says: health.Says{Subject: subject, Text: v.Name + " hasn't sent its check results since SlipStream started."}})
 			case verdict.Reason == role.EngineNotListening:
 				// Download Clients reports a listener that can't bind, beside the
 				// port it is set to.
@@ -111,9 +111,9 @@ func nodeItem(v NodeView, text, since string) health.Item {
 }
 
 func rejectedItem(v NodeView, r role.Rejected) health.Item {
-	text := "SlipStream can't apply a report from " + v.Name + " and skipped it. The log has its error. Read it, then Check now."
+	text := "SlipStream skipped a result " + v.Name + " sent because it couldn't apply it. Find the error in the Controller's log, fix its cause, then Check now."
 	if r.Count > 1 {
-		text = fmt.Sprintf("SlipStream can't apply %d reports from %s and skipped them. The log has an error for each one. Read them, then Check now.", r.Count, v.Name)
+		text = fmt.Sprintf("SlipStream skipped %d results %s sent because it couldn't apply them. Find the errors in the Controller's log, fix their cause, then Check now.", r.Count, v.Name)
 	}
 	return health.Item{Key: health.KeyOf(v.ID.String(), rejectedKey), Level: health.Warn, Says: health.Says{
 		Subject: v.Name,
@@ -158,8 +158,8 @@ func coveringItems(b *Board) []health.Item {
 		}
 		out = append(out, health.Item{Key: health.KeyOf("covering", string(r)), Level: health.Warn, Says: health.Says{
 			Subject: r.Label() + " on " + controller.Name,
-			Text: fmt.Sprintf("%s %s in place of %s. Bring %s back, or give %s to another Node.",
-				controller.Name, r.Purpose(), and(names), and(names), r.Label()),
+			Text: fmt.Sprintf("%s %s offline for longer than the Offline grace, so %s is %s in %s place. Bring %s back online, or give %s to another Node.",
+				and(names), haveBeen(len(names)), controller.Name, doing(r), theirs(len(names)), and(names), r.Label()),
 			Action: health.LinkAction("/nodes/"+holders[0].ID.String(), "Open "+holders[0].Name),
 		}})
 	}
@@ -261,4 +261,18 @@ func (s *Service) reprobe(ctx context.Context, v NodeView) (unreached string, er
 		return "", fmt.Errorf("probe %s: %w", v.Name, err)
 	}
 	return "", nil
+}
+
+func haveBeen(n int) string {
+	if n == 1 {
+		return "has been"
+	}
+	return "have been"
+}
+
+func theirs(n int) string {
+	if n == 1 {
+		return "its"
+	}
+	return "their"
 }

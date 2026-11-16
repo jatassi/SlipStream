@@ -19,7 +19,7 @@ export function HoldField({ draft, onChange }: SectionProps<TargetDraft>) {
     <div className="flex flex-wrap items-start gap-3">
       <div className="w-60">
         <DraftField
-          label="Wait for a better Release for"
+          label="Wait for a better release for"
           value={draft.hold.amount}
           inputMode="decimal"
           error={holdProblem(draft.hold)}

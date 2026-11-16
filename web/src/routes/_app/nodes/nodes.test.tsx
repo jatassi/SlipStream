@@ -115,7 +115,7 @@ test("the Node picker says how each Node stands: reconnecting, offline, past the
       "onlinehome",
       "reconnectingseedbox",
       "offlinevps",
-      "offline past the gracenas",
+      "offline too longnas",
       "on another versionlaptop",
     ]);
 });

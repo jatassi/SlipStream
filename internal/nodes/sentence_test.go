@@ -29,7 +29,7 @@ func TestTheSentenceSaysWhatStandsOut(t *testing.T) {
 		{"back and settling", func(in *inputs) {
 			in.detach(box, start)
 			in.attach(box, start.Add(20*time.Minute))
-		}, 20 * time.Minute, "seedbox is back and settling. home is searching in its place."},
+		}, 20 * time.Minute, "seedbox is back online and takes new work again shortly. home is searching in its place."},
 		{"mismatched", func(in *inputs) {
 			in.detach(box, start)
 			in.node(box).mismatched = true
@@ -37,11 +37,11 @@ func TestTheSentenceSaysWhatStandsOut(t *testing.T) {
 		{"draining", func(in *inputs) {
 			b := in.node(box)
 			b.assigned, b.work = role.Of(role.Searching), role.Of(role.Downloading)
-		}, 0, "seedbox is draining Downloading."},
+		}, 0, "seedbox is finishing its Downloading work."},
 		{"writing off", func(in *inputs) {
 			b := in.node(box)
 			b.assigned, b.work, b.forfeit = role.Of(role.Searching), role.Of(role.Downloading), role.Of(role.Downloading)
-		}, 0, "seedbox is writing off Downloading."},
+		}, 0, "SlipStream is giving up seedbox's Downloading work."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			in := cluster()
@@ -61,10 +61,10 @@ func TestEveryRoleHasWordsForWhatItsHolderIsDoing(t *testing.T) {
 		role.Converting:      "converting",
 		role.Subtitles:       "fetching subtitles",
 		role.Metadata:        "reading metadata",
-		role.MediaServerLink: "talking to Media Servers",
+		role.MediaServerLink: "sending changes to Media Servers",
 		role.Notifying:       "sending mail",
 		role.Relaying:        "relaying",
-		role.Serving:         "serving SlipStream",
+		role.Serving:         "serving the SlipStream web app",
 	}
 	for _, r := range role.Names() {
 		if got := doing(r); got != want[r] {

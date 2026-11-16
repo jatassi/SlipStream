@@ -454,8 +454,8 @@ func TestGrabbingTheManualPlanImportsEachRow(t *testing.T) {
 			rows = append(rows, r.Missing)
 		}
 	}
-	want := []string{keepersPack + ": It gets you 1080p for E05 to E10. E01 to E04 keep their files."}
-	if v.Plan.Headline != "1 Grab gets you everything." || !slices.Equal(rows, want) {
+	want := []string{keepersPack + ": It downloads 1080p for E05 to E10. E01 to E04 keep their files."}
+	if v.Plan.Headline != "1 Grab downloads every file you're missing." || !slices.Equal(rows, want) {
 		t.Fatalf("the plan reads %q with rows\n%s\nwant\n%s", v.Plan.Headline, strings.Join(rows, "\n"), strings.Join(want, "\n"))
 	}
 	picks := v.picks()
@@ -472,10 +472,10 @@ func TestGrabbingTheManualPlanImportsEachRow(t *testing.T) {
 		}
 	}
 	want = []string{
-		orchardBluray + ": It gets you 1080p (standard) for The Quiet Orchard.",
-		"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW: It gets you HD (standard) for The Quiet Orchard as an upgrade.",
+		orchardBluray + ": It downloads 1080p (standard) for The Quiet Orchard.",
+		"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW: It downloads HD (standard) for The Quiet Orchard as an upgrade.",
 	}
-	if v.Plan.Headline != "2 Grabs get you everything." || !slices.Equal(rows, want) {
+	if v.Plan.Headline != "2 Grabs download every file you're missing." || !slices.Equal(rows, want) {
 		t.Fatalf("the Orchard's plan reads %q with rows\n%s\nwant\n%s", v.Plan.Headline, strings.Join(rows, "\n"), strings.Join(want, "\n"))
 	}
 	picks = v.picks()
@@ -499,18 +499,18 @@ func TestAManualGrabPastASoftRefusalRecordsItsOverride(t *testing.T) {
 		lifts []string
 		want  []string
 	}{
-		{orchard1987, 2, []string{"wrong_title"}, []string{"It was grabbed through the API key although its name gives The Quiet Orchard (1987), which isn't this Work."}},
+		{orchard1987, 2, []string{"wrong_title"}, []string{"An app using the API key grabbed it although its name is for The Quiet Orchard (1987), a different movie."}},
 		{orchardLQ, 2, []string{"score_below_minimum", "score_below_minimum"}, []string{
-			"It was grabbed through the API key although score -5 is below the minimum of 0 at 1080p.",
-			"It was grabbed through the API key although score -5 is below the minimum of 0 at HD.",
+			"An app using the API key grabbed it although score -5 is below the minimum of 0 at 1080p.",
+			"An app using the API key grabbed it although score -5 is below the minimum of 0 at HD.",
 		}},
 		{orchardTiny, 2, []string{"size_below", "size_below"}, []string{
-			"It was grabbed through the API key although it's smaller than 1080p allows.",
-			"It was grabbed through the API key although it's smaller than HD allows.",
+			"An app using the API key grabbed it although it's smaller than 1080p allows.",
+			"An app using the API key grabbed it although it's smaller than HD allows.",
 		}},
 		{orchardBloat, 2, []string{"size_above", "size_above"}, []string{
-			"It was grabbed through the API key although it's larger than 1080p allows.",
-			"It was grabbed through the API key although it's larger than HD allows.",
+			"An app using the API key grabbed it although it's larger than 1080p allows.",
+			"An app using the API key grabbed it although it's larger than HD allows.",
 		}},
 	} {
 		t.Run(c.title, func(t *testing.T) {
@@ -573,7 +573,7 @@ func TestCancelAlsoBlocklistingKeepsTheReleaseOutUntilRemovedAndGrabbed(t *testi
 	w.settled(t, w.work)
 	blocked := w.offer(t, w.work, release)
 	if b := blocked.Release.Blocked; b == nil || !strings.HasPrefix(*b, "It's been on the Blocklist since ") ||
-		!strings.HasSuffix(*b, " because it was blocklisted through the API key when its Grab was canceled.") {
+		!strings.HasSuffix(*b, " because an app using the API key blocklisted it when canceling its Grab.") {
 		t.Fatalf("the new Manual search shows %s blocked %v, want blocklisted through the API key at the cancel", release, b)
 	}
 
@@ -581,7 +581,7 @@ func TestCancelAlsoBlocklistingKeepsTheReleaseOutUntilRemovedAndGrabbed(t *testi
 		t.Fatal(err)
 	}
 	g = w.imported(t, w.grabManual(t, w.work, again, true, blocked.pick())[0])
-	if want := []string{"It was removed from the Blocklist through the API key to grab it."}; !slices.Equal(g.Overrides, want) {
+	if want := []string{"An app using the API key removed it from the Blocklist to grab it."}; !slices.Equal(g.Overrides, want) {
 		t.Fatalf("the Grab's overrides are %q, want %q", g.Overrides, want)
 	}
 	if entries := w.blocklist(t); len(entries) != 0 {

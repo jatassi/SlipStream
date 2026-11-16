@@ -57,7 +57,7 @@ function AddressForm({ node, controller, onChanged }: Omit<Props, "onClose">) {
         </form.AppField>
         <form.FormAlert />
         <div className="flex justify-end">
-          <form.SubmitButton label={`${controller} dials it`} />
+          <form.SubmitButton label={`Connect from ${controller}`} />
         </div>
       </form.AppForm>
     </form>
@@ -84,10 +84,10 @@ function StopDialing({ node, controller, onChanged }: Omit<Props, "onClose">) {
             });
         }}
       >
-        Stop dialing
+        Stop connecting from {controller}
       </Button>
       <p className="text-meta text-ink-3">
-        {node.name} dials {controller} itself from then on.
+        After this, {node.name} connects to {controller} itself.
       </p>
       {failure !== undefined && (
         <p role="alert" className="text-fail-ink">
@@ -106,7 +106,7 @@ export function ReachDialog({ node, controller, onClose, onChanged }: Props) {
   const dials = node.dial.controllerDials;
   return (
     <Dialog
-      title={`How ${controller} reaches ${node.name}`}
+      title={`How ${controller} connects to ${node.name}`}
       open
       onOpenChange={(open) => {
         if (!open) {
@@ -117,8 +117,8 @@ export function ReachDialog({ node, controller, onClose, onChanged }: Props) {
       <div className="flex flex-col gap-6">
         <p className="text-ink-2">
           {dials.length === 0
-            ? `${node.name} dials ${controller}. If ${node.name} can't reach ${controller}, ${controller} can dial it instead.`
-            : `${controller} dials ${node.name} at ${dials.join(", ")}.`}
+            ? `${node.name} connects to ${controller}. If ${node.name} can't reach ${controller}, ${controller} can connect to it instead.`
+            : `${controller} connects to ${node.name} at ${dials.join(", ")}.`}
         </p>
         <AddressForm node={node} controller={controller} onChanged={onChanged} />
         {dials.length > 0 && (

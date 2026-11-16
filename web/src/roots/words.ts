@@ -23,11 +23,11 @@ export const stateWords: {
   checking: { tone: "quiet", words: (node) => `Waiting for ${node} to check the folder` },
   missing: { tone: "warn", words: () => "The folder isn't there" },
   unmounted: { tone: "warn", words: () => "The folder is there but looks unmounted" },
-  foreign: { tone: "warn", words: () => "The folder holds another library root's marker" },
+  foreign: { tone: "warn", words: () => "Another library root already uses this folder" },
   unwritable: { tone: "warn", words: () => "SlipStream can't write to the folder" },
   unresponsive: { tone: "warn", words: () => "The folder isn't responding" },
   offline: { tone: "warn", words: (node) => `${node} is offline` },
-  written_off: { tone: "warn", words: () => "Node written off" },
+  written_off: { tone: "warn", words: () => "Node given up" },
 };
 
 export const missingWords: { readonly [R in RootsMissingFileReason]: string } = {

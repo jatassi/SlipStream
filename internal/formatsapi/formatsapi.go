@@ -103,7 +103,7 @@ func Routes(r *api.Router, s Shelf) {
 		ID:      "updateCustomFormat",
 		Method:  http.MethodPut,
 		Path:    "/custom-formats/{formatId}",
-		Summary: "Replace a Custom Format's name, renaming flag and conditions, refilling the Works of the Targets that score it, or preview the change's Impact",
+		Summary: "Replace a Custom Format's name, renaming flag and conditions, and re-rank the files of every Work whose Targets score it, or preview what the change would do",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{formatNotFound, patternNotCompiled, nameTaken, kindUnknown, formatEmpty, targetsapi.ImpactChanged},
 	}, h.updateCustomFormat)
@@ -111,7 +111,7 @@ func Routes(r *api.Router, s Shelf) {
 		ID:      "deleteCustomFormat",
 		Method:  http.MethodDelete,
 		Path:    "/custom-formats/{formatId}",
-		Summary: "Delete a Custom Format and every Target's score for it, refilling the Works of the Targets that scored it, or preview the change's Impact",
+		Summary: "Delete a Custom Format and every Target's score for it, and re-rank the files of every Work whose Targets scored it, or preview what the change would do",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{formatNotFound, targetsapi.ImpactChanged},
 	}, h.deleteCustomFormat)
@@ -148,7 +148,7 @@ type condition struct {
 	Name     string                     `json:"name"`
 	Kind     string                     `json:"kind" doc:"Radarr's and Sonarr's implementation name, such as ReleaseTitleSpecification"`
 	Negate   bool                       `json:"negate" doc:"The condition matches when its test fails"`
-	Required bool                       `json:"required" doc:"The format matches only when this condition does, beside the others of its kind"`
+	Required bool                       `json:"required" doc:"This condition must match for the format to match; without required, any one condition of the same kind is enough"`
 	Fields   map[string]json.RawMessage `json:"fields" nullable:"false" doc:"Each field by name, as Radarr and Sonarr export them, such as value, or min and max; a value is a number in the radarr and sonarr dialects and a name in slipstream's"`
 }
 
@@ -160,11 +160,11 @@ type targetRef struct {
 type customFormat struct {
 	ID                  string      `json:"id" format:"uuid"`
 	Name                string      `json:"name"`
-	IncludeWhenRenaming bool        `json:"includeWhenRenaming" doc:"The Custom Formats naming token lists it"`
+	IncludeWhenRenaming bool        `json:"includeWhenRenaming" doc:"A file that matches it gets its name in the {Custom Formats} naming token"`
 	Dialect             string      `json:"dialect" enum:"slipstream,radarr,sonarr" doc:"The app whose values its conditions hold: radarr or sonarr for a pasted format, slipstream for one made here"`
 	Conditions          []condition `json:"conditions" nullable:"false"`
 	ScoredBy            []targetRef `json:"scoredBy" nullable:"false" doc:"Every Target that scores it, by name"`
-	SlowReleases        int         `json:"slowReleases" minimum:"0" doc:"Releases one of its patterns ran past the match limit on since its last save; they count as not matching it"`
+	SlowReleases        int         `json:"slowReleases" minimum:"0" doc:"How many releases a pattern of this format timed out on since it was last saved; those releases count as not matching"`
 }
 
 func formatOf(f targets.StoredFormat) customFormat {
@@ -235,7 +235,7 @@ func (h handlers) getCustomFormat(ctx context.Context, by identity.Admin, in *fo
 
 type newFormat struct {
 	Name                string      `json:"name" minLength:"1" maxLength:"100" doc:"Unique among Custom Formats, ignoring case"`
-	IncludeWhenRenaming bool        `json:"includeWhenRenaming,omitempty" doc:"The Custom Formats naming token lists it"`
+	IncludeWhenRenaming bool        `json:"includeWhenRenaming,omitempty" doc:"A file that matches it gets its name in the {Custom Formats} naming token"`
 	Conditions          []condition `json:"conditions" nullable:"false" doc:"Conditions of a kind match when one of them does and every required one does; the format matches when every kind's do"`
 }
 
@@ -384,7 +384,7 @@ func formatRefused(f formats.Format, err error, at, again string) error {
 				break
 			}
 		}
-		return kindUnknown.On(fmt.Sprintf("%sconditions[%d].kind", at, i), kindWords(e)+" Pick one of the kinds the schema lists.")
+		return kindUnknown.On(fmt.Sprintf("%sconditions[%d].kind", at, i), kindWords(e)+" Choose a kind from the list.")
 	}
 	if e, ok := errors.AsType[*formats.EmptyError](err); ok {
 		return formatEmpty.On(at+"conditions", fmt.Sprintf("The Custom Format %s has no conditions. Add a condition and %s again.", quoted(e.Name), again))
@@ -424,7 +424,7 @@ func kindName(k formats.Kind) string {
 }
 
 func kindWords(e *formats.KindError) string {
-	return fmt.Sprintf("The condition %s has the kind %s.", quoted(e.Name), e.Kind)
+	return fmt.Sprintf("The condition %s has the kind %s, which SlipStream doesn't have.", quoted(e.Name), e.Kind)
 }
 
 // quoted is text a person typed, such as a name or a pattern, in the

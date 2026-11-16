@@ -92,7 +92,7 @@ test("remove names the torrent, keeps library files, and lists what it takes wit
     .element(dialog)
     .toMatchTextContent(
       "Files in your library stay." +
-        "It cancels this Grab, still downloading, and its Item goes back to wanted:" +
+        "It cancels this Grab, which is still downloading, and SlipStream searches for a release again:" +
         "The Quiet Orchard" +
         "The.Quiet.Orchard.2021.1080p.WEB-DL" +
         "Orchard Harvest stops seeding.",
@@ -130,7 +130,7 @@ test("a copy the library shares says it frees little, and an offline Node can't 
   await expect
     .element(dialog)
     .toMatchTextContent(
-      "Your library shares some of these files, so the copy frees only what the library doesn't use.",
+      "Some of these files are also in your library as hardlinks or clones. Deleting the download copy frees only the space the library doesn't use.",
     );
 });
 

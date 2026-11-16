@@ -111,7 +111,7 @@ export const screens = {
   downloads: {
     name: "Downloads",
     title: "Downloads",
-    why: "Check where each Node puts its downloads before the first Grab fills a drive you didn't expect.",
+    why: "Check where each Node saves downloads before the first one fills a drive you didn't expect.",
     settings: "/settings/download-clients",
     load: async (queryClient) => {
       await Promise.all([
@@ -127,7 +127,7 @@ export const screens = {
   targets: {
     name: "What SlipStream grabs",
     title: "What SlipStream grabs",
-    why: "SlipStream grabs what each kind of media's default Profile accepts. Change its Targets here or later in Settings.",
+    why: "SlipStream downloads what each kind of media's default Profile accepts. Change that Profile's Targets here or later in Settings.",
     settings: "/settings/targets",
     load: async (queryClient) => {
       await Promise.all([

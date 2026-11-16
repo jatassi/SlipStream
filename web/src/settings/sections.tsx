@@ -127,7 +127,7 @@ export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
   },
   {
     id: "files",
-    label: "Files to keep",
+    label: "Targets and Profiles",
     sections: [targetsSection, profilesSection, customFormatsSection, editionsSection],
   },
   {

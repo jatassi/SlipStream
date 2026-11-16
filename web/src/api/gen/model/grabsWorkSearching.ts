@@ -8,8 +8,8 @@ export interface GrabsWorkSearching {
   groups: GrabsGroupState[];
   /** The one line the Work's header shows */
   lead: GrabsLead;
-  /** Each cell SlipStream stopped searching again for after failed Grabs */
+  /** Each Item and Target SlipStream stopped searching again for after failed Grabs */
   stops: GrabsStopped[];
-  /** Each cell waiting for a better Release, by when it grabs */
+  /** Each Item and Target waiting for a better Release, by when it grabs */
   waits: GrabsWaiting[];
 }

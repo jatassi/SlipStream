@@ -14,15 +14,15 @@ const row = (list: string, name: string) => group(list).getByRole("listitem", { 
 test("the list groups each Indexer under every Tracker it reaches, and leads with who needs the Admin", async () => {
   renderApp({ path, handlers: indexersServer().handlers });
   await expect
-    .element(page.getByText("Larkspur needs you. Open it to see what to do."))
+    .element(page.getByText("Larkspur has a problem. Open it to see how to fix it."))
     .toBeVisible();
   await expect.element(page.getByRole("heading", { name: "Aither" })).toBeVisible();
-  expect(group("Indexers reaching Aither").getByRole("listitem").elements()).toHaveLength(1);
-  await expect.element(row("Indexers reaching Aither", "Prowlarr")).toBeVisible();
-  await expect.element(row("Indexers reaching TorrentLeech", "Prowlarr")).toBeVisible();
+  expect(group("Indexers searching Aither").getByRole("listitem").elements()).toHaveLength(1);
+  await expect.element(row("Indexers searching Aither", "Prowlarr")).toBeVisible();
+  await expect.element(row("Indexers searching TorrentLeech", "Prowlarr")).toBeVisible();
   await expect
     .element(
-      row("Indexers reaching TorrentLeech", "TorrentLeech").getByText("Catalog site on seedbox"),
+      row("Indexers searching TorrentLeech", "TorrentLeech").getByText("Catalog site on seedbox"),
     )
     .toBeVisible();
   await expect.element(page.getByRole("heading", { name: "No Tracker yet" })).toBeVisible();
@@ -40,16 +40,16 @@ test("a switch saves through PATCH and every row of that Indexer follows", async
   renderApp({ path, handlers: server.handlers });
   const automatic = (list: string) =>
     row(list, "Prowlarr").getByRole("switch", { name: "Automatic search" });
-  await expect.element(automatic("Indexers reaching Aither")).toBeChecked();
-  await userEvent.click(automatic("Indexers reaching Aither"));
-  await expect.element(automatic("Indexers reaching Aither")).not.toBeChecked();
-  await expect.element(automatic("Indexers reaching TorrentLeech")).not.toBeChecked();
+  await expect.element(automatic("Indexers searching Aither")).toBeChecked();
+  await userEvent.click(automatic("Indexers searching Aither"));
+  await expect.element(automatic("Indexers searching Aither")).not.toBeChecked();
+  await expect.element(automatic("Indexers searching TorrentLeech")).not.toBeChecked();
   expect(server.writes).toEqual([
     { method: "PATCH", id: prowlarrId, body: { automaticSearch: false } },
   ]);
 
   await userEvent.click(
-    row("Indexers reaching TorrentLeech", "TorrentLeech").getByRole("switch", { name: "On" }),
+    row("Indexers searching TorrentLeech", "TorrentLeech").getByRole("switch", { name: "On" }),
   );
   await expect
     .poll(() => server.writes.at(-1))
@@ -60,7 +60,7 @@ test("a switch saves through PATCH and every row of that Indexer follows", async
     });
   await expect
     .element(
-      row("Indexers reaching TorrentLeech", "TorrentLeech").getByText("TorrentLeech is off."),
+      row("Indexers searching TorrentLeech", "TorrentLeech").getByText("TorrentLeech is off."),
     )
     .toBeVisible();
 });
@@ -71,7 +71,7 @@ test("while no Indexer reaches a Tracker the list has no groups", async () => {
     { ...torrentLeech, trackerIds: [] },
   ];
   renderApp({ path, handlers: indexersServer({ indexers: lone, trackerList: [] }).handlers });
-  await expect.element(page.getByText("Searches ask all 2 Indexers that are on.")).toBeVisible();
+  await expect.element(page.getByText("Searches use all 2 Indexers that are on.")).toBeVisible();
   await expect.element(group("Indexers").getByRole("listitem", { name: "Prowlarr" })).toBeVisible();
   expect(page.getByRole("heading", { name: "No Tracker yet" }).query()).toBeNull();
 });
@@ -100,7 +100,7 @@ test("the summary says how many Indexers a search asks while some wait", async (
   await expect
     .element(
       page.getByText(
-        "Searches ask 1 of the 2 Indexers that are on. The others are waiting, and each row says why.",
+        "Searches use 1 of the 2 Indexers that are on. The others are waiting, and each row says why.",
       ),
     )
     .toBeVisible();
@@ -111,7 +111,7 @@ test("with no Indexers the section says what one is for", async () => {
   renderApp({ path, handlers: indexersServer({ indexers: [], trackerList: [] }).handlers });
   await expect
     .element(
-      page.getByText("No Indexers yet. Every search asks each Indexer added here that is on."),
+      page.getByText("No Indexers yet. Every search uses each Indexer added here that is on."),
     )
     .toBeVisible();
 });

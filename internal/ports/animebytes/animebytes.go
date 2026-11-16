@@ -737,15 +737,15 @@ func coerceInt(s string) *int {
 type animeBytesSettings struct {
 	Username                     string `port:"username,key" label:"Username" help:"Your AnimeBytes username."`
 	port.PasskeyField            `help:"Your AnimeBytes passkey."`
-	FreeleechOnly                bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
+	FreeleechOnly                bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
 	ExcludeRaw                   bool `port:"excludeRaw" label:"Exclude RAW" help:"Leave RAW torrents out of the results."`
 	ExcludeHentai                bool `port:"excludeHentai" label:"Exclude hentai" help:"Leave hentai torrents out of the results."`
 	SearchByYear                 bool `port:"searchByYear" label:"Search by year" help:"Send a year that ends the search text as its own parameter."`
-	EnableSonarrCompatibility    bool `port:"enableSonarrCompatibility" label:"Add seasons to titles" default:"true" help:"Add the season to Release titles so a TV library can match them. Some Releases get the wrong season."`
-	UseFilenameForSingleEpisodes bool `port:"useFilenameForSingleEpisodes" label:"Use file names for single episodes" default:"true" help:"Add a Release titled with the file name of a torrent that holds one episode."`
-	AddJapaneseTitle             bool `port:"addJapaneseTitle" label:"Add the Japanese title" default:"true" help:"Add a Release under the Japanese title, in kanji, hiragana or katakana."`
-	AddRomajiTitle               bool `port:"addRomajiTitle" label:"Add the Romaji title" default:"true" help:"Add a Release under the Romaji title, such as Shingeki no Kyojin for Attack on Titan."`
-	AddAlternativeTitle          bool `port:"addAlternativeTitle" label:"Add alternative titles" default:"true" help:"Add a Release under each alternative title, such as AoT for Attack on Titan."`
+	EnableSonarrCompatibility    bool `port:"enableSonarrCompatibility" label:"Add seasons to titles" default:"true" help:"Add the season to release titles so a TV library can match them. Some releases get the wrong season."`
+	UseFilenameForSingleEpisodes bool `port:"useFilenameForSingleEpisodes" label:"Use file names for single episodes" default:"true" help:"Add a release titled with the file name of a torrent that holds one episode."`
+	AddJapaneseTitle             bool `port:"addJapaneseTitle" label:"Add the Japanese title" default:"true" help:"Add a release under the Japanese title, in kanji, hiragana or katakana."`
+	AddRomajiTitle               bool `port:"addRomajiTitle" label:"Add the Romaji title" default:"true" help:"Add a release under the Romaji title, such as Shingeki no Kyojin for Attack on Titan."`
+	AddAlternativeTitle          bool `port:"addAlternativeTitle" label:"Add alternative titles" default:"true" help:"Add a release under each alternative title, such as AoT for Attack on Titan."`
 }
 
 type animeBytesResponse struct {

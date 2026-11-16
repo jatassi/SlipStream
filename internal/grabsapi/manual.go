@@ -18,20 +18,20 @@ import (
 
 type manualCell struct {
 	ItemID   string `json:"itemId" format:"uuid"`
-	Edition  string `json:"edition" minLength:"1" doc:"The cell's Edition: any, or a cut key"`
+	Edition  string `json:"edition" minLength:"1" doc:"The Edition at the Item's Target: any, or a cut key"`
 	TargetID string `json:"targetId" format:"uuid"`
 }
 
 type manualScope struct {
 	LevelIDs []string    `json:"levelIds" format:"uuid" nullable:"false" doc:"Each level stands for every Item under it"`
 	ItemIDs  []string    `json:"itemIds" format:"uuid" nullable:"false"`
-	Cell     *manualCell `json:"cell,omitempty" doc:"The one cell it plans for, absent for a wider scope"`
+	Cell     *manualCell `json:"cell,omitempty" doc:"The one Item and Target it plans for, absent for a wider scope"`
 }
 
 type startManual struct {
 	LevelIDs []string    `json:"levelIds,omitempty" format:"uuid" maxItems:"20000" nullable:"false" doc:"Each level stands for every Item under it"`
 	ItemIDs  []string    `json:"itemIds,omitempty" format:"uuid" maxItems:"20000" nullable:"false"`
-	Cell     *manualCell `json:"cell,omitempty" doc:"One cell to plan for; send it without levelIds and itemIds"`
+	Cell     *manualCell `json:"cell,omitempty" doc:"One Item and Target to plan for; send it without levelIds and itemIds"`
 	Query    string      `json:"query,omitempty" maxLength:"200" doc:"Text every Indexer searches for in place of the Item's terms; only for a scope of one Item"`
 	Again    bool        `json:"again,omitempty" doc:"Start a new search even when the Work's Manual search has this scope and query"`
 }
@@ -70,14 +70,14 @@ type releaseDetails struct {
 	Seeders     int                  `json:"seeders" minimum:"0"`
 	Freeleech   bool                 `json:"freeleech"`
 	Formats     []string             `json:"formatIds" format:"uuid" nullable:"false" doc:"The Custom Formats it matched of those the Work's Targets score"`
-	Verdicts    []string             `json:"verdicts" nullable:"false" doc:"Its verdict at each Target of its Item, such as It would fill 1080p."`
-	LostAt      api.Nullable[lostAt] `json:"lostAt" doc:"Where it lost to the Release that fills its first cell; null when it didn't"`
+	Verdicts    []string             `json:"verdicts" nullable:"false" doc:"Its verdict at each Target of its Item, such as It would be the 1080p file."`
+	LostAt      api.Nullable[lostAt] `json:"lostAt" doc:"Where it lost to the release picked for its first Item and Target; null when it didn't"`
 	Blocked     *string              `json:"blocked" doc:"Since when and why it is on the Blocklist; null when it isn't"`
 }
 
 type planPick struct {
 	Release releaseDetails                `json:"release"`
-	Cells   []string                      `json:"cells" nullable:"false" doc:"The cells it fills, its row's first leading. Send them back as the pick's cells."`
+	Cells   []string                      `json:"cells" nullable:"false" doc:"The Items and Targets it downloads for, its row's first leading. Send them back as the pick's cells."`
 	Lifts   []wordedReason                `json:"lifts" nullable:"false" doc:"The soft refusals it is grabbed past; send their codes and Targets back as the pick's lifts"`
 	Edition api.Nullable[editionOverride] `json:"edition" doc:"The Edition it is grabbed as; null unless that is another Edition than its cut's"`
 	Routed  string                        `json:"routed,omitempty" doc:"The client Tracker routing sends it to, such as qBittorrent on Den; absent while no Node can take it"`
@@ -86,21 +86,21 @@ type planPick struct {
 type choice struct {
 	Pin     string                        `json:"pin" doc:"Send it in pins to swap this Release into its row"`
 	Release releaseDetails                `json:"release"`
-	Cells   []string                      `json:"cells" nullable:"false" doc:"The cells its row fills once it is pinned, the row's first leading"`
+	Cells   []string                      `json:"cells" nullable:"false" doc:"The Items and Targets its row downloads for once it is pinned, the row's first leading"`
 	Lifts   []wordedReason                `json:"lifts" nullable:"false"`
 	Edition api.Nullable[editionOverride] `json:"edition" doc:"The Edition it is grabbed as; null unless that is another Edition than its cut's"`
 	Note    string                        `json:"note,omitempty" doc:"Such as From TorrentLeech, which automatic search doesn't use."`
 }
 
 type planRow struct {
-	Key     string                 `json:"key" doc:"The row's first cell, stable while that cell leads it. A pin chosen from its choices replaces the pin with this key."`
-	Pick    api.Nullable[planPick] `json:"pick" doc:"Null for a cell nothing fills"`
+	Key     string                 `json:"key" doc:"The row's first Item and Target, stable while it leads the row. A pin chosen from its choices replaces the pin with this key."`
+	Pick    api.Nullable[planPick] `json:"pick" doc:"Null for an Item and Target no release covers"`
 	Pinned  bool                   `json:"pinned" doc:"Its Release was swapped in by a pin"`
 	Outcome string                 `json:"outcome,omitempty" doc:"What a Grab of it gets, such as It gets you 1080p and 720p for E05."`
-	Missing string                 `json:"missing,omitempty" doc:"For a cell nothing fills, such as Missing: 720p for E05."`
-	Cause   string                 `json:"cause,omitempty" doc:"For a cell nothing fills, its plain cause, such as No Indexer listed a 720p Release."`
-	Failure string                 `json:"failure,omitempty" doc:"For a failed cell, its last Grab's failure"`
-	Choices []choice               `json:"choices" nullable:"false" doc:"Every other Release that could fill its first cell, ranked"`
+	Missing string                 `json:"missing,omitempty" doc:"For an Item and Target no release covers, such as Missing: 720p for E05."`
+	Cause   string                 `json:"cause,omitempty" doc:"For an Item and Target no release covers, its plain cause, such as No Indexer listed a 720p release."`
+	Failure string                 `json:"failure,omitempty" doc:"For a failed Item and Target, its last Grab's failure"`
+	Choices []choice               `json:"choices" nullable:"false" doc:"Every other release that could download its first Item and Target, ranked"`
 }
 
 type heldCell struct {
@@ -111,8 +111,8 @@ type heldCell struct {
 
 type plan struct {
 	Headline string     `json:"headline"`
-	Rows     []planRow  `json:"rows" nullable:"false" doc:"Each Grab and each cell nothing fills, in Want order"`
-	Held     []heldCell `json:"held" nullable:"false" doc:"The cells a Grab downloads, which the plan leaves out"`
+	Rows     []planRow  `json:"rows" nullable:"false" doc:"Each Grab and each Item and Target no release covers, in the order the plan walks them"`
+	Held     []heldCell `json:"held" nullable:"false" doc:"The Items and Targets a Grab is already downloading, which the plan leaves out"`
 }
 
 type foldGroup struct {
@@ -121,7 +121,7 @@ type foldGroup struct {
 }
 
 type folded struct {
-	Line   string      `json:"line" doc:"Such as SlipStream wouldn't grab 14 more Releases."`
+	Line   string      `json:"line" doc:"Such as SlipStream wouldn't grab 14 more releases."`
 	Groups []foldGroup `json:"groups" nullable:"false"`
 }
 
@@ -132,7 +132,7 @@ type pinned struct {
 
 type manualSearch struct {
 	ID           string        `json:"id" format:"uuid"`
-	Scope        manualScope   `json:"scope" doc:"What it was started for; no levels, Items or cell for the whole Work"`
+	Scope        manualScope   `json:"scope" doc:"What it was started for; no levels, Items or Target for the whole Work"`
 	Title        string        `json:"title" doc:"The scope in words"`
 	Query        *string       `json:"query" doc:"The typed query; null when each run sent its Item's terms"`
 	StartedAt    time.Time     `json:"startedAt"`
@@ -155,19 +155,19 @@ type getManualInput struct {
 type manualSearchOutput struct{ Body manualSearch }
 
 type grabOffer struct {
-	Grabbable bool                          `json:"grabbable" doc:"It fills some cell and its Indexer would take it now. One on the Blocklist is grabbed only with unblock."`
+	Grabbable bool                          `json:"grabbable" doc:"Some Target accepts it and its Indexer would take it now. One on the Blocklist is grabbed only with unblock."`
 	Outcome   string                        `json:"outcome,omitempty" doc:"What a Grab of it alone gets"`
-	Cells     []string                      `json:"cells" nullable:"false" doc:"The cells a Grab of it alone fills, any a Grab downloads among them. Send them back as the pick's cells."`
+	Cells     []string                      `json:"cells" nullable:"false" doc:"The Items and Targets a Grab of it alone downloads for, including any a Grab is already downloading. Send them back as the pick's cells."`
 	Lifts     []wordedReason                `json:"lifts" nullable:"false"`
 	Edition   api.Nullable[editionOverride] `json:"edition" doc:"The Edition it is grabbed as; null unless that is another Edition than its cut's"`
-	Cancels   []heldCell                    `json:"cancels" nullable:"false" doc:"The Grabs downloading a cell it would also fill"`
+	Cancels   []heldCell                    `json:"cancels" nullable:"false" doc:"The Grabs downloading an Item and Target it would also download"`
 	Waits     string                        `json:"waits,omitempty" doc:"Why its Indexer won't take it now, such as TorrentLeech is at its grab limit until 14:05."`
 	Refusal   string                        `json:"refusal,omitempty" doc:"Why it can't be grabbed"`
 }
 
 type offer struct {
 	Release releaseDetails `json:"release"`
-	Rank    *int           `json:"rank" minimum:"1" doc:"Its place in the ranking from 1; null when no cell's Target takes it"`
+	Rank    *int           `json:"rank" minimum:"1" doc:"Its place in the ranking from 1; null when no Target accepts it"`
 	Score   int            `json:"score" doc:"Its score at its best Target"`
 	Quality int            `json:"quality" minimum:"0" doc:"Its quality's place in its best Target's tiers, for sorting; higher is better"`
 	Grab    grabOffer      `json:"grab"`
@@ -191,12 +191,12 @@ type clientChoice struct {
 
 type grabPick struct {
 	ReleaseID    string        `json:"releaseId"`
-	Cells        []string      `json:"cells" maxItems:"100" nullable:"false" doc:"The cells the row or the Release showed"`
+	Cells        []string      `json:"cells" maxItems:"100" nullable:"false" doc:"The Items and Targets the row or the release showed"`
 	Lifts        []liftKey     `json:"lifts" maxItems:"100" nullable:"false" doc:"The lifts the row showed"`
 	Edition      *string       `json:"edition,omitempty" minLength:"1" doc:"The Edition the row showed"`
 	Client       *clientChoice `json:"client,omitempty" doc:"Absent to go where Tracker routing sends it"`
 	Unblock      bool          `json:"unblock,omitempty" doc:"Remove the Release from the Blocklist and grab it"`
-	CancelGrabID *string       `json:"cancelGrabId,omitempty" format:"uuid" doc:"The Grab downloading a cell it fills, canceled first"`
+	CancelGrabID *string       `json:"cancelGrabId,omitempty" format:"uuid" doc:"The Grab downloading an Item and Target it covers, canceled first"`
 }
 
 type grabManualInput struct {
@@ -210,7 +210,7 @@ type grabManualInput struct {
 type pickProblem struct {
 	Code   string  `json:"code" enum:"pick_conflict,cell_held,pick_changed,not_taken,not_grabbable,grab_busy,download_client_field_refused,node_not_downloading"`
 	Detail string  `json:"detail"`
-	GrabID *string `json:"grabId,omitempty" format:"uuid" doc:"cell_held: the Grab downloading the cell"`
+	GrabID *string `json:"grabId,omitempty" format:"uuid" doc:"cell_held: the Grab downloading that Item and Target"`
 }
 
 type pickResult struct {
@@ -246,7 +246,7 @@ func (h handlers) startManualSearch(ctx context.Context, by identity.Admin, in *
 	case errors.Is(err, grabs.ErrReconciling):
 		return nil, reconciling.Because("Open Manual search again once Reconciling finishes.")
 	case errors.Is(err, grabs.ErrNoCell):
-		return nil, api.Invalid.On("cell", "The Item has no cell of that Edition and Target.")
+		return nil, api.Invalid.On("cell", "The Item has no file of that Edition and Target.")
 	}
 	if e, ok := errors.AsType[*works.NotInWorkError](err); ok && scope.Cell != nil {
 		return nil, api.Invalid.On("cell.itemId", "The Work has no Item with that id.")

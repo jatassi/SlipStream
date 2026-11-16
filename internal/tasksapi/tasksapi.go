@@ -32,9 +32,9 @@ func open(c Clock) *tasks.Scheduler {
 }
 
 var (
-	taskUnknown = api.NewCode(http.StatusNotFound, "task_unknown", "No task shown has this id")
-	taskRunning = api.NewCode(http.StatusConflict, "task_running", "The task has a run open")
-	taskWaiting = api.NewCode(http.StatusConflict, "task_waiting", "Every unit waits for a Node that can't start work")
+	taskUnknown = api.NewCode(http.StatusNotFound, "task_unknown", "No task has this id")
+	taskRunning = api.NewCode(http.StatusConflict, "task_running", "This task is already running")
+	taskWaiting = api.NewCode(http.StatusConflict, "task_waiting", "This task's Node can't run it right now")
 	runNotOpen  = api.NewCode(http.StatusNotFound, "run_not_open", "No open run has this id")
 )
 
@@ -44,7 +44,8 @@ func answer(err error) error {
 	}
 	if waiting, ok := errors.AsType[*tasks.ErrWaiting](err); ok {
 		return taskWaiting.At(waiting.Since, func(at string) string {
-			return fmt.Sprintf("Every unit waits for %s, %s since %s.", waiting.Node, standingWords[waiting.Standing], at)
+			words := standingWords[waiting.Standing]
+			return fmt.Sprintf("Every part of this task runs on %s, which has been %s since %s. Run it again once %s %s.", waiting.Node, words.state, at, waiting.Node, words.until)
 		})
 	}
 	switch {
@@ -56,8 +57,11 @@ func answer(err error) error {
 	return settingapi.Refused(err)
 }
 
-var standingWords = map[nodes.Standing]string{
-	nodes.Reconnecting: "reconnecting", nodes.Offline: "offline", nodes.LapsedNode: "offline", nodes.MismatchedNode: "on another version",
+var standingWords = map[nodes.Standing]struct{ state, until string }{
+	nodes.Reconnecting:   {"reconnecting", "is back online"},
+	nodes.Offline:        {"offline", "is back online"},
+	nodes.LapsedNode:     {"offline", "is back online"},
+	nodes.MismatchedNode: {"on a different SlipStream version", "runs the Controller's version"},
 }
 
 type part struct{}
@@ -119,7 +123,7 @@ type waitingState struct {
 	Kind     string    `json:"kind" enum:"waiting"`
 	Node     string    `json:"node" doc:"The Node every unit waits for"`
 	Standing string    `json:"standing" enum:"reconnecting,offline,lapsed,mismatched"`
-	Since    time.Time `json:"since" doc:"The Node's last Sync frame, or the Controller's start when it sent none since"`
+	Since    time.Time `json:"since" doc:"When the Controller last heard from the Node, or when the Controller started if it hasn't heard from it since"`
 }
 
 func stateOf(s tasks.Status) api.OneOf[state] {
@@ -218,7 +222,7 @@ type unit struct {
 	Key           string     `json:"key"`
 	Label         string     `json:"label"`
 	Node          string     `json:"node" doc:"The Node it runs on"`
-	NodeID        string     `json:"nodeId" format:"uuid" doc:"The Node it runs on now: where the roster routes portable work"`
+	NodeID        string     `json:"nodeId" format:"uuid" doc:"The Node it runs on now, which can change when Roles move between Nodes"`
 	NodeRemoved   bool       `json:"nodeRemoved" doc:"The Node it runs on was removed"`
 	Outcome       *string    `json:"outcome" enum:"succeeded,failed,skipped,canceled" doc:"Its last outcome, null before it has run"`
 	Cause         *string    `json:"cause" doc:"Why it last failed or was skipped, null otherwise"`
@@ -405,7 +409,7 @@ func Routes(r *api.Router, c Clock) {
 		ID:      "listOpenTaskRuns",
 		Method:  http.MethodGet,
 		Path:    "/tasks/runs/open",
-		Summary: "List every open run, with how long a scheduled one waits before the header shows it",
+		Summary: "List every open run, with how long a scheduled one waits before the top bar shows it",
 		Status:  http.StatusOK,
 	}, h.listOpenTaskRuns)
 
@@ -422,7 +426,7 @@ func Routes(r *api.Router, c Clock) {
 		ID:      "getTask",
 		Method:  http.MethodGet,
 		Path:    "/tasks/{taskId}",
-		Summary: "Get one shown task with its units and its runs",
+		Summary: "Get one task with its units and its runs",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{taskUnknown},
 	}, h.getTask)
@@ -440,7 +444,7 @@ func Routes(r *api.Router, c Clock) {
 		ID:      "runTask",
 		Method:  http.MethodPost,
 		Path:    "/tasks/{taskId}/runs",
-		Summary: "Run a task now over every unit, or add each unit its open run lacks. Its schedule stays as it was",
+		Summary: "Run every unit of a task now, or start the units its open run doesn't have yet. Its schedule stays as it was",
 		Status:  http.StatusAccepted,
 		Errors:  []*api.Code{taskUnknown, taskRunning, taskWaiting},
 	}, h.runTask)

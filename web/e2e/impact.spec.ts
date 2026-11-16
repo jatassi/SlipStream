@@ -82,10 +82,10 @@ test("tightening a Target so a file fills nothing shows the Impact, and Delete r
   const sheet = page.getByRole("dialog", { name: "Save 1080p" });
   await expect(impactLines(page, "Save 1080p")).toHaveText([
     "1 Work changes.",
-    /^1 file would fill nothing \(\d+(\.\d)? (bytes|KB|MB)\)\.$/u,
+    /^1 file would no longer be used by any Target \(\d+(\.\d)? (bytes|KB|MB)\)\.$/u,
   ]);
-  await expect(sheet.getByRole("radio", { name: "Delete" })).toBeChecked();
-  await expect(sheet.getByRole("radio", { name: "Keep as Kept files" })).not.toBeChecked();
+  await expect(sheet.getByRole("radio", { name: "Delete them" })).toBeChecked();
+  await expect(sheet.getByRole("radio", { name: "Keep them as Kept files" })).not.toBeChecked();
   await expectAccessible(page);
   await page.screenshot({ path: testInfo.outputPath("impact-sheet.png") });
   await sheet.getByRole("button", { name: "Save and delete 1 file" }).click();
@@ -137,10 +137,10 @@ test("an Admin changes a Work's Profile through the Impact sheet and keeps the f
   const impact = page.getByRole("dialog", { name: title });
   await expect(impactLines(page, title)).toHaveText([
     "1 Work changes.",
-    /^1 file would fill nothing /u,
-    "1 cell becomes wanted.",
+    /^1 file would no longer be used by any Target /u,
+    "SlipStream will look for 1 more file.",
   ]);
-  await impact.getByRole("radio", { name: "Keep as Kept files" }).click();
+  await impact.getByRole("radio", { name: "Keep them as Kept files" }).click();
   await expectAccessible(page);
   await page.screenshot({ path: testInfo.outputPath("work-impact.png") });
   await impact.getByRole("button", { name: "Save and keep 1 file" }).click();

@@ -76,8 +76,8 @@ export function ProfilesSection() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-ink-2">
-          A Profile is the Targets a Work wants, in order, and the cuts it wants them in. New Works
-          take their Content Type&apos;s default.
+          A Profile lists the Targets a Work should have, in order, and the cuts to get them in. New
+          Works use their Content Type&apos;s default Profile.
         </p>
         <Button nativeButton={false} icon={Add01Icon} render={<Link to="/settings/profiles/new" />}>
           New Profile

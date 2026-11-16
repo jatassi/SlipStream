@@ -91,21 +91,21 @@ func TestACutHeldByAListOrAFileStays(t *testing.T) {
 	s, ids := shelved(t)
 	s.Call(t, http.MethodPost, "/api/v1/cuts", `{"name":"Fan Edit"}`)
 	inUse := func(detail string) string {
-		return `{"status":409,"code":"cut_in_use","title":"Edition lists or files hold the cut","detail":"` + detail + `"}`
+		return `{"status":409,"code":"cut_in_use","title":"Edition lists or files use the cut","detail":"` + detail + `"}`
 	}
 	if code, body := s.Call(t, http.MethodPut, "/api/v1/profiles/"+ids["small"], strings.Replace(profileBody("Small", ids["web"]), `{"kind":"any"}`, cutsBody("standard", "fan-edit"), 1)); code != http.StatusOK {
 		t.Fatalf("updateProfile naming Fan Edit = %d %s", code, body)
 	}
-	s.Expect(t, http.MethodDelete, "/api/v1/cuts/fan-edit", "", http.StatusConflict, inUse("Small uses it"))
+	s.Expect(t, http.MethodDelete, "/api/v1/cuts/fan-edit", "", http.StatusConflict, inUse("Small uses this cut."))
 	code, body := s.Call(t, http.MethodPut, "/api/v1/works/"+ids["work"]+"/wants?unwanted=keep", `{"editions":`+cutsBody("fan-edit")+`}`)
 	if code != http.StatusOK {
 		t.Fatalf("setWorkWants naming Fan Edit = %d %s", code, body)
 	}
-	s.Expect(t, http.MethodDelete, "/api/v1/cuts/fan-edit", "", http.StatusConflict, inUse("Small and 1 Work's own list use it"))
+	s.Expect(t, http.MethodDelete, "/api/v1/cuts/fan-edit", "", http.StatusConflict, inUse("Small and 1 Work's own list use this cut."))
 	s.Call(t, http.MethodPut, "/api/v1/profiles/"+ids["small"], profileBody("Small", ids["web"]))
 	s.Call(t, http.MethodPut, "/api/v1/works/"+ids["work"]+"/wants", `{"editions":null}`)
 	cutAll(t, s, "fan-edit")
-	s.Expect(t, http.MethodDelete, "/api/v1/cuts/fan-edit", "", http.StatusConflict, inUse("1 file uses it"))
+	s.Expect(t, http.MethodDelete, "/api/v1/cuts/fan-edit", "", http.StatusConflict, inUse("1 file uses this cut."))
 	cutAll(t, s, "standard")
 	deleted(t, s, "fan-edit")
 }

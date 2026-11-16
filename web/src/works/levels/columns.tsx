@@ -39,7 +39,7 @@ export function ColumnNames({
               ))}
             </span>
           ) : (
-            <span>Not seen yet</span>
+            <span>No release yet</span>
           )}
         </span>
       ))}
@@ -53,7 +53,7 @@ function Unseen({ code, column, style }: { code: string; column: Column; style: 
     <span style={style} className="flex h-7.5 items-center px-3">
       <span aria-hidden="true" className="w-full border-t-2 border-dotted border-ink-4" />
       <span className="sr-only">
-        {code} {column.name}, not seen yet
+        {code} {column.name}, no release yet
       </span>
     </span>
   );

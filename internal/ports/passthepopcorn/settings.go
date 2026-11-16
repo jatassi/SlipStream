@@ -9,6 +9,6 @@ import "github.com/jatassi/slipstream/internal/ports/port"
 // SlipStream: Prowlarr's validator is the required flag on the credentials.
 type passThePopcornSettings struct {
 	port.APIUserFields `help.apiUser:"Find your API user and API key in your PassThePopcorn security settings, under Edit Profile > Security."`
-	FreeleechOnly      bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
-	GoldenPopcornOnly  bool `port:"goldenPopcornOnly" label:"Golden Popcorn only" help:"Search only Golden Popcorn Releases."`
+	FreeleechOnly      bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
+	GoldenPopcornOnly  bool `port:"goldenPopcornOnly" label:"Golden Popcorn only" help:"Search only Golden Popcorn releases."`
 }

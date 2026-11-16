@@ -36,7 +36,7 @@ func TestHealthWarnsOnceATorrentThatOwesHasNotSeededForTheWarnDelay(t *testing.T
 
 		time.Sleep(time.Hour)
 		a := l.health()
-		want := "2 torrents on seedpool stopped seeding before seedpool's rule was met. Resume or retry them before seedpool counts a hit and run."
+		want := "2 torrents on seedpool stopped seeding before seedpool's seeding rule was met. Seed them again before seedpool counts a hit and run."
 		if len(a.Items) != 1 || a.Items[0].Level != health.Warn || a.Items[0].Text != want {
 			t.Fatalf("an hour on Health holds %+v, want one warning: %s", a.Items, want)
 		}

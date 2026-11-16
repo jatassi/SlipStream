@@ -57,7 +57,7 @@ type LimitError struct {
 }
 
 func (e *LimitError) Error() string {
-	return "the Indexer reached its limit until " + e.Until.UTC().Format(time.RFC3339)
+	return "the Indexer is at its limit until " + e.Until.UTC().Format(time.RFC3339)
 }
 
 // free is when one more call fits under l, given the reservation times

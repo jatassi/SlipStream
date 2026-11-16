@@ -63,7 +63,7 @@ function Remember({
           choose({ remember: next });
         }}
       />
-      {moves && <p className={note}>New {type.work.many} will start with these.</p>}
+      {moves && <p className={note}>New {type.work.many.toLowerCase()} will start with these.</p>}
     </div>
   );
 }

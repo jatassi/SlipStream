@@ -3,12 +3,12 @@ import type { TargetsWorkRenames } from "./targetsWorkRenames.ts";
 
 export interface TargetsImpact {
   /**
-   * Downloads in progress for cells that are no longer wanted. Each waits in Pending imports once it finishes
+   * Downloads in progress that are no longer needed. Each waits in Pending imports once it finishes
    * @minimum 0
    */
   downloading: number;
   /**
-   * Cells that become wanted
+   * How many more files SlipStream will look for
    * @minimum 0
    */
   newlyWanted: number;
@@ -24,10 +24,10 @@ export interface TargetsImpact {
   renamed: number;
   /** The first 500 of the renamed files, by Work in title order */
   renames: TargetsWorkRenames[];
-  /** Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses */
+  /** Files a Target uses now and none uses after: deleted, or kept as Kept files, as the save chooses */
   unwanted: TargetsUnwantedFiles;
   /**
-   * Works whose cells, fills or file names change
+   * Works whose Targets, files or file names change
    * @minimum 0
    */
   works: number;

@@ -19,10 +19,10 @@ export interface IndexersNewIndexer {
    * @maxLength 256
    */
   apiKey?: string;
-  /** Absent for on */
+  /** Defaults to on when omitted */
   automaticSearch?: boolean;
   /**
-   * One of the definition's addresses, absent for its first; or a native Indexer's address, one the port knows or a typed http or https one
+   * One of the definition's addresses, absent for its first; or a built-in site's address, one the site lists or a typed http or https one
    * @maxLength 2048
    */
   baseAddress?: string;
@@ -38,7 +38,7 @@ export interface IndexersNewIndexer {
    * @maxLength 16
    */
   code?: string;
-  /** A browser cookie for an RSS feed that needs one, or for a catalog or native Indexer whose site signs in with one. Write-only */
+  /** A browser cookie for an RSS feed that needs one, or for a catalog or built-in site Indexer whose site signs in with one. Write-only */
   cookie?: IndexersPastedCookie;
   /**
    * A catalog Indexer's definition id; required for one
@@ -46,7 +46,7 @@ export interface IndexersNewIndexer {
    */
   definition?: string;
   grabs?: IndexersLimit;
-  /** A Node that holds Searching; absent for the default home */
+  /** A Node with the Searching Role; absent for the default home */
   homeNodeId?: string;
   kind: IndexersNewIndexerKind;
   /**
@@ -59,10 +59,10 @@ export interface IndexersNewIndexer {
    * @maxLength 100
    */
   name: string;
-  /** Absent for on */
+  /** Defaults to on when omitted */
   on?: boolean;
   /**
-   * A native Indexer's port id; required for one
+   * The built-in site's id; required for an Indexer of a built-in site
    * @maxLength 200
    */
   port?: string;
@@ -71,7 +71,7 @@ export interface IndexersNewIndexer {
    * @maximum 50
    */
   priority?: number;
-  /** Absent for on */
+  /** Defaults to on when omitted */
   rss?: boolean;
   searches?: IndexersLimit;
   /**
@@ -81,10 +81,10 @@ export interface IndexersNewIndexer {
    */
   searchesAtOnce?: number;
   /**
-   * The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name
+   * The Tracker an RSS feed's torrents belong to when its items don't name their source; required for an RSS feed, omitted for a Torznab feed
    * @maxLength 100
    */
   trackerName?: string;
-  /** A catalog or native Indexer's settings by name, a checkbox's as true or false and a multiselect's as comma-separated option values; a setting left out takes its default. Sealed ones are write-only */
+  /** A catalog or built-in site Indexer's settings by name, a checkbox's as true or false and a multiselect's as comma-separated option values; a setting left out takes its default. Sealed ones are write-only */
   values?: IndexersNewIndexerValues;
 }

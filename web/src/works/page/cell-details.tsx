@@ -8,7 +8,9 @@ import { Data } from "../../ui/data";
 import { IconButton } from "../../ui/icon-button";
 import { Popover } from "../../ui/popover";
 import { folderOf, nameOf } from "../paths";
-import { type CellView, type MatrixShown, cellScope } from "./matrix-model";
+import { type CellView, type MatrixShown, anyCut, cellScope } from "./matrix-model";
+
+const list = new Intl.ListFormat("en", { type: "conjunction" });
 
 function Facts({ path, others }: { path: string; others: readonly string[] }) {
   return (
@@ -26,8 +28,8 @@ function Facts({ path, others }: { path: string; others: readonly string[] }) {
         </dd>
       </div>
       <div>
-        <dt className="text-label text-ink-3">Also fills</dt>
-        <dd className="text-ink-1">{others.length === 0 ? "No other cell" : others.join("; ")}</dd>
+        <dt className="text-label text-ink-3">Also used for</dt>
+        <dd className="text-ink-1">{others.length === 0 ? "Nothing else" : list.format(others)}</dd>
       </div>
     </dl>
   );
@@ -47,7 +49,11 @@ export function CellDetails({
   const [open, setOpen] = useState(false);
   const others = (shown.files.find(({ id }) => id === file.id)?.fills ?? [])
     .filter((fill) => fill.targetId !== cell.targetId || fill.edition !== cell.edition)
-    .map((fill) => `${shown.targetName(fill.targetId)}, ${shown.cutName(fill.edition)}`);
+    .map((fill) =>
+      fill.edition === anyCut
+        ? shown.targetName(fill.targetId)
+        : `${shown.cutName(fill.edition)} ${shown.targetName(fill.targetId)}`,
+    );
   return (
     <Popover
       label={`Details of ${view.target.name}`}

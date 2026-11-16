@@ -44,7 +44,7 @@ export interface FormatsReadFacts {
    */
   revision: string | null;
   /**
-   * The fine source in words, such as WEB-DL
+   * The source, such as WEB-DL or Blu-ray
    * @nullable
    */
   source: string | null;

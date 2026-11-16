@@ -25,7 +25,7 @@ var Port = gazelle.Define(port.Entry{
 	ID:           "alpharatio",
 	Name:         "AlphaRatio",
 	IndexerURLs:  []string{"https://alpharatio.cc/"},
-	Description:  "AlphaRatio is a private Tracker for 0day and general Releases.",
+	Description:  "AlphaRatio is a private Tracker for 0day and general releases.",
 	Privacy:      port.Private,
 	PageSize:     50,
 	RateLimit:    3 * time.Second,
@@ -112,6 +112,6 @@ func getDownloadURL(ix *ix, torrentID int, canUseToken bool) string {
 
 type alphaRatioSettings struct {
 	gazelle.Settings
-	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
-	ExcludeScene  bool `port:"excludeScene" label:"Exclude scene Releases" help:"Leave scene Releases out of every search."`
+	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
+	ExcludeScene  bool `port:"excludeScene" label:"Exclude scene releases" help:"Leave scene releases out of every search."`
 }

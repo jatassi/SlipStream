@@ -5,6 +5,6 @@ export interface MediaserversTested {
   /** From the Controller at the fallback address */
   controller: MediaserversRouteTest;
   fallback: MediaserversTestedFallback;
-  /** From the reaching Node at address */
+  /** From the Connect from Node at address */
   reaching: MediaserversRouteTest;
 }

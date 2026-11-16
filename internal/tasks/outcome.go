@@ -57,7 +57,7 @@ func unsent(why rpc.Why, unheld role.Name, place Place, p peer) result {
 	case rpc.Mismatched:
 		version := p.version
 		if version == "" {
-			version = "another version"
+			version = "a different SlipStream version"
 		}
 		r.cause = p.name + " runs " + version
 		r.short = r.cause
@@ -66,7 +66,7 @@ func unsent(why rpc.Why, unheld role.Name, place Place, p peer) result {
 		if unheld == "" {
 			r.cause = p.name + " is no longer paired"
 		} else {
-			r.cause = p.name + " no longer holds " + unheld.Label()
+			r.cause = p.name + " no longer has the " + unheld.Label() + " Role"
 		}
 		r.short = r.cause
 	}

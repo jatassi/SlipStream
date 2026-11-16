@@ -10,6 +10,6 @@ export interface GrabsReason {
   soft: boolean;
   /** The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title */
   targetId?: string;
-  /** The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986) */
+  /** The value a filter failed on, the quality a Target doesn't accept, the cut the Edition doesn't include, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986) */
   value?: string;
 }

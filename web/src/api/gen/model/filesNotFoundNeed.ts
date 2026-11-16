@@ -1,7 +1,7 @@
 import type { FilesNotFoundNeedKind } from "./filesNotFoundNeedKind.ts";
 
 export interface FilesNotFoundNeed {
-  /** any under any cut, else the key of the cut the cells want */
+  /** any under any cut, else the key of the cut these Items need at this Target */
   edition: string;
   /** A run of Items in tree order whose entries match */
   itemIds: string[];

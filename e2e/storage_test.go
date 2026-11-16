@@ -62,7 +62,7 @@ func untickStorage(t *testing.T, w walked) string {
 	seedbox := w.m.Nodes[1].NodeID
 	out := w.a.SetRoles("home", seedbox, string(role.Searching), string(role.Downloading))
 	if !slices.ContainsFunc(out.Words(), func(s string) bool {
-		return strings.HasPrefix(s, "seedbox takes no new Storage work. It keeps its 1 root (") && strings.HasSuffix(s, ") until you move or write it off.")
+		return strings.HasPrefix(s, "seedbox takes no new Storage work. It keeps its 1 root (") && strings.HasSuffix(s, ") until you move it or give it up.")
 	}) {
 		t.Fatalf("unticking seedbox's Storage says %q, want it keeping its 1 root", out.Words())
 	}
@@ -101,14 +101,14 @@ func TestWriteOffMakesCellsMissingAndARehomeRestoresThem(t *testing.T) {
 	seedbox := untickStorage(t, w)
 	var wrote worldtest.Outcome
 	decode(t, "writeOff", w.a.Admin("home", http.MethodPost, "/api/v1/nodes/"+seedbox+"/write-offs", `{"roles":["storage"]}`), &wrote)
-	if words := wrote.Words(); len(words) != 1 || !strings.HasPrefix(words[0], "The 1 root (") || !strings.HasSuffix(words[0], ") seedbox holds for Storage is written off. No files are deleted.") {
+	if words := wrote.Words(); len(words) != 1 || !strings.HasPrefix(words[0], "SlipStream gives up the 1 root (") || !strings.HasSuffix(words[0], ") seedbox has for Storage. No files are deleted.") {
 		t.Fatalf("writing off seedbox's Storage says %q, want its 1 root written off", words)
 	}
 	root := rootOn(t, w.a, seedbox, "written_off")
 	key := "r." + root.ID
 	worldtest.Until(t, "the written-off root is a Storage error", func() (bool, error) { return healthItems(t, w.a, "storage")[key].Level == "fail", nil })
 	if it := healthItems(t, w.a, "storage")[key]; it.Subject != "Movies library root on seedbox" || it.Action == nil || it.Action.Kind != "link" || it.Action.Href != "/settings/library-roots" ||
-		it.Text != "Its Node was written off, so its files count as missing. Re-home the root to a Node that holds Storage." {
+		it.Text != "SlipStream gave up this root's Node, so its files count as missing. Re-home the root to a Node with the Storage Role." {
 		t.Fatalf("the written-off root's Storage item is %+v, want it leading to Re-home", it)
 	}
 	if c := cells(t, w.a, w.work).Cells[0]; c.File != nil || c.State != "missing" {
@@ -116,8 +116,8 @@ func TestWriteOffMakesCellsMissingAndARehomeRestoresThem(t *testing.T) {
 	}
 	worldtest.Expect(t, "searchWork", w.a.Admin("home", http.MethodPost, "/api/v1/works/"+w.work+"/search", ""), worldtest.Reply{
 		Status: http.StatusConflict,
-		Body: `{"status":409,"code":"root_unreachable","title":"The Work's library root is on a Node that takes no new files now",` +
-			`"detail":"seedbox's Storage was written off, so the library root there takes no new files."}` + "\n",
+		Body: `{"status":409,"code":"root_unreachable","title":"SlipStream can't put new files in this library root now",` +
+			`"detail":"SlipStream stopped waiting for seedbox's Storage, so it can't put new files in its library root."}` + "\n",
 	})
 
 	rehomeOntoHome(t, w, root)

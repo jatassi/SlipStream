@@ -36,8 +36,8 @@ func open(r Registry) *indexers.Indexers {
 
 var (
 	indexerNameTaken   = api.NewCode(http.StatusConflict, "indexer_name_taken", "Another Indexer has that name")
-	noSearchingNode    = api.NewCode(http.StatusConflict, "no_searching_node", "No Node holds Searching. Give one the Searching Role first.")
-	nodeNotSearching   = api.NewCode(http.StatusConflict, "node_not_searching", "That Node doesn't stand in Searching")
+	noSearchingNode    = api.NewCode(http.StatusConflict, "no_searching_node", "No Node has the Searching Role. Give one the Searching Role first.")
+	nodeNotSearching   = api.NewCode(http.StatusConflict, "node_not_searching", "That Node doesn't have the Searching Role")
 	indexerTestFailed  = api.NewCarryingMembers[testFailure](http.StatusUnprocessableEntity, "indexer_test_failed", "The Indexer's Test failed")
 	indexerUnavailable = api.NewCode(http.StatusBadGateway, "indexer_unavailable", "The Test couldn't run")
 	indexerNotFound    = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
@@ -76,7 +76,7 @@ func answer(x *indexers.Indexers, err error) error {
 	case errors.Is(err, indexers.ErrUserAgentNeeded):
 		return api.Invalid.On("cookie.userAgent", "Paste the User-Agent of the browser the cookie came from.")
 	case errors.Is(err, indexers.ErrNoPort):
-		return api.Invalid.On("port", "Choose one of the sites SlipStream includes.")
+		return api.Invalid.On("port", "Choose one of SlipStream's built-in sites.")
 	case errors.Is(err, indexers.ErrNotAnAddress):
 		return api.Invalid.On("baseAddress", "Choose one of the site's addresses, or type one that starts with http:// or https://.")
 	case errors.Is(err, indexers.ErrNoCode):
@@ -134,23 +134,23 @@ type failure struct {
 }
 
 type status struct {
-	State       string                `json:"state" enum:"ok,limited,failing,stopped,home_only" doc:"home_only: a stop met on a failover Node, which waits for home"`
+	State       string                `json:"state" enum:"ok,limited,failing,stopped,home_only" doc:"home_only: the Indexer stopped while searching from a failover Node, and searches only from its home Node until that Node is back"`
 	Cause       *string               `json:"cause" enum:"credentials_rejected,captcha_needed,challenge_unsolved,cookie_expired,definition_unloadable,account_refused,request_rejected,code_needed,port_retired" doc:"Null unless stopped or home_only"`
 	Text        *string               `json:"text" doc:"The site's or feed's own words"`
-	Until       *time.Time            `json:"until" doc:"When a limited or failing Indexer is asked again"`
+	Until       *time.Time            `json:"until" doc:"When SlipStream sends a limited or failing Indexer its next request"`
 	Since       *time.Time            `json:"since" doc:"When it began failing, stopped or began waiting for home"`
 	NodeID      *string               `json:"nodeId" format:"uuid" doc:"The Node the stop was met on"`
 	SolverTried bool                  `json:"solverTried" doc:"A challenge_unsolved that the Node's Challenge solver couldn't clear"`
 	Rung        int                   `json:"rung" minimum:"0" doc:"The backoff ladder's position, stepping down one on each success"`
 	LastFailure api.Nullable[failure] `json:"lastFailure"`
-	SuccessAt   *time.Time            `json:"successAt" doc:"The last answer the site responded to"`
+	SuccessAt   *time.Time            `json:"successAt" doc:"When the site last responded successfully"`
 }
 
 type outcome struct {
 	Kind     string     `json:"kind" enum:"found,no_releases,limited,failing,stopped,waiting,late,limit_reached,no_categories,removed"`
 	Releases int        `json:"releases" minimum:"0"`
 	Until    *time.Time `json:"until" doc:"Set for limited, failing and limit_reached"`
-	Since    *time.Time `json:"since" doc:"Set for waiting: since when the home Node is away; null when it holds no Role to search with"`
+	Since    *time.Time `json:"since" doc:"Set for waiting: since when the home Node is away; null when it doesn't have the Searching Role"`
 	NodeID   *string    `json:"nodeId" format:"uuid" doc:"Set for waiting: the Node waited for; for stopped: the Node the stop was met on"`
 	Lapsed   bool       `json:"lapsed" doc:"Waiting past the offline grace"`
 	Cause    *string    `json:"cause" doc:"Set for stopped"`
@@ -162,17 +162,17 @@ type pin struct {
 	Version     string            `json:"version" doc:"The pinned version's git blob sha"`
 	FetchedAt   time.Time         `json:"fetchedAt" doc:"When SlipStream downloaded the pinned version"`
 	BaseAddress string            `json:"baseAddress"`
-	Values      map[string]string `json:"values" nullable:"false" doc:"The settings saved in plain, by name. Sealed settings are never returned"`
-	Sealed      []string          `json:"sealed" nullable:"false" doc:"The names of the sealed settings that hold a value, in order"`
+	Values      map[string]string `json:"values" nullable:"false" doc:"The settings that aren't secret, by name. Secret settings, such as passwords, are never returned"`
+	Sealed      []string          `json:"sealed" nullable:"false" doc:"The names of the secret settings that have a value, in order"`
 }
 
 type portPin struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name" doc:"The site's name"`
-	Synced      *time.Time        `json:"synced" doc:"When the Prowlarr commit the port was synced to was made; null once SlipStream no longer includes the site"`
+	Synced      *time.Time        `json:"synced" doc:"The date of the Prowlarr commit that SlipStream's support for this site is based on; null once the site is no longer built in"`
 	BaseAddress string            `json:"baseAddress"`
-	Values      map[string]string `json:"values" nullable:"false" doc:"The settings saved in plain, by name. Sealed settings are never returned"`
-	Sealed      []string          `json:"sealed" nullable:"false" doc:"The names of the sealed settings that hold a value, in order"`
+	Values      map[string]string `json:"values" nullable:"false" doc:"The settings that aren't secret, by name. Secret settings, such as passwords, are never returned"`
+	Sealed      []string          `json:"sealed" nullable:"false" doc:"The names of the secret settings that have a value, in order"`
 }
 
 type rssFeed struct {
@@ -213,9 +213,9 @@ type indexer struct {
 	Session         api.Nullable[session] `json:"session" doc:"Its newest session on any Node, null for none"`
 	FeedHost        *string               `json:"feedHost" doc:"The host of a feed's address, which is never returned"`
 	Definition      api.Nullable[pin]     `json:"definition" doc:"A catalog Indexer's definition; null for every other kind"`
-	Port            api.Nullable[portPin] `json:"port" doc:"A native Indexer's ported site; null for every other kind"`
+	Port            api.Nullable[portPin] `json:"port" doc:"The built-in site this Indexer uses; null for every other kind"`
 	SearchModes     []searchMode          `json:"searchModes" nullable:"false" doc:"By mode"`
-	Notes           []string              `json:"notes" nullable:"false" doc:"What changed when SlipStream last moved it to a new definition version or from a ported site to its catalog definition, for the Indexer page"`
+	Notes           []string              `json:"notes" nullable:"false" doc:"What changed when SlipStream last moved it to a new definition version or from a built-in site to its catalog definition, for the Indexer page"`
 	RSSFetch        api.Nullable[rssFeed] `json:"rssFetch" doc:"Its last RSS fetch; null before its first"`
 	Revision        int64                 `json:"revision" minimum:"1"`
 	CreatedAt       time.Time             `json:"createdAt"`
@@ -337,21 +337,21 @@ type newIndexer struct {
 	Kind            string            `json:"kind" enum:"catalog,torznab,rss,native"`
 	Name            string            `json:"name" minLength:"1" maxLength:"100"`
 	Definition      string            `json:"definition,omitempty" maxLength:"200" doc:"A catalog Indexer's definition id; required for one"`
-	Port            string            `json:"port,omitempty" maxLength:"200" doc:"A native Indexer's port id; required for one"`
-	BaseAddress     string            `json:"baseAddress,omitempty" maxLength:"2048" doc:"One of the definition's addresses, absent for its first; or a native Indexer's address, one the port knows or a typed http or https one"`
-	Values          map[string]string `json:"values,omitempty" doc:"A catalog or native Indexer's settings by name, a checkbox's as true or false and a multiselect's as comma-separated option values; a setting left out takes its default. Sealed ones are write-only"`
+	Port            string            `json:"port,omitempty" maxLength:"200" doc:"The built-in site's id; required for an Indexer of a built-in site"`
+	BaseAddress     string            `json:"baseAddress,omitempty" maxLength:"2048" doc:"One of the definition's addresses, absent for its first; or a built-in site's address, one the site lists or a typed http or https one"`
+	Values          map[string]string `json:"values,omitempty" doc:"A catalog or built-in site Indexer's settings by name, a checkbox's as true or false and a multiselect's as comma-separated option values; a setting left out takes its default. Sealed ones are write-only"`
 	Captcha         *captchaAnswer    `json:"captcha,omitempty" doc:"The answer to a captcha loaded for this draft"`
 	Code            string            `json:"code,omitempty" maxLength:"16" doc:"The current two-factor code, for a site whose sign-in asks for one"`
 	Address         string            `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"A Torznab feed's base, to which SlipStream adds /api, or an RSS feed's whole address; required for both. Write-only"`
 	APIKey          string            `json:"apiKey,omitempty" maxLength:"256" doc:"A Torznab feed's. Write-only"`
-	TrackerName     string            `json:"trackerName,omitempty" maxLength:"100" doc:"The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name"`
+	TrackerName     string            `json:"trackerName,omitempty" maxLength:"100" doc:"The Tracker an RSS feed's torrents belong to when its items don't name their source; required for an RSS feed, omitted for a Torznab feed"`
 	Media           []string          `json:"media,omitempty" doc:"The Content Types an RSS feed carries, in place of categories; required for an RSS feed"`
 	AllowNoSize     bool              `json:"allowNoSize,omitempty" doc:"Use an RSS feed whose items have no size"`
-	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one, or for a catalog or native Indexer whose site signs in with one. Write-only"`
-	HomeNodeID      string            `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching; absent for the default home"`
-	On              *bool             `json:"on,omitempty" doc:"Absent for on"`
-	AutomaticSearch *bool             `json:"automaticSearch,omitempty" doc:"Absent for on"`
-	RSS             *bool             `json:"rss,omitempty" doc:"Absent for on"`
+	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one, or for a catalog or built-in site Indexer whose site signs in with one. Write-only"`
+	HomeNodeID      string            `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node with the Searching Role; absent for the default home"`
+	On              *bool             `json:"on,omitempty" doc:"Defaults to on when omitted"`
+	AutomaticSearch *bool             `json:"automaticSearch,omitempty" doc:"Defaults to on when omitted"`
+	RSS             *bool             `json:"rss,omitempty" doc:"Defaults to on when omitted"`
 	AllowFailover   bool              `json:"allowFailover,omitempty"`
 	Priority        int               `json:"priority,omitempty" minimum:"1" maximum:"50" default:"25"`
 	SearchesAtOnce  int               `json:"searchesAtOnce,omitempty" minimum:"1" maximum:"10" default:"2" doc:"How many background searches go to it at a time"`
@@ -415,7 +415,7 @@ func (n newIndexer) fitsKind() error {
 		{"categories", rss && n.Categories != nil, "An RSS feed takes Content Types in place of categories."},
 		{"trackerName", rss && n.TrackerName == "", "Name the Tracker the RSS feed reaches."},
 		{"cookie", n.Kind == string(indexers.Torznab) && n.Cookie != nil, "A Torznab feed takes no cookie."},
-		{"port", !native && n.Port != "", "Only a ported site takes a port."},
+		{"port", !native && n.Port != "", "Only an Indexer of a built-in site takes a port."},
 	}, n.portMisfits(native)...) {
 		if m.wrong {
 			errs = append(errs, api.FieldError{Location: "body." + m.field, Message: m.message})
@@ -434,10 +434,10 @@ func (n newIndexer) portMisfits(native bool) []misfit {
 	}
 	return []misfit{
 		{"port", n.Port == "", "Choose the site."},
-		{"definition", n.Definition != "", "A ported site takes a port in place of a definition."},
-		{"address", n.Address != "", "A ported site takes its address as baseAddress."},
-		{"apiKey", n.APIKey != "", "A ported site takes its API key as one of its values."},
-		{"trackerName", n.TrackerName != "", "A ported site's Tracker is named after the site."},
+		{"definition", n.Definition != "", "A built-in site takes a port in place of a definition."},
+		{"address", n.Address != "", "A built-in site takes its address as baseAddress."},
+		{"apiKey", n.APIKey != "", "A built-in site takes its API key as one of its values."},
+		{"trackerName", n.TrackerName != "", "A built-in site's Tracker is named after the site."},
 	}
 }
 
@@ -472,7 +472,7 @@ func limitIn(l limit) indexers.Limit {
 
 type indexerEdit struct {
 	Name            *string           `json:"name,omitempty" minLength:"1" maxLength:"100"`
-	HomeNodeID      *string           `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching"`
+	HomeNodeID      *string           `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node with the Searching Role"`
 	Address         *string           `json:"address,omitempty" maxLength:"2048" pattern:"^https?://[^/?#]+(/[^?#]*)?(\\?[^#]*)?$" doc:"Write-only"`
 	APIKey          *string           `json:"apiKey,omitempty" maxLength:"256" doc:"Write-only"`
 	On              api.Patch[bool]   `json:"on,omitempty" doc:"Null resets it to on"`
@@ -487,8 +487,8 @@ type indexerEdit struct {
 	Media           *[]string         `json:"media,omitempty" doc:"An RSS feed's Content Types"`
 	AllowNoSize     *bool             `json:"allowNoSize,omitempty" doc:"An RSS feed's"`
 	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A new browser cookie. Write-only"`
-	BaseAddress     *string           `json:"baseAddress,omitempty" maxLength:"2048" doc:"A catalog Indexer's: one of its definition's addresses. A native Indexer's: one its port knows or a typed http or https one"`
-	Values          map[string]string `json:"values,omitempty" doc:"A catalog or native Indexer's settings to change, by name; a sealed one sent empty keeps its saved value"`
+	BaseAddress     *string           `json:"baseAddress,omitempty" maxLength:"2048" doc:"A catalog Indexer's: one of its definition's addresses. A built-in site's: one the site lists or a typed http or https one"`
+	Values          map[string]string `json:"values,omitempty" doc:"A catalog or built-in site Indexer's settings to change, by name; a secret one sent empty keeps its saved value"`
 	Captcha         *captchaAnswer    `json:"captcha,omitempty" doc:"The answer to a captcha loaded for this Indexer, for the Test the change runs"`
 	Code            string            `json:"code,omitempty" maxLength:"16" doc:"The current two-factor code, for the Test the change runs"`
 }
@@ -562,7 +562,7 @@ type query struct {
 	ReservedAt  time.Time  `json:"reservedAt"`
 	StartedAt   *time.Time `json:"startedAt" doc:"When its Node sent its first request; null before, or when it sent none"`
 	CompletedAt *time.Time `json:"completedAt" doc:"Null while it runs"`
-	Outcome     *string    `json:"outcome" enum:"ok,limited,failing,stopped,lost" doc:"Null while it runs; lost when its Node never answered"`
+	Outcome     *string    `json:"outcome" enum:"ok,limited,failing,stopped,lost" doc:"Null while it runs; lost when its Node never responded"`
 	Releases    int        `json:"releases" minimum:"0"`
 }
 
@@ -692,7 +692,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "getIndexerCatalog",
 		Method:  http.MethodGet,
 		Path:    "/indexer-catalog",
-		Summary: "List the sites SlipStream includes, the Indexer catalog's definitions but those an included site replaces, and the custom definitions, with when the catalog last refreshed",
+		Summary: "List SlipStream's built-in sites, the Indexer catalog's definitions except those a built-in site replaces, and the custom definitions, with when the catalog last refreshed",
 		Status:  http.StatusOK,
 	}, h.getCatalog)
 
@@ -700,7 +700,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "getCatalogDefinition",
 		Method:  http.MethodGet,
 		Path:    "/indexer-catalog/{id}",
-		Summary: "Get the add form of an included site or a definition: the site with the id, else the custom definition with it, else the catalog's",
+		Summary: "Get the add form of a built-in site or a definition: the site with the id, else the custom definition with it, else the catalog's",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{definitionNotFound, catalogUnavailable},
 	}, h.getDefinition)
@@ -749,7 +749,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "getChallengeSolver",
 		Method:  http.MethodGet,
 		Path:    "/nodes/{id}/challenge-solver",
-		Summary: "Get the Challenge solver of a Node that stands in Searching",
+		Summary: "Get the Challenge solver of a Node with the Searching Role",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{nodeNotSearching},
 	}, h.getChallengeSolver)

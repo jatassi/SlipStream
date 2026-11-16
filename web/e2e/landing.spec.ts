@@ -13,7 +13,7 @@ const Nodes = z.object({ nodes: z.array(z.object({ name: z.string() })) });
 const namesOf = async (world: World): Promise<string[]> =>
   Nodes.parse((await world.api("GET", "/api/v1/nodes")).body).nodes.map(({ name }) => name);
 
-const roster = (page: Page) => page.getByRole("list", { name: "Roster" });
+const roster = (page: Page) => page.getByRole("list", { name: "Nodes list" });
 const rowLink = (page: Page, name: string) =>
   roster(page).getByRole("link", { name: new RegExp(`^${name} Online`, "u") });
 
@@ -34,7 +34,7 @@ test("Nodes opens on the Diagram on a desktop browser and on the Roster on a pho
   await page.goto("/nodes");
   await expect(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
   const views = page.getByRole("navigation", { name: "View" });
-  const opened = isPhone(page) ? "Roster" : "Diagram";
+  const opened = isPhone(page) ? "List" : "Diagram";
   await expect(views.getByRole("link", { name: opened })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("button", { name: "Add a Node", exact: true })).toBeVisible();
   if (!isPhone(page)) {
@@ -42,15 +42,15 @@ test("Nodes opens on the Diagram on a desktop browser and on the Roster on a pho
       "data-takes-drags",
       "true",
     );
-    await views.getByRole("link", { name: "Roster" }).click();
+    await views.getByRole("link", { name: "List" }).click();
   }
 
   await expect(rowLink(page, "home")).toContainText("Online · Controller");
-  await expect(rowLink(page, "seedbox")).toContainText(/Online · seedbox dials home/u);
+  await expect(rowLink(page, "seedbox")).toContainText(/Online · seedbox connects to home/u);
   await rowLink(page, "seedbox").click();
   await expect(page).toHaveURL(/\/nodes\/[0-9a-f-]{36}$/u);
   await expect(page.getByRole("region", { name: "Overview" })).toContainText(
-    "Reached byseedbox dials home",
+    "Connectionseedbox connects to home",
   );
 });
 
@@ -88,7 +88,7 @@ test("Remove past the re-confirm window asks for the PIN, then the Worker leaves
 
   await choose(page, "seedbox", "Remove");
   const dialog = page.getByRole("dialog", { name: "Remove seedbox?" });
-  await expect(dialog).toContainText("seedbox leaves the Roster");
+  await expect(dialog).toContainText("seedbox comes off the Nodes list");
   await dialog.getByRole("button", { name: /^Remove/u }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   await expect(confirm).toContainText("Enter your PIN to continue.");

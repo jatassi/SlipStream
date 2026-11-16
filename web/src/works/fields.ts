@@ -33,7 +33,7 @@ export function yearOf(fields: WorksFieldValue[]): string | undefined {
 }
 
 export const addLabel = ({ work }: WorksContentType): string =>
-  `Add ${/^[aeiou]/iu.test(work.one) ? "an" : "a"} ${work.one}`;
+  `Add ${/^[aeiou]/iu.test(work.one) ? "an" : "a"} ${work.one.toLowerCase()}`;
 
 export function enabledTypeOf(types: readonly WorksContentType[], id: string): WorksContentType {
   const type = types.find((candidate) => candidate.id === id && candidate.enabled);

@@ -34,10 +34,10 @@ test("a search on add waits for a better Release, and the hero's Grab now grabs 
 }) => {
   const workId = await added(world, "movie", "9000001");
   await page.goto(`/works/${workId}`);
-  await expect(searchLine(page)).toContainText(/^Waiting for a better Release until /u, {
+  await expect(searchLine(page)).toContainText(/^Waiting for a better release until /u, {
     timeout: 30_000,
   });
-  await expect(searches(page)).toContainText(/^Waiting for a better ReleaseAdded/u);
+  await expect(searches(page)).toContainText(/^Waiting for a better releaseAdded/u);
   await expect(orchardCells(page)).toContainText(
     /1 Release found so far\. SlipStream grabs the best one .+ unless a better one arrives\./u,
   );

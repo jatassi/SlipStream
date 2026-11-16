@@ -34,7 +34,7 @@ test.each<
     "a draining Node",
     { state: "queued", hold: "draining" },
     false,
-    "Waiting because seedbox is draining",
+    "Waiting while seedbox finishes its work",
   ],
   ["the Controller", { state: "queued", hold: "controller" }, false, "Waiting for the Controller"],
   [
@@ -124,21 +124,21 @@ test.each<
     "an offline Node's download",
     { state: "downloading", lastKnown: "2026-10-20T11:52:00Z", lastKnownCause: "node" },
     true,
-    "Last known at 11:52",
+    "Last reported at 11:52",
   ],
 ])("the line under %s", (_, row, sampled, line) => {
   expect(stateLine(torrent(row), sampled ? live : undefined, place)).toBe(line);
 });
 
 test.each([
-  [undefined, { host: "No announce URL", status: "" }],
+  [undefined, { host: "No tracker", status: "" }],
   [
     { host: "beacon.example", status: "working" } as const,
     { host: "beacon.example", status: "Working" },
   ],
   [
     { host: "", status: "not_contacted" } as const,
-    { host: "Its announce URL", status: "Not contacted yet" },
+    { host: "Its tracker", status: "Not contacted yet" },
   ],
   [
     {

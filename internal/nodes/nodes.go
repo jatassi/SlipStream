@@ -132,7 +132,7 @@ type Config struct {
 
 var (
 	ErrNotFound      = errors.New("no Node has this id")
-	ErrNoLinkAddress = errors.New("the link has no address to advertise")
+	ErrNoLinkAddress = errors.New("the Controller has no address other Nodes can connect to")
 )
 
 var JoinCodeLifetime = setting.Duration{

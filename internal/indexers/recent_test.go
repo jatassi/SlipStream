@@ -176,7 +176,7 @@ func TestAFetchThatRunsOutOfPagesRaisesAPageCapGap(t *testing.T) {
 		t.Fatalf("a busy feed = %d Releases in %d pages, gap %q; want 10 in the 10-page cap and page_cap", len(f.Releases), f.Pages, f.Gap)
 	}
 	it := p.gapItem()
-	want := "RSS sync may have missed Releases on TorrentLeech. More Releases were added to TorrentLeech between two RSS syncs than 10 pages hold. Search Wanted to find what was missed, or run RSS sync more often."
+	want := "RSS sync may have missed releases on TorrentLeech. More releases were added to TorrentLeech between two RSS syncs than 10 pages list. Search Wanted to find what was missed, or run RSS sync more often."
 	if it == nil || it.Level != health.Warn || it.Text != want || it.Action.Label() != "Search Wanted" ||
 		it.Action.Href() != "/library/wanted?reason=missing&reason=failed&type=searched" {
 		t.Fatalf("the gap's Health item = %+v, want a Warn saying %q linked to Wanted", it, want)

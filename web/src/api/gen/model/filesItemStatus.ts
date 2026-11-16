@@ -4,6 +4,6 @@ export interface FilesItemStatus {
   itemId: string;
   /** Its availability date is today or earlier */
   released: boolean;
-  /** The first state its cells hold, in the glossary's order; null for an Item with no cell */
+  /** Its first state in the order failed, missing, downloading, upgradable, unreleased, met, across its Targets; null for an Item with no Target */
   status: FilesState | null;
 }

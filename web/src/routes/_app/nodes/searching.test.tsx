@@ -132,7 +132,7 @@ test("an offline Node's solver reads but can't change", async () => {
   await expect
     .element(
       page.getByText(
-        "seedbox is offline. Saving tests the solver from seedbox, so its Challenge solver can change once it's back.",
+        "seedbox is offline. You can change its Challenge solver once it's back, because saving tests the solver from seedbox.",
       ),
     )
     .toBeVisible();

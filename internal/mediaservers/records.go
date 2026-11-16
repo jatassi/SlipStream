@@ -583,7 +583,7 @@ func (s service) Test(ctx context.Context, id link.ServerID) (Tested, error) {
 
 func routeTest(r route, err error) RouteTest {
 	if err == nil {
-		return RouteTest{OK: true, Words: r.name + " reached " + r.server + "."}
+		return RouteTest{OK: true, Words: r.name + " connected to " + r.server + "."}
 	}
 	w, _ := Words(err)
 	return RouteTest{Words: w}

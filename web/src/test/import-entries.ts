@@ -225,7 +225,10 @@ export const folderEntries: ImportsImportEntry[] = [
     hint: { title: "Brazil", year: 1985, ids: [] },
     files: [
       fileOf(0, `${downloadsFolder}/Brazil (1985).mkv`, [brazilItem.id], {
-        reason: { code: "confirm", sentence: "Fills 1080p for Brazil (1985)." },
+        reason: {
+          code: "confirm",
+          sentence: "Ready to import as the 1080p file for Brazil (1985).",
+        },
         fills: [{ itemId: brazilItem.id, edition: "any", targetId: hd }],
         recommended: "confirm",
         actions: ["match", "decline"],
@@ -244,7 +247,7 @@ export const folderEntries: ImportsImportEntry[] = [
       fileOf(0, `${downloadsFolder}/Heat (1995).mkv`, [], {
         reason: {
           code: "meets_nothing",
-          sentence: "This doesn't meet any Target this Work wants. 1080p needs Bluray or WEB.",
+          sentence: "This doesn't meet any of this movie's Targets. 1080p needs Bluray or WEB.",
         },
         recommended: "decline",
         actions: ["match"],

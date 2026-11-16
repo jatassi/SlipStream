@@ -320,7 +320,7 @@ func streamAndSignOut(t *testing.T, cn claimedNode, a string) {
 	}
 
 	expect(t, c.do(call{method: http.MethodGet, path: "/api/v1/events", headers: map[string]string{"X-Api-Key": cn.apiKey}}), 403,
-		problem(403, "needs_account", "Only a signed-in person can do this"))
+		problem(403, "needs_account", "The API key can't do this. Sign in to an Account to do it."))
 
 	expect(t, c.do(call{method: http.MethodDelete, path: "/api/v1/session", session: a}), 204, "")
 	if got, want := next(t, streamA), "event: live.session-ended\ndata: {\"reason\":\"signed-out\"}\n"; got != want {
@@ -376,7 +376,7 @@ func refuseCrossSiteAndOversized(t *testing.T, cn claimedNode) {
 	crossSite := map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example"}
 	signIn := `{"email":"admin@example.com","pin":"1235"}`
 	expect(t, c.do(call{method: http.MethodPost, path: "/api/v1/session", body: strings.NewReader(signIn), headers: crossSite}), 403,
-		problem(403, "cross_origin", "Another site can't make this request"))
+		problem(403, "cross_origin", "SlipStream refused this request because it came from another site"))
 	crossSite["X-Api-Key"] = cn.apiKey
 	expect(t, c.do(call{method: http.MethodPost, path: "/api/v1/session", body: strings.NewReader(signIn), headers: crossSite}), 401, pinWrong)
 	padding := `{"email":"admin@example.com","pin":"1234","x":"`

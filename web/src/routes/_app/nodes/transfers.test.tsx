@@ -73,11 +73,11 @@ test("lanes, round trip, route and retried chunks stay under Details until opene
   renderApp({ path, handlers: [...api.handlers, twoNodes] });
   const row = rowOf("Heat (1995)");
   await expect.element(row.getByText("Transferring from seedbox")).toBeVisible();
-  await expect.element(row.getByText("home dials seedbox")).not.toBeInTheDocument();
+  await expect.element(row.getByText("home connects to seedbox")).not.toBeInTheDocument();
   await expect.element(row.getByText("42 ms")).not.toBeInTheDocument();
 
   await userEvent.click(row.getByRole("button", { name: "Details" }));
-  await expect.element(row.getByText("home dials seedbox")).toBeVisible();
+  await expect.element(row.getByText("home connects to seedbox")).toBeVisible();
   await expect.element(row.getByText("42 ms")).toBeVisible();
   await expect.element(row.getByText("1 of 2 verified")).toBeVisible();
 });

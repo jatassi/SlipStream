@@ -1,6 +1,6 @@
 # Targets and Profiles
 
-An Admin decides what each file should be. A Target ranks the qualities it accepts in tiers, with a cutoff, hard filters and sizes per quality. A Profile is the ordered Targets a Work wants and its Edition list, and every Work has one. One file fills every Target it meets and ranks best at, a search grabs for every Want an upgrade included, and a release or file a Target refuses says why. Every change that can leave files filling nothing, rename files or make new cells opens its Impact first, with Delete chosen and Keep as Kept files beside it. A fresh Controller starts with the starter Target `1080p` and a default Profile per Content Type, and Settings gains Targets, Profiles and Editions.
+An Admin decides what each file should be. A Target ranks the qualities it accepts in tiers, with a cutoff, hard filters and sizes per quality. A Profile is the ordered Targets a Work wants and its Edition list, and every Work has one. One file fills every Target it meets and ranks best at, a search grabs for every Want an upgrade included, and a release or file a Target refuses says why. Every change that can leave files filling nothing, rename files or make new cells opens its Impact first, with Delete them chosen and Keep them as Kept files beside it. A fresh Controller starts with the starter Target `1080p` and a default Profile per Content Type, and Settings gains Targets, Profiles and Editions.
 
 ## Sub-features
 
@@ -10,13 +10,13 @@ An Admin decides what each file should be. A Target ranks the qualities it accep
 - `add-sheet-profile` the add sheet's `Profile` picker reads the type's default with `(default)`, and a Work added on another Profile wants that Profile's Targets (P-044).
 - `targets-one-file` one WEB-DL fills both `1080p` and `HD`, the cells read `Upgradable` at both, and one file, `The Quiet Orchard (2021) - 1080p.mkv`, named after the first Target, sits on disk once (P-200, P-202, P-209).
 - `targets-upgrade` once fixture-site lists the Bluray, a search grabs it, the searches view refuses the held WEB-DL with `not_an_upgrade` at each Target, the Grab records both Targets, and the Bluray replaces the WEB-DL at the same path with both cells `Met` (P-203, P-210, P-211).
-- `targets-editor` a new Target filled from `Upgrade for disc or resolution` ticks and ranks its qualities with ties, moves its cutoff, says what its order means in a sentence and `Sample moves`, and keeps `CAM` apart under `Cinema sources`, off, with its warning (P-065, P-066, P-067).
+- `targets-editor` a new Target filled from `Upgrade for Blu-ray or higher resolution` ticks and ranks its qualities with ties, moves its cutoff, says what its order means in a sentence and `Example upgrades`, and keeps `CAM` apart under `Cinema sources`, off, with its warning (P-065, P-066, P-067).
 - `targets-filters-sizes` `Filters` sets `Any`, `Only these` or `Not these` per attribute with a value picker, and `Sizes` takes a minimum and a maximum in MiB per minute per accepted quality with what each means for a two-hour film (P-069).
 - `profiles-editor` Profiles lists each Content Type's Profiles with the default and the Works counted; a Profile's Targets show a disk estimate and a line naming a Target that contains another; a new Profile ranks its Targets by keyboard, its Editions sentence follows `Choose cuts` and warns `No Standard`, and `Make default` moves the default (P-064, P-201, P-044).
 - `work-profile-edit` the Work page's matrix row reads `From Profile Films`, and `Edit…` in the hero's `More actions for The Quiet Orchard` menu opens `Edit The Quiet Orchard` with the `Profile` picker and the `Library root` select, fixed while the Work has files. A Work's own Editions are the Work page's (`work-page.md`) (P-208).
-- `impact-keep` moving the Work to `UHD` opens the Impact, `1 Work changes.`, `1 file would fill nothing`, `1 cell becomes wanted.`, with `Delete` chosen; `Keep as Kept files` and `Save and keep 1 file` leave the file as `The Quiet Orchard (2021) - 1080p (extra 1).mkv`, its old label plus ` (extra 1)` (P-205, P-202, P-207).
+- `impact-keep` moving the Work to `UHD` opens the Impact, `1 Work changes.`, `1 file would no longer be used by any Target`, `SlipStream will look for 1 more file.`, with `Delete them` chosen; `Keep them as Kept files` and `Save and keep 1 file` leave the file as `The Quiet Orchard (2021) - 1080p (extra 1).mkv`, its old label plus ` (extra 1)` (P-205, P-202, P-207).
 - `profiles-delete-move` deleting `UHD` asks where its Works go; the Work moves to `Films` and the Kept file fills again under `The Quiet Orchard (2021) - 1080p.mkv` (P-064).
-- `impact-delete` taking both Targets out of `Films` opens the Impact with `Delete` chosen and `Save and delete 1 file`, which removes the file from the media root and leaves the Work with no cells (P-199, P-204, P-206).
+- `impact-delete` taking both Targets out of `Films` opens the Impact with `Delete them` chosen and `Save and delete 1 file`, which removes the file from the media root and leaves the Work with no cells (P-199, P-204, P-206).
 - `sizes-refusals` on the `sizes` Scenario a search refuses the 14 GiB encode with `size_above` and the 1.5 GiB one with `size_below`, grabs the 8.2 GiB one, and a Work whose runtime TMDB doesn't know grabs with the note `size_not_checked` (P-203).
 - `sizes-probed-codec` a release whose title names no video codec is grabbed for `Encoded`, which refuses x264, and its file, probed as H.264, meets no Target. The Grab stays at `importing`, its file waits in Pending imports with `This doesn't meet any Target this Work wants.` and `Don't import`, the `Encoded` cell's facts read `Waiting for you`, and no file lands (P-069).
 - `editions-cuts` Settings > Editions lists every cut with the phrases it is read as and where it comes from, and `Add cut` adds `Superfan`, also read as `Fan Cut`, as `Custom`.
@@ -121,19 +121,19 @@ Steps on `targets`:
   $FW exec $RUN --proof targets-and-profiles/targets-upgrade -- $FW fs match {runDir} '{mediaDir}/movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv' --release The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW
   ```
 
-- **Build a Target.** On `/settings/targets` choose `New Target`, name it `2160p`, choose `Fill from a preset`, then `Upgrade for disc or resolution`, and untick every 1080p, 720p and 480p quality, `DVD` and `SDTV`. The sentence reads `Grabs HDTV-2160p, WEBRip-2160p or WEBDL-2160p or better. Upgrades until Bluray-2160p or Remux-2160p, then stops.`, and `Sample moves` holds `HDTV-2160p and WEBRip-2160p are tied.` `CAM` sits unticked under `Cinema sources` with `Cinema recordings (CAM, TS, TELESYNC, HDCAM) are filmed in a theatre.`
+- **Build a Target.** On `/settings/targets` choose `New Target`, name it `2160p`, choose `Fill from a preset`, then `Upgrade for Blu-ray or higher resolution`, and untick every 1080p, 720p and 480p quality, `DVD` and `SDTV`. The sentence reads `This Target grabs HDTV-2160p, WEBRip-2160p or WEBDL-2160p or better. It upgrades until Bluray-2160p or Remux-2160p, then stops.`, and `Example upgrades` holds `HDTV-2160p and WEBRip-2160p are tied.` `CAM` sits unticked under `Cinema sources` with `Cinema recordings (CAM, TS, TELESYNC, HDCAM) are filmed in a theatre.`
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings/targets/new'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("textbox", { name: "Name" })' 2160p
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Fill from a preset" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Upgrade for disc or resolution" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Upgrade for Blu-ray or higher resolution" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { for (const q of ["Remux-1080p", "Bluray-1080p", "WEBDL-1080p", "WEBRip-1080p", "HDTV-1080p", "Bluray-720p", "WEBDL-720p", "WEBRip-720p", "HDTV-720p", "WEBRip-480p", "DVD", "SDTV"]) { await page.getByRole("list", { name: "Qualities", exact: true }).getByRole("checkbox", { name: q, exact: true }).click(); } }'
   $FW exec $RUN --proof targets-and-profiles/targets-editor -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/targets-and-profiles/targets-editor/preset.aria.yml
   $FW exec $RUN --proof targets-and-profiles/targets-editor -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/targets-and-profiles/targets-editor/preset.png
   ```
 
-- **Ties and the cutoff.** A tier's qualities list in the table's order, lowest first. Choose `Tie WEBDL-2160p with the one above` to untie WEBDL-2160p from WEBRip-2160p. It becomes a tier of its own at the bottom, and the sentence starts `Grabs WEBDL-2160p or better.` Choose it again to tie it back. Focus `Move Cutoff` and press ArrowDown. The cutoff sits on the bottom tier and the sentence ends `Keeps the first file it grabs.`, the No upgrades case. Press ArrowUp to put it back.
+- **Ties and the cutoff.** A tier's qualities list in the table's order, lowest first. Choose `Tie WEBDL-2160p with the one above` to untie WEBDL-2160p from WEBRip-2160p. It becomes a tier of its own at the bottom, and the sentence starts `This Target grabs WEBDL-2160p or better.` Choose it again to tie it back. Focus `Move Cutoff` and press ArrowDown. The cutoff sits on the bottom tier and the sentence ends `Keeps the first file it grabs.`, the No upgrades case. Press ArrowUp to put it back.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Tie WEBDL-2160p with the one above" })'
@@ -159,7 +159,7 @@ Steps on `targets`:
   $FW exec $RUN --proof targets-and-profiles/targets-filters-sizes -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/targets'
   ```
 
-- **Profiles.** Open `/settings/profiles`, where `Films` reads `Default` and 1 Work. Open `Films`. Its `Targets` list shows an estimate for each Target, `About <size> across its Works, at <rate> MiB per minute`, and `Every file 1080p takes also meets HD.` Leave without saving. Choose `New Profile`, name it `UHD`, choose `Add Target`, then `2160p`: the row reads `No estimate yet`. Add `1080p` the same way, focus `Move 2160p` and press ArrowDown: `1080p` ranks 1, and the page says `2160p moved to rank 2 of 2.` Choose `Remove 1080p`. Choose `Choose cuts`, `Add cut`, `Extended`, then `Remove Standard`: the chip `No Standard` shows and the sentence reads `Every Item wants Extended outright, even where no release of it has been seen. A release that names no cut is Standard, which this list doesn't want.` Choose `Any cut` again and `Create Profile`.
+- **Profiles.** Open `/settings/profiles`, where `Films` reads `Default` and 1 Work. Open `Films`. Its `Targets` list shows an estimate for each Target, `About <size> across its Works, at <rate> MiB per minute`, and `Every file 1080p takes also meets HD.` Leave without saving. Choose `New Profile`, name it `UHD`, choose `Add Target`, then `2160p`: the row reads `No estimate yet`. Add `1080p` the same way, focus `Move 2160p` and press ArrowDown: `1080p` ranks 1, and the page says `2160p moved to rank 2 of 2.` Choose `Remove 1080p`. Choose `Choose cuts`, `Add cut`, `Extended`, then `Remove Standard`: the chip `No Standard` shows and the sentence reads `SlipStream searches for Extended every time, even if no release of it has turned up. It skips releases that name no cut, because they count as Standard.` Choose `Any cut` again and `Create Profile`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings/profiles'
@@ -183,7 +183,7 @@ Steps on `targets`:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Create Profile" })'
   ```
 
-- **Make default.** Choose `Actions for UHD`, then `Make default`. The toast reads `New Movies now take UHD.` and `UHD` reads `Default`. Do the same for `Films` to put the default back.
+- **Make default.** Choose `Actions for UHD`, then `Make default`. The toast reads `New movies now use UHD.` and `UHD` reads `Default`. Do the same for `Films` to put the default back.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Actions for UHD" })'
@@ -193,7 +193,7 @@ Steps on `targets`:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Make default" })'
   ```
 
-- **Move the Work to UHD and keep its file.** On the Work page open `More actions for The Quiet Orchard`, choose `Edit…`, and pick `UHD` in `Profile`. `Library root` is disabled, with `This movie has files, so it stays in its library root.` Choose `Save`. The Impact `Give The Quiet Orchard the Profile UHD` lists `1 Work changes.`, `1 file would fill nothing (<size>).` and `1 cell becomes wanted.`, with `Delete` chosen. Choose `Keep as Kept files`, then `Save and keep 1 file`. The toast reads `Changed the Profile of The Quiet Orchard.`, the `Any cut` row reads `From Profile UHD`, `Kept files` lists the Bluray, and it sits on disk under its old label plus ` (extra 1)`.
+- **Move the Work to UHD and keep its file.** On the Work page open `More actions for The Quiet Orchard`, choose `Edit…`, and pick `UHD` in `Profile`. `Library root` is disabled, with `This movie has files, so it stays in its library root.` Choose `Save`. The Impact `Give The Quiet Orchard the Profile UHD` lists `1 Work changes.`, `1 file would no longer be used by any Target (<size>).` and `SlipStream will look for 1 more file.`, with `Delete them` chosen. Choose `Keep them as Kept files`, then `Save and keep 1 file`. The toast reads `Changed the Profile of The Quiet Orchard.`, the `Any cut` row reads `From Profile UHD`, `Kept files` lists the Bluray, and it sits on disk under its old label plus ` (extra 1)`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$WORK"
@@ -204,14 +204,14 @@ Steps on `targets`:
   $FW exec $RUN --proof targets-and-profiles/work-profile-edit -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/targets-and-profiles/work-profile-edit/edit.png
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Edit The Quiet Orchard" }).getByRole("button", { name: "Save", exact: true })'
   $FW exec $RUN --proof targets-and-profiles/impact-keep -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/targets-and-profiles/impact-keep/impact.aria.yml
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Give The Quiet Orchard the Profile UHD" }).getByRole("radio", { name: "Keep as Kept files" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Give The Quiet Orchard the Profile UHD" }).getByRole("radio", { name: "Keep them as Kept files" })'
   $FW exec $RUN --proof targets-and-profiles/impact-keep -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/targets-and-profiles/impact-keep/keep.png
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Save and keep 1 file" })'
   $FW exec $RUN --proof targets-and-profiles/impact-keep -- $FW fs match {runDir} '{mediaDir}/movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p (extra 1).mkv' --release The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW
   $FW exec $RUN --proof targets-and-profiles/impact-keep -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/wants"
   ```
 
-- **Delete UHD.** On `/settings/profiles` choose `Actions for UHD`, then `Delete`. The dialog `Delete UHD?` reads `Its 1 Work moves to the Profile you pick.` with `Films` in `Move its Works to`. Choose `Delete UHD`, and `Delete UHD` again on its Impact, which lists `1 Work changes.` and `1 file is renamed.` The toast reads `Deleted UHD. Its Works now take Films.`, and the Kept file fills again under the plain label.
+- **Delete UHD.** On `/settings/profiles` choose `Actions for UHD`, then `Delete`. The dialog `Delete UHD?` reads `Its 1 Work moves to the Profile you pick.` with `Films` in `Move its Works to`. Choose `Delete UHD`, and `Delete UHD` again on its Impact, which lists `1 Work changes.` and `1 file is renamed.` The toast reads `Deleted UHD. Its Works now use Films.`, and the Kept file fills again under the plain label.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings/profiles'
@@ -223,7 +223,7 @@ Steps on `targets`:
   $FW exec $RUN --proof targets-and-profiles/profiles-delete-move -- $FW fs match {runDir} '{mediaDir}/movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv' --release The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW
   ```
 
-- **Take the Targets away and delete.** Open `Films`, choose `Remove 1080p` and `Remove HD`, then `Save`. The Impact `Save Films` lists `1 Work changes.` and `1 file would fill nothing (<size>).`, `Delete` is chosen, and the button reads `Save and delete 1 file`. Choose it. The toast reads `Saved Films.`, the Work page reads `Its Profile has no Targets, so this Movie wants nothing.`, and the file is gone from the media root.
+- **Take the Targets away and delete.** Open `Films`, choose `Remove 1080p` and `Remove HD`, then `Save`. The Impact `Save Films` lists `1 Work changes.` and `1 file would no longer be used by any Target (<size>).`, `Delete them` is chosen, and the button reads `Save and delete 1 file`. Choose it. The toast reads `Saved Films.`, the Work page reads `Its Profile has no Targets, so this Movie wants nothing.`, and the file is gone from the media root.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("table", { name: "Movies Profiles" }).getByRole("link", { name: "Films", exact: true })'
@@ -283,13 +283,13 @@ Steps on `sizes`:
 
 Steps on a second fresh `targets` run:
 
-- **Add a cut.** Open `/settings/editions`. The `Cuts` table's `Standard` row reads `Any title that names no cut`, and `Extended` reads `Built in`. Choose `Add cut`, fill `Name` with `Superfan` and `Also read as` with `Fan Cut`, and choose `Add cut` in the dialog. The toast reads `Added Superfan. Profiles and Works can list it now.`, and the row reads `Superfan, Fan Cut` and `Custom`.
+- **Add a cut.** Open `/settings/editions`. The `Cuts` table's `Standard` row reads `Any title that names no cut`, and `Extended` reads `Built in`. Choose `Add cut`, fill `Name` with `Superfan` and `Aliases` with `Fan Cut`, and choose `Add cut` in the dialog. The toast reads `Added Superfan. Profiles and Works can list it now.`, and the row reads `Superfan, Fan Cut` and `Custom`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings/editions'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add cut" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("dialog", { name: "Add a cut" }).getByRole("textbox", { name: "Name" })' Superfan
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("dialog", { name: "Add a cut" }).getByRole("textbox", { name: "Also read as" })' "Fan Cut"
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByRole("dialog", { name: "Add a cut" }).getByRole("textbox", { name: "Aliases" })' "Fan Cut"
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add a cut" }).getByRole("button", { name: "Add cut" })'
   $FW exec $RUN --proof targets-and-profiles/editions-cuts -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/targets-and-profiles/editions-cuts/cuts.aria.yml
   $FW exec $RUN --proof targets-and-profiles/editions-cuts -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/cuts'

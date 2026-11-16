@@ -239,5 +239,5 @@ type torrentDayRow struct {
 // SlipStream: the cookie is the pasted session that CookieLogin asks
 // for, so it isn't a setting here.
 type torrentDaySettings struct {
-	FreeLeechOnly bool `port:"freeLeechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
+	FreeLeechOnly bool `port:"freeLeechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
 }

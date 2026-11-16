@@ -7,7 +7,7 @@ import { renderApp } from "../../../test/render-app";
 import { asPhone } from "../../../test/viewport";
 
 const handlers = [getListGrabsMockHandler({ grabs: [downloading] })];
-const sentence = () => page.getByRole("paragraph").filter({ hasText: "moving" });
+const sentence = () => page.getByRole("paragraph").filter({ hasText: "in progress" });
 
 test("on a desktop Jobs and Torrents are page tabs under the Activity title", async () => {
   const { router } = renderApp({ path: "/activity", handlers });

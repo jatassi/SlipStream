@@ -6,7 +6,7 @@ type PinState = IdentityPinState["state"];
 export const pinLabel: { readonly [S in PinState]: string } = {
   fine: "Fine",
   waiting: "Waiting",
-  off: "Turned off",
+  off: "Locked",
 };
 
 const sentences: { readonly [S in PinState]: (until: string | undefined) => string } = {
@@ -15,8 +15,7 @@ const sentences: { readonly [S in PinState]: (until: string | undefined) => stri
     until === undefined
       ? "After too many wrong PINs, sign-in is paused."
       : `After too many wrong PINs, sign-in is paused until ${clock(until)}.`,
-  off: () =>
-    "The PIN was turned off after too many wrong PINs. Send a Reset link to set a new one.",
+  off: () => "The PIN is locked after too many wrong PINs. Send a Reset link to set a new one.",
 };
 
 export const pinSentence = (pin: IdentityPinState): string => sentences[pin.state](pin.until);

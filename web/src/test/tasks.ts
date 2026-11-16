@@ -163,7 +163,7 @@ export const schedule: TasksSchedule = {
   headerDelay: {
     ...about,
     key: "tasks.headerDelay",
-    label: "Show a scheduled run in the header after",
+    label: "Show a scheduled run in the top bar after",
     kind: "duration",
     value: 5,
     running: 5,
@@ -175,7 +175,7 @@ export const schedule: TasksSchedule = {
   partialWarnIntervals: {
     ...about,
     key: "tasks.partialWarnIntervals",
-    label: "Warn when a unit has not succeeded for",
+    label: "Warn on Health when a unit hasn't succeeded for",
     kind: "count",
     value: 3,
     running: 3,

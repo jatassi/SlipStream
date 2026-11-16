@@ -117,9 +117,9 @@ test("More opens a sheet with the rest of the nav and the version, and Cancel cl
       .all()
       .map((button) => button.element().textContent),
   ).toEqual(moreButtons);
-  const startup = sheet.getByRole("switch", { name: "Startup sequence" });
+  const startup = sheet.getByRole("switch", { name: "Startup animation" });
   await expect.element(startup).toBeChecked();
-  await userEvent.click(sheet.getByText("Startup sequence"));
+  await userEvent.click(sheet.getByText("Startup animation"));
   await expect.element(startup).not.toBeChecked();
   await expect.element(sheet).toBeVisible();
 
@@ -172,7 +172,7 @@ test("on a phone a menu opens as an action sheet", async () => {
   });
   await userEvent.click(page.getByRole("button", { name: "Add" }));
   const sheet = page.getByRole("dialog", { name: "Add a Work" });
-  await expect.element(sheet.getByRole("button", { name: "Add a Film" })).toBeVisible();
+  await expect.element(sheet.getByRole("button", { name: "Add a film" })).toBeVisible();
   await userEvent.click(sheet.getByRole("button", { name: "Cancel" }));
   await expect.element(sheet).not.toBeInTheDocument();
 });

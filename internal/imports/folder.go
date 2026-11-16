@@ -22,7 +22,7 @@ import (
 var (
 	ErrOutside     = errors.New("the folder isn't in one of the Node's library roots or download folders")
 	ErrNotOffered  = errors.New("the file doesn't offer that action now")
-	ErrMoveSeeding = errors.New("a tracked torrent seeds one of these files")
+	ErrMoveSeeding = errors.New("a torrent SlipStream tracks is still seeding one of these files")
 )
 
 // Opened is what opening a folder answers: its unfinished Imports, and

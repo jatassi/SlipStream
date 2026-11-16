@@ -50,7 +50,7 @@ export function Meaning({ draft }: { draft: TargetDraft }) {
       </p>
       {samples.length > 0 && (
         <ul
-          aria-label="Sample moves"
+          aria-label="Example upgrades"
           className="divide-y divide-hairline rounded-card bg-glass ring-1 ring-hairline ring-inset"
         >
           {samples.map((sample) => (

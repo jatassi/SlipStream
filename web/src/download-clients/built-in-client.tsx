@@ -65,7 +65,7 @@ export function BuiltInClient({ card }: { card: Card }) {
         >
           Torrent client settings on {card.nodeName}
         </Link>
-        <p>This card is removed once this Node stops downloading.</p>
+        <p>This card disappears if this Node loses the Downloading Role.</p>
       </footer>
     </article>
   );

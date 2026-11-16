@@ -350,13 +350,13 @@ func TestEachOutcomeLineSaysItInWords(t *testing.T) {
 		{&indexers.Outcome{Kind: indexers.Waiting, Node: self}, "Waiting for home"},
 		{&indexers.Outcome{Kind: indexers.IsFailing, Until: at}, "Isn't responding. SlipStream retries at 14:05."},
 		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CredentialsRejected}, "Stopped because the username or password was rejected."},
-		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CredentialsRejected, Text: "Wrong code"}, "Stopped because the sign-in was refused with 'Wrong code'."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CredentialsRejected, Text: "Wrong code"}, "Stopped because the site refused the sign-in and responded 'Wrong code'."},
 		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CaptchaNeeded}, "Stopped because signing in again needs a captcha."},
 		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.ChallengeUnsolved, Node: self}, "Stopped at a browser challenge because home has no Challenge solver."},
 		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CookieExpired}, "Stopped because the browser cookie is no longer accepted."},
-		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.DefinitionUnloadable}, "Stopped because its definition doesn't load."},
-		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.AccountRefused, Text: "Account suspended"}, "Stopped because the API key was refused with 'Account suspended'."},
-		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.RequestRejected, Text: "Incorrect parameter"}, "Stopped because a search was refused with 'Incorrect parameter'."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.DefinitionUnloadable}, "Stopped because SlipStream can't load its definition."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.AccountRefused, Text: "Account suspended"}, "Stopped because the site refused the API key and responded 'Account suspended'."},
+		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.RequestRejected, Text: "Incorrect parameter"}, "Stopped because the site refused a search and responded 'Incorrect parameter'."},
 		{&indexers.Outcome{Kind: indexers.NoCategories}, "Skipped because it has no shelf categories"},
 		{&indexers.Outcome{Kind: indexers.Late}, "Didn't finish in time"},
 		{&indexers.Outcome{Kind: indexers.Removed}, "Deleted since this search"},
@@ -660,7 +660,7 @@ func TestStandingsAnswerAsTakeDoesAndSpendNothing(t *testing.T) {
 	p.search(p.plan())
 	for _, r := range []searching.Release{torrent, magnet} {
 		err := p.agreed("Birch", r)
-		if want := "Stopped because Birch refused the API key with 'Account suspended'."; !notTaken(err, indexers.IsStopped) || sentenceOf(err) != want {
+		if want := "Stopped because Birch refused the API key and responded 'Account suspended'."; !notTaken(err, indexers.IsStopped) || sentenceOf(err) != want {
 			t.Fatalf("stopped Birch's %s = %v %q, want stopped saying %q", r.Title, err, sentenceOf(err), want)
 		}
 	}

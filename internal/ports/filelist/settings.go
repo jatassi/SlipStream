@@ -13,5 +13,5 @@ import "github.com/jatassi/slipstream/internal/ports/port"
 type fileListSettings struct {
 	Username          string `port:"username,key" label:"Username" help:"Your FileList username."`
 	port.PasskeyField `help:"Your passkey is the string of letters and digits in the tracker URL your download client shows for a FileList torrent."`
-	FreeleechOnly     bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
+	FreeleechOnly     bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
 }

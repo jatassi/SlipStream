@@ -4,15 +4,15 @@ import type { FilesMetCellState } from "./filesMetCellState.ts";
 
 export interface FilesMetCell {
   /**
-   * The Releases its wait holds; 0 while it waits for none
+   * How many Releases it is waiting on; 0 while it waits for none
    * @minimum 0
    */
   candidates: number;
-  /** any under any cut, else the key of the cut the cell wants */
+  /** any under any cut, else the key of the cut this Item needs at this Target */
   edition: string;
   /** The file filling it */
   file: FilesLibraryFile;
-  /** No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it */
+  /** It has no file because its library file is gone from its root. Only a search an Admin starts searches for it */
   gone: boolean;
   /** The Grab in flight for it; null while none is */
   held: FilesHeldCell | null;

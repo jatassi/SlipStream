@@ -60,7 +60,7 @@ func (e *RoomError) Error() string {
 	case e.Busy:
 		return "the Indexer has as many searches in flight as its Searches at once allows"
 	case e.Starved:
-		return "the slots RSS sync keeps fill the Indexer's search limit"
+		return "the slots RSS sync keeps use up the Indexer's search limit"
 	}
 	return "the Indexer's search limit has no free slot until " + e.Until.UTC().Format(time.RFC3339)
 }

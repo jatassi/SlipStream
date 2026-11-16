@@ -91,9 +91,9 @@ test.each([
       problem(
         403,
         "pin_off",
-        "This PIN is turned off. Use a passkey or ask an Admin for a Reset link.",
+        "This PIN is locked after too many wrong PINs. Sign in with a passkey or ask an Admin for a Reset link.",
       ),
-    "This PIN is turned off. Use a passkey or ask an Admin for a Reset link.",
+    "This PIN is locked after too many wrong PINs. Sign in with a passkey or ask an Admin for a Reset link.",
   ],
   [
     "a turned-off Account",
@@ -112,13 +112,13 @@ test.each([
         {
           status: 429,
           code: "too_many_attempts",
-          title: "Too many failed attempts from this address. Wait before trying again.",
-          detail: "You can try again at 15:42.",
+          title: "Too many failed sign-ins from this IP address",
+          detail: "Try again at 15:42.",
           until: "2026-10-16T15:42:00Z",
         },
         { status: 429, headers: { "Content-Type": "application/problem+json" } },
       ),
-    `Too many failed attempts from this address. Wait before trying again. You can try again at ${clock("2026-10-16T15:42:00Z")}.`,
+    `Too many failed sign-ins from this IP address. Try again at ${clock("2026-10-16T15:42:00Z")}.`,
   ],
 ])("%s says so", async (_case, answer, alert) => {
   renderApp({

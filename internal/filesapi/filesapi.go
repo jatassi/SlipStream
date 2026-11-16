@@ -63,14 +63,14 @@ func (cell) Variants() (discriminator string, variants []any) {
 // CellBase is exported so the document carries the fields each cell embeds.
 type CellBase struct {
 	ItemID     string     `json:"itemId" format:"uuid"`
-	Edition    string     `json:"edition" doc:"any under any cut, else the key of the cut the cell wants"`
+	Edition    string     `json:"edition" doc:"any under any cut, else the key of the cut this Item needs at this Target"`
 	TargetID   string     `json:"targetId" format:"uuid"`
 	TargetName string     `json:"targetName"`
 	Wanted     bool       `json:"wanted" doc:"Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released"`
-	Gone       bool       `json:"gone" doc:"No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it"`
+	Gone       bool       `json:"gone" doc:"It has no file because its library file is gone from its root. Only a search an Admin starts searches for it"`
 	Stopped    bool       `json:"stopped" doc:"Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it"`
 	WaitUntil  *time.Time `json:"waitUntil" doc:"When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none"`
-	Candidates int        `json:"candidates" minimum:"0" doc:"The Releases its wait holds; 0 while it waits for none"`
+	Candidates int        `json:"candidates" minimum:"0" doc:"How many Releases it is waiting on; 0 while it waits for none"`
 }
 
 type unreleasedCell struct {
@@ -87,8 +87,8 @@ type downloadingCell struct {
 	CellBase
 	State  string                       `json:"state" enum:"downloading" doc:"A Grab is in flight for it, fetching included"`
 	GrabID string                       `json:"grabId" format:"uuid" doc:"The latest Grab in flight for it"`
-	File   api.Nullable[LibraryFile]    `json:"file" doc:"The file the Grab would replace; null when it fills no file"`
-	Step   api.Nullable[api.Enum[step]] `json:"step" doc:"What the Grab or its Import is doing for the cell; null until SlipStream reads it"`
+	File   api.Nullable[LibraryFile]    `json:"file" doc:"The file the Grab would replace; null when it replaces none"`
+	Step   api.Nullable[api.Enum[step]] `json:"step" doc:"What the Grab or its Import is doing for this Item at this Target; null until SlipStream reads it"`
 	From   *time.Time                   `json:"from" doc:"When the Grab entered its stage; null with step"`
 	Until  *time.Time                   `json:"until" doc:"When the Import delay ends, for a download that waits for it; null otherwise"`
 }
@@ -101,7 +101,7 @@ func (step) Values() []string {
 }
 
 type heldCell struct {
-	GrabID string         `json:"grabId" format:"uuid" doc:"The Grab in flight for the cell"`
+	GrabID string         `json:"grabId" format:"uuid" doc:"The Grab in flight for this Item at this Target"`
 	Step   api.Enum[step] `json:"step"`
 	From   time.Time      `json:"from" doc:"When the Grab entered its stage"`
 	Until  *time.Time     `json:"until" doc:"When the Import delay ends, for a download that waits for it; null otherwise"`
@@ -111,7 +111,7 @@ type failedCell struct {
 	CellBase
 	State  string                    `json:"state" enum:"failed"`
 	GrabID string                    `json:"grabId" format:"uuid" doc:"The Grab that failed"`
-	File   api.Nullable[LibraryFile] `json:"file" doc:"The file the Grab would have replaced; null when it fills no file"`
+	File   api.Nullable[LibraryFile] `json:"file" doc:"The file the Grab would have replaced; null when it replaced none"`
 }
 
 type upgradableCell struct {
@@ -184,23 +184,23 @@ type cellsInput struct {
 
 type itemStatus struct {
 	ItemID   string                        `json:"itemId" format:"uuid"`
-	Status   api.Nullable[api.Enum[State]] `json:"status" doc:"The first state its cells hold, in the glossary's order; null for an Item with no cell"`
+	Status   api.Nullable[api.Enum[State]] `json:"status" doc:"Its first state in the order failed, missing, downloading, upgradable, unreleased, met, across its Targets; null for an Item with no Target"`
 	Released bool                          `json:"released" doc:"Its availability date is today or earlier"`
 }
 
 type levelRollup struct {
 	LevelID    string            `json:"levelId" format:"uuid"`
-	Cells      api.Counts[State] `json:"cells" doc:"Its monitored Items' cells by state"`
+	Cells      api.Counts[State] `json:"cells" doc:"Its monitored Items at each of their Targets, by state"`
 	Items      int               `json:"items" minimum:"0" doc:"Its monitored Items that its source still lists"`
-	ItemStatus api.Counts[State] `json:"itemStatus" doc:"Its monitored Items by status; an Item with no cell isn't counted"`
-	Withdrawn  api.Counts[State] `json:"withdrawn" doc:"The cells of its Items its source no longer lists that a file still fills, by state"`
+	ItemStatus api.Counts[State] `json:"itemStatus" doc:"Its monitored Items by status; an Item with no Target isn't counted"`
+	Withdrawn  api.Counts[State] `json:"withdrawn" doc:"Its Items that its source no longer lists and that still have a file, at each of their Targets, by state"`
 }
 
 type cellList struct {
 	Cells    []api.OneOf[cell] `json:"cells" nullable:"false" doc:"By Item in tree order, then Target in Profile order"`
 	Items    []itemStatus      `json:"items" nullable:"false" doc:"Every Item in tree order"`
-	Summary  summary           `json:"summary" doc:"What the cells add up to for the Work"`
-	Levels   []levelRollup     `json:"levels" nullable:"false" doc:"What each level's cells add up to, in the order its first Item comes; empty for a type with no levels"`
+	Summary  summary           `json:"summary" doc:"The states of the Work's Items at their Targets, added up"`
+	Levels   []levelRollup     `json:"levels" nullable:"false" doc:"The states of each level's Items at their Targets, added up, in the order its first Item comes; empty for a type with no levels"`
 	NeedsYou []api.OneOf[need] `json:"needsYou" nullable:"false" doc:"What the Work needs from an Admin, failures first"`
 }
 
@@ -214,7 +214,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "getWorkCells",
 		Method:  http.MethodGet,
 		Path:    "/works/{workId}/cells",
-		Summary: "Get each of a Work's cells with its state and the file filling it, and each Item's status",
+		Summary: "Get the state of each of a Work's Items at each Target, with the file there, and each Item's status",
 		Status:  http.StatusOK,
 		Gzip:    true,
 		Errors:  []*api.Code{workNotFound},
@@ -224,7 +224,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "listWorkFiles",
 		Method:  http.MethodGet,
 		Path:    "/works/{workId}/files",
-		Summary: "List a Work's library files with the cells each fills, and the folder they sit in",
+		Summary: "List a Work's library files with the Item and Target each one is for, and the folder they sit in",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{workNotFound},
 	}, h.listWorkFiles)

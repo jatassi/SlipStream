@@ -135,7 +135,7 @@ func TestOMDbCapLimitsUntilUTCMidnightWithoutSending(t *testing.T) {
 		midnight := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour)
 		_, err := c.Title(t.Context(), keyed, "tt9000001")
 		se, ok := errors.AsType[*works.SourceError](err)
-		if !ok || !errors.Is(err, works.ErrUnavailable) || !se.Until.Equal(midnight) || se.Words != "is out of its daily allowance until "+midnight.Format(time.RFC3339) {
+		if !ok || !errors.Is(err, works.ErrUnavailable) || !se.Until.Equal(midnight) || se.Words != "has used up its daily request limit" {
 			t.Fatalf("Title after the cap = %v (%+v), want works.ErrUnavailable until %s", err, se, midnight)
 		}
 

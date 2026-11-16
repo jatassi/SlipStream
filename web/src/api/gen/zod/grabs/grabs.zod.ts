@@ -205,7 +205,7 @@ export const GetManualSearchQueryParams = zod.object({
 export const GetManualSearchResponse = GrabsManualSearch;
 
 /**
- * @summary Start a Manual search of a Work, or of some of its levels and Items or one cell. 200 answers the Work's Manual search when it already has this scope and query
+ * @summary Start a Manual search of a Work, or of some of its levels and Items, or of one Item at one Target. Responds 200 with the existing Manual search when it already has this scope and query
  */
 export const StartManualSearchParams = zod.object({
   workId: zod.uuid(),
@@ -256,7 +256,7 @@ export const ListSearchesParams = zod.object({
 export const ListSearchesResponse = GrabsSearchList;
 
 /**
- * @summary Get what Automatic search is doing for a Work: each search group's state, its waits and its stopped cells
+ * @summary Get what Automatic search is doing for a Work: each search group's state, its waits and the Items and Targets it stopped searching again for
  */
 export const GetWorkSearchingParams = zod.object({
   workId: zod.uuid(),
@@ -265,7 +265,7 @@ export const GetWorkSearchingParams = zod.object({
 export const GetWorkSearchingResponse = GrabsWorkSearching;
 
 /**
- * @summary End a Work's waits for a better Release and grab the best Release each holds now
+ * @summary End a Work's waits for a better Release and grab the best one found for each now
  */
 export const GrabWaitingParams = zod.object({
   workId: zod.uuid(),

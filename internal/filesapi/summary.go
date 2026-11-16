@@ -10,10 +10,10 @@ import (
 )
 
 type summary struct {
-	Status     api.Nullable[api.Enum[State]] `json:"status" doc:"The first status its monitored Items hold, in the glossary's order; null while none holds a cell"`
-	Cells      api.Counts[State]             `json:"cells" doc:"Its monitored Items' cells by state"`
+	Status     api.Nullable[api.Enum[State]] `json:"status" doc:"Its monitored Items' first status in the order failed, missing, downloading, upgradable, unreleased, met; null while none has a Target"`
+	Cells      api.Counts[State]             `json:"cells" doc:"Its monitored Items at each of their Targets, by state"`
 	Items      int                           `json:"items" minimum:"0" doc:"Its monitored Items that its source still lists, the only Items the status and counts read"`
-	ItemStatus api.Counts[State]             `json:"itemStatus" doc:"Its monitored Items by status; an Item with no cell isn't counted"`
+	ItemStatus api.Counts[State]             `json:"itemStatus" doc:"Its monitored Items by status; an Item with no Target isn't counted"`
 }
 
 func summaryOf(r files.Rollup) summary {
@@ -40,7 +40,7 @@ func (need) Variants() (discriminator string, variants []any) {
 type failedNeed struct {
 	Kind     string   `json:"kind" enum:"failed"`
 	ItemIDs  []string `json:"itemIds" nullable:"false" doc:"A run of Items in tree order whose entries match"`
-	Edition  string   `json:"edition" doc:"any under any cut, else the key of the cut the cells want"`
+	Edition  string   `json:"edition" doc:"any under any cut, else the key of the cut these Items need at this Target"`
 	TargetID string   `json:"targetId" format:"uuid" doc:"The Target whose download failed"`
 	Waiting  []string `json:"waiting" nullable:"false" doc:"The Targets of the same Items and Edition, still missing, that wait on the failed one"`
 	GrabID   string   `json:"grabId" format:"uuid" doc:"The Grab that failed"`
@@ -49,14 +49,14 @@ type failedNeed struct {
 type upgradeNeed struct {
 	Kind     string   `json:"kind" enum:"upgrade"`
 	ItemIDs  []string `json:"itemIds" nullable:"false" doc:"A run of Items in tree order whose entries match"`
-	Edition  string   `json:"edition" doc:"any under any cut, else the key of the cut the cells want"`
+	Edition  string   `json:"edition" doc:"any under any cut, else the key of the cut these Items need"`
 	Upgrades []string `json:"upgrades" nullable:"false" doc:"Every upgradable Target of the Items and Edition"`
 }
 
 type notFoundNeed struct {
 	Kind           string     `json:"kind" enum:"not_found" doc:"Missing Items whose latest search found no Release, or none acceptable. It shows on the Work page only, and the Library's Needs you count leaves it out"`
 	ItemIDs        []string   `json:"itemIds" nullable:"false" doc:"A run of Items in tree order whose entries match"`
-	Edition        string     `json:"edition" doc:"any under any cut, else the key of the cut the cells want"`
+	Edition        string     `json:"edition" doc:"any under any cut, else the key of the cut these Items need at this Target"`
 	LastSearchedAt time.Time  `json:"lastSearchedAt" doc:"When the latest search finished"`
 	NextSearchAt   *time.Time `json:"nextSearchAt" doc:"When SlipStream searches them next; null while nothing will"`
 }
@@ -64,7 +64,7 @@ type notFoundNeed struct {
 type waitingNeed struct {
 	Kind        string                    `json:"kind" enum:"waiting"`
 	GrabID      string                    `json:"grabId" format:"uuid"`
-	Code        string                    `json:"code" enum:"node_away,client_away,client_off,no_space,root_not_ready,probe_timeout,client_error" doc:"Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, and client_error while its external client reports an error"`
+	Code        string                    `json:"code" enum:"node_away,client_away,client_off,no_space,root_not_ready,probe_timeout,client_error" doc:"Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of sync with the Controller, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't have the Downloading Role. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, and client_error while its external client reports an error"`
 	ClientError api.Nullable[clientError] `json:"clientError" doc:"The client's error, for client_error; null otherwise"`
 	ImportWait  api.Nullable[importWait]  `json:"importWait" doc:"The root the Import waits on, for no_space and root_not_ready; null otherwise"`
 }

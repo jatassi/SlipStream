@@ -8,7 +8,7 @@ import { orchardRow } from "../test/library";
 import { longShelfRow, mixedLibrary, monitoringServer, shortTalesRow } from "../test/monitoring";
 import { renderApp } from "../test/render-app";
 
-const bar = page.getByRole("toolbar", { name: "Picked Works" });
+const bar = page.getByRole("toolbar", { name: "Selected Works" });
 
 function bulkServer() {
   const monitoring = monitoringServer(({ preset }) => ({
@@ -33,7 +33,7 @@ async function startPicking() {
   await userEvent.click(page.getByRole("menuitem", { name: "Select" }));
 }
 
-const pickBox = (label: string) => page.getByRole("checkbox", { name: `Pick ${label}` });
+const pickBox = (label: string) => page.getByRole("checkbox", { name: `Select ${label}` });
 
 test("Set monitoring previews one preset across the picked Works and applies it to each", async () => {
   const server = bulkServer();
@@ -41,7 +41,7 @@ test("Set monitoring previews one preset across the picked Works and applies it 
   await startPicking();
   await userEvent.click(pickBox(longShelfRow.label));
   await userEvent.click(pickBox(shortTalesRow.label));
-  await expect.element(bar.getByText("2 Anthologies picked")).toBeVisible();
+  await expect.element(bar.getByText("2 anthologies selected")).toBeVisible();
 
   await userEvent.click(bar.getByRole("button", { name: "Set monitoring…" }));
   const dialog = page.getByRole("dialog", {
@@ -77,7 +77,7 @@ test("Set monitoring is offered only while every pick has many Items", async () 
     .not.toBeInTheDocument();
 
   await userEvent.click(pickBox(longShelfRow.label));
-  await expect.element(bar.getByText("2 Works picked")).toBeVisible();
+  await expect.element(bar.getByText("2 Works selected")).toBeVisible();
   await expect
     .element(bar.getByRole("button", { name: "Set monitoring…" }))
     .not.toBeInTheDocument();

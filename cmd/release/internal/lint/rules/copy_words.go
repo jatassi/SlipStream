@@ -30,37 +30,42 @@ var quotesThirdParty = map[string]string{
 }
 
 type bannedCopy struct {
-	Name    string `json:"name"`
-	Pattern string `json:"pattern"`
-	Alone   bool   `json:"alone"`
-	re      *regexp.Regexp
-	whole   *regexp.Regexp
+	Name          string `json:"name"`
+	Pattern       string `json:"pattern"`
+	Alone         bool   `json:"alone"`
+	CaseSensitive bool   `json:"caseSensitive"`
+	re            *regexp.Regexp
+	whole         *regexp.Regexp
 }
 
 func (b bannedCopy) in(s string) bool {
 	return b.re.MatchString(s) && (!b.Alone || !b.whole.MatchString(strings.TrimSpace(s)))
 }
 
-func loadBannedCopy(repo *lint.Repo) ([]bannedCopy, error) {
-	src, err := repo.Read(copyWordsList)
+func loadBannedCopy(repo *lint.Repo, list string) ([]bannedCopy, error) {
+	src, err := repo.Read(list)
 	if err != nil {
 		return nil, err
 	}
 	var words []bannedCopy
 	if err := json.Unmarshal(src, &words); err != nil {
-		return nil, fmt.Errorf("%s: %w", copyWordsList, err)
+		return nil, fmt.Errorf("%s: %w", list, err)
 	}
 	for i := range words {
-		if words[i].re, err = regexp.Compile("(?i)" + words[i].Pattern); err != nil {
-			return nil, fmt.Errorf("%s: %s: %w", copyWordsList, words[i].Name, err)
+		flags := "(?i)"
+		if words[i].CaseSensitive {
+			flags = ""
 		}
-		words[i].whole = regexp.MustCompile("(?i)^(?:" + words[i].Pattern + ")$")
+		if words[i].re, err = regexp.Compile(flags + words[i].Pattern); err != nil {
+			return nil, fmt.Errorf("%s: %s: %w", list, words[i].Name, err)
+		}
+		words[i].whole = regexp.MustCompile(flags + "^(?:" + words[i].Pattern + ")$")
 	}
 	return words, nil
 }
 
 func checkCopyWords(repo *lint.Repo) ([]lint.Finding, error) {
-	words, err := loadBannedCopy(repo)
+	words, err := loadBannedCopy(repo, copyWordsList)
 	if err != nil {
 		return nil, err
 	}

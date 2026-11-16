@@ -24,8 +24,8 @@ function describe(address: string, saved: string): string {
     return "Passkeys don't work on a plain-HTTP address. Use an https:// address.";
   }
   return saved === ""
-    ? "Not set yet. SlipStream can't send Signup, Reset or email links until it is."
-    : "Signup, Reset and email links use this address.";
+    ? "Not set yet. SlipStream can't send Signup, Reset or email confirmation links until it is."
+    : "Signup, Reset and email confirmation links use this address.";
 }
 
 type Saves = {

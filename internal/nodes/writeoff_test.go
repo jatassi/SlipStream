@@ -91,7 +91,7 @@ func TestRemovingANodeThatHoldsWorkNeedsAWriteOff(t *testing.T) {
 		said = append(said, e.Words())
 	}
 	want := []string{
-		"The 3 torrents seedbox holds for Downloading are written off. No files are deleted.",
+		"SlipStream gives up the 3 torrents seedbox has for Downloading. No files are deleted.",
 		"seedbox is removed. It can join again with a new Join Code.",
 	}
 	if !slices.Equal(said, want) {

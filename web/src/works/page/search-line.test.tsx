@@ -68,7 +68,7 @@ test("a waiting Work offers Grab now, which ends every wait of the Work", async 
   await expect
     .element(line)
     .toHaveTextContent(
-      `Waiting for a better Release until ${laterWords(wait.until, reading).words}Grab now`,
+      `Waiting for a better release until ${laterWords(wait.until, reading).words}Grab now`,
     );
   await userEvent.click(line.getByRole("button", { name: "Grab now" }));
   await expect.element(page.getByText("Grabbing 1 Release")).toBeVisible();

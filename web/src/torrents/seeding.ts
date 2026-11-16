@@ -17,14 +17,14 @@ export const lanesOf = ({ ratio, time }: Seeding): readonly [Lane, Lane] => [
   { label: "Seeding time", ...time, words: spanWords },
 ];
 
-/** "3 days 4 h of seeding or 1.2 GB of upload", from what the rule still needs. */
+/** "3 days 4 h more seeding or 1.2 GB more upload", from what the rule still needs. */
 export function owedWords(
   { seconds, bytes: upload }: DownloadclientsOwes,
   clears: Seeding["clears"],
 ) {
   const parts = [
-    ...(seconds > 0 ? [`${spanWords(seconds)} of seeding`] : []),
-    ...(upload > 0 ? [`${bytes(upload)} of upload`] : []),
+    ...(seconds > 0 ? [`${spanWords(seconds)} more seeding`] : []),
+    ...(upload > 0 ? [`${bytes(upload)} more upload`] : []),
   ];
   return parts.join(clears === "either" ? " or " : " and ");
 }
@@ -32,9 +32,9 @@ export function owedWords(
 /** What the row says beside its lanes. */
 export function seedLine(seeding: Seeding): string {
   if (seeding.owes !== undefined) {
-    return `Owes ${owedWords(seeding.owes, seeding.clears)}`;
+    return `Needs ${owedWords(seeding.owes, seeding.clears)}`;
   }
-  return seeding.endless === "none" ? "" : "Seeds with no end";
+  return seeding.endless === "none" ? "" : "No seeding limit";
 }
 
 const ruleTime = ({ time }: Seeding) => spanWords((time.rule ?? 0) - (time.margin ?? 0));
@@ -61,7 +61,7 @@ export function ruleSentence(tracker: string, seeding: Seeding): string | undefi
 export function marginSentence(tracker: string, { time }: Seeding): string | undefined {
   return time.margin === undefined || time.margin === 0
     ? undefined
-    : `This includes ${spanWords(time.margin)} past ${tracker}'s rule.`;
+    : `That includes a ${spanWords(time.margin)} safety margin on top of ${tracker}'s rule.`;
 }
 
 const thenWords: { readonly [A in DownloadclientsSeedingViewAction]: string } = {
@@ -92,15 +92,18 @@ export function goalSentence({
   return `Its goal is ${goal}. Once it's met, ${thenWords[action]}.`;
 }
 
+export const resumedSentence =
+  "You resumed it after its seeding goal was met. It seeds until you stop it.";
+
 const endlessWords: {
   readonly [E in Exclude<DownloadclientsSeedingViewEndless, "none">]: (tracker: string) => string;
 } = {
-  forever: () => "Its goal is Forever, so it seeds with no end.",
-  resumed: () => "It seeds with no end, because you resumed it after its goal was met.",
+  forever: () => "Its seeding goal is Forever, so SlipStream never stops it.",
+  resumed: () => resumedSentence,
   "no-tracker": () =>
-    "This torrent has no known Tracker, so SlipStream never stops it. Remove it yourself once its Tracker's rule is met.",
+    "SlipStream doesn't know which Tracker this torrent came from, so it never stops it. Remove it yourself once it has seeded long enough for that Tracker.",
   "no-rule": (tracker) =>
-    `${tracker}'s Releases don't state a seeding rule, so SlipStream never stops this torrent. Set ${tracker}'s rule so that its goal can act.`,
+    `${tracker}'s releases state no minimum ratio or seeding time, so SlipStream never stops this torrent. Set a seeding rule for ${tracker} in Settings > Trackers, and its seeding goal can then stop it.`,
   partial: (tracker) =>
     `Only some of its files are selected, so ${tracker} never counts it as seeding and SlipStream never stops it.`,
 };

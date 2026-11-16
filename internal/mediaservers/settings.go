@@ -45,7 +45,7 @@ var (
 	// RenewMargin must be longer than RenewEvery, or the sign-in could
 	// expire between two runs.
 	RenewMargin = setting.Duration{
-		Key: "mediaServers.renewMargin", Label: "Renew when less than this is left",
+		Key: "mediaServers.renewMargin", Label: "Renew when the sign-in expires within",
 		Default: 3 * day, Min: time.Hour, Max: 6 * day, Step: time.Hour,
 	}
 )

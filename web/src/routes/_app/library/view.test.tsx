@@ -109,7 +109,9 @@ test("the arrow keys move between posters and Space picks the one in focus", asy
   await userEvent.keyboard("{ArrowUp}");
   await expect.element(page.getByRole("link", { name: harvest.label })).toHaveFocus();
   await userEvent.keyboard(" ");
-  const bar = page.getByRole("toolbar", { name: "Picked Works" });
-  await expect.element(bar.getByText("1 Film picked")).toBeVisible();
-  await expect.element(page.getByRole("checkbox", { name: `Pick ${harvest.label}` })).toBeChecked();
+  const bar = page.getByRole("toolbar", { name: "Selected Works" });
+  await expect.element(bar.getByText("1 film selected")).toBeVisible();
+  await expect
+    .element(page.getByRole("checkbox", { name: `Select ${harvest.label}` }))
+    .toBeChecked();
 });

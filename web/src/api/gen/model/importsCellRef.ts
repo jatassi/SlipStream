@@ -1,5 +1,5 @@
 export interface ImportsCellRef {
-  /** any under any cut, else the key of the cut the cell wants */
+  /** any under any cut, else the key of the cut this Item needs at this Target */
   edition: string;
   itemId: string;
   targetId: string;

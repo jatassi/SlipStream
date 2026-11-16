@@ -3,7 +3,7 @@ import type { GrabsManualCell } from "./grabsManualCell.ts";
 export interface GrabsStartManual {
   /** Start a new search even when the Work's Manual search has this scope and query */
   again?: boolean;
-  /** One cell to plan for; send it without levelIds and itemIds */
+  /** One Item and Target to plan for; send it without levelIds and itemIds */
   cell?: GrabsManualCell;
   /** @maxItems 20000 */
   itemIds?: string[];

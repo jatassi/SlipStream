@@ -6,6 +6,6 @@ export interface WorksOptionsChanged {
   moves: boolean;
   /** The Content Type's own options for the Work */
   options: SettingField[];
-  /** Live Items the change withdraws: the source doesn't list them under the new options, and they keep their files */
+  /** Items the source no longer lists under the new options; they keep their files */
   withdraws: number;
 }

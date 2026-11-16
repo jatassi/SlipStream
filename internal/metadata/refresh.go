@@ -53,7 +53,7 @@ func RefreshTask(cfg RefreshConfig) tasks.Task {
 	return tasks.Task{
 		ID:      RefreshTaskID,
 		Name:    "Metadata refresh",
-		About:   "Refreshes the Works their metadata source reports changed. Then it refreshes every Work that is due by the intervals below.",
+		About:   "Refreshes each Work its metadata source reports as changed. Then it refreshes every other Work on the schedule below.",
 		Group:   tasks.GroupOf(role.Metadata.Group()),
 		Cadence: tasks.InWindow{Days: refreshCadence, Spread: refreshSpread},
 		Overdue: tasks.Wait,
@@ -112,7 +112,7 @@ func (r refresh) prepare(ctx context.Context, _ tasks.Trigger) {
 		return err
 	})
 	if err != nil {
-		r.cfg.Log.Error("read the Content Types holding Works", "err", err)
+		r.cfg.Log.Error("read the Content Types that have Works", "err", err)
 		return
 	}
 	if FollowChanges.Value(r.cfg.Metadata.stored().FollowChanges) {
@@ -154,7 +154,7 @@ func (r refresh) follow(ctx context.Context, t works.TypeID, started storage.Tim
 		r.cfg.Log.Info("skipped the changes list", "contentType", string(t), "since", through.String(), "why", err.Error())
 		r.mark(ctx, t, started, nil)
 	case err != nil:
-		r.cfg.Log.Warn("read the changes list", "contentType", string(t), "since", through.String(), "err", err)
+		r.cfg.Log.Warn("couldn't read the changes list", "contentType", string(t), "since", through.String(), "err", err)
 	default:
 		r.mark(ctx, t, started, keys)
 	}

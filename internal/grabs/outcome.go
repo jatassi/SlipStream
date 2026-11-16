@@ -273,6 +273,7 @@ func (gr *Grabs) Releases(ctx context.Context, by identity.Admin, run SearchID) 
 			return err
 		}
 		names, cuts := gr.cfg.Names[tree.ContentType], known.For(tree.ContentType)
+		nouns, _ := gr.cfg.Works.Describe(tree.ContentType)
 		rows, err := q.ListReleasesOfSearch(ctx, run)
 		if err != nil {
 			return err
@@ -282,7 +283,7 @@ func (gr *Grabs) Releases(ctx context.Context, by identity.Admin, run SearchID) 
 			if err != nil {
 				return fmt.Errorf("search %s: Release %d: %w", run, row.Position, err)
 			}
-			out = append(out, l.inWords(reasons, release.Title(l.Title, names, cuts), byID))
+			out = append(out, l.inWords(reasons, release.Title(l.Title, names, cuts), byID, nouns))
 		}
 		return nil
 	})
@@ -290,14 +291,14 @@ func (gr *Grabs) Releases(ctx context.Context, by identity.Admin, run SearchID) 
 }
 
 // inWords is l with its facts, read as rd with its size, and its reasons,
-// at the Targets of byID, in words.
-func (l Listed) inWords(reasons []Reason, rd release.Read, byID map[targets.TargetID]*targets.Target) Listed {
+// at the Targets of byID, in words in the nouns of n.
+func (l Listed) inWords(reasons []Reason, rd release.Read, byID map[targets.TargetID]*targets.Target, n works.Description) Listed {
 	if l.Size > 0 {
 		rd.Facts.Size = release.Known(l.Size)
 	}
 	l.Words = release.Describe(rd)
 	for _, r := range reasons {
-		l.Reasons = append(l.Reasons, Worded{Reason: r, Words: reasonWords(r, byID[r.Target], rd.Facts)})
+		l.Reasons = append(l.Reasons, Worded{Reason: r, Words: reasonWords(r, byID[r.Target], rd.Facts, n)})
 	}
 	return l
 }

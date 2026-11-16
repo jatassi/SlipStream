@@ -14,14 +14,14 @@ import (
 // cellKey is a cell as the wire names it.
 type cellKey struct {
 	ItemID   string `json:"itemId" format:"uuid"`
-	Edition  string `json:"edition" doc:"any under any cut, else the key of the cut the cell wants"`
+	Edition  string `json:"edition" doc:"any under any cut, else the key of the cut this Item needs at this Target"`
 	TargetID string `json:"targetId" format:"uuid"`
 }
 
 type workSearching struct {
 	Groups []groupState `json:"groups" nullable:"false" doc:"Each search group of the Work, in tree order"`
-	Waits  []waiting    `json:"waits" nullable:"false" doc:"Each cell waiting for a better Release, by when it grabs"`
-	Stops  []stopped    `json:"stops" nullable:"false" doc:"Each cell SlipStream stopped searching again for after failed Grabs"`
+	Waits  []waiting    `json:"waits" nullable:"false" doc:"Each Item and Target waiting for a better Release, by when it grabs"`
+	Stops  []stopped    `json:"stops" nullable:"false" doc:"Each Item and Target SlipStream stopped searching again for after failed Grabs"`
 	Lead   lead         `json:"lead" doc:"The one line the Work's header shows"`
 }
 
@@ -80,7 +80,7 @@ var getWorkSearchingOp = api.Op{
 	ID:      "getWorkSearching",
 	Method:  http.MethodGet,
 	Path:    "/works/{workId}/searching",
-	Summary: "Get what Automatic search is doing for a Work: each search group's state, its waits and its stopped cells",
+	Summary: "Get what Automatic search is doing for a Work: each search group's state, its waits and the Items and Targets it stopped searching again for",
 	Status:  http.StatusOK,
 	Errors:  []*api.Code{workNotFound},
 }

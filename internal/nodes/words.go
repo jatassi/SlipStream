@@ -64,38 +64,45 @@ func (Moves) effect()      {}
 func (WritesOff) effect()  {}
 func (Leaves) effect()     {}
 
-func (e Gains) Words() string  { return e.Node.Name + " starts " + e.Role.Label() + "." }
-func (e LetsGo) Words() string { return e.Node.Name + " stops " + e.Role.Label() + "." }
+func (e Gains) Words() string  { return e.Node.Name + " gets the " + e.Role.Label() + " Role." }
+func (e LetsGo) Words() string { return e.Node.Name + " loses the " + e.Role.Label() + " Role." }
 
 // Words says what the drain keeps. Only Downloading's work can be endless
-// in part: a seeding goal ends a torrent, and one with no seeding end
+// in part: a seeding goal ends a torrent, and one with no seeding goal
 // stays.
 func (e Drains) Words() string {
 	h, start := e.Held, e.Node.Name+" takes no new "+e.Role.Label()+" work"
 	switch {
 	case h.EndlessUnits == 0:
-		return fmt.Sprintf("%s and finishes the %s it holds.", start, h)
+		return fmt.Sprintf("%s and finishes the %s it has.", start, h)
 	case e.Role != role.Downloading:
-		return fmt.Sprintf("%s. It keeps its %s until you move or write %s off.", start, h, h.pronoun())
+		return fmt.Sprintf("%s. It keeps its %s until you move %s or give %s up.", start, h, h.pronoun(), h.pronoun())
 	}
 	kept := Held{Units: h.EndlessUnits, Noun: h.Noun}
 	if kept.Units == h.Units {
-		return fmt.Sprintf("%s. It keeps %s %s until you remove, move or write %s off.", start, kept, noSeedingEnd(kept), kept.pronoun())
+		return fmt.Sprintf("%s. %s %s and %s until you remove, move or give %s up.", start, kept, noSeedingGoal(kept), stays(kept), kept.pronoun())
 	}
 	ending := Held{Units: h.Units - h.EndlessUnits, Noun: h.Noun}
-	goals := "their seeding goals are"
+	goals := "they reach their seeding goals"
 	if ending.Units == 1 {
-		goals = "its seeding goal is"
+		goals = "it reaches its seeding goal"
 	}
-	return fmt.Sprintf("%s. It finishes %s as %s met, and keeps %d %s until you remove, move or write %s off.",
-		start, ending, goals, kept.Units, noSeedingEnd(kept), kept.pronoun())
+	return fmt.Sprintf("%s. It finishes %s once %s. %s %s and %s until you remove, move or give %s up.",
+		start, ending, goals, kept, noSeedingGoal(kept), stays(kept), kept.pronoun())
 }
 
-func noSeedingEnd(h Held) string {
+func noSeedingGoal(h Held) string {
 	if h.Units == 1 {
-		return "that has no seeding end"
+		return "has no seeding goal"
 	}
-	return "that have no seeding end"
+	return "have no seeding goal"
+}
+
+func stays(h Held) string {
+	if h.Units == 1 {
+		return "stays"
+	}
+	return "stay"
 }
 
 func (e HandedBack) Words() string {
@@ -120,8 +127,8 @@ func (e Moves) Words() string {
 }
 
 func (e WritesOff) Words() string {
-	return fmt.Sprintf("The %s %s holds for %s %s written off. No files are deleted.",
-		e.Held, e.Node.Name, e.Role.Label(), e.Held.verbBe())
+	return fmt.Sprintf("SlipStream gives up the %s %s has for %s. No files are deleted.",
+		e.Held, e.Node.Name, e.Role.Label())
 }
 
 func (e Leaves) Words() string {
@@ -146,13 +153,6 @@ func (h Held) pronoun() string {
 		return "it"
 	}
 	return "them"
-}
-
-func (h Held) verbBe() string {
-	if h.Units == 1 {
-		return "is"
-	}
-	return "are"
 }
 
 var sizeUnits = [...]string{"bytes", "KB", "MB", "GB", "TB"}
@@ -197,7 +197,7 @@ func offline(n Named, r role.Name) Check {
 
 func nothingToTest(n Named, r role.Name) Check {
 	return newCheck(n, r, Allow, NothingToTest,
-		fmt.Sprintf("Nothing to test yet for %s on %s.", r.Label(), n.Name), "Nothing to test yet")
+		fmt.Sprintf("No mail server is set up yet, so SlipStream can't test %s on %s.", r.Label(), n.Name), "Nothing to test yet")
 }
 
 func reached(n Named, r role.Name, res ReachResult) Check {
@@ -215,9 +215,9 @@ func isController(n Named) Check {
 
 func holdsWork(n Named, r role.Name, h Held) Check {
 	return newCheck(n, r, Block, HoldsWork,
-		fmt.Sprintf("%s still holds %s for %s. Untick its Roles and remove it when they finish, or remove it now and write them off.",
-			n.Name, h, r.Label()),
-		"Holds "+h.String())
+		fmt.Sprintf("%s still has %s for %s. Untick its Roles and remove %s once that work finishes, or remove it now and give up that work.",
+			n.Name, h, r.Label(), n.Name),
+		"Has "+h.String())
 }
 
 func nothingHeld(n Named, roles role.Set) Check {
@@ -226,12 +226,12 @@ func nothingHeld(n Named, roles role.Set) Check {
 		labels = append(labels, r.Label())
 	}
 	return newCheck(n, "", Block, NothingHeld,
-		fmt.Sprintf("%s holds nothing to write off for %s.", n.Name, strings.Join(labels, " or ")), "Nothing held")
+		fmt.Sprintf("%s has nothing to give up for %s.", n.Name, strings.Join(labels, " or ")), "Nothing to give up")
 }
 
 func keepsRole(n Named, r role.Name, h Held) Check {
 	return newCheck(n, r, Block, KeepsRole,
-		fmt.Sprintf("%s is the last Node that %s, so it keeps %s and can't write off its %s. Tick %s on another Node first.",
+		fmt.Sprintf("%s is the last Node that %s, so it keeps %s and can't give up its %s. Tick %s on another Node first.",
 			n.Name, r.Purpose(), r.Label(), h, r.Label()),
 		"Last Node that "+r.Purpose())
 }
@@ -246,6 +246,6 @@ func keepsConfig(n Named, r role.Name, kept []string) Check {
 		names = strings.Join(kept[:len(kept)-1], ", ") + " and " + kept[len(kept)-1]
 	}
 	return newCheck(n, r, Block, KeepsConfig,
-		fmt.Sprintf("%s still has %s. Delete %s, or move %s to another Node that %s, first.", n.Name, names, them, them, r.Purpose()),
+		fmt.Sprintf("%s still has %s. First delete %s, or move %s to another Node that %s.", n.Name, names, them, them, r.Purpose()),
 		"Has "+names)
 }

@@ -224,8 +224,8 @@ type clientCard struct {
 	NodeName  string           `json:"nodeName"`
 	GrabsTo   *string          `json:"grabsTo" format:"uuid" doc:"The external client the Node's new Grabs go to; null for its built-in client"`
 	Externals []externalClient `json:"externals" nullable:"false" doc:"The Node's external clients, by name"`
-	InStep    bool             `json:"inStep" doc:"The Node is in step; while it isn't the card has no client"`
-	Client    *clientFacts     `json:"client,omitempty" doc:"The built-in client as it reports itself, absent until it does and while the Node is out of step"`
+	InStep    bool             `json:"inStep" doc:"The Node is connected and on the Controller's version; while it isn't, the card has no client"`
+	Client    *clientFacts     `json:"client,omitempty" doc:"The built-in client as it reports itself, absent until it does and while inStep is false"`
 	Limits    limits           `json:"limits"`
 	Totals    totals           `json:"totals" doc:"Added up over the built-in client's live Torrents"`
 	Torrents  int              `json:"torrents" minimum:"0" doc:"The built-in client's live Torrents"`
@@ -417,7 +417,7 @@ func Routes(r *api.Router, clients Clients) {
 		ID:      "getTorrent",
 		Method:  http.MethodGet,
 		Path:    "/torrents/{id}",
-		Summary: "Get a Torrent with its announce URLs, files and Grabs, live from its Node while the Node responds",
+		Summary: "Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{torrentNotFound},
 	}, h.getTorrent)
@@ -480,7 +480,7 @@ func Routes(r *api.Router, clients Clients) {
 		ID:      "updateDownloadClient",
 		Method:  http.MethodPatch,
 		Path:    "/external-download-clients/{id}",
-		Summary: "Change an external Download Client, testing it first when the change is to its Node, kind, address, sign-in, daemon, label, folder or Client folders",
+		Summary: "Change an external Download Client, testing it first when the change is to its Node, kind, address, sign-in, daemon, label, folder or remote path mappings",
 		Status:  http.StatusOK,
 		Errors:  append([]*api.Code{clientNotFound, clientNameTaken, clientAddressTaken, clientInUse, clientHasTorrents}, tested...),
 	}, h.editClient)

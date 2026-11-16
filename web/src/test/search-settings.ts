@@ -70,15 +70,16 @@ export const searchSettings = (): SettingField[] => [
   ),
   duration(
     "search.longestGap",
-    "Search a Want that keeps coming up empty at least every",
+    "Search for a file that keeps coming up empty at least every",
     7 * day,
     [day, 90 * day, hour],
   ),
-  duration("search.fullPace", "Don't space out searches for Items released in the last", 14 * day, [
-    0,
-    90 * day,
-    day,
-  ]),
+  duration(
+    "search.fullPace",
+    "Don't space out searches for anything released in the last",
+    14 * day,
+    [0, 90 * day, day],
+  ),
   {
     ...about,
     kind: "count",

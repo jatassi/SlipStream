@@ -86,7 +86,7 @@ func (a *Availability) pass(ctx context.Context) time.Time {
 	now := a.cfg.Now()
 	next, err := a.announce(ctx, calendarDay(now))
 	if err != nil {
-		a.cfg.Log.Error("announce released Items", "err", err)
+		a.cfg.Log.Error("couldn't announce released Items", "err", err)
 		return now.Add(retry)
 	}
 	if next.IsZero() {

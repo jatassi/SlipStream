@@ -63,36 +63,36 @@ export const movesBytes = (grab: GrabsGrab): boolean => grab.stage === "download
 
 export type Words = { readonly cause: string; readonly recovery?: string };
 
-const searchAgain = "Search again to pick another Release.";
+const searchAgain = "Search again to pick another release.";
 
 const nextRelease =
-  "SlipStream grabs the next acceptable Release from the same search, if there is one.";
+  "SlipStream grabs the next acceptable release from the same search, if there is one.";
 
 export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
   indexer_unavailable: {
-    cause: "The Indexer didn't respond to the request for the Release.",
+    cause: "The Indexer didn't respond to the request for the release.",
     recovery: "Search again once the Indexer is back.",
   },
   indexer_removed: {
-    cause: "The Indexer was removed before SlipStream fetched the Release's .torrent file.",
+    cause: "The Indexer was removed before SlipStream fetched the release's .torrent file.",
     recovery: nextRelease,
   },
   indexer_stopped: {
-    cause: "The Indexer stopped before SlipStream fetched the Release's .torrent file.",
+    cause: "The Indexer stopped searching before SlipStream fetched the release's .torrent file.",
     recovery: nextRelease,
   },
   home_offline: {
     cause:
-      "The Indexer's home Node was offline past its grace before SlipStream fetched the Release's .torrent file.",
+      "The Indexer's home Node was offline for longer than the Offline grace setting allows, and SlipStream never fetched the release's .torrent file.",
     recovery: nextRelease,
   },
   torrent_unreachable: {
     cause:
-      "SlipStream couldn't download the Release's .torrent file or magnet link from the Indexer.",
+      "SlipStream couldn't download the release's .torrent file or magnet link from the Indexer.",
     recovery: searchAgain,
   },
   magnet_invalid: {
-    cause: "The Release's magnet link has no info hash SlipStream can read.",
+    cause: "The release's magnet link has no info hash SlipStream can read.",
     recovery: searchAgain,
   },
   no_metadata: {
@@ -100,21 +100,21 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     recovery: searchAgain,
   },
   no_peer_source: {
-    cause: "The magnet link names no announce URL, and DHT is off on the Node that downloads it.",
+    cause: "The magnet link names no tracker, and DHT is off on the Node that downloads it.",
     recovery:
       "Turn on DHT for public torrents in that Node's torrent client settings, or search again.",
   },
   torrent_invalid: {
     cause:
-      "SlipStream can't read the Release's .torrent file, or the metadata peers sent for its magnet link.",
+      "SlipStream can't read the release's .torrent file, or the metadata peers sent for its magnet link.",
     recovery: searchAgain,
   },
   infohash_mismatch: {
-    cause: "The .torrent file isn't the Release the Indexer listed.",
+    cause: "The .torrent file isn't the release the Indexer listed.",
     recovery: searchAgain,
   },
   torrent_v2_only: {
-    cause: "The Release only offers a BitTorrent v2 .torrent, which SlipStream can't download.",
+    cause: "The release only offers a BitTorrent v2 .torrent, which SlipStream can't download.",
     recovery: searchAgain,
   },
   download_failed: {
@@ -122,7 +122,7 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     recovery: searchAgain,
   },
   marked_failed: {
-    cause: "An Admin marked the download failed. SlipStream added the Release to the Blocklist.",
+    cause: "An Admin marked the download failed. SlipStream added the release to the Blocklist.",
     recovery: searchAgain,
   },
   removed: {
@@ -168,7 +168,8 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     cause: "SlipStream couldn't put the file in the library.",
   },
   node_written_off: {
-    cause: "What the Node downloading it held was written off. Its files are kept.",
+    cause:
+      "An Admin had SlipStream stop waiting for the Node downloading this Grab. The files it downloaded stay on that Node.",
     recovery: searchAgain,
   },
   root_changed: {
@@ -180,17 +181,17 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     recovery: searchAgain,
   },
   blocklisted: {
-    cause: "The Release's torrent is on the Blocklist.",
+    cause: "The release's torrent is on the Blocklist.",
     recovery: nextRelease,
   },
   release_fault: {
     cause:
-      "The tracker reported the torrent unregistered, or it never downloaded any data. SlipStream added the Release to the Blocklist.",
+      "The tracker reported the torrent unregistered, or it never downloaded any data. SlipStream added the release to the Blocklist.",
     recovery: searchAgain,
   },
   client_error: {
     cause:
-      "The download client reported an error on the torrent for longer than the client error setting allows.",
+      'The download client reported an error on the torrent for longer than the setting "A client error fails its Grab after" allows.',
     recovery: nextRelease,
   },
   declined: {
@@ -198,7 +199,7 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
   },
   unreadable: {
     cause:
-      "ffprobe can't read the downloaded video. SlipStream added the Release to the Blocklist.",
+      "ffprobe can't read the downloaded video. SlipStream added the release to the Blocklist.",
     recovery: nextRelease,
   },
 };

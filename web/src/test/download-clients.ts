@@ -44,19 +44,19 @@ const duration = (
   step,
 });
 
-const clientError = ["downloading.clientErrorFail", "A client error fails its Grab after"] as const;
+const clientError = ["downloading.clientErrorFail", "Grabs fail after a client error of"] as const;
 
 export const thresholds: DownloadclientsThresholds = {
   clientErrorFail: duration(...clientError, 3600, [300, 604_800, 60]),
   faultStall: duration(
     "downloading.faultStall",
-    "A download with no data at all is bad after",
+    "A download with no data at all fails after",
     43_200,
     [3600, 2_592_000, 3600],
   ),
   unregisteredGap: duration(
     "downloading.unregisteredGap",
-    "Unregistered twice, this far apart",
+    "Tracker reports unregistered twice, this far apart",
     1800,
     [60, 604_800, 60],
   ),

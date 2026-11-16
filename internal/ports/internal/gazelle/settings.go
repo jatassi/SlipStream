@@ -11,7 +11,7 @@ import "github.com/jatassi/slipstream/internal/ports/port"
 // SlipStream: no AuthKey or PassKey, which no Gazelle site reads.
 type Settings struct {
 	port.UserPass
-	UseFreeleechToken GazelleFreeleechTokenAction `port:"useFreeleechToken" label:"Use freeleech tokens" default:"0" help:"With Always, SlipStream lists only Releases that are freeleech or can take a token."`
+	UseFreeleechToken GazelleFreeleechTokenAction `port:"useFreeleechToken" label:"Use freeleech tokens" default:"0" help:"With Always, SlipStream lists only releases that are freeleech or can take a token."`
 }
 
 type GazelleFreeleechTokenAction int

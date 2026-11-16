@@ -81,7 +81,7 @@ function sendableWords(
   }
   return {
     subject: `Waiting for ${downloadClient.name} on ${node}`,
-    detail: `Its download carries on once ${downloadClient.name} responds again.`,
+    detail: `The download continues once ${downloadClient.name} responds.`,
   };
 }
 
@@ -214,7 +214,7 @@ function NodeWait({
         signal="warn"
         chip="Waiting"
         subject={release}
-        detail="This download has stopped until an Admin acts. Activity shows its stage."
+        detail="This download has stopped and needs an Admin. Open Activity to see where it stopped and what to do."
         action={{
           label: "Open Activity",
           onClick: () => void navigate({ to: "/activity" }),
@@ -227,7 +227,7 @@ function NodeWait({
       signal="warn"
       chip="Waiting"
       subject={`Waiting for ${node.name}`}
-      detail={`Its download carries on once ${node.name} is back online.`}
+      detail={`The download continues once ${node.name} is back online.`}
       action={{
         label: `Open ${node.name}`,
         onClick: () => void navigate({ to: "/nodes/$nodeId", params: { nodeId: node.id } }),

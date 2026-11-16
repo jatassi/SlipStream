@@ -11,5 +11,5 @@ import "github.com/jatassi/slipstream/internal/ports/port"
 type Settings struct {
 	port.UserPass `help.username:"Only accounts of Member rank or higher can use the site's API."`
 	port.PIDField `help:"Find your PID on your My Account or My Profile page."`
-	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
+	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
 }

@@ -168,7 +168,7 @@ func (w *world) servers(t *testing.T) config {
 	})
 	return config{
 		tmdbAPI: tmdbAPI + "/3", tmdbImages: tmdbImages + "/t/p", omdbAPI: omdb + "/", tvdbAPI: tvdb + "/v4", tvdbArtwork: artwork,
-		tmdbKey: "tmdb-key", omdbKey: "omdb-key", tvdbKey: "tvdb-key", tvdbPin: "4321",
+		tmdbKey: "tmdb-key", omdbKey: "omdb-key", tvdbKey: "tvdb-key", tvdbPin: "tvdb-pin",
 		movies: []int64{4101}, series: []int64{81189}, client: &http.Client{Timeout: 10 * time.Second},
 	}
 }
@@ -178,7 +178,7 @@ func (w *world) servers(t *testing.T) config {
 func tvdbAPI(rw http.ResponseWriter, r *http.Request, root string) {
 	if r.Method == http.MethodPost && r.URL.Path == "/v4/login" {
 		var login struct{ APIKey, Pin string }
-		if err := json.NewDecoder(r.Body).Decode(&login); err != nil || login.APIKey != "tvdb-key" || login.Pin != "4321" {
+		if err := json.NewDecoder(r.Body).Decode(&login); err != nil || login.APIKey != "tvdb-key" || login.Pin != "tvdb-pin" {
 			http.Error(rw, `{"status":"failure","message":"Unauthorized","data":null}`, http.StatusUnauthorized)
 			return
 		}
@@ -370,8 +370,8 @@ func TestRecordStopsOnASeriesItCantMatch(t *testing.T) {
 		tmdbTVDB string
 		want     string
 	}{
-		{"a refused PIN", "1111", "", "POST "},
-		{"a TMDB record naming another TVDB series", "4321", "81190", "TVDB series 81189 names TMDB series 5001, which doesn't name it back"},
+		{"a refused PIN", "refused-pin", "", "POST "},
+		{"a TMDB record naming another TVDB series", "tvdb-pin", "81190", "TVDB series 81189 names TMDB series 5001, which doesn't name it back"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			w := world{tvdbIDs: map[string]string{"5001": c.tmdbTVDB}}
@@ -382,7 +382,7 @@ func TestRecordStopsOnASeriesItCantMatch(t *testing.T) {
 				t.Fatal(err)
 			}
 			err := run(t.Context(), cfg)
-			if err == nil || !strings.Contains(err.Error(), c.want) || strings.Contains(err.Error(), "-key") || strings.Contains(err.Error(), "4321") {
+			if err == nil || !strings.Contains(err.Error(), c.want) || strings.Contains(err.Error(), "-key") || strings.Contains(err.Error(), c.tvdbPin) {
 				t.Errorf("run = %v; want an error holding %q and no key or PIN", err, c.want)
 			}
 			if data, _ := os.ReadFile(cfg.scenario); string(data) != seriesScenarioFile {

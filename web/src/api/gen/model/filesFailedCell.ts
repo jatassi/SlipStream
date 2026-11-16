@@ -3,15 +3,15 @@ import type { FilesLibraryFile } from "./filesLibraryFile.ts";
 
 export interface FilesFailedCell {
   /**
-   * The Releases its wait holds; 0 while it waits for none
+   * How many Releases it is waiting on; 0 while it waits for none
    * @minimum 0
    */
   candidates: number;
-  /** any under any cut, else the key of the cut the cell wants */
+  /** any under any cut, else the key of the cut this Item needs at this Target */
   edition: string;
-  /** The file the Grab would have replaced; null when it fills no file */
+  /** The file the Grab would have replaced; null when it replaced none */
   file: FilesLibraryFile | null;
-  /** No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it */
+  /** It has no file because its library file is gone from its root. Only a search an Admin starts searches for it */
   gone: boolean;
   /** The Grab that failed */
   grabId: string;

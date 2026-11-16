@@ -49,8 +49,8 @@ func (gr *Grabs) Tasks() []tasks.Task {
 	return []tasks.Task{{
 		ID:   BacklogTaskID,
 		Name: "Backlog search",
-		About: "Searches the Wants that are due. A Want that keeps coming up empty is searched less often, up to the longest gap. " +
-			"Run now searches only the Wants already due. To search every Want now, use Search all on Wanted.",
+		About: "Searches for the missing and upgradable files that are due. A file that keeps coming up empty is searched for less often, up to the longest gap. " +
+			"Run now searches only for the files already due. To search for every file now, use the Search button on Wanted.",
 		Group:   tasks.ControllerGroup,
 		Cadence: tasks.Every{Interval: BacklogEvery},
 		Noun:    setting.Noun{One: "step", Many: "steps"},

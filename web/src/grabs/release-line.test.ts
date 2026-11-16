@@ -39,14 +39,13 @@ const wrongTitle: GrabsWordedReason = {
   code: "wrong_title",
   soft: true,
   value: "Heat (1986)",
-  words: "Its name gives Heat (1986), which isn't this Work.",
+  words: "Its name is for Heat (1986), a different movie.",
 };
 const note: GrabsWordedReason = {
   code: "size_not_checked",
   targetId: hd,
   soft: false,
-  words:
-    "Its size isn't checked at 1080p because the name gives no size or the runtime is unknown.",
+  words: "Its size isn't checked at 1080p because its name has no size or the runtime is unknown.",
 };
 const refused = (reasons: GrabsWordedReason[]) =>
   listed({ outcome: "refused", rank: null, reasons });
@@ -58,27 +57,27 @@ test.each<[string, GrabsListedRelease, string]>([
   [
     "not_taken",
     listed({ outcome: "not_taken", rank: 1 }),
-    "It ranked above the grabbed Release. Its Indexer stopped, reached its limit or dropped it.",
+    "It ranked above the grabbed release, but its Indexer had stopped, reached its limit or no longer listed it.",
   ],
   [
     "outranked",
     listed({ outcome: "outranked", lostAt: score }),
-    "Its score at 1080p is 10. The grabbed Release scores 35.",
+    "Its score at 1080p is 10. The grabbed release scores 35.",
   ],
   [
     "outranked, tying at every step",
     listed({ outcome: "outranked" }),
-    "It ties the grabbed Release at every step.",
+    "It ties the grabbed release at every step.",
   ],
   [
     "kept",
     listed({ outcome: "kept", lostAt: score }),
-    "Its score at 1080p is 10. The first-ranked Release scores 35.",
+    "Its score at 1080p is 10. The first-ranked release scores 35.",
   ],
   [
     "kept, ranked first",
     listed({ outcome: "kept", rank: 1 }),
-    "It ranked first. The search grabbed nothing.",
+    "It ranked first, but this search grabbed nothing.",
   ],
   [
     "refused by soft reasons and notes",
@@ -99,11 +98,11 @@ test.each<[string, GrabsListedRelease, string]>([
     ]),
     "No search can grab it.",
   ],
-  ["refused with only notes", refused([note]), "No Target this search was for can take it."],
+  ["refused with only notes", refused([note]), "No Target this search was for accepts it."],
   [
     "waiting",
     listed({ outcome: "waiting", rank: 1 }),
-    "It's a candidate for a cell waiting for a better Release.",
+    "It's a candidate. SlipStream grabs the best one when the Hold ends.",
   ],
 ])("a %s Release says so in words", (_, release, words) => {
   expect(outcomeWords(release, names)).toBe(words);

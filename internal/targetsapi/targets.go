@@ -24,7 +24,7 @@ type size struct {
 
 type filter struct {
 	Attribute string   `json:"attribute" enum:"hdr,video_codec,audio_codec,channels,language"`
-	Mode      string   `json:"mode" enum:"only,not" doc:"Only passes a fact holding one of the values, not one holding none; an unknown fact passes"`
+	Mode      string   `json:"mode" enum:"only,not" doc:"only passes a fact that has one of the values, and not passes a fact that has none of them; an unknown fact passes either mode"`
 	Values    []string `json:"values" nullable:"false" minItems:"1" uniqueItems:"true" doc:"The attribute's values by name; a language is an ISO 639 code or original"`
 }
 
@@ -115,15 +115,15 @@ type newTarget struct {
 func specOf(in newTarget) (targets.Spec, error) {
 	s := targets.Spec{Name: in.Name, Sizes: map[release.Quality]targets.Size{}}
 	var bad []api.FieldError
-	field := func(location string, err error) {
-		bad = append(bad, api.FieldError{Location: location, Message: err.Error()})
+	field := func(location, message string) {
+		bad = append(bad, api.FieldError{Location: location, Message: message})
 	}
 	for i, tier := range in.Tiers {
 		var qs []release.Quality
 		for j, key := range tier {
 			q, err := release.ParseQuality(key)
 			if err != nil {
-				field(fmt.Sprintf("body.tiers[%d][%d]", i, j), err)
+				field(fmt.Sprintf("body.tiers[%d][%d]", i, j), fmt.Sprintf("SlipStream has no quality with the key %q.", key))
 			}
 			qs = append(qs, q)
 		}
@@ -135,16 +135,16 @@ func specOf(in newTarget) (targets.Spec, error) {
 	for i, f := range in.Filters {
 		mode, _ := targets.ParseMode(f.Mode)
 		if filtered[f.Attribute] {
-			field(fmt.Sprintf("body.filters[%d].attribute", i), errors.New("the attribute is listed twice"))
+			field(fmt.Sprintf("body.filters[%d].attribute", i), "List each attribute once.")
 		} else if err := s.Filters.Set(targets.Attribute(f.Attribute), mode, f.Values); err != nil {
-			field(fmt.Sprintf("body.filters[%d].values", i), err)
+			field(fmt.Sprintf("body.filters[%d].values", i), specWords(err))
 		}
 		filtered[f.Attribute] = true
 	}
 	for i, z := range in.Sizes {
 		q, _ := release.ParseQuality(z.Quality)
 		if _, twice := s.Sizes[q]; twice {
-			field(fmt.Sprintf("body.sizes[%d].quality", i), errors.New("the quality is listed twice"))
+			field(fmt.Sprintf("body.sizes[%d].quality", i), "List each quality once.")
 		}
 		s.Sizes[q] = targets.Size{Min: z.Min, Max: z.Max}
 	}
@@ -152,7 +152,7 @@ func specOf(in newTarget) (targets.Spec, error) {
 	for i, fs := range in.Scores.Formats {
 		id, _ := targets.ParseFormatID(fs.FormatID)
 		if _, twice := s.Scores.Formats[id]; twice {
-			field(fmt.Sprintf("body.scores.formats[%d].formatId", i), errors.New("the Custom Format is listed twice"))
+			field(fmt.Sprintf("body.scores.formats[%d].formatId", i), "List each Custom Format once.")
 		}
 		s.Scores.Formats[id] = fs.Score
 	}
@@ -190,7 +190,7 @@ type quality struct {
 type preset struct {
 	Key   string     `json:"key" enum:"disc-or-resolution,anything-better,resolution-only"`
 	Name  string     `json:"name"`
-	Tiers [][]string `json:"tiers" nullable:"false" doc:"Every quality, best tier first. Over chosen qualities, keep these tiers to them; with no upgrades, put the cutoff at the bottom tier"`
+	Tiers [][]string `json:"tiers" nullable:"false" doc:"Every quality, best tier first. To apply the preset to chosen qualities, keep only those qualities in these tiers. For no upgrades, put the cutoff at the bottom tier"`
 }
 
 type qualityList struct {

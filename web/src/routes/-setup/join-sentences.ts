@@ -47,15 +47,15 @@ export const joinSentences: {
   join_code_expired: { text: `That Join Code has expired. ${newCodeInAddANode}`, next: "retry" },
   join_code_used: { text: `That Join Code was already used. ${newCodeInAddANode}`, next: "retry" },
   controller_key_mismatch: {
-    text: "The SlipStream that responded doesn't hold the key in this Join Code. Make a new Join Code on the SlipStream you meant to join.",
+    text: "A different SlipStream responded at the address in this Join Code. Make a new Join Code in Add a Node on the SlipStream you want this Node to join.",
     next: "retry",
   },
   controller_unreachable: {
-    text: "Your SlipStream didn't dial this Node before the address expired. Try again with a new Join Code.",
+    text: "Your SlipStream didn't connect to this Node before its Node address expired. Try again with a new Join Code.",
     next: "retry",
   },
   node_unaddressed: {
-    text: "This Node can't reach your SlipStream and has no network address your SlipStream could dial. Connect both to the same network, then try again.",
+    text: "This Node can't reach your SlipStream and has no network address your SlipStream could connect to. Connect both to the same network, then try again.",
     next: "retry",
   },
   restart_required: {

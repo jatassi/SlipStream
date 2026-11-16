@@ -46,7 +46,7 @@ function Restarting() {
 function Failed({ logsDir }: { logsDir: string }) {
   return (
     <ProblemCard
-      said="SlipStream hasn't come back."
+      said="SlipStream hasn't responded since the restart. Check its log folder for the cause, then try again."
       action={
         <Button
           onClick={() => {

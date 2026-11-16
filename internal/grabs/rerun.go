@@ -124,9 +124,9 @@ func (dropped) outcome() {}
 
 // dropOf is the drop of a fetch its Indexer refused.
 var dropOf = map[indexers.DropWhy]dropped{
-	indexers.DropStopped:     {IndexerStopped, "The Indexer stopped before the .torrent was fetched"},
-	indexers.DropHomeOffline: {HomeOffline, "The Indexer's home Node was offline past the grace period before the .torrent was fetched"},
-	indexers.DropRemoved:     {IndexerRemoved, "The Indexer was removed before the .torrent was fetched"},
+	indexers.DropStopped:     {IndexerStopped, "The Indexer stopped searching before SlipStream fetched the .torrent file."},
+	indexers.DropHomeOffline: {HomeOffline, "The Indexer's home Node was offline for longer than the Offline grace setting allows, before SlipStream fetched the .torrent file."},
+	indexers.DropRemoved:     {IndexerRemoved, "The Indexer was removed before SlipStream fetched the .torrent file."},
 }
 
 // redo is what a dropped Grab's rerun reads before its Write: the Grab

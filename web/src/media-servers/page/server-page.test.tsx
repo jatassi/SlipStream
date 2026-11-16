@@ -33,12 +33,16 @@ test("a server's page leads with its state and what's playing, and keeps the mac
     )
     .toBeVisible();
   await expect.element(playing.getByText("Hardware transcode")).toBeVisible();
+  await userEvent.hover(playing.getByText("Hardware transcode"));
   await expect
     .element(
-      playing.getByText(
-        "Den Jellyfin converts the file on its graphics hardware because the player can't play its container.",
+      page.getByText(
+        "The server converts the file on its graphics hardware into a format the player can play.",
       ),
     )
+    .toBeVisible();
+  await expect
+    .element(playing.getByText("Transcoding because the player can't play its container."))
     .toBeVisible();
   await userEvent.click(playing.getByRole("button", { name: "Details" }));
   await expect
@@ -50,9 +54,11 @@ test("a server's page leads with its state and what's playing, and keeps the mac
   await expect.element(page.getByText("The Controller reaches it")).toBeVisible();
 
   await userEvent.click(page.getByRole("button", { name: "Test" }));
-  await expect.element(page.getByText("home reached Den Jellyfin 12.2.0.")).toBeVisible();
+  await expect.element(page.getByText("home connected to Den Jellyfin 12.2.0.")).toBeVisible();
   await expect
-    .element(page.getByText("The Controller sends changes while the reaching Node is offline."))
+    .element(
+      page.getByText("The Controller sends changes while the Node it connects from is offline."),
+    )
     .toBeVisible();
   expect(world.writes).toEqual([{ path: "test", body: null }]);
 });
@@ -112,10 +118,10 @@ test("the Changes tab says what is failing or waiting, and what each rename lost
   await expect.element(row("Sent the new file.").getByText("Sent", { exact: true })).toBeVisible();
 });
 
-test("Refresh whole library asks first, then queues the refresh", async () => {
+test("Refresh libraries asks first, then queues the refresh", async () => {
   const world = mediaServersWorld();
   renderApp({ path: `${path}/changes`, handlers: world.handlers });
-  await userEvent.click(page.getByRole("button", { name: "Refresh whole library" }));
+  await userEvent.click(page.getByRole("button", { name: "Refresh libraries" }));
   const dialog = page.getByRole("dialog", { name: "Refresh every library on Den Jellyfin?" });
   await userEvent.click(dialog.getByRole("button", { name: "Refresh" }));
   await expect

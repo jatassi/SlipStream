@@ -132,9 +132,9 @@ func TestTheTesterJudgesEachNameAgainstTheGivenWorksHeldFile(t *testing.T) {
 	s := serve(t)
 	got := s.parse(t, `{"names":["The.Attic.2020.1080p.BluRay.x264-GRP","The.Attic.2020.1080p.WEB-DL-GRP","The.Cellar.2019.1080p.BluRay-GRP"],"workId":"`+s.attic+`"}`)
 	for i, want := range []struct{ sentence, works, codes string }{
-		{"Reads as Bluray-1080p from GRP. It matches The Attic and would fill 1080p.", "The Attic", "size_not_checked="},
-		{"Reads as WEBDL-1080p from GRP. It matches The Attic and would fill no Target. It isn't an upgrade of the file at 1080p.", "The Attic", "size_not_checked= not_an_upgrade="},
-		{"Reads as Bluray-1080p from GRP. Its name gives The Cellar (2019), which isn't this Work. It would fill no Target.", "", "wrong_title=The Cellar (2019) size_not_checked="},
+		{"SlipStream reads this as Bluray-1080p from GRP. It matches The Attic, and an automatic search would grab it for 1080p.", "The Attic", "size_not_checked="},
+		{"SlipStream reads this as WEBDL-1080p from GRP. It matches The Attic, but no Target would grab it. It isn't an upgrade of the file at 1080p.", "The Attic", "size_not_checked= not_an_upgrade="},
+		{"SlipStream reads this as Bluray-1080p from GRP. Its name is for The Cellar (2019), a different shelf. No Target would grab it.", "", "wrong_title=The Cellar (2019) size_not_checked="},
 	} {
 		if got[i].Work == nil || got[i].Work.Label != "The Attic" {
 			t.Errorf("name %d is judged against %+v, want The Attic", i, got[i].Work)
@@ -148,7 +148,7 @@ func TestTheTesterJudgesEachNameAgainstTheGivenWorksHeldFile(t *testing.T) {
 func TestTheTesterMatchesANameToTheWorkWhoseTitleAndYearItGives(t *testing.T) {
 	s := serve(t)
 	got := s.parse(t, `{"names":["The.Attic.2020.1080p.BluRay.x264-GRP"]}`)[0]
-	if want := "Reads as Bluray-1080p from GRP. It matches The Attic and would fill 1080p."; got.Sentence != want || got.labels() != "The Attic" || len(got.Covers) != 1 {
+	if want := "SlipStream reads this as Bluray-1080p from GRP. It matches The Attic, and an automatic search would grab it for 1080p."; got.Sentence != want || got.labels() != "The Attic" || len(got.Covers) != 1 {
 		t.Errorf("matched = %q, works %q, covers %v, want %q", got.Sentence, got.labels(), got.Covers, want)
 	}
 	if got.Words != "Bluray-1080p · GRP" {
@@ -160,8 +160,8 @@ func TestANameThatMatchesNoWorkIsJudgedAtEveryTargetWithNoHeldFile(t *testing.T)
 	s := serve(t)
 	got := s.parse(t, `{"names":["Nothing.2020.2160p.WEB-DL-GRP","The.Attic.1990.1080p.WEB-DL-GRP"]}`)
 	for i, want := range []struct{ sentence, codes string }{
-		{"Reads as WEBDL-2160p from GRP. It matches no Work. No Target accepts it. 1080p doesn't accept WEBDL-2160p.", "quality_not_in_target=webdl-2160p"},
-		{"Reads as WEBDL-1080p from GRP. It matches no Work. 1080p accepts it.", "size_not_checked="},
+		{"SlipStream reads this as WEBDL-2160p from GRP. It matches nothing in your library. No Target accepts it. 1080p doesn't accept WEBDL-2160p.", "quality_not_in_target=webdl-2160p"},
+		{"SlipStream reads this as WEBDL-1080p from GRP. It matches nothing in your library. 1080p accepts it.", "size_not_checked="},
 	} {
 		if got[i].Sentence != want.sentence || len(got[i].Works) != 0 || len(got[i].Covers) != 0 || got[i].codes() != want.codes {
 			t.Errorf("name %d = %q, works %q, covers %v, reasons %q\nwant %q, reasons %q", i, got[i].Sentence, got[i].labels(), got[i].Covers, got[i].codes(), want.sentence, want.codes)
@@ -213,7 +213,7 @@ func TestAFileNameReadsWithItsFolderWhenItGivesNoTitle(t *testing.T) {
 	s := serve(t)
 	path := `D:\\Films\\The Attic (2020)\\1080p.BluRay-GRP.mkv`
 	asFile := s.parse(t, `{"names":["`+path+`"],"kind":"file"}`)[0]
-	if want := "Reads as Bluray-1080p from GRP. It matches The Attic and would fill 1080p."; asFile.Sentence != want {
+	if want := "SlipStream reads this as Bluray-1080p from GRP. It matches The Attic, and an automatic search would grab it for 1080p."; asFile.Sentence != want {
 		t.Errorf("kind file = %q, want %q", asFile.Sentence, want)
 	}
 	asRelease := s.parse(t, `{"names":["`+path+`"]}`)[0]

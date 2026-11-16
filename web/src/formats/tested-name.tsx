@@ -27,7 +27,7 @@ export function Facts({ facts }: { facts: FormatsReadFacts }) {
   return (
     <Part title="What it reads as">
       {rows.length === 0 ? (
-        <p>The name gives no facts SlipStream reads.</p>
+        <p>SlipStream found no quality, source or other facts in this name.</p>
       ) : (
         <dl className="grid self-start grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-item bg-well px-3 py-2">
           {rows.map(({ label, value }) => (

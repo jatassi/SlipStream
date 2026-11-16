@@ -8,6 +8,6 @@ export interface FormatsCondition {
   name: string;
   /** The condition matches when its test fails */
   negate: boolean;
-  /** The format matches only when this condition does, beside the others of its kind */
+  /** This condition must match for the format to match; without required, any one condition of the same kind is enough */
   required: boolean;
 }

@@ -111,12 +111,12 @@ func NewHolding(ctx context.Context, cfg HoldingConfig) (*Holding, error) {
 	}
 	intents, err := holding.Intents(ctx, cfg.Local)
 	if err != nil {
-		return nil, fmt.Errorf("role intent cache: %w", err)
+		return nil, fmt.Errorf("read the saved Role assignments: %w", err)
 	}
 	for _, in := range intents {
 		payload := &anypb.Any{}
 		if err := proto.Unmarshal(in.Payload, payload); err != nil {
-			return nil, fmt.Errorf("role intent cache: %s: %w", in.Scope, err)
+			return nil, fmt.Errorf("read the saved Role assignments: %s: %w", in.Scope, err)
 		}
 		if err := h.remember(in.Scope, cached{version: in.Version, payload: payload}); err != nil {
 			return nil, err
@@ -156,7 +156,7 @@ func (h *Holding) Name() string {
 // Controller that removed the Node.
 func (h *Holding) Reset(ctx context.Context) error {
 	if err := h.cfg.Local.Write(ctx, holding.ClearIntents); err != nil {
-		return fmt.Errorf("clear the role intent cache: %w", err)
+		return fmt.Errorf("clear the saved Role assignments: %w", err)
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()

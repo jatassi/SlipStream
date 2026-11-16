@@ -188,7 +188,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "finishPasskeySignIn",
 		Method:  http.MethodPost,
 		Path:    "/passkeys/assertion/{ceremony}",
-		Summary: "Sign in with the browser's passkey response. On a turned-off PIN, the session must set a new PIN first",
+		Summary: "Sign in with the browser's passkey response. On a locked PIN, the session must set a new PIN first",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{passkeyUnavailable, passkeyFailed, tooManyAttempts.Code, accountDisabled},
 	}, finishPasskeySignIn(lib))
@@ -252,7 +252,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "changePIN",
 		Method:  http.MethodPost,
 		Path:    "/account/pin",
-		Summary: "Change your PIN, or set a new one after a passkey sign-in on a turned-off PIN",
+		Summary: "Change your PIN, or set a new one after a passkey sign-in on a locked PIN",
 		Status:  http.StatusNoContent,
 		Errors:  pinChecked,
 	}, changePIN(lib))
@@ -416,7 +416,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "startEmailChange",
 		Method:  http.MethodPost,
 		Path:    "/account/email",
-		Summary: "Change your email by sending a confirm link to the new address. The email changes when the link is followed",
+		Summary: "Change your email by sending a confirmation link to the new address. The email changes when the link is opened",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{emailTaken, addressUnset},
 	}, startEmailChange(lib))
@@ -512,7 +512,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "getEmailLinkByToken",
 		Method:  http.MethodGet,
 		Path:    "/email-links/by-token/{token}",
-		Summary: "Get what a confirm link's page shows: the new email, or why it no longer works",
+		Summary: "Get what a confirmation link's page shows: the new email, or why it no longer works",
 		Status:  http.StatusOK,
 	}, viewLink(lib, identity.EmailLink))
 
@@ -520,7 +520,7 @@ func Routes(r *api.Router, lib Library) {
 		ID:      "confirmEmail",
 		Method:  http.MethodPost,
 		Path:    "/email-links/by-token/{token}/confirm",
-		Summary: "Change an Account's email to the one a confirm link proved",
+		Summary: "Change an Account's email to the one a confirmation link proved",
 		Status:  http.StatusNoContent,
 		Errors:  []*api.Code{linkDead, accountDisabled, emailTaken},
 	}, confirmEmail(lib))

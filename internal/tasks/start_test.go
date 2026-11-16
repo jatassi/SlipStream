@@ -407,7 +407,7 @@ func TestOwnedSkipRaisesNoWarning(t *testing.T) {
 		clock(t, s)
 		time.Sleep(33 * time.Hour)
 		synctest.Wait()
-		want := []string{"tidy|warn|Tidy|Tidy hasn't finished b since Jan 1 08:00. Run it now to try b again.|run tidy|Not finished,Unfinished since"}
+		want := []string{"tidy|warn|Tidy|Tidy hasn't succeeded for b since Jan 1 08:00. Run it now to retry b.|run tidy|Not finished,Unfinished since"}
 		if got := answer(t, s, health.ScheduledTasksID); !equal(got, want) {
 			t.Fatalf("scheduled tasks = %q, want only Tidy's plain skip", got)
 		}

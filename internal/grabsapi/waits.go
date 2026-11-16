@@ -17,7 +17,7 @@ import (
 type grabWaitingInput struct {
 	WorkID string `path:"workId" format:"uuid"`
 	Body   struct {
-		Cells []cellKey `json:"cells,omitempty" doc:"The waiting cells to grab now; left out, every waiting cell of the Work"`
+		Cells []cellKey `json:"cells,omitempty" doc:"The waiting Items and Targets to grab now; left out, every waiting one of the Work"`
 	}
 }
 
@@ -31,7 +31,7 @@ var grabWaitingOp = api.Op{
 	ID:      "grabWaiting",
 	Method:  http.MethodPost,
 	Path:    "/works/{workId}/waits/grab",
-	Summary: "End a Work's waits for a better Release and grab the best Release each holds now",
+	Summary: "End a Work's waits for a better Release and grab the best one found for each now",
 	Status:  http.StatusAccepted,
 	Errors:  []*api.Code{workNotFound, reconciling},
 }

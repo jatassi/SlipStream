@@ -172,11 +172,11 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** "Counts as out on April 16, 2021, Digital release in United States." */
-function countsAsOut({ date, basis }: WorksAvailability): string {
+/** "Available on April 16, 2021, Digital release in United States." */
+function availableOn({ date, basis }: WorksAvailability): string {
   return basis === ""
-    ? `Counts as out on ${dayWords(date)}.`
-    : `Counts as out on ${dayWords(date)}, ${basis}.`;
+    ? `Available on ${dayWords(date)}.`
+    : `Available on ${dayWords(date)}, ${basis}.`;
 }
 
 type Dated = { readonly item: WorksItem; readonly date: string };
@@ -202,7 +202,7 @@ function nextAndLatest(
 }
 
 /**
- * A one-Item Work's day it counts as out, or for many Items the next
+ * A one-Item Work's availability date, or for many Items the next
  * Item to come out and the latest one out.
  */
 function availabilityOf(
@@ -212,7 +212,7 @@ function availabilityOf(
 ): string[] {
   if (type.items === "one") {
     const availability = work.items[0]?.availability;
-    return availability === undefined || availability === null ? [] : [countsAsOut(availability)];
+    return availability === undefined || availability === null ? [] : [availableOn(availability)];
   }
   const { next, latest } = nextAndLatest(work, statuses);
   const noun = type.item.one.toLowerCase();
@@ -220,11 +220,11 @@ function availabilityOf(
     ...(latest === undefined
       ? []
       : [
-          `The latest ${noun}, ${codeOf(type, latest.item)}, counted as out on ${dayWords(latest.date)}.`,
+          `The latest ${noun}, ${codeOf(type, latest.item)}, was available on ${dayWords(latest.date)}.`,
         ]),
     ...(next === undefined
       ? []
-      : [`The next ${noun}, ${codeOf(type, next.item)}, counts as out on ${dayWords(next.date)}.`]),
+      : [`The next ${noun}, ${codeOf(type, next.item)}, is available on ${dayWords(next.date)}.`]),
   ];
 }
 
@@ -242,7 +242,7 @@ export function About({
   const credits = placed(type, work, "credits");
   const details = placed(type, work, "details");
   const availability = availabilityOf(type, work, statuses);
-  const record = `${type.source} lists this ${type.work.one.toLowerCase()} as ${work.key}.`;
+  const record = `${type.source} ID: ${work.key}`;
   return (
     <Section title="About">
       <div className="flex flex-col gap-5">

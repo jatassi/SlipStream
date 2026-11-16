@@ -52,7 +52,7 @@ async function openSeeding(page: Page, name: string) {
       .click();
   }
   await expect(page).toHaveURL(/\/seeding$/u);
-  await expect(page.getByText(`No torrent owes ${name} seeding.`)).toBeVisible();
+  await expect(page.getByText(`No torrent needs more seeding for ${name}.`)).toBeVisible();
   await expect(page.getByText("No hit and run window has ended yet.")).toBeVisible();
 }
 

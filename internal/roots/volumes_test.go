@@ -231,7 +231,7 @@ func TestAPlacementIntoADrainingNodesRootWaitsInWords(t *testing.T) {
 	_, err = svc.Place(t.Context(), root.ID, to, storing.Payload{}, true)
 	var waiting *roots.WaitingError
 	var notReady *storing.NotReady
-	const words = "seedbox is draining Storage, so the library root there takes no new files."
+	const words = "seedbox is finishing its Storage work, so SlipStream can't put new files in its library root."
 	if !errors.As(err, &waiting) || err.Error() != words || !errors.As(err, &notReady) || !notReady.Draining {
 		t.Fatalf("Place into a draining Node's root = %v, want NotReady draining in the words %q", err, words)
 	}

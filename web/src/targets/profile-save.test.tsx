@@ -68,7 +68,7 @@ test("saving a Profile's chosen cuts previews them through the Impact, then send
   const sheet = page.getByRole("dialog", { name: "Save Ultra" });
   await expect
     .element(sheet.getByRole("list", { name: "What changes" }))
-    .toHaveTextContent("1 Work changes.2 cells become wanted.");
+    .toHaveTextContent("1 Work changes.SlipStream will look for 2 more files.");
   await userEvent.click(sheet.getByRole("button", { name: "Save", exact: true }));
 
   await expect.element(page.getByText("Saved Ultra.")).toBeVisible();

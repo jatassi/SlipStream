@@ -34,7 +34,7 @@ function Elsewhere() {
   return (
     <>
       <p className="text-ink-2">
-        Each root&apos;s last scan and Scan now are in{" "}
+        See each root&apos;s last scan, or start one with Scan now, in{" "}
         <Link
           to="/settings/$section"
           params={{ section: "library-roots" }}
@@ -45,7 +45,7 @@ function Elsewhere() {
         .
       </p>
       <p className="text-ink-2">
-        A scan counts the files whose extension is in Video file extensions, which is in{" "}
+        A scan counts only the files whose extension is in Video file extensions, under{" "}
         <Link
           to="/settings/$section"
           params={{ section: "importing" }}

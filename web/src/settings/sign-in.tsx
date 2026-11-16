@@ -12,8 +12,8 @@ type Key = keyof IdentitySettings & keyof IdentitySettingsPatch;
 
 const groups: readonly { readonly title: string; readonly keys: readonly Key[] }[] = [
   { title: "Wrong PINs", keys: ["pinWaitAfter", "pinWait", "pinOffAfter"] },
-  { title: "Failed attempts from one address", keys: ["addressFailures", "addressWindow"] },
-  { title: "Sessions and re-confirm", keys: ["sessionLifetime", "reconfirmWindow"] },
+  { title: "Failed sign-ins from one IP address", keys: ["addressFailures", "addressWindow"] },
+  { title: "Sessions and confirmation", keys: ["sessionLifetime", "reconfirmWindow"] },
   {
     title: "Link lifetimes",
     keys: ["signupLinkLifetime", "resetLinkLifetime", "emailLinkLifetime"],

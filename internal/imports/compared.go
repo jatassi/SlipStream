@@ -169,7 +169,7 @@ func record(ctx context.Context, tx *storage.Tx[file], root roots.ID, c Comparis
 	return q.ConsumeConfirmed(ctx, db.ConsumeConfirmedParams{RootID: root, Confirmed: new(int64(c.Consumed))})
 }
 
-var ErrNotStopped = errors.New("the root's last library scan didn't stop")
+var ErrNotStopped = errors.New("no files of the root are waiting to be marked gone")
 
 // confirmGone is Mark them gone's record: the count of root's stopped
 // comparison, which the next comparison passes up to. ErrNotStopped when
