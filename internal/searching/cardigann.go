@@ -13,6 +13,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/cardigann"
+	"github.com/jatassi/slipstream/internal/httpretry"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/searching/internal/torznab"
 )
@@ -274,7 +275,7 @@ func readsSignedOut(def *cardigann.Definition, req cardigann.Request, res cardig
 func (s *Site) exchange(ctx context.Context, r cardigann.Request, j *jar) (cardigann.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, r.Method, r.URL.String(), bytes.NewReader(r.Body))
 	if err != nil {
-		return cardigann.Response{}, &Failing{Err: fmt.Errorf("build the request: %w", WithoutURL(err))}
+		return cardigann.Response{}, &Failing{Err: fmt.Errorf("build the request: %w", httpretry.WithoutURL(err))}
 	}
 	req.Header = r.Header.Clone()
 	if req.Header == nil {

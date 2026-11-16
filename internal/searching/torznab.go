@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"slices"
 
+	"github.com/jatassi/slipstream/internal/httpretry"
 	"github.com/jatassi/slipstream/internal/searching/internal/torznab"
 )
 
@@ -109,7 +110,7 @@ func (d torznabDriver) feed(ctx context.Context, s *Site, params url.Values) ([]
 func (torznabDriver) api(ctx context.Context, s *Site, params url.Values) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, torznab.API(s.Address, s.APIKey, params).String(), http.NoBody)
 	if err != nil {
-		return nil, &Failing{Err: fmt.Errorf("build the request: %w", WithoutURL(err))}
+		return nil, &Failing{Err: fmt.Errorf("build the request: %w", httpretry.WithoutURL(err))}
 	}
 	res, err := s.Do(ctx, req, Send{Purpose: Read})
 	if err != nil {
