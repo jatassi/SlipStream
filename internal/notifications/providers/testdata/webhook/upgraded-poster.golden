@@ -1,0 +1,31 @@
+PUT /slipstream/[set]
+Authorization: Basic slipstream:[set]
+Content-Type: application/json
+X-Hook-Secret: [set]
+
+{
+  "version": 1,
+  "event": "upgraded",
+  "at": "2026-11-16T14:02:00Z",
+  "title": "Upgraded Heat (1995) to Remux-2160p",
+  "lines": [
+    "It replaced WEBDL-1080p."
+  ],
+  "link": "https://slipstream.example/works/w1",
+  "image": "https://image.tmdb.org/t/p/w500/heat.jpg",
+  "work": {
+    "id": "w1",
+    "title": "Heat (1995)",
+    "contentType": "movie"
+  },
+  "files": [
+    {
+      "items": [
+        "Heat (1995)"
+      ],
+      "quality": "Remux-2160p",
+      "replaced": "WEBDL-1080p",
+      "placedBy": "hardlink"
+    }
+  ]
+}

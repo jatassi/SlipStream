@@ -1,0 +1,21 @@
+PUT /slipstream/[set]
+Authorization: Basic slipstream:[set]
+Content-Type: application/json
+X-Hook-Secret: [set]
+
+{
+  "version": 1,
+  "event": "works_added",
+  "at": "2026-11-16T14:02:00Z",
+  "title": "Added Heat (1995) to Movies",
+  "lines": [
+    "Sam added it."
+  ],
+  "link": "https://slipstream.example/works/w1",
+  "image": "https://image.tmdb.org/t/p/w500/heat.jpg",
+  "work": {
+    "id": "w1",
+    "title": "Heat (1995)",
+    "contentType": "movie"
+  }
+}

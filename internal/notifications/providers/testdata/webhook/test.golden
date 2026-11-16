@@ -1,0 +1,15 @@
+PUT /slipstream/[set]
+Authorization: Basic slipstream:[set]
+Content-Type: application/json
+X-Hook-Secret: [set]
+
+{
+  "version": 1,
+  "event": "test",
+  "at": "2026-11-16T14:02:00Z",
+  "title": "Test from SlipStream",
+  "lines": [
+    "This connection works.",
+    "Den sent this message at 14:02."
+  ]
+}

@@ -1,0 +1,25 @@
+MAIL sam@example.com
+Subject: Added Heat (1995) to Movies
+--- text
+Sam added it.
+
+Open in SlipStream: https://slipstream.example/works/w1
+
+--- html
+<h2>Added Heat (1995) to Movies</h2>
+<p>Sam added it.</p>
+<p><a href="https://slipstream.example/works/w1">Open in SlipStream</a></p>
+
+
+MAIL alex@example.com
+Subject: Added Heat (1995) to Movies
+--- text
+Sam added it.
+
+Open in SlipStream: https://slipstream.example/works/w1
+
+--- html
+<h2>Added Heat (1995) to Movies</h2>
+<p>Sam added it.</p>
+<p><a href="https://slipstream.example/works/w1">Open in SlipStream</a></p>
+
