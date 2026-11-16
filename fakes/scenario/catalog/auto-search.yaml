@@ -7,9 +7,10 @@ description: >-
   Fixture Site lists a season pack of The Lantern Keepers' season 1, Harbor
   Nights' S01E01 and S01E02, a 1080p WEB-DL of The Quiet Orchard and one of
   Meadowlark. Nothing lists season 2 of either series or The Salt Road, so
-  their searches find nothing. Heron lists the same Releases and allows one
-  search a day, so once one search spends it, Backlog search and Search
-  all wait for Heron while a press skips it. The library has a TV root
+  their searches find nothing. Heron lists the same Releases and allows two
+  searches a day, one of which RSS sync keeps, so once one search spends
+  the other, Backlog search and Search all wait for Heron while a press
+  skips it. The library has a TV root
   and a Movies root, and no Work until a test adds one.
 seed: auto-search
 admin:
@@ -111,4 +112,4 @@ library:
   roots: [{content_type: series, folder: tv}, {content_type: movie, folder: movies}]
   indexers:
     - {name: Fixture Site, kind: torznab, site: torznab}
-    - {name: Heron, kind: torznab, site: heron, limit: {count: 1, per: day}}
+    - {name: Heron, kind: torznab, site: heron, limit: {count: 2, per: day}}
