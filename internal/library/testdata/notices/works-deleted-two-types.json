@@ -1,0 +1,53 @@
+{
+  "by": {
+    "name": "",
+    "apiKey": true
+  },
+  "types": [
+    {
+      "nouns": {
+        "work": {
+          "One": "Book",
+          "Many": "Books"
+        },
+        "levels": null,
+        "item": {
+          "One": "Book",
+          "Many": "Books"
+        },
+        "single": true
+      },
+      "count": 12000,
+      "first": [
+        "Dune (1965)",
+        "Emma (1815)",
+        "Ulysses (1922)"
+      ]
+    },
+    {
+      "nouns": {
+        "work": {
+          "One": "Zine",
+          "Many": "Zines"
+        },
+        "levels": [
+          {
+            "One": "Volume",
+            "Many": "Volumes"
+          }
+        ],
+        "item": {
+          "One": "Issue",
+          "Many": "Issues"
+        },
+        "single": false
+      },
+      "count": 8000,
+      "first": [
+        "Ark",
+        "Bolt",
+        "Crux"
+      ]
+    }
+  ]
+}

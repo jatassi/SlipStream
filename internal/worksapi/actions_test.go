@@ -34,6 +34,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -202,7 +203,7 @@ func shelve(t *testing.T) *shelves {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shelf := node{w: w, t: s.goals, mint: artwork.NewMinter([]byte("actions")), lib: library.New(library.Config{
+	shelf := node{w: w, t: s.goals, mint: artwork.NewMinter([]byte("actions")), lib: library.New(library.Config{Notices: noticetest.Ignored("library", library.Notices()),
 		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue, Imports: noImports{}, Queue: searches.None{},
 	})}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) { worksapi.Routes(r, shelf) })

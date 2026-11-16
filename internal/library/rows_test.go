@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -109,7 +110,7 @@ func seeded(b *testing.B, count int) *library.Library {
 	if err != nil {
 		b.Fatal(err)
 	}
-	return library.New(library.Config{Library: lib, Works: w, Targets: goals, Files: shelf})
+	return library.New(library.Config{Notices: noticetest.Ignored("library", library.Notices()), Library: lib, Works: w, Targets: goals, Files: shelf})
 }
 
 type wanted struct {

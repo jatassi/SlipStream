@@ -1,0 +1,28 @@
+{
+  "by": {
+    "name": "Sam",
+    "apiKey": false
+  },
+  "types": [
+    {
+      "nouns": {
+        "work": {
+          "One": "Book",
+          "Many": "Books"
+        },
+        "levels": null,
+        "item": {
+          "One": "Book",
+          "Many": "Books"
+        },
+        "single": true
+      },
+      "count": 12,
+      "first": [
+        "Dune (1965)",
+        "Emma (1815)",
+        "Ulysses (1922)"
+      ]
+    }
+  ]
+}
