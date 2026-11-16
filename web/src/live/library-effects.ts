@@ -2,6 +2,7 @@ import { getGetWorkCellsQueryKey, getListWorkFilesQueryKey } from "../api/gen/qu
 import {
   getGetGrabQueryKey,
   getGetManualSearchQueryKey,
+  getGetWorkSearchingQueryKey,
   getListBlocklistQueryKey,
   getListGrabsQueryKey,
   getListManualSearchReleasesQueryKey,
@@ -38,8 +39,10 @@ export const renameCounts = everyPath(/^\/api\/v1\/renames\/(unmatched|moving)$/
  * them, pending imports, Grabs, searches and the Blocklist. A row of the Library is read again only for the Works an event
  * names. A fetch or a search also moves the Diagram's machines. A Grab's
  * progress tick leaves the cells alone, since a downloading cell reads its
- * progress from the Grab. A Manual search's plan reads the cells, the
- * Grabs holding them and the Blocklist, so each of those refreshes it.
+ * progress from the Grab. A Grab failing can stop its cells, which the
+ * Work's search state lists, and that Write publishes no queue change.
+ * A Manual search's plan reads the cells, the Grabs holding them and the
+ * Blocklist, so each of those refreshes it.
  */
 export const libraryEffects = {
   "works.changed": ({ workIds }, { queryClient, refresh }) => {
@@ -94,6 +97,7 @@ export const libraryEffects = {
     refresh(everyIndexersGrabs);
     if (!progress) {
       refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
+      refresh({ queryKey: getGetWorkSearchingQueryKey(workId) });
       refresh(manualSearchOf(workId));
     }
     refresh({ queryKey: getGetCountsQueryKey() });

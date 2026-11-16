@@ -54,3 +54,33 @@ test("grabs.queue-changed naming no Work reads every open Work again", async () 
     wantedPages: true,
   });
 });
+
+test("grabs.changed for a Grab's stage reads again that Work's search state, since a failure can stop its cells", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/nodes", handlers: server.handlers });
+  await synced(app);
+  const invalidated = seeded(app, keys);
+
+  server.clients[0]?.send({
+    event: "grabs.changed",
+    data: { grabId: harvest, workId: orchard, progress: false },
+  });
+  await expect.poll(invalidated).toMatchObject({ orchardSearching: true, harvestSearching: false });
+});
+
+test("grabs.changed for a progress tick leaves the search state alone", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/nodes", handlers: server.handlers });
+  await synced(app);
+  const invalidated = seeded(app, keys);
+
+  server.clients[0]?.send({
+    event: "grabs.changed",
+    data: { grabId: orchard, workId: orchard, progress: true },
+  });
+  server.clients[0]?.send({
+    event: "grabs.changed",
+    data: { grabId: harvest, workId: harvest, progress: false },
+  });
+  await expect.poll(invalidated).toMatchObject({ orchardSearching: false, harvestSearching: true });
+});
