@@ -269,6 +269,9 @@ func TestReserveWritesTheClaimAndRoomAgreesWithIt(t *testing.T) {
 	if _, err := p.reserve("TorrentLeech", indexers.ClaimPress); !errors.As(err, &wait) || wait.Outcome.Kind != indexers.LimitReached || !wait.Outcome.Until.Equal(oldest.Add(time.Hour)) {
 		t.Fatalf("a press at the full window = %v, want skipped limit_reached until %s", err, oldest.Add(time.Hour))
 	}
+	if r := p.leech().Press; r.Free != 0 || !r.Until.IsZero() || r.Starved {
+		t.Fatalf("Room's press at the full window = %+v, want nothing holding it: a press skips the Indexer", r)
+	}
 }
 
 func TestAnInFlightQueryOlderThanJobCapNoLongerCounts(t *testing.T) {

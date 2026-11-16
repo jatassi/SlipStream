@@ -368,8 +368,6 @@ func roomFor(f Facts, c Claim, now time.Time) RoomFor {
 			continue
 		case fit.Wait != nil:
 			out.Until, out.Starved = fit.Wait.Until, fit.Wait.Starved
-		case fit.Skip.Kind == LimitReached:
-			out.Until = fit.Skip.Until
 		}
 		return out
 	}
