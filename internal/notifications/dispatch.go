@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -125,6 +126,12 @@ func (s *Service) pass(ctx context.Context, unsettled []result, busy map[Connect
 		if err := s.cfg.BeforePass(ctx); err != nil {
 			return time.Time{}, nil, published{}, err
 		}
+	}
+	// A connection whose result this pass settles may claim its next
+	// message in the same pass.
+	busy = maps.Clone(busy)
+	for _, r := range unsettled {
+		delete(busy, r.conn)
 	}
 	var p *passing
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
