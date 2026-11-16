@@ -36,7 +36,7 @@ const backlog: TasksTask = {
     inWindow: false,
     field: { ...housekeeping.cadence.field, key: "tasks.backlog.cadence", value: 28_800 },
   },
-  state: { kind: "idle", next: local(17, 5) },
+  state: { kind: "idle", next: local(17, 5), off: false },
   lastRun: {
     ...succeededRun,
     result: "partial",

@@ -34,6 +34,10 @@ func (gr *Grabs) rssTask() tasks.Task {
 		Noun:    setting.Noun{One: "Indexer", Many: "Indexers"},
 		Units:   gr.cfg.Indexers.RSSUnits,
 		Shown:   anyRSS,
+		Off: func(ctx context.Context, r storage.Reader[file]) (bool, error) {
+			s, err := db.New(r).GetSettings(ctx)
+			return !RSSOn.Value(s.RssOn), err
+		},
 		Run: func(ctx context.Context, u tasks.Unit, p *tasks.Progress) error {
 			note, err := gr.syncFeed(ctx, indexers.IDOf(u.Key))
 			if err != nil {

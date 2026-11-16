@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
@@ -58,6 +59,10 @@ func (gr *Grabs) Tasks() []tasks.Task {
 			return []tasks.Unit{{Key: "due", Label: "Due searches", Place: tasks.OnController()}}, nil
 		},
 		Run: gr.backlog,
+		Off: func(ctx context.Context, r storage.Reader[storage.Library]) (bool, error) {
+			s, err := db.New(r).GetSettings(ctx)
+			return !BacklogOn.Value(s.BacklogOn), err
+		},
 	}, gr.rssTask()}
 }
 

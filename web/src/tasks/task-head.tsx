@@ -30,6 +30,9 @@ function statePart(task: TasksTask, clock: Clock): StatusPart {
   if (state.kind === "waiting") {
     return { kind: "warning", text: waitingWords(state, clock), href: `#${unitsAnchor}` };
   }
+  if (state.off) {
+    return { kind: "plain", text: "Off" };
+  }
   const next = nextWords(task, state.next, clock);
   return { kind: "plain", text: `Next run ${next.charAt(0).toLowerCase()}${next.slice(1)}` };
 }

@@ -81,6 +81,9 @@ type Task struct {
 	// shown task with no units still opens a run, which succeeds with
 	// "0 <Noun.Many>".
 	Shown func(ctx context.Context, r storage.Reader[storage.Library]) (bool, error)
+	// Off reports whether its owner's setting has each run skip, so the
+	// Tasks page says the task is off instead of when it runs next.
+	Off func(ctx context.Context, r storage.Reader[storage.Library]) (bool, error)
 	// Prepare runs in the run's goroutine once the run is open and before
 	// Units lists its units, outside any Read, so it may reach the network
 	// and record what it learns in its owner's rows for Units to read. It

@@ -138,7 +138,7 @@ func tidyTask(hours int, state, lastRun, runNow string) string {
 }
 
 const (
-	idle      = `{"kind":"idle","next":"T"}`
+	idle      = `{"kind":"idle","next":"T","off":false}`
 	available = `{"available":true}`
 )
 
