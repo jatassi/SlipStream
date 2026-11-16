@@ -260,7 +260,8 @@ CREATE INDEX grabs_release_indexer_id ON grabs_release (indexer_id);
 CREATE INDEX grabs_release_lost_target_id ON grabs_release (lost_target_id);
 
 -- When any automatic run first searched an Item, read before the pruning
--- below drops older runs. Deleted when the Item's last Want closes.
+-- below drops older runs. Deleted once Backlog search finds the Item
+-- wanting nothing.
 CREATE TABLE grabs_item_search (
     item_id BLOB PRIMARY KEY NOT NULL REFERENCES works_item (id) ON DELETE CASCADE,
     first_searched_at INTEGER NOT NULL

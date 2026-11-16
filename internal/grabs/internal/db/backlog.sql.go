@@ -33,6 +33,15 @@ func (q *Queries) DeleteIdleDue(ctx context.Context, arg DeleteIdleDueParams) er
 	return err
 }
 
+const deleteItemSearch = `-- name: DeleteItemSearch :exec
+DELETE FROM grabs_item_search WHERE item_id = ?1
+`
+
+func (q *Queries) DeleteItemSearch(ctx context.Context, itemID works.ItemID) error {
+	_, err := q.db.ExecContext(ctx, deleteItemSearch, itemID)
+	return err
+}
+
 const failuresKept = `-- name: FailuresKept :one
 SELECT EXISTS (
     SELECT 1 FROM grabs_failure f
@@ -160,6 +169,33 @@ func (q *Queries) ListFailureCells(ctx context.Context) ([]ListFailureCellsRow, 
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listItemSearches = `-- name: ListItemSearches :many
+SELECT item_id FROM grabs_item_search ORDER BY item_id
+`
+
+func (q *Queries) ListItemSearches(ctx context.Context) ([]works.ItemID, error) {
+	rows, err := q.db.QueryContext(ctx, listItemSearches)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []works.ItemID
+	for rows.Next() {
+		var item_id works.ItemID
+		if err := rows.Scan(&item_id); err != nil {
+			return nil, err
+		}
+		items = append(items, item_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
