@@ -21,7 +21,7 @@ The plan job's "Find the self-hosted runners" step counts the online runners who
 - the `SELF_HOSTED_RUNNERS` repository variable is `paused`
 - the `RUNNER_STATUS_TOKEN` secret is missing. It's a fine-grained token for this repository with Administration read-only, because the workflow token can't list runners.
 
-The planner moves up to one job per runner onto a pool. The lanes that start with the run take runners first. The e2e and browser lanes start when the build ends, so they get the build's runner and whatever is left. A packaging build always stays on its hosted runner, because its smoke tests install the packages system-wide. Every other job runs on the target's hosted runner, as it would without the pools.
+The planner moves up to one job per runner onto a pool. The lanes that start with the run take runners first. The browser lane starts when the build ends, so it gets the build's runner and whatever is left. The e2e lane always stays on its hosted runners: a shard runs several packages at once that each start worlds of processes, and it needed more than a 10.7 GB runner where a hosted one has 16 GB. A packaging build always stays on its hosted runner, because its smoke tests install the packages system-wide. Every other job runs on the target's hosted runner, as it would without the pools.
 
 The plan job itself runs on a hosted runner, so a run falls back to hosted runners when this machine is off. A dispatch with `plan-self-hosted` runs the plan and the required check on a Linux runner instead, and skips the hosted queue. It waits while the Linux runners are offline.
 

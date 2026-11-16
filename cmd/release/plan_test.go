@@ -428,15 +428,11 @@ func TestSelfHostFillsTheStartingLanesFirst(t *testing.T) {
 	}
 	p.selfHost("linux-amd64", pool{"self-linux", 8})
 	// Seven jobs start with the run. The build's slot goes back to the pool
-	// when the e2e and browser lanes start, so e2e takes the last two.
-	want := map[string]int{"build": 1, "lint": 1, "lint-repo": 1, "go": 2, "component": 1, "diagram": 1, "e2e": 2}
+	// when the browser lane starts, so browser takes the last two, and e2e
+	// stays on its hosted runners.
+	want := map[string]int{"build": 1, "lint": 1, "lint-repo": 1, "go": 2, "component": 1, "diagram": 1, "browser": 2}
 	if got := onPool(p, "linux-amd64", "self-linux"); !maps.Equal(got, want) {
 		t.Errorf("self-hosted jobs = %v, want %v", got, want)
-	}
-	for _, e := range p.Lanes["browser"].Include {
-		if e.Runner == "self-linux" {
-			t.Errorf("browser shard %d/%d is on the pool, want the hosted runner", e.Shard, e.Shards)
-		}
 	}
 	if got := onPool(p, "windows-amd64", "self-linux"); len(got) != 0 {
 		t.Errorf("windows-amd64 jobs on the linux pool = %v, want none", got)
