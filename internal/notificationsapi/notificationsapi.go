@@ -96,10 +96,10 @@ type status struct {
 type draftBody struct {
 	Name     string                     `json:"name" maxLength:"100"`
 	Provider string                     `json:"provider" doc:"One of the ids listNotificationProviders lists"`
-	On       bool                       `json:"on"`
+	On       bool                       `json:"on,omitempty"`
 	Events   []string                   `json:"events,omitempty" doc:"The events it gets; left out, the recommended ones"`
-	Warnings bool                       `json:"warnings"`
-	Posters  bool                       `json:"posters"`
+	Warnings bool                       `json:"warnings,omitempty" doc:"Whether it gets Health warnings as well as errors"`
+	Posters  bool                       `json:"posters,omitempty"`
 	Node     string                     `json:"node,omitempty" format:"uuid" doc:"The Node a Custom Script runs on; left out for every other provider"`
 	Values   map[string]json.RawMessage `json:"values,omitempty" doc:"The provider's settings that aren't secret, by key"`
 	Secrets  map[string]string          `json:"secrets,omitempty" doc:"The secret settings by key. Write-only"`
@@ -498,7 +498,9 @@ func (h handlers) listFeed(ctx context.Context, by identity.Admin, in *feedInput
 }
 
 func (h handlers) markSeen(ctx context.Context, by identity.Admin, in *seenInput) (*struct{}, error) {
-	if err := h.svc().Seen(ctx, by, notifications.Seq(in.Body.Through)); err != nil {
+	if err := h.svc().Seen(ctx, by, notifications.Seq(in.Body.Through)); errors.Is(err, notifications.ErrNeedsAccount) {
+		return nil, api.NeedsAccount
+	} else if err != nil {
 		return nil, err
 	}
 	return &struct{}{}, nil

@@ -17279,15 +17279,13 @@
             "type": "object"
           },
           "warnings": {
+            "description": "Whether it gets Health warnings as well as errors",
             "type": "boolean"
           }
         },
         "required": [
           "name",
-          "provider",
-          "on",
-          "warnings",
-          "posters"
+          "provider"
         ],
         "type": "object"
       },

@@ -9311,8 +9311,8 @@ export const NotificationsDraftBody = zod.object({
     .uuid()
     .exactOptional()
     .describe("The Node a Custom Script runs on; left out for every other provider"),
-  on: zod.boolean(),
-  posters: zod.boolean(),
+  on: zod.boolean().exactOptional(),
+  posters: zod.boolean().exactOptional(),
   provider: zod.string().describe("One of the ids listNotificationProviders lists"),
   secrets: zod
     .record(zod.string(), zod.string())
@@ -9322,7 +9322,10 @@ export const NotificationsDraftBody = zod.object({
     .record(zod.string(), zod.unknown())
     .exactOptional()
     .describe("The provider's settings that aren't secret, by key"),
-  warnings: zod.boolean(),
+  warnings: zod
+    .boolean()
+    .exactOptional()
+    .describe("Whether it gets Health warnings as well as errors"),
 });
 
 export type NotificationsDraftBody = zod.input<typeof NotificationsDraftBody>;

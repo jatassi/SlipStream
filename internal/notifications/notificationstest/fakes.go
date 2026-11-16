@@ -56,6 +56,7 @@ func hookProvider(words map[providers.ReasonCode]string) providers.Provider {
 		Fields: []providers.Field{
 			{Key: "url", Label: "URL", Kind: providers.URL},
 			{Key: "token", Label: "Token", Kind: providers.Text, Secret: true},
+			{Key: "signing", Label: "Signing key", Kind: providers.Text, Secret: true, Optional: true},
 		},
 		Build:    buildHook,
 		Classify: classifyHook,
@@ -88,9 +89,15 @@ func buildHook(p providers.Payload) (providers.Outbound, error) {
 	if err != nil {
 		return providers.Outbound{}, fmt.Errorf("encode the body: %w", err)
 	}
-	return providers.Outbound{Post: &providers.Request{
-		Method: http.MethodPost, URL: url, Header: http.Header{"Authorization": {"Bearer " + token}}, Body: raw,
-	}}, nil
+	header := http.Header{"Authorization": {"Bearer " + token}}
+	if key, ok := p.Secrets["signing"]; ok {
+		var signing string
+		if err := json.Unmarshal(key, &signing); err != nil {
+			return providers.Outbound{}, fmt.Errorf("read the signing key: %w", err)
+		}
+		header.Set("X-Signing", signing)
+	}
+	return providers.Outbound{Post: &providers.Request{Method: http.MethodPost, URL: url, Header: header, Body: raw}}, nil
 }
 
 func classifyHook(r providers.Reply, now time.Time) providers.Verdict {
