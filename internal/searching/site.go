@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/cardigann"
+	"github.com/jatassi/slipstream/internal/httpretry"
 	"github.com/jatassi/slipstream/internal/magnet"
 )
 
@@ -190,14 +190,14 @@ func (s *Site) sendOnce(ctx context.Context, req *http.Request, o Send, j *jar) 
 	sent := time.Now()
 	res, err := client.Do(req.WithContext(ctx)) //nolint:gosec // G704: an Indexer's requests go to the address its Admin chose
 	if err != nil {
-		err = WithoutURL(err)
+		err = httpretry.WithoutURL(err)
 		s.svc.cfg.Log.Debug("A request to an Indexer failed", "indexer", s.Indexer, "method", req.Method, "host", req.URL.Host, "err", err.Error())
 		return nil, &Failing{Err: fmt.Errorf("reach the Indexer: %w", err)}
 	}
 	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(res.Body, p.limit()+1))
 	if err != nil {
-		return nil, &Failing{Err: fmt.Errorf("read the Indexer's response: %w", WithoutURL(err))}
+		return nil, &Failing{Err: fmt.Errorf("read the Indexer's response: %w", httpretry.WithoutURL(err))}
 	}
 	s.svc.cfg.Log.Debug("An Indexer responded", "indexer", s.Indexer, "method", req.Method, "host", req.URL.Host,
 		"status", res.StatusCode, "bytes", len(body), "took", time.Since(sent).String())
@@ -208,7 +208,7 @@ func (s *Site) sendOnce(ctx context.Context, req *http.Request, o Send, j *jar) 
 		return nil, errChallenged
 	case slices.Contains(o.Suppress, res.StatusCode):
 	case res.StatusCode == http.StatusTooManyRequests:
-		return nil, &Limited{RetryAfter: RetryAfter(res.Header.Get("Retry-After"), time.Now())}
+		return nil, &Limited{RetryAfter: httpretry.After(res.Header.Get("Retry-After"), time.Now())}
 	case res.StatusCode >= http.StatusInternalServerError:
 		return nil, &Failing{Err: fmt.Errorf("the Indexer responded with status %d", res.StatusCode)}
 	}
@@ -236,26 +236,6 @@ func redirects(req *http.Request, via []*http.Request) error {
 
 func isRedirect(status int) bool {
 	return status >= http.StatusMultipleChoices && status < http.StatusBadRequest
-}
-
-// RetryAfter reads a Retry-After header of seconds or an HTTP date, zero
-// when there is none.
-func RetryAfter(v string, now time.Time) time.Duration {
-	if secs, err := strconv.Atoi(v); err == nil {
-		return max(time.Duration(secs)*time.Second, 0)
-	}
-	if at, err := http.ParseTime(v); err == nil {
-		return max(at.Sub(now), 0)
-	}
-	return 0
-}
-
-// WithoutURL drops the request URL from err, since it may carry a key.
-func WithoutURL(err error) error {
-	if ue, ok := errors.AsType[*url.Error](err); ok {
-		return ue.Err
-	}
-	return err
 }
 
 // spacer spaces the requests to each host by Floor, or a job's longer
@@ -291,7 +271,7 @@ func (s *spacer) wait(ctx context.Context, host string, delay time.Duration) err
 func fetch(ctx context.Context, s *Site, link Link) (Got, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link.raw, http.NoBody)
 	if err != nil {
-		return nil, &Failing{Err: fmt.Errorf("build the request: %w", WithoutURL(err))}
+		return nil, &Failing{Err: fmt.Errorf("build the request: %w", httpretry.WithoutURL(err))}
 	}
 	res, err := s.Do(ctx, req, Send{Purpose: Download})
 	switch {

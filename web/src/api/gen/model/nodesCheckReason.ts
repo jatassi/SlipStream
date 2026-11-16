@@ -4,6 +4,7 @@ export type NodesCheckReason =
   | "probe_weak"
   | "offline_unchecked"
   | "reach_failed"
+  | "reach_warned"
   | "reached"
   | "nothing_to_test"
   | "node_is_controller"

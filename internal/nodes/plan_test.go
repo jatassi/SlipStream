@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -225,29 +226,41 @@ func TestSuggestedTicksAcquireRolesWhoseProbesFit(t *testing.T) {
 	}
 }
 
+var (
+	smtpTarget   = nodes.Target{Target: nodesystem.Target{Host: "smtp.example.com", Port: 587}, What: "the mail server", Block: true}
+	gotifyTarget = nodes.Target{Target: nodesystem.Target{Host: "gotify.lan", Port: 443, TLS: true}, What: "Gotify 'Home'"}
+)
+
 func TestReachTestsGuardAnAddedNotifying(t *testing.T) {
 	tick := nodes.SetRoles{Want: nodes.Roles{seedbox.ID: role.Of(role.Notifying)}}
 	at := nodes.NodeRole{Node: seedbox.ID, Role: role.Notifying}
+	smtp, gotify := nodes.ReachKey{NodeRole: at, Target: "smtp.example.com:587"}, nodes.ReachKey{NodeRole: at, Target: "gotify.lan:443"}
 	s := situation(seat(home, homeRoles), seat(seedbox, 0))
 
 	untested := nodes.Plan(s, tick)
-	wantWords(t, untested, "seedbox gets the Notifying Role.", "No mail server is set up yet, so SlipStream can't test Notifying on seedbox.")
+	wantWords(t, untested, "seedbox gets the Notifying Role.", "No mail server or connection is set up yet, so SlipStream can't test the Notifying Role on seedbox.")
 	if untested.Blocked() {
 		t.Fatal("no target blocked")
 	}
 
-	s.Targets = role.Of(role.Notifying)
-	s.Reach = map[nodes.NodeRole]nodes.ReachResult{at: {Target: "smtp.example.com:587", Err: "connection refused"}}
+	s.Targets = map[role.Name][]nodes.Target{role.Notifying: {smtpTarget, gotifyTarget}}
+	if out := nodes.Plan(s, tick); !slices.Equal(out.Untested, []nodes.ReachKey{smtp, gotify}) {
+		t.Fatalf("untested = %+v, want both targets from seedbox", out.Untested)
+	}
+
+	s.Reach = map[nodes.ReachKey]nodes.ReachResult{smtp: {Err: "connection refused"}, gotify: {OK: true, Millis: 7}}
 	failed := nodes.Plan(s, tick)
-	if !failed.Blocked() || !slices.Equal(reasons(failed), []nodes.Reason{nodes.ReachFailed}) {
+	if !failed.Blocked() || !slices.Equal(reasons(failed), []nodes.Reason{nodes.ReachFailed, nodes.Reached}) || failed.Checks[0].Target != "smtp.example.com:587" {
 		t.Fatalf("checks = %+v", failed.Checks)
 	}
-	wantWords(t, failed, "seedbox gets the Notifying Role.", "seedbox can't reach smtp.example.com:587 (connection refused).")
+	wantWords(t, failed, "seedbox gets the Notifying Role.", "seedbox can't reach smtp.example.com:587 (connection refused).", "seedbox reached gotify.lan:443 in 7 ms.")
 
-	s.Reach[at] = nodes.ReachResult{Target: "smtp.example.com:587", OK: true, Millis: 42}
-	if ok := nodes.Plan(s, tick); ok.Blocked() || !slices.Equal(reasons(ok), []nodes.Reason{nodes.Reached}) {
-		t.Fatalf("checks = %+v", ok.Checks)
+	s.Reach = map[nodes.ReachKey]nodes.ReachResult{smtp: {OK: true, Millis: 42}, gotify: {Err: "no such host"}}
+	warned := nodes.Plan(s, tick)
+	if warned.Blocked() || !slices.Equal(reasons(warned), []nodes.Reason{nodes.Reached, nodes.ReachWarned}) || warned.Checks[1].Verdict != nodes.Warn || warned.Checks[1].Target != "gotify.lan:443" {
+		t.Fatalf("checks = %+v", warned.Checks)
 	}
+	wantWords(t, warned, "seedbox gets the Notifying Role.", "seedbox reached smtp.example.com:587 in 42 ms.", "seedbox can't reach gotify.lan. Messages to Gotify 'Home' fail while seedbox sends them.")
 }
 
 func TestUntickingSearchingMovesItsIndexersToTheHeir(t *testing.T) {
@@ -407,7 +420,7 @@ func TestGesturesAreThePlansVerdicts(t *testing.T) {
 	sb := seat(seedbox, role.Of(role.Searching, role.Downloading))
 	sb.Held = map[role.Name]nodes.Held{role.Downloading: torrents}
 	s := situation(seat(home, homeRoles.Without(role.Downloading)), sb, seat(relay, role.Of(role.Relaying)))
-	s.Targets = role.Of(role.Notifying)
+	s.Targets = map[role.Name][]nodes.Target{role.Notifying: {smtpTarget}}
 	gestures := nodes.Gestures(s)
 
 	find := func(r role.Name, from nodes.Named, to nodes.Named) nodes.Gesture {

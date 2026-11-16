@@ -60,13 +60,22 @@ var Fake = fake.Spec{
 // Message is one accepted message as fakeworld mail shows it. Security is
 // how its connection ran: none, starttls or tls.
 type Message struct {
-	From     string   `json:"from"`
-	To       []string `json:"to"`
-	Username string   `json:"username"`
-	Security string   `json:"security"`
-	Subject  string   `json:"subject"`
-	Text     string   `json:"text"`
-	HTML     string   `json:"html"`
+	From     string       `json:"from"`
+	To       []string     `json:"to"`
+	Username string       `json:"username"`
+	Security string       `json:"security"`
+	Subject  string       `json:"subject"`
+	Text     string       `json:"text"`
+	HTML     string       `json:"html"`
+	Inline   []InlinePart `json:"inline,omitempty"`
+}
+
+// InlinePart is an image the message shows through cid:<ContentID>,
+// kept as the record's file named File.
+type InlinePart struct {
+	ContentID string `json:"contentId"`
+	Type      string `json:"type"`
+	File      string `json:"file"`
 }
 
 type Toggle struct {
@@ -333,11 +342,16 @@ func (s *session) Data(r io.Reader) error {
 		return &gosmtp.SMTPError{Code: 554, EnhancedCode: gosmtp.EnhancedCode{5, 6, 0}, Message: err.Error()}
 	}
 	m := Message{From: s.from, To: s.to, Username: s.username, Security: s.security(), Subject: parts.subject, Text: parts.text, HTML: parts.html}
-	s.srv.mail.Record(s.ctx, m,
-		fake.File{Name: "message.eml", Data: raw},
-		fake.File{Name: "message.html", Data: []byte(parts.html)},
-		fake.File{Name: "message.txt", Data: []byte(parts.text)},
-	)
+	files := []fake.File{
+		{Name: "message.eml", Data: raw},
+		{Name: "message.html", Data: []byte(parts.html)},
+		{Name: "message.txt", Data: []byte(parts.text)},
+	}
+	for _, in := range parts.inline {
+		m.Inline = append(m.Inline, InlinePart{ContentID: in.contentID, Type: in.media, File: in.contentID})
+		files = append(files, fake.File{Name: in.contentID, Data: in.body})
+	}
+	s.srv.mail.Record(s.ctx, m, files...)
 	return nil
 }
 

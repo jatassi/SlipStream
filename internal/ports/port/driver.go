@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/httpretry"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
@@ -389,7 +390,7 @@ func (j *job[S]) page(r *Request) ([]TorrentInfo, error) {
 	}
 	infos, err := j.t.impl.Parse(j.ix, res)
 	if le, ok := errors.AsType[*LimitError](err); ok && le.After == 0 {
-		le.After = searching.RetryAfter(res.Headers.Get("Retry-After"), time.Now())
+		le.After = httpretry.After(res.Headers.Get("Retry-After"), time.Now())
 	}
 	return infos, err
 }
@@ -530,7 +531,7 @@ func (j *job[S]) request(r *Request, credentials bool) (*http.Request, searching
 	body, contentType := j.body(r)
 	req, err := http.NewRequestWithContext(j.ctx, r.Method, r.URL.String(), bytes.NewReader(body))
 	if err != nil {
-		return nil, searching.Send{}, &searching.Failing{Err: fmt.Errorf("build the request: %w", searching.WithoutURL(err))}
+		return nil, searching.Send{}, &searching.Failing{Err: fmt.Errorf("build the request: %w", httpretry.WithoutURL(err))}
 	}
 	o := searching.Send{Purpose: j.purpose, NoFollow: r.noFollow, Rotates: j.t.login.rotates, Suppress: r.suppress}
 	if on {

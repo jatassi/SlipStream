@@ -22,15 +22,26 @@ type Owner struct {
 	// takes the Role from node. It must not publish or do IO. Exactly the
 	// owners of Portable Roles have one.
 	Unassigned func(ctx context.Context, tx *storage.Tx[storage.Library], node, heir ID) error
-	// Reach is the target a Node is tested against before it gains the
-	// Role, false while none is configured. It reads the library and
-	// nothing else. Exactly the owners of Reach Roles have one.
-	Reach func(ctx context.Context, r storage.Reader[storage.Library]) (nodesystem.Target, bool, error)
+	// Reach is the targets a Node is tested against before it gains the
+	// Role, none while none is configured, each at its own host and port.
+	// It reads the library and nothing else. Exactly the owners of Reach
+	// Roles have one.
+	Reach func(ctx context.Context, r storage.Reader[storage.Library]) ([]Target, error)
 	// Keeps names the config the owner keeps on node for Role, such as its
 	// external Download Clients, which blocks taking the Role off node
 	// until the Admin deletes or moves it. A write-off still goes through
 	// and keeps it. Nil for an owner that keeps none.
 	Keeps func(ctx context.Context, r storage.Reader[storage.Library], node ID) ([]string, error)
+}
+
+// Target is one host a Node is tested against before it gains a Reach
+// Role. What names the thing there for a warning, such as "the mail
+// server" or "Gotify 'Home'". A failed test of a Block target refuses the
+// Role, and of any other target only warns.
+type Target struct {
+	nodesystem.Target
+	What  string
+	Block bool
 }
 
 // HoldsNothing is the Held of a Role whose work no feature keeps yet.
@@ -42,10 +53,10 @@ func HoldsNothing(context.Context, storage.Reader[storage.Library], ID) (Held, e
 // keeps yet.
 func MovesNothing(context.Context, *storage.Tx[storage.Library], ID, ID) error { return nil }
 
-// TestsNothing is the Reach of a Reach Role whose target no feature
+// TestsNothing is the Reach of a Reach Role whose targets no feature
 // configures yet.
-func TestsNothing(context.Context, storage.Reader[storage.Library]) (nodesystem.Target, bool, error) {
-	return nodesystem.Target{}, false, nil
+func TestsNothing(context.Context, storage.Reader[storage.Library]) ([]Target, error) {
+	return nil, nil
 }
 
 // Unowned is the owner of a Role whose work a later spec adds.

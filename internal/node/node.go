@@ -39,6 +39,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/notifications"
+	"github.com/jatassi/slipstream/internal/notifying"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/ports/all"
 	"github.com/jatassi/slipstream/internal/ports/port"
@@ -72,6 +73,9 @@ type Env struct {
 	// Media probes video files: the bundled ffprobe for a process, which
 	// Run finds beside the executable.
 	Media media.Prober
+	// Scripts runs the Notifying Role's Custom Scripts: a ProcessRunner for
+	// a process.
+	Scripts notifying.Runner
 	// Disk opens every filesystem call the Storage Role makes, with data
 	// the folder no root may overlap: the OS's own for a process.
 	Disk func(data string) (storing.Disk, error)
@@ -140,6 +144,7 @@ func ProcessEnv(cmd, dataDirFlag string) (Env, error) {
 		Net:       osNetwork{},
 		Engine:    func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
 		OpenLog:   logs.Open,
+		Scripts:   notifying.ProcessRunner{Environ: environ, TempDir: os.TempDir()},
 		Disk:      OSDisk,
 		Restart:   processRestart(layout.Executable, os.Args, environ, dir.LogsDir(), os.Stderr),
 		RestartOf: follows,

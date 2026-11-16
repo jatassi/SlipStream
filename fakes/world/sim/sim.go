@@ -33,6 +33,7 @@ import (
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/notifying"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/role/roletest"
@@ -95,6 +96,29 @@ type Node struct {
 	probe   *roletest.Probe
 	control *roletest.Control
 	swarm   *enginetest.World
+
+	scripts scripts
+}
+
+// scripts runs a Node's Custom Scripts. A process can't run inside a
+// synctest bubble, so it keeps each Script and answers a clean exit.
+type scripts struct {
+	mu  sync.Mutex
+	ran []notifying.Script
+}
+
+func (s *scripts) Run(_ context.Context, sc notifying.Script) notifying.Ran {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ran = append(s.ran, sc)
+	return notifying.Ran{}
+}
+
+// Scripts is every Custom Script the Node has run, in order.
+func (n *Node) Scripts() []notifying.Script {
+	n.scripts.mu.Lock()
+	defer n.scripts.mu.Unlock()
+	return slices.Clone(n.scripts.ran)
 }
 
 // Launch starts every Node of s inside the caller's synctest bubble and
@@ -328,6 +352,7 @@ func (n *Node) env() node.Env {
 		Engine:  enginetest.Open,
 		OpenLog: node.OpenFileLog,
 		Media:   mediatest.Prober{},
+		Scripts: &n.scripts,
 		Disk: func(data string) (storing.Disk, error) {
 			d, err := node.OSDisk(data)
 			if err != nil {

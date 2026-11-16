@@ -8458,6 +8458,7 @@ export const NodesCheck = zod.object({
     "probe_weak",
     "offline_unchecked",
     "reach_failed",
+    "reach_warned",
     "reached",
     "nothing_to_test",
     "node_is_controller",
@@ -8481,6 +8482,10 @@ export const NodesCheck = zod.object({
     ])
     .exactOptional()
     .describe("Absent for a check on the whole Node"),
+  target: zod
+    .string()
+    .exactOptional()
+    .describe("The host and port a reach test ran against; absent for any other check"),
   verdict: zod.enum(["allow", "warn", "block"]),
   words: zod.string(),
 });

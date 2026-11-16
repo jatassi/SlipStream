@@ -124,16 +124,16 @@ func TestEverySecurityDeliversTheMessage(t *testing.T) {
 
 func crlf(s string) string { return strings.ReplaceAll(s, "\n", "\r\n") }
 
-func TestCuesAnswerTheServersReply(t *testing.T) {
+func TestCuesAnswerTheServersReplyAndWhereItCame(t *testing.T) {
 	cases := []struct {
 		cue      fake.CueSpec
 		security mail.Security
-		reply    string
+		want     mail.Outcome
 	}{
-		{smtp.AuthFailure, mail.StartTLS, "535 5.7.8 Authentication failed"},
-		{smtp.Defer, mail.StartTLS, "451 4.3.0 Try again later"},
-		{smtp.Reject, mail.TLS, "550 5.1.1 Mailbox unavailable"},
-		{smtp.TLSRequired, mail.None, "530 5.7.0 Must issue a STARTTLS command first"},
+		{smtp.AuthFailure, mail.StartTLS, mail.Outcome{Kind: mail.Failed, Reply: "535 5.7.8 Authentication failed", Permanent: true, Step: mail.StepConnect}},
+		{smtp.Defer, mail.StartTLS, mail.Outcome{Kind: mail.Failed, Reply: "451 4.3.0 Try again later", Step: mail.StepRcpt}},
+		{smtp.Reject, mail.TLS, mail.Outcome{Kind: mail.Failed, Reply: "550 5.1.1 Mailbox unavailable", Permanent: true, Step: mail.StepRcpt}},
+		{smtp.TLSRequired, mail.None, mail.Outcome{Kind: mail.Failed, Reply: "530 5.7.0 Must issue a STARTTLS command first", Permanent: true, Step: mail.StepFrom}},
 	}
 	for _, c := range cases {
 		t.Run(c.cue.Name, func(t *testing.T) {
@@ -141,8 +141,8 @@ func TestCuesAnswerTheServersReply(t *testing.T) {
 			f := serve(t)
 			s := sender(f, c.security, "slipstream")
 			f.Cue(t, c.cue.Name, smtp.Toggle{})
-			if out := send(t, s, testMessage(t)); out != (mail.Outcome{Kind: mail.Failed, Reply: c.reply}) {
-				t.Fatalf("Send = %+v, want failed %q", out, c.reply)
+			if out := send(t, s, testMessage(t)); out != c.want {
+				t.Fatalf("Send = %+v, want %+v", out, c.want)
 			}
 			f.Cue(t, c.cue.Name, smtp.Toggle{Off: true})
 			if out := send(t, s, testMessage(t)); out != (mail.Outcome{Kind: mail.Sent}) {
@@ -152,6 +152,25 @@ func TestCuesAnswerTheServersReply(t *testing.T) {
 				t.Fatalf("captured %d messages, want only the one sent after the cue", len(msgs))
 			}
 		})
+	}
+}
+
+func TestAnInlinePosterIsKeptAsAFile(t *testing.T) {
+	f := serve(t)
+	poster := []byte("\x89PNG\r\n\x1a\nposter bytes")
+	m := testMessage(t)
+	m.HTML = `<img src="cid:poster@slipstream">`
+	m.Inline = []mail.Part{{ContentID: "poster@slipstream", Type: "image/png", Name: "poster.png", Body: poster}}
+	if out := send(t, sender(f, mail.StartTLS, ""), m); out != (mail.Outcome{Kind: mail.Sent}) {
+		t.Fatalf("Send = %+v", out)
+	}
+	msgs, files := captured(t, f)
+	want := []smtp.InlinePart{{ContentID: "poster@slipstream", Type: "image/png", File: "poster@slipstream"}}
+	if len(msgs) != 1 || !reflect.DeepEqual(msgs[0].Inline, want) {
+		t.Fatalf("captured inline %+v, want %+v", msgs, want)
+	}
+	if got := files[0]["poster@slipstream"]; got != string(poster) {
+		t.Fatalf("kept poster %q, want %q", got, poster)
 	}
 }
 

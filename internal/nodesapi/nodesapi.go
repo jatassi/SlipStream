@@ -348,7 +348,7 @@ func outcomeOf(o nodes.Outcome) outcome {
 	}
 	for _, c := range o.Checks {
 		out.Checks = append(out.Checks, check{
-			Node: namedOf(c.Node), Role: string(c.Role), Verdict: c.Verdict.String(), Reason: string(c.Reason), Words: c.Words,
+			Node: namedOf(c.Node), Role: string(c.Role), Target: c.Target, Verdict: c.Verdict.String(), Reason: string(c.Reason), Words: c.Words,
 		})
 	}
 	return out
@@ -357,8 +357,9 @@ func outcomeOf(o nodes.Outcome) outcome {
 type check struct {
 	Node    named  `json:"node"`
 	Role    string `json:"role,omitempty" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving" doc:"Absent for a check on the whole Node"`
+	Target  string `json:"target,omitempty" doc:"The host and port a reach test ran against; absent for any other check"`
 	Verdict string `json:"verdict" enum:"allow,warn,block"`
-	Reason  string `json:"reason" enum:"role_taken,probe_fails,probe_weak,offline_unchecked,reach_failed,reached,nothing_to_test,node_is_controller,node_holds_work,nothing_held,keeps_role,keeps_config"`
+	Reason  string `json:"reason" enum:"role_taken,probe_fails,probe_weak,offline_unchecked,reach_failed,reach_warned,reached,nothing_to_test,node_is_controller,node_holds_work,nothing_held,keeps_role,keeps_config"`
 	Words   string `json:"words"`
 }
 

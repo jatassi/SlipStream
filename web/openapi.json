@@ -15389,6 +15389,7 @@
               "probe_weak",
               "offline_unchecked",
               "reach_failed",
+              "reach_warned",
               "reached",
               "nothing_to_test",
               "node_is_controller",
@@ -15413,6 +15414,10 @@
               "relaying",
               "serving"
             ],
+            "type": "string"
+          },
+          "target": {
+            "description": "The host and port a reach test ran against; absent for any other check",
             "type": "string"
           },
           "verdict": {
