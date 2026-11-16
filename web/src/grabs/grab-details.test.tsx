@@ -205,6 +205,21 @@ test("Details on a Needs you card opens its Grab's record", async () => {
     );
 });
 
+test("a failure whose detail says only its cause shows no Detail row", async () => {
+  const failed: GrabsGrab = {
+    ...manual,
+    stage: "failed",
+    failure: { ...fetchFailure, message: fetchFailure.cause },
+    actions: { cancel: false, blocklistable: false, sendTo: false },
+  };
+  renderApp({ path: "/activity", handlers: grabServer(failed).handlers });
+  await expect
+    .element(page.getByRole("article", { name: "The Quiet Orchard" }))
+    .toMatchTextContent(
+      /CauseSlipStream couldn't download the release's \.torrent file or magnet link from the Indexer\.RecoverySearch again to pick another release\.ReleaseThe\.Quiet\.Orchard\.2021\.1080p\.WEB-DL$/u,
+    );
+});
+
 test("Cancel on a downloading Grab names it once and lists only the other Grabs its torrent's removal cancels", async () => {
   const other = {
     grabId: "7d9f1b3c-5e7a-4c9b-8d2f-6a8c0e2f4a6b",
