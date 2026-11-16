@@ -127,7 +127,7 @@ func (m *MediaServers) mappingView(server string, root roots.Root, w world, mp *
 		v.ServerFolder = deref(mp.ServerFolder)
 		v.Library = &Library{Key: deref(mp.LibraryKey), Name: deref(mp.LibraryName), Folder: deref(mp.LibraryFolder)}
 		if !v.Confirmed {
-			v.Words = server + " holds changes for files in " + v.RootName + " until its Path mapping is confirmed. Check the folder, then save the mappings."
+			v.Words = "SlipStream won't send " + server + " changes for files in " + v.RootName + " until you confirm its Path mapping. Check the folder, then save the mappings."
 		}
 	}
 	return v

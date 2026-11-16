@@ -181,7 +181,7 @@ func (x *Indexers) record(ctx context.Context, q QueryID, idx ID, a answer) (Sta
 		return err
 	})
 	if err != nil {
-		return Status{}, fmt.Errorf("record an answer of Indexer %s: %w", idx, err)
+		return Status{}, fmt.Errorf("record a response of Indexer %s: %w", idx, err)
 	}
 	if st.State != "" {
 		x.moved()

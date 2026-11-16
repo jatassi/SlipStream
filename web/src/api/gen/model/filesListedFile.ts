@@ -10,7 +10,7 @@ export interface FilesListedFile {
   codec: FilesVideoCodec | null;
   /** The key of its own cut */
   cut: string;
-  /** The cells it fills; empty for a Kept or gone file */
+  /** The Items and Targets it is the file for; empty for a Kept or gone file */
   fills: FilesFill[];
   /** The folder it sits in, relative to its root, / separated */
   folder: string;
@@ -22,7 +22,7 @@ export interface FilesListedFile {
   /** The Grab whose download it came from; null for a file no Grab brought */
   grab: FilesFileGrab | null;
   id: string;
-  /** A Kept file, which fills no cell */
+  /** A Kept file, which no Target uses */
   kept: boolean;
   /** The Target name its file name carries, before any suffix */
   label: string;
@@ -41,7 +41,7 @@ export interface FilesListedFile {
    */
   placedBy: FilesListedFilePlacedBy;
   /**
-   * The first line ffprobe printed when the last library scan couldn't read it, and media is then the read before; null when that read worked
+   * The first line ffprobe printed when the last library scan couldn't read the file, in which case media is from the read before; null when the last read worked
    * @nullable
    */
   probeError: string | null;

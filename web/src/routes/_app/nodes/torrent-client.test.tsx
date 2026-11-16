@@ -37,13 +37,17 @@ test("Torrent client leads with the port verdict, then its restart rows and live
   await expect
     .element(
       page.getByText(
-        "With 0.0.0.0 or [::], the client listens on the address this computer reaches the internet from.",
+        "With 0.0.0.0 or [::], the client listens on every network address of this computer and connects out through its default network adapter.",
       ),
     )
     .toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Details" }));
   await expect
-    .element(page.getByText(/^Trackers reachable only through another network adapter/u))
+    .element(
+      page.getByText(
+        /^The client can.t connect to a tracker that only another network adapter can get to/u,
+      ),
+    )
     .toBeVisible();
   await Promise.all(
     ["Speed", "Queue", "Peers"].map((name) =>

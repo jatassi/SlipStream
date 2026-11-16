@@ -70,7 +70,7 @@ async function waitingDownload(world: World): Promise<string> {
 
 async function openPendingImports(page: Page): Promise<void> {
   await navigate(page, "Library");
-  await page.getByRole("link", { name: /^1 pending import needs you/u }).click();
+  await page.getByRole("link", { name: /^1 pending import needs attention/u }).click();
   await expect(page).toHaveURL(/\/library\/pending$/u);
 }
 
@@ -171,12 +171,12 @@ test("a folder imports by hand, and a download that isn't an upgrade forces into
   await menuItem(page, `Other actions for ${video}`, "Force into 1080p").click();
   const confirm = page.getByRole("dialog", { name: "Force into 1080p?" });
   await expect(
-    confirm.getByText(`This deletes ${kept}, because it fills no other Target.`, { exact: true }),
+    confirm.getByText(`This deletes ${kept}, because no other Target uses it.`, { exact: true }),
   ).toBeVisible();
   await expectAccessible(page);
   await confirm.getByRole("button", { name: "Force into 1080p", exact: true }).click();
   if (isPhone(page)) {
-    await expect(page.getByText("Nothing in this download waits for you now.")).toBeVisible({
+    await expect(page.getByText("Nothing in this download needs attention now.")).toBeVisible({
       timeout: 60_000,
     });
   } else {
@@ -216,7 +216,7 @@ test("on a phone Pending imports list the download, and its pushed page declines
   await openPendingImports(page);
   const downloads = page.getByRole("list", { name: "Pending imports from downloads" });
   const entry = downloads.getByRole("link").filter({ hasText: release });
-  await expect(entry).toContainText("1 file waits for you");
+  await expect(entry).toContainText("1 file needs attention");
   await expectAccessible(page);
   await screenshotWholePage(page, testInfo.outputPath("pending-imports-phone.png"));
 
@@ -228,7 +228,7 @@ test("on a phone Pending imports list the download, and its pushed page declines
   await screenshotWholePage(page, testInfo.outputPath("pending-import-phone.png"));
 
   await file.getByRole("button", { name: "Don't import", exact: true }).click();
-  await expect(page.getByText("Nothing in this download waits for you now.")).toBeVisible({
+  await expect(page.getByText("Nothing in this download needs attention now.")).toBeVisible({
     timeout: 60_000,
   });
 });

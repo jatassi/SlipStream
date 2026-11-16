@@ -74,14 +74,14 @@ export const DeleteDownloadClientQueryParams = zod.object({
     .boolean()
     .exactOptional()
     .describe(
-      "Delete a client that holds torrents SlipStream tracks: they stay in the client, and Grabs not yet imported from them fail",
+      "Delete a client that has torrents SlipStream tracks: they stay in the client, and Grabs not yet imported from them fail",
     ),
 });
 
 export const DeleteDownloadClientResponse = zod.void();
 
 /**
- * @summary Change an external Download Client, testing it first when the change is to its Node, kind, address, sign-in, daemon, label, folder or Client folders
+ * @summary Change an external Download Client, testing it first when the change is to its Node, kind, address, sign-in, daemon, label, folder or remote path mappings
  */
 export const UpdateDownloadClientParams = zod.object({
   id: zod.uuid(),
@@ -145,7 +145,7 @@ export const ActOnTorrentsBody = ActInputBody;
 export const ActOnTorrentsResponse = DownloadclientsActed;
 
 /**
- * @summary Get a Torrent with its announce URLs, files and Grabs, live from its Node while the Node responds
+ * @summary Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds
  */
 export const GetTorrentParams = zod.object({
   id: zod.uuid(),

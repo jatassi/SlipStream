@@ -39,7 +39,7 @@ export const RevokeJoinCodeParams = zod.object({
 export const RevokeJoinCodeResponse = zod.void();
 
 /**
- * @summary Get whether a Join Code is open, used or expired, and its dial
+ * @summary Get whether a Join Code is open, used or expired, and the Controller's connection to its Node
  */
 export const GetJoinCodeParams = zod.object({
   id: zod.uuid(),
@@ -48,7 +48,7 @@ export const GetJoinCodeParams = zod.object({
 export const GetJoinCodeResponse = NodesCodeState;
 
 /**
- * @summary Dial the Node waiting at a Node address, which pairs with the code over that session
+ * @summary Connect to the Node waiting at a Node address, which pairs with the code over that connection
  */
 export const DialForCodeParams = zod.object({
   id: zod.uuid(),
@@ -111,7 +111,7 @@ export const RemoveNodeQueryParams = zod.object({
     .boolean()
     .exactOptional()
     .describe(
-      "Write off the work the Node holds, files kept, instead of refusing while it holds any",
+      "Give up the work the Node has, keeping its files, instead of refusing while it has any",
     ),
 });
 
@@ -138,7 +138,7 @@ export const RenameNodeBody = NodesRenameBody;
 export const RenameNodeResponse = NodesNode;
 
 /**
- * @summary Set the Node address the Controller dials a Node at, or stop dialing it
+ * @summary Set the Node address the Controller connects to a Node at, or stop connecting to it
  */
 export const SetNodeDialParams = zod.object({
   id: zod.uuid(),

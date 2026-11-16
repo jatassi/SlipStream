@@ -44,7 +44,7 @@ export function DefaultChoice({
     />
   ) : (
     <p className="text-ink-3">
-      It becomes the default for {label}, where new {label} go.
+      It becomes the default for {label}, so new {label.toLowerCase()} go there.
     </p>
   );
 }

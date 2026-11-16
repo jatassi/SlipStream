@@ -27,7 +27,7 @@ func catalogAnswer(err error) error {
 	var ported *indexers.PortIDTakenError
 	switch {
 	case errors.As(err, &ported):
-		return definitionIDTaken.Because("SlipStream includes " + ported.Name + ", which has this id.")
+		return definitionIDTaken.Because(ported.Name + ", one of SlipStream's built-in sites, has this id.")
 	case errors.As(err, &unreachable):
 		return catalogAddressUnreachable.Because("Check the address and that it serves schema 12.")
 	case errors.As(err, &unrunnable):
@@ -107,9 +107,9 @@ type definitionField struct {
 	Options  []option `json:"options" nullable:"false" doc:"A select's or a multiselect's choices, by value"`
 	Min      *int     `json:"min" doc:"A number's least value; null for none"`
 	Max      *int     `json:"max" doc:"A number's greatest value; null for none"`
-	Help     *string  `json:"help" doc:"An info field's text, written by the definition's authors, or a ported site's help"`
-	Sealed   bool     `json:"sealed" doc:"Its saved value is never returned"`
-	Required bool     `json:"required" doc:"An Indexer can't be saved with the value empty; an edit that sends a sealed one empty keeps the saved value"`
+	Help     *string  `json:"help" doc:"An info field's text, written by the definition's authors, or a built-in site's help"`
+	Sealed   bool     `json:"sealed" doc:"A secret setting, whose saved value is never returned"`
+	Required bool     `json:"required" doc:"An Indexer can't be saved with the value empty; an edit that sends a secret one empty keeps the saved value"`
 }
 
 type definitionForm struct {
@@ -121,7 +121,7 @@ type definitionForm struct {
 	Solver  bool                    `json:"solver" doc:"The site sits behind a browser challenge that a Challenge solver can clear"`
 	Cookie  bool                    `json:"cookie" doc:"Its Indexers sign in with a browser cookie and its User-Agent, pasted as the cookie member, in place of a cookie field"`
 	Code    bool                    `json:"code" doc:"Signing in may ask for a two-factor code"`
-	Port    api.Nullable[portFacts] `json:"port" doc:"What an included site's form says beyond a definition's; null for a definition"`
+	Port    api.Nullable[portFacts] `json:"port" doc:"Extra form facts for a built-in site, such as its default limits and whether it lists new uploads; null for a catalog definition"`
 }
 
 type portFacts struct {
@@ -130,7 +130,7 @@ type portFacts struct {
 	Grabs          limit      `json:"grabs" doc:"A new Indexer's grab limit unless the form sets one"`
 	Recent         bool       `json:"recent" doc:"The site lists its new uploads, so RSS sync can use it"`
 	SpacingSeconds float64    `json:"spacingSeconds" doc:"The least time between two requests to the site"`
-	Synced         *time.Time `json:"synced" doc:"When the Prowlarr commit SlipStream's support for the site was synced to was made"`
+	Synced         *time.Time `json:"synced" doc:"The date of the Prowlarr commit that SlipStream's support for this site is based on"`
 }
 
 func formOf(f indexers.Form) definitionForm {

@@ -79,7 +79,7 @@ func (m *MediaServers) snapshot(ctx context.Context, p *prep) {
 	w, ok := out.Job.Work.(link.Carry)
 	if err != nil || !ok || out.Job.Step != link.StepSnapshotted {
 		if err != nil {
-			m.cfg.Log.Warn("a Media Server's snapshot before a rename failed, and the sender tries it again at send",
+			m.cfg.Log.Warn("couldn't save a Media Server's watch data before a rename, retrying when the change is sent",
 				"server", p.job.Server.ID.String(), "err", err.Error())
 		}
 		p.miss()

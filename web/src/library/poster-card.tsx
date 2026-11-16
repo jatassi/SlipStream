@@ -80,7 +80,7 @@ export const PosterCard = memo(function PosterCard({
         className={`absolute top-2 left-2 rounded-item bg-popover px-1.5 ${selecting || picked ? "" : "opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100"}`}
       >
         <Checkbox
-          label={`Pick ${work.label}`}
+          label={`Select ${work.label}`}
           hideLabel
           checked={picked}
           onCheckedChange={(_, by) => {

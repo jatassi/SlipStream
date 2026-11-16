@@ -39,7 +39,7 @@ type outcomeProblem struct {
 	Detail string `json:"detail,omitempty"`
 }
 
-var storageUnreachable = api.NewCode(http.StatusConflict, "storage_unreachable", "The Work's files can't be deleted")
+var storageUnreachable = api.NewCode(http.StatusConflict, "storage_unreachable", "The files can't be deleted")
 
 var skipReasons = []struct {
 	why    error
@@ -99,7 +99,7 @@ func problemOf(why error) (outcomeProblem, error) {
 
 func unreachableWords(e *roots.UnreachableError) string {
 	if e.State == roots.WrittenOff {
-		return e.Node + "'s Storage was written off, so this Work's files there can't be deleted. Delete the Work and leave its files."
+		return "SlipStream stopped using " + e.Node + "'s Storage. Leave the files on disk."
 	}
-	return e.Node + " is offline, so this Work's files there can't be deleted. Delete the Work and leave its files, or try again once " + e.Node + " is back."
+	return e.Node + " is offline. Leave the files on disk, or try again once " + e.Node + " is back online."
 }

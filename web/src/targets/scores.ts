@@ -72,8 +72,8 @@ const formatsWord = (count: number) => (count === 1 ? "Custom Format" : "Custom 
 
 /**
  * What a Target's scores do, in words: a lead such as "Scores 2 of 5
- * Custom Formats. A Release needs 10 or more to be grabbed. ..." and a
- * warning for each total no Release can reach.
+ * Custom Formats. A release needs 10 or more to be grabbed. ..." and a
+ * warning for each total no release can reach.
  */
 export function scoresInWords(scores: ScoresDraft): {
   lead: string;
@@ -86,19 +86,19 @@ export function scoresInWords(scores: ScoresDraft): {
   const total = values.length;
   const lead =
     total === 0
-      ? "No Custom Formats exist yet, so this Target ranks Releases by quality alone."
+      ? "No Custom Formats exist yet, so this Target ranks releases by quality alone."
       : scored === 0
-        ? "No Custom Format has a score here, so this Target ranks Releases by quality alone. Score a Custom Format to prefer the Releases that match it."
-        : `Scores ${String(scored)} of ${String(total)} ${formatsWord(total)}. A Release needs a score of ${String(minimum)} or more to be grabbed. In the same tier, a Release replaces a file when it scores ${String(increment)} more, until the file scores ${String(upgradeUntil)}.`;
+        ? "No Custom Format has a score here, so this Target ranks releases by quality alone. Score a Custom Format to prefer the releases that match it."
+        : `This Target scores ${String(scored)} of ${String(total)} ${formatsWord(total)}. A release needs a score of ${String(minimum)} or more to be grabbed. In the same tier, a release replaces a file when it scores at least ${String(increment)} more, until the file scores ${String(upgradeUntil)}.`;
   const warnings = [
     ...(minimum > most
       ? [
-          `No Release can reach the minimum of ${String(minimum)}, because the most a Release can score here is ${String(most)}. Lower the minimum or raise a score.`,
+          `No release can reach the minimum of ${String(minimum)}, because the most a release can score here is ${String(most)}. Lower the minimum or raise a score.`,
         ]
       : []),
     ...(upgradeUntil > most
       ? [
-          `No file can reach the upgrade-until score of ${String(upgradeUntil)}, because the most a Release can score here is ${String(most)}. Files stay wanted past the cutoff. Lower upgrade-until or raise a score.`,
+          `No file can reach the upgrade-until score of ${String(upgradeUntil)}, because the most a release can score here is ${String(most)}. Files keep upgrading past the cutoff and never stop. Lower upgrade-until or raise a score.`,
         ]
       : []),
   ];

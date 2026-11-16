@@ -71,7 +71,7 @@ export const getListNamingUrl = () => {
 };
 
 /**
- * @summary List each Content Type's naming settings, with what the save check refuses once renaming is on
+ * @summary List each Content Type's naming settings, with their problems once renaming is on
  */
 export const listNaming = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -147,7 +147,7 @@ export function useListNamingSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List each Content Type's naming settings, with what the save check refuses once renaming is on
+ * @summary List each Content Type's naming settings, with their problems once renaming is on
  */
 
 export function useListNamingSuspense<
@@ -175,7 +175,7 @@ export const getSetNamingUrl = (contentType: string) => {
 };
 
 /**
- * @summary Change a Content Type's naming settings by key, all or none. Every setting must pass the save check as the change leaves them
+ * @summary Change a Content Type's naming settings by key, all or none. Every setting must be free of problems as the change leaves them
  */
 export const setNaming = async (
   contentType: string,
@@ -257,7 +257,7 @@ export type SetNamingMutationError = ErrorType<
 export type SetNamingMutationVariables = { contentType: string; data: SetNamingInputBody };
 
 /**
- * @summary Change a Content Type's naming settings by key, all or none. Every setting must pass the save check as the change leaves them
+ * @summary Change a Content Type's naming settings by key, all or none. Every setting must be free of problems as the change leaves them
  */
 export const useSetNaming = <
   TError = ErrorType<
@@ -288,7 +288,7 @@ export const getPreviewNamingUrl = (contentType: string) => {
 };
 
 /**
- * @summary Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with what the save check refuses. Nothing is stored
+ * @summary Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with their problems. Nothing is stored
  */
 export const previewNaming = async (
   contentType: string,
@@ -380,7 +380,7 @@ export type PreviewNamingMutationError = ErrorType<
 export type PreviewNamingMutationVariables = { contentType: string; data: NamingPreviewInputBody };
 
 /**
- * @summary Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with what the save check refuses. Nothing is stored
+ * @summary Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with their problems. Nothing is stored
  */
 export const usePreviewNaming = <
   TError = ErrorType<

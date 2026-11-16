@@ -37,7 +37,7 @@ test("on a phone each level is a card of rows, and a row opens a sheet with its 
 
   await userEvent.click(levels().getByRole("button", { name: /^V01S02 ?Story V01S02/u }));
   await expect
-    .element(sheet().getByRole("list", { name: "Cells" }))
+    .element(sheet().getByRole("list", { name: "Editions and Targets" }))
     .toHaveTextContent("V01S02 1080p, Missing");
   await userEvent.click(sheet().getByRole("switch"));
   await expect
@@ -52,5 +52,5 @@ test("a row's sheet leads to the Item's Details", async () => {
   await userEvent.click(sheet().getByRole("button", { name: "Details" }));
   await expect
     .element(page.getByRole("dialog", { name: "V01S02 Story V01S02" }))
-    .toMatchTextContent(/Fixture source lists this story as v1s2\.$/u);
+    .toMatchTextContent(/Fixture source ID: v1s2$/u);
 });

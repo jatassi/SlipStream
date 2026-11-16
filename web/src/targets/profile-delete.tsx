@@ -35,7 +35,7 @@ function DeleteForm({
       action: `Delete ${profile.name}`,
       run: (changing) => deleteProfile(profile.id, { moveTo, ...changing }),
       done: () => {
-        toast(`Deleted ${profile.name}. Its Works now take ${into}.`);
+        toast(`Deleted ${profile.name}. Its Works now use ${into}.`);
         onDone();
       },
     }),

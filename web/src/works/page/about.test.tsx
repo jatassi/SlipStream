@@ -71,9 +71,9 @@ test("About brackets a field's With value and shows its Art beside it", async ()
     "/api/v1/artwork/orchard-pictures?size=small",
   );
   await expect
-    .element(about.getByText("Counts as out on April 9, 2021, Digital release in United States."))
+    .element(about.getByText("Available on April 9, 2021, Digital release in United States."))
     .toBeVisible();
-  await expect.element(about.getByText("TMDB lists this film as 9000001.")).toBeVisible();
+  await expect.element(about.getByText("TMDB ID: 9000001")).toBeVisible();
 });
 
 test("its links open the source's page and the trailer in a new tab", async () => {
@@ -107,10 +107,10 @@ test("a many-Item Work's About names the latest Item out and the next one to com
   renderKit(<About type={anthologies} work={longShelf} statuses={cells.items} />);
   const about = page.getByRole("region", { name: "About" });
   await expect
-    .element(about.getByText("The latest story, V01S27, counted as out on January 28, 2020."))
+    .element(about.getByText("The latest story, V01S27, was available on January 28, 2020."))
     .toBeVisible();
   await expect
-    .element(about.getByText("The next story, V01S03, counts as out on January 4, 2020."))
+    .element(about.getByText("The next story, V01S03, is available on January 4, 2020."))
     .toBeVisible();
 });
 
@@ -125,7 +125,7 @@ test("an Item not out yet is the next one whatever its cells hold, such as a dow
     .element(
       page
         .getByRole("region", { name: "About" })
-        .getByText("The next story, V01S03, counts as out on January 4, 2020."),
+        .getByText("The next story, V01S03, is available on January 4, 2020."),
     )
     .toBeVisible();
 });

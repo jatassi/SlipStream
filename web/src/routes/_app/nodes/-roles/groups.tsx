@@ -59,7 +59,9 @@ function RoleRow({ row, onTick }: { row: Row; onTick: (on: boolean) => void }) {
         {row.line !== undefined && <span className="text-meta text-ink-3">{row.line}</span>}
       </div>
       {row.locked && (
-        <p className="text-meta text-ink-3">The Controller always holds {row.entry.label}.</p>
+        <p className="text-meta text-ink-3">
+          The Controller always has the {row.entry.label} Role.
+        </p>
       )}
       {row.hint !== undefined && <HintLine hint={row.hint} />}
     </li>

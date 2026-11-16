@@ -14,7 +14,7 @@ export interface DownloadclientsExternalClient {
   address: string;
   /** An API key is saved. Secrets are never returned */
   apiKeySaved: boolean;
-  /** It isn't responding, refused the sign-in or needs attention while its Node is in step, so its card is red */
+  /** It isn't responding, refused the sign-in or needs attention while its Node is connected */
   away: boolean;
   checkEvery: SettingDurationField;
   clientFolders: DownloadclientsClientFolder[];

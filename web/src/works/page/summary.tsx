@@ -27,7 +27,7 @@ export function Summary({
     return null;
   }
   return (
-    <ul aria-label="Cells" className="flex flex-wrap items-center gap-2">
+    <ul aria-label="Download status" className="flex flex-wrap items-center gap-2">
       {pills.map((pill) => (
         <li key={pill.words}>{pillLooks[pill.tone](pill.words)}</li>
       ))}

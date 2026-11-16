@@ -14,10 +14,10 @@ const sentence = () => sheet().getByText(/^Adds /u);
 const presetPicker = () => sheet().getByRole("combobox", { name: "Stories to monitor" });
 const extras = () => sheet().getByRole("switch", { name: "Include extras" });
 const folders = () => sheet().getByRole("switch", { name: "Volume folders" });
-const willStart = () => sheet().getByText("New Anthologies will start with these.");
+const willStart = () => sheet().getByText("New anthologies will start with these.");
 
 const says = (monitoring: string) =>
-  `Adds The Long Shelf to Anthologies on /srv/media/anthologies, ${monitoring}, wanting Shelves' 1 Target.`;
+  `Adds The Long Shelf to Anthologies on /srv/media/anthologies. ${monitoring} Its Profile, Shelves, has 1 Target.`;
 
 function openShelf(catalog = anthologyCatalog()) {
   const server = addServer({ catalogs: [catalog], added: longShelf });
@@ -54,7 +54,7 @@ test("the sheet counts the volumes and stories and what each preset monitors", a
   await expect.element(sheet().getByText("Harbor Press · 24 volumes · 1176 stories")).toBeVisible();
   await expect
     .element(sentence())
-    .toHaveTextContent(says("monitoring all 1176 stories and new ones as they come out"));
+    .toHaveTextContent(says("SlipStream monitors all 1176 stories and new ones as they come out."));
   await expect.element(extras()).not.toBeChecked();
   await expect.element(folders()).toBeChecked();
 
@@ -76,13 +76,15 @@ test("each preset says what it monitors now and whether it monitors new stories"
   await openSheet();
 
   await pick("First volume");
-  await expect.element(sentence()).toHaveTextContent(says("monitoring 49 stories and no new ones"));
+  await expect
+    .element(sentence())
+    .toHaveTextContent(says("SlipStream monitors 49 stories and no new ones."));
   await pick("Future");
   await expect
     .element(sentence())
-    .toHaveTextContent(says("monitoring only new stories as they come out"));
+    .toHaveTextContent(says("SlipStream monitors only new stories as they come out."));
   await pick("None");
-  await expect.element(sentence()).toHaveTextContent(says("monitoring no stories"));
+  await expect.element(sentence()).toHaveTextContent(says("SlipStream monitors no stories."));
 });
 
 test("Include extras adds the extras to every preset's count", async () => {
@@ -92,9 +94,11 @@ test("Include extras adds the extras to every preset's count", async () => {
   await userEvent.click(extras());
   await expect
     .element(sentence())
-    .toHaveTextContent(says("monitoring all 1200 stories and new ones as they come out"));
+    .toHaveTextContent(says("SlipStream monitors all 1200 stories and new ones as they come out."));
   await pick("First volume");
-  await expect.element(sentence()).toHaveTextContent(says("monitoring 73 stories and no new ones"));
+  await expect
+    .element(sentence())
+    .toHaveTextContent(says("SlipStream monitors 73 stories and no new ones."));
   await expect.element(presetPicker()).toHaveTextContent("First volume · 73 stories");
 });
 
@@ -133,7 +137,9 @@ test("the sheet starts on the type's stored add defaults and moves nothing", asy
   await expect.element(presetPicker()).toHaveTextContent("First volume · 73 stories");
   await expect.element(extras()).toBeChecked();
   await expect.element(folders()).not.toBeChecked();
-  await expect.element(sentence()).toHaveTextContent(says("monitoring 73 stories and no new ones"));
+  await expect
+    .element(sentence())
+    .toHaveTextContent(says("SlipStream monitors 73 stories and no new ones."));
   expect(willStart().query()).toBeNull();
 
   await userEvent.click(sheet().getByRole("button", { name: "Add Anthology" }));
@@ -155,7 +161,7 @@ test("a one-Item type keeps the Monitor switch, which posts all or none and noth
   await expect
     .element(orchard.getByText(/^Adds /u))
     .toHaveTextContent(
-      "Adds The Quiet Orchard (2021) to Films on /srv/media/films, not monitored, wanting Films' 1 Target.",
+      "Adds The Quiet Orchard (2021) to Films on /srv/media/films. It isn't monitored. Its Profile, Films, has 1 Target.",
     );
   expect(orchard.getByRole("combobox", { name: /to monitor$/u }).query()).toBeNull();
   expect(orchard.getByRole("switch", { name: /^Include /u }).query()).toBeNull();

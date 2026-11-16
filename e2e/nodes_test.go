@@ -89,7 +89,7 @@ func TestANodeWhoseWebPortIsHeldFallsBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	warn := `"level":"WARN","msg":"web port taken, serving on a later one","subsystem":"http","configured":"` + configured + `","bound":"` + bound + `"}`
+	warn := `"level":"WARN","msg":"the web port was taken, so the web server listens on the next free port","subsystem":"http","configured":"` + configured + `","bound":"` + bound + `"}`
 	if !strings.Contains(string(logged), warn) {
 		t.Fatalf("seedbox's slipstream.log holds no %s:\n%s", warn, logged)
 	}

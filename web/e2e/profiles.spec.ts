@@ -43,17 +43,17 @@ const ranked = (page: Page, list: string) =>
   page.getByRole("list", { name: list, exact: true }).getByRole("listitem");
 
 async function chooseCutsWithoutStandard(page: Page) {
-  const sentence = page.getByText(/^Every Item |^Each Item /u);
+  const sentence = page.getByText(/^SlipStream (keeps|always|searches) /u);
   await page.getByRole("radio", { name: "Choose cuts" }).click();
-  await expect(sentence).toHaveText("Every Item always wants Standard.");
+  await expect(sentence).toHaveText("SlipStream always gets Standard.");
   await pick(page, "Add cut", "Extended");
   await expect(sentence).toHaveText(
-    "Every Item always wants Standard. It wants Extended only once a Release or file of that cut has been seen for it.",
+    "SlipStream always gets Standard. It also gets Extended once a release or file of that cut turns up.",
   );
   await page.getByRole("button", { name: "Remove Standard" }).click();
   await expect(page.getByText("No Standard")).toBeVisible();
   await expect(sentence).toHaveText(
-    "Every Item wants Extended outright, even where no Release of it has been seen. A Release that names no cut is Standard, which this list doesn't want.",
+    "SlipStream searches for Extended every time, even if no release of it has turned up. It skips releases that name no cut, because they count as Standard.",
   );
 }
 

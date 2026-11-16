@@ -39,7 +39,7 @@ func app(args []string, types contenttype.Set) int {
 		return openRunning(env)
 	}
 	if code := ExitCode(err); !ready && code != ExitOK {
-		desktop.Alert(install.ProductName, fmt.Sprintf("SlipStream could not start: %v\n\nThe log is %s", err, filepath.Join(env.DataDir.LogsDir(), logs.File)))
+		desktop.Alert(install.ProductName, fmt.Sprintf("SlipStream couldn't start: %v\n\nThe log is at %s", err, filepath.Join(env.DataDir.LogsDir(), logs.File)))
 	}
 	return ExitCode(err)
 }
@@ -138,5 +138,5 @@ func trayLine(s StatusReply) string {
 		return "Worker of " + s.Controller.Name + " · " + state
 	case system.Unclaimed:
 	}
-	return "Unclaimed · open " + install.ProductName + " to set up"
+	return "Not set up · open " + install.ProductName + " to set it up"
 }

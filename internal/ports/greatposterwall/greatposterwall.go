@@ -235,7 +235,7 @@ func factor(free bool) float64 {
 // cookie is optional, as UserPassOrCookieSettings says.
 type greatPosterWallSettings struct {
 	gazelle.UserPassOrCookieSettings
-	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
+	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
 }
 
 type GreatPosterWallResponse struct {

@@ -62,5 +62,5 @@ test("Start a new SlipStream is refused while a Join waits, with a way back to t
   await userEvent.click(startNew());
   await fillStart("1234");
   await expect.element(page.getByText("This Node is waiting to join a SlipStream.")).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Back to the wait" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Back to joining" })).toBeVisible();
 });

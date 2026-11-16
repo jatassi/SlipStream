@@ -21,7 +21,7 @@ function emptyWords(browser: Browser): string | null {
     return `Nothing here matches ${state.field}.`;
   }
   return listing.shown.path === ""
-    ? "This Node shows no drives."
+    ? "SlipStream found no drives on this Node."
     : "This folder has no folders inside.";
 }
 

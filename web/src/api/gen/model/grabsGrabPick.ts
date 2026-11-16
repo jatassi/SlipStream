@@ -2,10 +2,10 @@ import type { GrabsClientChoice } from "./grabsClientChoice.ts";
 import type { GrabsLiftKey } from "./grabsLiftKey.ts";
 
 export interface GrabsGrabPick {
-  /** The Grab downloading a cell it fills, canceled first */
+  /** The Grab downloading an Item and Target it covers, canceled first */
   cancelGrabId?: string;
   /**
-   * The cells the row or the Release showed
+   * The Items and Targets the row or the release showed
    * @maxItems 100
    */
   cells: string[];

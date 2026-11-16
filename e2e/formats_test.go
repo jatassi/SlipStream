@@ -187,7 +187,7 @@ func TestAReleaseWhoseNameGivesAnotherYearIsRefusedAsWrongTitle(t *testing.T) {
 		Results []tried `json:"results"`
 	}
 	decode(t, "parseReleases", w.a.Admin("home", http.MethodPost, "/api/v1/releases/parse", `{"names":["`+otherYear+`"],"workId":"`+w.work+`"}`), &parsed)
-	if got, want := parsed.Results[0].Sentence, "Reads as Bluray-1080p from FKW. Its name gives The Quiet Orchard (1987), which isn't this Work. It would fill no Target."; got != want {
+	if got, want := parsed.Results[0].Sentence, "SlipStream reads this as Bluray-1080p from FKW. Its name is for The Quiet Orchard (1987), a different movie. No Target would grab it."; got != want {
 		t.Fatalf("the tester against the Work reads %q, want %q", got, want)
 	}
 }
@@ -295,7 +295,7 @@ func TestTheTesterReadsNamesAndJudgesThemAtEachTargetThroughTheAPI(t *testing.T)
 	}
 	decode(t, "parseReleases", w.a.Admin("home", http.MethodPost, "/api/v1/releases/parse", `{"names":["`+dv+`","`+otherYear+`"],"draft":`+draft+`}`), &parsed)
 	want := [][]string{{
-		"Reads as WEBDL-1080p from FLUX. It matches The Quiet Orchard and would fill 1080p and HD.",
+		"SlipStream reads this as WEBDL-1080p from FLUX. It matches The Quiet Orchard, and an automatic search would grab it for 1080p and HD.",
 		"WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX",
 		"WEBDL-1080p FLUX [Dolby Vision HDR10] x265 [DD+] [5.1] 2021",
 		"work The Quiet Orchard",
@@ -304,7 +304,7 @@ func TestTheTesterReadsNamesAndJudgesThemAtEachTargetThroughTheAPI(t *testing.T)
 		"target 1080p 51 true",
 		"target HD 0 true",
 	}, {
-		"Reads as Bluray-1080p from FKW. It matches no Work. 1080p and HD accept it.",
+		"SlipStream reads this as Bluray-1080p from FKW. It matches nothing in your library. 1080p and HD accept it.",
 		"Bluray-1080p · FKW",
 		"Bluray-1080p FKW [] x264 [] [] 1987",
 		"format FLUX false FLUX false",

@@ -42,10 +42,10 @@ func ruleOf(rs trackers.Rules) api.Nullable[rule] {
 
 // partsSentence is what a rule that clears each way gives.
 var partsSentence = map[seeding.Clears]string{
-	seeding.ClearsTime:   "Give a seeding time and no ratio for a rule that clears by time.",
-	seeding.ClearsRatio:  "Give a ratio and no seeding time for a rule that clears by ratio.",
-	seeding.ClearsEither: "Give a ratio and a seeding time for a rule that clears by either.",
-	seeding.ClearsBoth:   "Give a ratio and a seeding time for a rule that clears by both.",
+	seeding.ClearsTime:   "A rule met by seeding time needs a seeding time and no ratio.",
+	seeding.ClearsRatio:  "A rule met by ratio needs a ratio and no seeding time.",
+	seeding.ClearsEither: "A rule met by either ratio or seeding time needs both a ratio and a seeding time.",
+	seeding.ClearsBoth:   "A rule met by both ratio and seeding time needs both a ratio and a seeding time.",
 }
 
 func parseRule(b ruleBody) (seeding.Rule, error) {
@@ -65,7 +65,7 @@ func parseRule(b ruleBody) (seeding.Rule, error) {
 }
 
 type goal struct {
-	Combine     string   `json:"combine" enum:"first,both,forever" doc:"first is whichever of the ratio and seeding time is reached first; both needs both of them; forever seeds until an Admin removes the torrent. A goal that ends counts a ratio, a seeding time or both, and with only one of them first and both each wait for it"`
+	Combine     string   `json:"combine" enum:"first,both,forever" doc:"first is whichever of the ratio and seeding time is reached first; both needs both of them; forever seeds until an Admin removes the torrent. A goal that isn't forever sets a ratio, a seeding time or both. With only one of them set, first and both wait for that one"`
 	Ratio       *float64 `json:"ratio" doc:"At most two decimals; null when combine is forever or the goal doesn't count ratio"`
 	SeedSeconds *int64   `json:"seedSeconds" doc:"Seconds; null when combine is forever or the goal doesn't count seeding time"`
 	Action      *string  `json:"action" enum:"pause,remove,remove-delete" doc:"What happens to the torrent once the goal is met, where remove-delete also deletes its download copy; null when combine is forever"`
@@ -141,7 +141,7 @@ func partsOf(r seeding.Ratio, d time.Duration) (ratio *float64, seed *int64) {
 
 func seedingAnswer(err error) error {
 	if public, ok := errors.AsType[*trackers.PublicError](err); ok {
-		return trackerPublic.Because(public.Name + " is public, so its torrents follow your seeding goal alone.")
+		return trackerPublic.Because(public.Name + " is public and has no seeding rule. Its torrents seed until your seeding goal is met.")
 	}
 	return trackerAnswer(err)
 }
@@ -236,7 +236,7 @@ func (h handlers) setDefaultGoal(ctx context.Context, by identity.Admin, in *def
 }
 
 type settings struct {
-	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"The margin added to every rule's seeding time, and how long a torrent that owes may go without announcing before Health warns"`
+	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"The extra seeding time added to every rule's seeding time, and how long a torrent at hit and run risk may go without announcing before Health warns"`
 }
 
 type settingsOutput struct{ Body settings }

@@ -29,9 +29,9 @@ func TestWordsSayWhatAChangeDidAndWhatItLost(t *testing.T) {
 		{sent(tb.change(link.ChangeMoved, "A>B", "f"), link.ResultConverted),
 			"The server had no item at the old path. SlipStream sent this change as a new file."},
 		{sent(tb.change(link.ChangeAdded, "A", "f"), link.ResultCovered), "A refresh of the whole library covered this change."},
-		{sent(tb.change(link.ChangeSidecarRemoved, "A.en.srt", "s"), link.ResultAccepted), "Sent the Sidecar's removal."},
+		{sent(tb.change(link.ChangeSidecarRemoved, "A.en.srt", "s"), link.ResultAccepted), "Sent the subtitle file's removal."},
 		{refused, "The Media Server refused SlipStream's credential (status 401). SlipStream retries automatically."},
-		{tb.doomed(tb.change(link.ChangeRemoved, "A", "old")), "This change is waiting for the other half of its upgrade."},
+		{tb.doomed(tb.change(link.ChangeRemoved, "A", "old")), "This change is part of an upgrade. SlipStream sends it together with the upgrade's other file change."},
 		{prepared, "Saved every user's watch data before the rename. SlipStream sends this change once the rename finishes."},
 		{missed, "SlipStream couldn't save the watch data before the rename. It tries again when it sends this change."},
 	} {

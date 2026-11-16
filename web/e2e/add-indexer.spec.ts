@@ -38,7 +38,7 @@ test("an Admin adds a Torznab feed, testing it first and naming the Tracker its 
     page
       .getByRole("alert")
       .getByText(
-        "Fixture feed refused the API key with 'Invalid API Key'. Check the account, then test again.",
+        "Fixture feed refused the API key and responded 'Invalid API Key'. Check the account, then test again.",
       ),
   ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("test-failure.png") });
@@ -98,7 +98,7 @@ test("an Admin adds Larkspur from the catalog, typing the code its captcha shows
     page
       .getByRole("alert")
       .getByText(
-        /^Larkspur refused the sign-in with '.+'\. Check the username, password and any code, then test again\.$/u,
+        /^Larkspur refused the sign-in and responded '.+'\. Check the username, password and any code, then test again\.$/u,
       ),
   ).toBeVisible({ timeout: 30_000 });
   const second = await captchas.wait({

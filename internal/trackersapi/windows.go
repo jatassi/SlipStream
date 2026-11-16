@@ -28,7 +28,7 @@ const windowsPage = 50
 
 type windowsInput struct {
 	ID     string `path:"id" format:"uuid"`
-	List   string `query:"list" enum:"open,history" doc:"open lists the windows that owe. history lists those met, missed or released, a missed one grabbed again included. Every window when absent."`
+	List   string `query:"list" enum:"open,history" doc:"open lists the windows whose torrent still needs seeding. history lists those met, missed or released, a missed one grabbed again included. Every window when absent."`
 	Offset int    `query:"offset" minimum:"0" doc:"How many of the newest to skip"`
 }
 
@@ -42,15 +42,15 @@ type window struct {
 	Name        string                  `json:"name" doc:"Its latest torrent's name"`
 	State       string                  `json:"state" enum:"owing,met,missed,released"`
 	Torrents    []string                `json:"torrents" nullable:"false" doc:"Its live Torrents' ids, in added order; empty once none is live"`
-	Rule        api.Nullable[ruleShape] `json:"rule" doc:"The rule it snapshot when it opened; null while none is known"`
+	Rule        api.Nullable[ruleShape] `json:"rule" doc:"The rule recorded when the window opened; null while none is known"`
 	OpenedAt    time.Time               `json:"openedAt" doc:"Its torrent's first downloaded byte"`
-	MetAt       *time.Time              `json:"metAt" doc:"When its Tracker's rule and the margin were met; null unless met"`
-	ClosedAt    *time.Time              `json:"closedAt" doc:"Its latest miss or release; a regrab keeps it"`
+	MetAt       *time.Time              `json:"metAt" doc:"When its Tracker's rule and the extra seeding time were met; null unless met"`
+	ClosedAt    *time.Time              `json:"closedAt" doc:"When it was last missed or released; grabbing it again doesn't clear this"`
 	RegrabbedAt *time.Time              `json:"regrabbedAt" doc:"When a torrent of it came back after a miss"`
-	Owed        api.Nullable[owed]      `json:"owed" doc:"What its latest miss still owed; null before a miss"`
-	Owes        api.Nullable[owed]      `json:"owes" doc:"What it still needs to meet its Tracker's rule and the margin; null unless it owes under a known rule"`
+	Owed        api.Nullable[owed]      `json:"owed" doc:"What it still needed when it was last missed; null before a miss"`
+	Owes        api.Nullable[owed]      `json:"owes" doc:"What it still needs to meet its Tracker's rule and the extra seeding time; null when it needs nothing or the rule isn't known"`
 	AtRisk      string                  `json:"atRisk" enum:"no,yes,unknown" doc:"Whether it is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline"`
-	QuietSince  *time.Time              `json:"quietSince" doc:"When it stopped seeding while it owes; null while it seeds"`
+	QuietSince  *time.Time              `json:"quietSince" doc:"When it stopped seeding while it still needed seeding; null while it seeds"`
 }
 
 type ruleShape struct {

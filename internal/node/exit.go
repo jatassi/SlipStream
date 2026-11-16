@@ -40,7 +40,7 @@ type InUseError struct {
 
 func (e *InUseError) Error() string {
 	if e.PID == 0 {
-		return fmt.Sprintf("data dir %s is in use by SlipStream PID unknown (starting)", e.Dir)
+		return fmt.Sprintf("data dir %s is in use by a SlipStream that is still starting", e.Dir)
 	}
 	return fmt.Sprintf("data dir %s is in use by SlipStream PID %d", e.Dir, e.PID)
 }

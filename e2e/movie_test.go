@@ -298,7 +298,7 @@ func TestArtworkIsServedAtEachSizeAndNeverFromAHalfImage(t *testing.T) {
 
 	forged := poster[:len(poster)-4] + "AAAA"
 	if got := fetchArtwork(t, a, session, forged, "small"); got.status != http.StatusNotFound || got.cache != "no-store" ||
-		string(got.body) != `{"status":404,"code":"artwork_unavailable","title":"SlipStream has no such image to show","detail":"SlipStream didn't issue that artwork token"}`+"\n" {
+		string(got.body) != `{"status":404,"code":"artwork_unavailable","title":"SlipStream has no such image to show","detail":"SlipStream didn't make this image link. Use an artwork URL from an API response."}`+"\n" {
 		t.Fatalf("a forged token = %d %q %s, want 404 no-store artwork_unavailable", got.status, got.cache, got.body)
 	}
 
@@ -306,8 +306,7 @@ func TestArtworkIsServedAtEachSizeAndNeverFromAHalfImage(t *testing.T) {
 	treatment := work.art(t, "title_treatment")
 	setFault(t, run, fault.Rule{ID: "half-image", Target: "image-cdn", Route: "image"}, "truncate")
 	if got := fetchArtwork(t, a, session, treatment, "small"); got.status != http.StatusNotFound || got.cache != "no-store" ||
-		!strings.HasPrefix(string(got.body), `{"status":404,"code":"artwork_unavailable","title":"SlipStream has no such image to show","detail":"the image couldn't be fetched: `) ||
-		!strings.Contains(string(got.body), `. SlipStream tries again later."`) {
+		string(got.body) != `{"status":404,"code":"artwork_unavailable","title":"SlipStream has no such image to show","detail":"SlipStream couldn't fetch this image. It tries again later."}`+"\n" {
 		t.Fatalf("the title treatment cut off mid-answer = %d %q %s, want 404 no-store artwork_unavailable", got.status, got.cache, got.body)
 	}
 	if got := fetchArtwork(t, a, session, poster, "small"); got.status != http.StatusOK || !bytes.Equal(got.body, small.body) {
@@ -413,7 +412,7 @@ func provider(t *testing.T, a *worldtest.API, id string) providerView {
 	return list.Providers[i]
 }
 
-var rateLimited = regexp.MustCompile(`^\{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later.","detail":"TMDB: is rate limited until (\S+)Z"\}\n$`)
+var rateLimited = regexp.MustCompile(`^\{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later.","detail":"TMDB is rate limiting SlipStream until ([^"]+)\. Try again then\."\}\n$`)
 
 func TestAProviderFaultEndsInItsStatusAndProblem(t *testing.T) {
 	t.Parallel()
@@ -424,7 +423,7 @@ func TestAProviderFaultEndsInItsStatusAndProblem(t *testing.T) {
 	}
 
 	setFault(t, run, fault.Rule{ID: "down", Target: "tmdb"}, "refuse")
-	if got := search("orchard"); got.Status != http.StatusBadGateway || !strings.Contains(got.Body, `"detail":"TMDB: didn't respond: `) {
+	if got := search("orchard"); got.Status != http.StatusBadGateway || !strings.Contains(got.Body, `"detail":"TMDB isn't available right now. Try again later."`) {
 		t.Fatalf("searchCatalog with TMDB refusing connections = %d %s, want 502 metadata_unavailable", got.Status, got.Body)
 	}
 	if p := provider(t, a, "tmdb"); p.State != "unreachable" {
@@ -440,12 +439,12 @@ func TestAProviderFaultEndsInItsStatusAndProblem(t *testing.T) {
 	cue(t, run, "omdb-cap", `{}`)
 	addSaltRoad(t, a)
 	midnight := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour).Format(time.RFC3339)
-	if p := provider(t, a, "omdb"); p.State != "out_of_allowance" || p.Until == nil || *p.Until != midnight || p.Summary != "OMDb is out of today's allowance. It resets automatically." {
+	if p := provider(t, a, "omdb"); p.State != "out_of_allowance" || p.Until == nil || *p.Until != midnight || p.Summary != "OMDb's daily request limit is used up. It resets automatically." {
 		t.Fatalf("OMDb once capped = %+v, want out_of_allowance until %s", p, midnight)
 	}
 
 	cue(t, run, "tmdb-revoke-key", `{}`)
-	worldtest.Expect(t, "searchCatalog with the key revoked", search("orchard"), problemBecause(502, "metadata_refused", "The metadata source refused SlipStream's key", "TMDB refused SlipStream's key"))
+	worldtest.Expect(t, "searchCatalog with the key revoked", search("orchard"), worldtest.Reply{Status: 502, Body: `{"status":502,"code":"metadata_refused","title":"The metadata source refused the API key or PIN","detail":"TMDB refused the API key. Check the key in Settings \u003e Metadata."}` + "\n"})
 	if p := provider(t, a, "tmdb"); p.State != "key_refused" || p.Key != "none" || p.Summary != "This build has no TMDB key. Add your own." {
 		t.Fatalf("TMDB with its key revoked = %+v, want key_refused with no key in this build", p)
 	}
@@ -464,8 +463,8 @@ func TestAProviderFaultEndsInItsStatusAndProblem(t *testing.T) {
 	if got.Status != http.StatusBadGateway || m == nil {
 		t.Fatalf("searchCatalog answered 429 = %d %s, want 502 metadata_unavailable rate limited until a time", got.Status, got.Body)
 	}
-	if p := provider(t, a, "tmdb"); p.State != "rate_limited" || p.Until == nil || !strings.HasPrefix(*p.Until, m[1]) {
-		t.Fatalf("TMDB once limited = %+v, want rate_limited until %sZ", p, m[1])
+	if p := provider(t, a, "tmdb"); p.State != "rate_limited" || p.Until == nil {
+		t.Fatalf("TMDB once limited = %+v, want rate_limited until %s", p, m[1])
 	}
 	if again := search("harbor"); again.Status != http.StatusBadGateway {
 		t.Fatalf("searchCatalog inside the limit = %d %s, want 502", again.Status, again.Body)

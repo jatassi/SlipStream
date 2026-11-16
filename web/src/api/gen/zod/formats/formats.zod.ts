@@ -36,7 +36,7 @@ export const PasteCustomFormatsQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(pasteCustomFormatsQueryUnwantedDefault)
-    .describe("What becomes of the files the change leaves filling nothing"),
+    .describe("What happens to the files no Target uses after the change"),
   confirm: zod
     .int()
     .min(pasteCustomFormatsQueryConfirmMin)
@@ -56,7 +56,7 @@ export const PasteCustomFormatsResponse = FormatsPasted;
 export const CustomFormatSchemaResponse = FormatsSchema;
 
 /**
- * @summary Delete a Custom Format and every Target's score for it, refilling the Works of the Targets that scored it, or preview the change's Impact
+ * @summary Delete a Custom Format and every Target's score for it, and re-rank the files of every Work whose Targets scored it, or preview what the change would do
  */
 export const DeleteCustomFormatParams = zod.object({
   formatId: zod.uuid(),
@@ -70,7 +70,7 @@ export const DeleteCustomFormatQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(deleteCustomFormatQueryUnwantedDefault)
-    .describe("What becomes of the files the change leaves filling nothing"),
+    .describe("What happens to the files no Target uses after the change"),
   confirm: zod
     .int()
     .min(deleteCustomFormatQueryConfirmMin)
@@ -92,7 +92,7 @@ export const GetCustomFormatParams = zod.object({
 export const GetCustomFormatResponse = FormatsCustomFormat;
 
 /**
- * @summary Replace a Custom Format's name, renaming flag and conditions, refilling the Works of the Targets that score it, or preview the change's Impact
+ * @summary Replace a Custom Format's name, renaming flag and conditions, and re-rank the files of every Work whose Targets score it, or preview what the change would do
  */
 export const UpdateCustomFormatParams = zod.object({
   formatId: zod.uuid(),
@@ -106,7 +106,7 @@ export const UpdateCustomFormatQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(updateCustomFormatQueryUnwantedDefault)
-    .describe("What becomes of the files the change leaves filling nothing"),
+    .describe("What happens to the files no Target uses after the change"),
   confirm: zod
     .int()
     .min(updateCustomFormatQueryConfirmMin)

@@ -89,16 +89,33 @@ func (r *Roots) waiting(ctx context.Context, node role.NodeID, err error) error 
 	}); err != nil {
 		return errors.Join(refused, err)
 	}
-	var why string
+	return &WaitingError{Why: waitingWords(refused, name), Err: refused}
+}
+
+// waitingWords is why SlipStream can't put new files in the library root
+// on node while refused holds.
+func waitingWords(refused *storing.NotReady, node string) string {
+	const wait = " New files wait until it's ready."
 	switch {
 	case refused.Draining:
-		why = name + " is draining Storage, so the library root there takes no new files."
+		return node + " is finishing its Storage work, so SlipStream can't put new files in its library root."
 	case refused.Unknown:
-		why = name + " hasn't taken up the library root yet, so it takes no new files."
-	default:
-		why = "The library root on " + name + " reads " + refused.State.String() + ", so it takes no new files until it is ready."
+		return node + " hasn't confirmed the library root's folder yet. New files wait until it does."
 	}
-	return &WaitingError{Why: why, Err: refused}
+	switch refused.State {
+	case storing.Missing:
+		return "The library root's folder on " + node + " is missing." + wait
+	case storing.Unmounted:
+		return "The drive of the library root on " + node + " isn't mounted." + wait
+	case storing.Foreign:
+		return "The library root's folder on " + node + " belongs to another SlipStream." + wait
+	case storing.Unwritable:
+		return "SlipStream can't write to the library root's folder on " + node + "." + wait
+	case storing.Unresponsive:
+		return "The library root's folder on " + node + " isn't responding." + wait
+	case storing.Ready:
+	}
+	return "SlipStream is still checking the library root on " + node + "." + wait
 }
 
 func nameOf(ctx context.Context, rd storage.Reader[file], node role.NodeID) (string, error) {
@@ -202,7 +219,7 @@ func (r *Roots) Reachable(ctx context.Context, rd storage.Reader[file], root Roo
 		return err
 	}
 	if state == WrittenOff {
-		return &UnreachableError{State: state, Node: name, Why: name + "'s Storage was written off, so the library root there takes no new files."}
+		return &UnreachableError{State: state, Node: name, Why: "SlipStream stopped waiting for " + name + "'s Storage, so it can't put new files in its library root."}
 	}
-	return &UnreachableError{State: state, Node: name, Why: name + " is offline, so the library root there takes no new files."}
+	return &UnreachableError{State: state, Node: name, Why: name + " is offline, so SlipStream can't put new files in its library root."}
 }

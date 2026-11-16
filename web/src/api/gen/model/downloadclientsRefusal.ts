@@ -1,7 +1,7 @@
 import type { DownloadclientsRefusalCode } from "./downloadclientsRefusalCode.ts";
 
 export interface DownloadclientsRefusal {
-  /** window: when every announce URL accepts an announce */
+  /** window: when every tracker allows another announce */
   acceptsAt?: string;
   /** client_away and client_off: the external client's name */
   client?: string;

@@ -233,12 +233,12 @@ func (m *MediaServers) endAway(ctx context.Context) time.Time {
 	})
 	if err != nil {
 		if ctx.Err() == nil {
-			m.cfg.Log.Error("end the plays of reaching Nodes away too long", "err", err.Error())
+			m.cfg.Log.Error("couldn't end the plays on Connect from Nodes offline too long", "err", err.Error())
 		}
 		return time.Time{}
 	}
 	if ended > 0 {
-		m.cfg.Log.Info("ended the plays of reaching Nodes away longer than Mark unhealthy after", "plays", ended)
+		m.cfg.Log.Info("ended the plays on Connect from Nodes offline longer than the Mark unhealthy after setting", "plays", ended)
 	}
 	return next
 }
@@ -291,12 +291,12 @@ func (m *MediaServers) repoint(ctx context.Context) {
 	})
 	if err != nil {
 		if ctx.Err() == nil {
-			m.cfg.Log.Error("name the Controller in place of removed reaching Nodes", "err", err.Error())
+			m.cfg.Log.Error("couldn't set the Controller as Connect from for servers whose Node was removed", "err", err.Error())
 		}
 		return
 	}
 	if len(moved) > 0 {
-		m.cfg.Log.Info("named the Controller as the reaching Node of the servers of removed Nodes", "servers", len(moved))
+		m.cfg.Log.Info("set the Controller as Connect from for servers whose Node was removed", "servers", len(moved))
 		m.cfg.Touch(self)
 		m.changed(ctx, moved...)
 	}

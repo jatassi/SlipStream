@@ -319,7 +319,7 @@ func TestUntickingTheRoleOnANodeServersNameIsRefused(t *testing.T) {
 
 		_, err := r.setRoles(t, role.Of())
 		blocked, ok := errors.AsType[*nodes.BlockedError](err)
-		if want := "seedbox still has Attic and Den. Delete them, or move them to another Node that talks to Media Servers, first."; !ok || blocked.Error() != want {
+		if want := "seedbox still has Attic and Den. First delete them, or move them to another Node that sends changes to Media Servers."; !ok || blocked.Error() != want {
 			t.Fatalf("unticking Media Server link on seedbox = %v, want refused with %q", err, want)
 		}
 		if !r.svc.Holds(role.MediaServerLink, r.seedbox) {

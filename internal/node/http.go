@@ -30,7 +30,7 @@ func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.
 	l.HTTP = boundTCP(ln)
 	log := n.rootLog.With("subsystem", "http")
 	if l.HTTP.Port() != cfg.HTTP.Listen.Port() && cfg.HTTP.Listen.Port() != 0 {
-		log.Warn("web port taken, serving on a later one", "configured", cfg.HTTP.Listen.String(), "bound", l.HTTP.String())
+		log.Warn("the web port was taken, so the web server listens on the next free port", "configured", cfg.HTTP.Listen.String(), "bound", l.HTTP.String())
 	}
 	facts := system.Facts{
 		DataDir:        n.env.DataDir.Path(),

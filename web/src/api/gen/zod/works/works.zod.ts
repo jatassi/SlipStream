@@ -49,7 +49,7 @@ export const SearchCatalogQueryParams = zod.object({
 export const SearchCatalogResponse = WorksCandidateList;
 
 /**
- * @summary Read a record of a Content Type's metadata source as the Work adding it would make, without adding it or reading ratings
+ * @summary Preview the Work that adding a metadata record would create, without adding it or fetching ratings
  */
 export const previewCatalogRecordPathContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const previewCatalogRecordPathKeyMax = 200;
@@ -90,7 +90,7 @@ export const GetContentTypeSettingsParams = zod.object({
 export const GetContentTypeSettingsResponse = WorksTypeSettings;
 
 /**
- * @summary Change a Content Type's own settings by key, all or none. Every Work of the type may then read differently
+ * @summary Change a Content Type's own settings by key, all or none. A change can alter every Work of the type, such as its availability dates
  */
 export const updateContentTypeSettingsPathContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
@@ -162,7 +162,7 @@ export const SetWorksProfileQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(setWorksProfileQueryUnwantedDefault)
-    .describe("What becomes of the files the change leaves filling nothing"),
+    .describe("What happens to the files no Target uses after the change"),
   confirm: zod
     .int()
     .min(setWorksProfileQueryConfirmMin)

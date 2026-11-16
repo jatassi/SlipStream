@@ -28,7 +28,7 @@ test("Add a library root picks a folder through the browser, checks it on its No
     .element(dialog.getByRole("link", { name: "its Roles" }))
     .toHaveAttribute("href", `/nodes/${notStorage.id}/roles`);
   await expect
-    .element(dialog.getByText("It becomes the default for Zines, where new Zines go."))
+    .element(dialog.getByText("It becomes the default for Zines, so new zines go there."))
     .toBeVisible();
   await expect.element(dialog.getByRole("button", { name: "Add" })).toBeDisabled();
 
@@ -42,7 +42,7 @@ test("Add a library root picks a folder through the browser, checks it on its No
     .toBeVisible();
   await userEvent.click(dialog.getByRole("button", { name: "Add" }));
 
-  await expect.element(page.getByText("Added /srv/media/zines. New Zines go there.")).toBeVisible();
+  await expect.element(page.getByText("Added /srv/media/zines. New zines go there.")).toBeVisible();
   await expect.element(dialog).not.toBeInTheDocument();
   expect(sent.created).toEqual([
     { contentType: "zine", nodeId: media.id, path: "/srv/media/zines", makeDefault: false },
@@ -81,7 +81,7 @@ test("a second root of a type offers to become its default", async () => {
     .element(dialog.getByText("This folder is on /srv/media, 1.2 TB free."))
     .toBeVisible();
   await userEvent.click(dialog.getByRole("button", { name: "Add" }));
-  await expect.element(page.getByText("Added /srv/media/more. New Films go there.")).toBeVisible();
+  await expect.element(page.getByText("Added /srv/media/more. New films go there.")).toBeVisible();
   expect(sent.created).toEqual([
     { contentType: "cinema", nodeId: media.id, path: "/srv/media/more", makeDefault: true },
   ]);

@@ -1,6 +1,6 @@
 export interface MediaserversDraftBody {
   /**
-   * What the reaching Node calls, such as http://localhost:8096; absent for Plex, whose address SlipStream picks from the server's connections
+   * The address the Connect from Node uses, such as http://localhost:8096; absent for Plex, whose address SlipStream picks from the server's connections
    * @maxLength 2048
    */
   address?: string;
@@ -10,7 +10,7 @@ export interface MediaserversDraftBody {
    */
   apiKey?: string;
   /**
-   * Jellyfin and Emby: where Open in sends a browser; absent for no Open in button
+   * Jellyfin and Emby: the address the Open in button opens; absent when there is no Open in button
    * @maxLength 2048
    */
   browserAddress?: string;
@@ -20,7 +20,7 @@ export interface MediaserversDraftBody {
    */
   deviceId?: string;
   /**
-   * What the Controller calls; absent for address
+   * The address the Controller uses while the Connect from Node is offline; absent when it uses address
    * @maxLength 2048
    */
   fallbackAddress?: string;
@@ -40,7 +40,7 @@ export interface MediaserversDraftBody {
    * @maxLength 256
    */
   plexServer?: string;
-  /** The Controller, or a Node that holds Media Server link */
+  /** The Controller, or a Node with the Media Server link Role */
   reachingNodeId: string;
   /** The Node the server runs on; absent when it runs on none */
   runsOnNodeId?: string;

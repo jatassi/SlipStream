@@ -15,7 +15,7 @@ import (
 type Editions struct{ cuts []release.CutKey }
 
 var (
-	ErrNoCuts   = errors.New("an Edition list of named cuts names at least one")
+	ErrNoCuts   = errors.New("an Edition list of named cuts needs at least one cut")
 	ErrCutTwice = errors.New("an Edition list names a cut twice")
 )
 

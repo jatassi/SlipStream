@@ -56,7 +56,7 @@ function parseDuration(
     return { refused: durationRange(field) };
   }
   if (seconds < field.min && field.floor !== undefined) {
-    return { refused: `No faster than ${durationWords(field.min)}. ${field.floor}` };
+    return { refused: `Use ${durationWords(field.min)} or longer. ${field.floor}` };
   }
   if (seconds < field.min || seconds > field.max) {
     return { refused: durationRange(field) };
@@ -152,7 +152,7 @@ export const durationKind: Kind<"duration"> = {
     `${defaultHint(field, durationWords(field.default))} ${durationRange(field)}`,
     ...(field.floor === undefined
       ? []
-      : [`No faster than ${durationWords(field.min)}. ${field.floor}`]),
+      : [`Use ${durationWords(field.min)} or longer. ${field.floor}`]),
   ],
   Control: DurationControl,
 };

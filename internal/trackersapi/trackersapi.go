@@ -99,8 +99,8 @@ type trackerItem struct {
 type counts struct {
 	Torrents int `json:"torrents" minimum:"0"`
 	Seeding  int `json:"seeding" minimum:"0"`
-	Owing    int `json:"owing" minimum:"0" doc:"The ones that still owe it seeding"`
-	AtRisk   int `json:"atRisk" minimum:"0" doc:"The ones that owe it seeding and aren't seeding"`
+	Owing    int `json:"owing" minimum:"0" doc:"The ones that haven't met its seeding rule yet"`
+	AtRisk   int `json:"atRisk" minimum:"0" doc:"The ones that haven't met its seeding rule and aren't seeding"`
 	GoalMet  int `json:"goalMet" minimum:"0" doc:"The ones whose seeding goal is met"`
 }
 
@@ -139,7 +139,7 @@ type stats struct {
 	Torrents     int     `json:"torrents" minimum:"0" doc:"Its torrents, live or being removed"`
 	SeedingBytes int64   `json:"seedingBytes" minimum:"0" doc:"The size of its torrents that are seeding"`
 	Grabs30d     int     `json:"grabs30d" minimum:"0" doc:"Its Grabs in the last 30 days"`
-	Owing        int     `json:"owing" minimum:"0" doc:"Its torrents that still owe it seeding"`
+	Owing        int     `json:"owing" minimum:"0" doc:"Its torrents that haven't met its seeding rule yet"`
 }
 
 type trackerPageOutput struct{ Body trackerPage }
@@ -323,7 +323,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "setTrackerRoute",
 		Method:  http.MethodPut,
 		Path:    "/trackers/{id}/routes/{nodeId}",
-		Summary: "Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node holds Downloading.",
+		Summary: "Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node has the Downloading Role.",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{trackerNotFound, trackerPublic, nodeNotFound, routeNotAHome, clientNotFound, clientRefused, nodeNotDownloading},
 	}, h.setRoute)
@@ -332,7 +332,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "clearTrackerRoute",
 		Method:  http.MethodDelete,
 		Path:    "/trackers/{id}/routes/{nodeId}",
-		Summary: "Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it holds Downloading, and where the Work's library root is while it doesn't.",
+		Summary: "Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it has the Downloading Role, and on the client set for each Work's library root while it doesn't.",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{trackerNotFound, trackerPublic, nodeNotFound, routeNotAHome},
 	}, h.clearRoute)

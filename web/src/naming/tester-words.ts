@@ -39,7 +39,7 @@ export function leadOf(outcome: Outcome): string {
         ? `It matches no Work. ${pending}`
         : `It matches ${String(outcome.works.length)} Works: ${list.format(outcome.works.map(({ label }) => label))}. ${pending}`;
     case "refused":
-      return `It matches ${outcome.work.label}. The ${outcome.type.name} card has a setting the save check refuses. Fix it to see where this file would go.`;
+      return `It matches ${outcome.work.label}. A setting on the ${outcome.type.name} card has a problem. Fix it to see where this file would go.`;
     case "tested": {
       const { tested, type, work } = outcome;
       if (tested.unplaced !== undefined) {

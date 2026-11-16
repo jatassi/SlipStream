@@ -29,13 +29,13 @@ function Standing({ tracker }: { tracker: TrackersTrackerItem }) {
   return (
     <span className="flex items-center gap-2 text-meta tabular-nums">
       {plural(torrents, "torrent", "torrents")}
-      {owing > 0 && <span>· {owing} owe seeding</span>}
+      {owing > 0 && <span>· {owing} need more seeding</span>}
       {warn && (
         <AlertDot
           tone="warn"
           words={
             atRisk > 0
-              ? `${plural(atRisk, "torrent owes", "torrents owe")} seeding and ${atRisk === 1 ? "isn't" : "aren't"} seeding`
+              ? `${plural(atRisk, "torrent", "torrents")} at hit and run risk`
               : "No rule known"
           }
         />

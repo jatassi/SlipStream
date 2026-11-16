@@ -115,7 +115,7 @@ func modFor(r *ref, e *entry) (mod, error) {
 		return m, nil
 	case cut:
 		if e.Kind != KindTitle && e.Kind != KindText {
-			return nil, refused("cuts a value that isn't text", "Remove the "+quote(typed)+". Only a title or text can be cut.")
+			return nil, refused("shortens a value that isn't text", "Remove the "+quote(typed)+". Only a title or text can be shortened.")
 		}
 		return m, nil
 	case words:

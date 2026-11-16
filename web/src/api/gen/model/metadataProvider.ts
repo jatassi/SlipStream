@@ -9,7 +9,7 @@ export interface MetadataProvider {
   details: MetadataDetails;
   /** The provider, such as tmdb */
   id: string;
-  /** Whose key calls carry: none in this build, SlipStream's, or the Admin's */
+  /** Which key SlipStream sends: none (this build has none), the bundled key or the Admin's own key */
   key: MetadataProviderKey;
   /** Where an Admin gets a key, opened in the browser */
   keyPage: string;
@@ -21,14 +21,14 @@ export interface MetadataProvider {
   label: string;
   /** The Admin's key in use carries a PIN */
   pinSet: boolean;
-  /** From the latest outcome of a call or test, unused until one */
+  /** The provider's state from its latest call or test; unused until the first one */
   state: MetadataProviderState;
   /** How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details */
   summary: string;
   /** Set key offers a subscriber PIN beside the key */
   takesPin: boolean;
   /**
-   * When a rate limited provider, or one out of its daily allowance, takes calls again
+   * When a provider that is rate limiting SlipStream, or whose daily request limit is used up, takes calls again
    * @nullable
    */
   until: string | null;

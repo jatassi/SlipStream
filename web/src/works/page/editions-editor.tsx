@@ -34,7 +34,9 @@ export function EditionsEditor({ work, wants, profile, save, onDone }: EditorPro
     <section aria-label="Editions" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-body font-semibold text-ink-2 in-data-[density=touch]:text-body-touch">
-          {own === null ? `Editions from Profile ${profile.name}` : "Editions set for this Work"}
+          {own === null
+            ? `Editions from Profile ${profile.name}`
+            : `Editions set for ${work.label}`}
         </h3>
         {own !== null && (
           <Button

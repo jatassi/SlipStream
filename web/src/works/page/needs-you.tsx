@@ -111,7 +111,7 @@ export function NeedsYou({
             need={need}
           />
         ))}
-        {noRoot && <NoRoot />}
+        {noRoot && <NoRoot type={naming.type} />}
       </div>
     </Section>
   );

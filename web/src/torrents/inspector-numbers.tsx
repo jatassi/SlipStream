@@ -117,12 +117,12 @@ export function AnnounceUrls({
   const waits =
     detail.announceAt !== undefined && Date.parse(detail.announceAt) > clock.now.getTime();
   return (
-    <InspectorSection title="Announce URLs">
+    <InspectorSection title="Trackers">
       {!detail.live && (
         <p className="mb-2 text-ink-3">{`${node} isn't responding, so these are from its last report.`}</p>
       )}
       {detail.trackers.length === 0 ? (
-        <p className="text-ink-3">Its metainfo names no announce URL.</p>
+        <p className="text-ink-3">This torrent lists no trackers.</p>
       ) : (
         <ul>
           {detail.trackers.map((tracker) => (
@@ -137,8 +137,8 @@ export function AnnounceUrls({
       )}
       {waits && detail.announceAt !== undefined && (
         <p className="mt-2 text-ink-3">
-          Announce now is offered from {sinceWords(detail.announceAt, clock)}, when every announce
-          URL accepts one.
+          Announce now is offered from {sinceWords(detail.announceAt, clock)}, when every tracker
+          allows another announce.
         </p>
       )}
     </InspectorSection>

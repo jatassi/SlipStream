@@ -37,9 +37,9 @@ const kindLabels: { readonly [K in Kind]: string } = {
   replaced: "Replaced file",
   removed: "Removed file",
   moved: "Rename",
-  sidecar_added: "New Sidecar",
-  sidecar_replaced: "Replaced Sidecar",
-  sidecar_removed: "Removed Sidecar",
+  sidecar_added: "New subtitle file",
+  sidecar_replaced: "Replaced subtitle file",
+  sidecar_removed: "Removed subtitle file",
   library: "Refresh",
 };
 

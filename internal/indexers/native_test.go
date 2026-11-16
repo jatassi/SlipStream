@@ -523,9 +523,9 @@ func TestAPortsStopsNameItsOwnCredentials(t *testing.T) {
 			"Lantern refused the passkey. Check the account, then test the Indexer.",
 		},
 		{
-			"lantern", "Invalid Passkey", searching.AccountRefused, "Lantern refused the passkey with 'Invalid Passkey'. Check the account, then test again.",
-			"Stopped because Lantern refused the passkey with 'Invalid Passkey'.", "Check the account, then test the Indexer.",
-			"Lantern refused the passkey with 'Invalid Passkey'. Check the account, then test the Indexer.",
+			"lantern", "Invalid Passkey", searching.AccountRefused, "Lantern refused the passkey and responded 'Invalid Passkey'. Check the account, then test again.",
+			"Stopped because Lantern refused the passkey and responded 'Invalid Passkey'.", "Check the account, then test the Indexer.",
+			"Lantern refused the passkey and responded 'Invalid Passkey'. Check the account, then test the Indexer.",
 		},
 		{
 			"speed", "", searching.CredentialsRejected, "Speed rejected the email or password. Check them and test again.",

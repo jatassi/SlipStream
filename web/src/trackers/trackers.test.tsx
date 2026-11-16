@@ -18,10 +18,8 @@ test("Settings > Trackers lists each Tracker's privacy, rule, goal and torrents,
   const list = page.getByRole("list", { name: "Trackers" });
   const row = list.getByRole("link", { name: /^seedpool/u });
   await expect.element(row).toMatchTextContent("Private · Rule 10 days · Default goal");
-  await expect.element(row).toMatchTextContent("3 torrents· 2 owe seeding");
-  await expect
-    .element(row.getByText("1 torrent owes seeding and isn't seeding"))
-    .toBeInTheDocument();
+  await expect.element(row).toMatchTextContent("3 torrents· 2 need more seeding");
+  await expect.element(row.getByText("1 torrent at hit and run risk")).toBeInTheDocument();
   await expect
     .element(list.getByRole("link", { name: /^TorrentLeech/u }))
     .toMatchTextContent("Private · Rule ratio 1.0 or 10 days · Default goal");
@@ -59,7 +57,7 @@ test("the default goal saves whole, and Forever sends no ratio, time or action",
   await expect.element(goalForm().getByRole("textbox", { name: "Ratio" })).not.toBeInTheDocument();
   await userEvent.click(goalForm().getByRole("button", { name: "Save goal" }));
   await expect
-    .element(goalForm().getByText("Each torrent seeds with no end until you remove it."))
+    .element(goalForm().getByText("Each torrent seeds until you remove it."))
     .toBeVisible();
   expect(server.writes).toEqual([
     {
@@ -90,7 +88,7 @@ test("a refused value shows on the field seeding_value_refused names", async () 
 test("the seeding settings save by key", async () => {
   const server = trackersServer();
   renderApp({ path: "/settings/trackers", handlers: server.handlers });
-  const margin = page.getByRole("textbox", { name: "Margin past a rule" });
+  const margin = page.getByRole("textbox", { name: "Extra seeding time" });
   await userEvent.fill(margin, "3");
   await userEvent.click(page.getByRole("button", { name: "Save" }).first());
   await expect
@@ -109,10 +107,12 @@ test("the Tracker page leads with its rule and standing, and its Torrents tab ho
       ),
     )
     .toBeVisible();
-  await expect.element(page.getByText("From seedpool's Releases.")).toBeVisible();
+  await expect.element(page.getByText("From seedpool's releases.")).toBeVisible();
   await expect
     .element(
-      page.getByText("2 torrents are seeding. 2 still owe seedpool, and 1 of those isn't seeding."),
+      page.getByText(
+        "2 torrents are seeding. 2 haven't met seedpool's seeding rule yet, and 1 of those isn't seeding.",
+      ),
     )
     .toBeVisible();
   await expect.element(page.getByRole("definition").filter({ hasText: "1.50" })).toBeVisible();
@@ -155,7 +155,7 @@ test("the Seeding tab saves the rule and the goal whole, and each can go back", 
     .toBeVisible();
   await expect.element(ruleSection().getByText("Set by you.")).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Use what seedpool states" }));
-  await expect.element(ruleSection().getByText("From seedpool's Releases.")).toBeVisible();
+  await expect.element(ruleSection().getByText("From seedpool's releases.")).toBeVisible();
 
   await expect.element(page.getByText(/^seedpool follows the default goal/u)).toBeVisible();
   await userEvent.fill(goalForm().getByRole("textbox", { name: "Ratio" }), "3");
@@ -181,7 +181,7 @@ test("the Seeding tab saves the rule and the goal whole, and each can go back", 
 
 test("the Indexers tab lists the Indexers that reach the Tracker with their switches", async () => {
   renderApp({ path: `${trackerPage}/indexers`, handlers: trackersServer().handlers });
-  const rows = page.getByRole("list", { name: "Indexers reaching seedpool" });
+  const rows = page.getByRole("list", { name: "Indexers searching seedpool" });
   await expect.element(rows.getByRole("link", { name: "Larkspur" })).toBeVisible();
   await expect.element(rows.getByRole("switch").first()).toBeVisible();
   expect(rows.getByRole("listitem").all()).toHaveLength(1);
@@ -242,7 +242,7 @@ const stoppedSeeding: HealthItem = {
   key: seedpoolId,
   subject: "seedpool",
   level: "warn",
-  text: "3 torrents on seedpool stopped seeding before seedpool's rule was met. Resume or retry them before seedpool counts a hit and run.",
+  text: "3 torrents on seedpool stopped seeding before seedpool's seeding rule was met. Seed them again before seedpool counts a hit and run.",
   since: minutesAgo(400),
   changedAt: minutesAgo(400),
   unsure: false,

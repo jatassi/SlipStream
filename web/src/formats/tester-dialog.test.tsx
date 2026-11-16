@@ -11,7 +11,8 @@ const name = "Heat.1995.1080p.BluRay.x264-AMIABLE";
 
 const read: FormatsParsed = {
   name,
-  sentence: "Reads as Bluray-1080p from AMIABLE. It matches Heat (1995) and would fill 1080p.",
+  sentence:
+    "SlipStream reads this as Bluray-1080p from AMIABLE. It matches Heat (1995), and an automatic search would grab it for 1080p.",
   words: "Bluray-1080p · AMIABLE",
   facts: {
     quality: "Bluray-1080p",

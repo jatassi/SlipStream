@@ -25,27 +25,27 @@ import (
 const usageText = `usage: slipstream <command>
   run    [--data-dir <dir>]  run a Node
   app    [--data-dir <dir>]  run a Node with the tray, opening the setup page
-                             while it is Unclaimed
+                             while it isn't set up
   stop   [--data-dir <dir>]  stop the Node on <dir> and wait until it releases <dir>
   restart [--data-dir <dir>] restart the Node on <dir> and print its address once
                              it responds again
   status [--data-dir <dir>]  print the running Node's status as JSON
-  config [--data-dir <dir>]  print the resolved configuration and endpoints census as JSON
+  config [--data-dir <dir>]  print the resolved configuration and every endpoint as JSON
   config set [--data-dir <dir>] <key> <value>
   config unset [--data-dir <dir>] <key>
                              change a Node settings key in config.yaml. A running
-                             Node applies a live key at once
+                             Node applies a key that needs no restart at once
   join   [--data-dir <dir>] [--node-port <port>] <code>
                              join this Node to the Controller a Join Code names.
                              --node-port sets the port link.listen binds. When the
                              Controller can't be reached, print a Node address and
-                             wait for the Controller to dial it
+                             wait for the Controller to connect to it
   node-address [--data-dir <dir>]
-                             print the Node address a Controller dials this Node at
+                             print the Node address a Controller connects to this Node at
   admin reset [--data-dir <dir>] [--address <origin>] <email>
                              print a Reset link for the Account with <email>,
                              ending its sessions. --address sets the address
-                             links use when none is set
+                             the link uses when SlipStream has none saved
   service install|uninstall --user [--data-dir <dir>]
                              run the Node as a systemd user service, or remove it
                              (tarball and AppImage installs)

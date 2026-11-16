@@ -42,7 +42,8 @@ export function Diagram({
       </DiagramFigure>
       {landing.nodes.length > MOST_NODES && (
         <p className="mt-3 text-meta text-ink-3">
-          The Diagram draws {MOST_NODES} Nodes. The Roster lists all {landing.nodes.length}.
+          The diagram shows {MOST_NODES} of the {landing.nodes.length} Nodes. The List tab shows all
+          of them.
         </p>
       )}
       <DiagramInspector

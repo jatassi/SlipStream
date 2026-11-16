@@ -77,7 +77,7 @@ test("a failed automatic Grab's Details open from its Needs you card", async ({
   await expect(record).toContainText("The.Lantern.Keepers.S02.1080p.WEB-DL.H264-FKW");
   await expect(record).toContainText("Failed");
   await expect(record).toContainText(
-    "SlipStream can't read the Release's .torrent file, or the metadata peers sent for its magnet link.",
+    "SlipStream can't read the release's .torrent file, or the metadata peers sent for its magnet link.",
   );
   await expect(record).toContainText("The Indexer sent a .torrent file SlipStream can't read.");
   await expect(record).not.toContainText("bencode");

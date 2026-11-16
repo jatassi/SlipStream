@@ -1,5 +1,5 @@
 /**
- * warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise
+ * warn while a Node has been offline longer than a brief drop, or the Controller is doing a Role's work for an offline Node; fail while a Node has been offline or on another version longer than the offline grace; null otherwise
  * @nullable
  */
 export type ShellAlertsNodes = "warn" | "fail" | null;

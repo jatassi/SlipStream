@@ -70,5 +70,5 @@ test("a state bar is 180 × 8, names its counts in the state order, and sizes ea
 
 test("an empty state bar says so", async () => {
   renderKit(<StateBar counts={{}} />);
-  await expect.element(page.getByRole("img", { name: "No cells" })).toBeVisible();
+  await expect.element(page.getByRole("img", { name: "Nothing to download" })).toBeVisible();
 });

@@ -22,7 +22,7 @@ var Port = speedappbase.Define(port.Entry{
 	Name:         "RetroFlix",
 	IndexerURLs:  []string{"https://retroflix.club/"},
 	LegacyURLs:   []string{"https://retroflix.net/"},
-	Description:  "RetroFlix is a private Tracker for classic movies, TV and general Releases.",
+	Description:  "RetroFlix is a private Tracker for classic movies, TV and general releases.",
 	Privacy:      port.Private,
 	RateLimit:    2100 * time.Millisecond,
 	Capabilities: setCapabilities(),

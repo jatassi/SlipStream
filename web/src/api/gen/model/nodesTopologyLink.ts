@@ -5,7 +5,7 @@ export interface NodesTopologyLink {
   a: string;
   /** The Worker */
   b: string;
-  /** The Node that dialed the live session; absent while the link is down */
+  /** The Node that opened the live connection; absent while it is down */
   dialer?: string;
   /** The live session's round trip; absent until its first ping is answered */
   rttMs?: number;

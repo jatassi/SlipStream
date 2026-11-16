@@ -57,7 +57,7 @@ function Offers({ workId, grab }: { workId: string; grab: Grabbing }) {
     return <AlertLine text={sentenceOf(listed.error)} />;
   }
   if (listed.data === undefined) {
-    return <Skeleton label="Loading the Releases" />;
+    return <Skeleton label="Loading the releases" />;
   }
   return (
     <>

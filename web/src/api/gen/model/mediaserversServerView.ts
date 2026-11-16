@@ -7,18 +7,18 @@ import type { MediaserversState } from "./mediaserversState.ts";
 import type { MediaserversUnhealthy } from "./mediaserversUnhealthy.ts";
 
 export interface MediaserversServerView {
-  /** What the reaching Node calls, such as http://localhost:8096 */
+  /** The address the Connect from Node uses, such as http://localhost:8096 */
   address: string;
-  /** Where Open in sends a browser, for Jellyfin and Emby; absent for no Open in button */
+  /** The address the Open in button opens, for Jellyfin and Emby; absent when there is no Open in button */
   browserAddress?: string;
   /** When both routes were last tested */
   checkedAt?: string;
-  /** As the reaching Node last reported it; unknown until it reports and while it is offline */
+  /** As the Connect from Node last reported it; unknown until it reports and while it is offline */
   contact: MediaserversServerViewContact;
   contactSince?: string;
-  /** Whether the Controller reaches the server itself, which it does while the reaching Node is offline */
+  /** Whether the Controller can connect to the server itself, which it does while the Connect from Node is offline */
   fallback: MediaserversServerViewFallback;
-  /** What the Controller calls; absent when it calls address */
+  /** The address the Controller uses while the Connect from Node is offline; absent when it uses address */
   fallbackAddress?: string;
   id: string;
   /** Plex's machineIdentifier, or the Jellyfin or Emby server Id */
@@ -27,7 +27,7 @@ export interface MediaserversServerView {
   lastContactAt?: string;
   lastSendAt?: string;
   /**
-   * Shown roots without a confirmed Path mapping
+   * Roots with shown true and no confirmed Path mapping
    * @minimum 0
    */
   mappingsNeeded: number;

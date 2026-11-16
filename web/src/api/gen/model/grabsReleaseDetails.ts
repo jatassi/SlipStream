@@ -13,7 +13,7 @@ export interface GrabsReleaseDetails {
   id: string;
   /** The Indexers that listed it, by priority */
   indexers: string[];
-  /** Where it lost to the Release that fills its first cell; null when it didn't */
+  /** Where it lost to the release picked for its first Item and Target; null when it didn't */
   lostAt: GrabsLostAt | null;
   /**
    * Null when the Indexer sent no date
@@ -30,7 +30,7 @@ export interface GrabsReleaseDetails {
   title: string;
   /** The Tracker its link reaches, absent when none is known */
   tracker?: string;
-  /** Its verdict at each Target of its Item, such as It would fill 1080p. */
+  /** Its verdict at each Target of its Item, such as It would be the 1080p file. */
   verdicts: string[];
   /** What SlipStream reads from the title, in words */
   words: string;

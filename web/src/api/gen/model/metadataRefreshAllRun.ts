@@ -4,6 +4,6 @@ export interface MetadataRefreshAllRun {
    * @nullable
    */
   lastRunAt: string | null;
-  /** Whether a run that refreshes every Work of the type is open */
+  /** Whether a run that refreshes every Work of the type is in progress */
   running: boolean;
 }

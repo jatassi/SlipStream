@@ -33,7 +33,7 @@ type counts struct {
 }
 
 type alerts struct {
-	Nodes  *string `json:"nodes" enum:"warn,fail" doc:"warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise"`
+	Nodes  *string `json:"nodes" enum:"warn,fail" doc:"warn while a Node has been offline longer than a brief drop, or the Controller is doing a Role's work for an offline Node; fail while a Node has been offline or on another version longer than the offline grace; null otherwise"`
 	Health *string `json:"health" enum:"warn,fail" doc:"The worst level across every Health category, null while nothing is wrong"`
 	Tasks  *string `json:"tasks" enum:"warn,fail" doc:"The worst level in the Scheduled tasks Health category, null while nothing is wrong"`
 }

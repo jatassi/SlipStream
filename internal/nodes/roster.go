@@ -403,7 +403,7 @@ func (s *Service) settle(ctx context.Context) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("settle the forfeits: %w", err)
+		return fmt.Errorf("record the work given up: %w", err)
 	}
 	return s.reload(ctx)
 }
@@ -532,7 +532,7 @@ func (s *Service) Run(ctx context.Context) error {
 			s.persistSeen(ctx, false)
 		case <-s.recount:
 			if err := s.settle(ctx); err != nil && ctx.Err() == nil {
-				s.cfg.Log.Error("settle what owners hold", "err", err.Error())
+				s.cfg.Log.Error("update the work each Node has for its Roles", "err", err.Error())
 			}
 		case <-persist.C:
 			s.persistSeen(ctx, true)

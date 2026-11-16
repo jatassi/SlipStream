@@ -21,14 +21,14 @@ var (
 	signInRefused      = api.NewCode(http.StatusUnprocessableEntity, "media_server_sign_in_refused", "The server refused SlipStream's sign-in")
 	localhostOnWorker  = api.NewCode(http.StatusUnprocessableEntity, "media_server_localhost_on_worker", "The Controller can't use a localhost address on a Worker")
 	nodeNotFound       = api.NewCode(http.StatusNotFound, "node_not_found", "No Node has this id")
-	nodeNotLinked      = api.NewCode(http.StatusConflict, "node_not_media_server_link", "That Node doesn't hold Media Server link")
+	nodeNotLinked      = api.NewCode(http.StatusConflict, "node_not_media_server_link", "That Node doesn't have the Media Server link Role")
 	rootNotFound       = api.NewCode(http.StatusNotFound, "root_not_found", "No root has that id")
 	outsideLibraries   = api.NewCode(http.StatusUnprocessableEntity, "mapping_outside_libraries", "A folder isn't inside any of the server's library folders")
 	plexNotSignedIn    = api.NewCode(http.StatusConflict, "plex_not_signed_in", "SlipStream isn't signed in to Plex")
 	plexServerNotFound = api.NewCode(http.StatusNotFound, "plex_server_not_found", "The Plex account has no server with this id")
 	plexPinNotFound    = api.NewCode(http.StatusNotFound, "plex_pin_not_found", "No Plex sign-in has this id")
 	plexTVUnreached    = api.NewCode(http.StatusBadGateway, "plex_tv_unreached", "plex.tv didn't respond")
-	marginTooShort     = api.NewCode(http.StatusUnprocessableEntity, "renew_margin_too_short", "The renewal margin isn't longer than the renewal schedule")
+	marginTooShort     = api.NewCode(http.StatusUnprocessableEntity, "renew_margin_too_short", "The renewal window isn't longer than the renewal interval")
 )
 
 // answer is err as the problem an Admin reads.

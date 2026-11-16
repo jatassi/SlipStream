@@ -11,7 +11,7 @@ import type { DownloadclientsTimeLane } from "./downloadclientsTimeLane.ts";
 export interface DownloadclientsSeedingView {
   /** What its goal does once met, absent for a forever goal */
   action?: DownloadclientsSeedingViewAction;
-  /** Whether a torrent that owes is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline */
+  /** Whether a torrent that needs more seeding is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline */
   atRisk: DownloadclientsSeedingViewAtRisk;
   /** What meets the rule in force, or none while no rule is known */
   clears: DownloadclientsSeedingViewClears;
@@ -19,12 +19,12 @@ export interface DownloadclientsSeedingView {
   combine: DownloadclientsSeedingViewCombine;
   /** Why its goal never acts on it, or none while its goal can act */
   endless: DownloadclientsSeedingViewEndless;
-  /** Its seeding goal is met and it owes its Tracker nothing */
+  /** Its seeding goal is met and its Tracker's seeding rule is met */
   goalMet: boolean;
-  /** What it still needs to meet its Tracker's rule and the margin, absent unless it owes under a known rule */
+  /** What it still needs to meet its Tracker's rule and the margin, absent unless it needs more seeding under a known rule */
   owes?: DownloadclientsOwes;
   ratio: DownloadclientsRatioLane;
-  /** Its hit and run window's state, or none while it owes no Tracker */
+  /** Its hit and run window's state, or none while no Tracker needs more seeding from it */
   state: DownloadclientsSeedingViewState;
   time: DownloadclientsTimeLane;
 }

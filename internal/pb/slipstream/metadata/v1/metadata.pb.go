@@ -164,6 +164,9 @@ const (
 	// FAILURE_KIND_ORDER_UNAVAILABLE is an order the source doesn't list the
 	// Work in.
 	FailureKind_FAILURE_KIND_ORDER_UNAVAILABLE FailureKind = 7
+	// FAILURE_KIND_PIN_REFUSED is a refusal of the PIN beside a key the
+	// source takes. It is also FAILURE_KIND_REFUSED's error.
+	FailureKind_FAILURE_KIND_PIN_REFUSED FailureKind = 8
 )
 
 // Enum value maps for FailureKind.
@@ -177,6 +180,7 @@ var (
 		5: "FAILURE_KIND_NO_CHANGES",
 		6: "FAILURE_KIND_NOT_ON_SOURCE",
 		7: "FAILURE_KIND_ORDER_UNAVAILABLE",
+		8: "FAILURE_KIND_PIN_REFUSED",
 	}
 	FailureKind_value = map[string]int32{
 		"FAILURE_KIND_UNSPECIFIED":       0,
@@ -187,6 +191,7 @@ var (
 		"FAILURE_KIND_NO_CHANGES":        5,
 		"FAILURE_KIND_NOT_ON_SOURCE":     6,
 		"FAILURE_KIND_ORDER_UNAVAILABLE": 7,
+		"FAILURE_KIND_PIN_REFUSED":       8,
 	}
 )
 
@@ -1214,7 +1219,7 @@ const file_slipstream_metadata_v1_metadata_proto_rawDesc = "" +
 	"\x14OUTCOME_KIND_LIMITED\x10\x04\x12\x17\n" +
 	"\x13OUTCOME_KIND_CAPPED\x10\x05\x12\x1c\n" +
 	"\x18OUTCOME_KIND_UNREACHABLE\x10\x06\x12\x1c\n" +
-	"\x18OUTCOME_KIND_PIN_REFUSED\x10\a*\xfa\x01\n" +
+	"\x18OUTCOME_KIND_PIN_REFUSED\x10\a*\x98\x02\n" +
 	"\vFailureKind\x12\x1c\n" +
 	"\x18FAILURE_KIND_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16FAILURE_KIND_NOT_FOUND\x10\x01\x12\x18\n" +
@@ -1223,7 +1228,8 @@ const file_slipstream_metadata_v1_metadata_proto_rawDesc = "" +
 	"\x14FAILURE_KIND_INVALID\x10\x04\x12\x1b\n" +
 	"\x17FAILURE_KIND_NO_CHANGES\x10\x05\x12\x1e\n" +
 	"\x1aFAILURE_KIND_NOT_ON_SOURCE\x10\x06\x12\"\n" +
-	"\x1eFAILURE_KIND_ORDER_UNAVAILABLE\x10\a2\xd5\x03\n" +
+	"\x1eFAILURE_KIND_ORDER_UNAVAILABLE\x10\a\x12\x1c\n" +
+	"\x18FAILURE_KIND_PIN_REFUSED\x10\b2\xd5\x03\n" +
 	"\x0fMetadataService\x12W\n" +
 	"\x06Search\x12%.slipstream.metadata.v1.SearchRequest\x1a&.slipstream.metadata.v1.SearchResponse\x12T\n" +
 	"\x05Fetch\x12$.slipstream.metadata.v1.FetchRequest\x1a%.slipstream.metadata.v1.FetchResponse\x12Z\n" +

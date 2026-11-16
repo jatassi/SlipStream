@@ -331,7 +331,7 @@ func TestListContentTypesAnswersASession(t *testing.T) {
 	if w.Code != http.StatusOK || w.Body.String() != want {
 		t.Fatalf("listContentTypes = %d %s, want %s", w.Code, w.Body, want)
 	}
-	expect(t, s, http.MethodGet, "/api/v1/content-types", "", http.StatusForbidden, `{"status":403,"code":"needs_account","title":"Only a signed-in person can do this"}`)
+	expect(t, s, http.MethodGet, "/api/v1/content-types", "", http.StatusForbidden, `{"status":403,"code":"needs_account","title":"The API key can't do this. Sign in to an Account to do it."}`)
 }
 
 func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
@@ -367,11 +367,17 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	if code != 200 {
 		t.Fatalf("addWork = %d %s", code, body)
 	}
-	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 409, `{"status":409,"code":"content_type_in_use","title":"Remove its Works before turning this Content Type off"}`)
-	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "Invalid API key", Err: works.ErrRefused})
-	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused SlipStream's key","detail":"TMDB refused SlipStream's key"}`)
-	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "is rate limited until 2026-10-19T21:04:00Z", Err: works.ErrUnavailable})
-	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later.","detail":"TMDB: is rate limited until 2026-10-19T21:04:00Z"}`)
+	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 409, `{"status":409,"code":"content_type_in_use","title":"Delete every Work of this kind of media before turning it off"}`)
+	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "refused the key: 401 Unauthorized", Err: works.ErrRefused})
+	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused the API key or PIN","detail":"TMDB refused the API key. Check the key in Settings \u003e Metadata."}`)
+	s.fx.Fail("w2", &works.SourceError{Source: "TVDB", Words: "refused the PIN", Err: works.ErrPinRefused})
+	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused the API key or PIN","detail":"TVDB refused the PIN. Check the PIN in Settings \u003e Metadata."}`)
+	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "didn't respond: dial tcp: lookup api.themoviedb.org: no such host", Err: works.ErrUnavailable})
+	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later.","detail":"TMDB isn't available right now. Try again later."}`)
+	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Until: time.Now().Add(time.Hour), Words: "is rate limited", Err: works.ErrUnavailable})
+	if code, body := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`); code != 502 || !strings.Contains(body, `"detail":"TMDB is rate limiting SlipStream until `) || !strings.Contains(body, `. Try again then."`) {
+		t.Fatalf("addWork while rate limited = %d %s, want the time to try again", code, body)
+	}
 }
 
 var ada = artwork.Ref{Source: "fixture", Shape: artwork.ShapePhoto, Path: "/ada.jpg"}

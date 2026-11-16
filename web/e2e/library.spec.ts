@@ -10,10 +10,8 @@ import { clickWhenStill } from "./still.ts";
 test("an Admin adds a movie from the catalog and sees its missing cell", async ({
   adminPage: page,
 }) => {
-  await expect(
-    page.getByText("Nothing in the library yet. Add your first Work to start."),
-  ).toBeVisible();
-  await page.getByRole("main").getByRole("button", { name: "Add a Movie" }).click();
+  await expect(page.getByText("Nothing in the library yet.")).toBeVisible();
+  await page.getByRole("main").getByRole("button", { name: "Add a movie" }).click();
   await page.getByRole("searchbox", { name: "Title" }).fill("quiet orchard");
   await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("list", { name: "Results" })).toHaveText("The Quiet Orchard2021Add");
@@ -95,10 +93,10 @@ test.describe("with movies and TV", () => {
     await expect(page.getByRole("heading", { name: "TV", level: 1 })).toBeVisible();
     await expect(posters).toHaveCount(2);
     await expect(posters.filter({ hasText: "The Lantern Keepers" })).toContainText(
-      "Missing · 0 of 3 met",
+      "Missing · 0 of 3 episodes met",
     );
     await expect(posters.filter({ hasText: "Harbor Nights" })).toContainText(
-      "Missing · 0 of 4 met",
+      "Missing · 0 of 4 episodes met",
     );
 
     await page.getByRole("button", { name: "Filter" }).click();

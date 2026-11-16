@@ -14,7 +14,7 @@ const rowsOf = (ids: readonly string[]): RankedRow<string>[] =>
 function WantsNothing() {
   return (
     <p className="rounded-card bg-glass px-4 py-3 text-ink-2 ring-1 ring-hairline ring-inset">
-      This Profile wants nothing. Add a Target to say which versions its Works keep.
+      This Profile has no Targets. Add one to choose which versions its Works keep.
     </p>
   );
 }

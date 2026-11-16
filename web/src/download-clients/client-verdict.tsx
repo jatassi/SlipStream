@@ -29,7 +29,7 @@ function Said({ words: { signal, chip, sentence, hint } }: { words: VerdictWords
 export function listenWords(listen: string): ReactNode {
   return unspecified(listen) ? (
     <span>
-      <Data>{listen}</Data>, the address this computer reaches the internet from
+      <Data>{listen}</Data>, every network address on this computer
     </span>
   ) : (
     listen

@@ -4,7 +4,7 @@ import type { NodesGestureVerdict } from "./nodesGestureVerdict.ts";
 export interface NodesGesture {
   /** The Node the Role moves from; absent for an add */
   from?: string;
-  /** The words of a Role the gesture hands back or pins */
+  /** What happens to a Role this drag returns to the Controller, or that the Controller keeps */
   note?: string;
   role: NodesGestureRole;
   to: string;

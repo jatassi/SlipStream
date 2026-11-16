@@ -15,7 +15,7 @@ const labels = [
   "Mark unhealthy after",
   "Keep play history for",
   "Renew Plex sign-in every",
-  "Renew when less than this is left",
+  "Renew when the sign-in expires within",
 ];
 
 async function openPanel() {
@@ -53,7 +53,7 @@ test("the settings lead with what they add up to and save each value on its own"
 
 test("a renewal margin no longer than the renewal schedule is refused on its field", async () => {
   const { world, panel } = await openPanel();
-  const margin = panel.getByRole("textbox", { name: "Renew when less than this is left" });
+  const margin = panel.getByRole("textbox", { name: "Renew when the sign-in expires within" });
   await userEvent.fill(margin, "1");
   await userEvent.click(panel.getByRole("button", { name: "Save" }));
   await expect
@@ -61,7 +61,7 @@ test("a renewal margin no longer than the renewal schedule is refused on its fie
       panel
         .getByRole("alert")
         .getByText(
-          '"Renew when less than this is left" must be longer than "Renew Plex sign-in every", which is 1 day. Lengthen the margin or renew more often.',
+          '"Renew when the sign-in expires within" must be longer than "Renew Plex sign-in every", which is 1 day. Raise the first or lower the second.',
         ),
     )
     .toBeVisible();

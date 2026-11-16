@@ -273,11 +273,11 @@ func getIndexerFlags(item beyondHDTorrent) []port.SiteFlag {
 type beyondHDSettings struct {
 	port.APIKeyField `help:"Find your API key on BeyondHD under My Security > API Key."`
 	port.RSSKeyField `help:"Find your RSS key on BeyondHD under My Security > RSS Key."`
-	FreeleechOnly    bool                 `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
-	LimitedOnly      bool                 `port:"limitedOnly" label:"Limited only" help:"Search only limited freeleech Releases."`
-	RefundOnly       bool                 `port:"refundOnly" label:"Refund only" help:"Search only refund Releases."`
-	RewindOnly       bool                 `port:"rewindOnly" label:"Rewind only" help:"Search only rewind Releases."`
-	SearchTypes      []beyondHDSearchType `port:"searchTypes" label:"Search types" help:"Choose the types of Release to search. Leave empty to search every type."`
+	FreeleechOnly    bool                 `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
+	LimitedOnly      bool                 `port:"limitedOnly" label:"Limited only" help:"Search only limited freeleech releases."`
+	RefundOnly       bool                 `port:"refundOnly" label:"Refund only" help:"Search only refund releases."`
+	RewindOnly       bool                 `port:"rewindOnly" label:"Rewind only" help:"Search only rewind releases."`
+	SearchTypes      []beyondHDSearchType `port:"searchTypes" label:"Search types" help:"Choose the types of release to search. Leave empty to search every type."`
 }
 
 type beyondHDSearchType int

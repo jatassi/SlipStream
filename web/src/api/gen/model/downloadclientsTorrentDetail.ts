@@ -22,9 +22,9 @@ export interface DownloadclientsTorrentDetail {
    */
   activeSeconds: number;
   addedAt: string;
-  /** Absent when its metainfo names no announce URL */
+  /** Absent when its .torrent lists no tracker */
   announce?: DownloadclientsTrackerCell;
-  /** The earliest every announce URL accepts an announce, set while live */
+  /** The earliest time every tracker allows another announce, set while live */
   announceAt?: string;
   /** It was in its external client before SlipStream attached to it, so removing it only stops tracking it */
   attached?: boolean;
@@ -69,9 +69,9 @@ export interface DownloadclientsTorrentDetail {
   infoHash: string;
   /** When its Node last reported it, set while the row is stale for lastKnownCause */
   lastKnown?: string;
-  /** Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off */
+  /** Why the row shows its last report: its Node isn't connected, its external client isn't responding or refused the sign-in, or its external client is off */
   lastKnownCause?: DownloadclientsTorrentDetailLastKnownCause;
-  /** Its Node responded, so announce URLs and files are live. Otherwise they are from its last report */
+  /** Its Node responded, so trackers and files are live. Otherwise they are from its last report */
   live: boolean;
   /** The release's name in its metainfo, shown for a Torrent whose Work was deleted */
   name: string;
@@ -124,7 +124,7 @@ export interface DownloadclientsTorrentDetail {
   tracker: DownloadclientsTrackerRef | null;
   /** In its metainfo's order */
   trackers: DownloadclientsTrackerDetail[];
-  /** When a window hold starts it, or a check resumes it */
+  /** When it starts after its trackers allow another announce, or resumes after a check */
   until?: string;
   /**
    * All-time bytes uploaded

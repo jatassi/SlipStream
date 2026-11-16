@@ -34,7 +34,10 @@ export const getGetContentTypeRefreshResponseMock = (
 
 export const getRefreshContentTypeResponseMock = (
   overrideResponse: Partial<Extract<MetadataRefreshStarted, object>> = {},
-): MetadataRefreshStarted => ({ runId: faker.number.int(), ...overrideResponse });
+): MetadataRefreshStarted => ({
+  runId: faker.helpers.arrayElement([faker.number.int(), null]),
+  ...overrideResponse,
+});
 
 export const getListMetadataProvidersResponseMock = (
   overrideResponse: Partial<Extract<MetadataProviderList, object>> = {},

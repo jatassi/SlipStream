@@ -24,7 +24,7 @@ test("a many-Items type's table names its availability column and sort its own w
   await expect
     .element(table.getByRole("row").filter({ hasText: harborTales.label }))
     .toHaveTextContent(
-      `${harborTales.label}Harbor PressMissing · 12 of 40 metDec 1, 2026Harbor Press`,
+      `${harborTales.label}Harbor PressMissing · 12 of 40 stories metDec 1, 2026Harbor Press`,
     );
   await expect.element(page.getByRole("button", { name: "Sort: Next issue" })).toBeVisible();
 });

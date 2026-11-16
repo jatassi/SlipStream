@@ -26,7 +26,7 @@ type ix = port.Indexer[ImmortalSeedSettings]
 var Port = port.Define(port.Entry{
 	ID:           "immortalseed",
 	Name:         "ImmortalSeed",
-	Description:  "ImmortalSeed is a private Tracker for movies, TV and general Releases.",
+	Description:  "ImmortalSeed is a private Tracker for movies, TV and general releases.",
 	Language:     "en-US",
 	Privacy:      port.Private,
 	IndexerURLs:  []string{"https://immortalseed.me/"},
@@ -251,5 +251,5 @@ func parseResponse(ix *ix, indexerResponse *port.IndexerResponse) ([]port.Torren
 
 type ImmortalSeedSettings struct {
 	port.UserPass
-	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Show only the freeleech Releases of each search."`
+	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Show only the freeleech releases of each search."`
 }

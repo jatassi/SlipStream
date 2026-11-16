@@ -32,18 +32,18 @@ export interface DownloadclientsNewClient {
   importDelay?: number;
   kind: DownloadclientsNewClientKind;
   /**
-   * Absent for slipstream
+   * Defaults to slipstream
    * @maxLength 100
    */
   label?: string;
   /**
-   * Absent for the kind's name, such as Transmission
+   * Defaults to the kind's name, such as Transmission
    * @maxLength 100
    */
   name?: string;
-  /** A Node that holds Downloading */
+  /** A Node with the Downloading Role */
   nodeId: string;
-  /** Absent for on */
+  /** Defaults to true */
   on?: boolean;
   /**
    * Write-only

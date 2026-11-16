@@ -3,7 +3,7 @@ import type { FilesStep } from "./filesStep.ts";
 export interface FilesHeldCell {
   /** When the Grab entered its stage */
   from: string;
-  /** The Grab in flight for the cell */
+  /** The Grab in flight for this Item at this Target */
   grabId: string;
   step: FilesStep;
   /**

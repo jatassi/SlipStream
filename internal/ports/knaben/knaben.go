@@ -32,7 +32,7 @@ var Port = port.Define(port.Entry{
 	// is a constant.
 	IndexerURLs:  []string{"https://api.knaben.org/"},
 	LegacyURLs:   []string{"https://knaben.eu/", "https://knaben.org/"},
-	Description:  "Knaben is a public search engine over the Releases of many other sites.",
+	Description:  "Knaben is a public search engine over the releases of many other sites.",
 	Privacy:      port.Public,
 	Capabilities: setCapabilities(),
 	Upstream:     port.ReadUpstream(upstream),

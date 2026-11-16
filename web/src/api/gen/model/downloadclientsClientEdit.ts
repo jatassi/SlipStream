@@ -20,7 +20,7 @@ export interface DownloadclientsClientEdit {
   checkEvery?: number | null;
   /** @maxItems 50 */
   clientFolders?: DownloadclientsClientFolder[];
-  /** Null for Deluge's only daemon */
+  /** Null when Deluge has only one daemon */
   daemon?: DownloadclientsDaemon | null;
   /**
    * Empty for the client's default
@@ -43,7 +43,7 @@ export interface DownloadclientsClientEdit {
    * @maxLength 100
    */
   name?: string;
-  /** Another Node that holds Downloading; a client with Torrents can't move */
+  /** Another Node with the Downloading Role; a client with Torrents can't move */
   nodeId?: string;
   on?: boolean;
   /**
@@ -52,7 +52,7 @@ export interface DownloadclientsClientEdit {
    */
   password?: string;
   /**
-   * Empty signs in with none
+   * Empty when the client has no sign-in
    * @maxLength 256
    */
   username?: string;

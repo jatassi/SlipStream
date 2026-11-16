@@ -30,7 +30,7 @@ import {
 export const ListMediaServersResponse = ServersOutputBody;
 
 /**
- * @summary Add a Media Server once it responds from its reaching Node and accepts SlipStream's sign-in
+ * @summary Add a Media Server once it responds from its Connect from Node and accepts SlipStream's sign-in
  */
 export const AddMediaServerBody = MediaserversDraftBody;
 
@@ -110,7 +110,7 @@ export const GetMediaServerParams = zod.object({
 export const GetMediaServerResponse = MediaserversServerView;
 
 /**
- * @summary Change a Media Server, testing it again when the change is to its address, reaching Node or API key
+ * @summary Change a Media Server, testing it again when the change is to its address, Connect from Node or API key
  */
 export const UpdateMediaServerParams = zod.object({
   id: zod.uuid(),
@@ -137,7 +137,7 @@ export const ListMediaServerChangesQueryParams = zod.object({
 export const ListMediaServerChangesResponse = MediaserversChanges;
 
 /**
- * @summary Accept the server that responds at a Media Server's address now as that Media Server
+ * @summary Confirm that the server now responding at a Media Server's address is that Media Server
  */
 export const ConfirmMediaServerIdentityParams = zod.object({
   id: zod.uuid(),
@@ -184,7 +184,7 @@ export const RefreshMediaServerParams = zod.object({
 export const RefreshMediaServerResponse = zod.void();
 
 /**
- * @summary List what plays on a Media Server now, as its reaching Node last saw it
+ * @summary List what plays on a Media Server now, as its Connect from Node last saw it
  */
 export const ListMediaServerSessionsParams = zod.object({
   id: zod.uuid(),
@@ -193,7 +193,7 @@ export const ListMediaServerSessionsParams = zod.object({
 export const ListMediaServerSessionsResponse = MediaserversSessions;
 
 /**
- * @summary Test a Media Server from its reaching Node at its address and from the Controller at its fallback address
+ * @summary Test a Media Server from its Connect from Node at its address and from the Controller at its fallback address
  */
 export const TestMediaServerParams = zod.object({
   id: zod.uuid(),

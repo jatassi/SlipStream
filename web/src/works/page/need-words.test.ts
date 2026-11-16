@@ -38,10 +38,10 @@ const need: FilesFailedNeed = {
 
 test("a failure names its cell, its stage and the cells that wait on it", () => {
   expect(failedWords(naming, need, failed)).toBe(
-    "Director's Cut 2160p HDR failed at Import · 1080p and 720p wait on it",
+    "Director's Cut 2160p HDR failed at Import · 1080p and 720p are made from it and can't start",
   );
   expect(failedWords(naming, { ...need, edition: "any", waiting: ["hd"] }, failed)).toBe(
-    "2160p HDR failed at Import · 1080p waits on it",
+    "2160p HDR failed at Import · 1080p is made from it and can't start",
   );
 });
 

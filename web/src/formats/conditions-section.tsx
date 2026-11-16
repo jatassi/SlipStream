@@ -74,11 +74,11 @@ export function ConditionsSection({
     <div className="flex flex-col gap-3">
       {slow !== undefined && slow.releases > 0 && <SlowWarning slow={slow} />}
       <p className="text-ink-1">
-        {matchSentence(draft.conditions) ?? "Add a condition to say which Releases this matches."}
+        {matchSentence(draft.conditions) ?? "Add a condition to say which releases this matches."}
       </p>
       {draft.dialect !== "slipstream" && (
         <p className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
-          {`Written for ${appWords[draft.dialect]}, so its values are ${appWords[draft.dialect]}'s.`}
+          {`This format was written for ${appWords[draft.dialect]}, and its conditions use ${appWords[draft.dialect]}'s values.`}
         </p>
       )}
       {draft.conditions.length > 0 && (

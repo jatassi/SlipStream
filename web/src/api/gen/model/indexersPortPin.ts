@@ -5,13 +5,13 @@ export interface IndexersPortPin {
   id: string;
   /** The site's name */
   name: string;
-  /** The names of the sealed settings that hold a value, in order */
+  /** The names of the secret settings that have a value, in order */
   sealed: string[];
   /**
-   * When the Prowlarr commit the port was synced to was made; null once SlipStream no longer includes the site
+   * The date of the Prowlarr commit that SlipStream's support for this site is based on; null once the site is no longer built in
    * @nullable
    */
   synced: string | null;
-  /** The settings saved in plain, by name. Sealed settings are never returned */
+  /** The settings that aren't secret, by name. Secret settings, such as passwords, are never returned */
   values: IndexersPortPinValues;
 }

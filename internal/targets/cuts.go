@@ -39,7 +39,7 @@ type Cuts struct{ all []ListedCut }
 var (
 	ErrNoCut           = errors.New("no cut has that key")
 	ErrCutNameTaken    = errors.New("a cut already has that name, alias or key")
-	ErrBadCutName      = errors.New("a cut's name and each alias need a word a title can name")
+	ErrBadCutName      = errors.New("a cut's name and each alias need at least one letter or number")
 	ErrStandardIsFixed = errors.New("the Standard cut can't be renamed or removed")
 	ErrCutNotCustom    = errors.New("only a custom cut can be changed or removed")
 )

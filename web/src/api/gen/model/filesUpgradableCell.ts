@@ -2,7 +2,7 @@ import type { FilesLibraryFile } from "./filesLibraryFile.ts";
 import type { FilesUpgradableCellState } from "./filesUpgradableCellState.ts";
 
 export interface FilesUpgradableCell {
-  /** any under any cut, else the key of the cut the cell wants */
+  /** any under any cut, else the key of the cut this Item needs at this Target */
   edition: string;
   /** The file filling it, short of its Target's cutoff or upgrade-until score */
   file: FilesLibraryFile;

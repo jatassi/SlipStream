@@ -72,11 +72,13 @@ func (e *LocalhostOnWorkerError) Error() string {
 	return fmt.Sprintf("%s is localhost on %s, which the Controller can't use", e.Address, e.Node)
 }
 
-// NodeNotLinkedError is a reaching Node that doesn't hold Media Server
-// link.
+// NodeNotLinkedError is a reaching Node without the Media Server link
+// Role.
 type NodeNotLinkedError struct{ Node string }
 
-func (e *NodeNotLinkedError) Error() string { return e.Node + " doesn't hold Media Server link" }
+func (e *NodeNotLinkedError) Error() string {
+	return e.Node + " doesn't have the Media Server link Role"
+}
 
 // Outside is one shown mapping whose folder isn't inside a library folder.
 type Outside struct {

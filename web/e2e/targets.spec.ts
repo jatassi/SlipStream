@@ -75,22 +75,22 @@ test("a Target built from a preset says what its order means as the cutoff moves
 
   await page.getByRole("textbox", { name: "Name" }).fill("HD only");
   await page.getByRole("button", { name: "Fill from a preset" }).click();
-  await choose(page, "Presets", "Upgrade for disc or resolution");
+  await choose(page, "Presets", "Upgrade for Blu-ray or higher resolution");
   await untick(page, ["Remux-2160p", "Bluray-2160p", "WEBDL-2160p", "WEBRip-2160p", "HDTV-2160p"]);
   await untick(page, ["WEBRip-480p", "DVD", "SDTV"]);
-  const sentence = page.getByText(/^Grabs /u);
+  const sentence = page.getByText(/^This Target grabs /u);
   await expect(sentence).toHaveText(
-    "Grabs HDTV-720p, WEBRip-720p or WEBDL-720p or better. Upgrades until Bluray-1080p or Remux-1080p, then stops.",
+    "This Target grabs HDTV-720p, WEBRip-720p or WEBDL-720p or better. It upgrades until Bluray-1080p or Remux-1080p, then stops.",
   );
 
   await tickAcross(page);
   await moveCutoffDown(page);
   await expect(sentence).toHaveText(
-    "Grabs HDTV-720p, WEBRip-720p or WEBDL-720p or better. Upgrades until HDTV-1080p, WEBRip-1080p or WEBDL-1080p, then stops.",
+    "This Target grabs HDTV-720p, WEBRip-720p or WEBDL-720p or better. It upgrades until HDTV-1080p, WEBRip-1080p or WEBDL-1080p, then stops.",
   );
   await expect(
     page
-      .getByRole("list", { name: "Sample moves" })
+      .getByRole("list", { name: "Example upgrades" })
       .getByText("Bluray-720p ranks above HDTV-720p."),
   ).toBeVisible();
   await expectAccessible(page);
@@ -163,9 +163,9 @@ test("a Target's scores and propers setting show in its sentence, and save", asy
   await scores.getByRole("button", { name: "Details" }).click();
   await scores.getByRole("textbox", { name: "HDR score" }).fill("40");
   await scores.getByRole("textbox", { name: "Upgrade until" }).fill("100");
-  await scores.getByRole("textbox", { name: "Increment" }).fill("5");
-  await expect(page.getByText(/^Grabs /u)).toHaveText(
-    "Grabs HDTV-720p, WEBRip-720p or WEBDL-720p or better. Upgrades until Bluray-1080p or Remux-1080p and a score of 100, then stops.",
+  await scores.getByRole("textbox", { name: "Minimum score increment" }).fill("5");
+  await expect(page.getByText(/^This Target grabs /u)).toHaveText(
+    "This Target grabs HDTV-720p, WEBRip-720p or WEBDL-720p or better. It upgrades until Bluray-1080p or Remux-1080p and a score of 100, then stops.",
   );
   await expect(
     scores.getByText(/^No file can reach the upgrade-until score of 100, because/u),
@@ -186,9 +186,11 @@ test("a Target's scores and propers setting show in its sentence, and save", asy
     propers: "dont_prefer",
   });
   await open1080p(page);
-  await expect(scores.getByText(/^Scores 1 of 1 Custom Format\./u)).toBeVisible();
+  await expect(scores.getByText(/^This Target scores 1 of 1 Custom Format\./u)).toBeVisible();
   await scores.getByRole("button", { name: "Details" }).click();
   await expect(scores.getByRole("textbox", { name: "HDR score" })).toHaveValue("40");
   await expect(page.getByRole("radio", { name: "Don't prefer" })).toBeChecked();
-  await expect(page.getByText(/^Grabs /u)).toContainText("and a score of 100, then stops.");
+  await expect(page.getByText(/^This Target grabs /u)).toContainText(
+    "and a score of 100, then stops.",
+  );
 });

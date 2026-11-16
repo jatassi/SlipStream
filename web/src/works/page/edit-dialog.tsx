@@ -101,7 +101,9 @@ export function EditDialog({ open, onRename, ...props }: EditDialogProps) {
         <LevelFolders type={subject.type} on={levelFolders} onChange={setLevelFolders} />
         <OptionsFields type={subject.type} work={work} onSaved={renamed} />
         {renames && <RenameLine onRename={onRename} />}
-        <p className="text-ink-2">Before a new Profile is saved, the Impact lists what changes.</p>
+        <p className="text-ink-2">
+          If you change the Profile, SlipStream shows what changes before saving it.
+        </p>
         <AttemptActions attempt={fields.saving} onCancel={fields.close}>
           Save
         </AttemptActions>

@@ -291,7 +291,7 @@ func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 		writeOff(t, a, seedbox(t, a).ID)
 		g := simtest.Await(t, w)
 		close(p.release)
-		expectFailed(t, g, "importing", "node_written_off", "The Admin wrote off what this Grab's Node downloads")
+		expectFailed(t, g, "importing", "node_written_off", "An Admin had SlipStream stop waiting for the Node downloading this Grab.")
 		if n := transferRecords(t, w); n != 0 {
 			t.Fatalf("home keeps %d Transfer records once the Grab failed, want none", n)
 		}

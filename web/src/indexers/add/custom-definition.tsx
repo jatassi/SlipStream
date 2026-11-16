@@ -55,9 +55,9 @@ export function CustomDefinition() {
     >
       <form.AppForm>
         <p className="text-ink-1">
-          A custom definition runs a Tracker the Indexer catalog lacks, or a fixed definition before
-          the catalog has it. It has to load as a catalog definition does, and its id can&apos;t be
-          one the catalog already has.
+          Add a custom definition for a site the Indexer catalog doesn&apos;t have, or to use a
+          fixed definition before the catalog has it. SlipStream must be able to load it as it loads
+          a catalog definition, and its id can&apos;t match an id in the catalog.
         </p>
         <FileField
           label="Definition file"

@@ -49,7 +49,9 @@ export function Pick({ board, seat, node, onClose, onApplied }: PickProps) {
   const now = useNow(60_000);
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-ink-2">Choose what {node.name} does. It starts with what it can do.</p>
+      <p className="text-ink-2">
+        Choose {node.name}&apos;s Roles. The Roles {node.name} can run are ticked to start.
+      </p>
       <RoleGroups
         board={board}
         seat={seat}

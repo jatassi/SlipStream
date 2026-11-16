@@ -13,7 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-var ErrNodeKeyMismatch = errors.New("the Node address names another Node's key")
+var ErrNodeKeyMismatch = errors.New("the Node address belongs to another Node")
 
 // DialBy is which side dialed a Node's live session.
 type DialBy uint8
@@ -59,7 +59,7 @@ func (s *Service) SetDial(ctx context.Context, id ID, addr *joincode.NodeAddress
 		return writeDials(ctx, q, id, addrs)
 	})
 	if err != nil {
-		return fmt.Errorf("set how the Controller dials node %s: %w", id, err)
+		return fmt.Errorf("set how the Controller connects to node %s: %w", id, err)
 	}
 	s.reconcileDials(ctx)
 	s.changed(id)
@@ -86,7 +86,7 @@ func (s *Service) reconcileDials(ctx context.Context) {
 	want, err := s.readDials(ctx)
 	if err != nil {
 		if ctx.Err() == nil {
-			s.cfg.Log.Error("read the Nodes the Controller dials", "err", err.Error())
+			s.cfg.Log.Error("read the Nodes the Controller connects to", "err", err.Error())
 		}
 		return
 	}

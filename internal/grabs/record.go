@@ -94,21 +94,21 @@ func (g Grab) overrideWords() []string {
 	var out []string
 	for _, l := range o.Lifted {
 		why := uncapitalized(strings.TrimSuffix(l.Words, "."))
-		out = append(out, said(name+" grabbed it although "+why+".", "It was grabbed through the API key although "+why+"."))
+		out = append(out, said(name+" grabbed it although "+why+".", "An app using the API key grabbed it although "+why+"."))
 	}
 	if e := o.Edition; e != "" {
 		e = editionWords(e)
-		out = append(out, said(name+" grabbed it as the "+e+".", "It was grabbed through the API key as the "+e+"."))
+		out = append(out, said(name+" grabbed it as the "+e+".", "An app using the API key grabbed it as the "+e+"."))
 	}
 	if c := o.Client; c != nil {
-		s := said(name+" sent it to "+c.Sent+".", "It was sent to "+c.Sent+" through the API key.")
+		s := said(name+" sent it to "+c.Sent+".", "An app using the API key sent it to "+c.Sent+".")
 		if c.Routed != "" {
 			s += " Tracker routing would have sent it to " + c.Routed + "."
 		}
 		out = append(out, s)
 	}
 	if o.Unblocked != nil {
-		out = append(out, said(name+" removed it from the Blocklist to grab it.", "It was removed from the Blocklist through the API key to grab it."))
+		out = append(out, said(name+" removed it from the Blocklist to grab it.", "An app using the API key removed it from the Blocklist to grab it."))
 	}
 	return out
 }

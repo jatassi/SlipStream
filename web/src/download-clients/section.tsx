@@ -25,11 +25,11 @@ function DownloadClientsSection() {
       <Section title="Clients">
         {cards.length === 0 ? (
           <Empty>
-            No Node downloads yet. Give one Downloading in its{" "}
+            No Node downloads yet. Give a Node the Downloading Role on the{" "}
             <Link to="/nodes" className="text-ink-1 underline">
-              Roles
-            </Link>{" "}
-            and its built-in client shows here.
+              Nodes page
+            </Link>
+            , and its built-in client shows here.
           </Empty>
         ) : (
           <div className="flex flex-col gap-3">

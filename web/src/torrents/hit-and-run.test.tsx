@@ -118,7 +118,7 @@ test("removing a torrent that owes says it counts as a hit and run, from the dry
   await expect
     .element(page.getByRole("dialog", { name: "Remove Harbor.2019.1080p?" }))
     .toMatchTextContent(
-      "Removing it now counts as a hit and run on seedpool. It still owes 4 days of seeding.",
+      "Removing it now counts as a hit and run on seedpool. It needs 4 days more seeding.",
     );
   expect(actions.bodies).toEqual([{ action: "remove", ids: [harbor.id], dryRun: true }]);
 });
@@ -133,8 +133,8 @@ test("a bulk remove lists each torrent the dry run says still owes seedpool", as
   await expect
     .element(page.getByRole("dialog", { name: "Remove 3 torrents?" }))
     .toMatchTextContent(
-      "Removing these now counts as a hit and run on seedpool for each:" +
-        "Harbor.2019.1080pOwes 4 days of seeding" +
-        "Quay.2020.1080pOwes 2 days 3 h of seeding",
+      "Removing these now counts as a hit and run on seedpool for each of them:" +
+        "Harbor.2019.1080pNeeds 4 days more seeding" +
+        "Quay.2020.1080pNeeds 2 days 3 h more seeding",
     );
 });

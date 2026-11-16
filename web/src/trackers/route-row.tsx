@@ -31,7 +31,7 @@ function RoutePicker({
       label="Grabs go to"
       options={[
         ...(route.to === null
-          ? [{ value: byRootKey, label: "Where the Work's library root is" }]
+          ? [{ value: byRootKey, label: "Client set for each Work's library root" }]
           : []),
         ...picks.map(({ key, label }) => ({
           value: key,

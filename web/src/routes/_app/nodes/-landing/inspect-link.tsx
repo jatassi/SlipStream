@@ -44,8 +44,8 @@ export function LinkWords({
         )}
       </InspectorSection>
       {link.dialer !== undefined && (
-        <Details summary={`${dialer} dialed ${listener}.`}>
-          <p>The capsules glow brightest at the end that dialed.</p>
+        <Details summary={`${dialer} connected to ${listener}.`}>
+          <p>The moving dots are brightest at the Node that opened the connection.</p>
         </Details>
       )}
     </>

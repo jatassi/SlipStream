@@ -1,7 +1,7 @@
 import { PairingJoinBody, PairingWorkerClaim } from "../slipStream.schemas.zod.ts";
 
 /**
- * @summary Get the Join that awaited its Controller's dial: still awaiting, joined or failed
+ * @summary Get the last join that waited for the Controller to connect: still waiting, joined or failed
  */
 export const GetWorkerClaimResponse = PairingWorkerClaim;
 

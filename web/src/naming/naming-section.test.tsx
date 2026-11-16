@@ -18,7 +18,7 @@ import { renderApp } from "../test/render-app";
 const fileKey = "cinema.naming.file.standard";
 const defaultFile = "{Film Title} {(Year)} - {Edition Tag} {Target}";
 const noTarget =
-  "The file name has no {Target}. Add {Target} so each file of a Work gets its own name.";
+  "The file name has no {Target}. Add {Target} so the file for each Target gets its own name.";
 
 const renamingOff = (settings: SettingField[]) =>
   settings.map((field) => (field.kind === "switch" ? withValue(field, false) : field));

@@ -17,7 +17,7 @@ export function pinErrors(error: unknown, wrong?: string): SubmitErrors {
   if (isProblem(error, "pin_wait") || isProblem(error, "too_many_attempts")) {
     const wait = waiting.safeParse(error.body);
     if (wait.success) {
-      return { form: `${error.title} You can try again at ${clock(wait.data.until)}.`, fields: {} };
+      return { form: `${error.title}. Try again at ${clock(wait.data.until)}.`, fields: {} };
     }
   }
   return submitErrors(error);

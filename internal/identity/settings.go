@@ -25,14 +25,14 @@ var wrongPINs = setting.Noun{One: "wrong PIN", Many: "wrong PINs"}
 var (
 	PINWaitAfter       = setting.Count{Key: "identity.pinWaitAfter", Label: "Wrong PINs before a wait", Default: 5, Min: 3, Max: 10, Unit: wrongPINs}
 	PINWaitLength      = setting.Duration{Key: "identity.pinWait", Label: "Wait after too many wrong PINs", Default: 15 * time.Minute, Min: time.Minute, Max: day, Step: time.Minute}
-	PINOffAfter        = setting.Count{Key: "identity.pinOffAfter", Label: "Wrong PINs in a row before the PIN turns off", Default: 10, Min: 4, Max: 20, Unit: wrongPINs}
-	AddressFailures    = setting.Count{Key: "identity.addressFailures", Label: "Failed attempts per address", Default: 30, Min: 10, Max: 1000, Unit: setting.Noun{One: "attempt", Many: "attempts"}}
-	AddressWindow      = setting.Duration{Key: "identity.addressWindow", Label: "Per-address window", Default: 15 * time.Minute, Min: time.Minute, Max: day, Step: time.Minute}
-	ReconfirmWindow    = setting.Duration{Key: "identity.reconfirmWindow", Label: "Re-confirm window", Default: 15 * time.Minute, Min: time.Minute, Max: day, Step: time.Minute}
+	PINOffAfter        = setting.Count{Key: "identity.pinOffAfter", Label: "Wrong PINs in a row before the PIN locks", Default: 10, Min: 4, Max: 20, Unit: wrongPINs}
+	AddressFailures    = setting.Count{Key: "identity.addressFailures", Label: "Failed sign-ins from one IP address", Default: 30, Min: 10, Max: 1000, Unit: setting.Noun{One: "sign-in", Many: "sign-ins"}}
+	AddressWindow      = setting.Duration{Key: "identity.addressWindow", Label: "Count failed sign-ins over", Default: 15 * time.Minute, Min: time.Minute, Max: day, Step: time.Minute}
+	ReconfirmWindow    = setting.Duration{Key: "identity.reconfirmWindow", Label: "Ask to confirm it's you again after", Default: 15 * time.Minute, Min: time.Minute, Max: day, Step: time.Minute}
 	SessionLifetime    = setting.Duration{Key: "identity.sessionLifetime", Label: "Session lifetime", Default: 30 * day, Min: time.Hour, Max: 365 * day, Step: time.Hour}
 	SignupLinkLifetime = setting.Duration{Key: "identity.signupLinkLifetime", Label: "Signup link lifetime", Default: 7 * day, Min: time.Minute, Max: 30 * day, Step: time.Minute}
 	ResetLinkLifetime  = setting.Duration{Key: "identity.resetLinkLifetime", Label: "Reset link lifetime", Default: day, Min: time.Minute, Max: 7 * day, Step: time.Minute}
-	EmailLinkLifetime  = setting.Duration{Key: "identity.emailLinkLifetime", Label: "Email confirm link lifetime", Default: day, Min: time.Minute, Max: 7 * day, Step: time.Minute}
+	EmailLinkLifetime  = setting.Duration{Key: "identity.emailLinkLifetime", Label: "Email confirmation link lifetime", Default: day, Min: time.Minute, Max: 7 * day, Step: time.Minute}
 )
 
 // PINLimits is PINWaitAfter and PINOffAfter narrowed by each other's value

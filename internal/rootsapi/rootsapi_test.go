@@ -306,7 +306,7 @@ func TestEachRootsErrorAnswersItsProblem(t *testing.T) {
 	s.Expect(t, http.MethodPost, "/api/v1/roots", `{"contentType":"fixture","nodeId":"`+away.String()+`","path":`+strconv.Quote(dir)+`}`,
 		http.StatusUnprocessableEntity, unusable("node_offline"))
 	s.Expect(t, http.MethodPost, "/api/v1/roots", `{"contentType":"fixture","nodeId":"`+bare.String()+`","path":`+strconv.Quote(dir)+`}`,
-		http.StatusConflict, `{"status":409,"code":"node_not_storage","title":"The Node doesn't hold Storage"}`)
+		http.StatusConflict, `{"status":409,"code":"node_not_storage","title":"The Node doesn't have the Storage Role"}`)
 	s.Expect(t, http.MethodPost, "/api/v1/roots/"+storage.NewUUID().String()+"/default", "", http.StatusNotFound,
 		`{"status":404,"code":"root_not_found","title":"No root has that id"}`)
 	if len(s.changed.ids) != 0 {
@@ -398,7 +398,7 @@ func TestCheckRootJudgesWithoutSaving(t *testing.T) {
 	s.Expect(t, http.MethodPost, checkPath(away.String()), checkBody("root", dir, ""), http.StatusOK,
 		`{"usable":false,"path":`+strconv.Quote(dir)+`,"refusal":{"reason":"node_offline"}}`)
 	s.Expect(t, http.MethodPost, checkPath(bare.String()), checkBody("root", dir, ""), http.StatusConflict,
-		`{"status":409,"code":"node_not_storage","title":"The Node doesn't hold Storage"}`)
+		`{"status":409,"code":"node_not_storage","title":"The Node doesn't have the Storage Role"}`)
 }
 
 func TestCheckFolderForDownloadsOnAnyNode(t *testing.T) {
@@ -483,8 +483,8 @@ func TestFoldersOnANode(t *testing.T) {
 	s.Expect(t, http.MethodPost, folders, made, http.StatusCreated, `{"path":`+strconv.Quote(filepath.Join(dir, "Movies"))+`}`)
 	s.Expect(t, http.MethodPost, folders, made, http.StatusConflict, `{"status":409,"code":"folder_exists","title":"A folder of that name is already there"}`)
 	code, reply = s.Call(t, http.MethodPost, folders, `{"parent":`+strconv.Quote(dir)+`,"name":"a/b"}`)
-	if code != http.StatusUnprocessableEntity || !strings.HasPrefix(reply, `{"status":422,"code":"folder_invalid",`) {
-		t.Fatalf("makeFolder a/b = %d %s, want folder_invalid", code, reply)
+	if want := `{"status":422,"code":"folder_invalid","title":"The Node can't use that path or folder name","detail":"Use a full path, such as /mnt/media or D:\\Media, and a folder name without / or \\."}` + "\n"; code != http.StatusUnprocessableEntity || reply != want {
+		t.Fatalf("makeFolder a/b = %d %s, want %s", code, reply, want)
 	}
 	code, reply = s.Call(t, http.MethodGet, folders+"?path="+url.QueryEscape(filepath.Join(dir, "gone")), "")
 	if code != http.StatusUnprocessableEntity || !strings.HasPrefix(reply, `{"status":422,"code":"folder_unreadable","title":"The Node can't read the folder","problem":{"kind":"not_found","osText":`) {

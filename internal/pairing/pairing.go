@@ -347,7 +347,7 @@ const (
 // only before its half starts.
 var ErrRestartRequired = &Error{
 	Kind:   RestartRequired,
-	Reason: "a running Worker re-pairs only at start. Stop the Node and run slipstream join with this code, or restart it with the code in SLIPSTREAM_JOIN_CODE",
+	Reason: "a running Worker can't pair again. Stop the Node and run slipstream join with this code, or restart it with the code in SLIPSTREAM_JOIN_CODE",
 }
 
 // Ignored is whether k left a pairing in place rather than refusing one:

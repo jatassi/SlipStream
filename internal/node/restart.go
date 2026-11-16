@@ -117,7 +117,7 @@ func RestartNode(ctx context.Context, env Env) (StatusReply, error) {
 		}
 		select {
 		case <-ctx.Done():
-			return StatusReply{}, fmt.Errorf("node PID %d stopped to restart, and no successor responded within %s. See the logs in %s", reply.PID, reply.Within+serviceStartWait, env.DataDir.LogsDir())
+			return StatusReply{}, fmt.Errorf("node PID %d stopped to restart, but the new process didn't respond within %s. See the logs in %s", reply.PID, reply.Within+serviceStartWait, env.DataDir.LogsDir())
 		case <-tick.C:
 		}
 	}

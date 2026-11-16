@@ -146,8 +146,8 @@ func (s *Scheme) anchorProblem(v int) string {
 }
 
 const (
-	groupWork = "because Jellyfin and Emby show a Work's files as one item only when every name does"
-	groupItem = "because Plex, Jellyfin and Emby show an Item's files as one item only when every name does"
+	groupWork = "because Jellyfin and Emby group the files in a folder into one item only when every file name starts that way"
+	groupItem = "because Plex, Jellyfin and Emby group an episode's files into one item only when every file name starts that way"
 )
 
 // anchors reports that r is part of a's anchor, so it may vary by Item.

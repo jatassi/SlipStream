@@ -59,7 +59,7 @@ test.each(["/", "/movies", "/sign-in", "/worker"])(
     });
     await expect
       .element(
-        page.getByRole("heading", { name: /^home can't be reached from seedbox since .+\.$/u }),
+        page.getByRole("heading", { name: /^seedbox hasn't been able to reach home since .+\.$/u }),
       )
       .toBeVisible();
     expect(router.state.location.href).toBe("/serving");
@@ -67,7 +67,7 @@ test.each(["/", "/movies", "/sign-in", "/worker"])(
       .element(page.getByText("seedbox keeps seeding and finishes what it started."))
       .toBeVisible();
     await expect
-      .element(page.getByText("Holding Searching and Downloading · seeding 3 torrents."))
+      .element(page.getByText("Roles: Searching and Downloading · seeding 3 torrents."))
       .toBeVisible();
   },
 );
@@ -97,7 +97,9 @@ test("the status card goes back to the app once the Controller answers", async (
       http.get("*/api/v1/status", unreachable),
     ],
   });
-  await expect.element(page.getByRole("heading", { name: /can't be reached/u })).toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: /hasn't been able to reach/u }))
+    .toBeVisible();
   worker.use(signedOut, getGetStatusMockHandler({ claim: "controller", passkeys: noPasskeys }));
   await expect
     .element(page.getByRole("heading", { name: "Sign in to SlipStream" }), { timeout: 10_000 })

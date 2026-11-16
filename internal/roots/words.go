@@ -73,10 +73,10 @@ func (r *Roots) wordsOf(all []Root, names map[role.NodeID]nodes.Named) map[ID]st
 var trouble = map[State]struct{ sentence, fix string }{
 	Missing:      {"The folder isn't there.", "Restore it, or edit the root to where it is now."},
 	Unmounted:    {"The folder is there but looks unmounted.", "Plug in or mount the disk."},
-	Foreign:      {"The folder holds another library root's marker.", "Edit the root to a folder of its own."},
+	Foreign:      {"Another library root already uses this folder.", "Edit the root to point at a different folder."},
 	Unwritable:   {"SlipStream can't write to the folder.", "Let SlipStream write to it."},
 	Unresponsive: {"The folder isn't responding.", "Check the disk or share it is on."},
-	WrittenOff:   {"Its Node was written off, so its files count as missing.", "Re-home the root to a Node that holds Storage."},
+	WrittenOff:   {"SlipStream gave up this root's Node, so its files count as missing.", "Re-home the root to a Node with the Storage Role."},
 }
 
 // Trouble is what a root in s says and what to do, the sentences its

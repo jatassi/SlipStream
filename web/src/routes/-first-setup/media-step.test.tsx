@@ -15,7 +15,7 @@ type Refusal = { readonly id: string; readonly code: string; readonly title: str
 const inUse = (id: string): Refusal => ({
   id,
   code: "content_type_in_use",
-  title: "Remove its Works before turning this Content Type off",
+  title: "Delete every Work of this kind of media before turning it off",
 });
 
 function contentTypes(start: WorksContentType[], refuse?: Refusal) {
@@ -74,7 +74,7 @@ test("a Content Type that has Works stays on and says why on its switch", async 
   await userEvent.click(page.getByText("Zines"));
   await expect
     .element(page.getByRole("alert"))
-    .toHaveTextContent("Remove its Works before turning this Content Type off");
+    .toHaveTextContent("Delete every Work of this kind of media before turning it off");
   await expect.element(page.getByRole("switch", { name: "Zines" })).toBeChecked();
 });
 

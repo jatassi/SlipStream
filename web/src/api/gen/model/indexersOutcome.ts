@@ -17,7 +17,7 @@ export interface IndexersOutcome {
   /** @minimum 0 */
   releases: number;
   /**
-   * Set for waiting: since when the home Node is away; null when it holds no Role to search with
+   * Set for waiting: since when the home Node is away; null when it doesn't have the Searching Role
    * @nullable
    */
   since: string | null;

@@ -39,7 +39,7 @@ function TorrentGoes({
         {subject.keptIn === undefined
           ? `SlipStream removes its torrent and deletes the download copy${freesWords(preview.data?.preview?.frees)}. Files in your library stay.`
           : `SlipStream stops tracking its torrent and leaves it in ${subject.keptIn}. Files in your library stay.`}{" "}
-        Its Item goes back to wanted.
+        SlipStream counts the files it was for as missing again.
       </p>
       {preview.isPending && <Spinner label="Checking what this changes" />}
       {preview.isError && <p className="text-fail-ink">{sentenceOf(preview.error)}</p>}
@@ -68,9 +68,11 @@ export function Stops({ grab, work }: { grab: GrabsGrab; work: string }) {
     return (
       <p>
         SlipStream stops importing the download and keeps its torrent. Files already in your library
-        stay, and Items it hasn&apos;t imported go back to wanted.
+        stay, and files it hasn&apos;t imported count as missing again.
       </p>
     );
   }
-  return <p>SlipStream stops fetching the Release. Its Item goes back to wanted.</p>;
+  return (
+    <p>SlipStream stops fetching the release and counts the files it was for as missing again.</p>
+  );
 }

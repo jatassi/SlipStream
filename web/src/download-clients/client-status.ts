@@ -21,7 +21,7 @@ const statuses: { readonly [R in External["reach"]]: Words } = {
   responding: (client, kind, node) => ({
     signal: "ok",
     chip: "Responding",
-    sentence: `${node} reached ${kind.name} ${client.productVersion}.`,
+    sentence: `${node} connected to ${kind.name} ${client.productVersion}.`,
   }),
   not_responding: failing("Not responding"),
   sign_in_refused: failing("Sign-in refused"),

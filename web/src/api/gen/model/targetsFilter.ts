@@ -3,7 +3,7 @@ import type { TargetsFilterMode } from "./targetsFilterMode.ts";
 
 export interface TargetsFilter {
   attribute: TargetsFilterAttribute;
-  /** Only passes a fact holding one of the values, not one holding none; an unknown fact passes */
+  /** only passes a fact that has one of the values, and not passes a fact that has none of them; an unknown fact passes either mode */
   mode: TargetsFilterMode;
   /**
    * The attribute's values by name; a language is an ISO 639 code or original

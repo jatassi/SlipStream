@@ -48,7 +48,7 @@ export function StateBar({ counts }: { counts: FilesStateCounts }) {
     role: "img",
     "aria-label":
       shown.length === 0
-        ? "No cells"
+        ? "Nothing to download"
         : shown.map(({ state, count }) => `${count} ${statusMarks[state].word}`).join(", "),
   } as const;
   return (

@@ -41,7 +41,7 @@ export function TargetRow({
       {containers.length > 0 && (
         <span className="flex items-start gap-1.5 text-meta text-ink-2">
           <Icon icon={InformationCircleIcon} className="mt-px size-3.5 shrink-0" />
-          Every file {name} takes also meets {listed(containers.map((c) => c.name))}.
+          Every file that meets {name} also meets {listed(containers.map((c) => c.name))}.
         </span>
       )}
     </div>

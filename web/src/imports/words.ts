@@ -42,7 +42,7 @@ const reasonWords: { readonly [C in ImportsReasonCode]: Wording } = {
   no_year: ({ title }, type) =>
     `One ${lower(type.work).one} matches ${given(title, "title")}, but the name has no year.`,
   elsewhere: ({ title, year, root }) =>
-    `${named(given(title, "title"), year)} is in the ${given(root, "root").label}. A Work's files all live in one root. Move these files there, or ignore them.`,
+    `${named(given(title, "title"), year)} is in the ${given(root, "root").label}, and all its files must be in one root. Move these files there, or ignore them.`,
   unlisted: ({ title, year }, type) =>
     `${type.source} no longer lists ${named(given(title, "title"), year)}.`,
   no_number: (_reason, type, files) =>
@@ -125,20 +125,21 @@ export const isElsewhere = (entry: RootEntry): boolean =>
 export const isAddable = (entry: RootEntry): boolean =>
   entry.suggestion !== null && !isElsewhere(entry);
 
-/** "14 folders need you", a root's lead in Pending imports. */
+/** "14 folders need attention", a root's lead in Pending imports. */
 export const needYouWords = (count: number): string =>
-  `${countOf(count, { one: "folder", many: "folders" })} ${count === 1 ? "needs" : "need"} you`;
+  `${countOf(count, { one: "folder", many: "folders" })} ${count === 1 ? "needs" : "need"} attention`;
 
-/** "3 pending imports need you", the Library's link to Pending imports. */
+/** "3 pending imports need attention", the Library's link to Pending imports. */
 export const pendingWords = (count: number): string =>
-  `${countOf(count, { one: "pending import", many: "pending imports" })} ${count === 1 ? "needs" : "need"} you`;
+  `${countOf(count, { one: "pending import", many: "pending imports" })} ${count === 1 ? "needs" : "need"} attention`;
 
-/** "The last scan of the Films library root on home added 398 films. 14 folders need you." */
+/** "The last scan of the Films library root on home added 398 films. 14 folders need attention." */
 export function leadWords(lead: ImportsLead, type: WorksContentType): string {
   const works = lower(type.work);
   const added =
     lead.added === 0 ? `didn't add any ${works.many}` : `added ${countOf(lead.added, works)}`;
-  const needs = lead.needsYou === 0 ? "No folders need you." : `${needYouWords(lead.needsYou)}.`;
+  const needs =
+    lead.needsYou === 0 ? "No folders need attention." : `${needYouWords(lead.needsYou)}.`;
   return `The last scan of the ${lead.root.label} ${added}. ${needs}`;
 }
 

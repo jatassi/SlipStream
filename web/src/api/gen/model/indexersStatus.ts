@@ -26,10 +26,10 @@ export interface IndexersStatus {
   since: string | null;
   /** A challenge_unsolved that the Node's Challenge solver couldn't clear */
   solverTried: boolean;
-  /** home_only: a stop met on a failover Node, which waits for home */
+  /** home_only: the Indexer stopped while searching from a failover Node, and searches only from its home Node until that Node is back */
   state: IndexersStatusState;
   /**
-   * The last answer the site responded to
+   * When the site last responded successfully
    * @nullable
    */
   successAt: string | null;
@@ -39,7 +39,7 @@ export interface IndexersStatus {
    */
   text: string | null;
   /**
-   * When a limited or failing Indexer is asked again
+   * When SlipStream sends a limited or failing Indexer its next request
    * @nullable
    */
   until: string | null;

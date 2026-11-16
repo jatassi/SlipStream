@@ -11,9 +11,9 @@ var did = map[link.ChangeKind]string{
 	link.ChangeReplaced:        "Sent the replaced file.",
 	link.ChangeRemoved:         "Sent the removal.",
 	link.ChangeMoved:           "Sent the rename.",
-	link.ChangeSidecarAdded:    "Sent the new Sidecar.",
-	link.ChangeSidecarReplaced: "Sent the replaced Sidecar.",
-	link.ChangeSidecarRemoved:  "Sent the Sidecar's removal.",
+	link.ChangeSidecarAdded:    "Sent the new subtitle file.",
+	link.ChangeSidecarReplaced: "Sent the replaced subtitle file.",
+	link.ChangeSidecarRemoved:  "Sent the subtitle file's removal.",
 	link.ChangeLibrary:         "Refreshed the whole library.",
 }
 
@@ -54,7 +54,7 @@ func (c Change) waiting() string {
 	case c.Step.Started():
 		return "This change is partly sent. SlipStream finishes it automatically."
 	case c.Pairing():
-		return "This change is waiting for the other half of its upgrade."
+		return "This change is part of an upgrade. SlipStream sends it together with the upgrade's other file change."
 	}
 	return "This change is waiting to be sent."
 }

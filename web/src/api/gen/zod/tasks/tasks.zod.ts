@@ -17,7 +17,7 @@ import {
 export const ListTasksResponse = TasksOverview;
 
 /**
- * @summary List every open run, with how long a scheduled one waits before the header shows it
+ * @summary List every open run, with how long a scheduled one waits before the top bar shows it
  */
 export const ListOpenTaskRunsResponse = TasksOpenRuns;
 
@@ -43,7 +43,7 @@ export const UpdateTaskSettingsBody = TasksSchedulePatch;
 export const UpdateTaskSettingsResponse = TasksSchedule;
 
 /**
- * @summary Get one shown task with its units and its runs
+ * @summary Get one task with its units and its runs
  */
 export const GetTaskParams = zod.object({
   taskId: zod.string(),
@@ -63,7 +63,7 @@ export const UpdateTaskBody = TasksTaskPatch;
 export const UpdateTaskResponse = TasksTask;
 
 /**
- * @summary Run a task now over every unit, or add each unit its open run lacks. Its schedule stays as it was
+ * @summary Run every unit of a task now, or start the units its open run doesn't have yet. Its schedule stays as it was
  */
 export const RunTaskParams = zod.object({
   taskId: zod.string(),

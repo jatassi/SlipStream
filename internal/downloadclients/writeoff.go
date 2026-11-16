@@ -46,7 +46,7 @@ func (c *Clients) settleWriteOffs(ctx context.Context) {
 		return nil
 	})
 	if err != nil {
-		c.logFailure(ctx, "part the Torrents of written-off Nodes", err)
+		c.logFailure(ctx, "give up the torrents of written-off Nodes", err)
 		return
 	}
 	c.committed(written, parted)

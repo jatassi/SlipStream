@@ -26,7 +26,7 @@ export function JoinWait({ claim }: { claim: PairingWorkerClaim }) {
       <p>Paste this Node address into Add a Node on your SlipStream.</p>
       <p className="flex items-center gap-2 text-ink-3">
         <Spinner />
-        Waiting for your SlipStream to dial this Node…
+        Waiting for your SlipStream to connect to this Node…
       </p>
     </div>
   );

@@ -319,7 +319,7 @@ export const getAddMediaServerUrl = () => {
 };
 
 /**
- * @summary Add a Media Server once it responds from its reaching Node and accepts SlipStream's sign-in
+ * @summary Add a Media Server once it responds from its Connect from Node and accepts SlipStream's sign-in
  */
 export const addMediaServer = async (
   mediaserversDraftBody: MediaserversDraftBody,
@@ -412,7 +412,7 @@ export type AddMediaServerMutationError = ErrorType<
 export type AddMediaServerMutationVariables = { data: MediaserversDraftBody };
 
 /**
- * @summary Add a Media Server once it responds from its reaching Node and accepts SlipStream's sign-in
+ * @summary Add a Media Server once it responds from its Connect from Node and accepts SlipStream's sign-in
  */
 export const useAddMediaServer = <
   TError = ErrorType<
@@ -1903,7 +1903,7 @@ export const getUpdateMediaServerUrl = (id: string) => {
 };
 
 /**
- * @summary Change a Media Server, testing it again when the change is to its address, reaching Node or API key
+ * @summary Change a Media Server, testing it again when the change is to its address, Connect from Node or API key
  */
 export const updateMediaServer = async (
   id: string,
@@ -1999,7 +1999,7 @@ export type UpdateMediaServerMutationError = ErrorType<
 export type UpdateMediaServerMutationVariables = { id: string; data: MediaserversPatchBody };
 
 /**
- * @summary Change a Media Server, testing it again when the change is to its address, reaching Node or API key
+ * @summary Change a Media Server, testing it again when the change is to its address, Connect from Node or API key
  */
 export const useUpdateMediaServer = <
   TError = ErrorType<
@@ -2223,7 +2223,7 @@ export const getConfirmMediaServerIdentityUrl = (id: string) => {
 };
 
 /**
- * @summary Accept the server that responds at a Media Server's address now as that Media Server
+ * @summary Confirm that the server now responding at a Media Server's address is that Media Server
  */
 export const confirmMediaServerIdentity = async (
   id: string,
@@ -2298,7 +2298,7 @@ export type ConfirmMediaServerIdentityMutationError = ErrorType<
 export type ConfirmMediaServerIdentityMutationVariables = { id: string };
 
 /**
- * @summary Accept the server that responds at a Media Server's address now as that Media Server
+ * @summary Confirm that the server now responding at a Media Server's address is that Media Server
  */
 export const useConfirmMediaServerIdentity = <
   TError = ErrorType<
@@ -2939,7 +2939,7 @@ export const getListMediaServerSessionsUrl = (id: string) => {
 };
 
 /**
- * @summary List what plays on a Media Server now, as its reaching Node last saw it
+ * @summary List what plays on a Media Server now, as its Connect from Node last saw it
  */
 export const listMediaServerSessions = async (
   id: string,
@@ -3068,7 +3068,7 @@ export function useListMediaServerSessionsSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List what plays on a Media Server now, as its reaching Node last saw it
+ * @summary List what plays on a Media Server now, as its Connect from Node last saw it
  */
 
 export function useListMediaServerSessionsSuspense<
@@ -3106,7 +3106,7 @@ export const getTestMediaServerUrl = (id: string) => {
 };
 
 /**
- * @summary Test a Media Server from its reaching Node at its address and from the Controller at its fallback address
+ * @summary Test a Media Server from its Connect from Node at its address and from the Controller at its fallback address
  */
 export const testMediaServer = async (
   id: string,
@@ -3178,7 +3178,7 @@ export type TestMediaServerMutationError = ErrorType<
 export type TestMediaServerMutationVariables = { id: string };
 
 /**
- * @summary Test a Media Server from its reaching Node at its address and from the Controller at its fallback address
+ * @summary Test a Media Server from its Connect from Node at its address and from the Controller at its fallback address
  */
 export const useTestMediaServer = <
   TError = ErrorType<

@@ -263,7 +263,7 @@ func TestJoinWaitsAtTheNodePortForTheDial(t *testing.T) {
 	env := childEnv("SLIPSTREAM_NAME=box", "SLIPSTREAM_TIMINGS_LINK_JOIN_DIAL=1s", "SLIPSTREAM_TIMINGS_LINK_AWAIT_DIAL=2s")
 	res := slipstream(t, env, "join", "--data-dir", dir, "--node-port", strconv.Itoa(int(at.Port())), h.mint(t))
 	lines := strings.Split(strings.TrimSuffix(res.stdout, "\n"), "\n")
-	if res.code != node.ExitFailed || len(lines) != 4 || lines[0] != "Can't reach the Controller at 127.0.0.250:8485." || !strings.HasPrefix(res.stderr, "join failed: the Controller didn't dial this Node by ") {
+	if res.code != node.ExitFailed || len(lines) != 4 || lines[0] != "Can't reach the Controller at 127.0.0.250:8485." || !strings.HasPrefix(res.stderr, "join failed: the Controller didn't connect to this Node by ") {
 		t.Fatalf("join: exit %d, stdout %q, stderr %q; want exit 1 after the awaiting lines", res.code, res.stdout, res.stderr)
 	}
 	printed, err := joincode.ParseNodeAddress(strings.TrimPrefix(lines[2], "  "))

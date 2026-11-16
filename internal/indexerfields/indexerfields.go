@@ -138,7 +138,7 @@ func Fits(f Field, v string) error {
 		}
 	case Checkbox:
 		if v != "true" && v != "false" {
-			return &ValueError{Field: f.Name, Sentence: f.Label + " is true or false."}
+			return &ValueError{Field: f.Name, Sentence: "Choose on or off for " + f.Label + "."}
 		}
 	case Number:
 		n, err := strconv.Atoi(v)
@@ -153,13 +153,13 @@ func Fits(f Field, v string) error {
 func numberSentence(f Field) string {
 	switch {
 	case f.Min != nil && f.Max != nil:
-		return fmt.Sprintf("%s is a whole number from %d to %d.", f.Label, *f.Min, *f.Max)
+		return fmt.Sprintf("Enter a whole number from %d to %d for %s.", *f.Min, *f.Max, f.Label)
 	case f.Min != nil:
-		return fmt.Sprintf("%s is a whole number of %d or more.", f.Label, *f.Min)
+		return fmt.Sprintf("Enter a whole number of %d or more for %s.", *f.Min, f.Label)
 	case f.Max != nil:
-		return fmt.Sprintf("%s is a whole number of %d or less.", f.Label, *f.Max)
+		return fmt.Sprintf("Enter a whole number of %d or less for %s.", *f.Max, f.Label)
 	}
-	return f.Label + " is a whole number."
+	return "Enter a whole number for " + f.Label + "."
 }
 
 // Split splits values over the stored fields into the plain ones and the

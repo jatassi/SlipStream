@@ -69,7 +69,7 @@ async function addSuperfan(page: Page) {
   await page.getByRole("button", { name: "Add cut" }).click();
   const adding = page.getByRole("dialog", { name: "Add a cut" });
   await adding.getByRole("textbox", { name: "Name" }).fill("Superfan");
-  await adding.getByRole("textbox", { name: "Also read as" }).fill("Fan Cut");
+  await adding.getByRole("textbox", { name: "Aliases" }).fill("Fan Cut");
   await adding.getByRole("button", { name: "Add cut" }).click();
   await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
     "Added Superfan.",
@@ -86,7 +86,7 @@ async function filmsWantSuperfan(page: Page, world: World) {
   await page.getByRole("radio", { name: "Choose cuts" }).click();
   await pick(page, "Add cut", "Superfan");
   await page.getByRole("button", { name: "Remove Standard" }).click();
-  await expect(page.getByText(/^Every Item wants Superfan outright/u)).toBeVisible();
+  await expect(page.getByText(/^SlipStream searches for Superfan every time/u)).toBeVisible();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("region", { name: "Notifications" })).toContainText("Saved Films.");
   const saved = await world.api("GET", `/api/v1/profiles/${films}`);

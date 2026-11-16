@@ -101,7 +101,7 @@ func TestHealthSourceIsUnsureOfATaskWaitingForItsNode(t *testing.T) {
 		}
 		synctest.Wait()
 		r.set(nodes.Down)
-		want := []string{"unsure tidy|Tidy|Tidy is waiting for seedbox and runs again once it is back."}
+		want := []string{"unsure tidy|Tidy|Tidy is waiting for seedbox. It runs again once seedbox is back online."}
 		if got := answer(t, s, health.ScheduledTasksID); !equal(got, want) {
 			t.Fatalf("scheduled tasks = %q, want %q", got, want)
 		}
@@ -148,7 +148,7 @@ func TestHealthRaisesAPartialUnitTheInstantItIsOverdue(t *testing.T) {
 				{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.MediaServersID, Label: "Media Servers", Phrase: "Media Servers"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
-				{About: health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still owe a Tracker"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
+				{About: health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still need seeding"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: tasks.HealthAbout, Source: s.HealthSource(health.ScheduledTasksID)},
 			},
@@ -182,7 +182,7 @@ func TestHealthRaisesAPartialUnitTheInstantItIsOverdue(t *testing.T) {
 		time.Sleep(time.Second)
 		synctest.Wait()
 		got := shown()
-		if len(got) != 1 || !got[0].Since.Equal(overdue) || got[0].Text != "Tidy hasn't finished S since Jan 1 00:00. Run it now to try S again." {
+		if len(got) != 1 || !got[0].Since.Equal(overdue) || got[0].Text != "Tidy hasn't succeeded for S since Jan 1 00:00. Run it now to retry S." {
 			t.Fatalf("once S is overdue Health shows %+v, want its warning since %v", got, overdue)
 		}
 	})

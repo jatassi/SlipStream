@@ -56,7 +56,7 @@ export const UpdateCutQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(updateCutQueryUnwantedDefault)
-    .describe("What becomes of the files the change leaves filling nothing"),
+    .describe("What happens to the files no Target uses after the change"),
   confirm: zod
     .int()
     .min(updateCutQueryConfirmMin)
@@ -71,7 +71,7 @@ export const UpdateCutBody = TargetsNewCut;
 export const UpdateCutResponse = TargetsCutChange;
 
 /**
- * @summary List the Profiles, each with the count of Works wanting from it
+ * @summary List the Profiles, each with the number of Works that use it
  */
 export const ListProfilesResponse = TargetsProfileList;
 
@@ -98,7 +98,7 @@ export const DeleteProfileQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(deleteProfileQueryUnwantedDefault)
-    .describe("What becomes of the files the change leaves filling nothing"),
+    .describe("What happens to the files no Target uses after the change"),
   confirm: zod
     .int()
     .min(deleteProfileQueryConfirmMin)
@@ -134,7 +134,7 @@ export const UpdateProfileQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(updateProfileQueryUnwantedDefault)
-    .describe("What becomes of the files the change leaves filling nothing"),
+    .describe("What happens to the files no Target uses after the change"),
   confirm: zod
     .int()
     .min(updateProfileQueryConfirmMin)
@@ -207,7 +207,7 @@ export const UpdateTargetQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(updateTargetQueryUnwantedDefault)
-    .describe("What becomes of the files the change leaves filling nothing"),
+    .describe("What happens to the files no Target uses after the change"),
   confirm: zod
     .int()
     .min(updateTargetQueryConfirmMin)
@@ -231,7 +231,7 @@ export const DuplicateTargetParams = zod.object({
 export const DuplicateTargetResponse = TargetsTarget;
 
 /**
- * @summary Get the Profile a Work wants from and its Edition list
+ * @summary Get the Profile a Work uses and its Edition list
  */
 export const GetWorkWantsParams = zod.object({
   workId: zod.uuid(),
@@ -254,7 +254,7 @@ export const SetWorkWantsQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(setWorkWantsQueryUnwantedDefault)
-    .describe("What becomes of the files the change leaves filling nothing"),
+    .describe("What happens to the files no Target uses after the change"),
   confirm: zod
     .int()
     .min(setWorkWantsQueryConfirmMin)

@@ -50,13 +50,13 @@ func (p Pending) Lines() []string {
 		"Can't reach the Controller at " + strings.Join(tried, ", ") + ".",
 		"Paste this Node address into the Add a Node dialog on the Controller:",
 		"  " + p.Address.String(),
-		"Waiting for the Controller to dial until " + p.Until.Format("15:04") + ". Press Ctrl-C to stop.",
+		"Waiting until " + p.Until.Format("15:04") + " for the Controller to connect. Press Ctrl-C to stop.",
 	}
 }
 
 // ErrJoinPending refuses a claim while another awaits its Controller's
 // dial.
-var ErrJoinPending = &Error{Kind: JoinPending, Reason: "a Join waits for its Controller to dial this Node"}
+var ErrJoinPending = &Error{Kind: JoinPending, Reason: "this Node is already waiting for the Controller to connect to it"}
 
 // Pending is the last pending claim, false when no claim has waited. It
 // takes no lock.
@@ -80,7 +80,7 @@ func (p *Pairing) Awaiting() bool {
 func (p *Pairing) await(ctx context.Context, code joincode.Code, unreachable *Error, awaiting func(Pending)) (*Pending, link.Paired, error) {
 	addrs, ok := p.cfg.Link.Advertised()
 	if !ok {
-		return nil, link.Paired{}, &Error{Kind: Unaddressed, Reason: unreachable.Reason + ", and this Node's link has no address for it to dial"}
+		return nil, link.Paired{}, &Error{Kind: Unaddressed, Reason: unreachable.Reason + ", and this Node has no address the Controller can connect to"}
 	}
 	addr, err := joincode.NewNodeAddress(p.cfg.Key[:], addrs.All())
 	if err != nil {
@@ -101,9 +101,9 @@ func (p *Pairing) await(ctx context.Context, code joincode.Code, unreachable *Er
 	switch {
 	case refused.Kind != Unreachable:
 	case ctx.Err() != nil:
-		refused = &Error{Kind: Unreachable, Reason: "stopped waiting for the Controller to dial this Node"}
+		refused = &Error{Kind: Unreachable, Reason: "stopped waiting for the Controller to connect to this Node"}
 	default:
-		refused = &Error{Kind: Unreachable, Reason: "the Controller didn't dial this Node by " + pend.Until.Format("15:04") + ". Ask for a new Join Code."}
+		refused = &Error{Kind: Unreachable, Reason: "the Controller didn't connect to this Node by " + pend.Until.Format("15:04") + ". Ask for a new Join Code."}
 	}
 	p.fail(pend, refused)
 	return nil, link.Paired{}, refused

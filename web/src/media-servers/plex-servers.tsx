@@ -104,7 +104,7 @@ export function ServersPart({ account, ...props }: Props & { account: Account })
       {first === undefined ? (
         <>
           <p className="text-pretty text-ink-1">
-            {`${account.name}'s Plex account has no servers. Sign in to Plex on the server with this account, then add it again.`}
+            {`${account.name}'s Plex account has no servers. Sign in to Plex Media Server with this account, then add the server here again.`}
           </p>
           <div className="flex justify-end">
             <Button onClick={props.onBack}>Back</Button>

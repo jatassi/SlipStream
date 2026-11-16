@@ -67,7 +67,7 @@ test("Add cut makes a custom cut from its name and phrases split by commas", asy
   expect(sent).toEqual([]);
 
   await userEvent.fill(dialog.getByRole("textbox", { name: "Name" }), " Superfan Cut ");
-  await userEvent.fill(dialog.getByRole("textbox", { name: "Also read as" }), "SFC, , Fan Cut ");
+  await userEvent.fill(dialog.getByRole("textbox", { name: "Aliases" }), "SFC, , Fan Cut ");
   await userEvent.click(dialog.getByRole("button", { name: "Add cut" }));
   await expect
     .element(page.getByText("Added Superfan Cut. Profiles and Works can list it now."))
@@ -109,7 +109,7 @@ test("renaming a custom cut shows the files it renames, then saves through the I
   await expect
     .element(dialog.getByRole("textbox", { name: "Name" }))
     .toHaveValue("Black and Chrome");
-  await expect.element(dialog.getByRole("textbox", { name: "Also read as" })).toHaveValue("B&C");
+  await expect.element(dialog.getByRole("textbox", { name: "Aliases" })).toHaveValue("B&C");
   await userEvent.fill(dialog.getByRole("textbox", { name: "Name" }), "Noir");
   await userEvent.click(dialog.getByRole("button", { name: "Save" }));
 

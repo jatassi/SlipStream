@@ -16,7 +16,7 @@ function AwaySolver({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-ink-1">
-        {`${node.name} is ${away}. Saving tests the solver from ${node.name}, so its Challenge solver can change once it's back.`}
+        {`${node.name} is ${away}. You can change its Challenge solver once it's back, because saving tests the solver from ${node.name}.`}
       </p>
       {solver.address === null ? (
         <p className="text-ink-3">{node.name} has no Challenge solver.</p>

@@ -29,7 +29,7 @@ export const tabOrder = {
 export const stateWords: { readonly [S in State]: string } = {
   removing: "Removing",
   failed: "Failed",
-  "tracker-error": "Announce error",
+  "tracker-error": "Tracker error",
   paused: "Paused",
   checking: "Checking",
   queued: "Queued",
@@ -121,7 +121,7 @@ function heldLine(row: Row, { node, clock }: Place): string {
   switch (row.hold) {
     case "window":
       return row.until === undefined
-        ? "Waiting for an announce"
+        ? "Waiting for its trackers"
         : `Resumes at ${sinceWords(row.until, clock)}`;
     case "disk_full":
       return "Disk full, resumes once there is space";
@@ -134,7 +134,7 @@ function heldLine(row: Row, { node, clock }: Place): string {
     case "disk_guard":
       return `Waiting for disk space on ${node}`;
     case "draining":
-      return `Waiting because ${node} is draining`;
+      return `Waiting while ${node} finishes its work`;
     case "controller":
       return "Waiting for the Controller";
     case "client_error":
@@ -159,7 +159,7 @@ export function stateLine(row: Row, live: LiveRow | undefined, place: Place): st
       : `Removed when ${waits.who} ${backWords[waits.cause].line}`;
   }
   if (row.lastKnown !== undefined) {
-    return `Last known at ${sinceWords(row.lastKnown, place.clock)}`;
+    return `Last reported at ${sinceWords(row.lastKnown, place.clock)}`;
   }
   if (row.importAt !== undefined) {
     return `Imports at ${sinceWords(row.importAt, place.clock)}`;
@@ -192,9 +192,9 @@ export function trackerLine(
   clock: Clock,
 ): { host: string; status: string } {
   if (cell === undefined) {
-    return { host: "No announce URL", status: "" };
+    return { host: "No tracker", status: "" };
   }
-  const host = cell.host === "" ? "Its announce URL" : cell.host;
+  const host = cell.host === "" ? "Its tracker" : cell.host;
   const retry =
     cell.retryAt === undefined ? "" : `, retrying at ${sinceWords(cell.retryAt, clock)}`;
   switch (cell.status) {
@@ -273,7 +273,7 @@ export function seedLength(seconds: number): string {
 
 /** An external client's seed, which its client's own seeding rules govern. */
 export const seedWords = ({ seedingSeconds }: Row): string =>
-  seedingSeconds < 60 ? "Seeding since just now" : `Seeded ${seedLength(seedingSeconds)}`;
+  seedingSeconds < 60 ? "Started seeding just now" : `Seeded ${seedLength(seedingSeconds)}`;
 
 export const tabCount = (counts: DownloadclientsCounts, tab: Tab): number =>
   counts.byTab.find((count) => count.tab === tab)?.torrents ?? 0;

@@ -43,7 +43,7 @@ export function ClientFoldersField({ form, kind, node }: Pair) {
       {(pairs) => (
         <fieldset className="flex flex-col gap-3">
           <legend className="mb-1.5 text-body font-semibold text-ink-2 in-data-[density=touch]:text-body-touch">
-            Client folders
+            Remote path mappings
           </legend>
           <p className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
             {`Pair each folder ${kind.name} reports with the same folder on ${node}, such as /downloads with D:\\Torrents. Leave this empty when both see the same paths.`}

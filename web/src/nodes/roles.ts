@@ -102,18 +102,18 @@ const lines: {
   holding: ({ held }) => (held === undefined ? "Holding" : `Holding ${heldWords(held)}`),
   away: (_view, standing, _covered, clock) => awayWords(standing, clock),
   lapsed: (_view, standing, _covered, clock) =>
-    `${awayWords(standing, clock)} · past the offline grace`,
+    `${awayWords(standing, clock)} · longer than the Offline grace`,
   draining: ({ held }) => {
     if (held === undefined) {
-      return "Draining";
+      return "Finishing its work";
     }
     if (held.endlessUnits === held.units) {
-      return `Draining, ${heldWords(held)} ${held.units === 1 ? "stays" : "stay"}`;
+      return `Finishing its work, ${heldWords(held)} ${held.units === 1 ? "stays" : "stay"}`;
     }
-    return `Draining · ${heldWords(held)} left`;
+    return `Finishing its work · ${heldWords(held)} left`;
   },
   "writing-off": ({ held }) =>
-    held === undefined ? "Writing off" : `Writing off ${heldWords(held)}`,
+    held === undefined ? "Giving up its work" : `Giving up ${heldWords(held)}`,
   covering: (_view, _standing, covered) =>
     covered.length === 0 ? "Covering" : `Covering for ${listed(covered)}`,
 };

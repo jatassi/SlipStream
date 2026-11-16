@@ -9,7 +9,7 @@ export interface IndexersQuery {
   completedAt: string | null;
   id: string;
   /**
-   * Null while it runs; lost when its Node never answered
+   * Null while it runs; lost when its Node never responded
    * @nullable
    */
   outcome: IndexersQueryOutcome;

@@ -128,14 +128,14 @@ func TestEachStopRaisesOneFailThatNamesItsFixAndLinksToIt(t *testing.T) {
 		atSolver bool
 	}{
 		{&searching.Stopped{Cause: searching.CredentialsRejected}, "Fixture Site rejected the username or password. Update them on the Indexer and test it.", false},
-		{&searching.Stopped{Cause: searching.CredentialsRejected, Text: "Wrong code"}, "Fixture Site refused the sign-in with 'Wrong code'. Check the username, password and any code on the Indexer, then test it.", false},
+		{&searching.Stopped{Cause: searching.CredentialsRejected, Text: "Wrong code"}, "Fixture Site refused the sign-in and responded 'Wrong code'. Check the username, password and any code on the Indexer, then test it.", false},
 		{&searching.Stopped{Cause: searching.CaptchaNeeded}, "Fixture Site needs a captcha to sign in again. Open the Indexer and type the code.", false},
 		{&searching.Stopped{Cause: searching.ChallengeUnsolved}, "Fixture Site is behind a browser challenge, and seedbox has no Challenge solver. Set one on seedbox, or paste a browser cookie on the Indexer.", true},
 		{&searching.Stopped{Cause: searching.ChallengeUnsolved, SolverTried: true}, "seedbox's Challenge solver couldn't clear Fixture Site's challenge. Paste a browser cookie on the Indexer.", false},
 		{&searching.Stopped{Cause: searching.CookieExpired}, "Fixture Site no longer accepts the browser cookie. Paste a new one on the Indexer.", false},
-		{&searching.Stopped{Cause: searching.DefinitionUnloadable}, "Fixture Site's definition doesn't load. Replace the custom definition, or wait for a catalog fix.", false},
-		{&searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}, "Fixture Site refused the API key with 'Account suspended'. Check the account, then test the Indexer.", false},
-		{&searching.Stopped{Cause: searching.RequestRejected, Text: "Incorrect parameter"}, "Fixture Site refused a search with 'Incorrect parameter'. Test the Indexer after the feed is fixed.", false},
+		{&searching.Stopped{Cause: searching.DefinitionUnloadable}, "SlipStream can't load Fixture Site's definition. Replace it with a fixed custom definition, or wait for the next catalog refresh.", false},
+		{&searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}, "Fixture Site refused the API key and responded 'Account suspended'. Check the account, then test the Indexer.", false},
+		{&searching.Stopped{Cause: searching.RequestRejected, Text: "Incorrect parameter"}, "Fixture Site refused a search and responded 'Incorrect parameter'. Test the Indexer once the site fixes the problem.", false},
 	}
 	for _, c := range cases {
 		t.Run(string(c.stop.Cause), func(t *testing.T) {

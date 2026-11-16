@@ -53,7 +53,7 @@ function ConditionDetails({
             label="Name"
             value={condition.name}
             placeholder={valueWords(condition)}
-            description="Left empty, the condition takes its value as its name."
+            description="Leave it empty to name the condition after its value."
             onChange={(name) => {
               onChange({ ...condition, name });
             }}
@@ -61,7 +61,7 @@ function ConditionDetails({
         </div>
         <Flag
           label="Negate"
-          meaning="The condition matches when its test fails."
+          meaning="The condition matches when the release doesn't meet it."
           checked={condition.negate}
           onChecked={(negate) => {
             onChange({ ...condition, negate });
@@ -69,7 +69,7 @@ function ConditionDetails({
         />
         <Flag
           label="Required"
-          meaning="The format matches only when this condition does. The conditions of its kind that aren't required then don't count."
+          meaning="This condition must match for the format to match. Without Required, any one condition of the same kind is enough."
           checked={condition.required}
           onChecked={(required) => {
             onChange({ ...condition, required });
