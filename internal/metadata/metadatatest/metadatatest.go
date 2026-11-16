@@ -35,6 +35,7 @@ func Artwork(t testing.TB, lib *storage.DB[storage.Library], sources map[works.T
 	t.Helper()
 	cfg := alone(sources, client, timings)
 	cfg.Library, cfg.Minter, cfg.Local, cfg.ArtworkDir = lib, Minter, storagetest.Local(t, artwork.Schema()), t.TempDir()
+	cfg.Sources = metadata.HolderConfig{Types: sources}.Sources()
 	m, err := metadata.Open(t.Context(), cfg)
 	if err != nil {
 		t.Fatal(err)
