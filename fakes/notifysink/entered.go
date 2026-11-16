@@ -2,6 +2,7 @@ package notifysink
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/jatassi/slipstream/fakes/fake"
@@ -77,5 +78,5 @@ func controllerOf(get func(path string) ([]byte, error)) (string, error) {
 			return n.ID, nil
 		}
 	}
-	return "", fmt.Errorf("listNodes names no Controller")
+	return "", errors.New("listNodes names no Controller")
 }

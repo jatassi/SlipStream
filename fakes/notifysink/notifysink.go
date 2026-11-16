@@ -24,6 +24,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -212,10 +213,9 @@ func (s *sink) set(cue string, on bool) was {
 }
 
 // play is the answer the profile's cues pick now, and how long to hold it.
-func (s *sink) play(id providers.ID) (string, time.Duration, time.Duration) {
+func (s *sink) play(id providers.ID) (cue string, wait, hold time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	var hold time.Duration
 	if s.on[Cue(id, Slow)] {
 		hold = s.delay[id]
 	}
@@ -368,7 +368,7 @@ func (r *recorder) Write(b []byte) (int, error) {
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v) //nolint:errchkjson // a fake's answer to a client that went away
 }
 
 func writeText(w http.ResponseWriter, status int, text string) {
@@ -378,5 +378,5 @@ func writeText(w http.ResponseWriter, status int, text string) {
 }
 
 func retryAfter(w http.ResponseWriter, wait time.Duration) {
-	w.Header().Set("Retry-After", fmt.Sprint(int(wait.Seconds())))
+	w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())))
 }

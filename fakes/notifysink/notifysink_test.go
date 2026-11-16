@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
 	"github.com/jatassi/slipstream/fakes/notifysink"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -41,7 +43,7 @@ func sinkCase(t *testing.T, f faketest.Served, id providers.ID) providertest.Cas
 			if i >= 0 {
 				path = s[len("https://")+i:]
 			}
-			out[k], _ = json.Marshal(f.Address.URL(notifysink.Prefix(id) + path))
+			out[k] = json.RawMessage(strconv.Quote(f.Address.URL(notifysink.Prefix(id) + path)))
 		}
 		return out
 	}
@@ -56,7 +58,7 @@ func sinkEndpoints(f faketest.Served) providers.Endpoints {
 
 // send builds the imported fixture for id, with its poster when id takes
 // one, posts it to the sink and reads the reply as the provider does.
-func send(t *testing.T, f faketest.Served, id providers.ID) (providers.Verdict, string) {
+func send(t *testing.T, f faketest.Served, id providers.ID) (v providers.Verdict, golden string) {
 	t.Helper()
 	p, _ := providers.ByID(id)
 	poster := p.Image != providers.NoImage
@@ -108,13 +110,19 @@ func TestEachProfileCapturesTheRequestItsProviderGoldenShows(t *testing.T) {
 			if got.Profile != string(id) || got.Dump != string(want) {
 				t.Errorf("profile %s captured\n%s\nwant its golden %s\n%s", got.Profile, got.Dump, golden, want)
 			}
-			if p, _ := providers.ByID(id); p.Image == providers.Bytes {
-				kept, err := os.ReadFile(filepath.Join(f.RunDir, records[0].Files["poster.jpg"]))
-				if err != nil || !bytes.Equal(kept, providertest.PosterBytes) {
-					t.Errorf("kept poster %q, %v", kept, err)
-				}
-			}
+			keptPoster(t, f, id, records[0])
 		})
+	}
+}
+
+func keptPoster(t *testing.T, f faketest.Served, id providers.ID, r events.Record) {
+	t.Helper()
+	if p, _ := providers.ByID(id); p.Image != providers.Bytes {
+		return
+	}
+	kept, err := os.ReadFile(filepath.Join(f.RunDir, r.Files["poster.jpg"]))
+	if err != nil || !bytes.Equal(kept, providertest.PosterBytes) {
+		t.Errorf("kept poster %q, %v", kept, err)
 	}
 }
 
