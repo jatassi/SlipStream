@@ -128,15 +128,13 @@ export function statusParts(status: GrabsQueueStatus, clock: Clock): StatusPart[
   ];
 }
 
-/** The row's reason, then the count of Items under each other reason: "Missing. 3 upgrades." */
+/** The row's reason, then the count of Items under each other reason: "Missing, 3 upgrades". */
 export function reasonWords(row: GrabsWantedRow): string {
   const others = reasons.flatMap((reason) => {
     const count = row.others[reason] ?? 0;
-    return reason === row.reason || count === 0
-      ? []
-      : [`${countWords(count, otherNouns[reason])}.`];
+    return reason === row.reason || count === 0 ? [] : [countWords(count, otherNouns[reason])];
   });
-  return [`${reasonLabels[row.reason]}.`, ...others].join(" ");
+  return [reasonLabels[row.reason], ...others].join(", ");
 }
 
 /** The Items a row lists, as runs: "S02E01 to S02E08, S03E02". */

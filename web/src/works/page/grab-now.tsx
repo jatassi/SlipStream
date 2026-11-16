@@ -4,7 +4,7 @@ import { countWords } from "../../format";
 import { Button, type ButtonSize } from "../../ui/button";
 import { toast } from "../../ui/toast";
 
-const releases = { one: "Release", many: "Releases" };
+const releases = { one: "release", many: "releases" };
 
 /** Ends a Work's waits now, those of `cells` or every one, and toasts how many Releases it grabs. */
 export function useGrabNow(workId: string) {

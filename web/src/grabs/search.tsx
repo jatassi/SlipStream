@@ -25,7 +25,10 @@ export function useStartSearch() {
   const search = useSearchWork({
     mutation: {
       onError: (error) => {
-        toast(error.message, { kind: "fail" });
+        toast(
+          error.message,
+          "code" in error && error.code === "nothing_wanted" ? {} : { kind: "fail" },
+        );
       },
     },
   });

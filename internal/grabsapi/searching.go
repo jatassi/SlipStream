@@ -47,7 +47,7 @@ type behind struct {
 	IndexerID   *string    `json:"indexerId" format:"uuid" doc:"The Indexer whose search limit it waits for; null when it waits for none"`
 	IndexerName *string    `json:"indexerName" doc:"That Indexer's name; null when it waits for none"`
 	Until       *time.Time `json:"until" doc:"When the Indexer's search limit frees a search; null when it waits for none"`
-	Starved     bool       `json:"starved" doc:"RSS sync uses all of the Indexer's search limit, so Backlog search waits for it"`
+	Starved     bool       `json:"starved" doc:"RSS sync uses all of the Indexer's search limit, so Backlog search and Search all wait for it"`
 }
 
 type waiting struct {

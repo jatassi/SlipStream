@@ -132,7 +132,7 @@ test("Search starts a search and says so, and the run and its Grab show without 
   await expect
     .element(searches)
     .toMatchTextContent(
-      /^Grabbed 1 ReleaseSearch · 2 Releases found · Oct 12.+Fixture MirrorFound 2 ReleasesFixture SiteFound 2 ReleasesDetails$/u,
+      /^Grabbed 1 releaseSearch · 2 Releases found · Oct 12.+Fixture MirrorFound 2 ReleasesFixture SiteFound 2 ReleasesDetails$/u,
     );
 
   server.grabMoves(downloading);
@@ -203,7 +203,7 @@ test("a failed Grab shows under Needs you with the cells it holds back and a way
   server.grabMoves(failedImport, failedCells(failedImport.id));
   await expect
     .element(page.getByRole("list", { name: "Searches" }))
-    .toMatchTextContent(/^Grabbed 1 ReleaseSearch · 2 Releases found · Failed · Oct 12/u);
+    .toMatchTextContent(/^Grabbed 1 releaseSearch · 2 Releases found · Failed · Oct 12/u);
 
   const needsYou = page.getByRole("region", { name: "Needs you" });
   const card = needsYou.getByRole("article", {

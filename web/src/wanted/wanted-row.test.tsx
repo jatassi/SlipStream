@@ -29,12 +29,12 @@ test("a row shows the Work, its Items, why, the last search and the next", async
   ).toEqual([
     "The Long Shelf",
     "Story V02S01 to Story V02S08",
-    "Missing. 3 upgrades.",
+    "Missing, 3 upgrades",
     expect.stringMatching(/^Found nothing /u),
   ]);
   await expect
     .element(rowOf("The Quiet Orchard"))
-    .toMatchTextContent(/File gone\..*Only when you search/u);
+    .toMatchTextContent(/File gone.*Only when you search/u);
 });
 
 test("Search on a row presses Search for that Work and says so", async () => {

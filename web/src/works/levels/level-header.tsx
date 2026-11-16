@@ -103,7 +103,8 @@ function Title({
  * A level's header, its card's top or the whole closed card: poster, name,
  * state bar, tally and search state word, the column names while open,
  * then its Monitor switch, Search and a menu with Manual search, and Grab
- * now while a cell of it waits for a better Release.
+ * now while a cell of it waits for a better Release. A phone leaves out the
+ * poster and state bar, so the tally and state word fit beside the controls.
  */
 export const LevelHeader = memo(function LevelHeader({
   level,
@@ -129,7 +130,7 @@ export const LevelHeader = memo(function LevelHeader({
       <div
         className={`flex h-14 items-center gap-3 bg-glass px-4 ${open ? "rounded-t-card" : "rounded-card"}`}
       >
-        <Poster url={level.poster} />
+        {!phone && <Poster url={level.poster} />}
         <Title
           level={level}
           open={open}

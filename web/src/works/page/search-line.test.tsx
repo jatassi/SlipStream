@@ -56,7 +56,7 @@ test("a searching Work whose line waits for a starved Indexer says so in its pop
   await expect
     .element(page.getByRole("dialog", { name: "Why it waits" }))
     .toHaveTextContent(
-      "Backlog search waits for TorrentLeech. RSS sync uses all of its search limit.",
+      "This search waits for TorrentLeech. RSS sync uses all of TorrentLeech's search limit.",
     );
 });
 
@@ -71,7 +71,7 @@ test("a waiting Work offers Grab now, which ends every wait of the Work", async 
       `Waiting for a better release until ${laterWords(wait.until, reading).words}Grab now`,
     );
   await userEvent.click(line.getByRole("button", { name: "Grab now" }));
-  await expect.element(page.getByText("Grabbing 1 Release")).toBeVisible();
+  await expect.element(page.getByText("Grabbing 1 release")).toBeVisible();
   expect(server.grabbed).toEqual([{}]);
 });
 

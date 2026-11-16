@@ -229,6 +229,10 @@ export function laterAtWords(iso: string, reading: Clock): string {
  * A past time as it reads after a verb: "today at 09:12", "yesterday at
  * 09:12", "on Mon at 09:12" within the week, else "on Nov 3 at 09:12".
  */
+/** Whether a past time falls on the reader's today. */
+export const isToday = (iso: string, { now, zone }: Clock): boolean =>
+  daysFrom(new Date(iso), now, zone) <= 0;
+
 export function pastAtWords(iso: string, { now, zone }: Clock): string {
   const at = new Date(iso);
   const formats = formatsOf(zone);

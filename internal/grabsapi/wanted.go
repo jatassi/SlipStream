@@ -42,7 +42,7 @@ type limitUntil struct {
 	IndexerID   string     `json:"indexerId" format:"uuid"`
 	IndexerName string     `json:"indexerName"`
 	Until       *time.Time `json:"until" doc:"When its search limit frees a search; null while starved"`
-	Starved     bool       `json:"starved" doc:"RSS sync uses all of its search limit, so Backlog search waits for it"`
+	Starved     bool       `json:"starved" doc:"RSS sync uses all of its search limit, so Backlog search and Search all wait for it"`
 }
 
 type wantedWork struct {

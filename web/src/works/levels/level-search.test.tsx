@@ -12,6 +12,7 @@ import {
   searchingNow,
 } from "../../test/searching";
 import { shelfCells } from "../../test/shelf-cells";
+import { asPhone } from "../../test/viewport";
 import { workServer } from "../../test/work-server";
 
 const levels = () => page.getByRole("region", { name: "Volumes" });
@@ -70,7 +71,7 @@ test("a level with a waiting cell reads Waiting, and its menu's Grab now ends th
   await userEvent.click(levels().getByRole("button", { name: "More actions for Volume 3" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Grab now" }));
   await expect.poll(() => server.grabbed).toEqual([{ cells: [waiting] }]);
-  await expect.element(page.getByText("Grabbing 1 Release")).toBeVisible();
+  await expect.element(page.getByText("Grabbing 1 release")).toBeVisible();
 });
 
 test("a level with nothing waiting has no Grab now", async () => {
@@ -78,4 +79,13 @@ test("a level with nothing waiting has no Grab now", async () => {
   await userEvent.click(levels().getByRole("button", { name: "More actions for Volume 2" }));
   await expect.element(page.getByRole("menuitem", { name: "Manual search" })).toBeVisible();
   expect(page.getByRole("menuitem", { name: "Grab now" }).elements()).toHaveLength(0);
+});
+
+test("on a phone a level's tally reads whole beside its state word", async () => {
+  await asPhone();
+  open();
+  const header = levels().getByRole("heading", { name: /Volume 1/u });
+  await expect.element(header.getByText("Searching", { exact: true })).toBeVisible();
+  const tally = header.getByText(/^\d+ of \d+ met$/u).element();
+  expect(tally.scrollWidth).toBeLessThanOrEqual(tally.clientWidth);
 });

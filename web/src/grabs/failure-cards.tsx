@@ -75,7 +75,9 @@ export function GrabFailure({
           { label: "Cause", value: cause },
           ...recovery,
           { label: "Release", value: <Data>{grab.releaseTitle}</Data> },
-          { label: "Detail", value: grab.failure.message },
+          ...(grab.failure.message === cause
+            ? []
+            : [{ label: "Detail", value: grab.failure.message }]),
         ]}
         fix={{
           label: "Search again",

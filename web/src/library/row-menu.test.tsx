@@ -32,7 +32,7 @@ test.each(["grid", "table"] as const)(
     );
     await expect.element(page.getByRole("menuitem", { name: "Manual search" })).toBeVisible();
     await userEvent.click(page.getByRole("menuitem", { name: "Search", exact: true }));
-    await expect.element(page.getByText(`Queued ${orchardRow.label} for search`)).toBeVisible();
+    await expect.element(page.getByText(`Queued ${orchardRow.label} for search.`)).toBeVisible();
     expect(searched).toEqual([`${orchardRow.id} `]);
   },
 );

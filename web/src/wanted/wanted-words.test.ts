@@ -14,9 +14,9 @@ import {
 const saturday: Clock = { now: new Date("2026-11-14T10:00:00Z"), zone: "UTC" };
 
 test("a row's reason leads, with the count of each other reason after it", () => {
-  expect(reasonWords(missingRange)).toBe("Missing. 3 upgrades.");
+  expect(reasonWords(missingRange)).toBe("Missing, 3 upgrades");
   expect(reasonWords(aWantedRow({ reason: "failed", others: { missing: 2, gone: 1 } }))).toBe(
-    "Failed. 2 missing. 1 file gone.",
+    "Failed, 2 missing, 1 file gone",
   );
 });
 
