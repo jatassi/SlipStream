@@ -405,12 +405,49 @@ The decision to download one Release for a Work and Edition, recorded with the I
 _Avoid_: Snatch, download (for the decision)
 
 **Hold**:
-How long a Target waits after a Release is published before grabbing it automatically, so a better one can arrive first.
+How long a Target waits after a Release is published before grabbing it automatically, so a better one can arrive first. A Release that would end the Target's upgrades doesn't wait.
+_In UI_: "Hold", with its hover definition. A cell that waits reads "Waiting for a better Release".
 _Avoid_: Delay, delay profile
 
+**Automatic search**:
+A search whose Grabs SlipStream chooses itself, whether the Admin's Search, a trigger such as an add or a failed Grab, Search all, Backlog search or RSS sync started it.
+_In UI_: "Automatic search" as the Settings section. The Admin's button is "Search".
+_Avoid_: Auto search, search now
+
+**Search group**:
+The Items of a Work that one query searches, such as a season. Each Content Type defines its own.
+_In UI_: The group's own name, such as "season 3". Never "search group".
+_Avoid_: Search unit, batch, season (as the generic term)
+
+**Search all**:
+Searching every Work that Wanted lists under its filter, or every Work picked in the Library, behind the Admin's searches of one Work.
+_In UI_: "Search all" as a search's trigger. Wanted's button names its count, such as "Search 140 Works".
+_Avoid_: Bulk search, search missing
+
 **Backlog search**:
-The scheduled search that works through Wants nothing has found yet, spacing each Want's searches further apart while it stays unfound. At its longest gap, it also looks for listed cuts not yet seen for an Item.
+The scheduled search for every Want that is due, missing or upgradable, whose searches space further apart while it stays unfound, except in its first days after release. At its longest gap it also looks for listed cuts not yet seen for an Item.
+_In UI_: "Backlog search".
 _Avoid_: Sweep, scheduled search, auto search
+
+**RSS sync**:
+The Scheduled task that reads each Indexer's newest uploads and grabs the ones that meet a Want.
+_In UI_: "RSS sync".
+_Avoid_: RSS refresh, feed sync
+
+**Search again**:
+Searching a cell again after its Grab failed, by SlipStream at once or by the Admin on a stopped cell. A cell stops once "Stop searching again after" failed Grabs land in its window, at any stage, import included, and then only Backlog search searches it.
+_In UI_: "Search again", the action on a failed Grab's card.
+_Avoid_: Retry (for cells), redownload
+
+**Wanted**:
+The Library page that lists every Work with a missing, upgradable, failed or gone cell, with when SlipStream last searched it and when it searches next.
+_In UI_: "Wanted".
+_Avoid_: Missing page, Missing and Upgradable, wanted list
+
+**Not found**:
+A Needs you row for missing Items whose last search found nothing to grab. It is not a cell state.
+_In UI_: "not found", after the Items, such as "S02E01 to S02E08 not found".
+_Avoid_: Unfound, no results
 
 **Manual search**:
 A search an Admin opens to see the Releases for part of a Work and choose what to grab. It asks every Indexer that is on, leads with a Plan and grabs nothing until the Admin presses Grab.

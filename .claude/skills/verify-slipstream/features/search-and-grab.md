@@ -119,7 +119,7 @@ Steps:
   $FW exec $RUN --proof search-and-grab/grab-fault-loop -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
   ```
 
-  Read the Work's id from that answer's `workId`, and `GET /api/v1/works/<id>/searches` and `/searching` with `--proof search-and-grab/grab-fault-loop`: three runs, the later two with trigger `failed_grab`, and the cell under `stops`.
+  The answer lists three failed Grabs, the latest with `foundBy` `failed_grab` and a `searchId`. The older two read `searchId` null and `foundBy` `search`, because their runs were pruned. Read the Work's id from its `workId`, and `GET /api/v1/works/<id>/searches` and `/searching` with `--proof search-and-grab/grab-fault-loop`. Searches lists one run, the group's latest, with trigger `failed_grab` and one Grab, because each finished run replaces the earlier runs of its group. Searching lists the cell under `stops` with its three failures.
 
 ## Gotchas
 
