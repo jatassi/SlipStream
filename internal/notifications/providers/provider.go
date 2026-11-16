@@ -29,9 +29,6 @@ type Provider struct {
 	Words map[ReasonCode]string
 }
 
-// Table is every provider, in the order the sheet lists them.
-var Table = []Provider{}
-
 // ByID is the provider in Table with id.
 func ByID(id ID) (Provider, bool) {
 	for _, p := range Table {

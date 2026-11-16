@@ -1,0 +1,18 @@
+POST /api/webhooks/1180000000000000000/[set]?wait=true
+Content-Type: application/json
+
+{
+  "username": "SlipStream",
+  "embeds": [
+    {
+      "title": "Added Heat (1995) to Movies",
+      "description": "Sam added it.",
+      "url": "https://slipstream.example/works/w1",
+      "color": 3900150,
+      "timestamp": "2026-11-16T14:02:00Z"
+    }
+  ],
+  "allowed_mentions": {
+    "parse": []
+  }
+}

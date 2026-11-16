@@ -1,0 +1,18 @@
+POST /api/webhooks/1180000000000000000/[set]?wait=true
+Content-Type: application/json
+
+{
+  "username": "SlipStream",
+  "embeds": [
+    {
+      "title": "Grabbed Heat (1995)",
+      "description": "WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB\nAutomatic search found it on TorrentLeech.\nIt scores 1250 for the 1080p Target and 900 for the 720p Target.",
+      "url": "https://slipstream.example/works/w1",
+      "color": 3900150,
+      "timestamp": "2026-11-16T14:02:00Z"
+    }
+  ],
+  "allowed_mentions": {
+    "parse": []
+  }
+}
