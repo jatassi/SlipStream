@@ -107,10 +107,11 @@ EOF
 cpus=$(( $(nproc) / RUNNERS ))
 memory_mib=$(( ($(awk '/^MemTotal:/ {print $2}' /proc/meminfo) / 1024 - 2048) / RUNNERS ))
 # go test runs as many packages, and as many tests in each, as there are
-# CPUs, and every e2e test starts a world of processes. Half the e2e suite on
-# 16 CPUs and 10.7 GB peaked at 8 GB with six of each, and the whole suite
-# outgrew it, so the share of memory sets them.
-go_parallel=$(( memory_mib / 1800 > 2 ? memory_mib / 1800 : 2 ))
+# CPUs, and every e2e test starts a world of processes. With six of each, one
+# half of the e2e suite peaked at 8 GB on 16 CPUs and 10.7 GB and the other
+# outgrew it. Hosted runners run four of each in 16 GB, so the share of
+# memory sets them, at one per 2.7 GB.
+go_parallel=$(( memory_mib / 2700 > 2 ? memory_mib / 2700 : 2 ))
 for i in $(seq 1 "$RUNNERS"); do
   install -d "/etc/systemd/system/slipstream-ci-runner@$i.service.d"
   cat > "/etc/systemd/system/slipstream-ci-runner@$i.service.d/limits.conf" <<EOF
