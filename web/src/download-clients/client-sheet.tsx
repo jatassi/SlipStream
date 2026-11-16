@@ -1,13 +1,13 @@
 import { useState } from "react";
 
 import type { DownloadclientsKind as Kind } from "../api/gen/model";
+import { TestLine, type TestOutcome } from "../settings/test-line";
 import { Button, type ButtonLook } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { Switch } from "../ui/switch";
 import { ClientDetails } from "./client-details";
 import { LeadFields, type NodeChoice } from "./client-fields";
-import { daemonsOf, kindOf } from "./client-form";
-import { TestLine } from "./test-line";
+import { type TestResult, daemonsOf, kindOf } from "./client-form";
 import { type ClientSheetState, type Opened, useClientSheet } from "./use-client-sheet";
 
 type Props = {
@@ -17,6 +17,15 @@ type Props = {
   nodes: readonly NodeChoice[];
   onDone: () => void;
 };
+
+const outcomeOf = (result: TestResult, node: string): TestOutcome =>
+  result.passed
+    ? {
+        passed: true,
+        sentence: `The Test passed. ${node} connected to ${result.report.product} ${result.report.version}.`,
+        warnings: result.report.warnings,
+      }
+    : { passed: false, sentence: result.sentence };
 
 const nameOf = (nodes: readonly NodeChoice[], id: string): string =>
   nodes.find((node) => node.id === id)?.name ?? "its Node";
@@ -56,7 +65,7 @@ function Fields({
               open={sheet.detailsOpen}
               onOpenChange={sheet.setDetailsOpen}
             />
-            {result !== undefined && <TestLine result={result} node={node} />}
+            {result !== undefined && <TestLine outcome={outcomeOf(result, node)} />}
           </>
         );
       }}
