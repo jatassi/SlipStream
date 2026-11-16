@@ -65,7 +65,7 @@ if ($Only -ne 'windows') {
     }
     # Without interop there's no \\wsl.localhost share, so the files go in on
     # the command line.
-    foreach ($file in 'linux.sh', 'job-started.sh', 'job-completed.sh') {
+    foreach ($file in (Get-ChildItem "$PSScriptRoot\linux\*.sh").Name) {
         $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PSScriptRoot\linux\$file"))
         wsl.exe -d $Distro -u root -- bash -c "mkdir -p /root/slipstream-ci-kit && echo $b64 | base64 -d | tr -d '\r' > /root/slipstream-ci-kit/$file"
     }
