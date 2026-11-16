@@ -18,30 +18,31 @@ const maxResponse = 1 << 10
 
 // send is one job outside any Write.
 func (s *Service) send(ctx context.Context, j job) result {
-	return result{
-		conn: j.conn.ID, event: j.event.ID, kind: j.event.Kind, revision: j.conn.Revision,
-		verdict: s.attempt(ctx, j.conn, j.event, j.accepted),
+	r := result{conn: j.conn.ID, event: j.event.ID, kind: j.event.Kind, revision: j.conn.Revision}
+	secrets, err := s.open(j.conn.ID, j.conn.Sealed)
+	if err != nil {
+		s.cfg.Log.Error("open a connection's secrets", "connection", j.conn.ID, "err", err.Error())
+		r.verdict = providers.Verdict{Outcome: providers.RefusedConnection, Reason: providers.Reason{Code: secretsUnreadable}}
+		return r
 	}
+	r.verdict, _ = s.attempt(ctx, j.conn, secrets, j.event, j.accepted)
+	return r
 }
 
 // attempt renders e for c, builds the provider's request and sends it from
 // the Node that sends for c now. A 413 on a message with a poster is built
 // and sent once more without it.
-func (s *Service) attempt(ctx context.Context, c Connection, e event, accepted []string) providers.Verdict {
+// It answers the Node it picked, zero when none may send.
+func (s *Service) attempt(ctx context.Context, c Connection, secrets providers.Values, e event, accepted []string) (providers.Verdict, role.NodeID) {
 	p := s.provider(c.Provider)
 	node, why, ok := s.pick(c)
 	if !ok {
-		return providers.Verdict{Outcome: providers.Transient, Reason: why}
-	}
-	secrets, err := s.open(c.ID, c.Sealed)
-	if err != nil {
-		s.cfg.Log.Error("open a connection's secrets", "connection", c.ID, "err", err.Error())
-		return providers.Verdict{Outcome: providers.RefusedConnection, Reason: providers.Reason{Code: secretsUnreadable}}
+		return providers.Verdict{Outcome: providers.Transient, Reason: why}, role.NodeID{}
 	}
 	msg, err := s.render(ctx, e, s.cfg.Roster.Name(node))
 	if err != nil {
 		s.cfg.Log.Error("render a notification", "event", e.ID, "err", err.Error())
-		return providers.Verdict{Outcome: providers.RefusedContent, Reason: providers.Reason{Code: providers.Refused}}
+		return providers.Verdict{Outcome: providers.RefusedContent, Reason: providers.Reason{Code: providers.Refused}}, node
 	}
 	pay := providers.Payload{
 		Kind: e.Kind, At: e.At, Message: msg, Settings: c.Settings, Secrets: secrets,
@@ -56,7 +57,7 @@ func (s *Service) attempt(ctx context.Context, c Connection, e event, accepted [
 	if v.Outcome == providers.Sent && len(v.Response) > 0 {
 		s.cfg.Log.Info("a provider took a message with a response", "connection", s.label(c), "response", string(v.Response))
 	}
-	return v
+	return v, node
 }
 
 func (s *Service) try(ctx context.Context, p providers.Provider, node role.NodeID, pay providers.Payload) providers.Verdict {
