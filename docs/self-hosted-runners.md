@@ -23,6 +23,8 @@ The plan job's "Find the self-hosted runners" step counts the online runners who
 
 The planner moves up to one job per runner onto a pool. The lanes that start with the run take runners first. The e2e and browser lanes start when the build ends, so they get the build's runner and whatever is left. A packaging build always stays on its hosted runner, because its smoke tests install the packages system-wide. Every other job runs on the target's hosted runner, as it would without the pools.
 
+The plan job itself runs on a hosted runner, so a run falls back to hosted runners when this machine is off. A dispatch with `plan-self-hosted` runs the plan and the required check on a Linux runner instead, and skips the hosted queue. It waits while the Linux runners are offline.
+
 A commit that changes a pool's kit gets no runners from that pool until the pool is provisioned from it. Everything else, including new tools and new versions of the ones CI uses, needs no provisioning. CI installs them in every job, as it does on hosted runners.
 
 ## Who can run jobs on them

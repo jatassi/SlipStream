@@ -34,6 +34,10 @@ on:
         description: Rewrite each conformance suite's shape.json from the real services and upload them
         type: boolean
         default: false
+      plan-self-hosted:
+        description: Plan on the maintainer's Linux runners instead of a hosted one, which waits while they're offline
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -50,9 +54,14 @@ defaults:
     shell: bash
 
 jobs:
+  # The plan finds which self-hosted runners are online, so it runs on one
+  # only when a dispatch asks: a run the maintainer dispatched waits for them,
+  # and every other run plans on a hosted runner.
   plan:
     name: Plan CI lanes
-    runs-on: ubuntu-24.04
+    runs-on: >-
+      ${{ (github.event_name == 'workflow_dispatch' && inputs.plan-self-hosted && github.repository == 'jatassi/SlipStream' &&
+        github.actor == 'jatassi' && github.triggering_actor == 'jatassi') && 'slipstream-linux' || 'ubuntu-24.04' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -607,7 +616,9 @@ jobs:
     name: All required checks passed
     if: ${{ always() && (needs.plan.result != 'success' || needs.target.result != (fromJSON(needs.plan.outputs.planned)['target'] && 'success' || 'skipped') || needs.lint.result != (fromJSON(needs.plan.outputs.planned)['lint'] && 'success' || 'skipped') || needs.lint-repo.result != (fromJSON(needs.plan.outputs.planned)['lint-repo'] && 'success' || 'skipped') || needs.go.result != (fromJSON(needs.plan.outputs.planned)['go'] && 'success' || 'skipped') || needs.component.result != (fromJSON(needs.plan.outputs.planned)['component'] && 'success' || 'skipped') || needs.diagram.result != (fromJSON(needs.plan.outputs.planned)['diagram'] && 'success' || 'skipped')) }}
     needs: [plan, target, lint, lint-repo, go, component, diagram]
-    runs-on: ubuntu-24.04
+    runs-on: >-
+      ${{ (github.event_name == 'workflow_dispatch' && inputs.plan-self-hosted && github.repository == 'jatassi/SlipStream' &&
+        github.actor == 'jatassi' && github.triggering_actor == 'jatassi') && 'slipstream-linux' || 'ubuntu-24.04' }}
     timeout-minutes: 5
     steps:
       - name: Check every planned lane passed and the rest skipped
