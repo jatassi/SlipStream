@@ -117,7 +117,7 @@ func TestStampDescribesHeadAndTag(t *testing.T) {
 		t.Fatal(err)
 	}
 	newHead := run(t, dir, "rev-parse", "HEAD")
-	wantVersion := "v2.0.0-1-g" + newHead[:7]
+	wantVersion := "v2.0.0-1-g" + newHead[:12]
 	if s.Version != wantVersion || s.Commit+"\n" != newHead || s.Fingerprint != worktree.CleanFingerprint {
 		t.Errorf("Stamp = %+v, want version %s, commit %s, clean", s, wantVersion, newHead)
 	}
