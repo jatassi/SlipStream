@@ -5982,6 +5982,10 @@
       "GrabsFailure": {
         "additionalProperties": false,
         "properties": {
+          "cause": {
+            "description": "Why the Grab failed, in words",
+            "type": "string"
+          },
           "code": {
             "enum": [
               "indexer_unavailable",
@@ -6030,6 +6034,13 @@
             "description": "True when Needs you lists the failure. False for a cancel, for a failure SlipStream searches again by itself, and for a Manual Grab whose fetched torrent was on the Blocklist, because the Manual search sheet already showed that.",
             "type": "boolean"
           },
+          "recovery": {
+            "description": "What to do next, in words; null when there is nothing to do",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "stage": {
             "enum": [
               "fetching",
@@ -6043,6 +6054,8 @@
           "stage",
           "code",
           "message",
+          "cause",
+          "recovery",
           "needsYou",
           "current"
         ],
@@ -6053,6 +6066,10 @@
         "properties": {
           "at": {
             "format": "date-time",
+            "type": "string"
+          },
+          "cause": {
+            "description": "Why the Grab failed, in words",
             "type": "string"
           },
           "code": {
@@ -6103,6 +6120,7 @@
         },
         "required": [
           "code",
+          "cause",
           "at",
           "grabId"
         ],

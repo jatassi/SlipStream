@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -25,6 +26,8 @@ type Config struct {
 	// Queue takes the searches an Admin's add and monitoring ask for, in
 	// their Write.
 	Queue searches.Queue
+	// Notices records Works added and Works deleted.
+	Notices notice.Recorder
 }
 
 // Leaver hears of the Works a Leave files delete removes, inside the

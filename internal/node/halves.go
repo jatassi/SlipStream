@@ -474,6 +474,7 @@ func (n *Node) startController(ctx context.Context) error {
 		QueueChanged:     grabs.QueueChangedEvent.Bind(n.hub),
 		Clock:            time.Now,
 		Today:            n.today,
+		Notices:          n.notifications.Recorder("grabs", grabs.Notices()),
 		Log:              n.rootLog.With("subsystem", "grabs"),
 	})
 	searchQueue.Bind(pipeline)
@@ -507,13 +508,16 @@ func (n *Node) startController(ctx context.Context) error {
 		Rand:         n.importsRand,
 		BeforeStep:   n.env.Test.BeforeScanStep,
 		BeforeImport: n.env.Test.BeforeImport,
+		Notices:      n.notifications.Recorder("imports", imports.Notices()),
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
 	pipeline.Register(found.Importer())
 	if err := found.Carry(ctx); err != nil {
 		return err
 	}
-	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue})
+	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue,
+		Notices: n.notifications.Recorder("library", library.Notices()),
+	})
 
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
 	scheduler, err = tasks.Open(ctx, tasks.Config{

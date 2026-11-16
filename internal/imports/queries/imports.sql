@@ -176,3 +176,12 @@ SELECT id FROM imports_import WHERE grab_id = sqlc.arg(grab_id) AND finished_at 
 
 -- name: ListImportsOfGrabs :many
 SELECT * FROM imports_import WHERE grab_id IN (sqlc.slice(grab_ids)) ORDER BY id;
+
+-- name: ListUntoldPlaced :many
+SELECT position FROM imports_file
+WHERE import_id = sqlc.arg(import_id) AND outcome = 'placed' AND told_at IS NULL
+ORDER BY position;
+
+-- name: MarkTold :exec
+UPDATE imports_file SET told_at = sqlc.arg(told_at)
+WHERE import_id = sqlc.arg(import_id) AND outcome = 'placed' AND told_at IS NULL;

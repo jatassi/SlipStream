@@ -50,7 +50,7 @@ func TestCancelThroughTheAPIKeyFailsTheGrabAndBlocklistsItsReleaseWithNoAccount(
 
 	_, got := f.s.Call(t, http.MethodGet, "/api/v1/grabs/"+id, "")
 	for _, want := range []string{
-		`"failure":{"stage":"fetching","code":"canceled","message":"An app using the API key canceled this Grab.","needsYou":false,"current":true}`,
+		`"failure":{"stage":"fetching","code":"canceled","message":"An app using the API key canceled this Grab.","cause":"An Admin canceled this Grab.","recovery":"Search again to pick another release.","needsYou":false,"current":true}`,
 		`"actions":{"cancel":false,"blocklistable":false,"sendTo":false}`,
 	} {
 		if !strings.Contains(got, want) {

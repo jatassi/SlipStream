@@ -67,6 +67,8 @@ const failedGrab: GrabsGrab = {
   failure: {
     stage: "importing",
     code: "import_failed",
+    cause: "SlipStream couldn't put the file in the library.",
+    recovery: null,
     message: "place movies/The Quiet Orchard (2021): permission denied",
     needsYou: true,
     current: true,

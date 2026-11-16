@@ -74,10 +74,11 @@ func Config(tb testing.TB, lib *storage.DB[storage.Library], types ...works.Type
 		Videos: func(context.Context, storage.Reader[storage.Library]) (media.Videos, error) {
 			return media.DefaultVideos, nil
 		},
-		Changed: discard{},
-		Volumes: discardVolumes{},
-		Cadence: func() {},
-		Log:     slog.New(slog.DiscardHandler),
+		Changed:  discard{},
+		Describe: func(works.TypeID) (works.Description, bool) { return works.Description{}, false },
+		Volumes:  discardVolumes{},
+		Cadence:  func() {},
+		Log:      slog.New(slog.DiscardHandler),
 	}
 	Everywhere(&cfg, Store(tb, tb.TempDir(), tb.TempDir()))
 	return cfg

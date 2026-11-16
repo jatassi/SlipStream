@@ -5,7 +5,7 @@ import { clock } from "../format";
 import { useNow } from "../tasks/use-now";
 import { Data } from "../ui/data";
 import { stoppedWords } from "./search-words";
-import { type FailedGrab, failureWords } from "./stages";
+import type { FailedGrab } from "./stages";
 
 /** A cell failed Grabs stopped SlipStream searching again. */
 export type Stop = GrabsStopped;
@@ -16,7 +16,7 @@ function Failures({ stop, code }: { stop: Stop; code: FailedGrab["failure"]["cod
     <ul className="flex flex-col gap-0.5">
       {stop.failures.map((failure) => (
         <li key={`${failure.at} ${failure.grabId ?? ""}`}>
-          {failure.code !== code && `${failureWords[failure.code].cause} `}
+          {failure.code !== code && `${failure.cause} `}
           <Data>{clock(failure.at)}</Data>
         </li>
       ))}
@@ -33,12 +33,12 @@ export function useRecoveryFacts(
   stop: Stop | undefined,
 ): { label: string; value: ReactNode }[] {
   const now = useNow(30_000);
-  const { recovery } = failureWords[grab.failure.code];
+  const { recovery } = grab.failure;
   if (stop !== undefined) {
     return [
       { label: "Recovery", value: stoppedWords(stop, { now, zone: undefined }) },
       { label: "Failures", value: <Failures stop={stop} code={grab.failure.code} /> },
     ];
   }
-  return recovery === undefined ? [] : [{ label: "Recovery", value: recovery }];
+  return recovery === null ? [] : [{ label: "Recovery", value: recovery }];
 }

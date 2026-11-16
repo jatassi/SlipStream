@@ -1321,6 +1321,45 @@ func (q *Queries) ListGone(ctx context.Context) ([]ListGoneRow, error) {
 	return items, nil
 }
 
+const listImportedIn = `-- name: ListImportedIn :many
+SELECT file_id, replaced FROM files_imported
+WHERE work_id = ?1 AND import_id = ?2
+ORDER BY at, id
+`
+
+type ListImportedInParams struct {
+	WorkID   works.WorkID
+	ImportID storage.UUID
+}
+
+type ListImportedInRow struct {
+	FileID   FileID
+	Replaced string
+}
+
+func (q *Queries) ListImportedIn(ctx context.Context, arg ListImportedInParams) ([]ListImportedInRow, error) {
+	rows, err := q.db.QueryContext(ctx, listImportedIn, arg.WorkID, arg.ImportID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListImportedInRow
+	for rows.Next() {
+		var i ListImportedInRow
+		if err := rows.Scan(&i.FileID, &i.Replaced); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listImportsOfFiles = `-- name: ListImportsOfFiles :many
 SELECT file_id, import_id FROM files_imported
 WHERE file_id IN (/*SLICE:file_ids*/?) AND import_id IS NOT NULL ORDER BY at

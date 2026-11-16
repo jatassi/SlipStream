@@ -13,6 +13,8 @@ const failed: FailedGrab = {
   failure: {
     stage: "importing",
     code: "import_failed",
+    cause: "SlipStream couldn't put the file in the library.",
+    recovery: null,
     message: "permission denied",
     needsYou: true,
     current: true,

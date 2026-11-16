@@ -271,11 +271,13 @@ func idOrNil(id storage.UUID) *string {
 }
 
 type failure struct {
-	Stage    string `json:"stage" enum:"fetching,downloading,importing"`
-	Code     string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault,client_error,declined,unreadable"`
-	Message  string `json:"message"`
-	NeedsYou bool   `json:"needsYou" doc:"True when Needs you lists the failure. False for a cancel, for a failure SlipStream searches again by itself, and for a Manual Grab whose fetched torrent was on the Blocklist, because the Manual search sheet already showed that."`
-	Current  bool   `json:"current" doc:"No later Grab is downloading any of the same files. Needs you lists a failure only while it is current."`
+	Stage    string               `json:"stage" enum:"fetching,downloading,importing"`
+	Code     string               `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault,client_error,declined,unreadable"`
+	Message  string               `json:"message"`
+	Cause    string               `json:"cause" doc:"Why the Grab failed, in words"`
+	Recovery api.Nullable[string] `json:"recovery" doc:"What to do next, in words; null when there is nothing to do"`
+	NeedsYou bool                 `json:"needsYou" doc:"True when Needs you lists the failure. False for a cancel, for a failure SlipStream searches again by itself, and for a Manual Grab whose fetched torrent was on the Blocklist, because the Manual search sheet already showed that."`
+	Current  bool                 `json:"current" doc:"No later Grab is downloading any of the same files. Needs you lists a failure only while it is current."`
 }
 
 type entered struct {
@@ -400,6 +402,18 @@ func targetsOf(cells []grabs.Cell) (ids []string, out []grabTarget) {
 	return ids, out
 }
 
+func failureOf(v grabs.View) *failure {
+	words := grabs.WordsOf(v.Failed.Code)
+	f := &failure{
+		Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message, Cause: words.Cause,
+		NeedsYou: v.NeedsYou() && !v.SearchingAgain, Current: v.Current,
+	}
+	if words.Recovery != "" {
+		f.Recovery = api.Some(words.Recovery)
+	}
+	return f
+}
+
 func grabOf(v grabs.View) grab {
 	out := grab{
 		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition),
@@ -436,7 +450,7 @@ func grabOf(v grabs.View) grab {
 		}
 	}
 	if v.Failed != nil {
-		out.Failure = &failure{Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message, NeedsYou: v.NeedsYou() && !v.SearchingAgain, Current: v.Current}
+		out.Failure = failureOf(v)
 	}
 	for _, e := range v.History {
 		out.History = append(out.History, entered{Stage: string(e.Stage), At: e.At})

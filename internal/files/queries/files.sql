@@ -273,3 +273,8 @@ SELECT f.id, f.work_id, f.root_id, f.path FROM files_file f
 WHERE f.gone_at IS NULL AND substr(f.path, 1, length(sqlc.arg(holding))) = sqlc.arg(holding)
   AND NOT EXISTS (SELECT 1 FROM files_move m WHERE m.file_id = f.id)
 ORDER BY f.root_id, f.id;
+
+-- name: ListImportedIn :many
+SELECT file_id, replaced FROM files_imported
+WHERE work_id = sqlc.arg(work_id) AND import_id = sqlc.arg(import_id)
+ORDER BY at, id;

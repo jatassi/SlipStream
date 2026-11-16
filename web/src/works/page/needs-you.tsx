@@ -10,7 +10,7 @@ import type {
 import { clock } from "../../format";
 import { GrabFailure } from "../../grabs/failure-cards";
 import { stoppedWords } from "../../grabs/search-words";
-import { type FailedGrab, failureWords, isFailed, trackStage } from "../../grabs/stages";
+import { type FailedGrab, isFailed, trackStage } from "../../grabs/stages";
 import { useNow } from "../../tasks/use-now";
 import { Section } from "../../ui/section";
 import { SignalRow } from "../../ui/signal-row";
@@ -49,7 +49,7 @@ function Failed({
       />
     );
   }
-  const { cause, recovery } = failureWords[grab.failure.code];
+  const { cause, recovery } = grab.failure;
   return (
     <SignalRow
       signal="fail"
@@ -57,7 +57,7 @@ function Failed({
       subject={subject}
       verdict={
         stop === undefined
-          ? recovery === undefined
+          ? recovery === null
             ? cause
             : `${cause} ${recovery}`
           : `${cause} ${stoppedWords(stop, { now, zone: undefined })}`

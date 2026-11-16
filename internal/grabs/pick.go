@@ -492,6 +492,12 @@ func (g *grabbing) make(ctx context.Context, c chosen, cl cleared) (GrabID, erro
 		return GrabID{}, err
 	}
 	n.items, n.cells = rs.grabbed(c)
+	a := &rs.as[c.group]
+	held := make([]files.Cell, len(c.cells))
+	for i, k := range c.cells {
+		held[i] = rs.item[k]
+	}
+	n.facts, n.scores = a.read.Facts, scoresOf(a, held)
 	made, err := g.gr.insertGrab(ctx, g.tx, n, storage.Now())
 	if err != nil {
 		return GrabID{}, err

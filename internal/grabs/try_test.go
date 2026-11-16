@@ -112,7 +112,7 @@ func tester(t *testing.T, keys ...works.Key) (*grabs.Grabs, *titled, []works.Wor
 	g := grabs.New(grabs.Config{
 		Library: lib, Works: w, Targets: goals, Files: shelf,
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: claims}, Names: map[works.TypeID]rel.Names{contenttypetest.ID: grabstest.Dated{}},
-		Timings: grabs.DefaultTimings(), Today: time.Now, Log: slog.New(slog.DiscardHandler),
+		Timings: grabs.DefaultTimings(), Today: time.Now, Log: slog.New(slog.DiscardHandler), Notices: grabstest.Notices(),
 	})
 	return g, claims, ids
 }

@@ -2,10 +2,10 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { GrabsFailure, GrabsGrab, GrabsGrabList } from "../../../api/gen/model";
+import type { GrabsGrab, GrabsGrabList } from "../../../api/gen/model";
 import { getListGrabsMockHandler } from "../../../api/gen/query/grabs/grabs.msw";
 import { getListLibraryMockHandler } from "../../../api/gen/query/works/works.msw";
-import { downloading, imported } from "../../../test/grabs";
+import { downloading, fetchFailure, imported } from "../../../test/grabs";
 import { libraryRow, orchardId, orchardRow } from "../../../test/library";
 import { liveServer } from "../../../test/live-server";
 import { filmPlan } from "../../../test/manual";
@@ -25,13 +25,7 @@ const harvest = libraryRow({
   label: "Orchard Harvest",
 });
 
-const failure: GrabsFailure = {
-  stage: "fetching",
-  code: "torrent_unreachable",
-  message: "the Indexer answered 404 for the .torrent",
-  needsYou: true,
-  current: true,
-};
+const failure = fetchFailure;
 
 const failed: GrabsGrab = {
   ...downloading,

@@ -51,3 +51,9 @@ func (gr *Grabs) Tried(ctx context.Context, work works.WorkID, r indexers.Releas
 	})
 	return slices.ContainsFunc(tried, func(t triedRelease) bool { return t.is(r) }), err
 }
+
+// GrabbedRow and GrabFailedRow are the rows grabs records through.
+var (
+	GrabbedRow    = grabbedRow
+	GrabFailedRow = grabFailedRow
+)
