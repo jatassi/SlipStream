@@ -25,9 +25,10 @@ const masked = "[set]"
 
 // Dump is r as canonical text: the method and the URL's path and query,
 // since the host differs between a provider and notify-sink, then the
-// headers sorted, an RFC 2047 value decoded, then the body decoded. JSON is indented, a form is one
-// field per line in order, and a multipart part is its name, then its
-// text, or its file name, type, size and SHA-256. Every secret value is
+// headers sorted with any RFC 2047 value decoded, then the body decoded.
+// JSON is indented, a form is one field per line in order, and a
+// multipart part is its name, then its text, or its file name, type, size
+// and SHA-256. Every secret value is
 // replaced by [set], and so is an Authorization header's credential.
 func Dump(r providers.Request, secrets []string) string {
 	var b strings.Builder

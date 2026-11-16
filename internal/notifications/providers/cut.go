@@ -9,9 +9,9 @@ import (
 const ellipsis = "…"
 
 // cut is s in at most n characters, ending in "…" when it was longer.
-// Characters are counted in UTF-16 code units, as Discord and Telegram
-// count them, which is never fewer than the runes another provider counts.
-// A rune is never split.
+// Characters are counted in UTF-16 code units, which are never fewer than
+// runes, so the cut fits a provider that counts either. A rune is never
+// split.
 func cut(s string, n int) string {
 	if units(s) <= n {
 		return s
