@@ -1,6 +1,7 @@
 package providers_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -72,3 +73,5 @@ func slow(until time.Time, status int) providers.Verdict {
 func transient(r providers.Reason) providers.Verdict {
 	return providers.Verdict{Outcome: providers.Transient, Reason: r}
 }
+
+func itoa(n int64) string { return strconv.FormatInt(n, 10) }

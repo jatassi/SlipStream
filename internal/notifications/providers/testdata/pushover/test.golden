@@ -1,0 +1,12 @@
+POST /1/messages.json
+Content-Type: application/x-www-form-urlencoded
+
+device: phone,tablet
+message: This connection works.
+Den sent this message at 14:02.
+priority: 1
+sound: pushover
+timestamp: 1794837720
+title: Test from SlipStream
+token: [set]
+user: [set]

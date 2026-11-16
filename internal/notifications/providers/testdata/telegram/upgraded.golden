@@ -1,0 +1,13 @@
+POST /bot[set]/sendMessage
+Content-Type: application/json
+
+{
+  "chat_id": "-1001234567890",
+  "message_thread_id": 42,
+  "text": "\u003cb\u003eUpgraded Heat (1995) to Remux-2160p\u003c/b\u003e\nIt replaced WEBDL-1080p.\n\u003ca href=\"https://slipstream.example/works/w1\"\u003eOpen in SlipStream\u003c/a\u003e",
+  "parse_mode": "HTML",
+  "disable_notification": true,
+  "link_preview_options": {
+    "is_disabled": true
+  }
+}

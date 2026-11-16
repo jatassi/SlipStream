@@ -1,0 +1,15 @@
+POST /1/messages.json
+Content-Type: application/x-www-form-urlencoded
+
+device: phone,tablet
+message: WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB
+Automatic search found it on TorrentLeech.
+It scores 1250 for the 1080p Target and 900 for the 720p Target.
+priority: 1
+sound: pushover
+timestamp: 1794837720
+title: Grabbed Heat (1995)
+token: [set]
+url: https://slipstream.example/works/w1
+url_title: Open in SlipStream
+user: [set]

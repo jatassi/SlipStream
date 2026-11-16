@@ -1,0 +1,13 @@
+POST /bot[set]/sendMessage
+Content-Type: application/json
+
+{
+  "chat_id": "-1001234567890",
+  "message_thread_id": 42,
+  "text": "\u003cb\u003eCleared: Den's disk is almost full\u003c/b\u003e\nIt was on Health from 13:57 to 14:02.",
+  "parse_mode": "HTML",
+  "disable_notification": true,
+  "link_preview_options": {
+    "is_disabled": true
+  }
+}

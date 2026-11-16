@@ -1,0 +1,20 @@
+POST /services/T0000/B0000/[set]
+Content-Type: application/json
+
+{
+  "text": "The Grab for Heat (1995) failed",
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*\u003chttps://slipstream.example/works/w1|The Grab for Heat (1995) failed\u003e*\nqBittorrent refused the torrent because it already has it.\nSlipStream searches again automatically."
+      },
+      "accessory": {
+        "type": "image",
+        "image_url": "https://image.tmdb.org/t/p/w500/heat.jpg",
+        "alt_text": "The Grab for Heat (1995) failed"
+      }
+    }
+  ]
+}

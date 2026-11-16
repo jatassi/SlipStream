@@ -1,0 +1,13 @@
+POST /bot[set]/sendMessage
+Content-Type: application/json
+
+{
+  "chat_id": "-1001234567890",
+  "message_thread_id": 42,
+  "text": "\u003cb\u003eGrabbed Heat (1995)\u003c/b\u003e\nWEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB\nAutomatic search found it on TorrentLeech.\nIt scores 1250 for the 1080p Target and 900 for the 720p Target.\n\u003ca href=\"https://slipstream.example/works/w1\"\u003eOpen in SlipStream\u003c/a\u003e",
+  "parse_mode": "HTML",
+  "disable_notification": true,
+  "link_preview_options": {
+    "is_disabled": true
+  }
+}

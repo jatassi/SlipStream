@@ -1,0 +1,20 @@
+POST /services/T0000/B0000/[set]
+Content-Type: application/json
+
+{
+  "text": "Added Heat (1995) to Movies",
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*\u003chttps://slipstream.example/works/w1|Added Heat (1995) to Movies\u003e*\nSam added it."
+      },
+      "accessory": {
+        "type": "image",
+        "image_url": "https://image.tmdb.org/t/p/w500/heat.jpg",
+        "alt_text": "Added Heat (1995) to Movies"
+      }
+    }
+  ]
+}

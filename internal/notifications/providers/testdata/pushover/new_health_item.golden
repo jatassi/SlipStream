@@ -1,0 +1,14 @@
+POST /1/messages.json
+Content-Type: application/x-www-form-urlencoded
+
+device: phone,tablet
+message: Movies has 4 GB free of 2 TB.
+It has been on Health since 13:57.
+priority: 1
+sound: pushover
+timestamp: 1794837720
+title: Den's disk is almost full
+token: [set]
+url: https://slipstream.example/health#health-storage-den
+url_title: Open in SlipStream
+user: [set]

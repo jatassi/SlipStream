@@ -1,0 +1,20 @@
+POST /services/T0000/B0000/[set]
+Content-Type: application/json
+
+{
+  "text": "Grabbed Heat (1995)",
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*\u003chttps://slipstream.example/works/w1|Grabbed Heat (1995)\u003e*\nWEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB\nAutomatic search found it on TorrentLeech.\nIt scores 1250 for the 1080p Target and 900 for the 720p Target."
+      },
+      "accessory": {
+        "type": "image",
+        "image_url": "https://image.tmdb.org/t/p/w500/heat.jpg",
+        "alt_text": "Grabbed Heat (1995)"
+      }
+    }
+  ]
+}

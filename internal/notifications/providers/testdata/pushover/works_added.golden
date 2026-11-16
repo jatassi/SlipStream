@@ -1,0 +1,13 @@
+POST /1/messages.json
+Content-Type: application/x-www-form-urlencoded
+
+device: phone,tablet
+message: Sam added it.
+priority: 1
+sound: pushover
+timestamp: 1794837720
+title: Added Heat (1995) to Movies
+token: [set]
+url: https://slipstream.example/works/w1
+url_title: Open in SlipStream
+user: [set]

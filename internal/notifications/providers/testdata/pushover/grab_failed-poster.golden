@@ -1,0 +1,26 @@
+POST /1/messages.json
+Content-Type: multipart/form-data
+
+--- part token
+[set]
+--- part user
+[set]
+--- part title
+The Grab for Heat (1995) failed
+--- part message
+qBittorrent refused the torrent because it already has it.
+SlipStream searches again automatically.
+--- part priority
+1
+--- part timestamp
+1794837720
+--- part url
+https://slipstream.example/works/w1
+--- part url_title
+Open in SlipStream
+--- part device
+phone,tablet
+--- part sound
+pushover
+--- part attachment poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488

@@ -1,0 +1,18 @@
+POST /bot[set]/sendPhoto
+Content-Type: multipart/form-data
+
+--- part chat_id
+-1001234567890
+--- part message_thread_id
+42
+--- part caption
+<b>The Grab for Heat (1995) failed</b>
+qBittorrent refused the torrent because it already has it.
+SlipStream searches again automatically.
+<a href="https://slipstream.example/works/w1">Open in SlipStream</a>
+--- part parse_mode
+HTML
+--- part disable_notification
+true
+--- part photo poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488
