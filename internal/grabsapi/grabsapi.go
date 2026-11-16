@@ -341,7 +341,7 @@ type grab struct {
 	Source       string                   `json:"source" enum:"search,manual,rss" doc:"How it was chosen: by a search's decision, by an Admin in a Manual search, or by RSS sync's decision"`
 	SearchID     *string                  `json:"searchId" format:"uuid" doc:"The search run that made it; null for a Manual Grab and once the run is pruned"`
 	FoundBy      string                   `json:"foundBy" enum:"search,backlog,rss,failed_grab,manual" doc:"What found its Release: a press of Search, Backlog search, RSS sync, a search again after a failed Grab, or an Admin in a Manual search"`
-	RSSIndexer   *string                  `json:"rssIndexerName" doc:"The Indexer whose feed RSS sync found it in; null unless foundBy is rss"`
+	RSSIndexer   *string                  `json:"rssIndexerName" doc:"The Indexer whose feed RSS sync found it in; null unless foundBy is rss, and once the Indexer is deleted"`
 	Chosen       api.Nullable[chosenWhy]  `json:"chosenBecause" doc:"Why the decision chose its Release; null when the ranking alone chose it"`
 	GrabbedBy    *string                  `json:"grabbedBy" doc:"A name, or the API key; null for a search's Grab"`
 	ManualSearch *string                  `json:"manualSearchId" format:"uuid" doc:"The Manual search it came from; null for a search's Grab and once a later Manual search of the Work replaced it"`
@@ -405,11 +405,14 @@ func grabOf(v grabs.View) grab {
 		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition),
 		Items: []string{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), InFlight: v.Stage.InFlight(), History: []entered{}, CreatedAt: v.Created,
-		Source: string(v.Source), FoundBy: foundBy[v.Source], ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...), Import: importOf(v.Import),
+		Source: string(v.Source), SearchID: idOrNil(v.Search.UUID), FoundBy: string(v.FoundBy), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...), Import: importOf(v.Import),
 		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},
 	}
 	if v.By != nil {
 		out.GrabbedBy = new(v.By.Words())
+	}
+	if v.RSSIndexer != "" {
+		out.RSSIndexer = new(v.RSSIndexer)
 	}
 	if v.ChosenFills > 0 {
 		out.Chosen = api.Some(chosenWhy{Kind: "fewer_releases", Fills: v.ChosenFills})
@@ -458,10 +461,6 @@ func grabOf(v grabs.View) grab {
 	}
 	return out
 }
-
-// foundBy is what found a Grab, by its source. A search's Grab reads
-// search until its run's trigger is read.
-var foundBy = map[grabs.Source]string{grabs.FromSearch: "search", grabs.FromManual: "manual", grabs.FromRSS: "rss"}
 
 type grabList struct {
 	Grabs []grab `json:"grabs" nullable:"false" doc:"Newest first"`

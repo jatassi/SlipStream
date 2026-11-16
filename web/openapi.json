@@ -6361,7 +6361,7 @@
             "type": "string"
           },
           "rssIndexerName": {
-            "description": "The Indexer whose feed RSS sync found it in; null unless foundBy is rss",
+            "description": "The Indexer whose feed RSS sync found it in; null unless foundBy is rss, and once the Indexer is deleted",
             "type": [
               "string",
               "null"

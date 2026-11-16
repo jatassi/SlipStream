@@ -71,7 +71,11 @@ export const groupWords: Readonly<Record<GrabsGroupStateState, string | undefine
   searching: "Searching",
 };
 
-/** What holds a queued group, as its popover says it; undefined when nothing does. */
+/**
+ * What holds a group, as its popover says it: a queued group's wait to
+ * start, or a searching group's paced line waiting at an Indexer.
+ * Undefined when nothing does.
+ */
 export function behindWords(behind: GrabsBehind | null, clock: Clock): string | undefined {
   if (behind === null) {
     return undefined;
@@ -120,7 +124,7 @@ export const lastWords: Readonly<
 
 /** The hero's one line about what SlipStream is doing for the Work. */
 export type Lead =
-  | { readonly kind: "searching"; readonly words: string }
+  | { readonly kind: "searching"; readonly words: string; readonly behind: string | undefined }
   | { readonly kind: "queued"; readonly words: string; readonly behind: string | undefined }
   | { readonly kind: "waiting"; readonly words: string }
   | { readonly kind: "result"; readonly words: string; readonly result: LastResult };
@@ -146,7 +150,11 @@ export function leadWords(
   const led = groups.find(({ key }) => key === lead.groupKey);
   if (led?.state === "searching") {
     const of = lead.of > 1 ? ` of ${lead.of}` : "";
-    return { kind: "searching", words: many ? `Searching ${led.label}${of}` : "Searching" };
+    return {
+      kind: "searching",
+      words: many ? `Searching ${led.label}${of}` : "Searching",
+      behind: behindWords(led.behind, clock),
+    };
   }
   if (led?.state === "queued") {
     return { kind: "queued", words: "Queued", behind: behindWords(led.behind, clock) };

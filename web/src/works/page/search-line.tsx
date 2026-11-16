@@ -37,13 +37,17 @@ function Action({ lead, workId }: { lead: Lead; workId: string }) {
   }
 }
 
+const popoverLabels = { queued: "Why it's queued", searching: "Why it waits" } as const;
+
 function Words({ lead }: { lead: Lead }) {
-  if (lead.kind === "queued" && lead.behind !== undefined) {
+  const spinner = lead.kind === "searching" && <Spinner />;
+  if ((lead.kind === "queued" || lead.kind === "searching") && lead.behind !== undefined) {
     return (
       <Popover
-        label="Why it's queued"
+        label={popoverLabels[lead.kind]}
         trigger={
           <Button size="small" look="ghost">
+            {spinner}
             {lead.words}
           </Button>
         }
@@ -54,7 +58,7 @@ function Words({ lead }: { lead: Lead }) {
   }
   return (
     <span className="flex items-center gap-2 text-ink-2">
-      {lead.kind === "searching" && <Spinner />}
+      {spinner}
       {lead.words}
     </span>
   );
@@ -62,7 +66,7 @@ function Words({ lead }: { lead: Lead }) {
 
 /**
  * The hero's one line about what SlipStream is doing for the Work:
- * searching, queued with what holds it, waiting for a better Release, or
+ * searching or queued, with what holds it, waiting for a better Release, or
  * how its latest search ended. It shows nothing before the first search.
  */
 export function SearchLine({

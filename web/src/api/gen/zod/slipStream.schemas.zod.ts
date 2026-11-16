@@ -3761,7 +3761,9 @@ export const GrabsGrab = zod.object({
   rssIndexerName: zod
     .string()
     .nullable()
-    .describe("The Indexer whose feed RSS sync found it in; null unless foundBy is rss"),
+    .describe(
+      "The Indexer whose feed RSS sync found it in; null unless foundBy is rss, and once the Indexer is deleted",
+    ),
   searchId: zod
     .uuid()
     .nullable()

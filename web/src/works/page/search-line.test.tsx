@@ -11,6 +11,7 @@ import {
   aWorkSearching,
   queuedBehind,
   searchingNow,
+  searchingStarved,
 } from "../../test/searching";
 import { starter } from "../../test/targets";
 import { missing } from "../../test/work-cells";
@@ -47,6 +48,16 @@ test("a queued Work reads Queued, and its popover says what holds it", async () 
   await expect
     .element(page.getByRole("dialog", { name: "Why it's queued" }))
     .toHaveTextContent("Queued behind 140 Works from Search all.");
+});
+
+test("a searching Work whose line waits for a starved Indexer says so in its popover", async () => {
+  const { line } = open(led(searchingStarved(1)));
+  await userEvent.click(line.getByRole("button", { name: "Searching" }));
+  await expect
+    .element(page.getByRole("dialog", { name: "Why it waits" }))
+    .toHaveTextContent(
+      "Backlog search waits for TorrentLeech. RSS sync uses all of its search limit.",
+    );
 });
 
 test("a waiting Work offers Grab now, which ends every wait of the Work", async () => {

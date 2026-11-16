@@ -96,6 +96,11 @@ DELETE FROM grabs_search_grab WHERE search_id = sqlc.arg(search_id) AND grab_id 
 SELECT search_id, grab_id, made FROM grabs_search_grab WHERE search_id IN (sqlc.slice(search_ids))
 ORDER BY search_id, made DESC, grab_id;
 
+-- name: ListMadeRunsOf :many
+-- The run that made each Grab, for what found its Release.
+SELECT sg.grab_id, s.id AS search_id, s.trigger FROM grabs_search_grab sg JOIN grabs_search s ON s.id = sg.search_id
+WHERE sg.grab_id IN (sqlc.slice(grab_ids)) AND sg.made = 1 ORDER BY sg.grab_id;
+
 -- name: InsertItemSearch :exec
 INSERT INTO grabs_item_search (item_id, first_searched_at) VALUES (sqlc.arg(item_id), sqlc.arg(first_searched_at))
 ON CONFLICT (item_id) DO NOTHING;
