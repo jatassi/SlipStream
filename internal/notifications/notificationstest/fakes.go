@@ -67,6 +67,7 @@ type body struct {
 	Title  string      `json:"title"`
 	Lines  []string    `json:"lines"`
 	Link   string      `json:"link"`
+	Tone   notice.Tone `json:"tone"`
 	Poster string      `json:"poster,omitempty"`
 }
 
@@ -78,7 +79,7 @@ func buildHook(p providers.Payload) (providers.Outbound, error) {
 	if err := json.Unmarshal(p.Secrets["token"], &token); err != nil {
 		return providers.Outbound{}, err
 	}
-	b := body{Kind: p.Kind, Title: p.Message.Title, Lines: p.Message.Lines, Link: p.Message.Link.Path}
+	b := body{Kind: p.Kind, Title: p.Message.Title, Lines: p.Message.Lines, Link: p.Message.Link.Path, Tone: p.Message.Tone}
 	if p.Poster != nil {
 		b.Poster = p.Poster.Name
 	}
@@ -158,6 +159,7 @@ func scriptProvider() providers.Provider {
 
 // Reply is one scripted answer.
 type Reply struct {
+	// Status is 200 when zero.
 	Status int
 	Header http.Header
 	Body   string
@@ -165,6 +167,8 @@ type Reply struct {
 	Exit int
 	// Silent: the Node doesn't respond.
 	Silent bool
+	// Delay is how long the answer takes.
+	Delay time.Duration
 	// Hold keeps the call open after it is received until Hold closes or
 	// the dispatcher stops.
 	Hold chan struct{}
@@ -172,6 +176,7 @@ type Reply struct {
 
 // Received is one message the Courier was handed.
 type Received struct {
+	At   time.Time
 	Node role.NodeID
 	// Target is the URL posted to, or the script's path.
 	Target string
@@ -179,6 +184,7 @@ type Received struct {
 	Title  string
 	Lines  []string
 	Link   string
+	Tone   notice.Tone
 	Poster string
 	Header http.Header
 }
@@ -225,7 +231,7 @@ var errSilent = errors.New("notificationstest: the Node didn't respond")
 func (c *Courier) take(ctx context.Context, rec Received, raw []byte) (Reply, error) {
 	var b body
 	_ = json.Unmarshal(raw, &b)
-	rec.Kind, rec.Title, rec.Lines, rec.Link, rec.Poster = b.Kind, b.Title, b.Lines, b.Link, b.Poster
+	rec.At, rec.Kind, rec.Title, rec.Lines, rec.Link, rec.Tone, rec.Poster = time.Now(), b.Kind, b.Title, b.Lines, b.Link, b.Tone, b.Poster
 	c.mu.Lock()
 	r := Reply{Status: http.StatusOK}
 	if q := c.replies[rec.Target]; len(q) > 0 {
@@ -240,8 +246,18 @@ func (c *Courier) take(ctx context.Context, rec Received, raw []byte) (Reply, er
 			return Reply{}, ctx.Err()
 		}
 	}
+	if r.Delay > 0 {
+		select {
+		case <-time.After(r.Delay):
+		case <-ctx.Done():
+			return Reply{}, ctx.Err()
+		}
+	}
 	if r.Silent {
 		return Reply{}, errSilent
+	}
+	if r.Status == 0 {
+		r.Status = http.StatusOK
 	}
 	return r, nil
 }

@@ -28,6 +28,9 @@ const (
 // published is what a pass changed that screens read.
 type published struct{ feed, connections bool }
 
+// inFlight is the event each connection's send in flight carries.
+type inFlight map[ConnectionID]EventID
+
 // job is one message to send, outside any Write.
 type job struct {
 	conn Connection
@@ -55,7 +58,7 @@ type result struct {
 func (s *Service) Run(ctx context.Context) error {
 	s.catalog.seal()
 	results := make(chan result)
-	busy := map[ConnectionID]bool{}
+	busy := inFlight{}
 	var unsettled []result
 	failed := 0
 	for {
@@ -76,7 +79,7 @@ func (s *Service) Run(ctx context.Context) error {
 			unsettled = unsettled[:0]
 			s.publish(ctx, pub)
 			for _, j := range claimed {
-				busy[j.conn.ID] = true
+				busy[j.conn.ID] = j.event.ID
 				go func() {
 					r := s.send(ctx, j)
 					select {
@@ -121,7 +124,7 @@ func (s *Service) publish(ctx context.Context, p published) {
 // old messages, drop those of connections and kinds turned off, start
 // lines whose connection changed afresh, and claim each idle connection's
 // oldest message. On an error nothing it did is kept.
-func (s *Service) pass(ctx context.Context, unsettled []result, busy map[ConnectionID]bool) (time.Time, []job, published, error) {
+func (s *Service) pass(ctx context.Context, unsettled []result, busy inFlight) (time.Time, []job, published, error) {
 	if s.cfg.BeforePass != nil {
 		if err := s.cfg.BeforePass(ctx); err != nil {
 			return time.Time{}, nil, published{}, err
@@ -141,7 +144,7 @@ func (s *Service) pass(ctx context.Context, unsettled []result, busy map[Connect
 		}
 		for _, step := range []func(context.Context) error{
 			func(ctx context.Context) error { return p.settle(ctx, unsettled) },
-			p.release, p.giveUp, p.drop, p.refresh,
+			p.release, func(ctx context.Context) error { return p.giveUp(ctx, busy) }, p.drop, p.refresh,
 			func(ctx context.Context) error { return p.claim(ctx, busy) },
 			func(ctx context.Context) error { return p.nextAt(ctx, busy) },
 		} {
@@ -291,13 +294,17 @@ func (p *passing) release(ctx context.Context) error {
 }
 
 // giveUp gives up the messages that waited longer than Give up on a
-// message after, counting each on its connection's line.
-func (p *passing) giveUp(ctx context.Context) error {
+// message after, counting each on its connection's line. A message in
+// flight is left to its send.
+func (p *passing) giveUp(ctx context.Context, busy inFlight) error {
 	old, err := p.q.ListDueOlderThan(ctx, db.ListDueOlderThanParams{At: storage.FromTime(p.now.Add(-p.giveUpAfter)), Limit: giveUpBound})
 	if err != nil {
 		return err
 	}
 	for _, d := range old {
+		if e, sending := busy[d.ConnectionID]; sending && e == d.EventID {
+			continue
+		}
 		if err := p.giveUpOne(ctx, d.EventID, d.ConnectionID, providers.Reason{Code: providers.TooOld}, nil); err != nil {
 			return err
 		}
@@ -342,10 +349,10 @@ func (p *passing) refresh(context.Context) error {
 // claim reads the oldest message of each idle connection that may send.
 // A clear is first cut to the items its connection was told, and goes
 // when none are left.
-func (p *passing) claim(ctx context.Context, busy map[ConnectionID]bool) error {
+func (p *passing) claim(ctx context.Context, busy inFlight) error {
 	for _, c := range p.conns {
 		l := p.line(c)
-		if busy[c.ID] || !statusOf(c, l, p.s.nodeView(c), 0, p.now, p.warn).MaySend(l, p.now) {
+		if _, sending := busy[c.ID]; sending || !statusOf(c, l, p.s.nodeView(c), 0, p.now, p.warn).MaySend(l, p.now) {
 			continue
 		}
 		claimed := false
@@ -424,7 +431,7 @@ func (p *passing) oldest(ctx context.Context, c Connection) (*job, bool, error) 
 // now after a bound was reached, else the earliest of the next event's due
 // time, the next retry of a connection with a message due, and the next
 // give-up.
-func (p *passing) nextAt(ctx context.Context, busy map[ConnectionID]bool) error {
+func (p *passing) nextAt(ctx context.Context, busy inFlight) error {
 	if p.hit {
 		p.next = p.now
 		return nil
@@ -445,7 +452,7 @@ func (p *passing) nextAt(ctx context.Context, busy map[ConnectionID]bool) error 
 	}
 	for _, n := range counts {
 		c, ok := p.byID[n.ConnectionID]
-		if !ok || busy[c.ID] || slices.ContainsFunc(p.claimed, func(j job) bool { return j.conn.ID == c.ID }) {
+		if _, sending := busy[c.ID]; !ok || sending || slices.ContainsFunc(p.claimed, func(j job) bool { return j.conn.ID == c.ID }) {
 			continue
 		}
 		l := p.line(c)
@@ -457,10 +464,11 @@ func (p *passing) nextAt(ctx context.Context, busy map[ConnectionID]bool) error 
 	if err != nil && !errors.Is(err, storage.ErrNoRows) {
 		return err
 	}
-	if !oldest.IsZero() {
-		// A message is given up once it is older than the limit, so the
-		// first instant after it, at storage's precision.
-		earliest(oldest.Time().Add(p.giveUpAfter + time.Microsecond))
+	// A message is given up once it is older than the limit, so the first
+	// instant after it, at storage's precision. One already past it is in
+	// flight, and its result wakes the next pass.
+	if at := oldest.Time().Add(p.giveUpAfter + time.Microsecond); !oldest.IsZero() && at.After(p.now) {
+		earliest(at)
 	}
 	return nil
 }

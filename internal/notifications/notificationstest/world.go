@@ -50,6 +50,8 @@ type World struct {
 	failNext atomic.Bool
 	passes   atomic.Int64
 	running  func()
+	// EachPass, when set, runs before each dispatcher pass.
+	EachPass func()
 	rec      notice.Recorder
 }
 
@@ -120,6 +122,9 @@ func (w *World) FailNextWrite() { w.failNext.Store(true) }
 
 func (w *World) beforePass(context.Context) error {
 	w.passes.Add(1)
+	if w.EachPass != nil {
+		w.EachPass()
+	}
 	if w.failNext.Swap(false) {
 		return ErrInjected
 	}
@@ -168,7 +173,7 @@ func (w *World) Connect(name string, changes ...func(*notifications.Draft)) noti
 	w.t.Helper()
 	d := notifications.Draft{
 		Name: name, Provider: HookID, On: true, Posters: true,
-		Settings: providers.Values{"url": quoted(URL(name))}, Secrets: map[string]string{"token": Token(name)},
+		Settings: providers.Values{"url": Text(URL(name))}, Secrets: map[string]string{"token": Token(name)},
 	}
 	for _, change := range changes {
 		change(&d)
@@ -181,7 +186,7 @@ func (w *World) Connect(name string, changes ...func(*notifications.Draft)) noti
 func (w *World) ConnectScript(name string, node role.NodeID) notifications.ConnectionID {
 	w.t.Helper()
 	return w.create(notifications.Draft{
-		Name: name, Provider: ScriptID, On: true, Node: node, Settings: providers.Values{"path": quoted(ScriptPath(name))},
+		Name: name, Provider: ScriptID, On: true, Node: node, Settings: providers.Values{"path": Text(ScriptPath(name))},
 	})
 }
 
@@ -217,11 +222,16 @@ func (w *World) Status(id notifications.ConnectionID) notifications.Status {
 	return v.Status
 }
 
-// Record records a Ping, or a Pong with row PongRow.
-func (w *World) Record(row notice.Row[Ping], f Ping) {
+// Record records each of fs in one Write, as PingRow or PongRow.
+func (w *World) Record(row notice.Row[Ping], fs ...Ping) {
 	w.t.Helper()
 	err := w.Lib.Write(w.t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return row.Record(ctx, tx, w.rec, f)
+		for _, f := range fs {
+			if err := row.Record(ctx, tx, w.rec, f); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		w.t.Fatal(err)
@@ -295,7 +305,8 @@ func (w *World) Set(d setting.Duration, v time.Duration) {
 	synctest.Wait()
 }
 
-func quoted(s string) json.RawMessage {
+// Text is s as a stored setting.
+func Text(s string) json.RawMessage {
 	b, _ := json.Marshal(s)
 	return b
 }
