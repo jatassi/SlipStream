@@ -24,7 +24,7 @@ export function renderApp({
   return app;
 }
 
-const settled = ({ router, queryClient }: AppInstance) =>
+export const settled = ({ router, queryClient }: AppInstance) =>
   router.state.status === "idle" && queryClient.isFetching() === 0;
 
 // An app torn down mid-load keeps loading, and its requests then reach the next

@@ -238,7 +238,9 @@ type Node struct {
 	store *storing.Store
 	disk  storing.Disk
 	// claimed is where library.db and a half push their stops, so they
-	// stop after HTTP and the link, whenever they start.
+	// stop after HTTP and the link, whenever they start. Its goroutines
+	// halt as the Node starts stopping, so a call they have in flight ends
+	// canceled rather than cut off by the link closing under it.
 	claimed *Stack
 
 	libMu sync.Mutex
@@ -570,6 +572,7 @@ func (n *Node) wait() {
 	case <-n.stack.Failed():
 		n.Stop()
 	}
+	n.claimed.Halt()
 	n.finish(errors.Join(n.stack.Err(), n.stack.unwind(n.deadline)))
 }
 
