@@ -53,11 +53,11 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Escape
   ```
 
-- **Let it finish.** Clear the fault. The capsule goes, and the row reads `Succeeded` with `7 steps · <time>`. The stream carries `tasks.progress` and `tasks.changed`.
+- **Let it finish.** Clear the fault. The capsule goes, and the row reads `Succeeded` with `9 steps · <time>`. The stream carries `tasks.progress` and `tasks.changed`.
 
   ```sh
   $FW fault clear $RUN slow-link
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Controller" }).getByText("7 steps").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Controller" }).getByText("9 steps").waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof tasks/tasks-run-now -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/tasks/tasks-run-now/succeeded.png
   $FW sse list $RUN --as admin --event tasks.progress
   ```
