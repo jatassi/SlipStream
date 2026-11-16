@@ -93,3 +93,8 @@ ON CONFLICT (node_id) DO UPDATE SET path_limit = excluded.path_limit;
 SELECT r.id, r.content_type, r.path, l.path_limit
 FROM roots_root r LEFT JOIN roots_limit l ON l.node_id = r.node_id
 ORDER BY r.id;
+
+-- name: ListWorksOfRootAmong :many
+SELECT work_id FROM roots_work
+WHERE root_id = sqlc.arg(root_id) AND work_id IN (sqlc.slice(work_ids))
+ORDER BY work_id;

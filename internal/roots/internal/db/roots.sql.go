@@ -613,6 +613,51 @@ func (q *Queries) ListWorksOfRoot(ctx context.Context, rootID RootID) ([]works.W
 	return items, nil
 }
 
+const listWorksOfRootAmong = `-- name: ListWorksOfRootAmong :many
+SELECT work_id FROM roots_work
+WHERE root_id = ?1 AND work_id IN (/*SLICE:work_ids*/?)
+ORDER BY work_id
+`
+
+type ListWorksOfRootAmongParams struct {
+	RootID  RootID
+	WorkIds []works.WorkID
+}
+
+func (q *Queries) ListWorksOfRootAmong(ctx context.Context, arg ListWorksOfRootAmongParams) ([]works.WorkID, error) {
+	query := listWorksOfRootAmong
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.RootID)
+	if len(arg.WorkIds) > 0 {
+		for _, v := range arg.WorkIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(arg.WorkIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []works.WorkID
+	for rows.Next() {
+		var work_id works.WorkID
+		if err := rows.Scan(&work_id); err != nil {
+			return nil, err
+		}
+		items = append(items, work_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const moveRoot = `-- name: MoveRoot :exec
 UPDATE roots_root SET node_id = ?1, path = ?2, place = place + 1 WHERE id = ?3
 `

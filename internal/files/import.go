@@ -220,18 +220,11 @@ func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], l Landing) (La
 	return Landed{File: g, Fills: v.Fills}, nil
 }
 
-// importedCell and replacedFile are a files_imported row's JSON.
+// importedCell is a files_imported row's JSON for a cell it fills.
 type importedCell struct {
 	Item    works.ItemID     `json:"item"`
 	Edition targets.Edition  `json:"edition"`
 	Target  targets.TargetID `json:"target"`
-}
-
-type replacedFile struct {
-	Quality release.Quality `json:"quality"`
-	Label   string          `json:"label"`
-	Items   []works.ItemID  `json:"items"`
-	Path    string          `json:"path"`
 }
 
 // imported records l's landing of g, which v judged, and that g replaced
@@ -241,9 +234,9 @@ func imported(ctx context.Context, q *db.Queries, l Landing, g File, v Verdict) 
 	for i, k := range v.Fills {
 		cells[i] = importedCell(k)
 	}
-	replaced := make([]replacedFile, len(v.Replaces))
+	replaced := make([]Replaced, len(v.Replaces))
 	for i, d := range v.Replaces {
-		replaced[i] = replacedFile{Quality: d.Quality, Label: d.Label, Items: d.Items, Path: d.Path}
+		replaced[i] = Replaced{Quality: d.Quality, Label: d.Label, Items: d.Items, Path: d.Path}
 		if err := q.SetReplacedBy(ctx, db.SetReplacedByParams{FileID: d.ID, ReplacedBy: g.ID}); err != nil {
 			return err
 		}
