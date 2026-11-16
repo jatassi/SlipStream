@@ -30,6 +30,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/notifications"
+	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/plextv"
@@ -69,6 +70,7 @@ type EndpointsBlock struct {
 	PlexTV       plextv.Endpoints     `yaml:"plex_tv"`
 	Torrent      engine.Endpoints     `yaml:"torrent"`
 	Indexers     indexers.Endpoints   `yaml:"indexers"`
+	Notify       providers.Endpoints  `yaml:"notify"`
 	Searching    searching.Endpoints  `yaml:"searching"`
 	ContentTypes ContentTypeEndpoints `yaml:"content_types"`
 }
@@ -198,6 +200,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			PlexTV:       plextv.DefaultEndpoints(),
 			Torrent:      engine.DefaultEndpoints(),
 			Indexers:     indexers.DefaultEndpoints(),
+			Notify:       providers.DefaultEndpoints(),
 			ContentTypes: contentTypeEndpoints(types),
 		},
 		Link: link.Settings{
