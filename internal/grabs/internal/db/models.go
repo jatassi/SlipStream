@@ -124,6 +124,7 @@ type GrabsGrab struct {
 	MetadataStartedAt storage.Time
 	SentBuiltInOn     *role.NodeID
 	SentClientID      *downloadclients.ClientID
+	FoundBy           FoundBy
 }
 
 type GrabsGrabItem struct {

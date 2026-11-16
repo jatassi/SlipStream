@@ -1,8 +1,8 @@
 -- name: InsertGrab :exec
-INSERT INTO grabs_grab (id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id,
+INSERT INTO grabs_grab (id, work_id, item_id, edition, source, found_by, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id,
     tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills,
     fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, created_at, updated_at)
-VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(source), sqlc.arg(manual_id),
+VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(source), sqlc.arg(found_by), sqlc.arg(manual_id),
     sqlc.arg(grabbed_by), sqlc.narg(grabbed_by_name), sqlc.arg(overrides), sqlc.arg(indexer_id), sqlc.arg(tracker_id),
     sqlc.arg(node_id),
     sqlc.arg(release_title), sqlc.arg(release_size), sqlc.arg(release_link_sealed), sqlc.narg(release_magnet),
@@ -97,9 +97,8 @@ SELECT search_id, grab_id, made FROM grabs_search_grab WHERE search_id IN (sqlc.
 ORDER BY search_id, made DESC, grab_id;
 
 -- name: ListMadeRunsOf :many
--- The run that made each Grab, for what found its Release.
-SELECT sg.grab_id, s.id AS search_id, s.trigger FROM grabs_search_grab sg JOIN grabs_search s ON s.id = sg.search_id
-WHERE sg.grab_id IN (sqlc.slice(grab_ids)) AND sg.made = 1 ORDER BY sg.grab_id;
+-- The run that made each Grab, while it is kept.
+SELECT grab_id, search_id FROM grabs_search_grab WHERE grab_id IN (sqlc.slice(grab_ids)) AND made = 1 ORDER BY grab_id;
 
 -- name: InsertItemSearch :exec
 INSERT INTO grabs_item_search (item_id, first_searched_at) VALUES (sqlc.arg(item_id), sqlc.arg(first_searched_at))

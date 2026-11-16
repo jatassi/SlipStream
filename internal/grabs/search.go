@@ -275,6 +275,7 @@ type newGrab struct {
 	pick      Pick
 	ticket    indexers.Ticket
 	source    Source
+	foundBy   FoundBy
 	manual    ManualID
 	by        *Actor
 	overrides Overrides
@@ -293,7 +294,7 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], n newGrab
 	g := Grab{
 		ID: GrabID{UUID: storage.NewUUID()}, WorkID: n.work, ItemID: n.item, Items: n.items, Edition: n.pick.Edition,
 		Release: Release{Title: r.Title, Size: r.Size, InfoHash: r.InfoHash}, Ticket: t, Stage: Fetching, Created: now.Time(),
-		Source: n.source, Manual: n.manual, By: n.by, Overrides: n.overrides, Sent: n.sent, Targets: n.cells, ChosenFills: n.fills,
+		Source: n.source, FoundBy: n.foundBy, Manual: n.manual, By: n.by, Overrides: n.overrides, Sent: n.sent, Targets: n.cells, ChosenFills: n.fills,
 		GUID: r.GUID,
 	}
 	if len(g.Items) == 0 {
@@ -318,7 +319,7 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], n newGrab
 		return Grab{}, fmt.Errorf("grab %s: encode the overrides: %w", g.ID, err)
 	}
 	p := db.InsertGrabParams{
-		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, Source: g.Source, ManualID: g.Manual, Overrides: string(overrides),
+		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, Source: g.Source, FoundBy: g.FoundBy, ManualID: g.Manual, Overrides: string(overrides),
 		IndexerID: t.Indexer, TrackerID: t.Tracker, NodeID: g.Node,
 		ReleaseTitle: g.Release.Title, ReleaseSize: g.Release.Size, ReleaseLinkSealed: g.Release.link, ReleaseMagnet: orNil(g.Release.magnet),
 		ReleaseInfoHash: hint, ReleaseGuid: orNil(g.GUID), FetchQueryID: t.Query, CreatedAt: now,

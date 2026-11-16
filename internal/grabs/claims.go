@@ -138,7 +138,7 @@ func (gr *Grabs) commitClaims(ctx context.Context, tx *storage.Tx[file], run Sea
 			for i, k := range c.cells {
 				cells[i] = Cell{Key: k}
 			}
-			n := newGrab{work: run.WorkID, item: c.cells[0].Item, items: c.covers, cells: cells, pick: c.pick, ticket: c.ticket, source: sourceOf(run), fills: c.fills}
+			n := newGrab{work: run.WorkID, item: c.cells[0].Item, items: c.covers, cells: cells, pick: c.pick, ticket: c.ticket, source: sourceOf(run), foundBy: foundByOf(run), fills: c.fills}
 			g, err = gr.insertGrab(ctx, tx, n, now)
 		}
 		if err != nil {
@@ -158,6 +158,21 @@ func sourceOf(run Search) Source {
 		return FromRSS
 	}
 	return FromSearch
+}
+
+// foundByOf is what found the Releases run grabs.
+func foundByOf(run Search) FoundBy {
+	switch run.Trigger {
+	case searches.RSS:
+		return FoundByRSS
+	case searches.Backlog:
+		return FoundByBacklog
+	case searches.FailedGrab:
+		return FoundByFailedGrab
+	case searches.Search, searches.SearchAll, searches.Add, searches.Monitor, searches.Profile, searches.Editions, searches.Retarget,
+		searches.ReleaseDate, searches.Refresh:
+	}
+	return FoundBySearch
 }
 
 // commitWaits writes ws, run's waiting claims, once run's Releases are

@@ -30,6 +30,9 @@ sql:
           - column: grabs_grab.source
             go_type:
               type: Source
+          - column: grabs_grab.found_by
+            go_type:
+              type: FoundBy
           - column: grabs_grab.grabbed_by
             go_type:
               import: github.com/jatassi/slipstream/internal/identity

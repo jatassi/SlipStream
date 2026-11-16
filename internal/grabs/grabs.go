@@ -49,6 +49,7 @@ type (
 	Step           = db.Step
 	ManualID       = db.ManualID
 	Source         = db.Source
+	FoundBy        = db.FoundBy
 	BlockCause     = db.BlockCause
 	Settled        = db.Settled
 )
@@ -65,6 +66,17 @@ const (
 
 // Sources is every Source, in the order the wire lists them.
 var Sources = []Source{FromSearch, FromManual, FromRSS}
+
+const (
+	FoundBySearch     FoundBy = "search"
+	FoundByBacklog    FoundBy = "backlog"
+	FoundByRSS        FoundBy = "rss"
+	FoundByFailedGrab FoundBy = "failed_grab"
+	FoundByManual     FoundBy = "manual"
+)
+
+// FoundBys is every FoundBy.
+var FoundBys = []FoundBy{FoundBySearch, FoundByBacklog, FoundByRSS, FoundByFailedGrab, FoundByManual}
 
 const (
 	CauseUnregistered BlockCause = "unregistered"
@@ -445,6 +457,9 @@ type Grab struct {
 	// Source is how it was chosen: by a search's decision, or by an Admin
 	// in a Manual search.
 	Source Source
+	// FoundBy is what found its Release: the trigger of the run that made
+	// it, or a Manual search.
+	FoundBy FoundBy
 	// Manual is the Manual search it came from, zero for an automatic Grab
 	// and once that search is replaced.
 	Manual ManualID
@@ -531,8 +546,8 @@ func load(row db.GrabsGrab, rel related) (Grab, error) {
 		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, link: row.ReleaseLinkSealed, magnet: deref(row.ReleaseMagnet)},
 		Ticket:  indexers.Ticket{Indexer: row.IndexerID, Query: row.FetchQueryID, Tracker: row.TrackerID},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
-		History: rel.history[row.ID], Created: row.CreatedAt.Time(), Source: row.Source, Manual: row.ManualID,
-		GUID: deref(row.ReleaseGuid),
+		History: rel.history[row.ID], Created: row.CreatedAt.Time(), Source: row.Source, FoundBy: row.FoundBy,
+		Manual: row.ManualID, GUID: deref(row.ReleaseGuid),
 	}
 	if row.ChosenFills != nil {
 		g.ChosenFills = int(*row.ChosenFills)

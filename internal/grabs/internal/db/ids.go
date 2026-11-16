@@ -78,6 +78,9 @@ type Step string
 // in a Manual search.
 type Source string
 
+// FoundBy is what found a Grab's Release.
+type FoundBy string
+
 // BlockCause is why a Release is on the Blocklist.
 type BlockCause string
 
