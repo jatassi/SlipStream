@@ -1,0 +1,19 @@
+POST /message
+Content-Type: application/json
+X-Gotify-Key: [set]
+
+{
+  "title": "The Grab for Heat (1995) failed",
+  "message": "qBittorrent refused the torrent because it already has it.\nSlipStream searches again automatically.",
+  "priority": 8,
+  "extras": {
+    "client::display": {
+      "contentType": "text/plain"
+    },
+    "client::notification": {
+      "click": {
+        "url": "https://slipstream.example/works/w1"
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+POST /v2/pushes
+Access-Token: [set]
+Content-Type: application/json
+
+{
+  "type": "link",
+  "title": "Upgraded Heat (1995) to Remux-2160p",
+  "body": "It replaced WEBDL-1080p.",
+  "url": "https://slipstream.example/works/w1",
+  "device_iden": "ujpah72o0sjAoRtnM0jc"
+}

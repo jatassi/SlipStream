@@ -1,0 +1,8 @@
+POST /[set]
+Authorization: Bearer [set]
+Click: https://slipstream.example/works/w1
+Content-Type: text/plain
+Priority: 4
+Title: Added Heat (1995) to Movies
+
+Sam added it.

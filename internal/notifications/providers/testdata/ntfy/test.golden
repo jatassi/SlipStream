@@ -1,0 +1,8 @@
+POST /[set]
+Authorization: Bearer [set]
+Content-Type: text/plain
+Priority: 4
+Title: Test from SlipStream
+
+This connection works.
+Den sent this message at 14:02.

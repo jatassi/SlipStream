@@ -1,0 +1,15 @@
+POST /message
+Content-Type: application/json
+X-Gotify-Key: [set]
+
+{
+  "title": "Test from SlipStream",
+  "message": "This connection works.\nDen sent this message at 14:02.",
+  "priority": 8,
+  "extras": {
+    "client::display": {
+      "contentType": "text/plain"
+    },
+    "client::notification": {}
+  }
+}

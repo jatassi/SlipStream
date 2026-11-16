@@ -1,0 +1,10 @@
+POST /[set]
+Authorization: Bearer [set]
+Click: https://slipstream.example/works/w1
+Content-Type: text/plain
+Priority: 4
+Title: Grabbed Heat (1995)
+
+WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB
+Automatic search found it on TorrentLeech.
+It scores 1250 for the 1080p Target and 900 for the 720p Target.

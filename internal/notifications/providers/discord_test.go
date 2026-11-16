@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/notifications/outbound"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
@@ -75,3 +76,7 @@ func transient(r providers.Reason) providers.Verdict {
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+func outboundDump(o providers.Outbound, c providertest.Case) string {
+	return outbound.DumpOutbound(o, providertest.Masks(c.Secrets))
+}

@@ -1,0 +1,10 @@
+POST /notify/
+Content-Type: application/json
+
+{
+  "body": "This connection works.\nDen sent this message at 14:02.",
+  "format": "text",
+  "title": "Test from SlipStream",
+  "type": "info",
+  "urls": "[set],[set]"
+}

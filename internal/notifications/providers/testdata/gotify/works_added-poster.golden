@@ -1,0 +1,20 @@
+POST /message
+Content-Type: application/json
+X-Gotify-Key: [set]
+
+{
+  "title": "Added Heat (1995) to Movies",
+  "message": "Sam added it.",
+  "priority": 8,
+  "extras": {
+    "client::display": {
+      "contentType": "text/plain"
+    },
+    "client::notification": {
+      "click": {
+        "url": "https://slipstream.example/works/w1"
+      },
+      "bigImageUrl": "https://image.tmdb.org/t/p/w500/heat.jpg"
+    }
+  }
+}

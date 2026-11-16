@@ -1,0 +1,20 @@
+POST /message
+Content-Type: application/json
+X-Gotify-Key: [set]
+
+{
+  "title": "Upgraded Heat (1995) to Remux-2160p",
+  "message": "It replaced WEBDL-1080p.",
+  "priority": 8,
+  "extras": {
+    "client::display": {
+      "contentType": "text/plain"
+    },
+    "client::notification": {
+      "click": {
+        "url": "https://slipstream.example/works/w1"
+      },
+      "bigImageUrl": "https://image.tmdb.org/t/p/w500/heat.jpg"
+    }
+  }
+}

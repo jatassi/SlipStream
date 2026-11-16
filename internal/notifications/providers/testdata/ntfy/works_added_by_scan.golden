@@ -1,0 +1,10 @@
+POST /[set]
+Authorization: Bearer [set]
+Content-Type: text/plain
+Priority: 4
+Title: A Library scan of Movies on Den added 12 Works
+
+Alien (1979)
+Arrival (2016)
+Blade Runner (1982)
+9 more were added.
