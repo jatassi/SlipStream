@@ -402,6 +402,18 @@ func targetsOf(cells []grabs.Cell) (ids []string, out []grabTarget) {
 	return ids, out
 }
 
+func failureOf(v grabs.View) *failure {
+	words := grabs.WordsOf(v.Failed.Code)
+	f := &failure{
+		Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message, Cause: words.Cause,
+		NeedsYou: v.NeedsYou() && !v.SearchingAgain, Current: v.Current,
+	}
+	if words.Recovery != "" {
+		f.Recovery = api.Some(words.Recovery)
+	}
+	return f
+}
+
 func grabOf(v grabs.View) grab {
 	out := grab{
 		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition),
@@ -438,14 +450,7 @@ func grabOf(v grabs.View) grab {
 		}
 	}
 	if v.Failed != nil {
-		words := grabs.WordsOf(v.Failed.Code)
-		out.Failure = &failure{
-			Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message, Cause: words.Cause,
-			NeedsYou: v.NeedsYou() && !v.SearchingAgain, Current: v.Current,
-		}
-		if words.Recovery != "" {
-			out.Failure.Recovery = api.Some(words.Recovery)
-		}
+		out.Failure = failureOf(v)
 	}
 	for _, e := range v.History {
 		out.History = append(out.History, entered{Stage: string(e.Stage), At: e.At})

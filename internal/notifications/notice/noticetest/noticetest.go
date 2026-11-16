@@ -45,6 +45,13 @@ func (r *Recorder) put(_ context.Context, _ *storage.Tx[storage.Library], k noti
 	return nil
 }
 
+// Len is how many events r keeps, of any kind.
+func (r *Recorder) Len() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.events)
+}
+
 // Of decodes the recorded events of row's kind, oldest first.
 func Of[F any](r *Recorder, row notice.Row[F]) []F {
 	r.mu.Lock()
@@ -123,4 +130,11 @@ func Text(m notice.Message) string {
 		fmt.Fprintf(&b, "File: %s %s replaced %q by %s\n", strings.Join(f.Items, ", "), f.Quality, f.Replaced, f.PlacedBy)
 	}
 	return b.String()
+}
+
+// Ignored is a Recorder for an owner whose events a test doesn't read. It
+// still refuses a kind not in rows.
+func Ignored(owner string, rows []notice.Entry) notice.Recorder {
+	rec, _ := New(owner, rows)
+	return rec
 }
