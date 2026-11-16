@@ -191,13 +191,14 @@ func (x *Indexers) gapItem(idx Indexer, f FeedFact) health.Item {
 	}}
 }
 
-// wantedHref is Wanted for types' missing and failed Wants.
+// wantedHref is Wanted filtered to missing and failed files: the one
+// Content Type's page when types holds one, every type's otherwise.
 func wantedHref(types []works.TypeID) string {
-	q := url.Values{"reason": {"missing", "failed"}}
-	for _, typ := range types {
-		q.Add("type", string(typ))
+	path := "/library/wanted"
+	if len(types) == 1 {
+		path += "/" + url.PathEscape(string(types[0]))
 	}
-	return "/library/wanted?" + q.Encode()
+	return path + "?" + url.Values{"reason": {"missing,failed"}}.Encode()
 }
 
 // unserved is a Fail for each Content Type of held, those holding a Work,

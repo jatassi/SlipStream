@@ -6,7 +6,7 @@ import { cinemaLibrary, ember } from "../test/library-page";
 import { renderApp } from "../test/render-app";
 import { wantedServer } from "../test/wanted";
 
-const bar = page.getByRole("toolbar", { name: "Picked Works" });
+const bar = page.getByRole("toolbar", { name: "Selected Works" });
 
 test("bulk Search queues the picked Works in the bulk lane and says how many", async () => {
   const wanted = wantedServer(undefined, {
@@ -15,9 +15,9 @@ test("bulk Search queues the picked Works in the bulk lane and says how many", a
   renderApp({ path: "/library", handlers: [...wanted.handlers, ...cinemaLibrary().handlers] });
   await userEvent.click(page.getByRole("button", { name: "Library options" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Select" }));
-  await userEvent.click(page.getByRole("checkbox", { name: `Pick ${ember.label}` }));
-  await userEvent.click(page.getByRole("checkbox", { name: `Pick ${orchardRow.label}` }));
-  await expect.element(bar.getByText("2 Films picked")).toBeVisible();
+  await userEvent.click(page.getByRole("checkbox", { name: `Select ${ember.label}` }));
+  await userEvent.click(page.getByRole("checkbox", { name: `Select ${orchardRow.label}` }));
+  await expect.element(bar.getByText("2 films selected")).toBeVisible();
 
   await userEvent.click(bar.getByRole("button", { name: "Search" }));
   await expect.element(page.getByText("Queued 2 films for search.")).toBeVisible();
