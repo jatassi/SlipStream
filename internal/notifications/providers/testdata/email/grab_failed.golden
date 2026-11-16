@@ -1,0 +1,29 @@
+MAIL sam@example.com
+Subject: The Grab for Heat (1995) failed
+--- text
+qBittorrent refused the torrent because it already has it.
+SlipStream searches again automatically.
+
+Open in SlipStream: https://slipstream.example/works/w1
+
+--- html
+<h2>The Grab for Heat (1995) failed</h2>
+<p>qBittorrent refused the torrent because it already has it.</p>
+<p>SlipStream searches again automatically.</p>
+<p><a href="https://slipstream.example/works/w1">Open in SlipStream</a></p>
+
+
+MAIL alex@example.com
+Subject: The Grab for Heat (1995) failed
+--- text
+qBittorrent refused the torrent because it already has it.
+SlipStream searches again automatically.
+
+Open in SlipStream: https://slipstream.example/works/w1
+
+--- html
+<h2>The Grab for Heat (1995) failed</h2>
+<p>qBittorrent refused the torrent because it already has it.</p>
+<p>SlipStream searches again automatically.</p>
+<p><a href="https://slipstream.example/works/w1">Open in SlipStream</a></p>
+

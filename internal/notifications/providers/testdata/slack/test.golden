@@ -1,0 +1,15 @@
+POST /services/T0000/B0000/[set]
+Content-Type: application/json
+
+{
+  "text": "Test from SlipStream",
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Test from SlipStream*\nThis connection works.\nDen sent this message at 14:02."
+      }
+    }
+  ]
+}

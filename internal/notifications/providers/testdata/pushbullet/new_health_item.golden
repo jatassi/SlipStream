@@ -1,0 +1,11 @@
+POST /v2/pushes
+Access-Token: [set]
+Content-Type: application/json
+
+{
+  "type": "link",
+  "title": "Den's disk is almost full",
+  "body": "Movies has 4 GB free of 2 TB.\nIt has been on Health since 13:57.",
+  "url": "https://slipstream.example/health#health-storage-den",
+  "device_iden": "ujpah72o0sjAoRtnM0jc"
+}

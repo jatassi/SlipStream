@@ -1,0 +1,29 @@
+MAIL sam@example.com
+Subject: Den's disk is almost full
+--- text
+Movies has 4 GB free of 2 TB.
+It has been on Health since 13:57.
+
+Open in SlipStream: https://slipstream.example/health#health-storage-den
+
+--- html
+<h2>Den's disk is almost full</h2>
+<p>Movies has 4 GB free of 2 TB.</p>
+<p>It has been on Health since 13:57.</p>
+<p><a href="https://slipstream.example/health#health-storage-den">Open in SlipStream</a></p>
+
+
+MAIL alex@example.com
+Subject: Den's disk is almost full
+--- text
+Movies has 4 GB free of 2 TB.
+It has been on Health since 13:57.
+
+Open in SlipStream: https://slipstream.example/health#health-storage-den
+
+--- html
+<h2>Den's disk is almost full</h2>
+<p>Movies has 4 GB free of 2 TB.</p>
+<p>It has been on Health since 13:57.</p>
+<p><a href="https://slipstream.example/health#health-storage-den">Open in SlipStream</a></p>
+

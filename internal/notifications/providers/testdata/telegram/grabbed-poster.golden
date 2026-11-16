@@ -1,0 +1,19 @@
+POST /bot[set]/sendPhoto
+Content-Type: multipart/form-data
+
+--- part chat_id
+-1001234567890
+--- part message_thread_id
+42
+--- part caption
+<b>Grabbed Heat (1995)</b>
+WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB
+Automatic search found it on TorrentLeech.
+It scores 1250 for the 1080p Target and 900 for the 720p Target.
+<a href="https://slipstream.example/works/w1">Open in SlipStream</a>
+--- part parse_mode
+HTML
+--- part disable_notification
+true
+--- part photo poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488

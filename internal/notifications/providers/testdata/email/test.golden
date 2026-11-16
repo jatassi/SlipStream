@@ -1,0 +1,23 @@
+MAIL sam@example.com
+Subject: Test from SlipStream
+--- text
+This connection works.
+Den sent this message at 14:02.
+
+--- html
+<h2>Test from SlipStream</h2>
+<p>This connection works.</p>
+<p>Den sent this message at 14:02.</p>
+
+
+MAIL alex@example.com
+Subject: Test from SlipStream
+--- text
+This connection works.
+Den sent this message at 14:02.
+
+--- html
+<h2>Test from SlipStream</h2>
+<p>This connection works.</p>
+<p>Den sent this message at 14:02.</p>
+

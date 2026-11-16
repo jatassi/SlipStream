@@ -1,0 +1,39 @@
+MAIL sam@example.com
+Subject: Grabbed Heat (1995)
+--- text
+WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB
+Automatic search found it on TorrentLeech.
+It scores 1250 for the 1080p Target and 900 for the 720p Target.
+
+Open in SlipStream: https://slipstream.example/works/w1
+
+--- html
+<h2>Grabbed Heat (1995)</h2>
+<p>WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB</p>
+<p>Automatic search found it on TorrentLeech.</p>
+<p>It scores 1250 for the 1080p Target and 900 for the 720p Target.</p>
+<p><a href="https://slipstream.example/works/w1">Open in SlipStream</a></p>
+<p><img src="cid:poster" alt="" width="200"></p>
+
+--- inline poster poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488
+
+MAIL alex@example.com
+Subject: Grabbed Heat (1995)
+--- text
+WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB
+Automatic search found it on TorrentLeech.
+It scores 1250 for the 1080p Target and 900 for the 720p Target.
+
+Open in SlipStream: https://slipstream.example/works/w1
+
+--- html
+<h2>Grabbed Heat (1995)</h2>
+<p>WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB</p>
+<p>Automatic search found it on TorrentLeech.</p>
+<p>It scores 1250 for the 1080p Target and 900 for the 720p Target.</p>
+<p><a href="https://slipstream.example/works/w1">Open in SlipStream</a></p>
+<p><img src="cid:poster" alt="" width="200"></p>
+
+--- inline poster poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488

@@ -1,0 +1,10 @@
+POST /v2/pushes
+Access-Token: [set]
+Content-Type: application/json
+
+{
+  "type": "note",
+  "title": "Deleted 12 Works from Movies",
+  "body": "Alien (1979)\nArrival (2016)\nBlade Runner (1982)\n9 more were deleted.",
+  "device_iden": "ujpah72o0sjAoRtnM0jc"
+}

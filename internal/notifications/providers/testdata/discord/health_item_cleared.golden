@@ -1,0 +1,17 @@
+POST /api/webhooks/1180000000000000000/[set]?wait=true
+Content-Type: application/json
+
+{
+  "username": "SlipStream",
+  "embeds": [
+    {
+      "title": "Cleared: Den's disk is almost full",
+      "description": "It was on Health from 13:57 to 14:02.",
+      "color": 2278750,
+      "timestamp": "2026-11-16T14:02:00Z"
+    }
+  ],
+  "allowed_mentions": {
+    "parse": []
+  }
+}

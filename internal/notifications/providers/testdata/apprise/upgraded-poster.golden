@@ -1,0 +1,17 @@
+POST /notify/[set]
+Authorization: Basic slipstream:[set]
+Content-Type: multipart/form-data
+
+--- part title
+Upgraded Heat (1995) to Remux-2160p
+--- part body
+It replaced WEBDL-1080p.
+https://slipstream.example/works/w1
+--- part type
+success
+--- part format
+text
+--- part tag
+family,phones
+--- part attach poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488

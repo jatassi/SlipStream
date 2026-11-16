@@ -1,0 +1,8 @@
+POST /[set]
+Authorization: Bearer [set]
+Click: https://slipstream.example/works/w1
+Content-Type: text/plain
+Priority: 4
+Title: Upgraded Heat (1995) to Remux-2160p
+
+It replaced WEBDL-1080p.

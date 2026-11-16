@@ -1,0 +1,20 @@
+POST /message
+Content-Type: application/json
+X-Gotify-Key: [set]
+
+{
+  "title": "Grabbed Heat (1995)",
+  "message": "WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB\nAutomatic search found it on TorrentLeech.\nIt scores 1250 for the 1080p Target and 900 for the 720p Target.",
+  "priority": 8,
+  "extras": {
+    "client::display": {
+      "contentType": "text/plain"
+    },
+    "client::notification": {
+      "click": {
+        "url": "https://slipstream.example/works/w1"
+      },
+      "bigImageUrl": "https://images.example/t/p/w500/heat.jpg"
+    }
+  }
+}

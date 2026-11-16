@@ -1,0 +1,15 @@
+POST /services/T0000/B0000/[set]
+Content-Type: application/json
+
+{
+  "text": "A Library scan of Movies on Den added 12 Works",
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*A Library scan of Movies on Den added 12 Works*\nAlien (1979)\nArrival (2016)\nBlade Runner (1982)\n9 more were added."
+      }
+    }
+  ]
+}

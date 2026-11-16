@@ -1,0 +1,30 @@
+POST /api/webhooks/1180000000000000000/[set]?wait=true
+Content-Type: multipart/form-data
+
+--- part payload_json
+{
+  "username": "SlipStream",
+  "embeds": [
+    {
+      "title": "Imported 10 episodes of Severance",
+      "description": "Season 2, episodes 1 to 10.\nWEBDL-2160p · Dolby Vision · DDP 5.1 · NTb · 48.1 GB\n1 episode waits for you on the Work page.",
+      "url": "https://slipstream.example/works/w2",
+      "color": 2278750,
+      "timestamp": "2026-11-16T14:02:00Z",
+      "thumbnail": {
+        "url": "attachment://poster.jpg"
+      }
+    }
+  ],
+  "allowed_mentions": {
+    "parse": []
+  },
+  "attachments": [
+    {
+      "id": 0,
+      "filename": "poster.jpg"
+    }
+  ]
+}
+--- part files[0] poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488

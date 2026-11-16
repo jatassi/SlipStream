@@ -1,0 +1,19 @@
+MAIL sam@example.com
+Subject: Cleared: Den's disk is almost full
+--- text
+It was on Health from 13:57 to 14:02.
+
+--- html
+<h2>Cleared: Den's disk is almost full</h2>
+<p>It was on Health from 13:57 to 14:02.</p>
+
+
+MAIL alex@example.com
+Subject: Cleared: Den's disk is almost full
+--- text
+It was on Health from 13:57 to 14:02.
+
+--- html
+<h2>Cleared: Den's disk is almost full</h2>
+<p>It was on Health from 13:57 to 14:02.</p>
+

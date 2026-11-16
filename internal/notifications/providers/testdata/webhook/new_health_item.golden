@@ -1,0 +1,25 @@
+PUT /slipstream/[set]
+Authorization: Basic slipstream:[set]
+Content-Type: application/json
+X-Hook-Secret: [set]
+
+{
+  "version": 1,
+  "event": "new_health_item",
+  "at": "2026-11-16T14:02:00Z",
+  "title": "Den's disk is almost full",
+  "lines": [
+    "Movies has 4 GB free of 2 TB.",
+    "It has been on Health since 13:57."
+  ],
+  "link": "https://slipstream.example/health#health-storage-den",
+  "health": [
+    {
+      "category": "storage",
+      "key": "den",
+      "level": "warning",
+      "subject": "Den's disk is almost full",
+      "text": "Movies has 4 GB free of 2 TB."
+    }
+  ]
+}

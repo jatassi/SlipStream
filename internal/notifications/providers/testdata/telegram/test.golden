@@ -1,0 +1,13 @@
+POST /bot[set]/sendMessage
+Content-Type: application/json
+
+{
+  "chat_id": "-1001234567890",
+  "message_thread_id": 42,
+  "text": "\u003cb\u003eTest from SlipStream\u003c/b\u003e\nThis connection works.\nDen sent this message at 14:02.",
+  "parse_mode": "HTML",
+  "disable_notification": true,
+  "link_preview_options": {
+    "is_disabled": true
+  }
+}

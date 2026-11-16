@@ -1,0 +1,11 @@
+POST /notify/[set]
+Authorization: Basic slipstream:[set]
+Content-Type: application/json
+
+{
+  "body": "This connection works.\nDen sent this message at 14:02.",
+  "format": "text",
+  "tag": "family,phones",
+  "title": "Test from SlipStream",
+  "type": "info"
+}

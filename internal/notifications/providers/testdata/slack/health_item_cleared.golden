@@ -1,0 +1,15 @@
+POST /services/T0000/B0000/[set]
+Content-Type: application/json
+
+{
+  "text": "Cleared: Den's disk is almost full",
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Cleared: Den's disk is almost full*\nIt was on Health from 13:57 to 14:02."
+      }
+    }
+  ]
+}

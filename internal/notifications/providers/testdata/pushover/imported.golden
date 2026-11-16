@@ -1,0 +1,15 @@
+POST /1/messages.json
+Content-Type: application/x-www-form-urlencoded
+
+device: phone,tablet
+message: Season 2, episodes 1 to 10.
+WEBDL-2160p · Dolby Vision · DDP 5.1 · NTb · 48.1 GB
+1 episode waits for you on the Work page.
+priority: 1
+sound: pushover
+timestamp: 1794837720
+title: Imported 10 episodes of Severance
+token: [set]
+url: https://slipstream.example/works/w2
+url_title: Open in SlipStream
+user: [set]

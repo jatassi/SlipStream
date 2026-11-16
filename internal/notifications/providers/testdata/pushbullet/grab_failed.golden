@@ -1,0 +1,11 @@
+POST /v2/pushes
+Access-Token: [set]
+Content-Type: application/json
+
+{
+  "type": "link",
+  "title": "The Grab for Heat (1995) failed",
+  "body": "qBittorrent refused the torrent because it already has it.\nSlipStream searches again automatically.",
+  "url": "https://slipstream.example/works/w1",
+  "device_iden": "ujpah72o0sjAoRtnM0jc"
+}

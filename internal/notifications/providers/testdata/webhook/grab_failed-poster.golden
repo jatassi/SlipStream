@@ -1,0 +1,22 @@
+PUT /slipstream/[set]
+Authorization: Basic slipstream:[set]
+Content-Type: application/json
+X-Hook-Secret: [set]
+
+{
+  "version": 1,
+  "event": "grab_failed",
+  "at": "2026-11-16T14:02:00Z",
+  "title": "The Grab for Heat (1995) failed",
+  "lines": [
+    "qBittorrent refused the torrent because it already has it.",
+    "SlipStream searches again automatically."
+  ],
+  "link": "https://slipstream.example/works/w1",
+  "image": "https://images.example/t/p/w500/heat.jpg",
+  "work": {
+    "id": "w1",
+    "title": "Heat (1995)",
+    "contentType": "fixture"
+  }
+}

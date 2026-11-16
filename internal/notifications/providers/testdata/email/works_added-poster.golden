@@ -1,0 +1,31 @@
+MAIL sam@example.com
+Subject: Added Heat (1995) to Movies
+--- text
+Sam added it.
+
+Open in SlipStream: https://slipstream.example/works/w1
+
+--- html
+<h2>Added Heat (1995) to Movies</h2>
+<p>Sam added it.</p>
+<p><a href="https://slipstream.example/works/w1">Open in SlipStream</a></p>
+<p><img src="cid:poster" alt="" width="200"></p>
+
+--- inline poster poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488
+
+MAIL alex@example.com
+Subject: Added Heat (1995) to Movies
+--- text
+Sam added it.
+
+Open in SlipStream: https://slipstream.example/works/w1
+
+--- html
+<h2>Added Heat (1995) to Movies</h2>
+<p>Sam added it.</p>
+<p><a href="https://slipstream.example/works/w1">Open in SlipStream</a></p>
+<p><img src="cid:poster" alt="" width="200"></p>
+
+--- inline poster poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488

@@ -1,0 +1,20 @@
+POST /services/T0000/B0000/[set]
+Content-Type: application/json
+
+{
+  "text": "Upgraded Heat (1995) to Remux-2160p",
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*\u003chttps://slipstream.example/works/w1|Upgraded Heat (1995) to Remux-2160p\u003e*\nIt replaced WEBDL-1080p."
+      },
+      "accessory": {
+        "type": "image",
+        "image_url": "https://images.example/t/p/w500/heat.jpg",
+        "alt_text": "Upgraded Heat (1995) to Remux-2160p"
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+POST /bot[set]/sendMessage
+Content-Type: application/json
+
+{
+  "chat_id": "-1001234567890",
+  "message_thread_id": 42,
+  "text": "\u003cb\u003eDen's disk is almost full\u003c/b\u003e\nMovies has 4 GB free of 2 TB.\nIt has been on Health since 13:57.\n\u003ca href=\"https://slipstream.example/health#health-storage-den\"\u003eOpen in SlipStream\u003c/a\u003e",
+  "parse_mode": "HTML",
+  "disable_notification": true,
+  "link_preview_options": {
+    "is_disabled": true
+  }
+}

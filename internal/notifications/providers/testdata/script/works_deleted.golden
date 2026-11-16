@@ -1,0 +1,16 @@
+RUN /opt/notify.sh --quiet
+Event: works_deleted
+Stop: 45s
+
+{
+  "version": 1,
+  "event": "works_deleted",
+  "at": "2026-11-16T14:02:00Z",
+  "title": "Deleted 12 Works from Movies",
+  "lines": [
+    "Alien (1979)",
+    "Arrival (2016)",
+    "Blade Runner (1982)",
+    "9 more were deleted."
+  ]
+}
