@@ -39,7 +39,7 @@ test("a search on add waits for a better Release, and the hero's Grab now grabs 
   });
   await expect(searches(page)).toContainText(/^Waiting for a better releaseAdded/u);
   await expect(orchardCells(page)).toContainText(
-    /1 Release found so far\. SlipStream grabs the best one .+ unless a better one arrives\./u,
+    /1 release found so far\. SlipStream grabs the best one .+ unless a better one arrives\./u,
   );
 
   await searchLine(page).getByRole("button", { name: "Grab now" }).click();

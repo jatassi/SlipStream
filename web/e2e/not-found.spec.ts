@@ -34,7 +34,7 @@ test("a season whose search found nothing is listed as Not found, and its Search
     .getByRole("listitem")
     .filter({ hasText: "S02E01 to S02E02 not found" });
   await expect(row).toContainText(
-    /Found nothing (Today|Tonight) at \d{2}:\d{2}\. SlipStream searches again .+\./u,
+    /Found nothing today at\d{2}:\d{2}\. SlipStream searches again .+\./u,
     { timeout: 30_000 },
   );
   await expect(notFound(page).getByRole("listitem")).toHaveCount(1);
