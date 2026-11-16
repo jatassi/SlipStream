@@ -49,6 +49,8 @@ type touched struct {
 // too little time to run.
 // The e2e tier runs in two shards: in one job, the e2e package's processes
 // slowed the simulation package past go test's 20 minute limit under -race.
+// Windows and macOS run it in three: in two, the e2e and simulation
+// packages shared a runner past go test's 25 minute limit.
 // Windows runs the go tier in three: in two, internal/files, worksapi and
 // grabs shared a runner past the job's 30 minute limit.
 var lanes = []lane{
@@ -56,7 +58,7 @@ var lanes = []lane{
 	{kind: "lint", tier: "lint", savesCaches: true, shards: map[string]int{"linux-amd64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
 	{kind: "lint-repo", tier: "lint", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "go", tier: "go", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 3}},
-	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 2, "darwin-arm64": 2}},
+	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 3}},
 	{kind: "browser", tier: "browser", shards: map[string]int{"linux-amd64": 5, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 6}},
 	{kind: "component", tier: "component", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "diagram", tier: "component", shards: map[string]int{"linux-amd64": 1}, onlyWhen: func(t touched) bool { return t.diagram }},
