@@ -1,6 +1,7 @@
 package providers_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/notifications/providers"
@@ -25,7 +26,7 @@ func TestTheScriptsEventFileIsTheWebhookBody(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if string(run.Run.EventFile) != string(hook.Post.Body) || run.Run.Event != string(f.Kind) {
+		if !bytes.Equal(run.Run.EventFile, hook.Post.Body) || run.Run.Event != string(f.Kind) {
 			t.Errorf("%s: event %s, file %s, want the Webhook body %s", f.Kind, run.Run.Event, run.Run.EventFile, hook.Post.Body)
 		}
 	}

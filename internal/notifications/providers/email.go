@@ -41,21 +41,21 @@ func buildEmail(p Payload) (Outbound, error) {
 	return Outbound{Mail: out}, nil
 }
 
-func emailBodies(p Payload) (string, string) {
-	var text, html strings.Builder
-	html.WriteString("<h2>" + escapeHTML(p.Message.Title) + "</h2>\n")
+func emailBodies(p Payload) (text, html string) {
+	var t, h strings.Builder
+	h.WriteString("<h2>" + escapeHTML(p.Message.Title) + "</h2>\n")
 	for _, l := range p.Message.Lines {
-		text.WriteString(l + "\n")
-		html.WriteString("<p>" + escapeHTML(l) + "</p>\n")
+		t.WriteString(l + "\n")
+		h.WriteString("<p>" + escapeHTML(l) + "</p>\n")
 	}
 	if link := p.Message.Link.Path; link != "" {
-		text.WriteString("\n" + linkLabel + ": " + link + "\n")
-		html.WriteString(`<p><a href="` + escapeHTML(link) + `">` + linkLabel + "</a></p>\n")
+		t.WriteString("\n" + linkLabel + ": " + link + "\n")
+		h.WriteString(`<p><a href="` + escapeHTML(link) + `">` + linkLabel + "</a></p>\n")
 	}
 	if p.Poster != nil {
-		html.WriteString(`<p><img src="cid:` + posterCID + `" alt="" width="200"></p>` + "\n")
+		h.WriteString(`<p><img src="cid:` + posterCID + `" alt="" width="200"></p>` + "\n")
 	}
-	return text.String(), html.String()
+	return t.String(), h.String()
 }
 
 // classifyEmail reads each address's reply. A refusal of the mail server

@@ -9,7 +9,7 @@ import (
 
 var gotifyCase = providertest.Case{
 	Settings: providertest.Raw(map[string]any{"serverUrl": "https://gotify.example.com", "priority": 8}),
-	Secrets:  providertest.Raw(map[string]any{"appToken": "gotify-app-token"}),
+	Secrets:  providertest.Raw(map[string]any{"appToken": "gotify-app-token"}), //nolint:gosec // a fixture token
 }
 
 func TestGotifyBuildsEachMessageAsItsGolden(t *testing.T) {

@@ -67,7 +67,7 @@ func Golden(t *testing.T, p providers.Provider, c Case) {
 func Compare(t *testing.T, path, got string) {
 	t.Helper()
 	if *update {
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.WriteFile(path, []byte(got), 0o644); err != nil { //nolint:gosec // a golden file is meant to be read
@@ -75,7 +75,7 @@ func Compare(t *testing.T, path, got string) {
 		}
 		return
 	}
-	want, err := os.ReadFile(path)
+	want, err := os.ReadFile(path) //nolint:gosec // a golden file under the test's testdata
 	if err != nil {
 		t.Fatalf("%v; run go test -update to write it", err)
 	}

@@ -73,4 +73,3 @@ func TestTelegramReadsItsAnswersByErrorCode(t *testing.T) {
 		},
 	})
 }
-

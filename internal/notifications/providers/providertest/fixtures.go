@@ -123,6 +123,7 @@ func PosterFor(p providers.Provider) *providers.Poster {
 		return &providers.Poster{Bytes: PosterBytes, Type: "image/jpeg", Name: "poster.jpg"}
 	case providers.PublicURL, providers.BodyURL:
 		return &providers.Poster{URL: "https://image.tmdb.org/t/p/w500/heat.jpg"}
+	case providers.NoImage:
 	}
 	return nil
 }

@@ -25,7 +25,7 @@ func posterPart(name string, p *Poster) part {
 }
 
 // multipartBody is parts as multipart/form-data, with its Content-Type.
-func multipartBody(parts []part) ([]byte, string) {
+func multipartBody(parts []part) (body []byte, contentType string) {
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
 	if err := w.SetBoundary(boundary); err != nil {
