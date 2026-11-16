@@ -13,7 +13,7 @@ test("a search shows each Indexer's line in the server's words", async () => {
   const searches = page.getByRole("list", { name: "Searches" });
   await expect
     .element(searches)
-    .toMatchTextContent(/^Found 1 Release, but none fits a TargetSearch · 1 Release found/u);
+    .toMatchTextContent(/^Found 1 release, but none fits a TargetSearch · 1 Release found/u);
   expect(
     searches
       .getByRole("list", { name: "Indexers" })
