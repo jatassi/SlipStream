@@ -64,30 +64,20 @@ func (s *Service) Run(ctx context.Context) error {
 	for {
 		wake := s.cfg.Roster.Changed()
 		next, claimed, pub, err := s.pass(ctx, unsettled, busy)
-		switch {
-		case ctx.Err() != nil:
-			return nil
-		case err != nil:
-			s.cfg.Log.Error("run the notifications pass", "err", err.Error())
+		if err != nil {
+			if ctx.Err() == nil {
+				s.cfg.Log.Error("run the notifications pass", "err", err.Error())
+			}
 			next = time.Now().Add(s.cfg.Timings.Ladder[min(failed, len(s.cfg.Timings.Ladder)-1)])
 			failed++
-		default:
+		} else {
 			failed = 0
 			for _, r := range unsettled {
 				delete(busy, r.conn)
 			}
 			unsettled = unsettled[:0]
 			s.publish(ctx, pub)
-			for _, j := range claimed {
-				busy[j.conn.ID] = j.event.ID
-				go func() {
-					r := s.send(ctx, j)
-					select {
-					case results <- r:
-					case <-ctx.Done():
-					}
-				}()
-			}
+			s.start(ctx, claimed, busy, results)
 		}
 		timer := time.NewTimer(time.Until(next))
 		if next.IsZero() {
@@ -97,20 +87,38 @@ func (s *Service) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case r := <-results:
-			unsettled = append(unsettled, r)
-			for more := true; more; {
-				select {
-				case r := <-results:
-					unsettled = append(unsettled, r)
-				default:
-					more = false
-				}
-			}
+			unsettled = drain(results, append(unsettled, r))
 		case <-s.doorbell:
 		case <-wake:
 		case <-timer.C:
 		}
 		timer.Stop()
+	}
+}
+
+// start sends each claimed job on its own goroutine.
+func (s *Service) start(ctx context.Context, claimed []job, busy inFlight, results chan<- result) {
+	for _, j := range claimed {
+		busy[j.conn.ID] = j.event.ID
+		go func() {
+			r := s.send(ctx, j)
+			select {
+			case results <- r:
+			case <-ctx.Done():
+			}
+		}()
+	}
+}
+
+// drain adds every result already waiting.
+func drain(results <-chan result, unsettled []result) []result {
+	for {
+		select {
+		case r := <-results:
+			unsettled = append(unsettled, r)
+		default:
+			return unsettled
+		}
 	}
 }
 
@@ -325,7 +333,7 @@ func (p *passing) drop(ctx context.Context) error {
 		return err
 	}
 	for _, d := range off {
-		if err := p.q.DeleteDelivery(ctx, db.DeleteDeliveryParams{EventID: d.EventID, ConnectionID: d.ConnectionID}); err != nil {
+		if err := p.q.DeleteDelivery(ctx, db.DeleteDeliveryParams(d)); err != nil {
 			return err
 		}
 	}
@@ -398,33 +406,38 @@ func (p *passing) oldest(ctx context.Context, c Connection) (*job, bool, error) 
 		return nil, false, err
 	}
 	if e.Kind == clearedRow.Kind {
-		told, err := p.q.ListToldFor(ctx, d.Items)
-		if err != nil {
-			return nil, false, err
-		}
-		was := map[string]bool{}
-		for _, t := range told {
-			if t.Target == c.ID.String() {
-				was[t.Key] = true
-			}
-		}
-		keep := narrow(d.Items, was)
-		key := db.DeleteDeliveryParams{EventID: d.Event, ConnectionID: c.ID}
-		if len(keep) == 0 {
-			p.pub.connections = true
-			return nil, true, p.q.DeleteDelivery(ctx, key)
-		}
-		if len(keep) < len(d.Items) {
-			if err := p.q.SetItems(ctx, db.SetItemsParams{EventID: d.Event, ConnectionID: c.ID, Items: jsonText(keep)}); err != nil {
-				return nil, false, err
-			}
-			d.Items = keep
+		if d.Items, err = p.narrowed(ctx, c, d); err != nil || len(d.Items) == 0 {
+			return nil, err == nil, err
 		}
 	}
 	if e, err = e.cut(d.Items); err != nil {
 		return nil, false, err
 	}
 	return &job{conn: c, event: e, items: d.Items, accepted: d.Accepted}, true, nil
+}
+
+// narrowed is cleared delivery d cut to the items c was told. One left
+// with none is deleted.
+func (p *passing) narrowed(ctx context.Context, c Connection, d Delivery) ([]string, error) {
+	told, err := p.q.ListToldFor(ctx, d.Items)
+	if err != nil {
+		return nil, err
+	}
+	was := map[string]bool{}
+	for _, t := range told {
+		if t.Target == c.ID.String() {
+			was[t.Key] = true
+		}
+	}
+	keep := narrow(d.Items, was)
+	switch {
+	case len(keep) == 0:
+		p.pub.connections = true
+		return nil, p.q.DeleteDelivery(ctx, db.DeleteDeliveryParams{EventID: d.Event, ConnectionID: c.ID})
+	case len(keep) < len(d.Items):
+		return keep, p.q.SetItems(ctx, db.SetItemsParams{EventID: d.Event, ConnectionID: c.ID, Items: jsonText(keep)})
+	}
+	return keep, nil
 }
 
 // nextAt is when the next pass is due if nothing wakes the dispatcher:

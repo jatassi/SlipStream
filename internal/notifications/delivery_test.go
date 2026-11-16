@@ -51,7 +51,7 @@ func wantTitles(t *testing.T, w *world, target string, want ...string) {
 }
 
 func run(t *testing.T, f func(t *testing.T, w *world)) {
-	synctest.Test(t, func(t *testing.T) { f(t, notificationstest.New(t)) })
+	synctest.Test(t, func(t *testing.T) { f(t, notificationstest.New(t, notifications.DefaultTimings())) })
 }
 
 func TestARestartBetweenTheRecordAndTheSendDeliversOnce(t *testing.T) {

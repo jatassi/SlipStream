@@ -3,6 +3,7 @@ package metadata_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"io"
@@ -24,10 +25,14 @@ type cdn struct{}
 func (cdn) ID() artwork.SourceID { return "cdn" }
 
 func (cdn) URL(_ artwork.Shape, path string, size artwork.Size) (*url.URL, error) {
-	return url.Parse("https://images.example/" + string(size) + path)
+	u, err := url.Parse("https://images.example/" + string(size) + path)
+	if err != nil {
+		return nil, fmt.Errorf("parse an image URL: %w", err)
+	}
+	return u, nil
 }
 
-func (cdn) Rate() (float64, int) { return 100, 10 }
+func (cdn) Rate() (perSecond float64, burst int) { return 100, 10 }
 
 // pictures is a metadata source that only names its image host.
 type pictures struct{ metadata.Source }

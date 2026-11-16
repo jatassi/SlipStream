@@ -340,6 +340,12 @@ func (s *Service) check(c Connection, secrets providers.Values) error {
 	if err := s.checkEvents(c.Events); err != nil {
 		return &FieldError{Field: "events", Reason: "Pick events from the list."}
 	}
+	return s.checkValues(c, secrets)
+}
+
+// checkValues refuses a setting or secret the provider doesn't have, and a
+// required one left out.
+func (s *Service) checkValues(c Connection, secrets providers.Values) error {
 	for _, values := range []struct {
 		v      providers.Values
 		secret bool
@@ -376,11 +382,11 @@ func jsonString(v string) json.RawMessage {
 func (c Connection) params() (db.InsertConnectionParams, error) {
 	events, err := json.Marshal(slices.Sorted(slices.Values(c.Events)))
 	if err != nil {
-		return db.InsertConnectionParams{}, err
+		return db.InsertConnectionParams{}, fmt.Errorf("encode a connection's events: %w", err)
 	}
 	settings, err := json.Marshal(c.Settings)
 	if err != nil {
-		return db.InsertConnectionParams{}, err
+		return db.InsertConnectionParams{}, fmt.Errorf("encode a connection's settings: %w", err)
 	}
 	return db.InsertConnectionParams{
 		ID: c.ID, Name: c.Name, Provider: string(c.Provider), IsOn: c.On, OnAt: storage.FromTime(c.OnAt), Events: string(events),

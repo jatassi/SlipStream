@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"sync"
@@ -74,10 +75,10 @@ type body struct {
 func buildHook(p providers.Payload) (providers.Outbound, error) {
 	var url, token string
 	if err := json.Unmarshal(p.Settings["url"], &url); err != nil {
-		return providers.Outbound{}, err
+		return providers.Outbound{}, fmt.Errorf("read the url: %w", err)
 	}
 	if err := json.Unmarshal(p.Secrets["token"], &token); err != nil {
-		return providers.Outbound{}, err
+		return providers.Outbound{}, fmt.Errorf("read the token: %w", err)
 	}
 	b := body{Kind: p.Kind, Title: p.Message.Title, Lines: p.Message.Lines, Link: p.Message.Link.Path, Tone: p.Message.Tone}
 	if p.Poster != nil {
@@ -85,7 +86,7 @@ func buildHook(p providers.Payload) (providers.Outbound, error) {
 	}
 	raw, err := json.Marshal(b)
 	if err != nil {
-		return providers.Outbound{}, err
+		return providers.Outbound{}, fmt.Errorf("encode the body: %w", err)
 	}
 	return providers.Outbound{Post: &providers.Request{
 		Method: http.MethodPost, URL: url, Header: http.Header{"Authorization": {"Bearer " + token}}, Body: raw,
@@ -145,11 +146,11 @@ func scriptProvider() providers.Provider {
 		Build: func(p providers.Payload) (providers.Outbound, error) {
 			var path string
 			if err := json.Unmarshal(p.Settings["path"], &path); err != nil {
-				return providers.Outbound{}, err
+				return providers.Outbound{}, fmt.Errorf("read the path: %w", err)
 			}
 			file, err := json.Marshal(body{Kind: p.Kind, Title: p.Message.Title, Lines: p.Message.Lines})
 			if err != nil {
-				return providers.Outbound{}, err
+				return providers.Outbound{}, fmt.Errorf("encode the event file: %w", err)
 			}
 			return providers.Outbound{Run: &providers.Script{Path: path, Event: string(p.Kind), EventFile: file, Stop: 30 * time.Second}}, nil
 		},
@@ -243,14 +244,14 @@ func (c *Courier) take(ctx context.Context, rec Received, raw []byte) (Reply, er
 		select {
 		case <-r.Hold:
 		case <-ctx.Done():
-			return Reply{}, ctx.Err()
+			return Reply{}, fmt.Errorf("notificationstest: the call ended: %w", context.Cause(ctx))
 		}
 	}
 	if r.Delay > 0 {
 		select {
 		case <-time.After(r.Delay):
 		case <-ctx.Done():
-			return Reply{}, ctx.Err()
+			return Reply{}, fmt.Errorf("notificationstest: the call ended: %w", context.Cause(ctx))
 		}
 	}
 	if r.Silent {

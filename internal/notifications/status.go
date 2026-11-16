@@ -29,7 +29,7 @@ type Status struct {
 	Since time.Time
 	// Until is when a waiting connection sends again.
 	Until time.Time
-	// Reason is worded when read, by reasonWords.
+	// Reason is worded when read, by wording.reason.
 	Reason   providers.Reason
 	Level    health.Level
 	Waiting  int

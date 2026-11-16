@@ -140,10 +140,11 @@ func (ev *evaluation) event(ctx context.Context, kind notice.Kind, at, due time.
 }
 
 // HealthAbout is the Notifications category: one item per connection that
-// is on and isn't sending.
+// is on and isn't sending. notifications.changed joins its Events when that
+// event joins surface.Events.
 var HealthAbout = health.About{
 	ID: "notifications", Label: "Notifications", Phrase: "notification connections",
-	Events: []live.Event{ChangedEvent, nodes.ChangedEvent},
+	Events: []live.Event{nodes.ChangedEvent},
 }
 
 // HealthSource builds method values only, so a Node can bind it before the
@@ -182,9 +183,10 @@ func (s *Service) answer(ctx context.Context) (health.Answer, error) {
 		case ShownWaiting:
 			it.Subject = "Messages to " + label + " are waiting"
 			it.Text = fmt.Sprintf("Messages have waited since %s. %s %s", s.clock(st.Since), reason, waitingWords(st.Waiting))
-		default:
+		case ShownFailing:
 			it.Subject = "Messages to " + label + " are failing"
 			it.Text = fmt.Sprintf("Messages have failed since %s. %s %s", s.clock(st.Since), reason, waitingWords(st.Waiting))
+		case ShownOff, ShownOK, ShownHolding:
 		}
 		a.Items = append(a.Items, it)
 	}

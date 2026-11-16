@@ -99,32 +99,38 @@ type released struct {
 func targetsOf(e event, conns []Connection, bell bellView, told map[string]map[string]bool, carrying map[ConnectionID]map[string]bool) released {
 	var out released
 	for _, c := range conns {
-		if !c.On || !c.wants(e.Kind) {
-			continue
-		}
-		switch e.Kind {
-		case newItemsRow.Kind:
-			if c.OnAt.After(e.At) {
-				continue
-			}
-			own := itemKey(HealthAbout.ID, health.KeyOf(c.ID.String()))
-			if keys := keysOf(e.Items, func(it item) bool { return (it.failing() || c.Warnings) && it.key() != own }); len(keys) > 0 {
-				out.Deliveries = append(out.Deliveries, planned{Conn: c.ID, Items: keys})
-			}
-		case clearedRow.Kind:
-			id := c.ID.String()
-			if keys := keysOf(e.Items, func(it item) bool { return told[id][it.key()] || carrying[c.ID][it.key()] }); len(keys) > 0 {
-				out.Deliveries = append(out.Deliveries, planned{Conn: c.ID, Items: keys})
-			}
-		default:
-			if !c.OnAt.After(e.At) {
-				out.Deliveries = append(out.Deliveries, planned{Conn: c.ID})
-			}
+		if d, ok := deliveryFor(e, c, told, carrying); ok {
+			out.Deliveries = append(out.Deliveries, d)
 		}
 	}
-	if !bell.On {
-		return out
+	if bell.On {
+		shownOn(&out, e, bell, told)
 	}
+	return out
+}
+
+func deliveryFor(e event, c Connection, told map[string]map[string]bool, carrying map[ConnectionID]map[string]bool) (planned, bool) {
+	if !c.On || !c.wants(e.Kind) {
+		return planned{}, false
+	}
+	var keys []string
+	switch e.Kind {
+	case newItemsRow.Kind:
+		if c.OnAt.After(e.At) {
+			return planned{}, false
+		}
+		own := itemKey(HealthAbout.ID, health.KeyOf(c.ID.String()))
+		keys = keysOf(e.Items, func(it item) bool { return (it.failing() || c.Warnings) && it.key() != own })
+	case clearedRow.Kind:
+		id := c.ID.String()
+		keys = keysOf(e.Items, func(it item) bool { return told[id][it.key()] || carrying[c.ID][it.key()] })
+	default:
+		return planned{Conn: c.ID}, !c.OnAt.After(e.At)
+	}
+	return planned{Conn: c.ID, Items: keys}, len(keys) > 0
+}
+
+func shownOn(out *released, e event, bell bellView, told map[string]map[string]bool) {
 	switch e.Kind {
 	case newItemsRow.Kind:
 		for _, it := range e.Items {
@@ -140,7 +146,6 @@ func targetsOf(e event, conns []Connection, bell bellView, told map[string]map[s
 	default:
 		out.Show = true
 	}
-	return out
 }
 
 func keysOf(items []item, keep func(item) bool) []string {
@@ -212,7 +217,7 @@ func eventOf(ctx context.Context, q *db.Queries, row db.NotificationsEvent) (eve
 
 // pairing is, for a cleared event's keys, which targets were told each
 // and which connections have a due delivery carrying it.
-func pairing(ctx context.Context, q *db.Queries, e event) (map[string]map[string]bool, map[ConnectionID]map[string]bool, error) {
+func pairing(ctx context.Context, q *db.Queries, e event) (told map[string]map[string]bool, carrying map[ConnectionID]map[string]bool, err error) {
 	if e.Kind != clearedRow.Kind {
 		return nil, nil, nil
 	}
@@ -221,7 +226,7 @@ func pairing(ctx context.Context, q *db.Queries, e event) (map[string]map[string
 	if err != nil {
 		return nil, nil, err
 	}
-	told := map[string]map[string]bool{}
+	told = map[string]map[string]bool{}
 	for _, t := range toldRows {
 		set(told, t.Target, t.Key)
 	}
@@ -229,7 +234,7 @@ func pairing(ctx context.Context, q *db.Queries, e event) (map[string]map[string
 	if err != nil {
 		return nil, nil, err
 	}
-	carrying := map[ConnectionID]map[string]bool{}
+	carrying = map[ConnectionID]map[string]bool{}
 	for _, r := range rows {
 		set(carrying, r.ConnectionID, r.Key)
 	}

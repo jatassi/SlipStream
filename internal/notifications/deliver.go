@@ -65,6 +65,14 @@ func (s *Service) deliver(ctx context.Context, node role.NodeID, o providers.Out
 	return providers.Reply{Mail: replies}
 }
 
+// logKept writes a Sent verdict's response, such as Apprise's 424, at
+// info. Its secret values are already masked.
+func (s *Service) logKept(c Connection, v providers.Verdict) {
+	if v.Outcome == providers.Sent && len(v.Response) > 0 {
+		s.cfg.Log.Info("a provider took a message with a response", "connection", s.label(c), "response", string(v.Response))
+	}
+}
+
 // down is why no answer came from node.
 func (s *Service) down(node role.NodeID, err error) providers.Reason {
 	s.cfg.Log.Info("a Node didn't answer a notification", "node", node, "err", httpretry.WithoutURL(err).Error())

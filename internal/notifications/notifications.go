@@ -9,7 +9,6 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
@@ -82,17 +81,12 @@ type Changed struct {
 // Seen is published to one Account after its bell cursor moves.
 type Seen struct{}
 
-var (
-	ChangedEvent = live.AdminEvent[Changed]("notifications.changed")
-	SeenEvent    = live.AccountEvent[Seen]("notifications.seen")
-)
-
-// ChangedPublisher is ChangedEvent bound to the hub.
+// ChangedPublisher is the notifications.changed event bound to the hub.
 type ChangedPublisher interface {
 	Publish(ctx context.Context, v Changed)
 }
 
-// SeenPublisher is SeenEvent bound to the hub.
+// SeenPublisher is the notifications.seen event bound to the hub.
 type SeenPublisher interface {
 	Publish(ctx context.Context, account storage.UUID, v Seen)
 }

@@ -50,11 +50,14 @@ type World struct {
 	failNext atomic.Bool
 	passes   atomic.Int64
 	running  func()
+	timings  notifications.Timings
 	eachPass atomic.Pointer[func()]
 	rec      notice.Recorder
 }
 
-func New(t *testing.T) *World {
+// New makes a World whose dispatcher runs on timings, as a Node's Config
+// holds them.
+func New(t *testing.T, timings notifications.Timings) *World {
 	t.Helper()
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), notifications.Schema())
@@ -68,7 +71,7 @@ func New(t *testing.T) *World {
 	}
 	w := &World{
 		t: t, Lib: lib, Identity: id, Courier: newCourier(), Words: map[providers.ReasonCode]string{},
-		sealer: keys.Sealer(), log: &lockedBuffer{},
+		sealer: keys.Sealer(), log: &lockedBuffer{}, timings: timings,
 	}
 	w.Roster = newRoster()
 	w.Self = w.AddNode("Den")
@@ -85,8 +88,8 @@ func (w *World) Restart() {
 	w.Service = notifications.New(notifications.Config{
 		Library: w.Lib, Sealer: w.sealer, Providers: []providers.Provider{hookProvider(w.Words), scriptProvider()},
 		Courier: w.Courier, Roster: w.Roster, Mail: noMail{}, Artwork: posters{},
-		Changed: nopChanged{}, Seen: nopSeen{}, Timings: notifications.DefaultTimings(),
-		Rand: rand.New(rand.NewPCG(1, 2)), Zone: time.UTC,
+		Changed: nopChanged{}, Seen: nopSeen{}, Timings: w.timings,
+		Rand: rand.New(&splitmix{x: 1}), Zone: time.UTC, //nolint:gosec // seeded on purpose so tests replay
 		Log:        slog.New(slog.NewTextHandler(w.log, &slog.HandlerOptions{Level: slog.LevelInfo})),
 		BeforePass: w.beforePass,
 	})
@@ -316,7 +319,10 @@ func (w *World) Set(d setting.Duration, v time.Duration) {
 
 // Text is s as a stored setting.
 func Text(s string) json.RawMessage {
-	b, _ := json.Marshal(s)
+	b, err := json.Marshal(s)
+	if err != nil {
+		panic(err)
+	}
 	return b
 }
 
@@ -328,7 +334,8 @@ type lockedBuffer struct {
 func (b *lockedBuffer) Write(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.buf.Write(p)
+	b.buf.Write(p)
+	return len(p), nil
 }
 
 func (b *lockedBuffer) String() string {
@@ -345,3 +352,19 @@ type (
 func (nopChanged) Publish(context.Context, notifications.Changed) {}
 
 func (nopSeen) Publish(context.Context, storage.UUID, notifications.Seen) {}
+
+// splitmix is a fixed stream, so jittered retries replay.
+type splitmix struct {
+	mu sync.Mutex
+	x  uint64
+}
+
+func (s *splitmix) Uint64() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.x += 0x9e3779b97f4a7c15
+	z := s.x
+	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9
+	z = (z ^ (z >> 27)) * 0x94d049bb133111eb
+	return z ^ (z >> 31)
+}

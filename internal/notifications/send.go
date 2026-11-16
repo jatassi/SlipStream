@@ -54,9 +54,7 @@ func (s *Service) attempt(ctx context.Context, c Connection, secrets providers.V
 		v = s.try(ctx, p, node, pay)
 	}
 	v.Response = masked(v.Response, secrets)
-	if v.Outcome == providers.Sent && len(v.Response) > 0 {
-		s.cfg.Log.Info("a provider took a message with a response", "connection", s.label(c), "response", string(v.Response))
-	}
+	s.logKept(c, v)
 	return v, node
 }
 
