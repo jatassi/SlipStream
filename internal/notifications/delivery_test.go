@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -364,17 +365,24 @@ func TestNoPassGivesUpMoreThanItsBound(t *testing.T) {
 		if st := w.Status(id); st.Waiting != 5000 {
 			t.Fatalf("%d messages wait, want 5000", st.Waiting)
 		}
-		var counts []int
-		w.EachPass = func() {
+		var (
+			mu     sync.Mutex
+			counts []int
+		)
+		w.EachPass(func() {
 			v, err := w.Service.Connection(context.Background(), id)
 			if err != nil {
 				t.Error(err)
 				return
 			}
+			mu.Lock()
 			counts = append(counts, v.Status.GivenUp)
-		}
+			mu.Unlock()
+		})
 		w.Advance(notifications.GiveUp.Default + time.Second)
-		w.EachPass = nil
+		w.EachPass(nil)
+		mu.Lock()
+		defer mu.Unlock()
 		if st := w.Status(id); st.GivenUp != 5000 || st.Waiting != 0 {
 			t.Fatalf("past Give up the connection reads %+v, want 5000 given up", st)
 		}
@@ -481,4 +489,3 @@ func TestAPausedLinesWordsFollowTheProviderWithoutAWrite(t *testing.T) {
 		}
 	})
 }
-

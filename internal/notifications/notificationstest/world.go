@@ -50,8 +50,7 @@ type World struct {
 	failNext atomic.Bool
 	passes   atomic.Int64
 	running  func()
-	// EachPass, when set, runs before each dispatcher pass.
-	EachPass func()
+	eachPass atomic.Pointer[func()]
 	rec      notice.Recorder
 }
 
@@ -122,13 +121,23 @@ func (w *World) FailNextWrite() { w.failNext.Store(true) }
 
 func (w *World) beforePass(context.Context) error {
 	w.passes.Add(1)
-	if w.EachPass != nil {
-		w.EachPass()
+	if f := w.eachPass.Load(); f != nil {
+		(*f)()
 	}
 	if w.failNext.Swap(false) {
 		return ErrInjected
 	}
 	return nil
+}
+
+// EachPass runs f before each dispatcher pass, on the dispatcher's
+// goroutine, until it is called with nil.
+func (w *World) EachPass(f func()) {
+	if f == nil {
+		w.eachPass.Store(nil)
+		return
+	}
+	w.eachPass.Store(&f)
 }
 
 // Passes is how many passes the dispatcher has started.
