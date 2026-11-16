@@ -78,14 +78,17 @@ type event struct {
 	cachesOnly bool
 	// widest caps the scope a change can widen the run to.
 	widest changescope.Scope
+	// skips holds the lanes the event never runs.
+	skips []string
 }
 
 // A stacked pull request merges into another pull request's branch, which
-// runs every target itself before it reaches main. A push to main ran its
-// tests on its pull request, so it only refreshes the caches.
+// runs every target and the e2e and browser tiers itself before it reaches
+// main. A push to main ran its tests on its pull request, so it only
+// refreshes the caches.
 var events = map[string]event{
 	"pr":       {widest: changescope.Native},
-	"stacked":  {widest: changescope.PR},
+	"stacked":  {widest: changescope.PR, skips: []string{"e2e", "browser"}},
 	"push":     {everyTarget: true, cachesOnly: true, widest: changescope.Native},
 	"dispatch": {everyTarget: true, widest: changescope.Native},
 	"schedule": {everyTarget: true, packages: true, widest: changescope.Native},
@@ -253,7 +256,7 @@ func plan(in native.Inputs, e event, scope changescope.Scope, t touched, keep []
 	p := Plan{Lanes: map[string]Matrix{}, Package: packaging}
 	for _, l := range lanes {
 		m := Matrix{Include: []MatrixEntry{}}
-		if l.selected(tier, packaging) && (e.everyTarget || l.onlyWhen == nil || l.onlyWhen(t)) && (!e.cachesOnly || l.savesCaches) {
+		if l.selected(tier, packaging) && (e.everyTarget || l.onlyWhen == nil || l.onlyWhen(t)) && (!e.cachesOnly || l.savesCaches) && !slices.Contains(e.skips, l.kind) {
 			for _, target := range targets {
 				m.Include = append(m.Include, l.entries(target)...)
 			}
