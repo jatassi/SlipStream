@@ -64,8 +64,8 @@ func TestARecordedEventRendersAsItsFactsDo(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := notice.Message{
-		Title:  "Deleted 20000 books",
-		Lines:  []string{"Alien (1979)", "Heat (1995)", "Ran (1985)", "19997 more were deleted.", "Sam deleted them at 14:02."},
+		Title:  "Deleted 20,000 books",
+		Lines:  []string{"Alien (1979)", "Heat (1995)", "Ran (1985)", "19,997 more were deleted.", "Sam deleted them at 14:02."},
 		Link:   notice.Link{Path: "/works/" + heat.Work.ID.String()},
 		Poster: heat.Work.Poster,
 	}
@@ -120,6 +120,7 @@ func TestTitlesListsThreeThenCountsTheRest(t *testing.T) {
 		{first[:3], 3, []string{"Alien", "Heat", "Ran"}},
 		{first, 4, []string{"Alien", "Heat", "Ran", "1 more was added."}},
 		{first[:3], 12, []string{"Alien", "Heat", "Ran", "9 more were added."}},
+		{first[:3], 20003, []string{"Alien", "Heat", "Ran", "20,000 more were added."}},
 	} {
 		if got := notice.Titles(c.first, c.total, "added"); !slices.Equal(got, c.want) {
 			t.Errorf("Titles(%v, %d) = %q, want %q", c.first, c.total, got, c.want)
@@ -131,5 +132,11 @@ func TestTitlesListsThreeThenCountsTheRest(t *testing.T) {
 	episode := works.Noun{One: "episode", Many: "episodes"}
 	if got := notice.Count(1, episode) + ", " + notice.Count(10, episode); got != "1 episode, 10 episodes" {
 		t.Fatalf("Count = %q", got)
+	}
+}
+
+func TestCountGroupsThousands(t *testing.T) {
+	if got := notice.Count(1200, works.Noun{One: "episode", Many: "episodes"}); got != "1,200 episodes" {
+		t.Fatalf("Count(1200) = %q, want 1,200 episodes", got)
 	}
 }

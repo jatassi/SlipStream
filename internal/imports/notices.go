@@ -239,7 +239,7 @@ func renderUpgraded(f ImportedFacts, _ notice.Context) notice.Message {
 	case rest == 1:
 		m.Lines = append(m.Lines, "1 more "+item.One+" was upgraded.")
 	case rest > 1:
-		m.Lines = append(m.Lines, strconv.Itoa(rest)+" more "+item.Many+" were upgraded.")
+		m.Lines = append(m.Lines, notice.Grouped(rest)+" more "+item.Many+" were upgraded.")
 	}
 	return withLeft(m, f, item)
 }

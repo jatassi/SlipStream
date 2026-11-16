@@ -3,7 +3,6 @@ package library
 import (
 	"context"
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/identity"
@@ -135,7 +134,7 @@ func renderDeleted(f DeletedFacts, _ notice.Context) notice.Message {
 		case rest == 1:
 			line = strings.Join(t.First, ", ") + " and 1 more " + noun.One
 		case rest > 1:
-			line = strings.Join(t.First, ", ") + " and " + strconv.Itoa(rest) + " more " + noun.Many
+			line = strings.Join(t.First, ", ") + " and " + notice.Grouped(rest) + " more " + noun.Many
 		}
 		m.Lines = append(m.Lines, line+".")
 	}
