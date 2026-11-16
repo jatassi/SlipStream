@@ -83,7 +83,7 @@ export async function barAction(page: Page, name: string) {
   }
 }
 
-export const toasts = (page: Page) => page.getByRole("region", { name: "Notifications" });
+export const toasts = (page: Page) => page.getByRole("region", { name: "Messages" });
 
 export async function pick(page: Page, ...labels: string[]) {
   for (const label of labels) {

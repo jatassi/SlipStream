@@ -18,7 +18,7 @@ import { grabbed, searching, workServer } from "../../../test/work-server";
 const cutRow = () =>
   page.getByRole("table", { name: "Editions and Targets" }).getByRole("row", { name: /^Any cut/u });
 const searchButton = () => page.getByRole("button", { name: "Search", exact: true });
-const notifications = () => page.getByRole("region", { name: "Notifications" });
+const notifications = () => page.getByRole("region", { name: "Messages" });
 const missingRow = "Any cutFrom Profile UltraMissingSearchManual searchMissingSearchManual search";
 
 test("the Work page shows its facts, its cells and one column per Target", async () => {

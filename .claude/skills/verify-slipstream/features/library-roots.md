@@ -85,7 +85,7 @@ Steps:
   $FW exec $RUN -- $PW cli $S check "$ADD"'.getByRole("checkbox", { name: "Make this the default for Movies" })'
   $FW exec $RUN --proof library-roots/roots-add-browser -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-add-browser/dialog.png
   $FW exec $RUN -- $PW cli $S click "$ADD"'.getByRole("button", { name: "Add", exact: true })'
-  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("region", { name: "Notifications" }).getByText("New movies go there.").waitFor(); }'
+  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("region", { name: "Messages" }).getByText("New movies go there.").waitFor(); }'
   $FW exec $RUN --proof library-roots/roots-add-browser -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-add-browser/added.png
   $FW exec $RUN --proof library-roots/roots-add-browser -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots'
   ```
@@ -171,7 +171,7 @@ Steps:
   $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("dialog", { name: "Edit the Movies root" }).getByText(/^This folder is on \//).waitFor(); }'
   $FW exec $RUN --proof library-roots/roots-rehome -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-rehome/dialog.png
   $FW exec $RUN -- $PW cli $S click 'getByRole("dialog", { name: "Edit the Movies root" }).getByRole("button", { name: "Save", exact: true })'
-  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("region", { name: "Notifications" }).getByText(/^The Movies root is now .+ on home\.$/).waitFor(); }'
+  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("region", { name: "Messages" }).getByText(/^The Movies root is now .+ on home\.$/).waitFor(); }'
   $FW exec $RUN --proof library-roots/roots-rehome -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-rehome/saved.png
   $FW exec $RUN --proof library-roots/roots-rehome -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots'
   $FW exec $RUN --proof library-roots/roots-rehome -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/cells"
@@ -186,7 +186,7 @@ Steps:
   $FW exec $RUN -- $PW cli $S click 'getByRole("menuitem", { name: "Delete" })'
   $FW exec $RUN --proof library-roots/roots-delete -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-delete/confirm.png
   $FW exec $RUN -- $PW cli $S click 'getByRole("dialog", { name: "Delete {mediaDir}/movies?" }).getByRole("button", { name: "Delete", exact: true })'
-  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("region", { name: "Notifications" }).getByText(/The folder is still on disk\.$/).waitFor(); }'
+  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("region", { name: "Messages" }).getByText(/The folder is still on disk\.$/).waitFor(); }'
   $FW exec $RUN --proof library-roots/roots-delete -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-delete/deleted.png
   $FW exec $RUN --proof library-roots/roots-delete -- $FW fs stat {runDir} '{mediaDir}/movies/.slipstream-root'
   $FW exec $RUN -- $PW cli $S tracing-stop
@@ -249,7 +249,7 @@ Steps:
   $FW fs cp $RUN "$SRC" t1/a && $FW fs cp $RUN "$SRC" t1/b
   for k in 2 3 4 5 6 7 8 9; do $FW fs cp $RUN "t$((k-1))" "t$k/a" && $FW fs cp $RUN "t$((k-1))" "t$k/b"; done
   $FW exec $RUN --proof library-roots/roots-scan-cancel -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"contentType":"movie","nodeId":"{nodes.home.nodeId}","path":"{mediaDir}/t9"}' '{nodes.home.url}/api/v1/roots'
-  $FW exec $RUN --proof library-roots/roots-scan-cancel -- $PW cli $S run-code 'async page => { await page.getByText(/^Reading media info, \d+ of 512 files$/).waitFor({ timeout: 60000 }); await page.getByRole("button", { name: "Actions for {mediaDir}/t9" }).click(); await page.getByRole("menuitem", { name: "Cancel library scan" }).click(); await page.getByRole("region", { name: "Notifications" }).getByText(/^Library scan cancelled/).waitFor(); }'
+  $FW exec $RUN --proof library-roots/roots-scan-cancel -- $PW cli $S run-code 'async page => { await page.getByText(/^Reading media info, \d+ of 512 files$/).waitFor({ timeout: 60000 }); await page.getByRole("button", { name: "Actions for {mediaDir}/t9" }).click(); await page.getByRole("menuitem", { name: "Cancel library scan" }).click(); await page.getByRole("region", { name: "Messages" }).getByText(/^Library scan cancelled/).waitFor(); }'
   $FW exec $RUN --proof library-roots/roots-scan-cancel -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-scan-cancel/cancelled.png
   $FW exec $RUN --proof library-roots/roots-scan-cancel -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/tasks/library-scan'
   ```

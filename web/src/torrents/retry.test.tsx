@@ -15,7 +15,7 @@ const failed = torrent({
   retryable: true,
 });
 const inspector = () => page.getByRole("complementary");
-const notices = () => page.getByRole("region", { name: "Notifications" });
+const notices = () => page.getByRole("region", { name: "Messages" });
 
 test("a seed that failed offers Retry, which checks its files", async () => {
   const actions = actionsServer();

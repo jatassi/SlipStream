@@ -26,7 +26,7 @@ async function addEverything(world: World): Promise<void> {
 
 const status = (page: Page) =>
   page.getByRole("main").getByRole("paragraph").filter({ hasText: "Next Backlog search" });
-const notifications = (page: Page) => page.getByRole("region", { name: "Notifications" });
+const notifications = (page: Page) => page.getByRole("region", { name: "Messages" });
 
 async function openWanted(page: Page): Promise<void> {
   await page.goto("/library");

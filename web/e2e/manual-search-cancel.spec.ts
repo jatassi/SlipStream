@@ -32,7 +32,7 @@ test("a downloading Grab canceled with Also blocklist lists its Release on Activ
   await expectAccessible(page);
   await frame(page, testInfo, "cancel-downloading");
   await confirm.getByRole("button", { name: "Cancel Grab" }).click();
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText(
     "Canceled the Grab of The Quiet Orchard.",
   );
   await expect.poll(() => grabStage(world, grabId)).toBe("failed");
@@ -52,7 +52,7 @@ test("a downloading Grab canceled with Also blocklist lists its Release on Activ
     .getByRole("toolbar", { name: "Selected entries" })
     .getByRole("button", { name: "Remove" })
     .click();
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText(
     "Removed 1 Release from the Blocklist.",
   );
   await expect(blocklist.getByRole("row").filter({ hasText: webdlTitle })).toHaveCount(0);
@@ -95,7 +95,7 @@ test("a fetching Grab cancels from its Details without blocklisting, and its cel
   await expectAccessible(page);
   await frame(page, testInfo, "cancel-fetching");
   await confirm.getByRole("button", { name: "Cancel Grab" }).click();
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText(
     "Canceled the Grab of The Quiet Orchard.",
   );
   await world.fw.fault.clear("torrent-slow");

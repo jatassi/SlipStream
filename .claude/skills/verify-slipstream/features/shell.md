@@ -127,7 +127,7 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Quiet Orchard" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Quiet Orchard" }).getByRole("button", { name: "Add Movie" })'
-  $FW exec $RUN --proof shell/shell-toast -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("region", { name: "Notifications" }).getByText("Added The Quiet Orchard").waitFor({ timeout: 5000 }); }'
+  $FW exec $RUN --proof shell/shell-toast -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("region", { name: "Messages" }).getByText("Added The Quiet Orchard").waitFor({ timeout: 5000 }); }'
   $FW exec $RUN --proof shell/shell-toast -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/shell/shell-toast/added.png
   $FW exec $RUN --proof shell/shell-titles -- $PW cli -s={runId}-admin-desktop eval 'document.title'
   ```

@@ -71,7 +71,7 @@ async function addSuperfan(page: Page) {
   await adding.getByRole("textbox", { name: "Name" }).fill("Superfan");
   await adding.getByRole("textbox", { name: "Aliases" }).fill("Fan Cut");
   await adding.getByRole("button", { name: "Add cut" }).click();
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText(
     "Added Superfan.",
   );
   await expect(adding).toBeHidden();
@@ -88,7 +88,7 @@ async function filmsWantSuperfan(page: Page, world: World) {
   await page.getByRole("button", { name: "Remove Standard" }).click();
   await expect(page.getByText(/^SlipStream searches for Superfan every time/u)).toBeVisible();
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText("Saved Films.");
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText("Saved Films.");
   const saved = await world.api("GET", `/api/v1/profiles/${films}`);
   expect(saved.body).toMatchObject({ editions: { kind: "cuts", cuts: ["superfan"] } });
 }
@@ -125,7 +125,7 @@ test("an Admin adds a custom cut, lists it in a Profile, and renames it and its 
   await page.screenshot({ path: testInfo.outputPath("rename-impact.png") });
   await impact.getByRole("button", { name: "Save", exact: true }).click();
 
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText(
     "Saved Superfan Edition.",
   );
   await expect(editing).toBeHidden();

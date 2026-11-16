@@ -11,7 +11,7 @@ import { workServer } from "../../test/work-server";
 const files = () => page.getByRole("list", { name: "Files", exact: true });
 const goneFiles = () => page.getByRole("list", { name: "Gone files" });
 const forget = () => goneFiles().getByRole("button", { name: /^Forget/u });
-const notifications = () => page.getByRole("region", { name: "Notifications" });
+const notifications = () => page.getByRole("region", { name: "Messages" });
 const goneId = scannedFiles.files[2]?.id;
 
 test("a probed file shows its video, audio, subtitles and duration under Details", async () => {

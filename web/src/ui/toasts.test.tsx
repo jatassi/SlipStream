@@ -20,7 +20,7 @@ function useFakeClock() {
   });
 }
 
-const notifications = () => page.getByRole("region", { name: "Notifications" });
+const notifications = () => page.getByRole("region", { name: "Messages" });
 
 // The manager drops a toast nobody listens to, and the viewport's Provider
 // subscribes in an effect, which runs before a later sibling's effect.

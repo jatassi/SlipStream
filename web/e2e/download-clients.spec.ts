@@ -35,7 +35,7 @@ test("Download Clients shows home's built-in client, saves a threshold, and its 
     .getByRole("textbox", { name: "Tracker reports unregistered twice, this far apart" })
     .fill("45");
   await page.getByRole("main").getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText(
     "Download Clients settings saved",
   );
   const saved = Thresholds.parse((await world.api("GET", "/api/v1/download-clients")).body);
@@ -47,7 +47,7 @@ test("Download Clients shows home's built-in client, saves a threshold, and its 
   await expect(page).toHaveURL(/\/nodes\/[\da-f-]+\/torrent-client$/u);
   await page.getByRole("textbox", { name: "Downloads at once" }).fill("1");
   await page.getByRole("main").getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText(
     "Torrent client settings saved",
   );
   const [home] = saved.cards;

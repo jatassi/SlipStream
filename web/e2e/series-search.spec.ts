@@ -22,7 +22,7 @@ const Cells = z.object({
 });
 const Items = z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })) });
 
-const notifications = (page: Page) => page.getByRole("region", { name: "Notifications" });
+const notifications = (page: Page) => page.getByRole("region", { name: "Messages" });
 const searches = (page: Page) => page.getByRole("list", { name: "Searches" });
 const grabbed = (page: Page) => searches(page).getByText("Grabbed 1 release");
 

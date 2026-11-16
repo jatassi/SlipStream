@@ -10,7 +10,7 @@ test.use({ scenario: "movies" });
 test.describe.configure({ timeout: 120_000 });
 
 const Added = z.object({ work: z.object({ id: z.string() }) });
-const notifications = (page: Page) => page.getByRole("region", { name: "Notifications" });
+const notifications = (page: Page) => page.getByRole("region", { name: "Messages" });
 
 test("Refresh metadata reads the source again, and a Work the source drops says so", async ({
   adminPage: page,

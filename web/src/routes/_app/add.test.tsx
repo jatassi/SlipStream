@@ -11,7 +11,7 @@ import { renderApp } from "../../test/render-app";
 import { filmsRoot } from "../../test/roots";
 
 const sheet = () => page.getByRole("dialog", { name: "Add The Quiet Orchard" });
-const notifications = () => page.getByRole("region", { name: "Notifications" });
+const notifications = () => page.getByRole("region", { name: "Messages" });
 const sentence = () => sheet().getByText(/^Adds /u);
 const willStart = () => sheet().getByText("New films will start with these.");
 
