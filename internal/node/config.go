@@ -29,6 +29,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/plextv"
@@ -138,31 +139,32 @@ func (c ContentTypeEndpoints) MarshalYAML() (any, error) {
 }
 
 type TimingsBlock struct {
-	Node         Timings             `yaml:"node"`
-	Storage      storage.Timings     `yaml:"storage"`
-	HTTP         api.Timings         `yaml:"http"`
-	Live         live.Timings        `yaml:"live"`
-	Link         link.Timings        `yaml:"link"`
-	Role         role.Timings        `yaml:"role"`
-	Nodes        nodes.Timings       `yaml:"nodes"`
-	Works        works.Timings       `yaml:"works"`
-	Indexers     indexers.Timings    `yaml:"indexers"`
-	Searching    searching.Timings   `yaml:"searching"`
-	Transfers    transfers.Timings   `yaml:"transfers"`
-	Grabs        grabs.Timings       `yaml:"grabs"`
-	Files        files.Timings       `yaml:"files"`
-	Formats      formats.Timings     `yaml:"formats"`
-	Downloading  downloading.Timings `yaml:"downloading"`
-	Media        media.Timings       `yaml:"media"`
-	Mail         mail.Timings        `yaml:"mail"`
-	Serving      serving.Timings     `yaml:"serving"`
-	Storing      storing.Timings     `yaml:"storing"`
-	Metadata     metadata.Timings    `yaml:"metadata"`
-	TMDB         tmdb.Timings        `yaml:"tmdb"`
-	TVDB         tvdb.Timings        `yaml:"tvdb"`
-	OMDb         omdb.Timings        `yaml:"omdb"`
-	Health       health.Timings      `yaml:"health"`
-	MediaServers mslink.Timings      `yaml:"media_servers"`
+	Node          Timings               `yaml:"node"`
+	Storage       storage.Timings       `yaml:"storage"`
+	HTTP          api.Timings           `yaml:"http"`
+	Live          live.Timings          `yaml:"live"`
+	Link          link.Timings          `yaml:"link"`
+	Role          role.Timings          `yaml:"role"`
+	Nodes         nodes.Timings         `yaml:"nodes"`
+	Works         works.Timings         `yaml:"works"`
+	Indexers      indexers.Timings      `yaml:"indexers"`
+	Searching     searching.Timings     `yaml:"searching"`
+	Transfers     transfers.Timings     `yaml:"transfers"`
+	Grabs         grabs.Timings         `yaml:"grabs"`
+	Files         files.Timings         `yaml:"files"`
+	Formats       formats.Timings       `yaml:"formats"`
+	Downloading   downloading.Timings   `yaml:"downloading"`
+	Media         media.Timings         `yaml:"media"`
+	Mail          mail.Timings          `yaml:"mail"`
+	Serving       serving.Timings       `yaml:"serving"`
+	Storing       storing.Timings       `yaml:"storing"`
+	Metadata      metadata.Timings      `yaml:"metadata"`
+	TMDB          tmdb.Timings          `yaml:"tmdb"`
+	TVDB          tvdb.Timings          `yaml:"tvdb"`
+	OMDb          omdb.Timings          `yaml:"omdb"`
+	Health        health.Timings        `yaml:"health"`
+	MediaServers  mslink.Timings        `yaml:"media_servers"`
+	Notifications notifications.Timings `yaml:"notifications"`
 }
 
 type Timings struct {
@@ -219,26 +221,27 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 				JoinDial:      20 * time.Second,
 				AwaitDial:     10 * time.Minute,
 			},
-			Role:         role.Timings{RestartMin: time.Second, RestartMax: time.Minute, Beat: 15 * time.Second, Stall: 45 * time.Second, Probe: 10 * time.Minute},
-			Nodes:        nodes.DefaultTimings(),
-			Works:        works.DefaultTimings(),
-			Indexers:     indexers.DefaultTimings(),
-			Searching:    searching.DefaultTimings(),
-			Transfers:    transfers.DefaultTimings(),
-			Grabs:        grabs.DefaultTimings(),
-			Files:        files.DefaultTimings(),
-			Formats:      formats.DefaultTimings(),
-			Downloading:  downloading.DefaultTimings(),
-			Media:        media.DefaultTimings(),
-			Mail:         mail.DefaultTimings(),
-			Serving:      serving.DefaultTimings(),
-			Storing:      storing.DefaultTimings(),
-			Metadata:     metadata.DefaultTimings(),
-			TMDB:         tmdb.DefaultTimings(),
-			TVDB:         tvdb.DefaultTimings(),
-			OMDb:         omdb.DefaultTimings(),
-			Health:       health.DefaultTimings(),
-			MediaServers: mslink.DefaultTimings(),
+			Role:          role.Timings{RestartMin: time.Second, RestartMax: time.Minute, Beat: 15 * time.Second, Stall: 45 * time.Second, Probe: 10 * time.Minute},
+			Nodes:         nodes.DefaultTimings(),
+			Works:         works.DefaultTimings(),
+			Indexers:      indexers.DefaultTimings(),
+			Searching:     searching.DefaultTimings(),
+			Transfers:     transfers.DefaultTimings(),
+			Grabs:         grabs.DefaultTimings(),
+			Files:         files.DefaultTimings(),
+			Formats:       formats.DefaultTimings(),
+			Downloading:   downloading.DefaultTimings(),
+			Media:         media.DefaultTimings(),
+			Mail:          mail.DefaultTimings(),
+			Serving:       serving.DefaultTimings(),
+			Storing:       storing.DefaultTimings(),
+			Metadata:      metadata.DefaultTimings(),
+			TMDB:          tmdb.DefaultTimings(),
+			TVDB:          tvdb.DefaultTimings(),
+			OMDb:          omdb.DefaultTimings(),
+			Health:        health.DefaultTimings(),
+			MediaServers:  mslink.DefaultTimings(),
+			Notifications: notifications.DefaultTimings(),
 		},
 	}
 }

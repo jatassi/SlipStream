@@ -911,6 +911,23 @@
           },
           "additionalProperties": false,
           "type": "object"
+        },
+        "notifications": {
+          "properties": {
+            "send": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "ladder": {
+              "items": {
+                "type": "string",
+                "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+              },
+              "type": "array"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
         }
       },
       "additionalProperties": false,

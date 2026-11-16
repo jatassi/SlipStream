@@ -28,6 +28,7 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
+	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/notifying"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
@@ -224,6 +225,14 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:   n.rootLog.With("subsystem", "mediaservers"),
 	})
 	linked = mediaserverlink.Def.Serve(servers.Intent, servers.Apply)
+	n.notifications = notifications.New(notifications.Config{
+		Library: lib.db,
+		Sealer:  lib.sealer,
+		Timings: n.cfg.Timings.Notifications,
+		Rand:    n.notificationsRand,
+		Zone:    n.zone(),
+		Log:     n.rootLog.With("subsystem", "notifications"),
+	})
 	arrivals := roots.NewArrivals()
 	var systems *nodesystem.Nodes
 	side, err = nodes.Open(ctx, nodes.Config{
