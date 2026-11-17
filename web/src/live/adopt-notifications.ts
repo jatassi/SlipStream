@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import type {
   ConnectionsOutputBody,
   NotificationsBell,
+  NotificationsFeed,
   NotificationsConnection,
   SettingsOutputBody,
 } from "../api/gen/model";
@@ -12,6 +13,7 @@ import {
   getGetNotificationSettingsQueryKey,
   getListNotificationConnectionsQueryKey,
 } from "../api/gen/query/notifications/notifications";
+import { unreadKey } from "../notifications/feed-keys";
 
 type Connections = ConnectionsOutputBody;
 
@@ -48,4 +50,9 @@ export function adoptBell(queryClient: QueryClient, saved: NotificationsBell) {
 
 export function adoptNotificationSettings(queryClient: QueryClient, saved: SettingsOutputBody) {
   queryClient.setQueryData(getGetNotificationSettingsQueryKey(), saved);
+}
+
+/** The Admin's cursor moved past every row, so the bell reads 0 before notifications.seen refetches it. */
+export function adoptSeen(queryClient: QueryClient) {
+  queryClient.setQueryData<NotificationsFeed>(unreadKey, (feed) => feed && { ...feed, unread: 0 });
 }

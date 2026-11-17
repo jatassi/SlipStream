@@ -1,5 +1,6 @@
 import { MoreHorizontalIcon, Search01Icon } from "@hugeicons/core-free-icons";
 
+import { Bell } from "../../notifications/bell";
 import { useAccount } from "../../session/session";
 import { IconButton } from "../../ui/icon-button";
 import { Avatar } from "../account";
@@ -17,6 +18,7 @@ export function AdminBarActions() {
   return (
     <>
       <IconButton icon={Search01Icon} label="Search" onClick={openPalette} />
+      <Bell />
       <button
         type="button"
         aria-label="Account"

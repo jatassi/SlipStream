@@ -1,6 +1,7 @@
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { type ComponentType, createContext, use } from "react";
 
+import { Bell } from "../../notifications/bell";
 import { TasksCapsule } from "../../tasks/capsule";
 import { Icon } from "../../ui/icon";
 import { ConnectionLine } from "../connection-line";
@@ -19,6 +20,7 @@ type TopBarSlot = { readonly id: string; readonly Slot: ComponentType };
 const topBarSlots = [
   { id: "connection", Slot: ConnectionLine },
   { id: "tasks", Slot: TasksCapsule },
+  { id: "bell", Slot: Bell },
   { id: "page-action", Slot: PageAction },
 ] as const satisfies readonly TopBarSlot[];
 
