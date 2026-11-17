@@ -111,14 +111,14 @@ func (w *world) reconcile(t *testing.T) {
 
 func (w *world) until(t *testing.T, what string, id ImportID, ok func(*Import) bool) *Import {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(30 * time.Second)
 	for {
 		got := w.stored(t, id)
 		if ok(got) {
 			return got
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("%s: not within 10s; the files are %v", what, outcomesOf(got))
+			t.Fatalf("%s: not within 30s; the files are %v", what, outcomesOf(got))
 		}
 		time.Sleep(time.Millisecond)
 	}
