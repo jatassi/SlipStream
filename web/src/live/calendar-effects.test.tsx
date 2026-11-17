@@ -100,6 +100,7 @@ test("a burst of works.changed reads once, then once more after it", async () =>
   for (let index = 0; index < 6; index++) {
     effects["works.changed"]({ workIds: [orchardId] }, ctx);
   }
+  await expect.poll(() => reads).toEqual([november.from, november.from]);
   await settle();
   expect(reads).toEqual([november.from, november.from]);
 });
