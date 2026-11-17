@@ -125,14 +125,19 @@ func must[T any](t *testing.T) func(T, error) T {
 // within runs f over a Controller holding The Attic, a Work of one Item
 // that wants HD, with History served on a fake clock.
 func within(t *testing.T, f func(t *testing.T, w *world)) {
+	over(t, notificationstest.Owner{Name: "noter", Rows: []entry.Entry{grabbedRow, failedRow, importedRow, deletedRow}}, f)
+}
+
+// over is within with owner's rows the ones recorded.
+func over(t *testing.T, owner notificationstest.Owner, f func(t *testing.T, w *world)) {
 	synctest.Test(t, func(t *testing.T) {
 		ctx := t.Context()
 		lib := storagetest.Library(t, secret.Schema(), identity.Schema(), mail.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
 			roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), imports.Schema(),
 			health.Schema(), history.Schema(), notifications.Schema())
 		nw := notificationstest.Over(t, lib, filepath.Join(t.TempDir(), secret.KeyFile), notifications.DefaultTimings(),
-			notificationstest.Owner{Name: "noter", Rows: []entry.Entry{grabbedRow, failedRow, importedRow, deletedRow}})
-		w := &world{World: nw, t: t, rec: nw.Recorder("noter")}
+			owner)
+		w := &world{World: nw, t: t, rec: nw.Recorder(owner.Name)}
 		w.faults.Store(&[]health.Item{})
 		fx := contenttypetest.New()
 		w.works = must[*works.Works](t)(works.Open(ctx, works.Config{
@@ -482,6 +487,31 @@ func TestTheLongFormHasTheLinesFilesStagesAndHealthItemsInTheZoneAsked(t *testin
 		if len(raised.Health) != 1 || raised.Health[0].Subject != "Disk full" || raised.Health[0].Level != "fail" ||
 			!slices.Equal(raised.Lines, []string{"The disk is full.", "It has been on Health since " + since + "."}) {
 			t.Errorf("the New Health item's long form is %+v, want its item and its clock in Tokyo, %s", raised, since)
+		}
+	})
+}
+
+func TestAOneItemWorksImportedEntryListsEachFileWithNoItems(t *testing.T) {
+	over(t, notificationstest.Owner{Name: "imports", Rows: imports.Entries()}, func(t *testing.T, w *world) {
+		var spec entry.Spec
+		for _, e := range imports.Entries() {
+			if e.Declared().Kind == "imported" {
+				spec = e.Declared()
+			}
+		}
+		single := entry.Work{ID: w.attic.ID, Label: "The Attic", Type: contenttypetest.ID, Nouns: entry.Nouns{
+			Work: works.Noun{One: "Attic", Many: "Attics"}, Item: works.Noun{One: "Attic", Many: "Attics"}, Single: true,
+		}}
+		w.write(func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			return entry.Row[imports.ImportedFacts]{Spec: spec}.Record(ctx, tx, w.rec, imports.ImportedFacts{
+				Work: single, Root: "Attics library root on home", Files: []imports.PlacedFile{{Quality: release.WEBDL1080p, Size: 1 << 30, PlacedBy: imports.ByLink}},
+			})
+		})
+		synctest.Wait()
+		p := w.list("")
+		_, body := w.s.Call(t, http.MethodGet, "/api/v1/history/"+strconv.FormatInt(p.Entries[0].ID, 10)+"?zone=UTC", "")
+		if !strings.Contains(body, `"files":[{"items":[],"quality":"WEBDL-1080p"`) {
+			t.Errorf("the Imported entry of a one-Item Work answers %s, want its file with items []", body)
 		}
 	})
 }

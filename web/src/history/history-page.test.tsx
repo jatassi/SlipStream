@@ -132,6 +132,37 @@ test("Details opens an entry in full in place, with a link to its Work and none 
   await expect.element(deleted.getByRole("link")).not.toBeInTheDocument();
 });
 
+test("Details on a movie's Imported entry lists its file by quality alone", async () => {
+  const imported = anEntry(1, new Date().toISOString(), {
+    kind: "imported",
+    group: "imports",
+    words: "Imported The Quiet Orchard",
+    tone: "good",
+  });
+  openHistory(
+    historyServer([imported], {
+      one: (entry) => ({
+        entry,
+        lines: ["WEBDL-1080p · 1.0 GB"],
+        files: [
+          { items: [], quality: "WEBDL-1080p", placedBy: "link", replaced: "", replacedLabel: "" },
+        ],
+        stages: [],
+        health: [],
+      }),
+    }),
+  );
+  await userEvent.click(
+    page.getByRole("button", { name: "Details, Imported The Quiet Orchard", exact: true }),
+  );
+  await expect
+    .element(page.getByRole("main").getByRole("heading", { name: "Files" }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("main").getByText("WEBDL-1080p", { exact: true }))
+    .toBeVisible();
+});
+
 test("on a phone the whole row opens the entry in a sheet", async () => {
   await asPhone();
   openHistory(historyServer([anEntry(1, new Date().toISOString())]));

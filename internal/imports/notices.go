@@ -284,7 +284,7 @@ func placedMessage(f ImportedFacts, tone entry.Tone) entry.Message {
 			b.Items = append(b.Items, itemAtWords(it, lower(f.Work.Nouns.Item)))
 		}
 		m.Body.Files = append(m.Body.Files, b)
-		d := entry.DetailFile{Quality: b.Quality, PlacedBy: b.PlacedBy}
+		d := entry.DetailFile{Items: []string{}, Quality: b.Quality, PlacedBy: b.PlacedBy}
 		if !f.Work.Nouns.Single {
 			d.Items, d.Replaced, d.ReplacedLabel = b.Items, b.Replaced, works.JoinWords(p.ReplacedLabels)
 		}
