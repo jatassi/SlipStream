@@ -9,7 +9,7 @@ An Admin adds notification connections in Settings > System > Notifications: Dis
 - `notifications-paused` with `discord-gone` on, the next message is answered 404 and the connection reads `shown: paused` with `Discord responded that this webhook no longer exists. Paste a new webhook URL.`; later messages wait (P-174).
 - `notifications-drain` with the cue off, a Test of the saved connection passes and sends the messages it held, oldest first, after the Test message (P-174).
 - `notifications-bell` the feed lists each event newest first with `unread`, `GET /notifications/bell` answers the bell's own events, and `POST /notifications/feed/seen` with the API key answers 403 `needs_account`, since the cursor belongs to an Account; an empty bell reads `No notifications in the last 90 days.`, from Keep history for, and the settings hold no Keep field (P-009).
-- `notifications-health-pair` a Download Client fault raises a Health item and its clear clears it, and the bell shows the pair: the item after `Wait before sending a new Health item`, then `Cleared: <item>` (P-009).
+- `notifications-health-pair` a Download Client fault raises a Health item and its clear clears it, and the bell shows the pair: `New Health item for <item>` after `Wait before sending a new Health item`, then `Health item for <item> cleared` (P-009).
 - `notifications-scenario` a Scenario's `notify` adds one connection per listed provider at launch, each on with posters and the recommended events, and `script` runs `<run>/bin/capture-script` on the Controller (P-195).
 
 ## How to get to it (user POV)

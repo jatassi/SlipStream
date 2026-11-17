@@ -5,6 +5,7 @@ export * from "./firstrun/firstrun.zod.ts";
 export * from "./formats/formats.zod.ts";
 export * from "./grabs/grabs.zod.ts";
 export * from "./health/health.zod.ts";
+export * from "./history/history.zod.ts";
 export * from "./identity/identity.zod.ts";
 export * from "./imports/imports.zod.ts";
 export * from "./indexers/indexers.zod.ts";

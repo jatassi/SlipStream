@@ -33,14 +33,14 @@ func TestTheOwnRowsRenderTheirWords(t *testing.T) {
 		want entry.Message
 	}{
 		{"one new item", render(history.NewItemsRow, history.HealthFacts{Items: []history.Item{disk}}), entry.Message{
-			Title: "Disk D: is almost full", Lines: []string{"12 GB are free.", "It has been on Health since 14:02."},
+			Title: "New Health item for Disk D: is almost full", Lines: []string{"12 GB are free.", "It has been on Health since 14:02."},
 			Link: entry.Link{Path: "/health#health-storage-d"}, Tone: entry.Warn,
 		}},
 		{"two new items", render(history.NewItemsRow, history.HealthFacts{Items: []history.Item{disk, node}}), entry.Message{
 			Title: "2 new Health items", Lines: []string{"Disk D: is almost full", "Attic is offline"}, Tone: entry.Fail,
 		}},
 		{"one cleared item", render(history.ClearedRow, history.HealthFacts{Items: []history.Item{disk}}), entry.Message{
-			Title: "Cleared: Disk D: is almost full", Lines: []string{"It was on Health from 14:02 to 14:31."}, Tone: entry.Good,
+			Title: "Health item for Disk D: is almost full cleared", Lines: []string{"It was on Health from 14:02 to 14:31."}, Tone: entry.Good,
 		}},
 		{"test", render(testRow, testFacts{}), entry.Message{
 			Title: "Test from SlipStream", Lines: []string{"This connection works.", "Den sent this message at 14:40."},

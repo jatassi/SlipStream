@@ -49,11 +49,12 @@ func refuse(key, format string, args ...any) error {
 
 // Duration is a length of time, stored as whole seconds and set in whole
 // Steps between Min and Max. Floor, when set, is why Min protects someone
-// outside the install.
+// outside the install. Description, when set, is what a longer or shorter
+// time costs.
 type Duration struct {
 	Key, Label              string
 	Default, Min, Max, Step time.Duration
-	Floor                   string
+	Floor, Description      string
 }
 
 // Value is the setting's value under override, a stored count of seconds.
@@ -83,15 +84,16 @@ func (d Duration) Parse(seconds *int64) (Stored[int64], error) {
 
 func (d Duration) Field(override *int64) DurationField {
 	return DurationField{
-		About:   about(d.Key, d.Label, override == nil),
-		Kind:    "duration",
-		Value:   seconds(d.Value(override)),
-		Running: seconds(d.Value(override)),
-		Default: seconds(d.Default),
-		Min:     seconds(d.Min),
-		Max:     seconds(d.Max),
-		Step:    seconds(d.Step),
-		Floor:   d.Floor,
+		About:       about(d.Key, d.Label, override == nil),
+		Kind:        "duration",
+		Value:       seconds(d.Value(override)),
+		Running:     seconds(d.Value(override)),
+		Default:     seconds(d.Default),
+		Min:         seconds(d.Min),
+		Max:         seconds(d.Max),
+		Step:        seconds(d.Step),
+		Floor:       d.Floor,
+		Description: d.Description,
 	}
 }
 

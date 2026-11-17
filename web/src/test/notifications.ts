@@ -200,10 +200,11 @@ export const notificationSettings = (): SettingDurationField[] => [
 ];
 
 /** Keep history for, as Housekeeping's Tuning. */
-export const historyKeep = duration("history.keepFor", "Keep history for", 90 * day, [
-  30 * day,
-  1095 * day,
-]);
+export const historyKeep: SettingDurationField = {
+  ...duration("history.keepFor", "Keep history for", 90 * day, [30 * day, 1095 * day]),
+  description:
+    "90 days is enough to look back over a season. A longer time keeps more History, and makes each Backup larger. History entries older than this are deleted during Housekeeping.",
+};
 
 export const feedRow = (seq: number, unread: boolean): NotificationsFeedRow => ({
   seq,

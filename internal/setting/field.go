@@ -32,14 +32,15 @@ var Kinds = []Field{DurationField{}, CountField{}, ChoiceField{}, WindowField{},
 // DurationField is a Duration on the wire, in seconds.
 type DurationField struct {
 	About
-	Kind    string `json:"kind" enum:"duration"`
-	Value   int64  `json:"value" doc:"Seconds"`
-	Running int64  `json:"running" doc:"Seconds"`
-	Default int64  `json:"default" doc:"Seconds"`
-	Min     int64  `json:"min" doc:"Seconds"`
-	Max     int64  `json:"max" doc:"Seconds"`
-	Step    int64  `json:"step" doc:"Seconds: a second, minute, hour or day"`
-	Floor   string `json:"floor,omitempty" doc:"Why the minimum protects someone outside the install"`
+	Kind        string `json:"kind" enum:"duration"`
+	Value       int64  `json:"value" doc:"Seconds"`
+	Running     int64  `json:"running" doc:"Seconds"`
+	Default     int64  `json:"default" doc:"Seconds"`
+	Min         int64  `json:"min" doc:"Seconds"`
+	Max         int64  `json:"max" doc:"Seconds"`
+	Step        int64  `json:"step" doc:"Seconds: a second, minute, hour or day"`
+	Floor       string `json:"floor,omitempty" doc:"Why the minimum protects someone outside the install"`
+	Description string `json:"description,omitempty" doc:"What a longer or shorter time costs, in whole sentences"`
 }
 
 type CountField struct {

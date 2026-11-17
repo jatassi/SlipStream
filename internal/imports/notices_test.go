@@ -315,3 +315,21 @@ func TestAnImportItsWorksDeleteEndsRecordsNoImported(t *testing.T) {
 		t.Errorf("an Import its Work's delete ended recorded Imported %+v", got)
 	}
 }
+
+func TestASingleItemWorksUpgradedListsItsFileWithNoItemAndLeavesWhatItReplacedToItsLine(t *testing.T) {
+	t.Parallel()
+	f := ImportedFacts{
+		Work: entry.Work{Label: "Heat (1995)", Nouns: entry.Nouns{Single: true}},
+		Files: []PlacedFile{{
+			Items: []ItemAt{{Number: 1}}, Quality: release.Bluray1080p, PlacedBy: "hardlink",
+			Replaced: []release.Quality{release.WEBDL1080p}, ReplacedLabels: []string{"1080p"},
+		}},
+	}
+	m := upgradedRow.Render(f, entrytest.Context)
+	want := []entry.DetailFile{{Quality: "Bluray-1080p", PlacedBy: "hardlink"}}
+	if !slices.Equal(m.Lines, []string{"It replaced WEBDL-1080p."}) || !slices.EqualFunc(m.Detail.Files, want, func(a, b entry.DetailFile) bool {
+		return slices.Equal(a.Items, b.Items) && a.Quality == b.Quality && a.PlacedBy == b.PlacedBy && a.Replaced == b.Replaced && a.ReplacedLabel == b.ReplacedLabel
+	}) {
+		t.Errorf("a single-Item Work's Upgraded reads %q with files %+v, want its line to say what it replaced and its file to name only its quality", m.Lines, m.Detail.Files)
+	}
+}

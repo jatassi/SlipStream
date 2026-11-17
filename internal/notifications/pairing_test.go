@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/history/historytest"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/notifications/notificationstest"
 )
@@ -77,7 +78,7 @@ func TestAWorseInsideTheWaitSendsOneMessageAtTheFirstDueTimeAtError(t *testing.T
 		w.Transitions(moved(d, health.Worse, health.Fail))
 		w.Advance(time.Hour)
 		got := w.Courier.Received(family)
-		if len(got) != 1 || got[0].Title != "Disk d is almost full" || got[0].Tone != entry.Fail || !got[0].At.Equal(due) {
+		if len(got) != 1 || got[0].Title != "New Health item for Disk d is almost full" || got[0].Tone != entry.Fail || !got[0].At.Equal(due) {
 			t.Fatalf("received %+v, want one message at Error at %v", got, due)
 		}
 		if raises := kindsOf(historytest.Entries(t, w.Lib)); !slices.Equal(raises, []entry.Kind{"new_health_item", "new_health_item"}) {
@@ -97,8 +98,8 @@ func TestAWorseBesideAFreshRaiseSendsEachAtItsOwnDueTime(t *testing.T) {
 		w.Transitions(moved(d, health.Worse, health.Fail), disk("e", health.Fail))
 		w.Advance(time.Hour)
 		got := w.Courier.Received(family)
-		if len(got) != 2 || got[0].Title != "Disk d is almost full" || got[0].Tone != entry.Fail || !got[0].At.Equal(first) ||
-			got[1].Title != "Disk e is almost full" || !got[1].At.Equal(second) {
+		if len(got) != 2 || got[0].Title != "New Health item for Disk d is almost full" || got[0].Tone != entry.Fail || !got[0].At.Equal(first) ||
+			got[1].Title != "New Health item for Disk e is almost full" || !got[1].At.Equal(second) {
 			t.Fatalf("received %+v, want d at Error at %v, then e at %v", got, first, second)
 		}
 		if strings.Contains(w.Logs(), "level=ERROR") {
@@ -115,7 +116,7 @@ func TestAWorseAfterTheRaiseWasSentSendsAgainAfterANewWait(t *testing.T) {
 		w.Advance(wait)
 		w.Transitions(moved(d, health.Worse, health.Fail))
 		w.Advance(wait - time.Second)
-		wantTitles(t, w, family, "Disk d is almost full")
+		wantTitles(t, w, family, "New Health item for Disk d is almost full")
 		w.Advance(time.Second)
 		got := w.Courier.Received(family)
 		if len(got) != 2 || got[1].Tone != entry.Fail {
@@ -133,7 +134,7 @@ func TestAClearAfterTheRaiseWasSentReachesOnlyTheTargetsThatWereTold(t *testing.
 		w.Connect("late")
 		w.Transitions(cleared(d))
 		w.Advance(time.Hour)
-		wantTitles(t, w, family, "Disk d is almost full", "Cleared: Disk d is almost full")
+		wantTitles(t, w, family, "New Health item for Disk d is almost full", "Health item for Disk d is almost full cleared")
 		wantTitles(t, w, notificationstest.URL("late"))
 	})
 }
@@ -180,7 +181,7 @@ func TestAnErrorThatGotBetterStillSendsItsClearWithWarningsOff(t *testing.T) {
 		w.Advance(time.Minute)
 		w.Transitions(cleared(better))
 		w.Advance(time.Hour)
-		wantTitles(t, w, family, "Disk d is almost full", "Cleared: Disk d is almost full")
+		wantTitles(t, w, family, "New Health item for Disk d is almost full", "Health item for Disk d is almost full cleared")
 	})
 }
 
@@ -193,7 +194,7 @@ func TestARaiseGivenUpByARefusalIsFollowedByNoClear(t *testing.T) {
 		w.Transitions(cleared(d))
 		w.Courier.Queue(family, notificationstest.Reply{}, notificationstest.Reply{}, notificationstest.Reply{Status: http.StatusBadRequest})
 		unpause(t, w, id)
-		wantTitles(t, w, family, "Ping one", "Test from SlipStream", "Ping one", "Disk d is almost full")
+		wantTitles(t, w, family, "Ping one", "Test from SlipStream", "Ping one", "New Health item for Disk d is almost full")
 		if st := w.Status(id); st.Waiting != 0 || st.GivenUp != 1 {
 			t.Fatalf("the connection reads %+v, want the raise given up and the clear dropped", st)
 		}
@@ -224,7 +225,7 @@ func TestARaiseQueuedBehindAPauseArrivesThenItsClear(t *testing.T) {
 		w.Advance(wait)
 		w.Transitions(cleared(d))
 		unpause(t, w, id)
-		wantTitles(t, w, family, "Ping one", "Test from SlipStream", "Ping one", "Disk d is almost full", "Cleared: Disk d is almost full")
+		wantTitles(t, w, family, "Ping one", "Test from SlipStream", "Ping one", "New Health item for Disk d is almost full", "Health item for Disk d is almost full cleared")
 	})
 }
 
@@ -239,7 +240,7 @@ func TestAConnectionsOwnItemIsNeverSentToIt(t *testing.T) {
 		w.Transitions(own)
 		w.Advance(wait)
 		wantTitles(t, w, family)
-		wantTitles(t, w, notificationstest.URL("other"), "Hook 'family' is paused")
+		wantTitles(t, w, notificationstest.URL("other"), "New Health item for Hook 'family' is paused")
 	})
 }
 
@@ -251,7 +252,7 @@ func TestARaiseAndAClearInOneEvaluationAreTwoMessages(t *testing.T) {
 		w.Advance(wait)
 		w.Transitions(disk("d", health.Fail), cleared(c))
 		w.Advance(wait)
-		wantTitles(t, w, family, "Disk c is almost full", "Cleared: Disk c is almost full", "Disk d is almost full")
+		wantTitles(t, w, family, "New Health item for Disk c is almost full", "Health item for Disk c is almost full cleared", "New Health item for Disk d is almost full")
 	})
 }
 
@@ -264,7 +265,7 @@ func TestAClearAfterItsRaiseWasPrunedTakesTheWordsATargetWasTold(t *testing.T) {
 		d := disk("d", health.Fail)
 		w.Transitions(d)
 		w.Advance(wait)
-		wantTitles(t, w, family, "Ping one", "Disk d is almost full")
+		wantTitles(t, w, family, "Ping one", "New Health item for Disk d is almost full")
 
 		w.Advance(history.KeepFor.Default + 24*time.Hour)
 		if st := w.Status(stuck); st.GivenUp != 2 || st.Waiting != 0 {
@@ -278,11 +279,39 @@ func TestAClearAfterItsRaiseWasPrunedTakesTheWordsATargetWasTold(t *testing.T) {
 		restart.Subject = "Storage: a problem that cleared while SlipStream was stopped"
 		w.Transitions(restart)
 		got := w.Courier.Received(family)
-		if last := got[len(got)-1]; last.Title != "Cleared: Disk d is almost full" || !slices.Equal(last.Lines, []string{"It was on Health from 00:00 to 00:05."}) {
+		if last := got[len(got)-1]; last.Title != "Health item for Disk d is almost full cleared" || !slices.Equal(last.Lines, []string{"It was on Health from 00:00 to 00:05."}) {
 			t.Fatalf("the clear after the prune reads %+v", last)
 		}
-		if f := w.Feed(admin); len(f.Rows) != 1 || f.Rows[0].Title != "Cleared: Disk d is almost full" {
+		if f := w.Feed(admin); len(f.Rows) != 1 || f.Rows[0].Title != "Health item for Disk d is almost full cleared" {
 			t.Fatalf("the bell shows %+v, want the clear", f.Rows)
+		}
+	})
+}
+
+func TestAClearDuringTheWaitKeepsTheRaiseAndItsWorseUntilTheyAreSent(t *testing.T) {
+	run(t, func(t *testing.T, w *world) {
+		w.Connect("family")
+		d := disk("d", health.Warn)
+		w.Transitions(d)
+		w.Advance(wait / 2)
+		w.Transitions(moved(d, health.Worse, health.Fail))
+		if err := w.History.Clear(t.Context(), identity.Admin{}); err != nil {
+			t.Fatal(err)
+		}
+		w.Housekeeping()
+		if p, err := w.History.Page(t.Context(), identity.Admin{}, history.Filter{}, 0, 10); err != nil || len(p.Entries) != 0 {
+			t.Fatalf("after a Clear History lists %+v (%v), want nothing", p.Entries, err)
+		}
+		if held := kindsOf(historytest.Entries(t, w.Lib)); len(held) != 2 {
+			t.Fatalf("after a Clear's sweep History holds %v, want the owed raise and the Worse it renders from", held)
+		}
+		w.Advance(time.Hour)
+		if got := w.Courier.Received(family); len(got) != 1 || got[0].Tone != entry.Fail {
+			t.Fatalf("received %+v, want one message at Error", got)
+		}
+		w.Housekeeping()
+		if held := kindsOf(historytest.Entries(t, w.Lib)); len(held) != 0 {
+			t.Fatalf("once sent History holds %v, want the cleared entries gone", held)
 		}
 	})
 }

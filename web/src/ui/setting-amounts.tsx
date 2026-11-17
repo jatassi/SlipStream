@@ -149,6 +149,7 @@ function DurationControl({
 export const durationKind: Kind<"duration"> = {
   words: (field) => durationWords(field.value),
   hints: (field) => [
+    ...(field.description === undefined ? [] : [field.description]),
     `${defaultHint(field, durationWords(field.default))} ${durationRange(field)}`,
     ...(field.floor === undefined
       ? []

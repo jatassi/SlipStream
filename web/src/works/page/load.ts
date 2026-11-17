@@ -22,7 +22,9 @@ import {
 } from "../../api/gen/query/works/works";
 import { ensureQuery } from "../../api/query-client";
 import { loadWorkGrabs } from "../../grabs/work-sections";
+import { loadWorkHistory } from "../../history/work-history";
 import type { Crumb } from "../../shell/titles";
+// oxlint-disable-next-line import/max-dependencies -- the Work page opens whole, so it reads every section's data
 import { libraryTrail } from "../fields";
 
 /** Every read the Work page draws from, so it opens whole; the title and crumbs for the shell. */
@@ -44,6 +46,7 @@ export async function loadWork(
     ensureQuery(queryClient, getListRootsSuspenseQueryOptions()),
     ensureQuery(queryClient, getListVolumesSuspenseQueryOptions()),
     ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
+    loadWorkHistory(queryClient, workId),
   ]);
   return {
     title: work.label,

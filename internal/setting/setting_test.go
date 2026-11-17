@@ -157,6 +157,10 @@ func TestFieldReportsIsDefault(t *testing.T) {
 			`{"key":"tasks.rss.cadence","label":"RSS sync","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":900,"min":600,"max":7200,"step":60,"floor":"Private trackers ban for hammering."}`,
 		},
 		{
+			"a duration that says what a longer time costs", setting.Duration{Key: "history.keepFor", Label: "Keep history for", Default: 24 * time.Hour, Min: 24 * time.Hour, Max: 48 * time.Hour, Step: 24 * time.Hour, Description: "A longer time makes each Backup larger."}.Field(nil),
+			`{"key":"history.keepFor","label":"Keep history for","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"duration","value":86400,"running":86400,"default":86400,"min":86400,"max":172800,"step":86400,"description":"A longer time makes each Backup larger."}`,
+		},
+		{
 			"a count", setting.Count{Key: "tasks.runsKept", Label: "Runs kept", Default: 50, Min: 1, Max: 1000, Unit: setting.Noun{One: "run", Many: "runs"}}.Field(ptr[int64](20)),
 			`{"key":"tasks.runsKept","label":"Runs kept","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"count","value":20,"running":20,"default":50,"min":1,"max":1000,"unit":{"one":"run","many":"runs"}}`,
 		},

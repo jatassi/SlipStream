@@ -69,3 +69,19 @@ test("on a phone the Activity tab opens Jobs under the large title", async () =>
     .toBeChecked();
   await expect.element(sentence()).toBeVisible();
 });
+
+test("History is Activity's fourth view, a tab on a desktop and a radio on a phone", async () => {
+  const { router } = renderApp({ path: "/activity", handlers });
+  const tabs = page.getByRole("main").getByRole("navigation", { name: "Activity" });
+  await expect.poll(() => tabs.getByRole("link").all().length).toBe(4);
+  await userEvent.click(tabs.getByRole("link", { name: "History" }));
+  await expect.poll(() => router.state.location.pathname).toBe("/activity/history");
+  await expect
+    .element(tabs.getByRole("link", { name: "History" }))
+    .toHaveAttribute("aria-current", "page");
+
+  await asPhone();
+  const views = page.getByRole("radiogroup", { name: "View" });
+  await expect.poll(() => views.getByRole("radio").all().length).toBe(4);
+  await expect.element(views.getByRole("radio", { name: "History" })).toBeChecked();
+});

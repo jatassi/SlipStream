@@ -447,6 +447,10 @@ export const SettingDurationField = zod.object({
     .string()
     .exactOptional()
     .describe("Where the default comes from, when it is another setting's value"),
+  description: zod
+    .string()
+    .exactOptional()
+    .describe("What a longer or shorter time costs, in whole sentences"),
   floor: zod
     .string()
     .exactOptional()
@@ -5515,6 +5519,145 @@ export const HistoryChanged = zod.object({});
 
 export type HistoryChanged = zod.input<typeof HistoryChanged>;
 export type HistoryChangedOutput = zod.output<typeof HistoryChanged>;
+
+export const HistoryFile = zod.object({
+  items: zod.array(zod.string()).describe("Such as Episode 1"),
+  placedBy: zod
+    .string()
+    .describe("How the file was placed: a placed-by value of GET /works/{workId}/files"),
+  quality: zod.string(),
+  replaced: zod.string().describe("The qualities it replaced, in words; empty for none"),
+  replacedLabel: zod.string().describe("The label of the file it replaced; empty for none"),
+});
+
+export type HistoryFile = zod.input<typeof HistoryFile>;
+export type HistoryFileOutput = zod.output<typeof HistoryFile>;
+
+export const HistoryKind = zod.object({
+  kind: zod.string(),
+  label: zod.string(),
+});
+
+export type HistoryKind = zod.input<typeof HistoryKind>;
+export type HistoryKindOutput = zod.output<typeof HistoryKind>;
+
+export const HistoryGroup = zod.object({
+  group: zod.enum(["grabs", "imports", "library", "health"]),
+  kinds: zod.array(HistoryKind),
+  label: zod.string(),
+});
+
+export type HistoryGroup = zod.input<typeof HistoryGroup>;
+export type HistoryGroupOutput = zod.output<typeof HistoryGroup>;
+
+export const HistoryHealthItem = zod.object({
+  level: zod.enum(["warn", "fail"]),
+  subject: zod.string(),
+  text: zod.string(),
+});
+
+export type HistoryHealthItem = zod.input<typeof HistoryHealthItem>;
+export type HistoryHealthItemOutput = zod.output<typeof HistoryHealthItem>;
+
+export const HistoryKindsAnswer = zod.object({
+  groups: zod.array(HistoryGroup).describe("In filter order"),
+});
+
+export type HistoryKindsAnswer = zod.input<typeof HistoryKindsAnswer>;
+export type HistoryKindsAnswerOutput = zod.output<typeof HistoryKindsAnswer>;
+
+export const HistoryLinks = zod.object({
+  grab: zod
+    .uuid()
+    .nullable()
+    .describe("The Grab it is about; null for none, and once that Grab is deleted"),
+  health: zod
+    .string()
+    .nullable()
+    .describe(
+      "The key, <category>.<key>, of a one-item Health entry's item while it is on Health; null otherwise",
+    ),
+  import: zod
+    .uuid()
+    .nullable()
+    .describe("The Import it is about; null for none, and once that Import is deleted"),
+});
+
+export type HistoryLinks = zod.input<typeof HistoryLinks>;
+export type HistoryLinksOutput = zod.output<typeof HistoryLinks>;
+
+export const historyWorkSummaryContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const HistoryWorkSummary = zod.object({
+  contentType: zod.string().regex(historyWorkSummaryContentTypeRegExp),
+  id: zod.uuid(),
+  label: zod.string(),
+  posterUrl: zod
+    .string()
+    .nullable()
+    .describe("The artwork route for its poster, without a size; null when it has none"),
+});
+
+export type HistoryWorkSummary = zod.input<typeof HistoryWorkSummary>;
+export type HistoryWorkSummaryOutput = zod.output<typeof HistoryWorkSummary>;
+
+export const HistoryListEntry = zod.object({
+  at: zod.iso.datetime({ offset: true }).describe("When it was captured"),
+  group: zod.enum(["grabs", "imports", "library", "health"]),
+  id: zod.int(),
+  kind: zod.string().describe("A kind GET /history/kinds lists"),
+  links: HistoryLinks,
+  tone: zod.enum(["info", "good", "warn", "fail"]),
+  words: zod.string().describe("Such as Imported 10 episodes of Severance"),
+  work: zod
+    .union([HistoryWorkSummary, zod.null()])
+    .describe("The one Work it is about; null for none or many, and once that Work is deleted"),
+});
+
+export type HistoryListEntry = zod.input<typeof HistoryListEntry>;
+export type HistoryListEntryOutput = zod.output<typeof HistoryListEntry>;
+
+export const HistoryListed = zod.object({
+  entries: zod.array(HistoryListEntry).describe("Newest first"),
+  next: zod.int().nullable().describe("The before of the next page; null on the last page"),
+});
+
+export type HistoryListed = zod.input<typeof HistoryListed>;
+export type HistoryListedOutput = zod.output<typeof HistoryListed>;
+
+export const HistoryStageAt = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  stage: zod.string().describe("A stage of GET /grabs"),
+});
+
+export type HistoryStageAt = zod.input<typeof HistoryStageAt>;
+export type HistoryStageAtOutput = zod.output<typeof HistoryStageAt>;
+
+export const HistoryOneEntry = zod.object({
+  entry: HistoryListEntry,
+  files: zod.array(HistoryFile).describe("Each file an Import placed"),
+  health: zod.array(HistoryHealthItem).describe("A Health entry's items"),
+  lines: zod.array(zod.string()).describe("Whole sentences, with clock times in zone"),
+  stages: zod.array(HistoryStageAt).describe("Each stage a failed Grab reached, in order"),
+});
+
+export type HistoryOneEntry = zod.input<typeof HistoryOneEntry>;
+export type HistoryOneEntryOutput = zod.output<typeof HistoryOneEntry>;
+
+export const historySentenceNeedsYouMin = 0;
+export const historySentenceNeedsYouMax = 100;
+
+export const HistorySentence = zod.object({
+  needsYou: zod
+    .int()
+    .min(historySentenceNeedsYouMin)
+    .max(historySentenceNeedsYouMax)
+    .describe("The failed Grabs that need attention, at most 100; 0 when the words count the week"),
+  words: zod.string(),
+});
+
+export type HistorySentence = zod.input<typeof HistorySentence>;
+export type HistorySentenceOutput = zod.output<typeof HistorySentence>;
 
 export const MediaserversNodeRef = zod.object({
   id: zod.uuid(),

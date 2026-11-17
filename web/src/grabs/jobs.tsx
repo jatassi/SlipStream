@@ -15,7 +15,8 @@ type Choice = {
   readonly onTypeChange: (type: string | undefined) => void;
 };
 
-function TypeFilter({
+/** Every Content Type, or one: the Select Activity's views narrow by. */
+export function TypeFilter({
   types,
   type,
   onTypeChange,

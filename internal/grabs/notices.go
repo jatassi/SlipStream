@@ -81,7 +81,12 @@ func renderGrabbed(f GrabbedFacts, _ entry.Context) entry.Message {
 func renderGrabFailed(f GrabFailedFacts, _ entry.Context) entry.Message {
 	w := WordsOf(f.Code)
 	lines := []string{w.Cause}
-	if w.Recovery != "" {
+	switch w.Recovery {
+	case "":
+	case searchAgainWords:
+		// History and a message have no Search again button to point at.
+		lines = append(lines, "Search "+f.Work.Label+" again to pick another release.")
+	default:
 		lines = append(lines, w.Recovery)
 	}
 	return entry.Message{
@@ -99,7 +104,7 @@ func workBody(w entry.Work) entry.Body {
 func FoundByWords(f FoundBy, indexer string, by entry.Actor) string {
 	switch f {
 	case FoundBySearch:
-		return "Automatic search found it on " + indexer + "."
+		return "A search found it on " + indexer + "."
 	case FoundByBacklog:
 		return "Backlog search found it on " + indexer + "."
 	case FoundByRSS:

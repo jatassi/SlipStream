@@ -135,6 +135,9 @@ export const getListTasksResponseMock = (
                 ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
                 : {}),
               ...(faker.datatype.boolean()
+                ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                : {}),
+              ...(faker.datatype.boolean()
                 ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
                 : {}),
               isDefault: faker.datatype.boolean(),
@@ -302,6 +305,9 @@ export const getListTasksResponseMock = (
         ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       ...(faker.datatype.boolean()
+        ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
         ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       isDefault: faker.datatype.boolean(),
@@ -330,6 +336,9 @@ export const getListTasksResponseMock = (
       default: faker.number.int(),
       ...(faker.datatype.boolean()
         ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       ...(faker.datatype.boolean()
         ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -570,6 +579,9 @@ export const getGetTaskSettingsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -598,6 +610,9 @@ export const getGetTaskSettingsResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -808,6 +823,9 @@ export const getUpdateTaskSettingsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -836,6 +854,9 @@ export const getUpdateTaskSettingsResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -1092,6 +1113,9 @@ export const getGetTaskResponseSettingDurationFieldMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -1598,6 +1622,9 @@ export const getGetTaskResponseMock = (
           ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
           : {}),
         ...(faker.datatype.boolean()
+          ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
           ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
           : {}),
         isDefault: faker.datatype.boolean(),
@@ -1841,6 +1868,9 @@ export const getUpdateTaskResponseMock = (
       default: faker.number.int(),
       ...(faker.datatype.boolean()
         ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       ...(faker.datatype.boolean()
         ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
