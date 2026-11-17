@@ -69,6 +69,7 @@ test("at rest the palette lists the commands, and Esc returns focus to the capsu
       "Add a film",
       "Toggle sidebar",
       "Open Wanted",
+      "Open Calendar",
       "New Signup link",
       "Your Account",
       "Add a passkey",

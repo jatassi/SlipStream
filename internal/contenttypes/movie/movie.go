@@ -75,6 +75,7 @@ var Description = works.Description{
 	Artwork: []artwork.Kind{posterKind, backdropKind, titleTreatmentKind, studioLogoKind},
 	Art:     works.ArtRoles{Poster: posterKind.Key, Backdrop: backdropKind.Key, Title: titleTreatmentKind.Key},
 	Ratings: []works.RatingSource{"imdb", "tmdb", "rottentomatoes", "metacritic"},
+	Dated:   []works.DatedKind{cinemaKind, digitalKind, physicalKind},
 }
 
 func in(places ...works.Place) []works.Place { return places }

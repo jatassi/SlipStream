@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/firstrun"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -335,6 +337,22 @@ func (s surfaceNode) Notifications() (*notifications.Service, bool) {
 		return nil, false
 	}
 	return h.notifications, true
+}
+
+func (s surfaceNode) Calendar() (*calendar.Calendar, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.calendar == nil {
+		return nil, false
+	}
+	return h.calendar, true
+}
+
+func (s surfaceNode) History() (*history.Service, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.history == nil {
+		return nil, false
+	}
+	return h.history, true
 }
 
 // OpenIn runs on a Controller only, as the Work page it fills does.

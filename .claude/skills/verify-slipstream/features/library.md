@@ -17,13 +17,14 @@ The Library shows every Work of a Content Type, or of every one on `/library`, a
 - `library-tv` on `series`, TV's posters read their status and tally over monitored episodes, such as `Missing · 0 of 3 met` for The Lantern Keepers added with First season; its filters add `Network` and `Production status`, `Ended (1)` leaves only Harbor Nights, and the filter is still set after a visit to Movies and back (P-035, P-036).
 
 - `library-pending-link` on `home` with the shelves added as roots ([Pending imports](./pending-imports.md)), the Library reads `3 pending imports need attention` over `Each has a file SlipStream can't import without you.` above the filters, linking to `/library/pending`, and the sidebar's `Library` row carries the count; the row leaves once no Import needs the Admin (P-024).
+- `library-views` the `Library views` switch beside the title (under the large title on a phone) reads `Library`, `Wanted` and `Calendar` with `Library` current, linking to `/library/music`, `/library/wanted/music` and `/library/calendar/music` on Music's Library and to `/library`, `/library/wanted` and `/library/calendar` on `All`. The same switch heads Wanted ([Wanted](./wanted.md)) and the Calendar ([Calendar](./calendar.md)) with their own segment current. No Wanted or Calendar row sits above the grid, and the palette's `Open Wanted` and `Open Calendar` stay.
 - `library-scan-filters` on the same run, `Filter` adds `Files gone (<n>)` and `Added by a library scan (<n>)` beside `Needs you`. `Added by a library scan (3)` keeps Copper Kettle, Lanterns at Low Tide and Saltmarsh Radio as `scanned=1`, and once a scan marks files gone `Files gone (2)` keeps their Works as `gone=1`, which Health's `Show the Works` opens with the root, `?root=<root id>&gone=1`. `GET /api/v1/library` answers `goneFiles` and `addedBy` (`admin` or `scan`) per Work (P-024, P-026).
 
 ## How to get to it (user POV)
 
 - Desktop shell: the sidebar's `Library` row for every type, and the Content Type row under it (`Movies`) for one.
 - Phone shell: the `Library` tab, and `More` > `Movies`.
-- Desktop and phone shells: the `<n> pending imports need attention` row opens Pending imports, and the Pending imports lead's `Show the movies it added` opens the Library filtered to `scanned=1` and its root.
+- Desktop and phone shells: the `Library views` switch's `Wanted` and `Calendar` open those pages for the Content Type in view. The `<n> pending imports need attention` row opens Pending imports, and the Pending imports lead's `Show the movies it added` opens the Library filtered to `scanned=1` and its root.
 - API: `GET /api/v1/library` (the projection, with `goneFiles` and `addedBy` per Work), `GET /api/v1/library?workIds=` (named rows), `GET /api/v1/works/search?q=&limit=0&contentType=`.
 - Host CLI: none.
 

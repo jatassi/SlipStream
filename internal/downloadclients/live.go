@@ -326,3 +326,13 @@ func (c *Clients) Live(node role.NodeID) (nodes.LiveClient, bool) {
 	}
 	return out, true
 }
+
+// Live answers which of ids are still in a Download Client: not removed.
+func Live(ctx context.Context, r storage.Reader[file], ids []ID) (map[ID]bool, error) {
+	rows, err := db.New(r).ListLive(ctx, ids)
+	out := make(map[ID]bool, len(rows))
+	for _, id := range rows {
+		out[id] = true
+	}
+	return out, err
+}

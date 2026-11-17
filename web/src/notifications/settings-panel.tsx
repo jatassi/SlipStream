@@ -13,13 +13,12 @@ export const settingKeys = {
   healthWait: "notifications.healthWait",
   giveUpAfter: "notifications.giveUpAfter",
   warnAfter: "notifications.warnAfter",
-  keepFor: "notifications.keepFor",
 } as const;
 
 export function settingOf(settings: readonly Field[], key: string): Field {
   const field = settings.find((each) => each.key === key);
   if (field === undefined) {
-    throw new Error(`the Notifications settings have no ${key}`);
+    throw new Error(`the settings have no ${key}`);
   }
   return field;
 }

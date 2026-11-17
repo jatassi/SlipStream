@@ -160,7 +160,7 @@ func (h *Health) volumeSays(v Volume, lv VolumeLevels, remedies []string) Says {
 		detail = append(detail, Fact{Label: "Sampled", At: v.SampledAt})
 	}
 	return Says{
-		Subject: v.Name + " on " + v.NodeName,
+		Subject: "Volume " + v.Name + " on " + v.NodeName,
 		Text:    strings.Join(append([]string{"Free up space on " + v.Name + " on " + v.NodeName}, remedies...), ", or ") + ". " + tail,
 		Detail:  detail,
 		Action:  CheckAction(),

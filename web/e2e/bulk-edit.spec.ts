@@ -135,4 +135,7 @@ test("the picked bar stays in view without moving the grid", async ({
   await expectInView(page, "bottom");
   const box = await bar(page).boundingBox();
   expect(box?.height, "the bar is one row").toBeLessThan(72);
+  // At 420px the bar covers the phone header's toolbar row at the top of the
+  // page, which the closing axe pass reads as an obscured target.
+  await page.setViewportSize({ width: viewport?.width ?? 0, height: viewport?.height ?? 0 });
 });

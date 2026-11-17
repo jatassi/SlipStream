@@ -39,9 +39,11 @@ import { Route as AppAccountsIndexRouteImport } from "./routes/_app/accounts/ind
 import { Route as AppAccountsAccountIdRouteImport } from "./routes/_app/accounts/$accountId";
 import { Route as AppActivityIndexRouteImport } from "./routes/_app/activity/index";
 import { Route as AppActivityBlocklistRouteImport } from "./routes/_app/activity/blocklist";
+import { Route as AppActivityHistoryRouteImport } from "./routes/_app/activity/history";
 import { Route as AppActivityTorrentsRouteImport } from "./routes/_app/activity/torrents";
 import { Route as AppLibraryIndexRouteImport } from "./routes/_app/library/index";
 import { Route as AppLibraryContentTypeRouteImport } from "./routes/_app/library/$contentType";
+import { Route as AppLibraryCalendarRouteImport } from "./routes/_app/library/calendar";
 import { Route as AppLibraryPendingRouteImport } from "./routes/_app/library/pending";
 import { Route as AppLibraryWantedRouteImport } from "./routes/_app/library/wanted";
 import { Route as AppNodesIndexRouteImport } from "./routes/_app/nodes/index";
@@ -53,6 +55,7 @@ import { Route as AppTasksTaskIdRouteImport } from "./routes/_app/tasks/$taskId"
 import { Route as AppWorksWorkIdRouteImport } from "./routes/_app/works/$workId";
 import { Route as AccountPasskeysNewRouteImport } from "./routes/account.passkeys.new";
 import { Route as AppActivityTorrentsTorrentIdRouteImport } from "./routes/_app/activity/torrents.$torrentId";
+import { Route as AppLibraryCalendarContentTypeRouteImport } from "./routes/_app/library/calendar_.$contentType";
 import { Route as AppLibraryPendingImportIdRouteImport } from "./routes/_app/library/pending_.$importId";
 import { Route as AppLibraryWantedContentTypeRouteImport } from "./routes/_app/library/wanted_.$contentType";
 import { Route as AppNodesNodeIdIndexRouteImport } from "./routes/_app/nodes/$nodeId/index";
@@ -239,6 +242,11 @@ const AppActivityBlocklistRoute = AppActivityBlocklistRouteImport.update({
   path: "/blocklist",
   getParentRoute: () => AppActivityRouteRoute,
 } as any);
+const AppActivityHistoryRoute = AppActivityHistoryRouteImport.update({
+  id: "/history",
+  path: "/history",
+  getParentRoute: () => AppActivityRouteRoute,
+} as any);
 const AppActivityTorrentsRoute = AppActivityTorrentsRouteImport.update({
   id: "/torrents",
   path: "/torrents",
@@ -252,6 +260,11 @@ const AppLibraryIndexRoute = AppLibraryIndexRouteImport.update({
 const AppLibraryContentTypeRoute = AppLibraryContentTypeRouteImport.update({
   id: "/$contentType",
   path: "/$contentType",
+  getParentRoute: () => AppLibraryRouteRoute,
+} as any);
+const AppLibraryCalendarRoute = AppLibraryCalendarRouteImport.update({
+  id: "/calendar",
+  path: "/calendar",
   getParentRoute: () => AppLibraryRouteRoute,
 } as any);
 const AppLibraryPendingRoute = AppLibraryPendingRouteImport.update({
@@ -309,6 +322,12 @@ const AppActivityTorrentsTorrentIdRoute =
     id: "/$torrentId",
     path: "/$torrentId",
     getParentRoute: () => AppActivityTorrentsRoute,
+  } as any);
+const AppLibraryCalendarContentTypeRoute =
+  AppLibraryCalendarContentTypeRouteImport.update({
+    id: "/calendar_/$contentType",
+    path: "/calendar/$contentType",
+    getParentRoute: () => AppLibraryRouteRoute,
   } as any);
 const AppLibraryPendingImportIdRoute =
   AppLibraryPendingImportIdRouteImport.update({
@@ -547,8 +566,10 @@ export interface FileRoutesByFullPath {
   "/nodes/$nodeId": typeof AppNodesNodeIdRouteRouteWithChildren;
   "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/activity/blocklist": typeof AppActivityBlocklistRoute;
+  "/activity/history": typeof AppActivityHistoryRoute;
   "/activity/torrents": typeof AppActivityTorrentsRouteWithChildren;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
+  "/library/calendar": typeof AppLibraryCalendarRoute;
   "/library/pending": typeof AppLibraryPendingRoute;
   "/library/wanted": typeof AppLibraryWantedRoute;
   "/settings/$section": typeof AppSettingsSectionRoute;
@@ -564,6 +585,7 @@ export interface FileRoutesByFullPath {
   "/settings/media-servers/$serverId": typeof AppSettingsMediaServersServerIdRouteRouteWithChildren;
   "/settings/trackers/$trackerId": typeof AppSettingsTrackersTrackerIdRouteRouteWithChildren;
   "/activity/torrents/$torrentId": typeof AppActivityTorrentsTorrentIdRoute;
+  "/library/calendar/$contentType": typeof AppLibraryCalendarContentTypeRoute;
   "/library/pending/$importId": typeof AppLibraryPendingImportIdRoute;
   "/library/wanted/$contentType": typeof AppLibraryWantedContentTypeRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
@@ -621,8 +643,10 @@ export interface FileRoutesByTo {
   "/portal": typeof PortalIndexRoute;
   "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/activity/blocklist": typeof AppActivityBlocklistRoute;
+  "/activity/history": typeof AppActivityHistoryRoute;
   "/activity/torrents": typeof AppActivityTorrentsRouteWithChildren;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
+  "/library/calendar": typeof AppLibraryCalendarRoute;
   "/library/pending": typeof AppLibraryPendingRoute;
   "/library/wanted": typeof AppLibraryWantedRoute;
   "/settings/$section": typeof AppSettingsSectionRoute;
@@ -637,6 +661,7 @@ export interface FileRoutesByTo {
   "/tasks": typeof AppTasksIndexRoute;
   "/settings/trackers/$trackerId": typeof AppSettingsTrackersTrackerIdTorrentsIndexRoute;
   "/activity/torrents/$torrentId": typeof AppActivityTorrentsTorrentIdRoute;
+  "/library/calendar/$contentType": typeof AppLibraryCalendarContentTypeRoute;
   "/library/pending/$importId": typeof AppLibraryPendingImportIdRoute;
   "/library/wanted/$contentType": typeof AppLibraryWantedContentTypeRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
@@ -701,8 +726,10 @@ export interface FileRoutesById {
   "/_app/nodes/$nodeId": typeof AppNodesNodeIdRouteRouteWithChildren;
   "/_app/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/_app/activity/blocklist": typeof AppActivityBlocklistRoute;
+  "/_app/activity/history": typeof AppActivityHistoryRoute;
   "/_app/activity/torrents": typeof AppActivityTorrentsRouteWithChildren;
   "/_app/library/$contentType": typeof AppLibraryContentTypeRoute;
+  "/_app/library/calendar": typeof AppLibraryCalendarRoute;
   "/_app/library/pending": typeof AppLibraryPendingRoute;
   "/_app/library/wanted": typeof AppLibraryWantedRoute;
   "/_app/settings/$section": typeof AppSettingsSectionRoute;
@@ -718,6 +745,7 @@ export interface FileRoutesById {
   "/_app/settings/media-servers/$serverId": typeof AppSettingsMediaServersServerIdRouteRouteWithChildren;
   "/_app/settings/trackers/$trackerId": typeof AppSettingsTrackersTrackerIdRouteRouteWithChildren;
   "/_app/activity/torrents/$torrentId": typeof AppActivityTorrentsTorrentIdRoute;
+  "/_app/library/calendar_/$contentType": typeof AppLibraryCalendarContentTypeRoute;
   "/_app/library/pending_/$importId": typeof AppLibraryPendingImportIdRoute;
   "/_app/library/wanted_/$contentType": typeof AppLibraryWantedContentTypeRoute;
   "/_app/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
@@ -784,8 +812,10 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId"
     | "/accounts/$accountId"
     | "/activity/blocklist"
+    | "/activity/history"
     | "/activity/torrents"
     | "/library/$contentType"
+    | "/library/calendar"
     | "/library/pending"
     | "/library/wanted"
     | "/settings/$section"
@@ -801,6 +831,7 @@ export interface FileRouteTypes {
     | "/settings/media-servers/$serverId"
     | "/settings/trackers/$trackerId"
     | "/activity/torrents/$torrentId"
+    | "/library/calendar/$contentType"
     | "/library/pending/$importId"
     | "/library/wanted/$contentType"
     | "/nodes/$nodeId/log-settings"
@@ -858,8 +889,10 @@ export interface FileRouteTypes {
     | "/portal"
     | "/accounts/$accountId"
     | "/activity/blocklist"
+    | "/activity/history"
     | "/activity/torrents"
     | "/library/$contentType"
+    | "/library/calendar"
     | "/library/pending"
     | "/library/wanted"
     | "/settings/$section"
@@ -874,6 +907,7 @@ export interface FileRouteTypes {
     | "/tasks"
     | "/settings/trackers/$trackerId"
     | "/activity/torrents/$torrentId"
+    | "/library/calendar/$contentType"
     | "/library/pending/$importId"
     | "/library/wanted/$contentType"
     | "/nodes/$nodeId/log-settings"
@@ -937,8 +971,10 @@ export interface FileRouteTypes {
     | "/_app/nodes/$nodeId"
     | "/_app/accounts/$accountId"
     | "/_app/activity/blocklist"
+    | "/_app/activity/history"
     | "/_app/activity/torrents"
     | "/_app/library/$contentType"
+    | "/_app/library/calendar"
     | "/_app/library/pending"
     | "/_app/library/wanted"
     | "/_app/settings/$section"
@@ -954,6 +990,7 @@ export interface FileRouteTypes {
     | "/_app/settings/media-servers/$serverId"
     | "/_app/settings/trackers/$trackerId"
     | "/_app/activity/torrents/$torrentId"
+    | "/_app/library/calendar_/$contentType"
     | "/_app/library/pending_/$importId"
     | "/_app/library/wanted_/$contentType"
     | "/_app/nodes/$nodeId/log-settings"
@@ -1217,6 +1254,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppActivityBlocklistRouteImport;
       parentRoute: typeof AppActivityRouteRoute;
     };
+    "/_app/activity/history": {
+      id: "/_app/activity/history";
+      path: "/history";
+      fullPath: "/activity/history";
+      preLoaderRoute: typeof AppActivityHistoryRouteImport;
+      parentRoute: typeof AppActivityRouteRoute;
+    };
     "/_app/activity/torrents": {
       id: "/_app/activity/torrents";
       path: "/torrents";
@@ -1236,6 +1280,13 @@ declare module "@tanstack/react-router" {
       path: "/$contentType";
       fullPath: "/library/$contentType";
       preLoaderRoute: typeof AppLibraryContentTypeRouteImport;
+      parentRoute: typeof AppLibraryRouteRoute;
+    };
+    "/_app/library/calendar": {
+      id: "/_app/library/calendar";
+      path: "/calendar";
+      fullPath: "/library/calendar";
+      preLoaderRoute: typeof AppLibraryCalendarRouteImport;
       parentRoute: typeof AppLibraryRouteRoute;
     };
     "/_app/library/pending": {
@@ -1314,6 +1365,13 @@ declare module "@tanstack/react-router" {
       fullPath: "/activity/torrents/$torrentId";
       preLoaderRoute: typeof AppActivityTorrentsTorrentIdRouteImport;
       parentRoute: typeof AppActivityTorrentsRoute;
+    };
+    "/_app/library/calendar_/$contentType": {
+      id: "/_app/library/calendar_/$contentType";
+      path: "/calendar/$contentType";
+      fullPath: "/library/calendar/$contentType";
+      preLoaderRoute: typeof AppLibraryCalendarContentTypeRouteImport;
+      parentRoute: typeof AppLibraryRouteRoute;
     };
     "/_app/library/pending_/$importId": {
       id: "/_app/library/pending_/$importId";
@@ -1583,12 +1641,14 @@ const AppActivityTorrentsRouteWithChildren =
 
 interface AppActivityRouteRouteChildren {
   AppActivityBlocklistRoute: typeof AppActivityBlocklistRoute;
+  AppActivityHistoryRoute: typeof AppActivityHistoryRoute;
   AppActivityTorrentsRoute: typeof AppActivityTorrentsRouteWithChildren;
   AppActivityIndexRoute: typeof AppActivityIndexRoute;
 }
 
 const AppActivityRouteRouteChildren: AppActivityRouteRouteChildren = {
   AppActivityBlocklistRoute: AppActivityBlocklistRoute,
+  AppActivityHistoryRoute: AppActivityHistoryRoute,
   AppActivityTorrentsRoute: AppActivityTorrentsRouteWithChildren,
   AppActivityIndexRoute: AppActivityIndexRoute,
 };
@@ -1598,18 +1658,22 @@ const AppActivityRouteRouteWithChildren =
 
 interface AppLibraryRouteRouteChildren {
   AppLibraryContentTypeRoute: typeof AppLibraryContentTypeRoute;
+  AppLibraryCalendarRoute: typeof AppLibraryCalendarRoute;
   AppLibraryPendingRoute: typeof AppLibraryPendingRoute;
   AppLibraryWantedRoute: typeof AppLibraryWantedRoute;
   AppLibraryIndexRoute: typeof AppLibraryIndexRoute;
+  AppLibraryCalendarContentTypeRoute: typeof AppLibraryCalendarContentTypeRoute;
   AppLibraryPendingImportIdRoute: typeof AppLibraryPendingImportIdRoute;
   AppLibraryWantedContentTypeRoute: typeof AppLibraryWantedContentTypeRoute;
 }
 
 const AppLibraryRouteRouteChildren: AppLibraryRouteRouteChildren = {
   AppLibraryContentTypeRoute: AppLibraryContentTypeRoute,
+  AppLibraryCalendarRoute: AppLibraryCalendarRoute,
   AppLibraryPendingRoute: AppLibraryPendingRoute,
   AppLibraryWantedRoute: AppLibraryWantedRoute,
   AppLibraryIndexRoute: AppLibraryIndexRoute,
+  AppLibraryCalendarContentTypeRoute: AppLibraryCalendarContentTypeRoute,
   AppLibraryPendingImportIdRoute: AppLibraryPendingImportIdRoute,
   AppLibraryWantedContentTypeRoute: AppLibraryWantedContentTypeRoute,
 };

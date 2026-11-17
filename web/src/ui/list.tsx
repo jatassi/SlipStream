@@ -16,22 +16,46 @@ export function List({ label, children }: { label: string; children: ReactNode }
   );
 }
 
-export function ListRow({
-  title,
-  meta,
-  detail,
-  leading,
-  trailing,
-  render,
-}: {
+type RowParts = {
   title: ReactNode;
   meta?: ReactNode;
   /** Lines under the row's title and trailing slot, the row's full width, which wrap instead of truncating. */
   detail?: ReactNode;
   leading?: ReactNode;
   trailing?: ReactNode;
-  render?: useRender.RenderProp;
-}) {
+  /** The title wraps to a second line instead of truncating, for a title that is the row's whole point. */
+  wrap?: boolean;
+};
+
+function RowLines({ title, meta, detail, leading, trailing, wrap = false }: RowParts) {
+  return (
+    <>
+      <span className="flex items-center gap-3">
+        {leading}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span
+            className={`${wrap ? "line-clamp-2" : "truncate"} text-(length:--body-size) leading-(--body-line-height) text-ink-1 in-data-[density=touch]:text-card-title`}
+          >
+            {title}
+          </span>
+          {meta !== undefined && <span className="truncate text-meta text-ink-3">{meta}</span>}
+        </span>
+        {trailing !== undefined && <span className="shrink-0 text-ink-3">{trailing}</span>}
+      </span>
+      {detail}
+    </>
+  );
+}
+
+export function ListRow({
+  title,
+  meta,
+  detail,
+  leading,
+  trailing,
+  wrap = false,
+  render,
+}: RowParts & { render?: useRender.RenderProp }) {
   const row = useRender({
     render,
     props: {
@@ -43,19 +67,14 @@ export function ListRow({
       }),
       className: `flex w-full flex-col justify-center gap-0.5 rounded-[inherit] px-4 py-2 text-left ${meta === undefined ? "min-h-(--row-height)" : "min-h-(--row-height-two)"} ${render ? "transition-colors duration-350 ease-standard hover:bg-(--row-wash) focus-visible:bg-(--row-wash)" : ""}`,
       children: (
-        <>
-          <span className="flex items-center gap-3">
-            {leading}
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="truncate text-(length:--body-size) leading-(--body-line-height) text-ink-1 in-data-[density=touch]:text-card-title">
-                {title}
-              </span>
-              {meta !== undefined && <span className="truncate text-meta text-ink-3">{meta}</span>}
-            </span>
-            {trailing !== undefined && <span className="shrink-0 text-ink-3">{trailing}</span>}
-          </span>
-          {detail}
-        </>
+        <RowLines
+          title={title}
+          meta={meta}
+          detail={detail}
+          leading={leading}
+          trailing={trailing}
+          wrap={wrap}
+        />
       ),
     },
   });

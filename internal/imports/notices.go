@@ -10,10 +10,12 @@ import (
 	"unicode/utf8"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -22,7 +24,10 @@ import (
 // an Import placed since it last came to rest, and how many of its files
 // failed or wait for the Admin.
 type ImportedFacts struct {
-	Work    notice.Work  `json:"work"`
+	Import ImportID `json:"import"`
+	// Grab is zero for a folder Import.
+	Grab    grabs.GrabID `json:"grab"`
+	Work    entry.Work   `json:"work"`
 	Root    string       `json:"root"`
 	Files   []PlacedFile `json:"files"`
 	Failed  int          `json:"failed"`
@@ -37,6 +42,8 @@ type PlacedFile struct {
 	Size     int64             `json:"size"`
 	PlacedBy PlacedBy          `json:"placedBy"`
 	Replaced []release.Quality `json:"replaced,omitempty"`
+	// ReplacedLabels are the replaced files' labels, for History's detail.
+	ReplacedLabels []string `json:"replacedLabels,omitempty"`
 }
 
 // ItemAt is an Item by its place: its level's label, empty for a type
@@ -47,30 +54,43 @@ type ItemAt struct {
 }
 
 // ScanAddedFacts is what a Works added by a Library scan message tells.
+// Works is every Work it added, for History, and isn't stored.
 type ScanAddedFacts struct {
-	Root  string       `json:"root"`
-	Nouns notice.Nouns `json:"nouns"`
-	Count int          `json:"count"`
-	First []string     `json:"first"`
+	Type  works.TypeID   `json:"type"`
+	Works []works.WorkID `json:"-"`
+	Root  string         `json:"root"`
+	Nouns entry.Nouns    `json:"nouns"`
+	Count int            `json:"count"`
+	First []string       `json:"first"`
 }
 
+func (f ImportedFacts) About() entry.About {
+	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}, Grab: f.Grab.UUID, Import: f.Import.UUID}
+}
+
+func (f ScanAddedFacts) About() entry.About { return entry.About{Type: f.Type, Works: f.Works} }
+
+// importNoun is Imported's and Upgraded's noun in History's 7-day
+// sentence: each counts its Imports.
+var importNoun = works.Noun{One: "Import", Many: "Imports"}
+
 var (
-	importedRow = notice.Row[ImportedFacts]{
-		Spec:   notice.Spec{Kind: "imported", Label: "Imported", Group: notice.Imports, OnByDefault: true, BellByDefault: true},
+	importedRow = entry.Row[ImportedFacts]{
+		Spec:   entry.Spec{Kind: "imported", Label: "Imported", Group: entry.Imports, OnByDefault: true, BellByDefault: true, Tally: importNoun},
 		Render: renderImported,
 	}
-	upgradedRow = notice.Row[ImportedFacts]{
-		Spec:   notice.Spec{Kind: "upgraded", Label: "Upgraded", Group: notice.Imports, OnByDefault: true, BellByDefault: true},
+	upgradedRow = entry.Row[ImportedFacts]{
+		Spec:   entry.Spec{Kind: "upgraded", Label: "Upgraded", Group: entry.Imports, OnByDefault: true, BellByDefault: true, Tally: importNoun},
 		Render: renderUpgraded,
 	}
-	scanAddedRow = notice.Row[ScanAddedFacts]{
-		Spec:   notice.Spec{Kind: "works_added_by_scan", Label: "Works added by a Library scan", Group: notice.Library, BellByDefault: true},
+	scanAddedRow = entry.Row[ScanAddedFacts]{
+		Spec:   entry.Spec{Kind: "works_added_by_scan", Label: "Works added by a Library scan", Group: entry.Library, BellByDefault: true},
 		Render: renderScanAdded,
 	}
 )
 
-// Notices is the events imports records.
-func Notices() []notice.Entry { return []notice.Entry{importedRow, upgradedRow, scanAddedRow} }
+// Entries is the kinds imports records.
+func Entries() []entry.Entry { return []entry.Entry{importedRow, upgradedRow, scanAddedRow} }
 
 // announce records Imported and Upgraded for the files imp placed since it
 // last came to rest. A root Import never sends: Pending imports' Add and
@@ -93,7 +113,7 @@ func (im *Imports) announce(ctx context.Context, tx *storage.Tx[file], imp Impor
 	if err != nil {
 		return err
 	}
-	w, err := notice.WorkIn(ctx, tx, im.cfg.Works, imp.Work)
+	w, err := entry.WorkIn(ctx, tx, im.cfg.Works, imp.Work)
 	if err != nil {
 		return err
 	}
@@ -105,14 +125,14 @@ func (im *Imports) announce(ctx context.Context, tx *storage.Tx[file], imp Impor
 	if err != nil {
 		return err
 	}
-	in, up := splitPlaced(ImportedFacts{Work: w, Root: words[fresh[0].Dest.Root]}, fresh, replaced, numbersOf(tree), imp.Files)
+	in, up := splitPlaced(ImportedFacts{Import: imp.ID, Grab: imp.Grab, Work: w, Root: words[fresh[0].Dest.Root]}, fresh, replaced, numbersOf(tree), imp.Files)
 	if in != nil {
-		if err := importedRow.Record(ctx, tx, im.cfg.Notices, *in); err != nil {
+		if err := importedRow.Record(ctx, tx, im.cfg.History, *in); err != nil {
 			return err
 		}
 	}
 	if up != nil {
-		if err := upgradedRow.Record(ctx, tx, im.cfg.Notices, *up); err != nil {
+		if err := upgradedRow.Record(ctx, tx, im.cfg.History, *up); err != nil {
 			return err
 		}
 	}
@@ -137,11 +157,10 @@ func numbersOf(tree works.Tree) map[works.ItemID]ItemAt {
 	for _, l := range tree.Levels {
 		labels[l.ID] = l.Label
 	}
-	place := map[works.LevelID]int{}
+	places := works.Places(tree.Items)
 	out := make(map[works.ItemID]ItemAt, len(tree.Items))
 	for _, it := range tree.Items {
-		place[it.LevelID]++
-		out[it.ID] = ItemAt{Level: labels[it.LevelID], Number: place[it.LevelID]}
+		out[it.ID] = ItemAt{Level: labels[it.LevelID], Number: places[it.ID]}
 	}
 	return out
 }
@@ -158,6 +177,7 @@ func splitPlaced(base ImportedFacts, fresh []File, replaced map[files.ID][]files
 		}
 		for _, r := range replaced[f.FileID] {
 			p.Replaced = append(p.Replaced, r.Quality)
+			p.ReplacedLabels = append(p.ReplacedLabels, r.Label)
 		}
 		if len(p.Replaced) == 0 {
 			in.Files = append(in.Files, p)
@@ -202,13 +222,13 @@ func (im *Imports) announceScan(ctx context.Context, tx *storage.Tx[file], root 
 	if err != nil {
 		return err
 	}
-	return scanAddedRow.Record(ctx, tx, im.cfg.Notices, ScanAddedFacts{
-		Root: words[root.ID], Nouns: notice.NounsOf(im.cfg.Works, root.ContentType), Count: len(in), First: works.LabelsOf(added, in, 3),
+	return scanAddedRow.Record(ctx, tx, im.cfg.History, ScanAddedFacts{
+		Type: root.ContentType, Works: in, Root: words[root.ID], Nouns: entry.NounsOf(im.cfg.Works, root.ContentType), Count: len(in), First: works.LabelsOf(added, in, 3),
 	})
 }
 
-func renderImported(f ImportedFacts, _ notice.Context) notice.Message {
-	m := placedMessage(f, notice.Good)
+func renderImported(f ImportedFacts, _ entry.Context) entry.Message {
+	m := placedMessage(f, entry.Good)
 	if f.Work.Nouns.Single {
 		p := f.Files[0]
 		m.Title = "Imported " + f.Work.Label
@@ -216,13 +236,13 @@ func renderImported(f ImportedFacts, _ notice.Context) notice.Message {
 		return m
 	}
 	item := lower(f.Work.Nouns.Item)
-	m.Title = "Imported " + notice.Count(itemCount(f.Files), item) + " of " + f.Work.Label
+	m.Title = "Imported " + entry.Count(itemCount(f.Files), item) + " of " + f.Work.Label
 	m.Lines = []string{capital(itemsWords(f.Files, item)) + ".", factsWords(f.Files)}
 	return withLeft(m, f, item)
 }
 
-func renderUpgraded(f ImportedFacts, _ notice.Context) notice.Message {
-	m := placedMessage(f, notice.Good)
+func renderUpgraded(f ImportedFacts, _ entry.Context) entry.Message {
+	m := placedMessage(f, entry.Good)
 	if f.Work.Nouns.Single {
 		p := f.Files[0]
 		m.Title = "Upgraded " + f.Work.Label + " to " + p.Quality.Info().Name
@@ -231,7 +251,7 @@ func renderUpgraded(f ImportedFacts, _ notice.Context) notice.Message {
 	}
 	item := lower(f.Work.Nouns.Item)
 	n := itemCount(f.Files)
-	m.Title = "Upgraded " + notice.Count(n, item) + " of " + f.Work.Label
+	m.Title = "Upgraded " + entry.Count(n, item) + " of " + f.Work.Label
 	shown := f.Files[:min(len(f.Files), 3)]
 	for _, p := range shown {
 		m.Lines = append(m.Lines, capital(itemsWords([]PlacedFile{p}, item))+" went from "+qualitiesWords(p.Replaced)+" to "+p.Quality.Info().Name+".")
@@ -240,49 +260,56 @@ func renderUpgraded(f ImportedFacts, _ notice.Context) notice.Message {
 	case rest == 1:
 		m.Lines = append(m.Lines, "1 more "+item.One+" was upgraded.")
 	case rest > 1:
-		m.Lines = append(m.Lines, notice.Grouped(rest)+" more "+item.Many+" were upgraded.")
+		m.Lines = append(m.Lines, setting.Grouped(rest)+" more "+item.Many+" were upgraded.")
 	}
 	return withLeft(m, f, item)
 }
 
-func renderScanAdded(f ScanAddedFacts, _ notice.Context) notice.Message {
-	return notice.Message{
-		Title: "A Library scan of the " + f.Root + " added " + notice.Count(f.Count, lower(f.Nouns.Work)),
-		Lines: notice.Titles(f.First, f.Count, "added"),
-		Link:  notice.Link{Path: "/library"},
-		Tone:  notice.Info,
+func renderScanAdded(f ScanAddedFacts, _ entry.Context) entry.Message {
+	return entry.Message{
+		Title: "A Library scan of the " + f.Root + " added " + entry.Count(f.Count, lower(f.Nouns.Work)),
+		Lines: entry.Titles(f.First, f.Count, "added"),
+		Link:  entry.Link{Path: "/library"},
+		Tone:  entry.Info,
 	}
 }
 
-func placedMessage(f ImportedFacts, tone notice.Tone) notice.Message {
-	m := notice.Message{Link: notice.WorkLink(f.Work.ID), Poster: f.Work.Poster, Tone: tone}
-	m.Body.Work = &notice.BodyWork{ID: f.Work.ID.String(), Title: f.Work.Label, ContentType: string(f.Work.Type)}
+// placedMessage is f's Work and files. A Work of one Item lists its files
+// with no Item, and leaves what each replaced to the entry's own line.
+func placedMessage(f ImportedFacts, tone entry.Tone) entry.Message {
+	m := entry.Message{Link: entry.WorkLink(f.Work.ID), Poster: f.Work.Poster, Tone: tone}
+	m.Body.Work = &entry.BodyWork{ID: f.Work.ID.String(), Title: f.Work.Label, ContentType: string(f.Work.Type)}
 	for _, p := range f.Files {
-		b := notice.BodyFile{Quality: p.Quality.Info().Name, Replaced: qualitiesWords(p.Replaced), PlacedBy: string(p.PlacedBy)}
+		b := entry.BodyFile{Quality: p.Quality.Info().Name, Replaced: qualitiesWords(p.Replaced), PlacedBy: string(p.PlacedBy)}
 		for _, it := range p.Items {
 			b.Items = append(b.Items, itemAtWords(it, lower(f.Work.Nouns.Item)))
 		}
 		m.Body.Files = append(m.Body.Files, b)
+		d := entry.DetailFile{Items: []string{}, Quality: b.Quality, PlacedBy: b.PlacedBy}
+		if !f.Work.Nouns.Single {
+			d.Items, d.Replaced, d.ReplacedLabel = b.Items, b.Replaced, works.JoinWords(p.ReplacedLabels)
+		}
+		m.Detail.Files = append(m.Detail.Files, d)
 	}
 	return m
 }
 
 // withLeft adds the sentences for the files that failed or wait.
-func withLeft(m notice.Message, f ImportedFacts, item works.Noun) notice.Message {
+func withLeft(m entry.Message, f ImportedFacts, item works.Noun) entry.Message {
 	page := " the " + lower(f.Work.Nouns.Work).One + " page"
 	if f.Failed > 0 {
 		verb := " weren't imported. "
 		if f.Failed == 1 {
 			verb = " wasn't imported. "
 		}
-		m.Lines = append(m.Lines, capital(notice.Count(f.Failed, item))+verb+"Open"+page+" to see why.")
+		m.Lines = append(m.Lines, capital(entry.Count(f.Failed, item))+verb+"Open"+page+" to see why.")
 	}
 	if f.Waiting > 0 {
 		verb := " wait for you on"
 		if f.Waiting == 1 {
 			verb = " waits for you on"
 		}
-		m.Lines = append(m.Lines, capital(notice.Count(f.Waiting, item))+verb+page+".")
+		m.Lines = append(m.Lines, capital(entry.Count(f.Waiting, item))+verb+page+".")
 	}
 	return m
 }
@@ -318,7 +345,7 @@ func qualitiesWords(qs []release.Quality) string {
 			names = append(names, n)
 		}
 	}
-	return joinWords(names)
+	return works.JoinWords(names)
 }
 
 func itemCount(fs []PlacedFile) int {
@@ -345,7 +372,7 @@ func itemsWords(fs []PlacedFile, item works.Noun) string {
 		}
 	}
 	if len(levels) == 1 {
-		ns := numbersWords(item, slices.Sorted(slices.Values(numbers[levels[0]])))
+		ns := works.NumbersWords(item, slices.Sorted(slices.Values(numbers[levels[0]])))
 		if levels[0] == "" {
 			return ns
 		}
@@ -353,7 +380,7 @@ func itemsWords(fs []PlacedFile, item works.Noun) string {
 	}
 	parts := make([]string, len(levels))
 	for i, l := range levels {
-		parts[i] = numbersWords(item, slices.Sorted(slices.Values(numbers[l]))) + " of " + lowerFirst(l)
+		parts[i] = works.NumbersWords(item, slices.Sorted(slices.Values(numbers[l]))) + " of " + lowerFirst(l)
 	}
 	return strings.Join(parts[:len(parts)-1], ", ") + ", plus " + parts[len(parts)-1]
 }

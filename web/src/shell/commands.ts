@@ -1,5 +1,6 @@
 import {
   Add01Icon,
+  Calendar03Icon,
   FingerPrintAddIcon,
   Link01Icon,
   Logout01Icon,
@@ -49,6 +50,15 @@ const commands: readonly Command[] = [
     audience: "admin",
     run: ({ navigate }) => {
       void navigate({ to: "/library/wanted" });
+    },
+  },
+  {
+    id: "open-calendar",
+    label: "Open Calendar",
+    icon: Calendar03Icon,
+    audience: "admin",
+    run: ({ navigate }) => {
+      void navigate({ to: "/library/calendar" });
     },
   },
   {

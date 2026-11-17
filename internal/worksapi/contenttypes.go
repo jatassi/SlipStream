@@ -65,6 +65,12 @@ type contentType struct {
 	Availability string             `json:"availability" doc:"The label of the Library's availability column and sort, such as Next airing; empty reads Available"`
 	Releases     string             `json:"releases" doc:"The verb for unreleased Items coming out, as in Episodes 4 to 7 air 12 October; empty reads come out"`
 	AddSearch    addSearch          `json:"addSearch" doc:"What the add sheet's Search after adding offers"`
+	Dated        []datedKind        `json:"dated" nullable:"false" doc:"The kinds of release date its Works put on the Calendar, in its order"`
+}
+
+type datedKind struct {
+	Key   string `json:"key" doc:"Unique across Content Types"`
+	Label string `json:"label"`
 }
 
 type addSearch struct {
@@ -95,11 +101,14 @@ func contentTypeOf(t works.ContentType) contentType {
 		ID: string(t.ID), Name: t.Name, Icon: t.Icon.String(), Enabled: t.Enabled,
 		Work: noun(t.Work), Item: noun(t.Item), Levels: []noun{}, Fields: []fieldSpec{}, Artwork: []artworkKind{},
 		Source: t.Source, Items: t.Items.String(), Ratings: []string{}, Availability: t.Availability,
-		Releases: t.Releases, AddSearch: addSearchOf(t),
+		Releases: t.Releases, AddSearch: addSearchOf(t), Dated: []datedKind{},
 		Art: artRoles{Poster: stringOrNull(t.Art.Poster), Backdrop: stringOrNull(t.Art.Backdrop), Title: stringOrNull(t.Art.Title)},
 	}
 	for _, r := range t.Ratings {
 		out.Ratings = append(out.Ratings, string(r))
+	}
+	for _, k := range t.Dated {
+		out.Dated = append(out.Dated, datedKind{Key: string(k.Key), Label: k.Label})
 	}
 	if t.Aside != (works.Noun{}) {
 		out.Aside = api.Some(noun(t.Aside))

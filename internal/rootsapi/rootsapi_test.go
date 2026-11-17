@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -29,7 +30,6 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
-	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
@@ -141,7 +141,7 @@ func serve(t *testing.T) *server {
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
-		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx},
+		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx.Undated()},
 		Source:       fx.SourceAs(contenttypetest.ID, "other"),
 		Artwork:      fx,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
@@ -195,7 +195,7 @@ func serve(t *testing.T) *server {
 			return 7, s.steps, s.steps != nil
 		},
 	})
-	n := node{svc, w, goals, library.New(library.Config{Notices: noticetest.Ignored("library", library.Notices()), Library: lib, Works: w, Targets: goals, Roots: svc}), im}
+	n := node{svc, w, goals, library.New(library.Config{History: entrytest.Ignored("library", library.Entries()), Library: lib, Works: w, Targets: goals, Roots: svc}), im}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) {
 		rootsapi.Routes(r, n)
 		worksapi.Routes(r, n)

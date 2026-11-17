@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
 
 import type { WorksContentType } from "../api/gen/model";
+import { PendingLink } from "../imports/pending-link";
 import { BulkBar } from "./bulk-bar";
 import { columnsFor } from "./columns";
 import { useRefreshAll } from "./refresh-all";
 import { Results } from "./results";
 import { Toolbar } from "./toolbar";
 import { useArranged } from "./use-arranged";
-import { LibraryLinks } from "./wanted-link";
 import { type LibraryView, defaultView, nounOf } from "./view";
 
 type LibraryProps = {
@@ -37,14 +37,14 @@ export function LibraryPage({ types, view, onView, empty }: LibraryProps) {
   if (arranged.total === 0) {
     return (
       <>
-        <LibraryLinks types={types} works={works} />
+        <PendingLink />
         {empty}
       </>
     );
   }
   return (
     <>
-      <LibraryLinks types={types} works={works} />
+      <PendingLink />
       <Toolbar
         scope={scope}
         view={view}

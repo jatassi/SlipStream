@@ -61,7 +61,7 @@ test("the feed pages older rows on Show older notifications", async () => {
 test("an empty bell says how long it keeps notifications", async () => {
   renderApp({ path: "/", handlers: notificationsWorld().handlers });
   await userEvent.click(page.getByRole("button", { name: "Notifications", exact: true }));
-  await expect.element(page.getByText("No notifications in the last 30 days.")).toBeVisible();
+  await expect.element(page.getByText("No notifications in the last 90 days.")).toBeVisible();
 });
 
 test("following a row's link closes the popover", async () => {

@@ -9,6 +9,7 @@ import {
   getPlanRenamesMockHandler,
 } from "../api/gen/query/files/files.msw";
 import { getGetWorkSearchingMockHandler } from "../api/gen/query/grabs/grabs.msw";
+import { getListHistoryMockHandler } from "../api/gen/query/history/history.msw";
 import { getGetSessionMockHandler } from "../api/gen/query/identity/identity.msw";
 import {
   getListNotificationConnectionsMockHandler,
@@ -16,8 +17,8 @@ import {
 } from "../api/gen/query/notifications/notifications.msw";
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
-import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 // oxlint-disable-next-line import/max-dependencies -- the base handlers answer every read the shell and Settings make
+import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
 import { quietHealth } from "./health";
@@ -115,6 +116,9 @@ const quietBell = [
   getListNotificationConnectionsMockHandler({ connections: [] }),
 ];
 
+// A Work page with no History entries.
+const quietHistory = getListHistoryMockHandler({ entries: [], next: null });
+
 export const baseHandlers: RequestHandler[] = [
   controller,
   signedInAsAda,
@@ -130,6 +134,7 @@ export const baseHandlers: RequestHandler[] = [
   ...noRenames,
   ...quietHealth,
   ...quietBell,
+  quietHistory,
   ...tagMocks,
 ];
 

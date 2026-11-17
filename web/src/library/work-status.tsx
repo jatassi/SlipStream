@@ -1,44 +1,7 @@
-import { Icon } from "../ui/icon";
-import { SignalChip } from "../ui/signal-chip";
+import { Mark } from "../ui/state-mark";
+import { statusMarks } from "../ui/state-marks";
 import type { LibraryWork } from "./rows";
-import { type StatusMark, type Tone, statusMarks } from "../ui/state-marks";
 import { marksOf } from "./status";
-
-const inks: { readonly [T in Exclude<Tone, "fail" | "warn">]: string } = {
-  quiet: "text-ink-3",
-  neutral: "text-ink-2",
-  live: "text-ink-1 [&_svg]:text-glow",
-  met: "text-ink-1",
-};
-
-function Mark({
-  mark,
-  count,
-  tally,
-}: {
-  mark: StatusMark;
-  count: number | undefined;
-  tally: string | undefined;
-}) {
-  const words = (
-    <>
-      {mark.word}
-      {count !== undefined && <span className="tabular-nums"> {count}</span>}
-      {tally !== undefined && ` · ${tally}`}
-    </>
-  );
-  if (mark.tone === "fail" || mark.tone === "warn") {
-    return <SignalChip kind={mark.tone}>{words}</SignalChip>;
-  }
-  return (
-    <span
-      className={`inline-flex items-center gap-1 text-meta whitespace-nowrap ${inks[mark.tone]}`}
-    >
-      <Icon icon={mark.icon} className="size-3.5 shrink-0" />
-      {words}
-    </span>
-  );
-}
 
 /** For a Work of many Items, how far along it is, such as "12 of 40 episodes met". */
 const tallyOf = (work: LibraryWork) =>

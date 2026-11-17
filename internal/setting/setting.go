@@ -49,11 +49,12 @@ func refuse(key, format string, args ...any) error {
 
 // Duration is a length of time, stored as whole seconds and set in whole
 // Steps between Min and Max. Floor, when set, is why Min protects someone
-// outside the install.
+// outside the install. Description, when set, is what a longer or shorter
+// time costs.
 type Duration struct {
 	Key, Label              string
 	Default, Min, Max, Step time.Duration
-	Floor                   string
+	Floor, Description      string
 }
 
 // Value is the setting's value under override, a stored count of seconds.
@@ -83,15 +84,16 @@ func (d Duration) Parse(seconds *int64) (Stored[int64], error) {
 
 func (d Duration) Field(override *int64) DurationField {
 	return DurationField{
-		About:   about(d.Key, d.Label, override == nil),
-		Kind:    "duration",
-		Value:   seconds(d.Value(override)),
-		Running: seconds(d.Value(override)),
-		Default: seconds(d.Default),
-		Min:     seconds(d.Min),
-		Max:     seconds(d.Max),
-		Step:    seconds(d.Step),
-		Floor:   d.Floor,
+		About:       about(d.Key, d.Label, override == nil),
+		Kind:        "duration",
+		Value:       seconds(d.Value(override)),
+		Running:     seconds(d.Value(override)),
+		Default:     seconds(d.Default),
+		Min:         seconds(d.Min),
+		Max:         seconds(d.Max),
+		Step:        seconds(d.Step),
+		Floor:       d.Floor,
+		Description: d.Description,
 	}
 }
 
@@ -115,13 +117,22 @@ func Words(d time.Duration) string {
 	case d == day:
 		return "1 day"
 	case d > 0 && d%day == 0:
-		return fmt.Sprintf("%d days", d/day)
+		return Grouped(d/day) + " days"
 	case d > 0 && d%time.Hour == 0:
-		return fmt.Sprintf("%d h", d/time.Hour)
+		return Grouped(d/time.Hour) + " h"
 	case d > 0 && d%time.Minute == 0:
-		return fmt.Sprintf("%d min", d/time.Minute)
+		return Grouped(d/time.Minute) + " min"
 	}
-	return fmt.Sprintf("%d s", d/time.Second)
+	return Grouped(d/time.Second) + " s"
+}
+
+// Grouped is n with its thousands grouped by commas, as English writes it.
+func Grouped[N ~int | ~int64](n N) string {
+	s := strconv.FormatInt(int64(n), 10)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	return s
 }
 
 type Noun struct {

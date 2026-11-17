@@ -3,9 +3,9 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useListContentTypesSuspense } from "../../../api/gen/query/works/works";
 import {
   RoutedLibrary,
+  librarySwitches,
   librarySearch,
   rememberedSearch,
-  typeSwitch,
 } from "../../../library/routed";
 import { Empty } from "../../../shell/empty";
 import { Page } from "../../../shell/page";
@@ -45,7 +45,7 @@ function ContentTypeLibrary() {
   const type = enabledTypeOf(contentTypes, contentType);
   return (
     <Page
-      beside={typeSwitch(enabledTypes(contentTypes))}
+      beside={librarySwitches(enabledTypes(contentTypes), type.id)}
       action={<AddButton type={type} look="primary" />}
     >
       <RoutedLibrary

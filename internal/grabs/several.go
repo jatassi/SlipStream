@@ -179,7 +179,7 @@ func reasonsOf(cells []files.Cell) []files.Reason {
 // searchOne lands e on the groups of w's cells e opens, and answers what
 // it did. covers is whether each Content Type's search terms cover
 // Items, filled as it reads them.
-func (gr *Grabs) searchOne(ctx context.Context, tx *storage.Tx[file], w files.WorkWanted, e entry, covers map[works.TypeID]bool, interval time.Duration) (WorkOutcome, error) {
+func (gr *Grabs) searchOne(ctx context.Context, tx *storage.Tx[file], w files.WorkWanted, e landed, covers map[works.TypeID]bool, interval time.Duration) (WorkOutcome, error) {
 	o := WorkOutcome{Work: w.Work}
 	var cells []files.Cell
 	for _, c := range w.Cells {

@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/notifying"
 	"github.com/jatassi/slipstream/internal/role"
@@ -25,19 +25,21 @@ type Ping struct {
 	Poster artwork.Ref `json:"poster,omitzero"`
 }
 
+func (Ping) About() entry.About { return entry.About{} }
+
 var (
-	PingRow = notice.Row[Ping]{
-		Spec:   notice.Spec{Kind: "ping", Label: "Ping", Group: notice.System, OnByDefault: true, BellByDefault: true},
-		Render: func(f Ping, _ notice.Context) notice.Message { return pingMessage("Ping", f) },
+	PingRow = entry.Row[Ping]{
+		Spec:   entry.Spec{Kind: "ping", Label: "Ping", Group: entry.Grabs, OnByDefault: true, BellByDefault: true},
+		Render: func(f Ping, _ entry.Context) entry.Message { return pingMessage("Ping", f) },
 	}
-	PongRow = notice.Row[Ping]{
-		Spec:   notice.Spec{Kind: "pong", Label: "Pong", Group: notice.System, OnByDefault: true, BellByDefault: true},
-		Render: func(f Ping, _ notice.Context) notice.Message { return pingMessage("Pong", f) },
+	PongRow = entry.Row[Ping]{
+		Spec:   entry.Spec{Kind: "pong", Label: "Pong", Group: entry.Library, OnByDefault: true, BellByDefault: true},
+		Render: func(f Ping, _ entry.Context) entry.Message { return pingMessage("Pong", f) },
 	}
 )
 
-func pingMessage(label string, f Ping) notice.Message {
-	return notice.Message{Title: label + " " + f.Name, Lines: []string{"It happened."}, Link: notice.Link{Path: "/pings/" + f.Name}, Poster: f.Poster}
+func pingMessage(label string, f Ping) entry.Message {
+	return entry.Message{Title: label + " " + f.Name, Lines: []string{"It happened."}, Link: entry.Link{Path: "/pings/" + f.Name}, Poster: f.Poster}
 }
 
 // APoster is a poster reference the World's artwork answers.
@@ -79,12 +81,12 @@ func hookHost(values providers.Values, _ providers.Endpoints) (*url.URL, bool) {
 
 // body is what the Hook posts.
 type body struct {
-	Kind   notice.Kind `json:"kind"`
-	Title  string      `json:"title"`
-	Lines  []string    `json:"lines"`
-	Link   string      `json:"link"`
-	Tone   notice.Tone `json:"tone"`
-	Poster string      `json:"poster,omitempty"`
+	Kind   entry.Kind `json:"kind"`
+	Title  string     `json:"title"`
+	Lines  []string   `json:"lines"`
+	Link   string     `json:"link"`
+	Tone   entry.Tone `json:"tone"`
+	Poster string     `json:"poster,omitempty"`
 }
 
 func buildHook(p providers.Payload) (providers.Outbound, error) {
@@ -208,11 +210,11 @@ type Received struct {
 	Node role.NodeID
 	// Target is the URL posted to, or the script's path.
 	Target string
-	Kind   notice.Kind
+	Kind   entry.Kind
 	Title  string
 	Lines  []string
 	Link   string
-	Tone   notice.Tone
+	Tone   entry.Tone
 	Poster string
 	Header http.Header
 	// Stop is how long a script may run.

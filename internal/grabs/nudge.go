@@ -117,7 +117,7 @@ func (gr *Grabs) drainIn(ctx context.Context, tx *storage.Tx[file], interval tim
 func landNudge(ctx context.Context, tx *storage.Tx[file], n db.GrabsNudge, wanted []files.Cell, groups []indexers.Group, interval time.Duration) error {
 	t := searches.Trigger(n.Trigger)
 	r := laneRules[t]
-	e := entry{trigger: t, lane: laneOf(n.Lane), gone: r.gone, resets: r.resets, holds: r.holds}
+	e := landed{trigger: t, lane: laneOf(n.Lane), gone: r.gone, resets: r.resets, holds: r.holds}
 	var asked []works.ItemID
 	if n.Items != nil {
 		if err := json.Unmarshal([]byte(*n.Items), &asked); err != nil {

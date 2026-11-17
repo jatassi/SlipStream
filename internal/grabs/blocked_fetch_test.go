@@ -19,7 +19,7 @@ func TestAFetchedTorrentOnTheBlocklistFailsAManualGrabBeforeAnyClient(t *testing
 		p := newPipeline(t, answer{res: downloadclients.Resolved{Info: rel.info}})
 		id := p.grab(rel.link.String(), nil)
 		run(t, p.lib, sql(`UPDATE grabs_grab SET source = 'manual', grabbed_by_name = 'Jackson'`))
-		grabstest.Blocked(t, p.lib, entry(rel.link.InfoHash, "The.Attic.1080p.WEB"))
+		grabstest.Blocked(t, p.lib, blockEntry(rel.link.InfoHash, "The.Attic.1080p.WEB"))
 
 		p.running()
 		time.Sleep(2 * hold)

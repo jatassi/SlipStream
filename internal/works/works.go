@@ -198,6 +198,7 @@ func Open(ctx context.Context, cfg Config) (*Works, error) {
 		}
 		w.types[id] = registered{catalog: c, desc: d}
 	}
+	datedKeysUnique(w.ids, w.types)
 	held, err := db.New(cfg.Library).HeldTypes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("open works: %w", err)
@@ -243,7 +244,7 @@ func validate(d Description) error {
 	if err != nil {
 		return err
 	}
-	for _, err := range []error{validateArtwork(d), validatePlaces(d.Fields), validateFieldRefs(d, declared), validateArt(d), validateRatings(d.Ratings)} {
+	for _, err := range []error{validateArtwork(d), validatePlaces(d.Fields), validateFieldRefs(d, declared), validateArt(d), validateRatings(d.Ratings), validateDated(d.Dated)} {
 		if err != nil {
 			return err
 		}
@@ -315,6 +316,34 @@ func validateRatings(sources []RatingSource) error {
 		}
 	}
 	return nil
+}
+
+func validateDated(kinds []DatedKind) error {
+	for i, k := range kinds {
+		switch {
+		case k.Key == "":
+			return errors.New("a dated kind has no key")
+		case k.Label == "":
+			return fmt.Errorf("dated kind %s has no label", k.Key)
+		case slices.ContainsFunc(kinds[:i], func(o DatedKind) bool { return o.Key == k.Key }):
+			return fmt.Errorf("it declares dated kind %s twice", k.Key)
+		}
+	}
+	return nil
+}
+
+// datedKeysUnique panics when two types declare one dated key, since the
+// Calendar's kind filter names a kind by its key alone.
+func datedKeysUnique(ids []TypeID, types map[TypeID]registered) {
+	owner := map[DatedKey]TypeID{}
+	for _, id := range ids {
+		for _, k := range types[id].desc.Dated {
+			if other, ok := owner[k.Key]; ok {
+				panic(fmt.Sprintf("works: content types %s and %s both declare dated kind %s", other, id, k.Key))
+			}
+			owner[k.Key] = id
+		}
+	}
 }
 
 // validatePlaces holds every field to a place that takes it: tagline and

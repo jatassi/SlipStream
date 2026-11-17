@@ -44,6 +44,100 @@ export const BellInputBody = zod.object({
 export type BellInputBody = zod.input<typeof BellInputBody>;
 export type BellInputBodyOutput = zod.output<typeof BellInputBody>;
 
+export const CalendarItem = zod.object({
+  id: zod.uuid(),
+  label: zod.string().describe("Such as Episode 1 · Hello, Ms. Cobel"),
+});
+
+export type CalendarItem = zod.input<typeof CalendarItem>;
+export type CalendarItemOutput = zod.output<typeof CalendarItem>;
+
+export const FilesState = zod.enum([
+  "failed",
+  "missing",
+  "downloading",
+  "upgradable",
+  "unreleased",
+  "met",
+]);
+
+export type FilesState = zod.input<typeof FilesState>;
+export type FilesStateOutput = zod.output<typeof FilesState>;
+
+export const calendarWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const CalendarWork = zod.object({
+  contentType: zod.string().regex(calendarWorkContentTypeRegExp),
+  id: zod.uuid(),
+  label: zod.string(),
+  posterUrl: zod
+    .string()
+    .nullable()
+    .describe("The artwork route for its poster, without a size; null when it has none"),
+});
+
+export type CalendarWork = zod.input<typeof CalendarWork>;
+export type CalendarWorkOutput = zod.output<typeof CalendarWork>;
+
+export const calendarRowMetMin = 0;
+
+export const calendarRowOfMin = 0;
+
+export const CalendarRow = zod.object({
+  items: zod.array(CalendarItem).describe("In tree order"),
+  itemsWords: zod
+    .string()
+    .describe(
+      "The Items with their level, such as Season 2 · Episodes 1 to 10; empty for one Item without a level",
+    ),
+  kind: zod.string().describe("The dated kind's key"),
+  kindLabel: zod.string(),
+  met: zod.int().min(calendarRowMetMin).describe("Its Items with a Target that are met"),
+  monitored: zod
+    .boolean()
+    .describe("false only for a row of unmonitored Items, which unmonitored asks for"),
+  of: zod.int().min(calendarRowOfMin).describe("Its Items with a Target"),
+  state: zod
+    .union([FilesState, zod.null()])
+    .describe(
+      "The most urgent state among its Items, in the order failed, missing, downloading, upgradable, unreleased, met; null while none of them has a Target",
+    ),
+  work: CalendarWork,
+});
+
+export type CalendarRow = zod.input<typeof CalendarRow>;
+export type CalendarRowOutput = zod.output<typeof CalendarRow>;
+
+export const CalendarDay = zod.object({
+  day: zod.iso.date(),
+  rows: zod.array(CalendarRow),
+});
+
+export type CalendarDay = zod.input<typeof CalendarDay>;
+export type CalendarDayOutput = zod.output<typeof CalendarDay>;
+
+export const CalendarSentence = zod.object({
+  needsYou: zod.boolean().describe("It names Items that are out and still missing"),
+  words: zod.string(),
+});
+
+export type CalendarSentence = zod.input<typeof CalendarSentence>;
+export type CalendarSentenceOutput = zod.output<typeof CalendarSentence>;
+
+export const CalendarAnswer = zod.object({
+  days: zod.array(CalendarDay).describe("Only the days with rows, in order"),
+  nextDayAt: zod.iso.datetime({ offset: true }).describe("When the Controller's next day starts"),
+  sentence: zod
+    .union([CalendarSentence, zod.null()])
+    .describe(
+      "What needs attention among monitored Items, else which of them come out in the next 7 days, whatever unmonitored asks; null when neither has anything",
+    ),
+  today: zod.iso.date().describe("The Controller's day"),
+});
+
+export type CalendarAnswer = zod.input<typeof CalendarAnswer>;
+export type CalendarAnswerOutput = zod.output<typeof CalendarAnswer>;
+
 export const CancelInputBody = zod.object({
   blocklist: zod
     .boolean()
@@ -353,6 +447,10 @@ export const SettingDurationField = zod.object({
     .string()
     .exactOptional()
     .describe("Where the default comes from, when it is another setting's value"),
+  description: zod
+    .string()
+    .exactOptional()
+    .describe("What a longer or shorter time costs, in whole sentences"),
   floor: zod
     .string()
     .exactOptional()
@@ -2077,18 +2175,6 @@ export const FilesCell = zod.discriminatedUnion("state", [
 
 export type FilesCell = zod.input<typeof FilesCell>;
 export type FilesCellOutput = zod.output<typeof FilesCell>;
-
-export const FilesState = zod.enum([
-  "failed",
-  "missing",
-  "downloading",
-  "upgradable",
-  "unreleased",
-  "met",
-]);
-
-export type FilesState = zod.input<typeof FilesState>;
-export type FilesStateOutput = zod.output<typeof FilesState>;
 
 export const FilesItemStatus = zod.object({
   itemId: zod.uuid(),
@@ -5428,6 +5514,150 @@ export const HealthVolumeList = zod.object({
 
 export type HealthVolumeList = zod.input<typeof HealthVolumeList>;
 export type HealthVolumeListOutput = zod.output<typeof HealthVolumeList>;
+
+export const HistoryChanged = zod.object({});
+
+export type HistoryChanged = zod.input<typeof HistoryChanged>;
+export type HistoryChangedOutput = zod.output<typeof HistoryChanged>;
+
+export const HistoryFile = zod.object({
+  items: zod.array(zod.string()).describe("Such as Episode 1"),
+  placedBy: zod
+    .string()
+    .describe("How the file was placed: a placed-by value of GET /works/{workId}/files"),
+  quality: zod.string(),
+  replaced: zod.string().describe("The qualities it replaced, in words; empty for none"),
+  replacedLabel: zod.string().describe("The label of the file it replaced; empty for none"),
+});
+
+export type HistoryFile = zod.input<typeof HistoryFile>;
+export type HistoryFileOutput = zod.output<typeof HistoryFile>;
+
+export const HistoryKind = zod.object({
+  kind: zod.string(),
+  label: zod.string(),
+});
+
+export type HistoryKind = zod.input<typeof HistoryKind>;
+export type HistoryKindOutput = zod.output<typeof HistoryKind>;
+
+export const HistoryGroup = zod.object({
+  group: zod.enum(["grabs", "imports", "library", "health"]),
+  kinds: zod.array(HistoryKind),
+  label: zod.string(),
+});
+
+export type HistoryGroup = zod.input<typeof HistoryGroup>;
+export type HistoryGroupOutput = zod.output<typeof HistoryGroup>;
+
+export const HistoryHealthItem = zod.object({
+  level: zod.enum(["warn", "fail"]),
+  subject: zod.string(),
+  text: zod.string(),
+});
+
+export type HistoryHealthItem = zod.input<typeof HistoryHealthItem>;
+export type HistoryHealthItemOutput = zod.output<typeof HistoryHealthItem>;
+
+export const HistoryKindsAnswer = zod.object({
+  groups: zod.array(HistoryGroup).describe("In filter order"),
+});
+
+export type HistoryKindsAnswer = zod.input<typeof HistoryKindsAnswer>;
+export type HistoryKindsAnswerOutput = zod.output<typeof HistoryKindsAnswer>;
+
+export const HistoryLinks = zod.object({
+  grab: zod
+    .uuid()
+    .nullable()
+    .describe("The Grab it is about; null for none, and once that Grab is deleted"),
+  health: zod
+    .string()
+    .nullable()
+    .describe(
+      "The key, <category>.<key>, of a one-item Health entry's item while it is on Health; null otherwise",
+    ),
+  import: zod
+    .uuid()
+    .nullable()
+    .describe("The Import it is about; null for none, and once that Import is deleted"),
+});
+
+export type HistoryLinks = zod.input<typeof HistoryLinks>;
+export type HistoryLinksOutput = zod.output<typeof HistoryLinks>;
+
+export const historyWorkSummaryContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const HistoryWorkSummary = zod.object({
+  contentType: zod.string().regex(historyWorkSummaryContentTypeRegExp),
+  id: zod.uuid(),
+  label: zod.string(),
+  posterUrl: zod
+    .string()
+    .nullable()
+    .describe("The artwork route for its poster, without a size; null when it has none"),
+});
+
+export type HistoryWorkSummary = zod.input<typeof HistoryWorkSummary>;
+export type HistoryWorkSummaryOutput = zod.output<typeof HistoryWorkSummary>;
+
+export const HistoryListEntry = zod.object({
+  at: zod.iso.datetime({ offset: true }).describe("When it was captured"),
+  group: zod.enum(["grabs", "imports", "library", "health"]),
+  id: zod.int(),
+  kind: zod.string().describe("A kind GET /history/kinds lists"),
+  links: HistoryLinks,
+  tone: zod.enum(["info", "good", "warn", "fail"]),
+  words: zod.string().describe("Such as Imported 10 episodes of Severance"),
+  work: zod
+    .union([HistoryWorkSummary, zod.null()])
+    .describe("The one Work it is about; null for none or many, and once that Work is deleted"),
+});
+
+export type HistoryListEntry = zod.input<typeof HistoryListEntry>;
+export type HistoryListEntryOutput = zod.output<typeof HistoryListEntry>;
+
+export const HistoryListed = zod.object({
+  entries: zod.array(HistoryListEntry).describe("Newest first"),
+  next: zod.int().nullable().describe("The before of the next page; null on the last page"),
+});
+
+export type HistoryListed = zod.input<typeof HistoryListed>;
+export type HistoryListedOutput = zod.output<typeof HistoryListed>;
+
+export const HistoryStageAt = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  stage: zod.string().describe("A stage of GET /grabs"),
+});
+
+export type HistoryStageAt = zod.input<typeof HistoryStageAt>;
+export type HistoryStageAtOutput = zod.output<typeof HistoryStageAt>;
+
+export const HistoryOneEntry = zod.object({
+  entry: HistoryListEntry,
+  files: zod.array(HistoryFile).describe("Each file an Import placed"),
+  health: zod.array(HistoryHealthItem).describe("A Health entry's items"),
+  lines: zod.array(zod.string()).describe("Whole sentences, with clock times in zone"),
+  stages: zod.array(HistoryStageAt).describe("Each stage a failed Grab reached, in order"),
+});
+
+export type HistoryOneEntry = zod.input<typeof HistoryOneEntry>;
+export type HistoryOneEntryOutput = zod.output<typeof HistoryOneEntry>;
+
+export const historySentenceNeedsYouMin = 0;
+export const historySentenceNeedsYouMax = 100;
+
+export const HistorySentence = zod.object({
+  needsYou: zod
+    .int()
+    .min(historySentenceNeedsYouMin)
+    .max(historySentenceNeedsYouMax)
+    .describe("The failed Grabs that need attention, at most 100; 0 when the words count the week"),
+  words: zod.string(),
+});
+
+export type HistorySentence = zod.input<typeof HistorySentence>;
+export type HistorySentenceOutput = zod.output<typeof HistorySentence>;
 
 export const MediaserversNodeRef = zod.object({
   id: zod.uuid(),
@@ -10040,7 +10270,7 @@ export const SettingsOutputBody = zod.object({
   settings: zod
     .array(SettingField)
     .describe(
-      "Wait before sending a new Health item, Give up on a message after, Warn when a connection has failed for, and Keep notifications for",
+      "Wait before sending a new Health item, Give up on a message after and Warn when a connection has failed for",
     ),
 });
 
@@ -12158,6 +12388,14 @@ export const WorksNoun = zod.object({
 export type WorksNoun = zod.input<typeof WorksNoun>;
 export type WorksNounOutput = zod.output<typeof WorksNoun>;
 
+export const WorksDatedKind = zod.object({
+  key: zod.string().describe("Unique across Content Types"),
+  label: zod.string(),
+});
+
+export type WorksDatedKind = zod.input<typeof WorksDatedKind>;
+export type WorksDatedKindOutput = zod.output<typeof WorksDatedKind>;
+
 export const WorksListing = zod.object({
   column: zod.boolean().describe("A column of the Library's table"),
   filter: zod
@@ -12220,6 +12458,9 @@ export const WorksContentType = zod.object({
     .describe(
       "The label of the Library's availability column and sort, such as Next airing; empty reads Available",
     ),
+  dated: zod
+    .array(WorksDatedKind)
+    .describe("The kinds of release date its Works put on the Calendar, in its order"),
   enabled: zod.boolean(),
   fields: zod.array(WorksFieldSpec),
   icon: zod.enum(["film", "tv", "note", "open-book", "headphones", "panels", "image", "shapes"]),
@@ -12938,6 +13179,14 @@ export const LiveEventHealthChanged = zod.object({
 export type LiveEventHealthChanged = zod.input<typeof LiveEventHealthChanged>;
 export type LiveEventHealthChangedOutput = zod.output<typeof LiveEventHealthChanged>;
 
+export const LiveEventHistoryChanged = zod.object({
+  event: zod.enum(["history.changed"]),
+  data: HistoryChanged,
+});
+
+export type LiveEventHistoryChanged = zod.input<typeof LiveEventHistoryChanged>;
+export type LiveEventHistoryChangedOutput = zod.output<typeof LiveEventHistoryChanged>;
+
 export const LiveEventIdentityAccountsChanged = zod.object({
   event: zod.enum(["identity.accounts-changed"]),
   data: IdentityAccountsChanged,
@@ -13296,6 +13545,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventGrabsQueueChanged,
   LiveEventGrabsSearchChanged,
   LiveEventHealthChanged,
+  LiveEventHistoryChanged,
   LiveEventIdentityAccountsChanged,
   LiveEventIdentityAddressChanged,
   LiveEventIdentityLinksChanged,

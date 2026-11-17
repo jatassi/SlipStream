@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import type { WorksContentType } from "../api/gen/model";
 import { SegmentedLinks, segmentedLink } from "../ui/segmented-links";
+import { LibraryViews } from "./library-views";
 
 const exact = { exact: true, includeSearch: false };
 
@@ -28,9 +29,17 @@ function TypeSwitch({ types }: { types: readonly WorksContentType[] }) {
 }
 
 /**
- * The switch between "All" and each enabled type's Library, in the
- * sidebar's order. Each segment is its own address, so it opens on the view
- * that Library last used. A Library of one enabled type has no switch.
+ * The Library views, then the switch between "All" and each enabled type's
+ * Library, in the sidebar's order. Each segment is its own address, so it
+ * opens on the view that Library last used. A Library of one enabled type
+ * has no type switch.
  */
-export const typeSwitch = (enabled: readonly WorksContentType[]): ReactNode =>
-  enabled.length < 2 ? undefined : <TypeSwitch types={enabled} />;
+export const librarySwitches = (
+  enabled: readonly WorksContentType[],
+  contentType: string | undefined,
+): ReactNode => (
+  <>
+    <LibraryViews contentType={contentType} />
+    {enabled.length > 1 && <TypeSwitch types={enabled} />}
+  </>
+);

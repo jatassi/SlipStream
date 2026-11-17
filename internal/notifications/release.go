@@ -5,16 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/history"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
-// releaseBound is how many events one pass releases, so a backlog is many
+// releaseBound is how many entries one pass releases, so a backlog is many
 // short Writes.
 const releaseBound = 200
 
@@ -22,47 +23,32 @@ const releaseBound = 200
 // id.
 const bellTarget = "bell"
 
+// event is an entry as notifications sends it.
 type event struct {
 	ID      EventID
-	Kind    notice.Kind
+	Kind    entry.Kind
 	At      time.Time
 	Subject []byte
-	// Items are a Health event's items.
-	Items []item
+	// Work is the one Work it is about, zero for none or many.
+	Work works.WorkID
+	// Items are a Health entry's items.
+	Items []history.Item
 }
 
-// cut is a Health event with only the items keys names, as its subject.
+// cut is a Health entry with only the items keys names, as its subject.
 // Other kinds keep their subject.
 func (e event) cut(keys []string) (event, error) {
-	if !isHealth(e.Kind) {
+	if !history.IsHealth(e.Kind) {
 		return e, nil
 	}
-	e.Items = slices.DeleteFunc(slices.Clone(e.Items), func(it item) bool { return !slices.Contains(keys, it.key()) })
-	subject, err := json.Marshal(healthFacts{Items: e.Items})
+	e.Items = slices.DeleteFunc(slices.Clone(e.Items), func(it history.Item) bool { return !slices.Contains(keys, it.Key) })
+	subject, err := json.Marshal(history.HealthFacts{Items: e.Items})
 	if err != nil {
-		return event{}, fmt.Errorf("encode the Health items of event %d: %w", e.ID, err)
+		return event{}, fmt.Errorf("encode the Health items of entry %d: %w", e.ID, err)
 	}
 	e.Subject = subject
 	return e, nil
 }
-
-func isHealth(k notice.Kind) bool { return k == newItemsRow.Kind || k == clearedRow.Kind }
-
-// itemKey is a Health item's key among notifications: "<category>.<key>".
-// Category ids hold no ".".
-func itemKey(c health.ID, k health.Key) string { return string(c) + "." + string(k) }
-
-func (it item) key() string { return string(it.Category) + "." + it.Key }
-
-func itemOf(row db.NotificationsItem) item {
-	category, key, _ := strings.Cut(row.Key, ".")
-	return item{
-		Category: health.ID(category), Key: key, Level: row.Level, Subject: row.Subject, Text: row.Text,
-		Since: row.SinceAt.Time(), Cleared: row.ClearedAt.Time(),
-	}
-}
-
-func (it item) failing() bool { return it.Level == health.Fail.String() }
 
 // bellView is what a release reads of the bell for one kind.
 type bellView struct {
@@ -84,7 +70,7 @@ type released struct {
 	// Shown are the Health keys the bell row shows, nil for other kinds.
 	Shown []string
 	// Tell are the bell's told rows to upsert; Untell the keys to delete.
-	Tell   []item
+	Tell   []history.Item
 	Untell []string
 }
 
@@ -115,15 +101,15 @@ func deliveryFor(e event, c Connection, told map[string]map[string]bool, carryin
 	}
 	var keys []string
 	switch e.Kind {
-	case newItemsRow.Kind:
+	case history.NewItemsRow.Kind:
 		if c.OnAt.After(e.At) {
 			return planned{}, false
 		}
-		own := itemKey(HealthAbout.ID, health.KeyOf(c.ID.String()))
-		keys = keysOf(e.Items, func(it item) bool { return (it.failing() || c.Warnings) && it.key() != own })
-	case clearedRow.Kind:
+		own := history.ItemKey(HealthAbout.ID, health.KeyOf(c.ID.String()))
+		keys = keysOf(e.Items, func(it history.Item) bool { return (it.Failing() || c.Warnings) && it.Key != own })
+	case history.ClearedRow.Kind:
 		id := c.ID.String()
-		keys = keysOf(e.Items, func(it item) bool { return told[id][it.key()] || carrying[c.ID][it.key()] })
+		keys = keysOf(e.Items, func(it history.Item) bool { return told[id][it.Key] || carrying[c.ID][it.Key] })
 	default:
 		return planned{Conn: c.ID}, !c.OnAt.After(e.At)
 	}
@@ -132,27 +118,27 @@ func deliveryFor(e event, c Connection, told map[string]map[string]bool, carryin
 
 func shownOn(out *released, e event, bell bellView, told map[string]map[string]bool) {
 	switch e.Kind {
-	case newItemsRow.Kind:
+	case history.NewItemsRow.Kind:
 		for _, it := range e.Items {
-			if it.failing() || bell.Warnings {
+			if it.Failing() || bell.Warnings {
 				out.Tell = append(out.Tell, it)
-				out.Shown = append(out.Shown, it.key())
+				out.Shown = append(out.Shown, it.Key)
 			}
 		}
 		out.Show = len(out.Shown) > 0
-	case clearedRow.Kind:
-		out.Untell = keysOf(e.Items, func(it item) bool { return told[bellTarget][it.key()] })
+	case history.ClearedRow.Kind:
+		out.Untell = keysOf(e.Items, func(it history.Item) bool { return told[bellTarget][it.Key] })
 		out.Shown, out.Show = out.Untell, len(out.Untell) > 0
 	default:
 		out.Show = true
 	}
 }
 
-func keysOf(items []item, keep func(item) bool) []string {
+func keysOf(items []history.Item, keep func(history.Item) bool) []string {
 	var out []string
 	for _, it := range items {
 		if keep(it) {
-			out = append(out, it.key())
+			out = append(out, it.Key)
 		}
 	}
 	return out
@@ -170,19 +156,31 @@ func narrow(items []string, told map[string]bool) []string {
 	return out
 }
 
-// releaseDue releases the events due by now, at most releaseBound. hit is
+// releaseDue releases the entries due by now, at most releaseBound. hit is
 // whether the bound stopped it.
-func (s *Service) releaseDue(ctx context.Context, q *db.Queries, now time.Time, conns []Connection) (pub published, hit bool, err error) {
-	due, err := q.ListDueUnreleased(ctx, db.ListDueUnreleasedParams{Now: storage.FromTime(now), Limit: releaseBound})
-	if err != nil {
+func (s *Service) releaseDue(ctx context.Context, q *db.Queries, r storage.Reader[file], now time.Time, conns []Connection) (pub published, hit bool, err error) {
+	due, err := q.ListDuePending(ctx, db.ListDuePendingParams{Now: storage.FromTime(now), Limit: releaseBound})
+	if err != nil || len(due) == 0 {
 		return pub, false, err
 	}
 	bell, err := s.bellIn(ctx, q)
 	if err != nil {
 		return pub, false, err
 	}
-	for _, row := range due {
-		e, err := eventOf(ctx, q, row)
+	heads := make([]head, len(due))
+	for i, p := range due {
+		heads[i] = head{ID: p.EventID, Kind: p.Kind, At: p.At.Time()}
+	}
+	events, err := eventsOf(ctx, r, heads)
+	if err != nil {
+		return pub, false, err
+	}
+	for _, p := range due {
+		keys, err := keysFrom(p.Items)
+		if err != nil {
+			return pub, false, err
+		}
+		e, err := events[p.EventID].cut(keys)
 		if err != nil {
 			return pub, false, err
 		}
@@ -190,7 +188,7 @@ func (s *Service) releaseDue(ctx context.Context, q *db.Queries, now time.Time, 
 		if err != nil {
 			return pub, false, err
 		}
-		r := targetsOf(e, conns, bellView{On: bell.has(e.Kind, s.catalog), Warnings: bell.warnings}, told, carrying)
+		r := targetsOf(e, conns, bellView{On: bell.has(e.Kind, s), Warnings: bell.warnings}, told, carrying)
 		if err := s.write(ctx, q, e, r, now); err != nil {
 			return pub, false, err
 		}
@@ -200,28 +198,13 @@ func (s *Service) releaseDue(ctx context.Context, q *db.Queries, now time.Time, 
 	return pub, len(due) == releaseBound, nil
 }
 
-func eventOf(ctx context.Context, q *db.Queries, row db.NotificationsEvent) (event, error) {
-	e := event{ID: row.ID, Kind: row.Kind, At: row.At.Time(), Subject: []byte(row.Subject)}
-	if !isHealth(e.Kind) {
-		return e, nil
-	}
-	rows, err := q.ListItems(ctx, e.ID)
-	if err != nil {
-		return event{}, err
-	}
-	for _, r := range rows {
-		e.Items = append(e.Items, itemOf(r))
-	}
-	return e, nil
-}
-
-// pairing is, for a cleared event's keys, which targets were told each
+// pairing is, for a cleared entry's keys, which targets were told each
 // and which connections have a due delivery carrying it.
 func pairing(ctx context.Context, q *db.Queries, e event) (told map[string]map[string]bool, carrying map[ConnectionID]map[string]bool, err error) {
-	if e.Kind != clearedRow.Kind {
+	if e.Kind != history.ClearedRow.Kind {
 		return nil, nil, nil
 	}
-	keys := keysOf(e.Items, func(item) bool { return true })
+	keys := keysOf(e.Items, func(history.Item) bool { return true })
 	toldRows, err := q.ListToldFor(ctx, keys)
 	if err != nil {
 		return nil, nil, err
@@ -230,13 +213,15 @@ func pairing(ctx context.Context, q *db.Queries, e event) (told map[string]map[s
 	for _, t := range toldRows {
 		set(told, t.Target, t.Key)
 	}
-	rows, err := q.ConnectionsCarrying(ctx, keys)
-	if err != nil {
-		return nil, nil, err
-	}
 	carrying = map[ConnectionID]map[string]bool{}
-	for _, r := range rows {
-		set(carrying, r.ConnectionID, r.Key)
+	for _, k := range keys {
+		conns, err := q.ConnectionsCarrying(ctx, k)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, c := range conns {
+			set(carrying, c, k)
+		}
 	}
 	return told, carrying, nil
 }
@@ -250,13 +235,13 @@ func set[K comparable](m map[K]map[string]bool, k K, v string) {
 
 func (s *Service) write(ctx context.Context, q *db.Queries, e event, r released, now time.Time) error {
 	for _, d := range r.Deliveries {
-		if err := q.InsertDelivery(ctx, db.InsertDeliveryParams{EventID: e.ID, ConnectionID: d.Conn, Items: keysText(d.Items, e.Kind)}); err != nil {
-			return fmt.Errorf("release event %d: %w", e.ID, err)
+		if err := q.InsertDelivery(ctx, db.InsertDeliveryParams{EventID: e.ID, ConnectionID: d.Conn, Kind: e.Kind, At: storage.FromTime(e.At), Items: keysText(d.Items, e.Kind)}); err != nil {
+			return fmt.Errorf("release entry %d: %w", e.ID, err)
 		}
 	}
 	if r.Show {
-		if _, err := q.InsertShown(ctx, db.InsertShownParams{EventID: e.ID, ShownAt: storage.FromTime(now), Items: keysText(r.Shown, e.Kind)}); err != nil {
-			return fmt.Errorf("show event %d: %w", e.ID, err)
+		if _, err := q.InsertShown(ctx, db.InsertShownParams{EventID: e.ID, Kind: e.Kind, At: storage.FromTime(e.At), ShownAt: storage.FromTime(now), Items: keysText(r.Shown, e.Kind)}); err != nil {
+			return fmt.Errorf("show entry %d: %w", e.ID, err)
 		}
 	}
 	for _, it := range r.Tell {
@@ -269,17 +254,17 @@ func (s *Service) write(ctx context.Context, q *db.Queries, e event, r released,
 			return err
 		}
 	}
-	return q.SetReleased(ctx, db.SetReleasedParams{ID: e.ID, ReleasedAt: storage.FromTime(now)})
+	return q.DeletePending(ctx, e.ID)
 }
 
-func toldParams(target string, it item, now time.Time) db.UpsertToldParams {
-	return db.UpsertToldParams{Target: target, Key: it.key(), Subject: it.Subject, SinceAt: storage.FromTime(it.Since), ToldAt: storage.FromTime(now)}
+func toldParams(target string, it history.Item, now time.Time) db.UpsertToldParams {
+	return db.UpsertToldParams{Target: target, Key: it.Key, Subject: it.Subject, SinceAt: storage.FromTime(it.Since), ToldAt: storage.FromTime(now)}
 }
 
 // keysText is keys as stored: NULL for a kind that carries no Health
 // items.
-func keysText(keys []string, k notice.Kind) *string {
-	if !isHealth(k) {
+func keysText(keys []string, k entry.Kind) *string {
+	if !history.IsHealth(k) {
 		return nil
 	}
 	return jsonText(slices.Clip(keys))

@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/calendarapi"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloadclientsapi"
 	"github.com/jatassi/slipstream/internal/files"
@@ -18,6 +19,8 @@ import (
 	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/healthapi"
+	"github.com/jatassi/slipstream/internal/history"
+	"github.com/jatassi/slipstream/internal/historyapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -106,6 +109,7 @@ var Events = []live.Event{
 	mediaservers.ItemsFoundEvent,
 	notifications.ChangedEvent,
 	notifications.SeenEvent,
+	history.ChangedEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the
@@ -138,6 +142,8 @@ type Node interface {
 	firstrunapi.Guide
 	mediaserversapi.Servers
 	notificationsapi.Notes
+	calendarapi.Calendar
+	historyapi.History
 }
 
 // Services are what the operations run against. Document passes none.
@@ -176,6 +182,8 @@ func Mount(r *api.Router, s Services) {
 	firstrunapi.Routes(r, s.Node)
 	mediaserversapi.Routes(r, s.Node)
 	notificationsapi.Routes(r, s.Node)
+	calendarapi.Routes(r, s.Node)
+	historyapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

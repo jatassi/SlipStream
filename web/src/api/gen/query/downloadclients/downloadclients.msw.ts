@@ -71,6 +71,9 @@ export const getListDownloadClientsResponseMock = (
             ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
             : {}),
           ...(faker.datatype.boolean()
+            ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          ...(faker.datatype.boolean()
             ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
             : {}),
           isDefault: faker.datatype.boolean(),
@@ -115,6 +118,9 @@ export const getListDownloadClientsResponseMock = (
           default: faker.number.int(),
           ...(faker.datatype.boolean()
             ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
             : {}),
           ...(faker.datatype.boolean()
             ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -253,6 +259,9 @@ export const getListDownloadClientsResponseMock = (
           ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
           : {}),
         ...(faker.datatype.boolean()
+          ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
           ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
           : {}),
         isDefault: faker.datatype.boolean(),
@@ -297,6 +306,9 @@ export const getListDownloadClientsResponseMock = (
         default: faker.number.int(),
         ...(faker.datatype.boolean()
           ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
           : {}),
         ...(faker.datatype.boolean()
           ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -379,6 +391,9 @@ export const getListDownloadClientsResponseMock = (
         ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       ...(faker.datatype.boolean()
+        ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
         ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       isDefault: faker.datatype.boolean(),
@@ -407,6 +422,9 @@ export const getListDownloadClientsResponseMock = (
       default: faker.number.int(),
       ...(faker.datatype.boolean()
         ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       ...(faker.datatype.boolean()
         ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -439,6 +457,9 @@ export const getListDownloadClientsResponseMock = (
         ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       ...(faker.datatype.boolean()
+        ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
         ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       isDefault: faker.datatype.boolean(),
@@ -467,6 +488,9 @@ export const getListDownloadClientsResponseMock = (
       default: faker.number.int(),
       ...(faker.datatype.boolean()
         ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
       ...(faker.datatype.boolean()
         ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -506,6 +530,9 @@ export const getSetDownloadClientThresholdsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -534,6 +561,9 @@ export const getSetDownloadClientThresholdsResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -566,6 +596,9 @@ export const getSetDownloadClientThresholdsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -594,6 +627,9 @@ export const getSetDownloadClientThresholdsResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -791,6 +827,9 @@ export const getGetDownloadClientSettingsResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -1042,6 +1081,9 @@ export const getSetDownloadClientSettingsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -1134,6 +1176,9 @@ export const getCreateDownloadClientResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -1177,6 +1222,9 @@ export const getCreateDownloadClientResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -1275,6 +1323,9 @@ export const getUpdateDownloadClientResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -1318,6 +1369,9 @@ export const getUpdateDownloadClientResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }

@@ -8,8 +8,9 @@ package db
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/history"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -54,29 +55,36 @@ func (q *Queries) GetSeen(ctx context.Context, accountID identity.AccountID) (Se
 }
 
 const insertShown = `-- name: InsertShown :one
-INSERT INTO notifications_shown (event_id, shown_at, items)
-VALUES (?1, ?2, ?3)
+INSERT INTO notifications_shown (event_id, kind, at, shown_at, items)
+VALUES (?1, ?2, ?3, ?4, ?5)
 RETURNING seq
 `
 
 type InsertShownParams struct {
-	EventID EventID
+	EventID history.EventID
+	Kind    entry.Kind
+	At      storage.Time
 	ShownAt storage.Time
 	Items   *string
 }
 
 func (q *Queries) InsertShown(ctx context.Context, arg InsertShownParams) (Seq, error) {
-	row := q.db.QueryRowContext(ctx, insertShown, arg.EventID, arg.ShownAt, arg.Items)
+	row := q.db.QueryRowContext(ctx, insertShown,
+		arg.EventID,
+		arg.Kind,
+		arg.At,
+		arg.ShownAt,
+		arg.Items,
+	)
 	var seq Seq
 	err := row.Scan(&seq)
 	return seq, err
 }
 
 const listFeed = `-- name: ListFeed :many
-SELECT s.seq, s.shown_at, s.items, e.id, e.kind, e.at, e.subject FROM notifications_shown s
-JOIN notifications_event e ON e.id = s.event_id
-WHERE s.seq < ?1
-ORDER BY s.seq DESC
+SELECT seq, event_id, kind, at, shown_at, items FROM notifications_shown
+WHERE seq < ?1
+ORDER BY seq DESC
 LIMIT ?2
 `
 
@@ -85,33 +93,22 @@ type ListFeedParams struct {
 	Limit  int64
 }
 
-type ListFeedRow struct {
-	Seq     Seq
-	ShownAt storage.Time
-	Items   *string
-	ID      EventID
-	Kind    notice.Kind
-	At      storage.Time
-	Subject string
-}
-
-func (q *Queries) ListFeed(ctx context.Context, arg ListFeedParams) ([]ListFeedRow, error) {
+func (q *Queries) ListFeed(ctx context.Context, arg ListFeedParams) ([]NotificationsShown, error) {
 	rows, err := q.db.QueryContext(ctx, listFeed, arg.Before, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListFeedRow
+	var items []NotificationsShown
 	for rows.Next() {
-		var i ListFeedRow
+		var i NotificationsShown
 		if err := rows.Scan(
 			&i.Seq,
-			&i.ShownAt,
-			&i.Items,
-			&i.ID,
+			&i.EventID,
 			&i.Kind,
 			&i.At,
-			&i.Subject,
+			&i.ShownAt,
+			&i.Items,
 		); err != nil {
 			return nil, err
 		}

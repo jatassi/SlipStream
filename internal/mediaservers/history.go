@@ -109,7 +109,7 @@ func (s service) Refresh(ctx context.Context, id link.ServerID) error {
 // changes older than Timings.SentAge and plays that ended longer ago than
 // Keep play history for.
 func (m *MediaServers) Housekeeping() housekeeping.Step {
-	return housekeeping.Step{Key: "media-server-history", Label: "Media Server history", Run: m.pruneHistory}
+	return housekeeping.Plain("media-server-history", "Media Server history", m.pruneHistory)
 }
 
 func (m *MediaServers) pruneHistory(ctx context.Context) error {

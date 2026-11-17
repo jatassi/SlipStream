@@ -241,7 +241,7 @@ func (re *redo) held(g Grab, rows []db.GrabsRelease, ls []listed) {
 // follows. A drop for the Blocklist reruns with every copy of g's Release
 // gone, since a copy listed without an info hash passes the Blocklist
 // until its fetch. A drop that takes nothing in g's place records g's
-// failure.
+// failure, and one that does records it quiet.
 func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome, re *redo) ([]Grab, *Search, error) {
 	d, drop := o.(dropped)
 	if !drop {
@@ -254,8 +254,11 @@ func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outco
 		re.goneGroup(re.taken)
 	}
 	grabs, err := gr.redecide(ctx, tx, *re)
-	if err != nil || len(grabs) > 0 {
-		return grabs, &re.run, err
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(grabs) > 0 {
+		return grabs, &re.run, gr.recordFailed(ctx, tx, g, d.code, false)
 	}
 	return nil, &re.run, gr.failed(ctx, tx, g, d.code)
 }

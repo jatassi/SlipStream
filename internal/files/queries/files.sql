@@ -25,11 +25,10 @@ VALUES (sqlc.arg(id), sqlc.arg(file_id), sqlc.narg(import_id), sqlc.narg(grab_id
     sqlc.arg(items), sqlc.arg(cells), sqlc.arg(replaced), sqlc.arg(at));
 
 -- name: ListPlacedByOfFiles :many
-SELECT file_id, placed_by FROM files_imported WHERE file_id IN (sqlc.slice(file_ids)) ORDER BY at;
+SELECT id, placed_by FROM files_file WHERE id IN (sqlc.slice(file_ids)) AND placed_by IS NOT NULL ORDER BY id;
 
--- name: ListImportsOfFiles :many
-SELECT file_id, import_id FROM files_imported
-WHERE file_id IN (sqlc.slice(file_ids)) AND import_id IS NOT NULL ORDER BY at;
+-- name: SetPlacedBy :exec
+UPDATE files_file SET placed_by = sqlc.arg(placed_by) WHERE id = sqlc.arg(id);
 
 -- name: UpdateScanned :exec
 UPDATE files_file SET path = sqlc.arg(path), size = sqlc.arg(size), probe = sqlc.arg(probe), grab_id = sqlc.arg(grab_id),
@@ -74,8 +73,8 @@ WHERE id = sqlc.arg(id) AND title_read IS NULL;
 SELECT id FROM files_file ORDER BY id;
 
 -- name: InsertFill :exec
-INSERT INTO files_fill (file_id, target_id, item_id, edition, score, forced_at)
-VALUES (sqlc.arg(file_id), sqlc.arg(target_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(score), sqlc.arg(forced_at));
+INSERT INTO files_fill (file_id, target_id, item_id, edition, score, forced_at, forced_import_id)
+VALUES (sqlc.arg(file_id), sqlc.arg(target_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(score), sqlc.arg(forced_at), sqlc.arg(forced_import_id));
 
 -- name: DeleteFill :exec
 DELETE FROM files_fill WHERE item_id = sqlc.arg(item_id) AND edition = sqlc.arg(edition) AND target_id = sqlc.arg(target_id);
@@ -128,10 +127,6 @@ DELETE FROM files_move WHERE file_id = sqlc.arg(file_id) AND sits = sqlc.arg(sit
 SELECT files_move.file_id, files_move.sits, files_move.origin, files_move.ring, files_file.work_id, files_file.root_id, files_file.path
 FROM files_move JOIN files_file ON files_file.id = files_move.file_id
 ORDER BY files_move.file_id;
-
--- name: InsertRenamed :exec
-INSERT INTO files_renamed (file_id, root_id, from_path, to_path, renamed_at)
-VALUES (sqlc.arg(file_id), sqlc.arg(root_id), sqlc.arg(from_path), sqlc.arg(to_path), sqlc.arg(renamed_at));
 
 -- name: InsertPrune :exec
 INSERT INTO files_prune (root_id, folder) VALUES (sqlc.arg(root_id), sqlc.arg(folder)) ON CONFLICT DO NOTHING;
@@ -278,3 +273,7 @@ ORDER BY f.root_id, f.id;
 SELECT file_id, replaced FROM files_imported
 WHERE work_id = sqlc.arg(work_id) AND import_id = sqlc.arg(import_id)
 ORDER BY at, id;
+
+-- name: DeleteImportedBefore :execrows
+DELETE FROM files_imported WHERE id IN (
+    SELECT i.id FROM files_imported AS i INDEXED BY files_imported_at WHERE i.at < sqlc.arg(before) ORDER BY i.at LIMIT sqlc.arg(limit));

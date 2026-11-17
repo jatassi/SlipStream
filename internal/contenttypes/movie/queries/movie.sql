@@ -92,3 +92,8 @@ SELECT work_id, tmdb_id, imdb_id, title_english, original_title, year FROM movie
 
 -- name: ListEveryName :many
 SELECT work_id, tmdb_id, imdb_id, title_english, original_title, year FROM movie_movie ORDER BY rowid;
+
+-- name: ListWorksReleasedIn :many
+SELECT work_id FROM movie_release
+WHERE kind IN (2, 3, 4, 5) AND date >= sqlc.arg(from_day) AND date < sqlc.arg(to_day)
+ORDER BY kind, date;

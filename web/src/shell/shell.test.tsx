@@ -28,6 +28,7 @@ const currentLinks = () =>
   page
     .getByRole("link")
     .all()
+    .filter((link) => link.element().closest("main") === null)
     .filter((link) => link.element().getAttribute("aria-current") === "page")
     .map((link) => link.element().textContent);
 

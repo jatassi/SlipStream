@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/filesapi"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -32,7 +33,6 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
-	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
@@ -204,7 +204,7 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
-		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx},
+		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx.Undated()},
 		Source:       fx.SourceAs(contenttypetest.ID, "other"),
 		Artwork:      fx,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
@@ -236,7 +236,7 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 		t.Fatal(err)
 	}
 	asked := &queued{}
-	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Notices: noticetest.Ignored("library", library.Notices()), Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Imports: noImports{}, Queue: asked})}
+	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{History: entrytest.Ignored("library", library.Entries()), Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Imports: noImports{}, Queue: asked})}
 	worksapi.Routes(r, sh)
 	filesapi.Routes(r, sh)
 	return &server{handler: r.Handler(), lib: lib, fx: fx, works: w, goals: goals, grabs: cells, homes: homes, files: shelved, library: sh.l, queued: asked, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: identitytest.APIKey(t, lib), session: admin.Cookie.Value, log: logged}
@@ -354,7 +354,8 @@ const fixtureDescriptors = `"fields":[` +
 	`{"key":"code","label":"Code","tier":"item","kind":"text","in":["code"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
 	`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"label","label":"Label","tier":"level","depth":1,"shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}],` +
 	`"source":"Fixture source","items":"many","art":{"poster":"photo","backdrop":null,"title":null},"ratings":["tmdb","imdb"],"availability":"","releases":"",` +
-	`"addSearch":{"kind":"choice","choices":[{"value":"monitored","label":"Everything monitored"},{"value":"first_level","label":"First box"},{"value":"latest_level","label":"Latest box"},{"value":"first_item","label":"First thing"},{"value":"none","label":"Nothing"}]}`
+	`"addSearch":{"kind":"choice","choices":[{"value":"monitored","label":"Everything monitored"},{"value":"first_level","label":"First box"},{"value":"latest_level","label":"Latest box"},{"value":"first_item","label":"First thing"},{"value":"none","label":"Nothing"}]},` +
+	`"dated":[{"key":"shipped","label":"Ship date"}]`
 
 func TestListContentTypesAnswersASession(t *testing.T) {
 	s := serve(t)
@@ -364,7 +365,8 @@ func TestListContentTypesAnswersASession(t *testing.T) {
 	s.handler.ServeHTTP(w, req)
 	fixture := `{"id":"fixture","name":"Fixture","icon":"shapes","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"aside":{"one":"Spare box","many":"Spare boxes"},"item":{"one":"Thing","many":"Things"},` +
 		fixtureDescriptors + `}`
-	want := `{"contentTypes":[` + fixture + "," + strings.Replace(fixture, `"id":"fixture"`, `"id":"other"`, 1) + "]}\n"
+	other := strings.Replace(strings.Replace(fixture, `"id":"fixture"`, `"id":"other"`, 1), `"dated":[{"key":"shipped","label":"Ship date"}]`, `"dated":[]`, 1)
+	want := `{"contentTypes":[` + fixture + "," + other + "]}\n"
 	if w.Code != http.StatusOK || w.Body.String() != want {
 		t.Fatalf("listContentTypes = %d %s, want %s", w.Code, w.Body, want)
 	}

@@ -1,6 +1,6 @@
 -- name: InsertDelivery :exec
-INSERT INTO notifications_delivery (event_id, connection_id, state, attempts, items, accepted)
-VALUES (sqlc.arg(event_id), sqlc.arg(connection_id), 'due', 0, sqlc.narg(items), '[]');
+INSERT INTO notifications_delivery (event_id, connection_id, kind, at, state, attempts, items, accepted)
+VALUES (sqlc.arg(event_id), sqlc.arg(connection_id), sqlc.arg(kind), sqlc.arg(at), 'due', 0, sqlc.narg(items), '[]');
 
 -- name: OldestDue :one
 SELECT * FROM notifications_delivery
@@ -29,18 +29,16 @@ SET state = 'given_up', ended_at = sqlc.arg(at), reason = sqlc.arg(reason), resp
 WHERE event_id = sqlc.arg(event_id) AND connection_id = sqlc.arg(connection_id) AND state = 'due';
 
 -- name: ListDueOlderThan :many
-SELECT d.event_id, d.connection_id FROM notifications_delivery d
-JOIN notifications_event e ON e.id = d.event_id
-WHERE d.state = 'due' AND e.at < sqlc.arg(at)
-ORDER BY d.event_id, d.connection_id
+SELECT event_id, connection_id FROM notifications_delivery
+WHERE state = 'due' AND at < sqlc.arg(at)
+ORDER BY event_id, connection_id
 LIMIT sqlc.arg(limit);
 
 -- name: ListDueOff :many
 SELECT d.event_id, d.connection_id FROM notifications_delivery d
 JOIN notifications_connection c ON c.id = d.connection_id
-JOIN notifications_event e ON e.id = d.event_id
 WHERE d.state = 'due'
-  AND (c.is_on = 0 OR e.kind NOT IN (SELECT value FROM json_each(c.events)))
+  AND (c.is_on = 0 OR d.kind NOT IN (SELECT value FROM json_each(c.events)))
 ORDER BY d.event_id, d.connection_id
 LIMIT sqlc.arg(limit);
 
@@ -51,19 +49,11 @@ GROUP BY connection_id
 ORDER BY connection_id;
 
 -- name: ConnectionsCarrying :many
-SELECT DISTINCT i.key, d.connection_id FROM notifications_item i
-JOIN notifications_delivery d ON d.event_id = i.event_id AND d.state = 'due'
-WHERE i.key IN (sqlc.slice(keys))
-ORDER BY i.key, d.connection_id;
-
--- name: ListDueIn :many
-SELECT event_id, connection_id FROM notifications_delivery
-WHERE state = 'due' AND event_id IN (sqlc.slice(events))
-ORDER BY event_id, connection_id;
+-- The connections with a due delivery that carries key, bounded by Give up.
+-- The key's quoted form matches one element exactly, as in WaitingRaise.
+SELECT DISTINCT connection_id FROM notifications_delivery
+WHERE state = 'due' AND instr(items, json_quote(CAST(sqlc.arg(key) AS TEXT))) > 0
+ORDER BY connection_id;
 
 -- name: OldestDueAt :one
-SELECT e.at FROM notifications_delivery d
-JOIN notifications_event e ON e.id = d.event_id
-WHERE d.state = 'due'
-ORDER BY d.event_id
-LIMIT 1;
+SELECT at FROM notifications_delivery WHERE state = 'due' ORDER BY at LIMIT 1;

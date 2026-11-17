@@ -256,6 +256,9 @@ export const getGetMetadataSettingsResponseSettingDurationFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -728,6 +731,9 @@ export const getUpdateMetadataSettingsResponseSettingDurationFieldMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }

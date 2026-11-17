@@ -1,6 +1,6 @@
 import type { WorksContentType } from "../../api/gen/model";
 import { releaseVerb } from "../monitoring/labels";
-import { dayWords } from "../page/fields-format";
+import { dayWords } from "../../format/days";
 
 /** What folding reads of an Item row. */
 export type Foldable = {

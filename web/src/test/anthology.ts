@@ -15,6 +15,7 @@ export const anthologies: WorksContentType = {
   name: "Anthologies",
   icon: "open-book",
   enabled: true,
+  dated: [],
   work: { one: "Anthology", many: "Anthologies" },
   levels: [{ one: "Volume", many: "Volumes" }],
   aside: { one: "Extra", many: "Extras" },

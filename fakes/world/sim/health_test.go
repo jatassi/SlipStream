@@ -113,7 +113,7 @@ func TestAVolumeWarnsThenFailsThenRecovers(t *testing.T) {
 		}
 		warned := m.at(t, 50)
 		name := m.folder + " on home"
-		if warned.Level != "warn" || warned.Subject != name || warned.Action == nil || warned.Action.Kind != "check" ||
+		if warned.Level != "warn" || warned.Subject != "Volume "+name || warned.Action == nil || warned.Action.Kind != "check" ||
 			warned.Text != "Free up space on "+name+", or add a library root on another volume. It has 50 GB left." {
 			t.Fatalf("with 50 GB free the volume is %+v, want a warning on %s offering Check now", warned, name)
 		}

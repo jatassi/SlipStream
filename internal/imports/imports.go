@@ -16,10 +16,10 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/live"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -88,9 +88,9 @@ type Config struct {
 	// each Import file's IO before it runs, in tests.
 	BeforeStep   func(ctx context.Context, root roots.ID, phase Phase)
 	BeforeImport func(ctx context.Context, at Step)
-	// Notices records Imported, Upgraded and Works added by a Library
+	// History records Imported, Upgraded and Works added by a Library
 	// scan.
-	Notices notice.Recorder
+	History entry.Recorder
 	Log     *slog.Logger
 }
 

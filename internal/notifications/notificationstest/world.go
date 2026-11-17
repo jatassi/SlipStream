@@ -18,26 +18,32 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/history"
+	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/notifications"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // World is one Controller's notifications. Make it inside synctest.Test.
 type World struct {
-	t        *testing.T
-	Lib      *storage.DB[storage.Library]
-	Service  *notifications.Service
+	t       *testing.T
+	Lib     *storage.DB[storage.Library]
+	Service *notifications.Service
+	// History records the entries Service sends.
+	History  *history.Service
 	Courier  *Courier
 	Roster   *Roster
 	Identity *identity.Service
@@ -53,16 +59,35 @@ type World struct {
 	running  func()
 	timings  notifications.Timings
 	eachPass atomic.Pointer[func()]
-	rec      notice.Recorder
+	rec      entry.Recorder
+	owners   []Owner
+	recs     map[string]entry.Recorder
+}
+
+// Owner is a package whose rows a World registers beside Ping and Pong.
+type Owner struct {
+	Name string
+	Rows []entry.Entry
+}
+
+// Schemas is the sets a World's library holds, in order.
+func Schemas() []storage.Schema[storage.Library] {
+	return []storage.Schema[storage.Library]{secret.Schema(), identity.Schema(), mail.Schema(), nodes.Schema(), works.Schema(), history.Schema(), notifications.Schema()}
 }
 
 // New makes a World whose dispatcher runs on timings, as a Node's Config
 // holds them.
 func New(t *testing.T, timings notifications.Timings) *World {
 	t.Helper()
+	return Over(t, storagetest.Library(t, Schemas()...), filepath.Join(t.TempDir(), secret.KeyFile), timings)
+}
+
+// Over makes a World over lib, which holds Schemas and is sealed by the key
+// at keyFile, with owners' rows registered.
+func Over(t *testing.T, lib *storage.DB[storage.Library], keyFile string, timings notifications.Timings, owners ...Owner) *World {
+	t.Helper()
 	ctx := t.Context()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), mail.Schema(), nodes.Schema(), notifications.Schema())
-	keys, err := secret.Open(ctx, lib, filepath.Join(t.TempDir(), secret.KeyFile))
+	keys, err := secret.Open(ctx, lib, keyFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +97,7 @@ func New(t *testing.T, timings notifications.Timings) *World {
 	}
 	w := &World{
 		t: t, Lib: lib, Identity: id, Courier: newCourier(), Words: map[providers.ReasonCode]string{},
-		sealer: keys.Sealer(), log: &lockedBuffer{}, timings: timings,
+		sealer: keys.Sealer(), log: &lockedBuffer{}, timings: timings, owners: owners,
 	}
 	w.Roster = newRoster()
 	w.Self = w.AddNode("Den")
@@ -86,19 +111,29 @@ func New(t *testing.T, timings notifications.Timings) *World {
 // stores from the API's text fields.
 var webhook, _ = providers.ByID("webhook")
 
-// Restart stops the dispatcher, if it runs, and starts a new Service over
-// the same library.
+// Restart stops the dispatcher, if it runs, and starts a new Service and
+// History over the same library.
 func (w *World) Restart() {
 	w.Stop()
+	cat := entry.NewCatalog()
 	w.Service = notifications.New(notifications.Config{
-		Library: w.Lib, Sealer: w.sealer, Providers: []providers.Provider{hookProvider(w.Words), scriptProvider(), webhook},
+		Library: w.Lib, Catalog: cat, Sealer: w.sealer, Providers: []providers.Provider{hookProvider(w.Words), scriptProvider(), webhook},
 		Courier: w.Courier, Roster: w.Roster, Mail: noMail{}, Artwork: posters{},
 		Changed: nopChanged{}, Seen: nopSeen{}, Timings: w.timings,
 		Rand: rand.New(&splitmix{x: 1}), Zone: time.UTC, //nolint:gosec // seeded on purpose so tests replay
 		Log:        slog.New(slog.NewTextHandler(w.log, &slog.HandlerOptions{Level: slog.LevelInfo})),
 		BeforePass: w.beforePass,
 	})
-	w.rec = w.Service.Recorder("pings", []notice.Entry{PingRow, PongRow})
+	w.History = history.New(history.Config{
+		Library: w.Lib, Catalog: cat, Outbox: w.Service, Changed: nopHistory{}, Batch: 1000,
+		Log: slog.New(slog.NewTextHandler(w.log, &slog.HandlerOptions{Level: slog.LevelInfo})),
+	})
+	w.rec = w.History.Recorder("pings", []entry.Entry{PingRow, PongRow})
+	w.recs = map[string]entry.Recorder{}
+	for _, o := range w.owners {
+		w.recs[o.Name] = w.History.Recorder(o.Name, o.Rows)
+	}
+	cat.Seal()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -240,7 +275,7 @@ func (w *World) Status(id notifications.ConnectionID) notifications.Status {
 }
 
 // Record records each of fs in one Write, as PingRow or PongRow.
-func (w *World) Record(row notice.Row[Ping], fs ...Ping) {
+func (w *World) Record(row entry.Row[Ping], fs ...Ping) {
 	w.t.Helper()
 	err := w.Lib.Write(w.t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for _, f := range fs {
@@ -256,14 +291,29 @@ func (w *World) Record(row notice.Row[Ping], fs ...Ping) {
 	synctest.Wait()
 }
 
+// Recorder is the Recorder of owner, one of the Owners the World was made
+// with, as its Service last started.
+func (w *World) Recorder(owner string) entry.Recorder { return w.recs[owner] }
+
 // Transitions hands ts to the sink in one Write, as one Health evaluation
 // does.
 func (w *World) Transitions(ts ...health.Transition) {
 	w.t.Helper()
 	err := w.Lib.Write(w.t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return w.Service.Transitions(ctx, tx, ts)
+		return w.History.Transitions(ctx, tx, ts)
 	})
 	if err != nil {
+		w.t.Fatal(err)
+	}
+	synctest.Wait()
+}
+
+// Housekeeping runs Housekeeping's History unit now, as the task does,
+// two entries a batch.
+func (w *World) Housekeeping() {
+	w.t.Helper()
+	task := housekeeping.Task(housekeeping.Config{Keep: w.History, Batch: 2, Steps: []housekeeping.Step{w.History.Retention()}})
+	if err := task.Run(w.t.Context(), tasks.Unit{Key: "history"}, &tasks.Progress{}); err != nil {
 		w.t.Fatal(err)
 	}
 	synctest.Wait()
@@ -282,8 +332,14 @@ func (w *World) Health() health.Answer {
 // Admin makes an Admin Account signed in now.
 func (w *World) Admin(email string) identity.Admin {
 	w.t.Helper()
+	return w.SignIn(identitytest.Admin(w.t, w.Lib, email))
+}
+
+// SignIn signs in the Admin Account id now.
+func (w *World) SignIn(id identity.AccountID) identity.Admin {
+	w.t.Helper()
 	ctx := w.t.Context()
-	token := identitytest.Session(w.t, w.Lib, identitytest.Admin(w.t, w.Lib, email))
+	token := identitytest.Session(w.t, w.Lib, id)
 	caller, _, err := w.Identity.Authenticate(ctx, identity.Request{Session: token})
 	if err != nil {
 		w.t.Fatal(err)
@@ -294,7 +350,7 @@ func (w *World) Admin(email string) identity.Admin {
 	}
 	admin, ok := account.AsAdmin()
 	if !ok {
-		w.t.Fatalf("%s isn't an Admin", email)
+		w.t.Fatal("the Account isn't an Admin")
 	}
 	return admin
 }
@@ -352,7 +408,10 @@ func (b *lockedBuffer) String() string {
 type (
 	nopChanged struct{}
 	nopSeen    struct{}
+	nopHistory struct{}
 )
+
+func (nopHistory) Publish(context.Context, history.Changed) {}
 
 func (nopChanged) Publish(context.Context, notifications.Changed) {}
 

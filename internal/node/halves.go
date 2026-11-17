@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
@@ -15,6 +16,8 @@ import (
 	"github.com/jatassi/slipstream/internal/firstrun"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/history"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -110,6 +113,12 @@ type half struct {
 	// notifications is the Admin's notification connections and the bell,
 	// on a Controller.
 	notifications *notifications.Service
+
+	// calendar reads release dates in a span of days, on a Controller.
+	calendar *calendar.Calendar
+
+	// history lists what happened to the library, on a Controller.
+	history *history.Service
 
 	tasks    *tasks.Scheduler
 	health   *health.Health
@@ -233,8 +242,10 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:   n.rootLog.With("subsystem", "mediaservers"),
 	})
 	linked = mediaserverlink.Def.Serve(servers.Intent, servers.Apply)
+	cat := entry.NewCatalog()
 	n.notifications = notifications.New(notifications.Config{
 		Library:   lib.db,
+		Catalog:   cat,
 		Sealer:    lib.sealer,
 		Providers: notificationproviders.Table,
 		Courier:   lateCourier{&cluster},
@@ -248,6 +259,10 @@ func (n *Node) startController(ctx context.Context) error {
 		Rand:      n.notificationsRand,
 		Zone:      n.zone(),
 		Log:       n.rootLog.With("subsystem", "notifications"),
+	})
+	n.history = history.New(history.Config{
+		Library: lib.db, Catalog: cat, Outbox: n.notifications, Changed: history.ChangedEvent.Bind(n.hub),
+		Batch: n.cfg.Timings.Housekeeping.PruneBatch, Log: n.rootLog.With("subsystem", "history"),
 	})
 	arrivals := roots.NewArrivals()
 	var systems *nodesystem.Nodes
@@ -464,6 +479,10 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	dates := calendar.New(calendar.Config{
+		Library: lib.db, Types: contenttype.Project(opened, func(t contenttype.Library) calendar.Facet { return t }),
+		Works: tree, Files: shelf, Today: n.today,
+	})
 	pipeline = grabs.New(grabs.Config{
 		Library:          lib.db,
 		Works:            tree,
@@ -491,7 +510,7 @@ func (n *Node) startController(ctx context.Context) error {
 		QueueChanged:     grabs.QueueChangedEvent.Bind(n.hub),
 		Clock:            time.Now,
 		Today:            n.today,
-		Notices:          n.notifications.Recorder("grabs", grabs.Notices()),
+		History:          n.history.Recorder("grabs", grabs.Entries()),
 		Log:              n.rootLog.With("subsystem", "grabs"),
 	})
 	searchQueue.Bind(pipeline)
@@ -525,7 +544,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Rand:         n.importsRand,
 		BeforeStep:   n.env.Test.BeforeScanStep,
 		BeforeImport: n.env.Test.BeforeImport,
-		Notices:      n.notifications.Recorder("imports", imports.Notices()),
+		History:      n.history.Recorder("imports", imports.Entries()),
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
 	pipeline.Register(found.Importer())
@@ -533,8 +552,9 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue,
-		Notices: n.notifications.Recorder("library", library.Notices()),
+		History: n.history.Recorder("library", library.Entries()),
 	})
+	cat.Seal()
 
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
@@ -546,7 +566,9 @@ func (n *Node) startController(ctx context.Context) error {
 			Tidy: func(node role.NodeID) housekeepingv1connect.HousekeepingServiceHandler {
 				return housekeepingv1connect.HousekeepingService.On(cluster, node)
 			},
-			Steps: []housekeeping.Step{{Key: "indexer-queries", Label: "Indexer queries and sessions", Run: registry.Prune}, servers.Housekeeping(), n.notifications.Housekeeping()},
+			Keep:  n.history,
+			Batch: n.cfg.Timings.Housekeeping.PruneBatch,
+			Steps: housekeepingSteps(registry, servers, n.history, pipeline, found, shelf),
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
@@ -586,6 +608,10 @@ func (n *Node) startController(ctx context.Context) error {
 
 		notifications: n.notifications,
 
+		calendar: dates,
+
+		history: n.history,
+
 		transfers: copies,
 		copier:    copier,
 	}
@@ -611,6 +637,7 @@ func (n *Node) startController(ctx context.Context) error {
 	}).Run)
 	n.claimed.Go("health", h.health.Run)
 	n.claimed.Go("notifications", n.notifications.Run)
+	n.claimed.Go("history", n.history.Run)
 	n.claimed.Go("first setup", h.firstRun.Run)
 	n.env.Test.started(started)
 	return nil
@@ -894,6 +921,16 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 		LogPoll:       n.cfg.Timings.Link.LogPoll,
 		LogArchiveTTL: n.cfg.Timings.Link.LogArchiveTTL,
 	}))
+}
+
+// housekeepingSteps is Housekeeping's prunes in their units' order. The
+// Grabs step runs before the Imports step, so the Imports step sees the
+// Grabs it deleted.
+func housekeepingSteps(registry *indexers.Indexers, servers *mediaservers.MediaServers, h *history.Service, pipeline *grabs.Grabs, found *imports.Imports, shelf *files.Files) []housekeeping.Step {
+	return []housekeeping.Step{
+		housekeeping.Plain("indexer-queries", "Indexer queries and sessions", registry.Prune), servers.Housekeeping(),
+		h.Retention(), pipeline.Retention(), found.Retention(), shelf.Retention(),
+	}
 }
 
 // owners is each Role's owner: the feature that keeps its work.

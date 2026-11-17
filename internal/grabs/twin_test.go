@@ -12,9 +12,9 @@ import (
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabs/grabstest"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
-	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -148,7 +148,7 @@ type atticWorld struct {
 	ids   map[string]indexers.ID
 	names map[indexers.ID]string
 	// notices keeps the events the Grabs record.
-	notices *noticetest.Recorder
+	notices *entrytest.Recorder
 }
 
 func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, goals []targets.Spec, log *slog.Logger) atticWorld {
@@ -163,7 +163,7 @@ func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, goals []t
 		Grabs: grabs.DefaultTimings(), Indexers: indexers.DefaultTimings(), Formats: formats.DefaultTimings(),
 	})
 	settings(t, w, map[string]string{grabs.StopCount.Key: "1"})
-	world := atticWorld{lib: w.Lib, cfg: w.Config, home: w.Home, work: w.Work, ids: w.Sites, names: map[indexers.ID]string{}, notices: w.Notices}
+	world := atticWorld{lib: w.Lib, cfg: w.Config, home: w.Home, work: w.Work, ids: w.Sites, names: map[indexers.ID]string{}, notices: w.History}
 	for _, site := range sites {
 		id := w.Sites[site.name]
 		world.names[id] = site.name

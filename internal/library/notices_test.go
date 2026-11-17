@@ -2,17 +2,23 @@ package library_test
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"log/slog"
 	"reflect"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/history"
+	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
+	"github.com/jatassi/slipstream/internal/history/historytest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
-	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -27,16 +33,19 @@ func TestOnlyAnAddThatAnnouncesRecordsWorksAdded(t *testing.T) {
 	if _, err := l.Add(t.Context(), identity.Admin{}, library.Adding{Type: contenttypetest.ID, Key: "w1", Root: &s.root.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if got := noticetest.Of(s.notices, library.AddedRow); len(got) != 0 {
+	if got := entrytest.Of(s.notices, library.AddedRow); len(got) != 0 {
 		t.Fatalf("an add that doesn't announce recorded Works added %+v", got)
 	}
 	added, err := l.Add(t.Context(), identity.Admin{}, library.Adding{Type: contenttypetest.ID, Key: "w2", Root: &s.root.ID, Announce: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := noticetest.Of(s.notices, library.AddedRow)
+	got := entrytest.Of(s.notices, library.AddedRow)
 	if len(got) != 1 || got[0].Work.ID != added.Tree.ID || got[0].Work.Label != "Shelf w2" || !got[0].By.APIKey || got[0].Root == "" {
 		t.Fatalf("the add flow's add recorded %+v, want one Works added for Shelf w2 by the API key into its root", got)
+	}
+	if about := entrytest.Abouts(s.notices, library.AddedRow)[0]; about.Type != contenttypetest.ID || !slices.Equal(about.Works, []works.WorkID{added.Tree.ID}) {
+		t.Errorf("Works added is about %+v, want Shelf w2", about)
 	}
 }
 
@@ -51,14 +60,34 @@ func TestDeletingOneWorkRecordsItWhole(t *testing.T) {
 	if _, _, err := l.Delete(t.Context(), identity.Admin{}, []works.WorkID{added.Tree.ID}, library.Deleting{Files: library.LeaveFiles}); err != nil {
 		t.Fatal(err)
 	}
-	got := noticetest.Of(s.notices, library.DeletedRow)
+	got := entrytest.Of(s.notices, library.DeletedRow)
 	if len(got) != 1 || len(got[0].Types) != 1 || got[0].Types[0].Count != 1 || got[0].Types[0].Work == nil || got[0].Types[0].Work.ID != added.Tree.ID {
 		t.Fatalf("a one-Work delete recorded %+v, want one Works deleted carrying the Work", got)
 	}
 }
 
-func TestA20000WorkDeleteAcrossTwoContentTypesRecordsOneEvent(t *testing.T) {
+// deleteBudget is the design's: a 20,000-Work delete's Write within 500 ms.
+const deleteBudget = 500 * time.Millisecond
+
+// quietOutbox owes nothing and was told nothing.
+type quietOutbox struct{}
+
+func (quietOutbox) Queue(context.Context, *storage.Tx[storage.Library], history.Captured) error {
+	return nil
+}
+
+func (quietOutbox) Owed(context.Context, storage.Reader[storage.Library], []history.EventID) (map[history.EventID]bool, error) {
+	return nil, nil
+}
+
+func (quietOutbox) Told(context.Context, storage.Reader[storage.Library], string) (history.Told, bool, error) {
+	return history.Told{}, false, nil
+}
+
+func TestA20000WorkDeleteAcrossTwoContentTypesRecordsOneEntryPerContentType(t *testing.T) {
 	s := newShelf(t)
+	h := history.New(history.Config{Library: s.lib, Catalog: entry.NewCatalog(), Outbox: quietOutbox{}, Log: slog.New(slog.DiscardHandler)})
+	s.rec = h.Recorder("library", library.Entries())
 	l := s.library(nil)
 	insert := func(contentType string, n int) {
 		err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -89,38 +118,44 @@ func TestA20000WorkDeleteAcrossTwoContentTypesRecordsOneEvent(t *testing.T) {
 	if err := rows.Close(); err != nil {
 		t.Fatal(err)
 	}
+	start := time.Now()
 	if _, _, err := l.Delete(t.Context(), identity.Admin{}, ids, library.Deleting{Files: library.LeaveFiles}); err != nil {
 		t.Fatal(err)
 	}
-	got := noticetest.Of(s.notices, library.DeletedRow)
-	if len(got) != 1 {
-		t.Fatalf("the delete recorded %d Works deleted, want 1", len(got))
-	}
+	t.Logf("the delete took %s, against a %s budget", time.Since(start).Round(time.Millisecond), deleteBudget)
 	var tally []string
-	for _, ty := range got[0].Types {
-		tally = append(tally, fmt.Sprint(ty.Count, ty.First, ty.Work == nil))
+	for _, e := range historytest.Entries(t, s.lib) {
+		var f library.DeletedFacts
+		if err := json.Unmarshal([]byte(e.Subject), &f); err != nil {
+			t.Fatal(err)
+		}
+		ty := f.Types[0]
+		tally = append(tally, fmt.Sprintf("%s %d %s %d %d %v", e.Kind, len(f.Types), e.Type, len(e.Works), ty.Count, ty.First))
 	}
-	want := []string{"12000 [fixture 00001 fixture 00002 fixture 00003] true", "8000 [other 00001 other 00002 other 00003] true"}
+	want := []string{
+		"works_deleted 1 fixture 12000 12000 [fixture 00001 fixture 00002 fixture 00003]",
+		"works_deleted 1 other 8000 8000 [other 00001 other 00002 other 00003]",
+	}
 	if !reflect.DeepEqual(tally, want) {
-		t.Fatalf("Works deleted tells %q, want %q", tally, want)
+		t.Fatalf("History holds %q, want %q", tally, want)
 	}
 }
 
 func TestLibraryMessagesReadAsWritten(t *testing.T) {
-	books := notice.Nouns{Work: works.Noun{One: "Book", Many: "Books"}, Item: works.Noun{One: "Book", Many: "Books"}, Single: true}
-	zines := notice.Nouns{Work: works.Noun{One: "Zine", Many: "Zines"}, Levels: []works.Noun{{One: "Volume", Many: "Volumes"}}, Item: works.Noun{One: "Issue", Many: "Issues"}}
-	dune := notice.Work{
+	books := entry.Nouns{Work: works.Noun{One: "Book", Many: "Books"}, Item: works.Noun{One: "Book", Many: "Books"}, Single: true}
+	zines := entry.Nouns{Work: works.Noun{One: "Zine", Many: "Zines"}, Levels: []works.Noun{{One: "Volume", Many: "Volumes"}}, Item: works.Noun{One: "Issue", Many: "Issues"}}
+	dune := entry.Work{
 		ID: works.WorkID{UUID: must(storage.ParseUUID("019a8f5e-0000-7000-8000-000000000002"))}, Label: "Dune (1965)", Type: "book", Nouns: books,
 		Poster: artwork.Ref{Source: "tmdb", Shape: artwork.ShapePoster, Path: "/dune.jpg"},
 	}
-	golden := func(e notice.Entry, facts any, name string) {
-		noticetest.Golden(t, e, facts, "testdata/notices", name, *update)
+	golden := func(e entry.Entry, facts any, name string) {
+		entrytest.Golden(t, e, facts, "testdata/notices", name, *update)
 	}
-	golden(library.AddedRow, library.AddedFacts{Work: dune, Root: "Books library root on Den", By: notice.Actor{Name: "Sam"}}, "works-added")
-	golden(library.AddedRow, library.AddedFacts{Work: dune, By: notice.Actor{APIKey: true}}, "works-added-no-root")
-	golden(library.DeletedRow, library.DeletedFacts{By: notice.Actor{Name: "Sam"}, Types: []library.DeletedType{{Nouns: books, Count: 1, First: []string{dune.Label}, Work: &dune}}}, "works-deleted-one")
-	golden(library.DeletedRow, library.DeletedFacts{By: notice.Actor{Name: "Sam"}, Types: []library.DeletedType{{Nouns: books, Count: 12, First: []string{"Dune (1965)", "Emma (1815)", "Ulysses (1922)"}}}}, "works-deleted-many")
-	golden(library.DeletedRow, library.DeletedFacts{By: notice.Actor{APIKey: true}, Types: []library.DeletedType{
+	golden(library.AddedRow, library.AddedFacts{Work: dune, Root: "Books library root on Den", By: entry.Actor{Name: "Sam"}}, "works-added")
+	golden(library.AddedRow, library.AddedFacts{Work: dune, By: entry.Actor{APIKey: true}}, "works-added-no-root")
+	golden(library.DeletedRow, library.DeletedFacts{By: entry.Actor{Name: "Sam"}, Types: []library.DeletedType{{Nouns: books, Count: 1, First: []string{dune.Label}, Work: &dune}}}, "works-deleted-one")
+	golden(library.DeletedRow, library.DeletedFacts{By: entry.Actor{Name: "Sam"}, Types: []library.DeletedType{{Nouns: books, Count: 12, First: []string{"Dune (1965)", "Emma (1815)", "Ulysses (1922)"}}}}, "works-deleted-many")
+	golden(library.DeletedRow, library.DeletedFacts{By: entry.Actor{APIKey: true}, Types: []library.DeletedType{
 		{Nouns: books, Count: 12000, First: []string{"Dune (1965)", "Emma (1815)", "Ulysses (1922)"}},
 		{Nouns: zines, Count: 8000, First: []string{"Ark", "Bolt", "Crux"}},
 	}}, "works-deleted-two-types")

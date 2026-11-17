@@ -22,6 +22,11 @@ var lifetime = setting.Duration{
 	Default: time.Hour, Min: 10 * time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute,
 }
 
+var keepFor = setting.Duration{
+	Key: "history.keepFor", Label: "Keep history for",
+	Default: 90 * 24 * time.Hour, Min: 30 * 24 * time.Hour, Max: 1095 * 24 * time.Hour, Step: 24 * time.Hour,
+}
+
 func ptr[T any](v T) *T { return &v }
 
 func sentence(err error) string {
@@ -47,6 +52,7 @@ func TestDurationParse(t *testing.T) {
 		{"below a minimum with no floor", lifetime, ptr[int64](540), nil, "Between 10 min and 7 days."},
 		{"above the maximum", lifetime, ptr[int64](8 * 86400), nil, "Between 10 min and 7 days."},
 		{"off the step", rss, ptr[int64](630), nil, "In whole minutes."},
+		{"a range past a thousand days", keepFor, ptr[int64](29 * 86400), nil, "Between 30 days and 1,095 days."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := tc.d.Parse(tc.seconds)
@@ -155,6 +161,10 @@ func TestFieldReportsIsDefault(t *testing.T) {
 		{
 			"a duration with a floor, overridden", rss.Field(ptr[int64](1800)),
 			`{"key":"tasks.rss.cadence","label":"RSS sync","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":900,"min":600,"max":7200,"step":60,"floor":"Private trackers ban for hammering."}`,
+		},
+		{
+			"a duration that says what a longer time costs", setting.Duration{Key: "history.keepFor", Label: "Keep history for", Default: 24 * time.Hour, Min: 24 * time.Hour, Max: 48 * time.Hour, Step: 24 * time.Hour, Description: "A longer time makes each Backup larger."}.Field(nil),
+			`{"key":"history.keepFor","label":"Keep history for","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"duration","value":86400,"running":86400,"default":86400,"min":86400,"max":172800,"step":86400,"description":"A longer time makes each Backup larger."}`,
 		},
 		{
 			"a count", setting.Count{Key: "tasks.runsKept", Label: "Runs kept", Default: 50, Min: 1, Max: 1000, Unit: setting.Noun{One: "run", Many: "runs"}}.Field(ptr[int64](20)),

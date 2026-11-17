@@ -2,9 +2,7 @@ package imports
 
 import (
 	"context"
-	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -28,13 +26,7 @@ type treeWording struct {
 }
 
 func newWording(tree works.Tree, nouns works.Description, names map[targets.TargetID]string, cuts []release.Cut) treeWording {
-	w := treeWording{tree: tree, nouns: nouns, names: names, cuts: cuts, numbers: map[works.ItemID]int{}}
-	place := map[works.LevelID]int{}
-	for _, it := range tree.Items {
-		place[it.LevelID]++
-		w.numbers[it.ID] = place[it.LevelID]
-	}
-	return w
+	return treeWording{tree: tree, nouns: nouns, names: names, cuts: cuts, numbers: works.Places(tree.Items)}
 }
 
 func (w treeWording) targets(ids []targets.TargetID) string {
@@ -42,7 +34,7 @@ func (w treeWording) targets(ids []targets.TargetID) string {
 	for i, id := range ids {
 		names[i] = w.names[id]
 	}
-	return joinWords(slices.Compact(names))
+	return works.JoinWords(slices.Compact(names))
 }
 
 // items is ids in words, a run of three or more numbers in a row written
@@ -64,34 +56,12 @@ func (w treeWording) items(ids []works.ItemID) string {
 	}
 	parts := make([]string, len(order))
 	for i, l := range order {
-		parts[i] = numbersWords(w.nouns.Item, byLevel[l])
+		parts[i] = works.NumbersWords(w.nouns.Item, byLevel[l])
 		if len(order) > 1 {
 			parts[i] += " of " + w.level(l)
 		}
 	}
-	return joinWords(parts)
-}
-
-func numbersWords(noun works.Noun, ns []int) string {
-	var runs []string
-	for i := 0; i < len(ns); {
-		k := i
-		for k+1 < len(ns) && ns[k+1] == ns[k]+1 {
-			k++
-		}
-		if k-i >= 2 {
-			runs = append(runs, fmt.Sprintf("%d to %d", ns[i], ns[k]))
-		} else {
-			for _, n := range ns[i : k+1] {
-				runs = append(runs, strconv.Itoa(n))
-			}
-		}
-		i = k + 1
-	}
-	if len(ns) == 1 {
-		return noun.One + " " + runs[0]
-	}
-	return noun.Many + " " + joinWords(runs)
+	return works.JoinWords(parts)
 }
 
 func (w treeWording) level(id works.LevelID) string {

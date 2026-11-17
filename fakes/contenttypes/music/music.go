@@ -66,6 +66,7 @@ var Description = works.Description{
 		{Key: "length", Label: "Length", Tier: works.TierItem, Kind: works.KindDuration, In: []works.Place{works.PlaceFacts}},
 	},
 	Artwork: []artwork.Kind{coverKind, albumCoverKind},
+	Dated:   []works.DatedKind{releaseKind},
 }
 
 // Source is the provider half: it reads MusicBrainz on any Metadata

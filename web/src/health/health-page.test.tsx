@@ -211,7 +211,7 @@ test("rows keep the order they were first shown in while the page is open", asyn
   const health = healthServer(reportOf({ storage: [fullVolume, fillingVolume] }));
   renderApp({ path: "/health", handlers: [...server.handlers, ...health.handlers] });
   await expect.element(rowOf(fillingVolume.subject)).toBeVisible();
-  const newer = { ...fillingVolume, key: "v.home.Rjo", subject: "F: (Scratch) on home" };
+  const newer = { ...fillingVolume, key: "v.home.Rjo", subject: "Volume F: (Scratch) on home" };
   health.state.report = reportOf({
     storage: [newer, { ...fillingVolume, level: "fail", since: minutesAgo(50) }, fullVolume],
   });

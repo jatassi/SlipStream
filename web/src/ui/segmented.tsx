@@ -1,6 +1,7 @@
 import { Radio } from "@base-ui/react/radio";
 import { RadioGroup } from "@base-ui/react/radio-group";
 
+import { scrollFadeLook, useScrollFade } from "./scroll-fade";
 import { useShell } from "./shell-context";
 
 export type SegmentedOption<V extends string> = { value: V; label: string; count?: number };
@@ -31,15 +32,18 @@ export function Segmented<V extends string>({
   disabled?: boolean;
   onValueChange: (value: V) => void;
 }) {
+  const { ref, fade } = useScrollFade();
   return (
     <RadioGroup
+      ref={ref}
+      data-fade={fade}
       aria-label={label}
       value={value}
       disabled={disabled}
       onValueChange={(next) => {
         onValueChange(next);
       }}
-      className={`${segmentedTracks[useShell()]} data-disabled:opacity-40`}
+      className={`${segmentedTracks[useShell()]} ${scrollFadeLook} data-disabled:opacity-40`}
     >
       {options.map((option) => (
         <Radio.Root

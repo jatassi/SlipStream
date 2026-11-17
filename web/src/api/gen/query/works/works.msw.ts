@@ -102,6 +102,12 @@ export const getListContentTypesResponseMock = (
         null,
       ]),
       availability: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      dated: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        }),
+      ),
       enabled: faker.datatype.boolean(),
       fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
@@ -601,6 +607,10 @@ export const getSetContentTypeEnabledResponseMock = (
     null,
   ]),
   availability: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  dated: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  })),
   enabled: faker.datatype.boolean(),
   fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
@@ -681,6 +691,9 @@ export const getGetContentTypeSettingsResponseSettingDurationFieldMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -1155,6 +1168,9 @@ export const getUpdateContentTypeSettingsResponseSettingDurationFieldMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -1804,6 +1820,9 @@ export const getAddWorkResponseSettingDurationFieldMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -3029,6 +3048,9 @@ export const getGetWorkResponseSettingDurationFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -3646,6 +3668,9 @@ export const getSetWorkOptionsResponseSettingDurationFieldMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }

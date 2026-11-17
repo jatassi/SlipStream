@@ -89,7 +89,7 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 	key := health.KeyOf("v", media.String(), health.Opaque(`D:\`))
 	s.Expect(t, http.MethodGet, "/api/v1/system/health", "", http.StatusOK,
 		`{"level":"fail","first":{"category":"storage","key":"v.id1.RDpc","text":"Free up space on D: (Media) on Media server, or add a library root on another volume. It has 10 GB left."},"categories":[`+
-			`{"id":"storage","label":"Storage","phrase":"storage","level":"fail","canCheck":true,"items":[{"key":"v.id1.RDpc","level":"fail","subject":"D: (Media) on Media server",`+
+			`{"id":"storage","label":"Storage","phrase":"storage","level":"fail","canCheck":true,"items":[{"key":"v.id1.RDpc","level":"fail","subject":"Volume D: (Media) on Media server",`+
 			`"text":"Free up space on D: (Media) on Media server, or add a library root on another volume. It has 10 GB left.","detail":[{"label":"Free","bytes":10737418240},{"label":"Total","bytes":1099511627776},`+
 			`{"label":"Warning level","text":"100 GB (global)"},{"label":"Error level","text":"20 GB (global)"},{"label":"Sampled","at":"T"}],"action":{"kind":"check"},"since":"T","changedAt":"T","unsure":false}]},`+
 			`{"id":"library","label":"Library","phrase":"the library","level":null,"canCheck":false,"items":[]},`+

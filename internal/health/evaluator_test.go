@@ -566,7 +566,7 @@ func TestALevelsWriteEvaluatesAndPublishesStorage(t *testing.T) {
 		r, _ := h.Report(t.Context())
 		got := items(t, r, health.StorageID)
 		want := "Free up space on D: (Media) on Media server, or add a library root on another volume. It has 150 GB left."
-		if len(got) != 1 || got[0].Level != health.Warn || got[0].Subject != "D: (Media) on Media server" || got[0].Text != want || got[0].Action.Kind() != health.ActionCheck {
+		if len(got) != 1 || got[0].Level != health.Warn || got[0].Subject != "Volume D: (Media) on Media server" || got[0].Text != want || got[0].Action.Kind() != health.ActionCheck {
 			t.Fatalf("storage shows %+v, want a warning saying %q", got, want)
 		}
 

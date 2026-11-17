@@ -8,7 +8,7 @@ import { StatusSentence } from "../ui/status-sentence";
 import { CancelQueued, SearchAll } from "./wanted-actions";
 import { type WantedFilter, wantedQuery } from "./wanted-query";
 import { WantedRows } from "./wanted-rows";
-import { ReasonChips, SortMenu, TypeLinks } from "./wanted-toolbar";
+import { ReasonChips, SortMenu, WantedSwitches } from "./wanted-toolbar";
 // oxlint-disable-next-line import/max-dependencies -- the page lays out the status, the filters, its actions and the rows
 import { headersOf, statusParts } from "./wanted-words";
 
@@ -35,7 +35,7 @@ export function WantedPage({
   const type = types.find(({ id }) => id === filter.contentType);
   return (
     <Page
-      beside={types.length < 2 ? undefined : <TypeLinks types={types} />}
+      beside={<WantedSwitches types={types} contentType={filter.contentType} />}
       action={<SearchAll filter={filter} type={type} total={first.total} />}
     >
       <div className="mb-4">

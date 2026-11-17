@@ -46,7 +46,7 @@ func markedFormats() (*formats.Catalog, []formats.ID) {
 // Import or none, and a fresh file may force a cell.
 func randomWorld(t *testing.T, r *rand.Rand) world {
 	t.Helper()
-	w := world{fills: map[CellKey]Fill{}, fresh: map[ID]bool{}, found: map[ID]bool{}, imports: map[ID]storage.UUID{}, force: map[CellKey]ID{}, forcedAt: storage.Now()}
+	w := world{fills: map[CellKey]Fill{}, fresh: map[ID]bool{}, found: map[ID]bool{}, force: map[CellKey]ID{}, forcedAt: storage.Now()}
 	for range 1 + r.IntN(3) {
 		w.tree.Items = append(w.tree.Items, works.Item{ID: works.ItemID{UUID: storage.NewUUID()}})
 	}
@@ -55,21 +55,23 @@ func randomWorld(t *testing.T, r *rand.Rand) world {
 	}
 	imports := []storage.UUID{{}, storage.NewUUID()}
 	w.importing = imports[r.IntN(len(imports))]
+	landed := map[ID]storage.UUID{}
 	for range r.IntN(7) {
 		f := randomFile(r, w.tree.Items)
 		w.files = append(w.files, f)
 		switch r.IntN(4) {
 		case 0:
 			w.fresh[f.ID] = true
+			landed[f.ID] = w.importing
 		case 1:
 			w.found[f.ID] = true
 		default:
-			w.imports[f.ID] = imports[r.IntN(len(imports))]
+			landed[f.ID] = imports[r.IntN(len(imports))]
 		}
 	}
 	for _, it := range w.tree.Items {
 		for _, target := range w.goals.Targets {
-			randomFill(r, w, CellKey{Item: it.ID, Edition: targets.AnyEdition, Target: target.ID})
+			randomFill(r, w, landed, CellKey{Item: it.ID, Edition: targets.AnyEdition, Target: target.ID})
 		}
 	}
 	w.scoring = newScoring(marked, w.goals, release.Fact[release.Language]{})
@@ -94,7 +96,7 @@ func randomFile(r *rand.Rand, items []works.Item) File {
 
 // randomFill fills key in w at random, mostly from a file holding its
 // Item and half the time forced, and may have a fresh file force it.
-func randomFill(r *rand.Rand, w world, key CellKey) {
+func randomFill(r *rand.Rand, w world, landed map[ID]storage.UUID, key CellKey) {
 	holding := slices.DeleteFunc(slices.Clone(w.files), func(f File) bool { return !slices.Contains(f.Items, key.Item) })
 	if len(holding) == 0 || r.IntN(4) == 0 {
 		holding = w.files
@@ -102,7 +104,7 @@ func randomFill(r *rand.Rand, w world, key CellKey) {
 	if len(holding) > 0 && r.IntN(2) == 0 {
 		fill := Fill{File: holding[r.IntN(len(holding))].ID}
 		if r.IntN(2) == 0 {
-			fill.Forced = storage.Now()
+			fill.Forced, fill.ForcedBy = storage.Now(), landed[fill.File]
 		}
 		w.fills[key] = fill
 	}
@@ -203,12 +205,12 @@ func checkCell(t *testing.T, w world, target targets.Target, meeting []File, pri
 		if fill.Forced != prior.Forced {
 			t.Fatalf("cell %s keeps its forced file as %+v, want it still forced at %v", target.Name, fill, prior.Forced)
 		}
-		if top, ok := bestOf(target, meeting); ok && challenger(w, top, prior.File) && better(target, top, *by) {
+		if top, ok := bestOf(target, meeting); ok && challenger(w, top, prior) && better(target, top, *by) {
 			t.Fatalf("cell %s keeps its forced %s, but %s arriving from another Import beats every file", target.Name, by.ReleaseName, top.ReleaseName)
 		}
 		checkScore(t, target, by, fill.Score)
 	case !prior.Forced.IsZero() && meets(prior.File):
-		if !challenger(w, *by, prior.File) {
+		if !challenger(w, *by, prior) {
 			t.Fatalf("cell %s forced to %s went to %s, which isn't arriving from another Import", target.Name, prior.File, by.ReleaseName)
 		}
 		checkFill(t, target, meeting, by, fill.Score)
@@ -217,10 +219,14 @@ func checkCell(t *testing.T, w world, target targets.Target, meeting []File, pri
 	}
 }
 
-// challenger reports whether f arrives in w from another Import than
-// held's.
-func challenger(w world, f File, held ID) bool {
-	return (w.fresh[f.ID] || w.found[f.ID]) && (w.importOf(f.ID).IsZero() || w.importOf(f.ID) != w.importOf(held))
+// challenger reports whether f arrives in w from another Import than the
+// one whose Force held is.
+func challenger(w world, f File, held Fill) bool {
+	var of storage.UUID
+	if w.fresh[f.ID] {
+		of = w.importing
+	}
+	return (w.fresh[f.ID] || w.found[f.ID]) && (of.IsZero() || of != held.ForcedBy)
 }
 
 // bestOf is the one file of meeting no other matches or beats at target,

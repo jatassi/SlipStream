@@ -645,6 +645,10 @@ func becauseClause(e BlockEntry) string {
 		return "an app using the API key marked it failed."
 	case e.Cause == CauseByHand && e.By.Name == "":
 		return "an app using the API key blocklisted it when canceling its Grab."
+	case e.Cause == CauseNoVideo:
+		return "this download has no video file."
+	case e.Cause == CauseMisdescribed:
+		return "its files' resolution or HDR doesn't match its title."
 	}
 	return e.because()
 }

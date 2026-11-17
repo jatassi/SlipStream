@@ -292,6 +292,9 @@ export const getGetIdentitySettingsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -320,6 +323,9 @@ export const getGetIdentitySettingsResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -388,6 +394,9 @@ export const getGetIdentitySettingsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -454,6 +463,9 @@ export const getGetIdentitySettingsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -482,6 +494,9 @@ export const getGetIdentitySettingsResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -514,6 +529,9 @@ export const getGetIdentitySettingsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -542,6 +560,9 @@ export const getGetIdentitySettingsResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -616,6 +637,9 @@ export const getUpdateIdentitySettingsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -644,6 +668,9 @@ export const getUpdateIdentitySettingsResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -712,6 +739,9 @@ export const getUpdateIdentitySettingsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -778,6 +808,9 @@ export const getUpdateIdentitySettingsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -806,6 +839,9 @@ export const getUpdateIdentitySettingsResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -838,6 +874,9 @@ export const getUpdateIdentitySettingsResponseMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -866,6 +905,9 @@ export const getUpdateIdentitySettingsResponseMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
