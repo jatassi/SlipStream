@@ -57,7 +57,7 @@ function Disclosure({
       onClick={() => {
         onOpenChange(!open);
       }}
-      className="group -mr-2 inline-flex h-(--control-height) items-center gap-1 rounded-item px-2 font-medium text-ink-2 hover:text-ink-1"
+      className="group -mr-2 inline-flex h-(--control-height) items-center gap-1 rounded-item px-2 text-body font-medium text-ink-2 hover:text-ink-1"
     >
       <Chevron />
       Details
