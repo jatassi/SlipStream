@@ -56,7 +56,7 @@ type Key string
 // owner renders it from its current rows on every answer, so a rename
 // shows at once.
 type Says struct {
-	// Subject names the item in the Admin's words: "D: (Media) on Media server".
+	// Subject names the item in the Admin's words: "Volume D: (Media) on Media server".
 	Subject string
 	// Text is what to do first, as a sentence that stands alone.
 	Text string

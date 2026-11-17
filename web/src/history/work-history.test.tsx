@@ -15,8 +15,11 @@ test("a Work page lists its ten newest History entries and links to all of them"
     path: `/works/${orchardId}`,
     handlers: [...history.handlers, ...workServer().handlers],
   });
+  // The file's first render pays the Work page's cold module load, which a busy CI runner stretches past 3 s.
+  await expect
+    .element(section().getByRole("list", { name: "Today" }), { timeout: 10_000 })
+    .toBeVisible();
   await expect.poll(() => section().getByRole("listitem").all().length).toBe(10);
-  await expect.element(section().getByRole("list", { name: "Today" })).toBeVisible();
   await expect
     .element(section().getByRole("link", { name: "See all in History" }))
     .toHaveAttribute("href", `/activity/history?work=${orchardId}`);
