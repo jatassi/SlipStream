@@ -1,9 +1,11 @@
 package sim_test
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/netip"
 	"slices"
@@ -208,4 +210,152 @@ func blockedChecks(t *testing.T, r worldtest.Reply) []check {
 		t.Fatalf("setRoles = %d %s, want 409 roles_blocked", r.Status, r.Body)
 	}
 	return blocked.Outcome.Checks
+}
+
+var hookAt = netip.MustParseAddrPort("127.0.0.41:80")
+
+// hook is a webhook server on the world's network that records the address
+// each Post came from. It closes every connection from refused, as a
+// host that one Node's network can't reach.
+type hook struct {
+	mu   sync.Mutex
+	from []netip.Addr
+}
+
+func serveHook(t *testing.T, w *sim.World, refused netip.Addr) *hook {
+	t.Helper()
+	l, err := w.Listen(hookAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &hook{}
+	go func() {
+		for {
+			c, err := l.Accept()
+			if err != nil {
+				return
+			}
+			if from, err := netip.ParseAddrPort(c.RemoteAddr().String()); err == nil && from.Addr() == refused {
+				_ = c.Close()
+				continue
+			}
+			go h.serve(c)
+		}
+	}()
+	t.Cleanup(func() { _ = l.Close() })
+	return h
+}
+
+func (h *hook) serve(c net.Conn) {
+	defer func() { _ = c.Close() }()
+	from, err := netip.ParseAddrPort(c.RemoteAddr().String())
+	if err != nil {
+		return
+	}
+	r := bufio.NewReader(c)
+	for {
+		req, err := http.ReadRequest(r)
+		if err != nil {
+			return
+		}
+		_, _ = io.Copy(io.Discard, req.Body)
+		h.mu.Lock()
+		h.from = append(h.from, from.Addr())
+		h.mu.Unlock()
+		if _, err := io.WriteString(c, "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"); err != nil {
+			return
+		}
+	}
+}
+
+func (h *hook) senders() []netip.Addr {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return slices.Clone(h.from)
+}
+
+type tested struct {
+	Node   string `json:"node"`
+	Detail string `json:"detail"`
+}
+
+func testConnection(t *testing.T, a *worldtest.API, id string) (int, tested) {
+	t.Helper()
+	r := a.Admin("home", http.MethodPost, "/api/v1/notifications/connections/"+id+"/test", "{}")
+	var out tested
+	if err := json.Unmarshal([]byte(r.Body), &out); err != nil {
+		t.Fatalf("testNotificationConnection = %d %s", r.Status, r.Body)
+	}
+	return r.Status, out
+}
+
+func addConnection(t *testing.T, a *worldtest.API, body string) string {
+	t.Helper()
+	r := a.Admin("home", http.MethodPost, "/api/v1/notifications/connections", body)
+	var added struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(r.Body), &added); r.Status != http.StatusCreated || err != nil {
+		t.Fatalf("addNotificationConnection = %d %s, want 201", r.Status, r.Body)
+	}
+	return added.ID
+}
+
+// TestANotificationGoesFromTheWorkerWhenTheControllerCant saves a webhook
+// whose host closes home's connections. A Test from home fails; with
+// Notifying moved to seedbox, the Test passes and the host heard only
+// from seedbox.
+func TestANotificationGoesFromTheWorkerWhenTheControllerCant(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := sim.Launch(t, simtest.Home(t))
+		a := w.API()
+		h := serveHook(t, w, netip.MustParseAddr("127.0.0.2"))
+		id := addConnection(t, a, `{"name":"Family","provider":"webhook","on":true,"secrets":{"url":"http://`+hookAt.String()+`/hook"}}`)
+
+		if status, got := testConnection(t, a, id); status != http.StatusUnprocessableEntity {
+			t.Fatalf("a Test from home = %d %+v, want 422", status, got)
+		}
+		if r := notifyingOnSeedbox(t, a); r.Status != http.StatusOK {
+			t.Fatalf("setRoles moving Notifying to seedbox = %d %s, want 200", r.Status, r.Body)
+		}
+		if status, got := testConnection(t, a, id); status != http.StatusOK || got.Node != "seedbox" {
+			t.Fatalf("a Test through seedbox = %d %+v, want 200 from seedbox", status, got)
+		}
+		if got := h.senders(); !slices.Equal(got, []netip.Addr{netip.MustParseAddr("127.0.0.3")}) {
+			t.Fatalf("the webhook host heard from %v, want seedbox at 127.0.0.3 alone", got)
+		}
+	})
+}
+
+// TestAScriptOnAnOfflineNodeWaitsThenRunsOnceItIsBack adds a Custom Script
+// on seedbox, which gets Works added. With seedbox cut off inside its
+// offline grace, a Work added runs no script anywhere; once the link
+// heals, the script runs on seedbox once.
+func TestAScriptOnAnOfflineNodeWaitsThenRunsOnceItIsBack(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk())
+		a := w.API()
+		if r := notifyingOnSeedbox(t, a); r.Status != http.StatusOK {
+			t.Fatalf("setRoles moving Notifying to seedbox = %d %s, want 200", r.Status, r.Body)
+		}
+		addConnection(t, a, `{"name":"Den","provider":"script","on":true,"events":["works_added"],"node":"`+seedbox(t, a).ID+`","values":{"path":"/scripts/den"}}`)
+
+		down := simtest.Partition(t, w)
+		simtest.AddOrchard(t, w)
+		time.Sleep(5 * time.Minute)
+		synctest.Wait()
+		if got := append(w.Node("home").Scripts(), w.Node("seedbox").Scripts()...); len(got) != 0 {
+			t.Fatalf("with seedbox cut off the script ran %+v, want it to wait", got)
+		}
+		simtest.Heal(w, down)
+		simtest.Eventually(t, "the script runs on seedbox once it is back", func() bool { return len(w.Node("seedbox").Scripts()) > 0 })
+		time.Sleep(time.Minute)
+		synctest.Wait()
+		got := w.Node("seedbox").Scripts()
+		if len(got) != 1 || got[0].Path != "/scripts/den" || got[0].Event != "works_added" || len(w.Node("home").Scripts()) != 0 {
+			t.Fatalf("back online the scripts ran %+v on seedbox and %+v on home, want Works added once on seedbox", got, w.Node("home").Scripts())
+		}
+	})
 }

@@ -489,3 +489,22 @@ func TestAPausedLinesWordsFollowTheProviderWithoutAWrite(t *testing.T) {
 		}
 	})
 }
+
+// TestAScriptLeftAtItsDefaultStopRunsForItAndAFailureNamesItsNode adds a
+// script with no stop, which runs for the field's 30 s, and a Test whose
+// script exits 3 says which Node it ran on.
+func TestAScriptLeftAtItsDefaultStopRunsForItAndAFailureNamesItsNode(t *testing.T) {
+	run(t, func(t *testing.T, w *world) {
+		seedbox := w.AddNode("seedbox")
+		id := w.ConnectScript("den", seedbox)
+		path := notificationstest.ScriptPath("den")
+		w.Courier.Queue(path, notificationstest.Reply{Exit: 3, Body: "it broke"})
+		res, err := w.Service.TestSaved(t.Context(), id, notifications.Edit{})
+		if err != nil || res.Passed || res.Reason != "The script on seedbox exited with code 3: it broke" {
+			t.Fatalf("a Test of a failing script = %+v, %v, want it to name seedbox", res, err)
+		}
+		if got := w.Courier.Received(path); len(got) != 1 || got[0].Stop != 30*time.Second {
+			t.Fatalf("the script ran %+v, want once with 30 s to run", got)
+		}
+	})
+}

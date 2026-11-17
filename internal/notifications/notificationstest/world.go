@@ -82,12 +82,16 @@ func New(t *testing.T, timings notifications.Timings) *World {
 	return w
 }
 
+// webhook is the real Webhook provider, for a test of what the Service
+// stores from the API's text fields.
+var webhook, _ = providers.ByID("webhook")
+
 // Restart stops the dispatcher, if it runs, and starts a new Service over
 // the same library.
 func (w *World) Restart() {
 	w.Stop()
 	w.Service = notifications.New(notifications.Config{
-		Library: w.Lib, Sealer: w.sealer, Providers: []providers.Provider{hookProvider(w.Words), scriptProvider()},
+		Library: w.Lib, Sealer: w.sealer, Providers: []providers.Provider{hookProvider(w.Words), scriptProvider(), webhook},
 		Courier: w.Courier, Roster: w.Roster, Mail: noMail{}, Artwork: posters{},
 		Changed: nopChanged{}, Seen: nopSeen{}, Timings: w.timings,
 		Rand: rand.New(&splitmix{x: 1}), Zone: time.UTC, //nolint:gosec // seeded on purpose so tests replay

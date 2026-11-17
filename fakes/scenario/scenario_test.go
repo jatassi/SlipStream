@@ -208,6 +208,26 @@ func TestParseRefuses(t *testing.T) {
 			"scenario x: mail is set, but no admin saves it",
 		},
 		{
+			"notify without an admin",
+			"seed: x\nnotify: [discord]\nnodes: [{name: home, setup: none}]\n",
+			"scenario x: notify is set, but no admin adds the connections",
+		},
+		{
+			"notify of a provider SlipStream has none of",
+			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nnotify: [matrix]\nnodes: [{name: home, setup: controller}]\n",
+			"scenario x: notify matrix is not a provider",
+		},
+		{
+			"notify of one provider twice",
+			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nnotify: [discord, slack, discord]\nnodes: [{name: home, setup: controller}]\n",
+			"scenario x: notify lists discord twice",
+		},
+		{
+			"notify of email without mail",
+			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nnotify: [email]\nnodes: [{name: home, setup: controller}]\n",
+			"scenario x: notify lists email, so mail is required",
+		},
+		{
 			"member email used twice",
 			"seed: x\nadmin: {email: ada@example.test, display_name: Ada, pin: \"2468\"}\nmembers: [{email: Ada@Example.test, display_name: Ada Again, pin: \"1357\"}]\nnodes: [{name: home, setup: controller}]\n",
 			"scenario x: member email Ada@Example.test is used twice",

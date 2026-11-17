@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/yamltree"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/role"
 )
 
@@ -33,8 +34,14 @@ type Scenario struct {
 	// through a Signup link the Admin issues.
 	Members []Member `yaml:"members,omitempty"`
 	// Mail saves fakes/smtp as the Controller's email setting.
-	Mail  bool   `yaml:"mail,omitempty"`
-	Nodes []Node `jsonschema:"required,minItems=1,maxItems=31" yaml:"nodes"`
+	Mail bool `yaml:"mail,omitempty"`
+	// Notify are the notification connections the world adds on the
+	// Controller once its library is seeded, one per provider, each on
+	// with its recommended events: every provider at notify-sink, email to
+	// the Admin through fakes/smtp, and script running capture-script on
+	// the Controller.
+	Notify []providers.ID `jsonschema:"uniqueItems=true,enum=discord,enum=telegram,enum=slack,enum=pushover,enum=gotify,enum=ntfy,enum=pushbullet,enum=apprise,enum=email,enum=webhook,enum=script" yaml:"notify,omitempty"`
+	Nodes  []Node         `jsonschema:"required,minItems=1,maxItems=31" yaml:"nodes"`
 	// Timings holds the durations the Scenario shortens. A zero duration is
 	// unset, so the Node keeps its production value.
 	Timings node.TimingsBlock `yaml:"timings"`
@@ -171,6 +178,7 @@ func (s Scenario) Validate() error {
 		add("admin pin %q is not four digits", s.Admin.PIN)
 	}
 	s.checkMembers(add)
+	s.checkNotify(add)
 	if s.Music != nil {
 		s.Music.check(add)
 	}
@@ -224,6 +232,22 @@ func (s Scenario) checkMembers(add func(format string, args ...any)) {
 		emails = append(emails, email)
 		if !pin.MatchString(m.PIN) {
 			add("member %s pin %q is not four digits", m.Email, m.PIN)
+		}
+	}
+}
+
+func (s Scenario) checkNotify(add func(format string, args ...any)) {
+	if len(s.Notify) > 0 && s.Admin == nil {
+		add("notify is set, but no admin adds the connections")
+	}
+	for i, id := range s.Notify {
+		switch _, ok := providers.ByID(id); {
+		case !ok:
+			add("notify %s is not a provider", id)
+		case slices.Contains(s.Notify[:i], id):
+			add("notify lists %s twice", id)
+		case id == providers.ID("email") && !s.Mail:
+			add("notify lists email, so mail is required")
 		}
 	}
 }

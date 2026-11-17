@@ -41,7 +41,8 @@ import (
 // notify.request records whose node is the sending origin.
 var Notify = fake.CaptureSpec{Name: "notify", Kind: "notify.request"}
 
-// Fake is the sink. It reads nothing from the Scenario.
+// Fake is the sink. It reads nothing from the Scenario: the world adds
+// the Scenario's notify connections through the API.
 var Fake = fake.Spec{
 	Name:      "notify-sink",
 	TLS:       fake.FrontTLS,
@@ -50,6 +51,7 @@ var Fake = fake.Spec{
 	Online:    fake.NoOnlineRun("a real Discord, Telegram or Pushover account is personal, so the sink stands in for every provider"),
 	Captures:  []fake.CaptureSpec{Notify},
 	Cues:      cueSpecs(),
+	Entered:   Entered,
 }
 
 // Request is one request as the sink kept it.

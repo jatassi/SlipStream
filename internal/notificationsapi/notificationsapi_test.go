@@ -30,9 +30,9 @@ func serve(t *testing.T) served {
 }
 
 // call answers and lets the dispatcher run what the call woke.
-func (s served) call(t *testing.T, method, path, body string) (int, string) {
+func (s served) call(t *testing.T, method, path, body string) (code int, got string) {
 	t.Helper()
-	code, got := s.Call(t, method, path, body)
+	code, got = s.Call(t, method, path, body)
 	synctest.Wait()
 	return code, got
 }
@@ -175,6 +175,28 @@ func TestTheStatusReasonIsWordedWhenRead(t *testing.T) {
 		s.w.Words[providers.Gone] = "Hook responded that this hook was deleted. Paste a new URL."
 		if got := reason(); got != `"Hook responded that this hook was deleted. Paste a new URL."` {
 			t.Fatalf("after a copy change the reason = %s, want the new words", got)
+		}
+	})
+}
+
+func TestASavedWebhookSendsEveryHeaderTypedOneALine(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		s := serve(t)
+		code, got := s.call(t, http.MethodPost, "/api/v1/notifications/connections",
+			`{"name":"Home","provider":"webhook","on":true,"secrets":{"url":"https://hooks.example/home","headers":"X-Key: one\nX-Room:  den \n"}}`)
+		if code != http.StatusCreated {
+			t.Fatalf("addNotificationConnection = %d %s", code, got)
+		}
+		if code, got := s.call(t, http.MethodPost, "/api/v1/notifications/connections/"+ownertest.FirstID(got)+"/test", "{}"); code != http.StatusOK {
+			t.Fatalf("testNotificationConnection = %d %s", code, got)
+		}
+		sent := s.headers(t, "https://hooks.example/home")
+		if len(sent) != 1 || sent[0].Get("X-Key") != "one" || sent[0].Get("X-Room") != "den" {
+			t.Fatalf("the Webhook sent headers %v, want X-Key and X-Room", sent)
+		}
+		code, got = s.call(t, http.MethodPost, "/api/v1/notifications/connections/test", `{"name":"Home","provider":"webhook","secrets":{"url":"https://hooks.example/home","headers":"X-Key one"}}`)
+		if code != http.StatusUnprocessableEntity || !strings.Contains(got, "Write each header on its own line as Name: value.") {
+			t.Fatalf("a header line with no colon = %d %s, want it refused at headers", code, got)
 		}
 	})
 }

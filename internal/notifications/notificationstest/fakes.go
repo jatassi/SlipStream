@@ -163,6 +163,7 @@ func scriptProvider() providers.Provider {
 		Fields: []providers.Field{
 			{Key: "path", Label: "Path", Kind: providers.Text},
 			{Key: "node", Label: "Node", Kind: providers.NodeField},
+			{Key: "stop", Label: "Stop the script after", Kind: providers.Duration, Default: json.RawMessage("30")},
 		},
 		Host: func(providers.Values, providers.Endpoints) (*url.URL, bool) { return nil, false },
 		Build: func(p providers.Payload) (providers.Outbound, error) {
@@ -170,11 +171,15 @@ func scriptProvider() providers.Provider {
 			if err := json.Unmarshal(p.Settings["path"], &path); err != nil {
 				return providers.Outbound{}, fmt.Errorf("read the path: %w", err)
 			}
+			var stop int
+			if err := json.Unmarshal(p.Settings["stop"], &stop); err != nil {
+				return providers.Outbound{}, fmt.Errorf("read the stop: %w", err)
+			}
 			file, err := json.Marshal(body{Kind: p.Kind, Title: p.Message.Title, Lines: p.Message.Lines})
 			if err != nil {
 				return providers.Outbound{}, fmt.Errorf("encode the event file: %w", err)
 			}
-			return providers.Outbound{Run: &providers.Script{Path: path, Event: string(p.Kind), EventFile: file, Stop: 30 * time.Second}}, nil
+			return providers.Outbound{Run: &providers.Script{Path: path, Event: string(p.Kind), EventFile: file, Stop: time.Duration(stop) * time.Second}}, nil
 		},
 		Classify: classifyHook,
 	}
@@ -210,6 +215,8 @@ type Received struct {
 	Tone   notice.Tone
 	Poster string
 	Header http.Header
+	// Stop is how long a script may run.
+	Stop time.Duration
 }
 
 // Courier answers each target's queued replies in order, then 200 or exit
@@ -294,7 +301,7 @@ func (c *Courier) Post(ctx context.Context, node role.NodeID, req notifying.Requ
 }
 
 func (c *Courier) Run(ctx context.Context, node role.NodeID, s notifying.Script) (notifying.Ran, error) {
-	r, err := c.take(ctx, Received{Node: node, Target: s.Path}, s.EventFile)
+	r, err := c.take(ctx, Received{Node: node, Target: s.Path, Stop: s.Stop}, s.EventFile)
 	if err != nil {
 		return notifying.Ran{}, err
 	}
