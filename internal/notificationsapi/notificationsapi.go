@@ -87,7 +87,7 @@ type status struct {
 	Shown    string                  `json:"shown" enum:"off,ok,failing,waiting,paused,holding"`
 	Since    api.Nullable[time.Time] `json:"since" doc:"When it started failing, waiting or paused; null otherwise"`
 	Until    api.Nullable[time.Time] `json:"until" doc:"When a waiting connection sends again; null otherwise"`
-	Reason   string                  `json:"reason" doc:"Why it isn't sending, worded when read. Empty when it is."`
+	Reason   string                  `json:"reason" doc:"Why the connection isn't sending, in a sentence. Empty when it is sending."`
 	Waiting  int                     `json:"waiting" doc:"Messages waiting to be sent."`
 	GivenUp  int                     `json:"givenUp" doc:"Messages given up since the connection was last saved or tested, because they waited too long or the provider refused them."`
 	LastSent api.Nullable[time.Time] `json:"lastSent"`

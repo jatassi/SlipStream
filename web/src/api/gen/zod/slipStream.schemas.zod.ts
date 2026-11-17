@@ -80,7 +80,9 @@ export const NotificationsStatus = zod.object({
       "Messages given up since the connection was last saved or tested, because they waited too long or the provider refused them.",
     ),
   lastSent: zod.iso.datetime({ offset: true }).nullable(),
-  reason: zod.string().describe("Why it isn't sending, worded when read. Empty when it is."),
+  reason: zod
+    .string()
+    .describe("Why the connection isn't sending, in a sentence. Empty when it is sending."),
   shown: zod.enum(["off", "ok", "failing", "waiting", "paused", "holding"]),
   since: zod.iso
     .datetime({ offset: true })

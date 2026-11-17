@@ -5,7 +5,7 @@ export interface NotificationsStatus {
   givenUp: number;
   /** @nullable */
   lastSent: string | null;
-  /** Why it isn't sending, worded when read. Empty when it is. */
+  /** Why the connection isn't sending, in a sentence. Empty when it is sending. */
   reason: string;
   shown: NotificationsStatusShown;
   /**

@@ -69,7 +69,7 @@ func (w wording) reason(p providers.Provider, r providers.Reason) string {
 		}
 		return fmt.Sprintf("The script on %s exited with code %d. SlipStream retries automatically.", node, r.Exit)
 	case providers.ScriptStopped:
-		return "The script on " + node + " ran longer than Stop the script after and was stopped. SlipStream retries automatically."
+		return "The script on " + node + " ran longer than 'Stop the script after' allows and was stopped. SlipStream retries automatically."
 	case providers.ScriptMissing:
 		return node + " has no file at the script's path. Fix the path or pick another Node."
 	case providers.MailNotSetUp:

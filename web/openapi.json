@@ -17613,7 +17613,7 @@
             ]
           },
           "reason": {
-            "description": "Why it isn't sending, worded when read. Empty when it is.",
+            "description": "Why the connection isn't sending, in a sentence. Empty when it is sending.",
             "type": "string"
           },
           "shown": {
