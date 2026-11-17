@@ -18,8 +18,8 @@ const shownWorks = () =>
   page
     .getByRole("main")
     .getByRole("link")
-    .filter({ hasNotText: "Release dates in your library" })
     .elements()
+    .filter((link) => link.closest("nav") === null)
     .map((link) => link.textContent);
 
 test("sorting by Profile sections the Library by Profile, and Reverse flips the sections", async () => {

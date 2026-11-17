@@ -1,7 +1,7 @@
 import type { WorksContentType } from "../api/gen/model";
 import { monthKey } from "../format/days";
 import { Page } from "../shell/page";
-import { CalendarTypeLinks } from "./calendar-links";
+import { CalendarSwitches } from "./calendar-links";
 import { CalendarSentence } from "./calendar-sentence";
 import { CalendarToolbar, kindsIn } from "./calendar-toolbar";
 import { ListView } from "./list-view";
@@ -30,9 +30,7 @@ export function CalendarPage({
   );
   const withKind = (place.kinds ?? kinds).length > 1;
   return (
-    <Page
-      beside={types.length < 2 ? undefined : <CalendarTypeLinks types={types} search={search} />}
-    >
+    <Page beside={<CalendarSwitches types={types} contentType={contentType} search={search} />}>
       <CalendarSentence answer={answer} place={place} contentType={contentType} />
       <CalendarToolbar
         kinds={kinds}

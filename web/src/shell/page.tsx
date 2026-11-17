@@ -95,7 +95,7 @@ function PageHead({
           <LargeTitle title={title} onScrolledOut={heading.onScrolledOut} />
           {action}
         </div>
-        {beside !== undefined && <div className="mb-4">{beside}</div>}
+        {beside !== undefined && <div className="mb-4 flex flex-col gap-3">{beside}</div>}
       </>
     );
   }

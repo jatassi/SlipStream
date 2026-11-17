@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import type { WorksContentType } from "../api/gen/model";
+import { LibraryViews } from "../library/library-views";
 import { SegmentedLinks, segmentedLink } from "../ui/segmented-links";
 import { type CalendarSearch, type CalendarView, calendarViews } from "./routed";
 
@@ -38,7 +39,7 @@ function CalendarLink({
 const typeActive = { exact: true, includeSearch: false };
 
 /** All, then each enabled Content Type's Calendar, as the Library's links are, keeping the view and place. */
-export function CalendarTypeLinks({
+function CalendarTypeLinks({
   types,
   search,
 }: {
@@ -57,6 +58,24 @@ export function CalendarTypeLinks({
         </CalendarLink>
       ))}
     </SegmentedLinks>
+  );
+}
+
+/** The Library views, then the Content Type links while more than one type is enabled. */
+export function CalendarSwitches({
+  types,
+  contentType,
+  search,
+}: {
+  types: readonly WorksContentType[];
+  contentType: string | undefined;
+  search: CalendarSearch;
+}) {
+  return (
+    <>
+      <LibraryViews contentType={contentType} />
+      {types.length > 1 && <CalendarTypeLinks types={types} search={search} />}
+    </>
   );
 }
 
