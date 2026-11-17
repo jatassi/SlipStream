@@ -37,7 +37,7 @@ func Notify(ctx context.Context, c *http.Client, s scenario.Scenario, ready []no
 		case "pushover":
 			nc.Secrets = map[string]string{"appToken": "pushover-app-token", "userKey": "pushover-user-key"}
 		case "gotify":
-			nc.Values, nc.Secrets = map[string]any{"serverUrl": w.Sink + "/gotify"}, map[string]string{"appToken": "gotify-app-token"}
+			nc.Values, nc.Secrets = map[string]any{"serverUrl": w.Sink + "/gotify"}, map[string]string{"appToken": "gotify-app-token"} //nolint:gosec // a fake token the sink takes
 		case "ntfy":
 			nc.Secrets = map[string]string{"topic": "slipstream-ntfy-topic"}
 		case "pushbullet":

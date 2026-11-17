@@ -421,6 +421,7 @@ func (s *Service) secret(id providers.ID, key, text string) (json.RawMessage, er
 			headers = append(headers, providers.Header{Name: name, Value: strings.TrimSpace(value)})
 		}
 		return jsonValue(headers), nil
+	case providers.Text, providers.URL, providers.Number, providers.Select, providers.Switch, providers.NodeField, providers.Duration:
 	}
 	return jsonValue(text), nil
 }

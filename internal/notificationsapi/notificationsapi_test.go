@@ -30,9 +30,9 @@ func serve(t *testing.T) served {
 }
 
 // call answers and lets the dispatcher run what the call woke.
-func (s served) call(t *testing.T, method, path, body string) (int, string) {
+func (s served) call(t *testing.T, method, path, body string) (code int, got string) {
 	t.Helper()
-	code, got := s.Call(t, method, path, body)
+	code, got = s.Call(t, method, path, body)
 	synctest.Wait()
 	return code, got
 }
