@@ -152,6 +152,10 @@ function formatsOf(timeZone: string | undefined): Formats {
   return formats;
 }
 
+/** "14:02": the time of day of an instant in zone, the browser's when undefined. */
+export const timeOfDay = (iso: string, zone?: string): string =>
+  formatsOf(zone).time.format(new Date(iso));
+
 function wallOf(date: Date, zone: string | undefined): { day: number; hour: number } {
   const parts = new Map(
     formatsOf(zone)
