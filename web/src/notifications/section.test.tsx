@@ -78,6 +78,19 @@ test("a connection that gave messages up says how many and why", async () => {
     .toBeVisible();
 });
 
+test("the provider cards are one radio group the arrow keys move through", async () => {
+  renderApp({ path, handlers: notificationsWorld({ start: [] }).handlers });
+  await userEvent.click(page.getByRole("button", { name: "Add a connection" }));
+  const group = dialog().getByRole("radiogroup", { name: "Provider" });
+  await expect.element(group.getByRole("radio", { name: "Discord" })).toBeChecked();
+  await userEvent.click(group.getByRole("radio", { name: "Discord" }));
+  await userEvent.keyboard("{ArrowRight}");
+  await expect.element(group.getByRole("radio", { name: "Webhook" })).toBeChecked();
+  await expect.element(group.getByRole("radio", { name: "Webhook" })).toHaveFocus();
+  await userEvent.click(dialog().getByRole("button", { name: "Next" }));
+  await expect.element(page.getByRole("dialog", { name: "Add Webhook" })).toBeVisible();
+});
+
 test("a new connection starts with the recommended events and sends only the typed secret", async () => {
   const world = notificationsWorld({ start: [] });
   renderApp({ path, handlers: world.handlers });

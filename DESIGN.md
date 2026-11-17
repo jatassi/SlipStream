@@ -559,6 +559,7 @@ A Console switch is 34 × 20 and a Touch switch is 51 × 31. The knob is white. 
 ### Checkbox and radio
 
 A checkbox is a 16px square with a 4px radius (22px and 6px in Touch). A radio is a 16px circle (22px in Touch) with a white 6px dot (8px in Touch). Both sit on `well` with a `hairline-strong` ring and fill with the switch's on colour, `hsl(var(--h) 62% 46%)`, when checked. Each sits left of its label, and the label and box together are one target at the control height.
+- **Radio cards:** A choice between services that have logos, such as the notification providers, is a grid of cards, each its 28px logo or icon and its name at 500 on `glass` with a hairline ring, radius 14. The chosen card takes `selected` and a 2px `glow` ring. The grid has three columns from a 448px container and two below it, and the arrow keys move the choice as in any radio group.
 
 ### Fields
 
