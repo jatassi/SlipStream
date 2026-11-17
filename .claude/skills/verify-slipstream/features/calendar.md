@@ -20,8 +20,8 @@ An Admin asks the Calendar what comes out in a span of days and whether the libr
 
 Preconditions:
 
-- A fresh `music` run on `dist/slipstream-e2e`, which registers music beside movies, doctor passing.
-- The Lanterns added, whose Harbor Lights first came out on 2001-03-12, Night Ferry in 2003 and Tidewater in 2001-02:
+- A fresh `music` run on `dist/slipstream-e2e`, which registers music beside movies, doctor passing (its build check names the e2e main, which is expected).
+- The Lanterns added, whose Harbor Lights first came out on 2001-03-12 and Night Ferry only in 2003 (a year, so it never reaches a day):
 
   ```sh
   $FW exec $RUN -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"contentType":"music","key":"a1000000-0000-4000-8000-000000000001","preset":"all"}' '{nodes.home.url}/api/v1/works'
@@ -29,13 +29,14 @@ Preconditions:
 
 Steps:
 
-- **Read music's dated kinds.** The music type lists `dated: [{"key":"release","label":"Release date"}]`.
+- **Read music's dated kinds.** `/content-types` needs a signed-in Admin (the API key answers 403 `needs_account`), so sign Ada in with a cookie jar first. The music type lists `dated: [{"key":"release","label":"Release date"}]`.
 
   ```sh
-  $FW exec $RUN --proof calendar/calendar-kinds -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/content-types'
+  $FW exec $RUN -- curl -sS -c '{runDir}/admin-cookies.txt' -X POST -H 'Content-Type: application/json' --data-binary '{"email":"ada@example.test","pin":"2468"}' '{nodes.home.url}/api/v1/session'
+  $FW exec $RUN --proof calendar/calendar-kinds -- curl -sS -b '{runDir}/admin-cookies.txt' '{nodes.home.url}/api/v1/content-types'
   ```
 
-- **Read a span holding Harbor Lights.** `days` holds `2001-03-12` alone, with one row for The Lanterns: `kind: release`, `kindLabel: Release date`, `itemsWords: Harbor Lights · Tracks 1 to 3`, three `items` labeled `Track 1 · Tidewater` and on, `of: 3`. The sentence reads `3 tracks are out and still missing.` with `needsYou: true`. A span over 2001-02 and 2003 answers no days.
+- **Read a span holding Harbor Lights.** `days` holds `2001-03-12` alone, with one row for The Lanterns: `kind: release`, `kindLabel: Release date`, `itemsWords: Harbor Lights · Tracks 1 to 3`, three `items` labeled `Track 1 · Tidewater` and on, `state: missing`, `met: 0`, `of: 3`. The sentence reads `3 tracks are out and still missing.` with `needsYou: true`. Spans over February 2001 and January 2003 answer no days.
 
   ```sh
   $FW exec $RUN --proof calendar/calendar-rows -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/calendar?from=2001-03-01&to=2001-04-01'
@@ -49,7 +50,10 @@ Steps:
   $FW exec $RUN --proof calendar/calendar-refusals -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/calendar?from=2001-03-01&to=2001-04-13'
   $FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/calendar?from=2001-03-01&to=2001-04-01&contentType=boats'
   $FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/calendar?from=2001-03-01&to=2001-04-01&kinds=boxed'
+  $FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/calendar?from=2001-03-01&to=2001-03-01'
   ```
+
+  The last answers `The span has no days. Ask for an end day after the start day.` at `query.to`.
 
 ## Gotchas
 
