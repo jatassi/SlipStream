@@ -1,3 +1,4 @@
+export * from "./calendar/calendar.zod.ts";
 export * from "./downloadclients/downloadclients.zod.ts";
 export * from "./files/files.zod.ts";
 export * from "./firstrun/firstrun.zod.ts";

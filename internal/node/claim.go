@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/firstrun"
@@ -335,6 +336,14 @@ func (s surfaceNode) Notifications() (*notifications.Service, bool) {
 		return nil, false
 	}
 	return h.notifications, true
+}
+
+func (s surfaceNode) Calendar() (*calendar.Calendar, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.calendar == nil {
+		return nil, false
+	}
+	return h.calendar, true
 }
 
 // OpenIn runs on a Controller only, as the Work page it fills does.

@@ -3,6 +3,7 @@ import type { WorksArtRoles } from "./worksArtRoles.ts";
 import type { WorksArtworkKind } from "./worksArtworkKind.ts";
 import type { WorksContentTypeIcon } from "./worksContentTypeIcon.ts";
 import type { WorksContentTypeItems } from "./worksContentTypeItems.ts";
+import type { WorksDatedKind } from "./worksDatedKind.ts";
 import type { WorksFieldSpec } from "./worksFieldSpec.ts";
 import type { WorksNoun } from "./worksNoun.ts";
 
@@ -16,6 +17,8 @@ export interface WorksContentType {
   aside: WorksNoun | null;
   /** The label of the Library's availability column and sort, such as Next airing; empty reads Available */
   availability: string;
+  /** The kinds of release date its Works put on the Calendar, in its order */
+  dated: WorksDatedKind[];
   enabled: boolean;
   fields: WorksFieldSpec[];
   icon: WorksContentTypeIcon;

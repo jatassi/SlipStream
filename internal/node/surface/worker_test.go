@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/apitest"
+	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/firstrun"
@@ -60,6 +61,8 @@ func (worker) Works() (*works.Works, bool) { return nil, false }
 func (worker) MediaServers() (mediaservers.Service, bool) { return nil, false }
 
 func (worker) Notifications() (*notifications.Service, bool) { return nil, false }
+
+func (worker) Calendar() (*calendar.Calendar, bool) { return nil, false }
 
 func (worker) Minter() (artwork.Minter, bool) { return artwork.Minter{}, false }
 

@@ -102,6 +102,12 @@ export const getListContentTypesResponseMock = (
         null,
       ]),
       availability: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      dated: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        }),
+      ),
       enabled: faker.datatype.boolean(),
       fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
@@ -601,6 +607,10 @@ export const getSetContentTypeEnabledResponseMock = (
     null,
   ]),
   availability: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  dated: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  })),
   enabled: faker.datatype.boolean(),
   fields: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({

@@ -44,6 +44,100 @@ export const BellInputBody = zod.object({
 export type BellInputBody = zod.input<typeof BellInputBody>;
 export type BellInputBodyOutput = zod.output<typeof BellInputBody>;
 
+export const CalendarItem = zod.object({
+  id: zod.uuid(),
+  label: zod.string().describe("Such as Episode 1 · Hello, Ms. Cobel"),
+});
+
+export type CalendarItem = zod.input<typeof CalendarItem>;
+export type CalendarItemOutput = zod.output<typeof CalendarItem>;
+
+export const FilesState = zod.enum([
+  "failed",
+  "missing",
+  "downloading",
+  "upgradable",
+  "unreleased",
+  "met",
+]);
+
+export type FilesState = zod.input<typeof FilesState>;
+export type FilesStateOutput = zod.output<typeof FilesState>;
+
+export const calendarWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const CalendarWork = zod.object({
+  contentType: zod.string().regex(calendarWorkContentTypeRegExp),
+  id: zod.uuid(),
+  label: zod.string(),
+  posterUrl: zod
+    .string()
+    .nullable()
+    .describe("The artwork route for its poster, without a size; null when it has none"),
+});
+
+export type CalendarWork = zod.input<typeof CalendarWork>;
+export type CalendarWorkOutput = zod.output<typeof CalendarWork>;
+
+export const calendarRowMetMin = 0;
+
+export const calendarRowOfMin = 0;
+
+export const CalendarRow = zod.object({
+  items: zod.array(CalendarItem).describe("In tree order"),
+  itemsWords: zod
+    .string()
+    .describe(
+      "The Items with their level, such as Season 2 · Episodes 1 to 10; empty for one Item without a level",
+    ),
+  kind: zod.string().describe("The dated kind's key"),
+  kindLabel: zod.string(),
+  met: zod.int().min(calendarRowMetMin).describe("Its Items with a Target that are met"),
+  monitored: zod
+    .boolean()
+    .describe("false only for a row of unmonitored Items, which unmonitored asks for"),
+  of: zod.int().min(calendarRowOfMin).describe("Its Items with a Target"),
+  state: zod
+    .union([FilesState, zod.null()])
+    .describe(
+      "The most urgent state among its Items, in the order failed, missing, downloading, upgradable, unreleased, met; null while none of them has a Target",
+    ),
+  work: CalendarWork,
+});
+
+export type CalendarRow = zod.input<typeof CalendarRow>;
+export type CalendarRowOutput = zod.output<typeof CalendarRow>;
+
+export const CalendarDay = zod.object({
+  day: zod.iso.date(),
+  rows: zod.array(CalendarRow),
+});
+
+export type CalendarDay = zod.input<typeof CalendarDay>;
+export type CalendarDayOutput = zod.output<typeof CalendarDay>;
+
+export const CalendarSentence = zod.object({
+  needsYou: zod.boolean().describe("It names Items that are out and still missing"),
+  words: zod.string(),
+});
+
+export type CalendarSentence = zod.input<typeof CalendarSentence>;
+export type CalendarSentenceOutput = zod.output<typeof CalendarSentence>;
+
+export const CalendarAnswer = zod.object({
+  days: zod.array(CalendarDay).describe("Only the days with rows, in order"),
+  nextDayAt: zod.iso.datetime({ offset: true }).describe("When the Controller's next day starts"),
+  sentence: zod
+    .union([CalendarSentence, zod.null()])
+    .describe(
+      "What needs attention, else what comes out in the next 7 days; null when neither has anything",
+    ),
+  today: zod.iso.date().describe("The Controller's day"),
+});
+
+export type CalendarAnswer = zod.input<typeof CalendarAnswer>;
+export type CalendarAnswerOutput = zod.output<typeof CalendarAnswer>;
+
 export const CancelInputBody = zod.object({
   blocklist: zod
     .boolean()
@@ -2077,18 +2171,6 @@ export const FilesCell = zod.discriminatedUnion("state", [
 
 export type FilesCell = zod.input<typeof FilesCell>;
 export type FilesCellOutput = zod.output<typeof FilesCell>;
-
-export const FilesState = zod.enum([
-  "failed",
-  "missing",
-  "downloading",
-  "upgradable",
-  "unreleased",
-  "met",
-]);
-
-export type FilesState = zod.input<typeof FilesState>;
-export type FilesStateOutput = zod.output<typeof FilesState>;
 
 export const FilesItemStatus = zod.object({
   itemId: zod.uuid(),
@@ -12158,6 +12240,14 @@ export const WorksNoun = zod.object({
 export type WorksNoun = zod.input<typeof WorksNoun>;
 export type WorksNounOutput = zod.output<typeof WorksNoun>;
 
+export const WorksDatedKind = zod.object({
+  key: zod.string().describe("Unique across Content Types"),
+  label: zod.string(),
+});
+
+export type WorksDatedKind = zod.input<typeof WorksDatedKind>;
+export type WorksDatedKindOutput = zod.output<typeof WorksDatedKind>;
+
 export const WorksListing = zod.object({
   column: zod.boolean().describe("A column of the Library's table"),
   filter: zod
@@ -12220,6 +12310,9 @@ export const WorksContentType = zod.object({
     .describe(
       "The label of the Library's availability column and sort, such as Next airing; empty reads Available",
     ),
+  dated: zod
+    .array(WorksDatedKind)
+    .describe("The kinds of release date its Works put on the Calendar, in its order"),
   enabled: zod.boolean(),
   fields: zod.array(WorksFieldSpec),
   icon: zod.enum(["film", "tv", "note", "open-book", "headphones", "panels", "image", "shapes"]),
