@@ -69,6 +69,7 @@ func TestHousekeepingTidiesEveryNodeAndCatchesUpAReturningWorker(t *testing.T) {
 			"Sessions|home|succeeded|",
 			"Indexer queries and sessions|home|succeeded|",
 			"Media Server history|home|succeeded|",
+			"Notifications|home|succeeded|",
 			"Local database on home|home|succeeded|",
 			"Local database on seedbox|seedbox|succeeded|",
 			"Library database|home|succeeded|",
@@ -103,7 +104,7 @@ func TestHousekeepingSkipsAWorkerOnAnotherBuild(t *testing.T) {
 		synctest.Wait()
 		d := simtest.GetTask(t, a, "housekeeping")
 		expect(t, "runs", d.RunLines(), []string{"run-now|partial|8 of 9 steps, seedbox runs 0.0.1-sim"})
-		if got := d.UnitLines()[6]; got != "Local database on seedbox|seedbox|skipped|seedbox runs 0.0.1-sim" {
+		if got := d.UnitLines()[7]; got != "Local database on seedbox|seedbox|skipped|seedbox runs 0.0.1-sim" {
 			t.Fatalf("seedbox's unit is %q, want Skipped as seedbox runs 0.0.1-sim", got)
 		}
 	})
