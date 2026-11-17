@@ -55,15 +55,20 @@ async function spliceQuery(queryClient: QueryClient, query: Query): Promise<void
   }
 }
 
-/** Splices the newest entries into each History list on screen, and marks the rest to read again when shown. */
+/**
+ * Splices the newest entries into each History list on screen, and marks the
+ * rest to read again when shown. A list mid-read restarts it, since a read
+ * begun before the event would land over the splice without the new entries.
+ */
 export function spliceNewest(queryClient: QueryClient): void {
   for (const query of queryClient.getQueryCache().findAll({ predicate: isHistoryPages })) {
-    if (query.isActive()) {
+    const reading = query.state.fetchStatus !== "idle";
+    if (query.isActive() && !reading) {
       void spliceQuery(queryClient, query);
     } else {
       void queryClient.invalidateQueries(
         { predicate: (candidate) => candidate === query },
-        { cancelRefetch: false },
+        { cancelRefetch: reading },
       );
     }
   }

@@ -23,6 +23,7 @@ test("history.changed reads the first page once and puts the new entries on top 
   await synced(app);
   await userEvent.click(page.getByRole("button", { name: "Load more" }));
   await expect.poll(() => rows().all().length).toBe(80);
+  await expect.poll(() => app.queryClient.isFetching()).toBe(0);
   const [lists, summaries] = [history.asked.length, history.summaries.length];
 
   history.record(anEntry(81, new Date().toISOString()));
