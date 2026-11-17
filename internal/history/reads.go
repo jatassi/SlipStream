@@ -5,18 +5,26 @@ import (
 
 	"github.com/jatassi/slipstream/internal/history/internal/db"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Subjects is each of ids' stored facts, through r: notifications' own
-// Read or Write. An id that is gone has none.
-func Subjects(ctx context.Context, r storage.Reader[storage.Library], ids []EventID) (map[EventID][]byte, error) {
+// Stored is an event's facts and the one Work it is about, zero for none
+// or many.
+type Stored struct {
+	Subject []byte
+	Work    works.WorkID
+}
+
+// Events is each of ids' stored facts and Work, through r: notifications'
+// own Read or Write. An id that is gone has none.
+func Events(ctx context.Context, r storage.Reader[storage.Library], ids []EventID) (map[EventID]Stored, error) {
 	rows, err := db.New(r).ListByIDs(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	out := make(map[EventID][]byte, len(rows))
+	out := make(map[EventID]Stored, len(rows))
 	for _, row := range rows {
-		out[row.ID] = []byte(row.Subject)
+		out[row.ID] = Stored{Subject: []byte(row.Subject), Work: row.WorkID}
 	}
 	return out, nil
 }

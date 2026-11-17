@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // releaseBound is how many entries one pass releases, so a backlog is many
@@ -28,6 +29,8 @@ type event struct {
 	Kind    entry.Kind
 	At      time.Time
 	Subject []byte
+	// Work is the one Work it is about, zero for none or many.
+	Work works.WorkID
 	// Items are a Health entry's items.
 	Items []history.Item
 }

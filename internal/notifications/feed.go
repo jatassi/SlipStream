@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // unreadCap is the most unread rows the bell counts.
@@ -60,18 +61,18 @@ func (s *Service) Feed(ctx context.Context, by identity.Admin, before Seq, limit
 		if out.Unread, err = unread(ctx, q, by, cursor); err != nil {
 			return err
 		}
-		address, err := identity.ReadAddress(ctx, r)
+		events, err := shownEvents(ctx, r, rows)
 		if err != nil {
 			return err
 		}
-		events, err := shownEvents(ctx, r, rows)
+		l, err := linkingOf(ctx, r, events)
 		if err != nil {
 			return err
 		}
 		now := time.Now()
 		out.Rows = make([]FeedRow, 0, len(rows))
 		for _, row := range rows {
-			fr, err := s.feedRow(events[row.EventID], row, address, now)
+			fr, err := s.feedRow(events[row.EventID], row, l, now)
 			if err != nil {
 				return err
 			}
@@ -104,7 +105,30 @@ func shownEvents(ctx context.Context, r storage.Reader[file], rows []db.Notifica
 	return eventsOf(ctx, r, heads)
 }
 
-func (s *Service) feedRow(e event, row db.NotificationsShown, address identity.Address, now time.Time) (FeedRow, error) {
+// linking is what a row's link reads: the Address, and which of the
+// rows' Works are still in the library. A row about a deleted Work has no
+// link, as on History.
+type linking struct {
+	address identity.Address
+	kept    map[works.WorkID]bool
+}
+
+func linkingOf(ctx context.Context, r storage.Reader[file], events map[EventID]event) (linking, error) {
+	address, err := identity.ReadAddress(ctx, r)
+	if err != nil {
+		return linking{}, err
+	}
+	var ids []works.WorkID
+	for _, e := range events {
+		if !e.Work.IsZero() {
+			ids = append(ids, e.Work)
+		}
+	}
+	kept, err := works.Existing(ctx, r, ids)
+	return linking{address: address, kept: kept}, err
+}
+
+func (s *Service) feedRow(e event, row db.NotificationsShown, l linking, now time.Time) (FeedRow, error) {
 	shown, err := keysFrom(row.Items)
 	if err != nil {
 		return FeedRow{}, err
@@ -120,8 +144,8 @@ func (s *Service) feedRow(e event, row db.NotificationsShown, address identity.A
 	if len(msg.Lines) > 0 {
 		fr.Line = msg.Lines[0]
 	}
-	if msg.Link.Path != "" && !address.IsZero() {
-		fr.Link = address.String() + msg.Link.Path
+	if msg.Link.Path != "" && !l.address.IsZero() && (e.Work.IsZero() || l.kept[e.Work]) {
+		fr.Link = l.address.String() + msg.Link.Path
 	}
 	return fr, nil
 }

@@ -62,7 +62,7 @@ func notedAs(kind entry.Kind, label string, group entry.Group, tally works.Noun,
 		Spec: entry.Spec{Kind: kind, Label: label, Group: group, BellByDefault: true, Tally: tally},
 		Render: func(f noted, _ entry.Context) entry.Message {
 			return entry.Message{
-				Title: label + " " + f.Name, Tone: tone, Lines: []string{"It happened."},
+				Title: label + " " + f.Name, Tone: tone, Lines: []string{"It happened."}, Link: entry.Link{Path: "/noted"},
 				Detail: entry.Detail{
 					Files:  []entry.DetailFile{{Items: []string{"Part 1"}, Quality: "WEBDL-1080p", PlacedBy: "link", Replaced: "HDTV-720p", ReplacedLabel: "The.Attic.720p"}},
 					Stages: []entry.StageAt{{Stage: "fetching", At: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)}},
@@ -358,10 +358,18 @@ func TestEveryKindReadsBackWithItsWordsAndLinks(t *testing.T) {
 
 func TestAnEntryReadsTheSameAfterItsWorkGrabImportAndHealthItemAreGone(t *testing.T) {
 	within(t, func(t *testing.T, w *world) {
+		address := must[identity.Address](t)(identity.ParseAddress("https://media.example.com"))
+		if err := w.Identity.SetAddress(t.Context(), identity.Admin{}, address); err != nil {
+			t.Fatal(err)
+		}
+		sam := w.Admin("sam@example.test")
 		grab, imp := w.grab("", 0), w.imported()
 		w.record(importedRow, "The Attic", w.about(grab, imp))
 		w.fault(health.Item{Key: "disk", Level: health.Warn, Says: health.Says{Subject: "Disk low", Text: "The disk is low."}})
 		before := w.list("")
+		if link := bellLink(w.Feed(sam), "Imported The Attic"); link != "https://media.example.com/noted" {
+			t.Fatalf("the bell links the Imported entry to %q, want its path on the Address", link)
+		}
 
 		w.deleteRow("imports_import", imp)
 		w.deleteRow("grabs_grab", grab)
@@ -378,11 +386,23 @@ func TestAnEntryReadsTheSameAfterItsWorkGrabImportAndHealthItemAreGone(t *testin
 		if landed.Work != nil || landed.Links.Grab != nil || landed.Links.Import != nil {
 			t.Errorf("the Imported entry reads %+v, want no Work, Grab or Import once they are deleted", landed)
 		}
+		if link := bellLink(w.Feed(sam), "Imported The Attic"); link != "" {
+			t.Errorf("the bell links the Imported entry to %q once its Work is deleted, want no link as on History", link)
+		}
 		raised := after.Entries[1]
 		if raised.Words != "New Health item for Disk low" || raised.Links.Health != nil {
 			t.Errorf("the New Health item reads %+v, want no Health link once the item cleared", raised)
 		}
 	})
+}
+
+func bellLink(f notifications.Feed, title string) string {
+	for _, r := range f.Rows {
+		if r.Title == title {
+			return r.Link
+		}
+	}
+	return "not on the bell"
 }
 
 func TestAOneWorkEntryIsOnItsWorksHistoryAndPagesByBefore(t *testing.T) {

@@ -191,13 +191,13 @@ func eventsOf(ctx context.Context, r storage.Reader[file], heads []head) (map[Ev
 			healthIDs = append(healthIDs, h.ID)
 		}
 	}
-	subjects, err := history.Subjects(ctx, r, ids)
+	stored, err := history.Events(ctx, r, ids)
 	if err != nil {
 		return nil, err
 	}
 	out := make(map[EventID]event, len(heads))
 	for _, h := range heads {
-		out[h.ID] = event{ID: h.ID, Kind: h.Kind, At: h.At, Subject: subjects[h.ID]}
+		out[h.ID] = event{ID: h.ID, Kind: h.Kind, At: h.At, Subject: stored[h.ID].Subject, Work: stored[h.ID].Work}
 	}
 	if len(healthIDs) == 0 {
 		return out, nil

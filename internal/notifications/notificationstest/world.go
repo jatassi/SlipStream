@@ -34,6 +34,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // World is one Controller's notifications. Make it inside synctest.Test.
@@ -71,7 +72,7 @@ type Owner struct {
 
 // Schemas is the sets a World's library holds, in order.
 func Schemas() []storage.Schema[storage.Library] {
-	return []storage.Schema[storage.Library]{secret.Schema(), identity.Schema(), mail.Schema(), nodes.Schema(), history.Schema(), notifications.Schema()}
+	return []storage.Schema[storage.Library]{secret.Schema(), identity.Schema(), mail.Schema(), nodes.Schema(), works.Schema(), history.Schema(), notifications.Schema()}
 }
 
 // New makes a World whose dispatcher runs on timings, as a Node's Config
