@@ -241,11 +241,12 @@ func (e Edit) empty() bool {
 func (s *Service) draft(d Draft, now time.Time) (Connection, providers.Values, error) {
 	c := Connection{
 		ID: ConnectionID{UUID: storage.NewUUID()}, Name: d.Name, Provider: d.Provider, On: d.On, OnAt: now, Events: d.Events,
-		Warnings: d.Warnings, Posters: d.Posters, Node: d.Node, Settings: d.Settings, Revision: 1, Created: now,
+		Warnings: d.Warnings, Posters: d.Posters, Node: d.Node, Revision: 1, Created: now,
 	}
 	if c.Events == nil {
 		c.Events = s.recommended()
 	}
+	c.Settings = maps.Clone(d.Settings)
 	if c.Settings == nil {
 		c.Settings = providers.Values{}
 	}
@@ -255,7 +256,15 @@ func (s *Service) draft(d Draft, now time.Time) (Connection, providers.Values, e
 			secrets[k] = jsonString(v)
 		}
 	}
-	return c, secrets, s.check(c, secrets)
+	if err := s.check(c, secrets); err != nil {
+		return c, secrets, err
+	}
+	for _, f := range s.provider(c.Provider).Fields {
+		if _, ok := c.Settings[f.Key]; !ok && f.Default != nil {
+			c.Settings[f.Key] = f.Default
+		}
+	}
+	return c, secrets, nil
 }
 
 // edited is c with e laid over it, and its secrets so.
