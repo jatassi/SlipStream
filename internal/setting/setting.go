@@ -117,13 +117,22 @@ func Words(d time.Duration) string {
 	case d == day:
 		return "1 day"
 	case d > 0 && d%day == 0:
-		return fmt.Sprintf("%d days", d/day)
+		return Grouped(d/day) + " days"
 	case d > 0 && d%time.Hour == 0:
-		return fmt.Sprintf("%d h", d/time.Hour)
+		return Grouped(d/time.Hour) + " h"
 	case d > 0 && d%time.Minute == 0:
-		return fmt.Sprintf("%d min", d/time.Minute)
+		return Grouped(d/time.Minute) + " min"
 	}
-	return fmt.Sprintf("%d s", d/time.Second)
+	return Grouped(d/time.Second) + " s"
+}
+
+// Grouped is n with its thousands grouped by commas, as English writes it.
+func Grouped[N ~int | ~int64](n N) string {
+	s := strconv.FormatInt(int64(n), 10)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	return s
 }
 
 type Noun struct {

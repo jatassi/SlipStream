@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -259,7 +260,7 @@ func renderUpgraded(f ImportedFacts, _ entry.Context) entry.Message {
 	case rest == 1:
 		m.Lines = append(m.Lines, "1 more "+item.One+" was upgraded.")
 	case rest > 1:
-		m.Lines = append(m.Lines, entry.Grouped(rest)+" more "+item.Many+" were upgraded.")
+		m.Lines = append(m.Lines, setting.Grouped(rest)+" more "+item.Many+" were upgraded.")
 	}
 	return withLeft(m, f, item)
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -161,7 +162,7 @@ func renderDeleted(f DeletedFacts, _ entry.Context) entry.Message {
 		case rest == 1:
 			line = strings.Join(t.First, ", ") + " and 1 more " + noun.One
 		case rest > 1:
-			line = strings.Join(t.First, ", ") + " and " + entry.Grouped(rest) + " more " + noun.Many
+			line = strings.Join(t.First, ", ") + " and " + setting.Grouped(rest) + " more " + noun.Many
 		}
 		m.Lines = append(m.Lines, line+".")
 	}

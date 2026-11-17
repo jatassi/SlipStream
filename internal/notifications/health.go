@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/health"
-	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/setting"
 )
 
 // HealthAbout is the Notifications category: one item per connection that
@@ -68,7 +68,7 @@ func waitingWords(n int) string {
 	if n == 1 {
 		return "1 message is waiting."
 	}
-	return entry.Grouped(n) + " messages are waiting."
+	return setting.Grouped(n) + " messages are waiting."
 }
 
 func (s *Service) clock(t time.Time) string { return t.In(s.cfg.Zone).Format("15:04") }

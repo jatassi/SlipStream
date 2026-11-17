@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/history/internal/db"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -114,7 +115,7 @@ func renderNewItems(f HealthFacts, c entry.Context) entry.Message {
 		m.Link = entry.HealthLink(it.parts())
 		return m
 	}
-	m.Title = fmt.Sprintf(healthWords.NewMany, entry.Grouped(len(f.Items)))
+	m.Title = fmt.Sprintf(healthWords.NewMany, setting.Grouped(len(f.Items)))
 	m.Lines = subjects(f.Items)
 	return m
 }
@@ -127,7 +128,7 @@ func renderCleared(f HealthFacts, c entry.Context) entry.Message {
 		m.Lines = []string{fmt.Sprintf(healthWords.OnHealthFrom, c.Clock(it.Since), c.Clock(it.Cleared))}
 		return m
 	}
-	m.Title = fmt.Sprintf(healthWords.ClearedMany, entry.Grouped(len(f.Items)))
+	m.Title = fmt.Sprintf(healthWords.ClearedMany, setting.Grouped(len(f.Items)))
 	m.Lines = subjects(f.Items)
 	return m
 }

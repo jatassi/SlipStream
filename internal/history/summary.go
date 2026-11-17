@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/history/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -92,7 +93,7 @@ func needsYouWords(n int) string {
 	if n == 1 {
 		return "1 Grab failed and needs attention."
 	}
-	return entry.Grouped(n) + " Grabs failed and need attention."
+	return setting.Grouped(n) + " Grabs failed and need attention."
 }
 
 // weekWords is "There were 14 Grabs and 31 Imports in the last 7 days.",

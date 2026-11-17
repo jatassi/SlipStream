@@ -2,8 +2,8 @@ package entry
 
 import (
 	"slices"
-	"strconv"
 
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -12,16 +12,7 @@ func Count(n int, noun works.Noun) string {
 	if n == 1 {
 		return "1 " + noun.One
 	}
-	return Grouped(n) + " " + noun.Many
-}
-
-// Grouped is n with its thousands grouped by commas, as English writes it.
-func Grouped(n int) string {
-	s := strconv.Itoa(n)
-	for i := len(s) - 3; i > 0; i -= 3 {
-		s = s[:i] + "," + s[i:]
-	}
-	return s
+	return setting.Grouped(n) + " " + noun.Many
 }
 
 // Titles is up to three of first as lines, then "{n} more were {verb}."
@@ -32,7 +23,7 @@ func Titles(first []string, total int, verb string) []string {
 	case rest == 1:
 		return append(lines, "1 more was "+verb+".")
 	case rest > 1:
-		return append(lines, Grouped(rest)+" more were "+verb+".")
+		return append(lines, setting.Grouped(rest)+" more were "+verb+".")
 	}
 	return lines
 }
