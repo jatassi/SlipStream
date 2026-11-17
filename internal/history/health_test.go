@@ -29,12 +29,12 @@ func TestAHealthFaultAndItsClearAreEntriesAtTheirCaptureWithTheTransitionsTimes(
 		if !got[0].At.Equal(since.Add(10*time.Minute)) || !got[1].At.Equal(clearedAt.Add(time.Minute)) {
 			t.Errorf("the entries are at %v and %v, want each capture's time", got[0].At, got[1].At)
 		}
-		raise, clear := got[0].Items[0], got[1].Items[0]
+		raise, gone := got[0].Items[0], got[1].Items[0]
 		if raise.Key != "storage.d" || raise.Level != "fail" || !raise.Since.Equal(since) || raise.Subject != "Disk d is almost full" {
 			t.Errorf("the raise holds %+v, want storage.d at Error since the transition", raise)
 		}
-		if !clear.Since.Equal(since) || !clear.Cleared.Equal(clearedAt) || clear.Subject != "Disk d is almost full" {
-			t.Errorf("the clear holds %+v, want the raise's words, its since and the clear's time", clear)
+		if !gone.Since.Equal(since) || !gone.Cleared.Equal(clearedAt) || gone.Subject != "Disk d is almost full" {
+			t.Errorf("the clear holds %+v, want the raise's words, its since and the clear's time", gone)
 		}
 	})
 }

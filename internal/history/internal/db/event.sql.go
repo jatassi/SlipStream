@@ -76,6 +76,42 @@ func (q *Queries) LastIDBefore(ctx context.Context, at storage.Time) (EventID, e
 	return id, err
 }
 
+const listAll = `-- name: ListAll :many
+SELECT id, kind, at, content_type, work_id, grab_id, import_id, subject FROM history_event ORDER BY id
+`
+
+func (q *Queries) ListAll(ctx context.Context) ([]HistoryEvent, error) {
+	rows, err := q.db.QueryContext(ctx, listAll)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HistoryEvent
+	for rows.Next() {
+		var i HistoryEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.At,
+			&i.ContentType,
+			&i.WorkID,
+			&i.GrabID,
+			&i.ImportID,
+			&i.Subject,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listByIDs = `-- name: ListByIDs :many
 SELECT id, kind, at, content_type, work_id, grab_id, import_id, subject FROM history_event WHERE id IN (/*SLICE:ids*/?) ORDER BY id DESC
 `

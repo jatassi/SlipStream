@@ -4,13 +4,12 @@ package historytest
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/history/internal/db"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -34,25 +33,27 @@ func Entries(t testing.TB, lib *storage.DB[storage.Library]) []Entry {
 	t.Helper()
 	var out []Entry
 	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		var err error
-		if out, err = events(ctx, r); err != nil {
+		q := db.New(r)
+		rows, err := q.ListAll(ctx)
+		if err != nil {
 			return err
 		}
-		at := make(map[history.EventID]int, len(out))
-		ids := make([]history.EventID, len(out))
-		for i, e := range out {
-			at[e.ID], ids[i] = i, e.ID
-		}
-		if err := eachRow(ctx, r, "SELECT event_id, work_id FROM history_work ORDER BY event_id, work_id", func(rows *sql.Rows) error {
-			var id history.EventID
-			var work works.WorkID
-			if err := rows.Scan(&id, &work); err != nil {
-				return fmt.Errorf("read a history_work row: %w", err)
+		at := make(map[history.EventID]int, len(rows))
+		ids := make([]history.EventID, len(rows))
+		for i, row := range rows {
+			e := Entry{ID: row.ID, Kind: row.Kind, At: row.At.Time(), Work: row.WorkID, Grab: row.GrabID, Import: row.ImportID, Subject: row.Subject}
+			if row.ContentType != nil {
+				e.Type = *row.ContentType
 			}
-			out[at[id]].Works = append(out[at[id]].Works, work)
-			return nil
-		}); err != nil {
+			out = append(out, e)
+			at[row.ID], ids[i] = i, row.ID
+		}
+		ws, err := q.ListWorksOf(ctx, ids)
+		if err != nil {
 			return err
+		}
+		for _, w := range ws {
+			out[at[w.EventID]].Works = append(out[at[w.EventID]].Works, w.WorkID)
 		}
 		items, err := history.Items(ctx, r, ids)
 		for id, its := range items {
@@ -64,37 +65,4 @@ func Entries(t testing.TB, lib *storage.DB[storage.Library]) []Entry {
 		t.Fatal(err)
 	}
 	return out
-}
-
-func events(ctx context.Context, r storage.Reader[storage.Library]) ([]Entry, error) {
-	var out []Entry
-	err := eachRow(ctx, r, `SELECT id, kind, at, COALESCE(content_type, ''), work_id, grab_id, import_id, subject
-		FROM history_event ORDER BY id`, func(rows *sql.Rows) error {
-		var e Entry
-		var at storage.Time
-		if err := rows.Scan(&e.ID, &e.Kind, &at, &e.Type, &e.Work, &e.Grab, &e.Import, &e.Subject); err != nil {
-			return fmt.Errorf("read a history_event row: %w", err)
-		}
-		e.At = at.Time()
-		out = append(out, e)
-		return nil
-	})
-	return out, err
-}
-
-func eachRow(ctx context.Context, r storage.Reader[storage.Library], query string, scan func(*sql.Rows) error) error {
-	rows, err := r.QueryContext(ctx, query)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = rows.Close() }()
-	for rows.Next() {
-		if err := scan(rows); err != nil {
-			return err
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("read %q: %w", query, err)
-	}
-	return nil
 }

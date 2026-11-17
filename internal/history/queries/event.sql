@@ -20,3 +20,6 @@ ORDER BY id LIMIT sqlc.arg(limit);
 
 -- name: DeleteEvents :exec
 DELETE FROM history_event WHERE id IN (sqlc.slice(ids));
+
+-- name: ListAll :many
+SELECT * FROM history_event ORDER BY id;

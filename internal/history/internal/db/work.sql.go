@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -23,4 +24,41 @@ type InsertWorkParams struct {
 func (q *Queries) InsertWork(ctx context.Context, arg InsertWorkParams) error {
 	_, err := q.db.ExecContext(ctx, insertWork, arg.EventID, arg.WorkID)
 	return err
+}
+
+const listWorksOf = `-- name: ListWorksOf :many
+SELECT event_id, work_id FROM history_work WHERE event_id IN (/*SLICE:ids*/?) ORDER BY event_id, work_id
+`
+
+func (q *Queries) ListWorksOf(ctx context.Context, ids []EventID) ([]HistoryWork, error) {
+	query := listWorksOf
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HistoryWork
+	for rows.Next() {
+		var i HistoryWork
+		if err := rows.Scan(&i.EventID, &i.WorkID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
