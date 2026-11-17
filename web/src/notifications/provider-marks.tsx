@@ -1,10 +1,4 @@
-import {
-  CommandLineIcon,
-  Mail01Icon,
-  Message01Icon,
-  NotificationSquareIcon,
-  WebhookIcon,
-} from "@hugeicons/core-free-icons";
+import { CommandLineIcon, Mail01Icon, WebhookIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 
 import apprise from "./logos/apprise.svg";
@@ -12,16 +6,17 @@ import discord from "./logos/discord.svg";
 import gotify from "./logos/gotify.svg";
 import ntfy from "./logos/ntfy.svg";
 import pushbullet from "./logos/pushbullet.svg";
+import pushover from "./logos/pushover.svg";
+import slack from "./logos/slack.svg";
 import telegram from "./logos/telegram.svg";
 
 type Mark = { logo: string; icon?: never } | { icon: IconSvgElement; logo?: never };
 
-// Slack and Pushover show an icon: their brand kits weren't reachable when the logos were taken (logos/SOURCES.md).
 const marks: Readonly<Record<string, Mark>> = {
   discord: { logo: discord },
   telegram: { logo: telegram },
-  slack: { icon: Message01Icon },
-  pushover: { icon: NotificationSquareIcon },
+  slack: { logo: slack },
+  pushover: { logo: pushover },
   gotify: { logo: gotify },
   ntfy: { logo: ntfy },
   pushbullet: { logo: pushbullet },
