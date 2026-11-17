@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/history/historytest"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/notifications/notificationstest"
 )
@@ -283,6 +284,34 @@ func TestAClearAfterItsRaiseWasPrunedTakesTheWordsATargetWasTold(t *testing.T) {
 		}
 		if f := w.Feed(admin); len(f.Rows) != 1 || f.Rows[0].Title != "Cleared: Disk d is almost full" {
 			t.Fatalf("the bell shows %+v, want the clear", f.Rows)
+		}
+	})
+}
+
+func TestAClearDuringTheWaitKeepsTheRaiseAndItsWorseUntilTheyAreSent(t *testing.T) {
+	run(t, func(t *testing.T, w *world) {
+		w.Connect("family")
+		d := disk("d", health.Warn)
+		w.Transitions(d)
+		w.Advance(wait / 2)
+		w.Transitions(moved(d, health.Worse, health.Fail))
+		if err := w.History.Clear(t.Context(), identity.Admin{}); err != nil {
+			t.Fatal(err)
+		}
+		w.Housekeeping()
+		if p, err := w.History.Page(t.Context(), identity.Admin{}, history.Filter{}, 0, 10); err != nil || len(p.Entries) != 0 {
+			t.Fatalf("after a Clear History lists %+v (%v), want nothing", p.Entries, err)
+		}
+		if held := kindsOf(historytest.Entries(t, w.Lib)); len(held) != 2 {
+			t.Fatalf("after a Clear's sweep History holds %v, want the owed raise and the Worse it renders from", held)
+		}
+		w.Advance(time.Hour)
+		if got := w.Courier.Received(family); len(got) != 1 || got[0].Tone != entry.Fail {
+			t.Fatalf("received %+v, want one message at Error", got)
+		}
+		w.Housekeeping()
+		if held := kindsOf(historytest.Entries(t, w.Lib)); len(held) != 0 {
+			t.Fatalf("once sent History holds %v, want the cleared entries gone", held)
 		}
 	})
 }

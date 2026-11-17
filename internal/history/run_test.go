@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/housekeeping"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/notifications/notificationstest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -125,5 +126,17 @@ func TestHistoryChangedIsPublishedAfterASweepThatDeletedEntries(t *testing.T) {
 			t.Fatal(err)
 		}
 		r.wantPublished(t, 2, "a sweep that deleted the entry")
+	})
+}
+
+func TestHistoryChangedIsPublishedAfterAClear(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := start(t)
+		r.record(t, false)
+		r.wantPublished(t, 1, "a capture")
+		if err := r.h.Clear(t.Context(), identity.Admin{}); err != nil {
+			t.Fatal(err)
+		}
+		r.wantPublished(t, 2, "a Clear")
 	})
 }

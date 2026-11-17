@@ -3,9 +3,11 @@ package history
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/history/internal/db"
+	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -14,9 +16,13 @@ import (
 const burst = time.Second
 
 // Run publishes history.changed once per burst of commits that recorded a
-// newer entry, and once after a sweep that deleted rows. It returns when
-// ctx ends.
+// newer entry, and once after a sweep that deleted rows or a Clear. It
+// sweeps to the Clear floor at start and after each Clear, so a sweep a
+// restart stopped finishes. It returns when ctx ends.
 func (s *Service) Run(ctx context.Context) error {
+	var sweeper sync.WaitGroup
+	sweeper.Go(func() { s.sweepCleared(ctx) })
+	defer sweeper.Wait()
 	last, err := s.newest(ctx)
 	if err != nil && ctx.Err() == nil {
 		s.cfg.Log.Error("read the newest History entry", "err", err.Error())
@@ -71,4 +77,22 @@ func (s *Service) newest(ctx context.Context) (EventID, error) {
 		return err
 	})
 	return id, err
+}
+
+// sweepCleared deletes every entry at or below the Clear floor that the
+// Outbox doesn't owe, once now and again each time Clear rings.
+func (s *Service) sweepCleared(ctx context.Context) {
+	for {
+		_, err := housekeeping.Drain(ctx, s.cfg.Batch, func(ctx context.Context, after EventID, limit int) (housekeeping.Swept[EventID], error) {
+			return s.sweep(ctx, time.Time{}, after, limit)
+		})
+		if err != nil && ctx.Err() == nil {
+			s.cfg.Log.Error("sweep cleared History", "err", err.Error())
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.clear:
+		}
+	}
 }

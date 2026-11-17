@@ -76,12 +76,14 @@ type Service struct {
 	// swept is set by a sweep that deleted rows, so Run publishes even
 	// though no newer entry was recorded.
 	swept chan struct{}
+	// clear wakes Run's sweeper after Clear raised the floor.
+	clear chan struct{}
 }
 
 // New registers the Health rows first in cfg.Catalog.
 func New(cfg Config) *Service {
 	cfg.Catalog.Register("history", []entry.Entry{NewItemsRow, ClearedRow})
-	return &Service{cfg: cfg, bell: make(chan struct{}, 1), swept: make(chan struct{}, 1)}
+	return &Service{cfg: cfg, bell: make(chan struct{}, 1), swept: make(chan struct{}, 1), clear: make(chan struct{}, 1)}
 }
 
 // Recorder registers owner's rows in the catalog and answers the Recorder

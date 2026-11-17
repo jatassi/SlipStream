@@ -324,7 +324,9 @@ func TestTheMoveKeepsTheBellTheQueueAndEveryEntry(t *testing.T) {
 		if got := titlesOf(f.Rows); !slices.Equal(got, want) || *f.Unread != 3 {
 			t.Fatalf("the bell lists %q with %d unread, want %q with 3: the Imported that was still owed, then the old rows", got, *f.Unread, want)
 		}
-		wantMigrated(t, historytest.Entries(t, lib))
+		migrated := historytest.Entries(t, lib)
+		wantMigrated(t, migrated)
+		wantListed(t, w, migrated)
 
 		w.Record(notificationstest.PingRow, notificationstest.Ping{Name: "new"})
 		after := historytest.Entries(t, lib)
@@ -384,6 +386,47 @@ func wantMigrated(t *testing.T, entries []historytest.Entry) {
 	}
 	if items := entries[10].Items; len(items) != 2 || items[0].Level != "fail" || items[0].Subject != "Disk d is full" {
 		t.Errorf("the waiting raise holds %+v, want the Worse's words for storage.d", items)
+	}
+}
+
+// wantListed is History's list of the migrated entries, newest first, each
+// in its owner's words, and a Work's History its entries alone, the
+// single-Work delete among them and the 12-Work delete not.
+func wantListed(t *testing.T, w *notificationstest.World, migrated []historytest.Entry) {
+	t.Helper()
+	all, err := w.History.Page(t.Context(), identity.Admin{}, history.Filter{}, 0, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kinds, want []entry.Kind
+	for _, e := range all.Entries {
+		kinds = append(kinds, e.Spec.Kind)
+		if e.Message.Title == "" {
+			t.Errorf("History lists entry %d of kind %s with no words", e.ID, e.Spec.Kind)
+		}
+	}
+	for _, e := range slices.Backward(migrated) {
+		want = append(want, e.Kind)
+	}
+	if !slices.Equal(kinds, want) || all.Next != 0 {
+		t.Fatalf("History lists %v, want every migrated entry newest first: %v", kinds, want)
+	}
+	one := migrated[6]
+	onWork, err := w.History.Page(t.Context(), identity.Admin{}, history.Filter{Work: one.Work}, 0, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gotIDs, wantIDs []history.EventID
+	for _, e := range onWork.Entries {
+		gotIDs = append(gotIDs, e.ID)
+	}
+	for _, e := range slices.Backward(migrated) {
+		if e.Work == one.Work {
+			wantIDs = append(wantIDs, e.ID)
+		}
+	}
+	if !slices.Equal(gotIDs, wantIDs) || !slices.Contains(gotIDs, one.ID) {
+		t.Errorf("the deleted Work's History lists %v, want its own entries newest first: %v", gotIDs, wantIDs)
 	}
 }
 
