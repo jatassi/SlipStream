@@ -117,6 +117,8 @@ func getCalendar(ctx context.Context, n Calendar, by identity.Admin, in *calenda
 		return nil, refused("contentType", "There's no kind of media called "+in.ContentType+".")
 	case errors.As(err, &off):
 		return nil, refused("contentType", off.Name+" is turned off. Turn it on under Kinds of media first.")
+	case errors.As(err, &unknown) && unknown.Type != "":
+		return nil, refused("kinds", unknown.Type+" has no release date kind called "+string(unknown.Key)+". Choose one from the Calendar's filter.")
 	case errors.As(err, &unknown):
 		return nil, refused("kinds", "There's no release date kind called "+string(unknown.Key)+". Choose one from the Calendar's filter.")
 	case err != nil:

@@ -336,6 +336,7 @@ func TestGetCalendarAnswersOneTypesKindsAndNeverAsksAnOffType(t *testing.T) {
 		{"contentType=crates", `{"location":"query.contentType","message":"Crates is turned off. Turn it on under Kinds of media first."}`},
 		{"contentType=boats", `{"location":"query.contentType","message":"There's no kind of media called boats."}`},
 		{"kinds=shipped,boxed", `{"location":"query.kinds","message":"There's no release date kind called boxed. Choose one from the Calendar's filter."}`},
+		{"contentType=films&kinds=shipped", `{"location":"query.kinds","message":"Films has no release date kind called shipped. Choose one from the Calendar's filter."}`},
 	} {
 		w.s.Expect(t, http.MethodGet, "/api/v1/calendar?"+month+"&"+c.query, "", http.StatusUnprocessableEntity,
 			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[`+c.want+`]}`)

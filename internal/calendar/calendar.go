@@ -73,10 +73,17 @@ func (e *TypeOffError) Error() string { return e.Name + " is turned off" }
 
 func (*TypeOffError) Unwrap() error { return ErrTypeOff }
 
-// UnknownKindError is ErrUnknownKind for Key.
-type UnknownKindError struct{ Key works.DatedKey }
+// UnknownKindError is ErrUnknownKind for Key. Type is the Name of the
+// type the Query names, "" when it names none.
+type UnknownKindError struct {
+	Key  works.DatedKey
+	Type string
+}
 
 func (e *UnknownKindError) Error() string {
+	if e.Type != "" {
+		return e.Type + " has no dated kind " + string(e.Key)
+	}
 	return "no Content Type has the dated kind " + string(e.Key)
 }
 
@@ -208,13 +215,21 @@ func (c *Calendar) asked(ctx context.Context, r storage.Reader[storage.Library],
 	return out, nil
 }
 
-// refuse answers an unknown type, or a kind no type declares.
+// refuse answers an unknown type, or a kind the type q names doesn't
+// declare, or with no type, a kind no type declares.
 func (c *Calendar) refuse(q Query) error {
 	if _, ok := c.cfg.Types[q.Type]; q.Type != "" && !ok {
 		return ErrUnknownType
 	}
+	types := slices.Collect(maps.Keys(c.cfg.Types))
+	var name string
+	if q.Type != "" {
+		types = []works.TypeID{q.Type}
+		d, _ := c.cfg.Works.Describe(q.Type)
+		name = d.Name
+	}
 	declared := map[works.DatedKey]bool{}
-	for t := range c.cfg.Types {
+	for _, t := range types {
 		d, _ := c.cfg.Works.Describe(t)
 		for _, k := range d.Dated {
 			declared[k.Key] = true
@@ -222,7 +237,7 @@ func (c *Calendar) refuse(q Query) error {
 	}
 	for _, k := range q.Kinds {
 		if !declared[k] {
-			return &UnknownKindError{Key: k}
+			return &UnknownKindError{Key: k, Type: name}
 		}
 	}
 	return nil
