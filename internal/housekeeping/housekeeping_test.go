@@ -84,4 +84,8 @@ func TestAPruneNoteSaysWhatWentAndWhatStayed(t *testing.T) {
 			t.Errorf("%+v reads %q, want %q", c.t, got, c.want)
 		}
 	}
+	entries := setting.Noun{One: "entry", Many: "entries"}
+	if got, want := (Tally{Deleted: 3, Kept: 2}).words(entries, "that are still being sent"), "Deleted 3 entries. Kept 2 that are still being sent."; got != want {
+		t.Errorf("History's note reads %q, want %q", got, want)
+	}
 }

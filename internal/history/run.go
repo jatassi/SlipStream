@@ -9,13 +9,13 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// publishGap is the least time between two history.changed: a burst of
-// captures is one.
-const publishGap = time.Second
+// burst is how long Run waits after a ring before it publishes, so a
+// burst of captures is one history.changed.
+const burst = time.Second
 
-// Run publishes history.changed after commits that recorded a newer entry
-// and after a sweep that deleted rows, at most once a publishGap. It
-// returns when ctx ends.
+// Run publishes history.changed once per burst of commits that recorded a
+// newer entry, and once after a sweep that deleted rows. It returns when
+// ctx ends.
 func (s *Service) Run(ctx context.Context) error {
 	last, err := s.newest(ctx)
 	if err != nil && ctx.Err() == nil {
@@ -27,6 +27,12 @@ func (s *Service) Run(ctx context.Context) error {
 			return nil
 		case <-s.bell:
 		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(burst):
+		}
+		drain(s.bell)
 		newest, err := s.newest(ctx)
 		if err != nil {
 			if ctx.Err() == nil {
@@ -34,22 +40,21 @@ func (s *Service) Run(ctx context.Context) error {
 			}
 			continue
 		}
-		swept := false
-		select {
-		case <-s.swept:
-			swept = true
-		default:
-		}
-		if newest <= last && !swept {
+		if swept := drain(s.swept); newest <= last && !swept {
 			continue
 		}
 		last = max(last, newest)
 		s.cfg.Changed.Publish(ctx, Changed{})
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(publishGap):
-		}
+	}
+}
+
+// drain is whether c had rung, emptying it.
+func drain(c chan struct{}) bool {
+	select {
+	case <-c:
+		return true
+	default:
+		return false
 	}
 }
 
