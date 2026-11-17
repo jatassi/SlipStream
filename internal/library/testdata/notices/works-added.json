@@ -1,0 +1,29 @@
+{
+  "work": {
+    "id": "019a8f5e-0000-7000-8000-000000000002",
+    "label": "Dune (1965)",
+    "type": "book",
+    "nouns": {
+      "work": {
+        "One": "Book",
+        "Many": "Books"
+      },
+      "levels": null,
+      "item": {
+        "One": "Book",
+        "Many": "Books"
+      },
+      "single": true
+    },
+    "poster": {
+      "Source": "tmdb",
+      "Shape": "poster",
+      "Path": "/dune.jpg"
+    }
+  },
+  "root": "Books library root on Den",
+  "by": {
+    "name": "Sam",
+    "apiKey": false
+  }
+}

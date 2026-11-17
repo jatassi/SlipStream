@@ -149,6 +149,15 @@ type Comparison struct {
 	Consumed int
 }
 
+// comparedAt is when root was last compared, zero before its first.
+func comparedAt(ctx context.Context, r storage.Reader[file], root roots.ID) (storage.Time, error) {
+	c, err := db.New(r).GetCompared(ctx, root)
+	if errors.Is(err, storage.ErrNoRows) {
+		return storage.Time{}, nil
+	}
+	return c.ComparedAt, err
+}
+
 // record keeps c as root's last comparison in tx. It clears Mark them
 // gone's count only while it still holds the one c ran with, so a second
 // Mark them gone during the comparison applies to the next.

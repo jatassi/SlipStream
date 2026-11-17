@@ -46,11 +46,7 @@ func NewHolder(cfg HolderConfig) *Holder {
 	for _, t := range cfg.Testers {
 		h.testers[t.Provider().ID] = t
 	}
-	var lists [][]artwork.Source
-	for _, s := range cfg.Types {
-		lists = append(lists, s.Sources())
-	}
-	for id, src := range artwork.NewSources(lists...) {
+	for id, src := range cfg.Sources() {
 		h.images[id] = imageHost{src: src, line: cfg.Lines.Line(imageProvider(src))}
 	}
 	return h

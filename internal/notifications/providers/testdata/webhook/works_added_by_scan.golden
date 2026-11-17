@@ -1,0 +1,17 @@
+PUT /slipstream/[set]
+Authorization: Basic slipstream:[set]
+Content-Type: application/json
+X-Hook-Secret: [set]
+
+{
+  "version": 1,
+  "event": "works_added_by_scan",
+  "at": "2026-11-16T14:02:00Z",
+  "title": "A Library scan of the Movies library root on Den added 12 movies",
+  "lines": [
+    "Alien (1979)",
+    "Arrival (2016)",
+    "Blade Runner (1982)",
+    "9 more were added."
+  ]
+}

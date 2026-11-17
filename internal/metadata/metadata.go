@@ -68,6 +68,8 @@ type Config struct {
 	// ArtworkDir.
 	Local      *storage.DB[storage.Local]
 	ArtworkDir string
+	// Sources are the image hosts artwork references name, for PublicURL.
+	Sources artwork.Sources
 }
 
 type Publisher interface {

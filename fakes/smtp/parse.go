@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"mime/quotedprintable"
 	netmail "net/mail"
+	"net/textproto"
 	"strings"
 )
 
@@ -16,6 +17,14 @@ type parts struct {
 	subject string
 	text    string
 	html    string
+	inline  []inline
+}
+
+// inline is an image part a message shows through its Content-ID.
+type inline struct {
+	contentID string
+	media     string
+	body      []byte
 }
 
 func parse(raw []byte) (parts, error) {
@@ -27,13 +36,14 @@ func parse(raw []byte) (parts, error) {
 	if p.subject, err = new(mime.WordDecoder).DecodeHeader(m.Header.Get("Subject")); err != nil {
 		return parts{}, fmt.Errorf("unreadable subject: %w", err)
 	}
-	if err := p.walk(m.Header.Get("Content-Type"), m.Header.Get("Content-Transfer-Encoding"), m.Body); err != nil {
+	if err := p.walk(textproto.MIMEHeader(m.Header), m.Body); err != nil {
 		return parts{}, err
 	}
 	return p, nil
 }
 
-func (p *parts) walk(contentType, encoding string, body io.Reader) error {
+func (p *parts) walk(h textproto.MIMEHeader, body io.Reader) error {
+	contentType, encoding := h.Get("Content-Type"), h.Get("Content-Transfer-Encoding")
 	if contentType == "" {
 		contentType = "text/plain"
 	}
@@ -51,7 +61,7 @@ func (p *parts) walk(contentType, encoding string, body io.Reader) error {
 			if err != nil {
 				return fmt.Errorf("%s part: %w", media, err)
 			}
-			if err := p.walk(part.Header.Get("Content-Type"), part.Header.Get("Content-Transfer-Encoding"), part); err != nil {
+			if err := p.walk(part.Header, part); err != nil {
 				return err
 			}
 		}
@@ -66,11 +76,13 @@ func (p *parts) walk(contentType, encoding string, body io.Reader) error {
 	if err != nil {
 		return fmt.Errorf("%s body: %w", media, err)
 	}
-	switch media {
-	case "text/plain":
+	switch {
+	case media == "text/plain":
 		p.text = string(b)
-	case "text/html":
+	case media == "text/html":
 		p.html = string(b)
+	case strings.HasPrefix(media, "image/"):
+		p.inline = append(p.inline, inline{contentID: strings.Trim(h.Get("Content-ID"), "<>"), media: media, body: b})
 	}
 	return nil
 }

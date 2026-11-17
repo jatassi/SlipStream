@@ -1,0 +1,15 @@
+POST /message
+Content-Type: application/json
+X-Gotify-Key: [set]
+
+{
+  "title": "Cleared: Den's disk is almost full",
+  "message": "It was on Health from 13:57 to 14:02.",
+  "priority": 8,
+  "extras": {
+    "client::display": {
+      "contentType": "text/plain"
+    },
+    "client::notification": {}
+  }
+}

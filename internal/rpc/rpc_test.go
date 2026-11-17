@@ -16,6 +16,8 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/link/linktest"
+	notifyv1 "github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1/notifyv1connect"
 	rpctestv1 "github.com/jatassi/slipstream/internal/pb/slipstream/rpctest/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/rpctest/v1/rpctestv1connect"
 	"github.com/jatassi/slipstream/internal/role"
@@ -239,7 +241,37 @@ func TestOnlyTheControllerCallsNodeAndRoleServices(t *testing.T) {
 		if p, s := c.pingers[c.controllerID].calls.Load(), c.searchers[c.controllerID].calls.Load(); p != 0 || s != 1 {
 			t.Errorf("the Controller's pinger ran %d times and its searcher %d, want 0 and 1", p, s)
 		}
+
+		c.roster.holders[role.Notifying] = []role.NodeID{c.controllerID}
+		n := &notifier{}
+		notifyv1connect.NotifyingService.Mount(c.controller, n)
+		_, err = notifyv1connect.NotifyingService.On(forged, c.controllerID).Post(t.Context(), &notifyv1.PostRequest{Method: http.MethodPost, Url: "https://discord.com/api/webhooks/1/secret"})
+		if rpc.CodeOf(err) != rpc.CodePermissionDenied {
+			t.Errorf("a Worker's Post on the Controller = %v (code %v), want permission denied", err, rpc.CodeOf(err))
+		}
+		_, err = notifyv1connect.NotifyingService.On(forged, c.controllerID).Run(t.Context(), &notifyv1.RunRequest{Path: "/opt/notify.sh"})
+		if rpc.CodeOf(err) != rpc.CodePermissionDenied {
+			t.Errorf("a Worker's Run on the Controller = %v (code %v), want permission denied", err, rpc.CodeOf(err))
+		}
+		if got := n.calls.Load(); got != 0 {
+			t.Errorf("the Controller's Notifying service ran %d times for a Worker, want 0", got)
+		}
 	})
+}
+
+type notifier struct {
+	notifyv1connect.UnimplementedNotifyingServiceHandler
+	calls atomic.Int32
+}
+
+func (n *notifier) Post(context.Context, *notifyv1.PostRequest) (*notifyv1.PostResponse, error) {
+	n.calls.Add(1)
+	return &notifyv1.PostResponse{Status: http.StatusNoContent}, nil
+}
+
+func (n *notifier) Run(context.Context, *notifyv1.RunRequest) (*notifyv1.RunResponse, error) {
+	n.calls.Add(1)
+	return &notifyv1.RunResponse{}, nil
 }
 
 func TestCallsThatNeverRan(t *testing.T) {

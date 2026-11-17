@@ -1,0 +1,12 @@
+PUT /[set]
+Authorization: Bearer [set]
+Click: https://slipstream.example/works/w1
+Content-Type: image/jpeg
+Filename: poster.jpg
+Message: WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB
+Automatic search found it on TorrentLeech.
+It scores 1250 for the 1080p Target and 900 for the 720p Target.
+Priority: 4
+Title: Grabbed Heat (1995)
+
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488

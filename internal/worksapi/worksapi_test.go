@@ -32,6 +32,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
@@ -235,7 +236,7 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 		t.Fatal(err)
 	}
 	asked := &queued{}
-	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Imports: noImports{}, Queue: asked})}
+	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Notices: noticetest.Ignored("library", library.Notices()), Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Imports: noImports{}, Queue: asked})}
 	worksapi.Routes(r, sh)
 	filesapi.Routes(r, sh)
 	return &server{handler: r.Handler(), lib: lib, fx: fx, works: w, goals: goals, grabs: cells, homes: homes, files: shelved, library: sh.l, queued: asked, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: identitytest.APIKey(t, lib), session: admin.Cookie.Value, log: logged}

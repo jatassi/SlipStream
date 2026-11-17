@@ -43,6 +43,7 @@ type ImportsFile struct {
 	FileID          files.ID
 	SourceRemovedAt storage.Time
 	Seeded          int64
+	ToldAt          storage.Time
 }
 
 type ImportsFileFill struct {

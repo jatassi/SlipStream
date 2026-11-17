@@ -1,0 +1,35 @@
+MAIL sam@example.com
+Subject: The Grab for Heat (1995) failed
+--- text
+qBittorrent refused the torrent because it already has it.
+SlipStream searches again automatically.
+
+Open in SlipStream: https://slipstream.example/works/w1
+
+--- html
+<h2>The Grab for Heat (1995) failed</h2>
+<p>qBittorrent refused the torrent because it already has it.</p>
+<p>SlipStream searches again automatically.</p>
+<p><a href="https://slipstream.example/works/w1">Open in SlipStream</a></p>
+<p><img src="cid:poster" alt="" width="200"></p>
+
+--- inline poster poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488
+
+MAIL alex@example.com
+Subject: The Grab for Heat (1995) failed
+--- text
+qBittorrent refused the torrent because it already has it.
+SlipStream searches again automatically.
+
+Open in SlipStream: https://slipstream.example/works/w1
+
+--- html
+<h2>The Grab for Heat (1995) failed</h2>
+<p>qBittorrent refused the torrent because it already has it.</p>
+<p>SlipStream searches again automatically.</p>
+<p><a href="https://slipstream.example/works/w1">Open in SlipStream</a></p>
+<p><img src="cid:poster" alt="" width="200"></p>
+
+--- inline poster poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488

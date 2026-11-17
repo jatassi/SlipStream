@@ -29,6 +29,9 @@ type Adding struct {
 	Search   *works.SearchScope
 	Remember bool
 	By       works.AddedBy
+	// Announce records Works added. Only the add flow sets it, so Pending
+	// imports' Add and a Library scan's adopt record nothing.
+	Announce bool
 	// Attach runs in the add's Write once the Work has its Profile and
 	// root and before its preset applies, so a preset that reads files
 	// (missing, existing) counts the files it attaches.
@@ -78,8 +81,10 @@ func (l *Library) Add(ctx context.Context, by identity.Admin, a Adding) (Added, 
 		By:           a.By,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
 			var err error
-			moved, err = l.settleIn(ctx, tx, w, a, choice)
-			return err
+			if moved, err = l.settleIn(ctx, tx, w, a, choice); err != nil || !a.Announce {
+				return err
+			}
+			return l.announceAdded(ctx, tx, by, w.ID)
 		},
 	})
 	if err != nil {

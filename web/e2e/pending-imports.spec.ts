@@ -136,9 +136,7 @@ async function importHarborLightsByHand(
   await expectAccessible(page);
   await screenshotWholePage(page, testInfo.outputPath("import-files.png"));
   await sheet.getByRole("button", { name: "Import all", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
-    "Importing 1 file.",
-  );
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText("Importing 1 file.");
   await expect(sheet).toBeHidden();
   await expect
     .poll(async () => (await libraryRow(world, "Harbor Lights"))?.files, {

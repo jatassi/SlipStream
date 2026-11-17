@@ -1,0 +1,13 @@
+POST /1/messages.json
+Content-Type: application/x-www-form-urlencoded
+
+device: phone,tablet
+message: It replaced WEBDL-1080p.
+priority: 1
+sound: pushover
+timestamp: 1794837720
+title: Upgraded Heat (1995) to Remux-2160p
+token: [set]
+url: https://slipstream.example/works/w1
+url_title: Open in SlipStream
+user: [set]

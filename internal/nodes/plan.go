@@ -37,9 +37,15 @@ type NodeRole struct {
 	Role role.Name
 }
 
-// ReachResult is a reach test run from a Node against a Role's target.
-type ReachResult struct {
+// ReachKey is one reach test: from a Node, for a Role, to a target's
+// host and port.
+type ReachKey struct {
+	NodeRole
 	Target string
+}
+
+// ReachResult is how a reach test went.
+type ReachResult struct {
 	OK     bool
 	Millis int64
 	Err    string
@@ -78,13 +84,13 @@ func (s Seat) Suggested() role.Set {
 }
 
 // Situation is everything Plan reads: the live Nodes in id order, the
-// Reach Roles whose owner has a target configured, and the reach tests
-// run for this call.
+// targets each Reach Role's owner has configured, and the reach tests run
+// for this call.
 type Situation struct {
 	Controller ID
 	Seats      []Seat
-	Targets    role.Set
-	Reach      map[NodeRole]ReachResult
+	Targets    map[role.Name][]Target
+	Reach      map[ReachKey]ReachResult
 }
 
 // Change is a write to Roles: SetRoles, WriteOff or Remove.
@@ -126,9 +132,9 @@ type Outcome struct {
 	Forfeit Roles
 	Effects []Effect
 	Checks  []Check
-	// Untested is each added Role whose reach test the plan would read,
+	// Untested is each reach test of an added Role the plan would read,
 	// had the Situation run it.
-	Untested []NodeRole
+	Untested []ReachKey
 }
 
 func (o Outcome) Blocked() bool {
@@ -159,6 +165,7 @@ const (
 	ProbeWeak        Reason = "probe_weak"
 	OfflineUnchecked Reason = "offline_unchecked"
 	ReachFailed      Reason = "reach_failed"
+	ReachWarned      Reason = "reach_warned"
 	Reached          Reason = "reached"
 	NothingToTest    Reason = "nothing_to_test"
 	IsController     Reason = "node_is_controller"
@@ -169,10 +176,12 @@ const (
 )
 
 // Check is a guardrail's answer for one Node and Role. Role is "" for a
-// check on the whole Node.
+// check on the whole Node, and Target is the host and port of a reach
+// test's check, "" for any other.
 type Check struct {
 	Node        Named
 	Role        role.Name
+	Target      string
 	Verdict     Verdict
 	Reason      Reason
 	Words       string
@@ -277,7 +286,7 @@ type planner struct {
 	out           []Effect
 	handbacks     []Effect
 	checks        []Check
-	untested      []NodeRole
+	untested      []ReachKey
 }
 
 func (p *planner) writeOff(seat Seat, roles role.Set) {
@@ -489,15 +498,18 @@ func (p *planner) test(seat Seat, r role.Name) {
 	if !rule.Reach {
 		return
 	}
-	if !p.s.Targets.Has(r) {
+	targets := p.s.Targets[r]
+	if len(targets) == 0 {
 		p.checks = append(p.checks, nothingToTest(seat.Named, r))
 		return
 	}
-	at := NodeRole{seat.ID, r}
-	if res, ok := p.s.Reach[at]; ok {
-		p.checks = append(p.checks, reached(seat.Named, r, res))
-	} else {
-		p.untested = append(p.untested, at)
+	for _, t := range targets {
+		key := ReachKey{NodeRole{seat.ID, r}, t.String()}
+		if res, ok := p.s.Reach[key]; ok {
+			p.checks = append(p.checks, reached(seat.Named, r, t, res))
+		} else {
+			p.untested = append(p.untested, key)
+		}
 	}
 }
 
@@ -557,7 +569,7 @@ func gesture(s Situation, was Roles, r role.Name, from, to ID) Gesture {
 		want[from] = was[from].Without(r)
 		g.Word = "Moves " + r.Label()
 	}
-	if r.Rule().Reach && s.Targets.Has(r) {
+	if r.Rule().Reach && len(s.Targets[r]) > 0 {
 		g.Word = "Tested when you drop"
 	}
 	o := Plan(s, SetRoles{Want: want})

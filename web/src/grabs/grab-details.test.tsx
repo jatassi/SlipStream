@@ -8,7 +8,7 @@ import { getListIndexersMockHandler } from "../api/gen/query/indexers/indexers.m
 import { getListTrackersMockHandler } from "../api/gen/query/trackers/trackers.msw";
 import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 import { clock } from "../format";
-import { downloading, waitingToFetch } from "../test/grabs";
+import { downloading, fetchFailure, waitingToFetch } from "../test/grabs";
 // oxlint-disable-next-line import/max-dependencies -- Details read Grabs, Works, Targets, Indexers, Trackers and Torrents
 import { problem } from "../test/handlers";
 import { torrentLeech, torrentLeechTrackerId, trackers } from "../test/indexers";
@@ -121,7 +121,7 @@ test("Cancel with Also blocklist this Release cancels the Grab and blocklists it
   await expect
     .element(
       page
-        .getByRole("region", { name: "Notifications" })
+        .getByRole("region", { name: "Messages" })
         .getByText("Canceled the Grab of The Quiet Orchard."),
     )
     .toBeVisible();
@@ -155,6 +155,8 @@ test("a canceled Grab sits under Jobs with who canceled it, never under Needs yo
     failure: {
       stage: "fetching",
       code: "canceled",
+      cause: "An Admin canceled this Grab.",
+      recovery: "Search again to pick another release.",
       message: "Ada Okafor canceled this Grab.",
       needsYou: false,
       current: true,
@@ -187,13 +189,7 @@ test("Details on a Needs you card opens its Grab's record", async () => {
   const failed: GrabsGrab = {
     ...manual,
     stage: "failed",
-    failure: {
-      stage: "fetching",
-      code: "torrent_unreachable",
-      message: "the Indexer answered 404 for the .torrent",
-      needsYou: true,
-      current: true,
-    },
+    failure: fetchFailure,
     actions: { cancel: false, blocklistable: false, sendTo: false },
   };
   renderApp({ path: "/activity", handlers: grabServer(failed).handlers });
@@ -206,6 +202,21 @@ test("Details on a Needs you card opens its Grab's record", async () => {
     .element(page.getByRole("dialog", { name: "Grab of The Quiet Orchard" }))
     .toMatchTextContent(
       /^Grab of The Quiet OrchardSlipStream couldn't download the release's \.torrent file or magnet link from the Indexer\./u,
+    );
+});
+
+test("a failure whose detail says only its cause shows no Detail row", async () => {
+  const failed: GrabsGrab = {
+    ...manual,
+    stage: "failed",
+    failure: { ...fetchFailure, message: fetchFailure.cause },
+    actions: { cancel: false, blocklistable: false, sendTo: false },
+  };
+  renderApp({ path: "/activity", handlers: grabServer(failed).handlers });
+  await expect
+    .element(page.getByRole("article", { name: "The Quiet Orchard" }))
+    .toMatchTextContent(
+      /CauseSlipStream couldn't download the release's \.torrent file or magnet link from the Indexer\.RecoverySearch again to pick another release\.ReleaseThe\.Quiet\.Orchard\.2021\.1080p\.WEB-DL$/u,
     );
 });
 

@@ -1,0 +1,133 @@
+{
+  "work": {
+    "id": "019a8f5e-0000-7000-8000-000000000002",
+    "label": "Ark (2019)",
+    "type": "zine",
+    "nouns": {
+      "work": {
+        "One": "Zine",
+        "Many": "Zines"
+      },
+      "levels": [
+        {
+          "One": "Volume",
+          "Many": "Volumes"
+        }
+      ],
+      "item": {
+        "One": "Issue",
+        "Many": "Issues"
+      },
+      "single": false
+    },
+    "poster": {
+      "Source": "tmdb",
+      "Shape": "poster",
+      "Path": "/cover.jpg"
+    }
+  },
+  "root": "Zines library root on Den",
+  "files": [
+    {
+      "items": [
+        {
+          "level": "Volume 2",
+          "number": 1
+        }
+      ],
+      "quality": "webdl-1080p",
+      "size": 536870912,
+      "placedBy": "link"
+    },
+    {
+      "items": [
+        {
+          "level": "Volume 2",
+          "number": 2
+        }
+      ],
+      "quality": "webdl-1080p",
+      "size": 536870912,
+      "placedBy": "link"
+    },
+    {
+      "items": [
+        {
+          "level": "Volume 2",
+          "number": 3
+        }
+      ],
+      "quality": "webdl-1080p",
+      "size": 536870912,
+      "placedBy": "link"
+    },
+    {
+      "items": [
+        {
+          "level": "Volume 2",
+          "number": 4
+        }
+      ],
+      "quality": "webdl-1080p",
+      "size": 536870912,
+      "placedBy": "link"
+    },
+    {
+      "items": [
+        {
+          "level": "Volume 2",
+          "number": 5
+        }
+      ],
+      "quality": "webdl-1080p",
+      "size": 536870912,
+      "placedBy": "link"
+    },
+    {
+      "items": [
+        {
+          "level": "Volume 2",
+          "number": 6
+        }
+      ],
+      "quality": "webdl-1080p",
+      "size": 536870912,
+      "placedBy": "link"
+    },
+    {
+      "items": [
+        {
+          "level": "Volume 2",
+          "number": 7
+        }
+      ],
+      "quality": "webdl-1080p",
+      "size": 536870912,
+      "placedBy": "link"
+    },
+    {
+      "items": [
+        {
+          "level": "Volume 2",
+          "number": 8
+        }
+      ],
+      "quality": "webdl-1080p",
+      "size": 536870912,
+      "placedBy": "link"
+    },
+    {
+      "items": [
+        {
+          "level": "Volume 2",
+          "number": 9
+        }
+      ],
+      "quality": "webdl-1080p",
+      "size": 536870912,
+      "placedBy": "link"
+    }
+  ],
+  "failed": 1,
+  "waiting": 2
+}

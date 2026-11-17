@@ -1,0 +1,13 @@
+POST /bot[set]/sendMessage
+Content-Type: application/json
+
+{
+  "chat_id": "-1001234567890",
+  "message_thread_id": 42,
+  "text": "\u003cb\u003eA Library scan of the Movies library root on Den added 12 movies\u003c/b\u003e\nAlien (1979)\nArrival (2016)\nBlade Runner (1982)\n9 more were added.",
+  "parse_mode": "HTML",
+  "disable_notification": true,
+  "link_preview_options": {
+    "is_disabled": true
+  }
+}

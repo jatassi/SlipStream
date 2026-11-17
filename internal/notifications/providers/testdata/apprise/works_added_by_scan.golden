@@ -1,0 +1,11 @@
+POST /notify/[set]
+Authorization: Basic slipstream:[set]
+Content-Type: application/json
+
+{
+  "body": "Alien (1979)\nArrival (2016)\nBlade Runner (1982)\n9 more were added.",
+  "format": "text",
+  "tag": "family,phones",
+  "title": "A Library scan of the Movies library root on Den added 12 movies",
+  "type": "info"
+}

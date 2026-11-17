@@ -1,0 +1,18 @@
+POST /api/webhooks/1180000000000000000/[set]?wait=true
+Content-Type: application/json
+
+{
+  "username": "SlipStream",
+  "embeds": [
+    {
+      "title": "The Grab for Heat (1995) failed",
+      "description": "qBittorrent refused the torrent because it already has it.\nSlipStream searches again automatically.",
+      "url": "https://slipstream.example/works/w1",
+      "color": 15680580,
+      "timestamp": "2026-11-16T14:02:00Z"
+    }
+  ],
+  "allowed_mentions": {
+    "parse": []
+  }
+}

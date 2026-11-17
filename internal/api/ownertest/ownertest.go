@@ -31,6 +31,16 @@ type Owner struct {
 	Log     *bytes.Buffer
 }
 
+// logTo logs to logged without times, so a test can compare it.
+func logTo(logged *bytes.Buffer) *slog.Logger {
+	return slog.New(slog.NewTextHandler(logged, &slog.HandlerOptions{ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
+		if a.Key == slog.TimeKey {
+			return slog.Attr{}
+		}
+		return a
+	}}))
+}
+
 // Serve claims a Controller in UTC over lib, which holds at least the
 // secret and identity schemas, and mounts the owner's Routes.
 func Serve(t *testing.T, lib *storage.DB[storage.Library], routes func(*api.Router)) *Owner {
@@ -41,13 +51,6 @@ func Serve(t *testing.T, lib *storage.DB[storage.Library], routes func(*api.Rout
 // ServeIn is Serve on a Controller in zone.
 func ServeIn(t *testing.T, lib *storage.DB[storage.Library], zone *time.Location, routes func(*api.Router)) *Owner {
 	t.Helper()
-	logged := &bytes.Buffer{}
-	log := slog.New(slog.NewTextHandler(logged, &slog.HandlerOptions{ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
-		if a.Key == slog.TimeKey {
-			return slog.Attr{}
-		}
-		return a
-	}}))
 	keys, err := secret.Open(t.Context(), lib, filepath.Join(t.TempDir(), secret.KeyFile))
 	if err != nil {
 		t.Fatal(err)
@@ -56,6 +59,20 @@ func ServeIn(t *testing.T, lib *storage.DB[storage.Library], zone *time.Location
 	if err != nil {
 		t.Fatal(err)
 	}
+	return claim(t, lib, svc, zone, routes)
+}
+
+// ServeOver is Serve in UTC over the identity service a fixture already
+// opened on lib, since lib's secret key opens once.
+func ServeOver(t *testing.T, lib *storage.DB[storage.Library], svc *identity.Service, routes func(*api.Router)) *Owner {
+	t.Helper()
+	return claim(t, lib, svc, time.UTC, routes)
+}
+
+func claim(t *testing.T, lib *storage.DB[storage.Library], svc *identity.Service, zone *time.Location, routes func(*api.Router)) *Owner {
+	t.Helper()
+	logged := &bytes.Buffer{}
+	log := logTo(logged)
 	gate, code, err := identity.NewGate(t.Context(), identitytest.Node{Service: svc}.Claim, log)
 	if err != nil {
 		t.Fatal(err)

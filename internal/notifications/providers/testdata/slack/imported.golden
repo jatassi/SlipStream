@@ -1,0 +1,15 @@
+POST /services/T0000/B0000/[set]
+Content-Type: application/json
+
+{
+  "text": "Imported 10 episodes of Severance",
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*\u003chttps://slipstream.example/works/w2|Imported 10 episodes of Severance\u003e*\nSeason 2, episodes 1 to 10.\nWEBDL-2160p · Dolby Vision · DDP 5.1 · NTb · 48.1 GB\n1 episode waits for you on the series page."
+      }
+    }
+  ]
+}

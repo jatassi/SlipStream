@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -27,6 +28,7 @@ func healthCategories(h *half) []health.Category {
 		{About: trackers.HealthAbout, Source: health.Join(h.trackers.HealthSource(), h.tasks.HealthSource(health.SeedingID))},
 		{About: indexers.HealthAbout, Source: health.Join(h.indexers.HealthSource(), h.tasks.HealthSource(health.IndexersID))},
 		{About: tasks.HealthAbout, Source: h.tasks.HealthSource(health.ScheduledTasksID)},
+		{About: notifications.HealthAbout, Source: h.notifications.HealthSource()},
 	}
 }
 
@@ -42,16 +44,17 @@ func storageParts(h *half) health.StorageParts {
 
 func (n *Node) openHealth(ctx context.Context, lib *storage.DB[storage.Library], h *half) (*health.Health, error) {
 	return health.Open(ctx, health.Config{
-		Library:    lib,
-		Hub:        n.hub,
-		Changed:    health.ChangedEvent.Bind(n.hub),
-		Storage:    storageParts(h),
-		Categories: healthCategories(h),
-		Names:      liveNames,
-		Roster:     h.nodes,
-		Zone:       n.zone(),
-		Timings:    n.cfg.Timings.Health,
-		Log:        n.rootLog.With("subsystem", "health"),
+		Library:     lib,
+		Hub:         n.hub,
+		Changed:     health.ChangedEvent.Bind(n.hub),
+		Storage:     storageParts(h),
+		Categories:  healthCategories(h),
+		Names:       liveNames,
+		Roster:      h.nodes,
+		Zone:        n.zone(),
+		Timings:     n.cfg.Timings.Health,
+		Log:         n.rootLog.With("subsystem", "health"),
+		Transitions: n.notifications.Transitions,
 	})
 }
 

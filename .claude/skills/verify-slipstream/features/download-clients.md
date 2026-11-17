@@ -57,7 +57,7 @@ Steps:
   ```sh
   $FW exec $RUN -- $PW cli $D fill 'getByRole("textbox", { name: "A download with no data at all is bad after" })' 2
   $FW exec $RUN -- $PW cli $D click 'getByRole("main").getByRole("button", { name: "Save" })'
-  $FW exec $RUN --proof download-clients/download-clients-thresholds -- $PW cli $D run-code 'async page => { await page.getByRole("region", { name: "Notifications" }).getByText("Download Clients settings saved").waitFor({ timeout: 10000 }); }'
+  $FW exec $RUN --proof download-clients/download-clients-thresholds -- $PW cli $D run-code 'async page => { await page.getByRole("region", { name: "Messages" }).getByText("Download Clients settings saved").waitFor({ timeout: 10000 }); }'
   $FW exec $RUN --proof download-clients/download-clients-thresholds -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/download-clients'
   $FW exec $RUN --proof download-clients/download-clients-thresholds -- curl -sS -i -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"faultStall":60}' '{nodes.home.url}/api/v1/download-clients/thresholds'
   ```
@@ -69,7 +69,7 @@ Steps:
   $FW exec $RUN -- $PW cli $D fill 'getByRole("textbox", { name: "Download limit" })' 16
   $FW exec $RUN -- $PW cli $D click 'getByRole("radiogroup", { name: "Download limit unit" }).getByRole("radio", { name: "KB/s" })'
   $FW exec $RUN -- $PW cli $D click 'getByRole("region", { name: "Speed" }).getByRole("button", { name: "Save" })'
-  $FW exec $RUN --proof download-clients/download-clients-limits -- $PW cli $D run-code 'async page => { await page.getByRole("region", { name: "Notifications" }).getByText("Torrent client settings saved").waitFor({ timeout: 10000 }); return page.url(); }'
+  $FW exec $RUN --proof download-clients/download-clients-limits -- $PW cli $D run-code 'async page => { await page.getByRole("region", { name: "Messages" }).getByText("Torrent client settings saved").waitFor({ timeout: 10000 }); return page.url(); }'
   $FW exec $RUN --proof download-clients/download-clients-limits -- sh -c "id=\$(curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{\"contentType\":\"movie\",\"key\":\"9000001\",\"monitor\":true}' '{nodes.home.url}/api/v1/works' | jq -r .work.id); curl -sS -X POST -H 'X-Api-Key: {apiKey}' \"{nodes.home.url}/api/v1/works/\$id/search\""
   $FW exec $RUN -- $PW cli $D click 'getByRole("main").getByRole("link", { name: "Torrents" })'
   $FW exec $RUN --proof download-clients/download-clients-limits -- $PW cli $D run-code 'async page => { const speed = page.getByRole("table", { name: "Torrents" }).getByRole("row").filter({ hasText: "The Quiet Orchard" }).getByRole("cell", { name: /^Down \d/ }); await speed.waitFor({ timeout: 30000 }); await page.waitForTimeout(5000); return [page.url(), await speed.textContent()]; }'

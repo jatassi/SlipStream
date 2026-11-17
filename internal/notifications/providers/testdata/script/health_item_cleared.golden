@@ -1,0 +1,22 @@
+RUN /opt/notify.sh --quiet
+Event: health_item_cleared
+Stop: 45s
+
+{
+  "version": 1,
+  "event": "health_item_cleared",
+  "at": "2026-11-16T14:02:00Z",
+  "title": "Cleared: Den's disk is almost full",
+  "lines": [
+    "It was on Health from 13:57 to 14:02."
+  ],
+  "health": [
+    {
+      "category": "storage",
+      "key": "den",
+      "level": "warning",
+      "subject": "Den's disk is almost full",
+      "text": "Movies has 4 GB free of 2 TB."
+    }
+  ]
+}

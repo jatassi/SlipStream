@@ -1,0 +1,11 @@
+POST /v2/pushes
+Access-Token: [set]
+Content-Type: application/json
+
+{
+  "type": "link",
+  "title": "Added Heat (1995) to Movies",
+  "body": "Sam added it.",
+  "url": "https://slipstream.example/works/w1",
+  "device_iden": "ujpah72o0sjAoRtnM0jc"
+}

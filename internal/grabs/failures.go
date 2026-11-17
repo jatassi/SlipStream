@@ -109,6 +109,9 @@ func (gr *Grabs) failed(ctx context.Context, tx *storage.Tx[file], g Grab, code 
 	if err != nil {
 		return err
 	}
+	if err := gr.announceFailed(ctx, tx, g, code); err != nil {
+		return err
+	}
 	if rule.next != searchAgain {
 		return nil
 	}

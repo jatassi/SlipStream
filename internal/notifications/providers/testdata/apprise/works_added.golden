@@ -1,0 +1,11 @@
+POST /notify/[set]
+Authorization: Basic slipstream:[set]
+Content-Type: application/json
+
+{
+  "body": "Sam added it.\nhttps://slipstream.example/works/w1",
+  "format": "text",
+  "tag": "family,phones",
+  "title": "Added Heat (1995) to Movies",
+  "type": "info"
+}

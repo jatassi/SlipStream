@@ -2,10 +2,10 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { GrabsFailure, GrabsGrab, GrabsGrabList } from "../../../api/gen/model";
+import type { GrabsGrab, GrabsGrabList } from "../../../api/gen/model";
 import { getListGrabsMockHandler } from "../../../api/gen/query/grabs/grabs.msw";
 import { getListLibraryMockHandler } from "../../../api/gen/query/works/works.msw";
-import { downloading, imported } from "../../../test/grabs";
+import { downloading, fetchFailure, imported } from "../../../test/grabs";
 import { libraryRow, orchardId, orchardRow } from "../../../test/library";
 import { liveServer } from "../../../test/live-server";
 import { filmPlan } from "../../../test/manual";
@@ -25,13 +25,7 @@ const harvest = libraryRow({
   label: "Orchard Harvest",
 });
 
-const failure: GrabsFailure = {
-  stage: "fetching",
-  code: "torrent_unreachable",
-  message: "the Indexer answered 404 for the .torrent",
-  needsYou: true,
-  current: true,
-};
+const failure = fetchFailure;
 
 const failed: GrabsGrab = {
   ...downloading,
@@ -187,7 +181,7 @@ test("Search again on a failed Grab searches its Work and says so", async () => 
     ],
   });
   await userEvent.click(harvestCard().getByRole("button", { name: "Search again" }));
-  const toasts = page.getByRole("region", { name: "Notifications" });
+  const toasts = page.getByRole("region", { name: "Messages" });
   await expect.element(toasts.getByText("Searching Orchard Harvest")).toBeVisible();
   expect(searched).toEqual([harvestId]);
 });
@@ -261,9 +255,7 @@ test("a downloading Job's menu pauses its torrent and removes it through the sam
   await userEvent.click(menu);
   await userEvent.click(page.getByRole("menuitem", { name: "Pause" }));
   await expect
-    .element(
-      page.getByRole("region", { name: "Notifications" }).getByText("Pausing The Quiet Orchard."),
-    )
+    .element(page.getByRole("region", { name: "Messages" }).getByText("Pausing The Quiet Orchard."))
     .toBeVisible();
   expect(actions.bodies).toEqual([{ action: "pause", ids: [orchardTorrent.id] }]);
 

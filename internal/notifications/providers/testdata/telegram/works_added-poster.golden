@@ -1,0 +1,17 @@
+POST /bot[set]/sendPhoto
+Content-Type: multipart/form-data
+
+--- part chat_id
+-1001234567890
+--- part message_thread_id
+42
+--- part caption
+<b>Added Heat (1995) to Movies</b>
+Sam added it.
+<a href="https://slipstream.example/works/w1">Open in SlipStream</a>
+--- part parse_mode
+HTML
+--- part disable_notification
+true
+--- part photo poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488

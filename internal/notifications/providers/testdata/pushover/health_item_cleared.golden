@@ -1,0 +1,11 @@
+POST /1/messages.json
+Content-Type: application/x-www-form-urlencoded
+
+device: phone,tablet
+message: It was on Health from 13:57 to 14:02.
+priority: 1
+sound: pushover
+timestamp: 1794837720
+title: Cleared: Den's disk is almost full
+token: [set]
+user: [set]

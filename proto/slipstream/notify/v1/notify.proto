@@ -1,5 +1,6 @@
-// The Notifying Role's wire calls: the Controller hands each email to the
-// Node that sends mail, with the SMTP server it goes through.
+// The Notifying Role's wire calls: the Controller builds each email, HTTP
+// request and script run, and the Node that sends notifications and mail
+// carries it out and answers what happened.
 syntax = "proto3";
 
 package slipstream.notify.v1;
@@ -11,6 +12,12 @@ service NotifyingService {
   // Send sends one message through server. A mail server's refusal is an
   // answer, not an error.
   rpc Send(SendRequest) returns (SendResponse);
+  // Post sends one HTTP request the Controller built, with a client that
+  // follows no redirects. A provider's error status is an answer.
+  rpc Post(PostRequest) returns (PostResponse);
+  // Run runs one program with a clean environment and stops its process
+  // tree after stop_ms. A non-zero exit is an answer.
+  rpc Run(RunRequest) returns (RunResponse);
 }
 
 // Server is the SMTP server, with its password in plaintext inside the
@@ -35,6 +42,15 @@ message Message {
   string subject = 2;
   string html = 3;
   string text = 4;
+  repeated Inline inline = 5;
+}
+
+// Inline is one part the HTML shows through cid:<content_id>.
+message Inline {
+  string content_id = 1;
+  string type = 2;
+  string name = 3;
+  bytes body = 4;
 }
 
 message SendRequest {
@@ -47,4 +63,57 @@ message SendRequest {
 message SendResponse {
   string kind = 1;
   string reply = 2;
+  // permanent is a 5xx reply.
+  bool permanent = 3;
+  // step is a mail.Step: connect, from, rcpt or data, where a failed send
+  // stopped.
+  string step = 4;
+}
+
+message Header {
+  string name = 1;
+  string value = 2;
+}
+
+message PostRequest {
+  string method = 1;
+  // url carries the provider's secret when its token is in the path.
+  string url = 2;
+  repeated Header headers = 3;
+  bytes body = 4;
+  int64 timeout_ms = 5;
+  // dial is a notifying.DialRule. Only "any" exists today.
+  string dial = 6;
+}
+
+message PostResponse {
+  uint32 status = 1;
+  // headers are only the ones about waiting: Retry-After and the rate
+  // limit headers.
+  repeated Header headers = 2;
+  // body is at most the first 4 KiB.
+  bytes body = 3;
+  // error is why no response came, with no URL in it.
+  string error = 4;
+}
+
+message RunRequest {
+  string path = 1;
+  repeated string args = 2;
+  // event is NOTIFICATION_EVENT, and event_file the contents of the file
+  // NOTIFICATION_EVENT_FILE names.
+  string event = 3;
+  bytes event_file = 4;
+  int64 stop_ms = 5;
+}
+
+message RunResponse {
+  int32 exit = 1;
+  // tail is at most the last 1 KiB of the output.
+  bytes tail = 2;
+  bool timed_out = 3;
+  // missing is no file at path.
+  bool missing = 4;
+  // error is why the program didn't start, for any other reason.
+  string error = 5;
 }

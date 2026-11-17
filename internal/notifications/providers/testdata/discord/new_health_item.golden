@@ -1,0 +1,18 @@
+POST /api/webhooks/1180000000000000000/[set]?wait=true
+Content-Type: application/json
+
+{
+  "username": "SlipStream",
+  "embeds": [
+    {
+      "title": "Den's disk is almost full",
+      "description": "Movies has 4 GB free of 2 TB.\nIt has been on Health since 13:57.",
+      "url": "https://slipstream.example/health#health-storage-den",
+      "color": 16096779,
+      "timestamp": "2026-11-16T14:02:00Z"
+    }
+  ],
+  "allowed_mentions": {
+    "parse": []
+  }
+}

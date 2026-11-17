@@ -38,6 +38,8 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/node/surface"
+	"github.com/jatassi/slipstream/internal/notifications"
+	"github.com/jatassi/slipstream/internal/notifying"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/ports/all"
 	"github.com/jatassi/slipstream/internal/ports/port"
@@ -71,6 +73,9 @@ type Env struct {
 	// Media probes video files: the bundled ffprobe for a process, which
 	// Run finds beside the executable.
 	Media media.Prober
+	// Scripts runs the Notifying Role's Custom Scripts: a ProcessRunner for
+	// a process.
+	Scripts notifying.Runner
 	// Disk opens every filesystem call the Storage Role makes, with data
 	// the folder no root may overlap: the OS's own for a process.
 	Disk func(data string) (storing.Disk, error)
@@ -139,6 +144,7 @@ func ProcessEnv(cmd, dataDirFlag string) (Env, error) {
 		Net:       osNetwork{},
 		Engine:    func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
 		OpenLog:   logs.Open,
+		Scripts:   notifying.ProcessRunner{Environ: environ, TempDir: os.TempDir()},
 		Disk:      OSDisk,
 		Restart:   processRestart(layout.Executable, os.Args, environ, dir.LogsDir(), os.Stderr),
 		RestartOf: follows,
@@ -219,6 +225,10 @@ type Node struct {
 	cacheRand *rand.Rand
 	// systemRand draws the Controller's waits on an offline Node's log.
 	systemRand *rand.Rand
+	// notificationsRand draws the jitter of a failing connection's retries.
+	notificationsRand *rand.Rand
+	// notifications records events and sends them, on a Controller.
+	notifications *notifications.Service
 	// host is what NodeSystemService serves for this Node, and hostMu
 	// orders its reports to the holder half.
 	host   *nodeHost
@@ -429,6 +439,7 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	n.tasksRand = streams.Stream("tasks")
 	n.metadataRand = streams.Stream("metadata")
 	n.cacheRand = streams.Stream("metadata-cache")
+	n.notificationsRand = streams.Stream("notifications")
 	if err := n.startTorrent(cfg, l, streams.Stream("torrent"), streams.Stream("download-clients")); err != nil {
 		return 0, "", err
 	}

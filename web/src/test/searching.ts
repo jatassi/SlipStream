@@ -142,15 +142,22 @@ export const aStopped = (n: number, over: Partial<GrabsStopped> = {}): GrabsStop
   failures: [
     {
       code: "download_failed",
+      cause: "The download stopped with an error.",
       at: "2026-11-12T08:00:00Z",
       grabId: "0199f0b2-0003-7000-8000-000000000001",
     },
     {
       code: "no_video_file",
+      cause: "The download holds no video file.",
       at: "2026-11-12T20:00:00Z",
       grabId: "0199f0b2-0003-7000-8000-000000000002",
     },
-    { code: "download_failed", at: "2026-11-13T09:00:00Z", grabId: null },
+    {
+      code: "download_failed",
+      cause: "The download stopped with an error.",
+      at: "2026-11-13T09:00:00Z",
+      grabId: null,
+    },
   ],
   nextSearchAt: "2026-11-20T22:00:00Z",
   ...over,

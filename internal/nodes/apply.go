@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -59,7 +60,7 @@ func (s *Service) RoleBoard(ctx context.Context) (RoleBoard, error) {
 // refuses what Apply refuses before the guardrails: a Node with no live
 // row and a stale Basis.
 func (s *Service) Preview(ctx context.Context, c Change, test bool) (Outcome, error) {
-	var reach map[NodeRole]ReachResult
+	var reach map[ReachKey]ReachResult
 	if test {
 		var err error
 		if reach, err = s.tests(ctx, c); err != nil {
@@ -75,25 +76,23 @@ func (s *Service) Preview(ctx context.Context, c Change, test bool) (Outcome, er
 	return out, err
 }
 
-// tests runs, at once, the reach test of each Role c adds to a Node in
-// step whose owner has a target, each for at most timings.nodes.reach.
-func (s *Service) tests(ctx context.Context, c Change) (map[NodeRole]ReachResult, error) {
+// tests runs, at once, each reach test of each Role c adds to a Node in
+// step, each for at most timings.nodes.reach.
+func (s *Service) tests(ctx context.Context, c Change) (map[ReachKey]ReachResult, error) {
 	type due struct {
-		at     NodeRole
+		key    ReachKey
 		target nodesystem.Target
 	}
 	var tests []due
 	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		_, out, err := s.plan(ctx, r, c, nil)
+		sit, out, err := s.plan(ctx, r, c, nil)
 		if err != nil {
 			return err
 		}
-		for _, at := range out.Untested {
-			t, _, err := s.owners[at.Role].Reach(ctx, r)
-			if err != nil {
-				return fmt.Errorf("read the %s target: %w", at.Role, err)
-			}
-			tests = append(tests, due{at, t})
+		for _, key := range out.Untested {
+			targets := sit.Targets[key.Role]
+			i := slices.IndexFunc(targets, func(t Target) bool { return t.String() == key.Target })
+			tests = append(tests, due{key, targets[i].Target})
 		}
 		return nil
 	})
@@ -103,12 +102,12 @@ func (s *Service) tests(ctx context.Context, c Change) (map[NodeRole]ReachResult
 	results := make([]ReachResult, len(tests))
 	var wg sync.WaitGroup
 	for i, d := range tests {
-		wg.Go(func() { results[i] = s.reach(ctx, d.at.Node, d.target) })
+		wg.Go(func() { results[i] = s.reach(ctx, d.key.Node, d.target) })
 	}
 	wg.Wait()
-	out := make(map[NodeRole]ReachResult, len(tests))
+	out := make(map[ReachKey]ReachResult, len(tests))
 	for i, d := range tests {
-		out[d.at] = results[i]
+		out[d.key] = results[i]
 	}
 	return out, nil
 }
@@ -118,7 +117,7 @@ func (s *Service) tests(ctx context.Context, c Change) (map[NodeRole]ReachResult
 func (s *Service) reach(ctx context.Context, node ID, t nodesystem.Target) ReachResult {
 	ctx, cancel := context.WithTimeout(ctx, s.cfg.Timings.Reach)
 	defer cancel()
-	res := ReachResult{Target: t.String()}
+	var res ReachResult
 	got, err := s.cfg.Reach(ctx, node, t)
 	switch {
 	case errors.Is(ctx.Err(), context.DeadlineExceeded):
@@ -182,7 +181,7 @@ func (s *Service) Apply(ctx context.Context, c Change) (Outcome, error) {
 
 // plan is c planned on r with the reach tests run for it. It refuses a
 // Node r has no live row for, and a SetRoles planned on another Basis.
-func (s *Service) plan(ctx context.Context, r storage.Reader[file], c Change, reach map[NodeRole]ReachResult) (Situation, Outcome, error) {
+func (s *Service) plan(ctx context.Context, r storage.Reader[file], c Change, reach map[ReachKey]ReachResult) (Situation, Outcome, error) {
 	sit, err := s.situation(ctx, r, s.Board())
 	if err != nil {
 		return Situation{}, Outcome{}, err

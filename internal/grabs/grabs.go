@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/magnet"
+	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -337,7 +338,9 @@ type Config struct {
 	// Today is the time now in the Controller's zone, whose calendar date
 	// decides which Items have aired.
 	Today func() time.Time
-	Log   *slog.Logger
+	// Notices records Grabbed and Grab failed.
+	Notices notice.Recorder
+	Log     *slog.Logger
 }
 
 // NoGapCap is GapCap with no cap: a group's gap grows to the longest gap.

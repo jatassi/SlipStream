@@ -1,0 +1,30 @@
+POST /api/webhooks/1180000000000000000/[set]?wait=true
+Content-Type: multipart/form-data
+
+--- part payload_json
+{
+  "username": "SlipStream",
+  "embeds": [
+    {
+      "title": "Added Heat (1995) to Movies",
+      "description": "Sam added it.",
+      "url": "https://slipstream.example/works/w1",
+      "color": 3900150,
+      "timestamp": "2026-11-16T14:02:00Z",
+      "thumbnail": {
+        "url": "attachment://poster.jpg"
+      }
+    }
+  ],
+  "allowed_mentions": {
+    "parse": []
+  },
+  "attachments": [
+    {
+      "id": 0,
+      "filename": "poster.jpg"
+    }
+  ]
+}
+--- part files[0] poster.jpg image/jpeg
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488

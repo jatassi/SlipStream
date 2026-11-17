@@ -1,0 +1,31 @@
+RUN /opt/notify.sh --quiet
+Event: imported
+Stop: 45s
+
+{
+  "version": 1,
+  "event": "imported",
+  "at": "2026-11-16T14:02:00Z",
+  "title": "Imported 10 episodes of Severance",
+  "lines": [
+    "Season 2, episodes 1 to 10.",
+    "WEBDL-2160p · Dolby Vision · DDP 5.1 · NTb · 48.1 GB",
+    "1 episode waits for you on the series page."
+  ],
+  "link": "https://slipstream.example/works/w2",
+  "work": {
+    "id": "w2",
+    "title": "Severance",
+    "contentType": "fixture"
+  },
+  "files": [
+    {
+      "items": [
+        "S02E01",
+        "S02E02"
+      ],
+      "quality": "WEBDL-2160p",
+      "placedBy": "hardlink"
+    }
+  ]
+}

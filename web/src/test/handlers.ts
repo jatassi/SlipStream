@@ -10,11 +10,15 @@ import {
 } from "../api/gen/query/files/files.msw";
 import { getGetWorkSearchingMockHandler } from "../api/gen/query/grabs/grabs.msw";
 import { getGetSessionMockHandler } from "../api/gen/query/identity/identity.msw";
+import {
+  getListNotificationConnectionsMockHandler,
+  getListNotificationsMockHandler,
+} from "../api/gen/query/notifications/notifications.msw";
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
-import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 // oxlint-disable-next-line import/max-dependencies -- the base handlers answer every read the shell and Settings make
+import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
 import { quietHealth } from "./health";
 import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
@@ -105,6 +109,11 @@ const nothingSearched = getGetWorkSearchingMockHandler({
 const resyncStream = sse<LiveMap>("*/api/v1/events", ({ client }) => {
   client.send({ event: "live.resync", data: {} });
 });
+// A bell with nothing in it and no connections, so the top bar shows no faker unread count.
+const quietBell = [
+  getListNotificationsMockHandler({ rows: [], unread: 0, before: null }),
+  getListNotificationConnectionsMockHandler({ connections: [] }),
+];
 
 export const baseHandlers: RequestHandler[] = [
   controller,
@@ -120,6 +129,7 @@ export const baseHandlers: RequestHandler[] = [
   nothingSearched,
   ...noRenames,
   ...quietHealth,
+  ...quietBell,
   ...tagMocks,
 ];
 

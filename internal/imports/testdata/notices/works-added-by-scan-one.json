@@ -1,0 +1,19 @@
+{
+  "root": "Books library root on Den",
+  "nouns": {
+    "work": {
+      "One": "Book",
+      "Many": "Books"
+    },
+    "levels": null,
+    "item": {
+      "One": "Book",
+      "Many": "Books"
+    },
+    "single": true
+  },
+  "count": 1,
+  "first": [
+    "Dune (1965)"
+  ]
+}

@@ -1,0 +1,31 @@
+MAIL sam@example.com
+Subject: A Library scan of the Movies library root on Den added 12 movies
+--- text
+Alien (1979)
+Arrival (2016)
+Blade Runner (1982)
+9 more were added.
+
+--- html
+<h2>A Library scan of the Movies library root on Den added 12 movies</h2>
+<p>Alien (1979)</p>
+<p>Arrival (2016)</p>
+<p>Blade Runner (1982)</p>
+<p>9 more were added.</p>
+
+
+MAIL alex@example.com
+Subject: A Library scan of the Movies library root on Den added 12 movies
+--- text
+Alien (1979)
+Arrival (2016)
+Blade Runner (1982)
+9 more were added.
+
+--- html
+<h2>A Library scan of the Movies library root on Den added 12 movies</h2>
+<p>Alien (1979)</p>
+<p>Arrival (2016)</p>
+<p>Blade Runner (1982)</p>
+<p>9 more were added.</p>
+

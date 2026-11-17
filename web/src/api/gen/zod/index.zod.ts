@@ -12,6 +12,7 @@ export * from "./mediaservers/mediaservers.zod.ts";
 export * from "./metadata/metadata.zod.ts";
 export * from "./naming/naming.zod.ts";
 export * from "./nodes/nodes.zod.ts";
+export * from "./notifications/notifications.zod.ts";
 export * from "./pairing/pairing.zod.ts";
 export * from "./roots/roots.zod.ts";
 export * from "./serving/serving.zod.ts";

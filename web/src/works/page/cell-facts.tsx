@@ -8,7 +8,7 @@ import type {
 import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
 import { bytes } from "../../format";
 import { ProgressCell } from "../../grabs/progress-cell";
-import { failureWords, isFailed } from "../../grabs/stages";
+import { isFailed } from "../../grabs/stages";
 import { waitWords } from "../../grabs/search-words";
 import { useNow } from "../../tasks/use-now";
 import { useQualityNames } from "../../targets/quality-names";
@@ -122,9 +122,7 @@ function StateFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly GrabsGra
       return (
         <>
           {grab !== undefined && isFailed(grab) && (
-            <span className="line-clamp-2 text-meta text-ink-3">
-              {failureWords[grab.failure.code].cause}
-            </span>
+            <span className="line-clamp-2 text-meta text-ink-3">{grab.failure.cause}</span>
           )}
           {cell.file !== null && <FileFacts file={cell.file} />}
         </>

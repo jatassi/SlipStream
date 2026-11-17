@@ -67,7 +67,7 @@ const detail = (row: DownloadclientsTorrentRow) =>
 
 const table = () => page.getByRole("table", { name: "Torrents" });
 const inspector = () => page.getByRole("complementary", { name: "The Quiet Orchard" });
-const notices = () => page.getByRole("region", { name: "Notifications" });
+const notices = () => page.getByRole("region", { name: "Messages" });
 
 function open(path = "/activity/torrents?tab=all") {
   const live = liveServer();

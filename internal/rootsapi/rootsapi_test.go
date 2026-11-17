@@ -29,6 +29,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
@@ -194,7 +195,7 @@ func serve(t *testing.T) *server {
 			return 7, s.steps, s.steps != nil
 		},
 	})
-	n := node{svc, w, goals, library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: svc}), im}
+	n := node{svc, w, goals, library.New(library.Config{Notices: noticetest.Ignored("library", library.Notices()), Library: lib, Works: w, Targets: goals, Roots: svc}), im}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) {
 		rootsapi.Routes(r, n)
 		worksapi.Routes(r, n)

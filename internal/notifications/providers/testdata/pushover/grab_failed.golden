@@ -1,0 +1,14 @@
+POST /1/messages.json
+Content-Type: application/x-www-form-urlencoded
+
+device: phone,tablet
+message: qBittorrent refused the torrent because it already has it.
+SlipStream searches again automatically.
+priority: 1
+sound: pushover
+timestamp: 1794837720
+title: The Grab for Heat (1995) failed
+token: [set]
+url: https://slipstream.example/works/w1
+url_title: Open in SlipStream
+user: [set]

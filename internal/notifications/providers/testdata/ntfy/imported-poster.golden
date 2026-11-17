@@ -1,0 +1,12 @@
+PUT /[set]
+Authorization: Bearer [set]
+Click: https://slipstream.example/works/w2
+Content-Type: image/jpeg
+Filename: poster.jpg
+Message: Season 2, episodes 1 to 10.
+WEBDL-2160p · Dolby Vision · DDP 5.1 · NTb · 48.1 GB
+1 episode waits for you on the series page.
+Priority: 4
+Title: Imported 10 episodes of Severance
+
+22 bytes, sha256 146f4a472f0f70d1fdfefc793bafffc9511aba9af6579a8a37e40fcdb35be488

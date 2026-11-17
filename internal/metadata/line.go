@@ -10,13 +10,13 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"net/url"
-	"strconv"
 	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
 
 	"github.com/jatassi/slipstream/internal/backoff"
+	"github.com/jatassi/slipstream/internal/httpretry"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -443,15 +443,11 @@ func (l *Line) classify(a answer, status string, lookup bool) verdict {
 	return v
 }
 
-// retryAfter reads Retry-After as seconds or an HTTP date. Without one the
-// provider waits a backoff step.
+// retryAfter is the wait Retry-After asks for. Without one the provider
+// waits a backoff step.
 func (l *Line) retryAfter(h http.Header, now time.Time) time.Duration {
-	v := h.Get("Retry-After")
-	if s, err := strconv.ParseInt(v, 10, 64); err == nil && s >= 0 {
-		return time.Duration(s) * time.Second
-	}
-	if t, err := http.ParseTime(v); err == nil {
-		return max(t.Sub(now), 0)
+	if d := httpretry.After(h.Get("Retry-After"), now); d > 0 {
+		return d
 	}
 	return l.lines.backoff(0)
 }

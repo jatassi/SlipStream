@@ -53,7 +53,7 @@ Steps:
   $FW exec $RUN -- $PW cli $D fill 'getByRole("textbox", { name: "Send limit" })' 512
   $FW exec $RUN -- $PW cli $D click 'getByRole("radiogroup", { name: "Send limit unit" }).getByRole("radio", { name: "KB/s" })'
   $FW exec $RUN -- $PW cli $D click 'getByRole("region", { name: "Settings" }).getByRole("button", { name: "Save" })'
-  $FW exec $RUN --proof transfers/transfers-send-limit -- $PW cli $D run-code 'async page => { await page.getByRole("region", { name: "Notifications" }).getByText("Transfer settings saved").waitFor({ timeout: 10000 }); return "saved"; }'
+  $FW exec $RUN --proof transfers/transfers-send-limit -- $PW cli $D run-code 'async page => { await page.getByRole("region", { name: "Messages" }).getByText("Transfer settings saved").waitFor({ timeout: 10000 }); return "saved"; }'
   $FW exec $RUN --proof transfers/transfers-send-limit -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/transfers/nodes/$SB/settings"
   ```
 

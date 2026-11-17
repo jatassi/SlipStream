@@ -103,7 +103,7 @@ test("a series found by its alternative title adds with the preset, specials and
   await sheet.getByRole("button", { name: "Add Series" }).click();
 
   await expect(page.getByRole("heading", { name: "The Lantern Keepers", level: 1 })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText(
     "Added The Lantern Keepers",
   );
   const workId = workIdOf(page);

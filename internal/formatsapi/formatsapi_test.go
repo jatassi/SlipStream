@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/formatsapi"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/grabs/grabstest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -95,7 +96,7 @@ func serve(t *testing.T) *served {
 	g := grabs.New(grabs.Config{
 		Library: lib, Works: w, Targets: svc, Files: shelf,
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: claims{w}}, Names: map[works.TypeID]release.Names{contenttypetest.ID: dated{}},
-		Timings: grabs.DefaultTimings(), Today: time.Now, Log: slog.New(slog.DiscardHandler),
+		Timings: grabs.DefaultTimings(), Today: time.Now, Log: slog.New(slog.DiscardHandler), Notices: grabstest.Notices(),
 	})
 	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) {
 		targetsapi.Routes(r, goals{svc, shelf, g})

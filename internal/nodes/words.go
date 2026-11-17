@@ -197,16 +197,24 @@ func offline(n Named, r role.Name) Check {
 
 func nothingToTest(n Named, r role.Name) Check {
 	return newCheck(n, r, Allow, NothingToTest,
-		fmt.Sprintf("No mail server is set up yet, so SlipStream can't test %s on %s.", r.Label(), n.Name), "Nothing to test yet")
+		fmt.Sprintf("No mail server or notification connection is set up yet, so SlipStream can't test the %s Role on %s.", r.Label(), n.Name), "Nothing to test yet")
 }
 
-func reached(n Named, r role.Name, res ReachResult) Check {
-	if res.OK {
-		return newCheck(n, r, Allow, Reached,
-			fmt.Sprintf("%s reached %s in %d ms.", n.Name, res.Target, res.Millis), "Reached")
+func reached(n Named, r role.Name, t Target, res ReachResult) Check {
+	var c Check
+	switch {
+	case res.OK:
+		c = newCheck(n, r, Allow, Reached,
+			fmt.Sprintf("%s reached %s in %d ms.", n.Name, t, res.Millis), "Reached")
+	case t.Block:
+		c = newCheck(n, r, Block, ReachFailed,
+			fmt.Sprintf("%s can't reach %s (%s).", n.Name, t, res.Err), "Can't reach "+t.String())
+	default:
+		c = newCheck(n, r, Warn, ReachWarned,
+			fmt.Sprintf("%s can't reach %s. Messages to %s fail while %s sends them.", n.Name, t.Host, t.What, n.Name), "Can't reach "+t.Host)
 	}
-	return newCheck(n, r, Block, ReachFailed,
-		fmt.Sprintf("%s can't reach %s (%s).", n.Name, res.Target, res.Err), "Can't reach "+res.Target)
+	c.Target = t.String()
+	return c
 }
 
 func isController(n Named) Check {

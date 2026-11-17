@@ -20,7 +20,7 @@ test("a press with nothing to search for says so plainly, not as a failure", asy
     ],
   });
   await userEvent.click(page.getByRole("button", { name: "Search", exact: true }));
-  const notifications = page.getByRole("region", { name: "Notifications" });
+  const notifications = page.getByRole("region", { name: "Messages" });
   await expect.element(notifications.getByText(nothing)).toBeVisible();
   expect(notifications.getByText("Failed", { exact: true }).elements()).toHaveLength(0);
 });

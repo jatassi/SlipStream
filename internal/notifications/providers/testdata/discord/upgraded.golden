@@ -1,0 +1,18 @@
+POST /api/webhooks/1180000000000000000/[set]?wait=true
+Content-Type: application/json
+
+{
+  "username": "SlipStream",
+  "embeds": [
+    {
+      "title": "Upgraded Heat (1995) to Remux-2160p",
+      "description": "It replaced WEBDL-1080p.",
+      "url": "https://slipstream.example/works/w1",
+      "color": 2278750,
+      "timestamp": "2026-11-16T14:02:00Z"
+    }
+  ],
+  "allowed_mentions": {
+    "parse": []
+  }
+}

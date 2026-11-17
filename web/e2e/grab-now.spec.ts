@@ -26,7 +26,7 @@ async function added(world: World, contentType: "movie" | "series", key: string)
 
 const searchLine = (page: Page) => page.getByRole("status", { name: "Search" });
 const searches = (page: Page) => page.getByRole("list", { name: "Searches" });
-const notifications = (page: Page) => page.getByRole("region", { name: "Notifications" });
+const notifications = (page: Page) => page.getByRole("region", { name: "Messages" });
 
 test("a search on add waits for a better Release, and the hero's Grab now grabs it", async ({
   adminPage: page,

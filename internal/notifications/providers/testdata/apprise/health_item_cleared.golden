@@ -1,0 +1,11 @@
+POST /notify/[set]
+Authorization: Basic slipstream:[set]
+Content-Type: application/json
+
+{
+  "body": "It was on Health from 13:57 to 14:02.",
+  "format": "text",
+  "tag": "family,phones",
+  "title": "Cleared: Den's disk is almost full",
+  "type": "success"
+}

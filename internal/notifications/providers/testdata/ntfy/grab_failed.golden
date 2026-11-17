@@ -1,0 +1,9 @@
+POST /[set]
+Authorization: Bearer [set]
+Click: https://slipstream.example/works/w1
+Content-Type: text/plain
+Priority: 4
+Title: The Grab for Heat (1995) failed
+
+qBittorrent refused the torrent because it already has it.
+SlipStream searches again automatically.

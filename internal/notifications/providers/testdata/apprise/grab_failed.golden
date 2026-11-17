@@ -1,0 +1,11 @@
+POST /notify/[set]
+Authorization: Basic slipstream:[set]
+Content-Type: application/json
+
+{
+  "body": "qBittorrent refused the torrent because it already has it.\nSlipStream searches again automatically.\nhttps://slipstream.example/works/w1",
+  "format": "text",
+  "tag": "family,phones",
+  "title": "The Grab for Heat (1995) failed",
+  "type": "failure"
+}

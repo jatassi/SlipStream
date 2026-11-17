@@ -71,7 +71,7 @@ func (h handlers) addWork(ctx context.Context, by identity.Admin, in *addInput) 
 	}
 	a, err := composer(h.shelf).Add(ctx, by, library.Adding{
 		Type: t, Key: key, Profile: profile, Root: root, Preset: preset,
-		IncludeAsides: in.Body.IncludeAsides, LevelFolders: in.Body.LevelFolders, Search: search, Remember: in.Body.Remember,
+		IncludeAsides: in.Body.IncludeAsides, LevelFolders: in.Body.LevelFolders, Search: search, Remember: in.Body.Remember, Announce: true,
 	})
 	if err != nil {
 		return nil, answer(err)

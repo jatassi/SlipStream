@@ -1,0 +1,25 @@
+MAIL sam@example.com
+Subject: Upgraded Heat (1995) to Remux-2160p
+--- text
+It replaced WEBDL-1080p.
+
+Open in SlipStream: https://slipstream.example/works/w1
+
+--- html
+<h2>Upgraded Heat (1995) to Remux-2160p</h2>
+<p>It replaced WEBDL-1080p.</p>
+<p><a href="https://slipstream.example/works/w1">Open in SlipStream</a></p>
+
+
+MAIL alex@example.com
+Subject: Upgraded Heat (1995) to Remux-2160p
+--- text
+It replaced WEBDL-1080p.
+
+Open in SlipStream: https://slipstream.example/works/w1
+
+--- html
+<h2>Upgraded Heat (1995) to Remux-2160p</h2>
+<p>It replaced WEBDL-1080p.</p>
+<p><a href="https://slipstream.example/works/w1">Open in SlipStream</a></p>
+

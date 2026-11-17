@@ -129,25 +129,37 @@ func (m *Mail) Send(ctx context.Context, msg Message) (Outcome, error) {
 	if storage.InWrite(ctx) {
 		panic("mail: Send inside Write; send after the commit")
 	}
-	row, err := db.New(m.cfg.Library).GetSettings(ctx)
+	server, ok, err := m.Server(ctx)
 	if err != nil {
 		return Outcome{}, err
 	}
-	s := settingsOf(row)
-	if s.Host == "" {
+	if !ok {
 		return Outcome{Kind: NotSetUp}, nil
 	}
-	var password []byte
-	if row.PasswordSealed.Set() {
-		if password, err = m.cfg.Sealer.Open(row.PasswordSealed, passwordColumn.Single()); err != nil {
-			return Outcome{}, err
-		}
-	}
-	server := Server{Host: s.Host, Port: s.Port, Security: s.Security, Username: s.Username, Password: string(password), From: s.From}
 	if c := m.courier.Load(); c != nil {
 		return (*c).Deliver(ctx, server, msg)
 	}
 	return SMTP{Server: server, Timings: m.cfg.Timings, Roots: m.cfg.Roots}.Send(ctx, msg)
+}
+
+// Server is the SMTP server with its password, for a sender that hands it
+// to the Node that sends; false while mail isn't set up.
+func (m *Mail) Server(ctx context.Context) (Server, bool, error) {
+	row, err := db.New(m.cfg.Library).GetSettings(ctx)
+	if err != nil {
+		return Server{}, false, err
+	}
+	s := settingsOf(row)
+	if s.Host == "" {
+		return Server{}, false, nil
+	}
+	var password []byte
+	if row.PasswordSealed.Set() {
+		if password, err = m.cfg.Sealer.Open(row.PasswordSealed, passwordColumn.Single()); err != nil {
+			return Server{}, false, err
+		}
+	}
+	return Server{Host: s.Host, Port: s.Port, Security: s.Security, Username: s.Username, Password: string(password), From: s.From}, true, nil
 }
 
 func settingsOf(row db.MailSetting) Settings {

@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs/internal/pace"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -285,6 +286,10 @@ type newGrab struct {
 	// fills is the Items the fewer-Releases step chose it to fill, 0 when
 	// another step did.
 	fills int
+	// facts and scores are its Release's facts and its score at each
+	// Target it fills, for its Grabbed message.
+	facts  release.Facts
+	scores []ScoreAt
 }
 
 // insertGrab inserts n's Grab, at fetching on its Indexer's home Node.
@@ -347,7 +352,10 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], n newGrab
 	if err := insertCells(ctx, q, g); err != nil {
 		return Grab{}, err
 	}
-	return g, q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: Fetching, EnteredAt: now})
+	if err := q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: Fetching, EnteredAt: now}); err != nil {
+		return Grab{}, err
+	}
+	return g, gr.announceGrabbed(ctx, tx, g, n, idx.Name)
 }
 
 // insertCells inserts g's Items and the cells it holds.

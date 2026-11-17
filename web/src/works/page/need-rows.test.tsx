@@ -94,6 +94,8 @@ test("after Search again, a Grab that failed again while its search found nothin
     items: [orchardItemId],
     failure: {
       stage: "importing",
+      cause: "The download holds no video file.",
+      recovery: "Search again to pick another release.",
       message: "The download has no video file.",
       current: true,
       code: "no_video_file",
@@ -138,6 +140,8 @@ test("a stopped card says a cause its failures share once", async () => {
     failure: {
       stage: "importing",
       code: "no_video_file",
+      cause: "The download holds no video file.",
+      recovery: "Search again to pick another release.",
       message: cause,
       needsYou: true,
       current: true,
@@ -147,6 +151,7 @@ test("a stopped card says a cause its failures share once", async () => {
     cell: { itemId: orchardItemId, edition: "any", targetId: keeper.id },
     failures: [7, 8, 9].map((hour) => ({
       code: "no_video_file" as const,
+      cause: "The download holds no video file.",
       at: `2026-11-14T0${String(hour)}:00:00Z`,
       grabId: null,
     })),

@@ -12,7 +12,7 @@ An Admin comes to Settings with a question, such as "where do my files go?" or "
 | Targets and Profiles | Which versions of each Work do I want? | Targets, Profiles, Custom Formats, Editions | Conversion |
 | Search and download | How does SlipStream find and fetch releases? | Indexers, Automatic search, Trackers, Download Clients (built-in and external) | |
 | Access | Who can reach SlipStream, and how? | Address, Sign-in, API key | Requests, Member portal |
-| System | How do the Nodes and the server itself run? | Nodes, Email, Media Servers | Backups, Updates, Notifications |
+| System | How do the Nodes and the server itself run? | Nodes, Email, Media Servers, Notifications | Backups, Updates |
 
 The first three groups follow the media pipeline in order. An Admin sets up a library, says what to keep in it, then says where to get it. The last two are about running the server and come after, because an Admin visits them less often once setup is done.
 
@@ -57,5 +57,7 @@ A setting of one Indexer or one Target stays on its sheet. "Searches at once" si
 Importing sits after Library scan, which links to it, because a scan reads its Video file extensions. A download and a manual import read all three of its settings.
 
 Media Servers holds the settings that apply to every Plex, Jellyfin and Emby server: "Wait before sending", "Check sessions every", "Mark unhealthy after" and "Keep play history for", then the Plex sign-in's "Renew Plex sign-in every" and "Renew when less than this is left". The renewal schedule is the Plex sign-in task's frequency, so it shows on the Tasks page too. A server's own addresses and Nodes stay on that server's page under Settings, and its Path mappings under Path mappings. The Add sheet takes them when the server is added.
+
+Notifications sits last in System, after Email, whose mail server the Email connections send through, and after Media Servers. It leads with a sentence about the connections, such as "2 connections send notifications. Discord 'Family' has been failing since 14:02.", then the connections and the bell's own events. Its four settings sit under three headings: "Wait before sending a new Health item" under "Health", "Give up on a message after" and "Warn when a connection has failed for" under "Delivery", and "Keep notifications for" under "Bell". "Stop the script after" belongs to one Custom Script connection, so it sits under Details on that connection's sheet. The send timeout and the retry ladder are `Timings`, not settings. With Notifications, System holds four sections and its label still covers each, so it needs no regrouping; Backups and Updates would make six.
 
 A setting can show in more than one place when an Admin would look for it there, such as a task's frequency on the Tasks page and in its feature's section. It still has one stored value.

@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
+	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -326,6 +327,14 @@ func (s surfaceNode) MediaServers() (mediaservers.Service, bool) {
 		return nil, false
 	}
 	return h.mediaServers, true
+}
+
+func (s surfaceNode) Notifications() (*notifications.Service, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.notifications == nil {
+		return nil, false
+	}
+	return h.notifications, true
 }
 
 // OpenIn runs on a Controller only, as the Work page it fills does.
