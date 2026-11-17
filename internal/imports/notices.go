@@ -137,11 +137,10 @@ func numbersOf(tree works.Tree) map[works.ItemID]ItemAt {
 	for _, l := range tree.Levels {
 		labels[l.ID] = l.Label
 	}
-	place := map[works.LevelID]int{}
+	places := works.Places(tree.Items)
 	out := make(map[works.ItemID]ItemAt, len(tree.Items))
 	for _, it := range tree.Items {
-		place[it.LevelID]++
-		out[it.ID] = ItemAt{Level: labels[it.LevelID], Number: place[it.LevelID]}
+		out[it.ID] = ItemAt{Level: labels[it.LevelID], Number: places[it.ID]}
 	}
 	return out
 }
@@ -318,7 +317,7 @@ func qualitiesWords(qs []release.Quality) string {
 			names = append(names, n)
 		}
 	}
-	return joinWords(names)
+	return works.JoinWords(names)
 }
 
 func itemCount(fs []PlacedFile) int {
@@ -345,7 +344,7 @@ func itemsWords(fs []PlacedFile, item works.Noun) string {
 		}
 	}
 	if len(levels) == 1 {
-		ns := numbersWords(item, slices.Sorted(slices.Values(numbers[levels[0]])))
+		ns := works.NumbersWords(item, slices.Sorted(slices.Values(numbers[levels[0]])))
 		if levels[0] == "" {
 			return ns
 		}
@@ -353,7 +352,7 @@ func itemsWords(fs []PlacedFile, item works.Noun) string {
 	}
 	parts := make([]string, len(levels))
 	for i, l := range levels {
-		parts[i] = numbersWords(item, slices.Sorted(slices.Values(numbers[l]))) + " of " + lowerFirst(l)
+		parts[i] = works.NumbersWords(item, slices.Sorted(slices.Values(numbers[l]))) + " of " + lowerFirst(l)
 	}
 	return strings.Join(parts[:len(parts)-1], ", ") + ", plus " + parts[len(parts)-1]
 }

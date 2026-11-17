@@ -217,11 +217,3 @@ func article(noun string) string {
 	}
 	return "a " + noun
 }
-
-// joinWords is words in a list: "a", "a and b", "a, b and c".
-func joinWords(words []string) string {
-	if len(words) < 2 {
-		return strings.Join(words, "")
-	}
-	return strings.Join(words[:len(words)-1], ", ") + " and " + words[len(words)-1]
-}
