@@ -62,7 +62,7 @@ Steps:
   $FW sse list $RUN --as admin --event tasks.progress
   ```
 
-- **Open the detail page.** Choose `Housekeeping`. The `Runs` list's first run reads `Succeeded`, `9 steps` and `Run now`, and expanding it lists the seven units in order.
+- **Open the detail page.** Choose `Housekeeping`. The `Runs` list's first run reads `Succeeded`, `9 steps` and `Run now`, and expanding it lists the nine units in order.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("link", { name: "Housekeeping", exact: true })'
