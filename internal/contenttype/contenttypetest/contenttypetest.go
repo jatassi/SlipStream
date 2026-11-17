@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata"
@@ -57,7 +58,11 @@ var Description = works.Description{
 	},
 	Art:     works.ArtRoles{Poster: "photo"},
 	Ratings: []works.RatingSource{"tmdb", "imdb"},
+	Dated:   []works.DatedKind{Shipped},
 }
+
+// Shipped is the Fixture's one dated kind.
+var Shipped = works.DatedKind{Key: "shipped", Label: "Ship date"}
 
 type Endpoints struct {
 	API endpoint.URL `yaml:"api"`
@@ -132,6 +137,7 @@ type Fixture struct {
 	aliases   map[works.Key]works.Key
 	boxes     map[works.LevelID]box
 	stacked   map[works.WorkID]bool
+	dated     []calendar.Dated
 }
 
 // Released is the date every Item is released on until SetTiming says
@@ -788,4 +794,41 @@ func (f *Fixture) Cuts() []release.Cut {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.cuts)
+}
+
+// SetDated dates item of work on day under kind, which Dated answers for a
+// span holding day.
+func (f *Fixture) SetDated(work works.WorkID, item works.ItemID, kind works.DatedKey, day calendar.Day) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.dated = append(f.dated, calendar.Dated{Work: work, Item: item, Kind: kind, Day: day})
+}
+
+// Dated answers every SetDated whose day s holds.
+func (f *Fixture) Dated(_ context.Context, _ storage.Reader[storage.Library], s calendar.Span) ([]calendar.Dated, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []calendar.Dated
+	for _, d := range f.dated {
+		if s.Contains(d.Day) {
+			out = append(out, d)
+		}
+	}
+	return out, nil
+}
+
+// Undated is the Fixture registered as a second Content Type. It declares
+// no dated kind, since a dated key names one type, and dates nothing.
+type Undated struct{ *Fixture }
+
+func (f *Fixture) Undated() Undated { return Undated{Fixture: f} }
+
+func (Undated) Describe() works.Description {
+	d := Description
+	d.Dated = nil
+	return d
+}
+
+func (Undated) Dated(context.Context, storage.Reader[storage.Library], calendar.Span) ([]calendar.Dated, error) {
+	return nil, nil
 }

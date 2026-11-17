@@ -92,6 +92,47 @@ func (q *Queries) GetSettings(ctx context.Context) (SeriesSetting, error) {
 	return i, err
 }
 
+const listAiredIn = `-- name: ListAiredIn :many
+SELECT item_id, work_id, air_date FROM series_episode
+WHERE air_date <> '' AND air_date >= ?1 AND air_date < ?2
+  AND air_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+ORDER BY air_date
+`
+
+type ListAiredInParams struct {
+	FromDay *string
+	ToDay   *string
+}
+
+type ListAiredInRow struct {
+	ItemID  works.ItemID
+	WorkID  works.WorkID
+	AirDate *string
+}
+
+func (q *Queries) ListAiredIn(ctx context.Context, arg ListAiredInParams) ([]ListAiredInRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAiredIn, arg.FromDay, arg.ToDay)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAiredInRow
+	for rows.Next() {
+		var i ListAiredInRow
+		if err := rows.Scan(&i.ItemID, &i.WorkID, &i.AirDate); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listClaimsOf = `-- name: ListClaimsOf :many
 SELECT work_id, tvdb_id, tmdb_id, imdb_id, first_aired FROM series_series WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
 `

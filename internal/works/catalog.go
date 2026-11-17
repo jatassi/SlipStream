@@ -143,6 +143,17 @@ type Description struct {
 	// Releases is the verb a fold of unreleased Items uses for their coming
 	// out, such as air; empty reads come out.
 	Releases string
+	// Dated is each kind of release date the type puts on the Calendar.
+	Dated []DatedKind
+}
+
+// DatedKey names a kind of release date, unique across Content Types.
+type DatedKey string
+
+// DatedKind is one kind of release date a type puts on the Calendar.
+type DatedKind struct {
+	Key   DatedKey
+	Label string
 }
 
 type ItemsShape uint8

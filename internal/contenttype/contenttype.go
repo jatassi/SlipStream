@@ -45,6 +45,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/naming"
@@ -69,6 +70,7 @@ type Library interface {
 	release.Names
 	metadata.Refreshing
 	scanning.Facet
+	calendar.Facet
 }
 
 // ProviderDeps is what a provider half gets on any Node: clients over the

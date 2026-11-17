@@ -33,3 +33,9 @@ SELECT * FROM music_track WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY item_
 
 -- name: ListEveryTrack :many
 SELECT * FROM music_track ORDER BY item_id;
+
+-- name: ListAlbumsReleasedIn :many
+SELECT level_id, work_id, released FROM music_album
+WHERE length(released) = 10 AND released >= sqlc.arg(from_day) AND released < sqlc.arg(to_day)
+  AND released GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+ORDER BY released;

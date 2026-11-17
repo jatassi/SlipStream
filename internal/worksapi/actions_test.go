@@ -159,7 +159,7 @@ func shelve(t *testing.T) *shelves {
 	byWorks := func(v works.Changed) []string { return v.WorkIDs }
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
-		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: s.fx, other: s.fx},
+		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: s.fx, other: s.fx.Undated()},
 		Source:       s.fx.SourceAs(contenttypetest.ID, other),
 		Artwork:      s.fx,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
