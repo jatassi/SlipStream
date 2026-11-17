@@ -108,7 +108,7 @@ const tomorrowMarked = () =>
   page
     .getByRole("table")
     .getByRole("cell")
-    .filter({ hasText: calendarDayWords(isoDay("2026-11-18")) });
+    .filter({ hasText: calendarDayWords(isoDay("2026-11-18"), isoDay("2026-11-17")) });
 
 test("the page reads again when the Controller's next day starts, and Today moves", async () => {
   let asked = 0;

@@ -3,16 +3,17 @@ import { addDays, betweenWords, monthWords } from "../format/days";
 import type { StatusPart } from "../ui/status-sentence";
 import type { CalendarPlace } from "./routed";
 
-/** "Nothing in your library comes out in November 2026.", or between a list's first and last days. */
-export function emptyWords({ view, month, from, to }: CalendarPlace): string {
-  return view === "month"
-    ? `Nothing in your library comes out in ${monthWords(month)}.`
-    : `Nothing in your library comes out between ${betweenWords(from, addDays(to, -1))}.`;
-}
+/** "Nothing in your library comes out in November 2026." */
+export const monthEmptyWords = ({ month }: CalendarPlace): string =>
+  `Nothing in your library comes out in ${monthWords(month)}.`;
+
+/** "Nothing in your library comes out between 14 November and 26 December." */
+export const listEmptyWords = ({ from, to }: CalendarPlace): string =>
+  `Nothing in your library comes out between ${betweenWords(from, addDays(to, -1))}.`;
 
 /**
  * The page's opening sentence: what is out and still missing, linked to
- * Wanted, else what comes out this week, then the empty words when the span
+ * Wanted, else what comes out this week, then a month's empty words when it
  * has no rows.
  */
 export function sentenceParts(

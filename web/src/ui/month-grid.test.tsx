@@ -22,11 +22,15 @@ test("the grid draws six weeks from the week's first day, with the weekday heads
   expect(grid.getByRole("cell").elements()).toHaveLength(42);
   await expect
     .element(grid.getByRole("cell").first())
-    .toMatchTextContent(calendarDayWords(isoDay("2026-10-26")));
+    .toMatchTextContent(calendarDayWords(isoDay("2026-10-26"), isoDay("2026-11-17")));
   await expect
-    .element(grid.getByRole("cell").filter({ hasText: calendarDayWords(isoDay("2026-11-17")) }))
+    .element(
+      grid
+        .getByRole("cell")
+        .filter({ hasText: calendarDayWords(isoDay("2026-11-17"), isoDay("2026-11-17")) }),
+    )
     .toHaveAttribute("aria-current", "date");
   await expect
     .element(grid.getByRole("cell").filter({ hasText: "Harbor Lights" }))
-    .toMatchTextContent(calendarDayWords(isoDay("2026-11-20")));
+    .toMatchTextContent(calendarDayWords(isoDay("2026-11-20"), isoDay("2026-11-17")));
 });

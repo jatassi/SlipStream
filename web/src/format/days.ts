@@ -61,6 +61,12 @@ const fullDate = formatter({ day: "numeric", month: "long", year: "numeric" });
 const monthYear = formatter({ month: "long", year: "numeric" });
 const dayMonth = formatter({ day: "numeric", month: "long" });
 const longDay = formatter({ weekday: "long", day: "numeric", month: "long" });
+const longDayYear = formatter({
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
 const shortWeekday = formatter({ weekday: "short" });
 const longWeekday = formatter({ weekday: "long" });
 
@@ -77,13 +83,20 @@ export function dayWords(date: string): string {
 export const monthWords = ({ year, month }: Month): string =>
   monthYear.format(new Date(Date.UTC(year, month - 1, 1)));
 
-/** "Tuesday 17 November". */
-export const calendarDayWords = (day: IsoDay): string => longDay.format(new Date(msOf(day)));
+/** "Tuesday 17 November", with the year when it isn't `today`'s. */
+export const calendarDayWords = (day: IsoDay, today: IsoDay): string =>
+  (monthOf(day).year === monthOf(today).year ? longDay : longDayYear).format(new Date(msOf(day)));
 
 /** "14 November and 26 December", with each year when the two days' years differ. */
 export function betweenWords(first: IsoDay, last: IsoDay): string {
   const words = monthOf(first).year === monthOf(last).year ? dayMonth : fullDate;
   return `${words.format(new Date(msOf(first)))} and ${words.format(new Date(msOf(last)))}`;
+}
+
+/** "14 November to 26 December 2026", with the first day's year too when the two years differ. */
+export function spanWords(first: IsoDay, last: IsoDay): string {
+  const words = monthOf(first).year === monthOf(last).year ? dayMonth : fullDate;
+  return `${words.format(new Date(msOf(first)))} to ${fullDate.format(new Date(msOf(last)))}`;
 }
 
 /** The weekday's short and long names, "Tue" and "Tuesday". */

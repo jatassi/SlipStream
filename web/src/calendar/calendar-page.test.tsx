@@ -8,10 +8,17 @@ import {
   daysBetween,
   isoDay,
   monthSpan,
+  spanWords,
   weekStart,
   weekdayNames,
 } from "../format/days";
-import { calendarServer, controllersToday, orchardOpening, volumeIssue } from "../test/calendar";
+import {
+  calendarServer,
+  controllersToday,
+  datedAnthologies,
+  orchardOpening,
+  volumeIssue,
+} from "../test/calendar";
 import { renderApp } from "../test/render-app";
 import { asPhone } from "../test/viewport";
 
@@ -31,7 +38,7 @@ test("the month starts on the locale's first weekday, marks the Controller's Tod
     .element(grid.getByRole("columnheader").first())
     .toHaveTextContent(weekdayNames(from).short);
   expect(from.slice(5)).toBe(weekStart() === 1 ? "10-26" : "11-01");
-  const marked = grid.getByRole("cell").filter({ hasText: calendarDayWords(today) });
+  const marked = grid.getByRole("cell").filter({ hasText: calendarDayWords(today, today) });
   await expect.element(marked).toHaveAttribute("aria-current", "date");
   await expect.element(marked.getByRole("link", { name: /The Quiet Orchard/u })).toBeVisible();
   expect(server.asked.map((params) => [params.get("from"), params.get("to")])).toEqual([
@@ -81,7 +88,7 @@ test("a day with more rows than its cell fits shows +3 more, which opens the who
   const server = calendarServer({ days: [{ day: controllersToday, rows }] });
   renderApp({ path: "/library/calendar?view=month&month=2026-11", handlers: server.handlers });
   await userEvent.click(page.getByRole("button", { name: "+3 more" }));
-  const day = page.getByRole("dialog", { name: calendarDayWords(today) });
+  const day = page.getByRole("dialog", { name: calendarDayWords(today, today) });
   await expect.element(day.getByRole("link", { name: "Orchard 5" })).toBeVisible();
   expect(day.getByRole("listitem").elements()).toHaveLength(5);
 });
@@ -97,12 +104,17 @@ test("a phone opens the list, and its month shows one mark a day and the tapped 
 
   await userEvent.click(page.getByRole("link", { name: "Month" }));
   const friday = isoDay("2026-11-20");
-  const mark = page.getByRole("button", { name: `${calendarDayWords(friday)} Missing` });
+  const mark = page.getByRole("button", { name: `${calendarDayWords(friday, today)} Missing` });
   await expect.element(mark).toBeVisible();
   await expect
     .element(
+      page.getByRole("cell", { name: `${calendarDayWords(friday, today)} Missing`, exact: true }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
       page
-        .getByRole("region", { name: calendarDayWords(today) })
+        .getByRole("region", { name: calendarDayWords(today, today) })
         .getByText("Nothing in your library comes out on this day."),
     )
     .toBeVisible();
@@ -110,26 +122,31 @@ test("a phone opens the list, and its month shows one mark a day and the tapped 
   await expect
     .element(
       page
-        .getByRole("region", { name: calendarDayWords(friday) })
+        .getByRole("region", { name: calendarDayWords(friday, today) })
         .getByRole("link", { name: "The Long Shelf" }),
     )
     .toBeVisible();
 });
 
-test("the list pages six weeks at a time and names its range when empty", async () => {
+const buttonTop = (name: string) =>
+  page.getByRole("button", { name }).element().getBoundingClientRect().top;
+
+test("the list heads its range, pages six weeks at a time and says so between its buttons when empty", async () => {
   const server = calendarServer();
   const { router } = renderApp({
     path: "/library/calendar?view=list&from=2026-11-14",
     handlers: server.handlers,
   });
   const first = isoDay("2026-11-14");
-  await expect
-    .element(
-      page.getByText(
-        `Nothing in your library comes out between ${betweenWords(first, addDays(first, 41))}.`,
-      ),
-    )
-    .toBeVisible();
+  const last = addDays(first, 41);
+  await expect.element(page.getByRole("heading", { name: spanWords(first, last) })).toBeVisible();
+  expect(spanWords(first, last)).toMatch(/^\D*14\D* to \D*25\D*2026\D*$/u);
+  const empty = page.getByText(
+    `Nothing in your library comes out between ${betweenWords(first, last)}.`,
+  );
+  const emptyTop = empty.element().getBoundingClientRect().top;
+  expect(buttonTop("Show earlier")).toBeLessThan(emptyTop);
+  expect(buttonTop("Show later")).toBeGreaterThan(emptyTop);
   await userEvent.click(page.getByRole("button", { name: "Show later" }));
   await expect.poll(() => router.state.location.search).toMatchObject({ from: "2026-12-26" });
   await userEvent.click(page.getByRole("button", { name: "Show earlier" }));
@@ -178,4 +195,23 @@ test("what needs attention leads the page and links to Wanted", async () => {
     .element(page.getByRole("link", { name: "1 film is out and still missing." }))
     .toHaveAttribute("href", "/library/wanted/cinema");
   expect(server.asked[0]?.get("contentType")).toBe("cinema");
+});
+
+test("a day in another year names its year, and a page of one kind leaves the kind out of its rows", async () => {
+  const day = isoDay("2027-01-04");
+  const server = calendarServer({ days: [{ day, rows: [volumeIssue()] }] });
+  renderApp({
+    path: `/library/calendar/${datedAnthologies.id}?view=list&from=2026-12-28`,
+    handlers: server.handlers,
+  });
+  await expect
+    .element(page.getByRole("heading", { name: calendarDayWords(day, today) }))
+    .toBeVisible();
+  expect(calendarDayWords(day, today)).toMatch(/2027/u);
+  expect(calendarDayWords(isoDay("2026-12-30"), today)).not.toMatch(/2026/u);
+  const shelf = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("link", { name: "The Long Shelf" }) });
+  await expect.element(shelf).toMatchTextContent(/Volume 2 · Stories 1 to 10/u);
+  expect(shelf.element().textContent).not.toMatch(/Issue date/u);
 });

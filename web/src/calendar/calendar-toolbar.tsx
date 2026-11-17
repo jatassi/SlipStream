@@ -12,7 +12,7 @@ const chipLook =
   "inline-flex h-6 shrink-0 items-center rounded-chip px-2 text-chip whitespace-nowrap transition-colors duration-(--duration-control) hover:text-ink-1 aria-pressed:bg-selected aria-pressed:text-ink-1 not-aria-pressed:bg-fill not-aria-pressed:text-ink-2";
 
 /** The dated kinds of the Content Types in view, each once, in the types' order. */
-function kindsIn(types: readonly WorksContentType[]): WorksDatedKind[] {
+export function kindsIn(types: readonly WorksContentType[]): WorksDatedKind[] {
   const seen = new Map<string, WorksDatedKind>();
   for (const kind of types.flatMap(({ dated }) => dated)) {
     seen.set(kind.key, kind);
@@ -20,7 +20,11 @@ function kindsIn(types: readonly WorksContentType[]): WorksDatedKind[] {
   return [...seen.values()];
 }
 
-/** A toggle chip per dated kind; one stays pressed, and all pressed is the default. */
+/**
+ * A toggle chip per dated kind; one stays pressed, and all pressed is the
+ * default. The row scrolls sideways and fades at its end, where its end
+ * padding lets the last chip scroll clear of the fade.
+ */
 function KindChips({
   kinds,
   chosen,
@@ -34,7 +38,7 @@ function KindChips({
   return (
     <fieldset
       aria-label="Release dates"
-      className="flex min-w-0 gap-1.5 overflow-x-auto [scrollbar-width:none]"
+      className="flex min-w-0 gap-1.5 overflow-x-auto pe-6 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none]"
     >
       {kinds.map(({ key, label }) => (
         <button
@@ -102,21 +106,18 @@ function MonthControls({
 }
 
 export function CalendarToolbar({
-  types,
+  kinds,
   contentType,
   place,
   search,
   onSearch,
 }: {
-  types: readonly WorksContentType[];
+  kinds: readonly WorksDatedKind[];
   contentType: string | undefined;
   place: CalendarPlace;
   search: CalendarSearch;
   onSearch: (next: CalendarSearch) => void;
 }) {
-  const kinds = kindsIn(
-    contentType === undefined ? types : types.filter(({ id }) => id === contentType),
-  );
   return (
     <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">
       <ViewLinks contentType={contentType} search={search} />

@@ -3,6 +3,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { calendarServer, controllersToday, orchardOpening, volumeIssue } from "../test/calendar";
 import { renderApp } from "../test/render-app";
+import { asPhone } from "../test/viewport";
 
 const row = (label: string) =>
   page.getByRole("listitem").filter({ has: page.getByRole("link", { name: label }) });
@@ -46,4 +47,32 @@ test("an unmonitored row adds Not monitored, and a row with no Target shows no s
   const orchard = row("The Quiet Orchard");
   await expect.element(orchard).toMatchTextContent(/In cinemas/u);
   expect(orchard.element().textContent).not.toMatch(/Missing|Met|Failed|Unreleased/u);
+});
+
+test("a month's cell marks an unmonitored row Not monitored and titles each row with its whole words", async () => {
+  const server = calendarServer({
+    days: [{ day: controllersToday, rows: [volumeIssue({ monitored: false })] }],
+  });
+  renderApp({ path: "/library/calendar?view=month&month=2026-11", handlers: server.handlers });
+  const shelf = page.getByRole("table").getByRole("link", { name: /The Long Shelf/u });
+  await expect.element(shelf).toMatchTextContent(/Missing\s*Not monitored/u);
+  await expect
+    .element(shelf)
+    .toHaveAttribute("title", "The Long Shelf · Volume 2 · Stories 1 to 10 · Issue date");
+});
+
+test("on a phone a list row's state sits under its words", async () => {
+  await asPhone();
+  listOf({ days: [{ day: controllersToday, rows: [volumeIssue()] }] });
+  const shelf = row("The Long Shelf");
+  const words = shelf.getByText("Volume 2 · Stories 1 to 10 · Issue date");
+  await expect.element(words).toBeVisible();
+  const shown = shelf
+    .getByText(/Missing · 8 of 10 met/u)
+    .elements()
+    .filter((mark) => mark.checkVisibility());
+  expect(shown).toHaveLength(1);
+  expect(shown[0]?.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+    words.element().getBoundingClientRect().bottom,
+  );
 });

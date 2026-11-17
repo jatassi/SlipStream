@@ -62,7 +62,7 @@ function Day({
       >
         {Number(day.slice(8))}
       </span>
-      <span className="sr-only">{calendarDayWords(day)}</span>
+      <span className="sr-only hidden @min-[640px]:block">{calendarDayWords(day, today)}</span>
       {children}
     </td>
   );
@@ -71,7 +71,8 @@ function Day({
 /**
  * Six weeks of seven days from `from`, the first day of a week, with
  * `month`'s days in full ink and Today marked. Each day's content is the
- * caller's. Below a 640px container the cells are short, for one mark a day.
+ * caller's. Below a 640px container the cells are short, for one mark a day,
+ * and the caller's content names the day, so the cell has one name.
  */
 export function MonthGrid({
   label,

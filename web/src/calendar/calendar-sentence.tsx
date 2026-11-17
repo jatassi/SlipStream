@@ -1,9 +1,9 @@
 import type { CalendarAnswer } from "../api/gen/model";
 import { StatusSentence } from "../ui/status-sentence";
-import { emptyWords, sentenceParts } from "./calendar-words";
+import { monthEmptyWords, sentenceParts } from "./calendar-words";
 import type { CalendarPlace } from "./routed";
 
-/** What is out and still missing, linked to Wanted, else what comes out this week, then the empty words. */
+/** What is out and still missing, linked to Wanted, else what comes out this week, then an empty month's words. */
 export function CalendarSentence({
   answer,
   place,
@@ -15,7 +15,7 @@ export function CalendarSentence({
 }) {
   const parts = sentenceParts(
     answer.sentence,
-    answer.days.length === 0 ? emptyWords(place) : undefined,
+    place.view === "month" && answer.days.length === 0 ? monthEmptyWords(place) : undefined,
     contentType === undefined ? "/library/wanted" : `/library/wanted/${contentType}`,
   );
   if (parts.length === 0) {
