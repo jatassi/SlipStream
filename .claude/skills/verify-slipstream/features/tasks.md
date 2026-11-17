@@ -1,20 +1,20 @@
 # Tasks
 
-The Controller runs each Scheduled task on its cadence and records every run with a plain result. The Tasks page opens with one sentence about what went wrong, then lists the shown tasks by group with cadence, last result, next run and Run now, and ends with the Schedule settings. Each task has a detail page with its units and its runs. A run an Admin starts, or a scheduled one open past the header delay, shows in a capsule in the desktop top bar and atop Activity on phone. `home` shows one task, Housekeeping, which prunes runs, Join Codes, sessions, old Indexer queries, old Media Server history and History older than Keep history for on the Controller and tidies each Node's database, so a stopped seedbox makes a run Partial and its return runs the seedbox's unit again. Once the library holds a Work, Metadata refresh joins it under `Connect` ([Metadata refresh](./metadata-refresh.md)). Library scan runs under `Store` with one unit per library root ([Library roots](./library-roots.md)). The Indexer catalog refresh runs on the Controller, and the Indexer health check, every 6 h under `Acquire`, tests each Indexer that is on except one stopped for a rejected sign-in or account ([Health](./health.md)).
+The Controller runs each Scheduled task on its cadence and records every run with a plain result. The Tasks page opens with one sentence about what went wrong, then lists the shown tasks by group with cadence, last result, next run and Run now, and ends with the Schedule settings. Each task has a detail page with its units and its runs. A run an Admin starts, or a scheduled one open past the header delay, shows in a capsule in the desktop top bar and atop Activity on phone. `home` shows one task, Housekeeping, which prunes runs, Join Codes, sessions, old Indexer queries, old Media Server history, and History, finished Grabs, finished Imports and import records older than Keep history for on the Controller and tidies each Node's database, so a stopped seedbox makes a run Partial and its return runs the seedbox's unit again. Once the library holds a Work, Metadata refresh joins it under `Connect` ([Metadata refresh](./metadata-refresh.md)). Library scan runs under `Store` with one unit per library root ([Library roots](./library-roots.md)). The Indexer catalog refresh runs on the Controller, and the Indexer health check, every 6 h under `Acquire`, tests each Indexer that is on except one stopped for a rejected sign-in or account ([Health](./health.md)).
 
 ## Sub-features
 
 - `tasks-page` the Tasks page reads `Every task ran as scheduled.`, then the `Controller` group's table with Housekeeping, its cadence `Daily in the Maintenance window`, its last run, its next run `Tonight at 04:00` and its Nodes `home, seedbox` in a `Nodes` column; every group's table keeps the same column edges, at any width, without clipping a cell (P-228).
-- `tasks-run-now` `Run now` starts a run at once, the row shows `Running since <time>` with live progress and `Cancel` in its place, a second Run now over the API answers 409 `task_running` with `The task has been running since <HH:MM>.` in the Node's zone, and the row ends `Succeeded` with `9 steps` (P-228).
-- `tasks-capsule` the desktop top bar shows `1 task running: Housekeeping` between the connection line and the page action, and its popover `Running tasks` lists the run with `home, seedbox · <n> of 9 steps`, a meter and `Cancel`; a scheduled run shows only after the header delay (P-007, P-008).
+- `tasks-run-now` `Run now` starts a run at once, the row shows `Running since <time>` with live progress and `Cancel` in its place, a second Run now over the API answers 409 `task_running` with `The task has been running since <HH:MM>.` in the Node's zone, and the row ends `Succeeded` with `12 steps` (P-228).
+- `tasks-capsule` the desktop top bar shows `1 task running: Housekeeping` between the connection line and the page action, and its popover `Running tasks` lists the run with `home, seedbox · <n> of 12 steps`, a meter and `Cancel`; a scheduled run shows only after the header delay (P-007, P-008).
 - `tasks-phone-running` on phone the same list, `Running tasks`, heads Activity while the run is open, and Activity's count and Home's colour never count it (P-007, P-008).
 - `tasks-detail` `/tasks/housekeeping` reads the last result and the next run, the cadence, the overdue rule and `Keep history for` at `90 days` (Housekeeping's Tuning; 20 days is refused) under `When it runs`, the `Units` table with each unit's last outcome, last success and cause, a unit's Node linking to that Node's page and a removed Node reading `<name> (removed)`, and the `Runs` list newest first, each run expanding to its units (P-228).
-- `tasks-partial` with seedbox stopped, Run now ends `Partial` with `8 of 9 steps, seedbox offline`, and the unit `Local database on seedbox` reads `Skipped` with `seedbox is offline. Runs when seedbox reconnects.` (P-228).
+- `tasks-partial` with seedbox stopped, Run now ends `Partial` with `8 of 12 steps, seedbox offline`, and the unit `Local database on seedbox` reads `Skipped` with `seedbox is offline. Runs when seedbox reconnects.` (P-228).
 - `tasks-returned` when seedbox starts again a `Node returned` run of `1 step` runs its unit, which ends `Succeeded` (P-228).
 - `tasks-cadence` the row's `Runs every: Daily in the Maintenance window` opens the cadence; 2 days reads `Every 2 days in the Maintenance window` on the row and the detail page, a cadence outside 1 to 7 days answers 422 with `Between 1 day and 7 days.`, and `Reset to default` brings back daily (P-229).
 - `tasks-schedule` the `Schedule` section edits the `Maintenance window` with the Controller's zone beside it, `Overdue tasks`, `Runs kept per task`, and under `Details` the jitter, the header delay and the Partial rule; a window of 01:00 to 03:00 moves Housekeeping's next run to 01:00 (P-229).
 - `tasks-library-scan` on `home`, Library scan sits under `Store`, `Daily in the Maintenance window`, about `Lists the files in every library root and records what changed. A file in a new folder is added to the movie or series it clearly matches, or waits in Pending imports.` `/tasks/library-scan` lists one unit per root by its words, such as `Series library root on home`. A new root's scan reads the trigger `Root ready` and `1 root`, Scan now and Mark them gone read `Run now`, a stopped scan reads `Skipped` and `1 of 1 root skipped`, and a cancelled one `Cancelled` and `0 of 1 root`. Run now over the API answers 202 `{runId}`, and a second while it is open 409 `task_running`; the run ends `Succeeded` with a unit per root. Its cadence is the one Settings > Library scan shows, so 2 days there reads `Every 2 days in the Maintenance window` here (P-025, P-230).
-- `tasks-housekeeping` a Housekeeping run lists its units in order: `Run history`, `Join Codes`, `Sessions`, `Indexer queries and sessions`, `Media Server history`, `History`, `Local database on home`, `Local database on seedbox`, `Library database`.
+- `tasks-housekeeping` a Housekeeping run lists its units in order: `Run history`, `Join Codes`, `Sessions`, `Indexer queries and sessions`, `Media Server history`, `History`, `Finished Grabs`, `Finished Imports`, `Import records`, `Local database on home`, `Local database on seedbox`, `Library database`.
 
 ## How to get to it (user POV)
 
@@ -41,7 +41,7 @@ Steps:
   $FW exec $RUN --proof tasks/tasks-page -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/tasks'
   ```
 
-- **Run now with the capsule.** Slow the link, then choose `Run now: Housekeeping`. The capsule reads `1 task running: Housekeeping` at once, and its popover lists `home, seedbox · <n> of 9 steps` with `Cancel`. A second Run now over the API answers 409 `task_running`.
+- **Run now with the capsule.** Slow the link, then choose `Run now: Housekeeping`. The capsule reads `1 task running: Housekeeping` at once, and its popover lists `home, seedbox · <n> of 12 steps` with `Cancel`. A second Run now over the API answers 409 `task_running`.
 
   ```sh
   $FW fault set $RUN slow-link link/home latency=3s
@@ -53,16 +53,16 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Escape
   ```
 
-- **Let it finish.** Clear the fault. The capsule goes, and the row reads `Succeeded` with `9 steps · <time>`. The stream carries `tasks.progress` and `tasks.changed`.
+- **Let it finish.** Clear the fault. The capsule goes, and the row reads `Succeeded` with `12 steps · <time>`. The stream carries `tasks.progress` and `tasks.changed`.
 
   ```sh
   $FW fault clear $RUN slow-link
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Controller" }).getByText("9 steps").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Controller" }).getByText("12 steps").waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof tasks/tasks-run-now -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/tasks/tasks-run-now/succeeded.png
   $FW sse list $RUN --as admin --event tasks.progress
   ```
 
-- **Open the detail page.** Choose `Housekeeping`. The `Runs` list's first run reads `Succeeded`, `9 steps` and `Run now`, and expanding it lists the nine units in order.
+- **Open the detail page.** Choose `Housekeeping`. The `Runs` list's first run reads `Succeeded`, `12 steps` and `Run now`, and expanding it lists the twelve units in order. On a library with nothing past Keep history for, `Finished Grabs`, `Finished Imports` and `Import records` each read `Nothing was old enough to delete.`
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("link", { name: "Housekeeping", exact: true })'
@@ -104,7 +104,7 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("region", { name: "Schedule" }).getByRole("button", { name: "Reset to default" })'
   ```
 
-- **Run now on phone.** Sign in on phone and open Tasks. Slow the link, choose `Run now: Housekeeping` in the `Controller` list, then `Activity`: `Running tasks` heads the page with `home, seedbox · <n> of 9 steps`. Clear the fault and the list goes.
+- **Run now on phone.** Sign in on phone and open Tasks. Slow the link, choose `Run now: Housekeeping` in the `Controller` list, then `Activity`: `Running tasks` heads the page with `home, seedbox · <n> of 12 steps`. Clear the fault and the list goes.
 
   ```sh
   $FW exec $RUN -- bun web/harness/bin/sign-in.ts {runDir} admin phone
@@ -120,13 +120,13 @@ Steps:
   $FW fault clear $RUN slow-link
   ```
 
-- **Stop seedbox and Run now.** Stop seedbox, open Housekeeping and choose `Run now: Housekeeping` in the top bar. The first run reads `Partial` with `8 of 9 steps, seedbox offline`, and the `Units` row `Local database on seedbox` reads `Skipped` with `seedbox is offline. Runs when seedbox reconnects.`.
+- **Stop seedbox and Run now.** Stop seedbox, open Housekeeping and choose `Run now: Housekeeping` in the top bar. The first run reads `Partial` with `8 of 12 steps, seedbox offline`, and the `Units` row `Local database on seedbox` reads `Skipped` with `seedbox is offline. Runs when seedbox reconnects.`.
 
   ```sh
   $FW node stop $RUN seedbox
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto {nodes.home.browserUrl}/tasks/housekeeping
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Run now: Housekeeping" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Runs" }).getByText("8 of 9 steps, seedbox offline").waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Runs" }).getByText("8 of 12 steps, seedbox offline").waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof tasks/tasks-partial -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("main")' --filename={runDir}/proof/tasks/tasks-partial/partial.aria.yml
   $FW exec $RUN --proof tasks/tasks-partial -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/tasks/tasks-partial/partial.png
   ```
