@@ -62,7 +62,7 @@ var profiles = []profile{
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
-			writeJSON(w, http.StatusOK, map[string]any{"id": "1180000000000000001", "channel_id": "1180000000000000002", "webhook_id": r.PathValue("id")})
+			writeJSON(w, http.StatusOK, map[string]any{"id": "1180000000000000001", "channel_id": "1180000000000000002", "webhook_id": "1180000000000000000"})
 		},
 		limited: func(w http.ResponseWriter, wait time.Duration) {
 			retryAfter(w, wait)
@@ -151,8 +151,8 @@ var profiles = []profile{
 		prefix:   "/ntfy",
 		patterns: []string{"POST /ntfy/{topic}", "PUT /ntfy/{topic}"},
 		secrets:  pathValues("topic"),
-		ok: func(w http.ResponseWriter, r *http.Request) {
-			writeJSON(w, http.StatusOK, map[string]any{"id": "sPs71M8A2T", "time": time.Now().Unix(), "event": "message", "topic": r.PathValue("topic")})
+		ok: func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, http.StatusOK, map[string]any{"id": "sPs71M8A2T", "time": time.Now().Unix(), "event": "message", "topic": "slipstream"})
 		},
 		limited: func(w http.ResponseWriter, wait time.Duration) {
 			retryAfter(w, wait)
