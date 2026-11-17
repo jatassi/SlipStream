@@ -203,7 +203,7 @@ export const notificationSettings = (): SettingDurationField[] => [
 export const historyKeep: SettingDurationField = {
   ...duration("history.keepFor", "Keep history for", 90 * day, [30 * day, 1095 * day]),
   description:
-    "90 days is enough to look back over a season. A longer time keeps more History, and makes each Backup larger. History entries older than this are deleted during Housekeeping.",
+    "90 days is enough to look back over a season. A longer time keeps more History, Grabs and Imports, and makes each Backup larger. History entries, finished Grabs, finished Imports and import records older than this are deleted during Housekeeping. A Grab whose torrent is still in a Download Client, and a failed Grab that still needs attention, are kept.",
 };
 
 export const feedRow = (seq: number, unread: boolean): NotificationsFeedRow => ({

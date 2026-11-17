@@ -11,11 +11,12 @@ import (
 
 const day = 24 * time.Hour
 
-// KeepFor bounds History and is Housekeeping's Tuning.
+// KeepFor bounds History, finished Grabs, finished Imports and import
+// records, and is Housekeeping's Tuning.
 var KeepFor = setting.Duration{
 	Key: "history.keepFor", Label: "Keep history for",
 	Default: 90 * day, Min: 30 * day, Max: 1095 * day, Step: day,
-	Description: "90 days is enough to look back over a season. A longer time keeps more History, and makes each Backup larger. History entries older than this are deleted during Housekeeping.",
+	Description: "90 days is enough to look back over a season. A longer time keeps more History, Grabs and Imports, and makes each Backup larger. History entries, finished Grabs, finished Imports and import records older than this are deleted during Housekeeping. A Grab whose torrent is still in a Download Client, and a failed Grab that still needs attention, are kept.",
 }
 
 // Keep is Keep history for's value now.
