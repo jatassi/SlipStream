@@ -9,7 +9,7 @@ An Admin asks the Calendar what comes out in a span of days and whether the libr
 - `calendar-kinds` `GET /content-types` lists music's dated kind, `{"key":"release","label":"Release date"}` (P-221).
 - `calendar-page-month` `/library/calendar/music?view=month&month=2001-03` reads `March 2001` between `Previous month` and `Next month`, and the cell for Monday 12 March lists The Lanterns with `Harbor Lights · Tracks 1 to 3 · Release date` and the Missing mark. The sentence `3 tracks are out and still missing.` links to `/library/wanted/music` (P-219).
 - `calendar-page-list` `List` reads the six weeks from the address's `from`, one section per day with rows, each row The Lanterns' poster and label linking to its Work page, `Harbor Lights · Tracks 1 to 3 · Release date` and `Missing · 0 of 3 met`; `Tracks` opens to `Track 1 · Tidewater` and on. `Show later` and `Show earlier` move `from` by 42 days, and a span with no rows reads `Nothing in your library comes out between <first day> and <last day>.` (P-220, P-221).
-- `calendar-page-unmonitored` with The Lanterns added as `First track`, the month shows only `Harbor Lights · Track 1`. `Show unmonitored` puts `unmonitored=true` in the address and adds `Harbor Lights · Tracks 2 and 3` with the `Not monitored` mark (P-219).
+- `calendar-page-unmonitored` with The Lanterns' Tracks 2 and 3 not monitored, the month shows only `Harbor Lights · Track 1`. `Show unmonitored` puts `unmonitored=true` in the address and adds `Harbor Lights · Tracks 2 and 3` with the `Not monitored` mark (P-219).
 - `calendar-page-entry` the Library reads a `Calendar` row over `Release dates in your library, day by day.`, which opens `/library/calendar` on `All` and `/library/calendar/music` on Music, and the palette's `Open Calendar` opens `/library/calendar`.
 - `calendar-page-phone` on a phone `/library/calendar` opens as `view=list`; its Month shows one mark a day, and tapping a day lists that day's rows under the grid.
 - `calendar-refusals` a span of more than 42 days, a `to` not after `from`, an unknown `contentType` and an unknown kind each answer 422 `invalid` at their `query.` field in words (P-219).
@@ -91,9 +91,11 @@ Steps:
   $FW exec $RUN --proof calendar/calendar-page-phone -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/calendar/calendar-page-phone/list.png
   ```
 
-- **Show unmonitored.** On a fresh `music` run, add The Lanterns with `"preset":"first_item"`, open March 2001 and turn on `Show unmonitored`. The second row carries `Not monitored`.
+- **Show unmonitored.** On a fresh `music` run, add The Lanterns with `"preset":"all"` as above, then turn off Tracks 2 and 3 (no add preset monitors a single track; `first` monitors the first album). Read their ids and the Work's id from the March span's row, open March 2001 and turn on `Show unmonitored`. The second row carries `Not monitored`.
 
   ```sh
+  $FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/calendar?from=2001-03-01&to=2001-04-01'
+  $FW exec $RUN -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"levelIds":[],"itemIds":["<track 2 id>","<track 3 id>"],"on":false}' '{nodes.home.url}/api/v1/works/<work id>/monitored'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/library/calendar/music?view=month&month=2001-03'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("switch", { name: "Show unmonitored" })'
   $FW exec $RUN --proof calendar/calendar-page-unmonitored -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/calendar/calendar-page-unmonitored/month.aria.yml
