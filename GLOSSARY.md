@@ -560,6 +560,11 @@ The Library page that lists every Work with a missing, upgradable, failed or gon
 _In UI_: "Wanted".
 _Avoid_: Missing page, Missing and Upgradable, wanted list
 
+**Calendar**:
+The Library page that shows the release dates of the library's movies and episodes by day, with whether each is in the library.
+_In UI_: "Calendar".
+_Avoid_: Schedule, upcoming
+
 **Not found**:
 A Needs you row for missing Items whose last search found nothing to grab. It is not a cell state.
 _In UI_: "not found", after the Items, such as "S02E01 to S02E08 not found".
