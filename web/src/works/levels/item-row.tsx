@@ -1,7 +1,7 @@
 import { memo } from "react";
 
 import type { CellPopoverControls } from "../../ui/cell-popover";
-import { dayWords } from "../page/fields-format";
+import { dayWords } from "../../format/days";
 import type { PoppedCell } from "./cell-detail";
 import { Squares } from "./columns";
 import { RowControls, RowMenu } from "./controls";
