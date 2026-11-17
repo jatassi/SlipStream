@@ -23,7 +23,7 @@ type Client struct {
 }
 
 // ErrUnchecked is an answer from the Node that the Controller refuses.
-var ErrUnchecked = errors.New("notifying: the Node's answer is over a cap or missing a field")
+var ErrUnchecked = errors.New("notifying: the Node's response is over a cap or missing a field")
 
 func (c Client) Post(ctx context.Context, node role.NodeID, r Request) (Response, error) {
 	res, err := notifyv1connect.NotifyingService.On(c.Cluster, node).Post(ctx, requestToWire(r))

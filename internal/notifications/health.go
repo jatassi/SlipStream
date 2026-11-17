@@ -196,7 +196,7 @@ func waitingWords(n int) string {
 	if n == 1 {
 		return "1 message is waiting."
 	}
-	return fmt.Sprintf("%d messages are waiting.", n)
+	return notice.Grouped(n) + " messages are waiting."
 }
 
 func (s *Service) clock(t time.Time) string { return t.In(s.cfg.Zone).Format("15:04") }

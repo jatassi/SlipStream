@@ -56,7 +56,7 @@ func (r *Run) buildCaptureScript(ctx context.Context) (string, error) {
 	cmd := exec.CommandContext(ctx, "go", "build", "-o", out, captureScriptPackage)
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	if b, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("build capture-script from the worktree: %w\n%s", err, b)
+		return "", fmt.Errorf("build capture-script from source: %w\n%s", err, b)
 	}
 	return out, nil
 }

@@ -238,7 +238,7 @@ func TestReachTestsGuardAnAddedNotifying(t *testing.T) {
 	s := situation(seat(home, homeRoles), seat(seedbox, 0))
 
 	untested := nodes.Plan(s, tick)
-	wantWords(t, untested, "seedbox gets the Notifying Role.", "No mail server or connection is set up yet, so SlipStream can't test the Notifying Role on seedbox.")
+	wantWords(t, untested, "seedbox gets the Notifying Role.", "No mail server or notification connection is set up yet, so SlipStream can't test the Notifying Role on seedbox.")
 	if untested.Blocked() {
 		t.Fatal("no target blocked")
 	}

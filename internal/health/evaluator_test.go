@@ -509,7 +509,7 @@ func TestAClearAfterARestartKeepsSinceAndNamesTheCategory(t *testing.T) {
 		if len(ts) != 2 || ts[1].Kind != health.Cleared {
 			t.Fatalf("transitions %+v, want the raise, then the clear", ts)
 		}
-		if got := ts[1]; got.Subject != "Nodes: an item that cleared while SlipStream was stopped" || !got.Since.Equal(since) {
+		if got := ts[1]; got.Subject != "Nodes: a problem that cleared while SlipStream was stopped" || !got.Since.Equal(since) {
 			t.Fatalf("the clear after a restart is %q since %v, want the category's words since %v", got.Subject, got.Since, since)
 		}
 	})
