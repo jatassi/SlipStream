@@ -254,7 +254,7 @@ func TestRemoveFromBlocklistAndGrab(t *testing.T) {
 		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{
 			listing(webDL, 9, "a"), listing(bluRay, 9, "b"),
 		}}}})
-		grabstest.Blocked(t, a.lib, entry(hashed("b"), bluRay))
+		grabstest.Blocked(t, a.lib, blockEntry(hashed("b"), bluRay))
 		v := a.searchedByHand(t)
 		blocked, c := choice(t, v, bluRay)
 		if c.Release.Blocked == "" {

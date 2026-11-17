@@ -4,8 +4,6 @@ import "github.com/jatassi/slipstream/internal/storage"
 
 type ConnectionID struct{ storage.UUID }
 
-type EventID int64
-
 // Seq is a bell row's place in the list, taken when it is shown.
 type Seq int64
 

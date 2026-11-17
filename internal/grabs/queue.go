@@ -24,9 +24,9 @@ type Queued struct {
 	Merged bool
 }
 
-// entry is a trigger as enqueue lands it: its laneRules row, in the lane
+// landed is a trigger as enqueue lands it: its laneRules row, in the lane
 // of a call for one Work or several.
-type entry struct {
+type landed struct {
 	trigger searches.Trigger
 	lane    pace.Lane
 	gone    bool
@@ -34,19 +34,19 @@ type entry struct {
 	holds   bool
 }
 
-func landing(t searches.Trigger, several bool) entry {
+func landing(t searches.Trigger, several bool) landed {
 	r := laneRules[t]
 	lane := r.single
 	if several {
 		lane = r.several
 	}
-	return entry{trigger: t, lane: lane, gone: r.gone, resets: r.resets, holds: r.holds}
+	return landed{trigger: t, lane: lane, gone: r.gone, resets: r.resets, holds: r.holds}
 }
 
 // enqueue lands e on each search group of cells' Items, cells of work of
 // Content Type typ, in tx, under Backlog search's interval, and answers
 // each group's state.
-func (gr *Grabs) enqueue(ctx context.Context, tx *storage.Tx[file], work works.WorkID, typ works.TypeID, cells []files.Cell, e entry, interval time.Duration) ([]Queued, error) {
+func (gr *Grabs) enqueue(ctx context.Context, tx *storage.Tx[file], work works.WorkID, typ works.TypeID, cells []files.Cell, e landed, interval time.Duration) ([]Queued, error) {
 	groups, err := gr.cfg.Terms[typ].Groups(ctx, tx, work, itemsOf(cells))
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (gr *Grabs) enqueue(ctx context.Context, tx *storage.Tx[file], work works.W
 // land lands e on each of groups, the search groups of cells' Items, in
 // tx. It is the one writer of a due row's queued entry, and promotes an
 // open run e outranks.
-func land(ctx context.Context, tx *storage.Tx[file], work works.WorkID, groups []indexers.Group, cells []files.Cell, e entry, interval time.Duration) ([]Queued, error) {
+func land(ctx context.Context, tx *storage.Tx[file], work works.WorkID, groups []indexers.Group, cells []files.Cell, e landed, interval time.Duration) ([]Queued, error) {
 	q, now := db.New(tx), storage.Now().Time()
 	out := make([]Queued, 0, len(groups))
 	for _, g := range groups {

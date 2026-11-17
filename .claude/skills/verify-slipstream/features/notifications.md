@@ -8,14 +8,15 @@ An Admin adds notification connections in Settings > System > Notifications: Dis
 - `notifications-imported` a Grab that imports sends `Imported The Quiet Orchard` from the Node holding Notifying, with the poster as `files[0]`, kept as a file of the `notify` record (P-176, P-183).
 - `notifications-paused` with `discord-gone` on, the next message is answered 404 and the connection reads `shown: paused` with `Discord responded that this webhook no longer exists. Paste a new webhook URL.`; later messages wait (P-174).
 - `notifications-drain` with the cue off, a Test of the saved connection passes and sends the messages it held, oldest first, after the Test message (P-174).
-- `notifications-bell` the feed lists each event newest first with `unread`, `GET /notifications/bell` answers the bell's own events, and `POST /notifications/feed/seen` with the API key answers 403 `needs_account`, since the cursor belongs to an Account (P-009).
+- `notifications-bell` the feed lists each event newest first with `unread`, `GET /notifications/bell` answers the bell's own events, and `POST /notifications/feed/seen` with the API key answers 403 `needs_account`, since the cursor belongs to an Account; an empty bell reads `No notifications in the last 90 days.`, from Keep history for, and the settings hold no Keep field (P-009).
+- `notifications-health-pair` a Download Client fault raises a Health item and its clear clears it, and the bell shows the pair: the item after `Wait before sending a new Health item`, then `Cleared: <item>` (P-009).
 - `notifications-scenario` a Scenario's `notify` adds one connection per listed provider at launch, each on with posters and the recommended events, and `script` runs `<run>/bin/capture-script` on the Controller (P-195).
 
 ## How to get to it (user POV)
 
 - Desktop shell: `Settings`, then `Notifications` under `System`, at `/settings/notifications`; the bell in the top bar. The section, its sheet and the bell are in [Shell](./shell.md).
 - Phone shell: the `More` tab, `Settings`, then `Notifications`; the bell among the bar's actions.
-- API (Admin): `GET /api/v1/notifications/providers`, `GET /api/v1/notifications/events`, `GET` and `POST /api/v1/notifications/connections`, `POST /api/v1/notifications/connections/test` (a draft), `GET`, `PATCH` and `DELETE /api/v1/notifications/connections/{id}`, `POST /api/v1/notifications/connections/{id}/test`, `GET` and `PATCH /api/v1/notifications/bell`, `GET /api/v1/notifications/feed`, `POST /api/v1/notifications/feed/seen` (an Account only), `GET` and `PATCH /api/v1/notifications/settings`; live events `notifications.changed` and `notifications.seen`.
+- API (Admin): `GET /api/v1/notifications/providers`, `GET /api/v1/notifications/events`, `GET` and `POST /api/v1/notifications/connections`, `POST /api/v1/notifications/connections/test` (a draft), `GET`, `PATCH` and `DELETE /api/v1/notifications/connections/{id}`, `POST /api/v1/notifications/connections/{id}/test`, `GET` and `PATCH /api/v1/notifications/bell`, `GET /api/v1/notifications/feed`, `POST /api/v1/notifications/feed/seen` (an Account only), `GET` and `PATCH /api/v1/notifications/settings` (no `notifications.keepFor`); live events `notifications.changed`, `notifications.seen` and `history.changed`, which refreshes the feed.
 - Host CLI: none.
 
 ## Driving it with fakeworld and curl

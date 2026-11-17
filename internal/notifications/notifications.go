@@ -1,5 +1,6 @@
-// Package notifications records what happened in the Write that made it
-// true and sends it to the Admin's notification connections and the bell.
+// Package notifications sends History's entries to the Admin's
+// notification connections and the bell. It queues each entry in the Write
+// that records it, and fans it out at release.
 package notifications
 
 import (
@@ -9,11 +10,10 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/notifications/internal/db"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/notifying"
 	"github.com/jatassi/slipstream/internal/role"
@@ -22,7 +22,10 @@ import (
 )
 
 type Config struct {
-	Library   *storage.DB[storage.Library]
+	Library *storage.DB[storage.Library]
+	// Catalog is History's kinds, which the node seals before the
+	// dispatcher starts.
+	Catalog   *entry.Catalog
 	Sealer    *secret.Sealer
 	Providers []providers.Provider
 	Courier   Courier
@@ -99,16 +102,14 @@ type SeenPublisher interface {
 }
 
 type Service struct {
-	cfg     Config
-	catalog *catalog
-	// doorbell wakes the dispatcher. A Write that records an event rings it
+	cfg Config
+	// doorbell wakes the dispatcher. A Write that queues an entry rings it
 	// before it commits; SQLite runs one Write at a time, so the
-	// dispatcher's next Write reads the event.
+	// dispatcher's next Write reads the pending row.
 	doorbell chan struct{}
 }
 
-// New panics on a provider table with two rows of one id. Its catalog
-// starts with New Health item and Health item cleared.
+// New panics on a provider table with two rows of one id.
 func New(cfg Config) *Service {
 	seen := map[providers.ID]bool{}
 	for _, p := range cfg.Providers {
@@ -117,25 +118,7 @@ func New(cfg Config) *Service {
 		}
 		seen[p.ID] = true
 	}
-	return &Service{cfg: cfg, catalog: newCatalog(), doorbell: make(chan struct{}, 1)}
-}
-
-// Recorder registers owner's rows in the catalog and answers the Recorder
-// they are recorded through. It panics on a kind already registered, and
-// once the dispatcher has started.
-func (s *Service) Recorder(owner string, rows []notice.Entry) notice.Recorder {
-	s.catalog.register(owner, rows)
-	return notice.Sink(owner, rows, s.put)
-}
-
-// put inserts an event due now and rings the doorbell.
-func (s *Service) put(ctx context.Context, tx *storage.Tx[storage.Library], k notice.Kind, subject []byte) error {
-	now := storage.Now()
-	if _, err := db.New(tx).InsertEvent(ctx, db.InsertEventParams{Kind: k, At: now, DueAt: now, Subject: string(subject)}); err != nil {
-		return fmt.Errorf("record a %s event: %w", k, err)
-	}
-	s.ring()
-	return nil
+	return &Service{cfg: cfg, doorbell: make(chan struct{}, 1)}
 }
 
 func (s *Service) ring() {

@@ -263,7 +263,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Tasks:        &grabstest.StoredCadences{}, GapCap: grabs.NoGapCap,
 		Reconciling: trackers.NotReconciling,
 		Log:         slog.New(slog.DiscardHandler),
-		Notices:     grabstest.Notices(),
+		History:     grabstest.History(),
 	})
 	return &atticFixture{
 		ctx: ctx, lib: lib, sealer: sealer, home: role.NodeID{UUID: home}, tree: tree, unmonitored: unmonitored, hd: hd, terms: terms,

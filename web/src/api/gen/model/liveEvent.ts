@@ -7,6 +7,7 @@ import type { LiveEventGrabsChanged } from "./liveEventGrabsChanged.ts";
 import type { LiveEventGrabsQueueChanged } from "./liveEventGrabsQueueChanged.ts";
 import type { LiveEventGrabsSearchChanged } from "./liveEventGrabsSearchChanged.ts";
 import type { LiveEventHealthChanged } from "./liveEventHealthChanged.ts";
+import type { LiveEventHistoryChanged } from "./liveEventHistoryChanged.ts";
 import type { LiveEventIdentityAccountsChanged } from "./liveEventIdentityAccountsChanged.ts";
 import type { LiveEventIdentityAddressChanged } from "./liveEventIdentityAddressChanged.ts";
 import type { LiveEventIdentityLinksChanged } from "./liveEventIdentityLinksChanged.ts";
@@ -58,6 +59,7 @@ export type LiveEvent =
   | LiveEventGrabsQueueChanged
   | LiveEventGrabsSearchChanged
   | LiveEventHealthChanged
+  | LiveEventHistoryChanged
   | LiveEventIdentityAccountsChanged
   | LiveEventIdentityAddressChanged
   | LiveEventIdentityLinksChanged

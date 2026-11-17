@@ -283,6 +283,8 @@ func signInAsTheAdmin(t *testing.T, cn claimedNode) string {
 // streamAndSignOut is steps 4 to 9 on session A's streams.
 func streamAndSignOut(t *testing.T, cn claimedNode, a string) {
 	c := cn.c
+	// History publishes the boot's Health entries a second after them.
+	time.Sleep(time.Second)
 	synctest.Wait()
 	streamA := c.stream(a, "")
 	first := next(t, streamA)

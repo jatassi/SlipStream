@@ -5,15 +5,14 @@ SELECT * FROM notifications_bell;
 UPDATE notifications_bell SET choices = sqlc.arg(choices), warnings = sqlc.arg(warnings);
 
 -- name: InsertShown :one
-INSERT INTO notifications_shown (event_id, shown_at, items)
-VALUES (sqlc.arg(event_id), sqlc.arg(shown_at), sqlc.narg(items))
+INSERT INTO notifications_shown (event_id, kind, at, shown_at, items)
+VALUES (sqlc.arg(event_id), sqlc.arg(kind), sqlc.arg(at), sqlc.arg(shown_at), sqlc.narg(items))
 RETURNING seq;
 
 -- name: ListFeed :many
-SELECT s.seq, s.shown_at, s.items, e.id, e.kind, e.at, e.subject FROM notifications_shown s
-JOIN notifications_event e ON e.id = s.event_id
-WHERE s.seq < sqlc.arg(before)
-ORDER BY s.seq DESC
+SELECT seq, event_id, kind, at, shown_at, items FROM notifications_shown
+WHERE seq < sqlc.arg(before)
+ORDER BY seq DESC
 LIMIT sqlc.arg(limit);
 
 -- name: CountAbove :one

@@ -948,6 +948,15 @@
           },
           "additionalProperties": false,
           "type": "object"
+        },
+        "housekeeping": {
+          "properties": {
+            "prune_batch": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
         }
       },
       "additionalProperties": false,

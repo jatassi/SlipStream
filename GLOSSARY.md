@@ -413,10 +413,15 @@ One place an Admin's notifications go, through one provider: a Discord or Slack 
 _In UI_: "connection" inside Notifications. Elsewhere the provider and the name, such as Discord 'Family'.
 _Avoid_: Notifier, agent, channel, integration
 
-**Notification event**:
-One thing that happened that an Admin can hear about, such as Grabbed, Imported or New Health item, recorded in the Write that makes it true and kept for "Keep notifications for". Each kind is a catalog row that a Notification connection or the bell turns on.
-_In UI_: "event", and each kind's label.
-_Avoid_: Alert, trigger, notification (for the record itself)
+**History entry**:
+One thing that happened to the library, such as Grabbed, Imported or New Health item, recorded in the Write that makes it true and kept for "Keep history for". History lists it, and the bell and each Notification connection get the kinds they're turned on for.
+_In UI_: "entry" on History, "event" in a connection's event list, and each kind's label.
+_Avoid_: Alert, trigger, log line, notification (for the record itself)
+
+**History**:
+The Activity page that lists what happened to the library, newest first, kept for "Keep history for".
+_In UI_: "History".
+_Avoid_: Log, activity log, event log
 
 ## Acquisition
 

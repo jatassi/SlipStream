@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -15,22 +15,22 @@ import (
 // later releases show.
 type Bell struct {
 	// Events are the kinds it shows, in catalog order.
-	Events   []notice.Kind
+	Events   []entry.Kind
 	Warnings bool
 }
 
 // bellRow is the stored bell: the Admin's choices over each kind's
 // BellByDefault, so a later kind needs no migration.
 type bellRow struct {
-	choices  map[notice.Kind]bool
+	choices  map[entry.Kind]bool
 	warnings bool
 }
 
-func (b bellRow) has(k notice.Kind, c *catalog) bool {
+func (b bellRow) has(k entry.Kind, s *Service) bool {
 	if on, ok := b.choices[k]; ok {
 		return on
 	}
-	return c.entry(k).Declared().BellByDefault
+	return s.spec(k).BellByDefault
 }
 
 func (s *Service) bellIn(ctx context.Context, q *db.Queries) (bellRow, error) {
@@ -46,9 +46,9 @@ func (s *Service) bellIn(ctx context.Context, q *db.Queries) (bellRow, error) {
 }
 
 func (s *Service) bellOf(b bellRow) Bell {
-	out := Bell{Events: []notice.Kind{}, Warnings: b.warnings}
+	out := Bell{Events: []entry.Kind{}, Warnings: b.warnings}
 	for _, spec := range s.Events() {
-		if !spec.Fixed && b.has(spec.Kind, s.catalog) {
+		if !spec.Fixed && b.has(spec.Kind, s) {
 			out.Events = append(out.Events, spec.Kind)
 		}
 	}
@@ -68,7 +68,7 @@ func (s *Service) Bell(ctx context.Context) (Bell, error) {
 // SetBell stores the kinds the bell shows and its warnings switch. A nil
 // events or warnings keeps what is stored. A kind outside the catalog, or
 // Test, is ErrUnknownEvent.
-func (s *Service) SetBell(ctx context.Context, events []notice.Kind, warnings *bool) (Bell, error) {
+func (s *Service) SetBell(ctx context.Context, events []entry.Kind, warnings *bool) (Bell, error) {
 	if err := s.checkEvents(events); err != nil {
 		return Bell{}, err
 	}
@@ -80,7 +80,7 @@ func (s *Service) SetBell(ctx context.Context, events []notice.Kind, warnings *b
 			return err
 		}
 		if events != nil {
-			b.choices = map[notice.Kind]bool{}
+			b.choices = map[entry.Kind]bool{}
 			for _, spec := range s.Events() {
 				if !spec.Fixed {
 					b.choices[spec.Kind] = slices.Contains(events, spec.Kind)
@@ -97,29 +97,18 @@ func (s *Service) SetBell(ctx context.Context, events []notice.Kind, warnings *b
 
 // UnknownEventError is a kind no catalog row has, or one that can't be
 // chosen.
-type UnknownEventError struct{ Kind notice.Kind }
+type UnknownEventError struct{ Kind entry.Kind }
 
 func (e *UnknownEventError) Error() string {
 	return fmt.Sprintf("notifications: %s isn't an event that can be chosen", e.Kind)
 }
 
-func (s *Service) checkEvents(events []notice.Kind) error {
+func (s *Service) checkEvents(events []entry.Kind) error {
 	specs := s.Events()
 	for _, k := range events {
-		if !slices.ContainsFunc(specs, func(spec notice.Spec) bool { return spec.Kind == k && !spec.Fixed }) {
+		if !slices.ContainsFunc(specs, func(spec entry.Spec) bool { return spec.Kind == k && !spec.Fixed }) {
 			return &UnknownEventError{Kind: k}
 		}
 	}
 	return nil
-}
-
-// entry is k's row. Every stored kind has one: Recorder refuses a kind its
-// owner didn't register.
-func (c *catalog) entry(k notice.Kind) notice.Entry {
-	for _, e := range c.all() {
-		if e.Declared().Kind == k {
-			return e
-		}
-	}
-	panic(fmt.Sprintf("notifications: %s isn't in the catalog", k))
 }

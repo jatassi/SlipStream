@@ -23,7 +23,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/notifications/notice"
+	"github.com/jatassi/slipstream/internal/history/entry"
 )
 
 const (
@@ -31,11 +31,11 @@ const (
 	discordDescription = 4096
 )
 
-var discordColors = map[notice.Tone]int{
-	notice.Info: 0x3B82F6,
-	notice.Good: 0x22C55E,
-	notice.Warn: 0xF59E0B,
-	notice.Fail: 0xEF4444,
+var discordColors = map[entry.Tone]int{
+	entry.Info: 0x3B82F6,
+	entry.Good: 0x22C55E,
+	entry.Warn: 0xF59E0B,
+	entry.Fail: 0xEF4444,
 }
 
 var discord = Provider{

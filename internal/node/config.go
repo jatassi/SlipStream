@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/link"
@@ -167,6 +168,7 @@ type TimingsBlock struct {
 	Health        health.Timings        `yaml:"health"`
 	MediaServers  mslink.Timings        `yaml:"media_servers"`
 	Notifications notifications.Timings `yaml:"notifications"`
+	Housekeeping  housekeeping.Timings  `yaml:"housekeeping"`
 }
 
 type Timings struct {
@@ -245,6 +247,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Health:        health.DefaultTimings(),
 			MediaServers:  mslink.DefaultTimings(),
 			Notifications: notifications.DefaultTimings(),
+			Housekeeping:  housekeeping.DefaultTimings(),
 		},
 	}
 }

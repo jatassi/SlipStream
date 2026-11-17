@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/notifications/notice"
+	"github.com/jatassi/slipstream/internal/history/entry"
 )
 
 // Values are a connection's settings or its opened secrets, by field key.
@@ -22,10 +22,10 @@ type Poster struct {
 
 // Payload is everything a provider builds one message from.
 type Payload struct {
-	Kind notice.Kind
+	Kind entry.Kind
 	At   time.Time
 	// Message's Link is already absolute, or zero.
-	Message   notice.Message
+	Message   entry.Message
 	Settings  Values
 	Secrets   Values
 	Poster    *Poster

@@ -16,7 +16,7 @@ const day = 24 * time.Hour
 // in Timings or a constant.
 var (
 	HealthWait = setting.Duration{
-		Key: "notifications.healthWait", Label: healthWords.WaitLabel,
+		Key: "notifications.healthWait", Label: "Wait before sending a new Health item",
 		Default: 5 * time.Minute, Min: 0, Max: time.Hour, Step: time.Minute,
 	}
 	GiveUp = setting.Duration{
@@ -26,10 +26,6 @@ var (
 	WarnAfter = setting.Duration{
 		Key: "notifications.warnAfter", Label: "Warn when a connection has failed for",
 		Default: 15 * time.Minute, Min: time.Minute, Max: day, Step: time.Minute,
-	}
-	KeepFor = setting.Duration{
-		Key: "notifications.keepFor", Label: "Keep notifications for",
-		Default: 30 * day, Min: day, Max: 365 * day, Step: day,
 	}
 )
 
@@ -50,7 +46,6 @@ var rowSettings = []stored{
 	{HealthWait, func(r db.NotificationsSetting) *int64 { return r.HealthWaitSeconds }, (*db.Queries).SetHealthWait},
 	{GiveUp, func(r db.NotificationsSetting) *int64 { return r.GiveUpSeconds }, (*db.Queries).SetGiveUp},
 	{WarnAfter, func(r db.NotificationsSetting) *int64 { return r.WarnSeconds }, (*db.Queries).SetWarn},
-	{KeepFor, func(r db.NotificationsSetting) *int64 { return r.KeepSeconds }, (*db.Queries).SetKeep},
 }
 
 func (p panel) Fields(ctx context.Context) ([]setting.Field, error) {

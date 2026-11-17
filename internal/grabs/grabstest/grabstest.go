@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/grabs"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
-	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
+	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
@@ -94,5 +94,5 @@ func (c *StoredCadences) SetCadence(_ context.Context, id tasks.TaskID, v settin
 	return nil
 }
 
-// Notices is a Recorder for a Grabs whose events a test doesn't read.
-func Notices() notice.Recorder { return noticetest.Ignored("grabs", grabs.Notices()) }
+// History is a Recorder for a Grabs whose events a test doesn't read.
+func History() entry.Recorder { return entrytest.Ignored("grabs", grabs.Entries()) }

@@ -5511,6 +5511,11 @@ export const HealthVolumeList = zod.object({
 export type HealthVolumeList = zod.input<typeof HealthVolumeList>;
 export type HealthVolumeListOutput = zod.output<typeof HealthVolumeList>;
 
+export const HistoryChanged = zod.object({});
+
+export type HistoryChanged = zod.input<typeof HistoryChanged>;
+export type HistoryChangedOutput = zod.output<typeof HistoryChanged>;
+
 export const MediaserversNodeRef = zod.object({
   id: zod.uuid(),
   name: zod.string(),
@@ -10122,7 +10127,7 @@ export const SettingsOutputBody = zod.object({
   settings: zod
     .array(SettingField)
     .describe(
-      "Wait before sending a new Health item, Give up on a message after, Warn when a connection has failed for, and Keep notifications for",
+      "Wait before sending a new Health item, Give up on a message after and Warn when a connection has failed for",
     ),
 });
 
@@ -13031,6 +13036,14 @@ export const LiveEventHealthChanged = zod.object({
 export type LiveEventHealthChanged = zod.input<typeof LiveEventHealthChanged>;
 export type LiveEventHealthChangedOutput = zod.output<typeof LiveEventHealthChanged>;
 
+export const LiveEventHistoryChanged = zod.object({
+  event: zod.enum(["history.changed"]),
+  data: HistoryChanged,
+});
+
+export type LiveEventHistoryChanged = zod.input<typeof LiveEventHistoryChanged>;
+export type LiveEventHistoryChangedOutput = zod.output<typeof LiveEventHistoryChanged>;
+
 export const LiveEventIdentityAccountsChanged = zod.object({
   event: zod.enum(["identity.accounts-changed"]),
   data: IdentityAccountsChanged,
@@ -13389,6 +13402,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventGrabsQueueChanged,
   LiveEventGrabsSearchChanged,
   LiveEventHealthChanged,
+  LiveEventHistoryChanged,
   LiveEventIdentityAccountsChanged,
   LiveEventIdentityAddressChanged,
   LiveEventIdentityLinksChanged,

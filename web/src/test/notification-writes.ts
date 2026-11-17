@@ -8,7 +8,14 @@ import type {
 } from "../api/gen/model";
 import { problem } from "./handlers";
 import { home } from "./nodes";
-import { events, family, notificationBell, notificationSettings, providers } from "./notifications";
+import {
+  events,
+  family,
+  housekeepingHandler,
+  notificationBell,
+  notificationSettings,
+  providers,
+} from "./notifications";
 
 const api = "/api/v1/notifications";
 
@@ -39,6 +46,7 @@ const readHandlers = (list: NotificationsConnection[]) => [
   http.get(`*${api}/connections`, () => HttpResponse.json({ connections: list })),
   http.get(`*${api}/bell`, () => HttpResponse.json(notificationBell)),
   http.get(`*${api}/settings`, () => HttpResponse.json({ settings: notificationSettings() })),
+  housekeepingHandler,
 ];
 
 const testHandlers = (write: Write, fails: TestFails | undefined) => [

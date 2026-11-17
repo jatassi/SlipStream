@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/importsapi"
@@ -26,7 +27,6 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
-	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -145,7 +145,7 @@ func serve(t *testing.T) *server {
 		},
 		Changed: discard[imports.Changed]{}, FilesChanged: discard[files.Changed]{},
 	})
-	s.library = library.New(library.Config{Notices: noticetest.Ignored("library", library.Notices()), Library: s.lib, Works: w, Roots: s.roots, Files: fs, Imports: im, Leaver: im})
+	s.library = library.New(library.Config{History: entrytest.Ignored("library", library.Entries()), Library: s.lib, Works: w, Roots: s.roots, Files: fs, Imports: im, Leaver: im})
 	s.Owner = ownertest.Serve(t, s.lib, func(r *api.Router) { importsapi.Routes(r, node{im, s.roots}) })
 	return s
 }

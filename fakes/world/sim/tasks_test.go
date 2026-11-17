@@ -69,7 +69,7 @@ func TestHousekeepingTidiesEveryNodeAndCatchesUpAReturningWorker(t *testing.T) {
 			"Sessions|home|succeeded|",
 			"Indexer queries and sessions|home|succeeded|",
 			"Media Server history|home|succeeded|",
-			"Notifications|home|succeeded|",
+			"History|home|succeeded|",
 			"Local database on home|home|succeeded|",
 			"Local database on seedbox|seedbox|succeeded|",
 			"Library database|home|succeeded|",

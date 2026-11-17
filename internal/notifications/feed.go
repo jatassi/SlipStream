@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -18,7 +18,7 @@ const unreadCap = 100
 type FeedRow struct {
 	Seq   Seq
 	At    time.Time
-	Kind  notice.Kind
+	Kind  entry.Kind
 	Title string
 	// Line is the message's first line, "" for none.
 	Line string
@@ -40,7 +40,7 @@ type Feed struct {
 var ErrNeedsAccount = identity.ErrNeedsAccount
 
 // Feed renders up to limit shown rows below before, or the newest when
-// before is 0. A Health row renders the event's items cut to the ones the
+// before is 0. A Health row renders the entry's items cut to the ones the
 // row showed, whatever the bell's switches say now.
 func (s *Service) Feed(ctx context.Context, by identity.Admin, before Seq, limit int) (Feed, error) {
 	if before == 0 {
@@ -57,22 +57,21 @@ func (s *Service) Feed(ctx context.Context, by identity.Admin, before Seq, limit
 		if err != nil {
 			return err
 		}
-		if _, ok := by.Account(); ok {
-			n, err := q.CountAbove(ctx, db.CountAboveParams{Seq: cursor, Cap: unreadCap})
-			if err != nil {
-				return err
-			}
-			unread := int(n)
-			out.Unread = &unread
+		if out.Unread, err = unread(ctx, q, by, cursor); err != nil {
+			return err
 		}
 		address, err := identity.ReadAddress(ctx, r)
+		if err != nil {
+			return err
+		}
+		events, err := shownEvents(ctx, r, rows)
 		if err != nil {
 			return err
 		}
 		now := time.Now()
 		out.Rows = make([]FeedRow, 0, len(rows))
 		for _, row := range rows {
-			fr, err := s.feedRow(ctx, q, row, address, now)
+			fr, err := s.feedRow(events[row.EventID], row, address, now)
 			if err != nil {
 				return err
 			}
@@ -87,11 +86,25 @@ func (s *Service) Feed(ctx context.Context, by identity.Admin, before Seq, limit
 	return out, err
 }
 
-func (s *Service) feedRow(ctx context.Context, q *db.Queries, row db.ListFeedRow, address identity.Address, now time.Time) (FeedRow, error) {
-	e, err := eventOf(ctx, q, db.NotificationsEvent{ID: row.ID, Kind: row.Kind, At: row.At, Subject: row.Subject})
-	if err != nil {
-		return FeedRow{}, err
+// unread is how many rows above cursor by hasn't read, nil for the API key.
+func unread(ctx context.Context, q *db.Queries, by identity.Admin, cursor Seq) (*int, error) {
+	if _, ok := by.Account(); !ok {
+		return nil, nil
 	}
+	n, err := q.CountAbove(ctx, db.CountAboveParams{Seq: cursor, Cap: unreadCap})
+	count := int(n)
+	return &count, err
+}
+
+func shownEvents(ctx context.Context, r storage.Reader[file], rows []db.NotificationsShown) (map[EventID]event, error) {
+	heads := make([]head, len(rows))
+	for i, row := range rows {
+		heads[i] = head{ID: row.EventID, Kind: row.Kind, At: row.At.Time()}
+	}
+	return eventsOf(ctx, r, heads)
+}
+
+func (s *Service) feedRow(e event, row db.NotificationsShown, address identity.Address, now time.Time) (FeedRow, error) {
 	shown, err := keysFrom(row.Items)
 	if err != nil {
 		return FeedRow{}, err
@@ -99,7 +112,7 @@ func (s *Service) feedRow(ctx context.Context, q *db.Queries, row db.ListFeedRow
 	if e, err = e.cut(shown); err != nil {
 		return FeedRow{}, err
 	}
-	msg, err := s.catalog.entry(e.Kind).RenderStored(e.Subject, notice.Context{Now: now, Zone: s.cfg.Zone})
+	msg, err := s.render(e, now, "")
 	if err != nil {
 		return FeedRow{}, err
 	}

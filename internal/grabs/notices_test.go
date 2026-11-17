@@ -9,10 +9,10 @@ import (
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabs/grabstest"
+	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
-	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	rel "github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -36,7 +36,7 @@ func TestAGrabRecordsGrabbedWithItsScoreAtEachTargetAndAJoinRecordsNone(t *testi
 		if _, err := w.Grabs.DecideRun(t.Context(), w.Work, w.Items, []indexers.Release{pack}); err != nil {
 			t.Fatal(err)
 		}
-		got := noticetest.Of(w.Notices, grabs.GrabbedRow)
+		got := entrytest.Of(w.History, grabs.GrabbedRow)
 		if len(got) != 1 {
 			t.Fatalf("the run recorded %d Grabbed, want 1", len(got))
 		}
@@ -54,60 +54,97 @@ func TestAGrabRecordsGrabbedWithItsScoreAtEachTargetAndAJoinRecordsNone(t *testi
 		if _, err := w.Grabs.DecideRun(t.Context(), w.Work, w.Items[4:5], []indexers.Release{pack}); err != nil {
 			t.Fatal(err)
 		}
-		if n := len(noticetest.Of(w.Notices, grabs.GrabbedRow)); n != 1 {
+		if n := len(entrytest.Of(w.History, grabs.GrabbedRow)); n != 1 {
 			t.Fatalf("after a run that joins the pack %d Grabbed are recorded, want still 1", n)
 		}
 	})
 }
 
 // failedWith fails one Grab of the World's first Item per code, in order,
-// and answers the codes Grab failed was recorded for.
-func failedWith(t *testing.T, codes ...grabs.Code) []grabs.Code {
+// and answers the codes Grab failed was recorded for and those it sends.
+func failedWith(t *testing.T, codes ...grabs.Code) (recorded, sent []grabs.Code) {
 	t.Helper()
 	w := failureWorld(t)
 	for i, c := range codes {
 		failWith(t, w, grabbedOver(t, w, heard(w, "E01", "1080p.WEB-DL", byte('a'+i))), c)
 	}
-	var out []grabs.Code
-	for _, f := range noticetest.Of(w.Notices, grabs.GrabFailedRow) {
-		if f.Work.ID != w.Work || f.Stage != grabs.Fetching || f.Release != "The.Attic.2020.E01.1080p.WEB-DL-GRP" {
+	abouts := entrytest.Abouts(w.History, grabs.GrabFailedRow)
+	for i, f := range entrytest.Of(w.History, grabs.GrabFailedRow) {
+		if f.Work.ID != w.Work || f.Stage != grabs.Fetching || f.Release != "The.Attic.2020.E01.1080p.WEB-DL-GRP" || f.Grab.IsZero() {
 			t.Errorf("Grab failed tells %+v, want The Attic's Grab at fetching", f)
 		}
-		out = append(out, f.Code)
+		if abouts[i].Quiet == f.NeedsYou || abouts[i].Grab != f.Grab.UUID {
+			t.Errorf("Grab failed %+v is about %+v, want it quiet unless it needs the Admin, and about its Grab", f, abouts[i])
+		}
+		recorded = append(recorded, f.Code)
+		if f.NeedsYou {
+			sent = append(sent, f.Code)
+		}
 	}
-	return out
+	return recorded, sent
 }
 
-func TestOnlyAFailureActivityListsAsNeedingTheAdminRecordsGrabFailed(t *testing.T) {
+func TestEveryFailureIsRecordedAndOnlyOneActivityListsAsNeedingTheAdminIsSent(t *testing.T) {
+	fault := grabs.ReleaseFault
 	for _, c := range []struct {
 		name  string
 		codes []grabs.Code
-		want  []grabs.Code
+		sent  []grabs.Code
 	}{
 		{"a cancel", []grabs.Code{grabs.Canceled}, nil},
 		{"a declined Import", []grabs.Code{grabs.Declined}, nil},
-		{"a failure SlipStream searches again for", []grabs.Code{grabs.ReleaseFault}, nil},
+		{"a failure SlipStream searches again for", []grabs.Code{fault}, nil},
 		{"a failure that waits for the Admin", []grabs.Code{grabs.NameTaken}, []grabs.Code{grabs.NameTaken}},
-		{"the failure that stops searching again", []grabs.Code{grabs.ReleaseFault, grabs.ReleaseFault, grabs.ReleaseFault}, []grabs.Code{grabs.ReleaseFault}},
+		{"the failure that stops searching again", []grabs.Code{fault, fault, fault}, []grabs.Code{fault}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				if got := failedWith(t, c.codes...); !slices.Equal(got, c.want) {
-					t.Fatalf("Grab failed was recorded for %v, want %v", got, c.want)
+				recorded, sent := failedWith(t, c.codes...)
+				if !slices.Equal(recorded, c.codes) || !slices.Equal(sent, c.sent) {
+					t.Fatalf("Grab failed was recorded for %v and sent for %v, want %v and %v", recorded, sent, c.codes, c.sent)
 				}
 			})
 		})
 	}
 }
 
-func TestAManualGrabNamesWhoPickedItAndItsBlocklistFailureRecordsNothing(t *testing.T) {
+func TestAFetchingDropThatADecisionReplacesIsRecordedQuiet(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		bad := newRelease(t)
+		raw, err := bad.link.Torrent(bad.info)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tw := newTwinWorld(t, twin{sites: []twinSite{
+			{name: "Better Site", priority: 10, torrent: raw, releases: []searching.Release{listing(bluRay, 90, "")}},
+			{name: "Other Site", priority: 25, releases: []searching.Release{listing(webDL, 5, "")}},
+		}})
+		grabstest.Blocked(t, tw.lib, blockEntry(bad.link.InfoHash, bluRay))
+		if got, want := tw.searchedAutomatically(t), "Other Site "+webDL; got != want {
+			t.Fatalf("the run's Grab is %q, want %q", got, want)
+		}
+		failed := entrytest.Of(tw.notices, grabs.GrabFailedRow)
+		abouts := entrytest.Abouts(tw.notices, grabs.GrabFailedRow)
+		if len(failed) == 0 || failed[0].Code != grabs.Blocklisted || failed[0].Stage != grabs.Fetching || failed[0].NeedsYou || !abouts[0].Quiet {
+			t.Fatalf("the replaced Grab recorded %+v about %+v, want a quiet Grab failed at fetching first", failed, abouts)
+		}
+		if n := len(entrytest.Of(tw.notices, grabs.GrabbedRow)); n != 2 {
+			t.Fatalf("the run recorded %d Grabbed, want the dropped Grab and the one in its place", n)
+		}
+	})
+}
+
+func TestAManualGrabNamesWhoPickedItAndItsBlocklistFailureIsRecordedQuiet(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 9, "a")}}}})
 		v := a.searchedByHand(t)
 		id := made(t, a.grabbed(t, v, rowPick(t, v))[0])
-		got := noticetest.Of(a.notices, grabs.GrabbedRow)
+		got := entrytest.Of(a.notices, grabs.GrabbedRow)
 		if len(got) != 1 || got[0].FoundBy != grabs.FoundByManual || !got[0].By.APIKey {
 			t.Fatalf("the Manual Grab recorded Grabbed %+v, want one picked by the API key", got)
+		}
+		if about := entrytest.Abouts(a.notices, grabs.GrabbedRow)[0]; got[0].Grab != id || about.Grab != id.UUID || about.Quiet {
+			t.Errorf("Grabbed tells Grab %s and is about %+v, want it about the Grab %s", got[0].Grab, about, id)
 		}
 		if words := grabs.FoundByWords(got[0].FoundBy, got[0].Indexer, got[0].By); words != "An app using the API key picked it in Manual search from Better Site." {
 			t.Errorf("its found-by sentence is %q", words)
@@ -115,31 +152,31 @@ func TestAManualGrabNamesWhoPickedItAndItsBlocklistFailureRecordsNothing(t *test
 		if err := a.g.FailWith(t.Context(), id, grabs.Blocklisted); err != nil {
 			t.Fatal(err)
 		}
-		if got := noticetest.Of(a.notices, grabs.GrabFailedRow); len(got) != 0 {
-			t.Fatalf("a Manual Grab the Blocklist held recorded Grab failed %+v", got)
+		if got := entrytest.Abouts(a.notices, grabs.GrabFailedRow); len(got) != 1 || !got[0].Quiet {
+			t.Fatalf("a Manual Grab the Blocklist held recorded Grab failed about %+v, want one, quiet", got)
 		}
 	})
 }
 
 func TestGrabsMessagesReadAsWritten(t *testing.T) {
-	heat := notice.Work{
+	heat := entry.Work{
 		ID: works.WorkID{UUID: must(storage.ParseUUID("019a8f5e-0000-7000-8000-000000000001"))}, Label: "Heat (1995)", Type: "book",
-		Nouns:  notice.Nouns{Work: works.Noun{One: "book", Many: "books"}, Item: works.Noun{One: "book", Many: "books"}, Single: true},
+		Nouns:  entry.Nouns{Work: works.Noun{One: "book", Many: "books"}, Item: works.Noun{One: "book", Many: "books"}, Single: true},
 		Poster: artwork.Ref{Source: "tmdb", Shape: artwork.ShapePoster, Path: "/heat.jpg"},
 	}
 	facts := rel.Facts{Quality: rel.Known(rel.WEBDL1080p), Group: rel.Known("FLUX"), Size: rel.Known(int64(6_200_000_000))}
 	for _, f := range grabs.FoundBys {
-		noticetest.Golden(t, grabs.GrabbedRow, grabs.GrabbedFacts{
-			Work: heat, Release: facts, Indexer: "TorrentLeech", Source: grabs.FromSearch, FoundBy: f, By: notice.Actor{Name: "Sam"},
+		entrytest.Golden(t, grabs.GrabbedRow, grabs.GrabbedFacts{
+			Work: heat, Release: facts, Indexer: "TorrentLeech", Source: grabs.FromSearch, FoundBy: f, By: entry.Actor{Name: "Sam"},
 			Scores: []grabs.ScoreAt{{Target: "1080p", Score: 1250}, {Target: "720p", Score: 900}},
 		}, "testdata/notices", "grabbed-"+string(f), *update)
 	}
-	noticetest.Golden(t, grabs.GrabbedRow, grabs.GrabbedFacts{
-		Work: heat, Release: facts, Indexer: "TorrentLeech", Source: grabs.FromManual, FoundBy: grabs.FoundByManual, By: notice.Actor{APIKey: true},
+	entrytest.Golden(t, grabs.GrabbedRow, grabs.GrabbedFacts{
+		Work: heat, Release: facts, Indexer: "TorrentLeech", Source: grabs.FromManual, FoundBy: grabs.FoundByManual, By: entry.Actor{APIKey: true},
 		Scores: []grabs.ScoreAt{{Target: "1080p", Score: 1250}},
 	}, "testdata/notices", "grabbed-api-key", *update)
 	for _, c := range []grabs.Code{grabs.NameTaken, grabs.ImportFailed} {
-		noticetest.Golden(t, grabs.GrabFailedRow, grabs.GrabFailedFacts{
+		entrytest.Golden(t, grabs.GrabFailedRow, grabs.GrabFailedFacts{
 			Work: heat, Code: c, Stage: grabs.Importing, Release: "Heat.1995.1080p.WEB-DL-FLUX", Source: grabs.FromSearch,
 		}, "testdata/notices", "grab-failed-"+string(c), *update)
 	}

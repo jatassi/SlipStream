@@ -230,7 +230,7 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 		Router:  downloadclients.Router{Roster: p.roster, Routes: trackers.Routing{Roster: p.roster}},
 		Timings: grabs.DefaultTimings(), Today: time.Now, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: p.changed, BlocklistChanged: discard[grabs.BlocklistChanged]{}, Tasks: grabstest.Cadences{}, Log: slog.New(slog.DiscardHandler),
-		Notices:     grabstest.Notices(),
+		History:     grabstest.History(),
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return p.reconciling.Load(), nil },
 		BeforeStep: func(ctx context.Context, s grabs.Stage) {
 			if p.beforeStep != nil {

@@ -13,7 +13,7 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
               type: Time
-          - column: notifications_event.at
+          - column: "*.at"
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
               type: Time
@@ -27,11 +27,13 @@ sql:
           - column: "*.connection_id"
             go_type:
               type: ConnectionID
-          - column: notifications_event.id
-            go_type:
-              type: EventID
           - column: "*.event_id"
             go_type:
+              import: github.com/jatassi/slipstream/internal/history
+              type: EventID
+          - column: notifications_worse.worse_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/history
               type: EventID
           - column: notifications_shown.seq
             go_type:
@@ -39,9 +41,9 @@ sql:
           - column: notifications_seen.seq
             go_type:
               type: Seq
-          - column: notifications_event.kind
+          - column: "*.kind"
             go_type:
-              import: github.com/jatassi/slipstream/internal/notifications/notice
+              import: github.com/jatassi/slipstream/internal/history/entry
               type: Kind
           - column: "*.node_id"
             go_type:
