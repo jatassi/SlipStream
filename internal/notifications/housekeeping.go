@@ -15,7 +15,7 @@ const pruneBound = 1000
 // Housekeeping is the step that deletes events older than Keep
 // notifications for. Told rows stay, so a later clear still pairs.
 func (s *Service) Housekeeping() housekeeping.Step {
-	return housekeeping.Step{Key: "notifications", Label: "Notifications", Run: s.prune}
+	return housekeeping.Plain("notifications", "Notifications", s.prune)
 }
 
 func (s *Service) prune(ctx context.Context) error {

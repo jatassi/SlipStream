@@ -554,7 +554,8 @@ func (n *Node) startController(ctx context.Context) error {
 			Tidy: func(node role.NodeID) housekeepingv1connect.HousekeepingServiceHandler {
 				return housekeepingv1connect.HousekeepingService.On(cluster, node)
 			},
-			Steps: []housekeeping.Step{{Key: "indexer-queries", Label: "Indexer queries and sessions", Run: registry.Prune}, servers.Housekeeping(), n.notifications.Housekeeping()},
+			Batch: n.cfg.Timings.Housekeeping.PruneBatch,
+			Steps: []housekeeping.Step{housekeeping.Plain("indexer-queries", "Indexer queries and sessions", registry.Prune), servers.Housekeeping(), n.notifications.Housekeeping()},
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
