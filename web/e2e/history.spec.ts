@@ -1,9 +1,27 @@
+import type { Page } from "@playwright/test";
 import { z } from "zod";
 
 import { expect, expectAccessible, test } from "./fixtures.ts";
+import { isPhone } from "./shell.ts";
 
 test.use({ scenario: "movies" });
 test.describe.configure({ timeout: 120_000 });
+
+async function clearHistory(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "History options" }).click();
+  await page
+    .getByRole(isPhone(page) ? "button" : "menuitem", {
+      name: "Clear History…",
+    })
+    .click();
+  await page.getByRole("button", { name: "Clear History", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText("Clearing History.");
+  await expect(
+    page.getByText(
+      "History is empty. Grabs, Imports and Works added or deleted show here as they happen.",
+    ),
+  ).toBeVisible();
+}
 
 const Added = z.object({ work: z.object({ id: z.string() }) });
 
@@ -23,7 +41,8 @@ test("History lists a Work added today, opens it in full, shows on its Work page
   const today = page.getByRole("list", { name: "Today" });
   const entry = today.getByRole("listitem").filter({ hasText: /Added The Salt Road/u });
   await expect(entry).toContainText(/\d{2}:\d{2}/u);
-  await entry.getByRole("button", { name: /^Details, Added The Salt Road/u }).click();
+  const opens = isPhone(page) ? /^Added The Salt Road/u : /^Details, Added The Salt Road/u;
+  await entry.getByRole("button", { name: opens }).click();
   await expect(page.getByRole("link", { name: /^Open The Salt Road/u })).toHaveAttribute(
     "href",
     `/works/${workId}`,
@@ -38,13 +57,5 @@ test("History lists a Work added today, opens it in full, shows on its Work page
   await expect(page).toHaveURL(new RegExp(`/activity/history\\?work=${workId}$`, "u"));
   await expect(page.getByRole("button", { name: "Show every Work" })).toBeVisible();
 
-  await page.getByRole("button", { name: "History options" }).click();
-  await page.getByRole("menuitem", { name: "Clear History…" }).click();
-  await page.getByRole("button", { name: "Clear History", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Messages" })).toContainText("Clearing History.");
-  await expect(
-    page.getByText(
-      "History is empty. Grabs, Imports and Works added or deleted show here as they happen.",
-    ),
-  ).toBeVisible();
+  await clearHistory(page);
 });
