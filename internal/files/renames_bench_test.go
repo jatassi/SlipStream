@@ -87,7 +87,7 @@ func (l *library) misplace(b *testing.B) {
 	b.Helper()
 	err := l.lib.Write(b.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for _, q := range []string{
-			`DELETE FROM files_move`, `DELETE FROM files_renamed`, `DELETE FROM files_prune`,
+			`DELETE FROM files_move`, `DELETE FROM files_prune`,
 			`UPDATE files_file SET path = 'Found/' || hex(id) || '.mkv'`,
 		} {
 			if _, err := tx.ExecContext(ctx, q); err != nil {

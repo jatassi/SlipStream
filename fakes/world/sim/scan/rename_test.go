@@ -36,7 +36,7 @@ func TestAScanDuringATargetRenameChangesNothing(t *testing.T) {
 		<-scan.reached
 		s.renameTargets(t)
 		simtest.Eventually(t, "the disk queue renames the films", func() bool {
-			return s.count("SELECT count(*) FROM files_move") == 0 && s.count("SELECT count(*) FROM files_renamed") > 0
+			return s.count("SELECT count(*) FROM files_move") == 0 && s.count("SELECT count(*) FROM files_file WHERE path LIKE '% Renamed%'") > 0
 		})
 		close(scan.open)
 		s.idle()

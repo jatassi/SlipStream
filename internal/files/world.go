@@ -48,8 +48,6 @@ type world struct {
 	// and forcedAt the time such a fill records.
 	force    map[CellKey]ID
 	forcedAt storage.Time
-	// imports is the Import that landed each file holding a forced fill.
-	imports map[ID]storage.UUID
 	// beside are the Work's files from before the fresh files came, the
 	// ones they doom included. The fresh files land beside them.
 	beside []File
@@ -207,7 +205,7 @@ func shelve(ctx context.Context, q *db.Queries, ws []world, among works.Among[wo
 		if w.fills == nil {
 			w.fills = map[CellKey]Fill{}
 		}
-		w.fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = Fill{File: fill.FileID, Score: int(fill.Score), Forced: fill.ForcedAt}
+		w.fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = Fill{File: fill.FileID, Score: int(fill.Score), Forced: fill.ForcedAt, ForcedBy: fill.ForcedImportID}
 	}
 	return nil
 }

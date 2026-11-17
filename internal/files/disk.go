@@ -343,10 +343,8 @@ func reached(ctx context.Context, q *db.Queries, m move, to string) (bool, []fac
 		switch {
 		case err != nil:
 			return false, nil, err
-		case n == 1 && (isHeld(m.origin) || m.origin == to):
-			return true, went, nil
 		case n == 1:
-			return true, went, q.InsertRenamed(ctx, db.InsertRenamedParams{FileID: m.file, RootID: m.root, FromPath: m.origin, ToPath: to, RenamedAt: storage.Now()})
+			return true, went, nil
 		}
 	}
 	_, err := q.MoveReached(ctx, db.MoveReachedParams{FileID: m.file, Sits: m.sits, Reached: to})
