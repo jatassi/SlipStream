@@ -10,6 +10,7 @@ import {
   getListSignupLinksQueryKey,
 } from "../api/gen/query/identity/identity";
 import { getListMetadataProvidersQueryKey } from "../api/gen/query/metadata/metadata";
+import { withCalendar } from "./calendar-effects";
 import { downloadEffects } from "./download-effects";
 import { historyEffects } from "./history-effects";
 import { indexerEffects } from "./indexer-effects";
@@ -21,13 +22,12 @@ import { everyPath } from "./refresh";
 import { searchEffects } from "./search-effects";
 import { systemEffects } from "./system-effects";
 import { targetsEffects } from "./targets-effects";
-import type { LiveEffects } from "./types";
 
 const everyAccount = everyPath(/^\/api\/v1\/accounts\/[^/]+(\/sessions)?$/u);
 const everySignupLink = everyPath(/^\/api\/v1\/signup-links\/[^/]+$/u);
 const everyNaming = everyPath(/^\/api\/v1\/naming(\/|$)/u);
 
-export const effects = {
+export const effects = withCalendar({
   ...systemEffects,
   ...libraryEffects,
   ...downloadEffects,
@@ -69,4 +69,4 @@ export const effects = {
     refresh(everyNaming);
     refresh(renameCounts);
   },
-} satisfies LiveEffects;
+});
