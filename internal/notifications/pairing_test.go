@@ -3,12 +3,14 @@ package notifications_test
 import (
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/history/historytest"
 	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/notifications/notificationstest"
 )
@@ -65,19 +67,83 @@ func TestAnItemThatClearsInsideTheWaitSendsNothing(t *testing.T) {
 	})
 }
 
-func TestAWorseInsideTheWaitSendsOneMessageAtError(t *testing.T) {
+func TestAWorseInsideTheWaitSendsOneMessageAtTheFirstDueTimeAtError(t *testing.T) {
 	run(t, func(t *testing.T, w *world) {
 		w.Connect("family")
 		d := disk("d", health.Warn)
+		due := time.Now().Add(wait)
 		w.Transitions(d)
 		w.Advance(wait / 2)
 		w.Transitions(moved(d, health.Worse, health.Fail))
 		w.Advance(time.Hour)
 		got := w.Courier.Received(family)
-		if len(got) != 1 || got[0].Title != "Disk d is almost full" || got[0].Tone != entry.Fail {
-			t.Fatalf("received %+v, want one message at Error", got)
+		if len(got) != 1 || got[0].Title != "Disk d is almost full" || got[0].Tone != entry.Fail || !got[0].At.Equal(due) {
+			t.Fatalf("received %+v, want one message at Error at %v", got, due)
+		}
+		if raises := kindsOf(historytest.Entries(t, w.Lib)); !slices.Equal(raises, []entry.Kind{"new_health_item", "new_health_item"}) {
+			t.Fatalf("History holds %v, want both raises", raises)
 		}
 	})
+}
+
+func TestAWorseBesideAFreshRaiseSendsEachAtItsOwnDueTime(t *testing.T) {
+	run(t, func(t *testing.T, w *world) {
+		w.Connect("family")
+		d := disk("d", health.Warn)
+		first := time.Now().Add(wait)
+		w.Transitions(d)
+		w.Advance(wait / 2)
+		second := time.Now().Add(wait)
+		w.Transitions(moved(d, health.Worse, health.Fail), disk("e", health.Fail))
+		w.Advance(time.Hour)
+		got := w.Courier.Received(family)
+		if len(got) != 2 || got[0].Title != "Disk d is almost full" || got[0].Tone != entry.Fail || !got[0].At.Equal(first) ||
+			got[1].Title != "Disk e is almost full" || !got[1].At.Equal(second) {
+			t.Fatalf("received %+v, want d at Error at %v, then e at %v", got, first, second)
+		}
+		if strings.Contains(w.Logs(), "level=ERROR") {
+			t.Fatalf("a dispatcher pass failed:\n%s", w.Logs())
+		}
+	})
+}
+
+func TestAWorseAfterTheRaiseWasSentSendsAgainAfterANewWait(t *testing.T) {
+	run(t, func(t *testing.T, w *world) {
+		w.Connect("family", func(d *notifications.Draft) { d.Warnings = true })
+		d := disk("d", health.Warn)
+		w.Transitions(d)
+		w.Advance(wait)
+		w.Transitions(moved(d, health.Worse, health.Fail))
+		w.Advance(wait - time.Second)
+		wantTitles(t, w, family, "Disk d is almost full")
+		w.Advance(time.Second)
+		got := w.Courier.Received(family)
+		if len(got) != 2 || got[1].Tone != entry.Fail {
+			t.Fatalf("received %+v, want the Worse at Error after its own wait", got)
+		}
+	})
+}
+
+func TestAClearAfterTheRaiseWasSentReachesOnlyTheTargetsThatWereTold(t *testing.T) {
+	run(t, func(t *testing.T, w *world) {
+		w.Connect("family")
+		d := disk("d", health.Fail)
+		w.Transitions(d)
+		w.Advance(wait)
+		w.Connect("late")
+		w.Transitions(cleared(d))
+		w.Advance(time.Hour)
+		wantTitles(t, w, family, "Disk d is almost full", "Cleared: Disk d is almost full")
+		wantTitles(t, w, notificationstest.URL("late"))
+	})
+}
+
+func kindsOf(entries []historytest.Entry) []entry.Kind {
+	out := make([]entry.Kind, len(entries))
+	for i, e := range entries {
+		out[i] = e.Kind
+	}
+	return out
 }
 
 func TestThreeItemsInOneEvaluationAreOneMessagePerConnection(t *testing.T) {
