@@ -59,8 +59,8 @@ var (
 	}
 )
 
-// Notices is the events grabs records.
-func Notices() []entry.Entry { return []entry.Entry{grabbedRow, grabFailedRow} }
+// Entries is the kinds grabs records.
+func Entries() []entry.Entry { return []entry.Entry{grabbedRow, grabFailedRow} }
 
 func renderGrabbed(f GrabbedFacts, _ entry.Context) entry.Message {
 	lines := []string{release.Describe(release.Read{Facts: f.Release}), FoundByWords(f.FoundBy, f.Indexer, f.By)}
@@ -145,7 +145,7 @@ func (gr *Grabs) announceGrabbed(ctx context.Context, tx *storage.Tx[file], g Gr
 	if err != nil {
 		return err
 	}
-	return grabbedRow.Record(ctx, tx, gr.cfg.Notices, GrabbedFacts{
+	return grabbedRow.Record(ctx, tx, gr.cfg.History, GrabbedFacts{
 		Work: w, Release: n.facts, Indexer: indexer, Source: g.Source, FoundBy: g.FoundBy, By: noticeActor(g.By), Scores: n.scores,
 	})
 }
@@ -169,7 +169,7 @@ func (gr *Grabs) announceFailed(ctx context.Context, tx *storage.Tx[file], g Gra
 	if err != nil {
 		return err
 	}
-	return grabFailedRow.Record(ctx, tx, gr.cfg.Notices, GrabFailedFacts{
+	return grabFailedRow.Record(ctx, tx, gr.cfg.History, GrabFailedFacts{
 		Work: w, Code: code, Stage: g.Stage, Release: g.Release.Title, Source: g.Source, By: noticeActor(g.By),
 	})
 }

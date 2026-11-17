@@ -10,7 +10,7 @@ import (
 )
 
 const getSettings = `-- name: GetSettings :one
-SELECT id, health_wait_seconds, give_up_seconds, warn_seconds, keep_seconds FROM notifications_settings
+SELECT id, health_wait_seconds, give_up_seconds, warn_seconds FROM notifications_settings
 `
 
 func (q *Queries) GetSettings(ctx context.Context) (NotificationsSetting, error) {
@@ -21,7 +21,6 @@ func (q *Queries) GetSettings(ctx context.Context) (NotificationsSetting, error)
 		&i.HealthWaitSeconds,
 		&i.GiveUpSeconds,
 		&i.WarnSeconds,
-		&i.KeepSeconds,
 	)
 	return i, err
 }
@@ -41,15 +40,6 @@ UPDATE notifications_settings SET health_wait_seconds = ?1
 
 func (q *Queries) SetHealthWait(ctx context.Context, seconds *int64) error {
 	_, err := q.db.ExecContext(ctx, setHealthWait, seconds)
-	return err
-}
-
-const setKeep = `-- name: SetKeep :exec
-UPDATE notifications_settings SET keep_seconds = ?1
-`
-
-func (q *Queries) SetKeep(ctx context.Context, seconds *int64) error {
-	_, err := q.db.ExecContext(ctx, setKeep, seconds)
 	return err
 }
 

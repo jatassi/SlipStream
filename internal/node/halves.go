@@ -16,6 +16,8 @@ import (
 	"github.com/jatassi/slipstream/internal/firstrun"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/history"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -237,8 +239,10 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:   n.rootLog.With("subsystem", "mediaservers"),
 	})
 	linked = mediaserverlink.Def.Serve(servers.Intent, servers.Apply)
+	cat := entry.NewCatalog()
 	n.notifications = notifications.New(notifications.Config{
 		Library:   lib.db,
+		Catalog:   cat,
 		Sealer:    lib.sealer,
 		Providers: notificationproviders.Table,
 		Courier:   lateCourier{&cluster},
@@ -252,6 +256,10 @@ func (n *Node) startController(ctx context.Context) error {
 		Rand:      n.notificationsRand,
 		Zone:      n.zone(),
 		Log:       n.rootLog.With("subsystem", "notifications"),
+	})
+	n.history = history.New(history.Config{
+		Library: lib.db, Catalog: cat, Outbox: n.notifications, Changed: history.ChangedEvent.Bind(n.hub),
+		Batch: n.cfg.Timings.Housekeeping.PruneBatch, Log: n.rootLog.With("subsystem", "history"),
 	})
 	arrivals := roots.NewArrivals()
 	var systems *nodesystem.Nodes
@@ -499,7 +507,7 @@ func (n *Node) startController(ctx context.Context) error {
 		QueueChanged:     grabs.QueueChangedEvent.Bind(n.hub),
 		Clock:            time.Now,
 		Today:            n.today,
-		Notices:          n.notifications.Recorder("grabs", grabs.Notices()),
+		History:          n.history.Recorder("grabs", grabs.Entries()),
 		Log:              n.rootLog.With("subsystem", "grabs"),
 	})
 	searchQueue.Bind(pipeline)
@@ -533,7 +541,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Rand:         n.importsRand,
 		BeforeStep:   n.env.Test.BeforeScanStep,
 		BeforeImport: n.env.Test.BeforeImport,
-		Notices:      n.notifications.Recorder("imports", imports.Notices()),
+		History:      n.history.Recorder("imports", imports.Entries()),
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
 	pipeline.Register(found.Importer())
@@ -541,8 +549,9 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue,
-		Notices: n.notifications.Recorder("library", library.Notices()),
+		History: n.history.Recorder("library", library.Entries()),
 	})
+	cat.Seal()
 
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
@@ -554,8 +563,9 @@ func (n *Node) startController(ctx context.Context) error {
 			Tidy: func(node role.NodeID) housekeepingv1connect.HousekeepingServiceHandler {
 				return housekeepingv1connect.HousekeepingService.On(cluster, node)
 			},
+			Keep:  n.history,
 			Batch: n.cfg.Timings.Housekeeping.PruneBatch,
-			Steps: []housekeeping.Step{housekeeping.Plain("indexer-queries", "Indexer queries and sessions", registry.Prune), servers.Housekeeping(), n.notifications.Housekeeping()},
+			Steps: []housekeeping.Step{housekeeping.Plain("indexer-queries", "Indexer queries and sessions", registry.Prune), servers.Housekeeping(), n.history.Retention()},
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
@@ -622,6 +632,7 @@ func (n *Node) startController(ctx context.Context) error {
 	}).Run)
 	n.claimed.Go("health", h.health.Run)
 	n.claimed.Go("notifications", n.notifications.Run)
+	n.claimed.Go("history", n.history.Run)
 	n.claimed.Go("first setup", h.firstRun.Run)
 	n.env.Test.started(started)
 	return nil

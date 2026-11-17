@@ -338,8 +338,8 @@ type Config struct {
 	// Today is the time now in the Controller's zone, whose calendar date
 	// decides which Items have aired.
 	Today func() time.Time
-	// Notices records Grabbed and Grab failed.
-	Notices entry.Recorder
+	// History records Grabbed and Grab failed.
+	History entry.Recorder
 	Log     *slog.Logger
 }
 

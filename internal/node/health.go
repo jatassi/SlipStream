@@ -54,7 +54,7 @@ func (n *Node) openHealth(ctx context.Context, lib *storage.DB[storage.Library],
 		Zone:        n.zone(),
 		Timings:     n.cfg.Timings.Health,
 		Log:         n.rootLog.With("subsystem", "health"),
-		Transitions: n.notifications.Transitions,
+		Transitions: n.history.Transitions,
 	})
 }
 

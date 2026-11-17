@@ -26,11 +26,11 @@ type bellRow struct {
 	warnings bool
 }
 
-func (b bellRow) has(k entry.Kind, c *catalog) bool {
+func (b bellRow) has(k entry.Kind, s *Service) bool {
 	if on, ok := b.choices[k]; ok {
 		return on
 	}
-	return c.entry(k).Declared().BellByDefault
+	return s.spec(k).BellByDefault
 }
 
 func (s *Service) bellIn(ctx context.Context, q *db.Queries) (bellRow, error) {
@@ -48,7 +48,7 @@ func (s *Service) bellIn(ctx context.Context, q *db.Queries) (bellRow, error) {
 func (s *Service) bellOf(b bellRow) Bell {
 	out := Bell{Events: []entry.Kind{}, Warnings: b.warnings}
 	for _, spec := range s.Events() {
-		if !spec.Fixed && b.has(spec.Kind, s.catalog) {
+		if !spec.Fixed && b.has(spec.Kind, s) {
 			out.Events = append(out.Events, spec.Kind)
 		}
 	}
@@ -111,15 +111,4 @@ func (s *Service) checkEvents(events []entry.Kind) error {
 		}
 	}
 	return nil
-}
-
-// entry is k's row. Every stored kind has one: Recorder refuses a kind its
-// owner didn't register.
-func (c *catalog) entry(k entry.Kind) entry.Entry {
-	for _, e := range c.all() {
-		if e.Declared().Kind == k {
-			return e
-		}
-	}
-	panic(fmt.Sprintf("notifications: %s isn't in the catalog", k))
 }

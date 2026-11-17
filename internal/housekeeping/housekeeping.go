@@ -3,6 +3,7 @@ package housekeeping
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -141,7 +142,7 @@ func (t Tally) words(noun setting.Noun, why string) string {
 }
 
 func grouped(n int) string {
-	s := fmt.Sprint(n)
+	s := strconv.Itoa(n)
 	for i := len(s) - 3; i > 0; i -= 3 {
 		s = s[:i] + "," + s[i:]
 	}

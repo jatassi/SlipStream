@@ -88,9 +88,9 @@ type Config struct {
 	// each Import file's IO before it runs, in tests.
 	BeforeStep   func(ctx context.Context, root roots.ID, phase Phase)
 	BeforeImport func(ctx context.Context, at Step)
-	// Notices records Imported, Upgraded and Works added by a Library
+	// History records Imported, Upgraded and Works added by a Library
 	// scan.
-	Notices entry.Recorder
+	History entry.Recorder
 	Log     *slog.Logger
 }
 

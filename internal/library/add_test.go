@@ -84,12 +84,12 @@ func newShelf(t *testing.T) shelf {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rec, notices := entrytest.New("library", library.Notices())
+	rec, notices := entrytest.New("library", library.Entries())
 	return shelf{lib: lib, fx: fx, works: w, roots: homes, root: root.Root, hd: hd.ID, files: fs, queue: newAsked(t, lib), rec: rec, notices: notices}
 }
 
 func (s shelf) library(leaver library.Leaver) *library.Library {
-	return library.New(library.Config{Notices: s.rec, Library: s.lib, Works: s.works, Roots: s.roots, Files: s.files, Imports: noImports{}, Leaver: leaver, Queue: s.queue})
+	return library.New(library.Config{History: s.rec, Library: s.lib, Works: s.works, Roots: s.roots, Files: s.files, Imports: noImports{}, Leaver: leaver, Queue: s.queue})
 }
 
 type noImports struct{}

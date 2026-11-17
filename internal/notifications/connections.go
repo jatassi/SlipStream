@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
@@ -21,7 +22,7 @@ import (
 
 type (
 	ConnectionID = db.ConnectionID
-	EventID      = db.EventID
+	EventID      = history.EventID
 	Seq          = db.Seq
 )
 

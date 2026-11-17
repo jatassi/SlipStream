@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"slices"
 	"testing"
-	"testing/synctest"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/notifications/notificationstest"
@@ -189,10 +189,9 @@ func TestARaiseAndAClearInOneEvaluationAreTwoMessages(t *testing.T) {
 	})
 }
 
-func TestPruneGivesUpDeletesAndKeepsWhatAClearNeeds(t *testing.T) {
+func TestAClearAfterItsRaiseWasPrunedTakesTheWordsATargetWasTold(t *testing.T) {
 	run(t, func(t *testing.T, w *world) {
 		admin := w.Admin("sam@example.test")
-		w.Set(notifications.KeepFor, 24*time.Hour)
 		w.Set(notifications.GiveUp, 7*24*time.Hour)
 		w.Connect("family")
 		stuck := paused(t, w, "stuck")
@@ -201,14 +200,11 @@ func TestPruneGivesUpDeletesAndKeepsWhatAClearNeeds(t *testing.T) {
 		w.Advance(wait)
 		wantTitles(t, w, family, "Ping one", "Disk d is almost full")
 
-		w.Advance(2 * 24 * time.Hour)
-		if err := w.Service.Housekeeping().Run(t.Context()); err != nil {
-			t.Fatal(err)
-		}
-		synctest.Wait()
+		w.Advance(history.KeepFor.Default + 24*time.Hour)
 		if st := w.Status(stuck); st.GivenUp != 2 || st.Waiting != 0 {
-			t.Fatalf("after the prune the paused connection reads %+v, want its two messages given up", st)
+			t.Fatalf("the paused connection reads %+v, want its two messages given up", st)
 		}
+		w.Housekeeping()
 		if f := w.Feed(admin); len(f.Rows) != 0 {
 			t.Fatalf("after the prune the bell shows %+v", f.Rows)
 		}

@@ -198,7 +198,7 @@ type seenInput struct {
 
 type settingsOutput struct {
 	Body struct {
-		Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"Wait before sending a new Health item, Give up on a message after, Warn when a connection has failed for, and Keep notifications for"`
+		Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"Wait before sending a new Health item, Give up on a message after and Warn when a connection has failed for"`
 	}
 }
 

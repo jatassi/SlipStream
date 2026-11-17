@@ -1,3 +1,5 @@
+import { HttpResponse, http } from "msw";
+
 import type {
   NotificationsBell,
   NotificationsConnection,
@@ -7,6 +9,7 @@ import type {
   NotificationsStatus,
   SettingDurationField,
 } from "../api/gen/model";
+import { housekeeping, succeededRun } from "./tasks";
 
 export const providers: NotificationsProvider[] = [
   {
@@ -194,8 +197,13 @@ export const notificationSettings = (): SettingDurationField[] => [
     minute,
     day,
   ]),
-  duration("notifications.keepFor", "Keep notifications for", 30 * day, [day, 365 * day]),
 ];
+
+/** Keep history for, as Housekeeping's Tuning. */
+export const historyKeep = duration("history.keepFor", "Keep history for", 90 * day, [
+  30 * day,
+  1095 * day,
+]);
 
 export const feedRow = (seq: number, unread: boolean): NotificationsFeedRow => ({
   seq,
@@ -206,3 +214,8 @@ export const feedRow = (seq: number, unread: boolean): NotificationsFeedRow => (
   link: `https://slipstream.example.test/works/${seq}`,
   unread,
 });
+
+/** GET /tasks/housekeeping, whose Tuning holds Keep history for. */
+export const housekeepingHandler = http.get("*/api/v1/tasks/housekeeping", () =>
+  HttpResponse.json({ task: housekeeping, units: [], runs: [succeededRun], tuning: [historyKeep] }),
+);

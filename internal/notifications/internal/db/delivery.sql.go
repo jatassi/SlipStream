@@ -7,46 +7,33 @@ package db
 
 import (
 	"context"
-	"strings"
 
+	"github.com/jatassi/slipstream/internal/history"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
 const connectionsCarrying = `-- name: ConnectionsCarrying :many
-SELECT DISTINCT i.key, d.connection_id FROM notifications_item i
-JOIN notifications_delivery d ON d.event_id = i.event_id AND d.state = 'due'
-WHERE i.key IN (/*SLICE:keys*/?)
-ORDER BY i.key, d.connection_id
+SELECT DISTINCT connection_id FROM notifications_delivery
+WHERE state = 'due' AND instr(items, json_quote(CAST(?1 AS TEXT))) > 0
+ORDER BY connection_id
 `
 
-type ConnectionsCarryingRow struct {
-	Key          string
-	ConnectionID ConnectionID
-}
-
-func (q *Queries) ConnectionsCarrying(ctx context.Context, keys []string) ([]ConnectionsCarryingRow, error) {
-	query := connectionsCarrying
-	var queryParams []interface{}
-	if len(keys) > 0 {
-		for _, v := range keys {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:keys*/?", strings.Repeat(",?", len(keys))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:keys*/?", "NULL", 1)
-	}
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+// The connections with a due delivery that carries key, bounded by Give up.
+// The key's quoted form matches one element exactly, as in WaitingRaise.
+func (q *Queries) ConnectionsCarrying(ctx context.Context, key string) ([]ConnectionID, error) {
+	rows, err := q.db.QueryContext(ctx, connectionsCarrying, key)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ConnectionsCarryingRow
+	var items []ConnectionID
 	for rows.Next() {
-		var i ConnectionsCarryingRow
-		if err := rows.Scan(&i.Key, &i.ConnectionID); err != nil {
+		var connection_id ConnectionID
+		if err := rows.Scan(&connection_id); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, connection_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -97,7 +84,7 @@ DELETE FROM notifications_delivery WHERE event_id = ?1 AND connection_id = ?2
 `
 
 type DeleteDeliveryParams struct {
-	EventID      EventID
+	EventID      history.EventID
 	ConnectionID ConnectionID
 }
 
@@ -107,11 +94,11 @@ func (q *Queries) DeleteDelivery(ctx context.Context, arg DeleteDeliveryParams) 
 }
 
 const getDelivery = `-- name: GetDelivery :one
-SELECT event_id, connection_id, state, attempts, items, accepted, ended_at, reason, response FROM notifications_delivery WHERE event_id = ?1 AND connection_id = ?2
+SELECT event_id, connection_id, kind, at, state, attempts, items, accepted, ended_at, reason, response FROM notifications_delivery WHERE event_id = ?1 AND connection_id = ?2
 `
 
 type GetDeliveryParams struct {
-	EventID      EventID
+	EventID      history.EventID
 	ConnectionID ConnectionID
 }
 
@@ -121,6 +108,8 @@ func (q *Queries) GetDelivery(ctx context.Context, arg GetDeliveryParams) (Notif
 	err := row.Scan(
 		&i.EventID,
 		&i.ConnectionID,
+		&i.Kind,
+		&i.At,
 		&i.State,
 		&i.Attempts,
 		&i.Items,
@@ -142,7 +131,7 @@ type GiveUpParams struct {
 	At           storage.Time
 	Reason       *string
 	Response     *string
-	EventID      EventID
+	EventID      history.EventID
 	ConnectionID ConnectionID
 }
 
@@ -161,77 +150,40 @@ func (q *Queries) GiveUp(ctx context.Context, arg GiveUpParams) (int64, error) {
 }
 
 const insertDelivery = `-- name: InsertDelivery :exec
-INSERT INTO notifications_delivery (event_id, connection_id, state, attempts, items, accepted)
-VALUES (?1, ?2, 'due', 0, ?3, '[]')
+INSERT INTO notifications_delivery (event_id, connection_id, kind, at, state, attempts, items, accepted)
+VALUES (?1, ?2, ?3, ?4, 'due', 0, ?5, '[]')
 `
 
 type InsertDeliveryParams struct {
-	EventID      EventID
+	EventID      history.EventID
 	ConnectionID ConnectionID
+	Kind         entry.Kind
+	At           storage.Time
 	Items        *string
 }
 
 func (q *Queries) InsertDelivery(ctx context.Context, arg InsertDeliveryParams) error {
-	_, err := q.db.ExecContext(ctx, insertDelivery, arg.EventID, arg.ConnectionID, arg.Items)
+	_, err := q.db.ExecContext(ctx, insertDelivery,
+		arg.EventID,
+		arg.ConnectionID,
+		arg.Kind,
+		arg.At,
+		arg.Items,
+	)
 	return err
-}
-
-const listDueIn = `-- name: ListDueIn :many
-SELECT event_id, connection_id FROM notifications_delivery
-WHERE state = 'due' AND event_id IN (/*SLICE:events*/?)
-ORDER BY event_id, connection_id
-`
-
-type ListDueInRow struct {
-	EventID      EventID
-	ConnectionID ConnectionID
-}
-
-func (q *Queries) ListDueIn(ctx context.Context, events []EventID) ([]ListDueInRow, error) {
-	query := listDueIn
-	var queryParams []interface{}
-	if len(events) > 0 {
-		for _, v := range events {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:events*/?", strings.Repeat(",?", len(events))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:events*/?", "NULL", 1)
-	}
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListDueInRow
-	for rows.Next() {
-		var i ListDueInRow
-		if err := rows.Scan(&i.EventID, &i.ConnectionID); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const listDueOff = `-- name: ListDueOff :many
 SELECT d.event_id, d.connection_id FROM notifications_delivery d
 JOIN notifications_connection c ON c.id = d.connection_id
-JOIN notifications_event e ON e.id = d.event_id
 WHERE d.state = 'due'
-  AND (c.is_on = 0 OR e.kind NOT IN (SELECT value FROM json_each(c.events)))
+  AND (c.is_on = 0 OR d.kind NOT IN (SELECT value FROM json_each(c.events)))
 ORDER BY d.event_id, d.connection_id
 LIMIT ?1
 `
 
 type ListDueOffRow struct {
-	EventID      EventID
+	EventID      history.EventID
 	ConnectionID ConnectionID
 }
 
@@ -259,10 +211,9 @@ func (q *Queries) ListDueOff(ctx context.Context, limit int64) ([]ListDueOffRow,
 }
 
 const listDueOlderThan = `-- name: ListDueOlderThan :many
-SELECT d.event_id, d.connection_id FROM notifications_delivery d
-JOIN notifications_event e ON e.id = d.event_id
-WHERE d.state = 'due' AND e.at < ?1
-ORDER BY d.event_id, d.connection_id
+SELECT event_id, connection_id FROM notifications_delivery
+WHERE state = 'due' AND at < ?1
+ORDER BY event_id, connection_id
 LIMIT ?2
 `
 
@@ -272,7 +223,7 @@ type ListDueOlderThanParams struct {
 }
 
 type ListDueOlderThanRow struct {
-	EventID      EventID
+	EventID      history.EventID
 	ConnectionID ConnectionID
 }
 
@@ -300,7 +251,7 @@ func (q *Queries) ListDueOlderThan(ctx context.Context, arg ListDueOlderThanPara
 }
 
 const oldestDue = `-- name: OldestDue :one
-SELECT event_id, connection_id, state, attempts, items, accepted, ended_at, reason, response FROM notifications_delivery
+SELECT event_id, connection_id, kind, at, state, attempts, items, accepted, ended_at, reason, response FROM notifications_delivery
 WHERE connection_id = ?1 AND state = 'due'
 ORDER BY event_id
 LIMIT 1
@@ -312,6 +263,8 @@ func (q *Queries) OldestDue(ctx context.Context, connectionID ConnectionID) (Not
 	err := row.Scan(
 		&i.EventID,
 		&i.ConnectionID,
+		&i.Kind,
+		&i.At,
 		&i.State,
 		&i.Attempts,
 		&i.Items,
@@ -324,11 +277,7 @@ func (q *Queries) OldestDue(ctx context.Context, connectionID ConnectionID) (Not
 }
 
 const oldestDueAt = `-- name: OldestDueAt :one
-SELECT e.at FROM notifications_delivery d
-JOIN notifications_event e ON e.id = d.event_id
-WHERE d.state = 'due'
-ORDER BY d.event_id
-LIMIT 1
+SELECT at FROM notifications_delivery WHERE state = 'due' ORDER BY at LIMIT 1
 `
 
 func (q *Queries) OldestDueAt(ctx context.Context) (storage.Time, error) {
@@ -345,7 +294,7 @@ WHERE event_id = ?2 AND connection_id = ?3
 
 type SetItemsParams struct {
 	Items        *string
-	EventID      EventID
+	EventID      history.EventID
 	ConnectionID ConnectionID
 }
 
@@ -363,7 +312,7 @@ WHERE event_id = ?3 AND connection_id = ?4 AND state = 'due'
 type UpdateDueParams struct {
 	Attempts     int64
 	Accepted     string
-	EventID      EventID
+	EventID      history.EventID
 	ConnectionID ConnectionID
 }
 

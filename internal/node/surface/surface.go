@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/healthapi"
+	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -107,6 +108,7 @@ var Events = []live.Event{
 	mediaservers.ItemsFoundEvent,
 	notifications.ChangedEvent,
 	notifications.SeenEvent,
+	history.ChangedEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the

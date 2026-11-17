@@ -190,3 +190,11 @@ test("saved secrets read Saved with Replace, and an optional one can be removed"
     { path: `edit ${hook.id}`, body: { secrets: { password: null } } },
   ]);
 });
+
+test("the settings are the Health wait and the two Delivery times, with no Keep", async () => {
+  renderApp({ path, handlers: notificationsWorld().handlers });
+  await expect.element(page.getByText("Wait before sending a new Health item")).toBeVisible();
+  await expect.element(page.getByText("Give up on a message after")).toBeVisible();
+  await expect.element(page.getByText("Warn when a connection has failed for")).toBeVisible();
+  await expect.element(page.getByText(/^Keep /u)).not.toBeInTheDocument();
+});

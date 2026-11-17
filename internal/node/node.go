@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/downloading"
+	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/link"
@@ -227,8 +228,10 @@ type Node struct {
 	systemRand *rand.Rand
 	// notificationsRand draws the jitter of a failing connection's retries.
 	notificationsRand *rand.Rand
-	// notifications records events and sends them, on a Controller.
+	// notifications sends History's entries, on a Controller.
 	notifications *notifications.Service
+	// history is the log of what happened to the library, on a Controller.
+	history *history.Service
 	// host is what NodeSystemService serves for this Node, and hostMu
 	// orders its reports to the holder half.
 	host   *nodeHost

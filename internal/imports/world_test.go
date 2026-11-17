@@ -174,9 +174,9 @@ func newWorld(t *testing.T) *world {
 	}
 	w.probe = media.Record{Version: media.Version, Container: "matroska,webm", Video: media.Video{Codec: "hevc", Width: 1920, Height: 1080}}
 	var rec entry.Recorder
-	rec, w.notices = entrytest.New("imports", Notices())
+	rec, w.notices = entrytest.New("imports", Entries())
 	w.cfg = Config{
-		Notices: rec,
+		History: rec,
 		Library: w.lib, Roots: w.roots, Files: w.files, Works: w.works, Targets: goals, Probes: w.probes,
 		Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: shelfFacet{}},
 		Add: func(ctx context.Context, by identity.Admin, a library.Adding) (library.Added, error) {
@@ -196,8 +196,8 @@ func newWorld(t *testing.T) *world {
 	}
 	w.im = w.newImports(w.cfg)
 	var shelf entry.Recorder
-	shelf, w.shelved = entrytest.New("library", library.Notices())
-	w.library = library.New(library.Config{Notices: shelf, Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Imports: w.im, Leaver: w.im})
+	shelf, w.shelved = entrytest.New("library", library.Entries())
+	w.library = library.New(library.Config{History: shelf, Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Imports: w.im, Leaver: w.im})
 	return w
 }
 

@@ -36,7 +36,7 @@ func TestAGrabRecordsGrabbedWithItsScoreAtEachTargetAndAJoinRecordsNone(t *testi
 		if _, err := w.Grabs.DecideRun(t.Context(), w.Work, w.Items, []indexers.Release{pack}); err != nil {
 			t.Fatal(err)
 		}
-		got := entrytest.Of(w.Notices, grabs.GrabbedRow)
+		got := entrytest.Of(w.History, grabs.GrabbedRow)
 		if len(got) != 1 {
 			t.Fatalf("the run recorded %d Grabbed, want 1", len(got))
 		}
@@ -54,7 +54,7 @@ func TestAGrabRecordsGrabbedWithItsScoreAtEachTargetAndAJoinRecordsNone(t *testi
 		if _, err := w.Grabs.DecideRun(t.Context(), w.Work, w.Items[4:5], []indexers.Release{pack}); err != nil {
 			t.Fatal(err)
 		}
-		if n := len(entrytest.Of(w.Notices, grabs.GrabbedRow)); n != 1 {
+		if n := len(entrytest.Of(w.History, grabs.GrabbedRow)); n != 1 {
 			t.Fatalf("after a run that joins the pack %d Grabbed are recorded, want still 1", n)
 		}
 	})
@@ -69,7 +69,7 @@ func failedWith(t *testing.T, codes ...grabs.Code) []grabs.Code {
 		failWith(t, w, grabbedOver(t, w, heard(w, "E01", "1080p.WEB-DL", byte('a'+i))), c)
 	}
 	var out []grabs.Code
-	for _, f := range entrytest.Of(w.Notices, grabs.GrabFailedRow) {
+	for _, f := range entrytest.Of(w.History, grabs.GrabFailedRow) {
 		if f.Work.ID != w.Work || f.Stage != grabs.Fetching || f.Release != "The.Attic.2020.E01.1080p.WEB-DL-GRP" {
 			t.Errorf("Grab failed tells %+v, want The Attic's Grab at fetching", f)
 		}

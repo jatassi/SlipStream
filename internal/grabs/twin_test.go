@@ -163,7 +163,7 @@ func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, goals []t
 		Grabs: grabs.DefaultTimings(), Indexers: indexers.DefaultTimings(), Formats: formats.DefaultTimings(),
 	})
 	settings(t, w, map[string]string{grabs.StopCount.Key: "1"})
-	world := atticWorld{lib: w.Lib, cfg: w.Config, home: w.Home, work: w.Work, ids: w.Sites, names: map[indexers.ID]string{}, notices: w.Notices}
+	world := atticWorld{lib: w.Lib, cfg: w.Config, home: w.Home, work: w.Work, ids: w.Sites, names: map[indexers.ID]string{}, notices: w.History}
 	for _, site := range sites {
 		id := w.Sites[site.name]
 		world.names[id] = site.name

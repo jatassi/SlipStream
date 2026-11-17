@@ -9,7 +9,6 @@ import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { Section } from "../ui/section";
 import { BellForm } from "./bell-sheet";
-import { NotificationSettings, settingKeys } from "./settings-panel";
 
 function bellWords(bell: Bell, events: readonly Event[]): string {
   const offered = events.filter((event) => !event.fixed);
@@ -18,7 +17,7 @@ function bellWords(bell: Bell, events: readonly Event[]): string {
   return `The bell in the top bar shows ${which}, ${bell.warnings ? "with" : "without"} Health warnings.`;
 }
 
-/** The bell's events and warnings switch, then how long it keeps what it showed. */
+/** The bell's events and warnings switch. */
 export function BellSection() {
   const bell = useGetNotificationBellSuspense().data;
   const { events } = useListNotificationEventsSuspense().data;
@@ -38,7 +37,6 @@ export function BellSection() {
       }
     >
       <p className="mb-3 text-ink-1">{bellWords(bell, events)}</p>
-      <NotificationSettings keys={[settingKeys.keepFor]} />
       <Dialog title="The bell's events" open={open} onOpenChange={setOpen}>
         <BellForm
           bell={bell}

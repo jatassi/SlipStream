@@ -79,8 +79,8 @@ var (
 	}
 )
 
-// Notices is the events imports records.
-func Notices() []entry.Entry { return []entry.Entry{importedRow, upgradedRow, scanAddedRow} }
+// Entries is the kinds imports records.
+func Entries() []entry.Entry { return []entry.Entry{importedRow, upgradedRow, scanAddedRow} }
 
 // announce records Imported and Upgraded for the files imp placed since it
 // last came to rest. A root Import never sends: Pending imports' Add and
@@ -117,12 +117,12 @@ func (im *Imports) announce(ctx context.Context, tx *storage.Tx[file], imp Impor
 	}
 	in, up := splitPlaced(ImportedFacts{Work: w, Root: words[fresh[0].Dest.Root]}, fresh, replaced, numbersOf(tree), imp.Files)
 	if in != nil {
-		if err := importedRow.Record(ctx, tx, im.cfg.Notices, *in); err != nil {
+		if err := importedRow.Record(ctx, tx, im.cfg.History, *in); err != nil {
 			return err
 		}
 	}
 	if up != nil {
-		if err := upgradedRow.Record(ctx, tx, im.cfg.Notices, *up); err != nil {
+		if err := upgradedRow.Record(ctx, tx, im.cfg.History, *up); err != nil {
 			return err
 		}
 	}
@@ -211,7 +211,7 @@ func (im *Imports) announceScan(ctx context.Context, tx *storage.Tx[file], root 
 	if err != nil {
 		return err
 	}
-	return scanAddedRow.Record(ctx, tx, im.cfg.Notices, ScanAddedFacts{
+	return scanAddedRow.Record(ctx, tx, im.cfg.History, ScanAddedFacts{
 		Root: words[root.ID], Nouns: entry.NounsOf(im.cfg.Works, root.ContentType), Count: len(in), First: works.LabelsOf(added, in, 3),
 	})
 }

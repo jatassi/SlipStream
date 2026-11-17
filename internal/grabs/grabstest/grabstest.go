@@ -94,5 +94,5 @@ func (c *StoredCadences) SetCadence(_ context.Context, id tasks.TaskID, v settin
 	return nil
 }
 
-// Notices is a Recorder for a Grabs whose events a test doesn't read.
-func Notices() entry.Recorder { return entrytest.Ignored("grabs", grabs.Notices()) }
+// History is a Recorder for a Grabs whose events a test doesn't read.
+func History() entry.Recorder { return entrytest.Ignored("grabs", grabs.Entries()) }

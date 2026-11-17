@@ -59,8 +59,8 @@ var (
 	}
 )
 
-// Notices is the events library records.
-func Notices() []entry.Entry { return []entry.Entry{addedRow, deletedRow} }
+// Entries is the kinds library records.
+func Entries() []entry.Entry { return []entry.Entry{addedRow, deletedRow} }
 
 func actorOf(by identity.Admin) entry.Actor {
 	a, ok := by.Account()
@@ -90,7 +90,7 @@ func (l *Library) announceAdded(ctx context.Context, tx *storage.Tx[storage.Libr
 		}
 		f.Root = words[root.ID]
 	}
-	return addedRow.Record(ctx, tx, l.cfg.Notices, f)
+	return addedRow.Record(ctx, tx, l.cfg.History, f)
 }
 
 // deletedFacts reads, in the delete's Write and before any works row goes,

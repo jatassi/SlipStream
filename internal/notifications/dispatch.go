@@ -9,6 +9,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
@@ -56,7 +57,6 @@ type result struct {
 // settles it, so a failed pass sends nothing twice. It returns when ctx
 // ends.
 func (s *Service) Run(ctx context.Context) error {
-	s.catalog.seal()
 	results := make(chan result)
 	busy := inFlight{}
 	var unsettled []result
@@ -171,6 +171,7 @@ func (s *Service) pass(ctx context.Context, unsettled []result, busy inFlight) (
 // passing is one pass's state inside its Write.
 type passing struct {
 	s           *Service
+	tx          *storage.Tx[file]
 	q           *db.Queries
 	now         time.Time
 	conns       []Connection
@@ -200,7 +201,7 @@ func (s *Service) begin(ctx context.Context, tx *storage.Tx[file]) (*passing, er
 		return nil, err
 	}
 	p := &passing{
-		s: s, q: q, now: time.Now(), conns: conns, byID: map[ConnectionID]Connection{}, lines: lines, dirty: map[ConnectionID]bool{},
+		s: s, tx: tx, q: q, now: time.Now(), conns: conns, byID: map[ConnectionID]Connection{}, lines: lines, dirty: map[ConnectionID]bool{},
 		giveUpAfter: GiveUp.Value(settings.GiveUpSeconds), warn: WarnAfter.Value(settings.WarnSeconds),
 	}
 	for _, c := range conns {
@@ -262,19 +263,19 @@ func (p *passing) store(ctx context.Context, c Connection, r result, d Delivery)
 		return err
 	}
 	switch r.kind {
-	case newItemsRow.Kind:
-		items, err := p.q.ListItems(ctx, r.event)
+	case history.NewItemsRow.Kind:
+		events, err := eventsOf(ctx, p.tx, []head{{ID: r.event, Kind: r.kind}})
 		if err != nil {
 			return err
 		}
-		for _, row := range items {
-			if slices.Contains(d.Items, row.Key) {
-				if err := p.q.UpsertTold(ctx, toldParams(c.ID.String(), itemOf(row), p.now)); err != nil {
+		for _, it := range events[r.event].Items {
+			if slices.Contains(d.Items, it.Key) {
+				if err := p.q.UpsertTold(ctx, toldParams(c.ID.String(), it, p.now)); err != nil {
 					return err
 				}
 			}
 		}
-	case clearedRow.Kind:
+	case history.ClearedRow.Kind:
 		for _, k := range d.Items {
 			if err := p.q.DeleteTold(ctx, db.DeleteToldParams{Target: c.ID.String(), Key: k}); err != nil {
 				return err
@@ -295,7 +296,7 @@ func (p *passing) giveUpOne(ctx context.Context, e EventID, conn ConnectionID, w
 }
 
 func (p *passing) release(ctx context.Context) error {
-	pub, hit, err := p.s.releaseDue(ctx, p.q, p.now, p.conns)
+	pub, hit, err := p.s.releaseDue(ctx, p.q, p.tx, p.now, p.conns)
 	p.pub.feed, p.pub.connections = p.pub.feed || pub.feed, p.pub.connections || pub.connections
 	p.hit = p.hit || hit
 	return err
@@ -397,15 +398,12 @@ func (p *passing) oldest(ctx context.Context, c Connection) (*job, bool, error) 
 	if err != nil {
 		return nil, false, err
 	}
-	ev, err := p.q.GetEvent(ctx, d.Event)
+	events, err := eventsOf(ctx, p.tx, []head{{ID: row.EventID, Kind: row.Kind, At: row.At.Time()}})
 	if err != nil {
 		return nil, false, err
 	}
-	e, err := eventOf(ctx, p.q, ev)
-	if err != nil {
-		return nil, false, err
-	}
-	if e.Kind == clearedRow.Kind {
+	e := events[row.EventID]
+	if e.Kind == history.ClearedRow.Kind {
 		if d.Items, err = p.narrowed(ctx, c, d); err != nil || len(d.Items) == 0 {
 			return nil, err == nil, err
 		}
@@ -441,7 +439,7 @@ func (p *passing) narrowed(ctx context.Context, c Connection, d Delivery) ([]str
 }
 
 // nextAt is when the next pass is due if nothing wakes the dispatcher:
-// now after a bound was reached, else the earliest of the next event's due
+// now after a bound was reached, else the earliest of the next entry's due
 // time, the next retry of a connection with a message due, and the next
 // give-up.
 func (p *passing) nextAt(ctx context.Context, busy inFlight) error {
@@ -454,7 +452,7 @@ func (p *passing) nextAt(ctx context.Context, busy inFlight) error {
 			p.next = t
 		}
 	}
-	due, err := p.q.NextUnreleased(ctx)
+	due, err := p.q.NextPending(ctx)
 	if err != nil && !errors.Is(err, storage.ErrNoRows) {
 		return err
 	}

@@ -145,7 +145,7 @@ func serve(t *testing.T) *server {
 		},
 		Changed: discard[imports.Changed]{}, FilesChanged: discard[files.Changed]{},
 	})
-	s.library = library.New(library.Config{Notices: entrytest.Ignored("library", library.Notices()), Library: s.lib, Works: w, Roots: s.roots, Files: fs, Imports: im, Leaver: im})
+	s.library = library.New(library.Config{History: entrytest.Ignored("library", library.Entries()), Library: s.lib, Works: w, Roots: s.roots, Files: fs, Imports: im, Leaver: im})
 	s.Owner = ownertest.Serve(t, s.lib, func(r *api.Router) { importsapi.Routes(r, node{im, s.roots}) })
 	return s
 }

@@ -2,16 +2,13 @@ import { useQueryClient, useSuspenseInfiniteQuery } from "@tanstack/react-query"
 import { useEffect, useRef } from "react";
 
 import type { NotificationsFeedRow as Row } from "../api/gen/model";
-import {
-  markNotificationsSeen,
-  useGetNotificationSettingsSuspense,
-} from "../api/gen/query/notifications/notifications";
+import { markNotificationsSeen } from "../api/gen/query/notifications/notifications";
+import { useGetTaskSuspense } from "../api/gen/query/tasks/tasks";
 import { type Clock, durationWords, sinceWords } from "../format";
 import { adoptSeen } from "../live/adopt-notifications";
 import { useNow } from "../tasks/use-now";
 import { Button } from "../ui/button";
 import { feedQuery } from "./feed-keys";
-import { settingKeys, settingOf } from "./settings-panel";
 
 const minute = 60_000;
 
@@ -67,12 +64,15 @@ function useSeen(newest: number | undefined) {
   }, [newest, queryClient]);
 }
 
+/** Keep history for, which Housekeeping holds as its Tuning. */
+const keepKey = "history.keepFor";
+
 function EmptyFeed() {
-  const { settings } = useGetNotificationSettingsSuspense().data;
-  const keep = settingOf(settings, settingKeys.keepFor);
+  const { tuning } = useGetTaskSuspense("housekeeping").data;
+  const keep = tuning.find((field) => field.key === keepKey);
   return (
     <p className="text-ink-2">
-      No notifications in the last {keep.kind === "duration" ? durationWords(keep.value) : ""}.
+      No notifications in the last {keep?.kind === "duration" ? durationWords(keep.value) : ""}.
     </p>
   );
 }

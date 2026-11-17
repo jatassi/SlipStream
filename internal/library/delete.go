@@ -73,7 +73,7 @@ func (l *Library) Delete(ctx context.Context, by identity.Admin, ws []works.Work
 		if err != nil {
 			return nil, err
 		}
-		return c.removed, deletedRow.Record(ctx, tx, l.cfg.Notices, facts)
+		return c.removed, deletedRow.Record(ctx, tx, l.cfg.History, facts)
 	})
 	if err != nil {
 		return DeletePlan{}, nil, err

@@ -5,6 +5,7 @@
 package db
 
 import (
+	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/role"
@@ -35,8 +36,10 @@ type NotificationsConnection struct {
 }
 
 type NotificationsDelivery struct {
-	EventID      EventID
+	EventID      history.EventID
 	ConnectionID ConnectionID
+	Kind         entry.Kind
+	At           storage.Time
 	State        string
 	Attempts     int64
 	Items        *string
@@ -44,25 +47,6 @@ type NotificationsDelivery struct {
 	EndedAt      storage.Time
 	Reason       *string
 	Response     *string
-}
-
-type NotificationsEvent struct {
-	ID         EventID
-	Kind       entry.Kind
-	At         storage.Time
-	DueAt      storage.Time
-	ReleasedAt storage.Time
-	Subject    string
-}
-
-type NotificationsItem struct {
-	EventID   EventID
-	Key       string
-	Level     string
-	Subject   string
-	Text      string
-	SinceAt   storage.Time
-	ClearedAt storage.Time
 }
 
 type NotificationsLine struct {
@@ -77,6 +61,14 @@ type NotificationsLine struct {
 	GivenUp      int64
 }
 
+type NotificationsPending struct {
+	EventID history.EventID
+	Kind    entry.Kind
+	At      storage.Time
+	DueAt   storage.Time
+	Items   *string
+}
+
 type NotificationsSeen struct {
 	AccountID identity.AccountID
 	Seq       Seq
@@ -87,12 +79,13 @@ type NotificationsSetting struct {
 	HealthWaitSeconds *int64
 	GiveUpSeconds     *int64
 	WarnSeconds       *int64
-	KeepSeconds       *int64
 }
 
 type NotificationsShown struct {
 	Seq     Seq
-	EventID EventID
+	EventID history.EventID
+	Kind    entry.Kind
+	At      storage.Time
 	ShownAt storage.Time
 	Items   *string
 }
@@ -103,4 +96,10 @@ type NotificationsTold struct {
 	Subject string
 	SinceAt storage.Time
 	ToldAt  storage.Time
+}
+
+type NotificationsWorse struct {
+	EventID history.EventID
+	Key     string
+	WorseID history.EventID
 }

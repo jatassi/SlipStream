@@ -26,8 +26,8 @@ type Config struct {
 	// Queue takes the searches an Admin's add and monitoring ask for, in
 	// their Write.
 	Queue searches.Queue
-	// Notices records Works added and Works deleted.
-	Notices entry.Recorder
+	// History records Works added and Works deleted.
+	History entry.Recorder
 }
 
 // Leaver hears of the Works a Leave files delete removes, inside the

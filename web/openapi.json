@@ -9569,6 +9569,10 @@
         ],
         "type": "object"
       },
+      "HistoryChanged": {
+        "additionalProperties": false,
+        "type": "object"
+      },
       "HoldersOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -20273,7 +20277,7 @@
         "additionalProperties": false,
         "properties": {
           "settings": {
-            "description": "Wait before sending a new Health item, Give up on a message after, Warn when a connection has failed for, and Keep notifications for",
+            "description": "Wait before sending a new Health item, Give up on a message after and Warn when a connection has failed for",
             "items": {
               "$ref": "#/components/schemas/SettingField"
             },
@@ -34999,6 +35003,32 @@
                           "event"
                         ],
                         "title": "Event health.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/HistoryChanged"
+                          },
+                          "event": {
+                            "const": "history.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event history.changed",
                         "type": "object"
                       },
                       {
