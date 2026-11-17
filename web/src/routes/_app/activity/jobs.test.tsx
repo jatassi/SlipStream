@@ -255,9 +255,7 @@ test("a downloading Job's menu pauses its torrent and removes it through the sam
   await userEvent.click(menu);
   await userEvent.click(page.getByRole("menuitem", { name: "Pause" }));
   await expect
-    .element(
-      page.getByRole("region", { name: "Messages" }).getByText("Pausing The Quiet Orchard."),
-    )
+    .element(page.getByRole("region", { name: "Messages" }).getByText("Pausing The Quiet Orchard."))
     .toBeVisible();
   expect(actions.bodies).toEqual([{ action: "pause", ids: [orchardTorrent.id] }]);
 

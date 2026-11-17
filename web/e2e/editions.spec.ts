@@ -71,9 +71,7 @@ async function addSuperfan(page: Page) {
   await adding.getByRole("textbox", { name: "Name" }).fill("Superfan");
   await adding.getByRole("textbox", { name: "Aliases" }).fill("Fan Cut");
   await adding.getByRole("button", { name: "Add cut" }).click();
-  await expect(page.getByRole("region", { name: "Messages" })).toContainText(
-    "Added Superfan.",
-  );
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText("Added Superfan.");
   await expect(adding).toBeHidden();
   await expect(cutRow(page, "Superfan")).toContainText("Superfan, Fan Cut");
   await expect(cutRow(page, "Superfan")).toContainText("Custom");
