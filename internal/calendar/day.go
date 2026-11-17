@@ -18,7 +18,7 @@ type Day struct {
 func ParseDay(s string) (Day, error) {
 	t, err := time.Parse(time.DateOnly, s)
 	if err != nil {
-		return Day{}, fmt.Errorf("%q is no day: %w", s, err)
+		return Day{}, fmt.Errorf("%q isn't a day: %w", s, err)
 	}
 	return DayOf(t), nil
 }

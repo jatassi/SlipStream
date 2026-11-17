@@ -106,7 +106,7 @@ type listInput struct {
 	Limit       int       `query:"limit" minimum:"1" maximum:"100" default:"50"`
 	ContentType string    `query:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$" doc:"Only entries about this Content Type's Works; left out, every entry, Health included"`
 	Groups      []string  `query:"groups" enum:"grabs,imports,library,health" doc:"Only these groups; left out, all four"`
-	Kinds       []string  `query:"kinds" doc:"A comma list of the kinds GET /history/kinds lists. Each narrows its own group, which groups must hold when it is given"`
+	Kinds       []string  `query:"kinds" doc:"A comma list of the kinds GET /history/kinds lists. Each kind narrows its own group, and groups, when given, must include that group"`
 	Since       time.Time `query:"since" doc:"Only entries captured at or after this instant"`
 	Work        string    `query:"work" format:"uuid" doc:"Only entries about this Work"`
 }

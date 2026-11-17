@@ -45,7 +45,7 @@ export const ListHistoryQueryParams = zod.object({
     .array(zod.string())
     .nullish()
     .describe(
-      "A comma list of the kinds GET /history/kinds lists. Each narrows its own group, which groups must hold when it is given",
+      "A comma list of the kinds GET /history/kinds lists. Each kind narrows its own group, and groups, when given, must include that group",
     ),
   since: zod.iso
     .datetime({ offset: true })

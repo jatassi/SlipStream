@@ -22,7 +22,7 @@ export type ListHistoryParams = {
    */
   groups?: ListHistoryGroupsItem[] | null;
   /**
-   * A comma list of the kinds GET /history/kinds lists. Each narrows its own group, which groups must hold when it is given
+   * A comma list of the kinds GET /history/kinds lists. Each kind narrows its own group, and groups, when given, must include that group
    * @nullable
    */
   kinds?: string[] | null;

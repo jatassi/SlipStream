@@ -63,7 +63,7 @@ type Query struct {
 var (
 	ErrUnknownType = errors.New("no Content Type has that id")
 	ErrTypeOff     = errors.New("that Content Type is turned off")
-	ErrUnknownKind = errors.New("no Content Type dates that kind")
+	ErrUnknownKind = errors.New("no Content Type has that dated kind")
 )
 
 // TypeOffError is ErrTypeOff for the type Name names, such as Movies.
@@ -76,7 +76,9 @@ func (*TypeOffError) Unwrap() error { return ErrTypeOff }
 // UnknownKindError is ErrUnknownKind for Key.
 type UnknownKindError struct{ Key works.DatedKey }
 
-func (e *UnknownKindError) Error() string { return "no Content Type dates kind " + string(e.Key) }
+func (e *UnknownKindError) Error() string {
+	return "no Content Type has the dated kind " + string(e.Key)
+}
 
 func (*UnknownKindError) Unwrap() error { return ErrUnknownKind }
 
