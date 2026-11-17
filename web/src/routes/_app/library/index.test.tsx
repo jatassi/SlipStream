@@ -79,7 +79,7 @@ test("on a phone the posters stand two to a row, 16px from each edge", async () 
   const rows = page
     .getByRole("main")
     .getByRole("list")
-    .filter({ has: page.getByRole("link") })
+    .filter({ has: page.getByRole("link"), hasNotText: "Release dates in your library" })
     .elements();
   const [first] = rows;
   const posters = first === undefined ? [] : [...first.children];

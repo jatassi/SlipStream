@@ -18,6 +18,7 @@ const shownWorks = () =>
   page
     .getByRole("main")
     .getByRole("link")
+    .filter({ hasNotText: "Release dates in your library" })
     .elements()
     .map((link) => link.textContent);
 

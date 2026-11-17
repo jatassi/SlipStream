@@ -6,6 +6,7 @@ import type { Noun } from "../format";
 import { PendingLink } from "../imports/pending-link";
 import { Icon } from "../ui/icon";
 import { List, ListRow } from "../ui/list";
+import { CalendarEntry } from "./calendar-entry";
 import type { LibraryWork } from "./rows";
 import { worksNounOf, worksWords } from "../wanted/wanted-words";
 
@@ -56,12 +57,13 @@ function WantedLink({ types, works }: Scoped) {
 
 type Scoped = { types: readonly WorksContentType[]; works: readonly LibraryWork[] };
 
-/** The rows above the Library to the pages under it: Pending imports, then Wanted. */
+/** The rows above the Library to the pages under it: Pending imports, Wanted, then the Calendar. */
 export function LibraryLinks(scoped: Scoped) {
   return (
     <>
       <PendingLink />
       <WantedLink {...scoped} />
+      <CalendarEntry types={scoped.types} />
     </>
   );
 }
