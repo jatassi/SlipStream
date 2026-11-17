@@ -6,7 +6,7 @@ Content-Type: application/json
   "embeds": [
     {
       "title": "Imported 10 episodes of Severance",
-      "description": "Season 2, episodes 1 to 10.\nWEBDL-2160p · Dolby Vision · DDP 5.1 · NTb · 48.1 GB\n1 episode waits for you on the Work page.",
+      "description": "Season 2, episodes 1 to 10.\nWEBDL-2160p · Dolby Vision · DDP 5.1 · NTb · 48.1 GB\n1 episode waits for you on the series page.",
       "url": "https://slipstream.example/works/w2",
       "color": 2278750,
       "timestamp": "2026-11-16T14:02:00Z"

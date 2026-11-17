@@ -3,7 +3,7 @@ Content-Type: application/json
 X-Gotify-Key: [set]
 
 {
-  "title": "Deleted 12 Works from Movies",
+  "title": "Deleted 12 movies",
   "message": "Alien (1979)\nArrival (2016)\nBlade Runner (1982)\n9 more were deleted.",
   "priority": 8,
   "extras": {

@@ -51,7 +51,7 @@ var Fixtures = []Fixture{
 		Lines: []string{
 			"Season 2, episodes 1 to 10.",
 			"WEBDL-2160p · Dolby Vision · DDP 5.1 · NTb · 48.1 GB",
-			"1 episode waits for you on the Work page.",
+			"1 episode waits for you on the series page.",
 		},
 		Link: notice.Link{Path: "https://slipstream.example/works/w2"},
 		Tone: notice.Good,
@@ -77,11 +77,11 @@ var Fixtures = []Fixture{
 		Body:  notice.Body{Work: heat},
 	}},
 	{Kind: "works_added_by_scan", Message: notice.Message{
-		Title: "A Library scan of Movies on Den added 12 Works",
+		Title: "A Library scan of the Movies library root on Den added 12 movies",
 		Lines: []string{"Alien (1979)", "Arrival (2016)", "Blade Runner (1982)", "9 more were added."},
 	}},
 	{Kind: "works_deleted", Message: notice.Message{
-		Title: "Deleted 12 Works from Movies",
+		Title: "Deleted 12 movies",
 		Lines: []string{"Alien (1979)", "Arrival (2016)", "Blade Runner (1982)", "9 more were deleted."},
 	}},
 	{Kind: "new_health_item", Message: notice.Message{

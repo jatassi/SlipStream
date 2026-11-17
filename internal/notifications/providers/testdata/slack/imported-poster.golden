@@ -8,7 +8,7 @@ Content-Type: application/json
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": "*\u003chttps://slipstream.example/works/w2|Imported 10 episodes of Severance\u003e*\nSeason 2, episodes 1 to 10.\nWEBDL-2160p · Dolby Vision · DDP 5.1 · NTb · 48.1 GB\n1 episode waits for you on the Work page."
+        "text": "*\u003chttps://slipstream.example/works/w2|Imported 10 episodes of Severance\u003e*\nSeason 2, episodes 1 to 10.\nWEBDL-2160p · Dolby Vision · DDP 5.1 · NTb · 48.1 GB\n1 episode waits for you on the series page."
       },
       "accessory": {
         "type": "image",
