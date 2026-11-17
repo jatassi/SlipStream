@@ -89,9 +89,12 @@ test("with seedbox stopped Run now is Partial, and its return runs seedbox's uni
   await world.fw.node("stop", "seedbox");
   await page.goto("/tasks/housekeeping");
   await pageAction(page, "Run now: Housekeeping").click();
-  await expect(runs(page).first()).toContainText(/^Partial11 of 12 steps, seedbox offlineRun now/u, {
-    timeout: 30_000,
-  });
+  await expect(runs(page).first()).toContainText(
+    /^Partial11 of 12 steps, seedbox offlineRun now/u,
+    {
+      timeout: 30_000,
+    },
+  );
   await expect(seedboxUnit(page)).toContainText(
     "SkippedNeverseedbox is offline. This unit runs when seedbox reconnects.",
   );

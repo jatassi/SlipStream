@@ -918,7 +918,6 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 	}))
 }
 
-// owners is each Role's owner: the feature that keeps its work.
 // housekeepingSteps is Housekeeping's prunes in their units' order. The
 // Grabs step runs before the Imports step, so the Imports step sees the
 // Grabs it deleted.
@@ -929,6 +928,7 @@ func housekeepingSteps(registry *indexers.Indexers, servers *mediaservers.MediaS
 	}
 }
 
+// owners is each Role's owner: the feature that keeps its work.
 func owners(clients *downloadclients.Clients, servers *mediaservers.MediaServers, notes *notifications.Service) []nodes.Owner {
 	return []nodes.Owner{
 		indexers.SearchingOwner,
