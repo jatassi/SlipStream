@@ -19,6 +19,7 @@ const clockFormat = new Intl.DateTimeFormat(undefined, {
 
 export const clock = (iso: string): string => clockFormat.format(new Date(iso));
 
+const grouped = new Intl.NumberFormat("en");
 const minute = 60;
 const hour = 60 * minute;
 const day = 24 * hour;
@@ -28,15 +29,15 @@ export function durationWords(seconds: number): string {
     return "1 day";
   }
   if (seconds > 0 && seconds % day === 0) {
-    return `${seconds / day} days`;
+    return `${grouped.format(seconds / day)} days`;
   }
   if (seconds > 0 && seconds % hour === 0) {
-    return `${seconds / hour} h`;
+    return `${grouped.format(seconds / hour)} h`;
   }
   if (seconds > 0 && seconds % minute === 0) {
-    return `${seconds / minute} min`;
+    return `${grouped.format(seconds / minute)} min`;
   }
-  return `${seconds} s`;
+  return `${grouped.format(seconds)} s`;
 }
 
 type SpanUnit = { readonly seconds: number; readonly words: (count: number) => string };

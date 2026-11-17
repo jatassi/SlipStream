@@ -25,6 +25,7 @@ test.each([
   [28_800, "8 h"],
   [86_400, "1 day"],
   [172_800, "2 days"],
+  [94_608_000, "1,095 days"],
   [0, "0 s"],
 ])("durationWords(%d) is %s", (seconds, words) => {
   expect(durationWords(seconds)).toBe(words);
