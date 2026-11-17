@@ -21,7 +21,8 @@ type AddedFacts struct {
 }
 
 // DeletedFacts is what a Works deleted message tells: who deleted them,
-// and each Content Type's share.
+// and each Content Type's share. A delete records one per Content Type;
+// an entry from before that may hold several.
 type DeletedFacts struct {
 	By    entry.Actor   `json:"by"`
 	Types []DeletedType `json:"types"`
@@ -30,10 +31,13 @@ type DeletedFacts struct {
 // DeletedType is one Content Type's share of a delete: its count, its
 // first three labels, and the Work itself when it is the one Work deleted.
 type DeletedType struct {
-	Nouns entry.Nouns `json:"nouns"`
-	Count int         `json:"count"`
-	First []string    `json:"first"`
-	Work  *entry.Work `json:"work,omitempty"`
+	Type works.TypeID `json:"type"`
+	// Works is every Work deleted, for History, and isn't stored.
+	Works []works.WorkID `json:"-"`
+	Nouns entry.Nouns    `json:"nouns"`
+	Count int            `json:"count"`
+	First []string       `json:"first"`
+	Work  *entry.Work    `json:"work,omitempty"`
 }
 
 func (f AddedFacts) About() entry.About {
@@ -41,11 +45,7 @@ func (f AddedFacts) About() entry.About {
 }
 
 func (f DeletedFacts) About() entry.About {
-	if len(f.Types) == 1 && f.Types[0].Work != nil {
-		w := f.Types[0].Work
-		return entry.About{Type: w.Type, Works: []works.WorkID{w.ID}}
-	}
-	return entry.About{}
+	return entry.About{Type: f.Types[0].Type, Works: f.Types[0].Works}
 }
 
 var (
@@ -93,26 +93,41 @@ func (l *Library) announceAdded(ctx context.Context, tx *storage.Tx[storage.Libr
 	return addedRow.Record(ctx, tx, l.cfg.History, f)
 }
 
+// recordDeleted records one Works deleted per Content Type of removed.
+func (l *Library) recordDeleted(ctx context.Context, tx *storage.Tx[storage.Library], by identity.Admin, removed []works.WorkID) error {
+	shares, err := l.deletedFacts(ctx, tx, by, removed)
+	if err != nil {
+		return err
+	}
+	for _, f := range shares {
+		if err := deletedRow.Record(ctx, tx, l.cfg.History, f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // deletedFacts reads, in the delete's Write and before any works row goes,
-// the count and first three labels per Content Type of removed, and the
-// Work itself when exactly one goes.
-func (l *Library) deletedFacts(ctx context.Context, tx *storage.Tx[storage.Library], by identity.Admin, removed []works.WorkID) (DeletedFacts, error) {
+// each Content Type's share of removed: its count, first three labels and
+// Works, and the Work itself when exactly one goes.
+func (l *Library) deletedFacts(ctx context.Context, tx *storage.Tx[storage.Library], by identity.Admin, removed []works.WorkID) ([]DeletedFacts, error) {
 	tallies, err := works.TallyOf(ctx, tx, removed, 3)
 	if err != nil {
-		return DeletedFacts{}, err
+		return nil, err
 	}
-	f := DeletedFacts{By: actorOf(by)}
-	for _, t := range tallies {
-		f.Types = append(f.Types, DeletedType{Nouns: entry.NounsOf(l.cfg.Works, t.Type), Count: t.Count, First: t.First})
-	}
-	if len(removed) == 1 {
-		w, err := entry.WorkIn(ctx, tx, l.cfg.Works, removed[0])
-		if err != nil {
-			return DeletedFacts{}, err
+	out := make([]DeletedFacts, len(tallies))
+	for i, t := range tallies {
+		share := DeletedType{Type: t.Type, Works: t.IDs, Nouns: entry.NounsOf(l.cfg.Works, t.Type), Count: t.Count, First: t.First}
+		if len(removed) == 1 {
+			w, err := entry.WorkIn(ctx, tx, l.cfg.Works, removed[0])
+			if err != nil {
+				return nil, err
+			}
+			share.Work = &w
 		}
-		f.Types[0].Work = &w
+		out[i] = DeletedFacts{By: actorOf(by), Types: []DeletedType{share}}
 	}
-	return f, nil
+	return out, nil
 }
 
 func renderAdded(f AddedFacts, _ entry.Context) entry.Message {

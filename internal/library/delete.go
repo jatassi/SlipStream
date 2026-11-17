@@ -69,11 +69,7 @@ func (l *Library) Delete(ctx context.Context, by identity.Admin, ws []works.Work
 		if err := l.cfg.Imports.EndOf(ctx, tx, c.removed); err != nil || len(c.removed) == 0 {
 			return c.removed, err
 		}
-		facts, err := l.deletedFacts(ctx, tx, by, c.removed)
-		if err != nil {
-			return nil, err
-		}
-		return c.removed, deletedRow.Record(ctx, tx, l.cfg.History, facts)
+		return c.removed, l.recordDeleted(ctx, tx, by, c.removed)
 	})
 	if err != nil {
 		return DeletePlan{}, nil, err

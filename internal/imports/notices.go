@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
 	"github.com/jatassi/slipstream/internal/release"
@@ -22,6 +23,9 @@ import (
 // an Import placed since it last came to rest, and how many of its files
 // failed or wait for the Admin.
 type ImportedFacts struct {
+	Import ImportID `json:"import"`
+	// Grab is zero for a folder Import.
+	Grab    grabs.GrabID `json:"grab"`
 	Work    entry.Work   `json:"work"`
 	Root    string       `json:"root"`
 	Files   []PlacedFile `json:"files"`
@@ -37,6 +41,8 @@ type PlacedFile struct {
 	Size     int64             `json:"size"`
 	PlacedBy PlacedBy          `json:"placedBy"`
 	Replaced []release.Quality `json:"replaced,omitempty"`
+	// ReplacedLabels are the replaced files' labels, for History's detail.
+	ReplacedLabels []string `json:"replacedLabels,omitempty"`
 }
 
 // ItemAt is an Item by its place: its level's label, empty for a type
@@ -47,18 +53,21 @@ type ItemAt struct {
 }
 
 // ScanAddedFacts is what a Works added by a Library scan message tells.
+// Works is every Work it added, for History, and isn't stored.
 type ScanAddedFacts struct {
-	Root  string      `json:"root"`
-	Nouns entry.Nouns `json:"nouns"`
-	Count int         `json:"count"`
-	First []string    `json:"first"`
+	Type  works.TypeID   `json:"type"`
+	Works []works.WorkID `json:"-"`
+	Root  string         `json:"root"`
+	Nouns entry.Nouns    `json:"nouns"`
+	Count int            `json:"count"`
+	First []string       `json:"first"`
 }
 
 func (f ImportedFacts) About() entry.About {
-	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}}
+	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}, Grab: f.Grab.UUID, Import: f.Import.UUID}
 }
 
-func (f ScanAddedFacts) About() entry.About { return entry.About{} }
+func (f ScanAddedFacts) About() entry.About { return entry.About{Type: f.Type, Works: f.Works} }
 
 // importNoun is Imported's and Upgraded's noun in History's 7-day
 // sentence: each counts its Imports.
@@ -115,7 +124,7 @@ func (im *Imports) announce(ctx context.Context, tx *storage.Tx[file], imp Impor
 	if err != nil {
 		return err
 	}
-	in, up := splitPlaced(ImportedFacts{Work: w, Root: words[fresh[0].Dest.Root]}, fresh, replaced, numbersOf(tree), imp.Files)
+	in, up := splitPlaced(ImportedFacts{Import: imp.ID, Grab: imp.Grab, Work: w, Root: words[fresh[0].Dest.Root]}, fresh, replaced, numbersOf(tree), imp.Files)
 	if in != nil {
 		if err := importedRow.Record(ctx, tx, im.cfg.History, *in); err != nil {
 			return err
@@ -167,6 +176,7 @@ func splitPlaced(base ImportedFacts, fresh []File, replaced map[files.ID][]files
 		}
 		for _, r := range replaced[f.FileID] {
 			p.Replaced = append(p.Replaced, r.Quality)
+			p.ReplacedLabels = append(p.ReplacedLabels, r.Label)
 		}
 		if len(p.Replaced) == 0 {
 			in.Files = append(in.Files, p)
@@ -212,7 +222,7 @@ func (im *Imports) announceScan(ctx context.Context, tx *storage.Tx[file], root 
 		return err
 	}
 	return scanAddedRow.Record(ctx, tx, im.cfg.History, ScanAddedFacts{
-		Root: words[root.ID], Nouns: entry.NounsOf(im.cfg.Works, root.ContentType), Count: len(in), First: works.LabelsOf(added, in, 3),
+		Type: root.ContentType, Works: in, Root: words[root.ID], Nouns: entry.NounsOf(im.cfg.Works, root.ContentType), Count: len(in), First: works.LabelsOf(added, in, 3),
 	})
 }
 
@@ -272,6 +282,9 @@ func placedMessage(f ImportedFacts, tone entry.Tone) entry.Message {
 			b.Items = append(b.Items, itemAtWords(it, lower(f.Work.Nouns.Item)))
 		}
 		m.Body.Files = append(m.Body.Files, b)
+		m.Detail.Files = append(m.Detail.Files, entry.DetailFile{
+			Items: b.Items, Quality: b.Quality, PlacedBy: b.PlacedBy, Replaced: b.Replaced, ReplacedLabel: works.JoinWords(p.ReplacedLabels),
+		})
 	}
 	return m
 }

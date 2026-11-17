@@ -2,14 +2,19 @@ package library_test
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
+	"github.com/jatassi/slipstream/internal/history/historytest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
@@ -57,8 +62,28 @@ func TestDeletingOneWorkRecordsItWhole(t *testing.T) {
 	}
 }
 
-func TestA20000WorkDeleteAcrossTwoContentTypesRecordsOneEvent(t *testing.T) {
+// deleteBudget is the design's: a 20,000-Work delete's Write within 500 ms.
+const deleteBudget = 500 * time.Millisecond
+
+// quietOutbox owes nothing and was told nothing.
+type quietOutbox struct{}
+
+func (quietOutbox) Queue(context.Context, *storage.Tx[storage.Library], history.Captured) error {
+	return nil
+}
+
+func (quietOutbox) Owed(context.Context, storage.Reader[storage.Library], []history.EventID) (map[history.EventID]bool, error) {
+	return nil, nil
+}
+
+func (quietOutbox) Told(context.Context, storage.Reader[storage.Library], string) (history.Told, bool, error) {
+	return history.Told{}, false, nil
+}
+
+func TestA20000WorkDeleteAcrossTwoContentTypesRecordsOneEntryPerContentType(t *testing.T) {
 	s := newShelf(t)
+	h := history.New(history.Config{Library: s.lib, Catalog: entry.NewCatalog(), Outbox: quietOutbox{}, Log: slog.New(slog.DiscardHandler)})
+	s.rec = h.Recorder("library", library.Entries())
 	l := s.library(nil)
 	insert := func(contentType string, n int) {
 		err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -89,20 +114,26 @@ func TestA20000WorkDeleteAcrossTwoContentTypesRecordsOneEvent(t *testing.T) {
 	if err := rows.Close(); err != nil {
 		t.Fatal(err)
 	}
+	start := time.Now()
 	if _, _, err := l.Delete(t.Context(), identity.Admin{}, ids, library.Deleting{Files: library.LeaveFiles}); err != nil {
 		t.Fatal(err)
 	}
-	got := entrytest.Of(s.notices, library.DeletedRow)
-	if len(got) != 1 {
-		t.Fatalf("the delete recorded %d Works deleted, want 1", len(got))
-	}
+	t.Logf("the delete took %s, against a %s budget", time.Since(start).Round(time.Millisecond), deleteBudget)
 	var tally []string
-	for _, ty := range got[0].Types {
-		tally = append(tally, fmt.Sprint(ty.Count, ty.First, ty.Work == nil))
+	for _, e := range historytest.Entries(t, s.lib) {
+		var f library.DeletedFacts
+		if err := json.Unmarshal([]byte(e.Subject), &f); err != nil {
+			t.Fatal(err)
+		}
+		ty := f.Types[0]
+		tally = append(tally, fmt.Sprintf("%s %d %s %d %d %v", e.Kind, len(f.Types), e.Type, len(e.Works), ty.Count, ty.First))
 	}
-	want := []string{"12000 [fixture 00001 fixture 00002 fixture 00003] true", "8000 [other 00001 other 00002 other 00003] true"}
+	want := []string{
+		"works_deleted 1 fixture 12000 12000 [fixture 00001 fixture 00002 fixture 00003]",
+		"works_deleted 1 other 8000 8000 [other 00001 other 00002 other 00003]",
+	}
 	if !reflect.DeepEqual(tally, want) {
-		t.Fatalf("Works deleted tells %q, want %q", tally, want)
+		t.Fatalf("History holds %q, want %q", tally, want)
 	}
 }
 

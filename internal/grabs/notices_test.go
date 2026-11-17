@@ -61,46 +61,80 @@ func TestAGrabRecordsGrabbedWithItsScoreAtEachTargetAndAJoinRecordsNone(t *testi
 }
 
 // failedWith fails one Grab of the World's first Item per code, in order,
-// and answers the codes Grab failed was recorded for.
-func failedWith(t *testing.T, codes ...grabs.Code) []grabs.Code {
+// and answers the codes Grab failed was recorded for and those it sends.
+func failedWith(t *testing.T, codes ...grabs.Code) (recorded, sent []grabs.Code) {
 	t.Helper()
 	w := failureWorld(t)
 	for i, c := range codes {
 		failWith(t, w, grabbedOver(t, w, heard(w, "E01", "1080p.WEB-DL", byte('a'+i))), c)
 	}
-	var out []grabs.Code
-	for _, f := range entrytest.Of(w.History, grabs.GrabFailedRow) {
-		if f.Work.ID != w.Work || f.Stage != grabs.Fetching || f.Release != "The.Attic.2020.E01.1080p.WEB-DL-GRP" {
+	abouts := entrytest.Abouts(w.History, grabs.GrabFailedRow)
+	for i, f := range entrytest.Of(w.History, grabs.GrabFailedRow) {
+		if f.Work.ID != w.Work || f.Stage != grabs.Fetching || f.Release != "The.Attic.2020.E01.1080p.WEB-DL-GRP" || f.Grab.IsZero() {
 			t.Errorf("Grab failed tells %+v, want The Attic's Grab at fetching", f)
 		}
-		out = append(out, f.Code)
+		if abouts[i].Quiet == f.NeedsYou || abouts[i].Grab != f.Grab.UUID {
+			t.Errorf("Grab failed %+v is about %+v, want it quiet unless it needs the Admin, and about its Grab", f, abouts[i])
+		}
+		recorded = append(recorded, f.Code)
+		if f.NeedsYou {
+			sent = append(sent, f.Code)
+		}
 	}
-	return out
+	return recorded, sent
 }
 
-func TestOnlyAFailureActivityListsAsNeedingTheAdminRecordsGrabFailed(t *testing.T) {
+func TestEveryFailureIsRecordedAndOnlyOneActivityListsAsNeedingTheAdminIsSent(t *testing.T) {
+	fault := grabs.ReleaseFault
 	for _, c := range []struct {
 		name  string
 		codes []grabs.Code
-		want  []grabs.Code
+		sent  []grabs.Code
 	}{
 		{"a cancel", []grabs.Code{grabs.Canceled}, nil},
 		{"a declined Import", []grabs.Code{grabs.Declined}, nil},
-		{"a failure SlipStream searches again for", []grabs.Code{grabs.ReleaseFault}, nil},
+		{"a failure SlipStream searches again for", []grabs.Code{fault}, nil},
 		{"a failure that waits for the Admin", []grabs.Code{grabs.NameTaken}, []grabs.Code{grabs.NameTaken}},
-		{"the failure that stops searching again", []grabs.Code{grabs.ReleaseFault, grabs.ReleaseFault, grabs.ReleaseFault}, []grabs.Code{grabs.ReleaseFault}},
+		{"the failure that stops searching again", []grabs.Code{fault, fault, fault}, []grabs.Code{fault}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				if got := failedWith(t, c.codes...); !slices.Equal(got, c.want) {
-					t.Fatalf("Grab failed was recorded for %v, want %v", got, c.want)
+				recorded, sent := failedWith(t, c.codes...)
+				if !slices.Equal(recorded, c.codes) || !slices.Equal(sent, c.sent) {
+					t.Fatalf("Grab failed was recorded for %v and sent for %v, want %v and %v", recorded, sent, c.codes, c.sent)
 				}
 			})
 		})
 	}
 }
 
-func TestAManualGrabNamesWhoPickedItAndItsBlocklistFailureRecordsNothing(t *testing.T) {
+func TestAFetchingDropThatADecisionReplacesIsRecordedQuiet(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		bad := newRelease(t)
+		raw, err := bad.link.Torrent(bad.info)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tw := newTwinWorld(t, twin{sites: []twinSite{
+			{name: "Better Site", priority: 10, torrent: raw, releases: []searching.Release{listing(bluRay, 90, "")}},
+			{name: "Other Site", priority: 25, releases: []searching.Release{listing(webDL, 5, "")}},
+		}})
+		grabstest.Blocked(t, tw.lib, blockEntry(bad.link.InfoHash, bluRay))
+		if got, want := tw.searchedAutomatically(t), "Other Site "+webDL; got != want {
+			t.Fatalf("the run's Grab is %q, want %q", got, want)
+		}
+		failed := entrytest.Of(tw.notices, grabs.GrabFailedRow)
+		abouts := entrytest.Abouts(tw.notices, grabs.GrabFailedRow)
+		if len(failed) == 0 || failed[0].Code != grabs.Blocklisted || failed[0].Stage != grabs.Fetching || failed[0].NeedsYou || !abouts[0].Quiet {
+			t.Fatalf("the replaced Grab recorded %+v about %+v, want a quiet Grab failed at fetching first", failed, abouts)
+		}
+		if n := len(entrytest.Of(tw.notices, grabs.GrabbedRow)); n != 2 {
+			t.Fatalf("the run recorded %d Grabbed, want the dropped Grab and the one in its place", n)
+		}
+	})
+}
+
+func TestAManualGrabNamesWhoPickedItAndItsBlocklistFailureIsRecordedQuiet(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 9, "a")}}}})
 		v := a.searchedByHand(t)
@@ -115,8 +149,8 @@ func TestAManualGrabNamesWhoPickedItAndItsBlocklistFailureRecordsNothing(t *test
 		if err := a.g.FailWith(t.Context(), id, grabs.Blocklisted); err != nil {
 			t.Fatal(err)
 		}
-		if got := entrytest.Of(a.notices, grabs.GrabFailedRow); len(got) != 0 {
-			t.Fatalf("a Manual Grab the Blocklist held recorded Grab failed %+v", got)
+		if got := entrytest.Abouts(a.notices, grabs.GrabFailedRow); len(got) != 1 || !got[0].Quiet {
+			t.Fatalf("a Manual Grab the Blocklist held recorded Grab failed about %+v, want one, quiet", got)
 		}
 	})
 }
