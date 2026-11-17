@@ -14,8 +14,8 @@ import (
 )
 
 // Listed is one library file of a Work with the cells it fills, in cell
-// order, none for a Kept file, and how its last import placed it, "" for
-// a file no import recorded.
+// order, none for a Kept file, and how its import placed it, "" for a
+// file a scan found.
 type Listed struct {
 	File
 	Fills    []CellKey
@@ -84,7 +84,7 @@ func listing(w world) Listing {
 	return out
 }
 
-// placedBy sets each of fs's PlacedBy from its last import.
+// placedBy sets each of fs's PlacedBy, how its import placed it.
 func placedBy(ctx context.Context, q *db.Queries, fs []Listed) error {
 	ids := make([]ID, len(fs))
 	for i, f := range fs {
@@ -96,7 +96,7 @@ func placedBy(ctx context.Context, q *db.Queries, fs []Listed) error {
 	}
 	by := make(map[ID]string, len(rows))
 	for _, row := range rows {
-		by[row.FileID] = row.PlacedBy
+		by[row.ID] = *row.PlacedBy
 	}
 	for i := range fs {
 		fs[i].PlacedBy = by[fs[i].ID]

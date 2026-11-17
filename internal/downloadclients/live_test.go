@@ -12,9 +12,18 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/nodes"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 const liveSample = time.Second
@@ -167,4 +176,37 @@ func TestLiveSamplesFlowOnlyWhileAnAdminListens(t *testing.T) {
 			t.Errorf("with no Admin listening Live(seedbox) still answers")
 		}
 	})
+}
+
+func TestLiveAnswersTheTorrentsNoClientRemoved(t *testing.T) {
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), health.Schema(), roots.Schema(), dc.Schema(), indexers.Schema())
+	node, kept, removed, never := storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
+	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, node); err != nil {
+			return err
+		}
+		for i, id := range []storage.UUID{kept, removed} {
+			_, err := tx.ExecContext(ctx, `INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers, content_type, wanted,
+				added_order, added_at) VALUES (?, ?, randomblob(20), x'00', 'Orchard.WEB-DL', 1, 0, '[]', 'fixture', 'started', ?, 0)`, id, node, i)
+			if err != nil {
+				return err
+			}
+		}
+		_, err := tx.ExecContext(ctx, `UPDATE downloadclients_torrent SET removed_at = 1, removed_reason = 'admin' WHERE id = ?`, removed)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var live map[dc.ID]bool
+	err = lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		live, err = dc.Live(ctx, r, []dc.ID{{UUID: kept}, {UUID: removed}, {UUID: never}})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(live) != 1 || !live[dc.ID{UUID: kept}] {
+		t.Fatalf("Live answers %v, want the torrent no client removed alone", live)
+	}
 }

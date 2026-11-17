@@ -139,12 +139,32 @@ func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Gr
 }
 
 func grabsCellsReadFrom(ctx context.Context, r storage.Reader[file], grabs []Grab) (current, again map[GrabID]bool, err error) {
+	ids := make([]works.WorkID, len(grabs))
+	for i, g := range grabs {
+		ids[i] = g.WorkID
+	}
+	c, err := readCells(ctx, r, ids)
+	if err != nil {
+		return nil, nil, err
+	}
+	current, again = c.readsOf()
+	return current, again, nil
+}
+
+// cellReads is what the cells of some Works read their Grabs from: every
+// Grab of each cell, oldest first, and the cells whose searches stopped.
+type cellReads struct {
+	rows    []db.ListTargetsOfWorksRow
+	stopped map[files.CellKey]bool
+}
+
+func readCells(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (cellReads, error) {
 	seen := map[works.WorkID]bool{}
 	var ids []works.WorkID
-	for _, g := range grabs {
-		if !seen[g.WorkID] {
-			seen[g.WorkID] = true
-			ids = append(ids, g.WorkID)
+	for _, w := range ws {
+		if !seen[w] {
+			seen[w] = true
+			ids = append(ids, w)
 		}
 	}
 	q := db.New(r)
@@ -152,29 +172,32 @@ func grabsCellsReadFrom(ctx context.Context, r storage.Reader[file], grabs []Gra
 		return q.ListTargetsOfWorks(ctx, ids)
 	})
 	if err != nil {
-		return nil, nil, err
+		return cellReads{}, err
 	}
 	stopped, err := stoppedOf(ctx, r, works.Only(ids))
-	if err != nil {
-		return nil, nil, err
-	}
+	return cellReads{rows: rows, stopped: stopped}, err
+}
+
+// readsOf is which Grabs are Current, read by a cell that hasn't settled
+// them, and which failed Grabs are searched again.
+func (c cellReads) readsOf() (current, again map[GrabID]bool) {
 	current, again = map[GrabID]bool{}, map[GrabID]bool{}
-	for _, row := range readFrom(rows) {
+	for _, row := range readFrom(c.rows) {
 		if row.Settled == nil {
 			current[row.ID] = true
 		}
 	}
-	for _, row := range rows {
+	for _, row := range c.rows {
 		if row.Stage != Failed {
 			continue
 		}
 		g := Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}
 		key := files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}
 		if prior, seen := again[row.ID]; prior || !seen {
-			again[row.ID] = searchingAgain(g, stopped[key])
+			again[row.ID] = searchingAgain(g, c.stopped[key])
 		}
 	}
-	return current, again, nil
+	return current, again
 }
 
 // typesOf is the Content Type of each of grabs' Works.

@@ -227,8 +227,8 @@ type importedCell struct {
 	Target  targets.TargetID `json:"target"`
 }
 
-// imported records l's landing of g, which v judged, and that g replaced
-// each doomed file of v.Replaces.
+// imported records l's landing of g, which v judged, how g was placed,
+// and that g replaced each doomed file of v.Replaces.
 func imported(ctx context.Context, q *db.Queries, l Landing, g File, v Verdict) error {
 	cells := make([]importedCell, len(v.Fills))
 	for i, k := range v.Fills {
@@ -240,6 +240,9 @@ func imported(ctx context.Context, q *db.Queries, l Landing, g File, v Verdict) 
 		if err := q.SetReplacedBy(ctx, db.SetReplacedByParams{FileID: d.ID, ReplacedBy: g.ID}); err != nil {
 			return err
 		}
+	}
+	if err := q.SetPlacedBy(ctx, db.SetPlacedByParams{ID: g.ID, PlacedBy: &l.PlacedBy}); err != nil {
+		return err
 	}
 	var cols [3][]byte
 	for i, v := range []any{g.Items, cells, replaced} {
@@ -268,9 +271,6 @@ type judged struct {
 func (f *Files) judge(ctx context.Context, r storage.Reader[file], b Batch, how rule, landing func(*File)) (judged, error) {
 	before, err := f.load(ctx, r, b.Work)
 	if err != nil {
-		return judged{}, err
-	}
-	if before.imports, err = importsOf(ctx, db.New(r), before.fills); err != nil {
 		return judged{}, err
 	}
 	j := judged{fresh: make([]File, len(b.Candidates))}
@@ -411,28 +411,6 @@ func inTreeOrder(tree works.Bare, items []works.ItemID) ([]works.ItemID, error) 
 		if !slices.Contains(out, it) {
 			return nil, fmt.Errorf("a file names item %s, which work %s doesn't hold", it, tree.ID)
 		}
-	}
-	return out, nil
-}
-
-// importsOf is the Import that landed each file holding a forced fill.
-func importsOf(ctx context.Context, q *db.Queries, fills map[CellKey]Fill) (map[ID]storage.UUID, error) {
-	var ids []ID
-	for _, fill := range fills {
-		if !fill.Forced.IsZero() && !slices.Contains(ids, fill.File) {
-			ids = append(ids, fill.File)
-		}
-	}
-	if len(ids) == 0 {
-		return nil, nil
-	}
-	rows, err := q.ListImportsOfFiles(ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[ID]storage.UUID, len(rows))
-	for _, row := range rows {
-		out[row.FileID] = row.ImportID
 	}
 	return out, nil
 }
@@ -593,6 +571,7 @@ func apply(ctx context.Context, q *db.Queries, p placed) error {
 		if p.before.fills[key] != fill {
 			err := q.InsertFill(ctx, db.InsertFillParams{
 				FileID: fill.File, TargetID: key.Target, ItemID: key.Item, Edition: key.Edition, Score: int64(fill.Score), ForcedAt: fill.Forced,
+				ForcedImportID: fill.ForcedBy,
 			})
 			if err != nil {
 				return err

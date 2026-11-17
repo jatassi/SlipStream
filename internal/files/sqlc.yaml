@@ -53,17 +53,15 @@ sql:
           - column: files_fill.file_id
             go_type:
               type: FileID
+          - column: files_fill.forced_import_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
           - column: files_fill.target_id
             go_type:
               import: github.com/jatassi/slipstream/internal/targets
               type: TargetID
           - column: files_move.file_id
-            go_type:
-              type: FileID
-          - column: files_renamed.id
-            go_type:
-              type: RenameID
-          - column: files_renamed.file_id
             go_type:
               type: FileID
           - column: files_move.ring

@@ -1,7 +1,6 @@
 package files
 
 import (
-	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -64,30 +63,21 @@ func (w world) fillOf(t targets.Target, key CellKey, files []File) (Fill, bool) 
 	}
 	switch {
 	case forcing != nil:
-		return Fill{File: forcing.ID, Score: w.scoring.score(t, *forcing), Forced: w.forcedAt}, true
-	case held != nil && !w.challenges(*best, *held):
-		return Fill{File: held.ID, Score: w.scoring.score(t, *held), Forced: incumbent.Forced}, true
+		return Fill{File: forcing.ID, Score: w.scoring.score(t, *forcing), Forced: w.forcedAt, ForcedBy: w.importing}, true
+	case held != nil && !w.challenges(*best, incumbent):
+		return Fill{File: held.ID, Score: w.scoring.score(t, *held), Forced: incumbent.Forced, ForcedBy: incumbent.ForcedBy}, true
 	case best != nil:
 		return Fill{File: best.ID, Score: w.scoring.score(t, *best)}, true
 	}
 	return Fill{}, false
 }
 
-// challenges reports whether best, the best file at a cell held's forced
-// fill holds, takes the cell: a better file arriving now from another
-// Import than held's.
-func (w world) challenges(best, held File) bool {
-	if best.ID == held.ID || !w.fresh[best.ID] && !w.found[best.ID] {
+// challenges reports whether best, the best file at a cell whose forced
+// fill is held, takes the cell: a better file arriving now from another
+// Import than the one whose Force it was.
+func (w world) challenges(best File, held Fill) bool {
+	if best.ID == held.File || !w.fresh[best.ID] && !w.found[best.ID] {
 		return false
 	}
-	of := w.importOf(best.ID)
-	return of.IsZero() || of != w.importOf(held.ID)
-}
-
-// importOf is the Import a file of w is of, zero for none.
-func (w world) importOf(id ID) storage.UUID {
-	if w.fresh[id] {
-		return w.importing
-	}
-	return w.imports[id]
+	return !w.fresh[best.ID] || w.importing.IsZero() || w.importing != held.ForcedBy
 }

@@ -30,3 +30,14 @@ func TestTheCatalogListsEachTaskOnceInItsWindowOrder(t *testing.T) {
 		t.Fatalf("window order %q, want %q", window, want)
 	}
 }
+
+func TestHousekeepingPrunesInItsUnitsOrder(t *testing.T) {
+	var labels []string
+	for _, s := range housekeepingSteps(nil, nil, nil, nil, nil, nil) {
+		labels = append(labels, s.Label)
+	}
+	want := []string{"Indexer queries and sessions", "Media Server history", "History", "Finished Grabs", "Finished Imports", "Import records"}
+	if !slices.Equal(labels, want) {
+		t.Fatalf("Housekeeping's units are %q, want %q", labels, want)
+	}
+}

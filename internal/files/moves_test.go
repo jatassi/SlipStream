@@ -119,28 +119,6 @@ func (l *library) rows(t *testing.T) map[string]files.ID {
 	return out
 }
 
-// renamed is every rename the library recorded, as "from -> to".
-func (l *library) renamed(t *testing.T) []string {
-	t.Helper()
-	rows, err := l.lib.QueryContext(t.Context(), `SELECT from_path || ' -> ' || to_path FROM files_renamed ORDER BY from_path`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = rows.Close() }()
-	var out []string
-	for rows.Next() {
-		var r string
-		if err := rows.Scan(&r); err != nil {
-			t.Fatal(err)
-		}
-		out = append(out, r)
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatal(err)
-	}
-	return out
-}
-
 func TestATargetRenameMovesTheFileAndItsCompanionStraightToTheNewName(t *testing.T) {
 	s := shelved(t)
 	s.put(t, "Shelf w1/Shelf w1 - Scarf - HD.en.srt", "subtitles")
@@ -159,9 +137,6 @@ func TestATargetRenameMovesTheFileAndItsCompanionStraightToTheNewName(t *testing
 	}
 	if moves := disk.moved(); !slices.Equal(moves, []string{"Shelf w1/Shelf w1 - Scarf - HD.mkv -> Shelf w1/Shelf w1 - Scarf - Full HD.mkv"}) {
 		t.Fatalf("the queue moved %v, want the one file straight to its new name", moves)
-	}
-	if got := s.renamed(t); !slices.Equal(got, []string{"Shelf w1/Shelf w1 - Scarf - HD.mkv -> Shelf w1/Shelf w1 - Scarf - Full HD.mkv"}) {
-		t.Fatalf("the library recorded renames %v, want the one", got)
 	}
 	if !s.moved.works()[s.tree.ID.String()] {
 		t.Fatal("no files.moved named the renamed file's Work")
@@ -186,9 +161,6 @@ func TestFilesThatTradePathsPassThroughHoldingWithTheirCompanions(t *testing.T) 
 	}
 	if held := disk.held(); len(held) != 4 {
 		t.Fatalf("the queue moved %v through holding, want each file there and out", held)
-	}
-	if got := l.renamed(t); !slices.Equal(got, []string{"w1/a.mkv -> w1/b.mkv", "w1/b.mkv -> w1/a.mkv"}) {
-		t.Fatalf("the library recorded renames %v, want both", got)
 	}
 }
 
@@ -237,9 +209,6 @@ func TestATargetTakenAtDiskTimePutsTheWholeChainBack(t *testing.T) {
 	}
 	if rows := l.rows(t); !maps.Equal(rows, ids) {
 		t.Fatalf("the rows are %v, want each at its origin %v", rows, ids)
-	}
-	if got := l.renamed(t); len(got) != 0 {
-		t.Fatalf("the library recorded renames %v, want none", got)
 	}
 	if !l.moved.works()[tree.ID.String()] {
 		t.Fatal("no files.moved named the Work whose moves went back")

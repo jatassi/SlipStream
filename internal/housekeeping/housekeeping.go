@@ -153,7 +153,7 @@ func Task(cfg Config) tasks.Task {
 	return tasks.Task{
 		ID:      "housekeeping",
 		Name:    "Housekeeping",
-		About:   "Deletes old task runs, expired Join Codes, idle sessions, old Indexer queries and old Media Server history, and History older than Keep history for, then optimizes every database.",
+		About:   "Deletes old task runs, expired Join Codes, idle sessions, old Indexer queries and old Media Server history, and History, Grabs, Imports and import records older than Keep history for, then optimizes every database.",
 		Group:   tasks.ControllerGroup,
 		Cadence: tasks.InWindow{Days: cadence},
 		Overdue: tasks.Wait,

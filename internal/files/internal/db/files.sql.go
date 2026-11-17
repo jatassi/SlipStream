@@ -206,6 +206,24 @@ func (q *Queries) DeleteFill(ctx context.Context, arg DeleteFillParams) error {
 	return err
 }
 
+const deleteImportedBefore = `-- name: DeleteImportedBefore :execrows
+DELETE FROM files_imported WHERE id IN (
+    SELECT i.id FROM files_imported AS i INDEXED BY files_imported_at WHERE i.at < ?1 ORDER BY i.at LIMIT ?2)
+`
+
+type DeleteImportedBeforeParams struct {
+	Before storage.Time
+	Limit  int64
+}
+
+func (q *Queries) DeleteImportedBefore(ctx context.Context, arg DeleteImportedBeforeParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteImportedBefore, arg.Before, arg.Limit)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteMove = `-- name: DeleteMove :execrows
 DELETE FROM files_move WHERE file_id = ?1 AND sits = ?2
 `
@@ -543,17 +561,18 @@ func (q *Queries) InsertFileItem(ctx context.Context, arg InsertFileItemParams) 
 }
 
 const insertFill = `-- name: InsertFill :exec
-INSERT INTO files_fill (file_id, target_id, item_id, edition, score, forced_at)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+INSERT INTO files_fill (file_id, target_id, item_id, edition, score, forced_at, forced_import_id)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
 `
 
 type InsertFillParams struct {
-	FileID   FileID
-	TargetID targets.TargetID
-	ItemID   works.ItemID
-	Edition  targets.Edition
-	Score    int64
-	ForcedAt storage.Time
+	FileID         FileID
+	TargetID       targets.TargetID
+	ItemID         works.ItemID
+	Edition        targets.Edition
+	Score          int64
+	ForcedAt       storage.Time
+	ForcedImportID storage.UUID
 }
 
 func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
@@ -564,6 +583,7 @@ func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
 		arg.Edition,
 		arg.Score,
 		arg.ForcedAt,
+		arg.ForcedImportID,
 	)
 	return err
 }
@@ -628,30 +648,6 @@ type InsertPruneParams struct {
 
 func (q *Queries) InsertPrune(ctx context.Context, arg InsertPruneParams) error {
 	_, err := q.db.ExecContext(ctx, insertPrune, arg.RootID, arg.Folder)
-	return err
-}
-
-const insertRenamed = `-- name: InsertRenamed :exec
-INSERT INTO files_renamed (file_id, root_id, from_path, to_path, renamed_at)
-VALUES (?1, ?2, ?3, ?4, ?5)
-`
-
-type InsertRenamedParams struct {
-	FileID    FileID
-	RootID    roots.ID
-	FromPath  string
-	ToPath    string
-	RenamedAt storage.Time
-}
-
-func (q *Queries) InsertRenamed(ctx context.Context, arg InsertRenamedParams) error {
-	_, err := q.db.ExecContext(ctx, insertRenamed,
-		arg.FileID,
-		arg.RootID,
-		arg.FromPath,
-		arg.ToPath,
-		arg.RenamedAt,
-	)
 	return err
 }
 
@@ -794,7 +790,7 @@ func (q *Queries) ListEveryBriefFile(ctx context.Context) ([]ListEveryBriefFileR
 }
 
 const listEveryFile = `-- name: ListEveryFile :many
-SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name FROM files_file ORDER BY rowid
+SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by FROM files_file ORDER BY rowid
 `
 
 func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
@@ -828,6 +824,7 @@ func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
 			&i.ProbedAt,
 			&i.ProbeError,
 			&i.SourceName,
+			&i.PlacedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -875,7 +872,7 @@ func (q *Queries) ListEveryFileItem(ctx context.Context) ([]ListEveryFileItemRow
 }
 
 const listEveryFill = `-- name: ListEveryFill :many
-SELECT file_id, target_id, item_id, edition, score, forced_at FROM files_fill ORDER BY rowid
+SELECT file_id, target_id, item_id, edition, score, forced_at, forced_import_id FROM files_fill ORDER BY rowid
 `
 
 func (q *Queries) ListEveryFill(ctx context.Context) ([]FilesFill, error) {
@@ -894,6 +891,7 @@ func (q *Queries) ListEveryFill(ctx context.Context) ([]FilesFill, error) {
 			&i.Edition,
 			&i.Score,
 			&i.ForcedAt,
+			&i.ForcedImportID,
 		); err != nil {
 			return nil, err
 		}
@@ -1071,7 +1069,7 @@ func (q *Queries) ListFileReadsOfWorks(ctx context.Context, workIds []works.Work
 }
 
 const listFilesByID = `-- name: ListFilesByID :many
-SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name FROM files_file WHERE id IN (/*SLICE:ids*/?) ORDER BY id
+SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by FROM files_file WHERE id IN (/*SLICE:ids*/?) ORDER BY id
 `
 
 func (q *Queries) ListFilesByID(ctx context.Context, ids []FileID) ([]FilesFile, error) {
@@ -1115,6 +1113,7 @@ func (q *Queries) ListFilesByID(ctx context.Context, ids []FileID) ([]FilesFile,
 			&i.ProbedAt,
 			&i.ProbeError,
 			&i.SourceName,
+			&i.PlacedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -1130,7 +1129,7 @@ func (q *Queries) ListFilesByID(ctx context.Context, ids []FileID) ([]FilesFile,
 }
 
 const listFilesOfWorks = `-- name: ListFilesOfWorks :many
-SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
+SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
 `
 
 func (q *Queries) ListFilesOfWorks(ctx context.Context, workIds []works.WorkID) ([]FilesFile, error) {
@@ -1174,6 +1173,7 @@ func (q *Queries) ListFilesOfWorks(ctx context.Context, workIds []works.WorkID) 
 			&i.ProbedAt,
 			&i.ProbeError,
 			&i.SourceName,
+			&i.PlacedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -1243,7 +1243,7 @@ func (q *Queries) ListFillsOfTargets(ctx context.Context, targetIds []targets.Ta
 }
 
 const listFillsOfWorks = `-- name: ListFillsOfWorks :many
-SELECT files_fill.file_id, files_fill.target_id, files_fill.item_id, files_fill.edition, files_fill.score, files_fill.forced_at FROM files_fill
+SELECT files_fill.file_id, files_fill.target_id, files_fill.item_id, files_fill.edition, files_fill.score, files_fill.forced_at, files_fill.forced_import_id FROM files_fill
 JOIN files_file ON files_file.id = files_fill.file_id
 WHERE files_file.work_id IN (/*SLICE:work_ids*/?)
 ORDER BY files_fill.item_id, files_fill.edition, files_fill.target_id
@@ -1275,6 +1275,7 @@ func (q *Queries) ListFillsOfWorks(ctx context.Context, workIds []works.WorkID) 
 			&i.Edition,
 			&i.Score,
 			&i.ForcedAt,
+			&i.ForcedImportID,
 		); err != nil {
 			return nil, err
 		}
@@ -1360,49 +1361,6 @@ func (q *Queries) ListImportedIn(ctx context.Context, arg ListImportedInParams) 
 	return items, nil
 }
 
-const listImportsOfFiles = `-- name: ListImportsOfFiles :many
-SELECT file_id, import_id FROM files_imported
-WHERE file_id IN (/*SLICE:file_ids*/?) AND import_id IS NOT NULL ORDER BY at
-`
-
-type ListImportsOfFilesRow struct {
-	FileID   FileID
-	ImportID storage.UUID
-}
-
-func (q *Queries) ListImportsOfFiles(ctx context.Context, fileIds []FileID) ([]ListImportsOfFilesRow, error) {
-	query := listImportsOfFiles
-	var queryParams []interface{}
-	if len(fileIds) > 0 {
-		for _, v := range fileIds {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:file_ids*/?", strings.Repeat(",?", len(fileIds))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:file_ids*/?", "NULL", 1)
-	}
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListImportsOfFilesRow
-	for rows.Next() {
-		var i ListImportsOfFilesRow
-		if err := rows.Scan(&i.FileID, &i.ImportID); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listItemsOfFiles = `-- name: ListItemsOfFiles :many
 SELECT file_id, item_id FROM files_file_item WHERE file_id IN (/*SLICE:file_ids*/?) ORDER BY file_id, position
 `
@@ -1446,7 +1404,7 @@ func (q *Queries) ListItemsOfFiles(ctx context.Context, fileIds []FileID) ([]Lis
 }
 
 const listLeftIn = `-- name: ListLeftIn :many
-SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name FROM files_file f
+SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by FROM files_file f
 WHERE f.work_id IN (/*SLICE:work_ids*/?) AND f.gone_at IS NULL AND NOT EXISTS (SELECT 1 FROM files_move m WHERE m.file_id = f.id)
 ORDER BY f.id
 `
@@ -1492,6 +1450,7 @@ func (q *Queries) ListLeftIn(ctx context.Context, workIds []works.WorkID) ([]Fil
 			&i.ProbedAt,
 			&i.ProbeError,
 			&i.SourceName,
+			&i.PlacedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -1645,12 +1604,12 @@ func (q *Queries) ListPaths(ctx context.Context) ([]string, error) {
 }
 
 const listPlacedByOfFiles = `-- name: ListPlacedByOfFiles :many
-SELECT file_id, placed_by FROM files_imported WHERE file_id IN (/*SLICE:file_ids*/?) ORDER BY at
+SELECT id, placed_by FROM files_file WHERE id IN (/*SLICE:file_ids*/?) AND placed_by IS NOT NULL ORDER BY id
 `
 
 type ListPlacedByOfFilesRow struct {
-	FileID   FileID
-	PlacedBy string
+	ID       FileID
+	PlacedBy *string
 }
 
 func (q *Queries) ListPlacedByOfFiles(ctx context.Context, fileIds []FileID) ([]ListPlacedByOfFilesRow, error) {
@@ -1672,7 +1631,7 @@ func (q *Queries) ListPlacedByOfFiles(ctx context.Context, fileIds []FileID) ([]
 	var items []ListPlacedByOfFilesRow
 	for rows.Next() {
 		var i ListPlacedByOfFilesRow
-		if err := rows.Scan(&i.FileID, &i.PlacedBy); err != nil {
+		if err := rows.Scan(&i.ID, &i.PlacedBy); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -2171,6 +2130,20 @@ type SetPathParams struct {
 
 func (q *Queries) SetPath(ctx context.Context, arg SetPathParams) error {
 	_, err := q.db.ExecContext(ctx, setPath, arg.Path, arg.ID)
+	return err
+}
+
+const setPlacedBy = `-- name: SetPlacedBy :exec
+UPDATE files_file SET placed_by = ?1 WHERE id = ?2
+`
+
+type SetPlacedByParams struct {
+	PlacedBy *string
+	ID       FileID
+}
+
+func (q *Queries) SetPlacedBy(ctx context.Context, arg SetPlacedByParams) error {
+	_, err := q.db.ExecContext(ctx, setPlacedBy, arg.PlacedBy, arg.ID)
 	return err
 }
 

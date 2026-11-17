@@ -44,6 +44,7 @@ type FilesFile struct {
 	ProbedAt     storage.Time
 	ProbeError   *string
 	SourceName   *string
+	PlacedBy     *string
 }
 
 type FilesFileItem struct {
@@ -53,12 +54,13 @@ type FilesFileItem struct {
 }
 
 type FilesFill struct {
-	FileID   FileID
-	TargetID targets.TargetID
-	ItemID   works.ItemID
-	Edition  targets.Edition
-	Score    int64
-	ForcedAt storage.Time
+	FileID         FileID
+	TargetID       targets.TargetID
+	ItemID         works.ItemID
+	Edition        targets.Edition
+	Score          int64
+	ForcedAt       storage.Time
+	ForcedImportID storage.UUID
 }
 
 type FilesImported struct {
@@ -84,13 +86,4 @@ type FilesMove struct {
 type FilesPrune struct {
 	RootID roots.ID
 	Folder string
-}
-
-type FilesRenamed struct {
-	ID        RenameID
-	FileID    FileID
-	RootID    roots.ID
-	FromPath  string
-	ToPath    string
-	RenamedAt storage.Time
 }

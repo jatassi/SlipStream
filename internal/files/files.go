@@ -321,11 +321,12 @@ type Doing struct {
 
 // Fill is the file filling a cell and its score at the cell's Target.
 // Forced is when an Admin's Force gave the cell its file, zero when
-// refill chose it.
+// refill chose it, and ForcedBy the Import whose Force it was.
 type Fill struct {
-	File   ID
-	Score  int
-	Forced storage.Time
+	File     ID
+	Score    int
+	Forced   storage.Time
+	ForcedBy storage.UUID
 }
 
 // Wanted is whether a search should try to fill the cell: a missing,
