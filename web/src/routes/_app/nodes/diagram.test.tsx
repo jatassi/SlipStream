@@ -232,3 +232,31 @@ test("a television's screen is lit while its Node is online and a Media Server i
   expect(lit.fill).toBe(alsoLit.fill);
   expect(dark.fill).not.toBe(lit.fill);
 });
+
+test("the Notifying Role's Inspector says the Node sees the connections' secrets while it sends", async () => {
+  const notifying = {
+    ...home,
+    roles: [...home.roles, { role: "notifying", state: "holding" } as const],
+  };
+  renderApp({
+    path: "/nodes",
+    handlers: [
+      nodesAre(notifying, seedbox, vps),
+      topologyIs(topologyOf([notifying, seedbox, vps], { rtt: 24 })),
+      ...dragServer().handlers,
+    ],
+  });
+  await expect.element(diagram()).toBeVisible();
+  await userEvent.click(
+    page.elementLocator(document.querySelector(chip(ids.home, "notifying")) ?? document.body),
+  );
+  const inspector = page.getByRole("complementary", { name: "Notifying on home" });
+  await expect.element(inspector.getByText("home has the Notifying Role.")).toBeVisible();
+  await expect
+    .element(
+      inspector.getByText(
+        "A Node with this Role sees your notification connections' secrets while it sends.",
+      ),
+    )
+    .toBeVisible();
+});
