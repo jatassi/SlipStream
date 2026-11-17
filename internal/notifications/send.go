@@ -63,7 +63,11 @@ func (s *Service) try(ctx context.Context, p providers.Provider, node role.NodeI
 	if err != nil {
 		return providers.Verdict{Outcome: providers.RefusedContent, Reason: providers.Reason{Code: providers.Refused}}
 	}
-	return p.Classify(s.deliver(ctx, node, out, pay.Accepted), time.Now())
+	v := p.Classify(s.deliver(ctx, node, out, pay.Accepted), time.Now())
+	if v.Reason.Node.IsZero() {
+		v.Reason.Node = node
+	}
+	return v
 }
 
 // pick is the Node that sends for c now: a Custom Script's own Node, or

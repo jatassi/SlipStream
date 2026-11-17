@@ -121,7 +121,7 @@ test("Cancel with Also blocklist this Release cancels the Grab and blocklists it
   await expect
     .element(
       page
-        .getByRole("region", { name: "Notifications" })
+        .getByRole("region", { name: "Messages" })
         .getByText("Canceled the Grab of The Quiet Orchard."),
     )
     .toBeVisible();

@@ -29,7 +29,7 @@ const stalled = torrent({
 });
 
 const table = () => page.getByRole("table", { name: "Torrents" });
-const notices = () => page.getByRole("region", { name: "Notifications" });
+const notices = () => page.getByRole("region", { name: "Messages" });
 
 function open(
   rows: readonly DownloadclientsTorrentRow[],

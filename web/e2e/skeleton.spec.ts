@@ -16,7 +16,7 @@ test("an Admin adds a movie, its search on add grabs it, and it imports", async 
     .getByRole("dialog", { name: "Add The Quiet Orchard" })
     .getByRole("button", { name: "Add Movie" })
     .click();
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText(
     "Added The Quiet Orchard. Searching now.",
   );
   await expect(page.getByRole("heading", { name: "The Quiet Orchard", exact: true })).toBeVisible();

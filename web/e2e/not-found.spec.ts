@@ -22,7 +22,7 @@ async function added(world: World, contentType: "movie" | "series", key: string)
 
 const notFound = (page: Page) =>
   page.getByRole("region", { name: "Needs you" }).getByRole("list", { name: "Not found" });
-const notifications = (page: Page) => page.getByRole("region", { name: "Notifications" });
+const notifications = (page: Page) => page.getByRole("region", { name: "Messages" });
 
 test("a season whose search found nothing is listed as Not found, and its Search searches it again", async ({
   adminPage: page,

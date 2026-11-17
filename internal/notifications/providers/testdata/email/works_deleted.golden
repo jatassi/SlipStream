@@ -1,5 +1,5 @@
 MAIL sam@example.com
-Subject: Deleted 12 Works from Movies
+Subject: Deleted 12 movies
 --- text
 Alien (1979)
 Arrival (2016)
@@ -7,7 +7,7 @@ Blade Runner (1982)
 9 more were deleted.
 
 --- html
-<h2>Deleted 12 Works from Movies</h2>
+<h2>Deleted 12 movies</h2>
 <p>Alien (1979)</p>
 <p>Arrival (2016)</p>
 <p>Blade Runner (1982)</p>
@@ -15,7 +15,7 @@ Blade Runner (1982)
 
 
 MAIL alex@example.com
-Subject: Deleted 12 Works from Movies
+Subject: Deleted 12 movies
 --- text
 Alien (1979)
 Arrival (2016)
@@ -23,7 +23,7 @@ Blade Runner (1982)
 9 more were deleted.
 
 --- html
-<h2>Deleted 12 Works from Movies</h2>
+<h2>Deleted 12 movies</h2>
 <p>Alien (1979)</p>
 <p>Arrival (2016)</p>
 <p>Blade Runner (1982)</p>

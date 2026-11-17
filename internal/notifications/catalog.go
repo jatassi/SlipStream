@@ -58,7 +58,7 @@ func renderNewItems(f healthFacts, c notice.Context) notice.Message {
 		m.Link = notice.HealthLink(string(it.Category), it.Key)
 		return m
 	}
-	m.Title = fmt.Sprintf(healthWords.NewMany, len(f.Items))
+	m.Title = fmt.Sprintf(healthWords.NewMany, notice.Grouped(len(f.Items)))
 	m.Lines = subjects(f.Items)
 	return m
 }
@@ -71,7 +71,7 @@ func renderCleared(f healthFacts, c notice.Context) notice.Message {
 		m.Lines = []string{fmt.Sprintf(healthWords.OnHealthFrom, c.Clock(it.Since), c.Clock(it.Cleared))}
 		return m
 	}
-	m.Title = fmt.Sprintf(healthWords.ClearedMany, len(f.Items))
+	m.Title = fmt.Sprintf(healthWords.ClearedMany, notice.Grouped(len(f.Items)))
 	m.Lines = subjects(f.Items)
 	return m
 }

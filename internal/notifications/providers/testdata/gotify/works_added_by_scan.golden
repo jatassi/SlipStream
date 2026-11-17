@@ -3,7 +3,7 @@ Content-Type: application/json
 X-Gotify-Key: [set]
 
 {
-  "title": "A Library scan of Movies on Den added 12 Works",
+  "title": "A Library scan of the Movies library root on Den added 12 movies",
   "message": "Alien (1979)\nArrival (2016)\nBlade Runner (1982)\n9 more were added.",
   "priority": 8,
   "extras": {

@@ -74,7 +74,7 @@ test("seedbox's Transfers say nothing moves and save a send limit the Node reads
 
   await page.getByRole("textbox", { name: "Send limit" }).fill("10");
   await page.getByRole("main").getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText(
     "Transfer settings saved",
   );
   const saved = await world.api("GET", `/api/v1/transfers/nodes/${seedbox}/settings`);

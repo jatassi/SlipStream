@@ -76,7 +76,7 @@ var table = [...]row{
 	{Subtitles, "Subtitles", Process, "fetches subtitles", Rule{Work: Portable, Lapse: ToPeer}},
 	{Metadata, "Metadata", Connect, "reads metadata", Rule{Always: true, Work: None, Lapse: ToController}},
 	{MediaServerLink, "Media Server link", Connect, "sends changes to Media Servers", Rule{Controller: true, Work: None, Lapse: Wait}},
-	{Notifying, "Notifying", Connect, "sends notifications and mail", Rule{Always: true, Work: Portable, Lapse: ToController, Reach: true}},
+	{Notifying, "Notifying", Connect, "sends notifications, including email", Rule{Always: true, Work: Portable, Lapse: ToController, Reach: true}},
 	{Relaying, "Relaying", Reach, "relays", Rule{Max: 1, Work: Streams, Lapse: Wait}},
 	{Serving, "Serving", Reach, "serves the SlipStream web app", Rule{Controller: true, Work: None, Lapse: Wait, Probe: ListenerUp}},
 }

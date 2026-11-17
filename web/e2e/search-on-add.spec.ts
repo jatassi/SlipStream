@@ -6,7 +6,7 @@ import { clickWhenStill } from "./still.ts";
 test.use({ scenario: "auto-search" });
 test.describe.configure({ timeout: 120_000 });
 
-const notifications = (page: Page) => page.getByRole("region", { name: "Notifications" });
+const notifications = (page: Page) => page.getByRole("region", { name: "Messages" });
 const searchLine = (page: Page) => page.getByRole("status", { name: "Search" });
 const searches = (page: Page) => page.getByRole("list", { name: "Searches" });
 

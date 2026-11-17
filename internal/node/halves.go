@@ -107,6 +107,10 @@ type half struct {
 	// Controller.
 	mediaServersHealth health.Source
 
+	// notifications is the Admin's notification connections and the bell,
+	// on a Controller.
+	notifications *notifications.Service
+
 	tasks    *tasks.Scheduler
 	health   *health.Health
 	firstRun *firstrun.FirstRun
@@ -237,8 +241,9 @@ func (n *Node) startController(ctx context.Context) error {
 		Roster:    openedRoster{&side},
 		Mail:      lib.mail,
 		Artwork:   lateArtwork{&meta},
-		Changed:   unboundChanged{},
-		Seen:      unboundSeen{},
+		Endpoints: n.cfg.Endpoints.Notify,
+		Changed:   notifications.ChangedEvent.Bind(n.hub),
+		Seen:      notifications.SeenEvent.Bind(n.hub),
 		Timings:   n.cfg.Timings.Notifications,
 		Rand:      n.notificationsRand,
 		Zone:      n.zone(),
@@ -257,7 +262,7 @@ func (n *Node) startController(ctx context.Context) error {
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
 		Served:          append([]role.Served{downloads, stored, transferring, linked}, n.env.Test.Served...),
-		Owners:          owners(clients, servers),
+		Owners:          owners(clients, servers, n.notifications),
 		Kept:            grabs.Kept,
 		Torrents:        clients,
 		Storage: func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (nodes.StorageFigures, error) {
@@ -579,6 +584,8 @@ func (n *Node) startController(ctx context.Context) error {
 
 		mediaServersHealth: servers.HealthSource(),
 
+		notifications: n.notifications,
+
 		transfers: copies,
 		copier:    copier,
 	}
@@ -672,17 +679,6 @@ func (a lateArtwork) Image(ctx context.Context, ref artwork.Ref, size artwork.Si
 func (a lateArtwork) PublicURL(ref artwork.Ref, size artwork.Size) (string, error) {
 	return (*a.meta).PublicURL(ref, size)
 }
-
-// unboundChanged and unboundSeen stand in for notifications' live events
-// until they join surface.Events with the screens that read them.
-type (
-	unboundChanged struct{}
-	unboundSeen    struct{}
-)
-
-func (unboundChanged) Publish(context.Context, notifications.Changed) {}
-
-func (unboundSeen) Publish(context.Context, storage.UUID, notifications.Seen) {}
 
 // lateTasks is the Scheduled tasks once they open: the Media Servers and
 // grabs are made before them, since the tasks' catalog lists their tasks.
@@ -901,7 +897,7 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 }
 
 // owners is each Role's owner: the feature that keeps its work.
-func owners(clients *downloadclients.Clients, servers *mediaservers.MediaServers) []nodes.Owner {
+func owners(clients *downloadclients.Clients, servers *mediaservers.MediaServers, notes *notifications.Service) []nodes.Owner {
 	return []nodes.Owner{
 		indexers.SearchingOwner,
 		clients.DownloadingOwner(),
@@ -910,7 +906,7 @@ func owners(clients *downloadclients.Clients, servers *mediaservers.MediaServers
 		nodes.Unowned(role.Subtitles),
 		metadata.Owner,
 		servers.Owner(),
-		notifying.Owner,
+		notes.Owner(),
 		nodes.Unowned(role.Relaying),
 		nodes.Unowned(role.Serving),
 	}

@@ -2,6 +2,7 @@ package imports
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -211,7 +212,7 @@ func renderImported(f ImportedFacts, _ notice.Context) notice.Message {
 	if f.Work.Nouns.Single {
 		p := f.Files[0]
 		m.Title = "Imported " + f.Work.Label
-		m.Lines = []string{factsWords(f.Files), "SlipStream " + placedWords[p.PlacedBy] + " it into the " + f.Root + "."}
+		m.Lines = []string{factsWords(f.Files), fmt.Sprintf(placedWords[p.PlacedBy], f.Root)}
 		return m
 	}
 	item := lower(f.Work.Nouns.Item)
@@ -239,7 +240,7 @@ func renderUpgraded(f ImportedFacts, _ notice.Context) notice.Message {
 	case rest == 1:
 		m.Lines = append(m.Lines, "1 more "+item.One+" was upgraded.")
 	case rest > 1:
-		m.Lines = append(m.Lines, strconv.Itoa(rest)+" more "+item.Many+" were upgraded.")
+		m.Lines = append(m.Lines, notice.Grouped(rest)+" more "+item.Many+" were upgraded.")
 	}
 	return withLeft(m, f, item)
 }
@@ -268,25 +269,32 @@ func placedMessage(f ImportedFacts, tone notice.Tone) notice.Message {
 
 // withLeft adds the sentences for the files that failed or wait.
 func withLeft(m notice.Message, f ImportedFacts, item works.Noun) notice.Message {
+	page := " the " + lower(f.Work.Nouns.Work).One + " page"
 	if f.Failed > 0 {
 		verb := " weren't imported. "
 		if f.Failed == 1 {
 			verb = " wasn't imported. "
 		}
-		m.Lines = append(m.Lines, capital(notice.Count(f.Failed, item))+verb+"Open the Work page to see why.")
+		m.Lines = append(m.Lines, capital(notice.Count(f.Failed, item))+verb+"Open"+page+" to see why.")
 	}
 	if f.Waiting > 0 {
-		verb := " wait for you on the Work page."
+		verb := " wait for you on"
 		if f.Waiting == 1 {
-			verb = " waits for you on the Work page."
+			verb = " waits for you on"
 		}
-		m.Lines = append(m.Lines, capital(notice.Count(f.Waiting, item))+verb)
+		m.Lines = append(m.Lines, capital(notice.Count(f.Waiting, item))+verb+page+".")
 	}
 	return m
 }
 
+// placedWords takes the library root's words.
 var placedWords = map[PlacedBy]string{
-	ByLink: "hard-linked", ByClone: "cloned", ByCopy: "copied", ByTransfer: "sent", ByMove: "moved", InPlace: "found",
+	ByLink:     "SlipStream hard-linked it into the %s.",
+	ByClone:    "SlipStream cloned it into the %s.",
+	ByCopy:     "SlipStream copied it into the %s.",
+	ByTransfer: "SlipStream transferred it from another Node into the %s.",
+	ByMove:     "SlipStream moved it into the %s.",
+	InPlace:    "SlipStream found it in the %s.",
 }
 
 // factsWords is the files' qualities in order, then their total size:
@@ -322,8 +330,9 @@ func itemCount(fs []PlacedFile) int {
 }
 
 // itemsWords is the files' Items in words: "season 2, episodes 1 to 10",
-// or with more than one level "episodes 9 and 10 of season 1 and episode 1
-// of season 2".
+// or with more than one level "episodes 9 and 10 of season 1, plus episode
+// 1 of season 2". The levels join with "plus" so a level's own "and"
+// isn't read as theirs.
 func itemsWords(fs []PlacedFile, item works.Noun) string {
 	var levels []string
 	numbers := map[string][]int{}
@@ -346,7 +355,7 @@ func itemsWords(fs []PlacedFile, item works.Noun) string {
 	for i, l := range levels {
 		parts[i] = numbersWords(item, slices.Sorted(slices.Values(numbers[l]))) + " of " + lowerFirst(l)
 	}
-	return joinWords(parts)
+	return strings.Join(parts[:len(parts)-1], ", ") + ", plus " + parts[len(parts)-1]
 }
 
 func itemAtWords(it ItemAt, item works.Noun) string {

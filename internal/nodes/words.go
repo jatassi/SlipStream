@@ -197,7 +197,7 @@ func offline(n Named, r role.Name) Check {
 
 func nothingToTest(n Named, r role.Name) Check {
 	return newCheck(n, r, Allow, NothingToTest,
-		fmt.Sprintf("No mail server or connection is set up yet, so SlipStream can't test the %s Role on %s.", r.Label(), n.Name), "Nothing to test yet")
+		fmt.Sprintf("No mail server or notification connection is set up yet, so SlipStream can't test the %s Role on %s.", r.Label(), n.Name), "Nothing to test yet")
 }
 
 func reached(n Named, r role.Name, t Target, res ReachResult) Check {

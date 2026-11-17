@@ -90,7 +90,7 @@ test("tightening a Target so a file fills nothing shows the Impact, and Delete r
   await page.screenshot({ path: testInfo.outputPath("impact-sheet.png") });
   await sheet.getByRole("button", { name: "Save and delete 1 file" }).click();
 
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText("Saved 1080p.");
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText("Saved 1080p.");
   await expect(page).toHaveURL(/\/settings\/targets$/u);
   expect(await cellsOf(world, workId)).toEqual(["1080p missing"]);
   await page.goto(`/works/${workId}`);
@@ -145,7 +145,7 @@ test("an Admin changes a Work's Profile through the Impact sheet and keeps the f
   await page.screenshot({ path: testInfo.outputPath("work-impact.png") });
   await impact.getByRole("button", { name: "Save and keep 1 file" }).click();
 
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText(
     "Changed the Profile of The Quiet Orchard.",
   );
   await expect(edit).toBeHidden();

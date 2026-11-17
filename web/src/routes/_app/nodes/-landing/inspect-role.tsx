@@ -5,7 +5,7 @@ import { movesWithWork } from "../../../../diagram/machines";
 import { bytes, countWords } from "../../../../format";
 import { Details } from "../../../../ui/details";
 import { InspectorSection } from "../../../../ui/inspector";
-import { type NodeRow, type RoleChip, shareDone } from "./view";
+import { type NodeRow, type RoleChip, roleTrust, shareDone } from "./view";
 
 const roots = { one: "root", many: "roots" } as const;
 const volumes = { one: "volume", many: "volumes" } as const;
@@ -79,8 +79,11 @@ export function RoleWords({ node, chip }: { node: NodeRow; chip: RoleChip }) {
     <>
       <InspectorSection>
         <p>
-          {chip.note === "" ? `${node.name} holds ${chip.label}.` : `${chip.label}: ${chip.note}.`}
+          {chip.note === ""
+            ? `${node.name} has the ${chip.label} Role.`
+            : `${chip.label}: ${chip.note}.`}
         </p>
+        {roleTrust[chip.role] !== undefined && <p className="mt-2">{roleTrust[chip.role]}</p>}
         {!movesWithWork(chip.role) && (
           <p className="mt-2 text-ink-3">No live figures for this Role</p>
         )}

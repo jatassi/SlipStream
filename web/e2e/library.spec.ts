@@ -24,7 +24,7 @@ test("an Admin adds a movie from the catalog and sees its missing cell", async (
   const sheet = page.getByRole("dialog", { name: "Add The Quiet Orchard" });
   await sheet.getByRole("switch", { name: "Search after adding" }).click();
   await sheet.getByRole("button", { name: "Add Movie" }).click();
-  await expect(page.getByRole("region", { name: "Notifications" })).toHaveText(
+  await expect(page.getByRole("region", { name: "Messages" })).toHaveText(
     "Added The Quiet Orchard",
   );
   await expect(page.getByRole("heading", { name: "The Quiet Orchard", exact: true })).toBeVisible();

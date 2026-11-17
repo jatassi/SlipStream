@@ -46,7 +46,7 @@ const hit = (row: DownloadclientsTorrentRow, seconds: number) => ({
 });
 
 const table = () => page.getByRole("table", { name: "Torrents" });
-const notices = () => page.getByRole("region", { name: "Notifications" });
+const notices = () => page.getByRole("region", { name: "Messages" });
 
 function open(actions: ReturnType<typeof actionsServer>) {
   renderApp({

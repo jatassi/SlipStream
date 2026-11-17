@@ -3,7 +3,7 @@ Authorization: Basic slipstream:[set]
 Content-Type: application/json
 
 {
-  "body": "Season 2, episodes 1 to 10.\nWEBDL-2160p · Dolby Vision · DDP 5.1 · NTb · 48.1 GB\n1 episode waits for you on the Work page.\nhttps://slipstream.example/works/w2",
+  "body": "Season 2, episodes 1 to 10.\nWEBDL-2160p · Dolby Vision · DDP 5.1 · NTb · 48.1 GB\n1 episode waits for you on the series page.\nhttps://slipstream.example/works/w2",
   "format": "text",
   "tag": "family,phones",
   "title": "Imported 10 episodes of Severance",

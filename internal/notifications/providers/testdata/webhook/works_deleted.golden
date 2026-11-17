@@ -7,7 +7,7 @@ X-Hook-Secret: [set]
   "version": 1,
   "event": "works_deleted",
   "at": "2026-11-16T14:02:00Z",
-  "title": "Deleted 12 Works from Movies",
+  "title": "Deleted 12 movies",
   "lines": [
     "Alien (1979)",
     "Arrival (2016)",

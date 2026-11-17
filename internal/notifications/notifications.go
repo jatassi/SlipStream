@@ -9,6 +9,7 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
@@ -54,6 +55,7 @@ type Roster interface {
 	Self() role.NodeID
 	Changed() <-chan struct{}
 	Pick(r role.Name, prefer role.NodeID) (role.NodeID, bool)
+	Holds(r role.Name, node role.NodeID) bool
 	InStep(node role.NodeID) bool
 	Name(node role.NodeID) string
 	WrittenOff(r role.Name, node role.NodeID) bool
@@ -80,6 +82,11 @@ type Changed struct {
 
 // Seen is published to one Account after its bell cursor moves.
 type Seen struct{}
+
+var (
+	ChangedEvent = live.AdminEvent[Changed]("notifications.changed")
+	SeenEvent    = live.AccountEvent[Seen]("notifications.seen")
+)
 
 // ChangedPublisher is the notifications.changed event bound to the hub.
 type ChangedPublisher interface {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -241,21 +242,35 @@ func (e Edit) empty() bool {
 func (s *Service) draft(d Draft, now time.Time) (Connection, providers.Values, error) {
 	c := Connection{
 		ID: ConnectionID{UUID: storage.NewUUID()}, Name: d.Name, Provider: d.Provider, On: d.On, OnAt: now, Events: d.Events,
-		Warnings: d.Warnings, Posters: d.Posters, Node: d.Node, Settings: d.Settings, Revision: 1, Created: now,
+		Warnings: d.Warnings, Posters: d.Posters, Node: d.Node, Revision: 1, Created: now,
 	}
 	if c.Events == nil {
 		c.Events = s.recommended()
 	}
+	c.Settings = maps.Clone(d.Settings)
 	if c.Settings == nil {
 		c.Settings = providers.Values{}
 	}
 	secrets := providers.Values{}
 	for k, v := range d.Secrets {
-		if v != "" {
-			secrets[k] = jsonString(v)
+		if v == "" {
+			continue
+		}
+		raw, err := s.secret(c.Provider, k, v)
+		if err != nil {
+			return c, secrets, err
+		}
+		secrets[k] = raw
+	}
+	if err := s.check(c, secrets); err != nil {
+		return c, secrets, err
+	}
+	for _, f := range s.provider(c.Provider).Fields {
+		if _, ok := c.Settings[f.Key]; !ok && f.Default != nil {
+			c.Settings[f.Key] = f.Default
 		}
 	}
-	return c, secrets, s.check(c, secrets)
+	return c, secrets, nil
 }
 
 // edited is c with e laid over it, and its secrets so.
@@ -293,7 +308,11 @@ func (s *Service) edited(c Connection, secrets providers.Values, e Edit, now tim
 			}
 			delete(secrets, k)
 		case *v != "":
-			secrets[k] = jsonString(*v)
+			raw, err := s.secret(c.Provider, k, *v)
+			if err != nil {
+				return c, nil, err
+			}
+			secrets[k] = raw
 		}
 	}
 	return c, secrets, s.check(c, secrets)
@@ -337,6 +356,9 @@ func (s *Service) check(c Connection, secrets providers.Values) error {
 	if (c.Provider == scriptProvider) != c.script() {
 		return &FieldError{Field: "node", Reason: "Pick the Node that runs this script."}
 	}
+	if c.script() && c.Node != s.cfg.Roster.Self() && !s.cfg.Roster.Holds(role.Notifying, c.Node) {
+		return &FieldError{Field: "node", Reason: s.names(c.Node) + " doesn't have the Notifying Role. Pick a Node that has it."}
+	}
 	if err := s.checkEvents(c.Events); err != nil {
 		return &FieldError{Field: "events", Reason: "Pick events from the list."}
 	}
@@ -371,10 +393,43 @@ func (s *Service) checkValues(c Connection, secrets providers.Values) error {
 	return nil
 }
 
-func jsonString(v string) json.RawMessage {
+// secret is the text an Admin typed for the secret key as its field's
+// value: a list one entry a line, headers one "Name: value" a line, and
+// any other kind the text itself. A key the provider lacks keeps the text,
+// for check to refuse.
+func (s *Service) secret(id providers.ID, key, text string) (json.RawMessage, error) {
+	f, _ := s.field(id, key)
+	switch f.Kind {
+	case providers.List:
+		list := []string{}
+		for line := range strings.Lines(text) {
+			if line = strings.TrimSpace(line); line != "" {
+				list = append(list, line)
+			}
+		}
+		return jsonValue(list), nil
+	case providers.Headers:
+		headers := []providers.Header{}
+		for line := range strings.Lines(text) {
+			if line = strings.TrimSpace(line); line == "" {
+				continue
+			}
+			name, value, ok := strings.Cut(line, ":")
+			if name = strings.TrimSpace(name); !ok || name == "" {
+				return nil, &FieldError{Field: key, Reason: "Write each header on its own line as Name: value."}
+			}
+			headers = append(headers, providers.Header{Name: name, Value: strings.TrimSpace(value)})
+		}
+		return jsonValue(headers), nil
+	case providers.Text, providers.URL, providers.Number, providers.Select, providers.Switch, providers.NodeField, providers.Duration:
+	}
+	return jsonValue(text), nil
+}
+
+func jsonValue(v any) json.RawMessage {
 	b, err := json.Marshal(v)
 	if err != nil {
-		panic(fmt.Sprintf("notifications: encode a string: %v", err))
+		panic(fmt.Sprintf("notifications: encode a secret: %v", err))
 	}
 	return b
 }

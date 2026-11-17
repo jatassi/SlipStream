@@ -26,6 +26,7 @@ export const getGetSystemHealthResponseMock = (
         "seeding",
         "indexers",
         "scheduled-tasks",
+        "notifications",
       ] as const),
       items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
@@ -88,6 +89,7 @@ export const getGetSystemHealthResponseMock = (
         "seeding",
         "indexers",
         "scheduled-tasks",
+        "notifications",
       ] as const),
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       text: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -114,6 +116,7 @@ export const getCheckSystemHealthResponseMock = (
           "seeding",
           "indexers",
           "scheduled-tasks",
+          "notifications",
         ] as const),
         items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
           () => ({
@@ -176,6 +179,7 @@ export const getCheckSystemHealthResponseMock = (
           "seeding",
           "indexers",
           "scheduled-tasks",
+          "notifications",
         ] as const),
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
         text: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -562,6 +566,7 @@ export const getCheckHealthCategoryResponseMock = (
           "seeding",
           "indexers",
           "scheduled-tasks",
+          "notifications",
         ] as const),
         items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
           () => ({
@@ -624,6 +629,7 @@ export const getCheckHealthCategoryResponseMock = (
           "seeding",
           "indexers",
           "scheduled-tasks",
+          "notifications",
         ] as const),
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
         text: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -662,6 +668,7 @@ export const getCheckHealthItemResponseMock = (
           "seeding",
           "indexers",
           "scheduled-tasks",
+          "notifications",
         ] as const),
         items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
           () => ({
@@ -724,6 +731,7 @@ export const getCheckHealthItemResponseMock = (
           "seeding",
           "indexers",
           "scheduled-tasks",
+          "notifications",
         ] as const),
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
         text: faker.string.alpha({ length: { min: 10, max: 20 } }),

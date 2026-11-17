@@ -59,6 +59,7 @@ func serve(t *testing.T) *ownertest.Owner {
 			{About: health.About{ID: health.ScheduledTasksID, Label: "Scheduled tasks", Phrase: "scheduled tasks"}, Source: health.Source{Answer: answer(health.Answer{
 				Items: []health.Item{{Key: "housekeeping", Level: health.Warn, Says: health.Says{Subject: "Housekeeping", Text: "Housekeeping failed.", Action: health.RunAction("housekeeping")}}},
 			})}},
+			{About: health.About{ID: health.NotificationsID, Label: "Notifications", Phrase: "notification connections"}, Source: health.Source{Answer: answer(health.Answer{})}},
 		},
 		Names: func(context.Context, storage.Reader[storage.Library]) (map[role.NodeID]string, error) {
 			return map[role.NodeID]string{media: "Media server"}, nil
@@ -98,7 +99,8 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 			`{"id":"seeding","label":"Seeding","phrase":"torrents that still need seeding","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"indexers","label":"Indexers","phrase":"Indexers","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"scheduled-tasks","label":"Scheduled tasks","phrase":"scheduled tasks","level":"warn","canCheck":false,"items":[{"key":"housekeeping","level":"warn","subject":"Housekeeping",`+
-			`"text":"Housekeeping failed.","detail":[],"action":{"kind":"run","taskId":"housekeeping"},"since":"T","changedAt":"T","unsure":false}]}]}`)
+			`"text":"Housekeeping failed.","detail":[],"action":{"kind":"run","taskId":"housekeeping"},"since":"T","changedAt":"T","unsure":false}]},`+
+			`{"id":"notifications","label":"Notifications","phrase":"notification connections","level":null,"canCheck":false,"items":[]}]}`)
 
 	_, checked := s.Call(t, http.MethodPost, "/api/v1/system/health/storage/items/"+string(key)+"/check", "")
 	if want := `"unreached":[{"key":"` + string(key) + `","words":"Media server is offline, so its figures are as of `; !strings.Contains(checked, want) {

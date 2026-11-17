@@ -6,7 +6,7 @@ test.use({ scenario: "series" });
 test.describe.configure({ timeout: 120_000 });
 
 const card = (page: Page) => page.getByRole("article", { name: "TVDB" });
-const toasts = (page: Page) => page.getByRole("region", { name: "Notifications" });
+const toasts = (page: Page) => page.getByRole("region", { name: "Messages" });
 
 async function setKey(page: Page, key: string, pin: string) {
   await card(page)

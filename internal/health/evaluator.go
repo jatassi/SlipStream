@@ -546,7 +546,7 @@ func (h *Health) transitions(id ID, changes []change, a Answer, now time.Time) [
 			says, ok = h.last[id][c.Key]
 		}
 		if !ok {
-			says = Says{Subject: h.all[h.byID[id]].Label + ": an item that cleared while SlipStream was stopped"}
+			says = Says{Subject: h.all[h.byID[id]].Label + ": a problem that cleared while SlipStream was stopped"}
 		}
 		since := c.Row.Since
 		if c.Kind == Cleared {

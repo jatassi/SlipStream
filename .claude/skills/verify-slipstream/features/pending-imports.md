@@ -55,7 +55,7 @@ Steps:
   $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("listitem", { name: "Nightfall", exact: true }).getByText("Nightfall (2014)").waitFor(); }'
   $FW exec $RUN --proof pending-imports/pending-change -- $PW cli $S screenshot --filename={runDir}/proof/pending-imports/pending-change/changed.png
   $FW exec $RUN -- $PW cli $S click "$NF"'.getByRole("button", { name: "Add", exact: true })'
-  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("region", { name: "Notifications" }).getByText("Added Nightfall (2014).").waitFor(); }'
+  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("region", { name: "Messages" }).getByText("Added Nightfall (2014).").waitFor(); }'
   $FW exec $RUN --proof pending-imports/pending-add -- $PW cli $S screenshot --filename={runDir}/proof/pending-imports/pending-add/added.png
   $FW exec $RUN --proof pending-imports/pending-add -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library'
   ```
@@ -69,7 +69,7 @@ Steps:
   $FW exec $RUN -- $PW cli $S click 'getByRole("option", { name: "S01E01 Noon" })'
   $FW exec $RUN --proof pending-imports/pending-import-into -- $PW cli $S screenshot --filename={runDir}/proof/pending-imports/pending-import-into/picked.png
   $FW exec $RUN -- $PW cli $S click "$INTO"'.getByRole("button", { name: "Import", exact: true })'
-  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("region", { name: "Notifications" }).getByText("Imported 1 file into Brass Meridian.").waitFor(); }'
+  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("region", { name: "Messages" }).getByText("Imported 1 file into Brass Meridian.").waitFor(); }'
   BRASS=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library' | jq -r '.rows[] | select(.label == "Brass Meridian") | .id')
   $FW exec $RUN --proof pending-imports/pending-import-into -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$BRASS/files"
   ```
@@ -78,7 +78,7 @@ Steps:
 
   ```sh
   $FW exec $RUN -- $PW cli $S click 'getByRole("listitem", { name: "Grandma'"'"'s 80th Birthday (2019)" }).getByRole("button", { name: "Ignore" })'
-  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("region", { name: "Notifications" }).getByText(/^Ignored /).waitFor(); }'
+  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("region", { name: "Messages" }).getByText(/^Ignored /).waitFor(); }'
   $FW exec $RUN --proof pending-imports/pending-ignore -- $PW cli $S screenshot --filename={runDir}/proof/pending-imports/pending-ignore/ignored-toast.png
   $FW exec $RUN -- $PW cli $S click 'getByRole("navigation", { name: "Pending imports views" }).getByRole("link", { name: "Ignored" })'
   $FW exec $RUN -- $PW cli $S click 'getByRole("listitem", { name: "Grandma'"'"'s 80th Birthday (2019)" }).getByRole("button", { name: "Details" })'

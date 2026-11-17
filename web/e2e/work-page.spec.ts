@@ -39,7 +39,7 @@ async function searched(world: World, workId: string, state: string): Promise<vo
 
 const flux = "The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.H264-FLUX";
 
-const notifications = (page: Page) => page.getByRole("region", { name: "Notifications" });
+const notifications = (page: Page) => page.getByRole("region", { name: "Messages" });
 
 async function openEditions(page: Page) {
   if (isPhone(page)) {

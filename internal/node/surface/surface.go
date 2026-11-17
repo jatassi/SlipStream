@@ -35,6 +35,8 @@ import (
 	"github.com/jatassi/slipstream/internal/namingapi"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesapi"
+	"github.com/jatassi/slipstream/internal/notifications"
+	"github.com/jatassi/slipstream/internal/notificationsapi"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/pairingapi"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -102,6 +104,8 @@ var Events = []live.Event{
 	mediaservers.UnhealthyEvent,
 	mediaservers.RecoveredEvent,
 	mediaservers.ItemsFoundEvent,
+	notifications.ChangedEvent,
+	notifications.SeenEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the
@@ -133,6 +137,7 @@ type Node interface {
 	healthapi.Watch
 	firstrunapi.Guide
 	mediaserversapi.Servers
+	notificationsapi.Notes
 }
 
 // Services are what the operations run against. Document passes none.
@@ -170,6 +175,7 @@ func Mount(r *api.Router, s Services) {
 	healthapi.Routes(r, s.Node)
 	firstrunapi.Routes(r, s.Node)
 	mediaserversapi.Routes(r, s.Node)
+	notificationsapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

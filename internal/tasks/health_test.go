@@ -151,6 +151,7 @@ func TestHealthRaisesAPartialUnitTheInstantItIsOverdue(t *testing.T) {
 				{About: health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still need seeding"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: tasks.HealthAbout, Source: s.HealthSource(health.ScheduledTasksID)},
+				{About: health.About{ID: health.NotificationsID, Label: "Notifications", Phrase: "notification connections"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 			},
 			Zone: time.UTC, Timings: health.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 		})

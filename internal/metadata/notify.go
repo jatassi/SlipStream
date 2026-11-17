@@ -28,7 +28,7 @@ func (m *Metadata) Image(ctx context.Context, ref artwork.Ref, size artwork.Size
 func (m *Metadata) PublicURL(ref artwork.Ref, size artwork.Size) (string, error) {
 	src, ok := m.cfg.Sources[ref.Source]
 	if !ok {
-		return "", fmt.Errorf("artwork source %q isn't one this Controller knows", ref.Source)
+		return "", fmt.Errorf("this Controller has no artwork source %q", ref.Source)
 	}
 	u, err := src.URL(ref.Shape, ref.Path, size)
 	if err != nil {

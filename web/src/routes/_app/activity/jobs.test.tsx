@@ -181,7 +181,7 @@ test("Search again on a failed Grab searches its Work and says so", async () => 
     ],
   });
   await userEvent.click(harvestCard().getByRole("button", { name: "Search again" }));
-  const toasts = page.getByRole("region", { name: "Notifications" });
+  const toasts = page.getByRole("region", { name: "Messages" });
   await expect.element(toasts.getByText("Searching Orchard Harvest")).toBeVisible();
   expect(searched).toEqual([harvestId]);
 });
@@ -255,9 +255,7 @@ test("a downloading Job's menu pauses its torrent and removes it through the sam
   await userEvent.click(menu);
   await userEvent.click(page.getByRole("menuitem", { name: "Pause" }));
   await expect
-    .element(
-      page.getByRole("region", { name: "Notifications" }).getByText("Pausing The Quiet Orchard."),
-    )
+    .element(page.getByRole("region", { name: "Messages" }).getByText("Pausing The Quiet Orchard."))
     .toBeVisible();
   expect(actions.bodies).toEqual([{ action: "pause", ids: [orchardTorrent.id] }]);
 

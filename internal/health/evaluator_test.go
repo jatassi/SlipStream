@@ -217,6 +217,7 @@ func (w *world) open(t *testing.T) *health.Health {
 			{About: health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still need seeding"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 			{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 			{About: health.About{ID: health.ScheduledTasksID, Label: "Scheduled tasks", Phrase: "scheduled tasks", Events: []live.Event{tasksEvent}}, Source: health.Source{Answer: w.tasks.Answer}},
+			{About: health.About{ID: health.NotificationsID, Label: "Notifications", Phrase: "notification connections"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 		},
 		Names: func(context.Context, storage.Reader[storage.Library]) (map[role.NodeID]string, error) {
 			w.mu.Lock()
@@ -508,7 +509,7 @@ func TestAClearAfterARestartKeepsSinceAndNamesTheCategory(t *testing.T) {
 		if len(ts) != 2 || ts[1].Kind != health.Cleared {
 			t.Fatalf("transitions %+v, want the raise, then the clear", ts)
 		}
-		if got := ts[1]; got.Subject != "Nodes: an item that cleared while SlipStream was stopped" || !got.Since.Equal(since) {
+		if got := ts[1]; got.Subject != "Nodes: a problem that cleared while SlipStream was stopped" || !got.Since.Equal(since) {
 			t.Fatalf("the clear after a restart is %q since %v, want the category's words since %v", got.Subject, got.Since, since)
 		}
 	})

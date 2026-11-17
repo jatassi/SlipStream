@@ -75,7 +75,7 @@ func (s *Service) logKept(c Connection, v providers.Verdict) {
 
 // down is why no answer came from node.
 func (s *Service) down(node role.NodeID, err error) providers.Reason {
-	s.cfg.Log.Info("a Node didn't answer a notification", "node", node, "err", httpretry.WithoutURL(err).Error())
+	s.cfg.Log.Info("a Node didn't respond to a notification", "node", node, "err", httpretry.WithoutURL(err).Error())
 	if errors.Is(err, notifying.ErrUnchecked) {
 		return providers.Reason{Code: providers.Unreadable, Node: node}
 	}

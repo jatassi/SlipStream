@@ -6,4 +6,5 @@ export type HealthCategoryID =
   | "media-servers"
   | "seeding"
   | "indexers"
-  | "scheduled-tasks";
+  | "scheduled-tasks"
+  | "notifications";

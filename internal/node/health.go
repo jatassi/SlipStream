@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -27,6 +28,7 @@ func healthCategories(h *half) []health.Category {
 		{About: trackers.HealthAbout, Source: health.Join(h.trackers.HealthSource(), h.tasks.HealthSource(health.SeedingID))},
 		{About: indexers.HealthAbout, Source: health.Join(h.indexers.HealthSource(), h.tasks.HealthSource(health.IndexersID))},
 		{About: tasks.HealthAbout, Source: h.tasks.HealthSource(health.ScheduledTasksID)},
+		{About: notifications.HealthAbout, Source: h.notifications.HealthSource()},
 	}
 }
 

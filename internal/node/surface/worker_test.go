@@ -28,6 +28,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
+	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/servingapi"
@@ -57,6 +58,8 @@ func (worker) Systems() (*nodesystem.Nodes, bool) { return nil, false }
 func (worker) Works() (*works.Works, bool) { return nil, false }
 
 func (worker) MediaServers() (mediaservers.Service, bool) { return nil, false }
+
+func (worker) Notifications() (*notifications.Service, bool) { return nil, false }
 
 func (worker) Minter() (artwork.Minter, bool) { return artwork.Minter{}, false }
 

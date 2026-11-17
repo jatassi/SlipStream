@@ -213,7 +213,7 @@ func TestPruneGivesUpDeletesAndKeepsWhatAClearNeeds(t *testing.T) {
 			t.Fatalf("after the prune the bell shows %+v", f.Rows)
 		}
 		restart := cleared(d)
-		restart.Subject = "Storage: an item that cleared while SlipStream was stopped"
+		restart.Subject = "Storage: a problem that cleared while SlipStream was stopped"
 		w.Transitions(restart)
 		got := w.Courier.Received(family)
 		if last := got[len(got)-1]; last.Title != "Cleared: Disk d is almost full" || !slices.Equal(last.Lines, []string{"It was on Health from 00:00 to 00:05."}) {

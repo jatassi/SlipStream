@@ -1,6 +1,6 @@
 import { Radio } from "@base-ui/react/radio";
 import { RadioGroup as BaseRadioGroup } from "@base-ui/react/radio-group";
-import { useId } from "react";
+import { type ReactNode, useId } from "react";
 
 /** A description sits under its label and is read as the radio's description. */
 export type RadioOption<V extends string> = { value: V; label: string; description?: string };
@@ -52,5 +52,43 @@ export function RadioGroup<V extends string>({
         );
       })}
     </BaseRadioGroup>
+  );
+}
+
+export type RadioCard<V extends string> = { value: V; label: string; mark: ReactNode };
+
+const card =
+  "flex min-h-14 items-center gap-3 rounded-card bg-glass px-3 py-2.5 text-left text-body font-medium text-ink-1 ring-1 ring-hairline ring-inset transition-[background-color,box-shadow] duration-(--duration-control) ease-standard select-none hover:bg-fill in-data-[density=touch]:text-body-touch data-checked:bg-selected data-checked:ring-2 data-checked:ring-glow motion-reduce:transition-none";
+
+/** Radio cards: each option its mark and name, three columns from a 448px container and two below. */
+export function RadioCards<V extends string>({
+  label,
+  options,
+  value,
+  onValueChange,
+}: {
+  label: string;
+  options: readonly RadioCard<V>[];
+  value: V;
+  onValueChange: (value: V) => void;
+}) {
+  return (
+    <div className="@container">
+      <BaseRadioGroup
+        aria-label={label}
+        value={value}
+        onValueChange={(next) => {
+          onValueChange(next);
+        }}
+        className="grid grid-cols-2 gap-2 @md:grid-cols-3"
+      >
+        {options.map((option) => (
+          <Radio.Root key={option.value} value={option.value} className={card}>
+            {option.mark}
+            <span className="min-w-0">{option.label}</span>
+          </Radio.Root>
+        ))}
+      </BaseRadioGroup>
+    </div>
   );
 }

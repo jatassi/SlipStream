@@ -63,3 +63,52 @@ test("a secret not saved yet is an input from the start", async () => {
   expect(page.getByRole("button", { name: "Replace API key" }).query()).toBeNull();
   expect(page.getByRole("button", { name: "Cancel" }).query()).toBeNull();
 });
+
+const optional: { password: string | null } = { password: "" };
+
+function OptionalForm() {
+  const [sent, setSent] = useState<string>();
+  const form = useAppForm({
+    defaultValues: optional,
+    onSubmit: ({ value }) => {
+      setSent(value.password === null ? "removed" : "kept");
+    },
+  });
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <form.AppForm>
+        <form.AppField name="password">
+          {(field) => <field.SecretField label="Password" saved removable />}
+        </form.AppField>
+        <form.SubmitButton label="Save" />
+        {sent === undefined ? null : <output>Sent {sent}</output>}
+      </form.AppForm>
+    </form>
+  );
+}
+
+test("a removable secret offers Remove, which Undo takes back and a save sends as removed", async () => {
+  renderKit(<OptionalForm />);
+  const field = page.getByRole("group", { name: "Password" });
+  await userEvent.click(field.getByRole("button", { name: "Remove Password" }));
+  await expect.element(field.getByText("Removed. Save to apply.")).toBeVisible();
+  await userEvent.click(field.getByRole("button", { name: "Undo removing Password" }));
+  await expect.element(field.getByText("Saved")).toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Save" }));
+  await expect.element(page.getByText("Sent kept")).toBeVisible();
+
+  await userEvent.click(field.getByRole("button", { name: "Remove Password" }));
+  await userEvent.click(page.getByRole("button", { name: "Save" }));
+  await expect.element(page.getByText("Sent removed")).toBeVisible();
+});
+
+test("a secret that isn't removable offers only Replace", async () => {
+  renderKit(<KeyForm saved />);
+  await expect.element(page.getByRole("button", { name: "Replace API key" })).toBeVisible();
+  expect(page.getByRole("button", { name: "Remove API key" }).query()).toBeNull();
+});

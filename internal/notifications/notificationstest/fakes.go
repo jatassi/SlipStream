@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -56,10 +57,24 @@ func hookProvider(words map[providers.ReasonCode]string) providers.Provider {
 		Fields: []providers.Field{
 			{Key: "url", Label: "URL", Kind: providers.URL},
 			{Key: "token", Label: "Token", Kind: providers.Text, Secret: true},
+			{Key: "signing", Label: "Signing key", Kind: providers.Text, Secret: true, Optional: true},
 		},
+		Host:     hookHost,
 		Build:    buildHook,
 		Classify: classifyHook,
 	}
+}
+
+func hookHost(values providers.Values, _ providers.Endpoints) (*url.URL, bool) {
+	var raw string
+	if err := json.Unmarshal(values["url"], &raw); err != nil {
+		return nil, false
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return nil, false
+	}
+	return &url.URL{Scheme: u.Scheme, Host: u.Host}, true
 }
 
 // body is what the Hook posts.
@@ -73,8 +88,8 @@ type body struct {
 }
 
 func buildHook(p providers.Payload) (providers.Outbound, error) {
-	var url, token string
-	if err := json.Unmarshal(p.Settings["url"], &url); err != nil {
+	var target, token string
+	if err := json.Unmarshal(p.Settings["url"], &target); err != nil {
 		return providers.Outbound{}, fmt.Errorf("read the url: %w", err)
 	}
 	if err := json.Unmarshal(p.Secrets["token"], &token); err != nil {
@@ -88,9 +103,15 @@ func buildHook(p providers.Payload) (providers.Outbound, error) {
 	if err != nil {
 		return providers.Outbound{}, fmt.Errorf("encode the body: %w", err)
 	}
-	return providers.Outbound{Post: &providers.Request{
-		Method: http.MethodPost, URL: url, Header: http.Header{"Authorization": {"Bearer " + token}}, Body: raw,
-	}}, nil
+	header := http.Header{"Authorization": {"Bearer " + token}}
+	if key, ok := p.Secrets["signing"]; ok {
+		var signing string
+		if err := json.Unmarshal(key, &signing); err != nil {
+			return providers.Outbound{}, fmt.Errorf("read the signing key: %w", err)
+		}
+		header.Set("X-Signing", signing)
+	}
+	return providers.Outbound{Post: &providers.Request{Method: http.MethodPost, URL: target, Header: header, Body: raw}}, nil
 }
 
 func classifyHook(r providers.Reply, now time.Time) providers.Verdict {
@@ -142,17 +163,23 @@ func scriptProvider() providers.Provider {
 		Fields: []providers.Field{
 			{Key: "path", Label: "Path", Kind: providers.Text},
 			{Key: "node", Label: "Node", Kind: providers.NodeField},
+			{Key: "stop", Label: "Stop the script after", Kind: providers.Duration, Default: json.RawMessage("30")},
 		},
+		Host: func(providers.Values, providers.Endpoints) (*url.URL, bool) { return nil, false },
 		Build: func(p providers.Payload) (providers.Outbound, error) {
 			var path string
 			if err := json.Unmarshal(p.Settings["path"], &path); err != nil {
 				return providers.Outbound{}, fmt.Errorf("read the path: %w", err)
 			}
+			var stop int
+			if err := json.Unmarshal(p.Settings["stop"], &stop); err != nil {
+				return providers.Outbound{}, fmt.Errorf("read the stop: %w", err)
+			}
 			file, err := json.Marshal(body{Kind: p.Kind, Title: p.Message.Title, Lines: p.Message.Lines})
 			if err != nil {
 				return providers.Outbound{}, fmt.Errorf("encode the event file: %w", err)
 			}
-			return providers.Outbound{Run: &providers.Script{Path: path, Event: string(p.Kind), EventFile: file, Stop: 30 * time.Second}}, nil
+			return providers.Outbound{Run: &providers.Script{Path: path, Event: string(p.Kind), EventFile: file, Stop: time.Duration(stop) * time.Second}}, nil
 		},
 		Classify: classifyHook,
 	}
@@ -188,6 +215,8 @@ type Received struct {
 	Tone   notice.Tone
 	Poster string
 	Header http.Header
+	// Stop is how long a script may run.
+	Stop time.Duration
 }
 
 // Courier answers each target's queued replies in order, then 200 or exit
@@ -272,7 +301,7 @@ func (c *Courier) Post(ctx context.Context, node role.NodeID, req notifying.Requ
 }
 
 func (c *Courier) Run(ctx context.Context, node role.NodeID, s notifying.Script) (notifying.Ran, error) {
-	r, err := c.take(ctx, Received{Node: node, Target: s.Path}, s.EventFile)
+	r, err := c.take(ctx, Received{Node: node, Target: s.Path, Stop: s.Stop}, s.EventFile)
 	if err != nil {
 		return notifying.Ran{}, err
 	}
@@ -350,6 +379,13 @@ func (r *Roster) Name(node role.NodeID) string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.names[node]
+}
+
+func (r *Roster) Holds(_ role.Name, node role.NodeID) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, ok := r.names[node]
+	return ok && !r.removed[node]
 }
 
 func (r *Roster) WrittenOff(_ role.Name, node role.NodeID) bool {

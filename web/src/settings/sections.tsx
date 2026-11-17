@@ -22,6 +22,7 @@ import { importingSection, libraryScanSection } from "../imports/section";
 import { indexersSection } from "../indexers/section";
 import { namingSection } from "../naming/section";
 import { mediaServersSection } from "../media-servers/section";
+import { notificationsSection } from "../notifications/section";
 import { libraryRootsSection } from "../roots/section";
 import { EditionsSection } from "../targets/editions-section";
 import { ProfilesSection } from "../targets/profiles-section";
@@ -136,7 +137,11 @@ export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
     sections: [indexersSection, automaticSearchSection, trackersSection, downloadClientsSection],
   },
   { id: "access", label: "Access", sections: [addressSection, signInSection, apiKeySection] },
-  { id: "system", label: "System", sections: [nodesSection, emailSection, mediaServersSection] },
+  {
+    id: "system",
+    label: "System",
+    sections: [nodesSection, emailSection, mediaServersSection, notificationsSection],
+  },
 ];
 
 const settingsSections = settingsGroups.flatMap((group) => group.sections);

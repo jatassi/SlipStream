@@ -12,6 +12,7 @@ export * from "./mediaservers/mediaservers.ts";
 export * from "./metadata/metadata.ts";
 export * from "./naming/naming.ts";
 export * from "./nodes/nodes.ts";
+export * from "./notifications/notifications.ts";
 export * from "./pairing/pairing.ts";
 export * from "./roots/roots.ts";
 export * from "./serving/serving.ts";

@@ -53,7 +53,7 @@ async function cellStates(world: World, workId: string): Promise<string[]> {
 const roots = (page: Page) => page.getByRole("table", { name: "Movies roots" });
 const rootRow = (page: Page, path: string) =>
   roots(page).getByRole("row").filter({ hasText: path });
-const toasts = (page: Page) => page.getByRole("region", { name: "Notifications" });
+const toasts = (page: Page) => page.getByRole("region", { name: "Messages" });
 
 async function act(page: Page, path: string, item: string): Promise<void> {
   await page.getByRole("button", { name: `Actions for ${path}` }).click();

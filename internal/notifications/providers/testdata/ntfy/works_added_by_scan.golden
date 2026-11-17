@@ -2,7 +2,7 @@ POST /[set]
 Authorization: Bearer [set]
 Content-Type: text/plain
 Priority: 4
-Title: A Library scan of Movies on Den added 12 Works
+Title: A Library scan of the Movies library root on Den added 12 movies
 
 Alien (1979)
 Arrival (2016)

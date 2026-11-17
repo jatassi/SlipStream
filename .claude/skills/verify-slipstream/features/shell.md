@@ -10,11 +10,13 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 - `shell-activity-count` a moving Grab shows `Activity 1 live` in the sidebar and `Activity 1` on the phone's tab, and the count leaves when the Grab is imported.
 - `shell-activity-fill` while a download runs, the sidebar's `Activity` row and the phone's `Activity` tab fill behind with the downloads' combined progress, a progressbar named `Downloads` that `torrents.live` moves each second; pausing every download dims the fill and its value reads `<n>%, paused`, and the fill leaves when nothing is downloading (P-003).
 - `shell-page-action` a page's main action sits at the top bar's right: `Add` opens the menu `Add a Work` with `Add a Movie` and `Add a Series` on the Library, and `Add a Movie` is a link on the Movies library.
-- `shell-top-bar-slots` the top bar's right side runs the connection line, the running-tasks capsule and the page's action, in that order; the capsule takes no room while no run is shown, and [Tasks](./tasks.md) drives it (P-007).
+- `shell-top-bar-slots` the top bar's right side runs the connection line, the running-tasks capsule, the bell and the page's action, in that order; the capsule takes no room while no run is shown, and [Tasks](./tasks.md) drives it (P-007).
+- `shell-bell` the bell `Notifications` sits before the page's action in the desktop top bar and beside `Search` on a phone's top-level page; with unread rows it is named `Notifications, 3 unread` and shows the count, `99+` from 100. It opens the popover `Notifications` anchored under the bell (a dialog role without `aria-modal`, headed `Notifications`), a bottom sheet on phone, listing the rows newest first with `Show older notifications`; opening it marks them read, so the name returns to `Notifications`. With none it reads `No notifications in the last 30 days.` (P-009).
+- `shell-toast-region` toasts sit in the region `Messages`, so `Notifications` names only the bell.
 - `shell-account-menu` `Account` at the sidebar's foot opens a menu with `Open the portal`, the `Startup sequence` checkbox, `Restart SlipStream…` and `Sign out`; `Restart SlipStream…` asks `Restart SlipStream?` (P-010).
 - `shell-tab-bar` the phone's tab bar `Tabs` holds `Library`, `Activity`, `Search` and `More` (P-004).
 - `shell-more-sheet` `More` opens the sheet `More` with each enabled Content Type's library (`Movies`, `TV`), `Nodes`, `Tasks`, the Admin's name, `Open the portal`, `Restart SlipStream…`, `Sign out`, the `Startup sequence` switch, `SlipStream <version>` and `Cancel` (P-005).
-- `shell-phone-pages` a top-level page opens on its large title with `Search` and `Account` beside it; a Work page is pushed, with a back link labelled after its library (`Movies`) that pops back to it; a menu opens as an action sheet (P-016).
+- `shell-phone-pages` a top-level page opens on its large title with `Search`, `Notifications` and `Account` beside it; a Work page is pushed, with a back link labelled after its library (`Movies`) that pops back to it; a menu opens as an action sheet (P-016).
 - `shell-palette` Ctrl+K (⌘K on macOS) or the capsule opens the palette `Search Works or run a command`; typing a word of any title a Work is known by, accents ignored, lists it under Works from the library's server search with its poster, year, Content Type and status (`The Quiet Orchard 2021 · Movie · Missing`), Enter opens it, and Esc returns focus where it was (P-006, P-019).
 - `shell-palette-add` once typing pauses with at least two characters, the group `Add a Movie` lists up to five catalog results; a result in the library reads `In the library` and opens its Work page, any other opens the add sheet over the current page, and `See all results` opens `/add?contentType=movie&query=<query>` (P-020).
 - `shell-palette-history` typing in the palette pushes no history entry: after closing it, Back leaves the page the palette was opened on.
@@ -36,13 +38,14 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 ## How to get to it (user POV)
 
 - Desktop shell: the sidebar's rows (`Library`, `Movies`, `TV`, `Activity`, `Nodes`, `Health`, `Accounts`, `Settings`, `Tasks`), the brand link `SlipStream`, `Collapse sidebar` or `Expand sidebar`, and the `Account` button at its foot, which opens the menu with `Your Account`, `Open the portal`, `Startup sequence`, `Restart SlipStream…` and `Sign out`.
-- Desktop shell: the top bar's capsule `Search Works or run a command` showing `⌘K` on macOS and `Ctrl K` elsewhere, and at the right the connection line while reconnecting, the running-tasks capsule while a run is shown, and the page's action (`Add` on the Library).
+- Desktop shell: the top bar's capsule `Search Works or run a command` showing `⌘K` on macOS and `Ctrl K` elsewhere, and at the right the connection line while reconnecting, the running-tasks capsule while a run is shown, the bell `Notifications`, and the page's action (`Add` on the Library).
 - Desktop shell: Ctrl+K, or ⌘K on macOS, from any page opens the palette; its commands are `Go to Library`, `Go to Movies Library`, `Go to TV Library`, `Go to Activity`, `Go to Nodes`, `Go to Health`, `Go to Accounts`, `Go to Settings`, `Go to Tasks`, then the browser's own Node's sections `Go to Overview`, `Go to Roles`, `Go to Web and API`, `Go to Torrent client` (on a Node that stands in Downloading), `Go to Logs` and `Go to Log settings`, then `Add a Movie`, `Add a Series`, `Toggle sidebar` (desktop only), `New Signup link`, `Your Account`, `Add a passkey`, `Restart SlipStream…` and `Sign out`.
 - Phone shell: the tab bar's `Library` and `Activity` tabs, its `Search` tab (the palette, full screen) and its `More` tab (the More sheet, holding `Movies`, `TV`, `Nodes`, `Health`, `Accounts`, `Settings`, `Tasks`, `Your Account`, `Open the portal`, `Restart SlipStream…`, `Sign out` and `Startup sequence`).
-- Phone shell: the large title's `Search` button opens the palette and its `Account` button opens the More sheet; a pushed page's back link names the page above it (a Work's library, or the tab it came from).
+- Phone shell: the large title's `Search` button opens the palette, its `Notifications` button opens the bell's sheet, and its `Account` button opens the More sheet; a pushed page's back link names the page above it (a Work's library, or the tab it came from).
 - Both shells: `/` redirects to `/library`, and any address the app doesn't know shows the not-found page.
 - Both shells: the portal at `/portal`, through `Open the portal` in the desktop `Account` menu or the More sheet; the portal leads back through `Back to Library`.
 - The startup sequence: any new tab or window on the Controller, signed in or not. Verify sessions open past it; the recipe below opens one that plays it.
+- API: `GET /api/v1/notifications/feed?limit=1` gives the bell's `unread`, and `POST /api/v1/notifications/feed/seen {through}` is what opening it sends.
 - API: `GET /api/v1/counts` gives the Activity count and `downloads {done, wanted, allPaused}` for the fill, `GET /api/v1/content-types` the Library's children, and `GET /api/v1/system` the More sheet's version.
 
 ## Driving it with fakeworld and playwright cli
@@ -127,9 +130,20 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Add The Quiet Orchard" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Quiet Orchard" }).getByRole("button", { name: "Add Movie" })'
-  $FW exec $RUN --proof shell/shell-toast -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("region", { name: "Notifications" }).getByText("Added The Quiet Orchard").waitFor({ timeout: 5000 }); }'
+  $FW exec $RUN --proof shell/shell-toast -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("region", { name: "Messages" }).getByText("Added The Quiet Orchard").waitFor({ timeout: 5000 }); }'
   $FW exec $RUN --proof shell/shell-toast -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/shell/shell-toast/added.png
   $FW exec $RUN --proof shell/shell-titles -- $PW cli -s={runId}-admin-desktop eval 'document.title'
+  ```
+
+- **Open the bell.** Adding the Work showed `Added The Quiet Orchard` in the bell, so the bell reads `Notifications, 1 unread`. Opening it lists the row, and the name returns to `Notifications`. Toasts keep their own region, `Messages`.
+
+  ```sh
+  $FW exec $RUN --proof shell/shell-toast-region -- $PW cli -s={runId}-admin-desktop run-code 'async page => page.getByRole("region", { name: "Messages" }).count()'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("banner").getByRole("button", { name: "Notifications, 1 unread" })'
+  $FW exec $RUN --proof shell/shell-bell -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("dialog", { name: "Notifications" }).getByText(/Added The Quiet Orchard/).waitFor({ timeout: 5000 }); }'
+  $FW exec $RUN --proof shell/shell-bell -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/shell/shell-bell/opened.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Escape
+  $FW exec $RUN --proof shell/shell-bell -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("banner").getByRole("button", { name: "Notifications", exact: true }).waitFor({ timeout: 5000 }); }'
   ```
 
 - **Open a Work from the palette.** From Activity, press Ctrl+K and type `orch`. The Works group lists `The Quiet Orchard 2021 · Movie · Missing`, and after a pause the group `Add a Movie` lists `The Quiet Orchard 2021 · In the library` and `See all results`. The history length is unchanged. Enter opens the Work page; Back returns to Activity.

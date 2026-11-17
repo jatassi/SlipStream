@@ -16,7 +16,10 @@ export function Toasts() {
   return (
     <Toast.Provider toastManager={toastManager} limit={3}>
       <Toast.Portal>
-        <Toast.Viewport className={`fixed z-50 flex flex-col gap-2 outline-none ${place[shell]}`}>
+        <Toast.Viewport
+          aria-label="Messages"
+          className={`fixed z-50 flex flex-col gap-2 outline-none ${place[shell]}`}
+        >
           <ToastList />
         </Toast.Viewport>
       </Toast.Portal>

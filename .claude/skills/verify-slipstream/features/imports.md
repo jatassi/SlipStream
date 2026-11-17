@@ -138,7 +138,7 @@ Steps on `imports`:
   $FW exec $RUN -- $PW cli $D click "$B"'.getByRole("button", { name: "Open Harbor Lights (2019)", exact: true })'
   $FW exec $RUN -- $PW cli $D run-code 'async page => { await page.getByRole("dialog", { name: "Import files" }).getByRole("button", { name: "Import all", exact: true }).waitFor({ timeout: 30000 }); }'
   $FW exec $RUN --proof imports/import-by-hand -- $PW cli $D snapshot 'getByRole("dialog", { name: "Import files" })' --filename={runDir}/proof/imports/import-by-hand/sheet.aria.yml
-  $FW exec $RUN --proof imports/import-by-hand -- $PW cli $D run-code 'async page => { await page.getByRole("dialog", { name: "Import files" }).getByRole("button", { name: "Import all", exact: true }).click(); await page.getByRole("region", { name: "Notifications" }).getByText("Importing 1 file.").waitFor({ timeout: 10000 }); }'
+  $FW exec $RUN --proof imports/import-by-hand -- $PW cli $D run-code 'async page => { await page.getByRole("dialog", { name: "Import files" }).getByRole("button", { name: "Import all", exact: true }).click(); await page.getByRole("region", { name: "Messages" }).getByText("Importing 1 file.").waitFor({ timeout: 10000 }); }'
   $FW exec $RUN --proof imports/import-by-hand -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$H/files"
   $FW exec $RUN --proof imports/import-by-hand -- $FW fs stat {runDir} '{mediaDir}/movies/Harbor Lights (2019)/Harbor Lights (2019) - 1080p.mkv'
   ```

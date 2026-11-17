@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
+	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/notifications"
@@ -60,7 +61,7 @@ type World struct {
 func New(t *testing.T, timings notifications.Timings) *World {
 	t.Helper()
 	ctx := t.Context()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), notifications.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), mail.Schema(), nodes.Schema(), notifications.Schema())
 	keys, err := secret.Open(ctx, lib, filepath.Join(t.TempDir(), secret.KeyFile))
 	if err != nil {
 		t.Fatal(err)
@@ -81,12 +82,16 @@ func New(t *testing.T, timings notifications.Timings) *World {
 	return w
 }
 
+// webhook is the real Webhook provider, for a test of what the Service
+// stores from the API's text fields.
+var webhook, _ = providers.ByID("webhook")
+
 // Restart stops the dispatcher, if it runs, and starts a new Service over
 // the same library.
 func (w *World) Restart() {
 	w.Stop()
 	w.Service = notifications.New(notifications.Config{
-		Library: w.Lib, Sealer: w.sealer, Providers: []providers.Provider{hookProvider(w.Words), scriptProvider()},
+		Library: w.Lib, Sealer: w.sealer, Providers: []providers.Provider{hookProvider(w.Words), scriptProvider(), webhook},
 		Courier: w.Courier, Roster: w.Roster, Mail: noMail{}, Artwork: posters{},
 		Changed: nopChanged{}, Seen: nopSeen{}, Timings: w.timings,
 		Rand: rand.New(&splitmix{x: 1}), Zone: time.UTC, //nolint:gosec // seeded on purpose so tests replay
