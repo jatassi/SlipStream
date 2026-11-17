@@ -565,7 +565,7 @@ func (n *Node) startController(ctx context.Context) error {
 			},
 			Keep:  n.history,
 			Batch: n.cfg.Timings.Housekeeping.PruneBatch,
-			Steps: []housekeeping.Step{housekeeping.Plain("indexer-queries", "Indexer queries and sessions", registry.Prune), servers.Housekeeping(), n.history.Retention()},
+			Steps: housekeepingSteps(registry, servers, n.history, pipeline, found, shelf),
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
@@ -919,6 +919,16 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 }
 
 // owners is each Role's owner: the feature that keeps its work.
+// housekeepingSteps is Housekeeping's prunes in their units' order. The
+// Grabs step runs before the Imports step, so the Imports step sees the
+// Grabs it deleted.
+func housekeepingSteps(registry *indexers.Indexers, servers *mediaservers.MediaServers, h *history.Service, pipeline *grabs.Grabs, found *imports.Imports, shelf *files.Files) []housekeeping.Step {
+	return []housekeeping.Step{
+		housekeeping.Plain("indexer-queries", "Indexer queries and sessions", registry.Prune), servers.Housekeeping(),
+		h.Retention(), pipeline.Retention(), found.Retention(), shelf.Retention(),
+	}
+}
+
 func owners(clients *downloadclients.Clients, servers *mediaservers.MediaServers, notes *notifications.Service) []nodes.Owner {
 	return []nodes.Owner{
 		indexers.SearchingOwner,
