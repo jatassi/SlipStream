@@ -1,25 +1,26 @@
 import type { ReactNode } from "react";
 
 import type {
-  NotificationsField as Field,
+  NotificationsField as ProviderFieldSpec,
   NotificationsFieldKind as FieldKind,
 } from "../api/gen/model";
+import { errorText } from "../ui/form-context";
 import { Select } from "../ui/select";
 import { Switch } from "../ui/switch";
 import type { ConnectionForm } from "./use-connection-sheet";
 
 export type NodeChoice = { readonly id: string; readonly name: string };
 
-/** What a field is drawn with: its key and props, a saved secret's state, and the Nodes a script may run on. */
+/** What a field is drawn with: the form, the provider's field, and the Nodes a script may run on. */
 type Drawn = {
   form: ConnectionForm;
-  field: Field;
+  field: ProviderFieldSpec;
   nodes: readonly NodeChoice[];
 };
 
-const help = (field: Field) => (field.help === "" ? undefined : field.help);
+const help = (field: ProviderFieldSpec) => (field.help === "" ? undefined : field.help);
 
-const withHint = (field: Field, hint: string) =>
+const withHint = (field: ProviderFieldSpec, hint: string) =>
   field.help === "" ? hint : `${field.help} ${hint}`;
 
 function TextKind({ form, field, kind }: Drawn & { kind: "text" | "url" | "number" }) {
@@ -98,7 +99,13 @@ function NodeKind({ form, field, nodes }: Drawn) {
             value={control.state.value}
             onValueChange={control.handleChange}
           />
-          {field.help !== "" && <p className="text-meta text-ink-3">{field.help}</p>}
+          {errorText(control.state.meta.errors) === undefined ? (
+            field.help !== "" && <p className="text-meta text-ink-3">{field.help}</p>
+          ) : (
+            <p role="alert" className="text-meta text-fail-ink">
+              {errorText(control.state.meta.errors)}
+            </p>
+          )}
         </div>
       )}
     </form.Field>

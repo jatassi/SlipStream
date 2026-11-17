@@ -28,7 +28,7 @@ import {
 
 /** What the fields step opened on: a provider to add, or a saved connection. */
 export type Opened =
-  | { readonly kind: "add"; readonly provider: Provider }
+  | { readonly kind: "add"; readonly provider: Provider; readonly firstNode: string }
   | { readonly kind: "edit"; readonly connection: Connection; readonly provider: Provider };
 
 async function save(opened: Opened, value: ConnectionValues) {
@@ -68,7 +68,9 @@ export function useConnectionSheet(opened: Opened, events: readonly Event[], onD
   const { provider } = opened;
   const form = useAppForm({
     defaultValues:
-      opened.kind === "add" ? newValues(provider, events) : valuesOf(opened.connection, provider),
+      opened.kind === "add"
+        ? newValues(provider, events, opened.firstNode)
+        : valuesOf(opened.connection, provider),
     onSubmit: async ({ value }) => {
       setOutcome(undefined);
       try {

@@ -86,7 +86,7 @@ export function AddConnectionButton({
         ) : (
           <ConnectionForm
             {...choices}
-            opened={{ kind: "add", provider }}
+            opened={{ kind: "add", provider, firstNode: choices.nodes[0]?.id ?? "" }}
             onDone={() => {
               openChange(false);
             }}

@@ -81,17 +81,24 @@ function secretWire(field: Field, value: string): string {
     : value;
 }
 
+const takesNode = (provider: Provider) => provider.fields.some((field) => field.kind === "node");
+
 export const recommended = (events: readonly Event[]): string[] =>
   events.filter((event) => event.onByDefault && !event.fixed).map((event) => event.id);
 
-export function newValues(provider: Provider, events: readonly Event[]): ConnectionValues {
+/** A new connection's draft: the recommended events, and a script on the first Node that may run it. */
+export function newValues(
+  provider: Provider,
+  events: readonly Event[],
+  firstNode: string,
+): ConnectionValues {
   return {
     on: true,
     name: provider.label,
     events: recommended(events),
     warnings: false,
     posters: true,
-    node: "",
+    node: takesNode(provider) ? firstNode : "",
     settings: Object.fromEntries(
       settingsOf(provider).map((field) => [field.key, controlOf(field, field.default)]),
     ),
@@ -116,8 +123,6 @@ export function valuesOf(saved: Connection, provider: Provider): ConnectionValue
     secrets: Object.fromEntries(secretsOf(provider).map((field) => [field.key, ""])),
   };
 }
-
-const takesNode = (provider: Provider) => provider.fields.some((field) => field.kind === "node");
 
 /** The draft as the add and draft Test calls take it, a secret only when one is typed. */
 export function draftOf(values: ConnectionValues, provider: Provider): Draft {
