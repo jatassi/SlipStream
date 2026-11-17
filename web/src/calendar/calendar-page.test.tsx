@@ -41,7 +41,6 @@ test("the month starts on the locale's first weekday, marks the Controller's Tod
 
 test("the week starts on Monday when the browser can't say", () => {
   const original = Intl.Locale;
-  // A Locale with no week info, as an engine without it has.
   class Unsaid extends original {
     constructor(tag: string) {
       super(tag);

@@ -7,7 +7,6 @@ import { type CalendarSearch, type CalendarView, calendarViews } from "./routed"
 
 type Active = { exact: boolean; includeSearch: boolean };
 
-/** A link to the Calendar of every Content Type, or of `contentType` alone. */
 function CalendarLink({
   contentType,
   search,

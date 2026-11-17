@@ -19,7 +19,6 @@ const dayAt = (ms: number) => isoDay(new Date(ms).toISOString().slice(0, 10));
 
 export const addDays = (day: IsoDay, days: number): IsoDay => dayAt(msOf(day) + days * dayMs);
 
-/** Whole days from `from` to `to`. */
 export const daysBetween = (from: IsoDay, to: IsoDay): number =>
   Math.round((msOf(to) - msOf(from)) / dayMs);
 
@@ -38,7 +37,7 @@ export const monthKey = ({ year, month }: Month): string =>
   `${String(year)}-${String(month).padStart(2, "0")}`;
 
 /** The day's weekday, 0 for Sunday to 6 for Saturday. */
-export const weekdayOf = (day: IsoDay): number => new Date(msOf(day)).getUTCDay();
+const weekdayOf = (day: IsoDay): number => new Date(msOf(day)).getUTCDay();
 
 /** The month grid's six weeks: the first day shown, and the day after the last, 42 days on. */
 export function monthSpan(
@@ -75,7 +74,6 @@ export function dayWords(date: string): string {
   return dayPart === undefined ? monthYear.format(at) : fullDate.format(at);
 }
 
-/** "November 2026". */
 export const monthWords = ({ year, month }: Month): string =>
   monthYear.format(new Date(Date.UTC(year, month - 1, 1)));
 

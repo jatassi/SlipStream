@@ -30,7 +30,7 @@ function StateIcon({ state }: { state: FilesState }) {
 }
 
 /** The state that needs attention first among the rows, in the one status order. */
-export function firstState(rows: readonly Row[]): FilesState | undefined {
+function firstState(rows: readonly Row[]): FilesState | undefined {
   const states = new Set(rows.map(({ state }) => state));
   return stateOrder.find((state) => states.has(state));
 }

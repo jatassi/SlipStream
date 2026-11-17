@@ -12,7 +12,7 @@ const chipLook =
   "inline-flex h-6 shrink-0 items-center rounded-chip px-2 text-chip whitespace-nowrap transition-colors duration-(--duration-control) hover:text-ink-1 aria-pressed:bg-selected aria-pressed:text-ink-1 not-aria-pressed:bg-fill not-aria-pressed:text-ink-2";
 
 /** The dated kinds of the Content Types in view, each once, in the types' order. */
-export function kindsIn(types: readonly WorksContentType[]): WorksDatedKind[] {
+function kindsIn(types: readonly WorksContentType[]): WorksDatedKind[] {
   const seen = new Map<string, WorksDatedKind>();
   for (const kind of types.flatMap(({ dated }) => dated)) {
     seen.set(kind.key, kind);
