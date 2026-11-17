@@ -21,6 +21,14 @@ type deletedFacts struct {
 	First []string    `json:"first"`
 }
 
+func (f deletedFacts) About() entry.About {
+	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}}
+}
+
+type noFacts struct{}
+
+func (noFacts) About() entry.About { return entry.About{Quiet: true} }
+
 var deletedRow = entry.Row[deletedFacts]{
 	Spec: entry.Spec{Kind: "works_deleted", Label: "Works deleted", Group: entry.Library},
 	Render: func(f deletedFacts, c entry.Context) entry.Message {
@@ -33,7 +41,7 @@ var deletedRow = entry.Row[deletedFacts]{
 	},
 }
 
-var otherRow = entry.Row[struct{}]{Spec: entry.Spec{Kind: "other"}}
+var otherRow = entry.Row[noFacts]{Spec: entry.Spec{Kind: "other"}}
 
 var heat = deletedFacts{
 	Work: entry.Work{
@@ -48,15 +56,19 @@ var heat = deletedFacts{
 
 func TestARecordedEventRendersAsItsFactsDo(t *testing.T) {
 	var stored []byte
-	rec := entry.Sink("library", []entry.Entry{deletedRow}, func(_ context.Context, _ *storage.Tx[storage.Library], k entry.Kind, subject []byte) error {
+	var about entry.About
+	rec := entry.Sink("library", []entry.Entry{deletedRow}, func(_ context.Context, _ *storage.Tx[storage.Library], k entry.Kind, subject []byte, a entry.About) error {
 		if k != deletedRow.Kind {
 			t.Fatalf("kind = %s, want %s", k, deletedRow.Kind)
 		}
-		stored = subject
+		stored, about = subject, a
 		return nil
 	})
 	if err := deletedRow.Record(t.Context(), nil, rec, heat); err != nil {
 		t.Fatal(err)
+	}
+	if want := (entry.About{Type: "book", Works: []works.WorkID{heat.Work.ID}}); !reflect.DeepEqual(about, want) {
+		t.Fatalf("put was told the entry is about %+v, want %+v", about, want)
 	}
 	c := entry.Context{Now: time.Date(2026, 11, 16, 14, 2, 0, 0, time.UTC), Zone: time.UTC}
 	got, err := entry.Entry(deletedRow).RenderStored(stored, c)
@@ -88,7 +100,7 @@ func TestRecordPanicsOnAWiringBug(t *testing.T) {
 		_ = deletedRow.Record(t.Context(), nil, rec, heat)
 	}
 	refused("a zero Recorder", entry.Recorder{})
-	refused("a kind its owner didn't register", entry.Sink("grabs", []entry.Entry{otherRow}, func(context.Context, *storage.Tx[storage.Library], entry.Kind, []byte) error {
+	refused("a kind its owner didn't register", entry.Sink("grabs", []entry.Entry{otherRow}, func(context.Context, *storage.Tx[storage.Library], entry.Kind, []byte, entry.About) error {
 		t.Fatal("put called")
 		return nil
 	}))
@@ -101,11 +113,14 @@ func TestEntrytestKeepsWhatAnOwnerRecorded(t *testing.T) {
 	if err := deletedRow.Record(t.Context(), nil, rec, heat); err != nil {
 		t.Fatal(err)
 	}
-	if err := otherRow.Record(t.Context(), nil, rec, struct{}{}); err != nil {
+	if err := otherRow.Record(t.Context(), nil, rec, noFacts{}); err != nil {
 		t.Fatal(err)
 	}
 	if got := entrytest.Of(kept, deletedRow); !reflect.DeepEqual(got, []deletedFacts{heat}) {
 		t.Fatalf("kept %+v, want only %+v", got, heat)
+	}
+	if got := entrytest.Abouts(kept, otherRow); !reflect.DeepEqual(got, []entry.About{{Quiet: true}}) {
+		t.Fatalf("kept the other entry as about %+v, want it quiet", got)
 	}
 }
 

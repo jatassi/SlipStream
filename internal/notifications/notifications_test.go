@@ -17,6 +17,8 @@ type grabbedFacts struct {
 	Release string `json:"release"`
 }
 
+func (grabbedFacts) About() entry.About { return entry.About{} }
+
 var (
 	grabbedRow = entry.Row[grabbedFacts]{Spec: entry.Spec{Kind: "grabbed", Label: "Grabbed", Group: entry.Grabs}}
 	failedRow  = entry.Row[grabbedFacts]{Spec: entry.Spec{Kind: "grab_failed", Label: "Grab failed", Group: entry.Grabs}}

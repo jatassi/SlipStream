@@ -129,7 +129,7 @@ func (s *Service) Recorder(owner string, rows []entry.Entry) entry.Recorder {
 }
 
 // put inserts an event due now and rings the doorbell.
-func (s *Service) put(ctx context.Context, tx *storage.Tx[storage.Library], k entry.Kind, subject []byte) error {
+func (s *Service) put(ctx context.Context, tx *storage.Tx[storage.Library], k entry.Kind, subject []byte, _ entry.About) error {
 	now := storage.Now()
 	if _, err := db.New(tx).InsertEvent(ctx, db.InsertEventParams{Kind: k, At: now, DueAt: now, Subject: string(subject)}); err != nil {
 		return fmt.Errorf("record a %s event: %w", k, err)

@@ -22,10 +22,14 @@ var (
 		Render: renderCleared,
 	}
 	testRow = entry.Row[testFacts]{
-		Spec:   entry.Spec{Kind: "test", Label: "Test", Group: entry.System, Fixed: true},
+		Spec:   entry.Spec{Kind: "test", Label: "Test", Group: systemGroup, Fixed: true},
 		Render: renderTest,
 	}
 )
+
+// systemGroup is Test's group on a connection's event list. History has
+// no such group: Test records nothing.
+const systemGroup entry.Group = "system"
 
 // healthFacts is one target's subset of an event's Health items.
 type healthFacts struct {
@@ -43,6 +47,10 @@ type item struct {
 }
 
 type testFacts struct{}
+
+func (healthFacts) About() entry.About { return entry.About{} }
+
+func (testFacts) About() entry.About { return entry.About{} }
 
 func renderNewItems(f healthFacts, c entry.Context) entry.Message {
 	m := entry.Message{Tone: entry.Warn, Body: entry.Body{Health: bodyItems(f.Items)}}

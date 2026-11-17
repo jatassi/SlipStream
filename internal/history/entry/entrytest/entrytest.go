@@ -18,7 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Recorder keeps every event an owner records.
+// Recorder keeps every entry an owner records.
 type Recorder struct {
 	mu     sync.Mutex
 	events []kept
@@ -27,6 +27,7 @@ type Recorder struct {
 type kept struct {
 	kind    entry.Kind
 	subject []byte
+	about   entry.About
 }
 
 // New answers the Recorder to put in the owner's test Config, which refuses
@@ -37,23 +38,36 @@ func New(owner string, rows []entry.Entry) (rec entry.Recorder, kept *Recorder) 
 	return entry.Sink(owner, rows, kept.put), kept
 }
 
-// put keeps the event at once, even from a Write that later rolls back.
-func (r *Recorder) put(_ context.Context, _ *storage.Tx[storage.Library], k entry.Kind, subject []byte) error {
+// put keeps the entry at once, even from a Write that later rolls back.
+func (r *Recorder) put(_ context.Context, _ *storage.Tx[storage.Library], k entry.Kind, subject []byte, a entry.About) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.events = append(r.events, kept{kind: k, subject: subject})
+	r.events = append(r.events, kept{kind: k, subject: subject, about: a})
 	return nil
 }
 
-// Len is how many events r keeps, of any kind.
+// Len is how many entries r keeps, of any kind.
 func (r *Recorder) Len() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return len(r.events)
 }
 
-// Of decodes the recorded events of row's kind, oldest first.
-func Of[F any](r *Recorder, row entry.Row[F]) []F {
+// Abouts is what each recorded entry of row's kind is about, oldest first.
+func Abouts[F entry.Facts](r *Recorder, row entry.Row[F]) []entry.About {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []entry.About
+	for _, e := range r.events {
+		if e.kind == row.Kind {
+			out = append(out, e.about)
+		}
+	}
+	return out
+}
+
+// Of decodes the recorded entries of row's kind, oldest first.
+func Of[F entry.Facts](r *Recorder, row entry.Row[F]) []F {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var out []F
@@ -63,7 +77,7 @@ func Of[F any](r *Recorder, row entry.Row[F]) []F {
 		}
 		var f F
 		if err := json.Unmarshal(e.subject, &f); err != nil {
-			panic(fmt.Sprintf("entrytest: decode a %s event: %v", row.Kind, err))
+			panic(fmt.Sprintf("entrytest: decode a %s entry: %v", row.Kind, err))
 		}
 		out = append(out, f)
 	}
@@ -90,6 +104,9 @@ func Golden(t testing.TB, e entry.Entry, facts any, dir, name string, update boo
 	}
 	if err != nil {
 		t.Fatal(err)
+	}
+	if d := e.Declared(); d.Label == "" {
+		t.Fatalf("%s has no Label", d.Kind)
 	}
 	m, err := e.RenderStored(subject, Context)
 	if err != nil {
@@ -132,7 +149,7 @@ func Text(m entry.Message) string {
 	return b.String()
 }
 
-// Ignored is a Recorder for an owner whose events a test doesn't read. It
+// Ignored is a Recorder for an owner whose entries a test doesn't read. It
 // still refuses a kind not in rows.
 func Ignored(owner string, rows []entry.Entry) entry.Recorder {
 	rec, _ := New(owner, rows)

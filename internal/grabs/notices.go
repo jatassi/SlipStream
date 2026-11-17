@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // GrabbedFacts is what a Grabbed message tells: the Work, the Release's
@@ -39,9 +40,17 @@ type GrabFailedFacts struct {
 	By      entry.Actor `json:"by"`
 }
 
+func (f GrabbedFacts) About() entry.About {
+	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}}
+}
+
+func (f GrabFailedFacts) About() entry.About {
+	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}}
+}
+
 var (
 	grabbedRow = entry.Row[GrabbedFacts]{
-		Spec:   entry.Spec{Kind: "grabbed", Label: "Grabbed", Group: entry.Grabs, BellByDefault: true},
+		Spec:   entry.Spec{Kind: "grabbed", Label: "Grabbed", Group: entry.Grabs, BellByDefault: true, Tally: works.Noun{One: "Grab", Many: "Grabs"}},
 		Render: renderGrabbed,
 	}
 	grabFailedRow = entry.Row[GrabFailedFacts]{

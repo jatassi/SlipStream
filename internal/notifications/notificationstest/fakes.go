@@ -25,13 +25,15 @@ type Ping struct {
 	Poster artwork.Ref `json:"poster,omitzero"`
 }
 
+func (Ping) About() entry.About { return entry.About{} }
+
 var (
 	PingRow = entry.Row[Ping]{
-		Spec:   entry.Spec{Kind: "ping", Label: "Ping", Group: entry.System, OnByDefault: true, BellByDefault: true},
+		Spec:   entry.Spec{Kind: "ping", Label: "Ping", Group: entry.Grabs, OnByDefault: true, BellByDefault: true},
 		Render: func(f Ping, _ entry.Context) entry.Message { return pingMessage("Ping", f) },
 	}
 	PongRow = entry.Row[Ping]{
-		Spec:   entry.Spec{Kind: "pong", Label: "Pong", Group: entry.System, OnByDefault: true, BellByDefault: true},
+		Spec:   entry.Spec{Kind: "pong", Label: "Pong", Group: entry.Library, OnByDefault: true, BellByDefault: true},
 		Render: func(f Ping, _ entry.Context) entry.Message { return pingMessage("Pong", f) },
 	}
 )

@@ -1,6 +1,8 @@
 package entry
 
 import (
+	"time"
+
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -17,6 +19,34 @@ type Message struct {
 	Tone   Tone
 	// Body is the Webhook's and Custom Script's objects.
 	Body Body
+	// Detail is History's opened entry beyond Lines. Providers never read
+	// it.
+	Detail Detail
+}
+
+// Detail is each file an entry placed and each stage a Grab reached. The
+// web words the instants in the browser's zone.
+type Detail struct {
+	Files  []DetailFile
+	Stages []StageAt
+}
+
+type DetailFile struct {
+	// Items are in words: "Episode 1".
+	Items   []string
+	Quality string
+	// PlacedBy is the files placed-by wire value.
+	PlacedBy string
+	// Replaced is the replaced qualities in words, "" for none.
+	Replaced string
+	// ReplacedLabel is the replaced file's label, "" for none.
+	ReplacedLabel string
+}
+
+type StageAt struct {
+	// Stage is the grabs Stage wire value.
+	Stage string    `json:"stage"`
+	At    time.Time `json:"at"`
 }
 
 // Link is a path in the web app. The dispatcher prefixes the Address and

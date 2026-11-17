@@ -36,6 +36,18 @@ type DeletedType struct {
 	Work  *entry.Work `json:"work,omitempty"`
 }
 
+func (f AddedFacts) About() entry.About {
+	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}}
+}
+
+func (f DeletedFacts) About() entry.About {
+	if len(f.Types) == 1 && f.Types[0].Work != nil {
+		w := f.Types[0].Work
+		return entry.About{Type: w.Type, Works: []works.WorkID{w.ID}}
+	}
+	return entry.About{}
+}
+
 var (
 	addedRow = entry.Row[AddedFacts]{
 		Spec:   entry.Spec{Kind: "works_added", Label: "Works added", Group: entry.Library, BellByDefault: true},

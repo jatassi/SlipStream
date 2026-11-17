@@ -54,13 +54,23 @@ type ScanAddedFacts struct {
 	First []string    `json:"first"`
 }
 
+func (f ImportedFacts) About() entry.About {
+	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}}
+}
+
+func (f ScanAddedFacts) About() entry.About { return entry.About{} }
+
+// importNoun is Imported's and Upgraded's noun in History's 7-day
+// sentence: each counts its Imports.
+var importNoun = works.Noun{One: "Import", Many: "Imports"}
+
 var (
 	importedRow = entry.Row[ImportedFacts]{
-		Spec:   entry.Spec{Kind: "imported", Label: "Imported", Group: entry.Imports, OnByDefault: true, BellByDefault: true},
+		Spec:   entry.Spec{Kind: "imported", Label: "Imported", Group: entry.Imports, OnByDefault: true, BellByDefault: true, Tally: importNoun},
 		Render: renderImported,
 	}
 	upgradedRow = entry.Row[ImportedFacts]{
-		Spec:   entry.Spec{Kind: "upgraded", Label: "Upgraded", Group: entry.Imports, OnByDefault: true, BellByDefault: true},
+		Spec:   entry.Spec{Kind: "upgraded", Label: "Upgraded", Group: entry.Imports, OnByDefault: true, BellByDefault: true, Tally: importNoun},
 		Render: renderUpgraded,
 	}
 	scanAddedRow = entry.Row[ScanAddedFacts]{
