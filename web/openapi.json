@@ -9573,6 +9573,362 @@
         "additionalProperties": false,
         "type": "object"
       },
+      "HistoryFile": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "Such as Episode 1",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "placedBy": {
+            "description": "How the file was placed: a placed-by value of GET /works/{workId}/files",
+            "type": "string"
+          },
+          "quality": {
+            "type": "string"
+          },
+          "replaced": {
+            "description": "The qualities it replaced, in words; empty for none",
+            "type": "string"
+          },
+          "replacedLabel": {
+            "description": "The label of the file it replaced; empty for none",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "quality",
+          "placedBy",
+          "replaced",
+          "replacedLabel"
+        ],
+        "type": "object"
+      },
+      "HistoryGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "enum": [
+              "grabs",
+              "imports",
+              "library",
+              "health"
+            ],
+            "type": "string"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryKind"
+            },
+            "type": "array"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "group",
+          "label",
+          "kinds"
+        ],
+        "type": "object"
+      },
+      "HistoryHealthItem": {
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "enum": [
+              "warn",
+              "fail"
+            ],
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "text",
+          "level"
+        ],
+        "type": "object"
+      },
+      "HistoryKind": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label"
+        ],
+        "type": "object"
+      },
+      "HistoryKindsAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "groups": {
+            "description": "In filter order",
+            "items": {
+              "$ref": "#/components/schemas/HistoryGroup"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "groups"
+        ],
+        "type": "object"
+      },
+      "HistoryLinks": {
+        "additionalProperties": false,
+        "properties": {
+          "grab": {
+            "description": "The Grab it is about; null for none, and once that Grab is deleted",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "health": {
+            "description": "The key, \u003ccategory\u003e.\u003ckey\u003e, of a one-item Health entry's item while it is on Health; null otherwise",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "import": {
+            "description": "The Import it is about; null for none, and once that Import is deleted",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "grab",
+          "import",
+          "health"
+        ],
+        "type": "object"
+      },
+      "HistoryListEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "description": "When it was captured",
+            "format": "date-time",
+            "type": "string"
+          },
+          "group": {
+            "enum": [
+              "grabs",
+              "imports",
+              "library",
+              "health"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "A kind GET /history/kinds lists",
+            "type": "string"
+          },
+          "links": {
+            "$ref": "#/components/schemas/HistoryLinks"
+          },
+          "tone": {
+            "enum": [
+              "info",
+              "good",
+              "warn",
+              "fail"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "description": "Such as Imported 10 episodes of Severance",
+            "type": "string"
+          },
+          "work": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HistoryWorkSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The one Work it is about; null for none or many, and once that Work is deleted"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "group",
+          "at",
+          "words",
+          "tone",
+          "work",
+          "links"
+        ],
+        "type": "object"
+      },
+      "HistoryListed": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "description": "Newest first",
+            "items": {
+              "$ref": "#/components/schemas/HistoryListEntry"
+            },
+            "type": "array"
+          },
+          "next": {
+            "description": "The before of the next page; null on the last page",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "entries",
+          "next"
+        ],
+        "type": "object"
+      },
+      "HistoryOneEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "entry": {
+            "$ref": "#/components/schemas/HistoryListEntry"
+          },
+          "files": {
+            "description": "Each file an Import placed",
+            "items": {
+              "$ref": "#/components/schemas/HistoryFile"
+            },
+            "type": "array"
+          },
+          "health": {
+            "description": "A Health entry's items",
+            "items": {
+              "$ref": "#/components/schemas/HistoryHealthItem"
+            },
+            "type": "array"
+          },
+          "lines": {
+            "description": "Whole sentences, with clock times in zone",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "stages": {
+            "description": "Each stage a failed Grab reached, in order",
+            "items": {
+              "$ref": "#/components/schemas/HistoryStageAt"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "entry",
+          "lines",
+          "files",
+          "stages",
+          "health"
+        ],
+        "type": "object"
+      },
+      "HistorySentence": {
+        "additionalProperties": false,
+        "properties": {
+          "needsYou": {
+            "description": "The failed Grabs that need attention, at most 100; 0 when the words count the week",
+            "format": "int64",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "words",
+          "needsYou"
+        ],
+        "type": "object"
+      },
+      "HistoryStageAt": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "stage": {
+            "description": "A stage of GET /grabs",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "at"
+        ],
+        "type": "object"
+      },
+      "HistoryWorkSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "pattern": "^[a-z][a-z0-9]{1,15}$",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "posterUrl": {
+            "description": "The artwork route for its poster, without a size; null when it has none",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "contentType",
+          "label",
+          "posterUrl"
+        ],
+        "type": "object"
+      },
       "HoldersOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -38797,6 +39153,909 @@
           "system"
         ],
         "x-slipstream-access": "public"
+      }
+    },
+    "/history": {
+      "delete": {
+        "operationId": "clearHistory",
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete every History entry",
+        "tags": [
+          "history"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "get": {
+        "operationId": "listHistory",
+        "parameters": [
+          {
+            "description": "Only entries with a smaller id: the next member of the previous page; left out, the newest",
+            "explode": false,
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "description": "Only entries with a smaller id: the next member of the previous page; left out, the newest",
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only entries about this Content Type's Works; left out, every entry, Health included",
+            "explode": false,
+            "in": "query",
+            "name": "contentType",
+            "schema": {
+              "description": "Only entries about this Content Type's Works; left out, every entry, Health included",
+              "pattern": "^[a-z][a-z0-9]{1,15}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only these groups; left out, all four",
+            "explode": false,
+            "in": "query",
+            "name": "groups",
+            "schema": {
+              "description": "Only these groups; left out, all four",
+              "items": {
+                "enum": [
+                  "grabs",
+                  "imports",
+                  "library",
+                  "health"
+                ],
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "A comma list of the kinds GET /history/kinds lists. Each narrows its own group, which groups must hold when it is given",
+            "explode": false,
+            "in": "query",
+            "name": "kinds",
+            "schema": {
+              "description": "A comma list of the kinds GET /history/kinds lists. Each narrows its own group, which groups must hold when it is given",
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Only entries captured at or after this instant",
+            "explode": false,
+            "in": "query",
+            "name": "since",
+            "schema": {
+              "description": "Only entries captured at or after this instant",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only entries about this Work",
+            "explode": false,
+            "in": "query",
+            "name": "work",
+            "schema": {
+              "description": "Only entries about this Work",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryListed"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List History entries, newest first",
+        "tags": [
+          "history"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/history/kinds": {
+      "get": {
+        "operationId": "listHistoryKinds",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryKindsAnswer"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List History's groups and kinds",
+        "tags": [
+          "history"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/history/summary": {
+      "get": {
+        "operationId": "getHistorySummary",
+        "parameters": [
+          {
+            "description": "The instant the week starts: the browser's midnight 6 days back",
+            "explode": false,
+            "in": "query",
+            "name": "since",
+            "required": true,
+            "schema": {
+              "description": "The instant the week starts: the browser's midnight 6 days back",
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/HistorySentence"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "null when History is empty and no Grab needs attention"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Count what happened since an instant",
+        "tags": [
+          "history"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/history/{id}": {
+      "get": {
+        "operationId": "getHistoryEntry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The IANA time zone the clock times are worded in, such as Europe/London",
+            "explode": false,
+            "in": "query",
+            "name": "zone",
+            "required": true,
+            "schema": {
+              "description": "The IANA time zone the clock times are worded in, such as Europe/London",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryOneEntry"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "history_entry_gone"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Read one History entry in full",
+        "tags": [
+          "history"
+        ],
+        "x-slipstream-access": "admin"
       }
     },
     "/identity/address": {

@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/healthapi"
 	"github.com/jatassi/slipstream/internal/history"
+	"github.com/jatassi/slipstream/internal/historyapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -142,6 +143,7 @@ type Node interface {
 	mediaserversapi.Servers
 	notificationsapi.Notes
 	calendarapi.Calendar
+	historyapi.History
 }
 
 // Services are what the operations run against. Document passes none.
@@ -181,6 +183,7 @@ func Mount(r *api.Router, s Services) {
 	mediaserversapi.Routes(r, s.Node)
 	notificationsapi.Routes(r, s.Node)
 	calendarapi.Routes(r, s.Node)
+	historyapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

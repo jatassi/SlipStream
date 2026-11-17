@@ -117,6 +117,9 @@ type half struct {
 	// calendar reads release dates in a span of days, on a Controller.
 	calendar *calendar.Calendar
 
+	// history lists what happened to the library, on a Controller.
+	history *history.Service
+
 	tasks    *tasks.Scheduler
 	health   *health.Health
 	firstRun *firstrun.FirstRun
@@ -606,6 +609,8 @@ func (n *Node) startController(ctx context.Context) error {
 		notifications: n.notifications,
 
 		calendar: dates,
+
+		history: n.history,
 
 		transfers: copies,
 		copier:    copier,
