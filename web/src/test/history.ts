@@ -73,10 +73,15 @@ const gone = () =>
     { status: 404 },
   );
 
-/** GET /history's answer over entries for a read's query. */
+/** GET /history's answer over entries for a read's query, narrowed to its Work and groups. */
 function listed(entries: readonly HistoryListEntry[], params: URLSearchParams) {
   const work = params.get("work");
-  const shown = work === null ? entries : entries.filter((entry) => entry.work?.id === work);
+  const groups = params.getAll("groups").flatMap((each) => each.split(","));
+  const shown = entries.filter(
+    (entry) =>
+      (work === null || entry.work?.id === work) &&
+      (groups.length === 0 || groups.includes(entry.group)),
+  );
   const before = params.get("before");
   return paged(shown, before === null ? null : Number(before), Number(params.get("limit") ?? 50));
 }

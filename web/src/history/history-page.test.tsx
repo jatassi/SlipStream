@@ -73,10 +73,9 @@ test("the filters stay in the address, and Last 7 days asks from the browser's m
 });
 
 test("with nothing matching, Clear filters lists every entry again", async () => {
-  const server = historyServer([]);
+  const server = historyServer([anEntry(1, new Date().toISOString())]);
   openHistory(server, "/activity/history?groups=%5B%22health%22%5D");
   await expect.element(page.getByText("No entries match these filters.")).toBeVisible();
-  server.record(anEntry(1, new Date().toISOString()));
   await userEvent.click(page.getByRole("button", { name: "Clear filters" }));
   await expect.element(page.getByText("Grabbed The Quiet Orchard 1")).toBeVisible();
   expect(server.asked.at(-1)?.get("groups")).toBeNull();
@@ -93,6 +92,23 @@ test("an empty History says what shows there", async () => {
     .toBeVisible();
 });
 
+test("a Clear with filters on empties the list at once and says History is empty", async () => {
+  const server = historyServer([anEntry(1, new Date().toISOString())]);
+  openHistory(server, "/activity/history?groups=%5B%22grabs%22%5D");
+  await expect.element(page.getByText("Grabbed The Quiet Orchard 1")).toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "History options" }));
+  await userEvent.click(page.getByRole("menuitem", { name: "Clear History…" }));
+  await userEvent.click(page.getByRole("button", { name: "Clear History", exact: true }));
+  await expect
+    .element(
+      page.getByText(
+        "History is empty. Grabs, Imports and Works added or deleted show here as they happen.",
+      ),
+    )
+    .toBeVisible();
+  expect(server.cleared).toBe(1);
+});
+
 test("Details opens an entry in full in place, with a link to its Work and none for a deleted one", async () => {
   openHistory(
     historyServer([
@@ -102,20 +118,26 @@ test("Details opens an entry in full in place, with a link to its Work and none 
   );
   const today = page.getByRole("list", { name: "Today" });
   const [about, deleted] = [today.getByRole("listitem").nth(0), today.getByRole("listitem").nth(1)];
-  await userEvent.click(about.getByRole("button", { name: "Details" }));
+  await userEvent.click(
+    about.getByRole("button", { name: "Details, Grabbed The Quiet Orchard 2", exact: true }),
+  );
   await expect.element(about.getByText("It replaced WEBDL-1080p.")).toBeVisible();
   await expect
     .element(about.getByRole("link", { name: "Open The Quiet Orchard" }))
     .toHaveAttribute("href", expect.stringMatching(/\/works\//u));
-  await userEvent.click(deleted.getByRole("button", { name: "Details" }));
+  await userEvent.click(
+    deleted.getByRole("button", { name: "Details, Deleted 12 Works from Movies", exact: true }),
+  );
   await expect.element(deleted.getByText("It replaced WEBDL-1080p.")).toBeVisible();
   await expect.element(deleted.getByRole("link")).not.toBeInTheDocument();
 });
 
-test("on a phone Details opens the entry in a sheet", async () => {
+test("on a phone the whole row opens the entry in a sheet", async () => {
   await asPhone();
   openHistory(historyServer([anEntry(1, new Date().toISOString())]));
-  await userEvent.click(page.getByRole("button", { name: "Details" }));
+  await userEvent.click(
+    page.getByRole("button", { name: /^Grabbed The Quiet Orchard 1 \d{2}:\d{2}$/u }),
+  );
   await expect
     .element(page.getByRole("dialog", { name: "Grabbed The Quiet Orchard 1" }))
     .toMatchTextContent(/It replaced WEBDL-1080p\./u);

@@ -32,6 +32,43 @@ function daysOf(entries: readonly HistoryListEntry[], now: Date): Day[] {
   return days;
 }
 
+/** entries under their browser day's heading, the History page's whole list and the Work page's ten. */
+export function DayLists({
+  entries,
+  now,
+  poster = true,
+}: {
+  entries: readonly HistoryListEntry[];
+  now: Date;
+  poster?: boolean;
+}) {
+  return daysOf(entries, now).map(({ key, heading, entries: onDay }) => (
+    <section key={key} className="not-first:mt-5">
+      <h3 className="mb-2 text-meta font-semibold text-ink-2">{heading}</h3>
+      <List label={heading}>
+        {onDay.map((entry) => (
+          <HistoryRow key={entry.id} entry={entry} poster={poster} />
+        ))}
+      </List>
+    </section>
+  ));
+}
+
+const emptyWords =
+  "History is empty. Grabs, Imports and Works added or deleted show here as they happen.";
+
+/** Nothing matches: the filters hid every entry, or History holds none at all, as after a Clear. */
+function FilteredEmpty({ now, onClear }: { now: Date; onClear: () => void }) {
+  const { data } = useSuspenseInfiniteQuery(historyPages(paramsOf({}, now)));
+  return data.pages[0]?.entries.length === 0 ? (
+    <Empty>{emptyWords}</Empty>
+  ) : (
+    <Empty action={<Button onClick={onClear}>Clear filters</Button>}>
+      No entries match these filters.
+    </Empty>
+  );
+}
+
 /** Every loaded page's entries under their day's heading, ending in Load more on desktop and loading as a phone scrolls. */
 export function HistoryDays({ filter, onClear }: { filter: HistoryFilter; onClear: () => void }) {
   const now = useNow(minuteMs);
@@ -42,13 +79,9 @@ export function HistoryDays({ filter, onClear }: { filter: HistoryFilter; onClea
   const entries = data.pages.flatMap((page) => page.entries);
   if (entries.length === 0) {
     return filtered(filter) ? (
-      <Empty action={<Button onClick={onClear}>Clear filters</Button>}>
-        No entries match these filters.
-      </Empty>
+      <FilteredEmpty now={now} onClear={onClear} />
     ) : (
-      <Empty>
-        History is empty. Grabs, Imports and Works added or deleted show here as they happen.
-      </Empty>
+      <Empty>{emptyWords}</Empty>
     );
   }
   const more = () => {
@@ -58,16 +91,7 @@ export function HistoryDays({ filter, onClear }: { filter: HistoryFilter; onClea
   };
   return (
     <>
-      {daysOf(entries, now).map(({ key, heading, entries: onDay }) => (
-        <section key={key}>
-          <h3 className="mt-5 mb-2 text-meta font-semibold text-ink-2">{heading}</h3>
-          <List label={heading}>
-            {onDay.map((entry) => (
-              <HistoryRow key={entry.id} entry={entry} />
-            ))}
-          </List>
-        </section>
-      ))}
+      <DayLists entries={entries} now={now} />
       {hasNextPage &&
         (phone ? (
           <NextOnScroll onNext={more} />

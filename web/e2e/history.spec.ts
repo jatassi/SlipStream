@@ -23,7 +23,7 @@ test("History lists a Work added today, opens it in full, shows on its Work page
   const today = page.getByRole("list", { name: "Today" });
   const entry = today.getByRole("listitem").filter({ hasText: /Added The Salt Road/u });
   await expect(entry).toContainText(/\d{2}:\d{2}/u);
-  await entry.getByRole("button", { name: "Details" }).click();
+  await entry.getByRole("button", { name: /^Details, Added The Salt Road/u }).click();
   await expect(page.getByRole("link", { name: /^Open The Salt Road/u })).toHaveAttribute(
     "href",
     `/works/${workId}`,
@@ -42,8 +42,6 @@ test("History lists a Work added today, opens it in full, shows on its Work page
   await page.getByRole("menuitem", { name: "Clear History…" }).click();
   await page.getByRole("button", { name: "Clear History", exact: true }).click();
   await expect(page.getByRole("region", { name: "Messages" })).toContainText("Clearing History.");
-  await expect(page.getByText("No entries match these filters.")).toBeVisible();
-  await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(
     page.getByText(
       "History is empty. Grabs, Imports and Works added or deleted show here as they happen.",

@@ -7,18 +7,19 @@ import {
   useListHistorySuspense,
 } from "../api/gen/query/history/history";
 import { ensureQuery } from "../api/query-client";
-import { List } from "../ui/list";
+import { useNow } from "../tasks/use-now";
 import { Section } from "../ui/section";
-import { HistoryRow } from "./history-row";
+import { DayLists } from "./history-days";
 
 const workHistoryParams = (workId: string) => ({ work: workId, limit: 10 });
 
 export const loadWorkHistory = (queryClient: QueryClient, workId: string) =>
   ensureQuery(queryClient, getListHistorySuspenseQueryOptions(workHistoryParams(workId)));
 
-/** A Work's ten newest History entries, and a link to all of them. */
+/** A Work's ten newest History entries under their day's heading, and a link to all of them. */
 export function WorkHistory({ type, workId }: { type: WorksContentType; workId: string }) {
   const { entries } = useListHistorySuspense(workHistoryParams(workId)).data;
+  const now = useNow(60_000);
   return (
     <Section
       title="History"
@@ -35,11 +36,7 @@ export function WorkHistory({ type, workId }: { type: WorksContentType; workId: 
       {entries.length === 0 ? (
         <p className="text-ink-3">This {type.work.one.toLowerCase()} has no History entries yet.</p>
       ) : (
-        <List label="History">
-          {entries.map((entry) => (
-            <HistoryRow key={entry.id} entry={entry} />
-          ))}
-        </List>
+        <DayLists entries={entries} now={now} poster={false} />
       )}
     </Section>
   );

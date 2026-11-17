@@ -31,8 +31,9 @@ function Files({ files }: { files: HistoryOneEntry["files"] }) {
             {[...file.items, file.quality].join(" · ")}
             {file.replaced !== "" && (
               <span className="block text-ink-3">
-                It replaced {file.replaced}
-                {file.replacedLabel === "" ? "" : `, ${file.replacedLabel}`}.
+                {file.replacedLabel === ""
+                  ? `It replaced ${file.replaced}.`
+                  : `It replaced the ${file.replaced} file for ${file.replacedLabel}.`}
               </span>
             )}
           </li>

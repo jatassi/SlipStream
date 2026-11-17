@@ -24,11 +24,11 @@ function KeepField() {
   );
 }
 
-/** Keep history for, the one stored value Housekeeping prunes History by. */
+/** Keep history for, the one stored value Housekeeping prunes History by, under a title that isn't its label again. */
 export function KeepDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Dialog
-      title="Keep history for"
+      title="History"
       open={open}
       onOpenChange={(next) => {
         if (!next) {

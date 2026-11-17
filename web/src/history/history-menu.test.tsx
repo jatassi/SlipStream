@@ -38,7 +38,7 @@ const choose = async (item: string) => {
 test("Keep history for edits Housekeeping's one stored value, refusing less than its floor", async () => {
   const { patched } = openMenu();
   await choose("Keep history for…");
-  const dialog = page.getByRole("dialog", { name: "Keep history for" });
+  const dialog = page.getByRole("dialog", { name: "History" });
   const field = dialog.getByRole("textbox", { name: "Keep history for" });
   await expect.element(field).toHaveValue("90");
   await expect.element(dialog.getByText(historyKeep.description ?? "")).toBeVisible();

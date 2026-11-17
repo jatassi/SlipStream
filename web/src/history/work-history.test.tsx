@@ -16,6 +16,7 @@ test("a Work page lists its ten newest History entries and links to all of them"
     handlers: [...history.handlers, ...workServer().handlers],
   });
   await expect.poll(() => section().getByRole("listitem").all().length).toBe(10);
+  await expect.element(section().getByRole("list", { name: "Today" })).toBeVisible();
   await expect
     .element(section().getByRole("link", { name: "See all in History" }))
     .toHaveAttribute("href", `/activity/history?work=${orchardId}`);

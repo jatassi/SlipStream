@@ -6,11 +6,11 @@ An Admin opens Activity > History and reads what happened to the library, newest
 
 - `history-days` entries sit under `Today`, `Yesterday` or `Tuesday 10 November` (with the year when it isn't this one), each with its time of day such as `14:02` and its catalog words, such as `Added The Salt Road to Movies` (P-223).
 - `history-paging` with more than 50 entries, `Load more` reads the page before the last one shown, by `before`, with no entry twice; a phone loads the next page as the list's end scrolls into view (P-223).
-- `history-filters` the Content Type select, the group chips `Grabs`, `Imports`, `Library` and `Health` with each chosen group's kinds, `When` (`Any time`, `Today`, `Last 7 days`, `Last 30 days`) and a Work chip with `Show every Work` narrow the list and stay in the address; with nothing matching it reads `No entries match these filters.` with `Clear filters` (P-224, P-225).
+- `history-filters` the Content Type select, the group chips `Grabs`, `Imports`, `Library` and `Health` with each chosen group's kinds, `When` (`Any time`, `Today`, `Last 7 days`, `Last 30 days`) and a Work chip with `Show every Work` narrow the list and stay in the address; with nothing matching it reads `No entries match these filters.` with `Clear filters`, or `History is empty.` when History holds no entry at all (P-224, P-225).
 - `history-sentence` the sentence reads `There were 2 Grabs and 1 Import in the last 7 days.`, or with a failed Grab that needs attention `1 Grab failed and needs attention.`, linking to Activity's Jobs.
-- `history-entry` `Details` opens an entry in full, in place on desktop and in a sheet on a phone: its lines, Files, Stages and Health items, with `Open <Work>` while the Work exists and `Open on Health` while its item is on Health; a deleted Work's entry keeps its words and draws no link.
+- `history-entry` each row's words start at one edge, after its Work's poster or the empty poster column, and a failed or warning entry leads its time with the fail or warn icon, poster or not. `Details, <words>` opens an entry in full in place on desktop, its lines under the row's words, and a phone's whole row opens it in a sheet: its lines, Files, Stages and Health items, with `Open <Work>` while the Work exists and `Open on Health` while its item is on Health; a deleted Work's entry keeps its words and draws no link.
 - `history-clear` `History options` > `Clear History…` opens `Clear History?`; `Clear History` toasts `Clearing History.`, the list and the bell empty at once, and a message still being sent stays in the bell until it's sent.
-- `history-keep` `History options` > `Keep history for…` edits Housekeeping's `Keep history for`, between 30 and 1,095 days.
+- `history-keep` `History options` > `Keep history for…` opens the `History` dialog, which edits Housekeeping's `Keep history for`, between 30 and 1,095 days.
 - `history-api` `GET /history` refuses an unknown kind and a kind whose group isn't chosen at `query.kinds`, and `GET /history/{id}` an unknown zone at `query.zone`; a cleared entry answers 404 `history_entry_gone`.
 
 ## How to get to it (user POV)
@@ -42,10 +42,10 @@ Steps:
   $FW exec $RUN --proof history/history-filters -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("button", { name: "Grabs", exact: true }).click(); await page.getByRole("button", { name: "Grabbed" }).click(); await page.getByRole("radio", { name: "Last 7 days" }).click(); return page.url(); }'
   ```
 
-- **Open an entry.** `Details` on the Import shows its lines and Files and `Open The Quiet Orchard`. On the phone the same button opens a sheet named for the entry.
+- **Open an entry.** `Details` on the Import shows its lines and Files and `Open The Quiet Orchard`. On the phone the row itself opens a sheet named for the entry.
 
   ```sh
-  $FW exec $RUN --proof history/history-entry -- $PW cli -s={runId}-admin-desktop run-code 'async page => { const row = page.getByRole("listitem").filter({ hasText: "Imported" }).first(); await row.getByRole("button", { name: "Details" }).click(); return row.ariaSnapshot(); }'
+  $FW exec $RUN --proof history/history-entry -- $PW cli -s={runId}-admin-desktop run-code 'async page => { const row = page.getByRole("listitem").filter({ hasText: "Imported" }).first(); await row.getByRole("button", { name: /^Details, /u }).click(); return row.ariaSnapshot(); }'
   ```
 
 - **Read the API.** The list, one entry's long form in a zone, and the refusals.
