@@ -141,7 +141,7 @@ func serve(t *testing.T) *server {
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
-		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx},
+		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx.Undated()},
 		Source:       fx.SourceAs(contenttypetest.ID, "other"),
 		Artwork:      fx,
 		Timings:      works.Timings{Fetch: 5 * time.Second},

@@ -515,7 +515,7 @@ func TestSearchMarksWorksAlreadyAdded(t *testing.T) {
 
 func TestATypeTurnsOffOnlyWhileItHoldsNoWorks(t *testing.T) {
 	fx := contenttypetest.New()
-	_, h := open(t, storagetest.Library(t, works.Schema()), map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx}, fx.SourceAs(contenttypetest.ID, "other"))
+	_, h := open(t, storagetest.Library(t, works.Schema()), map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx.Undated()}, fx.SourceAs(contenttypetest.ID, "other"))
 	h.fx = fx
 	h.fx.Put("w1", shelf())
 	off, err := h.works.SetEnabled(t.Context(), admin, contenttypetest.ID, false)
@@ -568,7 +568,7 @@ func TestATypeTurnsOffOnlyWhileItHoldsNoWorks(t *testing.T) {
 
 func TestTheOnlyTypeOnStaysOn(t *testing.T) {
 	fx := contenttypetest.New()
-	_, h := open(t, storagetest.Library(t, works.Schema()), map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx}, fx.SourceAs(contenttypetest.ID, "other"))
+	_, h := open(t, storagetest.Library(t, works.Schema()), map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx.Undated()}, fx.SourceAs(contenttypetest.ID, "other"))
 	if _, err := h.works.SetEnabled(t.Context(), admin, "other", false); err != nil {
 		t.Fatal(err)
 	}
@@ -662,6 +662,19 @@ type described struct {
 }
 
 func (d described) Describe() works.Description { return d.d }
+
+func TestOpenPanicsWhenTwoTypesDeclareOneDatedKey(t *testing.T) {
+	defer func() {
+		if got, want := recover(), "works: content types fixture and other both declare dated kind shipped"; got != want {
+			t.Errorf("panic = %v, want %q", got, want)
+		}
+	}()
+	fx := contenttypetest.New()
+	_, _ = works.Open(t.Context(), works.Config{
+		Library:  storagetest.Library(t, works.Schema()),
+		Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": described{fx, contenttypetest.Description}},
+	})
+}
 
 func TestOpenPanicsOnADescriptionThatBreaksARule(t *testing.T) {
 	bad := func(edit func(*works.Description)) works.Description {
@@ -768,6 +781,15 @@ func TestOpenPanicsOnADescriptionThatBreaksARule(t *testing.T) {
 		}),
 		"works: content type fixture: it shows ratings from imdb twice": bad(func(d *works.Description) {
 			d.Ratings = []works.RatingSource{"imdb", "tmdb", "imdb"}
+		}),
+		"works: content type fixture: a dated kind has no key": bad(func(d *works.Description) {
+			d.Dated = []works.DatedKind{{Label: "Ship date"}}
+		}),
+		"works: content type fixture: dated kind shipped has no label": bad(func(d *works.Description) {
+			d.Dated = []works.DatedKind{{Key: "shipped"}}
+		}),
+		"works: content type fixture: it declares dated kind shipped twice": bad(func(d *works.Description) {
+			d.Dated = []works.DatedKind{{Key: "shipped", Label: "Ship date"}, {Key: "shipped", Label: "Sail date"}}
 		}),
 	} {
 		func() {

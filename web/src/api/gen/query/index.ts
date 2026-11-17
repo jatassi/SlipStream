@@ -1,3 +1,4 @@
+export * from "./calendar/calendar.ts";
 export * from "./downloadclients/downloadclients.ts";
 export * from "./files/files.ts";
 export * from "./firstrun/firstrun.ts";

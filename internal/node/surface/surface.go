@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/calendarapi"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloadclientsapi"
 	"github.com/jatassi/slipstream/internal/files"
@@ -138,6 +139,7 @@ type Node interface {
 	firstrunapi.Guide
 	mediaserversapi.Servers
 	notificationsapi.Notes
+	calendarapi.Calendar
 }
 
 // Services are what the operations run against. Document passes none.
@@ -176,6 +178,7 @@ func Mount(r *api.Router, s Services) {
 	firstrunapi.Routes(r, s.Node)
 	mediaserversapi.Routes(r, s.Node)
 	notificationsapi.Routes(r, s.Node)
+	calendarapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

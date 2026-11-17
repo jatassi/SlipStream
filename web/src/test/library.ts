@@ -6,6 +6,7 @@ export const cinema: WorksContentType = {
   name: "Films",
   icon: "film",
   enabled: true,
+  dated: [{ key: "opening", label: "In cinemas" }],
   work: { one: "Film", many: "Films" },
   item: { one: "Film", many: "Films" },
   levels: [],

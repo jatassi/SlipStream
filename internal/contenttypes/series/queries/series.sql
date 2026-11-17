@@ -120,3 +120,9 @@ SELECT item_id, work_id, season_number, episode_number, absolute_number, air_dat
 
 -- name: ListEveryEpisodeName :many
 SELECT item_id, work_id, season_number, episode_number, absolute_number, air_date FROM series_episode ORDER BY work_id, season_number, episode_number;
+
+-- name: ListAiredIn :many
+SELECT item_id, work_id, air_date FROM series_episode
+WHERE air_date <> '' AND air_date >= sqlc.arg(from_day) AND air_date < sqlc.arg(to_day)
+  AND air_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+ORDER BY air_date;

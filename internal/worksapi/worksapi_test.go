@@ -204,7 +204,7 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
-		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx},
+		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx, "other": fx.Undated()},
 		Source:       fx.SourceAs(contenttypetest.ID, "other"),
 		Artwork:      fx,
 		Timings:      works.Timings{Fetch: 5 * time.Second},
@@ -354,7 +354,8 @@ const fixtureDescriptors = `"fields":[` +
 	`{"key":"code","label":"Code","tier":"item","kind":"text","in":["code"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
 	`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"label","label":"Label","tier":"level","depth":1,"shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}],` +
 	`"source":"Fixture source","items":"many","art":{"poster":"photo","backdrop":null,"title":null},"ratings":["tmdb","imdb"],"availability":"","releases":"",` +
-	`"addSearch":{"kind":"choice","choices":[{"value":"monitored","label":"Everything monitored"},{"value":"first_level","label":"First box"},{"value":"latest_level","label":"Latest box"},{"value":"first_item","label":"First thing"},{"value":"none","label":"Nothing"}]}`
+	`"addSearch":{"kind":"choice","choices":[{"value":"monitored","label":"Everything monitored"},{"value":"first_level","label":"First box"},{"value":"latest_level","label":"Latest box"},{"value":"first_item","label":"First thing"},{"value":"none","label":"Nothing"}]},` +
+	`"dated":[{"key":"shipped","label":"Ship date"}]`
 
 func TestListContentTypesAnswersASession(t *testing.T) {
 	s := serve(t)
@@ -364,7 +365,8 @@ func TestListContentTypesAnswersASession(t *testing.T) {
 	s.handler.ServeHTTP(w, req)
 	fixture := `{"id":"fixture","name":"Fixture","icon":"shapes","enabled":true,"work":{"one":"Shelf","many":"Shelves"},"levels":[{"one":"Box","many":"Boxes"}],"aside":{"one":"Spare box","many":"Spare boxes"},"item":{"one":"Thing","many":"Things"},` +
 		fixtureDescriptors + `}`
-	want := `{"contentTypes":[` + fixture + "," + strings.Replace(fixture, `"id":"fixture"`, `"id":"other"`, 1) + "]}\n"
+	other := strings.Replace(strings.Replace(fixture, `"id":"fixture"`, `"id":"other"`, 1), `"dated":[{"key":"shipped","label":"Ship date"}]`, `"dated":[]`, 1)
+	want := `{"contentTypes":[` + fixture + "," + other + "]}\n"
 	if w.Code != http.StatusOK || w.Body.String() != want {
 		t.Fatalf("listContentTypes = %d %s, want %s", w.Code, w.Body, want)
 	}

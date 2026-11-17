@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
@@ -110,6 +111,9 @@ type half struct {
 	// notifications is the Admin's notification connections and the bell,
 	// on a Controller.
 	notifications *notifications.Service
+
+	// calendar reads release dates in a span of days, on a Controller.
+	calendar *calendar.Calendar
 
 	tasks    *tasks.Scheduler
 	health   *health.Health
@@ -464,6 +468,10 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	dates := calendar.New(calendar.Config{
+		Library: lib.db, Types: contenttype.Project(opened, func(t contenttype.Library) calendar.Facet { return t }),
+		Works: tree, Files: shelf, Today: n.today,
+	})
 	pipeline = grabs.New(grabs.Config{
 		Library:          lib.db,
 		Works:            tree,
@@ -585,6 +593,8 @@ func (n *Node) startController(ctx context.Context) error {
 		mediaServersHealth: servers.HealthSource(),
 
 		notifications: n.notifications,
+
+		calendar: dates,
 
 		transfers: copies,
 		copier:    copier,

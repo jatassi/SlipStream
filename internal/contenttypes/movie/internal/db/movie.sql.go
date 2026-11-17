@@ -696,6 +696,40 @@ func (q *Queries) ListTitles(ctx context.Context, workID works.WorkID) ([]ListTi
 	return items, nil
 }
 
+const listWorksReleasedIn = `-- name: ListWorksReleasedIn :many
+SELECT work_id FROM movie_release
+WHERE kind IN (2, 3, 4, 5) AND date >= ?1 AND date < ?2
+ORDER BY kind, date
+`
+
+type ListWorksReleasedInParams struct {
+	FromDay string
+	ToDay   string
+}
+
+func (q *Queries) ListWorksReleasedIn(ctx context.Context, arg ListWorksReleasedInParams) ([]works.WorkID, error) {
+	rows, err := q.db.QueryContext(ctx, listWorksReleasedIn, arg.FromDay, arg.ToDay)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []works.WorkID
+	for rows.Next() {
+		var work_id works.WorkID
+		if err := rows.Scan(&work_id); err != nil {
+			return nil, err
+		}
+		items = append(items, work_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setSettings = `-- name: SetSettings :exec
 UPDATE movie_settings SET counts_as = ?1, cinema_delay_seconds = ?2, year_slack = ?3 WHERE id = 1
 `

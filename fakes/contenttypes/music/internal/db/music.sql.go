@@ -99,6 +99,47 @@ func (q *Queries) ListAlbumsOf(ctx context.Context, workIds []works.WorkID) ([]M
 	return items, nil
 }
 
+const listAlbumsReleasedIn = `-- name: ListAlbumsReleasedIn :many
+SELECT level_id, work_id, released FROM music_album
+WHERE length(released) = 10 AND released >= ?1 AND released < ?2
+  AND released GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+ORDER BY released
+`
+
+type ListAlbumsReleasedInParams struct {
+	FromDay string
+	ToDay   string
+}
+
+type ListAlbumsReleasedInRow struct {
+	LevelID  works.LevelID
+	WorkID   works.WorkID
+	Released string
+}
+
+func (q *Queries) ListAlbumsReleasedIn(ctx context.Context, arg ListAlbumsReleasedInParams) ([]ListAlbumsReleasedInRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAlbumsReleasedIn, arg.FromDay, arg.ToDay)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAlbumsReleasedInRow
+	for rows.Next() {
+		var i ListAlbumsReleasedInRow
+		if err := rows.Scan(&i.LevelID, &i.WorkID, &i.Released); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEveryTrack = `-- name: ListEveryTrack :many
 SELECT item_id, work_id, disc, number, length_ms FROM music_track ORDER BY item_id
 `
