@@ -2,6 +2,7 @@ import { Sorting01Icon } from "@hugeicons/core-free-icons";
 import { Link } from "@tanstack/react-router";
 
 import type { WorksContentType } from "../api/gen/model";
+import { LibraryViews } from "../library/library-views";
 import { Button } from "../ui/button";
 import { Menu } from "../ui/menu";
 import { SegmentedLinks, segmentedLink } from "../ui/segmented-links";
@@ -10,7 +11,7 @@ import { type Reason, type Sort, reasonLabels, reasons, sortLabels, sorts } from
 const exact = { exact: true, includeSearch: false };
 
 /** All, then each enabled Content Type's Wanted, as the Library's links are. */
-export function TypeLinks({ types }: { types: readonly WorksContentType[] }) {
+function TypeLinks({ types }: { types: readonly WorksContentType[] }) {
   return (
     <SegmentedLinks label="Content Types">
       <Link to="/library/wanted" activeOptions={exact} className={segmentedLink}>
@@ -28,6 +29,22 @@ export function TypeLinks({ types }: { types: readonly WorksContentType[] }) {
         </Link>
       ))}
     </SegmentedLinks>
+  );
+}
+
+/** The Library views, then the Content Type links while more than one type is enabled. */
+export function WantedSwitches({
+  types,
+  contentType,
+}: {
+  types: readonly WorksContentType[];
+  contentType: string | undefined;
+}) {
+  return (
+    <>
+      <LibraryViews contentType={contentType} />
+      {types.length > 1 && <TypeLinks types={types} />}
+    </>
   );
 }
 

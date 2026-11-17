@@ -31,8 +31,8 @@ const notifications = (page: Page) => page.getByRole("region", { name: "Messages
 async function openWanted(page: Page): Promise<void> {
   await page.goto("/library");
   await page
-    .getByRole("list", { name: "Wanted" })
-    .getByText(/^5 Works need files or upgrades\./u)
+    .getByRole("navigation", { name: "Library views" })
+    .getByRole("link", { name: "Wanted" })
     .click();
   await expect(page.getByRole("heading", { name: "Wanted", level: 1 })).toBeVisible();
 }

@@ -7,7 +7,7 @@ import { addSeries, harborNights, lanternKeepers } from "./series.ts";
 import { isPhone, navigate } from "./shell.ts";
 import { clickWhenStill } from "./still.ts";
 
-/** The Library's poster cards, not the Wanted and Pending imports rows above them. */
+/** The Library's poster cards, not the Pending imports row above them. */
 const posterCards = (page: Page) =>
   page.getByRole("main").getByRole("listitem").and(page.locator("[data-work-id]"));
 

@@ -14,18 +14,17 @@ import (
 // sentenceOf leads with what needs attention: es's Items dated on or
 // before today that are Missing or Failed. Else it names soon's Items, the
 // next 7 days'. Else it is nil. Each counts an Item once, whatever its
-// rows.
+// rows. It counts only monitored Items, whatever the rows show, since
+// Wanted, where it links, lists only those.
 func sentenceOf(today Day, es, soon []entry) *Sentence {
-	var out []entry
-	for _, e := range es {
-		if e.Day.Compare(today) <= 0 && (e.item.Status == files.Missing || e.item.Status == files.Failed) {
-			out = append(out, e)
-		}
-	}
+	out := slices.DeleteFunc(slices.Clone(es), func(e entry) bool {
+		return !e.item.Item.Monitored || e.Day.Compare(today) > 0 || (e.item.Status != files.Missing && e.item.Status != files.Failed)
+	})
 	if words, one := tally(out); words != "" {
 		return &Sentence{NeedsYou: true, Words: words + verb(one, " is out and still missing.", " are out and still missing.")}
 	}
-	if words, one := tally(soon); words != "" {
+	ahead := slices.DeleteFunc(slices.Clone(soon), func(e entry) bool { return !e.item.Item.Monitored })
+	if words, one := tally(ahead); words != "" {
 		return &Sentence{Words: words + verb(one, " comes out this week.", " come out this week.")}
 	}
 	return nil

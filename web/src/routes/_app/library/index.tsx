@@ -3,9 +3,9 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useListContentTypesSuspense } from "../../../api/gen/query/works/works";
 import {
   RoutedLibrary,
+  librarySwitches,
   librarySearch,
   rememberedSearch,
-  typeSwitch,
 } from "../../../library/routed";
 import { Empty } from "../../../shell/empty";
 import { Page } from "../../../shell/page";
@@ -37,7 +37,7 @@ function Library() {
   const enabled = enabledTypes(contentTypes);
   return (
     <Page
-      beside={typeSwitch(enabled)}
+      beside={librarySwitches(enabled, undefined)}
       action={enabled.length === 0 ? undefined : <AddMenu types={enabled} />}
     >
       <RoutedLibrary

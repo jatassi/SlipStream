@@ -13,8 +13,8 @@ Wanted, under Library, lists every Work SlipStream is looking for, with its Item
 
 ## How to get to it (user POV)
 
-- Desktop shell: `/library/wanted`, from the Library's Wanted row and the command menu (`Wanted`), with `All`, `Movies` and `TV` under `Content Types`, the `Reasons` filter (`Failed`, `Missing`, `Upgrade available`, `File gone`) and `Sort`.
-- Phone shell: the same page from the Library tab, one button per row that opens the row's actions.
+- Desktop shell: `/library/wanted`, from `Wanted` in the `Library views` switch on the Library or the Calendar, and the command menu (`Open Wanted`), with `All`, `Movies` and `TV` under `Content Types`, the `Reasons` filter (`Failed`, `Missing`, `Upgrade available`, `File gone`) and `Sort`.
+- Phone shell: the same page from the Library tab's `Library views` switch, one button per row that opens the row's actions.
 - API: `GET /api/v1/wanted` (`status {searching, queued, nextBacklogAt, limits}`, `rows`), `POST /api/v1/works/search` (Search all, by ids or the Wanted filter), `DELETE /api/v1/search-queue` (Cancel queued searches), `POST /api/v1/works/{workId}/search`, `PATCH /api/v1/indexers/{id}` with `searches {count, per}`.
 
 ## Driving it with fakeworld and playwright cli

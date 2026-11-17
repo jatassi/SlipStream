@@ -537,6 +537,7 @@ An iOS-style choice of view or filter.
 ### Segmented links
 
 The Segmented control's look over links, for a choice where each option is its own address, such as the Library's Content Type switch (All, then each enabled type in sidebar order). The row is a `nav` landmark named for the choice. Each option is a link, and the router marks the current one `aria-current="page"`, which takes the selected fill and lift. Counts are optional. A link is `ink-2`, turning `ink-1` on hover. On phone it spans the width with equal options and scrolls sideways, as the Segmented control does.
+- **Library views.** "Library views" (Library, Wanted, Calendar) heads the Library, Wanted and the Calendar, before their Content Type links, and keeps the Content Type in view (`/library/music`, `/library/wanted/music`, `/library/calendar/music`). It carries no counts: Wanted's counts lead Wanted's own Status sentence. On phone it sits under the large title, or heads the content of a pushed page, with the Content Type links under it.
 
 ### Page tabs
 
@@ -652,14 +653,14 @@ Posters fill the width in equal columns at least 120px (small), 160px (medium, t
 
 The page under Library that lists what SlipStream is searching for, at `/library/wanted` for every Content Type and `/library/wanted/<type>` for one. It is a Library page, not a nav destination: the Library nav row stays current on it, and the phone pushes it with a "Library" back link. It reuses the Library's parts and adds none of its own.
 
-- **Order.** The Library's Content Type links (All, then each enabled type) sit beside the title. The Status sentence leads the content with what the queue is doing ("3 searching · 142 queued · Next Backlog search tonight at 22:00", or "Nothing queued" and "Backlog search is off"), then one warning part per Indexer whose search limit holds searches, linked to that Indexer's settings: "Waiting for TorrentLeech's search limit until 14:00", or "RSS sync uses all of TorrentLeech's search limit" when no slot is left for Backlog search. Under it sit the reason chips, the Sort menu and the page's actions, then the table.
+- **Order.** The Library views, then the Content Type links (All, then each enabled type), sit beside the title. The Status sentence leads the content with what the queue is doing ("3 searching · 142 queued · Next Backlog search tonight at 22:00", or "Nothing queued" and "Backlog search is off"), then one warning part per Indexer whose search limit holds searches, linked to that Indexer's settings: "Waiting for TorrentLeech's search limit until 14:00", or "RSS sync uses all of TorrentLeech's search limit" when no slot is left for Backlog search. Under it sit the reason chips, the Sort menu and the page's actions, then the table.
 - **Reason chips.** One 24px toggle chip per reason (Failed, Missing, Upgrade available, File gone) in that order. A pressed chip is `selected` with `ink-1`, an unpressed one `fill` with `ink-2`. The default presses every reason but File gone. At least one stays pressed. On phone the chips scroll sideways in one row.
 - **Actions.** "Search 140 series" for the filtered total, in the Content Type's noun or "Works" on All, is the page's one primary button, and the only one on phone. Above 100 Works it asks first in a Dialog (a bottom sheet on phone). Cancel queued searches is a default button after the Sort menu, shown only while searches are queued.
 - **Table.** Lists and tables' table, 60px two-line rows. Each header names the Content Type's nouns, such as Series and Episodes, and Work on All. Work (the poster and label, as in the Library's table), Items (ranges of the codes Needs you uses, such as "S02E01 to S02E08", and nothing for a Work of one Item, left out while no type in view has many Items), Reason ("Missing. 3 upgrades."), Last searched ("Found nothing on Mon at 09:12", or "Not searched yet"), Next search ("Tomorrow at 14:00", "Searching" with the spinner, "Queued", "Only when you search"), then a small Search button and a "…" menu with Manual search and Open Work. Items hides below 900px of the table's width and Last searched below 760px.
 - **Phone.** An inset list of two-line touch rows. The title is the Work, and the second line reads the reason, the Items and the next search as one sentence ("Missing. S02E01 to S02E08. Next search tomorrow at 14:00."). A row opens an action sheet with Search, Manual search and Open Work.
 - **Paging.** 100 rows a page. "Load more" ends the table on desktop, and the next page loads as the end scrolls into view on phone.
 - **Empty.** "Nothing to search for." in the Empty pattern.
-- **Entry.** A row above the Library grid beside Pending imports, "1,204 films need files or upgrades. 12 have failed Grabs.", in the Content Type's noun or "Works" on All, shown while Wanted lists anything, and the command "Open Wanted".
+- **Entry.** Wanted in the Library views, and the command "Open Wanted".
 
 ### Status marks
 

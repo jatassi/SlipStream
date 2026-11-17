@@ -20,7 +20,8 @@ import { Icon } from "../../ui/icon";
 import { Section } from "../../ui/section";
 import { type Placed, codeOf, placedOf } from "../fields-by-tier";
 // oxlint-disable-next-line import/max-dependencies -- About shows every place a type puts a field, with its art and links
-import { aboutText, dayWords, ratingValue } from "./fields-format";
+import { dayWords } from "../../format/days";
+import { aboutText, ratingValue } from "./fields-format";
 import { OpenIn } from "./open-in";
 
 type Holder = Pick<WorksWorkView, "fields" | "artwork">;

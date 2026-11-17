@@ -44,7 +44,7 @@ type calendarInput struct {
 type answer struct {
 	Today     string                 `json:"today" format:"date" doc:"The Controller's day"`
 	NextDayAt time.Time              `json:"nextDayAt" doc:"When the Controller's next day starts"`
-	Sentence  api.Nullable[sentence] `json:"sentence" doc:"What needs attention, else what comes out in the next 7 days; null when neither has anything"`
+	Sentence  api.Nullable[sentence] `json:"sentence" doc:"What needs attention among monitored Items, else which of them come out in the next 7 days, whatever unmonitored asks; null when neither has anything"`
 	Days      []day                  `json:"days" nullable:"false" doc:"Only the days with rows, in order"`
 }
 

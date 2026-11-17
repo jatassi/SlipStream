@@ -60,6 +60,24 @@ func TestTheSentenceOtherwiseNamesTheWeekOrNothing(t *testing.T) {
 	}
 }
 
+func TestTheSentenceCountsOnlyMonitoredItemsWhenUnmonitoredOnesShow(t *testing.T) {
+	today := NewDay(2026, time.November, 17)
+	s := newShelf(0, "Attic", states(4, files.Missing))
+	for _, id := range s.boxes[0][1:] {
+		p := s.w.items[id]
+		p.Item.Monitored = false
+		s.w.items[id] = p
+	}
+	all := of(s.w)
+	got := sentenceOf(today, kept(s.dated(0, today, 1, 2, 3, 4), all, true), kept(s.dated(0, today.Add(1), 2, 3), all, true))
+	if want := (Sentence{NeedsYou: true, Words: "1 thing is out and still missing."}); got == nil || *got != want {
+		t.Fatalf("sentence = %+v, want %+v: Wanted, where it links, lists only the monitored Thing 1", got, want)
+	}
+	if got := sentenceOf(today, nil, kept(s.dated(0, today.Add(1), 2, 3), all, true)); got != nil {
+		t.Fatalf("sentence = %+v, want none while only unmonitored Things come out this week", got)
+	}
+}
+
 func joined(ds ...[]Dated) []Dated {
 	var out []Dated
 	for _, d := range ds {

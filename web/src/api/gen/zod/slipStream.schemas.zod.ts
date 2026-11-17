@@ -130,7 +130,7 @@ export const CalendarAnswer = zod.object({
   sentence: zod
     .union([CalendarSentence, zod.null()])
     .describe(
-      "What needs attention, else what comes out in the next 7 days; null when neither has anything",
+      "What needs attention among monitored Items, else which of them come out in the next 7 days, whatever unmonitored asks; null when neither has anything",
     ),
   today: zod.iso.date().describe("The Controller's day"),
 });

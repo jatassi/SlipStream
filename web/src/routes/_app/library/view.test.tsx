@@ -19,6 +19,7 @@ const shownWorks = () =>
     .getByRole("main")
     .getByRole("link")
     .elements()
+    .filter((link) => link.closest("nav") === null)
     .map((link) => link.textContent);
 
 test("sorting by Profile sections the Library by Profile, and Reverse flips the sections", async () => {

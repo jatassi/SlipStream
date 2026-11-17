@@ -84,7 +84,7 @@ export const adminNav: NavTable = [
     tab: { order: 1 },
     count: "pendingImports",
     children: "content-types",
-    within: ["/library/pending", "/library/wanted"],
+    within: ["/library/pending", "/library/wanted", "/library/calendar"],
   },
   {
     id: "activity",
