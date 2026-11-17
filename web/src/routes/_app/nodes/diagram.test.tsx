@@ -255,7 +255,7 @@ test("the Notifying Role's Inspector says the Node sees the connections' secrets
   await expect
     .element(
       inspector.getByText(
-        "A Node with this Role sees your notification connections' secrets while it sends.",
+        "A Node with this Role receives your notification connections' secrets to send messages.",
       ),
     )
     .toBeVisible();

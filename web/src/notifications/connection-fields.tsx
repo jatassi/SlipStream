@@ -79,9 +79,7 @@ function Choosing({ sheet, events }: { sheet: ConnectionSheetState; events: read
                 checked={field.state.value}
                 onCheckedChange={field.handleChange}
               />
-              <p className="text-meta text-ink-3">
-                Adds the poster of the movie or series where {provider.label} can show one.
-              </p>
+              <p className="text-meta text-ink-3">Adds the poster to each message that has one.</p>
             </div>
           )}
         </form.Field>

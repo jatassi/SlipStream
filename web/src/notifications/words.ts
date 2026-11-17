@@ -6,6 +6,8 @@ import { type Clock, countWords, laterWords, pastAtWords, sinceWords } from "../
 
 const connectionNoun = { one: "connection", many: "connections" } as const;
 
+const grouped = new Intl.NumberFormat("en");
+
 export const providerOf = (providers: readonly Provider[], id: string): Provider => {
   const provider = providers.find((each) => each.id === id);
   if (provider === undefined) {
@@ -30,7 +32,7 @@ function onWords(connections: readonly Connection[]): string {
 function troubleWords(label: string, connection: Connection, clock: Clock): string | undefined {
   const { shown, since, until } = connection.status;
   if (shown === "failing" && since !== null) {
-    return `${label} has been failing since ${sinceWords(since, clock)}.`;
+    return `Messages to ${label} have failed since ${sinceWords(since, clock)}.`;
   }
   if (shown === "waiting" && until !== null) {
     return `Messages to ${label} wait until ${laterWords(until, clock).words}.`;
@@ -110,5 +112,5 @@ export function givenUpNote(connection: Connection, provider: Provider): string 
   }
   return count === 1
     ? `1 message wasn't sent, because it waited too long or ${provider.label} refused it.`
-    : `${count} messages weren't sent, because they waited too long or ${provider.label} refused them.`;
+    : `${grouped.format(count)} messages weren't sent, because they waited too long or ${provider.label} refused them.`;
 }

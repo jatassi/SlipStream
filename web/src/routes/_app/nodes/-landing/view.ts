@@ -31,7 +31,8 @@ export type RoleChip = {
 
 /** What giving a Node a Role also means, for a Role that means more than its work. */
 export const roleTrust: Partial<Record<RoleName, string>> = {
-  notifying: "A Node with this Role sees your notification connections' secrets while it sends.",
+  notifying:
+    "A Node with this Role receives your notification connections' secrets to send messages.",
 };
 
 /** One Node as the Roster lists it and the Diagram draws it. */

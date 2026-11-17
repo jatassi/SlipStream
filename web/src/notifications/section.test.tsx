@@ -49,7 +49,7 @@ test("a failing connection's section names it with the time it started failing",
   await expect
     .element(
       page.getByText(
-        `2 connections send notifications. Discord 'Family' has been failing since ${at}.`,
+        `2 connections send notifications. Messages to Discord 'Family' have failed since ${at}.`,
       ),
     )
     .toBeVisible();
@@ -66,13 +66,13 @@ test("a failing connection's section names it with the time it started failing",
 
 test("a connection that gave messages up says how many and why", async () => {
   const world = notificationsWorld({
-    start: [{ ...family, status: { ...family.status, givenUp: 3 } }],
+    start: [{ ...family, status: { ...family.status, givenUp: 1200 } }],
   });
   renderApp({ path, handlers: world.handlers });
   await expect
     .element(
       page.getByText(
-        "3 messages weren't sent, because they waited too long or Discord refused them.",
+        "1,200 messages weren't sent, because they waited too long or Discord refused them.",
       ),
     )
     .toBeVisible();
