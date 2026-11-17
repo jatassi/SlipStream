@@ -17,8 +17,8 @@ import { indexerEffects } from "./indexer-effects";
 import { libraryEffects, renameCounts } from "./library-effects";
 import { mediaServerEffects } from "./media-server-effects";
 import { notificationEffects } from "./notification-effects";
-import { everyPath } from "./refresh";
 // oxlint-disable-next-line import/max-dependencies -- every product event's effects meet in this one table
+import { everyPath } from "./refresh";
 import { searchEffects } from "./search-effects";
 import { systemEffects } from "./system-effects";
 import { targetsEffects } from "./targets-effects";
