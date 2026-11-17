@@ -85,8 +85,8 @@ type Answer struct {
 	// day starts.
 	Today     Day
 	NextDayAt time.Time
-	// Sentence is nil when nothing in the span needs attention and nothing
-	// comes out in the next 7 days.
+	// Sentence counts monitored Items only. It is nil when none in the span
+	// needs attention and none comes out in the next 7 days.
 	Sentence *Sentence
 	// Days are only the days with rows, in order.
 	Days []DayRows

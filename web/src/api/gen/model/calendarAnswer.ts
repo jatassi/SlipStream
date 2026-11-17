@@ -6,7 +6,7 @@ export interface CalendarAnswer {
   days: CalendarDay[];
   /** When the Controller's next day starts */
   nextDayAt: string;
-  /** What needs attention, else what comes out in the next 7 days; null when neither has anything */
+  /** What needs attention among monitored Items, else which of them come out in the next 7 days, whatever unmonitored asks; null when neither has anything */
   sentence: CalendarSentence | null;
   /** The Controller's day */
   today: string;
