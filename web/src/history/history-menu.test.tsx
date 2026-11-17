@@ -6,7 +6,7 @@ import { getListContentTypesMockHandler } from "../api/gen/query/works/works.msw
 import { problem } from "../test/handlers";
 import { anEntry, historyServer } from "../test/history";
 import { cinema } from "../test/library";
-import { housekeepingHandler } from "../test/notifications";
+import { historyKeep, housekeepingHandler } from "../test/notifications";
 import { renderApp } from "../test/render-app";
 
 const day = 86_400;
@@ -41,6 +41,7 @@ test("Keep history for edits Housekeeping's one stored value, refusing less than
   const dialog = page.getByRole("dialog", { name: "Keep history for" });
   const field = dialog.getByRole("textbox", { name: "Keep history for" });
   await expect.element(field).toHaveValue("90");
+  await expect.element(dialog.getByText(historyKeep.description ?? "")).toBeVisible();
   await userEvent.fill(field, "20");
   await userEvent.click(dialog.getByRole("button", { name: "Save" }));
   await expect.element(dialog.getByRole("alert")).toBeVisible();

@@ -447,6 +447,10 @@ export const SettingDurationField = zod.object({
     .string()
     .exactOptional()
     .describe("Where the default comes from, when it is another setting's value"),
+  description: zod
+    .string()
+    .exactOptional()
+    .describe("What a longer or shorter time costs, in whole sentences"),
   floor: zod
     .string()
     .exactOptional()

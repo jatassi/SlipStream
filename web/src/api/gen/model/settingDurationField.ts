@@ -8,6 +8,8 @@ export interface SettingDurationField {
   default: number;
   /** Where the default comes from, when it is another setting's value */
   defaultFrom?: string;
+  /** What a longer or shorter time costs, in whole sentences */
+  description?: string;
   /** Why the minimum protects someone outside the install */
   floor?: string;
   /** The setting has no override; Reset to default leaves it unchanged */

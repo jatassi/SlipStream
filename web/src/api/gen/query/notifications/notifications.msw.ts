@@ -345,6 +345,9 @@ export const getGetNotificationSettingsResponseSettingDurationFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
@@ -817,6 +820,9 @@ export const getUpdateNotificationSettingsResponseSettingDurationFieldMock = (
     default: faker.number.int(),
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { description: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     ...(faker.datatype.boolean()
       ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }

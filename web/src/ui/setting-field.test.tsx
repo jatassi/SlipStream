@@ -107,6 +107,16 @@ test("a duration shows its default, its range and its floor", async () => {
   expect(page.getByRole("button", { name: "Reset to default" }).query()).toBeNull();
 });
 
+test("a duration says what a longer time costs above its default and range", async () => {
+  renderKit(
+    <SettingField
+      field={{ ...housekeeping, description: "A longer time makes each Backup larger." }}
+      onSave={saving()}
+    />,
+  );
+  await expect.element(page.getByText("A longer time makes each Backup larger.")).toBeVisible();
+});
+
 test("a duration saves seconds in the unit chosen", async () => {
   const onSave = saving();
   renderKit(<SettingField field={rss} onSave={onSave} />);

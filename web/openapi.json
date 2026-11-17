@@ -19699,6 +19699,10 @@
             "description": "Where the default comes from, when it is another setting's value",
             "type": "string"
           },
+          "description": {
+            "description": "What a longer or shorter time costs, in whole sentences",
+            "type": "string"
+          },
           "floor": {
             "description": "Why the minimum protects someone outside the install",
             "type": "string"
