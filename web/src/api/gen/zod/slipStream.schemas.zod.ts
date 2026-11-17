@@ -9360,7 +9360,7 @@ export const NotificationsFeedRow = zod.object({
   link: zod.string().nullable().describe("Where the row leads; null while no Address is set"),
   seq: zod.int(),
   title: zod.string(),
-  unread: zod.boolean().nullable().describe("Null when the API key reads it"),
+  unread: zod.boolean().nullable().describe("Null for a request made with the API key"),
 });
 
 export type NotificationsFeedRow = zod.input<typeof NotificationsFeedRow>;
@@ -9372,7 +9372,7 @@ export const NotificationsFeed = zod.object({
   unread: zod
     .int()
     .nullable()
-    .describe("How many rows are unread, at most 100; null when the API key reads it"),
+    .describe("How many rows are unread, at most 100; null for a request made with the API key"),
 });
 
 export type NotificationsFeed = zod.input<typeof NotificationsFeed>;

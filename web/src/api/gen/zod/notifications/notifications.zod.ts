@@ -77,7 +77,7 @@ export const UpdateNotificationConnectionBody = NotificationsEditBody;
 export const UpdateNotificationConnectionResponse = NotificationsConnection;
 
 /**
- * @summary Send a Test message to a saved connection with any edits laid over it. A Test of the saved values that passes sends the messages it held while paused
+ * @summary Send a Test message to a saved connection, with any unsaved edits applied. A passing Test of the saved values also sends the messages held while it was paused
  */
 export const TestNotificationConnectionParams = zod.object({
   id: zod.uuid(),

@@ -179,12 +179,12 @@ type feedRow struct {
 	Title  string               `json:"title"`
 	Line   string               `json:"line" doc:"The message's first line; empty for none"`
 	Link   api.Nullable[string] `json:"link" doc:"Where the row leads; null while no Address is set"`
-	Unread api.Nullable[bool]   `json:"unread" doc:"Null when the API key reads it"`
+	Unread api.Nullable[bool]   `json:"unread" doc:"Null for a request made with the API key"`
 }
 
 type feed struct {
 	Rows   []feedRow           `json:"rows" nullable:"false" doc:"Newest first"`
-	Unread api.Nullable[int]   `json:"unread" doc:"How many rows are unread, at most 100; null when the API key reads it"`
+	Unread api.Nullable[int]   `json:"unread" doc:"How many rows are unread, at most 100; null for a request made with the API key"`
 	Before api.Nullable[int64] `json:"before" doc:"The cursor for the next page; null at the end"`
 }
 
@@ -572,7 +572,7 @@ func Routes(r *api.Router, notes Notes) {
 	}, h.deleteConnection)
 	api.Register(o, api.Admin, api.Op{
 		ID: "testNotificationConnection", Method: http.MethodPost, Path: base + "/connections/{id}/test", Status: http.StatusOK,
-		Summary: "Send a Test message to a saved connection with any edits laid over it. A Test of the saved values that passes sends the messages it held while paused",
+		Summary: "Send a Test message to a saved connection, with any unsaved edits applied. A passing Test of the saved values also sends the messages held while it was paused",
 		Errors:  []*api.Code{notFound, fieldRefused.Code, testFailed.Code},
 	}, h.testSaved)
 	api.Register(o, api.Admin, api.Op{

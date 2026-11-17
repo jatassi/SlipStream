@@ -11,7 +11,7 @@ export interface NotificationsFeedRow {
   seq: number;
   title: string;
   /**
-   * Null when the API key reads it
+   * Null for a request made with the API key
    * @nullable
    */
   unread: boolean | null;

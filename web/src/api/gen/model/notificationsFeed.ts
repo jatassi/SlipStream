@@ -9,7 +9,7 @@ export interface NotificationsFeed {
   /** Newest first */
   rows: NotificationsFeedRow[];
   /**
-   * How many rows are unread, at most 100; null when the API key reads it
+   * How many rows are unread, at most 100; null for a request made with the API key
    * @nullable
    */
   unread: number | null;

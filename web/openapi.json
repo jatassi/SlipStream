@@ -17410,7 +17410,7 @@
             "type": "array"
           },
           "unread": {
-            "description": "How many rows are unread, at most 100; null when the API key reads it",
+            "description": "How many rows are unread, at most 100; null for a request made with the API key",
             "format": "int64",
             "type": [
               "integer",
@@ -17454,7 +17454,7 @@
             "type": "string"
           },
           "unread": {
-            "description": "Null when the API key reads it",
+            "description": "Null for a request made with the API key",
             "type": [
               "boolean",
               "null"
@@ -59517,7 +59517,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Send a Test message to a saved connection with any edits laid over it. A Test of the saved values that passes sends the messages it held while paused",
+        "summary": "Send a Test message to a saved connection, with any unsaved edits applied. A passing Test of the saved values also sends the messages held while it was paused",
         "tags": [
           "notifications"
         ],
