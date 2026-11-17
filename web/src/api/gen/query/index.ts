@@ -5,6 +5,7 @@ export * from "./firstrun/firstrun.ts";
 export * from "./formats/formats.ts";
 export * from "./grabs/grabs.ts";
 export * from "./health/health.ts";
+export * from "./history/history.ts";
 export * from "./identity/identity.ts";
 export * from "./imports/imports.ts";
 export * from "./indexers/indexers.ts";
