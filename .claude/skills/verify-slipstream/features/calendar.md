@@ -1,6 +1,6 @@
 # Calendar
 
-An Admin asks the Calendar what comes out in a span of days and whether the library has it. `GET /calendar` answers each day's rows: a Work's Items of one level and one dated kind on that day, worded by their place in the level, with the most urgent state among them and how many are met. A sentence leads with Items that are out and still missing, else with what comes out in the next 7 days. Each Content Type declares its dated kinds on `GET /content-types`. The Calendar page at `/library/calendar` and `/library/calendar/<id>` draws the same answer as a Month of six weeks or a List of six weeks, opens from an always-shown row above the Library and the palette's `Open Calendar`, keeps its view, month, kinds and Show unmonitored in the address, and opens on the List on a phone.
+An Admin asks the Calendar what comes out in a span of days and whether the library has it. `GET /calendar` answers each day's rows: a Work's Items of one level and one dated kind on that day, worded by their place in the level, with the most urgent state among them and how many are met. A sentence leads with Items that are out and still missing, else with what comes out in the next 7 days. Each Content Type declares its dated kinds on `GET /content-types`. The Calendar page at `/library/calendar` and `/library/calendar/<id>` draws the same answer as a Month of six weeks or a List of six weeks, opens from `Calendar` in the `Library views` switch that heads the Library, Wanted and the Calendar, and from the palette's `Open Calendar`, keeps its view, month, kinds and Show unmonitored in the address, and opens on the List on a phone.
 
 ## Sub-features
 
@@ -10,14 +10,14 @@ An Admin asks the Calendar what comes out in a span of days and whether the libr
 - `calendar-page-month` `/library/calendar/music?view=month&month=2001-03` reads `March 2001` between `Previous month` and `Next month`, and the cell for Monday 12 March lists The Lanterns with `Harbor Lights · Tracks 1 to 3` (Music has one kind, so rows leave it out) and the Missing mark, the words wrapping to two lines and the row's title holding them whole. The sentence `3 tracks are out and still missing.` links to `/library/wanted/music` (P-219).
 - `calendar-page-list` `List` heads the six weeks from the address's `from` with their range, such as `March 1 to April 11, 2001`, then one section per day with rows, a day outside the Controller's year naming its year, each row The Lanterns' poster and label linking to its Work page, `Harbor Lights · Tracks 1 to 3` and `Missing · 0 of 3 met`; `Tracks` opens to `Track 1 · Tidewater` and on. `Show later` and `Show earlier` move `from` by 42 days, and a span with no rows reads `Nothing in your library comes out between <first day> and <last day>.` between `Show earlier` and `Show later` (P-220, P-221).
 - `calendar-page-unmonitored` with The Lanterns' Tracks 2 and 3 not monitored, the month shows only `Harbor Lights · Track 1`. `Show unmonitored` puts `unmonitored=true` in the address and adds `Harbor Lights · Tracks 2 and 3` with the `Not monitored` mark, in Month and List alike, while the sentence still counts only the monitored Track 1 (P-219).
-- `calendar-page-entry` the Library reads a `Calendar` row over `Release dates in your library, day by day.`, which opens `/library/calendar` on `All` and `/library/calendar/music` on Music, and the palette's `Open Calendar` opens `/library/calendar`.
+- `calendar-page-views` the Library's `Library views` switch has `Calendar`, which opens `/library/calendar` on `All` and `/library/calendar/music` on Music, where the switch marks `Calendar` current and its `Library` and `Wanted` keep Music; the palette's `Open Calendar` opens `/library/calendar`.
 - `calendar-page-phone` on a phone `/library/calendar` opens as `view=list`; its Month shows one mark a day, each cell named once (`Monday, March 12, 2001 Missing`, the year because 2001 isn't the Controller's), and tapping a day lists that day's rows under the grid. A List row's state sits on its own line under its words, and the kind chips on All scroll sideways with a fade at their end.
 - `calendar-refusals` a span of more than 42 days, a `to` not after `from`, an unknown `contentType` and an unknown kind each answer 422 `invalid` at their `query.` field in words (P-219).
 
 ## How to get to it (user POV)
 
-- Desktop shell: the `Calendar` row above the Library's grid, or ⌘K `Open Calendar`.
-- Phone shell: the `Calendar` row above the Library's grid, or Search > `Open Calendar`; it opens on the List.
+- Desktop shell: `Calendar` in the `Library views` switch beside the Library's title, or ⌘K `Open Calendar`.
+- Phone shell: `Calendar` in the `Library views` switch under the Library's large title, or Search > `Open Calendar`; it opens on the List.
 - API (Admin, Controller only): `GET /api/v1/calendar?from=&to=` with optional `contentType`, `kinds` (a comma list) and `unmonitored=true`; `GET /api/v1/content-types` for each type's `dated` kinds. A Worker answers 409 `worker_node`.
 - Host CLI: none.
 
@@ -60,12 +60,12 @@ Steps:
 
   The last answers `The span has no days. Ask for an end day after the start day.` at `query.to`.
 
-- **Open the page.** Sign `{runId}-admin-desktop` and `{runId}-admin-phone` in as in the skill's Drive. On desktop, open the Library and choose the `Calendar` row, then go to March 2001 on Music. The cell for Monday 12 March lists The Lanterns, and the sentence leads with `3 tracks are out and still missing.`
+- **Open the page.** Sign `{runId}-admin-desktop` and `{runId}-admin-phone` in as in the skill's Drive. On desktop, open the Library and choose `Calendar` in the `Library views` switch, then go to March 2001 on Music. The cell for Monday 12 March lists The Lanterns, and the sentence leads with `3 tracks are out and still missing.`
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/library'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("list", { name: "Calendar" }).getByRole("link")'
-  $FW exec $RUN --proof calendar/calendar-page-entry -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/calendar/calendar-page-entry/calendar.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "Library views" }).getByRole("link", { name: "Calendar" })'
+  $FW exec $RUN --proof calendar/calendar-page-views -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/calendar/calendar-page-views/calendar.aria.yml
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/library/calendar/music?view=month&month=2001-03'
   $FW exec $RUN --proof calendar/calendar-page-month -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/calendar/calendar-page-month/month.aria.yml
   $FW exec $RUN --proof calendar/calendar-page-month -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/calendar/calendar-page-month/month.png
