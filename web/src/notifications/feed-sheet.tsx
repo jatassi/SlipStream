@@ -15,7 +15,7 @@ import { settingKeys, settingOf } from "./settings-panel";
 
 const minute = 60_000;
 
-function FeedRow({ row, clock }: { row: Row; clock: Clock }) {
+function FeedRow({ row, clock, onFollow }: { row: Row; clock: Clock; onFollow: () => void }) {
   const body = (
     <>
       <span className="flex items-baseline gap-2">
@@ -42,7 +42,7 @@ function FeedRow({ row, clock }: { row: Row; clock: Clock }) {
       {row.link === null ? (
         <div className={look}>{body}</div>
       ) : (
-        <a href={row.link} className={`${look} hover:bg-fill`}>
+        <a href={row.link} onClick={onFollow} className={`${look} hover:bg-fill`}>
           {body}
         </a>
       )}
@@ -77,8 +77,8 @@ function EmptyFeed() {
   );
 }
 
-/** What the bell showed, newest first. Opening it marks what it shows as read. */
-export function FeedSheet() {
+/** What the bell showed, newest first. Opening it marks what it shows as read, and following a row's link closes it. */
+export function FeedSheet({ onFollow }: { onFollow: () => void }) {
   const { data, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery(feedQuery);
   const clock = { now: useNow(minute), zone: undefined };
@@ -91,7 +91,7 @@ export function FeedSheet() {
     <div className="flex flex-col gap-3">
       <ul aria-label="Notifications" className="-mx-3 flex flex-col">
         {rows.map((row) => (
-          <FeedRow key={row.seq} row={row} clock={clock} />
+          <FeedRow key={row.seq} row={row} clock={clock} onFollow={onFollow} />
         ))}
       </ul>
       {hasNextPage && (
