@@ -60,6 +60,7 @@ type World struct {
 	eachPass atomic.Pointer[func()]
 	rec      entry.Recorder
 	owners   []Owner
+	recs     map[string]entry.Recorder
 }
 
 // Owner is a package whose rows a World registers beside Ping and Pong.
@@ -127,8 +128,9 @@ func (w *World) Restart() {
 		Log: slog.New(slog.NewTextHandler(w.log, &slog.HandlerOptions{Level: slog.LevelInfo})),
 	})
 	w.rec = w.History.Recorder("pings", []entry.Entry{PingRow, PongRow})
+	w.recs = map[string]entry.Recorder{}
 	for _, o := range w.owners {
-		w.History.Recorder(o.Name, o.Rows)
+		w.recs[o.Name] = w.History.Recorder(o.Name, o.Rows)
 	}
 	cat.Seal()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -287,6 +289,10 @@ func (w *World) Record(row entry.Row[Ping], fs ...Ping) {
 	}
 	synctest.Wait()
 }
+
+// Recorder is the Recorder of owner, one of the Owners the World was made
+// with, as its Service last started.
+func (w *World) Recorder(owner string) entry.Recorder { return w.recs[owner] }
 
 // Transitions hands ts to the sink in one Write, as one Health evaluation
 // does.

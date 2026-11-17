@@ -1,8 +1,10 @@
 package imports
 
 import (
+	"bytes"
 	"context"
 	"flag"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -15,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -94,6 +97,12 @@ func TestAPackRecordsOneImportedAndASecondOnceTheWaitingFileIsPlaced(t *testing.
 	if !slices.Equal(importedFiles(got), []int{9}) || got[0].Waiting != 1 || got[0].Work.ID != tree.ID || !strings.HasPrefix(got[0].Root, "Shelves library root") {
 		t.Fatalf("after nine of ten are placed Imported is %+v, want one of nine files with one waiting, into the root", got)
 	}
+	if about := entrytest.Abouts(w.notices, importedRow)[0]; about.Import != imp.ID.UUID || about.Grab != imp.Grab.UUID || !slices.Equal(about.Works, []works.WorkID{tree.ID}) {
+		t.Errorf("Imported is about %+v, want Import %s of Work %s with its Grab", about, imp.ID, tree.ID)
+	}
+	if files := importedRow.Render(got[0], entrytest.Context).Detail.Files; len(files) != 9 || files[0].Quality != "Bluray-1080p" || len(files[0].Items) != 1 {
+		t.Errorf("Imported's detail lists %+v, want each of the nine files with its Item and quality", files)
+	}
 	last := fileAt(imp, positionOf(imp, lastOf(10)))
 	w.match(t, imp, *last)
 	w.confirmAll(t, imp)
@@ -136,6 +145,40 @@ func TestImportsMessagesReadAsWritten(t *testing.T) {
 	golden(scanAddedRow, ScanAddedFacts{Root: "Books library root on Den", Nouns: book, Count: 1, First: []string{"Dune (1965)"}}, "works-added-by-scan-one")
 }
 
+// TestAnUpgradesWebhookBodyIsAsBeforeHistory renders stored Upgraded facts
+// through the Webhook. The golden was built by main at 60d5151f, before
+// History, from the same facts, which it decodes without the fields
+// History added.
+func TestAnUpgradesWebhookBodyIsAsBeforeHistory(t *testing.T) {
+	subject, err := os.ReadFile("testdata/notices/upgraded-webdl.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := upgradedRow.RenderStored(subject, entrytest.Context)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(m.Lines, "It replaced WEBDL-1080p.") {
+		t.Errorf("Upgraded reads %q, want what it replaced", m.Lines)
+	}
+	webhook, _ := providers.ByID("webhook")
+	out, err := webhook.Build(providers.Payload{
+		Kind: upgradedRow.Kind, At: entrytest.Context.Now, Message: m,
+		Settings: providers.Values{"method": []byte(`"POST"`)}, Secrets: providers.Values{"url": []byte(`"https://hook.example/upgrades"`)},
+		Poster: &providers.Poster{URL: "https://image.example/cover.jpg"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := os.ReadFile("testdata/notices/upgraded-webdl.webhook.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(out.Post.Body, want) {
+		t.Errorf("the Webhook body is\n%s\nwant main's\n%s", out.Post.Body, want)
+	}
+}
+
 // adopt adds Work key homed in root as a Library scan adopts one.
 func (w *world) adopt(t *testing.T, key works.Key, root roots.ID) {
 	t.Helper()
@@ -167,6 +210,9 @@ func TestAScanRecordsEveryWorkAdoptedInItsRootSinceTheScanBefore(t *testing.T) {
 	got := w.recordScan(t, w.root)
 	if len(got) != 1 || got[0].Count != 500 || len(got[0].First) != 3 || slices.ContainsFunc(got[0].First, func(l string) bool { return !strings.HasPrefix(l, "Shelf a") }) || !strings.HasPrefix(got[0].Root, "Shelves library root") {
 		t.Fatalf("the first scan of the root recorded %+v, want one event counting its 500 adopted Works with 3 of their titles", got)
+	}
+	if about := entrytest.Abouts(w.notices, scanAddedRow)[0]; about.Type != contenttypetest.ID || len(about.Works) != 500 {
+		t.Errorf("the scan's entry is about %d Works of %s, want each of the 500 it added", len(about.Works), about.Type)
 	}
 	if got = w.recordScan(t, w.root); len(got) != 1 {
 		t.Fatalf("a scan that adopted nothing recorded %+v", got[1:])
@@ -215,6 +261,10 @@ func TestAFileThatReplacesAPlacedOneRecordsUpgradedAndNotImported(t *testing.T) 
 	up := entrytest.Of(w.notices, upgradedRow)
 	if len(up) != 1 || len(up[0].Files) != 1 || !slices.Equal(up[0].Files[0].Replaced, []release.Quality{release.Bluray1080p}) || up[0].Files[0].Items[0].Number != 1 {
 		t.Fatalf("Upgraded is %+v, want one for clip 1 replacing a Bluray-1080p file", up)
+	}
+	m := upgradedRow.Render(up[0], entrytest.Context)
+	if len(m.Detail.Files) != 1 || m.Detail.Files[0].Replaced != "Bluray-1080p" || m.Detail.Files[0].ReplacedLabel != "HD" {
+		t.Errorf("Upgraded's detail is %+v, want the clip with the quality and label of the file it replaced", m.Detail.Files)
 	}
 	if got := entrytest.Of(w.notices, importedRow); len(got) != 1 {
 		t.Errorf("Imported is %+v, want only the pack's", got)

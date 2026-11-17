@@ -143,6 +143,9 @@ func TestAManualGrabNamesWhoPickedItAndItsBlocklistFailureIsRecordedQuiet(t *tes
 		if len(got) != 1 || got[0].FoundBy != grabs.FoundByManual || !got[0].By.APIKey {
 			t.Fatalf("the Manual Grab recorded Grabbed %+v, want one picked by the API key", got)
 		}
+		if about := entrytest.Abouts(a.notices, grabs.GrabbedRow)[0]; got[0].Grab != id || about.Grab != id.UUID || about.Quiet {
+			t.Errorf("Grabbed tells Grab %s and is about %+v, want it about the Grab %s", got[0].Grab, about, id)
+		}
 		if words := grabs.FoundByWords(got[0].FoundBy, got[0].Indexer, got[0].By); words != "An app using the API key picked it in Manual search from Better Site." {
 			t.Errorf("its found-by sentence is %q", words)
 		}

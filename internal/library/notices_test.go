@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -42,6 +43,9 @@ func TestOnlyAnAddThatAnnouncesRecordsWorksAdded(t *testing.T) {
 	got := entrytest.Of(s.notices, library.AddedRow)
 	if len(got) != 1 || got[0].Work.ID != added.Tree.ID || got[0].Work.Label != "Shelf w2" || !got[0].By.APIKey || got[0].Root == "" {
 		t.Fatalf("the add flow's add recorded %+v, want one Works added for Shelf w2 by the API key into its root", got)
+	}
+	if about := entrytest.Abouts(s.notices, library.AddedRow)[0]; about.Type != contenttypetest.ID || !slices.Equal(about.Works, []works.WorkID{added.Tree.ID}) {
+		t.Errorf("Works added is about %+v, want Shelf w2", about)
 	}
 }
 
