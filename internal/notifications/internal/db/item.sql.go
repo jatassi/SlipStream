@@ -8,7 +8,7 @@ package db
 import (
 	"context"
 
-	"github.com/jatassi/slipstream/internal/notifications/notice"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -154,7 +154,7 @@ LIMIT 1
 
 type WaitingItemParams struct {
 	Key  string
-	Kind notice.Kind
+	Kind entry.Kind
 }
 
 func (q *Queries) WaitingItem(ctx context.Context, arg WaitingItemParams) (NotificationsItem, error) {

@@ -1,4 +1,4 @@
-package notice_test
+package entry_test
 
 import (
 	"context"
@@ -7,48 +7,48 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
-	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
 type deletedFacts struct {
-	Work  notice.Work  `json:"work"`
-	By    notice.Actor `json:"by"`
-	Count int          `json:"count"`
-	First []string     `json:"first"`
+	Work  entry.Work  `json:"work"`
+	By    entry.Actor `json:"by"`
+	Count int         `json:"count"`
+	First []string    `json:"first"`
 }
 
-var deletedRow = notice.Row[deletedFacts]{
-	Spec: notice.Spec{Kind: "works_deleted", Label: "Works deleted", Group: notice.Library},
-	Render: func(f deletedFacts, c notice.Context) notice.Message {
-		return notice.Message{
-			Title:  "Deleted " + notice.Count(f.Count, f.Work.Nouns.Work),
-			Lines:  append(notice.Titles(f.First, f.Count, "deleted"), f.By.Subject()+" deleted them at "+c.Clock(c.Now)+"."),
-			Link:   notice.WorkLink(f.Work.ID),
+var deletedRow = entry.Row[deletedFacts]{
+	Spec: entry.Spec{Kind: "works_deleted", Label: "Works deleted", Group: entry.Library},
+	Render: func(f deletedFacts, c entry.Context) entry.Message {
+		return entry.Message{
+			Title:  "Deleted " + entry.Count(f.Count, f.Work.Nouns.Work),
+			Lines:  append(entry.Titles(f.First, f.Count, "deleted"), f.By.Subject()+" deleted them at "+c.Clock(c.Now)+"."),
+			Link:   entry.WorkLink(f.Work.ID),
 			Poster: f.Work.Poster,
 		}
 	},
 }
 
-var otherRow = notice.Row[struct{}]{Spec: notice.Spec{Kind: "other"}}
+var otherRow = entry.Row[struct{}]{Spec: entry.Spec{Kind: "other"}}
 
 var heat = deletedFacts{
-	Work: notice.Work{
+	Work: entry.Work{
 		ID: works.WorkID{UUID: storage.NewUUID()}, Label: "Heat (1995)", Type: "book",
-		Nouns:  notice.Nouns{Work: works.Noun{One: "book", Many: "books"}, Item: works.Noun{One: "book", Many: "books"}, Single: true},
+		Nouns:  entry.Nouns{Work: works.Noun{One: "book", Many: "books"}, Item: works.Noun{One: "book", Many: "books"}, Single: true},
 		Poster: artwork.Ref{Source: "tmdb", Shape: artwork.ShapePoster, Path: "/heat.jpg"},
 	},
-	By:    notice.Actor{Name: "Sam"},
+	By:    entry.Actor{Name: "Sam"},
 	Count: 20000,
 	First: []string{"Alien (1979)", "Heat (1995)", "Ran (1985)"},
 }
 
 func TestARecordedEventRendersAsItsFactsDo(t *testing.T) {
 	var stored []byte
-	rec := notice.Sink("library", []notice.Entry{deletedRow}, func(_ context.Context, _ *storage.Tx[storage.Library], k notice.Kind, subject []byte) error {
+	rec := entry.Sink("library", []entry.Entry{deletedRow}, func(_ context.Context, _ *storage.Tx[storage.Library], k entry.Kind, subject []byte) error {
 		if k != deletedRow.Kind {
 			t.Fatalf("kind = %s, want %s", k, deletedRow.Kind)
 		}
@@ -58,27 +58,27 @@ func TestARecordedEventRendersAsItsFactsDo(t *testing.T) {
 	if err := deletedRow.Record(t.Context(), nil, rec, heat); err != nil {
 		t.Fatal(err)
 	}
-	c := notice.Context{Now: time.Date(2026, 11, 16, 14, 2, 0, 0, time.UTC), Zone: time.UTC}
-	got, err := notice.Entry(deletedRow).RenderStored(stored, c)
+	c := entry.Context{Now: time.Date(2026, 11, 16, 14, 2, 0, 0, time.UTC), Zone: time.UTC}
+	got, err := entry.Entry(deletedRow).RenderStored(stored, c)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := notice.Message{
+	want := entry.Message{
 		Title:  "Deleted 20,000 books",
 		Lines:  []string{"Alien (1979)", "Heat (1995)", "Ran (1985)", "19,997 more were deleted.", "Sam deleted them at 14:02."},
-		Link:   notice.Link{Path: "/works/" + heat.Work.ID.String()},
+		Link:   entry.Link{Path: "/works/" + heat.Work.ID.String()},
 		Poster: heat.Work.Poster,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("rendered %+v, want %+v", got, want)
 	}
-	if _, err := notice.Entry(deletedRow).RenderStored([]byte(`{"count":"many"}`), c); err == nil {
+	if _, err := entry.Entry(deletedRow).RenderStored([]byte(`{"count":"many"}`), c); err == nil {
 		t.Fatal("a subject of the wrong shape rendered")
 	}
 }
 
 func TestRecordPanicsOnAWiringBug(t *testing.T) {
-	refused := func(name string, rec notice.Recorder) {
+	refused := func(name string, rec entry.Recorder) {
 		t.Helper()
 		defer func() {
 			if recover() == nil {
@@ -87,24 +87,24 @@ func TestRecordPanicsOnAWiringBug(t *testing.T) {
 		}()
 		_ = deletedRow.Record(t.Context(), nil, rec, heat)
 	}
-	refused("a zero Recorder", notice.Recorder{})
-	refused("a kind its owner didn't register", notice.Sink("grabs", []notice.Entry{otherRow}, func(context.Context, *storage.Tx[storage.Library], notice.Kind, []byte) error {
+	refused("a zero Recorder", entry.Recorder{})
+	refused("a kind its owner didn't register", entry.Sink("grabs", []entry.Entry{otherRow}, func(context.Context, *storage.Tx[storage.Library], entry.Kind, []byte) error {
 		t.Fatal("put called")
 		return nil
 	}))
-	rec, _ := noticetest.New("grabs", []notice.Entry{otherRow})
-	refused("noticetest with a kind its owner didn't register", rec)
+	rec, _ := entrytest.New("grabs", []entry.Entry{otherRow})
+	refused("entrytest with a kind its owner didn't register", rec)
 }
 
-func TestNoticetestKeepsWhatAnOwnerRecorded(t *testing.T) {
-	rec, kept := noticetest.New("library", []notice.Entry{deletedRow, otherRow})
+func TestEntrytestKeepsWhatAnOwnerRecorded(t *testing.T) {
+	rec, kept := entrytest.New("library", []entry.Entry{deletedRow, otherRow})
 	if err := deletedRow.Record(t.Context(), nil, rec, heat); err != nil {
 		t.Fatal(err)
 	}
 	if err := otherRow.Record(t.Context(), nil, rec, struct{}{}); err != nil {
 		t.Fatal(err)
 	}
-	if got := noticetest.Of(kept, deletedRow); !reflect.DeepEqual(got, []deletedFacts{heat}) {
+	if got := entrytest.Of(kept, deletedRow); !reflect.DeepEqual(got, []deletedFacts{heat}) {
 		t.Fatalf("kept %+v, want only %+v", got, heat)
 	}
 }
@@ -122,7 +122,7 @@ func TestTitlesListsThreeThenCountsTheRest(t *testing.T) {
 		{first[:3], 12, []string{"Alien", "Heat", "Ran", "9 more were added."}},
 		{first[:3], 20003, []string{"Alien", "Heat", "Ran", "20,000 more were added."}},
 	} {
-		if got := notice.Titles(c.first, c.total, "added"); !slices.Equal(got, c.want) {
+		if got := entry.Titles(c.first, c.total, "added"); !slices.Equal(got, c.want) {
 			t.Errorf("Titles(%v, %d) = %q, want %q", c.first, c.total, got, c.want)
 		}
 	}
@@ -130,13 +130,13 @@ func TestTitlesListsThreeThenCountsTheRest(t *testing.T) {
 		t.Fatalf("Titles changed its argument: %v", first)
 	}
 	episode := works.Noun{One: "episode", Many: "episodes"}
-	if got := notice.Count(1, episode) + ", " + notice.Count(10, episode); got != "1 episode, 10 episodes" {
+	if got := entry.Count(1, episode) + ", " + entry.Count(10, episode); got != "1 episode, 10 episodes" {
 		t.Fatalf("Count = %q", got)
 	}
 }
 
 func TestCountGroupsThousands(t *testing.T) {
-	if got := notice.Count(1200, works.Noun{One: "episode", Many: "episodes"}); got != "1,200 episodes" {
+	if got := entry.Count(1200, works.Noun{One: "episode", Many: "episodes"}); got != "1,200 episodes" {
 		t.Fatalf("Count(1200) = %q, want 1,200 episodes", got)
 	}
 }

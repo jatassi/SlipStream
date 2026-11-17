@@ -8,8 +8,8 @@ package db
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -90,7 +90,7 @@ type ListFeedRow struct {
 	ShownAt storage.Time
 	Items   *string
 	ID      EventID
-	Kind    notice.Kind
+	Kind    entry.Kind
 	At      storage.Time
 	Subject string
 }

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -15,53 +15,53 @@ import (
 // AddedFacts is what a Works added message tells: the Work, the root it
 // went into, empty for a type with no roots, and who added it.
 type AddedFacts struct {
-	Work notice.Work  `json:"work"`
-	Root string       `json:"root"`
-	By   notice.Actor `json:"by"`
+	Work entry.Work  `json:"work"`
+	Root string      `json:"root"`
+	By   entry.Actor `json:"by"`
 }
 
 // DeletedFacts is what a Works deleted message tells: who deleted them,
 // and each Content Type's share.
 type DeletedFacts struct {
-	By    notice.Actor  `json:"by"`
+	By    entry.Actor   `json:"by"`
 	Types []DeletedType `json:"types"`
 }
 
 // DeletedType is one Content Type's share of a delete: its count, its
 // first three labels, and the Work itself when it is the one Work deleted.
 type DeletedType struct {
-	Nouns notice.Nouns `json:"nouns"`
-	Count int          `json:"count"`
-	First []string     `json:"first"`
-	Work  *notice.Work `json:"work,omitempty"`
+	Nouns entry.Nouns `json:"nouns"`
+	Count int         `json:"count"`
+	First []string    `json:"first"`
+	Work  *entry.Work `json:"work,omitempty"`
 }
 
 var (
-	addedRow = notice.Row[AddedFacts]{
-		Spec:   notice.Spec{Kind: "works_added", Label: "Works added", Group: notice.Library, BellByDefault: true},
+	addedRow = entry.Row[AddedFacts]{
+		Spec:   entry.Spec{Kind: "works_added", Label: "Works added", Group: entry.Library, BellByDefault: true},
 		Render: renderAdded,
 	}
-	deletedRow = notice.Row[DeletedFacts]{
-		Spec:   notice.Spec{Kind: "works_deleted", Label: "Works deleted", Group: notice.Library, BellByDefault: true},
+	deletedRow = entry.Row[DeletedFacts]{
+		Spec:   entry.Spec{Kind: "works_deleted", Label: "Works deleted", Group: entry.Library, BellByDefault: true},
 		Render: renderDeleted,
 	}
 )
 
 // Notices is the events library records.
-func Notices() []notice.Entry { return []notice.Entry{addedRow, deletedRow} }
+func Notices() []entry.Entry { return []entry.Entry{addedRow, deletedRow} }
 
-func actorOf(by identity.Admin) notice.Actor {
+func actorOf(by identity.Admin) entry.Actor {
 	a, ok := by.Account()
 	if !ok {
-		return notice.Actor{APIKey: true}
+		return entry.Actor{APIKey: true}
 	}
-	return notice.Actor{Name: a.Profile().DisplayName}
+	return entry.Actor{Name: a.Profile().DisplayName}
 }
 
 // announceAdded records Works added for w, which the add flow just made,
 // in the add's Write.
 func (l *Library) announceAdded(ctx context.Context, tx *storage.Tx[storage.Library], by identity.Admin, w works.WorkID) error {
-	work, err := notice.WorkIn(ctx, tx, l.cfg.Works, w)
+	work, err := entry.WorkIn(ctx, tx, l.cfg.Works, w)
 	if err != nil {
 		return err
 	}
@@ -91,10 +91,10 @@ func (l *Library) deletedFacts(ctx context.Context, tx *storage.Tx[storage.Libra
 	}
 	f := DeletedFacts{By: actorOf(by)}
 	for _, t := range tallies {
-		f.Types = append(f.Types, DeletedType{Nouns: notice.NounsOf(l.cfg.Works, t.Type), Count: t.Count, First: t.First})
+		f.Types = append(f.Types, DeletedType{Nouns: entry.NounsOf(l.cfg.Works, t.Type), Count: t.Count, First: t.First})
 	}
 	if len(removed) == 1 {
-		w, err := notice.WorkIn(ctx, tx, l.cfg.Works, removed[0])
+		w, err := entry.WorkIn(ctx, tx, l.cfg.Works, removed[0])
 		if err != nil {
 			return DeletedFacts{}, err
 		}
@@ -103,38 +103,38 @@ func (l *Library) deletedFacts(ctx context.Context, tx *storage.Tx[storage.Libra
 	return f, nil
 }
 
-func renderAdded(f AddedFacts, _ notice.Context) notice.Message {
+func renderAdded(f AddedFacts, _ entry.Context) entry.Message {
 	title := "Added " + f.Work.Label
 	if f.Root != "" {
 		title += " to the " + f.Root
 	}
-	return notice.Message{
-		Title: title, Lines: []string{f.By.Subject() + " added it."}, Link: notice.WorkLink(f.Work.ID), Poster: f.Work.Poster, Tone: notice.Info,
-		Body: notice.Body{Work: &notice.BodyWork{ID: f.Work.ID.String(), Title: f.Work.Label, ContentType: string(f.Work.Type)}},
+	return entry.Message{
+		Title: title, Lines: []string{f.By.Subject() + " added it."}, Link: entry.WorkLink(f.Work.ID), Poster: f.Work.Poster, Tone: entry.Info,
+		Body: entry.Body{Work: &entry.BodyWork{ID: f.Work.ID.String(), Title: f.Work.Label, ContentType: string(f.Work.Type)}},
 	}
 }
 
-func renderDeleted(f DeletedFacts, _ notice.Context) notice.Message {
-	m := notice.Message{Link: notice.Link{Path: "/library"}, Tone: notice.Info}
+func renderDeleted(f DeletedFacts, _ entry.Context) entry.Message {
+	m := entry.Message{Link: entry.Link{Path: "/library"}, Tone: entry.Info}
 	if len(f.Types) == 1 {
 		t := f.Types[0]
 		if t.Work != nil {
 			m.Title, m.Lines, m.Poster = "Deleted "+t.Work.Label, []string{f.By.Subject() + " deleted it."}, t.Work.Poster
 			return m
 		}
-		m.Title, m.Lines = "Deleted "+notice.Count(t.Count, lower(t.Nouns.Work)), notice.Titles(t.First, t.Count, "deleted")
+		m.Title, m.Lines = "Deleted "+entry.Count(t.Count, lower(t.Nouns.Work)), entry.Titles(t.First, t.Count, "deleted")
 		return m
 	}
 	counts := make([]string, len(f.Types))
 	for i, t := range f.Types {
 		noun := lower(t.Nouns.Work)
-		counts[i] = notice.Count(t.Count, noun)
+		counts[i] = entry.Count(t.Count, noun)
 		line := joinWords(t.First)
 		switch rest := t.Count - len(t.First); {
 		case rest == 1:
 			line = strings.Join(t.First, ", ") + " and 1 more " + noun.One
 		case rest > 1:
-			line = strings.Join(t.First, ", ") + " and " + notice.Grouped(rest) + " more " + noun.Many
+			line = strings.Join(t.First, ", ") + " and " + entry.Grouped(rest) + " more " + noun.Many
 		}
 		m.Lines = append(m.Lines, line+".")
 	}

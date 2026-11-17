@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/role"
 )
@@ -88,17 +88,17 @@ func (s *Service) pick(c Connection) (role.NodeID, providers.Reason, bool) {
 
 // render is e's message now, its link on the Address, or none while the
 // Address isn't set.
-func (s *Service) render(ctx context.Context, e event, sender string) (notice.Message, error) {
-	msg, err := s.catalog.entry(e.Kind).RenderStored(e.Subject, notice.Context{Now: time.Now(), Zone: s.cfg.Zone, Sender: sender})
+func (s *Service) render(ctx context.Context, e event, sender string) (entry.Message, error) {
+	msg, err := s.catalog.entry(e.Kind).RenderStored(e.Subject, entry.Context{Now: time.Now(), Zone: s.cfg.Zone, Sender: sender})
 	if err != nil || msg.Link.Path == "" {
 		return msg, err
 	}
 	address, err := identity.ReadAddress(ctx, s.cfg.Library)
 	if err != nil {
-		return notice.Message{}, err
+		return entry.Message{}, err
 	}
 	if address.IsZero() {
-		msg.Link = notice.Link{}
+		msg.Link = entry.Link{}
 		return msg, nil
 	}
 	msg.Link.Path = address.String() + msg.Link.Path

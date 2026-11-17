@@ -8,7 +8,7 @@ package db
 import (
 	"context"
 
-	"github.com/jatassi/slipstream/internal/notifications/notice"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -46,7 +46,7 @@ RETURNING id
 `
 
 type InsertEventParams struct {
-	Kind    notice.Kind
+	Kind    entry.Kind
 	At      storage.Time
 	DueAt   storage.Time
 	Subject string

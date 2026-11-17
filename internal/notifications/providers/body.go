@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/notifications/notice"
+	"github.com/jatassi/slipstream/internal/history/entry"
 )
 
 // bodyVersion is the Webhook body's version. A field is only ever added,
@@ -15,16 +15,16 @@ const bodyVersion = 1
 // webhookBody is the Webhook's body, version 1, which is also a Custom
 // Script's event file.
 type webhookBody struct {
-	Version int               `json:"version"`
-	Event   notice.Kind       `json:"event"`
-	At      time.Time         `json:"at"`
-	Title   string            `json:"title"`
-	Lines   []string          `json:"lines"`
-	Link    string            `json:"link,omitempty"`
-	Image   string            `json:"image,omitempty"`
-	Work    *notice.BodyWork  `json:"work,omitempty"`
-	Files   []notice.BodyFile `json:"files,omitempty"`
-	Health  []notice.BodyItem `json:"health,omitempty"`
+	Version int              `json:"version"`
+	Event   entry.Kind       `json:"event"`
+	At      time.Time        `json:"at"`
+	Title   string           `json:"title"`
+	Lines   []string         `json:"lines"`
+	Link    string           `json:"link,omitempty"`
+	Image   string           `json:"image,omitempty"`
+	Work    *entry.BodyWork  `json:"work,omitempty"`
+	Files   []entry.BodyFile `json:"files,omitempty"`
+	Health  []entry.BodyItem `json:"health,omitempty"`
 }
 
 func bodyOf(p Payload) []byte {

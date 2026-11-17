@@ -1,4 +1,4 @@
-package notice
+package entry
 
 // Actor is who did something: an Account's display name, or the API key.
 type Actor struct {

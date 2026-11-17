@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -24,7 +24,7 @@ const bellTarget = "bell"
 
 type event struct {
 	ID      EventID
-	Kind    notice.Kind
+	Kind    entry.Kind
 	At      time.Time
 	Subject []byte
 	// Items are a Health event's items.
@@ -46,7 +46,7 @@ func (e event) cut(keys []string) (event, error) {
 	return e, nil
 }
 
-func isHealth(k notice.Kind) bool { return k == newItemsRow.Kind || k == clearedRow.Kind }
+func isHealth(k entry.Kind) bool { return k == newItemsRow.Kind || k == clearedRow.Kind }
 
 // itemKey is a Health item's key among notifications: "<category>.<key>".
 // Category ids hold no ".".
@@ -278,7 +278,7 @@ func toldParams(target string, it item, now time.Time) db.UpsertToldParams {
 
 // keysText is keys as stored: NULL for a kind that carries no Health
 // items.
-func keysText(keys []string, k notice.Kind) *string {
+func keysText(keys []string, k entry.Kind) *string {
 	if !isHealth(k) {
 		return nil
 	}

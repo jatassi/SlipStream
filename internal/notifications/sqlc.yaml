@@ -41,7 +41,7 @@ sql:
               type: Seq
           - column: notifications_event.kind
             go_type:
-              import: github.com/jatassi/slipstream/internal/notifications/notice
+              import: github.com/jatassi/slipstream/internal/history/entry
               type: Kind
           - column: "*.node_id"
             go_type:

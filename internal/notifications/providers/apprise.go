@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/notifications/notice"
+	"github.com/jatassi/slipstream/internal/history/entry"
 )
 
 var apprise = Provider{
@@ -51,11 +51,11 @@ var apprise = Provider{
 	},
 }
 
-var appriseTypes = map[notice.Tone]string{
-	notice.Info: "info",
-	notice.Good: "success",
-	notice.Warn: "warning",
-	notice.Fail: "failure",
+var appriseTypes = map[entry.Tone]string{
+	entry.Info: "info",
+	entry.Good: "success",
+	entry.Warn: "warning",
+	entry.Fail: "failure",
 }
 
 func buildApprise(p Payload) (Outbound, error) {

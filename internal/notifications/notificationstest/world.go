@@ -18,13 +18,13 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/notifications"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -53,7 +53,7 @@ type World struct {
 	running  func()
 	timings  notifications.Timings
 	eachPass atomic.Pointer[func()]
-	rec      notice.Recorder
+	rec      entry.Recorder
 }
 
 // New makes a World whose dispatcher runs on timings, as a Node's Config
@@ -98,7 +98,7 @@ func (w *World) Restart() {
 		Log:        slog.New(slog.NewTextHandler(w.log, &slog.HandlerOptions{Level: slog.LevelInfo})),
 		BeforePass: w.beforePass,
 	})
-	w.rec = w.Service.Recorder("pings", []notice.Entry{PingRow, PongRow})
+	w.rec = w.Service.Recorder("pings", []entry.Entry{PingRow, PongRow})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -240,7 +240,7 @@ func (w *World) Status(id notifications.ConnectionID) notifications.Status {
 }
 
 // Record records each of fs in one Write, as PingRow or PongRow.
-func (w *World) Record(row notice.Row[Ping], fs ...Ping) {
+func (w *World) Record(row entry.Row[Ping], fs ...Ping) {
 	w.t.Helper()
 	err := w.Lib.Write(w.t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for _, f := range fs {

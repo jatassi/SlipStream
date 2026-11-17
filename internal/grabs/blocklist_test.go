@@ -29,7 +29,7 @@ func hashed(letter string) bencode.InfoHash {
 	return *listing("", 0, letter).InfoHash
 }
 
-func entry(h bencode.InfoHash, title string) grabs.BlockEntry {
+func blockEntry(h bencode.InfoHash, title string) grabs.BlockEntry {
 	return grabs.BlockEntry{InfoHash: h, Title: title, Size: 4096, Cause: grabs.CauseByHand, By: &grabs.Actor{Name: "Jackson"}}
 }
 
@@ -96,7 +96,7 @@ func TestAnAutomaticSearchNeverTakesABlocklistedReleaseAndDecidesAsIfItWereAbsen
 				want := absent.searchedAutomatically(t)
 
 				tw := newTwinWorld(t, twin{sites: c.sites})
-				grabstest.Blocked(t, tw.lib, entry(hashed("a"), bluRay))
+				grabstest.Blocked(t, tw.lib, blockEntry(hashed("a"), bluRay))
 				if got := tw.searchedAutomatically(t); got != want || want != "Better Site "+webDL {
 					t.Fatalf("automatic search grabbed %q, want %q, as with the blocklisted Release absent", got, want)
 				}
@@ -123,7 +123,7 @@ func TestABlocklistedHashFoundAfterTheFetchMakesAnAutomaticGrabDecideAgainWithou
 			{name: "Better Site", priority: 10, torrent: raw, releases: []searching.Release{listing(bluRay, 90, "")}},
 			{name: "Other Site", priority: 25, releases: []searching.Release{listing(bluRay, 90, ""), listing(webDL, 5, "")}},
 		}})
-		grabstest.Blocked(t, tw.lib, entry(bad.link.InfoHash, bluRay))
+		grabstest.Blocked(t, tw.lib, blockEntry(bad.link.InfoHash, bluRay))
 
 		if got, want := tw.searchedAutomatically(t), "Other Site "+webDL; got != want {
 			t.Fatalf("the run's Grab is %q, want %q", got, want)
@@ -164,14 +164,14 @@ func TestTheBlocklistKeepsTheFirstEntryOfAHashAndRemovesOnce(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		tw := newTwinWorld(t, twin{})
 		a, b := hashed("a"), hashed("b")
-		first := entry(a, bluRay)
+		first := blockEntry(a, bluRay)
 		first.Work = tw.work
 		grabstest.Blocked(t, tw.lib, first)
 		time.Sleep(time.Second)
-		second := entry(a, webDL)
+		second := blockEntry(a, webDL)
 		second.Cause, second.By = grabs.CauseMarkedFailed, &grabs.Actor{}
 		grabstest.Blocked(t, tw.lib, second)
-		grabstest.Blocked(t, tw.lib, entry(b, webDL))
+		grabstest.Blocked(t, tw.lib, blockEntry(b, webDL))
 
 		page := tw.page(t, grabs.BlocklistQuery{})
 		if page.Total != 2 || len(page.Entries) != 2 {
@@ -202,7 +202,7 @@ func TestTheBlocklistListsPagesOfFiftyNewestFirstFilteredByTitle(t *testing.T) {
 			if i%10 == 0 {
 				title = fmt.Sprintf("The.Cellar.2020.Part%02d.1080p.WEB-DL", i)
 			}
-			grabstest.Blocked(t, tw.lib, entry(bencode.InfoHash([]byte(fmt.Sprintf("%020d", i))), title))
+			grabstest.Blocked(t, tw.lib, blockEntry(bencode.InfoHash([]byte(fmt.Sprintf("%020d", i))), title))
 			time.Sleep(time.Second)
 		}
 
@@ -230,7 +230,7 @@ func TestNothingIsBlocklistedWhileReconciling(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		tw := newTwinWorld(t, twin{})
 		err := tw.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			return reconciling(true).Block(ctx, tx, entry(hashed("a"), bluRay))
+			return reconciling(true).Block(ctx, tx, blockEntry(hashed("a"), bluRay))
 		})
 		if !errors.Is(err, grabs.ErrReconciling) {
 			t.Fatalf("Block while Reconciling = %v, want ErrReconciling", err)

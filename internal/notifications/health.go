@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -131,7 +131,7 @@ func (ev *evaluation) clearWords(ctx context.Context, t health.Transition, key s
 	return item{Subject: t.Subject, Text: t.Text, Since: t.Since}, true, nil
 }
 
-func (ev *evaluation) event(ctx context.Context, kind notice.Kind, at, due time.Time) (EventID, error) {
+func (ev *evaluation) event(ctx context.Context, kind entry.Kind, at, due time.Time) (EventID, error) {
 	id, err := ev.q.InsertEvent(ctx, db.InsertEventParams{Kind: kind, At: storage.FromTime(at), DueAt: storage.FromTime(due), Subject: "{}"})
 	if err != nil {
 		return 0, fmt.Errorf("record a %s event: %w", kind, err)
@@ -196,7 +196,7 @@ func waitingWords(n int) string {
 	if n == 1 {
 		return "1 message is waiting."
 	}
-	return notice.Grouped(n) + " messages are waiting."
+	return entry.Grouped(n) + " messages are waiting."
 }
 
 func (s *Service) clock(t time.Time) string { return t.In(s.cfg.Zone).Format("15:04") }

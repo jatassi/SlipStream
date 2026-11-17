@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/jatassi/slipstream/internal/files"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -14,12 +14,12 @@ import (
 // GrabbedFacts is what a Grabbed message tells: the Work, the Release's
 // facts, its Indexer, what found it and its score for each Target it fills.
 type GrabbedFacts struct {
-	Work    notice.Work   `json:"work"`
+	Work    entry.Work    `json:"work"`
 	Release release.Facts `json:"release"`
 	Indexer string        `json:"indexer"`
 	Source  Source        `json:"source"`
 	FoundBy FoundBy       `json:"foundBy"`
-	By      notice.Actor  `json:"by"`
+	By      entry.Actor   `json:"by"`
 	Scores  []ScoreAt     `json:"scores"`
 }
 
@@ -31,58 +31,58 @@ type ScoreAt struct {
 
 // GrabFailedFacts is what a Grab failed message tells.
 type GrabFailedFacts struct {
-	Work    notice.Work  `json:"work"`
-	Code    Code         `json:"code"`
-	Stage   Stage        `json:"stage"`
-	Release string       `json:"release"`
-	Source  Source       `json:"source"`
-	By      notice.Actor `json:"by"`
+	Work    entry.Work  `json:"work"`
+	Code    Code        `json:"code"`
+	Stage   Stage       `json:"stage"`
+	Release string      `json:"release"`
+	Source  Source      `json:"source"`
+	By      entry.Actor `json:"by"`
 }
 
 var (
-	grabbedRow = notice.Row[GrabbedFacts]{
-		Spec:   notice.Spec{Kind: "grabbed", Label: "Grabbed", Group: notice.Grabs, BellByDefault: true},
+	grabbedRow = entry.Row[GrabbedFacts]{
+		Spec:   entry.Spec{Kind: "grabbed", Label: "Grabbed", Group: entry.Grabs, BellByDefault: true},
 		Render: renderGrabbed,
 	}
-	grabFailedRow = notice.Row[GrabFailedFacts]{
-		Spec:   notice.Spec{Kind: "grab_failed", Label: "Grab failed", Group: notice.Grabs, OnByDefault: true, BellByDefault: true},
+	grabFailedRow = entry.Row[GrabFailedFacts]{
+		Spec:   entry.Spec{Kind: "grab_failed", Label: "Grab failed", Group: entry.Grabs, OnByDefault: true, BellByDefault: true},
 		Render: renderGrabFailed,
 	}
 )
 
 // Notices is the events grabs records.
-func Notices() []notice.Entry { return []notice.Entry{grabbedRow, grabFailedRow} }
+func Notices() []entry.Entry { return []entry.Entry{grabbedRow, grabFailedRow} }
 
-func renderGrabbed(f GrabbedFacts, _ notice.Context) notice.Message {
+func renderGrabbed(f GrabbedFacts, _ entry.Context) entry.Message {
 	lines := []string{release.Describe(release.Read{Facts: f.Release}), FoundByWords(f.FoundBy, f.Indexer, f.By)}
 	if len(f.Scores) > 0 {
 		lines = append(lines, scoresWords(f.Scores))
 	}
-	return notice.Message{
-		Title: "Grabbed " + f.Work.Label, Lines: lines, Link: notice.WorkLink(f.Work.ID), Poster: f.Work.Poster,
-		Tone: notice.Info, Body: workBody(f.Work),
+	return entry.Message{
+		Title: "Grabbed " + f.Work.Label, Lines: lines, Link: entry.WorkLink(f.Work.ID), Poster: f.Work.Poster,
+		Tone: entry.Info, Body: workBody(f.Work),
 	}
 }
 
-func renderGrabFailed(f GrabFailedFacts, _ notice.Context) notice.Message {
+func renderGrabFailed(f GrabFailedFacts, _ entry.Context) entry.Message {
 	w := WordsOf(f.Code)
 	lines := []string{w.Cause}
 	if w.Recovery != "" {
 		lines = append(lines, w.Recovery)
 	}
-	return notice.Message{
-		Title: "The Grab for " + f.Work.Label + " failed", Lines: lines, Link: notice.WorkLink(f.Work.ID), Poster: f.Work.Poster,
-		Tone: notice.Fail, Body: workBody(f.Work),
+	return entry.Message{
+		Title: "The Grab for " + f.Work.Label + " failed", Lines: lines, Link: entry.WorkLink(f.Work.ID), Poster: f.Work.Poster,
+		Tone: entry.Fail, Body: workBody(f.Work),
 	}
 }
 
-func workBody(w notice.Work) notice.Body {
-	return notice.Body{Work: &notice.BodyWork{ID: w.ID.String(), Title: w.Label, ContentType: string(w.Type)}}
+func workBody(w entry.Work) entry.Body {
+	return entry.Body{Work: &entry.BodyWork{ID: w.ID.String(), Title: w.Label, ContentType: string(w.Type)}}
 }
 
 // FoundByWords is the sentence for what found a Grab's Release on
 // indexer, worded as web/src/grabs/search-words.ts words FoundBy.
-func FoundByWords(f FoundBy, indexer string, by notice.Actor) string {
+func FoundByWords(f FoundBy, indexer string, by entry.Actor) string {
 	switch f {
 	case FoundBySearch:
 		return "Automatic search found it on " + indexer + "."
@@ -123,16 +123,16 @@ func scoresOf(a *assessed, cells []files.Cell) []ScoreAt {
 }
 
 // noticeActor is a as the actor a message names.
-func noticeActor(a *Actor) notice.Actor {
+func noticeActor(a *Actor) entry.Actor {
 	if a == nil {
-		return notice.Actor{}
+		return entry.Actor{}
 	}
-	return notice.Actor{Name: a.Name, APIKey: a.Account == nil}
+	return entry.Actor{Name: a.Name, APIKey: a.Account == nil}
 }
 
 // announceGrabbed records Grabbed for g, a Grab insertGrab just made.
 func (gr *Grabs) announceGrabbed(ctx context.Context, tx *storage.Tx[file], g Grab, n newGrab, indexer string) error {
-	w, err := notice.WorkIn(ctx, tx, gr.cfg.Works, g.WorkID)
+	w, err := entry.WorkIn(ctx, tx, gr.cfg.Works, g.WorkID)
 	if err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ func (gr *Grabs) announceFailed(ctx context.Context, tx *storage.Tx[file], g Gra
 	if err != nil || again[fg.ID] {
 		return err
 	}
-	w, err := notice.WorkIn(ctx, tx, gr.cfg.Works, g.WorkID)
+	w, err := entry.WorkIn(ctx, tx, gr.cfg.Works, g.WorkID)
 	if err != nil {
 		return err
 	}

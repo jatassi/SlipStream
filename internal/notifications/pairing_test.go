@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/notifications"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/notifications/notificationstest"
 )
 
@@ -74,7 +74,7 @@ func TestAWorseInsideTheWaitSendsOneMessageAtError(t *testing.T) {
 		w.Transitions(moved(d, health.Worse, health.Fail))
 		w.Advance(time.Hour)
 		got := w.Courier.Received(family)
-		if len(got) != 1 || got[0].Title != "Disk d is almost full" || got[0].Tone != notice.Fail {
+		if len(got) != 1 || got[0].Title != "Disk d is almost full" || got[0].Tone != entry.Fail {
 			t.Fatalf("received %+v, want one message at Error", got)
 		}
 	})

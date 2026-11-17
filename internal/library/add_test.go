@@ -11,13 +11,13 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/nodes"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
-	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -41,8 +41,8 @@ type shelf struct {
 	hd    targets.TargetID
 	queue *asked
 	// notices keeps the events the library records, through rec.
-	rec     notice.Recorder
-	notices *noticetest.Recorder
+	rec     entry.Recorder
+	notices *entrytest.Recorder
 }
 
 func newShelf(t *testing.T) shelf {
@@ -84,7 +84,7 @@ func newShelf(t *testing.T) shelf {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rec, notices := noticetest.New("library", library.Notices())
+	rec, notices := entrytest.New("library", library.Notices())
 	return shelf{lib: lib, fx: fx, works: w, roots: homes, root: root.Root, hd: hd.ID, files: fs, queue: newAsked(t, lib), rec: rec, notices: notices}
 }
 

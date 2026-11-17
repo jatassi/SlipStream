@@ -1,7 +1,7 @@
-// Package notice is what an owner of a fact needs to record a notification
+// Package entry is what an owner of a fact needs to record a notification
 // event in the Write that makes it true: a typed catalog row, the Recorder
 // its Config holds, and the provider-neutral Message its row renders.
-package notice
+package entry
 
 import (
 	"context"
@@ -70,17 +70,17 @@ func (r Row[F]) RenderStored(subject []byte, c Context) (Message, error) {
 // Record stores f as an event of r's kind in tx, the Write that makes it
 // true. It does row work only and fails only on a storage error. A zero
 // Recorder, or a kind rec's owner didn't register, panics: a wiring bug
-// that every owner's tests hit through noticetest.
+// that every owner's tests hit through entrytest.
 func (r Row[F]) Record(ctx context.Context, tx *storage.Tx[storage.Library], rec Recorder, f F) error {
 	if rec.put == nil {
-		panic(fmt.Sprintf("notice: %s recorded through a zero Recorder", r.Kind))
+		panic(fmt.Sprintf("entry: %s recorded through a zero Recorder", r.Kind))
 	}
 	if !rec.rows[r.Kind] {
-		panic(fmt.Sprintf("notice: %s records %s, which it didn't register", rec.owner, r.Kind))
+		panic(fmt.Sprintf("entry: %s records %s, which it didn't register", rec.owner, r.Kind))
 	}
 	subject, err := json.Marshal(f)
 	if err != nil {
-		panic(fmt.Sprintf("notice: the facts of %s don't encode: %v", r.Kind, err))
+		panic(fmt.Sprintf("entry: the facts of %s don't encode: %v", r.Kind, err))
 	}
 	return rec.put(ctx, tx, r.Kind, subject)
 }

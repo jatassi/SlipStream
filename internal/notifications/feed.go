@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -18,7 +18,7 @@ const unreadCap = 100
 type FeedRow struct {
 	Seq   Seq
 	At    time.Time
-	Kind  notice.Kind
+	Kind  entry.Kind
 	Title string
 	// Line is the message's first line, "" for none.
 	Line string
@@ -99,7 +99,7 @@ func (s *Service) feedRow(ctx context.Context, q *db.Queries, row db.ListFeedRow
 	if e, err = e.cut(shown); err != nil {
 		return FeedRow{}, err
 	}
-	msg, err := s.catalog.entry(e.Kind).RenderStored(e.Subject, notice.Context{Now: now, Zone: s.cfg.Zone})
+	msg, err := s.catalog.entry(e.Kind).RenderStored(e.Subject, entry.Context{Now: now, Zone: s.cfg.Zone})
 	if err != nil {
 		return FeedRow{}, err
 	}

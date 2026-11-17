@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/notifications"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/notifications/notificationstest"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 )
@@ -328,7 +328,7 @@ func TestTurningOffDeletingAndTurningAKindOffDropMessages(t *testing.T) {
 		if err := w.Service.Delete(t.Context(), gone); err != nil {
 			t.Fatal(err)
 		}
-		w.Edit(kind, notifications.Edit{Events: ptr([]notice.Kind{notificationstest.PingRow.Kind})})
+		w.Edit(kind, notifications.Edit{Events: ptr([]entry.Kind{notificationstest.PingRow.Kind})})
 		w.Edit(off, notifications.Edit{On: ptr(true)})
 		w.Advance(time.Hour)
 		wantTitles(t, w, notificationstest.URL("off"), pings("one")...)

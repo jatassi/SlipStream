@@ -18,10 +18,10 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/magnet"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -339,7 +339,7 @@ type Config struct {
 	// decides which Items have aired.
 	Today func() time.Time
 	// Notices records Grabbed and Grab failed.
-	Notices notice.Recorder
+	Notices entry.Recorder
 	Log     *slog.Logger
 }
 

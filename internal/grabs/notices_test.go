@@ -9,10 +9,10 @@ import (
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabs/grabstest"
+	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
-	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	rel "github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -36,7 +36,7 @@ func TestAGrabRecordsGrabbedWithItsScoreAtEachTargetAndAJoinRecordsNone(t *testi
 		if _, err := w.Grabs.DecideRun(t.Context(), w.Work, w.Items, []indexers.Release{pack}); err != nil {
 			t.Fatal(err)
 		}
-		got := noticetest.Of(w.Notices, grabs.GrabbedRow)
+		got := entrytest.Of(w.Notices, grabs.GrabbedRow)
 		if len(got) != 1 {
 			t.Fatalf("the run recorded %d Grabbed, want 1", len(got))
 		}
@@ -54,7 +54,7 @@ func TestAGrabRecordsGrabbedWithItsScoreAtEachTargetAndAJoinRecordsNone(t *testi
 		if _, err := w.Grabs.DecideRun(t.Context(), w.Work, w.Items[4:5], []indexers.Release{pack}); err != nil {
 			t.Fatal(err)
 		}
-		if n := len(noticetest.Of(w.Notices, grabs.GrabbedRow)); n != 1 {
+		if n := len(entrytest.Of(w.Notices, grabs.GrabbedRow)); n != 1 {
 			t.Fatalf("after a run that joins the pack %d Grabbed are recorded, want still 1", n)
 		}
 	})
@@ -69,7 +69,7 @@ func failedWith(t *testing.T, codes ...grabs.Code) []grabs.Code {
 		failWith(t, w, grabbedOver(t, w, heard(w, "E01", "1080p.WEB-DL", byte('a'+i))), c)
 	}
 	var out []grabs.Code
-	for _, f := range noticetest.Of(w.Notices, grabs.GrabFailedRow) {
+	for _, f := range entrytest.Of(w.Notices, grabs.GrabFailedRow) {
 		if f.Work.ID != w.Work || f.Stage != grabs.Fetching || f.Release != "The.Attic.2020.E01.1080p.WEB-DL-GRP" {
 			t.Errorf("Grab failed tells %+v, want The Attic's Grab at fetching", f)
 		}
@@ -105,7 +105,7 @@ func TestAManualGrabNamesWhoPickedItAndItsBlocklistFailureRecordsNothing(t *test
 		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 9, "a")}}}})
 		v := a.searchedByHand(t)
 		id := made(t, a.grabbed(t, v, rowPick(t, v))[0])
-		got := noticetest.Of(a.notices, grabs.GrabbedRow)
+		got := entrytest.Of(a.notices, grabs.GrabbedRow)
 		if len(got) != 1 || got[0].FoundBy != grabs.FoundByManual || !got[0].By.APIKey {
 			t.Fatalf("the Manual Grab recorded Grabbed %+v, want one picked by the API key", got)
 		}
@@ -115,31 +115,31 @@ func TestAManualGrabNamesWhoPickedItAndItsBlocklistFailureRecordsNothing(t *test
 		if err := a.g.FailWith(t.Context(), id, grabs.Blocklisted); err != nil {
 			t.Fatal(err)
 		}
-		if got := noticetest.Of(a.notices, grabs.GrabFailedRow); len(got) != 0 {
+		if got := entrytest.Of(a.notices, grabs.GrabFailedRow); len(got) != 0 {
 			t.Fatalf("a Manual Grab the Blocklist held recorded Grab failed %+v", got)
 		}
 	})
 }
 
 func TestGrabsMessagesReadAsWritten(t *testing.T) {
-	heat := notice.Work{
+	heat := entry.Work{
 		ID: works.WorkID{UUID: must(storage.ParseUUID("019a8f5e-0000-7000-8000-000000000001"))}, Label: "Heat (1995)", Type: "book",
-		Nouns:  notice.Nouns{Work: works.Noun{One: "book", Many: "books"}, Item: works.Noun{One: "book", Many: "books"}, Single: true},
+		Nouns:  entry.Nouns{Work: works.Noun{One: "book", Many: "books"}, Item: works.Noun{One: "book", Many: "books"}, Single: true},
 		Poster: artwork.Ref{Source: "tmdb", Shape: artwork.ShapePoster, Path: "/heat.jpg"},
 	}
 	facts := rel.Facts{Quality: rel.Known(rel.WEBDL1080p), Group: rel.Known("FLUX"), Size: rel.Known(int64(6_200_000_000))}
 	for _, f := range grabs.FoundBys {
-		noticetest.Golden(t, grabs.GrabbedRow, grabs.GrabbedFacts{
-			Work: heat, Release: facts, Indexer: "TorrentLeech", Source: grabs.FromSearch, FoundBy: f, By: notice.Actor{Name: "Sam"},
+		entrytest.Golden(t, grabs.GrabbedRow, grabs.GrabbedFacts{
+			Work: heat, Release: facts, Indexer: "TorrentLeech", Source: grabs.FromSearch, FoundBy: f, By: entry.Actor{Name: "Sam"},
 			Scores: []grabs.ScoreAt{{Target: "1080p", Score: 1250}, {Target: "720p", Score: 900}},
 		}, "testdata/notices", "grabbed-"+string(f), *update)
 	}
-	noticetest.Golden(t, grabs.GrabbedRow, grabs.GrabbedFacts{
-		Work: heat, Release: facts, Indexer: "TorrentLeech", Source: grabs.FromManual, FoundBy: grabs.FoundByManual, By: notice.Actor{APIKey: true},
+	entrytest.Golden(t, grabs.GrabbedRow, grabs.GrabbedFacts{
+		Work: heat, Release: facts, Indexer: "TorrentLeech", Source: grabs.FromManual, FoundBy: grabs.FoundByManual, By: entry.Actor{APIKey: true},
 		Scores: []grabs.ScoreAt{{Target: "1080p", Score: 1250}},
 	}, "testdata/notices", "grabbed-api-key", *update)
 	for _, c := range []grabs.Code{grabs.NameTaken, grabs.ImportFailed} {
-		noticetest.Golden(t, grabs.GrabFailedRow, grabs.GrabFailedFacts{
+		entrytest.Golden(t, grabs.GrabFailedRow, grabs.GrabFailedFacts{
 			Work: heat, Code: c, Stage: grabs.Importing, Release: "Heat.1995.1080p.WEB-DL-FLUX", Source: grabs.FromSearch,
 		}, "testdata/notices", "grab-failed-"+string(c), *update)
 	}

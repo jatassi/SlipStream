@@ -1,4 +1,4 @@
-package notice
+package entry
 
 import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"

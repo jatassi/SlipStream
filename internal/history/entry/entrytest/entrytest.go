@@ -1,5 +1,5 @@
-// Package noticetest keeps what an owner records, for the owner's tests.
-package noticetest
+// Package entrytest keeps what an owner records, for the owner's tests.
+package entrytest
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/notifications/notice"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -25,20 +25,20 @@ type Recorder struct {
 }
 
 type kept struct {
-	kind    notice.Kind
+	kind    entry.Kind
 	subject []byte
 }
 
 // New answers the Recorder to put in the owner's test Config, which refuses
 // a kind not in rows the way notifications does, and the keeper to assert
 // on.
-func New(owner string, rows []notice.Entry) (rec notice.Recorder, kept *Recorder) {
+func New(owner string, rows []entry.Entry) (rec entry.Recorder, kept *Recorder) {
 	kept = &Recorder{}
-	return notice.Sink(owner, rows, kept.put), kept
+	return entry.Sink(owner, rows, kept.put), kept
 }
 
 // put keeps the event at once, even from a Write that later rolls back.
-func (r *Recorder) put(_ context.Context, _ *storage.Tx[storage.Library], k notice.Kind, subject []byte) error {
+func (r *Recorder) put(_ context.Context, _ *storage.Tx[storage.Library], k entry.Kind, subject []byte) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.events = append(r.events, kept{kind: k, subject: subject})
@@ -53,7 +53,7 @@ func (r *Recorder) Len() int {
 }
 
 // Of decodes the recorded events of row's kind, oldest first.
-func Of[F any](r *Recorder, row notice.Row[F]) []F {
+func Of[F any](r *Recorder, row entry.Row[F]) []F {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var out []F
@@ -63,7 +63,7 @@ func Of[F any](r *Recorder, row notice.Row[F]) []F {
 		}
 		var f F
 		if err := json.Unmarshal(e.subject, &f); err != nil {
-			panic(fmt.Sprintf("noticetest: decode a %s event: %v", row.Kind, err))
+			panic(fmt.Sprintf("entrytest: decode a %s event: %v", row.Kind, err))
 		}
 		out = append(out, f)
 	}
@@ -72,13 +72,13 @@ func Of[F any](r *Recorder, row notice.Row[F]) []F {
 
 // Context is the moment a golden renders at: 14:02 on 16 November 2026 in
 // UTC, sent by Den.
-var Context = notice.Context{Now: time.Date(2026, 11, 16, 14, 2, 0, 0, time.UTC), Zone: time.UTC, Sender: "Den"}
+var Context = entry.Context{Now: time.Date(2026, 11, 16, 14, 2, 0, 0, time.UTC), Zone: time.UTC, Sender: "Den"}
 
 // Golden renders the facts stored at dir/<name>.json through e and checks
 // the message against dir/<name>.txt. The stored facts are written from
 // facts only when missing, so a later change to the facts' shape has to
 // decode what is already stored. update rewrites the message.
-func Golden(t testing.TB, e notice.Entry, facts any, dir, name string, update bool) {
+func Golden(t testing.TB, e entry.Entry, facts any, dir, name string, update bool) {
 	t.Helper()
 	stored := filepath.Join(dir, name+".json")
 	subject, err := os.ReadFile(stored) //nolint:gosec // a fixture the test names
@@ -113,7 +113,7 @@ func Golden(t testing.TB, e notice.Entry, facts any, dir, name string, update bo
 }
 
 // Text is m as a golden file reads it.
-func Text(m notice.Message) string {
+func Text(m entry.Message) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Title: %s\n", m.Title)
 	for _, l := range m.Lines {
@@ -134,7 +134,7 @@ func Text(m notice.Message) string {
 
 // Ignored is a Recorder for an owner whose events a test doesn't read. It
 // still refuses a kind not in rows.
-func Ignored(owner string, rows []notice.Entry) notice.Recorder {
+func Ignored(owner string, rows []entry.Entry) entry.Recorder {
 	rec, _ := New(owner, rows)
 	return rec
 }

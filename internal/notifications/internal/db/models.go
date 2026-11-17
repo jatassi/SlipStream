@@ -5,8 +5,8 @@
 package db
 
 import (
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -48,7 +48,7 @@ type NotificationsDelivery struct {
 
 type NotificationsEvent struct {
 	ID         EventID
-	Kind       notice.Kind
+	Kind       entry.Kind
 	At         storage.Time
 	DueAt      storage.Time
 	ReleasedAt storage.Time

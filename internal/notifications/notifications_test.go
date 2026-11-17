@@ -6,8 +6,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -18,16 +18,16 @@ type grabbedFacts struct {
 }
 
 var (
-	grabbedRow = notice.Row[grabbedFacts]{Spec: notice.Spec{Kind: "grabbed", Label: "Grabbed", Group: notice.Grabs}}
-	failedRow  = notice.Row[grabbedFacts]{Spec: notice.Spec{Kind: "grab_failed", Label: "Grab failed", Group: notice.Grabs}}
-	deletedRow = notice.Row[grabbedFacts]{Spec: notice.Spec{Kind: "works_deleted", Label: "Works deleted", Group: notice.Library}}
+	grabbedRow = entry.Row[grabbedFacts]{Spec: entry.Spec{Kind: "grabbed", Label: "Grabbed", Group: entry.Grabs}}
+	failedRow  = entry.Row[grabbedFacts]{Spec: entry.Spec{Kind: "grab_failed", Label: "Grab failed", Group: entry.Grabs}}
+	deletedRow = entry.Row[grabbedFacts]{Spec: entry.Spec{Kind: "works_deleted", Label: "Works deleted", Group: entry.Library}}
 )
 
 func TestARecordIsAnUnreleasedEventOnlyWhenItsWriteCommits(t *testing.T) {
 	ctx := t.Context()
 	lib := storagetest.Library(t, Schema())
 	s := New(Config{Library: lib})
-	rec := s.Recorder("grabs", []notice.Entry{grabbedRow})
+	rec := s.Recorder("grabs", []entry.Entry{grabbedRow})
 
 	failed := errors.New("the Grab's Write failed")
 	err := lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -72,13 +72,13 @@ func unreleased(t *testing.T, lib *storage.DB[storage.Library]) []db.Notificatio
 
 func TestTheCatalogListsHealthThenOwnersThenTest(t *testing.T) {
 	s := New(Config{})
-	s.Recorder("grabs", []notice.Entry{grabbedRow, failedRow})
-	s.Recorder("library", []notice.Entry{deletedRow})
-	var got []notice.Kind
+	s.Recorder("grabs", []entry.Entry{grabbedRow, failedRow})
+	s.Recorder("library", []entry.Entry{deletedRow})
+	var got []entry.Kind
 	for _, spec := range s.Events() {
 		got = append(got, spec.Kind)
 	}
-	if want := []notice.Kind{"new_health_item", "health_item_cleared", "grabbed", "grab_failed", "works_deleted", "test"}; !slices.Equal(got, want) {
+	if want := []entry.Kind{"new_health_item", "health_item_cleared", "grabbed", "grab_failed", "works_deleted", "test"}; !slices.Equal(got, want) {
 		t.Fatalf("events = %v, want %v", got, want)
 	}
 }
@@ -95,19 +95,19 @@ func TestWiringBugsPanic(t *testing.T) {
 	}
 	panics("a kind two owners register", func() {
 		s := New(Config{})
-		s.Recorder("grabs", []notice.Entry{grabbedRow})
-		s.Recorder("imports", []notice.Entry{grabbedRow})
+		s.Recorder("grabs", []entry.Entry{grabbedRow})
+		s.Recorder("imports", []entry.Entry{grabbedRow})
 	})
 	panics("an owner registering a Health kind", func() {
-		New(Config{}).Recorder("grabs", []notice.Entry{notice.Row[grabbedFacts]{Spec: notice.Spec{Kind: newItemsRow.Kind}}})
+		New(Config{}).Recorder("grabs", []entry.Entry{entry.Row[grabbedFacts]{Spec: entry.Spec{Kind: newItemsRow.Kind}}})
 	})
 	panics("an owner registering test", func() {
-		New(Config{}).Recorder("grabs", []notice.Entry{notice.Row[grabbedFacts]{Spec: notice.Spec{Kind: testRow.Kind}}})
+		New(Config{}).Recorder("grabs", []entry.Entry{entry.Row[grabbedFacts]{Spec: entry.Spec{Kind: testRow.Kind}}})
 	})
 	panics("registering after the dispatcher started", func() {
 		s := New(Config{})
 		s.catalog.seal()
-		s.Recorder("grabs", []notice.Entry{grabbedRow})
+		s.Recorder("grabs", []entry.Entry{grabbedRow})
 	})
 	panics("two providers with one id", func() {
 		New(Config{Providers: []providers.Provider{{ID: "discord"}, {ID: "slack"}, {ID: "discord"}}})

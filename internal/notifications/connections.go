@@ -11,8 +11,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -35,7 +35,7 @@ type Connection struct {
 	// OnAt is when it was last turned on: it gets no event from before.
 	OnAt time.Time
 	// Events are the kinds it sends, sorted.
-	Events   []notice.Kind
+	Events   []entry.Kind
 	Warnings bool
 	Posters  bool
 	// Node runs a Custom Script, and is zero for every other provider.
@@ -50,7 +50,7 @@ type Connection struct {
 
 func (c Connection) script() bool { return !c.Node.IsZero() }
 
-func (c Connection) wants(k notice.Kind) bool { return slices.Contains(c.Events, k) }
+func (c Connection) wants(k entry.Kind) bool { return slices.Contains(c.Events, k) }
 
 func connectionOf(row db.NotificationsConnection) (Connection, error) {
 	c := Connection{
@@ -205,7 +205,7 @@ type Draft struct {
 	Provider providers.ID
 	On       bool
 	// Events nil is the recommended events.
-	Events   []notice.Kind
+	Events   []entry.Kind
 	Warnings bool
 	Posters  bool
 	Node     role.NodeID
@@ -219,7 +219,7 @@ type Draft struct {
 type Edit struct {
 	Name     *string
 	On       *bool
-	Events   *[]notice.Kind
+	Events   *[]entry.Kind
 	Warnings *bool
 	Posters  *bool
 	Node     *role.NodeID
@@ -318,8 +318,8 @@ func (s *Service) edited(c Connection, secrets providers.Values, e Edit, now tim
 	return c, secrets, s.check(c, secrets)
 }
 
-func (s *Service) recommended() []notice.Kind {
-	var out []notice.Kind
+func (s *Service) recommended() []entry.Kind {
+	var out []entry.Kind
 	for _, spec := range s.Events() {
 		if spec.OnByDefault && !spec.Fixed {
 			out = append(out, spec.Kind)

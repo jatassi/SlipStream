@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/notifications"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -248,10 +248,10 @@ func nodeID(raw string) (role.NodeID, error) {
 	return role.NodeID{UUID: u}, nil
 }
 
-func kinds(ids []string) []notice.Kind {
-	out := make([]notice.Kind, len(ids))
+func kinds(ids []string) []entry.Kind {
+	out := make([]entry.Kind, len(ids))
 	for i, id := range ids {
-		out[i] = notice.Kind(id)
+		out[i] = entry.Kind(id)
 	}
 	return out
 }
@@ -464,7 +464,7 @@ func (h handlers) getBell(ctx context.Context, _ identity.Admin, _ *struct{}) (*
 }
 
 func (h handlers) updateBell(ctx context.Context, _ identity.Admin, in *bellInput) (*bellOutput, error) {
-	var events []notice.Kind
+	var events []entry.Kind
 	if in.Body.Events != nil {
 		events = kinds(in.Body.Events)
 	}

@@ -9,11 +9,11 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/notifying"
 	"github.com/jatassi/slipstream/internal/role"
@@ -123,13 +123,13 @@ func New(cfg Config) *Service {
 // Recorder registers owner's rows in the catalog and answers the Recorder
 // they are recorded through. It panics on a kind already registered, and
 // once the dispatcher has started.
-func (s *Service) Recorder(owner string, rows []notice.Entry) notice.Recorder {
+func (s *Service) Recorder(owner string, rows []entry.Entry) entry.Recorder {
 	s.catalog.register(owner, rows)
-	return notice.Sink(owner, rows, s.put)
+	return entry.Sink(owner, rows, s.put)
 }
 
 // put inserts an event due now and rings the doorbell.
-func (s *Service) put(ctx context.Context, tx *storage.Tx[storage.Library], k notice.Kind, subject []byte) error {
+func (s *Service) put(ctx context.Context, tx *storage.Tx[storage.Library], k entry.Kind, subject []byte) error {
 	now := storage.Now()
 	if _, err := db.New(tx).InsertEvent(ctx, db.InsertEventParams{Kind: k, At: now, DueAt: now, Subject: string(subject)}); err != nil {
 		return fmt.Errorf("record a %s event: %w", k, err)

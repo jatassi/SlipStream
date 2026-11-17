@@ -9,8 +9,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/notifications/internal/db"
-	"github.com/jatassi/slipstream/internal/notifications/notice"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -45,7 +45,7 @@ type job struct {
 type result struct {
 	conn     ConnectionID
 	event    EventID
-	kind     notice.Kind
+	kind     entry.Kind
 	revision int64
 	verdict  providers.Verdict
 }

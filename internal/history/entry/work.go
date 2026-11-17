@@ -1,4 +1,4 @@
-package notice
+package entry
 
 import (
 	"context"
@@ -29,7 +29,7 @@ type Nouns struct {
 	Single bool `json:"single"`
 }
 
-// Describer is what notice reads of the Content Types and the Works:
+// Describer is what entry reads of the Content Types and the Works:
 // *works.Works.
 type Describer interface {
 	Describe(t works.TypeID) (works.Description, bool)

@@ -12,9 +12,9 @@ import (
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabs/grabstest"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
-	"github.com/jatassi/slipstream/internal/notifications/notice/noticetest"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -148,7 +148,7 @@ type atticWorld struct {
 	ids   map[string]indexers.ID
 	names map[indexers.ID]string
 	// notices keeps the events the Grabs record.
-	notices *noticetest.Recorder
+	notices *entrytest.Recorder
 }
 
 func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, goals []targets.Spec, log *slog.Logger) atticWorld {
