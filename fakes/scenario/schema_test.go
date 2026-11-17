@@ -6,6 +6,7 @@ import (
 	"flag"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/jatassi/slipstream/fakes/fault"
+	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 )
@@ -175,5 +177,27 @@ func untime(n *yaml.Node) {
 	}
 	for _, c := range n.Content {
 		untime(c)
+	}
+}
+
+func TestTheSchemaListsEveryProviderNotifyTakes(t *testing.T) {
+	var doc struct {
+		Properties struct {
+			Notify struct {
+				Items struct {
+					Enum []providers.ID `json:"enum"`
+				} `json:"items"`
+			} `json:"notify"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(schema(t), &doc); err != nil {
+		t.Fatal(err)
+	}
+	var want []providers.ID
+	for _, p := range providers.Table {
+		want = append(want, p.ID)
+	}
+	if got := doc.Properties.Notify.Items.Enum; !slices.Equal(got, want) {
+		t.Errorf("the schema's notify takes %v, want every provider in the table's order %v", got, want)
 	}
 }

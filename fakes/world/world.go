@@ -241,6 +241,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		r.setUp,
 		r.seedAccounts,
 		r.seedLibrary,
+		r.seedNotify,
 		r.publish,
 	}
 	for _, step := range steps {

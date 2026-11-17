@@ -801,3 +801,22 @@ func call(ctx context.Context, c *http.Client, r request, out any) error {
 	}
 	return nil
 }
+
+// NewConnection is a notification connection as an Admin adds it. Events
+// left out are the provider's recommended ones.
+type NewConnection struct {
+	Name     string            `json:"name"`
+	Provider string            `json:"provider"`
+	On       bool              `json:"on"`
+	Posters  bool              `json:"posters"`
+	Node     string            `json:"node,omitempty"`
+	Values   map[string]any    `json:"values,omitempty"`
+	Secrets  map[string]string `json:"secrets,omitempty"`
+}
+
+func AddNotificationConnection(ctx context.Context, c *http.Client, baseURL, apiKey string, nc NewConnection) error {
+	return call(ctx, c, request{
+		what: "add the notification connection " + nc.Name, method: http.MethodPost, url: baseURL + "/api/v1/notifications/connections",
+		header: apiKeyHeader(apiKey), body: nc, want: http.StatusCreated,
+	}, nil)
+}

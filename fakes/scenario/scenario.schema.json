@@ -58,6 +58,26 @@
     "mail": {
       "type": "boolean"
     },
+    "notify": {
+      "items": {
+        "type": "string",
+        "enum": [
+          "discord",
+          "telegram",
+          "slack",
+          "pushover",
+          "gotify",
+          "ntfy",
+          "pushbullet",
+          "apprise",
+          "email",
+          "webhook",
+          "script"
+        ]
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
     "nodes": {
       "items": {
         "properties": {
