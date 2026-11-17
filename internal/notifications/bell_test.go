@@ -89,7 +89,7 @@ func TestAFeedRowKeepsTheItemsItShowedAfterTheWarningsSwitchChanges(t *testing.T
 		w.Transitions(disk("c", health.Warn), disk("d", health.Fail))
 		w.Advance(wait)
 		before := w.Feed(sam).Rows
-		if len(before) != 1 || before[0].Title != "2 new Health items" {
+		if len(before) != 1 || before[0].Title != "New Health items for Disk c is almost full and Disk d is almost full" {
 			t.Fatalf("with warnings on the bell shows %+v", before)
 		}
 		if _, err := w.Service.SetBell(t.Context(), nil, ptr(false)); err != nil {

@@ -19,9 +19,9 @@ import (
 var healthWords = struct {
 	NewLabel     string
 	ClearedLabel string
-	// NewMany takes the count.
+	// NewMany takes the items' subjects.
 	NewMany string
-	// ClearedMany takes the count.
+	// ClearedMany takes the items' subjects.
 	ClearedMany string
 	// NewOne takes the item's subject.
 	NewOne string
@@ -34,8 +34,8 @@ var healthWords = struct {
 }{
 	NewLabel:      "New Health item",
 	ClearedLabel:  "Health item cleared",
-	NewMany:       "%s new Health items",
-	ClearedMany:   "%s Health items cleared",
+	NewMany:       "New Health items for %s",
+	ClearedMany:   "Health items for %s cleared",
 	NewOne:        "New Health item for %s",
 	ClearedOne:    "Health item for %s cleared",
 	OnHealthSince: "It has been on Health since %s.",
@@ -115,7 +115,7 @@ func renderNewItems(f HealthFacts, c entry.Context) entry.Message {
 		m.Link = entry.HealthLink(it.parts())
 		return m
 	}
-	m.Title = fmt.Sprintf(healthWords.NewMany, setting.Grouped(len(f.Items)))
+	m.Title = fmt.Sprintf(healthWords.NewMany, named(f.Items))
 	m.Lines = subjects(f.Items)
 	return m
 }
@@ -128,9 +128,17 @@ func renderCleared(f HealthFacts, c entry.Context) entry.Message {
 		m.Lines = []string{fmt.Sprintf(healthWords.OnHealthFrom, c.Clock(it.Since), c.Clock(it.Cleared))}
 		return m
 	}
-	m.Title = fmt.Sprintf(healthWords.ClearedMany, setting.Grouped(len(f.Items)))
+	m.Title = fmt.Sprintf(healthWords.ClearedMany, named(f.Items))
 	m.Lines = subjects(f.Items)
 	return m
+}
+
+// named is two items' subjects, or the first's and how many more.
+func named(items []Item) string {
+	if len(items) == 2 {
+		return items[0].Subject + " and " + items[1].Subject
+	}
+	return items[0].Subject + " and " + setting.Grouped(len(items)-1) + " more"
 }
 
 func subjects(items []Item) []string {

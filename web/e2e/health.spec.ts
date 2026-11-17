@@ -181,7 +181,7 @@ async function volumeLevels(page: Page, world: World): Promise<void> {
 }
 
 async function lowSpace(page: Page, world: World): Promise<void> {
-  const subject = `${await homeVolume(world)} on home`;
+  const subject = `Volume ${await homeVolume(world)} on home`;
   await expectHealthRow(page, " failed");
   if (isPhone(page)) {
     await page.goto("/settings");

@@ -37,7 +37,7 @@ func TestTheOwnRowsRenderTheirWords(t *testing.T) {
 			Link: entry.Link{Path: "/health#health-storage-d"}, Tone: entry.Warn,
 		}},
 		{"two new items", render(history.NewItemsRow, history.HealthFacts{Items: []history.Item{disk, node}}), entry.Message{
-			Title: "2 new Health items", Lines: []string{"Disk D: is almost full", "Attic is offline"}, Tone: entry.Fail,
+			Title: "New Health items for Disk D: is almost full and Attic is offline", Lines: []string{"Disk D: is almost full", "Attic is offline"}, Tone: entry.Fail,
 		}},
 		{"one cleared item", render(history.ClearedRow, history.HealthFacts{Items: []history.Item{disk}}), entry.Message{
 			Title: "Health item for Disk D: is almost full cleared", Lines: []string{"It was on Health from 14:02 to 14:31."}, Tone: entry.Good,

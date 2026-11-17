@@ -29,7 +29,7 @@ const gib = 1024 ** 3;
 
 export const fullVolume: HealthItem = {
   key: "v.home.RDo",
-  subject: "D: (Media) on home",
+  subject: "Volume D: (Media) on home",
   level: "fail",
   text: "Free up space on D: (Media) on home. It has 18 GB left.",
   since: minutesAgo(40),
@@ -46,7 +46,7 @@ export const fullVolume: HealthItem = {
 export const fillingVolume: HealthItem = {
   ...fullVolume,
   key: "v.home.RTo",
-  subject: "E: (Archive) on home",
+  subject: "Volume E: (Archive) on home",
   level: "warn",
   text: "Free up space on E: (Archive) on home. It has 80 GB left.",
   since: minutesAgo(30),

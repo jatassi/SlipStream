@@ -344,7 +344,7 @@ func TestTheMoveKeepsTheBellTheQueueAndEveryEntry(t *testing.T) {
 		for _, r := range got {
 			sent = append(sent, r.Title)
 		}
-		if want := []string{s.g["imported"].title, "Ping new", "2 new Health items"}; !slices.Equal(sent, want) {
+		if want := []string{s.g["imported"].title, "Ping new", "New Health items for Disk d is full and Disk f is almost full"}; !slices.Equal(sent, want) {
 			t.Fatalf("family received %q, want %q: what was owed, each once", sent, want)
 		}
 		if raise := got[2]; raise.Tone != entry.Fail || !slices.Contains(raise.Lines, "Disk d is full") {

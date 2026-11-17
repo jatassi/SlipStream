@@ -153,8 +153,8 @@ func TestThreeItemsInOneEvaluationAreOneMessagePerConnection(t *testing.T) {
 		w.Connect("other")
 		w.Transitions(disk("c", health.Fail), disk("d", health.Fail), disk("e", health.Fail))
 		w.Advance(wait)
-		wantTitles(t, w, family, "3 new Health items")
-		wantTitles(t, w, notificationstest.URL("other"), "3 new Health items")
+		wantTitles(t, w, family, "New Health items for Disk c is almost full and 2 more")
+		wantTitles(t, w, notificationstest.URL("other"), "New Health items for Disk c is almost full and 2 more")
 	})
 }
 
