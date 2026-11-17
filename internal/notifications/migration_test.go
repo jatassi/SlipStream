@@ -320,7 +320,7 @@ func TestTheMoveKeepsTheBellTheQueueAndEveryEntry(t *testing.T) {
 		sam := w.SignIn(identity.AccountID{UUID: s.admin})
 
 		f := w.Feed(sam)
-		want := []string{s.g["imported"].title, "Disk e is almost full", s.g["deleted_one"].title, s.g["grabbed"].title}
+		want := []string{s.g["imported"].title, "New Health item for Disk e is almost full", s.g["deleted_one"].title, s.g["grabbed"].title}
 		if got := titlesOf(f.Rows); !slices.Equal(got, want) || *f.Unread != 3 {
 			t.Fatalf("the bell lists %q with %d unread, want %q with 3: the Imported that was still owed, then the old rows", got, *f.Unread, want)
 		}

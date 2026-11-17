@@ -22,6 +22,8 @@ var healthWords = struct {
 	NewMany string
 	// ClearedMany takes the count.
 	ClearedMany string
+	// NewOne takes the item's subject.
+	NewOne string
 	// ClearedOne takes the item's subject.
 	ClearedOne string
 	// OnHealthSince takes the clock time it appeared.
@@ -33,7 +35,8 @@ var healthWords = struct {
 	ClearedLabel:  "Health item cleared",
 	NewMany:       "%s new Health items",
 	ClearedMany:   "%s Health items cleared",
-	ClearedOne:    "Cleared: %s",
+	NewOne:        "New Health item for %s",
+	ClearedOne:    "Health item for %s cleared",
 	OnHealthSince: "It has been on Health since %s.",
 	OnHealthFrom:  "It was on Health from %s to %s.",
 }
@@ -106,7 +109,7 @@ func renderNewItems(f HealthFacts, c entry.Context) entry.Message {
 	}
 	if len(f.Items) == 1 {
 		it := f.Items[0]
-		m.Title = it.Subject
+		m.Title = fmt.Sprintf(healthWords.NewOne, it.Subject)
 		m.Lines = []string{it.Text, fmt.Sprintf(healthWords.OnHealthSince, c.Clock(it.Since))}
 		m.Link = entry.HealthLink(it.parts())
 		return m

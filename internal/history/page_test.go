@@ -81,7 +81,7 @@ func (l *logged) raise(name string) {
 		Category: health.LibraryID, Key: health.Key(name), Kind: health.Raised, To: health.Warn,
 		Subject: name, Text: "It went wrong.", At: time.Now(), Since: time.Now(),
 	})
-	l.kept = append(l.kept, kept{name: name, group: entry.Health, kind: history.NewItemsRow.Kind, at: time.Now()})
+	l.kept = append(l.kept, kept{name: "New Health item for " + name, group: entry.Health, kind: history.NewItemsRow.Kind, at: time.Now()})
 }
 
 func (l *logged) page(f history.Filter, b history.Before, limit int) history.Page {

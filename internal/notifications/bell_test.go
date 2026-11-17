@@ -47,7 +47,7 @@ func TestAnItemShownAfterItsWaitIsUnreadPastAMovedCursor(t *testing.T) {
 		}
 		w.Advance(wait)
 		f = w.Feed(sam)
-		if unread(t, f) != 1 || len(f.Rows) != 3 || f.Rows[0].Title != "Disk d is almost full" || f.Rows[0].Read || !f.Rows[1].Read {
+		if unread(t, f) != 1 || len(f.Rows) != 3 || f.Rows[0].Title != "New Health item for Disk d is almost full" || f.Rows[0].Read || !f.Rows[1].Read {
 			t.Fatalf("after the wait the feed reads %+v with %d unread, want the item unread on top", f.Rows, unread(t, f))
 		}
 		if f.Rows[1].Link != "https://media.example.com/pings/b" {
@@ -98,7 +98,7 @@ func TestAFeedRowKeepsTheItemsItShowedAfterTheWarningsSwitchChanges(t *testing.T
 		w.Transitions(disk("e", health.Warn), disk("f", health.Fail))
 		w.Advance(wait)
 		after := w.Feed(sam).Rows
-		if len(after) != 2 || after[1] != before[0] || after[0].Title != "Disk f is almost full" {
+		if len(after) != 2 || after[1] != before[0] || after[0].Title != "New Health item for Disk f is almost full" {
 			t.Fatalf("after warnings went off the bell shows %+v, want the old row as it was and the new one without the Warning", after)
 		}
 	})

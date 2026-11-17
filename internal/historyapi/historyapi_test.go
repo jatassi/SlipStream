@@ -327,7 +327,7 @@ func TestEveryKindReadsBackWithItsWordsAndLinks(t *testing.T) {
 		w.fault(health.Item{Key: "disk", Level: health.Fail, Says: health.Says{Subject: "Disk full", Text: "The disk is full."}})
 
 		p := w.list("")
-		want := []string{"Disk full", "Works deleted 12 Works", "Imported The Attic", "Grab failed quietly", "Grabbed The Attic"}
+		want := []string{"New Health item for Disk full", "Works deleted 12 Works", "Imported The Attic", "Grab failed quietly", "Grabbed The Attic"}
 		if !slices.Equal(words(p), want) || p.Next != nil {
 			t.Fatalf("History lists %q (next %v), want %q on one page", words(p), p.Next, want)
 		}
@@ -366,7 +366,7 @@ func TestAnEntryReadsTheSameAfterItsWorkGrabImportAndHealthItemAreGone(t *testin
 		w.fault()
 
 		after := w.list("")
-		if got := words(after); !slices.Equal(got, append([]string{"Cleared: Disk low"}, words(before)...)) {
+		if got := words(after); !slices.Equal(got, append([]string{"Health item for Disk low cleared"}, words(before)...)) {
 			t.Fatalf("History lists %q, want %q under the clear's entry", got, words(before))
 		}
 		landed := after.Entries[len(after.Entries)-1]
@@ -374,7 +374,7 @@ func TestAnEntryReadsTheSameAfterItsWorkGrabImportAndHealthItemAreGone(t *testin
 			t.Errorf("the Imported entry reads %+v, want no Work, Grab or Import once they are deleted", landed)
 		}
 		raised := after.Entries[1]
-		if raised.Words != "Disk low" || raised.Links.Health != nil {
+		if raised.Words != "New Health item for Disk low" || raised.Links.Health != nil {
 			t.Errorf("the New Health item reads %+v, want no Health link once the item cleared", raised)
 		}
 	})

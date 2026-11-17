@@ -273,6 +273,8 @@ func renderScanAdded(f ScanAddedFacts, _ entry.Context) entry.Message {
 	}
 }
 
+// placedMessage is f's Work and files. A Work of one Item lists its files
+// with no Item, and leaves what each replaced to the entry's own line.
 func placedMessage(f ImportedFacts, tone entry.Tone) entry.Message {
 	m := entry.Message{Link: entry.WorkLink(f.Work.ID), Poster: f.Work.Poster, Tone: tone}
 	m.Body.Work = &entry.BodyWork{ID: f.Work.ID.String(), Title: f.Work.Label, ContentType: string(f.Work.Type)}
@@ -282,9 +284,11 @@ func placedMessage(f ImportedFacts, tone entry.Tone) entry.Message {
 			b.Items = append(b.Items, itemAtWords(it, lower(f.Work.Nouns.Item)))
 		}
 		m.Body.Files = append(m.Body.Files, b)
-		m.Detail.Files = append(m.Detail.Files, entry.DetailFile{
-			Items: b.Items, Quality: b.Quality, PlacedBy: b.PlacedBy, Replaced: b.Replaced, ReplacedLabel: works.JoinWords(p.ReplacedLabels),
-		})
+		d := entry.DetailFile{Quality: b.Quality, PlacedBy: b.PlacedBy}
+		if !f.Work.Nouns.Single {
+			d.Items, d.Replaced, d.ReplacedLabel = b.Items, b.Replaced, works.JoinWords(p.ReplacedLabels)
+		}
+		m.Detail.Files = append(m.Detail.Files, d)
 	}
 	return m
 }

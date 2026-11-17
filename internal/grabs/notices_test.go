@@ -42,7 +42,7 @@ func TestAGrabRecordsGrabbedWithItsScoreAtEachTargetAndAJoinRecordsNone(t *testi
 		}
 		f := got[0]
 		if f.Work.ID != w.Work || f.Work.Label != "The Attic" || f.Indexer != "Quick Site" || f.Source != grabs.FromSearch || f.FoundBy != grabs.FoundBySearch {
-			t.Errorf("Grabbed tells %+v, want The Attic, found by Automatic search on Quick Site", f)
+			t.Errorf("Grabbed tells %+v, want The Attic, found by a search on Quick Site", f)
 		}
 		if want := []grabs.ScoreAt{{Target: "HD"}, {Target: "Other"}}; !slices.Equal(f.Scores, want) {
 			t.Errorf("Grabbed scores %+v, want one per Target the pack fills: %+v", f.Scores, want)
@@ -175,7 +175,7 @@ func TestGrabsMessagesReadAsWritten(t *testing.T) {
 		Work: heat, Release: facts, Indexer: "TorrentLeech", Source: grabs.FromManual, FoundBy: grabs.FoundByManual, By: entry.Actor{APIKey: true},
 		Scores: []grabs.ScoreAt{{Target: "1080p", Score: 1250}},
 	}, "testdata/notices", "grabbed-api-key", *update)
-	for _, c := range []grabs.Code{grabs.NameTaken, grabs.ImportFailed} {
+	for _, c := range []grabs.Code{grabs.NameTaken, grabs.ImportFailed, grabs.DownloadFailed} {
 		entrytest.Golden(t, grabs.GrabFailedRow, grabs.GrabFailedFacts{
 			Work: heat, Code: c, Stage: grabs.Importing, Release: "Heat.1995.1080p.WEB-DL-FLUX", Source: grabs.FromSearch,
 		}, "testdata/notices", "grab-failed-"+string(c), *update)
