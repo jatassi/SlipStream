@@ -1,0 +1,103 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: [schema, ../works/schema, ../targets/schema, ../files/schema]
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        emit_pointers_for_null_types: true
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: "*.*_since"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: "subtitles_provider.paused_until"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: "*.file_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/files
+              type: ID
+          - column: "subtitles_parked.from_file"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/files
+              type: ID
+          - column: "subtitles_parked.to_file"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/files
+              type: ID
+          - column: "*.work_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: "*.root_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/roots
+              type: ID
+          - column: "subtitles_node.node_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: "subtitles_file.map_node_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: "*.profile_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/targets
+              type: ProfileID
+          - column: "subtitles_sidecar.id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: "subtitles_parked.id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: "subtitles_removal.id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: "subtitles_sidecar.sibling_of"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: "*.attempt_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: "subtitles_provider.api_key_sealed"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/secret
+              type: Sealed
+          - column: "*.forced"
+            go_type: bool
+          - column: "subtitles_sidecar.hi"
+            go_type: bool
+          - column: "subtitles_file.wantless"
+            go_type: bool
+          - column: "subtitles_file.fresh"
+            go_type: bool
+          - column: "subtitles_file.survey_due"
+            go_type: bool
+          - column: "subtitles_want.unmet"
+            go_type: bool
+          - column: "subtitles_sidecar.timing_due"
+            go_type: bool
+          - column: "subtitles_sidecar.final"
+            go_type: bool
+          - column: "subtitles_sidecar.timed"
+            go_type: bool
+          - column: "subtitles_sidecar.ai_translated"
+            go_type: bool
+          - column: "subtitles_sidecar.human_made"
+            go_type: bool
+          - column: "subtitles_provider.is_on"
+            go_type: bool
