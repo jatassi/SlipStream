@@ -310,14 +310,28 @@ func (a *attempt) judge(ctx context.Context, node role.NodeID, key string, offer
 // slot. The want stays queued until one is ready again.
 var errPaused = errors.New("the Subtitle Provider paused")
 
-// stillReady is ids less those that paused since the attempt read them.
-func (a *attempt) stillReady(ctx context.Context, ids []subtitling.ProviderID) ([]subtitling.ProviderID, error) {
+// pausedError is errPaused for one fetch. answer is the provider's pause
+// as the outcome of the call it kept from being made, nil when the
+// provider stopped searching instead.
+type pausedError struct{ answer *calls.Outcome }
+
+func (*pausedError) Error() string { return errPaused.Error() }
+func (*pausedError) Unwrap() error { return errPaused }
+
+// providersNow is every provider as it reads now.
+func (a *attempt) providersNow(ctx context.Context) ([]Provider, error) {
 	var ps []Provider
 	err := a.s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
 		ps, err = a.s.providersIn(ctx, r)
 		return err
 	})
+	return ps, err
+}
+
+// stillReady is ids less those that paused since the attempt read them.
+func (a *attempt) stillReady(ctx context.Context, ids []subtitling.ProviderID) ([]subtitling.ProviderID, error) {
+	ps, err := a.providersNow(ctx)
 	now := a.s.cfg.Clock()
 	return slices.DeleteFunc(ids, func(id subtitling.ProviderID) bool {
 		i := slices.IndexFunc(ps, func(p Provider) bool { return p.Spec.ID == id })
@@ -332,10 +346,17 @@ func (a *attempt) fetch(ctx context.Context, o subtitling.Offer) (judged, error)
 		return judged{}, err
 	}
 	defer done()
-	if ready, err := a.stillReady(ctx, []subtitling.ProviderID{o.Provider}); err != nil {
+	ps, err := a.providersNow(ctx)
+	if err != nil {
 		return judged{}, err
-	} else if len(ready) == 0 {
-		return judged{}, errPaused
+	}
+	now := a.s.cfg.Clock()
+	if p := ps[slices.IndexFunc(ps, func(p Provider) bool { return p.Spec.ID == o.Provider })]; !p.ready(now) {
+		e := &pausedError{}
+		if p.paused(now) {
+			e.answer = new(p.Paused.outcome(p.Spec.ID))
+		}
+		return judged{}, e
 	}
 	node, holder, ok := a.s.holderFor(o.Provider)
 	if !ok {

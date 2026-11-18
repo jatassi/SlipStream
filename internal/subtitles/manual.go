@@ -740,6 +740,10 @@ func (s *Subtitles) manual(ctx context.Context, k WantKey, sh *shownAttempt, fn 
 
 func (a *attempt) picked(ctx context.Context, o subtitling.Offer) error {
 	j, err := a.fetch(ctx, o)
+	if p, paused := errors.AsType[*pausedError](err); paused {
+		a.finish(ctx, Attempt{Ended: Unfetched, Answer: p.answer})
+		return nil
+	}
 	if err != nil {
 		return err
 	}
