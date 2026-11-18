@@ -36,6 +36,7 @@ import { metadataSection } from "./metadata";
 import { nodesSection } from "./nodes";
 import type { SettingsGroup, SettingsSection } from "./section";
 import { SignInSection } from "./sign-in";
+import { subtitlesSection } from "./subtitles";
 
 const addressSection: SettingsSection = {
   id: "address",
@@ -123,8 +124,12 @@ export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
       libraryScanSection,
       importingSection,
       namingSection,
-      metadataSection,
     ],
+  },
+  {
+    id: "metadata-subtitles",
+    label: "Metadata and subtitles",
+    sections: [metadataSection, subtitlesSection],
   },
   {
     id: "files",
