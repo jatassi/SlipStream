@@ -32,6 +32,19 @@ test("filters keep Works that pass every group, and any of the values picked ins
   expect(shown({ status: { kind: "values", values: ["failed"] } }, ["b"])).toBe("");
 });
 
+test("the subtitles filter keeps Works missing a subtitle, and those whose found subtitles all failed the timing", () => {
+  expect(shown({ subtitles: { kind: "values", values: ["missing"] } })).toBe("ab");
+  expect(shown({ subtitles: { kind: "values", values: ["none-passed"] } })).toBe("b");
+  const subtitles = scope.groups.find(({ key }) => key === "subtitles");
+  if (subtitles?.kind !== "values") {
+    throw new Error("the Library has no subtitles filter");
+  }
+  expect(optionsOf(subtitles, works, ctx)).toEqual([
+    { value: "missing", label: "Subtitles missing", count: 2 },
+    { value: "none-passed", label: "None matched the timing", count: 1 },
+  ]);
+});
+
 test("the status filter offers each status with what needs attention first", () => {
   const status = scope.groups.find(({ key }) => key === "status");
   if (status?.kind !== "values") {
@@ -71,5 +84,6 @@ test("on All, only the fields every type declares alike are offered", () => {
     "needs",
     "gone",
     "scanned",
+    "subtitles",
   ]);
 });

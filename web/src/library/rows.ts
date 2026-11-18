@@ -7,6 +7,7 @@ import type {
   WorksLibraryRow,
   WorksLibraryRowAddedBy,
   WorksLibraryRowMonitored,
+  WorksLibraryRowSubtitles,
   WorksLibraryRowWanted,
   WorksRowRating,
 } from "../api/gen/model";
@@ -53,6 +54,8 @@ export type LibraryWork = {
   readonly needsYou: number;
   /** The first reason Wanted lists it for, null while it wants nothing. */
   readonly wanted: WorksLibraryRowWanted;
+  /** Whether a wanted subtitle of one of its files is missing, and whether none found matched the timing. */
+  readonly subtitles: WorksLibraryRowSubtitles;
   readonly values: ReadonlyMap<string, ListValue>;
 };
 
@@ -148,6 +151,7 @@ export function parseRow(row: WorksLibraryRow, type: WorksContentType): LibraryW
     itemStatus: row.itemStatus,
     needsYou: row.needsYou,
     wanted: row.wanted,
+    subtitles: row.subtitles,
     values: valuesOf(row, type),
   };
   cache.set(row, work);

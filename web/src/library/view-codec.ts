@@ -19,6 +19,7 @@ import {
 /**
  * A Library's view in its address, such as `view=table`, `cols=status,field.year`,
  * `sort=field.year`, `rev=1`, `status=missing,failed`, `needs=1`, `gone=1`,
+ * `subtitles=missing,none-passed`,
  * `f.genres=Crime~Drama` and `f.year=1990..1999`. Anything left out is the
  * default.
  */
@@ -33,6 +34,7 @@ const texts: ReadonlySet<string> = new Set([
   "monitored",
   "profile",
   "root",
+  "subtitles",
   "q",
 ]);
 const flags: ReadonlySet<string> = new Set(["rev", "needs", "gone", "scanned"]);

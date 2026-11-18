@@ -17,11 +17,17 @@ An Admin adds a Wanted Language to a Profile, and SlipStream records a want for 
 - `subtitles-key-dialog` a provider's `Add key` opens `Add your SubDL key`: numbered steps whose `Open SubDL` link ticks its step, and `SlipStream never asks for your SubDL password.`; a refused key replaces the steps with a `Not saved` card quoting SubDL's words and `Try another key`, and an accepted key with a card naming the account, plan, downloads left and place in the search order (P-368).
 - `subtitles-provider-order` `Subtitle Providers` ranks SubDL, SubSource and Gestdown with each one's state in a sentence and a downloads Meter, moves a row by `Move up` and `Move down` (an action sheet on phone), and turns one off with `Search <name>` (P-368).
 - `subtitles-library-mark` each Library row's `subtitles` reads `missing` or `none_passed` for a Work with an unmet want, and null otherwise (P-368).
+- `subtitles-work-rows` the Work page's Files section shows, inside each file's row, one subtitle row per Wanted Language in Profile order: a language chip with its state icon, one sentence on what the subtitle is or why there is none, Search, Manual search and Upload, and a "…" menu with Mark bad… and Don't count this track; a timed subtitle's Details list its Timing sync numbers, and the file's Details list its embedded tracks and the subtitle files beside it (P-368).
+- `subtitles-season-fold` a series' files fold per season, the first season with a missing subtitle open, each episode's language chips opening into the same rows; the open seasons are kept per Work in the browser (P-368).
+- `subtitles-library-filter` the Library's Filter offers Subtitles, "Subtitles missing" and "None matched the timing", at the address key `subtitles=missing,none-passed`; a Work none of whose found subtitles matched counts as missing too (P-368).
+- `subtitles-manual-sheets` a row's Manual search opens a 940 dialog on desktop and a full sheet on phone, Upload a dialog with a drop target, and Mark bad… a question naming the file version; until Subtitle search lands each shows "This build of SlipStream can't search for, download or upload subtitles yet." (P-368).
 
 ## How to get to it (user POV)
 
 - Desktop shell: the sidebar's `Settings`, then `Subtitles` under `Metadata and subtitles` (`/settings/subtitles`). A Profile's `Subtitles` section, under `Settings` > `Profiles` > the Profile, holds its Wanted Languages.
+- Desktop shell: a Work page's Files section, each file's subtitle rows, its Details, and a row's Manual search, Upload and "…" menu; Library, Filter, Subtitles.
 - Phone shell: `More`, then `Settings`, then `Subtitles`; the key dialog is a bottom sheet, and a ranked provider's `Actions for <name>` opens an action sheet.
+- Phone shell: the same Work page, where a subtitle row's actions open as an action sheet and Manual search is a full sheet; Library, Filter opens as a sheet.
 - API (Admin): `PUT /api/v1/profiles/{profileId}` with `languages`, `?preview=true` for the Impact alone and `?confirmSubtitles=<n>` on the save; `POST /api/v1/works/delete` with `{"workIds":[...],"files":"delete"}` for the delete; `POST /api/v1/roots/{rootId}/scan` for a Library scan.
 - API (Admin): `/api/v1/subtitles/settings`, `/api/v1/subtitles/nodes/{nodeId}/settings`, `/api/v1/subtitles/providers` with `/order`, `/{id}` and `/{id}/key`, `/api/v1/works/{workId}/subtitles`, and `/api/v1/files/{fileId}/subtitles/...` for tracks and the manual actions. `GET /api/v1/system/health` for the Subtitles category, and `GET /api/v1/library` for the row mark.
 - Host CLI: none.
@@ -111,6 +117,15 @@ Steps:
   $FW exec $RUN --proof subtitles/subtitles-actions-wait -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/files/$FILE/subtitles/en/search"
   ```
 
+- **The Work page.** With English wanted on `Movies` and on `TV`, copy Lanterns at Low Tide into the Movies root and The Tin Signal's three episodes into the TV root, scan both, and open each Work page at desktop and phone width. The film's row shows English as embedded; Don't count this track turns it missing. The series folds its files into Season 1 and Season 2, the first season with a missing subtitle open; its chips open into the rows. Then press a row's Manual search, Upload and Mark bad… where offered: each shows the not-built sentence.
+
+  ```sh
+  $FW exec $RUN --proof subtitles/subtitles-work-rows -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$WORK"
+  $FW exec $RUN --proof subtitles/subtitles-work-rows -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/subtitles/subtitles-work-rows/movie-desktop.png
+  ```
+
+- **The Library filter.** Open `{nodes.home.browserUrl}/library?subtitles=missing`: only Works with a missing subtitle stay, and Filter shows Subtitles with both choices and their counts.
+
 ## Gotchas
 
 - The Keeper wakes a second after the Write that names a file and sweeps every minute, so a survey or a removal shows a moment after the API answers. Wait for it before reading the disk.
@@ -118,4 +133,5 @@ Steps:
 - A Sidecar's removal names its hash. Overwriting the `.en.srt` before the delete keeps it on disk, which is the second half of `subtitles-delete-removes`, not a failure.
 - A Scenario film whose bytes aren't real audio can't be decoded: its map reads `decode_failed` and is asked for again after `map_retry_min`, so it adds no `.ssmp` file. That is the backoff, not a failure.
 - No Subtitle Provider searches yet, so a want stays missing, and the manual actions answer 501.
+- The Profile API needs the whole Profile back with `languages`: `targets` and `editions` as `GET /api/v1/profiles` lists them.
 - A key check needs a Node with the Subtitles Role. Without one, `PUT .../key` answers 409 `no_subtitles_holder`.
