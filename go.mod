@@ -20,6 +20,7 @@ require (
 	github.com/gofrs/flock v0.13.1
 	github.com/hashicorp/yamux v0.1.2
 	github.com/invopop/jsonschema v0.14.0
+	github.com/klauspost/compress v1.20.3
 	github.com/libp2p/go-yamux/v5 v5.1.0
 	github.com/mmcdole/gofeed v1.5.0
 	github.com/nwaples/rardecode/v2 v2.4.6

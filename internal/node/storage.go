@@ -25,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/trackers"
@@ -68,6 +69,7 @@ func localSchemas() []storage.Schema[storage.Local] {
 		downloading.Schema(),
 		metadata.LocalSchema(),
 		artwork.Schema(),
+		storing.SidecarSchema(),
 	}
 }
 

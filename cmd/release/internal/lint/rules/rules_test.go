@@ -61,6 +61,7 @@ func TestCgoConfined(t *testing.T) {
 	}
 	assertFindings(t, check(t, "cgo-confined", repo), []string{
 		`internal/media/probe_windows.go:8: [cgo-confined] import "C" outside the declared native packages`,
+		`internal/media/speech/speech.go:3: [cgo-confined] import "C" outside the declared native packages`,
 		`internal/torrent/libtorrent/session/session.go:3: [cgo-confined] import "C" outside the declared native packages`,
 	})
 }

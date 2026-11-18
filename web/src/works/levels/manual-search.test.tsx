@@ -38,12 +38,14 @@ test("an Item row's menu holds Details and Manual search, which opens on the Ite
   await expect.element(levels().getByRole("button", { name: "Search V01S02" })).toBeVisible();
   await userEvent.click(levels().getByRole("button", { name: "More actions for V01S02" }));
   const menu = page.getByRole("menu", { name: "Actions for V01S02" });
-  expect(
-    menu
-      .getByRole("menuitem")
-      .elements()
-      .map((item) => item.textContent),
-  ).toEqual(["Details", "Manual search"]);
+  await expect
+    .poll(() =>
+      menu
+        .getByRole("menuitem")
+        .elements()
+        .map((item) => item.textContent),
+    )
+    .toEqual(["Details", "Manual search"]);
   await userEvent.click(menu.getByRole("menuitem", { name: "Manual search" }));
   await expect.element(sheet()).toBeVisible();
   await expect.poll(() => manual.started).toEqual([{ itemIds: [second?.id] }]);

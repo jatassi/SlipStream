@@ -122,8 +122,14 @@ func (b *Builder) build(ctx context.Context, f scenario.MediaFile, salt string) 
 	if err != nil {
 		return "", fmt.Errorf("fixture key: %w", err)
 	}
+	return b.cached(ctx, key, r, path.Ext(f.Path), f.Path)
+}
+
+// cached is the file r makes, named by key, made first if the cache lacks
+// it.
+func (b *Builder) cached(ctx context.Context, key []byte, r recipe, ext, name string) (string, error) {
 	sum := sha256.Sum256(key)
-	cached := filepath.Join(b.cache, hex.EncodeToString(sum[:])+path.Ext(f.Path))
+	cached := filepath.Join(b.cache, hex.EncodeToString(sum[:])+ext)
 	if _, err := os.Stat(cached); err == nil {
 		return cached, nil
 	}
@@ -136,12 +142,12 @@ func (b *Builder) build(ctx context.Context, f scenario.MediaFile, salt string) 
 	}
 	defer func() { _ = os.RemoveAll(work) }()
 	if err := b.run(ctx, r, work); err != nil {
-		return "", fmt.Errorf("make %s: %w", f.Path, err)
+		return "", fmt.Errorf("make %s: %w", name, err)
 	}
 	// A link never replaces a file another world published, so no open of
 	// the cached path races a rename onto it. That file is this one.
 	if err := os.Link(filepath.Join(work, r.out), cached); err != nil && !errors.Is(err, fs.ErrExist) {
-		return "", fmt.Errorf("cache %s: %w", f.Path, err)
+		return "", fmt.Errorf("cache %s: %w", name, err)
 	}
 	return cached, nil
 }

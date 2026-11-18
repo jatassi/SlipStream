@@ -324,6 +324,9 @@ func (n *Node) startController(ctx context.Context) error {
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
+	if err := n.mountSidecars(ctx, dispatch, local); err != nil {
+		return err
+	}
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
@@ -841,6 +844,9 @@ func (n *Node) startWorker(ctx context.Context) error {
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
+	if err := n.mountSidecars(ctx, dispatch, local); err != nil {
+		return err
+	}
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
@@ -867,6 +873,15 @@ func (n *Node) removed(ctx context.Context) {
 	if err := n.Restart(); err != nil {
 		n.log.Error("restart the removed Worker", "err", err.Error())
 	}
+}
+
+func (n *Node) mountSidecars(ctx context.Context, dispatch *rpc.Dispatch, local *storage.DB[storage.Local]) error {
+	sidecars, err := storing.NewSidecars(ctx, n.store, local, n.env.DataDir.SpeechMapsDir(), n.env.Speech, n.cfg.Timings.Sidecars)
+	if err != nil {
+		return err
+	}
+	storagev1connect.SidecarService.Mount(dispatch, sidecars)
+	return nil
 }
 
 // startHolding opens local.db and runs the holder half toward upstream,
