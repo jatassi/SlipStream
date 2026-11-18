@@ -91,8 +91,21 @@ type Config struct {
 	// History records Imported, Upgraded and Works added by a Library
 	// scan.
 	History entry.Recorder
-	Log     *slog.Logger
+	// Subtitles hears each file that lands, in the landing Write,
+	// NoSubtitles when nil.
+	Subtitles Subtitles
+	Log       *slog.Logger
 }
+
+// Subtitles is what subtitles hears of a landing.
+type Subtitles interface {
+	Landed(ctx context.Context, tx *storage.Tx[file], f files.File) error
+}
+
+// NoSubtitles is the Subtitles of a library nothing subtitles.
+type NoSubtitles struct{}
+
+func (NoSubtitles) Landed(context.Context, *storage.Tx[file], files.File) error { return nil }
 
 // Timings are the reconciler's, the grabs backoff: an import wait retries
 // after RetryMin, doubling to RetryMax, and a pass runs at least every
@@ -114,6 +127,9 @@ type Imports struct {
 
 // New builds the pipeline and registers its Transfers purpose.
 func New(cfg Config) *Imports {
+	if cfg.Subtitles == nil {
+		cfg.Subtitles = NoSubtitles{}
+	}
 	im := &Imports{cfg: cfg, probes: newSlots(), wake: make(chan struct{}, 1), hooked: map[string]after{}}
 	cfg.Transfers.Register(im.purpose())
 	return im
