@@ -15,7 +15,7 @@ import {
 } from "../api/gen/query/subtitles/subtitles.msw";
 import { page } from "vitest/browser";
 
-import { type LiveMap, problem } from "./handlers";
+import type { LiveMap } from "./handlers";
 import { orchardId } from "./library";
 import { renderApp } from "./render-app";
 import { scannedFiles } from "./scanned-files";
@@ -138,19 +138,11 @@ export const hdSubtitles = (
 
 export const uhdId = uhd?.id ?? "";
 
-/** The answer of every manual action until Subtitle search lands. */
-export const notBuilt = () =>
-  problem(
-    501,
-    "subtitle_action_not_built",
-    "This build can't search for subtitles yet",
-    "This build of SlipStream can't search for, download or upload subtitles yet.",
-  );
-
 type Answer = () => Response | Promise<Response>;
 
 type SubtitlesWorld = {
   readonly work: SubtitlesWorkSubtitles;
+  readonly search?: Answer;
   readonly start?: Answer;
   readonly candidates?: () => SubtitlesCandidates | Response;
   readonly pick?: Answer;
@@ -165,34 +157,56 @@ export const attemptId = "6c8e0a2c-4e6a-4c8e-9a2c-4e6a8c0e2a4d";
 
 export const started = () => HttpResponse.json({ searchId }, { status: 202 });
 export const attempting = () => HttpResponse.json({ attemptId }, { status: 202 });
+const accepted = () => new HttpResponse(null, { status: 202 });
+const kept = () => new HttpResponse(null, { status: 204 });
+
+const nothingFound: SubtitlesCandidates = { state: "done", outcomes: [], candidates: [] };
+const checking: SubtitlesAttempt = {
+  step: "checking",
+  provider: "subdl",
+  outcome: null,
+  uploadId: null,
+};
 
 type Recorded = { readonly calls: string[]; readonly uploads: unknown[] };
 
-/** Every subtitle action, answering what the world names or the not-built problem. */
+/** Every subtitle action, answering what the world names or else accepting it. */
 function actionHandlers(world: SubtitlesWorld, { calls, uploads }: Recorded) {
-  const act = (name: string, answer: Answer | undefined) => () => {
+  const act = (name: string, answer: Answer) => () => {
     calls.push(name);
-    return (answer ?? notBuilt)();
+    return answer();
   };
   return [
-    http.post("*/api/v1/files/:fileId/subtitles/:want/search", act("search", undefined)),
-    http.post("*/api/v1/files/:fileId/subtitles/:want/candidates", act("candidates", world.start)),
+    http.post(
+      "*/api/v1/files/:fileId/subtitles/:want/search",
+      act("search", world.search ?? accepted),
+    ),
+    http.post(
+      "*/api/v1/files/:fileId/subtitles/:want/candidates",
+      act("candidates", world.start ?? started),
+    ),
     http.get("*/api/v1/files/:fileId/subtitles/:want/candidates/:searchId", () => {
-      const read = world.candidates?.() ?? notBuilt();
+      const read = world.candidates?.() ?? nothingFound;
       return read instanceof Response ? read : HttpResponse.json(read);
     }),
     http.post("*/api/v1/files/:fileId/subtitles/:want/candidates/:searchId/:key", ({ params }) =>
-      act(`pick ${String(params["key"])}`, world.pick)(),
+      act(`pick ${String(params["key"])}`, world.pick ?? attempting)(),
     ),
     http.get("*/api/v1/files/:fileId/subtitles/attempts/:attemptId", () =>
-      world.attempt === undefined ? notBuilt() : HttpResponse.json(world.attempt()),
+      HttpResponse.json(world.attempt?.() ?? checking),
     ),
     http.post("*/api/v1/files/:fileId/subtitles/:want/upload", async ({ request }) => {
       uploads.push(await request.json());
-      return act("upload", world.upload)();
+      return act("upload", world.upload ?? attempting)();
     }),
-    http.post("*/api/v1/files/:fileId/subtitles/uploads/:uploadId/keep", act("keep", world.keep)),
-    http.post("*/api/v1/files/:fileId/subtitles/:want/mark-bad", act("mark bad", world.markBad)),
+    http.post(
+      "*/api/v1/files/:fileId/subtitles/uploads/:uploadId/keep",
+      act("keep", world.keep ?? kept),
+    ),
+    http.post(
+      "*/api/v1/files/:fileId/subtitles/:want/mark-bad",
+      act("mark bad", world.markBad ?? accepted),
+    ),
     http.put("*/api/v1/files/:fileId/subtitles/tracks/:stream/ignored", ({ params }) => {
       calls.push(`ignore ${String(params["stream"])}`);
       return new HttpResponse(null, { status: 204 });
@@ -202,8 +216,7 @@ function actionHandlers(world: SubtitlesWorld, { calls, uploads }: Recorded) {
 
 /**
  * The Work page's subtitle reads of The Quiet Orchard and every subtitle
- * action, each answering the not-built problem unless the world names an
- * answer. It records each action's call and sends live events of its own.
+ * action, each accepted unless the world names an answer. It records each action's call and sends live events of its own.
  */
 export function subtitlesServer(world: SubtitlesWorld) {
   let work = world.work;

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 import type { SubtitlesAttempt, SubtitlesProvider } from "../api/gen/model";
+import { useNow } from "../tasks/use-now";
 import { AlertLine } from "../ui/alert-line";
 import { Spinner } from "../ui/spinner";
 import { toast } from "../ui/toast";
@@ -38,12 +39,13 @@ export function AttemptLine({
   attempt: SubtitlesAttempt | undefined;
   providers: readonly SubtitlesProvider[];
 }) {
+  const clock = { now: useNow(60_000), zone: undefined };
   if (attempt === undefined) {
     return null;
   }
   if (attempt.outcome !== null) {
     return attempt.outcome.kind === "added" ? null : (
-      <AlertLine text={endedWords(attempt.outcome)} />
+      <AlertLine text={endedWords(attempt.outcome, { providers, clock })} />
     );
   }
   const words =

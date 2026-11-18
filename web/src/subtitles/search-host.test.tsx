@@ -8,6 +8,7 @@ import { renderApp } from "../test/render-app";
 import { scannedFiles } from "../test/scanned-files";
 import {
   attempting,
+  hoursFromNow,
   missing,
   started,
   subtitlesServer,
@@ -48,17 +49,11 @@ const manualSearch = () =>
     .filter({ hasText: "English" })
     .getByRole("button", { name: "Manual search" });
 
-test("Manual search opens a 940 dialog on desktop and says when this build can't search yet", async () => {
+test("Manual search opens a 940 dialog on desktop and says when no provider found a subtitle", async () => {
   const world = open({});
   await userEvent.click(manualSearch());
   const dialog = page.getByRole("dialog", { name: title });
-  await expect
-    .element(
-      dialog.getByText(
-        "This build of SlipStream can't search for, download or upload subtitles yet.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(dialog.getByText("No subtitle was found for this file.")).toBeVisible();
   await expect.element(dialog).toHaveClass(/w-\[940px\]/u);
   expect(world.calls).toEqual(["candidates"]);
 });
@@ -73,13 +68,7 @@ test("on phone Manual search is a full sheet", async () => {
   );
   await userEvent.click(page.getByRole("button", { name: "Manual search" }));
   const sheet = page.getByRole("dialog", { name: title });
-  await expect
-    .element(
-      sheet.getByText(
-        "This build of SlipStream can't search for, download or upload subtitles yet.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(sheet.getByText("No subtitle was found for this file.")).toBeVisible();
   await expect.element(sheet).not.toHaveClass(/w-\[940px\]/u);
 });
 
@@ -179,7 +168,11 @@ test("a pick shows each step as the attempt moves, then toasts and closes once t
   world.attemptMoves();
   await expect.element(dialog.getByText("Checking timing…")).toBeVisible();
 
-  attempt = { ...attempt, step: "finished", outcome: { kind: "added", match: 82, threshold: 50 } };
+  attempt = {
+    ...attempt,
+    step: "finished",
+    outcome: { kind: "added", match: 82, threshold: 50, answer: null },
+  };
   world.attemptMoves();
   await expect.element(notifications().getByText("English subtitle added.")).toBeVisible();
   await expect.element(dialog).not.toBeInTheDocument();
@@ -192,7 +185,7 @@ test("a pick whose timing fails stays open with the reason", async () => {
     attempt: () => ({
       step: "finished",
       provider: "subdl",
-      outcome: { kind: "failed_timing", match: 41, threshold: 50 },
+      outcome: { kind: "failed_timing", match: 41, threshold: 50, answer: null },
       uploadId: null,
     }),
     candidates: () => ({ state: "done", outcomes: [], candidates: [candidate("best")] }),
@@ -209,5 +202,42 @@ test("a pick whose timing fails stays open with the reason", async () => {
       ),
     )
     .toBeVisible();
+  expect(world.calls).toEqual(["candidates", "pick best"]);
+});
+
+test("a pick the provider didn't serve says why and when it serves again, and leaves the others to pick", async () => {
+  const world = open({
+    attempt: () => ({
+      step: "finished",
+      provider: "subdl",
+      outcome: {
+        kind: "unfetched",
+        match: null,
+        threshold: null,
+        answer: { provider: "subdl", kind: "limited", until: hoursFromNow(2) },
+      },
+      uploadId: null,
+    }),
+    candidates: () => ({
+      state: "done",
+      outcomes: [],
+      candidates: [candidate("best"), candidate("next", { provider: "subsource" })],
+    }),
+  });
+  await userEvent.click(manualSearch());
+  const dialog = page.getByRole("dialog", { name: title });
+  await userEvent.click(
+    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best" }),
+  );
+  await expect
+    .element(
+      dialog.getByText(
+        /^SubDL is out of downloads\. SlipStream searches it again (at|tonight|tomorrow).+\. Pick another subtitle\.$/u,
+      ),
+    )
+    .toBeVisible();
+  await expect
+    .element(dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.next" }))
+    .toBeEnabled();
   expect(world.calls).toEqual(["candidates", "pick best"]);
 });

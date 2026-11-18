@@ -2,13 +2,16 @@ import type {
   SubtitlesCandidateReasonsItem,
   SubtitlesEnded,
   SubtitlesEndedKind,
+  SubtitlesOutcome,
+  SubtitlesOutcomeKind,
+  SubtitlesProvider,
   SubtitlesSidecar,
   SubtitlesTried,
   SubtitlesTriedOutcome,
   TargetsWantedLanguage,
 } from "../api/gen/model";
-import { agoWords } from "../format";
-import { capital, subtitleOf } from "./work-words";
+import { type Clock, agoWords, laterAtWords } from "../format";
+import { capital, providerName, subtitleOf } from "./work-words";
 
 export const reasonWords: { readonly [R in SubtitlesCandidateReasonsItem]: string } = {
   made_by_person: "Made by a person",
@@ -44,7 +47,48 @@ export const stepWords = {
 export const addedWords = (wanted: TargetsWantedLanguage) =>
   `${capital(subtitleOf(wanted))} added.`;
 
-const endedLines: { readonly [K in SubtitlesEndedKind]: (ended: SubtitlesEnded) => string } = {
+type OutcomeLines = {
+  readonly [K in SubtitlesOutcomeKind]: (
+    name: string,
+    until: string | null,
+    clock: Clock,
+  ) => string;
+};
+
+const outWords = (name: string, until: string | null, clock: Clock) =>
+  until === null
+    ? `${name} is out of downloads.`
+    : `${name} is out of downloads. SlipStream searches it again ${laterAtWords(until, clock)}.`;
+
+const searchLines: OutcomeLines = {
+  ok: () => "",
+  not_found: (name) => `${name} found nothing.`,
+  refused: (name) => `${name} rejected the key. Replace it in Settings > Subtitles.`,
+  limited: outWords,
+  capped: outWords,
+  unreachable: (name) => `${name} isn't responding.`,
+};
+
+/** How one provider's search ended, where it found nothing or couldn't search. */
+export const outcomeWords = (
+  { kind, provider, until }: SubtitlesOutcome,
+  providers: readonly SubtitlesProvider[],
+  clock: Clock,
+) => searchLines[kind](providerName(providers, provider), until, clock);
+
+const downloadLines: OutcomeLines = {
+  ...searchLines,
+  not_found: (name) => `${name} no longer has this subtitle.`,
+};
+
+type EndedReading = {
+  readonly providers: readonly SubtitlesProvider[];
+  readonly clock: Clock;
+};
+
+const endedLines: {
+  readonly [K in SubtitlesEndedKind]: (ended: SubtitlesEnded, reading: EndedReading) => string;
+} = {
   added: () => "",
   failed_timing: ({ match, threshold }) =>
     match === null || threshold === null
@@ -54,10 +98,15 @@ const endedLines: { readonly [K in SubtitlesEndedKind]: (ended: SubtitlesEnded) 
   unreadable: () => "SlipStream couldn't read this subtitle file.",
   wrong_episode: () => "This subtitle is for another episode.",
   marked_bad: () => "You marked this subtitle bad for this file.",
+  unfetched: ({ answer }, { providers, clock }) =>
+    answer === null
+      ? "SlipStream couldn't download this subtitle. Pick another subtitle."
+      : `${downloadLines[answer.kind](providerName(providers, answer.provider), answer.until, clock)} Pick another subtitle.`,
 };
 
 /** Why a download or an upload ended without a subtitle, for the sheet's alert. */
-export const endedWords = (ended: SubtitlesEnded): string => endedLines[ended.kind](ended);
+export const endedWords = (ended: SubtitlesEnded, reading: EndedReading): string =>
+  endedLines[ended.kind](ended, reading);
 
 export const tooLargeWords = "Use a subtitle file of 5 MB or smaller.";
 
