@@ -71,4 +71,3 @@ func TestOpenClearsEveryLease(t *testing.T) {
 		}
 	})
 }
-

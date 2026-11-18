@@ -107,7 +107,6 @@ JOIN targets_wants tw ON tw.work_id = s.work_id
 JOIN files_file f ON f.id = c.file_id
 WHERE c.language = ?1 AND c.forced = ?2 AND c.source IN ('provider', 'sibling')
     AND tw.profile_id = ?3
-ORDER BY c.id
 `
 
 type ListDroppedParams struct {
@@ -163,7 +162,6 @@ JOIN subtitles_file s ON s.file_id = w.file_id
 JOIN targets_wants tw ON tw.work_id = s.work_id
 JOIN files_file f ON f.id = w.file_id
 WHERE w.language = ?1 AND w.forced = ?2 AND tw.profile_id = ?3
-ORDER BY w.file_id
 `
 
 type ListDroppedIntentsParams struct {

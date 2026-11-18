@@ -24,7 +24,7 @@ VALUES (sqlc.arg(id), sqlc.arg(file_id), sqlc.arg(root_id), sqlc.arg(path), sqlc
 ON CONFLICT (root_id, path, sha256) DO NOTHING;
 
 -- name: ListRemovalsDue :many
-SELECT * FROM subtitles_removal WHERE file_id = sqlc.arg(file_id) AND next_at <= sqlc.arg(now) ORDER BY id;
+SELECT * FROM subtitles_removal WHERE file_id = sqlc.arg(file_id) AND next_at <= sqlc.arg(now);
 
 -- name: DeleteRemoval :exec
 DELETE FROM subtitles_removal WHERE id = sqlc.arg(id);
