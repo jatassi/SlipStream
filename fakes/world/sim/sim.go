@@ -32,6 +32,7 @@ import (
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/media/mediatest"
+	"github.com/jatassi/slipstream/internal/media/speech/speechtest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/notifying"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -352,6 +353,7 @@ func (n *Node) env() node.Env {
 		Engine:  enginetest.Open,
 		OpenLog: node.OpenFileLog,
 		Media:   mediatest.Prober{},
+		Speech:  talk,
 		Scripts: &n.scripts,
 		Disk: func(data string) (storing.Disk, error) {
 			d, err := node.OSDisk(data)
@@ -513,3 +515,13 @@ func shortTempDir(t *testing.T) string {
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	return dir
 }
+
+// talk is every simulated file's speech: two seconds in every five, for
+// an hour.
+var talk = func() speechtest.Fixed {
+	f := speechtest.Fixed{Length: time.Hour}
+	for at := time.Duration(0); at < f.Length; at += 5 * time.Second {
+		f.Runs = append(f.Runs, speechtest.Run{Start: at, End: at + 2*time.Second})
+	}
+	return f
+}()

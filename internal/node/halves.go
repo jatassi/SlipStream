@@ -504,8 +504,13 @@ func (n *Node) startController(ctx context.Context) error {
 		Holders: func(id role.NodeID) subtitling.Remote {
 			return subtitling.NewRemote(subtitlesv1connect.SubtitlesService.On(cluster, id))
 		},
-		Videos:      imports.Videos,
-		Providers:   n.subtitleSpecs(),
+		Videos:    imports.Videos,
+		Providers: n.subtitleSpecs(),
+
+		MediaServers: servers,
+		Works:        tree,
+		FetchCap:     n.cfg.Timings.Subtitling.FetchCap,
+
 		Tasks:       subtitles.Unscheduled{},
 		Roster:      side,
 		Reconciling: trackers.NotReconciling,

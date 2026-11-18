@@ -34,7 +34,8 @@ type keeper struct {
 	busy map[files.ID]bool
 	ring chan struct{}
 	// rand draws removal backoffs, from several settles at once.
-	rand sync.Mutex
+	rand  sync.Mutex
+	bytes intentBytes
 }
 
 func newKeeper(s *Subtitles) *keeper {
@@ -174,6 +175,9 @@ type settled struct {
 	wants    []db.SubtitlesWant
 	sidecars []Sidecar
 	intents  []db.SubtitlesWrite
+	// held is the bytes of intents this process checked, by attempt.
+	held     map[storage.UUID][]byte
+	parked   []db.SubtitlesParked
 	removals []db.SubtitlesRemoval
 	langs    []targets.WantedLanguage
 	videos   media.Videos
@@ -210,7 +214,8 @@ func (k *keeper) read(ctx context.Context, f files.ID) (settled, error) {
 	return in, err
 }
 
-// rows is the key's rows: wants, Sidecars, intents and removals due.
+// rows is the key's rows: wants, Sidecars, intents, the rows parked from
+// it and its removals due.
 func (in *settled) rows(ctx context.Context, q *db.Queries, f files.ID, now storage.Time) error {
 	ids := []files.ID{f}
 	var err error
@@ -223,6 +228,9 @@ func (in *settled) rows(ctx context.Context, q *db.Queries, f files.ID, now stor
 	}
 	in.sidecars = scs[f]
 	if in.intents, err = q.ListIntentsIn(ctx, ids); err != nil {
+		return err
+	}
+	if in.parked, err = q.ListParkedFrom(ctx, f); err != nil {
 		return err
 	}
 	in.removals, err = q.ListRemovalsDue(ctx, db.ListRemovalsDueParams{FileID: f, Now: now})
@@ -244,16 +252,27 @@ func (in *settled) live(ctx context.Context, r storage.Reader[storage.Library], 
 var errNotReady = errors.New("the root's Storage Node isn't ready")
 
 // settle converges one key: the gate, a survey of a live file at its
-// name, then the removals of the key's bytes. Each step is derived from
-// rows and listings, so a settle that stops anywhere is finished by the
-// next.
+// name, its intents, retimes and strays, the rows parked from it, then
+// the removals of the key's bytes. Each step is derived from rows and
+// listings, so a settle that stops anywhere is finished by the next.
 func (k *keeper) settle(ctx context.Context, f files.ID) error {
 	in, err := k.read(ctx, f)
 	if err != nil || in.reconciling {
 		return err
 	}
-	if in.subject != nil && in.subject.AtName && in.surveys() {
-		err = k.survey(ctx, in)
+	in.held = k.bytes.held(f, in.intents)
+	placed := in.subject != nil && in.subject.AtName
+	if placed && in.surveys() {
+		if err = k.survey(ctx, in); err == nil {
+			in, err = k.read(ctx, f)
+			in.held = k.bytes.held(f, in.intents)
+		}
+	}
+	if err == nil && placed && in.row != nil {
+		err = k.converge(ctx, in)
+	}
+	if err == nil && len(in.parked) > 0 {
+		err = k.claimAll(ctx, in)
 	}
 	if err == nil {
 		err = k.removeAll(ctx, in)
@@ -269,7 +288,8 @@ func (k *keeper) settle(ctx context.Context, f files.ID) error {
 // when an intent's bytes aren't in this process.
 func (in *settled) surveys() bool {
 	never := in.row.SurveyedAt.IsZero() && (len(in.wants) > 0 || len(in.sidecars) > 0)
-	return in.row.SurveyDue || never || len(in.intents) > 0
+	unheld := slices.ContainsFunc(in.intents, func(w db.SubtitlesWrite) bool { return in.held[w.AttemptID] == nil })
+	return in.row.SurveyDue || never || unheld
 }
 
 // calls is SidecarService on the Node that holds root.
@@ -305,6 +325,9 @@ func (k *keeper) survey(ctx context.Context, in settled) error {
 			return err
 		}
 		l.Also = []storing.Rel{also}
+	}
+	if l.Also, err = strays(l.Also, in.sidecars); err != nil {
+		return err
 	}
 	listed, err := calls.List(ctx, sub.Root.UUID, in.videos, []storing.SidecarListing{l})
 	if err != nil {
@@ -347,7 +370,11 @@ func (k *keeper) finishSurvey(ctx context.Context, tx *storage.Tx[storage.Librar
 	if err := plan.settleRows(ctx, q, now); err != nil {
 		return err
 	}
-	if err := plan.add(ctx, q, in.subject.ID, now); err != nil {
+	finished, err := plan.add(ctx, q, in.subject.ID, now)
+	if err != nil {
+		return err
+	}
+	if err := k.announce(ctx, tx, *in.subject, finished); err != nil {
 		return err
 	}
 	return k.s.reconcileIn(ctx, tx, []files.ID{in.subject.ID})
@@ -409,36 +436,43 @@ func (plan *surveyPlan) settleRows(ctx context.Context, q *db.Queries, now stora
 
 // add writes the Sidecars the survey found, each where no Sidecar meets
 // its want now: a finished intent's only while its attempt still holds it.
-func (plan *surveyPlan) add(ctx context.Context, q *db.Queries, f files.ID, now storage.Time) error {
+// It answers the finished intents' Sidecars it wrote.
+func (plan *surveyPlan) add(ctx context.Context, q *db.Queries, f files.ID, now storage.Time) ([]Sidecar, error) {
 	current, err := sidecarsIn(ctx, q, []files.ID{f})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	have := current[f]
-	put := func(sc Sidecar) error {
+	put := func(sc Sidecar) (bool, error) {
 		if sidecarOfWant(have, sc.want()) != nil {
-			return nil
+			return false, nil
 		}
 		have = append(have, sc)
-		return putSidecar(ctx, q, sc, now)
+		return true, putSidecar(ctx, q, sc, now)
 	}
+	var finished []Sidecar
 	for _, fin := range plan.finished {
 		n, err := q.DeleteIntent(ctx, db.DeleteIntentParams{FileID: fin.intent.FileID, Language: fin.intent.Language, Forced: fin.intent.Forced, AttemptID: fin.intent.AttemptID})
-		if err != nil {
-			return err
-		}
-		if n == 1 {
-			if err := put(fin.sidecar); err != nil {
-				return err
+		if err != nil || n == 0 {
+			if err != nil {
+				return nil, err
 			}
+			continue
+		}
+		ok, err := put(fin.sidecar)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			finished = append(finished, fin.sidecar)
 		}
 	}
 	for _, sc := range plan.adopted {
-		if err := put(sc); err != nil {
-			return err
+		if _, err := put(sc); err != nil {
+			return nil, err
 		}
 	}
-	return nil
+	return finished, nil
 }
 
 // match is the pure decision of a survey of file at video. A row is home,

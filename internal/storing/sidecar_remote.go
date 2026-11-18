@@ -122,7 +122,8 @@ type SidecarCompanion struct {
 }
 
 // SidecarWrite writes Bytes beside Video as <stem>.<Tail>. Replaces is
-// the hash of the bytes it may overwrite, nil for none.
+// the hash of the bytes it may overwrite, nil for none. Ledger records
+// SHA256 in the root's ledger, for a provider's bytes only.
 type SidecarWrite struct {
 	Root     storage.UUID
 	Video    Rel
@@ -131,6 +132,7 @@ type SidecarWrite struct {
 	Bytes    []byte
 	SHA256   [32]byte
 	Replaces *[32]byte
+	Ledger   bool
 }
 
 var mapStates = map[storagev1.SpeechMapState]MapState{
@@ -268,7 +270,7 @@ func (c sidecarCalls) Read(ctx context.Context, root storage.UUID, path Rel, sha
 // name holds other bytes.
 func (c sidecarCalls) Write(ctx context.Context, w SidecarWrite) (Rel, error) {
 	req := &storagev1.WriteSidecarRequest{
-		RootId: w.Root.Bytes(), Video: w.Video.String(), Identity: w.Identity.wire(), Size: w.Identity.Size, Tail: w.Tail, Data: w.Bytes, Sha256: w.SHA256[:],
+		RootId: w.Root.Bytes(), Video: w.Video.String(), Identity: w.Identity.wire(), Size: w.Identity.Size, Tail: w.Tail, Data: w.Bytes, Sha256: w.SHA256[:], Ledger: w.Ledger,
 	}
 	if w.Replaces != nil {
 		req.Replaces = w.Replaces[:]

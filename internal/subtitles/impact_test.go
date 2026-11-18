@@ -23,6 +23,7 @@ import (
 func TestImpactCountsTheSearchesTheNextPassMakes(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := world(t, nil)
+		w.Maps.Hold()
 		en := func(forced bool, a targets.AudioCondition) targets.WantedLanguage {
 			return subtitlestest.Wanted(t, "en", forced, targets.Allow, a)
 		}

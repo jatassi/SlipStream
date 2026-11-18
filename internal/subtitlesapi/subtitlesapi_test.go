@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/subtitles/subtitlestest"
 	"github.com/jatassi/slipstream/internal/subtitlesapi"
+	"github.com/jatassi/slipstream/internal/subtitling"
 	"github.com/jatassi/slipstream/internal/targets"
 )
 
@@ -24,7 +25,7 @@ func (o owner) Targets() (*targets.Targets, bool)       { return o.w.Targets, tr
 
 func serve(t *testing.T) (*subtitlestest.World, *ownertest.Owner) {
 	t.Helper()
-	w := subtitlestest.Open(t, subtitles.DefaultTimings())
+	w := subtitlestest.Open(t, subtitles.DefaultTimings(), subtitling.DefaultTimings())
 	return w, ownertest.Serve(t, w.Lib, func(r *api.Router) { subtitlesapi.Routes(r, owner{w}) })
 }
 
