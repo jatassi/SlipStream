@@ -92,7 +92,7 @@ type Section struct {
 
 // Walk returns the leaves of tree, a pointer to a struct, in field order. It
 // panics on a field without a yaml tag or of a type outside the leaf set:
-// strings, booleans, integers, time.Duration, encoding.TextUnmarshaler
+// strings, booleans, integers, floats, time.Duration, encoding.TextUnmarshaler
 // values and slices of those. A struct field is a branch, and a Sections
 // field a branch of named sections, in the order it lists them. A text leaf
 // with a Redacted method shows only that wherever a value is printed, its
@@ -176,6 +176,8 @@ func scalarCodec(t reflect.Type) (codec, bool) {
 		return intCodec, true
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return uintCodec, true
+	case reflect.Float32, reflect.Float64:
+		return floatCodec, true
 	}
 	return codec{}, false
 }
@@ -255,5 +257,16 @@ var (
 			return nil
 		},
 		format: func(v reflect.Value) string { return strconv.FormatUint(v.Uint(), 10) },
+	}
+	floatCodec = codec{
+		parse: func(s string, v reflect.Value) error {
+			n, err := strconv.ParseFloat(s, v.Type().Bits())
+			if err != nil {
+				return fmt.Errorf("not a number: %w", err)
+			}
+			v.SetFloat(n)
+			return nil
+		},
+		format: func(v reflect.Value) string { return strconv.FormatFloat(v.Float(), 'g', -1, v.Type().Bits()) },
 	}
 )

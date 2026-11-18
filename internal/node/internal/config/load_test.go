@@ -224,13 +224,13 @@ func TestWalkNamesLeavesByPath(t *testing.T) {
 
 func TestWalkPanicsOutsideTheLeafSet(t *testing.T) {
 	defer func() {
-		if r := recover(); r != "config: odd.ratio has type float64, outside the leaf set" {
+		if r := recover(); r != "config: odd.ratio has type complex128, outside the leaf set" {
 			t.Fatalf("recovered %v", r)
 		}
 	}()
 	var bad struct {
 		Odd struct {
-			Ratio float64 `yaml:"ratio"`
+			Ratio complex128 `yaml:"ratio"`
 		} `yaml:"odd"`
 	}
 	config.Walk(&bad)

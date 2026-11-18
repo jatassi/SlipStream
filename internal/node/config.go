@@ -45,6 +45,7 @@ import (
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/subtitling"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
@@ -170,6 +171,7 @@ type TimingsBlock struct {
 	Storing       storing.Timings        `yaml:"storing"`
 	Sidecars      storing.SidecarTimings `yaml:"sidecars"`
 	Subtitling    subtitling.Timings     `yaml:"subtitling"`
+	Subtitles     subtitles.Timings      `yaml:"subtitles"`
 	Metadata      metadata.Timings       `yaml:"metadata"`
 	TMDB          tmdb.Timings           `yaml:"tmdb"`
 	TVDB          tvdb.Timings           `yaml:"tvdb"`
@@ -257,6 +259,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Storing:       storing.DefaultTimings(),
 			Sidecars:      storing.DefaultSidecarTimings(),
 			Subtitling:    subtitling.DefaultTimings(),
+			Subtitles:     subtitles.DefaultTimings(),
 			Metadata:      metadata.DefaultTimings(),
 			TMDB:          tmdb.DefaultTimings(),
 			TVDB:          tvdb.DefaultTimings(),
