@@ -246,8 +246,7 @@ var errNotReady = errors.New("the root's Storage Node isn't ready")
 // settle converges one key: the gate, a survey of a live file at its
 // name, then the removals of the key's bytes. Each step is derived from
 // rows and listings, so a settle that stops anywhere is finished by the
-// next. The Keeper's writes, retimes, homecomings and parked claims are
-// S46's next Controller slice; their rows wait.
+// next.
 func (k *keeper) settle(ctx context.Context, f files.ID) error {
 	in, err := k.read(ctx, f)
 	if err != nil || in.reconciling {
