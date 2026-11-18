@@ -52,7 +52,7 @@ func DefaultSidecarTimings() SidecarTimings {
 
 // Sidecars is this Node's half of Subtitles for the roots it holds: the
 // Speech Maps it builds and keeps for their files, and the subtitle bytes
-// beside their videos, with the ledger of every hash SlipStream wrote. It
+// beside their videos, with the ledger of every provider's hash it wrote. It
 // trusts its caller, the Controller, and checks only what the bytes on
 // this Node can tell: roots, names, identity and hashes.
 type Sidecars struct {
@@ -103,6 +103,9 @@ func identityOfInfo(info Info) Identity {
 // tailPattern is every tail WriteSidecar writes: an optional disambiguator,
 // a language, an optional region, forced and SDH, and a text format.
 var tailPattern = regexp.MustCompile(`^([0-9a-f]{8}\.)?[a-z]{2,3}(-[A-Z]{2})?(\.forced)?(\.sdh)?\.(srt|ass|ssa)$`)
+
+// WritableTail is whether WriteSidecar writes a Sidecar under tail.
+func WritableTail(tail string) bool { return tailPattern.MatchString(tail) }
 
 // subtitleExts are the extensions ListSidecars lists and ReadSidecar and
 // RemoveSidecar act on.
@@ -326,14 +329,14 @@ func (s *Sidecars) WriteSidecar(ctx context.Context, req *storagev1.WriteSidecar
 	case err != nil:
 		return nil, wireError(err)
 	case there == sha:
-		if err := s.putLedger(ctx, root, sha, target); err != nil {
+		if err := s.putLedger(ctx, root, req.GetLedger(), sha, target); err != nil {
 			return nil, err
 		}
 		return &storagev1.WriteSidecarResponse{State: storagev1.WriteSidecarState_WRITE_SIDECAR_STATE_WRITTEN, Path: target.String()}, nil
 	case replaces == nil || there != *replaces:
 		return &storagev1.WriteSidecarResponse{State: storagev1.WriteSidecarState_WRITE_SIDECAR_STATE_OCCUPIED, Occupant: there[:], Path: target.String()}, nil
 	}
-	if err := s.putLedger(ctx, root, sha, target); err != nil {
+	if err := s.putLedger(ctx, root, req.GetLedger(), sha, target); err != nil {
 		return nil, err
 	}
 	if err := s.write(ctx, s.store.host.Style.Under(dir, target), data); err != nil {

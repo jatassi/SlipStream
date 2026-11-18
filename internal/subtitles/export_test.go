@@ -95,3 +95,38 @@ func mustParse(s string) language.Code {
 	}
 	return l
 }
+
+// Intend runs what an attempt that passed does for f's want of w: it
+// leases the want, records body as its intent, from SubDL unless src is
+// an upload, and ends the lease.
+func Intend(ctx context.Context, s *Subtitles, f files.ID, w Want, src Source, body []byte) error {
+	a := storage.NewUUID()
+	lease := func(to *storage.UUID) error {
+		return s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := tx.ExecContext(ctx, `UPDATE subtitles_want SET attempt_id = ? WHERE file_id = ? AND language = ? AND forced = ?`, to, f, w.Language.String(), w.Forced)
+			return err
+		})
+	}
+	if err := lease(&a); err != nil {
+		return err
+	}
+	c, err := parseUpload(body, w, s.cfg.FetchCap)
+	if err != nil {
+		return err
+	}
+	if src != FromUpload {
+		c.sidecar.Source, c.sidecar.Final = src, false
+		c.sidecar.Offer = &Offer{Provider: "subdl", Key: "key-" + a.String(), Release: "Film.2024.1080p.WEB-DL-GRP"}
+		c.sidecar.Fit = &Fit{Ratio: 1, Segments: 1, Match: 90}
+	}
+	if err := s.intend(ctx, WantKey{File: f, Want: w}, a, c); err != nil {
+		return err
+	}
+	return lease(nil)
+}
+
+var (
+	AddedRow    = addedRow
+	ReplacedRow = replacedRow
+	RemovedRow  = removedRow
+)

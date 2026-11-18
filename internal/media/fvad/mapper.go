@@ -27,7 +27,8 @@ type Mapper struct{ Decoder media.Decoder }
 
 // Map answers path's map. A file without the stream is speech.ErrNoAudio,
 // a tool or detector that can't run is speech.ErrNodeFault, and audio
-// ffmpeg can't read is a *speech.DecodeError.
+// ffmpeg can't read, or a stream that decodes to no frame, is a
+// *speech.DecodeError.
 func (m Mapper) Map(ctx context.Context, path string, stream int) (speech.Map, error) {
 	vad, err := New(Mode, media.SampleRate)
 	if err != nil {
@@ -47,6 +48,8 @@ func (m Mapper) Map(ctx context.Context, path string, stream int) (speech.Map, e
 		return speech.Map{}, readErr
 	case closeErr != nil:
 		return speech.Map{}, mapError(closeErr)
+	case b.Frames() == 0:
+		return speech.Map{}, &speech.DecodeError{First: "ffmpeg decoded no audio from the stream"}
 	}
 	return b.Map(speech.Header{
 		Format: speech.FormatVersion, VAD: Version, Mode: Mode, Rate: media.SampleRate, FrameMS: int(speech.Frame.Milliseconds()),

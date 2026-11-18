@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/media/mediatest"
+	"github.com/jatassi/slipstream/internal/media/speech/speechtest"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
@@ -49,6 +50,7 @@ func testEnv(t *testing.T) (Env, *syncBuffer) {
 		Engine:  func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
 		OpenLog: logs.Open,
 		Media:   mediatest.Prober{},
+		Speech:  speechtest.Fixed{Runs: []speechtest.Run{{Start: time.Second, End: 2 * time.Second}}, Length: 4 * time.Second},
 		Disk:    OSDisk,
 	}, stderr
 }

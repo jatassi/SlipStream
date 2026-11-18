@@ -356,7 +356,7 @@ func srt(text string) (b []byte, sha [32]byte) {
 }
 
 func (r *sidecarRig) sidecar(video Rel, id Identity, tail string, b []byte, replaces *[32]byte) (Rel, error) {
-	return r.calls.Write(context.Background(), SidecarWrite{Root: r.at.Root, Video: video, Identity: id, Tail: tail, Bytes: b, SHA256: sha256.Sum256(b), Replaces: replaces})
+	return r.calls.Write(context.Background(), SidecarWrite{Root: r.at.Root, Video: video, Identity: id, Tail: tail, Bytes: b, SHA256: sha256.Sum256(b), Replaces: replaces, Ledger: true})
 }
 
 func TestWriteSidecarTakesOnlyASidecarsTail(t *testing.T) {
@@ -527,6 +527,10 @@ func TestTheLedgerKeepsAHashPastItsRemoveAndListsStemsOfAMissingVideo(t *testing
 		if err := r.calls.Remove(t.Context(), r.at.Root, second, sha); err != nil {
 			t.Fatal(err)
 		}
+		moved, _ := srt("Moved")
+		if _, err := r.calls.Write(t.Context(), SidecarWrite{Root: r.at.Root, Video: heat, Identity: id, Tail: "it.srt", Bytes: moved, SHA256: sha256.Sum256(moved)}); err != nil {
+			t.Fatal(err)
+		}
 		write(t, filepath.Join(r.folder, "Heat", "Heat.fr.srt"), "found")
 		write(t, filepath.Join(r.folder, "Heat", "Heat.nfo"), "not a subtitle")
 		write(t, filepath.Join(r.folder, "Old", "Heat 1995.de.ass"), "parked")
@@ -543,7 +547,7 @@ func TestTheLedgerKeepsAHashPastItsRemoveAndListsStemsOfAMissingVideo(t *testing
 		if len(listed) != 1 || !listed[0].VideoMissing {
 			t.Fatalf("listed %+v, want one missing video", listed)
 		}
-		want := []listedCompanion{{"Heat/Heat.en.srt", "en.srt", true}, {"Heat/Heat.fr.srt", "fr.srt", false}, {"Old/Heat 1995.de.ass", "de.ass", false}, {HoldingDir + "/0190.es.srt", "es.srt", false}}
+		want := []listedCompanion{{"Heat/Heat.en.srt", "en.srt", true}, {"Heat/Heat.fr.srt", "fr.srt", false}, {"Heat/Heat.it.srt", "it.srt", false}, {"Old/Heat 1995.de.ass", "de.ass", false}, {HoldingDir + "/0190.es.srt", "es.srt", false}}
 		if got := listedCompanions(listed[0]); !slices.Equal(got, want) {
 			t.Fatalf("companions = %+v, want %+v", got, want)
 		}
@@ -552,7 +556,7 @@ func TestTheLedgerKeepsAHashPastItsRemoveAndListsStemsOfAMissingVideo(t *testing
 		}
 		write(t, filepath.Join(r.folder, "Heat", "Heat.en.srt"), string(b))
 		listed, err = r.calls.List(t.Context(), r.at.Root, media.DefaultVideos, []SidecarListing{{Video: heat}})
-		if err != nil || len(listed[0].Companions) != 2 || !listed[0].Companions[0].Ledger {
+		if err != nil || len(listed[0].Companions) != 3 || !listed[0].Companions[0].Ledger {
 			t.Fatalf("after both removes the same bytes list as %+v, %v; want the ledger to hold them", listed, err)
 		}
 		if _, err := r.calls.List(t.Context(), r.at.Root, media.DefaultVideos, make([]SidecarListing, 4)); err == nil {

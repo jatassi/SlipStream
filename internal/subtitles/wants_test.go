@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/subtitles/subtitlestest"
+	"github.com/jatassi/slipstream/internal/subtitling"
 	"github.com/jatassi/slipstream/internal/targets"
 )
 
@@ -25,7 +26,7 @@ func world(t *testing.T, tune func(*subtitles.Timings)) *subtitlestest.World {
 	if tune != nil {
 		tune(&tm)
 	}
-	w := subtitlestest.Open(t, tm)
+	w := subtitlestest.Open(t, tm, subtitling.DefaultTimings())
 	w.Check = func(t testing.TB, w *subtitlestest.World) {
 		t.Helper()
 		err := w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {

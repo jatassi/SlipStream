@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"math/rand/v2"
@@ -24,11 +25,15 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/language"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/media/speech"
 	"github.com/jatassi/slipstream/internal/media/speech/speechtest"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
@@ -53,19 +58,32 @@ import (
 // World is one library, its one root on Node, and the Controller's
 // subtitles over it.
 type World struct {
-	t        testing.TB
-	Lib      *storage.DB[storage.Library]
-	Fixture  *contenttypetest.Fixture
-	Works    *works.Works
-	Targets  *targets.Targets
-	Root     roots.Root
-	Node     role.NodeID
-	Files    *files.Files
-	Subs     *subtitles.Subtitles
-	Timings  subtitles.Timings
-	target   targets.Target
-	held     *roots.Roots
-	calls    storing.SidecarCalls
+	t       testing.TB
+	Lib     *storage.DB[storage.Library]
+	Fixture *contenttypetest.Fixture
+	Works   *works.Works
+	Targets *targets.Targets
+	Root    roots.Root
+	Node    role.NodeID
+	Files   *files.Files
+	Subs    *subtitles.Subtitles
+	Timings subtitles.Timings
+	// Maps is the Storage Node's Mapper.
+	Maps *Maps
+	// Writes holds the Keeper's WriteSidecar calls on request.
+	Writes *Writes
+	// Servers keeps every Sidecar change told to Media Servers.
+	Servers *Servers
+	// History keeps every entry Subtitles records.
+	History *entrytest.Recorder
+	history entry.Recorder
+	target  targets.Target
+	held    *roots.Roots
+	// Syncs holds the holder's Sync calls on request.
+	Syncs    *Syncs
+	late     *lateSubtitles
+	fetchCap int
+	stop     func()
 	holders  atomic.Bool
 	restored atomic.Bool
 	sealer   *secret.Sealer
@@ -82,9 +100,9 @@ type World struct {
 
 // Open is a World with a Subtitles holder and SubDL's Spec, its Keeper
 // and the files owner running until the test ends, on the Controller's
-// timings tm. Its library holds the secret and identity schemas, so an
-// API test can serve over it.
-func Open(t *testing.T, tm subtitles.Timings) *World {
+// timings tm, and a holder on ht. Its library holds the secret and
+// identity schemas, so an API test can serve over it.
+func Open(t *testing.T, tm subtitles.Timings, ht subtitling.Timings) *World {
 	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), subtitles.Schema(), naming.Schema())
 	fx := contenttypetest.New()
@@ -107,12 +125,16 @@ func Open(t *testing.T, tm subtitles.Timings) *World {
 	held := rootstest.HeldOn(t, lib, w.Node, rootstest.On{Tune: func(cfg *roots.Config) {
 		store, _ = cfg.Remote(w.Node).(*storing.Store)
 	}}, contenttypetest.ID)
-	maps := speechtest.Fixed{Runs: []speechtest.Run{{Start: time.Second, End: 2 * time.Second}}, Length: 4 * time.Second}
-	sidecars, err := storing.NewSidecars(t.Context(), store, storagetest.Local(t, storing.SidecarSchema()), filepath.Join(t.TempDir(), "speechmaps"), maps, storing.DefaultSidecarTimings())
+	w.Maps = &Maps{fail: map[string]error{}}
+	sidecars, err := storing.NewSidecars(t.Context(), store, storagetest.Local(t, storing.SidecarSchema()), filepath.Join(t.TempDir(), "speechmaps"), w.Maps, storing.DefaultSidecarTimings())
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.calls = storing.SidecarCallsOf(sidecars)
+	w.Writes = &Writes{SidecarCalls: storing.SidecarCallsOf(sidecars)}
+	w.Servers = &Servers{}
+	w.history, w.History = entrytest.New("subtitles", subtitles.Entries())
+	w.Syncs = &Syncs{SubtitlesServiceHandler: subtitling.Serve(nil, ht)}
+	w.fetchCap = ht.FetchCap
 	if w.Targets, err = targets.Open(t.Context(), targets.Config{
 		Library: lib, Works: tree, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
 		Subtitled: func(works.TypeID) bool { return true },
@@ -139,13 +161,28 @@ func Open(t *testing.T, tm subtitles.Timings) *World {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.held = held
-	w.Subs = w.Reopen()
-	late.Subtitles = w.Subs
+	w.held, w.late = held, late
 	w.run(t, w.Files.Run)
-	w.run(t, w.Subs.Run)
+	w.start()
 	w.Settle()
 	return w
+}
+
+// start opens the Controller's subtitles and runs them until Restart or
+// the test's end.
+func (w *World) start() {
+	w.Subs = w.Reopen()
+	w.late.Subtitles = w.Subs
+	w.stop = w.run(w.t, w.Subs.Run)
+}
+
+// Restart stops the Controller's subtitles as a crash does, between any
+// two steps, and starts a new process over the same library.
+func (w *World) Restart() {
+	w.t.Helper()
+	w.stop()
+	w.start()
+	w.Settle()
 }
 
 // Reopen opens the Controller's subtitles again over the same library, as
@@ -163,9 +200,11 @@ func (w *World) config() subtitles.Config {
 	return subtitles.Config{
 		Library: w.Lib, Files: w.Files, Targets: w.Targets, Roots: w.held,
 		Types:   map[works.TypeID]subtitles.Facet{contenttypetest.ID: w.Fixture},
-		Storage: func(role.NodeID) storing.SidecarCalls { return w.calls },
-		Holders: func(role.NodeID) subtitling.Remote { return subtitling.NewRemote(w.Holder) },
-		Sealer:  w.sealer,
+		Storage: func(role.NodeID) storing.SidecarCalls { return w.Writes },
+		Holders: func(role.NodeID) subtitling.Remote {
+			return subtitling.NewRemote(keyed{Syncs: w.Syncs, keys: w.Holder})
+		},
+		Sealer: w.sealer,
 		Describe: func(works.TypeID) (works.Description, bool) {
 			return contenttypetest.Description, true
 		},
@@ -176,11 +215,17 @@ func (w *World) config() subtitles.Config {
 			{ID: "subdl", Label: "SubDL", Kinds: []subtitling.Kind{subtitling.Feature, subtitling.Episode}, Keyed: true, Position: 1},
 			{ID: "gestdown", Label: "Gestdown", Kinds: []subtitling.Kind{subtitling.Episode}, Position: 2},
 		},
+
+		MediaServers: w.Servers,
+		Works:        w.Works,
+		FetchCap:     w.fetchCap,
+
 		Tasks:  subtitles.Unscheduled{},
 		Roster: roster{w},
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) {
 			return w.restored.Load(), nil
 		},
+		History:          w.history,
 		Changed:          &w.Changed,
 		ProvidersChanged: &w.ProvidersChanged,
 		Timings:          w.Timings,
@@ -190,16 +235,19 @@ func (w *World) config() subtitles.Config {
 	}
 }
 
-func (w *World) run(t *testing.T, run func(context.Context) error) {
+// run runs run until the test ends or the answered stop.
+func (w *World) run(t testing.TB, run func(context.Context) error) func() {
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() { done <- run(ctx) }()
-	t.Cleanup(func() {
+	stop := sync.OnceFunc(func() {
 		cancel()
 		if err := <-done; err != nil {
 			t.Errorf("run = %v", err)
 		}
 	})
+	t.Cleanup(stop)
+	return stop
 }
 
 // Settle waits out the Keeper's wakes and the passes they start, then
@@ -378,6 +426,70 @@ func Wanted(t testing.TB, tag string, forced bool, hi targets.HI, audio targets.
 	return targets.WantedLanguage{Language: l, Forced: forced, HI: hi, Audio: audio}
 }
 
+// Speech is where every file's map hears speech: from 1 s to 2 s of 4 s.
+var Speech = speechtest.Fixed{Runs: []speechtest.Run{{Start: time.Second, End: 2 * time.Second}}, Length: 4 * time.Second}
+
+// Maps answers Speech's map for every file, unless Fail names an error
+// for its base name. While held, each build waits for a Release.
+type Maps struct {
+	mu      sync.Mutex
+	fail    map[string]error
+	gate    chan struct{}
+	started []string
+}
+
+func (m *Maps) Map(ctx context.Context, path string, stream int) (speech.Map, error) {
+	name := filepath.Base(path)
+	m.mu.Lock()
+	m.started = append(m.started, name)
+	gate, err := m.gate, m.fail[name]
+	m.mu.Unlock()
+	if gate != nil {
+		select {
+		case <-gate:
+		case <-ctx.Done():
+			return speech.Map{}, fmt.Errorf("the build: %w", context.Cause(ctx))
+		}
+	}
+	if err != nil {
+		return speech.Map{}, err
+	}
+	return Speech.Map(ctx, path, stream)
+}
+
+// Fail makes the builds of the file named name fail with err, nil for
+// none.
+func (m *Maps) Fail(name string, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.fail[name] = err
+}
+
+// Hold makes every build wait for a Release, until Unhold.
+func (m *Maps) Hold() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.gate = make(chan struct{})
+}
+
+// Release lets one waiting build finish.
+func (m *Maps) Release() { m.gate <- struct{}{} }
+
+// Unhold lets every build finish.
+func (m *Maps) Unhold() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	close(m.gate)
+	m.gate = nil
+}
+
+// Started is the base names of the files whose builds started, in order.
+func (m *Maps) Started() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return slices.Clone(m.started)
+}
+
 type roster struct{ w *World }
 
 func (r roster) Holding(role.Name) []role.NodeID {
@@ -415,6 +527,125 @@ func (p *Published[T]) All() []T {
 
 type lateSubtitles struct{ files.Subtitles }
 
+// Writes passes each SidecarService call through, and while held stops
+// each WriteSidecar until Let decides it.
+type Writes struct {
+	storing.SidecarCalls
+
+	mu      sync.Mutex
+	held    bool
+	waiting chan chan let
+}
+
+// Hold stops the next WriteSidecar calls until Let.
+func (h *Writes) Hold() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.held, h.waiting = true, make(chan chan let, 1)
+}
+
+// Let ends the held WriteSidecar call: land writes its bytes, and answer
+// returns the Node's answer, else the call answers as lost, as when the
+// Controller dies with it in flight. It holds no more calls after.
+func (h *Writes) Let(land, answer bool) {
+	h.mu.Lock()
+	waiting := h.waiting
+	h.held = false
+	h.mu.Unlock()
+	(<-waiting) <- let{land: land, answer: answer}
+}
+
+type let struct{ land, answer bool }
+
+// errLost is a call whose answer never came back.
+var errLost = errors.New("the call was lost")
+
+func (h *Writes) Write(ctx context.Context, sw storing.SidecarWrite) (storing.Rel, error) {
+	h.mu.Lock()
+	held, waiting := h.held, h.waiting
+	h.mu.Unlock()
+	if !held {
+		return h.SidecarCalls.Write(ctx, sw)
+	}
+	decide := make(chan let, 1)
+	select {
+	case waiting <- decide:
+	case <-ctx.Done():
+		return storing.Rel{}, fmt.Errorf("the write: %w", context.Cause(ctx))
+	}
+	select {
+	case l := <-decide:
+		if !l.land {
+			return storing.Rel{}, errLost
+		}
+		at, err := h.SidecarCalls.Write(ctx, sw)
+		if l.answer || err != nil {
+			return at, err
+		}
+		return storing.Rel{}, errLost
+	case <-ctx.Done():
+		return storing.Rel{}, fmt.Errorf("the write: %w", context.Cause(ctx))
+	}
+}
+
+// Syncs passes each SubtitlesService call through, and while held stops
+// each Sync until Release.
+type Syncs struct {
+	subtitlesv1connect.SubtitlesServiceHandler
+
+	mu   sync.Mutex
+	gate chan struct{}
+}
+
+// Hold stops the next Sync calls until Release.
+func (h *Syncs) Hold() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.gate = make(chan struct{})
+}
+
+// Release lets the held Sync calls answer, and holds no more.
+func (h *Syncs) Release() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	close(h.gate)
+	h.gate = nil
+}
+
+func (h *Syncs) Sync(ctx context.Context, req *subtitlesv1.SyncRequest) (*subtitlesv1.SyncResponse, error) {
+	h.mu.Lock()
+	gate := h.gate
+	h.mu.Unlock()
+	if gate != nil {
+		select {
+		case <-gate:
+		case <-ctx.Done():
+			return nil, fmt.Errorf("the sync: %w", context.Cause(ctx))
+		}
+	}
+	return h.SubtitlesServiceHandler.Sync(ctx, req)
+}
+
+// Servers keeps the Sidecar changes told to Media Servers, in order.
+type Servers struct {
+	mu      sync.Mutex
+	changes []mediaservers.SidecarChange
+}
+
+func (s *Servers) SidecarsChanged(_ context.Context, _ *storage.Tx[storage.Library], cs []mediaservers.SidecarChange) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.changes = append(s.changes, cs...)
+	return nil
+}
+
+// Changes is every change told so far.
+func (s *Servers) Changes() []mediaservers.SidecarChange {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.changes)
+}
+
 // splitmix is SplitMix64, a replayable stream for the World, which has no
 // Node to hand it one. It is safe for concurrent draws.
 type splitmix struct {
@@ -435,6 +666,20 @@ func (s *splitmix) Uint64() uint64 {
 type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
+
+// keyed answers key checks with keys when a test set it, and every other
+// call through Syncs.
+type keyed struct {
+	*Syncs
+	keys subtitlesv1connect.SubtitlesServiceHandler
+}
+
+func (k keyed) CheckKey(ctx context.Context, req *subtitlesv1.CheckKeyRequest) (*subtitlesv1.CheckKeyResponse, error) {
+	if k.keys == nil {
+		return k.Syncs.CheckKey(ctx, req)
+	}
+	return k.keys.CheckKey(ctx, req)
+}
 
 // KeyHolder is a Subtitles holder whose key checks answer Account and
 // Plan with 19 of 50 downloads left, or the provider's refusal Refused

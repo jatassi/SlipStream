@@ -11,12 +11,16 @@ import (
 	"github.com/jatassi/slipstream/internal/storing/internal/db"
 )
 
-// The ledger is every hash SlipStream wrote as a Sidecar under a root. A
-// write records its hash before its bytes land and nothing removes it, so
-// a companion whose hash the ledger holds is SlipStream's own even after
-// the Controller restores an older Backup.
+// The ledger is every hash of a provider's subtitle SlipStream wrote as a
+// Sidecar under a root. A write marked Ledger records its hash before its
+// bytes land, and nothing removes it. A companion whose hash the ledger
+// holds is SlipStream's own even after the Controller restores an older
+// Backup, so an Admin's bytes the Keeper moves or retimes stay out of it.
 
-func (s *Sidecars) putLedger(ctx context.Context, root storage.UUID, sha [32]byte, at Rel) error {
+func (s *Sidecars) putLedger(ctx context.Context, root storage.UUID, record bool, sha [32]byte, at Rel) error {
+	if !record {
+		return nil
+	}
 	err := s.local.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
 		return db.New(tx).PutLedger(ctx, db.PutLedgerParams{RootID: root, Sha256: sha[:], Path: at.String(), WrittenAt: storage.Now()})
 	})

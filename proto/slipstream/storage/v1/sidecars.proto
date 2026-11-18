@@ -170,6 +170,9 @@ message WriteSidecarRequest {
   // replaces is the hash of the bytes the write may overwrite; empty: the
   // name must be free or hold these bytes.
   bytes replaces = 8;
+  // ledger records sha256 in the root's ledger: the bytes are a
+  // provider's, which a restore takes back as SlipStream's own.
+  bool ledger = 9;
 }
 
 message WriteSidecarResponse {

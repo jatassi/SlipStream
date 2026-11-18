@@ -5,6 +5,7 @@ An Admin adds a Wanted Language to a Profile, and SlipStream records a want for 
 ## Sub-features
 
 - `subtitles-wants` a Profile `PUT` that adds a Wanted Language previews and saves `subtitles.gained` with that language's `searches`, the files nothing meets yet, and its `needScan`, the files whose audio is scanned first; files with a text track in the language, or audio in it for a `no_audio` language, aren't counted (P-368).
+- `subtitles-maps` a film with an unmet want gets its audio scanned on the Storage Node that holds it, one file at a time: its Speech Map lands in that Node's `speechmaps` folder, and a film whose audio can't be decoded is asked for again later (P-368).
 - `subtitles-delete-removes` deleting a Work with its files removes the found Sidecar beside its video from the Storage Node's disk, and keeps one whose bytes changed after the survey read them (P-368).
 - `subtitles-settings` `GET /api/v1/subtitles/settings` answers every setting with its default, the Timing match at 30%, a `lead` whose `kind` follows the first that holds of no Wanted Language, a Content Type no provider searches, search off and ready, and each Storage Node's `scans` left; a `PATCH` that puts `subtitles.longestGap` under the Subtitle search cadence answers 422 `gap_too_short` on that key (P-368).
 - `subtitles-node-settings` `GET` and `PATCH /api/v1/subtitles/nodes/{nodeId}/settings` read and store `subtitles.mapSlots`, 1 to 8, on a Storage Node, and answer 404 `not_a_storage_node` for any other id (P-368).
@@ -55,6 +56,12 @@ Steps:
 
 - **Adopt English.** The scan surveyed Copper Kettle while nothing wanted English, so both companions are extras. Put English, full, `always`, beside French: its preview already counts Copper Kettle as met, since a companion its last survey listed meets English. After the save, the bulk pass marks the film for a survey and the Keeper adopts `.en.srt` as found, `.en.hi.srt` when the language prefers hearing impaired. A second preview of the same body then gains nothing, and a preview without English drops `en` with `deleted` 0, since a found Sidecar stays.
 
+- **Scan the audio.** French stays unmet on every film without French audio, so once the Keeper has surveyed them the map drain asks `home`, which holds the Movies root, to scan each one's audio. Wait a minute, then list the Node's maps: one `.ssmp` file per film that decoded.
+
+  ```sh
+  $FW exec $RUN --proof subtitles/subtitles-maps -- find '{nodes.home.dataDir}/speechmaps' -type f
+  ```
+
 - **Delete the Work.** Delete Copper Kettle with its files: the video and the adopted `.srt` both leave `{mediaDir}`, which the `find` after it shows.
 
   ```sh
@@ -104,5 +111,6 @@ Steps:
 - The Keeper wakes a second after the Write that names a file and sweeps every minute, so a survey or a removal shows a moment after the API answers. Wait for it before reading the disk.
 - `home`'s Movies root starts empty: The Quiet Orchard isn't in it until a step copies a film in and scans.
 - A Sidecar's removal names its hash. Overwriting the `.en.srt` before the delete keeps it on disk, which is the second half of `subtitles-delete-removes`, not a failure.
+- A Scenario film whose bytes aren't real audio can't be decoded: its map reads `decode_failed` and is asked for again after `map_retry_min`, so it adds no `.ssmp` file. That is the backoff, not a failure.
 - No Subtitle Provider searches yet, so a want stays missing, and the manual actions answer 501.
 - A key check needs a Node with the Subtitles Role. Without one, `PUT .../key` answers 409 `no_subtitles_holder`.

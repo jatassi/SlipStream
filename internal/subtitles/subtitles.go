@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -70,8 +71,15 @@ type Config struct {
 	Videos func(ctx context.Context, r storage.Reader[storage.Library]) (media.Videos, error)
 	// Providers is every Subtitle Provider's Spec, in default order.
 	Providers []subtitling.Spec
-	Tasks     Cadences
-	Roster    Roster
+	// MediaServers hears each Sidecar the Keeper writes or removes, in the
+	// Write that records it.
+	MediaServers MediaServers
+	// Works names a Work in History's rows.
+	Works entry.Describer
+	// FetchCap bounds a subtitle's bytes in a holder's answer.
+	FetchCap int
+	Tasks    Cadences
+	Roster   Roster
 	// Reconciling is whether a restored Controller is Reconciling (ADR
 	// 0019), read in the caller's snapshot. Nothing writes, carries or
 	// removes a Sidecar while it is.
@@ -87,24 +95,34 @@ type Config struct {
 	Log              *slog.Logger
 }
 
+// MediaServers is the Media Servers' Sidecar changes.
+type MediaServers interface {
+	SidecarsChanged(ctx context.Context, tx *storage.Tx[storage.Library], cs []mediaservers.SidecarChange) error
+}
+
 type Subtitles struct {
 	cfg    Config
 	keeper *keeper
+	maps   *mapDrain
 	pass   chan struct{}
 }
 
 // Open seeds a provider row for each Spec without one, after the last,
 // and clears every lease the previous process left: only one Controller
-// process ever holds one. Run settles what the rows say is pending.
+// process ever holds one, and makes due again every map build it left.
+// Run settles what the rows say is pending.
 func Open(ctx context.Context, cfg Config) (*Subtitles, error) {
 	s := &Subtitles{cfg: cfg, pass: make(chan struct{}, 1)}
-	s.keeper = newKeeper(s)
+	s.keeper, s.maps = newKeeper(s), newMapDrain(s)
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		for _, p := range cfg.Providers {
 			if err := q.SeedProvider(ctx, p.ID); err != nil {
 				return err
 			}
+		}
+		if err := q.ResetBuilding(ctx); err != nil {
+			return err
 		}
 		return ClearLeases(ctx, tx)
 	})
@@ -121,8 +139,8 @@ func ClearLeases(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 	return err
 }
 
-// Run runs the Keeper and the bulk pass, once at start and again soon
-// after each Write that asks for one, until ctx ends.
+// Run runs the Keeper, the map drain and the bulk pass, once at start and
+// again soon after each Write that asks for one, until ctx ends.
 func (s *Subtitles) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 	wg.Go(func() {
@@ -130,6 +148,7 @@ func (s *Subtitles) Run(ctx context.Context) error {
 			s.cfg.Log.ErrorContext(ctx, "The subtitles Keeper stopped", "error", err)
 		}
 	})
+	wg.Go(func() { s.maps.run(ctx) })
 	defer wg.Wait()
 	for {
 		if _, err := s.Reconcile(ctx); err != nil && ctx.Err() == nil {

@@ -1142,7 +1142,10 @@ type WriteSidecarRequest struct {
 	Sha256   []byte                 `protobuf:"bytes,7,opt,name=sha256,proto3" json:"sha256,omitempty"`
 	// replaces is the hash of the bytes the write may overwrite; empty: the
 	// name must be free or hold these bytes.
-	Replaces      []byte `protobuf:"bytes,8,opt,name=replaces,proto3" json:"replaces,omitempty"`
+	Replaces []byte `protobuf:"bytes,8,opt,name=replaces,proto3" json:"replaces,omitempty"`
+	// ledger records sha256 in the root's ledger: the bytes are a
+	// provider's, which a restore takes back as SlipStream's own.
+	Ledger        bool `protobuf:"varint,9,opt,name=ledger,proto3" json:"ledger,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1231,6 +1234,13 @@ func (x *WriteSidecarRequest) GetReplaces() []byte {
 		return x.Replaces
 	}
 	return nil
+}
+
+func (x *WriteSidecarRequest) GetLedger() bool {
+	if x != nil {
+		return x.Ledger
+	}
+	return false
 }
 
 type WriteSidecarResponse struct {
@@ -1470,7 +1480,7 @@ const file_slipstream_storage_v1_sidecars_proto_rawDesc = "" +
 	"\x13ReadSidecarResponse\x12=\n" +
 	"\x05state\x18\x01 \x01(\x0e2'.slipstream.storage.v1.ReadSidecarStateR\x05state\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04data\x12\x16\n" +
-	"\x06sha256\x18\x03 \x01(\fR\x06sha256\"\xf1\x01\n" +
+	"\x06sha256\x18\x03 \x01(\fR\x06sha256\"\x89\x02\n" +
 	"\x13WriteSidecarRequest\x12\x17\n" +
 	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x12\x14\n" +
 	"\x05video\x18\x02 \x01(\tR\x05video\x12;\n" +
@@ -1479,7 +1489,8 @@ const file_slipstream_storage_v1_sidecars_proto_rawDesc = "" +
 	"\x04tail\x18\x05 \x01(\tR\x04tail\x12\x12\n" +
 	"\x04data\x18\x06 \x01(\fR\x04data\x12\x16\n" +
 	"\x06sha256\x18\a \x01(\fR\x06sha256\x12\x1a\n" +
-	"\breplaces\x18\b \x01(\fR\breplaces\"\x86\x01\n" +
+	"\breplaces\x18\b \x01(\fR\breplaces\x12\x16\n" +
+	"\x06ledger\x18\t \x01(\bR\x06ledger\"\x86\x01\n" +
 	"\x14WriteSidecarResponse\x12>\n" +
 	"\x05state\x18\x01 \x01(\x0e2(.slipstream.storage.v1.WriteSidecarStateR\x05state\x12\x1a\n" +
 	"\boccupant\x18\x02 \x01(\fR\boccupant\x12\x12\n" +

@@ -221,10 +221,12 @@ func sidecarsIn(ctx context.Context, q *db.Queries, ids []files.ID) (map[files.I
 }
 
 // write makes c's files' facts, want rows and ignores what their
-// Subjects and Profiles say, through records.go.
+// Subjects and Profiles say, through records.go, and makes due the maps
+// the files at their names now need.
 func (s *Subtitles) write(ctx context.Context, tx *storage.Tx[storage.Library], c chunk) error {
 	q := db.New(tx)
 	byKind := map[subtitling.Kind][]files.ID{}
+	var placed []files.ID
 	for _, sub := range c.subjects {
 		f, err := s.writeFile(ctx, q, c, sub)
 		if err != nil {
@@ -233,6 +235,12 @@ func (s *Subtitles) write(ctx context.Context, tx *storage.Tx[storage.Library], 
 		if f.Kind != 0 {
 			byKind[f.Kind] = append(byKind[f.Kind], sub.ID)
 		}
+		if sub.AtName {
+			placed = append(placed, sub.ID)
+		}
+	}
+	if err := s.markMapsDue(ctx, q, placed); err != nil {
+		return err
 	}
 	for k, ids := range byKind {
 		if gained, ok := c.gained[k]; ok {

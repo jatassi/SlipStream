@@ -18,8 +18,9 @@ var _ files.Subtitles = (*Subtitles)(nil)
 
 // Changed hears files' path facts in the Write that makes them true. A
 // file that landed at its name, moved, was put back or changed in place
-// gets its facts and wants again and a survey; a changed one's Sidecars
-// are timed again; parked rows waiting for a landing wake.
+// gets its facts and wants again and a survey; a changed one's map is
+// built again and its Sidecars timed again; parked rows waiting for a
+// landing wake.
 func (s *Subtitles) Changed(ctx context.Context, tx *storage.Tx[storage.Library], cs []files.PathChange) error {
 	var ids []files.ID
 	for _, c := range cs {
@@ -37,7 +38,7 @@ func (s *Subtitles) Changed(ctx context.Context, tx *storage.Tx[storage.Library]
 		case files.PathRemoved:
 			continue
 		case files.PathReplaced:
-			if err := q.MarkTimingDue(ctx, c.File); err != nil {
+			if err := s.replaced(ctx, q, c.File); err != nil {
 				return err
 			}
 		case files.PathAdded:

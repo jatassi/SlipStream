@@ -47,6 +47,20 @@ func TestDecodeFails(t *testing.T) {
 	}
 }
 
+func TestAudioThatDecodesToNothingFails(t *testing.T) {
+	video := filepath.Join(t.TempDir(), "no-packets.mkv")
+	cmd := exec.CommandContext(t.Context(), bundled(t, "ffmpeg"), "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=64x64:r=24:d=10",
+		"-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=10",
+		"-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", "-bsf:a", "noise=drop=1", video)
+	if b, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("encode: %v: %s", err, b)
+	}
+	m, err := mapper(t).Map(t.Context(), video, -1)
+	if d, ok := errors.AsType[*speech.DecodeError](err); !ok || d.First == "" {
+		t.Fatalf("an audio stream that decodes to nothing = %d frames, %v; want a DecodeError", m.Header.Frames, err)
+	}
+}
+
 func TestNoFFmpeg(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "ffmpeg")
 	wav := writeWAV(t, schedule(1, goldenLength), goldenLength)
