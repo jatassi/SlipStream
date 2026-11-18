@@ -2,6 +2,7 @@ package subtitles
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -22,7 +23,8 @@ import (
 
 // TestTheHotReadsReadThroughTheirIndexes pins each read the drains, the
 // Keeper, the change Write and the Library filters run to its index, with
-// no table scan and no sort.
+// no table scan, and no sort but a dropped language's rows, which one
+// Profile change reads once.
 func TestTheHotReadsReadThroughTheirIndexes(t *testing.T) {
 	lib := storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), Schema(), naming.Schema())
 	ids := []files.ID{{UUID: storage.NewUUID()}, {UUID: storage.NewUUID()}}
@@ -60,7 +62,7 @@ func TestTheHotReadsReadThroughTheirIndexes(t *testing.T) {
 			_, err := q.ImpactDropped(ctx, db.ImpactDroppedParams{Language: "en", ProfileID: profile})
 			return err
 		}},
-		{"ListDropped", []string{"subtitles_sidecar_language"}, func(ctx context.Context, q *db.Queries) error {
+		{"ListDropped", []string{"subtitles_sidecar_language", "USE TEMP B-TREE FOR ORDER BY"}, func(ctx context.Context, q *db.Queries) error {
 			_, err := q.ListDropped(ctx, db.ListDroppedParams{Language: "en", ProfileID: profile})
 			return err
 		}},
@@ -130,7 +132,7 @@ func wantPlans(t *testing.T, lib *storage.DB[storage.Library], name string, inde
 			}
 		}
 		for _, l := range p.Lines {
-			if strings.HasPrefix(l, "SCAN") && !strings.Contains(l, "INDEX") || strings.Contains(l, "USE TEMP B-TREE") {
+			if strings.HasPrefix(l, "SCAN") && !strings.Contains(l, "INDEX") || strings.Contains(l, "USE TEMP B-TREE") && !slices.Contains(indexes, l) {
 				t.Errorf("%s plans %q", name, p.Lines)
 			}
 		}

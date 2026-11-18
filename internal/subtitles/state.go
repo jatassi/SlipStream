@@ -160,7 +160,7 @@ func (s *Subtitles) worldOf(ctx context.Context, r storage.Reader[storage.Librar
 	}
 	now := storage.FromTime(s.cfg.Clock())
 	for _, p := range providers {
-		spec := s.spec(subtitling.ProviderID(p.ID))
+		spec := s.spec(p.ID)
 		if !p.IsOn || !slices.Contains(spec.Kinds, k) {
 			continue
 		}

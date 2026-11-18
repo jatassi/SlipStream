@@ -28,14 +28,16 @@ JOIN subtitles_file s ON s.file_id = c.file_id
 JOIN targets_wants tw ON tw.work_id = s.work_id
 JOIN files_file f ON f.id = c.file_id
 WHERE c.language = sqlc.arg(language) AND c.forced = sqlc.arg(forced) AND c.source IN ('provider', 'sibling')
-    AND tw.profile_id = sqlc.arg(profile_id);
+    AND tw.profile_id = sqlc.arg(profile_id)
+ORDER BY c.id;
 
 -- name: ListDroppedIntents :many
 SELECT w.file_id, w.attempt_id, w.tail, w.sha256, s.root_id, f.path FROM subtitles_write w
 JOIN subtitles_file s ON s.file_id = w.file_id
 JOIN targets_wants tw ON tw.work_id = s.work_id
 JOIN files_file f ON f.id = w.file_id
-WHERE w.language = sqlc.arg(language) AND w.forced = sqlc.arg(forced) AND tw.profile_id = sqlc.arg(profile_id);
+WHERE w.language = sqlc.arg(language) AND w.forced = sqlc.arg(forced) AND tw.profile_id = sqlc.arg(profile_id)
+ORDER BY w.file_id, w.language, w.forced;
 
 -- name: DeleteWantsOfProfile :exec
 DELETE FROM subtitles_want WHERE language = sqlc.arg(language) AND forced = sqlc.arg(forced)

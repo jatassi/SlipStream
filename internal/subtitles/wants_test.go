@@ -17,11 +17,15 @@ import (
 	"github.com/jatassi/slipstream/internal/targets"
 )
 
-// world is a subtitlestest World that checks the records invariant after
-// every step.
+// world is a subtitlestest World on the default timings, tune's changes
+// made, that checks the records invariant after every step.
 func world(t *testing.T, tune func(*subtitles.Timings)) *subtitlestest.World {
 	t.Helper()
-	w := subtitlestest.Open(t, tune)
+	tm := subtitles.DefaultTimings()
+	if tune != nil {
+		tune(&tm)
+	}
+	w := subtitlestest.Open(t, tm)
 	w.Check = func(t testing.TB, w *subtitlestest.World) {
 		t.Helper()
 		err := w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {

@@ -167,7 +167,7 @@ func (s *Subtitles) gainedIn(ctx context.Context, q *db.Queries) (map[subtitling
 	}
 	out := map[subtitling.Kind]storage.Time{}
 	for _, p := range providers {
-		for _, k := range s.spec(subtitling.ProviderID(p.ID)).Kinds {
+		for _, k := range s.spec(p.ID).Kinds {
 			if p.IsOn && p.GainedAt.Compare(out[k]) > 0 {
 				out[k] = p.GainedAt
 			}

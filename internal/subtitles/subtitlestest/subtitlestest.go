@@ -13,6 +13,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -66,9 +67,9 @@ type World struct {
 }
 
 // Open is a World with a Subtitles holder and SubDL's Spec, its Keeper
-// and the files owner running until the test ends. tune, when set,
-// changes the Controller's timings first.
-func Open(t *testing.T, tune func(*subtitles.Timings)) *World {
+// and the files owner running until the test ends, on the Controller's
+// timings tm.
+func Open(t *testing.T, tm subtitles.Timings) *World {
 	t.Helper()
 	lib := storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), subtitles.Schema(), naming.Schema())
 	fx := contenttypetest.New()
@@ -79,10 +80,7 @@ func Open(t *testing.T, tune func(*subtitles.Timings)) *World {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := &World{t: t, Lib: lib, Fixture: fx, Works: tree, Node: role.NodeID{UUID: storage.NewUUID()}, Timings: subtitles.DefaultTimings()}
-	if tune != nil {
-		tune(&w.Timings)
-	}
+	w := &World{t: t, Lib: lib, Fixture: fx, Works: tree, Node: role.NodeID{UUID: storage.NewUUID()}, Timings: tm}
 	w.holders.Store(true)
 	w.Root = rootstest.Root(t, lib, w.Node, contenttypetest.ID, t.TempDir())
 	var store *storing.Store
@@ -116,7 +114,7 @@ func Open(t *testing.T, tune func(*subtitles.Timings)) *World {
 		Names: map[works.TypeID]release.Names{contenttypetest.ID: fx},
 		Today: time.Now, Disk: held, Changed: discard[files.Changed]{}, Moved: discard[files.Moved]{}, Subtitles: late,
 		Timings: files.Timings{RetryMin: time.Second, RetryMax: 4 * time.Second},
-		Rand:    rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
+		Rand:    rand.New(&splitmix{x: 1}), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -157,7 +155,7 @@ func (w *World) config() subtitles.Config {
 		},
 		Timings: w.Timings,
 		Clock:   time.Now,
-		Rand:    rand.New(rand.NewPCG(3, 4)), //nolint:gosec // seeded on purpose so tests replay
+		Rand:    rand.New(&splitmix{x: 2}), //nolint:gosec // seeded on purpose so tests replay
 		Log:     slog.New(slog.DiscardHandler),
 	}
 }
@@ -360,6 +358,23 @@ func (r roster) Holding(role.Name) []role.NodeID {
 }
 
 type lateSubtitles struct{ files.Subtitles }
+
+// splitmix is SplitMix64, a replayable stream for the World, which has no
+// Node to hand it one. It is safe for concurrent draws.
+type splitmix struct {
+	mu sync.Mutex
+	x  uint64
+}
+
+func (s *splitmix) Uint64() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.x += 0x9e3779b97f4a7c15
+	z := s.x
+	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9
+	z = (z ^ (z >> 27)) * 0x94d049bb133111eb
+	return z ^ (z >> 31)
+}
 
 type discard[T any] struct{}
 

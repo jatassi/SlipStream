@@ -230,7 +230,7 @@ func putSidecar(ctx context.Context, q *db.Queries, s Sidecar, now storage.Time)
 // want's unmet flag. A row that changed or went is left alone.
 func dropSidecar(ctx context.Context, q *db.Queries, s Sidecar, now storage.Time) error {
 	gone, err := q.DeleteSidecar(ctx, db.DeleteSidecarParams{ID: s.ID, Sha256: s.SHA256[:]})
-	if err != nil || len(gone) == 0 {
+	if err != nil || gone == 0 {
 		return err
 	}
 	return setUnmet(ctx, q, s.File, s.want(), now)

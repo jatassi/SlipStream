@@ -58,6 +58,6 @@ ON CONFLICT (id) DO UPDATE SET hi = excluded.hi, tail = excluded.tail, source = 
     segments = excluded.segments, match = excluded.match, sha256 = excluded.sha256, size = excluded.size, cues = excluded.cues,
     timing_due = excluded.timing_due, stray = excluded.stray;
 
--- name: DeleteSidecar :many
+-- name: DeleteSidecar :execrows
 -- The Sidecar goes only while it still holds the bytes the caller read.
-DELETE FROM subtitles_sidecar WHERE id = sqlc.arg(id) AND sha256 = sqlc.arg(sha256) RETURNING file_id, language, forced;
+DELETE FROM subtitles_sidecar WHERE id = sqlc.arg(id) AND sha256 = sqlc.arg(sha256);

@@ -216,7 +216,7 @@ CREATE TABLE subtitles_removal (
     next_at INTEGER NOT NULL,
     UNIQUE (root_id, path, sha256)
 ) STRICT;
-CREATE INDEX subtitles_removal_file ON subtitles_removal (file_id);
+CREATE INDEX subtitles_removal_file ON subtitles_removal (file_id, id);
 CREATE INDEX subtitles_removal_next ON subtitles_removal (next_at);
 
 -- "Don't count this track" (D19): the track's ordinal in

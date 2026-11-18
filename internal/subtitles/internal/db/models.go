@@ -10,84 +10,9 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/subtitling"
 	"github.com/jatassi/slipstream/internal/works"
 )
-
-type FilesDoomed struct {
-	FileID     files.ID
-	RootID     roots.ID
-	Path       string
-	Sits       *string
-	Origin     *string
-	ReplacedBy []byte
-}
-
-type FilesFile struct {
-	ID           []byte
-	WorkID       works.WorkID
-	Cut          string
-	RootID       roots.ID
-	Path         string
-	Size         int64
-	Probe        string
-	GrabID       []byte
-	Quality      string
-	Label        string
-	Extra        int64
-	ReleaseName  *string
-	TitleRead    *string
-	ModifiedAt   storage.Time
-	NodeFileID   *string
-	NodeVolumeID *string
-	GoneAt       storage.Time
-	ProbeVersion int64
-	ProbedAt     storage.Time
-	ProbeError   *string
-	SourceName   *string
-	PlacedBy     *string
-}
-
-type FilesFileItem struct {
-	FileID   files.ID
-	ItemID   []byte
-	Position int64
-}
-
-type FilesFill struct {
-	FileID         files.ID
-	TargetID       []byte
-	ItemID         []byte
-	Edition        string
-	Score          int64
-	ForcedAt       storage.Time
-	ForcedImportID []byte
-}
-
-type FilesImported struct {
-	ID       []byte
-	FileID   files.ID
-	ImportID []byte
-	GrabID   []byte
-	WorkID   works.WorkID
-	PlacedBy string
-	Items    string
-	Cells    string
-	Replaced string
-	At       int64
-}
-
-type FilesMove struct {
-	FileID files.ID
-	Sits   string
-	Origin string
-	Ring   []byte
-}
-
-type FilesPrune struct {
-	RootID roots.ID
-	Folder string
-}
 
 type SubtitlesFile struct {
 	FileID      files.ID
@@ -118,13 +43,6 @@ type SubtitlesFile struct {
 	Companions  *string
 }
 
-type SubtitlesNode struct {
-	NodeID     role.NodeID
-	MapSlots   *int64
-	FaultAt    storage.Time
-	FaultWords *string
-}
-
 type SubtitlesParked struct {
 	ID       storage.UUID
 	FromFile files.ID
@@ -138,7 +56,7 @@ type SubtitlesParked struct {
 }
 
 type SubtitlesProvider struct {
-	ID           string
+	ID           subtitling.ProviderID
 	Position     int64
 	IsOn         bool
 	ApiKeySealed secret.Sealed
@@ -164,20 +82,6 @@ type SubtitlesRemoval struct {
 	Why    string
 	Tries  int64
 	NextAt storage.Time
-}
-
-type SubtitlesSetting struct {
-	ID                       int64
-	SearchOn                 *int64
-	SearchUpgrades           *int64
-	LongestGapSeconds        *int64
-	FullPaceSeconds          *int64
-	ReportGapSeconds         *int64
-	TriesPerSearch           *int64
-	SyncMatch                *int64
-	SyncMaxOffsetSeconds     *int64
-	SyncFramerates           *string
-	ProviderWarnAfterSeconds *int64
 }
 
 type SubtitlesSidecar struct {
@@ -216,18 +120,6 @@ type SubtitlesTrackIgnored struct {
 	Forced      bool
 }
 
-type SubtitlesTried struct {
-	FileID       files.ID
-	Language     string
-	Forced       bool
-	CandidateKey string
-	Provider     *string
-	Release      *string
-	Match        *int64
-	Outcome      string
-	TriedAt      storage.Time
-}
-
 type SubtitlesWant struct {
 	FileID         files.ID
 	Language       string
@@ -258,209 +150,4 @@ type SubtitlesWrite struct {
 	Sidecar   string
 	Replaces  []byte
 	StartedAt storage.Time
-}
-
-type TargetsCut struct {
-	Key       string
-	Name      string
-	CreatedAt storage.Time
-}
-
-type TargetsCutAlias struct {
-	Cut      string
-	Position int64
-	Alias    string
-}
-
-type TargetsFilter struct {
-	TargetID  []byte
-	Attribute string
-	Mode      string
-}
-
-type TargetsFilterValue struct {
-	TargetID  []byte
-	Attribute string
-	Position  int64
-	Value     string
-}
-
-type TargetsFormat struct {
-	ID                  []byte
-	Name                string
-	NameFolded          string
-	IncludeWhenRenaming int64
-	Dialect             string
-	Conditions          string
-	Source              []byte
-	Revision            int64
-	Timeouts            int64
-	CreatedAt           storage.Time
-}
-
-type TargetsFormatScore struct {
-	TargetID []byte
-	FormatID []byte
-	Score    int64
-}
-
-type TargetsProfile struct {
-	ID          []byte
-	Name        string
-	ContentType string
-	IsDefault   int64
-	Editions    string
-}
-
-type TargetsProfileCut struct {
-	ProfileID targets.ProfileID
-	Position  int64
-	Cut       string
-}
-
-type TargetsProfileLanguage struct {
-	ProfileID      targets.ProfileID
-	Position       int64
-	Language       string
-	Forced         bool
-	Hi             string
-	AudioCondition string
-	AddedAt        storage.Time
-}
-
-type TargetsProfileTarget struct {
-	ProfileID targets.ProfileID
-	Position  int64
-	TargetID  []byte
-	Sourcing  string
-}
-
-type TargetsQuality struct {
-	TargetID        []byte
-	Quality         string
-	Tier            int64
-	Position        int64
-	MinMibPerMinute float64
-	MaxMibPerMinute *float64
-}
-
-type TargetsSighting struct {
-	ItemID  []byte
-	Cut     string
-	Release string
-	SeenAt  storage.Time
-}
-
-type TargetsStarter struct {
-	ID       int64
-	TargetID []byte
-}
-
-type TargetsTarget struct {
-	ID             []byte
-	Name           string
-	CreatedAt      storage.Time
-	CutoffTier     int64
-	MinScore       int64
-	UpgradeUntil   int64
-	ScoreIncrement int64
-	Propers        string
-	NameFolded     *string
-	HoldSeconds    int64
-}
-
-type TargetsWant struct {
-	WorkID    works.WorkID
-	ProfileID targets.ProfileID
-	Editions  *string
-}
-
-type TargetsWantsCut struct {
-	WorkID   works.WorkID
-	Position int64
-	Cut      string
-}
-
-type WorksAddDefault struct {
-	ContentType  string
-	Monitor      *string
-	Asides       *int64
-	LevelFolders *int64
-	Search       *string
-}
-
-type WorksArtwork struct {
-	WorkID  works.WorkID
-	ItemID  []byte
-	Kind    string
-	Source  string
-	Path    string
-	LevelID []byte
-}
-
-type WorksDisabledType struct {
-	ContentType string
-	DisabledAt  storage.Time
-}
-
-type WorksItem struct {
-	ID          []byte
-	WorkID      works.WorkID
-	LevelID     []byte
-	Key         string
-	Label       string
-	Position    int64
-	WithdrawnAt storage.Time
-	Monitored   int64
-	Aside       int64
-}
-
-type WorksLevel struct {
-	ID          []byte
-	WorkID      works.WorkID
-	ParentID    []byte
-	Depth       int64
-	Key         string
-	Label       string
-	Position    int64
-	WithdrawnAt storage.Time
-	Aside       int64
-}
-
-type WorksRating struct {
-	WorkID    works.WorkID
-	ItemID    []byte
-	Source    string
-	Value     float64
-	Scale     float64
-	Votes     *int64
-	FetchedAt storage.Time
-}
-
-type WorksTitle struct {
-	Row    int64
-	WorkID works.WorkID
-	Labels string
-	Titles string
-}
-
-type WorksTitleIndex struct {
-	Labels string
-	Titles string
-}
-
-type WorksWork struct {
-	ID             []byte
-	ContentType    string
-	Key            string
-	Label          string
-	SortLabel      string
-	AddedAt        storage.Time
-	RefreshedAt    storage.Time
-	GoneUpstreamAt storage.Time
-	RatingsReadAt  storage.Time
-	MonitorNew     int64
-	MonitorAsides  int64
-	LevelFolders   int64
-	AddedBy        string
 }

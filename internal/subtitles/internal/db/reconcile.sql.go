@@ -11,6 +11,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/subtitling"
 	"github.com/jatassi/slipstream/internal/targets"
 )
 
@@ -123,7 +124,7 @@ VALUES (?1, (SELECT coalesce(max(position), 0) + 1 FROM subtitles_provider), 1)
 ON CONFLICT (id) DO NOTHING
 `
 
-func (q *Queries) SeedProvider(ctx context.Context, id string) error {
+func (q *Queries) SeedProvider(ctx context.Context, id subtitling.ProviderID) error {
 	_, err := q.db.ExecContext(ctx, seedProvider, id)
 	return err
 }

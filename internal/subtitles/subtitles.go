@@ -90,7 +90,7 @@ func Open(ctx context.Context, cfg Config) (*Subtitles, error) {
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		for _, p := range cfg.Providers {
-			if err := q.SeedProvider(ctx, string(p.ID)); err != nil {
+			if err := q.SeedProvider(ctx, p.ID); err != nil {
 				return err
 			}
 		}

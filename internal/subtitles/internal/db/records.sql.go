@@ -29,8 +29,8 @@ func (q *Queries) DeleteIgnored(ctx context.Context, arg DeleteIgnoredParams) er
 	return err
 }
 
-const deleteSidecar = `-- name: DeleteSidecar :many
-DELETE FROM subtitles_sidecar WHERE id = ?1 AND sha256 = ?2 RETURNING file_id, language, forced
+const deleteSidecar = `-- name: DeleteSidecar :execrows
+DELETE FROM subtitles_sidecar WHERE id = ?1 AND sha256 = ?2
 `
 
 type DeleteSidecarParams struct {
@@ -38,34 +38,13 @@ type DeleteSidecarParams struct {
 	Sha256 []byte
 }
 
-type DeleteSidecarRow struct {
-	FileID   files.ID
-	Language string
-	Forced   bool
-}
-
 // The Sidecar goes only while it still holds the bytes the caller read.
-func (q *Queries) DeleteSidecar(ctx context.Context, arg DeleteSidecarParams) ([]DeleteSidecarRow, error) {
-	rows, err := q.db.QueryContext(ctx, deleteSidecar, arg.ID, arg.Sha256)
+func (q *Queries) DeleteSidecar(ctx context.Context, arg DeleteSidecarParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteSidecar, arg.ID, arg.Sha256)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	defer rows.Close()
-	var items []DeleteSidecarRow
-	for rows.Next() {
-		var i DeleteSidecarRow
-		if err := rows.Scan(&i.FileID, &i.Language, &i.Forced); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+	return result.RowsAffected()
 }
 
 const deleteWant = `-- name: DeleteWant :exec

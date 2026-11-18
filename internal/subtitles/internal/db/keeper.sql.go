@@ -398,7 +398,7 @@ func (q *Queries) ListRemovalFiles(ctx context.Context, arg ListRemovalFilesPara
 }
 
 const listRemovalsDue = `-- name: ListRemovalsDue :many
-SELECT id, file_id, root_id, path, sha256, why, tries, next_at FROM subtitles_removal WHERE file_id = ?1 AND next_at <= ?2
+SELECT id, file_id, root_id, path, sha256, why, tries, next_at FROM subtitles_removal WHERE file_id = ?1 AND next_at <= ?2 ORDER BY id
 `
 
 type ListRemovalsDueParams struct {
