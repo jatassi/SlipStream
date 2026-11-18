@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -358,6 +359,53 @@ func TestAPickWaitsForTheRunningSearchThenGoesFirst(t *testing.T) {
 		}
 		if a, err := w.Subs.AttemptOf(t.Context(), admin, k.File, attempt); err != nil || a.Ended != subtitles.Added {
 			t.Fatalf("the pick reads %+v, %v, want added", a, err)
+		}
+	})
+}
+
+// reads is what a screen reads of k each time subtitles.changed names
+// k's file, as it reads it again on the event.
+func reads(t *testing.T, w *subtitlestest.World, k subtitles.WantKey) func() []subtitles.StateKind {
+	t.Helper()
+	var mu sync.Mutex
+	var kinds []subtitles.StateKind
+	w.Changed.Seen(func(c subtitles.Changed) {
+		if !slices.Contains(c.FileIDs, k.File.String()) {
+			return
+		}
+		err := w.Lib.Read(context.Background(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+			st, err := w.Subs.Outcome(ctx, r, k.File, k.Want)
+			mu.Lock()
+			defer mu.Unlock()
+			kinds = append(kinds, st.Kind)
+			return err
+		})
+		if err != nil {
+			t.Error(err)
+		}
+	})
+	return func() []subtitles.StateKind {
+		mu.Lock()
+		defer mu.Unlock()
+		return slices.Clone(kinds)
+	}
+}
+
+func TestAScreenReadingOnEachChangeSeesTheSubtitleAPickAdded(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w, k := film(t)
+		seen := reads(t, w, k)
+		offer(t, w, "x", onSpeech, 1)
+		id, _ := candidates(t, w, k)
+		if _, err := w.Subs.Pick(t.Context(), admin, k, id, "subdl:x"); err != nil {
+			t.Fatal(err)
+		}
+		w.Settle()
+		if w.On("Film/Film.2024.1080p.WEB-DL-GRP.en.srt") == "" {
+			t.Fatal("the pick added no subtitle")
+		}
+		if got := seen(); len(got) == 0 || got[len(got)-1] != subtitles.Met {
+			t.Fatalf("on each subtitles.changed the want read %v, want it to end met", got)
 		}
 	})
 }

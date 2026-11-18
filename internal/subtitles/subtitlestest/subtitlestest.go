@@ -564,14 +564,27 @@ func (r roster) Name(id role.NodeID) string {
 
 // Published is every value of one event a World published, in order.
 type Published[T any] struct {
-	mu sync.Mutex
-	vs []T
+	mu   sync.Mutex
+	vs   []T
+	seen func(T)
 }
 
 func (p *Published[T]) Publish(_ context.Context, v T) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.vs = append(p.vs, v)
+	seen := p.seen
+	p.mu.Unlock()
+	if seen != nil {
+		seen(v)
+	}
+}
+
+// Seen hands each value published from now on to fn, as a live screen
+// that reads again on the event would hear it.
+func (p *Published[T]) Seen(fn func(T)) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.seen = fn
 }
 
 // All is what was published so far.
