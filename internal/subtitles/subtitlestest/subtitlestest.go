@@ -277,6 +277,15 @@ func (w *World) Place(tree works.Tree, rel string, m media.Record) files.ID {
 	return id
 }
 
+// Add adds a library file of tree's Item at rel with m in tx, filling
+// nothing, with no bytes and no hook.
+func (w *World) Add(ctx context.Context, tx *storage.Tx[storage.Library], tree works.Tree, rel string, m media.Record) (files.ID, error) {
+	f, err := files.Add(ctx, tx, files.File{
+		WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: w.Root.ID, Path: rel, Size: 1024, Media: m, Quality: release.WEBDL1080p,
+	}, nil)
+	return f.ID, err
+}
+
 // Reconcile runs the bulk pass and settles.
 func (w *World) Reconcile() subtitles.Reconciled {
 	w.t.Helper()
