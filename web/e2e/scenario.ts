@@ -7,6 +7,7 @@ export type Scenario =
   | "movies"
   | "series"
   | "series-scale"
+  | "series-files-scale"
   | "serving"
   | "targets"
   | "scale"

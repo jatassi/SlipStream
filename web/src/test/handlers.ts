@@ -16,8 +16,12 @@ import {
   getListNotificationsMockHandler,
 } from "../api/gen/query/notifications/notifications.msw";
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
-import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
+import {
+  getGetWorkSubtitlesMockHandler,
+  getListSubtitleProvidersMockHandler,
+} from "../api/gen/query/subtitles/subtitles.msw";
 // oxlint-disable-next-line import/max-dependencies -- the base handlers answer every read the shell and Settings make
+import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
@@ -116,6 +120,12 @@ const quietBell = [
   getListNotificationConnectionsMockHandler({ connections: [] }),
 ];
 
+// A Work no file of which wants a subtitle, and no Subtitle Provider.
+const noSubtitles = [
+  getGetWorkSubtitlesMockHandler({ files: [] }),
+  getListSubtitleProvidersMockHandler({ providers: [] }),
+];
+
 // A Work page with no History entries.
 const quietHistory = getListHistoryMockHandler({ entries: [], next: null });
 
@@ -135,6 +145,7 @@ export const baseHandlers: RequestHandler[] = [
   ...quietHealth,
   ...quietBell,
   quietHistory,
+  ...noSubtitles,
   ...tagMocks,
 ];
 

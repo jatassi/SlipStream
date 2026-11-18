@@ -47,6 +47,7 @@ export function WorkSections({
         root={work.root}
         names={{ cutName, targetName }}
         workId={work.id}
+        noun={type.work.many}
       />
       <About type={type} work={work} statuses={cells.items} />
       <Grabs workId={work.id} work={work.label} />

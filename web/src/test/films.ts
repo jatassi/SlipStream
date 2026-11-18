@@ -47,6 +47,7 @@ const rows: WorksLibraryRow[] = [
     rootId: "films",
     monitored: "all",
     rating: { source: "imdb", value: 8.3, scale: 10 },
+    subtitles: "missing",
     values: { year: 2001, runtime: 98 * minute, certification: "R", genres: ["Comedy", "Romance"] },
   }),
   libraryRow({
@@ -64,6 +65,7 @@ const rows: WorksLibraryRow[] = [
     addedBy: "scan",
     monitored: "some",
     rating: { source: "imdb", value: 70, scale: 100 },
+    subtitles: "none_passed",
     values: { year: 1995, runtime: 170 * minute, certification: "R", genres: ["Crime", "Drama"] },
   }),
   libraryRow({
