@@ -15,13 +15,23 @@ const some = (count: number, one: string, many: string) =>
 const languageOf = ({ language, forced }: { language: string; forced: boolean }) =>
   `${forced ? "forced-only " : ""}${languageName(language)}`;
 
+const scanLine = ({ searches, needScan }: { searches: number; needScan: number }) => {
+  if (needScan === 0) {
+    return [];
+  }
+  if (needScan === searches) {
+    return [`SlipStream scans ${searches === 1 ? "its" : "their"} audio first.`];
+  }
+  return [scansFirst(needScan)];
+};
+
 /** What a change of a Profile's subtitle languages searches for, how long that takes, and what it deletes. */
 export function subtitleLines({ gained, dropped, days }: TargetsSubtitles): string[] {
   const searched = gained.filter((want) => want.searches > 0);
   const searches = searched.map((want) =>
     [
       `Saving searches ${languageOf(want)} subtitles for ${some(want.searches, "file", "files")}.`,
-      ...(want.needScan > 0 ? [scansFirst(want.needScan)] : []),
+      ...scanLine(want),
     ].join(" "),
   );
   const last =

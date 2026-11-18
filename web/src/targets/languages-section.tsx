@@ -1,4 +1,4 @@
-import { Add01Icon, ArrowDown01Icon, Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { Add01Icon, Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 
 import type { TargetsWantedLanguage as Want } from "../api/gen/model";
 import {
@@ -13,14 +13,13 @@ import {
   wantSentence,
 } from "../subtitles/settings-words";
 import { Button } from "../ui/button";
-import { Icon } from "../ui/icon";
 import { IconButton } from "../ui/icon-button";
 import { Menu, type MenuEntry } from "../ui/menu";
 import type { SectionProps } from "./editor";
 import { type ProfileDraft, duplicateOf } from "./profile-draft";
 
 const tokenLook =
-  "-mx-0.5 inline-flex items-center gap-1 rounded-item px-1 py-0.5 font-medium text-ink-1 underline decoration-ink-3 decoration-dotted underline-offset-4 hover:bg-fill data-popup-open:bg-fill";
+  "-mx-0.5 inline-flex items-center rounded-item px-1 py-0.5 font-medium text-ink-1 underline decoration-ink-3 decoration-dotted underline-offset-4 hover:bg-fill data-popup-open:bg-fill";
 
 function Token<V extends string | boolean>({
   label,
@@ -49,7 +48,6 @@ function Token<V extends string | boolean>({
       trigger={
         <button type="button" aria-label={`${label}: ${words}`} className={tokenLook}>
           {words}
-          <Icon icon={ArrowDown01Icon} className="size-3 shrink-0 text-ink-3" />
         </button>
       }
     />
