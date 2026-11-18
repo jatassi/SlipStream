@@ -1,7 +1,6 @@
 package mediafix
 
 import (
-	"encoding/json"
 	"fmt"
 	"path"
 	"slices"
@@ -175,8 +174,8 @@ func (r *recipe) audio(stem string, f scenario.MediaFile, args []string) (out, m
 	for i, a := range f.Audio {
 		if a.Speech != nil {
 			pcm := fmt.Sprintf("%s.a%d.pcm", stem, i+1)
-			key, _ := json.Marshal(a.Speech)
-			r.files = append(r.files, file{name: pcm, text: string(speech.PCM(*a.Speech)), key: string(key)})
+			key := fmt.Sprintf("speech seed %d density %g length %v", a.Speech.Seed, a.Speech.Density, a.Speech.Length)
+			r.files = append(r.files, file{name: pcm, text: string(speech.PCM(*a.Speech)), key: key})
 			args = append(args, "-f", "s16le", "-ar", strconv.Itoa(speechtest.Rate), "-ac", "1", "-i", pcm)
 			maps = append(maps, "-map", strconv.Itoa(next)+":a")
 			next++

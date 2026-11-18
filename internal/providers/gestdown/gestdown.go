@@ -16,6 +16,7 @@ import (
 	"mime"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -114,7 +115,7 @@ func (c *Client) Search(ctx context.Context, cr calls.Credentials, q subtitling.
 		return nil, err
 	}
 	var ep episodeJSON
-	if found, err := c.get(ctx, cr, &ep, "subtitles", "get", shows.Shows[0].ID, fmt.Sprint(s.Season), fmt.Sprint(s.Episodes[0]), q.Language.String()); !found || err != nil {
+	if found, err := c.get(ctx, cr, &ep, "subtitles", "get", shows.Shows[0].ID, strconv.Itoa(s.Season), strconv.Itoa(s.Episodes[0]), q.Language.String()); !found || err != nil {
 		return nil, err
 	}
 	var out []subtitling.Offer

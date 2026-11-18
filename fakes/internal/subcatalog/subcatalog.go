@@ -203,7 +203,7 @@ func entry(sc scenario.Scenario, c scenario.CatalogSubtitle) Subtitle {
 		}
 		h := fnv.New64a()
 		_, _ = h.Write([]byte(c.ID))
-		s.Speech = append(s.Speech, scenario.MediaSpeech{Seed: h.Sum64()>>1 + uint64(i), Length: 2 * time.Minute, Density: 0.4}) //nolint:gosec // G115: i is a member index
+		s.Speech = append(s.Speech, scenario.MediaSpeech{Seed: h.Sum64()>>1 + uint64(i), Length: 2 * time.Minute, Density: 0.4})
 	}
 	return s
 }

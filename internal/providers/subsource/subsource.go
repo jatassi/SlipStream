@@ -121,7 +121,7 @@ func (c *Client) titles(ctx context.Context, cr calls.Credentials, v url.Values)
 
 // title is the movieId of the subject: a film, or the series' season,
 // each its own title. It looks up the IMDb id, then the title and year.
-func (c *Client) title(ctx context.Context, cr calls.Credentials, s subtitling.Subject) (int, bool, error) {
+func (c *Client) title(ctx context.Context, cr calls.Credentials, s subtitling.Subject) (movieID int, ok bool, err error) {
 	kind := "movie"
 	v := url.Values{}
 	if s.Kind == subtitling.Episode {
