@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 import { sentenceOf } from "../api/errors";
-import type { SubtitlesAttempt, SubtitlesProvider } from "../api/gen/model";
+import type { SubtitlesProvider } from "../api/gen/model";
 import { useNow } from "../tasks/use-now";
 import { AlertLine } from "../ui/alert-line";
 import { Spinner } from "../ui/spinner";
