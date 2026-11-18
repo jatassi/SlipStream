@@ -723,3 +723,16 @@ func TestVendorSynced(t *testing.T) {
 		"web/vendor/kit/kit/extra.mjs:1: [vendor-synced] has no counterpart at .claude/skills/kit/kit/extra.mjs" + resync,
 	})
 }
+
+func TestSubtitlesPure(t *testing.T) {
+	const imported = " imported by a pure package; its caller does the IO and passes the result"
+	assertFindings(t, check(t, "subtitles-pure", fixtureRepo(t, "subtitles-pure")), []string{
+		"internal/media/speech/frames/frames.go:5: [subtitles-pure] time.Until in a pure package; take the time from the caller",
+		"internal/subtitles/timing/align.go:5: [subtitles-pure] math/rand/v2" + imported,
+		"internal/subtitles/timing/align.go:6: [subtitles-pure] net/http" + imported,
+		"internal/subtitles/timing/align.go:10: [subtitles-pure] example.com/app/internal/storage" + imported,
+		"internal/subtitles/timing/align.go:14: [subtitles-pure] os.Open in a pure package; only os error values are allowed",
+		"internal/subtitles/timing/align.go:21: [subtitles-pure] time.Now in a pure package; take the time from the caller",
+		"internal/subtitles/timing/align.go:21: [subtitles-pure] time.Since in a pure package; take the time from the caller",
+	})
+}
