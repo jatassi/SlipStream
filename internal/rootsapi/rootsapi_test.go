@@ -195,7 +195,7 @@ func serve(t *testing.T) *server {
 			return 7, s.steps, s.steps != nil
 		},
 	})
-	n := node{svc, w, goals, library.New(library.Config{History: entrytest.Ignored("library", library.Entries()), Library: lib, Works: w, Targets: goals, Roots: svc}), im}
+	n := node{svc, w, goals, library.New(library.Config{Subtitles: library.NoMarks{}, History: entrytest.Ignored("library", library.Entries()), Library: lib, Works: w, Targets: goals, Roots: svc}), im}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) {
 		rootsapi.Routes(r, n)
 		worksapi.Routes(r, n)

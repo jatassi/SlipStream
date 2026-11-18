@@ -6,6 +6,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -15,6 +16,9 @@ type Row struct {
 	Rollup files.Rollup
 	// Gone counts its files a library scan found missing.
 	Gone int
+	// Subtitles is how its subtitles read in the list, zero when every
+	// want is met.
+	Subtitles subtitles.LibraryMark
 }
 
 // Rows answers s from one snapshot, by sort label then id.
@@ -47,9 +51,13 @@ func (l *Library) rowsIn(ctx context.Context, r storage.Reader[storage.Library],
 	if err != nil {
 		return nil, err
 	}
+	marks, err := l.cfg.Subtitles.LibraryRows(ctx, r)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]Row, len(ws))
 	for i, w := range ws {
-		out[i] = Row{Work: w, Rollup: rolled[i], Gone: gone[w.ID]}
+		out[i] = Row{Work: w, Rollup: rolled[i], Gone: gone[w.ID], Subtitles: marks[w.ID]}
 	}
 	return out, nil
 }

@@ -63,19 +63,21 @@ func editionsFrom(e api.OneOf[editions]) (targets.Editions, error) {
 	return list, nil
 }
 
-type wantedLanguage struct {
+// WantedLanguage is one of a Profile's Wanted Languages on the wire.
+type WantedLanguage struct {
 	Language        string `json:"language" minLength:"2" maxLength:"5" doc:"An ISO 639 code, or pt-BR for Brazilian Portuguese"`
 	Forced          bool   `json:"forced" doc:"Whether only the lines in another language, such as signs, are wanted, not every line of dialogue"`
 	HearingImpaired string `json:"hearingImpaired" enum:"avoid,allow,prefer" doc:"How hearing-impaired subtitles rank. avoid uses one only when nothing else fits, and prefer chooses one first when one fits"`
 	Audio           string `json:"audio" enum:"always,no_audio" doc:"When the language is wanted. always is whatever the audio, and no_audio is only when no audio track is in the language"`
 }
 
-func wantedLanguageOf(l targets.WantedLanguage) wantedLanguage {
-	return wantedLanguage{Language: l.Language.String(), Forced: l.Forced, HearingImpaired: string(l.HI), Audio: string(l.Audio)}
+// WantedLanguageOf is l on the wire.
+func WantedLanguageOf(l targets.WantedLanguage) WantedLanguage {
+	return WantedLanguage{Language: l.Language.String(), Forced: l.Forced, HearingImpaired: string(l.HI), Audio: string(l.Audio)}
 }
 
 // languagesFrom reads a body's Wanted Languages.
-func languagesFrom(in []wantedLanguage) ([]targets.WantedLanguage, error) {
+func languagesFrom(in []WantedLanguage) ([]targets.WantedLanguage, error) {
 	out := make([]targets.WantedLanguage, len(in))
 	for i, l := range in {
 		c, err := language.Parse(l.Language)
@@ -96,17 +98,17 @@ type Profile struct {
 	Default     bool                `json:"default" doc:"Whether a Work added with no Profile uses it"`
 	Targets     []entry             `json:"targets" nullable:"false" doc:"In Profile order: a file is named after the first Target it is the file for"`
 	Editions    api.OneOf[editions] `json:"editions"`
-	Languages   []wantedLanguage    `json:"languages" nullable:"false" doc:"The subtitle languages its Works' files want, in the Admin's order"`
+	Languages   []WantedLanguage    `json:"languages" nullable:"false" doc:"The subtitle languages its Works' files want, in the Admin's order"`
 	Works       int                 `json:"works" minimum:"0" doc:"The Works that use it"`
 }
 
 func profileOf(p targets.Profile) Profile {
 	out := Profile{
 		ID: p.ID.String(), Name: p.Name, ContentType: string(p.ContentType), Default: p.Default, Targets: []entry{},
-		Editions: editionsOf(p.Editions), Languages: []wantedLanguage{}, Works: p.Works,
+		Editions: editionsOf(p.Editions), Languages: []WantedLanguage{}, Works: p.Works,
 	}
 	for _, l := range p.Languages {
-		out.Languages = append(out.Languages, wantedLanguageOf(l))
+		out.Languages = append(out.Languages, WantedLanguageOf(l))
 	}
 	for _, e := range p.Entries {
 		out.Targets = append(out.Targets, entry{TargetID: e.Target.String(), Sourcing: string(e.Sourcing)})
@@ -130,7 +132,7 @@ type newProfile struct {
 	ContentType string              `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 	Targets     []entry             `json:"targets" nullable:"false" uniqueItems:"true" doc:"In Profile order; none is a Profile whose Works need no files"`
 	Editions    api.OneOf[editions] `json:"editions"`
-	Languages   []wantedLanguage    `json:"languages" nullable:"false" doc:"In the Admin's order, each language once as full and once as forced only at most; none for a Content Type without subtitles"`
+	Languages   []WantedLanguage    `json:"languages" nullable:"false" doc:"In the Admin's order, each language once as full and once as forced only at most; none for a Content Type without subtitles"`
 }
 
 type createProfileInput struct{ Body newProfile }

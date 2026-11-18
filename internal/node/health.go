@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/trackers"
 )
@@ -27,6 +28,7 @@ func healthCategories(h *half) []health.Category {
 		{About: mediaservers.HealthAbout, Source: h.mediaServersHealth},
 		{About: trackers.HealthAbout, Source: health.Join(h.trackers.HealthSource(), h.tasks.HealthSource(health.SeedingID))},
 		{About: indexers.HealthAbout, Source: health.Join(h.indexers.HealthSource(), h.tasks.HealthSource(health.IndexersID))},
+		{About: subtitles.HealthAbout, Source: health.Join(h.subtitles.HealthSource(), h.tasks.HealthSource(health.SubtitlesID))},
 		{About: tasks.HealthAbout, Source: h.tasks.HealthSource(health.ScheduledTasksID)},
 		{About: notifications.HealthAbout, Source: h.notifications.HealthSource()},
 	}

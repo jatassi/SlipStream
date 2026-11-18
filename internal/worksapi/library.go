@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -36,6 +37,7 @@ type libraryRow struct {
 	ItemStatus  api.Counts[filesapi.State]             `json:"itemStatus" doc:"Its monitored Items by status; an Item with no Target isn't counted"`
 	NeedsYou    int                                    `json:"needsYou" minimum:"0" doc:"The entries of its Needs you, leaving out not_found ones, which show on the Work page only"`
 	Wanted      *string                                `json:"wanted" enum:"failed,missing,upgrade,gone" doc:"The first reason Wanted lists it for, in this order; null while Wanted doesn't list it"`
+	Subtitles   *string                                `json:"subtitles" enum:"missing,none_passed" doc:"missing while a wanted subtitle of one of its files has nothing that meets it, none_passed when the last search for one found subtitles and none matched the timing; null while every wanted subtitle is met"`
 	Values      map[string]api.Bare                    `json:"values" doc:"Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out"`
 }
 
@@ -74,6 +76,8 @@ func (h handlers) listLibrary(ctx context.Context, by identity.Admin, in *librar
 	return &libraryRowsOutput{Body: libraryRows{Rows: rowsOf(minter(h.shelf), rows)}}, nil
 }
 
+var subtitleMarks = map[subtitles.LibraryMark]string{subtitles.MarkMissing: "missing", subtitles.MarkNonePassed: "none_passed"}
+
 func rowsOf(m artwork.Minter, rows []library.Row) []libraryRow {
 	out := make([]libraryRow, len(rows))
 	for i, row := range rows {
@@ -92,6 +96,9 @@ func rowOf(m artwork.Minter, row library.Row) libraryRow {
 	}
 	if rt := w.Rating; rt != nil {
 		out.Rating = api.Some(rowRating{Source: string(rt.Source), Value: rt.Value, Scale: works.RatingSources[rt.Source].Scale})
+	}
+	if m, ok := subtitleMarks[row.Subtitles]; ok {
+		out.Subtitles = new(m)
 	}
 	if r.Reason != 0 {
 		out.Wanted = new(r.Reason.String())
