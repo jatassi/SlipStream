@@ -33,7 +33,7 @@ test("with no subtitle language yet, the lead says so and opens Profiles", async
 
 test("with movies wanted and no provider for them, the lead offers SubDL's key and names what Gestdown searches", async () => {
   const { section } = openSection({
-    lead: { ...readyLead, kind: "uncovered", uncovered: ["movie"] },
+    lead: { ...readyLead, kind: "uncovered", uncovered: ["cinema"] },
   });
   await expect
     .element(

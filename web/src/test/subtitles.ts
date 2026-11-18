@@ -137,7 +137,7 @@ export const slotsField = (value: number): SettingField => ({
   unit: { one: "scan", many: "scans" },
 });
 
-export const movies: WorksContentType = { ...cinema, id: "movie", name: "Movies" };
+export const movies: WorksContentType = { ...cinema, name: "Movies" };
 
 export const tv: WorksContentType = {
   ...cinema,
@@ -192,7 +192,7 @@ export const english = {
 export const moviesLanguages: SubtitlesProfileLanguages = {
   id: "0199e1f2-7a3b-7c4d-8e5f-000000000011",
   name: "Movies",
-  contentType: "movie",
+  contentType: "cinema",
   languages: [english],
 };
 
