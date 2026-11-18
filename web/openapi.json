@@ -9616,6 +9616,7 @@
               "grabs",
               "imports",
               "library",
+              "subtitles",
               "health"
             ],
             "type": "string"
@@ -9740,6 +9741,7 @@
               "grabs",
               "imports",
               "library",
+              "subtitles",
               "health"
             ],
             "type": "string"
@@ -17915,6 +17917,7 @@
               "grabs",
               "imports",
               "library",
+              "subtitles",
               "health",
               "system"
             ],
@@ -39476,17 +39479,18 @@
             }
           },
           {
-            "description": "Only these groups; left out, all four",
+            "description": "Only these groups; left out, all five",
             "explode": false,
             "in": "query",
             "name": "groups",
             "schema": {
-              "description": "Only these groups; left out, all four",
+              "description": "Only these groups; left out, all five",
               "items": {
                 "enum": [
                   "grabs",
                   "imports",
                   "library",
+                  "subtitles",
                   "health"
                 ],
                 "type": "string"

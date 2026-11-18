@@ -1779,7 +1779,7 @@ export type EmailChangeInputBodyOutput = zod.output<typeof EmailChangeInputBody>
 export const NotificationsEvent = zod.object({
   bellByDefault: zod.boolean(),
   fixed: zod.boolean().describe("Never chosen: a Test is sent only when the Admin asks"),
-  group: zod.enum(["grabs", "imports", "library", "health", "system"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "system"]),
   id: zod.string(),
   label: zod.string(),
   onByDefault: zod.boolean().describe("A new connection gets it unless the Admin picks otherwise"),
@@ -5597,7 +5597,7 @@ export type HistoryKind = zod.input<typeof HistoryKind>;
 export type HistoryKindOutput = zod.output<typeof HistoryKind>;
 
 export const HistoryGroup = zod.object({
-  group: zod.enum(["grabs", "imports", "library", "health"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health"]),
   kinds: zod.array(HistoryKind),
   label: zod.string(),
 });
@@ -5658,7 +5658,7 @@ export type HistoryWorkSummaryOutput = zod.output<typeof HistoryWorkSummary>;
 
 export const HistoryListEntry = zod.object({
   at: zod.iso.datetime({ offset: true }).describe("When it was captured"),
-  group: zod.enum(["grabs", "imports", "library", "health"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health"]),
   id: zod.int(),
   kind: zod.string().describe("A kind GET /history/kinds lists"),
   links: HistoryLinks,

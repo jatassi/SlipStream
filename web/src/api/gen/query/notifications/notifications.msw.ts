@@ -261,6 +261,7 @@ export const getListNotificationEventsResponseMock = (
         "grabs",
         "imports",
         "library",
+        "subtitles",
         "health",
         "system",
       ] as const),
