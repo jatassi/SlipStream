@@ -145,9 +145,7 @@ export const markedBadWords = (wanted: TargetsWantedLanguage, searchOn: boolean)
 
 /** Search's toast, which says a search runs only while Subtitle search is on. */
 export const searchingWords = (wanted: TargetsWantedLanguage, searchOn: boolean) =>
-  searchOn
-    ? `Searching for the ${subtitleOf(wanted)}.`
-    : turnOnWords(`the ${subtitleOf(wanted)}`);
+  searchOn ? `Searching for the ${subtitleOf(wanted)}.` : turnOnWords(`the ${subtitleOf(wanted)}`);
 
 /** The sheet's and dialog's title: what it looks for, and on which file. */
 export const sheetTitle = (wanted: TargetsWantedLanguage, file: string) =>

@@ -141,7 +141,7 @@ export const uhdId = uhd?.id ?? "";
 
 type Answer = () => Response | Promise<Response>;
 
-type SubtitlesWorld = {
+export type SubtitlesWorld = {
   readonly work: SubtitlesWorkSubtitles;
   readonly search?: Answer;
   readonly start?: Answer;
@@ -243,7 +243,10 @@ export function subtitlesServer(world: SubtitlesWorld) {
       HttpResponse.json({
         settings: subtitleSettings().map((field) =>
           field.key === "subtitles.searchOn"
-            ? { ...field, value: world.searchOn ?? true, running: world.searchOn ?? true }
+            ? Object.assign(field, {
+                value: world.searchOn ?? true,
+                running: world.searchOn ?? true,
+              })
             : field,
         ),
         lead: readyLead,

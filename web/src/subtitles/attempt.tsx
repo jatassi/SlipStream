@@ -9,6 +9,7 @@ import { toast } from "../ui/toast";
 import type { SubtitleSubject } from "./search-host";
 import { addedWords, endedWords, stepWords } from "./sheet-words";
 import { useAttempt } from "./work-api";
+// oxlint-disable-next-line import/max-dependencies -- the line follows an attempt's steps and outcome, and says why its read failed
 import { providerName } from "./work-words";
 
 /**
