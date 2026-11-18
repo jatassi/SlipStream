@@ -26,7 +26,7 @@ const (
 func TestSubDLConforms(t *testing.T) {
 	key := os.Getenv("TEST_ONLINE_SUBDL_KEY")
 	if key == "" {
-		t.Skip("TEST_ONLINE_SUBDL_KEY is not set until CI holds a SubDL key as the SUBDL_API_KEY repository secret")
+		t.Skip("TEST_ONLINE_SUBDL_KEY is not set until CI holds a SubDL key as the SUBDL_API_KEY repository secret: https://github.com/jatassi/SlipStream/issues/642")
 	}
 	var bodies []shape.Body
 	tgt := conformance.Target{
