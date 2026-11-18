@@ -24,7 +24,7 @@ An Admin adds a Wanted Language to a Profile, and SlipStream records a want for 
 - `subtitles-work-rows` the Work page's Files section shows, inside each file's row, one subtitle row per Wanted Language in Profile order: a language chip with its state icon, one sentence on what the subtitle is or why there is none, Search, Manual search and Upload, and a "…" menu with Mark bad… and Don't count this track; a timed subtitle's Details list its Timing sync numbers, and the file's Details list its embedded tracks and the subtitle files beside it (P-368).
 - `subtitles-season-fold` a series' files fold per season, the first season with a missing subtitle open, each episode's language chips opening into the same rows; the open seasons are kept per Work in the browser (P-368).
 - `subtitles-library-filter` the Library's Filter offers Subtitles, "Subtitles missing" and "None matched the timing", at the address key `subtitles=missing,none-passed`; a Work none of whose found subtitles matched counts as missing too (P-368).
-- `subtitles-manual-sheets` a row's Manual search opens a 940 dialog on desktop and a full sheet on phone, Upload a dialog with a drop target, and Mark bad… a question naming the file version; until Subtitle search lands each shows "This build of SlipStream can't search for, download or upload subtitles yet." (P-368).
+- `subtitles-manual-sheets` a row's Manual search opens a 940 dialog on desktop and a full sheet on phone: the candidates ranked with the first as Best and each one's ranking steps, earlier tries folded under Tried before, and one line for each provider that found nothing or is paused, such as "SubDL is out of downloads. SlipStream searches it again tonight at 00:00."; a pick shows "Downloading from SubDL…" and "Checking timing…", then toasts "English subtitle added." and closes, or stays open with why it failed: its timing match against the threshold, or for a download the provider didn't serve, "SubDL is out of downloads. SlipStream searches it again tonight at 00:00. Pick another subtitle."; Upload is a dialog with a drop target whose passing file toasts "English subtitle added." and whose failing file offers Keep anyway under Details; Mark bad… asks a question naming the file version, or the Admin's own file for an upload, then toasts "English subtitle marked bad. SlipStream is searching for another." (P-368).
 
 ## How to get to it (user POV)
 
@@ -150,11 +150,19 @@ Steps:
   $FW exec $RUN --proof subtitles/subtitles-mark-bad -- find '{mediaDir}/movies' -name '*.srt'
   ```
 
-- **The Work page.** With English wanted on `Movies` and on `TV`, copy Lanterns at Low Tide into the Movies root and The Tin Signal's three episodes into the TV root, scan both, and open each Work page at desktop and phone width. The film's row shows English as embedded; Don't count this track turns it missing. The series folds its files into Season 1 and Season 2, the first season with a missing subtitle open; its chips open into the rows. Then press a row's Manual search, Upload and Mark bad… where offered: each shows the not-built sentence.
+- **The Work page.** With English wanted on `Movies` and on `TV`, copy Lanterns at Low Tide into the Movies root and The Tin Signal's three episodes into the TV root, scan both, and open each Work page at desktop and phone width. The film's row shows English as embedded; Don't count this track turns it missing. The series folds its files into Season 1 and Season 2, the first season with a missing subtitle open; its chips open into the rows. The sheets themselves need films with speech and a provider catalog: see **The sheets** below.
 
   ```sh
   $FW exec $RUN --proof subtitles/subtitles-work-rows -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$WORK"
   $FW exec $RUN --proof subtitles/subtitles-work-rows -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/subtitles/subtitles-work-rows/movie-desktop.png
+  ```
+
+- **The sheets.** On a Scenario whose films have speech audio and whose `subtitle_providers.catalog` lists a passing and a failing subtitle per film (SubDL and SubSource keyed, `subtitles.searchOn` false so nothing fetches first), open a film's Manual search at desktop and phone width: both candidates list, Best first. Pick the failing one: the sheet stays open with its timing match. Pick the passing one: "Downloading from SubSource…", then the toast, and the sheet closes. On another film, Upload a file whose cues follow its speech: the toast. On a third, Upload one off its speech, open Details and press Keep anyway. Mark bad… the uploaded subtitle: the question names the file, and its `.srt` leaves the disk. Open Manual search on a film with a SubDL candidate, run `$FW cue $RUN subdl-daily-limit '{}'`, then pick it: the sheet reads "SubDL is out of downloads. SlipStream searches it again tonight at 00:00. Pick another subtitle.", and its attempt reads `unfetched` with `answer.until`. A new search then lists SubDL's pause among `outcomes`, one entry per provider that searches films.
+
+  ```sh
+  $FW exec $RUN --proof subtitles/subtitles-manual-sheets -- $PW cli -s={runId}-admin-desktop click 'getByRole("list", { name: "Subtitles" }).getByRole("button", { name: "Manual search" })'
+  $FW cue $RUN subdl-daily-limit '{}'
+  $FW exec $RUN --proof subtitles/subtitles-manual-sheets -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/subtitles/subtitles-manual-sheets/unfetched-desktop.png
   ```
 
 - **The Library filter.** Open `{nodes.home.browserUrl}/library?subtitles=missing`: only Works with a missing subtitle stay, and Filter shows Subtitles with both choices and their counts.
