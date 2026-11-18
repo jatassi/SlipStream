@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/subtitles/subtitlestest"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -52,6 +53,45 @@ func TestASurveyAdoptsTheFoundCompanionsTheWantsPrefer(t *testing.T) {
 				extras := query(t, w, `SELECT companions FROM subtitles_file WHERE file_id = ?`, f)
 				if len(extras) != 1 || extras[0] == "" {
 					t.Fatalf("the survey kept no extras for the companions nothing wants")
+				}
+			})
+		})
+	}
+}
+
+func TestAGainedLanguageAdoptsTheCompanionTheLastSurveyListed(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		hi   targets.HI
+		want string
+	}{
+		{"hearing-impaired preferred", targets.Prefer, "en.hi.srt found 1"},
+		{"hearing-impaired avoided", targets.Avoid, "en.srt found 1"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				w := world(t, nil)
+				p := w.Profile("Films")
+				for _, tail := range []string{"en.srt", "en.hi.srt"} {
+					w.Put("Copper Kettle (2012)/Copper Kettle (2012)."+tail, "subtitle "+tail)
+				}
+				f := w.Place(w.Work("copper", p), "Copper Kettle (2012)/Copper Kettle (2012).mkv", audio("fr"))
+				w.Sweep()
+				english := subtitlestest.Wanted(t, "en", false, c.hi, targets.Always)
+				preview := w.Preview(p, "Films", english)
+				if g := preview.Subtitles.Gained; len(g) != 1 || g[0].Files != 0 {
+					t.Fatalf("gaining English previews %+v, want no search: a subtitle beside the file meets it", g)
+				}
+				w.Languages(p, "Films", english)
+				if got := sidecars(t, w); !slices.Equal(got, []string{c.want}) {
+					t.Fatalf("after gaining English the Sidecars are %v, want %s", got, c.want)
+				}
+				st := outcome(t, w, f, subtitles.Want{Language: english.Language})
+				if st.Kind != subtitles.Met || st.Sidecar.Source != subtitles.Found || !st.Sidecar.Final {
+					t.Fatalf("English reads %+v, want met by the found subtitle", st)
+				}
+				if got := query(t, w, `SELECT count(*) FROM subtitles_want WHERE unmet = 1`); got[0] != "0" {
+					t.Fatalf("%s want rows are unmet, want none", got[0])
 				}
 			})
 		})
