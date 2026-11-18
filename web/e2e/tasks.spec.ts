@@ -22,7 +22,7 @@ const seedboxUnit = (page: Page) =>
     .getByRole("table", { name: "Units" })
     .getByRole("row", { name: /Local database on seedbox/u });
 
-const progress = /home, seedbox · \d+ of 12 steps/u;
+const progress = /home, seedbox · \d+ of 13 steps/u;
 
 async function slowSeedbox(world: World): Promise<() => Promise<unknown>> {
   await world.fw.fault.set({ id: "slow-link", target: "link/home", fault: "latency=4s" });
@@ -79,7 +79,7 @@ test("Run now shows the run at once, in the capsule or atop Activity, and it end
   await navigate(page, "Tasks");
   await expect(housekeepingRow(page)).toContainText("Succeeded");
   await page.getByRole("link", { name: "Housekeeping", exact: true }).click();
-  await expect(runs(page).first()).toContainText(/^Succeeded12 stepsRun now/u);
+  await expect(runs(page).first()).toContainText(/^Succeeded13 stepsRun now/u);
 });
 
 test("with seedbox stopped Run now is Partial, and its return runs seedbox's unit", async ({
@@ -90,7 +90,7 @@ test("with seedbox stopped Run now is Partial, and its return runs seedbox's uni
   await page.goto("/tasks/housekeeping");
   await pageAction(page, "Run now: Housekeeping").click();
   await expect(runs(page).first()).toContainText(
-    /^Partial11 of 12 steps, seedbox offlineRun now/u,
+    /^Partial12 of 13 steps, seedbox offlineRun now/u,
     {
       timeout: 30_000,
     },
