@@ -67,7 +67,11 @@ type Target struct {
 func Run(t *testing.T, tgt Target) {
 	t.Helper()
 	ctx := t.Context()
-	w := &wire{next: tgt.Client.Transport, api: tgt.Endpoints.API.JoinPath().Host}
+	next := tgt.Client.Transport
+	if next == nil {
+		next = http.DefaultTransport
+	}
+	w := &wire{next: next, api: tgt.Endpoints.API.JoinPath().Host}
 	rec := shape.NewRecorder(w, route)
 	client := func() *provider.Client {
 		c := *tgt.Client

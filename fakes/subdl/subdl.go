@@ -84,7 +84,7 @@ type server struct {
 }
 
 func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
-	srv := &server{catalog: subcatalog.FromScenario(s).Subtitles, fronts: env.Fronts, seen: map[string]bool{}, revoked: map[string]bool{}}
+	srv := &server{catalog: subcatalog.Of(s, env.Name), fronts: env.Fronts, seen: map[string]bool{}, revoked: map[string]bool{}}
 	for name, play := range map[string]func(context.Context, Key) (any, error){RevokeKey.Name: srv.revoke, DailyLimit.Name: srv.spend} {
 		if err := fake.OnCue(env, name, play); err != nil {
 			return nil, err
@@ -359,10 +359,10 @@ func item(c subcatalog.Subtitle, dl, key string) subtitleJSON {
 	case len(c.Episodes) == 1:
 		out.Episode = &c.Episodes[0]
 	}
-	for i, m := range subcatalog.Members(c) {
+	for i, m := range members(c) {
 		u := unpackJSON{Name: m.Name, URL: keyed("/subtitle/" + c.ID + "/" + strconv.Itoa(i) + "/" + url.PathEscape(m.Name)), Format: c.Format.Ext()}
-		if c.Pack() && i > 0 {
-			u.Episode = &c.Episodes[i-1]
+		if c.Pack() && m.Episode > 0 {
+			u.Episode = &m.Episode
 		}
 		out.UnpackFiles = append(out.UnpackFiles, u)
 	}
@@ -399,7 +399,7 @@ func (s *server) download(w http.ResponseWriter, r *http.Request) {
 		failure(w, http.StatusTooManyRequests, "quota_exceeded", "Daily download quota exceeded")
 		return
 	}
-	b, err := subcatalog.Render(s.catalog[i])
+	b, err := subcatalog.Zip(members(s.catalog[i]))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -408,6 +408,14 @@ func (s *server) download(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(s.catalog[i].Release+".zip"))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(b)
+}
+
+// members are a download's files: a pack opens with SubDL's notice.
+func members(c subcatalog.Subtitle) []subcatalog.Member {
+	if c.Pack() {
+		return append([]subcatalog.Member{subcatalog.Junk(c)}, subcatalog.Members(c)...)
+	}
+	return subcatalog.Members(c)
 }
 
 func failure(w http.ResponseWriter, status int, code, message string) {

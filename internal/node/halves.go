@@ -52,8 +52,10 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/system/v1/systemv1connect"
 	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/ports/port"
+	"github.com/jatassi/slipstream/internal/providers/gestdown"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/subdl"
+	"github.com/jatassi/slipstream/internal/providers/subsource"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
 	"github.com/jatassi/slipstream/internal/release"
@@ -838,7 +840,11 @@ func (n *Node) subtitlesHolder(client *http.Client) *subtitling.Holder {
 // subtitleProviders is every Subtitle Provider, in its default search
 // order.
 func subtitleProviders(lines *calls.Lines, cfg Config) []subtitling.Provider {
-	return []subtitling.Provider{subdl.New(lines, cfg.Endpoints.SubDL, cfg.Timings.SubDL)}
+	return []subtitling.Provider{
+		subdl.New(lines, cfg.Endpoints.SubDL, cfg.Timings.SubDL),
+		subsource.New(lines, cfg.Endpoints.SubSource, cfg.Timings.SubSource),
+		gestdown.New(lines, cfg.Endpoints.Gestdown, cfg.Timings.Gestdown),
+	}
 }
 
 // openLibraries opens every Content Type's library half, on the

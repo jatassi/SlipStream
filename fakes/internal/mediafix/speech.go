@@ -38,7 +38,7 @@ func (r SpeechRecipe) recipe() recipe {
 	args := []string{"-v", "error", "-y", "-f", "lavfi", "-i", video, "-itsoffset", seconds(r.Delay), "-i", "speech.wav",
 		"-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "ultrafast", "-threads", "1", "-c:a", "pcm_s16le"}
 	return recipe{
-		files: []file{{"speech.wav", string(speechtest.WAV(r.Runs, r.Length))}},
+		files: []file{{name: "speech.wav", text: string(speechtest.WAV(r.Runs, r.Length))}},
 		steps: []step{{"ffmpeg", append(append(args, bitexact...), "speech.mkv")}},
 		out:   "speech.mkv",
 	}

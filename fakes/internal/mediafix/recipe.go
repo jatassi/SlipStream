@@ -7,7 +7,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jatassi/slipstream/fakes/internal/speech"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/internal/media/speech/speechtest"
 )
 
 // recipe is the commands that make one file in an empty folder: write
@@ -18,7 +20,9 @@ type recipe struct {
 	out   string
 }
 
-type file struct{ name, text string }
+// file is one file a recipe writes. key stands for text in the cache key
+// when set, so a long file keys on what makes it.
+type file struct{ name, text, key string }
 
 type step struct {
 	tool string // ffmpeg or dovi_tool
@@ -59,7 +63,7 @@ func recipeOf(stem string, f scenario.MediaFile, salt string) recipe {
 		codec = hevc(pq+",format=yuv420p10le", x265+":hdr10=1:"+masterDisplay)
 	case "hdr10plus":
 		plus := stem + ".hdr10plus.json"
-		r.files = append(r.files, file{plus, hdr10PlusJSON(v.Seconds * fps)})
+		r.files = append(r.files, file{name: plus, text: hdr10PlusJSON(v.Seconds * fps)})
 		codec = hevc(pq+",format=yuv420p10le", x265+":hdr10=1:dhdr10-info="+plus+":"+masterDisplay)
 	case "hlg":
 		codec = hevc(hlg+",format=yuv420p10le", x265)
@@ -75,18 +79,17 @@ func recipeOf(stem string, f scenario.MediaFile, salt string) recipe {
 	args := append([]string{"-v", "error", "-y"}, source...)
 	maps := []string{"-map", "0:v"}
 	var tracks []string
-	subtitles := 1
+	inputs := 1
 	if len(f.Audio) > 0 {
-		subtitles = 2
-		args = append(args, "-f", "lavfi", "-i", fmt.Sprintf("sine=frequency=440:sample_rate=48000:duration=%d", v.Seconds))
-		graph, audio := audioGraph(f.Audio)
-		args = append(args, "-filter_complex", graph)
+		var audio []string
+		args, audio, inputs = r.audio(stem, f, args)
 		maps = append(maps, audio...)
 		tracks = append(tracks, audioTracks(f.Audio)...)
 	}
+	subtitles := inputs
 	for i, s := range f.Subtitles {
 		srt := fmt.Sprintf("%s.%d.srt", stem, i+1)
-		r.files = append(r.files, file{srt, fmt.Sprintf("1\n00:00:00,000 --> 00:00:01,000\nSubtitle %d\n", i+1)})
+		r.files = append(r.files, file{name: srt, text: fmt.Sprintf("1\n00:00:00,000 --> 00:00:01,000\nSubtitle %d\n", i+1)})
 		args = append(args, "-i", srt)
 		maps = append(maps, "-map", strconv.Itoa(subtitles+i))
 		tracks = append(tracks, subtitleTrack(i, s)...)
@@ -119,7 +122,7 @@ func hevc(filter, params string) []string {
 // carries no configuration record. It answers the re-encode's input.
 func (r *recipe) dolbyVision(stem string, source, base []string, rpu string) []string {
 	baseFile, rpuJSON, rpuFile, injected := stem+"-base.hevc", stem+".dovi.json", stem+".rpu", stem+"-rpu.hevc"
-	r.files = append(r.files, file{rpuJSON, rpu + "\n"})
+	r.files = append(r.files, file{name: rpuJSON, text: rpu + "\n"})
 	r.steps = append(r.steps,
 		step{"ffmpeg", slices.Concat([]string{"-v", "error", "-y"}, source, base, []string{"-fflags", "+bitexact", "-flags:v", "+bitexact", "-f", "hevc", baseFile})},
 		step{"dovi_tool", []string{"generate", "-j", rpuJSON, "-o", rpuFile}},
@@ -150,21 +153,47 @@ func layoutOf(a scenario.MediaAudio) string {
 	return layouts[a.Channels]
 }
 
-// audioGraph splits input 1's tone into one pan per track, and answers
-// the graph and each track's -map.
-func audioGraph(audio []scenario.MediaAudio) (graph string, maps []string) {
+// audio adds the inputs that make f's audio, after the video's: one 440
+// Hz tone split into a pan per tone track, and each speech track's PCM,
+// written in Go so ffmpeg only remuxes it. It answers the args, each
+// track's -map in track order, and the next input's index.
+func (r *recipe) audio(stem string, f scenario.MediaFile, args []string) (out, maps []string, next int) {
 	var split, pans strings.Builder
-	split.WriteString("[1:a]asplit=" + strconv.Itoa(len(audio)))
-	for i, a := range audio {
-		fmt.Fprintf(&split, "[s%d]", i)
-		fmt.Fprintf(&pans, ";[s%d]pan=%s", i, layoutOf(a))
+	next, tones := 1, 0
+	for _, a := range f.Audio {
+		if a.Speech == nil {
+			tones++
+		}
+	}
+	if tones > 0 {
+		args = append(args, "-f", "lavfi", "-i", fmt.Sprintf("sine=frequency=440:sample_rate=48000:duration=%d", f.Video.Seconds))
+		split.WriteString("[1:a]asplit=" + strconv.Itoa(tones))
+		next++
+	}
+	tone := 0
+	for i, a := range f.Audio {
+		if a.Speech != nil {
+			pcm := fmt.Sprintf("%s.a%d.pcm", stem, i+1)
+			key := fmt.Sprintf("speech seed %d density %g length %v", a.Speech.Seed, a.Speech.Density, a.Speech.Length)
+			r.files = append(r.files, file{name: pcm, text: string(speech.PCM(*a.Speech)), key: key})
+			args = append(args, "-f", "s16le", "-ar", strconv.Itoa(speechtest.Rate), "-ac", "1", "-i", pcm)
+			maps = append(maps, "-map", strconv.Itoa(next)+":a")
+			next++
+			continue
+		}
+		fmt.Fprintf(&split, "[s%d]", tone)
+		fmt.Fprintf(&pans, ";[s%d]pan=%s", tone, layoutOf(a))
 		for c := range a.Channels {
 			fmt.Fprintf(&pans, "|c%d=c0", c)
 		}
-		fmt.Fprintf(&pans, "[a%d]", i)
-		maps = append(maps, "-map", fmt.Sprintf("[a%d]", i))
+		fmt.Fprintf(&pans, "[a%d]", tone)
+		maps = append(maps, "-map", fmt.Sprintf("[a%d]", tone))
+		tone++
 	}
-	return split.String() + pans.String(), maps
+	if tones > 0 {
+		args = append(args, "-filter_complex", split.String()+pans.String())
+	}
+	return args, maps, next
 }
 
 func audioTracks(audio []scenario.MediaAudio) []string {

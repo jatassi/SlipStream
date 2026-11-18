@@ -6,6 +6,7 @@ package mediafix
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -193,7 +194,7 @@ func (b *Builder) run(ctx context.Context, r recipe, dir string) error {
 func (r *recipe) fileList() [][]string {
 	out := make([][]string, len(r.files))
 	for i, f := range r.files {
-		out[i] = []string{f.name, f.text}
+		out[i] = []string{f.name, cmp.Or(f.key, f.text)}
 	}
 	return out
 }
@@ -230,12 +231,17 @@ func Want(f scenario.MediaFile) media.Record {
 		r.HDR, r.DolbyVision = []release.HDR{"DV", "HDR10"}, &media.DolbyVision{Profile: 8, Level: dvLevel(v), Compatibility: 1}
 	}
 	for _, a := range f.Audio {
+		layout := layoutOf(a)
+		if a.Speech != nil {
+			// Matroska keeps no channel layout for PCM.
+			r.Duration, layout = max(r.Duration, a.Speech.Length), ""
+		}
 		profile := ""
 		if a.Codec == "aac" {
 			profile = "LC"
 		}
 		r.Audio = append(r.Audio, media.Audio{
-			Codec: a.Codec, Profile: profile, Channels: a.Channels, Layout: layoutOf(a), Language: languageOf(a.Language), Default: a.Default, Title: a.Title,
+			Codec: a.Codec, Profile: profile, Channels: a.Channels, Layout: layout, Language: languageOf(a.Language), Default: a.Default, Title: a.Title,
 		})
 	}
 	for _, s := range f.Subtitles {
