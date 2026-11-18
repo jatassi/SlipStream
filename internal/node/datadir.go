@@ -50,6 +50,10 @@ func (d DataDir) LocalDB() string { return filepath.Join(d.path, storage.LocalFi
 // ArtworkDir holds the Controller's artwork store, which local.db indexes.
 func (d DataDir) ArtworkDir() string { return filepath.Join(d.path, "artwork") }
 
+// SpeechMapsDir holds the Speech Maps of this Node's files, which local.db
+// indexes.
+func (d DataDir) SpeechMapsDir() string { return filepath.Join(d.path, "speechmaps") }
+
 // Resolve is p against the data dir, unless p is absolute.
 func (d DataDir) Resolve(p string) string {
 	if filepath.IsAbs(p) {

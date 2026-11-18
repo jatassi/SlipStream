@@ -142,33 +142,34 @@ func (c ContentTypeEndpoints) MarshalYAML() (any, error) {
 }
 
 type TimingsBlock struct {
-	Node          Timings               `yaml:"node"`
-	Storage       storage.Timings       `yaml:"storage"`
-	HTTP          api.Timings           `yaml:"http"`
-	Live          live.Timings          `yaml:"live"`
-	Link          link.Timings          `yaml:"link"`
-	Role          role.Timings          `yaml:"role"`
-	Nodes         nodes.Timings         `yaml:"nodes"`
-	Works         works.Timings         `yaml:"works"`
-	Indexers      indexers.Timings      `yaml:"indexers"`
-	Searching     searching.Timings     `yaml:"searching"`
-	Transfers     transfers.Timings     `yaml:"transfers"`
-	Grabs         grabs.Timings         `yaml:"grabs"`
-	Files         files.Timings         `yaml:"files"`
-	Formats       formats.Timings       `yaml:"formats"`
-	Downloading   downloading.Timings   `yaml:"downloading"`
-	Media         media.Timings         `yaml:"media"`
-	Mail          mail.Timings          `yaml:"mail"`
-	Serving       serving.Timings       `yaml:"serving"`
-	Storing       storing.Timings       `yaml:"storing"`
-	Metadata      metadata.Timings      `yaml:"metadata"`
-	TMDB          tmdb.Timings          `yaml:"tmdb"`
-	TVDB          tvdb.Timings          `yaml:"tvdb"`
-	OMDb          omdb.Timings          `yaml:"omdb"`
-	Health        health.Timings        `yaml:"health"`
-	MediaServers  mslink.Timings        `yaml:"media_servers"`
-	Notifications notifications.Timings `yaml:"notifications"`
-	Housekeeping  housekeeping.Timings  `yaml:"housekeeping"`
+	Node          Timings                `yaml:"node"`
+	Storage       storage.Timings        `yaml:"storage"`
+	HTTP          api.Timings            `yaml:"http"`
+	Live          live.Timings           `yaml:"live"`
+	Link          link.Timings           `yaml:"link"`
+	Role          role.Timings           `yaml:"role"`
+	Nodes         nodes.Timings          `yaml:"nodes"`
+	Works         works.Timings          `yaml:"works"`
+	Indexers      indexers.Timings       `yaml:"indexers"`
+	Searching     searching.Timings      `yaml:"searching"`
+	Transfers     transfers.Timings      `yaml:"transfers"`
+	Grabs         grabs.Timings          `yaml:"grabs"`
+	Files         files.Timings          `yaml:"files"`
+	Formats       formats.Timings        `yaml:"formats"`
+	Downloading   downloading.Timings    `yaml:"downloading"`
+	Media         media.Timings          `yaml:"media"`
+	Mail          mail.Timings           `yaml:"mail"`
+	Serving       serving.Timings        `yaml:"serving"`
+	Storing       storing.Timings        `yaml:"storing"`
+	Sidecars      storing.SidecarTimings `yaml:"sidecars"`
+	Metadata      metadata.Timings       `yaml:"metadata"`
+	TMDB          tmdb.Timings           `yaml:"tmdb"`
+	TVDB          tvdb.Timings           `yaml:"tvdb"`
+	OMDb          omdb.Timings           `yaml:"omdb"`
+	Health        health.Timings         `yaml:"health"`
+	MediaServers  mslink.Timings         `yaml:"media_servers"`
+	Notifications notifications.Timings  `yaml:"notifications"`
+	Housekeeping  housekeeping.Timings   `yaml:"housekeeping"`
 }
 
 type Timings struct {
@@ -240,6 +241,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Mail:          mail.DefaultTimings(),
 			Serving:       serving.DefaultTimings(),
 			Storing:       storing.DefaultTimings(),
+			Sidecars:      storing.DefaultSidecarTimings(),
 			Metadata:      metadata.DefaultTimings(),
 			TMDB:          tmdb.DefaultTimings(),
 			TVDB:          tvdb.DefaultTimings(),

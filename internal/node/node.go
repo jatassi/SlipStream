@@ -32,6 +32,8 @@ import (
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/media/fvad"
+	"github.com/jatassi/slipstream/internal/media/speech"
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
@@ -74,6 +76,9 @@ type Env struct {
 	// Media probes video files: the bundled ffprobe for a process, which
 	// Run finds beside the executable.
 	Media media.Prober
+	// Speech builds Speech Maps: the bundled ffmpeg and libfvad for a
+	// process.
+	Speech speech.Mapper
 	// Scripts runs the Notifying Role's Custom Scripts: a ProcessRunner for
 	// a process.
 	Scripts notifying.Runner
@@ -614,20 +619,20 @@ func changedTimings(keys []Key) []Key {
 
 var ErrInterrupted = errors.New("interrupted again while stopping")
 
-// bundledProber is the ffprobe the release ships beside the executable,
-// with ffmpeg beside it too (ADR 0015).
-func bundledProber() (media.FFprobe, error) {
+// bundledTools are the ffprobe and ffmpeg the release ships beside the
+// executable (ADR 0015).
+func bundledTools() (media.Decoder, error) {
 	exe, err := os.Executable()
 	if err != nil {
-		return media.FFprobe{}, fmt.Errorf("find the executable: %w", err)
+		return media.Decoder{}, fmt.Errorf("find the executable: %w", err)
 	}
 	beside := func(tool string) string { return filepath.Join(filepath.Dir(exe), tool+filepath.Ext(exe)) }
 	for _, tool := range []string{"ffprobe", "ffmpeg"} {
 		if info, err := os.Stat(beside(tool)); err != nil || !info.Mode().IsRegular() {
-			return media.FFprobe{}, fmt.Errorf("%s not found beside %s", tool, exe)
+			return media.Decoder{}, fmt.Errorf("%s not found beside %s", tool, exe)
 		}
 	}
-	return media.FFprobe{Path: beside("ffprobe")}, nil
+	return media.Decoder{FFmpeg: beside("ffmpeg"), FFprobe: beside("ffprobe")}, nil
 }
 
 // Run is Start plus signals: SIGINT or SIGTERM stops the Node, and a second
@@ -638,12 +643,13 @@ func Run(ctx context.Context, env Env) error {
 }
 
 func serve(ctx context.Context, env Env, front func(n *Node, exit <-chan struct{})) error {
-	prober, err := bundledProber()
+	tools, err := bundledTools()
 	if err != nil {
 		_, _ = fmt.Fprintln(env.Stderr, err)
 		return err
 	}
-	env.Media = prober
+	env.Media = media.FFprobe{Path: tools.FFprobe}
+	env.Speech = fvad.Mapper{Decoder: tools}
 	// Without a Notify for SIGPIPE, Go kills the process on a write to a
 	// broken pipe on stderr. With one, the write fails and the log file
 	// still gets the record.
