@@ -122,19 +122,29 @@ func (l *Line) Do(ctx context.Context, c Credentials, r Request) (Answer, error)
 }
 
 // settled is what one try settled: an outcome, the answer when it is OK,
-// and whether another try may change it.
+// and whether another try may change it, on the shared backoff or on the
+// provider's schedule.
 type settled struct {
 	Outcome
 	Answer
-	retry bool
+	retry    bool
+	schedule *Schedule
 }
 
-// tries sends r until an answer settles the call or the tries run out. A
-// 429 whose Retry-After ends inside the wait budget and ctx is waited out;
-// a timeout, connection error or 5xx waits a jittered backoff step.
+// tries sends r until an answer settles the call or the tries run out. An
+// answer with the provider's own schedule is tried again on it. Otherwise
+// a 429 whose Retry-After ends inside the wait budget and ctx is waited
+// out, and a timeout, connection error or 5xx waits a jittered backoff
+// step.
 func (l *Line) tries(ctx context.Context, c Credentials, r Request) (settled, error) {
-	t := l.lines.timings
-	budget := time.Now().Add(t.Wait)
+	attempts, waits := l.lines.timings.Attempts, l.lines.timings.Wait
+	if l.p.Attempts > 0 {
+		attempts = l.p.Attempts
+	}
+	if l.p.Wait > 0 {
+		waits = l.p.Wait
+	}
+	budget := time.Now().Add(waits)
 	if d, ok := ctx.Deadline(); ok && d.Before(budget) {
 		budget = d
 	}
@@ -149,11 +159,17 @@ func (l *Line) tries(ctx context.Context, c Credentials, r Request) (settled, er
 		if err := ctx.Err(); err != nil {
 			return settled{}, fmt.Errorf("gave up: %w", err)
 		}
-		if try >= t.Attempts {
+		limit := attempts
+		if v.schedule != nil {
+			limit = v.schedule.Tries
+		}
+		if try >= limit {
 			return v, nil
 		}
 		var wait time.Duration
 		switch {
+		case v.schedule != nil:
+			wait = v.schedule.Every
 		case v.Kind == Limited && !v.Until.After(budget):
 			wait = time.Until(v.Until)
 		case v.retry:
@@ -291,9 +307,9 @@ func (l *Line) send(ctx context.Context, o outgoing, lookup bool) (settled, erro
 func (l *Line) classify(a Answer, status string, lookup bool) settled {
 	now := time.Now()
 	if l.p.Classify != nil {
-		if o, ok := l.p.Classify(a.Status, a.Header, a.Body, now); ok {
-			o.Provider, o.At = l.p.ID, now
-			return settled{Outcome: o, Answer: a}
+		if v, ok := l.p.Classify(a, now); ok {
+			v.Provider, v.At = l.p.ID, now
+			return settled{Outcome: v.Outcome, Answer: a, schedule: v.Retry}
 		}
 	}
 	v := settled{Answer: a}

@@ -28,4 +28,22 @@ type Outcome struct {
 	// Words say what failed, in plain words.
 	Words string
 	At    time.Time
+	// Allowance is what the answer reported of the key's allowance, nil
+	// when it reported none.
+	Allowance *Allowance
+}
+
+// Allowance is what a provider last reported of a key's allowance. Every
+// number is the provider's own; SlipStream assumes none.
+type Allowance struct {
+	Downloads, Searches *Window
+}
+
+// Window is one counted allowance.
+type Window struct {
+	Used, Limit, Remaining int
+	Resets                 time.Time
+	// Exact is whether the provider counts this window up to the call, or
+	// reports it with a lag.
+	Exact bool
 }

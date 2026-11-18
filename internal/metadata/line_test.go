@@ -232,11 +232,11 @@ func retriesTimeouts(t *testing.T, first, second time.Duration) {
 func TestLineClassifiesOKNotFoundRefusedLimitedUnreachable(t *testing.T) {
 	omdb := calls.Provider{
 		ID: "omdb", Label: "OMDb", Rate: 2, Burst: 2,
-		Classify: func(status int, _ http.Header, b []byte, now time.Time) (calls.Outcome, bool) {
-			if status == http.StatusOK && strings.Contains(string(b), "Request limit reached!") {
-				return calls.Outcome{Kind: calls.Capped, Until: now.Add(time.Hour), Words: "is out of its daily allowance"}, true
+		Classify: func(a calls.Answer, now time.Time) (calls.Verdict, bool) {
+			if a.Status == http.StatusOK && strings.Contains(string(a.Body), "Request limit reached!") {
+				return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Capped, Until: now.Add(time.Hour), Words: "is out of its daily allowance"}}, true
 			}
-			return calls.Outcome{}, false
+			return calls.Verdict{}, false
 		},
 	}
 	for _, c := range []classification{
@@ -335,11 +335,11 @@ func TestACappedProviderIsNotCalledUntilItsTime(t *testing.T) {
 		midnight := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour)
 		omdb := calls.Provider{
 			ID: "omdb", Label: "OMDb", Rate: 2, Burst: 2,
-			Classify: func(_ int, _ http.Header, b []byte, _ time.Time) (calls.Outcome, bool) {
-				if strings.Contains(string(b), "Request limit reached!") {
-					return calls.Outcome{Kind: calls.Capped, Until: midnight, Words: "is out of its daily allowance"}, true
+			Classify: func(a calls.Answer, _ time.Time) (calls.Verdict, bool) {
+				if strings.Contains(string(a.Body), "Request limit reached!") {
+					return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Capped, Until: midnight, Words: "is out of its daily allowance"}}, true
 				}
-				return calls.Outcome{}, false
+				return calls.Verdict{}, false
 			},
 		}
 		lines, base, s := serve(t, func(n int, w http.ResponseWriter, _ *http.Request) {
@@ -475,11 +475,11 @@ func TestACappedKeyHoldsBackNoOtherKey(t *testing.T) {
 	omdb := calls.Provider{
 		ID: "omdb", Label: "OMDb", Rate: 2, Burst: 2,
 		Key: func(q url.Values, key string) { q.Set("apikey", key) },
-		Classify: func(_ int, _ http.Header, b []byte, _ time.Time) (calls.Outcome, bool) {
-			if strings.Contains(string(b), "Request limit reached!") {
-				return calls.Outcome{Kind: calls.Capped, Until: midnight, Words: "is out of its daily allowance"}, true
+		Classify: func(a calls.Answer, _ time.Time) (calls.Verdict, bool) {
+			if strings.Contains(string(a.Body), "Request limit reached!") {
+				return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Capped, Until: midnight, Words: "is out of its daily allowance"}}, true
 			}
-			return calls.Outcome{}, false
+			return calls.Verdict{}, false
 		},
 	}
 	lines, base, s := serve(t, func(n int, w http.ResponseWriter, r *http.Request) {

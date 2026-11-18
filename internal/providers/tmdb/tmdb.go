@@ -92,20 +92,20 @@ type statusBody struct {
 // classify names TMDB's 401 in its own words and calls a 404 without
 // TMDB's not-found body unreachable: it came from something in front of
 // TMDB, not from TMDB.
-func classify(status int, _ http.Header, body []byte, _ time.Time) (calls.Outcome, bool) {
+func classify(a calls.Answer, _ time.Time) (calls.Verdict, bool) {
 	var b statusBody
-	_ = json.Unmarshal(body, &b)
+	_ = json.Unmarshal(a.Body, &b)
 	switch {
-	case status == http.StatusUnauthorized:
+	case a.Status == http.StatusUnauthorized:
 		words := "refused the key"
 		if b.Message != "" {
 			words += ": " + b.Message
 		}
-		return calls.Outcome{Kind: calls.Refused, Words: words}, true
-	case status == http.StatusNotFound && b.Code != notFoundCode:
-		return calls.Outcome{Kind: calls.Unreachable, Words: "responded with 404 Not Found and a body SlipStream doesn't recognize"}, true
+		return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Refused, Words: words}}, true
+	case a.Status == http.StatusNotFound && b.Code != notFoundCode:
+		return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Unreachable, Words: "responded with 404 Not Found and a body SlipStream doesn't recognize"}}, true
 	}
-	return calls.Outcome{}, false
+	return calls.Verdict{}, false
 }
 
 // MovieResult is one movie in a search. ReleaseDate is the primary

@@ -37,9 +37,14 @@ type Provider struct {
 	Header func(h http.Header, key string)
 	Auth   *Auth
 	// Classify reads an answer the shared rules don't settle, such as a 200
-	// whose body says the daily allowance is spent. Nil leaves every answer
-	// to the shared rules.
-	Classify func(status int, h http.Header, body []byte, now time.Time) (Outcome, bool)
+	// whose body says the daily allowance is spent, and may ask for retries
+	// on the provider's own schedule. Nil leaves every answer to the shared
+	// rules.
+	Classify func(a Answer, now time.Time) (Verdict, bool)
+	// Attempts and Wait replace the Timings fields of the same names for
+	// this provider when set.
+	Attempts int
+	Wait     time.Duration
 	// KeyPage is where an Admin gets a key, opened in the browser only.
 	KeyPage string
 	// Attribution is what the provider's terms make SlipStream show beside
@@ -60,6 +65,22 @@ type Auth struct {
 	// Pin is whether the provider takes an optional PIN beside its key, so
 	// Set key offers one.
 	Pin bool
+}
+
+// Verdict is what Classify settled of one answer.
+type Verdict struct {
+	Outcome
+	// Retry is the provider's schedule for this answer, such as a busy
+	// service's "try again in 5 s, at most 5 times". Nil follows the
+	// shared rules.
+	Retry *Schedule
+}
+
+// Schedule is a provider's own retry rule: the call is tried at most Tries
+// times in all, Every apart, while its answers ask for this schedule.
+type Schedule struct {
+	Every time.Duration
+	Tries int
 }
 
 // Credential is the part of a login a provider refused.
