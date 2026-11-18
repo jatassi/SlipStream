@@ -33,9 +33,11 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/providers/gestdown"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/providers/subdl"
+	"github.com/jatassi/slipstream/internal/providers/subsource"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
 	"github.com/jatassi/slipstream/internal/role"
@@ -71,6 +73,8 @@ type EndpointsBlock struct {
 	TVDB         tvdb.Endpoints       `yaml:"tvdb"`
 	OMDb         omdb.Endpoints       `yaml:"omdb"`
 	SubDL        subdl.Endpoints      `yaml:"subdl"`
+	SubSource    subsource.Endpoints  `yaml:"subsource"`
+	Gestdown     gestdown.Endpoints   `yaml:"gestdown"`
 	PlexTV       plextv.Endpoints     `yaml:"plex_tv"`
 	Torrent      engine.Endpoints     `yaml:"torrent"`
 	Indexers     indexers.Endpoints   `yaml:"indexers"`
@@ -171,6 +175,8 @@ type TimingsBlock struct {
 	TVDB          tvdb.Timings           `yaml:"tvdb"`
 	OMDb          omdb.Timings           `yaml:"omdb"`
 	SubDL         subdl.Timings          `yaml:"subdl"`
+	SubSource     subsource.Timings      `yaml:"subsource"`
+	Gestdown      gestdown.Timings       `yaml:"gestdown"`
 	Health        health.Timings         `yaml:"health"`
 	MediaServers  mslink.Timings         `yaml:"media_servers"`
 	Notifications notifications.Timings  `yaml:"notifications"`
@@ -206,6 +212,8 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			TVDB:         tvdb.DefaultEndpoints(),
 			OMDb:         omdb.DefaultEndpoints(),
 			SubDL:        subdl.DefaultEndpoints(),
+			SubSource:    subsource.DefaultEndpoints(),
+			Gestdown:     gestdown.DefaultEndpoints(),
 			PlexTV:       plextv.DefaultEndpoints(),
 			Torrent:      engine.DefaultEndpoints(),
 			Indexers:     indexers.DefaultEndpoints(),
@@ -254,6 +262,8 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			TVDB:          tvdb.DefaultTimings(),
 			OMDb:          omdb.DefaultTimings(),
 			SubDL:         subdl.DefaultTimings(),
+			SubSource:     subsource.DefaultTimings(),
+			Gestdown:      gestdown.DefaultTimings(),
 			Health:        health.DefaultTimings(),
 			MediaServers:  mslink.DefaultTimings(),
 			Notifications: notifications.DefaultTimings(),
