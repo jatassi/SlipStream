@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 
+import { sentenceOf } from "../api/errors";
 import type { SubtitlesAttempt, SubtitlesProvider } from "../api/gen/model";
 import { useNow } from "../tasks/use-now";
 import { AlertLine } from "../ui/alert-line";
@@ -31,15 +32,18 @@ export function useAttemptLine(
   return { attempt, error: read.error };
 }
 
-/** What an attempt is doing, or how it ended without a subtitle. */
+/** What an attempt is doing, how it ended without a subtitle, or why it can't be read. */
 export function AttemptLine({
-  attempt,
+  line: { attempt, error },
   providers,
 }: {
-  attempt: SubtitlesAttempt | undefined;
+  line: ReturnType<typeof useAttemptLine>;
   providers: readonly SubtitlesProvider[];
 }) {
   const clock = { now: useNow(60_000), zone: undefined };
+  if (error !== null) {
+    return <AlertLine text={sentenceOf(error)} />;
+  }
   if (attempt === undefined) {
     return null;
   }

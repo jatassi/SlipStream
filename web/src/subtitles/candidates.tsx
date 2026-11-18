@@ -260,7 +260,7 @@ export function CandidatesBody({
     <div className="flex flex-col gap-4">
       <SearchLines read={read.data} providers={subject.providers} />
       {pick.failure !== undefined && <AlertLine text={pick.failure} />}
-      <AttemptLine attempt={pick.line.attempt} providers={subject.providers} />
+      <AttemptLine line={pick.line} providers={subject.providers} />
       <Ranked candidates={candidates} subject={subject} pick={pick} />
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
