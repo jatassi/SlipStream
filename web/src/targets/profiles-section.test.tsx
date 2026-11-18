@@ -4,7 +4,7 @@ import { page, userEvent } from "vitest/browser";
 
 import type { TargetsProfile, WorksContentType } from "../api/gen/model";
 import { getListContentTypesMockHandler } from "../api/gen/query/works/works.msw";
-import { changeOp } from "../test/impact";
+import { changeOp, noImpact } from "../test/impact";
 import { cinema } from "../test/library";
 import { films, profileHandlers, ultra } from "../test/profiles";
 import { renderApp } from "../test/render-app";
@@ -130,6 +130,7 @@ test("Delete moves a Profile's Works to the one picked, through the Impact", asy
       renames: [],
       newlyWanted: 1,
       downloading: 0,
+      subtitles: noImpact.subtitles,
     }),
     { profile: other },
   );

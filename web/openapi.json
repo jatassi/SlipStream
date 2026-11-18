@@ -21141,6 +21141,29 @@
         ],
         "type": "object"
       },
+      "TargetsDroppedLanguage": {
+        "additionalProperties": false,
+        "properties": {
+          "deleted": {
+            "description": "Subtitles SlipStream downloaded that the save deletes. Uploads and subtitles found beside the files stay",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "forced": {
+            "type": "boolean"
+          },
+          "language": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "language",
+          "forced",
+          "deleted"
+        ],
+        "type": "object"
+      },
       "TargetsEditions": {
         "discriminator": {
           "mapping": {
@@ -21269,6 +21292,36 @@
         ],
         "type": "object"
       },
+      "TargetsGainedLanguage": {
+        "additionalProperties": false,
+        "properties": {
+          "forced": {
+            "type": "boolean"
+          },
+          "language": {
+            "type": "string"
+          },
+          "needScan": {
+            "description": "Of those, files whose audio is scanned first",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "searches": {
+            "description": "Files SlipStream searches subtitles for",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "language",
+          "forced",
+          "searches",
+          "needScan"
+        ],
+        "type": "object"
+      },
       "TargetsImpact": {
         "additionalProperties": false,
         "properties": {
@@ -21303,6 +21356,10 @@
             },
             "type": "array"
           },
+          "subtitles": {
+            "$ref": "#/components/schemas/TargetsSubtitles",
+            "description": "What a change of a Profile's subtitle languages does"
+          },
           "unwanted": {
             "$ref": "#/components/schemas/TargetsUnwantedFiles",
             "description": "Files a Target uses now and none uses after: deleted, or kept as Kept files, as the save chooses"
@@ -21321,7 +21378,8 @@
           "renamed",
           "renames",
           "newlyWanted",
-          "downloading"
+          "downloading",
+          "subtitles"
         ],
         "type": "object"
       },
@@ -21384,6 +21442,13 @@
           "editions": {
             "$ref": "#/components/schemas/TargetsEditions"
           },
+          "languages": {
+            "description": "In the Admin's order, each language once as full and once as forced only at most; none for a Content Type without subtitles",
+            "items": {
+              "$ref": "#/components/schemas/TargetsWantedLanguage"
+            },
+            "type": "array"
+          },
           "name": {
             "maxLength": 100,
             "minLength": 1,
@@ -21402,7 +21467,8 @@
           "name",
           "contentType",
           "targets",
-          "editions"
+          "editions",
+          "languages"
         ],
         "type": "object"
       },
@@ -21608,6 +21674,13 @@
             "format": "uuid",
             "type": "string"
           },
+          "languages": {
+            "description": "The subtitle languages its Works' files want, in the Admin's order",
+            "items": {
+              "$ref": "#/components/schemas/TargetsWantedLanguage"
+            },
+            "type": "array"
+          },
           "name": {
             "type": "string"
           },
@@ -21632,6 +21705,7 @@
           "default",
           "targets",
           "editions",
+          "languages",
           "works"
         ],
         "type": "object"
@@ -21677,6 +21751,13 @@
             "format": "uuid",
             "type": "string"
           },
+          "languages": {
+            "description": "The subtitle languages its Works' files want, in the Admin's order",
+            "items": {
+              "$ref": "#/components/schemas/TargetsWantedLanguage"
+            },
+            "type": "array"
+          },
           "name": {
             "type": "string"
           },
@@ -21702,6 +21783,7 @@
           "default",
           "targets",
           "editions",
+          "languages",
           "works"
         ],
         "type": "object"
@@ -21946,6 +22028,37 @@
         ],
         "type": "object"
       },
+      "TargetsSubtitles": {
+        "additionalProperties": false,
+        "properties": {
+          "days": {
+            "description": "About how many days the gained searches take at the providers' last reported download allowance, 0 when none reported one",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "dropped": {
+            "description": "Each subtitle language the change removes",
+            "items": {
+              "$ref": "#/components/schemas/TargetsDroppedLanguage"
+            },
+            "type": "array"
+          },
+          "gained": {
+            "description": "Each subtitle language the change adds, in the Profile's order",
+            "items": {
+              "$ref": "#/components/schemas/TargetsGainedLanguage"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "gained",
+          "dropped",
+          "days"
+        ],
+        "type": "object"
+      },
       "TargetsTarget": {
         "additionalProperties": false,
         "properties": {
@@ -22091,6 +22204,45 @@
         "required": [
           "files",
           "bytes"
+        ],
+        "type": "object"
+      },
+      "TargetsWantedLanguage": {
+        "additionalProperties": false,
+        "properties": {
+          "audio": {
+            "description": "When the language is wanted. always is whatever the audio, and no_audio is only when no audio track is in the language",
+            "enum": [
+              "always",
+              "no_audio"
+            ],
+            "type": "string"
+          },
+          "forced": {
+            "description": "Whether only the lines in another language, such as signs, are wanted, not every line of dialogue",
+            "type": "boolean"
+          },
+          "hearingImpaired": {
+            "description": "How hearing-impaired subtitles rank. avoid uses one only when nothing else fits, and prefer chooses one first when one fits",
+            "enum": [
+              "avoid",
+              "allow",
+              "prefer"
+            ],
+            "type": "string"
+          },
+          "language": {
+            "description": "An ISO 639 code, or pt-BR for Brazilian Portuguese",
+            "maxLength": 5,
+            "minLength": 2,
+            "type": "string"
+          }
+        },
+        "required": [
+          "language",
+          "forced",
+          "hearingImpaired",
+          "audio"
         ],
         "type": "object"
       },
@@ -63575,7 +63727,9 @@
                         "code": {
                           "enum": [
                             "cut_not_found",
+                            "duplicate_language",
                             "invalid",
+                            "no_subtitles_for_type",
                             "target_not_found"
                           ],
                           "type": "string"
@@ -64085,6 +64239,18 @@
             }
           },
           {
+            "description": "The deleted subtitle count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirmSubtitles",
+            "schema": {
+              "description": "The deleted subtitle count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
             "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
@@ -64260,7 +64426,9 @@
                         "code": {
                           "enum": [
                             "cut_not_found",
+                            "duplicate_language",
                             "invalid",
+                            "no_subtitles_for_type",
                             "profile_wrong_type",
                             "target_not_found"
                           ],
@@ -64311,7 +64479,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact",
+        "summary": "Replace a Profile's name, Targets, Edition list and subtitle languages, refilling and renaming its Works' files when its Targets or Edition list change, or preview the change's Impact",
         "tags": [
           "targets"
         ],

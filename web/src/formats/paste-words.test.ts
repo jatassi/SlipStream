@@ -11,6 +11,7 @@ const nothing = {
   renames: [],
   newlyWanted: 0,
   downloading: 0,
+  subtitles: { gained: [], dropped: [], days: 0 },
 };
 
 const added: FormatsPastedFormat = { name: "DV", outcome: "add", savedAs: "DV" };

@@ -2962,6 +2962,60 @@ export const TargetsWorkRenames = zod.object({
 export type TargetsWorkRenames = zod.input<typeof TargetsWorkRenames>;
 export type TargetsWorkRenamesOutput = zod.output<typeof TargetsWorkRenames>;
 
+export const targetsDroppedLanguageDeletedMin = 0;
+
+export const TargetsDroppedLanguage = zod.object({
+  deleted: zod
+    .int()
+    .min(targetsDroppedLanguageDeletedMin)
+    .describe(
+      "Subtitles SlipStream downloaded that the save deletes. Uploads and subtitles found beside the files stay",
+    ),
+  forced: zod.boolean(),
+  language: zod.string(),
+});
+
+export type TargetsDroppedLanguage = zod.input<typeof TargetsDroppedLanguage>;
+export type TargetsDroppedLanguageOutput = zod.output<typeof TargetsDroppedLanguage>;
+
+export const targetsGainedLanguageNeedScanMin = 0;
+
+export const targetsGainedLanguageSearchesMin = 0;
+
+export const TargetsGainedLanguage = zod.object({
+  forced: zod.boolean(),
+  language: zod.string(),
+  needScan: zod
+    .int()
+    .min(targetsGainedLanguageNeedScanMin)
+    .describe("Of those, files whose audio is scanned first"),
+  searches: zod
+    .int()
+    .min(targetsGainedLanguageSearchesMin)
+    .describe("Files SlipStream searches subtitles for"),
+});
+
+export type TargetsGainedLanguage = zod.input<typeof TargetsGainedLanguage>;
+export type TargetsGainedLanguageOutput = zod.output<typeof TargetsGainedLanguage>;
+
+export const targetsSubtitlesDaysMin = 0;
+
+export const TargetsSubtitles = zod.object({
+  days: zod
+    .int()
+    .min(targetsSubtitlesDaysMin)
+    .describe(
+      "About how many days the gained searches take at the providers' last reported download allowance, 0 when none reported one",
+    ),
+  dropped: zod.array(TargetsDroppedLanguage).describe("Each subtitle language the change removes"),
+  gained: zod
+    .array(TargetsGainedLanguage)
+    .describe("Each subtitle language the change adds, in the Profile's order"),
+});
+
+export type TargetsSubtitles = zod.input<typeof TargetsSubtitles>;
+export type TargetsSubtitlesOutput = zod.output<typeof TargetsSubtitles>;
+
 export const targetsUnwantedFilesBytesMin = 0;
 
 export const targetsUnwantedFilesFilesMin = 0;
@@ -3006,6 +3060,7 @@ export const TargetsImpact = zod.object({
   renames: zod
     .array(TargetsWorkRenames)
     .describe("The first 500 of the renamed files, by Work in title order"),
+  subtitles: TargetsSubtitles.describe("What a change of a Profile's subtitle languages does"),
   unwanted: TargetsUnwantedFiles.describe(
     "Files a Target uses now and none uses after: deleted, or kept as Kept files, as the save chooses",
   ),
@@ -10598,12 +10653,46 @@ export const TargetsNewCut = zod.object({
 export type TargetsNewCut = zod.input<typeof TargetsNewCut>;
 export type TargetsNewCutOutput = zod.output<typeof TargetsNewCut>;
 
+export const targetsWantedLanguageLanguageMin = 2;
+export const targetsWantedLanguageLanguageMax = 5;
+
+export const TargetsWantedLanguage = zod.object({
+  audio: zod
+    .enum(["always", "no_audio"])
+    .describe(
+      "When the language is wanted. always is whatever the audio, and no_audio is only when no audio track is in the language",
+    ),
+  forced: zod
+    .boolean()
+    .describe(
+      "Whether only the lines in another language, such as signs, are wanted, not every line of dialogue",
+    ),
+  hearingImpaired: zod
+    .enum(["avoid", "allow", "prefer"])
+    .describe(
+      "How hearing-impaired subtitles rank. avoid uses one only when nothing else fits, and prefer chooses one first when one fits",
+    ),
+  language: zod
+    .string()
+    .min(targetsWantedLanguageLanguageMin)
+    .max(targetsWantedLanguageLanguageMax)
+    .describe("An ISO 639 code, or pt-BR for Brazilian Portuguese"),
+});
+
+export type TargetsWantedLanguage = zod.input<typeof TargetsWantedLanguage>;
+export type TargetsWantedLanguageOutput = zod.output<typeof TargetsWantedLanguage>;
+
 export const targetsNewProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const targetsNewProfileNameMax = 100;
 
 export const TargetsNewProfile = zod.object({
   contentType: zod.string().regex(targetsNewProfileContentTypeRegExp),
   editions: TargetsEditions,
+  languages: zod
+    .array(TargetsWantedLanguage)
+    .describe(
+      "In the Admin's order, each language once as full and once as forced only at most; none for a Content Type without subtitles",
+    ),
   name: zod.string().min(1).max(targetsNewProfileNameMax),
   targets: zod
     .array(TargetsEntry)
@@ -10763,6 +10852,9 @@ export const TargetsProfile = zod.object({
   default: zod.boolean().describe("Whether a Work added with no Profile uses it"),
   editions: TargetsEditions,
   id: zod.uuid(),
+  languages: zod
+    .array(TargetsWantedLanguage)
+    .describe("The subtitle languages its Works' files want, in the Admin's order"),
   name: zod.string(),
   targets: zod
     .array(TargetsEntry)
@@ -10794,6 +10886,9 @@ export const TargetsProfileDetail = zod.object({
       "One per Target, in Profile order. A Target no file of known runtime fills yet has no estimate",
     ),
   id: zod.uuid(),
+  languages: zod
+    .array(TargetsWantedLanguage)
+    .describe("The subtitle languages its Works' files want, in the Admin's order"),
   name: zod.string(),
   targets: zod
     .array(TargetsEntry)

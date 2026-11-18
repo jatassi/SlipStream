@@ -542,11 +542,12 @@ func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, c
 	err := call(ctx, c, request{
 		what: "create Profile " + name, method: http.MethodPost, url: baseURL + "/api/v1/profiles",
 		header: apiKeyHeader(apiKey), body: struct {
-			Name        string   `json:"name"`
-			ContentType string   `json:"contentType"`
-			Targets     []entry  `json:"targets"`
-			Editions    editions `json:"editions"`
-		}{name, contentType, entries, listed}, want: http.StatusCreated,
+			Name        string     `json:"name"`
+			ContentType string     `json:"contentType"`
+			Targets     []entry    `json:"targets"`
+			Editions    editions   `json:"editions"`
+			Languages   []struct{} `json:"languages"`
+		}{name, contentType, entries, listed, []struct{}{}}, want: http.StatusCreated,
 	}, &profile)
 	return profile.ID, err
 }

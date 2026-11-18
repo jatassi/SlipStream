@@ -56,6 +56,7 @@ export async function makeUHD(world: World) {
     contentType: "movie",
     targets: [{ targetId: Created.parse(uhd.body).id, sourcing: "download" }],
     editions: { kind: "any" },
+    languages: [],
   });
   expect(profile.status, "the UHD Profile is made").toBe(201);
   return Created.parse(profile.body).id;

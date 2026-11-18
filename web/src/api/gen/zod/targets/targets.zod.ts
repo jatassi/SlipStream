@@ -120,16 +120,25 @@ export const GetProfileParams = zod.object({
 export const GetProfileResponse = TargetsProfileDetail;
 
 /**
- * @summary Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact
+ * @summary Replace a Profile's name, Targets, Edition list and subtitle languages, refilling and renaming its Works' files when its Targets or Edition list change, or preview the change's Impact
  */
 export const UpdateProfileParams = zod.object({
   profileId: zod.uuid(),
 });
 
+export const updateProfileQueryConfirmSubtitlesMin = 0;
+
 export const updateProfileQueryUnwantedDefault = `delete`;
 export const updateProfileQueryConfirmMin = 0;
 
 export const UpdateProfileQueryParams = zod.object({
+  confirmSubtitles: zod
+    .int()
+    .min(updateProfileQueryConfirmSubtitlesMin)
+    .exactOptional()
+    .describe(
+      "The deleted subtitle count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
   preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
     .enum(["delete", "keep"])
