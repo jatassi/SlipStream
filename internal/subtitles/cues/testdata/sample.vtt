@@ -1,0 +1,21 @@
+WEBVTT - with a title
+
+STYLE
+::cue { color: yellow }
+
+NOTE a comment
+that spans lines
+
+REGION
+id:fred width:40%
+
+intro
+00:01.000 --> 00:03.500 line:0 position:20% align:start
+<v Neil>My name is <i>Neil</i>.</v>
+
+00:00:04.250 --> 00:00:06.000
+<c.loud>Don't</c> let yourself &amp; anyone
+<00:00:05.000>get attached.
+
+01:00:07.000 --> 01:00:08.000 align:end
+<v.first.loud Esme>Hi there</v>
