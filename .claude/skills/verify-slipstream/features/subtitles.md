@@ -24,7 +24,11 @@ An Admin adds a Wanted Language to a Profile, and SlipStream records a want for 
 - `subtitles-work-rows` the Work page's Files section shows, inside each file's row, one subtitle row per Wanted Language in Profile order: a language chip with its state icon, one sentence on what the subtitle is or why there is none, Search, Manual search and Upload, and a "…" menu with Mark bad… and Don't count this track; a timed subtitle's Details list its Timing sync numbers, and the file's Details list its embedded tracks and the subtitle files beside it (P-368).
 - `subtitles-season-fold` a series' files fold per season, the first season with a missing subtitle open, each episode's language chips opening into the same rows; the open seasons are kept per Work in the browser (P-368).
 - `subtitles-library-filter` the Library's Filter offers Subtitles, "Subtitles missing" and "None matched the timing", at the address key `subtitles=missing,none-passed`; a Work none of whose found subtitles matched counts as missing too (P-368).
-- `subtitles-manual-sheets` a row's Manual search opens a 940 dialog on desktop and a full sheet on phone: the candidates ranked with the first as Best and each one's ranking steps, earlier tries folded under Tried before, and one line for each provider that found nothing or is paused, such as "SubDL is out of downloads. SlipStream searches it again tonight at 00:00."; a pick shows "Downloading from SubDL…" and "Checking timing…", then toasts "English subtitle added." and closes, or stays open with why it failed: its timing match against the threshold, or for a download the provider didn't serve, "SubDL is out of downloads. SlipStream searches it again tonight at 00:00. Pick another subtitle."; Upload is a dialog with a drop target whose passing file toasts "English subtitle added." and whose failing file offers Keep anyway under Details; Mark bad… asks a question naming the file version, or the Admin's own file for an upload, then toasts "English subtitle marked bad. SlipStream is searching for another.", or while Subtitle search is off "English subtitle marked bad. Subtitle search is off. Turn it on in Settings > Subtitles to search for another." The Work page's row reads the added, kept or removed subtitle without a reload (P-368).
+- `subtitles-manual-sheets` a row's Manual search opens a 940 dialog on desktop and a full sheet on phone: the candidates ranked with the first as Best and each one's ranking steps, earlier tries folded under Tried before, and one line for each provider that found nothing or is paused, such as "SubDL is out of downloads. SlipStream searches it again tonight at 00:00."; a pick shows "Downloading from SubDL…" and "Checking timing…", then toasts "English subtitle added." and closes, or stays open with why it failed: its timing match against the threshold, or for a download the provider didn't serve, "SubDL is out of downloads. SlipStream searches it again tonight at 00:00. Pick another subtitle."; Upload is a dialog with a drop target whose passing file toasts "English subtitle added." and whose failing file offers Keep anyway under Details; Mark bad… asks a question naming the file version, or the Admin's own file for an upload, then toasts "English subtitle marked bad. SlipStream is searching for another.", also while Subtitle search is off The Work page's row reads the added, kept or removed subtitle without a reload (P-368).
+- `subtitles-sidecars-land` adding English in a Profile's editor previews "Saving searches English subtitles for 3 files. SlipStream scans their audio first.", each file's Speech Map then lands in its Storage Node's `speechmaps` folder, and a row's Search lands the `.en.srt` beside the video, the row reading "From Gestdown. Subtitle search looks for a better match."; one Gestdown season pack lands each searched episode's subtitle (P-368).
+- `subtitles-key-paused` once SubDL answers a download with its daily limit, `GET /api/v1/subtitles/providers` reads SubDL `out` until the next UTC midnight, also after the Controller restarts, and its Settings row reads "SubDL is out of downloads. SlipStream searches it again tonight at 00:00." (P-368).
+- `subtitles-key-revoked` once a provider refuses a stored key on a search, it reads `rejected` with the provider's own words, its Settings row reads `SubSource rejected the key today at <time> and responded "<words>". Replace the key.`, and Health says to add a new key in Settings > Subtitles, with when under Details (P-368).
+- `subtitles-upgrade-carry` an Import that replaces a file with a fetched Sidecar moves the Sidecar to the new file's name and times it again against the new file's Speech Map: it stays when the new file speaks as the old one did, and leaves the disk with the want missing when it doesn't (P-368).
 
 ## How to get to it (user POV)
 
@@ -157,7 +161,7 @@ Steps:
   $FW exec $RUN --proof subtitles/subtitles-work-rows -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/subtitles/subtitles-work-rows/movie-desktop.png
   ```
 
-- **The sheets.** On a Scenario whose films have speech audio and whose `subtitle_providers.catalog` lists a passing and a failing subtitle per film (SubDL and SubSource keyed, `subtitles.searchOn` false so nothing fetches first), open a film's Manual search at desktop and phone width: both candidates list, Best first. Pick the failing one: the sheet stays open with its timing match. Pick the passing one: "Downloading from SubSource…", then the toast, and the sheet closes. On another film, Upload a file whose cues follow its speech: the toast. On a third, Upload one off its speech, open Details and press Keep anyway. Mark bad… the uploaded subtitle: the question names the file, and its `.srt` leaves the disk. Open Manual search on a film with a SubDL candidate, run `$FW cue $RUN subdl-daily-limit '{}'`, then pick it: the sheet reads "SubDL is out of downloads. SlipStream searches it again tonight at 00:00. Pick another subtitle.", and its attempt reads `unfetched` with `answer.until`. A new search then lists SubDL's pause among `outcomes`, one entry per provider that searches films.
+- **The sheets.** On the `subtitles` Scenario (see **The subtitles Scenario**), with SubDL and SubSource keyed and `subtitles.searchOn` false so nothing fetches first, open a film's Manual search at desktop and phone width: both candidates list, Best first. Pick the failing one: the sheet stays open with its timing match. Pick the passing one: "Downloading from SubSource…", then the toast, and the sheet closes. On another film, Upload a file whose cues follow its speech: the toast. On a third, Upload one off its speech, open Details and press Keep anyway. Mark bad… the uploaded subtitle: the question names the file, and its `.srt` leaves the disk. Open Manual search on a film with a SubDL candidate, run `$FW cue $RUN subdl-daily-limit '{}'`, then pick it: the sheet reads "SubDL is out of downloads. SlipStream searches it again tonight at 00:00. Pick another subtitle.", and its attempt reads `unfetched` with `answer.until`. A new search then lists SubDL's pause among `outcomes`, one entry per provider that searches films.
 
   ```sh
   $FW exec $RUN --proof subtitles/subtitles-manual-sheets -- $PW cli -s={runId}-admin-desktop click 'getByRole("list", { name: "Subtitles" }).getByRole("button", { name: "Manual search" })'
@@ -167,6 +171,42 @@ Steps:
 
 - **The Library filter.** Open `{nodes.home.browserUrl}/library?subtitles=missing`: only Works with a missing subtitle stay, and Filter shows Subtitles with both choices and their counts.
 
+- **The subtitles Scenario.** Launch `--scenario subtitles` for the steps below and **The sheets**. Its Movies root holds Amber Signal, Brick Lane Echo and Cinder Bloom, its TV root The Lamplighters' season 1, and `shelf` a 1080p Amber Signal that speaks as the 720p one. Every file has a speech track. SubDL lists a failing subtitle for Amber and Brick and a passing one for Cinder, SubSource a passing one for Amber and Brick, and Gestdown a season pack of The Lamplighters. `$FW subtitle $RUN <id>` prints a catalog subtitle to upload: `brick-speech` passes on Brick and fails on Cinder, `cinder-speech` passes on Cinder. Key SubDL and SubSource with any non-empty key, as in **Providers**.
+
+- **Land Sidecars.** In Movies' editor press Add language, then English, then Save: the impact counts 3 files. Save TV the same way at phone width. A minute later `{nodes.home.dataDir}/speechmaps` holds six maps. With Subtitle search on, open The Lamplighters, open an episode's chip and press Search in its row (on phone, the "…" button, then Search): the `.en.srt` lands beside the episode, from Gestdown's season pack, and each episode searched after it lands its own.
+
+  ```sh
+  $FW exec $RUN --proof subtitles/subtitles-sidecars-land -- find '{nodes.home.dataDir}/speechmaps' -type f
+  $FW exec $RUN --proof subtitles/subtitles-sidecars-land -- find '{mediaDir}/tv' -name '*.srt'
+  ```
+
+- **A key out of downloads.** Spend SubDL's downloads, then search Cinder Bloom, whose one subtitle is SubDL's (Mark bad on a kept upload searches it too). The providers read SubDL `out` until the next UTC midnight, and a `$FW node restart $RUN home` keeps it.
+
+  ```sh
+  $FW cue $RUN subdl-daily-limit '{}'
+  $FW exec $RUN --proof subtitles/subtitles-key-paused -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/files/$FILE/subtitles/en/search"
+  $FW exec $RUN --proof subtitles/subtitles-key-paused -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/subtitles/providers'
+  ```
+
+- **A revoked key.** Revoke SubSource's key and search Amber Signal, whose met subtitle is SubSource's: SubSource reads `rejected` with its words, Settings > Subtitles shows them at desktop and phone width, and so does Health. A paused provider isn't searched, so revoke a provider that is ready.
+
+  ```sh
+  $FW cue $RUN subsource-revoke-key '{}'
+  $FW exec $RUN --proof subtitles/subtitles-key-revoked -- curl -sS -o /dev/null -w '%{{http_code}\n' -X POST -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/files/$AMBER/subtitles/en/search"
+  ```
+
+- **An upgrade's carry.** With Amber Signal met from a pick, copy the shelf's 1080p file into a folder under `{nodes.home.dataDir}/downloads`, import that folder by hand and confirm its Import: the 1080p file replaces the 720p one, and `<new name>.en.srt` sits beside it, `met` from SubSource with a fresh timing match.
+
+  ```sh
+  $FW exec $RUN -- mkdir -p '{nodes.home.dataDir}/downloads/Amber.Signal.2020.1080p.WEB-DL.H264-FKW'
+  $FW exec $RUN -- cp '{mediaDir}/shelf/Amber.Signal.2020.1080p.WEB-DL.H264-FKW.mkv' '{nodes.home.dataDir}/downloads/Amber.Signal.2020.1080p.WEB-DL.H264-FKW/'
+  $FW exec $RUN --proof subtitles/subtitles-upgrade-carry -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d @"$SCRATCH/import.json" '{nodes.home.url}/api/v1/imports'
+  $FW exec $RUN --proof subtitles/subtitles-upgrade-carry -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d @"$SCRATCH/confirm.json" '{nodes.home.url}/api/v1/imports/confirm'
+  $FW exec $RUN --proof subtitles/subtitles-upgrade-carry -- find '{mediaDir}/movies/Amber Signal (2020) {{tmdb-9000201}' -type f
+  ```
+
+  `import.json` is `{"nodeId":"<home's id>","folder":"<home's dataDir>/downloads/Amber.Signal.2020.1080p.WEB-DL.H264-FKW"}` and `confirm.json` `{"importIds":["<the Import's id>"]}`, once `GET /api/v1/imports/<id>` reads `waiting`.
+
 ## Gotchas
 
 - The Keeper wakes a second after the Write that names a file and sweeps every minute, so a survey or a removal shows a moment after the API answers. Wait for it before reading the disk.
@@ -174,6 +214,8 @@ Steps:
 - A Sidecar's removal names its hash. Overwriting the `.en.srt` before the delete keeps it on disk, which is the second half of `subtitles-delete-removes`, not a failure.
 - A Scenario film whose bytes aren't real audio can't be decoded: its map reads `decode_failed` and is asked for again after `map_retry_min`, so it adds no `.ssmp` file. That is the backoff, not a failure.
 - The Profile API needs the whole Profile back with `languages`: `targets` and `editions` as `GET /api/v1/profiles` lists them.
-- No shipped Scenario has a film with a `speech` audio track or a `subtitle_providers` catalog yet, so every audio scan reads `decode_failed`, nothing reaches the search queue, a pick or an upload answers 409 `audio_not_scanned`, and a Manual subtitle search lists no candidates. The passing and failing timing halves of `subtitles-upload` need such a Scenario.
-- Subtitle search queues only wants whose audio is scanned. Run now queues every due one; between runs the drain queues a fresh import's wants and the Admin's searches alone.
+- Only the `subtitles` Scenario has files with a `speech` audio track and a `subtitle_providers` catalog. On `home` every audio scan reads `decode_failed`, nothing reaches the search queue, a pick or an upload answers 409 `audio_not_scanned`, and a Manual subtitle search lists no candidates, which is how to reach that 409.
+- Subtitle search queues only wants whose audio is scanned. A new want's first search is spread over the Subtitle search cadence, so Run now right after adding a language queues few or none: search a want now with its row's Search or `POST .../{want}/search` instead.
+- While Subtitle search is off, a row's Search and Mark bad still search that want at once, ahead of fresh imports, which wait until it is on again. Manual search and Upload work while it is off.
+- A replacement needs an Import. Copy the file into a folder under `{nodes.home.dataDir}/downloads`, which `POST /api/v1/imports` with `nodeId` and `folder` reads, then confirm it once it reads `waiting`.
 - A key check needs a Node with the Subtitles Role. Without one, `PUT .../key` answers 409 `no_subtitles_holder`.

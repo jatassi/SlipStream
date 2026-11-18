@@ -10,7 +10,6 @@ import {
   getListSubtitleProvidersSuspenseQueryOptions,
   getSubtitleAttempt,
   getSubtitleCandidates,
-  getSubtitleSettings,
   ignoreSubtitleTrack,
   searchSubtitle,
   useGetWorkSubtitlesSuspense,
@@ -44,21 +43,15 @@ export type WantAt = {
   readonly want: string;
 };
 
-/** Whether Subtitle search is on now, read fresh, so a toast says whether a search runs. */
-export async function searchIsOn() {
-  const { settings } = await getSubtitleSettings();
-  return settings.some((field) => field.key === "subtitles.searchOn" && field.value === true);
-}
-
 /**
  * A file's subtitle actions that answer at once: Search, and counting an
  * embedded track or not. A refusal is a toast with the server's sentence.
  */
-async function run(act: () => Promise<unknown>, done?: () => Promise<string>) {
+async function run(act: () => Promise<unknown>, done?: string) {
   try {
     await act();
     if (done !== undefined) {
-      toast(await done());
+      toast(done);
     }
   } catch (error) {
     toast(sentenceOf(error), { kind: "fail" });
@@ -68,10 +61,7 @@ async function run(act: () => Promise<unknown>, done?: () => Promise<string>) {
 export function useFileActions(fileId: string) {
   return {
     search: (want: string, wanted: TargetsWantedLanguage) =>
-      run(
-        () => searchSubtitle(fileId, want),
-        async () => searchingWords(wanted, await searchIsOn()),
-      ),
+      run(() => searchSubtitle(fileId, want), searchingWords(wanted)),
     ignore: (stream: number) => run(() => ignoreSubtitleTrack(fileId, stream)),
     count: (stream: number) => run(() => countSubtitleTrack(fileId, stream)),
   };

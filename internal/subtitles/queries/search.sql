@@ -28,8 +28,9 @@ UPDATE subtitles_want SET queued_at = NULL, queue_rank = NULL, queue_order = NUL
 WHERE file_id = sqlc.arg(file_id) AND language = sqlc.arg(language) AND forced = sqlc.arg(forced);
 
 -- name: QueueDue :execrows
--- Up to n wants past due whose file's audio is scanned join the queue,
--- all of them or only fresh imports' and prioritized ones: reports, the
+-- Up to n wants past due whose file's audio is scanned join the queue:
+-- all of them, or prioritized ones, with fresh imports' and those a
+-- provider's pause held when soonest is set. They rank reports, the
 -- Admin's searches, missing wants of fresh imports newest first, older
 -- missing wants, then upgrades.
 UPDATE subtitles_want SET queued_at = sqlc.arg(now),
@@ -41,7 +42,8 @@ WHERE rowid IN (
     SELECT w.rowid FROM subtitles_want w JOIN subtitles_file f ON f.file_id = w.file_id
     WHERE w.queued_at IS NULL AND w.due_at <= sqlc.arg(now) AND f.map_state = 'built' AND f.wantless = 0
         AND (w.unmet = 1 OR CAST(sqlc.arg(upgrades) AS INTEGER) = 1)
-        AND (CAST(sqlc.arg(all) AS INTEGER) = 1 OR f.fresh = 1 OR w.priority IS NOT NULL)
+        AND (CAST(sqlc.arg(all) AS INTEGER) = 1 OR w.priority IS NOT NULL
+            OR (CAST(sqlc.arg(soonest) AS INTEGER) = 1 AND (f.fresh = 1 OR w.last_result = 'paused')))
     ORDER BY w.due_at LIMIT sqlc.arg(n));
 
 -- name: SearchNow :execrows

@@ -8,8 +8,6 @@ package db
 import (
 	"context"
 	"strings"
-
-	"github.com/jatassi/slipstream/internal/works"
 )
 
 const listSubjects = `-- name: ListSubjects :many
@@ -153,13 +151,14 @@ func (q *Queries) ListSubjectsOfFiles(ctx context.Context, ids []FileID) ([]List
 const listSubjectsOfWorks = `-- name: ListSubjectsOfWorks :many
 SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, CAST(m.file_id IS NULL AS INTEGER) AS at_name FROM files_file f
 LEFT JOIN files_move m ON m.file_id = f.id
-WHERE f.work_id IN (/*SLICE:work_ids*/?) AND f.id > coalesce(?2, x'')
+WHERE f.work_id IN (SELECT unhex(replace(value, '-', '')) FROM json_each(?1))
+    AND f.id > coalesce(?2, x'')
 ORDER BY f.id
 LIMIT ?3
 `
 
 type ListSubjectsOfWorksParams struct {
-	WorkIds []works.WorkID
+	WorkIds interface{}
 	After   FileID
 	N       int64
 }
@@ -169,21 +168,10 @@ type ListSubjectsOfWorksRow struct {
 	AtName    int64
 }
 
-// ListSubjects narrowed to the files of work_ids.
+// ListSubjects narrowed to the files of work_ids, a JSON array: an sqlc.slice
+// here would bind after and n to the wrong values.
 func (q *Queries) ListSubjectsOfWorks(ctx context.Context, arg ListSubjectsOfWorksParams) ([]ListSubjectsOfWorksRow, error) {
-	query := listSubjectsOfWorks
-	var queryParams []interface{}
-	if len(arg.WorkIds) > 0 {
-		for _, v := range arg.WorkIds {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(arg.WorkIds))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
-	}
-	queryParams = append(queryParams, arg.After)
-	queryParams = append(queryParams, arg.N)
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	rows, err := q.db.QueryContext(ctx, listSubjectsOfWorks, arg.WorkIds, arg.After, arg.N)
 	if err != nil {
 		return nil, err
 	}

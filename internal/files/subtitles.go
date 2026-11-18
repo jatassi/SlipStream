@@ -2,6 +2,8 @@ package files
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"slices"
 	"time"
 
@@ -179,7 +181,11 @@ func subjectRows(ctx context.Context, q *db.Queries, after ID, n int, among work
 	}
 	var rows []db.ListSubjectsRow
 	for chunk := range slices.Chunk(among.IDs(), works.Batch) {
-		of, err := q.ListSubjectsOfWorks(ctx, db.ListSubjectsOfWorksParams{WorkIds: chunk, After: after, N: int64(n)})
+		listed, err := json.Marshal(chunk)
+		if err != nil {
+			return nil, fmt.Errorf("listing Works: %w", err)
+		}
+		of, err := q.ListSubjectsOfWorks(ctx, db.ListSubjectsOfWorksParams{WorkIds: string(listed), After: after, N: int64(n)})
 		if err != nil {
 			return nil, err
 		}

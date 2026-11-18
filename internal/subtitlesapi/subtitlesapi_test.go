@@ -223,3 +223,21 @@ func TestAnUploadOverTheCapIsRefused(t *testing.T) {
 		answers(t, o, http.MethodPost, want+"/upload", upload(6<<20), http.StatusRequestEntityTooLarge)
 	})
 }
+
+func TestAKeyASearchFindsRejectedReadsWhenItWasRejected(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w, o := serve(t)
+		en := subtitlestest.Wanted(t, "en", false, targets.Allow, targets.Always)
+		f := w.Place(w.Work("film", w.Profile("Films", en)), "Film/Film.mkv", media.Record{Audio: []media.Audio{{Codec: "eac3", Channels: 6, Language: "fr"}}})
+		w.Sweep()
+		w.Holder = subtitlestest.KeyHolder{Account: "film-fan", Plan: "Free"}
+		answers(t, o, http.MethodPut, "/api/v1/subtitles/providers/subdl/key", `{"key":"k1"}`, http.StatusOK)
+		w.Settle()
+		w.Catalog.Answer("subdl", calls.Outcome{Kind: calls.Refused, Words: "refused the key: Not Authorized"})
+		rejected := time.Now().Add(w.Timings.WakeDelay)
+		answers(t, o, http.MethodPost, "/api/v1/files/"+f.String()+"/subtitles/en/search", "", http.StatusAccepted)
+		w.Settle()
+		answers(t, o, http.MethodGet, "/api/v1/subtitles/providers", "", http.StatusOK,
+			`"state":{"kind":"rejected","since":"`+rejected.UTC().Format(time.RFC3339Nano)+`","until":null,"words":"Not Authorized"}`)
+	})
+}

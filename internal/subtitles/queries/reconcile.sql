@@ -13,8 +13,8 @@ ON CONFLICT (id) DO NOTHING;
 -- A missing want last searched before a covering provider gained the power
 -- to search is due now.
 UPDATE subtitles_want SET due_at = sqlc.arg(now)
-WHERE file_id IN (sqlc.slice(ids)) AND kind = sqlc.arg(kind) AND unmet = 1 AND last_searched_at < sqlc.arg(gained)
-    AND (due_at IS NULL OR due_at > sqlc.arg(now));
+WHERE kind = sqlc.arg(kind) AND unmet = 1 AND last_searched_at < sqlc.arg(gained)
+    AND (due_at IS NULL OR due_at > sqlc.arg(now)) AND file_id IN (sqlc.slice(ids));
 
 -- name: ClearLeases :execrows
 UPDATE subtitles_want SET attempt_id = NULL WHERE attempt_id IS NOT NULL;

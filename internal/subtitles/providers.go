@@ -301,7 +301,7 @@ func (s *Subtitles) SetKey(ctx context.Context, _ identity.Admin, id subtitling.
 	return s.changeProvider(ctx, id, func(q *db.Queries, _ Provider, now storage.Time) error {
 		_, err := q.PutProviderKey(ctx, db.PutProviderKeyParams{
 			ID: id, ApiKeySealed: s.cfg.Sealer.Seal([]byte(key), keyColumn.Row(string(id))), Account: some(account.Name), Plan: some(account.Plan),
-			Allowance: stored, AllowanceAt: at, Now: now,
+			Allowance: stored, AllowanceAt: at, Now: now, DownloadsLeft: flag(allowance != nil && allowance.Downloads != nil && allowance.Downloads.Remaining > 0),
 		})
 		return err
 	})
@@ -400,6 +400,7 @@ func fold(p Provider, os []calls.Outcome, now time.Time, maxPause time.Duration)
 			p.Paused = &Pause{Until: clamp(o.Until), Reason: PausedRate, Words: o.Words}
 		case calls.Refused, calls.PinRefused:
 			p.Paused = &Pause{Until: bound, Reason: PausedKey, Words: providerWords(o.Words)}
+			p.KeyCheckedAt = now
 		case calls.Unreachable:
 			if p.FailingSince.IsZero() {
 				p.FailingSince = now
@@ -472,10 +473,19 @@ func (s *Subtitles) blame(id subtitling.ProviderID, holder role.NodeID) {
 	s.blamed[id] = holder
 }
 
-// holderFor is a Subtitles holder to ask ids on: the first that reported
-// no pause of any of them, else the first.
+// holderFor is a Subtitles holder to ask ids on, those in step first:
+// the first that reported no pause of any of them, else the first.
 func (s *Subtitles) holderFor(ids ...subtitling.ProviderID) (role.NodeID, subtitling.Remote, bool) {
 	holders := s.cfg.Roster.Holding(role.Subtitles)
+	slices.SortStableFunc(holders, func(a, b role.NodeID) int {
+		switch inA, inB := s.cfg.Roster.InStep(a), s.cfg.Roster.InStep(b); {
+		case inA == inB:
+			return 0
+		case inA:
+			return -1
+		}
+		return 1
+	})
 	if len(holders) == 0 {
 		return role.NodeID{}, subtitling.Remote{}, false
 	}

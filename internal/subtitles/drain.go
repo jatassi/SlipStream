@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/language"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -64,19 +65,21 @@ func (d *searchDrain) run(ctx context.Context) {
 }
 
 // pass starts attempts for the next queued wants of the ready kinds,
-// first queuing fresh imports' and the Admin's due wants whose files'
-// audio is now scanned. Nothing runs while Subtitle search is off, the
-// library Reconciles or no Node has the Subtitles Role.
+// first queuing fresh imports', the Admin's and a pause's due wants whose
+// files' audio is now scanned. While Subtitle search is off only the
+// searches an Admin or a report asked for run. Nothing runs while the
+// library Reconciles or no Node with the Subtitles Role is in step.
 func (d *searchDrain) pass(ctx context.Context, wg *sync.WaitGroup) error {
 	s := d.s
-	if len(s.cfg.Roster.Holding(role.Subtitles)) == 0 {
+	if !slices.ContainsFunc(s.cfg.Roster.Holding(role.Subtitles), s.cfg.Roster.InStep) {
 		return nil
 	}
-	var on bool
+	var scope queued
 	var ps []Provider
+	var halt bool
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		halt, err := s.cfg.Reconciling(ctx, tx)
-		if err != nil || halt {
+		var err error
+		if halt, err = s.cfg.Reconciling(ctx, tx); err != nil || halt {
 			return err
 		}
 		q := db.New(tx)
@@ -84,16 +87,17 @@ func (d *searchDrain) pass(ctx context.Context, wg *sync.WaitGroup) error {
 		if err != nil {
 			return err
 		}
-		if on = SearchOn.Value(settings.SearchOn); !on {
-			return nil
+		scope = soonest
+		if !SearchOn.Value(settings.SearchOn) {
+			scope = askedFor
 		}
-		if _, err := s.queue(ctx, q, false, SearchUpgrades.Value(settings.SearchUpgrades)); err != nil {
+		if _, err := s.queue(ctx, q, scope, SearchUpgrades.Value(settings.SearchUpgrades)); err != nil {
 			return err
 		}
 		ps, err = s.providersIn(ctx, tx)
 		return err
 	})
-	if err != nil || !on {
+	if err != nil || halt {
 		return err
 	}
 	s.recheck(ctx, ps)
@@ -101,7 +105,7 @@ func (d *searchDrain) pass(ctx context.Context, wg *sync.WaitGroup) error {
 	if room <= 0 {
 		return nil
 	}
-	next, err := d.next(ctx, readyKinds(ps, s.cfg.Clock()), room)
+	next, err := d.next(ctx, readyKinds(ps, s.cfg.Clock()), room, scope == askedFor)
 	if err != nil {
 		return err
 	}
@@ -117,14 +121,16 @@ func (d *searchDrain) busy() int {
 	return len(d.running)
 }
 
-// next is up to room queued wants of kinds in queue order, leaving out
-// those an attempt runs for or a pick or an upload waits for.
-func (d *searchDrain) next(ctx context.Context, kinds []subtitling.Kind, room int) ([]WantKey, error) {
+// next is up to room queued wants of kinds in queue order, only those
+// someone asked for when asked is set, leaving out those an attempt runs
+// for, a pick or an upload waits for, or whose file's Node isn't in step.
+// Those stay queued until it is again.
+func (d *searchDrain) next(ctx context.Context, kinds []subtitling.Kind, room int, asked bool) ([]WantKey, error) {
 	var rows []db.SubtitlesWant
 	err := d.s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		q := db.New(r)
 		for _, k := range kinds {
-			got, err := q.NextQueued(ctx, db.NextQueuedParams{Kind: kindNames[k], N: int64(room + d.busy())})
+			got, err := d.reachable(ctx, q, kindNames[k], room+d.busy(), asked)
 			if err != nil {
 				return err
 			}
@@ -157,33 +163,87 @@ func (d *searchDrain) next(ctx context.Context, kinds []subtitling.Kind, room in
 	return out, nil
 }
 
+// reachable is the first n queued wants of kind whose files' Nodes are
+// in step, only those someone asked for when asked is set. It reads past
+// the queue's head while a Node that is away holds it, so that Node's
+// wants never stall the others'.
+func (d *searchDrain) reachable(ctx context.Context, q *db.Queries, kind string, n int, asked bool) ([]db.SubtitlesWant, error) {
+	for read := n; ; read *= 2 {
+		got, err := q.NextQueued(ctx, db.NextQueuedParams{Kind: kind, N: int64(read)})
+		if err != nil {
+			return nil, err
+		}
+		end := len(got) < read
+		if i := slices.IndexFunc(got, func(row db.SubtitlesWant) bool { return asked && deref(row.QueueRank) > askedRank }); i >= 0 {
+			got, end = got[:i], true
+		}
+		ids := make([]files.ID, len(got))
+		for i, row := range got {
+			ids[i] = row.FileID
+		}
+		fs, err := q.ListFilesIn(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		away := map[files.ID]bool{}
+		for _, f := range fs {
+			away[f.FileID] = !f.MapNodeID.IsZero() && !d.s.cfg.Roster.InStep(f.MapNodeID)
+		}
+		out := slices.DeleteFunc(got, func(row db.SubtitlesWant) bool { return away[row.FileID] })
+		if len(out) >= n || end {
+			return out[:min(len(out), n)], nil
+		}
+	}
+}
+
 func (d *searchDrain) start(ctx context.Context, wg *sync.WaitGroup, k WantKey) {
 	d.mu.Lock()
 	d.running[k] = true
 	d.mu.Unlock()
 	wg.Go(func() {
-		defer func() {
-			d.mu.Lock()
-			delete(d.running, k)
-			d.mu.Unlock()
-			d.wake()
-		}()
 		err := d.s.run(ctx, k)
+		d.mu.Lock()
+		delete(d.running, k)
+		d.mu.Unlock()
+		// An attempt that ended its want frees its room at once. One that
+		// failed leaves the want queued, so the drain tries it again at its
+		// next wake or poll, never at once: a Node that doesn't answer
+		// would be asked in a loop.
+		if err == nil {
+			d.wake()
+		}
 		if err != nil && !errors.Is(err, ErrBusy) && !errors.Is(err, errStale) && ctx.Err() == nil {
 			d.s.cfg.Log.WarnContext(ctx, "A subtitle search failed", "file", k.File, "want", k.Want, "error", err)
 		}
 	})
 }
 
-// queue stamps up to a chunk of due wants whose files' audio is scanned
-// onto the queue at a time, all of them on Subtitle search's run, else
-// only fresh imports' and those an Admin or a report asked for. Upgrades
-// queue only while searchUpgrades is on.
-func (s *Subtitles) queue(ctx context.Context, q *db.Queries, all, upgrades bool) (int, error) {
+// queued is which due wants a queue pass stamps onto the queue.
+type queued uint8
+
+const (
+	// askedFor is the searches an Admin or a report asked for, which run
+	// while Subtitle search is off.
+	askedFor queued = iota
+	// soonest adds fresh imports' wants and those a provider's pause held.
+	soonest
+	// everyDue is every due want, on Subtitle search's run.
+	everyDue
+)
+
+// askedRank is the last queue rank of a search someone asked for.
+var askedRank = max(priorities[ByAdmin].rank, priorities[ByReport].rank)
+
+// queue stamps up to a chunk of the due wants scope names whose files'
+// audio is scanned onto the queue at a time. Upgrades queue only while
+// searchUpgrades is on.
+func (s *Subtitles) queue(ctx context.Context, q *db.Queries, scope queued, upgrades bool) (int, error) {
 	now := storage.FromTime(s.cfg.Clock())
 	var n int
 	for {
-		got, err := q.QueueDue(ctx, db.QueueDueParams{Now: now, Upgrades: flag(upgrades), All: flag(all), N: int64(s.cfg.Timings.ReconcileChunk)})
+		got, err := q.QueueDue(ctx, db.QueueDueParams{
+			Now: now, Upgrades: flag(upgrades), All: flag(scope == everyDue), Soonest: flag(scope >= soonest), N: int64(s.cfg.Timings.ReconcileChunk),
+		})
 		if err != nil {
 			return n, err
 		}

@@ -207,22 +207,6 @@ test("Search starts a search for the subtitle and says so in a toast", async () 
   expect(world.calls).toEqual(["search"]);
 });
 
-test("Search while Subtitle search is off says to turn it on", async () => {
-  const world = open({
-    work: { files: [uhdSubtitles([missing("en", "never_searched")])] },
-    searchOn: false,
-  });
-  await userEvent.click(subtitleRow("English").getByRole("button", { name: "Search" }));
-  await expect
-    .element(
-      notifications().getByText(
-        "Subtitle search is off. Turn it on in Settings > Subtitles to search for the English subtitle.",
-      ),
-    )
-    .toBeVisible();
-  expect(world.calls).toEqual(["search"]);
-});
-
 test("on phone a subtitle row's actions open as an action sheet", async () => {
   await asPhone();
   open({ work: { files: [uhdSubtitles([met("en")])] } });

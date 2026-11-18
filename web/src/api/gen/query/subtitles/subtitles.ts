@@ -1239,7 +1239,7 @@ export const getSearchSubtitleUrl = (fileId: string, want: string) => {
 };
 
 /**
- * @summary Search for one file's wanted subtitle now, ahead of the schedule
+ * @summary Search for one file's wanted subtitle now, ahead of the schedule, even while Subtitle search is off
  */
 export const searchSubtitle = async (
   fileId: string,
@@ -1312,7 +1312,7 @@ export type SearchSubtitleMutationError = ErrorType<
 export type SearchSubtitleMutationVariables = { fileId: string; want: string };
 
 /**
- * @summary Search for one file's wanted subtitle now, ahead of the schedule
+ * @summary Search for one file's wanted subtitle now, ahead of the schedule, even while Subtitle search is off
  */
 export const useSearchSubtitle = <
   TError = ErrorType<

@@ -252,19 +252,22 @@ WHERE rowid IN (
     SELECT w.rowid FROM subtitles_want w JOIN subtitles_file f ON f.file_id = w.file_id
     WHERE w.queued_at IS NULL AND w.due_at <= ?1 AND f.map_state = 'built' AND f.wantless = 0
         AND (w.unmet = 1 OR CAST(?2 AS INTEGER) = 1)
-        AND (CAST(?3 AS INTEGER) = 1 OR f.fresh = 1 OR w.priority IS NOT NULL)
-    ORDER BY w.due_at LIMIT ?4)
+        AND (CAST(?3 AS INTEGER) = 1 OR w.priority IS NOT NULL
+            OR (CAST(?4 AS INTEGER) = 1 AND (f.fresh = 1 OR w.last_result = 'paused')))
+    ORDER BY w.due_at LIMIT ?5)
 `
 
 type QueueDueParams struct {
 	Now      storage.Time
 	Upgrades int64
 	All      int64
+	Soonest  int64
 	N        int64
 }
 
-// Up to n wants past due whose file's audio is scanned join the queue,
-// all of them or only fresh imports' and prioritized ones: reports, the
+// Up to n wants past due whose file's audio is scanned join the queue:
+// all of them, or prioritized ones, with fresh imports' and those a
+// provider's pause held when soonest is set. They rank reports, the
 // Admin's searches, missing wants of fresh imports newest first, older
 // missing wants, then upgrades.
 func (q *Queries) QueueDue(ctx context.Context, arg QueueDueParams) (int64, error) {
@@ -272,6 +275,7 @@ func (q *Queries) QueueDue(ctx context.Context, arg QueueDueParams) (int64, erro
 		arg.Now,
 		arg.Upgrades,
 		arg.All,
+		arg.Soonest,
 		arg.N,
 	)
 	if err != nil {

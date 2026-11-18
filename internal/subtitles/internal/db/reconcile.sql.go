@@ -131,15 +131,15 @@ func (q *Queries) SeedProvider(ctx context.Context, id subtitling.ProviderID) er
 
 const stampGained = `-- name: StampGained :exec
 UPDATE subtitles_want SET due_at = ?1
-WHERE file_id IN (/*SLICE:ids*/?) AND kind = ?3 AND unmet = 1 AND last_searched_at < ?4
-    AND (due_at IS NULL OR due_at > ?1)
+WHERE kind = ?2 AND unmet = 1 AND last_searched_at < ?3
+    AND (due_at IS NULL OR due_at > ?1) AND file_id IN (/*SLICE:ids*/?)
 `
 
 type StampGainedParams struct {
 	Now    storage.Time
-	Ids    []files.ID
 	Kind   string
 	Gained storage.Time
+	Ids    []files.ID
 }
 
 // A missing want last searched before a covering provider gained the power
@@ -148,6 +148,8 @@ func (q *Queries) StampGained(ctx context.Context, arg StampGainedParams) error 
 	query := stampGained
 	var queryParams []interface{}
 	queryParams = append(queryParams, arg.Now)
+	queryParams = append(queryParams, arg.Kind)
+	queryParams = append(queryParams, arg.Gained)
 	if len(arg.Ids) > 0 {
 		for _, v := range arg.Ids {
 			queryParams = append(queryParams, v)
@@ -156,8 +158,6 @@ func (q *Queries) StampGained(ctx context.Context, arg StampGainedParams) error 
 	} else {
 		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
 	}
-	queryParams = append(queryParams, arg.Kind)
-	queryParams = append(queryParams, arg.Gained)
 	_, err := q.db.ExecContext(ctx, query, queryParams...)
 	return err
 }

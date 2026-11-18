@@ -360,7 +360,7 @@ func Routes(r *api.Router, owner Owner) {
 	wanting := []*api.Code{fileNotFound, badWant, notWanted}
 	api.Register(o, api.Admin, api.Op{
 		ID: "searchSubtitle", Method: http.MethodPost, Path: want + "/search",
-		Summary: "Search for one file's wanted subtitle now, ahead of the schedule", Status: http.StatusAccepted, Errors: wanting,
+		Summary: "Search for one file's wanted subtitle now, ahead of the schedule, even while Subtitle search is off", Status: http.StatusAccepted, Errors: wanting,
 	}, h.search)
 	api.Register(o, api.Admin, api.Op{
 		ID: "startSubtitleCandidates", Method: http.MethodPost, Path: want + "/candidates",

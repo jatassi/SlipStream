@@ -105,7 +105,7 @@ export const MarkSubtitleBadParams = zod.object({
 export const MarkSubtitleBadResponse = zod.void();
 
 /**
- * @summary Search for one file's wanted subtitle now, ahead of the schedule
+ * @summary Search for one file's wanted subtitle now, ahead of the schedule, even while Subtitle search is off
  */
 export const SearchSubtitleParams = zod.object({
   fileId: zod.uuid(),

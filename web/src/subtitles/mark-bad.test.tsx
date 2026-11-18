@@ -69,23 +69,3 @@ test("Mark bad on an uploaded subtitle says the Admin's own file is deleted, and
     .element(dialog.getByText("This file has no subtitle in that language to mark bad."))
     .toBeVisible();
 });
-
-test("Mark bad while Subtitle search is off says how to search for another", async () => {
-  open({ work: { files: [uhdSubtitles([met("en")])] }, searchOn: false });
-  await userEvent.click(
-    subtitleRow("English").getByRole("button", { name: "More for English subtitles" }),
-  );
-  await userEvent.click(page.getByRole("menuitem", { name: "Mark bad…" }));
-  await userEvent.click(
-    page
-      .getByRole("dialog", { name: "Mark the English subtitle on the 2160p HDR file bad?" })
-      .getByRole("button", { name: "Mark bad" }),
-  );
-  await expect
-    .element(
-      notifications().getByText(
-        "English subtitle marked bad. Subtitle search is off. Turn it on in Settings > Subtitles to search for another.",
-      ),
-    )
-    .toBeVisible();
-});

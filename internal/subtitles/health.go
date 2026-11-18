@@ -93,6 +93,7 @@ func (s *Subtitles) judgeProvider(a *health.Answer, p Provider, warn time.Durati
 		a.Items = append(a.Items, health.Item{Key: health.KeyOf("key-rejected", string(p.Spec.ID)), Level: health.Fail, Says: health.Says{
 			Subject: p.Spec.Label,
 			Text:    p.Spec.Label + " rejected your key and responded \"" + providerWords(p.Paused.Words) + "\". Add a new key in Settings > Subtitles.",
+			Detail:  []health.Fact{{Label: "Rejected", At: p.KeyCheckedAt}},
 			Action:  openSubtitles,
 		}})
 	case p.FailingSince.IsZero():

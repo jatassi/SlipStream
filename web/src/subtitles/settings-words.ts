@@ -128,10 +128,12 @@ const stateLines: Readonly<
     state.until === null
       ? `${name} is out of downloads.`
       : `${name} is out of downloads. SlipStream searches it again ${laterAtWords(state.until, clock)}.`,
-  rejected: ({ name, state }) =>
-    state.words === null
-      ? `${name} rejected the key. Replace the key.`
-      : `${name} rejected the key and responded "${state.words}". Replace the key.`,
+  rejected: ({ name, state }, _types, clock) => {
+    const at = state.since === null ? "" : ` ${pastAtWords(state.since, clock)}`;
+    return state.words === null
+      ? `${name} rejected the key${at}. Replace the key.`
+      : `${name} rejected the key${at} and responded "${state.words}". Replace the key.`;
+  },
   failing: ({ name, state }, _types, clock) =>
     state.since === null
       ? `${name} isn't responding. SlipStream retries automatically.`

@@ -59,7 +59,7 @@ func (s *Subtitles) search(ctx context.Context, _ tasks.Unit, p *tasks.Progress)
 		if on = SearchOn.Value(row.SearchOn); !on {
 			return nil
 		}
-		n, err = s.queue(ctx, q, true, SearchUpgrades.Value(row.SearchUpgrades))
+		n, err = s.queue(ctx, q, everyDue, SearchUpgrades.Value(row.SearchUpgrades))
 		return err
 	})
 	if err != nil {

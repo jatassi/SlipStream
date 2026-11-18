@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -78,4 +79,20 @@ func seed(t *testing.T, w *subtitlestest.World, trees []works.Tree, m media.Reco
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestAProviderGainedMakesDueEveryMissingWantSearchedBefore(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := world(t, nil)
+		p := w.Profile("Films", subtitlestest.Wanted(t, "en", false, targets.Allow, targets.Always))
+		w.Place(w.Work("heat", p), "Heat/Heat.mkv", audio("fr"))
+		w.Place(w.Work("ronin", p), "Ronin/Ronin.mkv", audio("fr"))
+		now := storage.FromTime(time.Now())
+		exec(t, w, `UPDATE subtitles_want SET last_searched_at = 1, due_at = ?`, storage.FromTime(time.Now().Add(time.Hour)))
+		exec(t, w, `UPDATE subtitles_provider SET gained_at = ?`, now)
+		w.Reconcile()
+		if got := query(t, w, `SELECT count(*) FROM subtitles_want WHERE unmet = 1 AND due_at <= ?`, now); got[0] != "2" {
+			t.Fatalf("%s of 2 missing wants are due after a provider gained, want both", got[0])
+		}
+	})
 }

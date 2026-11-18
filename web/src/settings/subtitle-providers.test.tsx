@@ -48,7 +48,7 @@ test("each state reads as its own sentence", async () => {
     {
       ...subsource,
       hasKey: true,
-      state: { kind: "rejected", since: null, until: null, words: "Invalid API key" },
+      state: { kind: "rejected", since: anHourAgo, until: null, words: "Invalid API key" },
     },
     { ...gestdown, state: { kind: "failing", since: anHourAgo, until: null, words: "timeout" } },
   ];
@@ -62,7 +62,7 @@ test("each state reads as its own sentence", async () => {
   await expect
     .element(
       list().getByText(
-        'SubSource rejected the key and responded "Invalid API key". Replace the key.',
+        /^SubSource rejected the key (?:today|yesterday) at .+ and responded "Invalid API key"\. Replace the key\.$/u,
       ),
     )
     .toBeVisible();

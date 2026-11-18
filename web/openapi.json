@@ -21537,7 +21537,7 @@
             "type": "string"
           },
           "since": {
-            "description": "When a failing provider started failing",
+            "description": "When the provider rejected the key, or when a failing provider started failing",
             "format": "date-time",
             "type": [
               "string",
@@ -41378,7 +41378,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Search for one file's wanted subtitle now, ahead of the schedule",
+        "summary": "Search for one file's wanted subtitle now, ahead of the schedule, even while Subtitle search is off",
         "tags": [
           "subtitles"
         ],

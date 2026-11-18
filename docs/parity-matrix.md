@@ -533,7 +533,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-365 | Playback report of which players transcoded, why, and which Target would have played | - | not started | kept | [Playback report](https://github.com/jatassi/SlipStream/issues/161) | planned |
 | P-366 | Member access to Media Servers from onboarding: Share on Plex, Jellyfin and Emby accounts | - | not started | kept | [Member access to Media Servers](https://github.com/jatassi/SlipStream/issues/168) | planned |
 | P-367 | Remux and added audio steps on downloads | - | not started | kept | [Remux and added audio on downloads](https://github.com/jatassi/SlipStream/issues/170) | planned |
-| P-368 | Subtitles: Providers, Wanted Languages, Timing sync against a Speech Map, Sidecars and Subtitle search | - | not started | kept | [Subtitles](https://github.com/jatassi/SlipStream/issues/171) | planned |
+| P-368 | Subtitles: Providers, Wanted Languages, Timing sync against a Speech Map, Sidecars and Subtitle search | - | not started | kept | [Subtitles](https://github.com/jatassi/SlipStream/issues/171) | shipped |
 | P-369 | Member subtitle reports per Item and language | - | not started | kept | [Subtitle reports](https://github.com/jatassi/SlipStream/issues/172) | planned |
 | P-370 | Moves of a Work to another root or a torrent to another Download Client | - | not started | kept | [Moves](https://github.com/jatassi/SlipStream/issues/173) | planned |
 | P-371 | Handover of the Controller to another paired Node | - | not started | kept | [Handover](https://github.com/jatassi/SlipStream/issues/175) | planned |

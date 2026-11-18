@@ -10764,7 +10764,7 @@ export const SubtitlesStanding = zod.object({
   since: zod.iso
     .datetime({ offset: true })
     .nullable()
-    .describe("When a failing provider started failing"),
+    .describe("When the provider rejected the key, or when a failing provider started failing"),
   until: zod.iso
     .datetime({ offset: true })
     .nullable()
