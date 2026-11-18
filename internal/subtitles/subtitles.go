@@ -16,7 +16,9 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/subtitles/internal/db"
@@ -58,6 +60,10 @@ type Config struct {
 	Types map[works.TypeID]Facet
 	// Storage is SidecarService on each Storage Node.
 	Storage storing.SidecarRemote
+	// Holders is SubtitlesService on a Node with the Subtitles Role.
+	Holders func(role.NodeID) subtitling.Remote
+	// Sealer seals and opens the providers' keys.
+	Sealer *secret.Sealer
 	// Videos is the video extensions a survey lists companions of.
 	Videos func(ctx context.Context, r storage.Reader[storage.Library]) (media.Videos, error)
 	// Providers is every Subtitle Provider's Spec, in default order.
@@ -69,6 +75,10 @@ type Config struct {
 	// removes a Sidecar while it is.
 	Reconciling func(ctx context.Context, r storage.Reader[storage.Library]) (bool, error)
 	History     entry.Recorder
+	// Changed and ProvidersChanged publish subtitles.changed and
+	// subtitles.providers-changed.
+	Changed          Publisher[Changed]
+	ProvidersChanged Publisher[ProvidersChanged]
 	Timings     Timings
 	Clock       func() time.Time
 	Rand        *rand.Rand

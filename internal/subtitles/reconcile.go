@@ -35,6 +35,7 @@ var Every = setting.Duration{
 // Cadences is the tasks' stored cadences.
 type Cadences interface {
 	EveryIn(ctx context.Context, r storage.Reader[storage.Library], id tasks.TaskID) (*int64, error)
+	SetCadence(ctx context.Context, id tasks.TaskID, v setting.Stored[int64]) error
 }
 
 // Unscheduled is the Cadences of a Controller whose catalog has no

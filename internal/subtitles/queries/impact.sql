@@ -46,7 +46,7 @@ DELETE FROM subtitles_want WHERE language = sqlc.arg(language) AND forced = sqlc
     AND work_id IN (SELECT work_id FROM targets_wants WHERE profile_id = sqlc.arg(profile_id));
 
 -- name: ListLibraryMarks :many
-SELECT work_id, max(last_result = 'none_passed') AS none_passed FROM subtitles_want WHERE unmet = 1 GROUP BY work_id ORDER BY work_id;
+SELECT work_id, CAST(coalesce(max(last_result = 'none_passed'), 0) AS INTEGER) AS none_passed FROM subtitles_want WHERE unmet = 1 GROUP BY work_id ORDER BY work_id;
 
 -- name: NextQueued :many
 SELECT * FROM subtitles_want WHERE kind = sqlc.arg(kind) AND queued_at IS NOT NULL AND attempt_id IS NULL
