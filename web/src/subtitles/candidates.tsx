@@ -101,7 +101,7 @@ function Card({ candidate, best, providers, busy, locked, onPick }: CardProps) {
           size="small"
           busy={busy}
           disabled={candidate.disabled || locked}
-          aria-label={`Pick ${candidate.release}`}
+          aria-label={`Pick ${candidate.release} from ${providerName(providers, candidate.provider)}`}
           onClick={onPick}
         >
           Pick
