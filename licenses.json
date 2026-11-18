@@ -41,6 +41,7 @@
 		{"name": "alass", "path": "internal/notices/alass"},
 		{"name": "anatomy kit", "path": "web/vendor/anatomy"},
 		{"name": "ffsubsync", "path": "internal/notices/ffsubsync"},
+		{"name": "libfvad", "path": "internal/media/fvad"},
 		{"name": "Prowlarr", "path": "internal/notices/prowlarr"},
 		{"name": "Radarr", "path": "internal/notices/radarr"},
 		{"name": "Sonarr", "path": "internal/notices/sonarr"},

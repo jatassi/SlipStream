@@ -1,0 +1,3 @@
+package speech
+
+import "C"
