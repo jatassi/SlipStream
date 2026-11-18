@@ -1,0 +1,43 @@
+{
+  "episode 200": {
+    "$": "object",
+    "$.episode": "object",
+    "$.episode.discovered": "string",
+    "$.episode.number": "number",
+    "$.episode.season": "number",
+    "$.episode.show": "string",
+    "$.episode.title": "string",
+    "$.matchingSubtitles": "array",
+    "$.matchingSubtitles[]": "object",
+    "$.matchingSubtitles[].completed": "boolean",
+    "$.matchingSubtitles[].corrected": "boolean",
+    "$.matchingSubtitles[].discovered": "string",
+    "$.matchingSubtitles[].downloadCount": "number",
+    "$.matchingSubtitles[].downloadUri": "string",
+    "$.matchingSubtitles[].hd": "boolean",
+    "$.matchingSubtitles[].hearingImpaired": "boolean",
+    "$.matchingSubtitles[].language": "string",
+    "$.matchingSubtitles[].qualities": "array",
+    "$.matchingSubtitles[].qualities[]": "string",
+    "$.matchingSubtitles[].release": "null|string",
+    "$.matchingSubtitles[].source": "string",
+    "$.matchingSubtitles[].subtitleId": "string",
+    "$.matchingSubtitles[].version": "string"
+  },
+  "show 200": {
+    "$": "object",
+    "$.shows": "array",
+    "$.shows[]": "object",
+    "$.shows[].id": "string",
+    "$.shows[].name": "string",
+    "$.shows[].nbSeasons": "number",
+    "$.shows[].seasons": "array",
+    "$.shows[].seasons[]": "number",
+    "$.shows[].slug": "string",
+    "$.shows[].tmdbId": "null|number",
+    "$.shows[].tvDbId": "number"
+  },
+  "show 404": {
+    "$": "string"
+  }
+}
