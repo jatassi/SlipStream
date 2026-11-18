@@ -58,7 +58,7 @@ func (l *Library) Delete(ctx context.Context, by identity.Admin, ws []works.Work
 		}
 		switch {
 		case d.Files == DeleteFiles:
-			if err := files.DoomIn(ctx, tx, c.removed); err != nil {
+			if err := l.cfg.Files.DoomIn(ctx, tx, c.removed); err != nil {
 				return nil, err
 			}
 		case d.Files == LeaveFiles && l.cfg.Leaver != nil:

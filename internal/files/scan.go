@@ -126,7 +126,7 @@ func (f *Files) Scan(ctx context.Context, tx *storage.Tx[file], s Scan) (Scanned
 	if err != nil {
 		return Scanned{}, err
 	}
-	if err := apply(ctx, sc.q, p); err != nil {
+	if err := f.apply(ctx, tx, p, nil); err != nil {
 		return Scanned{}, err
 	}
 	return Scanned{Changed: true, Dropped: sc.dropped}, f.tell(ctx, tx, sc.went)
