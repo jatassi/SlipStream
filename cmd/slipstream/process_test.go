@@ -700,7 +700,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.subtitles.keeper_poll", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_KEEPER_POLL"},
 			{Key: "timings.subtitles.map_retry_min", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_MAP_RETRY_MIN"},
 			{Key: "timings.subtitles.map_retry_max", Value: "168h0m0s", Default: "168h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_MAP_RETRY_MAX"},
-			{Key: "timings.subtitles.fault_retry", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_FAULT_RETRY"},
+			{Key: "timings.subtitles.node_retry", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_NODE_RETRY"},
 			{Key: "timings.subtitles.remove_retry_min", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_REMOVE_RETRY_MIN"},
 			{Key: "timings.subtitles.remove_retry_max", Value: "24h0m0s", Default: "24h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_REMOVE_RETRY_MAX"},
 			{Key: "timings.subtitles.cue_margin", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_CUE_MARGIN"},

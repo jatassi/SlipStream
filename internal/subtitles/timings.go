@@ -37,10 +37,10 @@ type Timings struct {
 	// KeeperPoll is how often the Keeper sweeps for keys a wake missed.
 	KeeperPoll time.Duration `yaml:"keeper_poll"`
 	// MapRetryMin and MapRetryMax bound a decode_failed map's backoff, and
-	// FaultRetry is how soon a node_fault map is asked for again.
+	// NodeRetry is how soon a node_fault map is asked for again.
 	MapRetryMin time.Duration `yaml:"map_retry_min"`
 	MapRetryMax time.Duration `yaml:"map_retry_max"`
-	FaultRetry  time.Duration `yaml:"fault_retry"`
+	NodeRetry   time.Duration `yaml:"node_retry"`
 	// RemoveRetryMin and RemoveRetryMax bound a removal's backoff after a
 	// call that didn't reach its Node.
 	RemoveRetryMin time.Duration `yaml:"remove_retry_min"`
@@ -61,7 +61,7 @@ func DefaultTimings() Timings {
 	return Timings{
 		AttemptBound: 10 * time.Minute, CandidatesHold: 15 * time.Minute, UploadHold: 30 * time.Minute, AttemptHold: 15 * time.Minute,
 		PackHold: 6 * time.Hour, UploadCap: 5 << 20, DrainWidth: 3, ReconcileChunk: 2000, SurveyBatch: 200,
-		WakeDelay: time.Second, KeeperPoll: time.Minute, MapRetryMin: time.Hour, MapRetryMax: 7 * 24 * time.Hour, FaultRetry: time.Hour,
+		WakeDelay: time.Second, KeeperPoll: time.Minute, MapRetryMin: time.Hour, MapRetryMax: 7 * 24 * time.Hour, NodeRetry: time.Hour,
 		RemoveRetryMin: time.Minute, RemoveRetryMax: 24 * time.Hour, CueMargin: time.Minute, MaxPause: 24 * time.Hour, Siblings: 3,
 		Sync: timing.DefaultConstants(),
 	}
