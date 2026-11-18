@@ -9,6 +9,7 @@ import { asPhone } from "../test/viewport";
 
 const title = "English subtitle for The Quiet Orchard (2021) - 2160p.mkv";
 const notifications = () => page.getByRole("region", { name: "Messages" });
+const imagePick = "Pick The.Quiet.Orchard.2021.2160p.image from SubDL";
 
 test("Manual search opens a 940 dialog on desktop and says when no provider found a subtitle", async () => {
   const world = open({});
@@ -96,11 +97,7 @@ test("candidates rank with the first as Best, each step it meets checked, and tr
   await expect
     .element(tried.getByText("SubDL · SlipStream can't use image subtitles."))
     .toBeVisible();
-  await expect
-    .element(
-      tried.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.image from SubDL" }),
-    )
-    .toBeDisabled();
+  await expect.element(tried.getByRole("button", { name: imagePick })).toBeDisabled();
   await expect
     .element(tried.getByText("SubDL · Its timing didn't match this file. · Timing match 41%"))
     .toBeVisible();
