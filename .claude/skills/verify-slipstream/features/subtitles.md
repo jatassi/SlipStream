@@ -13,12 +13,15 @@ An Admin adds a Wanted Language to a Profile, and SlipStream records a want for 
 - `subtitles-work` `GET /api/v1/works/{workId}/subtitles` answers each file's wants with their state, its embedded tracks and its companions; `PUT .../files/{fileId}/subtitles/tracks/{stream}/ignored` stops a text track from counting, so its want reads missing, and `DELETE` counts it again (P-368).
 - `subtitles-health` Health's Subtitles category, after Indexers, raises no holder, a rejected key, a failing provider, a Content Type with Wanted Languages that no provider searches, and a Node that can't scan audio, and clears each when its rows do (P-368).
 - `subtitles-actions-wait` search, Manual search, pick, upload, Mark bad and keep answer 501 `subtitle_action_not_built` until Subtitle search lands, except that an upload over 5 MB answers 422 `subtitle_too_large` and a body over 7 MiB answers 413 (P-368).
+- `subtitles-settings-screen` Settings > Subtitles, in the `Metadata and subtitles` group, leads with one sentence for the first `lead` that holds and its next step (`Open Profiles`, or `Add SubDL key`), lists the Profiles with subtitle languages, then `Subtitle Providers`, `Subtitle search` with the rest under `Details`, and a card per Storage Node with its `Audio scans at once on this Node`; a gap under the cadence shows the 422 under the field (P-368).
+- `subtitles-key-dialog` a provider's `Add key` opens `Add your SubDL key`: numbered steps whose `Open SubDL` link ticks its step, and `SlipStream never asks for your SubDL password.`; a refused key replaces the steps with a `Not saved` card quoting SubDL's words and `Try another key`, and an accepted key with a card naming the account, plan, downloads left and place in the search order (P-368).
+- `subtitles-provider-order` `Subtitle Providers` ranks SubDL, SubSource and Gestdown with each one's state in a sentence and a downloads Meter, moves a row by `Move up` and `Move down` (an action sheet on phone), and turns one off with `Search <name>` (P-368).
 - `subtitles-library-mark` each Library row's `subtitles` reads `missing` or `none_passed` for a Work with an unmet want, and null otherwise (P-368).
 
 ## How to get to it (user POV)
 
-- Desktop shell: none yet. The Profile editor gains Wanted Languages in a later PR.
-- Phone shell: none yet.
+- Desktop shell: the sidebar's `Settings`, then `Subtitles` under `Metadata and subtitles` (`/settings/subtitles`). A Profile's `Subtitles` section, under `Settings` > `Profiles` > the Profile, holds its Wanted Languages.
+- Phone shell: `More`, then `Settings`, then `Subtitles`; the key dialog is a bottom sheet, and a ranked provider's `Actions for <name>` opens an action sheet.
 - API (Admin): `PUT /api/v1/profiles/{profileId}` with `languages`, `?preview=true` for the Impact alone and `?confirmSubtitles=<n>` on the save; `POST /api/v1/works/delete` with `{"workIds":[...],"files":"delete"}` for the delete; `POST /api/v1/roots/{rootId}/scan` for a Library scan.
 - API (Admin): `/api/v1/subtitles/settings`, `/api/v1/subtitles/nodes/{nodeId}/settings`, `/api/v1/subtitles/providers` with `/order`, `/{id}` and `/{id}/key`, `/api/v1/works/{workId}/subtitles`, and `/api/v1/files/{fileId}/subtitles/...` for tracks and the manual actions. `GET /api/v1/system/health` for the Subtitles category, and `GET /api/v1/library` for the row mark.
 - Host CLI: none.
@@ -90,6 +93,8 @@ Steps:
   $FW exec $RUN --proof subtitles/subtitles-providers -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"ids":["gestdown","subdl","subsource"]}' '{nodes.home.url}/api/v1/subtitles/providers/order'
   $FW exec $RUN --proof subtitles/subtitles-providers -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"key":"not-a-key"}' '{nodes.home.url}/api/v1/subtitles/providers/subdl/key'
   ```
+
+- **The screens.** Sign in as `{runId}-admin-desktop` and `{runId}-admin-phone`, open `/settings/subtitles`, press `Add key` on SubDL, paste `not-a-key` for the refusal, `Try another key`, then the fake's valid key for the accepted card. Move Gestdown up with its row actions, and screenshot each state under `proof/subtitles/<sub-feature>/`.
 
 - **A Work's subtitles.** With English wanted on `Movies`, copy Lanterns at Low Tide (it has an embedded English SubRip track) into the Movies root, scan, read its subtitles, then ignore its English text track by its stream number and read again: the want reads missing and the Library row's `subtitles` reads `missing`.
 
