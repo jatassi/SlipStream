@@ -747,7 +747,7 @@ A numbered list with a 30px disc per step on a 1px connector.
 - **Done step:** A check on `selected`.
 - **Pending step:** `ink-2`.
 
-Following a step's real link ticks it, and a pasted key is checked at once. The answer replaces the steps, either the provider's own reply in a failure card or a result card with a glowing check. Portal onboarding and provider key setup both use this pattern.
+Each step's link is a default capsule that opens the real page in a new tab, and following it ticks the step. At the Touch density the link stretches full width. A step's own field, such as the key, sits under its sentence, and a pasted key is checked at once. The answer replaces the steps, either the provider's own reply in a failure card or a result card with a glowing check. Portal onboarding and provider key setup both use this pattern.
 
 ### Catalog picker
 
