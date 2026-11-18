@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	faketmdb "github.com/jatassi/slipstream/fakes/tmdb"
 	faketvdb "github.com/jatassi/slipstream/fakes/tvdb"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/link"
@@ -126,7 +127,7 @@ func serve(t *testing.T, name string, test func(t *testing.T, p *providers), tvd
 func askFor(r metadata.Ratings) metadata.Ask {
 	return metadata.NewAsk(metadata.AskOptions{
 		Language: "en-US", Region: "US", Ratings: r,
-		Keys: map[metadata.ProviderID]string{tvdb.ID: "tvdb-key", tmdb.ID: "tmdb-key", omdb.ID: "omdb-key"},
+		Keys: map[calls.ID]string{tvdb.ID: "tvdb-key", tmdb.ID: "tmdb-key", omdb.ID: "omdb-key"},
 	})
 }
 

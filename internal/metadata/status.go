@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
 	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
@@ -34,20 +35,20 @@ const (
 	StateUnreachable
 )
 
-var states = map[OutcomeKind]State{
-	OK:          StateWorking,
-	NotFound:    StateWorking,
-	Refused:     StateKeyRefused,
-	Limited:     StateRateLimited,
-	Capped:      StateOutOfAllowance,
-	Unreachable: StateUnreachable,
-	PinRefused:  StatePinRefused,
+var states = map[calls.OutcomeKind]State{
+	calls.OK:          StateWorking,
+	calls.NotFound:    StateWorking,
+	calls.Refused:     StateKeyRefused,
+	calls.Limited:     StateRateLimited,
+	calls.Capped:      StateOutOfAllowance,
+	calls.Unreachable: StateUnreachable,
+	calls.PinRefused:  StatePinRefused,
 }
 
 // ProviderStatus is how a provider stands, built only from the outcomes of
 // the calls holders made and the tests they ran.
 type ProviderStatus struct {
-	Provider ProviderID
+	Provider calls.ID
 	Label    string
 	// Summary says how the provider stands and what to do, in plain words.
 	// The fields after Key are the machinery under it.
@@ -61,7 +62,7 @@ type ProviderStatus struct {
 	TakesPin    bool
 	PinSet      bool
 	KeyPage     string
-	Attribution *Attribution
+	Attribution *calls.Attribution
 	State       State
 	Until       time.Time
 	LastSuccess time.Time
@@ -87,7 +88,7 @@ type Changed struct {
 var ChangedEvent = live.AdminEvent[Changed]("metadata.changed")
 
 type status struct {
-	p     Provider
+	p     calls.Provider
 	state State
 	until time.Time
 	// at is the time of the outcome state is from.
@@ -98,21 +99,21 @@ type status struct {
 	nodes       map[role.NodeID]NodeReach
 }
 
-func newStatus(p Provider) *status {
+func newStatus(p calls.Provider) *status {
 	return &status{p: p, state: StateUnused, nodes: map[role.NodeID]NodeReach{}}
 }
 
-func (s *status) take(node role.NodeID, o Outcome) {
+func (s *status) take(node role.NodeID, o calls.Outcome) {
 	if !o.At.Before(s.at) {
 		s.state, s.until, s.at = states[o.Kind], o.Until, o.At
 	}
-	if o.Kind == OK || o.Kind == NotFound {
+	if o.Kind == calls.OK || o.Kind == calls.NotFound {
 		s.lastSuccess = maxTime(s.lastSuccess, o.At)
 	} else if !o.At.Before(s.lastErrorAt) {
 		s.lastError, s.lastErrorAt = s.p.Label+" "+o.Words, o.At
 	}
 	if !o.At.Before(s.nodes[node].At) {
-		s.nodes[node] = NodeReach{Node: node, Reached: o.Kind != Unreachable, At: o.At}
+		s.nodes[node] = NodeReach{Node: node, Reached: o.Kind != calls.Unreachable, At: o.At}
 	}
 }
 
@@ -125,7 +126,7 @@ func maxTime(a, b time.Time) time.Time {
 
 // reach is one provider on one holder.
 type reach struct {
-	p    ProviderID
+	p    calls.ID
 	node role.NodeID
 }
 
@@ -147,7 +148,7 @@ func (m *Metadata) Providers(context.Context, identity.Admin) []ProviderStatus {
 
 // Test runs p's test call on a holder with the key in use, and answers
 // p's status after it. The test spends one call of p's allowance.
-func (m *Metadata) Test(ctx context.Context, _ identity.Admin, p ProviderID) (ProviderStatus, error) {
+func (m *Metadata) Test(ctx context.Context, _ identity.Admin, p calls.ID) (ProviderStatus, error) {
 	if _, ok := m.label(p); !ok {
 		return ProviderStatus{}, ErrNoProvider
 	}
@@ -160,7 +161,7 @@ func (m *Metadata) Test(ctx context.Context, _ identity.Admin, p ProviderID) (Pr
 	return m.statusOf(p), nil
 }
 
-func (m *Metadata) test(p ProviderID) *metadatav1.TestRequest {
+func (m *Metadata) test(p calls.ID) *metadatav1.TestRequest {
 	keys, pins := m.inEffect()
 	return &metadatav1.TestRequest{Ask: askToWire(Ask{keys: keys, pins: pins, fresh: true, generation: m.cacheGeneration()}), Provider: string(p)}
 }
@@ -235,7 +236,7 @@ func (m *Metadata) retestDue(ctx context.Context) {
 
 // fold takes the outcomes node answered with into status and announces
 // each provider whose status changed.
-func (m *Metadata) fold(ctx context.Context, node role.NodeID, outcomes []Outcome) {
+func (m *Metadata) fold(ctx context.Context, node role.NodeID, outcomes []calls.Outcome) {
 	m.mu.Lock()
 	changed := m.take(node, outcomes)
 	m.mu.Unlock()
@@ -244,7 +245,7 @@ func (m *Metadata) fold(ctx context.Context, node role.NodeID, outcomes []Outcom
 
 // rekeyed puts key in use for p, or SlipStream's when key is empty, and
 // starts p's status afresh from outcomes, which node answered testing it.
-func (m *Metadata) rekeyed(ctx context.Context, p ProviderID, key yourKey, node role.NodeID, outcomes []Outcome) {
+func (m *Metadata) rekeyed(ctx context.Context, p calls.ID, key yourKey, node role.NodeID, outcomes []calls.Outcome) {
 	m.mu.Lock()
 	if key.key == "" {
 		delete(m.yours, p)
@@ -255,16 +256,16 @@ func (m *Metadata) rekeyed(ctx context.Context, p ProviderID, key yourKey, node 
 	changed := m.take(node, outcomes)
 	m.mu.Unlock()
 	if !slices.Contains(changed, p) {
-		changed = append([]ProviderID{p}, changed...)
+		changed = append([]calls.ID{p}, changed...)
 	}
 	m.announce(ctx, changed)
 }
 
 // take folds outcomes into status and schedules or ends retests, and
 // answers each provider whose status changed; m.mu is held.
-func (m *Metadata) take(node role.NodeID, outcomes []Outcome) []ProviderID {
-	before := map[ProviderID]ProviderStatus{}
-	var touched []ProviderID
+func (m *Metadata) take(node role.NodeID, outcomes []calls.Outcome) []calls.ID {
+	before := map[calls.ID]ProviderStatus{}
+	var touched []calls.ID
 	for _, o := range outcomes {
 		s, ok := m.statuses[o.Provider]
 		if !ok {
@@ -277,13 +278,13 @@ func (m *Metadata) take(node role.NodeID, outcomes []Outcome) []ProviderID {
 		s.take(node, o)
 		m.schedule(reach{p: o.Provider, node: node}, o.Kind)
 	}
-	return slices.DeleteFunc(touched, func(p ProviderID) bool { return before[p].sameAs(m.view(m.statuses[p])) })
+	return slices.DeleteFunc(touched, func(p calls.ID) bool { return before[p].sameAs(m.view(m.statuses[p])) })
 }
 
 // schedule starts retesting r once it is unreachable and ends it once it
 // answers; m.mu is held.
-func (m *Metadata) schedule(r reach, k OutcomeKind) {
-	if k != Unreachable {
+func (m *Metadata) schedule(r reach, k calls.OutcomeKind) {
+	if k != calls.Unreachable {
 		delete(m.retests, r)
 		return
 	}
@@ -297,19 +298,19 @@ func (m *Metadata) schedule(r reach, k OutcomeKind) {
 	}
 }
 
-func (m *Metadata) announce(ctx context.Context, changed []ProviderID) {
+func (m *Metadata) announce(ctx context.Context, changed []calls.ID) {
 	for _, p := range changed {
 		m.cfg.Changed.Publish(ctx, Changed{Provider: string(p)})
 	}
 }
 
-func (m *Metadata) statusOf(p ProviderID) ProviderStatus {
+func (m *Metadata) statusOf(p calls.ID) ProviderStatus {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.view(m.statuses[p])
 }
 
-func (m *Metadata) label(p ProviderID) (string, bool) {
+func (m *Metadata) label(p calls.ID) (string, bool) {
 	s, ok := m.statuses[p]
 	if !ok {
 		return "", false
@@ -377,11 +378,11 @@ func summary(s ProviderStatus) string {
 func noKey(label string) string { return "This build has no " + label + " key. Add your own." }
 
 // lastOf is the latest outcome for p in outcomes.
-func lastOf(outcomes []Outcome, p ProviderID) (Outcome, bool) {
+func lastOf(outcomes []calls.Outcome, p calls.ID) (calls.Outcome, bool) {
 	for _, o := range slices.Backward(outcomes) {
 		if o.Provider == p {
 			return o, true
 		}
 	}
-	return Outcome{}, false
+	return calls.Outcome{}, false
 }

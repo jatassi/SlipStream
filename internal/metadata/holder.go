@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
@@ -19,7 +20,7 @@ import (
 type Holder struct {
 	metadatav1connect.UnimplementedMetadataServiceHandler
 	types   map[works.TypeID]Source
-	testers map[ProviderID]Tester
+	testers map[calls.ID]Tester
 	pages   int
 	images  map[artwork.SourceID]imageHost
 }
@@ -27,7 +28,7 @@ type Holder struct {
 // Tester is a provider client's cheap call that says whether the provider
 // answers with an Ask's key.
 type Tester interface {
-	Provider() Provider
+	Provider() calls.Provider
 	Test(ctx context.Context, ask Ask) error
 }
 
@@ -42,7 +43,7 @@ type HolderConfig struct {
 }
 
 func NewHolder(cfg HolderConfig) *Holder {
-	h := &Holder{types: cfg.Types, testers: map[ProviderID]Tester{}, pages: cfg.Timings.ChangesPages, images: map[artwork.SourceID]imageHost{}}
+	h := &Holder{types: cfg.Types, testers: map[calls.ID]Tester{}, pages: cfg.Timings.ChangesPages, images: map[artwork.SourceID]imageHost{}}
 	for _, t := range cfg.Testers {
 		h.testers[t.Provider().ID] = t
 	}
@@ -110,7 +111,7 @@ func (h *Holder) Changes(ctx context.Context, req *metadatav1.ChangesRequest) (*
 // Test runs the provider's test call with the key the Ask carries and
 // answers its outcomes, a refusal included.
 func (h *Holder) Test(ctx context.Context, req *metadatav1.TestRequest) (*metadatav1.TestResponse, error) {
-	t, ok := h.testers[ProviderID(req.GetProvider())]
+	t, ok := h.testers[calls.ID(req.GetProvider())]
 	if !ok {
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "this Node tests no provider %q", req.GetProvider())
 	}

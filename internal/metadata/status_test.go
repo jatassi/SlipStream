@@ -12,6 +12,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
@@ -62,7 +63,7 @@ type probe struct {
 	base *url.URL
 }
 
-func (probe) Provider() metadata.Provider { return tmdb }
+func (probe) Provider() calls.Provider { return tmdb }
 
 func (p probe) Test(ctx context.Context, ask metadata.Ask) error {
 	return p.line.Get(ctx, ask, metadata.Request{URL: p.base.JoinPath("test")}, &body{})
@@ -131,7 +132,7 @@ func open(t *testing.T, r roster, nodes ...role.NodeID) *fleet {
 		Sealer:     secrettest.Sealer(t),
 		Roster:     f.roster,
 		Service:    func(n role.NodeID) metadatav1connect.MetadataServiceHandler { return holders[n] },
-		Providers:  []metadata.Provider{tmdb},
+		Providers:  []calls.Provider{tmdb},
 		Changed:    f.changed,
 		Timings:    retesting,
 		Rand:       seeded(),

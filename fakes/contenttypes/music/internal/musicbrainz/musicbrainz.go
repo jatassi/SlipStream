@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
@@ -25,7 +26,7 @@ type Client struct {
 // New registers MusicBrainz's Line on lines. The fake it reads keeps no
 // rate limit.
 func New(lines *metadata.Lines, base endpoint.URL) *Client {
-	return &Client{line: lines.Line(metadata.Provider{ID: "musicbrainz", Label: "MusicBrainz", Rate: rate.Inf, Burst: 1}), base: base}
+	return &Client{line: lines.Line(calls.Provider{ID: "musicbrainz", Label: "MusicBrainz", Rate: rate.Inf, Burst: 1}), base: base}
 }
 
 type Artist struct {

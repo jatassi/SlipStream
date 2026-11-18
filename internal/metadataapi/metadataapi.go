@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
@@ -343,7 +344,7 @@ func (h handlers) listProviders(ctx context.Context, by identity.Admin, _ *struc
 }
 
 func (h handlers) setKey(ctx context.Context, by identity.Admin, in *keyInput) (*providerOutput, error) {
-	s, err := open(h.registry).SetKey(ctx, by, metadata.ProviderID(in.Provider), metadata.NewKey{Key: in.Body.Key, Pin: in.Body.Pin})
+	s, err := open(h.registry).SetKey(ctx, by, calls.ID(in.Provider), metadata.NewKey{Key: in.Body.Key, Pin: in.Body.Pin})
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -351,7 +352,7 @@ func (h handlers) setKey(ctx context.Context, by identity.Admin, in *keyInput) (
 }
 
 func (h handlers) clearKey(ctx context.Context, by identity.Admin, in *providerInput) (*providerOutput, error) {
-	s, err := open(h.registry).ClearKey(ctx, by, metadata.ProviderID(in.Provider))
+	s, err := open(h.registry).ClearKey(ctx, by, calls.ID(in.Provider))
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -359,7 +360,7 @@ func (h handlers) clearKey(ctx context.Context, by identity.Admin, in *providerI
 }
 
 func (h handlers) test(ctx context.Context, by identity.Admin, in *providerInput) (*providerOutput, error) {
-	s, err := open(h.registry).Test(ctx, by, metadata.ProviderID(in.Provider))
+	s, err := open(h.registry).Test(ctx, by, calls.ID(in.Provider))
 	if err != nil {
 		return nil, answer(err)
 	}

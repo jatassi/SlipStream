@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"github.com/jatassi/slipstream/internal/calls"
 	"net/url"
 	"sync"
 	"time"
@@ -86,6 +87,6 @@ func unlink(e *cached) {
 
 // cacheKey is provider, URL and sorted query. Request.URL never holds the
 // key, which the Line adds only to what it sends.
-func cacheKey(p ProviderID, u *url.URL) string {
+func cacheKey(p calls.ID, u *url.URL) string {
 	return string(p) + " " + u.Scheme + "://" + u.Host + u.EscapedPath() + "?" + u.Query().Encode()
 }

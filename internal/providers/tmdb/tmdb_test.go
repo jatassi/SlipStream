@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	faketmdb "github.com/jatassi/slipstream/fakes/tmdb"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
@@ -163,7 +164,7 @@ func TestAnUnknownOrDeletedMovieIsNotFound(t *testing.T) {
 
 func TestARevokedKeyIsRefusedInTMDBsWords(t *testing.T) {
 	keyed := func(key string) metadata.Ask {
-		return metadata.NewAsk(metadata.AskOptions{Keys: map[metadata.ProviderID]string{tmdb.ID: key}})
+		return metadata.NewAsk(metadata.AskOptions{Keys: map[calls.ID]string{tmdb.ID: key}})
 	}
 	inEachTier(t, singleMachine(t), func(t *testing.T, c *tmdb.Client, f faketest.Served) {
 		revoked := "revoked"
