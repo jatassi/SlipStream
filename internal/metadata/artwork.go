@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	"golang.org/x/time/rate"
 
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
@@ -25,9 +26,9 @@ type imageHost struct {
 
 // imageProvider is an image host as the call layer knows it: keyless, at
 // the rate the host's source declares.
-func imageProvider(src artwork.Source) Provider {
+func imageProvider(src artwork.Source) calls.Provider {
 	perSecond, burst := src.Rate()
-	return Provider{ID: ProviderID(src.ID()), Label: string(src.ID()), Rate: rate.Limit(perSecond), Burst: burst}
+	return calls.Provider{ID: calls.ID(src.ID()), Label: string(src.ID()), Rate: rate.Limit(perSecond), Burst: burst}
 }
 
 // Image fetches one image from the host its reference names. It answers no

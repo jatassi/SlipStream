@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/calendar"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
@@ -326,7 +327,7 @@ func (n *Node) startController(ctx context.Context) error {
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
-	providers := make([]metadata.Provider, len(holder.Testers))
+	providers := make([]calls.Provider, len(holder.Testers))
 	for i, t := range holder.Testers {
 		providers[i] = t.Provider()
 	}

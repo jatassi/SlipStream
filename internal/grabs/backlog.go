@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/grabs/internal/pace"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/pacing"
 	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
@@ -268,7 +269,7 @@ func applySteps(ctx context.Context, q *db.Queries, plan backlogPlan, steps []du
 		o := s.want.order
 		err := q.InsertBacklogDue(ctx, db.InsertBacklogDueParams{
 			WorkID: k.work, GroupKey: k.group, UpgradeOnly: o.UpgradeOnly, Fresh: o.Fresh, ReleasedAt: storage.FromTime(o.Released),
-			DueAt:      storage.FromTime(plan.seen.Time().Add(pace.Spread(k.work.String(), string(k.group), s.want.gap))),
+			DueAt:      storage.FromTime(plan.seen.Time().Add(pacing.Spread(k.work.String(), string(k.group), s.want.gap))),
 			GapSeconds: int64(s.want.gap / time.Second), ChangedAt: now,
 		})
 		if err != nil {

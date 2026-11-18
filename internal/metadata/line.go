@@ -1,82 +1,17 @@
 package metadata
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
-	"sync"
 	"time"
 
-	"golang.org/x/time/rate"
-
-	"github.com/jatassi/slipstream/internal/backoff"
-	"github.com/jatassi/slipstream/internal/httpretry"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/works"
 )
-
-// MaxBody bounds every answer a Line reads. An image travels whole in one
-// unary call, so this is also the largest image.
-const MaxBody = 16 << 20
-
-// Provider is one source's protocol facts, declared by its client package
-// from its own timings. The core never names a provider.
-type Provider struct {
-	ID    ProviderID
-	Label string
-	// Rate and Burst are the token bucket per provider per holder.
-	Rate  rate.Limit
-	Burst int
-	// Key puts the key on a request; nil for a keyless host or one that
-	// takes its key through Auth.
-	Key func(q url.Values, key string)
-	// Auth logs in for a bearer token, nil for a provider that takes its
-	// key on the query. A provider sets Key or Auth, not both.
-	Auth *Auth
-	// Classify reads an answer the shared rules don't settle, such as a 200
-	// whose body says the daily allowance is spent. Nil leaves every answer
-	// to the shared rules.
-	Classify func(status int, h http.Header, body []byte, now time.Time) (Outcome, bool)
-	// KeyPage is where an Admin gets a key, opened in the browser only.
-	KeyPage string
-	// Attribution is what the provider's terms make SlipStream show beside
-	// it, nil when they ask for none.
-	Attribution *Attribution
-}
-
-// Auth is how a provider trades its key, and a PIN when one is set, for a
-// bearer token.
-type Auth struct {
-	// Login is the JSON POST that logs in; pin is empty when none is set.
-	Login func(key, pin string) (u *url.URL, body []byte)
-	// Token reads a 200 login's token and when it expires.
-	Token func(body []byte) (token string, expires time.Time, err error)
-	// Refused is which credential a refused login names: CredentialKey
-	// when the body can't tell.
-	Refused func(status int, body []byte) Credential
-	// Pin is whether the provider takes an optional PIN beside its key, so
-	// Set key offers one.
-	Pin bool
-}
-
-// Credential is the part of a login a provider refused.
-type Credential uint8
-
-const (
-	CredentialKey Credential = iota + 1
-	CredentialPin
-)
-
-// Attribution is a provider's required credit: its words, and the key of
-// the logo the web app bundles for it, empty when it bundles none.
-type Attribution struct {
-	Text, Logo string
-}
 
 type Timings struct {
 	// Attempts bounds the tries of one call, the first included.
@@ -110,65 +45,34 @@ func DefaultTimings() Timings {
 	}
 }
 
-// Lines is one Node's call layer: an HTTP client, the answer cache and a
-// Line per provider.
-type Lines struct {
-	client    *http.Client
-	userAgent string
-	timings   Timings
-	cache     *Cache
+// calls is the call layer's share of t.
+func (t Timings) calls() calls.Timings {
+	return calls.Timings{Attempts: t.Attempts, Try: t.Try, RetryMin: t.RetryMin, RetryMax: t.RetryMax, Wait: t.Wait}
+}
 
-	mu    sync.Mutex
-	rand  *rand.Rand
-	lines map[ProviderID]*Line
+// Lines is one Node's metadata call layer: the shared call layer and the
+// answer cache.
+type Lines struct {
+	calls *calls.Lines
+	cache *Cache
 }
 
 func NewLines(c *http.Client, userAgent string, t Timings, r *rand.Rand) *Lines {
-	return &Lines{client: c, userAgent: userAgent, timings: t, cache: newCache(t.CacheEntries), rand: r, lines: map[ProviderID]*Line{}}
+	return &Lines{calls: calls.NewLines(c, userAgent, t.calls(), r), cache: newCache(t.CacheEntries)}
 }
 
 // Line is p's way out of this Node. A provider has one Line, so a second
 // registration of its id panics.
-func (l *Lines) Line(p Provider) *Line {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if _, ok := l.lines[p.ID]; ok {
-		panic(fmt.Sprintf("metadata: provider %s already has a Line", p.ID))
-	}
-	line := &Line{lines: l, p: p, bucket: rate.NewLimiter(p.Rate, p.Burst), gates: map[string]Outcome{}, sessions: map[credential]*session{}}
-	l.lines[p.ID] = line
-	return line
+func (l *Lines) Line(p calls.Provider) *Line {
+	return &Line{calls: l.calls.Line(p), cache: l.cache, id: p.ID, label: p.Label}
 }
 
-func (l *Lines) backoff(n int) time.Duration {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return backoff.Delay(l.timings.RetryMin, l.timings.RetryMax, n, l.rand)
-}
-
-// Line is one provider's way out of one Node.
+// Line is one provider's way out of one Node, through the answer cache.
 type Line struct {
-	lines  *Lines
-	p      Provider
-	bucket *rate.Limiter
-
-	mu sync.Mutex
-	// gates is the last Limited or Capped outcome of each key, the empty
-	// key included; no call with that key is sent before its Until. An
-	// allowance is a key's, so another key goes on.
-	gates map[string]Outcome
-	// sessions is the login of each key and PIN a call has sent.
-	sessions map[credential]*session
-}
-
-type credential struct{ key, pin string }
-
-// session is one credential's bearer token. Its mutex holds each call
-// while one logs in, so calls on an expired token log in once.
-type session struct {
-	mu      sync.Mutex
-	token   string
-	expires time.Time
+	calls *calls.Line
+	cache *Cache
+	id    calls.ID
+	label string
 }
 
 type Request struct {
@@ -190,10 +94,10 @@ type Image struct {
 // Get sends GET req.URL and decodes a 200 into v. It records the call's
 // outcome in ask's tally and returns a *works.SourceError on failure.
 func (l *Line) Get(ctx context.Context, ask Ask, req Request, v any) error {
-	key := cacheKey(l.p.ID, req.URL)
+	key := cacheKey(l.id, req.URL)
 	if req.Cache {
-		l.lines.cache.Sync(ask.generation)
-		if body, ok := l.lines.cache.Get(key, ask.cacheFor); ok && !ask.fresh {
+		l.cache.Sync(ask.generation)
+		if body, ok := l.cache.Get(key, ask.cacheFor); ok && !ask.fresh {
 			return l.decode(body, v)
 		}
 	}
@@ -201,11 +105,11 @@ func (l *Line) Get(ctx context.Context, ask Ask, req Request, v any) error {
 	if err != nil {
 		return err
 	}
-	if err := l.decode(a.body, v); err != nil {
+	if err := l.decode(a.Body, v); err != nil {
 		return err
 	}
 	if req.Cache {
-		l.lines.cache.Put(key, a.body)
+		l.cache.Put(key, a.Body)
 	}
 	return nil
 }
@@ -217,294 +121,30 @@ func (l *Line) Bytes(ctx context.Context, ask Ask, u *url.URL) (Image, error) {
 	if err != nil {
 		return Image{}, err
 	}
-	return Image{Type: a.header.Get("Content-Type"), Body: a.body}, nil
+	return Image{Type: a.Header.Get("Content-Type"), Body: a.Body}, nil
 }
 
 func (l *Line) decode(body []byte, v any) error {
 	if err := json.Unmarshal(body, v); err != nil {
-		return &works.SourceError{Source: l.p.Label, Words: "sent a response SlipStream can't read: " + err.Error(), Err: works.ErrInvalid}
+		return &works.SourceError{Source: l.label, Words: "sent a response SlipStream can't read: " + err.Error(), Err: works.ErrInvalid}
 	}
 	return nil
 }
 
-type answer struct {
-	status int
-	body   []byte
-	header http.Header
+var failures = map[calls.OutcomeKind]error{
+	calls.NotFound:    works.ErrNotFound,
+	calls.Refused:     works.ErrRefused,
+	calls.Limited:     works.ErrUnavailable,
+	calls.Capped:      works.ErrUnavailable,
+	calls.Unreachable: works.ErrUnavailable,
+	calls.PinRefused:  works.ErrPinRefused,
 }
 
-var failures = map[OutcomeKind]error{
-	NotFound:    works.ErrNotFound,
-	Refused:     works.ErrRefused,
-	Limited:     works.ErrUnavailable,
-	Capped:      works.ErrUnavailable,
-	Unreachable: works.ErrUnavailable,
-	PinRefused:  works.ErrPinRefused,
-}
-
-// verdict is what one try settled: an outcome, the answer when it is OK,
-// and whether another try may change it.
-type verdict struct {
-	Outcome
-	answer
-	retry bool
-}
-
-func (l *Line) call(ctx context.Context, ask Ask, u *url.URL, lookup bool) (answer, error) {
-	v, err := l.tries(ctx, ask, u, lookup)
-	if err != nil {
-		return answer{}, fmt.Errorf("%s: %w", l.p.Label, err)
+func (l *Line) call(ctx context.Context, ask Ask, u *url.URL, lookup bool) (calls.Answer, error) {
+	a, err := l.calls.Do(ctx, ask.credentials(), calls.Request{URL: u, Lookup: lookup})
+	if f, failed := errors.AsType[*calls.Failed](err); failed {
+		o := f.Outcome
+		return calls.Answer{}, &works.SourceError{Source: l.label, Until: o.Until, Words: o.Words, Err: failures[o.Kind]}
 	}
-	ask.tally.record(v.Outcome)
-	if v.Kind == OK {
-		return v.answer, nil
-	}
-	if v.Kind == Limited || v.Kind == Capped {
-		l.close(ask, v.Outcome)
-	}
-	return answer{}, &works.SourceError{Source: l.p.Label, Until: v.Until, Words: v.Words, Err: failures[v.Kind]}
-}
-
-// tries sends u until an answer settles the call or the tries run out. A
-// 429 whose Retry-After ends inside the wait budget and ctx is waited out;
-// a timeout, connection error or 5xx waits a jittered backoff step.
-func (l *Line) tries(ctx context.Context, ask Ask, u *url.URL, lookup bool) (verdict, error) {
-	t := l.lines.timings
-	budget := time.Now().Add(t.Wait)
-	if d, ok := ctx.Deadline(); ok && d.Before(budget) {
-		budget = d
-	}
-	for try := 1; ; {
-		if o, shut := l.shut(ask); shut {
-			return verdict{Outcome: o}, nil
-		}
-		v, err := l.try(ctx, ask, u, lookup)
-		if err != nil {
-			return verdict{}, err
-		}
-		if err := ctx.Err(); err != nil {
-			return verdict{}, fmt.Errorf("gave up: %w", err)
-		}
-		if try >= t.Attempts {
-			return v, nil
-		}
-		var wait time.Duration
-		switch {
-		case v.Kind == Limited && !v.Until.After(budget):
-			wait = time.Until(v.Until)
-		case v.retry:
-			wait = l.lines.backoff(try - 1)
-		default:
-			return v, nil
-		}
-		try++
-		if err := sleep(ctx, wait); err != nil {
-			return verdict{}, err
-		}
-	}
-}
-
-func (l *Line) try(ctx context.Context, ask Ask, u *url.URL, lookup bool) (verdict, error) {
-	if l.p.Auth == nil {
-		return l.send(ctx, outgoing{method: http.MethodGet, url: l.keyed(ask, u)}, lookup)
-	}
-	c := credential{key: ask.keys[l.p.ID], pin: ask.pins[l.p.ID]}
-	if c.key == "" {
-		return verdict{Outcome: l.outcome(Refused, "can't be called without a key")}, nil
-	}
-	var stale string
-	for {
-		b, v, err := l.bearer(ctx, c, stale)
-		if err != nil || v.Kind != OK {
-			return v, err
-		}
-		v, err = l.send(ctx, outgoing{method: http.MethodGet, url: u, bearer: b.token}, lookup)
-		if err != nil || v.status != http.StatusUnauthorized || b.minted || stale != "" {
-			return v, err
-		}
-		stale = b.token
-	}
-}
-
-type bearer struct {
-	token string
-	// minted is whether this call logged in for it.
-	minted bool
-}
-
-// bearer is c's token, from a login when c has none, it has expired or it
-// is stale, the token a 401 just refused. A verdict that isn't OK is why
-// the login failed.
-func (l *Line) bearer(ctx context.Context, c credential, stale string) (bearer, verdict, error) {
-	l.mu.Lock()
-	s, ok := l.sessions[c]
-	if !ok {
-		s = &session{}
-		l.sessions[c] = s
-	}
-	l.mu.Unlock()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.token != "" && s.token != stale && time.Now().Before(s.expires) {
-		return bearer{token: s.token}, verdict{Outcome: Outcome{Kind: OK}}, nil
-	}
-	s.token = ""
-	u, body := l.p.Auth.Login(c.key, c.pin)
-	v, err := l.send(ctx, outgoing{method: http.MethodPost, url: u, body: body}, false)
-	switch {
-	case err != nil:
-		return bearer{}, verdict{}, err
-	case v.Kind == Refused && l.p.Auth.Refused(v.status, v.body) == CredentialPin:
-		return bearer{}, verdict{Outcome: l.outcome(PinRefused, "refused the PIN")}, nil
-	case v.Kind != OK:
-		return bearer{}, v, nil
-	}
-	token, expires, err := l.p.Auth.Token(v.body)
-	if err != nil {
-		return bearer{}, verdict{Outcome: l.outcome(Unreachable, "sent a login response SlipStream can't read: "+err.Error())}, nil
-	}
-	s.token, s.expires = token, expires
-	return bearer{token: token, minted: true}, v, nil
-}
-
-type outgoing struct {
-	method string
-	url    *url.URL
-	// body is sent as JSON when set.
-	body   []byte
-	bearer string
-}
-
-// send waits on the bucket, sends o and classifies the response.
-func (l *Line) send(ctx context.Context, o outgoing, lookup bool) (verdict, error) {
-	if err := l.bucket.Wait(ctx); err != nil {
-		return verdict{}, fmt.Errorf("waiting on the rate limit: %w", err)
-	}
-	ctx, cancel := context.WithTimeout(ctx, l.lines.timings.Try)
-	defer cancel()
-	var sent io.Reader = http.NoBody
-	if o.body != nil {
-		sent = bytes.NewReader(o.body)
-	}
-	req, err := http.NewRequestWithContext(ctx, o.method, o.url.String(), sent)
-	if err != nil {
-		return verdict{Outcome: l.outcome(Unreachable, "has an address SlipStream can't send a request to: "+o.url.Redacted())}, nil
-	}
-	req.Header.Set("User-Agent", l.lines.userAgent)
-	if o.body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	if o.bearer != "" {
-		req.Header.Set("Authorization", "Bearer "+o.bearer)
-	}
-	res, err := l.lines.client.Do(req)
-	if err != nil {
-		if ue, ok := errors.AsType[*url.Error](err); ok {
-			err = ue.Err
-		}
-		return verdict{Outcome: l.outcome(Unreachable, "didn't respond: "+err.Error()), retry: true}, nil
-	}
-	defer func() { _ = res.Body.Close() }()
-	body, err := io.ReadAll(io.LimitReader(res.Body, MaxBody+1))
-	if err != nil {
-		return verdict{Outcome: l.outcome(Unreachable, "ended its response early: "+err.Error()), retry: true}, nil
-	}
-	if len(body) > MaxBody {
-		return verdict{Outcome: l.outcome(Unreachable, "sent a response over 16 MiB")}, nil
-	}
-	return l.classify(answer{status: res.StatusCode, body: body, header: res.Header}, res.Status, lookup), nil
-}
-
-func (l *Line) classify(a answer, status string, lookup bool) verdict {
-	now := time.Now()
-	if l.p.Classify != nil {
-		if o, ok := l.p.Classify(a.status, a.header, a.body, now); ok {
-			o.Provider, o.At = l.p.ID, now
-			return verdict{Outcome: o, answer: a}
-		}
-	}
-	v := verdict{answer: a}
-	switch {
-	case a.status == http.StatusOK:
-		v.Outcome = l.outcome(OK, "")
-	case a.status == http.StatusTooManyRequests:
-		until := now.Add(l.retryAfter(a.header, now))
-		v.Outcome = l.outcome(Limited, "is rate limiting SlipStream")
-		v.Until = until
-	case a.status == http.StatusUnauthorized || a.status == http.StatusForbidden:
-		v.Outcome = l.outcome(Refused, "refused the key: "+status)
-	case a.status == http.StatusNotFound && lookup:
-		v.Outcome = l.outcome(NotFound, "has no such record")
-	case a.status >= http.StatusInternalServerError:
-		v.Outcome, v.retry = l.outcome(Unreachable, "responded with "+status), true
-	default:
-		v.Outcome = l.outcome(Unreachable, "responded with "+status)
-	}
-	return v
-}
-
-// retryAfter is the wait Retry-After asks for. Without one the provider
-// waits a backoff step.
-func (l *Line) retryAfter(h http.Header, now time.Time) time.Duration {
-	if d := httpretry.After(h.Get("Retry-After"), now); d > 0 {
-		return d
-	}
-	return l.lines.backoff(0)
-}
-
-func (l *Line) keyed(ask Ask, u *url.URL) *url.URL {
-	key := l.key(ask)
-	if key == "" || l.p.Key == nil {
-		return u
-	}
-	q := u.Query()
-	l.p.Key(q, key)
-	k := *u
-	k.RawQuery = q.Encode()
-	return &k
-}
-
-// key is the key a call with ask sends: none to a keyless host.
-func (l *Line) key(ask Ask) string {
-	if l.p.Key == nil && l.p.Auth == nil {
-		return ""
-	}
-	return ask.keys[l.p.ID]
-}
-
-func (l *Line) outcome(k OutcomeKind, words string) Outcome {
-	return Outcome{Provider: l.p.ID, Kind: k, Words: words, At: time.Now()}
-}
-
-func (l *Line) shut(ask Ask) (Outcome, bool) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	now := time.Now()
-	key := l.key(ask)
-	o := l.gates[key]
-	if !now.Before(o.Until) {
-		delete(l.gates, key)
-		return Outcome{}, false
-	}
-	o.At = now
-	return o, true
-}
-
-func (l *Line) close(ask Ask, o Outcome) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if key := l.key(ask); o.Until.After(l.gates[key].Until) {
-		l.gates[key] = o
-	}
-}
-
-func sleep(ctx context.Context, d time.Duration) error {
-	t := time.NewTimer(d)
-	defer t.Stop()
-	select {
-	case <-t.C:
-		return nil
-	case <-ctx.Done():
-		return fmt.Errorf("waiting to try again: %w", ctx.Err())
-	}
+	return a, err
 }

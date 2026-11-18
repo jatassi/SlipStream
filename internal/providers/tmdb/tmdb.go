@@ -16,11 +16,12 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
 
-const ID metadata.ProviderID = "tmdb"
+const ID calls.ID = "tmdb"
 
 type Endpoints struct {
 	API endpoint.URL `yaml:"api"`
@@ -66,8 +67,8 @@ func New(lines *metadata.Lines, e Endpoints, t Timings) *Client {
 // query parameter, and Classify reads TMDB's error bodies. Its
 // attribution is the credit TMDB's terms require, with the logo the web
 // app bundles as "tmdb".
-func (c *Client) Provider() metadata.Provider {
-	return metadata.Provider{
+func (c *Client) Provider() calls.Provider {
+	return calls.Provider{
 		ID:          ID,
 		Label:       "TMDB",
 		Rate:        rate.Every(c.timings.Interval),
@@ -75,7 +76,7 @@ func (c *Client) Provider() metadata.Provider {
 		Key:         func(q url.Values, key string) { q.Set("api_key", key) },
 		Classify:    classify,
 		KeyPage:     c.endpoints.KeyPage.String(),
-		Attribution: &metadata.Attribution{Text: "This product uses the TMDB API but is not endorsed or certified by TMDB.", Logo: "tmdb"},
+		Attribution: &calls.Attribution{Text: "This product uses the TMDB API but is not endorsed or certified by TMDB.", Logo: "tmdb"},
 	}
 }
 
@@ -91,20 +92,20 @@ type statusBody struct {
 // classify names TMDB's 401 in its own words and calls a 404 without
 // TMDB's not-found body unreachable: it came from something in front of
 // TMDB, not from TMDB.
-func classify(status int, _ http.Header, body []byte, _ time.Time) (metadata.Outcome, bool) {
+func classify(a calls.Answer, _ time.Time) (calls.Verdict, bool) {
 	var b statusBody
-	_ = json.Unmarshal(body, &b)
+	_ = json.Unmarshal(a.Body, &b)
 	switch {
-	case status == http.StatusUnauthorized:
+	case a.Status == http.StatusUnauthorized:
 		words := "refused the key"
 		if b.Message != "" {
 			words += ": " + b.Message
 		}
-		return metadata.Outcome{Kind: metadata.Refused, Words: words}, true
-	case status == http.StatusNotFound && b.Code != notFoundCode:
-		return metadata.Outcome{Kind: metadata.Unreachable, Words: "responded with 404 Not Found and a body SlipStream doesn't recognize"}, true
+		return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Refused, Words: words}}, true
+	case a.Status == http.StatusNotFound && b.Code != notFoundCode:
+		return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Unreachable, Words: "responded with 404 Not Found and a body SlipStream doesn't recognize"}}, true
 	}
-	return metadata.Outcome{}, false
+	return calls.Verdict{}, false
 }
 
 // MovieResult is one movie in a search. ReleaseDate is the primary

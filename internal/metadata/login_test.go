@@ -14,6 +14,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -113,10 +114,10 @@ func (d *door) lastGet() credentials {
 	return d.gets[len(d.gets)-1]
 }
 
-func gate(base *url.URL) metadata.Provider {
-	return metadata.Provider{
+func gate(base *url.URL) calls.Provider {
+	return calls.Provider{
 		ID: "gate", Label: "Gate", Rate: 20, Burst: 20,
-		Auth: &metadata.Auth{
+		Auth: &calls.Auth{
 			Pin: true,
 			Login: func(key, pin string) (*url.URL, []byte) {
 				body, _ := json.Marshal(credentials{Key: key, Pin: pin}) //nolint:gosec // the login carries the key by design
@@ -132,20 +133,20 @@ func gate(base *url.URL) metadata.Provider {
 				}
 				return t.Token, time.Unix(t.Expires, 0), nil
 			},
-			Refused: func(_ int, body []byte) metadata.Credential {
+			Refused: func(_ int, body []byte) calls.Credential {
 				if bytes.Contains(body, []byte("pin")) {
-					return metadata.CredentialPin
+					return calls.CredentialPin
 				}
-				return metadata.CredentialKey
+				return calls.CredentialKey
 			},
 		},
 	}
 }
 
 func keyed(key, pin string) metadata.Ask {
-	o := metadata.AskOptions{Keys: map[metadata.ProviderID]string{"gate": key}}
+	o := metadata.AskOptions{Keys: map[calls.ID]string{"gate": key}}
 	if pin != "" {
-		o.Pins = map[metadata.ProviderID]string{"gate": pin}
+		o.Pins = map[calls.ID]string{"gate": pin}
 	}
 	return metadata.NewAsk(o)
 }
@@ -168,7 +169,7 @@ func doorLine(t *testing.T) (*metadata.Line, *door, *url.URL, *sent) {
 	return lines.Line(gate(base)), d, base, s
 }
 
-func getOnce(t *testing.T, line *metadata.Line, ask metadata.Ask, base *url.URL) ([]metadata.Outcome, error) {
+func getOnce(t *testing.T, line *metadata.Line, ask metadata.Ask, base *url.URL) ([]calls.Outcome, error) {
 	t.Helper()
 	ask, outcomes := metadata.Tallied(ask)
 	err := line.Get(t.Context(), ask, metadata.Request{URL: at(base, "/series/1", nil)}, &body{})
@@ -179,7 +180,7 @@ func TestBearerLoginReusesTheToken(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		line, d, base, s := doorLine(t)
 		for range 2 {
-			if o, err := getOnce(t, line, keyed("k", ""), base); err != nil || len(o) != 1 || o[0].Kind != metadata.OK {
+			if o, err := getOnce(t, line, keyed("k", ""), base); err != nil || len(o) != 1 || o[0].Kind != calls.OK {
 				t.Fatalf("Get = %+v, %v; want one OK", o, err)
 			}
 		}
@@ -224,7 +225,7 @@ func TestA401RelogsInOnceAndRetries(t *testing.T) {
 			t.Fatal(err)
 		}
 		d.expire()
-		if o, err := getOnce(t, line, keyed("k", ""), base); err != nil || len(o) != 1 || o[0].Kind != metadata.OK {
+		if o, err := getOnce(t, line, keyed("k", ""), base); err != nil || len(o) != 1 || o[0].Kind != calls.OK {
 			t.Fatalf("Get after the token expired = %+v, %v; want one OK", o, err)
 		}
 		if want := []string{"/login", "/series/1", "/series/1", "/login", "/series/1"}; !slices.Equal(s.paths(), want) {
@@ -245,7 +246,7 @@ func TestASecond401IsRefused(t *testing.T) {
 			if se := sourceError(t, err, works.ErrRefused); se.Words != "refused the key: 401 Unauthorized" {
 				t.Fatalf("words = %q", se.Words)
 			}
-			if len(o) != 1 || o[0].Kind != metadata.Refused {
+			if len(o) != 1 || o[0].Kind != calls.Refused {
 				t.Fatalf("outcomes = %+v, want one Refused", o)
 			}
 			if want := []string{"/login", "/series/1", "/series/1", "/login", "/series/1"}; !slices.Equal(s.paths(), want) {
@@ -257,7 +258,7 @@ func TestASecond401IsRefused(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
 			line, d, base, s := doorLine(t)
 			d.set(func(d *door) { d.refuse = true })
-			if o, err := getOnce(t, line, keyed("k", ""), base); !errors.Is(err, works.ErrRefused) || len(o) != 1 || o[0].Kind != metadata.Refused {
+			if o, err := getOnce(t, line, keyed("k", ""), base); !errors.Is(err, works.ErrRefused) || len(o) != 1 || o[0].Kind != calls.Refused {
 				t.Fatalf("Get = %+v, %v; want one Refused", o, err)
 			}
 			if want := []string{"/login", "/series/1"}; !slices.Equal(s.paths(), want) {
@@ -272,15 +273,15 @@ func TestLoginOutcomeIsRecordedOnce(t *testing.T) {
 		name      string
 		key, pin  string
 		login     int
-		kind      metadata.OutcomeKind
+		kind      calls.OutcomeKind
 		err       error
 		words     string
 		requested []string
 	}{
-		{"a refused key", "typo", "", 0, metadata.Refused, works.ErrRefused, "refused the key: 401 Unauthorized", []string{"/login"}},
-		{"a refused PIN", "k", "0000", 0, metadata.PinRefused, works.ErrPinRefused, "refused the PIN", []string{"/login"}},
-		{"no key", "", "", 0, metadata.Refused, works.ErrRefused, "can't be called without a key", nil},
-		{"a login that fails each try", "k", "", http.StatusBadGateway, metadata.Unreachable, works.ErrUnavailable, "responded with 502 Bad Gateway", []string{"/login", "/login", "/login"}},
+		{"a refused key", "typo", "", 0, calls.Refused, works.ErrRefused, "refused the key: 401 Unauthorized", []string{"/login"}},
+		{"a refused PIN", "k", "0000", 0, calls.PinRefused, works.ErrPinRefused, "refused the PIN", []string{"/login"}},
+		{"no key", "", "", 0, calls.Refused, works.ErrRefused, "can't be called without a key", nil},
+		{"a login that fails each try", "k", "", http.StatusBadGateway, calls.Unreachable, works.ErrUnavailable, "responded with 502 Bad Gateway", []string{"/login", "/login", "/login"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
@@ -316,15 +317,15 @@ func TestCallsOnAnExpiredTokenLogInOnce(t *testing.T) {
 					t.Fatal(err)
 				}
 				c.end(d)
-				var calls sync.WaitGroup
+				var sends sync.WaitGroup
 				for range 8 {
-					calls.Go(func() {
+					sends.Go(func() {
 						if _, err := getOnce(t, line, keyed("k", ""), base); err != nil {
 							t.Error(err)
 						}
 					})
 				}
-				calls.Wait()
+				sends.Wait()
 				if n := len(d.loggedIn()); n != 2 {
 					t.Fatalf("%d logins, want 2: the first call's, then one for all 8 calls on the ended token", n)
 				}

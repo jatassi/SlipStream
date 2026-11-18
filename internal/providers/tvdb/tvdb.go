@@ -18,11 +18,12 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/time/rate"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
 
-const ID metadata.ProviderID = "tvdb"
+const ID calls.ID = "tvdb"
 
 type Endpoints struct {
 	API endpoint.URL `yaml:"api"`
@@ -65,15 +66,15 @@ func New(lines *metadata.Lines, e Endpoints, t Timings) *Client {
 
 // Provider is TVDB as the call layer knows it: a login trades the key, and
 // the PIN when one is set, for a bearer token.
-func (c *Client) Provider() metadata.Provider {
-	return metadata.Provider{
+func (c *Client) Provider() calls.Provider {
+	return calls.Provider{
 		ID:          ID,
 		Label:       "TVDB",
 		Rate:        rate.Every(c.timings.Interval),
 		Burst:       c.timings.Burst,
 		KeyPage:     c.endpoints.KeyPage.String(),
-		Attribution: &metadata.Attribution{Text: "Metadata provided by TheTVDB."},
-		Auth: &metadata.Auth{
+		Attribution: &calls.Attribution{Text: "Metadata provided by TheTVDB."},
+		Auth: &calls.Auth{
 			Login:   c.login,
 			Token:   token,
 			Refused: refused,
