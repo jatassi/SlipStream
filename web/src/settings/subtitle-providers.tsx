@@ -6,7 +6,7 @@ import { toastRefusal, useSubtitleWrites } from "../subtitles/settings-api";
 import { providersCaption } from "../subtitles/settings-words";
 import { type RankedRow, RankedList } from "../ui/ranked-list";
 import { Section } from "../ui/section";
-import { OnSwitch, ProviderBody } from "./subtitle-provider-row";
+import { ProviderBody } from "./subtitle-provider-row";
 
 type Order = { readonly from: readonly SubtitlesProvider[]; readonly ids: readonly string[] };
 
@@ -62,7 +62,6 @@ export function SubtitleProviders({
         renderRow={(provider) => (
           <ProviderBody provider={provider} types={types} openKey={openKey} />
         )}
-        renderTrailing={(provider) => <OnSwitch provider={provider} />}
       />
     </Section>
   );

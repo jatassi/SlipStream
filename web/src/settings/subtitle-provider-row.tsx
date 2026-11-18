@@ -37,7 +37,20 @@ function RemoveKey({ provider }: { provider: SubtitlesProvider }) {
   );
 }
 
-/** A provider's name, its state in one sentence, its downloads left and its key. */
+function OnSwitch({ provider }: { provider: SubtitlesProvider }) {
+  const { switchProvider } = useSubtitleWrites();
+  return (
+    <SwitchControl
+      label={`Search ${provider.name}`}
+      checked={provider.on}
+      onCheckedChange={(on) => {
+        void toastRefusal(switchProvider(provider.id, on));
+      }}
+    />
+  );
+}
+
+/** A provider's name and switch, its state in one sentence, its downloads left and its key. */
 export function ProviderBody({
   provider,
   types,
@@ -51,7 +64,10 @@ export function ProviderBody({
   const downloads = provider.allowance?.downloads ?? null;
   return (
     <div className="flex flex-col gap-1.5 py-1">
-      <span className="font-semibold text-ink-1">{provider.name}</span>
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-semibold text-ink-1">{provider.name}</span>
+        <OnSwitch provider={provider} />
+      </div>
       <span className="text-meta text-ink-2 in-data-[density=touch]:text-body-touch">
         {providerLine(provider, types, clock)}
       </span>
@@ -79,18 +95,5 @@ export function ProviderBody({
         </div>
       )}
     </div>
-  );
-}
-
-export function OnSwitch({ provider }: { provider: SubtitlesProvider }) {
-  const { switchProvider } = useSubtitleWrites();
-  return (
-    <SwitchControl
-      label={`Search ${provider.name}`}
-      checked={provider.on}
-      onCheckedChange={(on) => {
-        void toastRefusal(switchProvider(provider.id, on));
-      }}
-    />
   );
 }
