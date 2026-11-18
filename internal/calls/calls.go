@@ -1,8 +1,8 @@
 // Package calls is the shared way out of a Node to a key-holding Role
 // provider (ADR 0021): a token bucket per provider per holder, per-key
 // gates, tries with jittered backoff, Retry-After waits, classification,
-// and keys on the query or through a login. The core never names a
-// provider; each provider's client package declares its own.
+// and keys on the query, in a header or through a login. The core never
+// names a provider; each provider's client package declares its own.
 package calls
 
 import (
@@ -30,12 +30,12 @@ type Provider struct {
 	// Rate and Burst are the token bucket per provider per holder.
 	Rate  rate.Limit
 	Burst int
-	// Key puts the key on a request; nil for a keyless host or one that
-	// takes its key through Auth.
-	Key func(q url.Values, key string)
-	// Auth logs in for a bearer token, nil for a provider that takes its
-	// key on the query. A provider sets Key or Auth, not both.
-	Auth *Auth
+	// Key puts the key on the query and Header puts it in a header, such as
+	// X-API-Key. Auth logs in with it for a bearer token. A provider sets at
+	// most one; with none it is called keyless.
+	Key    func(q url.Values, key string)
+	Header func(h http.Header, key string)
+	Auth   *Auth
 	// Classify reads an answer the shared rules don't settle, such as a 200
 	// whose body says the daily allowance is spent. Nil leaves every answer
 	// to the shared rules.

@@ -170,7 +170,11 @@ func (l *Line) tries(ctx context.Context, c Credentials, r Request) (settled, er
 
 func (l *Line) try(ctx context.Context, c Credentials, r Request) (settled, error) {
 	if l.p.Auth == nil {
-		return l.send(ctx, outgoing{method: http.MethodGet, url: l.keyed(c, r.URL)}, r.Lookup)
+		o := outgoing{method: http.MethodGet, url: l.keyed(c, r.URL)}
+		if l.p.Header != nil {
+			o.key = l.key(c)
+		}
+		return l.send(ctx, o, r.Lookup)
 	}
 	cred := credential{key: c.Keys[l.p.ID], pin: c.Pins[l.p.ID]}
 	if cred.key == "" {
@@ -237,6 +241,8 @@ type outgoing struct {
 	// body is sent as JSON when set.
 	body   []byte
 	bearer string
+	// key goes in the provider's Header when set.
+	key string
 }
 
 // send waits on the bucket, sends o and classifies the response.
@@ -260,6 +266,9 @@ func (l *Line) send(ctx context.Context, o outgoing, lookup bool) (settled, erro
 	}
 	if o.bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+o.bearer)
+	}
+	if o.key != "" {
+		l.p.Header(req.Header, o.key)
 	}
 	res, err := l.lines.client.Do(req)
 	if err != nil {
@@ -330,7 +339,7 @@ func (l *Line) keyed(c Credentials, u *url.URL) *url.URL {
 
 // key is the key a call with c sends: none to a keyless host.
 func (l *Line) key(c Credentials) string {
-	if l.p.Key == nil && l.p.Auth == nil {
+	if l.p.Key == nil && l.p.Header == nil && l.p.Auth == nil {
 		return ""
 	}
 	return c.Keys[l.p.ID]
