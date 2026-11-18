@@ -227,13 +227,13 @@ func putSidecar(ctx context.Context, q *db.Queries, s Sidecar, now storage.Time)
 }
 
 // dropSidecar deletes s's row while it still holds s's bytes, and sets its
-// want's unmet flag. It answers false when the row changed or went.
-func dropSidecar(ctx context.Context, q *db.Queries, s Sidecar, now storage.Time) (bool, error) {
+// want's unmet flag. A row that changed or went is left alone.
+func dropSidecar(ctx context.Context, q *db.Queries, s Sidecar, now storage.Time) error {
 	gone, err := q.DeleteSidecar(ctx, db.DeleteSidecarParams{ID: s.ID, Sha256: s.SHA256[:]})
 	if err != nil || len(gone) == 0 {
-		return false, err
+		return err
 	}
-	return true, setUnmet(ctx, q, s.File, s.want(), now)
+	return setUnmet(ctx, q, s.File, s.want(), now)
 }
 
 func setUnmet(ctx context.Context, q *db.Queries, f files.ID, w Want, now storage.Time) error {
@@ -261,7 +261,7 @@ func allowanceOf(p db.SubtitlesProvider) (*calls.Allowance, error) {
 	}
 	var a calls.Allowance
 	if err := json.Unmarshal([]byte(*p.Allowance), &a); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("provider %s's allowance: %w", p.ID, err)
 	}
 	return &a, nil
 }

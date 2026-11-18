@@ -60,12 +60,12 @@ func TestASurveyAdoptsTheFoundCompanionsTheWantsPrefer(t *testing.T) {
 
 // adopted is a World whose one file at Heat/Heat.mkv has a found English
 // Sidecar.
-func adopted(t *testing.T) (*subtitlestest.World, files.ID) {
+func adopted(t *testing.T) (w *subtitlestest.World, f files.ID) {
 	t.Helper()
-	w := world(t, nil)
+	w = world(t, nil)
 	p := w.Profile("Films", subtitlestest.Wanted(t, "en", false, targets.Allow, targets.Always))
 	w.Put("Heat/Heat.en.srt", "english")
-	f := w.Place(w.Work("heat", p), "Heat/Heat.mkv", audio("en"))
+	f = w.Place(w.Work("heat", p), "Heat/Heat.mkv", audio("en"))
 	w.Sweep()
 	if got := sidecars(t, w); !slices.Equal(got, []string{"en.srt found 1"}) {
 		t.Fatalf("the survey adopted %v", got)

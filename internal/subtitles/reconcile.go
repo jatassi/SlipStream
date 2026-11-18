@@ -100,7 +100,7 @@ type chunk struct {
 func (s *Subtitles) read(ctx context.Context, r storage.Reader[storage.Library], subjects []files.Subject) (chunk, error) {
 	c := chunk{
 		subjects: subjects, wants: map[files.ID][]db.SubtitlesWant{}, sidecars: map[files.ID][]Sidecar{}, ignored: map[files.ID][]db.SubtitlesTrackIgnored{},
-		added: map[targets.ProfileID]map[Want]storage.Time{}, gained: map[subtitling.Kind]storage.Time{}, now: storage.FromTime(s.cfg.Clock()),
+		now: storage.FromTime(s.cfg.Clock()),
 	}
 	ids := make([]files.ID, len(subjects))
 	for i, sub := range subjects {
@@ -127,34 +127,53 @@ func (s *Subtitles) read(ctx context.Context, r storage.Reader[storage.Library],
 	if c.langs, err = s.cfg.Targets.LanguagesOf(ctx, r); err != nil {
 		return chunk{}, err
 	}
-	added, err := q.ListLanguagesAdded(ctx)
-	if err != nil {
+	if c.added, err = addedIn(ctx, q); err != nil {
 		return chunk{}, err
 	}
-	for _, a := range added {
-		l, err := language.Parse(a.Language)
-		if err != nil {
-			return chunk{}, err
-		}
-		if c.added[a.ProfileID] == nil {
-			c.added[a.ProfileID] = map[Want]storage.Time{}
-		}
-		c.added[a.ProfileID][Want{l, a.Forced}] = a.AddedAt
-	}
-	providers, err := q.ListProviders(ctx)
-	if err != nil {
+	if c.gained, err = s.gainedIn(ctx, q); err != nil {
 		return chunk{}, err
-	}
-	for _, p := range providers {
-		for _, k := range s.spec(subtitling.ProviderID(p.ID)).Kinds {
-			if p.IsOn && p.GainedAt.Compare(c.gained[k]) > 0 {
-				c.gained[k] = p.GainedAt
-			}
-		}
 	}
 	every, err := s.cfg.Tasks.EveryIn(ctx, r, TaskID)
 	c.interval = Every.Value(every)
 	return c, err
+}
+
+// addedIn is when each Profile's Wanted Languages were added, which a new
+// want's first search spreads from.
+func addedIn(ctx context.Context, q *db.Queries) (map[targets.ProfileID]map[Want]storage.Time, error) {
+	added, err := q.ListLanguagesAdded(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := map[targets.ProfileID]map[Want]storage.Time{}
+	for _, a := range added {
+		l, err := language.Parse(a.Language)
+		if err != nil {
+			return nil, err
+		}
+		if out[a.ProfileID] == nil {
+			out[a.ProfileID] = map[Want]storage.Time{}
+		}
+		out[a.ProfileID][Want{l, a.Forced}] = a.AddedAt
+	}
+	return out, nil
+}
+
+// gainedIn is when each kind last gained an on provider.
+func (s *Subtitles) gainedIn(ctx context.Context, q *db.Queries) (map[subtitling.Kind]storage.Time, error) {
+	providers, err := q.ListProviders(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := map[subtitling.Kind]storage.Time{}
+	for _, p := range providers {
+		for _, k := range s.spec(subtitling.ProviderID(p.ID)).Kinds {
+			if p.IsOn && p.GainedAt.Compare(out[k]) > 0 {
+				out[k] = p.GainedAt
+			}
+		}
+	}
+	return out, nil
 }
 
 func sidecarsIn(ctx context.Context, q *db.Queries, ids []files.ID) (map[files.ID][]Sidecar, error) {
@@ -179,26 +198,8 @@ func (s *Subtitles) write(ctx context.Context, tx *storage.Tx[storage.Library], 
 	q := db.New(tx)
 	byKind := map[subtitling.Kind][]files.ID{}
 	for _, sub := range c.subjects {
-		ignored := make([]ignore, 0, len(c.ignored[sub.ID]))
-		for _, row := range c.ignored[sub.ID] {
-			ig := ignore{Ordinal: int(row.StreamIndex), Codec: row.Codec, Language: release.Language(row.Language), Forced: row.Forced}
-			if !ig.holds(sub.Text) {
-				if err := q.DeleteIgnored(ctx, db.DeleteIgnoredParams{FileID: sub.ID, StreamIndex: row.StreamIndex}); err != nil {
-					return err
-				}
-				continue
-			}
-			ignored = append(ignored, ig)
-		}
-		f := factsOf(sub, kindOfType(s.cfg.Types[sub.Type]), ignored)
-		if err := putFacts(ctx, q, sub, f, c.now); err != nil {
-			return err
-		}
-		scs := c.sidecars[sub.ID]
-		ws := wantsOf(f, c.langs[sub.Profile], func(w Want) bool { return sidecarOfWant(scs, w) != nil })
-		final := func(w Want) bool { sc := sidecarOfWant(scs, w); return sc != nil && sc.Final }
-		p := pace{interval: c.interval, added: func(w Want) storage.Time { return c.added[sub.Profile][w] }}
-		if err := putWants(ctx, q, sub, f, ws, c.wants[sub.ID], final, p); err != nil {
+		f, err := s.writeFile(ctx, q, c, sub)
+		if err != nil {
 			return err
 		}
 		if f.Kind != 0 {
@@ -213,6 +214,31 @@ func (s *Subtitles) write(ctx context.Context, tx *storage.Tx[storage.Library], 
 		}
 	}
 	return nil
+}
+
+// writeFile makes sub's facts and want rows what its Subject and Profile
+// say, deleting the ignores whose track changed.
+func (s *Subtitles) writeFile(ctx context.Context, q *db.Queries, c chunk, sub files.Subject) (facts, error) {
+	ignored := make([]ignore, 0, len(c.ignored[sub.ID]))
+	for _, row := range c.ignored[sub.ID] {
+		ig := ignore{Ordinal: int(row.StreamIndex), Codec: row.Codec, Language: release.Language(row.Language), Forced: row.Forced}
+		if !ig.holds(sub.Text) {
+			if err := q.DeleteIgnored(ctx, db.DeleteIgnoredParams{FileID: sub.ID, StreamIndex: row.StreamIndex}); err != nil {
+				return facts{}, err
+			}
+			continue
+		}
+		ignored = append(ignored, ig)
+	}
+	f := factsOf(sub, kindOfType(s.cfg.Types[sub.Type]), ignored)
+	if err := putFacts(ctx, q, sub, f, c.now); err != nil {
+		return facts{}, err
+	}
+	scs := c.sidecars[sub.ID]
+	ws := wantsOf(f, c.langs[sub.Profile], func(w Want) bool { return sidecarOfWant(scs, w) != nil })
+	final := func(w Want) bool { sc := sidecarOfWant(scs, w); return sc != nil && sc.Final }
+	p := pace{interval: c.interval, added: func(w Want) storage.Time { return c.added[sub.Profile][w] }}
+	return f, putWants(ctx, q, sub, f, ws, c.wants[sub.ID], final, p)
 }
 
 func sidecarOfWant(scs []Sidecar, w Want) *Sidecar {

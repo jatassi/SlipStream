@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -196,31 +197,46 @@ func (k *keeper) read(ctx context.Context, f files.ID) (settled, error) {
 			return err
 		}
 		if len(subjects) == 1 && len(rows) == 1 {
-			in.subject, in.row = &subjects[0], &rows[0]
-			langs, err := k.s.cfg.Targets.LanguagesOf(ctx, r)
-			if err != nil {
+			if err := in.live(ctx, r, k.s.cfg.Targets, subjects[0], rows[0]); err != nil {
 				return err
 			}
-			in.langs = langs[in.subject.Profile]
 		}
-		if in.wants, err = q.ListWantsIn(ctx, ids); err != nil {
-			return err
-		}
-		scs, err := sidecarsIn(ctx, q, ids)
-		if err != nil {
-			return err
-		}
-		in.sidecars = scs[f]
-		if in.intents, err = q.ListIntentsIn(ctx, ids); err != nil {
-			return err
-		}
-		if in.removals, err = q.ListRemovalsDue(ctx, db.ListRemovalsDueParams{FileID: f, Now: storage.FromTime(k.s.cfg.Clock())}); err != nil {
+		if err := in.rows(ctx, q, f, storage.FromTime(k.s.cfg.Clock())); err != nil {
 			return err
 		}
 		in.videos, err = k.s.cfg.Videos(ctx, r)
 		return err
 	})
 	return in, err
+}
+
+// rows is the key's rows: wants, Sidecars, intents and removals due.
+func (in *settled) rows(ctx context.Context, q *db.Queries, f files.ID, now storage.Time) error {
+	ids := []files.ID{f}
+	var err error
+	if in.wants, err = q.ListWantsIn(ctx, ids); err != nil {
+		return err
+	}
+	scs, err := sidecarsIn(ctx, q, ids)
+	if err != nil {
+		return err
+	}
+	in.sidecars = scs[f]
+	if in.intents, err = q.ListIntentsIn(ctx, ids); err != nil {
+		return err
+	}
+	in.removals, err = q.ListRemovalsDue(ctx, db.ListRemovalsDueParams{FileID: f, Now: now})
+	return err
+}
+
+// live is the read of a key whose file is still in the library.
+func (in *settled) live(ctx context.Context, r storage.Reader[storage.Library], t Targets, sub files.Subject, row db.SubtitlesFile) error {
+	langs, err := t.LanguagesOf(ctx, r)
+	if err != nil {
+		return err
+	}
+	in.subject, in.row, in.langs = &sub, &row, langs[sub.Profile]
+	return nil
 }
 
 // errNotReady ends a settle whose Storage Node can't take the call now:
@@ -252,7 +268,7 @@ func (k *keeper) settle(ctx context.Context, f files.ID) error {
 // surveys is whether a settle lists the file's companions: when a survey
 // is due, when it never had one while it has a want or a Sidecar, or
 // when an intent's bytes aren't in this process.
-func (in settled) surveys() bool {
+func (in *settled) surveys() bool {
 	never := in.row.SurveyedAt.IsZero() && (len(in.wants) > 0 || len(in.sidecars) > 0)
 	return in.row.SurveyDue || never || len(in.intents) > 0
 }
@@ -314,7 +330,7 @@ func (k *keeper) finishSurvey(ctx context.Context, tx *storage.Tx[storage.Librar
 	now := storage.FromTime(k.s.cfg.Clock())
 	extras, err := json.Marshal(plan.extras)
 	if err != nil {
-		return err
+		return fmt.Errorf("a survey's extras: %w", err)
 	}
 	var companions *string
 	if len(plan.extras) > 0 {
@@ -329,45 +345,11 @@ func (k *keeper) finishSurvey(ctx context.Context, tx *storage.Tx[storage.Librar
 	if n == 0 {
 		return errSurveyStale
 	}
-	for _, sc := range plan.gone {
-		if _, err := dropSidecar(ctx, q, sc, now); err != nil {
-			return err
-		}
-	}
-	for _, sc := range plan.placed {
-		if _, err := q.PlaceSidecar(ctx, db.PlaceSidecarParams{Stray: some(sc.Stray), ID: sc.ID, Sha256: sc.SHA256[:]}); err != nil {
-			return err
-		}
-	}
-	for _, w := range plan.dropped {
-		if _, err := q.DeleteIntent(ctx, db.DeleteIntentParams{FileID: w.FileID, Language: w.Language, Forced: w.Forced, AttemptID: w.AttemptID}); err != nil {
-			return err
-		}
-	}
-	current, err := sidecarsIn(ctx, q, []files.ID{in.subject.ID})
-	if err != nil {
+	if err := plan.settleRows(ctx, q, now); err != nil {
 		return err
 	}
-	have := current[in.subject.ID]
-	for _, fin := range plan.finished {
-		n, err := q.DeleteIntent(ctx, db.DeleteIntentParams{FileID: fin.intent.FileID, Language: fin.intent.Language, Forced: fin.intent.Forced, AttemptID: fin.intent.AttemptID})
-		if err != nil {
-			return err
-		}
-		if n == 1 && sidecarOfWant(have, fin.sidecar.want()) == nil {
-			if err := putSidecar(ctx, q, fin.sidecar, now); err != nil {
-				return err
-			}
-			have = append(have, fin.sidecar)
-		}
-	}
-	for _, sc := range plan.adopted {
-		if sidecarOfWant(have, sc.want()) == nil {
-			if err := putSidecar(ctx, q, sc, now); err != nil {
-				return err
-			}
-			have = append(have, sc)
-		}
+	if err := plan.add(ctx, q, in.subject.ID, now); err != nil {
+		return err
 	}
 	return k.s.reconcileIn(ctx, tx, []files.ID{in.subject.ID})
 }
@@ -401,6 +383,61 @@ type finishedIntent struct {
 	sidecar Sidecar
 }
 
+// settleRows applies the verdicts on rows: gone ones go, moved ones say
+// where their bytes sit, and intents whose bytes never landed drop.
+func (plan *surveyPlan) settleRows(ctx context.Context, q *db.Queries, now storage.Time) error {
+	for _, sc := range plan.gone {
+		if err := dropSidecar(ctx, q, sc, now); err != nil {
+			return err
+		}
+	}
+	for _, sc := range plan.placed {
+		if _, err := q.PlaceSidecar(ctx, db.PlaceSidecarParams{Stray: some(sc.Stray), ID: sc.ID, Sha256: sc.SHA256[:]}); err != nil {
+			return err
+		}
+	}
+	for _, w := range plan.dropped {
+		if _, err := q.DeleteIntent(ctx, db.DeleteIntentParams{FileID: w.FileID, Language: w.Language, Forced: w.Forced, AttemptID: w.AttemptID}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// add writes the Sidecars the survey found, each where no Sidecar meets
+// its want now: a finished intent's only while its attempt still holds it.
+func (plan *surveyPlan) add(ctx context.Context, q *db.Queries, f files.ID, now storage.Time) error {
+	current, err := sidecarsIn(ctx, q, []files.ID{f})
+	if err != nil {
+		return err
+	}
+	have := current[f]
+	put := func(sc Sidecar) error {
+		if sidecarOfWant(have, sc.want()) != nil {
+			return nil
+		}
+		have = append(have, sc)
+		return putSidecar(ctx, q, sc, now)
+	}
+	for _, fin := range plan.finished {
+		n, err := q.DeleteIntent(ctx, db.DeleteIntentParams{FileID: fin.intent.FileID, Language: fin.intent.Language, Forced: fin.intent.Forced, AttemptID: fin.intent.AttemptID})
+		if err != nil {
+			return err
+		}
+		if n == 1 {
+			if err := put(fin.sidecar); err != nil {
+				return err
+			}
+		}
+	}
+	for _, sc := range plan.adopted {
+		if err := put(sc); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // match is the pure decision of a survey of file at video. A row is home,
 // stray where its bytes are listed, or gone. An intent whose bytes are
 // listed finishes, else it drops and its want stays due. A companion no
@@ -411,25 +448,10 @@ type finishedIntent struct {
 // one language and kind. Every other companion is an extra.
 func match(file files.ID, video string, rows []Sidecar, intents []db.SubtitlesWrite, listed []storing.SidecarCompanion, langs []targets.WantedLanguage) surveyPlan {
 	var plan surveyPlan
-	held := map[string]bool{}
-	claim := func(sha [32]byte, home string) (string, bool) {
-		var at string
-		for _, c := range listed {
-			if c.SHA256 != sha || held[c.Path.String()] {
-				continue
-			}
-			if c.Path.String() == home || at == "" {
-				at = c.Path.String()
-			}
-		}
-		if at != "" {
-			held[at] = true
-		}
-		return at, at != ""
-	}
+	c := claims{listed: listed, held: map[string]bool{}}
 	for _, sc := range rows {
 		home := besideAt(video, sc.TailText)
-		at, ok := claim(sc.SHA256, home)
+		at, ok := c.claim(sc.SHA256, home)
 		switch {
 		case !ok:
 			plan.gone = append(plan.gone, sc)
@@ -442,7 +464,7 @@ func match(file files.ID, video string, rows []Sidecar, intents []db.SubtitlesWr
 		var sha [32]byte
 		copy(sha[:], w.Sha256)
 		home := besideAt(video, w.Tail)
-		at, ok := claim(sha, home)
+		at, ok := c.claim(sha, home)
 		sc, err := decodeSidecar(w.Sidecar)
 		if !ok || err != nil {
 			plan.dropped = append(plan.dropped, w)
@@ -458,23 +480,54 @@ func match(file files.ID, video string, rows []Sidecar, intents []db.SubtitlesWr
 	for _, f := range plan.finished {
 		met[f.sidecar.want()] = true
 	}
+	plan.adopt(file, video, c, met, langs)
+	return plan
+}
+
+// claims hands each listed companion to at most one row or intent.
+type claims struct {
+	listed []storing.SidecarCompanion
+	held   map[string]bool
+}
+
+// claim is where bytes of sha sit, home first, unless another row or
+// intent holds them.
+func (c claims) claim(sha [32]byte, home string) (string, bool) {
+	var at string
+	for _, l := range c.listed {
+		if l.SHA256 != sha || c.held[l.Path.String()] {
+			continue
+		}
+		if l.Path.String() == home || at == "" {
+			at = l.Path.String()
+		}
+	}
+	if at != "" {
+		c.held[at] = true
+	}
+	return at, at != ""
+}
+
+// adopt takes, for each Wanted Language met by nothing, the companion its
+// preference picks among those no row holds beside the video's stem. The
+// others are extras.
+func (plan *surveyPlan) adopt(file files.ID, video string, c claims, met map[Want]bool, langs []targets.WantedLanguage) {
 	candidates := map[Want][]storing.SidecarCompanion{}
-	for _, c := range listed {
-		if held[c.Path.String()] {
+	for _, l := range c.listed {
+		if c.held[l.Path.String()] {
 			continue
 		}
-		tail, home := homeOf(video, c.Path)
+		tail, home := homeOf(video, l.Path)
 		t, named := ParseTail(tail)
-		wanted := slices.ContainsFunc(langs, func(l targets.WantedLanguage) bool { return l.Language == t.Language && l.Forced == t.Forced })
+		wanted := slices.ContainsFunc(langs, func(w targets.WantedLanguage) bool { return w.Language == t.Language && w.Forced == t.Forced })
 		if !home || !named || !wanted || met[t.Want()] {
-			plan.extras = append(plan.extras, Extra{Path: c.Path.String(), Tail: c.Tail, Size: c.Size})
+			plan.extras = append(plan.extras, extraOf(l))
 			continue
 		}
-		candidates[t.Want()] = append(candidates[t.Want()], c)
+		candidates[t.Want()] = append(candidates[t.Want()], l)
 	}
 	for _, l := range langs {
-		w := Want{Language: l.Language, Forced: l.Forced}
-		cs := candidates[w]
+		cs := candidates[Want{Language: l.Language, Forced: l.Forced}]
 		if len(cs) == 0 {
 			continue
 		}
@@ -482,11 +535,14 @@ func match(file files.ID, video string, rows []Sidecar, intents []db.SubtitlesWr
 			return preference(video, l.HI, a) - preference(video, l.HI, b)
 		})
 		plan.adopted = append(plan.adopted, adopt(file, video, cs[0]))
-		for _, c := range cs[1:] {
-			plan.extras = append(plan.extras, Extra{Path: c.Path.String(), Tail: c.Tail, Size: c.Size})
+		for _, x := range cs[1:] {
+			plan.extras = append(plan.extras, extraOf(x))
 		}
 	}
-	return plan
+}
+
+func extraOf(c storing.SidecarCompanion) Extra {
+	return Extra{Path: c.Path.String(), Tail: c.Tail, Size: c.Size}
 }
 
 // strayAt is where bytes at at sit away from home, "" when at is home.

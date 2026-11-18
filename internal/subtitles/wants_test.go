@@ -2,6 +2,8 @@ package subtitles_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"testing/synctest"
@@ -62,15 +64,14 @@ func query(t *testing.T, w *subtitlestest.World, q string, args ...any) []string
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
 		for rows.Next() {
 			var s string
 			if err := rows.Scan(&s); err != nil {
-				return err
+				return errors.Join(fmt.Errorf("scan %s: %w", q, err), rows.Close())
 			}
 			out = append(out, s)
 		}
-		return rows.Err()
+		return errors.Join(rows.Err(), rows.Close())
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -95,7 +96,7 @@ func TestAGainedLanguageWantsOnlyWhereNothingMeetsIt(t *testing.T) {
 		withFrench.Subtitles = []media.Subtitle{{Codec: "subrip", Language: "fr"}}
 		withImage := audio("en")
 		withImage.Subtitles = []media.Subtitle{{Codec: "hdmv_pgs_subtitle", Image: true, Language: "fr"}}
-		files := map[string]files.ID{
+		placed := map[string]files.ID{
 			"plain":    w.Place(w.Work("plain", p), "Plain/Plain.mkv", english),
 			"embedded": w.Place(w.Work("embedded", p), "Embedded/Embedded.mkv", withFrench),
 			"image":    w.Place(w.Work("image", p), "Image/Image.mkv", withImage),
@@ -121,7 +122,7 @@ func TestAGainedLanguageWantsOnlyWhereNothingMeetsIt(t *testing.T) {
 			{"embedded", subtitles.Embedded, 0},
 			{"french", subtitles.NotNeeded, subtitles.AudioInLanguage},
 		} {
-			st := outcome(t, w, files[c.file], fr)
+			st := outcome(t, w, placed[c.file], fr)
 			if st.Kind != c.kind || st.Why != c.why {
 				t.Errorf("%s reads %+v, want kind %d why %d", c.file, st, c.kind, c.why)
 			}

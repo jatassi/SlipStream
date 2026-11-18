@@ -24,26 +24,7 @@ func TestTheBulkPassCoversTheLibraryAChunkAtATime(t *testing.T) {
 		for i := range 20 {
 			trees = append(trees, w.Work(works.Key(fmt.Sprint("w", i)), p))
 		}
-		err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			for i := range 2000 {
-				id, err := w.Add(ctx, tx, trees[i%20], fmt.Sprintf("W%d/F%04d.mkv", i%20, i), withTrack)
-				if err != nil {
-					return err
-				}
-				if i == 0 {
-					if _, err := tx.ExecContext(ctx, `INSERT INTO subtitles_file (file_id, work_id, root_id, map_since) VALUES (?, ?, ?, 1)`, id, trees[0].ID, w.Root.ID); err != nil {
-						return err
-					}
-					if _, err := tx.ExecContext(ctx, `INSERT INTO subtitles_track_ignored (file_id, stream_index, codec, language, forced) VALUES (?, 0, 'subrip', 'nl', 0)`, id); err != nil {
-						return err
-					}
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
+		seed(t, w, trees, withTrack)
 		if got := w.Reconcile(); got != (subtitles.Reconciled{Chunks: 4, Files: 2000}) {
 			t.Fatalf("the bulk pass covered %+v, want 2,000 files in 4 chunks", got)
 		}
@@ -70,4 +51,31 @@ func TestOpenClearsEveryLease(t *testing.T) {
 			t.Fatalf("after Open %s wants keep a lease", got[0])
 		}
 	})
+}
+
+// seed adds 2,000 files over trees, the first with a subtitles row whose
+// ignore names a track the file no longer has.
+func seed(t *testing.T, w *subtitlestest.World, trees []works.Tree, m media.Record) {
+	t.Helper()
+	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		for i := range 2000 {
+			id, err := w.Add(ctx, tx, trees[i%len(trees)], fmt.Sprintf("W%d/F%04d.mkv", i%len(trees), i), m)
+			if err != nil {
+				return err
+			}
+			if i > 0 {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO subtitles_file (file_id, work_id, root_id, map_since) VALUES (?, ?, ?, 1)`, id, trees[0].ID, w.Root.ID); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO subtitles_track_ignored (file_id, stream_index, codec, language, forced) VALUES (?, 0, 'subrip', 'nl', 0)`, id); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }

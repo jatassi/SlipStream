@@ -2,6 +2,7 @@ package subtitles
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -22,7 +23,7 @@ func Audit(ctx context.Context, r storage.Reader[storage.Library], s *Subtitles)
 	err := r.QueryRowContext(ctx, `SELECT count(*) FROM subtitles_want w WHERE w.unmet <> NOT EXISTS (
 		SELECT 1 FROM subtitles_sidecar c WHERE c.file_id = w.file_id AND c.language = w.language AND c.forced = w.forced)`).Scan(&unmet)
 	if err != nil {
-		return err
+		return fmt.Errorf("count unmet: %w", err)
 	}
 	if unmet != 0 {
 		return fmt.Errorf("%d want rows' unmet disagrees with their Sidecars", unmet)
@@ -57,7 +58,7 @@ func Audit(ctx context.Context, r storage.Reader[storage.Library], s *Subtitles)
 func audit(c chunk, sub files.Subject, rows []db.SubtitlesFile, types map[works.TypeID]Facet) error {
 	i := slices.IndexFunc(rows, func(r db.SubtitlesFile) bool { return r.FileID == sub.ID })
 	if i < 0 {
-		return fmt.Errorf("no subtitles_file row")
+		return errors.New("no subtitles_file row")
 	}
 	row := rows[i]
 	var ignored []ignore

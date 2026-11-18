@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path"
 	"slices"
 
@@ -130,7 +131,7 @@ func (l leaving) leave(ctx context.Context, sc Sidecar, at string, places []stri
 	}
 	body, err := json.Marshal(sc)
 	if err != nil {
-		return err
+		return fmt.Errorf("park a Sidecar: %w", err)
 	}
 	err = l.q.InsertParked(ctx, db.InsertParkedParams{
 		ID: storage.NewUUID(), FromFile: l.d.ID, ToFile: l.by, What: what, Sidecar: string(body), RootID: l.d.RootID, Path: at, Sha256: sc.SHA256[:], ParkedAt: l.now,
@@ -182,7 +183,7 @@ func unpark(ctx context.Context, q *db.Queries, p db.SubtitlesParked, now storag
 func decodeSidecar(body string) (Sidecar, error) {
 	var sc Sidecar
 	if err := json.Unmarshal([]byte(body), &sc); err != nil {
-		return Sidecar{}, err
+		return Sidecar{}, fmt.Errorf("a parked Sidecar: %w", err)
 	}
 	t, ok := ParseTail(sc.TailText)
 	if !ok {
@@ -248,7 +249,7 @@ func gainedOf(was, now []targets.WantedLanguage) []targets.WantedLanguage {
 // full want of g's language covers a forced-only g is decided here: an
 // Always one covers every file, a NoAudio one the files without audio in
 // the language.
-func gainedCount(ctx context.Context, q *db.Queries, p targets.ProfileID, g targets.WantedLanguage, now []targets.WantedLanguage) (int, int, error) {
+func gainedCount(ctx context.Context, q *db.Queries, p targets.ProfileID, g targets.WantedLanguage, now []targets.WantedLanguage) (searches, needScan int, err error) {
 	params := db.ImpactGainedParams{
 		ProfileID: p, Key: Want{g.Language, g.Forced}.key(), Base: "," + string(g.Language.Base()) + ",", Language: g.Language.String(), Forced: g.Forced,
 		NoAudio: flag(g.Audio == targets.NoAudio),
@@ -283,7 +284,7 @@ func (s *Subtitles) drop(ctx context.Context, q *db.Queries, p targets.ProfileID
 		}
 		var sha [32]byte
 		copy(sha[:], sc.Sha256)
-		if _, err := dropSidecar(ctx, q, Sidecar{ID: sc.ID, File: sc.FileID, Tail: Tail{Language: w.Language, Forced: w.Forced}, SHA256: sha}, now); err != nil {
+		if err := dropSidecar(ctx, q, Sidecar{ID: sc.ID, File: sc.FileID, Tail: Tail{Language: w.Language, Forced: w.Forced}, SHA256: sha}, now); err != nil {
 			return err
 		}
 		wake = append(wake, sc.FileID)

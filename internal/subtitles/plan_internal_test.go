@@ -109,24 +109,30 @@ func TestTheHotReadsReadThroughTheirIndexes(t *testing.T) {
 			return err
 		}},
 	} {
-		err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-			plans := storagetest.Plan(t, r, func(r storage.Reader[storage.Library]) error { return s.read(ctx, db.New(r)) })
-			for _, p := range plans {
-				for _, index := range s.indexes {
-					if !strings.Contains(strings.Join(p.Lines, "\n"), index) {
-						t.Errorf("%s doesn't read through %s: %q", s.name, index, p.Lines)
-					}
-				}
-				for _, l := range p.Lines {
-					if strings.HasPrefix(l, "SCAN") && !strings.Contains(l, "INDEX") || strings.Contains(l, "USE TEMP B-TREE") {
-						t.Errorf("%s plans %q", s.name, p.Lines)
-					}
-				}
+		wantPlans(t, lib, s.name, s.indexes, s.read)
+	}
+}
+
+func wantPlans(t *testing.T, lib *storage.DB[storage.Library], name string, indexes []string, read func(ctx context.Context, q *db.Queries) error) {
+	t.Helper()
+	var plans []storagetest.QueryPlan
+	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		plans = storagetest.Plan(t, r, func(r storage.Reader[storage.Library]) error { return read(ctx, db.New(r)) })
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range plans {
+		for _, index := range indexes {
+			if !strings.Contains(strings.Join(p.Lines, "\n"), index) {
+				t.Errorf("%s doesn't read through %s: %q", name, index, p.Lines)
 			}
-			return nil
-		})
-		if err != nil {
-			t.Fatal(err)
+		}
+		for _, l := range p.Lines {
+			if strings.HasPrefix(l, "SCAN") && !strings.Contains(l, "INDEX") || strings.Contains(l, "USE TEMP B-TREE") {
+				t.Errorf("%s plans %q", name, p.Lines)
+			}
 		}
 	}
 }

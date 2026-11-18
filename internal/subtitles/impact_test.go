@@ -2,8 +2,8 @@ package subtitles_test
 
 import (
 	"context"
-	"fmt"
 	"slices"
+	"strconv"
 	"testing"
 	"testing/synctest"
 
@@ -25,21 +25,7 @@ func TestImpactCountsTheSearchesTheNextPassMakes(t *testing.T) {
 			return subtitlestest.Wanted(t, "en", forced, targets.Allow, a)
 		}
 		p := w.Profile("Films", en(false, targets.Always))
-		embedded := audio("fr")
-		embedded.Subtitles = []media.Subtitle{{Codec: "subrip", Language: "en"}}
-		forcedTrack := audio("fr")
-		forcedTrack.Subtitles = []media.Subtitle{{Codec: "subrip", Language: "en", Forced: true}}
-		w.Put("Found/Found.en.srt", "found")
-		for _, f := range []struct {
-			key string
-			m   media.Record
-		}{
-			{"english", audio("en")}, {"french", audio("fr")}, {"untagged", audio("")}, {"embedded", embedded},
-			{"forced", forcedTrack}, {"found", audio("fr")}, {"kept", audio("fr")}, {"both", audio("en", "fr")},
-		} {
-			name := string([]rune{rune(f.key[0]) - 32}) + f.key[1:]
-			w.Place(w.Work(works.Key(f.key), p), name+"/"+name+".mkv", f.m)
-		}
+		placeEveryCase(t, w, p)
 		err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			_, err := tx.ExecContext(ctx, `UPDATE files_file SET extra = 1 WHERE path = 'Kept/Kept.mkv'`)
 			return err
@@ -71,7 +57,7 @@ func TestImpactCountsTheSearchesTheNextPassMakes(t *testing.T) {
 			}
 			for _, g := range preview.Subtitles.Gained {
 				unmet := query(t, w, `SELECT count(*) FROM subtitles_want WHERE language = ? AND forced = ? AND unmet = 1`, g.Language.String(), g.Forced)
-				if want := fmt.Sprint(g.Files); unmet[0] != want {
+				if want := strconv.Itoa(g.Files); unmet[0] != want {
 					t.Errorf("%v: Impact counts %d searches for %s forced=%t, the pass made %s", langs, g.Files, g.Language, g.Forced, unmet[0])
 				}
 				if g.NeedScan != g.Files {
@@ -120,4 +106,26 @@ func TestDroppingALanguageRemovesOnlyWhatSlipStreamFetched(t *testing.T) {
 			t.Fatalf("after the drop want rows %v remain", got)
 		}
 	})
+}
+
+// placeEveryCase places a file with English audio, French, untagged,
+// both, an English text track, a forced one, a found English Sidecar and
+// one that will be Kept.
+func placeEveryCase(t *testing.T, w *subtitlestest.World, p targets.ProfileID) {
+	t.Helper()
+	embedded := audio("fr")
+	embedded.Subtitles = []media.Subtitle{{Codec: "subrip", Language: "en"}}
+	forcedTrack := audio("fr")
+	forcedTrack.Subtitles = []media.Subtitle{{Codec: "subrip", Language: "en", Forced: true}}
+	w.Put("Found/Found.en.srt", "found")
+	for _, f := range []struct {
+		key string
+		m   media.Record
+	}{
+		{"english", audio("en")}, {"french", audio("fr")}, {"untagged", audio("")}, {"embedded", embedded},
+		{"forced", forcedTrack}, {"found", audio("fr")}, {"kept", audio("fr")}, {"both", audio("en", "fr")},
+	} {
+		name := string([]rune{rune(f.key[0]) - 32}) + f.key[1:]
+		w.Place(w.Work(works.Key(f.key), p), name+"/"+name+".mkv", f.m)
+	}
 }

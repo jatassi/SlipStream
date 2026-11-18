@@ -746,3 +746,12 @@ func TestSubtitlingSides(t *testing.T) {
 		"internal/subtitling/holder.go:5: [subtitling-sides] internal/subtitles" + holder,
 	})
 }
+
+func TestSidecarWriter(t *testing.T) {
+	const outside = " outside the Keeper and the map drain; write rows for the Keeper to settle"
+	assertFindings(t, check(t, "sidecar-writer", fixtureRepo(t, "sidecar-writer")), []string{
+		"internal/subtitles/hook.go:6: [sidecar-writer] cfg.Storage called" + outside,
+		"internal/subtitles/hook.go:6: [sidecar-writer] st.SidecarCalls" + outside,
+		"internal/subtitles/other/maps.go:5: [sidecar-writer] storing.SidecarCallsOf" + outside,
+	})
+}
