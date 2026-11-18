@@ -123,3 +123,14 @@ sql:
           - column: targets_format_score.format_id
             go_type:
               type: FormatID
+          - column: targets_profile_language.profile_id
+            go_type:
+              type: ProfileID
+          - column: targets_profile_language.forced
+            go_type: bool
+          - column: targets_profile_language.hi
+            go_type:
+              type: HI
+          - column: targets_profile_language.audio_condition
+            go_type:
+              type: AudioCondition

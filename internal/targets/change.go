@@ -137,8 +137,14 @@ func (n *Narrow) Moves(rd release.Read) map[TargetID]int {
 	return out
 }
 
-// Touches reads in r, before c applies, what c may change.
+// Touches reads in r, before c applies, what c may change. It refuses an
+// UpdateProfile whose Wanted Languages its Content Type can't take.
 func (t *Targets) Touches(ctx context.Context, r storage.Reader[file], c Change) (Touched, error) {
+	if u, ok := c.(UpdateProfile); ok {
+		if err := t.checkLanguages(u.Spec.ContentType, u.Spec.Languages); err != nil {
+			return Touched{}, err
+		}
+	}
 	return c.touches(ctx, db.New(r), t.cfg.Formats)
 }
 
@@ -254,14 +260,27 @@ func (c UpdateTarget) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
 	return insertRules(ctx, q, t)
 }
 
+// touches is no Works when the spec keeps the Profile's Targets and
+// Edition list: a name or languages change refills nothing.
 func (c UpdateProfile) touches(ctx context.Context, q *db.Queries, _ formats.Timings) (Touched, error) {
 	p, err := profileIn(ctx, q, c.ID)
 	if err != nil {
 		return Touched{}, err
 	}
+	entries, err := q.ListEntriesOfProfile(ctx, c.ID)
+	if err != nil {
+		return Touched{}, err
+	}
+	sameEntries := slices.EqualFunc(entries, c.Spec.Entries, func(row db.TargetsProfileTarget, e Entry) bool {
+		return row.TargetID == e.Target && row.Sourcing == e.Sourcing
+	})
+	sameEditions := p.Editions.Equal(c.Spec.Editions)
+	if sameEntries && sameEditions {
+		return Touched{}, nil
+	}
 	ws, err := q.ListWorksOfProfile(ctx, c.ID)
 	out := Touched{Works: ws}
-	if err != nil || p.Editions.Equal(c.Spec.Editions) {
+	if err != nil || sameEditions {
 		return out, err
 	}
 	own, err := q.CountOwnLists(ctx, c.ID)
@@ -296,6 +315,9 @@ func (c UpdateProfile) apply(ctx context.Context, q *db.Queries, known Cuts) err
 		return err
 	}
 	if err := insertProfileCuts(ctx, q, c.ID, c.Spec.Editions); err != nil {
+		return err
+	}
+	if err := writeLanguages(ctx, q, c.ID, c.Spec.Languages); err != nil {
 		return err
 	}
 	if err := q.DeleteProfileTargets(ctx, c.ID); err != nil {

@@ -43,3 +43,21 @@ const (
 	AnyList  List = "any"
 	CutsList List = "cuts"
 )
+
+// HI is how a Wanted Language ranks hearing-impaired subtitles.
+type HI string
+
+const (
+	Avoid  HI = "avoid"
+	Allow  HI = "allow"
+	Prefer HI = "prefer"
+)
+
+// AudioCondition is when a Wanted Language is wanted: always, or only
+// when no audio track is in the language.
+type AudioCondition string
+
+const (
+	Always  AudioCondition = "always"
+	NoAudio AudioCondition = "no_audio"
+)
