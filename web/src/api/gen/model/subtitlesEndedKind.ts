@@ -4,4 +4,5 @@ export type SubtitlesEndedKind =
   | "unreadable"
   | "image"
   | "wrong_episode"
-  | "marked_bad";
+  | "marked_bad"
+  | "unfetched";

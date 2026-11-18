@@ -52,15 +52,15 @@ var (
 	badWant          = api.NewCode(http.StatusBadRequest, "bad_want", "The path doesn't name a subtitle language and kind")
 	fileNotFound     = api.NewCode(http.StatusNotFound, "file_not_found", "No library file has that id")
 	trackNotFound    = api.NewCode(http.StatusNotFound, "track_not_found", "The file has no text subtitle track at that position")
-	notBuilt         = api.NewCode(http.StatusNotImplemented, "subtitle_action_not_built", "This build can't search for subtitles yet")
+	notWanted        = api.NewCode(http.StatusNotFound, "subtitle_not_searched", "SlipStream doesn't search for that subtitle on the file")
+	noSubtitle       = api.NewCode(http.StatusNotFound, "subtitle_not_found", "The file has no subtitle in that language")
+	notScanned       = api.NewCode(http.StatusConflict, "audio_not_scanned", "SlipStream hasn't scanned the file's audio yet")
 	searchExpired    = api.NewCode(http.StatusGone, "subtitle_search_expired", "The subtitle search expired")
 	attemptExpired   = api.NewCode(http.StatusGone, "subtitle_attempt_expired", "The subtitle download or upload expired")
 	uploadExpired    = api.NewCode(http.StatusGone, "subtitle_upload_expired", "The upload expired")
 	tooLarge         = api.NewCode(http.StatusUnprocessableEntity, "subtitle_too_large", "The subtitle file is too large")
 	image            = api.NewCode(http.StatusUnprocessableEntity, "subtitle_image", "The subtitle file holds image subtitles")
 )
-
-const notBuiltWords = "This build of SlipStream can't search for, download or upload subtitles yet."
 
 func answer(err error) error {
 	if err == nil {
@@ -95,8 +95,12 @@ func answer(err error) error {
 		return fileNotFound
 	case errors.Is(err, subtitles.ErrNoTrack):
 		return trackNotFound
-	case errors.Is(err, subtitles.ErrNotBuilt):
-		return notBuilt.Because(notBuiltWords)
+	case errors.Is(err, subtitles.ErrNotWanted):
+		return notWanted.Because("SlipStream doesn't search for this subtitle on this file, because its Profile doesn't list that language or a track in the file already has it.")
+	case errors.Is(err, subtitles.ErrNoSubtitle):
+		return noSubtitle.Because("This file has no subtitle in that language to mark bad.")
+	case errors.Is(err, subtitles.ErrNotScanned):
+		return notScanned.Because("SlipStream checks a subtitle's timing against the file's audio and hasn't scanned it yet. Try again after the scan finishes.")
 	case errors.Is(err, subtitles.ErrSearchExpired):
 		return searchExpired.Because("These results have expired. Search again.")
 	case errors.Is(err, subtitles.ErrAttemptExpired):

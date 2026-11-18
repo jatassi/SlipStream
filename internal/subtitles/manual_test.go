@@ -109,7 +109,7 @@ func TestIgnoringATrackStoresItsFingerprintAndMakesTheWantUnmet(t *testing.T) {
 	})
 }
 
-func TestTheManualActionsWaitForSubtitleSearch(t *testing.T) {
+func TestTheManualActionsRefuseWhatTheyCantDo(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := world(t, nil)
 		admin := identity.Admin{}
@@ -119,16 +119,16 @@ func TestTheManualActionsWaitForSubtitleSearch(t *testing.T) {
 		if !errors.As(err, &large) || large.Words() != "Use a subtitle file of 5 MB or smaller." {
 			t.Fatalf("an upload over the cap = %v, want the 5 MB refusal", err)
 		}
-		if _, err := w.Subs.Upload(t.Context(), admin, key, "Film.en.srt", []byte("1")); !errors.Is(err, subtitles.ErrNotBuilt) {
-			t.Fatalf("an upload = %v, want ErrNotBuilt", err)
-		}
-		for name, err := range map[string]error{
-			"search":   w.Subs.SearchNowFor(t.Context(), admin, key),
-			"mark bad": w.Subs.MarkBadNow(t.Context(), admin, key),
-			"keep":     w.Subs.KeepUpload(t.Context(), admin, key.File, storage.UUID{}),
+		for name, c := range map[string]struct {
+			err, want error
+		}{
+			"upload":   {func() error { _, err := w.Subs.Upload(t.Context(), admin, key, "Film.en.srt", []byte("1")); return err }(), subtitles.ErrNotWanted},
+			"search":   {w.Subs.SearchNowFor(t.Context(), admin, key), files.ErrNoFile},
+			"mark bad": {w.Subs.MarkBadNow(t.Context(), admin, key), files.ErrNoFile},
+			"keep":     {w.Subs.KeepUpload(t.Context(), admin, key.File, storage.UUID{}), subtitles.ErrUploadExpired},
 		} {
-			if !errors.Is(err, subtitles.ErrNotBuilt) {
-				t.Errorf("%s = %v, want ErrNotBuilt", name, err)
+			if !errors.Is(c.err, c.want) {
+				t.Errorf("%s = %v, want %v", name, c.err, c.want)
 			}
 		}
 	})

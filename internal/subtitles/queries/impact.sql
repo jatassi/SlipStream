@@ -52,9 +52,6 @@ SELECT work_id, CAST(coalesce(max(last_result = 'none_passed'), 0) AS INTEGER) A
 SELECT * FROM subtitles_want WHERE kind = sqlc.arg(kind) AND queued_at IS NOT NULL AND attempt_id IS NULL
 ORDER BY queue_rank, queue_order, file_id LIMIT sqlc.arg(n);
 
--- name: PastDue :many
-SELECT * FROM subtitles_want WHERE queued_at IS NULL AND due_at <= sqlc.arg(now) ORDER BY due_at LIMIT sqlc.arg(n);
-
 -- name: MissingCount :one
 SELECT count(*) FROM subtitles_want WHERE unmet = 1;
 

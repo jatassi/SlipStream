@@ -134,6 +134,18 @@ type SubtitlesTrackIgnored struct {
 	Forced      bool
 }
 
+type SubtitlesTried struct {
+	FileID       files.ID
+	Language     string
+	Forced       bool
+	CandidateKey string
+	Provider     *string
+	Release      *string
+	Match        *int64
+	Outcome      string
+	TriedAt      storage.Time
+}
+
 type SubtitlesWant struct {
 	FileID         files.ID
 	Language       string

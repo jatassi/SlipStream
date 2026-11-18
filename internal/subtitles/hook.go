@@ -342,11 +342,16 @@ func (s *Subtitles) days(ctx context.Context, q *db.Queries, searches int) (int,
 }
 
 // Landed marks a file that lands fresh, in the landing Write, giving it
-// its rows first: its map is built ahead of other files', and its first
-// search tells History when nothing passed.
+// its rows first: its map is built ahead of other files', its missing
+// wants search once it is, and its first search tells History when
+// nothing passed.
 func (s *Subtitles) Landed(ctx context.Context, tx *storage.Tx[storage.Library], f files.File) error {
 	if err := s.reconcileIn(ctx, tx, []files.ID{f.ID}); err != nil {
 		return err
 	}
-	return db.New(tx).MarkFresh(ctx, f.ID)
+	q := db.New(tx)
+	if err := q.MarkFresh(ctx, f.ID); err != nil {
+		return err
+	}
+	return q.DueNowOf(ctx, db.DueNowOfParams{Now: storage.FromTime(s.cfg.Clock()), FileID: f.ID})
 }

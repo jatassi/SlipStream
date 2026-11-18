@@ -309,56 +309,6 @@ func (q *Queries) NextQueued(ctx context.Context, arg NextQueuedParams) ([]Subti
 	return items, nil
 }
 
-const pastDue = `-- name: PastDue :many
-SELECT file_id, language, forced, work_id, kind, unmet, due_at, gap_seconds, priority, queued_at, queue_rank, queue_order, attempt_id, last_searched_at, last_found, best_match, last_result FROM subtitles_want WHERE queued_at IS NULL AND due_at <= ?1 ORDER BY due_at LIMIT ?2
-`
-
-type PastDueParams struct {
-	Now storage.Time
-	N   int64
-}
-
-func (q *Queries) PastDue(ctx context.Context, arg PastDueParams) ([]SubtitlesWant, error) {
-	rows, err := q.db.QueryContext(ctx, pastDue, arg.Now, arg.N)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []SubtitlesWant
-	for rows.Next() {
-		var i SubtitlesWant
-		if err := rows.Scan(
-			&i.FileID,
-			&i.Language,
-			&i.Forced,
-			&i.WorkID,
-			&i.Kind,
-			&i.Unmet,
-			&i.DueAt,
-			&i.GapSeconds,
-			&i.Priority,
-			&i.QueuedAt,
-			&i.QueueRank,
-			&i.QueueOrder,
-			&i.AttemptID,
-			&i.LastSearchedAt,
-			&i.LastFound,
-			&i.BestMatch,
-			&i.LastResult,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const waitingCount = `-- name: WaitingCount :one
 SELECT count(*) FROM subtitles_want WHERE kind = ?1 AND queued_at IS NOT NULL AND attempt_id IS NULL
 `

@@ -20847,7 +20847,7 @@
         "additionalProperties": false,
         "properties": {
           "disabled": {
-            "description": "It can't be picked: image subtitles, marked bad, or its provider is out",
+            "description": "It can't be picked: it holds image subtitles, or its provider is paused. A candidate marked bad can be picked, which undoes the Mark bad",
             "type": "boolean"
           },
           "key": {
@@ -20905,7 +20905,7 @@
             "type": "array"
           },
           "outcomes": {
-            "description": "How each provider's search ended",
+            "description": "How the search ended on each provider, in search order. A paused provider isn't asked and shows its pause",
             "items": {
               "$ref": "#/components/schemas/SubtitlesOutcome"
             },
@@ -20951,6 +20951,17 @@
       "SubtitlesEnded": {
         "additionalProperties": false,
         "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubtitlesOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the provider didn't serve the download, on unfetched"
+          },
           "kind": {
             "enum": [
               "added",
@@ -20958,7 +20969,8 @@
               "unreadable",
               "image",
               "wrong_episode",
-              "marked_bad"
+              "marked_bad",
+              "unfetched"
             ],
             "type": "string"
           },
@@ -20982,7 +20994,8 @@
         "required": [
           "kind",
           "match",
-          "threshold"
+          "threshold",
+          "answer"
         ],
         "type": "object"
       },
@@ -39513,31 +39526,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "subtitle_action_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -40156,31 +40144,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "subtitle_action_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -40324,7 +40287,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "file_not_found"
+                            "file_not_found",
+                            "subtitle_not_searched"
                           ],
                           "type": "string"
                         }
@@ -40411,31 +40375,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "subtitle_action_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -40588,7 +40527,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "file_not_found"
+                            "file_not_found",
+                            "subtitle_not_searched"
                           ],
                           "type": "string"
                         }
@@ -40700,31 +40640,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "subtitle_action_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -40887,7 +40802,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "file_not_found"
+                            "file_not_found",
+                            "subtitle_not_searched"
                           ],
                           "type": "string"
                         }
@@ -40912,6 +40828,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "audio_not_scanned",
                             "worker_node"
                           ],
                           "type": "string"
@@ -40962,7 +40879,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "invalid"
+                            "invalid",
+                            "subtitle_image"
                           ],
                           "type": "string"
                         }
@@ -40999,31 +40917,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "subtitle_action_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -41160,7 +41053,9 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "file_not_found"
+                            "file_not_found",
+                            "subtitle_not_found",
+                            "subtitle_not_searched"
                           ],
                           "type": "string"
                         }
@@ -41247,31 +41142,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "subtitle_action_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -41408,7 +41278,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "file_not_found"
+                            "file_not_found",
+                            "subtitle_not_searched"
                           ],
                           "type": "string"
                         }
@@ -41495,31 +41366,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "subtitle_action_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -41673,7 +41519,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "file_not_found"
+                            "file_not_found",
+                            "subtitle_not_searched"
                           ],
                           "type": "string"
                         }
@@ -41698,6 +41545,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "audio_not_scanned",
                             "worker_node"
                           ],
                           "type": "string"
@@ -41762,31 +41610,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "subtitle_action_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -77195,31 +77018,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "subtitle_action_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [

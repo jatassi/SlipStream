@@ -33,6 +33,24 @@ export const getGetSubtitleAttemptResponseMock = (
 ): SubtitlesAttempt => ({
   outcome: faker.helpers.arrayElement([
     {
+      answer: faker.helpers.arrayElement([
+        {
+          kind: faker.helpers.arrayElement([
+            "ok",
+            "not_found",
+            "refused",
+            "limited",
+            "capped",
+            "unreachable",
+          ] as const),
+          provider: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          until: faker.helpers.arrayElement([
+            faker.date.past().toISOString().slice(0, 19) + "Z",
+            null,
+          ]),
+        },
+        null,
+      ]),
       kind: faker.helpers.arrayElement([
         "added",
         "failed_timing",
@@ -40,6 +58,7 @@ export const getGetSubtitleAttemptResponseMock = (
         "image",
         "wrong_episode",
         "marked_bad",
+        "unfetched",
       ] as const),
       match: faker.helpers.arrayElement([faker.number.int(), null]),
       threshold: faker.helpers.arrayElement([faker.number.int(), null]),

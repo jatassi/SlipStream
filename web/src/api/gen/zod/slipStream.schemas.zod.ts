@@ -10408,8 +10408,31 @@ export const SubtitlesAllowance = zod.object({
 export type SubtitlesAllowance = zod.input<typeof SubtitlesAllowance>;
 export type SubtitlesAllowanceOutput = zod.output<typeof SubtitlesAllowance>;
 
+export const SubtitlesOutcome = zod.object({
+  kind: zod.enum(["ok", "not_found", "refused", "limited", "capped", "unreachable"]),
+  provider: zod.string(),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a limited or capped provider takes calls again"),
+});
+
+export type SubtitlesOutcome = zod.input<typeof SubtitlesOutcome>;
+export type SubtitlesOutcomeOutput = zod.output<typeof SubtitlesOutcome>;
+
 export const SubtitlesEnded = zod.object({
-  kind: zod.enum(["added", "failed_timing", "unreadable", "image", "wrong_episode", "marked_bad"]),
+  answer: zod
+    .union([SubtitlesOutcome, zod.null()])
+    .describe("Why the provider didn't serve the download, on unfetched"),
+  kind: zod.enum([
+    "added",
+    "failed_timing",
+    "unreadable",
+    "image",
+    "wrong_episode",
+    "marked_bad",
+    "unfetched",
+  ]),
   match: zod.int().nullable().describe("The timing match, in percent"),
   threshold: zod.int().nullable().describe("The timing match a subtitle needs, in percent"),
 });
@@ -10464,7 +10487,9 @@ export type SubtitlesTriedOutput = zod.output<typeof SubtitlesTried>;
 export const SubtitlesCandidate = zod.object({
   disabled: zod
     .boolean()
-    .describe("It can't be picked: image subtitles, marked bad, or its provider is out"),
+    .describe(
+      "It can't be picked: it holds image subtitles, or its provider is paused. A candidate marked bad can be picked, which undoes the Mark bad",
+    ),
   key: zod.string(),
   provider: zod.string(),
   reasons: zod
@@ -10477,21 +10502,13 @@ export const SubtitlesCandidate = zod.object({
 export type SubtitlesCandidate = zod.input<typeof SubtitlesCandidate>;
 export type SubtitlesCandidateOutput = zod.output<typeof SubtitlesCandidate>;
 
-export const SubtitlesOutcome = zod.object({
-  kind: zod.enum(["ok", "not_found", "refused", "limited", "capped", "unreachable"]),
-  provider: zod.string(),
-  until: zod.iso
-    .datetime({ offset: true })
-    .nullable()
-    .describe("When a limited or capped provider takes calls again"),
-});
-
-export type SubtitlesOutcome = zod.input<typeof SubtitlesOutcome>;
-export type SubtitlesOutcomeOutput = zod.output<typeof SubtitlesOutcome>;
-
 export const SubtitlesCandidates = zod.object({
   candidates: zod.array(SubtitlesCandidate).describe("Best first"),
-  outcomes: zod.array(SubtitlesOutcome).describe("How each provider's search ended"),
+  outcomes: zod
+    .array(SubtitlesOutcome)
+    .describe(
+      "How the search ended on each provider, in search order. A paused provider isn't asked and shows its pause",
+    ),
   state: zod.enum(["searching", "done"]),
 });
 

@@ -80,6 +80,9 @@ type Config struct {
 	FetchCap int
 	Tasks    Cadences
 	Roster   Roster
+	// GapCap is the longest gap a want may wait, read in the attempt's
+	// snapshot. S47 (Subtitle reports) caps an open report's want.
+	GapCap func(ctx context.Context, r storage.Reader[storage.Library], k WantKey) (time.Duration, bool)
 	// Reconciling is whether a restored Controller is Reconciling (ADR
 	// 0019), read in the caller's snapshot. Nothing writes, carries or
 	// removes a Sidecar while it is.
@@ -89,10 +92,13 @@ type Config struct {
 	// subtitles.providers-changed.
 	Changed          Publisher[Changed]
 	ProvidersChanged Publisher[ProvidersChanged]
-	Timings          Timings
-	Clock            func() time.Time
-	Rand             *rand.Rand
-	Log              *slog.Logger
+	// Attempt publishes subtitles.attempt at each step of a pick or an
+	// upload.
+	Attempt Publisher[Attempted]
+	Timings Timings
+	Clock   func() time.Time
+	Rand    *rand.Rand
+	Log     *slog.Logger
 }
 
 // MediaServers is the Media Servers' Sidecar changes.
@@ -104,7 +110,16 @@ type Subtitles struct {
 	cfg    Config
 	keeper *keeper
 	maps   *mapDrain
+	drain  *searchDrain
 	pass   chan struct{}
+
+	leases leases
+	slots  slots
+	packs  packs
+	held   held
+
+	blamedMu sync.Mutex
+	blamed   map[subtitling.ProviderID]role.NodeID
 }
 
 // Open seeds a provider row for each Spec without one, after the last,
@@ -112,8 +127,8 @@ type Subtitles struct {
 // process ever holds one, and makes due again every map build it left.
 // Run settles what the rows say is pending.
 func Open(ctx context.Context, cfg Config) (*Subtitles, error) {
-	s := &Subtitles{cfg: cfg, pass: make(chan struct{}, 1)}
-	s.keeper, s.maps = newKeeper(s), newMapDrain(s)
+	s := &Subtitles{cfg: cfg, pass: make(chan struct{}, 1), blamed: map[subtitling.ProviderID]role.NodeID{}}
+	s.keeper, s.maps, s.drain = newKeeper(s), newMapDrain(s), newSearchDrain(s)
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		for _, p := range cfg.Providers {
@@ -139,8 +154,9 @@ func ClearLeases(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 	return err
 }
 
-// Run runs the Keeper, the map drain and the bulk pass, once at start and
-// again soon after each Write that asks for one, until ctx ends.
+// Run runs the Keeper, the map drain, the search drain and the bulk pass,
+// once at start and again soon after each Write that asks for one, until
+// ctx ends.
 func (s *Subtitles) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 	wg.Go(func() {
@@ -149,6 +165,7 @@ func (s *Subtitles) Run(ctx context.Context) error {
 		}
 	})
 	wg.Go(func() { s.maps.run(ctx) })
+	wg.Go(func() { s.drain.run(ctx) })
 	defer wg.Wait()
 	for {
 		if _, err := s.Reconcile(ctx); err != nil && ctx.Err() == nil {

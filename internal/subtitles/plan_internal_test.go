@@ -42,8 +42,8 @@ func TestTheHotReadsReadThroughTheirIndexes(t *testing.T) {
 			_, err := q.WaitingCount(ctx, "feature")
 			return err
 		}},
-		{"PastDue", []string{"subtitles_want_due"}, func(ctx context.Context, q *db.Queries) error {
-			_, err := q.PastDue(ctx, db.PastDueParams{Now: storage.Time{}, N: 10})
+		{"ListSiblings", []string{"subtitles_file_work", "USE TEMP B-TREE FOR ORDER BY"}, func(ctx context.Context, q *db.Queries) error {
+			_, err := q.ListSiblings(ctx, db.ListSiblingsParams{WorkID: works.WorkID{UUID: storage.NewUUID()}, FileID: ids[0], Language: "en"})
 			return err
 		}},
 		{"LibraryMarks", []string{"COVERING INDEX subtitles_want_unmet"}, func(ctx context.Context, q *db.Queries) error {

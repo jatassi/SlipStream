@@ -92,8 +92,11 @@ func TestTheSettingsRefuseAGapUnderTheIntervalAndValuesOutOfRange(t *testing.T) 
 		if err := p.Apply(t.Context(), setting.Patch{"subtitles.sync.match": json.RawMessage(`5`)}); !errors.As(err, &r) {
 			t.Fatalf("a 5%% match = %v, want a range refusal", err)
 		}
-		if err := p.Apply(t.Context(), setting.Patch{subtitles.Every.Key: json.RawMessage(`43200`)}); !errors.Is(err, subtitles.ErrNotBuilt) {
-			t.Fatalf("a cadence before Subtitle search is built = %v, want ErrNotBuilt", err)
+		if err := p.Apply(t.Context(), setting.Patch{subtitles.Every.Key: json.RawMessage(`43200`)}); err != nil {
+			t.Fatal(err)
+		}
+		if got := values(t, p)[subtitles.Every.Key]; got != "43200" {
+			t.Fatalf("a 12 hour cadence reads %s", got)
 		}
 		var u *setting.UnknownKeyError
 		if err := p.Apply(t.Context(), setting.Patch{"subtitles.mapSlots": json.RawMessage(`2`)}); !errors.As(err, &u) {

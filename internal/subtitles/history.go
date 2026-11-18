@@ -2,7 +2,9 @@ package subtitles
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/history/entry"
@@ -51,6 +53,30 @@ type MarkedBadFacts struct {
 	By       entry.Actor  `json:"by"`
 }
 
+// SearchFacts is what a Subtitles missing or a No subtitle matched the
+// timing entry tells: the file's first search after its import.
+type SearchFacts struct {
+	Work     entry.Work `json:"work"`
+	File     string     `json:"file"`
+	Language string     `json:"language"`
+	Forced   bool       `json:"forced,omitempty"`
+	// Found is how many subtitles the search found.
+	Found int `json:"found"`
+}
+
+// ProviderOutFacts is what a Subtitle Provider out of downloads entry
+// tells.
+type ProviderOutFacts struct {
+	Provider string    `json:"provider"`
+	Until    time.Time `json:"until"`
+}
+
+func (f SearchFacts) About() entry.About {
+	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}}
+}
+
+func (ProviderOutFacts) About() entry.About { return entry.About{} }
+
 func (f SidecarFacts) About() entry.About {
 	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}}
 }
@@ -87,11 +113,55 @@ var (
 			}
 		},
 	}
+	missingRow = entry.Row[SearchFacts]{
+		Spec: entry.Spec{Kind: SubtitlesMissing, Label: "Subtitles missing", Group: entry.Subtitles},
+		Render: func(f SearchFacts, _ entry.Context) entry.Message {
+			return entry.Message{
+				Title: "Subtitles missing for " + f.Work.Label, Lines: []string{"No " + f.subtitle() + " was found for " + f.File + ". SlipStream searches again later."},
+				Link: entry.WorkLink(f.Work.ID), Poster: f.Work.Poster, Tone: entry.Warn, Body: workBody(f.Work),
+			}
+		},
+	}
+	timingFailedRow = entry.Row[SearchFacts]{
+		Spec: entry.Spec{Kind: SubtitleTimingFailed, Label: "No subtitle matched the timing", Group: entry.Subtitles, BellByDefault: true},
+		Render: func(f SearchFacts, _ entry.Context) entry.Message {
+			line := fmt.Sprintf("%d %ss were found for %s, and none matched its timing.", f.Found, f.subtitle(), f.File)
+			if f.Found == 1 {
+				line = "1 " + f.subtitle() + " was found for " + f.File + ", and it didn't match its timing."
+			}
+			return entry.Message{
+				Title: "No subtitle matched the timing for " + f.Work.Label,
+				Lines: []string{line + " Upload one, or SlipStream searches again later."},
+				Link:  entry.WorkLink(f.Work.ID), Poster: f.Work.Poster, Tone: entry.Warn, Body: workBody(f.Work),
+			}
+		},
+	}
+	providerOutRow = entry.Row[ProviderOutFacts]{
+		Spec: entry.Spec{Kind: SubtitleProviderOut, Label: "Subtitle Provider out of downloads", Group: entry.Subtitles},
+		Render: func(f ProviderOutFacts, c entry.Context) entry.Message {
+			return entry.Message{
+				Title: f.Provider + " is out of downloads",
+				Lines: []string{"SlipStream searches " + f.Provider + " again on " + c.Day(f.Until) + " at " + c.Clock(f.Until) + "."},
+				Tone:  entry.Warn,
+			}
+		},
+	}
 )
 
 // Entries is the rows Subtitles records. Its Sidecar writes and its
 // searches add them.
-func Entries() []entry.Entry { return []entry.Entry{addedRow, replacedRow, removedRow, markedBadRow} }
+func Entries() []entry.Entry {
+	return []entry.Entry{addedRow, replacedRow, removedRow, markedBadRow, missingRow, timingFailedRow, providerOutRow}
+}
+
+// subtitle is the searched subtitle in words: "English subtitle", "forced
+// English subtitle".
+func (f SearchFacts) subtitle() string {
+	if f.Forced {
+		return "forced " + f.Language + " subtitle"
+	}
+	return f.Language + " subtitle"
+}
 
 var whyWords = map[string]string{
 	"retime_failed": "Its timing didn't match the file's audio.",

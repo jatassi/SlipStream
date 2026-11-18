@@ -511,7 +511,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Works:        tree,
 		FetchCap:     n.cfg.Timings.Subtitling.FetchCap,
 
-		Tasks:       subtitles.Unscheduled{},
+		Tasks:       lateTasks{&scheduler},
+		GapCap:      subtitles.NoGapCap,
 		Roster:      side,
 		Reconciling: trackers.NotReconciling,
 		History:     n.history.Recorder("subtitles", subtitles.Entries()),
@@ -524,6 +525,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Describe:         tree.Describe,
 		Changed:          subtitles.ChangedEvent.Bind(n.hub),
 		ProvidersChanged: subtitles.ProvidersChangedEvent.Bind(n.hub),
+		Attempt:          subtitles.AttemptEvent.Bind(n.hub),
 	})
 	if err != nil {
 		return err
@@ -619,7 +621,7 @@ func (n *Node) startController(ctx context.Context) error {
 			},
 			Keep:  n.history,
 			Batch: n.cfg.Timings.Housekeeping.PruneBatch,
-			Steps: housekeepingSteps(registry, servers, n.history, pipeline, found, shelf),
+			Steps: housekeepingSteps(registry, servers, n.history, pipeline, found, shelf, subtitler),
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
@@ -628,7 +630,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}, found), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
+		}, found), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask(), subtitler.Task()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,
@@ -1029,10 +1031,10 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 // housekeepingSteps is Housekeeping's prunes in their units' order. The
 // Grabs step runs before the Imports step, so the Imports step sees the
 // Grabs it deleted.
-func housekeepingSteps(registry *indexers.Indexers, servers *mediaservers.MediaServers, h *history.Service, pipeline *grabs.Grabs, found *imports.Imports, shelf *files.Files) []housekeeping.Step {
+func housekeepingSteps(registry *indexers.Indexers, servers *mediaservers.MediaServers, h *history.Service, pipeline *grabs.Grabs, found *imports.Imports, shelf *files.Files, subtitler *subtitles.Subtitles) []housekeeping.Step {
 	return []housekeeping.Step{
 		housekeeping.Plain("indexer-queries", "Indexer queries and sessions", registry.Prune), servers.Housekeeping(),
-		h.Retention(), pipeline.Retention(), found.Retention(), shelf.Retention(),
+		h.Retention(), pipeline.Retention(), found.Retention(), shelf.Retention(), subtitler.Retention(),
 	}
 }
 
