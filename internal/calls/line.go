@@ -9,6 +9,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"net/url"
+	"slices"
 	"sync"
 	"time"
 
@@ -27,6 +28,14 @@ type Lines struct {
 	mu    sync.Mutex
 	rand  *rand.Rand
 	lines map[ID]*Line
+}
+
+// NoRedirects is c with every redirect refused: a redirected call ends on
+// the 3xx, so it never carries a key to a host its provider didn't name.
+func NoRedirects(c *http.Client) *http.Client {
+	n := *c
+	n.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &n
 }
 
 func NewLines(c *http.Client, userAgent string, t Timings, r *rand.Rand) *Lines {
@@ -263,6 +272,9 @@ type outgoing struct {
 
 // send waits on the bucket, sends o and classifies the response.
 func (l *Line) send(ctx context.Context, o outgoing, lookup bool) (settled, error) {
+	if len(l.p.Hosts) > 0 && !slices.Contains(l.p.Hosts, o.url.Host) {
+		return settled{Outcome: l.outcome(Unreachable, "has no host "+o.url.Host)}, nil
+	}
 	if err := l.bucket.Wait(ctx); err != nil {
 		return settled{}, fmt.Errorf("waiting on the rate limit: %w", err)
 	}

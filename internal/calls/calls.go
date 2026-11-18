@@ -30,6 +30,10 @@ type Provider struct {
 	// Rate and Burst are the token bucket per provider per holder.
 	Rate  rate.Limit
 	Burst int
+	// Hosts are the only hosts, with their ports as a URL names them, that
+	// a request may go to; a request to any other is never sent. Empty
+	// allows any, as metadata's image hosts need.
+	Hosts []string
 	// Key puts the key on the query and Header puts it in a header, such as
 	// X-API-Key. Auth logs in with it for a bearer token. A provider sets at
 	// most one; with none it is called keyless.

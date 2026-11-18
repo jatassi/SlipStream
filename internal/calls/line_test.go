@@ -200,6 +200,44 @@ func TestAnOKAnswerComesBackWithItsHeaders(t *testing.T) {
 	})
 }
 
+func TestARequestToAHostOffTheListIsNeverSent(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		s := serve(t, func(_ int, w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+		subs := calls.Provider{ID: "subs", Label: "Subs", Rate: 20, Burst: 20, Hosts: []string{s.base.Host}}
+		line := s.lines(s.client).Line(subs)
+		if _, err := line.Do(t.Context(), keys, s.get("/search")); err != nil {
+			t.Fatalf("a request to a listed host = %v, want it sent", err)
+		}
+		start := time.Now()
+		_, err := line.Do(t.Context(), keys, calls.Request{URL: &url.URL{Scheme: "http", Host: "elsewhere.test", Path: "/file.zip"}})
+		if o := failed(t, err); o.Kind != calls.Unreachable || err.Error() != "Subs has no host elsewhere.test" {
+			t.Fatalf("err = %q, want Subs to have no host elsewhere.test", err)
+		}
+		if s.count() != 1 || time.Since(start) != 0 {
+			t.Fatalf("%d requests after %v, want the second never sent nor tried again", s.count(), time.Since(start))
+		}
+	})
+}
+
+func TestARedirectIsRefused(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		s := serve(t, func(_ int, w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "http://10.0.0.1:80/elsewhere", http.StatusFound)
+		})
+		subs := calls.Provider{ID: "subs", Label: "Subs", Rate: 20, Burst: 20, Hosts: []string{s.base.Host}}
+		_, err := s.lines(calls.NoRedirects(s.client)).Line(subs).Do(t.Context(), keys, s.get("/download"))
+		if o := failed(t, err); o.Kind != calls.Unreachable || o.Words != "responded with 302 Found" {
+			t.Fatalf("err = %q, want the 302 itself", err)
+		}
+		if s.count() != 1 || s.reqs[0].URL.Path != "/download" {
+			t.Fatalf("sent %d requests, want only /download", s.count())
+		}
+		if s.client.CheckRedirect != nil {
+			t.Fatal("NoRedirects changed the client it was given")
+		}
+	})
+}
+
 func TestAProvidersOwnAttemptsAndWaitReplaceTheTimings(t *testing.T) {
 	t.Run("attempts", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
