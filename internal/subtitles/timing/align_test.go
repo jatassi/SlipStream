@@ -201,7 +201,7 @@ func TestFailures(t *testing.T) {
 // harsh VAD and requires 99% of those to pass. It logs the numbers that
 // set the default, and the pass rates other defaults would have.
 func TestFalsePassRate(t *testing.T) {
-	const trials, honest = 1000, 300
+	trials, honest := falsePassTrials()
 	bands := []float64{0.3, 0.4, 0.5}
 	type result struct{ random, harsh timing.Fit }
 	results := make([]result, trials)
