@@ -1,1 +1,1 @@
-export type ListHistoryGroupsItem = "grabs" | "imports" | "library" | "health";
+export type ListHistoryGroupsItem = "grabs" | "imports" | "library" | "subtitles" | "health";

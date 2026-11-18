@@ -17,7 +17,7 @@ export type ListHistoryParams = {
    */
   contentType?: string;
   /**
-   * Only these groups; left out, all four
+   * Only these groups; left out, all five
    * @nullable
    */
   groups?: ListHistoryGroupsItem[] | null;

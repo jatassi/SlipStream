@@ -254,6 +254,9 @@ func (im *Imports) land(ctx context.Context, imp Import, f File, seen storing.Se
 		case err != nil:
 			return err
 		}
+		if err := im.cfg.Subtitles.Landed(ctx, tx, landed.File); err != nil {
+			return err
+		}
 		g.Outcome, g.Reason, g.Hold, g.PlacedBy, g.FileID = Placed, nil, nil, by, landed.File.ID
 		g.Fills = fillsOf(landed.Fills, g.forced())
 		a.landed = append(a.landed, cur.Work)

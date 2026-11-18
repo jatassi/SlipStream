@@ -69,6 +69,7 @@ import (
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/subtitling"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
@@ -432,12 +433,10 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:  n.rootLog.With("subsystem", "indexers"),
 	})
 	goals, err := targets.Open(ctx, targets.Config{
-		Library: lib.db,
-		Works:   tree,
-		Types:   contenttype.Project(opened, func(t contenttype.Library) targets.Facet { return t }),
-		// S46 (Subtitles): every type takes Wanted Languages until the
-		// Content Types gain their subtitles facet.
-		Subtitled: func(works.TypeID) bool { return true },
+		Library:   lib.db,
+		Works:     tree,
+		Types:     contenttype.Project(opened, func(t contenttype.Library) targets.Facet { return t }),
+		Subtitled: func(t works.TypeID) bool { return len(opened[t].Subtitled()) > 0 },
 		Changed:   targets.ChangedEvent.Bind(n.hub),
 		Log:       n.rootLog.With("subsystem", "targets"),
 		Formats:   n.cfg.Timings.Formats,
@@ -493,6 +492,27 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	subtitler, err := subtitles.Open(ctx, subtitles.Config{
+		Library: lib.db, Files: shelf, Targets: goals, Roots: homes,
+		Types: contenttype.Project(opened, func(t contenttype.Library) subtitles.Facet { return t }),
+		Storage: func(id role.NodeID) storing.SidecarCalls {
+			return storing.SidecarCallsOf(storagev1connect.SidecarService.On(cluster, id))
+		},
+		Videos:      imports.Videos,
+		Providers:   n.subtitleSpecs(),
+		Tasks:       subtitles.Unscheduled{},
+		Roster:      side,
+		Reconciling: trackers.NotReconciling,
+		History:     n.history.Recorder("subtitles", subtitles.Entries()),
+		Timings:     n.cfg.Timings.Subtitles,
+		Clock:       time.Now,
+		Rand:        n.subtitlesRand,
+		Log:         n.rootLog.With("subsystem", "subtitles"),
+	})
+	if err != nil {
+		return err
+	}
+	subs.Subtitles = subtitler
 	dates := calendar.New(calendar.Config{
 		Library: lib.db, Types: contenttype.Project(opened, func(t contenttype.Library) calendar.Facet { return t }),
 		Works: tree, Files: shelf, Today: n.today,
@@ -559,6 +579,7 @@ func (n *Node) startController(ctx context.Context) error {
 		BeforeStep:   n.env.Test.BeforeScanStep,
 		BeforeImport: n.env.Test.BeforeImport,
 		History:      n.history.Recorder("imports", imports.Entries()),
+		Subtitles:    subtitler,
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
 	pipeline.Register(found.Importer())
@@ -642,6 +663,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("transfers", copies.Run)
 	n.claimed.Go("media servers", servers.Run)
 	n.claimed.Go("files", shelf.Run)
+	n.claimed.Go("subtitles", subtitler.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.claimed.Go("library scan", found.Run)
 	n.claimed.Go("metadata", meta.Run)
@@ -837,6 +859,16 @@ func (n *Node) subtitlesHolder(client *http.Client) *subtitling.Holder {
 	return subtitling.Serve(subtitleProviders(lines, n.cfg), n.cfg.Timings.Subtitling)
 }
 
+// subtitleSpecs is every Subtitle Provider's Spec, for the Controller,
+// which calls none of them.
+func (n *Node) subtitleSpecs() []subtitling.Spec {
+	var out []subtitling.Spec
+	for _, p := range subtitleProviders(calls.NewLines(http.DefaultClient, n.userAgent(), n.cfg.Timings.Subtitling.Calls, n.subtitlingRand), n.cfg) {
+		out = append(out, p.Spec())
+	}
+	return out
+}
+
 // subtitleProviders is every Subtitle Provider, in its default search
 // order.
 func subtitleProviders(lines *calls.Lines, cfg Config) []subtitling.Provider {
@@ -993,7 +1025,7 @@ func owners(clients *downloadclients.Clients, servers *mediaservers.MediaServers
 		clients.DownloadingOwner(),
 		roots.StorageOwner(files.RootContents{}),
 		nodes.Unowned(role.Converting),
-		nodes.Unowned(role.Subtitles),
+		subtitles.Owner,
 		metadata.Owner,
 		servers.Owner(),
 		notes.Owner(),
