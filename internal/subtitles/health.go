@@ -92,7 +92,7 @@ func (s *Subtitles) judgeProvider(a *health.Answer, p Provider, warn time.Durati
 	case p.Standing(now) == Rejected:
 		a.Items = append(a.Items, health.Item{Key: health.KeyOf("key-rejected", string(p.Spec.ID)), Level: health.Fail, Says: health.Says{
 			Subject: p.Spec.Label,
-			Text:    p.Spec.Label + " rejected your key and responded \"" + p.Paused.Words + "\". Add a new key in Settings > Subtitles.",
+			Text:    p.Spec.Label + " rejected your key and responded \"" + providerWords(p.Paused.Words) + "\". Add a new key in Settings > Subtitles.",
 			Action:  openSubtitles,
 		}})
 	case p.FailingSince.IsZero():
@@ -127,19 +127,19 @@ func (s *Subtitles) uncovered(typ works.TypeID, providers []Provider) (health.It
 		return health.Item{}, false
 	}
 	d, _ := s.cfg.Describe(typ)
-	var keyed, keyless []string
+	var off, keyed []string
 	for _, p := range providers {
 		switch {
 		case !covers(p):
-		case p.Spec.Keyed:
+		case p.Spec.Keyed && !p.HasKey:
 			keyed = append(keyed, p.Spec.Label)
 		default:
-			keyless = append(keyless, p.Spec.Label)
+			off = append(off, p.Spec.Label)
 		}
 	}
 	fix := "Add a " + strings.Join(keyed, " or ") + " key."
-	if len(keyed) == 0 {
-		fix = "Turn on " + strings.Join(keyless, " or ") + " in Settings > Subtitles."
+	if len(off) > 0 {
+		fix = "Turn on " + strings.Join(off, " or ") + " in Settings > Subtitles."
 	}
 	return health.Item{Key: health.KeyOf("uncovered", string(typ)), Level: health.Warn, Says: health.Says{
 		Subject: d.Work.Many,

@@ -448,7 +448,7 @@ func (h KeyHolder) CheckKey(_ context.Context, req *subtitlesv1.CheckKeyRequest)
 	at := time.Now().UnixMicro()
 	if h.Refused != "" {
 		return &subtitlesv1.CheckKeyResponse{Outcomes: []*subtitlesv1.Outcome{{
-			Provider: req.GetProvider(), Kind: subtitlesv1.OutcomeKind_OUTCOME_KIND_REFUSED, Words: h.Refused, AtUnixMicro: at,
+			Provider: req.GetProvider(), Kind: subtitlesv1.OutcomeKind_OUTCOME_KIND_REFUSED, Words: "refused the key: " + h.Refused, AtUnixMicro: at,
 		}}}, nil
 	}
 	return &subtitlesv1.CheckKeyResponse{Account: h.Account, Plan: h.Plan, Outcomes: []*subtitlesv1.Outcome{{

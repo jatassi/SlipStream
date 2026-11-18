@@ -70,8 +70,15 @@ func TestEveryHealthItemIsRaisedAndClearedFromItsRows(t *testing.T) {
 			t.Fatal(err)
 		}
 		raises(t, w, "with SubDL keyed", false)
+		if _, err := w.Subs.SetProviderOn(t.Context(), identity.Admin{}, "subdl", false); err != nil {
+			t.Fatal(err)
+		}
+		raises(t, w, "with SubDL keyed and off", false, "uncovered.fixture warn: No Subtitle Provider that is on searches shelves. Turn on SubDL in Settings > Subtitles.")
+		if _, err := w.Subs.SetProviderOn(t.Context(), identity.Admin{}, "subdl", true); err != nil {
+			t.Fatal(err)
+		}
 		now := storage.FromTime(time.Now())
-		exec(t, w, `UPDATE subtitles_provider SET paused_until = ?, pause_reason = 'key', pause_words = 'Not Authorized' WHERE id = 'subdl'`, now)
+		exec(t, w, `UPDATE subtitles_provider SET paused_until = ?, pause_reason = 'key', pause_words = 'refused the key: Not Authorized' WHERE id = 'subdl'`, now)
 		rejected := `key-rejected.subdl fail: SubDL rejected your key and responded "Not Authorized". Add a new key in Settings > Subtitles.`
 		raises(t, w, "with SubDL's key rejected", true, rejected)
 		if _, err := w.Subs.SetKey(t.Context(), identity.Admin{}, "subdl", "k2"); err != nil {

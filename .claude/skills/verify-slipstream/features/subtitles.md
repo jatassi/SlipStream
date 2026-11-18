@@ -84,14 +84,14 @@ Steps:
   $FW exec $RUN --proof subtitles/subtitles-providers -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{"key":"not-a-key"}' '{nodes.home.url}/api/v1/subtitles/providers/subdl/key'
   ```
 
-- **A Work's subtitles.** With English wanted on `Movies`, read The Quiet Orchard's subtitles, then ignore its English text track by its stream number and read again: the want reads missing and the Library row's `subtitles` reads `missing`.
+- **A Work's subtitles.** With English wanted on `Movies`, copy Lanterns at Low Tide (it has an embedded English SubRip track) into the Movies root, scan, read its subtitles, then ignore its English text track by its stream number and read again: the want reads missing and the Library row's `subtitles` reads `missing`.
 
   ```sh
   $FW exec $RUN --proof subtitles/subtitles-work -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$WORK/subtitles"
   $FW exec $RUN --proof subtitles/subtitles-library-mark -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library?contentType=movie'
   ```
 
-- **Health.** With no provider keyed and English wanted on `Movies`, `GET /api/v1/system/health` shows `subtitles.uncovered` under Subtitles; a key the holder accepts clears it.
+- **Health.** With no provider keyed and English wanted on `Movies`, `GET /api/v1/system/health` shows `uncovered.movie` under Subtitles; a key the holder accepts clears it.
 
 - **Actions wait.** `POST .../subtitles/en/search` answers 501 with "This build of SlipStream can't search for, download or upload subtitles yet."; an upload of 5 MB and 1 byte, base64 in `bytes`, answers 422 `subtitle_too_large`.
 

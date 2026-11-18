@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/calls"
@@ -84,6 +85,10 @@ func (p Provider) Standing(now time.Time) Standing {
 }
 
 // searches is whether p can search: on, and keyed if it needs a key.
+// providerWords drops the "refused the key: " that calls puts before a
+// provider's own words, so a quote shows only what the provider said.
+func providerWords(words string) string { return strings.TrimPrefix(words, "refused the key: ") }
+
 func (p Provider) searches() bool { return p.On && (!p.Spec.Keyed || p.HasKey) }
 
 var (
@@ -300,7 +305,7 @@ func checked(spec subtitling.Spec, outcomes []calls.Outcome) (*calls.Allowance, 
 		}
 		switch o.Kind {
 		case calls.Refused, calls.PinRefused:
-			return nil, storage.Time{}, &KeyRefusedError{Provider: spec.Label, Words: o.Words}
+			return nil, storage.Time{}, &KeyRefusedError{Provider: spec.Label, Words: providerWords(o.Words)}
 		case calls.Unreachable, calls.Limited, calls.NotFound:
 			return nil, storage.Time{}, &UnreachableError{Provider: spec.Label, Cause: errors.New(o.Words)}
 		case calls.OK, calls.Capped:
