@@ -98,7 +98,7 @@ func (k *keeper) claimFor(ctx context.Context, in settled, to files.ID, parked [
 			return err
 		}
 	}
-	return k.s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	return k.commit(ctx, r.subject, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return k.finishClaim(ctx, tx, *r, plan)
 	})
 }

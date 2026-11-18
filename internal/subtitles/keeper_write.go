@@ -77,7 +77,7 @@ func (k *keeper) write(ctx context.Context, in settled, w db.SubtitlesWrite, b [
 	if err != nil && !occupied && !stale {
 		return err
 	}
-	return k.s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	return k.commit(ctx, *sub, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		switch {
 		case occupied:
@@ -292,7 +292,7 @@ func (k *keeper) place(ctx context.Context, in settled, sc Sidecar, c Checked, k
 	if err != nil {
 		return err
 	}
-	return k.s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	return k.commit(ctx, *sub, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return k.placed(ctx, tx, *sub, sc, c, at, kind)
 	})
 }
@@ -338,7 +338,7 @@ func (k *keeper) retimeFailed(ctx context.Context, in settled, sc Sidecar) error
 		return k.untimed(ctx, in, sc)
 	}
 	sub := in.subject
-	return k.s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	return k.commit(ctx, *sub, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		held, err := q.GetSidecarHeld(ctx, db.GetSidecarHeldParams{ID: sc.ID, Sha256: sc.SHA256[:]})
 		if err != nil || held == 0 {
@@ -369,7 +369,7 @@ func (k *keeper) retimeFailed(ctx context.Context, in settled, sc Sidecar) error
 
 // untimed keeps sc where it is with no timing, guarded by its bytes.
 func (k *keeper) untimed(ctx context.Context, in settled, sc Sidecar) error {
-	return k.s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	return k.commit(ctx, *in.subject, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		held, err := q.GetSidecarHeld(ctx, db.GetSidecarHeldParams{ID: sc.ID, Sha256: sc.SHA256[:]})
 		if err != nil || held == 0 {
