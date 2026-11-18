@@ -478,7 +478,9 @@ func match(file files.ID, video string, rows []Sidecar, intents []db.SubtitlesWr
 		if len(cs) == 0 {
 			continue
 		}
-		slices.SortStableFunc(cs, func(a, b storing.SidecarCompanion) int { return preference(video, l.HI, a) - preference(video, l.HI, b) })
+		slices.SortStableFunc(cs, func(a, b storing.SidecarCompanion) int {
+			return preference(video, l.HI, a) - preference(video, l.HI, b)
+		})
 		plan.adopted = append(plan.adopted, adopt(file, video, cs[0]))
 		for _, c := range cs[1:] {
 			plan.extras = append(plan.extras, Extra{Path: c.Path.String(), Tail: c.Tail, Size: c.Size})
