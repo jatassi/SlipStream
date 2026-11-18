@@ -83,8 +83,8 @@ type Verdict struct {
 // Schedule is a provider's own retry rule: the call is tried at most Tries
 // times in all, Every apart, while its answers ask for this schedule.
 type Schedule struct {
-	Every time.Duration
-	Tries int
+	Every time.Duration `yaml:"every"`
+	Tries int           `yaml:"tries"`
 }
 
 // Credential is the part of a login a provider refused.

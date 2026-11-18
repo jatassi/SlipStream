@@ -140,3 +140,10 @@ func tags(name string, lang language.Code) bool {
 	}
 	return false
 }
+
+// Numbered is what a member's name says of its season, zero when it gives
+// none, and of its episodes, as Pick reads them.
+func Numbered(name string) (season int, episodes []int) {
+	n := numbered(name)
+	return n.season, n.episodes
+}
