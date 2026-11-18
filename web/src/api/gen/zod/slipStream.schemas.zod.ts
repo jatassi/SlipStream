@@ -5371,6 +5371,7 @@ export const HealthCategoryID = zod.enum([
   "media-servers",
   "seeding",
   "indexers",
+  "subtitles",
   "scheduled-tasks",
   "notifications",
 ]);
@@ -10373,6 +10374,508 @@ export const ShellCounts = zod.object({
 export type ShellCounts = zod.input<typeof ShellCounts>;
 export type ShellCountsOutput = zod.output<typeof ShellCounts>;
 
+export const subtitlesWindowLimitMin = 0;
+
+export const subtitlesWindowRemainingMin = 0;
+
+export const subtitlesWindowUsedMin = 0;
+
+export const SubtitlesWindow = zod.object({
+  exact: zod
+    .boolean()
+    .describe(
+      "Whether the provider counts the window up to the last call, or reports it with a lag",
+    ),
+  limit: zod.int().min(subtitlesWindowLimitMin),
+  remaining: zod.int().min(subtitlesWindowRemainingMin),
+  resets: zod.iso.datetime({ offset: true }),
+  used: zod.int().min(subtitlesWindowUsedMin),
+});
+
+export type SubtitlesWindow = zod.input<typeof SubtitlesWindow>;
+export type SubtitlesWindowOutput = zod.output<typeof SubtitlesWindow>;
+
+export const SubtitlesAllowance = zod.object({
+  at: zod.iso.datetime({ offset: true }).describe("When the provider reported it"),
+  downloads: zod
+    .union([SubtitlesWindow, zod.null()])
+    .describe("Null when the provider reported no download count"),
+  searches: zod
+    .union([SubtitlesWindow, zod.null()])
+    .describe("Null when the provider reported no search count"),
+});
+
+export type SubtitlesAllowance = zod.input<typeof SubtitlesAllowance>;
+export type SubtitlesAllowanceOutput = zod.output<typeof SubtitlesAllowance>;
+
+export const SubtitlesEnded = zod.object({
+  kind: zod.enum(["added", "failed_timing", "unreadable", "image", "wrong_episode", "marked_bad"]),
+  match: zod.int().nullable().describe("The timing match, in percent"),
+  threshold: zod.int().nullable().describe("The timing match a subtitle needs, in percent"),
+});
+
+export type SubtitlesEnded = zod.input<typeof SubtitlesEnded>;
+export type SubtitlesEndedOutput = zod.output<typeof SubtitlesEnded>;
+
+export const SubtitlesAttempt = zod.object({
+  outcome: zod.union([SubtitlesEnded, zod.null()]).describe("How it ended; null until it finished"),
+  provider: zod.string().nullable(),
+  step: zod.enum(["downloading", "checking", "finished"]),
+  uploadId: zod.uuid().nullable().describe("A refused upload SlipStream can keep anyway"),
+});
+
+export type SubtitlesAttempt = zod.input<typeof SubtitlesAttempt>;
+export type SubtitlesAttemptOutput = zod.output<typeof SubtitlesAttempt>;
+
+export const SubtitlesAttempted = zod.object({
+  attemptId: zod.uuid(),
+  fileId: zod.uuid(),
+});
+
+export type SubtitlesAttempted = zod.input<typeof SubtitlesAttempted>;
+export type SubtitlesAttemptedOutput = zod.output<typeof SubtitlesAttempted>;
+
+export const SubtitlesAttempting = zod.object({
+  attemptId: zod
+    .uuid()
+    .describe("Read its steps with getSubtitleAttempt, which subtitles.attempt refreshes"),
+});
+
+export type SubtitlesAttempting = zod.input<typeof SubtitlesAttempting>;
+export type SubtitlesAttemptingOutput = zod.output<typeof SubtitlesAttempting>;
+
+export const SubtitlesTried = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  match: zod.int().nullable().describe("Its timing match, in percent"),
+  outcome: zod.enum([
+    "passed",
+    "failed_timing",
+    "marked_bad",
+    "unreadable",
+    "image",
+    "wrong_episode",
+    "too_large",
+  ]),
+});
+
+export type SubtitlesTried = zod.input<typeof SubtitlesTried>;
+export type SubtitlesTriedOutput = zod.output<typeof SubtitlesTried>;
+
+export const SubtitlesCandidate = zod.object({
+  disabled: zod
+    .boolean()
+    .describe("It can't be picked: image subtitles, marked bad, or its provider is out"),
+  key: zod.string(),
+  provider: zod.string(),
+  reasons: zod
+    .array(zod.enum(["made_by_person", "same_group", "same_source", "provider_order"]))
+    .describe("The ranking steps it meets"),
+  release: zod.string(),
+  tried: zod.union([SubtitlesTried, zod.null()]).describe("Its earlier try for this file and want"),
+});
+
+export type SubtitlesCandidate = zod.input<typeof SubtitlesCandidate>;
+export type SubtitlesCandidateOutput = zod.output<typeof SubtitlesCandidate>;
+
+export const SubtitlesOutcome = zod.object({
+  kind: zod.enum(["ok", "not_found", "refused", "limited", "capped", "unreachable"]),
+  provider: zod.string(),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a limited or capped provider takes calls again"),
+});
+
+export type SubtitlesOutcome = zod.input<typeof SubtitlesOutcome>;
+export type SubtitlesOutcomeOutput = zod.output<typeof SubtitlesOutcome>;
+
+export const SubtitlesCandidates = zod.object({
+  candidates: zod.array(SubtitlesCandidate).describe("Best first"),
+  outcomes: zod.array(SubtitlesOutcome).describe("How each provider's search ended"),
+  state: zod.enum(["searching", "done"]),
+});
+
+export type SubtitlesCandidates = zod.input<typeof SubtitlesCandidates>;
+export type SubtitlesCandidatesOutput = zod.output<typeof SubtitlesCandidates>;
+
+export const SubtitlesChanged = zod.object({
+  fileIds: zod.array(zod.string()),
+  workIds: zod.array(zod.string()),
+});
+
+export type SubtitlesChanged = zod.input<typeof SubtitlesChanged>;
+export type SubtitlesChangedOutput = zod.output<typeof SubtitlesChanged>;
+
+export const subtitlesExtraSizeMin = 0;
+
+export const SubtitlesExtra = zod.object({
+  name: zod.string().describe("Its name after the video's own"),
+  path: zod.string().describe("Relative to the root"),
+  size: zod.int().min(subtitlesExtraSizeMin),
+});
+
+export type SubtitlesExtra = zod.input<typeof SubtitlesExtra>;
+export type SubtitlesExtraOutput = zod.output<typeof SubtitlesExtra>;
+
+export const subtitlesTrackStreamMin = 0;
+
+export const SubtitlesTrack = zod.object({
+  codec: zod.string(),
+  forced: zod.boolean(),
+  ignored: zod.boolean().describe("The Admin chose not to count it"),
+  image: zod.boolean(),
+  language: zod.string(),
+  meets: zod.string().nullable().describe("The want it meets"),
+  stream: zod
+    .int()
+    .min(subtitlesTrackStreamMin)
+    .describe("Its position among the file's subtitle tracks"),
+});
+
+export type SubtitlesTrack = zod.input<typeof SubtitlesTrack>;
+export type SubtitlesTrackOutput = zod.output<typeof SubtitlesTrack>;
+
+export const subtitlesLastSearchFoundMin = 0;
+
+export const SubtitlesLastSearch = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  bestMatch: zod.int().nullable().describe("The best timing match among them, in percent"),
+  found: zod.int().min(subtitlesLastSearchFoundMin),
+});
+
+export type SubtitlesLastSearch = zod.input<typeof SubtitlesLastSearch>;
+export type SubtitlesLastSearchOutput = zod.output<typeof SubtitlesLastSearch>;
+
+export const subtitlesFitMatchMin = 0;
+export const subtitlesFitMatchMax = 100;
+
+export const SubtitlesFit = zod.object({
+  match: zod
+    .int()
+    .min(subtitlesFitMatchMin)
+    .max(subtitlesFitMatchMax)
+    .describe("The timing match, in percent"),
+  offsetMs: zod.int(),
+  ratio: zod.number().describe("The framerate change, 1 when none"),
+  segments: zod
+    .int()
+    .min(1)
+    .describe(
+      "Stretches with one timing each, more than 1 where the timing jumps, such as at an ad break",
+    ),
+});
+
+export type SubtitlesFit = zod.input<typeof SubtitlesFit>;
+export type SubtitlesFitOutput = zod.output<typeof SubtitlesFit>;
+
+export const SubtitlesSidecar = zod.object({
+  final: zod.boolean().describe("Subtitle search stops here"),
+  fit: zod
+    .union([SubtitlesFit, zod.null()])
+    .describe("Its Timing sync numbers; null when SlipStream didn't check its timing"),
+  hindiWarning: zod.boolean().describe("A found file named .hi, which Media Servers read as Hindi"),
+  name: zod.string().describe("Its name after the video's own, such as en.sdh.srt"),
+  provider: zod.string().nullable().describe("The Subtitle Provider it came from"),
+  release: zod
+    .string()
+    .nullable()
+    .describe("The release name it was made for, as the provider names it"),
+  source: zod.enum(["provider", "upload", "found", "sibling"]),
+  stray: zod
+    .string()
+    .nullable()
+    .describe("Where it sits while it can't take its own name, relative to the root"),
+  timingDue: zod.boolean().describe("SlipStream is checking its timing against a new file"),
+});
+
+export type SubtitlesSidecar = zod.input<typeof SubtitlesSidecar>;
+export type SubtitlesSidecarOutput = zod.output<typeof SubtitlesSidecar>;
+
+export const SubtitlesWantState = zod.object({
+  kind: zod.enum(["not_needed", "embedded", "met", "missing"]),
+  missing: zod
+    .union([
+      zod.literal("no_holder"),
+      zod.literal("no_provider"),
+      zod.literal("paused"),
+      zod.literal("no_aired_number"),
+      zod.literal("map_failed"),
+      zod.literal("map_due"),
+      zod.literal("none_passed"),
+      zod.literal("nothing_found"),
+      zod.literal("never_searched"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Why a missing want has no subtitle yet, the first that holds"),
+  next: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("Its next search; null when none is planned"),
+  sidecar: zod.union([SubtitlesSidecar, zod.null()]).describe("The subtitle file that meets it"),
+  track: zod
+    .int()
+    .nullable()
+    .describe("The embedded track that meets it, by its position among the file's subtitle tracks"),
+  why: zod
+    .union([zod.literal("audio_in_language"), zod.literal("full_covers"), zod.literal(null)])
+    .nullable()
+    .describe("Why a not_needed want needs nothing"),
+});
+
+export type SubtitlesWantState = zod.input<typeof SubtitlesWantState>;
+export type SubtitlesWantStateOutput = zod.output<typeof SubtitlesWantState>;
+
+export const targetsWantedLanguageLanguageMin = 2;
+export const targetsWantedLanguageLanguageMax = 5;
+
+export const TargetsWantedLanguage = zod.object({
+  audio: zod
+    .enum(["always", "no_audio"])
+    .describe(
+      "When the language is wanted. always is whatever the audio, and no_audio is only when no audio track is in the language",
+    ),
+  forced: zod
+    .boolean()
+    .describe(
+      "Whether only the lines in another language, such as signs, are wanted, not every line of dialogue",
+    ),
+  hearingImpaired: zod
+    .enum(["avoid", "allow", "prefer"])
+    .describe(
+      "How hearing-impaired subtitles rank. avoid uses one only when nothing else fits, and prefer chooses one first when one fits",
+    ),
+  language: zod
+    .string()
+    .min(targetsWantedLanguageLanguageMin)
+    .max(targetsWantedLanguageLanguageMax)
+    .describe("An ISO 639 code, or pt-BR for Brazilian Portuguese"),
+});
+
+export type TargetsWantedLanguage = zod.input<typeof TargetsWantedLanguage>;
+export type TargetsWantedLanguageOutput = zod.output<typeof TargetsWantedLanguage>;
+
+export const SubtitlesWantView = zod.object({
+  last: zod
+    .union([SubtitlesLastSearch, zod.null()])
+    .describe("What its last search found; null until one ran"),
+  state: SubtitlesWantState,
+  want: zod.string().describe("The want in the path's form: en, pt-BR, en-forced"),
+  wanted: TargetsWantedLanguage,
+});
+
+export type SubtitlesWantView = zod.input<typeof SubtitlesWantView>;
+export type SubtitlesWantViewOutput = zod.output<typeof SubtitlesWantView>;
+
+export const SubtitlesFileSubtitles = zod.object({
+  companions: zod
+    .array(SubtitlesExtra)
+    .describe("Subtitle files beside the video that meet no want"),
+  embedded: zod
+    .array(SubtitlesTrack)
+    .describe("The media record's subtitle tracks, in stream order"),
+  episodes: zod.array(zod.int()).describe("An episode file's Aired numbers"),
+  fileId: zod.uuid(),
+  path: zod.string().describe("Relative to the root"),
+  season: zod.int().nullable().describe("An episode file's Aired season"),
+  wants: zod.array(SubtitlesWantView).describe("In Profile order"),
+});
+
+export type SubtitlesFileSubtitles = zod.input<typeof SubtitlesFileSubtitles>;
+export type SubtitlesFileSubtitlesOutput = zod.output<typeof SubtitlesFileSubtitles>;
+
+export const SubtitlesScans = zod.object({
+  left: zod.int().min(1).describe("Files whose audio is still to scan"),
+  name: zod.string(),
+  nodeId: zod.uuid(),
+});
+
+export type SubtitlesScans = zod.input<typeof SubtitlesScans>;
+export type SubtitlesScansOutput = zod.output<typeof SubtitlesScans>;
+
+export const subtitlesLeadMissingMin = 0;
+
+export const SubtitlesLead = zod.object({
+  interval: zod.int().describe("Seconds between Subtitle search runs"),
+  kind: zod
+    .enum(["no_languages", "uncovered", "off", "ready"])
+    .describe(
+      "Which sentence leads the section, the first that holds: no Profile has a Wanted Language, a Content Type with Wanted Languages has no Subtitle Provider that can search, Subtitle search is off, or ready",
+    ),
+  missing: zod
+    .int()
+    .min(subtitlesLeadMissingMin)
+    .describe("Wanted subtitles that no subtitle file or embedded track meets yet"),
+  scans: zod
+    .array(SubtitlesScans)
+    .describe(
+      "Each Storage Node with files whose audio SlipStream still has to scan, in Node order",
+    ),
+  uncovered: zod
+    .array(zod.string())
+    .describe(
+      "The Content Types with Wanted Languages that no Subtitle Provider that is on, with its key, searches",
+    ),
+});
+
+export type SubtitlesLead = zod.input<typeof SubtitlesLead>;
+export type SubtitlesLeadOutput = zod.output<typeof SubtitlesLead>;
+
+export const SubtitlesNodeSettings = zod.object({
+  settings: zod.array(SettingField).describe("How many audio scans the Node runs at once"),
+});
+
+export type SubtitlesNodeSettings = zod.input<typeof SubtitlesNodeSettings>;
+export type SubtitlesNodeSettingsOutput = zod.output<typeof SubtitlesNodeSettings>;
+
+export const SubtitlesProfileLanguages = zod.object({
+  contentType: zod.string(),
+  id: zod.uuid(),
+  languages: zod.array(TargetsWantedLanguage).describe("In the Admin's order"),
+  name: zod.string(),
+});
+
+export type SubtitlesProfileLanguages = zod.input<typeof SubtitlesProfileLanguages>;
+export type SubtitlesProfileLanguagesOutput = zod.output<typeof SubtitlesProfileLanguages>;
+
+export const SubtitlesStanding = zod.object({
+  kind: zod
+    .enum(["ready", "needs_key", "out", "rejected", "failing", "off"])
+    .describe(
+      "The first that holds: off, a key is needed, the key was rejected, out of downloads or rate limited, failing, ready",
+    ),
+  since: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a failing provider started failing"),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a provider that is out takes calls again"),
+  words: zod
+    .string()
+    .nullable()
+    .describe(
+      "The provider's own words for a rejected key, or the last error of a failing provider",
+    ),
+});
+
+export type SubtitlesStanding = zod.input<typeof SubtitlesStanding>;
+export type SubtitlesStandingOutput = zod.output<typeof SubtitlesStanding>;
+
+export const SubtitlesProvider = zod.object({
+  account: zod
+    .string()
+    .nullable()
+    .describe("The account the key belongs to, as the provider names it"),
+  allowance: zod
+    .union([SubtitlesAllowance, zod.null()])
+    .describe("What the provider last reported of the key's allowance; null until it reports one"),
+  hasKey: zod.boolean(),
+  id: zod.string().describe("The provider, such as subdl"),
+  keyPage: zod
+    .url()
+    .nullable()
+    .describe("Where an Admin gets a key; null for a provider that needs none"),
+  kinds: zod
+    .array(zod.enum(["feature", "episode"]))
+    .describe("What it searches: films by their ids, episodes by their series and Aired numbers"),
+  name: zod.string(),
+  needsKey: zod.boolean().describe("The provider needs the Admin's key"),
+  on: zod.boolean(),
+  plan: zod.string().nullable().describe("The account's plan, as the provider names it"),
+  position: zod.int().min(1).describe("Its place in the search order"),
+  state: SubtitlesStanding,
+});
+
+export type SubtitlesProvider = zod.input<typeof SubtitlesProvider>;
+export type SubtitlesProviderOutput = zod.output<typeof SubtitlesProvider>;
+
+export const SubtitlesProviderChange = zod.object({
+  on: zod.boolean(),
+});
+
+export type SubtitlesProviderChange = zod.input<typeof SubtitlesProviderChange>;
+export type SubtitlesProviderChangeOutput = zod.output<typeof SubtitlesProviderChange>;
+
+export const subtitlesProviderKeyKeyMax = 256;
+
+export const SubtitlesProviderKey = zod.object({
+  key: zod.string().min(1).max(subtitlesProviderKeyKeyMax),
+});
+
+export type SubtitlesProviderKey = zod.input<typeof SubtitlesProviderKey>;
+export type SubtitlesProviderKeyOutput = zod.output<typeof SubtitlesProviderKey>;
+
+export const SubtitlesProviderList = zod.object({
+  providers: zod.array(SubtitlesProvider).describe("In search order"),
+});
+
+export type SubtitlesProviderList = zod.input<typeof SubtitlesProviderList>;
+export type SubtitlesProviderListOutput = zod.output<typeof SubtitlesProviderList>;
+
+export const SubtitlesProviderOrder = zod.object({
+  ids: zod.array(zod.string()).describe("Every provider's id once, in the new search order"),
+});
+
+export type SubtitlesProviderOrder = zod.input<typeof SubtitlesProviderOrder>;
+export type SubtitlesProviderOrderOutput = zod.output<typeof SubtitlesProviderOrder>;
+
+export const SubtitlesProvidersChanged = zod.object({});
+
+export type SubtitlesProvidersChanged = zod.input<typeof SubtitlesProvidersChanged>;
+export type SubtitlesProvidersChangedOutput = zod.output<typeof SubtitlesProvidersChanged>;
+
+export const SubtitlesStarted = zod.object({
+  searchId: zod.uuid(),
+});
+
+export type SubtitlesStarted = zod.input<typeof SubtitlesStarted>;
+export type SubtitlesStartedOutput = zod.output<typeof SubtitlesStarted>;
+
+export const SubtitlesSubtitleSettings = zod.object({
+  lead: SubtitlesLead,
+  profiles: zod
+    .array(SubtitlesProfileLanguages)
+    .describe("Each Profile with a Wanted Language, by name"),
+  settings: zod
+    .array(SettingField)
+    .describe("Subtitle search, upgrades and how often it runs, then the settings under Details"),
+});
+
+export type SubtitlesSubtitleSettings = zod.input<typeof SubtitlesSubtitleSettings>;
+export type SubtitlesSubtitleSettingsOutput = zod.output<typeof SubtitlesSubtitleSettings>;
+
+export const subtitlesUploadNameMax = 255;
+
+export const SubtitlesUpload = zod.object({
+  bytes: zod.string().describe("The file, in base64"),
+  name: zod
+    .string()
+    .min(1)
+    .max(subtitlesUploadNameMax)
+    .describe("The file's name, whose extension says its format"),
+});
+
+export type SubtitlesUpload = zod.input<typeof SubtitlesUpload>;
+export type SubtitlesUploadOutput = zod.output<typeof SubtitlesUpload>;
+
+export const SubtitlesValuesBody = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type SubtitlesValuesBody = zod.input<typeof SubtitlesValuesBody>;
+export type SubtitlesValuesBodyOutput = zod.output<typeof SubtitlesValuesBody>;
+
+export const SubtitlesWorkSubtitles = zod.object({
+  files: zod.array(SubtitlesFileSubtitles),
+});
+
+export type SubtitlesWorkSubtitles = zod.input<typeof SubtitlesWorkSubtitles>;
+export type SubtitlesWorkSubtitlesOutput = zod.output<typeof SubtitlesWorkSubtitles>;
+
 export const SystemBuild = zod.object({
   commit: zod.string().exactOptional(),
   fingerprint: zod.string().exactOptional(),
@@ -10652,35 +11155,6 @@ export const TargetsNewCut = zod.object({
 
 export type TargetsNewCut = zod.input<typeof TargetsNewCut>;
 export type TargetsNewCutOutput = zod.output<typeof TargetsNewCut>;
-
-export const targetsWantedLanguageLanguageMin = 2;
-export const targetsWantedLanguageLanguageMax = 5;
-
-export const TargetsWantedLanguage = zod.object({
-  audio: zod
-    .enum(["always", "no_audio"])
-    .describe(
-      "When the language is wanted. always is whatever the audio, and no_audio is only when no audio track is in the language",
-    ),
-  forced: zod
-    .boolean()
-    .describe(
-      "Whether only the lines in another language, such as signs, are wanted, not every line of dialogue",
-    ),
-  hearingImpaired: zod
-    .enum(["avoid", "allow", "prefer"])
-    .describe(
-      "How hearing-impaired subtitles rank. avoid uses one only when nothing else fits, and prefer chooses one first when one fits",
-    ),
-  language: zod
-    .string()
-    .min(targetsWantedLanguageLanguageMin)
-    .max(targetsWantedLanguageLanguageMax)
-    .describe("An ISO 639 code, or pt-BR for Brazilian Portuguese"),
-});
-
-export type TargetsWantedLanguage = zod.input<typeof TargetsWantedLanguage>;
-export type TargetsWantedLanguageOutput = zod.output<typeof TargetsWantedLanguage>;
 
 export const targetsNewProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const targetsNewProfileNameMax = 100;
@@ -12811,6 +13285,12 @@ export const WorksLibraryRow = zod.object({
     .describe(
       "The most urgent status among its monitored Items, in the order failed, missing, downloading, upgradable, unreleased, met; null while none of them has a Target",
     ),
+  subtitles: zod
+    .union([zod.literal("missing"), zod.literal("none_passed"), zod.literal(null)])
+    .nullable()
+    .describe(
+      "missing while a wanted subtitle of one of its files has nothing that meets it, none_passed when the last search for one found subtitles and none matched the timing; null while every wanted subtitle is met",
+    ),
   values: zod
     .record(zod.string(), Bare)
     .describe(
@@ -13522,6 +14002,34 @@ export const LiveEventRootsChanged = zod.object({
 export type LiveEventRootsChanged = zod.input<typeof LiveEventRootsChanged>;
 export type LiveEventRootsChangedOutput = zod.output<typeof LiveEventRootsChanged>;
 
+export const LiveEventSubtitlesAttempt = zod.object({
+  event: zod.enum(["subtitles.attempt"]),
+  data: SubtitlesAttempted,
+});
+
+export type LiveEventSubtitlesAttempt = zod.input<typeof LiveEventSubtitlesAttempt>;
+export type LiveEventSubtitlesAttemptOutput = zod.output<typeof LiveEventSubtitlesAttempt>;
+
+export const LiveEventSubtitlesChanged = zod.object({
+  event: zod.enum(["subtitles.changed"]),
+  data: SubtitlesChanged,
+});
+
+export type LiveEventSubtitlesChanged = zod.input<typeof LiveEventSubtitlesChanged>;
+export type LiveEventSubtitlesChangedOutput = zod.output<typeof LiveEventSubtitlesChanged>;
+
+export const LiveEventSubtitlesProvidersChanged = zod.object({
+  event: zod.enum(["subtitles.providers-changed"]),
+  data: SubtitlesProvidersChanged,
+});
+
+export type LiveEventSubtitlesProvidersChanged = zod.input<
+  typeof LiveEventSubtitlesProvidersChanged
+>;
+export type LiveEventSubtitlesProvidersChangedOutput = zod.output<
+  typeof LiveEventSubtitlesProvidersChanged
+>;
+
 export const LiveEventTargetsChanged = zod.object({
   event: zod.enum(["targets.changed"]),
   data: TargetsChanged,
@@ -13668,6 +14176,9 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventNotificationsChanged,
   LiveEventNotificationsSeen,
   LiveEventRootsChanged,
+  LiveEventSubtitlesAttempt,
+  LiveEventSubtitlesChanged,
+  LiveEventSubtitlesProvidersChanged,
   LiveEventTargetsChanged,
   LiveEventTasksChanged,
   LiveEventTasksProgress,
