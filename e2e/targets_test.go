@@ -246,7 +246,7 @@ func filmsOf(editions string, targets ...string) string {
 	for _, id := range targets {
 		entries = append(entries, `{"targetId":"`+id+`","sourcing":"download"}`)
 	}
-	return `{"name":"Films","contentType":"movie","targets":[` + strings.Join(entries, ",") + `],"editions":` + editions + `}`
+	return `{"name":"Films","contentType":"movie","targets":[` + strings.Join(entries, ",") + `],"editions":` + editions + `,"languages":[]}`
 }
 
 func cuts(keys ...string) string {
@@ -373,7 +373,7 @@ func TestMovingTheWorkToAnotherProfileRenamesItsFileAfterTheTargetItFills(t *tes
 	w.holds(t, release)
 	web := created(t, w.a.Admin("home", http.MethodPost, "/api/v1/targets", `{"name":"Web","tiers":[["webdl-1080p"]],"cutoff":"webdl-1080p"}`))
 	small := created(t, w.a.Admin("home", http.MethodPost, "/api/v1/profiles",
-		`{"name":"Small","contentType":"movie","targets":[{"targetId":"`+web+`","sourcing":"download"}],"editions":{"kind":"any"}}`))
+		`{"name":"Small","contentType":"movie","targets":[{"targetId":"`+web+`","sourcing":"download"}],"editions":{"kind":"any"},"languages":[]}`))
 	body := `{"workIds":["` + w.work + `"],"profileId":"` + small + `"}`
 	moved := "works=1 ownList=0 unwanted=0 renamed=1 newlyWanted=0 downloading=0"
 

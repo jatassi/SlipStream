@@ -2,9 +2,11 @@ package targetsapi
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/language"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -61,6 +63,30 @@ func editionsFrom(e api.OneOf[editions]) (targets.Editions, error) {
 	return list, nil
 }
 
+type wantedLanguage struct {
+	Language        string `json:"language" minLength:"2" maxLength:"5" doc:"An ISO 639 code, or pt-BR for Brazilian Portuguese"`
+	Forced          bool   `json:"forced" doc:"Whether only the lines in another language, such as signs, are wanted, not every line of dialogue"`
+	HearingImpaired string `json:"hearingImpaired" enum:"avoid,allow,prefer" doc:"How hearing-impaired subtitles rank. avoid uses one only when nothing else fits, and prefer chooses one first when one fits"`
+	Audio           string `json:"audio" enum:"always,no_audio" doc:"When the language is wanted. always is whatever the audio, and no_audio is only when no audio track is in the language"`
+}
+
+func wantedLanguageOf(l targets.WantedLanguage) wantedLanguage {
+	return wantedLanguage{Language: l.Language.String(), Forced: l.Forced, HearingImpaired: string(l.HI), Audio: string(l.Audio)}
+}
+
+// languagesFrom reads a body's Wanted Languages.
+func languagesFrom(in []wantedLanguage) ([]targets.WantedLanguage, error) {
+	out := make([]targets.WantedLanguage, len(in))
+	for i, l := range in {
+		c, err := language.Parse(l.Language)
+		if err != nil {
+			return nil, api.Invalid.On(fmt.Sprintf("languages[%d].language", i), l.Language+" isn't a supported language code. Use an ISO 639 code, such as en, or pt-BR for Brazilian Portuguese.")
+		}
+		out[i] = targets.WantedLanguage{Language: c, Forced: l.Forced, HI: targets.HI(l.HearingImpaired), Audio: targets.AudioCondition(l.Audio)}
+	}
+	return out, nil
+}
+
 // Profile is exported so the document carries the fields a Profile's
 // detail embeds.
 type Profile struct {
@@ -70,13 +96,17 @@ type Profile struct {
 	Default     bool                `json:"default" doc:"Whether a Work added with no Profile uses it"`
 	Targets     []entry             `json:"targets" nullable:"false" doc:"In Profile order: a file is named after the first Target it is the file for"`
 	Editions    api.OneOf[editions] `json:"editions"`
+	Languages   []wantedLanguage    `json:"languages" nullable:"false" doc:"The subtitle languages its Works' files want, in the Admin's order"`
 	Works       int                 `json:"works" minimum:"0" doc:"The Works that use it"`
 }
 
 func profileOf(p targets.Profile) Profile {
 	out := Profile{
 		ID: p.ID.String(), Name: p.Name, ContentType: string(p.ContentType), Default: p.Default, Targets: []entry{},
-		Editions: editionsOf(p.Editions), Works: p.Works,
+		Editions: editionsOf(p.Editions), Languages: []wantedLanguage{}, Works: p.Works,
+	}
+	for _, l := range p.Languages {
+		out.Languages = append(out.Languages, wantedLanguageOf(l))
 	}
 	for _, e := range p.Entries {
 		out.Targets = append(out.Targets, entry{TargetID: e.Target.String(), Sourcing: string(e.Sourcing)})
@@ -100,6 +130,7 @@ type newProfile struct {
 	ContentType string              `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 	Targets     []entry             `json:"targets" nullable:"false" uniqueItems:"true" doc:"In Profile order; none is a Profile whose Works need no files"`
 	Editions    api.OneOf[editions] `json:"editions"`
+	Languages   []wantedLanguage    `json:"languages" nullable:"false" doc:"In the Admin's order, each language once as full and once as forced only at most; none for a Content Type without subtitles"`
 }
 
 type createProfileInput struct{ Body newProfile }
@@ -137,7 +168,11 @@ func profileSpecOf(in newProfile) (targets.ProfileSpec, error) {
 	if err != nil {
 		return targets.ProfileSpec{}, err
 	}
-	s := targets.ProfileSpec{Name: in.Name, ContentType: works.TypeID(in.ContentType), Editions: list}
+	langs, err := languagesFrom(in.Languages)
+	if err != nil {
+		return targets.ProfileSpec{}, err
+	}
+	s := targets.ProfileSpec{Name: in.Name, ContentType: works.TypeID(in.ContentType), Editions: list, Languages: langs}
 	for _, e := range in.Targets {
 		u, err := storage.ParseUUID(e.TargetID)
 		if err != nil {

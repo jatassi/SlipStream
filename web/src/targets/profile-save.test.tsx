@@ -47,6 +47,7 @@ test("saving a Profile's Targets shows the Works that keep their own Edition lis
     contentType: "cinema",
     targets: [{ targetId: starter.id, sourcing: "download" }],
     editions: { kind: "any" },
+    languages: [],
   });
 });
 
@@ -76,5 +77,40 @@ test("saving a Profile's chosen cuts previews them through the Impact, then send
   expect(op.sent.map((call) => [call.query, UpdateProfileBody.parse(call.body).editions])).toEqual([
     [{ preview: "true" }, editions],
     [{ unwanted: "delete", confirm: "0" }, editions],
+  ]);
+});
+
+test("saving a Profile's Targets keeps the subtitle languages it lists", async () => {
+  const english = {
+    language: "en",
+    forced: false,
+    hearingImpaired: "allow",
+    audio: "always",
+  } as const;
+  const subtitled = { ...ultra, languages: [english] };
+  const op = changeOp("put", `*/api/v1/profiles/${ultra.id}`, () => ({ ...noImpact, works: 3 }), {
+    profile: subtitled,
+  });
+  renderApp({
+    path: `/settings/profiles/${ultra.id}`,
+    handlers: [
+      op.handler,
+      ...targetHandlers(),
+      ...profileHandlers([subtitled]),
+      getListContentTypesMockHandler({ contentTypes: [cinema] }),
+    ],
+  });
+  await userEvent.click(page.getByRole("button", { name: "Remove 2160p HDR" }));
+  await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
+  await userEvent.click(
+    page
+      .getByRole("dialog", { name: "Save Ultra" })
+      .getByRole("button", { name: "Save", exact: true }),
+  );
+
+  await expect.element(page.getByText("Saved Ultra.")).toBeVisible();
+  expect(op.sent.map((call) => UpdateProfileBody.parse(call.body).languages)).toEqual([
+    [english],
+    [english],
   ]);
 });

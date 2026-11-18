@@ -1094,7 +1094,7 @@ export const getUpdateProfileUrl = (profileId: string, params?: UpdateProfilePar
 };
 
 /**
- * @summary Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact
+ * @summary Replace a Profile's name, Targets, Edition list and subtitle languages, refilling and renaming its Works' files when its Targets or Edition list change, or preview the change's Impact
  */
 export const updateProfile = async (
   profileId: string,
@@ -1191,7 +1191,7 @@ export type UpdateProfileMutationVariables = {
 };
 
 /**
- * @summary Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact
+ * @summary Replace a Profile's name, Targets, Edition list and subtitle languages, refilling and renaming its Works' files when its Targets or Edition list change, or preview the change's Impact
  */
 export const useUpdateProfile = <
   TError = ErrorType<

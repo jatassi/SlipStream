@@ -53,6 +53,8 @@ type served struct {
 	works   *works.Works
 	fx      *contenttypetest.Fixture
 	files   *files.Files
+	// subtitled is whether the fixture type takes subtitle languages.
+	subtitled *bool
 	// starter and fixture are the ids of the starter Target and the
 	// fixture type's default Profile, which Open made.
 	starter, fixture string
@@ -74,7 +76,11 @@ func serve(t *testing.T) *served {
 		t.Fatal(err)
 	}
 	changed := &published{}
-	svc, err := targets.Open(t.Context(), targets.Config{Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: changed})
+	subtitled := true
+	svc, err := targets.Open(t.Context(), targets.Config{
+		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: changed,
+		Subtitled: func(works.TypeID) bool { return subtitled },
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +94,7 @@ func serve(t *testing.T) *served {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) { targetsapi.Routes(r, goals{svc, shelf}) }), lib: lib, changed: changed, works: w, fx: fx, files: shelf}
+	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) { targetsapi.Routes(r, goals{svc, shelf}) }), lib: lib, changed: changed, works: w, fx: fx, files: shelf, subtitled: &subtitled}
 	_, body := s.Call(t, http.MethodGet, "/api/v1/targets", "")
 	s.starter = ownertest.FirstID(body)
 	_, body = s.Call(t, http.MethodGet, "/api/v1/profiles", "")
@@ -114,7 +120,7 @@ func profileBody(name string, ids ...string) string {
 	for _, id := range ids {
 		entries = append(entries, `{"targetId":"`+id+`","sourcing":"download"}`)
 	}
-	return `{"name":"` + name + `","contentType":"fixture","targets":[` + strings.Join(entries, ",") + `],"editions":{"kind":"any"}}`
+	return `{"name":"` + name + `","contentType":"fixture","targets":[` + strings.Join(entries, ",") + `],"editions":{"kind":"any"},"languages":[]}`
 }
 
 func must[T any](t *testing.T) func(T, error) T {
@@ -262,17 +268,17 @@ func TestEachTargetsErrorAnswersItsProblem(t *testing.T) {
 			`{"status":409,"code":"profile_name_taken","title":"A Profile already has that name"}`,
 		},
 		{
-			http.MethodPost, "/api/v1/profiles", `{"name":"Twice","contentType":"fixture","targets":[{"targetId":"` + id + `","sourcing":"download"},{"targetId":"` + strings.ToUpper(id) + `","sourcing":"download"}],"editions":{"kind":"any"}}`,
+			http.MethodPost, "/api/v1/profiles", `{"name":"Twice","contentType":"fixture","targets":[{"targetId":"` + id + `","sourcing":"download"},{"targetId":"` + strings.ToUpper(id) + `","sourcing":"download"}],"editions":{"kind":"any"},"languages":[]}`,
 			http.StatusUnprocessableEntity,
 			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","detail":"Add each Target to the Profile once.","errors":[{"location":"body.targets","message":"Add each Target to the Profile once."}]}`,
 		},
 		{
-			http.MethodPost, "/api/v1/profiles", `{"name":"Standard","contentType":"fixture","targets":[{"targetId":"` + id + `","sourcing":"derive"}],"editions":{"kind":"any"}}`,
+			http.MethodPost, "/api/v1/profiles", `{"name":"Standard","contentType":"fixture","targets":[{"targetId":"` + id + `","sourcing":"derive"}],"editions":{"kind":"any"},"languages":[]}`,
 			http.StatusUnprocessableEntity, `@invalid`,
 		},
 		{
 			http.MethodPost, "/api/v1/profiles", profileBody("Standard", id), http.StatusCreated,
-			`{"id":"id1","name":"Standard","contentType":"fixture","default":false,"targets":[{"targetId":"id2","sourcing":"download"}],"editions":{"kind":"any"},"works":0}`,
+			`{"id":"id1","name":"Standard","contentType":"fixture","default":false,"targets":[{"targetId":"id2","sourcing":"download"}],"editions":{"kind":"any"},"languages":[],"works":0}`,
 		},
 		{
 			http.MethodPost, "/api/v1/profiles", profileBody("Standard", id), http.StatusConflict,
@@ -367,13 +373,13 @@ func TestProfilesAreListedWithTheirWorksMadeDefaultAndEstimated(t *testing.T) {
 	}
 
 	entry := func(id string) string { return `{"targetId":"@` + id + `","sourcing":"download"}` }
-	fixture := `{"id":"@fixture","name":"Fixture","contentType":"fixture","default":true,"targets":[` + entry("starter") + `],"editions":{"kind":"any"},"works":1}`
+	fixture := `{"id":"@fixture","name":"Fixture","contentType":"fixture","default":true,"targets":[` + entry("starter") + `],"editions":{"kind":"any"},"languages":[],"works":1}`
 	get(t, s, "/api/v1/profiles", `{"profiles":[`+
-		`{"id":"@empty","name":"Empty","contentType":"fixture","default":false,"targets":[],"editions":{"kind":"any"},"works":0},`+fixture+`,`+
-		`{"id":"@small","name":"Small","contentType":"fixture","default":false,"targets":[`+entry("web")+`,`+entry("starter")+`],"editions":{"kind":"any"},"works":0}]}`, ids)
+		`{"id":"@empty","name":"Empty","contentType":"fixture","default":false,"targets":[],"editions":{"kind":"any"},"languages":[],"works":0},`+fixture+`,`+
+		`{"id":"@small","name":"Small","contentType":"fixture","default":false,"targets":[`+entry("web")+`,`+entry("starter")+`],"editions":{"kind":"any"},"languages":[],"works":0}]}`, ids)
 	get(t, s, "/api/v1/profiles/"+s.fixture, strings.TrimSuffix(fixture, "}")+`,"estimates":[{"targetId":"@starter","mibPerMinute":20,"bytes":2097152000}]}`, ids)
 	get(t, s, "/api/v1/profiles/"+small, `{"id":"@small","name":"Small","contentType":"fixture","default":false,"targets":[`+entry("web")+`,`+entry("starter")+`],`+
-		`"editions":{"kind":"any"},"works":0,"estimates":[{"targetId":"@web","mibPerMinute":null,"bytes":null},{"targetId":"@starter","mibPerMinute":20,"bytes":0}]}`, ids)
+		`"editions":{"kind":"any"},"languages":[],"works":0,"estimates":[{"targetId":"@web","mibPerMinute":null,"bytes":null},{"targetId":"@starter","mibPerMinute":20,"bytes":0}]}`, ids)
 	get(t, s, "/api/v1/works/"+ids["work"]+"/wants", `{"profileId":"@fixture","profileName":"Fixture","editions":{"kind":"any"},"from":"profile"}`, ids)
 
 	published := s.changed.n

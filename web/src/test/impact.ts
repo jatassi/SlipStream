@@ -11,6 +11,7 @@ export const noImpact: TargetsImpact = {
   renames: [],
   newlyWanted: 0,
   downloading: 0,
+  subtitles: { gained: [], dropped: [], days: 0 },
 };
 
 export type Sent = { readonly query: Record<string, string>; readonly body: unknown };

@@ -390,8 +390,9 @@ func TestADoomMidRenameRemovesTheFileWhereServersListIt(t *testing.T) {
 		return nil
 	}
 	l.runUntil(t, l.on(files.NoGrabs{}, disk), "both files reach holding", func() bool { return l.gone("w1/a.mkv", "w1/b.mkv") })
+	svc := l.files(files.NoGrabs{})
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return files.DoomIn(ctx, tx, []works.WorkID{tree.ID})
+		return svc.DoomIn(ctx, tx, []works.WorkID{tree.ID})
 	})
 	if err != nil {
 		t.Fatal(err)

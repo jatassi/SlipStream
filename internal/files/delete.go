@@ -54,18 +54,18 @@ func (h *Held) add(f File) {
 // of their gone files, whose bytes are nowhere to remove. The queue
 // removes the bytes on each root's Node once tx commits and it is poked,
 // retrying until they are gone.
-func DoomIn(ctx context.Context, tx *storage.Tx[file], ws []works.WorkID) error {
+func (f *Files) DoomIn(ctx context.Context, tx *storage.Tx[file], ws []works.WorkID) error {
 	q := db.New(tx)
 	rows, err := q.ListFilesOfWorks(ctx, ws)
 	if err != nil {
 		return err
 	}
 	for _, row := range rows {
-		f := fileOf(row)
-		if f.Gone() {
-			err = q.DeleteFile(ctx, f.ID)
+		g := fileOf(row)
+		if g.Gone() {
+			err = q.DeleteFile(ctx, g.ID)
 		} else {
-			err = doom(ctx, q, f)
+			err = f.doom(ctx, tx, q, g, ID{})
 		}
 		if err != nil {
 			return err

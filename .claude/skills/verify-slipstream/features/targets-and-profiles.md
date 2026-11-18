@@ -21,6 +21,7 @@ An Admin decides what each file should be. A Target ranks the qualities it accep
 - `sizes-probed-codec` a release whose title names no video codec is grabbed for `Encoded`, which refuses x264, and its file, probed as H.264, meets no Target. The Grab stays at `importing`, its file waits in Pending imports with `This doesn't meet any Target this Work wants.` and `Don't import`, the `Encoded` cell's facts read `Waiting for you`, and no file lands (P-069).
 - `editions-cuts` Settings > Editions lists every cut with the phrases it is read as and where it comes from, and `Add cut` adds `Superfan`, also read as `Fan Cut`, as `Custom`.
 - `editions-cut-rename` renaming `Superfan` to `Superfan Edition` opens the Impact, `1 Work changes.` and `1 file is renamed.`, with no Delete or Keep and the file's old and new path under `Details`' `Renamed files`, and its file is renamed to `{edition-Superfan Edition}` (P-202).
+- `profiles-languages` a Profile's `PUT` with `languages` saves its Wanted Languages, full or forced only, hearing impaired `avoid`, `allow` or `prefer`, `always` or `no_audio`; a languages-only save previews and saves with `works` 0 and no `targets.changed` Work, and answers `subtitles` with its `gained`, `dropped` and `days` (all empty until the Subtitles owner lands). English full twice answers 422 `duplicate_language` with `Full English subtitles are already on this list.` on `body.languages[1]`, and `?confirmSubtitles=<n>` joins `confirm` on the save. The editor shows no languages yet.
 - `editions-cut-in-use` deleting `Superfan Edition` while `Films` lists it and a file holds it reads `Superfan Edition can't be deleted. Films and 1 file use it.`, and the API answers 409 `cut_in_use`.
 
 ## How to get to it (user POV)
@@ -28,7 +29,7 @@ An Admin decides what each file should be. A Target ranks the qualities it accep
 - Desktop shell: the sidebar's `Settings`, then `Targets`, `Profiles` or `Editions` in the `Settings` navigation (`/settings/targets`, `/settings/profiles`, `/settings/editions`). A Target's name opens `/settings/targets/<id>` and `New Target` opens `/settings/targets/new`; Profiles likewise.
 - Phone shell: `More`, then `Settings`, then the section in the `Settings` list; each section and editor is a pushed page. A ranked row's `Actions for <name>` opens a sheet of that name holding `Move up`, `Move down` and, where a tie can change, `Tie with the one above` or `Untie from the one above`.
 - Both shells: the Work page's `Edit…`, in the hero's `More actions for <title>` menu (an action sheet on phone); the add sheet that `Add <title>` opens on `/add`.
-- API (Admin): `GET /api/v1/qualities`; `GET`, `POST /api/v1/targets`, `GET`, `PUT`, `DELETE /api/v1/targets/{targetId}`, `POST /api/v1/targets/{targetId}/duplicate`; `GET`, `POST /api/v1/profiles`, `GET`, `PUT /api/v1/profiles/{profileId}`, `DELETE /api/v1/profiles/{profileId}?moveTo=<profileId>`, `POST /api/v1/profiles/{profileId}/default`; `GET`, `POST /api/v1/cuts`, `PUT`, `DELETE /api/v1/cuts/{cutKey}`; `GET`, `PUT /api/v1/works/{workId}/wants`; `GET /api/v1/works/{workId}/cells` and `/searches`. Every change takes `?preview=true` for its Impact alone, `?unwanted=delete|keep` and `?confirm=<n>`, and publishes `targets.changed`.
+- API (Admin): `GET /api/v1/qualities`; `GET`, `POST /api/v1/targets`, `GET`, `PUT`, `DELETE /api/v1/targets/{targetId}`, `POST /api/v1/targets/{targetId}/duplicate`; `GET`, `POST /api/v1/profiles`, `GET`, `PUT /api/v1/profiles/{profileId}`, `DELETE /api/v1/profiles/{profileId}?moveTo=<profileId>`, `POST /api/v1/profiles/{profileId}/default`; `GET`, `POST /api/v1/cuts`, `PUT`, `DELETE /api/v1/cuts/{cutKey}`; `GET`, `PUT /api/v1/works/{workId}/wants`; `GET /api/v1/works/{workId}/cells` and `/searches`. Every change takes `?preview=true` for its Impact alone, `?unwanted=delete|keep` and `?confirm=<n>`, and publishes `targets.changed`. A Profile's body and answer carry `languages`, its `PUT` also takes `?confirmSubtitles=<n>`, and every Impact carries `subtitles`.
 - Host CLI: none.
 
 ## Driving it with fakeworld and playwright cli
@@ -92,6 +93,21 @@ Steps on `home`:
   $FW exec $RUN --proof targets-and-profiles/add-sheet-profile -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/targets-and-profiles/add-sheet-profile/sheet.png
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Quiet Orchard" }).getByRole("button", { name: "Add Movie" })'
   $FW exec $RUN --proof targets-and-profiles/targets-starter -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/targets-and-profiles/targets-starter/work.aria.yml
+  ```
+
+- **Wanted Languages on the API.** Put English, full, and French, forced only, on `Movies`, first as a preview, then as a save. Both answer `"works":0` and `"subtitles":{"gained":[],"dropped":[],"days":0}`, the save's `profile.languages` lists both in order, with French as `fr`, and `GET /api/v1/profiles` reads the same. Put English twice: 422 `duplicate_language`, with `Full English subtitles are already on this list.` on `body.languages[1]`.
+
+  ```sh
+  MOVIES=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/profiles' | jq -c '.profiles[] | select(.name == "Movies")')
+  ID=$(echo "$MOVIES" | jq -r .id)
+  EN='{"language":"en","forced":false,"hearingImpaired":"allow","audio":"always"}'
+  FR='{"language":"fra","forced":true,"hearingImpaired":"avoid","audio":"no_audio"}'
+  BODY=$(echo "$MOVIES" | jq -c "{name, contentType, targets, editions, languages: [$EN, $FR]}")
+  $FW exec $RUN --proof targets-and-profiles/profiles-languages -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "$BODY" "{nodes.home.url}/api/v1/profiles/$ID?preview=true"
+  $FW exec $RUN --proof targets-and-profiles/profiles-languages -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "$BODY" "{nodes.home.url}/api/v1/profiles/$ID?confirm=0&confirmSubtitles=0"
+  $FW exec $RUN --proof targets-and-profiles/profiles-languages -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/profiles'
+  TWICE=$(echo "$MOVIES" | jq -c "{name, contentType, targets, editions, languages: [$EN, $EN]}")
+  $FW exec $RUN --proof targets-and-profiles/profiles-languages -- curl -sS -i -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "$TWICE" "{nodes.home.url}/api/v1/profiles/$ID"
   ```
 
 Steps on `targets`:
@@ -350,6 +366,9 @@ Steps on a second fresh `targets` run:
   ```
 
 ## Gotchas
+
+- A Wanted Language's `language` reads any ISO 639 code and answers it canonical, so `fra` comes back `fr`. A region refuses, except `pt-BR`.
+- Until the Subtitles owner lands, a languages save counts nothing in `subtitles`, and no subtitle is searched for.
 
 - `fakeworld exec` reads `{word}` as a manifest token, so a cut's tag in a path or a locator is written `{{edition-Superfan}`, which reaches the command as `{edition-Superfan}`.
 - A cut's key is fixed when it is made, so `Superfan Edition` is still `superfan` on the API's paths.

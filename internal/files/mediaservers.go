@@ -126,8 +126,8 @@ func (x fact) change() (PathChange, bool, error) {
 	return c, err == nil, err
 }
 
-// tell has the Media Servers record facts in tx, the Write that records
-// them.
+// tell has subtitles and the Media Servers record facts in tx, the Write
+// that records them.
 func (f *Files) tell(ctx context.Context, tx *storage.Tx[file], facts []fact) error {
 	q := db.New(tx)
 	var cs []PathChange
@@ -148,6 +148,9 @@ func (f *Files) tell(ctx context.Context, tx *storage.Tx[file], facts []fact) er
 	}
 	if len(cs) == 0 {
 		return nil
+	}
+	if err := f.cfg.Subtitles.Changed(ctx, tx, cs); err != nil {
+		return err
 	}
 	return f.cfg.MediaServers.Changed(ctx, tx, cs)
 }

@@ -16,6 +16,7 @@ const oneUnwanted: TargetsImpact = {
   renames: [],
   newlyWanted: 4,
   downloading: 1,
+  subtitles: noImpact.subtitles,
 };
 
 const saving = (answer: Parameters<typeof changeOp>[2]) =>

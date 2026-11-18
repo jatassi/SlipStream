@@ -429,9 +429,12 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db,
 		Works:   tree,
 		Types:   contenttype.Project(opened, func(t contenttype.Library) targets.Facet { return t }),
-		Changed: targets.ChangedEvent.Bind(n.hub),
-		Log:     n.rootLog.With("subsystem", "targets"),
-		Formats: n.cfg.Timings.Formats,
+		// S46 (Subtitles): every type takes Wanted Languages until the
+		// Content Types gain their subtitles facet.
+		Subtitled: func(works.TypeID) bool { return true },
+		Changed:   targets.ChangedEvent.Bind(n.hub),
+		Log:       n.rootLog.With("subsystem", "targets"),
+		Formats:   n.cfg.Timings.Formats,
 	})
 	if err != nil {
 		return err
@@ -467,9 +470,10 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db, Facets: contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
 		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
 	})
+	subs := &lateSubtitles{Subtitles: files.NoSubtitles{}}
 	shelf, err := files.Open(ctx, files.Config{
 		Queue:   searchQueue,
-		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn, MediaServers: servers,
+		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn, MediaServers: servers, Subtitles: subs,
 		Naming:  names,
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
 		Today:   n.today,
@@ -710,6 +714,10 @@ func (a lateArtwork) Image(ctx context.Context, ref artwork.Ref, size artwork.Si
 func (a lateArtwork) PublicURL(ref artwork.Ref, size artwork.Size) (string, error) {
 	return (*a.meta).PublicURL(ref, size)
 }
+
+// lateSubtitles is the Controller's Subtitles once it opens: files opens
+// before it, since subtitles reads files.
+type lateSubtitles struct{ files.Subtitles }
 
 // lateTasks is the Scheduled tasks once they open: the Media Servers and
 // grabs are made before them, since the tasks' catalog lists their tasks.

@@ -48,6 +48,8 @@ var (
 	noSuchProfile       = api.NewCode(http.StatusNotFound, "profile_not_found", "No Profile has that id")
 	workNotFound        = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 	formatNotFound      = api.NewCode(http.StatusUnprocessableEntity, "format_not_found", "No Custom Format has that id")
+	duplicateLanguage   = api.NewCode(http.StatusUnprocessableEntity, "duplicate_language", "The Profile lists a subtitle language twice")
+	noSubtitlesForType  = api.NewCode(http.StatusUnprocessableEntity, "no_subtitles_for_type", "The Content Type has no subtitles")
 )
 
 var codes = []struct {
@@ -64,6 +66,12 @@ var codes = []struct {
 }
 
 func answer(err error) error {
+	if dup, ok := errors.AsType[*targets.DuplicateLanguageError](err); ok {
+		return duplicateLanguage.On(fmt.Sprintf("languages[%d]", dup.Index), kindWords(dup.Wanted.Forced)+" "+dup.Wanted.Language.Name()+" subtitles are already on this list.")
+	}
+	if none, ok := errors.AsType[*targets.NoSubtitlesError](err); ok {
+		return noSubtitlesForType.On("languages", none.Type+" has no subtitles, so its Profiles can't list subtitle languages.")
+	}
 	if inUse, ok := errors.AsType[*targets.InUseError](err); ok {
 		fix := " Remove it from that Profile first."
 		if len(inUse.By) > 1 {
@@ -95,6 +103,14 @@ func answer(err error) error {
 		}
 	}
 	return err
+}
+
+// kindWords names a subtitle kind at the start of a sentence.
+func kindWords(forced bool) string {
+	if forced {
+		return "Forced-only"
+	}
+	return "Full"
 }
 
 // usesWords is the sentence that the things by names use thing.
@@ -202,7 +218,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/profiles",
 		Summary: "Create a Profile of Targets in Profile order. A new Profile is never the default",
 		Status:  http.StatusCreated,
-		Errors:  []*api.Code{profileNameTaken, contentTypeNotFound, targetNotFound, cutNotFound},
+		Errors:  []*api.Code{profileNameTaken, contentTypeNotFound, targetNotFound, cutNotFound, duplicateLanguage, noSubtitlesForType},
 	}, h.createProfile)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listProfiles",
@@ -223,9 +239,9 @@ func Routes(r *api.Router, goals Goals) {
 		ID:      "updateProfile",
 		Method:  http.MethodPut,
 		Path:    "/profiles/{profileId}",
-		Summary: "Replace a Profile's name, Targets and Edition list, refilling and renaming its Works' files, or preview the change's Impact",
+		Summary: "Replace a Profile's name, Targets, Edition list and subtitle languages, refilling and renaming its Works' files when its Targets or Edition list change, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{noSuchProfile, profileNameTaken, targetNotFound, cutNotFound, profileWrongType, ImpactChanged},
+		Errors:  []*api.Code{noSuchProfile, profileNameTaken, targetNotFound, cutNotFound, profileWrongType, duplicateLanguage, noSubtitlesForType, ImpactChanged},
 	}, h.updateProfile)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "deleteProfile",

@@ -86,6 +86,9 @@ type library struct {
 	servers tellings
 	// queue is what its files owners ask to search.
 	queue searches.Queue
+	// subtitles is what its files owners tell subtitles, NoSubtitles
+	// when nil.
+	subtitles files.Subtitles
 }
 
 type moves struct {
@@ -137,6 +140,7 @@ func open(t testing.TB) *library {
 	sent := &published{}
 	goals, err := targets.Open(t.Context(), targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: sent,
+		Subtitled: func(works.TypeID) bool { return true },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -170,7 +174,7 @@ func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 		Today: func() time.Time { return today },
 		Disk:  disk, Changed: &l.changed, Moved: &l.moved, MediaServers: &l.servers, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
-		Queue: l.queue,
+		Queue: l.queue, Subtitles: l.subtitles,
 	})
 	if err != nil {
 		l.t.Fatal(err)

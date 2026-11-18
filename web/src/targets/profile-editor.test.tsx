@@ -90,6 +90,7 @@ test("a new Profile takes Targets in an order the keyboard sets, and creates wit
         { targetId: starter.id, sourcing: "download" },
       ],
       editions: { kind: "any" },
+      languages: [],
     },
   ]);
 });
@@ -198,6 +199,7 @@ test("a new Profile with chosen cuts creates with them in list order", async () 
       contentType: "cinema",
       targets: [],
       editions: { kind: "cuts", cuts: ["standard", "black-and-chrome"] },
+      languages: [],
     },
   ]);
 });

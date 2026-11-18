@@ -1,4 +1,4 @@
-import type { TargetsNewProfile, TargetsProfile } from "../api/gen/model";
+import type { TargetsNewProfile, TargetsProfile, TargetsWantedLanguage } from "../api/gen/model";
 import { type EditionsDraft, editionsBodyOf, editionsDraftOf } from "./editions-draft";
 
 /**
@@ -12,6 +12,7 @@ export type ProfileDraft = {
   /** Target ids, in Profile order. */
   readonly targets: readonly string[];
   readonly editions: EditionsDraft;
+  readonly languages: readonly TargetsWantedLanguage[];
 };
 
 export const newProfileDraft = (contentType: string): ProfileDraft => ({
@@ -20,6 +21,7 @@ export const newProfileDraft = (contentType: string): ProfileDraft => ({
   contentType,
   targets: [],
   editions: editionsDraftOf({ kind: "any" }),
+  languages: [],
 });
 
 export const profileDraftOf = (profile: TargetsProfile): ProfileDraft => ({
@@ -28,6 +30,7 @@ export const profileDraftOf = (profile: TargetsProfile): ProfileDraft => ({
   contentType: profile.contentType,
   targets: profile.targets.map((entry) => entry.targetId),
   editions: editionsDraftOf(profile.editions),
+  languages: profile.languages,
 });
 
 export const profileProblemsOf = (draft: ProfileDraft): string[] =>
@@ -38,4 +41,5 @@ export const profileBodyOf = (draft: ProfileDraft): TargetsNewProfile => ({
   contentType: draft.contentType,
   targets: draft.targets.map((targetId) => ({ targetId, sourcing: "download" })),
   editions: editionsBodyOf(draft.editions),
+  languages: [...draft.languages],
 });

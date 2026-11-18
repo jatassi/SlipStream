@@ -34,17 +34,22 @@ type Profile struct {
 	Default     bool
 	Entries     []Entry
 	Editions    Editions
+	// Languages is its Wanted Languages, in the Admin's order.
+	Languages []WantedLanguage
 	// Works counts the Works wanting from it. Read only.
 	Works int
 }
 
 // ProfileSpec is a Profile as an Admin writes it. It may hold no Target,
-// and then its Works want nothing.
+// and then its Works want nothing. Languages are in the Admin's order,
+// none of one language and kind twice, and only for a Content Type that
+// has subtitles.
 type ProfileSpec struct {
 	Name        string
 	ContentType works.TypeID
 	Entries     []Entry
 	Editions    Editions
+	Languages   []WantedLanguage
 }
 
 // CreateProfile checks s and creates its Profile, which is never the
@@ -53,7 +58,10 @@ func (t *Targets) CreateProfile(ctx context.Context, _ identity.Admin, s Profile
 	if _, ok := t.cfg.Types[s.ContentType]; !ok {
 		return Profile{}, ErrNoType
 	}
-	p := Profile{ID: ProfileID{UUID: storage.NewUUID()}, Name: s.Name, ContentType: s.ContentType, Entries: s.Entries, Editions: s.Editions}
+	if err := t.checkLanguages(s.ContentType, s.Languages); err != nil {
+		return Profile{}, err
+	}
+	p := Profile{ID: ProfileID{UUID: storage.NewUUID()}, Name: s.Name, ContentType: s.ContentType, Entries: s.Entries, Editions: s.Editions, Languages: s.Languages}
 	err := t.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		known, err := t.CutsIn(ctx, tx)
 		if err != nil {
@@ -86,6 +94,9 @@ func insertProfile(ctx context.Context, q *db.Queries, p Profile) error {
 		return err
 	}
 	if err := insertProfileCuts(ctx, q, p.ID, p.Editions); err != nil {
+		return err
+	}
+	if err := writeLanguages(ctx, q, p.ID, p.Languages); err != nil {
 		return err
 	}
 	return insertEntries(ctx, q, p.ID, p.Entries)
@@ -205,6 +216,10 @@ func listProfiles(ctx context.Context, q *db.Queries) ([]Profile, error) {
 	if err != nil {
 		return nil, err
 	}
+	langs, err := languagesOf(ctx, q)
+	if err != nil {
+		return nil, err
+	}
 	held := map[ProfileID][]Entry{}
 	for _, m := range members {
 		held[m.ProfileID] = append(held[m.ProfileID], Entry{Target: m.TargetID, Sourcing: m.Sourcing})
@@ -221,7 +236,7 @@ func listProfiles(ctx context.Context, q *db.Queries) ([]Profile, error) {
 	for i, row := range rows {
 		out[i] = Profile{
 			ID: row.ID, Name: row.Name, ContentType: row.ContentType, Default: row.IsDefault, Entries: held[row.ID],
-			Editions: editionsOf(row.Editions, named[row.ID]), Works: wanting[row.ID],
+			Editions: editionsOf(row.Editions, named[row.ID]), Languages: langs[row.ID], Works: wanting[row.ID],
 		}
 	}
 	return out, nil

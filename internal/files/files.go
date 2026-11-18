@@ -458,6 +458,9 @@ type Config struct {
 	// MediaServers is told every change of a file's bytes, NoMediaServers
 	// when nil.
 	MediaServers MediaServers
+	// Subtitles is told every change of a file's bytes, every doom and
+	// every change of a Profile's Wanted Languages, NoSubtitles when nil.
+	Subtitles Subtitles
 	// Queue is told, in the Write that saves a Change, the Works it
 	// touched, so a Preview rolls it back with the Change. searches.None
 	// when nil.

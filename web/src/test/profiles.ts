@@ -57,6 +57,7 @@ export const films: TargetsProfile = {
   default: true,
   targets: [{ targetId: starter.id, sourcing: "download" }],
   editions: { kind: "any" },
+  languages: [],
   works: 12,
 };
 
@@ -71,6 +72,7 @@ export const ultra: TargetsProfile = {
     { targetId: starter.id, sourcing: "download" },
   ],
   editions: { kind: "any" },
+  languages: [],
   works: 1,
 };
 
