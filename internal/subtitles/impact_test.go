@@ -7,6 +7,7 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/subtitles/subtitlestest"
@@ -16,8 +17,9 @@ import (
 
 // TestImpactCountsTheSearchesTheNextPassMakes pins each gained want's
 // Impact to the unmet want rows the bulk pass then writes, across audio
-// in and out of the language, embedded tracks, a Kept file and a found
-// Sidecar.
+// in and out of the language, embedded tracks, a Kept file, a found
+// Sidecar, and subtitles beside a file surveyed before their language was
+// wanted.
 func TestImpactCountsTheSearchesTheNextPassMakes(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := world(t, nil)
@@ -56,17 +58,27 @@ func TestImpactCountsTheSearchesTheNextPassMakes(t *testing.T) {
 				t.Fatalf("%v: Impact gained %+v, want every language", langs, preview.Subtitles.Gained)
 			}
 			for _, g := range preview.Subtitles.Gained {
-				unmet := query(t, w, `SELECT count(*) FROM subtitles_want WHERE language = ? AND forced = ? AND unmet = 1`, g.Language.String(), g.Forced)
-				if want := strconv.Itoa(g.Files); unmet[0] != want {
-					t.Errorf("%v: Impact counts %d searches for %s forced=%t, the pass made %s", langs, g.Files, g.Language, g.Forced, unmet[0])
-				}
-				if g.NeedScan != g.Files {
-					t.Errorf("%v: %d of %d searches need a scan, want all: no map is built", langs, g.NeedScan, g.Files)
-				}
+				searchesMade(t, w, langs, g)
 			}
 			w.Languages(p, "Films")
 		}
+		if got := sidecars(t, w); !slices.Equal(got, []string{"en.forced.srt found 1", "en.srt found 1", "fr.srt found 1"}) {
+			t.Fatalf("the gains adopted %v, want the subtitles beside the file that met them", got)
+		}
 	})
+}
+
+// searchesMade checks g's Impact against the unmet want rows the pass
+// made for it.
+func searchesMade(t *testing.T, w *subtitlestest.World, langs []targets.WantedLanguage, g files.GainedLanguage) {
+	t.Helper()
+	unmet := query(t, w, `SELECT count(*) FROM subtitles_want WHERE language = ? AND forced = ? AND unmet = 1`, g.Language.String(), g.Forced)
+	if want := strconv.Itoa(g.Files); unmet[0] != want {
+		t.Errorf("%v: Impact counts %d searches for %s forced=%t, the pass made %s", langs, g.Files, g.Language, g.Forced, unmet[0])
+	}
+	if g.NeedScan != g.Files {
+		t.Errorf("%v: %d of %d searches need a scan, want all: no map is built", langs, g.NeedScan, g.Files)
+	}
 }
 
 func TestDroppingALanguageRemovesOnlyWhatSlipStreamFetched(t *testing.T) {
@@ -109,8 +121,9 @@ func TestDroppingALanguageRemovesOnlyWhatSlipStreamFetched(t *testing.T) {
 }
 
 // placeEveryCase places a file with English audio, French, untagged,
-// both, an English text track, a forced one, a found English Sidecar and
-// one that will be Kept.
+// both, an English text track, a forced one, a found English Sidecar, one
+// with forced English and French subtitles beside it, and one that will
+// be Kept.
 func placeEveryCase(t *testing.T, w *subtitlestest.World, p targets.ProfileID) {
 	t.Helper()
 	embedded := audio("fr")
@@ -118,12 +131,14 @@ func placeEveryCase(t *testing.T, w *subtitlestest.World, p targets.ProfileID) {
 	forcedTrack := audio("fr")
 	forcedTrack.Subtitles = []media.Subtitle{{Codec: "subrip", Language: "en", Forced: true}}
 	w.Put("Found/Found.en.srt", "found")
+	w.Put("Extra/Extra.en.forced.srt", "forced extra")
+	w.Put("Extra/Extra.fr.srt", "french extra")
 	for _, f := range []struct {
 		key string
 		m   media.Record
 	}{
 		{"english", audio("en")}, {"french", audio("fr")}, {"untagged", audio("")}, {"embedded", embedded},
-		{"forced", forcedTrack}, {"found", audio("fr")}, {"kept", audio("fr")}, {"both", audio("en", "fr")},
+		{"forced", forcedTrack}, {"found", audio("fr")}, {"kept", audio("fr")}, {"both", audio("en", "fr")}, {"extra", audio("en")},
 	} {
 		name := string([]rune{rune(f.key[0]) - 32}) + f.key[1:]
 		w.Place(w.Work(works.Key(f.key), p), name+"/"+name+".mkv", f.m)

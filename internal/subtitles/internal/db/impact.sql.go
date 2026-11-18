@@ -64,6 +64,7 @@ WHERE tw.profile_id = ?1
     AND (CAST(?3 AS INTEGER) = 0 OR instr(coalesce(s.audio, ','), ?4) = 0)
     AND (CAST(?5 AS INTEGER) = 0 OR instr(coalesce(s.audio, ','), ?4) > 0)
     AND NOT EXISTS (SELECT 1 FROM subtitles_sidecar c WHERE c.file_id = f.id AND c.language = ?6 AND c.forced = ?7)
+    AND NOT EXISTS (SELECT 1 FROM json_each(s.companions) WHERE json_extract(value, '$.want') = CAST(?8 AS TEXT))
 `
 
 type ImpactGainedParams struct {
@@ -74,6 +75,7 @@ type ImpactGainedParams struct {
 	Spoken    int64
 	Language  string
 	Forced    bool
+	Want      string
 }
 
 type ImpactGainedRow struct {
@@ -83,8 +85,9 @@ type ImpactGainedRow struct {
 
 // The searches one gained want makes under a Profile, and how many of them
 // need the audio scanned first. A file the bulk pass hasn't reached counts
-// as searchable and unscanned. no_audio asks for audio not in the
-// language, spoken for audio in it.
+// as searchable and unscanned. A file whose last survey listed an extra
+// naming the want is met: the bulk pass marks it for a survey that adopts
+// it. no_audio asks for audio not in the language, spoken for audio in it.
 func (q *Queries) ImpactGained(ctx context.Context, arg ImpactGainedParams) (ImpactGainedRow, error) {
 	row := q.db.QueryRowContext(ctx, impactGained,
 		arg.ProfileID,
@@ -94,6 +97,7 @@ func (q *Queries) ImpactGained(ctx context.Context, arg ImpactGainedParams) (Imp
 		arg.Spoken,
 		arg.Language,
 		arg.Forced,
+		arg.Want,
 	)
 	var i ImpactGainedRow
 	err := row.Scan(&i.Searches, &i.NeedScan)

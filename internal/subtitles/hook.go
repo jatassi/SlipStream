@@ -250,8 +250,9 @@ func gainedOf(was, now []targets.WantedLanguage) []targets.WantedLanguage {
 // Always one covers every file, a NoAudio one the files without audio in
 // the language.
 func gainedCount(ctx context.Context, q *db.Queries, p targets.ProfileID, g targets.WantedLanguage, now []targets.WantedLanguage) (searches, needScan int, err error) {
+	w := Want{g.Language, g.Forced}
 	params := db.ImpactGainedParams{
-		ProfileID: p, Key: Want{g.Language, g.Forced}.key(), Base: "," + string(g.Language.Base()) + ",", Language: g.Language.String(), Forced: g.Forced,
+		ProfileID: p, Key: w.key(), Want: w.String(), Base: "," + string(g.Language.Base()) + ",", Language: g.Language.String(), Forced: g.Forced,
 		NoAudio: flag(g.Audio == targets.NoAudio),
 	}
 	if i := slices.IndexFunc(now, func(o targets.WantedLanguage) bool { return g.Forced && !o.Forced && o.Language == g.Language }); i >= 0 {

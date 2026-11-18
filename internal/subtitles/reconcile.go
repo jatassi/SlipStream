@@ -2,6 +2,9 @@ package subtitles
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
@@ -89,6 +92,7 @@ type chunk struct {
 	subjects []files.Subject
 	wants    map[files.ID][]db.SubtitlesWant
 	sidecars map[files.ID][]Sidecar
+	extras   map[files.ID][]Extra
 	ignored  map[files.ID][]db.SubtitlesTrackIgnored
 	langs    map[targets.ProfileID][]targets.WantedLanguage
 	added    map[targets.ProfileID]map[Want]storage.Time
@@ -99,8 +103,8 @@ type chunk struct {
 
 func (s *Subtitles) read(ctx context.Context, r storage.Reader[storage.Library], subjects []files.Subject) (chunk, error) {
 	c := chunk{
-		subjects: subjects, wants: map[files.ID][]db.SubtitlesWant{}, sidecars: map[files.ID][]Sidecar{}, ignored: map[files.ID][]db.SubtitlesTrackIgnored{},
-		now: storage.FromTime(s.cfg.Clock()),
+		subjects: subjects, wants: map[files.ID][]db.SubtitlesWant{}, sidecars: map[files.ID][]Sidecar{}, extras: map[files.ID][]Extra{},
+		ignored: map[files.ID][]db.SubtitlesTrackIgnored{}, now: storage.FromTime(s.cfg.Clock()),
 	}
 	ids := make([]files.ID, len(subjects))
 	for i, sub := range subjects {
@@ -115,6 +119,9 @@ func (s *Subtitles) read(ctx context.Context, r storage.Reader[storage.Library],
 		c.wants[w.FileID] = append(c.wants[w.FileID], w)
 	}
 	if c.sidecars, err = sidecarsIn(ctx, q, ids); err != nil {
+		return chunk{}, err
+	}
+	if c.extras, err = extrasIn(ctx, q, ids); err != nil {
 		return chunk{}, err
 	}
 	ignored, err := q.ListIgnoredIn(ctx, ids)
@@ -176,6 +183,26 @@ func (s *Subtitles) gainedIn(ctx context.Context, q *db.Queries) (map[subtitling
 	return out, nil
 }
 
+// extrasIn is the extras each file's last survey listed.
+func extrasIn(ctx context.Context, q *db.Queries, ids []files.ID) (map[files.ID][]Extra, error) {
+	rows, err := q.ListFilesIn(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := map[files.ID][]Extra{}
+	for _, row := range rows {
+		if row.Companions == nil {
+			continue
+		}
+		var extras []Extra
+		if err := json.Unmarshal([]byte(*row.Companions), &extras); err != nil {
+			return nil, fmt.Errorf("file %s's extras: %w", row.FileID, err)
+		}
+		out[row.FileID] = extras
+	}
+	return out, nil
+}
+
 func sidecarsIn(ctx context.Context, q *db.Queries, ids []files.ID) (map[files.ID][]Sidecar, error) {
 	rows, err := q.ListSidecarsIn(ctx, ids)
 	if err != nil {
@@ -217,7 +244,9 @@ func (s *Subtitles) write(ctx context.Context, tx *storage.Tx[storage.Library], 
 }
 
 // writeFile makes sub's facts and want rows what its Subject and Profile
-// say, deleting the ignores whose track changed.
+// say, deleting the ignores whose track changed. A Missing want an extra
+// names marks sub for a survey, which adopts it: the last survey ran
+// before the want was.
 func (s *Subtitles) writeFile(ctx context.Context, q *db.Queries, c chunk, sub files.Subject) (facts, error) {
 	ignored := make([]ignore, 0, len(c.ignored[sub.ID]))
 	for _, row := range c.ignored[sub.ID] {
@@ -238,7 +267,20 @@ func (s *Subtitles) writeFile(ctx context.Context, q *db.Queries, c chunk, sub f
 	ws := wantsOf(f, c.langs[sub.Profile], func(w Want) bool { return sidecarOfWant(scs, w) != nil })
 	final := func(w Want) bool { sc := sidecarOfWant(scs, w); return sc != nil && sc.Final }
 	p := pace{interval: c.interval, added: func(w Want) storage.Time { return c.added[sub.Profile][w] }}
-	return f, putWants(ctx, q, sub, f, ws, c.wants[sub.ID], final, p)
+	if err := putWants(ctx, q, sub, f, ws, c.wants[sub.ID], final, p); err != nil {
+		return facts{}, err
+	}
+	if slices.ContainsFunc(ws, func(w want) bool { return w.Kind == Missing && extraNames(c.extras[sub.ID], w.Want()) }) {
+		if err := q.MarkSurveyDue(ctx, db.MarkSurveyDueParams{FileID: sub.ID}); err != nil {
+			return facts{}, err
+		}
+		s.keeper.soon(sub.ID)
+	}
+	return f, nil
+}
+
+func extraNames(extras []Extra, w Want) bool {
+	return slices.ContainsFunc(extras, func(e Extra) bool { return e.Want == w.String() })
 }
 
 func sidecarOfWant(scs []Sidecar, w Want) *Sidecar {

@@ -1,8 +1,9 @@
 -- name: ImpactGained :one
 -- The searches one gained want makes under a Profile, and how many of them
 -- need the audio scanned first. A file the bulk pass hasn't reached counts
--- as searchable and unscanned. no_audio asks for audio not in the
--- language, spoken for audio in it.
+-- as searchable and unscanned. A file whose last survey listed an extra
+-- naming the want is met: the bulk pass marks it for a survey that adopts
+-- it. no_audio asks for audio not in the language, spoken for audio in it.
 SELECT count(*) AS searches, CAST(coalesce(sum(s.map_state IS NOT 'built'), 0) AS INTEGER) AS need_scan
 FROM targets_wants tw
 JOIN files_file f ON f.work_id = tw.work_id
@@ -12,7 +13,8 @@ WHERE tw.profile_id = sqlc.arg(profile_id)
     AND instr(coalesce(s.embedded, ','), sqlc.arg(key)) = 0
     AND (CAST(sqlc.arg(no_audio) AS INTEGER) = 0 OR instr(coalesce(s.audio, ','), sqlc.arg(base)) = 0)
     AND (CAST(sqlc.arg(spoken) AS INTEGER) = 0 OR instr(coalesce(s.audio, ','), sqlc.arg(base)) > 0)
-    AND NOT EXISTS (SELECT 1 FROM subtitles_sidecar c WHERE c.file_id = f.id AND c.language = sqlc.arg(language) AND c.forced = sqlc.arg(forced));
+    AND NOT EXISTS (SELECT 1 FROM subtitles_sidecar c WHERE c.file_id = f.id AND c.language = sqlc.arg(language) AND c.forced = sqlc.arg(forced))
+    AND NOT EXISTS (SELECT 1 FROM json_each(s.companions) WHERE json_extract(value, '$.want') = CAST(sqlc.arg(want) AS TEXT));
 
 -- name: ImpactDropped :one
 -- The subtitles SlipStream downloaded for one want under a Profile.

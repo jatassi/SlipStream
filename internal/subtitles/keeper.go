@@ -359,6 +359,10 @@ type Extra struct {
 	Path string `json:"path"`
 	Tail string `json:"tail"`
 	Size int64  `json:"size"`
+	// Want is the want its tail beside the video's stem names, "" when
+	// none: the want it meets once wanted, which the bulk pass and Impact
+	// read without listing the file again.
+	Want string `json:"want,omitempty"`
 }
 
 // surveyPlan is a survey's verdict on each row and companion.
@@ -520,7 +524,7 @@ func (plan *surveyPlan) adopt(file files.ID, video string, c claims, met map[Wan
 		t, named := ParseTail(tail)
 		wanted := slices.ContainsFunc(langs, func(w targets.WantedLanguage) bool { return w.Language == t.Language && w.Forced == t.Forced })
 		if !home || !named || !wanted || met[t.Want()] {
-			plan.extras = append(plan.extras, extraOf(l))
+			plan.extras = append(plan.extras, extraOf(video, l))
 			continue
 		}
 		candidates[t.Want()] = append(candidates[t.Want()], l)
@@ -535,13 +539,19 @@ func (plan *surveyPlan) adopt(file files.ID, video string, c claims, met map[Wan
 		})
 		plan.adopted = append(plan.adopted, adopt(file, video, cs[0]))
 		for _, x := range cs[1:] {
-			plan.extras = append(plan.extras, extraOf(x))
+			plan.extras = append(plan.extras, extraOf(video, x))
 		}
 	}
 }
 
-func extraOf(c storing.SidecarCompanion) Extra {
-	return Extra{Path: c.Path.String(), Tail: c.Tail, Size: c.Size}
+func extraOf(video string, c storing.SidecarCompanion) Extra {
+	e := Extra{Path: c.Path.String(), Tail: c.Tail, Size: c.Size}
+	if tail, home := homeOf(video, c.Path); home {
+		if t, ok := ParseTail(tail); ok {
+			e.Want = t.Want().String()
+		}
+	}
+	return e
 }
 
 // strayAt is where bytes at at sit away from home, "" when at is home.
