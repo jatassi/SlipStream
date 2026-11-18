@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/grabs/internal/pace"
+	"github.com/jatassi/slipstream/internal/pacing"
 	"github.com/jatassi/slipstream/internal/searches"
 )
 
@@ -148,10 +149,7 @@ func TestAPressOnAnOpenRunPromotesItAndQueuesOnlyWhatItDoesntCover(t *testing.T)
 }
 
 func TestANewRowIsSpreadAndAResetBringsItsDueBackToOneInterval(t *testing.T) {
-	spread := pace.Spread("work", "l:01", interval)
-	if spread < 0 || spread >= interval || spread != pace.Spread("work", "l:01", interval) {
-		t.Fatalf("Spread = %v, want one fixed offset inside %v", spread, interval)
-	}
+	spread := pacing.Spread("work", "l:01", interval)
 	r, _, _ := pace.Merge(pace.Row{}, backlog(), interval, spread)
 	if r.Gap != interval || !r.Due.Equal(t0.Add(spread)) {
 		t.Errorf("a new row has gap %v due %v, want %v due %v", r.Gap, r.Due, interval, t0.Add(spread))
@@ -161,29 +159,6 @@ func TestANewRowIsSpreadAndAResetBringsItsDueBackToOneInterval(t *testing.T) {
 	r, _, _ = pace.Merge(long, pace.Entry{Trigger: searches.Retarget, ResetGap: true, At: t0}, interval, spread)
 	if r.Gap != interval || !r.Due.Equal(searched.Add(interval)) || r.Lane != 0 {
 		t.Errorf("a reset row has gap %v due %v lane %v, want %v due %v and nothing queued", r.Gap, r.Due, r.Lane, interval, searched.Add(interval))
-	}
-}
-
-func TestGapsDoubleToTheLongestAndAnUnheardRunLeavesThemAlone(t *testing.T) {
-	for _, c := range []struct {
-		name   string
-		prev   time.Duration
-		r      pace.Result
-		fresh  bool
-		capped time.Duration
-		want   time.Duration
-	}{
-		{"answered at the interval", interval, pace.Answered, false, 0, 2 * interval},
-		{"answered near the longest", 5 * 24 * time.Hour, pace.Answered, false, 0, longest},
-		{"answered at the longest", longest, pace.Answered, false, 0, longest},
-		{"unheard", 4 * interval, pace.Unheard, false, 0, 4 * interval},
-		{"took", 4 * interval, pace.Took, false, 0, interval},
-		{"answered while fresh", 4 * interval, pace.Answered, true, 0, interval},
-		{"answered under a cap", 4 * interval, pace.Answered, false, 3 * interval, 3 * interval},
-	} {
-		if got := pace.Gap(c.prev, interval, longest, c.r, c.fresh, c.capped); got != c.want {
-			t.Errorf("%s: gap %v, want %v", c.name, got, c.want)
-		}
 	}
 }
 
