@@ -3,13 +3,15 @@ package subtitlesapi
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/subtitles"
-	"time"
+	"github.com/jatassi/slipstream/internal/subtitling"
 )
 
 // uploadBody is 7 MiB: a 5 MiB subtitle file in base64, and its name.
@@ -273,7 +275,79 @@ func (h handlers) markBad(ctx context.Context, by identity.Admin, in *wantInput)
 	return nil, answer(open(h.o).MarkBadNow(ctx, by, k))
 }
 
-func actionRoutes(o *api.Owner, h handlers) {
+// Routes registers every Subtitles operation.
+func Routes(r *api.Router, owner Owner) {
+	o := r.Owner("subtitles", api.Account)
+	h := handlers{owner}
+	api.Register(o, api.Admin, api.Op{
+		ID: "getSubtitleSettings", Method: http.MethodGet, Path: "/subtitles/settings",
+		Summary: "Get the Subtitles settings, the section's lead and the Profiles with Wanted Languages", Status: http.StatusOK,
+	}, h.getSettings)
+	api.Register(o, api.Admin, api.Op{
+		ID: "updateSubtitleSettings", Method: http.MethodPatch, Path: "/subtitles/settings",
+		Summary: "Change Subtitles settings by key, all or none", Status: http.StatusOK,
+		Errors: []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown, gapTooShort, notBuilt},
+	}, h.updateSettings)
+	api.Register(o, api.Admin, api.Op{
+		ID: "getSubtitleNodeSettings", Method: http.MethodGet, Path: "/subtitles/nodes/{nodeId}/settings",
+		Summary: "Get a Storage Node's Subtitles settings", Status: http.StatusOK, Errors: []*api.Code{notStorage},
+	}, h.getNodeSettings)
+	api.Register(o, api.Admin, api.Op{
+		ID: "updateSubtitleNodeSettings", Method: http.MethodPatch, Path: "/subtitles/nodes/{nodeId}/settings",
+		Summary: "Change a Storage Node's Subtitles settings by key, all or none", Status: http.StatusOK,
+		Errors: []*api.Code{notStorage, settingapi.ErrOutOfRange, settingapi.ErrUnknown},
+	}, h.updateNodeSettings)
+	api.Register(o, api.Admin, api.Op{
+		ID: "listSubtitleProviders", Method: http.MethodGet, Path: "/subtitles/providers",
+		Summary: "List the Subtitle Providers in search order", Status: http.StatusOK,
+	}, func(ctx context.Context, by identity.Admin, _ *struct{}) (*providerListOutput, error) {
+		return h.list(ctx, by)
+	})
+	api.Register(o, api.Admin, api.Op{
+		ID: "updateSubtitleProvider", Method: http.MethodPatch, Path: "/subtitles/providers/{id}",
+		Summary: "Turn a Subtitle Provider on or off", Status: http.StatusOK, Errors: []*api.Code{providerNotFound},
+	}, func(ctx context.Context, by identity.Admin, in *providerOnInput) (*providerOutput, error) {
+		return one(open(h.o).SetProviderOn(ctx, by, subtitling.ProviderID(in.ID), in.Body.On))
+	})
+	api.Register(o, api.Admin, api.Op{
+		ID: "orderSubtitleProviders", Method: http.MethodPut, Path: "/subtitles/providers/order",
+		Summary: "Set the Subtitle Providers' search order", Status: http.StatusOK, Errors: []*api.Code{orderMismatch},
+	}, func(ctx context.Context, by identity.Admin, in *orderInput) (*providerListOutput, error) {
+		ids := make([]subtitling.ProviderID, len(in.Body.IDs))
+		for i, id := range in.Body.IDs {
+			ids[i] = subtitling.ProviderID(id)
+		}
+		ps, err := open(h.o).OrderProviders(ctx, by, ids)
+		if err != nil {
+			return nil, answer(err)
+		}
+		return listOf(ps), nil
+	})
+	api.Register(o, api.Admin, api.Op{
+		ID: "setSubtitleProviderKey", Method: http.MethodPut, Path: "/subtitles/providers/{id}/key",
+		Summary: "Check a Subtitle Provider key on a Subtitles holder, then save it", Status: http.StatusOK,
+		Errors: []*api.Code{providerNotFound, keyless, keyRejected, keyUnchecked, noHolder},
+	}, func(ctx context.Context, by identity.Admin, in *keyInput) (*providerOutput, error) {
+		return one(open(h.o).SetKey(ctx, by, subtitling.ProviderID(in.ID), in.Body.Key))
+	})
+	api.Register(o, api.Admin, api.Op{
+		ID: "deleteSubtitleProviderKey", Method: http.MethodDelete, Path: "/subtitles/providers/{id}/key",
+		Summary: "Forget a Subtitle Provider's key", Status: http.StatusOK, Errors: []*api.Code{providerNotFound, keyless},
+	}, func(ctx context.Context, by identity.Admin, in *providerInput) (*providerOutput, error) {
+		return one(open(h.o).DeleteKey(ctx, by, subtitling.ProviderID(in.ID)))
+	})
+	api.Register(o, api.Admin, api.Op{
+		ID: "getWorkSubtitles", Method: http.MethodGet, Path: "/works/{workId}/subtitles",
+		Summary: "Get each library file of a Work with what each of its wanted subtitles reads as", Status: http.StatusOK, Errors: []*api.Code{workNotFound},
+	}, h.workSubtitles)
+	api.Register(o, api.Admin, api.Op{
+		ID: "ignoreSubtitleTrack", Method: http.MethodPut, Path: "/files/{fileId}/subtitles/tracks/{stream}/ignored",
+		Summary: "Don't count an embedded subtitle track toward the file's wants", Status: http.StatusNoContent, Errors: []*api.Code{fileNotFound, trackNotFound},
+	}, h.ignore(true))
+	api.Register(o, api.Admin, api.Op{
+		ID: "countSubtitleTrack", Method: http.MethodDelete, Path: "/files/{fileId}/subtitles/tracks/{stream}/ignored",
+		Summary: "Count an embedded subtitle track toward the file's wants again", Status: http.StatusNoContent, Errors: []*api.Code{fileNotFound, trackNotFound},
+	}, h.ignore(false))
 	want := "/files/{fileId}/subtitles/{want}"
 	wanting := []*api.Code{fileNotFound, badWant, notBuilt}
 	api.Register(o, api.Admin, api.Op{
@@ -311,14 +385,4 @@ func actionRoutes(o *api.Owner, h handlers) {
 		Summary: "Keep a refused upload without a timing check", Status: http.StatusNoContent,
 		Errors: []*api.Code{fileNotFound, uploadExpired, notBuilt},
 	}, h.keep)
-}
-
-// Routes registers every Subtitles operation.
-func Routes(r *api.Router, owner Owner) {
-	o := r.Owner("subtitles", api.Account)
-	h := handlers{owner}
-	settingsRoutes(o, h)
-	providerRoutes(o, h)
-	workRoutes(o, h)
-	actionRoutes(o, h)
 }

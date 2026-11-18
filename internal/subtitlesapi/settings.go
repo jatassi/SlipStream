@@ -3,7 +3,6 @@ package subtitlesapi
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -150,25 +149,4 @@ func nodeSettingsOf(ctx context.Context, p setting.Panel) (*nodeSettingsOutput, 
 		return nil, answer(err)
 	}
 	return &nodeSettingsOutput{Body: nodeSettings{Settings: settingapi.FieldsOf(fields)}}, nil
-}
-
-func settingsRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID: "getSubtitleSettings", Method: http.MethodGet, Path: "/subtitles/settings",
-		Summary: "Get the Subtitles settings, the section's lead and the Profiles with Wanted Languages", Status: http.StatusOK,
-	}, h.getSettings)
-	api.Register(o, api.Admin, api.Op{
-		ID: "updateSubtitleSettings", Method: http.MethodPatch, Path: "/subtitles/settings",
-		Summary: "Change Subtitles settings by key, all or none", Status: http.StatusOK,
-		Errors: []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown, gapTooShort, notBuilt},
-	}, h.updateSettings)
-	api.Register(o, api.Admin, api.Op{
-		ID: "getSubtitleNodeSettings", Method: http.MethodGet, Path: "/subtitles/nodes/{nodeId}/settings",
-		Summary: "Get a Storage Node's Subtitles settings", Status: http.StatusOK, Errors: []*api.Code{notStorage},
-	}, h.getNodeSettings)
-	api.Register(o, api.Admin, api.Op{
-		ID: "updateSubtitleNodeSettings", Method: http.MethodPatch, Path: "/subtitles/nodes/{nodeId}/settings",
-		Summary: "Change a Storage Node's Subtitles settings by key, all or none", Status: http.StatusOK,
-		Errors: []*api.Code{notStorage, settingapi.ErrOutOfRange, settingapi.ErrUnknown},
-	}, h.updateNodeSettings)
 }

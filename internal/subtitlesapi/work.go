@@ -195,18 +195,3 @@ func (h handlers) ignore(ignored bool) func(ctx context.Context, by identity.Adm
 }
 
 var workNotFound = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
-
-func workRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID: "getWorkSubtitles", Method: http.MethodGet, Path: "/works/{workId}/subtitles",
-		Summary: "Get each library file of a Work with what each of its wanted subtitles reads as", Status: http.StatusOK, Errors: []*api.Code{workNotFound},
-	}, h.workSubtitles)
-	api.Register(o, api.Admin, api.Op{
-		ID: "ignoreSubtitleTrack", Method: http.MethodPut, Path: "/files/{fileId}/subtitles/tracks/{stream}/ignored",
-		Summary: "Don't count an embedded subtitle track toward the file's wants", Status: http.StatusNoContent, Errors: []*api.Code{fileNotFound, trackNotFound},
-	}, h.ignore(true))
-	api.Register(o, api.Admin, api.Op{
-		ID: "countSubtitleTrack", Method: http.MethodDelete, Path: "/files/{fileId}/subtitles/tracks/{stream}/ignored",
-		Summary: "Count an embedded subtitle track toward the file's wants again", Status: http.StatusNoContent, Errors: []*api.Code{fileNotFound, trackNotFound},
-	}, h.ignore(false))
-}

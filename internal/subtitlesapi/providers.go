@@ -2,7 +2,6 @@ package subtitlesapi
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -154,46 +153,4 @@ func one(p subtitles.Provider, err error) (*providerOutput, error) {
 		return nil, answer(err)
 	}
 	return &providerOutput{Body: providerOf(p, time.Now())}, nil
-}
-
-func providerRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID: "listSubtitleProviders", Method: http.MethodGet, Path: "/subtitles/providers",
-		Summary: "List the Subtitle Providers in search order", Status: http.StatusOK,
-	}, func(ctx context.Context, by identity.Admin, _ *struct{}) (*providerListOutput, error) {
-		return h.list(ctx, by)
-	})
-	api.Register(o, api.Admin, api.Op{
-		ID: "updateSubtitleProvider", Method: http.MethodPatch, Path: "/subtitles/providers/{id}",
-		Summary: "Turn a Subtitle Provider on or off", Status: http.StatusOK, Errors: []*api.Code{providerNotFound},
-	}, func(ctx context.Context, by identity.Admin, in *providerOnInput) (*providerOutput, error) {
-		return one(open(h.o).SetProviderOn(ctx, by, subtitling.ProviderID(in.ID), in.Body.On))
-	})
-	api.Register(o, api.Admin, api.Op{
-		ID: "orderSubtitleProviders", Method: http.MethodPut, Path: "/subtitles/providers/order",
-		Summary: "Set the Subtitle Providers' search order", Status: http.StatusOK, Errors: []*api.Code{orderMismatch},
-	}, func(ctx context.Context, by identity.Admin, in *orderInput) (*providerListOutput, error) {
-		ids := make([]subtitling.ProviderID, len(in.Body.IDs))
-		for i, id := range in.Body.IDs {
-			ids[i] = subtitling.ProviderID(id)
-		}
-		ps, err := open(h.o).OrderProviders(ctx, by, ids)
-		if err != nil {
-			return nil, answer(err)
-		}
-		return listOf(ps), nil
-	})
-	api.Register(o, api.Admin, api.Op{
-		ID: "setSubtitleProviderKey", Method: http.MethodPut, Path: "/subtitles/providers/{id}/key",
-		Summary: "Check a Subtitle Provider key on a Subtitles holder, then save it", Status: http.StatusOK,
-		Errors: []*api.Code{providerNotFound, keyless, keyRejected, keyUnchecked, noHolder},
-	}, func(ctx context.Context, by identity.Admin, in *keyInput) (*providerOutput, error) {
-		return one(open(h.o).SetKey(ctx, by, subtitling.ProviderID(in.ID), in.Body.Key))
-	})
-	api.Register(o, api.Admin, api.Op{
-		ID: "deleteSubtitleProviderKey", Method: http.MethodDelete, Path: "/subtitles/providers/{id}/key",
-		Summary: "Forget a Subtitle Provider's key", Status: http.StatusOK, Errors: []*api.Code{providerNotFound, keyless},
-	}, func(ctx context.Context, by identity.Admin, in *providerInput) (*providerOutput, error) {
-		return one(open(h.o).DeleteKey(ctx, by, subtitling.ProviderID(in.ID)))
-	})
 }
