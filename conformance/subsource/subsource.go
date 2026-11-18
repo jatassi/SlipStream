@@ -84,11 +84,11 @@ func Run(t *testing.T, tgt Target) {
 	}
 	day(t, cr)
 	for _, row := range []struct{ name, key, words string }{
-		{"a missing key", "", "refused the key: Please provide an API key in the X-API-Key header"},
-		{"a wrong key", tgt.Wrong, "refused the key: The provided API key is invalid or inactive"},
+		{"a missing key", "", "provide an API key in the X-API-Key header"},
+		{"a wrong key", tgt.Wrong, "The provided API key is invalid or inactive"},
 	} {
 		_, err := client(rec).CheckKey(ctx, with(row.key))
-		if f, ok := errors.AsType[*calls.Failed](err); !ok || f.Outcome.Kind != calls.Refused || !strings.HasPrefix(f.Outcome.Words, row.words) {
+		if f, ok := errors.AsType[*calls.Failed](err); !ok || f.Outcome.Kind != calls.Refused || !strings.HasPrefix(f.Outcome.Words, "refused the key: ") || !strings.Contains(f.Outcome.Words, row.words) {
 			t.Errorf("CheckKey with %s = %v, want refused with %q", row.name, err, row.words)
 		}
 	}
