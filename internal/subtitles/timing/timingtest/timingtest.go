@@ -66,16 +66,16 @@ func (s Schedule) Density() float64 {
 type VAD struct {
 	// Miss is the share of speech runs it doesn't hear.
 	Miss float64
-	// Music is about the share of the file it hears as speech where there
+	// FalseAlarm is about the share of the file it hears as speech where there
 	// is none, in runs of 0.2 to 2.5 s.
-	Music float64
+	FalseAlarm float64
 }
 
 // Typical is libfvad's mode 3 on a film's mixed audio as Timing sync
 // expects it. Harsh is a loud score under quiet speech.
 var (
-	Typical = VAD{Miss: 0.08, Music: 0.04}
-	Harsh   = VAD{Miss: 0.3, Music: 0.15}
+	Typical = VAD{Miss: 0.08, FalseAlarm: 0.04}
+	Harsh   = VAD{Miss: 0.3, FalseAlarm: 0.15}
 )
 
 // Heard is the schedule as v hears it. Each run it hears starts up to
@@ -93,8 +93,8 @@ func (s Schedule) Heard(seed uint64, v VAD) Schedule {
 			End:   run.End + uniform(r, 20*time.Millisecond, 90*time.Millisecond),
 		})
 	}
-	meanGap := 1.35 * float64(time.Second) / v.Music
-	for at := time.Duration(0); v.Music > 0; {
+	meanGap := 1.35 * float64(time.Second) / v.FalseAlarm
+	for at := time.Duration(0); v.FalseAlarm > 0; {
 		at += time.Duration(r.ExpFloat64() * meanGap)
 		end := at + uniform(r, 200*time.Millisecond, 2500*time.Millisecond)
 		if end > s.Length {
