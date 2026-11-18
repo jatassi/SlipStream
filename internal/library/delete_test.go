@@ -79,7 +79,7 @@ func TestDeleteCountsEveryItemFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	l := library.New(library.Config{History: entrytest.Ignored("library", library.Entries()), Library: lib, Works: w})
+	l := library.New(library.Config{Subtitles: library.NoMarks{}, History: entrytest.Ignored("library", library.Entries()), Library: lib, Works: w})
 	plan, outcomes, err := l.Delete(ctx, identity.Admin{}, []works.WorkID{tree.ID}, library.Deleting{Files: library.LeaveFiles, Preview: true})
 	if want := (library.DeletePlan{Works: 1, Files: 6, Bytes: bytes}); err != nil || plan != want || len(outcomes) != 1 {
 		t.Fatalf("a delete preview of a Work with a file on each of its 6 Items across 3 levels = %+v, %v, %v; want %+v", plan, outcomes, err, want)

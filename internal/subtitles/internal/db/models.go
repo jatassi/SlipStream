@@ -84,6 +84,20 @@ type SubtitlesRemoval struct {
 	NextAt storage.Time
 }
 
+type SubtitlesSetting struct {
+	ID                       Singleton
+	SearchOn                 *bool
+	SearchUpgrades           *bool
+	LongestGapSeconds        *int64
+	FullPaceSeconds          *int64
+	ReportGapSeconds         *int64
+	TriesPerSearch           *int64
+	SyncMatch                *int64
+	SyncMaxOffsetSeconds     *int64
+	SyncFramerates           *string
+	ProviderWarnAfterSeconds *int64
+}
+
 type SubtitlesSidecar struct {
 	ID           storage.UUID
 	FileID       files.ID

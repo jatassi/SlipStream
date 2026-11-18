@@ -2,6 +2,7 @@ import type { FilesState } from "./filesState.ts";
 import type { FilesStateCounts } from "./filesStateCounts.ts";
 import type { WorksLibraryRowAddedBy } from "./worksLibraryRowAddedBy.ts";
 import type { WorksLibraryRowMonitored } from "./worksLibraryRowMonitored.ts";
+import type { WorksLibraryRowSubtitles } from "./worksLibraryRowSubtitles.ts";
 import type { WorksLibraryRowValues } from "./worksLibraryRowValues.ts";
 import type { WorksLibraryRowWanted } from "./worksLibraryRowWanted.ts";
 import type { WorksRowRating } from "./worksRowRating.ts";
@@ -79,6 +80,11 @@ export interface WorksLibraryRow {
   sortLabel: string;
   /** The most urgent status among its monitored Items, in the order failed, missing, downloading, upgradable, unreleased, met; null while none of them has a Target */
   status: FilesState | null;
+  /**
+   * missing while a wanted subtitle of one of its files has nothing that meets it, none_passed when the last search for one found subtitles and none matched the timing; null while every wanted subtitle is met
+   * @nullable
+   */
+  subtitles: WorksLibraryRowSubtitles;
   /** Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out */
   values: WorksLibraryRowValues;
   /**

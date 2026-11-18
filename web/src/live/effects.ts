@@ -20,6 +20,7 @@ import { notificationEffects } from "./notification-effects";
 // oxlint-disable-next-line import/max-dependencies -- every product event's effects meet in this one table
 import { everyPath } from "./refresh";
 import { searchEffects } from "./search-effects";
+import { subtitleEffects } from "../subtitles/live";
 import { systemEffects } from "./system-effects";
 import { targetsEffects } from "./targets-effects";
 
@@ -37,6 +38,7 @@ export const effects = withCalendar({
   ...notificationEffects,
   ...historyEffects,
   ...searchEffects,
+  ...subtitleEffects,
   "identity.sessions-changed": (data, { refresh }) => {
     refresh({ queryKey: getGetSessionQueryKey() });
     refresh({ queryKey: getListSessionsQueryKey() });

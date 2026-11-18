@@ -127,6 +127,9 @@ type half struct {
 	// history lists what happened to the library, on a Controller.
 	history *history.Service
 
+	// subtitles is the library's wanted subtitles, on a Controller.
+	subtitles *subtitles.Subtitles
+
 	tasks    *tasks.Scheduler
 	health   *health.Health
 	firstRun *firstrun.FirstRun
@@ -498,6 +501,9 @@ func (n *Node) startController(ctx context.Context) error {
 		Storage: func(id role.NodeID) storing.SidecarCalls {
 			return storing.SidecarCallsOf(storagev1connect.SidecarService.On(cluster, id))
 		},
+		Holders: func(id role.NodeID) subtitling.Remote {
+			return subtitling.NewRemote(subtitlesv1connect.SubtitlesService.On(cluster, id))
+		},
 		Videos:      imports.Videos,
 		Providers:   n.subtitleSpecs(),
 		Tasks:       subtitles.Unscheduled{},
@@ -508,6 +514,11 @@ func (n *Node) startController(ctx context.Context) error {
 		Clock:       time.Now,
 		Rand:        n.subtitlesRand,
 		Log:         n.rootLog.With("subsystem", "subtitles"),
+
+		Sealer:           lib.sealer,
+		Describe:         tree.Describe,
+		Changed:          subtitles.ChangedEvent.Bind(n.hub),
+		ProvidersChanged: subtitles.ProvidersChangedEvent.Bind(n.hub),
 	})
 	if err != nil {
 		return err
@@ -587,7 +598,7 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue,
-		History: n.history.Recorder("library", library.Entries()),
+		History: n.history.Recorder("library", library.Entries()), Subtitles: subtitler,
 	})
 	cat.Seal()
 
@@ -646,6 +657,8 @@ func (n *Node) startController(ctx context.Context) error {
 		calendar: dates,
 
 		history: n.history,
+
+		subtitles: subtitler,
 
 		transfers: copies,
 		copier:    copier,

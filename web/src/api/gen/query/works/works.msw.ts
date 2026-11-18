@@ -1705,6 +1705,10 @@ export const getListLibraryResponseMock = (
       ] as const),
       null,
     ]),
+    subtitles: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(["missing", "none_passed"] as const),
+      null,
+    ]),
     values: {
       [faker.string.alphanumeric(5)]: faker.helpers.arrayElement([
         faker.number.float({ fractionDigits: 2 }),
@@ -2944,6 +2948,10 @@ export const getSearchWorksResponseMock = (
         "unreleased",
         "met",
       ] as const),
+      null,
+    ]),
+    subtitles: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(["missing", "none_passed"] as const),
       null,
     ]),
     values: {

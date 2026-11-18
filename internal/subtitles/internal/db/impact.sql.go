@@ -216,12 +216,12 @@ func (q *Queries) ListDroppedIntents(ctx context.Context, arg ListDroppedIntents
 }
 
 const listLibraryMarks = `-- name: ListLibraryMarks :many
-SELECT work_id, max(last_result = 'none_passed') AS none_passed FROM subtitles_want WHERE unmet = 1 GROUP BY work_id ORDER BY work_id
+SELECT work_id, CAST(coalesce(max(last_result = 'none_passed'), 0) AS INTEGER) AS none_passed FROM subtitles_want WHERE unmet = 1 GROUP BY work_id ORDER BY work_id
 `
 
 type ListLibraryMarksRow struct {
 	WorkID     works.WorkID
-	NonePassed interface{}
+	NonePassed int64
 }
 
 func (q *Queries) ListLibraryMarks(ctx context.Context) ([]ListLibraryMarksRow, error) {

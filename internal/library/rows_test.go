@@ -110,7 +110,7 @@ func seeded(b *testing.B, count int) *library.Library {
 	if err != nil {
 		b.Fatal(err)
 	}
-	return library.New(library.Config{History: entrytest.Ignored("library", library.Entries()), Library: lib, Works: w, Targets: goals, Files: shelf})
+	return library.New(library.Config{Subtitles: library.NoMarks{}, History: entrytest.Ignored("library", library.Entries()), Library: lib, Works: w, Targets: goals, Files: shelf})
 }
 
 type wanted struct {

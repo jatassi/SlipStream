@@ -197,7 +197,7 @@ func newWorld(t *testing.T) *world {
 	w.im = w.newImports(w.cfg)
 	var shelf entry.Recorder
 	shelf, w.shelved = entrytest.New("library", library.Entries())
-	w.library = library.New(library.Config{History: shelf, Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Imports: w.im, Leaver: w.im})
+	w.library = library.New(library.Config{Subtitles: library.NoMarks{}, History: shelf, Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Imports: w.im, Leaver: w.im})
 	return w
 }
 
