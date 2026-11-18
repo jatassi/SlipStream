@@ -1,7 +1,7 @@
-import { HttpResponse } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { problem } from "../test/handlers";
 import {
   met,
   notifications,
@@ -13,7 +13,6 @@ import {
 test("Mark bad asks first, naming the file version, then deletes the subtitle and searches again", async () => {
   const world = open({
     work: { files: [uhdSubtitles([met("en")])] },
-    markBad: () => new HttpResponse(null, { status: 202 }),
   });
   await userEvent.click(
     subtitleRow("English").getByRole("button", { name: "More for English subtitles" }),
@@ -43,6 +42,13 @@ test("Mark bad asks first, naming the file version, then deletes the subtitle an
 test("Mark bad on an uploaded subtitle says the Admin's own file is deleted, and shows a refusal in the dialog", async () => {
   open({
     work: { files: [uhdSubtitles([met("en", { source: "upload", provider: null, final: true })])] },
+    markBad: () =>
+      problem(
+        404,
+        "subtitle_not_found",
+        "The file has no subtitle in that language",
+        "This file has no subtitle in that language to mark bad.",
+      ),
   });
   await userEvent.click(
     subtitleRow("English").getByRole("button", { name: "More for English subtitles" }),
@@ -60,9 +66,25 @@ test("Mark bad on an uploaded subtitle says the Admin's own file is deleted, and
     .toBeVisible();
   await userEvent.click(dialog.getByRole("button", { name: "Mark bad" }));
   await expect
+    .element(dialog.getByText("This file has no subtitle in that language to mark bad."))
+    .toBeVisible();
+});
+
+test("Mark bad while Subtitle search is off says how to search for another", async () => {
+  open({ work: { files: [uhdSubtitles([met("en")])] }, searchOn: false });
+  await userEvent.click(
+    subtitleRow("English").getByRole("button", { name: "More for English subtitles" }),
+  );
+  await userEvent.click(page.getByRole("menuitem", { name: "Mark bad…" }));
+  await userEvent.click(
+    page
+      .getByRole("dialog", { name: "Mark the English subtitle on the 2160p HDR file bad?" })
+      .getByRole("button", { name: "Mark bad" }),
+  );
+  await expect
     .element(
-      dialog.getByText(
-        "This build of SlipStream can't search for, download or upload subtitles yet.",
+      notifications().getByText(
+        "English subtitle marked bad. Subtitle search is off. Turn it on in Settings > Subtitles to search for another.",
       ),
     )
     .toBeVisible();

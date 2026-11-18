@@ -72,7 +72,7 @@ function KeepAnyway({
 function useUpload(subject: SubtitleSubject, onClose: () => void) {
   const [refusal, setRefusal] = useState<string>();
   const [attemptId, setAttemptId] = useState<string>();
-  const { attempt } = useAttemptLine(subject, attemptId, onClose);
+  const line = useAttemptLine(subject, attemptId, onClose);
   const send = async (file: File) => {
     setAttemptId(undefined);
     if (file.size > uploadCap) {
@@ -90,7 +90,7 @@ function useUpload(subject: SubtitleSubject, onClose: () => void) {
       setRefusal(sentenceOf(error));
     }
   };
-  return { refusal, attempt, send };
+  return { refusal, line, send };
 }
 
 /**
@@ -105,9 +105,9 @@ export function UploadBody({
   subject: SubtitleSubject;
   onClose: () => void;
 }) {
-  const { refusal, attempt, send } = useUpload(subject, onClose);
-  const ended = attempt?.outcome ?? null;
-  const uploadId = ended?.kind === "failed_timing" ? (attempt?.uploadId ?? null) : null;
+  const { refusal, line, send } = useUpload(subject, onClose);
+  const ended = line.attempt?.outcome ?? null;
+  const uploadId = ended?.kind === "failed_timing" ? (line.attempt?.uploadId ?? null) : null;
   return (
     <div className="flex flex-col gap-4">
       <FileField
@@ -126,7 +126,7 @@ export function UploadBody({
           onKept={onClose}
         />
       ) : (
-        <AttemptLine attempt={attempt} providers={subject.providers} />
+        <AttemptLine line={line} providers={subject.providers} />
       )}
       <DialogActions>
         <Button onClick={onClose}>Close</Button>

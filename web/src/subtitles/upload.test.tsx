@@ -1,7 +1,7 @@
-import { HttpResponse } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { problem } from "../test/handlers";
 import { orchardId } from "../test/library";
 import { renderApp } from "../test/render-app";
 import { scannedFiles } from "../test/scanned-files";
@@ -48,8 +48,16 @@ test("a file over 5 MB is refused before anything is sent", async () => {
   expect(world.calls).toEqual([]);
 });
 
-test("a dropped file is sent in base64, and this build's refusal shows in the dialog", async () => {
-  const world = open({});
+test("a dropped file is sent in base64, and a refusal shows in the dialog", async () => {
+  const world = open({
+    upload: () =>
+      problem(
+        409,
+        "audio_not_scanned",
+        "SlipStream hasn't scanned the file's audio yet",
+        "SlipStream checks a subtitle's timing against the file's audio and hasn't scanned it yet. Try again after the scan finishes.",
+      ),
+  });
   const dialog = await openUpload();
   const drop = new DataTransfer();
   drop.items.add(new File([cue], "Orchard.en.srt"));
@@ -60,7 +68,7 @@ test("a dropped file is sent in base64, and this build's refusal shows in the di
   await expect
     .element(
       dialog.getByText(
-        "This build of SlipStream can't search for, download or upload subtitles yet.",
+        "SlipStream checks a subtitle's timing against the file's audio and hasn't scanned it yet. Try again after the scan finishes.",
       ),
     )
     .toBeVisible();
@@ -73,10 +81,9 @@ test("an upload whose timing fails offers Keep anyway under Details, which keeps
     attempt: () => ({
       step: "finished",
       provider: null,
-      outcome: { kind: "failed_timing", match: 38, threshold: 50 },
+      outcome: { kind: "failed_timing", match: 38, threshold: 50, answer: null },
       uploadId: "2e4a6c8e-0a2c-4e6a-8c0e-2a4c6e8a0c2f",
     }),
-    keep: () => new HttpResponse(null, { status: 204 }),
   });
   const dialog = await openUpload();
   await userEvent.upload(dialog.getByLabelText("Subtitle file"), new File([cue], "Orchard.en.srt"));

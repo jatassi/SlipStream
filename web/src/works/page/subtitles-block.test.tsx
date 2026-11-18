@@ -198,13 +198,25 @@ test("Don't count this track stops an embedded track from counting, and the want
     .toBeVisible();
 });
 
-test("Search refused until Subtitle search lands says so in a toast", async () => {
+test("Search starts a search for the subtitle and says so in a toast", async () => {
   const world = open({ work: { files: [uhdSubtitles([missing("en", "never_searched")])] } });
+  await userEvent.click(subtitleRow("English").getByRole("button", { name: "Search" }));
+  await expect
+    .element(notifications().getByText("Searching for the English subtitle."))
+    .toBeVisible();
+  expect(world.calls).toEqual(["search"]);
+});
+
+test("Search while Subtitle search is off says to turn it on", async () => {
+  const world = open({
+    work: { files: [uhdSubtitles([missing("en", "never_searched")])] },
+    searchOn: false,
+  });
   await userEvent.click(subtitleRow("English").getByRole("button", { name: "Search" }));
   await expect
     .element(
       notifications().getByText(
-        "This build of SlipStream can't search for, download or upload subtitles yet.",
+        "Subtitle search is off. Turn it on in Settings > Subtitles to search for the English subtitle.",
       ),
     )
     .toBeVisible();

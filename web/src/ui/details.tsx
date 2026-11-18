@@ -37,7 +37,7 @@ export function Details({
       </Collapsible.Trigger>
       <Collapsible.Panel
         keepMounted={fields}
-        className={`text-ink-2 ${fields ? "self-stretch" : ""}`}
+        className={`max-w-full text-ink-2 ${fields ? "self-stretch" : ""}`}
       >
         {children}
       </Collapsible.Panel>

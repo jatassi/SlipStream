@@ -5,7 +5,7 @@ import type { SubtitlesOutcome } from "./subtitlesOutcome.ts";
 export interface SubtitlesCandidates {
   /** Best first */
   candidates: SubtitlesCandidate[];
-  /** How each provider's search ended */
+  /** How the search ended on each provider, in search order. A paused provider isn't asked and shows its pause */
   outcomes: SubtitlesOutcome[];
   state: SubtitlesCandidatesState;
 }

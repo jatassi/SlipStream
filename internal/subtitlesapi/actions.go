@@ -84,7 +84,7 @@ type candidate struct {
 	Release  string              `json:"release"`
 	Reasons  []string            `json:"reasons" nullable:"false" enum:"made_by_person,same_group,same_source,provider_order" doc:"The ranking steps it meets"`
 	Tried    api.Nullable[tried] `json:"tried" doc:"Its earlier try for this file and want"`
-	Disabled bool                `json:"disabled" doc:"It can't be picked: image subtitles, marked bad, or its provider is out"`
+	Disabled bool                `json:"disabled" doc:"It can't be picked: it holds image subtitles, or its provider is paused. A candidate marked bad can be picked, which undoes the Mark bad"`
 }
 
 type outcome struct {
@@ -96,7 +96,7 @@ type outcome struct {
 type candidates struct {
 	State      string      `json:"state" enum:"searching,done"`
 	Candidates []candidate `json:"candidates" nullable:"false" doc:"Best first"`
-	Outcomes   []outcome   `json:"outcomes" nullable:"false" doc:"How each provider's search ended"`
+	Outcomes   []outcome   `json:"outcomes" nullable:"false" doc:"How the search ended on each provider, in search order. A paused provider isn't asked and shows its pause"`
 }
 
 type candidatesOutput struct{ Body candidates }
@@ -105,13 +105,14 @@ var stepNames = map[subtitles.Step]string{subtitles.Downloading: "downloading", 
 
 var endedNames = map[subtitles.Ended]string{
 	subtitles.Added: "added", subtitles.FailedTiming: "failed_timing", subtitles.Unreadable: "unreadable", subtitles.Image: "image",
-	subtitles.WrongEpisode: "wrong_episode", subtitles.MarkedBad: "marked_bad",
+	subtitles.WrongEpisode: "wrong_episode", subtitles.MarkedBad: "marked_bad", subtitles.Unfetched: "unfetched",
 }
 
 type ended struct {
-	Kind      string            `json:"kind" enum:"added,failed_timing,unreadable,image,wrong_episode,marked_bad"`
-	Match     api.Nullable[int] `json:"match" doc:"The timing match, in percent"`
-	Threshold api.Nullable[int] `json:"threshold" doc:"The timing match a subtitle needs, in percent"`
+	Kind      string                `json:"kind" enum:"added,failed_timing,unreadable,image,wrong_episode,marked_bad,unfetched"`
+	Match     api.Nullable[int]     `json:"match" doc:"The timing match, in percent"`
+	Threshold api.Nullable[int]     `json:"threshold" doc:"The timing match a subtitle needs, in percent"`
+	Answer    api.Nullable[outcome] `json:"answer" doc:"Why the provider didn't serve the download, on unfetched"`
 }
 
 type attempt struct {
@@ -147,11 +148,15 @@ func candidatesOf(c subtitles.Candidates) candidates {
 		out.Candidates = append(out.Candidates, cd)
 	}
 	for _, o := range c.Outcomes {
-		oc := outcome{Provider: string(o.Provider), Kind: outcomeNames[o.Kind]}
-		if !o.Until.IsZero() {
-			oc.Until = api.Some(o.Until)
-		}
-		out.Outcomes = append(out.Outcomes, oc)
+		out.Outcomes = append(out.Outcomes, outcomeOf(o))
+	}
+	return out
+}
+
+func outcomeOf(o calls.Outcome) outcome {
+	out := outcome{Provider: string(o.Provider), Kind: outcomeNames[o.Kind]}
+	if !o.Until.IsZero() {
+		out.Until = api.Some(o.Until)
 	}
 	return out
 }
@@ -165,6 +170,9 @@ func attemptOf(a subtitles.Attempt) attempt {
 		}
 		if a.Threshold > 0 {
 			e.Threshold = api.Some(a.Threshold)
+		}
+		if a.Answer != nil {
+			e.Answer = api.Some(outcomeOf(*a.Answer))
 		}
 		out.Outcome = api.Some(e)
 	}
@@ -286,7 +294,7 @@ func Routes(r *api.Router, owner Owner) {
 	api.Register(o, api.Admin, api.Op{
 		ID: "updateSubtitleSettings", Method: http.MethodPatch, Path: "/subtitles/settings",
 		Summary: "Change Subtitles settings by key, all or none", Status: http.StatusOK,
-		Errors: []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown, gapTooShort, notBuilt},
+		Errors: []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown, gapTooShort},
 	}, h.updateSettings)
 	api.Register(o, api.Admin, api.Op{
 		ID: "getSubtitleNodeSettings", Method: http.MethodGet, Path: "/subtitles/nodes/{nodeId}/settings",
@@ -349,7 +357,7 @@ func Routes(r *api.Router, owner Owner) {
 		Summary: "Count an embedded subtitle track toward the file's wants again", Status: http.StatusNoContent, Errors: []*api.Code{fileNotFound, trackNotFound},
 	}, h.ignore(false))
 	want := "/files/{fileId}/subtitles/{want}"
-	wanting := []*api.Code{fileNotFound, badWant, notBuilt}
+	wanting := []*api.Code{fileNotFound, badWant, notWanted}
 	api.Register(o, api.Admin, api.Op{
 		ID: "searchSubtitle", Method: http.MethodPost, Path: want + "/search",
 		Summary: "Search for one file's wanted subtitle now, ahead of the schedule", Status: http.StatusAccepted, Errors: wanting,
@@ -364,25 +372,25 @@ func Routes(r *api.Router, owner Owner) {
 	}, h.candidates)
 	api.Register(o, api.Admin, api.Op{
 		ID: "pickSubtitleCandidate", Method: http.MethodPost, Path: want + "/candidates/{searchId}/{key}",
-		Summary: "Download a candidate and check its timing against the file", Status: http.StatusAccepted, Errors: append(wanting, searchExpired),
+		Summary: "Download a candidate and check its timing against the file", Status: http.StatusAccepted, Errors: append(wanting, searchExpired, image, notScanned),
 	}, h.pick)
 	api.Register(o, api.Admin, api.Op{
 		ID: "uploadSubtitle", Method: http.MethodPost, Path: want + "/upload",
 		Summary: "Upload a subtitle file and check its timing against the file", Status: http.StatusAccepted, MaxBody: uploadBody,
-		Errors: append(wanting, tooLarge, image),
+		Errors: append(wanting, tooLarge, image, notScanned),
 	}, h.upload)
 	api.Register(o, api.Admin, api.Op{
 		ID: "markSubtitleBad", Method: http.MethodPost, Path: want + "/mark-bad",
-		Summary: "Delete a file's subtitle, never use it for the file again and search for another", Status: http.StatusAccepted, Errors: wanting,
+		Summary: "Delete a file's subtitle, never use it for the file again and search for another", Status: http.StatusAccepted, Errors: append(wanting, noSubtitle),
 	}, h.markBad)
 	api.Register(o, api.Admin, api.Op{
 		ID: "getSubtitleAttempt", Method: http.MethodGet, Path: "/files/{fileId}/subtitles/attempts/{attemptId}",
 		Summary: "Get a subtitle download's or upload's step, and its outcome once finished", Status: http.StatusOK,
-		Errors: []*api.Code{fileNotFound, attemptExpired, notBuilt},
+		Errors: []*api.Code{fileNotFound, attemptExpired},
 	}, h.attempt)
 	api.Register(o, api.Admin, api.Op{
 		ID: "keepSubtitleUpload", Method: http.MethodPost, Path: "/files/{fileId}/subtitles/uploads/{uploadId}/keep",
 		Summary: "Keep a refused upload without a timing check", Status: http.StatusNoContent,
-		Errors: []*api.Code{fileNotFound, uploadExpired, notBuilt},
+		Errors: []*api.Code{fileNotFound, uploadExpired},
 	}, h.keep)
 }

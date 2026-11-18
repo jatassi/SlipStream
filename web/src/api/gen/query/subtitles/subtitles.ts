@@ -35,7 +35,6 @@ import type {
   GetSubtitleAttempt410,
   GetSubtitleAttempt422,
   GetSubtitleAttempt500,
-  GetSubtitleAttempt501,
   GetSubtitleCandidates400,
   GetSubtitleCandidates401,
   GetSubtitleCandidates403,
@@ -44,7 +43,6 @@ import type {
   GetSubtitleCandidates410,
   GetSubtitleCandidates422,
   GetSubtitleCandidates500,
-  GetSubtitleCandidates501,
   GetSubtitleNodeSettings401,
   GetSubtitleNodeSettings403,
   GetSubtitleNodeSettings404,
@@ -74,7 +72,6 @@ import type {
   KeepSubtitleUpload410,
   KeepSubtitleUpload422,
   KeepSubtitleUpload500,
-  KeepSubtitleUpload501,
   ListSubtitleProviders401,
   ListSubtitleProviders403,
   ListSubtitleProviders409,
@@ -86,7 +83,6 @@ import type {
   MarkSubtitleBad409,
   MarkSubtitleBad422,
   MarkSubtitleBad500,
-  MarkSubtitleBad501,
   OrderSubtitleProviders401,
   OrderSubtitleProviders403,
   OrderSubtitleProviders409,
@@ -100,7 +96,6 @@ import type {
   PickSubtitleCandidate410,
   PickSubtitleCandidate422,
   PickSubtitleCandidate500,
-  PickSubtitleCandidate501,
   SearchSubtitle400,
   SearchSubtitle401,
   SearchSubtitle403,
@@ -108,7 +103,6 @@ import type {
   SearchSubtitle409,
   SearchSubtitle422,
   SearchSubtitle500,
-  SearchSubtitle501,
   SetSubtitleProviderKey401,
   SetSubtitleProviderKey403,
   SetSubtitleProviderKey404,
@@ -123,7 +117,6 @@ import type {
   StartSubtitleCandidates409,
   StartSubtitleCandidates422,
   StartSubtitleCandidates500,
-  StartSubtitleCandidates501,
   SubtitlesAttempt,
   SubtitlesAttempting,
   SubtitlesCandidates,
@@ -155,7 +148,6 @@ import type {
   UpdateSubtitleSettings409,
   UpdateSubtitleSettings422,
   UpdateSubtitleSettings500,
-  UpdateSubtitleSettings501,
   UploadSubtitle400,
   UploadSubtitle401,
   UploadSubtitle403,
@@ -163,7 +155,6 @@ import type {
   UploadSubtitle409,
   UploadSubtitle422,
   UploadSubtitle500,
-  UploadSubtitle501,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -218,7 +209,6 @@ export const getGetSubtitleAttemptSuspenseQueryOptions = <
     | GetSubtitleAttempt410
     | GetSubtitleAttempt422
     | GetSubtitleAttempt500
-    | GetSubtitleAttempt501
   >,
 >(
   fileId: string,
@@ -259,7 +249,6 @@ export type GetSubtitleAttemptSuspenseQueryError = ErrorType<
   | GetSubtitleAttempt410
   | GetSubtitleAttempt422
   | GetSubtitleAttempt500
-  | GetSubtitleAttempt501
 >;
 
 export function useGetSubtitleAttemptSuspense<
@@ -272,7 +261,6 @@ export function useGetSubtitleAttemptSuspense<
     | GetSubtitleAttempt410
     | GetSubtitleAttempt422
     | GetSubtitleAttempt500
-    | GetSubtitleAttempt501
   >,
 >(
   fileId: string,
@@ -295,7 +283,6 @@ export function useGetSubtitleAttemptSuspense<
     | GetSubtitleAttempt410
     | GetSubtitleAttempt422
     | GetSubtitleAttempt500
-    | GetSubtitleAttempt501
   >,
 >(
   fileId: string,
@@ -318,7 +305,6 @@ export function useGetSubtitleAttemptSuspense<
     | GetSubtitleAttempt410
     | GetSubtitleAttempt422
     | GetSubtitleAttempt500
-    | GetSubtitleAttempt501
   >,
 >(
   fileId: string,
@@ -345,7 +331,6 @@ export function useGetSubtitleAttemptSuspense<
     | GetSubtitleAttempt410
     | GetSubtitleAttempt422
     | GetSubtitleAttempt500
-    | GetSubtitleAttempt501
   >,
 >(
   fileId: string,
@@ -615,7 +600,6 @@ export const getKeepSubtitleUploadMutationOptions = <
     | KeepSubtitleUpload410
     | KeepSubtitleUpload422
     | KeepSubtitleUpload500
-    | KeepSubtitleUpload501
   >,
   TContext = unknown,
 >(options?: {
@@ -663,7 +647,6 @@ export type KeepSubtitleUploadMutationError = ErrorType<
   | KeepSubtitleUpload410
   | KeepSubtitleUpload422
   | KeepSubtitleUpload500
-  | KeepSubtitleUpload501
 >;
 export type KeepSubtitleUploadMutationVariables = { fileId: string; uploadId: string };
 
@@ -679,7 +662,6 @@ export const useKeepSubtitleUpload = <
     | KeepSubtitleUpload410
     | KeepSubtitleUpload422
     | KeepSubtitleUpload500
-    | KeepSubtitleUpload501
   >,
   TContext = unknown,
 >(
@@ -730,7 +712,6 @@ export const getStartSubtitleCandidatesMutationOptions = <
     | StartSubtitleCandidates409
     | StartSubtitleCandidates422
     | StartSubtitleCandidates500
-    | StartSubtitleCandidates501
   >,
   TContext = unknown,
 >(options?: {
@@ -778,7 +759,6 @@ export type StartSubtitleCandidatesMutationError = ErrorType<
   | StartSubtitleCandidates409
   | StartSubtitleCandidates422
   | StartSubtitleCandidates500
-  | StartSubtitleCandidates501
 >;
 export type StartSubtitleCandidatesMutationVariables = { fileId: string; want: string };
 
@@ -794,7 +774,6 @@ export const useStartSubtitleCandidates = <
     | StartSubtitleCandidates409
     | StartSubtitleCandidates422
     | StartSubtitleCandidates500
-    | StartSubtitleCandidates501
   >,
   TContext = unknown,
 >(
@@ -854,7 +833,6 @@ export const getGetSubtitleCandidatesSuspenseQueryOptions = <
     | GetSubtitleCandidates410
     | GetSubtitleCandidates422
     | GetSubtitleCandidates500
-    | GetSubtitleCandidates501
   >,
 >(
   fileId: string,
@@ -900,7 +878,6 @@ export type GetSubtitleCandidatesSuspenseQueryError = ErrorType<
   | GetSubtitleCandidates410
   | GetSubtitleCandidates422
   | GetSubtitleCandidates500
-  | GetSubtitleCandidates501
 >;
 
 export function useGetSubtitleCandidatesSuspense<
@@ -914,7 +891,6 @@ export function useGetSubtitleCandidatesSuspense<
     | GetSubtitleCandidates410
     | GetSubtitleCandidates422
     | GetSubtitleCandidates500
-    | GetSubtitleCandidates501
   >,
 >(
   fileId: string,
@@ -939,7 +915,6 @@ export function useGetSubtitleCandidatesSuspense<
     | GetSubtitleCandidates410
     | GetSubtitleCandidates422
     | GetSubtitleCandidates500
-    | GetSubtitleCandidates501
   >,
 >(
   fileId: string,
@@ -964,7 +939,6 @@ export function useGetSubtitleCandidatesSuspense<
     | GetSubtitleCandidates410
     | GetSubtitleCandidates422
     | GetSubtitleCandidates500
-    | GetSubtitleCandidates501
   >,
 >(
   fileId: string,
@@ -993,7 +967,6 @@ export function useGetSubtitleCandidatesSuspense<
     | GetSubtitleCandidates410
     | GetSubtitleCandidates422
     | GetSubtitleCandidates500
-    | GetSubtitleCandidates501
   >,
 >(
   fileId: string,
@@ -1059,7 +1032,6 @@ export const getPickSubtitleCandidateMutationOptions = <
     | PickSubtitleCandidate410
     | PickSubtitleCandidate422
     | PickSubtitleCandidate500
-    | PickSubtitleCandidate501
   >,
   TContext = unknown,
 >(options?: {
@@ -1108,7 +1080,6 @@ export type PickSubtitleCandidateMutationError = ErrorType<
   | PickSubtitleCandidate410
   | PickSubtitleCandidate422
   | PickSubtitleCandidate500
-  | PickSubtitleCandidate501
 >;
 export type PickSubtitleCandidateMutationVariables = {
   fileId: string;
@@ -1130,7 +1101,6 @@ export const usePickSubtitleCandidate = <
     | PickSubtitleCandidate410
     | PickSubtitleCandidate422
     | PickSubtitleCandidate500
-    | PickSubtitleCandidate501
   >,
   TContext = unknown,
 >(
@@ -1181,7 +1151,6 @@ export const getMarkSubtitleBadMutationOptions = <
     | MarkSubtitleBad409
     | MarkSubtitleBad422
     | MarkSubtitleBad500
-    | MarkSubtitleBad501
   >,
   TContext = unknown,
 >(options?: {
@@ -1229,7 +1198,6 @@ export type MarkSubtitleBadMutationError = ErrorType<
   | MarkSubtitleBad409
   | MarkSubtitleBad422
   | MarkSubtitleBad500
-  | MarkSubtitleBad501
 >;
 export type MarkSubtitleBadMutationVariables = { fileId: string; want: string };
 
@@ -1245,7 +1213,6 @@ export const useMarkSubtitleBad = <
     | MarkSubtitleBad409
     | MarkSubtitleBad422
     | MarkSubtitleBad500
-    | MarkSubtitleBad501
   >,
   TContext = unknown,
 >(
@@ -1296,7 +1263,6 @@ export const getSearchSubtitleMutationOptions = <
     | SearchSubtitle409
     | SearchSubtitle422
     | SearchSubtitle500
-    | SearchSubtitle501
   >,
   TContext = unknown,
 >(options?: {
@@ -1342,7 +1308,6 @@ export type SearchSubtitleMutationError = ErrorType<
   | SearchSubtitle409
   | SearchSubtitle422
   | SearchSubtitle500
-  | SearchSubtitle501
 >;
 export type SearchSubtitleMutationVariables = { fileId: string; want: string };
 
@@ -1358,7 +1323,6 @@ export const useSearchSubtitle = <
     | SearchSubtitle409
     | SearchSubtitle422
     | SearchSubtitle500
-    | SearchSubtitle501
   >,
   TContext = unknown,
 >(
@@ -1431,7 +1395,6 @@ export const getUploadSubtitleMutationOptions = <
     | UploadSubtitle409
     | UploadSubtitle422
     | UploadSubtitle500
-    | UploadSubtitle501
   >,
   TContext = unknown,
 >(options?: {
@@ -1477,7 +1440,6 @@ export type UploadSubtitleMutationError = ErrorType<
   | UploadSubtitle409
   | UploadSubtitle422
   | UploadSubtitle500
-  | UploadSubtitle501
 >;
 export type UploadSubtitleMutationVariables = {
   fileId: string;
@@ -1497,7 +1459,6 @@ export const useUploadSubtitle = <
     | UploadSubtitle409
     | UploadSubtitle422
     | UploadSubtitle500
-    | UploadSubtitle501
   >,
   TContext = unknown,
 >(
@@ -2651,7 +2612,6 @@ export const getUpdateSubtitleSettingsMutationOptions = <
     | UpdateSubtitleSettings409
     | UpdateSubtitleSettings422
     | UpdateSubtitleSettings500
-    | UpdateSubtitleSettings501
   >,
   TContext = unknown,
 >(options?: {
@@ -2697,7 +2657,6 @@ export type UpdateSubtitleSettingsMutationError = ErrorType<
   | UpdateSubtitleSettings409
   | UpdateSubtitleSettings422
   | UpdateSubtitleSettings500
-  | UpdateSubtitleSettings501
 >;
 export type UpdateSubtitleSettingsMutationVariables = { data: SubtitlesValuesBody };
 
@@ -2711,7 +2670,6 @@ export const useUpdateSubtitleSettings = <
     | UpdateSubtitleSettings409
     | UpdateSubtitleSettings422
     | UpdateSubtitleSettings500
-    | UpdateSubtitleSettings501
   >,
   TContext = unknown,
 >(

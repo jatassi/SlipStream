@@ -125,8 +125,19 @@ func Intend(ctx context.Context, s *Subtitles, f files.ID, w Want, src Source, b
 	return lease(nil)
 }
 
+// ErrStale is an attempt that found its lease gone.
+var ErrStale = errStale
+
+// Search is Subtitle search's attempt on k, as the drain runs it.
+func Search(ctx context.Context, s *Subtitles, k WantKey) error { return s.run(ctx, k) }
+
 var (
 	AddedRow    = addedRow
 	ReplacedRow = replacedRow
 	RemovedRow  = removedRow
+
+	MarkedBadRow    = markedBadRow
+	MissingRow      = missingRow
+	TimingFailedRow = timingFailedRow
+	ProviderOutRow  = providerOutRow
 )

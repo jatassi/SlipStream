@@ -2,13 +2,17 @@ package subtitlesapi_test
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/subtitles"
@@ -92,12 +96,124 @@ func TestAWorksSubtitlesReadAndATrackIsIgnored(t *testing.T) {
 	})
 }
 
-func TestTheManualActionsSayTheyAreNotBuiltAndCapAnUpload(t *testing.T) {
+const (
+	onSpeech      = "1\n00:00:01,500 --> 00:00:02,500\nHello there.\n"
+	againstSpeech = "1\n00:00:00,000 --> 00:00:00,400\nOne.\n\n2\n00:00:03,500 --> 00:00:03,900\nTwo.\n"
+)
+
+func field(t *testing.T, reply, name string) string {
+	t.Helper()
+	var v map[string]any
+	if err := json.Unmarshal([]byte(reply), &v); err != nil {
+		t.Fatal(err)
+	}
+	s, ok := v[name].(string)
+	if !ok {
+		t.Fatalf("%s has no %s", reply, name)
+	}
+	return s
+}
+
+func TestAPickAnUploadAndAKeptUploadRunOverTheAPI(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w, o := serve(t)
+		en := subtitlestest.Wanted(t, "en", false, targets.Allow, targets.Always)
+		p := w.Profile("Films", en)
+		m := media.Record{Video: media.Video{Width: 1920, Height: 1080}, Audio: []media.Audio{{Codec: "eac3", Channels: 6, Language: "fr"}}}
+		tree := w.Work("film", p)
+		f := w.Place(tree, "Film/Film.mkv", m)
+		w.Sweep()
+		w.Holder = subtitlestest.KeyHolder{Account: "film-fan", Plan: "Free"}
+		answers(t, o, http.MethodPut, "/api/v1/subtitles/providers/subdl/key", `{"key":"k1"}`, http.StatusOK)
+		w.Catalog.List(subtitlestest.Listing{
+			Offer: subtitling.Offer{Provider: "subdl", Key: "late", Language: en.Language, Releases: []string{"Film.2024.1080p.WEB-DL-GRP"}},
+			Name:  "Film.srt", Bytes: []byte(againstSpeech),
+		})
+		want := "/api/v1/files/" + f.String() + "/subtitles/en"
+		search := field(t, answers(t, o, http.MethodPost, want+"/candidates", "", http.StatusAccepted), "searchId")
+		w.Settle()
+		answers(t, o, http.MethodGet, want+"/candidates/"+search, "", http.StatusOK, `"state":"done"`, `"key":"subdl:late"`, `"made_by_person"`)
+		answers(t, o, http.MethodGet, want+"/candidates/"+storage.NewUUID().String(), "", http.StatusGone,
+			`subtitle_search_expired`, `These results have expired. Search again.`)
+		picked := field(t, answers(t, o, http.MethodPost, want+"/candidates/"+search+"/subdl:late", "", http.StatusAccepted), "attemptId")
+		w.Settle()
+		attempts := "/api/v1/files/" + f.String() + "/subtitles/attempts/"
+		answers(t, o, http.MethodGet, attempts+picked, "", http.StatusOK, `"step":"finished"`, `"kind":"failed_timing"`, `"threshold":30`, `"uploadId":null`)
+		if !slices.Contains(w.Attempts.All(), subtitles.Attempted{AttemptID: picked, FileID: f.String()}) {
+			t.Fatalf("the pick published %v, want subtitles.attempt for %s", w.Attempts.All(), picked)
+		}
+		body := `{"name":"Film.en.srt","bytes":"` + base64.StdEncoding.EncodeToString([]byte(againstSpeech)) + `"}`
+		uploaded := field(t, answers(t, o, http.MethodPost, want+"/upload", body, http.StatusAccepted), "attemptId")
+		w.Settle()
+		refused := field(t, answers(t, o, http.MethodGet, attempts+uploaded, "", http.StatusOK, `"kind":"failed_timing"`), "uploadId")
+		answers(t, o, http.MethodPost, "/api/v1/files/"+f.String()+"/subtitles/uploads/"+storage.NewUUID().String()+"/keep", "", http.StatusGone,
+			`subtitle_upload_expired`, `This upload has expired. Upload the file again.`)
+		answers(t, o, http.MethodPost, "/api/v1/files/"+f.String()+"/subtitles/uploads/"+refused+"/keep", "", http.StatusNoContent)
+		w.Settle()
+		if got := w.On("Film/Film.en.srt"); got != againstSpeech {
+			t.Fatalf("the kept upload wrote %q", got)
+		}
+		answers(t, o, http.MethodGet, attempts+storage.NewUUID().String(), "", http.StatusGone, `subtitle_attempt_expired`)
+		answers(t, o, http.MethodPost, want+"/mark-bad", "", http.StatusAccepted)
+		w.Settle()
+		if got := w.On("Film/Film.en.srt"); got != "" {
+			t.Fatalf("Mark bad left %q", got)
+		}
+		answers(t, o, http.MethodPost, want+"/mark-bad", "", http.StatusNotFound, `subtitle_not_found`)
+		answers(t, o, http.MethodPost, want+"/search", "", http.StatusAccepted)
+		answers(t, o, http.MethodPost, "/api/v1/files/"+f.String()+"/subtitles/fr/search", "", http.StatusNotFound, `subtitle_not_searched`)
+	})
+}
+
+func TestAPickFromAProviderOutOfDownloadsSaysUntilWhen(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w, o := serve(t)
+		en := subtitlestest.Wanted(t, "en", false, targets.Allow, targets.Always)
+		f := w.Place(w.Work("film", w.Profile("Films", en)), "Film/Film.mkv", media.Record{Audio: []media.Audio{{Codec: "eac3", Channels: 6, Language: "fr"}}})
+		w.Sweep()
+		w.Holder = subtitlestest.KeyHolder{Account: "film-fan", Plan: "Free"}
+		answers(t, o, http.MethodPut, "/api/v1/subtitles/providers/subdl/key", `{"key":"k1"}`, http.StatusOK)
+		w.Catalog.List(subtitlestest.Listing{Offer: subtitling.Offer{Provider: "subdl", Key: "x", Language: en.Language}, Name: "Film.srt", Bytes: []byte(againstSpeech)})
+		want := "/api/v1/files/" + f.String() + "/subtitles/en"
+		search := field(t, answers(t, o, http.MethodPost, want+"/candidates", "", http.StatusAccepted), "searchId")
+		w.Settle()
+		reset := time.Now().Add(6 * time.Hour)
+		w.Catalog.Answer("subdl", calls.Outcome{Kind: calls.Capped, Words: "has no downloads left today", Until: reset})
+		picked := field(t, answers(t, o, http.MethodPost, want+"/candidates/"+search+"/subdl:x", "", http.StatusAccepted), "attemptId")
+		w.Settle()
+		answers(t, o, http.MethodGet, "/api/v1/files/"+f.String()+"/subtitles/attempts/"+picked, "", http.StatusOK,
+			`"kind":"unfetched"`, `"answer":{"provider":"subdl","kind":"capped","until":"`+reset.UTC().Format(time.RFC3339Nano)+`"}`)
+	})
+}
+
+func TestAPickFromAProviderAlreadyPausedSaysUntilWhen(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w, o := serve(t)
+		en := subtitlestest.Wanted(t, "en", false, targets.Allow, targets.Always)
+		f := w.Place(w.Work("film", w.Profile("Films", en)), "Film/Film.mkv", media.Record{Audio: []media.Audio{{Codec: "eac3", Channels: 6, Language: "fr"}}})
+		w.Sweep()
+		w.Holder = subtitlestest.KeyHolder{Account: "film-fan", Plan: "Free"}
+		answers(t, o, http.MethodPut, "/api/v1/subtitles/providers/subdl/key", `{"key":"k1"}`, http.StatusOK)
+		w.Catalog.List(subtitlestest.Listing{Offer: subtitling.Offer{Provider: "subdl", Key: "x", Language: en.Language}, Name: "Film.srt", Bytes: []byte(againstSpeech)})
+		want := "/api/v1/files/" + f.String() + "/subtitles/en"
+		search := field(t, answers(t, o, http.MethodPost, want+"/candidates", "", http.StatusAccepted), "searchId")
+		w.Settle()
+		reset := time.Now().Add(6 * time.Hour)
+		w.Catalog.Answer("subdl", calls.Outcome{Kind: calls.Capped, Words: "has no downloads left today", Until: reset})
+		answers(t, o, http.MethodPost, want+"/search", "", http.StatusAccepted)
+		w.Settle()
+		answers(t, o, http.MethodGet, "/api/v1/subtitles/providers", "", http.StatusOK, `"state":{"kind":"out"`)
+		picked := field(t, answers(t, o, http.MethodPost, want+"/candidates/"+search+"/subdl:x", "", http.StatusAccepted), "attemptId")
+		w.Settle()
+		answers(t, o, http.MethodGet, "/api/v1/files/"+f.String()+"/subtitles/attempts/"+picked, "", http.StatusOK,
+			`"kind":"unfetched"`, `"answer":{"provider":"subdl","kind":"capped","until":"`+reset.UTC().Format(time.RFC3339Nano)+`"}`)
+	})
+}
+
+func TestAnUploadOverTheCapIsRefused(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		_, o := serve(t)
 		want := "/api/v1/files/" + storage.NewUUID().String() + "/subtitles/en"
-		answers(t, o, http.MethodPost, want+"/search", "", http.StatusNotImplemented,
-			`subtitle_action_not_built`, `This build of SlipStream can't search for, download or upload subtitles yet.`)
 		answers(t, o, http.MethodPost, "/api/v1/files/"+storage.NewUUID().String()+"/subtitles/eng/search", "", http.StatusBadRequest, `bad_want`)
 		upload := func(size int) string {
 			return `{"name":"Film.en.srt","bytes":"` + base64.StdEncoding.EncodeToString(make([]byte, size)) + `"}`
@@ -105,6 +221,5 @@ func TestTheManualActionsSayTheyAreNotBuiltAndCapAnUpload(t *testing.T) {
 		answers(t, o, http.MethodPost, want+"/upload", upload(5<<20+1), http.StatusUnprocessableEntity,
 			`subtitle_too_large`, `Use a subtitle file of 5 MB or smaller.`)
 		answers(t, o, http.MethodPost, want+"/upload", upload(6<<20), http.StatusRequestEntityTooLarge)
-		answers(t, o, http.MethodPost, want+"/upload", upload(1<<10), http.StatusNotImplemented, `subtitle_action_not_built`)
 	})
 }

@@ -77,7 +77,7 @@ func (k *keeper) write(ctx context.Context, in settled, w db.SubtitlesWrite, b [
 	if err != nil && !occupied && !stale {
 		return err
 	}
-	return k.s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	return k.commit(ctx, *sub, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		switch {
 		case occupied:
@@ -251,24 +251,7 @@ func (k *keeper) retime(ctx context.Context, in settled, sc Sidecar) error {
 // readBack is sc's bytes where they sit, nil when they aren't there: the
 // file is then surveyed, which finds where they went.
 func (k *keeper) readBack(ctx context.Context, in settled, sc Sidecar) ([]byte, error) {
-	sub := in.subject
-	calls, err := k.calls(ctx, sub.Root)
-	if err != nil {
-		return nil, err
-	}
-	at, err := storing.ParseRel(sc.at(sub.Path.String()))
-	if err != nil {
-		return nil, err
-	}
-	b, err := calls.Read(ctx, sub.Root.UUID, at, sc.SHA256)
-	err = callError(err)
-	if _, changed := errors.AsType[*storing.ChangedError](err); changed || errors.Is(err, fs.ErrNotExist) {
-		return nil, k.s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			k.soon(sub.ID)
-			return db.New(tx).MarkSurveyDue(ctx, db.MarkSurveyDueParams{FileID: sub.ID})
-		})
-	}
-	return b, err
+	return k.bytesOf(ctx, *in.subject, sc.at(in.subject.Path.String()), sc.SHA256)
 }
 
 // home brings a stray Sidecar's bytes home once its name is free.
@@ -309,7 +292,7 @@ func (k *keeper) place(ctx context.Context, in settled, sc Sidecar, c Checked, k
 	if err != nil {
 		return err
 	}
-	return k.s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	return k.commit(ctx, *sub, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return k.placed(ctx, tx, *sub, sc, c, at, kind)
 	})
 }
@@ -355,7 +338,7 @@ func (k *keeper) retimeFailed(ctx context.Context, in settled, sc Sidecar) error
 		return k.untimed(ctx, in, sc)
 	}
 	sub := in.subject
-	return k.s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	return k.commit(ctx, *sub, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		held, err := q.GetSidecarHeld(ctx, db.GetSidecarHeldParams{ID: sc.ID, Sha256: sc.SHA256[:]})
 		if err != nil || held == 0 {
@@ -386,7 +369,7 @@ func (k *keeper) retimeFailed(ctx context.Context, in settled, sc Sidecar) error
 
 // untimed keeps sc where it is with no timing, guarded by its bytes.
 func (k *keeper) untimed(ctx context.Context, in settled, sc Sidecar) error {
-	return k.s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	return k.commit(ctx, *in.subject, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		held, err := q.GetSidecarHeld(ctx, db.GetSidecarHeldParams{ID: sc.ID, Sha256: sc.SHA256[:]})
 		if err != nil || held == 0 {
@@ -398,4 +381,27 @@ func (k *keeper) untimed(ctx context.Context, in settled, sc Sidecar) error {
 		}
 		return putSidecar(ctx, q, sc, storage.FromTime(k.s.cfg.Clock()))
 	})
+}
+
+// bytesOf is the bytes of sha beside sub at at, for an attempt to time
+// against another file: nil when they aren't there, and sub is then
+// surveyed.
+func (k *keeper) bytesOf(ctx context.Context, sub files.Subject, at string, sha [32]byte) ([]byte, error) {
+	calls, err := k.calls(ctx, sub.Root)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := storing.ParseRel(at)
+	if err != nil {
+		return nil, err
+	}
+	b, err := calls.Read(ctx, sub.Root.UUID, rel, sha)
+	err = callError(err)
+	if _, changed := errors.AsType[*storing.ChangedError](err); changed || errors.Is(err, fs.ErrNotExist) {
+		return nil, k.s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			k.soon(sub.ID)
+			return db.New(tx).MarkSurveyDue(ctx, db.MarkSurveyDueParams{FileID: sub.ID})
+		})
+	}
+	return b, err
 }

@@ -38,14 +38,6 @@ type Cadences interface {
 	SetCadence(ctx context.Context, id tasks.TaskID, v setting.Stored[int64]) error
 }
 
-// Unscheduled is the Cadences of a Controller whose catalog has no
-// Subtitle search task yet: every cadence is its default.
-type Unscheduled struct{}
-
-func (Unscheduled) EveryIn(context.Context, storage.Reader[storage.Library], tasks.TaskID) (*int64, error) {
-	return nil, nil
-}
-
 // Reconciled is what one bulk pass covered.
 type Reconciled struct{ Chunks, Files int }
 

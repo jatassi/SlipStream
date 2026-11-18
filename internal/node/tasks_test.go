@@ -33,10 +33,10 @@ func TestTheCatalogListsEachTaskOnceInItsWindowOrder(t *testing.T) {
 
 func TestHousekeepingPrunesInItsUnitsOrder(t *testing.T) {
 	var labels []string
-	for _, s := range housekeepingSteps(nil, nil, nil, nil, nil, nil) {
+	for _, s := range housekeepingSteps(nil, nil, nil, nil, nil, nil, nil) {
 		labels = append(labels, s.Label)
 	}
-	want := []string{"Indexer queries and sessions", "Media Server history", "History", "Finished Grabs", "Finished Imports", "Import records"}
+	want := []string{"Indexer queries and sessions", "Media Server history", "History", "Finished Grabs", "Finished Imports", "Import records", "Subtitle tries"}
 	if !slices.Equal(labels, want) {
 		t.Fatalf("Housekeeping's units are %q, want %q", labels, want)
 	}

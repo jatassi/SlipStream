@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/subtitles/internal/db"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // keeper settles every row that names a file's Sidecar bytes, one file at
@@ -247,6 +248,16 @@ func (in *settled) live(ctx context.Context, r storage.Reader[storage.Library], 
 	return nil
 }
 
+// commit runs fn in one Library Write that changes what sub's subtitles
+// read as and, once it commits, tells live screens of sub's Work.
+func (k *keeper) commit(ctx context.Context, sub files.Subject, fn func(context.Context, *storage.Tx[storage.Library]) error) error {
+	if err := k.s.cfg.Library.Write(ctx, fn); err != nil {
+		return err
+	}
+	k.s.cfg.Changed.Publish(ctx, changedOf([]works.WorkID{sub.Work}, []files.ID{sub.ID}))
+	return nil
+}
+
 // errNotReady ends a settle whose Storage Node can't take the call now:
 // the rows stay for the next wake.
 var errNotReady = errors.New("the root's Storage Node isn't ready")
@@ -334,7 +345,7 @@ func (k *keeper) survey(ctx context.Context, in settled) error {
 		return callError(err)
 	}
 	plan := match(sub.ID, sub.Path.String(), in.sidecars, in.intents, listed[0].Companions, in.langs)
-	err = k.s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	err = k.commit(ctx, *sub, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return k.finishSurvey(ctx, tx, in, plan)
 	})
 	if errors.Is(err, errSurveyStale) {

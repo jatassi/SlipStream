@@ -3,6 +3,7 @@ package subtitles
 import (
 	goflag "flag"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
@@ -30,4 +31,8 @@ func TestHistoryRowsRender(t *testing.T) {
 	golden(removedRow, SidecarFacts{Work: dune, File: file, Subtitles: []SubtitleFact{fetched}, Why: "retime_failed"}, "removed-retime-failed")
 	golden(removedRow, SidecarFacts{Work: dune, File: file, Subtitles: []SubtitleFact{{Language: "German", Source: FromProvider}}, Why: "retime_failed"}, "removed-provider-unknown")
 	golden(markedBadRow, MarkedBadFacts{Work: dune, File: file, Subtitle: fetched, By: entry.Actor{Name: "Sam"}}, "marked-bad")
+	golden(missingRow, SearchFacts{Work: dune, File: file, Language: "English"}, "missing")
+	golden(timingFailedRow, SearchFacts{Work: dune, File: file, Language: "English", Forced: true, Found: 3}, "timing-failed")
+	golden(timingFailedRow, SearchFacts{Work: dune, File: file, Language: "French", Found: 1}, "timing-failed-one")
+	golden(providerOutRow, ProviderOutFacts{Provider: "SubDL", Until: time.Date(2026, 11, 19, 19, 0, 0, 0, time.UTC)}, "provider-out")
 }

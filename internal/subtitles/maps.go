@@ -251,6 +251,7 @@ func (m *mapDrain) built(ctx context.Context, node role.NodeID, row db.Subtitles
 	delete(m.resting, node)
 	m.mu.Unlock()
 	m.s.keeper.soon(row.FileID)
+	m.s.drain.soon()
 }
 
 var faultNames = map[storing.MapFault]string{storing.NoAudio: "no_audio", storing.DecodeFailed: "decode_failed", storing.NodeFault: "node_fault"}

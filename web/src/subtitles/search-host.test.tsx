@@ -1,64 +1,21 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { SubtitlesAttempt, SubtitlesCandidate } from "../api/gen/model";
+import type { SubtitlesAttempt } from "../api/gen/model";
 import { problem } from "../test/handlers";
-import { orchardId } from "../test/library";
-import { renderApp } from "../test/render-app";
-import { scannedFiles } from "../test/scanned-files";
-import {
-  attempting,
-  missing,
-  started,
-  subtitlesServer,
-  uhdSubtitles,
-} from "../test/subtitles-work";
+import { candidate, manualSearch, openMissing as open } from "../test/subtitle-candidates";
+import { attempting, hoursFromNow, started } from "../test/subtitles-work";
 import { asPhone } from "../test/viewport";
-import { workServer } from "../test/work-server";
 
 const title = "English subtitle for The Quiet Orchard (2021) - 2160p.mkv";
 const notifications = () => page.getByRole("region", { name: "Messages" });
+const imagePick = "Pick The.Quiet.Orchard.2021.2160p.image from SubDL";
 
-const candidate = (key: string, change: Partial<SubtitlesCandidate> = {}): SubtitlesCandidate => ({
-  key,
-  provider: "subdl",
-  release: `The.Quiet.Orchard.2021.2160p.${key}`,
-  reasons: [],
-  disabled: false,
-  tried: null,
-  ...change,
-});
-
-function open(world: Omit<Parameters<typeof subtitlesServer>[0], "work">) {
-  const subtitles = subtitlesServer({
-    work: { files: [uhdSubtitles([missing("en", "nothing_found")])] },
-    ...world,
-  });
-  renderApp({
-    path: `/works/${orchardId}`,
-    handlers: [...subtitles.handlers, ...workServer({ files: scannedFiles }).handlers],
-  });
-  return subtitles;
-}
-
-const manualSearch = () =>
-  page
-    .getByRole("list", { name: "Subtitles" })
-    .getByRole("listitem")
-    .filter({ hasText: "English" })
-    .getByRole("button", { name: "Manual search" });
-
-test("Manual search opens a 940 dialog on desktop and says when this build can't search yet", async () => {
+test("Manual search opens a 940 dialog on desktop and says when no provider found a subtitle", async () => {
   const world = open({});
   await userEvent.click(manualSearch());
   const dialog = page.getByRole("dialog", { name: title });
-  await expect
-    .element(
-      dialog.getByText(
-        "This build of SlipStream can't search for, download or upload subtitles yet.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(dialog.getByText("No subtitle was found for this file.")).toBeVisible();
   await expect.element(dialog).toHaveClass(/w-\[940px\]/u);
   expect(world.calls).toEqual(["candidates"]);
 });
@@ -73,13 +30,7 @@ test("on phone Manual search is a full sheet", async () => {
   );
   await userEvent.click(page.getByRole("button", { name: "Manual search" }));
   const sheet = page.getByRole("dialog", { name: title });
-  await expect
-    .element(
-      sheet.getByText(
-        "This build of SlipStream can't search for, download or upload subtitles yet.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(sheet.getByText("No subtitle was found for this file.")).toBeVisible();
   await expect.element(sheet).not.toHaveClass(/w-\[940px\]/u);
 });
 
@@ -146,9 +97,7 @@ test("candidates rank with the first as Best, each step it meets checked, and tr
   await expect
     .element(tried.getByText("SubDL · SlipStream can't use image subtitles."))
     .toBeVisible();
-  await expect
-    .element(tried.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.image" }))
-    .toBeDisabled();
+  await expect.element(tried.getByRole("button", { name: imagePick })).toBeDisabled();
   await expect
     .element(tried.getByText("SubDL · Its timing didn't match this file. · Timing match 41%"))
     .toBeVisible();
@@ -170,7 +119,7 @@ test("a pick shows each step as the attempt moves, then toasts and closes once t
   await userEvent.click(manualSearch());
   const dialog = page.getByRole("dialog", { name: title });
   await userEvent.click(
-    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best" }),
+    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best from SubDL" }),
   );
   await expect.element(dialog.getByText("Downloading from SubDL…")).toBeVisible();
   expect(world.calls).toEqual(["candidates", "pick best"]);
@@ -179,7 +128,11 @@ test("a pick shows each step as the attempt moves, then toasts and closes once t
   world.attemptMoves();
   await expect.element(dialog.getByText("Checking timing…")).toBeVisible();
 
-  attempt = { ...attempt, step: "finished", outcome: { kind: "added", match: 82, threshold: 50 } };
+  attempt = {
+    ...attempt,
+    step: "finished",
+    outcome: { kind: "added", match: 82, threshold: 50, answer: null },
+  };
   world.attemptMoves();
   await expect.element(notifications().getByText("English subtitle added.")).toBeVisible();
   await expect.element(dialog).not.toBeInTheDocument();
@@ -192,7 +145,7 @@ test("a pick whose timing fails stays open with the reason", async () => {
     attempt: () => ({
       step: "finished",
       provider: "subdl",
-      outcome: { kind: "failed_timing", match: 41, threshold: 50 },
+      outcome: { kind: "failed_timing", match: 41, threshold: 50, answer: null },
       uploadId: null,
     }),
     candidates: () => ({ state: "done", outcomes: [], candidates: [candidate("best")] }),
@@ -200,7 +153,7 @@ test("a pick whose timing fails stays open with the reason", async () => {
   await userEvent.click(manualSearch());
   const dialog = page.getByRole("dialog", { name: title });
   await userEvent.click(
-    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best" }),
+    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best from SubDL" }),
   );
   await expect
     .element(
@@ -209,5 +162,44 @@ test("a pick whose timing fails stays open with the reason", async () => {
       ),
     )
     .toBeVisible();
+  expect(world.calls).toEqual(["candidates", "pick best"]);
+});
+
+test("a pick the provider didn't serve says why and when it serves again, and leaves the others to pick", async () => {
+  const world = open({
+    attempt: () => ({
+      step: "finished",
+      provider: "subdl",
+      outcome: {
+        kind: "unfetched",
+        match: null,
+        threshold: null,
+        answer: { provider: "subdl", kind: "limited", until: hoursFromNow(2) },
+      },
+      uploadId: null,
+    }),
+    candidates: () => ({
+      state: "done",
+      outcomes: [],
+      candidates: [candidate("best"), candidate("next", { provider: "subsource" })],
+    }),
+  });
+  await userEvent.click(manualSearch());
+  const dialog = page.getByRole("dialog", { name: title });
+  await userEvent.click(
+    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best from SubDL" }),
+  );
+  await expect
+    .element(
+      dialog.getByText(
+        /^SubDL is out of downloads\. SlipStream searches it again (at|tonight|tomorrow).+\. Pick another subtitle\.$/u,
+      ),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.next from SubSource" }),
+    )
+    .toBeEnabled();
   expect(world.calls).toEqual(["candidates", "pick best"]);
 });

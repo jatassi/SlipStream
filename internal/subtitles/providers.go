@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -36,6 +37,18 @@ type Pause struct {
 	Until  time.Time
 	Reason PauseReason
 	Words  string
+}
+
+var pausedKinds = map[PauseReason]calls.OutcomeKind{PausedQuota: calls.Capped, PausedRate: calls.Limited, PausedKey: calls.Refused, PausedDown: calls.Unreachable}
+
+// outcome is the pause as the outcome of a call to provider id it kept
+// from being made.
+func (p Pause) outcome(id subtitling.ProviderID) calls.Outcome {
+	o := calls.Outcome{Provider: id, Kind: pausedKinds[p.Reason], Words: p.Words}
+	if o.Kind == calls.Capped || o.Kind == calls.Limited {
+		o.Until = p.Until
+	}
+	return o
 }
 
 // Provider is one Subtitle Provider as the Controller keeps it.
@@ -326,4 +339,214 @@ func (s *Subtitles) DeleteKey(ctx context.Context, _ identity.Admin, id subtitli
 		_, err := q.DeleteProviderKey(ctx, id)
 		return err
 	})
+}
+
+// paused is whether p takes no calls at now: a refused key until a key
+// check passes, any other pause until it ends.
+func (p Provider) paused(now time.Time) bool {
+	return p.Paused != nil && (p.Paused.Reason == PausedKey || now.Before(p.Paused.Until))
+}
+
+// ready is whether a search may ask p at now.
+func (p Provider) ready(now time.Time) bool { return p.searches() && !p.paused(now) }
+
+// readyKinds is the kinds some ready provider searches, at most two: a
+// want of another kind stays queued, unread, until one is.
+func readyKinds(ps []Provider, now time.Time) []subtitling.Kind {
+	var out []subtitling.Kind
+	for _, p := range ps {
+		if !p.ready(now) {
+			continue
+		}
+		for _, k := range p.Spec.Kinds {
+			if !slices.Contains(out, k) {
+				out = append(out, k)
+			}
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// fold is p after the outcomes os of its calls, at now. A provider that
+// responded is no longer failing, and a pause that ended goes; a limit or
+// a spent allowance pauses it until its reset, a refused key until a key
+// check passes, and every pause ends by now plus maxPause, so a holder
+// can't close a provider for good.
+func fold(p Provider, os []calls.Outcome, now time.Time, maxPause time.Duration) Provider {
+	bound := now.Add(maxPause)
+	clamp := func(t time.Time) time.Time {
+		if t.IsZero() || t.After(bound) {
+			return bound
+		}
+		return t
+	}
+	for _, o := range os {
+		if o.Provider != p.Spec.ID {
+			continue
+		}
+		switch o.Kind {
+		case calls.OK, calls.NotFound:
+			p.FailingSince, p.LastError = time.Time{}, ""
+			if p.Paused != nil && !now.Before(p.Paused.Until) {
+				p.Paused = nil
+			}
+			if o.Allowance != nil {
+				p.Allowance, p.AllowanceAt = o.Allowance, o.At
+			}
+		case calls.Capped:
+			p.Paused = &Pause{Until: clamp(o.Until), Reason: PausedQuota, Words: o.Words}
+		case calls.Limited:
+			p.Paused = &Pause{Until: clamp(o.Until), Reason: PausedRate, Words: o.Words}
+		case calls.Refused, calls.PinRefused:
+			p.Paused = &Pause{Until: bound, Reason: PausedKey, Words: providerWords(o.Words)}
+		case calls.Unreachable:
+			if p.FailingSince.IsZero() {
+				p.FailingSince = now
+			}
+			p.LastError = o.Words
+		}
+	}
+	return p
+}
+
+// told folds the outcomes a holder reported into the providers' rows, in
+// tx. A new pause for a spent allowance records Subtitle Provider out of
+// downloads, and the holder that reported a pause is asked last after it.
+// It is whether a row changed.
+func (s *Subtitles) told(ctx context.Context, tx *storage.Tx[storage.Library], holder role.NodeID, os []calls.Outcome) (bool, error) {
+	if len(os) == 0 {
+		return false, nil
+	}
+	ps, err := s.providersIn(ctx, tx)
+	if err != nil {
+		return false, err
+	}
+	now := s.cfg.Clock()
+	q := db.New(tx)
+	changed := false
+	for _, was := range ps {
+		p := fold(was, os, now, s.cfg.Timings.MaxPause)
+		if reflect.DeepEqual(p, was) {
+			continue
+		}
+		changed = true
+		if err := putState(ctx, q, p); err != nil {
+			return false, err
+		}
+		if p.Paused != nil && (was.Paused == nil || *p.Paused != *was.Paused) {
+			s.blame(p.Spec.ID, holder)
+		}
+		if p.Paused != nil && p.Paused.Reason == PausedQuota && (was.Paused == nil || was.Paused.Reason != PausedQuota || !now.Before(was.Paused.Until)) {
+			if err := providerOutRow.Record(ctx, tx, s.cfg.History, ProviderOutFacts{Provider: p.Spec.Label, Until: p.Paused.Until}); err != nil {
+				return false, err
+			}
+		}
+	}
+	return changed, nil
+}
+
+func putState(ctx context.Context, q *db.Queries, p Provider) error {
+	params := db.PutProviderStateParams{
+		ID: p.Spec.ID, FailingSince: storage.FromTime(p.FailingSince), LastError: some(p.LastError),
+		AllowanceAt: storage.FromTime(p.AllowanceAt), KeyCheckedAt: storage.FromTime(p.KeyCheckedAt),
+	}
+	if p.Paused != nil {
+		params.PausedUntil, params.PauseReason, params.PauseWords = storage.FromTime(p.Paused.Until), new(string(p.Paused.Reason)), some(p.Paused.Words)
+	}
+	if p.Allowance != nil {
+		b, err := json.Marshal(p.Allowance)
+		if err != nil {
+			return fmt.Errorf("subtitles: %s's allowance: %w", p.Spec.Label, err)
+		}
+		params.Allowance = new(string(b))
+	}
+	return q.PutProviderState(ctx, params)
+}
+
+// blame remembers that holder reported a pause of id, so the next call
+// to id goes to another holder when one has the Role.
+func (s *Subtitles) blame(id subtitling.ProviderID, holder role.NodeID) {
+	s.blamedMu.Lock()
+	defer s.blamedMu.Unlock()
+	s.blamed[id] = holder
+}
+
+// holderFor is a Subtitles holder to ask ids on: the first that reported
+// no pause of any of them, else the first.
+func (s *Subtitles) holderFor(ids ...subtitling.ProviderID) (role.NodeID, subtitling.Remote, bool) {
+	holders := s.cfg.Roster.Holding(role.Subtitles)
+	if len(holders) == 0 {
+		return role.NodeID{}, subtitling.Remote{}, false
+	}
+	s.blamedMu.Lock()
+	defer s.blamedMu.Unlock()
+	for _, h := range holders {
+		if !slices.ContainsFunc(ids, func(id subtitling.ProviderID) bool { return s.blamed[id] == h }) {
+			return h, s.cfg.Holders(h), true
+		}
+	}
+	return holders[0], s.cfg.Holders(holders[0]), true
+}
+
+// recheck checks again, on a holder that didn't refuse it when one can,
+// the key of each provider whose refused-key pause has ended. A key the
+// provider takes again ends the pause; a refusal pauses it once more.
+func (s *Subtitles) recheck(ctx context.Context, ps []Provider) {
+	now := s.cfg.Clock()
+	for _, p := range ps {
+		if p.Paused == nil || p.Paused.Reason != PausedKey || now.Before(p.Paused.Until) || !p.HasKey {
+			continue
+		}
+		if err := s.recheckKey(ctx, p.Spec.ID); err != nil && ctx.Err() == nil {
+			s.cfg.Log.WarnContext(ctx, "A Subtitle Provider's key wasn't checked again", "provider", p.Spec.ID, "error", err)
+		}
+	}
+}
+
+func (s *Subtitles) recheckKey(ctx context.Context, id subtitling.ProviderID) error {
+	node, holder, ok := s.holderFor(id)
+	if !ok {
+		return nil
+	}
+	keys, err := s.keysOf(ctx, []subtitling.ProviderID{id})
+	if err != nil {
+		return err
+	}
+	_, outcomes, err := holder.CheckKey(ctx, id, keys[id])
+	if err != nil {
+		return err
+	}
+	var changed bool
+	err = s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		changed, err = s.told(ctx, tx, node, outcomes)
+		return err
+	})
+	if changed {
+		s.cfg.ProvidersChanged.Publish(ctx, ProvidersChanged{})
+	}
+	return err
+}
+
+// keysOf is the opened key of each of ids that has one.
+func (s *Subtitles) keysOf(ctx context.Context, ids []subtitling.ProviderID) (map[subtitling.ProviderID]string, error) {
+	out := map[subtitling.ProviderID]string{}
+	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		rows, err := db.New(r).ListProviders(ctx)
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			if !slices.Contains(ids, row.ID) || !row.ApiKeySealed.Set() {
+				continue
+			}
+			key, err := s.cfg.Sealer.Open(row.ApiKeySealed, keyColumn.Row(string(row.ID)))
+			if err != nil {
+				return fmt.Errorf("subtitles: open %s's key: %w", row.ID, err)
+			}
+			out[row.ID] = string(key)
+		}
+		return nil
+	})
+	return out, err
 }

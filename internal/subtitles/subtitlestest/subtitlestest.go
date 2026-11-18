@@ -80,7 +80,14 @@ type World struct {
 	target  targets.Target
 	held    *roots.Roots
 	// Syncs holds the holder's Sync calls on request.
-	Syncs    *Syncs
+	Syncs *Syncs
+	// Catalog is the holder's Subtitle Providers.
+	Catalog *Catalog
+	// Cadences is Subtitle search's cadence.
+	Cadences *Cadences
+	shows    atomic.Bool
+	mu       sync.Mutex
+	aired    map[works.ItemID]int
 	late     *lateSubtitles
 	fetchCap int
 	stop     func()
@@ -94,6 +101,7 @@ type World struct {
 	// published.
 	Changed          Published[subtitles.Changed]
 	ProvidersChanged Published[subtitles.ProvidersChanged]
+	Attempts         Published[subtitles.Attempted]
 	// Check runs after every step that writes: the records invariant.
 	Check func(t testing.TB, w *World)
 }
@@ -113,7 +121,10 @@ func Open(t *testing.T, tm subtitles.Timings, ht subtitling.Timings) *World {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := &World{t: t, Lib: lib, Fixture: fx, Works: tree, Node: role.NodeID{UUID: storage.NewUUID()}, Timings: tm, sealer: secrettest.Sealer(t)}
+	w := &World{
+		t: t, Lib: lib, Fixture: fx, Works: tree, Node: role.NodeID{UUID: storage.NewUUID()}, Timings: tm, sealer: secrettest.Sealer(t),
+		Cadences: &Cadences{}, aired: map[works.ItemID]int{},
+	}
 	w.holders.Store(true)
 	if err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return nodestest.Insert(ctx, tx, w.Node, "Node A")
@@ -133,7 +144,8 @@ func Open(t *testing.T, tm subtitles.Timings, ht subtitling.Timings) *World {
 	w.Writes = &Writes{SidecarCalls: storing.SidecarCallsOf(sidecars)}
 	w.Servers = &Servers{}
 	w.history, w.History = entrytest.New("subtitles", subtitles.Entries())
-	w.Syncs = &Syncs{SubtitlesServiceHandler: subtitling.Serve(nil, ht)}
+	w.Catalog = newCatalog(ht)
+	w.Syncs = &Syncs{SubtitlesServiceHandler: w.Catalog}
 	w.fetchCap = ht.FetchCap
 	if w.Targets, err = targets.Open(t.Context(), targets.Config{
 		Library: lib, Works: tree, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
@@ -199,7 +211,7 @@ func (w *World) Reopen() *subtitles.Subtitles {
 func (w *World) config() subtitles.Config {
 	return subtitles.Config{
 		Library: w.Lib, Files: w.Files, Targets: w.Targets, Roots: w.held,
-		Types:   map[works.TypeID]subtitles.Facet{contenttypetest.ID: w.Fixture},
+		Types:   map[works.TypeID]subtitles.Facet{contenttypetest.ID: episodes{w}},
 		Storage: func(role.NodeID) storing.SidecarCalls { return w.Writes },
 		Holders: func(role.NodeID) subtitling.Remote {
 			return subtitling.NewRemote(keyed{Syncs: w.Syncs, keys: w.Holder})
@@ -211,16 +223,14 @@ func (w *World) config() subtitles.Config {
 		Videos: func(context.Context, storage.Reader[storage.Library]) (media.Videos, error) {
 			return media.DefaultVideos, nil
 		},
-		Providers: []subtitling.Spec{
-			{ID: "subdl", Label: "SubDL", Kinds: []subtitling.Kind{subtitling.Feature, subtitling.Episode}, Keyed: true, Position: 1},
-			{ID: "gestdown", Label: "Gestdown", Kinds: []subtitling.Kind{subtitling.Episode}, Position: 2},
-		},
+		Providers: Specs,
 
 		MediaServers: w.Servers,
 		Works:        w.Works,
 		FetchCap:     w.fetchCap,
 
-		Tasks:  subtitles.Unscheduled{},
+		Tasks:  w.Cadences,
+		GapCap: subtitles.NoGapCap,
 		Roster: roster{w},
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) {
 			return w.restored.Load(), nil
@@ -228,6 +238,7 @@ func (w *World) config() subtitles.Config {
 		History:          w.history,
 		Changed:          &w.Changed,
 		ProvidersChanged: &w.ProvidersChanged,
+		Attempt:          &w.Attempts,
 		Timings:          w.Timings,
 		Clock:            time.Now,
 		Rand:             rand.New(&splitmix{x: 2}), //nolint:gosec // seeded on purpose so tests replay
@@ -315,9 +326,14 @@ func (w *World) Preview(p targets.ProfileID, name string, langs ...targets.Wante
 // Work adds a Work of one Item wanting from p.
 func (w *World) Work(key works.Key, p targets.ProfileID) works.Tree {
 	w.t.Helper()
-	w.Fixture.Put(key, contenttypetest.Record{Tree: works.Fetched{Label: "Work " + string(key), Children: []works.Entry{
+	return w.add(key, p, works.Fetched{Label: "Work " + string(key), Children: []works.Entry{
 		{Key: "l1", Label: "Feature", Children: []works.Entry{{Key: "i1", Label: "Feature"}}},
-	}}})
+	}})
+}
+
+func (w *World) add(key works.Key, p targets.ProfileID, f works.Fetched) works.Tree {
+	w.t.Helper()
+	w.Fixture.Put(key, contenttypetest.Record{Tree: f})
 	tree, _, err := w.Works.Add(w.t.Context(), identity.Admin{}, contenttypetest.ID, key, works.Adding{
 		Monitor: true,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], s works.Summary) error {
@@ -337,11 +353,17 @@ func (w *World) Work(key works.Key, p targets.ProfileID) works.Tree {
 // disk, and runs the bulk pass over it, as a Library scan's adoption does.
 func (w *World) Place(tree works.Tree, rel string, m media.Record) files.ID {
 	w.t.Helper()
+	return w.PlaceItems(tree, []works.ItemID{tree.Items[0].ID}, rel, m)
+}
+
+// PlaceItems is Place for a file holding items.
+func (w *World) PlaceItems(tree works.Tree, items []works.ItemID, rel string, m media.Record) files.ID {
+	w.t.Helper()
 	w.Put(rel, "video "+rel)
 	var id files.ID
 	err := w.Lib.Write(w.t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		f, err := files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: w.Root.ID, Path: rel, Size: 1024, Media: m, Quality: release.WEBDL1080p,
+			WorkID: tree.ID, Items: items, Cut: release.Standard, RootID: w.Root.ID, Path: rel, Size: 1024, Media: m, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{w.target.ID})
 		id = f.ID
 		return err
@@ -360,6 +382,40 @@ func (w *World) Add(ctx context.Context, tx *storage.Tx[storage.Library], tree w
 		WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: w.Root.ID, Path: rel, Size: 1024, Media: m, Quality: release.WEBDL1080p,
 	}, nil)
 	return f.ID, err
+}
+
+// Episodes makes the World's files episodes, numbered by Aired. Call it
+// before placing any file.
+func (w *World) Episodes() { w.shows.Store(true) }
+
+// Aired numbers item as episode n of season 1.
+func (w *World) Aired(item works.ItemID, n int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.aired[item] = n
+}
+
+// Unair gives item no aired number.
+func (w *World) Unair(item works.ItemID) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	delete(w.aired, item)
+}
+
+// Show adds a Work of n Items wanting from p, each aired as its episode
+// of season 1.
+func (w *World) Show(key works.Key, p targets.ProfileID, n int) works.Tree {
+	w.t.Helper()
+	var items []works.Entry
+	for i := range n {
+		k := works.Key(fmt.Sprintf("e%d", i+1))
+		items = append(items, works.Entry{Key: k, Label: fmt.Sprintf("Episode %d", i+1)})
+	}
+	tree := w.add(key, p, works.Fetched{Label: "Show " + string(key), Children: []works.Entry{{Key: "s1", Label: "Season 1", Children: items}}})
+	for i, it := range tree.Items {
+		w.Aired(it.ID, i+1)
+	}
+	return tree
 }
 
 // Reconcile runs the bulk pass and settles.
@@ -508,14 +564,27 @@ func (r roster) Name(id role.NodeID) string {
 
 // Published is every value of one event a World published, in order.
 type Published[T any] struct {
-	mu sync.Mutex
-	vs []T
+	mu   sync.Mutex
+	vs   []T
+	seen func(T)
 }
 
 func (p *Published[T]) Publish(_ context.Context, v T) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.vs = append(p.vs, v)
+	seen := p.seen
+	p.mu.Unlock()
+	if seen != nil {
+		seen(v)
+	}
+}
+
+// Seen hands each value published from now on to fn, as a live screen
+// that reads again on the event would hear it.
+func (p *Published[T]) Seen(fn func(T)) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.seen = fn
 }
 
 // All is what was published so far.

@@ -1,12 +1,15 @@
 import { useEffect } from "react";
 
-import type { SubtitlesAttempt, SubtitlesProvider } from "../api/gen/model";
+import { sentenceOf } from "../api/errors";
+import type { SubtitlesProvider } from "../api/gen/model";
+import { useNow } from "../tasks/use-now";
 import { AlertLine } from "../ui/alert-line";
 import { Spinner } from "../ui/spinner";
 import { toast } from "../ui/toast";
 import type { SubtitleSubject } from "./search-host";
 import { addedWords, endedWords, stepWords } from "./sheet-words";
 import { useAttempt } from "./work-api";
+// oxlint-disable-next-line import/max-dependencies -- the line follows an attempt's steps and outcome, and says why its read failed
 import { providerName } from "./work-words";
 
 /**
@@ -30,20 +33,24 @@ export function useAttemptLine(
   return { attempt, error: read.error };
 }
 
-/** What an attempt is doing, or how it ended without a subtitle. */
+/** What an attempt is doing, how it ended without a subtitle, or why it can't be read. */
 export function AttemptLine({
-  attempt,
+  line: { attempt, error },
   providers,
 }: {
-  attempt: SubtitlesAttempt | undefined;
+  line: ReturnType<typeof useAttemptLine>;
   providers: readonly SubtitlesProvider[];
 }) {
+  const clock = { now: useNow(60_000), zone: undefined };
+  if (error !== null) {
+    return <AlertLine text={sentenceOf(error)} />;
+  }
   if (attempt === undefined) {
     return null;
   }
   if (attempt.outcome !== null) {
     return attempt.outcome.kind === "added" ? null : (
-      <AlertLine text={endedWords(attempt.outcome)} />
+      <AlertLine text={endedWords(attempt.outcome, { providers, clock })} />
     );
   }
   const words =

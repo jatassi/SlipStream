@@ -8,16 +8,14 @@ import type {
   SubtitlesCandidateReasonsItem,
   SubtitlesCandidates,
   SubtitlesOutcome,
-  SubtitlesOutcomeKind,
   SubtitlesProvider,
 } from "../api/gen/model";
 import { pickSubtitleCandidate } from "../api/gen/query/subtitles/subtitles";
-import { type Clock, laterAtWords } from "../format";
 import { useNow } from "../tasks/use-now";
 import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
-// oxlint-disable-next-line import/max-dependencies -- the sheet reads the search, picks and follows the attempt it starts
 import { Chip } from "../ui/chip";
+// oxlint-disable-next-line import/max-dependencies -- the sheet reads the search, picks and follows the attempt it starts
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
 import { Icon } from "../ui/icon";
@@ -26,33 +24,12 @@ import { Spinner } from "../ui/spinner";
 import type { SubtitleSubject } from "./search-host";
 import { AttemptLine, useAttemptLine } from "./attempt";
 import { useCandidates } from "./work-api";
-import { matchWords, reasonWords, triedWords } from "./sheet-words";
+import { matchWords, outcomeWords, reasonWords, triedWords } from "./sheet-words";
 import { providerName } from "./work-words";
 
 const steps = Object.keys(reasonWords).filter((step): step is SubtitlesCandidateReasonsItem =>
   Object.hasOwn(reasonWords, step),
 );
-
-const outcomeLines: {
-  readonly [K in SubtitlesOutcomeKind]: (
-    name: string,
-    until: string | null,
-    clock: Clock,
-  ) => string;
-} = {
-  ok: () => "",
-  not_found: (name) => `${name} found nothing.`,
-  refused: (name) => `${name} rejected the key. Replace it in Settings > Subtitles.`,
-  limited: (name, until, clock) => outWords(name, until, clock),
-  capped: (name, until, clock) => outWords(name, until, clock),
-  unreachable: (name) => `${name} isn't responding.`,
-};
-
-function outWords(name: string, until: string | null, clock: Clock) {
-  return until === null
-    ? `${name} is out of downloads.`
-    : `${name} is out of downloads. SlipStream searches it again ${laterAtWords(until, clock)}.`;
-}
 
 /** How each provider's search ended, where it found nothing or couldn't search. */
 function Notes({
@@ -65,9 +42,9 @@ function Notes({
   const clock = { now: useNow(60_000), zone: undefined };
   return outcomes
     .filter(({ kind }) => kind !== "ok")
-    .map(({ kind, provider, until }) => (
-      <p key={provider} className="text-meta text-ink-3">
-        {outcomeLines[kind](providerName(providers, provider), until, clock)}
+    .map((outcome) => (
+      <p key={outcome.provider} className="text-meta text-ink-3">
+        {outcomeWords(outcome, providers, clock)}
       </p>
     ));
 }
@@ -124,7 +101,7 @@ function Card({ candidate, best, providers, busy, locked, onPick }: CardProps) {
           size="small"
           busy={busy}
           disabled={candidate.disabled || locked}
-          aria-label={`Pick ${candidate.release}`}
+          aria-label={`Pick ${candidate.release} from ${providerName(providers, candidate.provider)}`}
           onClick={onPick}
         >
           Pick
@@ -283,7 +260,7 @@ export function CandidatesBody({
     <div className="flex flex-col gap-4">
       <SearchLines read={read.data} providers={subject.providers} />
       {pick.failure !== undefined && <AlertLine text={pick.failure} />}
-      <AttemptLine attempt={pick.line.attempt} providers={subject.providers} />
+      <AttemptLine line={pick.line} providers={subject.providers} />
       <Ranked candidates={candidates} subject={subject} pick={pick} />
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
