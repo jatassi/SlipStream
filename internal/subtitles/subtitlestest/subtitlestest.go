@@ -13,6 +13,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -30,10 +31,15 @@ import (
 	"github.com/jatassi/slipstream/internal/media/speech/speechtest"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	subtitlesv1 "github.com/jatassi/slipstream/internal/pb/slipstream/subtitles/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/subtitles/v1/subtitlesv1connect"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
+	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/storing"
@@ -62,6 +68,14 @@ type World struct {
 	calls    storing.SidecarCalls
 	holders  atomic.Bool
 	restored atomic.Bool
+	sealer   *secret.Sealer
+	// Holder is SubtitlesService on the World's Subtitles holder, the
+	// Node too. A test that checks a key sets it.
+	Holder subtitlesv1connect.SubtitlesServiceHandler
+	// Changed and ProvidersChanged are what the World's subtitles
+	// published.
+	Changed          Published[subtitles.Changed]
+	ProvidersChanged Published[subtitles.ProvidersChanged]
 	// Check runs after every step that writes: the records invariant.
 	Check func(t testing.TB, w *World)
 }
@@ -80,8 +94,13 @@ func Open(t *testing.T, tm subtitles.Timings) *World {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := &World{t: t, Lib: lib, Fixture: fx, Works: tree, Node: role.NodeID{UUID: storage.NewUUID()}, Timings: tm}
+	w := &World{t: t, Lib: lib, Fixture: fx, Works: tree, Node: role.NodeID{UUID: storage.NewUUID()}, Timings: tm, sealer: secrettest.Sealer(t)}
 	w.holders.Store(true)
+	if err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return nodestest.Insert(ctx, tx, w.Node, "Node A")
+	}); err != nil {
+		t.Fatal(err)
+	}
 	w.Root = rootstest.Root(t, lib, w.Node, contenttypetest.ID, t.TempDir())
 	var store *storing.Store
 	held := rootstest.HeldOn(t, lib, w.Node, rootstest.On{Tune: func(cfg *roots.Config) {
@@ -144,17 +163,27 @@ func (w *World) config() subtitles.Config {
 		Library: w.Lib, Files: w.Files, Targets: w.Targets, Roots: w.held,
 		Types:   map[works.TypeID]subtitles.Facet{contenttypetest.ID: w.Fixture},
 		Storage: func(role.NodeID) storing.SidecarCalls { return w.calls },
+		Holders: func(role.NodeID) subtitling.Remote { return subtitling.NewRemote(w.Holder) },
+		Sealer:  w.sealer,
+		Describe: func(works.TypeID) (works.Description, bool) {
+			return contenttypetest.Description, true
+		},
 		Videos: func(context.Context, storage.Reader[storage.Library]) (media.Videos, error) {
 			return media.DefaultVideos, nil
 		},
-		Providers: []subtitling.Spec{{ID: "subdl", Label: "SubDL", Kinds: []subtitling.Kind{subtitling.Feature, subtitling.Episode}, Position: 1}},
+		Providers: []subtitling.Spec{
+			{ID: "subdl", Label: "SubDL", Kinds: []subtitling.Kind{subtitling.Feature, subtitling.Episode}, Keyed: true, Position: 1},
+			{ID: "gestdown", Label: "Gestdown", Kinds: []subtitling.Kind{subtitling.Episode}, Position: 2},
+		},
 		Tasks:     subtitles.Unscheduled{},
 		Roster:    roster{w},
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) {
 			return w.restored.Load(), nil
 		},
-		Timings: w.Timings,
-		Clock:   time.Now,
+		Changed:          &w.Changed,
+		ProvidersChanged: &w.ProvidersChanged,
+		Timings:          w.Timings,
+		Clock:            time.Now,
 		Rand:    rand.New(&splitmix{x: 2}), //nolint:gosec // seeded on purpose so tests replay
 		Log:     slog.New(slog.DiscardHandler),
 	}
@@ -357,6 +386,32 @@ func (r roster) Holding(role.Name) []role.NodeID {
 	return nil
 }
 
+func (r roster) Name(id role.NodeID) string {
+	if id == r.w.Node {
+		return "Node A"
+	}
+	return id.String()
+}
+
+// Published is every value of one event a World published, in order.
+type Published[T any] struct {
+	mu sync.Mutex
+	vs []T
+}
+
+func (p *Published[T]) Publish(_ context.Context, v T) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.vs = append(p.vs, v)
+}
+
+// All is what was published so far.
+func (p *Published[T]) All() []T {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return slices.Clone(p.vs)
+}
+
 type lateSubtitles struct{ files.Subtitles }
 
 // splitmix is SplitMix64, a replayable stream for the World, which has no
@@ -379,3 +434,24 @@ func (s *splitmix) Uint64() uint64 {
 type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
+
+// KeyHolder is a Subtitles holder whose key checks answer Account and
+// Plan with 19 of 50 downloads left, or the provider's refusal Refused
+// when it is set.
+type KeyHolder struct {
+	subtitlesv1connect.UnimplementedSubtitlesServiceHandler
+	Account, Plan, Refused string
+}
+
+func (h KeyHolder) CheckKey(_ context.Context, req *subtitlesv1.CheckKeyRequest) (*subtitlesv1.CheckKeyResponse, error) {
+	at := time.Now().UnixMicro()
+	if h.Refused != "" {
+		return &subtitlesv1.CheckKeyResponse{Outcomes: []*subtitlesv1.Outcome{{
+			Provider: req.GetProvider(), Kind: subtitlesv1.OutcomeKind_OUTCOME_KIND_REFUSED, Words: h.Refused, AtUnixMicro: at,
+		}}}, nil
+	}
+	return &subtitlesv1.CheckKeyResponse{Account: h.Account, Plan: h.Plan, Outcomes: []*subtitlesv1.Outcome{{
+		Provider: req.GetProvider(), Kind: subtitlesv1.OutcomeKind_OUTCOME_KIND_OK, AtUnixMicro: at,
+		Allowance: &subtitlesv1.Allowance{Downloads: &subtitlesv1.Window{Used: 31, Limit: 50, Remaining: 19, ResetsUnixMicro: at + 3_600_000_000, Exact: true}},
+	}}}, nil
+}

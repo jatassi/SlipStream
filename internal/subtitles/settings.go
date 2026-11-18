@@ -224,7 +224,9 @@ func into[T any](parse func(json.RawMessage) (setting.Stored[T], error), to **T)
 // Role.
 type NotStorageError struct{ Node role.NodeID }
 
-func (e *NotStorageError) Error() string { return fmt.Sprintf("node %s doesn't have the Storage Role", e.Node) }
+func (e *NotStorageError) Error() string {
+	return fmt.Sprintf("node %s doesn't have the Storage Role", e.Node)
+}
 
 // NodeSettings is the Subtitles settings of one Storage Node, on its card.
 func (s *Subtitles) NodeSettings(node role.NodeID) setting.Panel { return nodePanel{s, node} }

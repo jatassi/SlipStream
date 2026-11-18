@@ -58,6 +58,8 @@ type Config struct {
 	Roots   Roots
 	// Types is each Content Type's subtitle facet.
 	Types map[works.TypeID]Facet
+	// Describe names a Content Type's Works in Health's words.
+	Describe func(works.TypeID) (works.Description, bool)
 	// Storage is SidecarService on each Storage Node.
 	Storage storing.SidecarRemote
 	// Holders is SubtitlesService on a Node with the Subtitles Role.
@@ -79,10 +81,10 @@ type Config struct {
 	// subtitles.providers-changed.
 	Changed          Publisher[Changed]
 	ProvidersChanged Publisher[ProvidersChanged]
-	Timings     Timings
-	Clock       func() time.Time
-	Rand        *rand.Rand
-	Log         *slog.Logger
+	Timings          Timings
+	Clock            func() time.Time
+	Rand             *rand.Rand
+	Log              *slog.Logger
 }
 
 type Subtitles struct {

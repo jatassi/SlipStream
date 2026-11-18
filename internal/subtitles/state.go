@@ -98,9 +98,10 @@ func missingOf(row *db.SubtitlesWant, file *db.SubtitlesFile, wd world) MissingR
 	return NeverSearched
 }
 
-// Roster is which Nodes hold a Role.
+// Roster is which Nodes hold a Role, and each Node's name.
 type Roster interface {
 	Holding(name role.Name) []role.NodeID
+	Name(id role.NodeID) string
 }
 
 // Outcome is what w of file f reads as now, in r.
