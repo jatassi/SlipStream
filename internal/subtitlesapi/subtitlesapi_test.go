@@ -186,6 +186,30 @@ func TestAPickFromAProviderOutOfDownloadsSaysUntilWhen(t *testing.T) {
 	})
 }
 
+func TestAPickFromAProviderAlreadyPausedSaysUntilWhen(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w, o := serve(t)
+		en := subtitlestest.Wanted(t, "en", false, targets.Allow, targets.Always)
+		f := w.Place(w.Work("film", w.Profile("Films", en)), "Film/Film.mkv", media.Record{Audio: []media.Audio{{Codec: "eac3", Channels: 6, Language: "fr"}}})
+		w.Sweep()
+		w.Holder = subtitlestest.KeyHolder{Account: "film-fan", Plan: "Free"}
+		answers(t, o, http.MethodPut, "/api/v1/subtitles/providers/subdl/key", `{"key":"k1"}`, http.StatusOK)
+		w.Catalog.List(subtitlestest.Listing{Offer: subtitling.Offer{Provider: "subdl", Key: "x", Language: en.Language}, Name: "Film.srt", Bytes: []byte(againstSpeech)})
+		want := "/api/v1/files/" + f.String() + "/subtitles/en"
+		search := field(t, answers(t, o, http.MethodPost, want+"/candidates", "", http.StatusAccepted), "searchId")
+		w.Settle()
+		reset := time.Now().Add(6 * time.Hour)
+		w.Catalog.Answer("subdl", calls.Outcome{Kind: calls.Capped, Words: "has no downloads left today", Until: reset})
+		answers(t, o, http.MethodPost, want+"/search", "", http.StatusAccepted)
+		w.Settle()
+		answers(t, o, http.MethodGet, "/api/v1/subtitles/providers", "", http.StatusOK, `"state":{"kind":"out"`)
+		picked := field(t, answers(t, o, http.MethodPost, want+"/candidates/"+search+"/subdl:x", "", http.StatusAccepted), "attemptId")
+		w.Settle()
+		answers(t, o, http.MethodGet, "/api/v1/files/"+f.String()+"/subtitles/attempts/"+picked, "", http.StatusOK,
+			`"kind":"unfetched"`, `"answer":{"provider":"subdl","kind":"capped","until":"`+reset.UTC().Format(time.RFC3339Nano)+`"}`)
+	})
+}
+
 func TestAnUploadOverTheCapIsRefused(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		_, o := serve(t)
