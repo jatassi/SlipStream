@@ -1,7 +1,7 @@
-// Package subcatalog is the catalog the subtitle provider fakes serve,
-// and Render, which writes a catalog subtitle's bytes. Its cues follow a
-// seeded speech schedule through an offset, so whether a subtitle passes
-// Timing sync against a file is a fact of the catalog.
+// Package subcatalog is the Scenario's subtitle_providers catalog as the
+// subtitle provider fakes serve it, and the bytes of each subtitle. Its
+// cues follow a file's seeded speech through an offset, so whether a
+// subtitle passes Timing sync against a file is a fact of the Scenario.
 package subcatalog
 
 import (
@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/internal/speech"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/subtitles/timing"
 	"github.com/jatassi/slipstream/internal/subtitles/timing/timingtest"
@@ -33,77 +34,75 @@ var exts = map[Format]string{SRT: "srt", ASS: "ass", SSA: "ssa", Image: "sup"}
 
 func (f Format) Ext() string { return exts[f] }
 
-type Catalog struct{ Subtitles []Subtitle }
-
 // Subtitle is one catalog entry. A film's has no Episodes; a pack's has
 // several, one archive member each.
 type Subtitle struct {
 	// ID names it inside its provider.
 	ID               string
 	IMDb, TMDB, TVDB string
-	Season           int
-	Episodes         []int
-	// Language is an ISO 639-1 code.
+	// Title and Year are its Work's, for a search by text.
+	Title    string
+	Year     int
+	Season   int
+	Episodes []int
+	// Language is an ISO 639-1 code, or pt-BR.
 	Language string
 	HI, AI   bool
 	Release  string
 	Format   Format
-	Speech   Speech
+	// Speech is the speech each member's cues follow, in Members' order.
+	Speech []scenario.MediaSpeech
 	// Offset shifts every cue from where the speech is.
-	Offset time.Duration
+	Offset  time.Duration
+	Unaired bool
 }
 
 func (s Subtitle) Pack() bool { return len(s.Episodes) > 1 }
 
-// Speech is the seeded schedule a file's speech, and so its subtitles'
-// cues, follow.
-type Speech struct {
-	Seed    uint64
-	Length  time.Duration
-	Density float64
-}
-
-// Schedule is where speech falls in the file of episode, 0 for a film.
-func (sp Speech) Schedule(episode int) timingtest.Schedule {
-	return timingtest.NewSchedule(sp.Seed+uint64(episode), sp.Length, sp.Density) //nolint:gosec // G115: an episode number is never negative
-}
-
-// Cues are the times a person gave episode's subtitle, before Offset.
-func (sp Speech) Cues(episode int) []timing.Span {
-	return sp.Schedule(episode).Cues(sp.Seed + uint64(episode) + 1) //nolint:gosec // G115: an episode number is never negative
-}
-
 // Member is one file of a subtitle's download.
 type Member struct {
-	Name  string
-	Bytes []byte
+	Name string
+	// Episode is the episode it holds, 0 for a film.
+	Episode int
+	Bytes   []byte
+}
+
+// Members are the files a download holds, in episode order: a film's one
+// file, or each episode's.
+func Members(s Subtitle) []Member {
+	if len(s.Episodes) == 0 {
+		return []Member{{Name: s.Release + "." + s.Format.Ext(), Bytes: s.text(0)}}
+	}
+	if !s.Pack() {
+		return []Member{{Name: s.Release + "." + s.Format.Ext(), Episode: s.Episodes[0], Bytes: s.text(0)}}
+	}
+	out := make([]Member, len(s.Episodes))
+	for i, e := range s.Episodes {
+		out[i] = Member{Name: fmt.Sprintf("%02d %s.%s", e, s.Release, s.Format.Ext()), Episode: e, Bytes: s.text(i)}
+	}
+	return out
+}
+
+// text is member i's subtitle: a person's cues for its speech, shifted.
+func (s Subtitle) text(i int) []byte {
+	sp := s.Speech[i]
+	return Text(s.Format, timingtest.Shift(speech.Schedule(sp).Cues(sp.Seed+1), s.Offset))
 }
 
 // junkSize is the notice member SubDL packs open with, as recorded.
 const junkSize = 296
 
-// Members are the files a download holds, in archive order: a film's one
-// file, or a pack's notice and then each episode's file.
-func Members(s Subtitle) []Member {
-	if !s.Pack() {
-		episode := 0
-		if len(s.Episodes) == 1 {
-			episode = s.Episodes[0]
-		}
-		return []Member{{Name: s.Release + "." + s.Format.Ext(), Bytes: Text(s.Format, timingtest.Shift(s.Speech.Cues(episode), s.Offset))}}
-	}
-	out := []Member{{Name: fmt.Sprintf("00 %s SEASON %d.srt", s.Release, s.Season), Bytes: junk()}}
-	for _, e := range s.Episodes {
-		out = append(out, Member{Name: fmt.Sprintf("%02d %s.%s", e, s.Release, s.Format.Ext()), Bytes: Text(s.Format, timingtest.Shift(s.Speech.Cues(e), s.Offset))})
-	}
-	return out
+// Junk is the notice member a SubDL pack opens with.
+func Junk(s Subtitle) Member {
+	b := []byte("1\n00:00:00,000 --> 00:00:05,000\nDownloaded from SubDL\n")
+	return Member{Name: fmt.Sprintf("00 %s SEASON %d.srt", s.Release, s.Season), Bytes: append(b, bytes.Repeat([]byte(" "), junkSize-len(b)-1)...)}
 }
 
-// Render is the subtitle's download: a zip of its Members.
-func Render(s Subtitle) ([]byte, error) {
+// Zip is ms in a zip, in order.
+func Zip(ms []Member) ([]byte, error) {
 	var b bytes.Buffer
 	z := zip.NewWriter(&b)
-	for _, m := range Members(s) {
+	for _, m := range ms {
 		w, err := z.Create(m.Name)
 		if err != nil {
 			return nil, fmt.Errorf("zip %s: %w", m.Name, err)
@@ -116,11 +115,6 @@ func Render(s Subtitle) ([]byte, error) {
 		return nil, fmt.Errorf("close the zip: %w", err)
 	}
 	return b.Bytes(), nil
-}
-
-func junk() []byte {
-	b := []byte("1\n00:00:00,000 --> 00:00:05,000\nDownloaded from SubDL\n")
-	return append(b, bytes.Repeat([]byte(" "), junkSize-len(b)-1)...)
 }
 
 // Text writes spans as a subtitle in f, one numbered line per cue. ASS
@@ -167,77 +161,49 @@ func assStamp(t time.Duration) string {
 	return fmt.Sprintf("%d:%02d:%02d.%02d", cs/360000, cs/6000%60, cs/100%60, cs%100)
 }
 
-// speech is the file schedule a Scenario's Work gets: two minutes, two
-// fifths speech, seeded by its id.
-func speech(id string) Speech {
-	h := fnv.New64a()
-	_, _ = h.Write([]byte(id))
-	return Speech{Seed: h.Sum64() >> 1, Length: 2 * time.Minute, Density: 0.4}
-}
-
-// FromScenario is the catalog every Work the Scenario's metadata fakes
-// know gets until a Scenario names its own: for each film an English SRT
-// in time, the same machine translated, and an image subtitle; for each
-// episode an English SRT in time; and for each season of two or more
-// episodes an English pack, which every other season's lists as not a
-// full season.
-func FromScenario(sc scenario.Scenario) Catalog {
-	var c Catalog
-	if sc.TMDB != nil {
-		for _, m := range sc.TMDB.Movies {
-			c.Subtitles = append(c.Subtitles, films(m)...)
+// Of is the Scenario's catalog subtitles at provider.
+func Of(sc scenario.Scenario, provider string) []Subtitle {
+	var out []Subtitle
+	for _, c := range sc.SubtitleProviders.Catalog {
+		if c.Provider == provider {
+			out = append(out, entry(sc, c))
 		}
 	}
-	if sc.TVDB != nil {
-		for _, series := range sc.TVDB.Series {
-			if series.IMDb != "" {
-				c.Subtitles = append(c.Subtitles, episodes(series)...)
+	return out
+}
+
+var formats = map[string]Format{"": SRT, "srt": SRT, "ass": ASS, "ssa": SSA, "sup": Image}
+
+func entry(sc scenario.Scenario, c scenario.CatalogSubtitle) Subtitle {
+	s := Subtitle{
+		ID: c.ID, Season: c.Season, Episodes: c.Episodes, Language: c.Language, HI: c.HI, AI: c.AI,
+		Release: c.Release, Format: formats[c.Format], Offset: c.Offset, Unaired: c.Unaired, Title: c.Work,
+	}
+	if sc.TMDB != nil {
+		if i := slices.IndexFunc(sc.TMDB.Movies, func(m scenario.TMDBMovie) bool { return m.Title == c.Work }); i >= 0 {
+			m := sc.TMDB.Movies[i]
+			s.IMDb, s.TMDB = m.IMDbID, strconv.FormatInt(m.ID, 10)
+			s.Year, _ = strconv.Atoi(strings.SplitN(m.Released, "-", 2)[0])
+		}
+	}
+	if sc.TVDB != nil && s.IMDb == "" {
+		if i := slices.IndexFunc(sc.TVDB.Series, func(t scenario.TVDBSeries) bool { return t.Name == c.Work }); i >= 0 {
+			t := sc.TVDB.Series[i]
+			s.IMDb, s.TVDB = t.IMDb, strconv.FormatInt(t.ID, 10)
+			if t.TMDB > 0 {
+				s.TMDB = strconv.FormatInt(t.TMDB, 10)
 			}
 		}
 	}
-	return c
-}
-
-func films(m scenario.TMDBMovie) []Subtitle {
-	base := Subtitle{IMDb: m.IMDbID, TMDB: strconv.FormatInt(m.ID, 10), Language: "en", Release: strings.ReplaceAll(m.Title, " ", ".") + ".1080p.WEB-DL-SLIP", Speech: speech(m.IMDbID)}
-	var out []Subtitle
-	for i, v := range []func(*Subtitle){
-		func(s *Subtitle) { s.Format = SRT },
-		func(s *Subtitle) { s.Format, s.AI = SRT, true },
-		func(s *Subtitle) { s.Format = Image },
-	} {
-		s := base
-		s.ID = fmt.Sprintf("%s-%d", m.IMDbID, i)
-		v(&s)
-		out = append(out, s)
-	}
-	return out
-}
-
-func episodes(series scenario.TVDBSeries) []Subtitle {
-	sp := speech(series.IMDb)
-	name := strings.ReplaceAll(series.Name, " ", ".")
-	tvdb := strconv.FormatInt(series.ID, 10)
-	var out []Subtitle
-	for _, season := range series.Seasons {
-		var numbers []int
-		for _, e := range season.Episodes {
-			out = append(out, Subtitle{
-				ID: fmt.Sprintf("%s-s%02de%02d", series.IMDb, season.Number, e.Number), IMDb: series.IMDb, TVDB: tvdb,
-				Season: season.Number, Episodes: []int{e.Number}, Language: "en", Format: SRT, Speech: sp,
-				Release: fmt.Sprintf("%s.S%02dE%02d.1080p.WEB-DL-SLIP", name, season.Number, e.Number),
-			})
-			numbers = append(numbers, e.Number)
-		}
-		if len(numbers) < 2 {
+	for i := range max(len(c.Episodes), 1) {
+		if len(c.Sources) > 0 {
+			f, _ := sc.LibraryFile(c.Sources[i])
+			s.Speech = append(s.Speech, *f.SpeechTrack())
 			continue
 		}
-		slices.Sort(numbers)
-		out = append(out, Subtitle{
-			ID: fmt.Sprintf("%s-s%02d", series.IMDb, season.Number), IMDb: series.IMDb, TVDB: tvdb,
-			Season: season.Number, Episodes: numbers, Language: "en", Format: SRT, Speech: sp,
-			Release: fmt.Sprintf("%s.S%02d.1080p.WEB-DL-SLIP", name, season.Number),
-		})
+		h := fnv.New64a()
+		_, _ = h.Write([]byte(c.ID))
+		s.Speech = append(s.Speech, scenario.MediaSpeech{Seed: h.Sum64()>>1 + uint64(i), Length: 2 * time.Minute, Density: 0.4}) //nolint:gosec // G115: i is a member index
 	}
-	return out
+	return s
 }

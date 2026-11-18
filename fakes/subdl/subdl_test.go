@@ -2,6 +2,7 @@ package subdl_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -41,6 +42,24 @@ func titled(t *testing.T) scenario.Scenario {
 	s.TVDB = &scenario.TVDB{Series: []scenario.TVDBSeries{{ID: 70001, Name: "The Lantern Keepers", Status: "continuing", IMDb: "tt9100001", Seasons: []scenario.TVDBSeason{{Number: 1, Episodes: []scenario.TVDBEpisode{
 		{ID: 71001, Number: 1, Name: "The First Light"}, {ID: 71002, Number: 2, Name: "Low Tide"}, {ID: 71003, Number: 3, Name: "Ashore"},
 	}}}}}}
+	film := scenario.CatalogSubtitle{Provider: "subdl", Work: "The Quiet Orchard", Language: "en", Release: "The.Quiet.Orchard.2026.1080p.WEB-DL-SLIP"}
+	series := scenario.CatalogSubtitle{Provider: "subdl", Work: "The Lantern Keepers", Season: 1, Language: "en"}
+	add := func(c scenario.CatalogSubtitle, id string, set func(*scenario.CatalogSubtitle)) {
+		c.ID = id
+		set(&c)
+		s.SubtitleProviders.Catalog = append(s.SubtitleProviders.Catalog, c)
+	}
+	add(film, "film", func(*scenario.CatalogSubtitle) {})
+	add(film, "film-ai", func(c *scenario.CatalogSubtitle) { c.AI = true })
+	add(film, "film-image", func(c *scenario.CatalogSubtitle) { c.Format = "sup" })
+	for e := 1; e <= 3; e++ {
+		add(series, fmt.Sprintf("s01e%02d", e), func(c *scenario.CatalogSubtitle) {
+			c.Episodes, c.Release = []int{e}, fmt.Sprintf("The.Lantern.Keepers.S01E%02d.1080p.WEB-DL-SLIP", e)
+		})
+	}
+	add(series, "s01", func(c *scenario.CatalogSubtitle) {
+		c.Episodes, c.Release = []int{1, 2, 3}, "The.Lantern.Keepers.S01.1080p.WEB-DL-SLIP"
+	})
 	return s
 }
 
