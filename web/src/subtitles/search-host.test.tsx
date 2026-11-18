@@ -136,7 +136,7 @@ test("candidates rank with the first as Best, each step it meets checked, and tr
     .element(tried.getByText("SubDL · SlipStream can't use image subtitles."))
     .toBeVisible();
   await expect
-    .element(tried.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.image" }))
+    .element(tried.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.image from SubDL" }))
     .toBeDisabled();
   await expect
     .element(tried.getByText("SubDL · Its timing didn't match this file. · Timing match 41%"))
@@ -159,7 +159,7 @@ test("a pick shows each step as the attempt moves, then toasts and closes once t
   await userEvent.click(manualSearch());
   const dialog = page.getByRole("dialog", { name: title });
   await userEvent.click(
-    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best" }),
+    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best from SubDL" }),
   );
   await expect.element(dialog.getByText("Downloading from SubDL…")).toBeVisible();
   expect(world.calls).toEqual(["candidates", "pick best"]);
@@ -193,7 +193,7 @@ test("a pick whose timing fails stays open with the reason", async () => {
   await userEvent.click(manualSearch());
   const dialog = page.getByRole("dialog", { name: title });
   await userEvent.click(
-    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best" }),
+    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best from SubDL" }),
   );
   await expect
     .element(
@@ -227,7 +227,7 @@ test("a pick the provider didn't serve says why and when it serves again, and le
   await userEvent.click(manualSearch());
   const dialog = page.getByRole("dialog", { name: title });
   await userEvent.click(
-    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best" }),
+    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best from SubDL" }),
   );
   await expect
     .element(
@@ -237,7 +237,82 @@ test("a pick the provider didn't serve says why and when it serves again, and le
     )
     .toBeVisible();
   await expect
-    .element(dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.next" }))
+    .element(dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.next from SubSource" }))
     .toBeEnabled();
   expect(world.calls).toEqual(["candidates", "pick best"]);
+});
+
+test("two candidates of one release are told apart by their provider", async () => {
+  const release = "The.Quiet.Orchard.2021.2160p.WEB-DL-GRP";
+  const world = open({
+    start: started,
+    pick: attempting,
+    candidates: () => ({
+      state: "done",
+      outcomes: [],
+      candidates: [
+        candidate("subdl:1", { release }),
+        candidate("subsource:1", { provider: "subsource", release }),
+      ],
+    }),
+  });
+  await userEvent.click(manualSearch());
+  const dialog = page.getByRole("dialog", { name: title });
+  await userEvent.click(dialog.getByRole("button", { name: `Pick ${release} from SubSource` }));
+  expect(world.calls).toEqual(["candidates", "pick subsource:1"]);
+});
+
+test("a pick whose attempt can't be read says why", async () => {
+  open({
+    start: started,
+    pick: attempting,
+    attempt: () =>
+      problem(
+        410,
+        "subtitle_attempt_expired",
+        "The subtitle download or upload expired",
+        "This download has expired. Search again.",
+      ),
+    candidates: () => ({ state: "done", outcomes: [], candidates: [candidate("best")] }),
+  });
+  await userEvent.click(manualSearch());
+  const dialog = page.getByRole("dialog", { name: title });
+  await userEvent.click(
+    dialog.getByRole("button", { name: "Pick The.Quiet.Orchard.2021.2160p.best from SubDL" }),
+  );
+  await expect
+    .element(dialog.getByText("This download has expired. Search again."))
+    .toBeVisible();
+});
+
+test("on phone a long release tried before fits the sheet with its Pick in view", async () => {
+  await asPhone();
+  const release = "The.Quiet.Orchard.2021.2160p.UHD.BluRay.REMUX.HDR.DV.HEVC.TrueHD.Atmos.7.1-GROUP";
+  open({
+    start: started,
+    candidates: () => ({
+      state: "done",
+      outcomes: [],
+      candidates: [
+        candidate("failed", {
+          release,
+          reasons: ["made_by_person"],
+          tried: { outcome: "failed_timing", match: 24, at: new Date().toISOString() },
+        }),
+      ],
+    }),
+  });
+  await userEvent.click(
+    page
+      .getByRole("list", { name: "Subtitles" })
+      .getByRole("button", { name: "More for English subtitles" }),
+  );
+  await userEvent.click(page.getByRole("button", { name: "Manual search" }));
+  const sheet = page.getByRole("dialog", { name: title });
+  await userEvent.click(sheet.getByRole("button", { name: "Tried before" }));
+  const pick = sheet.getByRole("button", { name: `Pick ${release} from SubDL` });
+  await expect.element(pick).toBeVisible();
+  const edge = sheet.element().getBoundingClientRect().right;
+  expect(pick.element().getBoundingClientRect().right).toBeLessThanOrEqual(edge);
+  expect(sheet.getByText(release).element().getBoundingClientRect().right).toBeLessThanOrEqual(edge);
 });

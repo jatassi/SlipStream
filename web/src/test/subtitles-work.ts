@@ -19,6 +19,7 @@ import type { LiveMap } from "./handlers";
 import { orchardId } from "./library";
 import { renderApp } from "./render-app";
 import { scannedFiles } from "./scanned-files";
+import { readyLead, subtitleSettings } from "./subtitles";
 import { workServer } from "./work-server";
 
 const hour = 3_600_000;
@@ -146,10 +147,12 @@ type SubtitlesWorld = {
   readonly start?: Answer;
   readonly candidates?: () => SubtitlesCandidates | Response;
   readonly pick?: Answer;
-  readonly attempt?: () => SubtitlesAttempt;
+  readonly attempt?: () => SubtitlesAttempt | Response;
   readonly upload?: Answer;
   readonly keep?: Answer;
   readonly markBad?: Answer;
+  /** Whether Subtitle search is on in the settings; on unless named. */
+  readonly searchOn?: boolean;
 };
 
 const searchId = "4a6c8e0a-2c4e-4a6c-8e0a-2c4e6a8c0e2b";
@@ -192,9 +195,10 @@ function actionHandlers(world: SubtitlesWorld, { calls, uploads }: Recorded) {
     http.post("*/api/v1/files/:fileId/subtitles/:want/candidates/:searchId/:key", ({ params }) =>
       act(`pick ${String(params["key"])}`, world.pick ?? attempting)(),
     ),
-    http.get("*/api/v1/files/:fileId/subtitles/attempts/:attemptId", () =>
-      HttpResponse.json(world.attempt?.() ?? checking),
-    ),
+    http.get("*/api/v1/files/:fileId/subtitles/attempts/:attemptId", () => {
+      const read = world.attempt?.() ?? checking;
+      return read instanceof Response ? read : HttpResponse.json(read);
+    }),
     http.post("*/api/v1/files/:fileId/subtitles/:want/upload", async ({ request }) => {
       uploads.push(await request.json());
       return act("upload", world.upload ?? attempting)();
@@ -235,6 +239,17 @@ export function subtitlesServer(world: SubtitlesWorld) {
     }),
     getGetWorkSubtitlesMockHandler(() => work),
     getListSubtitleProvidersMockHandler({ providers: [...providers] }),
+    http.get("*/api/v1/subtitles/settings", () =>
+      HttpResponse.json({
+        settings: subtitleSettings().map((field) =>
+          field.key === "subtitles.searchOn"
+            ? { ...field, value: world.searchOn ?? true, running: world.searchOn ?? true }
+            : field,
+        ),
+        lead: readyLead,
+        profiles: [],
+      }),
+    ),
     ...actionHandlers(world, { calls, uploads }),
   ];
   return {
