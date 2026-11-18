@@ -7,6 +7,7 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -51,6 +52,24 @@ func TestTheLibraryMarksOnlyWorksWithAnUnmetWant(t *testing.T) {
 	})
 }
 
+func ignore(t *testing.T, w *subtitlestest.World, f files.ID, ordinal int, on bool) {
+	t.Helper()
+	if err := w.Subs.IgnoreTrack(t.Context(), identity.Admin{}, f, ordinal, on); err != nil {
+		t.Fatal(err)
+	}
+	w.Settle()
+}
+
+// ignoredOnly is whether view's one file has its one want missing, with
+// its text track 1 ignored and no track meeting it.
+func ignoredOnly(view subtitles.WorkView) bool {
+	if len(view.Files) != 1 || len(view.Files[0].Wants) != 1 {
+		return false
+	}
+	f := view.Files[0]
+	return f.Wants[0].State.Kind == subtitles.Missing && f.Embedded[1].Ignored && f.Embedded[1].Meets == nil && f.Embedded[0].Meets == nil
+}
+
 func TestIgnoringATrackStoresItsFingerprintAndMakesTheWantUnmet(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := world(t, nil)
@@ -63,10 +82,7 @@ func TestIgnoringATrackStoresItsFingerprintAndMakesTheWantUnmet(t *testing.T) {
 		if st := outcome(t, w, f, en); st.Kind != subtitles.Embedded || st.Track != 1 {
 			t.Fatalf("before the ignore English reads %+v, want Embedded by track 1", st)
 		}
-		if err := w.Subs.IgnoreTrack(t.Context(), identity.Admin{}, f, 1, true); err != nil {
-			t.Fatal(err)
-		}
-		w.Settle()
+		ignore(t, w, f, 1, true)
 		if got := query(t, w, `SELECT stream_index || ' ' || codec || ' ' || language || ' ' || forced FROM subtitles_track_ignored`); !slices.Equal(got, []string{"1 subrip en 0"}) {
 			t.Fatalf("the ignore rows are %v", got)
 		}
@@ -77,17 +93,13 @@ func TestIgnoringATrackStoresItsFingerprintAndMakesTheWantUnmet(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(view.Files) != 1 || len(view.Files[0].Wants) != 1 || view.Files[0].Wants[0].State.Kind != subtitles.Missing ||
-			!view.Files[0].Embedded[1].Ignored || view.Files[0].Embedded[1].Meets != nil || view.Files[0].Embedded[0].Meets != nil {
+		if !ignoredOnly(view) {
 			t.Fatalf("the Work's subtitles read %+v", view)
 		}
 		if changed := w.Changed.All(); len(changed) != 1 || changed[0].WorkIDs[0] != tree.ID.String() || changed[0].FileIDs[0] != f.String() {
 			t.Fatalf("the ignore published %+v", changed)
 		}
-		if err := w.Subs.IgnoreTrack(t.Context(), identity.Admin{}, f, 1, false); err != nil {
-			t.Fatal(err)
-		}
-		w.Settle()
+		ignore(t, w, f, 1, false)
 		if got := query(t, w, `SELECT language FROM subtitles_want`); len(got) != 0 {
 			t.Fatalf("counting the track again leaves want rows %v", got)
 		}

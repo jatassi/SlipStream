@@ -85,7 +85,7 @@ type SubtitlesRemoval struct {
 }
 
 type SubtitlesSetting struct {
-	ID                       int64
+	ID                       Singleton
 	SearchOn                 *bool
 	SearchUpgrades           *bool
 	LongestGapSeconds        *int64

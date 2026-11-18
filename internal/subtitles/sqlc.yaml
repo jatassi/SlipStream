@@ -106,6 +106,9 @@ sql:
             go_type: bool
           - column: "subtitles_provider.is_on"
             go_type: bool
+          - column: subtitles_settings.id
+            go_type:
+              type: Singleton
           - column: "subtitles_settings.search_on"
             go_type:
               type: bool

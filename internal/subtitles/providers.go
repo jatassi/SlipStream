@@ -268,27 +268,15 @@ func (s *Subtitles) SetKey(ctx context.Context, _ identity.Admin, id subtitling.
 	if err != nil {
 		return Provider{}, &UnreachableError{Provider: spec.Label, Cause: err}
 	}
-	var allowance *calls.Allowance
-	var at storage.Time
-	for _, o := range outcomes {
-		if o.Provider != id {
-			continue
-		}
-		switch o.Kind {
-		case calls.Refused:
-			return Provider{}, &KeyRefusedError{Provider: spec.Label, Words: o.Words}
-		case calls.Unreachable, calls.Limited:
-			return Provider{}, &UnreachableError{Provider: spec.Label, Cause: errors.New(o.Words)}
-		}
-		if o.Allowance != nil {
-			allowance, at = o.Allowance, storage.FromTime(o.At)
-		}
+	allowance, at, err := checked(spec, outcomes)
+	if err != nil {
+		return Provider{}, err
 	}
 	var stored *string
 	if allowance != nil {
 		b, err := json.Marshal(allowance)
 		if err != nil {
-			return Provider{}, err
+			return Provider{}, fmt.Errorf("subtitles: %s's allowance: %w", spec.Label, err)
 		}
 		stored = new(string(b))
 	}
@@ -299,6 +287,29 @@ func (s *Subtitles) SetKey(ctx context.Context, _ identity.Admin, id subtitling.
 		})
 		return err
 	})
+}
+
+// checked is the allowance a key check on spec reported, or why the key
+// isn't stored. A provider that is only out of downloads took the key.
+func checked(spec subtitling.Spec, outcomes []calls.Outcome) (*calls.Allowance, storage.Time, error) {
+	var allowance *calls.Allowance
+	var at storage.Time
+	for _, o := range outcomes {
+		if o.Provider != spec.ID {
+			continue
+		}
+		switch o.Kind {
+		case calls.Refused, calls.PinRefused:
+			return nil, storage.Time{}, &KeyRefusedError{Provider: spec.Label, Words: o.Words}
+		case calls.Unreachable, calls.Limited, calls.NotFound:
+			return nil, storage.Time{}, &UnreachableError{Provider: spec.Label, Cause: errors.New(o.Words)}
+		case calls.OK, calls.Capped:
+		}
+		if o.Allowance != nil {
+			allowance, at = o.Allowance, storage.FromTime(o.At)
+		}
+	}
+	return allowance, at, nil
 }
 
 // DeleteKey forgets id's key and what its checks reported.

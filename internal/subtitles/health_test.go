@@ -29,6 +29,20 @@ func items(t *testing.T, w *subtitlestest.World) []string {
 	return out
 }
 
+// raises fails unless the open items are exactly want, or hold want when
+// some is set.
+func raises(t *testing.T, w *subtitlestest.World, when string, some bool, want ...string) {
+	t.Helper()
+	got := items(t, w)
+	ok := slices.Equal(got, want)
+	if some {
+		ok = !slices.ContainsFunc(want, func(s string) bool { return !slices.Contains(got, s) })
+	}
+	if !ok {
+		t.Fatalf("%s the items are %v, want %v", when, got, want)
+	}
+}
+
 func exec(t *testing.T, w *subtitlestest.World, q string, args ...any) {
 	t.Helper()
 	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -43,33 +57,23 @@ func exec(t *testing.T, w *subtitlestest.World, q string, args ...any) {
 func TestEveryHealthItemIsRaisedAndClearedFromItsRows(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := world(t, nil)
-		if got := items(t, w); len(got) != 0 {
-			t.Fatalf("a library with no Wanted Language raises %v", got)
-		}
+		raises(t, w, "with no Wanted Language", false)
 		w.Profile("Films", subtitlestest.Wanted(t, "en", false, targets.Allow, targets.Always))
 		uncovered := "uncovered.fixture warn: No Subtitle Provider that is on searches shelves. Add a SubDL key."
-		if got := items(t, w); !slices.Equal(got, []string{uncovered}) {
-			t.Fatalf("Shelves with no SubDL key raise %v", got)
-		}
+		raises(t, w, "with Shelves wanting English and no SubDL key", false, uncovered)
 		w.Holders(false)
 		noHolder := "no-holder fail: No Node has the Subtitles Role, so SlipStream can't download or time subtitles. Assign it on the Nodes page."
-		if got := items(t, w); !slices.Contains(got, noHolder) {
-			t.Fatalf("with no holder the items are %v", got)
-		}
+		raises(t, w, "with no holder", true, noHolder)
 		w.Holders(true)
 		w.Holder = subtitlestest.KeyHolder{Account: "jsmith", Plan: "free"}
 		if _, err := w.Subs.SetKey(t.Context(), identity.Admin{}, "subdl", "k"); err != nil {
 			t.Fatal(err)
 		}
-		if got := items(t, w); len(got) != 0 {
-			t.Fatalf("with SubDL keyed the items are %v", got)
-		}
+		raises(t, w, "with SubDL keyed", false)
 		now := storage.FromTime(time.Now())
 		exec(t, w, `UPDATE subtitles_provider SET paused_until = ?, pause_reason = 'key', pause_words = 'Not Authorized' WHERE id = 'subdl'`, now)
 		rejected := `key-rejected.subdl fail: SubDL rejected your key and responded "Not Authorized". Add a new key in Settings > Subtitles.`
-		if got := items(t, w); !slices.Contains(got, rejected) {
-			t.Fatalf("a rejected key raises %v", got)
-		}
+		raises(t, w, "with SubDL's key rejected", true, rejected)
 		if _, err := w.Subs.SetKey(t.Context(), identity.Admin{}, "subdl", "k2"); err != nil {
 			t.Fatal(err)
 		}
@@ -80,19 +84,13 @@ func TestEveryHealthItemIsRaisedAndClearedFromItsRows(t *testing.T) {
 		}
 		time.Sleep(31 * time.Minute)
 		failing := "failing.gestdown warn: Gestdown isn't responding. SlipStream retries automatically."
-		if got := items(t, w); !slices.Equal(got, []string{failing}) {
-			t.Fatalf("past the warning the items are %v", got)
-		}
+		raises(t, w, "past the warning", false, failing)
 		exec(t, w, `UPDATE subtitles_provider SET failing_since = NULL WHERE id = 'gestdown'`)
 		exec(t, w, `INSERT INTO subtitles_node (node_id, fault_at, fault_words) VALUES (?, ?, 'ffmpeg: error while loading shared libraries')`, w.Node, now)
 		fault := "map-fault." + w.Node.String() + " fail: Node A can't scan audio because its bundled ffmpeg doesn't start. Restart Node A, and reinstall SlipStream on it if that doesn't fix it."
-		if got := items(t, w); !slices.Equal(got, []string{fault}) {
-			t.Fatalf("a Node fault raises %v", got)
-		}
+		raises(t, w, "with a Node fault", false, fault)
 		exec(t, w, `UPDATE subtitles_node SET fault_at = NULL, fault_words = NULL`)
-		if got := items(t, w); len(got) != 0 {
-			t.Fatalf("after the Node's fault clears the items are %v", got)
-		}
+		raises(t, w, "after the Node's fault clears", false)
 		if health.SubtitlesID != "subtitles" || !slices.Contains(health.IDs(), health.SubtitlesID) {
 			t.Fatal("Subtitles is not a Health category")
 		}

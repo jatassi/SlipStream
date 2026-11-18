@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/subtitles/internal/db"
 	"github.com/jatassi/slipstream/internal/subtitles/timing"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // The Subtitles section's settings, stored in subtitles_settings. Subtitle
@@ -286,4 +287,112 @@ func (p nodePanel) Apply(ctx context.Context, patch setting.Patch) error {
 		}
 		return q.DropIdleNode(ctx, p.node)
 	})
+}
+
+// LeadKind is which sentence leads the Subtitles section.
+type LeadKind uint8
+
+const (
+	NoLanguages LeadKind = iota + 1
+	Uncovered
+	SearchOff
+	SearchReady
+)
+
+// Lead is what the Subtitles section leads with: the first kind that
+// holds, the Content Types that no provider that can search covers, the
+// unmet wants, Subtitle search's interval and each Storage Node's audio
+// scans still due.
+type Lead struct {
+	Kind      LeadKind
+	Uncovered []works.TypeID
+	Missing   int
+	Interval  time.Duration
+	Scans     []Scans
+}
+
+// Scans is one Storage Node's files whose audio is due a scan.
+type Scans struct {
+	Node role.NodeID
+	Name string
+	Left int
+}
+
+// Lead reads the section's lead in one Read.
+func (s *Subtitles) Lead(ctx context.Context) (Lead, error) {
+	var l Lead
+	var due []db.MapsDueByRootRow
+	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		if due, err = db.New(r).MapsDueByRoot(ctx); err != nil {
+			return err
+		}
+		l, err = s.leadIn(ctx, r)
+		return err
+	})
+	if err != nil {
+		return Lead{}, err
+	}
+	l.Scans, err = s.scansOf(ctx, due)
+	return l, err
+}
+
+func (s *Subtitles) leadIn(ctx context.Context, r storage.Reader[storage.Library]) (Lead, error) {
+	q := db.New(r)
+	row, err := q.GetSettings(ctx)
+	if err != nil {
+		return Lead{}, err
+	}
+	every, err := s.cfg.Tasks.EveryIn(ctx, r, TaskID)
+	if err != nil {
+		return Lead{}, err
+	}
+	l := Lead{Interval: Every.Value(every)}
+	missing, err := q.MissingCount(ctx)
+	if err != nil {
+		return Lead{}, err
+	}
+	l.Missing = int(missing)
+	wanted, err := q.ListWantedTypes(ctx)
+	if err != nil {
+		return Lead{}, err
+	}
+	providers, err := s.providersIn(ctx, r)
+	if err != nil {
+		return Lead{}, err
+	}
+	for _, t := range wanted {
+		if _, ok := s.uncovered(works.TypeID(t), providers); ok {
+			l.Uncovered = append(l.Uncovered, works.TypeID(t))
+		}
+	}
+	switch {
+	case len(wanted) == 0:
+		l.Kind = NoLanguages
+	case len(l.Uncovered) > 0:
+		l.Kind = Uncovered
+	case !SearchOn.Value(row.SearchOn):
+		l.Kind = SearchOff
+	default:
+		l.Kind = SearchReady
+	}
+	return l, nil
+}
+
+// scansOf is each Node's audio scans still due, its roots' due summed,
+// in Node order.
+func (s *Subtitles) scansOf(ctx context.Context, due []db.MapsDueByRootRow) ([]Scans, error) {
+	left := map[role.NodeID]int{}
+	for _, d := range due {
+		root, _, err := s.cfg.Roots.StateOf(ctx, d.RootID)
+		if err != nil {
+			return nil, err
+		}
+		left[root.Node] += int(d.Due)
+	}
+	out := make([]Scans, 0, len(left))
+	for _, n := range slices.SortedFunc(maps.Keys(left), func(a, b role.NodeID) int { return a.Compare(b.UUID) }) {
+		out = append(out, Scans{Node: n, Name: s.cfg.Roster.Name(n), Left: left[n]})
+	}
+	return out, nil
 }

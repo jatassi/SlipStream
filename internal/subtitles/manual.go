@@ -140,23 +140,30 @@ func (s *Subtitles) fileView(ctx context.Context, r storage.Reader[storage.Libra
 	v.Season, v.Episodes = subject.Season, subject.Episodes
 	scs := c.sidecars[sub.ID]
 	for _, w := range wantsOf(fa, c.langs[sub.Profile], func(w Want) bool { return sidecarOfWant(scs, w) != nil }) {
-		var wr *db.SubtitlesWant
-		for j := range c.wants[sub.ID] {
-			if x := c.wants[sub.ID][j]; x.Language == w.Language.String() && x.Forced == w.Forced {
-				wr = &c.wants[sub.ID][j]
-			}
-		}
-		wv := WantView{Wanted: w.WantedLanguage, State: stateOf(w, wr, row, sidecarOfWant(scs, w.Want()), wd)}
-		if wr != nil && !wr.LastSearchedAt.IsZero() {
-			last := &LastSearch{At: wr.LastSearchedAt.Time(), Found: int(deref(wr.LastFound))}
-			if wr.BestMatch != nil {
-				last.BestMatch = new(int(*wr.BestMatch))
-			}
-			wv.Last = last
-		}
-		v.Wants = append(v.Wants, wv)
+		wr := wantRow(c.wants[sub.ID], w.Want())
+		v.Wants = append(v.Wants, WantView{Wanted: w.WantedLanguage, State: stateOf(w, wr, row, sidecarOfWant(scs, w.Want()), wd), Last: lastOf(wr)})
 	}
 	return v, nil
+}
+
+func wantRow(rows []db.SubtitlesWant, w Want) *db.SubtitlesWant {
+	for i := range rows {
+		if rows[i].Language == w.Language.String() && rows[i].Forced == w.Forced {
+			return &rows[i]
+		}
+	}
+	return nil
+}
+
+func lastOf(wr *db.SubtitlesWant) *LastSearch {
+	if wr == nil || wr.LastSearchedAt.IsZero() {
+		return nil
+	}
+	last := &LastSearch{At: wr.LastSearchedAt.Time(), Found: int(deref(wr.LastFound))}
+	if wr.BestMatch != nil {
+		last.BestMatch = new(int(*wr.BestMatch))
+	}
+	return last
 }
 
 func ignoresOf(rows []db.SubtitlesTrackIgnored) []ignore {

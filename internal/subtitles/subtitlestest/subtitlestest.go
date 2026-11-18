@@ -32,11 +32,11 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
+	subtitlesv1 "github.com/jatassi/slipstream/internal/pb/slipstream/subtitles/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/subtitles/v1/subtitlesv1connect"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
-	subtitlesv1 "github.com/jatassi/slipstream/internal/pb/slipstream/subtitles/v1"
-	"github.com/jatassi/slipstream/internal/pb/slipstream/subtitles/v1/subtitlesv1connect"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
@@ -82,10 +82,11 @@ type World struct {
 
 // Open is a World with a Subtitles holder and SubDL's Spec, its Keeper
 // and the files owner running until the test ends, on the Controller's
-// timings tm.
+// timings tm. Its library holds the secret and identity schemas, so an
+// API test can serve over it.
 func Open(t *testing.T, tm subtitles.Timings) *World {
 	t.Helper()
-	lib := storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), subtitles.Schema(), naming.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), subtitles.Schema(), naming.Schema())
 	fx := contenttypetest.New()
 	tree, err := works.Open(t.Context(), works.Config{
 		ItemsAdded: works.NoItemsAdded, Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
@@ -175,8 +176,8 @@ func (w *World) config() subtitles.Config {
 			{ID: "subdl", Label: "SubDL", Kinds: []subtitling.Kind{subtitling.Feature, subtitling.Episode}, Keyed: true, Position: 1},
 			{ID: "gestdown", Label: "Gestdown", Kinds: []subtitling.Kind{subtitling.Episode}, Position: 2},
 		},
-		Tasks:     subtitles.Unscheduled{},
-		Roster:    roster{w},
+		Tasks:  subtitles.Unscheduled{},
+		Roster: roster{w},
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) {
 			return w.restored.Load(), nil
 		},
@@ -184,8 +185,8 @@ func (w *World) config() subtitles.Config {
 		ProvidersChanged: &w.ProvidersChanged,
 		Timings:          w.Timings,
 		Clock:            time.Now,
-		Rand:    rand.New(&splitmix{x: 2}), //nolint:gosec // seeded on purpose so tests replay
-		Log:     slog.New(slog.DiscardHandler),
+		Rand:             rand.New(&splitmix{x: 2}), //nolint:gosec // seeded on purpose so tests replay
+		Log:              slog.New(slog.DiscardHandler),
 	}
 }
 
