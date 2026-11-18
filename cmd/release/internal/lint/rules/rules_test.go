@@ -737,3 +737,12 @@ func TestSubtitlesPure(t *testing.T) {
 		"internal/subtitles/timing/align.go:21: [subtitles-pure] time.Since in a pure package; take the time from the caller",
 	})
 }
+
+func TestSubtitlingSides(t *testing.T) {
+	const holder = " imported by the Subtitles Role's holder side; each call carries what the holder needs"
+	assertFindings(t, check(t, "subtitling-sides", fixtureRepo(t, "subtitling-sides")), []string{
+		"internal/providers/subdl/subdl.go:3: [subtitling-sides] internal/subtitles/internal/db" + holder,
+		"internal/subtitling/holder.go:4: [subtitling-sides] internal/storage" + holder,
+		"internal/subtitling/holder.go:5: [subtitling-sides] internal/subtitles" + holder,
+	})
+}

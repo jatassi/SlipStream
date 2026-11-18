@@ -48,10 +48,12 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1/notifyv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/subtitles/v1/subtitlesv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/system/v1/systemv1connect"
 	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
+	"github.com/jatassi/slipstream/internal/providers/subdl"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
 	"github.com/jatassi/slipstream/internal/release"
@@ -65,6 +67,7 @@ import (
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/subtitling"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/trackers"
@@ -320,6 +323,7 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(holder))
+	subtitlesv1connect.SubtitlesService.Mount(dispatch, n.subtitlesHolder(client))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
@@ -803,8 +807,7 @@ func httpClient(stack *Stack, dial searching.DialFunc) *http.Client {
 // call layer, each provider's Line registered once, and the providers'
 // tests, in the order status lists them.
 func (n *Node) openHolder(client *http.Client) metadata.HolderConfig {
-	userAgent := "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )"
-	lines := metadata.NewLines(client, userAgent, n.cfg.Timings.Metadata, n.metadataRand)
+	lines := metadata.NewLines(client, n.userAgent(), n.cfg.Timings.Metadata, n.metadataRand)
 	deps := contenttype.ProviderDeps{
 		TMDB:  tmdb.New(lines, n.cfg.Endpoints.TMDB, n.cfg.Timings.TMDB),
 		TVDB:  tvdb.New(lines, n.cfg.Endpoints.TVDB, n.cfg.Timings.TVDB),
@@ -818,6 +821,24 @@ func (n *Node) openHolder(client *http.Client) metadata.HolderConfig {
 		sources[t.ID()] = t.OpenProvider(deps, n.cfg.Endpoints.ContentTypes.section(t.ID()))
 	}
 	return metadata.HolderConfig{Types: sources, Testers: deps.Testers(), Timings: n.cfg.Timings.Metadata, Lines: lines}
+}
+
+func (n *Node) userAgent() string {
+	return "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )"
+}
+
+// subtitlesHolder is SubtitlesService over the subtitles Lines, whose
+// client refuses every redirect, so a key never reaches a host its
+// provider didn't name.
+func (n *Node) subtitlesHolder(client *http.Client) *subtitling.Holder {
+	lines := calls.NewLines(calls.NoRedirects(client), n.userAgent(), n.cfg.Timings.Subtitling.Calls, n.subtitlingRand)
+	return subtitling.Serve(subtitleProviders(lines, n.cfg), n.cfg.Timings.Subtitling)
+}
+
+// subtitleProviders is every Subtitle Provider, in its default search
+// order.
+func subtitleProviders(lines *calls.Lines, cfg Config) []subtitling.Provider {
+	return []subtitling.Provider{subdl.New(lines, cfg.Endpoints.SubDL, cfg.Timings.SubDL)}
 }
 
 // openLibraries opens every Content Type's library half, on the
@@ -847,7 +868,9 @@ func (n *Node) startWorker(ctx context.Context) error {
 		return err
 	}
 	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
-	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(n.httpClient(n.env.Net.DialContext))))
+	client := n.httpClient(n.env.Net.DialContext)
+	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(client)))
+	subtitlesv1connect.SubtitlesService.Mount(dispatch, n.subtitlesHolder(client))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
