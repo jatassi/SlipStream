@@ -10,6 +10,7 @@ import {
   notifications,
   openOrchard,
   subtitleRow,
+  tomorrowAtNoon,
   uhdSubtitles,
 } from "../../test/subtitles-work";
 import { asPhone } from "../../test/viewport";
@@ -50,11 +51,11 @@ const everyState = {
         notNeeded("fr", "audio_in_language"),
         missing("de", "nothing_found", {
           last: { at: hoursFromNow(-3), found: 0, bestMatch: null },
-          next: hoursFromNow(26),
+          next: tomorrowAtNoon(),
         }),
         missing("es", "none_passed", {
           last: { at: hoursFromNow(-3), found: 3, bestMatch: 41 },
-          next: hoursFromNow(26),
+          next: tomorrowAtNoon(),
         }),
         missing("it", "map_due"),
       ]),

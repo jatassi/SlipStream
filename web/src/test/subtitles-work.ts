@@ -26,6 +26,13 @@ const hour = 3_600_000;
 /** An instant the given hours from now, so sentences read it as today, tonight or tomorrow. */
 export const hoursFromNow = (hours: number) => new Date(Date.now() + hours * hour).toISOString();
 
+export const tomorrowAtNoon = () => {
+  const at = new Date();
+  at.setDate(at.getDate() + 1);
+  at.setHours(12, 0, 0, 0);
+  return at.toISOString();
+};
+
 const provider = (
   id: string,
   name: string,
