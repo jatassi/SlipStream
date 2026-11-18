@@ -1,0 +1,7 @@
+<tt xmlns="http://www.w3.org/ns/ttml">
+  <body begin="10s">
+    <div begin="1m">
+      <p begin="1.5s" dur="2s">Inside a timed div.</p>
+    </div>
+  </body>
+</tt>

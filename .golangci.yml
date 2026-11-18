@@ -105,6 +105,9 @@ linters:
 
     misspell:
       locale: US
+      # Dialogue is ASS and SSA's event keyword, which no rewrite may change.
+      ignore-rules:
+        - dialogue
 
     nakedret:
       max-func-lines: 0

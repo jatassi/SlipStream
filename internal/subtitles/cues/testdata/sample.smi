@@ -1,0 +1,20 @@
+<SAMI>
+<HEAD>
+<TITLE>Sample</TITLE>
+<STYLE TYPE="text/css">
+<!--
+P { margin-left: 8pt; }
+.KRCC { Name: Korean; lang: ko-KR; }
+.ENCC { Name: English; lang: en-US; }
+-->
+</STYLE>
+</HEAD>
+<BODY>
+<SYNC Start=1000><P Class=KRCC>안녕하세요
+<P Class=ENCC>Hello<br>there
+<SYNC Start=3500><P Class=KRCC>&nbsp;
+<P Class=ENCC>&nbsp;
+<SYNC Start=4250><P Class=ENCC><i>Don't</i> let yourself &amp; anyone
+<SYNC Start=6000><P Class=ENCC>&nbsp;
+</BODY>
+</SAMI>
