@@ -119,6 +119,28 @@ func (f *Files) Subjects(ctx context.Context, r storage.Reader[file], after ID, 
 	if err != nil {
 		return nil, err
 	}
+	return subjectsOf(ctx, r, q, rows)
+}
+
+// SubjectsOf is the Subjects of ids, in id order, without the ids no file
+// has.
+func (f *Files) SubjectsOf(ctx context.Context, r storage.Reader[file], ids []ID) ([]Subject, error) {
+	q := db.New(r)
+	var rows []db.ListSubjectsRow
+	for chunk := range slices.Chunk(ids, works.Batch) {
+		of, err := q.ListSubjectsOfFiles(ctx, chunk)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range of {
+			rows = append(rows, db.ListSubjectsRow(row))
+		}
+	}
+	slices.SortFunc(rows, func(a, b db.ListSubjectsRow) int { return a.FilesFile.ID.Compare(b.FilesFile.ID.UUID) })
+	return subjectsOf(ctx, r, q, rows)
+}
+
+func subjectsOf(ctx context.Context, r storage.Reader[file], q *db.Queries, rows []db.ListSubjectsRow) ([]Subject, error) {
 	ids := make([]ID, len(rows))
 	var ws []works.WorkID
 	for i, row := range rows {
