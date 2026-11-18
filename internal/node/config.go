@@ -35,6 +35,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/plextv"
+	"github.com/jatassi/slipstream/internal/providers/subdl"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
 	"github.com/jatassi/slipstream/internal/role"
@@ -42,6 +43,7 @@ import (
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/subtitling"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
@@ -68,6 +70,7 @@ type EndpointsBlock struct {
 	TMDB         tmdb.Endpoints       `yaml:"tmdb"`
 	TVDB         tvdb.Endpoints       `yaml:"tvdb"`
 	OMDb         omdb.Endpoints       `yaml:"omdb"`
+	SubDL        subdl.Endpoints      `yaml:"subdl"`
 	PlexTV       plextv.Endpoints     `yaml:"plex_tv"`
 	Torrent      engine.Endpoints     `yaml:"torrent"`
 	Indexers     indexers.Endpoints   `yaml:"indexers"`
@@ -162,10 +165,12 @@ type TimingsBlock struct {
 	Serving       serving.Timings        `yaml:"serving"`
 	Storing       storing.Timings        `yaml:"storing"`
 	Sidecars      storing.SidecarTimings `yaml:"sidecars"`
+	Subtitling    subtitling.Timings     `yaml:"subtitling"`
 	Metadata      metadata.Timings       `yaml:"metadata"`
 	TMDB          tmdb.Timings           `yaml:"tmdb"`
 	TVDB          tvdb.Timings           `yaml:"tvdb"`
 	OMDb          omdb.Timings           `yaml:"omdb"`
+	SubDL         subdl.Timings          `yaml:"subdl"`
 	Health        health.Timings         `yaml:"health"`
 	MediaServers  mslink.Timings         `yaml:"media_servers"`
 	Notifications notifications.Timings  `yaml:"notifications"`
@@ -200,6 +205,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			TMDB:         tmdb.DefaultEndpoints(),
 			TVDB:         tvdb.DefaultEndpoints(),
 			OMDb:         omdb.DefaultEndpoints(),
+			SubDL:        subdl.DefaultEndpoints(),
 			PlexTV:       plextv.DefaultEndpoints(),
 			Torrent:      engine.DefaultEndpoints(),
 			Indexers:     indexers.DefaultEndpoints(),
@@ -242,10 +248,12 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Serving:       serving.DefaultTimings(),
 			Storing:       storing.DefaultTimings(),
 			Sidecars:      storing.DefaultSidecarTimings(),
+			Subtitling:    subtitling.DefaultTimings(),
 			Metadata:      metadata.DefaultTimings(),
 			TMDB:          tmdb.DefaultTimings(),
 			TVDB:          tvdb.DefaultTimings(),
 			OMDb:          omdb.DefaultTimings(),
+			SubDL:         subdl.DefaultTimings(),
 			Health:        health.DefaultTimings(),
 			MediaServers:  mslink.DefaultTimings(),
 			Notifications: notifications.DefaultTimings(),
