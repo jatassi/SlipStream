@@ -1809,6 +1809,8 @@ export * from "./grabsReason.ts";
 export * from "./grabsReasonAttribute.ts";
 export * from "./grabsReasonCode.ts";
 export * from "./grabsReleaseDetails.ts";
+export * from "./grabsReleaseFacts.ts";
+export * from "./grabsReleaseFactsQuality.ts";
 export * from "./grabsReleaseList.ts";
 export * from "./grabsSearch.ts";
 export * from "./grabsSearchChanged.ts";

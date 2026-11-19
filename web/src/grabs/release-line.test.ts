@@ -32,6 +32,7 @@ const listed = (more: Partial<GrabsListedRelease>): GrabsListedRelease => ({
   reasons: [],
   lostAt: null,
   words: "WEBDL-1080p · DD+ 5.1 · FLUX · 6.2 GB",
+  facts: { quality: "webdl-1080p", audio: "DD+ 5.1", group: "FLUX" },
   ...more,
 });
 

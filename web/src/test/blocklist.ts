@@ -9,6 +9,8 @@ const entry = (
 ): GrabsBlockEntry => ({
   title: "The.Quiet.Orchard.2021.1080p.BluRay.x264-SPARKS",
   words: "Bluray-1080p · SPARKS · 9.8 GB",
+  facts: { quality: "bluray-1080p", group: "SPARKS" },
+  size: 10_522_669_875,
   cause: "unregistered",
   because: "TorrentLeech reported it unregistered.",
   indexer: "TorrentLeech",

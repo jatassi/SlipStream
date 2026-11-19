@@ -53,11 +53,50 @@ export const getListBlocklistResponseMock = (
         "unreadable",
         "misdescribed",
       ] as const),
+      facts: {
+        ...(faker.datatype.boolean()
+          ? { audio: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { group: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { hdr: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? {
+              quality: faker.helpers.arrayElement([
+                "sdtv",
+                "dvd",
+                "webrip-480p",
+                "hdtv-720p",
+                "webrip-720p",
+                "webdl-720p",
+                "bluray-720p",
+                "hdtv-1080p",
+                "webrip-1080p",
+                "webdl-1080p",
+                "bluray-1080p",
+                "remux-1080p",
+                "hdtv-2160p",
+                "webrip-2160p",
+                "webdl-2160p",
+                "bluray-2160p",
+                "remux-2160p",
+                "cam",
+              ] as const),
+            }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { revision: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+      },
       indexer: faker.helpers.arrayElement([
         faker.string.alpha({ length: { min: 10, max: 20 } }),
         null,
       ]),
       infoHash: faker.helpers.fromRegExp("^[0-9a-f]{40}$"),
+      size: faker.number.int({ min: 0 }),
       title: faker.string.alpha({ length: { min: 10, max: 20 } }),
       words: faker.string.alpha({ length: { min: 10, max: 20 } }),
       work: faker.helpers.arrayElement([
@@ -246,6 +285,44 @@ export const getListGrabsResponseMock = (
           ] as const),
         }
       : {}),
+    releaseFacts: {
+      ...(faker.datatype.boolean()
+        ? { audio: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { group: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { hdr: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? {
+            quality: faker.helpers.arrayElement([
+              "sdtv",
+              "dvd",
+              "webrip-480p",
+              "hdtv-720p",
+              "webrip-720p",
+              "webdl-720p",
+              "bluray-720p",
+              "hdtv-1080p",
+              "webrip-1080p",
+              "webdl-1080p",
+              "bluray-1080p",
+              "remux-1080p",
+              "hdtv-2160p",
+              "webrip-2160p",
+              "webdl-2160p",
+              "bluray-2160p",
+              "remux-2160p",
+              "cam",
+            ] as const),
+          }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { revision: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+    },
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
     releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -479,6 +556,44 @@ export const getGetGrabResponseMock = (
         ] as const),
       }
     : {}),
+  releaseFacts: {
+    ...(faker.datatype.boolean()
+      ? { audio: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { group: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { hdr: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? {
+          quality: faker.helpers.arrayElement([
+            "sdtv",
+            "dvd",
+            "webrip-480p",
+            "hdtv-720p",
+            "webrip-720p",
+            "webdl-720p",
+            "bluray-720p",
+            "hdtv-1080p",
+            "webrip-1080p",
+            "webdl-1080p",
+            "bluray-1080p",
+            "remux-1080p",
+            "hdtv-2160p",
+            "webrip-2160p",
+            "webdl-2160p",
+            "bluray-2160p",
+            "remux-2160p",
+            "cam",
+          ] as const),
+        }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { revision: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+  },
   releaseSize: faker.number.int({ min: 0 }),
   releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
   releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -712,6 +827,44 @@ export const getListIndexerGrabsResponseMock = (
           ] as const),
         }
       : {}),
+    releaseFacts: {
+      ...(faker.datatype.boolean()
+        ? { audio: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { group: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { hdr: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? {
+            quality: faker.helpers.arrayElement([
+              "sdtv",
+              "dvd",
+              "webrip-480p",
+              "hdtv-720p",
+              "webrip-720p",
+              "webdl-720p",
+              "bluray-720p",
+              "hdtv-1080p",
+              "webrip-1080p",
+              "webdl-1080p",
+              "bluray-1080p",
+              "remux-1080p",
+              "hdtv-2160p",
+              "webrip-2160p",
+              "webdl-2160p",
+              "bluray-2160p",
+              "remux-2160p",
+              "cam",
+            ] as const),
+          }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { revision: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+    },
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
     releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1738,6 +1891,44 @@ export const getListSearchReleasesResponseMock = (
       covers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => faker.string.uuid(),
       ),
+      facts: {
+        ...(faker.datatype.boolean()
+          ? { audio: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { group: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { hdr: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? {
+              quality: faker.helpers.arrayElement([
+                "sdtv",
+                "dvd",
+                "webrip-480p",
+                "hdtv-720p",
+                "webrip-720p",
+                "webdl-720p",
+                "bluray-720p",
+                "hdtv-1080p",
+                "webrip-1080p",
+                "webdl-1080p",
+                "bluray-1080p",
+                "remux-1080p",
+                "hdtv-2160p",
+                "webrip-2160p",
+                "webdl-2160p",
+                "bluray-2160p",
+                "remux-2160p",
+                "cam",
+              ] as const),
+            }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { revision: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+      },
       formatIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => faker.string.uuid(),
       ),
@@ -2019,6 +2210,44 @@ export const getGetManualSearchResponseMock = (
                 faker.string.alpha({ length: { min: 10, max: 20 } }),
                 null,
               ]),
+              facts: {
+                ...(faker.datatype.boolean()
+                  ? { audio: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                  : {}),
+                ...(faker.datatype.boolean()
+                  ? { group: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                  : {}),
+                ...(faker.datatype.boolean()
+                  ? { hdr: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                  : {}),
+                ...(faker.datatype.boolean()
+                  ? {
+                      quality: faker.helpers.arrayElement([
+                        "sdtv",
+                        "dvd",
+                        "webrip-480p",
+                        "hdtv-720p",
+                        "webrip-720p",
+                        "webdl-720p",
+                        "bluray-720p",
+                        "hdtv-1080p",
+                        "webrip-1080p",
+                        "webdl-1080p",
+                        "bluray-1080p",
+                        "remux-1080p",
+                        "hdtv-2160p",
+                        "webrip-2160p",
+                        "webdl-2160p",
+                        "bluray-2160p",
+                        "remux-2160p",
+                        "cam",
+                      ] as const),
+                    }
+                  : {}),
+                ...(faker.datatype.boolean()
+                  ? { revision: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                  : {}),
+              },
               formatIds: Array.from(
                 { length: faker.number.int({ min: 1, max: 10 }) },
                 (_, i) => i + 1,
@@ -2136,6 +2365,44 @@ export const getGetManualSearchResponseMock = (
                 faker.string.alpha({ length: { min: 10, max: 20 } }),
                 null,
               ]),
+              facts: {
+                ...(faker.datatype.boolean()
+                  ? { audio: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                  : {}),
+                ...(faker.datatype.boolean()
+                  ? { group: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                  : {}),
+                ...(faker.datatype.boolean()
+                  ? { hdr: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                  : {}),
+                ...(faker.datatype.boolean()
+                  ? {
+                      quality: faker.helpers.arrayElement([
+                        "sdtv",
+                        "dvd",
+                        "webrip-480p",
+                        "hdtv-720p",
+                        "webrip-720p",
+                        "webdl-720p",
+                        "bluray-720p",
+                        "hdtv-1080p",
+                        "webrip-1080p",
+                        "webdl-1080p",
+                        "bluray-1080p",
+                        "remux-1080p",
+                        "hdtv-2160p",
+                        "webrip-2160p",
+                        "webdl-2160p",
+                        "bluray-2160p",
+                        "remux-2160p",
+                        "cam",
+                      ] as const),
+                    }
+                  : {}),
+                ...(faker.datatype.boolean()
+                  ? { revision: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                  : {}),
+              },
               formatIds: Array.from(
                 { length: faker.number.int({ min: 1, max: 10 }) },
                 (_, i) => i + 1,
@@ -2336,6 +2603,44 @@ export const getListManualSearchReleasesResponseMock = (
           faker.string.alpha({ length: { min: 10, max: 20 } }),
           null,
         ]),
+        facts: {
+          ...(faker.datatype.boolean()
+            ? { audio: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? { group: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? { hdr: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? {
+                quality: faker.helpers.arrayElement([
+                  "sdtv",
+                  "dvd",
+                  "webrip-480p",
+                  "hdtv-720p",
+                  "webrip-720p",
+                  "webdl-720p",
+                  "bluray-720p",
+                  "hdtv-1080p",
+                  "webrip-1080p",
+                  "webdl-1080p",
+                  "bluray-1080p",
+                  "remux-1080p",
+                  "hdtv-2160p",
+                  "webrip-2160p",
+                  "webdl-2160p",
+                  "bluray-2160p",
+                  "remux-2160p",
+                  "cam",
+                ] as const),
+              }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? { revision: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+        },
         formatIds: Array.from(
           { length: faker.number.int({ min: 1, max: 10 }) },
           (_, i) => i + 1,

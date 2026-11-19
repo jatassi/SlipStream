@@ -13,6 +13,7 @@ import type { GrabsGrabStage } from "./grabsGrabStage.ts";
 import type { GrabsGrabTarget } from "./grabsGrabTarget.ts";
 import type { GrabsMetadataSearch } from "./grabsMetadataSearch.ts";
 import type { GrabsProgress } from "./grabsProgress.ts";
+import type { GrabsReleaseFacts } from "./grabsReleaseFacts.ts";
 
 export interface GrabsGrab {
   actions: GrabsGrabActions;
@@ -73,6 +74,7 @@ export interface GrabsGrab {
   progress?: GrabsProgress;
   /** The quality the release title names, absent when it names none */
   quality?: GrabsGrabQuality;
+  releaseFacts: GrabsReleaseFacts;
   /** @minimum 0 */
   releaseSize: number;
   releaseTitle: string;

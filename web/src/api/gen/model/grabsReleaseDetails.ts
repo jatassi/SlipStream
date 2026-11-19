@@ -1,4 +1,5 @@
 import type { GrabsLostAt } from "./grabsLostAt.ts";
+import type { GrabsReleaseFacts } from "./grabsReleaseFacts.ts";
 
 export interface GrabsReleaseDetails {
   /**
@@ -6,6 +7,7 @@ export interface GrabsReleaseDetails {
    * @nullable
    */
   blocked: string | null;
+  facts: GrabsReleaseFacts;
   /** The Custom Formats it matched of those the Work's Targets score */
   formatIds: string[];
   freeleech: boolean;

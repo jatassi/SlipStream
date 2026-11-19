@@ -24,6 +24,7 @@ export const release = (
   id,
   title,
   words,
+  facts: {},
   indexers: ["Prowlarr"],
   size: 4_294_967_296,
   publishedAt: "2026-11-01T12:00:00Z",
