@@ -8,7 +8,7 @@ When a Worker stops, SlipStream waits for it through the offline grace before it
 - `offline-settings-page` Settings > Nodes shows `Join Codes` with `Join Code lifetime` and `Offline Nodes` with `Offline grace` (`Default 15 min. Between 1 min and 1 day.`); saving `2` minutes stores 120 and offers `Reset to default`.
 - `offline-alert` `GET /api/v1/counts` answers `alerts.nodes` `null` while every Node is in step or reconnecting, `warn` once a Node is away past the blip, `fail` once it is away past the grace, and `null` again once it is back and settled.
 - `offline-nav-dot` the sidebar's Nodes row (More's on phone) reads `Nodes` while every Node is in step, `Nodes needs attention` with an amber dot on `warn`, and `Nodes failed` with a red dot on `fail`, with no number, and follows `nodes.changed` without a reload. The collapsed rail's icon carries the dot and the link is named `Nodes, failed`.
-- `offline-standing` `GET /api/v1/nodes` gives each Node `standing`: `in-step`, `reconnecting` through the blip, `offline`, `lapsed` past the grace or `mismatched`. The Node picker's dot reads `reconnecting`, `offline` (amber), `offline past the grace` (red) or `on another version`.
+- `offline-standing` `GET /api/v1/nodes` gives each Node `standing`: `in-step`, `reconnecting` through the blip, `offline`, `lapsed` past the grace or `mismatched`. The Node picker's lamp reads `Reconnecting`, `Offline` or `On another version` (amber), or `Offline too long` (red), and the Node's header shows the same word with its definition.
 - `offline-indexer-waits` within the grace `GET /api/v1/indexers` lists the Indexer homed on seedbox with `waits` `{kind: "waiting", nodeId, since, lapsed: false}` while seedbox's `standing` is `reconnecting` then `offline`, and a search of a wanted Work finishes `nothing_acceptable` with no Grab, its Fixture Site line `waiting`. Its row on the Work page reads `Found nothing acceptable` over the line `Fixture Site` `Waiting for seedbox`.
 - `offline-covering` past the grace `GET /api/v1/nodes` lists seedbox `lapsed` in Searching and Downloading and home `covering` Searching, the Indexer's `waits` is `null`, a search finishes `grabbed` through home, and its Grab waits at `fetching` with `fetchNodeId` `null`, since no Node may download.
 - `offline-back` once seedbox starts and settles, the waiting Grab is fetched and downloaded on seedbox, `fetchNodeId` and `nodeId` both seedbox's id, and imports.
@@ -21,7 +21,7 @@ When a Worker stops, SlipStream waits for it through the offline grace before it
 
 - API on the Controller (Admin): `GET` and `PATCH /api/v1/nodes/settings`, `GET /api/v1/counts`, `GET /api/v1/indexers`, `GET /api/v1/nodes`, `POST /api/v1/works/{id}/search`, `GET /api/v1/works/{id}/searches` and `GET /api/v1/grabs`.
 - Host: `fakeworld node stop` and `start` take seedbox away and bring it back.
-- Desktop shell: the sidebar's Nodes row carries the dot, `/settings/nodes` holds the grace, the Work page's Searches show the Indexer's line, and the Node picker on `/nodes/<id>` shows each Node's standing. Phone shell: More's Nodes row carries the dot, and `More`, `Settings`, `Nodes` holds the grace.
+- Desktop shell: the sidebar's Nodes row carries the dot, `/settings/nodes` holds the grace, the Work page's Searches show the Indexer's line, and the Node picker and header on `/nodes/<id>` show each Node's standing. Phone shell: More's Nodes row carries the dot, and `More`, `Settings`, `Nodes` holds the grace.
 
 ## Driving it with fakeworld and curl
 
