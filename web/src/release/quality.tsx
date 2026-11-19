@@ -48,3 +48,8 @@ export function Quality({
 }) {
   return <Defined term={useQualityTerm(quality)}>{looks[look]}</Defined>;
 }
+
+/** A quality's name alone, for a quality inside another control, such as a row's button, where a definition can't open. */
+export function QualityName({ quality }: { quality: TargetsQualityKey }) {
+  return useQualityTerm(quality).word;
+}

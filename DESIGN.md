@@ -580,7 +580,7 @@ A checkbox is a 16px square with a 4px radius (22px and 6px in Touch). A radio i
 ### Chips and pills
 
 - **Chip:** 24px, radius 6, `fill`, `ink-2`, 12px at 600. A Node chip is outlined.
-- **Quality chip:** An outlined chip with the quality's name, such as WEBDL-1080p. Its name has the dotted `ink-4` underline of a technical state, and hovering, tapping or pressing Enter opens what its source means, such as WEB-DL or Remux. Inside a line of text, such as a torrent's Work line, it's the dotted name alone.
+- **Quality chip:** An outlined chip with the quality's name, such as WEBDL-1080p. Its name has the dotted `ink-4` underline of a technical state, and hovering, tapping or pressing Enter opens what its source means, such as WEB-DL or Remux. Inside a line of text it's the dotted name alone. Inside another control, such as a torrent row's button, it's the plain name, since a definition can't open inside a button.
 - **Signal chips:** Solid `fail`, `warn` or `ok` with deep ink at 700 and a 14px icon. They name a state and its stage ("Failed at Import"), and they never take the tint.
 - **Live chip:** `live-fill` with a hue ring and a white glowing dot.
 - **Met pill:** Solid white capsule, 28px, with a check.

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import type { Clock } from "../format";
 import type { LiveRow } from "../live/torrents";
-import { Quality } from "../release/quality";
+import { QualityName } from "../release/quality";
 import { Data } from "../ui/data";
 import { Poster } from "../ui/poster";
 import { Mark } from "../ui/state-mark";
@@ -44,7 +44,7 @@ function WorkLines({ row, names }: CellProps) {
           <>
             {edition}
             {edition !== undefined && row.quality !== undefined && " · "}
-            {row.quality !== undefined && <Quality quality={row.quality} look="word" />}
+            {row.quality !== undefined && <QualityName quality={row.quality} />}
           </>
         )
       }
