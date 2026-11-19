@@ -307,8 +307,9 @@ func TestPlanJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := `{"include":[` +
-		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":1,"shards":2},` +
-		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":2,"shards":2},` +
+		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":1,"shards":3},` +
+		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":2,"shards":3},` +
+		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":3,"shards":3},` +
 		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":1,"shards":3},` +
 		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":2,"shards":3},` +
 		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":3,"shards":3},` +
