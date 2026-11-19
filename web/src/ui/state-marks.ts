@@ -10,18 +10,14 @@ import type { IconSvgElement } from "@hugeicons/react";
 
 import type { FilesState } from "../api/gen/model";
 import { FilesState as wireStates } from "../api/gen/zod/slipStream.schemas.zod";
+import type { Definition, Term } from "./defined";
 
 export type Tone = "quiet" | "neutral" | "live" | "fail" | "warn" | "met";
 
-/** One sentence that ends in a period, as a definition reads on hover or tap. */
-export type Definition = `${string}.`;
-
-export type StatusMark = {
-  readonly word: string;
+/** A state's word, with its definition when it's a technical state, which opens on hover and tap. */
+export type StatusMark = Term & {
   readonly icon: IconSvgElement;
   readonly tone: Tone;
-  /** What a technical state's word means (WRITING.md rule 25). A mark with one opens it on hover and tap. */
-  readonly definition?: Definition;
 };
 
 /**
