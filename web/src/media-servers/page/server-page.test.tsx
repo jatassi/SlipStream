@@ -32,15 +32,12 @@ test("a server's page leads with its state and what's playing, and keeps the mac
       playing.getByText("grace on Living room TV · Jellyfin for Android TV", { exact: false }),
     )
     .toBeVisible();
-  await expect.element(playing.getByText("Hardware transcode")).toBeVisible();
-  await userEvent.hover(playing.getByText("Hardware transcode"));
+  await userEvent.hover(playing.getByRole("button", { name: "Hardware transcode" }));
   await expect
-    .element(
-      page.getByText(
-        "The server converts the file on its graphics hardware into a format the player can play.",
-      ),
-    )
-    .toBeVisible();
+    .element(page.getByRole("dialog", { name: "Hardware transcode" }))
+    .toHaveTextContent(
+      "The server converts the file on its graphics hardware into a format the player can play.",
+    );
   await expect
     .element(playing.getByText("Transcoding because the player can't play its container."))
     .toBeVisible();
@@ -167,6 +164,13 @@ test("on phone the server's top page shows what's playing and lists its other se
   await expect
     .element(page.getByRole("list", { name: "Now playing on Den Jellyfin" }))
     .toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Hardware transcode" }));
+  await expect
+    .element(page.getByRole("dialog", { name: "Hardware transcode" }))
+    .toHaveTextContent(
+      "The server converts the file on its graphics hardware into a format the player can play.",
+    );
+  await userEvent.keyboard("{Escape}");
   await Promise.all(
     ["Changes", "Path mappings", "Settings", "Details"].map((name) =>
       expect.element(rows.getByRole("link", { name })).toBeVisible(),

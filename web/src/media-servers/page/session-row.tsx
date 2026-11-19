@@ -3,11 +3,10 @@ import type {
   MediaserversSessionView as Session,
 } from "../../api/gen/model";
 import { agoWords } from "../../format";
-import { Chip } from "../../ui/chip";
 import { Data } from "../../ui/data";
 import { Details } from "../../ui/details";
 import { ListRow } from "../../ui/list";
-import { Tooltip } from "../../ui/tooltip";
+import { Mark } from "../../ui/state-mark";
 import { fileName } from "./paths";
 import { decisionTerm, transcodeWhy } from "./transcode-reasons";
 
@@ -38,21 +37,11 @@ export function SessionRow({
   session: Session;
   now: Date;
 }) {
-  const term = decisionTerm(session);
   return (
     <ListRow
       title={fileName(session.path)}
       meta={`${session.user} on ${session.player} · ${session.product} · Started ${agoWords(session.startedAt, now)}`}
-      trailing={
-        <Tooltip label={term.meaning} name={`${term.label}. ${term.meaning}`}>
-          <button
-            type="button"
-            className="rounded-chip focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            <Chip>{term.label}</Chip>
-          </button>
-        </Tooltip>
-      }
+      trailing={<Mark mark={decisionTerm(session)} />}
       detail={<SessionDetail server={server} session={session} />}
     />
   );
