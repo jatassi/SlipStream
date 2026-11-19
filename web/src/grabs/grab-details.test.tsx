@@ -70,7 +70,7 @@ test("a Grab's Details say who grabbed it and how, each override, where it went 
   await expect
     .element(details)
     .toMatchTextContent(
-      /ReleaseWEBDL-1080p · 700 MBThe\.Quiet\.Orchard\.2021\.1080p\.WEB-DL.*IndexerTorrentLeechTrackerTorrentLeechClientChosen once SlipStream fetches the Release/u,
+      /ReleaseWEBDL-1080p · 700 MBThe\.Quiet\.Orchard\.2021\.1080p\.WEB-DLFor.*IndexerTorrentLeechTrackerTorrentLeechClientChosen once SlipStream fetches the Release/u,
     );
   await expect
     .element(details.getByRole("region", { name: "Stages" }))
