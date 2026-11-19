@@ -54,8 +54,11 @@ const LookContext = createContext<Look | undefined>(undefined);
 
 type FactsProps = { readonly children: ReactNode } & (
   | { readonly look: "sheet" | "inline" | "failure" }
-  /** signal: the well sits on an amber or red row, so its labels take that row's dim ink. */
-  | { readonly look: "well"; readonly signal?: keyof typeof signalLook }
+  | {
+      readonly look: "well";
+      /** The well sits on an amber or red row, so its labels take the row's dim ink and its values the row's text. */
+      readonly signal?: keyof typeof signalLook;
+    }
 );
 
 function lookOf(props: FactsProps): Look {
@@ -76,7 +79,7 @@ export function Facts(props: FactsProps) {
   );
 }
 
-const span = "col-[2/-1] in-data-[density=touch]:col-span-full";
+const valueColumns = "col-[2/-1] in-data-[density=touch]:col-span-full";
 
 export function Fact({
   label,
@@ -101,9 +104,9 @@ export function Fact({
         {label}
       </dt>
       {action === undefined ? (
-        <dd className={`min-w-0 wrap-anywhere ${span} ${look.value}`}>{children}</dd>
+        <dd className={`min-w-0 wrap-anywhere ${valueColumns} ${look.value}`}>{children}</dd>
       ) : (
-        <dd className={`grid grid-cols-subgrid items-center ${span} ${look.value}`}>
+        <dd className={`grid grid-cols-subgrid items-center ${valueColumns} ${look.value}`}>
           <span className="min-w-0 wrap-anywhere">{children}</span>
           <Button size="small" look="ghost" onClick={action.onClick}>
             {action.label}
