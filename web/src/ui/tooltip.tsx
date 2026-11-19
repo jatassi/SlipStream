@@ -2,6 +2,7 @@ import { Tooltip as BaseTooltip } from "@base-ui/react/tooltip";
 import type { ReactElement } from "react";
 
 import { type AlertTone, dotOf, dotWord } from "./count";
+import { labelPopup } from "./floating";
 
 export type TooltipProps = {
   label: string;
@@ -13,8 +14,7 @@ export type TooltipProps = {
   children: ReactElement;
 };
 
-const popup =
-  "flex items-center gap-2 rounded-item bg-popover px-2.5 py-1.5 text-meta font-medium text-ink-1 shadow-float backdrop-blur-[30px] backdrop-saturate-[1.7] transition-opacity duration-(--duration-menu) ease-standard data-instant:duration-0 data-starting-style:opacity-0 data-ending-style:opacity-0";
+const popup = `flex items-center gap-2 ${labelPopup}`;
 
 // Base UI tooltips are visual only, so the trigger carries the same words as its name.
 export function Tooltip({

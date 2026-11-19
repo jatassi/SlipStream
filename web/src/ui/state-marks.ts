@@ -13,10 +13,28 @@ import { FilesState as wireStates } from "../api/gen/zod/slipStream.schemas.zod"
 
 export type Tone = "quiet" | "neutral" | "live" | "fail" | "warn" | "met";
 
+/** One sentence that ends in a period, as a definition reads on hover or tap. */
+export type Definition = `${string}.`;
+
 export type StatusMark = {
   readonly word: string;
   readonly icon: IconSvgElement;
   readonly tone: Tone;
+  /** What a technical state's word means (WRITING.md rule 25). A mark with one opens it on hover and tap. */
+  readonly definition?: Definition;
+};
+
+/**
+ * Every state of S in the term the rest of the industry uses, with tones
+ * limited to T. Each state has a definition except the Plain ones, whose word
+ * needs none. Write one beside a screen's model, `as const satisfies
+ * TermsFor<WireState>`, and draw a state with `<Mark mark={terms[state]} />`.
+ * A wire state added later fails the build until it has a row.
+ */
+export type TermsFor<S extends string, T extends Tone = Tone, Plain extends S = never> = {
+  readonly [K in S]: StatusMark & { readonly tone: T } & (K extends Plain
+      ? { readonly definition?: never }
+      : { readonly definition: Definition });
 };
 
 /** A state's mark with its 16px square and its state bar segment, as DESIGN.md draws them. */
