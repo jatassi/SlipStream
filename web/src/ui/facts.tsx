@@ -6,8 +6,16 @@ import { signalLook } from "./signal-row";
 /** Where the list sits, which sets its surface, rhythm and label ink. */
 export type FactsLook = "sheet" | "well" | "inline" | "failure";
 
-/** The one action that changes a fact, such as Rename beside a Node's name. */
-export type FactAction = { readonly label: string; readonly onClick: () => void };
+/**
+ * The one action that changes a fact, such as Rename beside a Node's name.
+ * name is what a screen reader says when the label alone, such as Change,
+ * doesn't say which fact it changes.
+ */
+export type FactAction = {
+  readonly label: string;
+  readonly name?: string;
+  readonly onClick: () => void;
+};
 
 /** A fact as data, for a component that takes its facts as an array. */
 export type FactRow = { readonly label: string; readonly value: ReactNode };
@@ -108,7 +116,7 @@ export function Fact({
       ) : (
         <dd className={`grid grid-cols-subgrid items-center ${valueColumns} ${look.value}`}>
           <span className="min-w-0 wrap-anywhere">{children}</span>
-          <Button size="small" look="ghost" onClick={action.onClick}>
+          <Button size="small" look="ghost" aria-label={action.name} onClick={action.onClick}>
             {action.label}
           </Button>
         </dd>
