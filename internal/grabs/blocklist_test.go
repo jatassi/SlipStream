@@ -179,7 +179,7 @@ func TestTheBlocklistKeepsTheFirstEntryOfAHashAndRemovesOnce(t *testing.T) {
 		}
 		got := page.Entries[1]
 		if got.InfoHash != a || got.Title != bluRay || got.Because != "Jackson blocklisted it when canceling its Grab." ||
-			got.WorkTitle != "The Attic" || got.Words != "Bluray-1080p · GRP" {
+			got.WorkTitle != "The Attic" || got.Summary.Words() != "Bluray-1080p · GRP" {
 			t.Fatalf("a's entry is %+v, want the first one added", got)
 		}
 

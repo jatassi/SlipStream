@@ -27,8 +27,9 @@ type BlockEntry struct {
 	InfoHash bencode.InfoHash
 	Title    string
 	Size     int64
-	// Words is the Release in words, as release.Describe writes it.
-	Words string
+	// Summary is the Release's facts, read as its Work's Content Type
+	// reads a title. It is zero once the Work is deleted.
+	Summary release.Summary
 	// Indexer is zero once the Indexer is deleted. IndexerName is its name
 	// then, "" when no Indexer is known.
 	Indexer     indexers.ID
@@ -94,7 +95,7 @@ func (gr *Grabs) Blocklist(ctx context.Context, _ identity.Admin, q BlocklistQue
 			e := entryOf(row)
 			if w, ok := summaries[e.Work]; ok {
 				e.WorkTitle = w.Label
-				e.Words = release.Describe(release.Title(e.Title, gr.cfg.Names[w.ContentType], known.For(w.ContentType)))
+				e.Summary = release.Summarize(release.Title(e.Title, gr.cfg.Names[w.ContentType], known.For(w.ContentType)))
 			}
 			page.Entries = append(page.Entries, e)
 		}

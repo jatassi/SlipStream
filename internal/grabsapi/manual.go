@@ -496,7 +496,7 @@ func heldOf(hs []grabs.HeldCell) []heldCell {
 
 func releaseDetailsOf(d grabs.ReleaseDetails) releaseDetails {
 	out := releaseDetails{
-		ID: releaseIDOf(d.Ref), Title: d.Title, Words: d.Words, Indexers: append([]string{}, d.Indexers...), Tracker: d.Tracker,
+		ID: releaseIDOf(d.Ref), Title: d.Title, Words: d.Summary.Words(), Indexers: append([]string{}, d.Indexers...), Tracker: d.Tracker,
 		Size: d.Size, Seeders: d.Seeders, Freeleech: d.Freeleech, Formats: []string{}, Verdicts: append([]string{}, d.Verdicts...),
 	}
 	if !d.Published.IsZero() {

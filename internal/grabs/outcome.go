@@ -220,8 +220,8 @@ func releaseRow(run SearchID, r row) (db.InsertReleaseParams, error) {
 
 // Listed is one Release a run listed, as its row keeps it. Rank is 0 for
 // a Release grabbable at no cell and CopyOf -1 for one that is no copy.
-// Words is its facts in words, read again from its title, and its
-// reasons' words are written from that read.
+// Summary is its facts, read again from its title, and its reasons'
+// words are written from that read.
 type Listed struct {
 	Position    int
 	Title       string
@@ -232,7 +232,7 @@ type Listed struct {
 	Outcome     ReleaseOutcome
 	Rank        int
 	CopyOf      int
-	Words       string
+	Summary     release.Summary
 	Covers      []works.ItemID
 	Scores      []TargetScore
 	Formats     []formats.ID
@@ -296,7 +296,7 @@ func (l Listed) inWords(reasons []Reason, rd release.Read, byID map[targets.Targ
 	if l.Size > 0 {
 		rd.Facts.Size = release.Known(l.Size)
 	}
-	l.Words = release.Describe(rd)
+	l.Summary = release.Summarize(rd)
 	for _, r := range reasons {
 		l.Reasons = append(l.Reasons, Worded{Reason: r, Words: reasonWords(r, byID[r.Target], rd.Facts, n)})
 	}

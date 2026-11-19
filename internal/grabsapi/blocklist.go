@@ -58,7 +58,7 @@ func (h handlers) listBlocklist(ctx context.Context, by identity.Admin, in *bloc
 
 func blockEntryOf(e grabs.BlockEntry) blockEntry {
 	out := blockEntry{
-		InfoHash: e.InfoHash.String(), Title: e.Title, Words: e.Words, Cause: string(e.Cause), Because: e.Because, AddedAt: e.Added,
+		InfoHash: e.InfoHash.String(), Title: e.Title, Words: e.Summary.Words(), Cause: string(e.Cause), Because: e.Because, AddedAt: e.Added,
 	}
 	if e.IndexerName != "" {
 		out.Indexer = new(e.IndexerName)

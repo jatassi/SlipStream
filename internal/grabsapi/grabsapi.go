@@ -197,7 +197,7 @@ type searchInput struct {
 
 func releaseOf(l grabs.Listed) listedRelease {
 	out := listedRelease{
-		Position: l.Position, Title: l.Title, Words: l.Words, Indexer: idOrNil(l.Indexer.UUID), Name: l.IndexerName, Size: l.Size,
+		Position: l.Position, Title: l.Title, Words: l.Summary.Words(), Indexer: idOrNil(l.Indexer.UUID), Name: l.IndexerName, Size: l.Size,
 		Seeders: l.Seeders, Outcome: string(l.Outcome), Covers: []string{}, Scores: []targetScore{}, Formats: []string{}, Reasons: WordedOf(l.Reasons),
 	}
 	if l.Rank > 0 {
@@ -417,7 +417,7 @@ func failureOf(v grabs.View) *failure {
 func grabOf(v grabs.View) grab {
 	out := grab{
 		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition),
-		Items: []string{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
+		Items: []string{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseSummary.Words(), ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), InFlight: v.Stage.InFlight(), History: []entered{}, CreatedAt: v.Created,
 		Source: string(v.Source), SearchID: idOrNil(v.Search.UUID), FoundBy: string(v.FoundBy), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...), Import: importOf(v.Import),
 		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},
