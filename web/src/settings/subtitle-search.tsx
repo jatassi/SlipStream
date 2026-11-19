@@ -19,10 +19,10 @@ const underDetails = [
 const meanings: Readonly<Record<string, string>> = {
   "subtitles.sync.match":
     "0% is what random timing scores, and 100% means every line lands on speech.",
-  none: "None: shifts only, never stretches.",
+  none: "None: Timing sync only shifts the lines and never stretches them.",
   standard: "Standard rates: common conversions, such as 25 to 23.976 fps.",
   range:
-    "Standard rates and any between 0.9 and 1.1 times: also finds unusual conversions, and takes longer.",
+    "Standard rates and any between 0.9 and 1.1 times: Timing sync also finds unusual conversions and takes longer.",
 };
 
 const meaningOf = (field: Field): string | undefined =>

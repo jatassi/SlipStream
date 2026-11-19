@@ -88,7 +88,7 @@ test("candidates rank with the first as Best, each step it meets checked, and tr
   await expect
     .element(ranked.nth(0).getByRole("list", { name: "Ranking steps" }))
     .toHaveTextContent(
-      "Made by a personSame Release groupSame source and resolution, doesn't holdHigher on your provider list, doesn't hold",
+      "Made by a personSame Release groupSame source and resolution, doesn't applyHigher on your provider list, doesn't apply",
     );
   await expect.element(dialog.getByText("SubSource found nothing.")).toBeVisible();
 

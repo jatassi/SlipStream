@@ -25,7 +25,7 @@ test("the caption says what the order does, and Gestdown reads TV only with no k
   await expect
     .element(list())
     .toHaveAccessibleDescription(
-      "SlipStream asks these providers in order. When two subtitles match the file equally well, the one from the provider higher on the list wins.",
+      "SlipStream searches these providers in order. When two subtitles match the file equally well, SlipStream picks the one from the provider higher on the list.",
     );
   await expect.element(list().getByText("TV only. No key needed.", { exact: true })).toBeVisible();
   await expect

@@ -144,7 +144,7 @@ func (s *Subtitles) uncovered(typ works.TypeID, providers []Provider) (health.It
 	}
 	return health.Item{Key: health.KeyOf("uncovered", string(typ)), Level: health.Warn, Says: health.Says{
 		Subject: d.Work.Many,
-		Text:    "No Subtitle Provider that is on searches " + strings.ToLower(d.Work.Many) + ". " + fix,
+		Text:    "No Subtitle Provider that is on has subtitles for " + strings.ToLower(d.Work.Many) + ". " + fix,
 		Action:  openSubtitles,
 	}}, true
 }

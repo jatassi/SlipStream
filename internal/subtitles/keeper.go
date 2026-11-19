@@ -111,7 +111,7 @@ func (k *keeper) run(ctx context.Context) error {
 				defer func() { <-slots }()
 				defer k.done(id)
 				if err := k.settle(ctx, id); err != nil && ctx.Err() == nil {
-					k.s.cfg.Log.WarnContext(ctx, "A file's subtitles didn't settle", "file", id, "error", err)
+					k.s.cfg.Log.WarnContext(ctx, "Updating a file's subtitle files failed", "file", id, "error", err)
 				}
 			})
 		}
@@ -160,7 +160,7 @@ func (k *keeper) sweep(ctx context.Context) {
 	})
 	if err != nil {
 		if ctx.Err() == nil {
-			k.s.cfg.Log.WarnContext(ctx, "The subtitles sweep failed", "error", err)
+			k.s.cfg.Log.WarnContext(ctx, "Finding the files whose subtitle files need updating failed", "error", err)
 		}
 		return
 	}

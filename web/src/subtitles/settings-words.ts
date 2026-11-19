@@ -158,7 +158,7 @@ export function providerLine(
 }
 
 export const providersCaption =
-  "SlipStream asks these providers in order. When two subtitles match the file equally well, the one from the provider higher on the list wins.";
+  "SlipStream searches these providers in order. When two subtitles match the file equally well, SlipStream picks the one from the provider higher on the list.";
 
 /** The key Dialog's answer once the provider accepts the key. */
 export function acceptedWords(provider: SubtitlesProvider): string {
@@ -235,7 +235,7 @@ function uncoveredLead(
       const covered = provided(provider, types).filter((type) => !uncovered.includes(type));
       return covered.length === 0
         ? []
-        : [`${provider.name} already searches ${typeNames(covered)}.`];
+        : [`SlipStream already searches ${provider.name} for ${typeNames(covered)}.`];
     });
   return {
     sentences: [

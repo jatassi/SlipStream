@@ -159,7 +159,7 @@ func (c sidecarCalls) Build(ctx context.Context, b MapBuild) (MapAnswer, error) 
 	}
 	state, ok := mapStates[res.GetState()]
 	if !ok {
-		return MapAnswer{}, fmt.Errorf("a speech map state the Controller doesn't know: %v", res.GetState())
+		return MapAnswer{}, fmt.Errorf("an unknown speech map state: %v", res.GetState())
 	}
 	a := MapAnswer{State: state, Frames: int(res.GetFrames()), Density: res.GetDensity(), Stream: int(res.GetStream()), Words: res.GetWords()}
 	switch state {
@@ -167,7 +167,7 @@ func (c sidecarCalls) Build(ctx context.Context, b MapBuild) (MapAnswer, error) 
 		a.Identity = Identity{Seen: seenOf(res.GetIdentity()), Size: res.GetSize()}
 	case MapFailed:
 		if a.Fault, ok = mapFaults[res.GetFault()]; !ok {
-			return MapAnswer{}, fmt.Errorf("a speech map fault the Controller doesn't know: %v", res.GetFault())
+			return MapAnswer{}, fmt.Errorf("an unknown speech map fault: %v", res.GetFault())
 		}
 	case MapBuilding, MapQueued:
 	}
@@ -262,7 +262,7 @@ func (c sidecarCalls) Read(ctx context.Context, root storage.UUID, path Rel, sha
 		return nil, fmt.Errorf("%s: %w", path, fs.ErrNotExist)
 	case storagev1.ReadSidecarState_READ_SIDECAR_STATE_UNSPECIFIED:
 	}
-	return nil, fmt.Errorf("a read state the Controller doesn't know: %v", res.GetState())
+	return nil, fmt.Errorf("an unknown read state: %v", res.GetState())
 }
 
 // Write writes w and answers where it landed: ErrStale when
@@ -296,7 +296,7 @@ func (c sidecarCalls) Write(ctx context.Context, w SidecarWrite) (Rel, error) {
 		return Rel{}, ErrStale
 	case storagev1.WriteSidecarState_WRITE_SIDECAR_STATE_UNSPECIFIED:
 	}
-	return Rel{}, fmt.Errorf("a write state the Controller doesn't know: %v", res.GetState())
+	return Rel{}, fmt.Errorf("an unknown write state: %v", res.GetState())
 }
 
 // Remove removes the bytes at path under root if they hash to sha,
@@ -317,5 +317,5 @@ func (c sidecarCalls) Remove(ctx context.Context, root storage.UUID, path Rel, s
 		return &ChangedError{SHA256: there}
 	case storagev1.RemoveSidecarState_REMOVE_SIDECAR_STATE_UNSPECIFIED:
 	}
-	return fmt.Errorf("a remove state the Controller doesn't know: %v", res.GetState())
+	return fmt.Errorf("an unknown remove state: %v", res.GetState())
 }

@@ -29,7 +29,7 @@ const day = 24 * time.Hour
 var Every = setting.Duration{
 	Key: "tasks." + string(TaskID) + ".cadence", Label: "Subtitle search runs every",
 	Default: 8 * time.Hour, Min: time.Hour, Max: 7 * day, Step: time.Hour,
-	Floor: "Every install shares Gestdown's servers, and providers limit how often each key searches.",
+	Floor: "Every install shares Gestdown's servers, and providers limit how often SlipStream can search with each key.",
 }
 
 // Cadences is the tasks' stored cadences.

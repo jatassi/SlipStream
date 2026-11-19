@@ -10488,7 +10488,7 @@ export const SubtitlesCandidate = zod.object({
   disabled: zod
     .boolean()
     .describe(
-      "It can't be picked: it holds image subtitles, or its provider is paused. A candidate marked bad can be picked, which undoes the Mark bad",
+      "It can't be picked because it has image subtitles or its provider is paused. A candidate marked bad can be picked, which undoes the Mark bad",
     ),
   key: zod.string(),
   provider: zod.string(),
@@ -10507,7 +10507,7 @@ export const SubtitlesCandidates = zod.object({
   outcomes: zod
     .array(SubtitlesOutcome)
     .describe(
-      "How the search ended on each provider, in search order. A paused provider isn't asked and shows its pause",
+      "How the search ended on each provider, in search order. SlipStream doesn't search a paused provider, and its outcome shows the pause",
     ),
   state: zod.enum(["searching", "done"]),
 });
@@ -10578,7 +10578,7 @@ export const SubtitlesFit = zod.object({
     .int()
     .min(1)
     .describe(
-      "Stretches with one timing each, more than 1 where the timing jumps, such as at an ad break",
+      "How many stretches of the subtitle have one timing each; more than 1 where the timing jumps, such as at an ad break",
     ),
 });
 
@@ -10586,7 +10586,7 @@ export type SubtitlesFit = zod.input<typeof SubtitlesFit>;
 export type SubtitlesFitOutput = zod.output<typeof SubtitlesFit>;
 
 export const SubtitlesSidecar = zod.object({
-  final: zod.boolean().describe("Subtitle search stops here"),
+  final: zod.boolean().describe("Subtitle search doesn't look for a better one"),
   fit: zod
     .union([SubtitlesFit, zod.null()])
     .describe("Its Timing sync numbers; null when SlipStream didn't check its timing"),
@@ -10601,7 +10601,7 @@ export const SubtitlesSidecar = zod.object({
   stray: zod
     .string()
     .nullable()
-    .describe("Where it sits while it can't take its own name, relative to the root"),
+    .describe("Its path under another name while it can't use its own, relative to the root"),
   timingDue: zod.boolean().describe("SlipStream is checking its timing against a new file"),
 });
 
@@ -10624,7 +10624,7 @@ export const SubtitlesWantState = zod.object({
       zod.literal(null),
     ])
     .nullable()
-    .describe("Why a missing want has no subtitle yet, the first that holds"),
+    .describe("Why a missing want has no subtitle yet, the first that applies"),
   next: zod.iso
     .datetime({ offset: true })
     .nullable()
@@ -10717,7 +10717,7 @@ export const SubtitlesLead = zod.object({
   kind: zod
     .enum(["no_languages", "uncovered", "off", "ready"])
     .describe(
-      "Which sentence leads the section, the first that holds: no Profile has a Wanted Language, a Content Type with Wanted Languages has no Subtitle Provider that can search, Subtitle search is off, or ready",
+      "Which sentence leads the section, the first that applies: no Profile has a Wanted Language, a Content Type with Wanted Languages has no Subtitle Provider that can search, Subtitle search is off, or ready",
     ),
   missing: zod
     .int()
@@ -10731,7 +10731,7 @@ export const SubtitlesLead = zod.object({
   uncovered: zod
     .array(zod.string())
     .describe(
-      "The Content Types with Wanted Languages that no Subtitle Provider that is on, with its key, searches",
+      "The Content Types with Wanted Languages for which no Subtitle Provider is on with its key",
     ),
 });
 
@@ -10759,7 +10759,7 @@ export const SubtitlesStanding = zod.object({
   kind: zod
     .enum(["ready", "needs_key", "out", "rejected", "failing", "off"])
     .describe(
-      "The first that holds: off, a key is needed, the key was rejected, out of downloads or rate limited, failing, ready",
+      "The first that applies: off, a key is needed, the key was rejected, out of downloads or rate limited, failing, ready",
     ),
   since: zod.iso
     .datetime({ offset: true })

@@ -59,7 +59,7 @@ var (
 	attemptExpired   = api.NewCode(http.StatusGone, "subtitle_attempt_expired", "The subtitle download or upload expired")
 	uploadExpired    = api.NewCode(http.StatusGone, "subtitle_upload_expired", "The upload expired")
 	tooLarge         = api.NewCode(http.StatusUnprocessableEntity, "subtitle_too_large", "The subtitle file is too large")
-	image            = api.NewCode(http.StatusUnprocessableEntity, "subtitle_image", "The subtitle file holds image subtitles")
+	image            = api.NewCode(http.StatusUnprocessableEntity, "subtitle_image", "The subtitle file has image subtitles")
 )
 
 func answer(err error) error {

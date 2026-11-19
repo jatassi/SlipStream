@@ -59,7 +59,7 @@ func TestEveryHealthItemIsRaisedAndClearedFromItsRows(t *testing.T) {
 		w := world(t, nil)
 		raises(t, w, "with no Wanted Language", false)
 		w.Profile("Films", subtitlestest.Wanted(t, "en", false, targets.Allow, targets.Always))
-		uncovered := "uncovered.fixture warn: No Subtitle Provider that is on searches shelves. Add a SubDL key."
+		uncovered := "uncovered.fixture warn: No Subtitle Provider that is on has subtitles for shelves. Add a SubDL key."
 		raises(t, w, "with Shelves wanting English and no SubDL key", false, uncovered)
 		w.Holders(false)
 		noHolder := "no-holder fail: No Node has the Subtitles Role, so SlipStream can't download or time subtitles. Assign it on the Nodes page."
@@ -73,7 +73,7 @@ func TestEveryHealthItemIsRaisedAndClearedFromItsRows(t *testing.T) {
 		if _, err := w.Subs.SetProviderOn(t.Context(), identity.Admin{}, "subdl", false); err != nil {
 			t.Fatal(err)
 		}
-		raises(t, w, "with SubDL keyed and off", false, "uncovered.fixture warn: No Subtitle Provider that is on searches shelves. Turn on SubDL in Settings > Subtitles.")
+		raises(t, w, "with SubDL keyed and off", false, "uncovered.fixture warn: No Subtitle Provider that is on has subtitles for shelves. Turn on SubDL in Settings > Subtitles.")
 		if _, err := w.Subs.SetProviderOn(t.Context(), identity.Admin{}, "subdl", true); err != nil {
 			t.Fatal(err)
 		}

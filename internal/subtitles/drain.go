@@ -53,7 +53,7 @@ func (d *searchDrain) run(ctx context.Context) {
 	defer poll.Stop()
 	for {
 		if err := d.pass(ctx, &wg); err != nil && ctx.Err() == nil {
-			d.s.cfg.Log.WarnContext(ctx, "The subtitle search drain failed", "error", err)
+			d.s.cfg.Log.WarnContext(ctx, "Running the queued subtitle searches failed", "error", err)
 		}
 		select {
 		case <-ctx.Done():

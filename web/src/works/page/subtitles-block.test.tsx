@@ -80,7 +80,7 @@ test("each file shows a row per Wanted Language with its state and one sentence 
 
   const lines = {
     "English, Met":
-      "From SubDL. A person made it for this file's Release group, so Subtitle search stops here.",
+      "From SubDL. A person made it for this file's Release group, so Subtitle search doesn't look for a better one.",
     "English, forced, Not needed":
       "Not needed. The full English subtitle includes the forced lines.",
     "French, Not needed": "Not needed. The file has French audio.",

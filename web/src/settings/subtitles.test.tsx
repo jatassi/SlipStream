@@ -38,7 +38,7 @@ test("with movies wanted and no provider for them, the lead offers SubDL's key a
   await expect
     .element(
       section.getByText(
-        "Movies has no Subtitle Provider. Add a free SubDL key, which takes about a minute. Gestdown already searches TV.",
+        "Movies has no Subtitle Provider. Add a free SubDL key, which takes about a minute. SlipStream already searches Gestdown for TV.",
       ),
     )
     .toBeVisible();

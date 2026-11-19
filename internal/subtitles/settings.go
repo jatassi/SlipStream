@@ -33,7 +33,7 @@ var (
 	// ReportGap is stored now. The section shows it once S47 (Subtitle
 	// reports) supplies reports.
 	ReportGap = setting.Duration{
-		Key: "subtitles.reportGap", Label: "While a Member's report is open, search it at least every",
+		Key: "subtitles.reportGap", Label: "While a Member's report is open, search for its subtitle at least every",
 		Default: day, Min: time.Hour, Max: 7 * day, Step: time.Hour,
 	}
 	TriesPerSearch = setting.Count{

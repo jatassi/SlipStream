@@ -202,7 +202,7 @@ func (s SubtitleFact) words() string {
 	case Found:
 		b.WriteString(", found beside the file")
 	case FromSibling:
-		b.WriteString(" from another file of the same title")
+		b.WriteString(" timed from another file's subtitle")
 	}
 	b.WriteString(".")
 	return b.String()

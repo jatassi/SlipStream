@@ -2,7 +2,7 @@ import type { SubtitlesFit } from "./subtitlesFit.ts";
 import type { SubtitlesSidecarSource } from "./subtitlesSidecarSource.ts";
 
 export interface SubtitlesSidecar {
-  /** Subtitle search stops here */
+  /** Subtitle search doesn't look for a better one */
   final: boolean;
   /** Its Timing sync numbers; null when SlipStream didn't check its timing */
   fit: SubtitlesFit | null;
@@ -22,7 +22,7 @@ export interface SubtitlesSidecar {
   release: string | null;
   source: SubtitlesSidecarSource;
   /**
-   * Where it sits while it can't take its own name, relative to the root
+   * Its path under another name while it can't use its own, relative to the root
    * @nullable
    */
   stray: string | null;

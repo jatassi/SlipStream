@@ -19,8 +19,8 @@ var leadKinds = map[subtitles.LeadKind]string{
 }
 
 type lead struct {
-	Kind      string   `json:"kind" enum:"no_languages,uncovered,off,ready" doc:"Which sentence leads the section, the first that holds: no Profile has a Wanted Language, a Content Type with Wanted Languages has no Subtitle Provider that can search, Subtitle search is off, or ready"`
-	Uncovered []string `json:"uncovered" nullable:"false" doc:"The Content Types with Wanted Languages that no Subtitle Provider that is on, with its key, searches"`
+	Kind      string   `json:"kind" enum:"no_languages,uncovered,off,ready" doc:"Which sentence leads the section, the first that applies: no Profile has a Wanted Language, a Content Type with Wanted Languages has no Subtitle Provider that can search, Subtitle search is off, or ready"`
+	Uncovered []string `json:"uncovered" nullable:"false" doc:"The Content Types with Wanted Languages for which no Subtitle Provider is on with its key"`
 	Missing   int      `json:"missing" minimum:"0" doc:"Wanted subtitles that no subtitle file or embedded track meets yet"`
 	Interval  int64    `json:"interval" doc:"Seconds between Subtitle search runs"`
 	Scans     []scans  `json:"scans" nullable:"false" doc:"Each Storage Node with files whose audio SlipStream still has to scan, in Node order"`

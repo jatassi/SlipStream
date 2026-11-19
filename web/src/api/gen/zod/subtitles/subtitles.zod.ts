@@ -179,7 +179,7 @@ export const DeleteSubtitleProviderKeyParams = zod.object({
 export const DeleteSubtitleProviderKeyResponse = SubtitlesProvider;
 
 /**
- * @summary Check a Subtitle Provider key on a Subtitles holder, then save it
+ * @summary Check a Subtitle Provider key on a Node with the Subtitles Role, then save it
  */
 export const SetSubtitleProviderKeyParams = zod.object({
   id: zod.string(),
@@ -202,7 +202,7 @@ export const UpdateSubtitleSettingsBody = SubtitlesValuesBody;
 export const UpdateSubtitleSettingsResponse = SubtitlesSubtitleSettings;
 
 /**
- * @summary Get each library file of a Work with what each of its wanted subtitles reads as
+ * @summary Get each library file of a Work with the state of each of its wanted subtitles
  */
 export const GetWorkSubtitlesParams = zod.object({
   workId: zod.uuid(),

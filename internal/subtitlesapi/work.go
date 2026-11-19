@@ -28,7 +28,7 @@ var missingReasons = map[subtitles.MissingReason]string{
 type fit struct {
 	OffsetMs int64   `json:"offsetMs"`
 	Ratio    float64 `json:"ratio" doc:"The framerate change, 1 when none"`
-	Segments int     `json:"segments" minimum:"1" doc:"Stretches with one timing each, more than 1 where the timing jumps, such as at an ad break"`
+	Segments int     `json:"segments" minimum:"1" doc:"How many stretches of the subtitle have one timing each; more than 1 where the timing jumps, such as at an ad break"`
 	Match    int     `json:"match" minimum:"0" maximum:"100" doc:"The timing match, in percent"`
 }
 
@@ -37,10 +37,10 @@ type sidecar struct {
 	Source       string               `json:"source" enum:"provider,upload,found,sibling"`
 	Provider     api.Nullable[string] `json:"provider" doc:"The Subtitle Provider it came from"`
 	Release      api.Nullable[string] `json:"release" doc:"The release name it was made for, as the provider names it"`
-	Final        bool                 `json:"final" doc:"Subtitle search stops here"`
+	Final        bool                 `json:"final" doc:"Subtitle search doesn't look for a better one"`
 	Fit          api.Nullable[fit]    `json:"fit" doc:"Its Timing sync numbers; null when SlipStream didn't check its timing"`
 	TimingDue    bool                 `json:"timingDue" doc:"SlipStream is checking its timing against a new file"`
-	Stray        api.Nullable[string] `json:"stray" doc:"Where it sits while it can't take its own name, relative to the root"`
+	Stray        api.Nullable[string] `json:"stray" doc:"Its path under another name while it can't use its own, relative to the root"`
 	HindiWarning bool                 `json:"hindiWarning" doc:"A found file named .hi, which Media Servers read as Hindi"`
 }
 
@@ -49,7 +49,7 @@ type wantState struct {
 	Why     api.Nullable[string]    `json:"why" enum:"audio_in_language,full_covers" doc:"Why a not_needed want needs nothing"`
 	Track   api.Nullable[int]       `json:"track" doc:"The embedded track that meets it, by its position among the file's subtitle tracks"`
 	Sidecar api.Nullable[sidecar]   `json:"sidecar" doc:"The subtitle file that meets it"`
-	Missing api.Nullable[string]    `json:"missing" enum:"no_holder,no_provider,paused,no_aired_number,map_failed,map_due,none_passed,nothing_found,never_searched" doc:"Why a missing want has no subtitle yet, the first that holds"`
+	Missing api.Nullable[string]    `json:"missing" enum:"no_holder,no_provider,paused,no_aired_number,map_failed,map_due,none_passed,nothing_found,never_searched" doc:"Why a missing want has no subtitle yet, the first that applies"`
 	Next    api.Nullable[time.Time] `json:"next" doc:"Its next search; null when none is planned"`
 }
 

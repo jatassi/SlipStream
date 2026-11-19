@@ -35,7 +35,7 @@ func (a *attempt) trySiblings(ctx context.Context) (bool, error) {
 		b, err := a.s.keeper.bytesOf(ctx, sib.of, sib.at, sib.SHA256)
 		if err != nil || b == nil {
 			if err != nil {
-				a.s.cfg.Log.WarnContext(ctx, "A sibling's subtitle wasn't read", "file", a.key.File, "sibling", sib.File, "error", err)
+				a.s.cfg.Log.WarnContext(ctx, "Reading another file's subtitle to time it failed", "file", a.key.File, "sibling", sib.File, "error", err)
 			}
 			continue
 		}
