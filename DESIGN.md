@@ -372,7 +372,7 @@ Every `hsl(214 …)` value in the frontmatter is the neutral resolution of a for
 ### Neutral
 
 - **Ink tiers** (`ink-1` to `ink-4`): `ink-1` for primary text and values, `ink-2` for secondary text and unselected controls, `ink-3` for meta, counts and column headers. `ink-4` is not for text. It marks separators, chevrons, idle dots and disabled glyphs.
-- **Fills and edges** (`fill`, `fill-hover`, `selected`, `hairline`, `hairline-strong`, `well`): Controls sit on `fill`. `selected` marks the chosen segment. Hairlines are 1px inset rings, never borders that change layout. `well` is the dark inset under inputs, code and attempt lists.
+- **Fills and edges** (`fill`, `fill-hover`, `selected`, `hairline`, `hairline-strong`, `well`): Controls sit on `fill`. `selected` marks the chosen segment. Hairlines are 1px inset rings, never borders that change layout. `well` is the dark inset under inputs, code, attempt lists and machinery facts.
 - **Solid White** (`solid`, `on-solid`): The primary action, Met, the toast and count badges. Dark `on-solid` ink always sits on it.
 
 ### The ambient
@@ -427,7 +427,7 @@ The scale has ten sizes: 11, 12, 13, 14, 15, 17, 20, 24, 34 and 56px. Geist and 
 - **Meta** (400, 12px, 1.4): Secondary lines under titles, timestamps in prose and legends.
 - **Chip** (600, 12px): Chips and badges. Signal chips are 700.
 - **Label** (500, 11px, 1.3): Column headers, group labels, nav counts and the phone tab bar's labels.
-- **Label caps** (600, 11px, 0.06em, uppercase): Only the key column of a key and value list on a failure card. No other text is uppercase.
+- **Label caps** (600, 11px, 0.06em, uppercase): Only the labels of a failure card's facts. No other text is uppercase.
 - **Data** (Geist Mono 400, 0.92em of its context, tabular): Values under the Copy or Compare Rule.
 
 ### Named Rules
@@ -623,10 +623,10 @@ There are two kinds, and every bar maps to one.
 
 ### Failure card
 
-The answer to "what broke". A near-opaque red-black card (`fail-card`, radius 14, signal lift). Its header row is the signal chip with the failed stage, the time in Mono `fail-dim`, and the actions on the right (the fix as a Fail button first). Its body puts the Work and its stage track beside a key and value list. The labels are Label caps in `fail-ink` (Cause, Recovery, Release), and values run to 78ch.
-- **Full:** Home's lead failures and Torrents' problems, which tile at `minmax(360px, 1fr)`. The subject and its track take a third of the body and the key and value list the rest.
+The answer to "what broke". A near-opaque red-black card (`fail-card`, radius 14, signal lift). Its header row is the signal chip with the failed stage, the time in Mono `fail-dim`, and the actions on the right (the fix as a Fail button first). Its body puts the Work and its stage track beside its facts. The labels are Label caps in `fail-ink` (Cause, Recovery, Release), and values run to 78ch.
+- **Full:** Home's lead failures and Torrents' problems, which tile at `minmax(360px, 1fr)`. The subject and its track take a third of the body and its facts the rest.
 - **Compact:** The Work page's Needs you list. It drops the stage track, and its actions sit in a row at the bottom right.
-- **Phone:** A separate 16px-radius card with its kv in one column and two actions (the fix and More).
+- **Phone:** A separate 16px-radius card with each fact's label over its value and two actions (the fix and More).
 
 ### Signal row
 
@@ -638,11 +638,20 @@ Warnings are amber lines, never solid cards. A warning line is `warn-card` with 
 
 ### Details
 
-The approachable-first pattern. A plain-language summary leads, then a Details disclosure (a chevron and the word, 500 in `ink-2`) holds the machinery: codes, raw names and scores. The error page uses it.
+The approachable-first pattern. A plain-language summary leads, then a Details disclosure (a chevron and the word, 500 in `ink-2`) holds the machinery: codes, raw names and scores, as facts in a `well`. The error page uses it.
+
+### Facts
+
+Label and value rows (`Facts` and `Fact` in `web/src/ui/facts.tsx`). A label in `ink-3`, its value in `ink-1`, and at most one action, a small ghost button at the row's right. Labels line up down the list, and a long label wraps inside its column. A value someone copies or compares is Data, and the caller marks it so. Every other value is words.
+- **Sheet:** A section's own facts on the page, such as a Node's Overview or an Account's Profile. A glass sheet with radius 14, a hairline ring, Console or Touch row heights and hairlines between rows. Its label column is 120 to 200px wide, so the sections of one page line their values up.
+- **Well:** Machinery under Details, or facts inset on a card, such as the error page's code and status. A `well` with radius 8, 12px sides, 8px top and bottom and 4px between rows. On an amber or red row the labels take its dim ink and the values its text.
+- **Inline:** Facts in a frame that already exists, such as an Inspector section, a dialog, a Release's details or an expanded log line. No surface, and 6px between rows.
+- **Failure:** A failure card's facts, with Label caps labels in `fail-ink` and values in `fail-text` to 78ch.
+- **Touch:** Each label sits over its value, an action stays on the value's line, and a two-line sheet row is 64px.
 
 ### Error and not-found pages
 
-An error stands inside the shell, so the sidebar, bars and tab bar stay and only the content shows it. It is a glass card at most 560px wide with 16px padding, leading with one plain sentence in Sentence type (Sentence touch on phone), then Try again, then Details with the code, status and detail (or a client exception's message) as a key and value list in a `well`. A page only Admins may see says so and offers Open the portal instead of Try again. A not-found page is the same card saying "There's nothing at this address." with a button to the audience's first nav row. A crash in the shell itself shows the card centred on the page with a Reload button.
+An error stands inside the shell, so the sidebar, bars and tab bar stay and only the content shows it. It is a glass card at most 560px wide with 16px padding, leading with one plain sentence in Sentence type (Sentence touch on phone), then Try again, then Details with the code, status and detail (or a client exception's message) as facts in a `well`. A page only Admins may see says so and offers Open the portal instead of Try again. A not-found page is the same card saying "There's nothing at this address." with a button to the audience's first nav row. A crash in the shell itself shows the card centred on the page with a Reload button.
 
 ### Lists and tables
 
@@ -853,6 +862,6 @@ The frontmatter's `motion` block holds these easings and the overlay durations. 
 - **Don't** blur anything that scrolls with the content, such as a live pill or a chip on a poster.
 - **Don't** put text over a sharp backdrop unless a mask or scrim holds the ambient ceiling beneath it.
 - **Don't** use `ink-4` for text.
-- **Don't** use uppercase outside a failure card's key labels.
+- **Don't** use uppercase outside a failure card's fact labels.
 - **Don't** use B's condensed display face (Big Shoulders Display). Geist sets the portal too.
 - **Don't** show Members any machinery: no Nodes, Targets, stages, releases or Conversions on the portal.
