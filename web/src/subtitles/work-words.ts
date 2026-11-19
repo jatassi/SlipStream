@@ -62,18 +62,18 @@ function uncoveredWords({ providers, noun, kind }: Reading): string {
     off.length > 0
       ? `Turn on ${either.format(off.map(({ name }) => name))} in Settings > Subtitles.`
       : `Add a ${either.format(keyless.map(({ name }) => name))} key.`;
-  return `No Subtitle Provider that is on searches ${noun.toLowerCase()}. ${fix}`;
+  return `No Subtitle Provider that is on has subtitles for ${noun.toLowerCase()}. ${fix}`;
 }
 
 function pausedWords({ providers, kind, clock }: Reading): string {
   const out = providers.flatMap((provider) =>
     provider.kinds.includes(kind) && provider.state.until !== null
-      ? [`${provider.name} resets ${laterAtWords(provider.state.until, clock)}`]
+      ? [`${provider.name}'s limit resets ${laterAtWords(provider.state.until, clock)}`]
       : [],
   );
   return out.length === 0
-    ? "Waiting for downloads."
-    : `Waiting for downloads. ${both.format(out)}.`;
+    ? "Waiting for the Subtitle Providers' limits to reset."
+    : `Waiting for the Subtitle Providers' limits to reset. ${both.format(out)}.`;
 }
 
 const foundWords = (last: SubtitlesLastSearch | null) =>
@@ -121,7 +121,7 @@ const metLines: {
 } = {
   provider: ({ final }, from) =>
     final
-      ? `From ${from}. A person made it for this file's Release group, so Subtitle search stops here.`
+      ? `From ${from}. A person made it for this file's Release group, so Subtitle search doesn't look for a better one.`
       : `From ${from}. Subtitle search looks for a better match.`,
   sibling: () => "Timed from another file's subtitle.",
   found: ({ fit }) =>

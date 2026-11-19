@@ -1,5 +1,5 @@
 /**
- * Why a missing want has no subtitle yet, the first that holds
+ * Why a missing want has no subtitle yet, the first that applies
  * @nullable
  */
 export type SubtitlesWantStateMissing =

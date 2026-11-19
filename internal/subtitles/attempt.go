@@ -408,7 +408,9 @@ func (a *attempt) sync(ctx context.Context, key, name string, b []byte, offer *s
 }
 
 // ending is how an attempt ends: the search's result, how it moves the
-// gap, what it found and the tries that failed.
+// gap, what it found and the tries that failed. until is when a pause
+// that kept a provider from the search ends, the want's next search in
+// place of its gap.
 type ending struct {
 	result string
 	pace   pacing.Result
@@ -416,6 +418,7 @@ type ending struct {
 	best   *int64
 	tries  []try
 	final  bool
+	until  time.Time
 }
 
 func (e *ending) failed(t try) {
@@ -437,7 +440,10 @@ func (a *attempt) settle(ctx context.Context, e ending) error {
 	now := a.s.cfg.Clock()
 	gap := pacing.Gap(time.Duration(a.row.GapSeconds)*time.Second, a.interval, LongestGap.Value(a.settings.LongestGapSeconds), e.pace, false, a.capped)
 	var due storage.Time
-	if e.result != "passed" || !e.final {
+	switch {
+	case !e.until.IsZero():
+		due = storage.FromTime(e.until)
+	case e.result != "passed" || !e.final:
 		due = storage.FromTime(now.Add(gap))
 	}
 	err := a.write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library], q *db.Queries) error {
@@ -545,11 +551,12 @@ func (a *attempt) search(ctx context.Context) error {
 	case a.noAired:
 		return a.settle(ctx, ending{result: "no_provider", pace: pacing.Unheard})
 	case len(ps) == 0:
-		result := "no_provider"
-		if slices.ContainsFunc(a.providers, func(p Provider) bool { return p.searches() && slices.Contains(p.Spec.Kinds, a.kind()) }) {
-			result = "paused"
+		e := ending{result: "no_provider", pace: pacing.Unheard}
+		until, ok := soonestEnd(a.providers, a.s.cfg.Clock(), func(p Provider) bool { return p.searches() && slices.Contains(p.Spec.Kinds, a.kind()) })
+		if ok {
+			e.result, e.until = "paused", until
 		}
-		return a.settle(ctx, ending{result: result, pace: pacing.Unheard})
+		return a.settle(ctx, e)
 	}
 	offers, outcomes, err := a.ask(ctx, ps)
 	switch {
@@ -579,27 +586,43 @@ func (a *attempt) search(ctx context.Context) error {
 }
 
 // fetchDown fetches the ranked candidates that beat the want's Sidecar and
-// weren't tried before, up to Tries per search, until one passes.
+// weren't tried before, up to Tries per search, until one passes. A
+// candidate a provider's pause kept unfetched isn't a try: the provider's
+// other candidates are passed over, and when none passes the want waits
+// for the pause to end, not for its gap.
 func (a *attempt) fetchDown(ctx context.Context, all []ranked, beats func(ranked) bool, e ending) error {
 	var tries int
+	var waited []subtitling.ProviderID
 	for _, x := range all {
 		if tries == int(TriesPerSearch.Value(a.settings.TriesPerSearch)) {
 			break
 		}
-		if a.skips(x.offer.Provider, x.offer.Key) || !beats(x) {
+		p := x.offer.Provider
+		if a.skips(p, x.offer.Key) || !beats(x) || slices.Contains(waited, p) {
 			continue
 		}
-		tries++
 		j, err := a.fetch(ctx, x.offer)
 		switch {
 		case errors.Is(err, errPaused):
-			return a.note(ctx, e.tries)
+			waited = append(waited, p)
+			continue
 		case errors.Is(err, errStale):
 			return err
 		case err != nil:
+			tries++
 			a.s.cfg.Log.WarnContext(ctx, "A subtitle download didn't reach the Subtitles Node", "file", a.key.File, "candidate", x.offer.Key, "error", err)
 			continue
+		case j.unfetched != nil:
+			_, paused, err := a.resumes(ctx, []subtitling.ProviderID{p})
+			if err != nil {
+				return err
+			}
+			if paused {
+				waited = append(waited, p)
+				continue
+			}
 		}
+		tries++
 		if j.checked != nil {
 			a.s.hold(a, x.offer, j.members)
 			return a.pass(ctx, *j.checked, e)
@@ -608,7 +631,40 @@ func (a *attempt) fetchDown(ctx context.Context, all []ranked, beats func(ranked
 			e.failed(*j.try)
 		}
 	}
+	until, ok, err := a.resumes(ctx, waited)
+	if err != nil {
+		return err
+	}
+	if ok {
+		e.result, e.pace, e.until = "paused", pacing.Unheard, until
+	}
 	return a.settle(ctx, e)
+}
+
+// resumes is the soonest end of the pauses that keep any of ids from
+// calls now, and whether one does.
+func (a *attempt) resumes(ctx context.Context, ids []subtitling.ProviderID) (time.Time, bool, error) {
+	if len(ids) == 0 {
+		return time.Time{}, false, nil
+	}
+	ps, err := a.providersNow(ctx)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	at, ok := soonestEnd(ps, a.s.cfg.Clock(), func(p Provider) bool { return slices.Contains(ids, p.Spec.ID) })
+	return at, ok, nil
+}
+
+// soonestEnd is the soonest end among the pauses of those of ps that of
+// holds for, and whether any of them is paused at now.
+func soonestEnd(ps []Provider, now time.Time, of func(Provider) bool) (time.Time, bool) {
+	var at time.Time
+	for _, p := range ps {
+		if of(p) && p.paused(now) && (at.IsZero() || p.Paused.Until.Before(at)) {
+			at = p.Paused.Until
+		}
+	}
+	return at, !at.IsZero()
 }
 
 // ask runs one Search on a holder for those of ps still ready, each

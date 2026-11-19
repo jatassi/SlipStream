@@ -93,6 +93,7 @@ func (s *Subtitles) judgeProvider(a *health.Answer, p Provider, warn time.Durati
 		a.Items = append(a.Items, health.Item{Key: health.KeyOf("key-rejected", string(p.Spec.ID)), Level: health.Fail, Says: health.Says{
 			Subject: p.Spec.Label,
 			Text:    p.Spec.Label + " rejected your key and responded \"" + providerWords(p.Paused.Words) + "\". Add a new key in Settings > Subtitles.",
+			Detail:  []health.Fact{{Label: "Rejected", At: p.KeyCheckedAt}},
 			Action:  openSubtitles,
 		}})
 	case p.FailingSince.IsZero():
@@ -143,7 +144,7 @@ func (s *Subtitles) uncovered(typ works.TypeID, providers []Provider) (health.It
 	}
 	return health.Item{Key: health.KeyOf("uncovered", string(typ)), Level: health.Warn, Says: health.Says{
 		Subject: d.Work.Many,
-		Text:    "No Subtitle Provider that is on searches " + strings.ToLower(d.Work.Many) + ". " + fix,
+		Text:    "No Subtitle Provider that is on has subtitles for " + strings.ToLower(d.Work.Many) + ". " + fix,
 		Action:  openSubtitles,
 	}}, true
 }

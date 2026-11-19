@@ -3,7 +3,7 @@ import type { SubtitlesSidecar, TargetsWantedLanguage } from "../api/gen/model";
 import { markSubtitleBad } from "../api/gen/query/subtitles/subtitles";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { toast } from "../ui/toast";
-import { type WantAt, searchIsOn } from "./work-api";
+import type { WantAt } from "./work-api";
 import { markBadQuestion, markedBadWords } from "./sheet-words";
 
 /**
@@ -38,14 +38,12 @@ export function MarkBadDialog({
       open={open}
       onOpenChange={onOpenChange}
       onConfirm={async () => {
-        let searchOn: boolean;
         try {
           await markSubtitleBad(at.fileId, at.want);
-          searchOn = await searchIsOn();
         } catch (error) {
           throw new Error(sentenceOf(error), { cause: error });
         }
-        toast(markedBadWords(wanted, searchOn));
+        toast(markedBadWords(wanted));
       }}
     >
       <p>{body}</p>

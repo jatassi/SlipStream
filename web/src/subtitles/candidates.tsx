@@ -62,7 +62,7 @@ function Steps({ reasons }: { reasons: readonly SubtitlesCandidateReasonsItem[] 
             {holds && <Icon icon={Tick02Icon} className="size-3.5" />}
             <span>
               {reasonWords[step]}
-              {!holds && <span className="sr-only">, doesn&apos;t hold</span>}
+              {!holds && <span className="sr-only">, doesn&apos;t apply</span>}
             </span>
           </li>
         );

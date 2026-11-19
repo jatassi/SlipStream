@@ -94,13 +94,19 @@ func missingOf(row *db.SubtitlesWant, file *db.SubtitlesFile, wd world) MissingR
 		return NonePassed
 	case *row.LastResult == "nothing_found":
 		return NothingFound
+	case *row.LastResult == "paused":
+		return Paused
 	}
 	return NeverSearched
 }
 
-// Roster is which Nodes hold a Role, and each Node's name.
+// Roster is which Nodes hold a Role, whether each is in step, and each
+// Node's name.
 type Roster interface {
 	Holding(name role.Name) []role.NodeID
+	// InStep is whether node's link to the Controller is up, so a call
+	// can reach it. The Controller is always in step.
+	InStep(node role.NodeID) bool
 	Name(id role.NodeID) string
 }
 

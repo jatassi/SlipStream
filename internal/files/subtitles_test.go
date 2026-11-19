@@ -363,3 +363,22 @@ func TestSubjectsPageByIDWithEachFilesFacts(t *testing.T) {
 		t.Fatalf("subjects came in %v, want id order", got)
 	}
 }
+
+func TestSubjectsOfSeveralWorksReadEachWorksFiles(t *testing.T) {
+	l := open(t)
+	tree := l.work(t, "w1", true, nil)
+	other := l.work(t, "w2", true, nil)
+	l.stock(t, tree, "w1/a.mkv", "w1/b.mkv")
+	l.stock(t, other, "w2/c.mkv")
+	l.stock(t, l.work(t, "w3", true, nil), "w3/d.mkv")
+	svc := l.files(files.NoGrabs{})
+	var both []files.Subject
+	err := l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		both, err = svc.Subjects(ctx, r, files.ID{}, 10, works.Only([]works.WorkID{tree.ID, other.ID}))
+		return err
+	})
+	if err != nil || len(both) != 3 {
+		t.Fatalf("two named Works' subjects = %d, %v, want the 3 files of both", len(both), err)
+	}
+}

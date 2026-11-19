@@ -84,16 +84,19 @@ type World struct {
 	// Catalog is the holder's Subtitle Providers.
 	Catalog *Catalog
 	// Cadences is Subtitle search's cadence.
-	Cadences *Cadences
-	shows    atomic.Bool
-	mu       sync.Mutex
-	aired    map[works.ItemID]int
-	late     *lateSubtitles
-	fetchCap int
-	stop     func()
-	holders  atomic.Bool
-	restored atomic.Bool
-	sealer   *secret.Sealer
+	Cadences   *Cadences
+	shows      atomic.Bool
+	mu         sync.Mutex
+	aired      map[works.ItemID]int
+	late       *lateSubtitles
+	fetchCap   int
+	stop       func()
+	holders    atomic.Bool
+	away       atomic.Bool
+	unanswered atomic.Bool
+	lost       atomic.Int64
+	restored   atomic.Bool
+	sealer     *secret.Sealer
 	// Holder is SubtitlesService on the World's Subtitles holder, the
 	// Node too. A test that checks a key sets it.
 	Holder subtitlesv1connect.SubtitlesServiceHandler
@@ -211,9 +214,17 @@ func (w *World) Reopen() *subtitles.Subtitles {
 func (w *World) config() subtitles.Config {
 	return subtitles.Config{
 		Library: w.Lib, Files: w.Files, Targets: w.Targets, Roots: w.held,
-		Types:   map[works.TypeID]subtitles.Facet{contenttypetest.ID: episodes{w}},
-		Storage: func(role.NodeID) storing.SidecarCalls { return w.Writes },
+		Types: map[works.TypeID]subtitles.Facet{contenttypetest.ID: episodes{w}},
+		Storage: func(role.NodeID) storing.SidecarCalls {
+			if w.cut() {
+				return lostCalls{w}
+			}
+			return w.Writes
+		},
 		Holders: func(role.NodeID) subtitling.Remote {
+			if w.cut() {
+				return subtitling.NewRemote(subtitlesv1connect.UnimplementedSubtitlesServiceHandler{})
+			}
 			return subtitling.NewRemote(keyed{Syncs: w.Syncs, keys: w.Holder})
 		},
 		Sealer: w.sealer,
@@ -279,6 +290,66 @@ func (w *World) Sweep() {
 	w.t.Helper()
 	time.Sleep(w.Timings.KeeperPoll)
 	w.Settle()
+}
+
+// Away sets whether the World's Node is away: out of step, and every
+// SidecarService and SubtitlesService call to it fails as a call on a
+// link with no session does.
+func (w *World) Away(on bool) { w.away.Store(on) }
+
+// Unanswered sets whether every call to the World's Node fails while the
+// roster still reads it in step, as in the moment after its link drops.
+func (w *World) Unanswered(on bool) { w.unanswered.Store(on) }
+
+// Lost is how many SidecarService calls failed because the Node was away
+// or unanswered.
+func (w *World) Lost() int64 { return w.lost.Load() }
+
+func (w *World) cut() bool { return w.away.Load() || w.unanswered.Load() }
+
+// lostCap is how many lost calls a World fails before it holds each next
+// one until its context ends, so a caller that asks in a loop lets fake
+// time pass and its test reads the count.
+const lostCap = 100
+
+// lostCalls is SidecarService on a Node no call reaches.
+type lostCalls struct{ w *World }
+
+var errNoSession = errors.New("no live link session to the peer")
+
+func (l lostCalls) fail(ctx context.Context) error {
+	if l.w.lost.Add(1) > lostCap {
+		<-ctx.Done()
+	}
+	return errNoSession
+}
+
+func (l lostCalls) Build(ctx context.Context, _ storing.MapBuild) (storing.MapAnswer, error) {
+	return storing.MapAnswer{}, l.fail(ctx)
+}
+
+func (l lostCalls) ReadMap(ctx context.Context, _, _ storage.UUID, _ storing.Rel, _ storing.Identity) ([]byte, error) {
+	return nil, l.fail(ctx)
+}
+
+func (l lostCalls) PruneMaps(ctx context.Context, _, _ storage.UUID, _ []storage.UUID) (int, error) {
+	return 0, l.fail(ctx)
+}
+
+func (l lostCalls) List(ctx context.Context, _ storage.UUID, _ media.Videos, _ []storing.SidecarListing) ([]storing.SidecarListed, error) {
+	return nil, l.fail(ctx)
+}
+
+func (l lostCalls) Read(ctx context.Context, _ storage.UUID, _ storing.Rel, _ [32]byte) ([]byte, error) {
+	return nil, l.fail(ctx)
+}
+
+func (l lostCalls) Write(ctx context.Context, _ storing.SidecarWrite) (storing.Rel, error) {
+	return storing.Rel{}, l.fail(ctx)
+}
+
+func (l lostCalls) Remove(ctx context.Context, _ storage.UUID, _ storing.Rel, _ [32]byte) error {
+	return l.fail(ctx)
 }
 
 // Restoring sets whether the Controller reads as Reconciling.
@@ -554,6 +625,8 @@ func (r roster) Holding(role.Name) []role.NodeID {
 	}
 	return nil
 }
+
+func (r roster) InStep(role.NodeID) bool { return !r.w.away.Load() }
 
 func (r roster) Name(id role.NodeID) string {
 	if id == r.w.Node {

@@ -9,7 +9,7 @@ export interface SubtitlesFit {
   /** The framerate change, 1 when none */
   ratio: number;
   /**
-   * Stretches with one timing each, more than 1 where the timing jumps, such as at an ad break
+   * How many stretches of the subtitle have one timing each; more than 1 where the timing jumps, such as at an ad break
    * @minimum 1
    */
   segments: number;

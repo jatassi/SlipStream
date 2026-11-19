@@ -161,7 +161,7 @@ func (s *Subtitles) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		if err := s.keeper.run(ctx); err != nil {
-			s.cfg.Log.ErrorContext(ctx, "The subtitles Keeper stopped", "error", err)
+			s.cfg.Log.ErrorContext(ctx, "Updating subtitle files stopped", "error", err)
 		}
 	})
 	wg.Go(func() { s.maps.run(ctx) })

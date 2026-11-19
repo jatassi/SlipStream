@@ -20847,7 +20847,7 @@
         "additionalProperties": false,
         "properties": {
           "disabled": {
-            "description": "It can't be picked: it holds image subtitles, or its provider is paused. A candidate marked bad can be picked, which undoes the Mark bad",
+            "description": "It can't be picked because it has image subtitles or its provider is paused. A candidate marked bad can be picked, which undoes the Mark bad",
             "type": "boolean"
           },
           "key": {
@@ -20905,7 +20905,7 @@
             "type": "array"
           },
           "outcomes": {
-            "description": "How the search ended on each provider, in search order. A paused provider isn't asked and shows its pause",
+            "description": "How the search ended on each provider, in search order. SlipStream doesn't search a paused provider, and its outcome shows the pause",
             "items": {
               "$ref": "#/components/schemas/SubtitlesOutcome"
             },
@@ -21103,7 +21103,7 @@
             "type": "number"
           },
           "segments": {
-            "description": "Stretches with one timing each, more than 1 where the timing jumps, such as at an ad break",
+            "description": "How many stretches of the subtitle have one timing each; more than 1 where the timing jumps, such as at an ad break",
             "format": "int64",
             "minimum": 1,
             "type": "integer"
@@ -21154,7 +21154,7 @@
             "type": "integer"
           },
           "kind": {
-            "description": "Which sentence leads the section, the first that holds: no Profile has a Wanted Language, a Content Type with Wanted Languages has no Subtitle Provider that can search, Subtitle search is off, or ready",
+            "description": "Which sentence leads the section, the first that applies: no Profile has a Wanted Language, a Content Type with Wanted Languages has no Subtitle Provider that can search, Subtitle search is off, or ready",
             "enum": [
               "no_languages",
               "uncovered",
@@ -21177,7 +21177,7 @@
             "type": "array"
           },
           "uncovered": {
-            "description": "The Content Types with Wanted Languages that no Subtitle Provider that is on, with its key, searches",
+            "description": "The Content Types with Wanted Languages for which no Subtitle Provider is on with its key",
             "items": {
               "type": "string"
             },
@@ -21451,7 +21451,7 @@
         "additionalProperties": false,
         "properties": {
           "final": {
-            "description": "Subtitle search stops here",
+            "description": "Subtitle search doesn't look for a better one",
             "type": "boolean"
           },
           "fit": {
@@ -21497,7 +21497,7 @@
             "type": "string"
           },
           "stray": {
-            "description": "Where it sits while it can't take its own name, relative to the root",
+            "description": "Its path under another name while it can't use its own, relative to the root",
             "type": [
               "string",
               "null"
@@ -21525,7 +21525,7 @@
         "additionalProperties": false,
         "properties": {
           "kind": {
-            "description": "The first that holds: off, a key is needed, the key was rejected, out of downloads or rate limited, failing, ready",
+            "description": "The first that applies: off, a key is needed, the key was rejected, out of downloads or rate limited, failing, ready",
             "enum": [
               "ready",
               "needs_key",
@@ -21537,7 +21537,7 @@
             "type": "string"
           },
           "since": {
-            "description": "When a failing provider started failing",
+            "description": "When the provider rejected the key, or when a failing provider started failing",
             "format": "date-time",
             "type": [
               "string",
@@ -21736,7 +21736,7 @@
             "type": "string"
           },
           "missing": {
-            "description": "Why a missing want has no subtitle yet, the first that holds",
+            "description": "Why a missing want has no subtitle yet, the first that applies",
             "enum": [
               "no_holder",
               "no_provider",
@@ -41378,7 +41378,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Search for one file's wanted subtitle now, ahead of the schedule",
+        "summary": "Search for one file's wanted subtitle now, ahead of the schedule, even while Subtitle search is off",
         "tags": [
           "subtitles"
         ],
@@ -76726,7 +76726,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Check a Subtitle Provider key on a Subtitles holder, then save it",
+        "summary": "Check a Subtitle Provider key on a Node with the Subtitles Role, then save it",
         "tags": [
           "subtitles"
         ],
@@ -90701,7 +90701,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get each library file of a Work with what each of its wanted subtitles reads as",
+        "summary": "Get each library file of a Work with the state of each of its wanted subtitles",
         "tags": [
           "subtitles"
         ],

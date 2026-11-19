@@ -9,10 +9,12 @@ ORDER BY f.id
 LIMIT sqlc.arg(n);
 
 -- name: ListSubjectsOfWorks :many
--- ListSubjects narrowed to the files of work_ids.
+-- ListSubjects narrowed to the files of work_ids, a JSON array: an sqlc.slice
+-- here would bind after and n to the wrong values.
 SELECT sqlc.embed(f), CAST(m.file_id IS NULL AS INTEGER) AS at_name FROM files_file f
 LEFT JOIN files_move m ON m.file_id = f.id
-WHERE f.work_id IN (sqlc.slice(work_ids)) AND f.id > coalesce(sqlc.arg(after), x'')
+WHERE f.work_id IN (SELECT unhex(replace(value, '-', '')) FROM json_each(sqlc.arg(work_ids)))
+    AND f.id > coalesce(sqlc.arg(after), x'')
 ORDER BY f.id
 LIMIT sqlc.arg(n);
 

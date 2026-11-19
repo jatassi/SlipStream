@@ -151,7 +151,7 @@ func (c *Client) get(ctx context.Context, cr calls.Credentials, v any, path ...s
 		return false, err
 	}
 	if err := json.Unmarshal(a.Body, v); err != nil {
-		return false, fmt.Errorf("%s sent an answer SlipStream can't read: %w", label, err)
+		return false, fmt.Errorf("%s sent a response SlipStream can't read: %w", label, err)
 	}
 	return true, nil
 }

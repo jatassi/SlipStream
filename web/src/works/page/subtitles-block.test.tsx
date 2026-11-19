@@ -10,6 +10,7 @@ import {
   notifications,
   openOrchard,
   subtitleRow,
+  tomorrowAtNoon,
   uhdSubtitles,
 } from "../../test/subtitles-work";
 import { asPhone } from "../../test/viewport";
@@ -50,11 +51,11 @@ const everyState = {
         notNeeded("fr", "audio_in_language"),
         missing("de", "nothing_found", {
           last: { at: hoursFromNow(-3), found: 0, bestMatch: null },
-          next: hoursFromNow(26),
+          next: tomorrowAtNoon(),
         }),
         missing("es", "none_passed", {
           last: { at: hoursFromNow(-3), found: 3, bestMatch: 41 },
-          next: hoursFromNow(26),
+          next: tomorrowAtNoon(),
         }),
         missing("it", "map_due"),
       ]),
@@ -79,7 +80,7 @@ test("each file shows a row per Wanted Language with its state and one sentence 
 
   const lines = {
     "English, Met":
-      "From SubDL. A person made it for this file's Release group, so Subtitle search stops here.",
+      "From SubDL. A person made it for this file's Release group, so Subtitle search doesn't look for a better one.",
     "English, forced, Not needed":
       "Not needed. The full English subtitle includes the forced lines.",
     "French, Not needed": "Not needed. The file has French audio.",
@@ -203,22 +204,6 @@ test("Search starts a search for the subtitle and says so in a toast", async () 
   await userEvent.click(subtitleRow("English").getByRole("button", { name: "Search" }));
   await expect
     .element(notifications().getByText("Searching for the English subtitle."))
-    .toBeVisible();
-  expect(world.calls).toEqual(["search"]);
-});
-
-test("Search while Subtitle search is off says to turn it on", async () => {
-  const world = open({
-    work: { files: [uhdSubtitles([missing("en", "never_searched")])] },
-    searchOn: false,
-  });
-  await userEvent.click(subtitleRow("English").getByRole("button", { name: "Search" }));
-  await expect
-    .element(
-      notifications().getByText(
-        "Subtitle search is off. Turn it on in Settings > Subtitles to search for the English subtitle.",
-      ),
-    )
     .toBeVisible();
   expect(world.calls).toEqual(["search"]);
 });

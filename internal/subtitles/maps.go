@@ -119,7 +119,7 @@ func (m *mapDrain) start(ctx context.Context, node role.NodeID, rs []roots.ID, n
 	m.mu.Lock()
 	flying, resting := m.flying[node], m.resting[node].After(now)
 	m.mu.Unlock()
-	if resting {
+	if resting || !m.s.cfg.Roster.InStep(node) {
 		return nil
 	}
 	var next []due
@@ -193,13 +193,18 @@ func (m *mapDrain) placed(ctx context.Context, r storage.Reader[storage.Library]
 }
 
 // build asks node for d's map until it answers built or failed, and
-// records the answer. A call that fails makes the map due again.
+// records the answer. A call that fails makes the map due again at the
+// drain's next poll, not at once, so a Node that doesn't answer isn't
+// asked in a loop.
 func (m *mapDrain) build(ctx context.Context, node role.NodeID, d due, slots int) {
+	answered := false
 	defer func() {
 		m.mu.Lock()
 		m.flying[node]--
 		m.mu.Unlock()
-		m.wake()
+		if answered {
+			m.wake()
+		}
 	}()
 	calls := m.s.cfg.Storage(node)
 	ask := storing.MapBuild{File: d.row.FileID.UUID, Root: d.row.RootID.UUID, Path: d.path, Stream: -1, Slots: slots, Rank: int(d.row.MapRank)}
@@ -215,9 +220,11 @@ func (m *mapDrain) build(ctx context.Context, node role.NodeID, d due, slots int
 		}
 		switch a.State {
 		case storing.MapBuilt:
+			answered = true
 			m.built(ctx, node, d.row, a)
 			return
 		case storing.MapFailed:
+			answered = true
 			m.failed(ctx, node, d.row, a)
 			return
 		case storing.MapBuilding, storing.MapQueued:

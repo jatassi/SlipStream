@@ -1239,7 +1239,7 @@ export const getSearchSubtitleUrl = (fileId: string, want: string) => {
 };
 
 /**
- * @summary Search for one file's wanted subtitle now, ahead of the schedule
+ * @summary Search for one file's wanted subtitle now, ahead of the schedule, even while Subtitle search is off
  */
 export const searchSubtitle = async (
   fileId: string,
@@ -1312,7 +1312,7 @@ export type SearchSubtitleMutationError = ErrorType<
 export type SearchSubtitleMutationVariables = { fileId: string; want: string };
 
 /**
- * @summary Search for one file's wanted subtitle now, ahead of the schedule
+ * @summary Search for one file's wanted subtitle now, ahead of the schedule, even while Subtitle search is off
  */
 export const useSearchSubtitle = <
   TError = ErrorType<
@@ -2296,7 +2296,7 @@ export const getSetSubtitleProviderKeyUrl = (id: string) => {
 };
 
 /**
- * @summary Check a Subtitle Provider key on a Subtitles holder, then save it
+ * @summary Check a Subtitle Provider key on a Node with the Subtitles Role, then save it
  */
 export const setSubtitleProviderKey = async (
   id: string,
@@ -2392,7 +2392,7 @@ export type SetSubtitleProviderKeyMutationError = ErrorType<
 export type SetSubtitleProviderKeyMutationVariables = { id: string; data: SubtitlesProviderKey };
 
 /**
- * @summary Check a Subtitle Provider key on a Subtitles holder, then save it
+ * @summary Check a Subtitle Provider key on a Node with the Subtitles Role, then save it
  */
 export const useSetSubtitleProviderKey = <
   TError = ErrorType<
@@ -2696,7 +2696,7 @@ export const getGetWorkSubtitlesUrl = (workId: string) => {
 };
 
 /**
- * @summary Get each library file of a Work with what each of its wanted subtitles reads as
+ * @summary Get each library file of a Work with the state of each of its wanted subtitles
  */
 export const getWorkSubtitles = async (
   workId: string,
@@ -2822,7 +2822,7 @@ export function useGetWorkSubtitlesSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get each library file of a Work with what each of its wanted subtitles reads as
+ * @summary Get each library file of a Work with the state of each of its wanted subtitles
  */
 
 export function useGetWorkSubtitlesSuspense<

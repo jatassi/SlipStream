@@ -160,7 +160,7 @@ async function wantEnglish(world: World, workId: string) {
 }
 
 test.describe("a series of 240 episode files", () => {
-  test.use({ scenario: "series-files-scale", launchSeconds: 600, trace: "off" });
+  test.use({ scenario: "series-files-scale", launchSeconds: 600 });
 
   // Chromium alone reports long tasks.
   test("the Files section folds 240 files per season and opens a season within its long-task budget @cdp @alone", async ({

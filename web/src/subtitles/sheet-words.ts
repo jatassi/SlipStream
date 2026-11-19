@@ -136,16 +136,13 @@ export function markBadQuestion(
   };
 }
 
-const turnOnWords = (what: string) =>
-  `Subtitle search is off. Turn it on in Settings > Subtitles to search for ${what}.`;
+/** Mark bad's toast. The search for another runs even while Subtitle search is off. */
+export const markedBadWords = (wanted: TargetsWantedLanguage) =>
+  `${capital(subtitleOf(wanted))} marked bad. SlipStream is searching for another.`;
 
-/** Mark bad's toast, which says a search runs only while Subtitle search is on. */
-export const markedBadWords = (wanted: TargetsWantedLanguage, searchOn: boolean) =>
-  `${capital(subtitleOf(wanted))} marked bad. ${searchOn ? "SlipStream is searching for another." : turnOnWords("another")}`;
-
-/** Search's toast, which says a search runs only while Subtitle search is on. */
-export const searchingWords = (wanted: TargetsWantedLanguage, searchOn: boolean) =>
-  searchOn ? `Searching for the ${subtitleOf(wanted)}.` : turnOnWords(`the ${subtitleOf(wanted)}`);
+/** Search's toast. The Admin's Search runs even while Subtitle search is off. */
+export const searchingWords = (wanted: TargetsWantedLanguage) =>
+  `Searching for the ${subtitleOf(wanted)}.`;
 
 /** The sheet's and dialog's title: what it looks for, and on which file. */
 export const sheetTitle = (wanted: TargetsWantedLanguage, file: string) =>

@@ -1,10 +1,10 @@
 import type { SubtitlesStandingKind } from "./subtitlesStandingKind.ts";
 
 export interface SubtitlesStanding {
-  /** The first that holds: off, a key is needed, the key was rejected, out of downloads or rate limited, failing, ready */
+  /** The first that applies: off, a key is needed, the key was rejected, out of downloads or rate limited, failing, ready */
   kind: SubtitlesStandingKind;
   /**
-   * When a failing provider started failing
+   * When the provider rejected the key, or when a failing provider started failing
    * @nullable
    */
   since: string | null;

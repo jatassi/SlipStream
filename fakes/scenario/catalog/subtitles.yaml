@@ -1,0 +1,135 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Controller holding every Role but Acquire and Relaying, for
+  Subtitles. Its Movies root holds three films and its TV root a series'
+  three episodes, each with an English speech track at seeded times, and
+  the three subtitle provider fakes list English subtitles for them: some
+  whose cues follow a file's speech, one of them 2.5 s late, and some that
+  follow other speech. Amber Signal sits at 720p, and the shelf, a folder
+  no root names, holds its 1080p file with the same speech, for an Admin to
+  import by hand as an upgrade. Gestdown lists a season pack of the series.
+seed: subtitles
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 15s
+  subtitles:
+    keeper_poll: 10s
+tmdb:
+  movies:
+    - id: 9000201
+      imdb_id: tt9000201
+      title: Amber Signal
+      released: 2020-03-06
+      runtime: 2m
+    - id: 9000202
+      imdb_id: tt9000202
+      title: Brick Lane Echo
+      released: 2019-07-12
+      runtime: 2m
+    - id: 9000203
+      imdb_id: tt9000203
+      title: Cinder Bloom
+      released: 2017-11-03
+      runtime: 2m
+tvdb:
+  series:
+    - id: 9100301
+      name: The Lamplighters
+      status: continuing
+      imdb: tt9100301
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 9130101, number: 1, name: Dusk, aired: 2021-02-01, runtime: 2}
+            - {id: 9130102, number: 2, name: Wick, aired: 2021-02-08, runtime: 2}
+            - {id: 9130103, number: 3, name: Dawn, aired: 2021-02-15, runtime: 2}
+subtitle_providers:
+  catalog:
+    - id: amber-other-speech
+      provider: subdl
+      work: Amber Signal
+      language: en
+      release: Amber.Signal.2020.720p.WEB-DL.H264-OTHER
+    - id: amber-speech
+      provider: subsource
+      work: Amber Signal
+      language: en
+      release: Amber.Signal.2020.720p.WEB-DL.H264-OTHER
+      sources:
+        - "movies/Amber Signal (2020) {tmdb-9000201}/Amber.Signal.2020.720p.WEB-DL.H264-FKW.mkv"
+      offset: 2500ms
+    - id: brick-other-speech
+      provider: subdl
+      work: Brick Lane Echo
+      language: en
+      release: Brick.Lane.Echo.2019.1080p.WEB-DL.H264-OTHER
+    - id: brick-speech
+      provider: subsource
+      work: Brick Lane Echo
+      language: en
+      release: Brick.Lane.Echo.2019.1080p.WEB-DL.H264-OTHER
+      sources:
+        - "movies/Brick Lane Echo (2019) {tmdb-9000202}/Brick.Lane.Echo.2019.1080p.WEB-DL.H264-FKW.mkv"
+    - id: cinder-speech
+      provider: subdl
+      work: Cinder Bloom
+      language: en
+      release: Cinder.Bloom.2017.1080p.WEB-DL.H264-OTHER
+      sources:
+        - "movies/Cinder Bloom (2017) {tmdb-9000203}/Cinder.Bloom.2017.1080p.WEB-DL.H264-FKW.mkv"
+    - id: lamplighters-s01
+      provider: gestdown
+      work: The Lamplighters
+      language: en
+      season: 1
+      episodes: [1, 2, 3]
+      release: The.Lamplighters.S01.1080p.WEB-DL.H264-OTHER
+      sources:
+        - "tv/The Lamplighters [tvdbid-9100301]/Season 01/The Lamplighters - S01E01.mkv"
+        - "tv/The Lamplighters [tvdbid-9100301]/Season 01/The Lamplighters - S01E02.mkv"
+        - "tv/The Lamplighters [tvdbid-9100301]/Season 01/The Lamplighters - S01E03.mkv"
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}, {content_type: series, folder: tv}]
+  folders:
+    - folder: movies
+      files:
+        - path: Amber Signal (2020) {tmdb-9000201}/Amber.Signal.2020.720p.WEB-DL.H264-FKW.mkv
+          video: {width: 1280, height: 720, seconds: 1, hdr: sdr}
+          audio:
+            - {codec: pcm_s16le, channels: 1, language: eng, default: true, speech: {seed: 11, density: 0.4, length: 120s}}
+        - path: Brick Lane Echo (2019) {tmdb-9000202}/Brick.Lane.Echo.2019.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio:
+            - {codec: pcm_s16le, channels: 1, language: eng, default: true, speech: {seed: 22, density: 0.4, length: 120s}}
+        - path: Cinder Bloom (2017) {tmdb-9000203}/Cinder.Bloom.2017.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio:
+            - {codec: pcm_s16le, channels: 1, language: eng, default: true, speech: {seed: 33, density: 0.4, length: 120s}}
+    - folder: tv
+      files:
+        - path: The Lamplighters [tvdbid-9100301]/Season 01/The Lamplighters - S01E01.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio:
+            - {codec: pcm_s16le, channels: 1, language: eng, default: true, speech: {seed: 41, density: 0.4, length: 120s}}
+        - path: The Lamplighters [tvdbid-9100301]/Season 01/The Lamplighters - S01E02.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio:
+            - {codec: pcm_s16le, channels: 1, language: eng, default: true, speech: {seed: 42, density: 0.4, length: 120s}}
+        - path: The Lamplighters [tvdbid-9100301]/Season 01/The Lamplighters - S01E03.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio:
+            - {codec: pcm_s16le, channels: 1, language: eng, default: true, speech: {seed: 43, density: 0.4, length: 120s}}
+    - folder: shelf
+      files:
+        - path: Amber.Signal.2020.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio:
+            - {codec: pcm_s16le, channels: 1, language: eng, default: true, speech: {seed: 11, density: 0.4, length: 120s}}

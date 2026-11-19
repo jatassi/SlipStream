@@ -78,6 +78,9 @@ type World struct {
 	walk     *walk
 	fakes    *servers
 	cues     atomic.Int64
+	// hash is the scenario's, which takes seconds to compute for a
+	// library of tens of thousands of files.
+	hash string
 }
 
 type Node struct {
@@ -135,6 +138,7 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	w := &World{
 		t:        t,
 		scenario: s,
+		hash:     s.Hash(),
 		net:      network,
 		client:   &http.Client{Transport: &http.Transport{DialContext: local.DialContext, DisableKeepAlives: true}},
 		opts:     options{version: Version},
@@ -234,7 +238,7 @@ func (w *World) stop() {
 func (w *World) Manifest() world.Manifest {
 	w.t.Helper()
 	m := world.Manifest{
-		Scenario: world.ScenarioRef{Name: w.scenario.Name, SHA256: w.scenario.Hash(), Seed: w.scenario.Seed},
+		Scenario: world.ScenarioRef{Name: w.scenario.Name, SHA256: w.hash, Seed: w.scenario.Seed},
 		Binary:   world.Binary{Version: w.opts.version},
 		Nodes:    []world.Node{},
 		Fakes:    []world.Fake{},

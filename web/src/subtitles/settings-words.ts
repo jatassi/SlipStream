@@ -128,10 +128,12 @@ const stateLines: Readonly<
     state.until === null
       ? `${name} is out of downloads.`
       : `${name} is out of downloads. SlipStream searches it again ${laterAtWords(state.until, clock)}.`,
-  rejected: ({ name, state }) =>
-    state.words === null
-      ? `${name} rejected the key. Replace the key.`
-      : `${name} rejected the key and responded "${state.words}". Replace the key.`,
+  rejected: ({ name, state }, _types, clock) => {
+    const at = state.since === null ? "" : ` ${pastAtWords(state.since, clock)}`;
+    return state.words === null
+      ? `${name} rejected the key${at}. Replace the key.`
+      : `${name} rejected the key${at} and responded "${state.words}". Replace the key.`;
+  },
   failing: ({ name, state }, _types, clock) =>
     state.since === null
       ? `${name} isn't responding. SlipStream retries automatically.`
@@ -156,7 +158,7 @@ export function providerLine(
 }
 
 export const providersCaption =
-  "SlipStream asks these providers in order. When two subtitles match the file equally well, the one from the provider higher on the list wins.";
+  "SlipStream searches these providers in order. When two subtitles match the file equally well, SlipStream picks the one from the provider higher on the list.";
 
 /** The key Dialog's answer once the provider accepts the key. */
 export function acceptedWords(provider: SubtitlesProvider): string {
@@ -233,7 +235,7 @@ function uncoveredLead(
       const covered = provided(provider, types).filter((type) => !uncovered.includes(type));
       return covered.length === 0
         ? []
-        : [`${provider.name} already searches ${typeNames(covered)}.`];
+        : [`SlipStream already searches ${provider.name} for ${typeNames(covered)}.`];
     });
   return {
     sentences: [

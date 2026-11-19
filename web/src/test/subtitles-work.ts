@@ -19,13 +19,19 @@ import type { LiveMap } from "./handlers";
 import { orchardId } from "./library";
 import { renderApp } from "./render-app";
 import { scannedFiles } from "./scanned-files";
-import { readyLead, subtitleSettings } from "./subtitles";
 import { workServer } from "./work-server";
 
 const hour = 3_600_000;
 
 /** An instant the given hours from now, so sentences read it as today, tonight or tomorrow. */
 export const hoursFromNow = (hours: number) => new Date(Date.now() + hours * hour).toISOString();
+
+export const tomorrowAtNoon = () => {
+  const at = new Date();
+  at.setDate(at.getDate() + 1);
+  at.setHours(12, 0, 0, 0);
+  return at.toISOString();
+};
 
 const provider = (
   id: string,
@@ -151,8 +157,6 @@ export type SubtitlesWorld = {
   readonly upload?: Answer;
   readonly keep?: Answer;
   readonly markBad?: Answer;
-  /** Whether Subtitle search is on in the settings; on unless named. */
-  readonly searchOn?: boolean;
 };
 
 const searchId = "4a6c8e0a-2c4e-4a6c-8e0a-2c4e6a8c0e2b";
@@ -239,20 +243,6 @@ export function subtitlesServer(world: SubtitlesWorld) {
     }),
     getGetWorkSubtitlesMockHandler(() => work),
     getListSubtitleProvidersMockHandler({ providers: [...providers] }),
-    http.get("*/api/v1/subtitles/settings", () =>
-      HttpResponse.json({
-        settings: subtitleSettings().map((field) =>
-          field.key === "subtitles.searchOn"
-            ? Object.assign(field, {
-                value: world.searchOn ?? true,
-                running: world.searchOn ?? true,
-              })
-            : field,
-        ),
-        lead: readyLead,
-        profiles: [],
-      }),
-    ),
     ...actionHandlers(world, { calls, uploads }),
   ];
   return {

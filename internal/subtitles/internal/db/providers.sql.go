@@ -32,23 +32,25 @@ func (q *Queries) DeleteProviderKey(ctx context.Context, id subtitling.ProviderI
 const putProviderKey = `-- name: PutProviderKey :execrows
 UPDATE subtitles_provider SET api_key_sealed = ?1, account = ?2, plan = ?3,
     allowance = ?4, allowance_at = ?5, key_checked_at = ?6, gained_at = ?6,
-    paused_until = CASE WHEN pause_reason = 'key' THEN NULL ELSE paused_until END,
-    pause_words = CASE WHEN pause_reason = 'key' THEN NULL ELSE pause_words END,
-    pause_reason = CASE WHEN pause_reason = 'key' THEN NULL ELSE pause_reason END
-WHERE id = ?7
+    paused_until = CASE WHEN pause_reason = 'key' OR (pause_reason = 'quota' AND CAST(?7 AS INTEGER) = 1) THEN NULL ELSE paused_until END,
+    pause_words = CASE WHEN pause_reason = 'key' OR (pause_reason = 'quota' AND CAST(?7 AS INTEGER) = 1) THEN NULL ELSE pause_words END,
+    pause_reason = CASE WHEN pause_reason = 'key' OR (pause_reason = 'quota' AND CAST(?7 AS INTEGER) = 1) THEN NULL ELSE pause_reason END
+WHERE id = ?8
 `
 
 type PutProviderKeyParams struct {
-	ApiKeySealed secret.Sealed
-	Account      *string
-	Plan         *string
-	Allowance    *string
-	AllowanceAt  storage.Time
-	Now          storage.Time
-	ID           subtitling.ProviderID
+	ApiKeySealed  secret.Sealed
+	Account       *string
+	Plan          *string
+	Allowance     *string
+	AllowanceAt   storage.Time
+	Now           storage.Time
+	DownloadsLeft int64
+	ID            subtitling.ProviderID
 }
 
-// An accepted key ends a pause for a refused key and stamps gained_at.
+// An accepted key ends a pause for a refused key, and one for a spent
+// allowance when its check reported downloads left, and stamps gained_at.
 func (q *Queries) PutProviderKey(ctx context.Context, arg PutProviderKeyParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, putProviderKey,
 		arg.ApiKeySealed,
@@ -57,6 +59,7 @@ func (q *Queries) PutProviderKey(ctx context.Context, arg PutProviderKeyParams) 
 		arg.Allowance,
 		arg.AllowanceAt,
 		arg.Now,
+		arg.DownloadsLeft,
 		arg.ID,
 	)
 	if err != nil {

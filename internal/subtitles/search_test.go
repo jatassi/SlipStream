@@ -16,6 +16,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/housekeeping"
@@ -269,8 +270,8 @@ func TestAKeyThatRunsOutPausesSubDLUntilItsResetAndSurvivesARestart(t *testing.T
 		if got := w.Catalog.Asked(); len(got) != 2 || len(rows(t, w)) != 0 {
 			t.Fatalf("the drain asked %q, want nothing after the call that spent the allowance", got)
 		}
-		if got := query(t, w, `SELECT count(*) FROM subtitles_want WHERE queued_at IS NOT NULL AND attempt_id IS NULL`); !slices.Equal(got, []string{"3"}) {
-			t.Fatalf("%v wants wait in the queue, want all three", got)
+		if got := missingOf(t, w, ks); !slices.Equal(got, []subtitles.MissingReason{subtitles.Paused, subtitles.Paused, subtitles.Paused}) {
+			t.Fatalf("the wants read %v, want each of the three waiting for SubDL's reset", got)
 		}
 		if got := entrytest.Of(w.History, subtitles.ProviderOutRow); len(got) != 1 || got[0].Provider != "SubDL" {
 			t.Fatalf("the pause recorded %+v, want one Subtitle Provider out of downloads", got)
@@ -291,14 +292,32 @@ func TestAKeyThatRunsOutPausesSubDLUntilItsResetAndSurvivesARestart(t *testing.T
 	})
 }
 
+func missingOf(t *testing.T, w *subtitlestest.World, ks []subtitles.WantKey) []subtitles.MissingReason {
+	t.Helper()
+	out := make([]subtitles.MissingReason, len(ks))
+	for i, k := range ks {
+		out[i] = outcome(t, w, k.File, k.Want).Missing
+	}
+	return out
+}
+
 func TestARefusedKeyPausesAndIsCheckedAgainWithinTheLongestPause(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w, k := film(t)
 		w.Catalog.Answer("subdl", calls.Outcome{Kind: calls.Refused, Words: "refused the key: Not Authorized"})
 		bound := at(w.Timings.MaxPause)
+		refused := time.Now()
 		search(t, w, k)
 		if got := paused(t, w); !slices.Equal(got, []string{"subdl key " + bound}) {
 			t.Fatalf("a refused key paused %v", got)
+		}
+		a, err := w.Subs.HealthSource().Answer(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if i := slices.IndexFunc(a.Items, func(it health.Item) bool { return it.Key == health.KeyOf("key-rejected", "subdl") }); i < 0 ||
+			len(a.Items[i].Detail) != 1 || a.Items[i].Detail[0].Label != "Rejected" || !a.Items[i].Detail[0].At.Equal(refused) {
+			t.Fatalf("Health reads %+v, want the rejected key's item with when SubDL rejected it, %s", a.Items, refused)
 		}
 		if got := items(t, w); !slices.ContainsFunc(got, func(s string) bool {
 			return strings.Contains(s, `SubDL rejected your key and responded "Not Authorized".`)
@@ -739,6 +758,112 @@ func TestAFreshImportSearchesOnceItsAudioIsScannedAndToldHistory(t *testing.T) {
 		}
 		if got := entrytest.Of(w.History, subtitles.MissingRow); len(got) != 1 || got[0].Language != "English" || got[0].File != "Film/Film.mkv" {
 			t.Fatalf("the first search recorded %+v, want one Subtitles missing", got)
+		}
+	})
+}
+
+func TestANodeThatIsAwayIsNotAskedAndItsSearchRunsOnceItIsBack(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w, k := film(t)
+		offer(t, w, "x", onSpeech, 1)
+		w.Away(true)
+		searchNow(t, w, k)
+		w.Sweep()
+		if n := w.Lost(); n != 0 {
+			t.Fatalf("while the Node was away the drains called it %d times, want none", n)
+		}
+		if got := rows(t, w); len(got) != 0 {
+			t.Fatalf("while the Node was away the Sidecars are %v, want none", got)
+		}
+		w.Away(false)
+		w.Sweep()
+		if got := rows(t, w); !slices.Equal(got, []string{"Film/Film.2024.1080p.WEB-DL-GRP.mkv en provider"}) {
+			t.Fatalf("once the Node was back the Sidecars are %v, want SubDL's", got)
+		}
+	})
+}
+
+func TestASearchWhoseNodeDoesntAnswerIsTriedAgainAtThePollNotInALoop(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w, k := film(t)
+		offer(t, w, "x", onSpeech, 1)
+		w.Unanswered(true)
+		searchNow(t, w, k)
+		w.Sweep()
+		if n := w.Lost(); n != 2 {
+			t.Fatalf("the Node that didn't answer was asked %d times, want once for the search and once at the drain's poll", n)
+		}
+		w.Unanswered(false)
+		w.Sweep()
+		if got := rows(t, w); !slices.Equal(got, []string{"Film/Film.2024.1080p.WEB-DL-GRP.mkv en provider"}) {
+			t.Fatalf("once the Node answered the Sidecars are %v, want SubDL's", got)
+		}
+	})
+}
+
+func TestANewKeyWithDownloadsLeftEndsAnOutOfDownloadsPause(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w, k := film(t)
+		offer(t, w, "x", onSpeech, 1)
+		reset := at(6 * time.Hour)
+		w.Catalog.Answer("subdl", calls.Outcome{Kind: calls.Capped, Words: "has no downloads left today", Until: time.Now().Add(6 * time.Hour)})
+		searchNow(t, w, k)
+		if got := paused(t, w); !slices.Equal(got, []string{"subdl quota " + reset}) {
+			t.Fatalf("after the spent allowance the pauses are %v, want SubDL's until %s", got, reset)
+		}
+		if _, err := w.Subs.SetKey(t.Context(), admin, "subdl", "k2"); err != nil {
+			t.Fatal(err)
+		}
+		if got := paused(t, w); len(got) != 0 {
+			t.Fatalf("after a new key with 19 of 50 downloads left the pauses are %v, want none", got)
+		}
+		w.Sweep()
+		if got := rows(t, w); !slices.Equal(got, []string{"Film/Film.2024.1080p.WEB-DL-GRP.mkv en provider"}) {
+			t.Fatalf("after the new key the Sidecars are %v, want SubDL's", got)
+		}
+	})
+}
+
+func TestACandidateUnfetchedWhileItsProviderPausedWaitsForTheResetNotTheGap(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w, ks := show(t, 1)
+		keyOn(t, w)
+		k := ks[0]
+		w.Catalog.List(subtitlestest.Listing{
+			Offer: subtitling.Offer{Provider: "subdl", Key: "x", Language: english(t).Language, Season: 1, Episodes: []int{1}},
+			Name:  "Show.S01E01.srt", Bytes: []byte(onSpeech),
+		})
+		reset := time.Now().Add(6 * time.Hour)
+		w.Catalog.Answer("subdl", calls.Outcome{Kind: calls.OK}, calls.Outcome{Kind: calls.Capped, Words: "has no downloads left today", Until: reset})
+		searchNow(t, w, k)
+		if st := outcome(t, w, k.File, k.Want); st.Kind != subtitles.Missing || st.Missing != subtitles.Paused || !st.Next.Equal(reset) {
+			t.Fatalf("the want whose candidate SubDL didn't serve reads %+v, want missing, waiting for SubDL's reset at %s", st, reset)
+		}
+		if got := tried(t, w); len(got) != 0 {
+			t.Fatalf("Tried before holds %v, want nothing for the candidate SubDL didn't serve", got)
+		}
+		time.Sleep(time.Until(reset))
+		w.Sweep()
+		if got := rows(t, w); !slices.Equal(got, []string{"Show/Show.S01E01.mkv en provider"}) {
+			t.Fatalf("after SubDL's reset the Sidecars are %v, want SubDL's", got)
+		}
+	})
+}
+
+func TestTheAdminsSearchRunsWhileSubtitleSearchIsOffAndAFreshImportsWaits(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w, k := film(t)
+		setSettings(t, w, `{"subtitles.searchOn":false}`)
+		offer(t, w, "x", onSpeech, 1)
+		fresh := w.Place(w.Work("other", w.Profile("Others", english(t))), "Other/Other.2024.1080p.WEB-DL-GRP.mkv", audio("fr"))
+		w.Sweep()
+		searchNow(t, w, k)
+		w.Sweep()
+		if got := rows(t, w); !slices.Equal(got, []string{"Film/Film.2024.1080p.WEB-DL-GRP.mkv en provider"}) {
+			t.Fatalf("with Subtitle search off the Admin's Search left the Sidecars %v, want SubDL's on the film alone", got)
+		}
+		if st := outcome(t, w, fresh, k.Want); st.Kind != subtitles.Missing || st.Missing != subtitles.NeverSearched {
+			t.Fatalf("with Subtitle search off the fresh import reads %+v, want it never searched", st)
 		}
 	})
 }

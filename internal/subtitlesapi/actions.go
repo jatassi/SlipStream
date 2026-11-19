@@ -84,7 +84,7 @@ type candidate struct {
 	Release  string              `json:"release"`
 	Reasons  []string            `json:"reasons" nullable:"false" enum:"made_by_person,same_group,same_source,provider_order" doc:"The ranking steps it meets"`
 	Tried    api.Nullable[tried] `json:"tried" doc:"Its earlier try for this file and want"`
-	Disabled bool                `json:"disabled" doc:"It can't be picked: it holds image subtitles, or its provider is paused. A candidate marked bad can be picked, which undoes the Mark bad"`
+	Disabled bool                `json:"disabled" doc:"It can't be picked because it has image subtitles or its provider is paused. A candidate marked bad can be picked, which undoes the Mark bad"`
 }
 
 type outcome struct {
@@ -96,7 +96,7 @@ type outcome struct {
 type candidates struct {
 	State      string      `json:"state" enum:"searching,done"`
 	Candidates []candidate `json:"candidates" nullable:"false" doc:"Best first"`
-	Outcomes   []outcome   `json:"outcomes" nullable:"false" doc:"How the search ended on each provider, in search order. A paused provider isn't asked and shows its pause"`
+	Outcomes   []outcome   `json:"outcomes" nullable:"false" doc:"How the search ended on each provider, in search order. SlipStream doesn't search a paused provider, and its outcome shows the pause"`
 }
 
 type candidatesOutput struct{ Body candidates }
@@ -333,7 +333,7 @@ func Routes(r *api.Router, owner Owner) {
 	})
 	api.Register(o, api.Admin, api.Op{
 		ID: "setSubtitleProviderKey", Method: http.MethodPut, Path: "/subtitles/providers/{id}/key",
-		Summary: "Check a Subtitle Provider key on a Subtitles holder, then save it", Status: http.StatusOK,
+		Summary: "Check a Subtitle Provider key on a Node with the Subtitles Role, then save it", Status: http.StatusOK,
 		Errors: []*api.Code{providerNotFound, keyless, keyRejected, keyUnchecked, noHolder},
 	}, func(ctx context.Context, by identity.Admin, in *keyInput) (*providerOutput, error) {
 		return one(open(h.o).SetKey(ctx, by, subtitling.ProviderID(in.ID), in.Body.Key))
@@ -346,7 +346,7 @@ func Routes(r *api.Router, owner Owner) {
 	})
 	api.Register(o, api.Admin, api.Op{
 		ID: "getWorkSubtitles", Method: http.MethodGet, Path: "/works/{workId}/subtitles",
-		Summary: "Get each library file of a Work with what each of its wanted subtitles reads as", Status: http.StatusOK, Errors: []*api.Code{workNotFound},
+		Summary: "Get each library file of a Work with the state of each of its wanted subtitles", Status: http.StatusOK, Errors: []*api.Code{workNotFound},
 	}, h.workSubtitles)
 	api.Register(o, api.Admin, api.Op{
 		ID: "ignoreSubtitleTrack", Method: http.MethodPut, Path: "/files/{fileId}/subtitles/tracks/{stream}/ignored",
@@ -360,7 +360,7 @@ func Routes(r *api.Router, owner Owner) {
 	wanting := []*api.Code{fileNotFound, badWant, notWanted}
 	api.Register(o, api.Admin, api.Op{
 		ID: "searchSubtitle", Method: http.MethodPost, Path: want + "/search",
-		Summary: "Search for one file's wanted subtitle now, ahead of the schedule", Status: http.StatusAccepted, Errors: wanting,
+		Summary: "Search for one file's wanted subtitle now, ahead of the schedule, even while Subtitle search is off", Status: http.StatusAccepted, Errors: wanting,
 	}, h.search)
 	api.Register(o, api.Admin, api.Op{
 		ID: "startSubtitleCandidates", Method: http.MethodPost, Path: want + "/candidates",

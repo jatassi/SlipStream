@@ -30,4 +30,5 @@ export type Scenario =
   | "fault-loop"
   | "gone-with-rss"
   | "five-indexers-one-late"
-  | "limited-tracker";
+  | "limited-tracker"
+  | "subtitles";

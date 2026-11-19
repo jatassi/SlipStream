@@ -32,8 +32,8 @@ type allowance struct {
 }
 
 type standing struct {
-	Kind  string                  `json:"kind" enum:"ready,needs_key,out,rejected,failing,off" doc:"The first that holds: off, a key is needed, the key was rejected, out of downloads or rate limited, failing, ready"`
-	Since api.Nullable[time.Time] `json:"since" doc:"When a failing provider started failing"`
+	Kind  string                  `json:"kind" enum:"ready,needs_key,out,rejected,failing,off" doc:"The first that applies: off, a key is needed, the key was rejected, out of downloads or rate limited, failing, ready"`
+	Since api.Nullable[time.Time] `json:"since" doc:"When the provider rejected the key, or when a failing provider started failing"`
 	Until api.Nullable[time.Time] `json:"until" doc:"When a provider that is out takes calls again"`
 	Words api.Nullable[string]    `json:"words" doc:"The provider's own words for a rejected key, or the last error of a failing provider"`
 }
@@ -82,6 +82,7 @@ func providerOf(p subtitles.Provider, now time.Time) provider {
 	out.State = standing{Kind: standings[st]}
 	switch st {
 	case subtitles.Rejected:
+		out.State.Since = api.Some(p.KeyCheckedAt)
 		out.State.Words = some(p.Paused.Words)
 	case subtitles.Out:
 		out.State.Until = api.Some(p.Paused.Until)
