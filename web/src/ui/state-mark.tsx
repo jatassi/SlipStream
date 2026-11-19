@@ -66,7 +66,7 @@ export function Mark({
 }
 
 const trigger =
-  "relative inline-flex rounded-chip text-left before:absolute before:-inset-x-1 before:-inset-y-2 focus-visible:outline-2 focus-visible:outline-offset-2";
+  "relative inline-flex rounded-chip before:absolute before:-inset-x-1 before:-inset-y-2 focus-visible:outline-2 focus-visible:outline-offset-2";
 
 const definitionPopup = `max-w-[min(280px,var(--available-width))] text-pretty ${labelPopup}`;
 

@@ -13,7 +13,6 @@ import {
 import type { StatusMark, TermsFor, Tone } from "../ui/state-marks";
 import type { Row, State } from "./model";
 
-/** A torrent's states as torrent clients name them. Only the server's severity makes one a signal chip. */
 export const torrentTerms = {
   removing: {
     word: "Removing",
@@ -63,7 +62,7 @@ export const torrentTerms = {
 
 const signals = { none: undefined, warning: "warn", failure: "fail" } as const;
 
-/** The row's state mark, raised to the warn or fail chip when the server says it needs attention. */
+/** The row's state mark, raised to the warn or fail chip by the server's severity. */
 export function torrentMark(row: Row): StatusMark {
   const term = torrentTerms[row.state];
   const signal = signals[row.severity];
