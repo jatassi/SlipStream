@@ -5,7 +5,6 @@ import { bytes, countWords } from "../format";
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
 import { Defined, type Term } from "../ui/defined";
-import { Joined } from "../ui/joined";
 import { Quality } from "./quality";
 
 /** A Release as every screen that lists one draws it. Each listing's own wire object fits it. */
@@ -34,6 +33,16 @@ const list = new Intl.ListFormat("en", { type: "conjunction" });
 
 const seeders = { one: "seeder", many: "seeders" };
 
+/** parts with " · " between them, each dot drawn by dot's classes. */
+const dotted = (parts: readonly ReactNode[], dot: string) =>
+  parts.map((part, at) => (
+    // oxlint-disable-next-line react/no-array-index-key -- the parts are fixed in place for each line
+    <Fragment key={at}>
+      {at > 0 && <span className={dot}> · </span>}
+      {part}
+    </Fragment>
+  ));
+
 /**
  * The Quality chip, then the revision, HDR format, audio, Release group and
  * size joined in a line, then a Freeleech chip, each left out when unknown.
@@ -55,11 +64,7 @@ function factsLine(release: Release, id?: string): ReactNode {
   ].filter((part) => part !== undefined && part !== false);
   const parts = [
     quality !== undefined && <Quality key="quality" quality={quality} />,
-    words.length > 0 && (
-      <span key="words">
-        <Joined parts={words} />
-      </span>
-    ),
+    words.length > 0 && <span key="words">{dotted(words, "text-ink-4")}</span>,
     release.freeleech === true && (
       <Defined key="freeleech" term={freeleech}>
         {(word) => <Chip>{word}</Chip>}
@@ -71,13 +76,7 @@ function factsLine(release: Release, id?: string): ReactNode {
   }
   return (
     <span id={id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-ink-1">
-      {parts.map((part, at) => (
-        // oxlint-disable-next-line react/no-array-index-key -- the parts are fixed in place for each line
-        <Fragment key={at}>
-          {at > 0 && <span className="sr-only"> · </span>}
-          {part}
-        </Fragment>
-      ))}
+      {dotted(parts, "sr-only")}
     </span>
   );
 }
