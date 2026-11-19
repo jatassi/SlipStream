@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/searches"
 )
 
@@ -77,5 +78,15 @@ func TestTheSearchQueueEnumsNameEveryTriggerOutcomeAndCodeInOrder(t *testing.T) 
 		if c.got != c.want {
 			t.Errorf("%s enum = %q, want %q", c.name, c.got, c.want)
 		}
+	}
+}
+
+func TestTheReleaseFactsQualityEnumNamesEveryQualityInOrder(t *testing.T) {
+	keys := make([]string, 0, len(release.Qualities()))
+	for _, q := range release.Qualities() {
+		keys = append(keys, q.String())
+	}
+	if got, want := enumOf[releaseFacts](t, "Quality"), strings.Join(keys, ","); got != want {
+		t.Errorf("releaseFacts.Quality enum = %q, want %q", got, want)
 	}
 }
