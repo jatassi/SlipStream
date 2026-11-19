@@ -120,6 +120,44 @@ test("the Node picker says how each Node stands: reconnecting, offline, past the
     ]);
 });
 
+const headingLine = () =>
+  page.getByRole("heading", { name: "seedbox", level: 1 }).query()?.parentElement?.textContent;
+
+test.each(["", "/roles", "/web", "/torrent-client", "/transfers", "/logs", "/log-settings"])(
+  "the section at /nodes/<seedbox>%s opens with its state, when it was last seen, its Roles and Restart",
+  async (section) => {
+    renderApp({
+      path: `/nodes/${seedboxId}${section}`,
+      handlers: [...system, nodesAre(home, seedbox)],
+    });
+    await expect.poll(headingLine).toMatch(/^seedboxOffline·Last seen .+Downloading$/u);
+    await expect
+      .element(page.getByRole("banner").getByRole("button", { name: "Restart" }))
+      .toBeVisible();
+  },
+);
+
+test("an offline Worker's state opens its definition", async () => {
+  renderApp({ path: `/nodes/${seedboxId}/logs`, handlers: [...system, nodesAre(home, seedbox)] });
+  const offline = page.getByRole("button", { name: "Offline", exact: true });
+  await expect
+    .element(offline)
+    .toHaveAccessibleDescription(
+      "It isn't connected to the Controller, and its work waits until it's back online.",
+    );
+  await userEvent.hover(offline);
+  await expect.element(page.getByRole("dialog", { name: "Offline" })).toBeVisible();
+});
+
+test("on phone, a pushed section of a Worker opens with its state, its Roles and Restart", async () => {
+  await asPhone();
+  renderApp({ path: `/nodes/${seedboxId}/logs`, handlers: [...system, nodesAre(home, seedbox)] });
+  await expect.element(page.getByRole("button", { name: "Offline", exact: true })).toBeVisible();
+  await expect.element(page.getByText(/^Last seen /u)).toBeVisible();
+  await expect.element(page.getByText("Downloading", { exact: true })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Restart" })).toBeVisible();
+});
+
 test("an unknown Node is not found", async () => {
   renderApp({
     path: "/nodes/00000000-0000-0000-0000-000000000000",

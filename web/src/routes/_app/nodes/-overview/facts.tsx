@@ -1,18 +1,15 @@
 import type { NodesNode } from "../../../../api/gen/model";
-import { type Clock, clock as clockWords, sinceWords } from "../../../../format";
+import { clock as clockWords } from "../../../../format";
 import { reachedBy } from "../../../../nodes/dial";
-import { useNodeState } from "../../../../nodes/state";
 import { Section } from "../../../../ui/section";
 import { KeyValues } from "../-facts";
 import { Findings, findingsOf } from "../-findings";
 import type { Acting } from "../-manage/dialogs";
 import { Labelled } from "./labelled";
-import { Roles } from "./roles";
 
 type Props = {
   readonly node: NodesNode;
   readonly nodes: readonly NodesNode[];
-  readonly clock: Clock;
   readonly act: (acting: Acting) => void;
 };
 
@@ -36,11 +33,9 @@ function reached({ node, nodes, act }: Props) {
   ];
 }
 
-/** What the Controller knows of the Node: its name, Roles, key, pairing, and how it is reached. */
+/** What the Controller knows of the Node: its name, key, pairing, and how it is reached. */
 export function NodeFacts(props: Props) {
-  const { node, nodes, clock, act } = props;
-  const state = useNodeState(node);
-  const away = state !== "online" && state !== "restarting";
+  const { node, act } = props;
   const rename = () => {
     act({ kind: "rename", nodeId: node.id });
   };
@@ -57,10 +52,8 @@ export function NodeFacts(props: Props) {
                 action={{ label: "Rename", onClick: rename }}
               />,
             ],
-            ["Roles", <Roles key="roles" node={node} nodes={nodes} clock={clock} />],
             ["Key", node.key],
             ["Paired", clockWords(node.pairedAt)],
-            ...(away ? [["Last seen", sinceWords(node.link.since, clock)] as const] : []),
             ...reached(props),
           ]}
         />

@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
+import { RoleChips } from "../../../../nodes/role-chips";
 import { NodeLamp } from "../../../../nodes/state-mark";
-import { Chip } from "../../../../ui/chip";
 import type { Adding } from "../-add-node/add-node";
 import { Findings } from "../-findings";
 import type { Acting } from "../-manage/dialogs";
@@ -31,17 +31,7 @@ function RosterRow({ node, act }: { node: NodeRow; act: (acting: Acting) => void
               {node.name}
             </span>
             <span className="text-meta text-ink-3">{node.facts.join(" · ")}</span>
-            {node.roles.length === 0 ? (
-              <span className="text-meta text-ink-3">No Roles yet</span>
-            ) : (
-              <span className="flex flex-wrap gap-1.5">
-                {node.roles.map(({ role, words }) => (
-                  <Chip key={role} look="outline">
-                    {words}
-                  </Chip>
-                ))}
-              </span>
-            )}
+            <RoleChips roles={node.roles} />
             {node.torrents.length > 0 && (
               <span className="text-meta text-ink-3">{torrentsLine(node)}</span>
             )}

@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 
+import { RoleChips } from "../../../../nodes/role-chips";
 import { NodeStateMark } from "../../../../nodes/state-mark";
 import { Button } from "../../../../ui/button";
-import { Chip } from "../../../../ui/chip";
 import { InspectorSection } from "../../../../ui/inspector";
 import { Findings } from "../-findings";
 import type { Acting } from "../-manage/dialogs";
@@ -21,17 +21,7 @@ export function NodeWords({ node, act }: { node: NodeRow; act: (acting: Acting) 
         <Findings findings={node.findings} label={`What ${node.name} found`} />
       </InspectorSection>
       <InspectorSection title="Roles">
-        {node.roles.length === 0 ? (
-          <p className="text-ink-3">No Roles yet</p>
-        ) : (
-          <span className="flex flex-wrap gap-1.5">
-            {node.roles.map(({ role, words }) => (
-              <Chip key={role} look="outline">
-                {words}
-              </Chip>
-            ))}
-          </span>
-        )}
+        <RoleChips roles={node.roles} />
       </InspectorSection>
       <div className="flex flex-wrap gap-2">
         <Button

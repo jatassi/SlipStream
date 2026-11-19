@@ -3,6 +3,7 @@ import { notFound } from "@tanstack/react-router";
 
 import type { NodesNode } from "../../../api/gen/model";
 import {
+  getGetRoleBoardSuspenseQueryOptions,
   getListNodesSuspenseQueryOptions,
   useListNodesSuspense,
 } from "../../../api/gen/query/nodes/nodes";
@@ -22,8 +23,12 @@ export function nodeOf(nodes: readonly NodesNode[], nodeId: string): NodesNode {
 export const useNode = (nodeId: string): NodesNode =>
   nodeOf(useListNodesSuspense().data.nodes, nodeId);
 
+/** Loads the Node and the role board its header's Role chips read. */
 export async function loadNode(queryClient: QueryClient, nodeId: string): Promise<Titled> {
-  const { nodes } = await ensureQuery(queryClient, getListNodesSuspenseQueryOptions());
+  const [{ nodes }] = await Promise.all([
+    ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
+    ensureQuery(queryClient, getGetRoleBoardSuspenseQueryOptions()),
+  ]);
   return { title: nodeOf(nodes, nodeId).name };
 }
 
