@@ -18,7 +18,6 @@ type workRef struct {
 type blockEntry struct {
 	InfoHash string                `json:"infoHash" pattern:"^[0-9a-f]{40}$"`
 	Title    string                `json:"title"`
-	Words    string                `json:"words" doc:"What SlipStream reads from the title, in words"`
 	Facts    releaseFacts          `json:"facts" doc:"Empty once the Work is deleted"`
 	Size     int64                 `json:"size" minimum:"0" doc:"Bytes"`
 	Cause    string                `json:"cause" enum:"unregistered,no_payload,engine_error,marked_failed,by_hand,no_video,unreadable,misdescribed"`
@@ -60,7 +59,7 @@ func (h handlers) listBlocklist(ctx context.Context, by identity.Admin, in *bloc
 
 func blockEntryOf(e grabs.BlockEntry) blockEntry {
 	out := blockEntry{
-		InfoHash: e.InfoHash.String(), Title: e.Title, Words: e.Summary.Words(), Facts: factsOf(e.Summary), Size: e.Size, Cause: string(e.Cause), Because: e.Because, AddedAt: e.Added,
+		InfoHash: e.InfoHash.String(), Title: e.Title, Facts: factsOf(e.Summary), Size: e.Size, Cause: string(e.Cause), Because: e.Because, AddedAt: e.Added,
 	}
 	if e.IndexerName != "" {
 		out.Indexer = new(e.IndexerName)

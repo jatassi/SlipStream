@@ -24,7 +24,6 @@ export const release = (
 ): GrabsReleaseDetails => ({
   id,
   title,
-  words: "",
   facts,
   indexers: ["Prowlarr"],
   size: 4_294_967_296,

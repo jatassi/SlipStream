@@ -34,6 +34,4 @@ export interface GrabsReleaseDetails {
   tracker?: string;
   /** Its verdict at each Target of its Item, such as It would be the 1080p file. */
   verdicts: string[];
-  /** What SlipStream reads from the title, in words */
-  words: string;
 }

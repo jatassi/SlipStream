@@ -1761,7 +1761,6 @@ export * from "./grabsGrabImport.ts";
 export * from "./grabsGrabList.ts";
 export * from "./grabsGrabOffer.ts";
 export * from "./grabsGrabPick.ts";
-export * from "./grabsGrabQuality.ts";
 export * from "./grabsGrabSource.ts";
 export * from "./grabsGrabStage.ts";
 export * from "./grabsGrabTarget.ts";

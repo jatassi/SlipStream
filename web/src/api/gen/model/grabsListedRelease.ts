@@ -50,6 +50,4 @@ export interface GrabsListedRelease {
    */
   size: number;
   title: string;
-  /** What SlipStream reads from the title, in words, such as WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB */
-  words: string;
 }

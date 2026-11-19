@@ -62,7 +62,6 @@ type indexerLine struct {
 type releaseDetails struct {
 	ID          string               `json:"id" doc:"Send it back as a pick's releaseId"`
 	Title       string               `json:"title"`
-	Words       string               `json:"words" doc:"What SlipStream reads from the title, in words"`
 	Facts       releaseFacts         `json:"facts"`
 	Indexers    []string             `json:"indexers" nullable:"false" doc:"The Indexers that listed it, by priority"`
 	Tracker     string               `json:"tracker,omitempty" doc:"The Tracker its link reaches, absent when none is known"`
@@ -497,7 +496,7 @@ func heldOf(hs []grabs.HeldCell) []heldCell {
 
 func releaseDetailsOf(d grabs.ReleaseDetails) releaseDetails {
 	out := releaseDetails{
-		ID: releaseIDOf(d.Ref), Title: d.Title, Words: d.Summary.Words(), Facts: factsOf(d.Summary), Indexers: append([]string{}, d.Indexers...), Tracker: d.Tracker,
+		ID: releaseIDOf(d.Ref), Title: d.Title, Facts: factsOf(d.Summary), Indexers: append([]string{}, d.Indexers...), Tracker: d.Tracker,
 		Size: d.Size, Seeders: d.Seeders, Freeleech: d.Freeleech, Formats: []string{}, Verdicts: append([]string{}, d.Verdicts...),
 	}
 	if !d.Published.IsZero() {

@@ -5968,10 +5968,6 @@
           "title": {
             "type": "string"
           },
-          "words": {
-            "description": "What SlipStream reads from the title, in words",
-            "type": "string"
-          },
           "work": {
             "anyOf": [
               {
@@ -5987,7 +5983,6 @@
         "required": [
           "infoHash",
           "title",
-          "words",
           "facts",
           "size",
           "cause",
@@ -6585,30 +6580,6 @@
             "$ref": "#/components/schemas/GrabsProgress",
             "description": "The download's progress, absent unless it is downloading and its Node reported it"
           },
-          "quality": {
-            "description": "The quality the release title names, absent when it names none",
-            "enum": [
-              "sdtv",
-              "dvd",
-              "webrip-480p",
-              "hdtv-720p",
-              "webrip-720p",
-              "webdl-720p",
-              "bluray-720p",
-              "hdtv-1080p",
-              "webrip-1080p",
-              "webdl-1080p",
-              "bluray-1080p",
-              "remux-1080p",
-              "hdtv-2160p",
-              "webrip-2160p",
-              "webdl-2160p",
-              "bluray-2160p",
-              "remux-2160p",
-              "cam"
-            ],
-            "type": "string"
-          },
           "releaseFacts": {
             "$ref": "#/components/schemas/GrabsReleaseFacts"
           },
@@ -6618,10 +6589,6 @@
             "type": "integer"
           },
           "releaseTitle": {
-            "type": "string"
-          },
-          "releaseWords": {
-            "description": "Its Release in words, such as Bluray-1080p · FKW · 9.8 GB",
             "type": "string"
           },
           "rssIndexerName": {
@@ -6705,7 +6672,6 @@
           "targetIds",
           "targets",
           "releaseTitle",
-          "releaseWords",
           "releaseFacts",
           "releaseSize",
           "indexerId",
@@ -7441,16 +7407,11 @@
           },
           "title": {
             "type": "string"
-          },
-          "words": {
-            "description": "What SlipStream reads from the title, in words, such as WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB",
-            "type": "string"
           }
         },
         "required": [
           "position",
           "title",
-          "words",
           "facts",
           "indexerId",
           "indexerName",
@@ -8221,16 +8182,11 @@
               "type": "string"
             },
             "type": "array"
-          },
-          "words": {
-            "description": "What SlipStream reads from the title, in words",
-            "type": "string"
           }
         },
         "required": [
           "id",
           "title",
-          "words",
           "facts",
           "indexers",
           "size",

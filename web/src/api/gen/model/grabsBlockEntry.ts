@@ -22,8 +22,6 @@ export interface GrabsBlockEntry {
    */
   size: number;
   title: string;
-  /** What SlipStream reads from the title, in words */
-  words: string;
   /** The Work it was grabbed for; null once the Work is deleted */
   work: GrabsWorkRef | null;
 }

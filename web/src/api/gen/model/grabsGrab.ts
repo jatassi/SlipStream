@@ -7,7 +7,6 @@ import type { GrabsGrabActions } from "./grabsGrabActions.ts";
 import type { GrabsGrabClient } from "./grabsGrabClient.ts";
 import type { GrabsGrabFoundBy } from "./grabsGrabFoundBy.ts";
 import type { GrabsGrabImport } from "./grabsGrabImport.ts";
-import type { GrabsGrabQuality } from "./grabsGrabQuality.ts";
 import type { GrabsGrabSource } from "./grabsGrabSource.ts";
 import type { GrabsGrabStage } from "./grabsGrabStage.ts";
 import type { GrabsGrabTarget } from "./grabsGrabTarget.ts";
@@ -72,14 +71,10 @@ export interface GrabsGrab {
   overrides: string[];
   /** The download's progress, absent unless it is downloading and its Node reported it */
   progress?: GrabsProgress;
-  /** The quality the release title names, absent when it names none */
-  quality?: GrabsGrabQuality;
   releaseFacts: GrabsReleaseFacts;
   /** @minimum 0 */
   releaseSize: number;
   releaseTitle: string;
-  /** Its Release in words, such as Bluray-1080p · FKW · 9.8 GB */
-  releaseWords: string;
   /**
    * The Indexer whose feed RSS sync found it in; null unless foundBy is rss, and once the Indexer is deleted
    * @nullable

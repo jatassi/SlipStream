@@ -98,7 +98,6 @@ export const getListBlocklistResponseMock = (
       infoHash: faker.helpers.fromRegExp("^[0-9a-f]{40}$"),
       size: faker.number.int({ min: 0 }),
       title: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      words: faker.string.alpha({ length: { min: 10, max: 20 } }),
       work: faker.helpers.arrayElement([
         { id: faker.string.uuid(), title: faker.string.alpha({ length: { min: 10, max: 20 } }) },
         null,
@@ -261,30 +260,6 @@ export const getListGrabsResponseMock = (
     ...(faker.datatype.boolean()
       ? { progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) } }
       : {}),
-    ...(faker.datatype.boolean()
-      ? {
-          quality: faker.helpers.arrayElement([
-            "sdtv",
-            "dvd",
-            "webrip-480p",
-            "hdtv-720p",
-            "webrip-720p",
-            "webdl-720p",
-            "bluray-720p",
-            "hdtv-1080p",
-            "webrip-1080p",
-            "webdl-1080p",
-            "bluray-1080p",
-            "remux-1080p",
-            "hdtv-2160p",
-            "webrip-2160p",
-            "webdl-2160p",
-            "bluray-2160p",
-            "remux-2160p",
-            "cam",
-          ] as const),
-        }
-      : {}),
     releaseFacts: {
       ...(faker.datatype.boolean()
         ? { audio: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -325,7 +300,6 @@ export const getListGrabsResponseMock = (
     },
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
     rssIndexerName: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
@@ -532,30 +506,6 @@ export const getGetGrabResponseMock = (
   ...(faker.datatype.boolean()
     ? { progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) } }
     : {}),
-  ...(faker.datatype.boolean()
-    ? {
-        quality: faker.helpers.arrayElement([
-          "sdtv",
-          "dvd",
-          "webrip-480p",
-          "hdtv-720p",
-          "webrip-720p",
-          "webdl-720p",
-          "bluray-720p",
-          "hdtv-1080p",
-          "webrip-1080p",
-          "webdl-1080p",
-          "bluray-1080p",
-          "remux-1080p",
-          "hdtv-2160p",
-          "webrip-2160p",
-          "webdl-2160p",
-          "bluray-2160p",
-          "remux-2160p",
-          "cam",
-        ] as const),
-      }
-    : {}),
   releaseFacts: {
     ...(faker.datatype.boolean()
       ? { audio: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -596,7 +546,6 @@ export const getGetGrabResponseMock = (
   },
   releaseSize: faker.number.int({ min: 0 }),
   releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
   rssIndexerName: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -803,30 +752,6 @@ export const getListIndexerGrabsResponseMock = (
     ...(faker.datatype.boolean()
       ? { progress: { done: faker.number.int({ min: 0 }), total: faker.number.int({ min: 0 }) } }
       : {}),
-    ...(faker.datatype.boolean()
-      ? {
-          quality: faker.helpers.arrayElement([
-            "sdtv",
-            "dvd",
-            "webrip-480p",
-            "hdtv-720p",
-            "webrip-720p",
-            "webdl-720p",
-            "bluray-720p",
-            "hdtv-1080p",
-            "webrip-1080p",
-            "webdl-1080p",
-            "bluray-1080p",
-            "remux-1080p",
-            "hdtv-2160p",
-            "webrip-2160p",
-            "webdl-2160p",
-            "bluray-2160p",
-            "remux-2160p",
-            "cam",
-          ] as const),
-        }
-      : {}),
     releaseFacts: {
       ...(faker.datatype.boolean()
         ? { audio: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -867,7 +792,6 @@ export const getListIndexerGrabsResponseMock = (
     },
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
     rssIndexerName: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
@@ -2010,7 +1934,6 @@ export const getListSearchReleasesResponseMock = (
       seeders: faker.number.int({ min: 0 }),
       size: faker.number.int({ min: 0 }),
       title: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      words: faker.string.alpha({ length: { min: 10, max: 20 } }),
     }),
   ),
   ...overrideResponse,
@@ -2294,7 +2217,6 @@ export const getGetManualSearchResponseMock = (
                 { length: faker.number.int({ min: 1, max: 10 }) },
                 (_, i) => i + 1,
               ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
-              words: faker.string.alpha({ length: { min: 10, max: 20 } }),
             },
           }),
         ),
@@ -2449,7 +2371,6 @@ export const getGetManualSearchResponseMock = (
                 { length: faker.number.int({ min: 1, max: 10 }) },
                 (_, i) => i + 1,
               ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
-              words: faker.string.alpha({ length: { min: 10, max: 20 } }),
             },
             ...(faker.datatype.boolean()
               ? { routed: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -2687,7 +2608,6 @@ export const getListManualSearchReleasesResponseMock = (
           { length: faker.number.int({ min: 1, max: 10 }) },
           (_, i) => i + 1,
         ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
-        words: faker.string.alpha({ length: { min: 10, max: 20 } }),
       },
       score: faker.number.int(),
     }),

@@ -3541,7 +3541,6 @@ export const GrabsBlockEntry = zod.object({
   infoHash: zod.string().regex(grabsBlockEntryInfoHashRegExp),
   size: zod.int().min(grabsBlockEntrySizeMin).describe("Bytes"),
   title: zod.string(),
-  words: zod.string().describe("What SlipStream reads from the title, in words"),
   work: zod
     .union([GrabsWorkRef, zod.null()])
     .describe("The Work it was grabbed for; null once the Work is deleted"),
@@ -3659,7 +3658,6 @@ export const GrabsReleaseDetails = zod.object({
   verdicts: zod
     .array(zod.string())
     .describe("Its verdict at each Target of its Item, such as It would be the 1080p file."),
-  words: zod.string().describe("What SlipStream reads from the title, in words"),
 });
 
 export type GrabsReleaseDetails = zod.input<typeof GrabsReleaseDetails>;
@@ -4014,33 +4012,9 @@ export const GrabsGrab = zod.object({
   progress: GrabsProgress.exactOptional().describe(
     "The download's progress, absent unless it is downloading and its Node reported it",
   ),
-  quality: zod
-    .enum([
-      "sdtv",
-      "dvd",
-      "webrip-480p",
-      "hdtv-720p",
-      "webrip-720p",
-      "webdl-720p",
-      "bluray-720p",
-      "hdtv-1080p",
-      "webrip-1080p",
-      "webdl-1080p",
-      "bluray-1080p",
-      "remux-1080p",
-      "hdtv-2160p",
-      "webrip-2160p",
-      "webdl-2160p",
-      "bluray-2160p",
-      "remux-2160p",
-      "cam",
-    ])
-    .exactOptional()
-    .describe("The quality the release title names, absent when it names none"),
   releaseFacts: GrabsReleaseFacts,
   releaseSize: zod.int().min(grabsGrabReleaseSizeMin),
   releaseTitle: zod.string(),
-  releaseWords: zod.string().describe("Its Release in words, such as Bluray-1080p · FKW · 9.8 GB"),
   rssIndexerName: zod
     .string()
     .nullable()
@@ -4349,11 +4323,6 @@ export const GrabsListedRelease = zod.object({
   seeders: zod.int().min(grabsListedReleaseSeedersMin),
   size: zod.int().min(grabsListedReleaseSizeMin).describe("Bytes"),
   title: zod.string(),
-  words: zod
-    .string()
-    .describe(
-      "What SlipStream reads from the title, in words, such as WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB",
-    ),
 });
 
 export type GrabsListedRelease = zod.input<typeof GrabsListedRelease>;
