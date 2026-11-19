@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import type { Clock } from "../format";
 import type { LiveRow } from "../live/torrents";
+import { Quality } from "../release/quality";
 import { Data } from "../ui/data";
 import { Poster } from "../ui/poster";
 import { Mark } from "../ui/state-mark";
@@ -32,14 +33,21 @@ function WorkLines({ row, names }: CellProps) {
   if (work === undefined) {
     return <Lines first={<Data>{row.name}</Data>} second="Not in the Library" />;
   }
-  const facts = [
-    row.edition === undefined ? undefined : names.edition(row.edition),
-    row.quality === undefined ? undefined : names.quality(row.quality),
-  ].filter((fact) => fact !== undefined);
+  const edition = row.edition === undefined ? undefined : names.edition(row.edition);
   return (
     <Lines
       first={<span className="font-semibold">{work}</span>}
-      second={facts.length === 0 ? <Data>{row.name}</Data> : facts.join(" · ")}
+      second={
+        edition === undefined && row.quality === undefined ? (
+          <Data>{row.name}</Data>
+        ) : (
+          <>
+            {edition}
+            {edition !== undefined && row.quality !== undefined && " · "}
+            {row.quality !== undefined && <Quality quality={row.quality} look="word" />}
+          </>
+        )
+      }
     />
   );
 }
