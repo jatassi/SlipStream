@@ -1,22 +1,8 @@
-import { QueryClientProvider } from "@tanstack/react-query";
-import { type ReactNode, Suspense } from "react";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { createQueryClient } from "../api/query-client";
-import { renderKit } from "../test/render-kit";
-import { targetHandlers } from "../test/targets";
-import { worker } from "../test/worker";
+import { renderWithQualities } from "../test/qualities";
 import { Quality } from "./quality";
-
-function renderWithQualities(ui: ReactNode) {
-  worker.use(...targetHandlers());
-  renderKit(
-    <QueryClientProvider client={createQueryClient(() => {})}>
-      <Suspense fallback={null}>{ui}</Suspense>
-    </QueryClientProvider>,
-  );
-}
 
 const webdl = "The video is downloaded from a streaming service exactly as the service sends it.";
 
