@@ -1,9 +1,8 @@
-import type { ReactNode } from "react";
-
 import type { GrabsStopped } from "../api/gen/model";
 import { clock } from "../format";
 import { useNow } from "../tasks/use-now";
 import { Data } from "../ui/data";
+import type { FactRow } from "../ui/facts";
 import { stoppedWords } from "./search-words";
 import type { FailedGrab } from "./stages";
 
@@ -28,10 +27,7 @@ function Failures({ stop, code }: { stop: Stop; code: FailedGrab["failure"]["cod
  * A failure card's Recovery: the code's own, or for a stopped cell when
  * Backlog search tries next and each failure that stopped it.
  */
-export function useRecoveryFacts(
-  grab: FailedGrab,
-  stop: Stop | undefined,
-): { label: string; value: ReactNode }[] {
+export function useRecoveryFacts(grab: FailedGrab, stop: Stop | undefined): FactRow[] {
   const now = useNow(30_000);
   const { recovery } = grab.failure;
   if (stop !== undefined) {
