@@ -1,6 +1,6 @@
 import type { ImportsImportFile } from "../api/gen/model";
 import { bytes } from "../format";
-import { useQualityNames } from "../targets/quality-names";
+import { Quality } from "../release/quality";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
 
@@ -15,7 +15,6 @@ export function FileDetails({
   file: ImportsImportFile;
   targetName: (id: string) => string;
 }) {
-  const quality = useQualityNames();
   return (
     <Details>
       <dl className="mt-1 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-item bg-well px-3 py-2">
@@ -26,8 +25,12 @@ export function FileDetails({
         <dt>Detected as</dt>
         <dd>
           <Data>
-            {file.quality === null ? "No quality found" : quality(file.quality)} ·{" "}
-            {bytes(file.size)}
+            {file.quality === null ? (
+              "No quality found"
+            ) : (
+              <Quality quality={file.quality} look="word" />
+            )}{" "}
+            · {bytes(file.size)}
           </Data>
         </dd>
         {file.verdicts.map(({ targetId, sentence }) => (

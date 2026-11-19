@@ -1,7 +1,7 @@
 import type { ImportsHint, WorksContentType } from "../api/gen/model";
 import type { RootEntry } from "./root-entry";
 import { bytes } from "../format";
-import { useQualityNames } from "../targets/quality-names";
+import { Quality } from "../release/quality";
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
@@ -31,7 +31,6 @@ function Suggestion({ entry }: { entry: RootEntry }) {
 }
 
 function EntryDetails({ entry, type }: { entry: RootEntry; type: WorksContentType }) {
-  const quality = useQualityNames();
   return (
     <Details>
       <dl className="mt-1 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-item bg-well px-3 py-2">
@@ -44,8 +43,12 @@ function EntryDetails({ entry, type }: { entry: RootEntry; type: WorksContentTyp
             </dt>
             <dd className="wrap-anywhere">
               <Data>
-                {file.quality === null ? "No quality found" : quality(file.quality)} ·{" "}
-                {bytes(file.size)}
+                {file.quality === null ? (
+                  "No quality found"
+                ) : (
+                  <Quality quality={file.quality} look="word" />
+                )}{" "}
+                · {bytes(file.size)}
               </Data>{" "}
               {reasonOf(file.reason, type)}
               {file.reason.line !== undefined && (
@@ -63,12 +66,9 @@ function EntryDetails({ entry, type }: { entry: RootEntry; type: WorksContentTyp
 
 /** One folder that waits: why, its suggested match, what to do, and the files under Details. */
 export function EntryRow({ entry, type }: { entry: RootEntry; type: WorksContentType }) {
-  const quality = useQualityNames();
   const size = entry.files.reduce((total, file) => total + file.size, 0);
   const qualities = [
-    ...new Set(
-      entry.files.flatMap((file) => (file.quality === null ? [] : [quality(file.quality)])),
-    ),
+    ...new Set(entry.files.flatMap((file) => (file.quality === null ? [] : [file.quality]))),
   ];
   return (
     <li
@@ -82,7 +82,13 @@ export function EntryRow({ entry, type }: { entry: RootEntry; type: WorksContent
             <Data>{entry.folder}</Data>
           </span>
           <span className="text-meta text-ink-3">
-            {[filesWords(entry.files.length), bytes(size), ...qualities].join(" · ")}
+            {filesWords(entry.files.length)} · {bytes(size)}
+            {qualities.map((quality) => (
+              <span key={quality}>
+                {" · "}
+                <Quality quality={quality} look="word" />
+              </span>
+            ))}
           </span>
         </div>
         {reasonsOf(entry, type).map((sentence) => (
