@@ -32,22 +32,29 @@ func numbered(name string) numbering {
 	base := path.Base(strings.ReplaceAll(name, `\`, "/"))
 	base = strings.TrimSuffix(base, path.Ext(base))
 	if m := nameSE.FindStringSubmatchIndex(base); m != nil {
-		season, _ := strconv.Atoi(base[m[2]:m[3]])
-		first, _ := strconv.Atoi(base[m[4]:m[5]])
+		season := number(base[m[2]:m[3]])
+		first := number(base[m[4]:m[5]])
 		return numbering{season, append([]int{first}, moreEpisodes(base[m[1]:], first)...)}
 	}
 	if m := nameX.FindStringSubmatch(base); m != nil {
-		season, _ := strconv.Atoi(m[1])
-		e, _ := strconv.Atoi(m[2])
+		season := number(m[1])
+		e := number(m[2])
 		return numbering{season, []int{e}}
 	}
 	for _, re := range []*regexp.Regexp{nameEpisode, nameLeading} {
 		if m := re.FindStringSubmatch(base); m != nil {
-			e, _ := strconv.Atoi(m[1])
+			e := number(m[1])
 			return numbering{0, []int{e}}
 		}
 	}
 	return numbering{}
+}
+
+// number reads digits the name patterns bound to three, as 32 bits so
+// a season or episode number fits the wire's int32.
+func number(digits string) int {
+	n, _ := strconv.ParseInt(digits, 10, 32)
+	return int(n)
 }
 
 // moreEpisodes reads the episodes after the first: E02 as one more, a
@@ -60,7 +67,7 @@ func moreEpisodes(rest string, prev int) []int {
 		if m == nil {
 			return es
 		}
-		n, _ := strconv.Atoi(rest[m[6]:m[7]])
+		n := number(rest[m[6]:m[7]])
 		withE := m[4] < 0
 		dash := m[2] >= 0 || m[4] >= 0
 		switch {
