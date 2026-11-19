@@ -673,6 +673,7 @@ A Work's status is a mark of a word and an icon, so colour never carries it alon
 - **Met:** A check, in `ink-1`.
 - **Not monitored:** A silenced bell in `ink-3`, after the status.
 - **Gone from TMDB:** The warn signal chip, naming the Work's metadata source.
+- **Technical state:** A state in the industry's term, such as Stalled or Direct stream, underlines its word with a dotted `ink-4` line. Hovering, tapping or pressing Enter on it opens its one-sentence definition in the tooltip's glass label, and a signal chip opens one the same way.
 
 A Work of many Items adds its tally to the status, such as "Missing · 12 of 40 met". Failed carries the count of failed cells, such as "Failed 3 · 12 of 40 met". Any failed cell makes the status Failed. The status is the first state any of the Work's Items holds in the glossary's order, what needs attention first: failed, missing, downloading, upgradable, unreleased, met. The web maps every status the API names to a mark, so a state added later fails the build until it has one.
 
