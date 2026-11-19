@@ -18,12 +18,14 @@ import {
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 // oxlint-disable-next-line import/max-dependencies -- the base handlers answer every read the shell and Settings make
+import { getListQualitiesMockHandler } from "../api/gen/query/targets/targets.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
 import { quietHealth } from "./health";
 import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
 import { board, boardIs, homeSeat } from "./roles";
+import { qualityList } from "./targets";
 
 const generated = import.meta.glob<Record<string, () => RequestHandler[]>>(
   "../api/gen/query/**/*.msw.ts",
@@ -116,6 +118,8 @@ const quietBell = [
   getListNotificationConnectionsMockHandler({ connections: [] }),
 ];
 
+// The fixed quality table, which every key a fixture names is in.
+const theQualities = getListQualitiesMockHandler(qualityList);
 // A Work page with no History entries.
 const quietHistory = getListHistoryMockHandler({ entries: [], next: null });
 
@@ -135,6 +139,7 @@ export const baseHandlers: RequestHandler[] = [
   ...quietHealth,
   ...quietBell,
   quietHistory,
+  theQualities,
   ...tagMocks,
 ];
 

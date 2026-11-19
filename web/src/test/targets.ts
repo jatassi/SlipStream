@@ -21,7 +21,7 @@ const quality = (
 ) => ({ key, name, source, resolution, cinema: source === "cinema", floor });
 
 /** GET /qualities as the Node answers it. */
-const qualityList: TargetsQualityList = {
+export const qualityList: TargetsQualityList = {
   qualities: [
     quality("sdtv", "SDTV", "tv", "480p", 0),
     quality("dvd", "DVD", "dvd", "480p", 0),

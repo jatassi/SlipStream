@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 import type { GrabsBlockEntry } from "../api/gen/model";
 import { type Clock, agoWords, sinceWords } from "../format";
+import { ReleaseName } from "../release/row";
 import { Checkbox } from "../ui/checkbox";
 import { Data } from "../ui/data";
 import { type Column, Table } from "../ui/table";
@@ -12,17 +13,6 @@ export type Picking = {
 };
 
 type Row = { readonly entry: GrabsBlockEntry; readonly picking: Picking; readonly clock: Clock };
-
-function ReleaseCell({ entry }: Row) {
-  return (
-    <span className="flex min-w-0 flex-col gap-0.5">
-      <span>{entry.words}</span>
-      <span className="text-meta wrap-anywhere text-ink-3">
-        <Data>{entry.title}</Data>
-      </span>
-    </span>
-  );
-}
 
 const columns: readonly [Column<Row>, ...Column<Row>[]] = [
   {
@@ -39,7 +29,7 @@ const columns: readonly [Column<Row>, ...Column<Row>[]] = [
       />
     ),
   },
-  { id: "release", header: "Release", cell: (row) => <ReleaseCell {...row} /> },
+  { id: "release", header: "Release", cell: ({ entry }) => <ReleaseName release={entry} /> },
   { id: "cause", header: "Cause", cell: ({ entry }) => entry.because },
   { id: "indexer", header: "Indexer", cell: ({ entry }) => entry.indexer },
   {
