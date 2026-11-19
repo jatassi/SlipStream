@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, useId } from "react";
 
 import type { GrabsReleaseFacts } from "../api/gen/model";
 import { bytes, countWords } from "../format";
@@ -40,7 +40,7 @@ const seeders = { one: "seeder", many: "seeders" };
  * Hidden dots join the chips to the line, so its text reads as the sentence
  * Go's Summary.Words writes. Undefined when the Release shows no fact.
  */
-function factsLine(release: Release): ReactNode {
+function factsLine(release: Release, id?: string): ReactNode {
   const { quality, revision, hdr, audio, group } = release.facts;
   const words = [
     revision !== undefined && (
@@ -70,7 +70,7 @@ function factsLine(release: Release): ReactNode {
     return undefined;
   }
   return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-ink-1">
+    <span id={id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-ink-1">
       {parts.map((part, at) => (
         // oxlint-disable-next-line react/no-array-index-key -- the parts are fixed in place for each line
         <Fragment key={at}>
@@ -83,17 +83,16 @@ function factsLine(release: Release): ReactNode {
 }
 
 /** The title alone, as a Release that shows no fact reads. */
-const bareTitle = (release: Release) => (
-  <span className="wrap-anywhere text-ink-1">
+const bareTitle = (release: Release, id?: string) => (
+  <span id={id} className="wrap-anywhere text-ink-1">
     <Data>{release.title}</Data>
   </span>
 );
 
-/** The Release's facts on one line and its title in Data under them, for a table cell or a fact's value. */
-export function ReleaseName({ release }: { release: Release }) {
-  const facts = factsLine(release);
+function named(release: Release, factsId?: string): ReactNode {
+  const facts = factsLine(release, factsId);
   return facts === undefined ? (
-    bareTitle(release)
+    bareTitle(release, factsId)
   ) : (
     <span className="flex min-w-0 flex-col gap-1">
       {facts}
@@ -104,37 +103,42 @@ export function ReleaseName({ release }: { release: Release }) {
   );
 }
 
+/** The Release's facts on one line and its title in Data under them, for a table cell or a fact's value. */
+export function ReleaseName({ release }: { release: Release }) {
+  return named(release);
+}
+
 /**
- * One Release in a list: its facts, then what the screen says about it. lead
- * is a control before it, such as a plan's tick, and action is the row's one
- * button, which sits beside the facts and drops under them when the row is
- * too narrow. A row given heard shows the title and where it was heard under
- * the facts. Manual search keeps those under Details.
+ * One Release in a list: its facts, then what the screen says about it.
+ * renderLead draws a control before it, such as a plan's tick, given the id
+ * of the facts that name it. action is the row's one button, which sits
+ * beside the facts and drops under them when the row is too narrow. A row
+ * given heard shows the title and where it was heard under the facts.
+ * Manual search keeps those under Details.
  */
 export function ReleaseRow({
   release,
   heard,
-  lead,
+  renderLead,
   action,
   children,
 }: {
   release: Release;
   heard?: Heard | undefined;
-  lead?: ReactNode;
+  renderLead?: (factsId: string) => ReactNode;
   action?: ReactNode;
   children?: ReactNode;
 }) {
+  const factsId = useId();
   return (
     <li className="flex items-start gap-3 py-3">
-      {lead}
+      {renderLead?.(factsId)}
       <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
         <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-1.5">
           <span className="min-w-[min(100%,16rem)] flex-1">
-            {heard === undefined ? (
-              (factsLine(release) ?? bareTitle(release))
-            ) : (
-              <ReleaseName release={release} />
-            )}
+            {heard === undefined
+              ? (factsLine(release, factsId) ?? bareTitle(release, factsId))
+              : named(release, factsId)}
           </span>
           {action}
         </div>

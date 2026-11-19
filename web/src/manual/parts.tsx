@@ -1,25 +1,10 @@
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 
-import type {
-  GrabsEditionOverride,
-  GrabsPickResult,
-  GrabsReleaseDetails,
-  GrabsWordedReason,
-} from "../api/gen/model";
+import type { GrabsEditionOverride, GrabsPickResult, GrabsWordedReason } from "../api/gen/model";
 import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
-import { Chip } from "../ui/chip";
 import { Icon } from "../ui/icon";
 import { SignalChip } from "../ui/signal-chip";
-
-export function ReleaseName({ release }: { release: GrabsReleaseDetails }) {
-  return (
-    <span className="flex flex-wrap items-center gap-2 text-ink-1">
-      {release.words}
-      {release.freeleech && <Chip>Freeleech</Chip>}
-    </span>
-  );
-}
 
 function Override({ words }: { words: string }) {
   return (

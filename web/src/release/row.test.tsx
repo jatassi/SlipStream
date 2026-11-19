@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { renderWithQualities } from "../test/qualities";
+import { Checkbox } from "../ui/checkbox";
 import { type Release, ReleaseName, ReleaseRow } from "./row";
 
 const title = "The.Quiet.Orchard.2021.REPACK.1080p.WEB-DL.DDP5.1.DV.x265-FLUX";
@@ -85,4 +86,20 @@ test("a row with no heard line keeps the title off it and puts its action beside
   const grab = page.getByRole("button", { name: "Grab" }).element().getBoundingClientRect();
   expect(grab.left).toBeGreaterThan(facts.right);
   expect(Math.abs(grab.top - facts.top)).toBeLessThan(4);
+});
+
+test("a row's lead control is named by the Release's facts", async () => {
+  renderWithQualities(
+    <ul>
+      <ReleaseRow
+        release={{ title, facts: { quality: "bluray-1080p", group: "FKW" }, size: 10_522_669_875 }}
+        renderLead={(factsId) => (
+          <Checkbox labelledBy={factsId} checked onCheckedChange={() => {}} />
+        )}
+      />
+    </ul>,
+  );
+  await expect
+    .element(page.getByRole("checkbox", { name: "Bluray-1080p · FKW · 9.8 GB" }))
+    .toBeChecked();
 });

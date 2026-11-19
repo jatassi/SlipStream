@@ -1,7 +1,7 @@
 import { type ReactNode, use } from "react";
 
 import type { GrabsReleaseDetails } from "../api/gen/model";
-import { agoWords, bytes } from "../format";
+import { agoWords } from "../format";
 import { lostAtSentence } from "../grabs/lost-at-sentence";
 import { Button } from "../ui/button";
 import { Data } from "../ui/data";
@@ -18,7 +18,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 
 /**
  * A Release's Details: its raw title, its verdict at each Target, where it
- * ranked below the plan's pick, the facts v1 showed, and Open in tester.
+ * ranked below the plan's pick, where it was listed, and Open in tester.
  */
 export function ReleaseDetails({ release }: { release: GrabsReleaseDetails }) {
   const { now, targets, onTest } = use(ReadingContext);
@@ -43,9 +43,6 @@ export function ReleaseDetails({ release }: { release: GrabsReleaseDetails }) {
       <dl className="flex flex-col gap-0.5 text-meta in-data-[density=touch]:text-body-touch">
         <Fact label="Indexers">{release.indexers.join(", ")}</Fact>
         {release.tracker !== undefined && <Fact label="Tracker">{release.tracker}</Fact>}
-        <Fact label="Size">
-          <Data>{bytes(release.size)}</Data>
-        </Fact>
         {release.publishedAt !== null && (
           <Fact label="Published">
             <Data>{agoWords(release.publishedAt, now)}</Data>

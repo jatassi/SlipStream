@@ -8,6 +8,13 @@ import { filmReleases, manualServer } from "../test/manual-server";
 import { openSheet, sheetNamed } from "../test/manual-sheet";
 import { starter } from "../test/targets";
 
+const shown = [
+  "WEBDL-1080p · DD+ 5.1 · FLUX · 4.0 GB",
+  "WEBRip-1080p · RARBG · 2.1 GB",
+  "Bluray-1080p · SPARKS · 9.8 GB",
+  "HDTV-720p · KILLERS · 4.0 GB",
+];
+
 function openAllReleases(releases: readonly GrabsOffer[] = filmReleases) {
   const listed: number[] = [];
   const server = manualServer({ plan: () => filmPlan, releases });
@@ -25,7 +32,7 @@ function openAllReleases(releases: readonly GrabsOffer[] = filmReleases) {
     all
       .getByRole("listitem")
       .elements()
-      .map((item) => item.firstElementChild?.textContent);
+      .map((item) => shown.find((facts) => item.textContent.includes(facts)));
   return { server, listed, sheet, all, order };
 }
 
@@ -41,7 +48,7 @@ test("All Releases loads once opened and sorts by the chosen column", async () =
       "WEBDL-1080p · DD+ 5.1 · FLUX · 4.0 GB",
       "WEBRip-1080p · RARBG · 2.1 GB",
       "Bluray-1080p · SPARKS · 9.8 GB",
-      "HDTV-720p · KILLERS · 1.1 GB",
+      "HDTV-720p · KILLERS · 4.0 GB",
     ]);
   expect(listed).toHaveLength(1);
 
@@ -53,7 +60,7 @@ test("All Releases loads once opened and sorts by the chosen column", async () =
     .toEqual([
       "Bluray-1080p · SPARKS · 9.8 GB",
       "WEBDL-1080p · DD+ 5.1 · FLUX · 4.0 GB",
-      "HDTV-720p · KILLERS · 1.1 GB",
+      "HDTV-720p · KILLERS · 4.0 GB",
       "WEBRip-1080p · RARBG · 2.1 GB",
     ]);
 });

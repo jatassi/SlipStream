@@ -64,7 +64,7 @@ export const filmReleases: GrabsOffer[] = [
     release: release(
       `${runId}.7`,
       "The.Quiet.Orchard.2021.720p.HDTV.x264-KILLERS",
-      "HDTV-720p · KILLERS · 1.1 GB",
+      { quality: "hdtv-720p", group: "KILLERS" },
       { verdicts: ["1080p doesn't accept HDTV-720p.", "2160p HDR doesn't accept HDTV-720p."] },
     ),
     rank: null,

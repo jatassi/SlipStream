@@ -3,6 +3,7 @@ import type {
   GrabsManualSearch,
   GrabsPlanRow,
   GrabsReleaseDetails,
+  GrabsReleaseFacts,
 } from "../api/gen/model";
 import { longShelf } from "./anthology";
 import { prowlarrId, torrentLeechId } from "./indexers";
@@ -18,13 +19,13 @@ const [storyOne, storyTwo, storyThree] = longShelf.items;
 export const release = (
   id: string,
   title: string,
-  words: string,
+  facts: GrabsReleaseFacts,
   part: Partial<GrabsReleaseDetails> = {},
 ): GrabsReleaseDetails => ({
   id,
   title,
-  words,
-  facts: {},
+  words: "",
+  facts,
   indexers: ["Prowlarr"],
   size: 4_294_967_296,
   publishedAt: "2026-11-01T12:00:00Z",
@@ -37,21 +38,21 @@ export const release = (
   ...part,
 });
 
-export const flux = release(
-  `${runId}.0`,
-  "The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.H.264-FLUX",
-  "WEBDL-1080p · DD+ 5.1 · FLUX · 4.0 GB",
-);
+export const flux = release(`${runId}.0`, "The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.H.264-FLUX", {
+  quality: "webdl-1080p",
+  audio: "DD+ 5.1",
+  group: "FLUX",
+});
 export const lowScore = release(
   `${runId}.3`,
   "The.Quiet.Orchard.2021.1080p.WEBRip.x264-RARBG",
-  "WEBRip-1080p · RARBG · 2.1 GB",
+  { quality: "webrip-1080p", group: "RARBG" },
   { indexers: ["TorrentLeech"], seeders: 9, size: 2_254_857_830 },
 );
 export const blocked = release(
   `${runId}.5`,
   "The.Quiet.Orchard.2021.1080p.BluRay.x264-SPARKS",
-  "Bluray-1080p · SPARKS · 9.8 GB",
+  { quality: "bluray-1080p", group: "SPARKS" },
   {
     size: 10_522_669_875,
     blocked:
@@ -179,13 +180,18 @@ export const pinnedFilmPlan: GrabsManualSearch = {
 };
 
 const story = (position: number, title: string): GrabsReleaseDetails =>
-  release(`${seasonId}.${position}`, title, "WEBDL-1080p · NTb · 1.2 GB", {
-    size: 1_288_490_189,
-    verdicts: [
-      "It would be the 1080p file.",
-      "2160p HDR refuses it because its quality isn't in it.",
-    ],
-  });
+  release(
+    `${seasonId}.${position}`,
+    title,
+    { quality: "webdl-1080p", group: "NTb" },
+    {
+      size: 1_288_490_189,
+      verdicts: [
+        "It would be the 1080p file.",
+        "2160p HDR refuses it because its quality isn't in it.",
+      ],
+    },
+  );
 
 /** A season's plan, still searching: two Grabs, a cell nothing fills and a cell a Grab downloads. */
 export const seasonPlan: GrabsManualSearch = {

@@ -6,17 +6,25 @@ import { Icon } from "./icon";
 /** How the change was made: shift held means a range, as a list reads it. */
 export type CheckedBy = { readonly shiftKey: boolean };
 
+/** Its own label, or the id of the text beside it that names it, as a row's facts name its tick. */
+type Naming =
+  | {
+      label: string;
+      /** The label names it for assistive tech only, as in a list's pick column. */
+      hideLabel?: boolean;
+      labelledBy?: never;
+    }
+  | { labelledBy: string; label?: never; hideLabel?: never };
+
 export function Checkbox({
   label,
   hideLabel = false,
+  labelledBy,
   checked,
   indeterminate = false,
   onCheckedChange,
   disabled = false,
-}: {
-  label: string;
-  /** The label names it for assistive tech only, as in a list's pick column. */
-  hideLabel?: boolean;
+}: Naming & {
   checked: boolean;
   indeterminate?: boolean;
   onCheckedChange: (checked: boolean, by: CheckedBy) => void;
@@ -25,7 +33,9 @@ export function Checkbox({
   return (
     <label className="inline-flex min-h-(--control-height) cursor-default items-center gap-2.5 text-body text-ink-1 select-none has-data-disabled:opacity-40 in-data-[density=touch]:gap-3 in-data-[density=touch]:text-body-touch">
       <BaseCheckbox.Root
-        {...(hideLabel && { "aria-label": label })}
+        {...(labelledBy === undefined
+          ? hideLabel && { "aria-label": label }
+          : { "aria-labelledby": labelledBy })}
         checked={checked}
         indeterminate={indeterminate}
         onCheckedChange={(next, { event }) => {
