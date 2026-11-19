@@ -1,20 +1,13 @@
-import type { ImportsHint, WorksContentType } from "../api/gen/model";
+import type { WorksContentType } from "../api/gen/model";
 import type { RootEntry } from "./root-entry";
 import { bytes } from "../format";
 import { Quality } from "../release/quality";
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
-import { Details } from "../ui/details";
 import { Poster } from "../ui/poster";
 import { EntryActions } from "./entry-actions";
-import { filesWords, named, reasonOf, reasonsOf } from "./words";
-
-const providers = { tmdb: "TMDB", imdb: "IMDb", tvdb: "TVDB" } as const;
-
-const hintWords = ({ title, year, ids }: ImportsHint) =>
-  [named(title, year), ...ids.map(({ provider, value }) => `${providers[provider]} ${value}`)].join(
-    " · ",
-  );
+import { EntryDetails } from "./entry-details";
+import { filesWords, named, reasonsOf } from "./words";
 
 function Suggestion({ entry }: { entry: RootEntry }) {
   const { suggestion } = entry;
@@ -27,40 +20,6 @@ function Suggestion({ entry }: { entry: RootEntry }) {
       <span className="font-semibold">{named(suggestion.label, suggestion.year)}</span>
       {suggestion.workId !== null && <Chip>In the library</Chip>}
     </p>
-  );
-}
-
-function EntryDetails({ entry, type }: { entry: RootEntry; type: WorksContentType }) {
-  return (
-    <Details>
-      <dl className="mt-1 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-item bg-well px-3 py-2">
-        <dt>From the name</dt>
-        <dd>{hintWords(entry.hint)}</dd>
-        {entry.files.map((file) => (
-          <div key={file.path} className="contents">
-            <dt>
-              <Data>{file.path}</Data>
-            </dt>
-            <dd className="wrap-anywhere">
-              <Data>
-                {file.quality === null ? (
-                  "No quality found"
-                ) : (
-                  <Quality quality={file.quality} look="word" />
-                )}{" "}
-                · {bytes(file.size)}
-              </Data>{" "}
-              {reasonOf(file.reason, type)}
-              {file.reason.line !== undefined && (
-                <span className="block">
-                  <Data>{file.reason.line}</Data>
-                </span>
-              )}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </Details>
   );
 }
 

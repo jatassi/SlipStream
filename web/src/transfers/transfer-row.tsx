@@ -1,6 +1,7 @@
 import type { TransfersTransfer } from "../api/gen/model";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { Fact, Facts } from "../ui/facts";
 import { LiveBar } from "../ui/live-bar";
 import { Mark } from "../ui/state-mark";
 import { transferTerms } from "./terms";
@@ -42,21 +43,17 @@ export function TransferRow({ transfer, nodeId }: { transfer: TransfersTransfer;
 function Machinery({ transfer }: { transfer: TransfersTransfer }) {
   const { details, files, route } = transfer;
   const verified = files.filter((file) => file.verified).length;
-  const facts = [
-    ...(route === undefined ? [] : [{ label: "Route", value: routeWords(route, transfer) }]),
-    { label: "Lanes", value: String(details.lanes) },
-    { label: "Round trip", value: <Data>{details.rttMs} ms</Data> },
-    { label: "Retried chunks", value: String(details.retried) },
-    { label: "Files", value: `${verified} of ${files.length} verified` },
-  ];
   return (
-    <dl className="mt-1 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-item bg-well px-3 py-2">
-      {facts.map(({ label, value }) => (
-        <div key={label} className="contents">
-          <dt className="text-ink-3">{label}</dt>
-          <dd className="wrap-anywhere">{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className="mt-1">
+      <Facts look="well">
+        {route !== undefined && <Fact label="Route">{routeWords(route, transfer)}</Fact>}
+        <Fact label="Lanes">{details.lanes}</Fact>
+        <Fact label="Round trip">
+          <Data>{details.rttMs} ms</Data>
+        </Fact>
+        <Fact label="Retried chunks">{details.retried}</Fact>
+        <Fact label="Files">{`${verified} of ${files.length} verified`}</Fact>
+      </Facts>
+    </div>
   );
 }

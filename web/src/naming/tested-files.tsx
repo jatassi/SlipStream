@@ -1,4 +1,4 @@
-import { Facts } from "../formats/tested-name";
+import { ReadFacts } from "../formats/tested-name";
 import { AlertLine } from "../ui/alert-line";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
@@ -19,7 +19,7 @@ function Tested({ file }: { file: TestedFile }) {
         action={path === undefined ? undefined : <Data className="wrap-anywhere">{path}</Data>}
       >
         <div className="mt-1">
-          <Facts facts={file.facts} />
+          <ReadFacts facts={file.facts} />
         </div>
       </Details>
     </li>

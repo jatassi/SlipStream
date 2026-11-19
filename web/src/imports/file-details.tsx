@@ -3,6 +3,7 @@ import { bytes } from "../format";
 import { Quality } from "../release/quality";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { Fact, Facts } from "../ui/facts";
 
 const attemptsWords = (attempts: number) =>
   attempts === 1 ? "SlipStream tried once." : `SlipStream tried ${attempts} times.`;
@@ -17,41 +18,34 @@ export function FileDetails({
 }) {
   return (
     <Details>
-      <dl className="mt-1 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-item bg-well px-3 py-2">
-        <dt>File</dt>
-        <dd className="wrap-anywhere">
-          <Data>{file.path}</Data>
-        </dd>
-        <dt>Detected as</dt>
-        <dd>
-          <Data>
-            {file.quality === null ? (
-              "No quality found"
-            ) : (
-              <Quality quality={file.quality} look="word" />
-            )}{" "}
-            · {bytes(file.size)}
-          </Data>
-        </dd>
-        {file.verdicts.map(({ targetId, sentence }) => (
-          <div key={targetId} className="contents">
-            <dt>{targetName(targetId)}</dt>
-            <dd>{sentence}</dd>
-          </div>
-        ))}
-        {file.hold !== null && file.hold.attempts > 0 && (
-          <>
-            <dt>Tries</dt>
-            <dd>{attemptsWords(file.hold.attempts)}</dd>
-          </>
-        )}
-        {file.staged > 0 && (
-          <>
-            <dt>Staged</dt>
-            <dd>Its copy waiting here uses {bytes(file.staged)}.</dd>
-          </>
-        )}
-      </dl>
+      <div className="mt-1">
+        <Facts look="well">
+          <Fact label="File">
+            <Data>{file.path}</Data>
+          </Fact>
+          <Fact label="Detected as">
+            <Data>
+              {file.quality === null ? (
+                "No quality found"
+              ) : (
+                <Quality quality={file.quality} look="word" />
+              )}{" "}
+              · {bytes(file.size)}
+            </Data>
+          </Fact>
+          {file.verdicts.map(({ targetId, sentence }) => (
+            <Fact key={targetId} label={targetName(targetId)}>
+              {sentence}
+            </Fact>
+          ))}
+          {file.hold !== null && file.hold.attempts > 0 && (
+            <Fact label="Tries">{attemptsWords(file.hold.attempts)}</Fact>
+          )}
+          {file.staged > 0 && (
+            <Fact label="Staged">Its copy waiting here uses {bytes(file.staged)}.</Fact>
+          )}
+        </Facts>
+      </div>
     </Details>
   );
 }
