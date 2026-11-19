@@ -4,9 +4,9 @@ import { useListNodesSuspense } from "../api/gen/query/nodes/nodes";
 import { useListTargetsSuspense } from "../api/gen/query/targets/targets";
 import { useListTrackersSuspense } from "../api/gen/query/trackers/trackers";
 import { ReleaseName } from "../release/row";
-import { type Facts, FactList } from "../torrents/inspector-facts";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { Fact, Facts } from "../ui/facts";
 
 function useNamesOf(grab: GrabsGrab) {
   const { nodes } = useListNodesSuspense().data;
@@ -36,31 +36,25 @@ function clientWords(grab: GrabsGrab, node: (id: string) => string): string {
 
 export function GrabFacts({ grab }: { grab: GrabsGrab }) {
   const names = useNamesOf(grab);
-  const facts: Facts = [
-    [
-      "Release",
-      <ReleaseName
-        key="r"
-        release={{ title: grab.releaseTitle, facts: grab.releaseFacts, size: grab.releaseSize }}
-      />,
-    ],
-    ["For", names.targets],
-    ["Indexer", names.indexer],
-    ...(names.tracker === undefined ? [] : [["Tracker", names.tracker] as const]),
-    ["Client", clientWords(grab, names.node)],
-  ];
   return (
     <>
-      <FactList facts={facts} />
+      <Facts look="inline">
+        <Fact label="Release">
+          <ReleaseName
+            release={{ title: grab.releaseTitle, facts: grab.releaseFacts, size: grab.releaseSize }}
+          />
+        </Fact>
+        <Fact label="For">{names.targets}</Fact>
+        <Fact label="Indexer">{names.indexer}</Fact>
+        {names.tracker !== undefined && <Fact label="Tracker">{names.tracker}</Fact>}
+        <Fact label="Client">{clientWords(grab, names.node)}</Fact>
+      </Facts>
       <Details>
-        <FactList
-          facts={[
-            [
-              "Info hash",
-              grab.infoHash === null ? "Not fetched yet" : <Data key="h">{grab.infoHash}</Data>,
-            ],
-          ]}
-        />
+        <Facts look="well">
+          <Fact label="Info hash">
+            {grab.infoHash === null ? "Not fetched yet" : <Data>{grab.infoHash}</Data>}
+          </Fact>
+        </Facts>
       </Details>
     </>
   );

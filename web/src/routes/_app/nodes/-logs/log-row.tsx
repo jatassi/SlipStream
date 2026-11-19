@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 import { Button } from "../../../../ui/button";
 import { Chip } from "../../../../ui/chip";
 import { dataFont } from "../../../../ui/data";
+import { Fact, Facts } from "../../../../ui/facts";
 import { SignalChip } from "../../../../ui/signal-chip";
 import { toast } from "../../../../ui/toast";
 import type { Level, LogRow } from "./buffer";
@@ -49,14 +50,13 @@ async function copyLine(line: Line) {
 function Attributes({ line }: { line: Line }) {
   return (
     <div className="flex flex-col items-start gap-2 px-3 pt-1 pb-3">
-      <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1">
+      <Facts look="inline">
         {Object.entries(line.attrs).map(([key, value]) => (
-          <div key={key} className="contents">
-            <dt className="text-ink-3">{key}</dt>
-            <dd className="break-words text-ink-1">{valueText(value)}</dd>
-          </div>
+          <Fact key={key} label={key}>
+            {valueText(value)}
+          </Fact>
         ))}
-      </dl>
+      </Facts>
       {window.isSecureContext && (
         <Button
           size="small"

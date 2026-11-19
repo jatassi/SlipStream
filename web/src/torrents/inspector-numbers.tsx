@@ -4,8 +4,18 @@ import type { LiveRow } from "../live/torrents";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
 import { InspectorSection } from "../ui/inspector";
-import { type Facts, FactList, lengthOf } from "./inspector-facts";
-import { type Row, paceOf, percentOf, progressOf, rateWords, trackerLine } from "./model";
+import { Fact, Facts } from "../ui/facts";
+import {
+  type Row,
+  paceOf,
+  percentOf,
+  progressOf,
+  rateWords,
+  seedLength,
+  trackerLine,
+} from "./model";
+
+const lengthOf = (seconds: number) => (seconds < 60 ? "Under a minute" : seedLength(seconds));
 
 export function Numbers({
   row,
@@ -18,22 +28,6 @@ export function Numbers({
 }) {
   const progress = progressOf(row, live);
   const { eta } = paceOf(row.state, live);
-  const facts: Facts = [
-    ["Progress", <Data key="p">{`${percentOf(progress)}% of ${bytes(progress.wanted)}`}</Data>],
-    ...(eta === "" ? [] : ([["Time left", <Data key="t">{eta}</Data>]] as const)),
-    ...(live === undefined
-      ? []
-      : ([
-          [
-            "Speed",
-            <Data key="s">{`↓ ${rateWords(live.downBps)} · ↑ ${rateWords(live.upBps)}`}</Data>,
-          ],
-          ["Peers", `${live.peers} ${live.peers === 1 ? "peer" : "peers"}, ${live.seeds} seeding`],
-        ] as const)),
-    ["Downloaded", <Data key="d">{bytes(detail.downloaded)}</Data>],
-    ["Uploaded", <Data key="u">{bytes(detail.uploaded)}</Data>],
-    ["Active time", lengthOf(detail.activeSeconds)],
-  ];
   return (
     <InspectorSection title="Numbers">
       {row.clientName !== undefined && (
@@ -41,7 +35,33 @@ export function Numbers({
           {`${row.clientName}'s own seeding rules apply to this torrent.`}
         </p>
       )}
-      <FactList facts={facts} />
+      <Facts look="inline">
+        <Fact label="Progress">
+          <Data>{`${percentOf(progress)}% of ${bytes(progress.wanted)}`}</Data>
+        </Fact>
+        {eta !== "" && (
+          <Fact label="Time left">
+            <Data>{eta}</Data>
+          </Fact>
+        )}
+        {live !== undefined && (
+          <>
+            <Fact label="Speed">
+              <Data>{`↓ ${rateWords(live.downBps)} · ↑ ${rateWords(live.upBps)}`}</Data>
+            </Fact>
+            <Fact label="Peers">
+              {`${live.peers} ${live.peers === 1 ? "peer" : "peers"}, ${live.seeds} seeding`}
+            </Fact>
+          </>
+        )}
+        <Fact label="Downloaded">
+          <Data>{bytes(detail.downloaded)}</Data>
+        </Fact>
+        <Fact label="Uploaded">
+          <Data>{bytes(detail.uploaded)}</Data>
+        </Fact>
+        <Fact label="Active time">{lengthOf(detail.activeSeconds)}</Fact>
+      </Facts>
     </InspectorSection>
   );
 }
@@ -88,18 +108,18 @@ function TrackerLine({
       </span>
       {swarm !== undefined && <span className="text-ink-2 tabular-nums">{swarm}</span>}
       <Details summary={<span className="text-meta text-ink-3">{timing}</span>}>
-        <FactList
-          facts={[
-            ["Address", <Data key="a">{tracker.url}</Data>],
-            ["Tier", String(tracker.tier + 1)],
-            ...(tracker.minIntervalSeconds === undefined
-              ? []
-              : ([["Min interval", lengthOf(tracker.minIntervalSeconds)]] as const)),
-            ...(tracker.acceptsAt === undefined
-              ? []
-              : ([["Accepts an announce", sinceWords(tracker.acceptsAt, clock)]] as const)),
-          ]}
-        />
+        <Facts look="well">
+          <Fact label="Address">
+            <Data>{tracker.url}</Data>
+          </Fact>
+          <Fact label="Tier">{tracker.tier + 1}</Fact>
+          {tracker.minIntervalSeconds !== undefined && (
+            <Fact label="Min interval">{lengthOf(tracker.minIntervalSeconds)}</Fact>
+          )}
+          {tracker.acceptsAt !== undefined && (
+            <Fact label="Accepts an announce">{sinceWords(tracker.acceptsAt, clock)}</Fact>
+          )}
+        </Facts>
       </Details>
     </li>
   );

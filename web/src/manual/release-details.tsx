@@ -1,20 +1,12 @@
-import { type ReactNode, use } from "react";
+import { use } from "react";
 
 import type { GrabsReleaseDetails } from "../api/gen/model";
 import { agoWords } from "../format";
 import { lostAtSentence } from "../grabs/lost-at-sentence";
 import { Button } from "../ui/button";
 import { Data } from "../ui/data";
+import { Fact, Facts } from "../ui/facts";
 import { ReadingContext } from "./reading";
-
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex gap-2">
-      <dt className="w-20 shrink-0 text-ink-3">{label}</dt>
-      <dd className="min-w-0">{children}</dd>
-    </div>
-  );
-}
 
 /**
  * A Release's Details: its raw title, its verdict at each Target, where it
@@ -40,18 +32,20 @@ export function ReleaseDetails({ release }: { release: GrabsReleaseDetails }) {
           )}
         </p>
       )}
-      <dl className="flex flex-col gap-0.5 text-meta in-data-[density=touch]:text-body-touch">
-        <Fact label="Indexers">{release.indexers.join(", ")}</Fact>
-        {release.tracker !== undefined && <Fact label="Tracker">{release.tracker}</Fact>}
-        {release.publishedAt !== null && (
-          <Fact label="Published">
-            <Data>{agoWords(release.publishedAt, now)}</Data>
+      <div className="text-meta in-data-[density=touch]:text-body-touch">
+        <Facts look="inline">
+          <Fact label="Indexers">{release.indexers.join(", ")}</Fact>
+          {release.tracker !== undefined && <Fact label="Tracker">{release.tracker}</Fact>}
+          {release.publishedAt !== null && (
+            <Fact label="Published">
+              <Data>{agoWords(release.publishedAt, now)}</Data>
+            </Fact>
+          )}
+          <Fact label="Seeders">
+            <Data>{release.seeders}</Data>
           </Fact>
-        )}
-        <Fact label="Seeders">
-          <Data>{release.seeders}</Data>
-        </Fact>
-      </dl>
+        </Facts>
+      </div>
       <Button
         look="ghost"
         size="small"
