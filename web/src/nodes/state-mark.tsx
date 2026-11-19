@@ -11,7 +11,13 @@ const lamps: { readonly [S in Signal]: string } = {
 };
 
 /** A Node's state as its 6px lamp, which says its word to a screen reader unless `decorative`, because the word sits beside it. */
-export function NodeLamp({ state, decorative = false }: { state: NodeState; decorative?: boolean }) {
+export function NodeLamp({
+  state,
+  decorative = false,
+}: {
+  state: NodeState;
+  decorative?: boolean;
+}) {
   const { word, lamp } = nodeStates[state];
   return (
     <span className="flex shrink-0 items-center">

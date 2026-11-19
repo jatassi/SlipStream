@@ -1,15 +1,20 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { renderKit } from "../test/render-kit";
 import { type NodeState, nodeStates } from "./state";
 import { NodeLamp, NodeStateMark } from "./state-mark";
 
-async function lampOf(container: HTMLElement) {
-  const lamp = () => container.querySelector('[aria-hidden="true"]');
-  await expect.poll(lamp).not.toBeNull();
-  return getComputedStyle(lamp() ?? container);
-}
+const lampOf = async (container: HTMLElement) =>
+  getComputedStyle(
+    await vi.waitFor(() => {
+      const lamp = container.querySelector('[aria-hidden="true"]');
+      if (lamp === null) {
+        throw new Error("the lamp hasn't rendered");
+      }
+      return lamp;
+    }),
+  );
 
 test.each([
   ["online", "rgb(95, 211, 148)"],

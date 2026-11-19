@@ -1,11 +1,7 @@
 import { useEffect } from "react";
 
 import type { NodesNode } from "../api/gen/model";
-import {
-  isWorkerRestarting,
-  restartStore,
-  useRestartState,
-} from "../shell/restart/restart-state";
+import { isWorkerRestarting, restartStore, useRestartState } from "../shell/restart/restart-state";
 import type { Defines, Term } from "../ui/defined";
 import type { Signal } from "../ui/signal-chip";
 import type { Away } from "./standing";

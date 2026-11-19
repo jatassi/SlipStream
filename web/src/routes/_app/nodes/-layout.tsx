@@ -10,11 +10,10 @@ import { NodeActions, NodeRestarting } from "./-actions";
 import { NodeHeader } from "./-node-header";
 import { SectionList, SectionTabs } from "./-section-list";
 
-// Every section opens with the Node's header and Restart. On phone each
-// section is its own page: the Node's top page carries the picker and lists
-// the others, and the shell titles a pushed section and links back to the
-// Node. A restarting Worker's section stays mounted under the notice, so the
-// Logs keep their lines and draw the restart's divider.
+// On phone each section is its own page: the Node's top page carries the
+// picker and lists the others, and the shell titles a pushed section and
+// links back to the Node. A restarting Worker's section stays mounted under
+// the notice, so the Logs keep their lines and draw the restart's divider.
 export function NodeLayout({ nodeId }: { nodeId: string }) {
   const { nodes } = useListNodesSuspense().data;
   const node = nodeOf(nodes, nodeId);

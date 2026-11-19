@@ -26,7 +26,9 @@ test("a Worker's Overview lists its name, key, pairing and who dials, then its o
   renderApp({ path: `/nodes/${ids.vps}`, handlers: [...threeNodes, ...systems] });
   await expect
     .poll(textOf(overview()))
-    .toMatch(/^OverviewNamevpsRenameKeySHA256:vps-keyPaired.+Connectionhome connects to vpsChange$/u);
+    .toMatch(
+      /^OverviewNamevpsRenameKeySHA256:vps-keyPaired.+Connectionhome connects to vpsChange$/u,
+    );
   await expect.element(page.getByRole("region", { name: "System" })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Remove vps" })).toBeVisible();
 });
