@@ -1,6 +1,6 @@
 import { Popover as BasePopover } from "@base-ui/react/popover";
 import { NotificationOff01Icon } from "@hugeicons/core-free-icons";
-import { type ReactNode, useId } from "react";
+import type { ReactNode } from "react";
 
 import type { FilesState } from "../api/gen/model";
 import { labelPopup } from "./floating";
@@ -70,7 +70,6 @@ const trigger =
 
 const definitionPopup = `max-w-[min(280px,var(--available-width))] text-pretty ${labelPopup}`;
 
-// The definition stays the button's description, so a screen reader hears it on focus without opening it.
 function Defined({
   word,
   definition,
@@ -80,7 +79,6 @@ function Defined({
   definition: Definition;
   children: ReactNode;
 }) {
-  const id = useId();
   const { density, probe } = usePortalDensity();
   return (
     <>
@@ -88,15 +86,13 @@ function Defined({
       <BasePopover.Root>
         <BasePopover.Trigger
           render={
-            <button type="button" aria-describedby={id} className={trigger}>
+            // oxlint-disable-next-line jsx-a11y/role-supports-aria-props -- ARIA 1.3's aria-description keeps the definition out of the row's text
+            <button type="button" aria-description={definition} className={trigger}>
               {children}
             </button>
           }
           {...hoverOpening}
         />
-        <span id={id} hidden>
-          {definition}
-        </span>
         <BasePopover.Portal data-density={density}>
           <BasePopover.Positioner sideOffset={6} collisionPadding={12}>
             <BasePopover.Popup aria-label={word} initialFocus={false} className={definitionPopup}>

@@ -26,18 +26,6 @@ export const tabOrder = {
   phone: ["all", "downloading", "seeding", "problems", "goal-met"],
 } as const satisfies Record<string, readonly Tab[]>;
 
-export const stateWords: { readonly [S in State]: string } = {
-  removing: "Removing",
-  failed: "Failed",
-  "tracker-error": "Tracker error",
-  paused: "Paused",
-  checking: "Checking",
-  queued: "Queued",
-  stalled: "Stalled",
-  downloading: "Downloading",
-  seeding: "Seeding",
-};
-
 /** The client filter's value for every Node's built-in client; an external client goes by its id. */
 export const builtInClient = "built-in";
 

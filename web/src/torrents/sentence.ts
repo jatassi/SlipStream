@@ -8,10 +8,10 @@ import {
   ordinal,
   paceOf,
   seedLength,
-  stateWords,
   trackerLine,
   waitsOn,
 } from "./model";
+import { torrentTerms } from "./terms";
 
 const peers = (count: number) => `${count} ${count === 1 ? "peer" : "peers"}`;
 
@@ -113,7 +113,7 @@ function movingSentence(row: Row, live: LiveRow | undefined): string {
 // Why a row is its last report, and what it was doing then.
 function lastKnownSentence(row: Row, { cause, who, at }: Waits, place: Place) {
   const when = sinceWords(at, place.clock);
-  const was = stateWords[row.state].toLowerCase();
+  const was = torrentTerms[row.state].word.toLowerCase();
   switch (cause) {
     case "node":
       return `${place.node} is offline. When it last reported, at ${when}, this was ${was}.`;

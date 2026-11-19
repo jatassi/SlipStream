@@ -4,9 +4,10 @@ import type { Clock } from "../format";
 import type { LiveRow } from "../live/torrents";
 import { Data } from "../ui/data";
 import { Poster } from "../ui/poster";
-import { SignalChip } from "../ui/signal-chip";
-import { type Row, rateWords, stateLine, stateWords, trackerLine } from "./model";
+import { Mark } from "../ui/state-mark";
+import { type Row, rateWords, stateLine, trackerLine } from "./model";
 import type { Names } from "./names";
+import { torrentMark } from "./terms";
 
 export { ProgressCell } from "./progress-cell";
 
@@ -52,18 +53,10 @@ export function WorkCell(props: CellProps) {
   );
 }
 
-const signalOf = { none: undefined, warning: "warn", failure: "fail" } as const;
-
 export function StateCell({ row, live, names, clock }: CellProps) {
-  const signal = signalOf[row.severity];
-  const word = stateWords[row.state];
   return (
     <span className="flex min-w-0 flex-col items-start gap-0.5">
-      {signal === undefined ? (
-        <span className="truncate">{word}</span>
-      ) : (
-        <SignalChip kind={signal}>{word}</SignalChip>
-      )}
+      <Mark mark={torrentMark(row)} />
       <span className="max-w-full truncate text-meta text-ink-3">
         {stateLine(row, live, { node: names.node(row.nodeId), clock })}
       </span>
