@@ -6,7 +6,7 @@ import { getGetNodeSystemQueryKey, getNodeSystem } from "../../../../api/gen/que
 import { Empty } from "../../../../shell/empty";
 import { Section } from "../../../../ui/section";
 import { Skeleton } from "../../../../ui/skeleton";
-import { Facts } from "../-facts";
+import { SystemFacts } from "../-facts";
 
 /** The Node's own report, which a Worker gives only while it is online. */
 export function System({ node }: { node: NodesNode }) {
@@ -30,5 +30,5 @@ export function System({ node }: { node: NodesNode }) {
       </Section>
     );
   }
-  return <Facts nodeId={node.id} data={system.data} />;
+  return <SystemFacts nodeId={node.id} data={system.data} />;
 }

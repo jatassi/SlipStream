@@ -32,6 +32,6 @@ export function listenWords(listen: string): ReactNode {
       <Data>{listen}</Data>, every network address on this computer
     </span>
   ) : (
-    listen
+    <Data>{listen}</Data>
   );
 }

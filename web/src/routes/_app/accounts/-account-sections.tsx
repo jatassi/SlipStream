@@ -1,10 +1,9 @@
-import type { ReactNode } from "react";
-
 import { pinSentence } from "../../../accounts/pin-state";
 import type { IdentityAccountDetail } from "../../../api/gen/model";
 import { clock } from "../../../format";
 import { Empty } from "../../../shell/empty";
 import { Button } from "../../../ui/button";
+import { Fact, Facts } from "../../../ui/facts";
 import { List, ListRow } from "../../../ui/list";
 import { Section } from "../../../ui/section";
 import type { Asking } from "./-confirmations";
@@ -35,47 +34,30 @@ function AskButton({
   );
 }
 
-const Fact = ({ term, value, action }: { term: string; value: string; action?: ReactNode }) => (
-  <ListRow title={value} meta={term} trailing={action} />
-);
-
 function Profile({ detail: { account }, onAsk }: Props) {
+  const ask = (asking: Asking, label: string) => ({
+    label,
+    onClick: () => {
+      onAsk(asking);
+    },
+  });
   return (
     <Section title="Profile">
-      <List label="Profile">
-        <Fact term="Name" value={account.displayName} />
-        <Fact
-          term="Email"
-          value={account.email}
-          action={<AskButton asking="email" label="Change email" onAsk={onAsk} />}
-        />
-        <Fact
-          term="Role"
-          value={account.admin ? "Admin" : "Member"}
-          action={
-            <AskButton
-              asking="role"
-              label={account.admin ? "Make Member" : "Make Admin"}
-              onAsk={onAsk}
-            />
-          }
-        />
-        <Fact
-          term="Sign-in"
-          value={account.disabled ? "Turned off" : "On"}
-          action={
-            <AskButton
-              asking="access"
-              label={account.disabled ? "Turn on" : "Turn off"}
-              onAsk={onAsk}
-            />
-          }
-        />
-        <Fact
-          term="Last sign-in"
-          value={account.lastSignInAt === undefined ? "Never" : clock(account.lastSignInAt)}
-        />
-      </List>
+      <Facts look="sheet">
+        <Fact label="Name">{account.displayName}</Fact>
+        <Fact label="Email" action={ask("email", "Change email")}>
+          {account.email}
+        </Fact>
+        <Fact label="Role" action={ask("role", account.admin ? "Make Member" : "Make Admin")}>
+          {account.admin ? "Admin" : "Member"}
+        </Fact>
+        <Fact label="Sign-in" action={ask("access", account.disabled ? "Turn on" : "Turn off")}>
+          {account.disabled ? "Turned off" : "On"}
+        </Fact>
+        <Fact label="Last sign-in">
+          {account.lastSignInAt === undefined ? "Never" : clock(account.lastSignInAt)}
+        </Fact>
+      </Facts>
     </Section>
   );
 }

@@ -1,13 +1,11 @@
-import type { ReactNode } from "react";
-
 import type {
   IndexersIndexer,
   IndexersLimitUse,
   TrackersTracker,
   NodesNode,
 } from "../api/gen/model";
-import { KeyValues } from "../routes/_app/nodes/-facts";
 import { Data } from "../ui/data";
+import { Fact, Facts } from "../ui/facts";
 import { Meter } from "../ui/meter";
 import { Section } from "../ui/section";
 import { SettingGroup } from "../ui/setting-field";
@@ -38,18 +36,6 @@ function trackerWords(indexer: IndexersIndexer, trackers: readonly TrackersTrack
   return names.length === 0 ? "No Tracker yet" : names.join(", ");
 }
 
-const words = (text: string): ReactNode => <span>{text}</span>;
-
-function rssRow(indexer: IndexersIndexer): (readonly [string, ReactNode])[] {
-  return indexer.rss ? [["RSS sync", <RSSFetch key="rss" indexer={indexer} />]] : [];
-}
-
-/** The account it signs in with, so two Indexers on one site tell apart. */
-function usernameRow(indexer: IndexersIndexer): (readonly [string, ReactNode])[] {
-  const username = (indexer.definition ?? indexer.port)?.values["username"];
-  return username === undefined ? [] : [["Username", <Data key="username">{username}</Data>]];
-}
-
 /** What the Indexer reaches, where it searches from, its limits and its switches. */
 export function IndexerFacts({
   indexer,
@@ -60,24 +46,35 @@ export function IndexerFacts({
   nodes: readonly NodesNode[];
   trackers: readonly TrackersTracker[];
 }) {
+  const username = (indexer.definition ?? indexer.port)?.values["username"];
   const switches: SwitchName[] = indexer.signsIn
     ? ["on", "automaticSearch", "rss", "allowFailover"]
     : ["on", "automaticSearch", "rss"];
   return (
     <Section title="Searching">
       <div className="flex flex-col gap-3">
-        <KeyValues
-          rows={[
-            ["Tracker", words(trackerWords(indexer, trackers))],
-            ...usernameRow(indexer),
-            ["Searches from", words(nodeName(nodes, indexer.homeNodeId))],
-            ["Kind", words(kindOf(indexer))],
-            ["Priority", words(String(indexer.priority))],
-            ["Searches", <LimitUse key="searches" label="Searches" limit={indexer.searches} />],
-            ["Grabs", <LimitUse key="grabs" label="Grabs" limit={indexer.grabs} />],
-            ...rssRow(indexer),
-          ]}
-        />
+        <Facts look="sheet">
+          <Fact label="Tracker">{trackerWords(indexer, trackers)}</Fact>
+          {username !== undefined && (
+            <Fact label="Username">
+              <Data>{username}</Data>
+            </Fact>
+          )}
+          <Fact label="Searches from">{nodeName(nodes, indexer.homeNodeId)}</Fact>
+          <Fact label="Kind">{kindOf(indexer)}</Fact>
+          <Fact label="Priority">{indexer.priority}</Fact>
+          <Fact label="Searches">
+            <LimitUse label="Searches" limit={indexer.searches} />
+          </Fact>
+          <Fact label="Grabs">
+            <LimitUse label="Grabs" limit={indexer.grabs} />
+          </Fact>
+          {indexer.rss && (
+            <Fact label="RSS sync">
+              <RSSFetch indexer={indexer} />
+            </Fact>
+          )}
+        </Facts>
         <SettingGroup>
           <div className="flex flex-wrap gap-x-6">
             {switches.map((name) => (

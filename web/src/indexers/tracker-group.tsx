@@ -6,9 +6,9 @@ import {
   getListTrackersSuspenseQueryOptions,
   useListTrackersSuspense,
 } from "../api/gen/query/trackers/trackers";
-import { KeyValues } from "../routes/_app/nodes/-facts";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { Fact, Facts } from "../ui/facts";
 import { rowGroup } from "../ui/row-keys";
 import { IndexerRow } from "./indexer-row";
 import { TrackerMenu } from "./tracker-menu";
@@ -78,7 +78,7 @@ const unreached =
 
 const lines = (values: readonly string[]): ReactNode =>
   values.length === 0 ? (
-    <span>None</span>
+    "None"
   ) : (
     <span className="flex flex-col">
       {values.map((value) => (
@@ -93,12 +93,10 @@ function TrackerMachinery({ tracker, reached }: { tracker: TrackersTracker; reac
       summary={<span className="text-ink-2">{reached ? privacyWords(tracker) : unreached}</span>}
     >
       <div className="mt-2 w-full">
-        <KeyValues
-          rows={[
-            ["Keys", lines(tracker.keys)],
-            ["Announce hosts", lines(tracker.hosts)],
-          ]}
-        />
+        <Facts look="well">
+          <Fact label="Keys">{lines(tracker.keys)}</Fact>
+          <Fact label="Announce hosts">{lines(tracker.hosts)}</Fact>
+        </Facts>
       </div>
     </Details>
   );

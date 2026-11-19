@@ -1,32 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-
 import type { SystemReport } from "../../../api/gen/model";
 import { clock } from "../../../format";
 import { Data } from "../../../ui/data";
+import { Fact, Facts } from "../../../ui/facts";
 import { Section } from "../../../ui/section";
 import { WarningLine } from "../../../ui/warning-line";
 import { portOf } from "./-node";
-
-type Row = readonly [term: string, value: ReactNode];
-
-export function KeyValues({ rows }: { rows: readonly Row[] }) {
-  return (
-    <dl className="rounded-card bg-glass text-(length:--body-size) leading-(--body-line-height) ring-1 ring-hairline ring-inset">
-      {rows.map(([term, value]) => (
-        <div
-          key={term}
-          className="grid min-h-(--row-height) grid-cols-[minmax(120px,200px)_minmax(0,1fr)] items-center gap-x-4 px-4 py-2 not-first:shadow-[inset_0_1px_0_var(--color-hairline)] in-data-[density=touch]:grid-cols-1 in-data-[density=touch]:gap-y-0.5"
-        >
-          <dt className="text-ink-3">{term}</dt>
-          <dd className="wrap-anywhere text-ink-1">
-            {typeof value === "string" ? <Data>{value}</Data> : value}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
 
 function Fallback({ nodeId, system }: { nodeId: string; system: SystemReport }) {
   const navigate = useNavigate();
@@ -54,28 +33,38 @@ function Fallback({ nodeId, system }: { nodeId: string; system: SystemReport }) 
 }
 
 /** What the Node reports about its own process: its build, its folders and what it listens on. */
-export function Facts({ nodeId, data }: { nodeId: string; data: SystemReport }) {
+export function SystemFacts({ nodeId, data }: { nodeId: string; data: SystemReport }) {
   return (
     <>
       <Section title="System">
-        <KeyValues
-          rows={[
-            ["Version", data.build.version ?? "unstamped"],
-            ["Running since", clock(data.startedAt)],
-            ["Data folder", data.dataDir],
-          ]}
-        />
+        <Facts look="sheet">
+          <Fact label="Version">
+            <Data>{data.build.version ?? "unstamped"}</Data>
+          </Fact>
+          <Fact label="Running since">
+            <Data>{clock(data.startedAt)}</Data>
+          </Fact>
+          <Fact label="Data folder">
+            <Data>{data.dataDir}</Data>
+          </Fact>
+        </Facts>
       </Section>
       <Section title="Listening on">
         <Fallback nodeId={nodeId} system={data} />
-        <KeyValues
-          rows={[
-            ["Web and API", data.listeners.http],
-            ["Torrents", data.listeners.torrent],
-            ["Node link", data.listeners.link],
-            ["Control socket", data.listeners.control],
-          ]}
-        />
+        <Facts look="sheet">
+          <Fact label="Web and API">
+            <Data>{data.listeners.http}</Data>
+          </Fact>
+          <Fact label="Torrents">
+            <Data>{data.listeners.torrent}</Data>
+          </Fact>
+          <Fact label="Node link">
+            <Data>{data.listeners.link}</Data>
+          </Fact>
+          <Fact label="Control socket">
+            <Data>{data.listeners.control}</Data>
+          </Fact>
+        </Facts>
       </Section>
     </>
   );

@@ -53,18 +53,28 @@ const listItems = (name: string) =>
     .all()
     .map((item) => item.element().textContent);
 
+const factsOf = (name: string) => {
+  const region = page.getByRole("region", { name });
+  const texts = (role: "term" | "definition") =>
+    region
+      .getByRole(role)
+      .all()
+      .map((item) => item.element().textContent);
+  return texts("term").map((term, index) => [term, texts("definition")[index]]);
+};
+
 test("an Account shows its profile, PIN state, passkeys and sessions", async () => {
   renderApp({
     path: `/accounts/${grace.id}`,
     handlers: [getGetAccountMockHandler(graceDetail)],
   });
   await expect.element(page.getByRole("heading", { name: "Grace Lindqvist" })).toBeVisible();
-  expect(listItems("Profile")).toEqual([
-    "Grace LindqvistName",
-    "grace@example.testEmailChange email",
-    "MemberRoleMake Admin",
-    "OnSign-inTurn off",
-    `${clock("2026-10-15T08:30:00Z")}Last sign-in`,
+  expect(factsOf("Profile")).toEqual([
+    ["Name", "Grace Lindqvist"],
+    ["Email", "grace@example.testChange email"],
+    ["Role", "MemberMake Admin"],
+    ["Sign-in", "OnTurn off"],
+    ["Last sign-in", clock("2026-10-15T08:30:00Z")],
   ]);
   expect(listItems("PIN")).toEqual([
     "The PIN is locked after too many wrong PINs. Send a Reset link to set a new one.Send a Reset link",
