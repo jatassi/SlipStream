@@ -580,6 +580,7 @@ A checkbox is a 16px square with a 4px radius (22px and 6px in Touch). A radio i
 ### Chips and pills
 
 - **Chip:** 24px, radius 6, `fill`, `ink-2`, 12px at 600. A Node chip is outlined.
+- **Quality chip:** An outlined chip with the quality's name, such as WEBDL-1080p. Its name has the dotted `ink-4` underline of a technical state, and hovering, tapping or pressing Enter opens what its source means, such as WEB-DL or Remux. Inside a line of text, such as a torrent's Work line, it's the dotted name alone.
 - **Signal chips:** Solid `fail`, `warn` or `ok` with deep ink at 700 and a 14px icon. They name a state and its stage ("Failed at Import"), and they never take the tint.
 - **Live chip:** `live-fill` with a hue ring and a white glowing dot.
 - **Met pill:** Solid white capsule, 28px, with a check.
@@ -638,6 +639,8 @@ An error stands inside the shell, so the sidebar, bars and tab bar stay and only
 ### Lists and tables
 
 Lists and tables are glass sheets with radius 14, a hairline ring and hairlines between rows. Console rows are 44px for one line and 60px for two. Touch list rows are 54px for one line and 64px for two, in iOS inset groups with 16px gutters, and their hairlines start 16px in from the left. A row's second line is Meta in `ink-3`. Table headers are 32px of Label at `ink-3`. Hover and focus wash a row at `hsl(var(--h) 50% 70% / .1)` over 350ms. A selected row adds a 3px white glowing bar on its left edge. A whole row is one target, with the arrow keys, Home and End moving between rows. A table hides a column below its own container width, and below a set width it stacks each row as a card with its labels above the values.
+
+**Release row:** Every list of releases draws each one alike. Its first line is the Quality chip, then the revision, HDR format, audio and Release group in `ink-1` with `ink-4` dots between them, then the size in Data and a Freeleech chip, each left out when the title doesn't name it. The revision and Freeleech open their definitions as a technical state does. A search run's list adds the title in Data at `ink-3` and the Indexers and seeders in Meta, and Manual search keeps those under Details. The screen's sentences follow. The row's one button sits to the right of the facts and drops under them when the row is too narrow, and a plan's tick before the facts is named by them. A table cell or a fact, such as the Blocklist's Release column, draws the facts over the title.
 
 A list too long to draw whole, such as a Node's log, draws only the rows near its view (`VirtualRows`). It follows the tail while scrolled to the end, stops following once scrolled up, and follows again when scrolled back down.
 

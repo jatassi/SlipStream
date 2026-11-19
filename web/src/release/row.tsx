@@ -33,7 +33,7 @@ const list = new Intl.ListFormat("en", { type: "conjunction" });
 
 const seeders = { one: "seeder", many: "seeders" };
 
-/** parts with " · " between them, each dot drawn by dot's classes. */
+/** The parts with " · " between them, each dot in a span with the classes dot names. */
 const dotted = (parts: readonly ReactNode[], dot: string) =>
   parts.map((part, at) => (
     // oxlint-disable-next-line react/no-array-index-key -- the parts are fixed in place for each line
