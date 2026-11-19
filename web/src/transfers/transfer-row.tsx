@@ -2,13 +2,10 @@ import type { TransfersTransfer } from "../api/gen/model";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
 import { LiveBar } from "../ui/live-bar";
-import { SignalChip } from "../ui/signal-chip";
+import { Mark } from "../ui/state-mark";
+import { transferTerms } from "./terms";
 import { headline, legOf, paceLine, percentOf, routeWords } from "./words";
 
-const signalOf = {
-  failed: <SignalChip kind="fail">Failed</SignalChip>,
-  needs_space: <SignalChip kind="warn">Needs space</SignalChip>,
-} as const;
 export function TransferRow({ transfer, nodeId }: { transfer: TransfersTransfer; nodeId: string }) {
   const leg = legOf(transfer, nodeId);
   const copying = transfer.state === "copying";
@@ -17,12 +14,13 @@ export function TransferRow({ transfer, nodeId }: { transfer: TransfersTransfer;
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <span className="min-w-0 truncate font-semibold text-ink-1">{transfer.jobName}</span>
         {!copying && (
-          <span className="text-meta text-ink-3">
-            {leg.sends ? `To ${leg.peer}` : `From ${leg.peer}`}
-          </span>
+          <>
+            <span className="text-meta text-ink-3">
+              {leg.sends ? `To ${leg.peer}` : `From ${leg.peer}`}
+            </span>
+            <Mark mark={transferTerms[transfer.state]} />
+          </>
         )}
-        {(transfer.state === "failed" || transfer.state === "needs_space") &&
-          signalOf[transfer.state]}
       </div>
       <Details
         summary={headline(transfer, leg)}

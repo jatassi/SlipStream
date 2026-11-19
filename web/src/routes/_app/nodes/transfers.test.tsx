@@ -50,8 +50,18 @@ test("the section opens with what the Node receives, then each Transfer's own se
       expect.element(rowOf(transfer.jobName).getByText("From seedbox")).toBeVisible(),
     ]),
   );
+  await expect.element(rowOf(queued.jobName).getByText("Queued", { exact: true })).toBeVisible();
+  await expect.element(rowOf(waiting.jobName).getByText("Waiting", { exact: true })).toBeVisible();
   await expect.element(rowOf("Miami Vice (2006)").getByText("Failed")).toBeVisible();
-  await expect.element(rowOf("Manhunter (1986)").getByText("Needs space")).toBeVisible();
+  await userEvent.click(rowOf("Manhunter (1986)").getByRole("button", { name: "Needs space" }));
+  await expect
+    .element(page.getByRole("dialog", { name: "Needs space" }))
+    .toHaveTextContent(
+      "The files don't fit on the receiving Node, and the Transfer continues once there is space.",
+    );
+  await expect
+    .element(rowOf("Heat (1995)").getByText("Transferring", { exact: true }))
+    .not.toBeInTheDocument();
 
   const speeds = page.getByRole("list", { name: "Recent speeds of home" });
   await expect.element(speeds.getByText("From seedbox")).toBeVisible();
