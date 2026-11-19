@@ -3,8 +3,8 @@ import {
   useGetTopologySuspense,
   useListNodesSuspense,
 } from "../../../../api/gen/query/nodes/nodes";
+import { useRestarting } from "../../../../nodes/state";
 import { useNow } from "../../../../tasks/use-now";
-import { useRestarting } from "../-node";
 import { type Landing, landingOf } from "./view";
 
 /** Topology read as the landing shows it, kept current to the minute. */

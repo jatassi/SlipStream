@@ -10,7 +10,7 @@ import type { IconSvgElement } from "@hugeicons/react";
 
 import type { FilesState } from "../api/gen/model";
 import { FilesState as wireStates } from "../api/gen/zod/slipStream.schemas.zod";
-import type { Definition, Term } from "./defined";
+import type { Defines, Term } from "./defined";
 
 export type Tone = "quiet" | "neutral" | "live" | "fail" | "warn" | "met";
 
@@ -27,11 +27,11 @@ export type StatusMark = Term & {
  * TermsFor<WireState>`, and draw a state with `<Mark mark={terms[state]} />`.
  * A wire state added later fails the build until it has a row.
  */
-export type TermsFor<S extends string, T extends Tone = Tone, Plain extends S = never> = {
-  readonly [K in S]: StatusMark & { readonly tone: T } & (K extends Plain
-      ? { readonly definition?: never }
-      : { readonly definition: Definition });
-};
+export type TermsFor<S extends string, T extends Tone = Tone, Plain extends S = never> = Defines<
+  S,
+  StatusMark & { readonly tone: T },
+  Plain
+>;
 
 /** A state's mark with its 16px square and its state bar segment, as DESIGN.md draws them. */
 export type StateMark = StatusMark & { readonly square: string; readonly bar: string };

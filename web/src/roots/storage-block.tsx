@@ -6,7 +6,7 @@ import type {
   RootsRootVolume,
 } from "../api/gen/model";
 import { useListHealthVolumesSuspense } from "../api/gen/query/health/health";
-import { NodeDot } from "../routes/_app/nodes/-state-dot";
+import { NodeDot } from "../nodes/state-mark";
 import { Section } from "../ui/section";
 import { NotReporting } from "./not-reporting";
 import { VolumeRow } from "./volume-row";

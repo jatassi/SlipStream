@@ -17,8 +17,8 @@ import {
   labelOf,
   roleLine,
 } from "../../../../nodes/roles";
+import { type NodeState, nodeStates } from "../../../../nodes/state";
 import { type Finding, findingsOf } from "../-findings";
-import { type NodeState, stateWords } from "../-node";
 
 export type RoleChip = {
   readonly role: RoleName;
@@ -79,8 +79,6 @@ export type Landing = {
   readonly nodes: readonly NodeRow[];
   readonly links: readonly LinkRow[];
 };
-
-const capital = (words: string): string => words.charAt(0).toUpperCase() + words.slice(1);
 
 const standingOf = (node: NodesTopologyNode): Standing => ({
   standing: node.state === "online" ? "in-step" : node.state,
@@ -143,11 +141,11 @@ function rowOf(
     name: node.name,
     controller: node.controller,
     state,
-    facts: [capital(stateWords[state]), ...seen, ...reachOf(topology, controller, node)],
+    facts: [nodeStates[state].word, ...seen, ...reachOf(topology, controller, node)],
     roles: roleChips(topology, board, node.roles, standingOf(node), clock),
     findings: findingsOf(node.probes),
     holds: node.roles.some(({ held }) => held !== undefined),
-    plaque: seen[0] ?? capital(stateWords[state]),
+    plaque: seen[0] ?? nodeStates[state].word,
     torrents: node.resources.downloading?.torrents ?? [],
     storage: node.resources.storage,
     listening: !node.probes.some(({ probe, fit }) => probe === "listener-up" && fit === "fails"),

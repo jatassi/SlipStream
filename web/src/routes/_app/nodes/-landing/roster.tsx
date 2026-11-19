@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
 
+import { NodeLamp } from "../../../../nodes/state-mark";
 import { Chip } from "../../../../ui/chip";
 import type { Adding } from "../-add-node/add-node";
 import { Findings } from "../-findings";
 import type { Acting } from "../-manage/dialogs";
-import { StateDot } from "../-state-dot";
 import { AddRow } from "./add-row";
 import { RowMenu } from "./row-menu";
 import { rosterGroup, rowKeys, rowShell, rowWash } from "./rows";
@@ -24,7 +24,7 @@ function RosterRow({ node, act }: { node: NodeRow; act: (acting: Acting) => void
           className={`flex min-w-0 flex-1 items-start gap-3 px-4 py-3 ${rowWash}`}
         >
           <span className="flex h-(--body-line-height) items-center">
-            <StateDot state={node.state} worded />
+            <NodeLamp state={node.state} decorative />
           </span>
           <span className="flex min-w-0 flex-1 flex-col gap-1.5">
             <span className="text-(length:--body-size) leading-(--body-line-height) font-medium text-ink-1 in-data-[density=touch]:text-card-title">

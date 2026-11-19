@@ -3,7 +3,8 @@ import { type Clock, sinceWords } from "../format";
 
 export type Away = Exclude<NodesNodeStanding, "in-step">;
 
-const awayWords: { readonly [S in Away]: string } = {
+/** Each standing as a word inside a sentence, such as "seedbox is offline". */
+export const awayWords: { readonly [S in Away]: string } = {
   reconnecting: "reconnecting",
   offline: "offline",
   lapsed: "offline",

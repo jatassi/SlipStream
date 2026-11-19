@@ -79,7 +79,7 @@ test("a Worker restarted from Nodes shows Restarting until its link is up again"
   expect(restart.asked).toEqual([seedboxId]);
   await expect
     .element(page.getByRole("combobox", { name: "Node" }))
-    .toHaveTextContent("restartingseedbox");
+    .toHaveTextContent("Restartingseedbox");
   await expect.element(page.getByRole("button", { name: "Restart", exact: true })).toBeDisabled();
 
   const back = new Date(Date.now() + 1000).toISOString();
@@ -96,6 +96,6 @@ test("a Worker restarted from Nodes shows Restarting until its link is up again"
   server.clients[0]?.send({ event: "nodes.changed", data: { nodeId: seedboxId } });
   await expect
     .element(page.getByRole("combobox", { name: "Node" }))
-    .toHaveTextContent("offlineseedbox");
+    .toHaveTextContent("Offlineseedbox");
   await expect.element(page.getByText("seedbox is restarting…")).not.toBeInTheDocument();
 });

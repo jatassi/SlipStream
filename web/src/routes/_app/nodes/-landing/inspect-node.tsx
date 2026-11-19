@@ -1,11 +1,11 @@
 import { Link } from "@tanstack/react-router";
 
+import { NodeStateMark } from "../../../../nodes/state-mark";
 import { Button } from "../../../../ui/button";
 import { Chip } from "../../../../ui/chip";
 import { InspectorSection } from "../../../../ui/inspector";
 import { Findings } from "../-findings";
 import type { Acting } from "../-manage/dialogs";
-import { StateDot } from "../-state-dot";
 import type { NodeRow } from "./view";
 
 /** A Node in the Inspector: its state, its Roles, and what can be done to it. */
@@ -16,10 +16,7 @@ export function NodeWords({ node, act }: { node: NodeRow; act: (acting: Acting) 
   return (
     <>
       <InspectorSection>
-        <p className="flex items-center gap-2">
-          <StateDot state={node.state} />
-          {node.plaque}
-        </p>
+        <NodeStateMark state={node.state} />
         <p className="mt-2 text-ink-3">{node.facts.slice(1).join(" · ")}</p>
         <Findings findings={node.findings} label={`What ${node.name} found`} />
       </InspectorSection>

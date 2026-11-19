@@ -14,6 +14,12 @@ export type Term = {
   readonly definition?: Definition;
 };
 
+/** Every state of S as a Row, each with its definition except the Plain ones, whose word needs none. */
+export type Defines<S extends string, Row extends Term, Plain extends S = never> = {
+  readonly [K in S]: Row &
+    (K extends Plain ? { readonly definition?: never } : { readonly definition: Definition });
+};
+
 const definedWord = "underline decoration-ink-4 decoration-dotted underline-offset-3";
 
 const trigger =

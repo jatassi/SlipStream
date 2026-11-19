@@ -1,11 +1,11 @@
 import type { NodesNode } from "../../../../api/gen/model";
 import { type Clock, clock as clockWords, sinceWords } from "../../../../format";
 import { reachedBy } from "../../../../nodes/dial";
+import { useNodeState } from "../../../../nodes/state";
 import { Section } from "../../../../ui/section";
 import { KeyValues } from "../-facts";
 import { Findings, findingsOf } from "../-findings";
 import type { Acting } from "../-manage/dialogs";
-import { useNodeState } from "../-node";
 import { Labelled } from "./labelled";
 import { Roles } from "./roles";
 

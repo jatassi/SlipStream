@@ -70,10 +70,10 @@ test("the Node picker lists each Node with its state and switches Node, keeping 
     handlers: [...system, nodesAre(home, seedbox)],
   });
   const picker = page.getByRole("combobox", { name: "Node" });
-  await expect.element(picker).toHaveTextContent("onlinehome");
+  await expect.element(picker).toHaveTextContent("Onlinehome");
   await picker.click();
-  await expect.element(page.getByRole("option", { name: "online home" })).toBeVisible();
-  await userEvent.click(page.getByRole("option", { name: "offline seedbox" }));
+  await expect.element(page.getByRole("option", { name: "Online home" })).toBeVisible();
+  await userEvent.click(page.getByRole("option", { name: "Offline seedbox" }));
 
   await expect.poll(() => router.state.location.href).toBe(`/nodes/${seedboxId}/logs`);
   await expect.element(page.getByRole("heading", { name: "seedbox", level: 1 })).toBeVisible();
@@ -112,11 +112,11 @@ test("the Node picker says how each Node stands: reconnecting, offline, past the
         .map((option) => option.element().textContent),
     )
     .toEqual([
-      "onlinehome",
-      "reconnectingseedbox",
-      "offlinevps",
-      "offline too longnas",
-      "on another versionlaptop",
+      "Onlinehome",
+      "Reconnectingseedbox",
+      "Offlinevps",
+      "Offline too longnas",
+      "On another versionlaptop",
     ]);
 });
 
@@ -172,9 +172,9 @@ test("on phone, the Node row opens a sheet of Nodes that switches Node", async (
     path: `/nodes/${homeId}`,
     handlers: [...system, nodesAre(home, seedbox)],
   });
-  await userEvent.click(page.getByRole("button", { name: "online home Node" }));
+  await userEvent.click(page.getByRole("button", { name: "Online home Node" }));
   const sheet = page.getByRole("dialog", { name: "Node" });
-  await userEvent.click(sheet.getByRole("button", { name: "offline seedbox" }));
+  await userEvent.click(sheet.getByRole("button", { name: "Offline seedbox" }));
   await expect.poll(() => router.state.location.href).toBe(`/nodes/${seedboxId}`);
   await expect
     .element(
@@ -183,5 +183,5 @@ test("on phone, the Node row opens a sheet of Nodes that switches Node", async (
       ),
     )
     .toBeVisible();
-  await expect.element(page.getByRole("button", { name: "offline seedbox Node" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Offline seedbox Node" })).toBeVisible();
 });

@@ -3,12 +3,12 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import type { NodesNode } from "../../../api/gen/model";
+import { NodeDot } from "../../../nodes/state-mark";
 import { Chevron } from "../../../ui/chevron";
 import { Icon } from "../../../ui/icon";
 import { List, ListRow } from "../../../ui/list";
 import { Select } from "../../../ui/select";
 import { Sheet, SheetCancel, SheetGroup, SheetItem } from "../../../ui/sheet";
-import { NodeDot } from "./-state-dot";
 
 // Switching Node keeps the section, so a reader on Logs stays on Logs.
 function useSwitchNode(): (nodeId: string) => void {

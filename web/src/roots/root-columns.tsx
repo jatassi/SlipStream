@@ -1,6 +1,6 @@
 import type { NodesNode, RootsNodeVolumes, RootsRoot, WorksContentType } from "../api/gen/model";
 import { bytes, countWords } from "../format";
-import { NodeDot } from "../routes/_app/nodes/-state-dot";
+import { NodeDot } from "../nodes/state-mark";
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
 import type { Column } from "../ui/table";

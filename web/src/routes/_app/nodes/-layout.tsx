@@ -1,14 +1,13 @@
-import { Link, Outlet, useMatch } from "@tanstack/react-router";
+import { Outlet, useMatch } from "@tanstack/react-router";
 
 import { useListNodesSuspense } from "../../../api/gen/query/nodes/nodes";
-import { sectionsFor } from "../../../shell/node-sections";
+import { useNodeState } from "../../../nodes/state";
 import { Page } from "../../../shell/page";
-import { PageTabs, pageTab } from "../../../ui/page-tabs";
 import { useShell } from "../../../ui/shell-context";
-import { nodeOf, useNodeState } from "./-node";
+import { nodeOf } from "./-node";
 import { NodePicker, PhoneNodePicker } from "./-node-picker";
 import { NodeActions, NodeRestarting } from "./-actions";
-import { SectionList } from "./-section-list";
+import { SectionList, SectionTabs } from "./-section-list";
 
 // On phone each section is its own page: the Node's top page carries the
 // picker and lists the others, and the shell titles a pushed section and
@@ -40,19 +39,7 @@ export function NodeLayout({ nodeId }: { nodeId: string }) {
   return (
     <Page title={node.name} action={actions}>
       {nodes.length > 1 && <NodePicker nodes={nodes} current={node.id} />}
-      <PageTabs label={node.name}>
-        {sectionsFor(node, nodes).map((section) => (
-          <Link
-            key={section.id}
-            to={section.to}
-            params={{ nodeId }}
-            activeOptions={{ exact: true }}
-            className={pageTab}
-          >
-            {section.label}
-          </Link>
-        ))}
-      </PageTabs>
+      <SectionTabs node={node} nodes={nodes} />
       {body}
     </Page>
   );
