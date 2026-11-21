@@ -204,7 +204,7 @@ _In UI_: "Backup destination".
 _Avoid_: Backup target, backup location, remote
 
 **Reconciling**:
-The state every restored Controller starts in, including after a manual rollback, until it matches the Backup to what Nodes hold. It cancels in-flight jobs from the Backup, adopts torrents it doesn't know and sends unmatched files to Pending imports, and nothing searches, blocklists, or removes or renames a torrent or file until it finishes.
+The state every restored Controller starts in, including after a manual rollback, until it matches the Backup to what Nodes hold: each Node keeps every torrent it holds, the Controller adopts the ones it doesn't know, and work in flight from the Backup pauses. Nothing searches, blocklists, or removes or renames a torrent or file until it finishes.
 _In UI_: "Reconciling", with its hover definition.
 _Avoid_: Resync, recovery mode
 
