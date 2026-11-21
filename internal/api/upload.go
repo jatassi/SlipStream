@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"reflect"
+	"slices"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -15,6 +17,9 @@ import (
 // LifecycleBusy is a restore, an update or a Handover while another one
 // runs, even across a restart.
 var LifecycleBusy = NewCode(http.StatusConflict, "lifecycle_busy", "A restore or an update is already running. Try again once it finishes.")
+
+// NotAnUpload is an upload whose body isn't the file itself.
+var NotAnUpload = NewCode(http.StatusUnsupportedMediaType, "not_an_upload", "Send the file itself, as application/octet-stream")
 
 // uploadIdle is how long an upload may send nothing before it is cut. It
 // stands in for a body timeout, since a Backup of a large library takes
@@ -38,11 +43,13 @@ type uploadInput struct{}
 
 // RegisterUpload adds an operation whose request body is a file streamed
 // as application/octet-stream, outside Huma's buffered body. Its level is
-// checked first, then max answers how many bytes it may take, and body
-// fails with a *TooLargeError once the upload passes it. No body timeout
+// checked first, then room answers how many bytes it may take, and body
+// fails with a *TooLargeError once the upload passes it, at its first read
+// when the Content-Length already does, so the handler maps it. No body timeout
 // applies: a read that waits longer than a minute fails instead.
-func RegisterUpload[P, O any](o *Owner, level Level[P], op Op, max func(ctx context.Context) (int64, error), handler func(ctx context.Context, p P, body io.Reader) (*O, error)) {
+func RegisterUpload[P, O any](o *Owner, level Level[P], op Op, room func(ctx context.Context) (int64, error), handler func(ctx context.Context, p P, body io.Reader) (*O, error)) {
 	r := o.router
+	op.Errors = append(slices.Clone(op.Errors), NotAnUpload)
 	hop, declared := humaOperation(o, level, op, reflect.TypeFor[uploadInput]())
 	hop.MaxBodyBytes = 0
 	hop.RequestBody = &huma.RequestBody{
@@ -68,12 +75,11 @@ func RegisterUpload[P, O any](o *Owner, level Level[P], op Op, max func(ctx cont
 				out, err = nil, Internal.problem()
 			}
 		}()
-		limit, err := max(ctx)
+		if media, _, _ := mime.ParseMediaType(u.req.Header.Get("Content-Type")); media != "application/octet-stream" {
+			err = NotAnUpload
+		}
 		if err == nil {
-			u.max = limit
-			if u.req.ContentLength > limit {
-				err = &TooLargeError{Max: limit, Sent: u.req.ContentLength}
-			}
+			u.max, err = room(ctx)
 		}
 		if err == nil {
 			out, err = handler(ctx, p, u)
@@ -95,6 +101,9 @@ type upload struct {
 }
 
 func (u *upload) Read(b []byte) (int, error) {
+	if u.req.ContentLength > u.max {
+		return 0, &TooLargeError{Max: u.max, Sent: u.req.ContentLength}
+	}
 	_ = u.rc.SetReadDeadline(time.Now().Add(uploadIdle))
 	if room := u.max - u.read + 1; int64(len(b)) > room {
 		b = b[:room]
@@ -108,5 +117,5 @@ func (u *upload) Read(b []byte) (int, error) {
 		}
 		return n, &TooLargeError{Max: u.max, Sent: sent}
 	}
-	return n, err
+	return n, err //nolint:wrapcheck // io.EOF ends the body only unwrapped
 }

@@ -5012,6 +5012,8 @@ export * from "./uploadRestore403.ts";
 export * from "./uploadRestore403Code.ts";
 export * from "./uploadRestore409.ts";
 export * from "./uploadRestore409Code.ts";
+export * from "./uploadRestore415.ts";
+export * from "./uploadRestore415Code.ts";
 export * from "./uploadRestore422.ts";
 export * from "./uploadRestore422Code.ts";
 export * from "./uploadRestore500.ts";

@@ -76046,6 +76046,31 @@
             },
             "description": "Conflict"
           },
+          "415": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_an_upload"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
           "422": {
             "content": {
               "application/problem+json": {

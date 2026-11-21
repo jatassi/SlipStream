@@ -26,6 +26,7 @@ import type {
   UploadRestore401,
   UploadRestore403,
   UploadRestore409,
+  UploadRestore415,
   UploadRestore422,
   UploadRestore500,
 } from "../../model";
@@ -77,7 +78,12 @@ export const getUploadRestoreMutationKey = () => ["uploadRestore"] as const;
 
 export const getUploadRestoreMutationOptions = <
   TError = ErrorType<
-    UploadRestore401 | UploadRestore403 | UploadRestore409 | UploadRestore422 | UploadRestore500
+    | UploadRestore401
+    | UploadRestore403
+    | UploadRestore409
+    | UploadRestore415
+    | UploadRestore422
+    | UploadRestore500
   >,
   TContext = unknown,
 >(options?: {
@@ -116,7 +122,12 @@ export const getUploadRestoreMutationOptions = <
 export type UploadRestoreMutationResult = NonNullable<Awaited<ReturnType<typeof uploadRestore>>>;
 export type UploadRestoreMutationBody = Blob;
 export type UploadRestoreMutationError = ErrorType<
-  UploadRestore401 | UploadRestore403 | UploadRestore409 | UploadRestore422 | UploadRestore500
+  | UploadRestore401
+  | UploadRestore403
+  | UploadRestore409
+  | UploadRestore415
+  | UploadRestore422
+  | UploadRestore500
 >;
 export type UploadRestoreMutationVariables = { data: Blob };
 
@@ -125,7 +136,12 @@ export type UploadRestoreMutationVariables = { data: Blob };
  */
 export const useUploadRestore = <
   TError = ErrorType<
-    UploadRestore401 | UploadRestore403 | UploadRestore409 | UploadRestore422 | UploadRestore500
+    | UploadRestore401
+    | UploadRestore403
+    | UploadRestore409
+    | UploadRestore415
+    | UploadRestore422
+    | UploadRestore500
   >,
   TContext = unknown,
 >(
