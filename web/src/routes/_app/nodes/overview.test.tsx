@@ -2,6 +2,7 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { type Locator, page, userEvent } from "vitest/browser";
 
+import { getGetSupersededMockHandler } from "../../../api/gen/query/superseded/superseded.msw";
 import { ids, manageServer, threeNodes, vps } from "../../../test/landing";
 import { nodeSystems } from "../../../test/node-system";
 import { homeSystem } from "../../../test/nodes";
@@ -101,4 +102,61 @@ test("Rename on the Overview renames the Node", async () => {
   await userEvent.click(dialog.getByRole("button", { name: "Rename" }));
   await expect.element(dialog).not.toBeInTheDocument();
   expect(server.renamed).toEqual([{ nodeId: ids.vps, body: { name: "edge" } }]);
+});
+
+test("the Overview of the Worker that said another Controller replaced this one offers Stop, and stops once confirmed", async () => {
+  let stopped = 0;
+  renderApp({
+    path: `/nodes/${ids.vps}`,
+    handlers: [
+      ...threeNodes,
+      ...systems,
+      getGetSupersededMockHandler({
+        state: "unproven",
+        at: new Date().toISOString(),
+        replacement: { key: "EEGV-S8BN-TGNW-PSQ0", address: "192.168.1.20" },
+        worker: "vps",
+        workerId: ids.vps,
+      }),
+      http.post("*/api/v1/superseded/stop", () => {
+        stopped++;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    ],
+  });
+  const section = page.getByRole("region", { name: "Another Controller" });
+  await expect
+    .element(
+      section.getByText(
+        "vps now connects to a different Controller and sent no proof of a restore. If you restored a Backup on another machine, stop this Controller.",
+      ),
+    )
+    .toBeVisible();
+  await userEvent.click(section.getByRole("button", { name: "Stop this Controller…" }));
+  const dialog = page.getByRole("dialog", { name: "Stop this Controller?" });
+  await expect
+    .element(
+      dialog.getByText(
+        "This Controller pauses every torrent, stops searching and opens only the page that wipes it and joins the new Controller. Resume this Controller on that page undoes it.",
+      ),
+    )
+    .toBeVisible();
+  expect(stopped).toBe(0);
+  await userEvent.click(dialog.getByRole("button", { name: "Stop", exact: true }));
+  await expect.poll(() => stopped).toBe(1);
+});
+
+test("another Node's Overview offers no Stop", async () => {
+  renderApp({
+    path: `/nodes/${ids.seedbox}`,
+    handlers: [
+      ...threeNodes,
+      ...systems,
+      getGetSupersededMockHandler({ state: "unproven", worker: "vps", workerId: ids.vps }),
+    ],
+  });
+  await expect.element(page.getByRole("button", { name: "Remove seedbox" })).toBeVisible();
+  await expect
+    .element(page.getByRole("region", { name: "Another Controller" }))
+    .not.toBeInTheDocument();
 });
