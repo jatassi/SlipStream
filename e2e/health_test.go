@@ -82,6 +82,9 @@ func TestANodeOfflinePastTheGraceIsANodesErrorUntilItIsBack(t *testing.T) {
 	if r := a.Admin("home", http.MethodPatch, "/api/v1/nodes/settings", `{"offlineGrace":60}`); r.Status != http.StatusOK {
 		t.Fatalf("updateNodeSettings = %d %s, want 200", r.Status, r.Body)
 	}
+	if r := a.Signed("home", a.SignIn("home"), http.MethodPost, "/api/v1/backups/passphrase/saved", ""); r.Status != http.StatusNoContent {
+		t.Fatalf("saveBackupPassphrase = %d %s, want 204", r.Status, r.Body)
+	}
 	box := a.Node("seedbox").NodeID
 	worldtest.Until(t, "the Nodes category is clear", func() (bool, error) { return len(healthItems(t, a, "nodes")) == 0, nil })
 	checked := decode(t, "checkHealthCategory", a.Admin("home", http.MethodPost, "/api/v1/system/health/nodes/check", ""), &healthChecked{})
