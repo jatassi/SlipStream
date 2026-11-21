@@ -34,6 +34,11 @@ type Timings struct {
 	Traffic time.Duration `yaml:"traffic"`
 	// Reach bounds each reach test from a Node.
 	Reach time.Duration `yaml:"reach"`
+	// UnknownNodes is how many Nodes not in the library the Reconciling
+	// page lists at most, and UnknownFor how long it lists each after its
+	// last Hello.
+	UnknownNodes int           `yaml:"unknown_nodes"`
+	UnknownFor   time.Duration `yaml:"unknown_for"`
 }
 
 func DefaultTimings() Timings {
@@ -45,6 +50,9 @@ func DefaultTimings() Timings {
 		DialReport:  30 * time.Second,
 		Traffic:     time.Second,
 		Reach:       10 * time.Second,
+
+		UnknownNodes: 50,
+		UnknownFor:   24 * time.Hour,
 	}
 }
 

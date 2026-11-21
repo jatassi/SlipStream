@@ -601,6 +601,8 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.nodes.dial_report", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_DIAL_REPORT"},
 			{Key: "timings.nodes.traffic", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_TRAFFIC"},
 			{Key: "timings.nodes.reach", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_REACH"},
+			{Key: "timings.nodes.unknown_nodes", Value: "50", Default: "50", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_UNKNOWN_NODES"},
+			{Key: "timings.nodes.unknown_for", Value: "24h0m0s", Default: "24h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_UNKNOWN_FOR"},
 			{Key: "timings.works.fetch", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_WORKS_FETCH"},
 			{Key: "timings.indexers.job", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_JOB"},
 			{Key: "timings.indexers.poll", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_POLL"},
