@@ -25,7 +25,7 @@ const definedWord = "underline decoration-ink-4 decoration-dotted underline-offs
 const trigger =
   "relative inline-flex rounded-chip before:absolute before:-inset-x-1 before:-inset-y-2 focus-visible:outline-2 focus-visible:outline-offset-2";
 
-const definitionPopup = `max-w-[min(280px,var(--available-width))] text-pretty ${labelPopup}`;
+const notePopup = `max-w-[min(280px,var(--available-width))] text-pretty whitespace-pre-line ${labelPopup}`;
 
 /**
  * Draws a look around a term's word. A term with a definition underlines the
@@ -42,19 +42,23 @@ export function Defined({
   return term.definition === undefined ? (
     look(term.word)
   ) : (
-    <Definable word={term.word} definition={term.definition}>
+    <HoverNote name={term.word} note={term.definition}>
       {look(<span className={definedWord}>{term.word}</span>)}
-    </Definable>
+    </HoverNote>
   );
 }
 
-function Definable({
-  word,
-  definition,
+/**
+ * One button around children that opens a note on hover, tap and Enter in the
+ * tooltip's glass label, one line per line of the note.
+ */
+export function HoverNote({
+  name,
+  note,
   children,
 }: {
-  word: string;
-  definition: Definition;
+  name: string;
+  note: string;
   children: ReactNode;
 }) {
   const { density, probe } = usePortalDensity();
@@ -64,8 +68,8 @@ function Definable({
       <BasePopover.Root>
         <BasePopover.Trigger
           render={
-            // oxlint-disable-next-line jsx-a11y/role-supports-aria-props -- ARIA 1.3's aria-description keeps the definition out of the row's text
-            <button type="button" aria-description={definition} className={trigger}>
+            // oxlint-disable-next-line jsx-a11y/role-supports-aria-props -- ARIA 1.3's aria-description keeps the note out of the row's text
+            <button type="button" aria-description={note} className={trigger}>
               {children}
             </button>
           }
@@ -73,8 +77,8 @@ function Definable({
         />
         <BasePopover.Portal data-density={density}>
           <BasePopover.Positioner sideOffset={6} collisionPadding={12}>
-            <BasePopover.Popup aria-label={word} initialFocus={false} className={definitionPopup}>
-              {definition}
+            <BasePopover.Popup aria-label={name} initialFocus={false} className={notePopup}>
+              {note}
             </BasePopover.Popup>
           </BasePopover.Positioner>
         </BasePopover.Portal>
