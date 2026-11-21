@@ -38,6 +38,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/servingapi"
 	"github.com/jatassi/slipstream/internal/subtitles"
+	"github.com/jatassi/slipstream/internal/supersededapi"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
@@ -118,6 +119,10 @@ func (worker) Join(context.Context, joincode.Code, func(pairing.Pending)) (pairi
 }
 
 func (worker) Removal() (pairing.Removal, bool) { return pairing.Removal{}, false }
+
+func (worker) Superseded() bool { return false }
+
+func (worker) Fence() (supersededapi.Fence, bool) { return nil, false }
 
 func (worker) Pending() (pairing.Pending, bool) {
 	panic("a Worker's closed gate admitted getWorkerClaim")

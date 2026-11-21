@@ -58,6 +58,8 @@ func (c controller) Systems() (*nodesystem.Nodes, bool) { return c.systems, true
 
 func (controller) Removal() (pairing.Removal, bool) { return pairing.Removal{}, false }
 
+func (controller) Superseded() bool { return false }
+
 func newNode(t *testing.T, f system.Facts) *node { return newController(t, f, nil) }
 
 func newController(t *testing.T, f system.Facts, systems *nodesystem.Nodes) *node {
@@ -170,6 +172,7 @@ func (worker) Claim(context.Context) (system.Claim, error) { return system.Worke
 func (worker) Identity() (*identity.Service, bool)         { return nil, false }
 func (worker) Systems() (*nodesystem.Nodes, bool)          { return nil, false }
 func (worker) Removal() (pairing.Removal, bool)            { return pairing.Removal{}, false }
+func (worker) Superseded() bool                            { return false }
 
 func TestAWorkerReportsItsClaimAndSendsAdminsToItsController(t *testing.T) {
 	log := slog.New(slog.DiscardHandler)
@@ -195,6 +198,8 @@ func (removedWorker) Systems() (*nodesystem.Nodes, bool)          { return nil, 
 func (removedWorker) Removal() (pairing.Removal, bool) {
 	return pairing.Removal{At: time.Date(2026, 10, 17, 21, 31, 0, 0, time.UTC), ControllerName: "home"}, true
 }
+
+func (removedWorker) Superseded() bool { return false }
 
 func TestARemovedNodeReportsWhoRemovedIt(t *testing.T) {
 	log := slog.New(slog.DiscardHandler)

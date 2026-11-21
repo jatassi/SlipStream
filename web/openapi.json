@@ -16885,6 +16885,18 @@
         ],
         "type": "object"
       },
+      "NodesFenced": {
+        "additionalProperties": false,
+        "properties": {
+          "superseded": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "superseded"
+        ],
+        "type": "object"
+      },
       "NodesGains": {
         "additionalProperties": false,
         "properties": {
@@ -23175,6 +23187,51 @@
         ],
         "type": "object"
       },
+      "SupersededReplacement": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "address"
+        ],
+        "type": "object"
+      },
+      "SupersededView": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "replacement": {
+            "$ref": "#/components/schemas/SupersededReplacement"
+          },
+          "state": {
+            "enum": [
+              "none",
+              "unproven",
+              "proven",
+              "stopped",
+              "retired"
+            ],
+            "type": "string"
+          },
+          "worker": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "type": "object"
+      },
       "SystemBuild": {
         "additionalProperties": false,
         "properties": {
@@ -23488,6 +23545,10 @@
             "description": "When this process started. A page waiting out a restart reads a later one once the Node is back",
             "format": "date-time",
             "type": "string"
+          },
+          "superseded": {
+            "description": "Whether a restore on another machine replaced this Controller, or an Admin stopped or retired it",
+            "type": "boolean"
           }
         },
         "required": [
@@ -27151,6 +27212,20 @@
         ],
         "type": "object"
       },
+      "WipeInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "joinCode": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "joinCode"
+        ],
+        "type": "object"
+      },
       "WorkPlanInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -30248,6 +30323,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -30413,6 +30489,7 @@
                         "code": {
                           "enum": [
                             "last_admin",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -30607,6 +30684,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -30813,6 +30891,7 @@
                           "enum": [
                             "email_taken",
                             "last_admin",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -31022,6 +31101,7 @@
                         "code": {
                           "enum": [
                             "address_unset",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -31212,6 +31292,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -31406,6 +31487,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -31605,6 +31687,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -31765,6 +31848,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -31898,6 +31982,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -32262,6 +32347,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -32430,6 +32516,7 @@
                         "code": {
                           "enum": [
                             "destination_exists",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -32647,6 +32734,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -35954,6 +36042,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -36116,6 +36205,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -36338,6 +36428,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -36673,6 +36764,7 @@
                         "code": {
                           "enum": [
                             "content_type_disabled",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -36908,6 +37000,7 @@
                         "code": {
                           "enum": [
                             "content_type_disabled",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -37143,6 +37236,7 @@
                           "enum": [
                             "content_type_in_use",
                             "content_type_last",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -37337,6 +37431,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -37530,6 +37625,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -37725,6 +37821,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -37928,6 +38025,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -38089,6 +38187,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -38223,6 +38322,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -38391,6 +38491,7 @@
                         "code": {
                           "enum": [
                             "format_name_taken",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -38628,6 +38729,7 @@
                           "enum": [
                             "format_name_taken",
                             "impact_changed",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -38790,6 +38892,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -38998,6 +39101,7 @@
                         "code": {
                           "enum": [
                             "impact_changed",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -39191,6 +39295,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -39458,6 +39563,7 @@
                           "enum": [
                             "format_name_taken",
                             "impact_changed",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -39655,6 +39761,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -39814,6 +39921,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -39957,6 +40065,7 @@
                         "code": {
                           "enum": [
                             "cut_name_taken",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -40147,6 +40256,7 @@
                             "cut_in_use",
                             "cut_not_custom",
                             "standard_is_fixed",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -40390,6 +40500,7 @@
                             "cut_not_custom",
                             "impact_changed",
                             "standard_is_fixed",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -40549,6 +40660,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -40693,6 +40805,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -40889,6 +41002,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -41093,6 +41207,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -42321,6 +42436,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/NodesFenced"
+                          },
+                          "event": {
+                            "const": "nodes.fenced",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event nodes.fenced",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/NodesTraffic"
                           },
                           "event": {
@@ -43104,6 +43245,7 @@
                             "download_client_address_taken",
                             "download_client_name_taken",
                             "node_not_downloading",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -43321,6 +43463,7 @@
                         "code": {
                           "enum": [
                             "node_not_downloading",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -43569,6 +43712,7 @@
                             "download_client_has_torrents",
                             "download_client_importing",
                             "download_client_in_use",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -43777,6 +43921,7 @@
                             "download_client_in_use",
                             "download_client_name_taken",
                             "node_not_downloading",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -44029,6 +44174,7 @@
                         "code": {
                           "enum": [
                             "node_not_downloading",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -44264,6 +44410,7 @@
                         "code": {
                           "enum": [
                             "files_not_gone",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -44468,6 +44615,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -44692,6 +44840,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -44889,6 +45038,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -45086,6 +45236,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -45342,6 +45493,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -45582,6 +45734,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -45858,6 +46011,7 @@
                         "code": {
                           "enum": [
                             "audio_not_scanned",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -46109,6 +46263,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -46333,6 +46488,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -46575,6 +46731,7 @@
                         "code": {
                           "enum": [
                             "audio_not_scanned",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -46736,6 +46893,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -46863,6 +47021,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -47043,6 +47202,7 @@
                         "code": {
                           "enum": [
                             "first_run_finished",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -47202,6 +47362,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -47372,6 +47533,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -47573,6 +47735,7 @@
                             "grab_busy",
                             "grab_finished",
                             "reconciling",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -47776,6 +47939,7 @@
                             "grab_torrent_in_client",
                             "node_not_downloading",
                             "reconciling",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -47977,6 +48141,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -48208,6 +48373,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -48367,6 +48533,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -48523,6 +48690,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -48730,6 +48898,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -48889,6 +49058,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -49032,6 +49202,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -49193,6 +49364,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -49336,6 +49508,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -49581,6 +49754,7 @@
                         "code": {
                           "enum": [
                             "import_list_moved",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -49758,6 +49932,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -49928,6 +50103,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -50122,6 +50298,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -50284,6 +50461,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -50443,6 +50621,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -50585,6 +50764,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -50766,6 +50946,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -50955,6 +51136,7 @@
                           "enum": [
                             "import_move_seeding",
                             "import_not_offered",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -51114,6 +51296,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -51256,6 +51439,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -51420,6 +51604,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -51615,6 +51800,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -51822,6 +52008,7 @@
                             "content_type_disabled",
                             "import_changed",
                             "import_elsewhere",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -52068,6 +52255,7 @@
                           "enum": [
                             "import_not_offered",
                             "reconciling",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -52228,6 +52416,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -52372,6 +52561,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -52543,6 +52733,7 @@
                         "code": {
                           "enum": [
                             "definition_id_taken",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -52733,6 +52924,7 @@
                         "code": {
                           "enum": [
                             "definition_in_use",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -52928,6 +53120,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -53112,6 +53305,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -53254,6 +53448,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -53415,6 +53610,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -53585,6 +53781,7 @@
                             "indexer_name_taken",
                             "no_searching_node",
                             "node_not_searching",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -53877,6 +54074,7 @@
                           "enum": [
                             "no_searching_node",
                             "node_not_searching",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -54170,6 +54368,7 @@
                           "enum": [
                             "no_searching_node",
                             "node_not_searching",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -54454,6 +54653,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -54647,6 +54847,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -54852,6 +55053,7 @@
                           "enum": [
                             "indexer_name_taken",
                             "node_not_searching",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -55118,6 +55320,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -55371,6 +55574,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -55578,6 +55782,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -55782,6 +55987,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -56011,6 +56217,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -56144,6 +56351,7 @@
                         "code": {
                           "enum": [
                             "no_link_address",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -56307,6 +56515,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -56500,6 +56709,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -56699,6 +56909,7 @@
                         "code": {
                           "enum": [
                             "join_code_closed",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -56915,6 +57126,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -57074,6 +57286,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -57217,6 +57430,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -57377,6 +57591,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -57536,6 +57751,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -57708,6 +57924,7 @@
                             "media_server_other_server",
                             "node_not_media_server_link",
                             "plex_not_signed_in",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -57897,6 +58114,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -58024,6 +58242,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -58157,6 +58376,7 @@
                         "code": {
                           "enum": [
                             "plex_not_signed_in",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -58301,6 +58521,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -58522,6 +58743,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -58708,6 +58930,7 @@
                         "code": {
                           "enum": [
                             "plex_not_signed_in",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -58892,6 +59115,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -59034,6 +59258,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -59232,6 +59457,7 @@
                         "code": {
                           "enum": [
                             "node_not_media_server_link",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -59448,6 +59674,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -59641,6 +59868,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -59848,6 +60076,7 @@
                             "media_server_name_taken",
                             "media_server_other_server",
                             "node_not_media_server_link",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -60082,6 +60311,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -60278,6 +60508,7 @@
                         "code": {
                           "enum": [
                             "media_server_other_server",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -60500,6 +60731,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -60696,6 +60928,7 @@
                         "code": {
                           "enum": [
                             "media_server_other_server",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -60929,6 +61162,7 @@
                         "code": {
                           "enum": [
                             "media_server_other_server",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -61144,6 +61378,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -61339,6 +61574,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -61534,6 +61770,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -61686,6 +61923,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -61820,6 +62058,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -61989,6 +62228,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -62191,6 +62431,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -62412,6 +62653,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -62596,6 +62838,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -62738,6 +62981,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -62899,6 +63143,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -63079,6 +63324,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -63287,6 +63533,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -63483,6 +63730,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -63642,6 +63890,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -63776,6 +64025,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -63945,6 +64195,7 @@
                           "enum": [
                             "roles_blocked",
                             "roles_stale",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -64143,6 +64394,7 @@
                         "code": {
                           "enum": [
                             "roles_stale",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -64305,6 +64557,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -64447,6 +64700,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -64607,6 +64861,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -64783,6 +65038,7 @@
                           "enum": [
                             "node_holds_work",
                             "node_is_controller",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -64980,6 +65236,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -65184,6 +65441,7 @@
                         "code": {
                           "enum": [
                             "node_name_taken",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -65356,6 +65614,7 @@
                         "code": {
                           "enum": [
                             "node_not_searching",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -65535,6 +65794,7 @@
                         "code": {
                           "enum": [
                             "node_not_searching",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -65757,6 +66017,7 @@
                         "code": {
                           "enum": [
                             "node_mismatched",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -65990,6 +66251,7 @@
                             "config_not_writable",
                             "node_mismatched",
                             "set_by_environment",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -66225,6 +66487,7 @@
                         "code": {
                           "enum": [
                             "node_key_mismatch",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -66455,6 +66718,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -66690,6 +66954,7 @@
                         "code": {
                           "enum": [
                             "folder_exists",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -66926,6 +67191,7 @@
                         "code": {
                           "enum": [
                             "node_not_storage",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -67136,6 +67402,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -67363,6 +67630,7 @@
                         "code": {
                           "enum": [
                             "node_mismatched",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -67663,6 +67931,7 @@
                         "code": {
                           "enum": [
                             "node_mismatched",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -67885,6 +68154,7 @@
                           "enum": [
                             "already_restarting",
                             "node_mismatched",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -68106,6 +68376,7 @@
                         "code": {
                           "enum": [
                             "node_mismatched",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -68339,6 +68610,7 @@
                           "enum": [
                             "keeps_role",
                             "nothing_held",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -68502,6 +68774,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -68644,6 +68917,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -68804,6 +69078,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -68946,6 +69221,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -69119,6 +69395,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -69312,6 +69589,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -69505,6 +69783,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -69708,6 +69987,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -69917,6 +70197,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -70081,6 +70362,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -70241,6 +70523,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -70404,6 +70687,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -70563,6 +70847,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -70697,6 +70982,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -70839,6 +71125,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -72130,6 +72417,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -72298,6 +72586,7 @@
                         "code": {
                           "enum": [
                             "profile_name_taken",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -72548,6 +72837,7 @@
                           "enum": [
                             "impact_changed",
                             "profile_is_default",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -72743,6 +73033,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -72997,6 +73288,7 @@
                           "enum": [
                             "impact_changed",
                             "profile_name_taken",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -73197,6 +73489,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -73356,6 +73649,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -73490,6 +73784,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -73619,6 +73914,7 @@
                         "code": {
                           "enum": [
                             "not_reconciling",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -73783,6 +74079,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -73978,6 +74275,7 @@
                         "code": {
                           "enum": [
                             "not_reconciling",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -74166,6 +74464,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -74379,6 +74678,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -74566,6 +74866,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -74753,6 +75054,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -74973,6 +75275,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -75146,6 +75449,7 @@
                           "enum": [
                             "reconciling",
                             "root_not_ready",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -75328,6 +75632,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -75524,6 +75829,7 @@
                         "code": {
                           "enum": [
                             "root_not_ready",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -75732,6 +76038,7 @@
                         "code": {
                           "enum": [
                             "root_not_ready",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -75893,6 +76200,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -76262,6 +76570,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -76430,6 +76739,7 @@
                         "code": {
                           "enum": [
                             "node_not_storage",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -76597,6 +76907,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -76739,6 +77050,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -76941,6 +77253,7 @@
                           "enum": [
                             "root_in_use",
                             "root_is_default",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -77151,6 +77464,7 @@
                           "enum": [
                             "node_not_storage",
                             "rehome_missing",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -77375,6 +77689,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -77571,6 +77886,7 @@
                         "code": {
                           "enum": [
                             "scan_not_stopped",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -77766,6 +78082,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -77941,6 +78258,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -78100,6 +78418,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -78242,6 +78561,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -78440,6 +78760,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -81352,6 +81673,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -81497,6 +81819,7 @@
                           "enum": [
                             "account_exists",
                             "address_unset",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -81922,6 +82245,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -82117,6 +82441,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -82316,6 +82641,7 @@
                           "enum": [
                             "account_exists",
                             "address_unset",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -82560,6 +82886,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -82763,6 +83090,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -82924,6 +83252,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -83068,6 +83397,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -83273,6 +83603,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -83467,6 +83798,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -83671,6 +84003,7 @@
                         "code": {
                           "enum": [
                             "no_subtitles_holder",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -83857,6 +84190,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -83999,6 +84333,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -84083,6 +84418,559 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/superseded": {
+      "get": {
+        "operationId": "getSuperseded",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupersededView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Read whether a restore on another machine replaced this Controller",
+        "tags": [
+          "superseded"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/superseded/resume": {
+      "post": {
+        "operationId": "resumeSupersededController",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          }
+        ],
+        "summary": "Resume this Controller, so no earlier proof of a restore fences it again",
+        "tags": [
+          "superseded"
+        ],
+        "x-slipstream-access": "reconfirmedSession"
+      }
+    },
+    "/superseded/stop": {
+      "post": {
+        "operationId": "stopSupersededController",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_told",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          }
+        ],
+        "summary": "Stop this Controller after a Worker said a restore replaced it",
+        "tags": [
+          "superseded"
+        ],
+        "x-slipstream-access": "reconfirmedSession"
+      }
+    },
+    "/superseded/wipe": {
+      "post": {
+        "operationId": "wipeSupersededController",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WipeInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "lifecycle_busy",
+                            "not_superseded",
+                            "wipe_backup_failed",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "join_code_damaged"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          }
+        ],
+        "summary": "Back up and wipe this Controller, then join it to the new Controller as a Worker",
+        "tags": [
+          "superseded"
+        ],
+        "x-slipstream-access": "reconfirmedSession"
+      }
+    },
     "/system": {
       "get": {
         "operationId": "getSystem",
@@ -84161,6 +85049,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -84295,6 +85184,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -84429,6 +85319,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -84563,6 +85454,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -84705,6 +85597,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -84880,6 +85773,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -85037,6 +85931,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -85204,6 +86099,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -85400,6 +86296,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -85604,6 +86501,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -85763,6 +86661,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -85905,6 +86804,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "target_name_taken",
                             "worker_node"
                           ],
@@ -86096,6 +86996,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "target_in_use",
                             "worker_node"
                           ],
@@ -86290,6 +87191,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -86531,6 +87433,7 @@
                         "code": {
                           "enum": [
                             "impact_changed",
+                            "superseded",
                             "target_name_taken",
                             "worker_node"
                           ],
@@ -86729,6 +87632,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -86888,6 +87792,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -87022,6 +87927,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -87185,6 +88091,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -87344,6 +88251,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -87486,6 +88394,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -87681,6 +88590,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -87883,6 +88793,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -88079,6 +88990,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "task_running",
                             "task_waiting",
                             "worker_node"
@@ -88324,6 +89236,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -88518,6 +89431,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -88677,6 +89591,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -88847,6 +89762,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -89006,6 +89922,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -89140,6 +90057,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -89282,6 +90200,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -89442,6 +90361,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -89584,6 +90504,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -89774,6 +90695,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "tracker_in_use",
                             "worker_node"
                           ],
@@ -89968,6 +90890,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -90171,6 +91094,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "tracker_name_taken",
                             "worker_node"
                           ],
@@ -90367,6 +91291,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -90570,6 +91495,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -90776,6 +91702,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -90972,6 +91899,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -91180,6 +92108,7 @@
                         "code": {
                           "enum": [
                             "route_not_a_home",
+                            "superseded",
                             "tracker_public",
                             "worker_node"
                           ],
@@ -91399,6 +92328,7 @@
                           "enum": [
                             "node_not_downloading",
                             "route_not_a_home",
+                            "superseded",
                             "tracker_public",
                             "worker_node"
                           ],
@@ -91596,6 +92526,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "tracker_public",
                             "worker_node"
                           ],
@@ -91800,6 +92731,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "tracker_public",
                             "worker_node"
                           ],
@@ -92023,6 +92955,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -92206,6 +93139,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -92401,6 +93335,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -92604,6 +93539,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -92764,6 +93700,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -92934,6 +93871,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -93093,6 +94031,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -93326,6 +94265,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -93523,6 +94463,7 @@
                         "code": {
                           "enum": [
                             "content_type_disabled",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -93724,6 +94665,7 @@
                         "code": {
                           "enum": [
                             "reconciling",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -93893,6 +94835,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -94062,6 +95005,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -94271,6 +95215,7 @@
                         "code": {
                           "enum": [
                             "impact_changed",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -94441,6 +95386,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -94635,6 +95581,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -94859,6 +95806,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -95027,6 +95975,7 @@
                         "code": {
                           "enum": [
                             "reconciling",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -95223,6 +96172,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -95418,6 +96368,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -95613,6 +96564,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -95826,6 +96778,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -96042,6 +96995,7 @@
                             "no_root",
                             "not_searchable",
                             "reconciling",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -96250,6 +97204,7 @@
                           "enum": [
                             "manual_search_replaced",
                             "reconciling",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -96446,6 +97401,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -96644,6 +97600,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -96849,6 +97806,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -97089,6 +98047,7 @@
                             "nothing_wanted",
                             "reconciling",
                             "root_unreachable",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -97284,6 +98243,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -97479,6 +98439,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -97674,6 +98635,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -97880,6 +98842,7 @@
                         "code": {
                           "enum": [
                             "reconciling",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -98075,6 +99038,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
@@ -98316,6 +99280,7 @@
                         "code": {
                           "enum": [
                             "impact_changed",
+                            "superseded",
                             "worker_node"
                           ],
                           "type": "string"
