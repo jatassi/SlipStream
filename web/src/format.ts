@@ -91,8 +91,8 @@ export function lengthWords(milliseconds: number): string {
   return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
 }
 
-// The Work page and Library can't move until S46 merges. These keep their
-// screens and tests on the table, and go with them.
+// The frozen Work page and Library, and their tests, word times through these
+// until S46 merges, when they move onto ui/time-words and these go.
 export const clock = (iso: string): string =>
   timeForms.clock(placeOf(iso, { now: new Date(), zone: undefined }));
 export const laterAtWords = (iso: string, reading: Clock): string =>

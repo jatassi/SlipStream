@@ -89,6 +89,7 @@ Help text, settings descriptions and OpenAPI docs run long enough to pick up the
 
 - Sentence case everywhere. A term whose `_In UI_` line capitalizes it keeps its capitals: Node, Target, Profile, Grab. Other house words don't appear (rule 20).
 - A full sentence ends with a period. Labels, buttons, headings and menu items don't.
+- A time inside a sentence names its day with its preposition, as a person says it: "at 2:02 PM" today, "yesterday at 2:02 PM", "tonight at 4:00 AM", "on Mon at 9:12 AM" within the week and "on Nov 19 at 9:12 AM" further off. Write it through `whenWords`, which also follows the person's hour cycle, and never build a date or time by hand.
 - Straight quotes (`"` and `'`) in source. The ellipsis character `…` marks only an in-progress state or a menu item that opens a dialog, as DESIGN.md sets.
 - Go error strings start lowercase, end without punctuation and add context as they wrap: `fmt.Errorf("read the volumes: %w", err)`. Their words still follow every rule above.
 - A Go error states the cause and nothing else. The layer that shows it to a person, such as a problem's title or detail, a Health item or a HostRefusal, adds what to do as its own sentence. An error that ends a CLI command and is printed after a prefix may carry its instruction as a second sentence after a period.
