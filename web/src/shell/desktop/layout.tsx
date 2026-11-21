@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from "react";
 
+import { ReconcilingBanner } from "../banner";
 import { ShellSlotsContext } from "../page";
 import { Sidebar } from "./sidebar";
 import { ActionSlotTarget, TopBar } from "./top-bar";
@@ -17,6 +18,7 @@ export function DesktopShell({ children }: { children: ReactNode }) {
           <ActionSlotTarget value={setAction}>
             <TopBar />
           </ActionSlotTarget>
+          <ReconcilingBanner />
           <div className="grid flex-1 grid-cols-[minmax(0,1fr)_auto]">
             <main className="mx-auto w-full max-w-[1480px] px-7 pt-6 pb-30 [view-transition-name:content]">
               {children}

@@ -1,6 +1,6 @@
 # Reconciling
 
-A newly paired Node keeps every torrent its client holds until the Controller adopts them. While it waits, the Controller's Nodes page reads it `keeping` for Downloading, never `draining`, and its Nodes Health item links to Reconciling. Once its Holdings are in, the Controller records each torrent it doesn't know as adopted with its folder, and a Node whose list held torrents gains the Downloading Role in the same Write. While a restore's Reconciling runs, every gate refuses with 409 `reconciling` naming what it waits on, `GET /api/v1/reconciling` lists the restore, each Node and each root, and the re-home step's Save all starts each saved root's scan. The Reconciling page and its banner land in a later PR.
+A newly paired Node keeps every torrent its client holds until the Controller adopts them. While it waits, the Controller's Nodes page reads it `keeping` for Downloading, never `draining`, and its Nodes Health item links to Reconciling. Once its Holdings are in, the Controller records each torrent it doesn't know as adopted with its folder, and a Node whose list held torrents gains the Downloading Role in the same Write. While a restore's Reconciling runs, every gate refuses with 409 `reconciling` naming what it waits on, `GET /api/v1/reconciling` lists the restore, each Node and each root, and the re-home step's Save all starts each saved root's scan. Every admin page opens the re-home step until Save all or Later, then carries a banner naming what SlipStream is doing and the next step, which opens the Reconciling page.
 
 ## Sub-features
 
@@ -10,11 +10,19 @@ A newly paired Node keeps every torrent its client holds until the Controller ad
 - `restore-refusal` on `home` held Reconciling for a restore onto a new machine: `POST /api/v1/works/{id}/search` answers 409 `reconciling` with the detail "SlipStream is matching the restored library with what your Nodes hold. It's waiting for the old Controller's folders, seedbox and 1 library root. Try again once it finishes."
 - `restore-page` the same run: `GET /api/v1/reconciling` lists the restore (`newMachine` and `rehome` true), home and seedbox with their `link`, and the Movies root by its label, not saved; `GET /api/v1/counts` has `reconciling` `{"rehome":true,"nodes":["seedbox"],"roots":1}`.
 - `restore-rehome` `POST /api/v1/reconciling/rehome` with the Movies root and `done`: the root reads `refused` null, the Library scan's last run is `event` and succeeded for that root, and `GET /api/v1/reconciling` reads it saved and scanned with `rehome` false.
+- `rehome-desktop` the same run on desktop: `/library` opens "Find the old Controller's folders" with "The folder is at the same path on this machine. Save to start the scans." and the Movies root's "The folder is there."; Save all lands on `/reconciling`, which reads "Pair seedbox again and wait for 1 library root to finish scanning." with seedbox's "Create Join Code" and "Continue without seedbox".
+- `rehome-phone` the same step on phone, Save all above Later.
+- `banner-desktop` after Save all, `/library` carries the Reconciling banner: "SlipStream is matching the restored library with the torrents and files on your Nodes. Searches and removals wait until it finishes." then "Pair seedbox again.", and Open Reconciling.
+- `banner-phone` the same banner as a card above the tab bar that opens the Reconciling page.
+- `page-desktop` hovering Reconciling in the lead shows its definition; Create Join Code opens "Pair seedbox again" with the code and, under Details, `slipstream join <code>`.
+- `review-readd` `POST /api/v1/reconciling/torrents/readd` with `{"reason":"not_held","found":"files"}` and `/forget` with `{"reason":"not_held","found":"no_files"}` each answer 204.
+- `end-phone` Continue without seedbox on the phone page: the page reads only seedbox, "SlipStream stopped waiting for seedbox. It keeps its torrents until it reports them.", and the desktop `/library` carries no banner.
 - `restore-end` `POST /api/v1/reconciling/nodes/{seedbox}/continue`: home logs `Reconciling finished`, `GET /api/v1/reconciling` reads `restore` null with seedbox still keeping its torrents (`continued` true), `counts.reconciling` is null, and the search no longer answers `reconciling`.
 
 ## How to get to it (user POV)
 
-- Desktop shell: the Nodes page, seedbox's Downloading cell; Health's Nodes item and its `Open Reconciling` link while seedbox keeps everything.
+- Desktop shell: any admin page while Reconciling, through the re-home step and the banner's Open Reconciling; the Nodes page, seedbox's Downloading cell; Health's Nodes item and its `Open Reconciling` link while seedbox keeps everything.
+- Phone shell: the banner card above the tab bar opens Reconciling.
 - API: `GET /api/v1/nodes` (`roles[].state` `keeping`), `GET /api/v1/torrents`, `GET /api/v1/system/health`. After a restore, `GET /api/v1/reconciling`, `POST /api/v1/reconciling/rehome`, `/nodes/{id}/continue`, `/roots/{id}/continue`, `/finish`, `GET /api/v1/reconciling/torrents`, `POST /api/v1/reconciling/torrents/readd` and `/forget`, and `GET /api/v1/counts`'s `reconciling`.
 - Host CLI: `slipstream join --data-dir <dir> <code>` on the running seedbox, which re-pairs it live.
 
@@ -57,6 +65,8 @@ Steps:
   $FW exec $RUN --proof reconciling/restore-begin -- {runDir}/bin/begin {nodes.home.dataDir}/library.db
   $FW node start $RUN home
   ```
+
+- **For the screens, sign in first and stop seedbox too.** `bin/sign-in.ts` waits for the Library heading, which the re-home step replaces, so open and sign in each browser session before holding home. Stop seedbox before home so it reads as still paired with the old Controller (`Pair seedbox again`); left running, it reconnects and reads `Wait for seedbox to report its torrents.` A Node script on `node:sqlite` writes the same rows as `begin`; delete the `reconciling_node` rows pairing left first.
 
 - **Read the refusal and the page**, then Save all and continue without seedbox.
 
