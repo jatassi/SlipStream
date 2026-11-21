@@ -21,6 +21,7 @@ import { getListContentTypesSuspenseQueryOptions } from "../../api/gen/query/wor
 import { getListCustomFormatsSuspenseQueryOptions } from "../../api/gen/query/formats/formats";
 import { ensureQuery, freshQuery } from "../../api/query-client";
 import { AddressStep } from "./address-step";
+import { BackupStep } from "./backup-step";
 import { DownloadsStep } from "./downloads-step";
 import type { StepNav } from "./frame";
 import { LanguageStep } from "./language-step";
@@ -73,6 +74,14 @@ export const screens = {
     settings: "/account?add=passkey",
     load: nothing,
     Body: PasskeyStep,
+  },
+  backup: {
+    name: "Backup passphrase",
+    title: "Save your Backup passphrase",
+    why: "Every Backup is encrypted with this passphrase. Save it somewhere other than this machine.",
+    settings: "/settings/backups",
+    load: nothing,
+    Body: BackupStep,
   },
   media: {
     name: "Kinds of media",

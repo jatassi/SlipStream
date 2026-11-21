@@ -1,3 +1,4 @@
+import type { LiveEventBackupsChanged } from "./liveEventBackupsChanged.ts";
 import type { LiveEventDownloadClientsChanged } from "./liveEventDownloadClientsChanged.ts";
 import type { LiveEventFilesChanged } from "./liveEventFilesChanged.ts";
 import type { LiveEventFilesMoved } from "./liveEventFilesMoved.ts";
@@ -54,6 +55,7 @@ import type { LiveEventWorksRemoved } from "./liveEventWorksRemoved.ts";
 import type { LiveEventWorksTypeChanged } from "./liveEventWorksTypeChanged.ts";
 
 export type LiveEvent =
+  | LiveEventBackupsChanged
   | LiveEventDownloadClientsChanged
   | LiveEventFilesChanged
   | LiveEventFilesMoved

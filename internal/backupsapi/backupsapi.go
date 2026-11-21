@@ -18,6 +18,8 @@ type Keeper interface {
 	// Backups is the Backups service, false unless the Node is a
 	// Controller.
 	Backups() (*backups.Backups, bool)
+	// Retire fences this Controller by the Admin's word.
+	Retire(ctx context.Context) error
 }
 
 func open(k Keeper) *backups.Backups {
@@ -124,6 +126,7 @@ type destinationInput struct {
 func Routes(r *api.Router, k Keeper) {
 	o := r.Owner("backups", api.Admin)
 	h := handlers{k}
+	backupRoutes(o, h)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listBackupDestinations",
