@@ -677,22 +677,29 @@ func (s *Store) check(ctx context.Context, path string, purpose Purpose, others 
 
 // reserved is every folder a folder for purpose may not overlap: for a
 // root, others and the Node's data and downloads folders; for downloads
-// and a client folder, every root the Node holds.
+// and a client folder, every root the Node holds; for Backups, every root
+// the Node holds and its downloads folders.
 func (s *Store) reserved(purpose Purpose, others []Other) []reserved {
 	switch purpose {
 	case PurposeRoot:
 		return append(apartFrom(others), forRoot(s.host.Data, s.cfg.Downloads())...)
 	case PurposeDownloads, PurposeClientFolder:
-		s.mu.Lock()
-		held := make([]Other, len(s.roots))
-		for i, r := range s.roots {
-			held[i] = Other{ID: r.id, Path: r.path}
-		}
-		s.mu.Unlock()
-		return apartFrom(held)
+		return apartFrom(s.held())
+	case PurposeBackups:
+		return append(apartFrom(s.held()), downloadsFolders(s.cfg.Downloads())...)
 	case PurposeImport:
 	}
 	panic(fmt.Sprintf("storing: purpose %d has no rules", purpose))
+}
+
+func (s *Store) held() []Other {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	held := make([]Other, len(s.roots))
+	for i, r := range s.roots {
+		held[i] = Other{ID: r.id, Path: r.path}
+	}
+	return held
 }
 
 // identity compares two folders by file identity, each stat once under

@@ -154,9 +154,9 @@ export const checkFolderInputBodyPathMax = 4096;
 export const CheckFolderInputBody = zod.object({
   path: zod.string().min(1).max(checkFolderInputBodyPathMax),
   purpose: zod
-    .enum(["root", "downloads", "import"])
+    .enum(["root", "downloads", "import", "backups"])
     .describe(
-      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders",
+      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders; backups: a folder for Backups, writable and apart from every root and downloads folder on the Node",
     ),
   rootId: zod
     .uuid()
@@ -1779,7 +1779,7 @@ export type EmailChangeInputBodyOutput = zod.output<typeof EmailChangeInputBody>
 export const NotificationsEvent = zod.object({
   bellByDefault: zod.boolean(),
   fixed: zod.boolean().describe("Never chosen: a Test is sent only when the Admin asks"),
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "system"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups", "system"]),
   id: zod.string(),
   label: zod.string(),
   onByDefault: zod.boolean().describe("A new connection gets it unless the Admin picks otherwise"),
@@ -4977,7 +4977,7 @@ export const SettingFolderField = zod.object({
     .boolean()
     .describe("The saved value differs from the running one until the Node restarts"),
   purpose: zod
-    .enum(["downloads"])
+    .enum(["downloads", "backups"])
     .describe("The rules the Node judges the folder by, as checkFolder names them"),
   running: zod.string(),
   source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
@@ -5598,7 +5598,7 @@ export type HistoryKind = zod.input<typeof HistoryKind>;
 export type HistoryKindOutput = zod.output<typeof HistoryKind>;
 
 export const HistoryGroup = zod.object({
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups"]),
   kinds: zod.array(HistoryKind),
   label: zod.string(),
 });
@@ -5659,7 +5659,7 @@ export type HistoryWorkSummaryOutput = zod.output<typeof HistoryWorkSummary>;
 
 export const HistoryListEntry = zod.object({
   at: zod.iso.datetime({ offset: true }).describe("When it was captured"),
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups"]),
   id: zod.int(),
   kind: zod.string().describe("A kind GET /history/kinds lists"),
   links: HistoryLinks,
@@ -10908,7 +10908,7 @@ export type SystemBuildOutput = zod.output<typeof SystemBuild>;
 
 export const SystemConfigSection = zod.object({
   fields: zod.array(SettingField),
-  id: zod.enum(["web", "log", "torrent"]),
+  id: zod.enum(["web", "log", "torrent", "backups"]),
 });
 
 export type SystemConfigSection = zod.input<typeof SystemConfigSection>;

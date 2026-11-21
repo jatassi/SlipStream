@@ -233,6 +233,10 @@ enum Purpose {
   // IMPORT: a folder to import from, readable and inside one of the
   // Node's library roots or download folders once its links are followed.
   PURPOSE_IMPORT = 4;
+  // BACKUPS: the Controller's Backups folder or a Backup destination:
+  // writable and apart from every root the Node holds and its downloads
+  // folders. It may sit in the data dir.
+  PURPOSE_BACKUPS = 5;
 }
 
 message Other {
