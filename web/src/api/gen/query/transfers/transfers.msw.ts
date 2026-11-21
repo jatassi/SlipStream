@@ -16,10 +16,16 @@ export const getListTransfersResponseMock = (
   transfers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       destination: {
-        kind: faker.helpers.arrayElement(["root"] as const),
+        ...(faker.datatype.boolean()
+          ? { backupDestinationId: faker.helpers.fromRegExp("^[0-9a-f]{32}$") }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { folder: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        kind: faker.helpers.arrayElement(["root", "backup", "backups_folder"] as const),
         nodeId: faker.string.uuid(),
         nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
-        rootId: faker.string.uuid(),
+        ...(faker.datatype.boolean() ? { rootId: faker.string.uuid() } : {}),
       },
       details: {
         lanes: faker.number.int({ min: 0 }),
@@ -39,7 +45,7 @@ export const getListTransfersResponseMock = (
       id: faker.string.uuid(),
       job: faker.string.alpha({ length: { min: 10, max: 20 } }),
       jobName: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      purpose: faker.helpers.arrayElement(["import"] as const),
+      purpose: faker.helpers.arrayElement(["import", "backup"] as const),
       rate: faker.number.int({ min: 0 }),
       ...(faker.datatype.boolean()
         ? { reason: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -188,10 +194,16 @@ export const getGetTransferResponseMock = (
   overrideResponse: Partial<Extract<TransfersTransfer, object>> = {},
 ): TransfersTransfer => ({
   destination: {
-    kind: faker.helpers.arrayElement(["root"] as const),
+    ...(faker.datatype.boolean()
+      ? { backupDestinationId: faker.helpers.fromRegExp("^[0-9a-f]{32}$") }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { folder: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    kind: faker.helpers.arrayElement(["root", "backup", "backups_folder"] as const),
     nodeId: faker.string.uuid(),
     nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    rootId: faker.string.uuid(),
+    ...(faker.datatype.boolean() ? { rootId: faker.string.uuid() } : {}),
   },
   details: {
     lanes: faker.number.int({ min: 0 }),
@@ -209,7 +221,7 @@ export const getGetTransferResponseMock = (
   id: faker.string.uuid(),
   job: faker.string.alpha({ length: { min: 10, max: 20 } }),
   jobName: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  purpose: faker.helpers.arrayElement(["import"] as const),
+  purpose: faker.helpers.arrayElement(["import", "backup"] as const),
   rate: faker.number.int({ min: 0 }),
   ...(faker.datatype.boolean()
     ? { reason: faker.string.alpha({ length: { min: 10, max: 20 } }) }

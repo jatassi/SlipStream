@@ -12775,11 +12775,26 @@ export const TransfersChanged = zod.object({
 export type TransfersChanged = zod.input<typeof TransfersChanged>;
 export type TransfersChangedOutput = zod.output<typeof TransfersChanged>;
 
+export const transfersDestinationBackupDestinationIdRegExp = new RegExp("^[0-9a-f]{32}$");
+
 export const TransfersDestination = zod.object({
-  kind: zod.enum(["root"]).describe("root is a library root"),
-  nodeId: zod.uuid().describe("The Node that holds the root now"),
+  backupDestinationId: zod
+    .string()
+    .regex(transfersDestinationBackupDestinationIdRegExp)
+    .exactOptional()
+    .describe("The Backup destination, for backup"),
+  folder: zod
+    .string()
+    .exactOptional()
+    .describe("The folder on its Node, for backup and backups_folder"),
+  kind: zod
+    .enum(["root", "backup", "backups_folder"])
+    .describe(
+      "root is a library root, backup a Backup destination, and backups_folder the Controller's Backups folder",
+    ),
+  nodeId: zod.uuid().describe("The Node that holds it now"),
   nodeName: zod.string(),
-  rootId: zod.uuid(),
+  rootId: zod.uuid().exactOptional().describe("The root, for root"),
 });
 
 export type TransfersDestination = zod.input<typeof TransfersDestination>;
@@ -12910,7 +12925,11 @@ export const TransfersTransfer = zod.object({
   id: zod.uuid(),
   job: zod.string().describe("The id of the job that asked for it, such as its Grab's"),
   jobName: zod.string().describe("The job's name, such as a Work's title and year"),
-  purpose: zod.enum(["import"]).describe("The kind of job that asked for it"),
+  purpose: zod
+    .enum(["import", "backup"])
+    .describe(
+      "The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller",
+    ),
   rate: zod
     .int()
     .min(transfersTransferRateMin)
