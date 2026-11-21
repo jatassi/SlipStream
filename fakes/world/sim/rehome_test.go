@@ -84,7 +84,7 @@ func TestLaterLeavesARootUnscanned(t *testing.T) {
 		if err := w.Node("home").Half().Library.QueryRowContext(t.Context(), "SELECT coalesce(last_cause, '') FROM tasks_unit WHERE task_id = 'library-scan'").Scan(&cause); err != nil {
 			t.Fatal(err)
 		}
-		if want := "Skipped because this root's folder isn't found yet after the restore. Give its path on the Reconciling page, then scan it."; cause != want {
+		if want := "Skipped because this library root's folder isn't found yet after the restore. Give its path on the Reconciling page, and SlipStream scans it."; cause != want {
 			t.Errorf("the Movies root's scan ended %q, want %q", cause, want)
 		}
 		p := readReconciling(t, w)
