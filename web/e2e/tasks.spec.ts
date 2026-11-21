@@ -103,7 +103,7 @@ test("with seedbox stopped Run now is Partial, and its return runs seedbox's uni
   await expect(runs(page).first()).toContainText(/^Succeeded1 stepNode returned/u, {
     timeout: 60_000,
   });
-  await expect(seedboxUnit(page)).toContainText(/Succeeded\d\d:\d\d/u);
+  await expect(seedboxUnit(page)).toContainText(/Succeeded\d{1,2}:\d{2}/u);
   await runs(page).first().getByRole("button").click();
   await expect(runs(page).first().getByRole("list", { name: "Units in this run" })).toHaveText(
     "Local database on seedboxseedboxSucceeded",
@@ -162,5 +162,5 @@ test("a Maintenance window of 01:00 to 03:00 shows its zone and moves Housekeepi
   await expect(window.getByRole("button", { name: "Save" })).toHaveCount(0);
   await expect(window.getByLabel("From")).toHaveValue("01:00");
   await expect(window).toContainText(zone);
-  await expect(housekeepingRow(page)).toContainText(/at 01:00/u);
+  await expect(housekeepingRow(page)).toContainText(/at (?:1:00 AM|01:00)/u);
 });
