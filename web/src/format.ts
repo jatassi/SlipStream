@@ -153,6 +153,10 @@ function formatsOf(timeZone: string | undefined): Formats {
   return formats;
 }
 
+/** "Nov 14": the day of an instant in zone, the browser's when undefined. */
+export const dateOf = (iso: string, zone?: string): string =>
+  formatsOf(zone).date.format(new Date(iso));
+
 /** "14:02": the time of day of an instant in zone, the browser's when undefined. */
 export const timeOfDay = (iso: string, zone?: string): string =>
   formatsOf(zone).time.format(new Date(iso));

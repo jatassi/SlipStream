@@ -61,6 +61,14 @@ export function markSignedOut(queryClient: QueryClient): void {
   queryClient.setQueryData(sessionQuery.queryKey, null);
 }
 
+/**
+ * A restore replaced the library and ended every session, so nothing this
+ * tab read before the restart still holds.
+ */
+export function markRestored(queryClient: QueryClient): void {
+  queryClient.removeQueries();
+}
+
 export const refreshSession = (queryClient: QueryClient): Promise<IdentitySession | null> =>
   queryClient.query({ ...sessionQuery, staleTime: 0 });
 
