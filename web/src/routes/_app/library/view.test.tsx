@@ -20,7 +20,13 @@ const shownWorks = () =>
     .getByRole("link")
     .elements()
     .filter((link) => link.closest("nav") === null)
-    .map((link) => link.textContent);
+    .map((link) => {
+      const shown = link.cloneNode(true) as Element;
+      for (const hidden of shown.querySelectorAll("[aria-hidden='true']")) {
+        hidden.remove();
+      }
+      return shown.textContent;
+    });
 
 test("sorting by Profile sections the Library by Profile, and Reverse flips the sections", async () => {
   const { router } = renderApp({ path: "/library", handlers: cinemaLibrary().handlers });
