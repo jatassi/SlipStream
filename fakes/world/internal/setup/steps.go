@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
@@ -34,8 +35,10 @@ type Claims struct {
 // order through its own Setup code with a Join Code the Controller mints.
 // Then one set gives every Node that lists Roles its Roles. 9c fails
 // unless each Node the set names is linked and has applied its new
-// Roles. Nothing polls: claimWorker answers once the link is live and
-// setRoles once the Nodes in step it changed hold their Roles.
+// Roles. claimWorker answers once the link is live and setRoles once the
+// Nodes in step it changed hold their Roles. A joined Node's first
+// Holdings can be adopted after that, which sends it one more intent, so
+// 9c reads listNodes again until that one is applied too.
 func Steps(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready) (Claims, error) {
 	claims := Claims{Members: make([]Member, len(s.Nodes))}
 	var (
@@ -67,8 +70,25 @@ func Steps(ctx context.Context, c *http.Client, s scenario.Scenario, ready []nod
 			return Claims{}, err
 		}
 	}
-	return claims, members(ctx, c, s, controller, claims, set)
+	deadline := time.Now().Add(adoptedWithin)
+	for {
+		err := members(ctx, c, s, controller, claims, set)
+		if err == nil || !errors.Is(err, errUnapplied) || time.Now().After(deadline) {
+			return claims, err
+		}
+		select {
+		case <-ctx.Done():
+			return claims, err
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
 }
+
+// adoptedWithin is how long 9c waits for a joined Node to apply the intent
+// its adoption sends.
+const adoptedWithin = 15 * time.Second
+
+var errUnapplied = errors.New("its Roles aren't applied")
 
 // TCPPeers is the database settings TCPOnly sets.
 var TCPPeers = []string{"downloading.utp"}
@@ -153,7 +173,7 @@ func members(ctx context.Context, c *http.Client, s scenario.Scenario, controlle
 			link = "local"
 		}
 		if row.Link.State != link || row.Facts == nil || row.Facts.AppliedVersion != row.IntentVersion {
-			return fmt.Errorf("node %s: after setRoles listNodes shows %+v, want link %s and its Roles applied", n.Name, row, link)
+			return fmt.Errorf("node %s: after setRoles listNodes shows %+v, want link %s: %w", n.Name, row, link, errUnapplied)
 		}
 	}
 	return nil
