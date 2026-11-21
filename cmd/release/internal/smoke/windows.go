@@ -55,6 +55,23 @@ func (r *Run) browserOpened(ctx context.Context, url string) error {
 	}
 }
 
+// onlyNode waits for the trampoline's second app process to hand over to
+// the running Node and exit, so a stop after it can't leave that process
+// to start a Node of its own.
+func (r *Run) onlyNode(ctx context.Context) error {
+	deadline := time.Now().Add(waitFor)
+	for {
+		out, err := r.powershell(ctx, `@(Get-Process -Name slipstream -ErrorAction SilentlyContinue).Count`)
+		if err == nil && strings.TrimSpace(out) == "1" {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("%s slipstream processes still run after %s, want 1", strings.TrimSpace(out), waitFor)
+		}
+		time.Sleep(time.Second)
+	}
+}
+
 func (r *Run) consoleExitCodes(ctx context.Context, slipstream string) error {
 	dir, err := os.MkdirTemp("", "slipstream-console-")
 	if err != nil {
@@ -136,6 +153,9 @@ func smokeMSI(ctx context.Context, r *Run, files []string) error {
 		return err
 	}
 	if err := r.launch(ctx, trampoline); err != nil {
+		return fmt.Errorf("a second launch: %w", err)
+	}
+	if err := r.onlyNode(ctx); err != nil {
 		return fmt.Errorf("a second launch: %w", err)
 	}
 	again, err := r.statusOf(ctx, slipstream, "status")
