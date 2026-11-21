@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { onTestFinished } from "vitest";
 
@@ -19,11 +20,13 @@ export function renderKit(
   container.dataset["density"] = density;
   document.body.append(container);
   const root = createRoot(container);
-  root.render(
-    <ShellContext value={shell}>
-      <DensityContext value={density}>{ui}</DensityContext>
-    </ShellContext>,
-  );
+  flushSync(() => {
+    root.render(
+      <ShellContext value={shell}>
+        <DensityContext value={density}>{ui}</DensityContext>
+      </ShellContext>,
+    );
+  });
   onTestFinished(() => {
     root.unmount();
     container.remove();
