@@ -6,6 +6,7 @@ import { Button } from "../ui/button";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { Fact, Facts } from "../ui/facts";
 
 function ResumeButton() {
   const [open, setOpen] = useState(false);
@@ -41,22 +42,14 @@ export function FenceDetails({ view }: { view: SupersededView }) {
     <Details>
       <div className="flex flex-col items-start gap-3 pt-1">
         {replacement === undefined && worker === undefined ? null : (
-          <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 text-meta">
+          <Facts look="well">
             {replacement === undefined ? null : (
-              <>
-                <dt className="text-ink-3">New Controller&apos;s key</dt>
-                <dd className="wrap-anywhere">
-                  <Data>{replacement.key}</Data>
-                </dd>
-              </>
+              <Fact label="New Controller's key">
+                <Data>{replacement.key}</Data>
+              </Fact>
             )}
-            {worker === undefined ? null : (
-              <>
-                <dt className="text-ink-3">Reported by</dt>
-                <dd className="wrap-anywhere">{worker}</dd>
-              </>
-            )}
-          </dl>
+            {worker === undefined ? null : <Fact label="Reported by">{worker}</Fact>}
+          </Facts>
         )}
         <ResumeButton />
       </div>

@@ -13,8 +13,8 @@ import {
 } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
 import { PendingPage, type PendingView, pendingParams } from "../../../imports/pending-page";
+import { PagePending } from "../../../shell/page";
 import { SegmentedLinks, segmentedLink } from "../../../ui/segmented-links";
-import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/library/pending")({
   staticData: { title: "Pending imports" },
@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_app/library/pending")({
       ensureQuery(queryClient, getListLibrarySuspenseQueryOptions()),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading Pending imports" />,
+  pendingComponent: () => <PagePending label="Loading Pending imports" shape="rows" lines={2} />,
   component: Pending,
 });
 

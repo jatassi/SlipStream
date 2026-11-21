@@ -1,17 +1,12 @@
 import { useState } from "react";
 
-import type { Clock } from "../format";
-import { useNow } from "../tasks/use-now";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
+import { type Clock, useClock } from "../ui/clock";
 import { Term } from "../ui/term";
 import type { RestoreFlow, RestoreStep } from "./flow";
 import { NewMachine } from "./new-machine";
 import { inPlaceLost, pinSentence, summarySentence } from "./words";
-
-const minute = 60_000;
-
-export const useRestoreClock = (): Clock => ({ now: useNow(minute), zone: undefined });
+import { SignalLine } from "../ui/signal-line";
 
 function useRemoved() {
   const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
@@ -27,6 +22,16 @@ function useRemoved() {
     });
   };
   return { removed, toggle };
+}
+
+function useConfirm(flow: RestoreFlow, step: Extract<RestoreStep, { at: "summary" }>) {
+  const [busy, setBusy] = useState(false);
+  const restore = async (choice: Parameters<RestoreFlow["confirm"]>[1]) => {
+    setBusy(true);
+    await flow.confirm(step, choice);
+    setBusy(false);
+  };
+  return { busy, restore };
 }
 
 export function InPlaceWords({ takenAt, clock }: { takenAt: string; clock: Clock }) {
@@ -47,16 +52,11 @@ export function SummaryStep({
   flow: RestoreFlow;
   onCancel: () => void;
 }) {
-  const clock = useRestoreClock();
+  const clock = useClock();
   const { summary } = step;
   const [off, setOff] = useState(false);
   const ticks = useRemoved();
-  const [busy, setBusy] = useState(false);
-  const restore = async () => {
-    setBusy(true);
-    await flow.confirm(step, { oldControllerOff: off, remove: [...ticks.removed] });
-    setBusy(false);
-  };
+  const { busy, restore } = useConfirm(flow, step);
   return (
     <div className="flex flex-col gap-4">
       <p className="text-ink-1">{summarySentence(summary, clock)}</p>
@@ -68,13 +68,17 @@ export function SummaryStep({
       ) : (
         <InPlaceWords takenAt={summary.takenAt} clock={clock} />
       )}
-      {step.refusal !== undefined && <AlertLine text={step.refusal} />}
+      {step.refusal !== undefined && (
+        <SignalLine tone="fail" announce>
+          {step.refusal}
+        </SignalLine>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <Button
           look="primary"
           busy={busy}
           disabled={summary.newMachine && !off}
-          onClick={() => void restore()}
+          onClick={() => void restore({ oldControllerOff: off, remove: [...ticks.removed] })}
         >
           Restore
         </Button>

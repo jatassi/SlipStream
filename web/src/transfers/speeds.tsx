@@ -1,10 +1,10 @@
 import type { NodesNode } from "../api/gen/model";
 import { useListNodesSuspense } from "../api/gen/query/nodes/nodes";
 import { useListTransferSpeedsSuspense } from "../api/gen/query/transfers/transfers";
-import { clock } from "../format";
 import { rateWords } from "../torrents/model";
 import { Data } from "../ui/data";
 import { List, ListRow } from "../ui/list";
+import { RelativeTime } from "../ui/relative-time";
 import { Section } from "../ui/section";
 
 /** The last measured speed to and from each other Node. */
@@ -34,7 +34,11 @@ export function Speeds({ node }: { node: NodesNode }) {
             <ListRow
               key={title}
               title={title}
-              meta={`Measured ${clock(speed.rateAt)}`}
+              meta={
+                <>
+                  Measured <RelativeTime at={speed.rateAt} form="age" />
+                </>
+              }
               trailing={<Data className="text-ink-1">{rateWords(speed.rate)}</Data>}
             />
           ))}

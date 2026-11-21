@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { renderKit } from "../test/render-kit";
 import type { ShellKind } from "./shell-context";
-import { StageTrack } from "./stage-track";
+import { StageTrack, StageWord } from "./stage-track";
 
 const shells = [
   { shell: "desktop", height: "6px" },
@@ -48,4 +48,49 @@ test("the Inspector's track is 8px in the desktop shell", async () => {
   const track = page.getByRole("img", { name: "Arrival is Available" });
   await expect.element(track).toBeVisible();
   expect(getComputedStyle(track.element()).height).toBe("8px");
+});
+
+test("a track names its ends only where it asks", async () => {
+  const plain = renderKit(<StageTrack title="Arrival" progress={{ kind: "available" }} />);
+  const ended = renderKit(
+    <StageTrack title="Dune" progress={{ kind: "failed", stage: "import" }} labels="ends" />,
+  );
+  await expect.element(page.getByRole("img", { name: "Dune failed at Import" })).toBeVisible();
+  expect([plain.textContent, ended.textContent]).toEqual(["", "SearchingAvailable"]);
+});
+
+test("on a phone a track names its ends unasked", async () => {
+  const container = renderKit(<StageTrack title="Arrival" progress={{ kind: "available" }} />, {
+    shell: "phone",
+  });
+  await expect.element(page.getByRole("img", { name: "Arrival is Available" })).toBeVisible();
+  expect(container.textContent).toBe("SearchingAvailable");
+});
+
+test("the stage word opens the track's legend, each stop with its word", async () => {
+  renderKit(
+    <StageWord
+      word="Downloading"
+      title="Dune"
+      progress={{ kind: "running", stage: "downloading" }}
+      skipped={["conversion"]}
+    />,
+  );
+  await userEvent.click(page.getByRole("button", { name: "Downloading" }));
+  const legend = page.getByRole("dialog", { name: "Stages of Dune" });
+  await expect
+    .poll(() =>
+      legend
+        .getByRole("listitem")
+        .all()
+        .map((stop) => stop.element().textContent),
+    )
+    .toEqual([
+      "SearchingDone",
+      "DownloadingIn progress",
+      "TransferNot started",
+      "ImportNot started",
+      "ConversionNot needed",
+      "AvailableNot started",
+    ]);
 });

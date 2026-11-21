@@ -2,9 +2,9 @@ import { type ReactNode, useState } from "react";
 
 import { DialogActions } from "../account/dialog-actions";
 import { FolderField } from "../folders/folder-field";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Details } from "../ui/details";
+import { SignalLine } from "../ui/signal-line";
 import { NodeSelect, useStorageNodes } from "./storage-nodes";
 import type { Editing } from "./use-place";
 
@@ -100,7 +100,11 @@ export function PlaceActions({
 }) {
   return (
     <>
-      {failure !== undefined && <AlertLine text={failure} />}
+      {failure !== undefined && (
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
+      )}
       <DialogActions>
         <Button disabled={busy} onClick={onCancel}>
           Cancel

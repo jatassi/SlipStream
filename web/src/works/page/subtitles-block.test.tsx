@@ -85,9 +85,9 @@ test("each file shows a row per Wanted Language with its state and one sentence 
       "Not needed. The full English subtitle includes the forced lines.",
     "French, Not needed": "Not needed. The file has French audio.",
     "German, Missing":
-      /^No subtitle was found 3 hours ago\. SlipStream searches again tomorrow at \d\d:\d\d\.$/u,
+      /^No subtitle was found 3 hours ago\. SlipStream searches again tomorrow at \d{1,2}:\d\d [AP]M\.$/u,
     "Spanish, Missing":
-      /^3 subtitles were found, and none matched this file's timing\. SlipStream searches again tomorrow at \d\d:\d\d, or you can upload one\.$/u,
+      /^3 subtitles were found, and none matched this file's timing\. SlipStream searches again tomorrow at \d{1,2}:\d\d [AP]M, or you can upload one\.$/u,
     "Italian, Waiting": "Searching starts once SlipStream has scanned this file's audio.",
   };
   const rows = uhdRow().getByRole("list", { name: "Subtitles" }).getByRole("listitem");

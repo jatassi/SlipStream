@@ -11,14 +11,14 @@ import type {
   SubtitlesProvider,
 } from "../api/gen/model";
 import { pickSubtitleCandidate } from "../api/gen/query/subtitles/subtitles";
-import { useNow } from "../tasks/use-now";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Chip } from "../ui/chip";
-// oxlint-disable-next-line import/max-dependencies -- the sheet reads the search, picks and follows the attempt it starts
+import { useClock } from "../ui/clock";
 import { Data } from "../ui/data";
+// oxlint-disable-next-line import/max-dependencies -- the sheet reads the search, picks and follows the attempt it starts
 import { Details } from "../ui/details";
 import { Icon } from "../ui/icon";
+import { SignalLine } from "../ui/signal-line";
 import { Skeleton } from "../ui/skeleton";
 import { Spinner } from "../ui/spinner";
 import type { SubtitleSubject } from "./search-host";
@@ -39,7 +39,7 @@ function Notes({
   outcomes: readonly SubtitlesOutcome[];
   providers: readonly SubtitlesProvider[];
 }) {
-  const clock = { now: useNow(60_000), zone: undefined };
+  const clock = useClock();
   return outcomes
     .filter(({ kind }) => kind !== "ok")
     .map((outcome) => (
@@ -81,7 +81,7 @@ type CardProps = {
 };
 
 function Card({ candidate, best, providers, busy, locked, onPick }: CardProps) {
-  const now = useNow(60_000);
+  const clock = useClock();
   const { tried } = candidate;
   return (
     <li className="flex flex-col gap-2 px-4 py-3">
@@ -93,7 +93,7 @@ function Card({ candidate, best, providers, busy, locked, onPick }: CardProps) {
           </span>
           <span className="text-meta text-ink-3">
             {providerName(providers, candidate.provider)}
-            {tried !== null && ` · ${triedWords(tried, now)}`}
+            {tried !== null && ` · ${triedWords(tried, clock)}`}
             {tried !== null && tried.match !== null && ` · ${matchWords(tried.match)}`}
           </span>
         </div>
@@ -250,16 +250,24 @@ export function CandidatesBody({
   const read = useCandidates(subject.fileId, subject.want, searchId);
   const pick = usePick(subject, searchId, onClose);
   if (read.error !== null) {
-    return <AlertLine text={sentenceOf(read.error)} />;
+    return (
+      <SignalLine tone="fail" announce>
+        {sentenceOf(read.error)}
+      </SignalLine>
+    );
   }
   if (read.data === undefined) {
-    return <Skeleton label="Loading the candidates" />;
+    return <Skeleton shape="rows" lines={2} label="Loading the candidates" />;
   }
   const { candidates } = read.data;
   return (
     <div className="flex flex-col gap-4">
       <SearchLines read={read.data} providers={subject.providers} />
-      {pick.failure !== undefined && <AlertLine text={pick.failure} />}
+      {pick.failure !== undefined && (
+        <SignalLine tone="fail" announce>
+          {pick.failure}
+        </SignalLine>
+      )}
       <AttemptLine line={pick.line} providers={subject.providers} />
       <Ranked candidates={candidates} subject={subject} pick={pick} />
       <DialogActions>

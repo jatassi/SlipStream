@@ -10,15 +10,9 @@ import type {
   GrabsStopped,
   GrabsWorkSearching,
 } from "../api/gen/model";
-import {
-  type Clock,
-  type Noun,
-  countWords,
-  isToday,
-  laterAtWords,
-  laterWords,
-  pastAtWords,
-} from "../format";
+import { type Noun, countWords } from "../format";
+import type { Clock } from "../ui/clock";
+import { isToday, whenWords } from "../ui/time-words";
 
 const releases: Noun = { one: "release", many: "releases" };
 const works: Noun = { one: "Work", many: "Works" };
@@ -92,7 +86,7 @@ export function behindWords(behind: GrabsBehind | null, clock: Clock): string | 
     return `This search waits for ${behind.indexerName}. RSS sync uses all of ${behind.indexerName}'s search limit.`;
   }
   if (behind.indexerName !== null && behind.until !== null) {
-    return `Waiting for ${behind.indexerName}'s search limit until ${laterWords(behind.until, clock).words}.`;
+    return `Waiting for ${behind.indexerName}'s search limit ${whenWords(behind.until, "until", clock)}.`;
   }
   if (behind.ahead === 0) {
     return undefined;
@@ -101,17 +95,17 @@ export function behindWords(behind: GrabsBehind | null, clock: Clock): string | 
   return `Queued behind ${countWords(behind.ahead, works)}${from}.`;
 }
 
-/** "Waiting for a better release until 22:40" */
+/** "Waiting for a better release until 10:40 PM" */
 export const waitingWords = (until: string, clock: Clock): string =>
-  `Waiting for a better release until ${laterWords(until, clock).words}`;
+  `Waiting for a better release ${whenWords(until, "until", clock)}`;
 
 /** A waiting cell's fact: how many Releases it holds and when it grabs the best. */
 export function waitWords(candidates: number, until: string, clock: Clock): string {
-  return `${countWords(candidates, releases)} found so far. SlipStream grabs the best one ${laterAtWords(until, clock)} unless a better one arrives.`;
+  return `${countWords(candidates, releases)} found so far. SlipStream grabs the best one ${whenWords(until, "next", clock)} unless a better one arrives.`;
 }
 
 const nextWords = (at: string | null, clock: Clock): string =>
-  at === null ? "" : ` Next search ${laterAtWords(at, clock)}.`;
+  at === null ? "" : ` Next search ${whenWords(at, "next", clock)}.`;
 
 export type LastResult = NonNullable<GrabsGroupStateLastResult>;
 
@@ -123,7 +117,7 @@ const foundWords: Readonly<Record<FoundNothing, (group: GrabsGroupState, clock: 
     nothing_found: ({ lastSearchedAt }, clock) =>
       lastSearchedAt === null
         ? "Found nothing."
-        : `Found nothing ${pastAtWords(lastSearchedAt, clock)}.`,
+        : `Found nothing ${whenWords(lastSearchedAt, "at", clock)}.`,
     nothing_acceptable: ({ lastFound }) =>
       `Found ${countWords(lastFound, releases)}, but none fits a Target.`,
   };
@@ -225,7 +219,7 @@ export function stoppedWords(stop: GrabsStopped, clock: Clock): string {
   const failed = `${countWords(stop.failures.length, grabWord)} failed for this file ${over}.`;
   return stop.nextSearchAt === null
     ? `${failed} Backlog search is off, so SlipStream searches for it only when you press Search again.`
-    : `${failed} Backlog search looks for it again ${laterAtWords(stop.nextSearchAt, clock)}.`;
+    : `${failed} Backlog search looks for it again ${whenWords(stop.nextSearchAt, "next", clock)}.`;
 }
 
 /** A Not found row's detail: what its group's last search found, as the hero says it, and when the next one runs. */
@@ -235,5 +229,5 @@ export function notFoundWords(group: GrabsGroupState, clock: Clock): string {
   ](group, clock);
   return group.nextSearchAt === null
     ? found
-    : `${found} SlipStream searches again ${laterAtWords(group.nextSearchAt, clock)}.`;
+    : `${found} SlipStream searches again ${whenWords(group.nextSearchAt, "next", clock)}.`;
 }

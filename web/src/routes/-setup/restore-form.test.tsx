@@ -4,7 +4,7 @@ import { page, userEvent } from "vitest/browser";
 
 import type { RestoreSummary } from "../../api/gen/model";
 import { readPref, writePref } from "../../shell/prefs";
-import { backupsNow } from "../../test/backups";
+import { backupsNow, saidInRestore } from "../../test/backups";
 import { problem } from "../../test/handlers";
 import { homeId, seedboxId } from "../../test/nodes";
 import { renderApp } from "../../test/render-app";
@@ -102,12 +102,16 @@ test("a restore uploads the file, opens it, confirms the old Controller is off a
   await expect
     .element(
       page.getByText(
-        "This Backup was taken Nov 14, 04:00 by SlipStream 2.1.0. It's a Backup of media-pc and lists 2 Nodes.",
+        `This Backup was taken ${saidInRestore(summary.takenAt, "at")} by SlipStream 2.1.0. It's a Backup of media-pc and lists 2 Nodes.`,
       ),
     )
     .toBeVisible();
   await expect
-    .element(page.getByText("After the restore, sign in with the PIN you had on Nov 14."))
+    .element(
+      page.getByText(
+        `After the restore, sign in with the PIN you had ${saidInRestore(summary.takenAt, "on")}.`,
+      ),
+    )
     .toBeVisible();
   const restore = page.getByRole("button", { name: "Restore", exact: true });
   await expect.element(restore).toBeDisabled();

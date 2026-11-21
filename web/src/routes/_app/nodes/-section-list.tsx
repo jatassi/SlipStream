@@ -5,7 +5,27 @@ import { sectionsFor } from "../../../shell/node-sections";
 import { Chevron } from "../../../ui/chevron";
 import { Icon } from "../../../ui/icon";
 import { List, ListRow } from "../../../ui/list";
+import { PageTabs, pageTab } from "../../../ui/page-tabs";
 import { Section } from "../../../ui/section";
+
+/** In the desktop shell, the page tabs that link each of the Node's sections. */
+export function SectionTabs({ node, nodes }: { node: NodesNode; nodes: readonly NodesNode[] }) {
+  return (
+    <PageTabs label={node.name}>
+      {sectionsFor(node, nodes).map((section) => (
+        <Link
+          key={section.id}
+          to={section.to}
+          params={{ nodeId: node.id }}
+          activeOptions={{ exact: true }}
+          className={pageTab}
+        >
+          {section.label}
+        </Link>
+      ))}
+    </PageTabs>
+  );
+}
 
 /** On phone, the Node's page lists its other sections, each a pushed page. */
 export function SectionList({ node, nodes }: { node: NodesNode; nodes: readonly NodesNode[] }) {

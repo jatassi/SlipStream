@@ -46,7 +46,7 @@ export function ContentTypeRow({ type }: { type: WorksContentType }) {
     >
       <ContentTypeSwitch type={type} />
       {type.enabled && (
-        <Suspense fallback={<Skeleton label={`Loading ${type.name} settings`} />}>
+        <Suspense fallback={<Skeleton label={`Loading ${type.name} settings`} shape="form" />}>
           <SettingGroup>
             <div>
               <DefaultProfile type={type} />

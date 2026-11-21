@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/backups")({
   staticData: { title: section.label },
   loader: ({ context, params }) =>
     ensureQuery(context.queryClient, getGetNodeConfigSuspenseQueryOptions(params.nodeId)),
-  pendingComponent: () => <Skeleton label="Loading the settings" />,
+  pendingComponent: () => <Skeleton label="Loading the settings" shape="form" />,
   errorComponent: NodeProblem,
   component: function NodeBackups() {
     const { nodeId } = Route.useParams();

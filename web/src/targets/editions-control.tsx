@@ -1,7 +1,7 @@
 import { useListCutsSuspense } from "../api/gen/query/targets/targets";
+import { Callout } from "../ui/callout";
 import { RankedList, type RankedRow, tiersOf } from "../ui/ranked-list";
 import { Segmented } from "../ui/segmented";
-import { SignalChip } from "../ui/signal-chip";
 import { type EditionsDraft, keysOf, listOf } from "./editions-draft";
 import { type EditionsSentence, editionsSentence } from "./editions-sentence";
 import { PickMenu, RemoveButton } from "./list-controls";
@@ -16,17 +16,15 @@ const rowsOf = (keys: readonly string[]): RankedRow<string>[] =>
 
 function Meaning({ sentence }: { sentence: EditionsSentence }) {
   return (
-    <p
-      aria-live="polite"
-      className={
-        sentence.warning
-          ? "flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card bg-warn-card px-5 py-3 text-warn-text ring-1 ring-warn-line ring-inset"
-          : "text-ink-1"
-      }
-    >
-      {sentence.warning && <SignalChip kind="warn">No Standard</SignalChip>}
-      <span className="min-w-0 flex-[1_1_24ch]">{sentence.text}</span>
-    </p>
+    <div aria-live="polite">
+      {sentence.warning ? (
+        <Callout tone="warn" chip="No Standard">
+          {sentence.text}
+        </Callout>
+      ) : (
+        <p className="text-ink-1">{sentence.text}</p>
+      )}
+    </div>
   );
 }
 

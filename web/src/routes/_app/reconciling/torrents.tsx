@@ -17,6 +17,6 @@ export const Route = createFileRoute("/_app/reconciling/torrents")({
       ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading the review list" />,
+  pendingComponent: () => <Skeleton label="Loading the review list" shape="rows" lines={2} />,
   component: ReviewList,
 });

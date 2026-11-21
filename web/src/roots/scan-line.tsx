@@ -1,11 +1,9 @@
 import type { RootsRunning, RootsScan } from "../api/gen/model";
-import { agoWords } from "../format";
-import { useNow } from "../tasks/use-now";
-import { Meter } from "../ui/meter";
+import { ProgressCell, percentOf } from "../ui/progress";
+import { RelativeTime } from "../ui/relative-time";
 import { filesWords } from "./refused";
 
 const counted = new Intl.NumberFormat("en");
-const agoTick = 60_000;
 
 function runningWords({ phase, done, total }: RootsRunning): string {
   if (total === null) {
@@ -18,19 +16,26 @@ function runningWords({ phase, done, total }: RootsRunning): string {
 
 function Running({ running }: { running: RootsRunning }) {
   const words = runningWords(running);
+  if (running.phase !== "probing" || running.total === null) {
+    return <span className="text-meta text-ink-2">{words}</span>;
+  }
   return (
-    <span className="flex max-w-80 flex-col gap-1 text-meta text-ink-2">
-      {words}
-      {running.phase === "probing" && running.total !== null && (
-        <Meter label={words} value={running.done} max={running.total} />
-      )}
-    </span>
+    <ProgressCell
+      label={words}
+      value={percentOf(running.done, running.total, 0)}
+      motion="live"
+      span="line"
+      amount={words}
+    />
   );
 }
 
 function Scanned({ at, summary }: { at: string; summary: string }) {
-  const now = useNow(agoTick);
-  return <span className="text-meta text-ink-3">{`Scanned ${agoWords(at, now)}. ${summary}`}</span>;
+  return (
+    <span className="text-meta text-ink-3">
+      Scanned <RelativeTime at={at} form="age" />. {summary}
+    </span>
+  );
 }
 
 /** A root's library scan: its step while it runs, why it stopped, or when it last ran and what it found. */

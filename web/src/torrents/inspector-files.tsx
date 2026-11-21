@@ -7,7 +7,7 @@ import { bytes } from "../format";
 import { Button } from "../ui/button";
 import { Data } from "../ui/data";
 import { InspectorSection } from "../ui/inspector";
-import { percentOf } from "./model";
+import { percentOf } from "../ui/progress";
 
 function useItemLabels(detail: DownloadclientsTorrentDetail): (id: string) => string | undefined {
   const workIds = [...new Set(detail.grabs.map((grab) => grab.workId))];
@@ -43,7 +43,7 @@ export function Files({ detail }: { detail: DownloadclientsTorrentDetail }) {
                 <Data className="min-w-0 wrap-anywhere">{file.path}</Data>
                 {file.done !== undefined && (
                   <Data className="shrink-0 text-ink-2">
-                    {percentOf({ done: file.done, wanted: file.size })}%
+                    {percentOf(file.done, file.size, 100)}%
                   </Data>
                 )}
               </span>

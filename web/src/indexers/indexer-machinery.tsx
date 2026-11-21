@@ -1,68 +1,89 @@
-import type { ReactNode } from "react";
-
 import type { IndexersIndexer, IndexersPortPin, NodesNode } from "../api/gen/model";
-import { clock } from "../format";
-import { KeyValues } from "../routes/_app/nodes/-facts";
+import { type Clock, useClock } from "../ui/clock";
+import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { Fact, Facts } from "../ui/facts";
+import { RelativeTime } from "../ui/relative-time";
+import { whenWords } from "../ui/time-words";
 import { type SettingsForm, useSettingsForm } from "./definition-form";
 import { nodeName, portedWords, spacingWords } from "./words";
 
-function sessionWords(indexer: IndexersIndexer, nodes: readonly NodesNode[]): string {
+function sessionWords(indexer: IndexersIndexer, nodes: readonly NodesNode[], clock: Clock): string {
   const { session } = indexer;
   if (session === null) {
     return indexer.signsIn ? "Not signed in on any Node" : "Doesn't sign in";
   }
   const how = session.pasted ? "from a pasted browser cookie" : "signed in";
-  return `On ${nodeName(nodes, session.nodeId)}, ${how} at ${clock(session.earnedAt)}`;
+  return `On ${nodeName(nodes, session.nodeId)}, ${how} ${whenWords(session.earnedAt, "at", clock)}`;
 }
 
-const words = (text: string): ReactNode => <span>{text}</span>;
-
-type Row = readonly [string, ReactNode];
-
-/** A ported site's rows: where its support comes from, and its spacing once its form is read. */
-function portRows(port: IndexersPortPin | null, settings: SettingsForm | undefined): Row[] {
+/** Where a ported site's support comes from, and its spacing once its form is read. */
+function PortFacts({
+  port,
+  settings,
+}: {
+  port: IndexersPortPin | null;
+  settings: SettingsForm | undefined;
+}) {
   if (port === null) {
-    return [];
+    return null;
   }
-  return [
-    ...(port.synced === null
-      ? []
-      : [["Support", words(portedWords(port.name, port.synced))] as const]),
-    ...(settings?.kind === "native"
-      ? [["Spacing", words(spacingWords(port.name, settings.form.port.spacingSeconds))] as const]
-      : []),
-  ];
+  return (
+    <>
+      {port.synced !== null && <Fact label="Support">{portedWords(port.name, port.synced)}</Fact>}
+      {settings?.kind === "native" && (
+        <Fact label="Spacing">{spacingWords(port.name, settings.form.port.spacingSeconds)}</Fact>
+      )}
+    </>
+  );
 }
 
-function machineryOf(
-  indexer: IndexersIndexer,
-  nodes: readonly NodesNode[],
-  settings: SettingsForm | undefined,
-): Row[] {
+function Machinery({
+  indexer,
+  nodes,
+  settings,
+}: {
+  indexer: IndexersIndexer;
+  nodes: readonly NodesNode[];
+  settings: SettingsForm | undefined;
+}) {
+  const clock = useClock();
   const { status, feedHost, definition } = indexer;
   const failure = status.lastFailure;
-  return [
-    ...(feedHost === null ? [] : [["Feed host", feedHost] as const]),
-    ...(definition === null
-      ? []
-      : [
-          [
-            "Definition",
-            words(`${definition.id}, the version from ${clock(definition.fetchedAt)}`),
-          ] as const,
-        ]),
-    ...portRows(indexer.port, settings),
-    ["Session", words(sessionWords(indexer, nodes))],
-    ["State", status.state],
-    ["Backoff step", String(status.rung)],
-    ...(failure === null
-      ? []
-      : [["Last failure", words(`${failure.text} at ${clock(failure.at)}`)] as const]),
-    ["Search modes", indexer.searchModes.map((mode) => mode.mode).join(", ") || "None"],
-    ["Revision", String(indexer.revision)],
-    ["Added", clock(indexer.createdAt)],
-  ];
+  return (
+    <Facts look="well">
+      {feedHost !== null && (
+        <Fact label="Feed host">
+          <Data>{feedHost}</Data>
+        </Fact>
+      )}
+      {definition !== null && (
+        <Fact label="Definition">
+          {`${definition.id}, the version ${whenWords(definition.fetchedAt, "from", clock)}`}
+        </Fact>
+      )}
+      <PortFacts port={indexer.port} settings={settings} />
+      <Fact label="Session">{sessionWords(indexer, nodes, clock)}</Fact>
+      <Fact label="State">
+        <Data>{status.state}</Data>
+      </Fact>
+      <Fact label="Backoff step">
+        <Data>{status.rung}</Data>
+      </Fact>
+      {failure !== null && (
+        <Fact label="Last failure">{`${failure.text} ${whenWords(failure.at, "at", clock)}`}</Fact>
+      )}
+      <Fact label="Search modes">
+        <Data>{indexer.searchModes.map((mode) => mode.mode).join(", ") || "None"}</Data>
+      </Fact>
+      <Fact label="Revision">
+        <Data>{indexer.revision}</Data>
+      </Fact>
+      <Fact label="Added">
+        <RelativeTime at={indexer.createdAt} form="clock" data />
+      </Fact>
+    </Facts>
+  );
 }
 
 /** When it last responded, and under Details its source, session, backoff and wire facts. */
@@ -73,16 +94,19 @@ export function IndexerMachinery({
   indexer: IndexersIndexer;
   nodes: readonly NodesNode[];
 }) {
+  const clock = useClock();
   const success = indexer.status.successAt;
   const settings = useSettingsForm(indexer).data;
   return (
     <Details
       summary={
-        success === null ? "It hasn't responded yet." : `It last responded at ${clock(success)}.`
+        success === null
+          ? "It hasn't responded yet."
+          : `It last responded ${whenWords(success, "at", clock)}.`
       }
     >
       <div className="mt-2 w-full">
-        <KeyValues rows={machineryOf(indexer, nodes, settings)} />
+        <Machinery indexer={indexer} nodes={nodes} settings={settings} />
       </div>
     </Details>
   );

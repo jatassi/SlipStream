@@ -10,7 +10,7 @@ import { ChallengeSolver } from "../../../../indexers/solver/challenge-solver";
 import { HomedIndexers } from "../../../../indexers/solver/homed-indexers";
 import { sectionOf } from "../../../../shell/node-sections";
 import { Skeleton } from "../../../../ui/skeleton";
-import { nodeOf, stateOf, stateWords, useNode } from "../-node";
+import { nodeOf, useNode } from "../-node";
 import { NodeProblem } from "../-node-problem";
 
 const section = sectionOf("searching");
@@ -28,16 +28,13 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/searching")({
       ensureQuery(queryClient, getListIndexersSuspenseQueryOptions()),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading Searching" />,
+  pendingComponent: () => <Skeleton label="Loading Searching" shape="rows" lines={2} />,
   errorComponent: NodeProblem,
   component: function Searching() {
     const node = useNode(Route.useParams().nodeId);
     return (
       <div className="max-w-[640px]">
-        <ChallengeSolver
-          node={node}
-          away={node.standing === "in-step" ? null : stateWords[stateOf(node)]}
-        />
+        <ChallengeSolver node={node} />
         <HomedIndexers node={node} />
       </div>
     );

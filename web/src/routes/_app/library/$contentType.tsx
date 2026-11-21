@@ -2,15 +2,15 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 
 import { useListContentTypesSuspense } from "../../../api/gen/query/works/works";
 import {
+  LibraryPending,
   RoutedLibrary,
   librarySwitches,
   librarySearch,
   rememberedSearch,
 } from "../../../library/routed";
-import { Empty } from "../../../shell/empty";
 import { Page } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
-import { Skeleton } from "../../../ui/skeleton";
+import { Empty } from "../../../ui/empty";
 import { enabledTypeOf, enabledTypes } from "../../../works/fields";
 import { AddButton } from "./-add-menu";
 import { libraryReads } from "./-view";
@@ -34,9 +34,13 @@ export const Route = createFileRoute("/_app/library/$contentType")({
     const [{ contentTypes }] = await libraryReads(context.queryClient);
     return { title: enabledTypeOf(contentTypes, contentType).name };
   },
-  pendingComponent: () => <Skeleton label="Loading the Library" />,
+  pendingComponent: Pending,
   component: ContentTypeLibrary,
 });
+
+function Pending() {
+  return <LibraryPending search={Route.useSearch()} />;
+}
 
 function ContentTypeLibrary() {
   const navigate = useNavigate();
@@ -61,7 +65,7 @@ function ContentTypeLibrary() {
           });
         }}
         empty={
-          <Empty action={<AddButton type={type} look="default" />}>
+          <Empty look="sheet" action={<AddButton type={type} look="default" />}>
             No {type.work.many} in the library yet.
           </Empty>
         }

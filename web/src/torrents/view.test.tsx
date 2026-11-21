@@ -59,7 +59,7 @@ const table = () => page.getByRole("table", { name: "Torrents" });
 const tabs = () => page.getByRole("radiogroup", { name: "Show" });
 
 const posterOf = (name: RegExp) =>
-  table().getByRole("row", { name }).element().querySelector<HTMLElement>("[data-poster]");
+  table().getByRole("row", { name }).element().querySelector<HTMLElement>("[data-art]");
 
 function open(rows: readonly DownloadclientsTorrentRow[], path = "/activity/torrents") {
   const live = liveServer();
@@ -119,7 +119,7 @@ test("a poster the Node can't fetch leaves the placeholder", async () => {
   });
   await expect.element(table().getByRole("row", { name: /^The Quiet Orchard/u })).toBeVisible();
   await expect.poll(() => posterOf(/^The Quiet Orchard/u)?.querySelector("img")).toBeNull();
-  expect(posterOf(/^The Quiet Orchard/u)?.dataset["poster"]).toBe("art");
+  expect(posterOf(/^The Quiet Orchard/u)?.dataset["artState"]).toBe("failed");
 });
 
 test("a tab, a Node and a search narrow the table", async () => {

@@ -6,6 +6,7 @@ import type {
 } from "../api/gen/model";
 import { Button } from "../ui/button";
 import { Select } from "../ui/select";
+import { SignalLine } from "../ui/signal-line";
 import { Switch } from "../ui/switch";
 import { type Draft, type NamingCard, customColon, edit, switchOf, textOf } from "./card";
 import { TemplateField } from "./template-field";
@@ -53,10 +54,13 @@ function RenameSwitch({
         }}
       />
       {!renaming && (
-        <p className="text-meta text-warn in-data-[density=touch]:text-body-touch">
-          With renaming off, Jellyfin and Emby may show the files of a {type.work.one.toLowerCase()}{" "}
-          as separate items. Imports keep the name of the downloaded file.
-        </p>
+        <div className="text-meta in-data-[density=touch]:text-body-touch">
+          <SignalLine tone="warn">
+            With renaming off, Jellyfin and Emby may show the files of a{" "}
+            {type.work.one.toLowerCase()} as separate items. Imports keep the name of the downloaded
+            file.
+          </SignalLine>
+        </div>
       )}
     </div>
   );

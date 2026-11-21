@@ -6,20 +6,30 @@ import {
   useEndSession,
   useListSessionsSuspense,
 } from "../api/gen/query/identity/identity";
-import { clock } from "../format";
 import { askSignOut } from "../shell/sign-out";
 import { Button } from "../ui/button";
+import { useClock } from "../ui/clock";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { List, ListRow } from "../ui/list";
+import { RelativeTime } from "../ui/relative-time";
 import { Section } from "../ui/section";
+// oxlint-disable-next-line import/max-dependencies -- each device row dates its sign-in and signs it out
+import { whenWords } from "../ui/time-words";
 
 type Ending =
   | { readonly kind: "one"; readonly session: IdentitySessionRow }
   | { readonly kind: "others" }
   | null;
 
-const metaOf = ({ address, current, lastSeenAt }: IdentitySessionRow): string =>
-  current ? `${address} · This device` : `${address} · Active ${clock(lastSeenAt)}`;
+function Meta({ session: { address, current, lastSeenAt } }: { session: IdentitySessionRow }) {
+  return current ? (
+    `${address} · This device`
+  ) : (
+    <>
+      {address} · Active <RelativeTime at={lastSeenAt} form="age" />
+    </>
+  );
+}
 
 function DeviceRow({
   session,
@@ -31,7 +41,7 @@ function DeviceRow({
   return (
     <ListRow
       title={session.device}
-      meta={metaOf(session)}
+      meta={<Meta session={session} />}
       trailing={
         <Button
           size="small"
@@ -54,6 +64,7 @@ function DeviceRow({
 function EndDialogs({ ending, end }: { ending: Ending; end: (ending: Ending) => void }) {
   const endOne = useEndSession();
   const endOthers = useEndOtherSessions();
+  const clock = useClock();
   const [shown, setShown] = useState(ending);
   if (ending !== null && ending !== shown) {
     setShown(ending);
@@ -78,8 +89,8 @@ function EndDialogs({ ending, end }: { ending: Ending; end: (ending: Ending) => 
       >
         {shown?.kind === "one" && (
           <p>
-            It last used SlipStream from {shown.session.address} at{" "}
-            {clock(shown.session.lastSeenAt)}.
+            It last used SlipStream from {shown.session.address}{" "}
+            {whenWords(shown.session.lastSeenAt, "at", clock)}.
           </p>
         )}
       </ConfirmDialog>

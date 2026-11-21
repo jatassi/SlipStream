@@ -8,7 +8,7 @@ import { ensureQuery } from "../../../api/query-client";
 import { CalendarPage } from "../../../calendar/calendar-page";
 import { loadCalendar } from "../../../calendar/calendar-query";
 import { calendarSearch, defaultView } from "../../../calendar/routed";
-import { Skeleton } from "../../../ui/skeleton";
+import { PagePending } from "../../../shell/page";
 import { enabledTypeOf, enabledTypes } from "../../../works/fields";
 
 // Un-nested from /library/calendar, so a phone's back link goes to the Library.
@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_app/library/calendar_/$contentType")({
     enabledTypeOf(contentTypes, contentType);
     await loadCalendar(queryClient, deps, contentType);
   },
-  pendingComponent: () => <Skeleton label="Loading the Calendar" />,
+  pendingComponent: () => <PagePending label="Loading the Calendar" shape="table" lines={2} />,
   component: ContentTypeCalendar,
 });
 

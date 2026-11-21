@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_app/settings/media-servers/$serverId/cha
   staticData: { title: section.label },
   loader: ({ context: { queryClient }, params: { serverId } }) =>
     loadChanges(queryClient, serverId),
-  pendingComponent: () => <Skeleton label="Loading the changes" />,
+  pendingComponent: () => <Skeleton label="Loading the changes" shape="rows" lines={2} />,
   component: function Changes() {
     return <ChangesTab server={useGetMediaServerSuspense(Route.useParams().serverId).data} />;
   },

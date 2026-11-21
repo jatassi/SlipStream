@@ -1,6 +1,9 @@
 import type { IndexersIndexer, IndexersLimitUse, IndexersQuery, NodesNode } from "../api/gen/model";
-import { clock, countWords } from "../format";
+import { countWords } from "../format";
+import { utcDayWords } from "../format/days";
+import type { Clock } from "../ui/clock";
 import type { AlertTone } from "../ui/count";
+import { whenWords } from "../ui/time-words";
 
 const kindWords: { readonly [K in Exclude<IndexersIndexer["kind"], "native">]: string } = {
   catalog: "Catalog site",
@@ -19,16 +22,9 @@ export function kindOf(indexer: IndexersIndexer): string {
   return kindWords[indexer.kind];
 }
 
-const syncedFormat = new Intl.DateTimeFormat(undefined, {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
 /** Where a ported site's support comes from: Prowlarr's code as of the commit it was synced to. */
 export const portedWords = (name: string, synced: string) =>
-  `SlipStream's ${name} support is ported from Prowlarr's code of ${syncedFormat.format(new Date(synced))}.`;
+  `SlipStream's ${name} support is ported from Prowlarr's code of ${utcDayWords(synced)}.`;
 
 const seconds = { one: "second", many: "seconds" } as const;
 
@@ -52,12 +48,12 @@ export function toneOf(indexer: IndexersIndexer): AlertTone | undefined {
 
 const per = { hour: "per hour", day: "per day" } as const;
 
-export function limitWords(limit: IndexersLimitUse): string {
+export function limitWords(limit: IndexersLimitUse, clock: Clock): string {
   if (limit.count === 0) {
     return "No limit";
   }
   const used = `${limit.used} of ${limit.count} ${per[limit.per]}`;
-  return limit.freeAt === null ? used : `${used}, full until ${clock(limit.freeAt)}`;
+  return limit.freeAt === null ? used : `${used}, full ${whenWords(limit.freeAt, "until", clock)}`;
 }
 
 export const useWords: { readonly [U in IndexersQuery["use"]]: string } = {

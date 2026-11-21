@@ -3,10 +3,10 @@ import { useState } from "react";
 import { DialogActions } from "../account/dialog-actions";
 import { sentenceOf } from "../api/errors";
 import { keepSubtitleUpload, uploadSubtitle } from "../api/gen/query/subtitles/subtitles";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Details } from "../ui/details";
 import { FileField } from "../ui/file-field";
+import { SignalLine } from "../ui/signal-line";
 import { toast } from "../ui/toast";
 import { AttemptLine, useAttemptLine } from "./attempt";
 // oxlint-disable-next-line import/max-dependencies -- the upload checks, sends and follows one file, and keeps it on request
@@ -60,7 +60,11 @@ function KeepAnyway({
     <Details summary={uploadFailedWords}>
       <div className="flex flex-col items-start gap-3 pb-1">
         <p>{keepAnywayWords(match, threshold)}</p>
-        {failure !== undefined && <AlertLine text={failure} />}
+        {failure !== undefined && (
+          <SignalLine tone="fail" announce>
+            {failure}
+          </SignalLine>
+        )}
         <Button busy={busy} onClick={() => void keep()}>
           Keep anyway
         </Button>
@@ -116,7 +120,11 @@ export function UploadBody({
         description="A subtitle file of 5 MB or smaller, such as SubRip or ASS. Drop it here or choose it."
         onFile={send}
       />
-      {refusal !== undefined && <AlertLine text={refusal} />}
+      {refusal !== undefined && (
+        <SignalLine tone="fail" announce>
+          {refusal}
+        </SignalLine>
+      )}
       {ended !== null && uploadId !== null ? (
         <KeepAnyway
           subject={subject}

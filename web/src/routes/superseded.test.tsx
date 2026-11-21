@@ -9,6 +9,8 @@ import { noPasskeys, problem, signedInAsGrace, signedOut, startedAt } from "../t
 import { liveServer, synced } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 import { worker } from "../test/worker";
+// oxlint-disable-next-line import/max-dependencies -- the page reads status, the Superseded view, the live socket and the clock
+import { whenWords } from "../ui/time-words";
 
 const fenced = getGetStatusMockHandler({
   claim: "controller",
@@ -28,6 +30,11 @@ const proven: SupersededView = {
 
 const title = "This Controller was replaced";
 
+const fencedWords = () => {
+  const words = whenWords(fencedAt, "at", { now: new Date(), zone: undefined });
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+};
+
 function wipes() {
   const sent: unknown[] = [];
   const handler = http.post("*/api/v1/superseded/wipe", async ({ request }) => {
@@ -46,7 +53,7 @@ test.each(["/", "/nodes", "/sign-in", "/activity"])(
     await expect
       .element(
         page.getByText(
-          /^(?:Today|Yesterday) at \d\d:\d\d, a Backup of this library was restored on the Controller at 192\.168\.1\.20\. This Controller's torrents are paused and its searches have stopped\.$/u,
+          `${fencedWords()}, a Backup of this library was restored on the Controller at 192.168.1.20. This Controller's torrents are paused and its searches have stopped.`,
         ),
       )
       .toBeVisible();
@@ -142,7 +149,7 @@ test("a Controller stopped by hand says an Admin stopped it", async () => {
   await expect
     .element(
       page.getByText(
-        /^(?:Today|Yesterday) at \d\d:\d\d, an Admin stopped this Controller\. Its torrents are paused and its searches have stopped\.$/u,
+        `${fencedWords()}, an Admin stopped this Controller. Its torrents are paused and its searches have stopped.`,
       ),
     )
     .toBeVisible();

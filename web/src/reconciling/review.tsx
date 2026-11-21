@@ -1,6 +1,6 @@
 import { useGetReconcilingSuspense } from "../api/gen/query/reconciling/reconciling";
-import { Empty } from "../shell/empty";
 import { Page } from "../shell/page";
+import { Empty } from "../ui/empty";
 import { GroupSection } from "./review-group";
 
 /**
@@ -14,7 +14,7 @@ export function ReviewList() {
   return (
     <Page>
       {groups.length === 0 ? (
-        <Empty>Every torrent is matched with a Node.</Empty>
+        <Empty look="sheet">Every torrent is matched with a Node.</Empty>
       ) : (
         <div className="flex flex-col">
           <p className="mb-6 max-w-[64ch] text-ink-1">

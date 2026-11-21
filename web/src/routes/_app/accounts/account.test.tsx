@@ -8,9 +8,12 @@ import {
   getListAccountsMockHandler,
   getListSignupLinksMockHandler,
 } from "../../../api/gen/query/identity/identity.msw";
-import { clock } from "../../../format";
 import { ada, grace, problem } from "../../../test/handlers";
 import { renderApp } from "../../../test/render-app";
+import { type ValueForm, placeOf, timeForms } from "../../../ui/time-words";
+
+const own = () => ({ now: new Date(), zone: undefined });
+const shown = (form: ValueForm, at: string) => timeForms[form](placeOf(at, own()));
 
 const graceDetail: IdentityAccountDetail = {
   account: {
@@ -53,27 +56,37 @@ const listItems = (name: string) =>
     .all()
     .map((item) => item.element().textContent);
 
+const factsOf = (name: string) => {
+  const region = page.getByRole("region", { name });
+  const texts = (role: "term" | "definition") =>
+    region
+      .getByRole(role)
+      .all()
+      .map((item) => item.element().textContent);
+  return texts("term").map((term, index) => [term, texts("definition")[index]]);
+};
+
 test("an Account shows its profile, PIN state, passkeys and sessions", async () => {
   renderApp({
     path: `/accounts/${grace.id}`,
     handlers: [getGetAccountMockHandler(graceDetail)],
   });
   await expect.element(page.getByRole("heading", { name: "Grace Lindqvist" })).toBeVisible();
-  expect(listItems("Profile")).toEqual([
-    "Grace LindqvistName",
-    "grace@example.testEmailChange email",
-    "MemberRoleMake Admin",
-    "OnSign-inTurn off",
-    `${clock("2026-10-15T08:30:00Z")}Last sign-in`,
+  expect(factsOf("Profile")).toEqual([
+    ["Name", "Grace Lindqvist"],
+    ["Email", "grace@example.testChange email"],
+    ["Role", "MemberMake Admin"],
+    ["Sign-in", "OnTurn off"],
+    ["Last sign-in", shown("age", "2026-10-15T08:30:00Z")],
   ]);
   expect(listItems("PIN")).toEqual([
     "The PIN is locked after too many wrong PINs. Send a Reset link to set a new one.Send a Reset link",
   ]);
   expect(listItems("Passkeys")).toEqual([
-    `iCloud Keychainmedia.example.test · Added ${clock("2026-10-02T12:00:00Z")}`,
+    `iCloud Keychainmedia.example.test · Added ${shown("clock", "2026-10-02T12:00:00Z")}`,
   ]);
   expect(listItems("Sessions")).toEqual([
-    `Safari on iPhone192.168.1.20 · Last seen ${clock("2026-10-16T07:45:00Z")}`,
+    `Safari on iPhone192.168.1.20 · Last seen ${shown("age", "2026-10-16T07:45:00Z")}`,
   ]);
 });
 

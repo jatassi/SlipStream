@@ -3,8 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { sentenceOf } from "../api/errors";
 import type { HealthChecked, HealthUnreached } from "../api/gen/model";
 import { adoptHealthReport } from "../live/adopt";
-import { Icon } from "../ui/icon";
-import { signals } from "../ui/signal-chip";
+import { SignalLine } from "../ui/signal-line";
 import { toast } from "../ui/toast";
 
 export const failed = (error: unknown) => {
@@ -27,9 +26,8 @@ export function Checked({ unreached }: { unreached: readonly HealthUnreached[] }
     return <output className="block">Checked.</output>;
   }
   return (
-    <output className="flex items-start gap-1.5">
-      <Icon icon={signals.warn.icon} className="mt-[0.2em] size-4 shrink-0 text-warn" />
-      <span>Checked. {unreached.map(({ words }) => words).join(" ")}</span>
+    <output className="block">
+      <SignalLine tone="warn">Checked. {unreached.map(({ words }) => words).join(" ")}</SignalLine>
     </output>
   );
 }

@@ -11,10 +11,9 @@ import {
   useListQualitiesSuspense,
 } from "../../../api/gen/query/targets/targets";
 import { ensureQuery, freshQuery } from "../../../api/query-client";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
 import { SavedTargetEditor } from "../../../targets/target-editor";
-import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/settings/targets/$targetId")({
   staticData: { title: loaderTitle },
@@ -32,7 +31,7 @@ export const Route = createFileRoute("/_app/settings/targets/$targetId")({
       ],
     };
   },
-  pendingComponent: () => <Skeleton label="Loading the Target" />,
+  pendingComponent: () => <PagePending label="Loading the Target" shape="form" />,
   component: TargetPage,
 });
 

@@ -1,5 +1,5 @@
-import { sinceWords } from "../format";
 import type { LiveRow } from "../live/torrents";
+import { whenWords } from "../ui/time-words";
 import {
   type Place,
   type Row,
@@ -8,10 +8,10 @@ import {
   ordinal,
   paceOf,
   seedLength,
-  stateWords,
   trackerLine,
   waitsOn,
 } from "./model";
+import { torrentTerms } from "./terms";
 
 const peers = (count: number) => `${count} ${count === 1 ? "peer" : "peers"}`;
 
@@ -51,7 +51,7 @@ function heldSentence(row: Row, { node, clock }: Place): string {
     case "window":
       return row.until === undefined
         ? "Waiting until its trackers allow another announce."
-        : `Waiting until its trackers allow another announce. It resumes at ${sinceWords(row.until, clock)}.`;
+        : `Waiting until its trackers allow another announce. It resumes ${whenWords(row.until, "at", clock)}.`;
     case "disk_full":
       return `Paused because ${node} ran out of disk space. It resumes once there is space.`;
     case "slot":
@@ -88,7 +88,7 @@ function trackerSentence(row: Row, { clock }: Place): string {
       : `${host} reported "${tracker.message}", so no peers come from it.`;
   return tracker?.retryAt === undefined
     ? said
-    : `${said} The client retries at ${sinceWords(tracker.retryAt, clock)}.`;
+    : `${said} The client retries ${whenWords(tracker.retryAt, "at", clock)}.`;
 }
 
 function movingSentence(row: Row, live: LiveRow | undefined): string {
@@ -112,15 +112,15 @@ function movingSentence(row: Row, live: LiveRow | undefined): string {
 
 // Why a row is its last report, and what it was doing then.
 function lastKnownSentence(row: Row, { cause, who, at }: Waits, place: Place) {
-  const when = sinceWords(at, place.clock);
-  const was = stateWords[row.state].toLowerCase();
+  const when = whenWords(at, "at", place.clock);
+  const was = torrentTerms[row.state].word.toLowerCase();
   switch (cause) {
     case "node":
-      return `${place.node} is offline. When it last reported, at ${when}, this was ${was}.`;
+      return `${place.node} is offline. When it last reported, ${when}, this was ${was}.`;
     case "client":
-      return `${who} on ${place.node} isn't responding. When it last responded, at ${when}, this was ${was}.`;
+      return `${who} on ${place.node} isn't responding. When it last responded, ${when}, this was ${was}.`;
     case "off":
-      return `SlipStream isn't checking ${who} while it's turned off. When it last responded, at ${when}, this was ${was}.`;
+      return `SlipStream isn't checking ${who} while it's turned off. When it last responded, ${when}, this was ${was}.`;
     default:
       return cause satisfies never;
   }
@@ -151,7 +151,7 @@ export function inspectorSentence(row: Row, live: LiveRow | undefined, place: Pl
     return lastKnownSentence(row, waits, place);
   }
   if (row.importAt !== undefined) {
-    return `Finished. SlipStream imports it at ${sinceWords(row.importAt, place.clock)}, when the Import delay for ${row.clientName ?? "its client"} ends.`;
+    return `Finished. SlipStream imports it ${whenWords(row.importAt, "at", place.clock)}, when the Import delay for ${row.clientName ?? "its client"} ends.`;
   }
   switch (row.state) {
     case "failed": {
@@ -168,7 +168,7 @@ export function inspectorSentence(row: Row, live: LiveRow | undefined, place: Pl
     case "checking":
       return row.until === undefined
         ? "Checking its files. It continues once the check is done."
-        : `Checking its files. It resumes at ${sinceWords(row.until, place.clock)}.`;
+        : `Checking its files. It resumes ${whenWords(row.until, "at", place.clock)}.`;
     case "queued":
       return row.hold === undefined
         ? `Waiting for ${place.node} to start it.`

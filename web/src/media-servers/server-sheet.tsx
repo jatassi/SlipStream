@@ -58,7 +58,7 @@ function Steps({
   if (step.step === "fields") {
     const Fields = step.kind.signIn === "plex_pin" ? PlexStep : FieldsStep;
     return (
-      <Suspense fallback={<Skeleton label={`Loading ${step.kind.label}`} />}>
+      <Suspense fallback={<Skeleton label={`Loading ${step.kind.label}`} shape="rows" lines={2} />}>
         <Fields
           kind={step.kind}
           nodes={nodes}
@@ -73,7 +73,11 @@ function Steps({
     );
   }
   return (
-    <Suspense fallback={<Skeleton label={`Loading ${step.server.name}'s library folders`} />}>
+    <Suspense
+      fallback={
+        <Skeleton label={`Loading ${step.server.name}'s library folders`} shape="rows" lines={2} />
+      }
+    >
       <MappingsStep server={step.server} onDone={onDone} />
     </Suspense>
   );

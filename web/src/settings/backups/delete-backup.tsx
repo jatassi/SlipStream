@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { sentenceOf } from "../../api/errors";
 import type { BackupsBackup } from "../../api/gen/model";
 import { deleteBackup } from "../../api/gen/query/backups/backups";
-import type { Clock } from "../../format";
+import type { Clock } from "../../ui/clock";
 import { adoptBackupList } from "../../live/adopt-backups";
 import { ConfirmDialog } from "../../ui/confirm-dialog";
 import { toast } from "../../ui/toast";
@@ -11,13 +11,13 @@ import { deletedToast } from "./words";
 
 export function DeleteBackupDialog({
   backup,
-  when,
+  from,
   clock,
   open,
   onOpenChange,
 }: {
   backup: BackupsBackup;
-  when: string;
+  from: string;
   clock: Clock;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -25,7 +25,7 @@ export function DeleteBackupDialog({
   const queryClient = useQueryClient();
   return (
     <ConfirmDialog
-      title={`Delete the Backup from ${when}?`}
+      title={`Delete the Backup ${from}?`}
       confirmLabel="Delete"
       look="fail"
       open={open}

@@ -7,9 +7,7 @@ import {
 } from "../api/gen/query/downloadclients/downloadclients";
 import { type LiveRow, useLiveRow } from "../live/torrents";
 import { refresh } from "../live/refresh";
-import { useNow } from "../tasks/use-now";
-
-const wordsTick = 60_000;
+import { useClock } from "../ui/clock";
 
 // The Node's word on files and trackers, read again while the torrent's
 // files fill, so file progress follows the live stream.
@@ -29,11 +27,11 @@ function useDetail(id: string, live: LiveRow | undefined) {
 
 export function useInspected(id: string) {
   const live = useLiveRow(id);
-  const now = useNow(wordsTick);
+  const clock = useClock();
   const detail = useDetail(id, live);
   const announceAt = detail.data?.live === true ? detail.data.announceAt : undefined;
-  const trackersAccept = announceAt !== undefined && Date.parse(announceAt) <= now.getTime();
-  return { live, clock: { now, zone: undefined }, detail, trackersAccept };
+  const trackersAccept = announceAt !== undefined && Date.parse(announceAt) <= clock.now.getTime();
+  return { live, clock, detail, trackersAccept };
 }
 
 export type Inspected = ReturnType<typeof useInspected>;

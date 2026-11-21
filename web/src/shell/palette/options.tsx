@@ -9,7 +9,7 @@ import type {
 } from "../../api/gen/model";
 import { statusMarks } from "../../ui/state-marks";
 import type { PaletteGroup, PaletteOption } from "../../ui/command-palette";
-import { Poster } from "../../ui/poster";
+import { Artwork } from "../../ui/artwork";
 import { factTexts } from "../../works/page/facts";
 import { unlistedLine } from "../../works/add/candidates";
 import { openAddSheet } from "../../works/add/sheet-state";
@@ -62,7 +62,7 @@ export function workOptions(
         label: work.label,
         meta: meta.join(" · "),
         icon: contentTypeIcons[type.icon],
-        art: <Poster url={work.posterUrl ?? undefined} size="option" />,
+        art: <Artwork use="poster" size="option" url={work.posterUrl ?? undefined} />,
         choose: closingThen(() => {
           void navigate({ to: "/works/$workId", params: { workId: work.id } });
         }),
@@ -82,7 +82,7 @@ function candidateOption(
   const shown = {
     id: `${type.id}/${candidate.key}`,
     label: candidate.label,
-    art: <Poster url={candidate.posterUrl ?? undefined} size="option" />,
+    art: <Artwork use="poster" size="option" url={candidate.posterUrl ?? undefined} />,
   };
   if (workId !== null) {
     return {

@@ -2,8 +2,8 @@ import { DialogActions } from "../account/dialog-actions";
 import type { FilesRenamePlan, FilesRenameScope } from "../api/gen/model";
 import type { Attempt } from "../targets/attempt";
 import { Button } from "../ui/button";
+import { Callout } from "../ui/callout";
 import { useShell } from "../ui/shell-context";
-import { SignalChip } from "../ui/signal-chip";
 import { tickedCounts } from "./plan-model";
 import { PlanList } from "./plan-list";
 import {
@@ -18,10 +18,9 @@ import { type Round, useConfirm, useReview } from "./round";
 
 function Changed({ count }: { count: number }) {
   return (
-    <output className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card bg-warn-card px-4 py-3 text-warn-text ring-1 ring-warn-line ring-inset">
-      <SignalChip kind="warn">Changed</SignalChip>
-      <span className="min-w-0 flex-[1_1_24ch]">{changedWords(count)}</span>
-    </output>
+    <Callout tone="warn" chip="Changed">
+      {changedWords(count)}
+    </Callout>
   );
 }
 

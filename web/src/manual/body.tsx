@@ -1,7 +1,7 @@
 import type { GrabsManualSearch } from "../api/gen/model";
 import { useStartManualSearch } from "../api/gen/query/grabs/grabs";
 import { sentenceOf } from "../api/errors";
-import { AlertLine } from "../ui/alert-line";
+import { SignalLine } from "../ui/signal-line";
 import { type OnPins, Plan } from "./plan";
 import { ReadingProvider } from "./reading";
 import { QueryField, SearchingLine } from "./searching-line";
@@ -44,7 +44,11 @@ export function ManualBody({
           onRestart={onRestart}
           onLeave={onClose}
         />
-        {restart.error !== null && <AlertLine text={sentenceOf(restart.error)} />}
+        {restart.error !== null && (
+          <SignalLine tone="fail" announce>
+            {sentenceOf(restart.error)}
+          </SignalLine>
+        )}
         <p className="text-sentence text-ink-1 in-data-[density=touch]:text-sentence-touch">
           {search.plan.headline}
         </p>

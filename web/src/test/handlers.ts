@@ -22,12 +22,14 @@ import {
 } from "../api/gen/query/subtitles/subtitles.msw";
 // oxlint-disable-next-line import/max-dependencies -- the base handlers answer every read the shell and Settings make
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
+import { getListQualitiesMockHandler } from "../api/gen/query/targets/targets.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
 import { quietHealth } from "./health";
 import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
 import { board, boardIs, homeSeat } from "./roles";
+import { qualityList } from "./targets";
 
 const generated = import.meta.glob<Record<string, () => RequestHandler[]>>(
   "../api/gen/query/**/*.msw.ts",
@@ -127,6 +129,8 @@ const quietBell = [
   getListNotificationConnectionsMockHandler({ connections: [] }),
 ];
 
+// The fixed quality table, which every key a fixture names is in.
+const theQualities = getListQualitiesMockHandler(qualityList);
 // A Work no file of which wants a subtitle, and no Subtitle Provider.
 const noSubtitles = [
   getGetWorkSubtitlesMockHandler({ files: [] }),
@@ -152,6 +156,7 @@ export const baseHandlers: RequestHandler[] = [
   ...quietHealth,
   ...quietBell,
   quietHistory,
+  theQualities,
   ...noSubtitles,
   ...tagMocks,
 ];

@@ -10,7 +10,7 @@ export const Route = createFileRoute(
   staticData: { title: loaderTitle },
   loader: ({ context: { queryClient }, params: { torrentId } }) =>
     loadInspected(queryClient, torrentId),
-  pendingComponent: () => <Skeleton label="Loading the torrent" />,
+  pendingComponent: () => <Skeleton label="Loading the torrent" shape="facts" />,
   component: function TrackerTorrent() {
     const navigate = useNavigate();
     const { trackerId, torrentId } = Route.useParams();

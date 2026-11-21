@@ -1,12 +1,12 @@
 import { useState } from "react";
 
 import { DialogActions } from "../account/dialog-actions";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { Spinner } from "../ui/spinner";
 import { Code } from "./join-code";
 import { useJoinCode } from "./use-join-code";
+import { SignalLine } from "../ui/signal-line";
 
 function Body({ node }: { node: string }) {
   const minted = useJoinCode();
@@ -19,7 +19,11 @@ function Body({ node }: { node: string }) {
         </p>
       );
     case "failed":
-      return <AlertLine text={minted.sentence} />;
+      return (
+        <SignalLine tone="fail" announce>
+          {minted.sentence}
+        </SignalLine>
+      );
     case "minted":
       return <Code code={minted.code} node={node} />;
     default:

@@ -2,11 +2,11 @@ import { Link } from "@tanstack/react-router";
 
 import type { WorksCandidate, WorksContentType } from "../../api/gen/model";
 import { useSearchCatalogSuspense } from "../../api/gen/query/works/works";
-import { Empty } from "../../shell/empty";
 import { Button } from "../../ui/button";
 import { Chip } from "../../ui/chip";
+import { Empty } from "../../ui/empty";
 import { List, ListRow } from "../../ui/list";
-import { Poster } from "../../ui/poster";
+import { Artwork } from "../../ui/artwork";
 import { factTexts } from "../page/facts";
 import { openAddSheet } from "./sheet-state";
 
@@ -20,7 +20,7 @@ export function Candidates({ type, query }: { type: WorksContentType; query: str
   const candidates = useSearchCatalogSuspense(type.id, { query }).data.candidates.slice(0, shown);
   if (candidates.length === 0) {
     return (
-      <Empty>
+      <Empty look="sheet">
         Nothing matches &quot;{query}&quot;. Try another spelling, or the{" "}
         {type.work.one.toLowerCase()}&apos;s original title.
       </Empty>
@@ -54,7 +54,7 @@ function Meta({ type, candidate }: { type: WorksContentType; candidate: WorksCan
 }
 
 function Candidate({ type, candidate }: { type: WorksContentType; candidate: WorksCandidate }) {
-  const poster = <Poster url={candidate.posterUrl ?? undefined} />;
+  const poster = <Artwork use="poster" size="row" url={candidate.posterUrl ?? undefined} />;
   if (candidate.workId !== null) {
     return (
       <ListRow

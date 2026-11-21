@@ -21,12 +21,11 @@ import (
 // Node it waits for, nil unless it does.
 type View struct {
 	Grab
-	Progress  *Progress
-	Metadata  *MetadataSearch
-	FetchWait *indexers.FetchWait
-	WaitsFor  *ClientWait
-	// ReleaseWords is its Release in words: "Bluray-1080p · FKW · 9.8 GB".
-	ReleaseWords string
+	Progress       *Progress
+	Metadata       *MetadataSearch
+	FetchWait      *indexers.FetchWait
+	WaitsFor       *ClientWait
+	ReleaseSummary release.Summary
 	// Overrides is each choice the Admin made past the decision, as a
 	// sentence: "Jackson grabbed it as the Director's Cut."
 	Overrides []string
@@ -95,15 +94,15 @@ type Actions struct {
 
 // reads is what a Grab's view reads beside the Grab, in the same snapshot.
 type reads struct {
-	metadataWait time.Duration
-	fetchWaits   map[indexers.ID]indexers.FetchWait
-	clientWaits  map[GrabID]ClientWait
-	releaseWords map[GrabID]string
-	imports      map[GrabID]ImportView
-	current      map[GrabID]bool
-	again        map[GrabID]bool
-	made         map[GrabID]SearchID
-	rssIndexers  map[indexers.ID]string
+	metadataWait     time.Duration
+	fetchWaits       map[indexers.ID]indexers.FetchWait
+	clientWaits      map[GrabID]ClientWait
+	releaseSummaries map[GrabID]release.Summary
+	imports          map[GrabID]ImportView
+	current          map[GrabID]bool
+	again            map[GrabID]bool
+	made             map[GrabID]SearchID
+	rssIndexers      map[indexers.ID]string
 }
 
 func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Grab) (reads, error) {
@@ -121,7 +120,7 @@ func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Gr
 	if err != nil {
 		return reads{}, err
 	}
-	out.releaseWords = gr.releaseWords(grabs, types)
+	out.releaseSummaries = gr.releaseSummaries(grabs, types)
 	if out.imports, err = gr.importsOf(ctx, r, grabs, types); err != nil {
 		return reads{}, err
 	}
@@ -217,25 +216,25 @@ func typesOf(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[wor
 	return out, nil
 }
 
-// releaseWords is each Grab's Release in words, read as its Work's
+// releaseSummaries is each Grab's Release's facts, read as its Work's
 // Content Type reads a title.
-func (gr *Grabs) releaseWords(grabs []Grab, types map[works.WorkID]works.TypeID) map[GrabID]string {
-	out := make(map[GrabID]string, len(grabs))
+func (gr *Grabs) releaseSummaries(grabs []Grab, types map[works.WorkID]works.TypeID) map[GrabID]release.Summary {
+	out := make(map[GrabID]release.Summary, len(grabs))
 	for _, g := range grabs {
-		out[g.ID] = releaseWordsOf(g.Release.Title, g.Release.Size, gr.cfg.Names[types[g.WorkID]])
+		out[g.ID] = releaseSummaryOf(g.Release.Title, g.Release.Size, gr.cfg.Names[types[g.WorkID]])
 	}
 	return out
 }
 
-// releaseWordsOf is a Release titled title, of size bytes, in the words a
-// Manual search's rows read it in, as names read its title. The words
-// name no cut, so the title is read without the known cuts.
-func releaseWordsOf(title string, size int64, names release.Names) string {
+// releaseSummaryOf is a Release titled title, of size bytes, read as names
+// reads a title. A summary names no cut, so the title is read without the
+// known cuts.
+func releaseSummaryOf(title string, size int64, names release.Names) release.Summary {
 	rd := release.Title(title, names, nil)
 	if size > 0 {
 		rd.Facts.Size = release.Known(size)
 	}
-	return release.Describe(rd)
+	return release.Summarize(rd)
 }
 
 // List lists every Grab, newest first.
@@ -344,7 +343,7 @@ func (gr *Grabs) views(grabs []Grab, rd reads) ([]View, error) {
 			Cancel: g.cancelable(), Blocklist: g.cancelable() && g.infoHash() != nil,
 			SendTo: g.waitsOnTorrent() || out[i].WaitsFor != nil,
 		}
-		out[i].ReleaseWords = rd.releaseWords[g.ID]
+		out[i].ReleaseSummary = rd.releaseSummaries[g.ID]
 		if im, ok := rd.imports[g.ID]; ok {
 			out[i].Import = &im
 		}

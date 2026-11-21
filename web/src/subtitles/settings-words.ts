@@ -4,8 +4,9 @@ import type {
   TargetsWantedLanguage,
   WorksContentType,
 } from "../api/gen/model";
-import { type Clock, laterAtWords, pastAtWords } from "../format";
 import { everyWords } from "../grabs/settings-section";
+import type { Clock } from "../ui/clock";
+import { whenWords } from "../ui/time-words";
 
 const counted = new Intl.NumberFormat("en");
 const list = new Intl.ListFormat("en", { type: "conjunction" });
@@ -106,7 +107,7 @@ function resetWords(provider: SubtitlesProvider, clock: Clock): string {
   const downloads = provider.allowance?.downloads;
   return downloads === undefined || downloads === null
     ? ""
-    : ` The count resets ${laterAtWords(downloads.resets, clock)}.`;
+    : ` The count resets ${whenWords(downloads.resets, "next", clock)}.`;
 }
 
 const stateLines: Readonly<
@@ -127,9 +128,9 @@ const stateLines: Readonly<
   out: ({ name, state }, _types, clock) =>
     state.until === null
       ? `${name} is out of downloads.`
-      : `${name} is out of downloads. SlipStream searches it again ${laterAtWords(state.until, clock)}.`,
+      : `${name} is out of downloads. SlipStream searches it again ${whenWords(state.until, "next", clock)}.`,
   rejected: ({ name, state }, _types, clock) => {
-    const at = state.since === null ? "" : ` ${pastAtWords(state.since, clock)}`;
+    const at = state.since === null ? "" : ` ${whenWords(state.since, "at", clock)}`;
     return state.words === null
       ? `${name} rejected the key${at}. Replace the key.`
       : `${name} rejected the key${at} and responded "${state.words}". Replace the key.`;
@@ -137,7 +138,7 @@ const stateLines: Readonly<
   failing: ({ name, state }, _types, clock) =>
     state.since === null
       ? `${name} isn't responding. SlipStream retries automatically.`
-      : `${name} hasn't responded since ${pastAtWords(state.since, clock)}. SlipStream retries automatically.`,
+      : `${name} hasn't responded ${whenWords(state.since, "since", clock)}. SlipStream retries automatically.`,
   off: ({ name }) => `Off. SlipStream doesn't search ${name}.`,
 };
 

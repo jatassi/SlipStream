@@ -35,7 +35,6 @@ export function Signals({ signals, names }: { signals: readonly Signal[]; names:
               chip={signal.chip}
               subject={subjectOf(signal, names)}
               verdict={signal.verdict}
-              time=""
             >
               <ul className="flex flex-col text-(length:--body-size) leading-(--body-line-height)">
                 {signal.rows.map((row) => (

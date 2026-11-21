@@ -1,10 +1,9 @@
-import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { type ReactNode, useState } from "react";
 
 import { Button } from "./button";
 import { Dialog } from "./dialog";
-import { Icon } from "./icon";
 import { useShell } from "./shell-context";
+import { SignalLine } from "./signal-line";
 
 export type ConfirmDialogProps = {
   title: string;
@@ -62,10 +61,9 @@ export function ConfirmDialog({
       <div className="flex flex-col gap-4 text-ink-2">
         {children}
         {failure === undefined ? null : (
-          <p role="alert" className="flex items-center gap-1.5 text-fail-ink">
-            <Icon icon={Alert02Icon} className="size-4 shrink-0" />
+          <SignalLine tone="fail" announce>
             {failure}
-          </p>
+          </SignalLine>
         )}
       </div>
       <div className={`mt-6 flex gap-2 ${stacked ? "flex-col-reverse" : "justify-end"}`}>

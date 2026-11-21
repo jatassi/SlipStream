@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 
 import type { DownloadclientsClientCard as Card } from "../api/gen/model";
 import { bytes, countWords, durationWords } from "../format";
-import { KeyValues } from "../routes/_app/nodes/-facts";
+import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { Fact, Facts } from "../ui/facts";
 import { rateWords } from "../ui/setting-rate";
 import { ClientVerdict, listenWords } from "./client-verdict";
 import { RoutedHere } from "./routed-here";
@@ -12,34 +13,44 @@ import { RoutedHere } from "./routed-here";
 const torrents = { one: "torrent", many: "torrents" } as const;
 
 const limitWords = (perSecond: number): ReactNode =>
-  perSecond === 0 ? <span>No limit</span> : rateWords(perSecond);
+  perSecond === 0 ? "No limit" : <Data>{rateWords(perSecond)}</Data>;
 
-const words = (text: string): ReactNode => <span>{text}</span>;
-
-function rows(card: Card): (readonly [string, ReactNode])[] {
-  const { client, limits, totals } = card;
-  return [
-    ...(client === undefined
-      ? []
-      : [
-          ["Listen address", listenWords(client.listen)] as const,
-          ["Peer ID prefix", client.peerIdPrefix] as const,
-          ["User agent", client.userAgent] as const,
-          ["libtorrent", client.libtorrent] as const,
-        ]),
-    ["Download limit", limitWords(limits.downloadLimit)],
-    ["Upload limit", limitWords(limits.uploadLimit)],
-    [
-      "Downloads at once",
-      words(limits.activeDownloads === 0 ? "No limit" : String(limits.activeDownloads)),
-    ],
-    ["File checks at once", words(String(limits.activeChecks))],
-    ["Peer connections", words(String(limits.connections))],
-    ["uTP", words(limits.utp ? "On" : "Off")],
-    ["Stalled after", durationWords(limits.stalledAfterSeconds)],
-    ["Seeding time", durationWords(totals.seedingSeconds)],
-    ["Active time", durationWords(totals.activeSeconds)],
-  ];
+function Machinery({ card: { client, limits, totals } }: { card: Card }) {
+  return (
+    <Facts look="well">
+      {client !== undefined && (
+        <>
+          <Fact label="Listen address">{listenWords(client.listen)}</Fact>
+          <Fact label="Peer ID prefix">
+            <Data>{client.peerIdPrefix}</Data>
+          </Fact>
+          <Fact label="User agent">
+            <Data>{client.userAgent}</Data>
+          </Fact>
+          <Fact label="libtorrent">
+            <Data>{client.libtorrent}</Data>
+          </Fact>
+        </>
+      )}
+      <Fact label="Download limit">{limitWords(limits.downloadLimit)}</Fact>
+      <Fact label="Upload limit">{limitWords(limits.uploadLimit)}</Fact>
+      <Fact label="Downloads at once">
+        {limits.activeDownloads === 0 ? "No limit" : limits.activeDownloads}
+      </Fact>
+      <Fact label="File checks at once">{limits.activeChecks}</Fact>
+      <Fact label="Peer connections">{limits.connections}</Fact>
+      <Fact label="uTP">{limits.utp ? "On" : "Off"}</Fact>
+      <Fact label="Stalled after">
+        <Data>{durationWords(limits.stalledAfterSeconds)}</Data>
+      </Fact>
+      <Fact label="Seeding time">
+        <Data>{durationWords(totals.seedingSeconds)}</Data>
+      </Fact>
+      <Fact label="Active time">
+        <Data>{durationWords(totals.activeSeconds)}</Data>
+      </Fact>
+    </Facts>
+  );
 }
 
 const totalsWords = ({ torrents: held, totals }: Card): string =>
@@ -54,7 +65,7 @@ export function BuiltInClient({ card }: { card: Card }) {
       <RoutedHere trackers={card.trackers} />
       <Details summary={totalsWords(card)}>
         <div className="mt-2 self-stretch">
-          <KeyValues rows={rows(card)} />
+          <Machinery card={card} />
         </div>
       </Details>
       <footer className="flex flex-col gap-1 text-meta text-ink-3 in-data-[density=touch]:text-body-touch">

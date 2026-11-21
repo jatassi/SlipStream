@@ -86,15 +86,17 @@ test("a swap reads the plan again with the pin, keeps the other row's untick, an
   const server = manualServer({ plan: twoGrabs });
   openSheet(server);
   const sheet = sheetNamed("Season 1 of The Long Shelf");
-  await userEvent.click(sheet.getByRole("checkbox", { name: "WEBDL-1080p · NTb" }));
+  await userEvent.click(sheet.getByRole("checkbox", { name: "WEBDL-1080p · NTb · 4.0 GB" }));
   await expect.element(sheet.getByRole("button", { name: "Grab 1" })).toBeVisible();
 
   await userEvent.click(sheet.getByRole("button", { name: "Other choices" }));
   await userEvent.click(sheet.getByRole("button", { name: "Use this" }));
-  await expect.element(sheet.getByRole("checkbox", { name: "WEBRip-1080p · RARBG" })).toBeChecked();
+  await expect
+    .element(sheet.getByRole("checkbox", { name: "WEBRip-1080p · RARBG · 4.0 GB" }))
+    .toBeChecked();
   expect(server.pinned.at(-1)).toEqual(["pin-e02-rarbg"]);
   await expect
-    .element(sheet.getByRole("checkbox", { name: "WEBDL-1080p · NTb" }))
+    .element(sheet.getByRole("checkbox", { name: "WEBDL-1080p · NTb · 4.0 GB" }))
     .not.toBeChecked();
 
   await userEvent.click(sheet.getByRole("button", { name: "Grab 1" }));
@@ -136,7 +138,9 @@ test("a Manual search's event reads the plan again", async () => {
     event: "grabs.search-changed",
     data: { workId, manualSearchId, searchId: runId },
   });
-  await expect.element(sheet.getByRole("checkbox", { name: "WEBDL-1080p · FLUX" })).toBeChecked();
+  await expect
+    .element(sheet.getByRole("checkbox", { name: "WEBDL-1080p · FLUX · 4.0 GB" }))
+    .toBeChecked();
   await expect.element(sheet.getByRole("button", { name: "Grab 2" })).toBeVisible();
 });
 

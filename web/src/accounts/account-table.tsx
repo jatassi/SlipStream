@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import type { IdentityAccountRow } from "../api/gen/model";
-import { clock } from "../format";
+import { PlainTime } from "../ui/relative-time";
 import { type Column, Table } from "../ui/table";
 import { pinLabel } from "./pin-state";
 
@@ -32,7 +32,12 @@ const columns: readonly [Column<IdentityAccountRow>, ...Column<IdentityAccountRo
   {
     id: "last-sign-in",
     header: "Last sign-in",
-    cell: (account) => (account.lastSignInAt === undefined ? "Never" : clock(account.lastSignInAt)),
+    cell: (account) =>
+      account.lastSignInAt === undefined ? (
+        "Never"
+      ) : (
+        <PlainTime at={account.lastSignInAt} form="age" />
+      ),
     hideBelow: 900,
   },
   { id: "status", header: "Sign-in", cell: (account) => (account.disabled ? "Turned off" : "On") },

@@ -1,8 +1,9 @@
 import type { TasksTask } from "../api/gen/model";
-import { type Clock, sinceWords } from "../format";
+import type { Clock } from "../ui/clock";
 import { type StatusPart, StatusSentence } from "../ui/status-sentence";
+import { whenWords } from "../ui/time-words";
 import { type Progress, TaskState } from "./task-cells";
-import { nextWords, outcomes, runningWords, waitingWords } from "./words";
+import { outcomes, runningWords, waitingWords } from "./words";
 
 export const unitsAnchor = "units";
 export const runsAnchor = "runs";
@@ -13,7 +14,7 @@ function lastPart(task: TasksTask, clock: Clock): StatusPart {
     return { kind: "plain", text: "Not run yet" };
   }
   const { word, signal } = outcomes[result];
-  const text = `${word} at ${sinceWords(endedAt, clock)}`;
+  const text = `${word} ${whenWords(endedAt, "at", clock)}`;
   if (signal === "fail") {
     return { kind: "failure", text, href: `#${runsAnchor}` };
   }
@@ -33,8 +34,8 @@ function statePart(task: TasksTask, clock: Clock): StatusPart {
   if (state.off) {
     return { kind: "plain", text: "Off" };
   }
-  const next = nextWords(task, state.next, clock);
-  return { kind: "plain", text: `Next run ${next.charAt(0).toLowerCase()}${next.slice(1)}` };
+  const next = whenWords(state.next, task.cadence.inWindow ? "next" : "in", clock);
+  return { kind: "plain", text: `Next run ${next}` };
 }
 
 export function TaskHead({

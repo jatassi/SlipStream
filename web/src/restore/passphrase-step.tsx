@@ -1,7 +1,7 @@
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { useAppForm } from "../ui/form";
 import type { RestoreFlow, RestoreStep } from "./flow";
+import { SignalLine } from "../ui/signal-line";
 
 export function PassphraseStep({
   step,
@@ -35,7 +35,11 @@ export function PassphraseStep({
             />
           )}
         </form.AppField>
-        {step.refusal !== undefined && <AlertLine text={step.refusal} />}
+        {step.refusal !== undefined && (
+          <SignalLine tone="fail" announce>
+            {step.refusal}
+          </SignalLine>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <form.SubmitButton label="Open the Backup" />
           <Button look="ghost" onClick={flow.reset}>

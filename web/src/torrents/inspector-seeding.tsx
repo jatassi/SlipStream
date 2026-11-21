@@ -5,10 +5,10 @@ import type {
   DownloadclientsSeedingViewAtRisk,
   DownloadclientsTorrentDetail,
 } from "../api/gen/model";
+import { Fact, Facts } from "../ui/facts";
 import { InspectorSection } from "../ui/inspector";
 import { LaneMeter } from "../ui/lane-meter";
 import { SignalChip } from "../ui/signal-chip";
-import { FactList } from "./inspector-facts";
 import {
   endlessSentence,
   goalSentence,
@@ -48,25 +48,21 @@ function RiskLine({
 
 function TrackerFact({ tracker }: { tracker: DownloadclientsTorrentDetail["tracker"] }) {
   return (
-    <FactList
-      facts={[
-        [
-          "Tracker",
-          tracker === null ? (
-            "Not known"
-          ) : (
-            <Link
-              key="tracker"
-              to="/settings/trackers/$trackerId/seeding"
-              params={{ trackerId: tracker.id }}
-              className="rounded-item font-medium underline-offset-4 hover:underline"
-            >
-              {tracker.name}
-            </Link>
-          ),
-        ],
-      ]}
-    />
+    <Facts look="inline">
+      <Fact label="Tracker">
+        {tracker === null ? (
+          "Not known"
+        ) : (
+          <Link
+            to="/settings/trackers/$trackerId/seeding"
+            params={{ trackerId: tracker.id }}
+            className="rounded-item font-medium underline-offset-4 hover:underline"
+          >
+            {tracker.name}
+          </Link>
+        )}
+      </Fact>
+    </Facts>
   );
 }
 

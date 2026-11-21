@@ -1,10 +1,11 @@
 import type { GrabsChoice, GrabsPlanRow } from "../api/gen/model";
 import type { ClientPick } from "../grabs/send-to-sheet";
+import { ReleaseRow } from "../release/row";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Details } from "../ui/details";
 import { Select } from "../ui/select";
-import { Overrides, ReleaseName, Result } from "./parts";
+import { Overrides, Result } from "./parts";
 import {
   type Choices,
   type PickRow,
@@ -54,22 +55,21 @@ export type RowActs = {
 
 function Choice({ choice, onUse }: { choice: GrabsChoice; onUse: () => void }) {
   return (
-    <li className="flex flex-col items-start gap-1 py-2">
-      <div className="flex w-full items-center gap-3">
-        <span className="min-w-0 flex-1">
-          <ReleaseName release={choice.release} />
-        </span>
+    <ReleaseRow
+      release={choice.release}
+      action={
         <Button size="small" onClick={onUse}>
           {choice.release.blocked === null ? "Use this" : "Remove from Blocklist and grab"}
         </Button>
-      </div>
+      }
+    >
       {choice.note !== undefined && <p className={meta}>{choice.note}</p>}
       {choice.release.blocked !== null && <p>{choice.release.blocked}</p>}
       <Overrides lifts={choice.lifts} edition={choice.edition} />
       <Details>
         <ReleaseDetails release={choice.release} />
       </Details>
-    </li>
+    </ReleaseRow>
   );
 }
 
@@ -119,51 +119,51 @@ function SendTo({
   );
 }
 
-/** A Grab of the plan: its tick, the Release in words, what it gets, what it gets past, and where it goes. */
+/** A Grab of the plan: its tick, the Release's facts, what it gets, what it gets past, and where it goes. */
 function Pick({ row, acts }: { row: PickRow; acts: RowActs }) {
   const { pick } = row;
   const result = acts.results.get(resultKey(row));
   const done = grabbed(acts.results, resultKey(row));
   return (
-    <li className="flex items-start gap-3 py-3">
-      <Checkbox
-        label={pick.release.words}
-        hideLabel
-        checked={!done && !acts.choices.unticked.has(row.key)}
-        disabled={done}
-        onCheckedChange={(ticked) => {
-          acts.onTick(row.key, ticked);
-        }}
-      />
-      <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
-        <ReleaseName release={pick.release} />
-        <p>{row.outcome}</p>
-        {pick.release.blocked !== null && (
-          <p>{`${pick.release.blocked} Grabbing it removes it from the Blocklist.`}</p>
-        )}
-        <Overrides lifts={pick.lifts} edition={pick.edition} />
-        <ClientLine row={row} acts={acts} />
-        {result !== undefined && (
-          <Result
-            result={result}
-            busy={acts.busy}
-            onCancelHeld={(grabId) => {
-              acts.onCancelHeld(row, grabId);
-            }}
-          />
-        )}
-        <OtherChoices row={row} onPin={acts.onPin} />
-        <Details>
-          <div className="flex flex-col gap-3">
-            <ReleaseDetails release={pick.release} />
-            {/* A client's long name truncates in the row's width rather than widening the row. */}
-            <div className="contain-inline-size">
-              <SendTo row={row} routedTo={pick.routed} acts={acts} />
-            </div>
+    <ReleaseRow
+      release={pick.release}
+      renderLead={(factsId) => (
+        <Checkbox
+          labelledBy={factsId}
+          checked={!done && !acts.choices.unticked.has(row.key)}
+          disabled={done}
+          onCheckedChange={(ticked) => {
+            acts.onTick(row.key, ticked);
+          }}
+        />
+      )}
+    >
+      <p>{row.outcome}</p>
+      {pick.release.blocked !== null && (
+        <p>{`${pick.release.blocked} Grabbing it removes it from the Blocklist.`}</p>
+      )}
+      <Overrides lifts={pick.lifts} edition={pick.edition} />
+      <ClientLine row={row} acts={acts} />
+      {result !== undefined && (
+        <Result
+          result={result}
+          busy={acts.busy}
+          onCancelHeld={(grabId) => {
+            acts.onCancelHeld(row, grabId);
+          }}
+        />
+      )}
+      <OtherChoices row={row} onPin={acts.onPin} />
+      <Details>
+        <div className="flex flex-col gap-3">
+          <ReleaseDetails release={pick.release} />
+          {/* A client's long name truncates in the row's width rather than widening the row. */}
+          <div className="contain-inline-size">
+            <SendTo row={row} routedTo={pick.routed} acts={acts} />
           </div>
-        </Details>
-      </div>
-    </li>
+        </div>
+      </Details>
+    </ReleaseRow>
   );
 }
 

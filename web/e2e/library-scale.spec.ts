@@ -25,7 +25,7 @@ function watch() {
   document.addEventListener(
     "load",
     (event) => {
-      if (event.target instanceof HTMLImageElement && event.target.closest("[data-poster]")) {
+      if (event.target instanceof HTMLImageElement && event.target.closest("[data-art]")) {
         window.firstPoster ??= performance.now();
       }
     },

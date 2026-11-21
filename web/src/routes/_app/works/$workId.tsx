@@ -16,7 +16,7 @@ import { WorkPage } from "../../../works/page/work-page";
 export const Route = createFileRoute("/_app/works/$workId")({
   staticData: { title: loaderTitle },
   loader: ({ context, params: { workId } }) => loadWork(context.queryClient, workId),
-  pendingComponent: () => <Skeleton label="Loading the Work" />,
+  pendingComponent: () => <Skeleton label="Loading the Work" shape="hero" />,
   component: WorkRoute,
 });
 

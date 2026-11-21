@@ -213,12 +213,12 @@
 }
 
 .diagram [data-state="reconnecting"] .lamp-glow,
+.diagram [data-state="offline"] .lamp-glow,
 .diagram [data-state="mismatched"] .lamp-glow {
   opacity: 1;
   fill: var(--diagram-warn);
 }
 
-.diagram [data-state="offline"] .lamp-glow,
 .diagram [data-state="lapsed"] .lamp-glow {
   opacity: 1;
   fill: var(--diagram-fail);

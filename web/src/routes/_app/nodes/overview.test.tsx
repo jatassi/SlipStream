@@ -23,27 +23,24 @@ function dialServer() {
   return { sent, handler };
 }
 
-test("a Worker's Overview lists its name, Roles, key, pairing and who dials, then its own report and Remove", async () => {
+test("a Worker's Overview lists its name, key, pairing and who dials, then its own report and Remove", async () => {
   renderApp({ path: `/nodes/${ids.vps}`, handlers: [...threeNodes, ...systems] });
   await expect
     .poll(textOf(overview()))
     .toMatch(
-      /^OverviewNamevpsRenameRolesSearchingChange RolesKeySHA256:vps-keyPaired.+Connectionhome connects to vpsChange$/u,
+      /^OverviewNamevpsRenameKeySHA256:vps-keyPaired.+Connectionhome connects to vpsChange$/u,
     );
-  await expect
-    .element(overview().getByRole("link", { name: "Change Roles" }))
-    .toHaveAttribute("href", `/nodes/${ids.vps}/roles`);
   await expect.element(page.getByRole("region", { name: "System" })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Remove vps" })).toBeVisible();
 });
 
-test("an offline Worker's Overview says when it was last seen and what it found, and still removes it", async () => {
+test("an offline Worker's Overview says what it found, and still removes it", async () => {
   const server = manageServer({});
   const { router } = renderApp({
     path: `/nodes/${ids.seedbox}`,
     handlers: [...threeNodes, ...systems, ...server.handlers],
   });
-  await expect.poll(textOf(overview())).toMatch(/Last seen.+ConnectionNot connectedChange/u);
+  await expect.poll(textOf(overview())).toMatch(/ConnectionNot connectedChange/u);
   await expect
     .element(overview().getByRole("list", { name: "What seedbox found" }))
     .toHaveTextContent("Weak: The downloads folder is on a network share.");

@@ -1,21 +1,24 @@
 import type { ReconcilingPage, ReconcilingRestore } from "../api/gen/model";
-import { type Clock, pastAtWords, sinceWords } from "../format";
+import type { Clock } from "../ui/clock";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { Fact, Facts } from "../ui/facts";
+import { RelativeTime } from "../ui/relative-time";
 import { Term } from "../ui/term";
+import { whenWords } from "../ui/time-words";
 import { nextOf } from "./words";
 
-function RestoreDetails({ restore, since }: { restore: ReconcilingRestore; since: string }) {
+function RestoreDetails({ restore }: { restore: ReconcilingRestore }) {
   return (
     <Details>
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-meta">
-        <dt className="text-ink-3">Backup</dt>
-        <dd>
+      <Facts look="well">
+        <Fact label="Backup">
           <Data>{restore.backup}</Data>
-        </dd>
-        <dt className="text-ink-3">Reconciling since</dt>
-        <dd>{since}</dd>
-      </dl>
+        </Fact>
+        <Fact label="Reconciling since">
+          <RelativeTime at={restore.startedAt} form="clock" />
+        </Fact>
+      </Facts>
     </Details>
   );
 }
@@ -36,10 +39,10 @@ export function Lead({ page, clock }: { page: ReconcilingPage; clock: Clock }) {
     <div className="flex max-w-[64ch] flex-col gap-2">
       <p className="text-ink-1">
         SlipStream is <Term id="reconciling" /> after restoring the Backup taken{" "}
-        {pastAtWords(restore.takenAt, clock)}. Searches and removals wait until it finishes.
+        {whenWords(restore.takenAt, "at", clock)}. Searches and removals wait until it finishes.
       </p>
       <p className="text-ink-1">{nextOf(page, clock).sentence}</p>
-      <RestoreDetails restore={restore} since={sinceWords(restore.startedAt, clock)} />
+      <RestoreDetails restore={restore} />
     </div>
   );
 }

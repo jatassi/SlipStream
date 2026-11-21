@@ -3,12 +3,12 @@ import { useState } from "react";
 import { DialogActions } from "../account/dialog-actions";
 import type { Place } from "../roots/use-place";
 import { Page } from "../shell/page";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { List } from "../ui/list";
 import { FolderRow } from "./folder-row";
 import { useSave } from "./folder-save";
 import { type Row, leadOf, useRows, useStandings } from "./folder-standing";
+import { SignalLine } from "../ui/signal-line";
 
 /**
  * Finding the old Controller's folders: each library root at its old path
@@ -23,6 +23,7 @@ export function FoldersStep() {
   const { answers, busy, failure, save, forgetAnswer } = useSave(placeOf);
   const standings = useStandings(rows, placeOf, answers);
   const found = rows.filter((row) => standings.get(row.root.id)?.kind === "found");
+  const saves = found.map((row) => ({ row }));
   return (
     <Page>
       <div className="flex max-w-[760px] flex-col gap-4">
@@ -42,7 +43,11 @@ export function FoldersStep() {
             />
           ))}
         </List>
-        {failure !== undefined && <AlertLine text={failure} />}
+        {failure !== undefined && (
+          <SignalLine tone="fail" announce>
+            {failure}
+          </SignalLine>
+        )}
         <DialogActions>
           <Button disabled={busy} onClick={() => void save([], true)}>
             Later
@@ -51,12 +56,7 @@ export function FoldersStep() {
             look="primary"
             busy={busy}
             disabled={found.length === 0}
-            onClick={() =>
-              void save(
-                found.map((row) => ({ row })),
-                found.length === rows.length,
-              )
-            }
+            onClick={() => void save(saves, found.length === rows.length)}
           >
             Save all
           </Button>

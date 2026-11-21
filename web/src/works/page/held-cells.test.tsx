@@ -56,7 +56,7 @@ test("a downloading cell names the Node its file is sent from and the Import del
   await expect.element(cutRow()).toMatchTextContent(/Sending from seedbox/u);
   await expect
     .element(cutRow())
-    .toMatchTextContent(/Waiting for the import delay, until \d{1,2}:10(\s?[AP]M)?\./u);
+    .toMatchTextContent(/Waiting for the import delay, until (?:.+ at )?\d{1,2}:10(\s?[AP]M)?\./u);
 });
 
 test("a downloading cell whose file waits for the Admin says Waiting for you once, as the link to its Import", async () => {

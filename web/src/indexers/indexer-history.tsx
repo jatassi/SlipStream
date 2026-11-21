@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
 
 import type { GrabsGrab, IndexersQuery } from "../api/gen/model";
-import { clock } from "../format";
 import { stageWord } from "../grabs/stages";
 import { Data } from "../ui/data";
+import { Empty } from "../ui/empty";
+import { RelativeTime } from "../ui/relative-time";
 import { Section } from "../ui/section";
 import { outcomeWords, useWords } from "./words";
 
@@ -17,14 +18,16 @@ export function RecentQueries({ queries }: { queries: readonly IndexersQuery[] }
   return (
     <Section title="Recent queries" count={queries.length}>
       {queries.length === 0 ? (
-        <p className="text-ink-3">No searches, fetches or Tests yet.</p>
+        <Empty look="sheet">No searches, fetches or Tests yet.</Empty>
       ) : (
         <ul aria-label="Recent queries" className={listClass}>
           {queries.map((query) => (
             <li key={query.id} className={rowClass}>
               <span className="w-28 shrink-0 text-ink-3">{useWords[query.use]}</span>
               <span className="min-w-0 flex-1 basis-40 text-ink-1">{outcomeWords(query)}</span>
-              <Data className="shrink-0 text-ink-3">{clock(query.reservedAt)}</Data>
+              <span className="shrink-0 text-ink-3">
+                <RelativeTime at={query.reservedAt} form="clock" data />
+              </span>
             </li>
           ))}
         </ul>
@@ -38,7 +41,7 @@ export function RecentGrabs({ grabs }: { grabs: readonly GrabsGrab[] }) {
   return (
     <Section title="Recent grabs" count={grabs.length}>
       {grabs.length === 0 ? (
-        <p className="text-ink-3">No Grabs yet.</p>
+        <Empty look="sheet">No Grabs yet.</Empty>
       ) : (
         <ul aria-label="Recent grabs" className={listClass}>
           {grabs.map((grab) => (
@@ -51,7 +54,9 @@ export function RecentGrabs({ grabs }: { grabs: readonly GrabsGrab[] }) {
                 <Data>{grab.releaseTitle}</Data>
               </Link>
               <span className="w-28 shrink-0 text-ink-3">{stageWord[grab.stage]}</span>
-              <Data className="shrink-0 text-ink-3">{clock(grab.createdAt)}</Data>
+              <span className="shrink-0 text-ink-3">
+                <RelativeTime at={grab.createdAt} form="clock" data />
+              </span>
             </li>
           ))}
         </ul>

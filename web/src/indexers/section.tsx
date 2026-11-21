@@ -8,7 +8,7 @@ import {
 } from "../api/gen/query/nodes/nodes";
 import { ensureQuery } from "../api/query-client";
 import type { SettingsSection } from "../settings/section";
-import { Empty } from "../shell/empty";
+import { Empty } from "../ui/empty";
 import { Section } from "../ui/section";
 import { AddIndexerButton } from "./add/add-button";
 import { SectionTail, loadSectionTail } from "./section-tail";
@@ -30,7 +30,7 @@ function IndexersSection() {
       >
         <div className="flex flex-col gap-5">
           {indexers.length === 0 ? (
-            <Empty action={addIndexer}>
+            <Empty look="sheet" action={addIndexer}>
               No Indexers yet. Every search uses each Indexer added here that is on.
             </Empty>
           ) : (

@@ -81,7 +81,7 @@ test("while its unit runs, the line follows each step from progress frames, and 
 
   step({ key, phase: "listing", done: 1204, total: null });
   await expect.element(row.getByText("Listing files, 1,204 so far")).toBeVisible();
-  await expect.element(row.getByRole("meter")).not.toBeInTheDocument();
+  await expect.element(row.getByRole("progressbar")).not.toBeInTheDocument();
 
   step({ key, phase: "comparing", done: 0, total: 2014 });
   await expect.element(row.getByText("Comparing 2,014 files")).toBeVisible();
@@ -89,8 +89,8 @@ test("while its unit runs, the line follows each step from progress frames, and 
   step({ key, phase: "probing", done: 12, total: 40 });
   await expect.element(row.getByText("Reading media info, 12 of 40 files")).toBeVisible();
   await expect
-    .element(row.getByRole("meter", { name: "Reading media info, 12 of 40 files" }))
-    .toHaveAttribute("aria-valuenow", "12");
+    .element(row.getByRole("progressbar", { name: "Reading media info, 12 of 40 files" }))
+    .toHaveAttribute("aria-valuenow", "30");
 
   step({ key: `root:${archiveRoot.id}`, phase: "listing", done: 3, total: null });
   live.clients[0]?.send({

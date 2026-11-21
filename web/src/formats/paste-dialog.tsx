@@ -1,9 +1,9 @@
 import { DialogActions } from "../account/dialog-actions";
 import { useImpactSheet } from "../targets/impact-sheet";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { dataFont } from "../ui/data";
 import { Dialog } from "../ui/dialog";
+import { SignalLine } from "../ui/signal-line";
 import {
   type Previewed,
   type Step,
@@ -110,7 +110,11 @@ function PasteBody({ onDone }: { onDone: () => void }) {
           }}
         />
       )}
-      {problem !== undefined && <AlertLine text={problem} />}
+      {problem !== undefined && (
+        <SignalLine tone="fail" announce>
+          {problem}
+        </SignalLine>
+      )}
       <PasteActions
         step={step}
         busy={busy}

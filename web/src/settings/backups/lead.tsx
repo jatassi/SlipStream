@@ -4,7 +4,7 @@ import type {
   NodesNode,
   SettingField as Field,
 } from "../../api/gen/model";
-import type { Clock } from "../../format";
+import type { Clock } from "../../ui/clock";
 import { useAttempt } from "../../targets/attempt";
 import { Button } from "../../ui/button";
 import { AddDestinationButton } from "./add-destination";

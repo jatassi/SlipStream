@@ -3,11 +3,13 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { CreateSessionBody } from "../api/gen/zod/identity/identity.zod";
-import { clock } from "../format";
 import { readPref, writePref } from "../shell/prefs";
 import { ada, problem, signedOut } from "../test/handlers";
 import { renderApp } from "../test/render-app";
+import { whenWords } from "../ui/time-words";
 import { resize } from "../test/viewport";
+
+const own = () => ({ now: new Date(), zone: undefined });
 
 function adaServer() {
   let signedIn = false;
@@ -118,7 +120,7 @@ test.each([
         },
         { status: 429, headers: { "Content-Type": "application/problem+json" } },
       ),
-    `Too many failed sign-ins from this IP address. Try again at ${clock("2026-10-16T15:42:00Z")}.`,
+    `Too many failed sign-ins from this IP address. Try again ${whenWords("2026-10-16T15:42:00Z", "next", own())}.`,
   ],
 ])("%s says so", async (_case, answer, alert) => {
   renderApp({

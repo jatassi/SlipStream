@@ -7,7 +7,6 @@ import {
   useListHistorySuspense,
 } from "../api/gen/query/history/history";
 import { ensureQuery } from "../api/query-client";
-import { useNow } from "../tasks/use-now";
 import { Section } from "../ui/section";
 import { DayLists } from "./history-days";
 
@@ -19,7 +18,6 @@ export const loadWorkHistory = (queryClient: QueryClient, workId: string) =>
 /** A Work's ten newest History entries under their day's heading, and a link to all of them. */
 export function WorkHistory({ type, workId }: { type: WorksContentType; workId: string }) {
   const { entries } = useListHistorySuspense(workHistoryParams(workId)).data;
-  const now = useNow(60_000);
   return (
     <Section
       title="History"
@@ -36,7 +34,7 @@ export function WorkHistory({ type, workId }: { type: WorksContentType; workId: 
       {entries.length === 0 ? (
         <p className="text-ink-3">This {type.work.one.toLowerCase()} has no History entries yet.</p>
       ) : (
-        <DayLists entries={entries} now={now} poster={false} />
+        <DayLists entries={entries} poster={false} />
       )}
     </Section>
   );

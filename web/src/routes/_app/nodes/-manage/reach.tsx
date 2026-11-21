@@ -7,6 +7,7 @@ import { setNodeDial } from "../../../../api/gen/query/nodes/nodes";
 import { Button } from "../../../../ui/button";
 import { Dialog } from "../../../../ui/dialog";
 import { submitErrors, useAppForm } from "../../../../ui/form";
+import { SignalLine } from "../../../../ui/signal-line";
 
 const addressForm = z.object({ nodeAddress: z.string().trim().min(1, "Paste the Node address") });
 
@@ -90,9 +91,9 @@ function StopDialing({ node, controller, onChanged }: Omit<Props, "onClose">) {
         After this, {node.name} connects to {controller} itself.
       </p>
       {failure !== undefined && (
-        <p role="alert" className="text-fail-ink">
+        <SignalLine tone="fail" announce>
           {failure}
-        </p>
+        </SignalLine>
       )}
     </div>
   );

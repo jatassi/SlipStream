@@ -8,6 +8,7 @@ import { useCreateResetLink } from "../../../api/gen/query/identity/identity";
 import { Button } from "../../../ui/button";
 import { Checkbox } from "../../../ui/checkbox";
 import { Dialog, DialogClose } from "../../../ui/dialog";
+import { SignalLine } from "../../../ui/signal-line";
 
 function Issued({
   account,
@@ -31,8 +32,10 @@ function Issued({
 
 function Refusal({ message, addressUnset }: { message: string; addressUnset: boolean }) {
   return (
-    <div role="alert" className="flex flex-col items-start gap-2 text-fail-ink">
-      <p>{message}</p>
+    <div className="flex flex-col items-start gap-2">
+      <SignalLine tone="fail" announce>
+        {message}
+      </SignalLine>
       {addressUnset ? (
         <Button
           nativeButton={false}

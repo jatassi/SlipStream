@@ -3,11 +3,13 @@ import { useState } from "react";
 
 import type { IndexersIndexer, NodesNode } from "../api/gen/model";
 import { Button } from "../ui/button";
+import { SignalLine } from "../ui/signal-line";
 import { EditIndexerDialog } from "./edit-indexer";
 import { DeleteIndexerDialog } from "./delete-indexer";
 import { CaptchaField, CodeField } from "./fields/captcha";
 import { MoveIndexerDialog } from "./move-indexer";
 import { type TestForm, type TestResult, useIndexerTest } from "./test-indexer";
+// oxlint-disable-next-line import/max-dependencies -- an Indexer's actions open each of its dialogs and run its Test
 import { nodeName } from "./words";
 
 type Open = "edit" | "move" | "delete" | undefined;
@@ -19,9 +21,9 @@ function Result({ result }: { result: TestResult | undefined }) {
   return result.passed ? (
     <output className="text-ink-2">{result.words}</output>
   ) : (
-    <p role="alert" className="text-fail-ink">
+    <SignalLine tone="fail" announce>
       {result.words}
-    </p>
+    </SignalLine>
   );
 }
 

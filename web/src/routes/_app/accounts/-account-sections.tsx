@@ -1,11 +1,11 @@
-import type { ReactNode } from "react";
-
 import { pinSentence } from "../../../accounts/pin-state";
 import type { IdentityAccountDetail } from "../../../api/gen/model";
-import { clock } from "../../../format";
-import { Empty } from "../../../shell/empty";
 import { Button } from "../../../ui/button";
+import { useClock } from "../../../ui/clock";
+import { Empty } from "../../../ui/empty";
+import { Fact, Facts } from "../../../ui/facts";
 import { List, ListRow } from "../../../ui/list";
+import { RelativeTime } from "../../../ui/relative-time";
 import { Section } from "../../../ui/section";
 import type { Asking } from "./-confirmations";
 
@@ -35,57 +35,45 @@ function AskButton({
   );
 }
 
-const Fact = ({ term, value, action }: { term: string; value: string; action?: ReactNode }) => (
-  <ListRow title={value} meta={term} trailing={action} />
-);
-
 function Profile({ detail: { account }, onAsk }: Props) {
+  const ask = (asking: Asking, label: string) => ({
+    label,
+    onClick: () => {
+      onAsk(asking);
+    },
+  });
   return (
     <Section title="Profile">
-      <List label="Profile">
-        <Fact term="Name" value={account.displayName} />
-        <Fact
-          term="Email"
-          value={account.email}
-          action={<AskButton asking="email" label="Change email" onAsk={onAsk} />}
-        />
-        <Fact
-          term="Role"
-          value={account.admin ? "Admin" : "Member"}
-          action={
-            <AskButton
-              asking="role"
-              label={account.admin ? "Make Member" : "Make Admin"}
-              onAsk={onAsk}
-            />
-          }
-        />
-        <Fact
-          term="Sign-in"
-          value={account.disabled ? "Turned off" : "On"}
-          action={
-            <AskButton
-              asking="access"
-              label={account.disabled ? "Turn on" : "Turn off"}
-              onAsk={onAsk}
-            />
-          }
-        />
-        <Fact
-          term="Last sign-in"
-          value={account.lastSignInAt === undefined ? "Never" : clock(account.lastSignInAt)}
-        />
-      </List>
+      <Facts look="sheet">
+        <Fact label="Name">{account.displayName}</Fact>
+        <Fact label="Email" action={ask("email", "Change email")}>
+          {account.email}
+        </Fact>
+        <Fact label="Role" action={ask("role", account.admin ? "Make Member" : "Make Admin")}>
+          {account.admin ? "Admin" : "Member"}
+        </Fact>
+        <Fact label="Sign-in" action={ask("access", account.disabled ? "Turn on" : "Turn off")}>
+          {account.disabled ? "Turned off" : "On"}
+        </Fact>
+        <Fact label="Last sign-in">
+          {account.lastSignInAt === undefined ? (
+            "Never"
+          ) : (
+            <RelativeTime at={account.lastSignInAt} form="age" />
+          )}
+        </Fact>
+      </Facts>
     </Section>
   );
 }
 
 function Pin({ detail: { account }, onAsk }: Props) {
+  const clock = useClock();
   return (
     <Section title="PIN">
       <List label="PIN">
         <ListRow
-          title={pinSentence(account.pin)}
+          title={pinSentence(account.pin, clock)}
           trailing={<AskButton asking="reset" label="Send a Reset link" onAsk={onAsk} />}
         />
       </List>
@@ -97,14 +85,24 @@ function Passkeys({ detail: { passkeys } }: Props) {
   return (
     <Section title="Passkeys" count={passkeys.length}>
       {passkeys.length === 0 ? (
-        <Empty>No passkeys. This Account signs in with its PIN.</Empty>
+        <Empty look="sheet">No passkeys. This Account signs in with its PIN.</Empty>
       ) : (
         <List label="Passkeys">
           {passkeys.map((passkey) => (
             <ListRow
               key={passkey.id}
               title={passkey.name}
-              meta={`${passkey.host} · Added ${clock(passkey.createdAt)}${passkey.lastUsedAt === undefined ? "" : ` · Last used ${clock(passkey.lastUsedAt)}`}`}
+              meta={
+                <>
+                  {passkey.host} · Added <RelativeTime at={passkey.createdAt} form="clock" />
+                  {passkey.lastUsedAt !== undefined && (
+                    <>
+                      {" · Last used "}
+                      <RelativeTime at={passkey.lastUsedAt} form="age" />
+                    </>
+                  )}
+                </>
+              }
             />
           ))}
         </List>
@@ -117,7 +115,7 @@ function Sessions({ detail: { sessions }, onAsk }: Props) {
   return (
     <Section title="Sessions" count={sessions.length}>
       {sessions.length === 0 ? (
-        <Empty>Not signed in anywhere.</Empty>
+        <Empty look="sheet">Not signed in anywhere.</Empty>
       ) : (
         <div className="flex flex-col items-start gap-3">
           <div className="w-full">
@@ -126,7 +124,12 @@ function Sessions({ detail: { sessions }, onAsk }: Props) {
                 <ListRow
                   key={session.id}
                   title={session.device}
-                  meta={`${session.address} · Last seen ${clock(session.lastSeenAt)}`}
+                  meta={
+                    <>
+                      {session.address} · Last seen{" "}
+                      <RelativeTime at={session.lastSeenAt} form="age" />
+                    </>
+                  }
                   trailing={session.current ? "This device" : undefined}
                 />
               ))}

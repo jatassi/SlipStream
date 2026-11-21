@@ -22,6 +22,7 @@ import { Button } from "../ui/button";
 // oxlint-disable-next-line import/max-dependencies -- the sheet picks a Node's folder, opens its Imports and acts on their files
 import { Dialog } from "../ui/dialog";
 import { Select } from "../ui/select";
+import { SignalLine } from "../ui/signal-line";
 import { Skeleton } from "../ui/skeleton";
 import { Switch } from "../ui/switch";
 import { toast } from "../ui/toast";
@@ -104,9 +105,9 @@ function FolderStep({ onOpened }: { onOpened: (opened: Opened) => void }) {
         />
       )}
       {failure !== undefined && (
-        <p role="alert" className="text-fail-ink">
+        <SignalLine tone="fail" announce>
           {failure}
-        </p>
+        </SignalLine>
       )}
       <div className="flex justify-end">
         <Button
@@ -260,7 +261,7 @@ export function ImportFilesSheet({
         }
       }}
     >
-      <Suspense fallback={<Skeleton label="Loading the files" />}>
+      <Suspense fallback={<Skeleton label="Loading the files" shape="rows" lines={2} />}>
         {opened === undefined ? (
           <FolderStep onOpened={setOpened} />
         ) : (

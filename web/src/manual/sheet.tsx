@@ -5,12 +5,12 @@ import { DialogActions } from "../account/dialog-actions";
 import { sentenceOf } from "../api/errors";
 import type { GrabsPinned } from "../api/gen/model";
 import { getGetManualSearchQueryKey, getManualSearch } from "../api/gen/query/grabs/grabs";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { useShell } from "../ui/shell-context";
-// oxlint-disable-next-line import/max-dependencies -- the sheet starts, reads and frames one Manual search on either shell
 import { Sheet } from "../ui/sheet";
+// oxlint-disable-next-line import/max-dependencies -- the sheet starts, reads and frames one Manual search on either shell
+import { SignalLine } from "../ui/signal-line";
 import { Skeleton } from "../ui/skeleton";
 import { ManualBody } from "./body";
 import { type ManualOpening, closeManualSearch, useManualSheet } from "./sheet-state";
@@ -20,7 +20,9 @@ const reading = "Loading the Manual search";
 function Refused({ sentence }: { sentence: string }) {
   return (
     <div className="flex flex-col gap-4">
-      <AlertLine text={sentence} />
+      <SignalLine tone="fail" announce>
+        {sentence}
+      </SignalLine>
       <DialogActions>
         <Button onClick={closeManualSearch}>Close</Button>
       </DialogActions>
@@ -60,7 +62,7 @@ function Opened({
     return <Refused sentence={sentenceOf(search.error)} />;
   }
   if (search.data === undefined) {
-    return <Skeleton label={reading} />;
+    return <Skeleton label={reading} shape="rows" lines={2} />;
   }
   return (
     <ManualBody

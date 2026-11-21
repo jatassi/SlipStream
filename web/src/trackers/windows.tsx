@@ -8,8 +8,7 @@ import {
   getListTrackerWindowsSuspenseQueryOptions,
   listTrackerWindows,
 } from "../api/gen/query/trackers/trackers";
-import type { Clock } from "../format";
-import { useNow } from "../tasks/use-now";
+import { useClock } from "../ui/clock";
 import { useLanes } from "./window-lanes";
 import { WindowList } from "./window-list";
 import { asEnded } from "./window-words";
@@ -51,11 +50,9 @@ function usePages(trackerId: string, list: ListTrackerWindowsList) {
   };
 }
 
-const wordsTick = 60_000;
-
 /** A Tracker's open windows with what each still owes, then its met, missed and released ones. */
 export function Windows({ trackerId, name }: { trackerId: string; name: string }) {
-  const clock: Clock = { now: useNow(wordsTick), zone: undefined };
+  const clock = useClock();
   const open = usePages(trackerId, "open");
   const history = usePages(trackerId, "history");
   const lanes = useLanes();

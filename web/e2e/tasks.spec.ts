@@ -22,7 +22,7 @@ const seedboxUnit = (page: Page) =>
     .getByRole("table", { name: "Units" })
     .getByRole("row", { name: /Local database on seedbox/u });
 
-const progress = /home, seedbox · \d+ of 13 steps/u;
+const progress = /\d+ of 13 stepshome, seedbox/u;
 
 async function slowSeedbox(world: World): Promise<() => Promise<unknown>> {
   await world.fw.fault.set({ id: "slow-link", target: "link/home", fault: "latency=4s" });
@@ -35,7 +35,7 @@ test("Tasks shows Housekeeping in the Controller group with its cadence, next ru
   await navigate(page, "Tasks");
   await expect(page.getByRole("heading", { level: 2, name: "Controller" })).toBeVisible();
   const row = housekeepingRow(page);
-  await expect(row).toContainText(/(Tonight|Tomorrow) at 04:00/u);
+  await expect(row).toContainText(/(Tonight|Tomorrow) at (?:4:00 AM|04:00)/u);
   if (isPhone(page)) {
     return;
   }
@@ -103,7 +103,7 @@ test("with seedbox stopped Run now is Partial, and its return runs seedbox's uni
   await expect(runs(page).first()).toContainText(/^Succeeded1 stepNode returned/u, {
     timeout: 60_000,
   });
-  await expect(seedboxUnit(page)).toContainText(/Succeeded\d\d:\d\d/u);
+  await expect(seedboxUnit(page)).toContainText(/Succeeded\d{1,2}:\d{2}/u);
   await runs(page).first().getByRole("button").click();
   await expect(runs(page).first().getByRole("list", { name: "Units in this run" })).toHaveText(
     "Local database on seedboxseedboxSucceeded",
@@ -143,7 +143,7 @@ test("a cadence set on one surface reads on the other, and Reset brings back dai
   await expect(when).toContainText("Daily in the Maintenance window");
   await expect(when.getByRole("textbox", { name: "Runs every" })).toHaveValue("1");
   await expect(when.getByText("day", { exact: true })).toBeVisible();
-  await expect(housekeepingRow(page)).toContainText(/(Tonight|Tomorrow) at 04:00/u);
+  await expect(housekeepingRow(page)).toContainText(/(Tonight|Tomorrow) at (?:4:00 AM|04:00)/u);
 });
 
 const Schedule = z.object({ window: z.object({ zone: z.string() }) });
@@ -162,5 +162,5 @@ test("a Maintenance window of 01:00 to 03:00 shows its zone and moves Housekeepi
   await expect(window.getByRole("button", { name: "Save" })).toHaveCount(0);
   await expect(window.getByLabel("From")).toHaveValue("01:00");
   await expect(window).toContainText(zone);
-  await expect(housekeepingRow(page)).toContainText(/at 01:00/u);
+  await expect(housekeepingRow(page)).toContainText(/at (?:1:00 AM|01:00)/u);
 });

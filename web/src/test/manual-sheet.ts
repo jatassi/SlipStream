@@ -14,18 +14,17 @@ export const routedWords = "Tracker routing sends it to qBittorrent on Den.";
 
 export const rowOf = (
   key: string,
-  words: string,
+  group: string,
   n: number,
   choices: GrabsPlanRow["choices"] = [],
 ) => ({
   key,
   pick: {
     cells: [key],
-    release: release(
-      `${runId}.${n}`,
-      `Shelf.S01E0${n}.1080p.WEB-DL-${words}`,
-      `WEBDL-1080p · ${words}`,
-    ),
+    release: release(`${runId}.${n}`, `Shelf.S01E0${n}.1080p.WEB-DL-${group}`, {
+      quality: "webdl-1080p",
+      group,
+    }),
     lifts: [],
     edition: null,
     routed: "qBittorrent on Den",
@@ -35,11 +34,10 @@ export const rowOf = (
   choices,
 });
 
-export const swapIn = release(
-  `${runId}.9`,
-  "Shelf.S01E02.1080p.WEBRip-RARBG",
-  "WEBRip-1080p · RARBG",
-);
+export const swapIn = release(`${runId}.9`, "Shelf.S01E02.1080p.WEBRip-RARBG", {
+  quality: "webrip-1080p",
+  group: "RARBG",
+});
 
 /** A season's plan of two Grabs, E01 by NTb and E02 by FLUX, whose second row has one other choice. */
 export const twoGrabs = (pins: readonly string[]): GrabsManualSearch => {

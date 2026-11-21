@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
-import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
+import { SignalLine } from "../../ui/signal-line";
 import { alreadySetUpSentence } from "./join-sentences";
 
 /** A refusal's sentence with the one way on that it offers. */
@@ -16,7 +16,9 @@ export function Refusal({
 }) {
   return (
     <div className="flex flex-col items-start gap-3">
-      <AlertLine text={text} />
+      <SignalLine tone="fail" announce>
+        {text}
+      </SignalLine>
       <Button onClick={onAction}>{action}</Button>
     </div>
   );
@@ -25,7 +27,9 @@ export function Refusal({
 export function AlreadySetUp() {
   return (
     <div className="flex flex-col items-start gap-3">
-      <AlertLine text={alreadySetUpSentence} />
+      <SignalLine tone="fail" announce>
+        {alreadySetUpSentence}
+      </SignalLine>
       <Button nativeButton={false} render={<Link to="/sign-in" />}>
         Sign in
       </Button>

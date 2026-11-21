@@ -1,12 +1,14 @@
 import type { BackupsPassphraseState } from "../../api/gen/model";
 import { saveBackupPassphrase } from "../../api/gen/query/backups/backups";
-import { dateOf } from "../../format";
 import { useAttempt } from "../../targets/attempt";
 import { Button } from "../../ui/button";
+import type { Clock } from "../../ui/clock";
 import { ReadOnlyField } from "../../ui/read-only-field";
 import { Section } from "../../ui/section";
+import { whenWords } from "../../ui/time-words";
 import { downloadSheet } from "./downloads";
 import { ReplaceButton } from "./passphrase-replace";
+// oxlint-disable-next-line import/max-dependencies -- the section shows, saves, replaces and downloads the passphrase and says when it was saved
 import { ShowButton, useShownPassphrase } from "./passphrase-show";
 
 export const passphraseAbout =
@@ -21,12 +23,18 @@ export function ShownPassphrase({ passphrase }: { passphrase: string }) {
   );
 }
 
-const savedWords = (state: BackupsPassphraseState) =>
+const savedWords = (state: BackupsPassphraseState, clock: Clock) =>
   state.savedAt === null
     ? "You haven't confirmed that you saved this passphrase."
-    : `You confirmed that you saved this passphrase on ${dateOf(state.savedAt)}.`;
+    : `You confirmed that you saved this passphrase ${whenWords(state.savedAt, "on", clock)}.`;
 
-export function PassphraseSection({ state }: { state: BackupsPassphraseState }) {
+export function PassphraseSection({
+  state,
+  clock,
+}: {
+  state: BackupsPassphraseState;
+  clock: Clock;
+}) {
   const passphrase = useShownPassphrase();
   const { shown } = passphrase;
   const download = useAttempt(downloadSheet);
@@ -34,7 +42,7 @@ export function PassphraseSection({ state }: { state: BackupsPassphraseState }) 
   return (
     <Section title="Backup passphrase">
       <div className="flex flex-col items-start gap-3">
-        <p className="text-ink-2">{savedWords(state)}</p>
+        <p className="text-ink-2">{savedWords(state, clock)}</p>
         {shown !== undefined && (
           <div className="self-stretch">
             <ShownPassphrase passphrase={shown} />

@@ -7,21 +7,19 @@ import type {
   GrabsGrab,
   GrabsStopped,
 } from "../../api/gen/model";
-import { clock } from "../../format";
 import { GrabFailure } from "../../grabs/failure-cards";
 import { stoppedWords } from "../../grabs/search-words";
 import { type FailedGrab, isFailed, trackStage } from "../../grabs/stages";
-import { useNow } from "../../tasks/use-now";
+import { useClock } from "../../ui/clock";
 import { Section } from "../../ui/section";
 import { SignalRow } from "../../ui/signal-row";
 import { stageLabel } from "../../ui/stage-track";
 import { NoRoot, NotFound, Upgrades } from "./need-rows";
-// oxlint-disable-next-line import/max-dependencies -- Needs you lists every kind of need, a stopped cell's card included
 import { type FailedEntry, type Naming, failedKey, failedWords } from "./need-words";
+// oxlint-disable-next-line import/max-dependencies -- Needs you lists every kind of need, a stopped cell's card included
 import { Waiting } from "./waiting";
 
 const cardsShown = 3;
-const wordsTick = 30_000;
 
 function Failed({
   naming,
@@ -37,7 +35,7 @@ function Failed({
   card: boolean;
 }) {
   const subject = failedWords(naming, need, grab);
-  const now = useNow(wordsTick);
+  const clock = useClock();
   if (card) {
     return (
       <GrabFailure
@@ -60,9 +58,9 @@ function Failed({
           ? recovery === null
             ? cause
             : `${cause} ${recovery}`
-          : `${cause} ${stoppedWords(stop, { now, zone: undefined })}`
+          : `${cause} ${stoppedWords(stop, clock)}`
       }
-      time={clock(grab.history.at(-1)?.at ?? grab.createdAt)}
+      at={grab.history.at(-1)?.at ?? grab.createdAt}
     >
       <p className="text-fail-dim">{grab.failure.message}</p>
     </SignalRow>

@@ -1,5 +1,6 @@
 import type { BackupsCheck, BackupsDestination } from "../../api/gen/model";
-import { type Clock, sinceWords } from "../../format";
+import type { Clock } from "../../ui/clock";
+import { whenWords } from "../../ui/time-words";
 
 const checkWords: {
   readonly [R in BackupsCheck["result"]]: (
@@ -9,7 +10,7 @@ const checkWords: {
   ) => string;
 } = {
   ok: (check, _node, clock) =>
-    check.at === null ? "checked" : `checked ${sinceWords(check.at, clock)}`,
+    check.at === null ? "checked" : `checked ${whenWords(check.at, "at", clock)}`,
   asked: (_check, node) => `its check waits for ${node}`,
   none: () => "not checked yet",
   no_local_file: () => "it can't be checked, because this machine no longer has that Backup's file",
@@ -28,7 +29,7 @@ export function destinationWords(destination: BackupsDestination, node: string, 
   const lead =
     newest === null
       ? "No copy yet."
-      : `Newest copy ${sinceWords(newest.copiedAt, clock)}, ${checkWords[newest.check.result](newest.check, node, clock)}.`;
+      : `Newest copy ${whenWords(newest.copiedAt, "at", clock)}, ${checkWords[newest.check.result](newest.check, node, clock)}.`;
   const waiting = copies.waiting + copies.copying;
   const more = [
     ...(waiting > 0 ? [`${counted(waiting, "Backup waits", "Backups wait")} to copy`] : []),

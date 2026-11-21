@@ -1,7 +1,6 @@
 import { useGetReconcilingSuspense } from "../api/gen/query/reconciling/reconciling";
-import type { Clock } from "../format";
 import { Page } from "../shell/page";
-import { useNow } from "../tasks/use-now";
+import { useClock } from "../ui/clock";
 import { FinishNow } from "./finish-now";
 import { Lead } from "./lead";
 import { NodesSection } from "./page-nodes";
@@ -15,7 +14,7 @@ import { UnknownSection } from "./page-unknown";
  */
 export function ReconcilingPage() {
   const page = useGetReconcilingSuspense().data;
-  const clock: Clock = { now: useNow(60_000), zone: undefined };
+  const clock = useClock();
   return (
     <Page action={page.restore === null ? undefined : <FinishNow page={page} />}>
       <div className="mb-6">

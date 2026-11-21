@@ -3,23 +3,14 @@ import type { ReactElement } from "react";
 import { Button } from "../../../../ui/button";
 import { Chip } from "../../../../ui/chip";
 import { dataFont } from "../../../../ui/data";
+import { Fact, Facts } from "../../../../ui/facts";
+import { PlainTime } from "../../../../ui/relative-time";
 import { SignalChip } from "../../../../ui/signal-chip";
 import { toast } from "../../../../ui/toast";
 import type { Level, LogRow } from "./buffer";
 
 type Line = Extract<LogRow, { kind: "line" }>;
 type Divider = Extract<LogRow, { kind: "divider" }>;
-
-const pad = (value: number, width = 2) => String(value).padStart(width, "0");
-
-const secondsOf = (date: Date) =>
-  `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-
-/** A record's time in the browser's zone, as HH:MM:SS.mmm. */
-export const clockOf = (iso: string): string => {
-  const date = new Date(iso);
-  return `${secondsOf(date)}.${pad(date.getMilliseconds(), 3)}`;
-};
 
 const levels: { readonly [L in Level]: ReactElement } = {
   error: <SignalChip kind="fail">Error</SignalChip>,
@@ -49,14 +40,13 @@ async function copyLine(line: Line) {
 function Attributes({ line }: { line: Line }) {
   return (
     <div className="flex flex-col items-start gap-2 px-3 pt-1 pb-3">
-      <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1">
+      <Facts look="inline">
         {Object.entries(line.attrs).map(([key, value]) => (
-          <div key={key} className="contents">
-            <dt className="text-ink-3">{key}</dt>
-            <dd className="break-words text-ink-1">{valueText(value)}</dd>
-          </div>
+          <Fact key={key} label={key}>
+            {valueText(value)}
+          </Fact>
         ))}
-      </dl>
+      </Facts>
       {window.isSecureContext && (
         <Button
           size="small"
@@ -88,9 +78,9 @@ function LogLine({
         onClick={onToggle}
         className="flex w-full items-center gap-3 px-3 py-1 text-left outline-none hover:bg-fill-hover focus-visible:bg-fill-hover"
       >
-        <time dateTime={line.time} className="shrink-0 text-ink-3">
-          {clockOf(line.time)}
-        </time>
+        <span className="shrink-0 text-ink-3">
+          <PlainTime at={line.time} form="stamp" />
+        </span>
         {levels[line.level]}
         <span className="shrink-0 text-ink-2">{line.subsystem}</span>
         <span className="min-w-0 flex-1 truncate text-ink-1">{line.msg}</span>
@@ -100,10 +90,15 @@ function LogLine({
   );
 }
 
-const dividerWords = (divider: Divider) =>
-  divider.reason === "restarted"
-    ? `SlipStream restarted at ${secondsOf(new Date(divider.at))}`
-    : "Some lines were skipped";
+function DividerWords({ divider }: { divider: Divider }) {
+  return divider.reason === "restarted" ? (
+    <>
+      SlipStream restarted at <PlainTime at={divider.at} form="stamp" />
+    </>
+  ) : (
+    "Some lines were skipped"
+  );
+}
 
 /**
  * A row of the log. The whole row sets in Mono, the one container that does,
@@ -124,7 +119,7 @@ export function LogRowView({
         <LogLine line={row} expanded={expanded} onToggle={onToggle} />
       ) : (
         <p className="flex items-center gap-3 px-3 py-2 text-ink-2 before:h-px before:flex-1 before:bg-hairline after:h-px after:flex-1 after:bg-hairline">
-          {dividerWords(row)}
+          <DividerWords divider={row} />
         </p>
       )}
     </div>

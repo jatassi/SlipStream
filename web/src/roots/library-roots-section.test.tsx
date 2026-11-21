@@ -26,8 +26,8 @@ test("Library roots lists each Content Type's roots with the default, the Node, 
   openRoots();
   await expect.element(page.getByRole("heading", { name: "Films 2", level: 2 })).toBeVisible();
   expect(rowTexts("Films roots")).toEqual([
-    "/srv/media/filmsDefaultNot scanned yet.onlinehome1.2 TB free12 Films, 910 GB",
-    "/mnt/archive/filmsThe folder is there but looks unmountedNot scanned yet.onlinehomeFree space not read yet3 Films, 0 bytes",
+    "/srv/media/filmsDefaultNot scanned yet.Onlinehome1.2 TB free12 Films, 910 GB",
+    "/mnt/archive/filmsThe folder is there but looks unmountedNot scanned yet.OnlinehomeFree space not read yet3 Films, 0 bytes",
   ]);
   await expect.element(page.getByRole("heading", { name: "Zines 0", level: 2 })).toBeVisible();
   await expect.element(page.getByText("Add a library root to hold Zines.")).toBeVisible();

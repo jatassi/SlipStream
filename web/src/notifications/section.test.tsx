@@ -1,10 +1,10 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { sinceWords } from "../format";
 import { events, failing, family, hook, recommendedEvents } from "../test/notifications";
 import { notificationsWorld } from "../test/notification-writes";
 import { renderApp } from "../test/render-app";
+import { whenWords } from "../ui/time-words";
 
 const path = "/settings/notifications";
 
@@ -43,13 +43,13 @@ test("a healthy connection's section counts it and its row says nothing was sent
 
 test("a failing connection's section names it with the time it started failing", async () => {
   const since = new Date(Date.now() - 60_000).toISOString();
-  const at = sinceWords(since, { now: new Date(), zone: undefined });
+  const at = whenWords(since, "since", { now: new Date(), zone: undefined });
   const world = notificationsWorld({ start: [failing(family, since), hook] });
   renderApp({ path, handlers: world.handlers });
   await expect
     .element(
       page.getByText(
-        `2 connections send notifications. Messages to Discord 'Family' have failed since ${at}.`,
+        `2 connections send notifications. Messages to Discord 'Family' have failed ${at}.`,
       ),
     )
     .toBeVisible();
@@ -57,9 +57,7 @@ test("a failing connection's section names it with the time it started failing",
     .element(
       page
         .getByRole("listitem", { name: "Family" })
-        .getByText(
-          `Failing since ${at}. Discord didn't respond. SlipStream retries automatically.`,
-        ),
+        .getByText(`Failing ${at}. Discord didn't respond. SlipStream retries automatically.`),
     )
     .toBeVisible();
 });

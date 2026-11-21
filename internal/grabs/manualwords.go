@@ -607,7 +607,7 @@ func (s sheet) details(rs runSheet, g int) ReleaseDetails {
 	a := rs.as[g]
 	r := a.Release
 	d := ReleaseDetails{
-		Ref: ReleaseRef{Run: rs.run.ID, Position: a.at}, Title: r.Title, Words: release.Describe(a.read), Size: r.Size,
+		Ref: ReleaseRef{Run: rs.run.ID, Position: a.at}, Title: r.Title, Summary: release.Summarize(a.read), Size: r.Size,
 		Published: r.Published, Seeders: r.Seeders, Freeleech: r.Factors.Download == 0, Formats: a.formats.Matched,
 		Indexers: []string{rs.heard[a.at]}, Verdicts: rs.verdicts(g), LostAt: rs.lostAt(g),
 	}

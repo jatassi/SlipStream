@@ -8,6 +8,7 @@ import {
   restore,
   seedboxRow,
 } from "../test/reconciling";
+import { whenWords } from "../ui/time-words";
 import { finishWords, nextOf, nodeState, theseWords } from "./words";
 
 const clock = { now: new Date("2026-11-21T09:00:00Z"), zone: "UTC" };
@@ -39,8 +40,7 @@ test("when only Nodes offline past the grace are left, it recommends continuing 
   });
   expect(nextOf(page, clock)).toEqual({
     kind: "offline",
-    sentence:
-      "SlipStream is waiting only for laptop, which has been offline since Nov 10, 08:30. Continue without it so searches start again.",
+    sentence: `SlipStream is waiting only for laptop, which has been offline ${whenWords(laptop.linkSince, "since", clock)}. Continue without it so searches start again.`,
     nodes: [laptop],
   });
 });

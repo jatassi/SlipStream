@@ -185,10 +185,9 @@ type Pin struct {
 
 // ReleaseDetails is one Release with its facts and its verdicts in words.
 type ReleaseDetails struct {
-	Ref   ReleaseRef
-	Title string
-	// Words is the Release in words, as release.Describe writes it.
-	Words string
+	Ref     ReleaseRef
+	Title   string
+	Summary release.Summary
 	// Indexers is the Indexers that listed it, by priority.
 	Indexers []string
 	Tracker  string
@@ -297,7 +296,7 @@ func (gr *Grabs) manualInput(ctx context.Context, r storage.Reader[file], work w
 	typ := in.tree.ContentType
 	in.nouns, _ = gr.cfg.Works.Describe(typ)
 	names := gr.cfg.Names[typ]
-	in.describe = func(title string, size int64) string { return releaseWordsOf(title, size, names) }
+	in.describe = func(title string, size int64) string { return releaseSummaryOf(title, size, names).Words() }
 	in.line = func(o *indexers.Outcome) string { return gr.cfg.Indexers.Line(typ, o) }
 	in.clock = gr.cfg.Indexers.Clock
 	var scope storedScope

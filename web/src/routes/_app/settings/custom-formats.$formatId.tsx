@@ -10,9 +10,8 @@ import {
 } from "../../../api/gen/query/formats/formats";
 import { ensureQuery, freshQuery } from "../../../api/query-client";
 import { SavedFormatEditor } from "../../../formats/format-pages";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
-import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/settings/custom-formats/$formatId")({
   staticData: { title: loaderTitle },
@@ -30,7 +29,7 @@ export const Route = createFileRoute("/_app/settings/custom-formats/$formatId")(
       ],
     };
   },
-  pendingComponent: () => <Skeleton label="Loading the Custom Format" />,
+  pendingComponent: () => <PagePending label="Loading the Custom Format" shape="form" />,
   component: FormatPage,
 });
 

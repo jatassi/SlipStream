@@ -5,15 +5,12 @@ import type {
   MediaserversServerView as Server,
 } from "../../api/gen/model";
 import { countWords } from "../../format";
-import { Empty } from "../../shell/empty";
-import { useNow } from "../../tasks/use-now";
 import { Button } from "../../ui/button";
+import { Empty } from "../../ui/empty";
 import { List } from "../../ui/list";
-import { SignalLine } from "../lines";
+import { SignalLine } from "../../ui/signal-line";
 import { ChangeRow, standingOf } from "./change-row";
 import { changesQuery } from "./changes-query";
-
-const minute = 60_000;
 
 const noun = { one: "change", many: "changes" };
 
@@ -27,10 +24,7 @@ function Summary({ server, changes }: { server: Server; changes: readonly Change
   if (failing > 0) {
     const more = waiting === 0 ? "" : ` ${waiting} more ${are(waiting)} waiting.`;
     return (
-      <SignalLine
-        level="fail"
-        text={`${countWords(failing, noun)} couldn't be sent to ${server.name}. SlipStream retries automatically.${more}`}
-      />
+      <SignalLine tone="fail">{`${countWords(failing, noun)} couldn't be sent to ${server.name}. SlipStream retries automatically.${more}`}</SignalLine>
     );
   }
   if (waiting > 0) {
@@ -40,7 +34,7 @@ function Summary({ server, changes }: { server: Server; changes: readonly Change
       </p>
     );
   }
-  return <SignalLine level="ok" text={`Every recent change reached ${server.name}.`} />;
+  return <SignalLine tone="ok">{`Every recent change reached ${server.name}.`}</SignalLine>;
 }
 
 /** The server's recent changes: what each sent or waits for, and what a rename couldn't carry. */
@@ -48,11 +42,10 @@ export function ChangesTab({ server }: { server: Server }) {
   const { data, hasNextPage, fetchNextPage, isFetchingNextPage } = useSuspenseInfiniteQuery(
     changesQuery(server.id),
   );
-  const now = useNow(minute);
   const changes = data.pages.flatMap((page) => page.changes);
   if (changes.length === 0) {
     return (
-      <Empty>
+      <Empty look="sheet">
         {`No changes yet. SlipStream sends ${server.name} a change each time a file in a mapped root is added, replaced, renamed or removed.`}
       </Empty>
     );
@@ -62,7 +55,7 @@ export function ChangesTab({ server }: { server: Server }) {
       <Summary server={server} changes={changes} />
       <List label={`Changes on ${server.name}`}>
         {changes.map((change) => (
-          <ChangeRow key={change.id} change={change} now={now} />
+          <ChangeRow key={change.id} change={change} />
         ))}
       </List>
       {hasNextPage && (

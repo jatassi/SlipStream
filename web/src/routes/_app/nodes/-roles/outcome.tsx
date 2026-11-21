@@ -1,5 +1,6 @@
 import type { NodesCheck, NodesOutcome } from "../../../../api/gen/model";
 import { type Signal, SignalChip } from "../../../../ui/signal-chip";
+import { SignalLine } from "../../../../ui/signal-line";
 
 const staleWords =
   "Someone changed Roles while this was open. The list below shows your change against the current Roles.";
@@ -13,7 +14,7 @@ const checkSignals: { readonly [V in NodesCheck["verdict"]]: { signal: Signal; c
 export function Planned({ outcome, stale }: { outcome: NodesOutcome; stale: boolean }) {
   return (
     <>
-      {stale && <p className="font-semibold text-warn-ink">{staleWords}</p>}
+      {stale && <SignalLine tone="warn">{staleWords}</SignalLine>}
       {outcome.effects.length === 0 ? (
         <p className="text-ink-2">Nothing changes.</p>
       ) : (

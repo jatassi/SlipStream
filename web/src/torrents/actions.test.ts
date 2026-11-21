@@ -160,7 +160,7 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     "a tracker's window says when it accepts",
     { code: "window", acceptsAt: "2026-10-20T14:32:00Z" },
     "announce",
-    "A tracker of The Quiet Orchard won't accept another announce until 14:32.",
+    "A tracker of The Quiet Orchard won't accept another announce until 2:32 PM.",
   ],
   [
     "an offline Node says it waits",

@@ -7,7 +7,7 @@ import { Button } from "../ui/button";
 import { Details } from "../ui/details";
 import { useAppForm } from "../ui/form";
 import { submitErrors } from "../ui/form-context";
-import { SignalLine } from "./lines";
+import { SignalLine } from "../ui/signal-line";
 import type { ServerForm } from "./use-server-form";
 
 /**
@@ -72,7 +72,7 @@ export function AdminSignIn({ form, kind }: { form: ServerForm; kind: Kind }) {
             </signIn.Subscribe>
           </div>
         </signIn.AppForm>
-        {created && <SignalLine level="ok" text="Created a key named SlipStream." />}
+        {created && <SignalLine tone="ok">Created a key named SlipStream.</SignalLine>}
       </div>
     </Details>
   );

@@ -2,8 +2,8 @@ import { type ErrorComponentProps, getRouteApi, useRouter } from "@tanstack/reac
 import { useEffect, useState } from "react";
 
 import { isProblem } from "../../../api/errors";
-import { Empty } from "../../../shell/empty";
 import { RouteError } from "../../../shell/errors";
+import { Empty } from "../../../ui/empty";
 import { useNode } from "./-node";
 
 const nodeRoute = getRouteApi("/_app/nodes/$nodeId");
@@ -34,6 +34,8 @@ export function NodeProblem(props: ErrorComponentProps) {
     return <RouteError {...props} />;
   }
   return (
-    <Empty>{node.name} is offline. Its settings and logs show again when it reconnects.</Empty>
+    <Empty look="sheet">
+      {node.name} is offline. Its settings and logs show again when it reconnects.
+    </Empty>
   );
 }

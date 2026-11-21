@@ -5,7 +5,8 @@ import type {
   ReconcilingRootRow,
   ReconcilingUnknown,
 } from "../api/gen/model";
-import { type Clock, pastAtWords, sinceWords } from "../format";
+import type { Clock } from "../ui/clock";
+import { whenWords } from "../ui/time-words";
 
 /** Parts joined as the Controller's own words join them: "a, b and c". */
 export function joinWords(parts: readonly string[]): string {
@@ -95,7 +96,7 @@ export function nodeLine(row: ReconcilingNodeRow, state: NodeState, clock: Clock
       return `${name} is still paired with the old Controller. Pair it again.`;
     case "lapsed":
     case "offline":
-      return `${name} has been offline since ${sinceWords(row.linkSince, clock)}.`;
+      return `${name} has been offline ${whenWords(row.linkSince, "since", clock)}.`;
     case "waiting":
       return `Waiting for ${name} to report its torrents.`;
     default:
@@ -122,7 +123,7 @@ const osNames: Readonly<Record<string, string>> = {
 
 export function unknownLine(node: ReconcilingUnknown, clock: Clock): string {
   const os = osNames[node.os] ?? node.os;
-  return `A Node at ${node.address} (${os}, ${node.arch}) tried to connect ${pastAtWords(node.at, clock)}. It isn't in this Backup. Give it a Join Code.`;
+  return `A Node at ${node.address} (${os}, ${node.arch}) tried to connect ${whenWords(node.at, "at", clock)}. It isn't in this Backup. Give it a Join Code.`;
 }
 
 export const bannerLead =
@@ -161,7 +162,7 @@ export function nextOf(page: ReconcilingPage, clock: Clock): Next {
     const [only] = lapsed;
     const sentence =
       lapsed.length === 1 && only !== undefined
-        ? `SlipStream is waiting only for ${only.name}, which has been offline since ${sinceWords(only.linkSince, clock)}. Continue without it so searches start again.`
+        ? `SlipStream is waiting only for ${only.name}, which has been offline ${whenWords(only.linkSince, "since", clock)}. Continue without it so searches start again.`
         : `SlipStream is waiting only for ${list.format(lapsed.map(({ name }) => name))}, which are offline. Continue without them so searches start again.`;
     return { kind: "offline", sentence, nodes: lapsed };
   }

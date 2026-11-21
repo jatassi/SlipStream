@@ -8,6 +8,8 @@ import {
   nightly,
   olderNightly,
   relayDestination,
+  said,
+  shown,
   words,
 } from "../../test/backups";
 import { home, nodesAre, seedbox } from "../../test/nodes";
@@ -36,7 +38,7 @@ test("the lead names the schedule, the newest good Backup and the Node with its 
   await expect
     .element(
       main().getByText(
-        "SlipStream backs up your library every night at 04:00 and keeps scheduled Backups for 28 days. The newest good Backup was taken at 04:01, and seedbox has a copy.",
+        `SlipStream backs up your library every night at 04:00 and keeps scheduled Backups for 28 days. The newest good Backup was taken ${said(nightly.takenAt, "at")}, and seedbox has a copy.`,
       ),
     )
     .toBeVisible();
@@ -54,7 +56,7 @@ test("after a failure the lead says when it failed and links to the Backup task"
   await expect
     .element(
       main().getByText(
-        /^The last Backup failed at 04:00\. The newest good Backup was taken Nov 13, 04:01, and seedbox has a copy\. Open the Backup task for the cause\.$/u,
+        `The last Backup failed ${said("2026-11-17T04:00:00Z", "at")}. The newest good Backup was taken ${said(olderNightly.takenAt, "at")}, and seedbox has a copy. Open the Backup task for the cause.`,
       ),
     )
     .toBeVisible();
@@ -76,7 +78,11 @@ test("with no destination and no other Node it recommends another disk or a down
     )
     .toBeVisible();
   await expect
-    .element(main().getByText("The newest good Backup was taken at 04:01.", { exact: false }))
+    .element(
+      main().getByText(`The newest good Backup was taken ${said(nightly.takenAt, "at")}.`, {
+        exact: false,
+      }),
+    )
     .toBeVisible();
 });
 
@@ -111,12 +117,13 @@ test("a recovery sheet that misses a destination asks for a new download", async
 test("the list shows each Backup's time, kind, version, size, check and copies", async () => {
   open(backupsServer());
   const list = main().getByRole("list", { name: "Backups" });
+  const facts = "CheckedScheduled · SlipStream 2.1.0 · 96 MBCopies: seedbox copied";
   await expect
     .element(list.getByRole("listitem").first())
-    .toHaveTextContent("04:01CheckedScheduled · SlipStream 2.1.0 · 96 MBCopies: seedbox copied");
+    .toHaveTextContent(`${shown(nightly.takenAt, "clock")}${facts}`);
   await expect
     .element(list.getByRole("listitem").nth(1))
-    .toMatchTextContent(/^Nov 13, 04:01Checked/u);
+    .toHaveTextContent(`${shown(olderNightly.takenAt, "clock")}${facts}`);
 });
 
 test("Back up now starts a Backup and says so", async () => {
@@ -191,7 +198,9 @@ test("each destination reads its newest copy and its check", async () => {
   open(backupsServer());
   await expect
     .element(main().getByRole("listitem", { name: "seedbox: /var/lib/slipstream/backups" }))
-    .toMatchTextContent("Newest copy 04:05, checked 04:06.");
+    .toMatchTextContent(
+      `Newest copy ${said("2026-11-17T04:05:00Z", "at")}, checked ${said("2026-11-17T04:06:00Z", "at")}.`,
+    );
 });
 
 test("adding a destination sends the Node and folder, and warns when the folder lacks room", async () => {

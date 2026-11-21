@@ -3,15 +3,19 @@ import { Link } from "@tanstack/react-router";
 import { isProblem, sentenceOf } from "../api/errors";
 import type { WorksContentType } from "../api/gen/model";
 import { useSetContentTypeEnabled } from "../api/gen/query/works/works";
-import { AlertLine } from "../ui/alert-line";
+import { SignalLine } from "../ui/signal-line";
 import { Switch } from "../ui/switch";
 
 function Refusal({ type, error }: { type: WorksContentType; error: unknown }) {
   if (!isProblem(error, "content_type_in_use")) {
-    return <AlertLine text={sentenceOf(error)} />;
+    return (
+      <SignalLine tone="fail" announce>
+        {sentenceOf(error)}
+      </SignalLine>
+    );
   }
   return (
-    <p role="alert" className="text-fail-ink">
+    <SignalLine tone="fail" announce>
       The Library still holds {type.work.many}. Delete them in the{" "}
       <Link
         to="/library/$contentType"
@@ -21,7 +25,7 @@ function Refusal({ type, error }: { type: WorksContentType; error: unknown }) {
         {type.name} Library
       </Link>
       , then turn {type.name} off.
-    </p>
+    </SignalLine>
   );
 }
 

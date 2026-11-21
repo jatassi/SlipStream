@@ -14,21 +14,19 @@ import { downloadBackup } from "./downloads";
 
 export function BackupMenu({
   backup,
-  when,
+  from,
   onRestore,
   onDelete,
 }: {
   backup: BackupsBackup;
-  when: string;
+  from: string;
   onRestore: () => void;
   onDelete: () => void;
 }) {
   return (
     <Menu
-      label={`Backup from ${when}`}
-      trigger={
-        <IconButton icon={MoreHorizontalIcon} label={`Actions for the Backup from ${when}`} />
-      }
+      label={`Backup ${from}`}
+      trigger={<IconButton icon={MoreHorizontalIcon} label={`Actions for the Backup ${from}`} />}
       items={[
         {
           label: "Download",

@@ -1,13 +1,15 @@
 import { Link } from "@tanstack/react-router";
 
-import { Chip } from "../../../../ui/chip";
+import { RoleChips } from "../../../../nodes/role-chips";
+import { NodeLamp } from "../../../../nodes/state-mark";
+import { PlainTime } from "../../../../ui/relative-time";
 import type { Adding } from "../-add-node/add-node";
 import { Findings } from "../-findings";
 import type { Acting } from "../-manage/dialogs";
-import { StateDot } from "../-state-dot";
 import { AddRow } from "./add-row";
 import { RowMenu } from "./row-menu";
 import { rosterGroup, rowKeys, rowShell, rowWash } from "./rows";
+// oxlint-disable-next-line import/max-dependencies -- a Roster row draws its lamp, Roles, findings, age and menu
 import { type Landing, type NodeRow, shareDone } from "./view";
 
 const torrentsLine = ({ torrents }: NodeRow): string =>
@@ -24,24 +26,23 @@ function RosterRow({ node, act }: { node: NodeRow; act: (acting: Acting) => void
           className={`flex min-w-0 flex-1 items-start gap-3 px-4 py-3 ${rowWash}`}
         >
           <span className="flex h-(--body-line-height) items-center">
-            <StateDot state={node.state} worded />
+            <NodeLamp state={node.state} decorative />
           </span>
           <span className="flex min-w-0 flex-1 flex-col gap-1.5">
             <span className="text-(length:--body-size) leading-(--body-line-height) font-medium text-ink-1 in-data-[density=touch]:text-card-title">
               {node.name}
             </span>
-            <span className="text-meta text-ink-3">{node.facts.join(" · ")}</span>
-            {node.roles.length === 0 ? (
-              <span className="text-meta text-ink-3">No Roles yet</span>
-            ) : (
-              <span className="flex flex-wrap gap-1.5">
-                {node.roles.map(({ role, words }) => (
-                  <Chip key={role} look="outline">
-                    {words}
-                  </Chip>
-                ))}
-              </span>
-            )}
+            <span className="text-meta text-ink-3">
+              {node.facts[0]}
+              {node.seenAt !== undefined && (
+                <>
+                  {" · Last seen "}
+                  <PlainTime at={node.seenAt} form="age" />
+                </>
+              )}
+              {node.facts.slice(1).map((fact) => ` · ${fact}`)}
+            </span>
+            <RoleChips roles={node.roles} />
             {node.torrents.length > 0 && (
               <span className="text-meta text-ink-3">{torrentsLine(node)}</span>
             )}

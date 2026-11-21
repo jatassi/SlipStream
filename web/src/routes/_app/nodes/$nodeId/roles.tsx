@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/roles")({
     await ensureQuery(context.queryClient, getGetRoleBoardSuspenseQueryOptions());
     return titled;
   },
-  pendingComponent: () => <Skeleton label="Loading the Roles" />,
+  pendingComponent: () => <Skeleton label="Loading the Roles" shape="rows" lines={2} />,
   component: function NodeRoles() {
     const { nodeId } = Route.useParams();
     return <RolesSection key={nodeId} nodeId={nodeId} />;

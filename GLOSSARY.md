@@ -360,7 +360,7 @@ _Avoid_: Watch history, user data
 
 **Play history**:
 The plays SlipStream records from each Media Server's sessions: who played which library file on which player, and whether the server direct played, direct streamed or transcoded it, with the reasons the server gave. It keeps them for "Keep play history for", 30 days by default.
-_In UI_: "Direct play", "Direct stream", "Transcode" and "Hardware transcode", each with a hover definition.
+_In UI_: "Direct play", "Direct stream", "Transcode" and "Hardware transcode", each with a definition on hover and tap.
 _Avoid_: Session history, watch history, stats
 
 **Playback report**:

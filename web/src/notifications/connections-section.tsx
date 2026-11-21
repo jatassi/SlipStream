@@ -4,14 +4,12 @@ import {
   useListNotificationEventsSuspense,
   useListNotificationProvidersSuspense,
 } from "../api/gen/query/notifications/notifications";
-import { Empty } from "../shell/empty";
-import { useNow } from "../tasks/use-now";
+import { useClock } from "../ui/clock";
+import { Empty } from "../ui/empty";
 import { Section } from "../ui/section";
 import { ConnectionList } from "./connection-list";
 import { AddConnectionButton } from "./connection-sheet";
 import { sectionSentence } from "./words";
-
-const wordsTick = 30_000;
 
 /** The Controller, and every Node with the Notifying Role: where a Custom Script may run. */
 function useScriptNodes() {
@@ -27,7 +25,7 @@ export function ConnectionsSection() {
   const { providers } = useListNotificationProvidersSuspense().data;
   const { events } = useListNotificationEventsSuspense().data;
   const nodes = useScriptNodes();
-  const clock = { now: useNow(wordsTick), zone: undefined };
+  const clock = useClock();
   const choices = { providers, events, nodes };
   const sentence = sectionSentence(connections, providers, clock);
   return (
@@ -37,7 +35,7 @@ export function ConnectionsSection() {
       action={<AddConnectionButton {...choices} />}
     >
       {connections.length === 0 ? (
-        <Empty>{sentence}</Empty>
+        <Empty look="sheet">{sentence}</Empty>
       ) : (
         <div className="flex flex-col gap-3">
           <p className="text-ink-1 text-pretty">{sentence}</p>

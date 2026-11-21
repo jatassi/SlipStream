@@ -1,5 +1,6 @@
 import type { GrabsListedReleaseOutcome } from "./grabsListedReleaseOutcome.ts";
 import type { GrabsLostAt } from "./grabsLostAt.ts";
+import type { GrabsReleaseFacts } from "./grabsReleaseFacts.ts";
 import type { GrabsTargetScore } from "./grabsTargetScore.ts";
 import type { GrabsWordedReason } from "./grabsWordedReason.ts";
 
@@ -12,6 +13,7 @@ export interface GrabsListedRelease {
   copyOf: number | null;
   /** The Items of the Work it holds */
   covers: string[];
+  facts: GrabsReleaseFacts;
   /** The Custom Formats it matched of those the Work's Targets score, as the run saw them */
   formatIds: string[];
   /**
@@ -48,6 +50,4 @@ export interface GrabsListedRelease {
    */
   size: number;
   title: string;
-  /** What SlipStream reads from the title, in words, such as WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB */
-  words: string;
 }

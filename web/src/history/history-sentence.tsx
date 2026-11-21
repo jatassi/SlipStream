@@ -1,14 +1,12 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 
-import { useNow } from "../tasks/use-now";
+import { useNow } from "../ui/clock";
 import { StatusSentence } from "../ui/status-sentence";
 import { summaryOptions } from "./history-query";
 
-const minuteMs = 60_000;
-
 /** History's opening sentence: the failed Grabs that need attention, linking to Jobs, else the week's counts. */
 export function HistorySentence() {
-  const sentence = useSuspenseQuery(summaryOptions(useNow(minuteMs))).data;
+  const sentence = useSuspenseQuery(summaryOptions(useNow())).data;
   if (sentence === null) {
     return null;
   }

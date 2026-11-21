@@ -1,4 +1,4 @@
-import { AlertLine } from "../../../../ui/alert-line";
+import { SignalLine } from "../../../../ui/signal-line";
 import { KeyCheck } from "./key-check";
 import { NodeAddress } from "./node-address";
 import type { AddNodeState } from "./state";
@@ -27,7 +27,11 @@ export function Body({ id, state, controller, mint }: BodyProps) {
       return <Waiting text="Loading the Join Code…" />;
     }
     case "failed": {
-      return <AlertLine text={state.sentence} />;
+      return (
+        <SignalLine tone="fail" announce>
+          {state.sentence}
+        </SignalLine>
+      );
     }
     case "expired": {
       return <Closed text="This Join Code expired before a Node used it." mint={mint} />;

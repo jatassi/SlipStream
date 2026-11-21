@@ -11,8 +11,7 @@ import {
   useListSignupLinksSuspense,
 } from "../../../api/gen/query/identity/identity";
 import { ensureQuery } from "../../../api/query-client";
-import { Page } from "../../../shell/page";
-import { Skeleton } from "../../../ui/skeleton";
+import { Page, PagePending } from "../../../shell/page";
 
 export const Route = createFileRoute("/_app/accounts/")({
   staticData: { title: "Accounts" },
@@ -22,7 +21,7 @@ export const Route = createFileRoute("/_app/accounts/")({
       ensureQuery(context.queryClient, getListAccountsSuspenseQueryOptions()),
       ensureQuery(context.queryClient, getListSignupLinksSuspenseQueryOptions()),
     ]),
-  pendingComponent: () => <Skeleton label="Loading Accounts" />,
+  pendingComponent: () => <PagePending label="Loading Accounts" shape="table" lines={1} />,
   component: AccountsPage,
 });
 

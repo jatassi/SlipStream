@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_app/settings/media-servers/$serverId/map
   staticData: { title: section.label },
   loader: ({ context: { queryClient }, params: { serverId } }) =>
     ensureQuery(queryClient, getListMediaServerLibrariesSuspenseQueryOptions(serverId)),
-  pendingComponent: () => <Skeleton label="Loading the Path mappings" />,
+  pendingComponent: () => <Skeleton label="Loading the Path mappings" shape="facts" />,
   component: function Mappings() {
     return <MappingsTab server={useGetMediaServerSuspense(Route.useParams().serverId).data} />;
   },

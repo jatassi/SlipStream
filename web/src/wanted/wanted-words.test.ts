@@ -1,10 +1,10 @@
 import { expect, test } from "vitest";
 
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import { aQueueStatus, aWantedRow, goneOnly, missingRange, starvedStatus } from "../test/wanted";
 import {
   lastWords,
-  nextWords,
+  nextOf,
   phoneLine,
   rangesWords,
   reasonWords,
@@ -30,23 +30,30 @@ test("Items read as runs in the Needs you form", () => {
 });
 
 test("the last search says how it went and when", () => {
-  expect(lastWords(missingRange, saturday)).toBe("Found nothing on Mon at 09:12");
+  expect(lastWords(missingRange, saturday)).toBe("Found nothing on Mon at 9:12 AM");
   expect(
     lastWords(
       aWantedRow({ lastResult: "nothing_found", lastSearchedAt: "2026-11-14T09:12:00Z" }),
       saturday,
     ),
-  ).toBe("Found nothing today at 09:12");
+  ).toBe("Found nothing at 9:12 AM");
   expect(lastWords(goneOnly, saturday)).toBe("Not searched yet");
 });
 
 test("the next search names the state, the time, or that only a press searches", () => {
-  expect(nextWords(aWantedRow({ nextSearchAt: "2026-11-15T14:00:00Z" }), saturday)).toBe(
-    "Tomorrow at 14:00",
-  );
-  expect(nextWords(aWantedRow({ state: "queued" }), saturday)).toBe("Queued");
-  expect(nextWords(aWantedRow({ state: "searching" }), saturday)).toBe("Searching");
-  expect(nextWords(goneOnly, saturday)).toBe("Only when you search");
+  expect(
+    [
+      aWantedRow({ nextSearchAt: "2026-11-15T14:00:00Z" }),
+      aWantedRow({ state: "queued" }),
+      aWantedRow({ state: "searching" }),
+      goneOnly,
+    ].map((row) => nextOf(row)),
+  ).toEqual([
+    { at: "2026-11-15T14:00:00Z" },
+    { words: "Queued" },
+    { words: "Searching" },
+    { words: "Only when you search" },
+  ]);
 });
 
 test("a phone row reads the reason, the Items and the next search as one line", () => {
@@ -59,7 +66,7 @@ test("a phone row reads the reason, the Items and the next search as one line", 
       },
       saturday,
     ),
-  ).toBe("Missing. S02E01 to S02E08. Next search tomorrow at 14:00.");
+  ).toBe("Missing. S02E01 to S02E08. Next search tomorrow at 2:00 PM.");
 });
 
 test("the status sentence counts the queue, the next Backlog search and each limit", () => {
@@ -67,7 +74,7 @@ test("the status sentence counts the queue, the next Backlog search and each lim
     statusParts(aQueueStatus({ nextBacklogAt: "2026-11-14T22:00:00Z" }), saturday).map(
       ({ text }) => text,
     ),
-  ).toEqual(["3 searching", "142 queued", "Next Backlog search at 22:00"]);
+  ).toEqual(["3 searching", "142 queued", "Next Backlog search at 10:00 PM"]);
   expect(statusParts(starvedStatus, saturday).at(-1)).toEqual({
     kind: "warning",
     text: "RSS sync uses all of TorrentLeech's search limit",

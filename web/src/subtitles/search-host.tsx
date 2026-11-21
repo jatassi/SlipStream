@@ -5,12 +5,12 @@ import { sentenceOf } from "../api/errors";
 import type { SubtitlesProvider, TargetsWantedLanguage } from "../api/gen/model";
 import { startSubtitleCandidates } from "../api/gen/query/subtitles/subtitles";
 import { createStore } from "../shell/store";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { Sheet } from "../ui/sheet";
-// oxlint-disable-next-line import/max-dependencies -- the host starts, frames and fills both subtitle sheets on either shell
 import { useShell } from "../ui/shell-context";
+// oxlint-disable-next-line import/max-dependencies -- the host starts, frames and fills both subtitle sheets on either shell
+import { SignalLine } from "../ui/signal-line";
 import { Skeleton } from "../ui/skeleton";
 import { CandidatesBody } from "./candidates";
 import { UploadBody } from "./upload";
@@ -107,7 +107,9 @@ const useHost = (): HostState => useSyncExternalStore(host.subscribe, host.getSn
 function Refused({ sentence }: { sentence: string }) {
   return (
     <div className="flex flex-col gap-4">
-      <AlertLine text={sentence} />
+      <SignalLine tone="fail" announce>
+        {sentence}
+      </SignalLine>
       <DialogActions>
         <Button onClick={closeSubtitleSheet}>Close</Button>
       </DialogActions>
@@ -124,7 +126,7 @@ function Opened({ opening }: { opening: SubtitleOpening }) {
     return <Refused sentence={started.sentence} />;
   }
   if (started.state === "starting") {
-    return <Skeleton label="Starting the search" />;
+    return <Skeleton shape="rows" lines={2} label="Starting the search" />;
   }
   return (
     <CandidatesBody

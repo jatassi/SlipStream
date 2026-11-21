@@ -2,7 +2,6 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { FilesCellList, GrabsWorkSearching } from "../../api/gen/model";
-import { laterAtWords, laterWords, pastAtWords } from "../../format";
 import { orchardId, orchardItemId } from "../../test/library";
 import { renderApp } from "../../test/render-app";
 import {
@@ -16,6 +15,7 @@ import {
 import { starter } from "../../test/targets";
 import { missing } from "../../test/work-cells";
 import { workServer } from "../../test/work-server";
+import { whenWords } from "../../ui/time-words";
 
 const now = new Date("2026-11-14T12:00:00Z");
 const reading = { now, zone: undefined };
@@ -68,7 +68,7 @@ test("a waiting Work offers Grab now, which ends every wait of the Work", async 
   await expect
     .element(line)
     .toHaveTextContent(
-      `Waiting for a better release until ${laterWords(wait.until, reading).words}Grab now`,
+      `Waiting for a better release ${whenWords(wait.until, "until", reading)}Grab now`,
     );
   await userEvent.click(line.getByRole("button", { name: "Grab now" }));
   await expect.element(page.getByText("Grabbing 1 release")).toBeVisible();
@@ -103,7 +103,7 @@ test("the line follows the queue as it moves", async () => {
   const { line, server } = open(
     aWorkSearching({ groups: [aGroupState(1, { lastSearchedAt: at, nextSearchAt: null })] }),
   );
-  await expect.element(line).toHaveTextContent(`Found nothing ${pastAtWords(at, reading)}.`);
+  await expect.element(line).toHaveTextContent(`Found nothing ${whenWords(at, "at", reading)}.`);
   server.queueMoves(led(searchingNow(1)));
   await expect.element(line).toHaveTextContent("Searching");
 });
@@ -127,7 +127,7 @@ test("a waiting cell says how many Releases it holds, and its Grab now ends that
   await expect
     .element(
       page.getByText(
-        `2 releases found so far. SlipStream grabs the best one ${laterAtWords(until, reading)} unless a better one arrives.`,
+        `2 releases found so far. SlipStream grabs the best one ${whenWords(until, "next", reading)} unless a better one arrives.`,
       ),
     )
     .toBeVisible();

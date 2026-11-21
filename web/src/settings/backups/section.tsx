@@ -17,7 +17,7 @@ import {
 } from "../../api/gen/query/tasks/tasks";
 import { getListContentTypesSuspenseQueryOptions } from "../../api/gen/query/works/works";
 import { ensureQuery, freshQuery } from "../../api/query-client";
-import { useClock } from "../../tasks/use-now";
+import { useClock } from "../../ui/clock";
 import type { SettingsSection } from "../section";
 import { DestinationsSection } from "./destinations";
 import { Advice, Lead } from "./lead";
@@ -27,15 +27,13 @@ import { PassphraseSection } from "./passphrase";
 import { BackupDetails, RestorePanel, Schedule } from "./schedule";
 import type { Names } from "./words";
 
-const wordsTick = 30_000;
-
 function BackupsSection() {
   const list = useListBackupsSuspense().data;
   const { destinations } = useListBackupDestinationsSuspense().data;
   const { settings } = useGetBackupSettingsSuspense().data;
   const { nodes } = useListNodesSuspense().data;
   const { window: hours } = useGetTaskSettingsSuspense().data;
-  const clock = useClock(wordsTick, hours.zone);
+  const clock = useClock(hours.zone);
   const names: Names = (nodeId) =>
     nodes.find((node) => node.id === nodeId)?.name ?? "a removed Node";
   const rows = { destinations, names, clock };
@@ -47,7 +45,7 @@ function BackupsSection() {
       </div>
       <BackupsList list={list} {...rows} />
       <DestinationsSection nodes={nodes} {...rows} />
-      <PassphraseSection state={list.passphrase} />
+      <PassphraseSection state={list.passphrase} clock={clock} />
       <Schedule settings={settings} used={list.used} controller={nodes.find((node) => node.self)} />
       <RestorePanel />
       <BackupDetails settings={settings} />

@@ -5,10 +5,12 @@ import type {
   DownloadclientsTorrentGrabStage,
 } from "../api/gen/model";
 import { useListContentTypesSuspense } from "../api/gen/query/works/works";
-import { type Clock, bytes, sinceWords } from "../format";
+import { bytes } from "../format";
+import { RelativeTime } from "../ui/relative-time";
 import { Data } from "../ui/data";
+import { Empty } from "../ui/empty";
+import { Fact, Facts } from "../ui/facts";
 import { InspectorSection } from "../ui/inspector";
-import { FactList } from "./inspector-facts";
 import type { Names } from "./names";
 
 const grabStageWords: { readonly [S in DownloadclientsTorrentGrabStage]: string } = {
@@ -23,7 +25,7 @@ export function Grabs({ detail, names }: { detail: DownloadclientsTorrentDetail;
   return (
     <InspectorSection title="Grabs">
       {detail.grabs.length === 0 ? (
-        <p className="text-ink-3">No Grab uses it any more.</p>
+        <Empty look="inline">No Grab uses it any more.</Empty>
       ) : (
         <ul>
           {detail.grabs.map((grab) => (
@@ -50,36 +52,30 @@ export function Grabs({ detail, names }: { detail: DownloadclientsTorrentDetail;
   );
 }
 
-export function Machinery({
-  detail,
-  clock,
-}: {
-  detail: DownloadclientsTorrentDetail;
-  clock: Clock;
-}) {
+export function Machinery({ detail }: { detail: DownloadclientsTorrentDetail }) {
   const types = useListContentTypesSuspense().data.contentTypes;
   return (
     <InspectorSection title="Details">
-      <FactList
-        facts={[
-          ["Info hash", <Data key="h">{detail.infoHash}</Data>],
-          [
-            "Save folder",
-            detail.saveFolder === undefined ? (
-              "Not reported yet"
-            ) : (
-              <Data key="f">{detail.saveFolder}</Data>
-            ),
-          ],
-          ["Added", sinceWords(detail.addedAt, clock)],
-          ["Piece size", <Data key="p">{bytes(detail.pieceSize)}</Data>],
-          ["Private", detail.private ? "Yes, peers come only from its trackers" : "No"],
-          [
-            "Content Type",
-            types.find((type) => type.id === detail.contentType)?.name ?? detail.contentType,
-          ],
-        ]}
-      />
+      <Facts look="inline">
+        <Fact label="Info hash">
+          <Data>{detail.infoHash}</Data>
+        </Fact>
+        <Fact label="Save folder">
+          {detail.saveFolder === undefined ? "Not reported yet" : <Data>{detail.saveFolder}</Data>}
+        </Fact>
+        <Fact label="Added">
+          <RelativeTime at={detail.addedAt} form="clock" />
+        </Fact>
+        <Fact label="Piece size">
+          <Data>{bytes(detail.pieceSize)}</Data>
+        </Fact>
+        <Fact label="Private">
+          {detail.private ? "Yes, peers come only from its trackers" : "No"}
+        </Fact>
+        <Fact label="Content Type">
+          {types.find((type) => type.id === detail.contentType)?.name ?? detail.contentType}
+        </Fact>
+      </Facts>
     </InspectorSection>
   );
 }

@@ -94,16 +94,16 @@ test("Items read as episode codes, a movie lists none, and a row never searched 
   await openWanted(page);
   if (isPhone(page)) {
     await expect(row(page, "The Lantern Keepers")).toContainText(
-      /Missing\. S01E01 to S02E03\. Next search (?:.+ )?at \d{2}:\d{2}\./u,
+      /Missing\. S01E01 to S02E03\. Next search (?:.+ )?at \d{1,2}:\d{2}(?: [AP]M)?\./u,
     );
     await expect(row(page, "Meadowlark")).toContainText(
-      /Missing\. Next search (?:.+ )?at \d{2}:\d{2}\./u,
+      /Missing\. Next search (?:.+ )?at \d{1,2}:\d{2}(?: [AP]M)?\./u,
     );
     return;
   }
   const cells = (work: string) => row(page, work).getByRole("cell");
   await expect(cells("The Lantern Keepers").nth(1)).toHaveText("S01E01 to S02E03");
   await expect(cells("Meadowlark").nth(1)).toHaveText("");
-  await expect(cells("The Lantern Keepers").nth(4)).toHaveText(/^.+ at \d{2}:\d{2}$/u);
-  await expect(cells("Meadowlark").nth(4)).toHaveText(/^.+ at \d{2}:\d{2}$/u);
+  await expect(cells("The Lantern Keepers").nth(4)).toHaveText(/^.+ at \d{1,2}:\d{2}(?: [AP]M)?$/u);
+  await expect(cells("Meadowlark").nth(4)).toHaveText(/^.+ at \d{1,2}:\d{2}(?: [AP]M)?$/u);
 });

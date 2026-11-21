@@ -18,7 +18,6 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -169,7 +168,7 @@ type targetScore struct {
 type listedRelease struct {
 	Position int                  `json:"position" minimum:"0" doc:"Its place in the order the Indexers listed the run's Releases"`
 	Title    string               `json:"title"`
-	Words    string               `json:"words" doc:"What SlipStream reads from the title, in words, such as WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB"`
+	Facts    releaseFacts         `json:"facts"`
 	Indexer  *string              `json:"indexerId" format:"uuid" doc:"Null once the Indexer is deleted"`
 	Name     string               `json:"indexerName" doc:"The Indexer's name when the run started"`
 	Size     int64                `json:"size" minimum:"0" doc:"Bytes"`
@@ -196,7 +195,7 @@ type searchInput struct {
 
 func releaseOf(l grabs.Listed) listedRelease {
 	out := listedRelease{
-		Position: l.Position, Title: l.Title, Words: l.Words, Indexer: idOrNil(l.Indexer.UUID), Name: l.IndexerName, Size: l.Size,
+		Position: l.Position, Title: l.Title, Facts: factsOf(l.Summary), Indexer: idOrNil(l.Indexer.UUID), Name: l.IndexerName, Size: l.Size,
 		Seeders: l.Seeders, Outcome: string(l.Outcome), Covers: []string{}, Scores: []targetScore{}, Formats: []string{}, Reasons: WordedOf(l.Reasons),
 	}
 	if l.Rank > 0 {
@@ -319,8 +318,7 @@ type grab struct {
 	TargetIDs    []string                 `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
 	Targets      []grabTarget             `json:"targets" nullable:"false" doc:"Each Target of its Items it downloads for, in plan order"`
 	ReleaseTitle string                   `json:"releaseTitle"`
-	ReleaseWords string                   `json:"releaseWords" doc:"Its Release in words, such as Bluray-1080p · FKW · 9.8 GB"`
-	Quality      string                   `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
+	ReleaseFacts releaseFacts             `json:"releaseFacts"`
 	ReleaseSize  int64                    `json:"releaseSize" minimum:"0"`
 	IndexerID    *string                  `json:"indexerId" format:"uuid" doc:"The Indexer it was grabbed from, null once the Indexer is deleted"`
 	TrackerID    *string                  `json:"trackerId" format:"uuid" doc:"The Tracker its release came from, null for a Grab older than Trackers"`
@@ -416,7 +414,7 @@ func failureOf(v grabs.View) *failure {
 func grabOf(v grabs.View) grab {
 	out := grab{
 		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition),
-		Items: []string{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
+		Items: []string{}, ReleaseTitle: v.Release.Title, ReleaseFacts: factsOf(v.ReleaseSummary), ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), InFlight: v.Stage.InFlight(), History: []entered{}, CreatedAt: v.Created,
 		Source: string(v.Source), SearchID: idOrNil(v.Search.UUID), FoundBy: string(v.FoundBy), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...), Import: importOf(v.Import),
 		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},
@@ -438,9 +436,6 @@ func grabOf(v grabs.View) grab {
 		out.Items = append(out.Items, item.String())
 	}
 	out.TargetIDs, out.Targets = targetsOf(v.Targets)
-	if q, ok := release.QualityIn(v.Release.Title).Get(); ok {
-		out.Quality = q.String()
-	}
 	if v.Torrent != nil {
 		out.TorrentID = new(v.Torrent.ID.String())
 		out.InfoHash = new(v.Torrent.InfoHash.String())

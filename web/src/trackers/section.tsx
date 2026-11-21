@@ -7,7 +7,7 @@ import {
 import { getListTasksSuspenseQueryOptions } from "../api/gen/query/tasks/tasks";
 import { ensureQuery, freshQuery } from "../api/query-client";
 import type { SettingsSection } from "../settings/section";
-import { Empty } from "../shell/empty";
+import { Empty } from "../ui/empty";
 import { Section } from "../ui/section";
 import { DefaultGoal, RuleSettings } from "./seeding-settings";
 import { TrackerList } from "./tracker-list";
@@ -20,7 +20,7 @@ function TrackersSection() {
       <RuleSettings />
       <Section title="Trackers" count={trackers.length}>
         {trackers.length === 0 ? (
-          <Empty>
+          <Empty look="sheet">
             No Trackers yet. A Tracker joins this list once an Indexer reaches it or SlipStream
             grabs a Release from it.
           </Empty>

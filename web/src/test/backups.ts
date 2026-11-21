@@ -10,12 +10,30 @@ import type {
   TasksSchedule,
 } from "../api/gen/model";
 import { getGetTaskSettingsMockHandler } from "../api/gen/query/tasks/tasks.msw";
+import type { Clock } from "../ui/clock";
+import { type ValueForm, type WordsForm, placeOf, timeForms, whenWords } from "../ui/time-words";
 import { problem } from "./handlers";
 import { seedboxId } from "./nodes";
 import { schedule } from "./tasks";
 
 // 10:00 UTC on Nov 17, so a Backup at 04:01 UTC is today in the Controller's zone.
 export const backupsNow = new Date("2026-11-17T10:00:00Z");
+
+/** Now on Settings > Backups, which reads its times in the Tasks window's zone, UTC here. */
+const controllerClock: Clock = { now: backupsNow, zone: "UTC" };
+
+/** Now in a restore, which reads its times in the browser's zone. */
+const browserClock: Clock = { now: backupsNow, zone: undefined };
+
+/** An instant inside a Backups sentence, as the screen says it. */
+export const said = (at: string, form: WordsForm, clock = controllerClock) =>
+  whenWords(at, form, clock);
+
+/** An instant said in a restore, on the browser's clock. */
+export const saidInRestore = (at: string, form: WordsForm) => said(at, form, browserClock);
+
+/** An instant standing on its own on Settings > Backups. */
+export const shown = (at: string, form: ValueForm) => timeForms[form](placeOf(at, controllerClock));
 
 const day = 86_400;
 const gib = 1024 ** 3;

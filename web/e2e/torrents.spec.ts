@@ -71,7 +71,7 @@ async function expectColumns(page: Page, shown: readonly string[], hidden: reado
 }
 
 async function expectPoster(page: Page) {
-  const art = row(page).locator('[data-poster="art"] img');
+  const art = row(page).locator("[data-art] img");
   await expect(art, "its poster shows").toBeVisible();
   await expect
     .poll(() => art.evaluate((image: HTMLImageElement) => image.naturalWidth), {

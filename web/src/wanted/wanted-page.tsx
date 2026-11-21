@@ -1,18 +1,14 @@
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 
 import type { WorksContentType } from "../api/gen/model";
-import type { Clock } from "../format";
 import { Page } from "../shell/page";
-import { useNow } from "../tasks/use-now";
+import { useClock } from "../ui/clock";
 import { StatusSentence } from "../ui/status-sentence";
 import { CancelQueued, SearchAll } from "./wanted-actions";
 import { type WantedFilter, wantedQuery } from "./wanted-query";
 import { WantedRows } from "./wanted-rows";
 import { ReasonChips, SortMenu, WantedSwitches } from "./wanted-toolbar";
-// oxlint-disable-next-line import/max-dependencies -- the page lays out the status, the filters, its actions and the rows
 import { headersOf, statusParts } from "./wanted-words";
-
-const minuteMs = 60_000;
 
 /**
  * What SlipStream is searching for: the queue's status, then one row per
@@ -27,7 +23,7 @@ export function WantedPage({
   filter: WantedFilter;
   onFilter: (next: Partial<WantedFilter>) => void;
 }) {
-  const clock: Clock = { now: useNow(minuteMs), zone: undefined };
+  const clock = useClock();
   const [first] = useSuspenseInfiniteQuery(wantedQuery(filter)).data.pages;
   if (first === undefined) {
     throw new Error("Wanted loaded no page");

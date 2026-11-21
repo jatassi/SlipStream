@@ -3,13 +3,11 @@ import { Link } from "@tanstack/react-router";
 import type { GrabsWorkSearching } from "../../api/gen/model";
 import { ManualSearchButton } from "../../grabs/search";
 import { type Lead, leadWords } from "../../grabs/search-words";
-import { useNow } from "../../tasks/use-now";
 import { Button } from "../../ui/button";
+import { useClock } from "../../ui/clock";
 import { Popover } from "../../ui/popover";
 import { Spinner } from "../../ui/spinner";
 import { GrabNowButton } from "./grab-now";
-
-const wordsTick = 30_000;
 
 function Action({ lead, workId }: { lead: Lead; workId: string }) {
   if (lead.kind === "waiting") {
@@ -78,8 +76,7 @@ export function SearchLine({
   workId: string;
   many: boolean;
 }) {
-  const now = useNow(wordsTick);
-  const lead = leadWords(state, { now, zone: undefined }, many);
+  const lead = leadWords(state, useClock(), many);
   if (lead === undefined) {
     return null;
   }
