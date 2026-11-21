@@ -2,6 +2,7 @@ package backups
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -99,7 +100,8 @@ func Open(ctx context.Context, cfg Config) (*Backups, error) {
 	listed := slices.ContainsFunc(ledger.Backups, func(e Entry) bool { return e.Trigger == archive.Update && e.Version == version })
 	if newer(version, ledger.StartedVersion) && !listed {
 		if _, err := b.take(ctx, request{Trigger: archive.Update}); err != nil {
-			return nil, err
+			space, _ := errors.AsType[*SpaceError](err)
+			return nil, &HookError{Space: space, Err: err}
 		}
 	}
 	if err := index.Update(func(l *Ledger) error { l.StartedVersion = version; return nil }); err != nil {

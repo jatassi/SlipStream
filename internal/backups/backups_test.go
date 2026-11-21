@@ -282,6 +282,20 @@ func TestANewerVersionWithNoMigrationBacksUpOnce(t *testing.T) {
 	}
 }
 
+func TestANewerVersionOnAFullFolderRefusesWithTheSpaceHint(t *testing.T) {
+	w := newWorld(t)
+	w.opened("2.0.0")
+	w.free.Store(1 << 10)
+	_, err := w.open("2.1.0")
+	var hook *backups.HookError
+	if !errors.As(err, &hook) || hook.Space == nil || hook.Space.Free != 1<<10 {
+		t.Fatalf("a newer version on a full folder = %v, want the update Backup's failure with the folder's sizes", err)
+	}
+	if got := w.ledger().StartedVersion; got != "2.0.0" {
+		t.Fatalf("started version %q after the refusal, want 2.0.0", got)
+	}
+}
+
 func TestDevNeverTakesAnUpdateBackup(t *testing.T) {
 	w := newWorld(t)
 	w.opened("2.0.0")
