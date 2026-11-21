@@ -1,8 +1,8 @@
 import { pinSentence } from "../../../accounts/pin-state";
 import type { IdentityAccountDetail } from "../../../api/gen/model";
 import { clock } from "../../../format";
-import { Empty } from "../../../shell/empty";
 import { Button } from "../../../ui/button";
+import { Empty } from "../../../ui/empty";
 import { Fact, Facts } from "../../../ui/facts";
 import { List, ListRow } from "../../../ui/list";
 import { Section } from "../../../ui/section";
@@ -79,7 +79,7 @@ function Passkeys({ detail: { passkeys } }: Props) {
   return (
     <Section title="Passkeys" count={passkeys.length}>
       {passkeys.length === 0 ? (
-        <Empty>No passkeys. This Account signs in with its PIN.</Empty>
+        <Empty look="sheet">No passkeys. This Account signs in with its PIN.</Empty>
       ) : (
         <List label="Passkeys">
           {passkeys.map((passkey) => (
@@ -99,7 +99,7 @@ function Sessions({ detail: { sessions }, onAsk }: Props) {
   return (
     <Section title="Sessions" count={sessions.length}>
       {sessions.length === 0 ? (
-        <Empty>Not signed in anywhere.</Empty>
+        <Empty look="sheet">Not signed in anywhere.</Empty>
       ) : (
         <div className="flex flex-col items-start gap-3">
           <div className="w-full">

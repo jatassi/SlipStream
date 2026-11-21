@@ -5,9 +5,9 @@ import type {
   MediaserversServerView as Server,
 } from "../../api/gen/model";
 import { countWords } from "../../format";
-import { Empty } from "../../shell/empty";
 import { useNow } from "../../tasks/use-now";
 import { Button } from "../../ui/button";
+import { Empty } from "../../ui/empty";
 import { List } from "../../ui/list";
 import { SignalLine } from "../../ui/signal-line";
 import { ChangeRow, standingOf } from "./change-row";
@@ -49,7 +49,7 @@ export function ChangesTab({ server }: { server: Server }) {
   const changes = data.pages.flatMap((page) => page.changes);
   if (changes.length === 0) {
     return (
-      <Empty>
+      <Empty look="sheet">
         {`No changes yet. SlipStream sends ${server.name} a change each time a file in a mapped root is added, replaced, renamed or removed.`}
       </Empty>
     );

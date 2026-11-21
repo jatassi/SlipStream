@@ -7,9 +7,9 @@ import type {
   ListImportsParams,
   WorksContentType,
 } from "../api/gen/model";
+import { Empty } from "../ui/empty";
 import { type RootEntry, usePendingImports } from "./root-entry";
 import { useListContentTypesSuspense } from "../api/gen/query/works/works";
-import { Empty } from "../shell/empty";
 import { Page } from "../shell/page";
 import { Button } from "../ui/button";
 import { Data } from "../ui/data";
@@ -212,7 +212,7 @@ export function PendingPage({ view, beside }: { view: PendingView; beside: React
       }
     >
       {groups.length === 0 ? (
-        <Empty>{empties[view]}</Empty>
+        <Empty look="sheet">{empties[view]}</Empty>
       ) : (
         groups.map((group) => <PendingGroupOf key={keyOf(group)} group={group} />)
       )}

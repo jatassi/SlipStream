@@ -8,7 +8,7 @@ import { useState } from "react";
 
 import type { IdentityPendingLink } from "../api/gen/model";
 import { clock } from "../format";
-import { Empty } from "../shell/empty";
+import { Empty } from "../ui/empty";
 import { IconButton } from "../ui/icon-button";
 import { List, ListRow } from "../ui/list";
 import { Menu } from "../ui/menu";
@@ -57,7 +57,9 @@ export function PendingLinks({ links }: { links: readonly IdentityPendingLink[] 
   return (
     <Section title="Pending Signup links" count={links.length}>
       {links.length === 0 ? (
-        <Empty>No Signup links are waiting. A link stays here until someone uses it.</Empty>
+        <Empty look="sheet">
+          No Signup links are waiting. A link stays here until someone uses it.
+        </Empty>
       ) : (
         <List label="Pending Signup links">
           {links.map((link) => (

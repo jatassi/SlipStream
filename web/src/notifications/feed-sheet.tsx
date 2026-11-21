@@ -8,6 +8,8 @@ import { type Clock, durationWords, sinceWords } from "../format";
 import { adoptSeen } from "../live/adopt-notifications";
 import { useNow } from "../tasks/use-now";
 import { Button } from "../ui/button";
+import { Empty } from "../ui/empty";
+// oxlint-disable-next-line import/max-dependencies -- the bell's sheet reads the feed, marks it seen and pages through it
 import { feedQuery } from "./feed-keys";
 
 const minute = 60_000;
@@ -71,9 +73,9 @@ function EmptyFeed() {
   const { tuning } = useGetTaskSuspense("housekeeping").data;
   const keep = tuning.find((field) => field.key === keepKey);
   return (
-    <p className="text-ink-2">
+    <Empty look="inline">
       No notifications in the last {keep?.kind === "duration" ? durationWords(keep.value) : ""}.
-    </p>
+    </Empty>
   );
 }
 

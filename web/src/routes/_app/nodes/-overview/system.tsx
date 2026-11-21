@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { isProblem } from "../../../../api/errors";
 import type { NodesNode } from "../../../../api/gen/model";
 import { getGetNodeSystemQueryKey, getNodeSystem } from "../../../../api/gen/query/system/system";
-import { Empty } from "../../../../shell/empty";
+import { Empty } from "../../../../ui/empty";
 import { Section } from "../../../../ui/section";
 import { Skeleton } from "../../../../ui/skeleton";
 import { SystemFacts } from "../-facts";
@@ -24,7 +24,7 @@ export function System({ node }: { node: NodesNode }) {
     }
     return (
       <Section title="System">
-        <Empty>
+        <Empty look="sheet">
           {node.name} is offline. Its version and listeners show again when it reconnects.
         </Empty>
       </Section>

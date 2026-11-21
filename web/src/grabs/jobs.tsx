@@ -1,9 +1,9 @@
 import { useListGrabsSuspense } from "../api/gen/query/grabs/grabs";
 import { useListContentTypesSuspense } from "../api/gen/query/works/works";
 import { useLibrary } from "../library/projection";
-import { Empty } from "../shell/empty";
 import { RunningList } from "../tasks/running";
 import { Button } from "../ui/button";
+import { Empty } from "../ui/empty";
 import { Select } from "../ui/select";
 import { useShell } from "../ui/shell-context";
 import { ActivityBody } from "./activity";
@@ -53,6 +53,7 @@ export function Jobs({ type, onTypeChange }: Choice) {
       {useShell() === "phone" && <RunningList />}
       {shown.length === 0 && grabs.length > 0 ? (
         <Empty
+          look="sheet"
           action={
             <Button
               onClick={() => {

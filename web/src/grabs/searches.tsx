@@ -4,11 +4,12 @@ import { clock } from "../format";
 import { useTester } from "../formats/tester-dialog";
 import type { WorkRef } from "../formats/testing";
 import { Data } from "../ui/data";
+import { Empty } from "../ui/empty";
 import { List, ListRow } from "../ui/list";
 import { Section } from "../ui/section";
 import { Spinner } from "../ui/spinner";
-import { RunReleases } from "./search-releases";
 // oxlint-disable-next-line import/max-dependencies -- a grabbed run reads its Grab's stage
+import { RunReleases } from "./search-releases";
 import { outcomeWords, triggerWords } from "./search-words";
 import { stageWord } from "./stages";
 
@@ -108,7 +109,7 @@ export function Searches({ work }: { work: WorkRef }) {
   return (
     <Section title="Searches" count={searches.length}>
       {searches.length === 0 ? (
-        <p className="text-ink-3">No searches yet. Search looks for a Release on every Indexer.</p>
+        <Empty look="sheet">No searches yet. Search looks for a Release on every Indexer.</Empty>
       ) : (
         <List label="Searches">
           {searches.map((search) => (

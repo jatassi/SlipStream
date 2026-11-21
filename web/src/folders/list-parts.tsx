@@ -1,5 +1,5 @@
 import { FolderAddIcon } from "@hugeicons/core-free-icons";
-import { type KeyboardEvent, type ReactNode, useId } from "react";
+import { type KeyboardEvent, useId } from "react";
 
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
@@ -16,14 +16,6 @@ export function SkeletonRows() {
         </span>
       ))}
     </output>
-  );
-}
-
-export function Quiet({ children }: { children: ReactNode }) {
-  return (
-    <p className="px-4 py-6 text-body text-ink-2 in-data-[density=touch]:text-body-touch">
-      {children}
-    </p>
   );
 }
 

@@ -4,8 +4,8 @@ import {
   useListNotificationEventsSuspense,
   useListNotificationProvidersSuspense,
 } from "../api/gen/query/notifications/notifications";
-import { Empty } from "../shell/empty";
 import { useNow } from "../tasks/use-now";
+import { Empty } from "../ui/empty";
 import { Section } from "../ui/section";
 import { ConnectionList } from "./connection-list";
 import { AddConnectionButton } from "./connection-sheet";
@@ -37,7 +37,7 @@ export function ConnectionsSection() {
       action={<AddConnectionButton {...choices} />}
     >
       {connections.length === 0 ? (
-        <Empty>{sentence}</Empty>
+        <Empty look="sheet">{sentence}</Empty>
       ) : (
         <div className="flex flex-col gap-3">
           <p className="text-ink-1 text-pretty">{sentence}</p>

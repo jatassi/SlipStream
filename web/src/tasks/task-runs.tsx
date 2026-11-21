@@ -1,6 +1,7 @@
 import type { TasksRun, TasksRunTrigger, TasksRunUnit } from "../api/gen/model";
 import { type Clock, lengthWords, sinceWords } from "../format";
 import { Data } from "../ui/data";
+import { Empty } from "../ui/empty";
 import { ExpandList, ExpandRow } from "../ui/expand-list";
 import { Section } from "../ui/section";
 import { NodeName } from "./node-name";
@@ -67,7 +68,7 @@ export function TaskRuns({ runs, clock }: { runs: readonly TasksRun[]; clock: Cl
   return (
     <Section id={runsAnchor} title="Runs" count={runs.length}>
       {runs.length === 0 ? (
-        <p className="text-ink-3">No runs yet.</p>
+        <Empty look="sheet">No runs yet.</Empty>
       ) : (
         <ExpandList label="Runs">
           {runs.map((run) => (

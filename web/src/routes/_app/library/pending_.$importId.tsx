@@ -16,9 +16,9 @@ import {
 } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
 import { DownloadEntry, waitingFiles } from "../../../imports/download-entry";
-import { Empty } from "../../../shell/empty";
 import { Page } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
+import { Empty } from "../../../ui/empty";
 // oxlint-disable-next-line import/max-dependencies -- the pushed page loads every read a download's Pending import draws from
 import { Skeleton } from "../../../ui/skeleton";
 
@@ -53,7 +53,7 @@ function PendingImport() {
   return (
     <Page>
       {type === undefined || waitingFiles(entry).length === 0 ? (
-        <Empty>Nothing in this download needs attention now.</Empty>
+        <Empty look="sheet">Nothing in this download needs attention now.</Empty>
       ) : (
         <ul>
           <DownloadEntry entry={entry} type={type} />

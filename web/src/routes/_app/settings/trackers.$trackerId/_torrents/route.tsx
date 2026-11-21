@@ -6,7 +6,7 @@ import { loaderTitle } from "../../../../../shell/titles";
 import { loadTorrents, torrentsSearch } from "../../../../../torrents/load";
 import { TorrentsPage } from "../../../../../torrents/torrents-page";
 import { trackerOf, useTracker } from "../../../../../trackers/tracker";
-import { Empty } from "../../../../../shell/empty";
+import { Empty } from "../../../../../ui/empty";
 import { Skeleton } from "../../../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/settings/trackers/$trackerId/_torrents")({
@@ -38,7 +38,7 @@ function TrackerTorrents() {
       scope={{
         keep: (row) => row.tracker?.id === trackerId,
         empty: (
-          <Empty>
+          <Empty look="sheet">
             {tracker.name}&apos;s torrents show here once SlipStream grabs a Release from it.
           </Empty>
         ),

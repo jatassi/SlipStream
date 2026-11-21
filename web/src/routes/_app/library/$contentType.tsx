@@ -7,9 +7,9 @@ import {
   librarySearch,
   rememberedSearch,
 } from "../../../library/routed";
-import { Empty } from "../../../shell/empty";
 import { Page } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
+import { Empty } from "../../../ui/empty";
 import { Skeleton } from "../../../ui/skeleton";
 import { enabledTypeOf, enabledTypes } from "../../../works/fields";
 import { AddButton } from "./-add-menu";
@@ -61,7 +61,7 @@ function ContentTypeLibrary() {
           });
         }}
         empty={
-          <Empty action={<AddButton type={type} look="default" />}>
+          <Empty look="sheet" action={<AddButton type={type} look="default" />}>
             No {type.work.many} in the library yet.
           </Empty>
         }

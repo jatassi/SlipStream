@@ -3,7 +3,7 @@ import {
   useListMediaServerKindsSuspense,
   useListMediaServersSuspense,
 } from "../api/gen/query/mediaservers/mediaservers";
-import { Empty } from "../shell/empty";
+import { Empty } from "../ui/empty";
 import { List } from "../ui/list";
 import { Section } from "../ui/section";
 import { ServerRow } from "./server-row";
@@ -17,7 +17,7 @@ export function NodeServers({ node }: { node: NodesNode }) {
   return (
     <Section title="Media Servers" count={reached.length}>
       {reached.length === 0 ? (
-        <Empty>
+        <Empty look="sheet">
           {`No Media Server connects from ${node.name}. To use one from ${node.name}, edit it in Settings > Media Servers and set Connect from to ${node.name}.`}
         </Empty>
       ) : (

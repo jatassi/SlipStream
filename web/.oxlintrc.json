@@ -133,8 +133,8 @@
             "message": "MSW and mocks belong to tests"
           },
           {
-            "group": ["**/ui/warning-line", "**/ui/alert-line"],
-            "message": "use Callout or SignalLine from src/ui"
+            "group": ["**/ui/warning-line", "**/ui/alert-line", "**/shell/empty"],
+            "message": "use Callout, SignalLine or Empty from src/ui"
           }
         ]
       }
@@ -384,8 +384,8 @@
                 "message": "MSW and mocks belong to tests"
               },
               {
-                "group": ["**/ui/warning-line", "**/ui/alert-line"],
-                "message": "use Callout or SignalLine from src/ui"
+                "group": ["**/ui/warning-line", "**/ui/alert-line", "**/shell/empty"],
+                "message": "use Callout, SignalLine or Empty from src/ui"
               }
             ]
           }
@@ -458,8 +458,8 @@
                 "message": "the portal never imports Admin pages"
               },
               {
-                "group": ["**/ui/warning-line", "**/ui/alert-line"],
-                "message": "use Callout or SignalLine from src/ui"
+                "group": ["**/ui/warning-line", "**/ui/alert-line", "**/shell/empty"],
+                "message": "use Callout, SignalLine or Empty from src/ui"
               }
             ]
           }
@@ -516,8 +516,8 @@
                 "message": "only generated code calls the mutator"
               },
               {
-                "group": ["**/ui/warning-line", "**/ui/alert-line"],
-                "message": "use Callout or SignalLine from src/ui"
+                "group": ["**/ui/warning-line", "**/ui/alert-line", "**/shell/empty"],
+                "message": "use Callout, SignalLine or Empty from src/ui"
               }
             ]
           }
@@ -587,8 +587,8 @@
                 "message": "MSW and mocks belong to tests"
               },
               {
-                "group": ["**/ui/warning-line", "**/ui/alert-line"],
-                "message": "use Callout or SignalLine from src/ui"
+                "group": ["**/ui/warning-line", "**/ui/alert-line", "**/shell/empty"],
+                "message": "use Callout, SignalLine or Empty from src/ui"
               }
             ]
           }
@@ -645,8 +645,8 @@
                 "message": "only generated code calls the mutator"
               },
               {
-                "group": ["**/ui/warning-line", "**/ui/alert-line"],
-                "message": "use Callout or SignalLine from src/ui"
+                "group": ["**/ui/warning-line", "**/ui/alert-line", "**/shell/empty"],
+                "message": "use Callout, SignalLine or Empty from src/ui"
               }
             ]
           }
@@ -819,7 +819,8 @@
         "src/targets/section-editor.tsx",
         "src/works/page/gone-upstream.tsx",
         "src/works/page/need-rows.tsx",
-        "src/works/page/waiting.tsx"
+        "src/works/page/waiting.tsx",
+        "src/library/results.tsx"
       ],
       "rules": {
         "no-restricted-imports": [

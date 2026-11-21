@@ -7,6 +7,7 @@ import type {
 import { useListContentTypesSuspense } from "../api/gen/query/works/works";
 import { type Clock, bytes, sinceWords } from "../format";
 import { Data } from "../ui/data";
+import { Empty } from "../ui/empty";
 import { Fact, Facts } from "../ui/facts";
 import { InspectorSection } from "../ui/inspector";
 import type { Names } from "./names";
@@ -23,7 +24,7 @@ export function Grabs({ detail, names }: { detail: DownloadclientsTorrentDetail;
   return (
     <InspectorSection title="Grabs">
       {detail.grabs.length === 0 ? (
-        <p className="text-ink-3">No Grab uses it any more.</p>
+        <Empty look="inline">No Grab uses it any more.</Empty>
       ) : (
         <ul>
           {detail.grabs.map((grab) => (

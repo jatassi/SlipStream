@@ -7,8 +7,8 @@ import {
   librarySearch,
   rememberedSearch,
 } from "../../../library/routed";
-import { Empty } from "../../../shell/empty";
 import { Page } from "../../../shell/page";
+import { Empty } from "../../../ui/empty";
 import { Skeleton } from "../../../ui/skeleton";
 import { enabledTypes } from "../../../works/fields";
 import { AddButton, AddMenu } from "./-add-menu";
@@ -49,9 +49,12 @@ function Library() {
         }}
         empty={
           enabled.length === 0 ? (
-            <Empty>Nothing in the library yet. Turn on a kind of media in Settings to start.</Empty>
+            <Empty look="sheet">
+              Nothing in the library yet. Turn on a kind of media in Settings to start.
+            </Empty>
           ) : (
             <Empty
+              look="sheet"
               action={
                 <div className="flex flex-wrap gap-2">
                   {enabled.map((type) => (

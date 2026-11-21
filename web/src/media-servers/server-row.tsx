@@ -5,8 +5,8 @@ import type {
   MediaserversKindView as Kind,
   MediaserversServerView as Server,
 } from "../api/gen/model";
+import { Empty } from "../ui/empty";
 import { Icon } from "../ui/icon";
-import { Empty } from "../shell/empty";
 import { List, ListRow } from "../ui/list";
 import { SignalLine } from "../ui/signal-line";
 import { kindOf } from "./server-form";
@@ -38,7 +38,7 @@ export function ServerList({
 }) {
   if (servers.length === 0) {
     return (
-      <Empty>
+      <Empty look="sheet">
         {
           "No Media Servers yet. Add a Plex, Jellyfin or Emby server, and SlipStream sends it every change to your library's files."
         }

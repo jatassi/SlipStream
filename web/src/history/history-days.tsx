@@ -1,9 +1,9 @@
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 
 import type { HistoryListEntry } from "../api/gen/model";
-import { Empty } from "../shell/empty";
 import { useNow } from "../tasks/use-now";
 import { Button } from "../ui/button";
+import { Empty } from "../ui/empty";
 import { List } from "../ui/list";
 import { NextOnScroll } from "../ui/next-on-scroll";
 import { useShell } from "../ui/shell-context";
@@ -61,9 +61,9 @@ const emptyWords =
 function FilteredEmpty({ now, onClear }: { now: Date; onClear: () => void }) {
   const { data } = useSuspenseInfiniteQuery(historyPages(paramsOf({}, now)));
   return data.pages[0]?.entries.length === 0 ? (
-    <Empty>{emptyWords}</Empty>
+    <Empty look="sheet">{emptyWords}</Empty>
   ) : (
-    <Empty action={<Button onClick={onClear}>Clear filters</Button>}>
+    <Empty look="sheet" action={<Button onClick={onClear}>Clear filters</Button>}>
       No entries match these filters.
     </Empty>
   );
@@ -81,7 +81,7 @@ export function HistoryDays({ filter, onClear }: { filter: HistoryFilter; onClea
     return filtered(filter) ? (
       <FilteredEmpty now={now} onClear={onClear} />
     ) : (
-      <Empty>{emptyWords}</Empty>
+      <Empty look="sheet">{emptyWords}</Empty>
     );
   }
   const more = () => {

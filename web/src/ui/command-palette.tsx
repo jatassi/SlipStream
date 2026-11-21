@@ -12,6 +12,7 @@ import {
   useRef,
 } from "react";
 
+import { Empty } from "./empty";
 import { Icon } from "./icon";
 import { type ShellKind, useShell } from "./shell-context";
 
@@ -135,7 +136,7 @@ export function CommandSearch({
       <SearchRow label={label} />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
         <Autocomplete.Empty>
-          <p className="px-3 py-6 text-body text-ink-2">{empty}</p>
+          <Empty look="row">{empty}</Empty>
         </Autocomplete.Empty>
         <Autocomplete.List className="outline-none">
           {(group: PaletteGroup) => (

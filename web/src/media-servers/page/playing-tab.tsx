@@ -1,7 +1,7 @@
 import type { MediaserversServerView as Server } from "../../api/gen/model";
 import { useListMediaServerSessionsSuspense } from "../../api/gen/query/mediaservers/mediaservers";
-import { Empty } from "../../shell/empty";
 import { useNow } from "../../tasks/use-now";
+import { Empty } from "../../ui/empty";
 import { List } from "../../ui/list";
 import { SessionRow } from "./session-row";
 
@@ -13,13 +13,13 @@ export function PlayingTab({ server }: { server: Server }) {
   const now = useNow(minute);
   if (!reachable) {
     return (
-      <Empty>
+      <Empty look="sheet">
         {`SlipStream can't check what's playing on ${server.name} while ${server.reachingNode.name} is offline.`}
       </Empty>
     );
   }
   if (sessions.length === 0) {
-    return <Empty>{`Nobody is playing anything on ${server.name} right now.`}</Empty>;
+    return <Empty look="sheet">{`Nobody is playing anything on ${server.name} right now.`}</Empty>;
   }
   return (
     <List label={`Now playing on ${server.name}`}>

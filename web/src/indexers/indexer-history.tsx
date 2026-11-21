@@ -4,6 +4,7 @@ import type { GrabsGrab, IndexersQuery } from "../api/gen/model";
 import { clock } from "../format";
 import { stageWord } from "../grabs/stages";
 import { Data } from "../ui/data";
+import { Empty } from "../ui/empty";
 import { Section } from "../ui/section";
 import { outcomeWords, useWords } from "./words";
 
@@ -17,7 +18,7 @@ export function RecentQueries({ queries }: { queries: readonly IndexersQuery[] }
   return (
     <Section title="Recent queries" count={queries.length}>
       {queries.length === 0 ? (
-        <p className="text-ink-3">No searches, fetches or Tests yet.</p>
+        <Empty look="sheet">No searches, fetches or Tests yet.</Empty>
       ) : (
         <ul aria-label="Recent queries" className={listClass}>
           {queries.map((query) => (
@@ -38,7 +39,7 @@ export function RecentGrabs({ grabs }: { grabs: readonly GrabsGrab[] }) {
   return (
     <Section title="Recent grabs" count={grabs.length}>
       {grabs.length === 0 ? (
-        <p className="text-ink-3">No Grabs yet.</p>
+        <Empty look="sheet">No Grabs yet.</Empty>
       ) : (
         <ul aria-label="Recent grabs" className={listClass}>
           {grabs.map((grab) => (

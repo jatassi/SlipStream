@@ -4,6 +4,7 @@ import type { FormatsExplained, FormatsParsed, FormatsReadFacts } from "../api/g
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { Empty } from "../ui/empty";
 import { Fact, Facts } from "../ui/facts";
 import {
   conditionNotes,
@@ -74,7 +75,7 @@ function Formats({ formats }: { formats: readonly FormatsExplained[] }) {
   const { shown, others } = formatGroups(formats);
   return (
     <Part title="Custom Formats">
-      {formats.length === 0 && <p>No Custom Formats yet.</p>}
+      {formats.length === 0 && <Empty look="inline">No Custom Formats yet.</Empty>}
       {shown.length > 0 && (
         <ul aria-label="Custom Formats it matches" className="flex flex-col gap-2">
           {shown.map((format) => (
@@ -91,7 +92,7 @@ function Targets({ result }: { result: FormatsParsed }) {
   return (
     <Part title="Targets">
       {result.targets.length === 0 ? (
-        <p>No Target is set up.</p>
+        <Empty look="inline">No Target is set up.</Empty>
       ) : (
         <ul aria-label="Targets" className="flex flex-col gap-2">
           {result.targets.map((target) => (
