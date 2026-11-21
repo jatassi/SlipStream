@@ -108,7 +108,7 @@ func (f *faulty) torrent() downloadclients.Attached {
 func (f *faulty) told() (keeps int, removes []bool) {
 	f.t.Helper()
 	err := f.lib.Read(f.t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		intent, err := downloadclients.Intent(ctx, r, f.node)
+		intent, err := downloadclients.Derive{Keeps: downloadclients.NoKeeps}.Intent(ctx, r, f.node)
 		if err != nil {
 			return err
 		}

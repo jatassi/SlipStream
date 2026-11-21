@@ -84,7 +84,7 @@ func (s *sending) intent(node role.NodeID) *dlv1.Intent {
 	var in *dlv1.Intent
 	err := s.lib.Read(s.t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		in, err = downloadclients.Intent(ctx, r, node)
+		in, err = downloadclients.Derive{Keeps: downloadclients.NoKeeps}.Intent(ctx, r, node)
 		return err
 	})
 	if err != nil {

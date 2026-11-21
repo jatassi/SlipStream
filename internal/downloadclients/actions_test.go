@@ -422,7 +422,7 @@ func intentWithDiscards(t *testing.T, lib library, node role.NodeID) *dlv1.Inten
 	var in *dlv1.Intent
 	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		in, err = dc.Intent(ctx, r, node)
+		in, err = dc.Derive{Keeps: dc.NoKeeps}.Intent(ctx, r, node)
 		return err
 	})
 	if err != nil {

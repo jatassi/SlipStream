@@ -17,7 +17,7 @@ func retryAts(t *testing.T, lib library, node role.NodeID) map[dc.ID]int64 {
 	t.Helper()
 	out := map[dc.ID]int64{}
 	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		in, err := dc.Intent(ctx, r, node)
+		in, err := dc.Derive{Keeps: dc.NoKeeps}.Intent(ctx, r, node)
 		for _, tor := range in.GetTorrents() {
 			out[idFrom(tor.GetId())] = tor.GetRetryAtUnixMs()
 		}

@@ -123,7 +123,7 @@ func TestNodeSettingsAreEachNodesOwnAndReachItsIntent(t *testing.T) {
 	var in *dlv1.Intent
 	err := lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
 		var err error
-		in, err = dc.Intent(ctx, rd, seedbox)
+		in, err = dc.Derive{Keeps: dc.NoKeeps}.Intent(ctx, rd, seedbox)
 		return err
 	})
 	if err != nil || in.GetSettings().GetUploadLimit() != limit || in.GetSettings().GetUtp() || in.GetSettings().GetDht() {
@@ -178,7 +178,7 @@ func TestThresholdsKeepWhatIsLeftAndReachEveryDownloadingNode(t *testing.T) {
 	var in *dlv1.Intent
 	err = lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
 		var err error
-		in, err = dc.Intent(ctx, rd, home)
+		in, err = dc.Derive{Keeps: dc.NoKeeps}.Intent(ctx, rd, home)
 		return err
 	})
 	if err != nil || in.GetThresholds().GetUnregisteredGapSeconds() != 3600 || in.GetThresholds().GetFaultStallSeconds() != 12*3600 {

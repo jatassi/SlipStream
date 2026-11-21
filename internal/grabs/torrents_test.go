@@ -138,7 +138,7 @@ func intentOf(t *testing.T, lib library, node role.NodeID) []bencode.InfoHash {
 	t.Helper()
 	var out []bencode.InfoHash
 	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		in, err := downloadclients.Intent(ctx, r, node)
+		in, err := downloadclients.Derive{Keeps: downloadclients.NoKeeps}.Intent(ctx, r, node)
 		for _, tor := range in.GetTorrents() {
 			out = append(out, bencode.InfoHash(tor.GetInfoHash()))
 		}
