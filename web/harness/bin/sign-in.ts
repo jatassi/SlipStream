@@ -5,7 +5,7 @@ import { argv, stdout } from "node:process";
 import { chromium } from "playwright";
 
 import { node, identity as pick, read } from "../manifest.ts";
-import { declinePasskeyPrompt, submitPin } from "../sign-in.ts";
+import { declinePasskeyPrompt, promptsForPasskey, submitPin } from "../sign-in.ts";
 import { startupPlayedScript } from "../startup.ts";
 
 const usage = "usage: bun web/harness/bin/sign-in.ts <run> <identity> <shell> [<node>]";
@@ -40,15 +40,22 @@ try {
   });
   await context.addInitScript({ path: startupPlayedScript });
   // The page after sign-in may be the Library, the re-home step of a
-  // restore or the Superseded page, so only leaving /sign-in is awaited.
+  // restore or the Superseded page, which offers no passkey.
   const page = await context.newPage();
   await page.goto("/sign-in");
   const answer = await submitPin(page, person.email, person.pin);
   if (!answer.ok()) {
     throw new Error(`${person.email} could not sign in to ${target.name}: ${answer.status()}`);
   }
-  await declinePasskeyPrompt(page, answer);
   await page.waitForURL((url) => url.pathname !== "/sign-in");
+  const replaced = page.getByRole("heading", { name: "This Controller was replaced" });
+  const prompt = page.getByRole("dialog", { name: "Sign in faster here with a passkey" });
+  if (await promptsForPasskey(answer)) {
+    await prompt.or(replaced).first().waitFor();
+  }
+  if (!(await replaced.isVisible())) {
+    await declinePasskeyPrompt(page, answer);
+  }
   const out = join(run, "auth", `${identity}-${shell}.json`);
   await mkdir(dirname(out), { recursive: true });
   await context.storageState({ path: out });

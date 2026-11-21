@@ -23,8 +23,12 @@ const SignedIn = z.object({ passkeyPrompt: z.boolean() });
 
 // The Node prompts only where the address can hold a passkey and the
 // Account holds none there yet, and says so in the sign-in answer.
+export async function promptsForPasskey(answer: Response): Promise<boolean> {
+  return answer.ok() && SignedIn.parse(await answer.json()).passkeyPrompt;
+}
+
 export async function declinePasskeyPrompt(page: Page, answer: Response): Promise<void> {
-  if (!answer.ok() || !SignedIn.parse(await answer.json()).passkeyPrompt) {
+  if (!(await promptsForPasskey(answer))) {
     return;
   }
   const prompt = page.getByRole("dialog", { name: "Sign in faster here with a passkey" });
