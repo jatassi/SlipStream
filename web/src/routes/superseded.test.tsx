@@ -134,15 +134,18 @@ test("Details names the new Controller's key and the Worker that said so, and Re
   await expect.element(page.getByRole("heading", { name: title })).not.toBeInTheDocument();
 });
 
-test("a Controller stopped by hand says an Admin stopped it", async () => {
+test.each(["retired", "stopped"] as const)("a Controller says an Admin %s it", async (state) => {
   renderApp({
     path: "/superseded",
-    handlers: [fenced, getGetSupersededMockHandler({ state: "retired", at: fencedAt })],
+    handlers: [fenced, getGetSupersededMockHandler({ state, at: fencedAt })],
   });
   await expect
     .element(
       page.getByText(
-        /^(?:Today|Yesterday) at \d\d:\d\d, an Admin stopped this Controller\. Its torrents are paused and its searches have stopped\.$/u,
+        new RegExp(
+          `^(?:Today|Yesterday) at \\d\\d:\\d\\d, an Admin ${state} this Controller\\. Its torrents are paused and its searches have stopped\\.$`,
+          "u",
+        ),
       ),
     )
     .toBeVisible();
