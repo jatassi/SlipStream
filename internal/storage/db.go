@@ -8,8 +8,10 @@ import (
 )
 
 type DB[F File] struct {
-	write *sql.DB
-	read  *sql.DB
+	path    string
+	timings Timings
+	write   *sql.DB
+	read    *sql.DB
 }
 
 type Tx[F File] struct {
