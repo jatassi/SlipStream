@@ -104,6 +104,13 @@ func WithReleases(c *releases.Catalog) Option {
 // <name>.mkv, as the world's catalog places it.
 func Catalog(t testing.TB, size int, names ...string) *releases.Catalog {
 	t.Helper()
+	return CatalogPublic(t, size, nil, names...)
+}
+
+// CatalogPublic is Catalog with each release in public not flagged
+// private, as Catalog flags every release.
+func CatalogPublic(t testing.TB, size int, public []string, names ...string) *releases.Catalog {
+	t.Helper()
 	dir := t.TempDir()
 	c := &releases.Catalog{}
 	for _, name := range names {
@@ -112,7 +119,7 @@ func Catalog(t testing.TB, size int, names ...string) *releases.Catalog {
 		if err := os.WriteFile(file, payload, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		meta, hash, err := releases.Metainfo(name+".mkv", nil, payload, "https://127.0.0.1/announce/faketest", false)
+		meta, hash, err := releases.Metainfo(name+".mkv", nil, payload, "https://127.0.0.1/announce/faketest", slices.Contains(public, name))
 		if err != nil {
 			t.Fatal(err)
 		}

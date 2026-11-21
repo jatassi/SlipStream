@@ -41,7 +41,42 @@ func (c *client) Add(ctx context.Context, a clients.Add) error {
 var fields = []string{
 	"d.name", "d.state", "d.is_active", "d.hashing", "d.complete", "d.size_bytes", "d.completed_bytes",
 	"d.directory", "d.is_multi_file", "d.custom1", "d.message", "d.timestamp.finished",
-	"d.up.total", "d.down.total", "d.up.rate", "d.down.rate", "d.peers_connected", "d.peers_complete",
+	"d.up.total", "d.down.total", "d.up.rate", "d.down.rate", "d.peers_connected", "d.peers_complete", "d.is_private",
+}
+
+// List is one d.multicall2 over the main view of each download's hash and
+// d.custom1, since rTorrent filters by neither, then a poll of those with
+// the label.
+func (c *client) List(ctx context.Context, label clients.Label) (map[bencode.InfoHash]clients.Status, error) {
+	v, err := c.send(ctx, "d.multicall2", []any{"", "main", "d.hash=", "d.custom1="})
+	if err != nil {
+		return nil, err
+	}
+	rows, ok := v.([]any)
+	if !ok {
+		return nil, fmt.Errorf("the client responded to d.multicall2 with %v", v)
+	}
+	var hashes []bencode.InfoHash
+	for _, r := range rows {
+		row, ok := r.([]any)
+		if !ok || len(row) != 2 {
+			return nil, fmt.Errorf("the client responded to d.multicall2 with the row %v", r)
+		}
+		hash, okHash := row[0].(string)
+		custom1, okLabel := row[1].(string)
+		if !okHash || !okLabel {
+			return nil, fmt.Errorf("the client responded to d.multicall2 with the row %v", r)
+		}
+		if custom1 != label.String() {
+			continue
+		}
+		h, err := bencode.ParseInfoHash(strings.ToLower(hash))
+		if err != nil {
+			return nil, fmt.Errorf("read the client's d.multicall2: %w", err)
+		}
+		hashes = append(hashes, h)
+	}
+	return c.Poll(ctx, hashes)
 }
 
 // Poll is one system.multicall of fields over hashes. A hash rTorrent
@@ -129,7 +164,7 @@ func status(v *values) clients.Status {
 	s := clients.Status{
 		Name: v.str("d.name"), Size: v.num("d.size_bytes"), Done: v.num("d.completed_bytes"),
 		Run: clients.Started, Activity: clients.Downloading, Finished: complete,
-		Folder: v.str("d.directory"), Label: v.str("d.custom1"),
+		Folder: v.str("d.directory"), Label: v.str("d.custom1"), Private: v.num("d.is_private") == 1,
 		Counters: clients.Counters{Uploaded: v.num("d.up.total"), Downloaded: v.num("d.down.total")},
 		Rates: clients.Rates{
 			Down: v.num("d.down.rate"), Up: v.num("d.up.rate"),

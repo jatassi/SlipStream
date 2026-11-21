@@ -29,6 +29,7 @@ func (c *client) endpoints() map[string]endpoint {
 		"torrents/categories": {"", (*client).listCategories},
 		"torrents/add":        {post, (*client).add},
 		"torrents/info":       {"", (*client).info},
+		"torrents/export":     {"", (*client).export},
 		"torrents/files":      {"", (*client).files},
 		"torrents/trackers":   {"", (*client).trackers},
 		"torrents/delete":     {post, (*client).delete},
@@ -169,7 +170,7 @@ func (c *client) add(w http.ResponseWriter, r *http.Request, _ *session) {
 	failed := 0
 	for _, f := range r.MultipartForm.File["torrents"] {
 		meta, err := readPart(f)
-		m, decodeErr := bencode.DecodeMetainfo(meta)
+		_, decodeErr := bencode.DecodeMetainfo(meta)
 		if err != nil || decodeErr != nil {
 			text(w, http.StatusUnsupportedMediaType, fmt.Sprintf("Error: '%s' is not a valid torrent file.", f.Filename))
 			return
@@ -186,7 +187,6 @@ func (c *client) add(w http.ResponseWriter, r *http.Request, _ *session) {
 			failed++
 			continue
 		}
-		c.announce[t.Hash] = m.Announce
 		added = append(added, t.Hash.String())
 	}
 	switch {
@@ -244,12 +244,14 @@ func (c *client) delete(w http.ResponseWriter, r *http.Request, _ *session) {
 	done(w)
 }
 
+// info is torrents/info, filtered by the hashes and category parameters.
 func (c *client) info(w http.ResponseWriter, r *http.Request, _ *session) {
 	all := c.engine.List(nil)
 	var named []bencode.InfoHash
 	if p := r.FormValue("hashes"); p != "" {
 		named = hashes(p)
 	}
+	category, byCategory := r.Form["category"]
 	position := map[bencode.InfoHash]int{}
 	for _, t := range all {
 		if c.Slots > 0 && t.Done < t.Size {
@@ -258,11 +260,28 @@ func (c *client) info(w http.ResponseWriter, r *http.Request, _ *session) {
 	}
 	out := []map[string]any{}
 	for _, t := range all {
-		if named == nil || slices.Contains(named, t.Hash) {
+		if (named == nil || slices.Contains(named, t.Hash)) && (!byCategory || c.category(t) == category[0]) {
 			out = append(out, c.torrent(t, position[t.Hash]))
 		}
 	}
 	writeJSON(w, out)
+}
+
+func (c *client) category(t torrentclient.Torrent) string {
+	if len(t.Labels) == 0 {
+		return ""
+	}
+	return t.Labels[0]
+}
+
+// export is torrents/export: the .torrent the torrent was added from.
+func (c *client) export(w http.ResponseWriter, r *http.Request, _ *session) {
+	t, ok := c.torrentOf(w, r)
+	if !ok {
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-bittorrent")
+	_, _ = w.Write(t.Metainfo)
 }
 
 // state is the torrent's state in qBittorrent's words.
@@ -313,9 +332,9 @@ func (c *client) torrent(t torrentclient.Torrent, position int) map[string]any {
 		completion = t.CompletedAt.Unix()
 	}
 	content := c.join(t.Folder, t.Name)
-	category := ""
-	if len(t.Labels) > 0 {
-		category = t.Labels[0]
+	tracker := ""
+	if len(t.Trackers) > 0 && !t.Tracker.Error {
+		tracker = t.Trackers[0]
 	}
 	rates := t.Rates
 	if t.Tracker.Error {
@@ -325,12 +344,13 @@ func (c *client) torrent(t torrentclient.Torrent, position int) map[string]any {
 		"hash": t.Hash.String(), "infohash_v1": t.Hash.String(), "name": t.Name, "size": t.Size, "total_size": t.Size,
 		"progress": progress, "amount_left": t.Size - t.Done, "completed": t.Done, "state": c.state(t),
 		"dlspeed": rates.Down, "upspeed": rates.Up, "num_seeds": rates.Seeds, "num_leechs": rates.Peers - rates.Seeds,
-		"priority": position, "category": category, "tags": "", "save_path": t.Folder, "content_path": content,
+		"priority": position, "category": c.category(t), "tracker": tracker, "tags": "", "save_path": t.Folder, "content_path": content,
 		"completion_on": completion, "downloaded": t.Downloaded, "uploaded": t.Uploaded, "ratio": ratio,
 		"time_active": int64((t.Downloading + t.Seeding).Seconds()), "seeding_time": int64(t.Seeding.Seconds()),
 		"max_ratio": maxRatio, "max_seeding_time": -1, "ratio_limit": -2, "seeding_time_limit": -2, "auto_tmm": false,
 	}
 	if c.version.stop {
+		out["private"] = t.Private
 		out["root_path"] = ""
 		if len(t.Files) > 1 || (len(t.Files) == 1 && strings.Contains(t.Files[0].Path, "/")) {
 			out["root_path"] = content
@@ -393,7 +413,9 @@ func (c *client) trackers(w http.ResponseWriter, r *http.Request, _ *session) {
 			status = trackerError
 		}
 	}
-	out = append(out, map[string]any{"url": c.announce[t.Hash], "tier": 0, "status": status, "msg": t.Tracker.Message, "num_peers": 0})
+	for _, u := range t.Trackers {
+		out = append(out, map[string]any{"url": u, "tier": 0, "status": status, "msg": t.Tracker.Message, "num_peers": 0})
+	}
 	writeJSON(w, out)
 }
 

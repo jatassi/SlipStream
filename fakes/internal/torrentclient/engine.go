@@ -85,6 +85,11 @@ type Torrent struct {
 	// SeedGoalMet is a torrent the client stopped at its seed ratio.
 	SeedGoalMet bool
 	Rates       Rates
+	// Metainfo is the .torrent it was added from, Private its flag and
+	// Trackers its tracker URLs.
+	Metainfo []byte
+	Private  bool
+	Trackers []string
 }
 
 type File struct {
@@ -161,7 +166,7 @@ func (e *Engine) Add(metainfo []byte, folder string, labels []string, paused boo
 	e.nextID++
 	added := &torrent{Torrent: Torrent{
 		ID: e.nextID, Hash: m.InfoHash, Name: m.Info.Name, Folder: folder, Labels: slices.Clone(labels),
-		State: Downloading,
+		State: Downloading, Metainfo: slices.Clone(metainfo), Private: m.Info.Private, Trackers: m.Trackers(),
 	}}
 	for _, f := range m.Info.Files {
 		p := m.Info.Name

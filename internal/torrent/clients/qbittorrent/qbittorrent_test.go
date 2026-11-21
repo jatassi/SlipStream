@@ -650,3 +650,33 @@ func TestQBittorrentSpeaksOverLoopback(t *testing.T) {
 		})
 	}
 }
+
+// TestQBittorrentExportHashesToItsInfoHash adds orchard and exports it:
+// the .torrent hashes to orchard's info hash. A torrent qBittorrent
+// doesn't list exports nothing.
+func TestQBittorrentExportHashesToItsInfoHash(t *testing.T) {
+	inEachVersion(t, func(t *testing.T, version string) {
+		r := newRig(t, fakeqbittorrent.Client{Version: version})
+		c := r.session()
+		orchard, lantern := r.releases[0], r.releases[1]
+		r.add(c, orchard, "")
+		exporter, ok := c.(clients.Exporter)
+		if !ok {
+			t.Fatal("a qBittorrent session can't export")
+		}
+		got, err := exporter.Export(t.Context(), orchard.hash)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m, err := bencode.DecodeMetainfo(got)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m.InfoHash != orchard.hash {
+			t.Errorf("the export hashes to %s, want %s", m.InfoHash, orchard.hash)
+		}
+		if _, err := exporter.Export(t.Context(), lantern.hash); err == nil {
+			t.Error("a torrent qBittorrent doesn't list exported, want an error")
+		}
+	})
+}
