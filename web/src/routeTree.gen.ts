@@ -48,6 +48,9 @@ import { Route as AppLibraryPendingRouteImport } from "./routes/_app/library/pen
 import { Route as AppLibraryWantedRouteImport } from "./routes/_app/library/wanted";
 import { Route as AppNodesIndexRouteImport } from "./routes/_app/nodes/index";
 import { Route as AppNodesNodeIdRouteRouteImport } from "./routes/_app/nodes/$nodeId/route";
+import { Route as AppReconcilingIndexRouteImport } from "./routes/_app/reconciling/index";
+import { Route as AppReconcilingFoldersRouteImport } from "./routes/_app/reconciling/folders";
+import { Route as AppReconcilingTorrentsRouteImport } from "./routes/_app/reconciling/torrents";
 import { Route as AppSettingsIndexRouteImport } from "./routes/_app/settings/index";
 import { Route as AppSettingsSectionRouteImport } from "./routes/_app/settings/$section";
 import { Route as AppTasksIndexRouteImport } from "./routes/_app/tasks/index";
@@ -286,6 +289,21 @@ const AppNodesNodeIdRouteRoute = AppNodesNodeIdRouteRouteImport.update({
   id: "/$nodeId",
   path: "/$nodeId",
   getParentRoute: () => AppNodesRouteRoute,
+} as any);
+const AppReconcilingIndexRoute = AppReconcilingIndexRouteImport.update({
+  id: "/reconciling/",
+  path: "/reconciling/",
+  getParentRoute: () => AppRoute,
+} as any);
+const AppReconcilingFoldersRoute = AppReconcilingFoldersRouteImport.update({
+  id: "/reconciling/folders",
+  path: "/reconciling/folders",
+  getParentRoute: () => AppRoute,
+} as any);
+const AppReconcilingTorrentsRoute = AppReconcilingTorrentsRouteImport.update({
+  id: "/reconciling/torrents",
+  path: "/reconciling/torrents",
+  getParentRoute: () => AppRoute,
 } as any);
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   id: "/settings/",
@@ -572,6 +590,8 @@ export interface FileRoutesByFullPath {
   "/library/calendar": typeof AppLibraryCalendarRoute;
   "/library/pending": typeof AppLibraryPendingRoute;
   "/library/wanted": typeof AppLibraryWantedRoute;
+  "/reconciling/folders": typeof AppReconcilingFoldersRoute;
+  "/reconciling/torrents": typeof AppReconcilingTorrentsRoute;
   "/settings/$section": typeof AppSettingsSectionRoute;
   "/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
@@ -580,6 +600,7 @@ export interface FileRoutesByFullPath {
   "/activity/": typeof AppActivityIndexRoute;
   "/library/": typeof AppLibraryIndexRoute;
   "/nodes/": typeof AppNodesIndexRoute;
+  "/reconciling/": typeof AppReconcilingIndexRoute;
   "/settings/": typeof AppSettingsIndexRoute;
   "/tasks/": typeof AppTasksIndexRoute;
   "/settings/media-servers/$serverId": typeof AppSettingsMediaServersServerIdRouteRouteWithChildren;
@@ -649,6 +670,8 @@ export interface FileRoutesByTo {
   "/library/calendar": typeof AppLibraryCalendarRoute;
   "/library/pending": typeof AppLibraryPendingRoute;
   "/library/wanted": typeof AppLibraryWantedRoute;
+  "/reconciling/folders": typeof AppReconcilingFoldersRoute;
+  "/reconciling/torrents": typeof AppReconcilingTorrentsRoute;
   "/settings/$section": typeof AppSettingsSectionRoute;
   "/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
@@ -657,6 +680,7 @@ export interface FileRoutesByTo {
   "/activity": typeof AppActivityIndexRoute;
   "/library": typeof AppLibraryIndexRoute;
   "/nodes": typeof AppNodesIndexRoute;
+  "/reconciling": typeof AppReconcilingIndexRoute;
   "/settings": typeof AppSettingsIndexRoute;
   "/tasks": typeof AppTasksIndexRoute;
   "/settings/trackers/$trackerId": typeof AppSettingsTrackersTrackerIdTorrentsIndexRoute;
@@ -732,6 +756,8 @@ export interface FileRoutesById {
   "/_app/library/calendar": typeof AppLibraryCalendarRoute;
   "/_app/library/pending": typeof AppLibraryPendingRoute;
   "/_app/library/wanted": typeof AppLibraryWantedRoute;
+  "/_app/reconciling/folders": typeof AppReconcilingFoldersRoute;
+  "/_app/reconciling/torrents": typeof AppReconcilingTorrentsRoute;
   "/_app/settings/$section": typeof AppSettingsSectionRoute;
   "/_app/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/_app/works/$workId": typeof AppWorksWorkIdRoute;
@@ -740,6 +766,7 @@ export interface FileRoutesById {
   "/_app/activity/": typeof AppActivityIndexRoute;
   "/_app/library/": typeof AppLibraryIndexRoute;
   "/_app/nodes/": typeof AppNodesIndexRoute;
+  "/_app/reconciling/": typeof AppReconcilingIndexRoute;
   "/_app/settings/": typeof AppSettingsIndexRoute;
   "/_app/tasks/": typeof AppTasksIndexRoute;
   "/_app/settings/media-servers/$serverId": typeof AppSettingsMediaServersServerIdRouteRouteWithChildren;
@@ -818,6 +845,8 @@ export interface FileRouteTypes {
     | "/library/calendar"
     | "/library/pending"
     | "/library/wanted"
+    | "/reconciling/folders"
+    | "/reconciling/torrents"
     | "/settings/$section"
     | "/tasks/$taskId"
     | "/works/$workId"
@@ -826,6 +855,7 @@ export interface FileRouteTypes {
     | "/activity/"
     | "/library/"
     | "/nodes/"
+    | "/reconciling/"
     | "/settings/"
     | "/tasks/"
     | "/settings/media-servers/$serverId"
@@ -895,6 +925,8 @@ export interface FileRouteTypes {
     | "/library/calendar"
     | "/library/pending"
     | "/library/wanted"
+    | "/reconciling/folders"
+    | "/reconciling/torrents"
     | "/settings/$section"
     | "/tasks/$taskId"
     | "/works/$workId"
@@ -903,6 +935,7 @@ export interface FileRouteTypes {
     | "/activity"
     | "/library"
     | "/nodes"
+    | "/reconciling"
     | "/settings"
     | "/tasks"
     | "/settings/trackers/$trackerId"
@@ -977,6 +1010,8 @@ export interface FileRouteTypes {
     | "/_app/library/calendar"
     | "/_app/library/pending"
     | "/_app/library/wanted"
+    | "/_app/reconciling/folders"
+    | "/_app/reconciling/torrents"
     | "/_app/settings/$section"
     | "/_app/tasks/$taskId"
     | "/_app/works/$workId"
@@ -985,6 +1020,7 @@ export interface FileRouteTypes {
     | "/_app/activity/"
     | "/_app/library/"
     | "/_app/nodes/"
+    | "/_app/reconciling/"
     | "/_app/settings/"
     | "/_app/tasks/"
     | "/_app/settings/media-servers/$serverId"
@@ -1316,6 +1352,27 @@ declare module "@tanstack/react-router" {
       fullPath: "/nodes/$nodeId";
       preLoaderRoute: typeof AppNodesNodeIdRouteRouteImport;
       parentRoute: typeof AppNodesRouteRoute;
+    };
+    "/_app/reconciling/": {
+      id: "/_app/reconciling/";
+      path: "/reconciling";
+      fullPath: "/reconciling/";
+      preLoaderRoute: typeof AppReconcilingIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/reconciling/folders": {
+      id: "/_app/reconciling/folders";
+      path: "/reconciling/folders";
+      fullPath: "/reconciling/folders";
+      preLoaderRoute: typeof AppReconcilingFoldersRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/reconciling/torrents": {
+      id: "/_app/reconciling/torrents";
+      path: "/reconciling/torrents";
+      fullPath: "/reconciling/torrents";
+      preLoaderRoute: typeof AppReconcilingTorrentsRouteImport;
+      parentRoute: typeof AppRoute;
     };
     "/_app/settings/": {
       id: "/_app/settings/";
@@ -1818,9 +1875,12 @@ interface AppRouteChildren {
   AppSystemRoute: typeof AppSystemRoute;
   AppIndexRoute: typeof AppIndexRoute;
   AppAccountsAccountIdRoute: typeof AppAccountsAccountIdRoute;
+  AppReconcilingFoldersRoute: typeof AppReconcilingFoldersRoute;
+  AppReconcilingTorrentsRoute: typeof AppReconcilingTorrentsRoute;
   AppSettingsSectionRoute: typeof AppSettingsSectionRoute;
   AppWorksWorkIdRoute: typeof AppWorksWorkIdRoute;
   AppAccountsIndexRoute: typeof AppAccountsIndexRoute;
+  AppReconcilingIndexRoute: typeof AppReconcilingIndexRoute;
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute;
   AppSettingsMediaServersServerIdRouteRoute: typeof AppSettingsMediaServersServerIdRouteRouteWithChildren;
   AppSettingsTrackersTrackerIdRouteRoute: typeof AppSettingsTrackersTrackerIdRouteRouteWithChildren;
@@ -1850,9 +1910,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppSystemRoute: AppSystemRoute,
   AppIndexRoute: AppIndexRoute,
   AppAccountsAccountIdRoute: AppAccountsAccountIdRoute,
+  AppReconcilingFoldersRoute: AppReconcilingFoldersRoute,
+  AppReconcilingTorrentsRoute: AppReconcilingTorrentsRoute,
   AppSettingsSectionRoute: AppSettingsSectionRoute,
   AppWorksWorkIdRoute: AppWorksWorkIdRoute,
   AppAccountsIndexRoute: AppAccountsIndexRoute,
+  AppReconcilingIndexRoute: AppReconcilingIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
   AppSettingsMediaServersServerIdRouteRoute:
     AppSettingsMediaServersServerIdRouteRouteWithChildren,

@@ -160,6 +160,7 @@ export function pendingForever(): RequestHandler[] {
     controller,
     signedInAsAda,
     resyncStream,
+    nothingMoving,
     http.all("*/api/v1/*", async () => {
       await released;
       return problem(503, "unavailable", "Released at the end of the test");

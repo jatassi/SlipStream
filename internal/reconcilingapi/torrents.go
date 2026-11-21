@@ -184,9 +184,10 @@ func cursorOf(s string) (reconciling.Cursor, error) {
 	}, nil
 }
 
-// pick is which review list torrents an action takes: the ids given, or
-// every torrent in a group.
-type pick struct {
+// Pick is which review list torrents an action takes: the ids given, or
+// every torrent in a group. It is exported so the OpenAPI schema keeps its
+// fields: huma skips an unexported embedded struct.
+type Pick struct {
 	IDs    []string `json:"ids,omitempty" maxItems:"1000" doc:"The torrents; left out, every torrent in the group reason and found name"`
 	Reason string   `json:"reason,omitempty" enum:"not_held,conflict" doc:"With no ids, the group's reason; left out, any"`
 	Found  string   `json:"found,omitempty" enum:"not_looked,no_files,files" doc:"With no ids, how the group's files were found; left out, any"`
@@ -194,7 +195,7 @@ type pick struct {
 
 const groupPage = 500
 
-func (p pick) ids(ctx context.Context, s *reconciling.Service) ([]downloadclients.ID, error) {
+func (p Pick) ids(ctx context.Context, s *reconciling.Service) ([]downloadclients.ID, error) {
 	if len(p.IDs) > 0 {
 		out := make([]downloadclients.ID, len(p.IDs))
 		for i, raw := range p.IDs {
@@ -226,7 +227,7 @@ func (p pick) ids(ctx context.Context, s *reconciling.Service) ([]downloadclient
 type readdInput struct{ Body readdRequest }
 
 type readdRequest struct {
-	pick
+	Pick
 	NodeID string `json:"nodeId,omitempty" format:"uuid" doc:"The Node to re-add them on; left out, each on the Node it was recorded on"`
 }
 
@@ -248,7 +249,7 @@ func readd(ctx context.Context, s *reconciling.Service, in *readdInput) error {
 
 type forgetInput struct{ Body forgetRequest }
 
-type forgetRequest struct{ pick }
+type forgetRequest struct{ Pick }
 
 func forget(ctx context.Context, s *reconciling.Service, in *forgetInput) error {
 	if len(in.Body.IDs) == 0 {
