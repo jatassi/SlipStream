@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"time"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
@@ -38,7 +37,7 @@ type Claims struct {
 // Roles. claimWorker answers once the link is live and setRoles once the
 // Nodes in step it changed hold their Roles. A joined Node's first
 // Holdings can be adopted after that, which sends it one more intent, so
-// 9c reads listNodes again until that one is applied too.
+// 9c then waits on the Admin's event stream until that one is applied.
 func Steps(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready) (Claims, error) {
 	claims := Claims{Members: make([]Member, len(s.Nodes))}
 	var (
@@ -70,23 +69,40 @@ func Steps(ctx context.Context, c *http.Client, s scenario.Scenario, ready []nod
 			return Claims{}, err
 		}
 	}
-	deadline := time.Now().Add(adoptedWithin)
-	for {
-		err := members(ctx, c, s, controller, claims, set)
-		if err == nil || !errors.Is(err, errUnapplied) || time.Now().After(deadline) {
-			return claims, err
-		}
-		select {
-		case <-ctx.Done():
-			return claims, err
-		case <-time.After(100 * time.Millisecond):
-		}
+	err := members(ctx, c, s, controller, claims, set)
+	if !errors.Is(err, errUnapplied) {
+		return claims, err
 	}
+	return claims, adopted(ctx, c, s, controller, claims, set)
 }
 
-// adoptedWithin is how long 9c waits for a joined Node to apply the intent
-// its adoption sends.
-const adoptedWithin = 15 * time.Second
+// adopted waits on the Admin's event stream until every Node set names
+// has applied its newest intent, which a joined Node's adoption can send
+// after setRoles answered.
+func adopted(ctx context.Context, c *http.Client, s scenario.Scenario, controller string, claims Claims, set []nodeapi.Assignment) error {
+	if s.Admin == nil {
+		return errors.New("wait for the joined Nodes' adoption: the Scenario has no Admin to read the event stream as")
+	}
+	session, err := nodeapi.SignIn(ctx, c, controller, s.Admin.Email, s.Admin.PIN)
+	if err != nil {
+		return err
+	}
+	var last error
+	err = nodeapi.AwaitEvent(ctx, c, controller, session, "nodes.changed", func() (bool, error) {
+		last = members(ctx, c, s, controller, claims, set)
+		if errors.Is(last, errUnapplied) {
+			return false, nil
+		}
+		return true, last
+	})
+	if last != nil {
+		return last
+	}
+	if err != nil {
+		return fmt.Errorf("wait for the joined Nodes' adoption: %w", err)
+	}
+	return nodeapi.SignOut(ctx, c, controller, session)
+}
 
 var errUnapplied = errors.New("its Roles aren't applied")
 
