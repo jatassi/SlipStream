@@ -10,6 +10,9 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -74,6 +77,9 @@ type Client interface {
 	// doesn't list is missing from the map. A session to the wrong Deluge
 	// daemon is a Problem, never an empty map.
 	Poll(ctx context.Context, hashes []bencode.InfoHash) (map[bencode.InfoHash]Status, error)
+	// List is the status of every torrent the client lists under label,
+	// whoever added it.
+	List(ctx context.Context, label Label) (map[bencode.InfoHash]Status, error)
 	// Files is one torrent's files, in index order.
 	Files(ctx context.Context, h bencode.InfoHash) ([]File, error)
 	Act(ctx context.Context, a Act, hashes []bencode.InfoHash) error
@@ -83,6 +89,13 @@ type Client interface {
 	Remove(ctx context.Context, h bencode.InfoHash, data bool) error
 	// Close signs out where the kind has a sign-out, and drops the session.
 	Close(ctx context.Context) error
+}
+
+// Exporter is a Client that hands back a torrent's metainfo, as only
+// qBittorrent does.
+type Exporter interface {
+	// Export is the .torrent of h, the client's own copy.
+	Export(ctx context.Context, h bencode.InfoHash) ([]byte, error)
 }
 
 type Act uint8
@@ -155,6 +168,12 @@ type Status struct {
 	LocalError string
 	Trackers   []TrackerMessage
 	Rates      Rates
+	// Private is the torrent's private flag, false where the kind doesn't
+	// report it.
+	Private bool
+	// Hosts is its trackers' hosts, lowercased, once each, nil where the
+	// kind doesn't report them.
+	Hosts []string
 }
 
 type Run uint8
@@ -201,4 +220,19 @@ type File struct {
 	Path  string
 	Size  int64
 	Done  int64
+}
+
+// HostsOf is each tracker URL's host, lowercased, once each, in order.
+func HostsOf(urls []string) []string {
+	var out []string
+	for _, raw := range urls {
+		u, err := url.Parse(raw)
+		if err != nil {
+			continue
+		}
+		if h := strings.ToLower(u.Hostname()); h != "" && !slices.Contains(out, h) {
+			out = append(out, h)
+		}
+	}
+	return out
 }

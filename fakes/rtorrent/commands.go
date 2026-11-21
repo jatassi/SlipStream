@@ -23,6 +23,37 @@ var global = map[string]func(c *rtorrent, args []any) (any, error){
 	"directory.default":     func(c *rtorrent, _ []any) (any, error) { return c.engine.DefaultFolder(), nil },
 	"load.raw":              func(c *rtorrent, args []any) (any, error) { return c.queue(args, false) },
 	"load.raw_start":        func(c *rtorrent, args []any) (any, error) { return c.queue(args, true) },
+	"d.multicall2":          func(c *rtorrent, args []any) (any, error) { return c.multicall2(args) },
+}
+
+// multicall2 is d.multicall2 over the main view: each download, in load
+// order, answering each d.* command such as d.hash= with no argument.
+func (c *rtorrent) multicall2(args []any) (any, error) {
+	if len(args) == 0 {
+		return nil, errTooFew
+	}
+	if view, ok := args[0].(string); !ok || view != "main" {
+		return nil, localError(`fake-rtorrent plays d.multicall2 over the view "main" only`)
+	}
+	out := []any{}
+	for _, t := range c.engine.List(nil) {
+		row := []any{}
+		for _, raw := range args[1:] {
+			cmd, _ := raw.(string)
+			method, ok := strings.CutSuffix(cmd, "=")
+			run, known := onTorrent[method]
+			if !ok || !known {
+				return nil, localError(`Command "` + method + `" does not exist.`)
+			}
+			v, err := run(c, t, c.held[t.Hash], nil)
+			if err != nil {
+				return nil, err
+			}
+			row = append(row, v)
+		}
+		out = append(out, row)
+	}
+	return out, nil
 }
 
 // queue is apply_load with raw data: the data, then commands such as
@@ -111,6 +142,7 @@ func act(f func(c *rtorrent, t torrentclient.Torrent, h *held)) torrentCommand {
 
 var onTorrent = map[string]torrentCommand{
 	"d.name":  get(func(t torrentclient.Torrent, _ *held) any { return t.Name }),
+	"d.hash":  get(func(t torrentclient.Torrent, _ *held) any { return strings.ToUpper(t.Hash.String()) }),
 	"d.state": get(func(_ torrentclient.Torrent, h *held) any { return flag(h.started) }),
 	"d.is_active": get(func(t torrentclient.Torrent, _ *held) any {
 		return flag(t.State == torrentclient.Downloading || t.State == torrentclient.Seeding)
@@ -139,6 +171,7 @@ var onTorrent = map[string]torrentCommand{
 	"d.down.rate":       get(func(t torrentclient.Torrent, _ *held) any { return t.Rates.Down }),
 	"d.peers_connected": get(func(t torrentclient.Torrent, _ *held) any { return int64(t.Rates.Peers) }),
 	"d.peers_complete":  get(func(t torrentclient.Torrent, _ *held) any { return int64(t.Rates.Seeds) }),
+	"d.is_private":      get(func(t torrentclient.Torrent, _ *held) any { return flag(t.Private) }),
 	"d.message":         func(c *rtorrent, t torrentclient.Torrent, _ *held, _ []any) (any, error) { return c.message(t), nil },
 	"d.custom1.set": func(c *rtorrent, t torrentclient.Torrent, _ *held, args []any) (any, error) {
 		label, ok := oneString(args)

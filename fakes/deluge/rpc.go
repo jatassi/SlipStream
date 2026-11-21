@@ -365,11 +365,13 @@ func ids(raw []string) []bencode.InfoHash {
 	return out
 }
 
-// torrentsStatus is core.get_torrents_status filtered by id, the only
-// filter this fake plays, each torrent with the keys asked for.
+// torrentsStatus is core.get_torrents_status filtered by id and by the
+// Label plugin's label, the filters this fake plays, each torrent with
+// the keys asked for.
 func (d *daemon) torrentsStatus(p params) (any, *rpcError) {
 	var filter struct {
-		ID []string `json:"id"`
+		ID    []string `json:"id"`
+		Label *string  `json:"label"`
 	}
 	var keys []string
 	if err := errors.Join(p.arg(0, &filter), p.arg(1, &keys)); err != nil {
@@ -385,11 +387,18 @@ func (d *daemon) torrentsStatus(p params) (any, *rpcError) {
 	all := d.engine.List(nil)
 	out := map[string]any{}
 	for _, t := range all {
-		if named == nil || slices.Contains(named, t.Hash) {
+		if (named == nil || slices.Contains(named, t.Hash)) && (filter.Label == nil || labelOf(t) == *filter.Label) {
 			out[t.Hash.String()] = d.status(t, all, keys)
 		}
 	}
 	return out, nil
+}
+
+func labelOf(t torrentclient.Torrent) string {
+	if len(t.Labels) == 0 {
+		return ""
+	}
+	return t.Labels[0]
 }
 
 // torrentStatus is core.get_torrent_status: {} for a torrent the daemon
@@ -466,11 +475,13 @@ func (d *daemon) status(t torrentclient.Torrent, all []torrentclient.Torrent, ke
 		"stop_at_ratio": cfg["stop_seed_at_ratio"], "stop_ratio": cfg["stop_seed_ratio"], "remove_at_ratio": d.RemoveAtRatio,
 		"move_completed": moving, "move_completed_path": moveTo, "files": files, "file_progress": fileProgress,
 	}
+	trackers := make([]map[string]any, len(t.Trackers))
+	for i, u := range t.Trackers {
+		trackers[i] = map[string]any{"url": u, "tier": i}
+	}
+	every["private"], every["trackers"] = t.Private, trackers
 	if !d.LabelOff {
-		every["label"] = ""
-		if len(t.Labels) > 0 {
-			every["label"] = t.Labels[0]
-		}
+		every["label"] = labelOf(t)
 	}
 	out := map[string]any{}
 	for _, k := range keys {

@@ -53,6 +53,8 @@ const (
 	// DownloadingServiceMetainfoProcedure is the procedure name of the DownloadingService's Metainfo
 	// RPC.
 	DownloadingServiceMetainfoProcedure = "/slipstream.downloading.v1.DownloadingService/Metainfo"
+	// DownloadingServiceLookProcedure is the procedure name of the DownloadingService's Look RPC.
+	DownloadingServiceLookProcedure = "/slipstream.downloading.v1.DownloadingService/Look"
 	// DownloadingControlServiceTorrentProcedure is the procedure name of the
 	// DownloadingControlService's Torrent RPC.
 	DownloadingControlServiceTorrentProcedure = "/slipstream.downloading.v1.DownloadingControlService/Torrent"
@@ -125,6 +127,13 @@ var (
 			Procedure:  DownloadingServiceMetainfoProcedure,
 		}
 	})
+	downloadingServiceLookSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_downloading_v1_downloading_proto.Services().ByName("DownloadingService").Methods().ByName("Look"),
+			Procedure:  DownloadingServiceLookProcedure,
+		}
+	})
 )
 
 // DownloadingServiceClient is a client for the slipstream.downloading.v1.DownloadingService
@@ -159,8 +168,12 @@ type DownloadingServiceClient interface {
 	CheckClients(context.Context, *v1.CheckClientsRequest) (*v1.CheckClientsResponse, error)
 	// Metainfo is the metainfo of a torrent the Node holds, for the
 	// Controller to adopt it. The built-in client rebuilds it from its
-	// resume data; a torrent it holds none for is NotFound.
+	// resume data, and a torrent it holds none for is NotFound. qBittorrent
+	// exports its own copy; other external clients are Unimplemented.
 	Metainfo(context.Context, *v1.MetainfoRequest) (*v1.MetainfoResponse, error)
+	// Look is whether each entry's file lies under folder at its size, in
+	// the order asked, for the torrents no Node reported holding.
+	Look(context.Context, *v1.LookRequest) (*v1.LookResponse, error)
 }
 
 // NewDownloadingServiceClient constructs a client for the
@@ -202,8 +215,12 @@ type DownloadingServiceHandler interface {
 	CheckClients(context.Context, *v1.CheckClientsRequest) (*v1.CheckClientsResponse, error)
 	// Metainfo is the metainfo of a torrent the Node holds, for the
 	// Controller to adopt it. The built-in client rebuilds it from its
-	// resume data; a torrent it holds none for is NotFound.
+	// resume data, and a torrent it holds none for is NotFound. qBittorrent
+	// exports its own copy; other external clients are Unimplemented.
 	Metainfo(context.Context, *v1.MetainfoRequest) (*v1.MetainfoResponse, error)
+	// Look is whether each entry's file lies under folder at its size, in
+	// the order asked, for the torrents no Node reported holding.
+	Look(context.Context, *v1.LookRequest) (*v1.LookResponse, error)
 }
 
 // RegisterDownloadingServiceHandler registers svc as the
@@ -220,6 +237,7 @@ func RegisterDownloadingServiceHandler(server *connect.Server, svc DownloadingSe
 		connect.Method{Spec: downloadingServiceTestClientSpec(), Handler: adapter.testClient},
 		connect.Method{Spec: downloadingServiceCheckClientsSpec(), Handler: adapter.checkClients},
 		connect.Method{Spec: downloadingServiceMetainfoSpec(), Handler: adapter.metainfo},
+		connect.Method{Spec: downloadingServiceLookSpec(), Handler: adapter.look},
 	)
 }
 
@@ -260,6 +278,10 @@ func (UnimplementedDownloadingServiceHandler) CheckClients(context.Context, *v1.
 
 func (UnimplementedDownloadingServiceHandler) Metainfo(context.Context, *v1.MetainfoRequest) (*v1.MetainfoResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Metainfo is not implemented")
+}
+
+func (UnimplementedDownloadingServiceHandler) Look(context.Context, *v1.LookRequest) (*v1.LookResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Look is not implemented")
 }
 
 type downloadingServiceClient struct {
@@ -333,6 +355,14 @@ func (c *downloadingServiceClient) CheckClients(ctx context.Context, req *v1.Che
 func (c *downloadingServiceClient) Metainfo(ctx context.Context, req *v1.MetainfoRequest) (*v1.MetainfoResponse, error) {
 	var res v1.MetainfoResponse
 	if err := c.client.CallUnary(ctx, downloadingServiceMetainfoSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *downloadingServiceClient) Look(ctx context.Context, req *v1.LookRequest) (*v1.LookResponse, error) {
+	var res v1.LookResponse
+	if err := c.client.CallUnary(ctx, downloadingServiceLookSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -442,6 +472,18 @@ func (h downloadingServiceHandler) metainfo(ctx context.Context, _ connect.Spec,
 		return err
 	}
 	res, err := h.svc.Metainfo(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h downloadingServiceHandler) look(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.LookRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Look(ctx, &req)
 	if err != nil {
 		return err
 	}

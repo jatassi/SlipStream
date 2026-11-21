@@ -130,7 +130,7 @@ var keys = []string{
 	"name", "state", "total_wanted", "total_done", "save_path", "label", "is_finished", "completed_time", "queue",
 	"message", "tracker_status", "total_uploaded", "all_time_download", "active_time", "seeding_time",
 	"download_payload_rate", "upload_payload_rate", "num_peers", "num_seeds", "ratio", "stop_at_ratio", "stop_ratio",
-	"move_completed", "move_completed_path",
+	"move_completed", "move_completed_path", "private", "trackers",
 }
 
 // torrent is one torrent's core.get_torrents_status row.
@@ -161,18 +161,33 @@ type torrent struct {
 	StopRatio     float64 `json:"stop_ratio"`
 	MoveCompleted bool    `json:"move_completed"`
 	MovePath      string  `json:"move_completed_path"`
+	Private       bool    `json:"private"`
+	Trackers      []struct {
+		URL string `json:"url"`
+	} `json:"trackers"`
 }
 
 func (c *client) Poll(ctx context.Context, hashes []bencode.InfoHash) (map[bencode.InfoHash]clients.Status, error) {
-	if err := c.onDaemon(ctx); err != nil {
-		return nil, err
-	}
 	ids := make([]string, len(hashes))
 	for i, h := range hashes {
 		ids[i] = h.String()
 	}
+	return c.statuses(ctx, map[string]any{"id": ids})
+}
+
+// List is core.get_torrents_status filtered by the Label plugin's label.
+func (c *client) List(ctx context.Context, label clients.Label) (map[bencode.InfoHash]clients.Status, error) {
+	return c.statuses(ctx, map[string]any{"label": label.String()})
+}
+
+// statuses is core.get_torrents_status under filter, on the chosen
+// daemon.
+func (c *client) statuses(ctx context.Context, filter map[string]any) (map[bencode.InfoHash]clients.Status, error) {
+	if err := c.onDaemon(ctx); err != nil {
+		return nil, err
+	}
 	var rows map[string]torrent
-	if err := c.call(ctx, "core.get_torrents_status", []any{map[string]any{"id": ids}, keys}, &rows); err != nil {
+	if err := c.call(ctx, "core.get_torrents_status", []any{filter, keys}, &rows); err != nil {
 		return nil, err
 	}
 	out := make(map[bencode.InfoHash]clients.Status, len(rows))
@@ -223,8 +238,14 @@ func status(id string, t torrent) (clients.Status, error) {
 			Uploaded: t.Uploaded, Downloaded: t.Downloaded,
 			Active: seconds(t.Active), Seeding: seconds(t.Seeding),
 		},
-		Rates: clients.Rates{Down: int64(t.Down), Up: int64(t.Up), Peers: t.Peers + t.Seeds, Seeds: t.Seeds},
+		Rates:   clients.Rates{Down: int64(t.Down), Up: int64(t.Up), Peers: t.Peers + t.Seeds, Seeds: t.Seeds},
+		Private: t.Private,
 	}
+	var urls []string
+	for _, tr := range t.Trackers {
+		urls = append(urls, tr.URL)
+	}
+	s.Hosts = clients.HostsOf(urls)
 	if t.State == "Error" {
 		s.LocalError = t.Message
 	}

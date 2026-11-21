@@ -522,8 +522,30 @@ service DownloadingService {
   rpc CheckClients(CheckClientsRequest) returns (CheckClientsResponse);
   // Metainfo is the metainfo of a torrent the Node holds, for the
   // Controller to adopt it. The built-in client rebuilds it from its
-  // resume data; a torrent it holds none for is NotFound.
+  // resume data, and a torrent it holds none for is NotFound. qBittorrent
+  // exports its own copy; other external clients are Unimplemented.
   rpc Metainfo(MetainfoRequest) returns (MetainfoResponse);
+  // Look is whether each entry's file lies under folder at its size, in
+  // the order asked, for the torrents no Node reported holding.
+  rpc Look(LookRequest) returns (LookResponse);
+}
+
+message LookRequest {
+  // folder is an absolute folder on the Node.
+  string folder = 1;
+  repeated LookEntry entries = 2;
+}
+
+// LookEntry is one file: its path under the folder, with either
+// separator, and its size in bytes.
+message LookEntry {
+  string name = 1;
+  int64 size = 2;
+}
+
+message LookResponse {
+  // found is each entry's answer, in the order asked.
+  repeated bool found = 1;
 }
 
 message MetainfoRequest {

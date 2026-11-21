@@ -1,6 +1,8 @@
 package downloading
 
 import (
+	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloading/internal/db"
+	"github.com/jatassi/slipstream/internal/downloading/internal/external"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -148,15 +151,56 @@ func builtinHoldings(ctx context.Context, local *storage.DB[storage.Local], page
 	}
 }
 
+// holdingsLoop queues each round rounds asks for once, unless the Node
+// queued it since it started, and tries again a round it couldn't list.
+func (n *Node) holdingsLoop(ctx context.Context, local *storage.DB[storage.Local], h Holder, rounds <-chan *dlv1.HoldingsRequest) {
+	var req *dlv1.HoldingsRequest
+	var retry <-chan time.Time
+	for {
+		select {
+		case r, ok := <-rounds:
+			if !ok {
+				return
+			}
+			req = r
+		case <-retry:
+		case <-ctx.Done():
+			return
+		}
+		retry = nil
+		if req == nil || req.GetRound() == n.sent {
+			continue
+		}
+		if err := n.sendHoldings(ctx, local, h, req); err != nil {
+			if ctx.Err() == nil {
+				n.cfg.Log.Error("report the torrents this Node holds", "err", err.Error())
+				retry = time.After(n.cfg.Timings.ClientRetryMax)
+			}
+			continue
+		}
+		n.sent = req.GetRound()
+	}
+}
+
 // sendHoldings queues the round req asks for: every torrent the Node
-// holds, in pages of req's size, in one Write. A round with no torrents is
-// one empty page.
-func sendHoldings(ctx context.Context, local *storage.DB[storage.Local], h Holder, req *dlv1.HoldingsRequest) error {
+// holds in the built-in client and in each external client, in pages of
+// req's size, in one Write. A round with no torrents is one empty page.
+func (n *Node) sendHoldings(ctx context.Context, local *storage.DB[storage.Local], h Holder, req *dlv1.HoldingsRequest) error {
 	size := int(req.GetPageSize())
 	entries, err := builtinHoldings(ctx, local, size)
 	if err != nil {
 		return err
 	}
+	for _, a := range n.actorList() {
+		held, err := a.Holdings(ctx)
+		if err != nil {
+			return fmt.Errorf("list a Download Client's torrents: %w", err)
+		}
+		entries = append(entries, held...)
+	}
+	slices.SortFunc(entries, func(a, b *dlv1.Holding) int {
+		return cmp.Or(bytes.Compare(a.GetInfoHash(), b.GetInfoHash()), bytes.Compare(a.GetClientId(), b.GetClientId()))
+	})
 	pages := max(1, (len(entries)+size-1)/size)
 	return local.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
 		for p := range pages {
@@ -172,11 +216,14 @@ func sendHoldings(ctx context.Context, local *storage.DB[storage.Local], h Holde
 	})
 }
 
-// Metainfo is a built-in torrent's metainfo, rebuilt from its resume data.
-// An external client's torrent answers Unimplemented.
+// Metainfo is a built-in torrent's metainfo, rebuilt from its resume
+// data, or an external client's own copy where its kind exports one.
 func (n *Node) Metainfo(ctx context.Context, req *dlv1.MetainfoRequest) (*dlv1.MetainfoResponse, error) {
+	if len(req.GetInfoHash()) != len(bencode.InfoHash{}) {
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "an info hash is 20 bytes, not %d", len(req.GetInfoHash()))
+	}
 	if len(req.GetClientId()) > 0 {
-		return nil, rpc.Errorf(rpc.CodeUnimplemented, "this Node's external clients can't export a torrent's metainfo")
+		return n.exported(ctx, req)
 	}
 	n.mu.Lock()
 	local := n.local
@@ -197,4 +244,23 @@ func (n *Node) Metainfo(ctx context.Context, req *dlv1.MetainfoRequest) (*dlv1.M
 		return nil, err
 	}
 	return &dlv1.MetainfoResponse{Metainfo: r.metainfo}, nil
+}
+
+func (n *Node) exported(ctx context.Context, req *dlv1.MetainfoRequest) (*dlv1.MetainfoResponse, error) {
+	id, err := storage.UUIDFromBytes(req.GetClientId())
+	if err != nil {
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "client id: %v", err)
+	}
+	a := n.actor(id)
+	if a == nil {
+		return nil, rpc.Errorf(rpc.CodeFailedPrecondition, "this Node runs no Download Client %s", id)
+	}
+	data, err := a.Metainfo(ctx, bencode.InfoHash(req.GetInfoHash()))
+	switch {
+	case errors.Is(err, external.ErrNoExport):
+		return nil, rpc.Errorf(rpc.CodeUnimplemented, "%v", err)
+	case err != nil:
+		return nil, rpc.Errorf(rpc.CodeUnavailable, "export torrent %x from the Download Client: %v", req.GetInfoHash(), err)
+	}
+	return &dlv1.MetainfoResponse{Metainfo: data}, nil
 }

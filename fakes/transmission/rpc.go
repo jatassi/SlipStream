@@ -34,6 +34,7 @@ var legacy = map[string]string{
 	"seconds_seeding": "secondsSeeding", "seconds_downloading": "secondsDownloading", "rate_download": "rateDownload",
 	"rate_upload": "rateUpload", "peers_connected": "peersConnected", "peers_sending_to_us": "peersSendingToUs",
 	"peers_getting_from_us": "peersGettingFromUs", "queue_position": "queuePosition", "bytes_completed": "bytesCompleted",
+	"is_private": "isPrivate",
 }
 
 var torrentLegacy = func() map[string]string {
@@ -367,6 +368,10 @@ func (d *daemon) fields(t torrentclient.Torrent) map[string]any {
 	if labels == nil {
 		labels = []string{}
 	}
+	trackers := make([]map[string]any, len(t.Trackers))
+	for i, u := range t.Trackers {
+		trackers[i] = map[string]any{"id": i, "announce": u, "tier": i}
+	}
 	return map[string]any{
 		"id": t.ID, "hash_string": t.Hash.String(), "name": t.Name, "status": status,
 		"percent_done": percent, "left_until_done": t.Size - t.Done, "size_when_done": t.Size, "total_size": t.Size,
@@ -377,6 +382,7 @@ func (d *daemon) fields(t torrentclient.Torrent) map[string]any {
 		"rate_download": t.Rates.Down, "rate_upload": t.Rates.Up, "peers_connected": t.Rates.Peers,
 		"peers_sending_to_us": t.Rates.Seeds, "peers_getting_from_us": t.Rates.Peers - t.Rates.Seeds,
 		"queue_position": t.Order, "files": files,
+		"is_private": t.Private, "trackers": trackers,
 	}
 }
 
