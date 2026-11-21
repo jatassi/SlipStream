@@ -108,8 +108,8 @@ func expectRemoved(t *testing.T, p *pairing.Pairing, dir string, controller link
 	if want := "This Node was removed from home on " + removal.At.Local().Format("2 Jan") + ". Join with a new Join Code to use it again."; removal.Sentence() != want {
 		t.Fatalf("the sentence reads %q, want %q", removal.Sentence(), want)
 	}
-	if record(t, dir)["schema"] != float64(2) {
-		t.Fatalf("pairing.json is %v, want schema 2", record(t, dir))
+	if record(t, dir)["schema"] != float64(3) {
+		t.Fatalf("pairing.json is %v, want schema 3", record(t, dir))
 	}
 }
 
