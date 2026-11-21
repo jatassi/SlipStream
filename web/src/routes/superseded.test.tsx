@@ -69,7 +69,9 @@ test("Wipe and join sends the Join Code once confirmed, then waits for the resta
   await userEvent.click(page.getByRole("button", { name: "Wipe and join as a Worker" }));
   await expect.element(page.getByRole("dialog", { name: "Wipe this Controller?" })).toBeVisible();
   expect(sent).toEqual([]);
-  await userEvent.click(page.getByRole("button", { name: "Wipe and join" }));
+  await userEvent.click(
+    page.getByRole("dialog").getByRole("button", { name: "Wipe and join as a Worker" }),
+  );
   await expect
     .element(
       page.getByText(
@@ -97,7 +99,9 @@ test("a damaged Join Code shows on the field and nothing is wiped", async () => 
   });
   await userEvent.fill(page.getByLabelText("Join Code"), "SLJ1-AB");
   await userEvent.click(page.getByRole("button", { name: "Wipe and join as a Worker" }));
-  await userEvent.click(page.getByRole("button", { name: "Wipe and join" }));
+  await userEvent.click(
+    page.getByRole("dialog").getByRole("button", { name: "Wipe and join as a Worker" }),
+  );
   await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
   await expect
     .element(page.getByText("The Join Code is mistyped, cut short or not a SlipStream code"))

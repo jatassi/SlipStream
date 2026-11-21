@@ -59,7 +59,7 @@ Steps:
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop fill 'getByLabel("Join Code")' <join code>
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Wipe and join as a Worker" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog").getByRole("button", { name: "Wipe and join" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog").getByRole("button", { name: "Wipe and join as a Worker" })'
   $FW exec $RUN --proof superseded/wipe-and-join -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.spare.url}/api/v1/nodes'
   $FW exec $RUN --proof superseded/wipe-and-join -- ls {nodes.home.dataDir} {nodes.home.dataDir}/backups
   $FW exec $RUN --proof superseded/wipe-and-join -- curl -sS '{nodes.home.url}/api/v1/status'

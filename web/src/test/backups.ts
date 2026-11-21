@@ -60,7 +60,7 @@ export const backupSettings: BackupsBackupSettings = {
     count("backups.keepEach", "Keep the newest Backups taken before updates and restores", 5, 100),
     count("backups.warnAfter", "Warn after this many missed Backups", 2, 30),
     {
-      ...days("backups.copyWaitLimit", "A copy waits behind downloads for up to", 1, 7),
+      ...days("backups.copyWaitLimit", "Let a copy wait for downloads for up to", 1, 7),
       step: 3600,
     },
     days("backups.checkCopies", "Check each destination's newest copy every", 7, 90),

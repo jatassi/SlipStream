@@ -17,7 +17,7 @@ Each verified Backup has one copy per destination, with its own state.
 
 | Copy state | Enters when | Leaves when |
 |---|---|---|
-| `waiting` | The Backup passed, or the destination was added, or a check found the copy missing or changed, or the library doesn't know the copy's Transfer. | A Low Transfer starts: `copying`. A Low Transfer starts only when no Normal Transfer waits on that Node pair, and runs as Normal once it has waited "A copy waits behind downloads for up to". While Reconciling no Transfer dispatches. |
+| `waiting` | The Backup passed, or the destination was added, or a check found the copy missing or changed, or the library doesn't know the copy's Transfer. | A Low Transfer starts: `copying`. A Low Transfer starts only when no Normal Transfer waits on that Node pair, and runs as Normal once it has waited "Let a copy wait for downloads for up to". While Reconciling no Transfer dispatches. |
 | `copying` | Its Transfer exists. | The Transfer finishes: `copied`. It fails: `failed`. |
 | `copied` | The destination renamed the file in. Every "Check each destination's newest copy every", the Controller compares the destination's keyed BLAKE3 with its own. | A mismatch: `failed`, queued again as `waiting`. |
 | `failed` | The Transfer or the check failed. Health warns for that destination. | The next destination run queues it again: `waiting`. |
