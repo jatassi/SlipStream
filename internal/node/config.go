@@ -308,7 +308,7 @@ func loadConfig(fsys fs.FS, environ []string, types contenttype.Set, kind instal
 // else, a Run call's hold shorter than a job's deadline, since the
 // Controller learns when a job started only from a poll's answer, and a
 // job cap longer than the longest search wait, so a search past its wait
-// is late, never failing.
+// is late, never failing, and the Holdings bounds.
 func (c *Config) CheckConfig(fail func(key string, err error)) {
 	if len(c.Link.Advertise) > 0 {
 		if _, err := link.ParseAddresses(c.Link.Advertise); err != nil {
@@ -326,6 +326,12 @@ func (c *Config) CheckConfig(fail func(key string, err error)) {
 	}
 	if limit := c.Timings.Searching.JobCap; limit <= indexers.SearchWait.Max {
 		fail("timings.searching.job_cap", fmt.Errorf("%s isn't longer than the longest search wait, %s, so the Node can end a slow search before it reads as late", limit, indexers.SearchWait.Max))
+	}
+	if n := c.Timings.Downloading.HoldingsPage; n < 100 || n > 10_000 {
+		fail("timings.downloading.holdings_page", fmt.Errorf("%d isn't between 100 and 10,000", n))
+	}
+	if n := c.Timings.Downloading.HoldingsMax; n < 1000 || n > 1_000_000 {
+		fail("timings.downloading.holdings_max", fmt.Errorf("%d isn't between 1,000 and 1,000,000", n))
 	}
 }
 
