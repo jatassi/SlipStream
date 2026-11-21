@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 
 import type { WorksContentType } from "../api/gen/model";
 import { bytes } from "../format";
+import { localDayWords, shortDayWords } from "../format/days";
 import { Data } from "../ui/data";
 import type { LibraryWork } from "./rows";
-import { dateText, partialDateText, valueText } from "./values";
+import { valueText } from "./values";
 import {
   type ArrangeContext,
   type ColumnKey,
@@ -76,13 +77,13 @@ const coreColumns: { readonly [K in CoreColumn]: Omit<ColumnDef, "key"> } = {
   added: {
     header: "Added",
     track: "minmax(0, 1fr)",
-    cell: (work) => <Data>{dateText(work.added)}</Data>,
+    cell: (work) => <Data>{localDayWords(work.added)}</Data>,
   },
   available: {
     header: "Available",
     track: "minmax(0, 1fr)",
     cell: (work) =>
-      work.availableOn === undefined ? undefined : <Data>{partialDateText(work.availableOn)}</Data>,
+      work.availableOn === undefined ? undefined : <Data>{shortDayWords(work.availableOn)}</Data>,
   },
   rating: {
     header: "Rating",

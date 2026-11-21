@@ -2,9 +2,9 @@ import { useEffect } from "react";
 
 import { usePasskeySupportSoon } from "../session/passkey";
 import { createFlag } from "../shell/flag";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
+import { SignalLine } from "../ui/signal-line";
 import { passkeyPitch, useAddPasskey } from "./add-passkey";
 import { DialogActions } from "./dialog-actions";
 import { useNeverAsk } from "./key-prompt";
@@ -24,7 +24,11 @@ function PromptBody({ close }: { close: () => void }) {
   return (
     <div className="flex flex-col gap-4 text-ink-2">
       <p>{passkeyPitch(location.hostname)}</p>
-      {failure !== undefined && <AlertLine text={failure} />}
+      {failure !== undefined && (
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
+      )}
       <DialogActions>
         <Button
           look="ghost"

@@ -68,7 +68,7 @@ var (
 func Entries() []entry.Entry { return []entry.Entry{grabbedRow, grabFailedRow} }
 
 func renderGrabbed(f GrabbedFacts, _ entry.Context) entry.Message {
-	lines := []string{release.Describe(release.Read{Facts: f.Release}), FoundByWords(f.FoundBy, f.Indexer, f.By)}
+	lines := []string{release.Summarize(release.Read{Facts: f.Release}).Words(), FoundByWords(f.FoundBy, f.Indexer, f.By)}
 	if len(f.Scores) > 0 {
 		lines = append(lines, scoresWords(f.Scores))
 	}

@@ -7,7 +7,7 @@ import { Skeleton } from "../../../ui/skeleton";
 export const Route = createFileRoute("/_app/activity/blocklist")({
   staticData: { title: "Blocklist", view: true },
   validateSearch: z.object({ offset: z.number().int().min(1).optional().catch(undefined) }),
-  pendingComponent: () => <Skeleton label="Loading the Blocklist" />,
+  pendingComponent: () => <Skeleton label="Loading the Blocklist" shape="table" lines={1} />,
   component: ActivityBlocklist,
 });
 

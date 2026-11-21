@@ -3,9 +3,8 @@ import type {
   GrabsListedReleaseOutcome,
   GrabsWordedReason,
 } from "../api/gen/model";
-import { countWords } from "../format";
+import { ReleaseRow } from "../release/row";
 import { Button } from "../ui/button";
-import { Data } from "../ui/data";
 import { type Reference, lostAtSentence } from "./lost-at-sentence";
 
 const list = new Intl.ListFormat("en", { type: "conjunction" });
@@ -19,8 +18,6 @@ export type RunNames = {
   /** The Indexer that listed each position, for naming the Release a copy copies. */
   readonly indexerAt: ReadonlyMap<number, string>;
 };
-
-const seeders = { one: "seeder", many: "seeders" };
 
 const lost = (release: GrabsListedRelease, names: RunNames, reference: Reference) =>
   release.lostAt === null
@@ -84,8 +81,19 @@ function scoreWords(release: GrabsListedRelease, names: RunNames): string | unde
   return `Matches ${list.format(matched)}.${scores.length === 0 ? "" : ` Scores ${list.format(scores)}.`}`;
 }
 
+function Reasons({ reasons }: { reasons: readonly GrabsWordedReason[] }) {
+  return (
+    <ul aria-label="Reasons" className="flex list-disc flex-col gap-0.5 pl-5 text-ink-2">
+      {reasons.map((reason, at) => (
+        // oxlint-disable-next-line react/no-array-index-key -- a reason has no id, and the list never reorders
+        <li key={at}>{reason.words}</li>
+      ))}
+    </ul>
+  );
+}
+
 /**
- * One Release a run saw: the facts in words, the raw title under them, its
+ * One Release a run saw: its facts, its title and where it was heard, its
  * outcome in a sentence, each reason in words, and "Open in tester".
  */
 export function ReleaseLine({
@@ -100,37 +108,25 @@ export function ReleaseLine({
 }) {
   const scores = scoreWords(release, names);
   return (
-    <li className="flex min-w-0 flex-col gap-1 py-3">
-      <span className="text-ink-1">{release.words}</span>
-      <span className="text-meta break-all text-ink-3">
-        <Data>{release.title}</Data>
-      </span>
-      <span className="text-meta text-ink-3">
-        {release.indexerName} · {countWords(release.seeders, seeders)}
-      </span>
+    <ReleaseRow
+      release={release}
+      heard={{ indexers: [release.indexerName], seeders: release.seeders }}
+    >
       <p className="text-ink-2">
         {outcomeWords(release, names)}
         {copyWords(release, names)}
       </p>
-      {release.reasons.length > 0 && (
-        <ul aria-label="Reasons" className="flex list-disc flex-col gap-0.5 pl-5 text-ink-2">
-          {release.reasons.map((reason, at) => (
-            // oxlint-disable-next-line react/no-array-index-key -- a reason has no id, and the list never reorders
-            <li key={at}>{reason.words}</li>
-          ))}
-        </ul>
-      )}
+      {release.reasons.length > 0 && <Reasons reasons={release.reasons} />}
       {scores !== undefined && <p className="text-meta text-ink-3">{scores}</p>}
       <Button
         look="ghost"
         size="small"
-        className="self-start"
         onClick={() => {
           onTest(release.title);
         }}
       >
         Open in tester
       </Button>
-    </li>
+    </ReleaseRow>
   );
 }

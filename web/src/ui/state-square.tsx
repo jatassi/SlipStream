@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 
-import type { FilesState, FilesStateCounts } from "../api/gen/model";
-import { stateOrder, statusMarks } from "./state-marks";
+import type { FilesState } from "../api/gen/model";
+import { statusMarks } from "./state-marks";
 
 /** A cell's state as a 16px mark. Quiet dims it, for an Item nobody monitors. */
 export function StateSquare({ state, quiet = false }: { state: FilesState; quiet?: boolean }) {
@@ -35,34 +35,5 @@ export function StateButton({
     >
       <StateSquare state={state} quiet={quiet} />
     </button>
-  );
-}
-
-/** A level's cells as one 180 × 8 bar, a segment per state in the one state order. */
-export function StateBar({ counts }: { counts: FilesStateCounts }) {
-  const shown = stateOrder.flatMap((state) => {
-    const count = counts[state] ?? 0;
-    return count > 0 ? [{ state, count }] : [];
-  });
-  const named = {
-    role: "img",
-    "aria-label":
-      shown.length === 0
-        ? "Nothing to download"
-        : shown.map(({ state, count }) => `${count} ${statusMarks[state].word}`).join(", "),
-  } as const;
-  return (
-    <span
-      {...named}
-      className="flex h-2 w-45 shrink-0 gap-0.5 overflow-hidden rounded-[2px] bg-fill"
-    >
-      {shown.map(({ state, count }) => (
-        <span
-          key={state}
-          style={{ flexGrow: count }}
-          className={`basis-0 rounded-[2px] ${statusMarks[state].bar}`}
-        />
-      ))}
-    </span>
   );
 }

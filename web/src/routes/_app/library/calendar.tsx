@@ -8,7 +8,7 @@ import { ensureQuery } from "../../../api/query-client";
 import { CalendarPage } from "../../../calendar/calendar-page";
 import { loadCalendar } from "../../../calendar/calendar-query";
 import { calendarSearch, defaultView } from "../../../calendar/routed";
-import { Skeleton } from "../../../ui/skeleton";
+import { PagePending } from "../../../shell/page";
 import { enabledTypes } from "../../../works/fields";
 
 export const Route = createFileRoute("/_app/library/calendar")({
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/_app/library/calendar")({
       loadCalendar(queryClient, deps, undefined),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading the Calendar" />,
+  pendingComponent: () => <PagePending label="Loading the Calendar" shape="table" lines={2} />,
   component: Calendar,
 });
 

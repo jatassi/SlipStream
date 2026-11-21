@@ -12,11 +12,11 @@ A movie's poster, backdrop, title treatment and studio logo, and a person's phot
 - `artwork-forged` a token SlipStream didn't issue answers 404 `artwork_unavailable` with `detail` `SlipStream didn't issue that artwork token` and `Cache-Control: no-store`.
 - `artwork-worker` with Metadata moved to seedbox alone and home's image-cdn front reset, an image never asked for answers 200, and `events.jsonl` holds a `front.open` on seedbox's `image-cdn` front: the Controller fetches through the Metadata holder.
 - `artwork-account` the API key alone gets 403 `needs_account`: the route serves signed-in Accounts.
-- `artwork-work-page` the Work page requests its backdrop at `size=large`, its poster and title treatment at `size=medium`, and the studio logo and credit photos at `size=small`, each answering 200 (P-059).
+- `artwork-work-page` the Work page requests its backdrop at `size=large`, its poster, title treatment and credit photos at `size=medium`, and the studio logo at `size=small`, each answering 200 (P-059).
 
 ## How to get to it (user POV)
 
-- Desktop and phone shells: the Work page shows the backdrop at `large`, the poster and title treatment at `medium`, and the studio logo and people's photos at `small` (`work-page.md`). Opening an artwork URL with `?size=` in a signed-in tab shows the image.
+- Desktop and phone shells: the Work page shows the backdrop at `large`, the poster, title treatment and people's photos at `medium`, and the studio logo at `small` (`work-page.md`). Opening an artwork URL with `?size=` in a signed-in tab shows the image.
 - API: `GET /api/v1/works/{id}`, `GET /api/v1/library` (`posterUrl`), `GET /api/v1/content-types/{contentType}/catalog?query=` (`posterUrl`), then `GET /api/v1/artwork/{token}?size=small|medium|large|original` with the session cookie.
 
 ## Driving it with fakeworld and playwright cli

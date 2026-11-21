@@ -13,7 +13,7 @@ describe.each(shells)("in the %s shell", (shell) => {
     renderKit(
       <FailureCard
         stage="import"
-        time="21:48"
+        at="2026-11-21T21:48:00Z"
         work="Dune: Part Two"
         facts={[
           { label: "Cause", value: "The file is not a video." },
@@ -52,7 +52,7 @@ test("a phone failure card holds its other actions behind More", async () => {
   renderKit(
     <FailureCard
       stage="import"
-      time="21:48"
+      at="2026-11-21T21:48:00Z"
       work="Dune: Part Two"
       facts={[{ label: "Cause", value: "The file is not a video." }]}
       fix={{ label: "Try again", onClick: () => {} }}
@@ -61,6 +61,10 @@ test("a phone failure card holds its other actions behind More", async () => {
     { shell: "phone" },
   );
   await expect.element(page.getByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("term")).toBeVisible();
+  const cause = page.getByRole("term").element().getBoundingClientRect();
+  const value = page.getByRole("definition").element().getBoundingClientRect();
+  expect(value.top).toBeGreaterThanOrEqual(cause.bottom);
   await page.getByRole("button", { name: "More" }).click();
   await expect.element(page.getByRole("button", { name: "Remove" })).toBeVisible();
 });
@@ -70,7 +74,7 @@ test("a compact failure card drops its stage track", async () => {
     <FailureCard
       form="compact"
       stage="import"
-      time="21:48"
+      at="2026-11-21T21:48:00Z"
       work="Dune: Part Two"
       facts={[{ label: "Cause", value: "The file is not a video." }]}
       fix={{ label: "Try again", onClick: () => {} }}

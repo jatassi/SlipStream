@@ -155,7 +155,9 @@ function Preview({ rows, names }: { rows: readonly Row[]; names: Names }) {
 export function GoalMetPreview({ rows, names }: { rows: readonly Row[]; names: Names }) {
   return (
     <div className="mb-6">
-      <Suspense fallback={<Skeleton label="Loading what the goals would do" />}>
+      <Suspense
+        fallback={<Skeleton label="Loading what the goals would do" shape="rows" lines={2} />}
+      >
         <Preview rows={rows} names={names} />
       </Suspense>
     </div>

@@ -1,6 +1,8 @@
 import type { ServingWorker } from "../../api/gen/model";
-import { countWords, sinceWords } from "../../format";
+import { countWords } from "../../format";
 import { EntryPage } from "../../shell/entry-page";
+import { useClock } from "../../ui/clock";
+import { whenWords } from "../../ui/time-words";
 import { PairAgain } from "./pair-again";
 
 const torrents = { one: "torrent", many: "torrents" } as const;
@@ -21,11 +23,12 @@ function holdingLine(holding: readonly string[], seeding: number): string {
 }
 
 /** A Serving Worker's status card while it can't reach its Controller, and the way to pair it again. */
-export function UnreachableCard({ data, now }: { data: ServingWorker; now: Date }) {
+export function UnreachableCard({ data }: { data: ServingWorker }) {
   const { name, controller, since } = data;
-  const when = since === undefined ? "" : ` since ${sinceWords(since, { now, zone: undefined })}`;
+  const clock = useClock();
+  const when = since === undefined ? "" : ` ${whenWords(since, "since", clock)}`;
   return (
-    <EntryPage title={`${name} hasn't been able to reach ${controller}${when}.`}>
+    <EntryPage title={`${name} hasn't been able to reach ${controller}${when}`}>
       <p>{`${name} keeps seeding and finishes what it started.`}</p>
       <p>{holdingLine(data.holding, data.seeding)}</p>
       <PairAgain name={name} />

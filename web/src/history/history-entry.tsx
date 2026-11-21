@@ -4,12 +4,11 @@ import { Link } from "@tanstack/react-router";
 import type { HistoryOneEntry } from "../api/gen/model";
 import { getGetHistoryEntryQueryKey, getHistoryEntry } from "../api/gen/query/history/history";
 import { isApiError, sentenceOf } from "../api/errors";
-import { timeOfDay } from "../format";
 import { stageWord } from "../grabs/stages";
 import { itemAnchor } from "../health/levels";
+import { ownZone } from "../ui/clock";
+import { RelativeTime } from "../ui/relative-time";
 import { Spinner } from "../ui/spinner";
-
-const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const stageWords = new Map<string, string>(Object.entries(stageWord));
 
@@ -82,7 +81,7 @@ function Parts({ one }: { one: HistoryOneEntry }) {
           <ul>
             {stages.map((stage) => (
               <li key={stage.stage}>
-                {stageWords.get(stage.stage)} at {timeOfDay(stage.at)}
+                {stageWords.get(stage.stage)} at <RelativeTime at={stage.at} form="time" />
               </li>
             ))}
           </ul>
@@ -107,7 +106,7 @@ function Parts({ one }: { one: HistoryOneEntry }) {
 
 /** One entry in full, its times in the browser's zone, with a link to each page that still shows what it names. */
 export function HistoryEntry({ id }: { id: number }) {
-  const params = { zone: browserZone() };
+  const params = { zone: ownZone() };
   const one = useQuery({
     queryKey: getGetHistoryEntryQueryKey(id, params),
     queryFn: ({ signal }) => getHistoryEntry(id, params, { signal }),

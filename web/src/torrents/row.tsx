@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import type { LiveRow } from "../live/torrents";
+import { QualityName } from "../release/quality";
 import { Data } from "../ui/data";
-import { Poster } from "../ui/poster";
-import { SignalChip } from "../ui/signal-chip";
-import { type Row, rateWords, stateLine, stateWords, trackerLine } from "./model";
+import { Artwork } from "../ui/artwork";
+import { Mark } from "../ui/state-mark";
+import { type Row, rateWords, stateLine, trackerLine } from "./model";
 import type { Names } from "./names";
+import { torrentMark } from "./terms";
 
 export { ProgressCell } from "./progress-cell";
 
@@ -31,14 +33,21 @@ function WorkLines({ row, names }: CellProps) {
   if (work === undefined) {
     return <Lines first={<Data>{row.name}</Data>} second="Not in the Library" />;
   }
-  const facts = [
-    row.edition === undefined ? undefined : names.edition(row.edition),
-    row.quality === undefined ? undefined : names.quality(row.quality),
-  ].filter((fact) => fact !== undefined);
+  const edition = row.edition === undefined ? undefined : names.edition(row.edition);
   return (
     <Lines
       first={<span className="font-semibold">{work}</span>}
-      second={facts.length === 0 ? <Data>{row.name}</Data> : facts.join(" · ")}
+      second={
+        edition === undefined && row.quality === undefined ? (
+          <Data>{row.name}</Data>
+        ) : (
+          <>
+            {edition}
+            {edition !== undefined && row.quality !== undefined && " · "}
+            {row.quality !== undefined && <QualityName quality={row.quality} />}
+          </>
+        )
+      }
     />
   );
 }
@@ -46,24 +55,16 @@ function WorkLines({ row, names }: CellProps) {
 export function WorkCell(props: CellProps) {
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <Poster url={props.names.poster(props.row.workId)} />
+      <Artwork use="poster" size="row" url={props.names.poster(props.row.workId)} />
       <WorkLines {...props} />
     </span>
   );
 }
 
-const signalOf = { none: undefined, warning: "warn", failure: "fail" } as const;
-
 export function StateCell({ row, live, names, clock }: CellProps) {
-  const signal = signalOf[row.severity];
-  const word = stateWords[row.state];
   return (
     <span className="flex min-w-0 flex-col items-start gap-0.5">
-      {signal === undefined ? (
-        <span className="truncate">{word}</span>
-      ) : (
-        <SignalChip kind={signal}>{word}</SignalChip>
-      )}
+      <Mark mark={torrentMark(row)} />
       <span className="max-w-full truncate text-meta text-ink-3">
         {stateLine(row, live, { node: names.node(row.nodeId), clock })}
       </span>

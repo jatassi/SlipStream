@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/backups")({
   staticData: { title: section.label },
   loader: ({ context, params }) =>
     ensureQuery(context.queryClient, getGetNodeConfigSuspenseQueryOptions(params.nodeId)),
-  pendingComponent: () => <Skeleton label="Loading the settings" />,
+  pendingComponent: () => <Skeleton label="Loading the settings" shape="form" />,
   errorComponent: NodeProblem,
   component: function NodeBackups() {
     const { nodeId } = Route.useParams();
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/backups")({
       <div className="flex max-w-[640px] flex-col gap-4">
         <p className="text-ink-2">
           SlipStream keeps every Backup in this folder, and copies them from here to each Backup
-          destination. The schedule, the destinations and the passphrase are in{" "}
+          destination. The schedule, the Backup destinations and the Backup passphrase are in{" "}
           <Link
             to="/settings/$section"
             params={{ section: "backups" }}

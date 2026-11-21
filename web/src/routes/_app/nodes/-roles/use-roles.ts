@@ -8,7 +8,7 @@ import {
 } from "../../../../api/gen/query/nodes/nodes";
 import { refresh } from "../../../../live/refresh";
 import { type Draft, draftOf, sameDraft, seatOf } from "../../../../nodes/roles";
-import { useNow } from "../../../../tasks/use-now";
+import { useClock } from "../../../../ui/clock";
 import { useNode } from "../-node";
 
 export type Roles = ReturnType<typeof useRoles>;
@@ -19,7 +19,7 @@ export function useRoles(nodeId: string) {
   const node = useNode(nodeId);
   const seat = seatOf(board, nodeId);
   const queryClient = useQueryClient();
-  const now = useNow(60_000);
+  const clock = useClock();
   const saved = draftOf(board, seat);
   const [edits, setEdits] = useState<Draft>();
   const draft = edits ?? saved;
@@ -33,7 +33,7 @@ export function useRoles(nodeId: string) {
     board,
     node,
     seat,
-    clock: { now, zone: undefined },
+    clock,
     draft,
     changed: !sameDraft(draft, saved),
     setDraft: setEdits,

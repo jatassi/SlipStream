@@ -1,7 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { clock } from "../format";
 import { openManualSearch } from "../manual/sheet-state";
 import { Data } from "../ui/data";
 import { FailureCard } from "../ui/failure-card";
@@ -17,7 +16,7 @@ function failedAt(grab: FailedGrab): string {
   if (entered === undefined) {
     throw new Error(`Grab ${grab.id} has no history`);
   }
-  return clock(entered.at);
+  return entered.at;
 }
 
 function useCardActions(grab: FailedGrab, form: "full" | "compact", onDetails: () => void) {
@@ -68,7 +67,7 @@ export function GrabFailure({
       <FailureCard
         form={form}
         stage={trackStage(grab)}
-        time={failedAt(grab)}
+        at={failedAt(grab)}
         work={subject}
         track={{ skipped: skippedStages }}
         facts={[

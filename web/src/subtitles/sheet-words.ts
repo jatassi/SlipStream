@@ -10,7 +10,8 @@ import type {
   SubtitlesTriedOutcome,
   TargetsWantedLanguage,
 } from "../api/gen/model";
-import { type Clock, agoWords, laterAtWords } from "../format";
+import type { Clock } from "../ui/clock";
+import { whenWords } from "../ui/time-words";
 import { capital, providerName, subtitleOf } from "./work-words";
 
 export const reasonWords: { readonly [R in SubtitlesCandidateReasonsItem]: string } = {
@@ -21,11 +22,11 @@ export const reasonWords: { readonly [R in SubtitlesCandidateReasonsItem]: strin
 };
 
 const triedLines: {
-  readonly [O in SubtitlesTriedOutcome]: (at: string, now: Date) => string;
+  readonly [O in SubtitlesTriedOutcome]: (at: string, clock: Clock) => string;
 } = {
   passed: () => "Its timing matched this file.",
   failed_timing: () => "Its timing didn't match this file.",
-  marked_bad: (at, now) => `You marked this bad ${agoWords(at, now)}.`,
+  marked_bad: (at, clock) => `You marked this bad ${whenWords(at, "ago", clock)}.`,
   image: () => "SlipStream can't use image subtitles.",
   unreadable: () => "SlipStream couldn't read this subtitle file.",
   wrong_episode: () => "It's for another episode.",
@@ -33,8 +34,8 @@ const triedLines: {
 };
 
 /** A candidate's earlier try for this file, as Tried before lists it. */
-export const triedWords = ({ outcome, at }: SubtitlesTried, now: Date): string =>
-  triedLines[outcome](at, now);
+export const triedWords = ({ outcome, at }: SubtitlesTried, clock: Clock): string =>
+  triedLines[outcome](at, clock);
 
 export const matchWords = (match: number) => `Timing match ${match}%`;
 
@@ -58,7 +59,7 @@ type OutcomeLines = {
 const outWords = (name: string, until: string | null, clock: Clock) =>
   until === null
     ? `${name} is out of downloads.`
-    : `${name} is out of downloads. SlipStream searches it again ${laterAtWords(until, clock)}.`;
+    : `${name} is out of downloads. SlipStream searches it again ${whenWords(until, "next", clock)}.`;
 
 const searchLines: OutcomeLines = {
   ok: () => "",

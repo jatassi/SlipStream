@@ -209,7 +209,7 @@ func TestAPendingNodesHealthIsOneReconcilingLink(t *testing.T) {
 	got := itemsOf(in.at(start), everyFit(), nil)
 	want := []health.Item{{Key: key(box.String(), "pending"), Level: health.Warn, Says: health.Says{
 		Subject: "seedbox",
-		Text:    "seedbox keeps its torrents until it reports them. Open Reconciling to see what's left to do.",
+		Text:    "seedbox keeps every torrent until SlipStream has matched its list of torrents with the library. Open Reconciling to see what's left to do.",
 		Action:  health.LinkAction("/reconciling", "Open Reconciling"),
 	}}}
 	if !slices.EqualFunc(got.Items, want, sameItem) || len(got.Unsure) != 0 {

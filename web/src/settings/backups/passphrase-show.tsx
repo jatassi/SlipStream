@@ -3,8 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { sentenceOf } from "../../api/errors";
 import { getBackupPassphrase } from "../../api/gen/query/backups/backups";
 import { hidePassphrase, shownPassphraseKey } from "../../live/adopt-backups";
-import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
+import { SignalLine } from "../../ui/signal-line";
 
 // No abort signal, so the read outlives a remount, and no garbage-collection
 // grace, so the words go once nothing shows them.
@@ -19,7 +19,12 @@ export function useShownPassphrase() {
   return {
     shown: query.data?.passphrase,
     busy: query.isFetching,
-    failure: query.error === null ? null : <AlertLine text={sentenceOf(query.error)} />,
+    failure:
+      query.error === null ? null : (
+        <SignalLine tone="fail" announce>
+          {sentenceOf(query.error)}
+        </SignalLine>
+      ),
     show: () => void query.refetch(),
     hide: () => {
       hidePassphrase(queryClient);

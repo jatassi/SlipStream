@@ -23,7 +23,7 @@ test("the catalog leads with when it refreshed, and Refresh now runs the refresh
   await expect
     .element(
       catalog().getByText(
-        /^SlipStream last refreshed the Indexer catalog at .+\. It refreshes again at .+\.$/u,
+        /^SlipStream last refreshed the Indexer catalog .+\. It refreshes again .+\.$/u,
       ),
     )
     .toBeVisible();

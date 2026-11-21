@@ -33,10 +33,10 @@ test("an open window says what it still owes, joined as its rule clears", () => 
 
 test("an ended window says when it was met, missed or released", () => {
   expect(endedLine({ ...owing, state: "met", metAt: "2026-10-12T09:30:00Z" }, clock)).toBe(
-    "Met at 09:30",
+    "Met at 9:30 AM",
   );
   expect(endedLine({ ...owing, state: "missed", closedAt: "2026-10-03T18:05:00Z" }, clock)).toMatch(
-    /^Missed at Oct 3, 18:05$/u,
+    /^Missed on Oct 3 at 6:05 PM$/u,
   );
   expect(endedLine({ ...owing, state: "released", closedAt: null }, clock)).toBe("Closed");
 });
@@ -49,7 +49,7 @@ test("a window's sentences say how it stands at risk, after a regrab, and what a
       "seedpool",
       clock,
     ),
-  ).toEqual(["It stopped seeding at 08:00. Seed it again before seedpool counts a hit and run."]);
+  ).toEqual(["It stopped seeding at 8:00 AM. Seed it again before seedpool counts a hit and run."]);
   expect(windowSentences({ ...owing, atRisk: "unknown" }, "seedpool", clock)).toEqual([
     "Every Node that holds it is offline, so whether it's seeding isn't known.",
   ]);
@@ -59,7 +59,7 @@ test("a window's sentences say how it stands at risk, after a regrab, and what a
       "seedpool",
       clock,
     ),
-  ).toEqual(["It was missed at 08:00 and grabbed again at 10:00."]);
+  ).toEqual(["It was missed at 8:00 AM and grabbed again at 10:00 AM."]);
   expect(
     windowSentences(
       {
@@ -84,10 +84,10 @@ test("the history tells a window grabbed again after its miss as that miss, and 
     regrabbedAt: "2026-10-12T10:00:00Z",
     owed: { seconds: 86_400, bytes: 0 },
   };
-  expect(endedLine(asEnded(regrabbed), clock)).toBe("Missed at 08:00");
+  expect(endedLine(asEnded(regrabbed), clock)).toBe("Missed at 8:00 AM");
   expect(windowSentences(asEnded(regrabbed), "seedpool", clock)).toEqual([
     "It still needed 1 day more seeding when its last torrent was removed.",
-    "It was grabbed again at 10:00.",
+    "It was grabbed again at 10:00 AM.",
   ]);
   expect(
     windowSentences(

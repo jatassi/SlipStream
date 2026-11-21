@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import type { NodesNode } from "../../api/gen/model";
 import { useListIndexersSuspense } from "../../api/gen/query/indexers/indexers";
 import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
-import { Empty } from "../../shell/empty";
+import { Empty } from "../../ui/empty";
 import { Section } from "../../ui/section";
 import { UngroupedIndexers } from "../tracker-group";
 
@@ -16,6 +16,7 @@ export function HomedIndexers({ node }: { node: NodesNode }) {
     <Section title="Indexers" count={homed.length}>
       {homed.length === 0 ? (
         <Empty
+          look="sheet"
           action={
             <Link
               to="/settings/$section"

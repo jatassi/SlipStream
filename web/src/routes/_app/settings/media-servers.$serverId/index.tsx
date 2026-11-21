@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_app/settings/media-servers/$serverId/")(
   staticData: { title: loaderTitle },
   loader: ({ context: { queryClient }, params: { serverId } }) =>
     ensureQuery(queryClient, getListMediaServerSessionsSuspenseQueryOptions(serverId)),
-  pendingComponent: () => <Skeleton label="Loading what's playing" />,
+  pendingComponent: () => <Skeleton label="Loading what's playing" shape="rows" lines={2} />,
   component: function NowPlaying() {
     return <PlayingTab server={useGetMediaServerSuspense(Route.useParams().serverId).data} />;
   },

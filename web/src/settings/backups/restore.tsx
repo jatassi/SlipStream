@@ -1,12 +1,14 @@
 import type { BackupsBackup, BackupsDestination } from "../../api/gen/model";
 import { useRestoreFlow } from "../../restore/flow";
-import { InPlaceWords, useRestoreClock } from "../../restore/summary-step";
+import { InPlaceWords } from "../../restore/summary-step";
 import { inPlaceTitle } from "../../restore/words";
+import { useClock } from "../../ui/clock";
 import { Dialog } from "../../ui/dialog";
 import { FlowStep } from "./flow-step";
 import { usePrepare } from "./restore-prepare";
 import { Preparing } from "./restore-preparing";
 import { settingsCalls } from "./restore-file";
+// oxlint-disable-next-line import/max-dependencies -- the dialog runs the restore flow and reads its title on the clock
 import type { Names } from "./words";
 
 function InPlaceBody({
@@ -20,7 +22,7 @@ function InPlaceBody({
   names: Names;
   onCancel: () => void;
 }) {
-  const clock = useRestoreClock();
+  const clock = useClock();
   const flow = useRestoreFlow(settingsCalls);
   const { prepare, pull } = usePrepare(backup, destinations, flow);
   return (
@@ -50,7 +52,7 @@ export function RestoreBackupDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const clock = useRestoreClock();
+  const clock = useClock();
   return (
     <Dialog title={inPlaceTitle(backup.takenAt, clock)} open={open} onOpenChange={onOpenChange}>
       {open && (

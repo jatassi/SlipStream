@@ -1,9 +1,9 @@
 import type { NodesOutcome } from "../../../../api/gen/model";
 import { blocks } from "../../../../nodes/roles";
-import { AlertLine } from "../../../../ui/alert-line";
 import { Button } from "../../../../ui/button";
 import { Dialog } from "../../../../ui/dialog";
 import { useShell } from "../../../../ui/shell-context";
+import { SignalLine } from "../../../../ui/signal-line";
 import { Checks, Planned } from "./outcome";
 import { type Change, type Review, useReview } from "./plan";
 
@@ -12,13 +12,21 @@ function Body({ review }: { review: Review }) {
     return <p className="text-ink-2">Checking the change…</p>;
   }
   if (review.step === "unplanned") {
-    return <AlertLine text={review.failure} />;
+    return (
+      <SignalLine tone="fail" announce>
+        {review.failure}
+      </SignalLine>
+    );
   }
   return (
     <div className="flex flex-col gap-4">
       <Planned outcome={review.outcome} stale={review.stale} />
       <Checks checks={review.outcome.checks} />
-      {review.failure !== undefined && <AlertLine text={review.failure} />}
+      {review.failure !== undefined && (
+        <SignalLine tone="fail" announce>
+          {review.failure}
+        </SignalLine>
+      )}
     </div>
   );
 }

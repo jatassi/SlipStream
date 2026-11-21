@@ -69,7 +69,7 @@ test("a folder whose Work lives in another root offers only Ignore", async () =>
       .getByRole("button")
       .elements()
       .map((button) => button.textContent),
-  ).toEqual(["Ignore", "Details"]);
+  ).toEqual(["Remux-1080p", "Ignore", "Details"]);
 });
 
 test("Add adds an entry's suggested Work and it leaves the list", async () => {

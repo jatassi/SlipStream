@@ -5,14 +5,14 @@ import type { FilesCellList, FilesNeed, GrabsGrab } from "../../api/gen/model";
 import { getGetWorkCellsMockHandler } from "../../api/gen/query/files/files.msw";
 import { getListGrabsMockHandler } from "../../api/gen/query/grabs/grabs.msw";
 import { getListRootsMockHandler } from "../../api/gen/query/roots/roots.msw";
-import { clock } from "../../format";
 import { orchardId } from "../../test/library";
 import { home } from "../../test/nodes";
 import { renderApp } from "../../test/render-app";
-// oxlint-disable-next-line import/max-dependencies -- an Import wait names its root, so the test serves roots on a served Node
 import { filmsRoot } from "../../test/roots";
+// oxlint-disable-next-line import/max-dependencies -- an Import wait names its root, so the test serves roots on a served Node
 import { awayGrab as stuck, upgradable } from "../../test/work-cells";
 import { workServer } from "../../test/work-server";
+import { whenWords } from "../../ui/time-words";
 
 function openWith(needsYou: FilesNeed[], grabs: GrabsGrab[]) {
   const cells: FilesCellList = { ...upgradable, needsYou };
@@ -54,7 +54,7 @@ test("a download whose client reports an error quotes it and says when the Grab 
   await expect
     .element(needsYou)
     .toHaveTextContent(
-      `Needs you1Waiting${erroring.releaseTitle}Transmission on Seedbox reports "No space left on device." Fix it in Transmission. SlipStream fails this Grab if the error lasts past ${clock(failsAt)}.Open torrent`,
+      `Needs you1Waiting${erroring.releaseTitle}Transmission on Seedbox reports "No space left on device." Fix it in Transmission. SlipStream fails this Grab if the error lasts ${whenWords(failsAt, "until", { now: new Date(), zone: undefined })}.Open torrent`,
     );
 });
 

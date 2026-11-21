@@ -154,6 +154,43 @@ Tags:
 
 The image never updates itself. Pull a newer tag and recreate the container.
 
+## Backups
+
+The Controller keeps its Backups in the Backups folder, `backups` inside its data dir unless its Node setting `backups.folder` names another:
+
+| Install | Backups folder |
+|---|---|
+| Windows installer (MSI) | `%LOCALAPPDATA%\SlipStream2\backups` |
+| Windows portable ZIP | `data\backups` beside `slipstream-app.exe` |
+| macOS | `~/Library/Application Support/SlipStream2/backups` |
+| Linux deb or rpm | `/var/lib/slipstream/backups` |
+| Linux tarball or AppImage | `~/.local/share/slipstream2/backups` |
+| Docker | `/config/backups`, so `/srv/slipstream/config/backups` on the host in the example above |
+
+A Backup opens only with its passphrase, ten words that Settings > Backups shows after you confirm your PIN. Keep the passphrase, or the recovery sheet, somewhere other than the Controller.
+
+A Backup destination keeps a copy of every Backup in a folder on another Node, under the Backup's own name. If the Controller's machine is lost, copy the newest Backup from that folder to the new machine. For a destination on a Linux Worker:
+
+```sh
+scp seedbox:/srv/backups/slipstream-20261121T020000Z-2.1.0-scheduled-ab12.tar.zst.age .
+```
+
+There are three ways to restore a Backup onto a new install:
+
+- **The setup page.** On a new Node, enter the Setup code, choose **Restore a Backup** and upload the file. The setup page takes an upload only, never a path on the machine. A new Node has no Admin yet, so the Setup code is all that guards that page, and a path typed there could read any file the Node can.
+- **`slipstream restore`.** Run `slipstream restore --passphrase-file <file> <backup>` on the new machine. With no Node running it prepares the restore, and the next start finishes it. With a Node running, that Node restarts to finish it.
+- **Docker.** Put the Backup and a file holding its passphrase in `/config`, and add these to the container's first `docker run`:
+
+  ```sh
+  -e SLIPSTREAM_RESTORE=/config/<backup> \
+  -e SLIPSTREAM_RESTORE_PASSPHRASE_FILE=/config/passphrase \
+  -e SLIPSTREAM_RESTORE_OLD_CONTROLLER_OFF=1 \
+  ```
+
+  The container restores the Backup in that same start. No variable takes the passphrase itself, since `docker inspect` shows every variable. A data dir that a Node has already set up ignores these variables and logs why. Delete the passphrase file once the Node is up.
+
+A Backup of another machine restores only once you confirm that the old Controller stays off: `--old-controller-off` on the command line, `SLIPSTREAM_RESTORE_OLD_CONTROLLER_OFF=1` in Docker, or the check box on the setup page. If the old Controller starts again, it pauses every torrent and shows that it was replaced, and offers to wipe it and join it to the new Controller as a Worker.
+
 ## Host commands
 
 Host commands act on the Node whose data dir is `--data-dir`, else `SLIPSTREAM_DATA_DIR`, else the install's default. Run them as the user the sections above name for each install.
@@ -167,6 +204,8 @@ Host commands act on the Node whose data dir is `--data-dir`, else `SLIPSTREAM_D
 | `slipstream config set <key> <value>` | Saves a Node setting, such as `log.level`, in `config.yaml`. |
 | `slipstream config unset <key>` | Removes a Node setting from `config.yaml`, so its default applies. |
 | `slipstream join [--node-port <port>] <code>` | Joins an Unclaimed Node, stopped or running, to the Controller a Join Code names, and prints the Controller and the name it joined as. `--node-port` first saves `link.listen` at that port in `config.yaml`. |
+| `slipstream backup` | Takes a Backup on the running Controller, checks that it opens, and prints its size and path. |
+| `slipstream restore [--passphrase-file <file>] [--old-controller-off] <backup>` | Restores a Backup. With no Node running it prepares the restore for the next start; with one running, that Node restarts to finish it. Without `--passphrase-file` it asks for the passphrase. |
 | `slipstream node-address` | Prints the Node address, `SLN1-…`, that a Controller dials this Node at. |
 | `slipstream admin reset [--address <origin>] <email>` | Prints a Reset link for the Account with that email and ends its sessions. `--address` sets the address links use when none is set. |
 | `slipstream service install --user` | Runs the Node as a `systemctl --user` service, for a tarball or AppImage install. `service uninstall --user` removes it. |

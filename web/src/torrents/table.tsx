@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import { useLiveRow } from "../live/torrents";
 import type { Selection } from "../ui/table";
 import type { Row } from "./model";

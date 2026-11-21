@@ -3,7 +3,14 @@ import { afterEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { BackupsBackup, RestoreSummary } from "../../api/gen/model";
-import { backupsNow, backupsServer, listOf, nightly } from "../../test/backups";
+import {
+  backupsNow,
+  backupsServer,
+  listOf,
+  nightly,
+  said,
+  saidInRestore,
+} from "../../test/backups";
 import { problem } from "../../test/handlers";
 import { home, nodesAre, seedbox } from "../../test/nodes";
 import { renderApp } from "../../test/render-app";
@@ -66,9 +73,16 @@ function inPlace(backup: BackupsBackup) {
 async function openRestore(server: ReturnType<typeof inPlace>) {
   vi.useFakeTimers({ toFake: ["Date"], now: backupsNow, shouldAdvanceTime: true });
   const app = renderApp({ path: "/settings/backups", handlers: server.handlers });
-  await userEvent.click(page.getByRole("button", { name: "Actions for the Backup from 04:01" }));
+  await userEvent.click(
+    page.getByRole("button", { name: `Actions for the Backup ${said(nightly.takenAt, "from")}` }),
+  );
   await userEvent.click(page.getByRole("menuitem", { name: "Restore…" }));
-  return { app, dialog: page.getByRole("dialog", { name: "Restore the Backup from 04:01?" }) };
+  return {
+    app,
+    dialog: page.getByRole("dialog", {
+      name: `Restore the Backup ${saidInRestore(nightly.takenAt, "from")}?`,
+    }),
+  };
 }
 
 test("Restore on a local Backup stages it, says what is lost and signs in after the restart", async () => {
@@ -77,7 +91,7 @@ test("Restore on a local Backup stages it, says what is lost and signs in after 
   await expect
     .element(
       dialog.getByText(
-        "SlipStream backs up the library as it is now, replaces it and restarts. Changes since Nov 17 are lost.",
+        `SlipStream backs up the library as it is now, replaces it and restarts. Changes ${saidInRestore(nightly.takenAt, "since")} are lost.`,
         { exact: false },
       ),
     )

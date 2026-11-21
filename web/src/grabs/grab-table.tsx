@@ -2,11 +2,12 @@ import { Link } from "@tanstack/react-router";
 
 import type { GrabsGrab } from "../api/gen/model";
 import { Data } from "../ui/data";
-import { StageTrack } from "../ui/stage-track";
+import { StageTrack, StageWord } from "../ui/stage-track";
+import { Mark } from "../ui/state-mark";
 import { type Column, Table } from "../ui/table";
 import { ForCell, JobMenu } from "./job-cells";
 import { ProgressCell } from "./progress-cell";
-import { progressOf, skippedStages, stageWord } from "./stages";
+import { importedMark, progressOf, skippedStages, stageWord } from "./stages";
 
 export type GrabRow = { readonly grab: GrabsGrab; readonly work: string };
 
@@ -31,10 +32,19 @@ function StageCell({ grab, work }: GrabRow) {
   if (grab.failure !== undefined) {
     return <span>{grab.failure.message}</span>;
   }
+  if (grab.stage === "imported") {
+    return <Mark mark={importedMark} />;
+  }
+  const progress = progressOf(grab);
   return (
-    <span className="flex max-w-[220px] flex-col gap-1.5">
-      <span>{stageWord[grab.stage]}</span>
-      <StageTrack title={work} progress={progressOf(grab)} skipped={skippedStages} />
+    <span className="flex max-w-[220px] flex-col items-start gap-1.5">
+      <StageWord
+        word={stageWord[grab.stage]}
+        title={work}
+        progress={progress}
+        skipped={skippedStages}
+      />
+      <StageTrack title={work} progress={progress} skipped={skippedStages} />
     </span>
   );
 }

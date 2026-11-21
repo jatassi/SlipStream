@@ -4,7 +4,7 @@ An Admin opens Activity > History and reads what happened to the library, newest
 
 ## Sub-features
 
-- `history-days` entries sit under `Today`, `Yesterday` or `Tuesday 10 November` (with the year when it isn't this one), each with its time of day such as `14:02` and its catalog words, such as `Added The Salt Road to Movies` (P-223).
+- `history-days` entries sit under `Today`, `Yesterday` or `Tuesday 10 November` (with the year when it isn't this one), each with its time of day such as `2:02 PM` and its catalog words, such as `Added The Salt Road to Movies` (P-223).
 - `history-paging` with more than 50 entries, `Load more` reads the page before the last one shown, by `before`, with no entry twice; a phone loads the next page as the list's end scrolls into view (P-223).
 - `history-filters` the Content Type select, the group chips `Grabs`, `Imports`, `Library` and `Health` with each chosen group's kinds, `When` (`Any time`, `Today`, `Last 7 days`, `Last 30 days`) and a Work chip with `Show every Work` narrow the list and stay in the address; with nothing matching it reads `No entries match these filters.` with `Clear filters`, or `History is empty.` when History holds no entry at all (P-224, P-225).
 - `history-sentence` the sentence reads `There were 2 Grabs and 1 Import in the last 7 days.`, or with a failed Grab that needs attention `1 Grab failed and needs attention.`, linking to Activity's Jobs.

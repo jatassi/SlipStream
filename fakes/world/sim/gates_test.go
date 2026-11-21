@@ -45,7 +45,7 @@ func TestEachGateRefusesWithTheWaits(t *testing.T) {
 		beginRestore(t, w)
 
 		work, grab := storage.NewUUID().String(), storage.NewUUID().String()
-		const lead = `"detail":"SlipStream is matching the restored library with what your Nodes hold. It's waiting for the old Controller's folders, `
+		const lead = `"detail":"SlipStream is matching the restored library with the torrents and files on your Nodes. It's waiting for the old Controller's folders, `
 		for _, row := range []struct{ gate, method, path, body string }{
 			{"Search", http.MethodPost, "/api/v1/works/" + work + "/search", ""},
 			{"Search several Works", http.MethodPost, "/api/v1/works/search", `{"workIds":["` + work + `"]}`},

@@ -62,7 +62,7 @@ test("each state reads as its own sentence", async () => {
   await expect
     .element(
       list().getByText(
-        /^SubSource rejected the key (?:today|yesterday) at .+ and responded "Invalid API key"\. Replace the key\.$/u,
+        /^SubSource rejected the key (?:yesterday )?at .+ and responded "Invalid API key"\. Replace the key\.$/u,
       ),
     )
     .toBeVisible();

@@ -1,10 +1,10 @@
 import type { ClientPick } from "../grabs/send-to-sheet";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Details } from "../ui/details";
 import { RadioGroup } from "../ui/radio";
 import { Select } from "../ui/select";
 import { useShell } from "../ui/shell-context";
+import { SignalLine } from "../ui/signal-line";
 import { routed } from "./picks";
 
 const routedWords = "Where Tracker routing sends each one";
@@ -66,14 +66,20 @@ export function GrabBar({
   if (replaced && failure !== undefined) {
     return (
       <div className="flex flex-col items-start gap-2">
-        <AlertLine text={failure} />
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
         <Button onClick={onReopen}>Open Manual search again</Button>
       </div>
     );
   }
   return (
     <div className="flex flex-col gap-2">
-      {failure !== undefined && <AlertLine text={failure} />}
+      {failure !== undefined && (
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0 flex-[1_1_28ch]">
           <SendAllTo clients={clients} value={sendAll} onValueChange={onSendAll} />

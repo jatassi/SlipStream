@@ -1,6 +1,6 @@
 import type { WorksContentType } from "../../api/gen/model";
 import { releaseVerb } from "../monitoring/labels";
-import { dayWords } from "../../format/days";
+import { dayMonthWords, dayWords } from "../../format/days";
 
 /** What folding reads of an Item row. */
 export type Foldable = {
@@ -17,12 +17,6 @@ export type Folding = Pick<WorksContentType, "item" | "releases">;
 export type Entry<T> =
   | { readonly kind: "item"; readonly item: T }
   | { readonly kind: "fold"; readonly fold: Fold<T> };
-
-const dayMonth = new Intl.DateTimeFormat(undefined, {
-  day: "numeric",
-  month: "long",
-  timeZone: "UTC",
-});
 
 const lastNumber = /^(.*?)(\d+)(\D*)$/u;
 
@@ -43,7 +37,7 @@ function dateWords(date: string, short: boolean): string {
   if (!short || year === undefined || month === undefined || day === undefined) {
     return dayWords(date);
   }
-  return dayMonth.format(new Date(Date.UTC(year, month - 1, day)));
+  return dayMonthWords(year, month, day);
 }
 
 function spanWords(first: string, last: string): string {

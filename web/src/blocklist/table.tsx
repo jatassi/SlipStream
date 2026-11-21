@@ -1,9 +1,9 @@
 import { Link } from "@tanstack/react-router";
 
 import type { GrabsBlockEntry } from "../api/gen/model";
-import { type Clock, agoWords, sinceWords } from "../format";
+import { ReleaseName } from "../release/row";
 import { Checkbox } from "../ui/checkbox";
-import { Data } from "../ui/data";
+import { PlainTime } from "../ui/relative-time";
 import { type Column, Table } from "../ui/table";
 
 export type Picking = {
@@ -11,18 +11,7 @@ export type Picking = {
   readonly toggle: (hash: string, range: boolean) => void;
 };
 
-type Row = { readonly entry: GrabsBlockEntry; readonly picking: Picking; readonly clock: Clock };
-
-function ReleaseCell({ entry }: Row) {
-  return (
-    <span className="flex min-w-0 flex-col gap-0.5">
-      <span>{entry.words}</span>
-      <span className="text-meta wrap-anywhere text-ink-3">
-        <Data>{entry.title}</Data>
-      </span>
-    </span>
-  );
-}
+type Row = { readonly entry: GrabsBlockEntry; readonly picking: Picking };
 
 const columns: readonly [Column<Row>, ...Column<Row>[]] = [
   {
@@ -39,7 +28,7 @@ const columns: readonly [Column<Row>, ...Column<Row>[]] = [
       />
     ),
   },
-  { id: "release", header: "Release", cell: (row) => <ReleaseCell {...row} /> },
+  { id: "release", header: "Release", cell: ({ entry }) => <ReleaseName release={entry} /> },
   { id: "cause", header: "Cause", cell: ({ entry }) => entry.because },
   { id: "indexer", header: "Indexer", cell: ({ entry }) => entry.indexer },
   {
@@ -59,29 +48,23 @@ const columns: readonly [Column<Row>, ...Column<Row>[]] = [
   {
     id: "added",
     header: "Added",
-    cell: ({ entry, clock }) => (
-      <time dateTime={entry.addedAt} title={sinceWords(entry.addedAt, clock)}>
-        <Data>{agoWords(entry.addedAt, clock.now)}</Data>
-      </time>
-    ),
+    cell: ({ entry }) => <PlainTime at={entry.addedAt} form="age" />,
   },
 ];
 
 export function BlocklistTable({
   entries,
   picking,
-  clock,
 }: {
   entries: readonly GrabsBlockEntry[];
   picking: Picking;
-  clock: Clock;
 }) {
   return (
     <Table
       label="Blocklist"
       lines={2}
       stackBelow={620}
-      rows={entries.map((entry) => ({ entry, picking, clock }))}
+      rows={entries.map((entry) => ({ entry, picking }))}
       rowKey={({ entry }) => entry.infoHash}
       columns={columns}
     />

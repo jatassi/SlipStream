@@ -1,7 +1,9 @@
 import { countWords } from "../format";
+import { Empty } from "../ui/empty";
+import { Skeleton } from "../ui/skeleton";
 import { isPath } from "./browser-state";
 import { FolderRows } from "./folder-rows";
-import { NewFolderRow, Quiet, SkeletonRows } from "./list-parts";
+import { NewFolderRow } from "./list-parts";
 import type { Parts } from "./parts";
 import { ProblemCard } from "./problem-card";
 import type { Browser } from "./use-browser";
@@ -49,9 +51,9 @@ export function ListArea(parts: Parts & { className: string }) {
       )}
       {listing.problem === null ? (
         listing.skeleton ? (
-          <SkeletonRows />
+          <Skeleton label="Loading folders" shape="rows" lines={1} inFrame />
         ) : rows.length === 0 ? (
-          <Quiet>{emptyWords(browser)}</Quiet>
+          <Empty look="row">{emptyWords(browser)}</Empty>
         ) : (
           <FolderRows
             id={listId}

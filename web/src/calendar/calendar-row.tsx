@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import type { CalendarRow as Row, WorksContentType } from "../api/gen/model";
 import { Details } from "../ui/details";
 import { ListRow } from "../ui/list";
-import { Poster } from "../ui/poster";
+import { Artwork } from "../ui/artwork";
 import { StateMark } from "../ui/state-mark";
 import { typeOf } from "../works/fields";
 
@@ -59,7 +59,7 @@ export function CalendarRow({
     ) : undefined;
   return (
     <ListRow
-      leading={<Poster url={row.work.posterUrl ?? undefined} />}
+      leading={<Artwork use="poster" size="row" url={row.work.posterUrl ?? undefined} />}
       title={
         <Link
           to="/works/$workId"

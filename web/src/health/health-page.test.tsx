@@ -105,7 +105,7 @@ test("each item reads its level first, then its subject, what to do and since wh
     .element(row)
     .toHaveAccessibleName(
       new RegExp(
-        `^Error ${literal(fullVolume.subject)} ${literal(fullVolume.text)} since \\d\\d:\\d\\d$`,
+        `^Error ${literal(fullVolume.subject)} ${literal(fullVolume.text)} since \\d{1,2}:\\d\\d [AP]M$`,
         "u",
       ),
     );

@@ -172,6 +172,7 @@
   --duration-dialog: 360ms;
   --duration-live-tick: 1s;
   --duration-sheen: 2.4s;
+  --duration-artwork: 200ms;
 }
 
 @media (prefers-reduced-transparency: reduce) {

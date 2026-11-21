@@ -6,7 +6,7 @@ import {
   getReconciling,
 } from "../api/gen/query/reconciling/reconciling";
 import { useCounts } from "../shell/counts";
-import { useNow } from "../tasks/use-now";
+import { useClock } from "../ui/clock";
 import { type Next, nextOf } from "./words";
 
 /**
@@ -16,7 +16,7 @@ import { type Next, nextOf } from "./words";
  */
 export function useBanner(): Next | "loading" | undefined {
   const on = (useCounts()?.reconciling ?? null) !== null;
-  const now = useNow(60_000);
+  const clock = useClock();
   const { data } = useQuery({
     queryKey: getGetReconcilingQueryKey(),
     queryFn: ({ signal }) => getReconciling({ signal }),
@@ -26,5 +26,5 @@ export function useBanner(): Next | "loading" | undefined {
   if (!on || onPage) {
     return undefined;
   }
-  return data === undefined ? "loading" : nextOf(data, { now, zone: undefined });
+  return data === undefined ? "loading" : nextOf(data, clock);
 }

@@ -1,8 +1,7 @@
 import { useState } from "react";
 
 import { useAccount } from "../session/session";
-import { Button } from "../ui/button";
-import { List, ListRow } from "../ui/list";
+import { Fact, Facts } from "../ui/facts";
 import { Section } from "../ui/section";
 import { EmailDialog } from "./email-dialog";
 import { KeyPromptSwitch } from "./key-prompt";
@@ -16,28 +15,24 @@ export function Profile() {
   const openFor = (what: Exclude<Editing, null>) => (open: boolean) => {
     setEditing(open ? what : null);
   };
-  const change = (what: Exclude<Editing, null>, label: string) => (
-    <Button
-      size="small"
-      aria-label={label}
-      onClick={() => {
-        setEditing(what);
-      }}
-    >
-      Change
-    </Button>
-  );
+  const change = (what: Exclude<Editing, null>, name: string) => ({
+    label: "Change",
+    name,
+    onClick: () => {
+      setEditing(what);
+    },
+  });
   return (
     <Section title="Profile">
       <div className="flex flex-col gap-3">
-        <List label="Profile">
-          <ListRow
-            title={displayName}
-            meta="Display name"
-            trailing={change("name", "Change display name")}
-          />
-          <ListRow title={email} meta="Email" trailing={change("email", "Change email")} />
-        </List>
+        <Facts look="sheet">
+          <Fact label="Display name" action={change("name", "Change display name")}>
+            {displayName}
+          </Fact>
+          <Fact label="Email" action={change("email", "Change email")}>
+            {email}
+          </Fact>
+        </Facts>
         <KeyPromptSwitch />
       </div>
       <NameDialog current={displayName} open={editing === "name"} onOpenChange={openFor("name")} />

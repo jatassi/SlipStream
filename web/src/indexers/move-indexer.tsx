@@ -2,6 +2,7 @@ import type { IndexersIndexer, NodesNode } from "../api/gen/model";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { Select } from "../ui/select";
+import { SignalLine } from "../ui/signal-line";
 import type { SignInStep } from "./add/use-add";
 import { CaptchaField } from "./fields/captcha";
 import { searchingNodes } from "./move-edit";
@@ -66,10 +67,10 @@ function Moving({
   return (
     <>
       {indexer.signsIn && (
-        <p className="text-warn">
+        <SignalLine tone="warn">
           {indexer.name} will see a sign-in from {name}&apos;s address. It may ask for a captcha or
           email you about it.
-        </p>
+        </SignalLine>
       )}
       {indexer.session?.pasted === true && (
         <CookieFields form={form} name={indexer.name} to={name} />

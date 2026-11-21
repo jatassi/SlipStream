@@ -58,7 +58,7 @@ test("the avatar menu opens Your Account with the Member's name", async () => {
   await expect.poll(() => router.state.location.href).toBe("/portal/account");
   await expect.element(page.getByRole("heading", { name: "Your Account", level: 1 })).toBeVisible();
   await expect
-    .element(page.getByRole("list", { name: "Profile" }).getByText("Grace Lindqvist"))
+    .element(page.getByRole("region", { name: "Profile" }).getByText("Grace Lindqvist"))
     .toBeVisible();
   await expect
     .element(page.getByRole("button", { name: "Back to Library" }))

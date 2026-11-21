@@ -7,16 +7,19 @@ import { getListGrabsMockHandler } from "../api/gen/query/grabs/grabs.msw";
 import { getListIndexersMockHandler } from "../api/gen/query/indexers/indexers.msw";
 import { getListTrackersMockHandler } from "../api/gen/query/trackers/trackers.msw";
 import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
-import { clock } from "../format";
 import { downloading, fetchFailure, waitingToFetch } from "../test/grabs";
-// oxlint-disable-next-line import/max-dependencies -- Details read Grabs, Works, Targets, Indexers, Trackers and Torrents
 import { problem } from "../test/handlers";
+// oxlint-disable-next-line import/max-dependencies -- Details read Grabs, Works, Targets, Indexers, Trackers and Torrents
 import { torrentLeech, torrentLeechTrackerId, trackers } from "../test/indexers";
 import { orchardRow } from "../test/library";
 import { homeId } from "../test/nodes";
 import { renderApp } from "../test/render-app";
+import { type ValueForm, placeOf, timeForms, whenWords } from "../ui/time-words";
 import { starter, targetHandlers } from "../test/targets";
 import { actionsServer, torrentsServer } from "../test/torrents";
+
+const own = () => ({ now: new Date(), zone: undefined });
+const shown = (form: ValueForm, at: string) => timeForms[form](placeOf(at, own()));
 
 const override = "Ada Okafor grabbed it although its score of 5 is under 1080p's minimum of 10.";
 
@@ -65,16 +68,18 @@ test("a Grab's Details say who grabbed it and how, each override, where it went 
     .toMatchTextContent(/^Grab of The Quiet OrchardFetchingFound by Ada Okafor in Manual search/u);
   await expect
     .element(details)
-    .toMatchTextContent(`Found by Ada Okafor in Manual search, ${clock(manual.createdAt)}.`);
+    .toMatchTextContent(
+      `Found by Ada Okafor in Manual search ${whenWords(manual.createdAt, "at", own())}.`,
+    );
   await expect.element(details.getByText(override)).toBeVisible();
   await expect
     .element(details)
     .toMatchTextContent(
-      /ReleaseWEBDL-1080p · 700 MBThe\.Quiet\.Orchard\.2021\.1080p\.WEB-DL.*IndexerTorrentLeechTrackerTorrentLeechClientChosen once SlipStream fetches the Release/u,
+      /ReleaseWEBDL-1080p · 700 MBThe\.Quiet\.Orchard\.2021\.1080p\.WEB-DLFor.*IndexerTorrentLeechTrackerTorrentLeechClientChosen once SlipStream fetches the Release/u,
     );
   await expect
     .element(details.getByRole("region", { name: "Stages" }))
-    .toHaveTextContent(`Fetching${clock("2026-10-12T09:01:00Z")}`);
+    .toHaveTextContent(`Fetching${shown("clock", "2026-10-12T09:01:00Z")}`);
   await expect.element(details.getByRole("button", { name: "Cancel Grab" })).toBeVisible();
 });
 
@@ -91,7 +96,7 @@ test("an automatic search's Grab says so and offers no cancel once it can't be c
   await expect
     .element(details)
     .toMatchTextContent(
-      /^Grab of The Quiet OrchardImportedFound by Search, .*ClientBuilt-in client on home/u,
+      /^Grab of The Quiet OrchardImportedFound by Search .*ClientBuilt-in client on home/u,
     );
   await expect
     .element(details.getByRole("region", { name: "Stages" }))

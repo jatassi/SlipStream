@@ -5,7 +5,7 @@ import type {
   ReconcilingRestore,
 } from "../api/gen/model";
 import { useListNodesSuspense } from "../api/gen/query/nodes/nodes";
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
 import { List, ListRow } from "../ui/list";

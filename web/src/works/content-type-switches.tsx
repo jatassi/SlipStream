@@ -5,7 +5,7 @@ import { isProblem, sentenceOf } from "../api/errors";
 import type { WorksContentType } from "../api/gen/model";
 import { setContentTypeEnabled, useListContentTypesSuspense } from "../api/gen/query/works/works";
 import { adoptContentType } from "../live/adopt";
-import { AlertLine } from "../ui/alert-line";
+import { SignalLine } from "../ui/signal-line";
 import { Switch } from "../ui/switch";
 
 function TypeSwitch({ type, last }: { type: WorksContentType; last: boolean }) {
@@ -35,7 +35,11 @@ function TypeSwitch({ type, last }: { type: WorksContentType; last: boolean }) {
         disabled={busy || (type.enabled && last)}
         onCheckedChange={(enabled) => void turn(enabled)}
       />
-      {refusal !== undefined && <AlertLine text={refusal} />}
+      {refusal !== undefined && (
+        <SignalLine tone="fail" announce>
+          {refusal}
+        </SignalLine>
+      )}
     </li>
   );
 }

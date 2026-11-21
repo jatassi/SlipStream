@@ -57,9 +57,9 @@ test("each Role's state reads as a line", () => {
   expect(line({ role: "downloading", state: "writing-off", held: torrents })).toBe(
     "Giving up 3 torrents (41 GB)",
   );
-  expect(line({ role: "downloading", state: "away" }, offline)).toBe("Offline since 21:31");
+  expect(line({ role: "downloading", state: "away" }, offline)).toBe("Offline since 9:31 PM");
   expect(line({ role: "downloading", state: "lapsed" }, offline)).toBe(
-    "Offline since 21:31 · longer than the Offline grace",
+    "Offline since 9:31 PM · longer than the Offline grace",
   );
   expect(line({ role: "searching", state: "covering" })).toBe("Covering for seedbox");
 });

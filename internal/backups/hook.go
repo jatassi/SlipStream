@@ -10,8 +10,9 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// HookError is the hook's failure: nothing migrated, so the previous
-// binary still opens library.db. node.ExitCode maps it to BackupFailed
+// HookError is the update Backup's failure, before a migration or at the
+// first start of a newer version: nothing migrated, so the previous binary
+// still opens library.db. node.ExitCode maps it to BackupFailed
 // (7). Space is set when the cause is room, so the CLI adds its hint
 // without reading the words.
 type HookError struct {

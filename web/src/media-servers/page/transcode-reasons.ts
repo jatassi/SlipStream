@@ -1,7 +1,15 @@
+import {
+  ArrowReloadHorizontalIcon,
+  CpuIcon,
+  PackageMovingIcon,
+  PlayIcon,
+} from "@hugeicons/core-free-icons";
+
 import type {
   MediaserversSessionView as Session,
   MediaserversSessionViewDecision as Decision,
 } from "../../api/gen/model";
+import type { StatusMark, TermsFor } from "../../ui/state-marks";
 
 // Jellyfin and Emby name their reasons from one TranscodeReason enum. A name
 // this table lacks still shows as the server gave it, under Details.
@@ -37,26 +45,37 @@ const reasonWords: Readonly<Record<string, string>> = {
 
 type Shown = Decision | "hardware_transcode";
 
-const terms: { readonly [S in Shown]: { label: string; meaning: string } } = {
-  direct_play: { label: "Direct play", meaning: "The player plays the original file." },
+const decisionTerms = {
+  direct_play: {
+    word: "Direct play",
+    icon: PlayIcon,
+    tone: "neutral",
+    definition: "The player plays the original file.",
+  },
   copy: {
-    label: "Direct stream",
-    meaning: "The server repackages the audio and video for the player without converting them.",
+    word: "Direct stream",
+    icon: PackageMovingIcon,
+    tone: "neutral",
+    definition: "The server repackages the audio and video for the player without converting them.",
   },
   transcode: {
-    label: "Transcode",
-    meaning: "The server converts the file into a format the player can play.",
+    word: "Transcode",
+    icon: ArrowReloadHorizontalIcon,
+    tone: "neutral",
+    definition: "The server converts the file into a format the player can play.",
   },
   hardware_transcode: {
-    label: "Hardware transcode",
-    meaning:
+    word: "Hardware transcode",
+    icon: CpuIcon,
+    tone: "neutral",
+    definition:
       "The server converts the file on its graphics hardware into a format the player can play.",
   },
-};
+} as const satisfies TermsFor<Shown, "neutral">;
 
-/** The standard name for what the server does with the file, and what it means. */
-export function decisionTerm(session: Session): { label: string; meaning: string } {
-  return terms[
+/** The standard name for what the server does with the file, with its definition. */
+export function decisionTerm(session: Session): StatusMark {
+  return decisionTerms[
     session.decision === "transcode" && session.hardware ? "hardware_transcode" : session.decision
   ];
 }

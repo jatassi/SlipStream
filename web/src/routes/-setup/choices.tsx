@@ -36,7 +36,7 @@ export const choices: { readonly [C in ChoiceId]: Choice & { readonly id: C } } 
   restore: {
     id: "restore",
     label: "Restore a Backup",
-    about: "Rebuild a SlipStream from a Backup file. You need its passphrase.",
+    about: "Rebuild a SlipStream from a Backup file. You need its Backup passphrase.",
     primary: () => false,
     Form: RestoreForm,
   },

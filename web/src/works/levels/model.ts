@@ -4,7 +4,6 @@ import type {
   FilesItemStatus,
   FilesLevelRollup,
   FilesState,
-  FilesStateCounts,
   TargetsCut,
   TargetsProfile,
   TargetsTarget,
@@ -15,7 +14,7 @@ import type {
   WorksWorkView,
 } from "../../api/gen/model";
 import type { SwitchChecked } from "../../ui/switch";
-import { stateOrder } from "../../ui/state-marks";
+import type { Slot } from "../../ui/episode-strip";
 import { codeOf } from "../fields-by-tier";
 import { anyCut, cutNameOf, fileOf } from "../page/matrix-model";
 import { type Entry, foldsOf } from "./fold";
@@ -65,8 +64,8 @@ export type LevelView = {
   readonly withdrawn: boolean;
   readonly poster: string | undefined;
   readonly columns: readonly Column[];
-  /** Cells of the Items that count by state, or the withdrawn section's cells. */
-  readonly counts: FilesStateCounts;
+  /** Each Item's slot in its episode strip, in the order the section lists them. */
+  readonly slots: readonly Slot[];
   /** Items that count and are met, of those that count; null while none counts. */
   readonly tally: Tally | null;
   readonly monitor: SwitchChecked;
@@ -180,16 +179,11 @@ function itemView(
   return view;
 }
 
-function withdrawnCounts(rollups: readonly (FilesLevelRollup | undefined)[]): FilesStateCounts {
-  const counts: Partial<Record<FilesState, number>> = {};
-  for (const state of stateOrder) {
-    const count = rollups.reduce((sum, rollup) => sum + (rollup?.withdrawn[state] ?? 0), 0);
-    if (count > 0) {
-      counts[state] = count;
-    }
-  }
-  return counts;
-}
+const slotOf = (view: ItemView): Slot =>
+  view.quiet || view.status === null ? "quiet" : view.status;
+
+const entryItems = (entries: readonly Entry<ItemView>[]): ItemView[] =>
+  entries.flatMap((entry) => (entry.kind === "item" ? [entry.item] : entry.fold.items));
 
 function posterOf(type: WorksContentType, level: WorksLevel): string | undefined {
   const art = type.artwork.find(
@@ -241,15 +235,17 @@ function sectionView(
   const views = (of: readonly WorksItem[]) =>
     of.map((item) => itemView(context, columns, item, cellsOf(item), read.statuses.get(item.id)));
   const [rollup] = rollups;
+  const entries = foldsOf(context.type, views(live));
+  const goneViews = views(gone);
   const view: LevelView = {
     ...section,
     columns,
-    counts: section.withdrawn ? withdrawnCounts(rollups) : (rollup?.cells ?? {}),
+    slots: [...entryItems(entries), ...goneViews].map((each) => slotOf(each)),
     tally: section.withdrawn ? null : tallyOf(rollup),
     monitor: monitorOf(live),
     opens: live.some((item) => item.monitored && cellsOf(item).some((cell) => opening(cell))),
-    entries: foldsOf(context.type, views(live)),
-    gone: views(gone),
+    entries,
+    gone: goneViews,
   };
   levelViews.set(anchor, { inputs, view });
   return view;

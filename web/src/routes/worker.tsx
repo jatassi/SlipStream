@@ -8,6 +8,7 @@ import { ensureQuery } from "../api/query-client";
 import { requireEntry } from "../session/gate";
 import { EntryPage } from "../shell/entry-page";
 import { Data } from "../ui/data";
+import { Fact, Facts } from "../ui/facts";
 import { PairAgain } from "./-setup/pair-again";
 
 export const Route = createFileRoute("/worker")({
@@ -20,16 +21,13 @@ function Worker() {
   const { data } = useGetServingSuspense();
   return (
     <EntryPage title="This Node is a Worker. Manage it from its Controller.">
-      <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-item bg-well px-3 py-2">
-        <dt className="text-ink-3">Name</dt>
-        <dd className="wrap-anywhere text-ink-1">{data.name}</dd>
-        <dt className="text-ink-3">Controller</dt>
-        <dd className="wrap-anywhere text-ink-1">{data.controller}</dd>
-        <dt className="text-ink-3">Key</dt>
-        <dd className="text-ink-1">
+      <Facts look="well">
+        <Fact label="Name">{data.name}</Fact>
+        <Fact label="Controller">{data.controller}</Fact>
+        <Fact label="Key">
           <Data>{data.fingerprint}</Data>
-        </dd>
-      </dl>
+        </Fact>
+      </Facts>
       {data.since === undefined ? null : <PairAgain name={data.name} />}
     </EntryPage>
   );

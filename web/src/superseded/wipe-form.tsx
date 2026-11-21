@@ -24,7 +24,7 @@ function WipeConfirm({
   return (
     <ConfirmDialog
       title="Wipe this Controller?"
-      confirmLabel="Wipe and join"
+      confirmLabel="Wipe and join as a Worker"
       look="fail"
       open={open}
       onOpenChange={onOpenChange}

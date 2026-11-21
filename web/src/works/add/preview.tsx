@@ -1,15 +1,12 @@
 import type { WorksContentType, WorksTree } from "../../api/gen/model";
 import { countWords } from "../../format";
 import { useAmbient } from "../../shell/ambient/use-ambient";
-import { Poster } from "../../ui/poster";
+import { Artwork, sized } from "../../ui/artwork";
 import { factTexts } from "../page/facts";
+import { artOf } from "../page/hero-art";
 import { lowered } from "../monitoring/labels";
 
 const neutral = { kind: "neutral" } as const;
-
-function artOf(work: WorksTree, kind: string | null): string | undefined {
-  return work.artwork.find((art) => art.kind === kind)?.url;
-}
 
 /** The live levels and Items of the main run, asides left out, such as "3 seasons · 28 episodes". */
 function sizeTexts(type: WorksContentType, work: WorksTree): string[] {
@@ -32,13 +29,13 @@ export function Preview({ type, work }: { type: WorksContentType; work: WorksTre
   useAmbient(
     backdrop === undefined
       ? neutral
-      : { kind: "artwork", url: `${backdrop}?size=large`, workId: work.id },
+      : { kind: "artwork", url: sized(backdrop, "large"), workId: work.id },
   );
   const overviewKey = type.fields.find((spec) => spec.in.includes("overview"))?.key;
   const overview = work.fields.find((field) => field.key === overviewKey);
   return (
     <div className="flex gap-4">
-      <Poster url={artOf(work, type.art.poster)} size="preview" />
+      <Artwork use="poster" size="preview" url={artOf(work, type.art.poster)} label={work.label} />
       <div className="flex min-w-0 flex-col gap-2">
         <p className="text-meta text-ink-2">
           {[...factTexts(type, work.fields), ...sizeTexts(type, work)].join(" · ")}

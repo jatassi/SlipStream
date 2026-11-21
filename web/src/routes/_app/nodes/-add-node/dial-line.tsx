@@ -1,6 +1,4 @@
-import { Alert02Icon } from "@hugeicons/core-free-icons";
-
-import { Icon } from "../../../../ui/icon";
+import { SignalLine } from "../../../../ui/signal-line";
 import type { Dial } from "./state";
 import { Waiting } from "./waiting";
 
@@ -17,9 +15,8 @@ export function DialLine({ dial, controller }: { dial: Dial; controller: string 
     );
   }
   return (
-    <p role="alert" className="flex items-start gap-1.5 text-warn-ink">
-      <Icon icon={Alert02Icon} className="mt-0.5 size-4 shrink-0" />
+    <SignalLine tone="warn" announce>
       {`${controller} can't reach the new Node at ${where(dial.addresses)}. Check that the port is open.`}
-    </p>
+    </SignalLine>
   );
 }

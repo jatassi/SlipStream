@@ -5,10 +5,10 @@ import type {
   MediaserversKindView as Kind,
   MediaserversServerView as Server,
 } from "../api/gen/model";
+import { Empty } from "../ui/empty";
 import { Icon } from "../ui/icon";
-import { Empty } from "../shell/empty";
 import { List, ListRow } from "../ui/list";
-import { SignalLine } from "./lines";
+import { SignalLine } from "../ui/signal-line";
 import { kindOf } from "./server-form";
 
 /** A server's row: its kind, name and reaching Node, then its state, which leads with what to do. */
@@ -20,7 +20,7 @@ export function ServerRow({ server, kinds }: { server: Server; kinds: readonly K
       leading={<Icon icon={Tv01Icon} className="size-5 shrink-0 text-ink-2" />}
       detail={
         <div className="pt-1 pb-1 pl-8">
-          <SignalLine level={server.state.level} text={server.state.words} />
+          <SignalLine tone={server.state.level}>{server.state.words}</SignalLine>
         </div>
       }
       render={<Link to="/settings/media-servers/$serverId" params={{ serverId: server.id }} />}
@@ -38,7 +38,7 @@ export function ServerList({
 }) {
   if (servers.length === 0) {
     return (
-      <Empty>
+      <Empty look="sheet">
         {
           "No Media Servers yet. Add a Plex, Jellyfin or Emby server, and SlipStream sends it every change to your library's files."
         }

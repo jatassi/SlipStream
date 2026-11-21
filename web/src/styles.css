@@ -9,6 +9,8 @@
   --animate-spinner: spinner 0.8s linear infinite;
   --animate-sheen: sheen var(--duration-sheen) linear infinite;
   --animate-shake: shake 420ms ease-in-out;
+  --animate-skeleton: skeleton var(--duration-sheen) var(--ease-standard) infinite alternate;
+  --animate-skeleton-in: skeleton-in var(--duration-menu) var(--ease-standard) 300ms both;
 
   @keyframes spinner {
     to {
@@ -31,6 +33,21 @@
     }
     to {
       translate: 100%;
+    }
+  }
+
+  @keyframes skeleton {
+    from {
+      background-color: var(--color-fill);
+    }
+    to {
+      background-color: var(--color-fill-hover);
+    }
+  }
+
+  @keyframes skeleton-in {
+    from {
+      opacity: 0;
     }
   }
 }

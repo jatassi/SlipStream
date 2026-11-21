@@ -1,3 +1,4 @@
+import type { Slot } from "../../ui/episode-strip";
 import { expect, test } from "vitest";
 
 import type {
@@ -42,11 +43,16 @@ const named = (levels: readonly LevelView[], label: string) => {
   return level;
 };
 
+const slotCounts = (slots: readonly Slot[]): Partial<Record<Slot, number>> =>
+  Object.fromEntries(
+    [...new Set(slots)].map((slot) => [slot, slots.filter((each) => each === slot).length]),
+  );
+
 test("each level counts the Items that count and opens while one is wanted and not met", () => {
   const levels = levelsOf(context(), longShelf, shelfCells(longShelf, stateOf));
   const first = named(levels, "Volume 1");
   expect(first.tally).toEqual({ met: 6, of: storiesPerVolume });
-  expect(first.counts).toEqual({ met: 6, missing: storiesPerVolume - 6 });
+  expect(slotCounts(first.slots)).toEqual({ met: 6, missing: storiesPerVolume - 6 });
   expect(first.opens).toBe(true);
   expect(first.monitor).toBe(true);
   expect(named(levels, "Volume 2").opens).toBe(false);
@@ -83,7 +89,7 @@ test("levels run in tree order with the aside level last, and nobody monitoring 
   ]);
   const extras = named(levels, "Extras");
   expect(extras.tally).toBeNull();
-  expect(extras.counts).toEqual({});
+  expect(slotCounts(extras.slots)).toEqual({ quiet: extras.slots.length });
   expect(extras.monitor).toBe(false);
   expect(extras.opens).toBe(false);
 });
@@ -191,7 +197,7 @@ test("a withdrawn Item with a file sits after its level's live Items, and Items 
   const trailing = levels.at(-1);
   expect(trailing?.name).toBe("No longer listed by Fixture source");
   expect(trailing?.gone).toHaveLength(storiesPerVolume + 1);
-  expect(trailing?.counts).toEqual({ met: storiesPerVolume + 1 });
+  expect(slotCounts(trailing?.slots ?? [])).toEqual({ met: storiesPerVolume + 1 });
   expect(levels.map(({ name }) => name)).not.toContain("Volume 2");
 });
 

@@ -3,7 +3,7 @@ import { useListRootsSuspense } from "../../api/gen/query/roots/roots";
 import { useListContentTypesSuspense } from "../../api/gen/query/works/works";
 import { FolderField } from "../../folders/folder-field";
 import { purposeCheck } from "../../roots/check";
-import { NodeDot } from "../../routes/_app/nodes/-state-dot";
+import { NodeDot } from "../../nodes/state-mark";
 import { Select } from "../../ui/select";
 
 export function BackupsFolder({ node }: { node: NodesNode }) {

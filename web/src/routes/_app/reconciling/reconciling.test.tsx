@@ -45,7 +45,7 @@ test("on phone the banner sits above the tab bar and opens Reconciling", async (
   const line = banner().getByRole("link");
   await expect.poll(textOf(line)).toContain("Pair seedbox again");
   await userEvent.click(line);
-  await expect.element(page.getByRole("button", { name: "Create Join Code" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "New Join Code" })).toBeVisible();
 });
 
 test("when only a Node offline past the grace is left, the banner recommends continuing without it", async () => {
@@ -153,7 +153,7 @@ test("the Reconciling page leads with the next step, names each Node's step and 
     .poll(textOf(nodes))
     .toContain("home now has the Downloading Role for the 1,240 torrents it reported.");
 
-  await userEvent.click(nodes.getByRole("button", { name: "Create Join Code" }));
+  await userEvent.click(nodes.getByRole("button", { name: "New Join Code" }));
   const dialog = page.getByRole("dialog", { name: "Pair seedbox again" });
   await expect
     .element(dialog.getByRole("textbox", { name: "Join Code" }))
@@ -174,7 +174,7 @@ test("outside a restore the page lists only the Nodes that keep their torrents, 
   await expect
     .element(
       page.getByText(
-        "A newly paired Node keeps every torrent until SlipStream matches the torrents it reports with the library.",
+        "A newly paired Node keeps every torrent until SlipStream has matched its list of torrents with the library.",
       ),
     )
     .toBeVisible();

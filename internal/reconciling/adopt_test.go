@@ -240,7 +240,7 @@ func TestARefusedPageKeepsTheNodeKeeping(t *testing.T) {
 		if err := w.lib.QueryRowContext(t.Context(), "SELECT refused FROM reconciling_node WHERE node_id = ?", relay).Scan(&refused); err != nil {
 			t.Fatal(err)
 		}
-		if refused != "The Node sent page 4 of 2 pages." {
+		if refused != "The Node sent page 4 of a list that has 2 pages." {
 			t.Errorf("the refusal reads %q", refused)
 		}
 		if !w.pending(relay) || !w.intent(relay).GetKeepAll() || len(w.rows(orchard)) != 0 {

@@ -1,5 +1,5 @@
 import type { BackupsDestination, NodesNode } from "../../api/gen/model";
-import type { Clock } from "../../format";
+import type { Clock } from "../../ui/clock";
 import { Data } from "../../ui/data";
 import { Section } from "../../ui/section";
 import { AddDestinationButton } from "./add-destination";

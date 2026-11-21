@@ -1,9 +1,9 @@
 import type { BackupsDestination } from "../../api/gen/model";
-import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
 import { Spinner } from "../../ui/spinner";
 import type { Prepare } from "./restore-prepare";
 import type { Names } from "./words";
+import { SignalLine } from "../../ui/signal-line";
 
 export function Preparing({
   prepare,
@@ -19,7 +19,9 @@ export function Preparing({
   if (prepare.at === "refused") {
     return (
       <div className="flex flex-col items-start gap-3">
-        <AlertLine text={prepare.refusal} />
+        <SignalLine tone="fail" announce>
+          {prepare.refusal}
+        </SignalLine>
         <Button onClick={onCancel}>Close</Button>
       </div>
     );

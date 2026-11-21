@@ -2,8 +2,8 @@ import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import type { GrabsGrab } from "../api/gen/model";
-import { Empty } from "../shell/empty";
 import { Button } from "../ui/button";
+import { Empty } from "../ui/empty";
 import { Section } from "../ui/section";
 import { GrabFailure } from "./failure-cards";
 import { GrabTable } from "./grab-table";
@@ -47,6 +47,7 @@ export function ActivityBody({
   if (grabs.length === 0) {
     return (
       <Empty
+        look="sheet"
         action={
           <Button nativeButton={false} render={<Link to="/library" />}>
             Open the Library

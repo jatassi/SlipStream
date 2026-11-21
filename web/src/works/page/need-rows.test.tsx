@@ -3,17 +3,17 @@ import { page, userEvent } from "vitest/browser";
 
 import type { FilesNeed, GrabsGrab } from "../../api/gen/model";
 import { getListGrabsMockHandler } from "../../api/gen/query/grabs/grabs.msw";
-import { laterAtWords, pastAtWords } from "../../format";
 import { longShelf } from "../../test/anthology";
 import { failedImport } from "../../test/grabs";
 import { orchardId, orchardItemId } from "../../test/library";
 import { renderApp } from "../../test/render-app";
 import { aGroupState, aStopped, aWorkSearching } from "../../test/searching";
-// oxlint-disable-next-line import/max-dependencies -- the rows read a many-Item Work's cells and a one-Item Work's failed Grab
 import { shelfCells } from "../../test/shelf-cells";
+// oxlint-disable-next-line import/max-dependencies -- the rows read a many-Item Work's cells and a one-Item Work's failed Grab
 import { keeper } from "../../test/targets";
 import { failedCells } from "../../test/work-cells";
 import { workServer } from "../../test/work-server";
+import { whenWords } from "../../ui/time-words";
 
 const now = new Date("2026-11-14T12:00:00Z");
 const reading = { now, zone: undefined };
@@ -49,7 +49,7 @@ test("a Not found row merges the Items into a range, says when SlipStream search
   await expect
     .element(row)
     .toHaveTextContent(
-      `V01S01 to V01S08 not foundFound nothing ${pastAtWords(lastSearchedAt ?? "", reading)}. SlipStream searches again ${laterAtWords(nextSearchAt ?? "", reading)}.SearchManual search`,
+      `V01S01 to V01S08 not foundFound nothing ${whenWords(lastSearchedAt ?? "", "at", reading)}. SlipStream searches again ${whenWords(nextSearchAt ?? "", "next", reading)}.SearchManual search`,
     );
   await expect.element(needsYou().getByRole("heading")).toHaveTextContent("Needs you1");
   await userEvent.click(row.getByRole("button", { name: "Search", exact: true }));
@@ -77,7 +77,7 @@ test("Not found is a quiet row on the Work page: its words alone, and the nav ca
   await expect
     .element(row)
     .toHaveTextContent(
-      `The Quiet Orchard not foundFound nothing ${pastAtWords(group.lastSearchedAt ?? "", reading)}.SearchManual search`,
+      `The Quiet Orchard not foundFound nothing ${whenWords(group.lastSearchedAt ?? "", "at", reading)}.SearchManual search`,
     );
   expect(
     page
@@ -186,7 +186,7 @@ test("a stopped cell's card counts its failed Grabs, names Backlog search's next
     .element(card)
     .toMatchTextContent(
       new RegExp(
-        `3 Grabs failed for this file in 2 days\\. Backlog search looks for it again ${laterAtWords(stop.nextSearchAt ?? "", reading)}\\.Failures`,
+        `3 Grabs failed for this file in 2 days\\. Backlog search looks for it again ${whenWords(stop.nextSearchAt ?? "", "next", reading)}\\.Failures`,
         "u",
       ),
     );

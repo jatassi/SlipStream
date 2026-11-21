@@ -3,11 +3,11 @@ import { useState } from "react";
 
 import { sentenceOf } from "../../api/errors";
 import { checkBackupPassphrase } from "../../api/gen/query/backups/backups";
-import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
 import { Dialog } from "../../ui/dialog";
 import { useAppForm } from "../../ui/form";
 import { Icon } from "../../ui/icon";
+import { SignalLine } from "../../ui/signal-line";
 
 type Checked = "matches" | "differs";
 
@@ -22,8 +22,16 @@ function Answered({ answer }: { answer: Answer }) {
           That&apos;s your current passphrase.
         </output>
       )}
-      {answer.checked === "differs" && <AlertLine text="That isn't your current passphrase." />}
-      {answer.refusal !== undefined && <AlertLine text={answer.refusal} />}
+      {answer.checked === "differs" && (
+        <SignalLine tone="fail" announce>
+          That isn&apos;t your current passphrase.
+        </SignalLine>
+      )}
+      {answer.refusal !== undefined && (
+        <SignalLine tone="fail" announce>
+          {answer.refusal}
+        </SignalLine>
+      )}
     </>
   );
 }

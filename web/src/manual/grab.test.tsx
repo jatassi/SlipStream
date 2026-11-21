@@ -77,7 +77,9 @@ test("a grabbed row that a later plan fills with another Release keeps its resul
 
   await userEvent.click(rows.nth(1).getByRole("button", { name: "Other choices" }));
   await userEvent.click(rows.nth(1).getByRole("button", { name: "Use this" }));
-  await expect.element(sheet.getByRole("checkbox", { name: "WEBRip-1080p · RARBG" })).toBeChecked();
+  await expect
+    .element(sheet.getByRole("checkbox", { name: "WEBRip-1080p · RARBG · 4.0 GB" }))
+    .toBeChecked();
   await expect.element(rows.nth(1).getByText("Grabbed.")).toBeVisible();
   await expect.element(rows.nth(2).getByText("Grabbed.")).not.toBeInTheDocument();
   await expect.element(sheet.getByRole("button", { name: "Grab 1" })).toBeEnabled();
@@ -89,7 +91,9 @@ test("Use this swaps the row's Release and leaves its Other choices open", async
   const row = sheet.getByRole("list", { name: "Grabs" }).getByRole("listitem").nth(1);
   await userEvent.click(row.getByRole("button", { name: "Other choices" }));
   await userEvent.click(row.getByRole("button", { name: "Use this" }));
-  await expect.element(sheet.getByRole("checkbox", { name: "WEBRip-1080p · RARBG" })).toBeChecked();
+  await expect
+    .element(sheet.getByRole("checkbox", { name: "WEBRip-1080p · RARBG · 4.0 GB" }))
+    .toBeChecked();
   await expect.element(row.getByRole("list", { name: "Other choices" })).toBeVisible();
 });
 
@@ -106,7 +110,7 @@ test("each grabbed row still says Grabbed. after the plan read again leaves its 
               held: plan.plan.rows.map((row, at) => ({
                 grabId: `0199f3a1-5c2e-7d4f-8a6b-${String(at).padStart(12, "0")}`,
                 stage: "downloading" as const,
-                words: `A Grab is downloading ${row.pick?.release.words ?? ""} for 1080p.`,
+                words: `A Grab is downloading ${row.pick?.release.title ?? ""} for 1080p.`,
               })),
               rows: [],
             },
@@ -127,9 +131,9 @@ test("each grabbed row still says Grabbed. after the plan read again leaves its 
     .element(sheet.getByText("Every Target here has its file or a Grab downloading one."))
     .toBeVisible();
   const rows = sheet.getByRole("list", { name: "Grabs" }).getByRole("listitem");
-  await expect.element(rows.first().getByText("WEBDL-1080p · NTb")).toBeVisible();
+  await expect.element(rows.first().getByText("WEBDL-1080p · NTb · 4.0 GB")).toBeVisible();
   await expect.element(rows.first().getByText("Grabbed.")).toBeVisible();
-  await expect.element(rows.nth(1).getByText("WEBDL-1080p · FLUX")).toBeVisible();
+  await expect.element(rows.nth(1).getByText("WEBDL-1080p · FLUX · 4.0 GB")).toBeVisible();
   await expect.element(rows.nth(1).getByText("Grabbed.")).toBeVisible();
   await expect
     .element(sheet.getByRole("list", { name: "Files already downloading" }))

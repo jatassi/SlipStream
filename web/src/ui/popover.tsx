@@ -4,10 +4,9 @@ import type { ReactElement, ReactNode } from "react";
 import { floatingPanel } from "./floating";
 import { usePortalDensity } from "./portal-density";
 
-const opening = {
-  press: {},
-  hover: { openOnHover: true, closeDelay: 160 },
-} as const;
+export const hoverOpening = { openOnHover: true, closeDelay: 160 } as const;
+
+const opening = { press: {}, hover: hoverOpening } as const;
 
 export type PopoverProps = {
   trigger: ReactElement;

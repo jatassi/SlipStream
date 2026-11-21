@@ -5,10 +5,10 @@ import {
   getListTrackersSuspenseQueryOptions,
 } from "../../../../api/gen/query/trackers/trackers";
 import { ensureQuery } from "../../../../api/query-client";
+import { PagePending } from "../../../../shell/page";
 import { loaderTitle } from "../../../../shell/titles";
 import { TrackerLayout } from "../../../../trackers/layout";
 import { trackerOf } from "../../../../trackers/tracker";
-import { Skeleton } from "../../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/settings/trackers/$trackerId")({
   staticData: { title: loaderTitle },
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_app/settings/trackers/$trackerId")({
       ],
     };
   },
-  pendingComponent: () => <Skeleton label="Loading the Tracker" />,
+  pendingComponent: () => <PagePending label="Loading the Tracker" shape="facts" />,
   component: function Tracker() {
     return <TrackerLayout trackerId={Route.useParams().trackerId} />;
   },

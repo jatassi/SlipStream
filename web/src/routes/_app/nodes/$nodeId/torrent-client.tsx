@@ -39,7 +39,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/torrent-client")({
         ensureQuery(queryClient, getGetNodeConfigSuspenseQueryOptions(nodeId)),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading the torrent client" />,
+  pendingComponent: () => <Skeleton label="Loading the torrent client" shape="facts" />,
   errorComponent: NodeProblem,
   component: function TorrentClient() {
     const node = useNode(Route.useParams().nodeId);

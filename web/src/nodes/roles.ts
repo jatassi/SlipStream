@@ -14,7 +14,8 @@ import type {
   NodesRoleViewState,
 } from "../api/gen/model";
 import { NodesOutcome as OutcomeSchema } from "../api/gen/zod/slipStream.schemas.zod";
-import { type Clock, bytes } from "../format";
+import { bytes } from "../format";
+import type { Clock } from "../ui/clock";
 import { awayLine } from "./standing";
 
 export type RoleName = NodesRoleEntry["role"];
@@ -129,7 +130,7 @@ export const coveredFor = (cluster: Cluster, role: RoleName): string[] =>
     .filter(({ roles }) => roles.some((view) => view.role === role && view.state === "lapsed"))
     .map(({ name }) => name);
 
-/** What a Role is doing on its Node: "Draining, 2 roots stay", "Offline since 21:31". */
+/** What a Role is doing on its Node: "Draining, 2 roots stay", "Offline since 9:31 PM". */
 export const roleLine = (
   cluster: Cluster,
   view: NodesRoleView,

@@ -92,7 +92,7 @@ function EditFields({
 function Loaded({ indexer, onDone }: { indexer: IndexersIndexer; onDone: () => void }) {
   const settings = useSettingsForm(indexer);
   if (settings.isPending && settings.fetchStatus !== "idle") {
-    return <Skeleton label="Loading the settings" />;
+    return <Skeleton label="Loading the settings" shape="form" />;
   }
   return <EditFields indexer={indexer} settings={settings.data} onDone={onDone} />;
 }

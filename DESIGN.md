@@ -178,6 +178,7 @@ motion:
     dialog: "360ms"
     live-tick: "1s"
     sheen: "2.4s"
+    artwork: "200ms"
 ambient:
   neutral:
     hue: 214
@@ -266,10 +267,11 @@ components:
     textColor: "{colors.fail-text}"
     rounded: "{rounded.card}"
     padding: "16px 20px 20px"
-  warning-line:
+  callout:
     backgroundColor: "{colors.warn-card}"
     textColor: "{colors.warn-text}"
-    padding: "12px 20px"
+    rounded: "{rounded.card}"
+    padding: "12px 16px"
   input:
     backgroundColor: "{colors.well}"
     textColor: "{colors.ink-1}"
@@ -298,6 +300,12 @@ components:
     backgroundColor: "{colors.sheet}"
     rounded: "{rounded.sheet}"
     padding: "8px 16px 44px"
+  kbd:
+    backgroundColor: "{colors.fill}"
+    textColor: "{colors.ink-2}"
+    typography: "{typography.label}"
+    rounded: "{rounded.chip}"
+    padding: "2px 6px"
   toast:
     backgroundColor: "{colors.solid}"
     textColor: "{colors.on-solid}"
@@ -363,7 +371,7 @@ Every `hsl(214 …)` value in the frontmatter is the neutral resolution of a for
 ### Secondary
 
 - **Signal Red** (`fail` and its family): Failure only. `fail` is the solid chip, button, dot and failed stage segment, with `fail-deep` ink on it. `fail-card` is the near-opaque failure card, with `fail-text` for its copy, `fail-dim` for its secondary copy and `fail-ink` for its labels and for failure text set on glass. `fail-line` is the card's edge.
-- **Signal Amber** (`warn` and its family): Warnings only, built the same way as red. `warn-line` is the one amber hairline on warning lines and amber rows.
+- **Signal Amber** (`warn` and its family): Warnings only, built the same way as red, with `warn-ink` for warning text set on glass. `warn-line` is the one amber hairline on amber callouts and amber rows.
 
 ### Tertiary
 
@@ -372,7 +380,7 @@ Every `hsl(214 …)` value in the frontmatter is the neutral resolution of a for
 ### Neutral
 
 - **Ink tiers** (`ink-1` to `ink-4`): `ink-1` for primary text and values, `ink-2` for secondary text and unselected controls, `ink-3` for meta, counts and column headers. `ink-4` is not for text. It marks separators, chevrons, idle dots and disabled glyphs.
-- **Fills and edges** (`fill`, `fill-hover`, `selected`, `hairline`, `hairline-strong`, `well`): Controls sit on `fill`. `selected` marks the chosen segment. Hairlines are 1px inset rings, never borders that change layout. `well` is the dark inset under inputs, code and attempt lists.
+- **Fills and edges** (`fill`, `fill-hover`, `selected`, `hairline`, `hairline-strong`, `well`): Controls sit on `fill`. `selected` marks the chosen segment. Hairlines are 1px inset rings, never borders that change layout. `well` is the dark inset under inputs, code, attempt lists and machinery facts.
 - **Solid White** (`solid`, `on-solid`): The primary action, Met, the toast and count badges. Dark `on-solid` ink always sits on it.
 
 ### The ambient
@@ -398,7 +406,7 @@ Who sets the ambient:
 
 **The Never Alone Rule.** Every signal colour comes with an icon and a word. Red and green are the pair most often confused, so colour alone never carries the state.
 
-**The Contrast Proof Rule.** Change a colour token only if the contrast check in `go run ./cmd/release lint` still passes. It sweeps 120 hues at six saturations, finds the ambient ceiling, requires it to equal the frontmatter's `ambient.ceiling`, and checks 32 ink and surface pairs at it. It reads the same parsed tokens the theme is generated from, and its pairs, named by token, live in `cmd/release/internal/tokens/contrast.go`.
+**The Contrast Proof Rule.** Change a colour token only if the contrast check in `go run ./cmd/release lint` still passes. It sweeps 120 hues at six saturations, finds the ambient ceiling, requires it to equal the frontmatter's `ambient.ceiling`, and checks 33 ink and surface pairs at it. It reads the same parsed tokens the theme is generated from, and its pairs, named by token, live in `cmd/release/internal/tokens/contrast.go`.
 
 ## Typography
 
@@ -427,12 +435,16 @@ The scale has ten sizes: 11, 12, 13, 14, 15, 17, 20, 24, 34 and 56px. Geist and 
 - **Meta** (400, 12px, 1.4): Secondary lines under titles, timestamps in prose and legends.
 - **Chip** (600, 12px): Chips and badges. Signal chips are 700.
 - **Label** (500, 11px, 1.3): Column headers, group labels, nav counts and the phone tab bar's labels.
-- **Label caps** (600, 11px, 0.06em, uppercase): Only the key column of a key and value list on a failure card. No other text is uppercase.
+- **Label caps** (600, 11px, 0.06em, uppercase): Only the labels of a failure card's facts. No other text is uppercase.
 - **Data** (Geist Mono 400, 0.92em of its context, tabular): Values under the Copy or Compare Rule.
 
 ### Named Rules
 
-**The Copy or Compare Rule.** Geist Mono sets a single value that someone copies or compares down a column: rates, sizes, durations, ETAs, percentages, timestamps in tables, release names, file names, file specs, paths, hashes, keys, addresses and ports. Everything else is Geist. Counts inside sentences, section counts, ordinals, step numbers and weekday labels are Geist with tabular numerals (`font-variant-numeric: tabular-nums`). Apply Mono to the value's own element, never to a container that holds words.
+**The Copy or Compare Rule.** Geist Mono sets a single value that someone copies or compares down a column: rates, sizes, durations, ETAs, percentages, clock times in tables, release names, file names, file specs, paths, hashes, keys, addresses and ports. Everything else is Geist. Counts inside sentences, section counts, ordinals, step numbers, weekday labels and ages are Geist with tabular numerals (`font-variant-numeric: tabular-nums`). Apply Mono to the value's own element, never to a container that holds words.
+
+**The Wall Clock Rule.** A time reads as the person's own clock reads it, in their locale's hour cycle, with its day only when it isn't today and its year only when it isn't this year. "6:36 AM" today, "Nov 19, 6:36 AM" on another day. A forced 24-hour clock and a date on every row are noise that clock doesn't show. A log's stamp is the one exception, 24-hour to the millisecond so its column keeps one width.
+
+**The Age Rule.** A freshness fact reads as an age: Last seen, Last used, Last sign-in, Active, Read, Scanned, Measured, Started, Published and a Blocklist entry's Added. Every other past instant is a clock time, and a coming one says when it is due or how long is left. An age is words, never Data.
 
 **The Log Row Exception.** A line in a Node's Logs section sets whole in Mono: its time, level chip, subsystem and message. The Admin reads a log down its columns like a table of values, so the row is the one container that sets in Mono. Its attributes, shown when the row expands, stay in Mono too.
 
@@ -448,7 +460,7 @@ The system has two shells and two densities. The shell follows the viewport and 
   - **Sidebar.** 228px wide, collapsing to a 60px rail. It collapses on its own below 1100px, and the Admin can collapse it at any width with its button or ⌘K "Toggle sidebar". The choice is remembered per browser and holds at 1100px and up. Expanding the rail below 1100px is not remembered. The sidebar is `chrome` with a hairline on its right edge, and the mark (24px) and wordmark (17px) sit at its top beside the collapse button.
   - **Nav.** Items are 32px tall with 16px icons, `ink-2` until hovered (`fill`), and `selected` with `ink-1` at 500 when current. Activity carries a live count (a white glowing dot and a number), and other rows carry plain counts. A count shows only above zero and can carry an amber or red dot. Content Type rows nest under Library, indented 32px. The system rows, such as Nodes, sit below a separator. A row that lands on a page below its own, as Nodes lands on the Node the browser talks to, stays current on every page under it. On the rail, each row is its icon alone, with a Tooltip on the right carrying the label and count, and the live dot pinned to the icon's top right.
   - **Account.** The sidebar's foot is a 28px avatar with the Account's initial, the display name and "Admin". It opens a menu with Open the portal, the Startup sequence switch, Restart SlipStream… and Sign out.
-  - **Top bar.** Sticky, 56px tall, laid out as `1fr minmax(320px, 440px) 1fr` with 28px sides. Breadcrumbs sit on the left in `ink-3`, with the current page in `ink-1` at 500. The ⌘K search capsule ("Search Works or run a command", with the platform's shortcut) sits in the middle. The right holds slots in a fixed order: the live connection line, shown only while reconnecting, the running tasks capsule, then later controls such as live rates, then the bell, then the page's main action.
+  - **Top bar.** Sticky, 56px tall, laid out as `1fr minmax(320px, 440px) 1fr` with 28px sides. Breadcrumbs sit on the left in `ink-3`, with the current page in `ink-1` at 500. The ⌘K search capsule ("Search Works or run a command", ending with the platform's shortcut as a key hint) sits in the middle. The right holds slots in a fixed order: the live connection line, shown only while reconnecting, the running tasks capsule, then later controls such as live rates, then the bell, then the page's main action.
   - **Content.** Padding is 24px top, 28px sides and 120px bottom, with a 1480px maximum width and 24px between sections. The page's title opens the content in Sentence type, 24px above what follows.
   - **Narrow desktop windows.** At 1360px and below, tables tighten their columns, and the legend, the status sentence's right-hand totals and the top bar's rates hide.
 - **Phone shell (below 768px).** There is no top bar. A top-level page opens on a large-title row (the 34px title, then Search, the bell and the avatar, which opens More). Once the title scrolls under the 44px nav bar, the bar turns glass and takes the title in Sentence touch. Sections sit 28px apart with 20px titles, and content keeps 16px gutters.
@@ -485,7 +497,7 @@ Depth comes from translucency over the ambient, not from shadows. Surfaces at re
 - **Glass, blurred.** Only things that float.
   - The top bar, the phone tab bar, the nav bar and the status bar use `blur(24px) saturate(1.6)` over `chrome`. So does the portal's top nav once it turns to glass.
   - Menus, popovers, tooltips, the palette, the Inspector, Dialogs and sheets use `blur(30px) saturate(1.7)` over `popover` or `sheet`.
-- **Solid.** Failure cards and warning lines (`fail-card`, `warn-card` at .97), and every signal chip and button. Solid white on the primary action, Met, toasts and badges.
+- **Solid.** Failure cards and callouts (`fail-card`, `warn-card` at .97), and every signal chip and button. Solid white on the primary action, Met, toasts and badges.
 - **Artwork.** The blurred ambient behind every page. A sharp, edge-masked backdrop sits behind the header of a Work page and of the portal's Work page.
 
 ### Shadow Vocabulary
@@ -494,7 +506,7 @@ The frontmatter's `shadows` block holds each shadow's value.
 
 - **Float** (`float`): Menus, popovers, a Select's list and tooltips.
 - **Float large** (`float-large`): The palette, Dialogs and the Inspector.
-- **Signal lift** (`signal-lift`): Failure cards and red Signal rows. Warning lines and amber Signal rows use `warn-line` as an inset ring with no drop.
+- **Signal lift** (`signal-lift`): Failure cards, red callouts and red Signal rows. Amber callouts and amber Signal rows use `warn-line` as an inset ring with no drop.
 - **Poster** (`poster`): Large posters and portal poster cards.
 - **Toast** (`toast`).
 - **Live glow** (`live-glow`): The fill of a live bar, the current stage segment, the bar on a selected row and the live dot. The live dot adds a 3px ring at `hsl(var(--h) 90% 65% / .32)`.
@@ -509,7 +521,7 @@ The frontmatter's `shadows` block holds each shadow's value.
 
 ## Shapes
 
-Controls are capsules and containers are softly squared. A control a finger or pointer presses (a button, segmented control, switch, search field, toast or pill) is a capsule at 999px. Containers step up in radius as they float higher: 6px chips, 8px menu items, inputs and small art, 14px cards, tables, menus and large posters, 20px Dialogs, and a 24px top edge on sheets. Marks smaller than 16px (state squares, stage segments, bars) round to a quarter of their height.
+Controls are capsules and containers are softly squared. A control a finger or pointer presses (a button, segmented control, switch, search field, toast or pill) is a capsule at 999px. Containers step up in radius as they float higher: 6px chips, 8px menu items, inputs and small art (row posters, stills and headshots), 14px cards, tables, menus and large posters, 20px Dialogs, and a 24px top edge on sheets. Marks smaller than 16px (state squares, stage segments, bars) round to a quarter of their height.
 
 ## Components
 
@@ -545,6 +557,13 @@ The row of links under a page's title that moves between the page's sections, su
 - **Desktop:** Links are 36px tall in Body at 500, 24px apart, on a hairline that runs the row's width, with 24px below the row. A link is `ink-3`, turning `ink-1` on hover. The current link is `ink-1` with a 2px `glow` underline.
 - **Phone:** No row. The page lists its sections as Touch rows with a chevron, and each section is a pushed page whose back link names the nav destination ("Nodes").
 
+### Node header
+
+Every page of one Node opens with its header: the Node's name as the page title, then on one wrapping line its state mark, "Last seen 3 hours ago" in Meta and `ink-3` after an `ink-4` dot while it is away, and its Role chips, outlined as on the Roster. Restart is the page's action. The header belongs to the Node's layout, so every section has it.
+- **Desktop:** The line sits on the title's line, 24px after the name, and wraps under it in a narrow window. Restart is the top bar's action.
+- **Phone:** The nav bar holds the Node's name on its top page and the section's on a pushed page, whose back link names the Node. The line and Restart head the content of every Node page, with Restart at the right.
+- **Restarting:** The state reads Restarting with the live dot, Restart is disabled, and the section is hidden under "<name> is restarting…".
+
 ### Settings column
 
 Settings has too many sections for one row of page tabs. Its sections sit in groups ([docs/settings-groups.md](docs/settings-groups.md)).
@@ -573,16 +592,18 @@ A checkbox is a 16px square with a 4px radius (22px and 6px in Touch). A radio i
 - **File field:** A label in Body at 600 and `ink-2` as a fieldset legend, then a default "Choose a file" button with a 16px upload icon, and the chosen file's name in Data in `ink-2` beside it. The file input itself is visually hidden and carries the label. Choosing a file hands it to the form, which reads it, such as filling a text area with a definition's YAML. The whole field is also a drop target: a file dragged over it rings the field in a 2px `glow` ring, and dropping it chooses it as the button would. The button stays the keyboard path.
 - **Captcha:** A `glass` card with a hairline ring holding one sentence (whose sign-in needs the code, which Node fetched it, and when it expires at its clock time), the image on `solid` at up to 96px tall, then the Code field with a ghost "New captcha" button beside it. Once the attempt expires, the card holds the server's sentence as an alert and a default "New captcha" button instead.
 - **PIN:** Four 40px slots (48px in Touch), 8px apart, masked and numeric.
-- **Select:** A trigger shaped like the text field, with an up and down chevron in `ink-3`, opening a list styled as a menu with a check on the chosen item. An option can lead with a mark, such as a Node's status dot, and the trigger repeats the chosen option's mark. A mark that means something carries its word for a screen reader.
+- **Select:** A trigger shaped like the text field, with an up and down chevron in `ink-3`, opening a list styled as a menu with a check on the chosen item. An option can lead with a mark, such as a Node's lamp, and the trigger repeats the chosen option's mark. A mark that means something carries its word for a screen reader.
 - **Setting field:** One setting an Admin can change: its label, its control, a Save that shows only while the draft differs, then hints in Meta (the default, the range, and "Applies after restart." for a setting the Node reads at start), and Reset to default when the value isn't the default. A refusal shows under the control in `fail-ink`. The control follows the setting's kind: a duration or count is an amount with its unit, a count whose 0 means none reads "No limit", a port is a number from 1 to 65535, a rate is an amount with a KB/s or MB/s Segmented control whose 0 reads its words such as "No limit", a size is an amount with an MB or GB Segmented control, a list is its entries as chips in one well, each with a remove button, then a text input that adds an entry on Enter, a comma or a space, an address is an Address and a Port field side by side, a folder is the Folder field on the setting's Node (its path in Data, Browse, and that Node's verdict for the folder's purpose), a choice is a Segmented control (a Select past three options), a switch is the Switch, and a window is two times with the zone. A setting fixed by an environment variable disables its control and shows a 14px lock with "Set by" and the variable in Data, and offers no Reset. In a list, a setting can sit as a row reading "<Label>: <value>" that opens the full field in a Popover, or a sheet on phone.
 - **Search field:** A `fill` capsule with a hairline ring and a 16px search icon, at the control height.
 
 ### Chips and pills
 
 - **Chip:** 24px, radius 6, `fill`, `ink-2`, 12px at 600. A Node chip is outlined.
+- **Quality chip:** An outlined chip with the quality's name, such as WEBDL-1080p. Its name has the dotted `ink-4` underline of a technical state, and hovering, tapping or pressing Enter opens what its source means, such as WEB-DL or Remux. Inside a line of text it's the dotted name alone. Inside another control, such as a torrent row's button, it's the plain name, since a definition can't open inside a button.
 - **Signal chips:** Solid `fail`, `warn` or `ok` with deep ink at 700 and a 14px icon. They name a state and its stage ("Failed at Import"), and they never take the tint.
 - **Live chip:** `live-fill` with a hue ring and a white glowing dot.
 - **Met pill:** Solid white capsule, 28px, with a check.
+- **Node state:** A Node's state is a 6px lamp and its word in `ink-2`. The lamp is green for Online, amber for Reconnecting, Offline (inside the Offline grace) and On another version, red for Offline too long, and white with the Work's glow for Restarting. Reconnecting, Offline, Offline too long and On another version are technical states: the word has the dotted `ink-4` underline and opens its one-sentence definition on hover, tap and Enter. Inside another control, such as a Select option, a sheet item or a Roster row, the lamp carries its word for a screen reader and opens no definition.
 - **Count:** A number in Label at `ink-3` with tabular numerals, optionally led by the live dot or a 6px amber or red dot. A screen reader hears the dot as a word.
 - **Request stages (portal):** A Member sees a Request's stage (Pending, Approved, Searching, Downloading, Processing, Available or Denied) and the Delayed flag, as [Requests portal under Editions and Targets](https://github.com/jatassi/SlipStream/issues/88) decided and [ADR 0020](docs/adr/0020-a-request-stores-only-admin-decisions-and-derives-its-stage-from-the-work-tree.md) records. The Member portal's spec draws them. The Requested, Coming and Ready ribbons are retired.
 
@@ -594,7 +615,9 @@ The first line of every page that watches live work. It reads as one sentence of
 
 A job's path from Searching to Available, one segment per stage (Searching, Downloading, Transfer, Import, Conversion, Available). Segments are 6px tall (8px on phone and in the Inspector) with 3px gaps.
 
-A Grab's track keeps all six stops, and only the lit stop follows its stage. Downloading lights while the Grab fetches and downloads. Transfer lights while any file of its Import is sending from another Node, and Import lights for the rest of the Import. A failed Grab lights the stop of the stage it failed at, and an imported Grab reads Available. A Grab's Conversion stop reads Not needed.
+A Grab's track keeps all six stops, and only the lit stop follows its stage. Downloading lights while the Grab fetches and downloads. Transfer lights while any file of its Import is sending from another Node, and Import lights for the rest of the Import. A failed Grab lights the stop of the stage it failed at. A Grab's Conversion stop reads Not needed. An imported Grab shows the quiet Imported mark (a tick in `ink-3`) in place of its word and track, so the work still moving stands out.
+
+The stage word over a track has the dotted underline of a defined word and opens the track's legend on hover, tap and Enter, a detail Popover named "Stages of" and the Work. It lists the six stops, each with its segment in its look, the stop's name in `ink-1` and the segment's word in `ink-3`: Done, In progress, Not started, Not needed or Failed. On phone, and in a full failure card, the track names its ends, Searching under its left end and Available under its right, in Meta at `ink-3`.
 - **Done:** Flat `ink-2`.
 - **Current:** `ink-1` with the live glow.
 - **Ahead:** `fill`.
@@ -605,8 +628,10 @@ Running tracks are `role="progressbar"` with a stage-and-title label. Others are
 
 ### Progress
 
-There are two kinds, and every bar maps to one.
-- **Live.** A white fill rising from the Work's hue, with the live glow. A sheen sweeps it every 2.4s. Width moves linearly each second. The track is a 6px capsule at `hsl(var(--h) 60% 80% / .14)` with a hue ring. Used for downloads, Conversions, Transfers and live matrix cells.
+There are two kinds, and every bar maps to one. Work that is moving is Progress (`ProgressBar` and `ProgressCell` in `web/src/ui/progress.tsx`), a `progressbar`. A quantity against a limit is a Meter, a `meter`.
+- **Live.** A white fill rising from the Work's hue, with the live glow. A sheen sweeps it every 2.4s. Width moves linearly each second. The track is a 6px capsule at `hsl(var(--h) 60% 80% / .14)` with a hue ring. Used for downloads, Conversions, Transfers, task runs, library scans, re-home checks and live matrix cells.
+  - **Settled.** The same 6px capsule on `fill` with a flat `ink-2` fill, no ring, glow or sheen, and no width motion. Used for a download that is paused or reads an old sample, so its row keeps its height, and for the top bar's tasks capsule, whose live dot already says the run moves.
+  - **Progress cell:** The amount on the left in Meta at `ink-1`, the percent in Data unless the work counts something else ("4 of 12 steps"), and a note on the right in `ink-3` that truncates, such as the pace and time left, the bytes, when it started or its Nodes. The bar sits 6px under them. It is at most 240px wide in a table cell and 360px in a line, and fills a list row's meta.
 - **Meter.** Flat `ink-2` on a 4px `fill` capsule, with no glow and no sheen. Used for storage, provider allowances and seeding goals.
   - **Seeding goal.** The lane meter: two lanes, ratio and seeding time, 4px each in tables and 8px in the Inspector, where each lane's name and value sit above it. A lane runs to its goal, or to the Tracker's rule when the rule asks more, and a lane past its end is full. A 2px `ink-1` tick, taller than the lane, marks the rule and turns `warn` while a hit and run is at risk. A lane the rule doesn't count has no tick. A goal short of the rule is a 2px `ink-3` mark. A lane neither the rule nor the goal counts is an empty `hairline-strong` outline. The amber tick never stands alone: an at-risk row carries the amber "At risk" chip, and a met goal the green "Goal met" chip. A Forever goal's lanes run to the rule, and the row then reads "Seeds with no end". Each lane is a `meter` whose value text names its rule and goal.
   - **Allowance.** Thin by design.
@@ -614,36 +639,84 @@ There are two kinds, and every bar maps to one.
 
 ### Failure card
 
-The answer to "what broke". A near-opaque red-black card (`fail-card`, radius 14, signal lift). Its header row is the signal chip with the failed stage, the time in Mono `fail-dim`, and the actions on the right (the fix as a Fail button first). Its body puts the Work and its stage track beside a key and value list. The labels are Label caps in `fail-ink` (Cause, Recovery, Release), and values run to 78ch.
-- **Full:** Home's lead failures and Torrents' problems, which tile at `minmax(360px, 1fr)`. The subject and its track take a third of the body and the key and value list the rest.
+The answer to "what broke". A near-opaque red-black card (`fail-card`, radius 14, signal lift). Its header row is the signal chip with the failed stage, the time in Mono `fail-dim`, and the actions on the right (the fix as a Fail button first). Its body puts the Work and its stage track beside its facts. The labels are Label caps in `fail-ink` (Cause, Recovery, Release), and values run to 78ch.
+- **Full:** Home's lead failures and Torrents' problems, which tile at `minmax(360px, 1fr)`. The subject and its track take a third of the body and its facts the rest.
 - **Compact:** The Work page's Needs you list. It drops the stage track, and its actions sit in a row at the bottom right.
-- **Phone:** A separate 16px-radius card with its kv in one column and two actions (the fix and More).
+- **Phone:** A separate 16px-radius card with each fact's label over its value and two actions (the fix and More).
 
 ### Signal row
 
 The compact red or amber row for lists that can grow long: the Conversion queue's Needs you band, problems inside a table, and Needs you rows past the first few cards. It is one line of chevron, signal chip, subject (600), a two-line clamped verdict and the time, padded 12px by 16px with radius 14. On phone, the chevron, chip and time share the first line, and the subject and verdict wrap below. It expands in place to the full detail, such as each attempt with its Node, time and error in a `well`. Enter or Space toggles it, with `aria-expanded`. The chevron turns over 250ms.
 
-### Warning line
+### Callout
 
-Warnings are amber lines, never solid cards. A warning line is `warn-card` with a `warn-line` hairline, radius 14 and 12px by 20px padding, holding an amber chip, a bold subject, `warn-dim` detail, a "since" time when the warning has a start, and one Warn button. Attached under a failure card, it is that card's last strip. On its own, it is a Signal row at rest. On phone, it is a row that opens a sheet.
+A condition the person weighs before going on, in amber or red (`Callout` in `web/src/ui/callout.tsx`). A callout is the signal's card, `warn-card` with a `warn-line` hairline or `fail-card` with the signal lift, at radius 14 with 12px by 16px padding. It holds the signal chip that names the condition, then the sentence, a "since" time in Data when the condition has a start, and at most one fix as a Warn or Fail button. It is a status, so a screen reader reads it as it appears. A callout names a condition and a Signal line reports what was just done. If no word fits the chip, it is a Signal line.
+- **Condition:** Inside a form, sheet or dialog, such as Slow pattern in the Custom Format editor or Many sources after a Torznab Test. The chip and the sentence, usually with no button, because the form's own Save or Grab is the decision. In a narrow frame the sentence wraps under the chip.
+- **Standing:** On a page, such as Restart needed, Port taken or a Settings section's worst Health item. A bold subject leads and the detail follows in the dim ink, then the time and the fix. A red callout may add a failure card's other buttons in `on-fail` after its fix, as Torrents' client cards add Edit client.
+- **Phone:** A standing callout is a 44px row of the chip, the subject and a chevron. It opens a sheet titled with the subject that holds the card and one full-width button per action, and an action closes the sheet first. A condition stays in place.
+
+### Signal line
+
+One sentence led by its signal's icon, beside the control whose outcome it reports (`SignalLine` in `web/src/ui/signal-line.tsx`), such as a refused save, a Test that passed with its warnings, or a Node that can't be reached. The icon is in the signal's hue (`fail`, `warn` or `ok`), the words are in `fail-ink`, `warn-ink` or `ink-1`, and the line takes the text size around it. It is announced only when it reports what was just done, as an alert for a failure and a status otherwise, so a list of five failing Indexers isn't five alerts. A field's error under its input belongs to Fields, and a tinted word in a row's cell is that row's state.
+
+### Empty
+
+What a list, table or section shows when it has nothing (`Empty` in `web/src/ui/empty.tsx`). One sentence in `ink-2`, at most 64ch, says what is missing and then what to do or what SlipStream does next. An optional way forward follows it, as one button, a button group or a link. In Console the action sits after the sentence when both fit on its line. In Touch it sits under the sentence. An empty has no title and no icon, because its sentence already leads with what is missing.
+- **Sheet:** In place of a List or Table with no rows, or a section that can't show, such as a Node that is offline. A glass sheet with radius 14 and a hairline ring, as wide as the list it stands in for and at least a row tall, with 12px by 16px padding.
+- **Row:** Inside a list frame that already exists, such as the folder browser, a rename plan, the catalog picker or the palette. A row's height and padding, with no surface.
+- **Inline:** In content that already has a frame or heading, such as an Inspector section, a dialog or a day under its heading. No surface.
+- **Filtered:** A filter that hides every row says so and offers Clear filters. A view that is empty while another view has items names them and opens it. Torrents' Downloading tab reads "Nothing is downloading. 16 torrents are seeding." with Show Seeding.
+
+### Skeleton
+
+A placeholder in the loaded layout's frame while its data loads (`Skeleton` in `web/src/ui/skeleton.tsx`), so the page doesn't move when the data lands. It is a status named for what loads, such as "Loading Torrents". Its bars are `fill` at radius 6, and each shape draws the loaded component's frame and row heights.
+- **Rows:** A List. A glass sheet of 6 rows at the List's one-line or two-line height, with hairlines between rows, a title bar and, on two-line rows, a Meta bar.
+- **Table:** A Table. Its 32px header, then 8 rows at the table's line height. On phone, where a table turns into a list, it draws rows.
+- **Grid:** The Library grid at the person's poster size, small, medium or large. 12 of Artwork's empty card frames, each with a label bar and a Meta bar. A Library whose address names the table view draws Table instead.
+- **Facts:** A Facts sheet of 4 rows, with a label bar in the label column and a value bar. In Touch the label bar sits over the value bar.
+- **Form:** 3 fields, each a label bar over an empty `well` at the input's height, at most 480px wide.
+- **Hero:** The Work page. Artwork's empty hero frame beside a title bar in Title large and two Meta bars, laid out as the hero is, then Rows of two lines.
+- **Page:** A route that renders its own page shows its title at once while it loads, or a bar of the title's height while its loader names the title, and then the shape. A route inside a layout that owns the page, such as a Node's sections, shows the shape alone.
 
 ### Details
 
-The approachable-first pattern. A plain-language summary leads, then a Details disclosure (a chevron and the word, 500 in `ink-2`) holds the machinery: codes, raw names and scores. The error page uses it.
+The approachable-first pattern. A plain-language summary leads, then a Details disclosure (a chevron and the word, 500 in `ink-2`) holds the machinery: codes, raw names and scores, as facts in a `well`. The error page uses it.
+
+### Facts
+
+Label and value rows (`Facts` and `Fact` in `web/src/ui/facts.tsx`). A label in `ink-3`, its value in `ink-1`, and at most one action, a small ghost button at the row's right. Labels line up down the list, and a long label wraps inside its column. A value someone copies or compares is Data, and the caller marks it so. Every other value is words.
+- **Sheet:** A section's own facts on the page, such as a Node's Overview or an Account's Profile. A glass sheet with radius 14, a hairline ring, Console or Touch row heights and hairlines between rows. Its label column is 120 to 200px wide, so the sections of one page line their values up.
+- **Well:** Machinery under Details, or facts inset on a card, such as the error page's code and status. A `well` with radius 8, 12px sides, 8px top and bottom and 4px between rows. On an amber or red row the labels take its dim ink and the values its text.
+- **Inline:** Facts in a frame that already exists, such as an Inspector section, a dialog, a Release's details or an expanded log line. No surface, and 6px between rows.
+- **Failure:** A failure card's facts, with Label caps labels in `fail-ink` and values in `fail-text` to 78ch.
+- **Touch:** Each label sits over its value, an action stays on the value's line, and a two-line sheet row is 64px.
 
 ### Error and not-found pages
 
-An error stands inside the shell, so the sidebar, bars and tab bar stay and only the content shows it. It is a glass card at most 560px wide with 16px padding, leading with one plain sentence in Sentence type (Sentence touch on phone), then Try again, then Details with the code, status and detail (or a client exception's message) as a key and value list in a `well`. A page only Admins may see says so and offers Open the portal instead of Try again. A not-found page is the same card saying "There's nothing at this address." with a button to the audience's first nav row. A crash in the shell itself shows the card centred on the page with a Reload button.
+An error stands inside the shell, so the sidebar, bars and tab bar stay and only the content shows it. It is a glass card at most 560px wide with 16px padding, leading with one plain sentence in Sentence type (Sentence touch on phone), then Try again, then Details with the code, status and detail (or a client exception's message) as facts in a `well`. A page only Admins may see says so and offers Open the portal instead of Try again. A not-found page is the same card saying "There's nothing at this address." with a button to the audience's first nav row. A crash in the shell itself shows the card centred on the page with a Reload button.
 
 ### Lists and tables
 
 Lists and tables are glass sheets with radius 14, a hairline ring and hairlines between rows. Console rows are 44px for one line and 60px for two. Touch list rows are 54px for one line and 64px for two, in iOS inset groups with 16px gutters, and their hairlines start 16px in from the left. A row's second line is Meta in `ink-3`. Table headers are 32px of Label at `ink-3`. Hover and focus wash a row at `hsl(var(--h) 50% 70% / .1)` over 350ms. A selected row adds a 3px white glowing bar on its left edge. A whole row is one target, with the arrow keys, Home and End moving between rows. A table hides a column below its own container width, and below a set width it stacks each row as a card with its labels above the values.
 
+**Release row:** Every list of releases draws each one alike. Its first line is the Quality chip, then the revision, HDR format, audio and Release group in `ink-1` with `ink-4` dots between them, then the size in Data and a Freeleech chip, each left out when the title doesn't name it. The revision and Freeleech open their definitions as a technical state does. A search run's list adds the title in Data at `ink-3` and the Indexers and seeders in Meta, and Manual search keeps those under Details. The screen's sentences follow. The row's one button sits to the right of the facts and drops under them when the row is too narrow, and a plan's tick before the facts is named by them. A table cell or a fact, such as the Blocklist's Release column, draws the facts over the title.
+
 A list too long to draw whole, such as a Node's log, draws only the rows near its view (`VirtualRows`). It follows the tail while scrolled to the end, stops following once scrolled up, and follows again when scrolled back down.
+
+### Artwork
+
+Every image of a Work, an Item or a person is one `Artwork` (`web/src/ui/artwork.tsx`), named by its use and size. Each slot asks the artwork proxy for one size and has a fixed frame, so nothing moves when the image lands. A framed slot is `glass-raised` with a hairline ring inset.
+- **Poster:** 2:3. Option 24 × 36 at radius 4 and row 32 × 48 at radius 8 load `small`. Preview 120 × 180, the hero (112 wide, 160 from `sm`) and the card (fluid, with the `poster` shadow) load `medium` at radius 14.
+- **Still:** An Item's 16:9 image in its details, fluid at radius 8, at `medium`. An Item with no still has no frame.
+- **Headshot:** A person's 2:3 photo in Cast and crew, 96 wide at radius 8, at `medium`.
+- **Logo:** The title treatment, 112px tall and at most 420px wide, and a studio or network mark, 20px tall and at most 96px wide at `small`. Neither has a frame.
+- **Backdrop:** The Work page's sharp backdrop at `large`, inside the hero's mask.
+
+While an image loads its frame stays empty, and a headshot shows the person's initials in Label at `ink-3`. A poster or still with no image, or one that fails, shows its title in Meta at 600 in `ink-3`, centred and clamped to 3 lines. A row or option poster keeps its empty frame, a headshot keeps the initials, a title treatment becomes the label in text and a mark leaves nothing. An image fades in as Motion's Artwork says, and one the browser has already decoded, such as a card scrolled back into view, shows at once. Art is decorative (`alt=""`) because the words beside it name the thing, and the title treatment keeps its label for screen readers. A slot asks for one size and never a `srcset`, because only `small`, `medium` and the backdrop's `large` are prefetched for offline use. Outside `web/src/ui`, an `<img>` or a hand-built `?size=` fails lint.
 
 ### Poster card
 
-One Work in the Library grid. Its poster is 2:3 on `glass-raised` with radius 14, a hairline ring and the `poster` shadow, loaded at the medium size once its row is drawn. A Work with no poster, or whose image fails to load, keeps the empty frame. Under the poster sit the label in Body at 600 in `ink-1`, the type's first facts field in Meta at `ink-3` (the year for a movie) and the Work's status marks, each on one truncated line. A Work with none of its Items monitored dims its poster to 55% and says "Not monitored". A pick checkbox sits on a `popover` patch at the top left, hidden until hover or focus and shown on every card once picking starts. A picked card rings its poster with a 2px `glow` ring. The poster and label are one link to the Work page, with the focus outline 4px out.
+One Work in the Library grid. Its poster is Artwork's card, loaded once its row is drawn. A Work with no poster, or whose image fails to load, shows its title in the frame. Under the poster sit the label in Body at 600 in `ink-1`, the type's first facts field in Meta at `ink-3` (the year for a movie) and the Work's status marks, each on one truncated line. A Work with none of its Items monitored dims its poster to 55% and says "Not monitored". A pick checkbox sits on a `popover` patch at the top left, hidden until hover or focus and shown on every card once picking starts. The "…" menu sits on a patch at the top right, hidden until hover or focus on a fine pointer and always shown on a touch screen. A touch screen starts picking from Select in the toolbar's menu. A Work of many Items carries the episode strip over its poster's bottom edge. A picked card rings its poster with a 2px `glow` ring. The poster and label are one link to the Work page, with the focus outline 4px out.
 
 ### Library grid
 
@@ -659,7 +732,7 @@ The page under Library that lists what SlipStream is searching for, at `/library
 - **Table.** Lists and tables' table, 60px two-line rows. Each header names the Content Type's nouns, such as Series and Episodes, and Work on All. Work (the poster and label, as in the Library's table), Items (ranges of the codes Needs you uses, such as "S02E01 to S02E08", and nothing for a Work of one Item, left out while no type in view has many Items), Reason ("Missing. 3 upgrades."), Last searched ("Found nothing on Mon at 09:12", or "Not searched yet"), Next search ("Tomorrow at 14:00", "Searching" with the spinner, "Queued", "Only when you search"), then a small Search button and a "…" menu with Manual search and Open Work. Items hides below 900px of the table's width and Last searched below 760px.
 - **Phone.** An inset list of two-line touch rows. The title is the Work, and the second line reads the reason, the Items and the next search as one sentence ("Missing. S02E01 to S02E08. Next search tomorrow at 14:00."). A row opens an action sheet with Search, Manual search and Open Work.
 - **Paging.** 100 rows a page. "Load more" ends the table on desktop, and the next page loads as the end scrolls into view on phone.
-- **Empty.** "Nothing to search for." in the Empty pattern.
+- **Empty.** "Nothing to search for." as an Empty sheet.
 - **Entry.** Wanted in the Library views, and the command "Open Wanted".
 
 ### Status marks
@@ -673,6 +746,7 @@ A Work's status is a mark of a word and an icon, so colour never carries it alon
 - **Met:** A check, in `ink-1`.
 - **Not monitored:** A silenced bell in `ink-3`, after the status.
 - **Gone from TMDB:** The warn signal chip, naming the Work's metadata source.
+- **Technical state:** A state in the industry's term, such as Stalled or Direct stream, underlines its word with a dotted `ink-4` line. Hovering, tapping or pressing Enter on it opens its one-sentence definition in the tooltip's glass label, and a signal chip opens one the same way.
 
 A Work of many Items adds its tally to the status, such as "Missing · 12 of 40 met". Failed carries the count of failed cells, such as "Failed 3 · 12 of 40 met". Any failed cell makes the status Failed. The status is the first state any of the Work's Items holds in the glossary's order, what needs attention first: failed, missing, downloading, upgradable, unreleased, met. The web maps every status the API names to a mark, so a state added later fails the build until it has one.
 
@@ -680,7 +754,7 @@ A Work of many Items adds its tally to the status, such as "Missing · 12 of 40 
 
 What SlipStream is doing to find a Work's files, read from one answer (`GET /works/{workId}/searching`) and shown in two places.
 
-- **Hero line.** One line under the title row's summary in the desktop shell and under the actions on phone, as an `output` named "Search". It rolls the Work's groups up as Searching over Queued over Waiting over the latest result, and shows nothing before the first search. Searching leads with the spinner and reads "Searching", or names the group in a Work of many Items ("Searching season 3 of 10"). Waiting reads "Waiting for a better release until 22:40" with a small Grab now. A result reads how the latest search ended: "Grabbed 3 releases", "Found nothing today at 09:12. Next search tomorrow at 14:00.", "Found 14 releases, but none fits a Target. Next search tomorrow at 14:00." with Manual search, or "No Indexer could search. Check Indexers in Health." with Open Health.
+- **Hero line.** One line under the title row's summary in the desktop shell and under the actions on phone, as an `output` named "Search". It rolls the Work's groups up as Searching over Queued over Waiting over the latest result, and shows nothing before the first search. Searching leads with the spinner and reads "Searching", or names the group in a Work of many Items ("Searching season 3 of 10"). Waiting reads "Waiting for a better release until 10:40 PM" with a small Grab now. A result reads how the latest search ended: "Grabbed 3 releases", "Found nothing at 9:12 AM. Next search tomorrow at 2:00 PM.", "Found 14 releases, but none fits a Target. Next search tomorrow at 2:00 PM." with Manual search, or "No Indexer could search. Check Indexers in Health." with Open Health.
 - **What holds it.** When something holds a queued or searching group, its words become a ghost button that opens a Popover, labelled "Why it's queued" or "Why it waits". It says what holds the group: "Queued behind 140 Works from Search all.", "Waiting for TorrentLeech's search limit until 14:00.", or, when RSS sync keeps the Indexer's whole limit, "This search waits for TorrentLeech. RSS sync uses all of TorrentLeech's search limit." A searching group can wait, because a run that started can find an Indexer at its limit.
 - **Level header.** Only a state word after the tally, in `ink-2`: "Queued", "Searching" or "Waiting". While the group searches, the level's Search shows the spinner in its icon's place. A word with more to say is a dotted-underline button whose Popover opens on hover with the full sentence, such as "Queued behind 140 Works from Search all." The header's "…" gains Grab now while a cell of the level waits.
 
@@ -698,7 +772,7 @@ A 940px Dialog on desktop and a full Sheet on phone, as Manual search's, opened 
 
 ### Edition × Target matrix and state squares
 
-The Work page's grid of wanted cuts and versions. Every cell is in one of six states, in the glossary's order: failed, missing, downloading, upgrade, unreleased and Met. Each state has a chip and a square. The same order rolls up an Item's and a Work's status and orders the state bar, the hero's counts, the Status sort and the Status filter. The matrix orders its cells by Edition and Target, and Needs you by kind, failures first. A cell is downloading while any unfinished Grab holds it, and failed when its latest Grab failed in a way that needs the Admin and SlipStream isn't searching the cell again, even when a file fills it. A cell SlipStream searches again after a failed Grab reads missing or upgrade, so it never shows Failed while a search is coming. A stopped cell reads Failed. A final file reads Met whatever its Grabs.
+The Work page's grid of wanted cuts and versions. Every cell is in one of six states, in the glossary's order: failed, missing, downloading, upgrade, unreleased and Met. Each state has a chip and a square. The same order rolls up an Item's and a Work's status and orders the episode strip's name, the hero's counts, the Status sort and the Status filter. The matrix orders its cells by Edition and Target, and Needs you by kind, failures first. A cell is downloading while any unfinished Grab holds it, and failed when its latest Grab failed in a way that needs the Admin and SlipStream isn't searching the cell again, even when a file fills it. A cell SlipStream searches again after a failed Grab reads missing or upgrade, so it never shows Failed while a search is coming. A stopped cell reads Failed. A final file reads Met whatever its Grabs.
 - **Failed:** Solid `fail`.
 - **Missing:** A hatch.
 - **Live:** A fill rising from the bottom with the glow.
@@ -708,19 +782,22 @@ The Work page's grid of wanted cuts and versions. Every cell is in one of six st
 
 There are three layouts.
 - **One Item.** A full table with a 168px first column. Each cell shows its state chip, its facts, Search while it is wanted and Manual search, both ghost buttons. A downloading cell's facts are its download and the quality it replaces, and a failed cell's are the cause and the file it kept. A filled cell's Details also holds Manual search. Each Target header names its sourcing.
-- **Many Items.** One collapsible glass section per level. The header holds the level name, a stacked state bar (180 × 8px), a tally, a level search and "…" for Manual search. The server rolls up each level's bar and tally as it rolls up the Work. A section opens while a cell of its monitored Items is wanted or downloading. Rows are 36px, with 16px squares in 42 × 30 buttons grouped by Edition. Runs of Items whose status is unreleased fold into one line.
+- **Many Items.** One collapsible glass section per level. The header holds the level name, an episode strip, a tally, a level search and "…" for Manual search. The server rolls up each level's tally as it rolls up the Work, and the strip and tally count the same Items. A section opens while a cell of its monitored Items is wanted or downloading. Rows are 36px, with 16px squares in 42 × 30 buttons grouped by Edition. Runs of Items whose status is unreleased fold into one line.
 - **Needs you.** A list above the matrix with compact failure cards first, then upgrades, then Not found, then the Grabs that wait on an Admin. A failure card has Manual search beside Search again, and an upgrade row beside its Search. A stopped cell's card adds how many Grabs failed and over how many days, and when Backlog search looks again ("3 Grabs failed for this file in 7 days. Backlog search looks for it again tomorrow at 14:00."). Consecutive identical Items merge into ranges.
-- **Not found.** A list in Needs you of the missing Items whose group's last search found nothing to grab, merged into ranges. Each row's title is the range and "not found" ("S02E01 to S02E08 not found", or the Work's name for a Work of one Item), its second line says when the last search ran and when the next one runs ("Found nothing on Mon at 09:12. SlipStream searches again tomorrow at 14:00."), and Search and Manual search sit on the right as small buttons. It shows on the Work page only, and never sets the Library's Needs you flag or the nav alert. A listed cut not yet seen never shows here.
+- **Not found.** A list in Needs you of the missing Items whose group's last search found nothing to grab, merged into ranges. Each row's title is the range and "not found" ("S02E01 to S02E08 not found", or the Work's name for a Work of one Item), its second line says when the last search ran and when the next one runs ("Found nothing on Mon at 9:12 AM. SlipStream searches again tomorrow at 2:00 PM."), and Search and Manual search sit on the right as small buttons. It shows on the Work page only, and never sets the Library's Needs you flag or the nav alert. A listed cut not yet seen never shows here.
 
 Hovering or focusing a square opens a Popover with its detail, and clicking pins it. On phone, one Item becomes one card per Edition, each cell's button opening a menu with Search and Manual search, and many Items keep their rows, with each row opening a sheet that holds Manual search after Search.
 
 - **State square:** 16px with a 4px radius, centred in a 42 × 30 plain button that washes on hover like a list row. The button's name is the cell's label and its state's word ("S01E02 Archive, Missing"). A quiet square dims to 55%.
-- **State bar:** 180 × 8 with a 2px radius and 2px gaps, one segment per state in the glossary's order, each as wide as its count. Met is solid white, upgrade a white ring, missing the hatch, live a glow fill, failed solid `fail` and unreleased a hairline ring. A screen reader hears its counts ("1 Failed, 3 Missing, 6 Met").
+- **Episode strip:** A group's Items as one strip (`EpisodeStrip` in `web/src/ui/episode-strip.tsx`), one segment per Item in the order the section lists them, coloured by its state. Met is solid white, upgrade a white ring, missing the hatch, live a glow fill, failed solid `fail` and unreleased a hairline ring, and an Item nobody monitors is an empty slot. Items that don't fit merge into runs of one state, still in order, and runs that don't fit become one segment per state in progress order (Met, upgrade, downloading, missing, failed, unreleased). A screen reader hears its counts in the glossary's order ("1 Failed, 3 Missing, 6 Met").
+  - **Header:** 180 × 8 on `fill` with a 2px radius, 1px between Items and 2px between runs. It fits 45 Items.
+  - **Edge:** On phone, a 3px strip along the season header's bottom edge, 16px in from each side, fitting 86 Items. The tally beside it names the count, so a screen reader skips it.
+  - **Poster:** On a Library card of a Work of many Items, a 4px strip on `well` over the poster's bottom edge, 8px in from each side, from the Work's counts in progress order, so Met grows from the left. Every card keeps one height. It fits 26 Items, and the status under the poster names the count.
 - **Cell popover:** A page holds one detail Popover for all its squares, anchored to the square that is hovered, focused or pinned. Hover or focus opens it after 120ms, and once it is open it moves to the next square at once. It hides 160ms after the pointer leaves, unless the pointer moves into it. A click pins it and moves focus into it. A second click on the same square, a press outside or Esc closes it, and Esc returns focus to the square. Rows never mount a Popover of their own.
 - **Many-Items row:** 36px. The `code` field, the label, the availability date, the squares grouped by Edition with Targets in Profile order, then the row switch, Search and "…" for the Item's Details and Manual search.
 - **Waiting fact:** A Missing or Upgrade cell whose Releases wait for its Target's Hold keeps its state and adds the fact in Meta at `ink-2`, "2 releases found so far. SlipStream grabs the best one at 22:40 unless a better one arrives.", with a small Grab now. A cell whose file is gone adds "File gone" at `ink-3`. Neither is a state of its own.
 - **Quiet row:** An Item nobody monitors reads "Not monitored" in `ink-3`, and its squares dim.
-- **No longer listed row:** An Item its source withdrew that still has files sits at the end of its level, reading "No longer listed by" and the Work's source ("No longer listed by TVDB"). A withdrawn Item without files doesn't show. Items whose level was withdrawn too, as when the episode order changes, trail every level in one section named the same way, whose header has no switch or Search, a state bar of the cells it holds and a count of its Items ("1 episode").
+- **No longer listed row:** An Item its source withdrew that still has files sits at the end of its level, reading "No longer listed by" and the Work's source ("No longer listed by TVDB"). A withdrawn Item without files doesn't show. Items whose level was withdrawn too, as when the episode order changes, trail every level in one section named the same way, whose header has no switch or Search, an episode strip of the Items it holds and a count of its Items ("1 episode").
 
 ### Inspector
 
@@ -742,11 +819,26 @@ The phone's bottom sheet. It is glass at `sheet` with a 24px top edge, a 38 × 5
 
 ### Command palette
 
-⌘K on Apple platforms and Ctrl+K elsewhere toggles it, and the top bar's search capsule and the phone's Search open it. In the desktop shell it is 640px wide at 12vh from the top and at most `min(600px, 80vh)` tall, glass with float large and radius 20, over a .5 black scrim. It fades in from 98% scale over 220ms. Its 60px input row sets 17px text and turns `fill-hover` with a glow underline while focused. Results are grouped (Works, then an Add group for each enabled Content Type, then Commands), with 44px options, each led by an 18px icon or a small poster with its meta in Meta at `ink-3` on the right. With no query it lists only Commands. Works show up to 8 library matches by any title a Work is known by, with the Work's first fact, type and status as meta. An Add group asks its type's catalog once typing pauses for 400ms with at least two characters, shows the first 5 results, marks one already added "In the library", and ends with "See all results" to the add page. A 40px footer shows the ↑↓, ↵ and Esc hints. On phone it is full screen inside the safe areas, with 56px options and a Cancel in `glow`.
+⌘K on Apple platforms and Ctrl+K elsewhere toggles it, and the top bar's search capsule and the phone's Search open it. In the desktop shell it is 640px wide at 12vh from the top and at most `min(600px, 80vh)` tall, glass with float large and radius 20, over a .5 black scrim. It fades in from 98% scale over 220ms. Its 60px input row sets 17px text and turns `fill-hover` with a glow underline while focused. Results are grouped (Works, then an Add group for each enabled Content Type, then Commands), with 44px options, each led by an 18px icon or a small poster with its meta in Meta at `ink-3` on the right. With no query it lists only Commands. Works show up to 8 library matches by any title a Work is known by, with the Work's first fact, type and status as meta. An Add group asks its type's catalog once typing pauses for 400ms with at least two characters, shows the first 5 results, marks one already added "In the library", and ends with "See all results" to the add page. A 40px footer shows the ↑ ↓, ↵ and Esc key hints. On phone it is full screen inside the safe areas, with 56px options and a Cancel in `glow`.
+
+### Time
+
+An instant on screen (`RelativeTime` and `PlainTime` in `web/src/ui/relative-time.tsx`, worded by the forms table in `web/src/ui/time-words.ts`). Every time reads one shared clock that turns on the wall minute, each second only while something counts seconds, and not at all while the tab is hidden, so the ages and countdowns on a page change together. A time is in the person's zone, except one that answers to a setting stated in another zone, such as the Tasks window in the Controller's, which adds the person's own clock to its moment.
+- **Standing:** A time on its own, such as a Fact's value, a stage's time or a callout's since, is `RelativeTime`. Hovering, tapping or pressing Enter opens its whole moment, "Saturday, November 21, 2026 at 2:02:00 PM UTC".
+- **In a row:** A time inside a link, a button or a row that opens is `PlainTime`, with its whole moment as its title, since nothing can open inside them.
+- **In a sentence:** Words with their preposition, through `whenWords`: "at 2:02 PM", "yesterday at 2:02 PM", "on Mon at 2:02 PM". It has no hover, because the sentence names the day.
+- **Forms:** Clock ("2:02 PM" today, "Nov 19, 2:02 PM" on another day), Time (the hour alone, under a day heading), Stamp (a log line's "14:02:37.123"), Due ("Tomorrow at 4:00 AM"), Countdown ("In 25 min") and Age ("12 minutes ago"). Clock, Time and Stamp are Data where someone compares them down a column. Due, Countdown and Age are words.
+
+### Key hint
+
+The key that triggers a control, as one keycap at its trailing edge (`Kbd` in `web/src/ui/kbd.tsx`, read from the key table there). The keycap is `fill` at radius 6 with 2px by 6px padding, in Label at `ink-2`. On Apple platforms a chord prints as glyphs in ⌃⌥⇧⌘ order, such as ⌘K or ⇧⌘N. Elsewhere its names join with +, such as Ctrl+K. Screen readers skip the keycap, because the control carries the same keys in `aria-keyshortcuts`, and Touch shows none.
+- **Capsule:** The top bar's search capsule ends with the palette's shortcut.
+- **Footer:** The palette footer, one keycap per key with 2px between them, then the word: ↑ ↓ Move, ↵ Open, Esc Close.
+- **Tooltip:** After a tooltip's words, for a control whose key works where the person is, such as the Diagram's zoom buttons, whose -, + and 0 work while the Diagram has focus.
 
 ### Bell
 
-The Admin's notifications: an icon button with the plain `BellIcon` in the top bar, and on phone in the large-title row between Search and the avatar. The silenced bell stays the Not monitored mark. While rows are unread, a 16px solid white badge with deep ink at 600 and tabular numerals sits on the icon's top right, reading the count up to 99 and "99+" from 100. The button's name is "Notifications, 3 unread", or "Notifications" with none. It opens a 400px Popover on the bell headed Notifications in Heading, a bottom sheet titled Notifications on phone, listing what the bell showed newest first: each row its title at 500 in `ink-1`, its first line in Meta at `ink-2`, the time in Meta at `ink-3` with the full date on hover, and a 6px `glow` dot while unread. A row with a link is one target, and following it closes the Popover or sheet. The list scrolls inside the Popover, which stands at most 560px tall. "Show older notifications" loads the next page. Opening it marks every row it shows as read, so a row shown while it is open stays unread until the next open. With nothing in it, it says "No notifications in the last 90 days.", worded from Keep history for. The toast region's name is Messages, so the bell owns the word Notifications.
+The Admin's notifications: an icon button with the plain `BellIcon` in the top bar, and on phone in the large-title row between Search and the avatar. The silenced bell stays the Not monitored mark. While rows are unread, a 16px solid white badge with deep ink at 600 and tabular numerals sits on the icon's top right, reading the count up to 99 and "99+" from 100. The button's name is "Notifications, 3 unread", or "Notifications" with none. It opens a 400px Popover on the bell headed Notifications in Heading, a bottom sheet titled Notifications on phone, listing what the bell showed newest first: each row its title at 500 in `ink-1`, its first line in Meta at `ink-2`, the time in Meta at `ink-3` with its whole moment on hover, and a 6px `glow` dot while unread. A row with a link is one target, and following it closes the Popover or sheet. The list scrolls inside the Popover, which stands at most 560px tall. "Show older notifications" loads the next page. Opening it marks every row it shows as read, so a row shown while it is open stays unread until the next open. With nothing in it, it says "No notifications in the last 90 days.", worded from Keep history for. The toast region's name is Messages, so the bell owns the word Notifications.
 
 ### Toast
 
@@ -777,7 +869,7 @@ Remote access draws each exposure as a lane of hops: Player, DNS, Relay, TLS, No
 
 Desktop Nodes opens on the Diagram, an isometric drawing of the install seen from one fixed camera. It opens fitted to the page's width and sits on the page with no ground of its own. Each Node is a tile: a slab on feet with a plaque on its front edge, a state lamp and a row of Role chips. The Controller's tile is at the centre at full size, and each Worker's tile is 72% of it on a ring around it, the first eight close and the next six further out. The Diagram draws up to 15 Nodes, and a caption under it says the Roster lists the rest.
 
-- **Tiles.** The plaque reads the Node's name and the state the Roster gives it: "Online", or "Last seen 21:31" while it is away. The lamp is green while the Node is online, amber while it reconnects or runs another version, red while it is away and the Work's glow while it restarts. An away Node's chips and machines, and a draining Role, are drawn at 55% and keep their place.
+- **Tiles.** The plaque reads the Node's name and the state the Roster gives it: "Online", or "Last seen 3 hours ago" while it is away. The lamp is the Node's lamp: green while the Node is online, amber while it reconnects, is offline inside the Offline grace or runs another version, red once it has been offline for longer than the Offline grace, and the Work's glow while it restarts. An away Node's chips and machines, and a draining Role, are drawn at 55% and keep their place.
 - **Machines.** Every Role has a machine, and a tile stands one only for a Role its Node holds. Each Role's machine has a fixed place, the same on every tile: the tall ones along the back and left, and the small ones, each about a third of the piece board's floor, in two rows in front of them, clear of the chips. Downloading is an antenna that takes pieces in, a glass chute that carries them to a loom, and a board of cells for each of up to two torrents that fills as the torrent does. Searching is a radar dish on a turntable that sweeps while a search runs, and Metadata a card catalog whose drawer slides out and back as a Work's artwork and details are fetched. A search or a fetch names no Node, so every Node holding the Role moves. Serving is a ticket booth whose "Open" sign is lit while its Node is online and its listener is up, and Media Server link a small television whose screen is lit while its Node is online and a Media Server it reaches responds. Storage is a cabinet of drawers, Converting a roller press, Subtitles a typewriter, Notifying a mailbox with its flag down and Relaying a switchboard. These stand at rest until their Roles report work the web can show. Every machine is wired into its tile: a short cable leaves a back face, or a front face with clear floor before it, runs out along one floor axis and drops into a grommet set in the tile's top, in the low tone of the links' risers. A cable never crosses a chip, another machine or another cable. Motion follows only real work, and under reduced motion every machine is at rest.
 - **Links.** Each Worker is joined to the Controller by a glass conduit on the floor, rising on a short riser under each slab. Capsules travel along it at a rate set by the link's throughput, capped by what its round trip can carry, and faster on a quicker link. The end that dialed glows. A down link is empty.
 - **Lettering.** Plaques and chips are engraved in Geist Mono, as labels on equipment are. It is the one place mono sets words, because the engraving spaces every letter on one advance and is part of the drawing, not data.
@@ -820,7 +912,7 @@ While a restore reconciles, every admin page carries one line naming what SlipSt
 
 ### Reconciling page
 
-Reached from the banner and from Health, with no nav row. It leads with the Reconciling Term and the Backup it restored, then the next step in one sentence, with the Backup name and the start time under Details. Finish now is the page's one action and asks to confirm, naming every wait it ends. Sections follow in order: Nodes, waiting ones first, each row one sentence with its one action (Create Join Code or Continue without); Nodes not in this Backup; Library roots, each with Find its folder and Continue without; and the review list's groups, each a sentence and a link to review them. Outside a restore the page lists only the Nodes that keep their torrents, with no Finish now.
+Reached from the banner and from Health, with no nav row. It leads with the Reconciling Term and the Backup it restored, then the next step in one sentence, with the Backup name and the start time under Details. Finish now is the page's one action and asks to confirm, naming every wait it ends. Sections follow in order: Nodes, waiting ones first, each row one sentence with its one action (New Join Code or Continue without); Nodes not in this Backup; Library roots, each with Find its folder and Continue without; and the review list's groups, each a sentence and a link to review them. Outside a restore the page lists only the Nodes that keep their torrents, with no Finish now.
 
 ### Re-home step
 
@@ -863,11 +955,13 @@ The mark is Two Nodes: a stream S whose two ends are dots, one for each kind of 
 - **Overlays.** Menus and tooltips take 180ms, the palette and toasts 220ms, the Inspector 280ms, sheets 340ms in and 260ms out, and Dialogs 360ms.
 - **Shell.** The sidebar collapses and expands over 280ms on the standard ease. A page change in the desktop shell crossfades the content alone over 180ms. On phone, a push slides the new page in from the right over 340ms on the spring while the old page drifts 30% left and dims to 60%, and a pop reverses it. The bars, the sidebar and the tab bar hold still through both. In an installed web app, a drag of 80px or more from the screen's left 20px goes back.
 - **Live.** Fills move linearly once a second, and the sheen loops every 2.4s. The spinner turns every 0.8s.
+- **Artwork.** An image fades in over 200ms on the standard ease once it loads. The hero backdrop fades over the ambient's 1.1s. An image the browser has already decoded shows at once.
+- **Loading.** Skeleton bars breathe between `fill` and `fill-hover` over 2.4s on the standard ease, slower than any live motion, so a skeleton reads as waiting. A skeleton appears after 300ms with a 180ms fade, so data that lands sooner never flashes one.
 - **Startup.** The sequence runs 4.4s and leaves over 360ms, as the Logo section says.
 
 The frontmatter's `motion` block holds these easings and the overlay durations. `release gen tokens` writes them to the theme as `--ease-*` and `--duration-*`.
 
-**The Reduce Motion Rule.** Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, fills jump without the sheen, and overlays appear without travel. Page transitions and the sidebar cut. Spinners, steps, the PIN shake and canvas animations stop. No animation is exempt.
+**The Reduce Motion Rule.** Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, images appear without their fade, fills jump without the sheen, and overlays appear without travel. Page transitions and the sidebar cut. Spinners, steps, skeleton bars, the PIN shake and canvas animations stop, and a skeleton still waits 300ms but appears without the fade. No animation is exempt.
 
 ## Do's and Don'ts
 
@@ -880,7 +974,7 @@ The frontmatter's `motion` block holds these easings and the overlay durations. 
 - **Do** pair every signal colour with an icon and a word.
 - **Do** use capsules for every control, at 32px in Console and 44px or more in Touch.
 - **Do** blur only what floats: bars, menus, popovers, the palette, the Inspector, Dialogs and sheets.
-- **Do** set rates, sizes, ETAs, timestamps, release names, paths and keys in Geist Mono, and everything else in Geist.
+- **Do** set rates, sizes, ETAs, clock times in tables, release names, paths and keys in Geist Mono, and everything else in Geist.
 - **Do** use the neutral ambient (214 / 14%) on every screen without a Work.
 - **Do** pad bars and sheets with `env(safe-area-inset-*)`.
 
@@ -894,6 +988,6 @@ The frontmatter's `motion` block holds these easings and the overlay durations. 
 - **Don't** blur anything that scrolls with the content, such as a live pill or a chip on a poster.
 - **Don't** put text over a sharp backdrop unless a mask or scrim holds the ambient ceiling beneath it.
 - **Don't** use `ink-4` for text.
-- **Don't** use uppercase outside a failure card's key labels.
+- **Don't** use uppercase outside a failure card's fact labels.
 - **Don't** use B's condensed display face (Big Shoulders Display). Geist sets the portal too.
 - **Don't** show Members any machinery: no Nodes, Targets, stages, releases or Conversions on the portal.

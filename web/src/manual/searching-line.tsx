@@ -1,14 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import { use, useState } from "react";
+import { useState } from "react";
 
 import type { GrabsIndexerLine, GrabsManualSearch } from "../api/gen/model";
-import { agoWords } from "../format";
 import { Button } from "../ui/button";
 import { Details } from "../ui/details";
 import { SearchField } from "../ui/search-field";
 import { SignalChip } from "../ui/signal-chip";
 import { Spinner } from "../ui/spinner";
-import { ReadingContext } from "./reading";
+import { PlainTime } from "../ui/relative-time";
 
 /** Starts the Manual search again for the sheet's scope, with a typed query or the one it had. */
 export type Restart = (query: string | null) => void;
@@ -103,7 +102,6 @@ export function SearchingLine({
   onRestart: Restart;
   onLeave: () => void;
 }) {
-  const { now } = use(ReadingContext);
   const again = () => {
     onRestart(search.query);
   };
@@ -116,7 +114,7 @@ export function SearchingLine({
             {search.line}
           </span>
           <span className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
-            {`Started ${agoWords(search.startedAt, now)} by ${search.startedBy}`}
+            Started <PlainTime at={search.startedAt} form="age" /> by {search.startedBy}
           </span>
         </span>
       }

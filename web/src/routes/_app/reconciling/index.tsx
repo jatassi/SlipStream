@@ -14,6 +14,6 @@ export const Route = createFileRoute("/_app/reconciling/")({
       ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading Reconciling" />,
+  pendingComponent: () => <Skeleton label="Loading Reconciling" shape="facts" />,
   component: ReconcilingPage,
 });

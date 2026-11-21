@@ -2,10 +2,10 @@ import { useSelector } from "@tanstack/react-form";
 import { useState } from "react";
 
 import type { NodesNode } from "../../api/gen/model";
-import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
 import { useAddDestination } from "./add-destination-form";
 import { BackupsFolder, NodePicker } from "./backups-folder";
+import { SignalLine } from "../../ui/signal-line";
 
 export function AddFields({ nodes, close }: { nodes: readonly NodesNode[]; close: () => void }) {
   const [nodeId, setNodeId] = useState(() => nodes.find((node) => !node.self)?.id ?? "");
@@ -22,8 +22,8 @@ export function AddFields({ nodes, close }: { nodes: readonly NodesNode[]; close
       }}
     >
       <p>
-        SlipStream copies every Backup to a folder on this Node. Pick a Node on another machine, or
-        another disk on this one.
+        SlipStream copies every Backup to the folder you pick. Pick one on another machine, or on
+        another disk of the Controller&apos;s machine.
       </p>
       <NodePicker
         nodes={nodes}
@@ -37,7 +37,11 @@ export function AddFields({ nodes, close }: { nodes: readonly NodesNode[]; close
         {node !== undefined && (
           <form.AppField name="path">{() => <BackupsFolder node={node} />}</form.AppField>
         )}
-        {refusal !== undefined && <AlertLine text={refusal} />}
+        {refusal !== undefined && (
+          <SignalLine tone="fail" announce>
+            {refusal}
+          </SignalLine>
+        )}
         <div className="flex justify-end gap-2">
           <Button onClick={close}>Cancel</Button>
           {path.trim() !== "" && <form.SubmitButton label="Add" />}

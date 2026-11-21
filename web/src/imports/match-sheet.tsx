@@ -51,7 +51,7 @@ export function MatchSheet({
             </Button>
           </form>
         </search>
-        <Suspense fallback={<Skeleton label={`Searching ${type.source}`} />}>
+        <Suspense fallback={<Skeleton label={`Searching ${type.source}`} shape="rows" lines={2} />}>
           <MatchResults entry={entry} type={type} query={query} onDone={onClose} />
         </Suspense>
       </div>

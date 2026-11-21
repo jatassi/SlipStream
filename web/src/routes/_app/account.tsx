@@ -2,13 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { accountSearch } from "../../account/search";
 import { YourAccount, loadYourAccount } from "../../account/your-account";
-import { Skeleton } from "../../ui/skeleton";
+import { PagePending } from "../../shell/page";
 
 export const Route = createFileRoute("/_app/account")({
   staticData: { title: "Your Account" },
   validateSearch: accountSearch,
   loader: ({ context }) => loadYourAccount(context.queryClient),
-  pendingComponent: () => <Skeleton label="Loading Your Account" />,
+  pendingComponent: () => <PagePending label="Loading Your Account" shape="facts" />,
   component: Account,
 });
 

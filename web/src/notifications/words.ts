@@ -2,7 +2,9 @@ import type {
   NotificationsConnection as Connection,
   NotificationsProvider as Provider,
 } from "../api/gen/model";
-import { type Clock, countWords, laterWords, pastAtWords, sinceWords } from "../format";
+import { countWords } from "../format";
+import type { Clock } from "../ui/clock";
+import { whenWords } from "../ui/time-words";
 
 const connectionNoun = { one: "connection", many: "connections" } as const;
 
@@ -32,10 +34,10 @@ function onWords(connections: readonly Connection[]): string {
 function troubleWords(label: string, connection: Connection, clock: Clock): string | undefined {
   const { shown, since, until } = connection.status;
   if (shown === "failing" && since !== null) {
-    return `Messages to ${label} have failed since ${sinceWords(since, clock)}.`;
+    return `Messages to ${label} have failed ${whenWords(since, "since", clock)}.`;
   }
   if (shown === "waiting" && until !== null) {
-    return `Messages to ${label} wait until ${laterWords(until, clock).words}.`;
+    return `Messages to ${label} wait ${whenWords(until, "until", clock)}.`;
   }
   if (shown === "paused") {
     return `${label} is paused.`;
@@ -83,12 +85,12 @@ const lines: {
   ok: {
     level: "ok",
     text: ({ lastSent }, clock) =>
-      lastSent === null ? "Nothing sent yet." : `Sent ${pastAtWords(lastSent, clock)}.`,
+      lastSent === null ? "Nothing sent yet." : `Sent ${whenWords(lastSent, "at", clock)}.`,
   },
   failing: {
     level: "warn",
     text: ({ since, reason }, clock) =>
-      since === null ? reason : `Failing since ${sinceWords(since, clock)}. ${reason}`,
+      since === null ? reason : `Failing ${whenWords(since, "since", clock)}. ${reason}`,
   },
   waiting: { level: "warn", text: ({ reason }) => reason },
   holding: { level: "warn", text: ({ reason }) => reason },

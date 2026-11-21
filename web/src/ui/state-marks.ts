@@ -10,14 +10,28 @@ import type { IconSvgElement } from "@hugeicons/react";
 
 import type { FilesState } from "../api/gen/model";
 import { FilesState as wireStates } from "../api/gen/zod/slipStream.schemas.zod";
+import type { Defines, Term } from "./defined";
 
 export type Tone = "quiet" | "neutral" | "live" | "fail" | "warn" | "met";
 
-export type StatusMark = {
-  readonly word: string;
+/** A state's word, with its definition when it's a technical state, which opens on hover and tap. */
+export type StatusMark = Term & {
   readonly icon: IconSvgElement;
   readonly tone: Tone;
 };
+
+/**
+ * Every state of S in the term the rest of the industry uses, with tones
+ * limited to T. Each state has a definition except the Plain ones, whose word
+ * needs none. Write one beside a screen's model, `as const satisfies
+ * TermsFor<WireState>`, and draw a state with `<Mark mark={terms[state]} />`.
+ * A wire state added later fails the build until it has a row.
+ */
+export type TermsFor<S extends string, T extends Tone = Tone, Plain extends S = never> = Defines<
+  S,
+  StatusMark & { readonly tone: T },
+  Plain
+>;
 
 /** A state's mark with its 16px square and its state bar segment, as DESIGN.md draws them. */
 export type StateMark = StatusMark & { readonly square: string; readonly bar: string };

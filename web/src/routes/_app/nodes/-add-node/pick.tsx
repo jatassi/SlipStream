@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import type { NodesBoardNode, NodesNode, NodesRoleBoard } from "../../../../api/gen/model";
 import { type Draft, assignmentOf } from "../../../../nodes/roles";
-import { useNow } from "../../../../tasks/use-now";
+import { useClock } from "../../../../ui/clock";
 import { Button } from "../../../../ui/button";
 import { useShell } from "../../../../ui/shell-context";
 import { RoleGroups } from "../-roles/groups";
@@ -46,7 +46,7 @@ export function Pick({ board, seat, node, onClose, onApplied }: PickProps) {
   const [picked, setDraft] = useState<Draft>();
   const draft = picked ?? new Set(seat.suggested);
   const [reviewing, setReviewing] = useState<Change>();
-  const now = useNow(60_000);
+  const clock = useClock();
   return (
     <div className="flex flex-col gap-4">
       <p className="text-ink-2">
@@ -57,7 +57,7 @@ export function Pick({ board, seat, node, onClose, onApplied }: PickProps) {
         seat={seat}
         node={node}
         draft={draft}
-        clock={{ now, zone: undefined }}
+        clock={clock}
         onDraft={setDraft}
       />
       <Actions

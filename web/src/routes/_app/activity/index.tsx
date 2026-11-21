@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_app/activity/")({
       ensureQuery(queryClient, getListQualitiesSuspenseQueryOptions()),
       ensureQuery(queryClient, getListTransfersSuspenseQueryOptions()),
     ]),
-  pendingComponent: () => <Skeleton label="Loading Jobs" />,
+  pendingComponent: () => <Skeleton label="Loading Jobs" shape="rows" lines={2} />,
   component: JobsPage,
 });
 

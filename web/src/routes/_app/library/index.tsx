@@ -2,14 +2,14 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 
 import { useListContentTypesSuspense } from "../../../api/gen/query/works/works";
 import {
+  LibraryPending,
   RoutedLibrary,
   librarySwitches,
   librarySearch,
   rememberedSearch,
 } from "../../../library/routed";
-import { Empty } from "../../../shell/empty";
 import { Page } from "../../../shell/page";
-import { Skeleton } from "../../../ui/skeleton";
+import { Empty } from "../../../ui/empty";
 import { enabledTypes } from "../../../works/fields";
 import { AddButton, AddMenu } from "./-add-menu";
 import { libraryReads } from "./-view";
@@ -27,9 +27,13 @@ export const Route = createFileRoute("/_app/library/")({
     }
   },
   loader: ({ context }) => libraryReads(context.queryClient),
-  pendingComponent: () => <Skeleton label="Loading the Library" />,
+  pendingComponent: Pending,
   component: Library,
 });
+
+function Pending() {
+  return <LibraryPending search={Route.useSearch()} />;
+}
 
 function Library() {
   const navigate = useNavigate();
@@ -49,9 +53,12 @@ function Library() {
         }}
         empty={
           enabled.length === 0 ? (
-            <Empty>Nothing in the library yet. Turn on a kind of media in Settings to start.</Empty>
+            <Empty look="sheet">
+              Nothing in the library yet. Turn on a kind of media in Settings to start.
+            </Empty>
           ) : (
             <Empty
+              look="sheet"
               action={
                 <div className="flex flex-wrap gap-2">
                   {enabled.map((type) => (

@@ -2,8 +2,8 @@ import { type ReactNode, useState } from "react";
 
 import { DialogActions } from "../account/dialog-actions";
 import { isApiError, sentenceOf } from "../api/errors";
-import { AlertLine } from "../ui/alert-line";
 import { Button, type ButtonLook } from "../ui/button";
+import { SignalLine } from "../ui/signal-line";
 
 // A save can refuse with a sentence of its own, as a ConfirmDialog's action can.
 export const refusalOf = (error: unknown): string =>
@@ -31,7 +31,12 @@ export function useAttempt(action: () => Promise<unknown>): Attempt {
   };
   return {
     busy,
-    failure: failure === undefined ? null : <AlertLine text={failure} />,
+    failure:
+      failure === undefined ? null : (
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
+      ),
     run: () => void attempt(),
   };
 }

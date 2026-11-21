@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/media-servers")({
       ensureQuery(queryClient, getListMediaServerKindsSuspenseQueryOptions()),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading Media Servers" />,
+  pendingComponent: () => <Skeleton label="Loading Media Servers" shape="rows" lines={2} />,
   errorComponent: NodeProblem,
   component: function MediaServers() {
     return (

@@ -9,6 +9,8 @@ import { noPasskeys, problem, signedInAsGrace, signedOut, startedAt } from "../t
 import { liveServer, synced } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 import { worker } from "../test/worker";
+// oxlint-disable-next-line import/max-dependencies -- the page reads status, the Superseded view, the live socket and the clock
+import { whenWords } from "../ui/time-words";
 
 const fenced = getGetStatusMockHandler({
   claim: "controller",
@@ -28,6 +30,11 @@ const proven: SupersededView = {
 
 const title = "This Controller was replaced";
 
+const fencedWords = () => {
+  const words = whenWords(fencedAt, "at", { now: new Date(), zone: undefined });
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+};
+
 function wipes() {
   const sent: unknown[] = [];
   const handler = http.post("*/api/v1/superseded/wipe", async ({ request }) => {
@@ -46,7 +53,7 @@ test.each(["/", "/nodes", "/sign-in", "/activity"])(
     await expect
       .element(
         page.getByText(
-          /^(?:Today|Yesterday) at \d\d:\d\d, a Backup of this library was restored on the Controller at 192\.168\.1\.20\. This Controller's torrents are paused and its searches have stopped\.$/u,
+          `${fencedWords()}, a Backup of this library was restored on the Controller at 192.168.1.20. This Controller's torrents are paused and its searches have stopped.`,
         ),
       )
       .toBeVisible();
@@ -69,7 +76,9 @@ test("Wipe and join sends the Join Code once confirmed, then waits for the resta
   await userEvent.click(page.getByRole("button", { name: "Wipe and join as a Worker" }));
   await expect.element(page.getByRole("dialog", { name: "Wipe this Controller?" })).toBeVisible();
   expect(sent).toEqual([]);
-  await userEvent.click(page.getByRole("button", { name: "Wipe and join" }));
+  await userEvent.click(
+    page.getByRole("dialog").getByRole("button", { name: "Wipe and join as a Worker" }),
+  );
   await expect
     .element(
       page.getByText(
@@ -97,7 +106,9 @@ test("a damaged Join Code shows on the field and nothing is wiped", async () => 
   });
   await userEvent.fill(page.getByLabelText("Join Code"), "SLJ1-AB");
   await userEvent.click(page.getByRole("button", { name: "Wipe and join as a Worker" }));
-  await userEvent.click(page.getByRole("button", { name: "Wipe and join" }));
+  await userEvent.click(
+    page.getByRole("dialog").getByRole("button", { name: "Wipe and join as a Worker" }),
+  );
   await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
   await expect
     .element(page.getByText("The Join Code is mistyped, cut short or not a SlipStream code"))
@@ -134,15 +145,15 @@ test("Details names the new Controller's key and the Worker that said so, and Re
   await expect.element(page.getByRole("heading", { name: title })).not.toBeInTheDocument();
 });
 
-test("a Controller stopped by hand says an Admin stopped it", async () => {
+test.each(["retired", "stopped"] as const)("a Controller says an Admin %s it", async (state) => {
   renderApp({
     path: "/superseded",
-    handlers: [fenced, getGetSupersededMockHandler({ state: "retired", at: fencedAt })],
+    handlers: [fenced, getGetSupersededMockHandler({ state, at: fencedAt })],
   });
   await expect
     .element(
       page.getByText(
-        /^(?:Today|Yesterday) at \d\d:\d\d, an Admin stopped this Controller\. Its torrents are paused and its searches have stopped\.$/u,
+        `${fencedWords()}, an Admin ${state} this Controller. Its torrents are paused and its searches have stopped.`,
       ),
     )
     .toBeVisible();

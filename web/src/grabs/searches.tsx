@@ -1,9 +1,9 @@
 import type { GrabsGrab, GrabsSearch } from "../api/gen/model";
 import { useListGrabsSuspense, useListSearchesSuspense } from "../api/gen/query/grabs/grabs";
-import { clock } from "../format";
 import { useTester } from "../formats/tester-dialog";
 import type { WorkRef } from "../formats/testing";
-import { Data } from "../ui/data";
+import { RelativeTime } from "../ui/relative-time";
+import { Empty } from "../ui/empty";
 import { List, ListRow } from "../ui/list";
 import { Section } from "../ui/section";
 import { Spinner } from "../ui/spinner";
@@ -52,7 +52,7 @@ function RunDetails({ search, releases, onTest }: Omit<Run, "grab">) {
 function SearchRow({ search, grab, releases, onTest }: Run) {
   const time = (
     <span className="text-meta">
-      <Data>{clock(search.startedAt)}</Data>
+      <RelativeTime at={search.startedAt} form="clock" data />
     </span>
   );
   const stage = grab !== undefined && (
@@ -108,7 +108,7 @@ export function Searches({ work }: { work: WorkRef }) {
   return (
     <Section title="Searches" count={searches.length}>
       {searches.length === 0 ? (
-        <p className="text-ink-3">No searches yet. Search looks for a Release on every Indexer.</p>
+        <Empty look="sheet">No searches yet. Search looks for a Release on every Indexer.</Empty>
       ) : (
         <List label="Searches">
           {searches.map((search) => (

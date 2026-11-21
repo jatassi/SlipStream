@@ -5,6 +5,7 @@ import { sentenceOf } from "../api/errors";
 import { actOnTorrents } from "../api/gen/query/downloadclients/downloadclients";
 import { Checkbox } from "../ui/checkbox";
 import { ConfirmDialog } from "../ui/confirm-dialog";
+import { SignalLine } from "../ui/signal-line";
 import { Spinner } from "../ui/spinner";
 import type { Subject } from "./actions";
 import { type Parting, Preview, SpaceNote, freesWords, list } from "./remove-preview";
@@ -87,7 +88,11 @@ export function RemoveDialog({
     >
       <p>{kept === undefined ? partingWords[parting](frees) : stopsTrackingWords(kept)}</p>
       {preview.isPending && <Spinner label="Checking what this changes" />}
-      {preview.isError && <p className="text-fail-ink">{sentenceOf(preview.error)}</p>}
+      {preview.isError && (
+        <SignalLine tone="fail" announce>
+          {sentenceOf(preview.error)}
+        </SignalLine>
+      )}
       {preview.data !== undefined && (
         <Preview parting={parting} acted={preview.data} subjects={subjects} work={work} />
       )}

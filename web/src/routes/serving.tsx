@@ -9,7 +9,6 @@ import {
 import { ensureQuery } from "../api/query-client";
 import { requireEntry } from "../session/gate";
 import { statusQuery } from "../session/session";
-import { useNow } from "../tasks/use-now";
 import { UnreachableCard } from "./-setup/unreachable-card";
 
 const recheckMs = 5000;
@@ -27,11 +26,10 @@ function Serving() {
   const { data } = useGetServingSuspense();
   const answered = useQuery({ ...statusQuery, refetchInterval: recheckMs, retry: false }).isSuccess;
   const navigate = useNavigate();
-  const now = useNow(recheckMs);
   useEffect(() => {
     if (answered) {
       void navigate({ to: "/", replace: true });
     }
   }, [answered, navigate]);
-  return <UnreachableCard data={data} now={now} />;
+  return <UnreachableCard data={data} />;
 }

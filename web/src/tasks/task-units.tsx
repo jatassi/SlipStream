@@ -1,6 +1,6 @@
 import type { TasksUnit } from "../api/gen/model";
-import { type Clock, sinceWords } from "../format";
-import { Data } from "../ui/data";
+import type { Clock } from "../ui/clock";
+import { PlainTime } from "../ui/relative-time";
 import { Section } from "../ui/section";
 import { type Column, Table } from "../ui/table";
 import { NodeName } from "./node-name";
@@ -37,7 +37,7 @@ function columnsOf(clock: Clock): readonly [Column<TasksUnit>, ...Column<TasksUn
         unit.lastSuccessAt === null ? (
           <span className="text-ink-3">Never</span>
         ) : (
-          <Data>{sinceWords(unit.lastSuccessAt, clock)}</Data>
+          <PlainTime at={unit.lastSuccessAt} form="clock" zone={clock.zone} data />
         ),
     },
     {

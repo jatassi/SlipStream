@@ -6,12 +6,9 @@ import { bytes } from "../format";
 import { useLiveRow } from "../live/torrents";
 import { paceOf } from "../torrents/model";
 import { Data } from "../ui/data";
-import { LiveBar } from "../ui/live-bar";
+import { ProgressCell as Cell, percentOf } from "../ui/progress";
 import { MetadataCell } from "./metadata-cell";
 import { movesBytes, stageWord } from "./stages";
-
-const percent = ({ done, total }: { done: number; total: number }) =>
-  total === 0 ? 0 : Math.floor((done / total) * 100);
 
 function Progress({
   grab,
@@ -22,21 +19,21 @@ function Progress({
   progress: { done: number; total: number };
   pace: string;
 }) {
-  const shown = percent(progress);
   return (
-    <span className="flex max-w-[240px] flex-col gap-1.5">
-      <span className="flex items-baseline justify-between gap-3 text-meta text-ink-3">
-        <Data className="text-ink-1">{shown}%</Data>
-        {pace === "" ? (
-          <span>
+    <Cell
+      label={`${stageWord[grab.stage]} ${grab.releaseTitle}`}
+      value={percentOf(progress.done, progress.total, 0)}
+      motion="live"
+      note={
+        pace === "" ? (
+          <>
             <Data>{bytes(progress.done)}</Data> of <Data>{bytes(progress.total)}</Data>
-          </span>
+          </>
         ) : (
-          <Data className="truncate">{pace}</Data>
-        )}
-      </span>
-      <LiveBar label={`${stageWord[grab.stage]} ${grab.releaseTitle}`} value={shown} />
-    </span>
+          <Data>{pace}</Data>
+        )
+      }
+    />
   );
 }
 

@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/logs")({
   staticData: { title: section.label },
   loader: ({ context, params }) =>
     ensureQuery(context.queryClient, getGetNodeConfigSuspenseQueryOptions(params.nodeId)),
-  pendingComponent: () => <Skeleton label="Loading the log" />,
+  pendingComponent: () => <Skeleton label="Loading the log" shape="rows" lines={1} />,
   errorComponent: NodeProblem,
   component: function Logs() {
     const { nodeId } = Route.useParams();

@@ -9,7 +9,9 @@ import type {
   SubtitlesWantView,
   TargetsWantedLanguage,
 } from "../api/gen/model";
-import { type Clock, agoWords, atWords, countWords, laterAtWords } from "../format";
+import { countWords } from "../format";
+import type { Clock } from "../ui/clock";
+import { whenWords } from "../ui/time-words";
 import { waitsForScan } from "./scan-words";
 
 const languageNames = new Intl.DisplayNames(["en"], { type: "language" });
@@ -45,7 +47,7 @@ export const providerName = (providers: readonly SubtitlesProvider[], id: string
   providers.find((provider) => provider.id === id)?.name ?? id;
 
 const againAt = (next: string | null, clock: Clock) =>
-  next === null ? "" : ` SlipStream searches again ${laterAtWords(next, clock)}.`;
+  next === null ? "" : ` SlipStream searches again ${whenWords(next, "next", clock)}.`;
 
 const either = new Intl.ListFormat("en", { type: "disjunction" });
 const both = new Intl.ListFormat("en", { type: "conjunction" });
@@ -68,7 +70,7 @@ function uncoveredWords({ providers, noun, kind }: Reading): string {
 function pausedWords({ providers, kind, clock }: Reading): string {
   const out = providers.flatMap((provider) =>
     provider.kinds.includes(kind) && provider.state.until !== null
-      ? [`${provider.name}'s limit resets ${laterAtWords(provider.state.until, clock)}`]
+      ? [`${provider.name}'s limit resets ${whenWords(provider.state.until, "next", clock)}`]
       : [],
   );
   return out.length === 0
@@ -83,8 +85,7 @@ function dueWords(next: string | null, clock: Clock): string {
   if (next === null || new Date(next) <= clock.now) {
     return "Due in the next Subtitle search.";
   }
-  const at = atWords(next, clock);
-  return `Due in the next Subtitle search, ${at.charAt(0).toLowerCase()}${at.slice(1)}.`;
+  return `Due in the next Subtitle search, ${whenWords(next, "next", clock)}.`;
 }
 
 const noAudioWords =
@@ -104,12 +105,12 @@ const missingLines: {
   map_failed: ({ state }, { noAudio, clock }) =>
     noAudio
       ? noAudioWords
-      : `SlipStream couldn't read this file's audio.${state.next === null ? "" : ` It tries again ${laterAtWords(state.next, clock)}.`}`,
+      : `SlipStream couldn't read this file's audio.${state.next === null ? "" : ` It tries again ${whenWords(state.next, "next", clock)}.`}`,
   map_due: (_view, { noAudio }) => (noAudio ? noAudioWords : waitsForScan),
   none_passed: ({ state, last }, { clock }) =>
-    `${foundWords(last)}, and none matched this file's timing.${state.next === null ? " You can upload one." : ` SlipStream searches again ${laterAtWords(state.next, clock)}, or you can upload one.`}`,
+    `${foundWords(last)}, and none matched this file's timing.${state.next === null ? " You can upload one." : ` SlipStream searches again ${whenWords(state.next, "next", clock)}, or you can upload one.`}`,
   nothing_found: ({ state, last }, { clock }) =>
-    `No subtitle was found${last === null ? "" : ` ${agoWords(last.at, clock.now)}`}.${againAt(state.next, clock)}`,
+    `No subtitle was found${last === null ? "" : ` ${whenWords(last.at, "ago", clock)}`}.${againAt(state.next, clock)}`,
   never_searched: ({ state }, { clock }) => dueWords(state.next, clock),
 };
 
@@ -183,7 +184,11 @@ export const rowWords: { readonly [S in RowState]: string } = {
 };
 
 /** One timing fact under a subtitle's Details. */
-export type Fact = { readonly label: string; readonly value: string; readonly hover?: string };
+export type SubtitleFact = {
+  readonly label: string;
+  readonly value: string;
+  readonly hover?: string;
+};
 
 const seconds = new Intl.NumberFormat("en", {
   minimumFractionDigits: 1,
@@ -202,7 +207,7 @@ function framerateWords(ratio: number, frameRate: number): string {
 }
 
 /** The Timing sync numbers, with the Splits hover, as the spec's Details list reads them. */
-export function fitFacts(fit: SubtitlesFit, frameRate: number): readonly Fact[] {
+export function fitFacts(fit: SubtitlesFit, frameRate: number): readonly SubtitleFact[] {
   return [
     { label: "Offset", value: `${seconds.format(fit.offsetMs / 1000)} s` },
     { label: "Framerate", value: framerateWords(fit.ratio, frameRate) },

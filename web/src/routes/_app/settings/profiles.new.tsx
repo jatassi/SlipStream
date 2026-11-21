@@ -9,10 +9,9 @@ import {
   useListContentTypesSuspense,
 } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
 import { NewProfileEditor } from "../../../targets/profile-editor";
-import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/settings/profiles/new")({
   staticData: { title: loaderTitle },
@@ -30,7 +29,7 @@ export const Route = createFileRoute("/_app/settings/profiles/new")({
       ],
     };
   },
-  pendingComponent: () => <Skeleton label="Loading the Profile editor" />,
+  pendingComponent: () => <PagePending label="Loading the Profile editor" shape="form" />,
   component: NewProfilePage,
 });
 

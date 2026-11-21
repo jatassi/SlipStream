@@ -314,7 +314,7 @@ func TestACellAGrabFetchesReadsItsReleaseInWords(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 9, "a")}}}})
 		v := a.searchedByHand(t)
-		words := v.Plan.Rows[0].Pick.Release.Words
+		words := v.Plan.Rows[0].Pick.Release.Summary.Words()
 		id := made(t, a.grabbed(t, v, rowPick(t, v))[0])
 
 		after, err := a.g.ManualSearch(t.Context(), identity.Admin{}, a.work, nil)
@@ -324,8 +324,8 @@ func TestACellAGrabFetchesReadsItsReleaseInWords(t *testing.T) {
 		if want := "A Grab is fetching " + words + " for HD."; len(after.Plan.Held) != 1 || after.Plan.Held[0].Words != want {
 			t.Fatalf("the held cells read %+v, want one reading %q", after.Plan.Held, want)
 		}
-		if g := a.view(t, id); g.ReleaseWords != words {
-			t.Fatalf("the Grab's Release reads %q, want %q", g.ReleaseWords, words)
+		if g := a.view(t, id); g.ReleaseSummary.Words() != words {
+			t.Fatalf("the Grab's Release reads %q, want %q", g.ReleaseSummary.Words(), words)
 		}
 	})
 }

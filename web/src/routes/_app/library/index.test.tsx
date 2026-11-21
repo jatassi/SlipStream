@@ -30,9 +30,15 @@ test("the Library draws each Work as a poster under its letter, and adds a Work"
   await expect
     .element(page.getByRole("link", { name: "The Quiet Orchard" }))
     .toHaveAttribute("href", `/works/${orchardId}`);
-  await expect.element(card("The Quiet Orchard")).toHaveTextContent("The Quiet Orchard2021Missing");
-  await expect.element(card(harvest.label)).toHaveTextContent("Orchard Harvest2019Met");
-  await expect.element(card(ember.label)).toHaveTextContent("Ember Lane2024Failed 1Not monitored");
+  await expect
+    .element(card("The Quiet Orchard"))
+    .toHaveTextContent("The Quiet OrchardThe Quiet Orchard2021Missing");
+  await expect
+    .element(card(harvest.label))
+    .toHaveTextContent("Orchard HarvestOrchard Harvest2019Met");
+  await expect
+    .element(card(ember.label))
+    .toHaveTextContent("Ember LaneEmber Lane2024Failed 1Not monitored");
 
   await userEvent.click(page.getByRole("banner").getByRole("button", { name: "Add" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Add a film" }));

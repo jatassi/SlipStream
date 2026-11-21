@@ -1,12 +1,12 @@
 import type { GrabsMetadataSearch } from "../api/gen/model";
-import { countWords, sinceWords } from "../format";
-import { useNow } from "../tasks/use-now";
-import { Data } from "../ui/data";
+import { countWords } from "../format";
+import { useClock } from "../ui/clock";
+import { whenWords } from "../ui/time-words";
 
 const peer = { one: "peer", many: "peers" };
 
 export function MetadataCell({ search }: { search: GrabsMetadataSearch }) {
-  const reading = { now: useNow(60_000), zone: undefined };
+  const clock = useClock();
   return (
     <span className="flex max-w-[240px] flex-col gap-0.5">
       <span>
@@ -15,7 +15,7 @@ export function MetadataCell({ search }: { search: GrabsMetadataSearch }) {
           : `Getting metadata from ${countWords(search.peers, peer)}`}
       </span>
       <span className="text-meta text-ink-3">
-        Fails at <Data>{sinceWords(search.endsAt, reading)}</Data> if no peer sends the metadata
+        Fails {whenWords(search.endsAt, "at", clock)} if no peer sends the metadata
       </span>
     </span>
   );

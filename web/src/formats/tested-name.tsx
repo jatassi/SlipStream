@@ -4,6 +4,8 @@ import type { FormatsExplained, FormatsParsed, FormatsReadFacts } from "../api/g
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { Empty } from "../ui/empty";
+import { Fact, Facts } from "../ui/facts";
 import {
   conditionNotes,
   conditionResult,
@@ -22,21 +24,22 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function Facts({ facts }: { facts: FormatsReadFacts }) {
+export function ReadFacts({ facts }: { facts: FormatsReadFacts }) {
   const rows = factRows(facts);
   return (
     <Part title="What it reads as">
       {rows.length === 0 ? (
         <p>SlipStream found no quality, source or other facts in this name.</p>
       ) : (
-        <dl className="grid self-start grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-item bg-well px-3 py-2">
-          {rows.map(({ label, value }) => (
-            <div key={label} className="contents">
-              <dt className="text-ink-3">{label}</dt>
-              <dd className="wrap-anywhere">{label === "Titles" ? value : <Data>{value}</Data>}</dd>
-            </div>
-          ))}
-        </dl>
+        <div className="self-start">
+          <Facts look="well">
+            {rows.map(({ label, value }) => (
+              <Fact key={label} label={label}>
+                {label === "Titles" ? value : <Data>{value}</Data>}
+              </Fact>
+            ))}
+          </Facts>
+        </div>
       )}
     </Part>
   );
@@ -72,7 +75,7 @@ function Formats({ formats }: { formats: readonly FormatsExplained[] }) {
   const { shown, others } = formatGroups(formats);
   return (
     <Part title="Custom Formats">
-      {formats.length === 0 && <p>No Custom Formats yet.</p>}
+      {formats.length === 0 && <Empty look="inline">No Custom Formats yet.</Empty>}
       {shown.length > 0 && (
         <ul aria-label="Custom Formats it matches" className="flex flex-col gap-2">
           {shown.map((format) => (
@@ -89,7 +92,7 @@ function Targets({ result }: { result: FormatsParsed }) {
   return (
     <Part title="Targets">
       {result.targets.length === 0 ? (
-        <p>No Target is set up.</p>
+        <Empty look="inline">No Target is set up.</Empty>
       ) : (
         <ul aria-label="Targets" className="flex flex-col gap-2">
           {result.targets.map((target) => (
@@ -122,7 +125,7 @@ export function TestedName({ result }: { result: FormatsParsed }) {
         action={<Data className="wrap-anywhere text-ink-3">{result.name}</Data>}
       >
         <div className="mt-1 flex flex-col gap-4">
-          <Facts facts={result.facts} />
+          <ReadFacts facts={result.facts} />
           <Formats formats={result.formats} />
           <Targets result={result} />
         </div>

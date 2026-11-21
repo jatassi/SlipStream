@@ -1,7 +1,7 @@
 import type { NodesNode } from "../../../api/gen/model";
 import { PendingRestart } from "../../../nodes/node-setting";
-import { Empty } from "../../../shell/empty";
 import { Details } from "../../../ui/details";
+import { Empty } from "../../../ui/empty";
 import { Section } from "../../../ui/section";
 import { NodeSettings } from "./-config";
 
@@ -21,7 +21,7 @@ export function TorrentConnection({ node, online }: { node: NodesNode; online: b
           </Details>
         </div>
       ) : (
-        <Empty>
+        <Empty look="sheet">
           {node.name} is offline. Its listen address and downloads folder show here when it
           reconnects.
         </Empty>

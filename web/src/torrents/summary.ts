@@ -1,5 +1,6 @@
 import type { DownloadclientsCounts } from "../api/gen/model";
-import { type Clock, sinceWords } from "../format";
+import type { Clock } from "../ui/clock";
+import { whenWords } from "../ui/time-words";
 import type { StatusPart } from "../ui/status-sentence";
 import type { Row, State } from "./model";
 
@@ -75,7 +76,7 @@ function warningOf(row: Row, host: string, node: string, clock: Clock): Cause {
     signal: "warn",
     chip: "Announce error",
     verdict: `${said === undefined ? `${host} isn't responding.` : `${host} reported "${said}".`}${
-      retry === undefined ? "" : ` The client retries at ${sinceWords(retry, clock)}.`
+      retry === undefined ? "" : ` The client retries ${whenWords(retry, "at", clock)}.`
     }`,
   };
 }

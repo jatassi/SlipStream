@@ -1,8 +1,8 @@
-import { AlertLine } from "../ui/alert-line";
 import { Data } from "../ui/data";
 import { FileField } from "../ui/file-field";
-import { LiveBar } from "../ui/live-bar";
+import { ProgressBar } from "../ui/progress";
 import type { RestoreFlow, RestoreStep } from "./flow";
+import { SignalLine } from "../ui/signal-line";
 
 const backupFile = ".age,application/octet-stream";
 
@@ -19,14 +19,22 @@ export function UploadStep({
         <p>
           Uploading <Data>{step.name}</Data>…
         </p>
-        <LiveBar label="Uploading the Backup" value={Math.round(step.sent * 100)} />
+        <ProgressBar
+          label="Uploading the Backup"
+          value={Math.floor(step.sent * 100)}
+          motion="live"
+        />
       </div>
     );
   }
   return (
     <div className="flex flex-col gap-3">
       <FileField label="Backup file" accept={backupFile} onFile={flow.upload} />
-      {step.refusal !== undefined && <AlertLine text={step.refusal} />}
+      {step.refusal !== undefined && (
+        <SignalLine tone="fail" announce>
+          {step.refusal}
+        </SignalLine>
+      )}
     </div>
   );
 }

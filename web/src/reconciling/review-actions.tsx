@@ -101,8 +101,8 @@ function ForgetGroup({ group }: { group: ReconcilingGroup }) {
         onConfirm={() => forget(group.count, { reason: group.reason, found: group.found })}
       >
         <p>
-          SlipStream removes their records and will look for their files again. A Node that reports
-          one of them later takes it off this list.
+          SlipStream removes their records and will look for their files again. If a Node later has
+          one of them, SlipStream takes it off this list.
         </p>
       </ConfirmDialog>
     </>

@@ -9,7 +9,7 @@ import {
   listJoinCodes,
   useListNodesSuspense,
 } from "../../../../api/gen/query/nodes/nodes";
-import { useNow } from "../../../../tasks/use-now";
+import { useNow } from "../../../../ui/clock";
 import { type AddNodeState, type CodeAnswer, addNodeState } from "./state";
 
 /**
@@ -40,7 +40,7 @@ function answerOf({
 
 /** The Join Code the dialog follows, where it stands, and the codes still open beside it. */
 export function useCode(id: string, minted: NodesJoinCode | undefined) {
-  const now = useNow(1000);
+  const now = useNow("second");
   const { nodes } = useListNodesSuspense().data;
   const code = useQuery({
     queryKey: getGetJoinCodeQueryKey(id),

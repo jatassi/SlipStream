@@ -13,7 +13,7 @@ export const RetireControllerResponse = zod.void();
 export const GetSupersededResponse = SupersededView;
 
 /**
- * @summary Resume this Controller, so no earlier proof of a restore fences it again
+ * @summary Resume this Controller, so an earlier proof of a restore can't stop it again
  */
 export const ResumeSupersededControllerResponse = zod.void();
 

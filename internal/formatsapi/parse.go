@@ -154,7 +154,7 @@ func (h handlers) draftOf(ctx context.Context, by identity.Admin, d draft) (form
 
 func parsedOf(t grabs.Tried, d *formats.Format) parsed {
 	out := parsed{
-		Name: t.Name, Sentence: t.Sentence, Words: release.Describe(t.Read), Facts: factsOf(t.Read),
+		Name: t.Name, Sentence: t.Sentence, Words: release.Summarize(t.Read).Words(), Facts: factsOf(t.Read),
 		Works: make([]workRef, len(t.Works)), Covers: make([]string, len(t.Covers)),
 		Formats: make([]explained, len(t.Formats)), Targets: make([]triedTarget, len(t.Targets)),
 	}

@@ -1,41 +1,28 @@
-import { type ReactNode, useId } from "react";
+import { useId } from "react";
 
 import { Button } from "./button";
-import { Data } from "./data";
+import { Fact, type FactRow, Facts } from "./facts";
 import { Menu } from "./menu";
+import { RelativeTime } from "./relative-time";
 import { useShell } from "./shell-context";
 import { SignalChip } from "./signal-chip";
 import { type Stage, StageTrack, stageLabel } from "./stage-track";
-import { WarningLine, type WarningLineProps } from "./warning-line";
 
 export type CardAction = { label: string; onClick: () => void };
-
-export type Fact = { label: string; value: ReactNode };
 
 type Form = "full" | "compact" | "phone";
 
 const noActions: readonly CardAction[] = [];
 
-function Facts({ facts, columns }: { facts: readonly Fact[]; columns: "pair" | "one" }) {
+function CardFacts({ facts }: { facts: readonly FactRow[] }) {
   return (
-    <dl
-      className={
-        columns === "pair"
-          ? "grid grid-cols-[max-content_minmax(0,78ch)] gap-x-4 gap-y-2"
-          : "flex flex-col gap-1"
-      }
-    >
+    <Facts look="failure">
       {facts.map(({ label, value }) => (
-        <div key={label} className="contents">
-          <dt className="pt-px text-label-caps text-fail-ink uppercase">{label}</dt>
-          <dd
-            className={`wrap-anywhere text-fail-text ${columns === "one" ? "mb-2 last:mb-0" : ""}`}
-          >
-            {value}
-          </dd>
-        </div>
+        <Fact key={label} label={label}>
+          {value}
+        </Fact>
       ))}
-    </dl>
+    </Facts>
   );
 }
 
@@ -88,7 +75,12 @@ function Work({
         {work}
       </h3>
       {track && (
-        <StageTrack title={work} progress={{ kind: "failed", stage }} skipped={track.skipped} />
+        <StageTrack
+          title={work}
+          progress={{ kind: "failed", stage }}
+          skipped={track.skipped}
+          labels="ends"
+        />
       )}
     </div>
   );
@@ -96,26 +88,25 @@ function Work({
 
 export type FailureCardProps = {
   stage: Stage;
-  time: string;
+  /** The instant it failed. */
+  at: string;
   work: string;
-  facts: readonly Fact[];
+  facts: readonly FactRow[];
   fix: CardAction;
   actions?: readonly CardAction[];
   track?: { skipped: readonly Stage[] };
   form?: "full" | "compact";
-  warning?: WarningLineProps;
 };
 
 export function FailureCard({
   stage,
-  time,
+  at,
   work,
   facts,
   fix,
   actions = noActions,
   track,
   form = "full",
-  warning,
 }: FailureCardProps) {
   const shown: Form = useShell() === "phone" ? "phone" : form;
   const titleId = useId();
@@ -130,7 +121,9 @@ export function FailureCard({
     >
       <header className="flex flex-wrap items-center gap-3">
         <SignalChip kind="fail">Failed at {stageLabel[stage]}</SignalChip>
-        <Data className="text-fail-dim">{time}</Data>
+        <span className="text-fail-dim">
+          <RelativeTime at={at} form="clock" data />
+        </span>
         {shown === "full" && (
           <div className="ml-auto">
             <Actions fix={fix} actions={actions} />
@@ -140,17 +133,16 @@ export function FailureCard({
       {shown === "phone" ? (
         <div className="flex flex-col gap-3">
           {subject}
-          <Facts facts={facts} columns="one" />
+          <CardFacts facts={facts} />
           <PhoneActions fix={fix} actions={actions} />
         </div>
       ) : (
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-6">
           {subject}
-          <Facts facts={facts} columns="pair" />
+          <CardFacts facts={facts} />
         </div>
       )}
       {shown === "compact" && <Actions fix={fix} actions={actions} />}
-      {warning && <WarningLine {...warning} />}
     </article>
   );
 }

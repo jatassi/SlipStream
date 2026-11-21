@@ -21,6 +21,8 @@ export const Route = createFileRoute("/_app/reconciling/folders")({
       ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading the old Controller's folders" />,
+  pendingComponent: () => (
+    <Skeleton label="Loading the old Controller's folders" shape="rows" lines={2} />
+  ),
   component: FoldersStep,
 });

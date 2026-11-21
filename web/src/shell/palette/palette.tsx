@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 
 import { CommandPalette, CommandSearch, type PaletteGroup } from "../../ui/command-palette";
+import { chordOf } from "../../ui/kbd";
 import { addLabel, enabledTypes } from "../../works/fields";
 import { useAdminCommands, useCommandContext } from "../commands";
 import { useContentTypes } from "../nav";
 import {
   closePalette,
-  isPaletteShortcut,
   openPalette,
+  paletteShortcut,
   togglePalette,
   usePaletteOpen,
 } from "../palette-state";
@@ -27,7 +28,7 @@ export function Palette() {
   useEffect(() => closePalette, []);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!isPaletteShortcut(event) || (!open && anotherModalOpen())) {
+      if (chordOf(event) !== paletteShortcut.chord || (!open && anotherModalOpen())) {
         return;
       }
       event.preventDefault();

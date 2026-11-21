@@ -32,7 +32,7 @@ var KeepEach = setting.Count{
 }
 
 var CopyWaitLimit = setting.Duration{
-	Key: "backups.copyWaitLimit", Label: "A copy waits behind downloads for up to",
+	Key: "backups.copyWaitLimit", Label: "Let a copy wait for downloads for up to",
 	Default: 24 * time.Hour, Min: time.Hour, Max: 168 * time.Hour, Step: time.Hour,
 }
 
@@ -49,7 +49,7 @@ func seconds(n *int64, unit time.Duration) *int64 {
 	return new(*n * int64(unit/time.Second))
 }
 
-// CopyWaitLimitIn is A copy waits behind downloads for up to, read in r:
+// CopyWaitLimitIn is Let a copy wait for downloads for up to, read in r:
 // the transfers LowWait.
 func CopyWaitLimitIn(ctx context.Context, r storage.Reader[file]) (time.Duration, error) {
 	row, err := db.New(r).GetSettings(ctx)

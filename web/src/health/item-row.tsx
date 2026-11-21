@@ -1,5 +1,4 @@
 import type { HealthCategoryID, HealthItem } from "../api/gen/model";
-import { type Clock, sinceWords } from "../format";
 import { useShell } from "../ui/shell-context";
 import { SignalRow } from "../ui/signal-row";
 import { ItemBody } from "./item-body";
@@ -9,15 +8,13 @@ import { PhoneItem } from "./phone-item";
 export type ItemProps = {
   category: HealthCategoryID;
   item: HealthItem;
-  reading: Clock;
 };
 
-export function ItemRow({ category, item, reading }: ItemProps) {
-  const since = sinceWords(item.since, reading);
+export function ItemRow({ category, item }: ItemProps) {
   return (
     <div id={itemAnchor(category, item.key)} className="scroll-mt-20">
       {useShell() === "phone" ? (
-        <PhoneItem category={category} item={item} since={since} />
+        <PhoneItem category={category} item={item} />
       ) : (
         <SignalRow
           signal={item.level}
@@ -25,7 +22,7 @@ export function ItemRow({ category, item, reading }: ItemProps) {
           subject={item.subject}
           verdict={item.text}
           timeLead="since"
-          time={since}
+          at={item.since}
         >
           <ItemBody category={category} item={item} />
         </SignalRow>

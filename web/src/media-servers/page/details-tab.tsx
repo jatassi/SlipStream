@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 import type {
   MediaserversHolderView as Holder,
   MediaserversKindView as Kind,
@@ -9,9 +7,9 @@ import {
   useListMediaServerCredentialHoldersSuspense,
   useListMediaServerKindsSuspense,
 } from "../../api/gen/query/mediaservers/mediaservers";
-import { agoWords } from "../../format";
-import { KeyValues } from "../../routes/_app/nodes/-facts";
-import { useNow } from "../../tasks/use-now";
+import { Data } from "../../ui/data";
+import { Fact, Facts } from "../../ui/facts";
+import { RelativeTime } from "../../ui/relative-time";
 import { kindOf } from "../server-form";
 
 const fallbackWords: { readonly [F in Server["fallback"]]: string } = {
@@ -19,10 +17,6 @@ const fallbackWords: { readonly [F in Server["fallback"]]: string } = {
   none: "The Controller can't reach it",
   untested: "Not tested",
 };
-
-const minute = 60_000;
-
-const words = (text: string) => <span>{text}</span>;
 
 function Holders({ holders, kind }: { holders: readonly Holder[]; kind: Kind }) {
   return (
@@ -41,31 +35,42 @@ function Holders({ holders, kind }: { holders: readonly Holder[]; kind: Kind }) 
   );
 }
 
+const when = (iso: string | undefined) =>
+  iso === undefined ? "Never" : <RelativeTime at={iso} form="age" />;
+
 /** The machinery behind the server's state: its addresses, version, routes and who holds its key. */
 export function DetailsTab({ server }: { server: Server }) {
   const kind = kindOf(useListMediaServerKindsSuspense().data.kinds, server.kind);
   const { holders } = useListMediaServerCredentialHoldersSuspense(server.id).data;
-  const now = useNow(minute);
-  const when = (iso: string | undefined) => (iso === undefined ? "Never" : agoWords(iso, now));
-  const rows: (readonly [string, ReactNode])[] = [
-    ["Server", words(`${kind.label} ${server.version}`)],
-    ["Address", server.address],
-    ["Fallback address", server.fallbackAddress ?? words("Same as Address")],
-    ...(kind.browser ? [["Browser address", server.browserAddress ?? words("None")] as const] : []),
-    ["Connects from", words(server.reachingNode.name)],
-    ["Runs on", words(server.runsOnNode?.name ?? "No Node")],
-    ["Fallback", words(fallbackWords[server.fallback])],
-    ["Last contact", words(when(server.lastContactAt))],
-    ["Last send", words(when(server.lastSendAt))],
-    [
-      "Nodes with the key",
-      holders.length === 0 ? (
-        words("No Node")
-      ) : (
-        <Holders key="holders" holders={holders} kind={kind} />
-      ),
-    ],
-    ["Server Id", server.identity],
-  ];
-  return <KeyValues rows={rows} />;
+  return (
+    <Facts look="sheet">
+      <Fact label="Server">{`${kind.label} ${server.version}`}</Fact>
+      <Fact label="Address">
+        <Data>{server.address}</Data>
+      </Fact>
+      <Fact label="Fallback address">
+        {server.fallbackAddress === undefined ? (
+          "Same as Address"
+        ) : (
+          <Data>{server.fallbackAddress}</Data>
+        )}
+      </Fact>
+      {kind.browser && (
+        <Fact label="Browser address">
+          {server.browserAddress === undefined ? "None" : <Data>{server.browserAddress}</Data>}
+        </Fact>
+      )}
+      <Fact label="Connects from">{server.reachingNode.name}</Fact>
+      <Fact label="Runs on">{server.runsOnNode?.name ?? "No Node"}</Fact>
+      <Fact label="Fallback">{fallbackWords[server.fallback]}</Fact>
+      <Fact label="Last contact">{when(server.lastContactAt)}</Fact>
+      <Fact label="Last send">{when(server.lastSendAt)}</Fact>
+      <Fact label="Nodes with the key">
+        {holders.length === 0 ? "No Node" : <Holders holders={holders} kind={kind} />}
+      </Fact>
+      <Fact label="Server Id">
+        <Data>{server.identity}</Data>
+      </Fact>
+    </Facts>
+  );
 }

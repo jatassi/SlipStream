@@ -3,11 +3,13 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { IdentityLinkView } from "../api/gen/model";
-import { clock } from "../format";
 import { iPhonePasskey, passkeysAt, passkeysHere, recorder, stubPasskeys } from "../test/account";
 import { problem } from "../test/handlers";
 import { graceSignedIn, linkServer, liveLink } from "../test/links";
 import { renderApp } from "../test/render-app";
+import { whenWords } from "../ui/time-words";
+
+const own = () => ({ now: new Date(), zone: undefined });
 
 const sent = "2026-10-01T10:00:00Z";
 const expired = "2026-10-08T10:00:00Z";
@@ -23,13 +25,13 @@ test.each<[string, string, IdentityLinkView, string]>([
       issuedAt: sent,
       expiresAt: expired,
     },
-    `This link expired on ${clock(expired)}, 7 days after it was sent. Ask Ada Okafor for a new one.`,
+    `This link expired ${whenWords(expired, "at", own())}, 7 days after it was sent. Ask Ada Okafor for a new one.`,
   ],
   [
     "an expired Reset link the host command printed",
     "/reset#token=tok-1",
     { state: "dead", reason: "expired", issuedAt: sent, expiresAt: "2026-10-02T10:00:00Z" },
-    `This Reset link expired on ${clock("2026-10-02T10:00:00Z")}, 24 hours after it was sent. Ask your Admin for a new one.`,
+    `This Reset link expired ${whenWords("2026-10-02T10:00:00Z", "at", own())}, 24 hours after it was sent. Ask your Admin for a new one.`,
   ],
   [
     "a withdrawn confirm link",

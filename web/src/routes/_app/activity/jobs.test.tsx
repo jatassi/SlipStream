@@ -99,6 +99,8 @@ const sentence = () => page.getByRole("paragraph").filter({ hasText: "in progres
 const quietOrchard = () => page.getByRole("row", { name: /^The Quiet Orchard /u });
 const harvestCard = () => page.getByRole("article", { name: "Orchard Harvest" });
 
+const webdl = "The video is downloaded from a streaming service exactly as the service sends it.";
+
 test("Activity leads with what moves and what failed, then the failure, then each job", async () => {
   renderApp({ path: "/activity", handlers: activityServer().handlers });
   await expect.element(page.getByRole("heading", { name: "Activity" })).toBeVisible();
@@ -114,6 +116,7 @@ test("Activity leads with what moves and what failed, then the failure, then eac
     .element(harvestCard())
     .toMatchTextContent(
       "Orchard Harvest" +
+        "SearchingAvailable" +
         "Cause" +
         "SlipStream couldn't download the release's .torrent file or magnet link from the Indexer." +
         "Recovery" +
@@ -132,6 +135,9 @@ test("Activity leads with what moves and what failed, then the failure, then eac
     .toMatchTextContent(
       "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLWEBDL-1080p1080pDownloading25%175 MB of 700 MB",
     );
+  await expect
+    .element(quietOrchard().getByRole("button", { name: "WEBDL-1080p" }))
+    .toHaveAccessibleDescription(webdl);
   await expect
     .element(page.getByRole("link", { name: "The Quiet Orchard" }))
     .toHaveAttribute("href", `/works/${orchardId}`);

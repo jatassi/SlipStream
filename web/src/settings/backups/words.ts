@@ -5,7 +5,9 @@ import type {
   BackupsBackupTrigger,
   BackupsDestination,
 } from "../../api/gen/model";
-import { type Clock, bytes, dateOf, takenWords } from "../../format";
+import { bytes } from "../../format";
+import type { Clock } from "../../ui/clock";
+import { whenWords } from "../../ui/time-words";
 
 const daySeconds = 86_400;
 
@@ -66,7 +68,7 @@ function newestSentence(
   if (backup === undefined) {
     return "SlipStream has no good Backup yet.";
   }
-  const taken = `The newest good Backup was taken ${takenWords(backup.takenAt, clock)}`;
+  const taken = `The newest good Backup was taken ${whenWords(backup.takenAt, "at", clock)}`;
   const copies = holders(backup, destinations, names);
   if (copies.length === 0) {
     return `${taken}.`;
@@ -98,7 +100,7 @@ export function leadOf({
   const newest = newestSentence(good, destinations, names, clock);
   if (list.failure !== null) {
     return {
-      text: `The last Backup failed ${takenWords(list.failure.at, clock)}.${good === undefined ? "" : ` ${newest}`}`,
+      text: `The last Backup failed ${whenWords(list.failure.at, "at", clock)}.${good === undefined ? "" : ` ${newest}`}`,
       failed: true,
     };
   }
@@ -150,8 +152,8 @@ export function sheetAdvice(
 }
 
 export const deletedToast = (backup: BackupsBackup, clock: Clock) =>
-  `Deleted the Backup from ${dateOf(backup.takenAt, clock.zone)} and its copies.`;
+  `Deleted the Backup ${whenWords(backup.takenAt, "from", clock)} and its copies.`;
 
 export function roomToast(need: number, free: number, node: string) {
-  return `Keeping these Backups needs about ${bytes(need)} on ${node}, which has ${bytes(free)} free.`;
+  return `Keeping these Backups needs about ${bytes(need)} on ${node}, which has ${bytes(free)} free. Free some space on ${node}, or add a Backup destination with more room.`;
 }

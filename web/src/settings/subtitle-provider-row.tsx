@@ -3,8 +3,8 @@ import { useState } from "react";
 import type { SubtitlesProvider, WorksContentType } from "../api/gen/model";
 import { toastRefusal, useSubtitleWrites } from "../subtitles/settings-api";
 import { providerLine } from "../subtitles/settings-words";
-import { useNow } from "../tasks/use-now";
 import { Button } from "../ui/button";
+import { useClock } from "../ui/clock";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { Meter } from "../ui/meter";
 import { SwitchControl } from "../ui/switch";
@@ -60,7 +60,7 @@ export function ProviderBody({
   types: readonly WorksContentType[];
   openKey: (provider: SubtitlesProvider) => void;
 }) {
-  const clock = { now: useNow(60_000), zone: undefined };
+  const clock = useClock();
   const downloads = provider.allowance?.downloads ?? null;
   return (
     <div className="flex flex-col gap-1.5 py-1">

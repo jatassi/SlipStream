@@ -8,7 +8,7 @@ export const terms = {
   reconciling: {
     words: "Reconciling",
     definition:
-      "After a restore, SlipStream matches the library with the torrents and files on your Nodes. Each Node keeps every torrent, and searches and removals wait until it finishes.",
+      "After a restore, SlipStream matches the library with the torrents and files on your Nodes, and doesn't search or remove anything until it's done.",
   },
 } as const satisfies Record<string, { words: string; definition: string }>;
 

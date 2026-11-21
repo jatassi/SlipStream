@@ -4,15 +4,14 @@ import { getGetSystemHealthSuspenseQueryOptions } from "../../../api/gen/query/h
 import { ensureQuery } from "../../../api/query-client";
 import { settingsGroups } from "../../../settings/sections";
 import { SettingsList } from "../../../settings/settings-list";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { useShell } from "../../../ui/shell-context";
-import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/settings/")({
   staticData: { title: "Settings" },
   loader: ({ context }) =>
     ensureQuery(context.queryClient, getGetSystemHealthSuspenseQueryOptions()),
-  pendingComponent: () => <Skeleton label="Loading Settings" />,
+  pendingComponent: () => <PagePending label="Loading Settings" shape="rows" lines={1} />,
   component: SettingsTop,
 });
 

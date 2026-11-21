@@ -1,5 +1,6 @@
 import type { IdentityPinState } from "../api/gen/model";
-import { clock } from "../format";
+import type { Clock } from "../ui/clock";
+import { whenWords } from "../ui/time-words";
 
 type PinState = IdentityPinState["state"];
 
@@ -9,13 +10,16 @@ export const pinLabel: { readonly [S in PinState]: string } = {
   off: "Locked",
 };
 
-const sentences: { readonly [S in PinState]: (until: string | undefined) => string } = {
+const sentences: {
+  readonly [S in PinState]: (until: string | undefined, clock: Clock) => string;
+} = {
   fine: () => "The PIN works.",
-  waiting: (until) =>
+  waiting: (until, clock) =>
     until === undefined
       ? "After too many wrong PINs, sign-in is paused."
-      : `After too many wrong PINs, sign-in is paused until ${clock(until)}.`,
+      : `After too many wrong PINs, sign-in is paused ${whenWords(until, "until", clock)}.`,
   off: () => "The PIN is locked after too many wrong PINs. Send a Reset link to set a new one.",
 };
 
-export const pinSentence = (pin: IdentityPinState): string => sentences[pin.state](pin.until);
+export const pinSentence = (pin: IdentityPinState, clock: Clock): string =>
+  sentences[pin.state](pin.until, clock);

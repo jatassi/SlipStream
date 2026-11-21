@@ -1,8 +1,8 @@
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 
-import type { Clock } from "../format";
-import { Empty } from "../shell/empty";
+import type { Clock } from "../ui/clock";
 import { Button } from "../ui/button";
+import { Empty } from "../ui/empty";
 import { NextOnScroll } from "../ui/next-on-scroll";
 import { useShell } from "../ui/shell-context";
 import { WantedList } from "./wanted-phone";
@@ -26,7 +26,7 @@ export function WantedRows({
   );
   const rows = data.pages.flatMap((page) => page.rows);
   if (rows.length === 0) {
-    return <Empty>Nothing to search for.</Empty>;
+    return <Empty look="sheet">Nothing to search for.</Empty>;
   }
   const more = () => {
     if (hasNextPage && !isFetchingNextPage) {

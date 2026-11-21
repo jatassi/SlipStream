@@ -62,7 +62,7 @@ var ReplacedRow = entry.Row[ReplacedFacts]{
 	Render: func(f ReplacedFacts, _ entry.Context) entry.Message {
 		return entry.Message{
 			Title: "Controller replaced",
-			Lines: []string{"This machine is now the Controller " + f.Controller + ". Make sure the old machine stays off. Each Worker you pair again pauses it when it next connects to it."},
+			Lines: []string{"This machine is now the Controller " + f.Controller + ". Make sure the old machine stays off. When the old Controller next connects to a Worker you paired again, the old Controller pauses."},
 			Link:  entry.Link{Path: "/reconciling"},
 			Tone:  entry.Info,
 		}

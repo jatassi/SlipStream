@@ -1,9 +1,9 @@
 import { useState } from "react";
 
 import type { NodesJoinCode, NodesNode } from "../../../../api/gen/model";
-import { AlertLine } from "../../../../ui/alert-line";
 import { Button } from "../../../../ui/button";
 import { Dialog } from "../../../../ui/dialog";
+import { SignalLine } from "../../../../ui/signal-line";
 import { Body } from "./body";
 import { OpenCodes } from "./open-codes";
 import { RolesStep } from "./roles-step";
@@ -37,7 +37,11 @@ function Following({ id, minted, mint, failure, onClose, onAdded }: Props) {
   const paired = state.kind === "paired";
   return (
     <div className="flex flex-col gap-6">
-      {failure !== undefined && <AlertLine text={failure} />}
+      {failure !== undefined && (
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
+      )}
       <div aria-live="polite">
         <Body id={id} state={state} controller={controller} mint={mint} />
       </div>
@@ -64,7 +68,11 @@ function Following({ id, minted, mint, failure, onClose, onAdded }: Props) {
 function Refused({ failure, onClose }: { failure: string | undefined; onClose: () => void }) {
   return (
     <div className="flex flex-col gap-6">
-      {failure !== undefined && <AlertLine text={failure} />}
+      {failure !== undefined && (
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
+      )}
       <div className="flex justify-end">
         <Button onClick={onClose}>Close</Button>
       </div>

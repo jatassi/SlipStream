@@ -256,7 +256,7 @@ export const getResumeSupersededControllerUrl = () => {
 };
 
 /**
- * @summary Resume this Controller, so no earlier proof of a restore fences it again
+ * @summary Resume this Controller, so an earlier proof of a restore can't stop it again
  */
 export const resumeSupersededController = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -321,7 +321,7 @@ export type ResumeSupersededControllerMutationError = ErrorType<
 >;
 
 /**
- * @summary Resume this Controller, so no earlier proof of a restore fences it again
+ * @summary Resume this Controller, so an earlier proof of a restore can't stop it again
  */
 export const useResumeSupersededController = <
   TError = ErrorType<

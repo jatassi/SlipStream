@@ -1,20 +1,18 @@
 import type { WorksContentType } from "../api/gen/model";
 import { useListRootsSuspense } from "../api/gen/query/roots/roots";
 import { useListProfilesSuspense } from "../api/gen/query/targets/targets";
-import { useNow } from "../tasks/use-now";
+import { useNow } from "../ui/clock";
 import { arrange, scopeOf } from "./arrange";
 import { usePicking } from "./picking";
 import { useProjection } from "./projection";
 import { useMatched } from "./search";
 import type { ArrangeContext, LibraryView } from "./view";
 
-const hourMs = 3_600_000;
-
 function useArrangeContext(view: LibraryView, types: readonly WorksContentType[]): ArrangeContext {
   const { profiles } = useListProfilesSuspense().data;
   const { roots } = useListRootsSuspense().data;
   return {
-    today: useNow(hourMs),
+    today: useNow(),
     profiles: new Map(profiles.map(({ id, name }) => [id, name])),
     roots: new Map(roots.map(({ id, path }) => [id, path])),
     matched: useMatched(view.q, types),

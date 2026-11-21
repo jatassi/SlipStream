@@ -38,7 +38,7 @@ test("a refused SubDL key isn't saved, another is, and once SubDL revokes it Set
   await world.fw.cue("subdl-revoke-key", {});
   await searchNow(world, cinder);
   await expect(providers).toContainText(
-    /SubDL rejected the key today at .+ and responded "Not Authorized"\. Replace the key\./u,
+    /SubDL rejected the key at .+ and responded "Not Authorized"\. Replace the key\./u,
     { timeout: 60_000 },
   );
   await expectAccessible(page);
