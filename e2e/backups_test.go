@@ -400,7 +400,13 @@ func TestTheOldControllerIsFencedThenJoinsAsAWorker(t *testing.T) {
 	}
 	act(t, w.run, "spare", world.StartNode)
 	w.controller(t, "spare")
-	if v := w.reconciling(t, "spare"); len(v.Review) != 1 || v.Review[0].Reason != "not_held" || v.Review[0].Found != "files" {
+	// spare lists Harbor for review once it has looked for its files.
+	var v reconcilingView
+	worldtest.Until(t, "spare lists Harbor for review", func() (bool, error) {
+		v = w.reconciling(t, "spare")
+		return len(v.Review) > 0, nil
+	})
+	if len(v.Review) != 1 || v.Review[0].Reason != "not_held" || v.Review[0].Found != "files" {
 		t.Fatalf("getReconciling's review list = %+v, want Harbor not held with its files found", v.Review)
 	}
 	w.join(t, "spare", "seedbox")
