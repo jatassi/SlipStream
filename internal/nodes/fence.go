@@ -116,6 +116,29 @@ func (s *Service) fence(ctx context.Context, c toldClaim) error {
 	return nil
 }
 
+// Retire fences this Controller by the Admin's word, for an old
+// Controller that no Worker brings a proof to. A proven fence, a Stop or
+// an earlier Retire stays as it is.
+func (s *Service) Retire(ctx context.Context) error {
+	changed := false
+	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		cur, fenced, err := FenceIn(ctx, tx)
+		if err != nil || fenced && cur.State != Unproven {
+			return err
+		}
+		changed = true
+		return putFence(ctx, db.New(tx), Fence{State: Retired, At: time.Now()})
+	})
+	if err != nil {
+		return fmt.Errorf("retire this Controller: %w", err)
+	}
+	if changed {
+		s.cfg.Log.Warn("an Admin retired this Controller")
+		s.changed(s.self)
+	}
+	return nil
+}
+
 func putFence(ctx context.Context, q *db.Queries, f Fence) error {
 	addrs, err := json.Marshal(f.Addresses.All())
 	if err != nil {

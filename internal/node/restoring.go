@@ -199,6 +199,56 @@ func (s surfaceNode) ReceiveRestore(_ context.Context, body io.Reader) (string, 
 	return n.pending.id, nil
 }
 
+// StageBackup stages the listed Backup id with the passphrase it was
+// taken with, replacing any restore the Node was staging.
+func (s surfaceNode) StageBackup(ctx context.Context, id string) (string, backups.Summary, error) {
+	n := s.n
+	h := n.half.Load()
+	var backupID archive.ID
+	if err := backupID.UnmarshalText([]byte(id)); err != nil {
+		return "", backups.Summary{}, backups.ErrNoBackup
+	}
+	l := h.backups.Ledger()
+	e, ok := l.Entry(backupID)
+	switch {
+	case !ok || e.State != backups.Verified:
+		return "", backups.Summary{}, backups.ErrNoBackup
+	case !e.Local:
+		return "", backups.Summary{}, restoreapi.ErrNotLocal
+	}
+	v, err := n.backups.Vault(n.lib.Load().keys)
+	if err != nil {
+		return "", backups.Summary{}, err
+	}
+	pass, ok := v.Passphrase(e.Generation)
+	if !ok {
+		return "", backups.Summary{}, fmt.Errorf("backup.key has no passphrase of generation %d", e.Generation)
+	}
+	n.restoreMu.Lock()
+	defer n.restoreMu.Unlock()
+	if err := n.lifecycleIdle(); err != nil {
+		return "", backups.Summary{}, err
+	}
+	st, err := n.stager()
+	if err != nil {
+		return "", backups.Summary{}, err
+	}
+	if n.pending != nil && n.pending.staged != nil {
+		if err := st.Discard(); err != nil {
+			return "", backups.Summary{}, err
+		}
+	}
+	n.pending = nil
+	staged, err := st.Stage(ctx, h.backups.Path(e), pass, false, lifecycle.ByRestore)
+	if err != nil {
+		return "", backups.Summary{}, err
+	}
+	var pending [8]byte
+	_, _ = rand.Read(pending[:])
+	n.pending = &pendingRestore{id: hex.EncodeToString(pending[:]), staged: staged}
+	return n.pending.id, staged.Summary, nil
+}
+
 // UploadRoom is how large an upload the data dir's volume takes.
 func (s surfaceNode) UploadRoom(ctx context.Context) (int64, error) {
 	v, err := s.n.disk.Volume(ctx, s.n.env.DataDir.Path())

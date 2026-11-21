@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/transfers"
@@ -56,6 +57,9 @@ type world struct {
 	factsMu   sync.Mutex
 	facts     map[role.NodeID]*tv1.Facts
 	verdict   roots.Verdict
+
+	cadences   cadences
+	vpsOffline atomic.Bool
 }
 
 var schemas = []storage.Schema[storage.Library]{
@@ -66,6 +70,33 @@ var schemas = []storage.Schema[storage.Library]{
 type quiet struct{}
 
 func (quiet) Publish(context.Context, transfers.Changed) {}
+
+type unheard struct{}
+
+func (unheard) Publish(context.Context, backups.Changed) {}
+
+// cadences stores Back up every as tasks does.
+type cadences struct {
+	mu    sync.Mutex
+	every *int64
+}
+
+func (c *cadences) Every(context.Context, tasks.TaskID) (*int64, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.every, nil
+}
+
+func (c *cadences) EveryIn(ctx context.Context, _ storage.Reader[storage.Library], id tasks.TaskID) (*int64, error) {
+	return c.Every(ctx, id)
+}
+
+func (c *cadences) SetCadence(_ context.Context, _ tasks.TaskID, v setting.Stored[int64]) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.every = v.Override()
+	return nil
+}
 
 func newWorld(t *testing.T) *world {
 	t.Helper()
@@ -174,6 +205,15 @@ func (w *world) open(version string) (*backups.Backups, error) {
 			v.Path = folder
 			return v, nil
 		},
+		Tasks: &w.cadences,
+		Roster: func(id role.NodeID) (string, bool) {
+			if id == w.home {
+				return "home", true
+			}
+			return "vps", !w.vpsOffline.Load()
+		},
+		Changed: unheard{},
+		Zone:    time.UTC,
 	})
 	w.backups = b
 	return b, err

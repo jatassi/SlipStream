@@ -5,6 +5,7 @@ package firstrun
 const (
 	AddressID   StepID = "address"
 	PasskeyID   StepID = "passkey"
+	BackupID    StepID = "backup"
 	MediaID     StepID = "media"
 	LanguageID  StepID = "language"
 	RootsID     StepID = "roots"
@@ -14,5 +15,5 @@ const (
 
 // IDs is every step, in order.
 func IDs() []StepID {
-	return []StepID{AddressID, PasskeyID, MediaID, LanguageID, RootsID, DownloadsID, TargetsID}
+	return []StepID{AddressID, PasskeyID, BackupID, MediaID, LanguageID, RootsID, DownloadsID, TargetsID}
 }

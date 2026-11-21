@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/backupsapi"
 	"github.com/jatassi/slipstream/internal/calendarapi"
 	"github.com/jatassi/slipstream/internal/downloadclients"
@@ -120,6 +121,7 @@ var Events = []live.Event{
 	subtitles.ProvidersChangedEvent,
 	subtitles.AttemptEvent,
 	reconciling.ChangedEvent,
+	backups.ChangedEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the

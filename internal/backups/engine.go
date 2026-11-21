@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -97,6 +98,7 @@ type request struct {
 	Trigger          archive.Trigger
 	By               string
 	WhileReconciling bool
+	DeleteOlder      bool
 	// Retention prunes once the Backup passes; nil prunes nothing, as in
 	// the hook, which can't read stored settings yet.
 	Retention *Retention
@@ -104,8 +106,9 @@ type request struct {
 
 // SpaceError is a volume with less free space than the Backup needs.
 type SpaceError struct {
-	Folder     string
-	Need, Free int64
+	Folder string `json:"folder"`
+	Need   int64  `json:"need"`
+	Free   int64  `json:"free"`
 }
 
 func (e *SpaceError) Error() string {
@@ -124,9 +127,38 @@ func (e *SpaceError) Error() string {
 //  7. mark it Verified, then prune.
 //
 // A failure after step 2 marks the entry Failed and deletes what it wrote.
+//
+// Each Backup that fails, unless its context ended, is the index's
+// Failure, which the next Backup that passes clears.
 func (e *Engine) take(ctx context.Context, src source, req request) (Entry, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	entry, err := e.taking(ctx, src, req)
+	if err != nil && ctx.Err() != nil {
+		return entry, err
+	}
+	now := e.cfg.Clock().UTC()
+	if rerr := e.cfg.Index.Update(func(l *Ledger) error {
+		switch {
+		case err == nil:
+			l.Failure = nil
+		case l.Failure == nil:
+			l.Failure = &Failure{Since: now, At: now}
+		default:
+			l.Failure.At = now
+		}
+		if l.Failure != nil {
+			space, _ := errors.AsType[*SpaceError](err)
+			l.Failure.Space = space
+		}
+		return nil
+	}); rerr != nil {
+		return entry, errors.Join(err, rerr)
+	}
+	return entry, err
+}
+
+func (e *Engine) taking(ctx context.Context, src source, req request) (Entry, error) {
 	if e.vault == nil {
 		panic("backups: a Backup taken before the Vault opened")
 	}
@@ -175,11 +207,36 @@ func (e *Engine) take(ctx context.Context, src source, req request) (Entry, erro
 				l.set(pruned)
 			}
 		}
+		if req.DeleteOlder {
+			l.deleteBefore(done.Generation)
+		}
 		return nil
 	}); err != nil {
 		return Entry{}, err
 	}
-	return done, e.deleteMarked()
+	if err := e.deleteMarked(); err != nil {
+		return Entry{}, err
+	}
+	return done, e.dropUnused()
+}
+
+// deleteBefore marks every Backup of a passphrase generation before gen
+// Deleting.
+func (l *Ledger) deleteBefore(gen Generation) {
+	for _, older := range l.Backups {
+		if older.Generation < gen && older.State != Taking {
+			older.State = Deleting
+			l.set(older)
+		}
+	}
+}
+
+// dropUnused drops each passphrase generation no listed Backup uses.
+func (e *Engine) dropUnused() error {
+	l := e.cfg.Index.Read()
+	return e.vault.Drop(func(g Generation) bool {
+		return slices.ContainsFunc(l.Backups, func(entry Entry) bool { return entry.Generation == g })
+	})
 }
 
 // write is steps 3 to 6 of take.

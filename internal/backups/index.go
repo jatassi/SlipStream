@@ -40,10 +40,30 @@ type Ledger struct {
 	// PassphraseConfirmedAt is when the Admin last showed they hold the
 	// current passphrase, zero until then.
 	PassphraseConfirmedAt time.Time
+	// Sheet is the recovery sheet's last download, zero before one.
+	Sheet Sheet
+	// Failure is the newest Backup that failed since the newest one that
+	// passed, nil when the newest passed.
+	Failure *Failure
 	// Destinations is in the order they were added.
 	Destinations []Destination
 	// Backups is newest first.
 	Backups []Entry
+}
+
+// Sheet is when the recovery sheet was last downloaded and the
+// destinations it listed.
+type Sheet struct {
+	DownloadedAt time.Time       `json:"downloadedAt"`
+	Destinations []DestinationID `json:"destinations"`
+}
+
+// Failure is a run of failed Backups: when the first and the newest
+// failed, and the room the newest lacked when room was the cause.
+type Failure struct {
+	Since time.Time   `json:"since"`
+	At    time.Time   `json:"at"`
+	Space *SpaceError `json:"space,omitempty"`
 }
 
 type EntryState string
@@ -102,6 +122,8 @@ type indexFile struct {
 	Format                int           `json:"format"`
 	StartedVersion        string        `json:"startedVersion"`
 	PassphraseConfirmedAt time.Time     `json:"passphraseConfirmedAt,omitzero"`
+	Sheet                 Sheet         `json:"sheet,omitzero"`
+	Failure               *Failure      `json:"failure,omitempty"`
 	Destinations          []Destination `json:"destinations"`
 	Backups               []Entry       `json:"backups"`
 }
@@ -138,7 +160,7 @@ func decodeIndex(b []byte) (Ledger, error) {
 	if err := dec.Decode(&f); err != nil {
 		return Ledger{}, fmt.Errorf("decode: %w", err)
 	}
-	return Ledger{StartedVersion: f.StartedVersion, PassphraseConfirmedAt: f.PassphraseConfirmedAt, Destinations: f.Destinations, Backups: f.Backups}, nil
+	return Ledger{StartedVersion: f.StartedVersion, PassphraseConfirmedAt: f.PassphraseConfirmedAt, Sheet: f.Sheet, Failure: f.Failure, Destinations: f.Destinations, Backups: f.Backups}, nil
 }
 
 func encodeIndex(l Ledger) ([]byte, error) {
@@ -149,7 +171,8 @@ func encodeIndex(l Ledger) ([]byte, error) {
 	if destinations == nil {
 		destinations = []Destination{}
 	}
-	b, err := json.MarshalIndent(indexFile{Format: indexFormat, StartedVersion: l.StartedVersion, PassphraseConfirmedAt: l.PassphraseConfirmedAt, Destinations: destinations, Backups: backups}, "", "  ")
+	f := indexFile{Format: indexFormat, StartedVersion: l.StartedVersion, PassphraseConfirmedAt: l.PassphraseConfirmedAt, Sheet: l.Sheet, Failure: l.Failure, Destinations: destinations, Backups: backups}
+	b, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("encode %s: %w", IndexFile, err)
 	}
@@ -201,7 +224,15 @@ func (x *Index) Bytes() ([]byte, error) {
 }
 
 func (l *Ledger) clone() Ledger {
-	out := Ledger{StartedVersion: l.StartedVersion, PassphraseConfirmedAt: l.PassphraseConfirmedAt, Destinations: slices.Clone(l.Destinations), Backups: slices.Clone(l.Backups)}
+	out := Ledger{StartedVersion: l.StartedVersion, PassphraseConfirmedAt: l.PassphraseConfirmedAt, Sheet: l.Sheet, Destinations: slices.Clone(l.Destinations), Backups: slices.Clone(l.Backups)}
+	out.Sheet.Destinations = slices.Clone(l.Sheet.Destinations)
+	if l.Failure != nil {
+		f := *l.Failure
+		if f.Space != nil {
+			f.Space = new(*f.Space)
+		}
+		out.Failure = &f
+	}
 	for i := range out.Backups {
 		e := &out.Backups[i]
 		e.Schemas, e.Copies = maps.Clone(e.Schemas), slices.Clone(e.Copies)
