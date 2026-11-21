@@ -105,14 +105,16 @@ func TestASnapshotWhileTheWriterCommits(t *testing.T) {
 		}
 	})
 	dst := filepath.Join(t.TempDir(), "snapshot.db")
+	began := time.Now()
 	err := db.Snapshot(t.Context(), dst)
+	took := time.Since(began)
 	close(stop)
 	wg.Wait()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if worst > 200*time.Millisecond || writes < 2 {
-		t.Fatalf("%d Writes committed during the snapshot, the slowest in %s; want some, none past 200ms", writes, worst)
+	if worst > took/2 || writes < 2 {
+		t.Fatalf("%d Writes committed during the %s snapshot, the slowest in %s; want some, none past half the snapshot", writes, took, worst)
 	}
 	inspected, err := storage.Inspect(t.Context(), dst, schemas)
 	if err != nil || len(inspected.Plan) != 0 {
