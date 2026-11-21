@@ -9842,7 +9842,23 @@ export const ReconcilingChanged = zod.object({});
 export type ReconcilingChanged = zod.input<typeof ReconcilingChanged>;
 export type ReconcilingChangedOutput = zod.output<typeof ReconcilingChanged>;
 
-export const ReconcilingForgetRequest = zod.object({});
+export const reconcilingForgetRequestIdsMax = 1000;
+
+export const ReconcilingForgetRequest = zod.object({
+  found: zod
+    .enum(["not_looked", "no_files", "files"])
+    .exactOptional()
+    .describe("With no ids, how the group's files were found; left out, any"),
+  ids: zod
+    .array(zod.string())
+    .max(reconcilingForgetRequestIdsMax)
+    .nullish()
+    .describe("The torrents; left out, every torrent in the group reason and found name"),
+  reason: zod
+    .enum(["not_held", "conflict"])
+    .exactOptional()
+    .describe("With no ids, the group's reason; left out, any"),
+});
 
 export type ReconcilingForgetRequest = zod.input<typeof ReconcilingForgetRequest>;
 export type ReconcilingForgetRequestOutput = zod.output<typeof ReconcilingForgetRequest>;
@@ -9963,11 +9979,26 @@ export const ReconcilingPage = zod.object({
 export type ReconcilingPage = zod.input<typeof ReconcilingPage>;
 export type ReconcilingPageOutput = zod.output<typeof ReconcilingPage>;
 
+export const reconcilingReaddRequestIdsMax = 1000;
+
 export const ReconcilingReaddRequest = zod.object({
+  found: zod
+    .enum(["not_looked", "no_files", "files"])
+    .exactOptional()
+    .describe("With no ids, how the group's files were found; left out, any"),
+  ids: zod
+    .array(zod.string())
+    .max(reconcilingReaddRequestIdsMax)
+    .nullish()
+    .describe("The torrents; left out, every torrent in the group reason and found name"),
   nodeId: zod
     .uuid()
     .exactOptional()
     .describe("The Node to re-add them on; left out, each on the Node it was recorded on"),
+  reason: zod
+    .enum(["not_held", "conflict"])
+    .exactOptional()
+    .describe("With no ids, the group's reason; left out, any"),
 });
 
 export type ReconcilingReaddRequest = zod.input<typeof ReconcilingReaddRequest>;

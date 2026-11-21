@@ -18442,6 +18442,36 @@
       },
       "ReconcilingForgetRequest": {
         "additionalProperties": false,
+        "properties": {
+          "found": {
+            "description": "With no ids, how the group's files were found; left out, any",
+            "enum": [
+              "not_looked",
+              "no_files",
+              "files"
+            ],
+            "type": "string"
+          },
+          "ids": {
+            "description": "The torrents; left out, every torrent in the group reason and found name",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "reason": {
+            "description": "With no ids, the group's reason; left out, any",
+            "enum": [
+              "not_held",
+              "conflict"
+            ],
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "ReconcilingGroup": {
@@ -18611,9 +18641,37 @@
       "ReconcilingReaddRequest": {
         "additionalProperties": false,
         "properties": {
+          "found": {
+            "description": "With no ids, how the group's files were found; left out, any",
+            "enum": [
+              "not_looked",
+              "no_files",
+              "files"
+            ],
+            "type": "string"
+          },
+          "ids": {
+            "description": "The torrents; left out, every torrent in the group reason and found name",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "nodeId": {
             "description": "The Node to re-add them on; left out, each on the Node it was recorded on",
             "format": "uuid",
+            "type": "string"
+          },
+          "reason": {
+            "description": "With no ids, the group's reason; left out, any",
+            "enum": [
+              "not_held",
+              "conflict"
+            ],
             "type": "string"
           }
         },
