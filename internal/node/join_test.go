@@ -27,6 +27,7 @@ func machine(t *testing.T, net *fault.Network, addr, name string) (Env, *fault.H
 		"SLIPSTREAM_HTTP_LISTEN=" + addr + ":0",
 		"SLIPSTREAM_LINK_LISTEN=" + addr + ":0",
 		"SLIPSTREAM_NAME=" + name,
+		lowScrypt,
 	}
 	host := net.Host(netip.MustParseAddr(addr))
 	return inMemoryOn(env, host), host

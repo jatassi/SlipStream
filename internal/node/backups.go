@@ -86,6 +86,7 @@ func openOffline(ctx context.Context, env Env, cfg Config) (*libraryDB, error) {
 		timings: cfg.Timings,
 		hub:     live.NewHub(surface.Events),
 		log:     log,
+		test:    env.Test,
 	})
 }
 
