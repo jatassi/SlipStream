@@ -149,6 +149,9 @@ func (l *Link) turnedAway(k *keeper, err error, refusal *string) bool {
 			reason = refused.Reason
 		}
 		l.answered(k, reason)
+		if superseded != nil {
+			l.told(k.target.Key, Superseded{By: superseded.By, Addresses: superseded.Addresses, Proof: superseded.Proof})
+		}
 		return true
 	default:
 		l.cfg.Log.Debug("link dial failed", "peer", peer, "err", err)
@@ -182,6 +185,9 @@ type Paired struct {
 	Node NodeInfo
 	// Remote is the Controller's address on the session Pair made live.
 	Remote netip.AddrPort
+	// Superseded is each old Controller key the Controller replaced, with
+	// the proof that fences it.
+	Superseded []SupersededProof
 }
 
 // Pair dials code's Controller, checking its key against the code, sends
@@ -214,6 +220,10 @@ func (l *Link) Pair(ctx context.Context, code joincode.Code, name string) (Paire
 // both succeed.
 func (l *Link) pairOn(ctx context.Context, s *session, code joincode.Code, name string) (Paired, error) {
 	paired, err := l.pair(ctx, s, code.Secret(), name)
+	var superseded []SupersededProof
+	if err == nil {
+		superseded, err = parseSupersededProofs(paired.GetSuperseded())
+	}
 	if err == nil {
 		err = l.hello(ctx, s)
 	}
@@ -223,7 +233,7 @@ func (l *Link) pairOn(ctx context.Context, s *session, code joincode.Code, name 
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return Paired{NodeID: paired.GetNodeId(), Name: paired.GetName(), ControllerName: paired.GetControllerName(), Controller: s.key, Node: s.peer, Remote: s.remote}, nil
+	return Paired{NodeID: paired.GetNodeId(), Name: paired.GetName(), ControllerName: paired.GetControllerName(), Controller: s.key, Node: s.peer, Remote: s.remote, Superseded: superseded}, nil
 }
 
 func (l *Link) pair(ctx context.Context, s *session, secret [joincode.SecretSize]byte, name string) (*linkv1.Paired, error) {
@@ -257,19 +267,41 @@ func (l *Link) hello(ctx context.Context, s *session) error {
 		}
 		return nil
 	case *linkv1.HelloResponse_Superseded:
-		by, err := KeyFromBytes(o.Superseded.GetByKey())
+		sup, err := parseSuperseded(o.Superseded)
 		if err != nil {
-			return fmt.Errorf("hello: superseded: %w", err)
+			return fmt.Errorf("hello: %w", err)
 		}
-		addrs, err := AddressesFromProto(o.Superseded.GetAddresses())
-		if err != nil {
-			return fmt.Errorf("hello: superseded: %w", err)
-		}
-		return &SupersededError{By: by, Addresses: addrs}
+		return &SupersededError{By: sup.By, Addresses: sup.Addresses, Proof: sup.Proof}
 	case *linkv1.HelloResponse_Refused:
 		return &RefusedError{Reason: o.Refused.GetReason()}
 	}
 	return fmt.Errorf("hello: the peer responded with %T, which this build doesn't support", res.GetOutcome())
+}
+
+// Tell dials t and says Hello carrying s, so that t's Node learns which
+// key superseded it, and closes the session once t answers, never making
+// it live. It returns nil once t answered, whatever the answer.
+func (l *Link) Tell(ctx context.Context, t Target, s Superseded) error {
+	ctx, cancel := context.WithTimeout(ctx, l.cfg.Timings.Handshake)
+	defer cancel()
+	stop := context.AfterFunc(l.ctx, cancel)
+	defer stop()
+	sess, err := l.dialSession(ctx, t.Addresses, pinned(t.Key))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = sess.mux.Close() }()
+	if _, err := sess.linkService().Hello(ctx, &linkv1.HelloRequest{Node: l.info().proto(), Superseded: s.proto()}); err != nil {
+		return fmt.Errorf("hello: %w", err)
+	}
+	return nil
+}
+
+// told hands Told a pinned peer's word that s.By superseded this Node.
+func (l *Link) told(from Key, s Superseded) {
+	if _, pinned := l.cfg.Trust.Admit(from).(Pinned); pinned {
+		l.cfg.Told(from, s)
+	}
 }
 
 // dialSession races addrs with pin as the check of the peer's key, and

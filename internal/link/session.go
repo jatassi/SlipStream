@@ -276,6 +276,9 @@ func (h linkService) Hello(ctx context.Context, req *linkv1.HelloRequest) (*link
 	s := sessionOf(ctx)
 	switch a := h.l.cfg.Trust.Admit(s.key).(type) {
 	case Pinned:
+		if req.GetSuperseded() != nil {
+			return h.supersededBy(s, req.GetSuperseded())
+		}
 		peer, err := parseNodeInfo(req.GetNode())
 		if err != nil {
 			return nil, rpcError(connect.CodeInvalidArgument, err)
@@ -287,9 +290,7 @@ func (h linkService) Hello(ctx context.Context, req *linkv1.HelloRequest) (*link
 			Welcome: &linkv1.Welcome{Node: h.l.info().proto()},
 		}}, nil
 	case Superseded:
-		return &linkv1.HelloResponse{Outcome: &linkv1.HelloResponse_Superseded{
-			Superseded: &linkv1.Superseded{ByKey: a.By[:], Addresses: a.Addresses.Proto()},
-		}}, nil
+		return &linkv1.HelloResponse{Outcome: &linkv1.HelloResponse_Superseded{Superseded: a.proto()}}, nil
 	case Removed:
 		return &linkv1.HelloResponse{Outcome: &linkv1.HelloResponse_Refused{
 			Refused: &linkv1.Refused{Reason: linkv1.RefusedReason_REFUSED_REASON_REMOVED},
@@ -297,5 +298,18 @@ func (h linkService) Hello(ctx context.Context, req *linkv1.HelloRequest) (*link
 	}
 	return &linkv1.HelloResponse{Outcome: &linkv1.HelloResponse_Refused{
 		Refused: &linkv1.Refused{Reason: linkv1.RefusedReason_REFUSED_REASON_UNKNOWN_KEY},
+	}}, nil
+}
+
+// supersededBy answers a pinned peer's Hello that says this Node was
+// superseded: Told hears it, and the session is refused, never live.
+func (h linkService) supersededBy(s *session, p *linkv1.Superseded) (*linkv1.HelloResponse, error) {
+	sup, err := parseSuperseded(p)
+	if err != nil {
+		return nil, rpcError(connect.CodeInvalidArgument, err)
+	}
+	h.l.cfg.Told(s.key, sup)
+	return &linkv1.HelloResponse{Outcome: &linkv1.HelloResponse_Refused{
+		Refused: &linkv1.Refused{Reason: linkv1.RefusedReason_REFUSED_REASON_SUPERSEDED},
 	}}, nil
 }

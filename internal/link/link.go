@@ -55,7 +55,11 @@ type Config struct {
 	// whose peer runs this version.
 	Lockstep http.Handler
 	Pair     PairFunc
-	Log      *slog.Logger
+	// Told is called when a pinned peer says this Node was superseded,
+	// answering this Node's Hello or in its own. The link never checks the
+	// proof. It must not block.
+	Told func(from Key, s Superseded)
+	Log  *slog.Logger
 }
 
 // Link holds this Node's sessions, at most one live per peer key.
