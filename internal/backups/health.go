@@ -141,7 +141,7 @@ func (b *Backups) HealthSource() health.Source {
 		if l.PassphraseConfirmedAt.IsZero() {
 			a.Items = append(a.Items, health.Item{Key: passphraseKey, Level: health.Warn, Says: health.Says{
 				Subject: "Backup passphrase not saved",
-				Text:    "You need the passphrase to restore a Backup on another machine. Save it outside SlipStream, then confirm in Settings > Backups.",
+				Text:    "You need the Backup passphrase to restore a Backup on another machine. Save it outside SlipStream, then confirm in Settings > Backups.",
 				Action:  health.LinkAction("/settings/backups", "Download recovery sheet"),
 			}})
 		}
@@ -179,7 +179,10 @@ func controllerHealth(l Ledger, now time.Time, within time.Duration, zone *time.
 	}
 	due := base.Add(within)
 	action := health.LinkAction("/settings/backups", "Open Backups settings")
-	text := "No Backup taken since then passed its check and is kept on this machine or a destination. Open the Backup task to run one."
+	text := "No Backup has passed its check and been kept on this machine or a Backup destination yet. Select Back up now in Settings > Backups to take one."
+	if !good.IsZero() {
+		text = "No Backup taken since then has passed its check and been kept on this machine or a Backup destination. Select Back up now in Settings > Backups to take one."
+	}
 	if failed {
 		text = failureWords(*l.Failure, zone)
 	}
