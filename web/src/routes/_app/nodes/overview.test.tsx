@@ -137,7 +137,7 @@ test("the Overview of the Worker that said another Controller replaced this one 
   await expect
     .element(
       dialog.getByText(
-        "This Controller pauses every torrent, stops searching and opens only the page that wipes it and joins the new Controller. Resume this Controller on that page undoes it.",
+        "This Controller pauses every torrent, stops searching and shows only one page, where you can wipe it and join the new Controller. To undo this, select Resume this Controller on that page.",
       ),
     )
     .toBeVisible();
