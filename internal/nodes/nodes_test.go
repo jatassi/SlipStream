@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fault"
+	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/link/linktest"
@@ -47,6 +48,8 @@ func (s *side) Admit(key link.Key) link.Admission { return s.svc.Admit(key) }
 func (s *side) Pair(ctx context.Context, peer link.Key, req *linkv1.PairRequest) (*linkv1.PairResponse, error) {
 	return s.svc.Pair(ctx, peer, req)
 }
+
+func (s *side) Told(from link.Key, sup link.Superseded) { s.svc.Told(from, sup) }
 
 // published records each nodes.changed payload.
 type published struct {
@@ -141,8 +144,8 @@ func startController(t *testing.T, edit ...func(*nodes.Config)) *controller {
 	t.Helper()
 	nw := fault.NewNetwork()
 	s := &side{}
-	node := linktest.Start(t, nw, "home", []netip.Addr{linktest.ControllerAddr}, linktest.Side{Trust: s, Pair: s.Pair, Lockstep: s, LaneHandler: echoLanes{}})
-	lib := storagetest.Library(t, nodes.Schema(), role.LibrarySchema(), roletest.Schema())
+	node := linktest.Start(t, nw, "home", []netip.Addr{linktest.ControllerAddr}, linktest.Side{Trust: s, Pair: s.Pair, Told: s.Told, Lockstep: s, LaneHandler: echoLanes{}})
+	lib := storagetest.Library(t, nodes.Schema(), role.LibrarySchema(), roletest.Schema(), history.Schema())
 	c := &controller{net: nw, node: node, lib: lib, edit: edit}
 	c.open(t, s)
 	return c
@@ -160,6 +163,7 @@ func (c *controller) open(t *testing.T, s *side) {
 		Changed:    pub,
 		Traffic:    traffic,
 		Owners:     nodestest.Unowned(),
+		Paired:     nodestest.Paired,
 		Kept:       keptNothing,
 		Torrents:   unsampled{},
 		Storage:    storesNothing,
@@ -198,15 +202,19 @@ func (c *controller) hold(t *testing.T, w *linktest.Node) (stop func()) {
 	return holder(t, role.OverLink(w.Link, c.node.Key, linktest.Timings))
 }
 
-func holder(t *testing.T, upstream role.Upstream) (stop func()) {
+func holder(t *testing.T, upstream role.Upstream, edit ...func(*role.HoldingConfig)) (stop func()) {
 	t.Helper()
-	h, err := role.NewHolding(t.Context(), role.HoldingConfig{
+	cfg := role.HoldingConfig{
 		Local:    storagetest.Local(t, role.LocalSchema()),
 		Upstream: upstream,
 		Timings:  role.Timings{RestartMin: time.Second, RestartMax: time.Minute, Beat: 15 * time.Second},
 		Rand:     rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Log:      discard,
-	})
+	}
+	for _, e := range edit {
+		e(&cfg)
+	}
+	h, err := role.NewHolding(t.Context(), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

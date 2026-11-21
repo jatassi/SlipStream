@@ -40,3 +40,16 @@ func Address(ctx context.Context, tx *storage.Tx[storage.Library], id role.NodeI
 	}
 	return nil
 }
+
+// Paired is nodes.Config.Paired for a roster whose pairings no other
+// owner keeps a row for.
+func Paired(context.Context, *storage.Tx[storage.Library], role.NodeID) error { return nil }
+
+// Supersede records key as an old Controller key that the Controller row
+// controller replaced, with proof.
+func Supersede(ctx context.Context, tx *storage.Tx[storage.Library], controller role.NodeID, key, proof []byte) error {
+	if err := db.New(tx).InsertSuperseded(ctx, db.InsertSupersededParams{PublicKey: key, NodeID: controller, Proof: proof, SupersededAt: storage.Now()}); err != nil {
+		return fmt.Errorf("supersede a Controller key: %w", err)
+	}
+	return nil
+}

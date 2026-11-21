@@ -60,6 +60,7 @@ func startController(t *testing.T, net *fault.Network, name, addr string, advert
 		Link:    node.Link,
 		Changed: nodes.ChangedEvent.Bind(hub),
 		Owners:  nodestest.Unowned(),
+		Paired:  nodestest.Paired,
 		Timings: nodes.DefaultTimings(),
 		Log:     discard,
 	})
@@ -155,7 +156,7 @@ func checkSuperseded(t *testing.T, p *pairing.Pairing, box *linktest.Node, first
 		t.Fatal("the superseded Controller's session is still up")
 	}
 	want := link.Superseded{By: second.node.Key, Addresses: rec.Controller.Addresses}
-	if got := p.Admit(first.node.Key); got != want {
+	if got, ok := p.Admit(first.node.Key).(link.Superseded); !ok || got.By != want.By || got.Addresses != want.Addresses || got.Proof != nil {
 		t.Fatalf("the superseded key is admitted as %#v, want %#v", got, want)
 	}
 	if p.Admit(second.node.Key) != (link.Pinned{}) || p.Admit(box.Key) != (link.Refused{}) {
