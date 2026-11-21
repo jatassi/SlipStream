@@ -1,1 +1,1 @@
-export type RemoveFromBlocklist409Code = "worker_node";
+export type RemoveFromBlocklist409Code = "superseded" | "worker_node";

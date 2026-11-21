@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  home's two Nodes and the Unclaimed Node office, for a Worker that says a
+  restore replaced its Controller and carries no proof. home holds every
+  Role but Searching, Downloading, Acquire and Relaying, and the Worker
+  seedbox holds Searching and Downloading. A run claims office as a second
+  Controller, which no restore made, and joins seedbox to it with office's
+  Join Code. home's next dial reaches seedbox, which answers that office
+  replaced home with no proof, so home raises only the Nodes Health Error
+  and keeps running.
+seed: hostile-worker
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [storage, converting, subtitles, metadata, media-server-link, notifying, serving]
+  - name: seedbox
+    setup: join
+    roles: [searching, downloading]
+  - name: office
+    setup: none
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - id: 9300001
+      imdb_id: tt9300001
+      title: The Quiet Orchard
+      released: 2000-05-01
+      runtime: 95m
+releases:
+  - name: The.Quiet.Orchard.2000.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300001
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]

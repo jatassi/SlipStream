@@ -1,1 +1,1 @@
-export type CheckSystemHealth409Code = "worker_node";
+export type CheckSystemHealth409Code = "superseded" | "worker_node";

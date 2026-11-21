@@ -1,1 +1,1 @@
-export type DeleteHealthVolume409Code = "worker_node";
+export type DeleteHealthVolume409Code = "superseded" | "worker_node";

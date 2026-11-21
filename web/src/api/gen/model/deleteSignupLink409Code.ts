@@ -1,1 +1,1 @@
-export type DeleteSignupLink409Code = "worker_node";
+export type DeleteSignupLink409Code = "superseded" | "worker_node";

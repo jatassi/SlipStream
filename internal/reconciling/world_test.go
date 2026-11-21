@@ -65,6 +65,9 @@ type world struct {
 
 const holdingsMax = 100_000
 
+// controllerNode is the Controller's own Node in every world.
+var controllerNode = role.NodeID{UUID: storage.NewUUID()}
+
 func newWorld(t *testing.T) *world {
 	t.Helper()
 	w := idle(t, 1000)
@@ -89,6 +92,7 @@ func (w *world) start(ctx context.Context) {
 	rec, w.history = entrytest.New("reconciling", reconciling.Entries())
 	w.keeper = reconciling.New(reconciling.Config{
 		Library: w.lib,
+		Self:    func() role.NodeID { return controllerNode },
 		History: &rec,
 		Touch: func(ids ...role.NodeID) {
 			w.mu.Lock()

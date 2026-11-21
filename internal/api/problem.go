@@ -210,6 +210,9 @@ var (
 	// Reconciling. A handler returns it bare, and its detail names what
 	// Reconciling waits on, from Services.Reconciling.
 	Reconciling = NewCode(http.StatusConflict, "reconciling", "SlipStream is Reconciling after a restore")
+	// Superseded refuses every Admin operation on a Controller a restore
+	// on another machine replaced, but those that say WhileSuperseded.
+	Superseded = NewCode(http.StatusConflict, "superseded", "This Controller was replaced")
 )
 
 var humaStatusCodes = map[int]*Code{

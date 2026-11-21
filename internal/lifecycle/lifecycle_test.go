@@ -2,6 +2,7 @@ package lifecycle_test
 
 import (
 	"errors"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -275,5 +276,53 @@ func TestARecordThisBinaryCantResumeIsRefused(t *testing.T) {
 				t.Fatalf("read %s = %v, want a *lifecycle.RefusedError", body, err)
 			}
 		})
+	}
+}
+
+// TestWipeDeletesTheLibraryFirstAndConvergesAcrossStops stops a wipe
+// before each delete in turn, then runs it again: the deletes go in
+// WipeFiles' order, library.db first, node.key and local.db stay, and
+// every run ends with the library's files gone.
+func TestWipeDeletesTheLibraryFirstAndConvergesAcrossStops(t *testing.T) {
+	if lifecycle.WipeFiles[0] != "library.db" {
+		t.Fatalf("WipeFiles %v, want library.db first", lifecycle.WipeFiles)
+	}
+	for at := range lifecycle.WipeFiles {
+		wipeStoppedBefore(t, at)
+	}
+}
+
+func wipeStoppedBefore(t *testing.T, at int) {
+	t.Helper()
+	stop := errors.New("stopped")
+	d := lifecycle.Dir{Path: t.TempDir()}
+	for _, name := range append([]string{"node.key", "local.db"}, lifecycle.WipeFiles...) {
+		if err := os.WriteFile(filepath.Join(d.Path, name), []byte(name), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var order []string
+	err := d.Wipe(func(name string) error {
+		if name == lifecycle.WipeFiles[at] {
+			return stop
+		}
+		order = append(order, name)
+		return nil
+	})
+	if !errors.Is(err, stop) || !slices.Equal(order, lifecycle.WipeFiles[:at]) {
+		t.Fatalf("stopped before %s: %v after deleting %v, want %v", lifecycle.WipeFiles[at], err, order, lifecycle.WipeFiles[:at])
+	}
+	if err := d.Wipe(func(string) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range lifecycle.WipeFiles {
+		if _, err := os.Stat(filepath.Join(d.Path, name)); !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("after the wipe resumed, %s: %v; want it gone", name, err)
+		}
+	}
+	for _, name := range []string{"node.key", "local.db"} {
+		if _, err := os.Stat(filepath.Join(d.Path, name)); err != nil {
+			t.Fatalf("the wipe took %s: %v", name, err)
+		}
 	}
 }

@@ -1,1 +1,1 @@
-export type ListCustomFormats409Code = "worker_node";
+export type ListCustomFormats409Code = "superseded" | "worker_node";

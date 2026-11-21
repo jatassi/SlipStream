@@ -1,1 +1,1 @@
-export type AddBackupDestination409Code = "destination_exists" | "worker_node";
+export type AddBackupDestination409Code = "destination_exists" | "superseded" | "worker_node";

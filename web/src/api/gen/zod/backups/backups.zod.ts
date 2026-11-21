@@ -89,11 +89,6 @@ export const SaveBackupPassphraseResponse = zod.void();
 export const PrepareRecoverySheetResponse = zod.void();
 
 /**
- * @summary Retire this Controller after its library was restored on another machine
- */
-export const RetireControllerResponse = zod.void();
-
-/**
  * @summary Delete a Backup and its copies, and list the Backups left
  */
 export const deleteBackupPathBackupIdRegExp = new RegExp("^[0-9a-f]{32}$");

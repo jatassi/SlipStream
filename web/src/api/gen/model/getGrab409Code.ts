@@ -1,1 +1,1 @@
-export type GetGrab409Code = "worker_node";
+export type GetGrab409Code = "superseded" | "worker_node";

@@ -19,8 +19,6 @@ type Keeper interface {
 	// Backups is the Backups service, false unless the Node is a
 	// Controller.
 	Backups() (*backups.Backups, bool)
-	// Retire fences this Controller by the Admin's word.
-	Retire(ctx context.Context) error
 }
 
 func open(k Keeper) *backups.Backups {
@@ -194,11 +192,6 @@ func Routes(r *api.Router, k Keeper) {
 		Summary: "Download the recovery sheet: the passphrase, each Backup folder and how to restore",
 		Status:  http.StatusOK,
 	}, "text/plain; charset=utf-8", h.downloadSheet)
-	api.Register(o, api.ReconfirmedSession, api.Op{
-		ID: "retireController", Method: http.MethodPost, Path: "/backups/retire",
-		Summary: "Retire this Controller after its library was restored on another machine",
-		Status:  http.StatusNoContent,
-	}, h.retire)
 	api.Register(o, api.Admin, api.Op{
 		ID: "getBackupSettings", Method: http.MethodGet, Path: "/backup-settings",
 		Summary: "Get the Backups settings",

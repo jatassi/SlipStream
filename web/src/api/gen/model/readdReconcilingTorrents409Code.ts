@@ -1,1 +1,1 @@
-export type ReaddReconcilingTorrents409Code = "worker_node";
+export type ReaddReconcilingTorrents409Code = "superseded" | "worker_node";

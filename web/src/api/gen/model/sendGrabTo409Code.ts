@@ -3,4 +3,5 @@ export type SendGrabTo409Code =
   | "grab_torrent_in_client"
   | "node_not_downloading"
   | "reconciling"
+  | "superseded"
   | "worker_node";

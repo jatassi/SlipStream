@@ -1,1 +1,1 @@
-export type UpdateBackupSettings409Code = "worker_node";
+export type UpdateBackupSettings409Code = "superseded" | "worker_node";

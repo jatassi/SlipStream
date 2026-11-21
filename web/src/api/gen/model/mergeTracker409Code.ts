@@ -1,1 +1,1 @@
-export type MergeTracker409Code = "worker_node";
+export type MergeTracker409Code = "superseded" | "worker_node";

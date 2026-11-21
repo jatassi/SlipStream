@@ -1,1 +1,1 @@
-export type MakeDefaultProfile409Code = "worker_node";
+export type MakeDefaultProfile409Code = "superseded" | "worker_node";

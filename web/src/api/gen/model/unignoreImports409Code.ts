@@ -1,1 +1,1 @@
-export type UnignoreImports409Code = "worker_node";
+export type UnignoreImports409Code = "superseded" | "worker_node";

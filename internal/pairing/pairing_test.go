@@ -115,9 +115,18 @@ func (c claims) Claim(context.Context) (system.Claim, error) { return system.Cla
 // worker is box on 127.0.0.3 with its pairing over the link.
 func worker(t *testing.T, net *fault.Network, dir string, claim system.Claim) (*linktest.Node, *pairing.Pairing) {
 	t.Helper()
+	return workerWith(t, net, dir, claim, &localPage{})
+}
+
+// workerWith is worker with page as its local page.
+func workerWith(t *testing.T, net *fault.Network, dir string, claim system.Claim, page *localPage) (*linktest.Node, *pairing.Pairing) {
+	t.Helper()
 	l := &lazy{}
 	node := linktest.Start(t, net, "box", []netip.Addr{linktest.WorkerAddr}, linktest.Side{Trust: l, Pair: l.Pair})
-	p, err := pairing.Open(pairing.Config{DataDir: dir, Key: node.Key, Link: node.Link, Name: "box", Claims: claims(claim), AwaitDial: 10 * time.Minute, Log: discard})
+	p, err := pairing.Open(pairing.Config{
+		DataDir: dir, Key: node.Key, Link: node.Link, Name: "box", Claims: claims(claim), AwaitDial: 10 * time.Minute,
+		UnreachableAfter: 15 * time.Minute, Local: page, Log: discard,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

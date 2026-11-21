@@ -92,10 +92,6 @@ import type {
   ReplaceBackupPassphrase422,
   ReplaceBackupPassphrase500,
   ReplaceInputBody,
-  RetireController401,
-  RetireController403,
-  RetireController409,
-  RetireController500,
   SaveBackupPassphrase401,
   SaveBackupPassphrase403,
   SaveBackupPassphrase409,
@@ -1511,80 +1507,6 @@ export const usePrepareRecoverySheet = <
   queryClient?: QueryClient,
 ): UseMutationResult<Awaited<ReturnType<typeof prepareRecoverySheet>>, TError, void, TContext> => {
   return useMutation(getPrepareRecoverySheetMutationOptions(options), queryClient);
-};
-export const getRetireControllerUrl = () => {
-  return `/api/v1/backups/retire`;
-};
-
-/**
- * @summary Retire this Controller after its library was restored on another machine
- */
-export const retireController = async (options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
-  return apiFetch<void>(getRetireControllerUrl(), {
-    ...options,
-    method: "POST",
-  });
-};
-
-export const getRetireControllerMutationKey = () => ["retireController"] as const;
-
-export const getRetireControllerMutationOptions = <
-  TError = ErrorType<
-    RetireController401 | RetireController403 | RetireController409 | RetireController500
-  >,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof retireController>>,
-    TError,
-    void,
-    TContext
-  >;
-  request?: SecondParameter<typeof apiFetch>;
-}): UseMutationOptions<Awaited<ReturnType<typeof retireController>>, TError, void, TContext> => {
-  const mutationKey = getRetireControllerMutationKey();
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof retireController>>, void> = () => {
-    return retireController(requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type RetireControllerMutationResult = NonNullable<
-  Awaited<ReturnType<typeof retireController>>
->;
-
-export type RetireControllerMutationError = ErrorType<
-  RetireController401 | RetireController403 | RetireController409 | RetireController500
->;
-
-/**
- * @summary Retire this Controller after its library was restored on another machine
- */
-export const useRetireController = <
-  TError = ErrorType<
-    RetireController401 | RetireController403 | RetireController409 | RetireController500
-  >,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof retireController>>,
-      TError,
-      void,
-      TContext
-    >;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<Awaited<ReturnType<typeof retireController>>, TError, void, TContext> => {
-  return useMutation(getRetireControllerMutationOptions(options), queryClient);
 };
 export const getDeleteBackupUrl = (backupId: string) => {
   return `/api/v1/backups/${backupId}`;

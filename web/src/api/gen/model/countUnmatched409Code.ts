@@ -1,1 +1,1 @@
-export type CountUnmatched409Code = "worker_node";
+export type CountUnmatched409Code = "superseded" | "worker_node";

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"errors"
 	"net/netip"
 	"slices"
 	"sync"
@@ -336,6 +337,111 @@ func TestOnlyANewRowIsHeardByPaired(t *testing.T) {
 		defer mu.Unlock()
 		if !slices.Equal(heard, []role.NodeID{id}) {
 			t.Fatalf("Paired heard %v, want only the new row %s", heard, id)
+		}
+	})
+}
+
+// fencings is every call to Config.Fenced.
+type fencings struct {
+	mu    sync.Mutex
+	calls []fencing
+}
+
+type fencing struct {
+	superseded bool
+	nodes      []nodes.ID
+}
+
+func (f *fencings) note(_ context.Context, superseded bool, ids []nodes.ID) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, fencing{superseded, ids})
+}
+
+func (f *fencings) seen() []fencing {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.calls)
+}
+
+// TestStopFencesOnlyAfterAnUnprovenReply stops a Controller no Worker
+// told anything, which is refused, then one a Worker told without a
+// proof: the fence holds it as stopped, the unproven Error goes, and
+// Fenced hears it once with both Nodes.
+func TestStopFencesOnlyAfterAnUnprovenReply(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		fence := &secretFence{secret: []byte("fence secret")}
+		c, w, id := fenced(t, fence)
+		if err := c.svc.Stop(t.Context()); !errors.Is(err, nodes.ErrNotTold) {
+			t.Fatalf("Stop with no claim = %v, want ErrNotTold", err)
+		}
+		tell(t, w, c, nil)
+		if err := c.svc.Stop(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if f, _ := fenceOf(t, c); f.State != nodes.Stopped || f.ByNode != id || !c.svc.Superseded() {
+			t.Fatalf("the fence is %+v, Superseded %v; want stopped through %s", f, c.svc.Superseded(), id)
+		}
+		if got := unprovenItems(t, c); len(got) != 0 {
+			t.Fatalf("a stopped Controller still raises %+v", got)
+		}
+		calls := c.fenced.seen()
+		if len(calls) != 1 || !calls[0].superseded || len(calls[0].nodes) != 2 {
+			t.Fatalf("Fenced heard %+v, want one call, superseded, with both Nodes", calls)
+		}
+	})
+}
+
+// TestResumeRegeneratesTheSecretAndAnOldProofFails fences a Controller
+// with a proof, resumes it, then has the Worker carry the same proof
+// again: Resume regenerated the secret before the fence went, so the
+// replay leaves only an unproven Error, and Fenced heard the fence and the
+// resume.
+func TestResumeRegeneratesTheSecretAndAnOldProofFails(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		fence := &secretFence{secret: []byte("fence secret")}
+		c, w, _ := fenced(t, fence)
+		if err := c.svc.Resume(t.Context(), func() error { return nil }); !errors.Is(err, nodes.ErrNotSuperseded) {
+			t.Fatalf("Resume on a healthy Controller = %v, want ErrNotSuperseded", err)
+		}
+		proof := fence.mint(c.node.Key, restored)
+		tell(t, w, c, proof)
+		if !c.svc.Superseded() {
+			t.Fatal("a proven reply left the Controller not Superseded")
+		}
+		regenerated := false
+		if err := c.svc.Resume(t.Context(), func() error {
+			regenerated = true
+			fence.regenerate()
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := fenceOf(t, c); ok || !regenerated || c.svc.Superseded() {
+			t.Fatalf("after Resume the fence is there %v, the secret regenerated %v, Superseded %v; want gone, true, false", ok, regenerated, c.svc.Superseded())
+		}
+
+		tell(t, w, c, proof)
+		if f, _ := fenceOf(t, c); f.State != nodes.Unproven || c.svc.Superseded() {
+			t.Fatalf("the old proof after Resume left the fence %+v, want unproven", f)
+		}
+		calls := c.fenced.seen()
+		if len(calls) != 2 || !calls[0].superseded || calls[1].superseded {
+			t.Fatalf("Fenced heard %+v, want superseded then resumed", calls)
+		}
+	})
+}
+
+// TestRetireFencesWithNoWorker retires a Controller no Worker told
+// anything: it is Superseded with no key behind it.
+func TestRetireFencesWithNoWorker(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c, _, _ := fenced(t, &secretFence{secret: []byte("fence secret")})
+		if err := c.svc.Retire(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if f, ok := fenceOf(t, c); !ok || f.State != nodes.Retired || f.By != (link.Key{}) || !c.svc.Superseded() {
+			t.Fatalf("the fence is %+v (%v), want retired with no key", f, ok)
 		}
 	})
 }

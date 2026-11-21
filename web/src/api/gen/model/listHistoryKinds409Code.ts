@@ -1,1 +1,1 @@
-export type ListHistoryKinds409Code = "worker_node";
+export type ListHistoryKinds409Code = "superseded" | "worker_node";

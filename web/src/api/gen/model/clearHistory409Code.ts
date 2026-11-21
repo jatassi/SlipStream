@@ -1,1 +1,1 @@
-export type ClearHistory409Code = "worker_node";
+export type ClearHistory409Code = "superseded" | "worker_node";

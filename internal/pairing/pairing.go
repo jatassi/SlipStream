@@ -72,7 +72,18 @@ type Config struct {
 	// Removed is called once the Controller refused this Worker's Hello as
 	// removed, after the record says so and the link dropped it.
 	Removed func(ctx context.Context)
-	Log     *slog.Logger
+	// UnreachableAfter is how long Run waits for the pinned Controller
+	// before it opens Local, which it shuts once the Controller is reached.
+	UnreachableAfter time.Duration
+	Local            LocalPage
+	Log              *slog.Logger
+}
+
+// LocalPage is a Worker's own page taking a Join Code, so it can pair
+// again with a Controller it can't reach.
+type LocalPage interface {
+	Open()
+	Shut()
 }
 
 // Pairing is one Node's pairing record and what follows from it.
@@ -413,29 +424,65 @@ func (p *Pairing) Repairs(code joincode.Code) bool {
 // addresses when its Welcome advertises others, so re-dials find a moved
 // Controller, recording the removal when the Controller refuses a Hello as
 // removed, and recording when it refuses one as a key it has no record
-// of, until it welcomes this Node again.
+// of, until it welcomes this Node again. Once the pinned Controller has
+// been out of reach for UnreachableAfter, from the start or since it was
+// last live, it opens the local page, and shuts it once it is live.
 func (p *Pairing) Run(ctx context.Context) error {
-	for c := range p.cfg.Link.Subscribe(ctx) {
-		var err error
-		switch st := c.State.(type) {
-		case link.Live:
-			err = p.follow(c.Key, st.Peer.Addresses)
-		case link.Down:
-			switch st.Refused {
-			case linkv1.RefusedReason_REFUSED_REASON_REMOVED:
-				err = p.removed(ctx, c.Key)
-			case linkv1.RefusedReason_REFUSED_REASON_UNKNOWN_KEY:
-				err = p.unknown(c.Key)
-			case linkv1.RefusedReason_REFUSED_REASON_UNSPECIFIED, linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_UNKNOWN,
-				linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_EXPIRED, linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_USED,
-				linkv1.RefusedReason_REFUSED_REASON_NOT_A_CONTROLLER, linkv1.RefusedReason_REFUSED_REASON_SUPERSEDED:
+	unreached := time.NewTimer(p.cfg.UnreachableAfter)
+	defer unreached.Stop()
+	waiting, open := true, false
+	changes := p.cfg.Link.Subscribe(ctx)
+	for {
+		select {
+		case c, ok := <-changes:
+			if !ok {
+				return nil
+			}
+			_, live := c.State.(link.Live)
+			switch rec := p.paired(); {
+			case rec == nil || rec.Controller.Key != c.Key:
+			case live:
+				unreached.Stop()
+				waiting = false
+				if open {
+					open = false
+					p.cfg.Local.Shut()
+				}
+			case !waiting && !open:
+				unreached.Reset(p.cfg.UnreachableAfter)
+				waiting = true
+			}
+			p.follow(ctx, c)
+		case <-unreached.C:
+			waiting = false
+			if p.paired() != nil {
+				open = true
+				p.cfg.Local.Open()
 			}
 		}
-		if err != nil {
-			p.cfg.Log.Error("rewrite the pairing record", "err", err.Error())
+	}
+}
+
+// follow records what one change of the link says about the pairing.
+func (p *Pairing) follow(ctx context.Context, c link.Change) {
+	var err error
+	switch st := c.State.(type) {
+	case link.Live:
+		err = p.followAddresses(c.Key, st.Peer.Addresses)
+	case link.Down:
+		switch st.Refused {
+		case linkv1.RefusedReason_REFUSED_REASON_REMOVED:
+			err = p.removed(ctx, c.Key)
+		case linkv1.RefusedReason_REFUSED_REASON_UNKNOWN_KEY:
+			err = p.unknown(c.Key)
+		case linkv1.RefusedReason_REFUSED_REASON_UNSPECIFIED, linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_UNKNOWN,
+			linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_EXPIRED, linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_USED,
+			linkv1.RefusedReason_REFUSED_REASON_NOT_A_CONTROLLER, linkv1.RefusedReason_REFUSED_REASON_SUPERSEDED:
 		}
 	}
-	return nil
+	if err != nil {
+		p.cfg.Log.Error("rewrite the pairing record", "err", err.Error())
+	}
 }
 
 // removed records that the Controller holding key removed this Node,
@@ -481,9 +528,10 @@ func (p *Pairing) unknown(key link.Key) error {
 	return nil
 }
 
-// follow rewrites the pinned Controller's addresses to those its Welcome
-// advertises, when it advertises any, and clears an unknown-key refusal.
-func (p *Pairing) follow(key link.Key, addrs link.Addresses) error {
+// followAddresses rewrites the pinned Controller's addresses to those its
+// Welcome advertises, when it advertises any, and clears an unknown-key
+// refusal.
+func (p *Pairing) followAddresses(key link.Key, addrs link.Addresses) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	rec := p.paired()

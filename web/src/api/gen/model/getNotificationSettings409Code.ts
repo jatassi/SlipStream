@@ -1,1 +1,1 @@
-export type GetNotificationSettings409Code = "worker_node";
+export type GetNotificationSettings409Code = "superseded" | "worker_node";

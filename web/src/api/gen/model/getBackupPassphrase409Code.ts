@@ -1,1 +1,1 @@
-export type GetBackupPassphrase409Code = "worker_node";
+export type GetBackupPassphrase409Code = "superseded" | "worker_node";
