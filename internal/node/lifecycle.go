@@ -7,13 +7,10 @@ import (
 	"github.com/jatassi/slipstream/internal/lifecycle"
 )
 
-// renameRetry is how long a rename or delete of the swap retries a sharing
-// violation on Windows. An antivirus scan holds a file it has just seen
-// for under a second, and cmd/go's robustio waits up to 2 s.
-const renameRetry = 2 * time.Second
-
-func (d DataDir) lifecycle() lifecycle.Dir {
-	return lifecycle.Dir{Path: d.path, Retry: renameRetry}
+// lifecycle is d's record and swap. retry is timings.backups.windows_retry,
+// how long a rename or delete retries a sharing violation on Windows.
+func (d DataDir) lifecycle(retry time.Duration) lifecycle.Dir {
+	return lifecycle.Dir{Path: d.path, Retry: retry}
 }
 
 // RestoreStage is a kind of step a restore's finish at start takes.
@@ -44,7 +41,7 @@ type RestoreStep struct {
 // left without writing one. A record this binary can't resume refuses the
 // start with RecordRefused.
 func (n *Node) resumeLifecycle() error {
-	d := n.env.DataDir.lifecycle()
+	d := n.env.DataDir.lifecycle(n.cfg.Timings.Backups.WindowsRetry)
 	op, ok, err := readLifecycle(d)
 	if err != nil {
 		return err

@@ -310,11 +310,12 @@
             "type": "string"
           },
           "purpose": {
-            "description": "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders",
+            "description": "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders; backups: a folder for Backups, writable and apart from every root and downloads folder on the Node",
             "enum": [
               "root",
               "downloads",
-              "import"
+              "import",
+              "backups"
             ],
             "type": "string"
           },
@@ -9620,7 +9621,8 @@
               "imports",
               "library",
               "subtitles",
-              "health"
+              "health",
+              "backups"
             ],
             "type": "string"
           },
@@ -9745,7 +9747,8 @@
               "imports",
               "library",
               "subtitles",
-              "health"
+              "health",
+              "backups"
             ],
             "type": "string"
           },
@@ -17922,6 +17925,7 @@
               "library",
               "subtitles",
               "health",
+              "backups",
               "system"
             ],
             "type": "string"
@@ -20358,7 +20362,8 @@
           "purpose": {
             "description": "The rules the Node judges the folder by, as checkFolder names them",
             "enum": [
-              "downloads"
+              "downloads",
+              "backups"
             ],
             "type": "string"
           },
@@ -22429,7 +22434,8 @@
             "enum": [
               "web",
               "log",
-              "torrent"
+              "torrent",
+              "backups"
             ],
             "type": "string"
           }
@@ -43568,19 +43574,20 @@
             }
           },
           {
-            "description": "Only these groups; left out, all five",
+            "description": "Only these groups; left out, all six",
             "explode": false,
             "in": "query",
             "name": "groups",
             "schema": {
-              "description": "Only these groups; left out, all five",
+              "description": "Only these groups; left out, all six",
               "items": {
                 "enum": [
                   "grabs",
                   "imports",
                   "library",
                   "subtitles",
-                  "health"
+                  "health",
+                  "backups"
                 ],
                 "type": "string"
               },

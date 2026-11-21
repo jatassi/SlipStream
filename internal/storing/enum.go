@@ -142,6 +142,10 @@ const (
 	// PurposeImport is a folder to import from: inside one of the Node's
 	// library roots or download folders, and never written.
 	PurposeImport
+	// PurposeBackups is a folder that holds Backups: writable and apart
+	// from every root the Node holds and its downloads folders. It may sit
+	// in the data dir, where the Controller's is by default.
+	PurposeBackups
 )
 
 var purposes = enum[Purpose, storagev1.Purpose]{
@@ -149,6 +153,7 @@ var purposes = enum[Purpose, storagev1.Purpose]{
 	{PurposeDownloads, storagev1.Purpose_PURPOSE_DOWNLOADS, "downloads"},
 	{PurposeClientFolder, storagev1.Purpose_PURPOSE_CLIENT_FOLDER, "client_folder"},
 	{PurposeImport, storagev1.Purpose_PURPOSE_IMPORT, "import"},
+	{PurposeBackups, storagev1.Purpose_PURPOSE_BACKUPS, "backups"},
 }
 
 func (p Purpose) String() string                    { return purposes.of(p).word }

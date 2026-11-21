@@ -1,6 +1,7 @@
 package node
 
 import (
+	"github.com/jatassi/slipstream/internal/backups"
 	"slices"
 	"testing"
 
@@ -33,7 +34,7 @@ func TestTheHealthRegistryMatchesItsIDsEventsAndTasks(t *testing.T) {
 			t.Errorf("a Health category follows %s, which surface.Events doesn't declare", e.Name())
 		}
 	}
-	for _, task := range catalog(housekeeping.Config{}, metadata.RefreshConfig{}, imports.New(imports.Config{Transfers: transfers.New(transfers.ControllerConfig{})})) {
+	for _, task := range catalog(housekeeping.Config{}, metadata.RefreshConfig{}, imports.New(imports.Config{Transfers: transfers.New(transfers.ControllerConfig{})}), &backups.Backups{}) {
 		if task.Health != "" && !slices.Contains(health.IDs(), health.ID(task.Health)) {
 			t.Errorf("task %s warns in Health category %q, which nobody registers", task.ID, task.Health)
 		}

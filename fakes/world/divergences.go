@@ -75,6 +75,12 @@ var divergences = []divergence{
 		spec:        "#149",
 	},
 	{
+		id:          "backups-folder",
+		keyPatterns: []string{"backups.folder"},
+		reason:      "A Scenario can give the Controller's Backups folder a folder of its own in the data dir, so a run can mount a small volume there and prove the space refusal.",
+		spec:        "#174",
+	},
+	{
 		id:          "fake-endpoints",
 		keyPatterns: []string{"endpoints.*"},
 		reason:      "Each boundary's endpoints point at its fake.",

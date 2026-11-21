@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller, with a Movies root, whose Backups
+  folder is full-backups in its data dir. A run mounts a volume smaller
+  than a Backup there, so slipstream backup and the Backup before a
+  migration refuse, naming the folder and both sizes.
+seed: full-backups-folder
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    backups_folder: full-backups
+timings:
+  node:
+    stop_deadline: 15s
+library:
+  roots: [{content_type: movie, folder: movies}]

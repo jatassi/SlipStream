@@ -25,7 +25,7 @@ type Before EventID
 type Filter struct {
 	// Type is zero for every Content Type, Health included.
 	Type works.TypeID
-	// Groups is nil for all five.
+	// Groups is nil for all six.
 	Groups []entry.Group
 	// Kinds each narrow their own group, which Groups must hold.
 	Kinds []entry.Kind

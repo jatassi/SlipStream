@@ -7,6 +7,7 @@ const savedToast: { readonly [S in SystemConfigSectionId]: string } = {
   web: "Web and API settings saved",
   log: "Log settings saved",
   torrent: "Torrent client settings saved",
+  backups: "Backups folder saved",
 };
 
 /** One section of a Node's settings, each field saved on its own. */
