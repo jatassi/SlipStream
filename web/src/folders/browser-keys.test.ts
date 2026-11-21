@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { type Intent, type KeyContext, type KeyLike, intentOf } from "./browser-keys";
+import type { KeyLike } from "../ui/kbd";
+import { type Intent, type KeyContext, intentOf } from "./browser-keys";
 import type { Move } from "../ui/move-index";
 import { type BrowserState, startBrowsing } from "./browser-state";
 

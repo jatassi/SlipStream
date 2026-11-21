@@ -14,6 +14,7 @@ import {
 
 import { Empty } from "./empty";
 import { Icon } from "./icon";
+import { Kbd, shortcut } from "./kbd";
 import { type ShellKind, useShell } from "./shell-context";
 
 export type PaletteOption = {
@@ -193,19 +194,21 @@ function Option({ option }: { option: PaletteOption }) {
 }
 
 const hints = [
-  { keys: "↑↓", label: "Move" },
-  { keys: "↵", label: "Open" },
-  { keys: "Esc", label: "Close" },
+  { keys: [shortcut(["ArrowUp"]), shortcut(["ArrowDown"])], label: "Move" },
+  { keys: [shortcut(["Enter"])], label: "Open" },
+  { keys: [shortcut(["Escape"])], label: "Close" },
 ] as const;
 
 function Hints() {
   return (
     <div className="flex h-10 shrink-0 items-center gap-5 px-5 text-meta text-ink-3 shadow-[inset_0_1px_0_var(--color-hairline)]">
       {hints.map((hint) => (
-        <span key={hint.keys} className="flex items-center gap-1.5">
-          <kbd className="rounded-chip bg-fill px-1.5 py-0.5 font-sans text-label text-ink-2">
-            {hint.keys}
-          </kbd>
+        <span key={hint.label} className="flex items-center gap-1.5">
+          <span className="flex gap-0.5">
+            {hint.keys.map((key) => (
+              <Kbd key={key.chord} shortcut={key} />
+            ))}
+          </span>
           {hint.label}
         </span>
       ))}

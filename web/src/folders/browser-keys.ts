@@ -1,16 +1,6 @@
+import { type KeyLike, chordOf } from "../ui/kbd";
 import type { Move } from "../ui/move-index";
 import { type BrowserAction, type BrowserState, isPath } from "./browser-state";
-
-/** A native KeyboardEvent fits; a React one fits through its nativeEvent. */
-export type KeyLike = {
-  readonly key: string;
-  readonly code: string;
-  readonly ctrlKey: boolean;
-  readonly metaKey: boolean;
-  readonly altKey: boolean;
-  readonly shiftKey: boolean;
-  readonly isComposing: boolean;
-};
 
 /**
  * What a key asks of the browser. A key with an intent is the browser's, so
@@ -113,21 +103,6 @@ const folderName: Readonly<Record<string, Resolve>> = {
   Enter: () => ({ type: "create" }),
   Escape: () => ({ type: "cancelNewFolder" }),
 };
-
-function chordOf(key: KeyLike, mac: boolean): string {
-  const primary = mac ? key.metaKey : key.ctrlKey;
-  const secondary = mac ? key.ctrlKey : key.metaKey;
-  const name = key.code === "Period" ? "." : key.key.length === 1 ? key.key.toUpperCase() : key.key;
-  return [
-    primary && "Mod",
-    secondary && (mac ? "Ctrl" : "Meta"),
-    key.altKey && "Alt",
-    key.shiftKey && "Shift",
-    name,
-  ]
-    .filter(Boolean)
-    .join("+");
-}
 
 export function intentOf(key: KeyLike, context: KeyContext): Intent | null {
   if (key.isComposing) {

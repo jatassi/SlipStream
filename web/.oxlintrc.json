@@ -232,6 +232,10 @@
         "message": "amber and red cards are Callout from src/ui/callout.tsx"
       },
       {
+        "selector": "JSXOpeningElement[name.name='kbd']",
+        "message": "key hints are Kbd from src/ui/kbd.tsx"
+      },
+      {
         "selector": "JSXOpeningElement[name.name='time']",
         "message": "a time is RelativeTime or PlainTime from src/ui/relative-time.tsx"
       },
@@ -954,6 +958,10 @@
           {
             "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bbg-(warn|fail)-card\\b/]",
             "message": "amber and red cards are Callout from src/ui/callout.tsx"
+          },
+          {
+            "selector": "JSXOpeningElement[name.name='kbd']",
+            "message": "key hints are Kbd from src/ui/kbd.tsx"
           },
           {
             "selector": "JSXOpeningElement[name.name='time']",

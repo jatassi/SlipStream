@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 
 import { type AlertTone, dotOf, dotWord } from "./count";
 import { labelPopup } from "./floating";
+import { Kbd, type Shortcut } from "./kbd";
 
 export type TooltipProps = {
   label: string;
@@ -11,6 +12,8 @@ export type TooltipProps = {
   side?: "top" | "right" | "bottom" | "left";
   /** The trigger's accessible name when it differs from the tooltip's words. */
   name?: string;
+  /** The key that does the same, shown after the words. */
+  shortcut?: Shortcut;
   children: ReactElement;
 };
 
@@ -23,6 +26,7 @@ export function Tooltip({
   alert,
   side = "top",
   name: given,
+  shortcut,
   children,
 }: TooltipProps) {
   const name =
@@ -39,6 +43,7 @@ export function Tooltip({
             <span>{label}</span>
             {count !== undefined && <span className="text-ink-3 tabular-nums">{count}</span>}
             {alert !== undefined && dotOf(alert)}
+            {shortcut !== undefined && <Kbd shortcut={shortcut} />}
           </BaseTooltip.Popup>
         </BaseTooltip.Positioner>
       </BaseTooltip.Portal>

@@ -1,4 +1,4 @@
-import { appleViewer } from "../ui/platform";
+import { shortcut } from "../ui/kbd";
 import { createFlag } from "./flag";
 
 const palette = createFlag();
@@ -17,12 +17,4 @@ export const togglePalette = () => {
 
 export const usePaletteOpen = palette.useValue;
 
-export const paletteShortcut = appleViewer
-  ? { label: "⌘K", keys: "Meta+K" }
-  : { label: "Ctrl K", keys: "Control+K" };
-
-export const isPaletteShortcut = (event: KeyboardEvent): boolean =>
-  event.key.toLowerCase() === "k" &&
-  !event.altKey &&
-  !event.shiftKey &&
-  (appleViewer ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey);
+export const paletteShortcut = shortcut(["Mod", "K"]);
