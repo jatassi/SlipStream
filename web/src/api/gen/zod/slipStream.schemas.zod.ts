@@ -9074,7 +9074,7 @@ export const NodesRoleView = zod.object({
     "relaying",
     "serving",
   ]),
-  state: zod.enum(["holding", "away", "lapsed", "draining", "writing-off", "covering"]),
+  state: zod.enum(["holding", "away", "lapsed", "draining", "writing-off", "covering", "keeping"]),
 });
 
 export type NodesRoleView = zod.input<typeof NodesRoleView>;

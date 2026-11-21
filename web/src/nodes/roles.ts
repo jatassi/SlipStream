@@ -117,6 +117,7 @@ const lines: {
     held === undefined ? "Giving up its work" : `Giving up ${heldWords(held)}`,
   covering: (_view, _standing, covered) =>
     covered.length === 0 ? "Covering" : `Covering for ${listed(covered)}`,
+  keeping: () => "Keeping every torrent until SlipStream has matched its torrents with the library",
 };
 
 /** Every Node with the Roles it stands in, as the role board and Topology both carry them. */

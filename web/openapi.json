@@ -17809,7 +17809,8 @@
               "lapsed",
               "draining",
               "writing-off",
-              "covering"
+              "covering",
+              "keeping"
             ],
             "type": "string"
           }

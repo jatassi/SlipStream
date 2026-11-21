@@ -108,7 +108,7 @@ func probesOf(results []role.ProbeResult) []probe {
 
 type roleView struct {
 	Role  string `json:"role" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving"`
-	State string `json:"state" enum:"holding,away,lapsed,draining,writing-off,covering"`
+	State string `json:"state" enum:"holding,away,lapsed,draining,writing-off,covering,keeping"`
 	Held  *held  `json:"held,omitempty" doc:"The work the Node has for the Role that can't move to another Node; absent when none"`
 }
 

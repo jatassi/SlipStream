@@ -57,10 +57,10 @@ async function addressPasskeyAndLanguage(
 ): Promise<void> {
   await expect(heading(page, "Where people reach SlipStream")).toBeVisible();
   expect(page.url()).toBe(`${world.baseURL}/setup/address`);
-  await expect(page.getByText("Step 1 of 7")).toBeVisible();
+  await expect(page.getByText("Step 1 of 8")).toBeVisible();
   await expect(
     page.getByText(
-      "After this: Passkey, Kinds of media, Language and region, Library roots, Downloads and What SlipStream grabs",
+      "After this: Passkey, Backup passphrase, Kinds of media, Language and region, Library roots, Downloads and What SlipStream grabs",
     ),
   ).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Address" })).toHaveValue(world.baseURL);
@@ -70,8 +70,12 @@ async function addressPasskeyAndLanguage(
   await addVirtualAuthenticator(context, page);
   await page.getByRole("button", { name: "Add a passkey" }).click();
 
+  await expect(heading(page, "Save your Backup passphrase")).toBeVisible();
+  await expect(page.getByText("Step 3 of 8")).toBeVisible();
+  await page.getByRole("button", { name: "I saved it" }).click();
+
   await expect(heading(page, "Kinds of media")).toBeVisible();
-  await expect(page.getByText("Step 3 of 7")).toBeVisible();
+  await expect(page.getByText("Step 4 of 8")).toBeVisible();
   await expect(page.getByRole("switch", { name: "Movies" })).toBeChecked();
   await expect(page.getByRole("switch", { name: "TV" })).toBeChecked();
   await page.getByRole("button", { name: "Continue" }).click();
@@ -121,6 +125,7 @@ async function doneScreen(page: Page, world: World): Promise<void> {
   await expect(page.getByRole("list", { name: "First setup" }).getByRole("listitem")).toHaveText([
     "AddressSet",
     "PasskeySet",
+    "Backup passphraseSet",
     "Kinds of mediaSet",
     "Language and regionSet",
     "Library rootsSet it in SettingsSkipped",
@@ -164,10 +169,10 @@ test("the passkey step shows only where the browser can hold a passkey", async (
   await page.goto("/setup/passkey");
   if (browserName === "chromium") {
     await expect(heading(page, "Add a passkey")).toBeVisible();
-    await expect(page.getByText("Step 2 of 7")).toBeVisible();
+    await expect(page.getByText("Step 2 of 8")).toBeVisible();
   } else {
     await expect(heading(page, "Where people reach SlipStream")).toBeVisible();
     expect(page.url()).toBe(`${world.baseURL}/setup/address`);
-    await expect(page.getByText("Step 1 of 6")).toBeVisible();
+    await expect(page.getByText("Step 1 of 7")).toBeVisible();
   }
 });
