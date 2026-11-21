@@ -31,6 +31,128 @@ export const ActInputBody = zod.object({
 export type ActInputBody = zod.input<typeof ActInputBody>;
 export type ActInputBodyOutput = zod.output<typeof ActInputBody>;
 
+export const BackupsCopies = zod.object({
+  copied: zod.int(),
+  copying: zod.int(),
+  failed: zod.int(),
+  waiting: zod.int().describe("Waiting for a copy to start"),
+});
+
+export type BackupsCopies = zod.input<typeof BackupsCopies>;
+export type BackupsCopiesOutput = zod.output<typeof BackupsCopies>;
+
+export const BackupsCheck = zod.object({
+  at: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the result came in; null while none has"),
+  cause: zod.string().exactOptional().describe("Why the check failed, as a sentence"),
+  result: zod
+    .enum(["none", "asked", "ok", "mismatch", "unreadable", "no_local_file"])
+    .describe(
+      "none: not checked yet; asked: waiting for its Node; no_local_file: this machine has no file of the Backup to check it against",
+    ),
+});
+
+export type BackupsCheck = zod.input<typeof BackupsCheck>;
+export type BackupsCheckOutput = zod.output<typeof BackupsCheck>;
+
+export const backupsNewestBackupIdRegExp = new RegExp("^[0-9a-f]{32}$");
+
+export const BackupsNewest = zod.object({
+  backupId: zod.string().regex(backupsNewestBackupIdRegExp),
+  check: BackupsCheck.describe("Its last check"),
+  copiedAt: zod.iso.datetime({ offset: true }),
+  name: zod.string().describe("The Backup's file name"),
+});
+
+export type BackupsNewest = zod.input<typeof BackupsNewest>;
+export type BackupsNewestOutput = zod.output<typeof BackupsNewest>;
+
+export const backupsDestinationIdRegExp = new RegExp("^[0-9a-f]{32}$");
+
+export const BackupsDestination = zod.object({
+  addedAt: zod.iso.datetime({ offset: true }),
+  copies: BackupsCopies.describe("Its copies of the listed Backups, by state"),
+  folder: zod.string().describe("As the Admin typed it"),
+  id: zod.string().regex(backupsDestinationIdRegExp),
+  newest: zod
+    .union([BackupsNewest, zod.null()])
+    .describe("Its newest copy, null before one is copied"),
+  nodeId: zod.uuid(),
+  removing: zod
+    .boolean()
+    .describe("Removed, while a copy already running into its folder finishes"),
+});
+
+export type BackupsDestination = zod.input<typeof BackupsDestination>;
+export type BackupsDestinationOutput = zod.output<typeof BackupsDestination>;
+
+export const BackupsRoom = zod.object({
+  free: zod.int().describe("The bytes SlipStream may write on the folder's volume"),
+  need: zod.int().describe("The bytes of every listed Backup"),
+});
+
+export type BackupsRoom = zod.input<typeof BackupsRoom>;
+export type BackupsRoomOutput = zod.output<typeof BackupsRoom>;
+
+export const BackupsAdded = zod.object({
+  destination: BackupsDestination,
+  room: zod
+    .union([BackupsRoom, zod.null()])
+    .describe(
+      "The room the folder's volume lacks to hold every listed Backup; null when it has enough",
+    ),
+});
+
+export type BackupsAdded = zod.input<typeof BackupsAdded>;
+export type BackupsAddedOutput = zod.output<typeof BackupsAdded>;
+
+export const BackupsDestinationList = zod.object({
+  destinations: zod.array(BackupsDestination).describe("In the order they were added"),
+});
+
+export type BackupsDestinationList = zod.input<typeof BackupsDestinationList>;
+export type BackupsDestinationListOutput = zod.output<typeof BackupsDestinationList>;
+
+export const backupsNewDestinationFolderMax = 4096;
+
+export const BackupsNewDestination = zod.object({
+  folder: zod
+    .string()
+    .min(1)
+    .max(backupsNewDestinationFolderMax)
+    .describe("An absolute folder in the Node's path style"),
+  nodeId: zod.uuid(),
+});
+
+export type BackupsNewDestination = zod.input<typeof BackupsNewDestination>;
+export type BackupsNewDestinationOutput = zod.output<typeof BackupsNewDestination>;
+
+export const BackupsRefusal = zod.object({
+  reason: zod
+    .enum([
+      "not_absolute",
+      "not_found",
+      "not_a_folder",
+      "unwritable",
+      "inside_root",
+      "contains_root",
+      "inside_data",
+      "contains_data",
+      "inside_downloads",
+      "contains_downloads",
+      "unresponsive",
+      "network_share",
+      "outside",
+      "node_offline",
+    ])
+    .describe("Why the folder can't hold Backups"),
+});
+
+export type BackupsRefusal = zod.input<typeof BackupsRefusal>;
+export type BackupsRefusalOutput = zod.output<typeof BackupsRefusal>;
+
 export const Bare = zod.union([zod.number(), zod.string(), zod.array(zod.string())]);
 
 export type Bare = zod.input<typeof Bare>;
@@ -12760,6 +12882,8 @@ export const TransfersWait = zod.object({
     "storage_draining",
     "source_checking",
     "source_not_ready",
+    "folder_not_ready",
+    "reconciling",
   ]),
   nodeId: zod.uuid().describe("The Node it waits for"),
 });

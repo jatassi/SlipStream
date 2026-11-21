@@ -131,6 +131,9 @@ func (e *UnusableError) Error() string {
 	return "the folder can't be a Backup destination: " + string(e.Refusal.Reason)
 }
 
+// Ledger is the index as it is now.
+func (b *Backups) Ledger() Ledger { return b.cfg.Engine.Index().Read() }
+
 // Destination is the destination with id, removed or not.
 func (l *Ledger) Destination(id DestinationID) (Destination, bool) {
 	i := slices.IndexFunc(l.Destinations, func(d Destination) bool { return d.ID == id })
