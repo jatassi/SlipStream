@@ -1,6 +1,7 @@
 /** The fakes/scenario catalog entries the browser tier launches. */
 export type Scenario =
   | "single-machine"
+  | "dead-controller"
   | "first-run"
   | "home"
   | "low-space"
