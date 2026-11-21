@@ -2,12 +2,13 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 
 import { useListContentTypesSuspense } from "../../../api/gen/query/works/works";
 import {
+  LibraryPending,
   RoutedLibrary,
   librarySwitches,
   librarySearch,
   rememberedSearch,
 } from "../../../library/routed";
-import { Page, PagePending } from "../../../shell/page";
+import { Page } from "../../../shell/page";
 import { Empty } from "../../../ui/empty";
 import { enabledTypes } from "../../../works/fields";
 import { AddButton, AddMenu } from "./-add-menu";
@@ -26,9 +27,13 @@ export const Route = createFileRoute("/_app/library/")({
     }
   },
   loader: ({ context }) => libraryReads(context.queryClient),
-  pendingComponent: () => <PagePending label="Loading the Library" shape="grid" />,
+  pendingComponent: Pending,
   component: Library,
 });
+
+function Pending() {
+  return <LibraryPending search={Route.useSearch()} />;
+}
 
 function Library() {
   const navigate = useNavigate();

@@ -131,10 +131,6 @@
           {
             "group": ["msw/*", "**/*.msw", "**/test/*"],
             "message": "MSW and mocks belong to tests"
-          },
-          {
-            "group": ["**/ui/warning-line", "**/ui/alert-line", "**/shell/empty"],
-            "message": "use Callout, SignalLine or Empty from src/ui"
           }
         ]
       }
@@ -406,10 +402,6 @@
               {
                 "group": ["msw/*", "**/*.msw", "**/test/*"],
                 "message": "MSW and mocks belong to tests"
-              },
-              {
-                "group": ["**/ui/warning-line", "**/ui/alert-line", "**/shell/empty"],
-                "message": "use Callout, SignalLine or Empty from src/ui"
               }
             ]
           }
@@ -480,10 +472,6 @@
               {
                 "group": ["**/_app", "**/_app/**"],
                 "message": "the portal never imports Admin pages"
-              },
-              {
-                "group": ["**/ui/warning-line", "**/ui/alert-line", "**/shell/empty"],
-                "message": "use Callout, SignalLine or Empty from src/ui"
               }
             ]
           }
@@ -538,10 +526,6 @@
               {
                 "group": ["**/api/fetch"],
                 "message": "only generated code calls the mutator"
-              },
-              {
-                "group": ["**/ui/warning-line", "**/ui/alert-line", "**/shell/empty"],
-                "message": "use Callout, SignalLine or Empty from src/ui"
               }
             ]
           }
@@ -609,10 +593,6 @@
               {
                 "group": ["**/*.msw", "**/test/*"],
                 "message": "MSW and mocks belong to tests"
-              },
-              {
-                "group": ["**/ui/warning-line", "**/ui/alert-line", "**/shell/empty"],
-                "message": "use Callout, SignalLine or Empty from src/ui"
               }
             ]
           }
@@ -667,10 +647,6 @@
               {
                 "group": ["**/api/fetch"],
                 "message": "only generated code calls the mutator"
-              },
-              {
-                "group": ["**/ui/warning-line", "**/ui/alert-line", "**/shell/empty"],
-                "message": "use Callout, SignalLine or Empty from src/ui"
               }
             ]
           }
@@ -815,123 +791,6 @@
           {
             "selector": "CallExpression[callee.property.name='toLocaleString'][callee.object.callee.name='Date']",
             "message": "times are worded in src/ui/time-words.ts and days in src/format/days.ts"
-          }
-        ]
-      }
-    },
-    {
-      "files": ["src/targets/impact-sheet.tsx", "src/targets/editions-control.tsx"],
-      "rules": {
-        "slipstream/no-restricted-syntax": [
-          "error",
-          {
-            "selector": "JSXAttribute[name.name='className'] Literal[value=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
-            "message": "use a DESIGN.md token class"
-          },
-          {
-            "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
-            "message": "use a DESIGN.md token class"
-          },
-          {
-            "selector": "JSXAttribute[name.name='style'] Literal[value=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
-            "message": "use a DESIGN.md token class"
-          },
-          {
-            "selector": "JSXAttribute[name.name='style'] TemplateElement[value.raw=/#[0-9a-fA-F]{3}|rgba?\\(|hsla?\\(/]",
-            "message": "use a DESIGN.md token class"
-          },
-          {
-            "selector": "Literal[value=/\\[(#|rgba?\\(|hsla?\\()/]",
-            "message": "use a DESIGN.md token class"
-          },
-          {
-            "selector": "TemplateElement[value.raw=/\\[(#|rgba?\\(|hsla?\\()/]",
-            "message": "use a DESIGN.md token class"
-          },
-          {
-            "selector": "JSXAttribute[name.name='className'] Literal[value=/\\bfont-mono\\b/]",
-            "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
-          },
-          {
-            "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bfont-mono\\b/]",
-            "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
-          },
-          {
-            "selector": "JSXOpeningElement[name.name='dl']",
-            "message": "label and value rows are Facts from src/ui/facts.tsx"
-          }
-        ]
-      }
-    },
-    {
-      "files": [
-        "src/targets/attempt.tsx",
-        "src/targets/section-editor.tsx",
-        "src/works/page/gone-upstream.tsx",
-        "src/works/page/need-rows.tsx",
-        "src/works/page/waiting.tsx",
-        "src/library/results.tsx"
-      ],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "paths": [
-              {
-                "name": "axios",
-                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
-              },
-              {
-                "name": "react-hook-form",
-                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
-              },
-              {
-                "name": "zustand",
-                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
-              },
-              {
-                "name": "sonner",
-                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
-              },
-              {
-                "name": "lucide-react",
-                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
-              },
-              {
-                "name": "cmdk",
-                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
-              },
-              {
-                "name": "vaul",
-                "message": "adopted libraries are in docs/research/oss-libraries/E-frontend.md"
-              },
-              {
-                "name": "msw",
-                "message": "MSW and mocks belong to tests"
-              },
-              {
-                "name": "@faker-js/faker",
-                "message": "MSW and mocks belong to tests"
-              }
-            ],
-            "patterns": [
-              {
-                "group": ["@base-ui/react", "@base-ui/react/*"],
-                "message": "compose the kit in src/ui; it carries DESIGN.md"
-              },
-              {
-                "group": ["@hugeicons-pro/*"],
-                "message": "only the Hugeicons free set ships"
-              },
-              {
-                "group": ["**/api/fetch"],
-                "message": "only generated code calls the mutator"
-              },
-              {
-                "group": ["msw/*", "**/*.msw", "**/test/*"],
-                "message": "MSW and mocks belong to tests"
-              }
-            ]
           }
         ]
       }

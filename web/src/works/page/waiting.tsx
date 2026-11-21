@@ -13,7 +13,7 @@ import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
 import { useListRootsSuspense } from "../../api/gen/query/roots/roots";
 import { SendToSheet } from "../../grabs/send-to-sheet";
 import { rootWords } from "../../roots/words";
-import { WarningLine } from "../../ui/warning-line";
+import { Callout } from "../../ui/callout";
 import { type ImportWait, type Naming, clientErrorWords, importWaitWords } from "./need-words";
 
 /** A waiting Grab that the Admin can send to another client. */
@@ -29,18 +29,19 @@ function SendableWait({
   const [sending, setSending] = useState(false);
   return (
     <>
-      <WarningLine
-        signal="warn"
+      <Callout
+        tone="warn"
         chip="Waiting"
         subject={subject}
-        detail={detail}
         action={{
           label: "Send to another client",
           onClick: () => {
             setSending(true);
           },
         }}
-      />
+      >
+        {detail}
+      </Callout>
       <SendToSheet grab={grab} open={sending} onOpenChange={setSending} />
     </>
   );
@@ -98,11 +99,10 @@ function ClientErrorWait({
   const navigate = useNavigate();
   const torrentId = grab?.torrentId ?? null;
   return (
-    <WarningLine
-      signal="warn"
+    <Callout
+      tone="warn"
       chip="Waiting"
       subject={release}
-      detail={clientErrorWords(error)}
       action={
         torrentId === null
           ? {
@@ -118,7 +118,9 @@ function ClientErrorWait({
                 }),
             }
       }
-    />
+    >
+      {clientErrorWords(error)}
+    </Callout>
   );
 }
 
@@ -144,16 +146,17 @@ function ImportWaitLine({
       ? "library root"
       : rootWords(root, roots, type, nodeName(root.nodeId) ?? "a removed Node");
   return (
-    <WarningLine
-      signal="warn"
+    <Callout
+      tone="warn"
       chip="Waiting"
       subject={release}
-      detail={importWaitWords(code, named, hold?.space ?? null)}
       action={{
         label: "Open Pending imports",
         onClick: () => void navigate({ to: "/library/pending" }),
       }}
-    />
+    >
+      {importWaitWords(code, named, hold?.space ?? null)}
+    </Callout>
   );
 }
 
@@ -210,28 +213,29 @@ function NodeWait({
   const navigate = useNavigate();
   if (node === undefined) {
     return (
-      <WarningLine
-        signal="warn"
+      <Callout
+        tone="warn"
         chip="Waiting"
         subject={release}
-        detail="This download has stopped and needs an Admin. Open Activity to see where it stopped and what to do."
         action={{
           label: "Open Activity",
           onClick: () => void navigate({ to: "/activity" }),
         }}
-      />
+      >
+        This download has stopped and needs an Admin. Open Activity to see where it stopped and what
+        to do.
+      </Callout>
     );
   }
   return (
-    <WarningLine
-      signal="warn"
+    <Callout
+      tone="warn"
       chip="Waiting"
       subject={`Waiting for ${node.name}`}
-      detail={`The download continues once ${node.name} is back online.`}
       action={{
         label: `Open ${node.name}`,
         onClick: () => void navigate({ to: "/nodes/$nodeId", params: { nodeId: node.id } }),
       }}
-    />
+    >{`The download continues once ${node.name} is back online.`}</Callout>
   );
 }

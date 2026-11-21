@@ -2,12 +2,13 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 
 import { useListContentTypesSuspense } from "../../../api/gen/query/works/works";
 import {
+  LibraryPending,
   RoutedLibrary,
   librarySwitches,
   librarySearch,
   rememberedSearch,
 } from "../../../library/routed";
-import { Page, PagePending } from "../../../shell/page";
+import { Page } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
 import { Empty } from "../../../ui/empty";
 import { enabledTypeOf, enabledTypes } from "../../../works/fields";
@@ -33,9 +34,13 @@ export const Route = createFileRoute("/_app/library/$contentType")({
     const [{ contentTypes }] = await libraryReads(context.queryClient);
     return { title: enabledTypeOf(contentTypes, contentType).name };
   },
-  pendingComponent: () => <PagePending label="Loading the Library" shape="grid" />,
+  pendingComponent: Pending,
   component: ContentTypeLibrary,
 });
+
+function Pending() {
+  return <LibraryPending search={Route.useSearch()} />;
+}
 
 function ContentTypeLibrary() {
   const navigate = useNavigate();

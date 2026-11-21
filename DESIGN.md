@@ -667,9 +667,10 @@ What a list, table or section shows when it has nothing (`Empty` in `web/src/ui/
 A placeholder in the loaded layout's frame while its data loads (`Skeleton` in `web/src/ui/skeleton.tsx`), so the page doesn't move when the data lands. It is a status named for what loads, such as "Loading Torrents". Its bars are `fill` at radius 6, and each shape draws the loaded component's frame and row heights.
 - **Rows:** A List. A glass sheet of 6 rows at the List's one-line or two-line height, with hairlines between rows, a title bar and, on two-line rows, a Meta bar.
 - **Table:** A Table. Its 32px header, then 8 rows at the table's line height. On phone, where a table turns into a list, it draws rows.
-- **Grid:** The Library grid at the medium size. 12 empty poster frames on `glass-raised`, each with a label bar and a Meta bar.
+- **Grid:** The Library grid at the person's poster size, small, medium or large. 12 empty poster frames on `glass-raised`, each with a label bar and a Meta bar. A Library whose address names the table view draws Table instead.
 - **Facts:** A Facts sheet of 4 rows, with a label bar in the label column and a value bar. In Touch the label bar sits over the value bar.
 - **Form:** 3 fields, each a label bar over an empty `well` at the input's height, at most 480px wide.
+- **Hero:** The Work page. Its 2:3 poster frame beside a title bar in Title large and two Meta bars, laid out as the hero is, then Rows of two lines.
 - **Page:** A route that renders its own page shows its title at once while it loads, or a bar of the title's height while its loader names the title, and then the shape. A route inside a layout that owns the page, such as a Node's sections, shows the shape alone.
 
 ### Details

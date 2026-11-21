@@ -3,9 +3,12 @@ import type { ReactElement } from "react";
 import { useShell } from "./shell-context";
 
 /** The loaded layout a skeleton stands in for, so the page doesn't jump when the data lands. */
-export type SkeletonShape = "rows" | "table" | "grid" | "facts" | "form";
+export type SkeletonShape = "rows" | "table" | "grid" | "facts" | "form" | "hero";
 
 type Lines = 1 | 2;
+
+/** The Library grid's poster sizes, each a narrowest column width. */
+export type Posters = "small" | "medium" | "large";
 
 export type SkeletonProps = { readonly label: string } & (
   | {
@@ -16,10 +19,15 @@ export type SkeletonProps = { readonly label: string } & (
       readonly inFrame?: true;
     }
   | { readonly shape: "table"; readonly lines: Lines }
-  | { readonly shape: "grid" | "facts" | "form" }
+  | { readonly shape: "grid"; readonly posters: Posters }
+  | { readonly shape: "facts" | "form" | "hero" }
 );
 
-type Fit = { readonly lines: Lines; readonly inFrame: true | undefined };
+type Fit = {
+  readonly lines: Lines;
+  readonly inFrame: true | undefined;
+  readonly posters: Posters;
+};
 
 /** One placeholder bar, breathing between fill and fill-hover. */
 export const skeletonBar = "block rounded-chip bg-fill animate-skeleton motion-reduce:animate-none";
@@ -35,7 +43,7 @@ const rowHeight: { readonly [L in Lines]: string } = {
 };
 
 /** How many rows, cards or fields each shape draws. No caller knows its count before the data lands. */
-const counts: { readonly [S in SkeletonShape]: number } = {
+const counts: { readonly [S in Exclude<SkeletonShape, "hero">]: number } = {
   rows: 6,
   table: 8,
   grid: 12,
@@ -55,9 +63,10 @@ const titleWidths = [
   "w-[50%]",
 ] as const;
 
-const titles = (shape: SkeletonShape): readonly string[] => titleWidths.slice(0, counts[shape]);
+const titles = (shape: keyof typeof counts): readonly string[] =>
+  titleWidths.slice(0, counts[shape]);
 
-const keysOf = (shape: SkeletonShape): readonly string[] =>
+const keysOf = (shape: keyof typeof counts): readonly string[] =>
   Array.from({ length: counts[shape] }, (_, index) => `${shape}-${index}`);
 
 function Rows({ lines, inFrame }: Fit) {
@@ -100,9 +109,15 @@ function Table({ lines }: Fit) {
   );
 }
 
-function Grid() {
+const posterColumns: { readonly [P in Posters]: string } = {
+  small: "grid-cols-[repeat(auto-fill,minmax(120px,1fr))]",
+  medium: "grid-cols-[repeat(auto-fill,minmax(160px,1fr))]",
+  large: "grid-cols-[repeat(auto-fill,minmax(240px,1fr))]",
+};
+
+function Grid({ posters }: Fit) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4">
+    <div className={`grid gap-4 ${posterColumns[posters]}`}>
       {keysOf("grid").map((key) => (
         <div key={key} className="flex flex-col gap-2">
           <span className="block aspect-[2/3] rounded-card bg-glass-raised ring-1 ring-hairline ring-inset" />
@@ -143,12 +158,32 @@ function Form() {
   );
 }
 
+const heroLines = ["w-1/2 max-w-80", "w-1/3 max-w-56"] as const;
+
+function Hero(fit: Fit) {
+  return (
+    <div className="flex flex-col gap-7">
+      <div className="flex flex-col gap-5 pt-[clamp(24px,14vw,180px)] sm:flex-row sm:items-end">
+        <span className="block aspect-2/3 w-28 shrink-0 rounded-card bg-glass-raised ring-1 ring-hairline ring-inset sm:w-40" />
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <span className={`h-[1lh] w-2/3 max-w-96 text-title-large ${skeletonBar}`} />
+          {heroLines.map((width) => (
+            <span key={width} className={`h-3 ${width} ${skeletonBar}`} />
+          ))}
+        </div>
+      </div>
+      <Rows {...fit} lines={2} />
+    </div>
+  );
+}
+
 const shapes: { readonly [S in SkeletonShape]: (fit: Fit) => ReactElement } = {
   rows: Rows,
   table: Table,
   grid: Grid,
   facts: Facts,
   form: Form,
+  hero: Hero,
 };
 
 /**
@@ -168,6 +203,7 @@ export function Skeleton(props: SkeletonProps) {
       <Shape
         lines={"lines" in props ? props.lines : 1}
         inFrame={"inFrame" in props ? props.inFrame : undefined}
+        posters={"posters" in props ? props.posters : "medium"}
       />
     </output>
   );

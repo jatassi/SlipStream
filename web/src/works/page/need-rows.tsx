@@ -3,8 +3,8 @@ import { useNavigate } from "@tanstack/react-router";
 import type { FilesNotFoundNeed, FilesUpgradeNeed, WorksContentType } from "../../api/gen/model";
 import { ManualSearchButton, useStartSearch } from "../../grabs/search";
 import { Button } from "../../ui/button";
+import { Callout } from "../../ui/callout";
 import { List, ListRow } from "../../ui/list";
-import { WarningLine } from "../../ui/warning-line";
 import { notFoundWords } from "../../grabs/search-words";
 import { useWorkSearching } from "../../grabs/searching-query";
 import { useNow } from "../../tasks/use-now";
@@ -108,11 +108,10 @@ export function NotFound({
 export function NoRoot({ type }: { type: WorksContentType }) {
   const navigate = useNavigate();
   return (
-    <WarningLine
-      signal="warn"
+    <Callout
+      tone="warn"
       chip="No root"
       subject={`This ${type.work.one.toLowerCase()} has no library root`}
-      detail="Its downloads wait until it has one. Add a library root, or choose one in Edit."
       action={{
         label: "Open Library roots",
         onClick: () =>
@@ -121,6 +120,8 @@ export function NoRoot({ type }: { type: WorksContentType }) {
             params: { section: "library-roots" },
           }),
       }}
-    />
+    >
+      Its downloads wait until it has one. Add a library root, or choose one in Edit.
+    </Callout>
   );
 }

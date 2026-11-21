@@ -1,11 +1,11 @@
 import { type ReactElement, useState } from "react";
 
 import type { TargetsImpact } from "../api/gen/model";
+import { Callout } from "../ui/callout";
 import { dataFont } from "../ui/data";
 import { Details } from "../ui/details";
 import { Dialog } from "../ui/dialog";
 import { RadioGroup } from "../ui/radio";
-import { SignalChip } from "../ui/signal-chip";
 import { AttemptActions, useAttempt } from "./attempt";
 import { impactLines, moreRenamed, saveLabel } from "./impact-words";
 import {
@@ -23,12 +23,9 @@ const choices = [
 
 function Changed() {
   return (
-    <output className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card bg-warn-card px-4 py-3 text-warn-text ring-1 ring-warn-line ring-inset">
-      <SignalChip kind="warn">Changed</SignalChip>
-      <span className="min-w-0 flex-[1_1_24ch]">
-        These counts changed since the last preview. Check them before you save.
-      </span>
-    </output>
+    <Callout tone="warn" chip="Changed">
+      These counts changed since the last preview. Check them before you save.
+    </Callout>
   );
 }
 

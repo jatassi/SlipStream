@@ -1,8 +1,8 @@
 import { useState } from "react";
 
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Section } from "../ui/section";
+import { SignalLine } from "../ui/signal-line";
 import { refusalOf } from "./attempt";
 import type { EditorSection } from "./editor";
 
@@ -41,7 +41,9 @@ function SaveBar<Draft>({
   return (
     <div className="mt-8 flex flex-col items-start gap-3">
       {problems.map((problem) => (
-        <AlertLine key={problem} text={problem} />
+        <SignalLine key={problem} tone="fail" announce>
+          {problem}
+        </SignalLine>
       ))}
       <Button look="primary" busy={busy} onClick={() => void submit()}>
         {save.label}

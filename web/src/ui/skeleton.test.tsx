@@ -12,9 +12,10 @@ const shells = ["desktop", "phone"] satisfies ShellKind[];
 const shapes: readonly SkeletonProps[] = [
   { label: "Loading the Jobs", shape: "rows", lines: 2 },
   { label: "Loading Torrents", shape: "table", lines: 2 },
-  { label: "Loading the Library", shape: "grid" },
+  { label: "Loading the Library", shape: "grid", posters: "medium" },
   { label: "Loading the Node", shape: "facts" },
   { label: "Loading the Profile", shape: "form" },
+  { label: "Loading the Work", shape: "hero" },
 ];
 
 const heightOf = (element: Element) => element.getBoundingClientRect().height;
@@ -86,3 +87,28 @@ test("on a phone a table skeleton draws as the rows the table turns into", async
   await expect.element(table).toBeVisible();
   expect(heightOf(table.element())).toBe(heightOf(rows.element()));
 });
+
+const frameWidth = (status: Element) =>
+  [...status.querySelectorAll("span")]
+    .find((span) => getComputedStyle(span).aspectRatio === "2 / 3")
+    ?.getBoundingClientRect().width ?? 0;
+
+test.each([
+  ["small", 120],
+  ["medium", 160],
+  ["large", 240],
+] as const)(
+  "a grid skeleton's %s posters are as wide as the Library grid's",
+  async (posters, narrowest) => {
+    renderKit(
+      <div style={{ width: 1000 }}>
+        <Skeleton label="Loading the Library" shape="grid" posters={posters} />
+      </div>,
+    );
+    const status = page.getByRole("status", { name: "Loading the Library" });
+    await expect.element(status).toBeVisible();
+    const width = frameWidth(status.element());
+    expect(width).toBeGreaterThanOrEqual(narrowest);
+    expect(width).toBeLessThan(narrowest * 2);
+  },
+);

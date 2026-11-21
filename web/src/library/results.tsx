@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-import { Empty } from "../shell/empty";
 import { Button } from "../ui/button";
+import { Empty } from "../ui/empty";
 import type { Arranged } from "./arrange";
 import type { ColumnDef, Names } from "./columns";
 import { LibraryGrid } from "./grid";
@@ -56,7 +56,7 @@ export function Results({
   const clear = <ClearFilters onClear={onClear} />;
   if (arranged.works.length === 0) {
     return (
-      <Empty action={clear}>
+      <Empty look="sheet" action={clear}>
         {filtered ? `No ${noun} match these filters.` : `No ${noun} match "${view.q}".`}
       </Empty>
     );
