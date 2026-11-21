@@ -4,15 +4,15 @@ import { useEffect, useRef } from "react";
 import type { NotificationsFeedRow as Row } from "../api/gen/model";
 import { markNotificationsSeen } from "../api/gen/query/notifications/notifications";
 import { useGetTaskSuspense } from "../api/gen/query/tasks/tasks";
-import { type Clock, durationWords, sinceWords } from "../format";
+import { durationWords } from "../format";
 import { adoptSeen } from "../live/adopt-notifications";
-import { useNow } from "../tasks/use-now";
 import { Button } from "../ui/button";
+import { Empty } from "../ui/empty";
+import { PlainTime } from "../ui/relative-time";
+// oxlint-disable-next-line import/max-dependencies -- the bell's sheet reads the feed, marks it seen and pages through it
 import { feedQuery } from "./feed-keys";
 
-const minute = 60_000;
-
-function FeedRow({ row, clock, onFollow }: { row: Row; clock: Clock; onFollow: () => void }) {
+function FeedRow({ row, onFollow }: { row: Row; onFollow: () => void }) {
   const body = (
     <>
       <span className="flex items-baseline gap-2">
@@ -22,13 +22,9 @@ function FeedRow({ row, clock, onFollow }: { row: Row; clock: Clock; onFollow: (
           </span>
         )}
         <span className="min-w-0 flex-1 font-medium text-ink-1">{row.title}</span>
-        <time
-          dateTime={row.at}
-          title={new Date(row.at).toLocaleString()}
-          className="shrink-0 text-meta text-ink-3"
-        >
-          {sinceWords(row.at, clock)}
-        </time>
+        <span className="shrink-0 text-meta text-ink-3">
+          <PlainTime at={row.at} form="clock" />
+        </span>
       </span>
       {row.line !== "" && <span className="text-meta text-ink-2">{row.line}</span>}
     </>
@@ -71,9 +67,9 @@ function EmptyFeed() {
   const { tuning } = useGetTaskSuspense("housekeeping").data;
   const keep = tuning.find((field) => field.key === keepKey);
   return (
-    <p className="text-ink-2">
+    <Empty look="inline">
       No notifications in the last {keep?.kind === "duration" ? durationWords(keep.value) : ""}.
-    </p>
+    </Empty>
   );
 }
 
@@ -81,7 +77,6 @@ function EmptyFeed() {
 export function FeedSheet({ onFollow }: { onFollow: () => void }) {
   const { data, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery(feedQuery);
-  const clock = { now: useNow(minute), zone: undefined };
   const rows = data.pages.flatMap((page) => page.rows);
   useSeen(rows[0]?.seq);
   if (rows.length === 0) {
@@ -91,7 +86,7 @@ export function FeedSheet({ onFollow }: { onFollow: () => void }) {
     <div className="flex flex-col gap-3">
       <ul aria-label="Notifications" className="-mx-3 flex flex-col">
         {rows.map((row) => (
-          <FeedRow key={row.seq} row={row} clock={clock} onFollow={onFollow} />
+          <FeedRow key={row.seq} row={row} onFollow={onFollow} />
         ))}
       </ul>
       {hasNextPage && (

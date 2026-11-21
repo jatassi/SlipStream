@@ -10,7 +10,7 @@ import {
 } from "../api/gen/query/nodes/nodes";
 import { ensureQuery, freshQuery } from "../api/query-client";
 import type { SettingsSection } from "../settings/section";
-import { Empty } from "../shell/empty";
+import { Empty } from "../ui/empty";
 import { Section } from "../ui/section";
 import { NodeCard } from "./node-card";
 import { Thresholds } from "./thresholds";
@@ -24,7 +24,7 @@ function DownloadClientsSection() {
     <>
       <Section title="Clients">
         {cards.length === 0 ? (
-          <Empty>
+          <Empty look="sheet">
             No Node downloads yet. Give a Node the Downloading Role on the{" "}
             <Link to="/nodes" className="text-ink-1 underline">
               Nodes page

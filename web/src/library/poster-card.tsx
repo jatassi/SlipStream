@@ -1,35 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { memo, useState } from "react";
+import { memo } from "react";
 
+import { Artwork } from "../ui/artwork";
 import { Checkbox } from "../ui/checkbox";
+import { EpisodeStrip, byCounts, segmentsOf } from "../ui/episode-strip";
 import { type CellHandlers, focusTarget } from "./picking";
 import type { LibraryWork } from "./rows";
 import { WorkMenu } from "./row-menu";
 import { leadFact } from "./values";
 import { WorkStatus } from "./work-status";
-
-function Art({ url, quiet }: { url: string | undefined; quiet: boolean }) {
-  const [failed, setFailed] = useState<string>();
-  return (
-    <span
-      data-poster={url === undefined ? "none" : "art"}
-      className={`relative block aspect-[2/3] overflow-hidden rounded-card bg-glass-raised shadow-poster ring-1 ring-hairline ring-inset transition-opacity duration-(--duration-control) ${quiet ? "opacity-55" : ""}`}
-    >
-      {url !== undefined && failed !== url && (
-        <img
-          src={`${url}?size=medium`}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className="size-full object-cover"
-          onError={() => {
-            setFailed(url);
-          }}
-        />
-      )}
-    </span>
-  );
-}
 
 export type PosterCardProps = {
   readonly work: LibraryWork;
@@ -40,11 +19,44 @@ export type PosterCardProps = {
   readonly onPick: (id: string, range: boolean) => void;
 };
 
+// A Work of many Items carries its strip on the poster, so every card keeps one height.
+const stripOf = (work: LibraryWork) =>
+  work.type.items === "many" && work.items > 0 ? (
+    <EpisodeStrip
+      strip={segmentsOf(byCounts(work.itemStatus), "poster")}
+      look="poster"
+      named={false}
+    />
+  ) : undefined;
+
+function PickBox({
+  work,
+  picked,
+  shown,
+  onPick,
+}: Pick<PosterCardProps, "work" | "picked" | "onPick"> & { shown: boolean }) {
+  return (
+    <span
+      className={`absolute top-2 left-2 rounded-item bg-popover px-1.5 ${shown ? "" : "opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100"}`}
+    >
+      <Checkbox
+        label={`Select ${work.label}`}
+        hideLabel
+        checked={picked}
+        onCheckedChange={(_, by) => {
+          onPick(work.id, by.shiftKey);
+        }}
+      />
+    </span>
+  );
+}
+
 /**
- * One Work in the grid: its poster, quiet when nothing of it is monitored,
+ * One Work in the grid: its poster, quiet when nothing of it is monitored
+ * and with an episode strip over its bottom edge for a Work of many Items,
  * its label, its first fact and its status. It draws again only when its
- * row or its pick changes. Its menu, shown on hover or focus, holds Search
- * and Manual search.
+ * row or its pick changes. Its menu, shown on hover or focus and always on
+ * a touch screen, holds Search and Manual search.
  */
 export const PosterCard = memo(function PosterCard({
   work,
@@ -71,26 +83,22 @@ export const PosterCard = memo(function PosterCard({
         onFocus={() => {
           handlers.onFocus(work.id);
         }}
-        className={`flex flex-col gap-2 rounded-card outline-offset-4 focus-visible:outline-2 focus-visible:outline-solid ${picked ? "[&>[data-poster]]:ring-2 [&>[data-poster]]:ring-glow" : ""}`}
+        className={`flex flex-col gap-2 rounded-card outline-offset-4 focus-visible:outline-2 focus-visible:outline-solid ${picked ? "[&>[data-art]]:ring-2 [&>[data-art]]:ring-glow" : ""}`}
       >
-        <Art url={work.poster} quiet={work.monitored === "none"} />
+        <Artwork
+          use="poster"
+          size="card"
+          url={work.poster}
+          label={work.label}
+          quiet={work.monitored === "none"}
+          overlay={stripOf(work)}
+        />
         <span className="truncate text-body font-semibold text-ink-1">{work.label}</span>
       </Link>
       {fact !== undefined && <span className="truncate text-meta text-ink-3">{fact}</span>}
       <WorkStatus work={work} />
-      <span
-        className={`absolute top-2 left-2 rounded-item bg-popover px-1.5 ${selecting || picked ? "" : "opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100"}`}
-      >
-        <Checkbox
-          label={`Select ${work.label}`}
-          hideLabel
-          checked={picked}
-          onCheckedChange={(_, by) => {
-            onPick(work.id, by.shiftKey);
-          }}
-        />
-      </span>
-      <span className="absolute top-2 right-2 rounded-capsule bg-popover opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 has-aria-expanded:opacity-100">
+      <PickBox work={work} picked={picked} shown={selecting || picked} onPick={onPick} />
+      <span className="absolute top-2 right-2 rounded-capsule bg-popover opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 has-aria-expanded:opacity-100 pointer-coarse:opacity-100">
         <WorkMenu work={work} />
       </span>
     </li>

@@ -1,5 +1,5 @@
-import { KeyValues } from "../routes/_app/nodes/-facts";
 import { TaskCadence } from "../tasks/task-cadence";
+import { Fact, Facts } from "../ui/facts";
 import { Section } from "../ui/section";
 import { SettingGroup } from "../ui/setting-field";
 import { IndexerSetting } from "./indexer-setting";
@@ -19,9 +19,11 @@ export function LongBackoff() {
         <p className="text-ink-2">
           The Indexer health check tests each Indexer that is on from the Node it searches from.
         </p>
-        <KeyValues
-          rows={[["Indexer health check", <TaskCadence key="check" task="indexer-health-check" />]]}
-        />
+        <Facts look="sheet">
+          <Fact label="Indexer health check">
+            <TaskCadence task="indexer-health-check" />
+          </Fact>
+        </Facts>
       </div>
     </Section>
   );

@@ -2,7 +2,6 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { clock } from "../../format";
 import { paletteShortcut } from "../../shell/palette-state";
 import {
   accountDialog as dialog,
@@ -17,10 +16,14 @@ import {
 } from "../../test/account";
 import { ada, problem } from "../../test/handlers";
 import { renderApp } from "../../test/render-app";
+import { type ValueForm, placeOf, timeForms } from "../../ui/time-words";
+
+const own = () => ({ now: new Date(), zone: undefined });
+const shown = (form: ValueForm, at: string) => timeForms[form](placeOf(at, own()));
 
 test("Your Account shows the profile, passkeys and devices", async () => {
   await openAccount([passkeysAt(passkeysHere)]);
-  const profile = page.getByRole("list", { name: "Profile" });
+  const profile = page.getByRole("region", { name: "Profile" });
   await expect.element(profile.getByText("Ada Okafor")).toBeVisible();
   await expect.element(profile.getByText("ada@example.test")).toBeVisible();
   await expect
@@ -29,7 +32,7 @@ test("Your Account shows the profile, passkeys and devices", async () => {
   await expect
     .element(
       page.getByText(
-        `localhost · Added ${clock(iPhonePasskey.createdAt)} · Last used ${clock("2026-10-15T07:45:00Z")}`,
+        `localhost · Added ${shown("clock", iPhonePasskey.createdAt)} · Last used ${shown("age", "2026-10-15T07:45:00Z")}`,
       ),
     )
     .toBeVisible();
@@ -41,7 +44,7 @@ test("Your Account shows the profile, passkeys and devices", async () => {
       .map((row) => row.element().textContent),
   ).toEqual([
     "Chrome on macOS192.168.1.20 · This deviceSign out",
-    `Safari on Apple TV192.168.1.31 · Active ${clock(livingRoomTv.lastSeenAt)}Sign out`,
+    `Safari on Apple TV192.168.1.31 · Active ${shown("age", livingRoomTv.lastSeenAt)}Sign out`,
   ]);
   await expect.element(main().getByRole("button", { name: "Add a passkey" })).toBeVisible();
 });
@@ -63,7 +66,7 @@ test("changing the display name saves it and shows it", async () => {
   await userEvent.click(dialog("Change display name").getByRole("button", { name: "Save" }));
 
   await expect
-    .element(page.getByRole("list", { name: "Profile" }).getByText("Ada O."))
+    .element(page.getByRole("region", { name: "Profile" }).getByText("Ada O."))
     .toBeVisible();
   expect(seen).toEqual([
     { method: "PATCH", url: "/api/v1/account", body: { displayName: "Ada O." } },

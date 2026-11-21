@@ -233,6 +233,36 @@ test("a television's screen is lit while its Node is online and a Media Server i
   expect(dark.fill).not.toBe(lit.fill);
 });
 
+const lampOf = (id: string): string => {
+  const glow = document.querySelector(`[data-node="${id}"] .lamp-glow`);
+  if (glow === null) {
+    throw new Error(`${id} draws no lamp`);
+  }
+  return getComputedStyle(glow).fill;
+};
+
+test("a tile's lamp takes its Node's state's colour, as every other Node lamp does", async () => {
+  const states = { [ids.seedbox]: "offline", [ids.vps]: "lapsed" } as const;
+  const topology = topologyOf([home, seedbox, vps]);
+  for (const node of topology.nodes) {
+    node.state = states[node.id] ?? "online";
+  }
+  renderApp({
+    path: "/nodes",
+    handlers: [
+      nodesAre(home, seedbox, vps),
+      topologyIs(topology),
+      boardIs(board(homeSeat, seedboxSeat, vpsSeat)),
+    ],
+  });
+  await expect.element(diagram()).toBeVisible();
+  expect([lampOf(ids.home), lampOf(ids.seedbox), lampOf(ids.vps)]).toEqual([
+    "rgb(95, 211, 148)",
+    "rgb(255, 181, 71)",
+    "rgb(255, 107, 97)",
+  ]);
+});
+
 test("the Notifying Role's Inspector says the Node sees the connections' secrets while it sends", async () => {
   const notifying = {
     ...home,

@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 import type { NodesNode } from "../api/gen/model";
 import { useListNodesSuspense } from "../api/gen/query/nodes/nodes";
-import { NodeDot } from "../routes/_app/nodes/-state-dot";
+import { NodeDot } from "../nodes/state-mark";
 import { Select } from "../ui/select";
 
 const takesRoots = (node: NodesNode): boolean =>

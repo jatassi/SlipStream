@@ -6,7 +6,8 @@ import type {
   RootsRootVolume,
 } from "../api/gen/model";
 import { useListHealthVolumesSuspense } from "../api/gen/query/health/health";
-import { NodeDot } from "../routes/_app/nodes/-state-dot";
+import { NodeDot } from "../nodes/state-mark";
+import { Empty } from "../ui/empty";
 import { Section } from "../ui/section";
 import { NotReporting } from "./not-reporting";
 import { VolumeRow } from "./volume-row";
@@ -33,7 +34,7 @@ export function StorageBlock({
     <Section title="Storage">
       <div className="flex flex-col gap-4">
         {volumes.length === 0 ? (
-          <p className="text-ink-3">No Storage Node has reported a volume yet.</p>
+          <Empty look="sheet">No Storage Node has reported a volume yet.</Empty>
         ) : (
           <div className="flex flex-col gap-4">
             {volumes.map((group) => {

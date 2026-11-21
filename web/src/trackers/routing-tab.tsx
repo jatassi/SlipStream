@@ -3,7 +3,7 @@ import { useListDownloadClientsSuspense } from "../api/gen/query/downloadclients
 import { useListNodesSuspense } from "../api/gen/query/nodes/nodes";
 import { useListTrackerRoutesSuspense } from "../api/gen/query/trackers/trackers";
 import { clientsOf } from "../grabs/send-to-sheet";
-import { Empty } from "../shell/empty";
+import { Empty } from "../ui/empty";
 import { RouteRow } from "./route-row";
 import { announcesWords, clientNames, unroutedWords } from "./route-words";
 
@@ -15,7 +15,7 @@ function Routes({ tracker }: { tracker: TrackersTrackerItem }) {
   const names = clientNames(useListNodesSuspense().data.nodes, list);
   const picks = clientsOf(list.cards);
   if (routes.length === 0) {
-    return <Empty>No Indexer reaches {tracker.name}, so it has no routes.</Empty>;
+    return <Empty look="sheet">No Indexer reaches {tracker.name}, so it has no routes.</Empty>;
   }
   return (
     <div className={contentLook}>

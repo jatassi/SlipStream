@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
 
-import { clock } from "../../format";
 import { Button } from "../../ui/button";
+import { type Clock, useClock } from "../../ui/clock";
+import { whenWords } from "../../ui/time-words";
 import type { Dead } from "./link";
 
 const hour = 3_600_000;
@@ -21,7 +22,7 @@ function lifetime(issuedAt: string, expiresAt: string): string {
 
 type Card = { readonly sentence: string; readonly action?: "sign-in" | "try-again" };
 
-function cardOf(dead: Dead, noun: string): Card {
+function cardOf(dead: Dead, noun: string, clock: Clock): Card {
   if (dead.reason === "unreached") {
     return {
       sentence: "SlipStream isn't responding. Check your connection and try again.",
@@ -44,7 +45,7 @@ function cardOf(dead: Dead, noun: string): Card {
       const when =
         dead.issuedAt === undefined || dead.expiresAt === undefined
           ? ""
-          : ` on ${clock(dead.expiresAt)}, ${lifetime(dead.issuedAt, dead.expiresAt)} after it was sent`;
+          : ` ${whenWords(dead.expiresAt, "at", clock)}, ${lifetime(dead.issuedAt, dead.expiresAt)} after it was sent`;
       return { sentence: `This ${noun} expired${when}. Ask ${admin} for a new one.` };
     }
     case "used": {
@@ -68,7 +69,7 @@ export function DeadLink({
   noun: string;
   onTryAgain: () => void;
 }) {
-  const { sentence, action } = cardOf(dead, noun);
+  const { sentence, action } = cardOf(dead, noun, useClock());
   return (
     <>
       <p className="text-ink-1">{sentence}</p>

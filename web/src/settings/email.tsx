@@ -11,6 +11,7 @@ import { useAccount } from "../session/session";
 import { Button } from "../ui/button";
 import { submitErrors, useAppForm } from "../ui/form";
 import { Select, type SelectOption } from "../ui/select";
+import { SignalLine } from "../ui/signal-line";
 import { toast } from "../ui/toast";
 
 type Security = MailSettings["security"];
@@ -79,9 +80,9 @@ function TestEmail() {
         </output>
       )}
       {test.error === null ? null : (
-        <p role="alert" className="text-fail-ink">
+        <SignalLine tone="fail" announce>
           {test.error.message}
-        </p>
+        </SignalLine>
       )}
     </div>
   );

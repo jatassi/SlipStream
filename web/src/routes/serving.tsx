@@ -7,11 +7,13 @@ import {
   useGetServingSuspense,
 } from "../api/gen/query/serving/serving";
 import { ensureQuery } from "../api/query-client";
-import { countWords, sinceWords } from "../format";
+import { countWords } from "../format";
 import { requireEntry } from "../session/gate";
 import { statusQuery } from "../session/session";
 import { EntryPage } from "../shell/entry-page";
-import { useNow } from "../tasks/use-now";
+import { useClock } from "../ui/clock";
+// oxlint-disable-next-line import/max-dependencies -- the entry page reads the session, the Controller and the clock
+import { whenWords } from "../ui/time-words";
 
 const recheckMs = 5000;
 
@@ -45,14 +47,14 @@ function Serving() {
   const { data } = useGetServingSuspense();
   const answered = useQuery({ ...statusQuery, refetchInterval: recheckMs, retry: false }).isSuccess;
   const navigate = useNavigate();
-  const now = useNow(recheckMs);
+  const clock = useClock();
   useEffect(() => {
     if (answered) {
       void navigate({ to: "/", replace: true });
     }
   }, [answered, navigate]);
   const { since } = data;
-  const when = since === undefined ? "" : ` since ${sinceWords(since, { now, zone: undefined })}`;
+  const when = since === undefined ? "" : ` ${whenWords(since, "since", clock)}`;
   return (
     <EntryPage title={`${data.name} hasn't been able to reach ${data.controller}${when}.`}>
       <p>{`${data.name} keeps seeding and finishes what it started.`}</p>

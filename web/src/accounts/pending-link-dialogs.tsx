@@ -11,6 +11,7 @@ import { Button } from "../ui/button";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { Dialog, DialogClose } from "../ui/dialog";
 import { ReadOnlyField } from "../ui/read-only-field";
+import { SignalLine } from "../ui/signal-line";
 import { Spinner } from "../ui/spinner";
 import { IssuedSignupLink } from "./signup-link-dialog";
 
@@ -49,9 +50,9 @@ function CopiedUrl({ link }: { link: IdentityPendingLink }) {
   return query.error === null ? (
     <Spinner />
   ) : (
-    <p role="alert" className="text-fail-ink">
+    <SignalLine tone="fail" announce>
       {query.error.message}
-    </p>
+    </SignalLine>
   );
 }
 

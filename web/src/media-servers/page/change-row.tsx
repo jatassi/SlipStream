@@ -4,10 +4,10 @@ import type {
   MediaserversChangeView as Change,
   MediaserversChangeViewKind as Kind,
 } from "../../api/gen/model";
-import { agoWords } from "../../format";
 import { Chip } from "../../ui/chip";
 import { Data } from "../../ui/data";
 import { ListRow } from "../../ui/list";
+import { PlainTime } from "../../ui/relative-time";
 import { SignalChip } from "../../ui/signal-chip";
 import { fileName } from "./paths";
 
@@ -61,11 +61,16 @@ function ChangeDetail({ change }: { change: Change }) {
 }
 
 /** One change: its file, what kind it is and when, where it stands, and what it did or waits for. */
-export function ChangeRow({ change, now }: { change: Change; now: Date }) {
+export function ChangeRow({ change }: { change: Change }) {
   return (
     <ListRow
       title={change.kind === "library" ? "Whole library" : fileName(change.path)}
-      meta={`${kindLabels[change.kind]} · ${agoWords(change.sentAt ?? change.createdAt, now)}`}
+      meta={
+        <>
+          {kindLabels[change.kind]} ·{" "}
+          <PlainTime at={change.sentAt ?? change.createdAt} form="age" />
+        </>
+      }
       trailing={chips[standingOf(change)]}
       detail={<ChangeDetail change={change} />}
     />

@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_app/settings/trackers/$trackerId/routing
       ensureQuery(queryClient, getListDownloadClientsSuspenseQueryOptions()),
       ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
     ]),
-  pendingComponent: () => <Skeleton label="Loading Routing" />,
+  pendingComponent: () => <Skeleton label="Loading Routing" shape="rows" lines={2} />,
   component: function Routing() {
     return <RoutingTab tracker={useTracker(Route.useParams().trackerId)} />;
   },

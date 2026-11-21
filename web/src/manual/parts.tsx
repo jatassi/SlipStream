@@ -1,32 +1,16 @@
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 
-import type {
-  GrabsEditionOverride,
-  GrabsPickResult,
-  GrabsReleaseDetails,
-  GrabsWordedReason,
-} from "../api/gen/model";
-import { AlertLine } from "../ui/alert-line";
+import type { GrabsEditionOverride, GrabsPickResult, GrabsWordedReason } from "../api/gen/model";
 import { Button } from "../ui/button";
-import { Chip } from "../ui/chip";
+import { Callout } from "../ui/callout";
 import { Icon } from "../ui/icon";
-import { SignalChip } from "../ui/signal-chip";
-
-export function ReleaseName({ release }: { release: GrabsReleaseDetails }) {
-  return (
-    <span className="flex flex-wrap items-center gap-2 text-ink-1">
-      {release.words}
-      {release.freeleech && <Chip>Freeleech</Chip>}
-    </span>
-  );
-}
+import { SignalLine } from "../ui/signal-line";
 
 function Override({ words }: { words: string }) {
   return (
-    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-card bg-warn-card px-3 py-2 text-warn-text ring-1 ring-warn-line ring-inset">
-      <SignalChip kind="warn">Override</SignalChip>
-      <span className="min-w-0 flex-[1_1_24ch]">{words}</span>
-    </p>
+    <Callout tone="warn" chip="Override">
+      {words}
+    </Callout>
   );
 }
 
@@ -70,7 +54,9 @@ export function Result({
   const held = problem.code === "cell_held" ? problem.grabId : undefined;
   return (
     <div className="flex flex-col items-start gap-2">
-      <AlertLine text={problem.detail} />
+      <SignalLine tone="fail" announce>
+        {problem.detail}
+      </SignalLine>
       {held !== undefined && (
         <Button
           size="small"

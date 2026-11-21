@@ -1,9 +1,9 @@
 import type { ReactElement, ReactNode } from "react";
 
 import type { TrackersWindow } from "../api/gen/model";
-import type { Clock } from "../format";
-import { Empty } from "../shell/empty";
+import type { Clock } from "../ui/clock";
 import { Button } from "../ui/button";
+import { Empty } from "../ui/empty";
 import { List, ListRow } from "../ui/list";
 import { Section } from "../ui/section";
 import { SignalChip } from "../ui/signal-chip";
@@ -73,7 +73,7 @@ export function WindowList({
 }) {
   return (
     <Section title={title}>
-      {windows.length === 0 && more === undefined && <Empty>{empty}</Empty>}
+      {windows.length === 0 && more === undefined && <Empty look="sheet">{empty}</Empty>}
       {windows.length > 0 && (
         <List label={title}>
           {windows.map((window) => (

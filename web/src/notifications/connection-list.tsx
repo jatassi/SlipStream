@@ -5,8 +5,8 @@ import type {
   NotificationsEvent as Event,
   NotificationsProvider as Provider,
 } from "../api/gen/model";
-import type { Clock } from "../format";
-import { SignalLine } from "../media-servers/lines";
+import type { Clock } from "../ui/clock";
+import { SignalLine } from "../ui/signal-line";
 import { EditConnectionButton } from "./connection-sheet";
 import { DeleteConnectionButton } from "./delete-connection";
 import type { NodeChoice } from "./provider-field";
@@ -26,7 +26,7 @@ function StatusWords({ connection, clock }: { connection: Connection; clock: Clo
   return level === "off" ? (
     <p className="text-ink-3">{text}</p>
   ) : (
-    <SignalLine level={level} text={text} />
+    <SignalLine tone={level}>{text}</SignalLine>
   );
 }
 

@@ -55,6 +55,12 @@ export const useBreadcrumbs = (): Crumb[] => breadcrumbs(useMatches());
 
 export const useRouteTitle = (): string | undefined => useBreadcrumbs().at(-1)?.title;
 
+/** The deepest titled route's title, or undefined while its loader hasn't named it yet. */
+export function usePendingTitle(): string | undefined {
+  const deepest = useMatches().findLast((match) => match.staticData.title !== undefined);
+  return deepest === undefined ? undefined : crumbsOf(deepest).at(-1)?.title;
+}
+
 export function documentTitle(matches: readonly AnyRouteMatch[]): string {
   const title = breadcrumbs(matches).at(-1)?.title;
   return title === undefined ? "SlipStream" : `${title} · SlipStream`;

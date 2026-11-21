@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/log-settings")({
       ensureQuery(context.queryClient, getGetNodeConfigSuspenseQueryOptions(params.nodeId)),
       ensureQuery(context.queryClient, getGetNodeSystemSuspenseQueryOptions(params.nodeId)),
     ]),
-  pendingComponent: () => <Skeleton label="Loading the settings" />,
+  pendingComponent: () => <Skeleton label="Loading the settings" shape="facts" />,
   errorComponent: NodeProblem,
   component: function LogSettings() {
     const { nodeId } = Route.useParams();

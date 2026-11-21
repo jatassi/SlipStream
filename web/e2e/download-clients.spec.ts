@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { expect, expectAccessible, test } from "./fixtures.ts";
-import { openSettingsSection } from "./shell.ts";
+import { isPhone, openSettingsSection } from "./shell.ts";
 import { screenshotWholePage } from "./whole-page.ts";
 
 const Thresholds = z.object({
@@ -78,8 +78,14 @@ test.describe("an external client", () => {
     await expect(card.getByText("Not responding", { exact: true })).toBeVisible({
       timeout: 180_000,
     });
+    if (isPhone(page)) {
+      await card.getByRole("button", { name: /Transmission on home/u }).click();
+    }
+    const detail = isPhone(page)
+      ? page.getByRole("dialog", { name: "Transmission on home" })
+      : card;
     await expect(
-      card.getByText(
+      detail.getByText(
         /^Transmission isn't responding\. Check that it's running and that home can reach .+\.$/u,
       ),
     ).toBeVisible();
@@ -87,7 +93,7 @@ test.describe("an external client", () => {
     await screenshotWholePage(page, testInfo.outputPath("client-away.png"));
 
     await world.fw.fault.clear("transmission-down");
-    await card.getByRole("button", { name: "Check now" }).click();
+    await detail.getByRole("button", { name: "Check now" }).click();
     await expect(card).toHaveCount(0);
   });
 });

@@ -1,11 +1,8 @@
-import type {
-  TransfersTransfer,
-  TransfersTransferRoute,
-  TransfersTransferState,
-} from "../api/gen/model";
+import type { TransfersTransfer, TransfersTransferRoute } from "../api/gen/model";
 import { bytes, countWords } from "../format";
 import { leftWords, rateWords } from "../torrents/model";
 import type { StatusPart } from "../ui/status-sentence";
+import { transferTerms } from "./terms";
 
 /** One Node's view of a Transfer: whether it sends or receives, and the Node at the other end. */
 export type Leg = { readonly sends: boolean; readonly peer: string };
@@ -15,14 +12,6 @@ export const legOf = (transfer: TransfersTransfer, nodeId: string): Leg =>
     ? { sends: true, peer: transfer.destination.nodeName }
     : { sends: false, peer: transfer.source.nodeName };
 
-export const stateLabel: { readonly [S in TransfersTransferState]: string } = {
-  queued: "Queued",
-  waiting: "Waiting",
-  needs_space: "Needs space",
-  copying: "Transferring",
-  failed: "Failed",
-};
-
 /**
  * What a Transfer is doing, in one sentence: "Transferring from seedbox" while
  * it copies, else the Controller's reason word for word. A leg names the far
@@ -30,7 +19,7 @@ export const stateLabel: { readonly [S in TransfersTransferState]: string } = {
  */
 export function headline(transfer: TransfersTransfer, leg?: Leg): string {
   if (transfer.state !== "copying") {
-    return transfer.reason ?? stateLabel[transfer.state];
+    return transfer.reason ?? transferTerms[transfer.state].word;
   }
   if (leg?.sends === true) {
     return `Transferring to ${leg.peer}`;
@@ -47,9 +36,6 @@ export const paceLine = ({ verified, total, rate, estimateSeconds }: TransfersTr
   ]
     .filter((part) => part !== false)
     .join(" · ");
-
-export const percentOf = ({ verified, total }: TransfersTransfer): number =>
-  total === 0 ? 100 : Math.floor((verified / total) * 100);
 
 const transferNoun = { one: "Transfer", many: "Transfers" };
 

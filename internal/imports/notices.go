@@ -335,7 +335,7 @@ func factsWords(fs []PlacedFile) string {
 		}
 		size += p.Size
 	}
-	return strings.Join(append(qualities, release.Describe(release.Read{Facts: release.Facts{Size: release.Known(size)}})), " · ")
+	return strings.Join(append(qualities, release.Summary{Size: release.Known(size)}.Words()), " · ")
 }
 
 func qualitiesWords(qs []release.Quality) string {

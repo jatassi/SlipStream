@@ -2,10 +2,10 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import type { GrabsWantedRow } from "../api/gen/model";
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import { openManualSearch } from "../manual/sheet-state";
 import { List, ListRow } from "../ui/list";
-import { Poster } from "../ui/poster";
+import { Artwork } from "../ui/artwork";
 import { Sheet, SheetCancel, SheetGroup, SheetItem } from "../ui/sheet";
 import { type RowSearch, useRowSearch, workLink } from "./row-search";
 import { phoneLine } from "./wanted-words";
@@ -72,7 +72,7 @@ export function WantedList({ rows, clock }: { rows: readonly GrabsWantedRow[]; c
             key={row.work.id}
             title={row.work.label}
             meta={phoneLine(row, clock)}
-            leading={<Poster url={row.work.posterUrl ?? undefined} />}
+            leading={<Artwork use="poster" size="row" url={row.work.posterUrl ?? undefined} />}
             render={
               // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- ListRow fills the button with the Work and its line
               <button

@@ -5,7 +5,7 @@ import {
   useListContentTypesSuspense,
 } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
-import { Skeleton } from "../../../ui/skeleton";
+import { PagePending } from "../../../shell/page";
 import { filterOf, searchOf, wantedSearch } from "../../../wanted/routed";
 import { WantedPage } from "../../../wanted/wanted-page";
 import { loadWanted } from "../../../wanted/wanted-query";
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_app/library/wanted_/$contentType")({
     enabledTypeOf(contentTypes, contentType);
     await loadWanted(queryClient, filterOf(deps, contentType));
   },
-  pendingComponent: () => <Skeleton label="Loading Wanted" />,
+  pendingComponent: () => <PagePending label="Loading Wanted" shape="table" lines={2} />,
   component: ContentTypeWanted,
 });
 

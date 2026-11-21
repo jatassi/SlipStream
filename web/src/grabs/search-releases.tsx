@@ -70,7 +70,7 @@ function SearchReleases({ search, onTest }: Opened) {
 export function RunReleases({ search, onTest }: Opened) {
   return (
     <Details>
-      <Suspense fallback={<Skeleton label="Loading the releases" />}>
+      <Suspense fallback={<Skeleton label="Loading the releases" shape="rows" lines={2} />}>
         <SearchReleases search={search} onTest={onTest} />
       </Suspense>
     </Details>

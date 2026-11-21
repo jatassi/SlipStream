@@ -1,4 +1,4 @@
-import { useNow } from "../tasks/use-now";
+import { useClock } from "../ui/clock";
 import { StatusSentence } from "../ui/status-sentence";
 import { Browse, type Seams, type TorrentsSearch } from "./browse";
 import { ClientCards } from "./client-cards";
@@ -10,8 +10,6 @@ import { Signals } from "./signals";
 import { signalsOf, torrentsSentence } from "./summary";
 
 export type { TorrentsSearch } from "./browse";
-
-const wordsTick = 60_000;
 
 export function TorrentsView({
   search,
@@ -25,8 +23,8 @@ export function TorrentsView({
 }) {
   const list = useScopedTorrents(scope);
   const names = useNames();
-  const clock = { now: useNow(wordsTick), zone: undefined };
-  const cards = <ClientCards rows={list.rows} clock={clock} />;
+  const clock = useClock();
+  const cards = <ClientCards rows={list.rows} />;
   if (list.rows.length === 0) {
     return (
       <>

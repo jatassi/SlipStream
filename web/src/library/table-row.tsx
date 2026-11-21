@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { memo } from "react";
 
 import { Checkbox } from "../ui/checkbox";
-import { Poster } from "../ui/poster";
+import { Artwork } from "../ui/artwork";
 import type { ColumnDef, Names } from "./columns";
 import { type CellHandlers, focusTarget } from "./picking";
 import type { LibraryWork } from "./rows";
@@ -23,7 +23,7 @@ function TitleCell({ work, tabbable, handlers }: Cell) {
   const fact = leadFact(work);
   return (
     <span className="flex min-w-0 items-center gap-3 py-1.5">
-      <Poster url={work.poster} />
+      <Artwork use="poster" size="row" url={work.poster} />
       <span className="flex min-w-0 flex-col gap-0.5">
         <Link
           to="/works/$workId"

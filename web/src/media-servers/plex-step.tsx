@@ -88,7 +88,7 @@ export function PlexStep(props: Props) {
     );
   }
   return (
-    <Suspense fallback={<Skeleton label="Loading your Plex servers" />}>
+    <Suspense fallback={<Skeleton label="Loading your Plex servers" shape="rows" lines={2} />}>
       <SignedIn {...props} />
     </Suspense>
   );

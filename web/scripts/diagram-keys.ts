@@ -33,6 +33,7 @@ const canonical: NodeRow = {
   controller: true,
   state: "online",
   facts: [],
+  seenAt: undefined,
   roles: roles.map((role) => ({
     role,
     label: role,

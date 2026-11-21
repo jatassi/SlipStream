@@ -2,8 +2,8 @@ import { useId } from "react";
 
 import type { MediaserversMappingView as MappingView } from "../api/gen/model";
 import { Chip } from "../ui/chip";
+import { SignalLine } from "../ui/signal-line";
 import { Switch } from "../ui/switch";
-import { WarnLine } from "./lines";
 import { folderNoteOf } from "./mappings-form";
 import type { MappingsForm } from "./use-mappings-form";
 
@@ -76,7 +76,9 @@ export function MappingRow({ folders, ...row }: Row & { folders: string }) {
                 <span className="text-meta text-ink-3">On {view.rootNode.name}</span>
                 {value?.shown === true && view.guess && prefilled && <Chip>Guess</Chip>}
               </div>
-              {view.words !== undefined && prefilled && <WarnLine text={view.words} />}
+              {view.words !== undefined && prefilled && (
+                <SignalLine tone="warn">{view.words}</SignalLine>
+              )}
             </>
           );
         }}

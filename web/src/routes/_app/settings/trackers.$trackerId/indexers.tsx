@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_app/settings/trackers/$trackerId/indexer
       ensureQuery(queryClient, getListIndexersSuspenseQueryOptions()),
       ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
     ]),
-  pendingComponent: () => <Skeleton label="Loading Indexers" />,
+  pendingComponent: () => <Skeleton label="Loading Indexers" shape="rows" lines={2} />,
   component: function Indexers() {
     return <IndexersTab tracker={useTracker(Route.useParams().trackerId)} />;
   },

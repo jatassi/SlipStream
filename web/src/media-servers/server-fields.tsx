@@ -5,7 +5,7 @@ import { Details } from "../ui/details";
 import { errorText } from "../ui/form-context";
 import { Select } from "../ui/select";
 import { Refusal } from "../ui/setting-parts";
-import { WarnLine } from "./lines";
+import { SignalLine } from "../ui/signal-line";
 import {
   type Reaching,
   defaultReaching,
@@ -89,9 +89,7 @@ function LocalhostWarning({
       {({ address, fallbackAddress, reachingNodeId }) => {
         const worker = reaching.workers.find((node) => node.id === reachingNodeId);
         return worker !== undefined && isLocalhost(address) && fallbackAddress.trim() === "" ? (
-          <WarnLine
-            text={`The Controller can't use localhost on ${worker.name}. Enter ${worker.name}'s network address, or add a fallback address under Details.`}
-          />
+          <SignalLine tone="warn">{`The Controller can't use localhost on ${worker.name}. Enter ${worker.name}'s network address, or add a fallback address under Details.`}</SignalLine>
         ) : null;
       }}
     </form.Subscribe>

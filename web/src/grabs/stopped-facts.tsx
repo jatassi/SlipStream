@@ -1,9 +1,7 @@
-import type { ReactNode } from "react";
-
 import type { GrabsStopped } from "../api/gen/model";
-import { clock } from "../format";
-import { useNow } from "../tasks/use-now";
-import { Data } from "../ui/data";
+import { useClock } from "../ui/clock";
+import type { FactRow } from "../ui/facts";
+import { RelativeTime } from "../ui/relative-time";
 import { stoppedWords } from "./search-words";
 import type { FailedGrab } from "./stages";
 
@@ -17,7 +15,7 @@ function Failures({ stop, code }: { stop: Stop; code: FailedGrab["failure"]["cod
       {stop.failures.map((failure) => (
         <li key={`${failure.at} ${failure.grabId ?? ""}`}>
           {failure.code !== code && `${failure.cause} `}
-          <Data>{clock(failure.at)}</Data>
+          <RelativeTime at={failure.at} form="clock" data />
         </li>
       ))}
     </ul>
@@ -28,15 +26,12 @@ function Failures({ stop, code }: { stop: Stop; code: FailedGrab["failure"]["cod
  * A failure card's Recovery: the code's own, or for a stopped cell when
  * Backlog search tries next and each failure that stopped it.
  */
-export function useRecoveryFacts(
-  grab: FailedGrab,
-  stop: Stop | undefined,
-): { label: string; value: ReactNode }[] {
-  const now = useNow(30_000);
+export function useRecoveryFacts(grab: FailedGrab, stop: Stop | undefined): FactRow[] {
+  const clock = useClock();
   const { recovery } = grab.failure;
   if (stop !== undefined) {
     return [
-      { label: "Recovery", value: stoppedWords(stop, { now, zone: undefined }) },
+      { label: "Recovery", value: stoppedWords(stop, clock) },
       { label: "Failures", value: <Failures stop={stop} code={grab.failure.code} /> },
     ];
   }

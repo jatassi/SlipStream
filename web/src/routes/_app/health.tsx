@@ -9,7 +9,7 @@ import {
 import { getGetRootSettingsSuspenseQueryOptions } from "../../api/gen/query/roots/roots";
 import { ensureQuery, freshQuery } from "../../api/query-client";
 import { HealthPage } from "../../health/health-page";
-import { Skeleton } from "../../ui/skeleton";
+import { PagePending } from "../../shell/page";
 
 export const Route = createFileRoute("/_app/health")({
   staticData: { title: "Health" },
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_app/health")({
       freshQuery(queryClient, getGetRootSettingsSuspenseQueryOptions()),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading Health" />,
+  pendingComponent: () => <PagePending label="Loading Health" shape="rows" lines={1} />,
   component: Health,
 });
 

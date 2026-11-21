@@ -1,7 +1,7 @@
-import { Facts } from "../formats/tested-name";
-import { AlertLine } from "../ui/alert-line";
+import { ReadFacts } from "../formats/tested-name";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { SignalLine } from "../ui/signal-line";
 import { type TestedFile, leadOf, pathOf } from "./tester-words";
 
 export type Shown =
@@ -19,7 +19,7 @@ function Tested({ file }: { file: TestedFile }) {
         action={path === undefined ? undefined : <Data className="wrap-anywhere">{path}</Data>}
       >
         <div className="mt-1">
-          <Facts facts={file.facts} />
+          <ReadFacts facts={file.facts} />
         </div>
       </Details>
     </li>
@@ -31,7 +31,11 @@ export function Results({ shown }: { shown: Shown }) {
     case "idle":
       return null;
     case "refused":
-      return <AlertLine text={shown.sentence} />;
+      return (
+        <SignalLine tone="fail" announce>
+          {shown.sentence}
+        </SignalLine>
+      );
     case "results":
       return (
         <ol aria-label="Results" className="flex flex-col">

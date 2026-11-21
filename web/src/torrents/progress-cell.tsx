@@ -1,11 +1,11 @@
 import { Data } from "../ui/data";
 import { LaneMeter } from "../ui/lane-meter";
-import { LiveBar } from "../ui/live-bar";
-import { Meter } from "../ui/meter";
+import { ProgressCell as Cell, percentOf } from "../ui/progress";
 import { SignalChip } from "../ui/signal-chip";
-import { type Row, paceOf, percentOf, progressOf, seedWords, stateWords } from "./model";
+import { type Row, paceOf, progressOf, seedWords } from "./model";
 import type { CellProps } from "./row";
 import { lanesOf, seedLine } from "./seeding";
+import { torrentTerms } from "./terms";
 
 function SeedingCell({ seeding }: { seeding: NonNullable<Row["seeding"]> }) {
   const risk = seeding.atRisk === "yes";
@@ -41,14 +41,15 @@ export function ProgressCell({ row, live }: CellProps) {
       <SeedingCell seeding={row.seeding} />
     );
   }
-  const percent = percentOf(progress);
-  const label = `${stateWords[row.state]} ${row.name}`;
   const { eta, rate } = paceOf(row.state, live);
   return (
-    <span className="flex min-w-0 flex-col gap-1.5">
-      <span className="flex items-baseline justify-between gap-3 text-meta text-ink-3">
-        <Data className="text-ink-1">{percent}%</Data>
-        <Data className="truncate">
+    <Cell
+      label={`${torrentTerms[row.state].word} ${row.name}`}
+      value={percentOf(progress.done, progress.wanted, 100)}
+      motion={moving.has(row.state) && row.lastKnown === undefined ? "live" : "settled"}
+      span="fill"
+      note={
+        <Data>
           {eta}
           {rate !== "" && (
             <span data-column-echo="">
@@ -57,12 +58,7 @@ export function ProgressCell({ row, live }: CellProps) {
             </span>
           )}
         </Data>
-      </span>
-      {moving.has(row.state) && row.lastKnown === undefined ? (
-        <LiveBar label={label} value={percent} />
-      ) : (
-        <Meter label={label} value={percent} />
-      )}
-    </span>
+      }
+    />
   );
 }

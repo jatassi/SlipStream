@@ -7,16 +7,10 @@ import type {
   ListWantedSort,
   WorksContentType,
 } from "../api/gen/model";
-import {
-  type Clock,
-  type Noun,
-  atWords,
-  countWords,
-  laterAtWords,
-  pastAtWords,
-  sinceWords,
-} from "../format";
+import { type Noun, countWords } from "../format";
+import type { Clock } from "../ui/clock";
 import type { StatusPart } from "../ui/status-sentence";
+import { whenWords } from "../ui/time-words";
 
 export type Reason = GrabsWantedRowReason;
 
@@ -100,7 +94,7 @@ function limitPart(limit: GrabsLimitUntil, clock: Clock): StatusPart {
       }
     : {
         kind: "warning",
-        text: `Waiting for ${possessive(limit.indexerName)} search limit until ${sinceWords(limit.until, clock)}`,
+        text: `Waiting for ${possessive(limit.indexerName)} search limit ${whenWords(limit.until, "until", clock)}`,
         href,
       };
 }
@@ -122,7 +116,7 @@ export function statusParts(status: GrabsQueueStatus, clock: Clock): StatusPart[
       text:
         status.nextBacklogAt === null
           ? "Backlog search is off"
-          : `Next Backlog search ${laterAtWords(status.nextBacklogAt, clock)}`,
+          : `Next Backlog search ${whenWords(status.nextBacklogAt, "next", clock)}`,
     },
     ...status.limits.map((limit) => limitPart(limit, clock)),
   ];
@@ -152,31 +146,34 @@ const resultWords: {
   no_root: (when) => `Couldn't search ${when} because no library root was reachable`,
 };
 
-/** How the last search went and when: "Found nothing on Mon at 09:12". */
+/** How the last search went and when: "Found nothing on Mon at 9:12 AM". */
 export function lastWords(row: GrabsWantedRow, clock: Clock): string {
   if (row.lastResult === null || row.lastSearchedAt === null) {
     return "Not searched yet";
   }
-  return resultWords[row.lastResult](pastAtWords(row.lastSearchedAt, clock));
+  return resultWords[row.lastResult](whenWords(row.lastSearchedAt, "at", clock));
 }
 
-/** When SlipStream searches the row next: "Tomorrow at 14:00", "Queued", "Only when you search". */
-export function nextWords(row: GrabsWantedRow, clock: Clock): string {
+/** When SlipStream searches the row next: at a time, or "Searching", "Queued" or "Only when you search". */
+export type Next = { readonly at: string } | { readonly words: string };
+
+export function nextOf(row: GrabsWantedRow): Next {
   if (row.state === "searching") {
-    return "Searching";
+    return { words: "Searching" };
   }
   if (row.state === "queued") {
-    return "Queued";
+    return { words: "Queued" };
   }
-  return row.nextSearchAt === null ? "Only when you search" : atWords(row.nextSearchAt, clock);
+  return row.nextSearchAt === null ? { words: "Only when you search" } : { at: row.nextSearchAt };
 }
 
-/** A phone row's second line: "Missing. S02E01 to S02E08. Next search tomorrow at 14:00." */
+/** A phone row's second line: "Missing. S02E01 to S02E08. Next search tomorrow at 2:00 PM." */
 export function phoneLine(row: GrabsWantedRow, clock: Clock): string {
   const items = rangesWords(row.ranges);
-  const next =
-    row.state === "idle" && row.nextSearchAt !== null
-      ? `Next search ${laterAtWords(row.nextSearchAt, clock)}.`
-      : `${nextWords(row, clock)}.`;
-  return [`${reasonLabels[row.reason]}.`, ...(items === "" ? [] : [`${items}.`]), next].join(" ");
+  const next = nextOf(row);
+  const nextLine =
+    "at" in next ? `Next search ${whenWords(next.at, "next", clock)}.` : `${next.words}.`;
+  return [`${reasonLabels[row.reason]}.`, ...(items === "" ? [] : [`${items}.`]), nextLine].join(
+    " ",
+  );
 }

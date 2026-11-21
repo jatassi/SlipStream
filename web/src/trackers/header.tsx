@@ -7,17 +7,17 @@ import type {
   TrackersTrackerPage,
 } from "../api/gen/model";
 import { bytes } from "../format";
-import { KeyValues } from "../routes/_app/nodes/-facts";
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { Fact, Facts } from "../ui/facts";
 import { Icon } from "../ui/icon";
 import { signals } from "../ui/signal-chip";
 import { noRuleSentence, privacyLabels, ruleSentence, ruleSource } from "./words";
 
 const lines = (values: readonly string[]): ReactNode =>
   values.length === 0 ? (
-    <span>None</span>
+    "None"
   ) : (
     <span className="flex flex-col">
       {values.map((value) => (
@@ -95,12 +95,10 @@ export function TrackerHeader({
       {!ruleSaid && <RuleLine tracker={tracker} />}
       <Details summary={<Attention attention={page.attention} />}>
         <div className="mt-2 w-full">
-          <KeyValues
-            rows={[
-              ["Keys", lines(tracker.keys)],
-              ["Announce hosts", lines(tracker.hosts)],
-            ]}
-          />
+          <Facts look="well">
+            <Fact label="Keys">{lines(tracker.keys)}</Fact>
+            <Fact label="Announce hosts">{lines(tracker.hosts)}</Fact>
+          </Facts>
         </div>
       </Details>
       <Stats stats={page.stats} />

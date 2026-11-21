@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/transfers")({
       ensureQuery(queryClient, getGetTransferSettingsSuspenseQueryOptions(nodeId)),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading Transfers" />,
+  pendingComponent: () => <Skeleton label="Loading Transfers" shape="rows" lines={2} />,
   errorComponent: NodeProblem,
   component: function Transfers() {
     return (

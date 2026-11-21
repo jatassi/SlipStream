@@ -4,6 +4,7 @@ import { type ComponentType, createContext, use } from "react";
 import { Bell } from "../../notifications/bell";
 import { TasksCapsule } from "../../tasks/capsule";
 import { Icon } from "../../ui/icon";
+import { Kbd } from "../../ui/kbd";
 import { ConnectionLine } from "../connection-line";
 import { openPalette, paletteShortcut } from "../palette-state";
 
@@ -48,9 +49,7 @@ function PaletteCapsule() {
     >
       <Icon icon={Search01Icon} className="size-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate text-left">Search Works or run a command</span>
-      <kbd aria-hidden="true" className="shrink-0 font-sans text-label text-ink-3">
-        {paletteShortcut.label}
-      </kbd>
+      <Kbd shortcut={paletteShortcut} />
     </button>
   );
 }

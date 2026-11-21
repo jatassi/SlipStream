@@ -7,9 +7,9 @@ import type {
   ListImportsParams,
   WorksContentType,
 } from "../api/gen/model";
+import { Empty } from "../ui/empty";
 import { type RootEntry, usePendingImports } from "./root-entry";
 import { useListContentTypesSuspense } from "../api/gen/query/works/works";
-import { Empty } from "../shell/empty";
 import { Page } from "../shell/page";
 import { Button } from "../ui/button";
 import { Data } from "../ui/data";
@@ -146,7 +146,10 @@ function Downloads({ downloads }: { downloads: readonly Download[] }) {
       ) : (
         <ul aria-label="Pending imports from downloads" className="flex flex-col gap-2">
           {downloads.map(({ entry, type }) => (
-            <Suspense key={entry.id} fallback={<Skeleton label="Loading the download" />}>
+            <Suspense
+              key={entry.id}
+              fallback={<Skeleton label="Loading the download" shape="rows" lines={2} />}
+            >
               <DownloadEntry entry={entry} type={type} />
             </Suspense>
           ))}
@@ -212,7 +215,7 @@ export function PendingPage({ view, beside }: { view: PendingView; beside: React
       }
     >
       {groups.length === 0 ? (
-        <Empty>{empties[view]}</Empty>
+        <Empty look="sheet">{empties[view]}</Empty>
       ) : (
         groups.map((group) => <PendingGroupOf key={keyOf(group)} group={group} />)
       )}

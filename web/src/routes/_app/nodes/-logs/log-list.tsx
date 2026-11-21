@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-import { Empty } from "../../../../shell/empty";
 import { Button } from "../../../../ui/button";
+import { Empty } from "../../../../ui/empty";
 import { VirtualRows } from "../../../../ui/virtual-rows";
 import { type LogRow, rowKey } from "./buffer";
 
@@ -22,11 +22,11 @@ export function LogList({
   renderRow: (row: LogRow) => ReactNode;
 }) {
   if (!hasLines(held)) {
-    return <Empty>No log lines yet</Empty>;
+    return <Empty look="sheet">No log lines yet</Empty>;
   }
   if (!hasLines(rows)) {
     return (
-      <Empty action={<Button onClick={onClearFilters}>Clear filters</Button>}>
+      <Empty look="sheet" action={<Button onClick={onClearFilters}>Clear filters</Button>}>
         No lines match your filters
       </Empty>
     );

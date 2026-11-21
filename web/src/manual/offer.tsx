@@ -1,10 +1,11 @@
 import { use } from "react";
 
 import type { GrabsOffer, GrabsWordedReason } from "../api/gen/model";
+import { ReleaseRow } from "../release/row";
 import { Button } from "../ui/button";
 import { Details } from "../ui/details";
 import type { Grabbing } from "./grabbing";
-import { Overrides, ReleaseName, Result } from "./parts";
+import { Overrides, Result } from "./parts";
 import { pickOf } from "./picks";
 import { ReadingContext } from "./reading";
 import { ReleaseDetails } from "./release-details";
@@ -32,17 +33,10 @@ export function Offer({ offer, grab }: { offer: GrabsOffer; grab: Grabbing }) {
     grab.post([{ key, pick: pickOf({ ...offer.grab, release }, undefined, cancelGrabId) }]);
   };
   return (
-    <li className="flex flex-col items-start gap-1.5 py-3">
-      <ReleaseName release={release} />
-      {offer.grab.outcome !== undefined && <p>{offer.grab.outcome}</p>}
-      {offer.grab.refusal !== undefined && <p>{offer.grab.refusal}</p>}
-      {offer.grab.waits !== undefined && <p>{offer.grab.waits}</p>}
-      {release.blocked !== null && <p>{release.blocked}</p>}
-      {offer.grab.cancels.map((held) => (
-        <p key={held.grabId}>{held.words}</p>
-      ))}
-      <Overrides lifts={offer.grab.lifts} edition={offer.grab.edition} />
-      {result === undefined ? (
+    <ReleaseRow
+      release={release}
+      action={
+        result === undefined &&
         offer.grab.grabbable && (
           <Button
             size="small"
@@ -56,12 +50,20 @@ export function Offer({ offer, grab }: { offer: GrabsOffer; grab: Grabbing }) {
               : "Remove from Blocklist and grab"}
           </Button>
         )
-      ) : (
-        <Result result={result} busy={grab.busy} onCancelHeld={send} />
-      )}
+      }
+    >
+      {offer.grab.outcome !== undefined && <p>{offer.grab.outcome}</p>}
+      {offer.grab.refusal !== undefined && <p>{offer.grab.refusal}</p>}
+      {offer.grab.waits !== undefined && <p>{offer.grab.waits}</p>}
+      {release.blocked !== null && <p>{release.blocked}</p>}
+      {offer.grab.cancels.map((held) => (
+        <p key={held.grabId}>{held.words}</p>
+      ))}
+      <Overrides lifts={offer.grab.lifts} edition={offer.grab.edition} />
+      {result !== undefined && <Result result={result} busy={grab.busy} onCancelHeld={send} />}
       <Details>
         <ReleaseDetails release={release} />
       </Details>
-    </li>
+    </ReleaseRow>
   );
 }

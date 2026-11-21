@@ -6,16 +6,15 @@ import { PageDownloadError } from "../app/route-chunk";
 import { Button } from "../ui/button";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { Fact, type FactRow, Facts } from "../ui/facts";
 import { type NavRow, adminNav } from "./nav";
 import { thisPage } from "./reload";
-
-export type Fact = { readonly label: string; readonly value: ReactNode };
 
 type Action = "retry" | "reload" | "portal";
 
 type Failure = {
   readonly sentence: string;
-  readonly facts: readonly Fact[];
+  readonly facts: readonly FactRow[];
   readonly action: Action;
 };
 
@@ -65,7 +64,7 @@ export function ProblemCard({
 }: {
   said: string;
   action: ReactNode;
-  facts: readonly Fact[];
+  facts: readonly FactRow[];
 }) {
   return (
     <div className={card}>
@@ -77,14 +76,13 @@ export function ProblemCard({
         }
         action={<div className="my-2">{action}</div>}
       >
-        <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-item bg-well px-3 py-2">
+        <Facts look="well">
           {facts.map(({ label, value }) => (
-            <div key={label} className="contents">
-              <dt className="text-ink-3">{label}</dt>
-              <dd className="wrap-anywhere">{value}</dd>
-            </div>
+            <Fact key={label} label={label}>
+              {value}
+            </Fact>
           ))}
-        </dl>
+        </Facts>
       </Details>
     </div>
   );

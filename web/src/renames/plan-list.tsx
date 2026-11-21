@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { FilesWorkLine } from "../api/gen/model";
+import { Empty } from "../ui/empty";
 import { SearchField } from "../ui/search-field";
 import { useShell } from "../ui/shell-context";
 import { VirtualRows } from "../ui/virtual-rows";
@@ -68,7 +69,7 @@ export function PlanList({ lines, review }: { lines: readonly FilesWorkLine[]; r
         className={`flex flex-col rounded-card bg-glass px-3 ring-1 ring-hairline ring-inset ${shell === "phone" ? "min-h-0 flex-1" : "max-h-[min(56vh,560px)]"}`}
       >
         {shown.length === 0 ? (
-          <p className="py-3 text-ink-3">No Work matches &quot;{query.trim()}&quot;.</p>
+          <Empty look="row">No Work matches &quot;{query.trim()}&quot;.</Empty>
         ) : (
           <VirtualRows
             label="Works"

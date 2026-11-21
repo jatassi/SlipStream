@@ -8,7 +8,7 @@ import type {
 } from "../../api/gen/model";
 import { useFileActions } from "../../subtitles/work-api";
 import {
-  type Fact,
+  type SubtitleFact,
   fitFacts,
   languageOf,
   providerName,
@@ -17,6 +17,7 @@ import {
 import { Button } from "../../ui/button";
 import { Data } from "../../ui/data";
 import { Details } from "../../ui/details";
+import { Fact, Facts } from "../../ui/facts";
 import { Tooltip } from "../../ui/tooltip";
 import { nameOf } from "../paths";
 
@@ -41,7 +42,7 @@ export function SidecarDetails({ view, file }: { view: SubtitlesWantView; file: 
     return null;
   }
   const frameRate = file.file.media?.video.frameRate ?? 0;
-  const facts: readonly Fact[] = [
+  const facts: readonly SubtitleFact[] = [
     { label: "Name", value: `${stemOf(file.file.path)}.${sidecar.name}` },
     ...(sidecar.provider === null
       ? []
@@ -51,11 +52,12 @@ export function SidecarDetails({ view, file }: { view: SubtitlesWantView; file: 
   ];
   return (
     <Details>
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 pb-1 text-meta">
+      <Facts look="well">
         {facts.map((fact) => (
-          <div key={fact.label} className="contents">
-            <dt className="text-ink-3">
-              {fact.hover === undefined ? (
+          <Fact
+            key={fact.label}
+            label={
+              fact.hover === undefined ? (
                 fact.label
               ) : (
                 <Tooltip label={fact.hover} name={`${fact.label}: ${fact.hover}`}>
@@ -66,14 +68,13 @@ export function SidecarDetails({ view, file }: { view: SubtitlesWantView; file: 
                     {fact.label}
                   </button>
                 </Tooltip>
-              )}
-            </dt>
-            <dd className="min-w-0 break-words text-ink-1">
-              <Data>{fact.value}</Data>
-            </dd>
-          </div>
+              )
+            }
+          >
+            <Data>{fact.value}</Data>
+          </Fact>
         ))}
-      </dl>
+      </Facts>
     </Details>
   );
 }
@@ -157,9 +158,8 @@ export function SubtitleDetails({ file }: { file: SubtitleFile }) {
     return null;
   }
   return (
-    <div className="flex flex-col gap-2">
-      <dt className="text-label text-ink-3">Subtitles</dt>
-      <dd className="flex flex-col gap-3">
+    <Fact label="Subtitles">
+      <div className="flex flex-col gap-3">
         {embedded.length > 0 && (
           <ul aria-label="Embedded subtitles" className="flex flex-col gap-2">
             {embedded.map((track) => (
@@ -180,7 +180,7 @@ export function SubtitleDetails({ file }: { file: SubtitleFile }) {
             </ul>
           </div>
         )}
-      </dd>
-    </div>
+      </div>
+    </Fact>
   );
 }

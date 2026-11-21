@@ -1,25 +1,6 @@
 import type { WorksContentType } from "../api/gen/model";
-import type { LibraryWork, ListValue, PartialDate } from "./rows";
-
-const full = new Intl.DateTimeFormat(undefined, {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-const monthly = new Intl.DateTimeFormat(undefined, { month: "short", year: "numeric" });
-
-/** A date as precise as it is known: "9 Apr 2021", "Apr 2021" or "2021". */
-export function partialDateText(date: PartialDate): string {
-  const [year = 0, month, day] = date.split("-").map(Number);
-  if (month === undefined) {
-    return String(year);
-  }
-  return day === undefined
-    ? monthly.format(new Date(year, month - 1))
-    : full.format(new Date(year, month - 1, day));
-}
-
-export const dateText = (date: Date): string => full.format(date);
+import { shortDayWords } from "../format/days";
+import type { LibraryWork, ListValue } from "./rows";
 
 const minuteMs = 60_000;
 
@@ -30,7 +11,7 @@ export function valueText(value: ListValue): string {
     case "number":
       return String(value.number);
     case "date":
-      return partialDateText(value.date);
+      return shortDayWords(value.date);
     case "texts":
       return value.texts.join(", ");
     case "duration": {

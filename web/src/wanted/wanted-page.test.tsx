@@ -68,7 +68,7 @@ test("Wanted opens on what the queue is doing, its parts joined by dots, a limit
   const sentence = page.getByText(/^3 searching/u);
   await expect.element(sentence).toBeVisible();
   expect(sentence.element().closest("p")?.textContent).toMatch(
-    /^3 searching · 142 queued · Next Backlog search tomorrow at 22:00 · Waiting for TorrentLeech's search limit until /u,
+    /^3 searching · 142 queued · Next Backlog search tomorrow at 10:00 PM · Waiting for TorrentLeech's search limit until /u,
   );
   await expect
     .element(page.getByRole("link", { name: /^Waiting for TorrentLeech's search limit until /u }))

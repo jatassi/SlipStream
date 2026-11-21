@@ -7,7 +7,7 @@ import {
   getListNodesSuspenseQueryOptions,
 } from "../../../api/gen/query/nodes/nodes";
 import { ensureQuery } from "../../../api/query-client";
-import { Skeleton } from "../../../ui/skeleton";
+import { PagePending } from "../../../shell/page";
 import { NodesLanding } from "./-landing/landing";
 
 export const Route = createFileRoute("/_app/nodes/")({
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_app/nodes/")({
       ensureQuery(context.queryClient, getListNodesSuspenseQueryOptions()),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading Nodes" />,
+  pendingComponent: () => <PagePending label="Loading Nodes" shape="rows" lines={2} />,
   component: function Nodes() {
     return <NodesLanding view={Route.useSearch().view} />;
   },

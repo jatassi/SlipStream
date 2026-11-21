@@ -38,7 +38,7 @@ test("entries sit under Today, Yesterday and their weekday and date, each at its
     .toBeVisible();
   const today = page.getByRole("list", { name: "Today" });
   await expect.element(today).toMatchTextContent(/Grabbed The Quiet Orchard 3/u);
-  await expect.element(today).toMatchTextContent(/\d{2}:\d{2}/u);
+  await expect.element(today).toMatchTextContent(/\d{1,2}:\d{2} [AP]M/u);
 });
 
 test("Load more reads the page before the last one shown, with no entry twice", async () => {
@@ -167,7 +167,7 @@ test("on a phone the whole row opens the entry in a sheet", async () => {
   await asPhone();
   openHistory(historyServer([anEntry(1, new Date().toISOString())]));
   await userEvent.click(
-    page.getByRole("button", { name: /^Grabbed The Quiet Orchard 1 \d{2}:\d{2}$/u }),
+    page.getByRole("button", { name: /^Grabbed The Quiet Orchard 1 \d{1,2}:\d{2} [AP]M$/u }),
   );
   await expect
     .element(page.getByRole("dialog", { name: "Grabbed The Quiet Orchard 1" }))

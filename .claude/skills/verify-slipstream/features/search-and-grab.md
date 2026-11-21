@@ -87,7 +87,7 @@ Steps:
   $FW sse wait $RUN --as admin --event grabs.changed --timeout 60s
   ```
 
-- **See it imported.** Activity's `Grabs` table reads `Imported`, and the API's Grab history runs fetching, downloading, importing, imported.
+- **See it imported.** Activity's `Grabs` table reads `Imported` beside a tick, with no stage track left in the row, and the API's Grab history runs fetching, downloading, importing, imported.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Grabs" }).getByText("Imported").waitFor({ timeout: 60000 }); }'

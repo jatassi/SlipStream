@@ -5944,6 +5944,10 @@
             ],
             "type": "string"
           },
+          "facts": {
+            "$ref": "#/components/schemas/GrabsReleaseFacts",
+            "description": "Empty once the Work is deleted"
+          },
           "indexer": {
             "description": "The name of the Indexer that listed it; null when none is known",
             "type": [
@@ -5955,11 +5959,13 @@
             "pattern": "^[0-9a-f]{40}$",
             "type": "string"
           },
-          "title": {
-            "type": "string"
+          "size": {
+            "description": "Bytes",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
-          "words": {
-            "description": "What SlipStream reads from the title, in words",
+          "title": {
             "type": "string"
           },
           "work": {
@@ -5977,7 +5983,8 @@
         "required": [
           "infoHash",
           "title",
-          "words",
+          "facts",
+          "size",
           "cause",
           "because",
           "indexer",
@@ -6573,29 +6580,8 @@
             "$ref": "#/components/schemas/GrabsProgress",
             "description": "The download's progress, absent unless it is downloading and its Node reported it"
           },
-          "quality": {
-            "description": "The quality the release title names, absent when it names none",
-            "enum": [
-              "sdtv",
-              "dvd",
-              "webrip-480p",
-              "hdtv-720p",
-              "webrip-720p",
-              "webdl-720p",
-              "bluray-720p",
-              "hdtv-1080p",
-              "webrip-1080p",
-              "webdl-1080p",
-              "bluray-1080p",
-              "remux-1080p",
-              "hdtv-2160p",
-              "webrip-2160p",
-              "webdl-2160p",
-              "bluray-2160p",
-              "remux-2160p",
-              "cam"
-            ],
-            "type": "string"
+          "releaseFacts": {
+            "$ref": "#/components/schemas/GrabsReleaseFacts"
           },
           "releaseSize": {
             "format": "int64",
@@ -6603,10 +6589,6 @@
             "type": "integer"
           },
           "releaseTitle": {
-            "type": "string"
-          },
-          "releaseWords": {
-            "description": "Its Release in words, such as Bluray-1080p · FKW · 9.8 GB",
             "type": "string"
           },
           "rssIndexerName": {
@@ -6690,7 +6672,7 @@
           "targetIds",
           "targets",
           "releaseTitle",
-          "releaseWords",
+          "releaseFacts",
           "releaseSize",
           "indexerId",
           "trackerId",
@@ -7337,6 +7319,9 @@
             },
             "type": "array"
           },
+          "facts": {
+            "$ref": "#/components/schemas/GrabsReleaseFacts"
+          },
           "formatIds": {
             "description": "The Custom Formats it matched of those the Work's Targets score, as the run saw them",
             "items": {
@@ -7422,16 +7407,12 @@
           },
           "title": {
             "type": "string"
-          },
-          "words": {
-            "description": "What SlipStream reads from the title, in words, such as WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB",
-            "type": "string"
           }
         },
         "required": [
           "position",
           "title",
-          "words",
+          "facts",
           "indexerId",
           "indexerName",
           "size",
@@ -8133,6 +8114,9 @@
               "null"
             ]
           },
+          "facts": {
+            "$ref": "#/components/schemas/GrabsReleaseFacts"
+          },
           "formatIds": {
             "description": "The Custom Formats it matched of those the Work's Targets score",
             "items": {
@@ -8198,16 +8182,12 @@
               "type": "string"
             },
             "type": "array"
-          },
-          "words": {
-            "description": "What SlipStream reads from the title, in words",
-            "type": "string"
           }
         },
         "required": [
           "id",
           "title",
-          "words",
+          "facts",
           "indexers",
           "size",
           "publishedAt",
@@ -8218,6 +8198,52 @@
           "lostAt",
           "blocked"
         ],
+        "type": "object"
+      },
+      "GrabsReleaseFacts": {
+        "additionalProperties": false,
+        "properties": {
+          "audio": {
+            "description": "The first audio codec and channel layout the title names, such as DD+ 5.1; absent when it names neither",
+            "type": "string"
+          },
+          "group": {
+            "description": "The Release group, such as FLUX; absent when the title names none",
+            "type": "string"
+          },
+          "hdr": {
+            "description": "The first HDR format the title names, such as Dolby Vision; absent when it names none",
+            "type": "string"
+          },
+          "quality": {
+            "description": "The quality the title names; absent when it names none",
+            "enum": [
+              "sdtv",
+              "dvd",
+              "webrip-480p",
+              "hdtv-720p",
+              "webrip-720p",
+              "webdl-720p",
+              "bluray-720p",
+              "hdtv-1080p",
+              "webrip-1080p",
+              "webdl-1080p",
+              "bluray-1080p",
+              "remux-1080p",
+              "hdtv-2160p",
+              "webrip-2160p",
+              "webdl-2160p",
+              "bluray-2160p",
+              "remux-2160p",
+              "cam"
+            ],
+            "type": "string"
+          },
+          "revision": {
+            "description": "Such as v2 or v2 REPACK; absent for the original release",
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "GrabsReleaseList": {

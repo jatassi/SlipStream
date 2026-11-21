@@ -4,8 +4,8 @@ import type {
   MediaserversLibraries as Libraries,
   MediaserversServerView as Server,
 } from "../api/gen/model";
-import { Empty } from "../shell/empty";
 import { Button } from "../ui/button";
+import { Empty } from "../ui/empty";
 import { MappingRow } from "./mapping-row";
 import { foldersOf } from "./mappings-form";
 import { useMappingsForm } from "./use-mappings-form";
@@ -70,7 +70,7 @@ function Editor({ server, libraries, onSaved, onLater }: Props) {
  */
 export function MappingsEditor(props: Props) {
   return props.libraries.mappings.length === 0 ? (
-    <Empty>
+    <Empty look="sheet">
       No library roots yet. Each library root you add appears here with its Path mapping.
     </Empty>
   ) : (

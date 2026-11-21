@@ -3,7 +3,7 @@ import { page } from "vitest/browser";
 
 import { renderKit } from "../test/render-kit";
 import { stateOrder as states, statusMarks } from "./state-marks";
-import { StateBar, StateButton } from "./state-square";
+import { StateButton } from "./state-square";
 
 function squareOf(name: string) {
   const square = page.getByRole("button", { name }).element().firstElementChild;
@@ -51,24 +51,4 @@ test("a quiet square is dimmed", async () => {
   await expect.element(page.getByRole("button", { name: "Quiet, Met" })).toBeVisible();
   expect(getComputedStyle(squareOf("Watched, Met")).opacity).toBe("1");
   expect(getComputedStyle(squareOf("Quiet, Met")).opacity).toBe("0.55");
-});
-
-test("a state bar is 180 × 8, names its counts in the state order, and sizes each segment by its count", async () => {
-  renderKit(<StateBar counts={{ met: 6, unreleased: 2, missing: 3, failed: 1 }} />);
-  const bar = page.getByRole("img", { name: "1 Failed, 3 Missing, 2 Unreleased, 6 Met" });
-  await expect.element(bar).toBeVisible();
-  const box = bar.element().getBoundingClientRect();
-  expect([box.width, box.height]).toEqual([180, 8]);
-  const widths = [...bar.element().children].map(
-    (segment) => segment.getBoundingClientRect().width,
-  );
-  expect(widths).toHaveLength(4);
-  const [failed = 0, missing = 0, , met = 0] = widths;
-  expect(missing / failed).toBeCloseTo(3, 1);
-  expect(met / failed).toBeCloseTo(6, 1);
-});
-
-test("an empty state bar says so", async () => {
-  renderKit(<StateBar counts={{}} />);
-  await expect.element(page.getByRole("img", { name: "Nothing to download" })).toBeVisible();
 });

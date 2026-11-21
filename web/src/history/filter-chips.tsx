@@ -2,7 +2,7 @@ import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { useSuspenseInfiniteQuery, useSuspenseQuery } from "@tanstack/react-query";
 
 import type { HistoryGroup } from "../api/gen/model";
-import { useNow } from "../tasks/use-now";
+import { useNow } from "../ui/clock";
 import { Icon } from "../ui/icon";
 import { IconButton } from "../ui/icon-button";
 import { historyPages, kindsOptions } from "./history-query";
@@ -97,7 +97,7 @@ export function GroupChips({ filter, onFilter }: { filter: HistoryFilter; onFilt
 
 /** The Work History is narrowed to, by the label its entries carry while it exists. */
 export function WorkChip({ filter, onFilter }: { filter: HistoryFilter; onFilter: Change }) {
-  const { pages } = useSuspenseInfiniteQuery(historyPages(paramsOf(filter, useNow(60_000)))).data;
+  const { pages } = useSuspenseInfiniteQuery(historyPages(paramsOf(filter, useNow()))).data;
   const label =
     pages.flatMap((page) => page.entries).find((entry) => entry.work?.id === filter.work)?.work
       ?.label ?? "A deleted Work";

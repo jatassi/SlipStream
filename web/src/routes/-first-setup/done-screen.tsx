@@ -12,9 +12,9 @@ import {
 } from "../../api/gen/query/works/works";
 import { freshQuery } from "../../api/query-client";
 import { refusalOf } from "../../targets/attempt";
-import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
 import { Chip } from "../../ui/chip";
+import { SignalLine } from "../../ui/signal-line";
 // oxlint-disable-next-line import/max-dependencies -- the done screen reads the email settings and offers an Add per Content Type
 import { addLabel, enabledTypes } from "../../works/fields";
 import { screens } from "./screens";
@@ -124,6 +124,20 @@ function LeaveButton({
   );
 }
 
+function useLeave(finish: (href: string) => Promise<void>) {
+  const [leaving, setLeaving] = useState<string>();
+  const [failure, setFailure] = useState<string>();
+  const leave = (href: string) => {
+    setLeaving(href);
+    setFailure(undefined);
+    finish(href).catch((error: unknown) => {
+      setFailure(refusalOf(error));
+      setLeaving(undefined);
+    });
+  };
+  return { leaving, failure, leave };
+}
+
 /** Each shown step as set or skipped. Leaving by any of its ways finishes first setup. */
 export function DoneScreen({
   shown,
@@ -135,22 +149,17 @@ export function DoneScreen({
   finish: (href: string) => Promise<void>;
 }) {
   const types = enabledTypes(useListContentTypesSuspense().data.contentTypes);
-  const [leaving, setLeaving] = useState<string>();
-  const [failure, setFailure] = useState<string>();
-  const leave = (href: string) => {
-    setLeaving(href);
-    setFailure(undefined);
-    finish(href).catch((error: unknown) => {
-      setFailure(refusalOf(error));
-      setLeaving(undefined);
-    });
-  };
+  const { leaving, failure, leave } = useLeave(finish);
   return (
     <>
       <p>Each step you skipped can be set later in Settings.</p>
       <Summary shown={shown} onSettings={leave} />
       <EmailLine onSettings={leave} />
-      {failure !== undefined && <AlertLine text={failure} />}
+      {failure !== undefined && (
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {back !== undefined && (
           <Button look="ghost" disabled={leaving !== undefined} onClick={back}>

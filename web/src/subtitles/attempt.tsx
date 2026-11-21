@@ -2,8 +2,8 @@ import { useEffect } from "react";
 
 import { sentenceOf } from "../api/errors";
 import type { SubtitlesProvider } from "../api/gen/model";
-import { useNow } from "../tasks/use-now";
-import { AlertLine } from "../ui/alert-line";
+import { useClock } from "../ui/clock";
+import { SignalLine } from "../ui/signal-line";
 import { Spinner } from "../ui/spinner";
 import { toast } from "../ui/toast";
 import type { SubtitleSubject } from "./search-host";
@@ -41,16 +41,22 @@ export function AttemptLine({
   line: ReturnType<typeof useAttemptLine>;
   providers: readonly SubtitlesProvider[];
 }) {
-  const clock = { now: useNow(60_000), zone: undefined };
+  const clock = useClock();
   if (error !== null) {
-    return <AlertLine text={sentenceOf(error)} />;
+    return (
+      <SignalLine tone="fail" announce>
+        {sentenceOf(error)}
+      </SignalLine>
+    );
   }
   if (attempt === undefined) {
     return null;
   }
   if (attempt.outcome !== null) {
     return attempt.outcome.kind === "added" ? null : (
-      <AlertLine text={endedWords(attempt.outcome, { providers, clock })} />
+      <SignalLine tone="fail" announce>
+        {endedWords(attempt.outcome, { providers, clock })}
+      </SignalLine>
     );
   }
   const words =

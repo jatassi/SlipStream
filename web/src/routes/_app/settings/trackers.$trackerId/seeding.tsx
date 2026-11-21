@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_app/settings/trackers/$trackerId/seeding
       loadTorrents(queryClient),
       ...firstWindowPages(trackerId).map((options) => ensureQuery(queryClient, options)),
     ]),
-  pendingComponent: () => <Skeleton label="Loading Seeding" />,
+  pendingComponent: () => <Skeleton label="Loading Seeding" shape="rows" lines={2} />,
   component: function Seeding() {
     const tracker = useTracker(Route.useParams().trackerId);
     return (

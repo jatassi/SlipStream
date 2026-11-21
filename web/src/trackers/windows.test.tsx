@@ -41,11 +41,9 @@ test("the Seeding tab lists the windows still owed with their lanes, and a link 
   await expect
     .element(saltLine)
     .toMatchTextContent(
-      /It stopped seeding at .+\. Seed it again before seedpool counts a hit and run\./u,
+      /It stopped seeding .+\. Seed it again before seedpool counts a hit and run\./u,
     );
-  await expect
-    .element(saltLine)
-    .toMatchTextContent(/It was missed at .+ and grabbed again at .+\./u);
+  await expect.element(saltLine).toMatchTextContent(/It was missed .+ and grabbed again .+\./u);
   expect(windows.asked).toEqual([
     `/api/v1/trackers/${seedpoolId}/windows?list=open`,
     `/api/v1/trackers/${seedpoolId}/windows?list=history`,
@@ -59,9 +57,7 @@ test("the Seeding tab lists the windows still owed with their lanes, and a link 
 test("the history lists met, missed and released windows a page at a time", async () => {
   const windows = recorded();
   renderApp({ path: seedingTab, handlers: [windows.handler, ...trackersServer().handlers] });
-  await expect
-    .element(rowOf(history(), "Low.Tide.2023.1080p.WEB-DL"))
-    .toMatchTextContent(/Met at /u);
+  await expect.element(rowOf(history(), "Low.Tide.2023.1080p.WEB-DL")).toMatchTextContent(/Met /u);
   expect(history().getByText("Ash.Road.2020.1080p.WEB-DL").query()).toBeNull();
   const more = page
     .getByRole("region", { name: "History" })
@@ -70,11 +66,11 @@ test("the history lists met, missed and released windows a page at a time", asyn
   await expect
     .element(rowOf(history(), "Ash.Road.2020.1080p.WEB-DL"))
     .toMatchTextContent(
-      /Missed at .+It still needed 1 day more seeding when its last torrent was removed\./u,
+      /Missed .+It still needed 1 day more seeding when its last torrent was removed\./u,
     );
   await expect
     .element(rowOf(history(), "Gone.Quiet.2019.1080p.WEB-DL"))
-    .toMatchTextContent(/Closed at /u);
+    .toMatchTextContent(/Closed /u);
   await expect.element(more).not.toBeInTheDocument();
   expect(windows.asked.slice(-1)).toEqual([
     `/api/v1/trackers/${seedpoolId}/windows?list=history&offset=2`,
@@ -87,7 +83,7 @@ test("a window missed and grabbed again stays in the history as its miss while i
   await expect
     .element(missed)
     .toMatchTextContent(
-      /Missed at .+It still needed 6 days more seeding when its last torrent was removed\.It was grabbed again at .+\./u,
+      /Missed .+It still needed 6 days more seeding when its last torrent was removed\.It was grabbed again .+\./u,
     );
   expect(missed.getByText("At risk").query()).toBeNull();
   expect(missed.getByText(/Still needs /u).query()).toBeNull();

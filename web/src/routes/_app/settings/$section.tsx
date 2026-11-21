@@ -5,10 +5,9 @@ import { ensureQuery } from "../../../api/query-client";
 import { SectionWarning } from "../../../settings/section-alert";
 import { sectionOf } from "../../../settings/sections";
 import { SettingsNav } from "../../../settings/settings-nav";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
 import { useShell } from "../../../ui/shell-context";
-import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/settings/$section")({
   staticData: { title: loaderTitle },
@@ -20,7 +19,7 @@ export const Route = createFileRoute("/_app/settings/$section")({
     ]);
     return { title: section.label, trail: [{ title: "Settings", pathname: "/settings" }] };
   },
-  pendingComponent: () => <Skeleton label="Loading Settings" />,
+  pendingComponent: () => <PagePending label="Loading Settings" shape="facts" />,
   component: SettingsPage,
 });
 

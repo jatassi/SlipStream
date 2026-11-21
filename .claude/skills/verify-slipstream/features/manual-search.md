@@ -8,7 +8,7 @@ An Admin opens Manual search from any Search button to see the Releases for part
 - `manual-reopen` closing the sheet and opening it again on the same scope shows the same Manual search, with `Started <age> by Ada Okafor` and `Search again`, and starts no new one (P-123).
 - `manual-streaming` while Heron answers 20 seconds late, the Searching line reads `Searching 4 Indexers. 3 have responded.` and the plan already lists Fixture Site's Releases. Once Heron responds it reads `SlipStream searched 4 Indexers.`, and its Details lists each Indexer's outcome with `Open Indexer` and `Retry` (P-126).
 - `manual-plan` the Quiet Orchard's plan reads `2 Grabs get you everything.`: Tamarack's Bluray for `1080p (standard)` (Tamarack's automatic search is off, so an automatic Search would grab Fixture Site's WEB-DL instead), and FKW's 1080p WEB-DL for `HD (standard)` as an upgrade. `SlipStream wouldn't grab N more Releases.` folds the rest into sentences, such as `1 names another Work.` and `1 fails a filter of every Target here.` (P-127).
-- `manual-all-releases` `All Releases (N)` lists every Release with `Sort by` Rank, Score, Quality, Indexer, Size, Age or Seeders, a `Freeleech` chip on CMRG's WEB-DL, and each Release's Details with its raw title, a verdict per Target, Indexers, Size, Published, Seeders and `Open in tester` (P-125).
+- `manual-all-releases` `All Releases (N)` lists every Release with `Sort by` Rank, Score, Quality, Indexer, Size, Age or Seeders. Each Release leads with its Quality chip, its facts and size, and its Grab beside them. The chip opens its source's definition on hover or a tap, and CMRG's WEB-DL's `Freeleech` chip opens `Downloading it doesn't count against your ratio on its Tracker.` Each Release's Details holds its raw title, a verdict per Target, Indexers, Published, Seeders and `Open in tester` (P-125).
 - `manual-query` a scope of one Item has a `Query` field. A typed query starts a new Manual search whose `query` echoes it, and fixture-site's `searches` capture records it as `q`. A season scope has no `Query` field (P-124).
 - `manual-swap-override` `Other choices` on the HD row lists LQ's WEB-DL with the `Override` chip `Score -5 is below the minimum of 0 at HD.`. `Use this` pins it, the plan is worked out again around it, and the pin survives later refreshes (P-127).
 - `manual-client` a row's Details `Send to` takes `Built-in client on home`, the row then reads `SlipStream sends it to the built-in client on home.`, and `Send all to` sets every row without its own (P-127).
@@ -17,7 +17,7 @@ An Admin opens Manual search from any Search button to see the Releases for part
 - `manual-mark-failed` Mark failed on the Torrent a downloading Grab holds adds `Ada Okafor marked its download failed.` to the Blocklist (P-356).
 - `manual-release-fault` grabbing S02E10's Release, which the tracker reports unregistered, fails its Grab `release_fault` and adds `Fixture Site reported it unregistered.` to the Blocklist (P-356).
 - `manual-unblock-edition` searching again after those entries, the Bluray reads `It's been on the Blocklist since <day> because Ada Okafor marked its download failed.` with `Remove from Blocklist and grab`, and the Extended WEB-DL is grabbed as the Standard Edition. The Grabs read `Ada Okafor removed it from the Blocklist to grab it.` and `Ada Okafor grabbed it as the Standard Edition.`, the Bluray's entry leaves the Blocklist, and both import (P-127, P-356).
-- `manual-blocklist-tab` Activity's `Blocklist` tab lists each entry with its Release in words and raw title, its cause in a sentence, its Indexer, its Work and when. `Search the Blocklist` filters by title, and picking entries and `Remove` empties it (P-356).
+- `manual-blocklist-tab` Activity's `Blocklist` tab lists each entry with its Release's Quality chip, facts and size over its raw title, its cause in a sentence, its Indexer, its Work and when. `Search the Blocklist` filters by title, and picking entries and `Remove` empties it (P-356).
 - `manual-series-plan` Season 2's plan reads `5 Grabs get you 5 of the 6 files you're missing. SlipStream hasn't found a Release for 1080p yet.`, with one row per episode from E05 to E10 but E09, `Missing: 1080p for E09.` with `No Indexer listed a 1080p Release.`, and folded lines for the season pack, `SlipStream can't import packs yet.`, and for the Release named S02E07 listed under E05, `1 names another episode.` (P-123).
 
 ## How to get to it (user POV)
@@ -73,7 +73,7 @@ Steps:
   $FW exec $RUN --proof manual-search/manual-plan -- $PW cli $D screenshot --filename={runDir}/proof/manual-search/manual-plan/plan.png
   ```
 
-- **Browse All Releases.** Open `All Releases (N)`, sort by `Seeders`, and open CMRG's Details. It shows the `Freeleech` chip, its raw title, a verdict per Target and its facts. `Open in tester` opens the `Tester` dialog with its title.
+- **Browse All Releases.** Open `All Releases (N)`, sort by `Seeders`, and open CMRG's Details. Its row shows the `Freeleech` chip after its facts, and its Details show its raw title, a verdict per Target, Indexers, Published and Seeders. `Open in tester` opens the `Tester` dialog with its title.
 
   ```sh
   ALL="$SHEET"'.getByRole("list", { name: "All Releases" })'

@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_app/activity/torrents")({
   staticData: { title: "Torrents", view: true },
   validateSearch: torrentsSearch,
   loader: ({ context }) => loadTorrents(context.queryClient),
-  pendingComponent: () => <Skeleton label="Loading Torrents" />,
+  pendingComponent: () => <Skeleton label="Loading Torrents" shape="table" lines={2} />,
   component: ActivityTorrents,
 });
 

@@ -1,31 +1,10 @@
 import { FolderAddIcon } from "@hugeicons/core-free-icons";
-import { type KeyboardEvent, type ReactNode, useId } from "react";
+import { type KeyboardEvent, useId } from "react";
 
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import type { NewFolder } from "./browser-state";
-import { row, ruled } from "./folder-rows";
-
-export function SkeletonRows() {
-  return (
-    <output aria-label="Loading folders" className="flex flex-col">
-      {["a", "b", "c", "d", "e", "f"].map((key) => (
-        <span key={key} className={`${row} ${ruled} min-h-(--row-height)`}>
-          <span className="size-4.5 rounded-chip bg-fill" />
-          <span className="h-3 w-48 max-w-[60%] rounded-chip bg-fill" />
-        </span>
-      ))}
-    </output>
-  );
-}
-
-export function Quiet({ children }: { children: ReactNode }) {
-  return (
-    <p className="px-4 py-6 text-body text-ink-2 in-data-[density=touch]:text-body-touch">
-      {children}
-    </p>
-  );
-}
+import { row } from "./folder-rows";
 
 const selectOnMount = (element: HTMLInputElement | null) => {
   element?.focus();

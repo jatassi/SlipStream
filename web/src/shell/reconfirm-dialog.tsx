@@ -4,11 +4,11 @@ import { useReconfirmSession } from "../api/gen/query/identity/identity";
 import { ReconfirmSessionBody } from "../api/gen/zod/identity/identity.zod";
 import { settleReconfirm, useReconfirmAsk } from "../api/reconfirm";
 import { pinErrors } from "../session/pin-errors";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { useAppForm } from "../ui/form";
 import { useShell } from "../ui/shell-context";
+import { SignalLine } from "../ui/signal-line";
 
 export type ReconfirmDialogProps = {
   /**
@@ -79,7 +79,11 @@ function ReconfirmForm({ passkey }: ReconfirmDialogProps) {
           {(field) => <field.PinPad label="PIN" autoComplete="current-password" autoSubmit />}
         </form.AppField>
         <form.FormAlert />
-        {passkeyConfirm.refusal !== undefined && <AlertLine text={passkeyConfirm.refusal} />}
+        {passkeyConfirm.refusal !== undefined && (
+          <SignalLine tone="fail" announce>
+            {passkeyConfirm.refusal}
+          </SignalLine>
+        )}
         <div className={`flex gap-2 ${stacked ? "flex-col-reverse" : "justify-end"}`}>
           {passkey && (
             <Button

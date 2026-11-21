@@ -13,6 +13,7 @@ import {
   monthOf,
   monthWords,
 } from "../format/days";
+import { Empty } from "../ui/empty";
 import { List } from "../ui/list";
 import { MonthGrid } from "../ui/month-grid";
 import { CalendarRow, rowKey } from "./calendar-row";
@@ -40,7 +41,7 @@ function PickedDay({
     <section aria-label={words} className="mt-4 @min-[640px]:hidden">
       <h2 className="mb-2 text-heading text-ink-1">{words}</h2>
       {rows.length === 0 ? (
-        <p className="text-meta text-ink-3">Nothing in your library comes out on this day.</p>
+        <Empty look="inline">Nothing in your library comes out on this day.</Empty>
       ) : (
         <List label={words}>
           {rows.map((row) => (

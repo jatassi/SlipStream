@@ -6,7 +6,9 @@ import type {
   DownloadclientsTorrentRowState,
   DownloadclientsTrackerCell,
 } from "../api/gen/model";
-import { type Clock, bytes, lengthWords, sinceWords } from "../format";
+import { bytes, lengthWords } from "../format";
+import type { Clock } from "../ui/clock";
+import { whenWords } from "../ui/time-words";
 import type { LiveRow } from "../live/torrents";
 
 export type Row = DownloadclientsTorrentRow;
@@ -25,18 +27,6 @@ export const tabOrder = {
   desktop: ["downloading", "seeding", "problems", "goal-met", "all"],
   phone: ["all", "downloading", "seeding", "problems", "goal-met"],
 } as const satisfies Record<string, readonly Tab[]>;
-
-export const stateWords: { readonly [S in State]: string } = {
-  removing: "Removing",
-  failed: "Failed",
-  "tracker-error": "Tracker error",
-  paused: "Paused",
-  checking: "Checking",
-  queued: "Queued",
-  stalled: "Stalled",
-  downloading: "Downloading",
-  seeding: "Seeding",
-};
 
 /** The client filter's value for every Node's built-in client; an external client goes by its id. */
 export const builtInClient = "built-in";
@@ -122,7 +112,7 @@ function heldLine(row: Row, { node, clock }: Place): string {
     case "window":
       return row.until === undefined
         ? "Waiting for its trackers"
-        : `Resumes at ${sinceWords(row.until, clock)}`;
+        : `Resumes ${whenWords(row.until, "at", clock)}`;
     case "disk_full":
       return "Disk full, resumes once there is space";
     case "slot":
@@ -159,10 +149,10 @@ export function stateLine(row: Row, live: LiveRow | undefined, place: Place): st
       : `Removed when ${waits.who} ${backWords[waits.cause].line}`;
   }
   if (row.lastKnown !== undefined) {
-    return `Last reported at ${sinceWords(row.lastKnown, place.clock)}`;
+    return `Last reported ${whenWords(row.lastKnown, "at", place.clock)}`;
   }
   if (row.importAt !== undefined) {
-    return `Imports at ${sinceWords(row.importAt, place.clock)}`;
+    return `Imports ${whenWords(row.importAt, "at", place.clock)}`;
   }
   switch (row.state) {
     case "failed":
@@ -172,7 +162,7 @@ export function stateLine(row: Row, live: LiveRow | undefined, place: Place): st
     case "checking":
       return row.until === undefined
         ? "Checking its files"
-        : `Rechecks, then resumes at ${sinceWords(row.until, place.clock)}`;
+        : `Rechecks, then resumes ${whenWords(row.until, "at", place.clock)}`;
     case "queued":
       return row.hold === undefined ? `Waiting for ${place.node}` : heldLine(row, place);
     case "paused":
@@ -196,7 +186,7 @@ export function trackerLine(
   }
   const host = cell.host === "" ? "Its tracker" : cell.host;
   const retry =
-    cell.retryAt === undefined ? "" : `, retrying at ${sinceWords(cell.retryAt, clock)}`;
+    cell.retryAt === undefined ? "" : `, retrying ${whenWords(cell.retryAt, "at", clock)}`;
   switch (cell.status) {
     case "working":
       return { host, status: "Working" };
@@ -221,9 +211,6 @@ export function progressOf(row: Row, live: LiveRow | undefined): { done: number;
     ? { done: row.done, wanted: row.size }
     : { done: live.done, wanted: live.wanted };
 }
-
-export const percentOf = ({ done, wanted }: { done: number; wanted: number }): number =>
-  wanted === 0 ? 100 : Math.floor((done / wanted) * 100);
 
 export function rateWords(bps: number): string {
   if (bps <= 0) {

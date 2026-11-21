@@ -2,12 +2,14 @@ import { useState } from "react";
 
 import { sentenceOf } from "../api/errors";
 import type { WorksContentType, WorksItem, WorksLibraryRow } from "../api/gen/model";
+import { SignalLine } from "../ui/signal-line";
 import type { RootEntry } from "./root-entry";
 import { useGetWorkSuspense } from "../api/gen/query/works/works";
 import { Button } from "../ui/button";
 import { Select } from "../ui/select";
 import { codeOf } from "../works/fields-by-tier";
 import { useImporting } from "./adding";
+// oxlint-disable-next-line import/max-dependencies -- the step reads the Work, picks each file's Item and imports them
 import { filesWords } from "./words";
 
 /** The choice that leaves a file in the entry. */
@@ -94,6 +96,12 @@ function Picked({
   );
 }
 
+const chosenFiles = (entry: RootEntry, chosen: Readonly<Record<string, string>>) =>
+  entry.files.flatMap(({ path, position }) => {
+    const itemId = chosen[path] ?? waiting;
+    return itemId === waiting ? [] : [{ position, itemIds: [itemId] }];
+  });
+
 /** Each of the entry's files and the Item of `row`'s Work it holds; a one-Item type needs no choice. */
 export function IntoFiles({
   entry,
@@ -110,10 +118,7 @@ export function IntoFiles({
 }) {
   const { items } = useGetWorkSuspense(row.id).data;
   const [chosen, setChosen] = useState(() => startOf(entry, type, row, items));
-  const files = entry.files.flatMap(({ path, position }) => {
-    const itemId = chosen[path] ?? waiting;
-    return itemId === waiting ? [] : [{ position, itemIds: [itemId] }];
-  });
+  const files = chosenFiles(entry, chosen);
   const importing = useImporting(entry, row, onDone);
   return (
     <div className="flex flex-col gap-4">
@@ -126,7 +131,11 @@ export function IntoFiles({
         chosen={chosen}
         onChosen={setChosen}
       />
-      {importing.error !== null && <p className="text-fail-ink">{sentenceOf(importing.error)}</p>}
+      {importing.error !== null && (
+        <SignalLine tone="fail" announce>
+          {sentenceOf(importing.error)}
+        </SignalLine>
+      )}
       <div className="flex justify-end">
         <Button
           look="primary"

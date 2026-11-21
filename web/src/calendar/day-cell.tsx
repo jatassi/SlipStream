@@ -5,7 +5,7 @@ import { type IsoDay, calendarDayWords } from "../format/days";
 import { Icon } from "../ui/icon";
 import { List } from "../ui/list";
 import { Popover } from "../ui/popover";
-import { Poster } from "../ui/poster";
+import { Artwork } from "../ui/artwork";
 import { notMonitored } from "../ui/state-mark";
 import { type StatusMark, type Tone, stateOrder, statusMarks } from "../ui/state-marks";
 import { CalendarRow, rowKey, rowWords } from "./calendar-row";
@@ -49,7 +49,7 @@ function CellRow({ row, withKind }: { row: Row; withKind: boolean }) {
         title={words === "" ? row.work.label : `${row.work.label} · ${words}`}
         className="flex items-center gap-1.5 rounded-item p-0.5 transition-colors duration-350 ease-standard hover:bg-(--row-wash) focus-visible:bg-(--row-wash)"
       >
-        <Poster url={row.work.posterUrl ?? undefined} size="option" />
+        <Artwork use="poster" size="option" url={row.work.posterUrl ?? undefined} />
         <span className="flex min-w-0 flex-1 flex-col text-meta">
           <span className="truncate text-ink-1">{row.work.label}</span>
           {words !== "" && <span className="line-clamp-2 text-ink-3">{words}</span>}

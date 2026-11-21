@@ -7,8 +7,8 @@ import {
   useGetSeedingSettingsSuspense,
 } from "../api/gen/query/trackers/trackers";
 import { adoptDefaultGoal, adoptSeedingSettings } from "../live/adopt-trackers";
-import { KeyValues } from "../routes/_app/nodes/-facts";
 import { TaskCadence } from "../tasks/task-cadence";
+import { Fact, Facts } from "../ui/facts";
 import { Section } from "../ui/section";
 import { SettingField, SettingGroup } from "../ui/setting-field";
 import { toast } from "../ui/toast";
@@ -68,7 +68,11 @@ export function RuleSettings() {
           with the extra seeding time, the task pauses it, removes it, or removes it and deletes its
           download copy, as the goal sets.
         </p>
-        <KeyValues rows={[["Seeding goals", <TaskCadence key="goals" task="seeding-goals" />]]} />
+        <Facts look="sheet">
+          <Fact label="Seeding goals">
+            <TaskCadence task="seeding-goals" />
+          </Fact>
+        </Facts>
       </div>
     </Section>
   );

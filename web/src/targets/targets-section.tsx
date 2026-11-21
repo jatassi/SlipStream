@@ -6,8 +6,10 @@ import type { TargetsTarget } from "../api/gen/model";
 import { useListQualitiesSuspense, useListTargetsSuspense } from "../api/gen/query/targets/targets";
 import { Button } from "../ui/button";
 import { ConfirmDialog } from "../ui/confirm-dialog";
+import { Empty } from "../ui/empty";
 import { type Column, Table } from "../ui/table";
 import { useQualityNames } from "./quality-names";
+// oxlint-disable-next-line import/max-dependencies -- the Targets section lists, names and acts on every Target
 import { type Acting, TargetMenu, deleting } from "./target-actions";
 
 type Name = (key: string) => string;
@@ -87,7 +89,7 @@ export function TargetsSection() {
         </Button>
       </div>
       {targets.length === 0 ? (
-        <p className="text-ink-3">No Targets yet. Add one to set what a file should be.</p>
+        <Empty look="sheet">No Targets yet. Add one to set what a file should be.</Empty>
       ) : (
         <Table
           label="Targets"

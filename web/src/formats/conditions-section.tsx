@@ -1,9 +1,9 @@
 import { Add01Icon } from "@hugeicons/core-free-icons";
 
 import type { FormatsSchema } from "../api/gen/model";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
-import { SignalChip } from "../ui/signal-chip";
+import { Callout } from "../ui/callout";
+import { SignalLine } from "../ui/signal-line";
 import { ConditionRow } from "./condition-row";
 import { matchSentence, slowSentence } from "./condition-words";
 import { type FormatDraft, type Kind, type Problems, blankCondition, kindsIn } from "./draft";
@@ -13,10 +13,9 @@ export type Slow = { readonly releases: number; readonly limit: number };
 
 function SlowWarning({ slow }: { slow: Slow }) {
   return (
-    <output className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card bg-warn-card px-4 py-3 text-warn-text ring-1 ring-warn-line ring-inset">
-      <SignalChip kind="warn">Slow pattern</SignalChip>
-      <span className="min-w-0 flex-[1_1_24ch]">{slowSentence(slow.releases, slow.limit)}</span>
-    </output>
+    <Callout tone="warn" chip="Slow pattern">
+      {slowSentence(slow.releases, slow.limit)}
+    </Callout>
   );
 }
 
@@ -84,7 +83,11 @@ export function ConditionsSection({
       {draft.conditions.length > 0 && (
         <ConditionList draft={draft} kinds={kinds} problems={problems} onChange={onChange} />
       )}
-      {problems["conditions"] !== undefined && <AlertLine text={problems["conditions"]} />}
+      {problems["conditions"] !== undefined && (
+        <SignalLine tone="fail" announce>
+          {problems["conditions"]}
+        </SignalLine>
+      )}
       {first !== undefined && (
         <div>
           <Button

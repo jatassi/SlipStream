@@ -1,5 +1,5 @@
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
+import { SignalLine } from "../ui/signal-line";
 import { type FormatDraft, type Problems, bodyOf, problemsOf } from "./draft";
 import { useTester } from "./tester-dialog";
 
@@ -48,7 +48,9 @@ export function EditorActions({
   return (
     <div className="mt-8 flex flex-col items-start gap-3">
       {unplaced.map((text) => (
-        <AlertLine key={text} text={text} />
+        <SignalLine key={text} tone="fail" announce>
+          {text}
+        </SignalLine>
       ))}
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={tryIt.run}>Try it</Button>

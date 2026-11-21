@@ -107,7 +107,7 @@ export function GrabDialogs({
           <GrabOutcome grab={grab} />
           <GrabRecord grab={grab} />
           <GrabStages grab={grab} />
-          <Suspense fallback={<Skeleton label="Loading the Grab" />}>
+          <Suspense fallback={<Skeleton label="Loading the Grab" shape="facts" />}>
             {grab.chosenBecause !== null && <ChosenBecause grab={grab} />}
             <GrabFacts grab={grab} />
             {grab.import !== null && <ImportLines importId={grab.import.id} />}

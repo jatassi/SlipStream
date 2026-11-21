@@ -2,6 +2,7 @@ import { Search01Icon } from "@hugeicons/core-free-icons";
 import { type KeyboardEvent, useId, useState } from "react";
 
 import type { IndexersCatalogEntry, IndexersIndexerCatalog } from "../../api/gen/model";
+import { Empty } from "../../ui/empty";
 import { Icon } from "../../ui/icon";
 import { type Move, moveIndex } from "../../ui/move-index";
 import { VirtualListbox, optionId } from "../../ui/virtual-listbox";
@@ -57,11 +58,11 @@ function Rows({
 }) {
   if (shown.length === 0) {
     return (
-      <p className="p-5 text-ink-2">
+      <Empty look="row">
         {query.trim() === ""
           ? "No definition matches these filters."
           : `No definition matches ${query.trim()}.`}
-      </p>
+      </Empty>
     );
   }
   return (

@@ -10,18 +10,15 @@ import {
 import { bytes } from "../../format";
 import { NodeSettingField, PendingRestart, settingOf } from "../../nodes/node-setting";
 import { Button } from "../../ui/button";
-import { SignalChip } from "../../ui/signal-chip";
+import { Callout } from "../../ui/callout";
 import { useNode } from "../_app/nodes/-node";
 
 function Apart() {
   return (
-    <output className="flex flex-col items-start gap-2 rounded-card bg-warn-card px-4 py-3 text-warn-text ring-1 ring-warn-line ring-inset">
-      <SignalChip kind="warn">Different drive</SignalChip>
-      <span>
-        Downloads are on a different drive from the library, so every import copies the whole file.
-        Move the downloads folder to the library&apos;s drive to make imports instant.
-      </span>
-    </output>
+    <Callout tone="warn" chip="Different drive">
+      Downloads are on a different drive from the library, so every import copies the whole file.
+      Move the downloads folder to the library&apos;s drive to make imports instant.
+    </Callout>
   );
 }
 

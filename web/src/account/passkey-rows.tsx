@@ -2,15 +2,25 @@ import { Delete02Icon, MoreHorizontalIcon, PencilEdit02Icon } from "@hugeicons/c
 
 import type { IdentityPasskey } from "../api/gen/model";
 import { useListPasskeysSuspense } from "../api/gen/query/identity/identity";
-import { clock } from "../format";
 import { IconButton } from "../ui/icon-button";
 import { List, ListRow } from "../ui/list";
 import { Menu } from "../ui/menu";
+import { RelativeTime } from "../ui/relative-time";
 import type { Acting } from "./passkey-dialogs";
 
-function metaOf({ host, createdAt, lastUsedAt }: IdentityPasskey): string {
-  const used = lastUsedAt === undefined ? "Never used" : `Last used ${clock(lastUsedAt)}`;
-  return `${host} · Added ${clock(createdAt)} · ${used}`;
+function Meta({ passkey: { host, createdAt, lastUsedAt } }: { passkey: IdentityPasskey }) {
+  return (
+    <>
+      {host} · Added <RelativeTime at={createdAt} form="clock" /> ·{" "}
+      {lastUsedAt === undefined ? (
+        "Never used"
+      ) : (
+        <>
+          Last used <RelativeTime at={lastUsedAt} form="age" />
+        </>
+      )}
+    </>
+  );
 }
 
 export function PasskeyRows({ act }: { act: (acting: Acting) => void }) {
@@ -24,7 +34,7 @@ export function PasskeyRows({ act }: { act: (acting: Acting) => void }) {
         <ListRow
           key={passkey.id}
           title={passkey.name}
-          meta={metaOf(passkey)}
+          meta={<Meta passkey={passkey} />}
           trailing={
             <Menu
               label={`${passkey.name} actions`}

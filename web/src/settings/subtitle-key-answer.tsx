@@ -5,9 +5,9 @@ import type { SubtitlesProvider } from "../api/gen/model";
 import type { KeyAnswer } from "../subtitles/settings-api";
 import { acceptedWords } from "../subtitles/settings-words";
 import { Button } from "../ui/button";
+import { Callout } from "../ui/callout";
 import { DialogClose } from "../ui/dialog";
 import { Icon } from "../ui/icon";
-import { SignalChip } from "../ui/signal-chip";
 
 function Accepted({ provider }: { provider: SubtitlesProvider }) {
   return (
@@ -30,10 +30,9 @@ function Accepted({ provider }: { provider: SubtitlesProvider }) {
 function Refused({ words, onRetry }: { words: string; onRetry: () => void }) {
   return (
     <div className="flex flex-col gap-4">
-      <output className="flex flex-col items-start gap-3 rounded-card bg-fail-card px-5 py-4 text-fail-text shadow-signal-lift">
-        <SignalChip kind="fail">Not saved</SignalChip>
-        <span>{words}</span>
-      </output>
+      <Callout tone="fail" chip="Not saved">
+        {words}
+      </Callout>
       <DialogActions>
         <DialogClose>
           <Button>Cancel</Button>

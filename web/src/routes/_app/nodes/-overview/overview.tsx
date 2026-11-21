@@ -1,7 +1,6 @@
 import { useState } from "react";
 
 import { useListNodesSuspense } from "../../../../api/gen/query/nodes/nodes";
-import { useNow } from "../../../../tasks/use-now";
 import { type Acting, NodeDialogs } from "../-manage/dialogs";
 import { nodeOf } from "../-node";
 import { NodeFacts } from "./facts";
@@ -12,11 +11,10 @@ import { System } from "./system";
 export function Overview({ nodeId }: { nodeId: string }) {
   const { nodes } = useListNodesSuspense().data;
   const node = nodeOf(nodes, nodeId);
-  const now = useNow(60_000);
   const [acting, setActing] = useState<Acting>();
   return (
     <>
-      <NodeFacts node={node} nodes={nodes} clock={{ now, zone: undefined }} act={setActing} />
+      <NodeFacts node={node} nodes={nodes} act={setActing} />
       <System node={node} />
       <RemoveRow node={node} act={setActing} />
       <NodeDialogs

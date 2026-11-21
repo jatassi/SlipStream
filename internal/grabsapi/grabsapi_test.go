@@ -358,17 +358,17 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	attic := `"indexerId":"` + indexer.String() + `","indexerName":"Fixture Site",`
 	scored := `"covers":["` + item + `"],"scores":[{"targetId":"` + hd.ID.String() + `","score":0}],"formatIds":[],`
 	expect(t, s, http.MethodGet, "/api/v1/searches/"+run+"/releases", http.StatusOK, `{"releases":[`+
-		`{"position":0,"title":"The.Attic.1080p.WEB","words":"WEBDL-1080p · 4.0 KB",`+attic+`"size":4096,"seeders":5,"outcome":"grabbed","rank":1,"copyOf":null,`+
+		`{"position":0,"title":"The.Attic.1080p.WEB","facts":{"quality":"webdl-1080p"},`+attic+`"size":4096,"seeders":5,"outcome":"grabbed","rank":1,"copyOf":null,`+
 		scored+`"reasons":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false,`+
 		`"words":"Its size isn't checked at HD because its name has no size or the runtime is unknown."}],"lostAt":null},`+
-		`{"position":1,"title":"The.Attic.720p.WEB","words":"WEBDL-720p · 2.0 KB",`+attic+`"size":2048,"seeders":50,"outcome":"refused","rank":null,"copyOf":null,`+
+		`{"position":1,"title":"The.Attic.720p.WEB","facts":{"quality":"webdl-720p"},`+attic+`"size":2048,"seeders":50,"outcome":"refused","rank":null,"copyOf":null,`+
 		scored+`"reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p","soft":false,"words":"HD doesn't accept WEBDL-720p."}],"lostAt":null}]}`)
 	reached, err := f.xs.Trackers(ctx, admin)
 	if err != nil || len(reached) != 1 || reached[0].Name != "Fixture Site" {
 		t.Fatalf("Trackers = %+v, %v; want the Fixture Site one the Grab reached", reached, err)
 	}
 	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","items":["` + item + `"],"edition":"any","targetIds":["` + hd.ID.String() + `"],` +
-		`"targets":[{"targetId":"` + hd.ID.String() + `","itemId":"` + item + `","forced":false,"settled":null}],"releaseTitle":"The.Attic.1080p.WEB","releaseWords":"WEBDL-1080p · 4.0 KB","quality":"webdl-1080p","releaseSize":4096,"indexerId":"` + indexer.String() + `",` +
+		`"targets":[{"targetId":"` + hd.ID.String() + `","itemId":"` + item + `","forced":false,"settled":null}],"releaseTitle":"The.Attic.1080p.WEB","releaseFacts":{"quality":"webdl-1080p"},"releaseSize":4096,"indexerId":"` + indexer.String() + `",` +
 		`"trackerId":"` + reached[0].ID.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"torrentId":null,"downloadClient":null,"infoHash":null,` +
 		`"stage":"failed","inFlight":false,"failure":{"stage":"fetching","code":"torrent_invalid","message":"The Indexer sent a .torrent file SlipStream can't read.","cause":"SlipStream can't read the release's .torrent file, or the metadata peers sent for its magnet link.","recovery":"Search again to pick another release.","needsYou":false,"current":true},"import":null,` +
 		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T","source":"search","searchId":"` + run + `","foundBy":"search","rssIndexerName":null,"chosenBecause":null,"grabbedBy":null,"manualSearchId":null,` +

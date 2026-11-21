@@ -20,8 +20,8 @@ import {
   stateLine,
   wantLabel,
 } from "../../subtitles/work-words";
-import { useNow } from "../../tasks/use-now";
 import { Button } from "../../ui/button";
+import { useClock } from "../../ui/clock";
 // oxlint-disable-next-line import/max-dependencies -- a row reads its want, words its state and offers every subtitle action
 import { Icon } from "../../ui/icon";
 import { IconButton } from "../../ui/icon-button";
@@ -195,7 +195,7 @@ function WantRow({
 
 function useReading(file: SubtitleFile): Reading {
   return {
-    clock: { now: useNow(60_000), zone: undefined },
+    clock: useClock(),
     providers: file.providers,
     noun: file.noun,
     kind: file.subtitles.season === null ? "feature" : "episode",

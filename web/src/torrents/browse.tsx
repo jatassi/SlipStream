@@ -1,9 +1,9 @@
 import { type ReactNode, useDeferredValue, useState } from "react";
 
 import type { DownloadclientsTorrentList } from "../api/gen/model";
-import type { Clock } from "../format";
-import { useShell } from "../ui/shell-context";
-import { NoMatch } from "./empty";
+import type { Clock } from "../ui/clock";
+import { type ShellKind, useShell } from "../ui/shell-context";
+import { TabEmpty } from "./empty";
 import { type Row, type Tab, matches, tabCount } from "./model";
 import type { Names } from "./names";
 import { usePicking } from "./picking";
@@ -52,6 +52,14 @@ function useDraft(
   return { draft, q: useDeferredValue(draft), write, clear };
 }
 
+function filterOf(search: TorrentsSearch, shell: ShellKind, q: string) {
+  const tab = search.tab ?? (shell === "phone" ? "all" : "downloading");
+  return {
+    filter: { tab, node: search.node, type: search.type, client: search.client, q },
+    narrowed: [search.node, search.type, search.client].some(Boolean) || q !== "",
+  };
+}
+
 export function Browse({
   list,
   search,
@@ -64,15 +72,13 @@ export function Browse({
 }: BrowseProps) {
   const shell = useShell();
   const { draft, q, write, clear } = useDraft(search.q, onSearchChange);
-  const tab = search.tab ?? (shell === "phone" ? "all" : "downloading");
-  const filter = { tab, node: search.node, type: search.type, client: search.client, q };
+  const { filter, narrowed } = filterOf(search, shell, q);
   const shown = list.rows.filter((row) => matches(row, filter, names.work(row.workId)));
   const { picking, picked, clear: unpick } = usePicking(shown);
-  const narrowed = [search.node, search.type, search.client].some(Boolean) || q !== "";
   return (
     <>
       <Toolbar
-        tab={tab}
+        tab={filter.tab}
         counts={(each) => tabCount(list.counts, each)}
         rows={list.rows}
         node={search.node}
@@ -82,10 +88,15 @@ export function Browse({
         onQChange={write}
         onChange={onSearchChange}
       />
-      {tab === "goal-met" && goalMet}
+      {filter.tab === "goal-met" && goalMet}
       {renderBulk !== undefined && picked.length > 0 && renderBulk(picked, unpick)}
       {shown.length === 0 ? (
-        <NoMatch onClear={narrowed ? clear : undefined} />
+        <TabEmpty
+          tab={filter.tab}
+          counts={list.counts}
+          onClear={narrowed ? clear : undefined}
+          onChange={onSearchChange}
+        />
       ) : (
         <TorrentTable
           rows={shown}

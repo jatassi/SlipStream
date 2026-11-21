@@ -2,22 +2,23 @@ import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import type { GrabsWantedRow } from "../api/gen/model";
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import { openManualSearch } from "../manual/sheet-state";
 import { Button } from "../ui/button";
 import { IconButton } from "../ui/icon-button";
 import { Menu } from "../ui/menu";
-import { Poster } from "../ui/poster";
-import { Spinner } from "../ui/spinner";
+import { Artwork } from "../ui/artwork";
+import { PlainTime } from "../ui/relative-time";
 // oxlint-disable-next-line import/max-dependencies -- each column draws its own part of a row
+import { Spinner } from "../ui/spinner";
 import { type Column, Table } from "../ui/table";
 import { type RowSearch, useRowSearch, workLink } from "./row-search";
-import { type Headers, lastWords, nextWords, rangesWords, reasonWords } from "./wanted-words";
+import { type Headers, lastWords, nextOf, rangesWords, reasonWords } from "./wanted-words";
 
 function WorkCell({ row }: { row: GrabsWantedRow }) {
   return (
     <span className="flex min-w-0 items-center gap-3 py-1.5">
-      <Poster url={row.work.posterUrl ?? undefined} />
+      <Artwork use="poster" size="row" url={row.work.posterUrl ?? undefined} />
       <Link {...workLink(row)} className="truncate font-semibold">
         {row.work.label}
       </Link>
@@ -25,11 +26,12 @@ function WorkCell({ row }: { row: GrabsWantedRow }) {
   );
 }
 
-function NextCell({ row, clock }: { row: GrabsWantedRow; clock: Clock }) {
+function NextCell({ row }: { row: GrabsWantedRow }) {
+  const next = nextOf(row);
   return (
     <span className="inline-flex items-center gap-2">
       {row.state === "searching" && <Spinner />}
-      {nextWords(row, clock)}
+      {"at" in next ? <PlainTime at={next.at} form="due" /> : next.words}
     </span>
   );
 }
@@ -87,7 +89,7 @@ const columnsOf = (headers: Headers, clock: Clock, search: RowSearch): Columns =
       ]),
   { id: "reason", header: "Reason", cell: reasonWords },
   { id: "last", header: "Last searched", hideBelow: 760, cell: (row) => lastWords(row, clock) },
-  { id: "next", header: "Next search", cell: (row) => <NextCell row={row} clock={clock} /> },
+  { id: "next", header: "Next search", cell: (row) => <NextCell row={row} /> },
   {
     id: "actions",
     header: "Actions",

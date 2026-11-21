@@ -1,7 +1,7 @@
 /**
- * The quality the release title names, absent when it names none
+ * The quality the title names; absent when it names none
  */
-export type GrabsGrabQuality =
+export type GrabsReleaseFactsQuality =
   | "sdtv"
   | "dvd"
   | "webrip-480p"

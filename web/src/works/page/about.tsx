@@ -13,13 +13,15 @@ import type {
   WorksWebLink,
   WorksWorkView,
 } from "../../api/gen/model";
-import { clock } from "../../format";
+import { Artwork } from "../../ui/artwork";
 import { Data } from "../../ui/data";
 import { Details } from "../../ui/details";
+import { Fact, Facts } from "../../ui/facts";
 import { Icon } from "../../ui/icon";
+import { RelativeTime } from "../../ui/relative-time";
+// oxlint-disable-next-line import/max-dependencies -- About shows every place a type puts a field, with its art and links
 import { Section } from "../../ui/section";
 import { type Placed, codeOf, placedOf } from "../fields-by-tier";
-// oxlint-disable-next-line import/max-dependencies -- About shows every place a type puts a field, with its art and links
 import { dayWords } from "../../format/days";
 import { aboutText, ratingValue } from "./fields-format";
 import { OpenIn } from "./open-in";
@@ -43,48 +45,37 @@ function AboutValue({ holder, item: { spec, value } }: { holder: Holder; item: P
   const art = holder.artwork.find(({ kind }) => kind === spec.art);
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      {art !== undefined && (
-        <img
-          src={`${art.url}?size=small`}
-          alt=""
-          className="h-5 max-w-24 object-contain"
-          loading="lazy"
-        />
-      )}
+      {art !== undefined && <Artwork use="logo" size="mark" url={art.url} />}
       {bracket === undefined ? aboutText(value) : `${aboutText(value)} (${bracket})`}
     </span>
   );
 }
 
-/** Fields as labels and values, a Work's or an Item's. */
-export function KeyValues({ holder, items }: { holder: Holder; items: readonly Placed[] }) {
+/** A Work's or an Item's fields as Facts, inline in About or in a well under Details. */
+export function FieldFacts({
+  holder,
+  items,
+  look,
+}: {
+  holder: Holder;
+  items: readonly Placed[];
+  look: "inline" | "well";
+}) {
   return (
-    <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2">
+    <Facts look={look}>
       {items.map((item) => (
-        <div key={item.spec.key} className="contents">
-          <dt className="text-ink-3">{item.spec.label}</dt>
-          <dd className="text-ink-1">
-            <AboutValue holder={holder} item={item} />
-          </dd>
-        </div>
+        <Fact key={item.spec.key} label={item.spec.label}>
+          <AboutValue holder={holder} item={item} />
+        </Fact>
       ))}
-    </dl>
+    </Facts>
   );
 }
 
 function Person({ person }: { person: WorksPerson }) {
   return (
     <li className="flex w-24 shrink-0 flex-col gap-1.5">
-      <span className="block aspect-2/3 w-24 overflow-hidden rounded-item bg-glass-raised ring-1 ring-hairline ring-inset">
-        {person.photoUrl !== null && (
-          <img
-            src={`${person.photoUrl}?size=small`}
-            alt=""
-            loading="lazy"
-            className="size-full object-cover"
-          />
-        )}
-      </span>
+      <Artwork use="headshot" size="tile" url={person.photoUrl ?? undefined} label={person.name} />
       <span className="text-meta font-semibold text-ink-1">{person.name}</span>
       {person.role !== "" && <span className="text-meta text-ink-3">{person.role}</span>}
     </li>
@@ -131,7 +122,7 @@ export function Ratings({ ratings }: { ratings: readonly WorksRating[] }) {
           <Data className="text-ink-1">{ratingValue(rating)}</Data>
           <span className="text-meta text-ink-3">
             {rating.votes !== null && `${votesOf(rating.votes)} · `}fetched{" "}
-            <Data>{clock(rating.fetchedAt)}</Data>
+            <RelativeTime at={rating.fetchedAt} form="clock" data />
           </span>
         </li>
       ))}
@@ -250,7 +241,7 @@ export function About({
         {tagline !== undefined && (
           <p className="text-card-title text-ink-1">{aboutText(tagline.value)}</p>
         )}
-        <KeyValues holder={work} items={placed(type, work, "about")} />
+        <FieldFacts holder={work} items={placed(type, work, "about")} look="inline" />
         {availability.map((line) => (
           <p key={line} className="text-ink-2">
             {line}
@@ -272,7 +263,7 @@ export function About({
           <p className="text-ink-2">{record}</p>
         ) : (
           <Details summary={record}>
-            <KeyValues holder={work} items={details} />
+            <FieldFacts holder={work} items={details} look="well" />
           </Details>
         )}
       </div>

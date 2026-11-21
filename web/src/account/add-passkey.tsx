@@ -3,9 +3,9 @@ import { useState } from "react";
 import { isProblem } from "../api/errors";
 import type { IdentityPasskey } from "../api/gen/model";
 import { addPasskey, usePasskeySupport } from "../session/passkey";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
+import { SignalLine } from "../ui/signal-line";
 import { toast } from "../ui/toast";
 import { DialogActions } from "./dialog-actions";
 
@@ -48,7 +48,11 @@ function AddPasskeyBody({ onDone }: { onDone: () => void }) {
   return (
     <div className="flex flex-col gap-4 text-ink-2">
       <p>{support.available ? passkeyPitch(location.hostname) : support.why}</p>
-      {failure !== undefined && <AlertLine text={failure} />}
+      {failure !== undefined && (
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
+      )}
       <DialogActions>
         <Button disabled={busy} onClick={onDone}>
           {support.available ? "Cancel" : "Close"}
