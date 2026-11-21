@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
@@ -233,7 +234,7 @@ func TestARefusedPageKeepsTheNodeKeeping(t *testing.T) {
 		relay := w.paired("vps-relay")
 		orchard := newTorrent(t, "Orchard")
 		w.exports(orchard)
-		w.report(relay, 1, 3, 2, orchard.entry())
+		w.report(relay, w.round(relay), 3, 2, orchard.entry())
 		w.reportAll(relay, orchard.entry())
 		var refused string
 		if err := w.lib.QueryRowContext(t.Context(), "SELECT refused FROM reconciling_node WHERE node_id = ?", relay).Scan(&refused); err != nil {
@@ -277,12 +278,12 @@ func TestARepeatedPageCountsOnce(t *testing.T) {
 		relay := w.paired("vps-relay")
 		orchard, meadow := newTorrent(t, "Orchard"), newTorrent(t, "Meadow")
 		w.exports(orchard, meadow)
-		w.report(relay, 1, 0, 2, orchard.entry())
-		w.report(relay, 1, 0, 2, orchard.entry())
+		w.report(relay, w.round(relay), 0, 2, orchard.entry())
+		w.report(relay, w.round(relay), 0, 2, orchard.entry())
 		if !w.pending(relay) || len(w.rows(orchard)) != 0 {
 			t.Fatalf("after page 1 twice vps-relay keeps everything %t and orchard is recorded %+v, want the round still open", w.pending(relay), w.rows(orchard))
 		}
-		w.report(relay, 1, 1, 2, meadow.entry())
+		w.report(relay, w.round(relay), 1, 2, meadow.entry())
 		if w.pending(relay) || len(w.rows(orchard)) != 1 || len(w.rows(meadow)) != 1 {
 			t.Errorf("vps-relay keeps everything %t, orchard %+v, meadow %+v; want each adopted once", w.pending(relay), w.rows(orchard), w.rows(meadow))
 		}
@@ -307,7 +308,7 @@ func TestAdoptionResumesAfterACrashMidPage(t *testing.T) {
 		ctx, crash := context.WithCancel(t.Context())
 		w.start(ctx)
 		for p := range 3 {
-			w.report(relay, 1, uint32(p), 3, entries(trs[p*2:min(p*2+2, len(trs))])...)
+			w.report(relay, w.round(relay), uint32(p), 3, entries(trs[p*2:min(p*2+2, len(trs))])...)
 		}
 		adopted := 0
 		for _, tr := range trs {
@@ -344,7 +345,7 @@ func TestAPageOf5000AdoptsInBoundedWrites(t *testing.T) {
 		trs := torrents(t, "Orchard", 5000)
 		w.exports(trs...)
 		for p := range 5 {
-			w.report(relay, 1, uint32(p), 5, entries(trs[p*1000:(p+1)*1000])...)
+			w.report(relay, w.round(relay), uint32(p), 5, entries(trs[p*1000:(p+1)*1000])...)
 		}
 		if w.pending(relay) || len(w.rows(trs[4999])) != 1 {
 			t.Fatalf("vps-relay keeps everything %t, want its 5,000 torrents adopted", w.pending(relay))
@@ -466,6 +467,51 @@ func TestAnExternalTorrentAdoptsWithItsHostsAndNoMetainfoWhenItCantExport(t *tes
 		if !got.adopted || got.metainfo || hosts != `["tracker.example"]` || onClient == "" || w.review(got.id) != "" || w.asked[orchard.hash] != 1 {
 			t.Errorf("orchard is recorded as %+v with hosts %s on client %q, on the review list as %q, asked %d times; want adopted on Transmission with its host, no metainfo, off the list, asked once",
 				got, hosts, onClient, w.review(got.id), w.asked[orchard.hash])
+		}
+	})
+}
+
+// TestARestoreAsksEachNodeForANewRound adopts a paired Node's Holdings,
+// then begins Reconciling: its intent asks for a round it never sent, since
+// a Worker sends each round once while it runs.
+func TestARestoreAsksEachNodeForANewRound(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWorld(t)
+		relay := w.paired("vps-relay")
+		sent := w.round(relay)
+		w.reportAll(relay)
+		if w.round(relay) != 0 {
+			t.Fatal("vps-relay's Holdings weren't adopted")
+		}
+		w.restore()
+		if again := w.round(relay); again == 0 || again == sent {
+			t.Fatalf("after the restore vps-relay is asked for round %d, want one other than %d", again, sent)
+		}
+	})
+}
+
+// TestTheRestoredAndReplacedRowsGoOutOnce begins Reconciling on a new
+// machine, then starts the Service twice: History records Backup restored
+// and Controller replaced at the first start only.
+func TestTheRestoredAndReplacedRowsGoOutOnce(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := idle(t, 1000)
+		w.node("home")
+		taken := time.Now().Add(-time.Hour)
+		w.write(func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			return reconciling.Begin(ctx, tx, reconciling.BeginArgs{ID: "restore-1", Cause: reconciling.Restore, Backup: "nightly", TakenAt: taken, NewMachine: true})
+		})
+		first, stop := context.WithCancel(t.Context())
+		w.start(first)
+		restored, replaced := entrytest.Of(w.history, reconciling.RestoredRow), entrytest.Of(w.history, reconciling.ReplacedRow)
+		if len(restored) != 1 || restored[0].Backup != "nightly" || !restored[0].TakenAt.Equal(taken) || len(replaced) != 1 || replaced[0].Controller != "home" {
+			t.Fatalf("the first start recorded %+v and %+v, want the restore of nightly and the Controller home replaced", restored, replaced)
+		}
+		stop()
+		synctest.Wait()
+		w.start(t.Context())
+		if n := w.history.Len(); n != 0 {
+			t.Fatalf("the second start recorded %d rows, want none", n)
 		}
 	})
 }

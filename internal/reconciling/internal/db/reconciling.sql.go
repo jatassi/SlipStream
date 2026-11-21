@@ -330,7 +330,7 @@ func (q *Queries) Holds(ctx context.Context, arg HoldsParams) (bool, error) {
 
 const insertNode = `-- name: InsertNode :exec
 INSERT INTO reconciling_node (node_id, cause, since, round)
-VALUES (?1, ?2, ?3, 1)
+VALUES (?1, ?2, ?3, ?4)
 ON CONFLICT (node_id) DO NOTHING
 `
 
@@ -338,11 +338,17 @@ type InsertNodeParams struct {
 	NodeID role.NodeID
 	Cause  string
 	Since  storage.Time
+	Round  int64
 }
 
 // A Node already keeping keeps its round.
 func (q *Queries) InsertNode(ctx context.Context, arg InsertNodeParams) error {
-	_, err := q.db.ExecContext(ctx, insertNode, arg.NodeID, arg.Cause, arg.Since)
+	_, err := q.db.ExecContext(ctx, insertNode,
+		arg.NodeID,
+		arg.Cause,
+		arg.Since,
+		arg.Round,
+	)
 	return err
 }
 

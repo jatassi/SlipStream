@@ -18,7 +18,7 @@ DELETE FROM reconciling_root;
 -- name: InsertNode :exec
 -- A Node already keeping keeps its round.
 INSERT INTO reconciling_node (node_id, cause, since, round)
-VALUES (sqlc.arg(node_id), sqlc.arg(cause), sqlc.arg(since), 1)
+VALUES (sqlc.arg(node_id), sqlc.arg(cause), sqlc.arg(since), sqlc.arg(round))
 ON CONFLICT (node_id) DO NOTHING;
 
 -- name: GetNode :one

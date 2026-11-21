@@ -6,7 +6,9 @@ package reconciling
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -120,7 +122,7 @@ func Begin(ctx context.Context, tx *storage.Tx[file], b BeginArgs) error {
 		return err
 	}
 	for _, n := range named {
-		if err := q.InsertNode(ctx, db.InsertNodeParams{NodeID: n.ID, Cause: string(Restore), Since: now}); err != nil {
+		if err := q.InsertNode(ctx, db.InsertNodeParams{NodeID: n.ID, Cause: string(Restore), Since: now, Round: freshRound()}); err != nil {
 			return fmt.Errorf("keep %s's torrents: %w", n.Name, err)
 		}
 	}
@@ -136,10 +138,19 @@ func Begin(ctx context.Context, tx *storage.Tx[file], b BeginArgs) error {
 	return nil
 }
 
+// freshRound is a Holdings round no Node was asked for before. A Worker
+// sends each round once while it runs, so a restore that asked its
+// Workers for round 1 again would wait on each one until it restarted.
+func freshRound() int64 {
+	var b [8]byte
+	_, _ = rand.Read(b[:])
+	return int64(binary.BigEndian.Uint64(b[:])>>11) + 1
+}
+
 // Paired is nodes.Config.Paired: a newly paired Node keeps every torrent
 // until its first Holdings are adopted.
 func Paired(ctx context.Context, tx *storage.Tx[file], node nodes.ID) error {
-	if err := db.New(tx).InsertNode(ctx, db.InsertNodeParams{NodeID: node, Cause: "pairing", Since: storage.Now()}); err != nil {
+	if err := db.New(tx).InsertNode(ctx, db.InsertNodeParams{NodeID: node, Cause: "pairing", Since: storage.Now(), Round: freshRound()}); err != nil {
 		return fmt.Errorf("keep a new Node's torrents: %w", err)
 	}
 	return nil
