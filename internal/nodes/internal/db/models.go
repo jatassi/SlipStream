@@ -21,6 +21,15 @@ type NodesDial struct {
 	Address  string
 }
 
+type NodesFence struct {
+	ID        Singleton
+	State     string
+	ByKey     []byte
+	ByNode    role.NodeID
+	Addresses string
+	FencedAt  storage.Time
+}
+
 type NodesForfeit struct {
 	NodeID     role.NodeID
 	Role       role.Name
@@ -58,4 +67,11 @@ type NodesSetting struct {
 	ID                      Singleton
 	JoinCodeLifetimeSeconds *int64
 	OfflineGraceSeconds     *int64
+}
+
+type NodesSuperseded struct {
+	PublicKey    []byte
+	NodeID       role.NodeID
+	Proof        []byte
+	SupersededAt storage.Time
 }

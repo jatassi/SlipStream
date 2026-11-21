@@ -4,6 +4,7 @@
 package pairing
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -36,6 +37,21 @@ type Link interface {
 	Keep(t link.Target)
 	Drop(key link.Key)
 	Subscribe(ctx context.Context) <-chan link.Change
+	Tell(ctx context.Context, t link.Target, s link.Superseded) error
+}
+
+// Timings is the timings.pairing section.
+type Timings struct {
+	// SupersededDial is how often a Worker tells each old Controller it
+	// holds a proof for that a restore replaced it, until one answers.
+	SupersededDial time.Duration `yaml:"superseded_dial"`
+	// UnreachableAfter is how long a paired Worker goes without reaching
+	// its Controller before its local page takes a Join Code.
+	UnreachableAfter time.Duration `yaml:"unreachable_after"`
+}
+
+func DefaultTimings() Timings {
+	return Timings{SupersededDial: time.Hour, UnreachableAfter: 15 * time.Minute}
 }
 
 // Claims is the composition root's one definition of the Node's claim.
@@ -67,12 +83,14 @@ type Pairing struct {
 	mu      sync.Mutex
 	rec     atomic.Pointer[Record]
 	pending atomic.Pointer[Pending]
+	// retell wakes Tell when a proof to tell may have changed.
+	retell chan struct{}
 }
 
 // Open reads pairing.json when the data dir holds one. A record it cannot
 // use is a *RecordError.
 func Open(cfg Config) (*Pairing, error) {
-	p := &Pairing{cfg: cfg, path: recordPath(cfg.DataDir)}
+	p := &Pairing{cfg: cfg, path: recordPath(cfg.DataDir), retell: make(chan struct{}, 1)}
 	rec, ok, err := readRecord(p.path)
 	if err != nil {
 		return nil, err
@@ -120,19 +138,25 @@ func (p *Pairing) Controller() link.Target {
 }
 
 // Admit pins the Controller, answers a superseded one with the key that
-// replaced it, and refuses the rest, every key once removed.
+// replaced it and the proof that fences it, and refuses the rest, every
+// key once removed.
 func (p *Pairing) Admit(key link.Key) link.Admission {
 	rec := p.paired()
-	switch {
-	case rec == nil:
+	if rec == nil {
 		return link.Refused{}
-	case key == rec.Controller.Key:
+	}
+	if key == rec.Controller.Key {
 		return link.Pinned{}
-	case slices.ContainsFunc(rec.Superseded, func(s Superseded) bool { return s.Key == key }):
-		return link.Superseded{By: rec.Controller.Key, Addresses: rec.Controller.Addresses}
+	}
+	if i := slices.IndexFunc(rec.Superseded, func(s Superseded) bool { return s.Key == key }); i >= 0 {
+		return link.Superseded{By: rec.Controller.Key, Addresses: rec.Controller.Addresses, Proof: rec.Superseded[i].Proof}
 	}
 	return link.Refused{}
 }
+
+// Told ignores a peer's word that a restore replaced this Node: a Worker
+// is not a Controller, so nothing fences it.
+func (p *Pairing) Told(link.Key, link.Superseded) {}
 
 // Pair refuses: a Worker is not a Controller.
 func (p *Pairing) Pair(context.Context, link.Key, *linkv1.PairRequest) (*linkv1.PairResponse, error) {
@@ -224,13 +248,18 @@ func (p *Pairing) record(prev *Record, code joincode.Code, paired link.Paired) (
 	if prev != nil {
 		next.Superseded = slices.Clone(prev.Superseded)
 		if prev.Controller.Key != paired.Controller {
-			next.Superseded = append(next.Superseded, Superseded{Key: prev.Controller.Key, By: paired.Controller, At: now})
+			for i := range next.Superseded {
+				next.Superseded[i].Proof, next.Superseded[i].ToldAt = nil, time.Time{}
+			}
+			next.Superseded = append(next.Superseded, Superseded{Key: prev.Controller.Key, By: paired.Controller, At: now, Addresses: prev.Controller.Addresses})
 		}
 	}
+	next.Superseded, _ = withProofs(next.Superseded, paired.Controller, paired.Superseded, now)
 	if err := writeRecord(p.path, next); err != nil {
 		return Joined{}, err
 	}
 	p.rec.Store(&next)
+	p.wakeTell()
 	if prev != nil && prev.Controller.Key != paired.Controller {
 		p.cfg.Link.Drop(prev.Controller.Key)
 	}
@@ -238,14 +267,134 @@ func (p *Pairing) record(prev *Record, code joincode.Code, paired link.Paired) (
 	return Joined{NodeID: next.NodeID, Name: paired.Name, ControllerName: paired.ControllerName, Controller: paired.Controller, Link: paired.Remote}, nil
 }
 
+// withProofs is list with each proof the Controller holding by gave: an
+// entry it names takes its proof, a key it names that list lacks is
+// added, and an entry it doesn't name loses its proof. A changed proof
+// clears ToldAt, so the new one is told. It reports whether list changed.
+func withProofs(list []Superseded, by link.Key, proofs []link.SupersededProof, now time.Time) ([]Superseded, bool) {
+	out := slices.Clone(list)
+	changed := false
+	for i := range out {
+		var proof []byte
+		if j := slices.IndexFunc(proofs, func(p link.SupersededProof) bool { return p.Key == out[i].Key }); j >= 0 {
+			proof = proofs[j].Proof
+		}
+		if !bytes.Equal(proof, out[i].Proof) {
+			out[i].Proof, out[i].ToldAt, changed = proof, time.Time{}, true
+		}
+	}
+	for _, p := range proofs {
+		if !slices.ContainsFunc(out, func(s Superseded) bool { return s.Key == p.Key }) {
+			out = append(out, Superseded{Key: p.Key, By: by, At: now, Proof: p.Proof})
+			changed = true
+		}
+	}
+	return out, changed
+}
+
+// Remember stores the superseded list a node-scope intent from the pinned
+// Controller gives. It is role.HoldingConfig.Superseded on a Worker.
+func (p *Pairing) Remember(proofs []link.SupersededProof) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	rec := p.paired()
+	if rec == nil {
+		return
+	}
+	next := *rec
+	var changed bool
+	next.Superseded, changed = withProofs(rec.Superseded, rec.Controller.Key, proofs, time.Now().UTC().Truncate(time.Microsecond))
+	if !changed {
+		return
+	}
+	if err := writeRecord(p.path, next); err != nil {
+		p.cfg.Log.Error("record the old Controllers' proofs", "err", err.Error())
+		return
+	}
+	p.rec.Store(&next)
+	p.wakeTell()
+}
+
+func (p *Pairing) wakeTell() {
+	select {
+	case p.retell <- struct{}{}:
+	default:
+	}
+}
+
+// Tell dials each old Controller this Node holds an untold proof for,
+// with Link.Tell, at once and every every, until one answers or ctx ends.
+// A changed list starts a round at once.
+func (p *Pairing) Tell(ctx context.Context, every time.Duration) error {
+	for {
+		p.tellRound(ctx)
+		t := time.NewTimer(every)
+		select {
+		case <-t.C:
+		case <-p.retell:
+			t.Stop()
+		case <-ctx.Done():
+			t.Stop()
+			return nil
+		}
+	}
+}
+
+// tellRound tells each untold proof once, and records each one answered.
+func (p *Pairing) tellRound(ctx context.Context) {
+	rec := p.paired()
+	if rec == nil {
+		return
+	}
+	for _, s := range rec.Superseded {
+		if s.Proof == nil || !s.ToldAt.IsZero() || s.Addresses.IsZero() {
+			continue
+		}
+		err := p.cfg.Link.Tell(ctx, link.Target{Key: s.Key, Addresses: s.Addresses}, link.Superseded{By: rec.Controller.Key, Addresses: rec.Controller.Addresses, Proof: s.Proof})
+		if err != nil {
+			p.cfg.Log.Debug("send an old Controller the proof that a restore replaced it", "key", s.Key.Fingerprint(), "err", err.Error())
+			continue
+		}
+		if err := p.told(s.Key, s.Proof); err != nil {
+			p.cfg.Log.Error("record that an old Controller received its proof", "err", err.Error())
+		}
+	}
+}
+
+// told sets ToldAt on key's entry while it still holds proof.
+func (p *Pairing) told(key link.Key, proof []byte) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	rec := p.paired()
+	if rec == nil {
+		return nil
+	}
+	i := slices.IndexFunc(rec.Superseded, func(s Superseded) bool { return s.Key == key && bytes.Equal(s.Proof, proof) })
+	if i < 0 {
+		return nil
+	}
+	next := *rec
+	next.Superseded = slices.Clone(rec.Superseded)
+	next.Superseded[i].ToldAt = time.Now().UTC().Truncate(time.Microsecond)
+	if err := writeRecord(p.path, next); err != nil {
+		return err
+	}
+	p.rec.Store(&next)
+	return nil
+}
+
 // ignored is the refusal of a code naming rec's pinned or a superseded
-// Controller, nil for any other code or with no record.
+// Controller, nil for any other code or with no record. A code naming the
+// pinned Controller re-pairs once that Controller refused this Node as a
+// key it has no record of.
 func ignored(rec *Record, code joincode.Code) *Error {
 	switch {
 	case rec == nil:
 		return nil
-	case code.Names(rec.Controller.Key[:]):
+	case code.Names(rec.Controller.Key[:]) && rec.RefusedUnknownAt.IsZero():
 		return &Error{Kind: AlreadyJoined, Reason: "already joined"}
+	case code.Names(rec.Controller.Key[:]):
+		return nil
 	case slices.ContainsFunc(rec.Superseded, func(s Superseded) bool { return code.Names(s.Key[:]) }):
 		return &Error{Kind: SupersededController, Reason: "superseded Controller"}
 	}
@@ -253,7 +402,8 @@ func ignored(rec *Record, code joincode.Code) *Error {
 }
 
 // Repairs is whether Claim would re-pair this Node with code: it holds a
-// record, and code names neither its pinned nor a superseded Controller.
+// record, and code names no superseded Controller, nor its pinned one
+// unless that one refused this Node as a key it has no record of.
 func (p *Pairing) Repairs(code joincode.Code) bool {
 	rec := p.paired()
 	return rec != nil && !code.IsZero() && ignored(rec, code) == nil
@@ -261,19 +411,24 @@ func (p *Pairing) Repairs(code joincode.Code) bool {
 
 // Run follows the link until ctx ends, rewriting the Controller's
 // addresses when its Welcome advertises others, so re-dials find a moved
-// Controller, and recording the removal when the Controller refuses a
-// Hello as removed.
+// Controller, recording the removal when the Controller refuses a Hello as
+// removed, and recording when it refuses one as a key it has no record
+// of, until it welcomes this Node again.
 func (p *Pairing) Run(ctx context.Context) error {
 	for c := range p.cfg.Link.Subscribe(ctx) {
 		var err error
 		switch st := c.State.(type) {
 		case link.Live:
-			if !st.Peer.Addresses.IsZero() {
-				err = p.follow(c.Key, st.Peer.Addresses)
-			}
+			err = p.follow(c.Key, st.Peer.Addresses)
 		case link.Down:
-			if st.Refused == linkv1.RefusedReason_REFUSED_REASON_REMOVED {
+			switch st.Refused {
+			case linkv1.RefusedReason_REFUSED_REASON_REMOVED:
 				err = p.removed(ctx, c.Key)
+			case linkv1.RefusedReason_REFUSED_REASON_UNKNOWN_KEY:
+				err = p.unknown(c.Key)
+			case linkv1.RefusedReason_REFUSED_REASON_UNSPECIFIED, linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_UNKNOWN,
+				linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_EXPIRED, linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_USED,
+				linkv1.RefusedReason_REFUSED_REASON_NOT_A_CONTROLLER, linkv1.RefusedReason_REFUSED_REASON_SUPERSEDED:
 			}
 		}
 		if err != nil {
@@ -307,15 +462,42 @@ func (p *Pairing) removed(ctx context.Context, key link.Key) error {
 	return nil
 }
 
+// unknown records the pinned Controller's first refusal of this Node as a
+// key it has no record of, after which a Join Code from it re-pairs.
+func (p *Pairing) unknown(key link.Key) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	rec := p.paired()
+	if rec == nil || rec.Controller.Key != key || !rec.RefusedUnknownAt.IsZero() {
+		return nil
+	}
+	next := *rec
+	next.RefusedUnknownAt = time.Now().UTC().Truncate(time.Microsecond)
+	if err := writeRecord(p.path, next); err != nil {
+		return err
+	}
+	p.rec.Store(&next)
+	p.cfg.Log.Warn("The Controller has no record of this Node. Make a Join Code in Add a Node on the Controller, then run slipstream join with it.")
+	return nil
+}
+
+// follow rewrites the pinned Controller's addresses to those its Welcome
+// advertises, when it advertises any, and clears an unknown-key refusal.
 func (p *Pairing) follow(key link.Key, addrs link.Addresses) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	rec := p.paired()
-	if rec == nil || rec.Controller.Key != key || rec.Controller.Addresses == addrs {
+	if rec == nil || rec.Controller.Key != key {
 		return nil
 	}
 	next := *rec
-	next.Controller.Addresses = addrs
+	next.RefusedUnknownAt = time.Time{}
+	if !addrs.IsZero() {
+		next.Controller.Addresses = addrs
+	}
+	if next.Controller.Addresses == rec.Controller.Addresses && rec.RefusedUnknownAt.IsZero() {
+		return nil
+	}
 	if err := writeRecord(p.path, next); err != nil {
 		return err
 	}
@@ -341,14 +523,6 @@ const (
 	JoinPending          Kind = "join_pending"
 	Unaddressed          Kind = "node_unaddressed"
 )
-
-// ErrRestartRequired refuses a re-pair of a Worker whose half runs. That
-// half stays bound to the Controller it started with, so a Worker re-pairs
-// only before its half starts.
-var ErrRestartRequired = &Error{
-	Kind:   RestartRequired,
-	Reason: "a running Worker can't pair again. Stop the Node and run slipstream join with this code, or restart it with the code in SLIPSTREAM_JOIN_CODE",
-}
 
 // Ignored is whether k left a pairing in place rather than refusing one:
 // the code names the pinned or a superseded Controller.

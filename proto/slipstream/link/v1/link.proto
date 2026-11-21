@@ -65,6 +65,14 @@ message Paired {
   string name = 2;
   // controller_name is the Controller's own Node name.
   string controller_name = 3;
+  // superseded is each old Controller key this Controller replaced at a
+  // restore, with the proof that fences it.
+  repeated SupersededProof superseded = 4;
+}
+
+message SupersededProof {
+  bytes old_key = 1;
+  bytes proof = 2;
 }
 
 message HelloRequest {
@@ -88,6 +96,9 @@ message Welcome {
 message Superseded {
   bytes by_key = 1;
   PeerAddresses addresses = 2;
+  // proof is what the Controller holding by_key minted to fence the
+  // Controller it replaced; empty from a Node that holds none.
+  bytes proof = 3;
 }
 
 // notice is a serialized HandoverNotice, Ed25519-signed by the old key.
@@ -116,6 +127,9 @@ enum RefusedReason {
   // The Controller removed this key. It refuses the key's Hello and still
   // answers its Pair, so the Node can join again with a new Join Code.
   REFUSED_REASON_REMOVED = 6;
+  // A pinned Node's Hello carried superseded, so its session never
+  // starts.
+  REFUSED_REASON_SUPERSEDED = 7;
 }
 
 message GetManifestRequest {

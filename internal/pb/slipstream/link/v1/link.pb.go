@@ -107,6 +107,9 @@ const (
 	// The Controller removed this key. It refuses the key's Hello and still
 	// answers its Pair, so the Node can join again with a new Join Code.
 	RefusedReason_REFUSED_REASON_REMOVED RefusedReason = 6
+	// A pinned Node's Hello carried superseded, so its session never
+	// starts.
+	RefusedReason_REFUSED_REASON_SUPERSEDED RefusedReason = 7
 )
 
 // Enum value maps for RefusedReason.
@@ -119,6 +122,7 @@ var (
 		4: "REFUSED_REASON_JOIN_CODE_USED",
 		5: "REFUSED_REASON_NOT_A_CONTROLLER",
 		6: "REFUSED_REASON_REMOVED",
+		7: "REFUSED_REASON_SUPERSEDED",
 	}
 	RefusedReason_value = map[string]int32{
 		"REFUSED_REASON_UNSPECIFIED":       0,
@@ -128,6 +132,7 @@ var (
 		"REFUSED_REASON_JOIN_CODE_USED":    4,
 		"REFUSED_REASON_NOT_A_CONTROLLER":  5,
 		"REFUSED_REASON_REMOVED":           6,
+		"REFUSED_REASON_SUPERSEDED":        7,
 	}
 )
 
@@ -472,8 +477,11 @@ type Paired struct {
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// controller_name is the Controller's own Node name.
 	ControllerName string `protobuf:"bytes,3,opt,name=controller_name,json=controllerName,proto3" json:"controller_name,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// superseded is each old Controller key this Controller replaced at a
+	// restore, with the proof that fences it.
+	Superseded    []*SupersededProof `protobuf:"bytes,4,rep,name=superseded,proto3" json:"superseded,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Paired) Reset() {
@@ -527,6 +535,65 @@ func (x *Paired) GetControllerName() string {
 	return ""
 }
 
+func (x *Paired) GetSuperseded() []*SupersededProof {
+	if x != nil {
+		return x.Superseded
+	}
+	return nil
+}
+
+type SupersededProof struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OldKey        []byte                 `protobuf:"bytes,1,opt,name=old_key,json=oldKey,proto3" json:"old_key,omitempty"`
+	Proof         []byte                 `protobuf:"bytes,2,opt,name=proof,proto3" json:"proof,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SupersededProof) Reset() {
+	*x = SupersededProof{}
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SupersededProof) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SupersededProof) ProtoMessage() {}
+
+func (x *SupersededProof) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SupersededProof.ProtoReflect.Descriptor instead.
+func (*SupersededProof) Descriptor() ([]byte, []int) {
+	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SupersededProof) GetOldKey() []byte {
+	if x != nil {
+		return x.OldKey
+	}
+	return nil
+}
+
+func (x *SupersededProof) GetProof() []byte {
+	if x != nil {
+		return x.Proof
+	}
+	return nil
+}
+
 type HelloRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Node          *NodeInfo              `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
@@ -537,7 +604,7 @@ type HelloRequest struct {
 
 func (x *HelloRequest) Reset() {
 	*x = HelloRequest{}
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[6]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -549,7 +616,7 @@ func (x *HelloRequest) String() string {
 func (*HelloRequest) ProtoMessage() {}
 
 func (x *HelloRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[6]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -562,7 +629,7 @@ func (x *HelloRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelloRequest.ProtoReflect.Descriptor instead.
 func (*HelloRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{6}
+	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *HelloRequest) GetNode() *NodeInfo {
@@ -594,7 +661,7 @@ type HelloResponse struct {
 
 func (x *HelloResponse) Reset() {
 	*x = HelloResponse{}
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[7]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -606,7 +673,7 @@ func (x *HelloResponse) String() string {
 func (*HelloResponse) ProtoMessage() {}
 
 func (x *HelloResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[7]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -619,7 +686,7 @@ func (x *HelloResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelloResponse.ProtoReflect.Descriptor instead.
 func (*HelloResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{7}
+	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *HelloResponse) GetOutcome() isHelloResponse_Outcome {
@@ -702,7 +769,7 @@ type Welcome struct {
 
 func (x *Welcome) Reset() {
 	*x = Welcome{}
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[8]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -714,7 +781,7 @@ func (x *Welcome) String() string {
 func (*Welcome) ProtoMessage() {}
 
 func (x *Welcome) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[8]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -727,7 +794,7 @@ func (x *Welcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Welcome.ProtoReflect.Descriptor instead.
 func (*Welcome) Descriptor() ([]byte, []int) {
-	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{8}
+	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Welcome) GetNode() *NodeInfo {
@@ -738,16 +805,19 @@ func (x *Welcome) GetNode() *NodeInfo {
 }
 
 type Superseded struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ByKey         []byte                 `protobuf:"bytes,1,opt,name=by_key,json=byKey,proto3" json:"by_key,omitempty"`
-	Addresses     *PeerAddresses         `protobuf:"bytes,2,opt,name=addresses,proto3" json:"addresses,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	ByKey     []byte                 `protobuf:"bytes,1,opt,name=by_key,json=byKey,proto3" json:"by_key,omitempty"`
+	Addresses *PeerAddresses         `protobuf:"bytes,2,opt,name=addresses,proto3" json:"addresses,omitempty"`
+	// proof is what the Controller holding by_key minted to fence the
+	// Controller it replaced; empty from a Node that holds none.
+	Proof         []byte `protobuf:"bytes,3,opt,name=proof,proto3" json:"proof,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Superseded) Reset() {
 	*x = Superseded{}
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[9]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -759,7 +829,7 @@ func (x *Superseded) String() string {
 func (*Superseded) ProtoMessage() {}
 
 func (x *Superseded) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[9]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -772,7 +842,7 @@ func (x *Superseded) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Superseded.ProtoReflect.Descriptor instead.
 func (*Superseded) Descriptor() ([]byte, []int) {
-	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{9}
+	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Superseded) GetByKey() []byte {
@@ -789,6 +859,13 @@ func (x *Superseded) GetAddresses() *PeerAddresses {
 	return nil
 }
 
+func (x *Superseded) GetProof() []byte {
+	if x != nil {
+		return x.Proof
+	}
+	return nil
+}
+
 // notice is a serialized HandoverNotice, Ed25519-signed by the old key.
 type Redirect struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -800,7 +877,7 @@ type Redirect struct {
 
 func (x *Redirect) Reset() {
 	*x = Redirect{}
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[10]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -812,7 +889,7 @@ func (x *Redirect) String() string {
 func (*Redirect) ProtoMessage() {}
 
 func (x *Redirect) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[10]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -825,7 +902,7 @@ func (x *Redirect) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Redirect.ProtoReflect.Descriptor instead.
 func (*Redirect) Descriptor() ([]byte, []int) {
-	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{10}
+	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Redirect) GetNotice() []byte {
@@ -853,7 +930,7 @@ type HandoverNotice struct {
 
 func (x *HandoverNotice) Reset() {
 	*x = HandoverNotice{}
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[11]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -865,7 +942,7 @@ func (x *HandoverNotice) String() string {
 func (*HandoverNotice) ProtoMessage() {}
 
 func (x *HandoverNotice) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[11]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -878,7 +955,7 @@ func (x *HandoverNotice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandoverNotice.ProtoReflect.Descriptor instead.
 func (*HandoverNotice) Descriptor() ([]byte, []int) {
-	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{11}
+	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *HandoverNotice) GetNewKey() []byte {
@@ -911,7 +988,7 @@ type Refused struct {
 
 func (x *Refused) Reset() {
 	*x = Refused{}
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[12]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -923,7 +1000,7 @@ func (x *Refused) String() string {
 func (*Refused) ProtoMessage() {}
 
 func (x *Refused) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[12]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -936,7 +1013,7 @@ func (x *Refused) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Refused.ProtoReflect.Descriptor instead.
 func (*Refused) Descriptor() ([]byte, []int) {
-	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{12}
+	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Refused) GetReason() RefusedReason {
@@ -957,7 +1034,7 @@ type GetManifestRequest struct {
 
 func (x *GetManifestRequest) Reset() {
 	*x = GetManifestRequest{}
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[13]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -969,7 +1046,7 @@ func (x *GetManifestRequest) String() string {
 func (*GetManifestRequest) ProtoMessage() {}
 
 func (x *GetManifestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[13]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -982,7 +1059,7 @@ func (x *GetManifestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetManifestRequest.ProtoReflect.Descriptor instead.
 func (*GetManifestRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{13}
+	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetManifestRequest) GetOs() string {
@@ -1016,7 +1093,7 @@ type GetManifestResponse struct {
 
 func (x *GetManifestResponse) Reset() {
 	*x = GetManifestResponse{}
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[14]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1028,7 +1105,7 @@ func (x *GetManifestResponse) String() string {
 func (*GetManifestResponse) ProtoMessage() {}
 
 func (x *GetManifestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[14]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1041,7 +1118,7 @@ func (x *GetManifestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetManifestResponse.ProtoReflect.Descriptor instead.
 func (*GetManifestResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{14}
+	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetManifestResponse) GetManifest() []byte {
@@ -1061,7 +1138,7 @@ type FetchArtifactRequest struct {
 
 func (x *FetchArtifactRequest) Reset() {
 	*x = FetchArtifactRequest{}
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[15]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1073,7 +1150,7 @@ func (x *FetchArtifactRequest) String() string {
 func (*FetchArtifactRequest) ProtoMessage() {}
 
 func (x *FetchArtifactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[15]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1086,7 +1163,7 @@ func (x *FetchArtifactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchArtifactRequest.ProtoReflect.Descriptor instead.
 func (*FetchArtifactRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{15}
+	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *FetchArtifactRequest) GetName() string {
@@ -1112,7 +1189,7 @@ type FetchArtifactResponse struct {
 
 func (x *FetchArtifactResponse) Reset() {
 	*x = FetchArtifactResponse{}
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[16]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1124,7 +1201,7 @@ func (x *FetchArtifactResponse) String() string {
 func (*FetchArtifactResponse) ProtoMessage() {}
 
 func (x *FetchArtifactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_link_v1_link_proto_msgTypes[16]
+	mi := &file_slipstream_link_v1_link_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1137,7 +1214,7 @@ func (x *FetchArtifactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchArtifactResponse.ProtoReflect.Descriptor instead.
 func (*FetchArtifactResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{16}
+	return file_slipstream_link_v1_link_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *FetchArtifactResponse) GetData() []byte {
@@ -1169,11 +1246,17 @@ const file_slipstream_link_v1_link_proto_rawDesc = "" +
 	"\fPairResponse\x124\n" +
 	"\x06paired\x18\x01 \x01(\v2\x1a.slipstream.link.v1.PairedH\x00R\x06paired\x127\n" +
 	"\arefused\x18\x02 \x01(\v2\x1b.slipstream.link.v1.RefusedH\x00R\arefusedB\t\n" +
-	"\aoutcome\"^\n" +
+	"\aoutcome\"\xa3\x01\n" +
 	"\x06Paired\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\fR\x06nodeId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
-	"\x0fcontroller_name\x18\x03 \x01(\tR\x0econtrollerName\"\x80\x01\n" +
+	"\x0fcontroller_name\x18\x03 \x01(\tR\x0econtrollerName\x12C\n" +
+	"\n" +
+	"superseded\x18\x04 \x03(\v2#.slipstream.link.v1.SupersededProofR\n" +
+	"superseded\"@\n" +
+	"\x0fSupersededProof\x12\x17\n" +
+	"\aold_key\x18\x01 \x01(\fR\x06oldKey\x12\x14\n" +
+	"\x05proof\x18\x02 \x01(\fR\x05proof\"\x80\x01\n" +
 	"\fHelloRequest\x120\n" +
 	"\x04node\x18\x01 \x01(\v2\x1c.slipstream.link.v1.NodeInfoR\x04node\x12>\n" +
 	"\n" +
@@ -1188,11 +1271,12 @@ const file_slipstream_link_v1_link_proto_rawDesc = "" +
 	"\arefused\x18\x04 \x01(\v2\x1b.slipstream.link.v1.RefusedH\x00R\arefusedB\t\n" +
 	"\aoutcome\";\n" +
 	"\aWelcome\x120\n" +
-	"\x04node\x18\x01 \x01(\v2\x1c.slipstream.link.v1.NodeInfoR\x04node\"d\n" +
+	"\x04node\x18\x01 \x01(\v2\x1c.slipstream.link.v1.NodeInfoR\x04node\"z\n" +
 	"\n" +
 	"Superseded\x12\x15\n" +
 	"\x06by_key\x18\x01 \x01(\fR\x05byKey\x12?\n" +
-	"\taddresses\x18\x02 \x01(\v2!.slipstream.link.v1.PeerAddressesR\taddresses\"@\n" +
+	"\taddresses\x18\x02 \x01(\v2!.slipstream.link.v1.PeerAddressesR\taddresses\x12\x14\n" +
+	"\x05proof\x18\x03 \x01(\fR\x05proof\"@\n" +
 	"\bRedirect\x12\x16\n" +
 	"\x06notice\x18\x01 \x01(\fR\x06notice\x12\x1c\n" +
 	"\tsignature\x18\x02 \x01(\fR\tsignature\"\x9b\x01\n" +
@@ -1223,7 +1307,7 @@ const file_slipstream_link_v1_link_proto_rawDesc = "" +
 	"\x18INSTALL_KIND_WINDOWS_ZIP\x10\x06\x12\x1a\n" +
 	"\x16INSTALL_KIND_MACOS_APP\x10\a\x12\x17\n" +
 	"\x13INSTALL_KIND_DOCKER\x10\b\x12\x19\n" +
-	"\x15INSTALL_KIND_APPIMAGE\x10\t*\xff\x01\n" +
+	"\x15INSTALL_KIND_APPIMAGE\x10\t*\x9e\x02\n" +
 	"\rRefusedReason\x12\x1e\n" +
 	"\x1aREFUSED_REASON_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aREFUSED_REASON_UNKNOWN_KEY\x10\x01\x12$\n" +
@@ -1231,7 +1315,8 @@ const file_slipstream_link_v1_link_proto_rawDesc = "" +
 	" REFUSED_REASON_JOIN_CODE_EXPIRED\x10\x03\x12!\n" +
 	"\x1dREFUSED_REASON_JOIN_CODE_USED\x10\x04\x12#\n" +
 	"\x1fREFUSED_REASON_NOT_A_CONTROLLER\x10\x05\x12\x1a\n" +
-	"\x16REFUSED_REASON_REMOVED\x10\x062\xa6\x01\n" +
+	"\x16REFUSED_REASON_REMOVED\x10\x06\x12\x1d\n" +
+	"\x19REFUSED_REASON_SUPERSEDED\x10\a2\xa6\x01\n" +
 	"\vLinkService\x12I\n" +
 	"\x04Pair\x12\x1f.slipstream.link.v1.PairRequest\x1a .slipstream.link.v1.PairResponse\x12L\n" +
 	"\x05Hello\x12 .slipstream.link.v1.HelloRequest\x1a!.slipstream.link.v1.HelloResponse2\xd7\x01\n" +
@@ -1253,7 +1338,7 @@ func file_slipstream_link_v1_link_proto_rawDescGZIP() []byte {
 }
 
 var file_slipstream_link_v1_link_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_slipstream_link_v1_link_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_slipstream_link_v1_link_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_slipstream_link_v1_link_proto_goTypes = []any{
 	(InstallKind)(0),              // 0: slipstream.link.v1.InstallKind
 	(RefusedReason)(0),            // 1: slipstream.link.v1.RefusedReason
@@ -1263,48 +1348,50 @@ var file_slipstream_link_v1_link_proto_goTypes = []any{
 	(*PairRequest)(nil),           // 5: slipstream.link.v1.PairRequest
 	(*PairResponse)(nil),          // 6: slipstream.link.v1.PairResponse
 	(*Paired)(nil),                // 7: slipstream.link.v1.Paired
-	(*HelloRequest)(nil),          // 8: slipstream.link.v1.HelloRequest
-	(*HelloResponse)(nil),         // 9: slipstream.link.v1.HelloResponse
-	(*Welcome)(nil),               // 10: slipstream.link.v1.Welcome
-	(*Superseded)(nil),            // 11: slipstream.link.v1.Superseded
-	(*Redirect)(nil),              // 12: slipstream.link.v1.Redirect
-	(*HandoverNotice)(nil),        // 13: slipstream.link.v1.HandoverNotice
-	(*Refused)(nil),               // 14: slipstream.link.v1.Refused
-	(*GetManifestRequest)(nil),    // 15: slipstream.link.v1.GetManifestRequest
-	(*GetManifestResponse)(nil),   // 16: slipstream.link.v1.GetManifestResponse
-	(*FetchArtifactRequest)(nil),  // 17: slipstream.link.v1.FetchArtifactRequest
-	(*FetchArtifactResponse)(nil), // 18: slipstream.link.v1.FetchArtifactResponse
+	(*SupersededProof)(nil),       // 8: slipstream.link.v1.SupersededProof
+	(*HelloRequest)(nil),          // 9: slipstream.link.v1.HelloRequest
+	(*HelloResponse)(nil),         // 10: slipstream.link.v1.HelloResponse
+	(*Welcome)(nil),               // 11: slipstream.link.v1.Welcome
+	(*Superseded)(nil),            // 12: slipstream.link.v1.Superseded
+	(*Redirect)(nil),              // 13: slipstream.link.v1.Redirect
+	(*HandoverNotice)(nil),        // 14: slipstream.link.v1.HandoverNotice
+	(*Refused)(nil),               // 15: slipstream.link.v1.Refused
+	(*GetManifestRequest)(nil),    // 16: slipstream.link.v1.GetManifestRequest
+	(*GetManifestResponse)(nil),   // 17: slipstream.link.v1.GetManifestResponse
+	(*FetchArtifactRequest)(nil),  // 18: slipstream.link.v1.FetchArtifactRequest
+	(*FetchArtifactResponse)(nil), // 19: slipstream.link.v1.FetchArtifactResponse
 }
 var file_slipstream_link_v1_link_proto_depIdxs = []int32{
 	2,  // 0: slipstream.link.v1.PeerAddresses.addresses:type_name -> slipstream.link.v1.Address
 	0,  // 1: slipstream.link.v1.NodeInfo.install_kind:type_name -> slipstream.link.v1.InstallKind
 	3,  // 2: slipstream.link.v1.NodeInfo.addresses:type_name -> slipstream.link.v1.PeerAddresses
 	7,  // 3: slipstream.link.v1.PairResponse.paired:type_name -> slipstream.link.v1.Paired
-	14, // 4: slipstream.link.v1.PairResponse.refused:type_name -> slipstream.link.v1.Refused
-	4,  // 5: slipstream.link.v1.HelloRequest.node:type_name -> slipstream.link.v1.NodeInfo
-	11, // 6: slipstream.link.v1.HelloRequest.superseded:type_name -> slipstream.link.v1.Superseded
-	10, // 7: slipstream.link.v1.HelloResponse.welcome:type_name -> slipstream.link.v1.Welcome
-	11, // 8: slipstream.link.v1.HelloResponse.superseded:type_name -> slipstream.link.v1.Superseded
-	12, // 9: slipstream.link.v1.HelloResponse.redirect:type_name -> slipstream.link.v1.Redirect
-	14, // 10: slipstream.link.v1.HelloResponse.refused:type_name -> slipstream.link.v1.Refused
-	4,  // 11: slipstream.link.v1.Welcome.node:type_name -> slipstream.link.v1.NodeInfo
-	3,  // 12: slipstream.link.v1.Superseded.addresses:type_name -> slipstream.link.v1.PeerAddresses
-	3,  // 13: slipstream.link.v1.HandoverNotice.addresses:type_name -> slipstream.link.v1.PeerAddresses
-	1,  // 14: slipstream.link.v1.Refused.reason:type_name -> slipstream.link.v1.RefusedReason
-	0,  // 15: slipstream.link.v1.GetManifestRequest.install_kind:type_name -> slipstream.link.v1.InstallKind
-	5,  // 16: slipstream.link.v1.LinkService.Pair:input_type -> slipstream.link.v1.PairRequest
-	8,  // 17: slipstream.link.v1.LinkService.Hello:input_type -> slipstream.link.v1.HelloRequest
-	15, // 18: slipstream.link.v1.UpdateService.GetManifest:input_type -> slipstream.link.v1.GetManifestRequest
-	17, // 19: slipstream.link.v1.UpdateService.FetchArtifact:input_type -> slipstream.link.v1.FetchArtifactRequest
-	6,  // 20: slipstream.link.v1.LinkService.Pair:output_type -> slipstream.link.v1.PairResponse
-	9,  // 21: slipstream.link.v1.LinkService.Hello:output_type -> slipstream.link.v1.HelloResponse
-	16, // 22: slipstream.link.v1.UpdateService.GetManifest:output_type -> slipstream.link.v1.GetManifestResponse
-	18, // 23: slipstream.link.v1.UpdateService.FetchArtifact:output_type -> slipstream.link.v1.FetchArtifactResponse
-	20, // [20:24] is the sub-list for method output_type
-	16, // [16:20] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	15, // 4: slipstream.link.v1.PairResponse.refused:type_name -> slipstream.link.v1.Refused
+	8,  // 5: slipstream.link.v1.Paired.superseded:type_name -> slipstream.link.v1.SupersededProof
+	4,  // 6: slipstream.link.v1.HelloRequest.node:type_name -> slipstream.link.v1.NodeInfo
+	12, // 7: slipstream.link.v1.HelloRequest.superseded:type_name -> slipstream.link.v1.Superseded
+	11, // 8: slipstream.link.v1.HelloResponse.welcome:type_name -> slipstream.link.v1.Welcome
+	12, // 9: slipstream.link.v1.HelloResponse.superseded:type_name -> slipstream.link.v1.Superseded
+	13, // 10: slipstream.link.v1.HelloResponse.redirect:type_name -> slipstream.link.v1.Redirect
+	15, // 11: slipstream.link.v1.HelloResponse.refused:type_name -> slipstream.link.v1.Refused
+	4,  // 12: slipstream.link.v1.Welcome.node:type_name -> slipstream.link.v1.NodeInfo
+	3,  // 13: slipstream.link.v1.Superseded.addresses:type_name -> slipstream.link.v1.PeerAddresses
+	3,  // 14: slipstream.link.v1.HandoverNotice.addresses:type_name -> slipstream.link.v1.PeerAddresses
+	1,  // 15: slipstream.link.v1.Refused.reason:type_name -> slipstream.link.v1.RefusedReason
+	0,  // 16: slipstream.link.v1.GetManifestRequest.install_kind:type_name -> slipstream.link.v1.InstallKind
+	5,  // 17: slipstream.link.v1.LinkService.Pair:input_type -> slipstream.link.v1.PairRequest
+	9,  // 18: slipstream.link.v1.LinkService.Hello:input_type -> slipstream.link.v1.HelloRequest
+	16, // 19: slipstream.link.v1.UpdateService.GetManifest:input_type -> slipstream.link.v1.GetManifestRequest
+	18, // 20: slipstream.link.v1.UpdateService.FetchArtifact:input_type -> slipstream.link.v1.FetchArtifactRequest
+	6,  // 21: slipstream.link.v1.LinkService.Pair:output_type -> slipstream.link.v1.PairResponse
+	10, // 22: slipstream.link.v1.LinkService.Hello:output_type -> slipstream.link.v1.HelloResponse
+	17, // 23: slipstream.link.v1.UpdateService.GetManifest:output_type -> slipstream.link.v1.GetManifestResponse
+	19, // 24: slipstream.link.v1.UpdateService.FetchArtifact:output_type -> slipstream.link.v1.FetchArtifactResponse
+	21, // [21:25] is the sub-list for method output_type
+	17, // [17:21] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_link_v1_link_proto_init() }
@@ -1316,7 +1403,7 @@ func file_slipstream_link_v1_link_proto_init() {
 		(*PairResponse_Paired)(nil),
 		(*PairResponse_Refused)(nil),
 	}
-	file_slipstream_link_v1_link_proto_msgTypes[7].OneofWrappers = []any{
+	file_slipstream_link_v1_link_proto_msgTypes[8].OneofWrappers = []any{
 		(*HelloResponse_Welcome)(nil),
 		(*HelloResponse_Superseded)(nil),
 		(*HelloResponse_Redirect)(nil),
@@ -1328,7 +1415,7 @@ func file_slipstream_link_v1_link_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_link_v1_link_proto_rawDesc), len(file_slipstream_link_v1_link_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   17,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

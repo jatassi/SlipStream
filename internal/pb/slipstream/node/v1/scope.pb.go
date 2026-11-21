@@ -22,12 +22,14 @@ const (
 )
 
 // NodeIntent is the node scope's intent: the Roles the Node holds, the
-// Roles it no longer holds but still drains, and its name.
+// Roles it no longer holds but still drains, its name, and each old
+// Controller key the Controller replaced with the proof that fences it.
 type NodeIntent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Roles         []string               `protobuf:"bytes,1,rep,name=roles,proto3" json:"roles,omitempty"`
 	Draining      []string               `protobuf:"bytes,2,rep,name=draining,proto3" json:"draining,omitempty"`
 	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Superseded    []*SupersededEntry     `protobuf:"bytes,4,rep,name=superseded,proto3" json:"superseded,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -83,6 +85,65 @@ func (x *NodeIntent) GetName() string {
 	return ""
 }
 
+func (x *NodeIntent) GetSuperseded() []*SupersededEntry {
+	if x != nil {
+		return x.Superseded
+	}
+	return nil
+}
+
+type SupersededEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OldKey        []byte                 `protobuf:"bytes,1,opt,name=old_key,json=oldKey,proto3" json:"old_key,omitempty"`
+	Proof         []byte                 `protobuf:"bytes,2,opt,name=proof,proto3" json:"proof,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SupersededEntry) Reset() {
+	*x = SupersededEntry{}
+	mi := &file_slipstream_node_v1_scope_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SupersededEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SupersededEntry) ProtoMessage() {}
+
+func (x *SupersededEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_node_v1_scope_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SupersededEntry.ProtoReflect.Descriptor instead.
+func (*SupersededEntry) Descriptor() ([]byte, []int) {
+	return file_slipstream_node_v1_scope_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *SupersededEntry) GetOldKey() []byte {
+	if x != nil {
+		return x.OldKey
+	}
+	return nil
+}
+
+func (x *SupersededEntry) GetProof() []byte {
+	if x != nil {
+		return x.Proof
+	}
+	return nil
+}
+
 // NodeFacts is the node scope's facts: the Roles the holder half has
 // assigned, running and waiting to restart, the node-scope version it
 // applied, the address its web server bound, a digest of its Node
@@ -103,7 +164,7 @@ type NodeFacts struct {
 
 func (x *NodeFacts) Reset() {
 	*x = NodeFacts{}
-	mi := &file_slipstream_node_v1_scope_proto_msgTypes[1]
+	mi := &file_slipstream_node_v1_scope_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -115,7 +176,7 @@ func (x *NodeFacts) String() string {
 func (*NodeFacts) ProtoMessage() {}
 
 func (x *NodeFacts) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_node_v1_scope_proto_msgTypes[1]
+	mi := &file_slipstream_node_v1_scope_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -128,7 +189,7 @@ func (x *NodeFacts) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeFacts.ProtoReflect.Descriptor instead.
 func (*NodeFacts) Descriptor() ([]byte, []int) {
-	return file_slipstream_node_v1_scope_proto_rawDescGZIP(), []int{1}
+	return file_slipstream_node_v1_scope_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *NodeFacts) GetAssigned() []string {
@@ -194,7 +255,7 @@ type ProbeFact struct {
 
 func (x *ProbeFact) Reset() {
 	*x = ProbeFact{}
-	mi := &file_slipstream_node_v1_scope_proto_msgTypes[2]
+	mi := &file_slipstream_node_v1_scope_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -206,7 +267,7 @@ func (x *ProbeFact) String() string {
 func (*ProbeFact) ProtoMessage() {}
 
 func (x *ProbeFact) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_node_v1_scope_proto_msgTypes[2]
+	mi := &file_slipstream_node_v1_scope_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -219,7 +280,7 @@ func (x *ProbeFact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeFact.ProtoReflect.Descriptor instead.
 func (*ProbeFact) Descriptor() ([]byte, []int) {
-	return file_slipstream_node_v1_scope_proto_rawDescGZIP(), []int{2}
+	return file_slipstream_node_v1_scope_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ProbeFact) GetProbe() string {
@@ -254,12 +315,18 @@ var File_slipstream_node_v1_scope_proto protoreflect.FileDescriptor
 
 const file_slipstream_node_v1_scope_proto_rawDesc = "" +
 	"\n" +
-	"\x1eslipstream/node/v1/scope.proto\x12\x12slipstream.node.v1\"R\n" +
+	"\x1eslipstream/node/v1/scope.proto\x12\x12slipstream.node.v1\"\x97\x01\n" +
 	"\n" +
 	"NodeIntent\x12\x14\n" +
 	"\x05roles\x18\x01 \x03(\tR\x05roles\x12\x1a\n" +
 	"\bdraining\x18\x02 \x03(\tR\bdraining\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\"\x91\x02\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12C\n" +
+	"\n" +
+	"superseded\x18\x04 \x03(\v2#.slipstream.node.v1.SupersededEntryR\n" +
+	"superseded\"@\n" +
+	"\x0fSupersededEntry\x12\x17\n" +
+	"\aold_key\x18\x01 \x01(\fR\x06oldKey\x12\x14\n" +
+	"\x05proof\x18\x02 \x01(\fR\x05proof\"\x91\x02\n" +
 	"\tNodeFacts\x12\x1a\n" +
 	"\bassigned\x18\x01 \x03(\tR\bassigned\x12\x18\n" +
 	"\arunning\x18\x02 \x03(\tR\arunning\x12\x1e\n" +
@@ -291,19 +358,21 @@ func file_slipstream_node_v1_scope_proto_rawDescGZIP() []byte {
 	return file_slipstream_node_v1_scope_proto_rawDescData
 }
 
-var file_slipstream_node_v1_scope_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_slipstream_node_v1_scope_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_slipstream_node_v1_scope_proto_goTypes = []any{
-	(*NodeIntent)(nil), // 0: slipstream.node.v1.NodeIntent
-	(*NodeFacts)(nil),  // 1: slipstream.node.v1.NodeFacts
-	(*ProbeFact)(nil),  // 2: slipstream.node.v1.ProbeFact
+	(*NodeIntent)(nil),      // 0: slipstream.node.v1.NodeIntent
+	(*SupersededEntry)(nil), // 1: slipstream.node.v1.SupersededEntry
+	(*NodeFacts)(nil),       // 2: slipstream.node.v1.NodeFacts
+	(*ProbeFact)(nil),       // 3: slipstream.node.v1.ProbeFact
 }
 var file_slipstream_node_v1_scope_proto_depIdxs = []int32{
-	2, // 0: slipstream.node.v1.NodeFacts.probes:type_name -> slipstream.node.v1.ProbeFact
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 0: slipstream.node.v1.NodeIntent.superseded:type_name -> slipstream.node.v1.SupersededEntry
+	3, // 1: slipstream.node.v1.NodeFacts.probes:type_name -> slipstream.node.v1.ProbeFact
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_node_v1_scope_proto_init() }
@@ -317,7 +386,7 @@ func file_slipstream_node_v1_scope_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_node_v1_scope_proto_rawDesc), len(file_slipstream_node_v1_scope_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

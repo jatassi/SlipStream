@@ -122,3 +122,30 @@ DELETE FROM nodes_dial WHERE node_id = sqlc.arg(node_id);
 -- name: InsertDial :exec
 INSERT INTO nodes_dial (node_id, position, address)
 VALUES (sqlc.arg(node_id), sqlc.arg(position), sqlc.arg(address));
+
+-- name: InsertSuperseded :exec
+INSERT INTO nodes_superseded (public_key, node_id, proof, superseded_at)
+VALUES (sqlc.arg(public_key), sqlc.arg(node_id), sqlc.arg(proof), sqlc.arg(superseded_at));
+
+-- name: ListUnpairedSuperseded :many
+SELECT s.public_key, s.proof FROM nodes_superseded s
+WHERE NOT EXISTS (SELECT 1 FROM nodes_node n WHERE n.public_key = s.public_key OR n.removed_key = s.public_key)
+ORDER BY s.public_key;
+
+-- name: IsSuperseded :one
+SELECT EXISTS (SELECT 1 FROM nodes_superseded WHERE public_key = sqlc.arg(public_key));
+
+-- name: SetNodeKey :exec
+UPDATE nodes_node SET public_key = sqlc.arg(public_key) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
+-- name: GetFence :one
+SELECT * FROM nodes_fence WHERE id = 1;
+
+-- name: PutFence :exec
+INSERT INTO nodes_fence (id, state, by_key, by_node, addresses, fenced_at)
+VALUES (1, sqlc.arg(state), sqlc.arg(by_key), sqlc.arg(by_node), sqlc.arg(addresses), sqlc.arg(fenced_at))
+ON CONFLICT (id) DO UPDATE SET state = excluded.state, by_key = excluded.by_key, by_node = excluded.by_node,
+    addresses = excluded.addresses, fenced_at = excluded.fenced_at;
+
+-- name: DeleteFence :exec
+DELETE FROM nodes_fence WHERE id = 1;

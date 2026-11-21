@@ -74125,7 +74125,6 @@
                             "already_claimed",
                             "join_pending",
                             "node_unaddressed",
-                            "restart_required",
                             "setup_busy"
                           ],
                           "type": "string"

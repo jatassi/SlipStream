@@ -55,6 +55,17 @@ sql:
           - column: nodes_settings.id
             go_type:
               type: Singleton
+          - column: nodes_fence.id
+            go_type:
+              type: Singleton
+          - column: nodes_fence.by_node
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: nodes_superseded.node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
           - column: nodes_settings.join_code_lifetime_seconds
             go_type:
               type: int64

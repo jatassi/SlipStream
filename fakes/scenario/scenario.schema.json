@@ -344,6 +344,20 @@
           "additionalProperties": false,
           "type": "object"
         },
+        "pairing": {
+          "properties": {
+            "superseded_dial": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "unreachable_after": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
         "role": {
           "properties": {
             "restart_min": {

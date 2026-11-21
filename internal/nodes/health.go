@@ -34,10 +34,18 @@ func (s *Service) HealthSource() health.Source {
 			if err != nil {
 				return health.Answer{}, err
 			}
+			fence, fenced, err := FenceIn(ctx, s.cfg.Library)
+			if err != nil {
+				return health.Answer{}, err
+			}
 			s.mu.Lock()
 			probes := maps.Clone(s.probes)
 			s.mu.Unlock()
-			return itemsOf(s.Board(), probes, rejected), nil
+			a := itemsOf(s.Board(), probes, rejected)
+			if fenced && fence.State == Unproven {
+				a.Items = append(a.Items, unprovenItem(s.Board(), fence))
+			}
+			return a, nil
 		},
 		Check: s.healthCheck,
 	}
@@ -139,6 +147,22 @@ func pendingItem(v NodeView) health.Item {
 
 // pendingKey ends the key of a pending Node's item.
 const pendingKey = "pending"
+
+// unprovenItem is the Error a pinned Worker's claim with no proof of a
+// restore raises: this Controller keeps running, and the Admin decides.
+func unprovenItem(b *Board, f Fence) health.Item {
+	v, _ := b.Node(f.ByNode)
+	return health.Item{Key: health.KeyOf(v.ID.String(), unprovenKey), Level: health.Fail, Says: health.Says{
+		Subject: v.Name + " is paired with another Controller",
+		Text: v.Name + " now connects to a different Controller and doesn't accept this one. This Controller keeps running because " + v.Name +
+			" sent no proof of a restore. If you restored a Backup on another machine, stop this Controller. If you didn't, remove " + v.Name + ".",
+		Detail: []health.Fact{{Label: "Other Controller's key", Text: f.By.Fingerprint()}, {Label: "Since", At: f.At}},
+		Action: health.LinkAction("/nodes/"+v.ID.String(), "Open "+v.Name),
+	}}
+}
+
+// unprovenKey ends the key of the item an unproven claim raises.
+const unprovenKey = "unproven"
 
 // rejectedKey ends the key of a Node's skipped results item.
 const rejectedKey = "rejected"

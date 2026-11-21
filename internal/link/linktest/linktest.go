@@ -57,6 +57,9 @@ type Side struct {
 	Lanes func(ctx context.Context, peer link.Key, c net.Conn)
 	// LaneHandler serves lanes in place of Lanes, and admits them itself.
 	LaneHandler link.LaneHandler
+	// Told hears a pinned peer say this Node was superseded. With none
+	// the Node ignores it.
+	Told func(from link.Key, s link.Superseded)
 }
 
 type Node struct {
@@ -91,6 +94,9 @@ func Start(t testing.TB, nw *fault.Network, name string, addrs []netip.Addr, sid
 	if side.Log == nil {
 		side.Log = slog.New(slog.DiscardHandler)
 	}
+	if side.Told == nil {
+		side.Told = func(link.Key, link.Superseded) {}
+	}
 	seed := sha256.Sum256([]byte("linktest " + name))
 	key := link.NewPrivateKey(seed)
 	n := &Node{Key: key.Public(), Host: nw.Host(addrs...), Trust: &Trust{}}
@@ -112,6 +118,7 @@ func Start(t testing.TB, nw *fault.Network, name string, addrs []netip.Addr, sid
 		Trust:    trust,
 		Lockstep: side.Lockstep,
 		Pair:     side.Pair,
+		Told:     side.Told,
 		Log:      side.Log,
 	})
 	if err != nil {

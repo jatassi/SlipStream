@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -131,7 +132,13 @@ type Config struct {
 	// the roster closes its link, so a wedged Worker whose link still
 	// answers pings goes out of step and redials.
 	Stall time.Duration
-	Log   *slog.Logger
+	// Fence checks the proof a pinned Worker carries that a restore
+	// replaced this Controller.
+	Fence Fencer
+	// Paired is called in the Write that pairs a key the roster has no row
+	// for, with the new row's id.
+	Paired func(ctx context.Context, tx *storage.Tx[file], node ID) error
+	Log    *slog.Logger
 }
 
 var (
@@ -181,12 +188,18 @@ type Service struct {
 	recount chan struct{}
 
 	invites map[JoinCodeID]*inviting
+	// tells queues the superseded claims pinned Workers made, for Run.
+	tells chan toldClaim
 	// dmu guards kept: the Nodes the link keeps for nodes_dial.
 	dmu  sync.Mutex
 	kept map[link.Key]link.Target
 
 	meter *meter
 }
+
+// tellsQueued is how many superseded claims wait for Run: one per Worker
+// of the most a Controller pairs, with room to spare.
+const tellsQueued = 32
 
 // Open creates this Node's own row when it has none, holding every Role
 // but Relaying, loads the roster and builds the control half. It panics
@@ -207,6 +220,7 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 		rearm:     make(chan struct{}, 1),
 		recount:   make(chan struct{}, 1),
 		invites:   map[JoinCodeID]*inviting{},
+		tells:     make(chan toldClaim, tellsQueued),
 		kept:      map[link.Key]link.Target{},
 		meter:     newMeter(),
 	}
@@ -392,9 +406,11 @@ func freeName(ctx context.Context, q *db.Queries, id ID, name string) (string, e
 func (s *Service) Pair(ctx context.Context, peer link.Key, req *linkv1.PairRequest) (*linkv1.PairResponse, error) {
 	hash := sha256.Sum256(req.GetSecret())
 	var (
-		row     db.NodesNode
-		self    db.NodesNode
-		refused linkv1.RefusedReason
+		row        db.NodesNode
+		self       db.NodesNode
+		refused    linkv1.RefusedReason
+		superseded []link.SupersededProof
+		wasOld     bool
 	)
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
@@ -402,7 +418,13 @@ func (s *Service) Pair(ctx context.Context, peer link.Key, req *linkv1.PairReque
 		if self, err = q.GetNode(ctx, s.self); err != nil {
 			return err
 		}
-		row, refused, err = pairIn(ctx, q, peer, hash[:], req.GetName())
+		if wasOld, err = q.IsSuperseded(ctx, peer[:]); err != nil {
+			return err
+		}
+		if row, refused, err = s.pairIn(ctx, tx, peer, hash[:], req.GetName()); err != nil || refused != 0 {
+			return err
+		}
+		superseded, err = unpaired(ctx, q)
 		return err
 	})
 	if err != nil {
@@ -421,13 +443,25 @@ func (s *Service) Pair(ctx context.Context, peer link.Key, req *linkv1.PairReque
 		return nil, fmt.Errorf("pair %s: %w", peer.Fingerprint(), err)
 	}
 	s.changed(row.ID)
+	if wasOld {
+		s.controls.Touch(s.ids()...)
+	}
 	return &linkv1.PairResponse{Outcome: &linkv1.PairResponse_Paired{
-		Paired: &linkv1.Paired{NodeId: row.ID.Bytes(), Name: row.Name, ControllerName: self.Name},
+		Paired: &linkv1.Paired{NodeId: row.ID.Bytes(), Name: row.Name, ControllerName: self.Name, Superseded: supersededProto(superseded)},
 	}}, nil
 }
 
+// ids is every Node the roster pins.
+func (s *Service) ids() []ID {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Collect(maps.Keys(s.keys))
+}
+
 // pairIn is Pair inside its Write: peer's row, or why the code is refused.
-func pairIn(ctx context.Context, q *db.Queries, peer link.Key, hash []byte, name string) (db.NodesNode, linkv1.RefusedReason, error) {
+// A key with no row gets a new one, which Config.Paired hears of in tx.
+func (s *Service) pairIn(ctx context.Context, tx *storage.Tx[file], peer link.Key, hash []byte, name string) (db.NodesNode, linkv1.RefusedReason, error) {
+	q := db.New(tx)
 	code, err := q.GetJoinCode(ctx, hash)
 	if errors.Is(err, storage.ErrNoRows) {
 		return db.NodesNode{}, linkv1.RefusedReason_REFUSED_REASON_JOIN_CODE_UNKNOWN, nil
@@ -455,6 +489,9 @@ func pairIn(ctx context.Context, q *db.Queries, peer link.Key, hash []byte, name
 		row = db.NodesNode{ID: ID{UUID: storage.NewUUID()}, PublicKey: peer[:], PairedAt: now}
 		if row.Name, err = freeName(ctx, q, row.ID, name); err == nil {
 			err = q.InsertNode(ctx, db.InsertNodeParams{ID: row.ID, PublicKey: row.PublicKey, Name: row.Name, PairedAt: row.PairedAt})
+		}
+		if err == nil {
+			err = s.cfg.Paired(ctx, tx, row.ID)
 		}
 	}
 	if err != nil {

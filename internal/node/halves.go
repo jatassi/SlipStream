@@ -83,6 +83,7 @@ import (
 type peers interface {
 	link.Trust
 	Pair(ctx context.Context, peer link.Key, req *linkv1.PairRequest) (*linkv1.PairResponse, error)
+	Told(from link.Key, s link.Superseded)
 }
 
 // half is the claimed part of a running Node. Each Node starts at most one,
@@ -313,6 +314,8 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Probe:   func(ctx context.Context, id role.NodeID) ([]role.ProbeResult, error) { return systems.Probe(ctx, id) },
 		Always:  n.env.Test.Always,
+		Fence:   provesNothing{},
+		Paired:  func(context.Context, *storage.Tx[storage.Library], role.NodeID) error { return nil },
 		Timings: n.cfg.Timings.Nodes,
 		Stall:   n.cfg.Timings.Role.Stall,
 		Log:     n.rootLog.With("subsystem", "nodes"),
@@ -326,7 +329,7 @@ func (n *Node) startController(ctx context.Context) error {
 	dispatch := rpc.NewDispatch(n.link, self, self, func(r role.Name) bool { return holding.Holds(r) })
 	cluster = rpc.NewCluster(dispatch, side)
 	n.mediaLink = n.newMediaLink()
-	holding, local, copier, err := n.startHolding(ctx, role.InProcess(controls), dispatch, nil)
+	holding, local, copier, err := n.startHolding(ctx, role.InProcess(controls), dispatch, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -924,7 +927,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	var holding *role.Holding
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, func(r role.Name) bool { return holding.Holds(r) })
 	n.mediaLink = n.newMediaLink()
-	holding, local, copier, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), dispatch, []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)})
+	holding, local, copier, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), dispatch, []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)}, side.Remember)
 	if err != nil {
 		return err
 	}
@@ -948,6 +951,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	n.setHalf(&half{self: rec.NodeID, peers: side, dispatch: dispatch, holding: holding, serving: front, copier: copier})
 	n.link.Keep(controller)
 	n.claimed.Go("pairing", side.Run)
+	n.claimed.Go("superseded", func(ctx context.Context) error { return side.Tell(ctx, n.cfg.Timings.Pairing.SupersededDial) })
 	n.claimed.Go("serving", front.Follow)
 	n.env.Test.started(Half{Link: n.link, Dispatch: dispatch, Local: local})
 	return nil
@@ -979,8 +983,9 @@ func (n *Node) mountSidecars(ctx context.Context, dispatch *rpc.Dispatch, local 
 // startHolding opens local.db and runs the holder half toward upstream,
 // holding the half's own Roles beside every Node's, and the Node's
 // Transfers engine over local.db. Its Roles call the Controller through
-// dispatch.
-func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatch *rpc.Dispatch, own []role.Held) (*role.Holding, *storage.DB[storage.Local], *transfers.Node, error) {
+// dispatch. A Worker's holder hands superseded each Controller key its
+// node-scope intent names as replaced.
+func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatch *rpc.Dispatch, own []role.Held, superseded func([]link.SupersededProof)) (*role.Holding, *storage.DB[storage.Local], *transfers.Node, error) {
 	local, err := storage.OpenLocal(ctx, n.env.DataDir.LocalDB(), localSchemas(), n.cfg.Timings.Storage, n.rootLog.With("subsystem", "storage"))
 	if err != nil {
 		return nil, nil, nil, err
@@ -998,12 +1003,13 @@ func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatc
 		Log:     n.rootLog.With("subsystem", "transfers"),
 	})
 	holding, err := role.NewHolding(ctx, role.HoldingConfig{
-		Local:    local,
-		Upstream: upstream,
-		Held:     slices.Concat(n.heldRoles(local, dispatch, copier), own, n.env.Test.held(local)),
-		Timings:  n.cfg.Timings.Role,
-		Rand:     n.roleRand,
-		Log:      n.rootLog.With("subsystem", "role"),
+		Local:      local,
+		Upstream:   upstream,
+		Held:       slices.Concat(n.heldRoles(local, dispatch, copier), own, n.env.Test.held(local)),
+		Superseded: superseded,
+		Timings:    n.cfg.Timings.Role,
+		Rand:       n.roleRand,
+		Log:        n.rootLog.With("subsystem", "role"),
 	})
 	if err != nil {
 		return nil, nil, nil, err
@@ -1095,6 +1101,18 @@ func (p claimPeers) Pair(ctx context.Context, peer link.Key, req *linkv1.PairReq
 	}
 	return notAController(), nil
 }
+
+func (p claimPeers) Told(from link.Key, s link.Superseded) {
+	if h := p.n.half.Load(); h != nil {
+		h.peers.Told(from, s)
+	}
+}
+
+// provesNothing is the Controller's Fencer until it holds a fence secret:
+// every claim that a restore replaced it is unproven.
+type provesNothing struct{}
+
+func (provesNothing) Proven(_, _, _ []byte) bool { return false }
 
 // claimStreams serves Serve streams from a Node that serves on the
 // Controller, and resets them on any other Node.
