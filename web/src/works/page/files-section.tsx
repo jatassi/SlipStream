@@ -6,10 +6,10 @@ import type {
   WorksWorkRoot,
 } from "../../api/gen/model";
 import { bytes } from "../../format";
+import { Quality } from "../../release/quality";
 import { RenamingChip } from "../../renames/renaming-chip";
 import { useWorkSubtitles } from "../../subtitles/work-api";
 import { rowStateOf } from "../../subtitles/work-words";
-import { useQualityNames } from "../../targets/quality-names";
 import { Chip } from "../../ui/chip";
 import { type Clock, useClock } from "../../ui/clock";
 import { Data } from "../../ui/data";
@@ -52,7 +52,6 @@ function FileRow({
   subtitles: SubtitleFile | undefined;
   compact: boolean;
 }) {
-  const quality = useQualityNames();
   const gone = file.goneAt !== null;
   return (
     <ListRow
@@ -72,7 +71,7 @@ function FileRow({
         <span className="flex items-center gap-2 text-meta">
           {file.kept && <Chip look="outline">Kept file</Chip>}
           <Data>
-            {quality(file.quality)} ·{" "}
+            <Quality quality={file.quality} look="word" /> ·{" "}
             {!gone && file.media && `${file.media.video.width}×${file.media.video.height} · `}
             {bytes(file.size)}
           </Data>

@@ -10,7 +10,7 @@ import { bytes } from "../../format";
 import { ProgressCell } from "../../grabs/progress-cell";
 import { isFailed } from "../../grabs/stages";
 import { waitWords } from "../../grabs/search-words";
-import { useQualityNames } from "../../targets/quality-names";
+import { Quality } from "../../release/quality";
 import { type Clock, useClock } from "../../ui/clock";
 import { Data } from "../../ui/data";
 import { whenWords } from "../../ui/time-words";
@@ -18,19 +18,22 @@ import { whenWords } from "../../ui/time-words";
 import { GrabNowButton } from "./grab-now";
 
 function FileFacts({ file }: { file: FilesLibraryFile }) {
-  const quality = useQualityNames();
   return (
     <span className="text-meta text-ink-3">
       <Data>
-        {quality(file.quality)} · {file.probe.width}×{file.probe.height} · {bytes(file.size)}
+        <Quality quality={file.quality} look="word" /> · {file.probe.width}×{file.probe.height} ·{" "}
+        {bytes(file.size)}
       </Data>
     </span>
   );
 }
 
 function Replaces({ file }: { file: FilesLibraryFile }) {
-  const quality = useQualityNames();
-  return <span className="text-meta text-ink-3">Replaces {quality(file.quality)}</span>;
+  return (
+    <span className="text-meta text-ink-3">
+      Replaces <Quality quality={file.quality} look="word" />
+    </span>
+  );
 }
 
 /** The step a held cell's Grab or its Import is at; Sending names the Node the download is on. */
