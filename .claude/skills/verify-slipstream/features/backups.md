@@ -4,7 +4,7 @@ The Controller keeps Backups of its library in its Backups folder, `backups` in 
 
 ## Sub-features
 
-- `backup-cli` `slipstream backup --data-dir <dir>` answers `Took a <size> Backup and checked it: <path>`, and the file lands in the Backups folder.
+- `backup-cli` `slipstream backup --data-dir <dir>` answers `Took a <size> Backup and checked it: <path>`, and the file lands in the Backups folder (P-346).
 - `backup-stock-tools` the file opens with age's header, `age-encryption.org/v1`, and a `-> scrypt` stanza. `age -d` with the passphrase gives a zstd stream (`28 b5 2f fd`), and `tar t` lists `manifest.json`, `library.db`, `library.key`, `backup.key` and `backups.json`.
 - `destination-add` `POST /api/v1/backup-destinations` with `nodeId` and `folder` answers 201 with the destination and `room` `null`, or a `room` of `need` and `free` bytes when the folder's volume can't hold every listed Backup. A folder that isn't there answers 422 `destination_unusable` with `refusal` `{reason: "not_found"}`, and the same folder again 409 `destination_exists`.
 - `destination-copy` once added, every verified Backup is copied: `GET /api/v1/backup-destinations` counts `copies.copied` and names the `newest`, and the folder holds each Backup under its own name, the same bytes as the Controller's (`cmp`), an age file, beside a hidden `.slipstream-staging` folder.
@@ -15,6 +15,8 @@ The Controller keeps Backups of its library in its Backups folder, `backups` in 
 - `show-passphrase` `Show passphrase` past the re-confirm window opens `Confirm it's you`; the PIN shows the ten words in the `Backup passphrase` field with `Copy Backup passphrase`. `Download recovery sheet` asks the same way, then downloads the sheet.
 - `destination-add-screen` `Add a Backup destination` with a Node and a folder lists the destination as `<Node>: <folder>`, and its first copy reads `Newest copy <time>, checked <time>.`
 - `backup-full-folder` on `full-backups-folder`, with a small volume mounted on the Backups folder, `slipstream backup` exits 1 with `slipstream backup: backup: failed: <folder> has <free> free, and the Backup needs about <size>` and lists nothing in `backups.json`.
+- `update-backup` on `home` launched on a copy of the release binary stamped `v2.1.0-aa`, home stopped and started by a copy stamped `v2.2.0-aa` takes an `update` Backup of that version before it is ready, and `backups.json` reads `startedVersion` `v2.2.0-aa` (P-270).
+- `update-backup-full` the same data dir with a 16 KB volume mounted on the Backups folder: a copy stamped `v2.3.0-aa` exits 7, logs `start failed` with `back up library.db: <folder> has 16 KB free, and the Backup needs about <size>`, prints `Free space in <folder>, or start the previous version of SlipStream.`, and leaves `startedVersion` at `v2.2.0-aa` (P-270).
 
 ## How to get to it (user POV)
 
@@ -23,7 +25,7 @@ The Controller keeps Backups of its library in its Backups folder, `backups` in 
 - Host CLI: `slipstream backup --data-dir <dir>` on the Controller's host, while the Controller runs.
 - Node settings: `backups.folder` in the Controller's Node settings, a folder with the `backups` purpose, on Nodes > the Controller > Backups.
 - API on the Controller (Admin): `GET` and `POST /api/v1/backup-destinations`, `DELETE /api/v1/backup-destinations/{id}`, and `GET /api/v1/transfers` for the copies. `GET /api/v1/backups` lists the Backups, `POST /api/v1/backups` takes one, and `GET /api/v1/backups/passphrase` needs a re-confirmed Admin session; the API key gets 403.
-- Start: a start that would migrate `library.db` first takes an update Backup while status answers `backing up`. Its failure exits 7 with `Free space in <folder>, or start the previous version of SlipStream.` or `Start the previous version of SlipStream, then check the log for the cause.` Only Go tests drive it, since a release build carries no pending migration.
+- Start: a start that would migrate `library.db` first takes an update Backup while status answers `backing up`. Its failure exits 7 with `Free space in <folder>, or start the previous version of SlipStream.` or `Start the previous version of SlipStream, then check the log for the cause.` A release build carries no pending migration, so a verify run drives the update Backup a newer version takes at its first start, with copies of the binary stamped newer, as **A newer version** shows.
 
 ## Driving it with fakeworld, playwright cli and the host CLI
 
@@ -108,6 +110,17 @@ Steps:
   $FW exec $RUN --proof backups/backup-full-folder -- dist/slipstream backup --data-dir {nodes.home.dataDir}
   $FW exec $RUN --proof backups/backup-full-folder -- cat {nodes.home.dataDir}/backups.json
   $FW exec $RUN -- umount {nodes.home.dataDir}/full-backups
+  ```
+
+- **A newer version.** Copy `dist/slipstream` three times with its stamp's `"version":"<v>"` replaced by `v2.1.0-aa`, `v2.2.0-aa` and `v2.3.0-aa`, the same length as the build's own version, so the stamp still parses (a short Python `bytes.replace` does it). Launch `home` with `--binary` the first copy; doctor passes, since the commit and fingerprint are unchanged. Stop home, then start the second copy on its data dir for 15 s, and the third on a full Backups folder, as root.
+
+  ```sh
+  $FW node stop $RUN home
+  $FW exec $RUN --proof backups/update-backup -- timeout -s INT 15 dist/slipstream-semver-b run --data-dir {nodes.home.dataDir}
+  $FW exec $RUN --proof backups/update-backup -- jq -c '{startedVersion, backups:[.backups[]|{trigger,version}]}' {nodes.home.dataDir}/backups.json
+  $FW exec $RUN -- mount -t tmpfs -o size=16k tmpfs {nodes.home.dataDir}/backups
+  $FW exec $RUN --proof backups/update-backup-full -- dist/slipstream-semver-c run --data-dir {nodes.home.dataDir}
+  $FW exec $RUN -- umount {nodes.home.dataDir}/backups
   ```
 
 ## Gotchas
