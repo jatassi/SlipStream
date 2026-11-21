@@ -203,7 +203,6 @@ func restore() *lifecycle.Restore {
 		RemovedKeys: [][]byte{{3}},
 		Typed:       true,
 		Superseded:  []lifecycle.Proof{{OldKey: []byte{1, 2}, Proof: []byte{4}}},
-		Adopt:       "restore.part",
 	}
 }
 

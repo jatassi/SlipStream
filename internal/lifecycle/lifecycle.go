@@ -92,9 +92,6 @@ type Restore struct {
 	// Superseded is the proof for the old Controller key, minted at
 	// staging with the archive's fence secret. Empty in place.
 	Superseded []Proof `json:"superseded"`
-	// Adopt is the staged archive's name in the data dir when it came from
-	// an upload, which becomes a restored Backup; empty for a listed one.
-	Adopt string `json:"adopt"`
 }
 
 type Proof struct {

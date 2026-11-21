@@ -428,3 +428,26 @@ func Size(n int64) string {
 	}
 	return strconv.FormatFloat(v, 'f', digits, 64) + " " + sizeUnits[unit]
 }
+
+// TakeOffline takes a Backup of db outside the Backup task, for a host
+// command that holds the data dir lock while no Node runs. It prunes
+// nothing.
+func (e *Engine) TakeOffline(ctx context.Context, db *storage.DB[storage.Library], keys *secret.Keys, trigger archive.Trigger) (Entry, error) {
+	if _, err := e.Vault(keys); err != nil {
+		return Entry{}, err
+	}
+	return e.take(ctx, db, request{Trigger: trigger})
+}
+
+// Restored is what the restore's Write leaves in the index: this version
+// as the last started, and the passphrase confirmed when the Admin typed
+// it into the restore.
+func Restored(x *Index, version string, typed bool, now time.Time) error {
+	return x.Update(func(l *Ledger) error {
+		l.StartedVersion = version
+		if typed {
+			l.PassphraseConfirmedAt = now.UTC()
+		}
+		return nil
+	})
+}

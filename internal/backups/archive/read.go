@@ -90,6 +90,17 @@ func (e *DamagedError) Error() string {
 
 func (e *DamagedError) Unwrap() error { return e.Err }
 
+// OversizeError is an entry over its bound. For library.db the bound is
+// the free space a restore checked, so a restore reads it as room.
+type OversizeError struct {
+	Entry       Entry
+	Size, Bound int64
+}
+
+func (e *OversizeError) Error() string {
+	return fmt.Sprintf("%s is %d bytes, over its %d", e.Entry.Name(), e.Size, e.Bound)
+}
+
 // Read decodes r into sink. Its errors are exactly:
 //
 //	ErrNotBackup        not an age file, not scrypt, or a manifest that isn't one
@@ -174,7 +185,7 @@ func (rd *reading) read(pass Passphrase) (Opened, error) {
 		case hdr.Name != e.Name() || hdr.Typeflag != tar.TypeReg:
 			return Opened{}, rd.fail(DamageOrder, fmt.Errorf("entry %d is %q where the regular file %s belongs", e+1, hdr.Name, e.Name()))
 		case hdr.Size > rd.bound(e):
-			return Opened{}, rd.fail(DamageOversize, fmt.Errorf("%s is %d bytes, over its %d", e.Name(), hdr.Size, rd.bound(e)))
+			return Opened{}, rd.fail(DamageOversize, &OversizeError{Entry: e, Size: hdr.Size, Bound: rd.bound(e)})
 		}
 		if e == ManifestEntry {
 			if o.manifest, o.sums.Entries[e], err = rd.manifest(tr, hdr.Size); err != nil {
