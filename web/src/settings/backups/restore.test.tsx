@@ -105,7 +105,7 @@ test("Restore on a Backup kept only at a destination copies it back first", asyn
     .toBeVisible();
   await userEvent.click(dialog.getByRole("button", { name: "Copy it back" }));
   await expect.element(dialog.getByText("Copying the Backup back from seedbox…")).toBeVisible();
-  expect(server.calls).toEqual([
-    { path: `/api/v1/backups/${nightly.id}/pull`, body: { destinationId: "d1" } },
-  ]);
+  await expect
+    .poll(() => server.calls)
+    .toEqual([{ path: `/api/v1/backups/${nightly.id}/pull`, body: { destinationId: "d1" } }]);
 });
