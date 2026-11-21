@@ -128,19 +128,21 @@ const category = (
   items: HealthItem[],
 ): HealthCategory => ({ id, label, phrase, canCheck, level: worst(items), items });
 
-/** A report in registry order: Storage, Nodes, Seeding, Indexers, then Scheduled tasks. */
+/** A report in registry order: Storage, Nodes, Seeding, Indexers, Scheduled tasks, then Backups. */
 export function reportOf({
   storage = [],
   nodes = [],
   seeding = [],
   indexers = [],
   tasks = [],
+  backups = [],
 }: {
   storage?: HealthItem[];
   nodes?: HealthItem[];
   seeding?: HealthItem[];
   indexers?: HealthItem[];
   tasks?: HealthItem[];
+  backups?: HealthItem[];
 } = {}): HealthReport {
   const categories = [
     category("storage", "Storage", "storage", true, storage),
@@ -148,6 +150,7 @@ export function reportOf({
     category("seeding", "Seeding", "torrents that still need seeding", false, seeding),
     category("indexers", "Indexers", "Indexers", false, indexers),
     category("scheduled-tasks", "Scheduled tasks", "scheduled tasks", false, tasks),
+    category("backups", "Backups", "Backups", false, backups),
   ];
   const all = categories.flatMap((shown) =>
     shown.items.map((item) => ({ category: shown.id, item })),

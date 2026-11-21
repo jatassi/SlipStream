@@ -10,14 +10,15 @@ import {
   getListSignupLinksQueryKey,
 } from "../api/gen/query/identity/identity";
 import { getListMetadataProvidersQueryKey } from "../api/gen/query/metadata/metadata";
+import { backupEffects } from "./backup-effects";
 import { withCalendar } from "./calendar-effects";
 import { downloadEffects } from "./download-effects";
 import { historyEffects } from "./history-effects";
 import { indexerEffects } from "./indexer-effects";
 import { libraryEffects, renameCounts } from "./library-effects";
 import { mediaServerEffects } from "./media-server-effects";
-import { notificationEffects } from "./notification-effects";
 // oxlint-disable-next-line import/max-dependencies -- every product event's effects meet in this one table
+import { notificationEffects } from "./notification-effects";
 import { everyPath } from "./refresh";
 import { searchEffects } from "./search-effects";
 import { subtitleEffects } from "../subtitles/live";
@@ -30,6 +31,7 @@ const everyNaming = everyPath(/^\/api\/v1\/naming(\/|$)/u);
 
 export const effects = withCalendar({
   ...systemEffects,
+  ...backupEffects,
   ...libraryEffects,
   ...downloadEffects,
   ...indexerEffects,
