@@ -1,3 +1,4 @@
+import { confirmPassphraseSaved } from "./backups.ts";
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, navigate } from "./shell.ts";
 
@@ -7,12 +8,13 @@ const groups = [
   ["Targets and Profiles", ["Targets", "Profiles", "Custom Formats", "Editions"]],
   ["Search and download", ["Indexers", "Automatic search", "Trackers", "Download Clients"]],
   ["Access", ["Address", "Sign-in", "API key"]],
-  ["System", ["Nodes", "Email", "Media Servers", "Notifications"]],
+  ["System", ["Nodes", "Backups", "Email", "Media Servers", "Notifications"]],
 ] as const;
 
 test("Settings lists its sections by group, in a nav on desktop and pushed pages on phone", async ({
   adminPage: page,
 }) => {
+  await confirmPassphraseSaved(page);
   await navigate(page, "Settings");
   if (isPhone(page)) {
     await expect(page.getByRole("heading", { level: 2 })).toHaveText(

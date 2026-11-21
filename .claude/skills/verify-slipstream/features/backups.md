@@ -10,24 +10,49 @@ The Controller keeps Backups of its library in its Backups folder, `backups` in 
 - `destination-copy` once added, every verified Backup is copied: `GET /api/v1/backup-destinations` counts `copies.copied` and names the `newest`, and the folder holds each Backup under its own name, the same bytes as the Controller's (`cmp`), an age file, beside a hidden `.slipstream-staging` folder.
 - `destination-low` on `offline-destination` with home's send limit at 512 KB/s, a Backup taken while a Grab's import copies to vps lists its copy `queued` with `Queued behind 1 other Transfer from home.` and `destination` `{kind: "backup", backupDestinationId, folder}`, and the copy lands once the import is done.
 - `destination-offline` on `offline-destination` with vps stopped, a Backup taken queues no copy and the Backup task's unit `<folder> on vps` reads `skipped`. Once vps starts, the unit runs again and the copy lands.
+- `backups-screen` Settings > Backups, under System after Nodes, leads with one sentence naming the schedule, the newest good Backup and the Nodes with a copy, lists each Backup with its time, `Checked`, its kind, version and size and its copies, and on phone opens from Settings' System list.
+- `back-up-now` `Back up now` toasts `Backing up…`, and the list gains a `Manual` row that reads `Checked` once the Backup is checked.
+- `show-passphrase` `Show passphrase` past the re-confirm window opens `Confirm it's you`; the PIN shows the ten words in the `Backup passphrase` field with `Copy Backup passphrase`. `Download recovery sheet` asks the same way, then downloads the sheet.
+- `destination-add-screen` `Add a Backup destination` with a Node and a folder lists the destination as `<Node>: <folder>`, and its first copy reads `Newest copy <time>, checked <time>.`
 - `backup-full-folder` on `full-backups-folder`, with a small volume mounted on the Backups folder, `slipstream backup` exits 1 with `slipstream backup: backup: failed: <folder> has <free> free, and the Backup needs about <size>` and lists nothing in `backups.json`.
 
 ## How to get to it (user POV)
 
+- Desktop: Settings > Backups (System, after Nodes). `Back up now` in the Backups section's header, the passphrase panel, `Add a Backup destination`, and each Backup's menu with Download, Restore… and Delete….
+- Phone: Settings, then Backups in the System list. The same page, one column.
 - Host CLI: `slipstream backup --data-dir <dir>` on the Controller's host, while the Controller runs.
-- Node settings: `backups.folder` in the Controller's Node settings, a folder with the `backups` purpose.
-- API on the Controller (Admin): `GET` and `POST /api/v1/backup-destinations`, `DELETE /api/v1/backup-destinations/{id}`, and `GET /api/v1/transfers` for the copies. No screen lists destinations yet.
+- Node settings: `backups.folder` in the Controller's Node settings, a folder with the `backups` purpose, on Nodes > the Controller > Backups.
+- API on the Controller (Admin): `GET` and `POST /api/v1/backup-destinations`, `DELETE /api/v1/backup-destinations/{id}`, and `GET /api/v1/transfers` for the copies. `GET /api/v1/backups` lists the Backups, `POST /api/v1/backups` takes one, and `GET /api/v1/backups/passphrase` needs a re-confirmed Admin session; the API key gets 403.
 - Start: a start that would migrate `library.db` first takes an update Backup while status answers `backing up`. Its failure exits 7 with `Free space in <folder>, or start the previous version of SlipStream.` or `Start the previous version of SlipStream, then check the log for the cause.` Only Go tests drive it, since a release build carries no pending migration.
 
-## Driving it with fakeworld and the host CLI
+## Driving it with fakeworld, playwright cli and the host CLI
 
 Preconditions:
 
-- A `home` run with doctor passing, for **Take one** and **Open it with stock tools**.
+- A `home` run with doctor passing and the `{runId}-admin-desktop` and `{runId}-admin-phone` sessions, for **The screen**, **Take one** and **Open it with stock tools**.
 - A separate `offline-destination` run (`--scenario offline-destination`) for **Add a destination**, **A copy waits behind a download** and **An offline destination catches up**, in that order. Read the Nodes' ids from `GET /api/v1/nodes`.
 - A separate `full-backups-folder` run (`--scenario full-backups-folder`), as root on Linux, for **A full Backups folder**.
 
 Steps:
+
+- **The screen.** Open Settings > Backups. The lead names the schedule; press `Back up now` and wait for the `Manual` row to read `Checked`. On phone open Settings and tap Backups in the System list.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings/backups'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Back up now" })'
+  $FW exec $RUN --proof backups/back-up-now -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/backups/back-up-now/desktop.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone goto '{nodes.home.browserUrl}/settings'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("list", { name: "System" }).getByRole("link", { name: "Backups" })'
+  $FW exec $RUN --proof backups/backups-screen -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/backups/backups-screen/phone.png
+  ```
+
+- **Show the passphrase.** Shorten the re-confirm window and wait past it as [reconfirm.md](./reconfirm.md) does, then press `Show passphrase` and type the PIN. Keep the screenshot out of the PR: it shows the words.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Show passphrase" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop type 2468
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Download recovery sheet" })'
+  ```
 
 - **Take one.** The command prints the size and the path, and the folder holds the file.
 
@@ -87,7 +112,7 @@ Steps:
 
 ## Gotchas
 
-- No screen shows the passphrase yet; it lives sealed in `backup.key`, so the run reads it with a helper. Keep it out of the journal: run the helper outside `$FW exec` and pass the file.
+- The passphrase lives sealed in `backup.key`. Read it in a signed-in Admin session on Settings > Backups, or with the helper, outside `$FW exec`, and keep it out of the journal and of screenshots that land on a PR.
 - `tar --zstd` needs the `zstd` CLI. Without it, decompress with any zstd decoder first, then `tar t` the result.
 - Give every `$FW exec` a path: a `head -c` with an empty path reads stdin and never ends.
 - Unmount the volume before `fakeworld stop`, or the scratch dir under it can't be deleted.

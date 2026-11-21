@@ -6,15 +6,19 @@ A Backup restores onto a machine that has none of the old Controller's files, on
 
 - `dead-controller` on `dead-controller`, with home killed, `slipstream restore --data-dir <spare> --passphrase-file <file> <backup>` refuses with `this Backup is of home, another machine. Make sure home stays off, then run slipstream restore again with --old-controller-off to confirm it`, and with `--old-controller-off` prints `Prepared the restore of the Backup from <day>, <time>. Start SlipStream to finish it.` Started, spare answers `GET /api/v1/status` `controller`, lists home as self and seedbox `down` in `GET /api/v1/nodes` with the Backup's API key, and History reads `backup_restored` and `controller_replaced`. Once seedbox joins spare by `slipstream join`, spare logs `adopted a Node's torrents` with `"torrents":2` for seedbox and lists both torrents.
 - `first-run-upload` on `dead-controller`, spare's `POST /api/v1/setup/restore` with the Setup code refuses a JSON body with 415 `not_an_upload` and keeps an `application/octet-stream` upload, answering 201 with its id. `POST /api/v1/setup/restore/<id>/open` answers 422 `backup_wrong_passphrase` for a wrong passphrase, and the summary for the right one: `takenAt`, `version`, `controller` `home`, `nodes` home then seedbox, `newMachine` true. `POST /api/v1/setup/restore/<id>/confirm` answers 422 `old_controller_on` without `oldControllerOff`, then 202, and spare restarts as the Controller with the Backup kept in its Backups folder as `restored`.
+- `first-run-page` on `dead-controller`, spare's first-run page with the Setup code offers `Restore a Backup`. The file uploads with `Uploading the Backup`, `Open the Backup` with the passphrase reads `This Backup was taken at <time> by SlipStream <version>. It's a Backup of home and lists 2 Nodes.`, `Restore` waits on `home is off, and I'll wipe it if it starts again`, and after the restart the page goes to sign-in, where the Backup's Admin and PIN open the re-home step.
+- `in-place-screen` on `home`, a listed Backup's `Restore…` opens `Restore the Backup from <time>?` saying what is lost; `Restore` restarts home and the page goes to sign-in. A Backup kept only at a destination first offers `Copy it back`.
 - `in-place-after-grab` on `restore-in-place-after-grab`, a Backup taken before a Grab, then `slipstream restore` on the running home prints `Prepared the restore of the Backup from <day>, <time>. SlipStream is restarting to finish it.` home comes back with a `before-restore` Backup in its folder, History reads `backup_restored`, and seedbox's Holdings are adopted with the newer torrent still seeding.
 
 ## How to get to it (user POV)
 
 - Host CLI: `slipstream restore [--data-dir <dir>] [--passphrase-file <file>] [--old-controller-off] [--remove <Node name>]... <backup>`. With no Node running on the data dir it stages offline and the next start finishes it; with one running it hands the restore to that Node, which restarts. Without `--passphrase-file` it asks for the passphrase on the terminal.
+- First-run page: on an Unclaimed Node, `/setup`, the Setup code, then `Restore a Backup`.
+- Settings > Backups: a Backup's menu, `Restore…`, or `Restore a file…` under Restore. On phone the dialogs are sheets.
 - API: `POST /api/v1/setup/restore` (the file as `application/octet-stream`), then `POST /api/v1/setup/restore/{id}/open` with `{"passphrase": ...}` and `POST /api/v1/setup/restore/{id}/confirm` with `{"oldControllerOff": ..., "remove": [...]}`, each with `X-Setup-Code`.
 - Docker: `SLIPSTREAM_RESTORE=<backup>`, `SLIPSTREAM_RESTORE_PASSPHRASE_FILE=<file>` and `SLIPSTREAM_RESTORE_OLD_CONTROLLER_OFF=1` on a data dir no Node set up restore in that same start. On a data dir already set up the start logs `SlipStream ignores SLIPSTREAM_RESTORE because this data dir is already set up`. Only Go tests drive it.
 
-## Driving it with fakeworld and the host CLI
+## Driving it with fakeworld, playwright cli and the host CLI
 
 Preconditions:
 
@@ -56,6 +60,24 @@ Steps:
   $FW exec $RUN --proof restore/first-run-upload -- ls {nodes.spare.dataDir}/backups
   ```
 
+- **Restore from the first-run page in a browser.** In a fresh `dead-controller` run, add and search both movies on home and wait for two `seeding` torrents, take a Backup, then remove The Quiet Harbor's torrent so the restored library lists one no Node holds. Read the passphrase from Settings > Backups in the Admin's session into `$RUN/reveal/pass`, copy the Backup out of home's Backups folder and kill home. Open a session on spare, enter its Setup code from `$RUN/nodes/spare.log`, choose `Restore a Backup`, pick the file, type the passphrase, tick that home is off and press `Restore`. The page waits on `SlipStream is restarting to finish the restore.`, then lands on sign-in; Ada's PIN opens `Find the old Controller's folders`. Save all, then the banner reads `Pair seedbox again.`; on Reconciling `Create Join Code` gives the code `slipstream join` takes on seedbox, and spare's log reads `adopted a Node's torrents` with `"torrents":1`. The review list's Files found then lists The Quiet Harbor with `Re-add`.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-spare open --config={runDir}/browser/desktop/playwright-cli.json
+  $FW exec $RUN -- $PW cli -s={runId}-spare goto '{nodes.spare.browserUrl}/setup'
+  $FW exec $RUN -- $PW cli -s={runId}-spare fill 'getByLabel("Setup code")' <code>
+  $FW exec $RUN -- $PW cli -s={runId}-spare click 'getByRole("button", { name: "Continue" })'
+  $FW exec $RUN -- $PW cli -s={runId}-spare click 'getByRole("button", { name: "Restore a Backup" })'
+  $FW exec $RUN -- $PW cli -s={runId}-spare click 'getByLabel("Backup file")'
+  $FW exec $RUN -- $PW cli -s={runId}-spare upload <backup>
+  $FW exec $RUN -- $PW cli -s={runId}-spare fill 'getByRole("textbox", { name: "Backup passphrase" })' "$(cat $RUN/reveal/pass)"
+  $FW exec $RUN -- $PW cli -s={runId}-spare click 'getByRole("button", { name: "Open the Backup" })'
+  $FW exec $RUN --proof restore/first-run-page -- $PW cli -s={runId}-spare screenshot --filename={runDir}/proof/restore/first-run-page/summary.png
+  $FW exec $RUN -- $PW cli -s={runId}-spare check 'getByRole("checkbox", { name: "home is off, and I'"'"'ll wipe it if it starts again" })'
+  $FW exec $RUN -- $PW cli -s={runId}-spare click 'getByRole("button", { name: "Restore", exact: true })'
+  $FW exec $RUN -- {runDir}/bin/slipstream join --data-dir {nodes.seedbox.dataDir} <join code>
+  ```
+
 - **Restore in place.** Take a Backup on home, then add and search The Quiet Orchard and wait for it to seed on seedbox. Restore with home running.
 
   ```sh
@@ -71,4 +93,7 @@ Steps:
 - The restored Controller row keeps the Backup's name, so spare lists itself as home.
 - After the join, seedbox's torrents read `paused` with `hold` `window` for a while: they wait for the tracker's announce window, as in [reconciling.md](./reconciling.md).
 - The restart after an online restore cuts Health's evaluations, which log `evaluate a Health category` at ERROR with `context canceled`. `$FW exec` names them; they aren't the restore's failure.
-- No route lists Backups yet; read `backups.json` and the Backups folder.
+- `GET /api/v1/backups` lists the Backups; `backups.json` is the file behind it.
+- The first-run page's upload holds spare's Setup gate, and the restart logs a new Setup code; the page needs neither.
+- The API key can't read the passphrase (403) or confirm it saved (409 `passphrase_needs_session`); read it in a signed-in Admin's session.
+- Keep the passphrase out of `$FW exec` arguments that land in the journal of a run you share: the `fill` step above writes it there.

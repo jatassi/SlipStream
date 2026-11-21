@@ -230,10 +230,6 @@
         "no-restricted-globals": [
           "error",
           {
-            "name": "XMLHttpRequest",
-            "message": "call the generated client in src/api/gen"
-          },
-          {
             "name": "EventSource",
             "message": "live updates come through src/live/source.ts"
           },

@@ -44,6 +44,7 @@ test("a right Setup code leads to the choice, with Start a new SlipStream first"
   const choices = page.getByRole("list", { name: "What this Node becomes" }).getByRole("button");
   await expect.element(choices.nth(0)).toHaveAccessibleName("Start a new SlipStream");
   await expect.element(choices.nth(1)).toHaveAccessibleName("Join an existing SlipStream");
+  await expect.element(choices.nth(2)).toHaveAccessibleName("Restore a Backup");
   expect(readPref("setupCode")).toBe(rightCode);
   expect(node.headers[0]).toEqual({ path: "/api/v1/setup/code", code: rightCode });
 });

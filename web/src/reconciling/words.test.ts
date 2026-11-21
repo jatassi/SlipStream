@@ -8,7 +8,7 @@ import {
   restore,
   seedboxRow,
 } from "../test/reconciling";
-import { finishWords, nextOf, nodeState } from "./words";
+import { finishWords, nextOf, nodeState, theseWords } from "./words";
 
 const clock = { now: new Date("2026-11-21T09:00:00Z"), zone: "UTC" };
 
@@ -66,4 +66,9 @@ test("a Node only reconnecting after a restore on a new machine still needs pair
   const seedbox = { ...seedboxRow, link: "reconnecting" } as const;
   expect(nodeState(seedbox, true)).toBe("pair");
   expect(nodeState(seedbox, false)).toBe("offline");
+});
+
+test("a group's action names one torrent, and counts more", () => {
+  expect(`Re-add ${theseWords(1)}`).toBe("Re-add this torrent");
+  expect(`Forget ${theseWords(1_250)}`).toBe("Forget these 1,250");
 });

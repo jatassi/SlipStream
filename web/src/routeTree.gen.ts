@@ -63,6 +63,7 @@ import { Route as AppLibraryCalendarContentTypeRouteImport } from "./routes/_app
 import { Route as AppLibraryPendingImportIdRouteImport } from "./routes/_app/library/pending_.$importId";
 import { Route as AppLibraryWantedContentTypeRouteImport } from "./routes/_app/library/wanted_.$contentType";
 import { Route as AppNodesNodeIdIndexRouteImport } from "./routes/_app/nodes/$nodeId/index";
+import { Route as AppNodesNodeIdBackupsRouteImport } from "./routes/_app/nodes/$nodeId/backups";
 import { Route as AppNodesNodeIdLogSettingsRouteImport } from "./routes/_app/nodes/$nodeId/log-settings";
 import { Route as AppNodesNodeIdLogsRouteImport } from "./routes/_app/nodes/$nodeId/logs";
 import { Route as AppNodesNodeIdMediaServersRouteImport } from "./routes/_app/nodes/$nodeId/media-servers";
@@ -370,6 +371,11 @@ const AppNodesNodeIdIndexRoute = AppNodesNodeIdIndexRouteImport.update({
   path: "/",
   getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any);
+const AppNodesNodeIdBackupsRoute = AppNodesNodeIdBackupsRouteImport.update({
+  id: "/backups",
+  path: "/backups",
+  getParentRoute: () => AppNodesNodeIdRouteRoute,
+} as any);
 const AppNodesNodeIdLogSettingsRoute =
   AppNodesNodeIdLogSettingsRouteImport.update({
     id: "/log-settings",
@@ -616,6 +622,7 @@ export interface FileRoutesByFullPath {
   "/library/calendar/$contentType": typeof AppLibraryCalendarContentTypeRoute;
   "/library/pending/$importId": typeof AppLibraryPendingImportIdRoute;
   "/library/wanted/$contentType": typeof AppLibraryWantedContentTypeRoute;
+  "/nodes/$nodeId/backups": typeof AppNodesNodeIdBackupsRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
@@ -696,6 +703,7 @@ export interface FileRoutesByTo {
   "/library/calendar/$contentType": typeof AppLibraryCalendarContentTypeRoute;
   "/library/pending/$importId": typeof AppLibraryPendingImportIdRoute;
   "/library/wanted/$contentType": typeof AppLibraryWantedContentTypeRoute;
+  "/nodes/$nodeId/backups": typeof AppNodesNodeIdBackupsRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
@@ -784,6 +792,7 @@ export interface FileRoutesById {
   "/_app/library/calendar_/$contentType": typeof AppLibraryCalendarContentTypeRoute;
   "/_app/library/pending_/$importId": typeof AppLibraryPendingImportIdRoute;
   "/_app/library/wanted_/$contentType": typeof AppLibraryWantedContentTypeRoute;
+  "/_app/nodes/$nodeId/backups": typeof AppNodesNodeIdBackupsRoute;
   "/_app/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/_app/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/_app/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
@@ -874,6 +883,7 @@ export interface FileRouteTypes {
     | "/library/calendar/$contentType"
     | "/library/pending/$importId"
     | "/library/wanted/$contentType"
+    | "/nodes/$nodeId/backups"
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/media-servers"
@@ -954,6 +964,7 @@ export interface FileRouteTypes {
     | "/library/calendar/$contentType"
     | "/library/pending/$importId"
     | "/library/wanted/$contentType"
+    | "/nodes/$nodeId/backups"
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/media-servers"
@@ -1041,6 +1052,7 @@ export interface FileRouteTypes {
     | "/_app/library/calendar_/$contentType"
     | "/_app/library/pending_/$importId"
     | "/_app/library/wanted_/$contentType"
+    | "/_app/nodes/$nodeId/backups"
     | "/_app/nodes/$nodeId/log-settings"
     | "/_app/nodes/$nodeId/logs"
     | "/_app/nodes/$nodeId/media-servers"
@@ -1471,6 +1483,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppNodesNodeIdIndexRouteImport;
       parentRoute: typeof AppNodesNodeIdRouteRoute;
     };
+    "/_app/nodes/$nodeId/backups": {
+      id: "/_app/nodes/$nodeId/backups";
+      path: "/backups";
+      fullPath: "/nodes/$nodeId/backups";
+      preLoaderRoute: typeof AppNodesNodeIdBackupsRouteImport;
+      parentRoute: typeof AppNodesNodeIdRouteRoute;
+    };
     "/_app/nodes/$nodeId/log-settings": {
       id: "/_app/nodes/$nodeId/log-settings";
       path: "/log-settings";
@@ -1760,6 +1779,7 @@ const AppLibraryRouteRouteWithChildren = AppLibraryRouteRoute._addFileChildren(
 );
 
 interface AppNodesNodeIdRouteRouteChildren {
+  AppNodesNodeIdBackupsRoute: typeof AppNodesNodeIdBackupsRoute;
   AppNodesNodeIdLogSettingsRoute: typeof AppNodesNodeIdLogSettingsRoute;
   AppNodesNodeIdLogsRoute: typeof AppNodesNodeIdLogsRoute;
   AppNodesNodeIdMediaServersRoute: typeof AppNodesNodeIdMediaServersRoute;
@@ -1772,6 +1792,7 @@ interface AppNodesNodeIdRouteRouteChildren {
 }
 
 const AppNodesNodeIdRouteRouteChildren: AppNodesNodeIdRouteRouteChildren = {
+  AppNodesNodeIdBackupsRoute: AppNodesNodeIdBackupsRoute,
   AppNodesNodeIdLogSettingsRoute: AppNodesNodeIdLogSettingsRoute,
   AppNodesNodeIdLogsRoute: AppNodesNodeIdLogsRoute,
   AppNodesNodeIdMediaServersRoute: AppNodesNodeIdMediaServersRoute,

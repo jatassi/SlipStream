@@ -28,16 +28,7 @@ const everyReconcilingQuery = {
     typeof path === "string" && /^\/api\/v1\/reconciling(?:\/|$)/u.test(path),
 };
 
-const everyBackupsQuery = {
-  predicate: ({ queryKey: [path] }: { queryKey: readonly unknown[] }) =>
-    typeof path === "string" &&
-    /^\/api\/v1\/backup(?:s|-settings|-destinations)(?:\/|$)/u.test(path),
-};
-
 export const systemEffects = {
-  "backups.changed": (_data, { refresh }) => {
-    refresh(everyBackupsQuery);
-  },
   "reconciling.changed": (_data, { refresh }) => {
     refresh({ queryKey: getGetCountsQueryKey() });
     refresh(everyReconcilingQuery);
@@ -93,7 +84,6 @@ export const systemEffects = {
   },
 } satisfies Pick<
   LiveEffects,
-  | "backups.changed"
   | "reconciling.changed"
   | "nodes.changed"
   | "nodes.traffic"
