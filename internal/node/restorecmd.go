@@ -135,11 +135,11 @@ func RestoreOffline(ctx context.Context, env Env, f restoreFlags, typed string) 
 	if err != nil {
 		return "", err
 	}
-	line, err := restoreOffline(ctx, env, f, typed)
+	line, err := restoreOffline(ctx, env, f, typed, lifecycle.ByRestore)
 	return line, errors.Join(err, lk.Release())
 }
 
-func restoreOffline(ctx context.Context, env Env, f restoreFlags, typed string) (string, error) {
+func restoreOffline(ctx context.Context, env Env, f restoreFlags, typed string, cause lifecycle.Cause) (string, error) {
 	cfg, _, err := LoadConfig(env.DataDir, env.Environ, env.Types, env.Install)
 	if err != nil {
 		return "", err
@@ -189,7 +189,7 @@ func restoreOffline(ctx context.Context, env Env, f restoreFlags, typed string) 
 			return err
 		}
 	}
-	staged, err := s.Stage(ctx, f.file, pass, true, lifecycle.ByRestore)
+	staged, err := s.Stage(ctx, f.file, pass, true, cause)
 	if err != nil {
 		return "", err
 	}

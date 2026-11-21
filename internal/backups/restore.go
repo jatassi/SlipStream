@@ -1,6 +1,7 @@
 package backups
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -168,7 +169,7 @@ func (s *Stager) stage(ctx context.Context, path string, pass archive.Passphrase
 		return nil, s.refuse(err, archive.Manifest{})
 	}
 	m := opened.Manifest()
-	st := &Staged{opened: opened, archive: path, cause: cause, Summary: Summary{TakenAt: m.TakenAt, Version: m.Version, NewMachine: string(m.ControllerKey) != string(s.Engine.cfg.ControllerKey)}}
+	st := &Staged{opened: opened, archive: path, cause: cause, Summary: Summary{TakenAt: m.TakenAt, Version: m.Version, NewMachine: !bytes.Equal(m.ControllerKey, s.Engine.cfg.ControllerKey)}}
 	library := restored(dir, storage.LibraryFile)
 	inspected, err := storage.Inspect(ctx, library, s.Engine.cfg.Schemas)
 	if err != nil {
@@ -191,7 +192,7 @@ func (s *Stager) stage(ctx context.Context, path string, pass archive.Passphrase
 		st.Summary.Nodes, err = nodes.Names(ctx, r)
 		return err
 	})
-	if err = errors.Join(err, candidate.DB.Close()); err != nil {
+	if err := errors.Join(err, candidate.DB.Close()); err != nil {
 		return nil, err
 	}
 	if len(st.Summary.Nodes) > 0 {
@@ -240,7 +241,7 @@ func (st *Staged) Commit(ctx context.Context, s *Stager, c Confirm) error {
 		return fmt.Errorf("draw a restore id: %w", err)
 	}
 	op.ID = hex.EncodeToString(id[:])
-	stagedKey, err := os.ReadFile(restored(dir, VaultFile)) //nolint:gosec // the data dir's staged backup.key
+	stagedKey, err := os.ReadFile(restored(dir, VaultFile))
 	if err != nil {
 		return fmt.Errorf("read the staged %s: %w", VaultFile, err)
 	}
@@ -343,9 +344,6 @@ func (st *Staged) adopt(s *Stager) error {
 		State: Verified, VerifiedAt: s.Engine.cfg.Clock().UTC(), Local: true,
 	}
 	list := func(l *Ledger) error {
-		if listed, ok := l.Entry(entry.ID); ok && listed.Local {
-			return nil
-		}
 		l.set(entry)
 		return nil
 	}
@@ -406,7 +404,7 @@ var stagedNames = map[archive.Entry]string{
 }
 
 func (s stagedFiles) Create(e archive.Entry) (io.WriteCloser, error) {
-	f, err := os.OpenFile(restored(s.dir, stagedNames[e]), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600) //nolint:gosec // a fixed name in the data dir
+	f, err := os.OpenFile(restored(s.dir, stagedNames[e]), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("stage %s: %w", stagedNames[e], err)
 	}

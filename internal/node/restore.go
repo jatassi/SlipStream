@@ -52,46 +52,38 @@ func (n *Node) writeRestored(ctx context.Context, op *lifecycle.Restore) error {
 // while an earlier Reconciling ran, which Begin replaces.
 func restoredWrite(ctx context.Context, db *storage.DB[storage.Library], dir DataDir, self link.Key, op *lifecycle.Restore) error {
 	pre := filepath.Join(dir.Path(), storage.LibraryFile+lifecycle.Aside)
+	steps := []func(context.Context, *storage.Tx[storage.Library]) error{
+		func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			return settleNodes(ctx, tx, self, op)
+		},
+		func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			return reconciling.Begin(ctx, tx, reconciling.BeginArgs{
+				ID: op.ID, Cause: reconcilingCause[op.Cause], Backup: op.Backup.Name, TakenAt: op.Backup.TakenAt, NewMachine: op.NewMachine,
+			})
+		},
+		func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			return carryCredentials(ctx, tx, op, pre)
+		},
+		identity.DeleteSessions, health.DeleteItems, roots.DeleteVolumes, downloadclients.DeleteVolumes,
+		grabs.CancelOpenRuns, files.DropQueuedMoves,
+		func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			return nodes.DeleteSelfAddresses(ctx, tx, self)
+		},
+		func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			return notifications.GiveUpBefore(ctx, tx, op.Backup.TakenAt)
+		},
+	}
 	err := db.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		done, err := reconciling.WroteRestore(ctx, tx, op.ID)
 		if err != nil || done {
 			return err
 		}
-		if op.NewMachine {
-			old, err := link.KeyFromBytes(op.Backup.ControllerKey)
-			if err != nil {
-				return fmt.Errorf("the Backup's Controller key: %w", err)
-			}
-			if _, err := nodes.Rekey(ctx, tx, self, old, op.Superseded[0].Proof); err != nil {
+		for _, step := range steps {
+			if err := step(ctx, tx); err != nil {
 				return err
 			}
 		}
-		if err := removeNodes(ctx, tx, op); err != nil {
-			return err
-		}
-		if err := nodes.ClearFence(ctx, tx); err != nil {
-			return err
-		}
-		if err := reconciling.Begin(ctx, tx, reconciling.BeginArgs{
-			ID: op.ID, Cause: reconcilingCause[op.Cause], Backup: op.Backup.Name, TakenAt: op.Backup.TakenAt, NewMachine: op.NewMachine,
-		}); err != nil {
-			return err
-		}
-		if err := carryCredentials(ctx, tx, op, pre); err != nil {
-			return err
-		}
-		for _, del := range []func(context.Context, *storage.Tx[storage.Library]) error{
-			identity.DeleteSessions, health.DeleteItems, roots.DeleteVolumes, downloadclients.DeleteVolumes,
-			grabs.CancelOpenRuns, files.DropQueuedMoves,
-		} {
-			if err := del(ctx, tx); err != nil {
-				return err
-			}
-		}
-		if err := nodes.DeleteSelfAddresses(ctx, tx, self); err != nil {
-			return err
-		}
-		return notifications.GiveUpBefore(ctx, tx, op.Backup.TakenAt)
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("write the restored library: %w", err)
@@ -104,9 +96,20 @@ var reconcilingCause = map[lifecycle.Cause]reconciling.Cause{
 	lifecycle.ManualRollback: reconciling.ManualRollback,
 }
 
-// removeNodes removes the Nodes the Admin unticked and, in place, the ones
-// removed after the Backup was taken, so none of them waits for Holdings.
-func removeNodes(ctx context.Context, tx *storage.Tx[storage.Library], op *lifecycle.Restore) error {
+// settleNodes gives the Controller row this Node's key on a new machine,
+// removes the Nodes the Admin unticked and, in place, the ones removed
+// after the Backup was taken, so none of them waits for Holdings, and
+// clears the fence.
+func settleNodes(ctx context.Context, tx *storage.Tx[storage.Library], self link.Key, op *lifecycle.Restore) error {
+	if op.NewMachine {
+		old, err := link.KeyFromBytes(op.Backup.ControllerKey)
+		if err != nil {
+			return fmt.Errorf("the Backup's Controller key: %w", err)
+		}
+		if _, err := nodes.Rekey(ctx, tx, self, old, op.Superseded[0].Proof); err != nil {
+			return err
+		}
+	}
 	for _, s := range op.Remove {
 		u, err := storage.ParseUUID(s)
 		if err != nil {
@@ -125,7 +128,7 @@ func removeNodes(ctx context.Context, tx *storage.Tx[storage.Library], op *lifec
 			return err
 		}
 	}
-	return nil
+	return nodes.ClearFence(ctx, tx)
 }
 
 // carryCredentials keeps, in place, the Accounts, PINs, passkeys and API

@@ -417,6 +417,9 @@ var sizeUnits = [...]string{"bytes", "KB", "MB", "GB", "TB"}
 // Size writes bytes as the web's bytes() does: 1024 to a unit, one
 // decimal under 10.
 func Size(n int64) string {
+	if n == 1 {
+		return "1 byte"
+	}
 	v, unit := float64(n), 0
 	for v >= 1024 && unit < len(sizeUnits)-1 {
 		v /= 1024
