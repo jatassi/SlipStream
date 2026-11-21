@@ -23,6 +23,17 @@ func (q *Queries) DeletePending(ctx context.Context, eventID history.EventID) er
 	return err
 }
 
+const deletePendingBefore = `-- name: DeletePendingBefore :exec
+DELETE FROM notifications_pending WHERE at < ?1
+`
+
+// A restore drops what the Backup held as not yet released from before it
+// was taken: the old Controller most likely released it already.
+func (q *Queries) DeletePendingBefore(ctx context.Context, before storage.Time) error {
+	_, err := q.db.ExecContext(ctx, deletePendingBefore, before)
+	return err
+}
+
 const insertPending = `-- name: InsertPending :exec
 INSERT INTO notifications_pending (event_id, kind, at, due_at, items)
 VALUES (?1, ?2, ?3, ?4, ?5)

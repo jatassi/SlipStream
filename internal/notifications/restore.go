@@ -14,11 +14,15 @@ import (
 const restored providers.ReasonCode = "restored"
 
 // GiveUpBefore gives up in tx every message due since before at, the time
-// the restored Backup was taken, so nothing sent before the loss sends
-// twice.
+// the restored Backup was taken, and drops every entry from before it not
+// yet released, so nothing sent before the loss sends twice.
 func GiveUpBefore(ctx context.Context, tx *storage.Tx[file], at time.Time) error {
-	_, err := db.New(tx).GiveUpDueBefore(ctx, db.GiveUpDueBeforeParams{
+	q := db.New(tx)
+	_, err := q.GiveUpDueBefore(ctx, db.GiveUpDueBeforeParams{
 		EndedAt: storage.Now(), Reason: jsonText(providers.Reason{Code: restored}), Before: storage.FromTime(at),
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	return q.DeletePendingBefore(ctx, storage.FromTime(at))
 }
