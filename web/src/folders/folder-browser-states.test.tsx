@@ -74,6 +74,7 @@ test.each([
 
 test("a folder outside the library roots and download folders says so, naming the Node", async () => {
   await browse({ startPath: "/srv/media" });
+  await expect.element(option("Movies")).toBeVisible();
   worker.use(
     http.get("*/api/v1/nodes/:id/folders", () => {
       const body = { status: 422, code: "folder_outside", title: "Not the web's words" };
