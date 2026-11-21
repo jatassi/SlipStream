@@ -376,6 +376,7 @@ func TestTheLogStreamsAndResumesAfterTheLastEventID(t *testing.T) {
 		env, _ := testEnv(t)
 		n, c, key, self := controllerInMemory(t, env)
 		path := self + "/logs/stream"
+		synctest.Wait()
 
 		s := c.logStream(key, path+"?after="+ringHead(t, n), "")
 		for i := range 5 {
