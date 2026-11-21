@@ -23,7 +23,8 @@ test("the backup step shows the passphrase and moves on once it's saved", async 
     ],
   });
   await expect.element(stepHeading("Save your Backup passphrase")).toBeVisible();
-  await expect.element(page.getByText(words)).toBeVisible();
+  await expect.element(page.getByRole("textbox", { name: "Backup passphrase" })).toHaveValue(words);
+  await expect.element(page.getByRole("button", { name: "Copy Backup passphrase" })).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "I saved it" }));
   await expect.element(stepHeading("Language and region")).toBeVisible();
   expect(saved).toEqual(["saved"]);
