@@ -153,5 +153,5 @@ export const deletedToast = (backup: BackupsBackup, clock: Clock) =>
   `Deleted the Backup from ${dateOf(backup.takenAt, clock.zone)} and its copies.`;
 
 export function roomToast(need: number, free: number, node: string) {
-  return `Keeping these Backups needs about ${bytes(need)} on ${node}, which has ${bytes(free)} free.`;
+  return `Keeping these Backups needs about ${bytes(need)} on ${node}, which has ${bytes(free)} free. Free some space on ${node}, or add a Backup destination with more room.`;
 }

@@ -59,7 +59,7 @@ test.each(["/", "/movies", "/sign-in", "/worker"])(
     });
     await expect
       .element(
-        page.getByRole("heading", { name: /^seedbox hasn't been able to reach home since .+\.$/u }),
+        page.getByRole("heading", { name: /^seedbox hasn't been able to reach home since .+[^.]$/u }),
       )
       .toBeVisible();
     expect(router.state.location.href).toBe("/serving");

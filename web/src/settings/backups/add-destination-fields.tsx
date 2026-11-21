@@ -22,8 +22,8 @@ export function AddFields({ nodes, close }: { nodes: readonly NodesNode[]; close
       }}
     >
       <p>
-        SlipStream copies every Backup to a folder on this Node. Pick a Node on another machine, or
-        another disk on this one.
+        SlipStream copies every Backup to the folder you pick. Pick one on another machine, or on
+        another disk of the Controller's machine.
       </p>
       <NodePicker
         nodes={nodes}
