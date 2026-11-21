@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/exitcode"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -16,6 +17,7 @@ const (
 	ExitInUse          = exitcode.InUse
 	ExitLibraryRefused = exitcode.LibraryRefused
 	ExitRecordRefused  = exitcode.RecordRefused
+	ExitBackupFailed   = exitcode.BackupFailed
 )
 
 // UsageError is a bad command line or a missing or invalid data dir.
@@ -69,6 +71,7 @@ func ExitCode(err error) int {
 	var inUse *InUseError
 	var refused *storage.RefusedError
 	var record *RecordError
+	var hook *backups.HookError
 	switch {
 	case err == nil, errors.Is(err, ErrStopped):
 		return ExitOK
@@ -76,11 +79,27 @@ func ExitCode(err error) int {
 		return ExitUsage
 	case errors.As(err, &inUse):
 		return ExitInUse
+	case errors.As(err, &hook):
+		return ExitBackupFailed
 	case errors.As(err, &refused):
 		return ExitLibraryRefused
 	case errors.As(err, &record):
 		return ExitRecordRefused
 	default:
 		return ExitFailed
+	}
+}
+
+// hookHint is what to do after the Backup before a migration failed,
+// chosen by the error's type, never its words.
+func hookHint(err error) (string, bool) {
+	hook, ok := errors.AsType[*backups.HookError](err)
+	switch {
+	case !ok:
+		return "", false
+	case hook.Space != nil:
+		return "Free space in " + hook.Space.Folder + ", or start the previous version of SlipStream.", true
+	default:
+		return "Start the previous version of SlipStream, then check the log for the cause.", true
 	}
 }

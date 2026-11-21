@@ -14,10 +14,8 @@ import (
 
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/link"
-	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
-	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/pairing"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/system"
@@ -307,13 +305,7 @@ func (o offline) Claim(ctx context.Context) (system.Claim, error) {
 	if err != nil {
 		return 0, err
 	}
-	lib, err := openLibraryFiles(ctx, libraryFiles{
-		dir:     dir,
-		schemas: append(LibrarySchemas(o.env.Types), o.env.Test.Library...),
-		timings: cfg.Timings,
-		hub:     live.NewHub(surface.Events),
-		log:     slog.New(slog.DiscardHandler),
-	})
+	lib, err := openOffline(ctx, o.env, cfg)
 	if err != nil {
 		return 0, err
 	}

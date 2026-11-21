@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
@@ -65,6 +66,7 @@ type Config struct {
 	Join      pairing.Settings `yaml:"join"`
 	Log       logs.Settings    `yaml:"log"`
 	Storage   storing.Settings `yaml:"storage"`
+	Backups   backups.Settings `yaml:"backups"`
 	Endpoints EndpointsBlock   `yaml:"endpoints"`
 	Timings   TimingsBlock     `yaml:"timings"`
 }
@@ -152,6 +154,7 @@ func (c ContentTypeEndpoints) MarshalYAML() (any, error) {
 type TimingsBlock struct {
 	Node          Timings                `yaml:"node"`
 	Storage       storage.Timings        `yaml:"storage"`
+	Backups       backups.Timings        `yaml:"backups"`
 	HTTP          api.Timings            `yaml:"http"`
 	Live          live.Timings           `yaml:"live"`
 	Link          link.Timings           `yaml:"link"`
@@ -210,6 +213,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 		HTTP:    http,
 		Log:     logs.DefaultSettings(),
 		Storage: storing.DefaultSettings(),
+		Backups: backups.DefaultSettings(),
 		Endpoints: EndpointsBlock{
 			TMDB:         tmdb.DefaultEndpoints(),
 			TVDB:         tvdb.DefaultEndpoints(),
@@ -230,6 +234,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 		Timings: TimingsBlock{
 			Node:    DefaultTimings(),
 			Storage: storage.DefaultTimings(),
+			Backups: backups.DefaultTimings(),
 			HTTP:    api.DefaultTimings(),
 			Live:    live.DefaultTimings(),
 			Link: link.Timings{
@@ -329,6 +334,7 @@ func (c *Config) CheckConfig(fail func(key string, err error)) {
 	if limit := c.Timings.Searching.JobCap; limit <= indexers.SearchWait.Max {
 		fail("timings.searching.job_cap", fmt.Errorf("%s isn't longer than the longest search wait, %s, so the Node can end a slow search before it reads as late", limit, indexers.SearchWait.Max))
 	}
+	c.Timings.Backups.Check(fail)
 	if n := c.Timings.Downloading.HoldingsPage; n < 100 || n > 10_000 {
 		fail("timings.downloading.holdings_page", fmt.Errorf("%d isn't between 100 and 10,000", n))
 	}

@@ -30,6 +30,8 @@ const usageText = `usage: slipstream <command>
   restart [--data-dir <dir>] restart the Node on <dir> and print its address once
                              it responds again
   status [--data-dir <dir>]  print the running Node's status as JSON
+  backup [--data-dir <dir>]  take a Backup on the running Controller, check it
+                             and print its path
   config [--data-dir <dir>]  print the resolved configuration and every endpoint as JSON
   config set [--data-dir <dir>] <key> <value>
   config unset [--data-dir <dir>] <key>
@@ -99,6 +101,8 @@ func run(args []string, types contenttype.Set) int {
 		return app(rest, types)
 	case "status":
 		return status(rest, types)
+	case "backup":
+		return backupCommand(rest, types)
 	case "restart":
 		return restart(rest, types)
 	case "join":

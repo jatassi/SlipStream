@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/calls"
@@ -91,6 +92,7 @@ type peers interface {
 // half is the claimed part of a running Node. Each Node starts at most one,
 // from Unclaimed or at start, and never restarts it in process.
 type half struct {
+	backups *backups.Backups
 	// self is the Node's id in its Controller's library.
 	self     role.NodeID
 	peers    peers
@@ -295,6 +297,20 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db, Catalog: cat, Outbox: n.notifications, Changed: history.ChangedEvent.Bind(n.hub),
 		Batch: n.cfg.Timings.Housekeeping.PruneBatch, Log: n.rootLog.With("subsystem", "history"),
 	})
+	kept, err := backups.Open(ctx, backups.Config{
+		Library: lib.db,
+		Keys:    lib.keys,
+		Engine:  n.backups,
+		Start: func(ctx context.Context, st tasks.Start) (tasks.Started, error) {
+			return scheduler.Start(ctx, st)
+		},
+		Reconciling: whileReconciling,
+		History:     n.history.Recorder("backups", backups.Entries()),
+		Log:         n.rootLog.With("subsystem", "backups"),
+	})
+	if err != nil {
+		return err
+	}
 	arrivals := roots.NewArrivals()
 	var systems *nodesystem.Nodes
 	side, err = nodes.Open(ctx, nodes.Config{
@@ -655,7 +671,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}, found), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask(), subtitler.Task()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
+		}, found, kept), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask(), subtitler.Task()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,
@@ -679,6 +695,7 @@ func (n *Node) startController(ctx context.Context) error {
 		grabs:    pipeline,
 		clients:  clients,
 		tasks:    scheduler,
+		backups:  kept,
 
 		mediaServers: servers.Service(),
 

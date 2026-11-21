@@ -7,16 +7,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/lifecycle"
-	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
-	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/system"
 )
 
@@ -92,7 +89,11 @@ func AdminReset(ctx context.Context, env Env, req identity.ResetRequest) (string
 }
 
 func resetOffline(ctx context.Context, env Env, req identity.ResetRequest) (string, error) {
-	_, busy, err := readLifecycle(env.DataDir.lifecycle())
+	cfg, _, err := LoadConfig(env.DataDir, env.Environ, env.Types, env.Install)
+	if err != nil {
+		return "", err
+	}
+	_, busy, err := readLifecycle(env.DataDir.lifecycle(cfg.Timings.Backups.WindowsRetry))
 	if err != nil {
 		return "", err
 	}
@@ -102,17 +103,7 @@ func resetOffline(ctx context.Context, env Env, req identity.ResetRequest) (stri
 	if claim, _ := (offline{env}).Claim(ctx); claim != system.Controller {
 		return "", identity.NotAController()
 	}
-	cfg, _, err := LoadConfig(env.DataDir, env.Environ, env.Types, env.Install)
-	if err != nil {
-		return "", err
-	}
-	lib, err := openLibraryFiles(ctx, libraryFiles{
-		dir:     env.DataDir,
-		schemas: append(LibrarySchemas(env.Types), env.Test.Library...),
-		timings: cfg.Timings,
-		hub:     live.NewHub(surface.Events),
-		log:     slog.New(slog.DiscardHandler),
-	})
+	lib, err := openOffline(ctx, env, cfg)
 	if err != nil {
 		return "", err
 	}

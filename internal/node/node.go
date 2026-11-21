@@ -23,6 +23,7 @@ import (
 	// database: Windows and a container with TZ set.
 	_ "time/tzdata"
 
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/downloading"
@@ -260,6 +261,8 @@ type Node struct {
 	// write through too.
 	store *storing.Store
 	disk  storing.Disk
+	// backups takes every Backup, the hook's included.
+	backups *backups.Engine
 	// claimed is where library.db and a half push their stops, so they
 	// stop after HTTP and the link, whenever they start. Its goroutines
 	// halt as the Node starts stopping, so a call they have in flight ends
@@ -367,6 +370,9 @@ func (n *Node) start(ctx context.Context) error {
 		if !errors.Is(err, ErrStopped) {
 			n.log.Error("start failed", "err", err.Error())
 		}
+		if hint, ok := hookHint(err); ok {
+			_, _ = fmt.Fprintln(n.env.Stderr, hint)
+		}
 		return errors.Join(err, n.stack.unwind(n.deadline))
 	}
 	return nil
@@ -464,6 +470,9 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	// The claimed half stops before the torrent engine closes under it.
 	n.claimed = n.stack.Sub("claimed")
 	if err := n.resumeLifecycle(); err != nil {
+		return 0, "", err
+	}
+	if n.backups, err = backupsEngine(n.env.DataDir, cfg, n.disk, n.key.Public(), n.env.Version, n.librarySchemas(), n.rootLog.With("subsystem", "backups")); err != nil {
 		return 0, "", err
 	}
 	if _, err := os.Stat(n.env.DataDir.LibraryDB()); err == nil {

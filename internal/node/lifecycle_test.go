@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"io/fs"
 	"log/slog"
@@ -16,11 +17,13 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/lifecycle"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node/surface"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -114,6 +117,7 @@ func staged(t *testing.T, env Env) {
 	}
 	copyFile(t, restored.LibraryDB(), env.DataDir.LibraryDB()+lifecycle.Restored)
 	copyFile(t, restored.LibraryKey(), env.DataDir.LibraryKey()+lifecycle.Restored)
+	copyFile(t, vaultIn(t, restored), filepath.Join(dir, backups.VaultFile+lifecycle.Restored))
 
 	old := scratchDir(t)
 	lib := openMarked(t, env, old, "old")
@@ -127,10 +131,10 @@ func staged(t *testing.T, env Env) {
 	if info, err := os.Stat(env.DataDir.LibraryDB() + "-wal"); err != nil || info.Size() == 0 {
 		t.Fatalf("the old library has no live WAL: %v, %v", info, err)
 	}
-	for name, body := range map[string]string{"backup.key": "old", "backup.key.restore": "restored", "backups.json.restore": "restored"} {
+	for name, body := range map[string]string{"backup.key": "old", "backups.json.restore": `{"format": 1, "startedVersion": "", "backups": []}`} {
 		writeFile(t, filepath.Join(dir, name), body)
 	}
-	if err := env.DataDir.lifecycle().Begin(stagedRestore()); err != nil {
+	if err := env.DataDir.lifecycle(0).Begin(stagedRestore()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -169,9 +173,32 @@ func assertRestored(t *testing.T, n *Node, env Env) {
 			t.Fatalf("%s is left after the restore", e.Name())
 		}
 	}
-	if b, err := os.ReadFile(filepath.Join(env.DataDir.Path(), "backup.key")); err != nil || string(b) != "restored" {
-		t.Fatalf("backup.key = %q, %v; want the restored one", b, err)
+	keys, err := secret.ReadKeys(env.DataDir.LibraryKey())
+	if err != nil {
+		t.Fatal(err)
 	}
+	if _, err := backups.OpenVault(filepath.Join(env.DataDir.Path(), backups.VaultFile), keys, 0); err != nil {
+		t.Fatalf("backup.key isn't the restored one: %v", err)
+	}
+}
+
+// vaultIn writes a backup.key sealed with dir's library.key and returns
+// its path.
+func vaultIn(t *testing.T, dir DataDir) string {
+	t.Helper()
+	keys, err := secret.ReadKeys(dir.LibraryKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir.Path(), backups.VaultFile)
+	v, err := backups.OpenVault(path, keys, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := v.Current(rand.Reader); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 
 // asideIsOld reports whether the swap moved the old library aside yet,
@@ -246,12 +273,12 @@ func TestASecondLifecycleOpIsRefusedAcrossARestart(t *testing.T) {
 		t.Fatalf("start = %v, want the crash", err)
 	}
 	wipe := &lifecycle.Wipe{Stage: lifecycle.Deleting, JoinCode: "ABCD-EFGH-JKLM"}
-	if err := env.DataDir.lifecycle().Begin(wipe); !errors.Is(err, lifecycle.ErrBusy) {
+	if err := env.DataDir.lifecycle(0).Begin(wipe); !errors.Is(err, lifecycle.ErrBusy) {
 		t.Fatalf("a second op after the crash = %v, want ErrBusy", err)
 	}
 	env.Test.BeforeRestoreStage = nil
 	assertRestored(t, startTest(t, env), env)
-	if err := env.DataDir.lifecycle().Begin(wipe); err != nil {
+	if err := env.DataDir.lifecycle(0).Begin(wipe); err != nil {
 		t.Fatalf("an op once the restore finished = %v", err)
 	}
 }
@@ -295,7 +322,7 @@ func TestLeftoverRestoreFilesGoWithoutARecord(t *testing.T) {
 
 func TestAdminResetRefusesWhileARecordExists(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := env.DataDir.lifecycle().Begin(stagedRestore()); err != nil {
+	if err := env.DataDir.lifecycle(0).Begin(stagedRestore()); err != nil {
 		t.Fatal(err)
 	}
 	req := identity.ResetRequest{Email: "ana@example.com"}
@@ -306,7 +333,7 @@ func TestAdminResetRefusesWhileARecordExists(t *testing.T) {
 	if exists(env.DataDir.LibraryDB()) {
 		t.Fatal("admin reset opened library.db while a record exists")
 	}
-	if err := env.DataDir.lifecycle().Finish(); err != nil {
+	if err := env.DataDir.lifecycle(0).Finish(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := AdminReset(t.Context(), env, req); errors.Is(err, lifecycle.ErrBusy) {
@@ -330,7 +357,7 @@ func heldAt(stage RestoreStage) (hook func(RestoreStep) error, reached <-chan st
 
 func TestStatusAnswersBeforeReady(t *testing.T) {
 	env, _ := testEnv(t)
-	if err := env.DataDir.lifecycle().Begin(stagedRestore()); err != nil {
+	if err := env.DataDir.lifecycle(0).Begin(stagedRestore()); err != nil {
 		t.Fatal(err)
 	}
 	hook, reached, release := heldAt(RestoreAside)
@@ -390,7 +417,7 @@ func TestRestartNodeWaitsForReady(t *testing.T) {
 	env.Test.BeforeRestoreStage = hook
 	env, _ = restartable(t, env)
 	first := startTest(t, env)
-	if err := env.DataDir.lifecycle().Begin(stagedRestore()); err != nil {
+	if err := env.DataDir.lifecycle(0).Begin(stagedRestore()); err != nil {
 		t.Fatal(err)
 	}
 
