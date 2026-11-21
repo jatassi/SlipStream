@@ -34,8 +34,9 @@ func TestARemovedWorkerRecordsItAndJoinsAgainAsANewNode(t *testing.T) {
 		var removals atomic.Int32
 		p, err := pairing.Open(pairing.Config{
 			DataDir: dir, Key: box.Key, Link: box.Link, Name: "box", Claims: claims(system.Unclaimed), AwaitDial: time.Minute,
-			Removed: func(context.Context) { removals.Add(1) },
-			Log:     discard,
+			Removed:          func(context.Context) { removals.Add(1) },
+			UnreachableAfter: 15 * time.Minute, Local: &localPage{},
+			Log: discard,
 		})
 		if err != nil {
 			t.Fatal(err)
