@@ -28,16 +28,17 @@ import (
 // hang-up a failed send finds.
 const awaitingEvery = time.Minute
 
-// join runs pairing.Claim under the claim lock. A running Worker half
-// stays bound to its Controller, so a code that would re-pair it is
-// refused. A Claim awaiting its Controller's dial calls awaiting and
-// releases the lock for the wait, so a Controller claim meanwhile answers
-// join_pending. Once Claim ends, a Node holding a record and no half
-// starts the Worker half on it, whether the Join paired it or a re-pair at
-// start was refused. A Join that never awaited closes the Setup gate; one
-// that did leaves it to its next Setup operation, which getWorkerClaim
-// reads the outcome through.
-func (n *Node) join(ctx context.Context, code joincode.Code, awaiting func(pairing.Pending)) (pairing.Joined, error) {
+// join runs pairing.Claim under the claim lock. A Claim awaiting its
+// Controller's dial calls awaiting and releases the lock for the wait, so
+// a Controller claim meanwhile answers join_pending. Once Claim ends, a
+// Node holding a record and no half starts the Worker half on it, whether
+// the Join paired it or a re-pair at start was refused. A running Worker
+// half stays bound to the Controller it started with, so join reports
+// that it re-paired one, for repaired once the caller has answered. A
+// Join that never awaited closes the Setup gate; one that did leaves it
+// to its next Setup operation, which getWorkerClaim reads the outcome
+// through.
+func (n *Node) join(ctx context.Context, code joincode.Code, awaiting func(pairing.Pending)) (joined pairing.Joined, repaired bool, err error) {
 	n.claimMu.Lock()
 	pended, waited := false, false
 	defer func() {
@@ -45,11 +46,9 @@ func (n *Node) join(ctx context.Context, code joincode.Code, awaiting func(pairi
 			n.claimMu.Unlock()
 		}
 	}()
-	if n.half.Load() != nil && n.pairing.Repairs(code) {
-		return pairing.Joined{}, pairing.ErrRestartRequired
-	}
+	repairs := n.half.Load() != nil && n.pairing.Repairs(code)
 	wasWorker := n.pairing.Paired()
-	joined, err := n.pairing.Claim(ctx, code, func(p pairing.Pending) {
+	joined, err = n.pairing.Claim(ctx, code, func(p pairing.Pending) {
 		pended, waited = true, true
 		n.claimMu.Unlock()
 		awaiting(p)
@@ -61,19 +60,32 @@ func (n *Node) join(ctx context.Context, code joincode.Code, awaiting func(pairi
 	if n.half.Load() == nil && n.pairing.Paired() {
 		if err := n.startWorker(context.WithoutCancel(ctx)); err != nil {
 			n.stack.fail(fmt.Errorf("start the Worker half: %w", err))
-			return pairing.Joined{}, err
+			return pairing.Joined{}, false, err
 		}
 		if !wasWorker {
 			n.log.Info("claimed", "claim", "worker")
 		}
 	}
 	if err != nil {
-		return pairing.Joined{}, err
+		return pairing.Joined{}, false, err
 	}
 	if !waited {
 		n.gate.Close()
 	}
-	return joined, nil
+	return joined, repairs, nil
+}
+
+// repaired restarts the Node onto the Controller a Join re-paired its
+// running Worker half with. The holder half first forgets the intents the
+// old Controller sent, so the successor holds only the new one's, and its
+// Roles run until the restart stops them.
+func (n *Node) repaired(ctx context.Context) {
+	if err := n.half.Load().holding.ResetIntents(ctx); err != nil {
+		n.log.Error("clear the Roles the old Controller assigned", "err", err.Error())
+	}
+	if err := n.Restart(); err != nil {
+		n.log.Error("restart for the new Controller", "err", err.Error())
+	}
 }
 
 // repeat calls say at once and every awaitingEvery until the returned
@@ -106,7 +118,7 @@ func repeat(say func() error) (stop func()) {
 // its Controller's dial logs its lines at Warn every minute until it ends.
 func (n *Node) joinAtStart(ctx context.Context, code joincode.Code) {
 	stop := func() {}
-	_, err := n.join(ctx, code, func(p pairing.Pending) {
+	_, _, err := n.join(ctx, code, func(p pairing.Pending) {
 		stop = repeat(func() error {
 			for _, line := range p.Lines() {
 				n.log.Warn(line)
@@ -128,7 +140,8 @@ func (n *Node) joinAtStart(ctx context.Context, code joincode.Code) {
 // serveJoin is JoinOp. A Join awaiting its Controller's dial sends its
 // lines every minute, and stops when a send fails, as slipstream join's
 // Ctrl-C makes it. A --node-port this Node doesn't listen on is written to
-// config.yaml and refused until a restart binds it.
+// config.yaml and refused until a restart binds it. A Join that re-paired
+// the running Worker half restarts the Node once its reply is sent.
 func (n *Node) serveJoin(ctx context.Context, body json.RawMessage, send func(any) error) error {
 	var req pairing.JoinRequest
 	if err := control.Decode(body, &req); err != nil {
@@ -153,7 +166,7 @@ func (n *Node) serveJoin(ctx context.Context, body json.RawMessage, send func(an
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	stop := func() {}
-	joined, err := n.join(ctx, code, func(p pairing.Pending) {
+	joined, repaired, err := n.join(ctx, code, func(p pairing.Pending) {
 		stop = repeat(func() error {
 			err := send(pairing.JoinReply{Awaiting: p.Lines()})
 			if err != nil {
@@ -169,7 +182,11 @@ func (n *Node) serveJoin(ctx context.Context, body json.RawMessage, send func(an
 	if err != nil {
 		return err
 	}
-	return send(pairing.JoinReply{Joined: joined.String()})
+	err = send(pairing.JoinReply{Joined: joined.String()})
+	if repaired {
+		n.repaired(context.WithoutCancel(ctx))
+	}
+	return err
 }
 
 // Join joins the Node on env's data dir while no Node holds it: it takes

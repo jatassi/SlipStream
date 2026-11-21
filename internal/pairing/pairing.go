@@ -524,14 +524,6 @@ const (
 	Unaddressed          Kind = "node_unaddressed"
 )
 
-// ErrRestartRequired refuses a re-pair of a Worker whose half runs. That
-// half stays bound to the Controller it started with, so a Worker re-pairs
-// only before its half starts.
-var ErrRestartRequired = &Error{
-	Kind:   RestartRequired,
-	Reason: "a running Worker can't pair again. Stop the Node and run slipstream join with this code, or restart it with the code in SLIPSTREAM_JOIN_CODE",
-}
-
 // Ignored is whether k left a pairing in place rather than refusing one:
 // the code names the pinned or a superseded Controller.
 func (k Kind) Ignored() bool { return k == AlreadyJoined || k == SupersededController }

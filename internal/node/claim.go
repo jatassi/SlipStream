@@ -406,8 +406,14 @@ func (s surfaceNode) FirstRunOpen(ctx context.Context) (bool, error) {
 	return f.IsOpen(ctx)
 }
 
+// Join is claimWorker's Join. The HTTP server's graceful stop lets the
+// answer finish before a restart onto a re-paired Controller ends it.
 func (s surfaceNode) Join(ctx context.Context, code joincode.Code, awaiting func(pairing.Pending)) (pairing.Joined, error) {
-	return s.n.join(ctx, code, awaiting)
+	joined, repaired, err := s.n.join(ctx, code, awaiting)
+	if repaired {
+		s.n.repaired(context.WithoutCancel(ctx))
+	}
+	return joined, err
 }
 
 // Pending holds a joined claim at awaiting-dial until the Worker half

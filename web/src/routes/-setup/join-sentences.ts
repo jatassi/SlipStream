@@ -58,10 +58,6 @@ export const joinSentences: {
     text: "This Node can't reach your SlipStream and has no network address your SlipStream could connect to. Connect both to the same network, then try again.",
     next: "retry",
   },
-  restart_required: {
-    text: "This Node can join only after a restart. Restart it, then enter the Join Code again.",
-    next: "retry",
-  },
   internal: {
     text: "Joining failed on this Node. Try again, and check its log if it fails again.",
     next: "retry",

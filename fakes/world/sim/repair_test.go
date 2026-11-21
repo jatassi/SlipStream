@@ -2,6 +2,7 @@ package sim_test
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"testing/synctest"
 
@@ -9,15 +10,14 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
-	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/pairing"
 )
 
-// TestARunningWorkerRepairsOnlyAtStart sends office's Join Code to seedbox
-// while it runs as home's Worker. The join op refuses it and nothing
-// changes; a restart with the code in SLIPSTREAM_JOIN_CODE re-pairs, and
-// seedbox's Roles then follow office.
-func TestARunningWorkerRepairsOnlyAtStart(t *testing.T) {
+// TestARunningWorkerRepairsLiveAndRestarts sends office's Join Code to
+// seedbox while it runs as home's Worker. The join op answers joined, the
+// Node restarts, and seedbox comes back with home superseded and its
+// Roles following office.
+func TestARunningWorkerRepairsLiveAndRestarts(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := simtest.Home(t)
@@ -26,31 +26,15 @@ func TestARunningWorkerRepairsOnlyAtStart(t *testing.T) {
 		w := sim.Launch(t, s)
 		officeAPIKey := office(t, w)
 		worker := w.Node("seedbox")
-		code := mint(t, w, "office", officeAPIKey)
 
-		reply, err := worker.JoinOp(t.Context(), code)
-		want := pairing.Error{
-			Kind:   "restart_required",
-			Reason: "a running Worker can't pair again. Stop the Node and run slipstream join with this code, or restart it with the code in SLIPSTREAM_JOIN_CODE",
+		reply, err := worker.JoinOp(t.Context(), mint(t, w, "office", officeAPIKey))
+		if err != nil || reply.Refused != nil || !strings.HasPrefix(reply.Joined, "joined office as seedbox") {
+			t.Fatalf("the join op with office's code = %+v, %v; want joined office", reply, err)
 		}
-		if err != nil || reply.Refused == nil || *reply.Refused != want {
-			t.Fatalf("the join op with office's code = %+v, %v; want refused %+v", reply, err, want)
-		}
-		homeKey, officeKey := key(t, w, "home"), key(t, w, "office")
-		if r := readRecord(t, worker); r.Controller.Key != homeKey.String() || len(r.Superseded) != 0 {
-			t.Fatalf("seedbox's record is %+v, want home %s and nothing superseded", r, homeKey)
-		}
-		if rows := officeRows(t, w, officeAPIKey); len(rows) != 1 {
-			t.Fatalf("office lists %+v, want only itself, since seedbox never sent Pair", rows)
-		}
-		reply, err = worker.JoinOp(t.Context(), mint(t, w, "home", w.Manifest().APIKey))
-		if err != nil || reply.Refused == nil || reply.Refused.Kind != pairing.AlreadyJoined {
-			t.Fatalf("the join op with home's code = %+v, %v; want already joined", reply, err)
-		}
-
-		worker.Stop()
-		worker.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_JOIN_CODE="+code.String()) })
+		worker.AwaitRestart()
 		synctest.Wait()
+
+		homeKey, officeKey := key(t, w, "home"), key(t, w, "office")
 		if r := readRecord(t, worker); r.Controller.Key != officeKey.String() || len(r.Superseded) != 1 || r.Superseded[0].Key != homeKey.String() {
 			t.Fatalf("seedbox's record is %+v, want office %s with home %s superseded", r, officeKey, homeKey)
 		}
@@ -58,6 +42,10 @@ func TestARunningWorkerRepairsOnlyAtStart(t *testing.T) {
 		i := slices.IndexFunc(rows, func(n nodeapi.Node) bool { return n.Name == "seedbox" })
 		if i < 0 || rows[i].Link.State != "up" || rows[i].Facts == nil || rows[i].Facts.AppliedVersion != rows[i].IntentVersion {
 			t.Fatalf("office lists %+v, want seedbox up with its intent applied", rows)
+		}
+		reply, err = worker.JoinOp(t.Context(), mint(t, w, "home", w.Manifest().APIKey))
+		if err != nil || reply.Refused == nil || reply.Refused.Kind != pairing.SupersededController {
+			t.Fatalf("the join op with home's code = %+v, %v; want superseded Controller", reply, err)
 		}
 	})
 }
