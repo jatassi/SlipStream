@@ -27,7 +27,7 @@ test("a retired Controller shows only the Superseded page until an Admin resumes
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "This Controller was replaced" })).toBeVisible();
   await expect(page).toHaveURL(/\/superseded$/u);
-  await expect(page.getByText(/an Admin stopped this Controller\./u)).toBeVisible();
+  await expect(page.getByText(/an Admin retired this Controller\./u)).toBeVisible();
   await expect(page.getByLabel("Join Code")).toBeVisible();
   expect((await world.api("GET", "/api/v1/nodes")).status).toBe(409);
 

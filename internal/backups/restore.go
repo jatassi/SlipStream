@@ -91,7 +91,7 @@ func (e *StageError) Unwrap() error { return e.Err }
 func (s *Stager) refuse(err error, m archive.Manifest) error {
 	if space, ok := errors.AsType[*SpaceError](err); ok {
 		return &StageError{Code: NoSpace, Err: err, Text: fmt.Sprintf(
-			"Restoring needs %s free in %s, and that disk has %s free. Free some space, then try again.",
+			"Restoring needs %s free in %s, and its volume has %s free. Free some space, then try again.",
 			Size(space.Need), space.Folder, Size(space.Free))}
 	}
 	if newer, ok := errors.AsType[*archive.TooNewError](err); ok {

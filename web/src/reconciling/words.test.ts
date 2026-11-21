@@ -58,7 +58,7 @@ test("an offline Node beside other waits is one step among them", () => {
 
 test("Finish now names every wait it ends and the Nodes that keep their torrents", () => {
   expect(finishWords(reconcilingPage())).toBe(
-    "Finish Reconciling now? SlipStream stops waiting for seedbox and the Films library root on home. seedbox keeps its torrents until it reports them.",
+    "Finish Reconciling now? SlipStream stops waiting for seedbox and the Films library root on home. seedbox keeps every torrent until SlipStream has matched its list of torrents with the library.",
   );
 });
 

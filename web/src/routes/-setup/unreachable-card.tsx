@@ -28,7 +28,7 @@ export function UnreachableCard({ data }: { data: ServingWorker }) {
   const clock = useClock();
   const when = since === undefined ? "" : ` ${whenWords(since, "since", clock)}`;
   return (
-    <EntryPage title={`${name} hasn't been able to reach ${controller}${when}.`}>
+    <EntryPage title={`${name} hasn't been able to reach ${controller}${when}`}>
       <p>{`${name} keeps seeding and finishes what it started.`}</p>
       <p>{holdingLine(data.holding, data.seeding)}</p>
       <PairAgain name={name} />

@@ -357,7 +357,7 @@ func TestAPendingNodeWithTiedWorkReadsKeepingNotDraining(t *testing.T) {
 	if v, _ := board.Node(box); !v.Pending {
 		t.Error("seedbox's view isn't pending")
 	}
-	if got := sentence(board); got != "seedbox keeps its torrents until it reports them." {
+	if got := sentence(board); got != "seedbox keeps every torrent until SlipStream has matched its list of torrents with the library." {
 		t.Errorf("the sentence is %q, want the Keeping line", got)
 	}
 	b.assigned = b.assigned.With(role.Downloading)

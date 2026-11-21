@@ -14,7 +14,7 @@ export const pinSentence = ({ takenAt }: RestoreSummary, clock: Clock) =>
   `After the restore, sign in with the PIN you had ${whenWords(takenAt, "on", clock)}.`;
 
 export const oldControllerSentence = (controller: string) =>
-  `Make sure ${controller} stays off. If it starts again with this library, both machines seed the same private torrents. Each Worker you pair with this Controller also pauses ${controller} when it next connects to it.`;
+  `Make sure ${controller} stays off. If it starts again with this library, both machines seed the same private torrents. When ${controller} next connects to a Worker you paired with this Controller, ${controller} pauses.`;
 
 export const oldControllerOffLabel = (controller: string) =>
   `${controller} is off, and I'll wipe it if it starts again`;

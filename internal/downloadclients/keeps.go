@@ -140,13 +140,13 @@ func parseHoldings(ctx context.Context, q *db.Queries, node role.NodeID, h *dlv1
 	entries := h.GetEntries()
 	switch {
 	case p.Page >= p.Pages:
-		p.Refused = fmt.Sprintf("The Node sent page %d of %d pages.", p.Page+1, p.Pages)
+		p.Refused = fmt.Sprintf("The Node sent page %d of a list that has %d pages.", p.Page+1, p.Pages)
 	case int64(p.Pages-1)*int64(page) >= int64(limit):
-		p.Refused = fmt.Sprintf("The Node sent a list of %d pages, which passes the limit of %d torrents.", p.Pages, limit)
+		p.Refused = fmt.Sprintf("The Node sent a list of %d pages, which is over the limit of %d torrents.", p.Pages, limit)
 	case len(entries) > page:
 		p.Refused = fmt.Sprintf("A page lists %d torrents, more than the %d a page holds.", len(entries), page)
 	case int64(p.Page)*int64(page)+int64(len(entries)) > int64(limit):
-		p.Refused = fmt.Sprintf("The Node's list passes the limit of %d torrents.", limit)
+		p.Refused = fmt.Sprintf("The Node's list is over the limit of %d torrents.", limit)
 	}
 	if p.Refused != "" {
 		return p, nil
@@ -177,7 +177,7 @@ func holdingOf(e *dlv1.Holding, clients []db.DownloadclientsClient) (h Holding, 
 	if id := e.GetClientId(); len(id) > 0 {
 		i := slices.IndexFunc(clients, func(c db.DownloadclientsClient) bool { return bytes.Equal(c.ID.Bytes(), id) })
 		if i < 0 {
-			return Holding{}, "A torrent names a download client that isn't on this Node."
+			return Holding{}, "A torrent names a Download Client that isn't on this Node."
 		}
 		h.Client = &clients[i].ID
 	}

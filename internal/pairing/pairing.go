@@ -524,7 +524,7 @@ func (p *Pairing) unknown(key link.Key) error {
 		return err
 	}
 	p.rec.Store(&next)
-	p.cfg.Log.Warn("The Controller has no record of this Node. Make a Join Code in Add a Node on the Controller, then run slipstream join with it.")
+	p.cfg.Log.Warn("The Controller has no record of this Node. Select New Join Code in Add a Node on the Controller, then run slipstream join with it.")
 	return nil
 }
 

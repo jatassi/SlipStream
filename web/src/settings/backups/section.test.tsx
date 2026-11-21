@@ -215,7 +215,9 @@ test("adding a destination sends the Node and folder, and warns when the folder 
   await userEvent.click(dialog.getByRole("button", { name: "Add" }));
   await expect
     .element(
-      page.getByText("Keeping these Backups needs about 3.1 GB on seedbox, which has 18 GB free."),
+      page.getByText(
+        "Keeping these Backups needs about 3.1 GB on seedbox, which has 18 GB free. Free some space on seedbox, or add a Backup destination with more room.",
+      ),
     )
     .toBeVisible();
   expect(server.writes).toEqual([

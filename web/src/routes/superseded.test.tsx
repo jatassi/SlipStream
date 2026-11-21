@@ -76,7 +76,9 @@ test("Wipe and join sends the Join Code once confirmed, then waits for the resta
   await userEvent.click(page.getByRole("button", { name: "Wipe and join as a Worker" }));
   await expect.element(page.getByRole("dialog", { name: "Wipe this Controller?" })).toBeVisible();
   expect(sent).toEqual([]);
-  await userEvent.click(page.getByRole("button", { name: "Wipe and join" }));
+  await userEvent.click(
+    page.getByRole("dialog").getByRole("button", { name: "Wipe and join as a Worker" }),
+  );
   await expect
     .element(
       page.getByText(
@@ -104,7 +106,9 @@ test("a damaged Join Code shows on the field and nothing is wiped", async () => 
   });
   await userEvent.fill(page.getByLabelText("Join Code"), "SLJ1-AB");
   await userEvent.click(page.getByRole("button", { name: "Wipe and join as a Worker" }));
-  await userEvent.click(page.getByRole("button", { name: "Wipe and join" }));
+  await userEvent.click(
+    page.getByRole("dialog").getByRole("button", { name: "Wipe and join as a Worker" }),
+  );
   await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
   await expect
     .element(page.getByText("The Join Code is mistyped, cut short or not a SlipStream code"))
@@ -141,15 +145,15 @@ test("Details names the new Controller's key and the Worker that said so, and Re
   await expect.element(page.getByRole("heading", { name: title })).not.toBeInTheDocument();
 });
 
-test("a Controller stopped by hand says an Admin stopped it", async () => {
+test.each(["retired", "stopped"] as const)("a Controller says an Admin %s it", async (state) => {
   renderApp({
     path: "/superseded",
-    handlers: [fenced, getGetSupersededMockHandler({ state: "retired", at: fencedAt })],
+    handlers: [fenced, getGetSupersededMockHandler({ state, at: fencedAt })],
   });
   await expect
     .element(
       page.getByText(
-        `${fencedWords()}, an Admin stopped this Controller. Its torrents are paused and its searches have stopped.`,
+        `${fencedWords()}, an Admin ${state} this Controller. Its torrents are paused and its searches have stopped.`,
       ),
     )
     .toBeVisible();

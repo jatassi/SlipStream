@@ -157,7 +157,7 @@ export const BackupsBackup = zod.object({
   state: zod
     .enum(["taking", "verified", "failed", "deleting"])
     .describe(
-      "verified: it passed its check; failed: it counts for nothing and goes at the next Backup",
+      "verified: it passed its check; failed: it didn't pass its check, and the next Backup deletes it",
     ),
   takenAt: zod.iso.datetime({ offset: true }),
   trigger: zod
@@ -10230,7 +10230,7 @@ export const ReconcilingNodeRow = zod.object({
   continued: zod
     .boolean()
     .describe(
-      "Whether Reconciling stopped waiting on it. It still keeps every torrent until it reports them",
+      "Whether Reconciling stopped waiting on it. It still keeps every torrent until SlipStream has matched its list of torrents with the library",
     ),
   granted: zod
     .string()
@@ -10243,15 +10243,15 @@ export const ReconcilingNodeRow = zod.object({
   link: zod
     .enum(["in-step", "reconnecting", "offline", "lapsed", "mismatched"])
     .describe(
-      "How it stands with this Controller. A Node on a new machine that stays offline may still be paired with the old Controller",
+      "Its connection to this Controller. A Node on a new machine that stays offline may still be paired with the old Controller",
     ),
-  linkSince: zod.iso.datetime({ offset: true }).describe("Since when it stands so"),
+  linkSince: zod.iso.datetime({ offset: true }).describe("When its connection last changed"),
   name: zod.string(),
   refused: zod
     .string()
     .nullable()
     .describe(
-      "Why SlipStream refused its list of torrents; null when it didn't. It keeps every torrent until a list is taken",
+      "Why SlipStream refused its list of torrents; null when it didn't. It keeps every torrent until SlipStream has matched its list of torrents with the library",
     ),
   reported: zod.boolean().describe("Whether every page of its list of torrents is in"),
   since: zod.iso.datetime({ offset: true }).describe("When Reconciling began waiting on it"),

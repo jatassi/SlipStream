@@ -50,7 +50,7 @@ func (p *Phase) UnmarshalText(b []byte) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("phase %q is not starting, backing up, restoring or ready", b)
+	return fmt.Errorf("phase %q isn't one of starting, backing up, restoring or ready", b)
 }
 
 func (n *Node) phase() Phase { return Phase(n.phaseOf.Load()) }

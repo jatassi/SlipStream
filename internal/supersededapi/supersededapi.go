@@ -162,7 +162,7 @@ func Routes(r *api.Router, n Fencer) {
 
 	api.Register(o, api.ReconfirmedSession, api.Op{
 		ID: "resumeSupersededController", Method: http.MethodPost, Path: "/superseded/resume",
-		Summary: "Resume this Controller, so no earlier proof of a restore fences it again", Status: http.StatusNoContent,
+		Summary: "Resume this Controller, so an earlier proof of a restore can't stop it again", Status: http.StatusNoContent,
 		Errors: []*api.Code{notSuperseded}, WhileSuperseded: true,
 	}, func(ctx context.Context, _ identity.Admin, _ *struct{}) (*struct{}, error) {
 		return nil, answer(open(n).Resume(ctx))

@@ -129,7 +129,7 @@
             "type": "integer"
           },
           "state": {
-            "description": "verified: it passed its check; failed: it counts for nothing and goes at the next Backup",
+            "description": "verified: it passed its check; failed: it didn't pass its check, and the next Backup deletes it",
             "enum": [
               "taking",
               "verified",
@@ -19183,7 +19183,7 @@
             "type": "boolean"
           },
           "continued": {
-            "description": "Whether Reconciling stopped waiting on it. It still keeps every torrent until it reports them",
+            "description": "Whether Reconciling stopped waiting on it. It still keeps every torrent until SlipStream has matched its list of torrents with the library",
             "type": "boolean"
           },
           "granted": {
@@ -19204,7 +19204,7 @@
             "type": "string"
           },
           "link": {
-            "description": "How it stands with this Controller. A Node on a new machine that stays offline may still be paired with the old Controller",
+            "description": "Its connection to this Controller. A Node on a new machine that stays offline may still be paired with the old Controller",
             "enum": [
               "in-step",
               "reconnecting",
@@ -19215,7 +19215,7 @@
             "type": "string"
           },
           "linkSince": {
-            "description": "Since when it stands so",
+            "description": "When its connection last changed",
             "format": "date-time",
             "type": "string"
           },
@@ -19223,7 +19223,7 @@
             "type": "string"
           },
           "refused": {
-            "description": "Why SlipStream refused its list of torrents; null when it didn't. It keeps every torrent until a list is taken",
+            "description": "Why SlipStream refused its list of torrents; null when it didn't. It keeps every torrent until SlipStream has matched its list of torrents with the library",
             "type": [
               "string",
               "null"
@@ -84720,7 +84720,7 @@
             ]
           }
         ],
-        "summary": "Resume this Controller, so no earlier proof of a restore fences it again",
+        "summary": "Resume this Controller, so an earlier proof of a restore can't stop it again",
         "tags": [
           "superseded"
         ],

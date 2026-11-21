@@ -912,7 +912,7 @@ While a restore reconciles, every admin page carries one line naming what SlipSt
 
 ### Reconciling page
 
-Reached from the banner and from Health, with no nav row. It leads with the Reconciling Term and the Backup it restored, then the next step in one sentence, with the Backup name and the start time under Details. Finish now is the page's one action and asks to confirm, naming every wait it ends. Sections follow in order: Nodes, waiting ones first, each row one sentence with its one action (Create Join Code or Continue without); Nodes not in this Backup; Library roots, each with Find its folder and Continue without; and the review list's groups, each a sentence and a link to review them. Outside a restore the page lists only the Nodes that keep their torrents, with no Finish now.
+Reached from the banner and from Health, with no nav row. It leads with the Reconciling Term and the Backup it restored, then the next step in one sentence, with the Backup name and the start time under Details. Finish now is the page's one action and asks to confirm, naming every wait it ends. Sections follow in order: Nodes, waiting ones first, each row one sentence with its one action (New Join Code or Continue without); Nodes not in this Backup; Library roots, each with Find its folder and Continue without; and the review list's groups, each a sentence and a link to review them. Outside a restore the page lists only the Nodes that keep their torrents, with no Finish now.
 
 ### Re-home step
 

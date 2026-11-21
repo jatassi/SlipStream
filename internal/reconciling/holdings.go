@@ -33,7 +33,7 @@ func (s *Service) Holdings(ctx context.Context, tx *storage.Tx[file], node role.
 		return nil
 	}
 	if p.Refused == "" && row.Pages != nil && *row.Pages != int64(p.Pages) {
-		p.Refused = fmt.Sprintf("The Node sent a page of a list of %d pages, then one of %d pages.", *row.Pages, p.Pages)
+		p.Refused = fmt.Sprintf("One page of the Node's list gives %d pages in all, and a later one gives %d.", *row.Pages, p.Pages)
 	}
 	entries := once(p.Entries)
 	if p.Refused == "" {
@@ -79,7 +79,7 @@ func (s *Service) grown(ctx context.Context, q *db.Queries, node role.NodeID, he
 	}
 	held += int64(len(entries)) - known
 	if held > int64(s.cfg.Max) {
-		return held, fmt.Sprintf("The Node's list passes the limit of %d torrents.", s.cfg.Max), nil
+		return held, fmt.Sprintf("The Node's list is over the limit of %d torrents.", s.cfg.Max), nil
 	}
 	return held, "", nil
 }

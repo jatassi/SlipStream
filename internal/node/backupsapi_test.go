@@ -109,7 +109,7 @@ func TestDeletingTheNewestVerifiedIsRefused(t *testing.T) {
 		l := listBackups(t, c, session)
 		newest, older := l.Backups[0].ID, l.Backups[1].ID
 		expect(t, c.do(call{method: http.MethodDelete, path: "/api/v1/backups/" + newest, session: session}), 409,
-			`{"status":409,"code":"newest_verified","title":"The newest good Backup can't be deleted","detail":"This is your newest good Backup, so it can't be deleted. Take another Backup first."}`+"\n")
+			`{"status":409,"code":"newest_verified","title":"The newest good Backup can't be deleted","detail":"This is your newest good Backup, so it can't be deleted. Select Back up now, then delete it."}`+"\n")
 		left := decode[backupsListed](t, c.do(call{method: http.MethodDelete, path: "/api/v1/backups/" + older, session: session}), http.StatusOK)
 		ids := make([]string, len(left.Backups))
 		for i, b := range left.Backups {

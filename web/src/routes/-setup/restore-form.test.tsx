@@ -149,7 +149,7 @@ test("a wrong passphrase stays on the passphrase with the Node's sentence", asyn
     "That passphrase doesn't open this Backup. If you replaced the passphrase after this Backup was taken, use the earlier one.";
   await openRestore(
     restoring({
-      open: () => problem(422, "backup_wrong_passphrase", "Wrong passphrase", wrong),
+      open: () => problem(422, "backup_wrong_passphrase", "Wrong Backup passphrase", wrong),
     }),
   );
   await uploadAndOpen();
@@ -169,7 +169,7 @@ test("a damaged Backup goes back to picking a file with the Node's sentence", as
 
 test("an upload refused for space says how much it needs", async () => {
   const space =
-    "Restoring needs 1.2 GB free in /config, and that disk has 800 MB free. Free some space, then try again.";
+    "Restoring needs 1.2 GB free in /config, and its volume has 800 MB free. Free some space, then try again.";
   await openRestore(
     restoring({ upload: () => problem(422, "backup_no_space", "Not enough space", space) }),
   );

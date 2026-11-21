@@ -260,5 +260,5 @@ func keepsConfig(n Named, r role.Name, kept []string) Check {
 
 // keepingWords is the Nodes page line for a Node waiting to be adopted.
 func keepingWords(v NodeView) string {
-	return v.Name + " keeps its torrents until it reports them."
+	return v.Name + " keeps every torrent until SlipStream has matched its list of torrents with the library."
 }

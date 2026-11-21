@@ -472,7 +472,7 @@ func (e troubleError) Error() string {
 }
 
 // laterSkip is the line of a root the re-home step left for later.
-const laterSkip = "Skipped because this root's folder isn't found yet after the restore. Give its path on the Reconciling page, then scan it."
+const laterSkip = "Skipped because this library root's folder isn't found yet after the restore. Give its path on the Reconciling page, and SlipStream scans it."
 
 // later skips the scan of a root the re-home step left for later: its
 // path may be the old Controller's, where an empty folder would read as
