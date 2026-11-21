@@ -77,7 +77,7 @@ type destination struct {
 }
 
 type wait struct {
-	Kind   string `json:"kind" enum:"node_away,node_other_build,connecting,no_route,root_not_ready,storage_draining,source_checking,source_not_ready"`
+	Kind   string `json:"kind" enum:"node_away,node_other_build,connecting,no_route,root_not_ready,storage_draining,source_checking,source_not_ready,folder_not_ready,reconciling"`
 	NodeID string `json:"nodeId" format:"uuid" doc:"The Node it waits for"`
 }
 

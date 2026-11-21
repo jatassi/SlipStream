@@ -56,35 +56,49 @@ func (t *Transfers) Apply(ctx context.Context, tx *storage.Tx[storage.Library], 
 
 // current is the unfailed Transfer named by id when node receives it,
 // false for anything else.
-func current(ctx context.Context, tx *storage.Tx[storage.Library], node role.NodeID, id []byte) (Transfer, roots.Root, bool, error) {
+func current(ctx context.Context, tx *storage.Tx[storage.Library], node role.NodeID, id []byte) (Transfer, int64, bool, error) {
 	at, ok := idOf(id)
 	if !ok {
-		return Transfer{}, roots.Root{}, false, nil
+		return Transfer{}, 0, false, nil
 	}
 	tr, err := load(ctx, tx, at)
 	if errors.Is(err, storage.ErrNoRows) {
-		return Transfer{}, roots.Root{}, false, nil
+		return Transfer{}, 0, false, nil
 	}
 	if err != nil {
-		return Transfer{}, roots.Root{}, false, err
+		return Transfer{}, 0, false, err
 	}
-	root, err := roots.Get(ctx, tx, rootOf(tr.Destination))
+	dest, place, err := destinationIn(ctx, tx, tr)
 	if err != nil {
-		return Transfer{}, roots.Root{}, false, err
+		return Transfer{}, 0, false, err
 	}
-	return tr, root, tr.Failure == nil && root.Node == node, nil
+	return tr, place, tr.Failure == nil && dest == node, nil
+}
+
+// destinationIn is tr's destination Node and place, read in rd.
+func destinationIn(ctx context.Context, rd storage.Reader[storage.Library], tr Transfer) (role.NodeID, int64, error) {
+	switch d := tr.Destination.(type) {
+	case Root:
+		root, err := roots.Get(ctx, rd, d.ID)
+		return root.Node, root.Place, err
+	case BackupDestination:
+		return d.Node, backupPlace, nil
+	case BackupsFolder:
+		return d.Node, backupPlace, nil
+	}
+	panic("transfers: a destination of no known kind")
 }
 
 func (t *Transfers) verified(ctx context.Context, tx *storage.Tx[storage.Library], node role.NodeID, v *tv1.FileVerified) error {
-	tr, root, ok, err := current(ctx, tx, node, v.GetTransferId())
-	if err != nil || !ok || v.GetPlace() != root.Place {
+	tr, place, ok, err := current(ctx, tx, node, v.GetTransferId())
+	if err != nil || !ok || v.GetPlace() != place {
 		return err
 	}
 	at := slices.IndexFunc(tr.Files, func(f File) bool { return f.Position == int(v.GetPosition()) })
 	if at < 0 || !missing(tr.Files[at]) {
 		return nil
 	}
-	if err := ledger.New(tx).SetVerified(ctx, ledger.SetVerifiedParams{VerifiedPlace: &root.Place, TransferID: tr.ID, Position: int64(tr.Files[at].Position)}); err != nil {
+	if err := ledger.New(tx).SetVerified(ctx, ledger.SetVerifiedParams{VerifiedPlace: &place, TransferID: tr.ID, Position: int64(tr.Files[at].Position)}); err != nil {
 		return fmt.Errorf("record file %d of Transfer %s verified: %w", tr.Files[at].Position, tr.ID, err)
 	}
 	tr.Files[at].Verified = true
@@ -103,10 +117,11 @@ var codes = map[tv1.Failed_Code]Code{
 	tv1.Failed_CODE_SOURCE_GONE:   SourceGone,
 	tv1.Failed_CODE_SOURCE_FAILED: SourceFailed,
 	tv1.Failed_CODE_DAMAGED:       Damaged,
+	tv1.Failed_CODE_NO_SPACE:      NoSpace,
 }
 
 func (t *Transfers) failed(ctx context.Context, tx *storage.Tx[storage.Library], node role.NodeID, f *tv1.Failed) error {
-	tr, root, ok, err := current(ctx, tx, node, f.GetTransferId())
+	tr, _, ok, err := current(ctx, tx, node, f.GetTransferId())
 	code, known := codes[f.GetCode()]
 	if err != nil || !ok || !known {
 		return err
@@ -115,7 +130,7 @@ func (t *Transfers) failed(ctx context.Context, tx *storage.Tx[storage.Library],
 	if p := int(f.GetPosition()); slices.ContainsFunc(tr.Files, func(f File) bool { return f.Position == p }) {
 		position = p
 	}
-	if err := t.fail(ctx, tx, tr, root.Node, code, position, f.GetDetail()); err != nil {
+	if err := t.fail(ctx, tx, tr, node, code, position, f.GetDetail()); err != nil {
 		return err
 	}
 	t.note(node, tr)

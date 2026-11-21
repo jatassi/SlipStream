@@ -257,6 +257,8 @@ func (n *Node) startController(ctx context.Context) error {
 		RootsMoved: func() <-chan struct{} { return homes.Watch() },
 		Readiness:  clients.ReadinessIn,
 		Moved:      clients.Moved,
+		LowWait:    backups.CopyWaitLimitIn,
+		Paused:     whileReconciling,
 		Sample:     func(ctx context.Context, id role.NodeID) error { return homes.Sample(ctx, id) },
 		Hub:        n.hub,
 		Changed:    transfers.ChangedEvent.Bind(n.hub),

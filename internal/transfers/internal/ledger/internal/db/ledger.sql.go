@@ -35,7 +35,7 @@ func (q *Queries) DeleteTransfer(ctx context.Context, id local.TransferID) error
 }
 
 const filesOf = `-- name: FilesOf :many
-SELECT transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, size, verified_place, placed, dropped FROM transfers_file WHERE transfer_id = ?1 ORDER BY position
+SELECT transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, size, verified_place, placed, dropped FROM transfers_file WHERE transfer_id = ?1 ORDER BY position
 `
 
 func (q *Queries) FilesOf(ctx context.Context, transferID local.TransferID) ([]TransfersFile, error) {
@@ -56,6 +56,7 @@ func (q *Queries) FilesOf(ctx context.Context, transferID local.TransferID) ([]T
 			&i.InfoHash,
 			&i.FileIndex,
 			&i.Path,
+			&i.SourceFolder,
 			&i.Size,
 			&i.VerifiedPlace,
 			&i.Placed,
@@ -86,7 +87,7 @@ func (q *Queries) GetNodeSettings(ctx context.Context, nodeID role.NodeID) (Tran
 }
 
 const getTransfer = `-- name: GetTransfer :one
-SELECT id, purpose, job, source_node, destination_kind, destination_root, created_at, failure_code, failure_position, failure_detail FROM transfers_record WHERE id = ?1
+SELECT id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, priority, created_at, failure_code, failure_position, failure_detail FROM transfers_record WHERE id = ?1
 `
 
 func (q *Queries) GetTransfer(ctx context.Context, id local.TransferID) (TransfersRecord, error) {
@@ -99,6 +100,10 @@ func (q *Queries) GetTransfer(ctx context.Context, id local.TransferID) (Transfe
 		&i.SourceNode,
 		&i.DestinationKind,
 		&i.DestinationRoot,
+		&i.DestinationBackup,
+		&i.DestinationNode,
+		&i.DestinationFolder,
+		&i.Priority,
 		&i.CreatedAt,
 		&i.FailureCode,
 		&i.FailurePosition,
@@ -108,20 +113,21 @@ func (q *Queries) GetTransfer(ctx context.Context, id local.TransferID) (Transfe
 }
 
 const insertFile = `-- name: InsertFile :exec
-INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, size)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, size)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
 `
 
 type InsertFileParams struct {
-	TransferID local.TransferID
-	Position   int64
-	GroupKey   string
-	Name       string
-	SourceKind string
-	InfoHash   []byte
-	FileIndex  *int64
-	Path       *string
-	Size       int64
+	TransferID   local.TransferID
+	Position     int64
+	GroupKey     string
+	Name         string
+	SourceKind   string
+	InfoHash     []byte
+	FileIndex    *int64
+	Path         *string
+	SourceFolder *string
+	Size         int64
 }
 
 func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
@@ -134,24 +140,30 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 		arg.InfoHash,
 		arg.FileIndex,
 		arg.Path,
+		arg.SourceFolder,
 		arg.Size,
 	)
 	return err
 }
 
 const insertTransfer = `-- name: InsertTransfer :exec
-INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, created_at)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, priority, created_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6,
+    ?7, ?8, ?9, ?10, ?11)
 `
 
 type InsertTransferParams struct {
-	ID              local.TransferID
-	Purpose         string
-	Job             string
-	SourceNode      role.NodeID
-	DestinationKind string
-	DestinationRoot *roots.ID
-	CreatedAt       storage.Time
+	ID                local.TransferID
+	Purpose           string
+	Job               string
+	SourceNode        role.NodeID
+	DestinationKind   string
+	DestinationRoot   *roots.ID
+	DestinationBackup []byte
+	DestinationNode   role.NodeID
+	DestinationFolder *string
+	Priority          string
+	CreatedAt         storage.Time
 }
 
 func (q *Queries) InsertTransfer(ctx context.Context, arg InsertTransferParams) error {
@@ -162,13 +174,17 @@ func (q *Queries) InsertTransfer(ctx context.Context, arg InsertTransferParams) 
 		arg.SourceNode,
 		arg.DestinationKind,
 		arg.DestinationRoot,
+		arg.DestinationBackup,
+		arg.DestinationNode,
+		arg.DestinationFolder,
+		arg.Priority,
 		arg.CreatedAt,
 	)
 	return err
 }
 
 const listFiles = `-- name: ListFiles :many
-SELECT transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, size, verified_place, placed, dropped FROM transfers_file ORDER BY transfer_id, position
+SELECT transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, size, verified_place, placed, dropped FROM transfers_file ORDER BY transfer_id, position
 `
 
 func (q *Queries) ListFiles(ctx context.Context) ([]TransfersFile, error) {
@@ -189,6 +205,7 @@ func (q *Queries) ListFiles(ctx context.Context) ([]TransfersFile, error) {
 			&i.InfoHash,
 			&i.FileIndex,
 			&i.Path,
+			&i.SourceFolder,
 			&i.Size,
 			&i.VerifiedPlace,
 			&i.Placed,
@@ -296,7 +313,7 @@ func (q *Queries) ListTransferIDs(ctx context.Context) ([]local.TransferID, erro
 }
 
 const listTransfers = `-- name: ListTransfers :many
-SELECT id, purpose, job, source_node, destination_kind, destination_root, created_at, failure_code, failure_position, failure_detail FROM transfers_record ORDER BY created_at, id
+SELECT id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, priority, created_at, failure_code, failure_position, failure_detail FROM transfers_record ORDER BY created_at, id
 `
 
 func (q *Queries) ListTransfers(ctx context.Context) ([]TransfersRecord, error) {
@@ -315,6 +332,10 @@ func (q *Queries) ListTransfers(ctx context.Context) ([]TransfersRecord, error) 
 			&i.SourceNode,
 			&i.DestinationKind,
 			&i.DestinationRoot,
+			&i.DestinationBackup,
+			&i.DestinationNode,
+			&i.DestinationFolder,
+			&i.Priority,
 			&i.CreatedAt,
 			&i.FailureCode,
 			&i.FailurePosition,

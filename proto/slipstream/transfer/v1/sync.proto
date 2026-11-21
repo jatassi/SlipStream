@@ -21,6 +21,23 @@ message Intent {
   // failed included, sorted by id. A staging folder neither list names
   // goes, and so does a staged file of a position keep doesn't list.
   repeated Kept keep = 4;
+  // backup_folders is every Backup folder on this Node: each Backup
+  // destination here and, on the Controller, its Backups folder. This
+  // Node reads and writes Backups only in these folders, and only by
+  // their Backup names.
+  repeated BackupFolder backup_folders = 5;
+}
+
+// BackupFolder is one Backup folder, as the Admin typed it.
+message BackupFolder {
+  string folder = 1;
+  // delete is the Backup names this Node deletes from the folder.
+  repeated string delete = 2;
+  // check_key is a fresh key for a check of the Backup named check: this
+  // Node reports the keyed BLAKE3 of that file in its facts. Empty while
+  // no check is asked.
+  bytes check_key = 3;
+  string check = 4;
 }
 
 // Kept is a Transfer whose staging a receiver keeps, with the positions
@@ -71,7 +88,18 @@ enum Route {
 message Destination {
   oneof kind {
     RootDestination root = 1;
+    // backup is a Backup destination and backups_folder the Controller's
+    // Backups folder. The receiver stages in the folder and renames the
+    // one file to its Backup name once it verifies.
+    BackupPlace backup = 2;
+    BackupPlace backups_folder = 3;
   }
+}
+
+// BackupPlace is the Backup name in a Backup folder the intent lists.
+message BackupPlace {
+  string folder = 1;
+  string name = 2;
 }
 
 // RootDestination is a library root at one place: a re-home bumps the
@@ -92,6 +120,9 @@ message Source {
   oneof ref {
     TorrentPayload torrent = 1;
     PathSource path = 2;
+    // backup is a Backup the sender opens only in a Backup folder its
+    // intent lists, by its Backup name.
+    BackupPlace backup = 3;
   }
 }
 
@@ -111,6 +142,28 @@ message TorrentPayload {
 message Facts {
   repeated Receiving receiving = 1;
   repeated Sending sending = 2;
+  repeated BackupFolderFacts backup_folders = 3;
+}
+
+// BackupFolderFacts is one Backup folder the intent lists, as this Node
+// found it.
+message BackupFolderFacts {
+  string folder = 1;
+  // names is every Backup name in the folder, sorted. Empty with error
+  // set when the folder can't be read.
+  repeated string names = 2;
+  string error = 3;
+  BackupCheck check = 4;
+}
+
+// BackupCheck answers the intent's check: the keyed BLAKE3 of the Backup
+// named name, under key. error is set instead when the file can't be
+// read.
+message BackupCheck {
+  string name = 1;
+  bytes key = 2;
+  bytes sum = 3;
+  string error = 4;
 }
 
 // Receiving is one Transfer this Node receives, or kept from receiving.
@@ -202,5 +255,8 @@ message Failed {
     CODE_SOURCE_GONE = 1;
     CODE_SOURCE_FAILED = 2;
     CODE_DAMAGED = 3;
+    // CODE_NO_SPACE is a Backup folder that ran out of space. A copy
+    // fails rather than waiting for room.
+    CODE_NO_SPACE = 4;
   }
 }

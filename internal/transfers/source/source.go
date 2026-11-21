@@ -15,6 +15,7 @@ type Kind string
 const (
 	TorrentKind Kind = "torrent"
 	PathKind    Kind = "path"
+	BackupKind  Kind = "backup"
 )
 
 // Ref names one file a sender reads: a Torrent or a Path. Refs are
@@ -40,6 +41,14 @@ type Path struct{ Abs string }
 
 func (Path) Kind() Kind { return PathKind }
 func (Path) ref()       {}
+
+// Backup is the Backup Name in Folder on the source Node, as the Admin
+// typed the folder. The Node opens it only while its Transfers intent
+// lists Folder and Name is a Backup name.
+type Backup struct{ Folder, Name string }
+
+func (Backup) Kind() Kind { return BackupKind }
+func (Backup) ref()       {}
 
 // Reason is why a sender can't read a source.
 type Reason uint8
