@@ -36,7 +36,7 @@ test("a Manual Grab's Details read who grabbed it, past what, where it went and 
   await navigate(page, "Activity");
   const fromActivity = await openGrabDetails(page, page.getByRole("table", { name: "Grabs" }), lq);
   await expect(fromActivity).toHaveAccessibleName("Grab of The Quiet Orchard");
-  await expect(fromActivity).toContainText(/Found by Ada Okafor in Manual search, .+\./u);
+  await expect(fromActivity).toContainText(/Found by Ada Okafor in Manual search at .+\./u);
   await expect(fromActivity).toContainText(
     "Ada Okafor grabbed it although score -5 is below the minimum of 0 at 1080p.",
   );
@@ -59,7 +59,7 @@ test("a Manual Grab's Details read who grabbed it, past what, where it went and 
     page.getByRole("main").getByRole("table", { name: "Grabs" }),
     lq,
   );
-  await expect(fromWork).toContainText(/Found by Ada Okafor in Manual search, .+\./u);
+  await expect(fromWork).toContainText(/Found by Ada Okafor in Manual search at .+\./u);
   await expect(fromWork).toContainText(lq);
 });
 
@@ -72,7 +72,7 @@ test("a failed automatic Grab's Details open from its Needs you card", async ({
   await page.goto(`/works/${series}`);
   await needsYouAction(page, "Details");
   const record = page.getByRole("dialog", { name: "Grab of The Lantern Keepers" });
-  await expect(record).toContainText(/Found by Search, .+\./u);
+  await expect(record).toContainText(/Found by Search at .+\./u);
   // The season pack fills E05 to E10, so automatic search grabs it.
   await expect(record).toContainText("The.Lantern.Keepers.S02.1080p.WEB-DL.H264-FKW");
   await expect(record).toContainText("Failed");

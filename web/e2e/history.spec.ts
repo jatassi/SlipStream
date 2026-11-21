@@ -40,7 +40,7 @@ test("History lists a Work added today, opens it in full, shows on its Work page
   await page.goto("/activity/history");
   const today = page.getByRole("list", { name: "Today" });
   const entry = today.getByRole("listitem").filter({ hasText: /Added The Salt Road/u });
-  await expect(entry).toContainText(/\d{2}:\d{2}/u);
+  await expect(entry).toContainText(/\d{1,2}:\d{2}(?: [AP]M)?/u);
   const opens = isPhone(page) ? /^Added The Salt Road/u : /^Details, Added The Salt Road/u;
   await entry.getByRole("button", { name: opens }).click();
   await expect(page.getByRole("link", { name: /^Open The Salt Road/u })).toHaveAttribute(

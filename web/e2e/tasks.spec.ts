@@ -35,7 +35,7 @@ test("Tasks shows Housekeeping in the Controller group with its cadence, next ru
   await navigate(page, "Tasks");
   await expect(page.getByRole("heading", { level: 2, name: "Controller" })).toBeVisible();
   const row = housekeepingRow(page);
-  await expect(row).toContainText(/(Tonight|Tomorrow) at 04:00/u);
+  await expect(row).toContainText(/(Tonight|Tomorrow) at (?:4:00 AM|04:00)/u);
   if (isPhone(page)) {
     return;
   }
@@ -143,7 +143,7 @@ test("a cadence set on one surface reads on the other, and Reset brings back dai
   await expect(when).toContainText("Daily in the Maintenance window");
   await expect(when.getByRole("textbox", { name: "Runs every" })).toHaveValue("1");
   await expect(when.getByText("day", { exact: true })).toBeVisible();
-  await expect(housekeepingRow(page)).toContainText(/(Tonight|Tomorrow) at 04:00/u);
+  await expect(housekeepingRow(page)).toContainText(/(Tonight|Tomorrow) at (?:4:00 AM|04:00)/u);
 });
 
 const Schedule = z.object({ window: z.object({ zone: z.string() }) });
