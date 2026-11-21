@@ -35,6 +35,7 @@ export function ProviderMark({ id }: { id: string }) {
   return mark.logo === undefined ? (
     <HugeiconsIcon icon={mark.icon} size={28} aria-hidden="true" className="shrink-0 text-ink-2" />
   ) : (
+    // oxlint-disable-next-line slipstream/no-restricted-syntax -- a bundled provider logo, not artwork
     <img src={mark.logo} alt="" className="size-7 shrink-0" />
   );
 }

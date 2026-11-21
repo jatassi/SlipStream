@@ -7,7 +7,7 @@ import { openManualSearch } from "../manual/sheet-state";
 import { Button } from "../ui/button";
 import { IconButton } from "../ui/icon-button";
 import { Menu } from "../ui/menu";
-import { Poster } from "../ui/poster";
+import { Artwork } from "../ui/artwork";
 import { PlainTime } from "../ui/relative-time";
 // oxlint-disable-next-line import/max-dependencies -- each column draws its own part of a row
 import { Spinner } from "../ui/spinner";
@@ -18,7 +18,7 @@ import { type Headers, lastWords, nextOf, rangesWords, reasonWords } from "./wan
 function WorkCell({ row }: { row: GrabsWantedRow }) {
   return (
     <span className="flex min-w-0 items-center gap-3 py-1.5">
-      <Poster url={row.work.posterUrl ?? undefined} />
+      <Artwork use="poster" size="row" url={row.work.posterUrl ?? undefined} />
       <Link {...workLink(row)} className="truncate font-semibold">
         {row.work.label}
       </Link>

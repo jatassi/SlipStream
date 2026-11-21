@@ -5,7 +5,7 @@ import { Chevron } from "../ui/chevron";
 import { Icon } from "../ui/icon";
 import { ListRow } from "../ui/list";
 import { PlainTime } from "../ui/relative-time";
-import { Poster } from "../ui/poster";
+import { Artwork } from "../ui/artwork";
 import { Sheet } from "../ui/sheet";
 import { useShell } from "../ui/shell-context";
 import { signals } from "../ui/signal-chip";
@@ -36,7 +36,9 @@ function Leading({ entry }: { entry: HistoryListEntry }) {
   if (entry.work === null) {
     return <span aria-hidden="true" className={`shrink-0 ${phone ? "w-8" : "w-6"}`} />;
   }
-  return <Poster url={entry.work.posterUrl ?? undefined} size={phone ? "row" : "option"} />;
+  return (
+    <Artwork use="poster" size={phone ? "row" : "option"} url={entry.work.posterUrl ?? undefined} />
+  );
 }
 
 function Disclosure({

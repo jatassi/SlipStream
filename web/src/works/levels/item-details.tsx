@@ -1,4 +1,5 @@
 import type { WorksContentType } from "../../api/gen/model";
+import { Artwork } from "../../ui/artwork";
 import { Details } from "../../ui/details";
 import { Dialog } from "../../ui/dialog";
 import { placedOf } from "../fields-by-tier";
@@ -32,7 +33,8 @@ export function ItemDetails({
   );
 }
 
-function ItemFacts({ type, view: { item } }: { type: WorksContentType; view: ItemView }) {
+function ItemFacts({ type, view }: { type: WorksContentType; view: ItemView }) {
+  const { item } = view;
   const at = (place: Parameters<typeof placedOf>[3]) => placedOf(type, "item", item.fields, place);
   const stills = new Set(type.artwork.filter(({ tier }) => tier === "item").map(({ key }) => key));
   const still = item.artwork.find(({ kind }) => stills.has(kind));
@@ -42,11 +44,7 @@ function ItemFacts({ type, view: { item } }: { type: WorksContentType; view: Ite
   return (
     <div className="flex flex-col gap-4">
       {still !== undefined && (
-        <img
-          src={`${still.url}?size=medium`}
-          alt=""
-          className="aspect-video w-full rounded-item object-cover"
-        />
+        <Artwork use="still" size="wide" url={still.url} label={`${view.code} ${item.label}`} />
       )}
       {overview !== undefined && <p className="text-ink-2">{aboutText(overview.value)}</p>}
       <FieldFacts holder={item} items={at("about")} look="inline" />

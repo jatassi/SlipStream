@@ -232,6 +232,14 @@
         "message": "key hints are Kbd from src/ui/kbd.tsx"
       },
       {
+        "selector": "JSXOpeningElement[name.name='img']",
+        "message": "an image is Artwork from src/ui/artwork.tsx"
+      },
+      {
+        "selector": "TemplateElement[value.raw=/\\?size=/]",
+        "message": "an artwork size comes from Artwork or sized() in src/ui/artwork.tsx"
+      },
+      {
         "selector": "JSXOpeningElement[name.name='time']",
         "message": "a time is RelativeTime or PlainTime from src/ui/relative-time.tsx"
       },
@@ -773,6 +781,14 @@
             "message": "key hints are Kbd from src/ui/kbd.tsx"
           },
           {
+            "selector": "JSXOpeningElement[name.name='img']",
+            "message": "an image is Artwork from src/ui/artwork.tsx"
+          },
+          {
+            "selector": "TemplateElement[value.raw=/\\?size=/]",
+            "message": "an artwork size comes from Artwork or sized() in src/ui/artwork.tsx"
+          },
+          {
             "selector": "JSXOpeningElement[name.name='time']",
             "message": "a time is RelativeTime or PlainTime from src/ui/relative-time.tsx"
           },
@@ -847,6 +863,14 @@
           {
             "selector": "JSXOpeningElement[name.name='kbd']",
             "message": "key hints are Kbd from src/ui/kbd.tsx"
+          },
+          {
+            "selector": "JSXOpeningElement[name.name='img']",
+            "message": "an image is Artwork from src/ui/artwork.tsx"
+          },
+          {
+            "selector": "TemplateElement[value.raw=/\\?size=/]",
+            "message": "an artwork size comes from Artwork or sized() in src/ui/artwork.tsx"
           },
           {
             "selector": "JSXOpeningElement[name.name='time']",

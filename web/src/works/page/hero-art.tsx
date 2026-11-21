@@ -1,19 +1,23 @@
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
-import type { WorksContentType, WorksWorkView } from "../../api/gen/model";
+import type { WorksArt, WorksContentType, WorksWorkView } from "../../api/gen/model";
 import { ambientScene, subscribeScene, useAmbient } from "../../shell/ambient/use-ambient";
 import { useShellSlots } from "../../shell/page";
+import { Artwork, sized } from "../../ui/artwork";
 
 const neutral = { kind: "neutral" } as const;
 
-/** The artwork route of the Work's image of a kind, without a size. */
-export const artOf = (work: WorksWorkView, kind: string | null): string | undefined =>
-  work.artwork.find((art) => art.kind === kind)?.url;
+/** The artwork route of a Work's image of a kind, without a size. */
+export const artOf = (
+  holder: { readonly artwork: readonly WorksArt[] },
+  kind: string | null,
+): string | undefined => holder.artwork.find((art) => art.kind === kind)?.url;
 
 // The sharp backdrop shows once the ambient holds it, at the brightness
 // the ambient measured, so text over its faded edge keeps the ceiling.
-export function Backdrop({ url }: { url: string }) {
+export function Backdrop({ route }: { route: string }) {
   const { backdrops } = useSyncExternalStore(subscribeScene, ambientScene);
+  const url = sized(route, "large");
   const shown = backdrops.find((backdrop) => !backdrop.leaving && backdrop.url === url);
   if (shown === undefined) {
     return null;
@@ -23,34 +27,8 @@ export function Backdrop({ url }: { url: string }) {
       aria-hidden="true"
       className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[min(56vw,440px)] overflow-hidden [mask-image:linear-gradient(to_bottom,black_20%,transparent_92%),linear-gradient(to_right,transparent,black_12%,black_88%,transparent)] [mask-composite:intersect]"
     >
-      <img
-        src={url}
-        alt=""
-        className="size-full object-cover"
-        style={{ filter: `brightness(${shown.brightness})` }}
-      />
+      <Artwork use="backdrop" size="backdrop" url={route} brightness={shown.brightness} />
     </div>
-  );
-}
-
-export function PosterArt({ url }: { url: string | undefined }) {
-  const [failed, setFailed] = useState<string>();
-  return (
-    <span
-      aria-hidden="true"
-      className="block aspect-2/3 w-28 shrink-0 overflow-hidden rounded-card bg-glass-raised ring-1 ring-hairline ring-inset sm:w-40"
-    >
-      {url !== undefined && failed !== url && (
-        <img
-          src={`${url}?size=medium`}
-          alt=""
-          className="size-full object-cover"
-          onError={() => {
-            setFailed(url);
-          }}
-        />
-      )}
-    </span>
   );
 }
 
@@ -65,28 +43,12 @@ export function TitleHeading({
   label: string;
   treatment: string | undefined;
 }) {
-  const [failed, setFailed] = useState<string>();
   // A pushed page's nav bar holds its h1, so the hero's title shows without repeating it.
   const Title = useShellSlots().heading.kind === "bar" ? "p" : "h1";
   const hidden = Title === "p" ? { "aria-hidden": true } : {};
-  if (treatment === undefined || failed === treatment) {
-    return (
-      <Title className="text-title-large text-ink-1" {...hidden}>
-        {label}
-      </Title>
-    );
-  }
   return (
-    <Title {...hidden}>
-      <img
-        src={`${treatment}?size=medium`}
-        alt=""
-        className="block h-28 w-auto max-w-[min(420px,100%)] object-contain object-left-bottom"
-        onError={() => {
-          setFailed(treatment);
-        }}
-      />
-      <span className="sr-only">{label}</span>
+    <Title className="text-title-large text-ink-1" {...hidden}>
+      <Artwork use="logo" size="title" url={treatment} label={label} />
     </Title>
   );
 }
@@ -99,7 +61,7 @@ export function useWorkAmbient(type: WorksContentType, work: WorksWorkView, fail
       () =>
         backdrop === undefined || failed
           ? neutral
-          : { kind: "artwork", url: `${backdrop}?size=large`, workId: work.id },
+          : { kind: "artwork", url: sized(backdrop, "large"), workId: work.id },
       [backdrop, failed, work.id],
     ),
   );

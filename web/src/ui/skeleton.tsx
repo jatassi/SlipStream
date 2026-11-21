@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 
+import { ArtworkFrame } from "./artwork";
 import { useShell } from "./shell-context";
 
 /** The loaded layout a skeleton stands in for, so the page doesn't jump when the data lands. */
@@ -120,7 +121,7 @@ function Grid({ posters }: Fit) {
     <div className={`grid gap-4 ${posterColumns[posters]}`}>
       {keysOf("grid").map((key) => (
         <div key={key} className="flex flex-col gap-2">
-          <span className="block aspect-[2/3] rounded-card bg-glass-raised ring-1 ring-hairline ring-inset" />
+          <ArtworkFrame size="card" />
           <span className={`h-3 w-3/4 ${skeletonBar}`} />
           <span className={`h-2.5 w-1/3 ${skeletonBar}`} />
         </div>
@@ -164,7 +165,7 @@ function Hero(fit: Fit) {
   return (
     <div className="flex flex-col gap-7">
       <div className="flex flex-col gap-5 pt-[clamp(24px,14vw,180px)] sm:flex-row sm:items-end">
-        <span className="block aspect-2/3 w-28 shrink-0 rounded-card bg-glass-raised ring-1 ring-hairline ring-inset sm:w-40" />
+        <ArtworkFrame size="hero" />
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <span className={`h-[1lh] w-2/3 max-w-96 text-title-large ${skeletonBar}`} />
           {heroLines.map((width) => (

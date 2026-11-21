@@ -4,7 +4,7 @@ import { bytes } from "../format";
 import { Quality } from "../release/quality";
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
-import { Poster } from "../ui/poster";
+import { Artwork } from "../ui/artwork";
 import { EntryActions } from "./entry-actions";
 import { EntryDetails } from "./entry-details";
 import { filesWords, named, reasonsOf } from "./words";
@@ -34,7 +34,7 @@ export function EntryRow({ entry, type }: { entry: RootEntry; type: WorksContent
       aria-label={entry.folder}
       className="flex gap-3 rounded-card bg-glass p-4 ring-1 ring-hairline ring-inset"
     >
-      <Poster url={entry.suggestion?.posterUrl ?? undefined} />
+      <Artwork use="poster" size="row" url={entry.suggestion?.posterUrl ?? undefined} />
       <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="font-semibold text-ink-1 wrap-anywhere">

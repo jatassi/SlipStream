@@ -5,7 +5,7 @@ import { useActOnRootImport } from "../api/gen/query/imports/imports";
 import { useSearchCatalogSuspense } from "../api/gen/query/works/works";
 import { Button } from "../ui/button";
 import { List, ListRow } from "../ui/list";
-import { Poster } from "../ui/poster";
+import { Artwork } from "../ui/artwork";
 import { toast } from "../ui/toast";
 import { named } from "./words";
 
@@ -29,7 +29,7 @@ function CandidateRow({
   const label = named(candidate.label, yearOf(candidate));
   return (
     <ListRow
-      leading={<Poster url={candidate.posterUrl ?? undefined} />}
+      leading={<Artwork use="poster" size="row" url={candidate.posterUrl ?? undefined} />}
       title={label}
       meta={candidate.overview === "" ? undefined : candidate.overview}
       trailing={

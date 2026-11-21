@@ -2,14 +2,15 @@ import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { memo } from "react";
 
 import { type Noun, countWords } from "../../format";
+import { Artwork } from "../../ui/artwork";
 import { Icon } from "../../ui/icon";
 import { Popover } from "../../ui/popover";
 import { StateBar } from "../../ui/state-square";
 import { lowered } from "../monitoring/labels";
 import { ColumnNames } from "./columns";
 import { LevelControls } from "./controls";
-import type { LevelSearch } from "./level-search";
 // oxlint-disable-next-line import/max-dependencies -- the header holds its name, state bar, tally, search state word and controls
+import type { LevelSearch } from "./level-search";
 import type { LevelTarget, LevelView } from "./model";
 
 export type HeaderActions = {
@@ -26,16 +27,6 @@ function tallyWords(level: LevelView, item: Noun): string {
     return countWords(level.gone.length, lowered(item));
   }
   return level.tally === null ? "Not monitored" : `${level.tally.met} of ${level.tally.of} met`;
-}
-
-function Poster({ url }: { url: string | undefined }) {
-  return (
-    <span className="block h-11 w-7.5 shrink-0 overflow-hidden rounded-[4px] bg-glass-raised ring-1 ring-hairline ring-inset">
-      {url !== undefined && (
-        <img src={`${url}?size=small`} alt="" loading="lazy" className="size-full object-cover" />
-      )}
-    </span>
-  );
 }
 
 /** The group's state word after the tally; it opens its full sentence when it has one. */
@@ -130,7 +121,7 @@ export const LevelHeader = memo(function LevelHeader({
       <div
         className={`flex h-14 items-center gap-3 bg-glass px-4 ${open ? "rounded-t-card" : "rounded-card"}`}
       >
-        {!phone && <Poster url={level.poster} />}
+        {!phone && <Artwork use="poster" size="row" url={level.poster} />}
         <Title
           level={level}
           open={open}

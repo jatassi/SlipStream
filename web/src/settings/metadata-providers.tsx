@@ -38,7 +38,10 @@ function Attribution({ attribution }: { attribution: MetadataAttribution }) {
   const logo = attribution.logo === null ? undefined : logos[attribution.logo];
   return (
     <p className="flex flex-wrap items-center gap-3 text-meta text-ink-3">
-      {logo !== undefined && <img src={logo.src} alt={logo.name} className="h-3" />}
+      {logo !== undefined && (
+        // oxlint-disable-next-line slipstream/no-restricted-syntax -- a bundled provider logo, not artwork
+        <img src={logo.src} alt={logo.name} className="h-3" />
+      )}
       {attribution.text}
     </p>
   );

@@ -6,7 +6,7 @@ import { Button } from "../../ui/button";
 import { Chip } from "../../ui/chip";
 import { Empty } from "../../ui/empty";
 import { List, ListRow } from "../../ui/list";
-import { Poster } from "../../ui/poster";
+import { Artwork } from "../../ui/artwork";
 import { factTexts } from "../page/facts";
 import { openAddSheet } from "./sheet-state";
 
@@ -54,7 +54,7 @@ function Meta({ type, candidate }: { type: WorksContentType; candidate: WorksCan
 }
 
 function Candidate({ type, candidate }: { type: WorksContentType; candidate: WorksCandidate }) {
-  const poster = <Poster url={candidate.posterUrl ?? undefined} />;
+  const poster = <Artwork use="poster" size="row" url={candidate.posterUrl ?? undefined} />;
   if (candidate.workId !== null) {
     return (
       <ListRow

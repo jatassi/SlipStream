@@ -4,7 +4,7 @@ import type { Clock } from "../ui/clock";
 import type { LiveRow } from "../live/torrents";
 import { QualityName } from "../release/quality";
 import { Data } from "../ui/data";
-import { Poster } from "../ui/poster";
+import { Artwork } from "../ui/artwork";
 import { Mark } from "../ui/state-mark";
 import { type Row, rateWords, stateLine, trackerLine } from "./model";
 import type { Names } from "./names";
@@ -55,7 +55,7 @@ function WorkLines({ row, names }: CellProps) {
 export function WorkCell(props: CellProps) {
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <Poster url={props.names.poster(props.row.workId)} />
+      <Artwork use="poster" size="row" url={props.names.poster(props.row.workId)} />
       <WorkLines {...props} />
     </span>
   );

@@ -65,6 +65,7 @@ function Image({
         Signing in to {name} needs the code in this image, which {home} fetched. It expires{" "}
         {whenWords(captcha.expiresAt, "at", clock)}.
       </p>
+      {/* oxlint-disable-next-line slipstream/no-restricted-syntax -- an Indexer's challenge image, not artwork */}
       <img
         src={captcha.image}
         alt={`The captcha ${name} shows`}

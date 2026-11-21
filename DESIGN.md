@@ -178,6 +178,7 @@ motion:
     dialog: "360ms"
     live-tick: "1s"
     sheen: "2.4s"
+    artwork: "200ms"
 ambient:
   neutral:
     hue: 214
@@ -520,7 +521,7 @@ The frontmatter's `shadows` block holds each shadow's value.
 
 ## Shapes
 
-Controls are capsules and containers are softly squared. A control a finger or pointer presses (a button, segmented control, switch, search field, toast or pill) is a capsule at 999px. Containers step up in radius as they float higher: 6px chips, 8px menu items, inputs and small art, 14px cards, tables, menus and large posters, 20px Dialogs, and a 24px top edge on sheets. Marks smaller than 16px (state squares, stage segments, bars) round to a quarter of their height.
+Controls are capsules and containers are softly squared. A control a finger or pointer presses (a button, segmented control, switch, search field, toast or pill) is a capsule at 999px. Containers step up in radius as they float higher: 6px chips, 8px menu items, inputs and small art (row posters, stills and headshots), 14px cards, tables, menus and large posters, 20px Dialogs, and a 24px top edge on sheets. Marks smaller than 16px (state squares, stage segments, bars) round to a quarter of their height.
 
 ## Components
 
@@ -667,10 +668,10 @@ What a list, table or section shows when it has nothing (`Empty` in `web/src/ui/
 A placeholder in the loaded layout's frame while its data loads (`Skeleton` in `web/src/ui/skeleton.tsx`), so the page doesn't move when the data lands. It is a status named for what loads, such as "Loading Torrents". Its bars are `fill` at radius 6, and each shape draws the loaded component's frame and row heights.
 - **Rows:** A List. A glass sheet of 6 rows at the List's one-line or two-line height, with hairlines between rows, a title bar and, on two-line rows, a Meta bar.
 - **Table:** A Table. Its 32px header, then 8 rows at the table's line height. On phone, where a table turns into a list, it draws rows.
-- **Grid:** The Library grid at the person's poster size, small, medium or large. 12 empty poster frames on `glass-raised`, each with a label bar and a Meta bar. A Library whose address names the table view draws Table instead.
+- **Grid:** The Library grid at the person's poster size, small, medium or large. 12 of Artwork's empty card frames, each with a label bar and a Meta bar. A Library whose address names the table view draws Table instead.
 - **Facts:** A Facts sheet of 4 rows, with a label bar in the label column and a value bar. In Touch the label bar sits over the value bar.
 - **Form:** 3 fields, each a label bar over an empty `well` at the input's height, at most 480px wide.
-- **Hero:** The Work page. Its 2:3 poster frame beside a title bar in Title large and two Meta bars, laid out as the hero is, then Rows of two lines.
+- **Hero:** The Work page. Artwork's empty hero frame beside a title bar in Title large and two Meta bars, laid out as the hero is, then Rows of two lines.
 - **Page:** A route that renders its own page shows its title at once while it loads, or a bar of the title's height while its loader names the title, and then the shape. A route inside a layout that owns the page, such as a Node's sections, shows the shape alone.
 
 ### Details
@@ -698,9 +699,20 @@ Lists and tables are glass sheets with radius 14, a hairline ring and hairlines 
 
 A list too long to draw whole, such as a Node's log, draws only the rows near its view (`VirtualRows`). It follows the tail while scrolled to the end, stops following once scrolled up, and follows again when scrolled back down.
 
+### Artwork
+
+Every image of a Work, an Item or a person is one `Artwork` (`web/src/ui/artwork.tsx`), named by its use and size. Each slot asks the artwork proxy for one size and has a fixed frame, so nothing moves when the image lands. A framed slot is `glass-raised` with a hairline ring inset.
+- **Poster:** 2:3. Option 24 × 36 at radius 4 and row 32 × 48 at radius 8 load `small`. Preview 120 × 180, the hero (112 wide, 160 from `sm`) and the card (fluid, with the `poster` shadow) load `medium` at radius 14.
+- **Still:** An Item's 16:9 image in its details, fluid at radius 8, at `medium`. An Item with no still has no frame.
+- **Headshot:** A person's 2:3 photo in Cast and crew, 96 wide at radius 8, at `medium`.
+- **Logo:** The title treatment, 112px tall and at most 420px wide, and a studio or network mark, 20px tall and at most 96px wide at `small`. Neither has a frame.
+- **Backdrop:** The Work page's sharp backdrop at `large`, inside the hero's mask.
+
+While an image loads its frame stays empty, and a headshot shows the person's initials in Label at `ink-3`. A poster or still with no image, or one that fails, shows its title in Meta at 600 in `ink-3`, centred and clamped to 3 lines. A row or option poster keeps its empty frame, a headshot keeps the initials, a title treatment becomes the label in text and a mark leaves nothing. An image fades in as Motion's Artwork says, and one the browser has already decoded, such as a card scrolled back into view, shows at once. Art is decorative (`alt=""`) because the words beside it name the thing, and the title treatment keeps its label for screen readers. A slot asks for one size and never a `srcset`, because only `small`, `medium` and the backdrop's `large` are prefetched for offline use. Outside `web/src/ui`, an `<img>` or a hand-built `?size=` fails lint.
+
 ### Poster card
 
-One Work in the Library grid. Its poster is 2:3 on `glass-raised` with radius 14, a hairline ring and the `poster` shadow, loaded at the medium size once its row is drawn. A Work with no poster, or whose image fails to load, keeps the empty frame. Under the poster sit the label in Body at 600 in `ink-1`, the type's first facts field in Meta at `ink-3` (the year for a movie) and the Work's status marks, each on one truncated line. A Work with none of its Items monitored dims its poster to 55% and says "Not monitored". A pick checkbox sits on a `popover` patch at the top left, hidden until hover or focus and shown on every card once picking starts. A picked card rings its poster with a 2px `glow` ring. The poster and label are one link to the Work page, with the focus outline 4px out.
+One Work in the Library grid. Its poster is Artwork's card, loaded once its row is drawn. A Work with no poster, or whose image fails to load, shows its title in the frame. Under the poster sit the label in Body at 600 in `ink-1`, the type's first facts field in Meta at `ink-3` (the year for a movie) and the Work's status marks, each on one truncated line. A Work with none of its Items monitored dims its poster to 55% and says "Not monitored". A pick checkbox sits on a `popover` patch at the top left, hidden until hover or focus and shown on every card once picking starts. The "…" menu sits on a patch at the top right, hidden until hover or focus on a fine pointer and always shown on a touch screen. A touch screen starts picking from Select in the toolbar's menu. A picked card rings its poster with a 2px `glow` ring. The poster and label are one link to the Work page, with the focus outline 4px out.
 
 ### Library grid
 
@@ -895,12 +907,13 @@ The mark is Two Nodes: a stream S whose two ends are dots, one for each kind of 
 - **Overlays.** Menus and tooltips take 180ms, the palette and toasts 220ms, the Inspector 280ms, sheets 340ms in and 260ms out, and Dialogs 360ms.
 - **Shell.** The sidebar collapses and expands over 280ms on the standard ease. A page change in the desktop shell crossfades the content alone over 180ms. On phone, a push slides the new page in from the right over 340ms on the spring while the old page drifts 30% left and dims to 60%, and a pop reverses it. The bars, the sidebar and the tab bar hold still through both. In an installed web app, a drag of 80px or more from the screen's left 20px goes back.
 - **Live.** Fills move linearly once a second, and the sheen loops every 2.4s. The spinner turns every 0.8s.
+- **Artwork.** An image fades in over 200ms on the standard ease once it loads. The hero backdrop fades over the ambient's 1.1s. An image the browser has already decoded shows at once.
 - **Loading.** Skeleton bars breathe between `fill` and `fill-hover` over 2.4s on the standard ease, slower than any live motion, so a skeleton reads as waiting. A skeleton appears after 300ms with a 180ms fade, so data that lands sooner never flashes one.
 - **Startup.** The sequence runs 4.4s and leaves over 360ms, as the Logo section says.
 
 The frontmatter's `motion` block holds these easings and the overlay durations. `release gen tokens` writes them to the theme as `--ease-*` and `--duration-*`.
 
-**The Reduce Motion Rule.** Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, fills jump without the sheen, and overlays appear without travel. Page transitions and the sidebar cut. Spinners, steps, skeleton bars, the PIN shake and canvas animations stop, and a skeleton still waits 300ms but appears without the fade. No animation is exempt.
+**The Reduce Motion Rule.** Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, images appear without their fade, fills jump without the sheen, and overlays appear without travel. Page transitions and the sidebar cut. Spinners, steps, skeleton bars, the PIN shake and canvas animations stop, and a skeleton still waits 300ms but appears without the fade. No animation is exempt.
 
 ## Do's and Don'ts
 
