@@ -149,6 +149,14 @@ func (OSDisk) OpenWrite(_ context.Context, path string) (WriteAtFile, error) {
 	return f, nil
 }
 
+func (OSDisk) OpenPrivate(_ context.Context, path string) (WriteAtFile, error) {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0o600) //nolint:gosec // the engine opens only a Backup name in a listed folder
+	if err != nil {
+		return nil, err //nolint:wrapcheck // a PathError names the call and the path; callers classify it with errors.Is
+	}
+	return f, nil
+}
+
 func (OSDisk) Remove(_ context.Context, path string) error {
 	return os.Remove(path) //nolint:wrapcheck // a PathError names the call and the path; callers classify it with errors.Is
 }

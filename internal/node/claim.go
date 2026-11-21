@@ -341,6 +341,14 @@ func (s surfaceNode) DownloadClients() (*downloadclients.Clients, bool) {
 	return h.clients, true
 }
 
+func (s surfaceNode) Backups() (*backups.Backups, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.backups == nil {
+		return nil, false
+	}
+	return h.backups, true
+}
+
 func (s surfaceNode) Transfers() (*transfers.Transfers, bool) {
 	h := s.n.half.Load()
 	if h == nil || h.transfers == nil {

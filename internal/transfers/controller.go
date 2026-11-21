@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/nodes"
 	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -29,28 +30,61 @@ var Def = role.WideDef[*tv1.Intent, *tv1.Facts, *tv1.Result]{Name: role.Transfer
 // Transfers.
 type PurposeKind string
 
-const Import PurposeKind = "import"
+const (
+	Import PurposeKind = "import"
+	// Backup copies a Backup to a Backup destination, or pulls one back
+	// into the Controller's Backups folder.
+	Backup PurposeKind = "backup"
+)
 
-// Destination is where a Transfer's files go. Its Node is never stored:
-// judge reads it from the destination each time, so a re-home moves it.
+// Destination is where a Transfer's files go. A root's Node is never
+// stored: judge reads it from the root each time, so a re-home moves it.
+// The two Backup kinds are never re-homed, so their record stores their
+// Node and folder.
 type Destination interface{ kind() string }
 
 // Root is a library root destination. Its receiver stages file position
 // at StagedRel(id, position) in the root.
 type Root struct{ ID roots.ID }
 
-func (Root) kind() string { return rootKind }
-
-const rootKind = "root"
-
-// rootOf is the root d names.
-func rootOf(d Destination) roots.ID {
-	r, ok := d.(Root)
-	if !ok {
-		panic("transfers: a destination of no known kind")
-	}
-	return r.ID
+// BackupDestination is a Backup destination: Folder on Node, as the Admin
+// typed it. Its receiver stages in the folder and renames the Backup into
+// place under its name once it verifies.
+type BackupDestination struct {
+	ID     [16]byte
+	Node   role.NodeID
+	Folder string
 }
+
+// BackupsFolder is the Controller's Backups folder, which a restore pulls
+// a copy back into, as a BackupDestination receives it.
+type BackupsFolder struct {
+	Node   role.NodeID
+	Folder string
+}
+
+func (Root) kind() string              { return rootKind }
+func (BackupDestination) kind() string { return backupKind }
+func (BackupsFolder) kind() string     { return backupsFolderKind }
+
+const (
+	rootKind          = "root"
+	backupKind        = "backup"
+	backupsFolderKind = "backups_folder"
+)
+
+// backupPlace is a Backup kind's place, which never moves.
+const backupPlace = 1
+
+// Priority is a Transfer's place in its pair's line.
+type Priority string
+
+const (
+	Normal Priority = "normal"
+	// Low starts on its pair only while no Normal Transfer waits there,
+	// and runs as Normal once it has waited LowWait.
+	Low Priority = "low"
+)
 
 // FileRequest is one file a purpose asks to copy.
 type FileRequest struct {
@@ -70,7 +104,9 @@ type Request struct {
 	Job         string
 	Source      role.NodeID
 	Destination Destination
-	Files       []FileRequest
+	// Priority is Normal when empty.
+	Priority Priority
+	Files    []FileRequest
 }
 
 type Transfer struct {
@@ -79,6 +115,7 @@ type Transfer struct {
 	Job         string
 	Source      role.NodeID
 	Destination Destination
+	Priority    Priority
 	Created     time.Time
 	Files       []File
 	Failure     *Failure
@@ -104,6 +141,10 @@ const (
 	Damaged          Code = "damaged"
 	SourceWrittenOff Code = "source_written_off"
 	Rerouted         Code = "rerouted"
+	// FolderFailed is a Backup kind's receiver that couldn't write the
+	// Backup into its folder, out of space or refused: a copy fails rather
+	// than waiting for room.
+	FolderFailed Code = "folder_failed"
 )
 
 // readBack is a damaged failure's detail when only the receiver's read of
@@ -172,6 +213,19 @@ type ControllerConfig struct {
 	// closes when it changes.
 	Readiness func(ctx context.Context, rd storage.Reader[storage.Library], node role.NodeID, refs []source.Ref) (map[source.Ref]source.Readiness, error)
 	Moved     func() <-chan struct{}
+	// LowWait is how long a Low Transfer waits behind Normal ones before
+	// it runs as Normal, read in rd.
+	LowWait func(ctx context.Context, rd storage.Reader[storage.Library]) (time.Duration, error)
+	// Paused is whether the library is Reconciling, read in rd: nothing
+	// becomes active, and every Transfer keeps its staging.
+	Paused func(ctx context.Context, rd storage.Reader[storage.Library]) (bool, error)
+	// Folders is node's Backup folders for its intent. It reads no
+	// library: backups answers it from backups.json, and Touches the
+	// Nodes whose folders change.
+	Folders func(node role.NodeID) []BackupFolder
+	// FoldersNoted is told each time node reports facts, which carry its
+	// Backup folders' facts. It must not block.
+	FoldersNoted func(node role.NodeID)
 	// Sample asks node for a fresh sample of its volumes.
 	Sample func(ctx context.Context, node role.NodeID) error
 	// Hub wakes the loop on the events of the inputs above that publish
@@ -286,8 +340,19 @@ func record(ctx context.Context, q *ledger.Queries, r Request) (id ID, failed, o
 		return ID{}, false, false, nil
 	}
 	id = ID{UUID: storage.NewUUID()}
-	root := rootOf(r.Destination)
-	row := ledger.InsertTransferParams{ID: id, Purpose: string(r.Purpose), Job: r.Job, SourceNode: r.Source, DestinationKind: r.Destination.kind(), DestinationRoot: &root, CreatedAt: storage.Now()}
+	priority := r.Priority
+	if priority == "" {
+		priority = Normal
+	}
+	row := ledger.InsertTransferParams{ID: id, Purpose: string(r.Purpose), Job: r.Job, SourceNode: r.Source, DestinationKind: r.Destination.kind(), Priority: string(priority), CreatedAt: storage.Now()}
+	switch d := r.Destination.(type) {
+	case Root:
+		row.DestinationRoot = &d.ID
+	case BackupDestination:
+		row.DestinationBackup, row.DestinationNode, row.DestinationFolder = d.ID[:], d.Node, &d.Folder
+	case BackupsFolder:
+		row.DestinationNode, row.DestinationFolder = d.Node, &d.Folder
+	}
 	if err = q.InsertTransfer(ctx, row); err != nil {
 		return ID{}, false, false, fmt.Errorf("record the Transfer: %w", err)
 	}
@@ -345,6 +410,8 @@ func fileRow(id ID, position int, f FileRequest) ledger.InsertFileParams {
 		p.InfoHash, p.FileIndex = s.Hash[:], new(int64(s.File))
 	case source.Path:
 		p.Path = &s.Abs
+	case source.Backup:
+		p.SourceFolder = &s.Folder
 	}
 	return p
 }
@@ -376,6 +443,39 @@ func (t *Transfers) Find(ctx context.Context, rd storage.Reader[storage.Library]
 	}
 	tr, err := load(ctx, rd, id)
 	return tr, err == nil, err
+}
+
+// OfPurpose is every record of p in rd, in (Created, ID) order, each
+// failure with its Sentence.
+func (t *Transfers) OfPurpose(ctx context.Context, rd storage.Reader[storage.Library], p PurposeKind) ([]Transfer, error) {
+	ids, err := ledger.New(rd).TransfersOfPurpose(ctx, string(p))
+	if err != nil {
+		return nil, err
+	}
+	peers, err := nodes.PeersIn(ctx, rd)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[role.NodeID]string, len(peers))
+	for id, p := range peers {
+		names[id] = p.Name
+	}
+	out := make([]Transfer, 0, len(ids))
+	for _, id := range ids {
+		tr, err := load(ctx, rd, id)
+		if err != nil {
+			return nil, err
+		}
+		if f := tr.Failure; f != nil {
+			dest, _, err := destinationIn(ctx, rd, tr)
+			if err != nil {
+				return nil, err
+			}
+			f.Sentence = sentence(tr, dest, f.Code, f.Position, f.Detail, names)
+		}
+		out = append(out, tr)
+	}
+	return out, nil
 }
 
 // LiveIn is every Transfer id with a record, for the files sweep.
@@ -413,17 +513,21 @@ func load(ctx context.Context, rd storage.Reader[storage.Library], id ID) (Trans
 	if err != nil {
 		return Transfer{}, err
 	}
-	root, err := roots.Get(ctx, rd, *row.DestinationRoot)
-	if err != nil {
-		return Transfer{}, err
+	place := int64(backupPlace)
+	if row.DestinationRoot != nil {
+		root, err := roots.Get(ctx, rd, *row.DestinationRoot)
+		if err != nil {
+			return Transfer{}, err
+		}
+		place = root.Place
 	}
-	return transferOf(row, files, root.Place)
+	return transferOf(row, files, place)
 }
 
 func transferOf(row ledger.Transfer, files []ledger.File, place int64) (Transfer, error) {
 	t := Transfer{
 		ID: row.ID, Purpose: PurposeKind(row.Purpose), Job: row.Job, Source: row.SourceNode,
-		Destination: Root{ID: *row.DestinationRoot}, Created: row.CreatedAt.Time(),
+		Destination: destinationOf(row), Priority: Priority(row.Priority), Created: row.CreatedAt.Time(),
 	}
 	if row.FailureCode != nil {
 		t.Failure = &Failure{Code: Code(*row.FailureCode), Position: -1, Detail: row.FailureDetail}
@@ -447,6 +551,18 @@ func transferOf(row ledger.Transfer, files []ledger.File, place int64) (Transfer
 	return t, nil
 }
 
+func destinationOf(row ledger.Transfer) Destination {
+	switch row.DestinationKind {
+	case rootKind:
+		return Root{ID: *row.DestinationRoot}
+	case backupKind:
+		return BackupDestination{ID: [16]byte(row.DestinationBackup), Node: row.DestinationNode, Folder: *row.DestinationFolder}
+	case backupsFolderKind:
+		return BackupsFolder{Node: row.DestinationNode, Folder: *row.DestinationFolder}
+	}
+	panic("transfers: a destination of no known kind")
+}
+
 // fromPath is whether f's source is a path.
 func (f File) fromPath() bool {
 	_, ok := f.Source.(source.Path)
@@ -464,6 +580,8 @@ func refOf(f ledger.File) (source.Ref, error) {
 		return t, nil
 	case source.PathKind:
 		return source.Path{Abs: *f.Path}, nil
+	case source.BackupKind:
+		return source.Backup{Folder: *f.SourceFolder, Name: f.Name}, nil
 	}
 	return nil, fmt.Errorf("file %d of Transfer %s has the source kind %q", f.Position, f.TransferID, f.SourceKind)
 }

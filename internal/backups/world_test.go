@@ -12,15 +12,27 @@ import (
 
 	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/backups/archive"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/nodes"
+	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
+	"github.com/jatassi/slipstream/internal/transfers/source"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // world is a Controller's data dir with a library.db, its library.key and
-// a Backups folder, and a Scheduler that runs each Start's unit in a
-// goroutine of its own, one at a time unless parallel is set.
+// a Backups folder, a Scheduler that runs each Start's units in a
+// goroutine of their own, one at a time unless parallel is set, and the
+// transfers of a Controller, home, with one Worker, vps, whose facts the
+// test sets. Its clock runs ahead of time.Now by ahead.
 type world struct {
 	t        *testing.T
 	dir      string
@@ -32,12 +44,28 @@ type world struct {
 	parallel bool
 	running  sync.Mutex
 	wg       sync.WaitGroup
+	startMu  sync.Mutex
 	starts   []tasks.Start
 	history  *entrytest.Recorder
 	backups  *backups.Backups
+	eng      *backups.Engine
+	ahead    atomic.Int64
+
+	home, vps role.NodeID
+	tr        *transfers.Transfers
+	factsMu   sync.Mutex
+	facts     map[role.NodeID]*tv1.Facts
+	verdict   roots.Verdict
 }
 
-var schemas = []storage.Schema[storage.Library]{secret.Schema(), backups.Schema()}
+var schemas = []storage.Schema[storage.Library]{
+	secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), health.Schema(), roots.Schema(),
+	transfers.LibrarySchema(), backups.Schema(),
+}
+
+type quiet struct{}
+
+func (quiet) Publish(context.Context, transfers.Changed) {}
 
 func newWorld(t *testing.T) *world {
 	t.Helper()
@@ -51,11 +79,61 @@ func newWorld(t *testing.T) *world {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := &world{t: t, dir: dir, folder: filepath.Join(dir, "backups"), lib: lib, keys: keys}
+	w := &world{
+		t: t, dir: dir, folder: filepath.Join(dir, "backups"), lib: lib, keys: keys,
+		home: role.NodeID{UUID: storage.NewUUID()}, vps: role.NodeID{UUID: storage.NewUUID()}, facts: map[role.NodeID]*tv1.Facts{},
+	}
 	w.free.Store(1 << 40)
+	for i, n := range []struct {
+		id   role.NodeID
+		name string
+	}{{w.home, "home"}, {w.vps, "vps"}} {
+		key := make([]byte, 32)
+		key[0] = byte(i + 1)
+		if err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := tx.ExecContext(ctx, "INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, ?, ?, 0)", n.id, key, n.name)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	t.Cleanup(w.wg.Wait)
 	return w
 }
+
+// transfers is the Controller's transfers, as a start opens them.
+func (w *world) transfers() *transfers.Transfers {
+	return transfers.New(transfers.ControllerConfig{
+		Library: w.lib,
+		Touch:   func(...role.NodeID) {},
+		Facts: func(id role.NodeID) (*tv1.Facts, bool) {
+			w.factsMu.Lock()
+			defer w.factsMu.Unlock()
+			f, ok := w.facts[id]
+			return f, ok
+		},
+		Board: func() transfers.Board { return nil },
+		Destinations: func(context.Context, storage.Reader[storage.Library], []roots.ID) (map[roots.ID]roots.Destination, error) {
+			return nil, nil
+		},
+		RootsMoved: func() <-chan struct{} { return nil },
+		Readiness: func(context.Context, storage.Reader[storage.Library], role.NodeID, []source.Ref) (map[source.Ref]source.Readiness, error) {
+			return nil, nil
+		},
+		Moved:        func() <-chan struct{} { return nil },
+		Folders:      func(id role.NodeID) []transfers.BackupFolder { return w.backups.Folders(id) },
+		FoldersNoted: func(role.NodeID) {},
+		LowWait:      func(context.Context, storage.Reader[storage.Library]) (time.Duration, error) { return time.Hour, nil },
+		Paused:       func(context.Context, storage.Reader[storage.Library]) (bool, error) { return false, nil },
+		Sample:       func(context.Context, role.NodeID) error { return nil },
+		Hub:          live.NewHub([]live.Event{transfers.ChangedEvent}),
+		Changed:      quiet{},
+		Timings:      transfers.DefaultTimings(),
+		Log:          slog.New(slog.DiscardHandler),
+	})
+}
+
+func (w *world) now() time.Time { return time.Now().Add(time.Duration(w.ahead.Load())) }
 
 func (w *world) engine(version string) *backups.Engine {
 	w.t.Helper()
@@ -73,7 +151,7 @@ func (w *world) engine(version string) *backups.Engine {
 			}
 			return w.free.Load(), nil
 		},
-		Clock: time.Now,
+		Clock: w.now,
 		Log:   slog.New(slog.DiscardHandler),
 	})
 }
@@ -82,11 +160,20 @@ func (w *world) engine(version string) *backups.Engine {
 func (w *world) open(version string) (*backups.Backups, error) {
 	rec, kept := entrytest.New("backups", backups.Entries())
 	w.history = kept
+	w.eng = w.engine(version)
+	w.tr = w.transfers()
 	b, err := backups.Open(w.t.Context(), backups.Config{
-		Library: w.lib, Keys: w.keys, Engine: w.engine(version), Start: w.start,
+		Library: w.lib, Keys: w.keys, Engine: w.eng, Start: w.start,
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return false, nil },
 		History:     rec,
 		Log:         slog.New(slog.DiscardHandler),
+		Transfers:   w.tr,
+		Self:        func() role.NodeID { return w.home },
+		Check: func(_ context.Context, _ identity.Admin, _ role.NodeID, folder string) (roots.Verdict, error) {
+			v := w.verdict
+			v.Path = folder
+			return v, nil
+		},
 	})
 	w.backups = b
 	return b, err
@@ -102,15 +189,19 @@ func (w *world) opened(version string) *backups.Backups {
 }
 
 func (w *world) start(ctx context.Context, st tasks.Start) (tasks.Started, error) {
+	w.startMu.Lock()
 	w.starts = append(w.starts, st)
+	w.startMu.Unlock()
 	task := w.backups.Task()
-	w.wg.Go(func() {
-		if !w.parallel {
-			w.running.Lock()
-			defer w.running.Unlock()
-		}
-		_ = task.Run(context.WithoutCancel(ctx), tasks.Unit{Key: st.Units[0]}, &tasks.Progress{})
-	})
+	for _, u := range st.Units {
+		w.wg.Go(func() {
+			if !w.parallel {
+				w.running.Lock()
+				defer w.running.Unlock()
+			}
+			_ = task.Run(context.WithoutCancel(ctx), tasks.Unit{Key: u}, &tasks.Progress{})
+		})
+	}
 	return tasks.Started{Added: st.Units}, nil
 }
 

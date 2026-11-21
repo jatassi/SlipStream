@@ -119,12 +119,16 @@ func serve(t *testing.T) *world {
 			}
 			return out, nil
 		},
-		Moved:   func() <-chan struct{} { return nil },
-		Sample:  func(context.Context, role.NodeID) error { return nil },
-		Hub:     live.NewHub([]live.Event{transfers.ChangedEvent}),
-		Changed: quiet{},
-		Timings: transfers.DefaultTimings(),
-		Log:     slog.New(slog.DiscardHandler),
+		Moved:        func() <-chan struct{} { return nil },
+		Folders:      func(role.NodeID) []transfers.BackupFolder { return nil },
+		FoldersNoted: func(role.NodeID) {},
+		LowWait:      func(context.Context, storage.Reader[storage.Library]) (time.Duration, error) { return time.Hour, nil },
+		Paused:       func(context.Context, storage.Reader[storage.Library]) (bool, error) { return false, nil },
+		Sample:       func(context.Context, role.NodeID) error { return nil },
+		Hub:          live.NewHub([]live.Event{transfers.ChangedEvent}),
+		Changed:      quiet{},
+		Timings:      transfers.DefaultTimings(),
+		Log:          slog.New(slog.DiscardHandler),
 	})
 	w.tr.Register(transfers.Purpose{
 		Kind:     transfers.Import,
@@ -139,6 +143,17 @@ func serve(t *testing.T) *world {
 				out[j] = map[string]string{"heat": "Heat (1995)", "ronin": "Ronin (1998)"}[j]
 			}
 			return out, nil
+		},
+	})
+	w.tr.Register(transfers.Purpose{
+		Kind:     transfers.Backup,
+		Verified: func(context.Context, *storage.Tx[storage.Library], transfers.Transfer, string) error { return nil },
+		Failed: func(context.Context, *storage.Tx[storage.Library], transfers.Transfer, transfers.Failure) error {
+			return nil
+		},
+		After: func([]string) {},
+		Names: func(context.Context, storage.Reader[storage.Library], []string) (map[string]string, error) {
+			return map[string]string{}, nil
 		},
 	})
 	w.o = ownertest.Serve(t, lib, func(r *api.Router) { transfersapi.Routes(r, controller{w.tr, side}) })
@@ -326,4 +341,44 @@ func TestSendLimitRefuses(t *testing.T) {
 		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"In whole KB/s."}`)
 	w.o.Expect(t, http.MethodGet, "/api/v1/transfers/nodes/"+storage.NewUUID().String()+"/settings", "", http.StatusNotFound,
 		`{"status":404,"code":"node_not_found","title":"No Node has this id"}`)
+}
+
+// TestACopyOfABackupReadsItsDestinationsFolder: a copy lists its Backup
+// destination's id and folder, and a pull back the Controller's Backups
+// folder.
+func TestACopyOfABackupReadsItsDestinationsFolder(t *testing.T) {
+	w := serve(t)
+	name := "slipstream-20261121T081517Z-2.1.0-manual-qkha.tar.zst.age"
+	for _, req := range []transfers.Request{
+		{Job: "copy", Source: w.home, Destination: transfers.BackupDestination{ID: [16]byte{0xab}, Node: w.seedbox, Folder: "/srv/backups"}, Files: []transfers.FileRequest{{Name: name, Source: source.Backup{Folder: "/data/backups", Name: name}, Size: 900}}},
+		{Job: "pull", Source: w.seedbox, Destination: transfers.BackupsFolder{Node: w.home, Folder: "/data/backups"}, Files: []transfers.FileRequest{{Name: name, Source: source.Backup{Folder: "/srv/backups", Name: name}, Size: 900}}},
+	} {
+		req.Purpose, req.Priority = transfers.Backup, transfers.Low
+		if err := w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := w.tr.Want(ctx, tx, req)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, reply := w.o.Call(t, http.MethodGet, "/api/v1/transfers", "")
+	var got struct {
+		Transfers []struct {
+			Purpose     string
+			Destination map[string]string
+		} `json:"transfers"`
+	}
+	if err := json.Unmarshal([]byte(reply), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Transfers) != 2 {
+		t.Fatalf("listed %s", reply)
+	}
+	copied, pulled := got.Transfers[0].Destination, got.Transfers[1].Destination
+	if copied["kind"] != "backup" || copied["backupDestinationId"] != "ab000000000000000000000000000000" || copied["folder"] != "/srv/backups" || copied["nodeName"] != "seedbox" {
+		t.Errorf("the copy goes to %v", copied)
+	}
+	if pulled["kind"] != "backups_folder" || pulled["folder"] != "/data/backups" || pulled["nodeName"] != "home" {
+		t.Errorf("the pull goes to %v", pulled)
+	}
 }

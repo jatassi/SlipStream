@@ -31,6 +31,36 @@ var KeepEach = setting.Count{
 	Default: 5, Min: 1, Max: 100, Unit: setting.Noun{One: "Backup", Many: "Backups"},
 }
 
+var CopyWaitLimit = setting.Duration{
+	Key: "backups.copyWaitLimit", Label: "A copy waits behind downloads for up to",
+	Default: 24 * time.Hour, Min: time.Hour, Max: 168 * time.Hour, Step: time.Hour,
+}
+
+var CheckCopies = setting.Duration{
+	Key: "backups.checkCopies", Label: "Check each destination's newest copy every",
+	Default: 7 * day, Min: day, Max: 90 * day, Step: day,
+}
+
+// seconds is a stored count of unit as setting.Duration reads it.
+func seconds(n *int64, unit time.Duration) *int64 {
+	if n == nil {
+		return nil
+	}
+	return new(*n * int64(unit/time.Second))
+}
+
+// CopyWaitLimitIn is A copy waits behind downloads for up to, read in r:
+// the transfers LowWait.
+func CopyWaitLimitIn(ctx context.Context, r storage.Reader[file]) (time.Duration, error) {
+	row, err := db.New(r).GetSettings(ctx)
+	return CopyWaitLimit.Value(seconds(row.CopyWaitLimitHours, time.Hour)), err
+}
+
+func checkCopiesIn(ctx context.Context, r storage.Reader[file]) (time.Duration, error) {
+	row, err := db.New(r).GetSettings(ctx)
+	return CheckCopies.Value(seconds(row.CheckCopiesDays, day)), err
+}
+
 // Retention is what Prune keeps.
 type Retention struct {
 	KeepScheduled time.Duration
@@ -43,11 +73,7 @@ func ReadRetention(ctx context.Context, r storage.Reader[file]) (Retention, erro
 	if err != nil {
 		return Retention{}, err
 	}
-	var seconds *int64
-	if row.KeepScheduledDays != nil {
-		seconds = new(*row.KeepScheduledDays * int64(day/time.Second))
-	}
-	return Retention{KeepScheduled: KeepScheduled.Value(seconds), KeepEach: int(KeepEach.Value(row.KeepEach))}, nil
+	return Retention{KeepScheduled: KeepScheduled.Value(seconds(row.KeepScheduledDays, day)), KeepEach: int(KeepEach.Value(row.KeepEach))}, nil
 }
 
 // Prune is retention, pure, over the verified Backups: scheduled Backups

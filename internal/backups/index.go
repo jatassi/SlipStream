@@ -37,6 +37,8 @@ type Ledger struct {
 	// StartedVersion is the version of the last binary that started on the
 	// library.
 	StartedVersion string
+	// Destinations is in the order they were added.
+	Destinations []Destination
 	// Backups is newest first.
 	Backups []Entry
 }
@@ -71,6 +73,11 @@ type Entry struct {
 	Cause string `json:"cause,omitempty"`
 	// By is the Account that pressed Back up now.
 	By string `json:"by,omitempty"`
+	// Copies is the Backup's copy on each destination it was queued to.
+	Copies []Copy `json:"copies,omitempty"`
+	// Pull is a restore pulling the Backup back from a destination into
+	// the Backups folder, nil for none.
+	Pull *Pull `json:"pull,omitempty"`
 }
 
 // Sum is BLAKE3 of a Backup's ciphertext.
@@ -89,9 +96,10 @@ func (s *Sum) UnmarshalText(b []byte) error {
 }
 
 type indexFile struct {
-	Format         int     `json:"format"`
-	StartedVersion string  `json:"startedVersion"`
-	Backups        []Entry `json:"backups"`
+	Format         int           `json:"format"`
+	StartedVersion string        `json:"startedVersion"`
+	Destinations   []Destination `json:"destinations"`
+	Backups        []Entry       `json:"backups"`
 }
 
 // OpenIndex reads path. A missing file is an empty Ledger.
@@ -126,15 +134,18 @@ func decodeIndex(b []byte) (Ledger, error) {
 	if err := dec.Decode(&f); err != nil {
 		return Ledger{}, fmt.Errorf("decode: %w", err)
 	}
-	return Ledger{StartedVersion: f.StartedVersion, Backups: f.Backups}, nil
+	return Ledger{StartedVersion: f.StartedVersion, Destinations: f.Destinations, Backups: f.Backups}, nil
 }
 
 func encodeIndex(l Ledger) ([]byte, error) {
-	backups := l.Backups
+	backups, destinations := l.Backups, l.Destinations
 	if backups == nil {
 		backups = []Entry{}
 	}
-	b, err := json.MarshalIndent(indexFile{Format: indexFormat, StartedVersion: l.StartedVersion, Backups: backups}, "", "  ")
+	if destinations == nil {
+		destinations = []Destination{}
+	}
+	b, err := json.MarshalIndent(indexFile{Format: indexFormat, StartedVersion: l.StartedVersion, Destinations: destinations, Backups: backups}, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("encode %s: %w", IndexFile, err)
 	}
@@ -148,8 +159,8 @@ func (x *Index) Read() Ledger {
 	return x.ledger.clone()
 }
 
-// Update applies fn to a copy and writes it. An error from fn leaves the
-// file and the Ledger as they were.
+// Update applies fn to a copy and writes it. An error from fn, or a
+// Ledger fn left as it was, leaves the file alone and Changed quiet.
 func (x *Index) Update(fn func(*Ledger) error) error {
 	x.mu.Lock()
 	defer x.mu.Unlock()
@@ -160,6 +171,9 @@ func (x *Index) Update(fn func(*Ledger) error) error {
 	b, err := encodeIndex(next)
 	if err != nil {
 		return err
+	}
+	if was, err := encodeIndex(x.ledger); err == nil && bytes.Equal(was, b) {
+		return nil
 	}
 	if err := atomicfile.Replace(x.path, b, x.retry); err != nil {
 		return fmt.Errorf("write %s: %w", IndexFile, err)
@@ -183,9 +197,13 @@ func (x *Index) Bytes() ([]byte, error) {
 }
 
 func (l *Ledger) clone() Ledger {
-	out := Ledger{StartedVersion: l.StartedVersion, Backups: slices.Clone(l.Backups)}
+	out := Ledger{StartedVersion: l.StartedVersion, Destinations: slices.Clone(l.Destinations), Backups: slices.Clone(l.Backups)}
 	for i := range out.Backups {
-		out.Backups[i].Schemas = maps.Clone(out.Backups[i].Schemas)
+		e := &out.Backups[i]
+		e.Schemas, e.Copies = maps.Clone(e.Schemas), slices.Clone(e.Copies)
+		if e.Pull != nil {
+			e.Pull = new(*e.Pull)
+		}
 	}
 	return out
 }

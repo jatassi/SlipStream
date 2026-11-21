@@ -173,6 +173,7 @@ func (n *Node) startController(ctx context.Context) error {
 		found        *imports.Imports
 		shelf        *files.Files
 		searchQueue  = &searches.Late{}
+		kept         *backups.Backups
 	)
 	keeper := reconciling.New(reconciling.Config{
 		Library: lib.db,
@@ -254,14 +255,18 @@ func (n *Node) startController(ctx context.Context) error {
 		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
 			return roots.DestinationsIn(ctx, r, ids, stored, side)
 		},
-		RootsMoved: func() <-chan struct{} { return homes.Watch() },
-		Readiness:  clients.ReadinessIn,
-		Moved:      clients.Moved,
-		Sample:     func(ctx context.Context, id role.NodeID) error { return homes.Sample(ctx, id) },
-		Hub:        n.hub,
-		Changed:    transfers.ChangedEvent.Bind(n.hub),
-		Timings:    n.cfg.Timings.Transfers,
-		Log:        n.rootLog.With("subsystem", "transfers"),
+		RootsMoved:   func() <-chan struct{} { return homes.Watch() },
+		Readiness:    clients.ReadinessIn,
+		Moved:        clients.Moved,
+		LowWait:      backups.CopyWaitLimitIn,
+		Paused:       whileReconciling,
+		Folders:      func(id role.NodeID) []transfers.BackupFolder { return kept.Folders(id) },
+		FoldersNoted: func(id role.NodeID) { kept.FoldersNoted(id) },
+		Sample:       func(ctx context.Context, id role.NodeID) error { return homes.Sample(ctx, id) },
+		Hub:          n.hub,
+		Changed:      transfers.ChangedEvent.Bind(n.hub),
+		Timings:      n.cfg.Timings.Transfers,
+		Log:          n.rootLog.With("subsystem", "transfers"),
 	})
 	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
 	servers := mediaservers.New(mediaservers.Config{
@@ -319,7 +324,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db, Catalog: cat, Outbox: n.notifications, Changed: history.ChangedEvent.Bind(n.hub),
 		Batch: n.cfg.Timings.Housekeeping.PruneBatch, Log: n.rootLog.With("subsystem", "history"),
 	})
-	kept, err := backups.Open(ctx, backups.Config{
+	kept, err = backups.Open(ctx, backups.Config{
 		Library: lib.db,
 		Keys:    lib.keys,
 		Engine:  n.backups,
@@ -329,6 +334,11 @@ func (n *Node) startController(ctx context.Context) error {
 		Reconciling: whileReconciling,
 		History:     n.history.Recorder("backups", backups.Entries()),
 		Log:         n.rootLog.With("subsystem", "backups"),
+		Transfers:   copies,
+		Self:        func() role.NodeID { return side.Self() },
+		Check: func(ctx context.Context, admin identity.Admin, node role.NodeID, folder string) (roots.Verdict, error) {
+			return homes.Check(ctx, admin, node, folder, storing.PurposeBackups, nil)
+		},
 	})
 	if err != nil {
 		return err
@@ -756,6 +766,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("torrent clients", clients.Run)
 	n.claimed.Go("reconciling", keeper.Run)
 	n.claimed.Go("transfers", copies.Run)
+	n.claimed.Go("backup copies", kept.Run)
 	n.claimed.Go("media servers", servers.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("subtitles", subtitler.Run)
@@ -1070,6 +1081,7 @@ func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatc
 		Sources: n.downloading,
 		Roots:   n.store,
 		Timings: n.cfg.Timings.Transfers,
+		Retry:   n.cfg.Timings.Backups.WindowsRetry,
 		Hooks:   n.env.Test.Transfers,
 		Log:     n.rootLog.With("subsystem", "transfers"),
 	})

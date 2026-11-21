@@ -6,4 +6,6 @@ export type TransfersWaitKind =
   | "root_not_ready"
   | "storage_draining"
   | "source_checking"
-  | "source_not_ready";
+  | "source_not_ready"
+  | "folder_not_ready"
+  | "reconciling";

@@ -56,10 +56,16 @@ const (
 	// SourceNotReady: Node can't open the file Name yet. Detail is the
 	// error.
 	SourceNotReady
+	// FolderNotReady: Node can't stage in the Backup folder yet. Detail is
+	// the receiver's error.
+	FolderNotReady
+	// Reconciling: the library is Reconciling after a restore, so no
+	// Transfer starts until it finishes.
+	Reconciling
 )
 
 func (k WaitKind) String() string {
-	return [...]string{"", "node_away", "node_other_build", "connecting", "no_route", "root_not_ready", "storage_draining", "source_checking", "source_not_ready"}[k]
+	return [...]string{"", "node_away", "node_other_build", "connecting", "no_route", "root_not_ready", "storage_draining", "source_checking", "source_not_ready", "folder_not_ready", "reconciling"}[k]
 }
 
 // Wait is a typed reason. Detail is OS or engine text, never words.

@@ -46,6 +46,10 @@ func (w Wait) words(names map[role.NodeID]string, source, dest string) string {
 		return fmt.Sprintf("Waiting for %s to check %s.", node, w.Name)
 	case SourceNotReady:
 		return fmt.Sprintf("Waiting for %s to open %s.", node, w.Name)
+	case FolderNotReady:
+		return fmt.Sprintf("Waiting for the Backup destination on %s.", node)
+	case Reconciling:
+		return "Waiting for SlipStream to finish Reconciling."
 	}
 	return ""
 }
@@ -78,6 +82,8 @@ func sentence(t Transfer, dest role.NodeID, code Code, position int, detail stri
 		return fmt.Sprintf("SlipStream gave up %s's work before %s was copied.", from, file)
 	case Rerouted:
 		return fmt.Sprintf("The library root moved to %s, which already has these files. Nothing needs copying.", from)
+	case FolderFailed:
+		return fmt.Sprintf("%s couldn't write %s to its Backup folder. Check that the folder has room and that SlipStream can write to it.", names[dest], file)
 	}
 	panic("transfers: a failure of no known code")
 }

@@ -116,7 +116,7 @@ func (im *Imports) transferFailed(ctx context.Context, tx *storage.Tx[file], t t
 		case transfers.SourceWrittenOff:
 			endImport(cur, removal(downloadclients.NodeWrittenOff))
 			return
-		case transfers.Rerouted, transfers.Damaged, transfers.SourceFailed:
+		case transfers.Rerouted, transfers.Damaged, transfers.SourceFailed, transfers.FolderFailed:
 		}
 		for i, g := range cur.Files {
 			if g.Outcome != Sending && (!staged(g) || verifiedIn(t, g)) {

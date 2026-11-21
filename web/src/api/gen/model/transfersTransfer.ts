@@ -22,7 +22,7 @@ export interface TransfersTransfer {
   job: string;
   /** The job's name, such as a Work's title and year */
   jobName: string;
-  /** The kind of job that asked for it */
+  /** The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller */
   purpose: TransfersTransferPurpose;
   /**
    * Bytes a second it copies at, else the last speed between its two Nodes; 0 while unknown
