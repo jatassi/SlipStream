@@ -20,6 +20,7 @@ type TransfersFile struct {
 	InfoHash      []byte
 	FileIndex     *int64
 	Path          *string
+	SourceFolder  *string
 	Size          int64
 	VerifiedPlace *int64
 	Placed        bool
@@ -41,14 +42,18 @@ type TransfersPair struct {
 }
 
 type TransfersRecord struct {
-	ID              local.TransferID
-	Purpose         string
-	Job             string
-	SourceNode      role.NodeID
-	DestinationKind string
-	DestinationRoot *roots.ID
-	CreatedAt       storage.Time
-	FailureCode     *string
-	FailurePosition *int64
-	FailureDetail   string
+	ID                local.TransferID
+	Purpose           string
+	Job               string
+	SourceNode        role.NodeID
+	DestinationKind   string
+	DestinationRoot   *roots.ID
+	DestinationBackup []byte
+	DestinationNode   role.NodeID
+	DestinationFolder *string
+	Priority          string
+	CreatedAt         storage.Time
+	FailureCode       *string
+	FailurePosition   *int64
+	FailureDetail     string
 }

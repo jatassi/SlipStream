@@ -11,10 +11,14 @@ import (
 
 	"github.com/jatassi/slipstream/internal/backups/archive"
 	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
 )
 
 const TaskID tasks.TaskID = "backup"
@@ -36,20 +40,33 @@ type Config struct {
 	Reconciling func(ctx context.Context, r storage.Reader[storage.Library]) (bool, error)
 	History     entry.Recorder
 	Log         *slog.Logger
+	// Transfers carries each copy to its destination and each pull back.
+	Transfers *transfers.Transfers
+	// Self is the Controller's own Node, bound once it is known.
+	Self func() role.NodeID
+	// Check is node's verdict on folder as a Backups folder.
+	Check func(ctx context.Context, admin identity.Admin, node role.NodeID, folder string) (roots.Verdict, error)
 }
 
 type Backups struct {
 	cfg   Config
 	mu    sync.Mutex
 	queue []*Run
+	// copyMu orders the copies' writes to the index and the ledger.
+	copyMu sync.Mutex
+	poke   chan struct{}
 }
+
+// noun is how a count of Backups reads.
+var noun = setting.Noun{One: "Backup", Many: "Backups"}
 
 // Open finishes what a stopped Backup left, takes an update Backup when
 // this binary is newer than the last one that started on the library and
 // none of this version is listed, and records this version as started.
 // It runs before any service starts.
 func Open(ctx context.Context, cfg Config) (*Backups, error) {
-	b := &Backups{cfg: cfg}
+	b := &Backups{cfg: cfg, poke: make(chan struct{}, 1)}
+	cfg.Transfers.Register(b.purpose())
 	if _, err := cfg.Engine.Vault(cfg.Keys); err != nil {
 		return nil, err
 	}
@@ -133,17 +150,24 @@ func (b *Backups) Task() tasks.Task {
 		Cadence:          tasks.InWindow{Days: Cadence},
 		Overdue:          tasks.CatchUp,
 		WhileReconciling: tasks.Runs,
-		Noun:             setting.Noun{One: "Backup", Many: "Backups"},
-		Units: func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
-			return []tasks.Unit{{Key: backupUnit, Label: "Library", Place: tasks.OnController()}}, nil
-		},
-		Run: b.run,
+		Noun:             noun,
+		Units:            b.units,
+		Run:              b.run,
 	}
 }
 
-// run takes the Backup the oldest waiting Take asked for, or a scheduled
-// one when none waits, and starts the unit again while another waits.
-func (b *Backups) run(ctx context.Context, _ tasks.Unit, p *tasks.Progress) error {
+// run is a destination unit's queueCopies, or the Backup unit's take.
+func (b *Backups) run(ctx context.Context, u tasks.Unit, p *tasks.Progress) error {
+	if d, ok := destinationOf(u.Key); ok {
+		return b.queueCopies(ctx, d, p)
+	}
+	return b.backup(ctx, p)
+}
+
+// backup takes the Backup the oldest waiting Take asked for, or a
+// scheduled one when none waits, starts the unit again while another
+// waits, and queues the new Backup's copies.
+func (b *Backups) backup(ctx context.Context, p *tasks.Progress) error {
 	b.mu.Lock()
 	var run *Run
 	if len(b.queue) > 0 {
@@ -165,6 +189,10 @@ func (b *Backups) run(ctx context.Context, _ tasks.Unit, p *tasks.Progress) erro
 		}
 	} else {
 		p.Note(fmt.Sprintf("Took a %s Backup and checked it.", Size(taken.Size)))
+		l := b.cfg.Engine.Index().Read()
+		if serr := b.startDestinations(context.WithoutCancel(ctx), l.Active()); serr != nil {
+			b.cfg.Log.Error("queue the Backup's copies", "err", serr)
+		}
 	}
 	if run != nil {
 		run.done <- result{entry: taken, err: err}

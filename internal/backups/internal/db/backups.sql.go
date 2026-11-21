@@ -10,17 +10,24 @@ import (
 )
 
 const getSettings = `-- name: GetSettings :one
-SELECT keep_scheduled_days, keep_each FROM backups_settings WHERE id = 1
+SELECT keep_scheduled_days, keep_each, copy_wait_limit_hours, check_copies_days FROM backups_settings WHERE id = 1
 `
 
 type GetSettingsRow struct {
-	KeepScheduledDays *int64
-	KeepEach          *int64
+	KeepScheduledDays  *int64
+	KeepEach           *int64
+	CopyWaitLimitHours *int64
+	CheckCopiesDays    *int64
 }
 
 func (q *Queries) GetSettings(ctx context.Context) (GetSettingsRow, error) {
 	row := q.db.QueryRowContext(ctx, getSettings)
 	var i GetSettingsRow
-	err := row.Scan(&i.KeepScheduledDays, &i.KeepEach)
+	err := row.Scan(
+		&i.KeepScheduledDays,
+		&i.KeepEach,
+		&i.CopyWaitLimitHours,
+		&i.CheckCopiesDays,
+	)
 	return i, err
 }

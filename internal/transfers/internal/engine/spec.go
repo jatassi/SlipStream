@@ -23,10 +23,12 @@ type spec struct {
 	peer  link.Key
 	addrs link.Addresses
 	route tv1.Route
-	// root and place are the receiver's destination.
-	root  storage.UUID
-	place int64
-	files []file
+	// root and place are the receiver's destination, or backup is the
+	// Backup folder and name it renames its one file to.
+	root   storage.UUID
+	place  int64
+	backup *tv1.BackupPlace
+	files  []file
 }
 
 type file struct {
@@ -40,7 +42,8 @@ type file struct {
 // and destination. A route change is handed to the run; a shorter file
 // list is the Controller catching up on files already reported.
 func (s spec) sameRun(o spec) bool {
-	return s.id == o.id && s.side == o.side && s.peer == o.peer && s.addrs == o.addrs && s.root == o.root && s.place == o.place
+	return s.id == o.id && s.side == o.side && s.peer == o.peer && s.addrs == o.addrs && s.root == o.root && s.place == o.place &&
+		proto.Equal(s.backup, o.backup)
 }
 
 // receivesDropped reports whether s receives a file live doesn't list: a
@@ -77,14 +80,9 @@ func parseActive(a *tv1.Active) (spec, error) {
 		return spec{}, fmt.Errorf("transfer %s: %w", s.id, err)
 	}
 	if s.side == tv1.Side_SIDE_RECEIVE {
-		root := a.GetDestination().GetRoot()
-		if root == nil {
-			return spec{}, fmt.Errorf("transfer %s: no root destination", s.id)
+		if s, err = s.receiving(a.GetDestination()); err != nil {
+			return spec{}, err
 		}
-		if s.root, err = storage.UUIDFromBytes(root.GetRootId()); err != nil {
-			return spec{}, fmt.Errorf("transfer %s: root id: %w", s.id, err)
-		}
-		s.place = root.GetPlace()
 	}
 	for _, f := range a.GetFiles() {
 		ref, err := parseSource(f.GetSource())
@@ -93,8 +91,33 @@ func parseActive(a *tv1.Active) (spec, error) {
 		}
 		s.files = append(s.files, file{position: int(f.GetPosition()), wire: f.GetSource(), ref: ref})
 	}
+	if s.backup != nil && len(s.files) > 1 {
+		return spec{}, fmt.Errorf("transfer %s: a Backup of %d files", s.id, len(s.files))
+	}
 	return s, nil
 }
+
+// receiving is s with the receiver's destination d.
+func (s spec) receiving(d *tv1.Destination) (spec, error) {
+	switch k := d.GetKind().(type) {
+	case *tv1.Destination_Root:
+		var err error
+		if s.root, err = storage.UUIDFromBytes(k.Root.GetRootId()); err != nil {
+			return spec{}, fmt.Errorf("transfer %s: root id: %w", s.id, err)
+		}
+		s.place = k.Root.GetPlace()
+	case *tv1.Destination_Backup:
+		s.backup, s.place = k.Backup, backupPlace
+	case *tv1.Destination_BackupsFolder:
+		s.backup, s.place = k.BackupsFolder, backupPlace
+	default:
+		return spec{}, fmt.Errorf("transfer %s: no destination", s.id)
+	}
+	return s, nil
+}
+
+// backupPlace is the place of a Backup folder, which never moves.
+const backupPlace = 1
 
 func parseAddresses(in []string) (link.Addresses, error) {
 	if len(in) == 0 {
@@ -124,6 +147,8 @@ func parseSource(s *tv1.Source) (source.Ref, error) {
 			return nil, errors.New("an empty source path")
 		}
 		return source.Path{Abs: r.Path.GetAbs()}, nil
+	case *tv1.Source_Backup:
+		return source.Backup{Folder: r.Backup.GetFolder(), Name: r.Backup.GetName()}, nil
 	}
 	return nil, errors.New("a source of no kind this build reads")
 }

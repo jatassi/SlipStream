@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/backupsapi"
 	"github.com/jatassi/slipstream/internal/calendarapi"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloadclientsapi"
@@ -142,6 +143,7 @@ type Node interface {
 	grabsapi.Pipeline
 	downloadclientsapi.Clients
 	transfersapi.Copies
+	backupsapi.Keeper
 	shellapi.Shell
 	systemapi.Systems
 	Removal() (pairing.Removal, bool)
@@ -187,6 +189,7 @@ func Mount(r *api.Router, s Services) {
 	grabsapi.Routes(r, s.Node)
 	downloadclientsapi.Routes(r, s.Node)
 	transfersapi.Routes(r, s.Node)
+	backupsapi.Routes(r, s.Node)
 	shellapi.Routes(r, s.Node)
 	tasksapi.Routes(r, s.Node)
 	servingapi.Routes(r, s.Node)

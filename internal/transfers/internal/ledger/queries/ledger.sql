@@ -1,10 +1,11 @@
 -- name: InsertTransfer :exec
-INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, created_at)
-VALUES (sqlc.arg(id), sqlc.arg(purpose), sqlc.arg(job), sqlc.arg(source_node), sqlc.arg(destination_kind), sqlc.arg(destination_root), sqlc.arg(created_at));
+INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, priority, created_at)
+VALUES (sqlc.arg(id), sqlc.arg(purpose), sqlc.arg(job), sqlc.arg(source_node), sqlc.arg(destination_kind), sqlc.arg(destination_root),
+    sqlc.arg(destination_backup), sqlc.arg(destination_node), sqlc.arg(destination_folder), sqlc.arg(priority), sqlc.arg(created_at));
 
 -- name: InsertFile :exec
-INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, size)
-VALUES (sqlc.arg(transfer_id), sqlc.arg(position), sqlc.arg(group_key), sqlc.arg(name), sqlc.arg(source_kind), sqlc.arg(info_hash), sqlc.arg(file_index), sqlc.arg(path), sqlc.arg(size));
+INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, size)
+VALUES (sqlc.arg(transfer_id), sqlc.arg(position), sqlc.arg(group_key), sqlc.arg(name), sqlc.arg(source_kind), sqlc.arg(info_hash), sqlc.arg(file_index), sqlc.arg(path), sqlc.arg(source_folder), sqlc.arg(size));
 
 -- name: TransferOfJob :one
 SELECT id FROM transfers_record WHERE purpose = sqlc.arg(purpose) AND job = sqlc.arg(job);
@@ -63,3 +64,6 @@ SELECT * FROM transfers_node ORDER BY node_id;
 -- name: SetNodeSettings :exec
 INSERT INTO transfers_node (node_id, send_limit) VALUES (sqlc.arg(node_id), sqlc.arg(send_limit))
 ON CONFLICT (node_id) DO UPDATE SET send_limit = excluded.send_limit;
+
+-- name: TransfersOfPurpose :many
+SELECT id FROM transfers_record WHERE purpose = sqlc.arg(purpose) ORDER BY created_at, id;

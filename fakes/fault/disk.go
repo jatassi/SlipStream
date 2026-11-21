@@ -407,6 +407,17 @@ func (d *disk) OpenWrite(ctx context.Context, path string) (storing.WriteAtFile,
 	return writeAtFile{WriteAtFile: f, d: d, ctx: ctx, path: path}, nil
 }
 
+func (d *disk) OpenPrivate(ctx context.Context, path string) (storing.WriteAtFile, error) {
+	if _, err := d.write(ctx, "open", path); err != nil {
+		return nil, err
+	}
+	f, err := d.base.OpenPrivate(ctx, d.at(ctx, path))
+	if err != nil {
+		return nil, err
+	}
+	return writeAtFile{WriteAtFile: f, d: d, ctx: ctx, path: path}, nil
+}
+
 type writeAtFile struct {
 	storing.WriteAtFile
 	d    *disk

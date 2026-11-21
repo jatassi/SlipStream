@@ -34,6 +34,10 @@ type snapshot struct {
 	levels    health.Levels
 	sources   map[sourceAt]source.Readiness
 	peers     map[role.NodeID]nodes.Peer
+	// lowWait is how long a Low Transfer waits behind Normal ones, and
+	// paused holds every Transfer while the library is Reconciling.
+	lowWait time.Duration
+	paused  bool
 	// ends: the Board's Changed.
 	ends map[role.NodeID]End
 	// facts and fullAt: the Facts hook, Noted.
@@ -79,6 +83,12 @@ func (t *Transfers) take(ctx context.Context, rd storage.Reader[storage.Library]
 	if s.peers, err = nodes.PeersIn(ctx, rd); err != nil {
 		return snapshot{}, err
 	}
+	if s.lowWait, err = t.cfg.LowWait(ctx, rd); err != nil {
+		return snapshot{}, err
+	}
+	if s.paused, err = t.cfg.Paused(ctx, rd); err != nil {
+		return snapshot{}, err
+	}
 	t.remember(&s, board)
 	return s, nil
 }
@@ -100,7 +110,7 @@ func (t *Transfers) records(ctx context.Context, rd storage.Reader[storage.Libra
 	}
 	var ids []roots.ID
 	for _, row := range rows {
-		if !slices.Contains(ids, *row.DestinationRoot) {
+		if row.DestinationRoot != nil && !slices.Contains(ids, *row.DestinationRoot) {
 			ids = append(ids, *row.DestinationRoot)
 		}
 	}
@@ -108,7 +118,11 @@ func (t *Transfers) records(ctx context.Context, rd storage.Reader[storage.Libra
 		return err
 	}
 	for _, row := range rows {
-		tr, err := transferOf(row, files[row.ID], s.dests[*row.DestinationRoot].Place)
+		place := int64(backupPlace)
+		if row.DestinationRoot != nil {
+			place = s.dests[*row.DestinationRoot].Place
+		}
+		tr, err := transferOf(row, files[row.ID], place)
 		if err != nil {
 			return err
 		}
@@ -146,7 +160,7 @@ func (t *Transfers) remember(s *snapshot, board Board) {
 	s.ends = map[role.NodeID]End{}
 	s.facts = map[role.NodeID]*tv1.Facts{}
 	for _, tr := range s.transfers {
-		for _, node := range []role.NodeID{tr.Source, s.dests[rootOf(tr.Destination)].Node} {
+		for _, node := range []role.NodeID{tr.Source, s.dest(tr).node} {
 			if e, ok := board.End(node); ok {
 				s.ends[node] = e
 			}
@@ -205,7 +219,11 @@ func (t *Transfers) ReservedIn(ctx context.Context, rd storage.Reader[storage.Li
 	s.facts = map[role.NodeID]*tv1.Facts{node: facts}
 	var out int64
 	for _, tr := range s.transfers {
-		d := s.dests[rootOf(tr.Destination)]
+		root, ok := tr.Destination.(Root)
+		if !ok {
+			continue
+		}
+		d := s.dests[root.ID]
 		if tr.Failure != nil || d.Node != node || d.Volume == nil || d.Volume.ID != volume {
 			continue
 		}
@@ -215,7 +233,7 @@ func (t *Transfers) ReservedIn(ctx context.Context, rd storage.Reader[storage.Li
 				need += f.Size
 			}
 		}
-		out += max(need-s.receiving(tr, d).GetVerifiedBytes(), 0)
+		out += max(need-s.receiving(tr, s.dest(tr)).GetVerifiedBytes(), 0)
 	}
 	return out, nil
 }

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -60,6 +61,8 @@ type cluster struct {
 	// paused, while set, holds the loop at its next wake, before it judges.
 	paused chan struct{}
 	held   bool
+	// blocked is the library Reconciling.
+	blocked atomic.Bool
 }
 
 func (r *cluster) Self() role.NodeID { return r.home }
@@ -263,7 +266,15 @@ func newCluster(t *testing.T) *cluster {
 			}
 			return out, nil
 		},
-		Moved:   func() <-chan struct{} { return nil },
+		Moved:        func() <-chan struct{} { return nil },
+		Folders:      func(role.NodeID) []transfers.BackupFolder { return nil },
+		FoldersNoted: func(role.NodeID) {},
+		LowWait: func(context.Context, storage.Reader[storage.Library]) (time.Duration, error) {
+			return 24 * time.Hour, nil
+		},
+		Paused: func(context.Context, storage.Reader[storage.Library]) (bool, error) {
+			return r.blocked.Load(), nil
+		},
 		Sample:  func(context.Context, role.NodeID) error { return nil },
 		Hub:     live.NewHub([]live.Event{roots.ChangedEvent, roots.VolumesChangedEvent, health.ChangedEvent, nodes.ChangedEvent, transfers.ChangedEvent}),
 		Changed: r.published,
