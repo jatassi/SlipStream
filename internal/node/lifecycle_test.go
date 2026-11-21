@@ -433,10 +433,12 @@ func TestRestartNodeWaitsForReady(t *testing.T) {
 		status, err := RestartNode(t.Context(), client)
 		done <- restarted{status, err}
 	}()
+	// The successor migrates the whole staged library before it reaches the
+	// restore, which takes most of a minute under -race on a busy runner.
 	select {
 	case <-reached:
-	case <-time.After(30 * time.Second):
-		t.Fatal("the successor didn't reach the restore within 30s")
+	case <-time.After(2 * time.Minute):
+		t.Fatal("the successor didn't reach the restore within 2m")
 	}
 	asked := counted.dials.Load()
 	deadline := time.Now().Add(30 * time.Second)
