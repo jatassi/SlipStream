@@ -16,6 +16,7 @@ export * from "./naming/naming.ts";
 export * from "./nodes/nodes.ts";
 export * from "./notifications/notifications.ts";
 export * from "./pairing/pairing.ts";
+export * from "./reconciling/reconciling.ts";
 export * from "./roots/roots.ts";
 export * from "./serving/serving.ts";
 export * from "./shell/shell.ts";

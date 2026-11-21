@@ -30,4 +30,5 @@ export type GrabsFailureAtCode =
   | "release_fault"
   | "client_error"
   | "declined"
-  | "unreadable";
+  | "unreadable"
+  | "restored";

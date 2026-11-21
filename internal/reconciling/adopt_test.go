@@ -436,3 +436,36 @@ func scansNoTorrents(t *testing.T, w *world, node role.NodeID, trs []torrent) {
 		t.Fatal(err)
 	}
 }
+
+// TestAnExternalTorrentAdoptsWithItsHostsAndNoMetainfoWhenItCantExport
+// has vps-relay's Transmission hold a torrent the library doesn't record.
+// Transmission can't export its metainfo, so it is adopted on that client
+// with its hosts and no metainfo, and stays off the review list, where
+// Re-add would need the metainfo.
+func TestAnExternalTorrentAdoptsWithItsHostsAndNoMetainfoWhenItCantExport(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWorld(t)
+		relay := w.paired("vps-relay")
+		client := storage.NewUUID()
+		w.write(func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := tx.ExecContext(ctx, `INSERT INTO downloadclients_client (id, node_id, kind, name, address, address_key, label, is_on, settings_version,
+				poll_state, poll_since, poll_problem, poll_settings_version, created_at, updated_at)
+				VALUES (?, ?, 'transmission', 'Transmission', 'http://192.168.1.20:9091/transmission/rpc', 'a', 'tv', 1, 1, 'responding', 0, NULL, 1, 0, 0)`, client, relay)
+			return err
+		})
+		orchard := newTorrent(t, "orchard")
+		held := orchard.entry()
+		held.ClientId = client.Bytes()
+		w.reportAll(relay, held)
+		got := w.only(orchard)
+		var hosts, onClient string
+		err := w.lib.QueryRowContext(t.Context(), "SELECT trackers, coalesce(hex(client_id), '') FROM downloadclients_torrent WHERE id = ?", got.id).Scan(&hosts, &onClient)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !got.adopted || got.metainfo || hosts != `["tracker.example"]` || onClient == "" || w.review(got.id) != "" || w.asked[orchard.hash] != 1 {
+			t.Errorf("orchard is recorded as %+v with hosts %s on client %q, on the review list as %q, asked %d times; want adopted on Transmission with its host, no metainfo, off the list, asked once",
+				got, hosts, onClient, w.review(got.id), w.asked[orchard.hash])
+		}
+	})
+}

@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
@@ -14,6 +15,39 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 )
+
+const continueAllNodes = `-- name: ContinueAllNodes :exec
+UPDATE reconciling_node SET continued_without_at = ?1 WHERE adopted_at IS NULL AND continued_without_at IS NULL
+`
+
+func (q *Queries) ContinueAllNodes(ctx context.Context, at storage.Time) error {
+	_, err := q.db.ExecContext(ctx, continueAllNodes, at)
+	return err
+}
+
+const continueAllRoots = `-- name: ContinueAllRoots :exec
+UPDATE reconciling_root SET continued_without_at = ?1 WHERE scanned_at IS NULL AND continued_without_at IS NULL
+`
+
+func (q *Queries) ContinueAllRoots(ctx context.Context, at storage.Time) error {
+	_, err := q.db.ExecContext(ctx, continueAllRoots, at)
+	return err
+}
+
+const continueRoot = `-- name: ContinueRoot :exec
+UPDATE reconciling_root SET continued_without_at = ?1
+WHERE root_id = ?2 AND scanned_at IS NULL AND continued_without_at IS NULL
+`
+
+type ContinueRootParams struct {
+	At     storage.Time
+	RootID roots.ID
+}
+
+func (q *Queries) ContinueRoot(ctx context.Context, arg ContinueRootParams) error {
+	_, err := q.db.ExecContext(ctx, continueRoot, arg.At, arg.RootID)
+	return err
+}
 
 const continueWithout = `-- name: ContinueWithout :exec
 UPDATE reconciling_node SET continued_without_at = ?1
@@ -67,6 +101,41 @@ func (q *Queries) CountHeldOf(ctx context.Context, arg CountHeldOfParams) (int64
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const countReview = `-- name: CountReview :many
+SELECT reason, coalesce(files_found, -1) AS found, count(*) AS n FROM reconciling_torrent
+GROUP BY reason, coalesce(files_found, -1)
+ORDER BY reason, found
+`
+
+type CountReviewRow struct {
+	Reason string
+	Found  sql.NullInt64
+	N      int64
+}
+
+func (q *Queries) CountReview(ctx context.Context) ([]CountReviewRow, error) {
+	rows, err := q.db.QueryContext(ctx, countReview)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountReviewRow
+	for rows.Next() {
+		var i CountReviewRow
+		if err := rows.Scan(&i.Reason, &i.Found, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const countUndecided = `-- name: CountUndecided :one
@@ -172,6 +241,42 @@ func (q *Queries) GetNode(ctx context.Context, nodeID role.NodeID) (ReconcilingN
 		&i.GrantedAt,
 		&i.RefusedAt,
 		&i.Refused,
+		&i.ContinuedWithoutAt,
+	)
+	return i, err
+}
+
+const getReview = `-- name: GetReview :one
+SELECT torrent_id, node_id, reason, files_found, looked_at, since, readd_node, readd_at FROM reconciling_torrent WHERE torrent_id = ?1
+`
+
+func (q *Queries) GetReview(ctx context.Context, torrentID downloadclients.ID) (ReconcilingTorrent, error) {
+	row := q.db.QueryRowContext(ctx, getReview, torrentID)
+	var i ReconcilingTorrent
+	err := row.Scan(
+		&i.TorrentID,
+		&i.NodeID,
+		&i.Reason,
+		&i.FilesFound,
+		&i.LookedAt,
+		&i.Since,
+		&i.ReaddNode,
+		&i.ReaddAt,
+	)
+	return i, err
+}
+
+const getRoot = `-- name: GetRoot :one
+SELECT root_id, saved_at, scanned_at, continued_without_at FROM reconciling_root WHERE root_id = ?1
+`
+
+func (q *Queries) GetRoot(ctx context.Context, rootID roots.ID) (ReconcilingRoot, error) {
+	row := q.db.QueryRowContext(ctx, getRoot, rootID)
+	var i ReconcilingRoot
+	err := row.Scan(
+		&i.RootID,
+		&i.SavedAt,
+		&i.ScannedAt,
 		&i.ContinuedWithoutAt,
 	)
 	return i, err
@@ -421,6 +526,46 @@ func (q *Queries) ListPending(ctx context.Context) ([]role.NodeID, error) {
 	return items, nil
 }
 
+const listReadd = `-- name: ListReadd :many
+SELECT torrent_id, readd_node FROM reconciling_torrent
+WHERE readd_at IS NOT NULL AND torrent_id > coalesce(?1, x'')
+ORDER BY torrent_id
+LIMIT ?2
+`
+
+type ListReaddParams struct {
+	After downloadclients.ID
+	Page  int64
+}
+
+type ListReaddRow struct {
+	TorrentID downloadclients.ID
+	ReaddNode *role.NodeID
+}
+
+func (q *Queries) ListReadd(ctx context.Context, arg ListReaddParams) ([]ListReaddRow, error) {
+	rows, err := q.db.QueryContext(ctx, listReadd, arg.After, arg.Page)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListReaddRow
+	for rows.Next() {
+		var i ListReaddRow
+		if err := rows.Scan(&i.TorrentID, &i.ReaddNode); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReady = `-- name: ListReady :many
 SELECT n.node_id, n.adopted_at IS NOT NULL AS adopted FROM reconciling_node n
 WHERE n.reported_at IS NOT NULL AND n.refused_at IS NULL
@@ -494,6 +639,85 @@ func (q *Queries) ListReview(ctx context.Context) ([]ReconcilingTorrent, error) 
 	return items, nil
 }
 
+const listReviewPage = `-- name: ListReviewPage :many
+SELECT t.torrent_id, t.node_id, t.reason, t.files_found, t.since, t.readd_node, t.readd_at
+FROM reconciling_torrent t
+WHERE (CAST(?1 AS INTEGER) OR t.reason = CAST(?2 AS TEXT))
+  AND (CAST(?3 AS INTEGER) OR coalesce(t.files_found, -1) = CAST(?4 AS INTEGER))
+  AND ((t.reason, coalesce(t.files_found, -1), t.since)
+      > (CAST(?5 AS TEXT), CAST(?6 AS INTEGER), CAST(?7 AS INTEGER))
+    OR (t.reason, coalesce(t.files_found, -1), t.since)
+      = (CAST(?5 AS TEXT), CAST(?6 AS INTEGER), CAST(?7 AS INTEGER))
+      AND t.torrent_id > coalesce(?8, x''))
+ORDER BY t.reason, coalesce(t.files_found, -1), t.since, t.torrent_id
+LIMIT ?9
+`
+
+type ListReviewPageParams struct {
+	AnyReason   int64
+	Reason      string
+	AnyFound    int64
+	Found       int64
+	AfterReason string
+	AfterFound  int64
+	AfterSince  int64
+	AfterID     downloadclients.ID
+	Page        int64
+}
+
+type ListReviewPageRow struct {
+	TorrentID  downloadclients.ID
+	NodeID     role.NodeID
+	Reason     string
+	FilesFound sql.NullInt64
+	Since      storage.Time
+	ReaddNode  *role.NodeID
+	ReaddAt    storage.Time
+}
+
+// The review list a page at a time, by a cursor that stays put while rows
+// come and go: its sort key and the Torrent's id.
+func (q *Queries) ListReviewPage(ctx context.Context, arg ListReviewPageParams) ([]ListReviewPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, listReviewPage,
+		arg.AnyReason,
+		arg.Reason,
+		arg.AnyFound,
+		arg.Found,
+		arg.AfterReason,
+		arg.AfterFound,
+		arg.AfterSince,
+		arg.AfterID,
+		arg.Page,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListReviewPageRow
+	for rows.Next() {
+		var i ListReviewPageRow
+		if err := rows.Scan(
+			&i.TorrentID,
+			&i.NodeID,
+			&i.Reason,
+			&i.FilesFound,
+			&i.Since,
+			&i.ReaddNode,
+			&i.ReaddAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRoots = `-- name: ListRoots :many
 SELECT root_id, saved_at, scanned_at, continued_without_at FROM reconciling_root ORDER BY root_id
 `
@@ -516,6 +740,66 @@ func (q *Queries) ListRoots(ctx context.Context) ([]ReconcilingRoot, error) {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listToLook = `-- name: ListToLook :many
+SELECT torrent_id FROM reconciling_torrent
+WHERE reason = 'not_held' AND looked_at IS NULL
+ORDER BY torrent_id
+LIMIT ?1
+`
+
+func (q *Queries) ListToLook(ctx context.Context, page int64) ([]downloadclients.ID, error) {
+	rows, err := q.db.QueryContext(ctx, listToLook, page)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []downloadclients.ID
+	for rows.Next() {
+		var torrent_id downloadclients.ID
+		if err := rows.Scan(&torrent_id); err != nil {
+			return nil, err
+		}
+		items = append(items, torrent_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listToScan = `-- name: ListToScan :many
+SELECT root_id FROM reconciling_root
+WHERE saved_at IS NOT NULL AND scanned_at IS NULL AND continued_without_at IS NULL
+ORDER BY root_id
+`
+
+// The saved roots whose scan Reconciling waits on.
+func (q *Queries) ListToScan(ctx context.Context) ([]roots.ID, error) {
+	rows, err := q.db.QueryContext(ctx, listToScan)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []roots.ID
+	for rows.Next() {
+		var root_id roots.ID
+		if err := rows.Scan(&root_id); err != nil {
+			return nil, err
+		}
+		items = append(items, root_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -559,6 +843,22 @@ func (q *Queries) ListWaiting(ctx context.Context, infoHash []byte) ([]ListWaiti
 		return nil, err
 	}
 	return items, nil
+}
+
+const markReadd = `-- name: MarkReadd :exec
+UPDATE reconciling_torrent SET readd_node = ?1, readd_at = ?2
+WHERE torrent_id = ?3
+`
+
+type MarkReaddParams struct {
+	ReaddNode *role.NodeID
+	At        storage.Time
+	TorrentID downloadclients.ID
+}
+
+func (q *Queries) MarkReadd(ctx context.Context, arg MarkReaddParams) error {
+	_, err := q.db.ExecContext(ctx, markReadd, arg.ReaddNode, arg.At, arg.TorrentID)
+	return err
 }
 
 const putHeld = `-- name: PutHeld :exec
@@ -639,6 +939,39 @@ func (q *Queries) Refuse(ctx context.Context, arg RefuseParams) error {
 	return err
 }
 
+const saveRoot = `-- name: SaveRoot :exec
+UPDATE reconciling_root SET saved_at = ?1 WHERE root_id = ?2 AND saved_at IS NULL
+`
+
+type SaveRootParams struct {
+	At     storage.Time
+	RootID roots.ID
+}
+
+func (q *Queries) SaveRoot(ctx context.Context, arg SaveRootParams) error {
+	_, err := q.db.ExecContext(ctx, saveRoot, arg.At, arg.RootID)
+	return err
+}
+
+const scanRoot = `-- name: ScanRoot :execrows
+UPDATE reconciling_root SET scanned_at = ?1
+WHERE root_id = ?2 AND saved_at IS NOT NULL AND scanned_at IS NULL
+`
+
+type ScanRootParams struct {
+	At     storage.Time
+	RootID roots.ID
+}
+
+// A scan counts only for a saved root: Later leaves a root unscanned.
+func (q *Queries) ScanRoot(ctx context.Context, arg ScanRootParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, scanRoot, arg.At, arg.RootID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const seePage = `-- name: SeePage :execrows
 INSERT INTO reconciling_page (node_id, round, page) VALUES (?1, ?2, ?3)
 ON CONFLICT DO NOTHING
@@ -671,6 +1004,31 @@ type SetAdoptedParams struct {
 
 func (q *Queries) SetAdopted(ctx context.Context, arg SetAdoptedParams) error {
 	_, err := q.db.ExecContext(ctx, setAdopted, arg.At, arg.GrantedAt, arg.NodeID)
+	return err
+}
+
+const setLooked = `-- name: SetLooked :exec
+UPDATE reconciling_torrent SET files_found = ?1, looked_at = ?2
+WHERE torrent_id = ?3
+`
+
+type SetLookedParams struct {
+	FilesFound sql.NullInt64
+	At         storage.Time
+	TorrentID  downloadclients.ID
+}
+
+func (q *Queries) SetLooked(ctx context.Context, arg SetLookedParams) error {
+	_, err := q.db.ExecContext(ctx, setLooked, arg.FilesFound, arg.At, arg.TorrentID)
+	return err
+}
+
+const setRehomeSaved = `-- name: SetRehomeSaved :exec
+UPDATE reconciling_state SET rehome_saved_at = ?1 WHERE rehome_saved_at IS NULL
+`
+
+func (q *Queries) SetRehomeSaved(ctx context.Context, at storage.Time) error {
+	_, err := q.db.ExecContext(ctx, setRehomeSaved, at)
 	return err
 }
 

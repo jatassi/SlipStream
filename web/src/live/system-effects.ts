@@ -23,7 +23,16 @@ const everyTasksQuery = {
     typeof path === "string" && /^\/api\/v1\/tasks(?:\/|$)/u.test(path),
 };
 
+const everyReconcilingQuery = {
+  predicate: ({ queryKey: [path] }: { queryKey: readonly unknown[] }) =>
+    typeof path === "string" && /^\/api\/v1\/reconciling(?:\/|$)/u.test(path),
+};
+
 export const systemEffects = {
+  "reconciling.changed": (_data, { refresh }) => {
+    refresh({ queryKey: getGetCountsQueryKey() });
+    refresh(everyReconcilingQuery);
+  },
   "nodes.changed": (data, { refresh }) => {
     refresh({ queryKey: getListNodesQueryKey() });
     refresh({ queryKey: getGetNodeQueryKey(data.nodeId) });
@@ -75,6 +84,7 @@ export const systemEffects = {
   },
 } satisfies Pick<
   LiveEffects,
+  | "reconciling.changed"
   | "nodes.changed"
   | "nodes.traffic"
   | "roots.changed"

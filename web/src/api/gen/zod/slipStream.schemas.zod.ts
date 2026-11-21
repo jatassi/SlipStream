@@ -3767,6 +3767,7 @@ export const GrabsFailure = zod.object({
     "client_error",
     "declined",
     "unreadable",
+    "restored",
   ]),
   current: zod
     .boolean()
@@ -3825,6 +3826,7 @@ export const GrabsFailureAt = zod.object({
     "client_error",
     "declined",
     "unreadable",
+    "restored",
   ]),
   grabId: zod.uuid().nullable().describe("The failed Grab; null once it is pruned"),
 });
@@ -9835,6 +9837,241 @@ export const ProvidersOutputBody = zod.object({
 export type ProvidersOutputBody = zod.input<typeof ProvidersOutputBody>;
 export type ProvidersOutputBodyOutput = zod.output<typeof ProvidersOutputBody>;
 
+export const ReconcilingChanged = zod.object({});
+
+export type ReconcilingChanged = zod.input<typeof ReconcilingChanged>;
+export type ReconcilingChangedOutput = zod.output<typeof ReconcilingChanged>;
+
+export const ReconcilingForgetRequest = zod.object({});
+
+export type ReconcilingForgetRequest = zod.input<typeof ReconcilingForgetRequest>;
+export type ReconcilingForgetRequestOutput = zod.output<typeof ReconcilingForgetRequest>;
+
+export const reconcilingGroupCountMin = 0;
+
+export const ReconcilingGroup = zod.object({
+  count: zod.int().min(reconcilingGroupCountMin),
+  found: zod.enum(["not_looked", "no_files", "files"]).describe("What its Node found of its files"),
+  reason: zod
+    .enum(["not_held", "conflict"])
+    .describe(
+      "not_held: recorded, and no Node reported it after the restore. conflict: two Nodes hold it and both keep it",
+    ),
+});
+
+export type ReconcilingGroup = zod.input<typeof ReconcilingGroup>;
+export type ReconcilingGroupOutput = zod.output<typeof ReconcilingGroup>;
+
+export const reconcilingNodeRowHeldMin = 0;
+
+export const ReconcilingNodeRow = zod.object({
+  adopted: zod.boolean().describe("Whether its torrents were matched with the library"),
+  continued: zod
+    .boolean()
+    .describe(
+      "Whether Reconciling stopped waiting on it. It still keeps every torrent until it reports them",
+    ),
+  granted: zod
+    .string()
+    .nullable()
+    .describe(
+      "The line naming the Downloading Role its adoption gave it, such as vps-relay now holds Downloading for the 1,240 torrents it reported; null when it got none",
+    ),
+  held: zod.int().min(reconcilingNodeRowHeldMin).describe("How many torrents its list held"),
+  id: zod.uuid(),
+  link: zod
+    .enum(["in-step", "reconnecting", "offline", "lapsed", "mismatched"])
+    .describe(
+      "How it stands with this Controller. A Node on a new machine that stays offline may still be paired with the old Controller",
+    ),
+  linkSince: zod.iso.datetime({ offset: true }).describe("Since when it stands so"),
+  name: zod.string(),
+  refused: zod
+    .string()
+    .nullable()
+    .describe(
+      "Why SlipStream refused its list of torrents; null when it didn't. It keeps every torrent until a list is taken",
+    ),
+  reported: zod.boolean().describe("Whether every page of its list of torrents is in"),
+  since: zod.iso.datetime({ offset: true }).describe("When Reconciling began waiting on it"),
+});
+
+export type ReconcilingNodeRow = zod.input<typeof ReconcilingNodeRow>;
+export type ReconcilingNodeRowOutput = zod.output<typeof ReconcilingNodeRow>;
+
+export const ReconcilingRestore = zod.object({
+  backup: zod.string().describe("The Backup's name"),
+  newMachine: zod
+    .boolean()
+    .describe("Whether the Backup was restored on a machine other than the one that took it"),
+  rehome: zod.boolean().describe("Whether the old Controller's folders still need finding"),
+  startedAt: zod.iso.datetime({ offset: true }).describe("When Reconciling began"),
+  takenAt: zod.iso.datetime({ offset: true }).describe("When the Backup was taken"),
+});
+
+export type ReconcilingRestore = zod.input<typeof ReconcilingRestore>;
+export type ReconcilingRestoreOutput = zod.output<typeof ReconcilingRestore>;
+
+export const ReconcilingRootRow = zod.object({
+  continued: zod.boolean().describe("Whether Reconciling stopped waiting on its scan"),
+  id: zod.uuid(),
+  label: zod
+    .string()
+    .describe("The root as a person reads it, such as Movies library root on Media server"),
+  saved: zod
+    .boolean()
+    .describe(
+      "Whether the re-home step saved it. A root not saved waits for its folder, and no scan reads it",
+    ),
+  scanned: zod.boolean().describe("Whether a scan finished since it was saved"),
+});
+
+export type ReconcilingRootRow = zod.input<typeof ReconcilingRootRow>;
+export type ReconcilingRootRowOutput = zod.output<typeof ReconcilingRootRow>;
+
+export const ReconcilingUnknown = zod.object({
+  address: zod.string().describe("The address it connected from"),
+  arch: zod.string(),
+  at: zod.iso.datetime({ offset: true }).describe("When it last tried to connect"),
+  fingerprint: zod.string().describe("Its node key's fingerprint"),
+  os: zod.string(),
+});
+
+export type ReconcilingUnknown = zod.input<typeof ReconcilingUnknown>;
+export type ReconcilingUnknownOutput = zod.output<typeof ReconcilingUnknown>;
+
+export const ReconcilingPage = zod.object({
+  nodes: zod
+    .array(ReconcilingNodeRow)
+    .describe("Each Node Reconciling waits on, or whose adoption gave it the Downloading Role"),
+  restore: zod
+    .union([ReconcilingRestore, zod.null()])
+    .describe(
+      "The restore Reconciling runs for; null outside one, when the page lists only the Nodes that keep their torrents",
+    ),
+  review: zod
+    .array(ReconcilingGroup)
+    .describe("The review list's groups, with how many torrents each holds"),
+  roots: zod.array(ReconcilingRootRow).describe("Each library root Reconciling waits on"),
+  unknown: zod
+    .array(ReconcilingUnknown)
+    .describe(
+      "Nodes not in this Backup that tried to connect lately, newest last; empty outside a restore",
+    ),
+});
+
+export type ReconcilingPage = zod.input<typeof ReconcilingPage>;
+export type ReconcilingPageOutput = zod.output<typeof ReconcilingPage>;
+
+export const ReconcilingReaddRequest = zod.object({
+  nodeId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The Node to re-add them on; left out, each on the Node it was recorded on"),
+});
+
+export type ReconcilingReaddRequest = zod.input<typeof ReconcilingReaddRequest>;
+export type ReconcilingReaddRequestOutput = zod.output<typeof ReconcilingReaddRequest>;
+
+export const reconcilingSaveRootForgetMin = 0;
+
+export const reconcilingSaveRootPathMax = 4096;
+
+export const ReconcilingSaveRoot = zod.object({
+  forget: zod
+    .int()
+    .min(reconcilingSaveRootForgetMin)
+    .exactOptional()
+    .describe(
+      "The missing file count the Admin confirmed, for Save anyway: those files are forgotten",
+    ),
+  nodeId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The Storage Node whose disk holds it now; left out, its Node"),
+  path: zod
+    .string()
+    .max(reconcilingSaveRootPathMax)
+    .exactOptional()
+    .describe("The folder that holds it now, in its Node's path style; left out, its folder"),
+  rootId: zod.uuid(),
+});
+
+export type ReconcilingSaveRoot = zod.input<typeof ReconcilingSaveRoot>;
+export type ReconcilingSaveRootOutput = zod.output<typeof ReconcilingSaveRoot>;
+
+export const reconcilingRehomeRequestRootsMax = 1000;
+
+export const ReconcilingRehomeRequest = zod.object({
+  done: zod
+    .boolean()
+    .describe(
+      "Whether this ends the step, so SlipStream stops waiting for the old Controller's folders",
+    ),
+  roots: zod
+    .array(ReconcilingSaveRoot)
+    .max(reconcilingRehomeRequestRootsMax)
+    .describe(
+      "Each library root to save. A root left out stays for later: no scan reads it and Reconciling waits on it",
+    ),
+});
+
+export type ReconcilingRehomeRequest = zod.input<typeof ReconcilingRehomeRequest>;
+export type ReconcilingRehomeRequestOutput = zod.output<typeof ReconcilingRehomeRequest>;
+
+export const ReconcilingSavedRoot = zod.object({
+  missing: zod
+    .int()
+    .nullable()
+    .describe(
+      "How many recorded files aren't at the place, when that is why. Send it as forget to save anyway",
+    ),
+  refused: zod
+    .string()
+    .nullable()
+    .describe("Why the root edit refused it, null once it is saved and its scan starts"),
+  rootId: zod.uuid(),
+});
+
+export type ReconcilingSavedRoot = zod.input<typeof ReconcilingSavedRoot>;
+export type ReconcilingSavedRootOutput = zod.output<typeof ReconcilingSavedRoot>;
+
+export const ReconcilingRehomed = zod.object({
+  roots: zod.array(ReconcilingSavedRoot).describe("How each root's save went, in the order asked"),
+});
+
+export type ReconcilingRehomed = zod.input<typeof ReconcilingRehomed>;
+export type ReconcilingRehomedOutput = zod.output<typeof ReconcilingRehomed>;
+
+export const ReconcilingReviewed = zod.object({
+  found: zod.enum(["not_looked", "no_files", "files"]),
+  id: zod.uuid(),
+  name: zod.string(),
+  nodeId: zod.uuid().describe("The Node it was recorded on"),
+  readd: zod
+    .uuid()
+    .nullable()
+    .describe("The Node Re-add puts it on once Reconciling finishes; null until Re-add is pressed"),
+  reason: zod.enum(["not_held", "conflict"]),
+  since: zod.iso.datetime({ offset: true }).describe("When it joined the review list"),
+});
+
+export type ReconcilingReviewed = zod.input<typeof ReconcilingReviewed>;
+export type ReconcilingReviewedOutput = zod.output<typeof ReconcilingReviewed>;
+
+export const ReconcilingReviewPage = zod.object({
+  next: zod
+    .string()
+    .nullable()
+    .describe(
+      "The after of the next page; null on the last page. Rows added or removed meanwhile never move it",
+    ),
+  torrents: zod.array(ReconcilingReviewed),
+});
+
+export type ReconcilingReviewPage = zod.input<typeof ReconcilingReviewPage>;
+export type ReconcilingReviewPageOutput = zod.output<typeof ReconcilingReviewPage>;
+
 export const rehomeRootInputBodyForgetMin = 0;
 
 export const rehomeRootInputBodyPathMax = 4096;
@@ -10355,6 +10592,26 @@ export const ShellAlerts = zod.object({
 export type ShellAlerts = zod.input<typeof ShellAlerts>;
 export type ShellAlertsOutput = zod.output<typeof ShellAlerts>;
 
+export const shellBannerRootsMin = 0;
+
+export const ShellBanner = zod.object({
+  nodes: zod
+    .array(zod.string())
+    .describe("The name of each Node whose torrents Reconciling waits on"),
+  rehome: zod
+    .boolean()
+    .describe(
+      "Whether the old Controller's folders still need finding. The shell opens that step until it is saved",
+    ),
+  roots: zod
+    .int()
+    .min(shellBannerRootsMin)
+    .describe("How many library roots Reconciling waits on to finish scanning"),
+});
+
+export type ShellBanner = zod.input<typeof ShellBanner>;
+export type ShellBannerOutput = zod.output<typeof ShellBanner>;
+
 export const shellCountsActivityMin = 0;
 
 export const shellCountsPendingImportsMin = 0;
@@ -10369,6 +10626,11 @@ export const ShellCounts = zod.object({
     .int()
     .min(shellCountsPendingImportsMin)
     .describe("The Imports, of any source, with a file waiting for the Admin, ignored ones aside"),
+  reconciling: zod
+    .union([ShellBanner, zod.null()])
+    .describe(
+      "What Reconciling after a restore waits on, for the shell's line; null outside it. reconciling.changed keeps it current",
+    ),
 });
 
 export type ShellCounts = zod.input<typeof ShellCounts>;
@@ -14011,6 +14273,14 @@ export const LiveEventNotificationsSeen = zod.object({
 export type LiveEventNotificationsSeen = zod.input<typeof LiveEventNotificationsSeen>;
 export type LiveEventNotificationsSeenOutput = zod.output<typeof LiveEventNotificationsSeen>;
 
+export const LiveEventReconcilingChanged = zod.object({
+  event: zod.enum(["reconciling.changed"]),
+  data: ReconcilingChanged,
+});
+
+export type LiveEventReconcilingChanged = zod.input<typeof LiveEventReconcilingChanged>;
+export type LiveEventReconcilingChangedOutput = zod.output<typeof LiveEventReconcilingChanged>;
+
 export const LiveEventRootsChanged = zod.object({
   event: zod.enum(["roots.changed"]),
   data: RootsChanged,
@@ -14192,6 +14462,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventNodesTraffic,
   LiveEventNotificationsChanged,
   LiveEventNotificationsSeen,
+  LiveEventReconcilingChanged,
   LiveEventRootsChanged,
   LiveEventSubtitlesAttempt,
   LiveEventSubtitlesChanged,

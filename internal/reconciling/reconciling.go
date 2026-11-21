@@ -16,6 +16,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/reconciling/internal/db"
 	"github.com/jatassi/slipstream/internal/role"
@@ -174,7 +175,33 @@ type Config struct {
 	// Page is how many held torrents one adoption Write decides, and
 	// Max how many one Node's round may list.
 	Page, Max int
-	Log       *slog.Logger
+	// Rehome is the root edit's re-home.
+	Rehome func(ctx context.Context, by identity.Admin, id roots.ID, h roots.Rehome) (roots.View, error)
+	// Scan starts the Library scan of roots.
+	Scan func(ctx context.Context, roots []roots.ID) error
+	// Ending runs in the Write that ends Reconciling: each Grab at
+	// fetching takes its adopted torrent or fails.
+	Ending func(ctx context.Context, tx *storage.Tx[file]) error
+	// Ended runs once that Write commits: queues dispatch, Holds end,
+	// Imports run, the disk queue drains and paused tasks catch up.
+	Ended func(ctx context.Context)
+	// RootWords is each root as a person reads it.
+	RootWords func(ctx context.Context, r storage.Reader[file]) (map[roots.ID]string, error)
+	// Roster is each Node's link, and the Nodes not in the library that
+	// said Hello.
+	Roster Roster
+	// Look is whether each of files is in folder on node at its size.
+	Look func(ctx context.Context, node role.NodeID, folder string, files []downloadclients.LookFile) ([]bool, error)
+	// Forgot runs once a Forget commits: its Grabs fail.
+	Forgot  func()
+	Changed ChangedPublisher
+	Log     *slog.Logger
+}
+
+// Roster is what the Reconciling page reads of the roster.
+type Roster interface {
+	Standing(node nodes.ID) (nodes.Standing, time.Time)
+	Unknowns() []nodes.Unknown
 }
 
 // Service takes in each Node's Holdings and adopts them. It is
@@ -185,11 +212,17 @@ type Service struct {
 	// reported is set in a Write that completes a Node's round, so the
 	// commit after it wakes Run.
 	reported atomic.Bool
-	mu       sync.Mutex
+	// scanned is set in a Write that finishes a root's scan.
+	scanned atomic.Bool
+	mu      sync.Mutex
+	// asked is each root whose scan Run started, and looked each review
+	// list torrent whose Node Run asked about its files, under mu.
+	asked  map[roots.ID]bool
+	looked map[downloadclients.ID]bool
 }
 
 func New(cfg Config) *Service {
-	return &Service{cfg: cfg, wake: make(chan struct{}, 1)}
+	return &Service{cfg: cfg, wake: make(chan struct{}, 1), asked: map[roots.ID]bool{}, looked: map[downloadclients.ID]bool{}}
 }
 
 var _ downloadclients.Keeps = (*Service)(nil)
@@ -206,6 +239,14 @@ func (s *Service) Wake() {
 // Node's round wakes Run.
 func (s *Service) Applied(_ role.NodeID, scope string) {
 	if scope == string(role.Downloading) && s.reported.Swap(false) {
+		s.Wake()
+	}
+}
+
+// ScanEnded wakes Run once a Write that finished a root's scan
+// committed.
+func (s *Service) ScanEnded() {
+	if s.scanned.Swap(false) {
 		s.Wake()
 	}
 }
@@ -284,6 +325,12 @@ func (s *Service) settle(ctx context.Context) (retry bool, err error) {
 			return retry, err
 		}
 		if !changed {
+			if err := s.scan(ctx); err != nil {
+				return retry, err
+			}
+			if err := s.look(ctx); err != nil {
+				return retry, err
+			}
 			return retry, s.tryEnd(ctx)
 		}
 	}

@@ -124,3 +124,76 @@ SELECT * FROM reconciling_torrent ORDER BY reason, files_found, since, torrent_i
 
 -- name: DeleteReview :exec
 DELETE FROM reconciling_torrent WHERE torrent_id = sqlc.arg(torrent_id);
+
+-- name: GetRoot :one
+SELECT * FROM reconciling_root WHERE root_id = sqlc.arg(root_id);
+
+-- name: SaveRoot :exec
+UPDATE reconciling_root SET saved_at = sqlc.arg(at) WHERE root_id = sqlc.arg(root_id) AND saved_at IS NULL;
+
+-- name: SetRehomeSaved :exec
+UPDATE reconciling_state SET rehome_saved_at = sqlc.arg(at) WHERE rehome_saved_at IS NULL;
+
+-- name: ScanRoot :execrows
+-- A scan counts only for a saved root: Later leaves a root unscanned.
+UPDATE reconciling_root SET scanned_at = sqlc.arg(at)
+WHERE root_id = sqlc.arg(root_id) AND saved_at IS NOT NULL AND scanned_at IS NULL;
+
+-- name: ContinueRoot :exec
+UPDATE reconciling_root SET continued_without_at = sqlc.arg(at)
+WHERE root_id = sqlc.arg(root_id) AND scanned_at IS NULL AND continued_without_at IS NULL;
+
+-- name: ContinueAllRoots :exec
+UPDATE reconciling_root SET continued_without_at = sqlc.arg(at) WHERE scanned_at IS NULL AND continued_without_at IS NULL;
+
+-- name: ContinueAllNodes :exec
+UPDATE reconciling_node SET continued_without_at = sqlc.arg(at) WHERE adopted_at IS NULL AND continued_without_at IS NULL;
+
+-- name: ListToScan :many
+-- The saved roots whose scan Reconciling waits on.
+SELECT root_id FROM reconciling_root
+WHERE saved_at IS NOT NULL AND scanned_at IS NULL AND continued_without_at IS NULL
+ORDER BY root_id;
+
+-- name: ListReviewPage :many
+-- The review list a page at a time, by a cursor that stays put while rows
+-- come and go: its sort key and the Torrent's id.
+SELECT t.torrent_id, t.node_id, t.reason, t.files_found, t.since, t.readd_node, t.readd_at
+FROM reconciling_torrent t
+WHERE (CAST(sqlc.arg(any_reason) AS INTEGER) OR t.reason = CAST(sqlc.arg(reason) AS TEXT))
+  AND (CAST(sqlc.arg(any_found) AS INTEGER) OR coalesce(t.files_found, -1) = CAST(sqlc.arg(found) AS INTEGER))
+  AND ((t.reason, coalesce(t.files_found, -1), t.since)
+      > (CAST(sqlc.arg(after_reason) AS TEXT), CAST(sqlc.arg(after_found) AS INTEGER), CAST(sqlc.arg(after_since) AS INTEGER))
+    OR (t.reason, coalesce(t.files_found, -1), t.since)
+      = (CAST(sqlc.arg(after_reason) AS TEXT), CAST(sqlc.arg(after_found) AS INTEGER), CAST(sqlc.arg(after_since) AS INTEGER))
+      AND t.torrent_id > coalesce(sqlc.arg(after_id), x''))
+ORDER BY t.reason, coalesce(t.files_found, -1), t.since, t.torrent_id
+LIMIT sqlc.arg(page);
+
+-- name: CountReview :many
+SELECT reason, coalesce(files_found, -1) AS found, count(*) AS n FROM reconciling_torrent
+GROUP BY reason, coalesce(files_found, -1)
+ORDER BY reason, found;
+
+-- name: GetReview :one
+SELECT * FROM reconciling_torrent WHERE torrent_id = sqlc.arg(torrent_id);
+
+-- name: MarkReadd :exec
+UPDATE reconciling_torrent SET readd_node = sqlc.arg(readd_node), readd_at = sqlc.arg(at)
+WHERE torrent_id = sqlc.arg(torrent_id);
+
+-- name: ListReadd :many
+SELECT torrent_id, readd_node FROM reconciling_torrent
+WHERE readd_at IS NOT NULL AND torrent_id > coalesce(sqlc.arg(after), x'')
+ORDER BY torrent_id
+LIMIT sqlc.arg(page);
+
+-- name: SetLooked :exec
+UPDATE reconciling_torrent SET files_found = sqlc.arg(files_found), looked_at = sqlc.arg(at)
+WHERE torrent_id = sqlc.arg(torrent_id);
+
+-- name: ListToLook :many
+SELECT torrent_id FROM reconciling_torrent
+WHERE reason = 'not_held' AND looked_at IS NULL
+ORDER BY torrent_id
+LIMIT sqlc.arg(page);

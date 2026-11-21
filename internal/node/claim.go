@@ -28,6 +28,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -202,6 +203,20 @@ func (s surfaceNode) Nodes() (*nodes.Service, bool) {
 		return nil, false
 	}
 	return h.nodes, true
+}
+
+func (s surfaceNode) Reconciling() (*reconciling.Service, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.reconciling == nil {
+		return nil, false
+	}
+	return h.reconciling, true
+}
+
+// refusal is the reconciling problem's detail, which only a Controller
+// writes.
+func (s surfaceNode) refusal(ctx context.Context) (string, error) {
+	return s.n.half.Load().reconciling.Refusal(ctx)
 }
 
 func (s surfaceNode) Systems() (*nodesystem.Nodes, bool) {
