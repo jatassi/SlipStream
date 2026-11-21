@@ -11,10 +11,12 @@ import { useWorkSubtitles } from "../../subtitles/work-api";
 import { rowStateOf } from "../../subtitles/work-words";
 import { useQualityNames } from "../../targets/quality-names";
 import { Chip } from "../../ui/chip";
+import { type Clock, useClock } from "../../ui/clock";
 import { Data } from "../../ui/data";
+import { Fact, Facts } from "../../ui/facts";
+// oxlint-disable-next-line import/max-dependencies -- the section lists the files with their media, qualities, subtitles and the renames still moving them
 import { List, ListRow } from "../../ui/list";
 import { Section } from "../../ui/section";
-// oxlint-disable-next-line import/max-dependencies -- the section lists the files with their media, qualities, subtitles and the renames still moving them
 import { nameOf } from "../paths";
 import { FileMedia, ForgetFile, goneWords } from "./file-media";
 import { anyCut } from "./matrix-model";
@@ -89,9 +91,9 @@ const groups: readonly { readonly group: Group; readonly label: string }[] = [
   { group: "gone", label: "Gone files" },
 ];
 
-function placed(file: FilesListedFile, fills: (file: FilesListedFile) => string) {
+function placed(file: FilesListedFile, fills: (file: FilesListedFile) => string, clock: Clock) {
   if (file.goneAt !== null) {
-    return { file, group: "gone", about: goneWords(file.goneAt) } as const;
+    return { file, group: "gone", about: goneWords(file.goneAt, clock) } as const;
   }
   return file.kept
     ? ({ file, group: "kept", about: "Not used for any wanted Target" } as const)
@@ -190,7 +192,8 @@ function seasonsOf(rows: readonly Placed[], at: Subtitled, label: string): Seaso
 
 function FileLists({ files, at }: { files: readonly FilesListedFile[]; at: Subtitled }) {
   const fills = fillWords(at.names);
-  const rows = files.map((file) => placed(file, fills));
+  const clock = useClock();
+  const rows = files.map((file) => placed(file, fills, clock));
   const series = [...at.byFile.values()].some(({ season }) => season !== null);
   return (
     <div className="flex flex-col gap-3">
@@ -227,18 +230,14 @@ export function FilesSection({
   const { byFile, providers } = useWorkSubtitles(workId);
   return (
     <Section title="Files" count={files.length} chip={<RenamingChip params={{ workId }} />}>
-      <dl className="mb-3 flex flex-wrap gap-x-8 gap-y-2">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <dt className="text-label text-ink-3">Library root</dt>
-          <dd className="text-ink-1">{root === null ? "None yet" : <Data>{root.path}</Data>}</dd>
-        </div>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <dt className="text-label text-ink-3">Folder</dt>
-          <dd className="text-ink-1">
+      <div className="mb-3">
+        <Facts look="inline">
+          <Fact label="Library root">{root === null ? "None yet" : <Data>{root.path}</Data>}</Fact>
+          <Fact label="Folder">
             <Data>{folder}</Data>
-          </dd>
-        </div>
-      </dl>
+          </Fact>
+        </Facts>
+      </div>
       {files.length === 0 ? (
         <p className="text-ink-3">
           No files yet. Downloaded files show here once they&apos;re imported.

@@ -5,33 +5,28 @@ import type { FilesCell, FilesLibraryFile } from "../../api/gen/model";
 import { openManualSearch } from "../../manual/sheet-state";
 import { Button } from "../../ui/button";
 import { Data } from "../../ui/data";
+import { Fact, Facts } from "../../ui/facts";
 import { IconButton } from "../../ui/icon-button";
 import { Popover } from "../../ui/popover";
 import { folderOf, nameOf } from "../paths";
+// oxlint-disable-next-line import/max-dependencies -- a cell's Details name its file and what else it fills, and open Manual search
 import { type CellView, type MatrixShown, anyCut, cellScope } from "./matrix-model";
 
 const list = new Intl.ListFormat("en", { type: "conjunction" });
 
-function Facts({ path, others }: { path: string; others: readonly string[] }) {
+function FileFacts({ path, others }: { path: string; others: readonly string[] }) {
   return (
-    <dl className="flex flex-col gap-2">
-      <div>
-        <dt className="text-label text-ink-3">File</dt>
-        <dd className="break-all text-ink-1">
-          <Data>{nameOf(path)}</Data>
-        </dd>
-      </div>
-      <div>
-        <dt className="text-label text-ink-3">Folder</dt>
-        <dd className="break-all text-ink-1">
-          <Data>{folderOf(path)}</Data>
-        </dd>
-      </div>
-      <div>
-        <dt className="text-label text-ink-3">Also used for</dt>
-        <dd className="text-ink-1">{others.length === 0 ? "Nothing else" : list.format(others)}</dd>
-      </div>
-    </dl>
+    <Facts look="inline">
+      <Fact label="File">
+        <Data>{nameOf(path)}</Data>
+      </Fact>
+      <Fact label="Folder">
+        <Data>{folderOf(path)}</Data>
+      </Fact>
+      <Fact label="Also used for">
+        {others.length === 0 ? "Nothing else" : list.format(others)}
+      </Fact>
+    </Facts>
   );
 }
 
@@ -61,7 +56,7 @@ export function CellDetails({
       onOpenChange={setOpen}
       trigger={<IconButton icon={InformationCircleIcon} label={`Details of ${view.target.name}`} />}
     >
-      <Facts path={file.path} others={others} />
+      <FileFacts path={file.path} others={others} />
       <Button
         size="small"
         className="mt-3"

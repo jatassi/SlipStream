@@ -16,10 +16,11 @@ import type {
 import { clock } from "../../format";
 import { Data } from "../../ui/data";
 import { Details } from "../../ui/details";
+import { Fact, Facts } from "../../ui/facts";
 import { Icon } from "../../ui/icon";
 import { Section } from "../../ui/section";
-import { type Placed, codeOf, placedOf } from "../fields-by-tier";
 // oxlint-disable-next-line import/max-dependencies -- About shows every place a type puts a field, with its art and links
+import { type Placed, codeOf, placedOf } from "../fields-by-tier";
 import { dayWords } from "../../format/days";
 import { aboutText, ratingValue } from "./fields-format";
 import { OpenIn } from "./open-in";
@@ -56,19 +57,24 @@ function AboutValue({ holder, item: { spec, value } }: { holder: Holder; item: P
   );
 }
 
-/** Fields as labels and values, a Work's or an Item's. */
-export function KeyValues({ holder, items }: { holder: Holder; items: readonly Placed[] }) {
+/** A Work's or an Item's fields as Facts, inline in About or in a well under Details. */
+export function FieldFacts({
+  holder,
+  items,
+  look,
+}: {
+  holder: Holder;
+  items: readonly Placed[];
+  look: "inline" | "well";
+}) {
   return (
-    <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2">
+    <Facts look={look}>
       {items.map((item) => (
-        <div key={item.spec.key} className="contents">
-          <dt className="text-ink-3">{item.spec.label}</dt>
-          <dd className="text-ink-1">
-            <AboutValue holder={holder} item={item} />
-          </dd>
-        </div>
+        <Fact key={item.spec.key} label={item.spec.label}>
+          <AboutValue holder={holder} item={item} />
+        </Fact>
       ))}
-    </dl>
+    </Facts>
   );
 }
 
@@ -250,7 +256,7 @@ export function About({
         {tagline !== undefined && (
           <p className="text-card-title text-ink-1">{aboutText(tagline.value)}</p>
         )}
-        <KeyValues holder={work} items={placed(type, work, "about")} />
+        <FieldFacts holder={work} items={placed(type, work, "about")} look="inline" />
         {availability.map((line) => (
           <p key={line} className="text-ink-2">
             {line}
@@ -272,7 +278,7 @@ export function About({
           <p className="text-ink-2">{record}</p>
         ) : (
           <Details summary={record}>
-            <KeyValues holder={work} items={details} />
+            <FieldFacts holder={work} items={details} look="well" />
           </Details>
         )}
       </div>

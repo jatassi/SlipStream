@@ -13,9 +13,12 @@ import { useListGrabsSuspense } from "../../api/gen/query/grabs/grabs";
 import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
 import { lengthWords } from "../../format";
 import { Button } from "../../ui/button";
+import type { Clock } from "../../ui/clock";
 import { Data } from "../../ui/data";
-import { Details } from "../../ui/details";
 // oxlint-disable-next-line import/max-dependencies -- a file's Details read its media, its import and the Grab and Node it came from
+import { Details } from "../../ui/details";
+import { Fact, Facts } from "../../ui/facts";
+import { whenWords } from "../../ui/time-words";
 import { toast } from "../../ui/toast";
 import { nameOf } from "../paths";
 
@@ -149,33 +152,30 @@ export function FileMedia({ file, subtitles }: { file: FilesListedFile; subtitle
   }
   return (
     <Details>
-      <dl className="flex flex-col gap-2 pb-1">
+      <Facts look="well">
         {placed.map(({ label, value }) => (
-          <div key={label}>
-            <dt className="text-label text-ink-3">{label}</dt>
-            <dd className="break-words whitespace-normal text-ink-1">{value}</dd>
-          </div>
+          <Fact key={label} label={label}>
+            {value}
+          </Fact>
         ))}
         {rows.map(({ label, values }) => (
-          <div key={label}>
-            <dt className="text-label text-ink-3">{label}</dt>
+          <Fact key={label} label={label}>
             {values.map((value, index) => (
               // oxlint-disable-next-line react/no-array-index-key -- two tracks can read the same, and the order never changes
-              <dd key={index} className="break-words whitespace-normal text-ink-1">
-                <Data>{value}</Data>
-              </dd>
+              <Data key={index} className="block">
+                {value}
+              </Data>
             ))}
-          </div>
+          </Fact>
         ))}
         {subtitles}
-      </dl>
+      </Facts>
     </Details>
   );
 }
 
-const day = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
-
-export const goneWords = (goneAt: string): string => `Gone since ${day.format(new Date(goneAt))}`;
+export const goneWords = (goneAt: string, clock: Clock): string =>
+  `Gone ${whenWords(goneAt, "since", clock)}`;
 
 /** Forgets a gone file. One already forgotten, as by another tab, counts as done. */
 export function ForgetFile({ file }: { file: FilesListedFile }) {

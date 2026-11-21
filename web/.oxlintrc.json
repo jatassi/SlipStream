@@ -748,13 +748,7 @@
       }
     },
     {
-      "files": [
-        "src/works/page/about.tsx",
-        "src/works/page/cell-details.tsx",
-        "src/works/page/file-media.tsx",
-        "src/works/page/files-section.tsx",
-        "src/trackers/header.tsx"
-      ],
+      "files": ["src/trackers/header.tsx"],
       "rules": {
         "slipstream/no-restricted-syntax": [
           "error",
@@ -789,6 +783,38 @@
           {
             "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bfont-mono\\b/]",
             "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
+          },
+          {
+            "selector": "JSXAttribute[name.name='className'] Literal[value=/\\bbg-(warn|fail)-card\\b/]",
+            "message": "amber and red cards are Callout from src/ui/callout.tsx"
+          },
+          {
+            "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bbg-(warn|fail)-card\\b/]",
+            "message": "amber and red cards are Callout from src/ui/callout.tsx"
+          },
+          {
+            "selector": "JSXOpeningElement[name.name='kbd']",
+            "message": "key hints are Kbd from src/ui/kbd.tsx"
+          },
+          {
+            "selector": "JSXOpeningElement[name.name='time']",
+            "message": "a time is RelativeTime or PlainTime from src/ui/relative-time.tsx"
+          },
+          {
+            "selector": "NewExpression[callee.object.name='Intl'][callee.property.name=/^(DateTimeFormat|RelativeTimeFormat)$/]",
+            "message": "times are worded in src/ui/time-words.ts and days in src/format/days.ts"
+          },
+          {
+            "selector": "CallExpression[callee.object.name='Intl'][callee.property.name=/^(DateTimeFormat|RelativeTimeFormat)$/]",
+            "message": "times are worded in src/ui/time-words.ts and days in src/format/days.ts"
+          },
+          {
+            "selector": "CallExpression[callee.property.name=/^toLocale(Date|Time)String$/]",
+            "message": "times are worded in src/ui/time-words.ts and days in src/format/days.ts"
+          },
+          {
+            "selector": "CallExpression[callee.property.name='toLocaleString'][callee.object.callee.name='Date']",
+            "message": "times are worded in src/ui/time-words.ts and days in src/format/days.ts"
           }
         ]
       }

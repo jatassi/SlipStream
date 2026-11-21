@@ -2,7 +2,7 @@ import type { WorksContentType } from "../../api/gen/model";
 import { Details } from "../../ui/details";
 import { Dialog } from "../../ui/dialog";
 import { placedOf } from "../fields-by-tier";
-import { KeyValues, Ratings } from "../page/about";
+import { FieldFacts, Ratings } from "../page/about";
 import { aboutText } from "../page/fields-format";
 import type { ItemView } from "./model";
 
@@ -49,13 +49,13 @@ function ItemFacts({ type, view: { item } }: { type: WorksContentType; view: Ite
         />
       )}
       {overview !== undefined && <p className="text-ink-2">{aboutText(overview.value)}</p>}
-      <KeyValues holder={item} items={at("about")} />
+      <FieldFacts holder={item} items={at("about")} look="inline" />
       {item.ratings.length > 0 && <Ratings ratings={item.ratings} />}
       {details.length === 0 ? (
         <p className="text-ink-2">{record}</p>
       ) : (
         <Details summary={record}>
-          <KeyValues holder={item} items={details} />
+          <FieldFacts holder={item} items={details} look="well" />
         </Details>
       )}
     </div>

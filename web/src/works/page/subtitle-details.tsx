@@ -158,9 +158,8 @@ export function SubtitleDetails({ file }: { file: SubtitleFile }) {
     return null;
   }
   return (
-    <div className="flex flex-col gap-2">
-      <dt className="text-label text-ink-3">Subtitles</dt>
-      <dd className="flex flex-col gap-3">
+    <Fact label="Subtitles">
+      <div className="flex flex-col gap-3">
         {embedded.length > 0 && (
           <ul aria-label="Embedded subtitles" className="flex flex-col gap-2">
             {embedded.map((track) => (
@@ -181,7 +180,7 @@ export function SubtitleDetails({ file }: { file: SubtitleFile }) {
             </ul>
           </div>
         )}
-      </dd>
-    </div>
+      </div>
+    </Fact>
   );
 }
