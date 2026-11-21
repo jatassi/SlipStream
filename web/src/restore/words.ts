@@ -1,5 +1,5 @@
 import type { RestoreSummary } from "../api/gen/model";
-import { type Clock, agoWords, dateOf, sinceWords, timeOfDay } from "../format";
+import { type Clock, dateOf, sinceWords, takenWords } from "../format";
 
 const nodesWords = (count: number) => (count === 1 ? "1 Node" : `${count} Nodes`);
 
@@ -7,7 +7,7 @@ export const summarySentence = (
   { takenAt, version, controller, nodes }: RestoreSummary,
   clock: Clock,
 ) =>
-  `This Backup was taken ${agoWords(takenAt, clock.now)}, on ${dateOf(takenAt, clock.zone)} at ${timeOfDay(takenAt, clock.zone)}, by SlipStream ${version}. It's a Backup of ${controller} and lists ${nodesWords(nodes?.length ?? 0)}.`;
+  `This Backup was taken ${takenWords(takenAt, clock)} by SlipStream ${version}. It's a Backup of ${controller} and lists ${nodesWords(nodes?.length ?? 0)}.`;
 
 export const pinSentence = ({ takenAt }: RestoreSummary, clock: Clock) =>
   `After the restore, sign in with the PIN you had on ${dateOf(takenAt, clock.zone)}.`;

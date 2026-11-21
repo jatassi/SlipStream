@@ -102,7 +102,7 @@ test("a restore uploads the file, opens it, confirms the old Controller is off a
   await expect
     .element(
       page.getByText(
-        "This Backup was taken 3 days ago, on Nov 14 at 04:00, by SlipStream 2.1.0. It's a Backup of media-pc and lists 2 Nodes.",
+        "This Backup was taken Nov 14, 04:00 by SlipStream 2.1.0. It's a Backup of media-pc and lists 2 Nodes.",
       ),
     )
     .toBeVisible();

@@ -289,3 +289,7 @@ export function sinceWords(iso: string, { now, zone }: Clock): string {
   const time = formats.time.format(at);
   return daysFrom(now, at, zone) === 0 ? time : `${formats.date.format(at)}, ${time}`;
 }
+
+/** A past time after "was taken" or "failed": "at 04:01" today, else "Nov 13, 04:01". */
+export const takenWords = (iso: string, at: Clock): string =>
+  isToday(iso, at) ? `at ${sinceWords(iso, at)}` : sinceWords(iso, at);

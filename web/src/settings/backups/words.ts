@@ -5,7 +5,7 @@ import type {
   BackupsBackupTrigger,
   BackupsDestination,
 } from "../../api/gen/model";
-import { type Clock, bytes, dateOf, isToday, sinceWords } from "../../format";
+import { type Clock, bytes, dateOf, takenWords } from "../../format";
 
 const daySeconds = 86_400;
 
@@ -35,10 +35,6 @@ export function andList(words: readonly string[]): string {
   }
   return `${words.slice(0, -1).join(", ")} and ${words.at(-1) ?? ""}`;
 }
-
-/** A past time after "was taken" or "failed": "at 04:01" today, else "Nov 13, 04:01". */
-const takenWords = (iso: string, clock: Clock) =>
-  isToday(iso, clock) ? `at ${sinceWords(iso, clock)}` : sinceWords(iso, clock);
 
 const scheduleWords = (everySeconds: number, start: string) => {
   const days = Math.round(everySeconds / daySeconds);
