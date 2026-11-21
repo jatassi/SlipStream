@@ -3,11 +3,18 @@ syntax = "proto3";
 package slipstream.node.v1;
 
 // NodeIntent is the node scope's intent: the Roles the Node holds, the
-// Roles it no longer holds but still drains, and its name.
+// Roles it no longer holds but still drains, its name, and each old
+// Controller key the Controller replaced with the proof that fences it.
 message NodeIntent {
   repeated string roles = 1;
   repeated string draining = 2;
   string name = 3;
+  repeated SupersededEntry superseded = 4;
+}
+
+message SupersededEntry {
+  bytes old_key = 1;
+  bytes proof = 2;
 }
 
 // NodeFacts is the node scope's facts: the Roles the holder half has
