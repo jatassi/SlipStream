@@ -91,10 +91,6 @@ type Config struct {
 	TrackersChanged Publisher[indexers.TrackerChanged]
 }
 
-// NotReconciling is Reconciling until S49 (Backups and restore) stores a
-// restore's state.
-func NotReconciling(context.Context, storage.Reader[file]) (bool, error) { return false, nil }
-
 type Trackers struct{ cfg Config }
 
 func New(cfg Config) *Trackers { return &Trackers{cfg: cfg} }

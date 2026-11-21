@@ -17,7 +17,6 @@ import (
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
-	"github.com/jatassi/slipstream/internal/trackers"
 )
 
 // threeTiers is a Target whose cutoff is Bluray-1080p over WEB-DL 1080p
@@ -84,7 +83,7 @@ func TestAWaitSkipsACandidateBlocklistedMeanwhile(t *testing.T) {
 		hash := bencode.InfoHash{1, 2, 3}
 		web.InfoHash = &hash
 		_, until := twoCandidates(t, w, web)
-		on := grabs.BlocklistOn{Reconciling: trackers.NotReconciling}
+		on := grabs.BlocklistOn{Reconciling: notReconciling}
 		if err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			return on.Block(ctx, tx, grabs.BlockEntry{InfoHash: hash, Title: web.Title, Size: web.Size, Cause: grabs.CauseByHand, By: &grabs.Actor{Name: "Jackson"}})
 		}); err != nil {

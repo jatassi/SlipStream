@@ -317,8 +317,7 @@ type Config struct {
 	// Blocklist entries commits.
 	BlocklistChanged Publisher[BlocklistChanged]
 	// Reconciling is whether a restored Controller is Reconciling, read in
-	// the caller's snapshot: trackers.NotReconciling until S49 (Backups and
-	// restore).
+	// the caller's snapshot.
 	Reconciling func(ctx context.Context, r storage.Reader[file]) (bool, error)
 	// BeforeStep sees each step before it runs: the simulation tier's
 	// hook, nil in production.

@@ -15,7 +15,6 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/trackers"
 )
 
 var removals = []struct {
@@ -153,7 +152,7 @@ func actAsTheGrabSteps(t *testing.T, kind downloadclients.ActionKind, at grabs.S
 	p := newPipeline(t)
 	id := downloadingGrab(t, p, seedingReport)
 	torrent := torrentOf(t, p)
-	clients := clientsOf(p, grabs.BlocklistOn{Reconciling: trackers.NotReconciling, Changes: discard[grabs.BlocklistChanged]{}})
+	clients := clientsOf(p, grabs.BlocklistOn{Reconciling: notReconciling, Changes: discard[grabs.BlocklistChanged]{}})
 	var refusal *downloadclients.Refusal
 	p.beforeStep = func(ctx context.Context, s grabs.Stage) {
 		if s != at {
@@ -202,7 +201,7 @@ func TestAnAdminRemovalOfAnImportingGrabsTorrentIsRefused(t *testing.T) {
 				p := newPipeline(t)
 				id := downloadingGrab(t, p, seedingReport)
 				torrent := torrentOf(t, p)
-				clients := clientsOf(p, grabs.BlocklistOn{Reconciling: trackers.NotReconciling, Changes: discard[grabs.BlocklistChanged]{}})
+				clients := clientsOf(p, grabs.BlocklistOn{Reconciling: notReconciling, Changes: discard[grabs.BlocklistChanged]{}})
 				p.running()
 				if v := p.view(id); v.Stage != grabs.Importing || !slices.Equal(p.imports.handed(), []grabs.GrabID{id}) {
 					t.Fatalf("the Grab is %s with %v handed, want importing and its download handed to its Import", v.Stage, p.imports.handed())
@@ -258,7 +257,7 @@ func TestMarkFailedOnAHeldTorrentBlocklistsItsRelease(t *testing.T) {
 		p := newPipeline(t)
 		id := downloadingGrab(t, p, seedingReport)
 		changes := &blocklistChanges{}
-		clients := clientsOf(p, grabs.BlocklistOn{Reconciling: trackers.NotReconciling, Changes: changes})
+		clients := clientsOf(p, grabs.BlocklistOn{Reconciling: notReconciling, Changes: changes})
 
 		results, _, err := clients.Act(t.Context(), downloadclients.Action{Kind: downloadclients.MarkFailed, IDs: []downloadclients.ID{torrentOf(t, p)}})
 		if err != nil || results[0].Refusal != nil {
@@ -309,4 +308,9 @@ func TestMarkFailedWhileReconcilingRefusesAndRemovesNothing(t *testing.T) {
 			t.Fatalf("the Blocklist holds %q after %d changes, want nothing", got, changes.n.Load())
 		}
 	})
+}
+
+// notReconciling is a Controller that is never Reconciling.
+func notReconciling(context.Context, storage.Reader[storage.Library]) (bool, error) {
+	return false, nil
 }
