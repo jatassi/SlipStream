@@ -72,7 +72,7 @@ type summary struct {
 	Version    string        `json:"version" doc:"The SlipStream version that took the Backup"`
 	Controller string        `json:"controller" doc:"The name of the Controller the Backup is of"`
 	Nodes      []summaryNode `json:"nodes" doc:"Every Node the Backup lists, the Controller first"`
-	NewMachine bool          `json:"newMachine" doc:"The Backup is of another machine: confirm that its Controller stays off"`
+	NewMachine bool          `json:"newMachine" doc:"The Backup is of another machine. Confirm that its Controller stays off"`
 }
 
 type summaryOutput struct{ Body summary }

@@ -19007,7 +19007,7 @@
             "type": "string"
           },
           "newMachine": {
-            "description": "The Backup is of another machine: confirm that its Controller stays off",
+            "description": "The Backup is of another machine. Confirm that its Controller stays off",
             "type": "boolean"
           },
           "nodes": {

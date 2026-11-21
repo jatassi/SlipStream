@@ -10159,7 +10159,7 @@ export const RestoreSummary = zod.object({
   controller: zod.string().describe("The name of the Controller the Backup is of"),
   newMachine: zod
     .boolean()
-    .describe("The Backup is of another machine: confirm that its Controller stays off"),
+    .describe("The Backup is of another machine. Confirm that its Controller stays off"),
   nodes: zod
     .array(RestoreSummaryNode)
     .nullable()

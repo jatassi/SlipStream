@@ -77,7 +77,7 @@ func (n *Node) restoreFromEnv(ctx context.Context) error {
 	}
 	for _, name := range []string{n.env.DataDir.LibraryDB(), filepath.Join(n.env.DataDir.Path(), pairing.RecordFile), filepath.Join(n.env.DataDir.Path(), lifecycle.FileName)} {
 		if _, err := os.Stat(name); !errors.Is(err, fs.ErrNotExist) {
-			n.log.Info("this data dir is already set up, so SlipStream ignores " + restoreVar)
+			n.log.Info("SlipStream ignores " + restoreVar + " because this data dir is already set up")
 			return nil
 		}
 	}
@@ -148,7 +148,7 @@ func (n *Node) stager() (*backups.Stager, error) {
 		s.Before = func(ctx context.Context) error {
 			h := n.half.Load()
 			if h == nil || h.backups == nil {
-				return errors.New("the Controller isn't running, so it can't back up before the restore")
+				return errors.New("the Controller isn't running. Start it, then restore again")
 			}
 			run, err := h.backups.Take(ctx, backups.Request{Trigger: archive.BeforeRestore})
 			if err != nil {

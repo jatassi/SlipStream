@@ -89,7 +89,7 @@ func (w wording) reason(p providers.Provider, r providers.Reason) string {
 	case secretsUnreadable:
 		return "SlipStream can't open this connection's saved secrets. Enter them again."
 	case restored:
-		return "It was due before the restored Backup was taken, so the old Controller most likely sent it."
+		return "It was due before the restored Backup was taken. The old Controller most likely sent it."
 	}
 	return p.Label + " didn't take the message. SlipStream retries automatically."
 }

@@ -12,7 +12,7 @@ A Backup restores onto a machine that has none of the old Controller's files, on
 
 - Host CLI: `slipstream restore [--data-dir <dir>] [--passphrase-file <file>] [--old-controller-off] [--remove <Node name>]... <backup>`. With no Node running on the data dir it stages offline and the next start finishes it; with one running it hands the restore to that Node, which restarts. Without `--passphrase-file` it asks for the passphrase on the terminal.
 - API: `POST /api/v1/setup/restore` (the file as `application/octet-stream`), then `POST /api/v1/setup/restore/{id}/open` with `{"passphrase": ...}` and `POST /api/v1/setup/restore/{id}/confirm` with `{"oldControllerOff": ..., "remove": [...]}`, each with `X-Setup-Code`.
-- Docker: `SLIPSTREAM_RESTORE=<backup>`, `SLIPSTREAM_RESTORE_PASSPHRASE_FILE=<file>` and `SLIPSTREAM_RESTORE_OLD_CONTROLLER_OFF=1` on a data dir no Node set up restore in that same start. On a data dir already set up the start logs `this data dir is already set up, so SlipStream ignores SLIPSTREAM_RESTORE`. Only Go tests drive it.
+- Docker: `SLIPSTREAM_RESTORE=<backup>`, `SLIPSTREAM_RESTORE_PASSPHRASE_FILE=<file>` and `SLIPSTREAM_RESTORE_OLD_CONTROLLER_OFF=1` on a data dir no Node set up restore in that same start. On a data dir already set up the start logs `SlipStream ignores SLIPSTREAM_RESTORE because this data dir is already set up`. Only Go tests drive it.
 
 ## Driving it with fakeworld and the host CLI
 

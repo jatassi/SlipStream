@@ -379,7 +379,7 @@ func TestDockerVariablesIgnoreAClaimedDataDir(t *testing.T) {
 		if phaseOf(t, again) != reconciling.None {
 			t.Fatal("the restore variables restored over a claimed data dir")
 		}
-		if !strings.Contains(stderr.String(), "this data dir is already set up, so SlipStream ignores SLIPSTREAM_RESTORE") {
+		if !strings.Contains(stderr.String(), "SlipStream ignores SLIPSTREAM_RESTORE because this data dir is already set up") {
 			t.Fatalf("the log holds no line on the ignored variables:\n%s", stderr)
 		}
 	})
