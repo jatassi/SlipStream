@@ -126,13 +126,14 @@ func (b *Backups) Path(e Entry) string { return b.cfg.Engine.path(e.Name) }
 // run at once when the window passed while SlipStream was off.
 func (b *Backups) Task() tasks.Task {
 	return tasks.Task{
-		ID:      TaskID,
-		Name:    "Backup",
-		About:   "Takes a Backup of the library, checks that it opens, and deletes older Backups past their keep time.",
-		Group:   tasks.ControllerGroup,
-		Cadence: tasks.InWindow{Days: Cadence},
-		Overdue: tasks.CatchUp,
-		Noun:    setting.Noun{One: "Backup", Many: "Backups"},
+		ID:               TaskID,
+		Name:             "Backup",
+		About:            "Takes a Backup of the library, checks that it opens, and deletes older Backups past their keep time.",
+		Group:            tasks.ControllerGroup,
+		Cadence:          tasks.InWindow{Days: Cadence},
+		Overdue:          tasks.CatchUp,
+		WhileReconciling: tasks.Runs,
+		Noun:             setting.Noun{One: "Backup", Many: "Backups"},
 		Units: func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
 			return []tasks.Unit{{Key: backupUnit, Label: "Library", Place: tasks.OnController()}}, nil
 		},
