@@ -50,6 +50,9 @@ const (
 	// DownloadingServiceCheckClientsProcedure is the procedure name of the DownloadingService's
 	// CheckClients RPC.
 	DownloadingServiceCheckClientsProcedure = "/slipstream.downloading.v1.DownloadingService/CheckClients"
+	// DownloadingServiceMetainfoProcedure is the procedure name of the DownloadingService's Metainfo
+	// RPC.
+	DownloadingServiceMetainfoProcedure = "/slipstream.downloading.v1.DownloadingService/Metainfo"
 	// DownloadingControlServiceTorrentProcedure is the procedure name of the
 	// DownloadingControlService's Torrent RPC.
 	DownloadingControlServiceTorrentProcedure = "/slipstream.downloading.v1.DownloadingControlService/Torrent"
@@ -115,6 +118,13 @@ var (
 			Procedure:  DownloadingServiceCheckClientsProcedure,
 		}
 	})
+	downloadingServiceMetainfoSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_downloading_v1_downloading_proto.Services().ByName("DownloadingService").Methods().ByName("Metainfo"),
+			Procedure:  DownloadingServiceMetainfoProcedure,
+		}
+	})
 )
 
 // DownloadingServiceClient is a client for the slipstream.downloading.v1.DownloadingService
@@ -147,6 +157,10 @@ type DownloadingServiceClient interface {
 	// was refused too, and answers once each poll's report is in the outbox
 	// with check.
 	CheckClients(context.Context, *v1.CheckClientsRequest) (*v1.CheckClientsResponse, error)
+	// Metainfo is the metainfo of a torrent the Node holds, for the
+	// Controller to adopt it. The built-in client rebuilds it from its
+	// resume data; a torrent it holds none for is NotFound.
+	Metainfo(context.Context, *v1.MetainfoRequest) (*v1.MetainfoResponse, error)
 }
 
 // NewDownloadingServiceClient constructs a client for the
@@ -186,6 +200,10 @@ type DownloadingServiceHandler interface {
 	// was refused too, and answers once each poll's report is in the outbox
 	// with check.
 	CheckClients(context.Context, *v1.CheckClientsRequest) (*v1.CheckClientsResponse, error)
+	// Metainfo is the metainfo of a torrent the Node holds, for the
+	// Controller to adopt it. The built-in client rebuilds it from its
+	// resume data; a torrent it holds none for is NotFound.
+	Metainfo(context.Context, *v1.MetainfoRequest) (*v1.MetainfoResponse, error)
 }
 
 // RegisterDownloadingServiceHandler registers svc as the
@@ -201,6 +219,7 @@ func RegisterDownloadingServiceHandler(server *connect.Server, svc DownloadingSe
 		connect.Method{Spec: downloadingServiceResolveSpec(), Handler: adapter.resolve},
 		connect.Method{Spec: downloadingServiceTestClientSpec(), Handler: adapter.testClient},
 		connect.Method{Spec: downloadingServiceCheckClientsSpec(), Handler: adapter.checkClients},
+		connect.Method{Spec: downloadingServiceMetainfoSpec(), Handler: adapter.metainfo},
 	)
 }
 
@@ -237,6 +256,10 @@ func (UnimplementedDownloadingServiceHandler) TestClient(context.Context, *v1.Te
 
 func (UnimplementedDownloadingServiceHandler) CheckClients(context.Context, *v1.CheckClientsRequest) (*v1.CheckClientsResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.CheckClients is not implemented")
+}
+
+func (UnimplementedDownloadingServiceHandler) Metainfo(context.Context, *v1.MetainfoRequest) (*v1.MetainfoResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Metainfo is not implemented")
 }
 
 type downloadingServiceClient struct {
@@ -302,6 +325,14 @@ func (c *downloadingServiceClient) TestClient(ctx context.Context, req *v1.TestC
 func (c *downloadingServiceClient) CheckClients(ctx context.Context, req *v1.CheckClientsRequest) (*v1.CheckClientsResponse, error) {
 	var res v1.CheckClientsResponse
 	if err := c.client.CallUnary(ctx, downloadingServiceCheckClientsSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *downloadingServiceClient) Metainfo(ctx context.Context, req *v1.MetainfoRequest) (*v1.MetainfoResponse, error) {
+	var res v1.MetainfoResponse
+	if err := c.client.CallUnary(ctx, downloadingServiceMetainfoSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -399,6 +430,18 @@ func (h downloadingServiceHandler) checkClients(ctx context.Context, _ connect.S
 		return err
 	}
 	res, err := h.svc.CheckClients(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h downloadingServiceHandler) metainfo(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.MetainfoRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Metainfo(ctx, &req)
 	if err != nil {
 		return err
 	}

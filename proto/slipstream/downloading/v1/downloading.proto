@@ -27,6 +27,26 @@ message Intent {
   // order. They carry no secret: the intent is cached in plain bytes on
   // the Worker.
   repeated Client clients = 7;
+  // keep_all keeps every torrent the Node holds: it discards, fetches and
+  // adds nothing, and adds back each torrent it holds resume data for. It
+  // is set while the Controller hasn't adopted the Node's Holdings.
+  bool keep_all = 8;
+  // keep_hashes are torrents the Node keeps as keep_all does, though no
+  // Torrent lists them: a move waiting on another Node, or a conflict.
+  repeated bytes keep_hashes = 9;
+  // holdings asks for the Node's Holdings, absent while the Controller asks
+  // for none.
+  HoldingsRequest holdings = 10;
+  // pause_all pauses and keeps every torrent of the built-in client.
+  bool pause_all = 11;
+}
+
+// HoldingsRequest asks a Node to report every torrent it holds once per
+// round.
+message HoldingsRequest {
+  uint64 round = 1;
+  // page_size is the most entries one Holdings page carries.
+  uint32 page_size = 2;
 }
 
 message Torrent {
@@ -174,7 +194,42 @@ message Report {
     ClientPoll client = 4;
     Vanished vanished = 5;
     ClientTotals client_totals = 6;
+    Holdings holdings = 7;
   }
+}
+
+// Holdings is one page of a round of the Node's Holdings: every torrent it
+// holds, in info hash order.
+message Holdings {
+  uint64 round = 1;
+  // page counts from 0, and pages is the round's page count.
+  uint32 page = 2;
+  uint32 pages = 3;
+  repeated Holding entries = 4;
+}
+
+// Holding is one torrent a Node holds.
+message Holding {
+  bytes info_hash = 1;
+  // client_id is the external client that holds it, empty for the
+  // built-in client.
+  bytes client_id = 2;
+  // content is absent for a built-in torrent whose resume data the Node
+  // never saved.
+  HoldingContent content = 3;
+  // done is the share of its bytes the Node has, 0 to 1.
+  double done = 4;
+  bool private = 5;
+  int64 seed_seconds = 6;
+  // hosts are its trackers' announce hosts.
+  repeated string hosts = 7;
+  // save_folder is where the Node keeps it.
+  string save_folder = 8;
+}
+
+message HoldingContent {
+  string name = 1;
+  int64 size = 2;
 }
 
 // ClientPoll is one external client's poll state as its Node judged it,
@@ -465,6 +520,21 @@ service DownloadingService {
   // was refused too, and answers once each poll's report is in the outbox
   // with check.
   rpc CheckClients(CheckClientsRequest) returns (CheckClientsResponse);
+  // Metainfo is the metainfo of a torrent the Node holds, for the
+  // Controller to adopt it. The built-in client rebuilds it from its
+  // resume data; a torrent it holds none for is NotFound.
+  rpc Metainfo(MetainfoRequest) returns (MetainfoResponse);
+}
+
+message MetainfoRequest {
+  bytes info_hash = 1;
+  // client_id is the external client that holds it, empty for the
+  // built-in client.
+  bytes client_id = 2;
+}
+
+message MetainfoResponse {
+  bytes metainfo = 1;
 }
 
 message TestClientRequest {
