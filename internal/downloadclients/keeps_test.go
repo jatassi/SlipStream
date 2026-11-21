@@ -170,10 +170,10 @@ func TestHoldingsPastTheCapAreRefusedWhole(t *testing.T) {
 		rep  *dlv1.Report
 		want string
 	}{
-		{"4 pages", holdings(1, 0, 4, entry(1)), "The Node sent a list of 4 pages, which passes the limit of 5 torrents."},
+		{"4 pages", holdings(1, 0, 4, entry(1)), "The Node sent a list of 4 pages, which is over the limit of 5 torrents."},
 		{"a page of 3", holdings(1, 0, 3, entry(1), entry(2), entry(3)), "A page lists 3 torrents, more than the 2 a page holds."},
-		{"a last page of 2", holdings(1, 2, 3, entry(5), entry(6)), "The Node's list passes the limit of 5 torrents."},
-		{"page 3 of 3 counted from 0", holdings(1, 3, 3), "The Node sent page 4 of 3 pages."},
+		{"a last page of 2", holdings(1, 2, 3, entry(5), entry(6)), "The Node's list is over the limit of 5 torrents."},
+		{"page 3 of 3 counted from 0", holdings(1, 3, 3), "The Node sent page 4 of a list that has 3 pages."},
 		{"a short info hash", holdings(1, 0, 3, entry(1), short), "An info hash is 12 bytes, not 20."},
 	} {
 		s.report(t, s.node, c.rep)
