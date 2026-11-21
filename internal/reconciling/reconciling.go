@@ -55,7 +55,7 @@ func State(ctx context.Context, r storage.Reader[file]) (Phase, error) {
 	if err != nil {
 		return None, err
 	}
-	if fenced && f.State != nodes.Unproven {
+	if fenced && f.Superseded() {
 		return Superseded, nil
 	}
 	_, err = db.New(r).GetState(ctx)
@@ -179,6 +179,9 @@ func ContinueWithout(ctx context.Context, tx *storage.Tx[file], node nodes.ID) e
 // Config is what the Service adopts Holdings with.
 type Config struct {
 	Library *storage.DB[file]
+	// Self is the Controller's own Node, whose client a Superseded
+	// Controller pauses.
+	Self func() role.NodeID
 	// Touch derives the Nodes' Downloading intents again.
 	Touch func(nodes ...role.NodeID)
 	// Metainfo asks node for the metainfo of a torrent it holds in client,
@@ -272,8 +275,12 @@ func (s *Service) Blocked(ctx context.Context, r storage.Reader[file]) (bool, er
 
 // KeepOf is what node's Downloading intent keeps: everything until its
 // Holdings are adopted, with the round they are asked for, and afterwards
-// each torrent kept with no record.
+// each torrent kept with no record. A Superseded Controller keeps
+// everything on every Node, and pauses its own.
 func (s *Service) KeepOf(ctx context.Context, r storage.Reader[file], node role.NodeID) (downloadclients.Keep, error) {
+	if f, fenced, err := nodes.FenceIn(ctx, r); err != nil || (fenced && f.Superseded()) {
+		return downloadclients.Keep{All: true, PauseAll: node == s.cfg.Self()}, err
+	}
 	q := db.New(r)
 	row, err := q.GetNode(ctx, node)
 	switch {

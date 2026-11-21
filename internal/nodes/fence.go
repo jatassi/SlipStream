@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -87,18 +88,9 @@ func (s *Service) fence(ctx context.Context, c toldClaim) error {
 	if s.cfg.Fence.Proven(s.cfg.Key[:], c.s.By[:], c.s.Proof) {
 		claim.State = Proven
 	}
-	changed := false
-	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		cur, fenced, err := FenceIn(ctx, tx)
-		if err != nil {
-			return err
-		}
+	changed, err := s.refence(ctx, func(cur Fence, fenced bool) (*Fence, bool, error) {
 		next, ok := after(cur, fenced, claim)
-		if !ok {
-			return nil
-		}
-		changed = true
-		return putFence(ctx, db.New(tx), next)
+		return &next, ok, nil
 	})
 	if err != nil {
 		return fmt.Errorf("record that a restore replaced this Controller: %w", err)
@@ -116,27 +108,117 @@ func (s *Service) fence(ctx context.Context, c toldClaim) error {
 	return nil
 }
 
-// Retire fences this Controller by the Admin's word, for an old
-// Controller that no Worker brings a proof to. A proven fence, a Stop or
-// an earlier Retire stays as it is.
+// Superseded is whether the fence holds this Controller: a Worker carried
+// the proof, or an Admin stopped or retired it.
+func (f Fence) Superseded() bool { return f.State != Unproven }
+
+var (
+	ErrNotTold       = errors.New("no Worker said a restore replaced this Controller")
+	ErrNotSuperseded = errors.New("this Controller isn't Superseded")
+)
+
+// Superseded is whether this Controller is Superseded now. It reads an
+// atomic, so every request may ask.
+func (s *Service) Superseded() bool { return s.superseded.Load() }
+
+// Fenced is this Controller's fence, false while it has none.
+func (s *Service) Fenced(ctx context.Context) (Fence, bool, error) {
+	return FenceIn(ctx, s.cfg.Library)
+}
+
+// Stop makes this Controller Superseded by hand, after a Worker said a
+// restore replaced it without a proof. Without such a claim it is
+// ErrNotTold, and on a Controller already Superseded it changes nothing.
+func (s *Service) Stop(ctx context.Context) error {
+	var by ID
+	changed, err := s.refence(ctx, func(cur Fence, fenced bool) (*Fence, bool, error) {
+		switch {
+		case !fenced:
+			return nil, false, ErrNotTold
+		case cur.Superseded():
+			return nil, false, nil
+		}
+		by = cur.ByNode
+		cur.State, cur.At = Stopped, time.Now()
+		return &cur, true, nil
+	})
+	if changed {
+		s.cfg.Log.Warn("an Admin stopped this Controller")
+		s.changed(by)
+	}
+	return err
+}
+
+// Retire makes this Controller Superseded where no Worker carries a
+// proof. On a Controller already Superseded it changes nothing.
 func (s *Service) Retire(ctx context.Context) error {
-	changed := false
-	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+	var by ID
+	changed, err := s.refence(ctx, func(cur Fence, fenced bool) (*Fence, bool, error) {
+		if fenced && cur.Superseded() {
+			return nil, false, nil
+		}
+		by = cur.ByNode
+		return &Fence{State: Retired, At: time.Now()}, true, nil
+	})
+	if changed {
+		s.cfg.Log.Warn("an Admin retired this Controller")
+		s.changed(cmp.Or(by, s.self))
+	}
+	return err
+}
+
+// Resume ends Superseded: regenerate gives the fence secret a new
+// generation first, so no proof minted before it fences this Controller
+// again, then the fence goes. A Controller that isn't Superseded is
+// ErrNotSuperseded.
+func (s *Service) Resume(ctx context.Context, regenerate func() error) error {
+	changed, err := s.refence(ctx, func(cur Fence, fenced bool) (*Fence, bool, error) {
+		if !fenced || !cur.Superseded() {
+			return nil, false, ErrNotSuperseded
+		}
+		return nil, true, regenerate()
+	})
+	if changed {
+		s.cfg.Log.Warn("an Admin resumed this Controller")
+		s.changed(s.self)
+	}
+	return err
+}
+
+// refence writes the fence step leaves on the committed one, then marks
+// whether this Controller is Superseded and calls Fenced when that
+// changed. step answers ok false to change nothing, and a nil fence to
+// delete the row.
+func (s *Service) refence(ctx context.Context, step func(cur Fence, fenced bool) (next *Fence, ok bool, err error)) (changed bool, err error) {
+	s.fmu.Lock()
+	defer s.fmu.Unlock()
+	var superseded bool
+	err = s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		changed = false
 		cur, fenced, err := FenceIn(ctx, tx)
-		if err != nil || fenced && cur.State != Unproven {
+		if err != nil {
+			return err
+		}
+		superseded = fenced && cur.Superseded()
+		next, ok, err := step(cur, fenced)
+		if err != nil || !ok {
 			return err
 		}
 		changed = true
-		return putFence(ctx, db.New(tx), Fence{State: Retired, At: time.Now()})
+		if next == nil {
+			superseded = false
+			return ClearFence(ctx, tx)
+		}
+		superseded = next.Superseded()
+		return putFence(ctx, db.New(tx), *next)
 	})
 	if err != nil {
-		return fmt.Errorf("retire this Controller: %w", err)
+		return false, err
 	}
-	if changed {
-		s.cfg.Log.Warn("an Admin retired this Controller")
-		s.changed(s.self)
+	if s.superseded.Swap(superseded) != superseded {
+		s.cfg.Fenced(ctx, superseded, s.ids())
 	}
-	return nil
+	return changed, nil
 }
 
 func putFence(ctx context.Context, q *db.Queries, f Fence) error {
