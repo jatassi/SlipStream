@@ -1175,24 +1175,25 @@ func (q *Queries) ListKept(ctx context.Context, nodeID role.NodeID) ([]ListKeptR
 }
 
 const listLiveOnNodeAfter = `-- name: ListLiveOnNodeAfter :many
-SELECT id, info_hash FROM downloadclients_torrent
-WHERE node_id = ?1 AND removed_at IS NULL AND withheld_at IS NULL AND id > ?2
-ORDER BY id
+SELECT id, info_hash, added_order FROM downloadclients_torrent
+WHERE node_id = ?1 AND added_order > ?2 AND removed_at IS NULL AND withheld_at IS NULL
+ORDER BY added_order
 LIMIT ?3
 `
 
 type ListLiveOnNodeAfterParams struct {
 	NodeID role.NodeID
-	After  TorrentID
+	After  int64
 	Page   int64
 }
 
 type ListLiveOnNodeAfterRow struct {
-	ID       TorrentID
-	InfoHash []byte
+	ID         TorrentID
+	InfoHash   []byte
+	AddedOrder int64
 }
 
-// A page of node's live Torrents outside the review list, in id order.
+// A page of node's live Torrents outside the review list, in added order.
 func (q *Queries) ListLiveOnNodeAfter(ctx context.Context, arg ListLiveOnNodeAfterParams) ([]ListLiveOnNodeAfterRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveOnNodeAfter, arg.NodeID, arg.After, arg.Page)
 	if err != nil {
@@ -1202,7 +1203,7 @@ func (q *Queries) ListLiveOnNodeAfter(ctx context.Context, arg ListLiveOnNodeAft
 	var items []ListLiveOnNodeAfterRow
 	for rows.Next() {
 		var i ListLiveOnNodeAfterRow
-		if err := rows.Scan(&i.ID, &i.InfoHash); err != nil {
+		if err := rows.Scan(&i.ID, &i.InfoHash, &i.AddedOrder); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

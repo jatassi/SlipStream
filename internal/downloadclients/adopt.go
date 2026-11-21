@@ -101,22 +101,23 @@ func RecordedIn(ctx context.Context, r storage.Reader[file], hashes []bencode.In
 	return out, nil
 }
 
-// OnNode is one of a Node's live Torrents.
+// OnNode is one of a Node's live Torrents, and its place in added order.
 type OnNode struct {
 	ID       ID
 	InfoHash bencode.InfoHash
+	Order    int64
 }
 
-// LiveOnNode is a page of at most page of node's live Torrents after
-// after in id order, leaving out the review list's.
-func LiveOnNode(ctx context.Context, r storage.Reader[file], node role.NodeID, after ID, page int) ([]OnNode, error) {
+// LiveOnNode is a page of at most page of node's live Torrents added
+// after order after, leaving out the review list's.
+func LiveOnNode(ctx context.Context, r storage.Reader[file], node role.NodeID, after int64, page int) ([]OnNode, error) {
 	rows, err := db.New(r).ListLiveOnNodeAfter(ctx, db.ListLiveOnNodeAfterParams{NodeID: node, After: after, Page: int64(page)})
 	if err != nil {
 		return nil, fmt.Errorf("list a Node's Torrents: %w", err)
 	}
 	out := make([]OnNode, len(rows))
 	for i, row := range rows {
-		out[i] = OnNode{ID: row.ID, InfoHash: bencode.InfoHash(row.InfoHash)}
+		out[i] = OnNode{ID: row.ID, InfoHash: bencode.InfoHash(row.InfoHash), Order: row.AddedOrder}
 	}
 	return out, nil
 }

@@ -335,10 +335,10 @@ WHERE t.info_hash IN (sqlc.slice(info_hashes)) AND (t.parted_at IS NULL OR t.rem
 ORDER BY t.info_hash, t.parted_at IS NOT NULL;
 
 -- name: ListLiveOnNodeAfter :many
--- A page of node's live Torrents outside the review list, in id order.
-SELECT id, info_hash FROM downloadclients_torrent
-WHERE node_id = sqlc.arg(node_id) AND removed_at IS NULL AND withheld_at IS NULL AND id > sqlc.arg(after)
-ORDER BY id
+-- A page of node's live Torrents outside the review list, in added order.
+SELECT id, info_hash, added_order FROM downloadclients_torrent
+WHERE node_id = sqlc.arg(node_id) AND added_order > sqlc.arg(after) AND removed_at IS NULL AND withheld_at IS NULL
+ORDER BY added_order
 LIMIT sqlc.arg(page);
 
 -- name: MoveRecorded :execrows
