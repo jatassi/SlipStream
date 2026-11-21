@@ -106,6 +106,9 @@ func (s *Service) tryEnd(ctx context.Context) error {
 		if touched, err = s.readdIn(ctx, tx); err != nil {
 			return err
 		}
+		if err := FinishedRow.Record(ctx, tx, *s.cfg.History, FinishedFacts{}); err != nil {
+			return err
+		}
 		ended = true
 		return s.cfg.Ending(ctx, tx)
 	})

@@ -197,3 +197,10 @@ SELECT torrent_id FROM reconciling_torrent
 WHERE reason = 'not_held' AND looked_at IS NULL
 ORDER BY torrent_id
 LIMIT sqlc.arg(page);
+
+-- name: DeleteReviews :exec
+DELETE FROM reconciling_torrent;
+
+-- name: SetAnnounced :execrows
+-- The restore's History rows go out once.
+UPDATE reconciling_state SET announced_at = sqlc.arg(at) WHERE announced_at IS NULL;
