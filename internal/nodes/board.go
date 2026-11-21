@@ -46,6 +46,9 @@ type nodeIn struct {
 	mismatched bool
 	// back is when it came back in step from a lapse, zero when it didn't.
 	back time.Time
+	// pending: the Node waits to be adopted, so it keeps every torrent its
+	// client holds until SlipStream takes in its Holdings.
+	pending bool
 }
 
 // RoleState is what a Node is to a Role at one instant.
@@ -59,10 +62,13 @@ const (
 	Draining
 	WritingOff
 	Covering
+	// Keeping is a Node waiting to be adopted that has no Downloading Role:
+	// it keeps every torrent until its Holdings are in, and drains none.
+	Keeping
 )
 
 func (s RoleState) String() string {
-	return [...]string{"", "holding", "away", "lapsed", "draining", "writing-off", "covering"}[s]
+	return [...]string{"", "holding", "away", "lapsed", "draining", "writing-off", "covering", "keeping"}[s]
 }
 
 // Standing is how a Node stands with the Controller at one instant.
@@ -90,6 +96,8 @@ type NodeView struct {
 	// Settling: back from a lapse for less than the settle time, it may
 	// hold its Roles but takes no new work.
 	Settling bool
+	// Pending: it waits to be adopted.
+	Pending bool
 }
 
 // Alert is what the Nodes nav row's dot says about every Node at once.
@@ -156,7 +164,7 @@ func (b *Board) covering() role.Set {
 }
 
 // drains is the Roles id no longer holds but still holds tied work for:
-// those it drains or writes off.
+// those it drains, writes off or keeps.
 func (b *Board) drains(id ID) role.Set {
 	i, ok := b.index(id)
 	if !ok {
@@ -164,7 +172,7 @@ func (b *Board) drains(id ID) role.Set {
 	}
 	var out role.Set
 	for r, st := range b.states[i] {
-		if st == Draining || st == WritingOff {
+		if st == Draining || st == WritingOff || st == Keeping {
 			out = out.With(r)
 		}
 	}
@@ -213,7 +221,7 @@ func (h Holders) Holds(n ID) bool {
 	switch h.State(n) {
 	case Holding, Away, Lapsed, Covering:
 		return true
-	case NoState, Draining, WritingOff:
+	case NoState, Draining, WritingOff, Keeping:
 	}
 	return false
 }
@@ -225,13 +233,13 @@ func (h Holders) May(n ID) bool {
 	case Holding, Covering:
 		v, _ := h.b.Node(n)
 		return !v.Settling
-	case NoState, Away, Lapsed, Draining, WritingOff:
+	case NoState, Away, Lapsed, Draining, WritingOff, Keeping:
 	}
 	return false
 }
 
 // Serves reports whether n is assigned the Role, draining it, writing it
-// off or covering it. The dispatch gate asks it.
+// off, keeping it or covering it. The dispatch gate asks it.
 func (h Holders) Serves(n ID) bool { return h.State(n) != NoState }
 
 // Pick is prefer when it may, else the Controller when it may, else the
@@ -266,7 +274,7 @@ func (h Holders) Holding() []ID {
 			} else {
 				out = append(out, n.ID)
 			}
-		case NoState, Covering, Draining, WritingOff:
+		case NoState, Covering, Draining, WritingOff, Keeping:
 		}
 	}
 	return out
@@ -366,7 +374,7 @@ func (h Holders) Why() string {
 			reasons = append(reasons, n.Name+" is back online but takes no new work yet")
 		case Away, Lapsed:
 			reasons = append(reasons, n.Name+" "+standingWords(n))
-		case NoState, Draining, WritingOff, Covering:
+		case NoState, Draining, WritingOff, Covering, Keeping:
 		}
 	}
 	switch len(reasons) {
@@ -445,7 +453,7 @@ func derive(in inputs, now time.Time) *Board {
 }
 
 func (in *inputs) view(n nodeIn, now time.Time) NodeView {
-	v := NodeView{Named: Named{ID: n.id, Name: n.name}, Controller: n.id == in.controller}
+	v := NodeView{Named: Named{ID: n.id, Name: n.name}, Controller: n.id == in.controller, Pending: n.pending}
 	switch {
 	case v.Controller:
 		v.Since = in.start
@@ -482,6 +490,8 @@ func (in *inputs) state(n nodeIn, inStep bool, r role.Name, now time.Time) RoleS
 		return Away
 	case n.work.Has(r) && n.forfeit.Has(r):
 		return WritingOff
+	case n.pending && r == role.Downloading:
+		return Keeping
 	case n.work.Has(r):
 		return Draining
 	case n.id == in.controller && in.covers(r, now):

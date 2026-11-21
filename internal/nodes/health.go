@@ -53,7 +53,8 @@ var probeFixes = map[role.ProbeReason]string{
 }
 
 // itemsOf is the Nodes category's answer on b: a Node lapsed or on another
-// version fails; a probe that fails or is weak for a Role the Node holds
+// version fails; a Node waiting to be adopted warns, linked to Reconciling;
+// a probe that fails or is weak for a Role the Node holds
 // fails or warns; results skipped from a Node and the Controller covering a
 // Role warn. A Node away inside its grace, and a probe whose verdict isn't
 // in since the Controller started, is unsure, so a blip or a restart
@@ -70,6 +71,9 @@ func itemsOf(b *Board, probes map[ID][]role.ProbeResult, rejected map[ID]role.Re
 			a.Items = append(a.Items, nodeItem(v, v.Name+" has been offline for longer than the Offline grace. Start SlipStream on it, or remove it if you no longer use it.", "Offline since"))
 		case MismatchedNode:
 			a.Items = append(a.Items, nodeItem(v, v.Name+" runs another version of SlipStream. Update it to the Controller's version.", "Since"))
+		}
+		if v.Pending {
+			a.Items = append(a.Items, pendingItem(v))
 		}
 		if r, ok := rejected[v.ID]; ok {
 			a.Items = append(a.Items, rejectedItem(v, r))
@@ -122,6 +126,19 @@ func rejectedItem(v NodeView, r role.Rejected) health.Item {
 		Action:  health.CheckAction(),
 	}}
 }
+
+// pendingItem is a Node waiting to be adopted, linked to the Reconciling
+// page that adopts it.
+func pendingItem(v NodeView) health.Item {
+	return health.Item{Key: health.KeyOf(v.ID.String(), pendingKey), Level: health.Warn, Says: health.Says{
+		Subject: v.Name,
+		Text:    keepingWords(v) + " Open Reconciling to see what's left to do.",
+		Action:  health.LinkAction("/reconciling", "Open Reconciling"),
+	}}
+}
+
+// pendingKey ends the key of a pending Node's item.
+const pendingKey = "pending"
 
 // rejectedKey ends the key of a Node's skipped results item.
 const rejectedKey = "rejected"

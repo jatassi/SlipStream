@@ -105,6 +105,10 @@ type Config struct {
 	Kept     func(ctx context.Context, r storage.Reader[file], node ID) ([]Kept, error)
 	Torrents Torrents
 	Storage  func(ctx context.Context, r storage.Reader[file], node ID) (StorageFigures, error)
+	// Pending is every Node waiting to be adopted, read with the roster.
+	// Such a Node keeps Downloading's work until its Holdings are in. Nil
+	// is no Node pending.
+	Pending func(ctx context.Context, r storage.Reader[file]) (map[ID]bool, error)
 	// Television is whether any Media Server node reaches responds, from
 	// its Media Server link facts. It must not block.
 	Television func(node ID) bool

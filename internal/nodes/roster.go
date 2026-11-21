@@ -252,8 +252,8 @@ func (s *Service) reload(ctx context.Context) error {
 	return nil
 }
 
-// read is the live rows, their Roles, forfeits and held work, the
-// tombstones' ids and the grace.
+// read is the live rows, their Roles, forfeits, held work and whether
+// each is pending, the tombstones' ids and the grace.
 func (s *Service) read(ctx context.Context) ([]nodeIn, []ID, time.Duration, error) {
 	var (
 		rows    []nodeIn
@@ -278,6 +278,15 @@ func (s *Service) read(ctx context.Context) ([]nodeIn, []ID, time.Duration, erro
 		}
 		for i := range rows {
 			rows[i].work = work[rows[i].id]
+		}
+		if s.cfg.Pending != nil {
+			pending, err := s.cfg.Pending(ctx, r)
+			if err != nil {
+				return err
+			}
+			for i := range rows {
+				rows[i].pending = pending[rows[i].id]
+			}
 		}
 		override, err := db.New(r).GetOfflineGrace(ctx)
 		grace = OfflineGrace.Value(override)

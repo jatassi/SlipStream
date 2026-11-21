@@ -331,3 +331,49 @@ func TestTheAlertWarnsPastTheBlipAndFailsPastTheGrace(t *testing.T) {
 		t.Errorf("once seedbox settled the alert is %q, want none", got)
 	}
 }
+
+// TestAPendingNodeWithTiedWorkReadsKeepingNotDraining gives seedbox,
+// waiting to be adopted, Downloading work and no Downloading Role: it
+// keeps that work, drains it in scope and takes none, and seeding's
+// Draining question answers no. Assigned Downloading again, it holds.
+func TestAPendingNodeWithTiedWorkReadsKeepingNotDraining(t *testing.T) {
+	in := cluster()
+	b := in.node(box)
+	b.assigned, b.work, b.pending = role.Of(role.Searching), role.Of(role.Downloading), true
+	board := in.at(start)
+	who := board.Who(role.Downloading)
+	if st := who.State(box); st != Keeping || st.String() != "keeping" {
+		t.Errorf("seedbox's Downloading is %q, want keeping", st)
+	}
+	if !who.Serves(box) || who.May(box) || who.Holds(box) || slices.Contains(who.Holding(), box) {
+		t.Errorf("seedbox serves %v, may %v, holds %v, in Holding %v; want served and nothing new", who.Serves(box), who.May(box), who.Holds(box), who.Holding())
+	}
+	if got := board.drains(box); got != role.Of(role.Downloading) {
+		t.Errorf("seedbox drains %v in scope, want Downloading, so its holder keeps running", got.Names())
+	}
+	if who.State(box) == Draining {
+		t.Error("seedbox reads Draining, so seeding would turn its pauses into removes")
+	}
+	if v, _ := board.Node(box); !v.Pending {
+		t.Error("seedbox's view isn't pending")
+	}
+	if got := sentence(board); got != "seedbox keeps its torrents until it reports them." {
+		t.Errorf("the sentence is %q, want the Keeping line", got)
+	}
+	b.assigned = b.assigned.With(role.Downloading)
+	if st := in.at(start).Who(role.Downloading).State(box); st != Holding {
+		t.Errorf("seedbox pending and assigned Downloading is %q, want holding", st)
+	}
+}
+
+// TestAWrittenOffPendingNodeReadsWritingOff writes off seedbox's
+// Downloading work while it waits to be adopted: it reads writing off,
+// whose owner settles the work.
+func TestAWrittenOffPendingNodeReadsWritingOff(t *testing.T) {
+	in := cluster()
+	b := in.node(box)
+	b.assigned, b.work, b.forfeit, b.pending = role.Of(role.Searching), role.Of(role.Downloading), role.Of(role.Downloading), true
+	if who := in.at(start).Who(role.Downloading); who.State(box) != WritingOff || !who.WrittenOff(box) {
+		t.Errorf("seedbox's written-off Downloading is %q, written off %v; want writing-off", who.State(box), who.WrittenOff(box))
+	}
+}
