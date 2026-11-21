@@ -12,6 +12,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/lifecycle"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/internal/lock"
@@ -91,6 +92,13 @@ func AdminReset(ctx context.Context, env Env, req identity.ResetRequest) (string
 }
 
 func resetOffline(ctx context.Context, env Env, req identity.ResetRequest) (string, error) {
+	_, busy, err := readLifecycle(env.DataDir.lifecycle())
+	if err != nil {
+		return "", err
+	}
+	if busy {
+		return "", errResetWhileBusy
+	}
 	if claim, _ := (offline{env}).Claim(ctx); claim != system.Controller {
 		return "", identity.NotAController()
 	}
@@ -111,6 +119,10 @@ func resetOffline(ctx context.Context, env Env, req identity.ResetRequest) (stri
 	url, err := lib.ids.ResetFromHost(ctx, req)
 	return url, errors.Join(err, lib.close(ctx))
 }
+
+// errResetWhileBusy is admin reset while a lifecycle record exists: the
+// library.db it would open isn't the one the next start finishes with.
+var errResetWhileBusy = fmt.Errorf("%w. Start SlipStream to finish it, then run admin reset again", lifecycle.ErrBusy)
 
 // serveAdminReset is ResetOp on a running Node: a Controller answers the
 // link, and any other Node the same refusal as offline.

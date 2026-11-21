@@ -463,6 +463,9 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	}
 	// The claimed half stops before the torrent engine closes under it.
 	n.claimed = n.stack.Sub("claimed")
+	if err := n.resumeLifecycle(); err != nil {
+		return 0, "", err
+	}
 	if _, err := os.Stat(n.env.DataDir.LibraryDB()); err == nil {
 		if _, err := n.openLibrary(ctx); err != nil {
 			return 0, "", n.stoppedOr(err)
