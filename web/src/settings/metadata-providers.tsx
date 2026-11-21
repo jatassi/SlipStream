@@ -13,9 +13,12 @@ import {
   useListMetadataProvidersSuspense,
 } from "../api/gen/query/metadata/metadata";
 import { Button } from "../ui/button";
+import { type Clock, useClock } from "../ui/clock";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { Section } from "../ui/section";
+import { whenWords } from "../ui/time-words";
 import { toast } from "../ui/toast";
+// oxlint-disable-next-line import/max-dependencies -- each provider card tests, removes and dates its key
 import { KeyDialog } from "./metadata-key-dialog";
 import tmdbLogo from "./tmdb-logo.svg";
 
@@ -23,14 +26,13 @@ const logos: Record<NonNullable<MetadataAttributionLogo>, { src: string; name: s
   tmdb: { src: tmdbLogo, name: "TMDB" },
 };
 
-const setOn = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" });
-
-const keyWords: Record<MetadataProviderKey, (provider: MetadataProvider) => string> = {
-  none: () => "No key",
-  bundled: () => "SlipStream's key",
-  yours: ({ keySetAt }) =>
-    keySetAt === null ? "Your key" : `Your key, set ${setOn.format(new Date(keySetAt))}`,
-};
+const keyWords: Record<MetadataProviderKey, (provider: MetadataProvider, clock: Clock) => string> =
+  {
+    none: () => "No key",
+    bundled: () => "SlipStream's key",
+    yours: ({ keySetAt }, clock) =>
+      keySetAt === null ? "Your key" : `Your key, set ${whenWords(keySetAt, "on", clock)}`,
+  };
 
 function Attribution({ attribution }: { attribution: MetadataAttribution }) {
   const logo = attribution.logo === null ? undefined : logos[attribution.logo];
@@ -118,6 +120,7 @@ function ProviderActions({ provider }: { provider: MetadataProvider }) {
 }
 
 function ProviderCard({ provider }: { provider: MetadataProvider }) {
+  const clock = useClock();
   return (
     <article
       aria-label={provider.label}
@@ -125,7 +128,7 @@ function ProviderCard({ provider }: { provider: MetadataProvider }) {
     >
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="font-semibold text-ink-1">{provider.label}</h3>
-        <span className="text-meta text-ink-3">{keyWords[provider.key](provider)}</span>
+        <span className="text-meta text-ink-3">{keyWords[provider.key](provider, clock)}</span>
       </header>
       <p className="text-ink-2">{provider.summary}</p>
       <ProviderActions provider={provider} />

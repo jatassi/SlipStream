@@ -4,7 +4,7 @@ import type {
   DownloadclientsHitAndRun,
 } from "../api/gen/model";
 import { bytes } from "../format";
-import { useNow } from "../tasks/use-now";
+import { useClock } from "../ui/clock";
 import { Data } from "../ui/data";
 import { SignalLine } from "../ui/signal-line";
 import { type Subject, outcomeWords } from "./actions";
@@ -125,7 +125,7 @@ export function Preview({
   const refused = outcomeWords(acted.results, subjects, {
     action: parting,
     work,
-    clock: { now: useNow(60_000), zone: undefined },
+    clock: useClock(),
   }).refused;
   const stops = (preview?.stopSeeding ?? []).map((id) => work(id) ?? "A deleted Work");
   return (

@@ -7,10 +7,9 @@ import {
   useListMediaServerCredentialHoldersSuspense,
   useListMediaServerKindsSuspense,
 } from "../../api/gen/query/mediaservers/mediaservers";
-import { agoWords } from "../../format";
-import { useNow } from "../../tasks/use-now";
 import { Data } from "../../ui/data";
 import { Fact, Facts } from "../../ui/facts";
+import { RelativeTime } from "../../ui/relative-time";
 import { kindOf } from "../server-form";
 
 const fallbackWords: { readonly [F in Server["fallback"]]: string } = {
@@ -18,8 +17,6 @@ const fallbackWords: { readonly [F in Server["fallback"]]: string } = {
   none: "The Controller can't reach it",
   untested: "Not tested",
 };
-
-const minute = 60_000;
 
 function Holders({ holders, kind }: { holders: readonly Holder[]; kind: Kind }) {
   return (
@@ -38,12 +35,13 @@ function Holders({ holders, kind }: { holders: readonly Holder[]; kind: Kind }) 
   );
 }
 
+const when = (iso: string | undefined) =>
+  iso === undefined ? "Never" : <RelativeTime at={iso} form="age" />;
+
 /** The machinery behind the server's state: its addresses, version, routes and who holds its key. */
 export function DetailsTab({ server }: { server: Server }) {
   const kind = kindOf(useListMediaServerKindsSuspense().data.kinds, server.kind);
   const { holders } = useListMediaServerCredentialHoldersSuspense(server.id).data;
-  const now = useNow(minute);
-  const when = (iso: string | undefined) => (iso === undefined ? "Never" : agoWords(iso, now));
   return (
     <Facts look="sheet">
       <Fact label="Server">{`${kind.label} ${server.version}`}</Fact>

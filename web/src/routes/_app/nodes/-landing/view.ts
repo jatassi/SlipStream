@@ -8,7 +8,8 @@ import type {
   NodesTopologyNode,
   NodesTorrentView,
 } from "../../../../api/gen/model";
-import { type Clock, sinceWords } from "../../../../format";
+import type { Clock } from "../../../../ui/clock";
+import { whenWords } from "../../../../ui/time-words";
 import { dialOf, reachedBy } from "../../../../nodes/dial";
 import {
   type Cluster,
@@ -41,13 +42,15 @@ export type NodeRow = {
   readonly name: string;
   readonly controller: boolean;
   readonly state: NodeState;
-  /** Its state in words, when it was last seen while away, and how it is reached. */
+  /** Its state in words, then how it is reached. */
   readonly facts: readonly string[];
+  /** When it was last seen, while it is away. */
+  readonly seenAt: string | undefined;
   readonly roles: readonly RoleChip[];
   readonly findings: readonly Finding[];
   /** It holds work for a Role, which can be written off. */
   readonly holds: boolean;
-  /** Its state as its tile reads it: "Online", or "Last seen 21:31" while away, in the Roster's words. */
+  /** Its state as its tile reads it: "Online", or "Last seen 3 hours ago" while away. */
   readonly plaque: string;
   /** The torrents its Downloading keeps, when it holds Downloading. */
   readonly torrents: readonly NodesTorrentView[];
@@ -134,18 +137,21 @@ function rowOf(
   node: NodesTopologyNode,
   clock: Clock,
 ): NodeRow {
-  const seen =
-    node.lastSeenAt === undefined ? [] : [`Last seen ${sinceWords(node.lastSeenAt, clock)}`];
+  const { lastSeenAt } = node;
   return {
     id: node.id,
     name: node.name,
     controller: node.controller,
     state,
-    facts: [nodeStates[state].word, ...seen, ...reachOf(topology, controller, node)],
+    facts: [nodeStates[state].word, ...reachOf(topology, controller, node)],
+    seenAt: lastSeenAt,
     roles: roleChips(topology, board, node.roles, standingOf(node), clock),
     findings: findingsOf(node.probes),
     holds: node.roles.some(({ held }) => held !== undefined),
-    plaque: seen[0] ?? nodeStates[state].word,
+    plaque:
+      lastSeenAt === undefined
+        ? nodeStates[state].word
+        : `Last seen ${whenWords(lastSeenAt, "ago", clock)}`,
     torrents: node.resources.downloading?.torrents ?? [],
     storage: node.resources.storage,
     listening: !node.probes.some(({ probe, fit }) => probe === "listener-up" && fit === "fails"),

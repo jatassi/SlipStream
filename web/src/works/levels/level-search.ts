@@ -1,10 +1,9 @@
 import { useMemo } from "react";
 
 import type { FilesCell, GrabsCellKey, GrabsWorkSearching, WorksItem } from "../../api/gen/model";
-import type { Clock } from "../../format";
+import { type Clock, useNow } from "../../ui/clock";
 import { behindWords, groupWords, waitingWords } from "../../grabs/search-words";
 import { levelGroupKey } from "../../grabs/searching-query";
-import { useNow } from "../../tasks/use-now";
 
 /** What a level's header shows of its search group: a state word, its sentence, and its waits. */
 export type LevelSearch = {
@@ -58,13 +57,13 @@ export function levelSearches(
   return out;
 }
 
-/** Each level's search state, its times read again every half minute. */
+/** Each level's search state, its times read again on each minute. */
 export function useLevelSearches(
   items: readonly WorksItem[],
   cells: readonly FilesCell[],
   state: GrabsWorkSearching,
 ): ReadonlyMap<string, LevelSearch> {
-  const now = useNow(30_000);
+  const now = useNow();
   return useMemo(
     () => levelSearches(items, cells, state, { now, zone: undefined }),
     [items, cells, state, now],

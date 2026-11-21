@@ -1,9 +1,9 @@
 import { useId } from "react";
 
 import { Button } from "./button";
-import { Data } from "./data";
 import { Fact, type FactRow, Facts } from "./facts";
 import { Menu } from "./menu";
+import { RelativeTime } from "./relative-time";
 import { useShell } from "./shell-context";
 import { SignalChip } from "./signal-chip";
 import { type Stage, StageTrack, stageLabel } from "./stage-track";
@@ -83,7 +83,8 @@ function Work({
 
 export type FailureCardProps = {
   stage: Stage;
-  time: string;
+  /** The instant it failed. */
+  at: string;
   work: string;
   facts: readonly FactRow[];
   fix: CardAction;
@@ -94,7 +95,7 @@ export type FailureCardProps = {
 
 export function FailureCard({
   stage,
-  time,
+  at,
   work,
   facts,
   fix,
@@ -115,7 +116,9 @@ export function FailureCard({
     >
       <header className="flex flex-wrap items-center gap-3">
         <SignalChip kind="fail">Failed at {stageLabel[stage]}</SignalChip>
-        <Data className="text-fail-dim">{time}</Data>
+        <span className="text-fail-dim">
+          <RelativeTime at={at} form="clock" data />
+        </span>
         {shown === "full" && (
           <div className="ml-auto">
             <Actions fix={fix} actions={actions} />

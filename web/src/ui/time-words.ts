@@ -194,6 +194,8 @@ export const timeForms = {
     return left === undefined ? "Due now" : `In ${left}`;
   },
   age: ageWords,
+  // An age drawn where no element can carry its moment, as on a Diagram tile.
+  ago: ageWords,
   at: atWords,
   next: (placed) => (placed.ahead <= 0 ? "now" : atWords(placed)),
   in: (placed) => {
@@ -202,6 +204,7 @@ export const timeForms = {
   },
   since: (placed) => lead("since", placed),
   until: (placed) => lead("until", placed),
+  from: (placed) => lead("from", placed),
   on: (placed) => (placed.days === 0 ? "today" : onDay(placed)),
   heading: (placed) => {
     if (placed.days === 0) {
@@ -220,8 +223,8 @@ export type ValueForm = "clock" | "time" | "stamp" | "due" | "countdown" | "age"
 export type WordsForm = Exclude<TimeForm, ValueForm>;
 
 /**
- * An instant inside a sentence, in lower case with its preposition: "at 14:02"
- * today, "yesterday at 14:02", "on Mon at 14:02", "on Nov 19 at 14:02". It has
+ * An instant inside a sentence, in lower case with its preposition: "at 2:02 PM"
+ * today, "yesterday at 2:02 PM", "on Mon at 2:02 PM", "on Nov 19 at 2:02 PM". It has
  * no hover, because the sentence already names the day.
  */
 export const whenWords = (at: string, form: WordsForm, clock: Clock): string =>

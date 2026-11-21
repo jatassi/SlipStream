@@ -1,6 +1,6 @@
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import { Button } from "../ui/button";
 import { Empty } from "../ui/empty";
 import { NextOnScroll } from "../ui/next-on-scroll";

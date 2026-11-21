@@ -47,7 +47,7 @@ test.each<
     "a resume inside a tracker's window",
     { state: "paused", hold: "window", until: "2026-10-20T14:32:00Z" },
     false,
-    "Resumes at 14:32",
+    "Resumes at 2:32 PM",
   ],
   [
     "a full disk",
@@ -84,7 +84,7 @@ test.each<
     "a recheck that resumes",
     { state: "checking", until: "2026-10-20T14:32:00Z" },
     false,
-    "Rechecks, then resumes at 14:32",
+    "Rechecks, then resumes at 2:32 PM",
   ],
   ["a check", { state: "checking" }, false, "Checking its files"],
   ["a stall", { state: "stalled" }, false, "No data is arriving"],
@@ -118,13 +118,13 @@ test.each<
     "a finished torrent in its Import delay",
     { state: "seeding", clientName: "Transmission", importAt: "2026-10-20T14:32:00Z" },
     false,
-    "Imports at 14:32",
+    "Imports at 2:32 PM",
   ],
   [
     "an offline Node's download",
     { state: "downloading", lastKnown: "2026-10-20T11:52:00Z", lastKnownCause: "node" },
     true,
-    "Last reported at 11:52",
+    "Last reported at 11:52 AM",
   ],
 ])("the line under %s", (_, row, sampled, line) => {
   expect(stateLine(torrent(row), sampled ? live : undefined, place)).toBe(line);
@@ -147,7 +147,7 @@ test.each([
       message: "Tracker is down",
       retryAt: "2026-10-20T15:10:00Z",
     } as const,
-    { host: "beacon.example", status: "Error: Tracker is down, retrying at 15:10" },
+    { host: "beacon.example", status: "Error: Tracker is down, retrying at 3:10 PM" },
   ],
 ])("a tracker cell reads who and how its announce went", (cell, words) => {
   expect(trackerLine(cell, clock)).toEqual(words);

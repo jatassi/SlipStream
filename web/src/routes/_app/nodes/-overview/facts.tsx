@@ -1,8 +1,8 @@
 import type { NodesNode } from "../../../../api/gen/model";
-import { clock as clockWords } from "../../../../format";
 import { reachedBy } from "../../../../nodes/dial";
 import { Data } from "../../../../ui/data";
 import { Fact, Facts } from "../../../../ui/facts";
+import { RelativeTime } from "../../../../ui/relative-time";
 import { Section } from "../../../../ui/section";
 import { Findings, findingsOf } from "../-findings";
 import type { Acting } from "../-manage/dialogs";
@@ -37,7 +37,7 @@ export function NodeFacts({
             <Data>{node.key}</Data>
           </Fact>
           <Fact label="Paired">
-            <Data>{clockWords(node.pairedAt)}</Data>
+            <RelativeTime at={node.pairedAt} form="clock" data />
           </Fact>
           {!node.self && (
             <Fact

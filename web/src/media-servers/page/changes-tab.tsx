@@ -5,15 +5,12 @@ import type {
   MediaserversServerView as Server,
 } from "../../api/gen/model";
 import { countWords } from "../../format";
-import { useNow } from "../../tasks/use-now";
 import { Button } from "../../ui/button";
 import { Empty } from "../../ui/empty";
 import { List } from "../../ui/list";
 import { SignalLine } from "../../ui/signal-line";
 import { ChangeRow, standingOf } from "./change-row";
 import { changesQuery } from "./changes-query";
-
-const minute = 60_000;
 
 const noun = { one: "change", many: "changes" };
 
@@ -45,7 +42,6 @@ export function ChangesTab({ server }: { server: Server }) {
   const { data, hasNextPage, fetchNextPage, isFetchingNextPage } = useSuspenseInfiniteQuery(
     changesQuery(server.id),
   );
-  const now = useNow(minute);
   const changes = data.pages.flatMap((page) => page.changes);
   if (changes.length === 0) {
     return (
@@ -59,7 +55,7 @@ export function ChangesTab({ server }: { server: Server }) {
       <Summary server={server} changes={changes} />
       <List label={`Changes on ${server.name}`}>
         {changes.map((change) => (
-          <ChangeRow key={change.id} change={change} now={now} />
+          <ChangeRow key={change.id} change={change} />
         ))}
       </List>
       {hasNextPage && (

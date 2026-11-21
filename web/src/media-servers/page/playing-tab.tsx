@@ -1,16 +1,12 @@
 import type { MediaserversServerView as Server } from "../../api/gen/model";
 import { useListMediaServerSessionsSuspense } from "../../api/gen/query/mediaservers/mediaservers";
-import { useNow } from "../../tasks/use-now";
 import { Empty } from "../../ui/empty";
 import { List } from "../../ui/list";
 import { SessionRow } from "./session-row";
 
-const minute = 60_000;
-
 /** Who is playing what on the server right now, and whether it plays the file as it is. */
 export function PlayingTab({ server }: { server: Server }) {
   const { reachable, sessions } = useListMediaServerSessionsSuspense(server.id).data;
-  const now = useNow(minute);
   if (!reachable) {
     return (
       <Empty look="sheet">
@@ -24,7 +20,7 @@ export function PlayingTab({ server }: { server: Server }) {
   return (
     <List label={`Now playing on ${server.name}`}>
       {sessions.map((session) => (
-        <SessionRow key={session.playId} server={server} session={session} now={now} />
+        <SessionRow key={session.playId} server={server} session={session} />
       ))}
     </List>
   );

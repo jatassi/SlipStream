@@ -1,7 +1,8 @@
 import type { HealthCategoryID, HealthFact, HealthItem } from "../api/gen/model";
-import { bytes, clock } from "../format";
+import { bytes } from "../format";
 import { Data } from "../ui/data";
 import { Fact, Facts } from "../ui/facts";
+import { RelativeTime } from "../ui/relative-time";
 import { signalLook } from "../ui/signal-row";
 import { ItemAction } from "./item-action";
 
@@ -35,7 +36,7 @@ function FactValue({ fact }: { fact: HealthFact }) {
     return <Data>{bytes(fact.bytes)}</Data>;
   }
   if (fact.at !== undefined) {
-    return <Data>{clock(fact.at)}</Data>;
+    return <RelativeTime at={fact.at} form="clock" data />;
   }
   return fact.text;
 }

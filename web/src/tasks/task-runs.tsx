@@ -1,11 +1,14 @@
 import type { TasksRun, TasksRunTrigger, TasksRunUnit } from "../api/gen/model";
-import { type Clock, lengthWords, sinceWords } from "../format";
+import { lengthWords } from "../format";
+import type { Clock } from "../ui/clock";
 import { Data } from "../ui/data";
 import { Empty } from "../ui/empty";
 import { ExpandList, ExpandRow } from "../ui/expand-list";
+import { PlainTime } from "../ui/relative-time";
 import { Section } from "../ui/section";
 import { NodeName } from "./node-name";
 import { OutcomeChip } from "./outcome-chip";
+// oxlint-disable-next-line import/max-dependencies -- each run row draws its outcome, Nodes, length and time
 import { runsAnchor } from "./task-head";
 
 const triggers: { readonly [T in TasksRunTrigger]: string } = {
@@ -26,7 +29,7 @@ function RunHead({ run, clock }: { run: TasksRun; clock: Clock }) {
       <span className="truncate">{run.summary === "" ? "Running now" : run.summary}</span>
       <span className="col-span-2 flex flex-wrap gap-x-2 text-meta text-ink-3 @[720px]:contents @[720px]:text-(length:--body-size) @[720px]:text-ink-2">
         <span>{triggers[run.trigger]}</span>
-        <Data>{sinceWords(run.startedAt, clock)}</Data>
+        <PlainTime at={run.startedAt} form="clock" zone={clock.zone} data />
         <Data>{lengthWords(ended - Date.parse(run.startedAt))}</Data>
         <span className="truncate">{run.nodes.join(", ")}</span>
       </span>

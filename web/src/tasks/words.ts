@@ -3,13 +3,14 @@ import type {
   TasksOpenRun,
   TasksOpenRuns,
   TasksRunResult,
-  TasksTask,
   TasksUnitOutcome,
   TasksWaitingState,
 } from "../api/gen/model";
-import { type Clock, type Noun, atWords, inWords, nounOf, sinceWords } from "../format";
+import { type Noun, nounOf } from "../format";
 import { waitingLine } from "../nodes/standing";
+import type { Clock } from "../ui/clock";
 import type { Signal } from "../ui/signal-chip";
+import { whenWords } from "../ui/time-words";
 
 export const groupTitles: { readonly [G in TasksGroupGroup]: string } = {
   controller: "Controller",
@@ -35,11 +36,8 @@ export const outcomes: {
 export const waitingWords = (state: TasksWaitingState, clock: Clock): string =>
   waitingLine(state.node, state.standing, state.since, clock);
 
-export const nextWords = (task: TasksTask, next: string, clock: Clock): string =>
-  task.cadence.inWindow ? atWords(next, clock) : inWords(next, clock.now);
-
 export const runningWords = (since: string, clock: Clock): string =>
-  `Running since ${sinceWords(since, clock)}`;
+  `Running ${whenWords(since, "since", clock)}`;
 
 export const progressWords = (
   { done, total }: { done: number; total: number },

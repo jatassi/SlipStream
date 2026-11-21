@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { isProblem } from "../api/errors";
-import { clock } from "../format";
 import { type SubmitErrors, submitErrors } from "../ui/form-context";
+import { whenWords } from "../ui/time-words";
 
 const waiting = z.object({ until: z.iso.datetime({ offset: true }) });
 
@@ -17,7 +17,8 @@ export function pinErrors(error: unknown, wrong?: string): SubmitErrors {
   if (isProblem(error, "pin_wait") || isProblem(error, "too_many_attempts")) {
     const wait = waiting.safeParse(error.body);
     if (wait.success) {
-      return { form: `${error.title}. Try again at ${clock(wait.data.until)}.`, fields: {} };
+      const until = whenWords(wait.data.until, "next", { now: new Date(), zone: undefined });
+      return { form: `${error.title}. Try again ${until}.`, fields: {} };
     }
   }
   return submitErrors(error);

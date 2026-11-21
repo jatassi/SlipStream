@@ -13,7 +13,7 @@ describe.each(shells)("in the %s shell", (shell) => {
     renderKit(
       <FailureCard
         stage="import"
-        time="21:48"
+        at="2026-11-21T21:48:00Z"
         work="Dune: Part Two"
         facts={[
           { label: "Cause", value: "The file is not a video." },
@@ -52,7 +52,7 @@ test("a phone failure card holds its other actions behind More", async () => {
   renderKit(
     <FailureCard
       stage="import"
-      time="21:48"
+      at="2026-11-21T21:48:00Z"
       work="Dune: Part Two"
       facts={[{ label: "Cause", value: "The file is not a video." }]}
       fix={{ label: "Try again", onClick: () => {} }}
@@ -74,7 +74,7 @@ test("a compact failure card drops its stage track", async () => {
     <FailureCard
       form="compact"
       stage="import"
-      time="21:48"
+      at="2026-11-21T21:48:00Z"
       work="Dune: Part Two"
       facts={[{ label: "Cause", value: "The file is not a video." }]}
       fix={{ label: "Try again", onClick: () => {} }}

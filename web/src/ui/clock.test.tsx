@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { expect, onTestFinished, test, vi } from "vitest";
 import { page } from "vitest/browser";
 
@@ -88,4 +89,39 @@ test("with nothing reading the clock, the first reader reads the current now", a
   useFakeClock("2026-11-07T15:00:00.000Z");
   renderKit(<Reader name="Age" />);
   expect(await read("Age")).toBe("2026-11-07T15:00:00.000Z");
+});
+
+const toggle = () =>
+  page
+    .getByRole("button")
+    .element()
+    .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+function Shown() {
+  const [on, setOn] = useState(true);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setOn(!on);
+        }}
+      >
+        Toggle
+      </button>
+      {on && <Reader name="Age" />}
+    </>
+  );
+}
+
+test("a reader coming back within the minute reads now, not the minute the last one left", async () => {
+  useFakeClock("2026-11-21T14:02:10.000Z");
+  renderKit(<Shown />);
+  expect(await read("Age")).toBe("2026-11-21T14:02:10.000Z");
+
+  toggle();
+  await frames(3);
+  vi.setSystemTime(new Date("2026-11-21T14:02:50.000Z"));
+  toggle();
+  expect(await read("Age")).toBe("2026-11-21T14:02:50.000Z");
 });

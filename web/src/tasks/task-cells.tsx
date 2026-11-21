@@ -2,12 +2,13 @@ import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { Link } from "@tanstack/react-router";
 
 import type { TasksRun, TasksTask } from "../api/gen/model";
-import { type Clock, sinceWords } from "../format";
+import type { Clock } from "../ui/clock";
 import { Data } from "../ui/data";
 import { Icon } from "../ui/icon";
 import { LiveBar } from "../ui/live-bar";
+import { PlainTime } from "../ui/relative-time";
 import { OutcomeChip } from "./outcome-chip";
-import { nextWords, percentOf, progressWords, runningWords, waitingWords } from "./words";
+import { percentOf, progressWords, runningWords, waitingWords } from "./words";
 
 export type Progress = { done: number; total: number };
 
@@ -35,12 +36,13 @@ export function LastRun({ run, clock }: { run: TasksRun | undefined; clock: Cloc
   if (run === undefined) {
     return <span className="text-ink-3">Not run yet</span>;
   }
-  const ended = run.endedAt === null ? [] : [sinceWords(run.endedAt, clock)];
   return (
     <span className="flex min-w-0 flex-col items-start gap-1">
       <OutcomeChip outcome={run.result} />
       <span className="max-w-full text-meta text-pretty text-ink-3">
-        {[run.summary, ...ended].filter((part) => part !== "").join(" · ")}
+        {run.summary}
+        {run.summary !== "" && run.endedAt !== null && " · "}
+        {run.endedAt !== null && <PlainTime at={run.endedAt} form="clock" zone={clock.zone} />}
       </span>
     </span>
   );
@@ -91,5 +93,13 @@ export function TaskState({
       </span>
     );
   }
-  return <span>{state.off ? "Off" : nextWords(task, state.next, clock)}</span>;
+  return state.off ? (
+    <span>Off</span>
+  ) : (
+    <PlainTime
+      at={state.next}
+      form={task.cadence.inWindow ? "due" : "countdown"}
+      zone={clock.zone}
+    />
+  );
 }

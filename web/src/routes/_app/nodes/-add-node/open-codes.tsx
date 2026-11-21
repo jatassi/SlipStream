@@ -3,11 +3,14 @@ import { useState } from "react";
 import { sentenceOf } from "../../../../api/errors";
 import type { NodesOpenCode } from "../../../../api/gen/model";
 import { revokeJoinCode } from "../../../../api/gen/query/nodes/nodes";
-import { clock } from "../../../../format";
 import { Button } from "../../../../ui/button";
+import { useClock } from "../../../../ui/clock";
 import { List, ListRow } from "../../../../ui/list";
+import { RelativeTime } from "../../../../ui/relative-time";
 import { Section } from "../../../../ui/section";
 import { SignalLine } from "../../../../ui/signal-line";
+// oxlint-disable-next-line import/max-dependencies -- each code row dates the code and revokes it
+import { whenWords } from "../../../../ui/time-words";
 import { useRefreshCodes } from "./codes";
 
 function RevokeButton({ code, label }: { code: NodesOpenCode; label: string }) {
@@ -51,6 +54,7 @@ export function OpenCodes({
   codes: readonly NodesOpenCode[];
   current: string;
 }) {
+  const clock = useClock();
   if (codes.length === 0) {
     return null;
   }
@@ -58,18 +62,29 @@ export function OpenCodes({
     <Section title="Open Join Codes" count={codes.length}>
       <List label="Open Join Codes">
         {codes.map((code) => {
-          const made = `Made ${clock(code.createdAt)}`;
+          const made = (
+            <>
+              Made <RelativeTime at={code.createdAt} form="clock" />
+            </>
+          );
           const self = code.id === current;
           return (
             <ListRow
               key={code.id}
               title={self ? "This code" : made}
-              meta={`${self ? `${made} · ` : ""}Expires ${clock(code.expiresAt)}`}
+              meta={
+                <>
+                  {self && <>{made} · </>}
+                  Expires <RelativeTime at={code.expiresAt} form="clock" />
+                </>
+              }
               trailing={
                 <RevokeButton
                   code={code}
                   label={
-                    self ? "Revoke this code" : `Revoke the code made ${clock(code.createdAt)}`
+                    self
+                      ? "Revoke this code"
+                      : `Revoke the code made ${whenWords(code.createdAt, "at", clock)}`
                   }
                 />
               }

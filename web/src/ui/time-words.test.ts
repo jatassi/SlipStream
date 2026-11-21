@@ -88,6 +88,7 @@ test.each([
   ["heading", local(15, 9), "Yesterday"],
   ["heading", local(13, 9), "Tuesday 13 October"],
   ["heading", new Date(2025, 9, 14, 9).toISOString(), "Tuesday 14 October 2025"],
+  ["ago", local(16, 11), "3 hours ago"],
 ] as const)("a time in a sentence %s %s reads %s", (form, at, shown) => {
   expect(whenWords(at, form, own(16, 14))).toBe(shown);
 });

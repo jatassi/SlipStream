@@ -7,7 +7,7 @@ type Shared = {
   /** The instant, as the API gives it. */
   readonly at: string;
   /** An IANA zone when the time answers to a setting stated in it, such as the Tasks window. */
-  readonly zone?: string;
+  readonly zone?: string | undefined;
 };
 
 export type TimeProps = Shared &

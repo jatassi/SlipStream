@@ -2,9 +2,9 @@ import { useState } from "react";
 
 import type { IdentityPasskey } from "../../api/gen/model";
 import { useDeletePasskey } from "../../api/gen/query/identity/identity";
-import { clock } from "../../format";
 import { Button } from "../../ui/button";
 import { List, ListRow } from "../../ui/list";
+import { RelativeTime } from "../../ui/relative-time";
 import { SignalLine } from "../../ui/signal-line";
 import type { Flow } from "./reset-pin";
 import type { StepProps } from "./steps";
@@ -22,7 +22,11 @@ function PasskeyRow({
   return (
     <ListRow
       title={passkey.name}
-      meta={`${passkey.host} · Added ${clock(passkey.createdAt)}`}
+      meta={
+        <>
+          {passkey.host} · Added <RelativeTime at={passkey.createdAt} form="clock" />
+        </>
+      }
       trailing={
         <Button
           size="small"

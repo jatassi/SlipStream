@@ -2,12 +2,14 @@ import { Link } from "@tanstack/react-router";
 
 import { RoleChips } from "../../../../nodes/role-chips";
 import { NodeLamp } from "../../../../nodes/state-mark";
+import { PlainTime } from "../../../../ui/relative-time";
 import type { Adding } from "../-add-node/add-node";
 import { Findings } from "../-findings";
 import type { Acting } from "../-manage/dialogs";
 import { AddRow } from "./add-row";
 import { RowMenu } from "./row-menu";
 import { rosterGroup, rowKeys, rowShell, rowWash } from "./rows";
+// oxlint-disable-next-line import/max-dependencies -- a Roster row draws its lamp, Roles, findings, age and menu
 import { type Landing, type NodeRow, shareDone } from "./view";
 
 const torrentsLine = ({ torrents }: NodeRow): string =>
@@ -30,7 +32,16 @@ function RosterRow({ node, act }: { node: NodeRow; act: (acting: Acting) => void
             <span className="text-(length:--body-size) leading-(--body-line-height) font-medium text-ink-1 in-data-[density=touch]:text-card-title">
               {node.name}
             </span>
-            <span className="text-meta text-ink-3">{node.facts.join(" · ")}</span>
+            <span className="text-meta text-ink-3">
+              {node.facts[0]}
+              {node.seenAt !== undefined && (
+                <>
+                  {" · Last seen "}
+                  <PlainTime at={node.seenAt} form="age" />
+                </>
+              )}
+              {node.facts.slice(1).map((fact) => ` · ${fact}`)}
+            </span>
             <RoleChips roles={node.roles} />
             {node.torrents.length > 0 && (
               <span className="text-meta text-ink-3">{torrentsLine(node)}</span>

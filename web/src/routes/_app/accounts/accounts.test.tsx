@@ -13,9 +13,12 @@ import {
   getListAccountsMockHandler,
   getListSignupLinksMockHandler,
 } from "../../../api/gen/query/identity/identity.msw";
-import { clock } from "../../../format";
 import { ada, grace, problem } from "../../../test/handlers";
 import { renderApp } from "../../../test/render-app";
+import { type ValueForm, placeOf, timeForms } from "../../../ui/time-words";
+
+const own = () => ({ now: new Date(), zone: undefined });
+const shown = (form: ValueForm, at: string) => timeForms[form](placeOf(at, own()));
 
 const adaRow: IdentityAccountRow = {
   ...ada,
@@ -67,7 +70,7 @@ test("Accounts lists every Account and the pending Signup links", async () => {
   await expect.element(page.getByRole("heading", { name: "Accounts", level: 1 })).toBeVisible();
   await expect.poll(rowTexts).toHaveLength(3);
   expect(rowTexts().slice(1)).toEqual([
-    `Ada Okaforada@example.testAdminFine2${clock("2026-10-15T08:30:00Z")}On`,
+    `Ada Okaforada@example.testAdminFine2${shown("age", "2026-10-15T08:30:00Z")}On`,
     "Grace Lindqvistgrace@example.testMemberLocked0NeverTurned off",
   ]);
   await expect
@@ -76,7 +79,7 @@ test("Accounts lists every Account and the pending Signup links", async () => {
   await expect
     .element(page.getByRole("list", { name: "Pending Signup links" }).getByRole("listitem"))
     .toHaveTextContent(
-      `lin@example.testSent ${clock(pending.issuedAt)} by Ada Okafor · Expires ${clock(pending.expiresAt)}`,
+      `lin@example.testSent ${shown("clock", pending.issuedAt)} by Ada Okafor · Expires ${shown("clock", pending.expiresAt)}`,
     );
 });
 

@@ -7,16 +7,23 @@ import {
 import { useState } from "react";
 
 import type { IdentityPendingLink } from "../api/gen/model";
-import { clock } from "../format";
 import { Empty } from "../ui/empty";
 import { IconButton } from "../ui/icon-button";
 import { List, ListRow } from "../ui/list";
 import { Menu } from "../ui/menu";
+import { RelativeTime } from "../ui/relative-time";
 import { Section } from "../ui/section";
 import { type Acting, PendingLinkDialogs } from "./pending-link-dialogs";
 
-const metaOf = (link: IdentityPendingLink) =>
-  `Sent ${clock(link.issuedAt)}${link.issuedBy === undefined ? "" : ` by ${link.issuedBy}`} · Expires ${clock(link.expiresAt)}`;
+function Meta({ link }: { link: IdentityPendingLink }) {
+  return (
+    <>
+      Sent <RelativeTime at={link.issuedAt} form="clock" />
+      {link.issuedBy !== undefined && ` by ${link.issuedBy}`} · Expires{" "}
+      <RelativeTime at={link.expiresAt} form="clock" />
+    </>
+  );
+}
 
 function LinkMenu({ link, onAct }: { link: IdentityPendingLink; onAct: (acting: Acting) => void }) {
   return (
@@ -66,7 +73,7 @@ export function PendingLinks({ links }: { links: readonly IdentityPendingLink[] 
             <ListRow
               key={link.id}
               title={link.email}
-              meta={metaOf(link)}
+              meta={<Meta link={link} />}
               trailing={<LinkMenu link={link} onAct={setActing} />}
             />
           ))}

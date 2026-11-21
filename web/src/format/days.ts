@@ -58,6 +58,7 @@ const formatter = (options: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat(undefined, { ...options, timeZone: "UTC" });
 
 const fullDate = formatter({ day: "numeric", month: "long", year: "numeric" });
+const shortDate = formatter({ day: "numeric", month: "short", year: "numeric" });
 const monthYear = formatter({ month: "long", year: "numeric" });
 const dayMonth = formatter({ day: "numeric", month: "long" });
 const longDay = formatter({ weekday: "long", day: "numeric", month: "long" });
@@ -69,6 +70,13 @@ const longDayYear = formatter({
 });
 const shortWeekday = formatter({ weekday: "short" });
 const longWeekday = formatter({ weekday: "long" });
+
+/** A day without its year, in the browser's words: "19 November". */
+export const dayMonthWords = (year: number, month: number, day: number): string =>
+  dayMonth.format(new Date(Date.UTC(year, month - 1, day)));
+
+/** The day an instant falls on in UTC, such as a commit's: "Nov 19, 2026". */
+export const utcDayWords = (at: string): string => shortDate.format(new Date(at));
 
 /** A stored date at the source's precision, a day, a month or a year, in the browser's words. */
 export function dayWords(date: string): string {

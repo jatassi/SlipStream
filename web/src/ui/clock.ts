@@ -69,6 +69,11 @@ const subscribeTo = (tick: Tick) => (reader: () => void) => {
   if (subscribers() === 0) {
     document.addEventListener("visibilitychange", onVisibility);
   }
+  // The shown now has stood still since the last reader left, so the first
+  // reader of a tick takes the current one, to the millisecond.
+  if (readers[tick].size === 0) {
+    shown[tick] = new Date();
+  }
   readers[tick].add(reader);
   arm();
   return () => {

@@ -5,7 +5,8 @@ import type {
   DownloadclientsTorrentGrabStage,
 } from "../api/gen/model";
 import { useListContentTypesSuspense } from "../api/gen/query/works/works";
-import { type Clock, bytes, sinceWords } from "../format";
+import { bytes } from "../format";
+import { RelativeTime } from "../ui/relative-time";
 import { Data } from "../ui/data";
 import { Empty } from "../ui/empty";
 import { Fact, Facts } from "../ui/facts";
@@ -51,13 +52,7 @@ export function Grabs({ detail, names }: { detail: DownloadclientsTorrentDetail;
   );
 }
 
-export function Machinery({
-  detail,
-  clock,
-}: {
-  detail: DownloadclientsTorrentDetail;
-  clock: Clock;
-}) {
+export function Machinery({ detail }: { detail: DownloadclientsTorrentDetail }) {
   const types = useListContentTypesSuspense().data.contentTypes;
   return (
     <InspectorSection title="Details">
@@ -68,7 +63,9 @@ export function Machinery({
         <Fact label="Save folder">
           {detail.saveFolder === undefined ? "Not reported yet" : <Data>{detail.saveFolder}</Data>}
         </Fact>
-        <Fact label="Added">{sinceWords(detail.addedAt, clock)}</Fact>
+        <Fact label="Added">
+          <RelativeTime at={detail.addedAt} form="clock" />
+        </Fact>
         <Fact label="Piece size">
           <Data>{bytes(detail.pieceSize)}</Data>
         </Fact>

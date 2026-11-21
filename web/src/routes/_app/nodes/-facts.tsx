@@ -1,9 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
 import type { SystemReport } from "../../../api/gen/model";
-import { clock } from "../../../format";
 import { Callout } from "../../../ui/callout";
 import { Data } from "../../../ui/data";
 import { Fact, Facts } from "../../../ui/facts";
+import { RelativeTime } from "../../../ui/relative-time";
 import { Section } from "../../../ui/section";
 import { portOf } from "./-node";
 
@@ -41,7 +41,7 @@ export function SystemFacts({ nodeId, data }: { nodeId: string; data: SystemRepo
             <Data>{data.build.version ?? "unstamped"}</Data>
           </Fact>
           <Fact label="Running since">
-            <Data>{clock(data.startedAt)}</Data>
+            <RelativeTime at={data.startedAt} form="clock" data />
           </Fact>
           <Fact label="Data folder">
             <Data>{data.dataDir}</Data>

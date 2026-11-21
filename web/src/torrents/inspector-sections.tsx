@@ -1,5 +1,5 @@
 import { sentenceOf } from "../api/errors";
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import { SignalLine } from "../ui/signal-line";
 import { Skeleton } from "../ui/skeleton";
 import type { Inspected } from "./inspector-detail";
@@ -40,7 +40,7 @@ export function Sections({
       <AnnounceUrls detail={detail.data} node={node} clock={clock} />
       <Files detail={detail.data} />
       <Grabs detail={detail.data} names={names} />
-      <Machinery detail={detail.data} clock={clock} />
+      <Machinery detail={detail.data} />
     </>
   );
 }

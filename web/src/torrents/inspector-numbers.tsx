@@ -1,10 +1,13 @@
 import type { DownloadclientsTorrentDetail, DownloadclientsTrackerDetail } from "../api/gen/model";
-import { type Clock, bytes, sinceWords } from "../format";
+import { bytes } from "../format";
 import type { LiveRow } from "../live/torrents";
+import type { Clock } from "../ui/clock";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
-import { InspectorSection } from "../ui/inspector";
 import { Fact, Facts } from "../ui/facts";
+import { InspectorSection } from "../ui/inspector";
+import { RelativeTime } from "../ui/relative-time";
+import { whenWords } from "../ui/time-words";
 import {
   type Row,
   paceOf,
@@ -13,6 +16,7 @@ import {
   rateWords,
   seedLength,
   trackerLine,
+  // oxlint-disable-next-line import/max-dependencies -- the numbers read the torrent, its trackers and the clock
 } from "./model";
 
 const lengthOf = (seconds: number) => (seconds < 60 ? "Under a minute" : seedLength(seconds));
@@ -95,10 +99,10 @@ function TrackerLine({
   const timing = [
     tracker.answeredAt === undefined
       ? "No response yet"
-      : `Responded at ${sinceWords(tracker.answeredAt, clock)}`,
+      : `Responded ${whenWords(tracker.answeredAt, "at", clock)}`,
     ...(tracker.nextAnnounce === undefined
       ? []
-      : [`next announce at ${sinceWords(tracker.nextAnnounce, clock)}`]),
+      : [`next announce ${whenWords(tracker.nextAnnounce, "at", clock)}`]),
   ].join(", ");
   return (
     <li className="flex flex-col gap-0.5 py-2 not-first:shadow-[inset_0_1px_0_var(--color-hairline)]">
@@ -117,7 +121,9 @@ function TrackerLine({
             <Fact label="Min interval">{lengthOf(tracker.minIntervalSeconds)}</Fact>
           )}
           {tracker.acceptsAt !== undefined && (
-            <Fact label="Accepts an announce">{sinceWords(tracker.acceptsAt, clock)}</Fact>
+            <Fact label="Accepts an announce">
+              <RelativeTime at={tracker.acceptsAt} form="clock" />
+            </Fact>
           )}
         </Facts>
       </Details>
@@ -157,7 +163,7 @@ export function AnnounceUrls({
       )}
       {waits && detail.announceAt !== undefined && (
         <p className="mt-2 text-ink-3">
-          Announce now is offered from {sinceWords(detail.announceAt, clock)}, when every tracker
+          Announce now is offered {whenWords(detail.announceAt, "from", clock)}, when every tracker
           allows another announce.
         </p>
       )}

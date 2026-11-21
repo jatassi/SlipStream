@@ -2,7 +2,6 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useDeferredValue, useState } from "react";
 
 import { getListBlocklistSuspenseQueryOptions } from "../api/gen/query/grabs/grabs";
-import { useNow } from "../tasks/use-now";
 import { BulkBar } from "./bulk";
 import { Nothing } from "./nothing";
 import { Pager } from "./pager";
@@ -36,7 +35,6 @@ export function BlocklistBrowse({
     }),
   );
   const picks = usePicks(data.entries.map((entry) => entry.infoHash));
-  const clock = { now: useNow(60_000), zone: undefined };
   const write = (next: string) => {
     setDraft(next);
     onSearchChange({ q: next === "" ? undefined : next, offset: undefined });
@@ -53,7 +51,7 @@ export function BlocklistBrowse({
           }}
         />
       ) : (
-        <BlocklistTable entries={data.entries} picking={picks.picking} clock={clock} />
+        <BlocklistTable entries={data.entries} picking={picks.picking} />
       )}
       <Pager
         offset={offset}

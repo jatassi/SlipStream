@@ -1,11 +1,9 @@
 import type { RootsRunning, RootsScan } from "../api/gen/model";
-import { agoWords } from "../format";
-import { useNow } from "../tasks/use-now";
+import { RelativeTime } from "../ui/relative-time";
 import { Meter } from "../ui/meter";
 import { filesWords } from "./refused";
 
 const counted = new Intl.NumberFormat("en");
-const agoTick = 60_000;
 
 function runningWords({ phase, done, total }: RootsRunning): string {
   if (total === null) {
@@ -29,8 +27,11 @@ function Running({ running }: { running: RootsRunning }) {
 }
 
 function Scanned({ at, summary }: { at: string; summary: string }) {
-  const now = useNow(agoTick);
-  return <span className="text-meta text-ink-3">{`Scanned ${agoWords(at, now)}. ${summary}`}</span>;
+  return (
+    <span className="text-meta text-ink-3">
+      Scanned <RelativeTime at={at} form="age" />. {summary}
+    </span>
+  );
 }
 
 /** A root's library scan: its step while it runs, why it stopped, or when it last ran and what it found. */

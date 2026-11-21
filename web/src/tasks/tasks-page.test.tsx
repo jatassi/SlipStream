@@ -61,13 +61,13 @@ test("the sentence leads with a failure and a wait, and groups keep their fixed 
   const tasks = taskServer({
     tasks: [scan, backlog, housekeeping],
     sentence: [
-      { kind: "failure", text: "Housekeeping failed at 04:12.", href: "/tasks/housekeeping" },
+      { kind: "failure", text: "Housekeeping failed at 4:12 AM.", href: "/tasks/housekeeping" },
       { kind: "warning", text: "1 task is waiting for seedbox.", href: "/tasks/scan" },
     ],
   });
   renderApp({ path: "/tasks", handlers: tasks.handlers });
   await expect
-    .element(page.getByRole("link", { name: "Housekeeping failed at 04:12." }))
+    .element(page.getByRole("link", { name: "Housekeeping failed at 4:12 AM." }))
     .toHaveAttribute("href", "/tasks/housekeeping");
   await expect
     .element(page.getByRole("link", { name: "1 task is waiting for seedbox." }))
@@ -84,8 +84,8 @@ test("rows say the cadence, the last result and the next run in words", async ()
   atTasksNow();
   renderApp({ path: "/tasks", handlers: taskServer({ tasks: [housekeeping, backlog] }).handlers });
   await expect.element(row("Housekeeping")).toMatchTextContent("Daily in the Maintenance window");
-  await expect.element(row("Housekeeping")).toMatchTextContent("Tonight at 04:00");
-  await expect.element(row("Housekeeping")).toMatchTextContent("Succeeded6 steps · 04:01");
+  await expect.element(row("Housekeeping")).toMatchTextContent("Tonight at 4:00 AM");
+  await expect.element(row("Housekeeping")).toMatchTextContent("Succeeded6 steps · 4:01 AM");
   await expect.element(row("Backlog search")).toMatchTextContent("Every 8 h");
   await expect.element(row("Backlog search")).toMatchTextContent("In 6 h");
   await expect
@@ -98,7 +98,7 @@ test("a row whose every unit waits is amber with the reason and no Run now", asy
   renderApp({ path: "/tasks", handlers: taskServer({ tasks: [housekeeping, scan] }).handlers });
   await expect
     .element(row("Library scan"))
-    .toMatchTextContent("Waiting for seedbox · offline since 21:31");
+    .toMatchTextContent("Waiting for seedbox · offline since 9:31 PM");
   expect(row("Library scan").element().dataset["tone"]).toBe("warn");
   expect(row("Housekeeping").element().dataset["tone"]).toBeUndefined();
   await expect.element(page.getByRole("button", { name: "Run now: Library scan" })).toBeDisabled();
@@ -144,7 +144,7 @@ test("Run now posts the task's run and Cancel deletes the open run", async () =>
       { method: "POST", path: "housekeeping/runs", body: undefined },
       { method: "DELETE", path: "runs/7", body: undefined },
     ]);
-  await expect.element(row("Backlog search")).toMatchTextContent("Running since 14:02");
+  await expect.element(row("Backlog search")).toMatchTextContent("Running since 2:02 PM");
 });
 
 test("a saved schedule setting shows from the save's answer, without waiting for the live event", async () => {
@@ -254,11 +254,11 @@ test("on phone the tasks are a list with the result, the next run and Run now", 
   await asPhone();
   renderApp({ path: "/tasks", handlers: taskServer({ tasks: [housekeeping, scan] }).handlers });
   const list = page.getByRole("list", { name: "Controller" });
-  await expect.element(list).toMatchTextContent("Succeeded·Tonight at 04:00");
+  await expect.element(list).toMatchTextContent("Succeeded·Tonight at 4:00 AM");
   await expect.element(page.getByRole("table")).not.toBeInTheDocument();
   await expect
     .element(page.getByRole("list", { name: "Store" }))
-    .toMatchTextContent("Waiting for seedbox · offline since 21:31");
+    .toMatchTextContent("Waiting for seedbox · offline since 9:31 PM");
 });
 
 test("a unit's Node links to the Node, and a removed Node is named as removed", async () => {

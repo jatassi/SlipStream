@@ -1,49 +1,45 @@
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 
 import type { HistoryListEntry } from "../api/gen/model";
-import { useNow } from "../tasks/use-now";
 import { Button } from "../ui/button";
 import { Empty } from "../ui/empty";
 import { List } from "../ui/list";
 import { NextOnScroll } from "../ui/next-on-scroll";
+import { type Clock, useClock, useNow } from "../ui/clock";
 import { useShell } from "../ui/shell-context";
-import { dayHeading, localDayKey } from "./day-heading";
+import { whenWords } from "../ui/time-words";
 import { historyPages } from "./history-query";
 // oxlint-disable-next-line import/max-dependencies -- the list lays out its days, its empty states and its paging
 import { HistoryRow } from "./history-row";
 import { type HistoryFilter, filtered, paramsOf } from "./routed";
 
-const minuteMs = 60_000;
+type Day = { readonly heading: string; readonly entries: HistoryListEntry[] };
 
-type Day = { readonly key: string; readonly heading: string; readonly entries: HistoryListEntry[] };
-
-/** entries, newest first, in runs of one browser day each. */
-function daysOf(entries: readonly HistoryListEntry[], now: Date): Day[] {
+/** entries, newest first, in runs of one day each, which its heading names. */
+function daysOf(entries: readonly HistoryListEntry[], clock: Clock): Day[] {
   const days: Day[] = [];
   for (const entry of entries) {
-    const key = localDayKey(entry.at);
+    const heading = whenWords(entry.at, "heading", clock);
     const last = days.at(-1);
-    if (last?.key === key) {
+    if (last?.heading === heading) {
       last.entries.push(entry);
     } else {
-      days.push({ key, heading: dayHeading(entry.at, now), entries: [entry] });
+      days.push({ heading, entries: [entry] });
     }
   }
   return days;
 }
 
-/** entries under their browser day's heading, the History page's whole list and the Work page's ten. */
+/** entries under their day's heading, the History page's whole list and the Work page's ten. */
 export function DayLists({
   entries,
-  now,
   poster = true,
 }: {
   entries: readonly HistoryListEntry[];
-  now: Date;
   poster?: boolean;
 }) {
-  return daysOf(entries, now).map(({ key, heading, entries: onDay }) => (
-    <section key={key} className="not-first:mt-5">
+  return daysOf(entries, useClock()).map(({ heading, entries: onDay }) => (
+    <section key={heading} className="not-first:mt-5">
       <h3 className="mb-2 text-meta font-semibold text-ink-2">{heading}</h3>
       <List label={heading}>
         {onDay.map((entry) => (
@@ -71,7 +67,7 @@ function FilteredEmpty({ now, onClear }: { now: Date; onClear: () => void }) {
 
 /** Every loaded page's entries under their day's heading, ending in Load more on desktop and loading as a phone scrolls. */
 export function HistoryDays({ filter, onClear }: { filter: HistoryFilter; onClear: () => void }) {
-  const now = useNow(minuteMs);
+  const now = useNow();
   const phone = useShell() === "phone";
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage } = useSuspenseInfiniteQuery(
     historyPages(paramsOf(filter, now)),
@@ -91,7 +87,7 @@ export function HistoryDays({ filter, onClear }: { filter: HistoryFilter; onClea
   };
   return (
     <>
-      <DayLists entries={entries} now={now} />
+      <DayLists entries={entries} />
       {hasNextPage &&
         (phone ? (
           <NextOnScroll onNext={more} />

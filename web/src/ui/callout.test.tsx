@@ -4,11 +4,14 @@ import { page } from "vitest/browser";
 import { renderKit } from "../test/render-kit";
 import { Callout } from "./callout";
 
+const today = new Date();
+today.setHours(8, 30, 0, 0);
+
 function relay(fixed: string[]) {
   return {
     chip: "Degraded",
     subject: "relay-fra",
-    since: "08:30",
+    since: today.toISOString(),
     action: {
       label: "Check relay",
       onClick: () => {
@@ -28,7 +31,7 @@ test("on desktop a standing warning is a status with its chip, subject, detail, 
   const callout = page.getByRole("status");
   await expect
     .element(callout)
-    .toHaveTextContent("Degradedrelay-fraHalf its probes time out.since 08:30Check relay");
+    .toHaveTextContent("Degradedrelay-fraHalf its probes time out.since 8:30 AMCheck relay");
   await callout.getByRole("button", { name: "Check relay" }).click();
   expect(fixed).toStrictEqual(["check"]);
 });
@@ -61,7 +64,7 @@ test("on a phone a standing warning is a row that opens a sheet, and its action 
   await row.click();
   const sheet = page.getByRole("dialog", { name: "relay-fra" });
   await expect.element(sheet.getByText("Half its probes time out.")).toBeVisible();
-  await expect.element(sheet.getByText("since 08:30")).toBeVisible();
+  await expect.element(sheet.getByText("since 8:30 AM")).toBeVisible();
   await sheet.getByRole("button", { name: "Check relay" }).click();
   expect(fixed).toStrictEqual(["check"]);
   await expect.element(sheet).not.toBeInTheDocument();

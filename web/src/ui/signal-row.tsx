@@ -27,7 +27,8 @@ export function SignalRow({
   chip: string;
   subject: string;
   verdict: string;
-  time: string;
+  /** A PlainTime, since the whole row is the button that opens it. */
+  time?: ReactNode;
   /** A word before the time, such as "since". */
   timeLead?: string;
   children: ReactNode;

@@ -1,7 +1,7 @@
 import { type ReactNode, useDeferredValue, useState } from "react";
 
 import type { DownloadclientsTorrentList } from "../api/gen/model";
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import { type ShellKind, useShell } from "../ui/shell-context";
 import { TabEmpty } from "./empty";
 import { type Row, type Tab, matches, tabCount } from "./model";

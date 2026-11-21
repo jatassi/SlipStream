@@ -1,15 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
 
 import { useGetSystemHealthSuspense } from "../api/gen/query/health/health";
-import { sinceWords } from "../format";
 import { itemAnchor, levels } from "../health/levels";
 import { sectionHealth } from "../health/section-health";
-import { useNow } from "../tasks/use-now";
 import { Callout } from "../ui/callout";
 import { AlertDot } from "../ui/count";
 import type { SettingsSection } from "./section";
-
-const sinceTick = 60_000;
 
 function useSectionHealth({ health }: SettingsSection) {
   const report = useGetSystemHealthSuspense().data;
@@ -25,7 +21,6 @@ export function SectionDot({ section }: { section: SettingsSection }) {
 /** The section's worst Health item, at its top, leading to it on the Health page. */
 export function SectionWarning({ section }: { section: SettingsSection }) {
   const shown = useSectionHealth(section);
-  const now = useNow(sinceTick);
   const navigate = useNavigate();
   if (shown === undefined) {
     return null;
@@ -36,7 +31,7 @@ export function SectionWarning({ section }: { section: SettingsSection }) {
       tone={item.level}
       chip={levels[item.level].chip}
       subject={item.subject}
-      since={sinceWords(item.since, { now, zone: undefined })}
+      since={item.since}
       action={{
         label: "Open Health",
         onClick: () => {

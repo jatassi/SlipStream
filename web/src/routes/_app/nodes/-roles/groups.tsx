@@ -8,7 +8,7 @@ import type {
   NodesRoleEntry,
   NodesRoleGroup,
 } from "../../../../api/gen/model";
-import type { Clock } from "../../../../format";
+import type { Clock } from "../../../../ui/clock";
 import {
   type Draft,
   type Hint,

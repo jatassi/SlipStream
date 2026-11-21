@@ -1,7 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 
 import type { TrackersWindow } from "../api/gen/model";
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import { Button } from "../ui/button";
 import { Empty } from "../ui/empty";
 import { List, ListRow } from "../ui/list";

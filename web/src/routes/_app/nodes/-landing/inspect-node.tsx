@@ -4,6 +4,7 @@ import { RoleChips } from "../../../../nodes/role-chips";
 import { NodeStateMark } from "../../../../nodes/state-mark";
 import { Button } from "../../../../ui/button";
 import { InspectorSection } from "../../../../ui/inspector";
+import { RelativeTime } from "../../../../ui/relative-time";
 import { Findings } from "../-findings";
 import type { Acting } from "../-manage/dialogs";
 import type { NodeRow } from "./view";
@@ -17,7 +18,15 @@ export function NodeWords({ node, act }: { node: NodeRow; act: (acting: Acting) 
     <>
       <InspectorSection>
         <NodeStateMark state={node.state} />
-        <p className="mt-2 text-ink-3">{node.facts.slice(1).join(" · ")}</p>
+        <p className="mt-2 text-ink-3">
+          {node.seenAt !== undefined && (
+            <>
+              Last seen <RelativeTime at={node.seenAt} form="age" />
+              {node.facts.length > 1 && " · "}
+            </>
+          )}
+          {node.facts.slice(1).join(" · ")}
+        </p>
         <Findings findings={node.findings} label={`What ${node.name} found`} />
       </InspectorSection>
       <InspectorSection title="Roles">

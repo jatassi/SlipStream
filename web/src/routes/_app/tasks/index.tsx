@@ -10,7 +10,7 @@ import { ensureQuery } from "../../../api/query-client";
 import { Page, PagePending } from "../../../shell/page";
 import { Schedule } from "../../../tasks/schedule";
 import { TaskGroups } from "../../../tasks/task-groups";
-import { useClock } from "../../../tasks/use-now";
+import { useClock } from "../../../ui/clock";
 import { StatusSentence } from "../../../ui/status-sentence";
 
 export const Route = createFileRoute("/_app/tasks/")({
@@ -24,13 +24,11 @@ export const Route = createFileRoute("/_app/tasks/")({
   component: TasksPage,
 });
 
-const wordsTick = 15_000;
-
 function TasksPage() {
   const { sentence, groups, multinode, settings } = useListTasksSuspense().data;
   const { runs } = useListOpenTaskRunsSuspense().data;
   const live = {
-    clock: useClock(wordsTick, settings.window.zone),
+    clock: useClock(settings.window.zone),
     progress: new Map(runs.map((run) => [run.runId, run])),
   };
   return (

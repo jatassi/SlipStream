@@ -49,7 +49,7 @@ test("each provider shows its status sentence, whose key it uses and its key pag
   await expect.element(first.getByRole("button", { name: "Remove key" })).not.toBeInTheDocument();
 
   const second = page.getByRole("article", { name: "OMDb" });
-  await expect.element(second.getByText(/^Your key, set (3 May|May 3)$/u)).toBeVisible();
+  await expect.element(second.getByText(/^Your key, set on (3 May|May 3)$/u)).toBeVisible();
   await expect.element(second.getByRole("button", { name: "Change key" })).toBeVisible();
   await expect.element(second.getByRole("button", { name: "Remove key" })).toBeVisible();
   await expect.element(second.getByRole("img")).not.toBeInTheDocument();

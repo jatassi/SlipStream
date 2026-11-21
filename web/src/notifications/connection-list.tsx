@@ -5,7 +5,7 @@ import type {
   NotificationsEvent as Event,
   NotificationsProvider as Provider,
 } from "../api/gen/model";
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import { SignalLine } from "../ui/signal-line";
 import { EditConnectionButton } from "./connection-sheet";
 import { DeleteConnectionButton } from "./delete-connection";

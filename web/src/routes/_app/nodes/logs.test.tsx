@@ -8,7 +8,10 @@ import { home, homeId, homeSystem, nodesAre, seedbox, seedboxId } from "../../..
 import { renderApp } from "../../../test/render-app";
 import { asPhone } from "../../../test/viewport";
 import { worker } from "../../../test/worker";
-import { clockOf } from "./-logs/log-row";
+import { placeOf, timeForms } from "../../../ui/time-words";
+
+const stampOf = (at: string) =>
+  timeForms.stamp(placeOf(at, { now: new Date(at), zone: undefined }));
 
 const logsPage = `/nodes/${homeId}/logs`;
 const ten = Array.from({ length: 10 }, (_, index) => logRecord(index + 1));
@@ -29,7 +32,7 @@ test("the ring's 10 records show as 10 rows with the count", async () => {
   await expect.element(status()).toHaveTextContent("10 lines");
   await expect
     .element(line("Line 1"))
-    .toHaveTextContent(`${clockOf(ten[0]?.time ?? "")}InfonodeLine 1`);
+    .toHaveTextContent(`${stampOf(ten[0]?.time ?? "")}InfonodeLine 1`);
 });
 
 test("Warn hides Info and Debug", async () => {
@@ -95,7 +98,7 @@ test("log.reset draws a divider for a restart and for skipped lines", async () =
   log.send(logRecord(41));
   log.reset({ reason: "lapped", startedAt }, 90);
   await expect
-    .element(page.getByText(`SlipStream restarted at ${clockOf(startedAt).slice(0, 8)}`))
+    .element(page.getByText(`SlipStream restarted at ${stampOf(startedAt)}`))
     .toBeVisible();
   await expect.element(page.getByText("Some lines were skipped").nth(1)).toBeVisible();
   expect(page.getByText("Some lines were skipped").all()).toHaveLength(2);
@@ -136,7 +139,7 @@ test("a Worker restarted while its Logs are open keeps the lines before, a divid
   await expect.element(page.getByText("seedbox is restarting…")).not.toBeInTheDocument();
   await expect.element(line("Started again")).toBeVisible();
   await expect
-    .element(page.getByText(`SlipStream restarted at ${clockOf(startedAt).slice(0, 8)}`))
+    .element(page.getByText(`SlipStream restarted at ${stampOf(startedAt)}`))
     .toBeVisible();
   expect(rows().all()).toHaveLength(12);
   expect(log.resumes).toEqual([0]);

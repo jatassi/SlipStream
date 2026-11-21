@@ -1,3 +1,6 @@
+import type { Clock } from "./ui/clock";
+import { placeOf, timeForms, whenWords } from "./ui/time-words";
+
 const units = ["bytes", "KB", "MB", "GB", "TB"] as const;
 
 export function bytes(count: number): string {
@@ -9,15 +12,6 @@ export function bytes(count: number): string {
   }
   return `${value.toFixed(unit > 0 && value < 10 ? 1 : 0)} ${units[unit]}`;
 }
-
-const clockFormat = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-export const clock = (iso: string): string => clockFormat.format(new Date(iso));
 
 const grouped = new Intl.NumberFormat("en");
 const minute = 60;
@@ -97,191 +91,13 @@ export function lengthWords(milliseconds: number): string {
   return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
 }
 
-/** Now, read on a clock in a time zone; undefined is the browser's. */
-export type Clock = { readonly now: Date; readonly zone: string | undefined };
-
-/**
- * The zone when the name is an IANA one Intl knows, else undefined for the
- * browser's. Intl reads some abbreviations as an unrelated zone (BST as
- * Asia/Dhaka), so only an Area/Location name or UTC counts.
- */
-export function knownZone(name: string): string | undefined {
-  if (name !== "UTC" && !name.includes("/")) {
-    return undefined;
-  }
-  try {
-    return new Intl.DateTimeFormat("en", { timeZone: name }).resolvedOptions().timeZone;
-  } catch {
-    return undefined;
-  }
-}
-
-type Formats = {
-  readonly time: Intl.DateTimeFormat;
-  readonly weekday: Intl.DateTimeFormat;
-  readonly date: Intl.DateTimeFormat;
-  readonly wall: Intl.DateTimeFormat;
-};
-
-const formatsByZone = new Map<string | undefined, Formats>();
-
-function formatsOf(timeZone: string | undefined): Formats {
-  const known = formatsByZone.get(timeZone);
-  if (known !== undefined) {
-    return known;
-  }
-  const zoned = timeZone === undefined ? {} : { timeZone };
-  const formats: Formats = {
-    time: new Intl.DateTimeFormat(undefined, {
-      ...zoned,
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }),
-    weekday: new Intl.DateTimeFormat(undefined, { ...zoned, weekday: "short" }),
-    date: new Intl.DateTimeFormat(undefined, { ...zoned, month: "short", day: "numeric" }),
-    wall: new Intl.DateTimeFormat("en-US", {
-      ...zoned,
-      year: "numeric",
-      month: "numeric",
-      day: "numeric",
-      hour: "numeric",
-      hourCycle: "h23",
-    }),
-  };
-  formatsByZone.set(timeZone, formats);
-  return formats;
-}
-
-/** "14:02": the time of day of an instant in zone, the browser's when undefined. */
-export const timeOfDay = (iso: string, zone?: string): string =>
-  formatsOf(zone).time.format(new Date(iso));
-
-function wallOf(date: Date, zone: string | undefined): { day: number; hour: number } {
-  const parts = new Map(
-    formatsOf(zone)
-      .wall.formatToParts(date)
-      .map((part) => [part.type, Number(part.value)]),
-  );
-  const at = (type: Intl.DateTimeFormatPartTypes) => parts.get(type) ?? 0;
-  return {
-    day: Date.UTC(at("year"), at("month") - 1, at("day")) / (day * 1000),
-    hour: at("hour"),
-  };
-}
-
-const daysFrom = (from: Date, to: Date, zone: string | undefined) =>
-  wallOf(to, zone).day - wallOf(from, zone).day;
-
-const eveningStartHour = 18;
-const morningEndHour = 6;
-
-function eveningOf(date: Date, { now, zone }: Clock): number | undefined {
-  const hours = wallOf(date, zone).hour;
-  if (hours >= eveningStartHour) {
-    return daysFrom(now, date, zone);
-  }
-  return hours < morningEndHour ? daysFrom(now, date, zone) - 1 : undefined;
-}
-
-export function atWords(iso: string, reading: Clock): string {
-  const { now, zone } = reading;
-  const at = new Date(iso);
-  if (at <= now) {
-    return "Due now";
-  }
-  const formats = formatsOf(zone);
-  const time = formats.time.format(at);
-  const days = daysFrom(now, at, zone);
-  if (eveningOf(at, reading) === (eveningOf(now, reading) ?? 0)) {
-    return `Tonight at ${time}`;
-  }
-  if (days === 0) {
-    return `Today at ${time}`;
-  }
-  if (days === 1) {
-    return `Tomorrow at ${time}`;
-  }
-  return `${days < 7 ? formats.weekday.format(at) : formats.date.format(at)} at ${time}`;
-}
-
-/** atWords inside a sentence: "tomorrow at 14:00", "Mon at 14:00", "now". */
-const inSentence = (words: string): string =>
-  words === "Due now"
-    ? "now"
-    : words.replace(/^(?:Today|Tonight|Tomorrow)\b/u, (word) => word.toLowerCase());
-
-/**
- * A coming time as "until" reads it: the time alone today, else as atWords
- * says it inside a sentence ("tomorrow at 14:00").
- */
-export function laterWords(iso: string, reading: Clock): { words: string; today: boolean } {
-  const at = new Date(iso);
-  const today = at > reading.now && daysFrom(reading.now, at, reading.zone) === 0;
-  return {
-    words: today ? formatsOf(reading.zone).time.format(at) : inSentence(atWords(iso, reading)),
-    today,
-  };
-}
-
-/** A coming time after a verb: "at 14:00" today, else "tomorrow at 14:00" or "Mon at 14:00". */
-export function laterAtWords(iso: string, reading: Clock): string {
-  const { words, today } = laterWords(iso, reading);
-  return today ? `at ${words}` : words;
-}
-
-/**
- * A past time as it reads after a verb: "today at 09:12", "yesterday at
- * 09:12", "on Mon at 09:12" within the week, else "on Nov 3 at 09:12".
- */
-/** Whether a past time falls on the reader's today. */
-export const isToday = (iso: string, { now, zone }: Clock): boolean =>
-  daysFrom(new Date(iso), now, zone) <= 0;
-
-export function pastAtWords(iso: string, { now, zone }: Clock): string {
-  const at = new Date(iso);
-  const formats = formatsOf(zone);
-  const time = formats.time.format(at);
-  const days = daysFrom(at, now, zone);
-  if (days <= 0) {
-    return `today at ${time}`;
-  }
-  if (days === 1) {
-    return `yesterday at ${time}`;
-  }
-  return `on ${days < 7 ? formats.weekday.format(at) : formats.date.format(at)} at ${time}`;
-}
-
-const ago = new Intl.RelativeTimeFormat("en", { numeric: "always" });
-
-/** How long ago a past time was, to the minute: "just now", "2 hours ago", "3 days ago". */
-export function agoWords(iso: string, now: Date): string {
-  const minutes = Math.floor((now.getTime() - Date.parse(iso)) / (minute * 1000));
-  if (minutes < 1) {
-    return "just now";
-  }
-  if (minutes < 60) {
-    return ago.format(-minutes, "minute");
-  }
-  const hours = Math.floor(minutes / 60);
-  return hours < 24 ? ago.format(-hours, "hour") : ago.format(-Math.floor(hours / 24), "day");
-}
-
-export function inWords(iso: string, now: Date): string {
-  const minutes = Math.ceil((Date.parse(iso) - now.getTime()) / (minute * 1000));
-  if (minutes <= 0) {
-    return "Due now";
-  }
-  if (minutes < 60) {
-    return `In ${minutes} min`;
-  }
-  const hours = Math.round(minutes / 60);
-  return hours < 48 ? `In ${hours} h` : `In ${Math.round(hours / 24)} days`;
-}
-
-export function sinceWords(iso: string, { now, zone }: Clock): string {
-  const at = new Date(iso);
-  const formats = formatsOf(zone);
-  const time = formats.time.format(at);
-  return daysFrom(now, at, zone) === 0 ? time : `${formats.date.format(at)}, ${time}`;
-}
+// The Work page and Library can't move until S46 merges. These keep their
+// screens and tests on the table, and go with them.
+export const clock = (iso: string): string =>
+  timeForms.clock(placeOf(iso, { now: new Date(), zone: undefined }));
+export const laterAtWords = (iso: string, reading: Clock): string =>
+  whenWords(iso, "next", reading);
+export const pastAtWords = (iso: string, reading: Clock): string => whenWords(iso, "at", reading);
+export const laterWords = (iso: string, reading: Clock): { words: string } => ({
+  words: whenWords(iso, "until", reading).replace(/^until /u, ""),
+});

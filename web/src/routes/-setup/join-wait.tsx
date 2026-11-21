@@ -1,5 +1,5 @@
 import type { PairingProblem, PairingWorkerClaim } from "../../api/gen/model";
-import { useNow } from "../../tasks/use-now";
+import { useNow } from "../../ui/clock";
 import { Button } from "../../ui/button";
 import { ReadOnlyField } from "../../ui/read-only-field";
 import { SignalLine } from "../../ui/signal-line";
@@ -14,7 +14,7 @@ function validity(until: string, now: Date): string {
 
 /** A Join that waits for its Controller to dial the Node address this Node printed. */
 export function JoinWait({ claim }: { claim: PairingWorkerClaim }) {
-  const now = useNow(1000);
+  const now = useNow("second");
   return (
     <div className="flex flex-col gap-4">
       <p>This Node can&apos;t reach your SlipStream.</p>

@@ -2,10 +2,10 @@ import type {
   MediaserversServerView as Server,
   MediaserversSessionView as Session,
 } from "../../api/gen/model";
-import { agoWords } from "../../format";
 import { Data } from "../../ui/data";
 import { Details } from "../../ui/details";
 import { ListRow } from "../../ui/list";
+import { PlainTime } from "../../ui/relative-time";
 import { Mark } from "../../ui/state-mark";
 import { fileName } from "./paths";
 import { decisionTerm, transcodeWhy } from "./transcode-reasons";
@@ -28,19 +28,16 @@ function SessionDetail({ server, session }: { server: Server; session: Session }
 }
 
 /** One play: the file, who plays it on which player, and what the server does with it. */
-export function SessionRow({
-  server,
-  session,
-  now,
-}: {
-  server: Server;
-  session: Session;
-  now: Date;
-}) {
+export function SessionRow({ server, session }: { server: Server; session: Session }) {
   return (
     <ListRow
       title={fileName(session.path)}
-      meta={`${session.user} on ${session.player} · ${session.product} · Started ${agoWords(session.startedAt, now)}`}
+      meta={
+        <>
+          {`${session.user} on ${session.player} · ${session.product} · Started `}
+          <PlainTime at={session.startedAt} form="age" />
+        </>
+      }
       trailing={<Mark mark={decisionTerm(session)} />}
       detail={<SessionDetail server={server} session={session} />}
     />

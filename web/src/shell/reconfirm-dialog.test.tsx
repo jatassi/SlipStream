@@ -8,10 +8,12 @@ import {
   ReconfirmSessionBody,
   UpdateIdentitySettingsBody,
 } from "../api/gen/zod/identity/identity.zod";
-import { clock } from "../format";
 import { problem } from "../test/handlers";
 import { renderApp } from "../test/render-app";
+import { whenWords } from "../ui/time-words";
 import { asPhone } from "../test/viewport";
+
+const own = () => ({ now: new Date(), zone: undefined });
 
 const settings = getGetIdentitySettingsResponseMock();
 
@@ -167,11 +169,15 @@ test.each([
     "0000",
     "This PIN is locked after too many wrong PINs. Sign in with a passkey or ask an Admin for a Reset link.",
   ],
-  ["a PIN in its wait", "1111", `Too many wrong PINs. Try again at ${clock(waitEnds)}.`],
+  [
+    "a PIN in its wait",
+    "1111",
+    `Too many wrong PINs. Try again ${whenWords(waitEnds, "next", own())}.`,
+  ],
   [
     "an address past its limit",
     "2222",
-    `Too many failed sign-ins from this IP address. Try again at ${clock(waitEnds)}.`,
+    `Too many failed sign-ins from this IP address. Try again ${whenWords(waitEnds, "next", own())}.`,
   ],
 ])("%s shows its alert in the dialog and clears the PIN", async (_case, pin, alert) => {
   const server = reconfirmServer();

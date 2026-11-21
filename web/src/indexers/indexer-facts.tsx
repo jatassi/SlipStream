@@ -4,6 +4,7 @@ import type {
   TrackersTracker,
   NodesNode,
 } from "../api/gen/model";
+import { useClock } from "../ui/clock";
 import { Data } from "../ui/data";
 import { Fact, Facts } from "../ui/facts";
 import { Meter } from "../ui/meter";
@@ -14,9 +15,10 @@ import { IndexerSwitch, type SwitchName } from "./switches";
 import { kindOf, limitWords, nodeName } from "./words";
 
 function LimitUse({ label, limit }: { label: string; limit: IndexersLimitUse }) {
+  const clock = useClock();
   return (
     <span className="flex flex-col gap-1.5">
-      <span>{limitWords(limit)}</span>
+      <span>{limitWords(limit, clock)}</span>
       {limit.count > 0 && (
         <Meter
           label={`${label} used`}

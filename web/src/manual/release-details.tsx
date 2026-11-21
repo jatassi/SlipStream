@@ -1,11 +1,11 @@
 import { use } from "react";
 
 import type { GrabsReleaseDetails } from "../api/gen/model";
-import { agoWords } from "../format";
 import { lostAtSentence } from "../grabs/lost-at-sentence";
 import { Button } from "../ui/button";
 import { Data } from "../ui/data";
 import { Fact, Facts } from "../ui/facts";
+import { RelativeTime } from "../ui/relative-time";
 import { ReadingContext } from "./reading";
 
 /**
@@ -13,7 +13,7 @@ import { ReadingContext } from "./reading";
  * ranked below the plan's pick, where it was listed, and Open in tester.
  */
 export function ReleaseDetails({ release }: { release: GrabsReleaseDetails }) {
-  const { now, targets, onTest } = use(ReadingContext);
+  const { targets, onTest } = use(ReadingContext);
   const lostAt = release.lostAt;
   return (
     <div className="flex flex-col gap-2 py-1">
@@ -38,7 +38,7 @@ export function ReleaseDetails({ release }: { release: GrabsReleaseDetails }) {
           {release.tracker !== undefined && <Fact label="Tracker">{release.tracker}</Fact>}
           {release.publishedAt !== null && (
             <Fact label="Published">
-              <Data>{agoWords(release.publishedAt, now)}</Data>
+              <RelativeTime at={release.publishedAt} form="age" />
             </Fact>
           )}
           <Fact label="Seeders">

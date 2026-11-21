@@ -4,7 +4,8 @@ import type {
   DownloadclientsRefusal,
   DownloadclientsRefusalCode,
 } from "../api/gen/model";
-import { type Clock, sinceWords } from "../format";
+import type { Clock } from "../ui/clock";
+import { whenWords } from "../ui/time-words";
 import type { Row, State } from "./model";
 
 export type TorrentAction = ActInputBodyAction;
@@ -143,7 +144,7 @@ const refusalWords: {
   window: ({ names, refusal }, { clock }) =>
     refusal.acceptsAt === undefined
       ? `A tracker of ${names.join(", ")} won't accept another announce yet.`
-      : `A tracker of ${names.join(", ")} won't accept another announce until ${sinceWords(refusal.acceptsAt, clock)}.`,
+      : `A tracker of ${names.join(", ")} won't accept another announce ${whenWords(refusal.acceptsAt, "until", clock)}.`,
   not_running: ({ names }) => `${names.join(", ")} isn't running, so it has nothing to announce.`,
   failed: ({ names }, { action }) =>
     `${names.join(", ")} failed in the torrent client and can't ${verbs[action]}. Remove it instead.`,

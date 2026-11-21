@@ -8,7 +8,7 @@ import { useListDownloadClientsSuspense } from "../api/gen/query/downloadclients
 import { ClientSheet } from "../download-clients/client-sheet";
 import { kindOf } from "../download-clients/client-form";
 import { statusOf } from "../download-clients/client-status";
-import { type Clock, countWords, sinceWords } from "../format";
+import { countWords } from "../format";
 import { Callout } from "../ui/callout";
 import { useCheckNow } from "./client-check";
 import type { Row } from "./model";
@@ -28,10 +28,9 @@ type CardProps = {
   kinds: readonly Kind[];
   nodes: readonly { readonly id: string; readonly name: string }[];
   stale: number;
-  clock: Clock;
 };
 
-function ClientCard({ client, node, kinds, nodes, stale, clock }: CardProps) {
+function ClientCard({ client, node, kinds, nodes, stale }: CardProps) {
   const [editing, setEditing] = useState(false);
   const check = useCheckNow();
   const subject = `${client.name} on ${node}`;
@@ -42,7 +41,7 @@ function ClientCard({ client, node, kinds, nodes, stale, clock }: CardProps) {
         tone="fail"
         chip={status.chip}
         subject={subject}
-        {...(client.since !== null && { since: sinceWords(client.since, clock) })}
+        {...(client.since !== null && { since: client.since })}
         action={check.action}
         more={[
           {
@@ -72,7 +71,7 @@ function ClientCard({ client, node, kinds, nodes, stale, clock }: CardProps) {
  * One red card per external client that isn't responding, refused the
  * sign-in or needs attention, leading the Torrents view.
  */
-export function ClientCards({ rows, clock }: { rows: readonly Row[]; clock: Clock }) {
+export function ClientCards({ rows }: { rows: readonly Row[] }) {
   const { cards, kinds } = useListDownloadClientsSuspense().data;
   const nodes = cards.map((card) => ({ id: card.nodeId, name: card.nodeName }));
   const away = cards.flatMap((card) =>
@@ -95,7 +94,6 @@ export function ClientCards({ rows, clock }: { rows: readonly Row[]; clock: Cloc
           stale={
             rows.filter((row) => row.clientId === client.id && row.lastKnown !== undefined).length
           }
-          clock={clock}
         />
       ))}
     </div>

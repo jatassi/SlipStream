@@ -2,7 +2,6 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { clock } from "../../format";
 import { paletteShortcut } from "../../shell/palette-state";
 import {
   accountDialog as dialog,
@@ -17,6 +16,10 @@ import {
 } from "../../test/account";
 import { ada, problem } from "../../test/handlers";
 import { renderApp } from "../../test/render-app";
+import { type ValueForm, placeOf, timeForms } from "../../ui/time-words";
+
+const own = () => ({ now: new Date(), zone: undefined });
+const shown = (form: ValueForm, at: string) => timeForms[form](placeOf(at, own()));
 
 test("Your Account shows the profile, passkeys and devices", async () => {
   await openAccount([passkeysAt(passkeysHere)]);
@@ -29,7 +32,7 @@ test("Your Account shows the profile, passkeys and devices", async () => {
   await expect
     .element(
       page.getByText(
-        `localhost · Added ${clock(iPhonePasskey.createdAt)} · Last used ${clock("2026-10-15T07:45:00Z")}`,
+        `localhost · Added ${shown("clock", iPhonePasskey.createdAt)} · Last used ${shown("age", "2026-10-15T07:45:00Z")}`,
       ),
     )
     .toBeVisible();
@@ -41,7 +44,7 @@ test("Your Account shows the profile, passkeys and devices", async () => {
       .map((row) => row.element().textContent),
   ).toEqual([
     "Chrome on macOS192.168.1.20 · This deviceSign out",
-    `Safari on Apple TV192.168.1.31 · Active ${clock(livingRoomTv.lastSeenAt)}Sign out`,
+    `Safari on Apple TV192.168.1.31 · Active ${shown("age", livingRoomTv.lastSeenAt)}Sign out`,
   ]);
   await expect.element(main().getByRole("button", { name: "Add a passkey" })).toBeVisible();
 });

@@ -1,10 +1,10 @@
 import { useState } from "react";
 
 import type { HistoryListEntry } from "../api/gen/model";
-import { timeOfDay } from "../format";
 import { Chevron } from "../ui/chevron";
 import { Icon } from "../ui/icon";
 import { ListRow } from "../ui/list";
+import { PlainTime } from "../ui/relative-time";
 import { Poster } from "../ui/poster";
 import { Sheet } from "../ui/sheet";
 import { useShell } from "../ui/shell-context";
@@ -25,7 +25,7 @@ function Meta({ entry }: { entry: HistoryListEntry }) {
           className={`mr-1 inline-block size-3.5 align-[-2px] ${toneInk[tone]}`}
         />
       )}
-      {timeOfDay(entry.at)}
+      <PlainTime at={entry.at} form="time" />
     </>
   );
 }

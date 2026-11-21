@@ -2,7 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import type { GrabsWantedRow } from "../api/gen/model";
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import { openManualSearch } from "../manual/sheet-state";
 import { List, ListRow } from "../ui/list";
 import { Poster } from "../ui/poster";

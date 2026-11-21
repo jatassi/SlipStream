@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { Clock } from "../format";
+import type { Clock } from "../ui/clock";
 import type { LiveRow } from "../live/torrents";
 import { QualityName } from "../release/quality";
 import { Data } from "../ui/data";

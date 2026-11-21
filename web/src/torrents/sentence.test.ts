@@ -47,7 +47,7 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     "a resume inside a tracker's window says when it starts",
     { state: "paused", hold: "window", until: "2026-10-20T14:32:00Z" },
     undefined,
-    "Waiting until its trackers allow another announce. It resumes at 14:32.",
+    "Waiting until its trackers allow another announce. It resumes at 2:32 PM.",
   ],
   [
     "the Admin's pause stays",
@@ -76,7 +76,7 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     "an offline Node's last word",
     { state: "seeding", lastKnown: "2026-10-20T11:00:00Z", lastKnownCause: "node" },
     undefined,
-    "seedbox is offline. When it last reported, at 11:00, this was seeding.",
+    "seedbox is offline. When it last reported, at 11:00 AM, this was seeding.",
   ],
   [
     "third in line",
@@ -94,7 +94,7 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     "a recheck that resumes after",
     { state: "checking", until: "2026-10-20T14:32:00Z" },
     undefined,
-    "Checking its files. It resumes at 14:32.",
+    "Checking its files. It resumes at 2:32 PM.",
   ],
   [
     "a stall offers the way out",
@@ -168,7 +168,7 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
       },
     },
     undefined,
-    'beacon.example reported "too many requests", so no peers come from it. The client retries at 12:30.',
+    'beacon.example reported "too many requests", so no peers come from it. The client retries at 12:30 PM.',
   ],
   [
     "a remove waits for its Node",
@@ -185,13 +185,13 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
       lastKnownCause: "client",
     },
     undefined,
-    "Transmission on seedbox isn't responding. When it last responded, at 11:00, this was downloading.",
+    "Transmission on seedbox isn't responding. When it last responded, at 11:00 AM, this was downloading.",
   ],
   [
     "an off client isn't checked",
     { ...transmission, state: "seeding", lastKnown: "2026-10-20T11:00:00Z", lastKnownCause: "off" },
     undefined,
-    "SlipStream isn't checking Transmission while it's turned off. When it last responded, at 11:00, this was seeding.",
+    "SlipStream isn't checking Transmission while it's turned off. When it last responded, at 11:00 AM, this was seeding.",
   ],
   [
     "a pause waits for the client to respond",
@@ -226,7 +226,7 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     "a finished torrent waits out the Import delay",
     { ...transmission, state: "seeding", importAt: "2026-10-20T14:32:00Z" },
     undefined,
-    "Finished. SlipStream imports it at 14:32, when the Import delay for Transmission ends.",
+    "Finished. SlipStream imports it at 2:32 PM, when the Import delay for Transmission ends.",
   ],
 ])("%s", (_, shape, live, sentence) => {
   expect(inspectorSentence(torrent(shape), live, place)).toBe(sentence);

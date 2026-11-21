@@ -3,8 +3,8 @@ import { type ReactNode, useState } from "react";
 
 import { Button, type ButtonLook } from "./button";
 import type { AlertTone } from "./count";
-import { Data } from "./data";
 import { Icon } from "./icon";
+import { RelativeTime } from "./relative-time";
 import { Sheet } from "./sheet";
 import { useShell } from "./shell-context";
 import { SignalChip } from "./signal-chip";
@@ -26,7 +26,7 @@ type Shared = {
    * the Callout as a row that opens a sheet titled with it.
    */
   readonly subject?: string;
-  /** When the condition started, as sinceWords gives it. */
+  /** The instant the condition started. */
   readonly since?: string;
   /** The sentence, or a body such as a list of files. */
   readonly children: ReactNode;
@@ -57,7 +57,7 @@ function buttonsOf(props: CalloutProps): readonly Shown[] {
 function Since({ since, tone }: { since: string; tone: AlertTone }) {
   return (
     <span className={`whitespace-nowrap ${signalLook[tone].dim}`}>
-      since <Data>{since}</Data>
+      since <RelativeTime at={since} form="clock" data />
     </span>
   );
 }

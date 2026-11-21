@@ -2,9 +2,10 @@ import { Refresh01Icon } from "@hugeicons/core-free-icons";
 import { type ReactNode, useState } from "react";
 
 import type { IndexersCaptchaImage } from "../../api/gen/model";
-import { clock } from "../../format";
 import { Button } from "../../ui/button";
+import { useClock } from "../../ui/clock";
 import { withFieldGroup } from "../../ui/form";
+import { whenWords } from "../../ui/time-words";
 import type { SignInStep } from "../add/use-add";
 
 function Reload({ look, onReload }: { look: "default" | "ghost"; onReload: () => Promise<void> }) {
@@ -57,11 +58,12 @@ function Image({
   captcha: IndexersCaptchaImage;
   children: ReactNode;
 }) {
+  const clock = useClock();
   return (
     <div className={panel}>
       <p className="text-ink-1">
-        Signing in to {name} needs the code in this image, which {home} fetched. It expires at{" "}
-        {clock(captcha.expiresAt)}.
+        Signing in to {name} needs the code in this image, which {home} fetched. It expires{" "}
+        {whenWords(captcha.expiresAt, "at", clock)}.
       </p>
       <img
         src={captcha.image}

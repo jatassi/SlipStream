@@ -3,21 +3,23 @@ import { useState } from "react";
 
 import type { IdentityRegeneratedAPIKey } from "../api/gen/model";
 import { regenerateAPIKey, useGetAPIKeySuspense } from "../api/gen/query/identity/identity";
-import { clock } from "../format";
+import { useClock } from "../ui/clock";
 import { Button } from "../ui/button";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { ReadOnlyField } from "../ui/read-only-field";
+import { whenWords } from "../ui/time-words";
 
 export function ApiKeySection() {
   const { createdAt } = useGetAPIKeySuspense().data;
   const router = useRouter();
   const [asking, setAsking] = useState(false);
   const [made, setMade] = useState<IdentityRegeneratedAPIKey>();
+  const clock = useClock();
   return (
     <div className="flex flex-col items-start gap-4">
       <p className="text-ink-2">
         Scripts and other apps use the API key to reach SlipStream. This one was made{" "}
-        {clock(createdAt)}.
+        {whenWords(createdAt, "at", clock)}.
       </p>
       {made === undefined ? null : (
         <div className="w-full">

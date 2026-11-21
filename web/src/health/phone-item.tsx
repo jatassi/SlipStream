@@ -2,23 +2,15 @@ import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { useState } from "react";
 
 import type { HealthCategoryID, HealthItem } from "../api/gen/model";
-import { Data } from "../ui/data";
 import { Icon } from "../ui/icon";
+import { RelativeTime } from "../ui/relative-time";
 import { Sheet } from "../ui/sheet";
 import { SignalChip } from "../ui/signal-chip";
 import { signalLook } from "../ui/signal-row";
 import { ItemBody } from "./item-body";
 import { levels } from "./levels";
 
-export function PhoneItem({
-  category,
-  item,
-  since,
-}: {
-  category: HealthCategoryID;
-  item: HealthItem;
-  since: string;
-}) {
+export function PhoneItem({ category, item }: { category: HealthCategoryID; item: HealthItem }) {
   const [open, setOpen] = useState(false);
   const look = signalLook[item.level];
   const chip = <SignalChip kind={item.level}>{levels[item.level].chip}</SignalChip>;
@@ -45,7 +37,7 @@ export function PhoneItem({
         {chip}
         <p className={look.dim}>{item.text}</p>
         <p className={look.dim}>
-          since <Data>{since}</Data>
+          since <RelativeTime at={item.since} form="clock" data />
         </p>
         <ItemBody category={category} item={item} />
       </div>

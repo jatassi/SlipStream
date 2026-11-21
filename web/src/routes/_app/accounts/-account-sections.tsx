@@ -1,10 +1,11 @@
 import { pinSentence } from "../../../accounts/pin-state";
 import type { IdentityAccountDetail } from "../../../api/gen/model";
-import { clock } from "../../../format";
 import { Button } from "../../../ui/button";
+import { useClock } from "../../../ui/clock";
 import { Empty } from "../../../ui/empty";
 import { Fact, Facts } from "../../../ui/facts";
 import { List, ListRow } from "../../../ui/list";
+import { RelativeTime } from "../../../ui/relative-time";
 import { Section } from "../../../ui/section";
 import type { Asking } from "./-confirmations";
 
@@ -55,7 +56,11 @@ function Profile({ detail: { account }, onAsk }: Props) {
           {account.disabled ? "Turned off" : "On"}
         </Fact>
         <Fact label="Last sign-in">
-          {account.lastSignInAt === undefined ? "Never" : clock(account.lastSignInAt)}
+          {account.lastSignInAt === undefined ? (
+            "Never"
+          ) : (
+            <RelativeTime at={account.lastSignInAt} form="age" />
+          )}
         </Fact>
       </Facts>
     </Section>
@@ -63,11 +68,12 @@ function Profile({ detail: { account }, onAsk }: Props) {
 }
 
 function Pin({ detail: { account }, onAsk }: Props) {
+  const clock = useClock();
   return (
     <Section title="PIN">
       <List label="PIN">
         <ListRow
-          title={pinSentence(account.pin)}
+          title={pinSentence(account.pin, clock)}
           trailing={<AskButton asking="reset" label="Send a Reset link" onAsk={onAsk} />}
         />
       </List>
@@ -86,7 +92,17 @@ function Passkeys({ detail: { passkeys } }: Props) {
             <ListRow
               key={passkey.id}
               title={passkey.name}
-              meta={`${passkey.host} · Added ${clock(passkey.createdAt)}${passkey.lastUsedAt === undefined ? "" : ` · Last used ${clock(passkey.lastUsedAt)}`}`}
+              meta={
+                <>
+                  {passkey.host} · Added <RelativeTime at={passkey.createdAt} form="clock" />
+                  {passkey.lastUsedAt !== undefined && (
+                    <>
+                      {" · Last used "}
+                      <RelativeTime at={passkey.lastUsedAt} form="age" />
+                    </>
+                  )}
+                </>
+              }
             />
           ))}
         </List>
@@ -108,7 +124,12 @@ function Sessions({ detail: { sessions }, onAsk }: Props) {
                 <ListRow
                   key={session.id}
                   title={session.device}
-                  meta={`${session.address} · Last seen ${clock(session.lastSeenAt)}`}
+                  meta={
+                    <>
+                      {session.address} · Last seen{" "}
+                      <RelativeTime at={session.lastSeenAt} form="age" />
+                    </>
+                  }
                   trailing={session.current ? "This device" : undefined}
                 />
               ))}
