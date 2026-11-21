@@ -42,7 +42,7 @@ var searchWorkOp = api.Op{
 	Path:    "/works/{workId}/search",
 	Summary: "Queue a search of each wanted Item of a Work, or of some of its levels and Items, to grab the best release",
 	Status:  http.StatusAccepted,
-	Errors:  []*api.Code{workNotFound, nothingWanted, noIndexer, noRoot, rootUnreachable, notSearchable, reconciling},
+	Errors:  []*api.Code{workNotFound, nothingWanted, noIndexer, noRoot, rootUnreachable, notSearchable, api.Reconciling},
 }
 
 func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchWorkInput) (*searchQueuedOutput, error) {
@@ -59,7 +59,7 @@ func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchW
 		return nil, notInWork(e)
 	}
 	if errors.Is(err, grabs.ErrReconciling) {
-		return nil, reconciling.Because("Search again once Reconciling finishes.")
+		return nil, api.Reconciling
 	}
 	if err != nil {
 		return nil, answer(err)

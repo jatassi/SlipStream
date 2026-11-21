@@ -322,6 +322,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		Path:    "/works/delete",
 		Summary: "Remove each Work from the library, deleting its files or leaving them, with an outcome per Work",
 		Status:  http.StatusOK,
+		Errors:  []*api.Code{api.Reconciling},
 	}, h.deleteWorks)
 
 }

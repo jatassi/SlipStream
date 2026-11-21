@@ -551,7 +551,7 @@ func Routes(r *api.Router, p Pending) {
 		Path:    "/imports/{id}/files/{position}",
 		Summary: "Confirm, retry, decline, force or match one file of an Import, or put its download's Release on the Blocklist",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{importNotFound, importNotOffered, importItems, reconciling},
+		Errors:  []*api.Code{importNotFound, importNotOffered, importItems, api.Reconciling},
 	}, h.actOnFile)
 
 	api.Register(o, api.Admin, api.Op{

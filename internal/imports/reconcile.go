@@ -67,10 +67,15 @@ func (im *Imports) reconcile(ctx context.Context) {
 }
 
 // pass reads every unfinished Import and answers the jobs due now and
-// how long until the next hold's backoff passes.
+// how long until the next hold's backoff passes. While a restored
+// Controller is Reconciling nothing is due: Imports run against the
+// scanned records once it ends.
 func (im *Imports) pass(ctx context.Context) (map[job]func(context.Context) error, time.Duration, error) {
 	p := plan{due: map[job]func(context.Context) error{}, next: im.cfg.Timings.RetryMax, now: time.Now()}
 	err := im.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		if waits, err := im.cfg.Reconciling.Blocked(ctx, r); err != nil || waits {
+			return err
+		}
 		rows, err := db.New(r).ListUnfinished(ctx)
 		if err != nil {
 			return err

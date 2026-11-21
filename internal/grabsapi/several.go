@@ -49,7 +49,7 @@ var searchSeveralWorksOp = api.Op{
 	Path:    "/works/search",
 	Summary: "Queue a search of several Works, by id or by a Wanted filter, behind every search already queued",
 	Status:  http.StatusAccepted,
-	Errors:  []*api.Code{reconciling, tooManyWorks},
+	Errors:  []*api.Code{api.Reconciling, tooManyWorks},
 }
 
 const mostWorks = 5000
@@ -65,7 +65,7 @@ func (h handlers) searchSeveralWorks(ctx context.Context, by identity.Admin, in 
 	}
 	q, err := open(h.p).SearchSeveral(ctx, by, s)
 	if errors.Is(err, grabs.ErrReconciling) {
-		return nil, reconciling.Because("Search again once Reconciling finishes.")
+		return nil, api.Reconciling
 	}
 	if err != nil {
 		return nil, err

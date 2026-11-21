@@ -55,6 +55,9 @@ func (h *Held) add(f File) {
 // removes the bytes on each root's Node once tx commits and it is poked,
 // retrying until they are gone.
 func (f *Files) DoomIn(ctx context.Context, tx *storage.Tx[file], ws []works.WorkID) error {
+	if err := f.fence(ctx, tx); err != nil {
+		return err
+	}
 	q := db.New(tx)
 	rows, err := q.ListFilesOfWorks(ctx, ws)
 	if err != nil {

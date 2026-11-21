@@ -137,6 +137,8 @@ const (
 	ClientError        Code = "client_error"
 	Declined           Code = "declined"
 	Unreadable         Code = "unreadable"
+	// Restored: after a restore, no Node had the Grab's torrent.
+	Restored Code = "restored"
 )
 
 // Codes is every Code, in the order the wire lists them.
@@ -144,7 +146,7 @@ var Codes = []Code{
 	IndexerUnavailable, IndexerRemoved, IndexerStopped, HomeOffline, TorrentUnreachable, MagnetInvalid, NoMetadata, NoPeerSource,
 	TorrentInvalid, InfohashMismatch, TorrentV2Only, DownloadFailed, MarkedFailed, Removed, ClientRemoved, ClientDeleted, GoalMet,
 	NoVideoFile, ProbeFailed, FillsNothing, NameTaken, NameTooLong, TransferFailed, ImportFailed, NodeWrittenOff, RootChanged,
-	Canceled, Blocklisted, ReleaseFault, ClientError, Declined, Unreadable,
+	Canceled, Blocklisted, ReleaseFault, ClientError, Declined, Unreadable, Restored,
 }
 
 const (
@@ -360,6 +362,10 @@ type Grabs struct {
 
 	// importer takes each Grab from its download on, set by Register.
 	importer Importer
+	// restored is the Grabs DecideFetching failed, told by Reconciled.
+	// Both run in Reconciling's one goroutine, the second once the
+	// first's Write commits.
+	restored []Grab
 }
 
 // New builds the Grab pipeline. Its Importer registers before Run.

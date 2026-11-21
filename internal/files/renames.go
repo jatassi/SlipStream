@@ -103,6 +103,9 @@ func (f *Files) Rename(ctx context.Context, _ identity.Admin, cs []Confirm) (Con
 		var done Confirmed
 		var of []works.WorkID
 		err := f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+			if err := f.fence(ctx, tx); err != nil {
+				return err
+			}
 			var err error
 			done, of, err = f.renameChunk(ctx, tx, chunk, asked, owners, found)
 			return err

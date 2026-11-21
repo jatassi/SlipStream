@@ -26,6 +26,9 @@ func Open(ctx context.Context, cfg Config) (*Files, error) {
 	if cfg.Queue == nil {
 		cfg.Queue = searches.None{}
 	}
+	if cfg.Reconciling == nil {
+		cfg.Reconciling = func(context.Context, storage.Reader[file]) (bool, error) { return false, nil }
+	}
 	f := &Files{cfg: cfg, poke: make(chan struct{}, 1)}
 	if err := f.catchUpReads(ctx); err != nil {
 		return nil, fmt.Errorf("open files: read release names: %w", err)

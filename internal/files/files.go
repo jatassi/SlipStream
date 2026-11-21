@@ -7,6 +7,7 @@ import (
 	"cmp"
 	"context"
 	"embed"
+	"errors"
 	"log/slog"
 	"math/rand/v2"
 	"slices"
@@ -464,15 +465,33 @@ type Config struct {
 	// Queue is told, in the Write that saves a Change, the Works it
 	// touched, so a Preview rolls it back with the Change. searches.None
 	// when nil.
-	Queue   searches.Queue
-	Timings Timings
-	Rand    *rand.Rand
-	Log     *slog.Logger
+	Queue searches.Queue
+	// Reconciling is whether a restored Controller is Reconciling: renames
+	// and deletes with files refuse, and the disk queue drains nothing.
+	// Never when nil.
+	Reconciling func(ctx context.Context, r storage.Reader[file]) (bool, error)
+	Timings     Timings
+	Rand        *rand.Rand
+	Log         *slog.Logger
 }
+
+// ErrReconciling refuses a rename, or a delete with files, while a
+// restored Controller is Reconciling.
+var ErrReconciling = errors.New("the Controller is Reconciling after a restore")
 
 type Files struct {
 	cfg  Config
 	poke chan struct{}
+}
+
+// fence refuses with ErrReconciling while a restored Controller is
+// Reconciling.
+func (f *Files) fence(ctx context.Context, r storage.Reader[file]) error {
+	on, err := f.cfg.Reconciling(ctx, r)
+	if err == nil && on {
+		return ErrReconciling
+	}
+	return err
 }
 
 // ItemState is an Item's status, zero for an Item with no cell, and

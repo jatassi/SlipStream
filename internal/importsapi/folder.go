@@ -19,7 +19,6 @@ import (
 )
 
 var (
-	reconciling       = api.NewCode(http.StatusConflict, "reconciling", "SlipStream is Reconciling after a restore")
 	importMoveSeeding = api.NewCode(http.StatusConflict, "import_move_seeding", "A torrent SlipStream tracks is still seeding one of these files. Move files can't move a file while it seeds.")
 	importOutside     = api.NewCode(http.StatusUnprocessableEntity, "import_outside", "The folder isn't in one of the Node's library roots or download folders")
 )
@@ -143,7 +142,7 @@ func (h handlers) actOnFile(ctx context.Context, by identity.Admin, in *fileActi
 	}
 	e, err := open(h.pending).Act(ctx, by, imports.FileRef{Import: id, Position: in.Position}, a)
 	if errors.Is(err, grabs.ErrReconciling) {
-		return nil, reconciling.Because("Use Not this Release once Reconciling finishes.")
+		return nil, api.Reconciling
 	}
 	if err != nil {
 		return nil, answer(err)
