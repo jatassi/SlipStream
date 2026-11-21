@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/grabs/internal/pace"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/pacing"
 	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -68,7 +69,7 @@ func land(ctx context.Context, tx *storage.Tx[file], work works.WorkID, groups [
 		next, state, promote := pace.Merge(row, pace.Entry{
 			Lane: e.lane, Trigger: e.trigger, Holds: e.holds, Items: keysOf(g.Items), Gone: e.gone,
 			Order: orderOf(within(cells, g.Items)), ResetGap: e.resets, At: now,
-		}, interval, pace.Spread(work.String(), string(g.Key), interval))
+		}, interval, pacing.Spread(work.String(), string(g.Key), interval))
 		if err := putDue(ctx, q, work, g.Key, next); err != nil {
 			return nil, err
 		}

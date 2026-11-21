@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/metadata/internal/db"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -52,7 +53,7 @@ type Config struct {
 	Service func(role.NodeID) metadatav1connect.MetadataServiceHandler
 	// Providers are the providers status lists and keys are set for, in
 	// display order.
-	Providers []Provider
+	Providers []calls.Provider
 	// Changed announces a change to a provider's status.
 	Changed Publisher
 	Timings Timings
@@ -81,7 +82,7 @@ type Publisher interface {
 // status from the outcomes holders answer with.
 type Metadata struct {
 	cfg     Config
-	bundled map[ProviderID]string
+	bundled map[calls.ID]string
 	// wake tells Run a retest was scheduled.
 	wake chan struct{}
 	// applying holds one settings change at a time.
@@ -94,8 +95,8 @@ type Metadata struct {
 	generation uint64
 	settings   stored
 	// yours are the Admin keys, opened.
-	yours    map[ProviderID]yourKey
-	statuses map[ProviderID]*status
+	yours    map[calls.ID]yourKey
+	statuses map[calls.ID]*status
 	retests  map[reach]*retest
 
 	gallery *gallery
@@ -106,7 +107,7 @@ type Metadata struct {
 func New(cfg Config) *Metadata {
 	m := &Metadata{
 		cfg: cfg, generation: cfg.Rand.Uint64(), bundled: parseBundled(bundled), wake: make(chan struct{}, 1),
-		yours: map[ProviderID]yourKey{}, statuses: map[ProviderID]*status{}, retests: map[reach]*retest{}, gallery: newGallery(),
+		yours: map[calls.ID]yourKey{}, statuses: map[calls.ID]*status{}, retests: map[reach]*retest{}, gallery: newGallery(),
 	}
 	for _, p := range cfg.Providers {
 		m.statuses[p.ID] = newStatus(p)
@@ -145,7 +146,7 @@ func Open(ctx context.Context, cfg Config) (*Metadata, error) {
 			}
 			yours.pin = string(pin)
 		}
-		m.yours[ProviderID(row.Provider)] = yours
+		m.yours[calls.ID(row.Provider)] = yours
 	}
 	return m, nil
 }

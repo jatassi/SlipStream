@@ -135,11 +135,16 @@ export function mediaRows({ media, codec, probeError }: FilesListedFile): readon
   ].filter(({ values }) => values.length > 0);
 }
 
-/** A file's import and media info under Details, or nothing when there is none. */
-export function FileMedia({ file }: { file: FilesListedFile }) {
+/**
+ * A file's import and media info under Details, or nothing when there is
+ * none. A file the subtitles read lists shows its own Subtitles heading in
+ * place of the media's.
+ */
+export function FileMedia({ file, subtitles }: { file: FilesListedFile; subtitles?: ReactNode }) {
   const placed = useImportRows(file);
-  const rows = mediaRows(file);
-  if (placed.length === 0 && rows.length === 0) {
+  const media = mediaRows(file);
+  const rows = subtitles === undefined ? media : media.filter(({ label }) => label !== "Subtitles");
+  if (placed.length === 0 && rows.length === 0 && subtitles === undefined) {
     return null;
   }
   return (
@@ -162,6 +167,7 @@ export function FileMedia({ file }: { file: FilesListedFile }) {
             ))}
           </div>
         ))}
+        {subtitles}
       </dl>
     </Details>
   );

@@ -182,7 +182,7 @@ func TestValidateChecksTheLibraryFolders(t *testing.T) {
 		"scenario x: library folder shelf file odd.mkv video is 321x32; width and height are even, from 64x64 up to 7680x4320",
 		"scenario x: library folder shelf file odd.mkv video lasts 11 seconds; it lasts 1 to 10",
 		`scenario x: library folder shelf file odd.mkv video hdr is "dolby", not one of sdr, hdr10, hdr10plus, hlg, dv5, dv8`,
-		`scenario x: library folder shelf file tracks.mkv audio 1 codec is "dts", not aac, ac3, eac3, truehd or flac`,
+		`scenario x: library folder shelf file tracks.mkv audio 1 codec is "dts", not aac, ac3, eac3, truehd, flac or pcm_s16le`,
 		"scenario x: library folder shelf file tracks.mkv audio 2 is eac3 with 8 channels; eac3 encodes [1 2 6]",
 		`scenario x: library folder shelf file tracks.mkv audio 2 language: "xx" is not an ISO 639 language`,
 		`scenario x: library folder shelf file tracks.mkv subtitle 1 language: "klingon" is not an ISO 639 language`,

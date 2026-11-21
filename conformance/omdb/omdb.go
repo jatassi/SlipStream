@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/conformance/internal/shape"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/metadata"
 	provider "github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/works"
@@ -65,7 +66,7 @@ func Run(t *testing.T, tgt Target) {
 	}
 	client := func() *provider.Client { return over(rec) }
 	ask := func(key string) metadata.Ask {
-		return metadata.NewAsk(metadata.AskOptions{Ratings: metadata.RatingsWork, Keys: map[metadata.ProviderID]string{provider.ID: key}})
+		return metadata.NewAsk(metadata.AskOptions{Ratings: metadata.RatingsWork, Keys: map[calls.ID]string{provider.ID: key}})
 	}
 	c := client()
 

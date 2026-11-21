@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -80,7 +81,10 @@ func (s *Source) Sources() []artwork.Source { return []artwork.Source{s.covers} 
 
 // Music is the library half.
 // Music reads a name as one title: it numbers nothing.
-type Music struct{ release.TitleOnly }
+type Music struct {
+	release.TitleOnly
+	subtitles.None
+}
 
 func (*Music) Describe() works.Description { return Description }
 

@@ -19,6 +19,7 @@ export * from "./pairing/pairing.ts";
 export * from "./roots/roots.ts";
 export * from "./serving/serving.ts";
 export * from "./shell/shell.ts";
+export * from "./subtitles/subtitles.ts";
 export * from "./system/system.ts";
 export * from "./targets/targets.ts";
 export * from "./tasks/tasks.ts";

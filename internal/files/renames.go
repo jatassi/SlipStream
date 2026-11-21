@@ -165,7 +165,7 @@ func (f *Files) renameChunk(ctx context.Context, tx *storage.Tx[file], chunk []w
 			out.Changed = append(out.Changed, p.Work)
 			continue
 		}
-		n, err := renameRows(ctx, db.New(tx), pl[i], p.Rows, asked[p.Work].Leave)
+		n, err := f.renameRows(ctx, tx, pl[i], p.Rows, asked[p.Work].Leave)
 		if err != nil {
 			return Confirmed{}, nil, err
 		}
@@ -182,7 +182,8 @@ func (f *Files) renameChunk(ctx context.Context, tx *storage.Tx[file], chunk []w
 // leave, every row of a group one of them or a blocked row is in, and the
 // blocked rows, and answers how many it renamed. A gone file whose path a
 // row takes is forgotten: its bytes could no longer return there.
-func renameRows(ctx context.Context, q *db.Queries, p worldPlan, rows []Row, leave []ID) (int, error) {
+func (f *Files) renameRows(ctx context.Context, tx *storage.Tx[file], p worldPlan, rows []Row, leave []ID) (int, error) {
+	q := db.New(tx)
 	left := map[ID]bool{}
 	for _, id := range leave {
 		left[id] = true
@@ -211,7 +212,7 @@ func renameRows(ctx context.Context, q *db.Queries, p worldPlan, rows []Row, lea
 	if n == 0 {
 		return 0, nil
 	}
-	return n, apply(ctx, q, placed{before: p.w, after: p.w, fills: p.w.fills, names: nm})
+	return n, f.apply(ctx, tx, placed{before: p.w, after: p.w, fills: p.w.fills, names: nm}, nil)
 }
 
 // settled is the plan of each Work of s, read in one Read, its rows

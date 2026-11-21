@@ -139,6 +139,15 @@ func (q *Queries) DeleteProfileCuts(ctx context.Context, profileID ProfileID) er
 	return err
 }
 
+const deleteProfileLanguages = `-- name: DeleteProfileLanguages :exec
+DELETE FROM targets_profile_language WHERE profile_id = ?1
+`
+
+func (q *Queries) DeleteProfileLanguages(ctx context.Context, profileID ProfileID) error {
+	_, err := q.db.ExecContext(ctx, deleteProfileLanguages, profileID)
+	return err
+}
+
 const deleteProfileTargets = `-- name: DeleteProfileTargets :exec
 DELETE FROM targets_profile_target WHERE profile_id = ?1
 `
@@ -380,6 +389,34 @@ func (q *Queries) InsertProfileCut(ctx context.Context, arg InsertProfileCutPara
 	return err
 }
 
+const insertProfileLanguage = `-- name: InsertProfileLanguage :exec
+INSERT INTO targets_profile_language (profile_id, position, language, forced, hi, audio_condition, added_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+`
+
+type InsertProfileLanguageParams struct {
+	ProfileID      ProfileID
+	Position       int64
+	Language       string
+	Forced         bool
+	Hi             HI
+	AudioCondition AudioCondition
+	AddedAt        storage.Time
+}
+
+func (q *Queries) InsertProfileLanguage(ctx context.Context, arg InsertProfileLanguageParams) error {
+	_, err := q.db.ExecContext(ctx, insertProfileLanguage,
+		arg.ProfileID,
+		arg.Position,
+		arg.Language,
+		arg.Forced,
+		arg.Hi,
+		arg.AudioCondition,
+		arg.AddedAt,
+	)
+	return err
+}
+
 const insertProfileTarget = `-- name: InsertProfileTarget :exec
 INSERT INTO targets_profile_target (profile_id, position, target_id, sourcing)
 VALUES (?1, ?2, ?3, ?4)
@@ -606,6 +643,38 @@ func (q *Queries) ListCutsOfProfile(ctx context.Context, profileID ProfileID) ([
 	return items, nil
 }
 
+const listEntriesOfProfile = `-- name: ListEntriesOfProfile :many
+SELECT profile_id, position, target_id, sourcing FROM targets_profile_target WHERE profile_id = ?1 ORDER BY position
+`
+
+func (q *Queries) ListEntriesOfProfile(ctx context.Context, profileID ProfileID) ([]TargetsProfileTarget, error) {
+	rows, err := q.db.QueryContext(ctx, listEntriesOfProfile, profileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TargetsProfileTarget
+	for rows.Next() {
+		var i TargetsProfileTarget
+		if err := rows.Scan(
+			&i.ProfileID,
+			&i.Position,
+			&i.TargetID,
+			&i.Sourcing,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEverySighting = `-- name: ListEverySighting :many
 SELECT DISTINCT item_id, cut FROM targets_sighting ORDER BY item_id, cut
 `
@@ -786,6 +855,41 @@ func (q *Queries) ListHolders(ctx context.Context) ([]ListHoldersRow, error) {
 	return items, nil
 }
 
+const listLanguagesOfProfile = `-- name: ListLanguagesOfProfile :many
+SELECT profile_id, position, language, forced, hi, audio_condition, added_at FROM targets_profile_language WHERE profile_id = ?1 ORDER BY position
+`
+
+func (q *Queries) ListLanguagesOfProfile(ctx context.Context, profileID ProfileID) ([]TargetsProfileLanguage, error) {
+	rows, err := q.db.QueryContext(ctx, listLanguagesOfProfile, profileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TargetsProfileLanguage
+	for rows.Next() {
+		var i TargetsProfileLanguage
+		if err := rows.Scan(
+			&i.ProfileID,
+			&i.Position,
+			&i.Language,
+			&i.Forced,
+			&i.Hi,
+			&i.AudioCondition,
+			&i.AddedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProfileCuts = `-- name: ListProfileCuts :many
 SELECT profile_id, position, cut FROM targets_profile_cut ORDER BY profile_id, position
 `
@@ -800,6 +904,41 @@ func (q *Queries) ListProfileCuts(ctx context.Context) ([]TargetsProfileCut, err
 	for rows.Next() {
 		var i TargetsProfileCut
 		if err := rows.Scan(&i.ProfileID, &i.Position, &i.Cut); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProfileLanguages = `-- name: ListProfileLanguages :many
+SELECT profile_id, position, language, forced, hi, audio_condition, added_at FROM targets_profile_language ORDER BY profile_id, position
+`
+
+func (q *Queries) ListProfileLanguages(ctx context.Context) ([]TargetsProfileLanguage, error) {
+	rows, err := q.db.QueryContext(ctx, listProfileLanguages)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TargetsProfileLanguage
+	for rows.Next() {
+		var i TargetsProfileLanguage
+		if err := rows.Scan(
+			&i.ProfileID,
+			&i.Position,
+			&i.Language,
+			&i.Forced,
+			&i.Hi,
+			&i.AudioCondition,
+			&i.AddedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -898,6 +1037,52 @@ func (q *Queries) ListProfilesNamingCut(ctx context.Context, cut release.CutKey)
 			return nil, err
 		}
 		items = append(items, name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProfilesOfWorks = `-- name: ListProfilesOfWorks :many
+SELECT w.work_id, w.profile_id, p.content_type FROM targets_wants w
+JOIN targets_profile p ON p.id = w.profile_id
+WHERE w.work_id IN (/*SLICE:work_ids*/?)
+ORDER BY w.work_id
+`
+
+type ListProfilesOfWorksRow struct {
+	WorkID      works.WorkID
+	ProfileID   ProfileID
+	ContentType works.TypeID
+}
+
+func (q *Queries) ListProfilesOfWorks(ctx context.Context, workIds []works.WorkID) ([]ListProfilesOfWorksRow, error) {
+	query := listProfilesOfWorks
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListProfilesOfWorksRow
+	for rows.Next() {
+		var i ListProfilesOfWorksRow
+		if err := rows.Scan(&i.WorkID, &i.ProfileID, &i.ContentType); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

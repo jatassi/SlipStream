@@ -1,6 +1,6 @@
 // Package pacetest is the queue and room simulator: a synthetic queue of
 // search groups and a set of Indexers run minute by minute on a fake clock
-// through pace.Merge, pace.Room.Starts, pace.Gap and indexers.FitOf, the
+// through pace.Merge, pace.Room.Starts, pacing.Gap and indexers.FitOf, the
 // rules grabs and indexers run in production. It reports what an Admin
 // would see over time: queries per Indexer per window, open runs, drain
 // time and RSS sync's slots.
@@ -14,6 +14,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/grabs/internal/pace"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/pacing"
 	"github.com/jatassi/slipstream/internal/searches"
 )
 
@@ -233,7 +234,7 @@ func (m *sim) rss(t time.Duration) {
 
 func (m *sim) merge(group string, e pace.Entry) {
 	e.At = m.now
-	r, _, promote := pace.Merge(m.rows[group], e, m.Interval, pace.Spread("work", group, m.Interval))
+	r, _, promote := pace.Merge(m.rows[group], e, m.Interval, pacing.Spread("work", group, m.Interval))
 	if promote {
 		for _, ru := range m.runs {
 			if ru.group == group {
@@ -369,13 +370,13 @@ func (m *sim) decide() {
 			}
 			heard = heard || l.heard
 		}
-		result := pace.Unheard
+		result := pacing.Unheard
 		if heard {
-			result = pace.Answered
+			result = pacing.Answered
 		}
 		r := m.rows[ru.group]
 		r.Searching, r.Searched = nil, m.now
-		r.Gap = pace.Gap(r.Gap, m.Interval, m.Longest, result, false, 0)
+		r.Gap = pacing.Gap(r.Gap, m.Interval, m.Longest, result, false, 0)
 		r.Due = m.now.Add(r.Gap)
 		m.rows[ru.group] = r
 		return true

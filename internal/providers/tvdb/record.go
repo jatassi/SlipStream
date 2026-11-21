@@ -5,13 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jatassi/slipstream/internal/calls"
+	"github.com/jatassi/slipstream/internal/works"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/jatassi/slipstream/internal/metadata"
-	"github.com/jatassi/slipstream/internal/works"
 )
 
 // envelope is every TVDB answer: the record or list under data, and the
@@ -54,14 +53,14 @@ func token(body []byte) (string, time.Time, error) {
 
 // refused is the PIN when a refused login's message names it, else the
 // key.
-func refused(_ int, body []byte) metadata.Credential {
+func refused(_ int, body []byte) calls.Credential {
 	var b struct {
 		Message string `json:"message"`
 	}
 	if json.Unmarshal(body, &b) == nil && strings.Contains(strings.ToLower(b.Message), "pin") {
-		return metadata.CredentialPin
+		return calls.CredentialPin
 	}
-	return metadata.CredentialKey
+	return calls.CredentialKey
 }
 
 func invalid(route string, err error) error {

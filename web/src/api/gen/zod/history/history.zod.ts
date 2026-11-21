@@ -38,9 +38,9 @@ export const ListHistoryQueryParams = zod.object({
       "Only entries about this Content Type's Works; left out, every entry, Health included",
     ),
   groups: zod
-    .array(zod.enum(["grabs", "imports", "library", "health"]))
+    .array(zod.enum(["grabs", "imports", "library", "subtitles", "health"]))
     .nullish()
-    .describe("Only these groups; left out, all four"),
+    .describe("Only these groups; left out, all five"),
   kinds: zod
     .array(zod.string())
     .nullish()

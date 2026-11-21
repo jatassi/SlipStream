@@ -213,3 +213,7 @@ export function fw(runDir: string) {
       doctorReport.parse(JSON.parse(await run(runDir, ["doctor", runDir, "--json"], [0, 1]))),
   };
 }
+
+/** The run's Scenario's catalog subtitle id as its provider's download holds it, a season pack's episode. */
+export const catalogSubtitle = (runDir: string, id: string, episode?: number): Promise<string> =>
+  run(runDir, ["subtitle", runDir, id, ...optional("--episode", episode)]);

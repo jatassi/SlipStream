@@ -8,6 +8,7 @@ require (
 	connectrpc.com/connect/v2 v2.0.1
 	fyne.io/systray v1.12.2
 	github.com/andybalholm/cascadia v1.3.5
+	github.com/asticode/go-astisub v0.45.0
 	github.com/coder/websocket v1.8.15
 	github.com/danielgtaylor/huma/v2 v2.39.1
 	github.com/dlclark/regexp2 v1.12.0
@@ -19,9 +20,12 @@ require (
 	github.com/gofrs/flock v0.13.1
 	github.com/hashicorp/yamux v0.1.2
 	github.com/invopop/jsonschema v0.14.0
+	github.com/klauspost/compress v1.20.3
 	github.com/libp2p/go-yamux/v5 v5.1.0
 	github.com/mmcdole/gofeed v1.5.0
+	github.com/nwaples/rardecode/v2 v2.4.6
 	github.com/pressly/goose/v3 v3.29.0
+	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/ulikunitz/xz v0.5.17
 	github.com/wneessen/go-mail v0.8.1
@@ -33,6 +37,7 @@ require (
 	golang.org/x/sys v0.49.0
 	golang.org/x/text v0.43.0
 	golang.org/x/time v0.16.0
+	gonum.org/v1/gonum v0.17.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	modernc.org/libc v1.79.0
@@ -40,6 +45,8 @@ require (
 )
 
 require (
+	github.com/asticode/go-astikit v0.20.0 // indirect
+	github.com/asticode/go-astits v1.8.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.6.1 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect

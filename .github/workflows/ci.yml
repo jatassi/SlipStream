@@ -556,6 +556,8 @@ jobs:
           TEST_ONLINE_TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
           TEST_ONLINE_TVDB_KEY: ${{ secrets.TVDB_API_KEY }}
           TEST_ONLINE_OMDB_KEY: ${{ secrets.OMDB_API_KEY }}
+          TEST_ONLINE_SUBDL_KEY: ${{ secrets.SUBDL_API_KEY }}
+          TEST_ONLINE_SUBSOURCE_KEY: ${{ secrets.SUBSOURCE_API_KEY }}
       - name: Upload the updated shape.json files
         if: inputs.update-shapes
         uses: actions/upload-artifact@v7

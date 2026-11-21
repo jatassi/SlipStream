@@ -13,6 +13,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
@@ -51,7 +52,7 @@ func door(w http.ResponseWriter, r *http.Request) {
 
 type gate struct {
 	line *metadata.Line
-	p    metadata.Provider
+	p    calls.Provider
 	base *url.URL
 }
 
@@ -63,9 +64,9 @@ func newGate(t *testing.T) gate {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := metadata.Provider{
+	p := calls.Provider{
 		ID: "gate", Label: "Gate", Rate: 20, Burst: 20, KeyPage: "https://gate.invalid/account",
-		Auth: &metadata.Auth{
+		Auth: &calls.Auth{
 			Pin: true,
 			Login: func(key, pin string) (*url.URL, []byte) {
 				body, _ := json.Marshal(map[string]string{"apiKey": key, "pin": pin}) //nolint:errchkjson // strings always encode
@@ -76,11 +77,11 @@ func newGate(t *testing.T) gate {
 				err := json.Unmarshal(body, &t)
 				return t.Token, time.Now().Add(time.Hour), err
 			},
-			Refused: func(_ int, body []byte) metadata.Credential {
+			Refused: func(_ int, body []byte) calls.Credential {
 				if strings.Contains(string(body), "pin") {
-					return metadata.CredentialPin
+					return calls.CredentialPin
 				}
-				return metadata.CredentialKey
+				return calls.CredentialKey
 			},
 		},
 	}
@@ -88,7 +89,7 @@ func newGate(t *testing.T) gate {
 	return gate{line: lines.Line(p), p: p, base: base}
 }
 
-func (g gate) Provider() metadata.Provider { return g.p }
+func (g gate) Provider() calls.Provider { return g.p }
 
 func (g gate) Test(ctx context.Context, ask metadata.Ask) error {
 	return g.line.Get(ctx, ask, metadata.Request{URL: g.base.JoinPath("test")}, &struct{}{})
@@ -106,7 +107,7 @@ func TestPinRefusedAnswersItsCode(t *testing.T) {
 		Sealer:     secrettest.Sealer(t),
 		Roster:     alone{},
 		Service:    func(role.NodeID) metadatav1connect.MetadataServiceHandler { return holder },
-		Providers:  []metadata.Provider{g.p},
+		Providers:  []calls.Provider{g.p},
 		Changed:    &changes{},
 		Timings:    metadata.DefaultTimings(),
 		Rand:       rand.New(rand.NewPCG(1, 2)), //nolint:gosec // a fixed draw the test replays

@@ -20,6 +20,8 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1/notifyv1connect"
 	rpctestv1 "github.com/jatassi/slipstream/internal/pb/slipstream/rpctest/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/rpctest/v1/rpctestv1connect"
+	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -272,6 +274,46 @@ func (n *notifier) Post(context.Context, *notifyv1.PostRequest) (*notifyv1.PostR
 func (n *notifier) Run(context.Context, *notifyv1.RunRequest) (*notifyv1.RunResponse, error) {
 	n.calls.Add(1)
 	return &notifyv1.RunResponse{}, nil
+}
+
+func TestWorkerKeyRefused(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.Connect(t)
+		c.roster.holders[role.Storage] = []role.NodeID{c.controllerID}
+		s := &sidecars{}
+		storagev1connect.SidecarService.Mount(c.controller, s)
+		forged := rpc.NewCluster(c.worker, c.roster)
+		_, err := storagev1connect.SidecarService.On(forged, c.controllerID).WriteSidecar(t.Context(), &storagev1.WriteSidecarRequest{Video: "Heat (1995)/Heat (1995).mkv", Tail: "en.srt", Data: []byte("1\n")})
+		if rpc.CodeOf(err) != rpc.CodePermissionDenied {
+			t.Errorf("a Worker's WriteSidecar on the Controller = %v (code %v), want permission denied", err, rpc.CodeOf(err))
+		}
+		_, err = storagev1connect.SidecarService.On(forged, c.controllerID).RemoveSidecar(t.Context(), &storagev1.RemoveSidecarRequest{Path: "Heat (1995)/Heat (1995).en.srt"})
+		if rpc.CodeOf(err) != rpc.CodePermissionDenied {
+			t.Errorf("a Worker's RemoveSidecar on the Controller = %v (code %v), want permission denied", err, rpc.CodeOf(err))
+		}
+		if got := s.calls.Load(); got != 0 {
+			t.Errorf("the Controller's SidecarService ran %d times for a Worker, want 0", got)
+		}
+		if _, err := storagev1connect.SidecarService.On(c.cluster, c.controllerID).RemoveSidecar(t.Context(), &storagev1.RemoveSidecarRequest{}); err != nil || s.calls.Load() != 1 {
+			t.Errorf("the Controller's own RemoveSidecar = %v after %d calls, want it to run", err, s.calls.Load())
+		}
+	})
+}
+
+type sidecars struct {
+	storagev1connect.UnimplementedSidecarServiceHandler
+	calls atomic.Int32
+}
+
+func (s *sidecars) WriteSidecar(context.Context, *storagev1.WriteSidecarRequest) (*storagev1.WriteSidecarResponse, error) {
+	s.calls.Add(1)
+	return &storagev1.WriteSidecarResponse{State: storagev1.WriteSidecarState_WRITE_SIDECAR_STATE_WRITTEN}, nil
+}
+
+func (s *sidecars) RemoveSidecar(context.Context, *storagev1.RemoveSidecarRequest) (*storagev1.RemoveSidecarResponse, error) {
+	s.calls.Add(1)
+	return &storagev1.RemoveSidecarResponse{State: storagev1.RemoveSidecarState_REMOVE_SIDECAR_STATE_REMOVED}, nil
 }
 
 func TestCallsThatNeverRan(t *testing.T) {

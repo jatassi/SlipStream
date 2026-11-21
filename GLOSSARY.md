@@ -623,12 +623,12 @@ _In UI_: "Language".
 _Avoid_: Language profile, subtitle profile
 
 **Sidecar**:
-A subtitle file stored beside one library file. A Sidecar belongs to that file, not to its Edition.
+A subtitle file stored beside one library file under its name and a tail such as `en.forced.srt`, which SlipStream downloaded, the Admin uploaded or a survey found there. A Sidecar belongs to that file, not to its Edition.
 _In UI_: "Subtitle file".
-_Avoid_: External subtitle, subtitle file
+_Avoid_: External subtitle
 
 **Speech Map**:
-Where speech falls in one library file's audio, built when the file is imported and used for Timing sync.
+Where speech falls in one library file's audio, built on the Node that holds the file while one of its wants has no Sidecar, and used for Timing sync.
 _In UI_: none.
 _Avoid_: VAD map, audio fingerprint
 
@@ -638,14 +638,19 @@ _In UI_: "Timing sync".
 _Avoid_: Alignment, resync
 
 **Mark bad**:
-Removing a Sidecar as wrong, which blocks that candidate for that file and searches again. An Admin marks one bad from a file's subtitles, and a Subtitle report does it at once.
+Removing a Sidecar as wrong, which deletes its file, blocks that candidate for that file and searches again at once. An Admin marks one bad from a file's subtitles after a question naming the file, and a Subtitle report does it without one.
 _In UI_: "Mark bad".
 _Avoid_: Reject, Blocklist (for a subtitle)
 
 **Subtitle search**:
-The scheduled search for wanted subtitles that no Sidecar meets yet, spacing each one's searches further apart while nothing passes Timing sync.
+The scheduled search for wanted subtitles that no Sidecar or embedded track meets yet, within each Subtitle Provider's allowance, spacing each one's searches further apart while nothing passes Timing sync.
 _In UI_: "Subtitle search".
 _Avoid_: Subtitle sweep, subtitle auto search
+
+**Manual subtitle search**:
+A search an Admin opens on one file and Wanted Language to see candidate subtitles, ranked by their reasons, and pick one, which downloads it and runs Timing sync.
+_In UI_: "Manual search", on a subtitle row.
+_Avoid_: Search by hand
 
 ## Identity
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/files/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -36,6 +37,8 @@ type Impact struct {
 	NewlyWanted int
 	// Downloading counts the Grabs in flight for a cell that goes.
 	Downloading int
+	// Subtitles is what a change of a Profile's Wanted Languages does.
+	Subtitles SubtitlesImpact
 }
 
 // Unwanted is what becomes of a file a change leaves filling nothing: it
@@ -61,23 +64,51 @@ const ImpactRows = 500
 
 // Mode is how Change ends. A Preview computes the Impact and rolls the
 // change back; a save commits it. Unwanted is what becomes of the files
-// it leaves filling nothing. Confirmed, when set, is how many files the Admin agreed to
-// delete: a save deleting more is an *ImpactChangedError.
+// it leaves filling nothing. Confirmed, when set, is how many files the
+// Admin agreed to delete, and ConfirmedSubtitles how many subtitles: a
+// save deleting more of either is an *ImpactChangedError.
 type Mode struct {
-	Unwanted  Unwanted
-	Preview   bool
-	Confirmed *int
+	Unwanted           Unwanted
+	Preview            bool
+	Confirmed          *int
+	ConfirmedSubtitles *int
 }
 
-// ImpactChangedError is a save that would delete more files than the
-// Admin confirmed, with the Impact it would have now.
+// ImpactChangedError is a save that would delete more files or more
+// subtitles than the Admin confirmed, with the Impact it would have now.
+// Files and Subtitles report which count grew.
 type ImpactChangedError struct {
-	Impact    Impact
-	Confirmed int
+	Impact             Impact
+	Confirmed          int
+	ConfirmedSubtitles int
+	Files, Subtitles   bool
 }
 
 func (e *ImpactChangedError) Error() string {
-	return fmt.Sprintf("the change now leaves %d files unwanted, not %d", e.Impact.Unwanted, e.Confirmed)
+	var grew []string
+	if e.Files {
+		grew = append(grew, fmt.Sprintf("leaves %d files unwanted, not %d", e.Impact.Unwanted, e.Confirmed))
+	}
+	if e.Subtitles {
+		grew = append(grew, fmt.Sprintf("deletes %d subtitles, not %d", e.Impact.Subtitles.Deleted(), e.ConfirmedSubtitles))
+	}
+	return "the change now " + strings.Join(grew, " and ")
+}
+
+// refused is the *ImpactChangedError a save of impact under m is, nil
+// when it deletes no more than m confirmed.
+func (m Mode) refused(impact Impact) error {
+	e := &ImpactChangedError{Impact: impact}
+	if m.Unwanted == Delete && m.Confirmed != nil && impact.Unwanted > *m.Confirmed {
+		e.Files, e.Confirmed = true, *m.Confirmed
+	}
+	if m.ConfirmedSubtitles != nil && impact.Subtitles.Deleted() > *m.ConfirmedSubtitles {
+		e.Subtitles, e.ConfirmedSubtitles = true, *m.ConfirmedSubtitles
+	}
+	if !e.Files && !e.Subtitles {
+		return nil
+	}
+	return e
 }
 
 var errPreview = errors.New("files: a preview rolls back")
@@ -101,10 +132,8 @@ func (f *Files) Change(ctx context.Context, _ identity.Admin, c targets.Change, 
 			return err
 		case m.Preview:
 			return errPreview
-		case m.Unwanted == Delete && m.Confirmed != nil && impact.Unwanted > *m.Confirmed:
-			return &ImpactChangedError{Impact: impact, Confirmed: *m.Confirmed}
 		}
-		return nil
+		return m.refused(impact)
 	})
 	switch {
 	case errors.Is(err, errPreview):
@@ -151,6 +180,10 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 	if err != nil {
 		return Impact{}, nil, err
 	}
+	subs, err := f.languages(ctx, tx, c, m.Preview)
+	if err != nil {
+		return Impact{}, nil, err
+	}
 	if err := targets.Apply(ctx, tx, known, c); err != nil {
 		return Impact{}, nil, err
 	}
@@ -163,7 +196,7 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 		afters[i].scoring.known = moved.onto(before[i].fills)
 		fills[i], from[i] = refill(afters[i]), cells(before[i])
 	})
-	impact := Impact{OwnList: touched.OwnList}
+	impact := Impact{OwnList: touched.OwnList, Subtitles: subs}
 	for i, was := range before {
 		p, err := f.converge(ctx, tx, was, afters[i], fills[i], changing(m))
 		if err != nil {
@@ -171,7 +204,7 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 		}
 		to := cells(p.settled())
 		impact.add(p, from[i], to)
-		if err := apply(ctx, q, p); err != nil {
+		if err := f.apply(ctx, tx, p, nil); err != nil {
 			return Impact{}, nil, err
 		}
 		impact.Downloading += downloading(was.grabs, gone(from[i], to))
@@ -181,6 +214,20 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 		return Impact{}, nil, err
 	}
 	return impact, ids, nil
+}
+
+// languages tells subtitles, in tx before c applies, of an UpdateProfile
+// that changes its Profile's Wanted Languages, and answers what it does.
+func (f *Files) languages(ctx context.Context, tx *storage.Tx[file], c targets.Change, preview bool) (SubtitlesImpact, error) {
+	u, ok := c.(targets.UpdateProfile)
+	if !ok {
+		return SubtitlesImpact{}, nil
+	}
+	was, err := f.cfg.Targets.LanguagesIn(ctx, tx, u.ID)
+	if err != nil || slices.Equal(was, u.Spec.Languages) {
+		return SubtitlesImpact{}, err
+	}
+	return f.cfg.Subtitles.Languages(ctx, tx, u.ID, was, u.Spec.Languages, preview)
 }
 
 // queue asks, in tx, for the search c calls for of the Works it touched.

@@ -19,12 +19,13 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-const ID metadata.ProviderID = "omdb"
+const ID calls.ID = "omdb"
 
 const label = "OMDb"
 
@@ -66,8 +67,8 @@ func New(lines *metadata.Lines, e Endpoints, t Timings) *Client {
 
 // Provider is OMDb as the call layer knows it: the key is the apikey query
 // parameter, and Classify reads OMDb's error bodies.
-func (c *Client) Provider() metadata.Provider {
-	return metadata.Provider{
+func (c *Client) Provider() calls.Provider {
+	return calls.Provider{
 		ID:       ID,
 		Label:    label,
 		Rate:     rate.Every(c.timings.Interval),
@@ -97,21 +98,21 @@ type errorBody struct {
 // classify reads OMDb's error body, which carries what the status doesn't:
 // a spent daily allowance, a bad key or an unknown id. The allowance comes
 // back at the next UTC midnight.
-func classify(status int, _ http.Header, body []byte, now time.Time) (metadata.Outcome, bool) {
+func classify(a calls.Answer, now time.Time) (calls.Verdict, bool) {
 	var b errorBody
-	if json.Unmarshal(body, &b) != nil || b.Response != responseFalse {
-		return metadata.Outcome{}, false
+	if json.Unmarshal(a.Body, &b) != nil || b.Response != responseFalse {
+		return calls.Verdict{}, false
 	}
 	switch {
 	case b.Error == errCapped:
 		until := now.UTC().Truncate(24 * time.Hour).Add(24 * time.Hour)
-		return metadata.Outcome{Kind: metadata.Capped, Until: until, Words: "has used up its daily request limit"}, true
-	case b.Error == errBadKey || b.Error == errNoKey || status == http.StatusUnauthorized:
-		return metadata.Outcome{Kind: metadata.Refused, Words: "refused the key: " + b.Error}, true
+		return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Capped, Until: until, Words: "has used up its daily request limit"}}, true
+	case b.Error == errBadKey || b.Error == errNoKey || a.Status == http.StatusUnauthorized:
+		return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Refused, Words: "refused the key: " + b.Error}}, true
 	case b.Error == errNotFound || b.Error == errNoSeason || b.Error == errIncorrect:
-		return metadata.Outcome{Kind: metadata.NotFound, Words: "has no such record"}, true
+		return calls.Verdict{Outcome: calls.Outcome{Kind: calls.NotFound, Words: "has no such record"}}, true
 	}
-	return metadata.Outcome{Kind: metadata.Unreachable, Words: "responded: " + b.Error}, true
+	return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Unreachable, Words: "responded: " + b.Error}}, true
 }
 
 // Title is what OMDb knows of one title: its ratings on the scales

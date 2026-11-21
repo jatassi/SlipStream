@@ -32,6 +32,7 @@ import (
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/media/mediatest"
+	"github.com/jatassi/slipstream/internal/media/speech/speechtest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/notifying"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -77,6 +78,9 @@ type World struct {
 	walk     *walk
 	fakes    *servers
 	cues     atomic.Int64
+	// hash is the scenario's, which takes seconds to compute for a
+	// library of tens of thousands of files.
+	hash string
 }
 
 type Node struct {
@@ -134,6 +138,7 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	w := &World{
 		t:        t,
 		scenario: s,
+		hash:     s.Hash(),
 		net:      network,
 		client:   &http.Client{Transport: &http.Transport{DialContext: local.DialContext, DisableKeepAlives: true}},
 		opts:     options{version: Version},
@@ -233,7 +238,7 @@ func (w *World) stop() {
 func (w *World) Manifest() world.Manifest {
 	w.t.Helper()
 	m := world.Manifest{
-		Scenario: world.ScenarioRef{Name: w.scenario.Name, SHA256: w.scenario.Hash(), Seed: w.scenario.Seed},
+		Scenario: world.ScenarioRef{Name: w.scenario.Name, SHA256: w.hash, Seed: w.scenario.Seed},
 		Binary:   world.Binary{Version: w.opts.version},
 		Nodes:    []world.Node{},
 		Fakes:    []world.Fake{},
@@ -352,6 +357,7 @@ func (n *Node) env() node.Env {
 		Engine:  enginetest.Open,
 		OpenLog: node.OpenFileLog,
 		Media:   mediatest.Prober{},
+		Speech:  talk,
 		Scripts: &n.scripts,
 		Disk: func(data string) (storing.Disk, error) {
 			d, err := node.OSDisk(data)
@@ -513,3 +519,13 @@ func shortTempDir(t *testing.T) string {
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	return dir
 }
+
+// talk is every simulated file's speech: two seconds in every five, for
+// an hour.
+var talk = func() speechtest.Fixed {
+	f := speechtest.Fixed{Length: time.Hour}
+	for at := time.Duration(0); at < f.Length; at += 5 * time.Second {
+		f.Runs = append(f.Runs, speechtest.Run{Start: at, End: at + 2*time.Second})
+	}
+	return f
+}()

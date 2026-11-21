@@ -112,6 +112,7 @@ test("an Admin adds a movie on a Profile other than the default and sees its Tar
     contentType: "movie",
     targets: [{ targetId: uhd, sourcing: "download" }],
     editions: { kind: "any" },
+    languages: [],
   });
   expect(reply.status, "the Both Profile is created").toBe(201);
 

@@ -19,6 +19,7 @@ import (
 	faketmdb "github.com/jatassi/slipstream/fakes/tmdb"
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
@@ -122,7 +123,7 @@ func serveWorld(t *testing.T, w world) *served {
 		Sealer:     secrettest.Sealer(t),
 		Roster:     alone{},
 		Service:    func(role.NodeID) metadatav1connect.MetadataServiceHandler { return holder },
-		Providers:  []metadata.Provider{tm.Provider(), om.Provider()},
+		Providers:  []calls.Provider{tm.Provider(), om.Provider()},
 		Changed:    srv.changed,
 		Timings:    timings,
 		Rand:       rand.New(rand.NewPCG(1, 2)), //nolint:gosec // a fixed draw the test replays

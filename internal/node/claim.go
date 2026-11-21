@@ -33,6 +33,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/servingapi"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
@@ -345,6 +346,14 @@ func (s surfaceNode) Calendar() (*calendar.Calendar, bool) {
 		return nil, false
 	}
 	return h.calendar, true
+}
+
+func (s surfaceNode) Subtitles() (*subtitles.Subtitles, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.subtitles == nil {
+		return nil, false
+	}
+	return h.subtitles, true
 }
 
 func (s surfaceNode) History() (*history.Service, bool) {

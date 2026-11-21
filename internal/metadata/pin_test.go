@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
@@ -21,11 +22,11 @@ import (
 type gateClient struct {
 	unlisted
 	line *metadata.Line
-	p    metadata.Provider
+	p    calls.Provider
 	base *url.URL
 }
 
-func (c gateClient) Provider() metadata.Provider { return c.p }
+func (c gateClient) Provider() calls.Provider { return c.p }
 
 func (c gateClient) Test(ctx context.Context, ask metadata.Ask) error {
 	return c.line.Get(ctx, ask, metadata.Request{URL: c.base.JoinPath("test")}, &body{})
@@ -63,7 +64,7 @@ func openGated(t *testing.T, d *door) *gated {
 		Sealer:     secrettest.Sealer(t),
 		Roster:     roster{may: []role.NodeID{home}},
 		Service:    func(role.NodeID) metadatav1connect.MetadataServiceHandler { return holder },
-		Providers:  []metadata.Provider{p, tmdb},
+		Providers:  []calls.Provider{p, tmdb},
 		Changed:    &changes{},
 		Timings:    retesting,
 		Rand:       seeded(),

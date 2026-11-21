@@ -54,6 +54,9 @@ type Scenario struct {
 	TVDB *TVDB `yaml:"tvdb,omitempty"`
 	// OMDb is what fake-omdb serves; nil knows no title and has no cap.
 	OMDb *OMDb `yaml:"omdb,omitempty"`
+	// SubtitleProviders is what the subtitle provider fakes serve; empty
+	// lists nothing.
+	SubtitleProviders SubtitleProviders `yaml:"subtitle_providers,omitempty"`
 	// Releases are the releases the fakes offer, and Tracker how
 	// fake-tracker answers their announces.
 	Releases []Release `yaml:"releases,omitempty"`
@@ -192,6 +195,7 @@ func (s Scenario) Validate() error {
 		s.OMDb.check(add)
 	}
 	checkReleases(add, s.Releases, s.TMDB, s.TVDB)
+	s.checkSubtitleProviders(add)
 	if s.Leecher != nil {
 		s.Leecher.check(add, s)
 	}

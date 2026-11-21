@@ -1,4 +1,9 @@
-import type { FilesState, WorksContentType, WorksLibraryRowMonitored } from "../api/gen/model";
+import type {
+  FilesState,
+  WorksContentType,
+  WorksLibraryRowMonitored,
+  WorksLibraryRowSubtitles,
+} from "../api/gen/model";
 import type { LibraryWork } from "./rows";
 import { stateOrder, statusMarks } from "../ui/state-marks";
 import {
@@ -48,6 +53,19 @@ const isStatus = (value: string): value is FilesState => Object.hasOwn(statusMar
 const isMonitored = (value: string): value is WorksLibraryRowMonitored =>
   Object.hasOwn(monitoredWords, value);
 
+/** A Work's subtitle mark as the Subtitles filter offers it: none matched the timing is also missing. */
+const subtitleValues: {
+  readonly [S in NonNullable<WorksLibraryRowSubtitles>]: readonly string[];
+} = {
+  missing: ["missing"],
+  none_passed: ["missing", "none-passed"],
+};
+
+const subtitleWords: { readonly [value: string]: string } = {
+  missing: "Subtitles missing",
+  "none-passed": "None matched the timing",
+};
+
 /** The Works with no library root, as the root filter names them. */
 export const rootless = "none";
 
@@ -89,6 +107,14 @@ const coreGroups: readonly FilterGroup[] = [
     key: "scanned",
     label: "Added by a library scan",
     has: (work) => work.addedBy === "scan",
+  },
+  {
+    kind: "values",
+    key: "subtitles",
+    label: "Subtitles",
+    valuesOf: (work) => (work.subtitles === null ? [] : subtitleValues[work.subtitles]),
+    labelOf: (value) => subtitleWords[value] ?? value,
+    order: Object.keys(subtitleWords),
   },
 ];
 

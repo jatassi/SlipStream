@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	faketvdb "github.com/jatassi/slipstream/fakes/tvdb"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
@@ -43,7 +44,7 @@ func inEachTier(t *testing.T, name string, test func(t *testing.T, c *tvdb.Clien
 }
 
 func ask(language string) metadata.Ask {
-	return metadata.NewAsk(metadata.AskOptions{Language: language, Keys: map[metadata.ProviderID]string{tvdb.ID: "key"}})
+	return metadata.NewAsk(metadata.AskOptions{Language: language, Keys: map[calls.ID]string{tvdb.ID: "key"}})
 }
 
 var english = ask("en-US")

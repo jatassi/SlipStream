@@ -7,6 +7,7 @@ export type Scenario =
   | "movies"
   | "series"
   | "series-scale"
+  | "series-files-scale"
   | "serving"
   | "targets"
   | "scale"
@@ -29,4 +30,5 @@ export type Scenario =
   | "fault-loop"
   | "gone-with-rss"
   | "five-indexers-one-late"
-  | "limited-tracker";
+  | "limited-tracker"
+  | "subtitles";

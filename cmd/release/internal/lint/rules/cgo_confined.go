@@ -11,6 +11,7 @@ import (
 var nativePackages = []string{
 	"internal/torrent/libtorrent",
 	"internal/node/internal/desktop",
+	"internal/media/fvad",
 }
 
 func init() {

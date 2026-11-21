@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { isProblem } from "../api/errors";
 import type { TargetsImpact } from "../api/gen/model";
+import { subtitlesDeleted } from "./impact-words";
 
 export type Unwanted = "delete" | "keep";
 
@@ -9,6 +10,8 @@ type Changing = {
   readonly preview?: boolean;
   readonly unwanted?: Unwanted;
   readonly confirm?: number;
+  /** Sent only by a change that drops a subtitle language, the one kind that deletes subtitles. */
+  readonly confirmSubtitles?: number;
 };
 
 export type ImpactChange = {
@@ -25,7 +28,9 @@ const isNothing = (impact: TargetsImpact): boolean =>
   impact.unwanted.files === 0 &&
   impact.renamed === 0 &&
   impact.newlyWanted === 0 &&
-  impact.downloading === 0;
+  impact.downloading === 0 &&
+  impact.subtitles.gained.every((want) => want.searches === 0) &&
+  subtitlesDeleted(impact) === 0;
 
 export type Showing = {
   readonly change: ImpactChange;
@@ -53,7 +58,13 @@ export function useImpactSave(): {
 
   const commit = async (change: ImpactChange, unwanted: Unwanted, confirmed: TargetsImpact) => {
     try {
-      await change.run({ unwanted, confirm: confirmed.unwanted.files });
+      await change.run({
+        unwanted,
+        confirm: confirmed.unwanted.files,
+        ...(confirmed.subtitles.dropped.length > 0 && {
+          confirmSubtitles: subtitlesDeleted(confirmed),
+        }),
+      });
     } catch (error) {
       if (!isProblem(error, "impact_changed")) {
         throw error;

@@ -16,7 +16,13 @@ export const getListHistoryResponseMock = (
   entries: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       at: faker.date.past().toISOString().slice(0, 19) + "Z",
-      group: faker.helpers.arrayElement(["grabs", "imports", "library", "health"] as const),
+      group: faker.helpers.arrayElement([
+        "grabs",
+        "imports",
+        "library",
+        "subtitles",
+        "health",
+      ] as const),
       id: faker.number.int(),
       kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
       links: {
@@ -52,7 +58,13 @@ export const getListHistoryKindsResponseMock = (
 ): HistoryKindsAnswer => ({
   groups: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
-      group: faker.helpers.arrayElement(["grabs", "imports", "library", "health"] as const),
+      group: faker.helpers.arrayElement([
+        "grabs",
+        "imports",
+        "library",
+        "subtitles",
+        "health",
+      ] as const),
       kinds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -79,7 +91,13 @@ export const getGetHistoryEntryResponseMock = (
 ): HistoryOneEntry => ({
   entry: {
     at: faker.date.past().toISOString().slice(0, 19) + "Z",
-    group: faker.helpers.arrayElement(["grabs", "imports", "library", "health"] as const),
+    group: faker.helpers.arrayElement([
+      "grabs",
+      "imports",
+      "library",
+      "subtitles",
+      "health",
+    ] as const),
     id: faker.number.int(),
     kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
     links: {

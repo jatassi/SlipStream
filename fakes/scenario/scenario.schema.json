@@ -753,6 +753,191 @@
           "additionalProperties": false,
           "type": "object"
         },
+        "sidecars": {
+          "properties": {
+            "build_wait": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "map_cap": {
+              "type": "integer"
+            },
+            "sidecar_cap": {
+              "type": "integer"
+            },
+            "queue": {
+              "type": "integer"
+            },
+            "survey_batch": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "subtitling": {
+          "properties": {
+            "calls": {
+              "properties": {
+                "attempts": {
+                  "type": "integer"
+                },
+                "try": {
+                  "type": "string",
+                  "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                },
+                "retry_min": {
+                  "type": "string",
+                  "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                },
+                "retry_max": {
+                  "type": "string",
+                  "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                },
+                "wait": {
+                  "type": "string",
+                  "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object"
+            },
+            "fetch_cap": {
+              "type": "integer"
+            },
+            "archive_cap": {
+              "type": "integer"
+            },
+            "archive_members": {
+              "type": "integer"
+            },
+            "pack_members": {
+              "type": "integer"
+            },
+            "pack_bytes": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "subtitles": {
+          "properties": {
+            "attempt_bound": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "candidates_hold": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "upload_hold": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "attempt_hold": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "pack_hold": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "upload_cap": {
+              "type": "integer"
+            },
+            "drain_width": {
+              "type": "integer"
+            },
+            "reconcile_chunk": {
+              "type": "integer"
+            },
+            "survey_batch": {
+              "type": "integer"
+            },
+            "wake_delay": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "keeper_poll": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "map_retry_min": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "map_retry_max": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "node_retry": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "remove_retry_min": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "remove_retry_max": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "cue_margin": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "max_pause": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "siblings": {
+              "type": "integer"
+            },
+            "sync": {
+              "properties": {
+                "split_penalty": {
+                  "type": "number"
+                },
+                "length_penalty": {
+                  "type": "number"
+                },
+                "guard_max": {
+                  "type": "string",
+                  "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                },
+                "prominence": {
+                  "type": "number"
+                },
+                "prominence_gap": {
+                  "type": "string",
+                  "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                },
+                "coverage": {
+                  "type": "number"
+                },
+                "golden_tolerance": {
+                  "type": "number"
+                },
+                "max_segments": {
+                  "type": "integer"
+                },
+                "min_segment": {
+                  "type": "string",
+                  "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                },
+                "check_slack": {
+                  "type": "string",
+                  "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
         "metadata": {
           "properties": {
             "attempts": {
@@ -830,6 +1015,75 @@
             },
             "burst": {
               "type": "integer"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "subdl": {
+          "properties": {
+            "interval": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "burst": {
+              "type": "integer"
+            },
+            "busy": {
+              "properties": {
+                "every": {
+                  "type": "string",
+                  "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                },
+                "tries": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "subsource": {
+          "properties": {
+            "interval": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "burst": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "gestdown": {
+          "properties": {
+            "interval": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "burst": {
+              "type": "integer"
+            },
+            "refresh": {
+              "properties": {
+                "every": {
+                  "type": "string",
+                  "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                },
+                "tries": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object"
+            },
+            "upstream": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             }
           },
           "additionalProperties": false,
@@ -1935,6 +2189,87 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "subtitle_providers": {
+      "properties": {
+        "catalog": {
+          "items": {
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]*$"
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "subdl",
+                  "subsource",
+                  "gestdown"
+                ]
+              },
+              "work": {
+                "type": "string"
+              },
+              "season": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "episodes": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "language": {
+                "type": "string"
+              },
+              "hi": {
+                "type": "boolean"
+              },
+              "ai": {
+                "type": "boolean"
+              },
+              "release": {
+                "type": "string"
+              },
+              "format": {
+                "type": "string",
+                "enum": [
+                  "srt",
+                  "ass",
+                  "ssa",
+                  "sup"
+                ]
+              },
+              "sources": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "offset": {
+                "type": "string",
+                "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+              },
+              "unaired": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id",
+              "provider",
+              "work",
+              "language",
+              "release"
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "releases": {
       "items": {
         "properties": {
@@ -2748,7 +3083,8 @@
                               "ac3",
                               "eac3",
                               "truehd",
-                              "flac"
+                              "flac",
+                              "pcm_s16le"
                             ]
                           },
                           "channels": {
@@ -2768,6 +3104,29 @@
                           },
                           "title": {
                             "type": "string"
+                          },
+                          "speech": {
+                            "properties": {
+                              "seed": {
+                                "type": "integer"
+                              },
+                              "density": {
+                                "type": "number",
+                                "maximum": 0.9,
+                                "minimum": 0.05
+                              },
+                              "length": {
+                                "type": "string",
+                                "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                              }
+                            },
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "seed",
+                              "density",
+                              "length"
+                            ]
                           }
                         },
                         "additionalProperties": false,

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	metadatav1 "github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -23,7 +24,7 @@ func askOf(w *metadatav1.Ask) Ask {
 	}
 }
 
-func byName(m map[ProviderID]string) map[string]string {
+func byName(m map[calls.ID]string) map[string]string {
 	out := make(map[string]string, len(m))
 	for p, v := range m {
 		out[string(p)] = v
@@ -31,10 +32,10 @@ func byName(m map[ProviderID]string) map[string]string {
 	return out
 }
 
-func byProvider(m map[string]string) map[ProviderID]string {
-	out := make(map[ProviderID]string, len(m))
+func byProvider(m map[string]string) map[calls.ID]string {
+	out := make(map[calls.ID]string, len(m))
 	for p, v := range m {
-		out[ProviderID(p)] = v
+		out[calls.ID(p)] = v
 	}
 	return out
 }
@@ -53,17 +54,17 @@ var ratingsOf = func() map[metadatav1.Ratings]Ratings {
 	return m
 }()
 
-var outcomeKinds = map[OutcomeKind]metadatav1.OutcomeKind{
-	OK:          metadatav1.OutcomeKind_OUTCOME_KIND_OK,
-	NotFound:    metadatav1.OutcomeKind_OUTCOME_KIND_NOT_FOUND,
-	Refused:     metadatav1.OutcomeKind_OUTCOME_KIND_REFUSED,
-	Limited:     metadatav1.OutcomeKind_OUTCOME_KIND_LIMITED,
-	Capped:      metadatav1.OutcomeKind_OUTCOME_KIND_CAPPED,
-	Unreachable: metadatav1.OutcomeKind_OUTCOME_KIND_UNREACHABLE,
-	PinRefused:  metadatav1.OutcomeKind_OUTCOME_KIND_PIN_REFUSED,
+var outcomeKinds = map[calls.OutcomeKind]metadatav1.OutcomeKind{
+	calls.OK:          metadatav1.OutcomeKind_OUTCOME_KIND_OK,
+	calls.NotFound:    metadatav1.OutcomeKind_OUTCOME_KIND_NOT_FOUND,
+	calls.Refused:     metadatav1.OutcomeKind_OUTCOME_KIND_REFUSED,
+	calls.Limited:     metadatav1.OutcomeKind_OUTCOME_KIND_LIMITED,
+	calls.Capped:      metadatav1.OutcomeKind_OUTCOME_KIND_CAPPED,
+	calls.Unreachable: metadatav1.OutcomeKind_OUTCOME_KIND_UNREACHABLE,
+	calls.PinRefused:  metadatav1.OutcomeKind_OUTCOME_KIND_PIN_REFUSED,
 }
 
-func outcomesToWire(os []Outcome) []*metadatav1.Outcome {
+func outcomesToWire(os []calls.Outcome) []*metadatav1.Outcome {
 	out := make([]*metadatav1.Outcome, len(os))
 	for i, o := range os {
 		out[i] = &metadatav1.Outcome{
@@ -136,18 +137,18 @@ func unixMicro(t time.Time) int64 {
 	return t.UnixMicro()
 }
 
-var outcomeKindOf = func() map[metadatav1.OutcomeKind]OutcomeKind {
-	m := make(map[metadatav1.OutcomeKind]OutcomeKind, len(outcomeKinds))
+var outcomeKindOf = func() map[metadatav1.OutcomeKind]calls.OutcomeKind {
+	m := make(map[metadatav1.OutcomeKind]calls.OutcomeKind, len(outcomeKinds))
 	for k, w := range outcomeKinds {
 		m[w] = k
 	}
 	return m
 }()
 
-func outcomesOf(ws []*metadatav1.Outcome) []Outcome {
-	out := make([]Outcome, len(ws))
+func outcomesOf(ws []*metadatav1.Outcome) []calls.Outcome {
+	out := make([]calls.Outcome, len(ws))
 	for i, w := range ws {
-		out[i] = Outcome{Provider: ProviderID(w.GetProvider()), Kind: outcomeKindOf[w.GetKind()], Words: w.GetWords(), At: time.UnixMicro(w.GetAtUnixMicro())}
+		out[i] = calls.Outcome{Provider: calls.ID(w.GetProvider()), Kind: outcomeKindOf[w.GetKind()], Words: w.GetWords(), At: time.UnixMicro(w.GetAtUnixMicro())}
 		if u := w.GetUntilUnixMicro(); u != 0 {
 			out[i].Until = time.UnixMicro(u)
 		}

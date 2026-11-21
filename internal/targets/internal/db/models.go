@@ -69,6 +69,16 @@ type TargetsProfileCut struct {
 	Cut       release.CutKey
 }
 
+type TargetsProfileLanguage struct {
+	ProfileID      ProfileID
+	Position       int64
+	Language       string
+	Forced         bool
+	Hi             HI
+	AudioCondition AudioCondition
+	AddedAt        storage.Time
+}
+
 type TargetsProfileTarget struct {
 	ProfileID ProfileID
 	Position  int64

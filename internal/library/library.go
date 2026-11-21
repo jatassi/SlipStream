@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -28,6 +29,20 @@ type Config struct {
 	Queue searches.Queue
 	// History records Works added and Works deleted.
 	History entry.Recorder
+	// Subtitles marks each row whose Work wants a subtitle nothing meets.
+	Subtitles Subtitles
+}
+
+// Subtitles is the mark of every Work with an unmet subtitle want.
+type Subtitles interface {
+	LibraryRows(ctx context.Context, r storage.Reader[storage.Library]) (map[works.WorkID]subtitles.LibraryMark, error)
+}
+
+// NoMarks is the Subtitles of a library nothing subtitles.
+type NoMarks struct{}
+
+func (NoMarks) LibraryRows(context.Context, storage.Reader[storage.Library]) (map[works.WorkID]subtitles.LibraryMark, error) {
+	return nil, nil
 }
 
 // Leaver hears of the Works a Leave files delete removes, inside the

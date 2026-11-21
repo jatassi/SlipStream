@@ -8,13 +8,14 @@ An Admin comes to Settings with a question, such as "where do my files go?" or "
 
 | Group | The Admin is asking | Sections today | Sections expected later |
 | --- | --- | --- | --- |
-| Library | What do I collect, where does it live, and what is it called? | Content Types, Library roots, Library scan, Importing, Naming, Metadata | Subtitles, which makes seven and splits the group |
+| Library | What do I collect, where does it live, and what is it called? | Content Types, Library roots, Library scan, Importing, Naming | |
+| Metadata and subtitles | Which outside services describe and subtitle my library? | Metadata, Subtitles | |
 | Targets and Profiles | Which versions of each Work do I want? | Targets, Profiles, Custom Formats, Editions | Conversion |
 | Search and download | How does SlipStream find and fetch releases? | Indexers, Automatic search, Trackers, Download Clients (built-in and external) | |
 | Access | Who can reach SlipStream, and how? | Address, Sign-in, API key | Requests, Member portal |
 | System | How do the Nodes and the server itself run? | Nodes, Email, Media Servers, Notifications | Backups, Updates |
 
-The first three groups follow the media pipeline in order. An Admin sets up a library, says what to keep in it, then says where to get it. The last two are about running the server and come after, because an Admin visits them less often once setup is done.
+The first four groups follow the media pipeline in order. An Admin sets up a library, picks the services that describe and subtitle it, says what to keep in it, then says where to get it. The last two are about running the server and come after, because an Admin visits them less often once setup is done.
 
 The "Sections expected later" column is a plan, not a promise. A section's own spec decides where it goes, using the rules below.
 
@@ -63,3 +64,5 @@ Notifications sits last in System, after Email, whose mail server the Email conn
 "Keep history for" has no Settings section. It is the Housekeeping task's Tuning on the Tasks page, and History's page menu shows it too.
 
 A setting can show in more than one place when an Admin would look for it there, such as a task's frequency on the Tasks page and in its feature's section. It still has one stored value.
+
+Subtitles sits after Metadata in "Metadata and subtitles". The group took Metadata out of Library, which would otherwise have held seven sections, and no section id changed. The Subtitles section leads with one sentence that names the Admin's next step: add a language to a Profile, add a Subtitle Provider's key, turn Subtitle search on, or, once it runs, how many subtitles are missing and how often it searches, with each Storage Node's files left to scan. Below that sit each Profile's languages, read-only and linking to its editor, then the Subtitle Providers in search order with their keys, then "Subtitle search", "Subtitle search looks for better subtitles" and "Subtitle search runs every". Under Details sit the longest gap, full pace, tries per search, the timing match, the largest timing shift, the framerate changes to try and how long a provider may fail before Health warns. "Subtitle search runs every" is the Subtitle search task's frequency (`tasks.subtitle-search.cadence`), so it shows on the Tasks page too, with one stored value. "Audio scans at once on this Node" is stored for each Storage Node, so it sits on that Node's card at the foot of the section. "While a Member's report is open, search it at least every" is stored and shows once Members can report subtitles. A Profile's languages are set in that Profile's editor.

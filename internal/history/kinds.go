@@ -10,7 +10,7 @@ type GroupKinds struct {
 }
 
 // Kinds is the catalog by group, in filter order, each group's kinds in
-// registration order.
+// registration order. A group with no kinds yet is left out.
 func (s *Service) Kinds() []GroupKinds {
 	specs := s.cfg.Catalog.Specs()
 	out := make([]GroupKinds, 0, len(entry.Groups()))
@@ -21,7 +21,9 @@ func (s *Service) Kinds() []GroupKinds {
 				gk.Kinds = append(gk.Kinds, spec)
 			}
 		}
-		out = append(out, gk)
+		if len(gk.Kinds) > 0 {
+			out = append(out, gk)
+		}
 	}
 	return out
 }

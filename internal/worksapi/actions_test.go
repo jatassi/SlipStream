@@ -203,7 +203,7 @@ func shelve(t *testing.T) *shelves {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shelf := node{w: w, t: s.goals, mint: artwork.NewMinter([]byte("actions")), lib: library.New(library.Config{History: entrytest.Ignored("library", library.Entries()),
+	shelf := node{w: w, t: s.goals, mint: artwork.NewMinter([]byte("actions")), lib: library.New(library.Config{Subtitles: library.NoMarks{}, History: entrytest.Ignored("library", library.Entries()),
 		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue, Imports: noImports{}, Queue: searches.None{},
 	})}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) { worksapi.Routes(r, shelf) })

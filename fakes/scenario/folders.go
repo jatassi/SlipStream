@@ -38,14 +38,16 @@ type MediaVideo struct {
 	HDR     string `jsonschema:"required,enum=sdr,enum=hdr10,enum=hdr10plus,enum=hlg,enum=dv5,enum=dv8" yaml:"hdr"`
 }
 
-// MediaAudio is a sine tone in Codec. Language is an ISO 639 code as
-// Matroska tags it, such as eng; empty leaves the track untagged.
+// MediaAudio is a sine tone in Codec, or with Speech, speechtest's bursts
+// in silence as mono pcm_s16le. Language is an ISO 639 code as Matroska
+// tags it, such as eng; empty leaves the track untagged.
 type MediaAudio struct {
-	Codec    string `jsonschema:"required,enum=aac,enum=ac3,enum=eac3,enum=truehd,enum=flac" yaml:"codec"`
-	Channels int    `jsonschema:"required,enum=1,enum=2,enum=6,enum=8"                      yaml:"channels"`
-	Language string `yaml:"language,omitempty"`
-	Default  bool   `yaml:"default,omitempty"`
-	Title    string `yaml:"title,omitempty"`
+	Codec    string       `jsonschema:"required,enum=aac,enum=ac3,enum=eac3,enum=truehd,enum=flac,enum=pcm_s16le" yaml:"codec"`
+	Channels int          `jsonschema:"required,enum=1,enum=2,enum=6,enum=8"                                      yaml:"channels"`
+	Language string       `yaml:"language,omitempty"`
+	Default  bool         `yaml:"default,omitempty"`
+	Title    string       `yaml:"title,omitempty"`
+	Speech   *MediaSpeech `yaml:"speech,omitempty"`
 }
 
 // MediaSubtitle is a SubRip track of one line.
@@ -65,6 +67,8 @@ var AudioChannels = map[string][]int{
 	"eac3":   {1, 2, 6},
 	"truehd": {1, 2, 6},
 	"flac":   {1, 2, 6, 8},
+	// pcm_s16le is a speech track, mono as speechtest writes it.
+	"pcm_s16le": {1},
 }
 
 // unportable are the characters a Windows file name can't hold.
@@ -115,10 +119,11 @@ func (m MediaFile) check(add func(format string, args ...any), at string) {
 		channels, ok := AudioChannels[a.Codec]
 		switch {
 		case !ok:
-			add("%s audio %d codec is %q, not aac, ac3, eac3, truehd or flac", at, i+1, a.Codec)
+			add("%s audio %d codec is %q, not aac, ac3, eac3, truehd, flac or pcm_s16le", at, i+1, a.Codec)
 		case !slices.Contains(channels, a.Channels):
 			add("%s audio %d is %s with %d channels; %s encodes %v", at, i+1, a.Codec, a.Channels, a.Codec, channels)
 		}
+		a.checkSpeech(add, at, i)
 		checkLanguage(add, at, "audio", i, a.Language)
 	}
 	for i, s := range m.Subtitles {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/files"
@@ -34,6 +35,37 @@ type Impact struct {
 	Renames     []workRenames `json:"renames" nullable:"false" doc:"The first 500 of the renamed files, by Work in title order"`
 	NewlyWanted int           `json:"newlyWanted" minimum:"0" doc:"How many more files SlipStream will look for"`
 	Downloading int           `json:"downloading" minimum:"0" doc:"Downloads in progress that are no longer needed. Each waits in Pending imports once it finishes"`
+	Subtitles   subtitles     `json:"subtitles" doc:"What a change of a Profile's subtitle languages does"`
+}
+
+type subtitles struct {
+	Gained  []gainedLanguage  `json:"gained" nullable:"false" doc:"Each subtitle language the change adds, in the Profile's order"`
+	Dropped []droppedLanguage `json:"dropped" nullable:"false" doc:"Each subtitle language the change removes"`
+	Days    int               `json:"days" minimum:"0" doc:"About how many days the gained searches take at the providers' last reported download allowance, 0 when none reported one"`
+}
+
+type gainedLanguage struct {
+	Language string `json:"language"`
+	Forced   bool   `json:"forced"`
+	Searches int    `json:"searches" minimum:"0" doc:"Files SlipStream searches subtitles for"`
+	NeedScan int    `json:"needScan" minimum:"0" doc:"Of those, files whose audio is scanned first"`
+}
+
+type droppedLanguage struct {
+	Language string `json:"language"`
+	Forced   bool   `json:"forced"`
+	Deleted  int    `json:"deleted" minimum:"0" doc:"Subtitles SlipStream downloaded that the save deletes. Uploads and subtitles found beside the files stay"`
+}
+
+func subtitlesOf(s files.SubtitlesImpact) subtitles {
+	out := subtitles{Gained: []gainedLanguage{}, Dropped: []droppedLanguage{}, Days: s.Days}
+	for _, g := range s.Gained {
+		out.Gained = append(out.Gained, gainedLanguage{Language: g.Language.String(), Forced: g.Forced, Searches: g.Files, NeedScan: g.NeedScan})
+	}
+	for _, d := range s.Dropped {
+		out.Dropped = append(out.Dropped, droppedLanguage{Language: d.Language.String(), Forced: d.Forced, Deleted: d.Deleted})
+	}
+	return out
 }
 
 type workRenames struct {
@@ -58,7 +90,7 @@ func ImpactOf(i files.Impact) Impact {
 	}
 	return Impact{
 		Works: i.Works, OwnList: i.OwnList, Unwanted: unwantedFiles{Files: i.Unwanted, Bytes: i.Bytes},
-		Renamed: i.Renamed, Renames: renames, NewlyWanted: i.NewlyWanted, Downloading: i.Downloading,
+		Renamed: i.Renamed, Renames: renames, NewlyWanted: i.NewlyWanted, Downloading: i.Downloading, Subtitles: subtitlesOf(i.Subtitles),
 	}
 }
 
@@ -87,9 +119,24 @@ func changed(err error) error {
 }
 
 // ImpactRefused is the problem a save that would leave more files
-// unwanted than its preview showed is refused with.
+// unwanted, or delete more subtitles, than its preview showed is refused
+// with.
 func ImpactRefused(e *files.ImpactChangedError) error {
-	return ImpactChanged.Because(fmt.Sprintf("The save now leaves %s unwanted, and the preview showed %d. Preview the change again.", filesOf(e.Impact.Unwanted), e.Confirmed))
+	var words []string
+	if e.Files {
+		words = append(words, fmt.Sprintf("The save now leaves %s unwanted, and the preview showed %d.", filesOf(e.Impact.Unwanted), e.Confirmed))
+	}
+	if e.Subtitles {
+		words = append(words, fmt.Sprintf("The save now deletes %s, and the preview showed %d.", subtitlesWords(e.Impact.Subtitles.Deleted()), e.ConfirmedSubtitles))
+	}
+	return ImpactChanged.Because(strings.Join(append(words, "Preview the change again."), " "))
+}
+
+func subtitlesWords(n int) string {
+	if n == 1 {
+		return "1 subtitle"
+	}
+	return fmt.Sprintf("%d subtitles", n)
 }
 
 func filesOf(n int) string {
@@ -136,7 +183,8 @@ func (h handlers) updateTarget(ctx context.Context, by identity.Admin, in *updat
 }
 
 type updateProfileInput struct {
-	ProfileID string `path:"profileId" format:"uuid"`
+	ProfileID        string              `path:"profileId" format:"uuid"`
+	ConfirmSubtitles api.Optional[int64] `query:"confirmSubtitles" minimum:"0" doc:"The deleted subtitle count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed"`
 	Changing
 	Body newProfile
 }
@@ -157,7 +205,11 @@ func (h handlers) updateProfile(ctx context.Context, by identity.Admin, in *upda
 	if err != nil {
 		return nil, err
 	}
-	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateProfile{ID: id, Spec: s}, in.Mode())
+	m := in.Mode()
+	if in.ConfirmSubtitles.Set {
+		m.ConfirmedSubtitles = new(int(in.ConfirmSubtitles.Value))
+	}
+	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateProfile{ID: id, Spec: s}, m)
 	if err != nil {
 		return nil, wrongType(changed(err))
 	}

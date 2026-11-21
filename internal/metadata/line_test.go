@@ -18,6 +18,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/internal/backoff"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -28,7 +29,7 @@ func seeded() *rand.Rand {
 	return rand.New(rand.NewPCG(1, 2)) //nolint:gosec // a fixed draw the test replays
 }
 
-var tmdb = metadata.Provider{
+var tmdb = calls.Provider{
 	ID: "tmdb", Label: "TMDB", Rate: 20, Burst: 20,
 	Key: func(q url.Values, key string) { q.Set("api_key", key) },
 }
@@ -154,7 +155,7 @@ func TestLineHonoursRetryAfterInsideTheBudget(t *testing.T) {
 		if s.count() != 2 || s.at[1].Sub(s.at[0]) != 4*time.Second {
 			t.Fatalf("sent at %v, want two requests 4s apart", s.at)
 		}
-		if o := outcomes(); len(o) != 1 || o[0].Kind != metadata.OK {
+		if o := outcomes(); len(o) != 1 || o[0].Kind != calls.OK {
 			t.Fatalf("outcomes = %+v, want one OK", o)
 		}
 	})
@@ -173,7 +174,7 @@ func TestLineMarksLimitedWhenRetryAfterOutlastsTheBudget(t *testing.T) {
 		if se := sourceError(t, err, works.ErrUnavailable); !se.Until.Equal(until) || se.Source != "TMDB" {
 			t.Fatalf("err = %+v, want TMDB unavailable until %v", se, until)
 		}
-		if o := outcomes(); len(o) != 1 || o[0].Kind != metadata.Limited || !o[0].Until.Equal(until) || o[0].Provider != "tmdb" {
+		if o := outcomes(); len(o) != 1 || o[0].Kind != calls.Limited || !o[0].Until.Equal(until) || o[0].Provider != "tmdb" {
 			t.Fatalf("outcomes = %+v, want one Limited until %v", o, until)
 		}
 		time.Sleep(30 * time.Second)
@@ -206,7 +207,7 @@ func retries5xx(t *testing.T, first, second time.Duration) {
 	if s.count() != 3 || s.at[1].Sub(s.at[0]) != first || s.at[2].Sub(s.at[1]) != second {
 		t.Fatalf("sent at %v, want three tries %v then %v apart", s.at, first, second)
 	}
-	if o := outcomes(); len(o) != 1 || o[0].Kind != metadata.Unreachable {
+	if o := outcomes(); len(o) != 1 || o[0].Kind != calls.Unreachable {
 		t.Fatalf("outcomes = %+v, want one Unreachable", o)
 	}
 }
@@ -229,25 +230,25 @@ func retriesTimeouts(t *testing.T, first, second time.Duration) {
 }
 
 func TestLineClassifiesOKNotFoundRefusedLimitedUnreachable(t *testing.T) {
-	omdb := metadata.Provider{
+	omdb := calls.Provider{
 		ID: "omdb", Label: "OMDb", Rate: 2, Burst: 2,
-		Classify: func(status int, _ http.Header, b []byte, now time.Time) (metadata.Outcome, bool) {
-			if status == http.StatusOK && strings.Contains(string(b), "Request limit reached!") {
-				return metadata.Outcome{Kind: metadata.Capped, Until: now.Add(time.Hour), Words: "is out of its daily allowance"}, true
+		Classify: func(a calls.Answer, now time.Time) (calls.Verdict, bool) {
+			if a.Status == http.StatusOK && strings.Contains(string(a.Body), "Request limit reached!") {
+				return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Capped, Until: now.Add(time.Hour), Words: "is out of its daily allowance"}}, true
 			}
-			return metadata.Outcome{}, false
+			return calls.Verdict{}, false
 		},
 	}
 	for _, c := range []classification{
-		{"ok", tmdb, http.StatusOK, `{}`, true, metadata.OK, nil},
-		{"lookup 404", tmdb, http.StatusNotFound, `{}`, true, metadata.NotFound, works.ErrNotFound},
-		{"search 404", tmdb, http.StatusNotFound, `{}`, false, metadata.Unreachable, works.ErrUnavailable},
-		{"401", tmdb, http.StatusUnauthorized, `{"status_code":7}`, true, metadata.Refused, works.ErrRefused},
-		{"403", tmdb, http.StatusForbidden, `{}`, true, metadata.Refused, works.ErrRefused},
-		{"429", tmdb, http.StatusTooManyRequests, `{}`, true, metadata.Limited, works.ErrUnavailable},
-		{"400", tmdb, http.StatusBadRequest, `{}`, true, metadata.Unreachable, works.ErrUnavailable},
-		{"classified cap", omdb, http.StatusOK, `{"Response":"False","Error":"Request limit reached!"}`, true, metadata.Capped, works.ErrUnavailable},
-		{"unclassified ok", omdb, http.StatusOK, `{}`, true, metadata.OK, nil},
+		{"ok", tmdb, http.StatusOK, `{}`, true, calls.OK, nil},
+		{"lookup 404", tmdb, http.StatusNotFound, `{}`, true, calls.NotFound, works.ErrNotFound},
+		{"search 404", tmdb, http.StatusNotFound, `{}`, false, calls.Unreachable, works.ErrUnavailable},
+		{"401", tmdb, http.StatusUnauthorized, `{"status_code":7}`, true, calls.Refused, works.ErrRefused},
+		{"403", tmdb, http.StatusForbidden, `{}`, true, calls.Refused, works.ErrRefused},
+		{"429", tmdb, http.StatusTooManyRequests, `{}`, true, calls.Limited, works.ErrUnavailable},
+		{"400", tmdb, http.StatusBadRequest, `{}`, true, calls.Unreachable, works.ErrUnavailable},
+		{"classified cap", omdb, http.StatusOK, `{"Response":"False","Error":"Request limit reached!"}`, true, calls.Capped, works.ErrUnavailable},
+		{"unclassified ok", omdb, http.StatusOK, `{}`, true, calls.OK, nil},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) { classifies(t, c) })
@@ -258,11 +259,11 @@ func TestLineClassifiesOKNotFoundRefusedLimitedUnreachable(t *testing.T) {
 
 type classification struct {
 	name     string
-	provider metadata.Provider
+	provider calls.Provider
 	status   int
 	body     string
 	lookup   bool
-	kind     metadata.OutcomeKind
+	kind     calls.OutcomeKind
 	err      error
 }
 
@@ -289,13 +290,13 @@ func classifiesUnreachable(t *testing.T) {
 	lines := metadata.NewLines(&http.Client{Transport: &http.Transport{
 		DialContext: func(context.Context, string, string) (net.Conn, error) { return nil, errors.New("connection refused") },
 	}}, "SlipStream/test", timings, seeded())
-	ask, outcomes := metadata.Tallied(metadata.NewAsk(metadata.AskOptions{Keys: map[metadata.ProviderID]string{"tmdb": "secret-key"}}))
+	ask, outcomes := metadata.Tallied(metadata.NewAsk(metadata.AskOptions{Keys: map[calls.ID]string{"tmdb": "secret-key"}}))
 	err := lines.Line(tmdb).Get(t.Context(), ask, metadata.Request{URL: &url.URL{Scheme: "http", Host: "tmdb.test", Path: "/x"}}, &struct{}{})
 	se := sourceError(t, err, works.ErrUnavailable)
 	if strings.Contains(err.Error(), "secret-key") || !strings.HasPrefix(se.Words, "didn't respond") {
 		t.Fatalf("err = %q, want unreachable words without the key", err)
 	}
-	if o := outcomes(); len(o) != 1 || o[0].Kind != metadata.Unreachable {
+	if o := outcomes(); len(o) != 1 || o[0].Kind != calls.Unreachable {
 		t.Fatalf("outcomes = %+v, want one Unreachable", o)
 	}
 }
@@ -303,11 +304,11 @@ func classifiesUnreachable(t *testing.T) {
 func TestTheBucketHoldsEachProviderToItsRate(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		lines, base, s := serve(t, func(n int, w http.ResponseWriter, _ *http.Request) { ok(w, n) })
-		slow := metadata.Provider{ID: "slow", Label: "Slow", Rate: 2, Burst: 1}
-		fast := metadata.Provider{ID: "fast", Label: "Fast", Rate: 20, Burst: 1}
+		slow := calls.Provider{ID: "slow", Label: "Slow", Rate: 2, Burst: 1}
+		fast := calls.Provider{ID: "fast", Label: "Fast", Rate: 20, Burst: 1}
 		start := time.Now()
 		var wg sync.WaitGroup
-		for _, p := range []metadata.Provider{slow, fast} {
+		for _, p := range []calls.Provider{slow, fast} {
 			line := lines.Line(p)
 			wg.Go(func() {
 				for range 5 {
@@ -332,13 +333,13 @@ func TestTheBucketHoldsEachProviderToItsRate(t *testing.T) {
 func TestACappedProviderIsNotCalledUntilItsTime(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		midnight := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour)
-		omdb := metadata.Provider{
+		omdb := calls.Provider{
 			ID: "omdb", Label: "OMDb", Rate: 2, Burst: 2,
-			Classify: func(_ int, _ http.Header, b []byte, _ time.Time) (metadata.Outcome, bool) {
-				if strings.Contains(string(b), "Request limit reached!") {
-					return metadata.Outcome{Kind: metadata.Capped, Until: midnight, Words: "is out of its daily allowance"}, true
+			Classify: func(a calls.Answer, _ time.Time) (calls.Verdict, bool) {
+				if strings.Contains(string(a.Body), "Request limit reached!") {
+					return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Capped, Until: midnight, Words: "is out of its daily allowance"}}, true
 				}
-				return metadata.Outcome{}, false
+				return calls.Verdict{}, false
 			},
 		}
 		lines, base, s := serve(t, func(n int, w http.ResponseWriter, _ *http.Request) {
@@ -349,20 +350,20 @@ func TestACappedProviderIsNotCalledUntilItsTime(t *testing.T) {
 			ok(w, n)
 		})
 		line := lines.Line(omdb)
-		get := func() ([]metadata.Outcome, error) {
+		get := func() ([]calls.Outcome, error) {
 			ask, outcomes := metadata.Tallied(metadata.Ask{})
 			err := line.Get(t.Context(), ask, metadata.Request{URL: at(base, "/", url.Values{"i": {"tt1"}})}, &body{})
 			return outcomes(), err
 		}
-		if o, err := get(); len(o) != 1 || o[0].Kind != metadata.Capped || sourceError(t, err, works.ErrUnavailable).Until != midnight {
+		if o, err := get(); len(o) != 1 || o[0].Kind != calls.Capped || sourceError(t, err, works.ErrUnavailable).Until != midnight {
 			t.Fatalf("first call = %+v, %v; want Capped until %v", o, err, midnight)
 		}
 		time.Sleep(time.Hour)
-		if o, err := get(); s.count() != 1 || len(o) != 1 || o[0].Kind != metadata.Capped || sourceError(t, err, works.ErrUnavailable).Words != "is out of its daily allowance" {
+		if o, err := get(); s.count() != 1 || len(o) != 1 || o[0].Kind != calls.Capped || sourceError(t, err, works.ErrUnavailable).Words != "is out of its daily allowance" {
 			t.Fatalf("a call before midnight = %+v, %v after %d requests; want Capped without sending", o, err, s.count())
 		}
 		time.Sleep(time.Until(midnight))
-		if o, err := get(); err != nil || s.count() != 2 || o[0].Kind != metadata.OK {
+		if o, err := get(); err != nil || s.count() != 2 || o[0].Kind != calls.OK {
 			t.Fatalf("a call at midnight = %+v, %v after %d requests; want it sent and OK", o, err, s.count())
 		}
 	})
@@ -373,7 +374,7 @@ func TestCacheKeysNeverHoldTheAPIKey(t *testing.T) {
 		lines, base, s := serve(t, func(n int, w http.ResponseWriter, _ *http.Request) { ok(w, n) })
 		line := lines.Line(tmdb)
 		keyed := func(key string) metadata.Ask {
-			return metadata.Cached(metadata.NewAsk(metadata.AskOptions{Keys: map[metadata.ProviderID]string{"tmdb": key}}), time.Hour, 1)
+			return metadata.Cached(metadata.NewAsk(metadata.AskOptions{Keys: map[calls.ID]string{"tmdb": key}}), time.Hour, 1)
 		}
 		req := metadata.Request{URL: at(base, "/movie/1", url.Values{"language": {"en-US"}}), Cache: true}
 		var b body
@@ -447,9 +448,9 @@ func TestLineRefusesAnAnswerOver16MiB(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		lines, base, _ := serve(t, func(_ int, w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "image/png")
-			_, _ = w.Write(make([]byte, metadata.MaxBody+1))
+			_, _ = w.Write(make([]byte, calls.MaxBody+1))
 		})
-		_, err := lines.Line(metadata.Provider{ID: "cdn", Label: "Images", Rate: 20, Burst: 20}).Bytes(t.Context(), metadata.Ask{}, at(base, "/a.png", nil))
+		_, err := lines.Line(calls.Provider{ID: "cdn", Label: "Images", Rate: 20, Burst: 20}).Bytes(t.Context(), metadata.Ask{}, at(base, "/a.png", nil))
 		if se := sourceError(t, err, works.ErrUnavailable); se.Words != "sent a response over 16 MiB" {
 			t.Fatalf("words = %q", se.Words)
 		}
@@ -471,14 +472,14 @@ func TestASecondLineForAProviderPanics(t *testing.T) {
 // it wait for the reset, and a call with another key goes out.
 func TestACappedKeyHoldsBackNoOtherKey(t *testing.T) {
 	midnight := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour)
-	omdb := metadata.Provider{
+	omdb := calls.Provider{
 		ID: "omdb", Label: "OMDb", Rate: 2, Burst: 2,
 		Key: func(q url.Values, key string) { q.Set("apikey", key) },
-		Classify: func(_ int, _ http.Header, b []byte, _ time.Time) (metadata.Outcome, bool) {
-			if strings.Contains(string(b), "Request limit reached!") {
-				return metadata.Outcome{Kind: metadata.Capped, Until: midnight, Words: "is out of its daily allowance"}, true
+		Classify: func(a calls.Answer, _ time.Time) (calls.Verdict, bool) {
+			if strings.Contains(string(a.Body), "Request limit reached!") {
+				return calls.Verdict{Outcome: calls.Outcome{Kind: calls.Capped, Until: midnight, Words: "is out of its daily allowance"}}, true
 			}
-			return metadata.Outcome{}, false
+			return calls.Verdict{}, false
 		},
 	}
 	lines, base, s := serve(t, func(n int, w http.ResponseWriter, r *http.Request) {
@@ -490,7 +491,7 @@ func TestACappedKeyHoldsBackNoOtherKey(t *testing.T) {
 	})
 	line := lines.Line(omdb)
 	get := func(key string) error {
-		ask := metadata.NewAsk(metadata.AskOptions{Keys: map[metadata.ProviderID]string{"omdb": key}})
+		ask := metadata.NewAsk(metadata.AskOptions{Keys: map[calls.ID]string{"omdb": key}})
 		return line.Get(t.Context(), ask, metadata.Request{URL: at(base, "/", url.Values{"i": {"tt1"}})}, &body{})
 	}
 	for range 2 {

@@ -34,6 +34,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/servingapi"
+	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
@@ -66,6 +67,8 @@ func (worker) Notifications() (*notifications.Service, bool) { return nil, false
 func (worker) Calendar() (*calendar.Calendar, bool) { return nil, false }
 
 func (worker) History() (*history.Service, bool) { return nil, false }
+
+func (worker) Subtitles() (*subtitles.Subtitles, bool) { return nil, false }
 
 func (worker) Minter() (artwork.Minter, bool) { return artwork.Minter{}, false }
 

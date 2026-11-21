@@ -1,0 +1,27 @@
+{
+  "work": {
+    "id": "019a8f5e-0000-7000-8000-000000000002",
+    "label": "Dune (1965)",
+    "type": "book",
+    "nouns": {
+      "work": {
+        "One": "Book",
+        "Many": "Books"
+      },
+      "levels": null,
+      "item": {
+        "One": "Chapter",
+        "Many": "Chapters"
+      },
+      "single": false
+    },
+    "poster": {
+      "Source": "tmdb",
+      "Shape": "poster",
+      "Path": "/cover.jpg"
+    }
+  },
+  "file": "Dune (1965)/Dune (1965).mkv",
+  "language": "French",
+  "found": 1
+}

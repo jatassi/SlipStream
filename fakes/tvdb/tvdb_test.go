@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tvdb"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	provider "github.com/jatassi/slipstream/internal/providers/tvdb"
@@ -151,9 +152,9 @@ func lines(c *http.Client) *metadata.Lines {
 }
 
 func ask(pin string) metadata.Ask {
-	o := metadata.AskOptions{Language: "en-US", Keys: map[metadata.ProviderID]string{provider.ID: "key"}}
+	o := metadata.AskOptions{Language: "en-US", Keys: map[calls.ID]string{provider.ID: "key"}}
 	if pin != "" {
-		o.Pins = map[metadata.ProviderID]string{provider.ID: pin}
+		o.Pins = map[calls.ID]string{provider.ID: pin}
 	}
 	return metadata.NewAsk(o)
 }

@@ -84,8 +84,9 @@ type walk struct {
 	// clients is where each Node reaches the fake Download Client of each
 	// kind, and the folder that client downloads into, by Node then kind.
 	clients map[string]map[string]clientAt
-	// envs are the client fakes' Envs, by kind.
-	envs map[string]fake.Env
+	// envs are the client and subtitle provider fakes' Envs, by name.
+	envs   map[string]fake.Env
+	voices voices
 }
 
 type clientAt struct{ url, folder string }
@@ -145,7 +146,8 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 	}
 	w.writeFolders(t, s)
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
-	faults := fault.NewPlan(append([]fault.Front{{Target: fault.Target(site.Fake.Name), Layers: fault.HTTP}}, clientFronts(s)...), nil)
+	fronts := append([]fault.Front{{Target: fault.Target(site.Fake.Name), Layers: fault.HTTP}}, clientFronts(s)...)
+	faults := fault.NewPlan(append(fronts, subtitleFronts(s)...), nil)
 	w.faults = faults
 	for _, spec := range []fake.Spec{tmdb.Fake, omdb.Fake, tvdb.Fake} {
 		server, err := spec.New(s, fake.NewEnv(s, spec, log, faults, nil))
@@ -157,6 +159,8 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 	w.site = fakes.serve(t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(s, listing, func(label, _ string, _ bool) (string, error) { return w.announce[label], nil })))
 	site.Fake.Endpoints(endpoints, w.site)
 	w.serveClients(t, s, local, fakes, catalog, filepath.Join(base, "fakes"), log)
+	w.serveSubtitles(t, s, local, fakes, endpoints, log)
+	w.voices = voicesOf(s)
 	return w
 }
 
@@ -348,8 +352,8 @@ func (w *walk) serveClients(t *testing.T, s scenario.Scenario, local *fault.Host
 // downloads into, as that Node sees it.
 func (w *World) ClientFolder(on, kind string) string { return w.walk.clients[on][kind].folder }
 
-// Cue plays the cue name of the client fake of kind with args, as
-// fakeworld cue does.
+// Cue plays the cue name of the client or subtitle provider fake named
+// kind with args, as fakeworld cue does.
 func (w *World) Cue(kind, name string, args any) {
 	w.t.Helper()
 	raw, err := json.Marshal(args)
@@ -408,4 +412,5 @@ func (w *walk) env(n *Node, e *node.Env) {
 		return swarm.Open(cfg)
 	}
 	e.Media = mediatest.Prober{Of: w.probes, Fail: w.fails}
+	e.Speech = w.voices
 }
