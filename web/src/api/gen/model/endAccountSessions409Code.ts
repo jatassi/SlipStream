@@ -1,1 +1,1 @@
-export type EndAccountSessions409Code = "worker_node";
+export type EndAccountSessions409Code = "superseded" | "worker_node";

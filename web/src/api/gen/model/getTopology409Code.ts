@@ -1,1 +1,1 @@
-export type GetTopology409Code = "worker_node";
+export type GetTopology409Code = "superseded" | "worker_node";

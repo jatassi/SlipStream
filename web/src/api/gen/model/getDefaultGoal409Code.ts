@@ -1,1 +1,1 @@
-export type GetDefaultGoal409Code = "worker_node";
+export type GetDefaultGoal409Code = "superseded" | "worker_node";

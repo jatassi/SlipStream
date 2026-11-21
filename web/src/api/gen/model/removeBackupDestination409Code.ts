@@ -1,1 +1,1 @@
-export type RemoveBackupDestination409Code = "worker_node";
+export type RemoveBackupDestination409Code = "superseded" | "worker_node";

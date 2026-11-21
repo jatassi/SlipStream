@@ -1,1 +1,1 @@
-export type GrabWaiting409Code = "reconciling" | "worker_node";
+export type GrabWaiting409Code = "reconciling" | "superseded" | "worker_node";

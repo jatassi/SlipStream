@@ -1,1 +1,1 @@
-export type GetNotificationBell409Code = "worker_node";
+export type GetNotificationBell409Code = "superseded" | "worker_node";

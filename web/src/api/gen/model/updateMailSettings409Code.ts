@@ -1,1 +1,1 @@
-export type UpdateMailSettings409Code = "worker_node";
+export type UpdateMailSettings409Code = "superseded" | "worker_node";

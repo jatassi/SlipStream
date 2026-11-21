@@ -1,1 +1,1 @@
-export type SetWorksMonitored409Code = "worker_node";
+export type SetWorksMonitored409Code = "superseded" | "worker_node";

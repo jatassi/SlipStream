@@ -1,1 +1,1 @@
-export type GetAPIKey409Code = "worker_node";
+export type GetAPIKey409Code = "superseded" | "worker_node";

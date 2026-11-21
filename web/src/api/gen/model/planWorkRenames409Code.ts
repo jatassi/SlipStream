@@ -1,1 +1,1 @@
-export type PlanWorkRenames409Code = "root_not_ready" | "worker_node";
+export type PlanWorkRenames409Code = "root_not_ready" | "superseded" | "worker_node";

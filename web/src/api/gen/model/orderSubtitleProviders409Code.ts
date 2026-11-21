@@ -1,1 +1,1 @@
-export type OrderSubtitleProviders409Code = "worker_node";
+export type OrderSubtitleProviders409Code = "superseded" | "worker_node";

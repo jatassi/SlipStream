@@ -1,1 +1,1 @@
-export type ActOnTorrents409Code = "worker_node";
+export type ActOnTorrents409Code = "superseded" | "worker_node";

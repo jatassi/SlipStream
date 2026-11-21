@@ -1,1 +1,1 @@
-export type SetFirstRunStep409Code = "first_run_finished" | "worker_node";
+export type SetFirstRunStep409Code = "first_run_finished" | "superseded" | "worker_node";

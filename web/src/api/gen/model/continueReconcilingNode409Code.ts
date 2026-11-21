@@ -1,1 +1,1 @@
-export type ContinueReconcilingNode409Code = "worker_node";
+export type ContinueReconcilingNode409Code = "superseded" | "worker_node";

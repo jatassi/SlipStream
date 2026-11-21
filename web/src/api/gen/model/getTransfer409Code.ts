@@ -1,1 +1,1 @@
-export type GetTransfer409Code = "worker_node";
+export type GetTransfer409Code = "superseded" | "worker_node";

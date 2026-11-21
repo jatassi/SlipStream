@@ -1,1 +1,1 @@
-export type GetReconciling409Code = "worker_node";
+export type GetReconciling409Code = "superseded" | "worker_node";

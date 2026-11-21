@@ -1,1 +1,1 @@
-export type DeleteIndexer409Code = "worker_node";
+export type DeleteIndexer409Code = "superseded" | "worker_node";

@@ -3,4 +3,5 @@ export type UpdateCut409Code =
   | "cut_not_custom"
   | "impact_changed"
   | "standard_is_fixed"
+  | "superseded"
   | "worker_node";

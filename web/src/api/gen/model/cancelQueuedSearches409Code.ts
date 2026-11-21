@@ -1,1 +1,1 @@
-export type CancelQueuedSearches409Code = "worker_node";
+export type CancelQueuedSearches409Code = "superseded" | "worker_node";

@@ -1,1 +1,1 @@
-export type GetWorkCells409Code = "worker_node";
+export type GetWorkCells409Code = "superseded" | "worker_node";

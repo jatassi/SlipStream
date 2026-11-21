@@ -1,1 +1,1 @@
-export type CustomFormatSchema409Code = "worker_node";
+export type CustomFormatSchema409Code = "superseded" | "worker_node";

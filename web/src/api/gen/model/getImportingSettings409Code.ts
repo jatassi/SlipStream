@@ -1,1 +1,1 @@
-export type GetImportingSettings409Code = "worker_node";
+export type GetImportingSettings409Code = "superseded" | "worker_node";
