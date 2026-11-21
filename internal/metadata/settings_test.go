@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
@@ -105,7 +106,7 @@ func openShop(t *testing.T, nodes ...role.NodeID) *shop {
 			}
 			return holders[n]
 		},
-		Providers:   []metadata.Provider{tmdb},
+		Providers:   []calls.Provider{tmdb},
 		Changed:     &changes{},
 		Timings:     timings,
 		Rand:        seeded(),
@@ -339,35 +340,35 @@ func TestClearingTheCacheReachesAHolderOfflineAtTheTime(t *testing.T) {
 		s.roster.may = []role.NodeID{n}
 		s.fetch(t)
 	}
-	calls := func(n role.NodeID) int { return s.sent[n].count() }
+	heard := func(n role.NodeID) int { return s.sent[n].count() }
 
 	via(home)
 	via(box)
 	via(home)
 	via(box)
-	if calls(home) != 1 || calls(box) != 1 {
-		t.Fatalf("TMDB heard home %d and box %d times, want once each, the second fetch cached", calls(home), calls(box))
+	if heard(home) != 1 || heard(box) != 1 {
+		t.Fatalf("TMDB heard home %d and box %d times, want once each, the second fetch cached", heard(home), heard(box))
 	}
 
 	s.roster.may = []role.NodeID{home}
 	s.m.ClearCache(identity.Admin{})
 	via(home)
-	if calls(home) != 2 {
-		t.Fatalf("after clearing, TMDB heard home %d times, want a second call", calls(home))
+	if heard(home) != 2 {
+		t.Fatalf("after clearing, TMDB heard home %d times, want a second call", heard(home))
 	}
 
 	via(box)
-	if calls(box) != 2 {
-		t.Fatalf("box, offline when the cache was cleared, reached TMDB %d times, want a second call", calls(box))
+	if heard(box) != 2 {
+		t.Fatalf("box, offline when the cache was cleared, reached TMDB %d times, want a second call", heard(box))
 	}
 	via(box)
-	if calls(box) != 2 {
-		t.Fatalf("box reached TMDB %d times, want its new answer cached", calls(box))
+	if heard(box) != 2 {
+		t.Fatalf("box reached TMDB %d times, want its new answer cached", heard(box))
 	}
 
 	s.set(t, map[string]any{"metadata.cacheFor": 0})
 	via(box)
-	if calls(box) != 3 {
-		t.Fatalf("with no cache time, box reached TMDB %d times, want every fetch sent", calls(box))
+	if heard(box) != 3 {
+		t.Fatalf("with no cache time, box reached TMDB %d times, want every fetch sent", heard(box))
 	}
 }

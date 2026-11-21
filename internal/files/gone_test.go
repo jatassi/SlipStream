@@ -164,8 +164,9 @@ func TestLeaveFilesListsTheLiveFilesAtTheirPaths(t *testing.T) {
 
 func TestDeletingAWorksFilesRemovesOnlyTheLiveOnesBytes(t *testing.T) {
 	l, _, tree := goneRoot(t)
+	svc := l.files(files.NoGrabs{})
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return files.DoomIn(ctx, tx, []works.WorkID{tree.ID})
+		return svc.DoomIn(ctx, tx, []works.WorkID{tree.ID})
 	})
 	if err != nil {
 		t.Fatal(err)

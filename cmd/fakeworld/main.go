@@ -67,6 +67,10 @@ const usageText = `usage: fakeworld <command>
       print what an Admin enters to add an Indexer for fixture-site's site
       label: a feed's address and API key, or a catalog site's settings and
       the browser cookie earned on the Node, the first by default
+  subtitle <run-dir> <id> [--episode n]
+      print the Scenario's catalog subtitle id as its provider's download
+      holds it, a season pack's episode n, to upload a subtitle whose cues
+      follow a file's speech or other speech
   doctor <run-dir> [--json] [--worktree <dir>] [--timeout 2m]
       run six read-only checks on the live run: it is ours, its build is the
       worktree's, its cluster is its Scenario's, every fake answers, every
@@ -154,8 +158,9 @@ var verbs = map[string]func(args []string) int{
 		}
 		return supervise(f)
 	},
-	"browser": browserCommand,
-	"site":    siteCommand,
+	"browser":  browserCommand,
+	"site":     siteCommand,
+	"subtitle": subtitleCommand,
 }
 
 // commands are set in init, since replay dispatches through them.

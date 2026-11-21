@@ -1,4 +1,5 @@
 import type { EditorSection } from "./editor";
+import { LanguagesSection } from "./languages-section";
 import type { ProfileDraft } from "./profile-draft";
 import { ProfileEditionsSection } from "./profile-editions";
 import { ProfileNameSection } from "./profile-name";
@@ -8,4 +9,5 @@ export const profileSections: readonly EditorSection<ProfileDraft>[] = [
   { id: "name", label: "Name", component: ProfileNameSection },
   { id: "targets", label: "Targets", component: ProfileTargetsSection },
   { id: "editions", label: "Editions", component: ProfileEditionsSection },
+  { id: "subtitles", label: "Subtitles", component: LanguagesSection },
 ];

@@ -71,6 +71,7 @@ test("tightening a Target so a file fills nothing shows the Impact, and Delete r
     contentType: "movie",
     targets: [{ targetId: starter, sourcing: "download" }],
     editions: { kind: "any" },
+    languages: [],
   });
   expect(holding.status, "Films holds only the starter").toBe(200);
   const workId = await imported(world);
@@ -111,6 +112,7 @@ async function makeUHD(world: World) {
     contentType: "movie",
     targets: [{ targetId: Named.parse(uhd.body).id, sourcing: "download" }],
     editions: { kind: "any" },
+    languages: [],
   });
   expect(profile.status, "the UHD Profile is created").toBe(201);
 }

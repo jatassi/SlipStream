@@ -3,6 +3,7 @@ package targets_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log/slog"
 	"path/filepath"
 	"reflect"
@@ -355,5 +356,77 @@ func TestATargetMigratesWithNoHoldAndAHoldKeepsToWholeMinutesUpToSevenDays(t *te
 		if c.ok != (err == nil) || !c.ok && !strings.Contains(err.Error(), "CHECK constraint failed") {
 			t.Errorf("a Hold of %d seconds: written with %v, want ok=%v", c.seconds, err, c.ok)
 		}
+	}
+}
+
+func TestAProfileMigratesWithNoLanguagesAndALanguageKeepsToItsRules(t *testing.T) {
+	ctx := t.Context()
+	open := opener(t, filepath.Join(t.TempDir(), storage.LibraryFile))
+	before := open(targets.Schema().Through(5))
+	id := targets.ProfileID{UUID: storage.NewUUID()}
+	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO targets_profile (id, name, content_type, is_default) VALUES (?, 'Standard', 'fixture', 1)`, id)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	lib := open(targets.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{Library: lib, Changed: discard{}}))
+	if got := must[targets.Profile](t)(goals.GetProfile(ctx, identity.Admin{}, id)); len(got.Languages) != 0 {
+		t.Errorf("a migrated Profile lists %+v, want no language", got.Languages)
+	}
+	insert := func(position int, language string, forced int, hi, audio string) error {
+		return lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := tx.ExecContext(ctx, `INSERT INTO targets_profile_language (profile_id, position, language, forced, hi, audio_condition, added_at)
+				VALUES (?, ?, ?, ?, ?, ?, 1)`, id, position, language, forced, hi, audio)
+			return err
+		})
+	}
+	if err := insert(1, "en", 0, "allow", "always"); err != nil {
+		t.Fatalf("English, full: %v", err)
+	}
+	if err := insert(2, "en", 1, "prefer", "no_audio"); err != nil {
+		t.Fatalf("English, forced only, beside full: %v", err)
+	}
+	for _, c := range []struct {
+		why                  string
+		position             int
+		language             string
+		forced               int
+		hi, audio, violation string
+	}{
+		{"English, full, twice", 3, "en", 0, "avoid", "always", "UNIQUE constraint failed"},
+		{"a position taken", 2, "fr", 0, "avoid", "always", "UNIQUE constraint failed"},
+		{"position 0", 0, "fr", 0, "avoid", "always", "CHECK constraint failed"},
+		{"no language", 3, "", 0, "avoid", "always", "CHECK constraint failed"},
+		{"forced 2", 3, "fr", 2, "avoid", "always", "CHECK constraint failed"},
+		{"hearing impaired only", 3, "fr", 0, "only", "always", "CHECK constraint failed"},
+		{"an unknown audio condition", 3, "fr", 0, "avoid", "never", "CHECK constraint failed"},
+	} {
+		if err := insert(c.position, c.language, c.forced, c.hi, c.audio); err == nil || !strings.Contains(err.Error(), c.violation) {
+			t.Errorf("%s: written with %v, want %s", c.why, err, c.violation)
+		}
+	}
+	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM targets_profile WHERE id = ?`, id); err != nil {
+			return err
+		}
+		var left int
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM targets_profile_language`).Scan(&left); err != nil {
+			return fmt.Errorf("count the languages left: %w", err)
+		}
+		if left != 0 {
+			t.Errorf("deleting the Profile left %d of its languages", left)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

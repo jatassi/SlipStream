@@ -28,6 +28,7 @@ export const rowOf = (work: WorksWorkView, year: number): WorksLibraryRow => ({
   goneUpstreamAt: null,
   addedBy: "admin",
   goneFiles: 0,
+  subtitles: null,
   monitored: "all",
   profileId: work.profile.id,
   rootId: null,

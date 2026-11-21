@@ -90,7 +90,7 @@ func newShelf(t *testing.T) shelf {
 }
 
 func (s shelf) library(leaver library.Leaver) *library.Library {
-	return library.New(library.Config{History: s.rec, Library: s.lib, Works: s.works, Roots: s.roots, Files: s.files, Imports: noImports{}, Leaver: leaver, Queue: s.queue})
+	return library.New(library.Config{Subtitles: library.NoMarks{}, History: s.rec, Library: s.lib, Works: s.works, Roots: s.roots, Files: s.files, Imports: noImports{}, Leaver: leaver, Queue: s.queue})
 }
 
 type noImports struct{}

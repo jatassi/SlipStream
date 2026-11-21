@@ -1,3 +1,4 @@
+import type { TargetsSubtitles } from "./targetsSubtitles.ts";
 import type { TargetsUnwantedFiles } from "./targetsUnwantedFiles.ts";
 import type { TargetsWorkRenames } from "./targetsWorkRenames.ts";
 
@@ -24,6 +25,8 @@ export interface TargetsImpact {
   renamed: number;
   /** The first 500 of the renamed files, by Work in title order */
   renames: TargetsWorkRenames[];
+  /** What a change of a Profile's subtitle languages does */
+  subtitles: TargetsSubtitles;
   /** Files a Target uses now and none uses after: deleted, or kept as Kept files, as the save chooses */
   unwanted: TargetsUnwantedFiles;
   /**

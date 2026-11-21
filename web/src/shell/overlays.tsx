@@ -1,4 +1,5 @@
 import { ManualSearchHost } from "../manual/sheet";
+import { SubtitleSearchHost } from "../subtitles/search-host";
 import { AddSheet } from "../works/add/add-sheet";
 import { Palette } from "./palette/palette";
 import { Restart } from "./restart/restart-overlay";
@@ -10,6 +11,7 @@ export function Overlays() {
       <Palette />
       <AddSheet />
       <ManualSearchHost />
+      <SubtitleSearchHost />
       <Restart />
       <SessionDialogs />
     </>

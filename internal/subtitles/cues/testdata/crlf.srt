@@ -1,0 +1,20 @@
+1
+00:00:01,000 --> 00:00:03,500
+My name is Neil McCauley.
+
+2
+00:00:04,250 --> 00:00:06,000
+<i>Don't let yourself get attached</i>
+to anything.
+
+3
+00:00:07,000 --> 00:00:08,000
+[GUNFIRE]
+
+4
+00:01:02,003 --> 00:01:04,100 X1:100 X2:200 Y1:10 Y2:20
+{\an8}Thirty seconds flat.
+
+5
+00:01:10,000 --> 00:01:12,000
+Subtitles by www.example.com

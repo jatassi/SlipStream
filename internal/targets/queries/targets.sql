@@ -215,3 +215,25 @@ DELETE FROM targets_sighting WHERE cut = sqlc.arg(cut);
 
 -- name: ListCutsOfProfile :many
 SELECT cut FROM targets_profile_cut WHERE profile_id = sqlc.arg(profile_id) ORDER BY position;
+
+-- name: ListEntriesOfProfile :many
+SELECT * FROM targets_profile_target WHERE profile_id = sqlc.arg(profile_id) ORDER BY position;
+
+-- name: InsertProfileLanguage :exec
+INSERT INTO targets_profile_language (profile_id, position, language, forced, hi, audio_condition, added_at)
+VALUES (sqlc.arg(profile_id), sqlc.arg(position), sqlc.arg(language), sqlc.arg(forced), sqlc.arg(hi), sqlc.arg(audio_condition), sqlc.arg(added_at));
+
+-- name: DeleteProfileLanguages :exec
+DELETE FROM targets_profile_language WHERE profile_id = sqlc.arg(profile_id);
+
+-- name: ListLanguagesOfProfile :many
+SELECT * FROM targets_profile_language WHERE profile_id = sqlc.arg(profile_id) ORDER BY position;
+
+-- name: ListProfileLanguages :many
+SELECT * FROM targets_profile_language ORDER BY profile_id, position;
+
+-- name: ListProfilesOfWorks :many
+SELECT w.work_id, w.profile_id, p.content_type FROM targets_wants w
+JOIN targets_profile p ON p.id = w.profile_id
+WHERE w.work_id IN (sqlc.slice(work_ids))
+ORDER BY w.work_id;

@@ -55,6 +55,7 @@ import (
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -71,6 +72,7 @@ type Library interface {
 	metadata.Refreshing
 	scanning.Facet
 	calendar.Facet
+	subtitles.Facet
 }
 
 // ProviderDeps is what a provider half gets on any Node: clients over the

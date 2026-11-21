@@ -100,7 +100,7 @@ func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
 		for i, id := range ids {
 			entries[i] = `{"targetId":"` + id + `","sourcing":"download"}`
 		}
-		return `"targets":[` + strings.Join(entries, ",") + `],"editions":{"kind":"any"},"works":0}`
+		return `"targets":[` + strings.Join(entries, ",") + `],"editions":{"kind":"any"},"languages":[],"works":0}`
 	}
 	worldtest.Expect(t, "listProfiles", reply, worldtest.Reply{Status: 200, Body: `{"profiles":[` +
 		`{"id":"` + movies + `","name":"Movies","contentType":"movie","default":true,` + holds(starter.ID) + `,` +
@@ -141,7 +141,7 @@ func TestAFreshControllerWantsTheStarterForItsContentType(t *testing.T) {
 		t.Fatalf("listProfiles = %s with the starter in %+v, want a default for each Content Type holding it", reply.Body, starter.Profiles)
 	}
 	movies, tv := profiles.Profiles[0], profiles.Profiles[1]
-	holds := `"targets":[{"targetId":"` + starter.ID + `","sourcing":"download"}],"editions":{"kind":"any"},"works":0}`
+	holds := `"targets":[{"targetId":"` + starter.ID + `","sourcing":"download"}],"editions":{"kind":"any"},"languages":[],"works":0}`
 	worldtest.Expect(t, "listProfiles", reply, worldtest.Reply{Status: 200, Body: `{"profiles":[{"id":"` + movies.ID + `","name":"Movies","contentType":"movie","default":true,` + holds + `,` +
 		`{"id":"` + tv.ID + `","name":"TV","contentType":"series","default":true,` + holds + `]}` + "\n"})
 

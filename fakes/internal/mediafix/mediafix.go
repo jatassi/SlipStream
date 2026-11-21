@@ -6,6 +6,7 @@ package mediafix
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -122,8 +123,14 @@ func (b *Builder) build(ctx context.Context, f scenario.MediaFile, salt string) 
 	if err != nil {
 		return "", fmt.Errorf("fixture key: %w", err)
 	}
+	return b.cached(ctx, key, r, path.Ext(f.Path), f.Path)
+}
+
+// cached is the file r makes, named by key, made first if the cache lacks
+// it.
+func (b *Builder) cached(ctx context.Context, key []byte, r recipe, ext, name string) (string, error) {
 	sum := sha256.Sum256(key)
-	cached := filepath.Join(b.cache, hex.EncodeToString(sum[:])+path.Ext(f.Path))
+	cached := filepath.Join(b.cache, hex.EncodeToString(sum[:])+ext)
 	if _, err := os.Stat(cached); err == nil {
 		return cached, nil
 	}
@@ -136,12 +143,12 @@ func (b *Builder) build(ctx context.Context, f scenario.MediaFile, salt string) 
 	}
 	defer func() { _ = os.RemoveAll(work) }()
 	if err := b.run(ctx, r, work); err != nil {
-		return "", fmt.Errorf("make %s: %w", f.Path, err)
+		return "", fmt.Errorf("make %s: %w", name, err)
 	}
 	// A link never replaces a file another world published, so no open of
 	// the cached path races a rename onto it. That file is this one.
 	if err := os.Link(filepath.Join(work, r.out), cached); err != nil && !errors.Is(err, fs.ErrExist) {
-		return "", fmt.Errorf("cache %s: %w", f.Path, err)
+		return "", fmt.Errorf("cache %s: %w", name, err)
 	}
 	return cached, nil
 }
@@ -187,7 +194,7 @@ func (b *Builder) run(ctx context.Context, r recipe, dir string) error {
 func (r *recipe) fileList() [][]string {
 	out := make([][]string, len(r.files))
 	for i, f := range r.files {
-		out[i] = []string{f.name, f.text}
+		out[i] = []string{f.name, cmp.Or(f.key, f.text)}
 	}
 	return out
 }
@@ -224,12 +231,17 @@ func Want(f scenario.MediaFile) media.Record {
 		r.HDR, r.DolbyVision = []release.HDR{"DV", "HDR10"}, &media.DolbyVision{Profile: 8, Level: dvLevel(v), Compatibility: 1}
 	}
 	for _, a := range f.Audio {
+		layout := layoutOf(a)
+		if a.Speech != nil {
+			// Matroska keeps no channel layout for PCM.
+			r.Duration, layout = max(r.Duration, a.Speech.Length), ""
+		}
 		profile := ""
 		if a.Codec == "aac" {
 			profile = "LC"
 		}
 		r.Audio = append(r.Audio, media.Audio{
-			Codec: a.Codec, Profile: profile, Channels: a.Channels, Layout: layoutOf(a), Language: languageOf(a.Language), Default: a.Default, Title: a.Title,
+			Codec: a.Codec, Profile: profile, Channels: a.Channels, Layout: layout, Language: languageOf(a.Language), Default: a.Default, Title: a.Title,
 		})
 	}
 	for _, s := range f.Subtitles {

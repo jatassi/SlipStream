@@ -33,8 +33,11 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/providers/gestdown"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/plextv"
+	"github.com/jatassi/slipstream/internal/providers/subdl"
+	"github.com/jatassi/slipstream/internal/providers/subsource"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
 	"github.com/jatassi/slipstream/internal/role"
@@ -42,6 +45,8 @@ import (
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/subtitles"
+	"github.com/jatassi/slipstream/internal/subtitling"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
@@ -68,6 +73,9 @@ type EndpointsBlock struct {
 	TMDB         tmdb.Endpoints       `yaml:"tmdb"`
 	TVDB         tvdb.Endpoints       `yaml:"tvdb"`
 	OMDb         omdb.Endpoints       `yaml:"omdb"`
+	SubDL        subdl.Endpoints      `yaml:"subdl"`
+	SubSource    subsource.Endpoints  `yaml:"subsource"`
+	Gestdown     gestdown.Endpoints   `yaml:"gestdown"`
 	PlexTV       plextv.Endpoints     `yaml:"plex_tv"`
 	Torrent      engine.Endpoints     `yaml:"torrent"`
 	Indexers     indexers.Endpoints   `yaml:"indexers"`
@@ -142,33 +150,39 @@ func (c ContentTypeEndpoints) MarshalYAML() (any, error) {
 }
 
 type TimingsBlock struct {
-	Node          Timings               `yaml:"node"`
-	Storage       storage.Timings       `yaml:"storage"`
-	HTTP          api.Timings           `yaml:"http"`
-	Live          live.Timings          `yaml:"live"`
-	Link          link.Timings          `yaml:"link"`
-	Role          role.Timings          `yaml:"role"`
-	Nodes         nodes.Timings         `yaml:"nodes"`
-	Works         works.Timings         `yaml:"works"`
-	Indexers      indexers.Timings      `yaml:"indexers"`
-	Searching     searching.Timings     `yaml:"searching"`
-	Transfers     transfers.Timings     `yaml:"transfers"`
-	Grabs         grabs.Timings         `yaml:"grabs"`
-	Files         files.Timings         `yaml:"files"`
-	Formats       formats.Timings       `yaml:"formats"`
-	Downloading   downloading.Timings   `yaml:"downloading"`
-	Media         media.Timings         `yaml:"media"`
-	Mail          mail.Timings          `yaml:"mail"`
-	Serving       serving.Timings       `yaml:"serving"`
-	Storing       storing.Timings       `yaml:"storing"`
-	Metadata      metadata.Timings      `yaml:"metadata"`
-	TMDB          tmdb.Timings          `yaml:"tmdb"`
-	TVDB          tvdb.Timings          `yaml:"tvdb"`
-	OMDb          omdb.Timings          `yaml:"omdb"`
-	Health        health.Timings        `yaml:"health"`
-	MediaServers  mslink.Timings        `yaml:"media_servers"`
-	Notifications notifications.Timings `yaml:"notifications"`
-	Housekeeping  housekeeping.Timings  `yaml:"housekeeping"`
+	Node          Timings                `yaml:"node"`
+	Storage       storage.Timings        `yaml:"storage"`
+	HTTP          api.Timings            `yaml:"http"`
+	Live          live.Timings           `yaml:"live"`
+	Link          link.Timings           `yaml:"link"`
+	Role          role.Timings           `yaml:"role"`
+	Nodes         nodes.Timings          `yaml:"nodes"`
+	Works         works.Timings          `yaml:"works"`
+	Indexers      indexers.Timings       `yaml:"indexers"`
+	Searching     searching.Timings      `yaml:"searching"`
+	Transfers     transfers.Timings      `yaml:"transfers"`
+	Grabs         grabs.Timings          `yaml:"grabs"`
+	Files         files.Timings          `yaml:"files"`
+	Formats       formats.Timings        `yaml:"formats"`
+	Downloading   downloading.Timings    `yaml:"downloading"`
+	Media         media.Timings          `yaml:"media"`
+	Mail          mail.Timings           `yaml:"mail"`
+	Serving       serving.Timings        `yaml:"serving"`
+	Storing       storing.Timings        `yaml:"storing"`
+	Sidecars      storing.SidecarTimings `yaml:"sidecars"`
+	Subtitling    subtitling.Timings     `yaml:"subtitling"`
+	Subtitles     subtitles.Timings      `yaml:"subtitles"`
+	Metadata      metadata.Timings       `yaml:"metadata"`
+	TMDB          tmdb.Timings           `yaml:"tmdb"`
+	TVDB          tvdb.Timings           `yaml:"tvdb"`
+	OMDb          omdb.Timings           `yaml:"omdb"`
+	SubDL         subdl.Timings          `yaml:"subdl"`
+	SubSource     subsource.Timings      `yaml:"subsource"`
+	Gestdown      gestdown.Timings       `yaml:"gestdown"`
+	Health        health.Timings         `yaml:"health"`
+	MediaServers  mslink.Timings         `yaml:"media_servers"`
+	Notifications notifications.Timings  `yaml:"notifications"`
+	Housekeeping  housekeeping.Timings   `yaml:"housekeeping"`
 }
 
 type Timings struct {
@@ -199,6 +213,9 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			TMDB:         tmdb.DefaultEndpoints(),
 			TVDB:         tvdb.DefaultEndpoints(),
 			OMDb:         omdb.DefaultEndpoints(),
+			SubDL:        subdl.DefaultEndpoints(),
+			SubSource:    subsource.DefaultEndpoints(),
+			Gestdown:     gestdown.DefaultEndpoints(),
 			PlexTV:       plextv.DefaultEndpoints(),
 			Torrent:      engine.DefaultEndpoints(),
 			Indexers:     indexers.DefaultEndpoints(),
@@ -240,10 +257,16 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Mail:          mail.DefaultTimings(),
 			Serving:       serving.DefaultTimings(),
 			Storing:       storing.DefaultTimings(),
+			Sidecars:      storing.DefaultSidecarTimings(),
+			Subtitling:    subtitling.DefaultTimings(),
+			Subtitles:     subtitles.DefaultTimings(),
 			Metadata:      metadata.DefaultTimings(),
 			TMDB:          tmdb.DefaultTimings(),
 			TVDB:          tvdb.DefaultTimings(),
 			OMDb:          omdb.DefaultTimings(),
+			SubDL:         subdl.DefaultTimings(),
+			SubSource:     subsource.DefaultTimings(),
+			Gestdown:      gestdown.DefaultTimings(),
 			Health:        health.DefaultTimings(),
 			MediaServers:  mslink.DefaultTimings(),
 			Notifications: notifications.DefaultTimings(),

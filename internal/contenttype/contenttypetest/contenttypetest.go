@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/subtitling"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -831,4 +832,18 @@ func (Undated) Describe() works.Description {
 
 func (Undated) Dated(context.Context, storage.Reader[storage.Library], calendar.Span) ([]calendar.Dated, error) {
 	return nil, nil
+}
+
+// Subtitled searches the Fixture's files as features.
+func (*Fixture) Subtitled() []subtitling.Kind { return []subtitling.Kind{subtitling.Feature} }
+
+// SubtitleSubject is a feature titled the work's first stored title.
+func (f *Fixture) SubtitleSubject(_ context.Context, _ storage.Reader[storage.Library], work works.WorkID, _ []works.ItemID) (subtitling.Subject, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	s := subtitling.Subject{Kind: subtitling.Feature}
+	if ts := f.titles[work]; len(ts) > 0 {
+		s.Title = ts[0]
+	}
+	return s, nil
 }

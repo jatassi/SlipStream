@@ -85,6 +85,24 @@ export const getUpdateCutResponseMock = (
         workId: faker.string.uuid(),
       }),
     ),
+    subtitles: {
+      days: faker.number.int({ min: 0 }),
+      dropped: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          deleted: faker.number.int({ min: 0 }),
+          forced: faker.datatype.boolean(),
+          language: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        }),
+      ),
+      gained: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          forced: faker.datatype.boolean(),
+          language: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          needScan: faker.number.int({ min: 0 }),
+          searches: faker.number.int({ min: 0 }),
+        }),
+      ),
+    },
     unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
     works: faker.number.int({ min: 0 }),
   },
@@ -122,6 +140,14 @@ export const getListProfilesResponseMock = (
         { ...getListProfilesResponseTargetsNamedCutsMock() },
       ]),
       id: faker.string.uuid(),
+      languages: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          audio: faker.helpers.arrayElement(["always", "no_audio"] as const),
+          forced: faker.datatype.boolean(),
+          hearingImpaired: faker.helpers.arrayElement(["avoid", "allow", "prefer"] as const),
+          language: faker.string.alpha({ length: { min: 2, max: 5 } }),
+        }),
+      ),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
@@ -164,6 +190,14 @@ export const getCreateProfileResponseMock = (
     { ...getCreateProfileResponseTargetsNamedCutsMock() },
   ]),
   id: faker.string.uuid(),
+  languages: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      audio: faker.helpers.arrayElement(["always", "no_audio"] as const),
+      forced: faker.datatype.boolean(),
+      hearingImpaired: faker.helpers.arrayElement(["avoid", "allow", "prefer"] as const),
+      language: faker.string.alpha({ length: { min: 2, max: 5 } }),
+    }),
+  ),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
@@ -215,6 +249,24 @@ export const getDeleteProfileResponseMock = (
         workId: faker.string.uuid(),
       }),
     ),
+    subtitles: {
+      days: faker.number.int({ min: 0 }),
+      dropped: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          deleted: faker.number.int({ min: 0 }),
+          forced: faker.datatype.boolean(),
+          language: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        }),
+      ),
+      gained: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          forced: faker.datatype.boolean(),
+          language: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          needScan: faker.number.int({ min: 0 }),
+          searches: faker.number.int({ min: 0 }),
+        }),
+      ),
+    },
     unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
     works: faker.number.int({ min: 0 }),
   },
@@ -226,6 +278,14 @@ export const getDeleteProfileResponseMock = (
       { ...getDeleteProfileResponseTargetsNamedCutsMock() },
     ]),
     id: faker.string.uuid(),
+    languages: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        audio: faker.helpers.arrayElement(["always", "no_audio"] as const),
+        forced: faker.datatype.boolean(),
+        hearingImpaired: faker.helpers.arrayElement(["avoid", "allow", "prefer"] as const),
+        language: faker.string.alpha({ length: { min: 2, max: 5 } }),
+      }),
+    ),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
@@ -277,6 +337,14 @@ export const getGetProfileResponseMock = (
     }),
   ),
   id: faker.string.uuid(),
+  languages: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      audio: faker.helpers.arrayElement(["always", "no_audio"] as const),
+      forced: faker.datatype.boolean(),
+      hearingImpaired: faker.helpers.arrayElement(["avoid", "allow", "prefer"] as const),
+      language: faker.string.alpha({ length: { min: 2, max: 5 } }),
+    }),
+  ),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
@@ -328,6 +396,24 @@ export const getUpdateProfileResponseMock = (
         workId: faker.string.uuid(),
       }),
     ),
+    subtitles: {
+      days: faker.number.int({ min: 0 }),
+      dropped: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          deleted: faker.number.int({ min: 0 }),
+          forced: faker.datatype.boolean(),
+          language: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        }),
+      ),
+      gained: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          forced: faker.datatype.boolean(),
+          language: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          needScan: faker.number.int({ min: 0 }),
+          searches: faker.number.int({ min: 0 }),
+        }),
+      ),
+    },
     unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
     works: faker.number.int({ min: 0 }),
   },
@@ -339,6 +425,14 @@ export const getUpdateProfileResponseMock = (
       { ...getUpdateProfileResponseTargetsNamedCutsMock() },
     ]),
     id: faker.string.uuid(),
+    languages: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        audio: faker.helpers.arrayElement(["always", "no_audio"] as const),
+        forced: faker.datatype.boolean(),
+        hearingImpaired: faker.helpers.arrayElement(["avoid", "allow", "prefer"] as const),
+        language: faker.string.alpha({ length: { min: 2, max: 5 } }),
+      }),
+    ),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
@@ -380,6 +474,14 @@ export const getMakeDefaultProfileResponseMock = (
     { ...getMakeDefaultProfileResponseTargetsNamedCutsMock() },
   ]),
   id: faker.string.uuid(),
+  languages: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      audio: faker.helpers.arrayElement(["always", "no_audio"] as const),
+      forced: faker.datatype.boolean(),
+      hearingImpaired: faker.helpers.arrayElement(["avoid", "allow", "prefer"] as const),
+      language: faker.string.alpha({ length: { min: 2, max: 5 } }),
+    }),
+  ),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
@@ -711,6 +813,24 @@ export const getUpdateTargetResponseMock = (
         workId: faker.string.uuid(),
       }),
     ),
+    subtitles: {
+      days: faker.number.int({ min: 0 }),
+      dropped: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          deleted: faker.number.int({ min: 0 }),
+          forced: faker.datatype.boolean(),
+          language: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        }),
+      ),
+      gained: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          forced: faker.datatype.boolean(),
+          language: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          needScan: faker.number.int({ min: 0 }),
+          searches: faker.number.int({ min: 0 }),
+        }),
+      ),
+    },
     unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
     works: faker.number.int({ min: 0 }),
   },
@@ -938,6 +1058,24 @@ export const getSetWorkWantsResponseMock = (
         workId: faker.string.uuid(),
       }),
     ),
+    subtitles: {
+      days: faker.number.int({ min: 0 }),
+      dropped: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          deleted: faker.number.int({ min: 0 }),
+          forced: faker.datatype.boolean(),
+          language: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        }),
+      ),
+      gained: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          forced: faker.datatype.boolean(),
+          language: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          needScan: faker.number.int({ min: 0 }),
+          searches: faker.number.int({ min: 0 }),
+        }),
+      ),
+    },
     unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
     works: faker.number.int({ min: 0 }),
   },

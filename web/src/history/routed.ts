@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { ListHistoryParams } from "../api/gen/model";
 import { type SinceChip, sinceOf } from "./day-heading";
 
-export const groups = ["grabs", "imports", "library", "health"] as const;
+export const groups = ["grabs", "imports", "library", "subtitles", "health"] as const;
 
 /** What History lists, kept in the address. The Content Type is Activity's own `type`. */
 export const historySearch = z.object({

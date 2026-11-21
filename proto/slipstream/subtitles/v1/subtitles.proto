@@ -1,0 +1,254 @@
+// The Subtitles Role's wire calls. The Controller sends every key, map,
+// gate and Timing sync constant a call needs, so a holder keeps nothing
+// between calls, and it checks every answer.
+syntax = "proto3";
+
+package slipstream.subtitles.v1;
+
+import "slipstream/node/v1/options.proto";
+
+service SubtitlesService {
+  option (slipstream.node.v1.served_by) = {role: "subtitles"};
+  // CheckKey spends one call to learn whether a provider takes a key, and
+  // answers the account, plan and allowance.
+  rpc CheckKey(CheckKeyRequest) returns (CheckKeyResponse);
+  // Search asks each named provider for one want's candidates.
+  rpc Search(SearchRequest) returns (SearchResponse);
+  // Fetch downloads one candidate, unpacks it, converts it to SRT, ASS or
+  // SSA in UTF-8 and runs Timing sync against the map.
+  rpc Fetch(FetchRequest) returns (FetchResponse);
+  // Sync runs Timing sync on bytes the Controller already has.
+  rpc Sync(SyncRequest) returns (SyncResponse);
+}
+
+// OutcomeKind is calls.OutcomeKind.
+enum OutcomeKind {
+  OUTCOME_KIND_UNSPECIFIED = 0;
+  OUTCOME_KIND_OK = 1;
+  OUTCOME_KIND_NOT_FOUND = 2;
+  OUTCOME_KIND_REFUSED = 3;
+  OUTCOME_KIND_LIMITED = 4;
+  OUTCOME_KIND_CAPPED = 5;
+  OUTCOME_KIND_UNREACHABLE = 6;
+}
+
+message Window {
+  int64 used = 1;
+  int64 limit = 2;
+  int64 remaining = 3;
+  int64 resets_unix_micro = 4;
+  // exact: the provider counts the window up to the call.
+  bool exact = 5;
+}
+
+message Allowance {
+  Window downloads = 1;
+  Window searches = 2;
+}
+
+// Outcome is one provider call's end, as the holder saw it.
+message Outcome {
+  string provider = 1;
+  OutcomeKind kind = 2;
+  int64 until_unix_micro = 3;
+  string words = 4;
+  int64 at_unix_micro = 5;
+  Allowance allowance = 6;
+}
+
+// Gate is the Admin's three Timing sync settings.
+message Gate {
+  int32 match_percent = 1;
+  int64 max_offset_ms = 2;
+  enum Framerates {
+    FRAMERATES_UNSPECIFIED = 0;
+    FRAMERATES_NONE = 1;
+    FRAMERATES_STANDARD = 2;
+    FRAMERATES_RANGE = 3;
+  }
+  Framerates framerates = 3;
+}
+
+// Constants are Timing sync's config-only constants, which the Controller
+// sends with every call so a holder keeps no sync config and the holder's
+// Align and the Controller's Judge always read the same numbers.
+message Constants {
+  double split_penalty = 1;
+  double length_penalty = 2;
+  int64 guard_max_ms = 3;
+  double prominence = 4;
+  int64 prominence_gap_ms = 5;
+  double coverage = 6;
+  double golden_tolerance = 7;
+  int32 max_segments = 8;
+  int64 min_segment_ms = 9;
+  int64 check_slack_ms = 10;
+}
+
+// Subject is what a want's providers are searched for.
+message Subject {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_FEATURE = 1;
+    KIND_EPISODE = 2;
+  }
+  Kind kind = 1;
+  // ids maps imdb, tmdb and tvdb to the Work's ids.
+  map<string, string> ids = 2;
+  string title = 3;
+  int32 year = 4;
+  // season and episodes are Aired numbers: every Item the file holds.
+  int32 season = 5;
+  repeated int32 episodes = 6;
+}
+
+message Query {
+  string language = 1;
+  bool forced = 2;
+}
+
+message CheckKeyRequest {
+  string provider = 1;
+  string key = 2;
+}
+
+message CheckKeyResponse {
+  repeated Outcome outcomes = 1;
+  string account = 2;
+  string plan = 3;
+}
+
+message SearchRequest {
+  Subject subject = 1;
+  Query query = 2;
+  // keys maps a provider id to the key in effect.
+  map<string, string> keys = 3;
+  repeated string providers = 4;
+}
+
+// Offer is one candidate as its provider describes it.
+message Offer {
+  string provider = 1;
+  // key names the candidate inside its provider; it is never a URL.
+  string key = 2;
+  repeated string releases = 3;
+  string language = 4;
+  bool forced = 5;
+  bool hi = 6;
+  // ai: machine or AI translated.
+  bool ai = 7;
+  // pack: several episodes in one download.
+  bool pack = 8;
+  int32 season = 9;
+  repeated int32 episodes = 10;
+  int64 downloads = 11;
+  double rating = 12;
+  // image: the provider says its files are image subtitles.
+  bool image = 13;
+  // page is the provider's page for it, shown, never fetched.
+  string page = 14;
+}
+
+message SearchResponse {
+  repeated Offer offers = 1;
+  repeated Outcome outcomes = 2;
+}
+
+// Timing is timing.Verdict.
+enum Timing {
+  TIMING_UNSPECIFIED = 0;
+  TIMING_PASSED = 1;
+  TIMING_LOW_MATCH = 2;
+  TIMING_PAST_OFFSET = 3;
+  TIMING_AMBIGUOUS = 4;
+  TIMING_UNCOVERED = 5;
+  TIMING_NO_SIGNAL = 6;
+}
+
+message Segment {
+  // first_cue is the index of the segment's first cue.
+  int32 first_cue = 1;
+  int64 offset_ms = 2;
+  double ratio = 3;
+}
+
+message Fit {
+  repeated Segment segments = 1;
+  double match = 2;
+  double raw = 3;
+  double density = 4;
+  double prominence = 5;
+  double coverage = 6;
+  Timing timing = 7;
+}
+
+enum Verdict {
+  VERDICT_UNSPECIFIED = 0;
+  VERDICT_PASSED = 1;
+  VERDICT_FAILED_TIMING = 2;
+  VERDICT_UNREADABLE = 3;
+  VERDICT_IMAGE = 4;
+  VERDICT_WRONG_EPISODE = 5;
+  VERDICT_TOO_LARGE = 6;
+  // VERDICT_UNFETCHED: the provider didn't serve the candidate; the
+  // outcomes say why.
+  VERDICT_UNFETCHED = 7;
+}
+
+message FetchRequest {
+  Offer offer = 1;
+  map<string, string> keys = 2;
+  Subject subject = 3;
+  Query query = 4;
+  // map is the file's encoded Speech Map.
+  bytes map = 5;
+  Gate gate = 6;
+  // fps is the video's frame rate, for MicroDVD; 0 when unknown.
+  double fps = 7;
+  Constants constants = 8;
+}
+
+// Member is one more episode of a pack, as a converted original.
+message Member {
+  string name = 1;
+  int32 season = 2;
+  repeated int32 episodes = 3;
+  string format = 4;
+  bytes original = 5;
+}
+
+message FetchResponse {
+  // key is the candidate the holder fetched.
+  string key = 1;
+  Verdict verdict = 2;
+  // format is srt, ass or ssa, the format of both byte sets.
+  string format = 3;
+  bytes original = 4;
+  bytes retimed = 5;
+  Fit fit = 6;
+  repeated Member members = 7;
+  // members_left are the pack's members past the answer's bounds.
+  int32 members_left = 8;
+  repeated Outcome outcomes = 9;
+  // words say why it is unreadable.
+  string words = 10;
+}
+
+message SyncRequest {
+  string name = 1;
+  bytes bytes = 2;
+  string language = 3;
+  bytes map = 4;
+  Gate gate = 5;
+  double fps = 6;
+  Constants constants = 7;
+}
+
+message SyncResponse {
+  Verdict verdict = 1;
+  string format = 2;
+  bytes original = 3;
+  bytes retimed = 4;
+  Fit fit = 5;
+  string words = 6;
+}

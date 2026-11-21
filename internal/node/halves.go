@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/calendar"
+	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
@@ -47,10 +48,14 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1/notifyv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/subtitles/v1/subtitlesv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/system/v1/systemv1connect"
 	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/ports/port"
+	"github.com/jatassi/slipstream/internal/providers/gestdown"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
+	"github.com/jatassi/slipstream/internal/providers/subdl"
+	"github.com/jatassi/slipstream/internal/providers/subsource"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
 	"github.com/jatassi/slipstream/internal/release"
@@ -64,6 +69,8 @@ import (
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/subtitles"
+	"github.com/jatassi/slipstream/internal/subtitling"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/trackers"
@@ -119,6 +126,9 @@ type half struct {
 
 	// history lists what happened to the library, on a Controller.
 	history *history.Service
+
+	// subtitles is the library's wanted subtitles, on a Controller.
+	subtitles *subtitles.Subtitles
 
 	tasks    *tasks.Scheduler
 	health   *health.Health
@@ -319,14 +329,18 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(holder))
+	subtitlesv1connect.SubtitlesService.Mount(dispatch, n.subtitlesHolder(client))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
+	if err := n.mountSidecars(ctx, dispatch, local); err != nil {
+		return err
+	}
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
-	providers := make([]metadata.Provider, len(holder.Testers))
+	providers := make([]calls.Provider, len(holder.Testers))
 	for i, t := range holder.Testers {
 		providers[i] = t.Provider()
 	}
@@ -422,12 +436,13 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:  n.rootLog.With("subsystem", "indexers"),
 	})
 	goals, err := targets.Open(ctx, targets.Config{
-		Library: lib.db,
-		Works:   tree,
-		Types:   contenttype.Project(opened, func(t contenttype.Library) targets.Facet { return t }),
-		Changed: targets.ChangedEvent.Bind(n.hub),
-		Log:     n.rootLog.With("subsystem", "targets"),
-		Formats: n.cfg.Timings.Formats,
+		Library:   lib.db,
+		Works:     tree,
+		Types:     contenttype.Project(opened, func(t contenttype.Library) targets.Facet { return t }),
+		Subtitled: func(t works.TypeID) bool { return len(opened[t].Subtitled()) > 0 },
+		Changed:   targets.ChangedEvent.Bind(n.hub),
+		Log:       n.rootLog.With("subsystem", "targets"),
+		Formats:   n.cfg.Timings.Formats,
 	})
 	if err != nil {
 		return err
@@ -463,9 +478,10 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db, Facets: contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
 		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
 	})
+	subs := &lateSubtitles{Subtitles: files.NoSubtitles{}}
 	shelf, err := files.Open(ctx, files.Config{
 		Queue:   searchQueue,
-		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn, MediaServers: servers,
+		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn, MediaServers: servers, Subtitles: subs,
 		Naming:  names,
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
 		Today:   n.today,
@@ -479,6 +495,42 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	subtitler, err := subtitles.Open(ctx, subtitles.Config{
+		Library: lib.db, Files: shelf, Targets: goals, Roots: homes,
+		Types: contenttype.Project(opened, func(t contenttype.Library) subtitles.Facet { return t }),
+		Storage: func(id role.NodeID) storing.SidecarCalls {
+			return storing.SidecarCallsOf(storagev1connect.SidecarService.On(cluster, id))
+		},
+		Holders: func(id role.NodeID) subtitling.Remote {
+			return subtitling.NewRemote(subtitlesv1connect.SubtitlesService.On(cluster, id))
+		},
+		Videos:    imports.Videos,
+		Providers: n.subtitleSpecs(),
+
+		MediaServers: servers,
+		Works:        tree,
+		FetchCap:     n.cfg.Timings.Subtitling.FetchCap,
+
+		Tasks:       lateTasks{&scheduler},
+		GapCap:      subtitles.NoGapCap,
+		Roster:      side,
+		Reconciling: trackers.NotReconciling,
+		History:     n.history.Recorder("subtitles", subtitles.Entries()),
+		Timings:     n.cfg.Timings.Subtitles,
+		Clock:       time.Now,
+		Rand:        n.subtitlesRand,
+		Log:         n.rootLog.With("subsystem", "subtitles"),
+
+		Sealer:           lib.sealer,
+		Describe:         tree.Describe,
+		Changed:          subtitles.ChangedEvent.Bind(n.hub),
+		ProvidersChanged: subtitles.ProvidersChangedEvent.Bind(n.hub),
+		Attempt:          subtitles.AttemptEvent.Bind(n.hub),
+	})
+	if err != nil {
+		return err
+	}
+	subs.Subtitles = subtitler
 	dates := calendar.New(calendar.Config{
 		Library: lib.db, Types: contenttype.Project(opened, func(t contenttype.Library) calendar.Facet { return t }),
 		Works: tree, Files: shelf, Today: n.today,
@@ -545,6 +597,7 @@ func (n *Node) startController(ctx context.Context) error {
 		BeforeStep:   n.env.Test.BeforeScanStep,
 		BeforeImport: n.env.Test.BeforeImport,
 		History:      n.history.Recorder("imports", imports.Entries()),
+		Subtitles:    subtitler,
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
 	pipeline.Register(found.Importer())
@@ -552,7 +605,7 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue,
-		History: n.history.Recorder("library", library.Entries()),
+		History: n.history.Recorder("library", library.Entries()), Subtitles: subtitler,
 	})
 	cat.Seal()
 
@@ -568,7 +621,7 @@ func (n *Node) startController(ctx context.Context) error {
 			},
 			Keep:  n.history,
 			Batch: n.cfg.Timings.Housekeeping.PruneBatch,
-			Steps: housekeepingSteps(registry, servers, n.history, pipeline, found, shelf),
+			Steps: housekeepingSteps(registry, servers, n.history, pipeline, found, shelf, subtitler),
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
@@ -577,7 +630,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}, found), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
+		}, found), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask(), subtitler.Task()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,
@@ -612,6 +665,8 @@ func (n *Node) startController(ctx context.Context) error {
 
 		history: n.history,
 
+		subtitles: subtitler,
+
 		transfers: copies,
 		copier:    copier,
 	}
@@ -628,6 +683,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("transfers", copies.Run)
 	n.claimed.Go("media servers", servers.Run)
 	n.claimed.Go("files", shelf.Run)
+	n.claimed.Go("subtitles", subtitler.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.claimed.Go("library scan", found.Run)
 	n.claimed.Go("metadata", meta.Run)
@@ -706,6 +762,10 @@ func (a lateArtwork) Image(ctx context.Context, ref artwork.Ref, size artwork.Si
 func (a lateArtwork) PublicURL(ref artwork.Ref, size artwork.Size) (string, error) {
 	return (*a.meta).PublicURL(ref, size)
 }
+
+// lateSubtitles is the Controller's Subtitles once it opens: files opens
+// before it, since subtitles reads files.
+type lateSubtitles struct{ files.Subtitles }
 
 // lateTasks is the Scheduled tasks once they open: the Media Servers and
 // grabs are made before them, since the tasks' catalog lists their tasks.
@@ -791,8 +851,7 @@ func httpClient(stack *Stack, dial searching.DialFunc) *http.Client {
 // call layer, each provider's Line registered once, and the providers'
 // tests, in the order status lists them.
 func (n *Node) openHolder(client *http.Client) metadata.HolderConfig {
-	userAgent := "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )"
-	lines := metadata.NewLines(client, userAgent, n.cfg.Timings.Metadata, n.metadataRand)
+	lines := metadata.NewLines(client, n.userAgent(), n.cfg.Timings.Metadata, n.metadataRand)
 	deps := contenttype.ProviderDeps{
 		TMDB:  tmdb.New(lines, n.cfg.Endpoints.TMDB, n.cfg.Timings.TMDB),
 		TVDB:  tvdb.New(lines, n.cfg.Endpoints.TVDB, n.cfg.Timings.TVDB),
@@ -806,6 +865,38 @@ func (n *Node) openHolder(client *http.Client) metadata.HolderConfig {
 		sources[t.ID()] = t.OpenProvider(deps, n.cfg.Endpoints.ContentTypes.section(t.ID()))
 	}
 	return metadata.HolderConfig{Types: sources, Testers: deps.Testers(), Timings: n.cfg.Timings.Metadata, Lines: lines}
+}
+
+func (n *Node) userAgent() string {
+	return "SlipStream/" + n.env.Version + " ( github.com/jatassi/SlipStream )"
+}
+
+// subtitlesHolder is SubtitlesService over the subtitles Lines, whose
+// client refuses every redirect, so a key never reaches a host its
+// provider didn't name.
+func (n *Node) subtitlesHolder(client *http.Client) *subtitling.Holder {
+	lines := calls.NewLines(calls.NoRedirects(client), n.userAgent(), n.cfg.Timings.Subtitling.Calls, n.subtitlingRand)
+	return subtitling.Serve(subtitleProviders(lines, n.cfg), n.cfg.Timings.Subtitling)
+}
+
+// subtitleSpecs is every Subtitle Provider's Spec, for the Controller,
+// which calls none of them.
+func (n *Node) subtitleSpecs() []subtitling.Spec {
+	var out []subtitling.Spec
+	for _, p := range subtitleProviders(calls.NewLines(http.DefaultClient, n.userAgent(), n.cfg.Timings.Subtitling.Calls, n.subtitlingRand), n.cfg) {
+		out = append(out, p.Spec())
+	}
+	return out
+}
+
+// subtitleProviders is every Subtitle Provider, in its default search
+// order.
+func subtitleProviders(lines *calls.Lines, cfg Config) []subtitling.Provider {
+	return []subtitling.Provider{
+		subdl.New(lines, cfg.Endpoints.SubDL, cfg.Timings.SubDL),
+		subsource.New(lines, cfg.Endpoints.SubSource, cfg.Timings.SubSource),
+		gestdown.New(lines, cfg.Endpoints.Gestdown, cfg.Timings.Gestdown),
+	}
 }
 
 // openLibraries opens every Content Type's library half, on the
@@ -835,11 +926,16 @@ func (n *Node) startWorker(ctx context.Context) error {
 		return err
 	}
 	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
-	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(n.httpClient(n.env.Net.DialContext))))
+	client := n.httpClient(n.env.Net.DialContext)
+	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(client)))
+	subtitlesv1connect.SubtitlesService.Mount(dispatch, n.subtitlesHolder(client))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
+	if err := n.mountSidecars(ctx, dispatch, local); err != nil {
+		return err
+	}
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
@@ -866,6 +962,15 @@ func (n *Node) removed(ctx context.Context) {
 	if err := n.Restart(); err != nil {
 		n.log.Error("restart the removed Worker", "err", err.Error())
 	}
+}
+
+func (n *Node) mountSidecars(ctx context.Context, dispatch *rpc.Dispatch, local *storage.DB[storage.Local]) error {
+	sidecars, err := storing.NewSidecars(ctx, n.store, local, n.env.DataDir.SpeechMapsDir(), n.env.Speech, n.cfg.Timings.Sidecars)
+	if err != nil {
+		return err
+	}
+	storagev1connect.SidecarService.Mount(dispatch, sidecars)
+	return nil
 }
 
 // startHolding opens local.db and runs the holder half toward upstream,
@@ -926,10 +1031,10 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 // housekeepingSteps is Housekeeping's prunes in their units' order. The
 // Grabs step runs before the Imports step, so the Imports step sees the
 // Grabs it deleted.
-func housekeepingSteps(registry *indexers.Indexers, servers *mediaservers.MediaServers, h *history.Service, pipeline *grabs.Grabs, found *imports.Imports, shelf *files.Files) []housekeeping.Step {
+func housekeepingSteps(registry *indexers.Indexers, servers *mediaservers.MediaServers, h *history.Service, pipeline *grabs.Grabs, found *imports.Imports, shelf *files.Files, subtitler *subtitles.Subtitles) []housekeeping.Step {
 	return []housekeeping.Step{
 		housekeeping.Plain("indexer-queries", "Indexer queries and sessions", registry.Prune), servers.Housekeeping(),
-		h.Retention(), pipeline.Retention(), found.Retention(), shelf.Retention(),
+		h.Retention(), pipeline.Retention(), found.Retention(), shelf.Retention(), subtitler.Retention(),
 	}
 }
 
@@ -940,7 +1045,7 @@ func owners(clients *downloadclients.Clients, servers *mediaservers.MediaServers
 		clients.DownloadingOwner(),
 		roots.StorageOwner(files.RootContents{}),
 		nodes.Unowned(role.Converting),
-		nodes.Unowned(role.Subtitles),
+		subtitles.Owner,
 		metadata.Owner,
 		servers.Owner(),
 		notes.Owner(),

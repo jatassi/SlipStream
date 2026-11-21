@@ -25,6 +25,7 @@ import { loadWorkGrabs } from "../../grabs/work-sections";
 import { loadWorkHistory } from "../../history/work-history";
 import type { Crumb } from "../../shell/titles";
 // oxlint-disable-next-line import/max-dependencies -- the Work page opens whole, so it reads every section's data
+import { loadWorkSubtitles } from "../../subtitles/work-api";
 import { libraryTrail } from "../fields";
 
 /** Every read the Work page draws from, so it opens whole; the title and crumbs for the shell. */
@@ -47,6 +48,7 @@ export async function loadWork(
     ensureQuery(queryClient, getListVolumesSuspenseQueryOptions()),
     ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
     loadWorkHistory(queryClient, workId),
+    loadWorkSubtitles(queryClient, workId),
   ]);
   return {
     title: work.label,

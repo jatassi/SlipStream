@@ -17,6 +17,7 @@ test("a view goes into the address and comes back the same, and the default view
       needs: { kind: "flag" },
       gone: { kind: "flag" },
       scanned: { kind: "flag" },
+      subtitles: { kind: "values", values: ["missing", "none-passed"] },
       "field.year": { kind: "range", min: 1990, max: undefined },
       "field.genres": { kind: "values", values: ["Crime, Noir", "Drama"] },
     },
@@ -34,6 +35,7 @@ test("a view goes into the address and comes back the same, and the default view
     needs: 1,
     gone: 1,
     scanned: 1,
+    subtitles: "missing,none-passed",
     "f.year": "1990..",
     "f.genres": "Crime, Noir~Drama",
     q: "amelie",
@@ -64,4 +66,12 @@ test("the gone files link in Health opens on that root's Works with gone files",
     root: { kind: "values", values: ["films"] },
     gone: { kind: "flag" },
   });
+});
+
+test("the Library's subtitle filters open from their address key", () => {
+  const search = librarySearch({ subtitles: "none-passed" });
+  expect(decodeView(search, types).filters).toEqual({
+    subtitles: { kind: "values", values: ["none-passed"] },
+  });
+  expect(encodeView(decodeView(search, types), types)).toEqual({ subtitles: "none-passed" });
 });

@@ -15,6 +15,8 @@ type Values = {
   setupCode: string;
   /** The Plex sign-in this tab waits on, so a reload picks it up again. */
   plexPin: PlexPin | null;
+  /** The seasons open in each series' Files section, by Work id; a Work left out opens its first season with a missing subtitle. */
+  seasonFolds: Readonly<Record<string, readonly string[]>>;
 };
 
 export type Pref = keyof Values;
@@ -57,6 +59,24 @@ const plexPin: Kind<PlexPin | null> = {
   serialize: (value) => JSON.stringify(value),
 };
 
+const seasonFolds: Kind<Values["seasonFolds"]> = {
+  area: "browser",
+  fallback: {},
+  parse: (raw) => {
+    const read: unknown = JSON.parse(raw);
+    if (typeof read !== "object" || read === null) {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(read).filter(
+        (entry): entry is [string, string[]] =>
+          Array.isArray(entry[1]) && entry[1].every((season) => typeof season === "string"),
+      ),
+    );
+  },
+  serialize: (value) => JSON.stringify(value),
+};
+
 const kinds: { readonly [P in Pref]: Kind<Values[P]> } = {
   sidebarCollapsed: flag("browser"),
   startupOff: flag("browser"),
@@ -66,6 +86,7 @@ const kinds: { readonly [P in Pref]: Kind<Values[P]> } = {
   libraryViews: views,
   setupCode: text("tab"),
   plexPin,
+  seasonFolds,
 };
 
 export const prefKey = (pref: Pref): string => `slipstream.${pref}`;

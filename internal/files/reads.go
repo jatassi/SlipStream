@@ -20,6 +20,9 @@ func Open(ctx context.Context, cfg Config) (*Files, error) {
 	if cfg.MediaServers == nil {
 		cfg.MediaServers = NoMediaServers{}
 	}
+	if cfg.Subtitles == nil {
+		cfg.Subtitles = NoSubtitles{}
+	}
 	if cfg.Queue == nil {
 		cfg.Queue = searches.None{}
 	}

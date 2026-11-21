@@ -61,6 +61,7 @@ func TestCgoConfined(t *testing.T) {
 	}
 	assertFindings(t, check(t, "cgo-confined", repo), []string{
 		`internal/media/probe_windows.go:8: [cgo-confined] import "C" outside the declared native packages`,
+		`internal/media/speech/speech.go:3: [cgo-confined] import "C" outside the declared native packages`,
 		`internal/torrent/libtorrent/session/session.go:3: [cgo-confined] import "C" outside the declared native packages`,
 	})
 }
@@ -721,5 +722,36 @@ func TestVendorSynced(t *testing.T) {
 		"web/vendor/kit/VENDORED.md:1: [vendor-synced] differs from .claude/skills/kit/VENDORED.md" + resync,
 		"web/vendor/kit/kit/edited.mjs:1: [vendor-synced] differs from .claude/skills/kit/kit/edited.mjs" + resync,
 		"web/vendor/kit/kit/extra.mjs:1: [vendor-synced] has no counterpart at .claude/skills/kit/kit/extra.mjs" + resync,
+	})
+}
+
+func TestSubtitlesPure(t *testing.T) {
+	const imported = " imported by a pure package; its caller does the IO and passes the result"
+	assertFindings(t, check(t, "subtitles-pure", fixtureRepo(t, "subtitles-pure")), []string{
+		"internal/media/speech/frames/frames.go:5: [subtitles-pure] time.Until in a pure package; take the time from the caller",
+		"internal/subtitles/timing/align.go:5: [subtitles-pure] math/rand/v2" + imported,
+		"internal/subtitles/timing/align.go:6: [subtitles-pure] net/http" + imported,
+		"internal/subtitles/timing/align.go:10: [subtitles-pure] example.com/app/internal/storage" + imported,
+		"internal/subtitles/timing/align.go:14: [subtitles-pure] os.Open in a pure package; only os error values are allowed",
+		"internal/subtitles/timing/align.go:21: [subtitles-pure] time.Now in a pure package; take the time from the caller",
+		"internal/subtitles/timing/align.go:21: [subtitles-pure] time.Since in a pure package; take the time from the caller",
+	})
+}
+
+func TestSubtitlingSides(t *testing.T) {
+	const holder = " imported by the Subtitles Role's holder side; each call carries what the holder needs"
+	assertFindings(t, check(t, "subtitling-sides", fixtureRepo(t, "subtitling-sides")), []string{
+		"internal/providers/subdl/subdl.go:3: [subtitling-sides] internal/subtitles/internal/db" + holder,
+		"internal/subtitling/holder.go:4: [subtitling-sides] internal/storage" + holder,
+		"internal/subtitling/holder.go:5: [subtitling-sides] internal/subtitles" + holder,
+	})
+}
+
+func TestSidecarWriter(t *testing.T) {
+	const outside = " outside the Keeper and the map drain; write rows for the Keeper to settle"
+	assertFindings(t, check(t, "sidecar-writer", fixtureRepo(t, "sidecar-writer")), []string{
+		"internal/subtitles/hook.go:6: [sidecar-writer] cfg.Storage called" + outside,
+		"internal/subtitles/hook.go:6: [sidecar-writer] st.SidecarCalls" + outside,
+		"internal/subtitles/other/maps.go:5: [sidecar-writer] storing.SidecarCallsOf" + outside,
 	})
 }

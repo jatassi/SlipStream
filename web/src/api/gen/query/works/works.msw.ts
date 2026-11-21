@@ -1705,6 +1705,10 @@ export const getListLibraryResponseMock = (
       ] as const),
       null,
     ]),
+    subtitles: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(["missing", "none_passed"] as const),
+      null,
+    ]),
     values: {
       [faker.string.alphanumeric(5)]: faker.helpers.arrayElement([
         faker.number.float({ fractionDigits: 2 }),
@@ -2741,6 +2745,24 @@ export const getSetWorksProfileResponseMock = (
         workId: faker.string.uuid(),
       }),
     ),
+    subtitles: {
+      days: faker.number.int({ min: 0 }),
+      dropped: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          deleted: faker.number.int({ min: 0 }),
+          forced: faker.datatype.boolean(),
+          language: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        }),
+      ),
+      gained: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          forced: faker.datatype.boolean(),
+          language: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          needScan: faker.number.int({ min: 0 }),
+          searches: faker.number.int({ min: 0 }),
+        }),
+      ),
+    },
     unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
     works: faker.number.int({ min: 0 }),
   },
@@ -2926,6 +2948,10 @@ export const getSearchWorksResponseMock = (
         "unreleased",
         "met",
       ] as const),
+      null,
+    ]),
+    subtitles: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(["missing", "none_passed"] as const),
       null,
     ]),
     values: {

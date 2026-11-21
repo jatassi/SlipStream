@@ -201,11 +201,15 @@ func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], l Landing) (La
 	if !v.lands() {
 		return Landed{}, &Refused{Verdict: v}
 	}
-	q := db.New(tx)
-	if err := apply(ctx, q, j.placed); err != nil {
+	g := j.fresh[0]
+	by := make(map[ID]ID, len(v.Replaces))
+	for _, d := range v.Replaces {
+		by[d.ID] = g.ID
+	}
+	if err := f.apply(ctx, tx, j.placed, by); err != nil {
 		return Landed{}, err
 	}
-	g := j.fresh[0]
+	q := db.New(tx)
 	nm := j.names[g.ID]
 	inPlace := g.Path == nm.Path
 	g.Path, g.Label, g.Extra = nm.Path, nm.Label, nm.Extra
@@ -539,16 +543,18 @@ func retagged(was, is targets.Cuts) map[release.CutKey]bool {
 	return out
 }
 
-// apply writes p: its fills and their scores, its dooms, the gone files
-// it forgets, its found files, every name that changed, and a move for
-// each file whose bytes must reach a new path. A row's path changes in two
-// steps, through the file's holding path, so files may trade names in one
-// Write; the disk queue moves the bytes straight unless they trade paths.
-func apply(ctx context.Context, q *db.Queries, p placed) error {
+// apply writes p in tx: its fills and their scores, its dooms, each by
+// the file of by that replaces it, the gone files it forgets, its found
+// files, every name that changed, and a move for each file whose bytes
+// must reach a new path. A row's path changes in two steps, through the
+// file's holding path, so files may trade names in one Write; the disk
+// queue moves the bytes straight unless they trade paths.
+func (f *Files) apply(ctx context.Context, tx *storage.Tx[file], p placed, by map[ID]ID) error {
+	q := db.New(tx)
 	if err := unfill(ctx, q, p); err != nil {
 		return err
 	}
-	if err := drop(ctx, q, p); err != nil {
+	if err := f.drop(ctx, tx, q, p, by); err != nil {
 		return err
 	}
 	var moved []File
@@ -581,11 +587,11 @@ func apply(ctx context.Context, q *db.Queries, p placed) error {
 	return nil
 }
 
-// drop dooms p's doomed files and deletes the rows of the gone files it
-// forgets.
-func drop(ctx context.Context, q *db.Queries, p placed) error {
+// drop dooms p's doomed files, each by the file of by that replaces it,
+// and deletes the rows of the gone files it forgets.
+func (f *Files) drop(ctx context.Context, tx *storage.Tx[file], q *db.Queries, p placed, by map[ID]ID) error {
 	for _, d := range p.doomed {
-		if err := doom(ctx, q, d); err != nil {
+		if err := f.doom(ctx, tx, q, d, by[d.ID]); err != nil {
 			return err
 		}
 	}
@@ -662,7 +668,9 @@ func queueMove(ctx context.Context, q *db.Queries, g File, to string) error {
 // doom removes d from the library and queues its bytes' removal from
 // wherever they sit: its path, or where its move had taken them. A
 // doomed move keeps its origin, where a Media Server still lists d.
-func doom(ctx context.Context, q *db.Queries, d File) error {
+// Subtitles hears that d leaves, for by or for nothing, while its row is
+// still there.
+func (f *Files) doom(ctx context.Context, tx *storage.Tx[file], q *db.Queries, d File, by ID) error {
 	var moving, origin *string
 	at, err := q.GetMove(ctx, d.ID)
 	switch {
@@ -672,6 +680,9 @@ func doom(ctx context.Context, q *db.Queries, d File) error {
 		return err
 	}
 	if err := q.InsertDoomed(ctx, db.InsertDoomedParams{FileID: d.ID, RootID: d.RootID, Path: d.Path, Sits: moving, Origin: origin}); err != nil {
+		return err
+	}
+	if err := f.cfg.Subtitles.Leaving(ctx, tx, d, by); err != nil {
 		return err
 	}
 	return q.DeleteFile(ctx, d.ID)

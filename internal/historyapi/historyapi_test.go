@@ -172,7 +172,7 @@ func over(t *testing.T, owner notificationstest.Owner, f func(t *testing.T, w *w
 			Library: lib, Hub: hub, Changed: discard[health.Changed]{},
 			Categories: []health.Category{
 				library, quiet(health.NodesID, "Nodes"), quiet(health.DownloadClientsID, "Download Clients"), quiet(health.MediaServersID, "Media Servers"),
-				quiet(health.SeedingID, "Seeding"), quiet(health.IndexersID, "Indexers"), quiet(health.ScheduledTasksID, "Scheduled tasks"), quiet(health.NotificationsID, "Notifications"),
+				quiet(health.SeedingID, "Seeding"), quiet(health.IndexersID, "Indexers"), quiet(health.SubtitlesID, "Subtitles"), quiet(health.ScheduledTasksID, "Scheduled tasks"), quiet(health.NotificationsID, "Notifications"),
 			},
 			Transitions: func(ctx context.Context, tx *storage.Tx[storage.Library], ts []health.Transition) error {
 				return w.History.Transitions(ctx, tx, ts)

@@ -1,0 +1,201 @@
+// SidecarService is the Storage Role's half of Subtitles: the Speech Maps
+// this Node builds and keeps for the files it holds, and the subtitle
+// files beside them. Only the Controller calls it, and every write carries
+// bytes the Controller parsed.
+syntax = "proto3";
+
+package slipstream.storage.v1;
+
+import "slipstream/node/v1/options.proto";
+import "slipstream/storage/v1/storage.proto";
+
+service SidecarService {
+  option (slipstream.node.v1.served_by) = {role: "storage"};
+  // BuildSpeechMap builds a file's map, joins the running build of it, or
+  // answers at once from a current one. It answers within the Node's
+  // build_wait.
+  rpc BuildSpeechMap(BuildSpeechMapRequest) returns (BuildSpeechMapResponse);
+  // ReadSpeechMap answers a file's map, or stale when it no longer
+  // matches the file.
+  rpc ReadSpeechMap(ReadSpeechMapRequest) returns (ReadSpeechMapResponse);
+  // PruneSpeechMaps deletes the maps of the files in [after, before) not
+  // in keep.
+  rpc PruneSpeechMaps(PruneSpeechMapsRequest) returns (PruneSpeechMapsResponse);
+  // ListSidecars lists the subtitle companions of videos, with hashes.
+  rpc ListSidecars(ListSidecarsRequest) returns (ListSidecarsResponse);
+  // ReadSidecar answers the bytes at a path if they have the given hash.
+  rpc ReadSidecar(ReadSidecarRequest) returns (ReadSidecarResponse);
+  // WriteSidecar writes bytes beside a video as <stem>.<tail>.
+  rpc WriteSidecar(WriteSidecarRequest) returns (WriteSidecarResponse);
+  // RemoveSidecar removes the bytes at a path if they have the given hash.
+  rpc RemoveSidecar(RemoveSidecarRequest) returns (RemoveSidecarResponse);
+}
+
+enum SpeechMapState {
+  SPEECH_MAP_STATE_UNSPECIFIED = 0;
+  SPEECH_MAP_STATE_BUILT = 1;
+  SPEECH_MAP_STATE_BUILDING = 2;
+  SPEECH_MAP_STATE_QUEUED = 3;
+  SPEECH_MAP_STATE_FAILED = 4;
+}
+
+enum SpeechMapFault {
+  SPEECH_MAP_FAULT_UNSPECIFIED = 0;
+  SPEECH_MAP_FAULT_NO_AUDIO = 1;
+  SPEECH_MAP_FAULT_DECODE_FAILED = 2;
+  SPEECH_MAP_FAULT_NODE_FAULT = 3;
+}
+
+message BuildSpeechMapRequest {
+  bytes file_id = 1;
+  bytes root_id = 2;
+  string path = 3;
+  // stream is the audio ordinal; -1 is the default track, else the first.
+  int32 stream = 4;
+  // slots is how many builds this Node may run at once now.
+  int32 slots = 5;
+  // rank orders the builds that wait, 0 first.
+  int32 rank = 6;
+}
+
+message BuildSpeechMapResponse {
+  SpeechMapState state = 1;
+  // identity and size are the file's when the map was built.
+  Identity identity = 2;
+  int64 size = 3;
+  int64 frames = 4;
+  double density = 5;
+  // stream is the audio ordinal the map heard.
+  int32 stream = 6;
+  SpeechMapFault fault = 7;
+  // words is the decoder's first error line on a fault.
+  string words = 8;
+}
+
+message ReadSpeechMapRequest {
+  bytes file_id = 1;
+  bytes root_id = 2;
+  string path = 3;
+  Identity identity = 4;
+  int64 size = 5;
+}
+
+message ReadSpeechMapResponse {
+  // map is the encoded Speech Map, empty when stale.
+  bytes map = 1;
+  bool stale = 2;
+}
+
+message PruneSpeechMapsRequest {
+  bytes after = 1;
+  bytes before = 2;
+  repeated bytes keep = 3;
+}
+
+message PruneSpeechMapsResponse {
+  int32 removed = 1;
+}
+
+message SidecarListing {
+  string video = 1;
+  // also are other stems whose companions the Controller asks after: a
+  // rename's From, and the places parked rows name.
+  repeated string also = 2;
+}
+
+message SidecarCompanion {
+  string path = 1;
+  string tail = 2;
+  int64 size = 3;
+  bytes sha256 = 4;
+  // ledger: this Node's ledger holds the hash for the root.
+  bool ledger = 5;
+}
+
+message SidecarListed {
+  string video = 1;
+  // video_missing: the video isn't there; its companions are still listed
+  // by stem.
+  bool video_missing = 2;
+  repeated SidecarCompanion companions = 3;
+}
+
+message ListSidecarsRequest {
+  bytes root_id = 1;
+  repeated SidecarListing videos = 2;
+  // video_extensions name the videos, so a companion goes to the video
+  // whose stem is longest.
+  repeated string video_extensions = 3;
+}
+
+message ListSidecarsResponse {
+  repeated SidecarListed listed = 1;
+}
+
+enum ReadSidecarState {
+  READ_SIDECAR_STATE_UNSPECIFIED = 0;
+  READ_SIDECAR_STATE_READ = 1;
+  READ_SIDECAR_STATE_CHANGED = 2;
+  READ_SIDECAR_STATE_GONE = 3;
+}
+
+message ReadSidecarRequest {
+  bytes root_id = 1;
+  string path = 2;
+  bytes sha256 = 3;
+}
+
+message ReadSidecarResponse {
+  ReadSidecarState state = 1;
+  bytes data = 2;
+  // sha256 is the hash of the bytes there when changed.
+  bytes sha256 = 3;
+}
+
+enum WriteSidecarState {
+  WRITE_SIDECAR_STATE_UNSPECIFIED = 0;
+  WRITE_SIDECAR_STATE_WRITTEN = 1;
+  WRITE_SIDECAR_STATE_OCCUPIED = 2;
+  WRITE_SIDECAR_STATE_STALE = 3;
+}
+
+message WriteSidecarRequest {
+  bytes root_id = 1;
+  string video = 2;
+  Identity identity = 3;
+  int64 size = 4;
+  string tail = 5;
+  bytes data = 6;
+  bytes sha256 = 7;
+  // replaces is the hash of the bytes the write may overwrite; empty: the
+  // name must be free or hold these bytes.
+  bytes replaces = 8;
+  // ledger records sha256 in the root's ledger: the bytes are a
+  // provider's, which a restore takes back as SlipStream's own.
+  bool ledger = 9;
+}
+
+message WriteSidecarResponse {
+  WriteSidecarState state = 1;
+  // occupant is the hash of the bytes there when occupied.
+  bytes occupant = 2;
+  string path = 3;
+}
+
+enum RemoveSidecarState {
+  REMOVE_SIDECAR_STATE_UNSPECIFIED = 0;
+  // removed, also when nothing was there.
+  REMOVE_SIDECAR_STATE_REMOVED = 1;
+  REMOVE_SIDECAR_STATE_CHANGED = 2;
+}
+
+message RemoveSidecarRequest {
+  bytes root_id = 1;
+  string path = 2;
+  bytes sha256 = 3;
+}
+
+message RemoveSidecarResponse {
+  RemoveSidecarState state = 1;
+  bytes occupant = 2;
+}

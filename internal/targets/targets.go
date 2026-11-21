@@ -84,8 +84,11 @@ type Config struct {
 	// takes.
 	Works Describer
 	// Types is every Content Type this binary registers, by its facet.
-	Types   map[works.TypeID]Facet
-	Changed Publisher
+	Types map[works.TypeID]Facet
+	// Subtitled reports whether a Content Type's Profiles may list Wanted
+	// Languages: whether its files take subtitles.
+	Subtitled func(works.TypeID) bool
+	Changed   Publisher
 	// Log records each Target that Open renames.
 	Log *slog.Logger
 	// Formats is the limit a Custom Format's pattern runs under.

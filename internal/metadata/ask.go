@@ -7,14 +7,10 @@ package metadata
 
 import (
 	"maps"
-	"slices"
-	"sync"
 	"time"
-)
 
-// ProviderID names one metadata provider, such as TMDB or OMDb. The core
-// never names one; each provider package declares its own.
-type ProviderID string
+	"github.com/jatassi/slipstream/internal/calls"
+)
 
 // Ask is what one metadata call needs that a holder doesn't keep. Types and
 // provider clients read Language, Region and Ratings and pass the Ask on;
@@ -28,9 +24,9 @@ type Ask struct {
 	// Ratings is which ratings the ratings providers are asked for.
 	Ratings Ratings
 
-	keys map[ProviderID]string
+	keys map[calls.ID]string
 	// pins are the PINs that go beside keys, for a provider that takes one.
-	pins  map[ProviderID]string
+	pins  map[calls.ID]string
 	fresh bool
 	// cacheFor is how old a cached answer may be; zero serves none.
 	cacheFor time.Duration
@@ -39,7 +35,7 @@ type Ask struct {
 	generation uint64
 	// tally collects the outcome of every call made for this Ask; nil
 	// records nothing.
-	tally *tally
+	tally *calls.Tally
 }
 
 // Ratings is which ratings a call asks the ratings providers for.
@@ -55,30 +51,16 @@ const (
 	RatingsAll
 )
 
-type tally struct {
-	mu       sync.Mutex
-	outcomes []Outcome
-}
-
-func (t *tally) record(o Outcome) {
-	if t == nil {
-		return
-	}
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.outcomes = append(t.outcomes, o)
-}
-
 // tallied attaches a tally to a, as a holder does for each call, and
 // reads back every outcome recorded on it.
-func tallied(a Ask) (ask Ask, read func() []Outcome) {
-	t := &tally{}
-	a.tally = t
-	return a, func() []Outcome {
-		t.mu.Lock()
-		defer t.mu.Unlock()
-		return slices.Clone(t.outcomes)
-	}
+func tallied(a Ask) (ask Ask, read func() []calls.Outcome) {
+	a.tally = &calls.Tally{}
+	return a, a.tally.Outcomes
+}
+
+// credentials is what a's calls may send.
+func (a Ask) credentials() calls.Credentials {
+	return calls.Credentials{Keys: a.keys, Pins: a.pins, Tally: a.tally}
 }
 
 type AskOptions struct {
@@ -88,9 +70,9 @@ type AskOptions struct {
 	// Fresh bypasses the holder's cache and writes the answer back.
 	Fresh bool
 	// Keys are the keys in effect; a provider with none is called keyless.
-	Keys map[ProviderID]string
+	Keys map[calls.ID]string
 	// Pins are the PINs beside Keys.
-	Pins map[ProviderID]string
+	Pins map[calls.ID]string
 }
 
 // NewAsk builds an Ask outside the Controller, for tests and conformance

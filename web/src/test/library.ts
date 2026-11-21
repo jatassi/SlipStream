@@ -116,6 +116,7 @@ export const orchardRow: WorksLibraryRow = {
   goneUpstreamAt: null,
   addedBy: "admin",
   goneFiles: 0,
+  subtitles: null,
   monitored: "all",
   profileId: orchard.profile.id,
   rootId: null,

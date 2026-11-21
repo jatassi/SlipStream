@@ -56,6 +56,7 @@ func serve(t *testing.T) *ownertest.Owner {
 			{About: health.About{ID: health.MediaServersID, Label: "Media Servers", Phrase: "Media Servers"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still need seeding"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: answer(health.Answer{})}},
+			{About: health.About{ID: health.SubtitlesID, Label: "Subtitles", Phrase: "subtitles"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.ScheduledTasksID, Label: "Scheduled tasks", Phrase: "scheduled tasks"}, Source: health.Source{Answer: answer(health.Answer{
 				Items: []health.Item{{Key: "housekeeping", Level: health.Warn, Says: health.Says{Subject: "Housekeeping", Text: "Housekeeping failed.", Action: health.RunAction("housekeeping")}}},
 			})}},
@@ -98,6 +99,7 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 			`{"id":"media-servers","label":"Media Servers","phrase":"Media Servers","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"seeding","label":"Seeding","phrase":"torrents that still need seeding","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"indexers","label":"Indexers","phrase":"Indexers","level":null,"canCheck":false,"items":[]},`+
+			`{"id":"subtitles","label":"Subtitles","phrase":"subtitles","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"scheduled-tasks","label":"Scheduled tasks","phrase":"scheduled tasks","level":"warn","canCheck":false,"items":[{"key":"housekeeping","level":"warn","subject":"Housekeeping",`+
 			`"text":"Housekeeping failed.","detail":[],"action":{"kind":"run","taskId":"housekeeping"},"since":"T","changedAt":"T","unsure":false}]},`+
 			`{"id":"notifications","label":"Notifications","phrase":"notification connections","level":null,"canCheck":false,"items":[]}]}`)

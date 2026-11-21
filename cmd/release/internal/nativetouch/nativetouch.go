@@ -39,6 +39,7 @@ var nativeRoots = []string{
 	"internal/node/internal/control/",
 	"internal/node/internal/desktop/",
 	"internal/node/app.go",
+	"internal/media/fvad/",
 	"cmd/slipstream-app/",
 	"native/",
 	"cmd/release/",

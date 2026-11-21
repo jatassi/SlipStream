@@ -6,3 +6,5 @@
 cmd/release/internal/linkage/testdata/** binary
 # The ffprobe captures' commands are shell, which a drift test compares byte for byte.
 internal/media/testdata/ffprobe/*.cmd text eol=lf
+# Subtitle samples keep their CRLF and code page bytes, which the parser tests read as served.
+internal/subtitles/cues/testdata/** binary

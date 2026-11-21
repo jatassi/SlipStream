@@ -1,1 +1,7 @@
-export type NotificationsEventGroup = "grabs" | "imports" | "library" | "health" | "system";
+export type NotificationsEventGroup =
+  | "grabs"
+  | "imports"
+  | "library"
+  | "subtitles"
+  | "health"
+  | "system";

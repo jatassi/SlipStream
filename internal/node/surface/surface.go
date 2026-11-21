@@ -46,6 +46,8 @@ import (
 	"github.com/jatassi/slipstream/internal/rootsapi"
 	"github.com/jatassi/slipstream/internal/servingapi"
 	"github.com/jatassi/slipstream/internal/shellapi"
+	"github.com/jatassi/slipstream/internal/subtitles"
+	"github.com/jatassi/slipstream/internal/subtitlesapi"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/systemapi"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -110,6 +112,9 @@ var Events = []live.Event{
 	notifications.ChangedEvent,
 	notifications.SeenEvent,
 	history.ChangedEvent,
+	subtitles.ChangedEvent,
+	subtitles.ProvidersChangedEvent,
+	subtitles.AttemptEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the
@@ -144,6 +149,7 @@ type Node interface {
 	notificationsapi.Notes
 	calendarapi.Calendar
 	historyapi.History
+	subtitlesapi.Owner
 }
 
 // Services are what the operations run against. Document passes none.
@@ -184,6 +190,7 @@ func Mount(r *api.Router, s Services) {
 	notificationsapi.Routes(r, s.Node)
 	calendarapi.Routes(r, s.Node)
 	historyapi.Routes(r, s.Node)
+	subtitlesapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

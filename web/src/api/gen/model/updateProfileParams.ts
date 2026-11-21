@@ -2,6 +2,11 @@ import type { UpdateProfileUnwanted } from "./updateProfileUnwanted.ts";
 
 export type UpdateProfileParams = {
   /**
+   * The deleted subtitle count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed
+   * @minimum 0
+   */
+  confirmSubtitles?: number;
+  /**
    * Return the change's Impact and save nothing
    */
   preview?: boolean;
