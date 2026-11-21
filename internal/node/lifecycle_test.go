@@ -95,7 +95,7 @@ func copyFile(t *testing.T, from, to string) {
 
 func scratchDir(t *testing.T) DataDir {
 	t.Helper()
-	d, err := ParseDataDir(t.TempDir())
+	d, err := ParseDataDir(shortTempDir(t))
 	if err != nil {
 		t.Fatal(err)
 	}
