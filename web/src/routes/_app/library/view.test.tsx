@@ -21,7 +21,10 @@ const shownWorks = () =>
     .elements()
     .filter((link) => link.closest("nav") === null)
     .map((link) => {
-      const shown = link.cloneNode(true) as Element;
+      const shown = link.cloneNode(true);
+      if (!(shown instanceof Element)) {
+        throw new TypeError("a link clones to an element");
+      }
       for (const hidden of shown.querySelectorAll("[aria-hidden='true']")) {
         hidden.remove();
       }
