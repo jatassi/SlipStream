@@ -404,9 +404,11 @@ func TestTheOldControllerIsFencedThenJoinsAsAWorker(t *testing.T) {
 		t.Fatalf("getReconciling's review list = %+v, want Harbor not held with its files found", v.Review)
 	}
 	w.join(t, "spare", "seedbox")
+	// seedbox tells home itself once it reaches it, so home may already
+	// be Superseded and refuse the dial.
 	address := w.must(t, "node-address", "--data-dir", w.dataDir("seedbox"))
-	if r := w.a.Admin("home", http.MethodPut, "/api/v1/nodes/"+seedbox+"/dial", `{"nodeAddress":`+quote(address[strings.LastIndex(address, "\n")+1:])+`}`); r.Status != http.StatusOK {
-		t.Fatalf("setDial on home = %d %s, want 200", r.Status, r.Body)
+	if r := w.a.Admin("home", http.MethodPut, "/api/v1/nodes/"+seedbox+"/dial", `{"nodeAddress":`+quote(address[strings.LastIndex(address, "\n")+1:])+`}`); r.Status != http.StatusOK && !strings.Contains(r.Body, `"code":"superseded"`) {
+		t.Fatalf("setDial on home = %d %s, want 200, or 409 superseded", r.Status, r.Body)
 	}
 	worldtest.Until(t, "home is Superseded", func() (bool, error) {
 		return w.superseded(t, "home"), nil
@@ -481,9 +483,11 @@ func TestAHostileWorkersReplyRaisesOnlyHealth(t *testing.T) {
 	if out := w.must(t, "join", "--data-dir", w.dataDir("seedbox"), minted.Code); !strings.Contains(out, "joined office as seedbox") {
 		t.Fatalf("slipstream join printed %q, want seedbox joined to office", out)
 	}
+	// seedbox tells home itself once it reaches it, so home may already
+	// be Superseded and refuse the dial.
 	address := w.must(t, "node-address", "--data-dir", w.dataDir("seedbox"))
-	if r := w.a.Admin("home", http.MethodPut, "/api/v1/nodes/"+seedbox+"/dial", `{"nodeAddress":`+quote(address[strings.LastIndex(address, "\n")+1:])+`}`); r.Status != http.StatusOK {
-		t.Fatalf("setDial on home = %d %s, want 200", r.Status, r.Body)
+	if r := w.a.Admin("home", http.MethodPut, "/api/v1/nodes/"+seedbox+"/dial", `{"nodeAddress":`+quote(address[strings.LastIndex(address, "\n")+1:])+`}`); r.Status != http.StatusOK && !strings.Contains(r.Body, `"code":"superseded"`) {
+		t.Fatalf("setDial on home = %d %s, want 200, or 409 superseded", r.Status, r.Body)
 	}
 	var fence struct {
 		State  string `json:"state"`
