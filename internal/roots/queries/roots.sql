@@ -98,3 +98,7 @@ ORDER BY r.id;
 SELECT work_id FROM roots_work
 WHERE root_id = sqlc.arg(root_id) AND work_id IN (sqlc.slice(work_ids))
 ORDER BY work_id;
+
+-- name: DeleteAllVolumes :exec
+-- A restore's samples were taken by the old Controller's machine.
+DELETE FROM roots_volume;

@@ -208,10 +208,14 @@ func RemoveKeyIn(ctx context.Context, tx *storage.Tx[file], key link.Key) error 
 }
 
 // DeleteSelfAddresses deletes the addresses recorded for the Node holding
-// key self, which the old Controller's machine gave.
+// key self, which the old Controller's machine gave. A library no
+// Controller started on holds no such row.
 func DeleteSelfAddresses(ctx context.Context, tx *storage.Tx[file], self link.Key) error {
 	q := db.New(tx)
 	row, err := q.GetNodeByKey(ctx, self[:])
+	if errors.Is(err, storage.ErrNoRows) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("find this Node's row: %w", err)
 	}
@@ -253,4 +257,20 @@ func supersededProto(ps []link.SupersededProof) []*linkv1.SupersededProof {
 		out[i] = &linkv1.SupersededProof{OldKey: p.Key[:], Proof: p.Proof}
 	}
 	return out
+}
+
+// RemovedSince is the key of each Node removed at or after since, which a
+// restore in place of a Backup taken at since removes again.
+func RemovedSince(ctx context.Context, r storage.Reader[file], since time.Time) ([]link.Key, error) {
+	rows, err := db.New(r).ListRemovedSince(ctx, storage.FromTime(since))
+	if err != nil {
+		return nil, fmt.Errorf("list the Nodes removed since the Backup: %w", err)
+	}
+	out := make([]link.Key, len(rows))
+	for i, b := range rows {
+		if out[i], err = link.KeyFromBytes(b); err != nil {
+			return nil, fmt.Errorf("a removed Node's key: %w", err)
+		}
+	}
+	return out, nil
 }

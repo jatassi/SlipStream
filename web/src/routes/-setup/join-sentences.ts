@@ -36,6 +36,10 @@ export const joinSentences: {
   readonly [C in JoinRefusal]: { readonly text: string; readonly next: JoinNext };
 } = {
   invalid: { text: "Enter the Join Code from Add a Node.", next: "retry" },
+  lifecycle_busy: {
+    text: "A restore is running on this Node. Wait for it to finish, then try again.",
+    next: "retry",
+  },
   join_code_damaged: {
     text: "That Join Code is incomplete or has a wrong character. Copy it again from Add a Node on your SlipStream.",
     next: "retry",

@@ -13,6 +13,16 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const deleteAllItems = `-- name: DeleteAllItems :exec
+DELETE FROM health_item
+`
+
+// A restore's items were the old Controller's; each check raises its own again.
+func (q *Queries) DeleteAllItems(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllItems)
+	return err
+}
+
 const deleteCategory = `-- name: DeleteCategory :exec
 DELETE FROM health_item WHERE category = ?1
 `

@@ -203,6 +203,15 @@ func (q *Queries) DeleteReview(ctx context.Context, torrentID downloadclients.ID
 	return err
 }
 
+const deleteReviews = `-- name: DeleteReviews :exec
+DELETE FROM reconciling_torrent
+`
+
+func (q *Queries) DeleteReviews(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteReviews)
+	return err
+}
+
 const deleteRoots = `-- name: DeleteRoots :exec
 DELETE FROM reconciling_root
 `
@@ -321,7 +330,7 @@ func (q *Queries) Holds(ctx context.Context, arg HoldsParams) (bool, error) {
 
 const insertNode = `-- name: InsertNode :exec
 INSERT INTO reconciling_node (node_id, cause, since, round)
-VALUES (?1, ?2, ?3, 1)
+VALUES (?1, ?2, ?3, ?4)
 ON CONFLICT (node_id) DO NOTHING
 `
 
@@ -329,11 +338,17 @@ type InsertNodeParams struct {
 	NodeID role.NodeID
 	Cause  string
 	Since  storage.Time
+	Round  int64
 }
 
 // A Node already keeping keeps its round.
 func (q *Queries) InsertNode(ctx context.Context, arg InsertNodeParams) error {
-	_, err := q.db.ExecContext(ctx, insertNode, arg.NodeID, arg.Cause, arg.Since)
+	_, err := q.db.ExecContext(ctx, insertNode,
+		arg.NodeID,
+		arg.Cause,
+		arg.Since,
+		arg.Round,
+	)
 	return err
 }
 
@@ -1005,6 +1020,19 @@ type SetAdoptedParams struct {
 func (q *Queries) SetAdopted(ctx context.Context, arg SetAdoptedParams) error {
 	_, err := q.db.ExecContext(ctx, setAdopted, arg.At, arg.GrantedAt, arg.NodeID)
 	return err
+}
+
+const setAnnounced = `-- name: SetAnnounced :execrows
+UPDATE reconciling_state SET announced_at = ?1 WHERE announced_at IS NULL
+`
+
+// The restore's History rows go out once.
+func (q *Queries) SetAnnounced(ctx context.Context, at storage.Time) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setAnnounced, at)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const setLooked = `-- name: SetLooked :exec

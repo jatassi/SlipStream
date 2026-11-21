@@ -149,6 +149,28 @@ func (q *Queries) GiveUp(ctx context.Context, arg GiveUpParams) (int64, error) {
 	return result.RowsAffected()
 }
 
+const giveUpDueBefore = `-- name: GiveUpDueBefore :execrows
+UPDATE notifications_delivery
+SET state = 'given_up', ended_at = ?1, reason = ?2
+WHERE state = 'due' AND at < ?3
+`
+
+type GiveUpDueBeforeParams struct {
+	EndedAt storage.Time
+	Reason  *string
+	Before  storage.Time
+}
+
+// A restore gives up what was due before its Backup was taken: the old
+// Controller most likely sent it already.
+func (q *Queries) GiveUpDueBefore(ctx context.Context, arg GiveUpDueBeforeParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, giveUpDueBefore, arg.EndedAt, arg.Reason, arg.Before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const insertDelivery = `-- name: InsertDelivery :exec
 INSERT INTO notifications_delivery (event_id, connection_id, kind, at, state, attempts, items, accepted)
 VALUES (?1, ?2, ?3, ?4, 'due', 0, ?5, '[]')

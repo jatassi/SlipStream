@@ -72,10 +72,11 @@ func ExitCode(err error) int {
 	var refused *storage.RefusedError
 	var record *RecordError
 	var hook *backups.HookError
+	var restore *RestoreError
 	switch {
 	case err == nil, errors.Is(err, ErrStopped):
 		return ExitOK
-	case errors.As(err, &usage), errors.As(err, &cfg):
+	case errors.As(err, &usage), errors.As(err, &cfg), errors.As(err, &restore):
 		return ExitUsage
 	case errors.As(err, &inUse):
 		return ExitInUse

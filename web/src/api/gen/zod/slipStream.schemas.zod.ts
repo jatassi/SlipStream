@@ -289,6 +289,20 @@ export const CheckFolderInputBody = zod.object({
 export type CheckFolderInputBody = zod.input<typeof CheckFolderInputBody>;
 export type CheckFolderInputBodyOutput = zod.output<typeof CheckFolderInputBody>;
 
+export const confirmRestoreInputBodyRemoveMax = 10;
+
+export const ConfirmRestoreInputBody = zod.object({
+  oldControllerOff: zod.boolean().describe("Required for a Backup of another machine"),
+  remove: zod
+    .array(zod.string())
+    .max(confirmRestoreInputBodyRemoveMax)
+    .nullish()
+    .describe("The Nodes to leave out of the restored library"),
+});
+
+export type ConfirmRestoreInputBody = zod.input<typeof ConfirmRestoreInputBody>;
+export type ConfirmRestoreInputBodyOutput = zod.output<typeof ConfirmRestoreInputBody>;
+
 export const NotificationsStatus = zod.object({
   givenUp: zod
     .int()
@@ -9849,6 +9863,15 @@ export const NotificationsTestPassed = zod.object({
 export type NotificationsTestPassed = zod.input<typeof NotificationsTestPassed>;
 export type NotificationsTestPassedOutput = zod.output<typeof NotificationsTestPassed>;
 
+export const openRestoreInputBodyPassphraseMax = 1024;
+
+export const OpenRestoreInputBody = zod.object({
+  passphrase: zod.string().min(1).max(openRestoreInputBodyPassphraseMax),
+});
+
+export type OpenRestoreInputBody = zod.input<typeof OpenRestoreInputBody>;
+export type OpenRestoreInputBodyOutput = zod.output<typeof OpenRestoreInputBody>;
+
 export const ownPatchInputBodyDisplayNameMax = 100;
 
 export const OwnPatchInputBody = zod.object({
@@ -10276,6 +10299,37 @@ export const ResetLinkInputBody = zod.object({
 
 export type ResetLinkInputBody = zod.input<typeof ResetLinkInputBody>;
 export type ResetLinkInputBodyOutput = zod.output<typeof ResetLinkInputBody>;
+
+export const RestoreSummaryNode = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type RestoreSummaryNode = zod.input<typeof RestoreSummaryNode>;
+export type RestoreSummaryNodeOutput = zod.output<typeof RestoreSummaryNode>;
+
+export const RestoreSummary = zod.object({
+  controller: zod.string().describe("The name of the Controller the Backup is of"),
+  newMachine: zod
+    .boolean()
+    .describe("The Backup is of another machine. Confirm that its Controller stays off"),
+  nodes: zod
+    .array(RestoreSummaryNode)
+    .nullable()
+    .describe("Every Node the Backup lists, the Controller first"),
+  takenAt: zod.iso.datetime({ offset: true }),
+  version: zod.string().describe("The SlipStream version that took the Backup"),
+});
+
+export type RestoreSummary = zod.input<typeof RestoreSummary>;
+export type RestoreSummaryOutput = zod.output<typeof RestoreSummary>;
+
+export const RestoreUploaded = zod.object({
+  id: zod.string().describe("Names the upload in the open and confirm steps"),
+});
+
+export type RestoreUploaded = zod.input<typeof RestoreUploaded>;
+export type RestoreUploadedOutput = zod.output<typeof RestoreUploaded>;
 
 export const RootSettingsInputBody = zod.object({
   sampleEvery: zod.int().nullish().describe("Seconds; null resets it to its default"),
@@ -11437,6 +11491,11 @@ export const SystemStatus = zod.object({
   removed: SystemRemoved.exactOptional().describe(
     "Set on an Unclaimed Node its Controller removed, until it joins again",
   ),
+  startedAt: zod.iso
+    .datetime({ offset: true })
+    .describe(
+      "When this process started. A page waiting out a restart reads a later one once the Node is back",
+    ),
 });
 
 export type SystemStatus = zod.input<typeof SystemStatus>;

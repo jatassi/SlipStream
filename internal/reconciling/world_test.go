@@ -17,6 +17,8 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -57,7 +59,8 @@ type world struct {
 	ended   int
 	forgot  int
 	// onDisk is each save folder whose files every Node still has.
-	onDisk map[string]bool
+	onDisk  map[string]bool
+	history *entrytest.Recorder
 }
 
 const holdingsMax = 100_000
@@ -82,8 +85,11 @@ func idle(t *testing.T, page int) *world {
 
 // start runs a reconciling Service over w's library until ctx ends.
 func (w *world) start(ctx context.Context) {
+	var rec entry.Recorder
+	rec, w.history = entrytest.New("reconciling", reconciling.Entries())
 	w.keeper = reconciling.New(reconciling.Config{
 		Library: w.lib,
+		History: &rec,
 		Touch: func(ids ...role.NodeID) {
 			w.mu.Lock()
 			defer w.mu.Unlock()

@@ -2,6 +2,7 @@ package surface_test
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"strings"
 	"testing"
@@ -140,3 +141,19 @@ func TestTheAccessWalkPassesOnAWorker(t *testing.T) {
 func (worker) OpenIn(context.Context, works.WorkID) ([]mediaservers.OpenIn, error) { return nil, nil }
 
 func (worker) Reconciling() (*reconciling.Service, bool) { return nil, false }
+
+func (worker) ReceiveRestore(context.Context, io.Reader) (string, error) {
+	panic("a Worker's closed gate admitted uploadRestore")
+}
+
+func (worker) UploadRoom(context.Context) (int64, error) {
+	panic("a Worker's closed gate admitted uploadRestore")
+}
+
+func (worker) OpenRestore(context.Context, string, string) (backups.Summary, error) {
+	panic("a Worker's closed gate admitted openRestore")
+}
+
+func (worker) RestoreController(context.Context, string, backups.Confirm) error {
+	panic("a Worker's closed gate admitted confirmRestore")
+}

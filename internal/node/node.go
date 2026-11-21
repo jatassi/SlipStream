@@ -96,6 +96,8 @@ type Env struct {
 	// Zone is where the Maintenance window's wall-clock times are kept;
 	// nil is the process's own, time.Local.
 	Zone *time.Location
+	// Restore is the restore the Docker variables ask for, nil for none.
+	Restore *EnvRestore
 	// Test adds test-only Roles; a process leaves it zero.
 	Test Test
 }
@@ -106,6 +108,10 @@ type Env struct {
 // default.
 func ProcessEnv(cmd, dataDirFlag string) (Env, error) {
 	environ, follows, err := restartOf(os.Environ())
+	if err != nil {
+		return Env{}, &UsageError{Err: err}
+	}
+	environ, restore, err := envRestore(environ)
 	if err != nil {
 		return Env{}, &UsageError{Err: err}
 	}
@@ -155,6 +161,7 @@ func ProcessEnv(cmd, dataDirFlag string) (Env, error) {
 		Disk:      OSDisk,
 		Restart:   processRestart(layout.Executable, os.Args, environ, dir.LogsDir(), os.Stderr),
 		RestartOf: follows,
+		Restore:   restore,
 	}, nil
 }
 
@@ -275,6 +282,9 @@ type Node struct {
 	// claimMu serializes claims, so a Controller claim and a Join never
 	// interleave.
 	claimMu sync.Mutex
+	// restoreMu guards pending, the first-run page's restore.
+	restoreMu sync.Mutex
+	pending   *pendingRestore
 
 	stopOnce sync.Once
 	stopping chan struct{}
@@ -469,7 +479,10 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	}
 	// The claimed half stops before the torrent engine closes under it.
 	n.claimed = n.stack.Sub("claimed")
-	if err := n.resumeLifecycle(); err != nil {
+	if err := n.restoreFromEnv(ctx); err != nil {
+		return 0, "", err
+	}
+	if err := n.resumeLifecycle(ctx); err != nil {
 		return 0, "", err
 	}
 	if n.backups, err = backupsEngine(n.env.DataDir, cfg, n.disk, n.key.Public(), n.env.Version, n.librarySchemas(), n.rootLog.With("subsystem", "backups")); err != nil {

@@ -6,7 +6,9 @@ package reconciling
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/reconciling/internal/db"
@@ -97,7 +100,7 @@ type BeginArgs struct {
 // scan. In place, every root is saved where it is.
 func Begin(ctx context.Context, tx *storage.Tx[file], b BeginArgs) error {
 	q := db.New(tx)
-	for _, del := range []func(context.Context) error{q.DeleteState, q.DeleteNodes, q.DeleteRoots} {
+	for _, del := range []func(context.Context) error{q.DeleteState, q.DeleteReviews, q.DeleteNodes, q.DeleteRoots} {
 		if err := del(ctx); err != nil {
 			return fmt.Errorf("begin Reconciling: %w", err)
 		}
@@ -119,7 +122,7 @@ func Begin(ctx context.Context, tx *storage.Tx[file], b BeginArgs) error {
 		return err
 	}
 	for _, n := range named {
-		if err := q.InsertNode(ctx, db.InsertNodeParams{NodeID: n.ID, Cause: string(Restore), Since: now}); err != nil {
+		if err := q.InsertNode(ctx, db.InsertNodeParams{NodeID: n.ID, Cause: string(Restore), Since: now, Round: freshRound()}); err != nil {
 			return fmt.Errorf("keep %s's torrents: %w", n.Name, err)
 		}
 	}
@@ -135,10 +138,19 @@ func Begin(ctx context.Context, tx *storage.Tx[file], b BeginArgs) error {
 	return nil
 }
 
+// freshRound is a Holdings round no Node was asked for before. A Worker
+// sends each round once while it runs, so a restore that asked its
+// Workers for round 1 again would wait on each one until it restarted.
+func freshRound() int64 {
+	var b [8]byte
+	_, _ = rand.Read(b[:])
+	return int64(binary.BigEndian.Uint64(b[:])>>11) + 1
+}
+
 // Paired is nodes.Config.Paired: a newly paired Node keeps every torrent
 // until its first Holdings are adopted.
 func Paired(ctx context.Context, tx *storage.Tx[file], node nodes.ID) error {
-	if err := db.New(tx).InsertNode(ctx, db.InsertNodeParams{NodeID: node, Cause: "pairing", Since: storage.Now()}); err != nil {
+	if err := db.New(tx).InsertNode(ctx, db.InsertNodeParams{NodeID: node, Cause: "pairing", Since: storage.Now(), Round: freshRound()}); err != nil {
 		return fmt.Errorf("keep a new Node's torrents: %w", err)
 	}
 	return nil
@@ -195,6 +207,8 @@ type Config struct {
 	// Forgot runs once a Forget commits: its Grabs fail.
 	Forgot  func()
 	Changed ChangedPublisher
+	// History is bound once the History catalog opens, before Run.
+	History *entry.Recorder
 	Log     *slog.Logger
 }
 
@@ -289,6 +303,9 @@ const retryAfter = time.Minute
 // Run adopts each Node's Holdings once its round is in, and ends
 // Reconciling once nothing is left to wait for.
 func (s *Service) Run(ctx context.Context) error {
+	if err := s.announce(ctx); err != nil && ctx.Err() == nil {
+		s.cfg.Log.Error("SlipStream couldn't record the restore in History", "err", err)
+	}
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 	for {

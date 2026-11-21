@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/joincode"
+	"github.com/jatassi/slipstream/internal/lifecycle"
 	"github.com/jatassi/slipstream/internal/pairing"
 )
 
@@ -117,7 +118,7 @@ func Routes(r *api.Router, j Joiner) {
 		Summary: "Join this Node to a Controller as a Worker with a Join Code. Returns 202 while it awaits the Controller's dial",
 		Status:  http.StatusCreated,
 		Also:    []int{http.StatusAccepted},
-		Errors:  []*api.Code{joinCodeDamaged, joinCodeUnknown, joinCodeExpired, joinCodeUsed, controllerKeyMismatch, api.JoinPending, nodeUnaddressed},
+		Errors:  []*api.Code{joinCodeDamaged, joinCodeUnknown, joinCodeExpired, joinCodeUsed, controllerKeyMismatch, api.JoinPending, nodeUnaddressed, api.LifecycleBusy},
 	}, func(ctx context.Context, _ identity.Claim, in *joinInput) (*claimOutput, error) {
 		code, err := joincode.Parse(in.Body.Code)
 		if err != nil {
@@ -144,6 +145,9 @@ func Routes(r *api.Router, j Joiner) {
 			}
 			if e, ok := errors.AsType[*pairing.Error](res.err); ok {
 				return nil, refusals[e.Kind]
+			}
+			if errors.Is(res.err, lifecycle.ErrBusy) {
+				return nil, api.LifecycleBusy
 			}
 			if res.err != nil {
 				return nil, res.err

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -41,9 +42,15 @@ func markedEnv(t *testing.T) Env {
 	return env
 }
 
-// openMarked opens the library in dir as a Node does and writes value to
-// its marker.
-func openMarked(t *testing.T, env Env, dir DataDir, value string) *libraryDB {
+// migrated holds, per marker value and schema sets, a data dir whose library every set has
+// already migrated. Migrating a fresh library takes most of a minute under
+// -race on a busy runner, so each test copies one instead.
+var migrated = struct {
+	sync.Mutex
+	dirs map[string]DataDir
+}{dirs: map[string]DataDir{}}
+
+func openLibraryIn(t *testing.T, env Env, dir DataDir) *libraryDB {
 	t.Helper()
 	lib, err := openLibraryFiles(t.Context(), libraryFiles{
 		dir:     dir,
@@ -55,6 +62,47 @@ func openMarked(t *testing.T, env Env, dir DataDir, value string) *libraryDB {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return lib
+}
+
+// seedMigrated puts a migrated, unmarked library and its key in dir. Each
+// value has its own, so the old and restored libraries of one test hold
+// different keys.
+func seedMigrated(t *testing.T, env Env, dir DataDir, value string) {
+	t.Helper()
+	migrated.Lock()
+	defer migrated.Unlock()
+	sets := []string{value}
+	for _, set := range append(LibrarySchemas(env.Types), env.Test.Library...) {
+		sets = append(sets, set.Set())
+	}
+	key := strings.Join(sets, " ")
+	from, ok := migrated.dirs[key]
+	if !ok {
+		path, err := os.MkdirTemp("", "ssm") //nolint:usetesting // shared by every test in the process
+		if err != nil {
+			t.Fatal(err)
+		}
+		if from, err = ParseDataDir(path); err != nil {
+			t.Fatal(err)
+		}
+		if err := openLibraryIn(t, env, from).close(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		migrated.dirs[key] = from
+	}
+	copyFile(t, from.LibraryDB(), dir.LibraryDB())
+	copyFile(t, from.LibraryKey(), dir.LibraryKey())
+}
+
+// openMarked opens the library in dir as a Node does and writes value to
+// its marker.
+func openMarked(t *testing.T, env Env, dir DataDir, value string) *libraryDB {
+	t.Helper()
+	if _, err := os.Stat(dir.LibraryDB()); errors.Is(err, os.ErrNotExist) {
+		seedMigrated(t, env, dir, value)
+	}
+	lib := openLibraryIn(t, env, dir)
 	if err := lib.db.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO marker (value) VALUES (?)", value)
 		return err
@@ -140,7 +188,7 @@ func staged(t *testing.T, env Env) {
 }
 
 func stagedRestore() *lifecycle.Restore {
-	return &lifecycle.Restore{ID: "r1", Stage: lifecycle.Staged, Cause: lifecycle.ByRestore, Backup: lifecycle.Backup{Name: "slipstream-20261114T040012Z-2.1.0-manual-7k3m.tar.zst.age", Version: "2.1.0"}}
+	return &lifecycle.Restore{ID: "r1", Stage: lifecycle.Staged, Cause: lifecycle.ByRestore, Backup: lifecycle.Backup{Name: "slipstream-20261114T040012Z-2.1.0-manual-7k3m.tar.zst.age", TakenAt: time.Date(2026, 11, 14, 4, 0, 12, 0, time.UTC), Version: "2.1.0"}}
 }
 
 var errCrash = errors.New("crash")
@@ -433,10 +481,12 @@ func TestRestartNodeWaitsForReady(t *testing.T) {
 		status, err := RestartNode(t.Context(), client)
 		done <- restarted{status, err}
 	}()
+	// The successor migrates the whole staged library before it reaches the
+	// restore, which takes most of a minute under -race on a busy runner.
 	select {
 	case <-reached:
-	case <-time.After(30 * time.Second):
-		t.Fatal("the successor didn't reach the restore within 30s")
+	case <-time.After(2 * time.Minute):
+		t.Fatal("the successor didn't reach the restore within 2m")
 	}
 	asked := counted.dials.Load()
 	deadline := time.Now().Add(30 * time.Second)

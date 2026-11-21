@@ -177,6 +177,11 @@ func expect(t *testing.T, r reply, status int, body string) {
 	}
 }
 
+// statusOf is getStatus's body on n for claim, at the address the tests use.
+func statusOf(n *Node, claim string) string {
+	return `{"claim":"` + claim + `","startedAt":"` + n.started.Format(time.RFC3339Nano) + `","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"
+}
+
 // keyOf regenerates the API key with the session claimed's cookie set,
 // since a claim never shows the key.
 func keyOf(t *testing.T, c client, claimed reply) string {

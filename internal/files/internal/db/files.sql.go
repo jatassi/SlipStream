@@ -164,6 +164,17 @@ func (q *Queries) CountMovingOfWork(ctx context.Context, workID works.WorkID) (i
 	return count, err
 }
 
+const deleteAllMoves = `-- name: DeleteAllMoves :exec
+DELETE FROM files_move
+`
+
+// A restore drops the moves and renames the Backup caught queued. The scan
+// after it finds each file where it is.
+func (q *Queries) DeleteAllMoves(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllMoves)
+	return err
+}
+
 const deleteDoomed = `-- name: DeleteDoomed :exec
 DELETE FROM files_doomed WHERE file_id = ?1
 `

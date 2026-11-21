@@ -592,6 +592,35 @@ func (q *Queries) ListRemovedNodes(ctx context.Context) ([]ListRemovedNodesRow, 
 	return items, nil
 }
 
+const listRemovedSince = `-- name: ListRemovedSince :many
+SELECT removed_key FROM nodes_node WHERE removed_at >= ?1 ORDER BY removed_at, id
+`
+
+// The keys of the Nodes removed at or after a time: a restore in place
+// removes them again from the library it restores.
+func (q *Queries) ListRemovedSince(ctx context.Context, since storage.Time) ([][]byte, error) {
+	rows, err := q.db.QueryContext(ctx, listRemovedSince, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items [][]byte
+	for rows.Next() {
+		var removed_key []byte
+		if err := rows.Scan(&removed_key); err != nil {
+			return nil, err
+		}
+		items = append(items, removed_key)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRoles = `-- name: ListRoles :many
 SELECT node_id, role, assigned_at FROM nodes_role ORDER BY node_id, role
 `

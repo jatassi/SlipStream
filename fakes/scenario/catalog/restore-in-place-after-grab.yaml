@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  home and the Worker seedbox, for restoring in place over a Grab. home
+  holds every Role but Searching, Downloading, Acquire and Relaying, and
+  seedbox holds Searching and Downloading. The site lists one seeded 1080p
+  release of a movie. A run takes a Backup on home, adds and grabs the
+  movie, then restores the Backup with slipstream restore on the running
+  home: it restarts Reconciling, and seedbox keeps the torrent the Backup
+  doesn't know until home adopts it.
+seed: restore-in-place-after-grab
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [storage, converting, subtitles, metadata, media-server-link, notifying, serving]
+  - name: seedbox
+    setup: join
+    roles: [searching, downloading]
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - id: 9300001
+      imdb_id: tt9300001
+      title: The Quiet Orchard
+      released: 2000-05-01
+      runtime: 95m
+releases:
+  - name: The.Quiet.Orchard.2000.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300001
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]

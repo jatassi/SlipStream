@@ -37,6 +37,9 @@ type Ledger struct {
 	// StartedVersion is the version of the last binary that started on the
 	// library.
 	StartedVersion string
+	// PassphraseConfirmedAt is when the Admin last showed they hold the
+	// current passphrase, zero until then.
+	PassphraseConfirmedAt time.Time
 	// Destinations is in the order they were added.
 	Destinations []Destination
 	// Backups is newest first.
@@ -96,10 +99,11 @@ func (s *Sum) UnmarshalText(b []byte) error {
 }
 
 type indexFile struct {
-	Format         int           `json:"format"`
-	StartedVersion string        `json:"startedVersion"`
-	Destinations   []Destination `json:"destinations"`
-	Backups        []Entry       `json:"backups"`
+	Format                int           `json:"format"`
+	StartedVersion        string        `json:"startedVersion"`
+	PassphraseConfirmedAt time.Time     `json:"passphraseConfirmedAt,omitzero"`
+	Destinations          []Destination `json:"destinations"`
+	Backups               []Entry       `json:"backups"`
 }
 
 // OpenIndex reads path. A missing file is an empty Ledger.
@@ -134,7 +138,7 @@ func decodeIndex(b []byte) (Ledger, error) {
 	if err := dec.Decode(&f); err != nil {
 		return Ledger{}, fmt.Errorf("decode: %w", err)
 	}
-	return Ledger{StartedVersion: f.StartedVersion, Destinations: f.Destinations, Backups: f.Backups}, nil
+	return Ledger{StartedVersion: f.StartedVersion, PassphraseConfirmedAt: f.PassphraseConfirmedAt, Destinations: f.Destinations, Backups: f.Backups}, nil
 }
 
 func encodeIndex(l Ledger) ([]byte, error) {
@@ -145,7 +149,7 @@ func encodeIndex(l Ledger) ([]byte, error) {
 	if destinations == nil {
 		destinations = []Destination{}
 	}
-	b, err := json.MarshalIndent(indexFile{Format: indexFormat, StartedVersion: l.StartedVersion, Destinations: destinations, Backups: backups}, "", "  ")
+	b, err := json.MarshalIndent(indexFile{Format: indexFormat, StartedVersion: l.StartedVersion, PassphraseConfirmedAt: l.PassphraseConfirmedAt, Destinations: destinations, Backups: backups}, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("encode %s: %w", IndexFile, err)
 	}
@@ -197,7 +201,7 @@ func (x *Index) Bytes() ([]byte, error) {
 }
 
 func (l *Ledger) clone() Ledger {
-	out := Ledger{StartedVersion: l.StartedVersion, Destinations: slices.Clone(l.Destinations), Backups: slices.Clone(l.Backups)}
+	out := Ledger{StartedVersion: l.StartedVersion, PassphraseConfirmedAt: l.PassphraseConfirmedAt, Destinations: slices.Clone(l.Destinations), Backups: slices.Clone(l.Backups)}
 	for i := range out.Backups {
 		e := &out.Backups[i]
 		e.Schemas, e.Copies = maps.Clone(e.Schemas), slices.Clone(e.Copies)

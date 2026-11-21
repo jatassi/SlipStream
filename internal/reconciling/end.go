@@ -69,6 +69,25 @@ func Waiting(ctx context.Context, r storage.Reader[file]) (Waits, error) {
 	return w, nil
 }
 
+// nothingLeft is whether a Reconciling runs and waits on nothing: the old
+// Controller's folders are found, and every Node and root is done or
+// continued without.
+func nothingLeft(ctx context.Context, q *db.Queries) (bool, error) {
+	state, err := q.GetState(ctx)
+	if errors.Is(err, storage.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil || state.RehomeSavedAt.IsZero() {
+		return false, err
+	}
+	nodesLeft, err := q.CountFinished(ctx)
+	if err != nil || nodesLeft > 0 {
+		return false, err
+	}
+	rootsLeft, err := q.CountUnscanned(ctx)
+	return err == nil && rootsLeft == 0, err
+}
+
 // tryEnd ends Reconciling in one Write once the old Controller's folders
 // are found, every Node's Holdings are adopted or it was continued
 // without, and every root has scanned or was continued without. That
@@ -79,22 +98,7 @@ func (s *Service) tryEnd(ctx context.Context) error {
 	var touched []role.NodeID
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
-		state, err := q.GetState(ctx)
-		if errors.Is(err, storage.ErrNoRows) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if state.RehomeSavedAt.IsZero() {
-			return nil
-		}
-		nodesLeft, err := q.CountFinished(ctx)
-		if err != nil || nodesLeft > 0 {
-			return err
-		}
-		rootsLeft, err := q.CountUnscanned(ctx)
-		if err != nil || rootsLeft > 0 {
+		if done, err := nothingLeft(ctx, q); err != nil || !done {
 			return err
 		}
 		if err := q.DeleteRoots(ctx); err != nil {
@@ -103,7 +107,11 @@ func (s *Service) tryEnd(ctx context.Context) error {
 		if err := q.DeleteState(ctx); err != nil {
 			return err
 		}
+		var err error
 		if touched, err = s.readdIn(ctx, tx); err != nil {
+			return err
+		}
+		if err := FinishedRow.Record(ctx, tx, *s.cfg.History, FinishedFacts{}); err != nil {
 			return err
 		}
 		ended = true

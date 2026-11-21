@@ -81,7 +81,13 @@ export type LiveMap = { [N in LiveEventName]: PayloadOf<N> };
 
 export const noPasskeys: SystemPasskeys = { available: false, reason: "plain_http" };
 
-const controller = getGetStatusMockHandler({ claim: "controller", passkeys: noPasskeys });
+export const startedAt = "2026-11-01T09:00:00Z";
+
+const controller = getGetStatusMockHandler({
+  claim: "controller",
+  passkeys: noPasskeys,
+  startedAt,
+});
 const nothingMoving = getGetCountsMockHandler({
   activity: 0,
   downloads: { done: 0, wanted: 0, allPaused: false },

@@ -67,6 +67,16 @@ func (q *Queries) CountWorksByRoot(ctx context.Context) ([]CountWorksByRootRow, 
 	return items, nil
 }
 
+const deleteAllVolumes = `-- name: DeleteAllVolumes :exec
+DELETE FROM roots_volume
+`
+
+// A restore's samples were taken by the old Controller's machine.
+func (q *Queries) DeleteAllVolumes(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllVolumes)
+	return err
+}
+
 const deleteRoot = `-- name: DeleteRoot :exec
 DELETE FROM roots_root WHERE id = ?1
 `
