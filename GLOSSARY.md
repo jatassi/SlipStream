@@ -194,7 +194,7 @@ _In UI_: none until it ships.
 _Avoid_: Failover, promotion, migration
 
 **Backup**:
-An encrypted copy of the Controller's library database, from which a Node can be restored as Controller. It never holds the Controller's key.
+An encrypted, checked copy of the Controller's library database and library.key, from which a Node can be restored as Controller. It never holds the Node key.
 _In UI_: "Backup".
 _Avoid_: Config backup, snapshot, dump, export
 
@@ -202,6 +202,16 @@ _Avoid_: Config backup, snapshot, dump, export
 A folder on a Node that receives a copy of every Backup.
 _In UI_: "Backup destination".
 _Avoid_: Backup target, backup location, remote
+
+**Backup passphrase**:
+The ten generated words that encrypt every new Backup. The Controller keeps a copy, and the Admin needs it only to restore a Backup on another machine.
+_In UI_: "Backup passphrase", or "passphrase" inside Settings > Backups.
+_Avoid_: Backup password, encryption key, recovery key
+
+**Recovery sheet**:
+A text file with the Backup passphrase, each folder that holds Backups and the steps to restore, which the Admin keeps away from the Controller.
+_In UI_: "recovery sheet".
+_Avoid_: Recovery kit, emergency kit, recovery file
 
 **Reconciling**:
 The state every restored Controller starts in, including after a manual rollback, until it matches the Backup to what Nodes hold: each Node keeps every torrent it holds, the Controller adopts the ones it doesn't know, and work in flight from the Backup pauses. Nothing searches, blocklists, or removes or renames a torrent or file until it finishes.
@@ -670,7 +680,7 @@ _In UI_: "Member".
 _Avoid_: Portal user, user, guest
 
 **Setup code**:
-A one-time code a fresh install prints to its console and log, which unlocks its first-run page to create the first Admin, join a SlipStream or restore a Backup.
+A one-time code a fresh install prints to its console and log, which unlocks its first-run page to create the first Admin, join a SlipStream or restore a Backup. A recovery sheet names it as the way into a new machine's restore.
 _In UI_: "Setup code".
 _Avoid_: Bootstrap token, install key
 
