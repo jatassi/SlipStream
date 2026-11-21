@@ -9,7 +9,7 @@ const indicators: { readonly [T in AlertTone | "plain"]: string } = {
 };
 
 // Base UI appends a hidden "x" to the meter's children, as it does to a
-// progress bar's (see live-bar.tsx).
+// progress bar's (see progress.tsx).
 export function Meter({
   label,
   value,

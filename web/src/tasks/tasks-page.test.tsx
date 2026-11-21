@@ -198,7 +198,7 @@ test("a tasks.progress frame moves a running row's bar", async () => {
     },
   });
   const app = renderApp({ path: "/tasks", handlers: [...server.handlers, ...tasks.handlers] });
-  const bar = page.getByRole("progressbar", { name: "Backlog search progress" });
+  const bar = row("Backlog search").getByRole("progressbar", { name: "Backlog search progress" });
   await expect.element(bar).toHaveAttribute("aria-valuenow", "25");
   await expect.poll(() => app.live.getState()).toBe("open");
 

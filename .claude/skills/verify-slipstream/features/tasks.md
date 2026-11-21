@@ -5,8 +5,8 @@ The Controller runs each Scheduled task on its cadence and records every run wit
 ## Sub-features
 
 - `tasks-page` the Tasks page reads `Every task ran as scheduled.`, then the `Controller` group's table with Housekeeping, its cadence `Daily in the Maintenance window`, its last run, its next run `Tonight at 4:00 AM` and its Nodes `home, seedbox` in a `Nodes` column; every group's table keeps the same column edges, at any width, without clipping a cell (P-228).
-- `tasks-run-now` `Run now` starts a run at once, the row shows `Running since <time>` with live progress and `Cancel` in its place, a second Run now over the API answers 409 `task_running` with `The task has been running since <time>.` in the Node's zone, and the row ends `Succeeded` with `12 steps` (P-228).
-- `tasks-capsule` the desktop top bar shows `1 task running: Housekeeping` between the connection line and the page action, and its popover `Running tasks` lists the run with `home, seedbox · <n> of 12 steps`, a meter and `Cancel`; a scheduled run shows only after the header delay (P-007, P-008).
+- `tasks-run-now` `Run now` starts a run at once, the row shows `<n> of 12 steps` and `Running since <time>` over a live bar and `Cancel` in its place, a second Run now over the API answers 409 `task_running` with `The task has been running since <time>.` in the Node's zone, and the row ends `Succeeded` with `12 steps` (P-228).
+- `tasks-capsule` the desktop top bar shows `1 task running: Housekeeping` between the connection line and the page action, and its popover `Running tasks` lists the run with `<n> of 12 steps` and `home, seedbox` over a progressbar, and `Cancel`; a scheduled run shows only after the header delay (P-007, P-008).
 - `tasks-phone-running` on phone the same list, `Running tasks`, heads Activity while the run is open, and Activity's count and Home's colour never count it (P-007, P-008).
 - `tasks-detail` `/tasks/housekeeping` reads the last result and the next run, the cadence, the overdue rule and `Keep history for` at `90 days` (Housekeeping's Tuning; 20 days is refused) under `When it runs`, the `Units` table with each unit's last outcome, last success and cause, a unit's Node linking to that Node's page and a removed Node reading `<name> (removed)`, and the `Runs` list newest first, each run expanding to its units (P-228).
 - `tasks-partial` with seedbox stopped, Run now ends `Partial` with `8 of 12 steps, seedbox offline`, and the unit `Local database on seedbox` reads `Skipped` with `seedbox is offline. Runs when seedbox reconnects.` (P-228).
@@ -41,7 +41,7 @@ Steps:
   $FW exec $RUN --proof tasks/tasks-page -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/tasks'
   ```
 
-- **Run now with the capsule.** Slow the link, then choose `Run now: Housekeeping`. The capsule reads `1 task running: Housekeeping` at once, and its popover lists `home, seedbox · <n> of 12 steps` with `Cancel`. A second Run now over the API answers 409 `task_running`.
+- **Run now with the capsule.** Slow the link, then choose `Run now: Housekeeping`. The capsule reads `1 task running: Housekeeping` at once, and its popover lists `<n> of 12 steps` and `home, seedbox` with `Cancel`. A second Run now over the API answers 409 `task_running`.
 
   ```sh
   $FW fault set $RUN slow-link link/home latency=3s

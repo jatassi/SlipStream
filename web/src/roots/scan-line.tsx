@@ -1,6 +1,6 @@
 import type { RootsRunning, RootsScan } from "../api/gen/model";
+import { ProgressCell, percentOf } from "../ui/progress";
 import { RelativeTime } from "../ui/relative-time";
-import { Meter } from "../ui/meter";
 import { filesWords } from "./refused";
 
 const counted = new Intl.NumberFormat("en");
@@ -16,13 +16,17 @@ function runningWords({ phase, done, total }: RootsRunning): string {
 
 function Running({ running }: { running: RootsRunning }) {
   const words = runningWords(running);
+  if (running.phase !== "probing" || running.total === null) {
+    return <span className="text-meta text-ink-2">{words}</span>;
+  }
   return (
-    <span className="flex max-w-80 flex-col gap-1 text-meta text-ink-2">
-      {words}
-      {running.phase === "probing" && running.total !== null && (
-        <Meter label={words} value={running.done} max={running.total} />
-      )}
-    </span>
+    <ProgressCell
+      label={words}
+      value={percentOf(running.done, running.total, 0)}
+      motion="live"
+      span="line"
+      amount={words}
+    />
   );
 }
 

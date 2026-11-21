@@ -1,10 +1,9 @@
 import type { TasksOpenRun } from "../api/gen/model";
 import { Data } from "../ui/data";
 import { LiveDot } from "../ui/live-chip";
-import { Meter } from "../ui/meter";
 import { Popover } from "../ui/popover";
+import { ProgressBar, percentOf } from "../ui/progress";
 import { RunningPanel, runMeterLabel, useVisibleRuns } from "./running";
-import { percentOf } from "./words";
 
 const capsuleLabel = (top: TasksOpenRun, count: number): string =>
   count === 1
@@ -30,7 +29,11 @@ export function TasksCapsule() {
           <Data className="shrink-0 text-ink-1">{runs.length}</Data>
           <span className="min-w-0 truncate">{top.name}</span>
           <span className="w-12 shrink-0">
-            <Meter label={runMeterLabel(top)} value={percentOf(top)} />
+            <ProgressBar
+              label={runMeterLabel(top)}
+              value={percentOf(top.done, top.total, 0)}
+              motion="settled"
+            />
           </span>
         </button>
       }

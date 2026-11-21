@@ -212,9 +212,6 @@ export function progressOf(row: Row, live: LiveRow | undefined): { done: number;
     : { done: live.done, wanted: live.wanted };
 }
 
-export const percentOf = ({ done, wanted }: { done: number; wanted: number }): number =>
-  wanted === 0 ? 100 : Math.floor((done / wanted) * 100);
-
 export function rateWords(bps: number): string {
   if (bps <= 0) {
     return "—";

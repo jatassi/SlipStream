@@ -1,7 +1,7 @@
 import type { RootsMissingFiles, RootsProgress } from "../api/gen/model";
 import { Callout } from "../ui/callout";
 import { Data } from "../ui/data";
-import { LiveBar } from "../ui/live-bar";
+import { ProgressBar, percentOf } from "../ui/progress";
 import { Spinner } from "../ui/spinner";
 import { filesWords } from "./refused";
 import { missingWords } from "./words";
@@ -22,7 +22,11 @@ export function RehomeProgress({ progress }: { progress: RootsProgress | undefin
   return (
     <div className="flex flex-col gap-2 text-ink-2">
       <p>{words}</p>
-      <LiveBar label={words} value={(progress.checked / progress.total) * 100} />
+      <ProgressBar
+        label={words}
+        value={percentOf(progress.checked, progress.total, 0)}
+        motion="live"
+      />
     </div>
   );
 }

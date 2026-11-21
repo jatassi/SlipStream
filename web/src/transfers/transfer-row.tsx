@@ -2,10 +2,10 @@ import type { TransfersTransfer } from "../api/gen/model";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
 import { Fact, Facts } from "../ui/facts";
-import { LiveBar } from "../ui/live-bar";
+import { ProgressCell, percentOf } from "../ui/progress";
 import { Mark } from "../ui/state-mark";
 import { transferTerms } from "./terms";
-import { headline, legOf, paceLine, percentOf, routeWords } from "./words";
+import { headline, legOf, paceLine, routeWords } from "./words";
 
 export function TransferRow({ transfer, nodeId }: { transfer: TransfersTransfer; nodeId: string }) {
   const leg = legOf(transfer, nodeId);
@@ -27,9 +27,14 @@ export function TransferRow({ transfer, nodeId }: { transfer: TransfersTransfer;
         summary={headline(transfer, leg)}
         action={
           copying && (
-            <span className="mt-1 flex w-full max-w-[360px] flex-col gap-1.5">
-              <Data className="text-meta text-ink-3">{paceLine(transfer)}</Data>
-              <LiveBar label={`Transferring ${transfer.jobName}`} value={percentOf(transfer)} />
+            <span className="mt-1 block w-full">
+              <ProgressCell
+                label={`Transferring ${transfer.jobName}`}
+                value={percentOf(transfer.verified, transfer.total, 100)}
+                motion="live"
+                span="line"
+                note={<Data>{paceLine(transfer)}</Data>}
+              />
             </span>
           )
         }

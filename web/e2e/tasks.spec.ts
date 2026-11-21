@@ -22,7 +22,7 @@ const seedboxUnit = (page: Page) =>
     .getByRole("table", { name: "Units" })
     .getByRole("row", { name: /Local database on seedbox/u });
 
-const progress = /home, seedbox · \d+ of 13 steps/u;
+const progress = /\d+ of 13 stepshome, seedbox/u;
 
 async function slowSeedbox(world: World): Promise<() => Promise<unknown>> {
   await world.fw.fault.set({ id: "slow-link", target: "link/home", fault: "latency=4s" });

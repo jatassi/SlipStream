@@ -72,12 +72,12 @@ test("the capsule lists each run with its Nodes and progress, and Cancel deletes
   const list = page.getByRole("dialog", { name: "Running tasks" });
   await expect
     .element(list.getByRole("listitem").nth(0))
-    .toMatchTextContent("home · 3 of 12 searches");
+    .toMatchTextContent("3 of 12 searcheshome");
   await expect
     .element(list.getByRole("listitem").nth(1))
-    .toMatchTextContent("home, seedbox · 0 of 6 steps");
+    .toMatchTextContent("0 of 6 stepshome, seedbox");
   await expect
-    .element(list.getByRole("meter", { name: "Backlog search progress" }))
+    .element(list.getByRole("progressbar", { name: "Backlog search progress" }))
     .toHaveAttribute("aria-valuenow", "25");
 
   await userEvent.click(list.getByRole("button", { name: "Cancel Backlog search" }));

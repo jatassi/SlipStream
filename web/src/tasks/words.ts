@@ -44,9 +44,6 @@ export const progressWords = (
   noun: Noun,
 ): string => `${done} of ${total} ${nounOf(total, noun)}`;
 
-export const percentOf = ({ done, total }: { done: number; total: number }): number =>
-  total === 0 ? 0 : Math.floor((done / total) * 100);
-
 /**
  * The header shows a run an Admin started at once, and a scheduled run once
  * it has been open the header delay, so short runs never blink there.

@@ -37,9 +37,6 @@ export const paceLine = ({ verified, total, rate, estimateSeconds }: TransfersTr
     .filter((part) => part !== false)
     .join(" · ");
 
-export const percentOf = ({ verified, total }: TransfersTransfer): number =>
-  total === 0 ? 100 : Math.floor((verified / total) * 100);
-
 const transferNoun = { one: "Transfer", many: "Transfers" };
 
 function movingPart(copying: readonly TransfersTransfer[], nodeId: string, sends: boolean) {

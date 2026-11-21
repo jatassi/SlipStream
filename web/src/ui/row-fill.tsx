@@ -1,7 +1,7 @@
 import { Progress } from "@base-ui/react/progress";
 
 // Base UI appends a hidden "x" to the bar's children, so the fill renders its
-// indicator through render, as LiveBar does.
+// indicator through render, as ProgressBar does.
 export function RowFill({
   label,
   percent,

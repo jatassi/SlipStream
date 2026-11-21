@@ -5,10 +5,10 @@ import type { TasksRun, TasksTask } from "../api/gen/model";
 import type { Clock } from "../ui/clock";
 import { Data } from "../ui/data";
 import { Icon } from "../ui/icon";
-import { LiveBar } from "../ui/live-bar";
+import { ProgressCell, percentOf } from "../ui/progress";
 import { PlainTime } from "../ui/relative-time";
 import { OutcomeChip } from "./outcome-chip";
-import { percentOf, progressWords, runningWords, waitingWords } from "./words";
+import { progressWords, runningWords, waitingWords } from "./words";
 
 export type Progress = { done: number; total: number };
 
@@ -60,15 +60,13 @@ function Running({
   clock: Clock;
 }) {
   return (
-    <span className="flex max-w-[240px] min-w-0 flex-col gap-1.5">
-      <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-meta text-ink-3">
-        <span>{runningWords(since, clock)}</span>
-        <Data className="shrink-0 whitespace-nowrap text-ink-1">
-          {progressWords(progress, task.noun)}
-        </Data>
-      </span>
-      <LiveBar label={`${task.name} progress`} value={percentOf(progress)} />
-    </span>
+    <ProgressCell
+      label={`${task.name} progress`}
+      value={percentOf(progress.done, progress.total, 0)}
+      motion="live"
+      amount={<Data>{progressWords(progress, task.noun)}</Data>}
+      note={runningWords(since, clock)}
+    />
   );
 }
 

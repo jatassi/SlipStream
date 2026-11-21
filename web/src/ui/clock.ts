@@ -116,6 +116,15 @@ export function useNow(tick: Tick = "minute"): Date {
   return useSyncExternalStore(subscriptions[tick], snapshots[tick]);
 }
 
+/**
+ * A value read off the shared clock, which re-renders only when the value
+ * changes, such as which runs are old enough to show. read returns a string
+ * or a number, so an unchanged value compares equal.
+ */
+export function useClockValue<T extends string | number>(tick: Tick, read: (now: Date) => T): T {
+  return useSyncExternalStore(subscriptions[tick], () => read(snapshots[tick]()));
+}
+
 /** The person's own time zone, the browser's. */
 export const ownZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;
 

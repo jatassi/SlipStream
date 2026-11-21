@@ -6,18 +6,11 @@ import { Data } from "../ui/data";
 import { Details } from "../ui/details";
 import { Fact, Facts } from "../ui/facts";
 import { InspectorSection } from "../ui/inspector";
+import { percentOf } from "../ui/progress";
 import { RelativeTime } from "../ui/relative-time";
+// oxlint-disable-next-line import/max-dependencies -- the numbers read the torrent, its trackers and the clock
 import { whenWords } from "../ui/time-words";
-import {
-  type Row,
-  paceOf,
-  percentOf,
-  progressOf,
-  rateWords,
-  seedLength,
-  trackerLine,
-  // oxlint-disable-next-line import/max-dependencies -- the numbers read the torrent, its trackers and the clock
-} from "./model";
+import { type Row, paceOf, progressOf, rateWords, seedLength, trackerLine } from "./model";
 
 const lengthOf = (seconds: number) => (seconds < 60 ? "Under a minute" : seedLength(seconds));
 
@@ -41,7 +34,7 @@ export function Numbers({
       )}
       <Facts look="inline">
         <Fact label="Progress">
-          <Data>{`${percentOf(progress)}% of ${bytes(progress.wanted)}`}</Data>
+          <Data>{`${percentOf(progress.done, progress.wanted, 100)}% of ${bytes(progress.wanted)}`}</Data>
         </Fact>
         {eta !== "" && (
           <Fact label="Time left">
