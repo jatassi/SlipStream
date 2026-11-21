@@ -17,8 +17,8 @@ import (
 	"time"
 )
 
-// ReleasesDir holds one Backup per release, each written by that release's
-// binary, which TestEveryReleasedBackupRestores in internal/node restores.
+// releasesDir holds one Backup per release, each written by that release's
+// binary, which TestEveryReleasedBackupRestores in e2e restores.
 const releasesDir = "internal/backups/testdata/releases"
 
 // Fixture is a release's Backup and what opens it. The Admin's email and
