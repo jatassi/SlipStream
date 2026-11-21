@@ -64,6 +64,10 @@ func TestASupersededControllerRefusesAllButItsOwnPage(t *testing.T) {
 			t.Fatalf("%s on a Superseded Controller = %d %s, want 200", path, code, body)
 		}
 	}
+	session = ""
+	if code, body := status("/fixture"); code != http.StatusUnauthorized {
+		t.Fatalf("a signed-out caller on a Superseded Controller = %d %s, want 401 before superseded", code, body)
+	}
 	paths := r.huma.OpenAPI().Paths
 	if !documents(paths["/fixture"].Get, "superseded") || documents(paths["/page"].Get, "superseded") {
 		t.Fatal("want superseded documented on the Admin operation only")
