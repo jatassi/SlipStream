@@ -1,11 +1,16 @@
 import type { Locator, Page } from "@playwright/test";
 import { z } from "zod";
 
+import { confirmPassphraseSaved } from "./backups.ts";
 import { menuItem } from "./folder-browser.ts";
 import { type World, expect, test } from "./fixtures.ts";
 import { isPhone, navigate } from "./shell.ts";
 
 test.describe.configure({ timeout: 300_000 });
+
+test.beforeEach(async ({ adminPage }) => {
+  await confirmPassphraseSaved(adminPage);
+});
 
 type Alert = "" | " needs attention" | " failed";
 

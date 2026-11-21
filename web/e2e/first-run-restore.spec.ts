@@ -1,5 +1,7 @@
 import { join } from "node:path";
 
+import type { Page } from "@playwright/test";
+
 import { z } from "zod";
 
 import { declinePasskeyPrompt, submitPin } from "../harness/sign-in.ts";
@@ -11,10 +13,8 @@ test.describe.configure({ timeout: 300_000 });
 const Listed = z.object({
   backups: z.array(z.object({ name: z.string(), trigger: z.string(), state: z.string() })),
 });
-const Passphrase = z.object({ passphrase: z.string() });
 
-// The API key never re-confirms, so it reads the passphrase without the PIN.
-async function takeBackup(world: World): Promise<{ file: string; passphrase: string }> {
+async function takeBackup(world: World): Promise<string> {
   expect((await world.api("POST", "/api/v1/backups")).status).toBe(202);
   let name = "";
   await expect
@@ -30,18 +30,25 @@ async function takeBackup(world: World): Promise<{ file: string; passphrase: str
       { timeout: 60_000 },
     )
     .not.toBe("");
-  const { body } = await world.api("GET", "/api/v1/backups/passphrase");
-  return {
-    file: join(world.node.dataDir, "backups", name),
-    passphrase: Passphrase.parse(body).passphrase,
-  };
+  return join(world.node.dataDir, "backups", name);
+}
+
+// A session just signed in is inside the re-confirm window, so no PIN prompt.
+async function readPassphrase(page: Page): Promise<string> {
+  await page.goto("/settings/backups");
+  await page.getByRole("button", { name: "Show passphrase" }).click();
+  const field = page.getByRole("textbox", { name: "Backup passphrase" });
+  await expect(field).toHaveValue(/^(?:\w+ ){9}\w+$/u);
+  return field.inputValue();
 }
 
 test("an Unclaimed Node restores the dead Controller's Backup from its first-run page, then signs in", async ({
+  adminPage,
   world,
   newContext,
 }) => {
-  const { file, passphrase } = await takeBackup(world);
+  const file = await takeBackup(world);
+  const passphrase = await readPassphrase(adminPage);
   await world.fw.node("kill", "home");
 
   const page = await (await newContext("spare")).newPage();
