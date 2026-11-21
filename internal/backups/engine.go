@@ -198,26 +198,30 @@ func (e *Engine) taking(ctx context.Context, src source, req request) (Entry, er
 		e.fail(entry, err)
 		return Entry{}, err
 	}
-	if err := e.cfg.Index.Update(func(l *Ledger) error {
-		l.set(done)
-		if req.Retention != nil {
-			for _, id := range Prune(*l, *req.Retention) {
-				pruned, _ := l.Entry(id)
-				pruned.State = Deleting
-				l.set(pruned)
-			}
-		}
-		if req.DeleteOlder {
-			l.deleteBefore(done.Generation)
-		}
-		return nil
-	}); err != nil {
+	if err := e.cfg.Index.Update(func(l *Ledger) error { l.passed(done, req); return nil }); err != nil {
 		return Entry{}, err
 	}
 	if err := e.deleteMarked(); err != nil {
 		return Entry{}, err
 	}
 	return done, e.dropUnused()
+}
+
+// passed lists done as it passed its check and marks what it lets go
+// Deleting: what retention prunes, and with DeleteOlder every Backup of
+// an earlier passphrase.
+func (l *Ledger) passed(done Entry, req request) {
+	l.set(done)
+	if req.Retention != nil {
+		for _, id := range Prune(*l, *req.Retention) {
+			pruned, _ := l.Entry(id)
+			pruned.State = Deleting
+			l.set(pruned)
+		}
+	}
+	if req.DeleteOlder {
+		l.deleteBefore(done.Generation)
+	}
 }
 
 // deleteBefore marks every Backup of a passphrase generation before gen
