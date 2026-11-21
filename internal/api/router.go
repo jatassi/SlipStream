@@ -47,7 +47,10 @@ type Services struct {
 	TrustedProxies []Proxy
 	// Zone is where a problem's detail writes its times. Nil is time.Local.
 	Zone *time.Location
-	Log  *slog.Logger
+	// Reconciling is the detail of the reconciling problem: what
+	// Reconciling waits on, read as the refusal is written.
+	Reconciling func(ctx context.Context) (string, error)
+	Log         *slog.Logger
 }
 
 // Node is the Node serving the API as the access checks read it, on every
@@ -331,6 +334,9 @@ func (r *Router) failure(ctx context.Context, op Op, declared []*Code, err error
 		if e != nil && e.cause != nil {
 			r.services.Log.Warn("operation "+op.ID+" answered "+code.name, append(attrs, "error", e.cause)...)
 		}
+		if code == Reconciling && e == nil {
+			e = r.reconciling(ctx, attrs)
+		}
 		return e.answer(code, cmp.Or(r.services.Zone, time.Local))
 	case isCode:
 		r.services.Log.Error("operation "+op.ID+" returned undeclared code "+code.name, attrs...)
@@ -338,6 +344,17 @@ func (r *Router) failure(ctx context.Context, op Op, declared []*Code, err error
 		r.logFailure(ctx, "operation failed", append(attrs, "operation", op.ID, "error", err)...)
 	}
 	return Internal.problem()
+}
+
+// reconciling is the reconciling problem's detail. Once Reconciling
+// ends between the refusal and this read, the waits are empty.
+func (r *Router) reconciling(ctx context.Context, attrs []any) *explained {
+	detail, err := r.services.Reconciling(ctx)
+	if err != nil {
+		r.logFailure(ctx, "read what Reconciling waits on", append(attrs, "error", err)...)
+		return nil
+	}
+	return &explained{code: Reconciling, detail: detail}
 }
 
 // logFailure logs at error level, or at debug once ctx is done: a client

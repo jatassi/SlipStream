@@ -195,6 +195,10 @@ type Service struct {
 	kept map[link.Key]link.Target
 
 	meter *meter
+
+	// unknownMu guards unknown.
+	unknownMu sync.Mutex
+	unknown   unknownList
 }
 
 // tellsQueued is how many superseded claims wait for Run: one per Worker
@@ -207,6 +211,7 @@ const tellsQueued = 32
 func Open(ctx context.Context, cfg Config) (*Service, error) {
 	s := &Service{
 		cfg:     cfg,
+		unknown: unknownList{max: cfg.Timings.UnknownNodes, keep: cfg.Timings.UnknownFor},
 		opened:  time.Now(),
 		owners:  ownersByRole(cfg.Owners),
 		keys:    map[ID]link.Key{},

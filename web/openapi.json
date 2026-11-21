@@ -6260,7 +6260,8 @@
               "release_fault",
               "client_error",
               "declined",
-              "unreadable"
+              "unreadable",
+              "restored"
             ],
             "type": "string"
           },
@@ -6346,7 +6347,8 @@
               "release_fault",
               "client_error",
               "declined",
-              "unreadable"
+              "unreadable",
+              "restored"
             ],
             "type": "string"
           },
@@ -18434,6 +18436,464 @@
         ],
         "type": "object"
       },
+      "ReconcilingChanged": {
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "ReconcilingForgetRequest": {
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "ReconcilingGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "found": {
+            "description": "What its Node found of its files",
+            "enum": [
+              "not_looked",
+              "no_files",
+              "files"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "description": "not_held: recorded, and no Node reported it after the restore. conflict: two Nodes hold it and both keep it",
+            "enum": [
+              "not_held",
+              "conflict"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "found",
+          "count"
+        ],
+        "type": "object"
+      },
+      "ReconcilingNodeRow": {
+        "additionalProperties": false,
+        "properties": {
+          "adopted": {
+            "description": "Whether its torrents were matched with the library",
+            "type": "boolean"
+          },
+          "continued": {
+            "description": "Whether Reconciling stopped waiting on it. It still keeps every torrent until it reports them",
+            "type": "boolean"
+          },
+          "granted": {
+            "description": "The line naming the Downloading Role its adoption gave it, such as vps-relay now has the Downloading Role for the 1,240 torrents it reported; null when it got none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "held": {
+            "description": "How many torrents its list held",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "link": {
+            "description": "How it stands with this Controller. A Node on a new machine that stays offline may still be paired with the old Controller",
+            "enum": [
+              "in-step",
+              "reconnecting",
+              "offline",
+              "lapsed",
+              "mismatched"
+            ],
+            "type": "string"
+          },
+          "linkSince": {
+            "description": "Since when it stands so",
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "refused": {
+            "description": "Why SlipStream refused its list of torrents; null when it didn't. It keeps every torrent until a list is taken",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reported": {
+            "description": "Whether every page of its list of torrents is in",
+            "type": "boolean"
+          },
+          "since": {
+            "description": "When Reconciling began waiting on it",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "since",
+          "held",
+          "reported",
+          "adopted",
+          "continued",
+          "granted",
+          "refused",
+          "link",
+          "linkSince"
+        ],
+        "type": "object"
+      },
+      "ReconcilingPage": {
+        "additionalProperties": false,
+        "properties": {
+          "nodes": {
+            "description": "Each Node Reconciling waits on, or whose adoption gave it the Downloading Role",
+            "items": {
+              "$ref": "#/components/schemas/ReconcilingNodeRow"
+            },
+            "type": "array"
+          },
+          "restore": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReconcilingRestore"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The restore Reconciling runs for; null outside one, when the page lists only the Nodes that keep their torrents"
+          },
+          "review": {
+            "description": "The review list's groups, with how many torrents each holds",
+            "items": {
+              "$ref": "#/components/schemas/ReconcilingGroup"
+            },
+            "type": "array"
+          },
+          "roots": {
+            "description": "Each library root Reconciling waits on",
+            "items": {
+              "$ref": "#/components/schemas/ReconcilingRootRow"
+            },
+            "type": "array"
+          },
+          "unknown": {
+            "description": "Nodes not in this Backup that tried to connect lately, newest last; empty outside a restore",
+            "items": {
+              "$ref": "#/components/schemas/ReconcilingUnknown"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "restore",
+          "nodes",
+          "roots",
+          "unknown",
+          "review"
+        ],
+        "type": "object"
+      },
+      "ReconcilingReaddRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "nodeId": {
+            "description": "The Node to re-add them on; left out, each on the Node it was recorded on",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ReconcilingRehomeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "done": {
+            "description": "Whether this ends the step, so SlipStream stops waiting for the old Controller's folders",
+            "type": "boolean"
+          },
+          "roots": {
+            "description": "Each library root to save. A root left out stays for later: no scan reads it and Reconciling waits on it",
+            "items": {
+              "$ref": "#/components/schemas/ReconcilingSaveRoot"
+            },
+            "maxItems": 1000,
+            "type": "array"
+          }
+        },
+        "required": [
+          "roots",
+          "done"
+        ],
+        "type": "object"
+      },
+      "ReconcilingRehomed": {
+        "additionalProperties": false,
+        "properties": {
+          "roots": {
+            "description": "How each root's save went, in the order asked",
+            "items": {
+              "$ref": "#/components/schemas/ReconcilingSavedRoot"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "roots"
+        ],
+        "type": "object"
+      },
+      "ReconcilingRestore": {
+        "additionalProperties": false,
+        "properties": {
+          "backup": {
+            "description": "The Backup's name",
+            "type": "string"
+          },
+          "newMachine": {
+            "description": "Whether the Backup was restored on a machine other than the one that took it",
+            "type": "boolean"
+          },
+          "rehome": {
+            "description": "Whether the old Controller's folders still need finding",
+            "type": "boolean"
+          },
+          "startedAt": {
+            "description": "When Reconciling began",
+            "format": "date-time",
+            "type": "string"
+          },
+          "takenAt": {
+            "description": "When the Backup was taken",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "backup",
+          "takenAt",
+          "startedAt",
+          "newMachine",
+          "rehome"
+        ],
+        "type": "object"
+      },
+      "ReconcilingReviewPage": {
+        "additionalProperties": false,
+        "properties": {
+          "next": {
+            "description": "The after of the next page; null on the last page. Rows added or removed meanwhile never move it",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "torrents": {
+            "items": {
+              "$ref": "#/components/schemas/ReconcilingReviewed"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "torrents",
+          "next"
+        ],
+        "type": "object"
+      },
+      "ReconcilingReviewed": {
+        "additionalProperties": false,
+        "properties": {
+          "found": {
+            "enum": [
+              "not_looked",
+              "no_files",
+              "files"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The Node it was recorded on",
+            "format": "uuid",
+            "type": "string"
+          },
+          "readd": {
+            "description": "The Node Re-add puts it on once Reconciling finishes; null until Re-add is pressed",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "enum": [
+              "not_held",
+              "conflict"
+            ],
+            "type": "string"
+          },
+          "since": {
+            "description": "When it joined the review list",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "nodeId",
+          "reason",
+          "found",
+          "since",
+          "readd"
+        ],
+        "type": "object"
+      },
+      "ReconcilingRootRow": {
+        "additionalProperties": false,
+        "properties": {
+          "continued": {
+            "description": "Whether Reconciling stopped waiting on its scan",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "label": {
+            "description": "The root as a person reads it, such as Movies library root on Media server",
+            "type": "string"
+          },
+          "saved": {
+            "description": "Whether the re-home step saved it. A root not saved waits for its folder, and no scan reads it",
+            "type": "boolean"
+          },
+          "scanned": {
+            "description": "Whether a scan finished since it was saved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "saved",
+          "scanned",
+          "continued"
+        ],
+        "type": "object"
+      },
+      "ReconcilingSaveRoot": {
+        "additionalProperties": false,
+        "properties": {
+          "forget": {
+            "description": "The missing file count the Admin confirmed, for Save anyway: those files are forgotten",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "nodeId": {
+            "description": "The Storage Node whose disk holds it now; left out, its Node",
+            "format": "uuid",
+            "type": "string"
+          },
+          "path": {
+            "description": "The folder that holds it now, in its Node's path style; left out, its folder",
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "rootId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rootId"
+        ],
+        "type": "object"
+      },
+      "ReconcilingSavedRoot": {
+        "additionalProperties": false,
+        "properties": {
+          "missing": {
+            "description": "How many recorded files aren't at the place, when that is why. Send it as forget to save anyway",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "refused": {
+            "description": "Why the root edit refused it, null once it is saved and its scan starts",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rootId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rootId",
+          "refused",
+          "missing"
+        ],
+        "type": "object"
+      },
+      "ReconcilingUnknown": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "description": "The address it connected from",
+            "type": "string"
+          },
+          "arch": {
+            "type": "string"
+          },
+          "at": {
+            "description": "When it last tried to connect",
+            "format": "date-time",
+            "type": "string"
+          },
+          "fingerprint": {
+            "description": "Its node key's fingerprint",
+            "type": "string"
+          },
+          "os": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "address",
+          "os",
+          "arch",
+          "at"
+        ],
+        "type": "object"
+      },
       "RehomeRootInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -20697,6 +21157,34 @@
         ],
         "type": "object"
       },
+      "ShellBanner": {
+        "additionalProperties": false,
+        "properties": {
+          "nodes": {
+            "description": "The name of each Node whose torrents Reconciling waits on",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "rehome": {
+            "description": "Whether the old Controller's folders still need finding. The shell opens that step until it is saved",
+            "type": "boolean"
+          },
+          "roots": {
+            "description": "How many library roots Reconciling waits on to finish scanning",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rehome",
+          "nodes",
+          "roots"
+        ],
+        "type": "object"
+      },
       "ShellCounts": {
         "additionalProperties": false,
         "properties": {
@@ -20718,13 +21206,25 @@
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "reconciling": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShellBanner"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What Reconciling after a restore waits on, for the shell's line; null outside it. reconciling.changed keeps it current"
           }
         },
         "required": [
           "activity",
           "downloads",
           "alerts",
-          "pendingImports"
+          "pendingImports",
+          "reconciling"
         ],
         "type": "object"
       },
@@ -37396,6 +37896,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/ReconcilingChanged"
+                          },
+                          "event": {
+                            "const": "reconciling.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event reconciling.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/RootsChanged"
                           },
                           "event": {
@@ -42746,6 +43272,7 @@
                             "grab_not_sendable",
                             "grab_torrent_in_client",
                             "node_not_downloading",
+                            "reconciling",
                             "worker_node"
                           ],
                           "type": "string"
@@ -68381,6 +68908,1428 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/reconciling": {
+      "get": {
+        "operationId": "getReconciling",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconcilingPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Read what Reconciling waits on after a restore",
+        "tags": [
+          "reconciling"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/reconciling/finish": {
+      "post": {
+        "operationId": "finishReconciling",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_reconciling",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Finish Reconciling now",
+        "tags": [
+          "reconciling"
+        ],
+        "x-slipstream-access": "reconfirmed"
+      }
+    },
+    "/reconciling/nodes/{nodeId}/continue": {
+      "post": {
+        "operationId": "continueReconcilingNode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "reconciling_node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Stop waiting for a Node's torrents",
+        "tags": [
+          "reconciling"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/reconciling/rehome": {
+      "post": {
+        "operationId": "rehomeReconciling",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcilingRehomeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconcilingRehomed"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "reconciling_root_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_reconciling",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Save the old Controller's library roots at their places on this machine",
+        "tags": [
+          "reconciling"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/reconciling/roots/{rootId}/continue": {
+      "post": {
+        "operationId": "continueReconcilingRoot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rootId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "reconciling_root_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Stop waiting for a library root's scan",
+        "tags": [
+          "reconciling"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/reconciling/torrents": {
+      "get": {
+        "operationId": "listReconcilingTorrents",
+        "parameters": [
+          {
+            "description": "Only this group's reason; left out, any",
+            "explode": false,
+            "in": "query",
+            "name": "reason",
+            "schema": {
+              "description": "Only this group's reason; left out, any",
+              "enum": [
+                "not_held",
+                "conflict"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only torrents whose files were found so; left out, any",
+            "explode": false,
+            "in": "query",
+            "name": "found",
+            "schema": {
+              "description": "Only torrents whose files were found so; left out, any",
+              "enum": [
+                "not_looked",
+                "no_files",
+                "files"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The next of the previous page; left out, the first page",
+            "explode": false,
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "description": "The next of the previous page; left out, the first page",
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconcilingReviewPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List a page of the review list",
+        "tags": [
+          "reconciling"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/reconciling/torrents/forget": {
+      "post": {
+        "operationId": "forgetReconcilingTorrents",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcilingForgetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_reviewed"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Forget torrents no Node holds",
+        "tags": [
+          "reconciling"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/reconciling/torrents/readd": {
+      "post": {
+        "operationId": "readdReconcilingTorrents",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcilingReaddRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_reviewed"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Re-add torrents on the review list",
+        "tags": [
+          "reconciling"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/releases/parse": {
       "post": {
         "operationId": "parseReleases",
@@ -68691,6 +70640,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "reconciling",
                             "root_not_ready",
                             "worker_node"
                           ],
@@ -86676,6 +88626,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "reconciling",
                             "worker_node"
                           ],
                           "type": "string"

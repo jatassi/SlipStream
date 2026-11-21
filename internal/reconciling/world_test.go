@@ -48,6 +48,16 @@ type world struct {
 	failing map[bencode.InfoHash]error
 	asked   map[bencode.InfoHash]int
 	touched map[role.NodeID]int
+	// rehomed and scans are each root the re-home step saved and each
+	// scan it started; ending, ended and forgot count the end's two hooks
+	// and each Forget.
+	rehomed []roots.ID
+	scans   [][]roots.ID
+	ending  int
+	ended   int
+	forgot  int
+	// onDisk is each save folder whose files every Node still has.
+	onDisk map[string]bool
 }
 
 const holdingsMax = 100_000
@@ -66,7 +76,7 @@ func idle(t *testing.T, page int) *world {
 		t:    t,
 		lib:  storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), health.Schema(), roots.Schema(), dc.Schema(), indexers.Schema(), reconciling.Schema()),
 		page: page, meta: map[bencode.InfoHash][]byte{}, failing: map[bencode.InfoHash]error{},
-		asked: map[bencode.InfoHash]int{}, touched: map[role.NodeID]int{},
+		asked: map[bencode.InfoHash]int{}, touched: map[role.NodeID]int{}, onDisk: map[string]bool{},
 	}
 }
 
@@ -83,7 +93,45 @@ func (w *world) start(ctx context.Context) {
 		},
 		Metainfo: w.metainfo,
 		Page:     w.page, Max: holdingsMax,
-		Log: slog.New(slog.DiscardHandler),
+		Rehome: func(_ context.Context, _ identity.Admin, id roots.ID, _ roots.Rehome) (roots.View, error) {
+			w.mu.Lock()
+			defer w.mu.Unlock()
+			w.rehomed = append(w.rehomed, id)
+			return roots.View{}, nil
+		},
+		Scan: func(_ context.Context, ids []roots.ID) error {
+			w.mu.Lock()
+			defer w.mu.Unlock()
+			w.scans = append(w.scans, ids)
+			return nil
+		},
+		Ending: func(context.Context, *storage.Tx[storage.Library]) error {
+			w.mu.Lock()
+			defer w.mu.Unlock()
+			w.ending++
+			return nil
+		},
+		Ended: func(context.Context) {
+			w.mu.Lock()
+			defer w.mu.Unlock()
+			w.ended++
+		},
+		Look: func(_ context.Context, _ role.NodeID, folder string, files []dc.LookFile) ([]bool, error) {
+			w.mu.Lock()
+			defer w.mu.Unlock()
+			out := make([]bool, len(files))
+			for i := range files {
+				out[i] = w.onDisk[folder]
+			}
+			return out, nil
+		},
+		Forgot: func() {
+			w.mu.Lock()
+			defer w.mu.Unlock()
+			w.forgot++
+		},
+		Changed: quiet{},
+		Log:     slog.New(slog.DiscardHandler),
 	})
 	w.clients = dc.New(dc.Config{Library: w.lib, Keeps: w.keeper, HoldingsPage: w.page, HoldingsMax: holdingsMax, Touch: func(...role.NodeID) {}})
 	go func() { _ = w.keeper.Run(ctx) }()
@@ -410,3 +458,7 @@ func entries(trs []torrent) []*dlv1.Holding {
 	}
 	return out
 }
+
+type quiet struct{}
+
+func (quiet) Publish(context.Context, reconciling.Changed) {}

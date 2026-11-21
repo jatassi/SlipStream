@@ -21,8 +21,8 @@ var ErrNotSendable = errors.New("the Grab can't be sent to another client")
 // Grab downloading it points at the Torrent and Node that answers. A Grab
 // that waits to fetch for its client goes to c once fetched, and
 // fetches at once. It tells the Nodes whose intents changed once it
-// commits. It fails with ErrNoGrab, ErrNotSendable, and Usable's and
-// Retarget's errors.
+// commits. It fails with ErrReconciling, ErrNoGrab, ErrNotSendable, and
+// Usable's and Retarget's errors.
 func (gr *Grabs) SendTo(ctx context.Context, _ identity.Admin, id GrabID, c downloadclients.Choice) error {
 	var (
 		sent     downloadclients.Retargeted
@@ -30,6 +30,9 @@ func (gr *Grabs) SendTo(ctx context.Context, _ identity.Admin, id GrabID, c down
 		fetching *Grab
 	)
 	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		if err := gr.fence(ctx, tx); err != nil {
+			return err
+		}
 		g, err := grabIn(ctx, tx, id)
 		if err != nil {
 			return err

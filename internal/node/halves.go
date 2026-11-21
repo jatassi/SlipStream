@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/netip"
 	"slices"
 	"time"
 
@@ -113,6 +114,8 @@ type half struct {
 	imports  *imports.Imports
 	grabs    *grabs.Grabs
 	clients  *downloadclients.Clients
+	// reconciling is Reconciling after a restore, on a Controller.
+	reconciling *reconciling.Service
 	// mediaServers is the Media Servers' operations, on a Controller.
 	mediaServers mediaservers.Service
 
@@ -165,6 +168,8 @@ func (n *Node) startController(ctx context.Context) error {
 		pipeline     *grabs.Grabs
 		scheduler    *tasks.Scheduler
 		meta         *metadata.Metadata
+		found        *imports.Imports
+		shelf        *files.Files
 		searchQueue  = &searches.Late{}
 	)
 	keeper := reconciling.New(reconciling.Config{
@@ -180,7 +185,34 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Page: n.cfg.Timings.Downloading.HoldingsPage,
 		Max:  n.cfg.Timings.Downloading.HoldingsMax,
-		Log:  n.rootLog.With("subsystem", "reconciling"),
+		Rehome: func(ctx context.Context, by identity.Admin, id roots.ID, h roots.Rehome) (roots.View, error) {
+			return homes.Rehome(ctx, by, id, h)
+		},
+		Scan: func(ctx context.Context, ids []roots.ID) error { return found.ScanRoots(ctx, ids) },
+		Ending: func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			return pipeline.DecideFetching(ctx, tx)
+		},
+		Ended: func(ctx context.Context) {
+			pipeline.Reconciled(ctx)
+			found.Touch()
+			shelf.Poke()
+			scheduler.Reconciled()
+		},
+		RootWords: func(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]string, error) {
+			return homes.WordsIn(ctx, r)
+		},
+		Roster: openedRoster{&side},
+		Look: func(ctx context.Context, node role.NodeID, folder string, files []downloadclients.LookFile) ([]bool, error) {
+			req := &dlv1.LookRequest{Folder: folder, Entries: make([]*dlv1.LookEntry, len(files))}
+			for i, f := range files {
+				req.Entries[i] = &dlv1.LookEntry{Name: f.Name, Size: f.Size}
+			}
+			res, err := downloadingv1connect.DownloadingService.On(cluster, node).Look(ctx, req)
+			return res.GetFound(), err
+		},
+		Forgot:  func() { pipeline.Rerouted() },
+		Changed: reconciling.ChangedEvent.Bind(n.hub),
+		Log:     n.rootLog.With("subsystem", "reconciling"),
 	})
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -504,18 +536,19 @@ func (n *Node) startController(ctx context.Context) error {
 		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
 	})
 	subs := &lateSubtitles{Subtitles: files.NoSubtitles{}}
-	shelf, err := files.Open(ctx, files.Config{
+	shelf, err = files.Open(ctx, files.Config{
 		Queue:   searchQueue,
 		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn, MediaServers: servers, Subtitles: subs,
-		Naming:  names,
-		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
-		Today:   n.today,
-		Disk:    homes,
-		Changed: files.ChangedEvent.Bind(n.hub),
-		Moved:   files.MovedEvent.Bind(n.hub),
-		Timings: n.cfg.Timings.Files,
-		Rand:    n.filesRand,
-		Log:     n.rootLog.With("subsystem", "files"),
+		Naming:      names,
+		Names:       contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
+		Today:       n.today,
+		Disk:        homes,
+		Changed:     files.ChangedEvent.Bind(n.hub),
+		Moved:       files.MovedEvent.Bind(n.hub),
+		Timings:     n.cfg.Timings.Files,
+		Rand:        n.filesRand,
+		Reconciling: reconciling.Blocked,
+		Log:         n.rootLog.With("subsystem", "files"),
 	})
 	if err != nil {
 		return err
@@ -592,7 +625,7 @@ func (n *Node) startController(ctx context.Context) error {
 	})
 	searchQueue.Bind(pipeline)
 	var composer *library.Library
-	found := imports.New(imports.Config{
+	found = imports.New(imports.Config{
 		Library: lib.db,
 		Remote:  stores,
 		Roots:   homes,
@@ -623,6 +656,7 @@ func (n *Node) startController(ctx context.Context) error {
 		BeforeImport: n.env.Test.BeforeImport,
 		History:      n.history.Recorder("imports", imports.Entries()),
 		Subtitles:    subtitler,
+		Reconciling:  keeper,
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
 	pipeline.Register(found.Importer())
@@ -647,6 +681,13 @@ func (n *Node) startController(ctx context.Context) error {
 			Keep:  n.history,
 			Batch: n.cfg.Timings.Housekeeping.PruneBatch,
 			Steps: housekeepingSteps(registry, servers, n.history, pipeline, found, shelf, subtitler),
+			Reconciling: func(ctx context.Context) (paused bool, err error) {
+				err = lib.db.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+					paused, err = reconciling.Blocked(ctx, r)
+					return err
+				})
+				return paused, err
+			},
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
@@ -656,29 +697,30 @@ func (n *Node) startController(ctx context.Context) error {
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
 		}, found), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask(), subtitler.Task()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
-		Roster:     side,
-		Zone:       n.zone(),
-		Rand:       n.tasksRand,
-		Hub:        n.hub,
-		Changed:    tasks.ChangedEvent.Bind(n.hub),
-		Progressed: tasks.ProgressEvent.Bind(n.hub),
-		Log:        n.rootLog.With("subsystem", "tasks"),
+		Roster:      side,
+		Zone:        n.zone(),
+		Rand:        n.tasksRand,
+		Hub:         n.hub,
+		Changed:     tasks.ChangedEvent.Bind(n.hub),
+		Progressed:  tasks.ProgressEvent.Bind(n.hub),
+		Reconciling: reconciling.Blocked,
+		Log:         n.rootLog.With("subsystem", "tasks"),
 	})
 	if err != nil {
 		return err
 	}
 	h := &half{
 		self: side.Self(), peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, metadata: meta, indexers: registry,
-		trackers: seeding,
-		targets:  goals,
-		roots:    homes,
-		files:    shelf,
-		naming:   names,
-		library:  composer,
-		imports:  found,
-		grabs:    pipeline,
-		clients:  clients,
-		tasks:    scheduler,
+		trackers: seeding, reconciling: keeper,
+		targets: goals,
+		roots:   homes,
+		files:   shelf,
+		naming:  names,
+		library: composer,
+		imports: found,
+		grabs:   pipeline,
+		clients: clients,
+		tasks:   scheduler,
 
 		mediaServers: servers.Service(),
 
@@ -741,6 +783,8 @@ func (r openedRoster) WrittenOff(name role.Name, node role.NodeID) bool {
 }
 
 func (r openedRoster) Changed() <-chan struct{} { return (*r.side).Changed() }
+
+func (r openedRoster) Unknowns() []nodes.Unknown { return (*r.side).Unknowns() }
 
 func (r openedRoster) Self() role.NodeID { return (*r.side).Self() }
 
@@ -1062,7 +1106,7 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 // Grabs it deleted.
 func housekeepingSteps(registry *indexers.Indexers, servers *mediaservers.MediaServers, h *history.Service, pipeline *grabs.Grabs, found *imports.Imports, shelf *files.Files, subtitler *subtitles.Subtitles) []housekeeping.Step {
 	return []housekeeping.Step{
-		housekeeping.Plain("indexer-queries", "Indexer queries and sessions", registry.Prune), servers.Housekeeping(),
+		housekeeping.Plain("indexer-queries", "Indexer queries and sessions", tasks.Runs, registry.Prune), servers.Housekeeping(),
 		h.Retention(), pipeline.Retention(), found.Retention(), shelf.Retention(), subtitler.Retention(),
 	}
 }
@@ -1125,6 +1169,14 @@ func (p claimPeers) Pair(ctx context.Context, peer link.Key, req *linkv1.PairReq
 func (p claimPeers) Told(from link.Key, s link.Superseded) {
 	if h := p.n.half.Load(); h != nil {
 		h.peers.Told(from, s)
+	}
+}
+
+// Unknown is link.Config.Unknown: a Controller lists each Node it
+// doesn't know that says Hello, for the Reconciling page.
+func (p claimPeers) Unknown(key link.Key, peer link.NodeInfo, from netip.AddrPort) {
+	if h := p.n.half.Load(); h != nil && h.nodes != nil {
+		h.nodes.Unknown(key, peer, from)
 	}
 }
 

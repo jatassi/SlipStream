@@ -21,16 +21,17 @@ var cadence = setting.Duration{Key: "tasks.library-scan.cadence", Label: "Runs e
 // per root on the root's Node, listed while any root exists.
 func (im *Imports) Task() tasks.Task {
 	return tasks.Task{
-		ID:      TaskID,
-		Name:    "Library scan",
-		About:   "Lists the files in every library root and records what changed. A file in a new folder is added to the movie or series it clearly matches, or waits in Pending imports.",
-		Group:   tasks.GroupOf(role.Storage.Group()),
-		Cadence: tasks.InWindow{Days: cadence},
-		Overdue: tasks.Wait,
-		Noun:    setting.Noun{One: "root", Many: "roots"},
-		Units:   im.units,
-		Run:     im.unit,
-		Follows: []live.Event{roots.ChangedEvent},
+		ID:               TaskID,
+		Name:             "Library scan",
+		About:            "Lists the files in every library root and records what changed. A file in a new folder is added to the movie or series it clearly matches, or waits in Pending imports.",
+		Group:            tasks.GroupOf(role.Storage.Group()),
+		Cadence:          tasks.InWindow{Days: cadence},
+		WhileReconciling: tasks.Runs,
+		Overdue:          tasks.Wait,
+		Noun:             setting.Noun{One: "root", Many: "roots"},
+		Units:            im.units,
+		Run:              im.unit,
+		Follows:          []live.Event{roots.ChangedEvent},
 	}
 }
 

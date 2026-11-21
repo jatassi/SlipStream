@@ -65,7 +65,6 @@ var (
 	clientRefused       = api.NewCode(http.StatusUnprocessableEntity, "download_client_field_refused", "SlipStream can't use a value in this client's settings")
 	nodeNotDownloading  = api.NewCode(http.StatusConflict, "node_not_downloading", "That Node doesn't have the Downloading Role")
 
-	reconciling          = api.NewCode(http.StatusConflict, "reconciling", "SlipStream is Reconciling after a restore")
 	noManualSearch       = api.NewCode(http.StatusNotFound, "no_manual_search", "The Work has no Manual search")
 	manualSearchReplaced = api.NewCode(http.StatusConflict, "manual_search_replaced", "A newer Manual search replaced this list. Open Manual search again to see it.")
 	queryNeedsOneItem    = api.NewCode(http.StatusUnprocessableEntity, "query_needs_one_item", "A typed query can search only one episode. Open Manual search on one episode to type a query.")
@@ -272,7 +271,7 @@ func idOrNil(id storage.UUID) *string {
 
 type failure struct {
 	Stage    string               `json:"stage" enum:"fetching,downloading,importing"`
-	Code     string               `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault,client_error,declined,unreadable"`
+	Code     string               `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault,client_error,declined,unreadable,restored"`
 	Message  string               `json:"message"`
 	Cause    string               `json:"cause" doc:"Why the Grab failed, in words"`
 	Recovery api.Nullable[string] `json:"recovery" doc:"What to do next, in words; null when there is nothing to do"`
@@ -551,7 +550,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/grabs/{grabId}/send-to",
 		Summary: "Send a Grab to another Download Client: a downloading Grab's torrent, or a Grab whose fetch waits for its client's Node, which then fetches for the new client",
 		Status:  http.StatusNoContent,
-		Errors:  []*api.Code{grabNotFound, grabNotSendable, grabTorrentInClient, clientNotFound, clientRefused, nodeNotDownloading},
+		Errors:  []*api.Code{grabNotFound, grabNotSendable, grabTorrentInClient, clientNotFound, clientRefused, nodeNotDownloading, api.Reconciling},
 	}, h.sendTo)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listIndexerGrabs",
@@ -567,7 +566,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/grabs/{grabId}/cancel",
 		Summary: "Cancel a Grab that is fetching, downloading or importing. Canceling a canceled Grab changes nothing",
 		Status:  http.StatusNoContent,
-		Errors:  []*api.Code{grabNotFound, grabBusy, grabFinished, reconciling},
+		Errors:  []*api.Code{grabNotFound, grabBusy, grabFinished, api.Reconciling},
 	}, h.cancelGrab)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "startManualSearch",
@@ -576,7 +575,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Summary: "Start a Manual search of a Work, or of some of its levels and Items, or of one Item at one Target. Responds 200 with the existing Manual search when it already has this scope and query",
 		Status:  http.StatusAccepted,
 		Also:    []int{http.StatusOK},
-		Errors:  []*api.Code{workNotFound, reconciling, notSearchable, noIndexer, noRoot, queryNeedsOneItem},
+		Errors:  []*api.Code{workNotFound, api.Reconciling, notSearchable, noIndexer, noRoot, queryNeedsOneItem},
 	}, h.startManualSearch)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "getManualSearch",
@@ -600,7 +599,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/works/{workId}/manual-search/grabs",
 		Summary: "Grab the picked Releases of a Work's Manual search in one go, each judged again and refused alone",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, manualSearchReplaced, reconciling},
+		Errors:  []*api.Code{workNotFound, manualSearchReplaced, api.Reconciling},
 	}, h.grabFromManualSearch)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listBlocklist",
@@ -721,6 +720,8 @@ func (h handlers) sendTo(ctx context.Context, by identity.Admin, in *sendToInput
 		inClient *downloadclients.InClientError
 	)
 	switch {
+	case errors.Is(err, grabs.ErrReconciling):
+		return nil, api.Reconciling
 	case errors.Is(err, grabs.ErrNotSendable):
 		return nil, grabNotSendable.Because("Only a download that hasn't finished, or a Grab waiting for its client's Node, can be sent to another client.")
 	case errors.As(err, &inClient):

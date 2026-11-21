@@ -264,7 +264,7 @@ func Routes(r *api.Router, lib Library) {
 		Summary: "Rename the files of each Work whose plan still has the digest shown, and list the Works left because their plans differ now",
 		Status:  http.StatusOK,
 		MaxBody: confirmLimit,
-		Errors:  []*api.Code{rootNotReady},
+		Errors:  []*api.Code{rootNotReady, api.Reconciling},
 	}, h.renameFiles)
 
 	api.Register(o, api.Admin, api.Op{

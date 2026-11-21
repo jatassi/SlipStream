@@ -86,7 +86,10 @@ type Config struct {
 	Hub        Hub
 	Changed    ChangedPublisher
 	Progressed ProgressPublisher
-	Log        *slog.Logger
+	// Reconciling is whether a restored Controller is Reconciling, which
+	// pauses each task declared Pause.
+	Reconciling func(ctx context.Context, r storage.Reader[file]) (bool, error)
+	Log         *slog.Logger
 }
 
 var (
@@ -195,6 +198,9 @@ func catalogByID(catalog []Task) map[TaskID]Task {
 		if err := t.Setting().Check(); err != nil {
 			panic(fmt.Sprintf("tasks: %s: %v", t.ID, err))
 		}
+		if t.WhileReconciling != Runs && t.WhileReconciling != Pauses {
+			panic(fmt.Sprintf("tasks: %s declares no WhileReconciling", t.ID))
+		}
 		if t.Prepare != nil && t.Shown == nil {
 			panic(fmt.Sprintf("tasks: %s has Prepare and no Shown", t.ID))
 		}
@@ -301,6 +307,21 @@ func (s *Scheduler) Soon(id TaskID) {
 	s.soon[id] = true
 	s.mu.Unlock()
 	s.Wake()
+}
+
+// Reconciled asks for a run of each task paused while Reconciling, once
+// Reconciling ends.
+func (s *Scheduler) Reconciled() {
+	for _, t := range s.cfg.Catalog {
+		if t.WhileReconciling == Pauses {
+			s.Soon(t.ID)
+		}
+	}
+}
+
+// WhileReconcilingOf is what task id declared.
+func (s *Scheduler) WhileReconcilingOf(id TaskID) WhileReconciling {
+	return s.byID[id].WhileReconciling
 }
 
 func (s *Scheduler) changed(ctx context.Context, id TaskID) {

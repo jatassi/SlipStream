@@ -116,7 +116,7 @@ func TestHistoryChangedIsPublishedAfterASweepThatDeletedEntries(t *testing.T) {
 		r := start(t)
 		r.record(t, false)
 		r.wantPublished(t, 1, "a capture")
-		sweep := housekeeping.Task(housekeeping.Config{Keep: r.h, Batch: 10, Steps: []housekeeping.Step{r.h.Retention()}})
+		sweep := housekeeping.Task(housekeeping.Config{Reconciling: func(context.Context) (bool, error) { return false, nil }, Keep: r.h, Batch: 10, Steps: []housekeeping.Step{r.h.Retention()}})
 		if err := sweep.Run(t.Context(), tasks.Unit{Key: "history"}, &tasks.Progress{}); err != nil {
 			t.Fatal(err)
 		}

@@ -33,7 +33,7 @@ var grabWaitingOp = api.Op{
 	Path:    "/works/{workId}/waits/grab",
 	Summary: "End a Work's waits for a better Release and grab the best one found for each now",
 	Status:  http.StatusAccepted,
-	Errors:  []*api.Code{workNotFound, reconciling},
+	Errors:  []*api.Code{workNotFound, api.Reconciling},
 }
 
 func (h handlers) grabWaiting(ctx context.Context, by identity.Admin, in *grabWaitingInput) (*grabbingOutput, error) {
@@ -55,7 +55,7 @@ func (h handlers) grabWaiting(ctx context.Context, by identity.Admin, in *grabWa
 	}
 	n, err := open(h.p).GrabWaiting(ctx, by, works.WorkID{UUID: u}, cells)
 	if errors.Is(err, grabs.ErrReconciling) {
-		return nil, reconciling.Because("Grab now again once Reconciling finishes.")
+		return nil, api.Reconciling
 	}
 	if err != nil {
 		return nil, answer(err)

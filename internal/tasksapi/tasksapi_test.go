@@ -77,12 +77,13 @@ var tidyCadence = setting.Duration{Key: "tasks.tidy.cadence", Label: "Runs every
 
 func task(id tasks.TaskID, units ...tasks.Unit) tasks.Task {
 	return tasks.Task{
-		ID:      id,
-		Name:    strings.ToUpper(string(id[:1])) + string(id[1:]),
-		About:   "Tidies up.",
-		Noun:    setting.Noun{One: "step", Many: "steps"},
-		Cadence: tasks.Every{Interval: tidyCadence},
-		Overdue: tasks.Wait,
+		ID:               id,
+		Name:             strings.ToUpper(string(id[:1])) + string(id[1:]),
+		About:            "Tidies up.",
+		Noun:             setting.Noun{One: "step", Many: "steps"},
+		Cadence:          tasks.Every{Interval: tidyCadence},
+		Overdue:          tasks.Wait,
+		WhileReconciling: tasks.Runs,
 		Units: func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
 			return units, nil
 		},

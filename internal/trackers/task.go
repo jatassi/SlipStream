@@ -39,13 +39,14 @@ func (t *Trackers) Task() tasks.Task {
 			"Then it records each private torrent's hit and run window: when it opens, when its Tracker's rule is met, and when a torrent at hit and run risk stops seeding. " +
 			"Once a torrent's goal and its Tracker's rule plus the extra seeding time are both met, it pauses the torrent, removes it, or removes it and deletes its download copy, as the goal sets. " +
 			"It keeps the download copy when a Grab on the torrent didn't import. On a Node that is finishing its Downloading work, a goal that pauses removes the torrent and keeps its copy instead.",
-		Group:   tasks.ControllerGroup,
-		Cadence: tasks.Every{Interval: Cadence, AtStart: true},
-		Noun:    setting.Noun{One: "Tracker", Many: "Trackers"},
-		Units:   units,
-		Run:     t.run,
-		Follows: []live.Event{indexers.TrackersEvent},
-		Health:  string(health.SeedingID),
+		Group:            tasks.ControllerGroup,
+		Cadence:          tasks.Every{Interval: Cadence, AtStart: true},
+		WhileReconciling: tasks.Runs,
+		Noun:             setting.Noun{One: "Tracker", Many: "Trackers"},
+		Units:            units,
+		Run:              t.run,
+		Follows:          []live.Event{indexers.TrackersEvent},
+		Health:           string(health.SeedingID),
 	}
 }
 

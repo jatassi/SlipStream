@@ -7,6 +7,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/reconciling/internal/db"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -70,8 +71,12 @@ func Waiting(ctx context.Context, r storage.Reader[file]) (Waits, error) {
 
 // tryEnd ends Reconciling in one Write once the old Controller's folders
 // are found, every Node's Holdings are adopted or it was continued
-// without, and every root has scanned or was continued without.
+// without, and every root has scanned or was continued without. That
+// Write decides each Grab at fetching and releases the torrents Re-add
+// was pressed for. Once it commits, the work that waited runs.
 func (s *Service) tryEnd(ctx context.Context) error {
+	var ended bool
+	var touched []role.NodeID
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
 		state, err := q.GetState(ctx)
@@ -95,10 +100,24 @@ func (s *Service) tryEnd(ctx context.Context) error {
 		if err := q.DeleteRoots(ctx); err != nil {
 			return err
 		}
-		return q.DeleteState(ctx)
+		if err := q.DeleteState(ctx); err != nil {
+			return err
+		}
+		if touched, err = s.readdIn(ctx, tx); err != nil {
+			return err
+		}
+		ended = true
+		return s.cfg.Ending(ctx, tx)
 	})
 	if err != nil {
 		return fmt.Errorf("end Reconciling: %w", err)
 	}
+	if !ended {
+		return nil
+	}
+	s.cfg.Log.Info("Reconciling finished")
+	s.touch(touched)
+	s.cfg.Changed.Publish(ctx, Changed{})
+	s.cfg.Ended(ctx)
 	return nil
 }

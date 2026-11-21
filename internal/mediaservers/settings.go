@@ -68,14 +68,15 @@ func (e *MarginTooShortError) Error() string {
 // account, so it is listed only while SlipStream is signed in to Plex.
 func (m *MediaServers) RenewalTask() tasks.Task {
 	return tasks.Task{
-		ID:      RenewalTaskID,
-		Name:    "Plex sign-in",
-		About:   "Renews the Plex sign-in before it expires and reads each Plex server's token again.",
-		Group:   tasks.ControllerGroup,
-		Cadence: tasks.Every{Interval: RenewEvery},
-		Noun:    setting.Noun{One: "Plex account", Many: "Plex accounts"},
-		Units:   m.renewalUnits,
-		Run:     m.renew,
+		ID:               RenewalTaskID,
+		Name:             "Plex sign-in",
+		About:            "Renews the Plex sign-in before it expires and reads each Plex server's token again.",
+		Group:            tasks.ControllerGroup,
+		Cadence:          tasks.Every{Interval: RenewEvery},
+		WhileReconciling: tasks.Runs,
+		Noun:             setting.Noun{One: "Plex account", Many: "Plex accounts"},
+		Units:            m.renewalUnits,
+		Run:              m.renew,
 	}
 }
 

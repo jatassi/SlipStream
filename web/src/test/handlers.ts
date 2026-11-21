@@ -87,6 +87,7 @@ const nothingMoving = getGetCountsMockHandler({
   downloads: { done: 0, wanted: 0, allPaused: false },
   alerts: { nodes: null, health: null, tasks: null },
   pendingImports: 0,
+  reconciling: null,
 });
 const signedInAsAda = getGetSessionMockHandler({
   account: ada,

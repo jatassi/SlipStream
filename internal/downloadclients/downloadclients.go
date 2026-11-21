@@ -104,6 +104,10 @@ const (
 	ReleaseFaulted RemoveReason = "release_fault"
 	// Canceled is an Admin canceling a downloading Grab.
 	Canceled RemoveReason = "canceled"
+	// Forgotten is a Torrent on the review list an Admin forgot after a
+	// restore. It is stored as admin and read from its withheld_at, never
+	// written.
+	Forgotten RemoveReason = "forgotten"
 )
 
 // RemoveReasons is every RemoveReason, the list the schema's CHECK holds.

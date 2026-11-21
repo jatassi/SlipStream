@@ -67,6 +67,9 @@ func (im *Imports) unit(ctx context.Context, u tasks.Unit, p *tasks.Progress) er
 	if !walks(state) {
 		return im.skip(ctx, root, state)
 	}
+	if err := im.later(ctx, id); err != nil {
+		return err
+	}
 	s := &scan{root: root, at: storing.At{Node: root.Node, Root: root.ID.UUID}, p: p}
 	defer func() {
 		if s.pending {
@@ -468,10 +471,29 @@ func (e troubleError) Error() string {
 	return sentence + " " + fix
 }
 
+// laterSkip is the line of a root the re-home step left for later.
+const laterSkip = "Skipped because this root's folder isn't found yet after the restore. Give its path on the Reconciling page, then scan it."
+
+// later skips the scan of a root the re-home step left for later: its
+// path may be the old Controller's, where an empty folder would read as
+// every file gone.
+func (im *Imports) later(ctx context.Context, root roots.ID) error {
+	var later bool
+	err := im.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		later, err = im.cfg.Reconciling.Later(ctx, r, root)
+		return err
+	})
+	if err == nil && later {
+		return tasks.SkipOwned(laterSkip)
+	}
+	return err
+}
+
 // recordScan records root's comparison c and the Works the scan adopted
 // since the comparison before it.
 func (im *Imports) recordScan(ctx context.Context, root roots.Root, c Comparison) error {
-	return im.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+	err := im.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		since, err := comparedAt(ctx, tx, root.ID)
 		if err != nil {
 			return err
@@ -479,6 +501,13 @@ func (im *Imports) recordScan(ctx context.Context, root roots.Root, c Comparison
 		if err := record(ctx, tx, root.ID, c, storage.Now()); err != nil {
 			return err
 		}
+		if err := im.cfg.Reconciling.Scanned(ctx, tx, root.ID); err != nil {
+			return err
+		}
 		return im.announceScan(ctx, tx, root, since)
 	})
+	if err == nil {
+		im.cfg.Reconciling.ScanEnded()
+	}
+	return err
 }

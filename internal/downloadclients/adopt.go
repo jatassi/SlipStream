@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
@@ -153,4 +155,71 @@ func Release(ctx context.Context, tx *storage.Tx[file], ids []ID) error {
 		return nil
 	}
 	return db.New(tx).Release(ctx, ids)
+}
+
+// LiveOfHash is whether a live Torrent of hash is on any Node: one a Grab
+// at fetching takes once Reconciling ends.
+func LiveOfHash(ctx context.Context, r storage.Reader[file], hash bencode.InfoHash) (bool, error) {
+	held, err := db.New(r).ListHeldOfHash(ctx, hash[:])
+	if err != nil {
+		return false, err
+	}
+	return slices.ContainsFunc(held, func(t db.ListHeldOfHashRow) bool { return t.RemovedAt.IsZero() }), nil
+}
+
+// Forget removes each Torrent of ids still on the review list, so its Grab
+// fails restored. No Node holds it, so it parts at once.
+func Forget(ctx context.Context, tx *storage.Tx[file], ids []ID) error {
+	q := db.New(tx)
+	rows, err := readActed(ctx, tx, ids)
+	if err != nil {
+		return err
+	}
+	now := storage.Now()
+	for _, id := range ids {
+		row, ok := rows[id]
+		if !ok || !row.RemovedAt.IsZero() {
+			continue
+		}
+		if err := q.RemoveParted(ctx, db.RemovePartedParams{At: now, RemovedReason: new(string(ByAdmin)), ID: id}); err != nil {
+			return fmt.Errorf("forget Torrent %s: %w", id, err)
+		}
+	}
+	return nil
+}
+
+// LookFile is one of a Torrent's files: its path under its save folder,
+// with / between parts, and its size.
+type LookFile struct {
+	Name string
+	Size int64
+}
+
+// Look is where a Torrent's files should be on its Node: its save folder,
+// "" when none is recorded, and each file.
+type Look struct {
+	Node   role.NodeID
+	Folder string
+	Files  []LookFile
+}
+
+// LookOf is where Torrent id's files should be, for the review list's
+// look at what its Node still has.
+func LookOf(ctx context.Context, r storage.Reader[file], id ID) (Look, error) {
+	row, err := db.New(r).GetLook(ctx, id)
+	if err != nil {
+		return Look{}, fmt.Errorf("read where a Torrent's files are: %w", err)
+	}
+	m, err := bencode.DecodeMetainfo(row.Metainfo)
+	if err != nil {
+		return Look{}, fmt.Errorf("read where a Torrent's files are: %w", err)
+	}
+	l := Look{Node: row.NodeID}
+	if row.SaveFolder != nil {
+		l.Folder = *row.SaveFolder
+	}
+	for _, f := range m.Info.Files {
+		l.Files = append(l.Files, LookFile{Name: path.Join(append([]string{m.Info.Name}, f.Path...)...), Size: f.Length})
+	}
+	return l, nil
 }

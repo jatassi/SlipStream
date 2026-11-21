@@ -69,7 +69,7 @@ func TestScaleHistory(t *testing.T) {
 	}
 
 	start = time.Now()
-	task := housekeeping.Task(housekeeping.Config{Keep: h, Batch: 1000, Steps: []housekeeping.Step{h.Retention()}})
+	task := housekeeping.Task(housekeeping.Config{Reconciling: func(context.Context) (bool, error) { return false, nil }, Keep: h, Batch: 1000, Steps: []housekeeping.Step{h.Retention()}})
 	if err := task.Run(t.Context(), tasks.Unit{Key: "history"}, &tasks.Progress{}); err != nil {
 		t.Fatal(err)
 	}

@@ -32,6 +32,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/servingapi"
 	"github.com/jatassi/slipstream/internal/subtitles"
@@ -135,3 +136,5 @@ func TestTheAccessWalkPassesOnAWorker(t *testing.T) {
 }
 
 func (worker) OpenIn(context.Context, works.WorkID) ([]mediaservers.OpenIn, error) { return nil, nil }
+
+func (worker) Reconciling() (*reconciling.Service, bool) { return nil, false }

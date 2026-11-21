@@ -54,6 +54,9 @@ type Config struct {
 	// Steps are the features' own prunes, each run on the Controller
 	// after the sessions and before the databases.
 	Steps []Step
+	// Reconciling is whether a restored Controller is Reconciling, which
+	// pauses each Step declared Pauses.
+	Reconciling func(ctx context.Context) (bool, error)
 }
 
 // Step is one feature's prune, a unit on the task's page. Only Plain and
@@ -61,12 +64,15 @@ type Config struct {
 type Step struct {
 	Key   tasks.UnitKey
 	Label string
-	run   func(ctx context.Context, before time.Time, batch int, p *tasks.Progress) error
+	// WhileReconciling is what the step does while a restored Controller
+	// is Reconciling, as a task declares it.
+	WhileReconciling tasks.WhileReconciling
+	run              func(ctx context.Context, before time.Time, batch int, p *tasks.Progress) error
 }
 
 // Plain is a step with its own age rule.
-func Plain(key tasks.UnitKey, label string, run func(ctx context.Context) error) Step {
-	return Step{Key: key, Label: label, run: func(ctx context.Context, _ time.Time, _ int, _ *tasks.Progress) error { return run(ctx) }}
+func Plain(key tasks.UnitKey, label string, while tasks.WhileReconciling, run func(ctx context.Context) error) Step {
+	return Step{Key: key, Label: label, WhileReconciling: while, run: func(ctx context.Context, _ time.Time, _ int, _ *tasks.Progress) error { return run(ctx) }}
 }
 
 // Swept is what one batch Write saw: how many rows it read and deleted,
@@ -111,8 +117,8 @@ func Drain[C any](ctx context.Context, limit int, b Batch[C]) (Tally, error) {
 // Aged is a step that deletes rows older than Keep history for through
 // Drain, and notes its unit. why is what kept rows are, after their count:
 // "that are still in use".
-func Aged[C any](key tasks.UnitKey, label string, noun setting.Noun, why string, sweep Sweep[C]) Step {
-	return Step{Key: key, Label: label, run: func(ctx context.Context, before time.Time, batch int, p *tasks.Progress) error {
+func Aged[C any](key tasks.UnitKey, label string, while tasks.WhileReconciling, noun setting.Noun, why string, sweep Sweep[C]) Step {
+	return Step{Key: key, Label: label, WhileReconciling: while, run: func(ctx context.Context, before time.Time, batch int, p *tasks.Progress) error {
 		t, err := Drain(ctx, batch, func(ctx context.Context, after C, limit int) (Swept[C], error) {
 			return sweep(ctx, before, after, limit)
 		})
@@ -151,16 +157,17 @@ func grouped(n int) string {
 
 func Task(cfg Config) tasks.Task {
 	return tasks.Task{
-		ID:      "housekeeping",
-		Name:    "Housekeeping",
-		About:   "Deletes old task runs, expired Join Codes, idle sessions, old Indexer queries and old Media Server history, and History, Grabs, Imports and import records older than Keep history for, then optimizes every database.",
-		Group:   tasks.ControllerGroup,
-		Cadence: tasks.InWindow{Days: cadence},
-		Overdue: tasks.Wait,
-		Noun:    setting.Noun{One: "step", Many: "steps"},
-		Units:   cfg.units,
-		Run:     cfg.run,
-		Tuning:  cfg.Keep,
+		ID:               "housekeeping",
+		Name:             "Housekeeping",
+		About:            "Deletes old task runs, expired Join Codes, idle sessions, old Indexer queries and old Media Server history, and History, Grabs, Imports and import records older than Keep history for, then optimizes every database.",
+		Group:            tasks.ControllerGroup,
+		Cadence:          tasks.InWindow{Days: cadence},
+		WhileReconciling: tasks.Runs,
+		Overdue:          tasks.Wait,
+		Noun:             setting.Noun{One: "step", Many: "steps"},
+		Units:            cfg.units,
+		Run:              cfg.run,
+		Tuning:           cfg.Keep,
 	}
 }
 
@@ -204,7 +211,19 @@ func (c Config) run(ctx context.Context, u tasks.Unit, p *tasks.Progress) error 
 	return err
 }
 
+// pausedStep is the line of a Step paused while Reconciling.
+const pausedStep = "Skipped because SlipStream is Reconciling after a restore. The first Housekeeping run after Reconciling finishes deletes them."
+
 func (c Config) runStep(ctx context.Context, s Step, p *tasks.Progress) error {
+	if s.WhileReconciling == tasks.Pauses {
+		paused, err := c.Reconciling(ctx)
+		if err != nil {
+			return err
+		}
+		if paused {
+			return tasks.SkipOwned(pausedStep)
+		}
+	}
 	var before time.Time
 	if c.Keep != nil {
 		keep, err := c.Keep.Keep(ctx)
