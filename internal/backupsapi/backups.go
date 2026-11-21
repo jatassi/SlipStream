@@ -47,7 +47,7 @@ type backup struct {
 	Trigger          string       `json:"trigger" enum:"scheduled,manual,update,before-restore,before-import,before-handover,superseded,restored" doc:"Why it was taken"`
 	Version          string       `json:"version" doc:"The SlipStream version that took it"`
 	Size             int64        `json:"size" doc:"Bytes"`
-	State            string       `json:"state" enum:"taking,verified,failed,deleting" doc:"verified: it passed its check; failed: it counts for nothing and goes at the next Backup"`
+	State            string       `json:"state" enum:"taking,verified,failed,deleting" doc:"verified: it passed its check; failed: it didn't pass its check, and the next Backup deletes it"`
 	Local            bool         `json:"local" doc:"Its file is in this machine's Backups folder"`
 	Copies           []backupCopy `json:"copies" nullable:"false" doc:"Its copy on each destination, in the order the destinations were added"`
 	WhileReconciling bool         `json:"whileReconciling" doc:"Taken while SlipStream was Reconciling after a restore"`
@@ -199,7 +199,7 @@ func (h handlers) deleteBackup(_ context.Context, _ identity.Admin, in *backupIn
 	case errors.Is(err, backups.ErrNoBackup):
 		return nil, backupNotFound
 	case errors.Is(err, backups.ErrNewestVerified):
-		return nil, newestVerified.Because("This is your newest good Backup, so it can't be deleted. Take another Backup first.")
+		return nil, newestVerified.Because("This is your newest good Backup, so it can't be deleted. Select Back up now, then delete it.")
 	case err != nil:
 		return nil, err
 	}
