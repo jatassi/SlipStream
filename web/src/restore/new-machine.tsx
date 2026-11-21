@@ -15,7 +15,9 @@ function NodeTicks({ summary, removed, toggle }: Ticks & { summary: RestoreSumma
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-1 font-semibold text-ink-2">Nodes to keep</legend>
-      <p className="text-meta text-ink-3">Untick each Node you removed after this Backup was taken.</p>
+      <p className="text-meta text-ink-3">
+        Untick each Node you removed after this Backup was taken.
+      </p>
       {workers.map((node) => (
         <Checkbox
           key={node.id}
