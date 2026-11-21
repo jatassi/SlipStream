@@ -1,8 +1,8 @@
 import type { PairingProblem, PairingWorkerClaim } from "../../api/gen/model";
 import { useNow } from "../../tasks/use-now";
-import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
 import { ReadOnlyField } from "../../ui/read-only-field";
+import { SignalLine } from "../../ui/signal-line";
 import { Spinner } from "../../ui/spinner";
 import { countdown } from "../_app/nodes/-add-node/state";
 import { joinSentences } from "./join-sentences";
@@ -42,7 +42,9 @@ export function JoinFailed({
 }) {
   return (
     <div className="flex flex-col items-start gap-3">
-      <AlertLine text={joinSentences[problem?.code ?? "internal"].text} />
+      <SignalLine tone="fail" announce>
+        {joinSentences[problem?.code ?? "internal"].text}
+      </SignalLine>
       {problem?.code === "internal" ? (
         <p className="text-meta text-ink-3">{problem.detail}</p>
       ) : null}

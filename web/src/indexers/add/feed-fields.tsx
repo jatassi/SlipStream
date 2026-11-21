@@ -1,7 +1,7 @@
 import type { WorksContentType } from "../../api/gen/model";
 import { countWords } from "../../format";
 import { Checkbox } from "../../ui/checkbox";
-import { SignalChip } from "../../ui/signal-chip";
+import { Callout } from "../../ui/callout";
 import { ChoiceSet } from "./families-field";
 import type { AddForm, Tested } from "./use-add";
 
@@ -56,14 +56,11 @@ export function TestReport({ form, tried }: { form: AddForm; tried: Tested }) {
         The feed passed the Test and listed {countWords(report.items, items)}.
       </output>
       {report.sources.length > 1 && (
-        <output className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card bg-warn-card px-4 py-3 text-warn-text ring-1 ring-warn-line ring-inset">
-          <SignalChip kind="warn">Many sources</SignalChip>
-          <span className="min-w-0 flex-[1_1_32ch]">
-            This feed returned results from {countWords(report.sources.length, sources)}. Each
-            source becomes its own Tracker, and all of them share this Indexer&apos;s limits. Add
-            one feed per site instead.
-          </span>
-        </output>
+        <Callout tone="warn" chip="Many sources">
+          This feed returned results from {countWords(report.sources.length, sources)}. Each source
+          becomes its own Tracker, and all of them share this Indexer&apos;s limits. Add one feed
+          per site instead.
+        </Callout>
       )}
       {report.sources.length === 0 && (
         <form.AppField name="trackerName" validators={needed("Name the Tracker the feed reaches.")}>

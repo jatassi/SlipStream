@@ -9,9 +9,9 @@ import {
   getPreviewCatalogRecordQueryKey,
   previewCatalogRecord,
 } from "../../api/gen/query/works/works";
-import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
 import { Dialog, DialogClose } from "../../ui/dialog";
+import { SignalLine } from "../../ui/signal-line";
 import { Skeleton } from "../../ui/skeleton";
 import { AddForm } from "./add-form";
 // oxlint-disable-next-line import/max-dependencies -- the sheet reads the preview and the type's add default, and says when either fails
@@ -61,7 +61,9 @@ function Previewing({ adding: { type, candidate } }: { adding: Adding }) {
   if (error !== null) {
     return (
       <div className="flex flex-col gap-4">
-        <AlertLine text={sentenceOf(error)} />
+        <SignalLine tone="fail" announce>
+          {sentenceOf(error)}
+        </SignalLine>
         <DialogActions>
           <DialogClose>
             <Button>Close</Button>

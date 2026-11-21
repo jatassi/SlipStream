@@ -1,8 +1,8 @@
 import { sentenceOf } from "../../api/errors";
 import type { WorksContentType } from "../../api/gen/model";
 import { countWords } from "../../format";
-import { AlertLine } from "../../ui/alert-line";
 import { RadioGroup } from "../../ui/radio";
+import { SignalLine } from "../../ui/signal-line";
 import { Skeleton } from "../../ui/skeleton";
 import { Switch } from "../../ui/switch";
 import { type MonitoringChoice, type MonitoringPreview, changeWords, countOf } from "./choice";
@@ -31,7 +31,9 @@ export function MonitoringFields({ type, works, preview, choice, onChange }: Fie
     return preview.error === null ? (
       <Skeleton label="Counting what each choice monitors" />
     ) : (
-      <AlertLine text={sentenceOf(preview.error)} />
+      <SignalLine tone="fail" announce>
+        {sentenceOf(preview.error)}
+      </SignalLine>
     );
   }
   const { includeAsides } = choice;

@@ -9,7 +9,7 @@ import { Empty } from "../../shell/empty";
 import { useNow } from "../../tasks/use-now";
 import { Button } from "../../ui/button";
 import { List } from "../../ui/list";
-import { SignalLine } from "../lines";
+import { SignalLine } from "../../ui/signal-line";
 import { ChangeRow, standingOf } from "./change-row";
 import { changesQuery } from "./changes-query";
 
@@ -27,10 +27,7 @@ function Summary({ server, changes }: { server: Server; changes: readonly Change
   if (failing > 0) {
     const more = waiting === 0 ? "" : ` ${waiting} more ${are(waiting)} waiting.`;
     return (
-      <SignalLine
-        level="fail"
-        text={`${countWords(failing, noun)} couldn't be sent to ${server.name}. SlipStream retries automatically.${more}`}
-      />
+      <SignalLine tone="fail">{`${countWords(failing, noun)} couldn't be sent to ${server.name}. SlipStream retries automatically.${more}`}</SignalLine>
     );
   }
   if (waiting > 0) {
@@ -40,7 +37,7 @@ function Summary({ server, changes }: { server: Server; changes: readonly Change
       </p>
     );
   }
-  return <SignalLine level="ok" text={`Every recent change reached ${server.name}.`} />;
+  return <SignalLine tone="ok">{`Every recent change reached ${server.name}.`}</SignalLine>;
 }
 
 /** The server's recent changes: what each sent or waits for, and what a rename couldn't carry. */

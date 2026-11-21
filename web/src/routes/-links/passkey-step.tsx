@@ -1,6 +1,6 @@
 import { passkeyPitch, useAddPasskey } from "../../account/add-passkey";
-import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
+import { SignalLine } from "../../ui/signal-line";
 
 /**
  * Add a passkey and why it failed, for a step that puts its own way past it
@@ -10,7 +10,12 @@ export function usePasskeyOffer(onAdded: () => void) {
   const { busy, failure, add } = useAddPasskey(onAdded);
   return {
     busy,
-    failure: failure === undefined ? null : <AlertLine text={failure} />,
+    failure:
+      failure === undefined ? null : (
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
+      ),
     add: (
       <Button look="primary" busy={busy} onClick={() => void add()}>
         Add a passkey

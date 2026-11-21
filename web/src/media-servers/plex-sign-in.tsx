@@ -6,8 +6,8 @@ import type {
   MediaserversPlexPinStateState as PinState,
 } from "../api/gen/model";
 import { Button } from "../ui/button";
+import { SignalLine } from "../ui/signal-line";
 import { Spinner } from "../ui/spinner";
-import { SignalLine, WarnLine } from "./lines";
 import { startPlexTab, useWatchPin } from "./use-plex-pin";
 
 /** Why the Admin signs in again: the last PIN expired, or plex.tv refused the sign-in SlipStream had. */
@@ -42,12 +42,12 @@ export function SignInPart({
   };
   return (
     <div className="flex flex-col gap-4">
-      {lapse !== undefined && <WarnLine text={lapseWords[lapse]} />}
+      {lapse !== undefined && <SignalLine tone="warn">{lapseWords[lapse]}</SignalLine>}
       <p className="text-pretty text-ink-1">
         Plex opens in a new tab, where you sign in to your Plex account. Your password stays with
         Plex, and SlipStream lists your Plex servers here once you approve the sign-in.
       </p>
-      {error !== undefined && <SignalLine level="fail" text={error} />}
+      {error !== undefined && <SignalLine tone="fail">{error}</SignalLine>}
       <div className="flex flex-wrap justify-end gap-2">
         <Button onClick={onBack}>Back</Button>
         <Button look="primary" busy={busy} onClick={() => void start()}>

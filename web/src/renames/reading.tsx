@@ -1,5 +1,5 @@
 import { sentenceOf } from "../api/errors";
-import { AlertLine } from "../ui/alert-line";
+import { SignalLine } from "../ui/signal-line";
 import { Spinner } from "../ui/spinner";
 
 /** A read of the plan in flight, or why it failed. */
@@ -18,7 +18,9 @@ export function Reading({
     <Spinner label={label} className={className} />
   ) : (
     <div className={className}>
-      <AlertLine text={sentenceOf(error)} />
+      <SignalLine tone="fail" announce>
+        {sentenceOf(error)}
+      </SignalLine>
     </div>
   );
 }

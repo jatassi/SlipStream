@@ -50,7 +50,7 @@ test("a client that isn't responding leads the view with a red card, and its row
   await expect
     .element(card())
     .toHaveTextContent(
-      "Not respondingTransmission on homeSince 14:02Transmission isn't responding. Check that it's running and that home can reach 192.168.1.20:9091.1 torrent shows last known data.Check nowEdit client",
+      "Not respondingTransmission on homeTransmission isn't responding. Check that it's running and that home can reach 192.168.1.20:9091.1 torrent shows last known data.since 14:02Check nowEdit client",
     );
   await expect
     .element(table().getByRole("row", { name: /^The\.Attic/u }))

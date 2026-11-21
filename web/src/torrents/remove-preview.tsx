@@ -6,6 +6,7 @@ import type {
 import { bytes } from "../format";
 import { useNow } from "../tasks/use-now";
 import { Data } from "../ui/data";
+import { SignalLine } from "../ui/signal-line";
 import { type Subject, outcomeWords } from "./actions";
 import { owedWords } from "./seeding";
 
@@ -57,17 +58,17 @@ function HitsAndRuns({
     if (only !== undefined && rest.length === 0) {
       const owed = owes(only);
       return (
-        <p key={only.torrentId} className="text-warn-ink">
+        <SignalLine key={only.torrentId} tone="warn">
           {`${parted[parting](name(only.torrentId) ?? "it")} now counts as a hit and run on ${tracker ?? "its Tracker"}.`}
           {owed !== undefined && ` It needs ${owed}.`}
-        </p>
+        </SignalLine>
       );
     }
     return (
       <div key={tracker ?? ""}>
-        <p className="text-warn-ink">
+        <SignalLine tone="warn">
           {`${parted[parting]("these")} now counts as a hit and run on ${tracker === undefined ? "each one's Tracker" : `${tracker} for each of them`}:`}
-        </p>
+        </SignalLine>
         <ul className="mt-2 flex flex-col gap-1">
           {owing.map((hit) => (
             <li key={hit.torrentId} className="flex min-w-0 flex-col">
@@ -130,9 +131,9 @@ export function Preview({
   return (
     <>
       {refused.map((sentence) => (
-        <p key={sentence} className="text-warn-ink">
+        <SignalLine key={sentence} tone="warn">
           {sentence}
-        </p>
+        </SignalLine>
       ))}
       {cancels.length > 0 && (
         <div>

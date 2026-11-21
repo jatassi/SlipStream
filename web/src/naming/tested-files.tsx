@@ -1,7 +1,7 @@
 import { ReadFacts } from "../formats/tested-name";
-import { AlertLine } from "../ui/alert-line";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
+import { SignalLine } from "../ui/signal-line";
 import { type TestedFile, leadOf, pathOf } from "./tester-words";
 
 export type Shown =
@@ -31,7 +31,11 @@ export function Results({ shown }: { shown: Shown }) {
     case "idle":
       return null;
     case "refused":
-      return <AlertLine text={shown.sentence} />;
+      return (
+        <SignalLine tone="fail" announce>
+          {shown.sentence}
+        </SignalLine>
+      );
     case "results":
       return (
         <ol aria-label="Results" className="flex flex-col">

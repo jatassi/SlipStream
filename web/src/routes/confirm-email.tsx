@@ -6,8 +6,8 @@ import { isProblem } from "../api/errors";
 import { useConfirmEmail } from "../api/gen/query/identity/identity";
 import { requireEntry } from "../session/gate";
 import { refreshSession } from "../session/session";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
+import { SignalLine } from "../ui/signal-line";
 import { type LiveProps, LinkPage } from "./-links/link-page";
 
 export const Route = createFileRoute("/confirm-email")({
@@ -62,7 +62,11 @@ function Confirm({ token, link, linkDied }: LiveProps) {
         Change your {link.serverName} email to <span className="text-ink-1">{link.email}</span>?
         SlipStream emails your old address about the change.
       </p>
-      {failure !== undefined && <AlertLine text={failure} />}
+      {failure !== undefined && (
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
+      )}
       <Button look="primary" busy={busy} onClick={() => void run()}>
         Confirm
       </Button>

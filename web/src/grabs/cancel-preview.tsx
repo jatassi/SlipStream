@@ -10,6 +10,7 @@ import {
 import { useProjection } from "../library/projection";
 import { subjectOf } from "../torrents/actions";
 import { Preview, freesWords } from "../torrents/remove-preview";
+import { SignalLine } from "../ui/signal-line";
 import { Spinner } from "../ui/spinner";
 
 // A downloading Grab's cancel is its Torrent's remove, so it shows the same dry run.
@@ -42,7 +43,11 @@ function TorrentGoes({
         SlipStream counts the files it was for as missing again.
       </p>
       {preview.isPending && <Spinner label="Checking what this changes" />}
-      {preview.isError && <p className="text-fail-ink">{sentenceOf(preview.error)}</p>}
+      {preview.isError && (
+        <SignalLine tone="fail" announce>
+          {sentenceOf(preview.error)}
+        </SignalLine>
+      )}
       {preview.data !== undefined && (
         <Preview
           parting="remove"

@@ -5,8 +5,8 @@ import { sinceWords } from "../format";
 import { itemAnchor, levels } from "../health/levels";
 import { sectionHealth } from "../health/section-health";
 import { useNow } from "../tasks/use-now";
+import { Callout } from "../ui/callout";
 import { AlertDot } from "../ui/count";
-import { WarningLine } from "../ui/warning-line";
 import type { SettingsSection } from "./section";
 
 const sinceTick = 60_000;
@@ -32,11 +32,10 @@ export function SectionWarning({ section }: { section: SettingsSection }) {
   }
   const { category, item } = shown.first;
   return (
-    <WarningLine
-      signal={item.level}
+    <Callout
+      tone={item.level}
       chip={levels[item.level].chip}
       subject={item.subject}
-      detail={item.text}
       since={sinceWords(item.since, { now, zone: undefined })}
       action={{
         label: "Open Health",
@@ -44,6 +43,8 @@ export function SectionWarning({ section }: { section: SettingsSection }) {
           void navigate({ to: "/health", hash: itemAnchor(category, item.key) });
         },
       }}
-    />
+    >
+      {item.text}
+    </Callout>
   );
 }

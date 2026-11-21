@@ -118,7 +118,7 @@ test("a pasted Node address has home dial the new Node, then says when it can't 
 
   codes.unreachable(id);
   await expect
-    .element(dialog().getByRole("alert"))
+    .element(dialog().getByRole("status").filter({ hasText: "home can't reach the new Node" }))
     .toHaveTextContent(
       "home can't reach the new Node at 203.0.113.9:8485. Check that the port is open.",
     );

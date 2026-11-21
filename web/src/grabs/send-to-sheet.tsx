@@ -11,7 +11,9 @@ import { useSendGrabTo } from "../api/gen/query/grabs/grabs";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { RadioGroup } from "../ui/radio";
+import { SignalLine } from "../ui/signal-line";
 import { Skeleton } from "../ui/skeleton";
+// oxlint-disable-next-line import/max-dependencies -- the sheet lists the clients, sends the grab and says how it went
 import { toast } from "../ui/toast";
 
 /** A client a Grab can go to: its label, its name in a sentence, and the send-to body that names it. */
@@ -91,7 +93,11 @@ function SendTo({ grab, onDone }: { grab: GrabsGrab; onDone: () => void }) {
     <div className="flex flex-col gap-4">
       <p>SlipStream sends {grab.releaseTitle} to the client you choose.</p>
       <ClientChoice picks={picks} value={picked} onValueChange={setPicked} />
-      {send.isError && <p className="text-fail-ink">{sentenceOf(send.error)}</p>}
+      {send.isError && (
+        <SignalLine tone="fail" announce>
+          {sentenceOf(send.error)}
+        </SignalLine>
+      )}
       <div className="flex flex-wrap justify-end gap-2">
         <Button onClick={onDone}>Cancel</Button>
         <Button

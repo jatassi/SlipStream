@@ -1,4 +1,5 @@
 import type { RootsMissingFiles, RootsProgress } from "../api/gen/model";
+import { Callout } from "../ui/callout";
 import { Data } from "../ui/data";
 import { LiveBar } from "../ui/live-bar";
 import { Spinner } from "../ui/spinner";
@@ -29,23 +30,25 @@ export function RehomeProgress({ progress }: { progress: RootsProgress | undefin
 export function MissingFiles({ missing, label }: { missing: RootsMissingFiles; label: string }) {
   const more = missing.count - missing.first.length;
   return (
-    <div className="flex flex-col gap-2 rounded-card bg-warn-card px-4 py-3 text-warn-text ring-1 ring-warn-line ring-inset">
-      <p className="font-semibold">
-        {filesWords(missing.count)} {missing.count === 1 ? "isn't" : "aren't"} at the new place.
-      </p>
-      <ul aria-label="Missing files" className="flex flex-col gap-1">
-        {missing.first.map((file) => (
-          <li key={file.path} className="flex flex-wrap gap-x-2">
-            <Data className="break-all">{file.path}</Data>
-            <span className="text-warn-dim">{missingWords[file.reason]}</span>
-          </li>
-        ))}
-      </ul>
-      {more > 0 && <p className="text-warn-dim">And {counted.format(more)} more.</p>}
-      <p className="text-warn-dim">
-        Check the folder, or save anyway. If you save, SlipStream forgets those files, marks their{" "}
-        {label} missing and searches for them again.
-      </p>
-    </div>
+    <Callout tone="warn" chip="Files missing">
+      <div className="flex flex-col gap-2">
+        <p className="font-semibold">
+          {filesWords(missing.count)} {missing.count === 1 ? "isn't" : "aren't"} at the new place.
+        </p>
+        <ul aria-label="Missing files" className="flex flex-col gap-1">
+          {missing.first.map((file) => (
+            <li key={file.path} className="flex flex-wrap gap-x-2">
+              <Data className="break-all">{file.path}</Data>
+              <span className="text-warn-dim">{missingWords[file.reason]}</span>
+            </li>
+          ))}
+        </ul>
+        {more > 0 && <p className="text-warn-dim">And {counted.format(more)} more.</p>}
+        <p className="text-warn-dim">
+          Check the folder, or save anyway. If you save, SlipStream forgets those files, marks their{" "}
+          {label} missing and searches for them again.
+        </p>
+      </div>
+    </Callout>
   );
 }

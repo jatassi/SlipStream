@@ -37,6 +37,7 @@ var pairs = []pair{
 	{"fail-ink", nil, 4.5, "failure link in the status sentence"},
 	{"warn", nil, 4.5, "warning link in the status sentence"},
 	{"fail-ink", []string{"glass"}, 4.5, "failure ink on glass"},
+	{"warn-ink", []string{"glass"}, 4.5, "warning ink on glass"},
 	{"fail-text", []string{"fail-card"}, 4.5, "text on a failure card"},
 	{"fail-dim", []string{"fail-card"}, 4.5, "dim text on a failure card"},
 	{"fail-ink", []string{"fail-card"}, 4.5, "labels on a failure card"},

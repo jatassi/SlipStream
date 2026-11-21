@@ -8,8 +8,8 @@ import {
   formatSetupCode,
   normalizeSetupCode,
 } from "../../session/setup-code";
-import { AlertLine } from "../../ui/alert-line";
 import { submitErrors, useAppForm } from "../../ui/form";
+import { SignalLine } from "../../ui/signal-line";
 import { Spinner } from "../../ui/spinner";
 import { busySentence } from "./join-sentences";
 
@@ -72,7 +72,11 @@ export function CodeScreen({
         void form.handleSubmit();
       }}
     >
-      {note === undefined ? null : <AlertLine text={note} />}
+      {note === undefined ? null : (
+        <SignalLine tone="fail" announce>
+          {note}
+        </SignalLine>
+      )}
       <p>Enter the Setup code from this Node&apos;s console or log.</p>
       <form.AppForm>
         <form.AppField name="setupCode">

@@ -108,7 +108,7 @@ function ClientForm({ opened, kinds, nodes, onDone }: Props) {
 }
 
 /** The add and edit sheet of an external Download Client: a Dialog, a bottom sheet on phone. */
-function ClientSheet({
+export function ClientSheet({
   open,
   onOpenChange,
   ...props

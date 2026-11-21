@@ -1,11 +1,11 @@
 import { useId } from "react";
 
 import type { FormatsDraft } from "../api/gen/model";
-import { AlertLine } from "../ui/alert-line";
 import { Button } from "../ui/button";
 import { dataFont } from "../ui/data";
 import { Section } from "../ui/section";
 import { Segmented } from "../ui/segmented";
+import { SignalLine } from "../ui/signal-line";
 import { TestedName } from "./tested-name";
 import { type TesterKind, kindLabels, nameLimit, namesIn, namesProblem } from "./tester-words";
 import { type Outcome, type Testing, type WorkRef, useTesting } from "./testing";
@@ -68,7 +68,11 @@ function Results({ outcome }: { outcome: Outcome }) {
     case "idle":
       return null;
     case "refused":
-      return <AlertLine text={outcome.sentence} />;
+      return (
+        <SignalLine tone="fail" announce>
+          {outcome.sentence}
+        </SignalLine>
+      );
     case "results":
       return (
         <ol aria-label="Results" className="flex flex-col">

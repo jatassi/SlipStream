@@ -12,8 +12,8 @@ import {
 } from "../../api/gen/query/mediaservers/mediaservers";
 import { adoptMediaServer } from "../../live/adopt-media-servers";
 import { Button } from "../../ui/button";
+import { SignalLine } from "../../ui/signal-line";
 import { toast } from "../../ui/toast";
-import { SignalLine } from "../lines";
 import { RefreshServer } from "./refresh-server";
 
 type TestAnswer = { readonly tested: Tested } | { readonly refused: string };
@@ -27,17 +27,19 @@ const fallbackWords: { readonly [F in Tested["fallback"]]: string } = {
 function TestResult({ answer }: { answer: TestAnswer }) {
   if ("refused" in answer) {
     return (
-      <div role="alert">
-        <SignalLine level="fail" text={answer.refused} />
-      </div>
+      <SignalLine tone="fail" announce>
+        {answer.refused}
+      </SignalLine>
     );
   }
   const { reaching, controller, fallback } = answer.tested;
   return (
     <output className="flex flex-col gap-1.5">
-      <SignalLine level={reaching.ok ? "ok" : "fail"} text={reaching.words} />
-      <SignalLine level={controller.ok ? "ok" : "warn"} text={controller.words} />
-      <SignalLine level={fallback === "available" ? "ok" : "warn"} text={fallbackWords[fallback]} />
+      <SignalLine tone={reaching.ok ? "ok" : "fail"}>{reaching.words}</SignalLine>
+      <SignalLine tone={controller.ok ? "ok" : "warn"}>{controller.words}</SignalLine>
+      <SignalLine tone={fallback === "available" ? "ok" : "warn"}>
+        {fallbackWords[fallback]}
+      </SignalLine>
     </output>
   );
 }
@@ -72,7 +74,7 @@ export function ServerHeader({ server }: { server: Server }) {
   };
   return (
     <div className="mb-6 flex flex-col gap-3">
-      <SignalLine level={server.state.level} text={server.state.words} />
+      <SignalLine tone={server.state.level}>{server.state.words}</SignalLine>
       <div className="flex flex-wrap gap-2">
         <Button size="small" busy={testing} onClick={() => void test()}>
           Test

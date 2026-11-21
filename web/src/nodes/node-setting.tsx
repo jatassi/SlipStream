@@ -9,9 +9,9 @@ import type {
 import { useGetNodeConfigSuspense, useUpdateNodeConfig } from "../api/gen/query/system/system";
 import { adoptNodeConfig } from "../live/adopt";
 import { askRestart } from "../shell/restart/restart-state";
+import { Callout } from "../ui/callout";
 import { SettingField } from "../ui/setting-field";
 import { toast } from "../ui/toast";
-import { WarningLine } from "../ui/warning-line";
 
 export function fieldsOf(config: SystemNodeConfig, id: SystemConfigSectionId): readonly Field[] {
   const section = config.sections.find((candidate) => candidate.id === id);
@@ -69,23 +69,24 @@ export function PendingRestart({ node }: { node: NodesNode }) {
     return null;
   }
   return (
-    <WarningLine
-      signal="warn"
+    <Callout
+      tone="warn"
       chip="Restart needed"
       subject={`Restart ${node.name} to use the new ${pending.map((field) => field.label.toLowerCase()).join(" and ")}`}
-      detail={pending
-        .map((field) =>
-          field.kind === "address"
-            ? `It listens on ${field.running} until then.`
-            : "Torrents already added stay where they are.",
-        )
-        .join(" ")}
       action={{
         label: "Restart now",
         onClick: () => {
           askRestart(node);
         },
       }}
-    />
+    >
+      {pending
+        .map((field) =>
+          field.kind === "address"
+            ? `It listens on ${field.running} until then.`
+            : "Torrents already added stay where they are.",
+        )
+        .join(" ")}
+    </Callout>
   );
 }

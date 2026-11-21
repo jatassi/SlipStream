@@ -7,9 +7,9 @@ import {
   getListManualSearchReleasesQueryKey,
   listManualSearchReleases,
 } from "../api/gen/query/grabs/grabs";
-import { AlertLine } from "../ui/alert-line";
 import { Details } from "../ui/details";
 import { Select } from "../ui/select";
+import { SignalLine } from "../ui/signal-line";
 import { Skeleton } from "../ui/skeleton";
 import type { Grabbing } from "./grabbing";
 // oxlint-disable-next-line import/max-dependencies -- All Releases reads its own list, sorts it and grabs from it
@@ -54,7 +54,11 @@ function Offers({ workId, grab }: { workId: string; grab: Grabbing }) {
     gcTime: 0,
   });
   if (listed.error !== null) {
-    return <AlertLine text={sentenceOf(listed.error)} />;
+    return (
+      <SignalLine tone="fail" announce>
+        {sentenceOf(listed.error)}
+      </SignalLine>
+    );
   }
   if (listed.data === undefined) {
     return <Skeleton label="Loading the releases" />;

@@ -8,6 +8,7 @@ import type {
 } from "../../api/gen/model";
 import { deleteWorks } from "../../api/gen/query/works/works";
 import { Button } from "../../ui/button";
+import { SignalLine } from "../../ui/signal-line";
 import { Spinner } from "../../ui/spinner";
 import type { Named, Subject } from "./actions";
 import { planWords } from "./delete-plan";
@@ -55,9 +56,9 @@ function Offline({
   return (
     <div className="flex flex-col items-start gap-2">
       {stuck.map(({ subject, problem }) => (
-        <p key={subject.id} className="text-fail-ink">
+        <SignalLine key={subject.id} tone="fail" announce>
           {`${subject.label} can't be deleted with its files. ${problem.detail ?? `${problem.title}.`}`}
-        </p>
+        </SignalLine>
       ))}
       <Button onClick={onLeave}>Leave files</Button>
     </div>
@@ -82,7 +83,11 @@ export function DeletePreview({
     return <Spinner label="Checking what this deletes" />;
   }
   if (preview.isError) {
-    return <p className="text-fail-ink">{sentenceOf(preview.error)}</p>;
+    return (
+      <SignalLine tone="fail" announce>
+        {sentenceOf(preview.error)}
+      </SignalLine>
+    );
   }
   return (
     <>

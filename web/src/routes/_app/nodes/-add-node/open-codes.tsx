@@ -4,10 +4,10 @@ import { sentenceOf } from "../../../../api/errors";
 import type { NodesOpenCode } from "../../../../api/gen/model";
 import { revokeJoinCode } from "../../../../api/gen/query/nodes/nodes";
 import { clock } from "../../../../format";
-import { AlertLine } from "../../../../ui/alert-line";
 import { Button } from "../../../../ui/button";
 import { List, ListRow } from "../../../../ui/list";
 import { Section } from "../../../../ui/section";
+import { SignalLine } from "../../../../ui/signal-line";
 import { useRefreshCodes } from "./codes";
 
 function RevokeButton({ code, label }: { code: NodesOpenCode; label: string }) {
@@ -16,7 +16,11 @@ function RevokeButton({ code, label }: { code: NodesOpenCode; label: string }) {
   const [failure, setFailure] = useState<string>();
   return (
     <span className="flex items-center gap-2">
-      {failure !== undefined && <AlertLine text={failure} />}
+      {failure !== undefined && (
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
+      )}
       <Button
         size="small"
         busy={revoking}

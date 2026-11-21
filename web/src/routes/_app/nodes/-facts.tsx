@@ -1,10 +1,10 @@
 import { useNavigate } from "@tanstack/react-router";
 import type { SystemReport } from "../../../api/gen/model";
 import { clock } from "../../../format";
+import { Callout } from "../../../ui/callout";
 import { Data } from "../../../ui/data";
 import { Fact, Facts } from "../../../ui/facts";
 import { Section } from "../../../ui/section";
-import { WarningLine } from "../../../ui/warning-line";
 import { portOf } from "./-node";
 
 function Fallback({ nodeId, system }: { nodeId: string; system: SystemReport }) {
@@ -16,18 +16,17 @@ function Fallback({ nodeId, system }: { nodeId: string; system: SystemReport }) 
   }
   return (
     <div className="mb-3">
-      <WarningLine
-        signal="warn"
+      <Callout
+        tone="warn"
         chip="Port taken"
         subject={`Port ${configured} was taken, so SlipStream is on ${bound}.`}
-        detail={`Another program holds ${configured}. Free it, or choose another port and restart.`}
         action={{
           label: "Change port",
           onClick: () => {
             void navigate({ to: "/nodes/$nodeId/web", params: { nodeId } });
           },
         }}
-      />
+      >{`Another program holds ${configured}. Free it, or choose another port and restart.`}</Callout>
     </div>
   );
 }

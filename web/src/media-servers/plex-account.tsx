@@ -7,7 +7,7 @@ import type {
 } from "../api/gen/model";
 import { List, ListRow } from "../ui/list";
 import { Section } from "../ui/section";
-import { SignalLine } from "./lines";
+import { SignalLine } from "../ui/signal-line";
 import { SignOut } from "./plex-sign-out";
 import { plexAccountQuery, usePlexAccount } from "./use-plex-pin";
 
@@ -24,10 +24,10 @@ function AccountRow({ account, plex }: { account: Account; plex: readonly Server
         {...(account.refused && {
           detail: (
             <div className="pt-1 pb-1">
-              <SignalLine
-                level="fail"
-                text="plex.tv refused to renew SlipStream's Plex sign-in. Choose Add a Media Server, then Plex, and sign in again."
-              />
+              <SignalLine tone="fail">
+                plex.tv refused to renew SlipStream&apos;s Plex sign-in. Choose Add a Media Server,
+                then Plex, and sign in again.
+              </SignalLine>
             </div>
           ),
         })}

@@ -398,7 +398,7 @@ Who sets the ambient:
 
 **The Never Alone Rule.** Every signal colour comes with an icon and a word. Red and green are the pair most often confused, so colour alone never carries the state.
 
-**The Contrast Proof Rule.** Change a colour token only if the contrast check in `go run ./cmd/release lint` still passes. It sweeps 120 hues at six saturations, finds the ambient ceiling, requires it to equal the frontmatter's `ambient.ceiling`, and checks 32 ink and surface pairs at it. It reads the same parsed tokens the theme is generated from, and its pairs, named by token, live in `cmd/release/internal/tokens/contrast.go`.
+**The Contrast Proof Rule.** Change a colour token only if the contrast check in `go run ./cmd/release lint` still passes. It sweeps 120 hues at six saturations, finds the ambient ceiling, requires it to equal the frontmatter's `ambient.ceiling`, and checks 33 ink and surface pairs at it. It reads the same parsed tokens the theme is generated from, and its pairs, named by token, live in `cmd/release/internal/tokens/contrast.go`.
 
 ## Typography
 

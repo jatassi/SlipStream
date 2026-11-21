@@ -3,9 +3,9 @@ import { useState } from "react";
 import type { IdentityPasskey } from "../../api/gen/model";
 import { useDeletePasskey } from "../../api/gen/query/identity/identity";
 import { clock } from "../../format";
-import { AlertLine } from "../../ui/alert-line";
 import { Button } from "../../ui/button";
 import { List, ListRow } from "../../ui/list";
+import { SignalLine } from "../../ui/signal-line";
 import type { Flow } from "./reset-pin";
 import type { StepProps } from "./steps";
 
@@ -67,7 +67,11 @@ export function Passkeys({ flow, next }: StepProps<Flow>) {
           ))}
         </List>
       )}
-      {failure !== undefined && <AlertLine text={failure} />}
+      {failure !== undefined && (
+        <SignalLine tone="fail" announce>
+          {failure}
+        </SignalLine>
+      )}
       <Button
         look="primary"
         onClick={() => {
