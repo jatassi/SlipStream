@@ -15,9 +15,5 @@ func ephemeral(err error) bool {
 	if !errors.As(err, &errno) {
 		return false
 	}
-	switch errno {
-	case syscall.ERROR_ACCESS_DENIED, syscall.ERROR_FILE_NOT_FOUND, errorSharingViolation:
-		return true
-	}
-	return false
+	return errno == syscall.ERROR_ACCESS_DENIED || errno == syscall.ERROR_FILE_NOT_FOUND || errno == errorSharingViolation
 }
