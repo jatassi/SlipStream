@@ -8,6 +8,7 @@ func firstRunSteps(lib *libraryDB, h *half) []firstrun.Step {
 	return []firstrun.Step{
 		lib.ids.AddressStep(),
 		lib.ids.PasskeyStep(),
+		h.backups.Step(),
 		h.works.MediaStep(),
 		h.metadata.LanguageStep(),
 		h.roots.RootsStep(),

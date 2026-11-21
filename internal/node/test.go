@@ -26,6 +26,10 @@ import (
 type Test struct {
 	// Library is library sets beside the binary's own.
 	Library []storage.Schema[storage.Library]
+	// SeedLibrary may write a library.db at path that schemas have already
+	// migrated, before a Node opens the library there, so a test need not
+	// migrate every fresh data dir again. It never writes library.key.
+	SeedLibrary func(path string, schemas []storage.Schema[storage.Library]) error
 	// Served is control halves the Controller serves beside the binary's
 	// own, and Always the Roles every Node holds beyond its nodes_role rows.
 	Served []role.Served
@@ -79,6 +83,13 @@ func (t Test) held(local *storage.DB[storage.Local]) []role.Held {
 		return nil
 	}
 	return t.Held(local)
+}
+
+func (t Test) seedLibrary(path string, schemas []storage.Schema[storage.Library]) error {
+	if t.SeedLibrary == nil {
+		return nil
+	}
+	return t.SeedLibrary(path, schemas)
 }
 
 func (t Test) tasks(h Half) []tasks.Task {

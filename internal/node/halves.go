@@ -342,6 +342,13 @@ func (n *Node) startController(ctx context.Context) error {
 		Check: func(ctx context.Context, admin identity.Admin, node role.NodeID, folder string) (roots.Verdict, error) {
 			return homes.Check(ctx, admin, node, folder, storing.PurposeBackups, nil)
 		},
+		Tasks: lateTasks{&scheduler},
+		Roster: func(id role.NodeID) (string, bool) {
+			v, _ := side.Board().Node(id)
+			return v.Name, v.Standing == nodes.InStep
+		},
+		Changed: backups.ChangedEvent.Bind(n.hub),
+		Zone:    n.zone(),
 	})
 	if err != nil {
 		return err

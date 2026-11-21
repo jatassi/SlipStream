@@ -8,4 +8,5 @@ export type HealthCategoryID =
   | "indexers"
   | "subtitles"
   | "scheduled-tasks"
+  | "backups"
   | "notifications";

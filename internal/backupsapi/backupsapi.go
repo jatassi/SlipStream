@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -18,6 +19,8 @@ type Keeper interface {
 	// Backups is the Backups service, false unless the Node is a
 	// Controller.
 	Backups() (*backups.Backups, bool)
+	// Retire fences this Controller by the Admin's word.
+	Retire(ctx context.Context) error
 }
 
 func open(k Keeper) *backups.Backups {
@@ -124,6 +127,89 @@ type destinationInput struct {
 func Routes(r *api.Router, k Keeper) {
 	o := r.Owner("backups", api.Admin)
 	h := handlers{k}
+
+	api.Register(o, api.Admin, api.Op{
+		ID: "listBackups", Method: http.MethodGet, Path: "/backups",
+		Summary: "List the Backups, newest first, with their copies and the passphrase's state",
+		Status:  http.StatusOK,
+	}, h.listBackups)
+	api.Register(o, api.Admin, api.Op{
+		ID: "backUpNow", Method: http.MethodPost, Path: "/backups",
+		Summary: "Start a Backup now. The Backup task's run shows how it went",
+		Status:  http.StatusAccepted,
+	}, h.backUpNow)
+	api.Register(o, api.Admin, api.Op{
+		ID: "deleteBackup", Method: http.MethodDelete, Path: "/backups/{backupId}",
+		Summary: "Delete a Backup and its copies, and list the Backups left",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{backupNotFound, newestVerified},
+	}, h.deleteBackup)
+	api.Register(o, api.Admin, api.Op{
+		ID: "pullBackup", Method: http.MethodPost, Path: "/backups/{backupId}/pull",
+		Summary: "Copy a Backup back from a destination into this machine's Backups folder",
+		Status:  http.StatusAccepted,
+		Errors:  []*api.Code{backupNotFound, destinationNotFound},
+	}, h.pullBackup)
+	api.Register(o, api.ReconfirmedSession, api.Op{
+		ID: "prepareBackupDownload", Method: http.MethodPost, Path: "/backups/{backupId}/file/ticket",
+		Summary: "Confirm it's you before downloading a Backup's file",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{backupNotFound, notLocal},
+	}, h.prepareDownload)
+	api.RegisterDownload(o, api.ReconfirmedSession, api.Op{
+		ID: "downloadBackup", Method: http.MethodGet, Path: "/backups/{backupId}/file",
+		Summary: "Download a Backup's file as it was written, still encrypted",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{backupNotFound, notLocal},
+	}, "application/octet-stream", h.downloadBackup)
+	api.Register(o, api.ReconfirmedSession, api.Op{
+		ID: "getBackupPassphrase", Method: http.MethodGet, Path: "/backups/passphrase",
+		Summary: "Show the passphrase that opens every new Backup",
+		Status:  http.StatusOK,
+	}, h.getPassphrase)
+	api.Register(o, api.ReconfirmedSession, api.Op{
+		ID: "replaceBackupPassphrase", Method: http.MethodPost, Path: "/backups/passphrase",
+		Summary: "Make a new Backup passphrase and start a Backup with it",
+		Status:  http.StatusAccepted,
+	}, h.replacePassphrase)
+	api.Register(o, api.Admin, api.Op{
+		ID: "saveBackupPassphrase", Method: http.MethodPost, Path: "/backups/passphrase/saved",
+		Summary: "Record that you saved the current Backup passphrase",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{needsSession},
+	}, h.savedPassphrase)
+	api.Register(o, api.Admin, api.Op{
+		ID: "checkBackupPassphrase", Method: http.MethodPost, Path: "/backups/passphrase/check",
+		Summary: "Check a saved copy against the current Backup passphrase",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{needsSession},
+	}, h.checkPassphrase)
+	api.Register(o, api.ReconfirmedSession, api.Op{
+		ID: "prepareRecoverySheet", Method: http.MethodPost, Path: "/backups/recovery-sheet/ticket",
+		Summary: "Confirm it's you before downloading the recovery sheet",
+		Status:  http.StatusNoContent,
+	}, func(context.Context, identity.Admin, *struct{}) (*struct{}, error) { return nil, nil })
+	api.RegisterDownload(o, api.ReconfirmedSession, api.Op{
+		ID: "downloadRecoverySheet", Method: http.MethodGet, Path: "/backups/recovery-sheet",
+		Summary: "Download the recovery sheet: the passphrase, each Backup folder and how to restore",
+		Status:  http.StatusOK,
+	}, "text/plain; charset=utf-8", h.downloadSheet)
+	api.Register(o, api.ReconfirmedSession, api.Op{
+		ID: "retireController", Method: http.MethodPost, Path: "/backups/retire",
+		Summary: "Retire this Controller after its library was restored on another machine",
+		Status:  http.StatusNoContent,
+	}, h.retire)
+	api.Register(o, api.Admin, api.Op{
+		ID: "getBackupSettings", Method: http.MethodGet, Path: "/backup-settings",
+		Summary: "Get the Backups settings",
+		Status:  http.StatusOK,
+	}, h.getSettings)
+	api.Register(o, api.Admin, api.Op{
+		ID: "updateBackupSettings", Method: http.MethodPatch, Path: "/backup-settings",
+		Summary: "Change Backups settings by key, all or none",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
+	}, h.updateSettings)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listBackupDestinations",

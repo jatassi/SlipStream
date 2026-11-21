@@ -1,6 +1,7 @@
 export type FirstrunStepID =
   | "address"
   | "passkey"
+  | "backup"
   | "media"
   | "language"
   | "roots"

@@ -291,7 +291,8 @@ func (b *Backups) Poke() {
 }
 
 // Run settles the copies whenever a copy Transfer moves, a Node reports
-// its Backup folders or the index changes, until ctx ends.
+// its Backup folders or the index changes, and publishes backups.changed
+// after each index change, until ctx ends.
 func (b *Backups) Run(ctx context.Context) error {
 	for {
 		if err := b.settle(ctx); err != nil && ctx.Err() == nil {
@@ -302,6 +303,7 @@ func (b *Backups) Run(ctx context.Context) error {
 			return nil
 		case <-b.poke:
 		case <-b.cfg.Engine.Index().Changed():
+			b.cfg.Changed.Publish(ctx, Changed{})
 			b.touchFolders()
 		}
 	}

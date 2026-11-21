@@ -60,6 +60,7 @@ func serve(t *testing.T) *ownertest.Owner {
 			{About: health.About{ID: health.ScheduledTasksID, Label: "Scheduled tasks", Phrase: "scheduled tasks"}, Source: health.Source{Answer: answer(health.Answer{
 				Items: []health.Item{{Key: "housekeeping", Level: health.Warn, Says: health.Says{Subject: "Housekeeping", Text: "Housekeeping failed.", Action: health.RunAction("housekeeping")}}},
 			})}},
+			{About: health.About{ID: health.BackupsID, Label: "Backups", Phrase: "Backups"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.NotificationsID, Label: "Notifications", Phrase: "notification connections"}, Source: health.Source{Answer: answer(health.Answer{})}},
 		},
 		Names: func(context.Context, storage.Reader[storage.Library]) (map[role.NodeID]string, error) {
@@ -102,6 +103,7 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 			`{"id":"subtitles","label":"Subtitles","phrase":"subtitles","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"scheduled-tasks","label":"Scheduled tasks","phrase":"scheduled tasks","level":"warn","canCheck":false,"items":[{"key":"housekeeping","level":"warn","subject":"Housekeeping",`+
 			`"text":"Housekeeping failed.","detail":[],"action":{"kind":"run","taskId":"housekeeping"},"since":"T","changedAt":"T","unsure":false}]},`+
+			`{"id":"backups","label":"Backups","phrase":"Backups","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"notifications","label":"Notifications","phrase":"notification connections","level":null,"canCheck":false,"items":[]}]}`)
 
 	_, checked := s.Call(t, http.MethodPost, "/api/v1/system/health/storage/items/"+string(key)+"/check", "")

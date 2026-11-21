@@ -153,6 +153,11 @@ var quietSubtitles = health.Category{
 	Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }},
 }
 
+var quietBackups = health.Category{
+	About:  health.About{ID: health.BackupsID, Label: "Backups", Phrase: "Backups"},
+	Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }},
+}
+
 var quietNotifications = health.Category{
 	About:  health.About{ID: health.NotificationsID, Label: "Notifications", Phrase: "notification connections"},
 	Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }},
@@ -173,7 +178,7 @@ func openHealth(t *testing.T, lib *storage.DB[storage.Library], roster *nodes.Se
 		Library:    lib,
 		Hub:        hub,
 		Changed:    discard[health.Changed]{},
-		Categories: []health.Category{quietLibrary, {About: nodes.HealthAbout, Source: roster.HealthSource()}, quietClients, quietMediaServers, quietSeeding, quietIndexers, quietSubtitles, failedTask, quietNotifications},
+		Categories: []health.Category{quietLibrary, {About: nodes.HealthAbout, Source: roster.HealthSource()}, quietClients, quietMediaServers, quietSeeding, quietIndexers, quietSubtitles, failedTask, quietBackups, quietNotifications},
 		Timings:    health.DefaultTimings(),
 		Log:        slog.New(slog.DiscardHandler),
 	})

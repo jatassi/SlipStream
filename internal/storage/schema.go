@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io/fs"
 	"maps"
@@ -61,6 +62,33 @@ func NewSchema[F File](set string, owner fs.FS) Schema[F] {
 }
 
 func (s Schema[F]) Set() string { return s.set }
+
+// Sum identifies the migrations s applies: its set and each of its files
+// through its target, so two schemas with one Sum migrate a file alike.
+func (s Schema[F]) Sum() [sha256.Size]byte {
+	entries, err := fs.ReadDir(s.files, ".")
+	if err != nil {
+		panic(fmt.Sprintf("storage: schema %s: %v", s.set, err))
+	}
+	h := sha256.New()
+	_, _ = fmt.Fprintf(h, "%s\n", s.set)
+	for _, e := range entries {
+		m := migrationName.FindStringSubmatch(e.Name())
+		if m == nil {
+			continue
+		}
+		if v, _ := strconv.ParseInt(m[1], 10, 64); v > s.target {
+			continue
+		}
+		data, err := fs.ReadFile(s.files, e.Name())
+		if err != nil {
+			panic(fmt.Sprintf("storage: schema %s: %v", s.set, err))
+		}
+		_, _ = fmt.Fprintf(h, "%s %d\n", e.Name(), len(data))
+		_, _ = h.Write(data)
+	}
+	return [sha256.Size]byte(h.Sum(nil))
+}
 
 func (s Schema[F]) Through(version int64) Schema[F] {
 	if version < 1 || version > s.target {

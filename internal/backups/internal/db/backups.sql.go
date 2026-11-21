@@ -10,12 +10,13 @@ import (
 )
 
 const getSettings = `-- name: GetSettings :one
-SELECT keep_scheduled_days, keep_each, copy_wait_limit_hours, check_copies_days FROM backups_settings WHERE id = 1
+SELECT keep_scheduled_days, keep_each, warn_after, copy_wait_limit_hours, check_copies_days FROM backups_settings WHERE id = 1
 `
 
 type GetSettingsRow struct {
 	KeepScheduledDays  *int64
 	KeepEach           *int64
+	WarnAfter          *int64
 	CopyWaitLimitHours *int64
 	CheckCopiesDays    *int64
 }
@@ -26,8 +27,34 @@ func (q *Queries) GetSettings(ctx context.Context) (GetSettingsRow, error) {
 	err := row.Scan(
 		&i.KeepScheduledDays,
 		&i.KeepEach,
+		&i.WarnAfter,
 		&i.CopyWaitLimitHours,
 		&i.CheckCopiesDays,
 	)
 	return i, err
+}
+
+const setSettings = `-- name: SetSettings :exec
+UPDATE backups_settings
+SET keep_scheduled_days = ?, keep_each = ?, warn_after = ?, copy_wait_limit_hours = ?, check_copies_days = ?
+WHERE id = 1
+`
+
+type SetSettingsParams struct {
+	KeepScheduledDays  *int64
+	KeepEach           *int64
+	WarnAfter          *int64
+	CopyWaitLimitHours *int64
+	CheckCopiesDays    *int64
+}
+
+func (q *Queries) SetSettings(ctx context.Context, arg SetSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, setSettings,
+		arg.KeepScheduledDays,
+		arg.KeepEach,
+		arg.WarnAfter,
+		arg.CopyWaitLimitHours,
+		arg.CheckCopiesDays,
+	)
+	return err
 }

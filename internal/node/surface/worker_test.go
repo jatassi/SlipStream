@@ -157,3 +157,11 @@ func (worker) OpenRestore(context.Context, string, string) (backups.Summary, err
 func (worker) RestoreController(context.Context, string, backups.Confirm) error {
 	panic("a Worker's closed gate admitted confirmRestore")
 }
+
+func (worker) Retire(context.Context) error {
+	panic("a Worker's closed gate admitted retireController")
+}
+
+func (worker) StageBackup(context.Context, string) (string, backups.Summary, error) {
+	panic("a Worker's closed gate admitted stageBackupRestore")
+}

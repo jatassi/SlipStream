@@ -67,11 +67,15 @@ type libraryFiles struct {
 	timings TimingsBlock
 	hub     *live.Hub
 	log     *slog.Logger
+	test    Test
 }
 
 // openLibraryFiles is where a running Node and `slipstream admin reset`
 // offline both open library.db.
 func openLibraryFiles(ctx context.Context, f libraryFiles) (*libraryDB, error) {
+	if err := f.test.seedLibrary(f.dir.LibraryDB(), f.schemas); err != nil {
+		return nil, err
+	}
 	db, err := storage.OpenLibrary(ctx, f.dir.LibraryDB(), f.schemas, f.hook, f.timings.Storage, f.log.With("subsystem", "storage"))
 	if err != nil {
 		return nil, err
@@ -116,6 +120,7 @@ func (n *Node) openLibraryWith(ctx context.Context, hook storage.PreMigrationHoo
 		timings: n.cfg.Timings,
 		hub:     n.hub,
 		log:     n.rootLog,
+		test:    n.env.Test,
 	})
 	if err != nil {
 		return nil, err
@@ -348,6 +353,10 @@ func (s surfaceNode) DownloadClients() (*downloadclients.Clients, bool) {
 		return nil, false
 	}
 	return h.clients, true
+}
+
+func (s surfaceNode) Retire(ctx context.Context) error {
+	return s.n.half.Load().nodes.Retire(ctx)
 }
 
 func (s surfaceNode) Backups() (*backups.Backups, bool) {

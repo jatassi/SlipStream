@@ -2,8 +2,12 @@ package node
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/media/speech/speechtest"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
 )
@@ -43,7 +48,7 @@ func testEnv(t *testing.T) (Env, *syncBuffer) {
 	stderr := new(syncBuffer)
 	return Env{
 		DataDir: d,
-		Environ: []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:0", "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG=https://127.0.0.1:9/master"},
+		Environ: []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:0", "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG=https://127.0.0.1:9/master", lowScrypt},
 		Stderr:  stderr,
 		Version: "test",
 		Net:     osNetwork{},
@@ -52,7 +57,60 @@ func testEnv(t *testing.T) (Env, *syncBuffer) {
 		Media:   mediatest.Prober{},
 		Speech:  speechtest.Fixed{Runs: []speechtest.Run{{Start: time.Second, End: 2 * time.Second}}, Length: 4 * time.Second},
 		Disk:    OSDisk,
+		Test:    Test{SeedLibrary: seedLibrary},
 	}, stderr
+}
+
+// lowScrypt is the lowest work factor a Backup takes. The default costs
+// seconds per Backup and per restore under -race.
+const lowScrypt = "SLIPSTREAM_TIMINGS_BACKUPS_SCRYPT=15"
+
+// migratedLibraries holds, per list of schemas, a library.db they have
+// migrated. Migrating a fresh library takes most of a minute under -race
+// on a busy runner, so each test's fresh data dir copies one instead.
+var migratedLibraries = struct {
+	sync.Mutex
+	paths map[[sha256.Size]byte]string
+}{paths: map[[sha256.Size]byte]string{}}
+
+func seedLibrary(path string, schemas []storage.Schema[storage.Library]) error {
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("seed library.db: %w", err)
+	}
+	h := sha256.New()
+	for _, s := range schemas {
+		sum := s.Sum()
+		h.Write(sum[:])
+	}
+	key := [sha256.Size]byte(h.Sum(nil))
+	migratedLibraries.Lock()
+	defer migratedLibraries.Unlock()
+	from, ok := migratedLibraries.paths[key]
+	if !ok {
+		dir, err := os.MkdirTemp("", "ssm")
+		if err != nil {
+			return fmt.Errorf("seed library.db: %w", err)
+		}
+		from = filepath.Join(dir, "library.db")
+		db, err := storage.OpenLibrary(context.Background(), from, schemas, nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
+		if err != nil {
+			return err
+		}
+		if err := db.Close(); err != nil {
+			return err
+		}
+		migratedLibraries.paths[key] = from
+	}
+	b, err := os.ReadFile(from)
+	if err != nil {
+		return fmt.Errorf("seed library.db: %w", err)
+	}
+	if err := os.WriteFile(path, b, 0o600); err != nil {
+		return fmt.Errorf("seed library.db: %w", err)
+	}
+	return nil
 }
 
 func shortTempDir(t *testing.T) string {

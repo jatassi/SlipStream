@@ -31,6 +31,15 @@ export const ActInputBody = zod.object({
 export type ActInputBody = zod.input<typeof ActInputBody>;
 export type ActInputBodyOutput = zod.output<typeof ActInputBody>;
 
+export const BackupSettingsInputBody = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type BackupSettingsInputBody = zod.input<typeof BackupSettingsInputBody>;
+export type BackupSettingsInputBodyOutput = zod.output<typeof BackupSettingsInputBody>;
+
 export const BackupsCopies = zod.object({
   copied: zod.int(),
   copying: zod.int(),
@@ -108,6 +117,595 @@ export const BackupsAdded = zod.object({
 export type BackupsAdded = zod.input<typeof BackupsAdded>;
 export type BackupsAddedOutput = zod.output<typeof BackupsAdded>;
 
+export const BackupsBackupCheck = zod.object({
+  at: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the result came in; null while none has"),
+  result: zod
+    .enum(["none", "asked", "ok", "mismatch", "unreadable", "no_local_file"])
+    .describe(
+      "none: not checked yet; asked: waiting for its Node; no_local_file: this machine has no file of the Backup to check it against",
+    ),
+});
+
+export type BackupsBackupCheck = zod.input<typeof BackupsBackupCheck>;
+export type BackupsBackupCheckOutput = zod.output<typeof BackupsBackupCheck>;
+
+export const backupsBackupCopyDestinationIdRegExp = new RegExp("^[0-9a-f]{32}$");
+
+export const BackupsBackupCopy = zod.object({
+  check: BackupsBackupCheck.describe("Its last check"),
+  copiedAt: zod.iso.datetime({ offset: true }).nullable().describe("Null until it is copied"),
+  destinationId: zod.string().regex(backupsBackupCopyDestinationIdRegExp),
+  state: zod.enum(["waiting", "copying", "copied", "failed"]),
+});
+
+export type BackupsBackupCopy = zod.input<typeof BackupsBackupCopy>;
+export type BackupsBackupCopyOutput = zod.output<typeof BackupsBackupCopy>;
+
+export const backupsBackupIdRegExp = new RegExp("^[0-9a-f]{32}$");
+
+export const BackupsBackup = zod.object({
+  copies: zod
+    .array(BackupsBackupCopy)
+    .describe("Its copy on each destination, in the order the destinations were added"),
+  id: zod.string().regex(backupsBackupIdRegExp),
+  local: zod.boolean().describe("Its file is in this machine's Backups folder"),
+  name: zod.string().describe("The Backup's file name"),
+  size: zod.int().describe("Bytes"),
+  state: zod
+    .enum(["taking", "verified", "failed", "deleting"])
+    .describe(
+      "verified: it passed its check; failed: it counts for nothing and goes at the next Backup",
+    ),
+  takenAt: zod.iso.datetime({ offset: true }),
+  trigger: zod
+    .enum([
+      "scheduled",
+      "manual",
+      "update",
+      "before-restore",
+      "before-import",
+      "before-handover",
+      "superseded",
+      "restored",
+    ])
+    .describe("Why it was taken"),
+  version: zod.string().describe("The SlipStream version that took it"),
+  whileReconciling: zod
+    .boolean()
+    .describe("Taken while SlipStream was Reconciling after a restore"),
+});
+
+export type BackupsBackup = zod.input<typeof BackupsBackup>;
+export type BackupsBackupOutput = zod.output<typeof BackupsBackup>;
+
+export const BackupsFailure = zod.object({
+  at: zod.iso.datetime({ offset: true }).describe("When the newest failed"),
+  since: zod.iso
+    .datetime({ offset: true })
+    .describe("When the first of the failed Backups since the newest good one was taken"),
+});
+
+export type BackupsFailure = zod.input<typeof BackupsFailure>;
+export type BackupsFailureOutput = zod.output<typeof BackupsFailure>;
+
+export const BackupsPassphraseState = zod.object({
+  savedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the Admin last showed they saved the current passphrase; null until then"),
+});
+
+export type BackupsPassphraseState = zod.input<typeof BackupsPassphraseState>;
+export type BackupsPassphraseStateOutput = zod.output<typeof BackupsPassphraseState>;
+
+export const BackupsSheetState = zod.object({
+  downloadedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the recovery sheet was last downloaded; null before"),
+  unlisted: zod
+    .array(zod.string())
+    .describe("The destinations it doesn't list, every one before a download"),
+});
+
+export type BackupsSheetState = zod.input<typeof BackupsSheetState>;
+export type BackupsSheetStateOutput = zod.output<typeof BackupsSheetState>;
+
+export const BackupsBackupList = zod.object({
+  backups: zod.array(BackupsBackup).describe("Newest first"),
+  failure: zod
+    .union([BackupsFailure, zod.null()])
+    .describe("Backups failing since the newest good one; null when the newest passed"),
+  passphrase: BackupsPassphraseState,
+  sheet: BackupsSheetState,
+  used: zod.int().describe("Bytes the Backups in this machine's Backups folder take"),
+});
+
+export type BackupsBackupList = zod.input<typeof BackupsBackupList>;
+export type BackupsBackupListOutput = zod.output<typeof BackupsBackupList>;
+
+export const SettingDurationField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int().describe("Seconds"),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  description: zod
+    .string()
+    .exactOptional()
+    .describe("What a longer or shorter time costs, in whole sentences"),
+  floor: zod
+    .string()
+    .exactOptional()
+    .describe("Why the minimum protects someone outside the install"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["duration"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  max: zod.int().describe("Seconds"),
+  min: zod.int().describe("Seconds"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int().describe("Seconds"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  step: zod.int().describe("Seconds: a second, minute, hour or day"),
+  value: zod.int().describe("Seconds"),
+});
+
+export type SettingDurationField = zod.input<typeof SettingDurationField>;
+export type SettingDurationFieldOutput = zod.output<typeof SettingDurationField>;
+
+export const SettingNoun = zod.object({
+  many: zod.string(),
+  one: zod.string(),
+});
+
+export type SettingNoun = zod.input<typeof SettingNoun>;
+export type SettingNounOutput = zod.output<typeof SettingNoun>;
+
+export const SettingCountField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  floor: zod
+    .string()
+    .exactOptional()
+    .describe("Why the minimum protects someone outside the install"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["count"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  max: zod.int(),
+  min: zod.int(),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  unit: SettingNoun,
+  value: zod.int(),
+  zero: zod.string().exactOptional().describe("The words for 0, such as No limit"),
+});
+
+export type SettingCountField = zod.input<typeof SettingCountField>;
+export type SettingCountFieldOutput = zod.output<typeof SettingCountField>;
+
+export const SettingChoiceOption = zod.object({
+  label: zod.string(),
+  value: zod.string(),
+});
+
+export type SettingChoiceOption = zod.input<typeof SettingChoiceOption>;
+export type SettingChoiceOptionOutput = zod.output<typeof SettingChoiceOption>;
+
+export const SettingChoiceField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["choice"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  options: zod.array(SettingChoiceOption),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.string(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingChoiceField = zod.input<typeof SettingChoiceField>;
+export type SettingChoiceFieldOutput = zod.output<typeof SettingChoiceField>;
+
+export const SettingTimes = zod.object({
+  end: zod.string().describe("HH:MM, before start when the window crosses midnight"),
+  start: zod.string().describe("HH:MM"),
+});
+
+export type SettingTimes = zod.input<typeof SettingTimes>;
+export type SettingTimesOutput = zod.output<typeof SettingTimes>;
+
+export const SettingWindowField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: SettingTimes,
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["window"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: SettingTimes,
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: SettingTimes,
+  zone: zod.string().describe("The time zone's name, such as Europe/London"),
+});
+
+export type SettingWindowField = zod.input<typeof SettingWindowField>;
+export type SettingWindowFieldOutput = zod.output<typeof SettingWindowField>;
+
+export const SettingPortField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["port"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.int(),
+});
+
+export type SettingPortField = zod.input<typeof SettingPortField>;
+export type SettingPortFieldOutput = zod.output<typeof SettingPortField>;
+
+export const SettingSwitchField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.boolean(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["switch"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.boolean(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.boolean(),
+});
+
+export type SettingSwitchField = zod.input<typeof SettingSwitchField>;
+export type SettingSwitchFieldOutput = zod.output<typeof SettingSwitchField>;
+
+export const SettingRateField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int().describe("Bytes a second"),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["rate"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  max: zod.int().describe("Bytes a second"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int().describe("Bytes a second"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.int().describe("Bytes a second"),
+  zero: zod.string().exactOptional().describe("The words for 0, such as No limit"),
+});
+
+export type SettingRateField = zod.input<typeof SettingRateField>;
+export type SettingRateFieldOutput = zod.output<typeof SettingRateField>;
+
+export const SettingAddressField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["address"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.string(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingAddressField = zod.input<typeof SettingAddressField>;
+export type SettingAddressFieldOutput = zod.output<typeof SettingAddressField>;
+
+export const SettingFolderField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["folder"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  nodeId: zod.uuid().describe("The Node the path is on, which browses and judges it"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  purpose: zod
+    .enum(["downloads", "backups"])
+    .describe("The rules the Node judges the folder by, as checkFolder names them"),
+  running: zod.string(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingFolderField = zod.input<typeof SettingFolderField>;
+export type SettingFolderFieldOutput = zod.output<typeof SettingFolderField>;
+
+export const settingAmountAmountMin = 0;
+
+export const SettingAmount = zod.object({
+  amount: zod.int().min(settingAmountAmountMin),
+  unit: zod.enum(["bytes", "percent"]),
+});
+
+export type SettingAmount = zod.input<typeof SettingAmount>;
+export type SettingAmountOutput = zod.output<typeof SettingAmount>;
+
+export const SettingSpaceField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: SettingAmount,
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["space"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  maxBytes: zod.int().describe("The largest amount in bytes: 1 PB"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: SettingAmount,
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: SettingAmount,
+});
+
+export type SettingSpaceField = zod.input<typeof SettingSpaceField>;
+export type SettingSpaceFieldOutput = zod.output<typeof SettingSpaceField>;
+
+export const SettingTemplateField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  field: zod.string().describe("The template field whose tokens the control offers"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["template"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  plain: zod.boolean().describe("The text holds no tokens"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingTemplateField = zod.input<typeof SettingTemplateField>;
+export type SettingTemplateFieldOutput = zod.output<typeof SettingTemplateField>;
+
+export const settingListFieldMinMin = 0;
+
+export const SettingListField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.array(zod.string()),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  item: zod
+    .enum(["extension"])
+    .describe(
+      "What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv",
+    ),
+  key: zod.string(),
+  kind: zod.enum(["list"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  min: zod.int().min(settingListFieldMinMin).describe("The fewest entries the list takes"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.array(zod.string()),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.array(zod.string()),
+});
+
+export type SettingListField = zod.input<typeof SettingListField>;
+export type SettingListFieldOutput = zod.output<typeof SettingListField>;
+
+export const SettingSizeField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int().describe("Bytes"),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["size"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  max: zod.int().describe("Bytes"),
+  min: zod.int().describe("Bytes"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int().describe("Bytes"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.int().describe("Bytes"),
+});
+
+export type SettingSizeField = zod.input<typeof SettingSizeField>;
+export type SettingSizeFieldOutput = zod.output<typeof SettingSizeField>;
+
+export const SettingField = zod.discriminatedUnion("kind", [
+  SettingDurationField,
+  SettingCountField,
+  SettingChoiceField,
+  SettingWindowField,
+  SettingPortField,
+  SettingSwitchField,
+  SettingRateField,
+  SettingAddressField,
+  SettingFolderField,
+  SettingSpaceField,
+  SettingTemplateField,
+  SettingListField,
+  SettingSizeField,
+]);
+
+export type SettingField = zod.input<typeof SettingField>;
+export type SettingFieldOutput = zod.output<typeof SettingField>;
+
+export const BackupsBackupSettings = zod.object({
+  settings: zod
+    .array(SettingField)
+    .describe(
+      "How often SlipStream backs up, how long it keeps Backups, when Health warns, how long a copy waits and how often copies are checked",
+    ),
+});
+
+export type BackupsBackupSettings = zod.input<typeof BackupsBackupSettings>;
+export type BackupsBackupSettingsOutput = zod.output<typeof BackupsBackupSettings>;
+
+export const BackupsChanged = zod.object({});
+
+export type BackupsChanged = zod.input<typeof BackupsChanged>;
+export type BackupsChangedOutput = zod.output<typeof BackupsChanged>;
+
+export const BackupsChecked = zod.object({
+  matches: zod.boolean().describe("It is the current passphrase, which now reads as saved"),
+});
+
+export type BackupsChecked = zod.input<typeof BackupsChecked>;
+export type BackupsCheckedOutput = zod.output<typeof BackupsChecked>;
+
 export const BackupsDestinationList = zod.object({
   destinations: zod.array(BackupsDestination).describe("In the order they were added"),
 });
@@ -128,6 +726,13 @@ export const BackupsNewDestination = zod.object({
 
 export type BackupsNewDestination = zod.input<typeof BackupsNewDestination>;
 export type BackupsNewDestinationOutput = zod.output<typeof BackupsNewDestination>;
+
+export const BackupsPassphrase = zod.object({
+  passphrase: zod.string().describe("The ten words that open every new Backup"),
+});
+
+export type BackupsPassphrase = zod.input<typeof BackupsPassphrase>;
+export type BackupsPassphraseOutput = zod.output<typeof BackupsPassphrase>;
 
 export const BackupsRefusal = zod.object({
   reason: zod
@@ -288,6 +893,15 @@ export const CheckFolderInputBody = zod.object({
 
 export type CheckFolderInputBody = zod.input<typeof CheckFolderInputBody>;
 export type CheckFolderInputBodyOutput = zod.output<typeof CheckFolderInputBody>;
+
+export const checkInputBodyPassphraseMax = 1024;
+
+export const CheckInputBody = zod.object({
+  passphrase: zod.string().min(1).max(checkInputBodyPassphraseMax),
+});
+
+export type CheckInputBody = zod.input<typeof CheckInputBody>;
+export type CheckInputBodyOutput = zod.output<typeof CheckInputBody>;
 
 export const confirmRestoreInputBodyRemoveMax = 10;
 
@@ -575,45 +1189,6 @@ export type DownloadclientsDownloadsVolume = zod.input<typeof DownloadclientsDow
 export type DownloadclientsDownloadsVolumeOutput = zod.output<
   typeof DownloadclientsDownloadsVolume
 >;
-
-export const SettingDurationField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int().describe("Seconds"),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  description: zod
-    .string()
-    .exactOptional()
-    .describe("What a longer or shorter time costs, in whole sentences"),
-  floor: zod
-    .string()
-    .exactOptional()
-    .describe("Why the minimum protects someone outside the install"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["duration"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  max: zod.int().describe("Seconds"),
-  min: zod.int().describe("Seconds"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int().describe("Seconds"),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  step: zod.int().describe("Seconds: a second, minute, hour or day"),
-  value: zod.int().describe("Seconds"),
-});
-
-export type SettingDurationField = zod.input<typeof SettingDurationField>;
-export type SettingDurationFieldOutput = zod.output<typeof SettingDurationField>;
 
 export const downloadclientsClientFolderClientMax = 4096;
 
@@ -1224,108 +1799,6 @@ export const DownloadclientsSeedingView = zod.object({
 
 export type DownloadclientsSeedingView = zod.input<typeof DownloadclientsSeedingView>;
 export type DownloadclientsSeedingViewOutput = zod.output<typeof DownloadclientsSeedingView>;
-
-export const SettingNoun = zod.object({
-  many: zod.string(),
-  one: zod.string(),
-});
-
-export type SettingNoun = zod.input<typeof SettingNoun>;
-export type SettingNounOutput = zod.output<typeof SettingNoun>;
-
-export const SettingCountField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  floor: zod
-    .string()
-    .exactOptional()
-    .describe("Why the minimum protects someone outside the install"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["count"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  max: zod.int(),
-  min: zod.int(),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  unit: SettingNoun,
-  value: zod.int(),
-  zero: zod.string().exactOptional().describe("The words for 0, such as No limit"),
-});
-
-export type SettingCountField = zod.input<typeof SettingCountField>;
-export type SettingCountFieldOutput = zod.output<typeof SettingCountField>;
-
-export const SettingSwitchField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.boolean(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["switch"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.boolean(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.boolean(),
-});
-
-export type SettingSwitchField = zod.input<typeof SettingSwitchField>;
-export type SettingSwitchFieldOutput = zod.output<typeof SettingSwitchField>;
-
-export const SettingRateField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int().describe("Bytes a second"),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["rate"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  max: zod.int().describe("Bytes a second"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int().describe("Bytes a second"),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.int().describe("Bytes a second"),
-  zero: zod.string().exactOptional().describe("The words for 0, such as No limit"),
-});
-
-export type SettingRateField = zod.input<typeof SettingRateField>;
-export type SettingRateFieldOutput = zod.output<typeof SettingRateField>;
 
 export const DownloadclientsSettings = zod.object({
   activeChecks: SettingCountField,
@@ -2914,6 +3387,7 @@ export type FirstrunChangedOutput = zod.output<typeof FirstrunChanged>;
 export const FirstrunStepID = zod.enum([
   "address",
   "passkey",
+  "backup",
   "media",
   "language",
   "roots",
@@ -4963,321 +5437,6 @@ export const GrabsSearchScope = zod.object({
 export type GrabsSearchScope = zod.input<typeof GrabsSearchScope>;
 export type GrabsSearchScopeOutput = zod.output<typeof GrabsSearchScope>;
 
-export const SettingChoiceOption = zod.object({
-  label: zod.string(),
-  value: zod.string(),
-});
-
-export type SettingChoiceOption = zod.input<typeof SettingChoiceOption>;
-export type SettingChoiceOptionOutput = zod.output<typeof SettingChoiceOption>;
-
-export const SettingChoiceField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.string(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["choice"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  options: zod.array(SettingChoiceOption),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.string(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.string(),
-});
-
-export type SettingChoiceField = zod.input<typeof SettingChoiceField>;
-export type SettingChoiceFieldOutput = zod.output<typeof SettingChoiceField>;
-
-export const SettingTimes = zod.object({
-  end: zod.string().describe("HH:MM, before start when the window crosses midnight"),
-  start: zod.string().describe("HH:MM"),
-});
-
-export type SettingTimes = zod.input<typeof SettingTimes>;
-export type SettingTimesOutput = zod.output<typeof SettingTimes>;
-
-export const SettingWindowField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: SettingTimes,
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["window"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: SettingTimes,
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: SettingTimes,
-  zone: zod.string().describe("The time zone's name, such as Europe/London"),
-});
-
-export type SettingWindowField = zod.input<typeof SettingWindowField>;
-export type SettingWindowFieldOutput = zod.output<typeof SettingWindowField>;
-
-export const SettingPortField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["port"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.int(),
-});
-
-export type SettingPortField = zod.input<typeof SettingPortField>;
-export type SettingPortFieldOutput = zod.output<typeof SettingPortField>;
-
-export const SettingAddressField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.string(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["address"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.string(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.string(),
-});
-
-export type SettingAddressField = zod.input<typeof SettingAddressField>;
-export type SettingAddressFieldOutput = zod.output<typeof SettingAddressField>;
-
-export const SettingFolderField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.string(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["folder"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  nodeId: zod.uuid().describe("The Node the path is on, which browses and judges it"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  purpose: zod
-    .enum(["downloads", "backups"])
-    .describe("The rules the Node judges the folder by, as checkFolder names them"),
-  running: zod.string(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.string(),
-});
-
-export type SettingFolderField = zod.input<typeof SettingFolderField>;
-export type SettingFolderFieldOutput = zod.output<typeof SettingFolderField>;
-
-export const settingAmountAmountMin = 0;
-
-export const SettingAmount = zod.object({
-  amount: zod.int().min(settingAmountAmountMin),
-  unit: zod.enum(["bytes", "percent"]),
-});
-
-export type SettingAmount = zod.input<typeof SettingAmount>;
-export type SettingAmountOutput = zod.output<typeof SettingAmount>;
-
-export const SettingSpaceField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: SettingAmount,
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["space"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  maxBytes: zod.int().describe("The largest amount in bytes: 1 PB"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: SettingAmount,
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: SettingAmount,
-});
-
-export type SettingSpaceField = zod.input<typeof SettingSpaceField>;
-export type SettingSpaceFieldOutput = zod.output<typeof SettingSpaceField>;
-
-export const SettingTemplateField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.string(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  field: zod.string().describe("The template field whose tokens the control offers"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["template"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  plain: zod.boolean().describe("The text holds no tokens"),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.string(),
-});
-
-export type SettingTemplateField = zod.input<typeof SettingTemplateField>;
-export type SettingTemplateFieldOutput = zod.output<typeof SettingTemplateField>;
-
-export const settingListFieldMinMin = 0;
-
-export const SettingListField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.array(zod.string()),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  item: zod
-    .enum(["extension"])
-    .describe(
-      "What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv",
-    ),
-  key: zod.string(),
-  kind: zod.enum(["list"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  min: zod.int().min(settingListFieldMinMin).describe("The fewest entries the list takes"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.array(zod.string()),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.array(zod.string()),
-});
-
-export type SettingListField = zod.input<typeof SettingListField>;
-export type SettingListFieldOutput = zod.output<typeof SettingListField>;
-
-export const SettingSizeField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int().describe("Bytes"),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["size"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  max: zod.int().describe("Bytes"),
-  min: zod.int().describe("Bytes"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int().describe("Bytes"),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.int().describe("Bytes"),
-});
-
-export type SettingSizeField = zod.input<typeof SettingSizeField>;
-export type SettingSizeFieldOutput = zod.output<typeof SettingSizeField>;
-
-export const SettingField = zod.discriminatedUnion("kind", [
-  SettingDurationField,
-  SettingCountField,
-  SettingChoiceField,
-  SettingWindowField,
-  SettingPortField,
-  SettingSwitchField,
-  SettingRateField,
-  SettingAddressField,
-  SettingFolderField,
-  SettingSpaceField,
-  SettingTemplateField,
-  SettingListField,
-  SettingSizeField,
-]);
-
-export type SettingField = zod.input<typeof SettingField>;
-export type SettingFieldOutput = zod.output<typeof SettingField>;
-
 export const GrabsSearchSettings = zod.object({
   settings: zod
     .array(SettingField)
@@ -5511,6 +5670,7 @@ export const HealthCategoryID = zod.enum([
   "indexers",
   "subtitles",
   "scheduled-tasks",
+  "backups",
   "notifications",
 ]);
 
@@ -9982,6 +10142,15 @@ export const ProvidersOutputBody = zod.object({
 export type ProvidersOutputBody = zod.input<typeof ProvidersOutputBody>;
 export type ProvidersOutputBodyOutput = zod.output<typeof ProvidersOutputBody>;
 
+export const pullInputBodyDestinationIdRegExp = new RegExp("^[0-9a-f]{32}$");
+
+export const PullInputBody = zod.object({
+  destinationId: zod.string().regex(pullInputBodyDestinationIdRegExp),
+});
+
+export type PullInputBody = zod.input<typeof PullInputBody>;
+export type PullInputBodyOutput = zod.output<typeof PullInputBody>;
+
 export const ReconcilingChanged = zod.object({});
 
 export type ReconcilingChanged = zod.input<typeof ReconcilingChanged>;
@@ -10290,6 +10459,20 @@ export const RenameTrackerInputBody = zod.object({
 export type RenameTrackerInputBody = zod.input<typeof RenameTrackerInputBody>;
 export type RenameTrackerInputBodyOutput = zod.output<typeof RenameTrackerInputBody>;
 
+export const replaceInputBodyDeleteOlderDefault = true;
+
+export const ReplaceInputBody = zod.object({
+  deleteOlder: zod
+    .boolean()
+    .default(replaceInputBodyDeleteOlderDefault)
+    .describe(
+      "Delete every older Backup, copies included, once the Backup of the new passphrase passes its check",
+    ),
+});
+
+export type ReplaceInputBody = zod.input<typeof ReplaceInputBody>;
+export type ReplaceInputBodyOutput = zod.output<typeof ReplaceInputBody>;
+
 export const ResetLinkInputBody = zod.object({
   removePasskeys: zod
     .boolean()
@@ -10323,6 +10506,14 @@ export const RestoreSummary = zod.object({
 
 export type RestoreSummary = zod.input<typeof RestoreSummary>;
 export type RestoreSummaryOutput = zod.output<typeof RestoreSummary>;
+
+export const RestoreStaged = zod.object({
+  id: zod.string().describe("Names the staged restore in the confirm step"),
+  summary: RestoreSummary,
+});
+
+export type RestoreStaged = zod.input<typeof RestoreStaged>;
+export type RestoreStagedOutput = zod.output<typeof RestoreStaged>;
 
 export const RestoreUploaded = zod.object({
   id: zod.string().describe("Names the upload in the open and confirm steps"),
@@ -14190,6 +14381,14 @@ export const WorksWorkMonitored = zod.object({
 export type WorksWorkMonitored = zod.input<typeof WorksWorkMonitored>;
 export type WorksWorkMonitoredOutput = zod.output<typeof WorksWorkMonitored>;
 
+export const LiveEventBackupsChanged = zod.object({
+  event: zod.enum(["backups.changed"]),
+  data: BackupsChanged,
+});
+
+export type LiveEventBackupsChanged = zod.input<typeof LiveEventBackupsChanged>;
+export type LiveEventBackupsChangedOutput = zod.output<typeof LiveEventBackupsChanged>;
+
 export const LiveEventDownloadClientsChanged = zod.object({
   event: zod.enum(["download-clients.changed"]),
   data: DownloadclientsClientsChanged,
@@ -14659,6 +14858,7 @@ export type LiveEventWorksTypeChanged = zod.input<typeof LiveEventWorksTypeChang
 export type LiveEventWorksTypeChangedOutput = zod.output<typeof LiveEventWorksTypeChanged>;
 
 export const LiveEvent = zod.discriminatedUnion("event", [
+  LiveEventBackupsChanged,
   LiveEventDownloadClientsChanged,
   LiveEventFilesChanged,
   LiveEventFilesMoved,

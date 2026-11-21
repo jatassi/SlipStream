@@ -255,7 +255,7 @@ func settingRefused(code, title, key, sentence string) string {
 func TestTheTorrentRowsTakeAnAddressAndRefuseAFolderTheyCantUse(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		env := fallbackEnv(t, "1")
-		env.Environ = []string{"SLIPSTREAM_LINK_LISTEN=127.0.0.1:8485"}
+		env.Environ = []string{"SLIPSTREAM_LINK_LISTEN=127.0.0.1:8485", lowScrypt}
 		env, host := inMemory(env)
 		n, c := startOn(t, env, host)
 		key := claimKey(t, n, c)

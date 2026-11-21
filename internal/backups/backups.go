@@ -8,10 +8,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/backups/archive"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -46,6 +48,24 @@ type Config struct {
 	Self func() role.NodeID
 	// Check is node's verdict on folder as a Backups folder.
 	Check func(ctx context.Context, admin identity.Admin, node role.NodeID, folder string) (roots.Verdict, error)
+	// Tasks stores Back up every.
+	Tasks Cadences
+	// Roster is a Node's name and whether it is connected now.
+	Roster func(role.NodeID) (name string, online bool)
+	// Changed publishes backups.changed after each index change.
+	Changed ChangedPublisher
+	// Zone is the Controller's time zone, for the times Health writes.
+	Zone *time.Location
+}
+
+// Changed reaches Admins after any change to the Backups index or the
+// Backups settings.
+type Changed struct{}
+
+var ChangedEvent = live.AdminEvent[Changed]("backups.changed")
+
+type ChangedPublisher interface {
+	Publish(ctx context.Context, v Changed)
 }
 
 type Backups struct {
