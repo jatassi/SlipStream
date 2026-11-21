@@ -76,7 +76,9 @@ type DownloadclientsTorrent struct {
 	Size              int64
 	Private           int64
 	Trackers          string
-	ContentType       works.TypeID
+	ContentType       *works.TypeID
+	Adopted           int64
+	WithheldAt        storage.Time
 	TrackerID         *indexers.TrackerID
 	SaveFolder        *string
 	Wanted            string
@@ -84,6 +86,7 @@ type DownloadclientsTorrent struct {
 	AddedAt           storage.Time
 	RemovedAt         storage.Time
 	RemovedReason     *string
+	RemovedByName     sql.NullString
 	DeleteFiles       int64
 	PartedAt          storage.Time
 	Freed             *int64
@@ -104,7 +107,6 @@ type DownloadclientsTorrent struct {
 	Fault             *string
 	FaultAt           storage.Time
 	Retry             *string
-	RemovedByName     sql.NullString
 	ClientErrorMs     int64
 	ClientErrorAt     storage.Time
 }
