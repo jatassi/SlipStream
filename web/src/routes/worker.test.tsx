@@ -1,6 +1,6 @@
-import { http } from "msw";
+import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import type { ServingWorker } from "../api/gen/model";
 import { getGetServingMockHandler } from "../api/gen/query/serving/serving.msw";
@@ -114,4 +114,34 @@ test("/worker on a Controller with no session goes to sign-in", async () => {
   const { router } = renderApp({ path: "/worker", handlers: [signedOut] });
   await expect.element(page.getByRole("heading", { name: "Sign in to SlipStream" })).toBeVisible();
   expect(router.state.location.href).toBe("/sign-in");
+});
+
+test("a Worker that can't reach its Controller pairs again with its log's Setup code and a Join Code", async () => {
+  const sent: { setupCode: string | null; body: unknown }[] = [];
+  renderApp({
+    path: "/worker",
+    handlers: [
+      getGetServingMockHandler({ ...seedbox, since: new Date().toISOString() }),
+      ...workerNode,
+      http.post("*/api/v1/setup/worker", async ({ request }) => {
+        sent.push({ setupCode: request.headers.get("X-Setup-Code"), body: await request.json() });
+        return sent.length === 1
+          ? problem(403, "setup_code_wrong", "Wrong Setup code")
+          : HttpResponse.json({ state: "joined", nodeId: "n" }, { status: 201 });
+      }),
+    ],
+  });
+  await userEvent.fill(page.getByLabelText("Setup code"), "abcd-efgh-jklm");
+  await userEvent.fill(page.getByLabelText("Join Code"), "SLJ1-ABCD");
+  await userEvent.click(page.getByRole("button", { name: "Pair again" }));
+  await expect.element(page.getByText("That isn't this Node's newest Setup code.")).toBeVisible();
+  await userEvent.fill(page.getByLabelText("Setup code"), "WXYZ-2345-6789");
+  await userEvent.click(page.getByRole("button", { name: "Pair again" }));
+  await expect
+    .element(page.getByText("seedbox joined the new Controller and restarts now."))
+    .toBeVisible();
+  expect(sent).toEqual([
+    { setupCode: "ABCDEFGHJK1M", body: { code: "SLJ1-ABCD" } },
+    { setupCode: "WXYZ23456789", body: { code: "SLJ1-ABCD" } },
+  ]);
 });

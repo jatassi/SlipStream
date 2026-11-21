@@ -8,6 +8,7 @@ import { ensureQuery } from "../api/query-client";
 import { requireEntry } from "../session/gate";
 import { EntryPage } from "../shell/entry-page";
 import { Data } from "../ui/data";
+import { PairAgain } from "./-setup/pair-again";
 
 export const Route = createFileRoute("/worker")({
   beforeLoad: ({ context, location }) => requireEntry(context, "worker", location),
@@ -29,6 +30,7 @@ function Worker() {
           <Data>{data.fingerprint}</Data>
         </dd>
       </dl>
+      {data.since === undefined ? null : <PairAgain name={data.name} />}
     </EntryPage>
   );
 }
