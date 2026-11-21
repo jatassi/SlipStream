@@ -1,5 +1,7 @@
 # A Backup is the whole encrypted database without the Controller's key
 
+> Amended by [ADR 0029](0029-a-restore-is-staged-then-written-once-and-keeps-what-the-nodes-hold.md).
+
 A Backup is the Controller's whole library database: Works, history, file records, each Role's intent, settings, Accounts and every secret, PIN hashes and passkey credentials included. Nothing else goes in. Certificates, caches, artwork, Speech Maps, logs and the Controller's own torrent resume data are rebuilt after a restore. The file is one tar holding a manifest and a `VACUUM INTO` snapshot, compressed with zstd and always encrypted with an age passphrase. The Controller generates that passphrase at first run, shows it once for the admin to save, and keeps it so scheduled Backups run unattended. A Backup never holds the Controller's private key. A binary restores Backups from its own version or any older one and migrates them forward, and refuses newer ones. The check compares the schema version the Backup holds, not the version of the binary that took it, so the old binary accepts the Backup a new binary took before migrating. Handover ships the same archive over the Node link and reuses the restore code only to load it ([ADR 0019](0019-a-restored-controller-takes-a-new-key-reconciles-and-fences-off-the-old-one.md)). Decided in [Config backup and restore](https://github.com/jatassi/SlipStream/issues/91), Q1 to Q9 and Q19.
 
 ## Considered Options
