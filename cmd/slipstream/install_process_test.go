@@ -116,7 +116,7 @@ func TestStatusAnswersOnceReady(t *testing.T) {
 		t.Fatalf("status output %q: %v", res.stdout, err)
 	}
 	url := "http://localhost:" + strconv.Itoa(int(ready.Listeners.HTTP.Port())) + "/setup#code=" + ready.SetupCode
-	want := map[string]any{"pid": float64(ready.PID), "version": ready.Version, "install": "dev", "mode": "run", "claim": "unclaimed", "url": url}
+	want := map[string]any{"pid": float64(ready.PID), "version": ready.Version, "install": "dev", "mode": "run", "phase": "ready", "claim": "unclaimed", "url": url}
 	startedSince(t, got, launched)
 	if !maps.Equal(got, want) {
 		t.Fatalf("status = %v, want %v", got, want)

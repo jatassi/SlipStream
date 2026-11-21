@@ -24,24 +24,60 @@ const (
 	ModeApp Mode = "app"
 )
 
+// Phase is where the Node is in its start, which status answers before
+// and after ready.
+type Phase uint32
+
+const (
+	PhaseStarting Phase = iota
+	// PhaseBackingUp is the Backup before a migration.
+	PhaseBackingUp
+	// PhaseRestoring is a restore finishing at start.
+	PhaseRestoring
+	PhaseReady
+)
+
+var phaseNames = [...]string{PhaseStarting: "starting", PhaseBackingUp: "backing up", PhaseRestoring: "restoring", PhaseReady: "ready"}
+
+func (p Phase) String() string { return phaseNames[p] }
+
+func (p Phase) MarshalText() ([]byte, error) { return []byte(p.String()), nil }
+
+func (p *Phase) UnmarshalText(b []byte) error {
+	for i, name := range phaseNames {
+		if name == string(b) {
+			*p = Phase(i)
+			return nil
+		}
+	}
+	return fmt.Errorf("phase %q is not starting, backing up, restoring or ready", b)
+}
+
+func (n *Node) phase() Phase { return Phase(n.phaseOf.Load()) }
+
+func (n *Node) setPhase(p Phase) { n.phaseOf.Store(uint32(p)) }
+
 type StatusRequest struct{}
 
-// StatusReply is the running Node as a smoke test, service install --user,
-// a second app launch or the tray sees it. Controller is set on a Worker.
-// Tray and StartAtLogin are set in app mode only, StartAtLogin only where
-// the OS has a login item. URL carries the Setup code while the Node is
-// Unclaimed. StartedAt changes when the Node restarts, though PID may not.
+// StatusReply is the Node as a smoke test, service install --user, a
+// second app launch or the tray sees it. Before ready it carries only who
+// the process is and its Phase: Claim and URL are set once the Node is
+// ready. Controller is set on a Worker. Tray and StartAtLogin are set in
+// app mode only, StartAtLogin only where the OS has a login item. URL
+// carries the Setup code while the Node is Unclaimed. StartedAt changes
+// when the Node restarts, though PID may not.
 type StatusReply struct {
 	PID          int               `json:"pid"`
 	StartedAt    time.Time         `json:"started_at"`
 	Version      string            `json:"version"`
 	Install      install.Kind      `json:"install"`
 	Mode         Mode              `json:"mode"`
-	Claim        system.Claim      `json:"claim"`
+	Phase        Phase             `json:"phase"`
+	Claim        *system.Claim     `json:"claim,omitempty"`
 	Controller   *ControllerStatus `json:"controller,omitempty"`
 	Tray         string            `json:"tray,omitempty"`
 	StartAtLogin *bool             `json:"start_at_login,omitempty"`
-	URL          string            `json:"url"`
+	URL          string            `json:"url,omitempty"`
 }
 
 // ControllerStatus is a Worker's Controller: the name it gave at pairing
@@ -58,11 +94,22 @@ func (n *Node) serveStatus(ctx context.Context, body json.RawMessage, send func(
 	if err := control.Decode(body, &req); err != nil {
 		return err
 	}
+	if p := n.phase(); p != PhaseReady {
+		reply := n.process()
+		reply.Phase = p
+		return send(reply)
+	}
 	reply, err := n.Status(ctx)
 	if err != nil {
 		return err
 	}
 	return send(reply)
+}
+
+// process is the reply's fields that hold from the first moment of a
+// start.
+func (n *Node) process() StatusReply {
+	return StatusReply{PID: os.Getpid(), StartedAt: n.started, Version: n.env.Version, Install: n.env.Install, Mode: n.env.Mode}
 }
 
 // Status is the ready Node as the status op and the tray report it.
@@ -71,15 +118,10 @@ func (n *Node) Status(ctx context.Context) (StatusReply, error) {
 	if err != nil {
 		return StatusReply{}, err
 	}
-	reply := StatusReply{
-		PID:       os.Getpid(),
-		StartedAt: n.started,
-		Version:   n.env.Version,
-		Install:   n.env.Install,
-		Mode:      n.env.Mode,
-		Claim:     claim,
-		URL:       nodeURL(n.ready.Listeners.HTTP),
-	}
+	reply := n.process()
+	reply.Phase = PhaseReady
+	reply.Claim = &claim
+	reply.URL = nodeURL(n.ready.Listeners.HTTP)
 	switch claim {
 	case system.Unclaimed:
 		reply.URL = setupURL(n.ready.Listeners.HTTP, n.ready.SetupCode)

@@ -124,7 +124,7 @@ func (a appNode) Done() <-chan struct{} { return a.exit }
 func (a appNode) Leave() { a.leave() }
 
 func trayLine(s StatusReply) string {
-	switch s.Claim {
+	switch *s.Claim {
 	case system.Controller:
 		return "Controller · running"
 	case system.Worker:

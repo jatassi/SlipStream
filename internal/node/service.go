@@ -149,12 +149,15 @@ func awaitStatus(env Env) (StatusReply, error) {
 	defer tick.Stop()
 	for {
 		reply, err := Call(ctx, env.Net, env.DataDir, StatusOp, StatusRequest{})
-		if err == nil {
+		if err == nil && reply.Phase == PhaseReady {
 			return reply, nil
+		}
+		if err == nil {
+			err = fmt.Errorf("it is still %s", reply.Phase)
 		}
 		select {
 		case <-ctx.Done():
-			return StatusReply{}, fmt.Errorf("the service didn't respond to status within %s: %w", serviceStartWait, err)
+			return StatusReply{}, fmt.Errorf("the service wasn't ready within %s: %w", serviceStartWait, err)
 		case <-tick.C:
 		}
 	}

@@ -160,7 +160,7 @@ Host commands act on the Node whose data dir is `--data-dir`, else `SLIPSTREAM_D
 
 | Command | What it does |
 |---|---|
-| `slipstream status` | Prints the running Node's status as JSON. |
+| `slipstream status` | Prints the running Node's status as JSON. While the Node starts, `phase` is `starting`, `backing up` or `restoring`, and `claim` and `url` appear once it is `ready`. |
 | `slipstream stop` | Stops the Node and waits until it releases its data dir. |
 | `slipstream restart` | Restarts the Node and prints its web address once it answers again. |
 | `slipstream config` | Prints the resolved configuration as JSON. |

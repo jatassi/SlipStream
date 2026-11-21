@@ -202,8 +202,9 @@ type Node struct {
 	deadline time.Duration
 	ready    Ready
 
-	server  *control.Server
-	isReady atomic.Bool
+	server *control.Server
+	// phaseOf is the Phase, which status reads before ready.
+	phaseOf atomic.Uint32
 
 	// Set during start, before the Node is ready. cfgMu guards the Node
 	// settings table's keys in cfg, which setConfig changes later.
@@ -424,7 +425,7 @@ func (n *Node) startLogged(ctx context.Context) error {
 			n.log.Warn("host below the supported floor", "reason", msg)
 		}
 	}
-	n.isReady.Store(true)
+	n.setPhase(PhaseReady)
 	n.log.Info("ready", "ready", n.ready)
 	return nil
 }
@@ -462,6 +463,9 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	}
 	// The claimed half stops before the torrent engine closes under it.
 	n.claimed = n.stack.Sub("claimed")
+	if err := n.resumeLifecycle(); err != nil {
+		return 0, "", err
+	}
 	if _, err := os.Stat(n.env.DataDir.LibraryDB()); err == nil {
 		if _, err := n.openLibrary(ctx); err != nil {
 			return 0, "", n.stoppedOr(err)

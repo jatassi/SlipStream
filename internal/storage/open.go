@@ -115,7 +115,7 @@ func connect[F File](ctx context.Context, path string, t Timings) (*DB[F], error
 	readers := runtime.GOMAXPROCS(0)
 	read.SetMaxOpenConns(readers)
 	read.SetMaxIdleConns(readers)
-	return &DB[F]{write: write, read: read}, nil
+	return &DB[F]{path: path, timings: t, write: write, read: read}, nil
 }
 
 type role int
@@ -124,6 +124,13 @@ const (
 	roleMigrate role = iota
 	roleWrite
 	roleRead
+	// roleSnapshot runs one VACUUM INTO beside the writer, which a
+	// query_only reader can't, and writes the copy with no sync, since its
+	// caller syncs the Backup made from it.
+	roleSnapshot
+	// roleInspect reads a file it must not change, so it sets no
+	// journal_mode and opens the file read-only.
+	roleInspect
 )
 
 // foreign_keys is off on the migration connection, because SQLite's table-rebuild
@@ -137,7 +144,9 @@ func dsn(path string, p policy, t Timings, r role) string {
 	busy := (t.BusyTimeout + time.Millisecond - 1) / time.Millisecond
 	q := url.Values{}
 	q.Add("_pragma", "busy_timeout("+strconv.FormatInt(int64(busy), 10)+")")
-	q.Add("_pragma", "journal_mode(WAL)")
+	if r != roleInspect {
+		q.Add("_pragma", "journal_mode(WAL)")
+	}
 	q.Add("_pragma", "reverse_unordered_selects(1)")
 	switch r {
 	case roleMigrate:
@@ -150,6 +159,11 @@ func dsn(path string, p policy, t Timings, r role) string {
 	case roleRead:
 		q.Add("_pragma", "synchronous("+p.synchronous+")")
 		q.Add("_pragma", "foreign_keys(1)")
+		q.Add("_pragma", "query_only(1)")
+	case roleSnapshot:
+		q.Add("_pragma", "synchronous(OFF)")
+	case roleInspect:
+		q.Set("mode", "ro")
 		q.Add("_pragma", "query_only(1)")
 	}
 	slashed := filepath.ToSlash(path)

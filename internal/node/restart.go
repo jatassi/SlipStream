@@ -100,7 +100,7 @@ func (n *Node) serveRestart(_ context.Context, body json.RawMessage, send func(a
 }
 
 // RestartNode restarts the Node on env's data dir and returns its
-// successor's status once it answers.
+// successor's status once it is ready.
 func RestartNode(ctx context.Context, env Env) (StatusReply, error) {
 	reply, err := Call(ctx, env.Net, env.DataDir, RestartOp, RestartRequest{})
 	if err != nil {
@@ -112,12 +112,12 @@ func RestartNode(ctx context.Context, env Env) (StatusReply, error) {
 	defer tick.Stop()
 	for {
 		status, err := Call(ctx, env.Net, env.DataDir, StatusOp, StatusRequest{})
-		if err == nil && status.StartedAt.After(reply.StartedAt) {
+		if err == nil && status.Phase == PhaseReady && status.StartedAt.After(reply.StartedAt) {
 			return status, nil
 		}
 		select {
 		case <-ctx.Done():
-			return StatusReply{}, fmt.Errorf("node PID %d stopped to restart, but the new process didn't respond within %s. See the logs in %s", reply.PID, reply.Within+serviceStartWait, env.DataDir.LogsDir())
+			return StatusReply{}, fmt.Errorf("node PID %d stopped to restart, but the new process wasn't ready within %s. See the logs in %s", reply.PID, reply.Within+serviceStartWait, env.DataDir.LogsDir())
 		case <-tick.C:
 		}
 	}

@@ -157,7 +157,7 @@ StateDirectoryMode=0700
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 ExecStart=/usr/lib/slipstream/slipstream run
 Restart=on-failure
-RestartPreventExitStatus=3 4 5 6
+RestartPreventExitStatus=3 4 5 6 7
 TimeoutStopSec=45
 
 [Install]
@@ -175,7 +175,7 @@ Description=SlipStream
 [Service]
 ExecStart="/home/ana/my apps/slipstream" run --data-dir /home/ana/100%%/$$HOME
 Restart=on-failure
-RestartPreventExitStatus=3 4 5 6
+RestartPreventExitStatus=3 4 5 6 7
 TimeoutStopSec=45
 
 [Install]
@@ -192,7 +192,7 @@ Description=SlipStream
 [Service]
 ExecStart=/home/ana/slipstream-1.0.0/slipstream run --data-dir /home/ana/.local/share/slipstream2
 Restart=on-failure
-RestartPreventExitStatus=3 4 5 6
+RestartPreventExitStatus=3 4 5 6 7
 TimeoutStopSec=45
 
 [Install]

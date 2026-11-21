@@ -50,6 +50,9 @@ type Test struct {
 	// BeforeImport sees each Import file's probe, place and landing on the
 	// Controller before it runs.
 	BeforeImport func(context.Context, imports.Step)
+	// BeforeRestoreStage sees each step of a restore's finish at start
+	// before it runs. An error stops the start there, as a crash would.
+	BeforeRestoreStage func(RestoreStep) error
 	// Today stands in for the Node's clock where it decides which Items
 	// are out and which years a search names, for a synctest bubble, whose
 	// time starts in 2000.
@@ -90,6 +93,13 @@ func (t Test) lockstep(h http.Handler) http.Handler {
 		return h
 	}
 	return t.Lockstep(h)
+}
+
+func (t Test) beforeRestoreStage(s RestoreStep) error {
+	if t.BeforeRestoreStage == nil {
+		return nil
+	}
+	return t.BeforeRestoreStage(s)
 }
 
 func (t Test) started(h Half) {
