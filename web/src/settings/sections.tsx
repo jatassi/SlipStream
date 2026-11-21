@@ -29,6 +29,7 @@ import { ProfilesSection } from "../targets/profiles-section";
 import { TargetsSection } from "../targets/targets-section";
 import { trackersSection } from "../trackers/section";
 import { AddressSection } from "./address";
+import { backupsSection } from "./backups/section";
 import { ApiKeySection } from "./api-key";
 import { contentTypesSection } from "./content-types";
 import { EmailSection } from "./email";
@@ -145,7 +146,13 @@ export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
   {
     id: "system",
     label: "System",
-    sections: [nodesSection, emailSection, mediaServersSection, notificationsSection],
+    sections: [
+      nodesSection,
+      backupsSection,
+      emailSection,
+      mediaServersSection,
+      notificationsSection,
+    ],
   },
 ];
 
