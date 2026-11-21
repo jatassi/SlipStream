@@ -81,4 +81,4 @@ Steps:
 - History is an Admin read, so it answers 409 `superseded` too. `TestARestoreOnANewMachineFencesTheOldControllerThroughAWorker` reads home's library and proves no row was added.
 - The restored Controller keeps the Backup's name, so spare lists itself as home and the wiped Node joins as `home-2`.
 - The page's address is the new Controller's link address as its Worker last reached it, `127.0.0.1` behind fakeworld's front.
-- Stop this Controller, which the Health item recommends after a restore, has no screen yet; `POST /api/v1/superseded/stop` does it.
+- The Health Error's link opens seedbox's Overview, whose "Another Controller" section offers Stop this Controller. Retire is `POST /api/v1/backups/retire`; its screen belongs to Settings > Backups.
