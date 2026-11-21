@@ -234,7 +234,7 @@ test("a Node removed from home says so and leads with Join", async ({
 
   await den.goto("/setup");
   const removed = den.getByText(
-    /^This Node was removed from home (?:on|at) .+\. Join with a new Join Code to use it again\.$/u,
+    /^This Node was removed from home (?:today|yesterday|on .+)\. Join with a new Join Code to use it again\.$/u,
   );
   await expect(removed).toBeVisible();
   await enterCode(den, await world.setupCode("den"));
