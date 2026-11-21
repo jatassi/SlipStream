@@ -261,6 +261,9 @@ func (c *Clients) want(ctx context.Context, a Action) ([]Result, *Preview, error
 	var touched Touched
 	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error
+		if results, err = c.refusedReconciling(ctx, tx, a.IDs); err != nil || results != nil {
+			return err
+		}
 		results, touched, err = c.WantIn(ctx, tx, a.IDs, wanted)
 		return err
 	})
@@ -341,6 +344,28 @@ func removedBy(ctx context.Context, tx *storage.Tx[file], by identity.Admin, tor
 	return db.New(tx).SetRemovedBy(ctx, db.SetRemovedByParams{Name: account.Profile().DisplayName, Ids: torrents})
 }
 
+// refusedReconciling answers each of ids refused while a restored
+// Controller is Reconciling, nil while it isn't: a pause, resume or
+// remove then changes nothing on any Node.
+func (c *Clients) refusedReconciling(ctx context.Context, r storage.Reader[file], ids []ID) ([]Result, error) {
+	on, err := c.cfg.Keeps.Blocked(ctx, r)
+	if err != nil || !on {
+		return nil, err
+	}
+	rows, err := readActed(ctx, r, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Result, len(ids))
+	for i, id := range ids {
+		out[i] = Result{ID: id, Refusal: rows.refusal(id)}
+		if out[i].Refusal == nil {
+			out[i].Refusal = &Refusal{Code: RefusedReconciling}
+		}
+	}
+	return out, nil
+}
+
 // remove removes each Torrent no Grab is importing from, as RemoveIn
 // does, and for mark-failed blocklists their Releases in the same Write.
 // While Reconciling a mark-failed refuses each Torrent it would remove and
@@ -357,17 +382,8 @@ func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, err
 	var touched Touched
 	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error
-		results, touched, err = c.RemoveIn(ctx, tx, a.IDs, reason, deleteFiles)
-		if err != nil || len(touched.ids) == 0 {
-			return err
-		}
-		if err := removedBy(ctx, tx, a.By, touched.ids); err != nil {
-			return err
-		}
-		if a.Kind != MarkFailed {
-			return nil
-		}
-		return c.cfg.Blocklist.MarkedFailed(ctx, tx, touched.ids, a.By)
+		results, touched, err = c.removeIn(ctx, tx, a, reason, deleteFiles)
+		return err
 	})
 	if errors.Is(err, ErrReconciling) {
 		for i := range results {
@@ -385,6 +401,27 @@ func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, err
 		c.cfg.Blocklist.Changed(ctx)
 	}
 	return results, nil, nil
+}
+
+// removeIn is remove's Write. While Reconciling a remove refuses every
+// Torrent and removes nothing.
+func (c *Clients) removeIn(ctx context.Context, tx *storage.Tx[file], a Action, reason RemoveReason, deleteFiles bool) ([]Result, Touched, error) {
+	if a.Kind == Remove {
+		if refused, err := c.refusedReconciling(ctx, tx, a.IDs); err != nil || refused != nil {
+			return refused, Touched{}, err
+		}
+	}
+	results, touched, err := c.RemoveIn(ctx, tx, a.IDs, reason, deleteFiles)
+	if err != nil || len(touched.ids) == 0 {
+		return results, touched, err
+	}
+	if err := removedBy(ctx, tx, a.By, touched.ids); err != nil {
+		return nil, Touched{}, err
+	}
+	if a.Kind != MarkFailed {
+		return results, touched, nil
+	}
+	return results, touched, c.cfg.Blocklist.MarkedFailed(ctx, tx, touched.ids, a.By)
 }
 
 // RemoveIn removes each of ids for reason in tx, with its download copy

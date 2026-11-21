@@ -22,15 +22,15 @@ var (
 	everyEight = setting.Duration{Key: "tasks.sync.cadence", Label: "Sync", Default: 8 * time.Hour, Min: 10 * time.Minute, Max: day, Step: time.Minute}
 	daily      = setting.Duration{Key: "tasks.nightly.cadence", Label: "Nightly", Default: day, Min: day, Max: 7 * day, Step: day}
 
-	syncTask     = Task{ID: "sync", Name: "Sync", Cadence: Every{Interval: everyEight}}
-	updateCheck  = Task{ID: "update-check", Name: "Update check", Cadence: Every{Interval: everyEight, AtStart: true}}
-	backup       = Task{ID: "backup", Name: "Backup", Cadence: InWindow{Days: daily}}
-	housekeeping = Task{ID: "housekeeping", Name: "Housekeeping", Cadence: InWindow{Days: daily}, Overdue: Wait}
+	syncTask     = Task{ID: "sync", Name: "Sync", Cadence: Every{Interval: everyEight}, WhileReconciling: Runs}
+	updateCheck  = Task{ID: "update-check", Name: "Update check", Cadence: Every{Interval: everyEight, AtStart: true}, WhileReconciling: Runs}
+	backup       = Task{ID: "backup", Name: "Backup", Cadence: InWindow{Days: daily}, WhileReconciling: Runs}
+	housekeeping = Task{ID: "housekeeping", Name: "Housekeeping", Cadence: InWindow{Days: daily}, Overdue: Wait, WhileReconciling: Runs}
 
 	// catalogRefresh is shaped as the Indexer catalog refresh: daily, no
 	// faster than hourly, and at each start.
 	hourlyToWeekly = setting.Duration{Key: "tasks.catalog.cadence", Label: "Catalog", Default: day, Min: time.Hour, Max: 7 * day, Step: time.Hour}
-	catalogRefresh = Task{ID: "indexer-catalog-refresh", Name: "Indexer catalog refresh", Cadence: Every{Interval: hourlyToWeekly, AtStart: true}}
+	catalogRefresh = Task{ID: "indexer-catalog-refresh", Name: "Indexer catalog refresh", Cadence: Every{Interval: hourlyToWeekly, AtStart: true}, WhileReconciling: Runs}
 )
 
 func baseKnobs(started string) knobs {
@@ -297,7 +297,7 @@ var (
 	here  = install("019a0000-0000-7000-8000-000000000001")
 	there = install("019a0000-0000-7000-8000-000000000002")
 
-	spread = Task{ID: "refresh", Name: "Refresh", Cadence: InWindow{Days: daily, Spread: 30 * time.Minute}, Overdue: Wait}
+	spread = Task{ID: "refresh", Name: "Refresh", Cadence: InWindow{Days: daily, Spread: 30 * time.Minute}, Overdue: Wait, WhileReconciling: Runs}
 )
 
 // startOf is when a spread task last run at slot starts next, as a clock

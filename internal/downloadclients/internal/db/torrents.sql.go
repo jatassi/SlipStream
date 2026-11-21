@@ -213,6 +213,23 @@ func (q *Queries) GetInheritedTotals(ctx context.Context, infoHash []byte) (GetI
 	return i, err
 }
 
+const getLook = `-- name: GetLook :one
+SELECT node_id, metainfo, save_folder FROM downloadclients_torrent WHERE id = ?1
+`
+
+type GetLookRow struct {
+	NodeID     role.NodeID
+	Metainfo   []byte
+	SaveFolder *string
+}
+
+func (q *Queries) GetLook(ctx context.Context, id TorrentID) (GetLookRow, error) {
+	row := q.db.QueryRowContext(ctx, getLook, id)
+	var i GetLookRow
+	err := row.Scan(&i.NodeID, &i.Metainfo, &i.SaveFolder)
+	return i, err
+}
+
 const getMetainfoOfHash = `-- name: GetMetainfoOfHash :one
 SELECT metainfo FROM downloadclients_torrent WHERE info_hash = ?1 ORDER BY added_order DESC LIMIT 1
 `
@@ -564,7 +581,7 @@ func (q *Queries) ListActed(ctx context.Context, ids []TorrentID) ([]ListActedRo
 }
 
 const listAttached = `-- name: ListAttached :many
-SELECT t.id, t.info_hash, t.size, t.removed_reason, t.removed_by_name, t.report, t.completion, t.fault, t.fault_at,
+SELECT t.id, t.info_hash, t.name, t.size, t.removed_reason, t.removed_by_name, t.withheld_at, t.report, t.completion, t.fault, t.fault_at,
        t.node_id, t.client_error_ms, t.client_error_at, t.client_id, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.id IN (/*SLICE:ids*/?)
@@ -574,9 +591,11 @@ ORDER BY t.id
 type ListAttachedRow struct {
 	ID            TorrentID
 	InfoHash      []byte
+	Name          string
 	Size          int64
 	RemovedReason *string
 	RemovedByName sql.NullString
+	WithheldAt    storage.Time
 	Report        *string
 	Completion    *string
 	Fault         *string
@@ -611,9 +630,11 @@ func (q *Queries) ListAttached(ctx context.Context, ids []TorrentID) ([]ListAtta
 		if err := rows.Scan(
 			&i.ID,
 			&i.InfoHash,
+			&i.Name,
 			&i.Size,
 			&i.RemovedReason,
 			&i.RemovedByName,
+			&i.WithheldAt,
 			&i.Report,
 			&i.Completion,
 			&i.Fault,

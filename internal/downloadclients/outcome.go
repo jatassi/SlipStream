@@ -49,6 +49,7 @@ func (Gone) outcome()      {}
 // Attached is a Torrent as the Grabs attached to it read it.
 type Attached struct {
 	InfoHash bencode.InfoHash
+	Name     string
 	// Client is nil for the built-in client.
 	Client *ClientRef
 	// Files are its files from its first complete report, nil before.
@@ -135,7 +136,7 @@ func (a *Attached) reported(row db.ListAttachedRow, rep *Report, node string, fa
 // attachedOf is row as its Grabs read it, its client's error on node
 // failing it once the error outlasted fail.
 func attachedOf(row db.ListAttachedRow, node string, fail time.Duration) (Attached, error) {
-	a := Attached{InfoHash: bencode.InfoHash(row.InfoHash), Client: refOf(row.ClientID, row.ClientKind, row.ClientName), Outcome: Pending{}}
+	a := Attached{InfoHash: bencode.InfoHash(row.InfoHash), Name: row.Name, Client: refOf(row.ClientID, row.ClientKind, row.ClientName), Outcome: Pending{}}
 	if row.Completion != nil {
 		var c Completion
 		if err := json.Unmarshal([]byte(*row.Completion), &c); err != nil {
@@ -152,6 +153,9 @@ func attachedOf(row db.ListAttachedRow, node string, fail time.Duration) (Attach
 	}
 	if row.RemovedReason != nil {
 		gone := Gone{Reason: RemoveReason(*row.RemovedReason)}
+		if gone.Reason == ByAdmin && !row.WithheldAt.IsZero() {
+			gone.Reason = Forgotten
+		}
 		if gone.Reason == ByClient || gone.Reason == ClientDeleted || gone.Reason == ReleaseFaulted {
 			gone.Client = row.ClientName
 		}

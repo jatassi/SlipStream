@@ -129,6 +129,9 @@ func local(ctx context.Context, err error) outcome {
 // While no Node may take either, or the client's Node is out of step, it
 // waits for the roster or the Grab's route to change.
 func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
+	if w := gr.reconcilingWait(ctx); w != nil {
+		return w
+	}
 	if g.Ticket.Indexer.IsZero() {
 		return dropOf[indexers.DropRemoved]
 	}
@@ -223,6 +226,8 @@ func failOfGone(g downloadclients.Gone) fail {
 		return failOfFault(g)
 	case downloadclients.Canceled:
 		return fail{Canceled, "This Grab's torrent was removed when another Grab of it was canceled."}
+	case downloadclients.Forgotten:
+		return fail{Restored, "No Node had this Grab's torrent after the restore, and an Admin chose to forget it."}
 	}
 	panic("grabs: no failure for removal reason " + string(g.Reason))
 }

@@ -119,6 +119,7 @@ func Start(t testing.TB, nw *fault.Network, name string, addrs []netip.Addr, sid
 		Lockstep: side.Lockstep,
 		Pair:     side.Pair,
 		Told:     side.Told,
+		Unknown:  func(link.Key, link.NodeInfo, netip.AddrPort) {},
 		Log:      side.Log,
 	})
 	if err != nil {

@@ -134,6 +134,9 @@ func planRefused(err error) error {
 // surveyed is err, or rootNotReady when a root's Node can't list the
 // files at a plan's new paths now.
 func surveyed(err error) error {
+	if errors.Is(err, files.ErrReconciling) {
+		return api.Reconciling
+	}
 	if _, ok := errors.AsType[*storing.NotReady](err); ok {
 		return rootNotReady.Because("SlipStream checks each new path on the root's Node before it plans renames. Try again once the root is ready.")
 	}

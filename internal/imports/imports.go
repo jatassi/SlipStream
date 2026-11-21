@@ -94,8 +94,36 @@ type Config struct {
 	// Subtitles hears each file that lands, in the landing Write,
 	// NoSubtitles when nil.
 	Subtitles Subtitles
-	Log       *slog.Logger
+	// Reconciling holds the pipeline while a restored Controller is
+	// Reconciling, NotReconciling when nil.
+	Reconciling Reconciling
+	Log         *slog.Logger
 }
+
+// Reconciling is what a restored Controller's Reconciling asks of the
+// pipeline: Imports wait while it runs, a root left for later in the
+// re-home step isn't scanned, and the Write that finishes a root's scan
+// ends Reconciling's wait on it.
+type Reconciling interface {
+	Blocked(ctx context.Context, r storage.Reader[file]) (bool, error)
+	Later(ctx context.Context, r storage.Reader[file], root roots.ID) (bool, error)
+	Scanned(ctx context.Context, tx *storage.Tx[file], root roots.ID) error
+	// ScanEnded runs once the Write that called Scanned committed.
+	ScanEnded()
+}
+
+// NotReconciling is the Reconciling of a library never restored.
+type NotReconciling struct{}
+
+func (NotReconciling) Blocked(context.Context, storage.Reader[file]) (bool, error) { return false, nil }
+
+func (NotReconciling) Later(context.Context, storage.Reader[file], roots.ID) (bool, error) {
+	return false, nil
+}
+
+func (NotReconciling) Scanned(context.Context, *storage.Tx[file], roots.ID) error { return nil }
+
+func (NotReconciling) ScanEnded() {}
 
 // Subtitles is what subtitles hears of a landing.
 type Subtitles interface {
@@ -129,6 +157,9 @@ type Imports struct {
 func New(cfg Config) *Imports {
 	if cfg.Subtitles == nil {
 		cfg.Subtitles = NoSubtitles{}
+	}
+	if cfg.Reconciling == nil {
+		cfg.Reconciling = NotReconciling{}
 	}
 	im := &Imports{cfg: cfg, probes: newSlots(), wake: make(chan struct{}, 1), hooked: map[string]after{}}
 	cfg.Transfers.Register(im.purpose())

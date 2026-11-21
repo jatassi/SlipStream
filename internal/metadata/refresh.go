@@ -51,19 +51,20 @@ type RefreshConfig struct {
 func RefreshTask(cfg RefreshConfig) tasks.Task {
 	r := refresh{cfg}
 	return tasks.Task{
-		ID:      RefreshTaskID,
-		Name:    "Metadata refresh",
-		About:   "Refreshes each Work its metadata source reports as changed. Then it refreshes every other Work on the schedule below.",
-		Group:   tasks.GroupOf(role.Metadata.Group()),
-		Cadence: tasks.InWindow{Days: refreshCadence, Spread: refreshSpread},
-		Overdue: tasks.Wait,
-		Noun:    setting.Noun{One: "Work", Many: "Works"},
-		Shown:   shown,
-		Prepare: r.prepare,
-		Units:   r.units,
-		Run:     r.run,
-		Follows: []live.Event{works.ChangedEvent, works.TypeChangedEvent},
-		Tuning:  cfg.Metadata.Tuning(),
+		ID:               RefreshTaskID,
+		Name:             "Metadata refresh",
+		About:            "Refreshes each Work its metadata source reports as changed. Then it refreshes every other Work on the schedule below.",
+		Group:            tasks.GroupOf(role.Metadata.Group()),
+		Cadence:          tasks.InWindow{Days: refreshCadence, Spread: refreshSpread},
+		WhileReconciling: tasks.Runs,
+		Overdue:          tasks.Wait,
+		Noun:             setting.Noun{One: "Work", Many: "Works"},
+		Shown:            shown,
+		Prepare:          r.prepare,
+		Units:            r.units,
+		Run:              r.run,
+		Follows:          []live.Event{works.ChangedEvent, works.TypeChangedEvent},
+		Tuning:           cfg.Metadata.Tuning(),
 	}
 }
 

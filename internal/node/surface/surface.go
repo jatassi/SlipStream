@@ -42,6 +42,8 @@ import (
 	"github.com/jatassi/slipstream/internal/notificationsapi"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/pairingapi"
+	"github.com/jatassi/slipstream/internal/reconciling"
+	"github.com/jatassi/slipstream/internal/reconcilingapi"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rootsapi"
 	"github.com/jatassi/slipstream/internal/servingapi"
@@ -115,6 +117,7 @@ var Events = []live.Event{
 	subtitles.ChangedEvent,
 	subtitles.ProvidersChangedEvent,
 	subtitles.AttemptEvent,
+	reconciling.ChangedEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the
@@ -150,6 +153,7 @@ type Node interface {
 	calendarapi.Calendar
 	historyapi.History
 	subtitlesapi.Owner
+	reconcilingapi.Reconciler
 }
 
 // Services are what the operations run against. Document passes none.
@@ -191,6 +195,7 @@ func Mount(r *api.Router, s Services) {
 	calendarapi.Routes(r, s.Node)
 	historyapi.Routes(r, s.Node)
 	subtitlesapi.Routes(r, s.Node)
+	reconcilingapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

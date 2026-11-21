@@ -59,7 +59,10 @@ type Config struct {
 	// answering this Node's Hello or in its own. The link never checks the
 	// proof. It must not block.
 	Told func(from Key, s Superseded)
-	Log  *slog.Logger
+	// Unknown is called when a Node whose key this Node doesn't know says
+	// Hello, before it is refused. It must not block.
+	Unknown func(key Key, peer NodeInfo, from netip.AddrPort)
+	Log     *slog.Logger
 }
 
 // Link holds this Node's sessions, at most one live per peer key.

@@ -296,6 +296,9 @@ func (h linkService) Hello(ctx context.Context, req *linkv1.HelloRequest) (*link
 			Refused: &linkv1.Refused{Reason: linkv1.RefusedReason_REFUSED_REASON_REMOVED},
 		}}, nil
 	}
+	if peer, err := parseNodeInfo(req.GetNode()); err == nil {
+		h.l.cfg.Unknown(s.key, peer, s.remote)
+	}
 	return &linkv1.HelloResponse{Outcome: &linkv1.HelloResponse_Refused{
 		Refused: &linkv1.Refused{Reason: linkv1.RefusedReason_REFUSED_REASON_UNKNOWN_KEY},
 	}}, nil

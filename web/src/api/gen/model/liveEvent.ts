@@ -34,6 +34,7 @@ import type { LiveEventNodeSettingsChanged } from "./liveEventNodeSettingsChange
 import type { LiveEventNodesTraffic } from "./liveEventNodesTraffic.ts";
 import type { LiveEventNotificationsChanged } from "./liveEventNotificationsChanged.ts";
 import type { LiveEventNotificationsSeen } from "./liveEventNotificationsSeen.ts";
+import type { LiveEventReconcilingChanged } from "./liveEventReconcilingChanged.ts";
 import type { LiveEventRootsChanged } from "./liveEventRootsChanged.ts";
 import type { LiveEventSubtitlesAttempt } from "./liveEventSubtitlesAttempt.ts";
 import type { LiveEventSubtitlesChanged } from "./liveEventSubtitlesChanged.ts";
@@ -89,6 +90,7 @@ export type LiveEvent =
   | LiveEventNodesTraffic
   | LiveEventNotificationsChanged
   | LiveEventNotificationsSeen
+  | LiveEventReconcilingChanged
   | LiveEventRootsChanged
   | LiveEventSubtitlesAttempt
   | LiveEventSubtitlesChanged

@@ -29,7 +29,7 @@ func (keepDefault) Keep(context.Context) (time.Duration, error)     { return his
 func pastKeep(t *testing.T, svc *files.Files) {
 	t.Helper()
 	time.Sleep(history.KeepFor.Default + 24*time.Hour)
-	task := housekeeping.Task(housekeeping.Config{Keep: keepDefault{}, Batch: 1, Steps: []housekeeping.Step{svc.Retention()}})
+	task := housekeeping.Task(housekeeping.Config{Reconciling: func(context.Context) (bool, error) { return false, nil }, Keep: keepDefault{}, Batch: 1, Steps: []housekeeping.Step{svc.Retention()}})
 	if err := task.Run(t.Context(), tasks.Unit{Key: "import-records"}, &tasks.Progress{}); err != nil {
 		t.Fatal(err)
 	}

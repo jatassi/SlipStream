@@ -52,6 +52,7 @@ var afterFailure = map[Code]failureRule{
 	MagnetInvalid:      {searchAgain, true, true},
 	NoMetadata:         {searchAgain, true, true},
 	NoPeerSource:       {searchAgain, true, true},
+	Restored:           {searchAgain, false, false},
 	TorrentUnreachable: {backlogPace, false, false},
 	IndexerUnavailable: {backlogPace, false, false},
 	IndexerRemoved:     {backlogPace, false, false},

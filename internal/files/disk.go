@@ -80,6 +80,9 @@ func (f *Files) Run(ctx context.Context) error {
 		case <-timer.C:
 		case <-watch:
 		}
+		if f.reconciling(ctx) {
+			continue
+		}
 		watch = f.cfg.Disk.Watch()
 		unanswered, lostRoots := f.sweep(ctx, unswept)
 		unswept = slices.Concat(unanswered, lostRoots)
@@ -101,6 +104,16 @@ func (f *Files) Run(ctx context.Context) error {
 			attempts = 0
 		}
 	}
+}
+
+// reconciling is whether the disk queue waits for a restored
+// Controller's Reconciling, which pokes it once it ends.
+func (f *Files) reconciling(ctx context.Context) bool {
+	err := f.cfg.Library.Read(ctx, f.fence)
+	if err != nil && !errors.Is(err, ErrReconciling) && ctx.Err() == nil {
+		f.cfg.Log.Warn("read whether SlipStream is Reconciling", "err", err.Error())
+	}
+	return err != nil
 }
 
 type queue struct {

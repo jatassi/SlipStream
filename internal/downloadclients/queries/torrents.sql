@@ -72,7 +72,7 @@ INSERT INTO downloadclients_torrent (
 );
 
 -- name: ListAttached :many
-SELECT t.id, t.info_hash, t.size, t.removed_reason, t.removed_by_name, t.report, t.completion, t.fault, t.fault_at,
+SELECT t.id, t.info_hash, t.name, t.size, t.removed_reason, t.removed_by_name, t.withheld_at, t.report, t.completion, t.fault, t.fault_at,
        t.node_id, t.client_error_ms, t.client_error_at, t.client_id, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.id IN (sqlc.slice(ids))
@@ -363,3 +363,6 @@ UPDATE downloadclients_torrent SET withheld_at = sqlc.arg(at) WHERE id IN (sqlc.
 
 -- name: Release :exec
 UPDATE downloadclients_torrent SET withheld_at = NULL WHERE id IN (sqlc.slice(ids));
+
+-- name: GetLook :one
+SELECT node_id, metainfo, save_folder FROM downloadclients_torrent WHERE id = sqlc.arg(id);

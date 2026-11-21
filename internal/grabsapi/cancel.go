@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -32,7 +33,7 @@ func (h handlers) cancelGrab(ctx context.Context, by identity.Admin, in *cancelI
 	case errors.Is(err, grabs.ErrGrabFinished):
 		return nil, grabFinished
 	case errors.Is(err, grabs.ErrReconciling):
-		return nil, reconciling.Because("Cancel the Grab once Reconciling finishes.")
+		return nil, api.Reconciling
 	}
 	return nil, answer(err)
 }

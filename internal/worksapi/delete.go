@@ -2,8 +2,10 @@ package worksapi
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
 )
@@ -40,6 +42,9 @@ func (h handlers) deleteWorks(ctx context.Context, by identity.Admin, in *delete
 	}
 	d := library.Deleting{Files: library.FilesChoice(in.Body.Files), Preview: in.Body.Preview}
 	plan, os, err := composer(h.shelf).Delete(ctx, by, ws, d)
+	if errors.Is(err, files.ErrReconciling) {
+		return nil, api.Reconciling
+	}
 	if err != nil {
 		return nil, answer(err)
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"sync"
@@ -229,6 +230,7 @@ func joinOffline(ctx context.Context, env Env, code joincode.Code, nodePort uint
 		Trust:    refuse,
 		Lockstep: http.NotFoundHandler(),
 		Pair:     refuse.Pair,
+		Unknown:  func(link.Key, link.NodeInfo, netip.AddrPort) {},
 		Log:      slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
