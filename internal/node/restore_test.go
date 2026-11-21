@@ -481,7 +481,7 @@ func TestAnUploadPastTheSpaceCapIsRefused(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		n, c := startInMemory(t, env)
 		r := upload(c, n.Ready().SetupCode, strings.NewReader(strings.Repeat("x", 101)), "application/octet-stream")
-		expect(t, r, 422, `{"status":422,"code":"backup_no_space","title":"Not enough space","detail":"Restoring needs 101 bytes free on this Node's disk, and it has 100 bytes free. Free some space, then try again."}`+"\n")
+		expect(t, r, 422, `{"status":422,"code":"backup_no_space","title":"Not enough space","detail":"Restoring needs 101 bytes free on the volume of this Node's data folder, and it has 100 bytes free. Free some space, then try again."}`+"\n")
 		if slices.Contains(dataDirHolds(t, env.DataDir), backups.UploadFile) {
 			t.Fatal("the refused upload stayed in the data dir")
 		}
@@ -576,7 +576,7 @@ func TestEachStagingErrorHasItsMessage(t *testing.T) {
 			env := full(t)
 			_, err := RestoreOffline(t.Context(), env, restoreFlags{file: b.file}, b.words)
 			stage, ok := errors.AsType[*backups.StageError](err)
-			if want := "Restoring needs " + backups.Size(int64(len(file))) + " free in " + env.DataDir.Path() + ", and that disk has 1 byte free. Free some space, then try again."; !ok || stage.Code != backups.NoSpace || err.Error() != want {
+			if want := "Restoring needs " + backups.Size(int64(len(file))) + " free in " + env.DataDir.Path() + ", and its volume has 1 byte free. Free some space, then try again."; !ok || stage.Code != backups.NoSpace || err.Error() != want {
 				t.Fatalf("restore = %v, want %q", err, want)
 			}
 		})

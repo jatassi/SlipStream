@@ -35,7 +35,7 @@ type Restorer interface {
 }
 
 var (
-	wrongPassphrase = api.NewCode(http.StatusUnprocessableEntity, string(backups.WrongPassphrase), "Wrong passphrase")
+	wrongPassphrase = api.NewCode(http.StatusUnprocessableEntity, string(backups.WrongPassphrase), "Wrong Backup passphrase")
 	damaged         = api.NewCode(http.StatusUnprocessableEntity, string(backups.Damaged), "Damaged Backup")
 	notABackup      = api.NewCode(http.StatusUnprocessableEntity, string(backups.NotABackup), "Not a Backup")
 	tooNew          = api.NewCode(http.StatusUnprocessableEntity, string(backups.TooNew), "Backup from a newer version")
@@ -221,7 +221,7 @@ func confirm(ctx context.Context, n Restorer, in *confirmRestoreInput) (*struct{
 	for _, s := range in.Body.Remove {
 		id, err := storage.ParseUUID(s)
 		if err != nil {
-			return nil, api.Invalid.On("remove", "Each Node to leave out is a Node id from the summary.")
+			return nil, api.Invalid.On("remove", "Use a Node id from the summary.")
 		}
 		c.Remove = append(c.Remove, nodes.ID{UUID: id})
 	}
@@ -239,7 +239,7 @@ func refusal(err error) error {
 		return stageCodes[stage.Code].Logged(stage.Err, stage.Text)
 	}
 	if big, ok := errors.AsType[*api.TooLargeError](err); ok {
-		return noSpace.Because(fmt.Sprintf("Restoring needs %s free on this Node's disk, and it has %s free. Free some space, then try again.", backups.Size(big.Sent), backups.Size(big.Max)))
+		return noSpace.Because(fmt.Sprintf("Restoring needs %s free on the volume of this Node's data folder, and it has %s free. Free some space, then try again.", backups.Size(big.Sent), backups.Size(big.Max)))
 	}
 	switch {
 	case errors.Is(err, backups.ErrOldControllerOn):

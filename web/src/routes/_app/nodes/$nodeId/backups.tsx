@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/backups")({
       <div className="flex max-w-[640px] flex-col gap-4">
         <p className="text-ink-2">
           SlipStream keeps every Backup in this folder, and copies them from here to each Backup
-          destination. The schedule, the destinations and the passphrase are in{" "}
+          destination. The schedule, the Backup destinations and the Backup passphrase are in{" "}
           <Link
             to="/settings/$section"
             params={{ section: "backups" }}
