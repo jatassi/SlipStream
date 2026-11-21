@@ -9,7 +9,7 @@ import (
 
 // launchAgent is the macOS LaunchAgent that starts program at login, as an
 // XML plist, which needs no DOCTYPE. It has RunAtLoad and no KeepAlive:
-// launchd cannot skip a restart on exit codes 3 to 6, so a restart rule
+// launchd cannot skip a restart on exit codes 3 to 7, so a restart rule
 // would loop on a refused database.
 func launchAgent(program string) []byte {
 	var path bytes.Buffer
