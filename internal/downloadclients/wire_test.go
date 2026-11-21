@@ -77,7 +77,7 @@ func TestAppliedReportsReachTheirReadersOnceCommitted(t *testing.T) {
 	var in *dlv1.Intent
 	err := lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
 		var err error
-		in, err = dc.Intent(ctx, rd, a)
+		in, err = dc.Derive{Keeps: dc.NoKeeps}.Intent(ctx, rd, a)
 		return err
 	})
 	if err != nil {

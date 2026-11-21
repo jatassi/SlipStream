@@ -820,7 +820,7 @@ func (e *Engine) PostTrackers(h engine.Handle) error {
 func (e *Engine) SaveResume(h engine.Handle) error {
 	return e.with(h, func(t *torrent) error {
 		t.fold()
-		data, err := resume{Metainfo: t.raw, Done: t.done, Totals: t.totals}.encode()
+		data, err := resume{Metainfo: t.raw, Meta: t.meta, Done: t.done, Totals: t.totals}.encode()
 		if err != nil {
 			return err
 		}
@@ -1034,19 +1034,49 @@ func (e *Engine) emit(ev engine.Event) {
 	}
 }
 
-// resume is the in-memory engine's resume data.
+// resume is the in-memory engine's resume data. It also carries the keys
+// libtorrent's has that a caller reads: the info dictionary, the
+// trackers' tiers, the seeding seconds and one byte a piece, its low bit
+// set for a piece done.
 type resume struct {
 	Metainfo []byte
+	Meta     bencode.Metainfo
 	Done     int64
 	Totals   engine.Totals
 }
 
 func (r resume) encode() ([]byte, error) {
-	return bencode.Encode(map[string]any{
+	var tiers []any
+	for _, tier := range r.Meta.AnnounceList {
+		urls := make([]any, len(tier))
+		for i, u := range tier {
+			urls[i] = u
+		}
+		tiers = append(tiers, urls)
+	}
+	if tiers == nil && r.Meta.Announce != "" {
+		tiers = []any{[]any{r.Meta.Announce}}
+	}
+	var size int64
+	for _, f := range r.Meta.Info.Files {
+		size += f.Length
+	}
+	pieces := make([]byte, len(r.Meta.Info.Pieces)/20)
+	for i := range pieces {
+		if min(int64(i+1)*r.Meta.Info.PieceLength, size) <= r.Done {
+			pieces[i] = 1
+		}
+	}
+	d := map[string]any{
 		"metainfo": r.Metainfo, "done": r.Done,
 		"uploaded": r.Totals.Uploaded, "downloaded": r.Totals.Downloaded,
 		"active": int64(r.Totals.Active), "seeding": int64(r.Totals.Seeding),
-	})
+		"trackers": tiers, "seeding_time": int64(r.Totals.Seeding / time.Second), "pieces": pieces,
+	}
+	if r.Meta.RawInfo != nil {
+		d["info"] = bencode.Raw(r.Meta.RawInfo)
+	}
+	return bencode.Encode(d)
 }
 
 func decodeResume(data []byte) (resume, error) {

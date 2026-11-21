@@ -798,7 +798,7 @@ func TestDeletingAWorkMidDownloadLeavesItsTorrentSeeding(t *testing.T) {
 	}
 	var seeding []bencode.InfoHash
 	err := s.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		in, err := downloadclients.Intent(ctx, r, seedbox)
+		in, err := downloadclients.Derive{Keeps: downloadclients.NoKeeps}.Intent(ctx, r, seedbox)
 		for _, tor := range in.GetTorrents() {
 			seeding = append(seeding, bencode.InfoHash(tor.GetInfoHash()))
 		}

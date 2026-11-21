@@ -708,6 +708,12 @@
             "client_live_floor": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "holdings_page": {
+              "type": "integer"
+            },
+            "holdings_max": {
+              "type": "integer"
             }
           },
           "additionalProperties": false,

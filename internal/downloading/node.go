@@ -76,6 +76,9 @@ type Node struct {
 	mu     sync.Mutex
 	actors map[storage.UUID]*external.Actor
 	local  *storage.DB[storage.Local]
+	// sent is the last Holdings round the Node queued. A restart forgets
+	// it, so the round goes again.
+	sent uint64
 
 	watching *nodeWatching
 }
@@ -118,6 +121,7 @@ func (n *Node) Run(local *storage.DB[storage.Local], ctl Control) func(context.C
 			}
 			in <- mine
 			n.sync(ctx, shares, local, ctl, h)
+			n.holdings(ctx, local, h, s.Intent.GetHoldings())
 		}
 		close(in)
 		wg.Wait()
@@ -132,13 +136,28 @@ func (n *Node) Run(local *storage.DB[storage.Local], ctl Control) func(context.C
 	}
 }
 
+// holdings queues the round req asks for unless the Node queued it since
+// it started.
+func (n *Node) holdings(ctx context.Context, local *storage.DB[storage.Local], h Holder, req *dlv1.HoldingsRequest) {
+	if req == nil || req.GetRound() == n.sent {
+		return
+	}
+	if err := sendHoldings(ctx, local, h, req); err != nil {
+		if ctx.Err() == nil {
+			n.cfg.Log.Error("report the torrents this Node holds", "err", err.Error())
+		}
+		return
+	}
+	n.sent = req.GetRound()
+}
+
 // split is s's built-in snapshot, its torrents and discards with no
 // client, and each external client's share.
 func split(s role.Snapshot[*dlv1.Intent]) (mine role.Snapshot[*dlv1.Intent], shares map[storage.UUID]external.Share) {
 	in := s.Intent
 	builtin := &dlv1.Intent{
 		Settings: in.GetSettings(), HoldDownloads: in.GetHoldDownloads(), Thresholds: in.GetThresholds(),
-		SampleEverySeconds: in.GetSampleEverySeconds(),
+		SampleEverySeconds: in.GetSampleEverySeconds(), KeepAll: in.GetKeepAll(), KeepHashes: in.GetKeepHashes(), PauseAll: in.GetPauseAll(),
 	}
 	byClient := map[storage.UUID]*external.Share{}
 	for _, c := range in.GetClients() {
@@ -148,6 +167,7 @@ func split(s role.Snapshot[*dlv1.Intent]) (mine role.Snapshot[*dlv1.Intent], sha
 				StalledAfter:    time.Duration(in.GetSettings().GetStalledAfterSeconds()) * time.Second,
 				UnregisteredGap: time.Duration(in.GetThresholds().GetUnregisteredGapSeconds()) * time.Second,
 				MayStart:        s.MayStart(),
+				KeepAll:         in.GetKeepAll(),
 			}
 		}
 	}

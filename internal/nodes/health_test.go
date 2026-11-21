@@ -198,3 +198,21 @@ func TestEveryProbeReasonSaysWhatToDo(t *testing.T) {
 		}
 	}
 }
+
+// TestAPendingNodesHealthIsOneReconcilingLink has seedbox wait to be
+// adopted: its one item warns with the Keeping line and opens Reconciling,
+// and home, not pending, has none.
+func TestAPendingNodesHealthIsOneReconcilingLink(t *testing.T) {
+	in := cluster()
+	b := in.node(box)
+	b.assigned, b.work, b.pending = role.Of(role.Searching), role.Of(role.Downloading), true
+	got := itemsOf(in.at(start), everyFit(), nil)
+	want := []health.Item{{Key: key(box.String(), "pending"), Level: health.Warn, Says: health.Says{
+		Subject: "seedbox",
+		Text:    "seedbox keeps its torrents until it reports them. Open Reconciling to see what's left to do.",
+		Action:  health.LinkAction("/reconciling", "Open Reconciling"),
+	}}}
+	if !slices.EqualFunc(got.Items, want, sameItem) || len(got.Unsure) != 0 {
+		t.Errorf("a pending Node's items are %+v and unsure %+v, want %+v alone", got.Items, got.Unsure, want)
+	}
+}

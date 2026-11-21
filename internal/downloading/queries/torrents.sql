@@ -25,3 +25,10 @@ DELETE FROM downloading_torrent WHERE info_hash = ?;
 
 -- name: DeleteTorrents :exec
 DELETE FROM downloading_torrent;
+
+-- name: ListTorrentsAfter :many
+SELECT info_hash, save_folder, private, resume FROM downloading_torrent
+WHERE info_hash > sqlc.arg(after) ORDER BY info_hash LIMIT sqlc.arg(page);
+
+-- name: GetResume :one
+SELECT resume FROM downloading_torrent WHERE info_hash = ?;

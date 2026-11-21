@@ -165,7 +165,7 @@ func (s *state) update(ctx context.Context, share Share) {
 	}
 	var forget []bencode.InfoHash
 	for h := range s.tracks {
-		if !listed[h] {
+		if !listed[h] && !share.KeepAll {
 			forget = append(forget, h)
 			delete(s.tracks, h)
 		}
@@ -364,6 +364,7 @@ func (s *state) poll(ctx context.Context, now time.Time) *batch {
 	mass := s.absence(got)
 	for _, t := range s.sorted() {
 		switch {
+		case t.discard != nil && s.share.KeepAll:
 		case t.discard != nil:
 			s.discard(ctx, t, got, b)
 		case t.vanished:
@@ -489,6 +490,9 @@ func (s *state) fetch(ctx context.Context, t *track) (*dlv1.TorrentResponse, err
 // unlisted is one live torrent the client has never listed: added once,
 // sent once more after the resend wait, then not kept.
 func (s *state) unlisted(ctx context.Context, t *track, now time.Time) {
+	if s.share.KeepAll {
+		return
+	}
 	if t.row.Origin == nil {
 		if s.share.MayStart {
 			s.add(ctx, t, now)

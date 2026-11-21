@@ -184,8 +184,11 @@ func (n *Node) startController(ctx context.Context) error {
 			Event:   downloadclients.LiveEvent.Bind(n.hub),
 			Sample:  n.cfg.Timings.Downloading.LiveSample,
 		},
-		Hub: n.hub,
-		Log: n.rootLog.With("subsystem", "downloadclients"),
+		Hub:          n.hub,
+		Keeps:        downloadclients.NoKeeps,
+		HoldingsPage: n.cfg.Timings.Downloading.HoldingsPage,
+		HoldingsMax:  n.cfg.Timings.Downloading.HoldingsMax,
+		Log:          n.rootLog.With("subsystem", "downloadclients"),
 	})
 	seeding = trackers.New(trackers.Config{
 		Library:         lib.db,
@@ -199,7 +202,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Changed:         trackers.SeedingChangedEvent.Bind(n.hub),
 		TrackersChanged: indexers.TrackersEvent.Bind(n.hub),
 	})
-	downloads = downloading.Def.Serve(downloadclients.Intent, clients.Apply)
+	downloads = downloading.Def.Serve(downloadclients.Derive{Keeps: downloadclients.NoKeeps, HoldingsPage: n.cfg.Timings.Downloading.HoldingsPage}.Intent, clients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
 	copies := transfers.New(transfers.ControllerConfig{
 		Library: lib.db,

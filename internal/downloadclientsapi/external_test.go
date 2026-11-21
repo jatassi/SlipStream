@@ -306,7 +306,7 @@ func TestDeleteWithStopTrackingLeavesTheTorrentsInTheClient(t *testing.T) {
 		if outcomes, err = downloadclients.Outcomes(ctx, r, []downloadclients.ID{orchard, harbor}); err != nil {
 			return err
 		}
-		intent, err = downloadclients.Intent(ctx, r, w.self)
+		intent, err = downloadclients.Derive{Keeps: downloadclients.NoKeeps}.Intent(ctx, r, w.self)
 		return err
 	})
 	if err != nil {

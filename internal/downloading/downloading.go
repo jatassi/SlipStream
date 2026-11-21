@@ -116,6 +116,11 @@ type Timings struct {
 	// ClientLiveFloor is the shortest gap between two polls of one client
 	// while an Admin watches.
 	ClientLiveFloor time.Duration `yaml:"client_live_floor"`
+	// HoldingsPage is how many torrents one page of a Node's Holdings
+	// lists at most, and HoldingsMax how many a round lists in all. The
+	// Controller's own refuse a page past them.
+	HoldingsPage int `yaml:"holdings_page"`
+	HoldingsMax  int `yaml:"holdings_max"`
 }
 
 // ErrorHeartbeat is how often a Node resends the report of a torrent its
@@ -136,6 +141,7 @@ func DefaultTimings() Timings {
 		ClientRetryMin: 5 * time.Second, ClientRetryMax: 5 * time.Minute, ClientRefusedRetry: 30 * time.Minute,
 		ClientGrace: time.Minute, ClientResendWait: 2 * time.Minute, ClientMissingShare: 50, ClientMissingFloor: 3,
 		ClientTrackers: time.Minute, ClientCall: 30 * time.Second, ClientLiveFloor: 2 * time.Second,
+		HoldingsPage: 1000, HoldingsMax: 100_000,
 	}
 }
 
