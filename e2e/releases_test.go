@@ -64,7 +64,12 @@ func restoreRelease(t *testing.T, binary, dir string) {
 	if err := json.Unmarshal(b, &f); err != nil {
 		t.Fatal(err)
 	}
-	data := filepath.Join(t.TempDir(), "data")
+	short, err := os.MkdirTemp("", "ss") //nolint:usetesting // t.TempDir's path is too long for the socket limit on macOS
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(short) })
+	data := filepath.Join(short, "data")
 	pass := filepath.Join(t.TempDir(), "pass")
 	if err := os.WriteFile(pass, []byte(f.Passphrase), 0o600); err != nil {
 		t.Fatal(err)

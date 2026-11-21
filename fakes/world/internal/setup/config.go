@@ -42,9 +42,15 @@ func ListenKeys(probe node.Resolved) []string {
 	return keys
 }
 
+// lowScrypt is the lowest work factor a Backup takes, the work factor of
+// a Node whose Scenario sets none. The default's 256 MiB per Backup and
+// per check, on every Controller of parallel runs, outlasts the stop
+// deadline on a CI runner.
+const lowScrypt = 15
+
 // Config is Node i's config.yaml: its seed and name, every listen key on
 // its own address, loopback peers counting for its listen port, the
-// timings the Scenario sets and the endpoints the fakes moved. A world of
+// timings the Scenario sets, a low scrypt work factor and the endpoints the fakes moved. A world of
 // fronts passes the Node's link front, which the Node advertises. The
 // simulation tier, which has no fronts, passes the zero link.
 func Config(s scenario.Scenario, i int, listen []string, link netip.AddrPort, endpoints node.EndpointsBlock) ([]byte, error) {
@@ -65,7 +71,11 @@ func Config(s scenario.Scenario, i int, listen []string, link netip.AddrPort, en
 	if folder := s.Nodes[i].BackupsFolder; folder != "" {
 		set(root, "backups.folder", scalar(folder))
 	}
-	if t := scenario.SetTimings(s.Timings); t != nil {
+	timings := s.Timings
+	if timings.Backups.Scrypt == 0 {
+		timings.Backups.Scrypt = lowScrypt
+	}
+	if t := scenario.SetTimings(timings); t != nil {
 		root.Content = append(root.Content, scalar("timings"), t)
 	}
 	e, err := yamltree.Diff(endpoints, node.Defaults(contenttype.Set{}, install.Dev).Endpoints)

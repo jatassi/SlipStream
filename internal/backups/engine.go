@@ -272,6 +272,9 @@ func (e *Engine) write(ctx context.Context, src source, m archive.Manifest, entr
 	if err != nil {
 		return Entry{}, err
 	}
+	if err := ctx.Err(); err != nil {
+		return Entry{}, fmt.Errorf("write the Backup: %w", err)
+	}
 	part := e.path(entry.Name) + partSuffix
 	sums, err := writePart(part, m, sources, pass, e.cfg.Timings.params())
 	if err != nil {
@@ -280,6 +283,9 @@ func (e *Engine) write(ctx context.Context, src source, m archive.Manifest, entr
 	info, err := os.Stat(snap)
 	if err != nil {
 		return Entry{}, fmt.Errorf("check the snapshot: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return Entry{}, fmt.Errorf("check the Backup: %w", err)
 	}
 	opened, err := checkFile(part, pass, e.cfg.Timings.limits(info.Size()))
 	if err != nil {
