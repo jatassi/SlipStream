@@ -37,14 +37,20 @@ type discard[T any] struct{}
 func (discard[T]) Publish(context.Context, T) {}
 
 // roster is every Node in step unless offline, and draining Downloading
-// while draining.
-type roster struct{ offline, draining *bool }
+// while draining, or as nodes says once it is open.
+type roster struct {
+	offline, draining *bool
+	nodes             **nodes.Service
+}
 
 func (r roster) InStep(role.NodeID) bool              { return !*r.offline }
 func (roster) WrittenOff(role.Name, role.NodeID) bool { return false }
 func (roster) Changed() <-chan struct{}               { return nil }
 func (roster) Serving(role.Name) []role.NodeID        { return nil }
-func (r roster) Draining(n role.Name, _ role.NodeID) bool {
+func (r roster) Draining(n role.Name, node role.NodeID) bool {
+	if *r.nodes != nil {
+		return (*r.nodes).Draining(n, node)
+	}
 	return n == role.Downloading && *r.draining
 }
 func (roster) Holds(role.Name, role.NodeID) bool { return true }
@@ -76,6 +82,9 @@ type library struct {
 	// offline takes the library's Node out of step, draining has it drain
 	// Downloading, and reconciling holds every goal.
 	offline, draining, reconciling bool
+	// nodes is the roster once openRoster opened it, which then says who
+	// drains.
+	nodes *nodes.Service
 	// node, work and item are what every planted Grab names.
 	node, work, item storage.UUID
 }
@@ -84,11 +93,11 @@ func newLibrary(t *testing.T) *library {
 	t.Helper()
 	l := &library{
 		t: t, changed: &published{}, trackersChanged: &identities{},
-		lib: storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(),
+		lib: storagetest.Library(t, identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(),
 			grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema()),
 		node: storage.NewUUID(), work: storage.NewUUID(), item: storage.NewUUID(), board: &board{},
 	}
-	nodeRoster := roster{&l.offline, &l.draining}
+	nodeRoster := roster{&l.offline, &l.draining, &l.nodes}
 	l.clients = downloadclients.New(downloadclients.Config{
 		Library: l.lib, Roster: nodeRoster, Uses: grabs.TorrentUses{}, Seeding: late{&l.x},
 		Touch: func(n ...role.NodeID) { l.touched = append(l.touched, n...) }, Changed: discard[downloadclients.Changed]{},
