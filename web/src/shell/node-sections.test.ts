@@ -21,6 +21,7 @@ test("a Node without Downloading has no Torrent client section", () => {
     "roles",
     "web",
     "searching",
+    "backups",
     "logs",
     "log-settings",
   ]);
@@ -31,6 +32,7 @@ test("a Node without Searching has no Searching section", () => {
     "overview",
     "roles",
     "web",
+    "backups",
     "logs",
     "log-settings",
   ]);
@@ -52,6 +54,7 @@ test.each(["holding", "away", "lapsed", "covering", "draining", "writing-off"] a
       "web",
       "torrent-client",
       "searching",
+      "backups",
       "logs",
       "log-settings",
     ]);
@@ -66,6 +69,7 @@ test("with more than one Node, each Node has Transfers after Torrent client and 
     "torrent-client",
     "searching",
     "transfers",
+    "backups",
     "logs",
     "log-settings",
   ]);
