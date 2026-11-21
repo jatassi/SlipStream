@@ -45,6 +45,9 @@ func (n *Node) join(ctx context.Context, code joincode.Code, awaiting func(pairi
 			n.claimMu.Unlock()
 		}
 	}()
+	if err := n.lifecycleIdle(); err != nil {
+		return pairing.Joined{}, false, err
+	}
 	repairs := n.half.Load() != nil && n.pairing.Repairs(code)
 	wasWorker := n.pairing.Paired()
 	joined, err = n.pairing.Claim(ctx, code, func(p pairing.Pending) {

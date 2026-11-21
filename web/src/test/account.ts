@@ -5,6 +5,7 @@ import { page } from "vitest/browser";
 import type { IdentityPasskey, IdentitySessionRow, SystemPasskeys } from "../api/gen/model";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 import { webauthn } from "../session/webauthn";
+import { startedAt } from "./handlers";
 import { renderApp } from "./render-app";
 
 export const thisLaptop: IdentitySessionRow = {
@@ -36,7 +37,7 @@ export const iPhonePasskey: IdentityPasskey = {
 export const passkeysHere: SystemPasskeys = { available: true };
 
 export const passkeysAt = (passkeys: SystemPasskeys) =>
-  getGetStatusMockHandler({ claim: "controller", passkeys });
+  getGetStatusMockHandler({ claim: "controller", passkeys, startedAt });
 
 export function accountLists({
   passkeys = [iPhonePasskey],

@@ -1,9 +1,13 @@
 package node
 
 import (
+	"context"
 	"errors"
+	"path/filepath"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/atomicfile"
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/lifecycle"
 )
 
@@ -40,17 +44,17 @@ type RestoreStep struct {
 // lifecycle.json names, or, with no record, deletes the files a staging
 // left without writing one. A record this binary can't resume refuses the
 // start with RecordRefused.
-func (n *Node) resumeLifecycle() error {
+func (n *Node) resumeLifecycle(ctx context.Context) error {
 	d := n.env.DataDir.lifecycle(n.cfg.Timings.Backups.WindowsRetry)
 	op, ok, err := readLifecycle(d)
 	if err != nil {
 		return err
 	}
 	if !ok {
-		return d.Leftovers()
+		return errors.Join(d.Leftovers(), atomicfile.Remove(filepath.Join(d.Path, backups.UploadFile), d.Retry))
 	}
 	if r, restoring := op.(*lifecycle.Restore); restoring {
-		return n.finishRestore(d, r)
+		return n.finishRestore(ctx, d, r)
 	}
 	return nil
 }
@@ -68,7 +72,7 @@ func readLifecycle(d lifecycle.Dir) (lifecycle.Op, bool, error) {
 // finishRestore takes a restore from its record's stage to the end. Each
 // step is derived from the files and the stage, so a start stopped before
 // any of them finishes the rest at the next start.
-func (n *Node) finishRestore(d lifecycle.Dir, op *lifecycle.Restore) error {
+func (n *Node) finishRestore(ctx context.Context, d lifecycle.Dir, op *lifecycle.Restore) error {
 	n.setPhase(PhaseRestoring)
 	defer n.setPhase(PhaseStarting)
 	before := n.env.Test.beforeRestoreStage
@@ -88,6 +92,9 @@ func (n *Node) finishRestore(d lifecycle.Dir, op *lifecycle.Restore) error {
 		}
 	}
 	if op.Stage == lifecycle.Swapped {
+		if err := n.writeRestored(ctx, op); err != nil {
+			return err
+		}
 		if err := advance(RestoreWritten, lifecycle.Written); err != nil {
 			return err
 		}
@@ -102,4 +109,18 @@ func (n *Node) finishRestore(d lifecycle.Dir, op *lifecycle.Restore) error {
 		return err
 	}
 	return d.Finish()
+}
+
+// lifecycleIdle is lifecycle.ErrBusy while lifecycle.json exists: a
+// restore staged before a restart, or one this Node is committing. A
+// claim or a join then would make a library the next start replaces.
+func (n *Node) lifecycleIdle() error {
+	_, busy, err := readLifecycle(n.env.DataDir.lifecycle(n.cfg.Timings.Backups.WindowsRetry))
+	if err != nil {
+		return err
+	}
+	if busy {
+		return lifecycle.ErrBusy
+	}
+	return nil
 }

@@ -44,6 +44,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pairingapi"
 	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/reconcilingapi"
+	"github.com/jatassi/slipstream/internal/restoreapi"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rootsapi"
 	"github.com/jatassi/slipstream/internal/servingapi"
@@ -154,6 +155,7 @@ type Node interface {
 	historyapi.History
 	subtitlesapi.Owner
 	reconcilingapi.Reconciler
+	restoreapi.Restorer
 }
 
 // Services are what the operations run against. Document passes none.
@@ -196,6 +198,7 @@ func Mount(r *api.Router, s Services) {
 	historyapi.Routes(r, s.Node)
 	subtitlesapi.Routes(r, s.Node)
 	reconcilingapi.Routes(r, s.Node)
+	restoreapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

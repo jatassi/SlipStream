@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { FirstrunFirstRun } from "../api/gen/model";
-import { ada, grace, noPasskeys } from "../test/handlers";
+import { ada, grace, noPasskeys, startedAt } from "../test/handlers";
 import { type Entry, entryOf, redirectFor } from "./gate";
 import { safeRedirect } from "./safe-redirect";
 
@@ -99,7 +99,7 @@ describe("redirectFor", () => {
   });
 });
 
-const controller = { claim: "controller", passkeys: noPasskeys } as const;
+const controller = { claim: "controller", passkeys: noPasskeys, startedAt } as const;
 const session = (account: typeof ada, pinRequired = false) =>
   ({ account, pinRequired, keyPrompt: "ask" }) as const;
 const settingUp = (account: typeof ada) => ({ ...session(account), firstRun: "open" }) as const;
@@ -114,7 +114,9 @@ const steps: FirstrunFirstRun = {
 
 describe("entryOf", () => {
   test("an Unclaimed Node sets up", () => {
-    expect(entryOf({ claim: "unclaimed", passkeys: noPasskeys }, null)).toEqual({ kind: "setup" });
+    expect(entryOf({ claim: "unclaimed", passkeys: noPasskeys, startedAt }, null)).toEqual({
+      kind: "setup",
+    });
   });
 
   test("a Controller with no session signs in", () => {
@@ -145,7 +147,9 @@ describe("entryOf", () => {
   });
 
   test("a Worker is managed elsewhere", () => {
-    expect(entryOf({ claim: "worker", passkeys: noPasskeys }, null)).toEqual({ kind: "worker" });
+    expect(entryOf({ claim: "worker", passkeys: noPasskeys, startedAt }, null)).toEqual({
+      kind: "worker",
+    });
   });
 });
 

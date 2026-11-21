@@ -140,7 +140,7 @@ func staged(t *testing.T, env Env) {
 }
 
 func stagedRestore() *lifecycle.Restore {
-	return &lifecycle.Restore{ID: "r1", Stage: lifecycle.Staged, Cause: lifecycle.ByRestore, Backup: lifecycle.Backup{Name: "slipstream-20261114T040012Z-2.1.0-manual-7k3m.tar.zst.age", Version: "2.1.0"}}
+	return &lifecycle.Restore{ID: "r1", Stage: lifecycle.Staged, Cause: lifecycle.ByRestore, Backup: lifecycle.Backup{Name: "slipstream-20261114T040012Z-2.1.0-manual-7k3m.tar.zst.age", TakenAt: time.Date(2026, 11, 14, 4, 0, 12, 0, time.UTC), Version: "2.1.0"}}
 }
 
 var errCrash = errors.New("crash")

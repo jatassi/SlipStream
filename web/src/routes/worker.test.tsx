@@ -5,7 +5,7 @@ import { page } from "vitest/browser";
 import type { ServingWorker } from "../api/gen/model";
 import { getGetServingMockHandler } from "../api/gen/query/serving/serving.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
-import { noPasskeys, problem, signedOut } from "../test/handlers";
+import { noPasskeys, problem, signedOut, startedAt } from "../test/handlers";
 import { renderApp } from "../test/render-app";
 import { worker } from "../test/worker";
 
@@ -18,7 +18,7 @@ const seedbox: ServingWorker = {
 };
 
 const workerNode = [
-  getGetStatusMockHandler({ claim: "worker", passkeys: noPasskeys }),
+  getGetStatusMockHandler({ claim: "worker", passkeys: noPasskeys, startedAt }),
   getGetServingMockHandler(seedbox),
   http.get("*/api/v1/session", () =>
     problem(409, "worker_node", "This Node is a Worker. Manage it from its Controller."),
@@ -100,7 +100,10 @@ test("the status card goes back to the app once the Controller answers", async (
   await expect
     .element(page.getByRole("heading", { name: /hasn't been able to reach/u }))
     .toBeVisible();
-  worker.use(signedOut, getGetStatusMockHandler({ claim: "controller", passkeys: noPasskeys }));
+  worker.use(
+    signedOut,
+    getGetStatusMockHandler({ claim: "controller", passkeys: noPasskeys, startedAt }),
+  );
   await expect
     .element(page.getByRole("heading", { name: "Sign in to SlipStream" }), { timeout: 10_000 })
     .toBeVisible();

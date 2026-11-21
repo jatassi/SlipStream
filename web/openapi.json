@@ -331,6 +331,30 @@
         ],
         "type": "object"
       },
+      "ConfirmRestoreInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "oldControllerOff": {
+            "description": "Required for a Backup of another machine",
+            "type": "boolean"
+          },
+          "remove": {
+            "description": "The Nodes to leave out of the restored library",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "oldControllerOff"
+        ],
+        "type": "object"
+      },
       "ConnectionsOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -18233,6 +18257,20 @@
         ],
         "type": "object"
       },
+      "OpenRestoreInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "passphrase": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passphrase"
+        ],
+        "type": "object"
+      },
       "OwnPatchInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -18959,6 +18997,75 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "RestoreSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "controller": {
+            "description": "The name of the Controller the Backup is of",
+            "type": "string"
+          },
+          "newMachine": {
+            "description": "The Backup is of another machine: confirm that its Controller stays off",
+            "type": "boolean"
+          },
+          "nodes": {
+            "description": "Every Node the Backup lists, the Controller first",
+            "items": {
+              "$ref": "#/components/schemas/RestoreSummaryNode"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "takenAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "description": "The SlipStream version that took the Backup",
+            "type": "string"
+          }
+        },
+        "required": [
+          "takenAt",
+          "version",
+          "controller",
+          "nodes",
+          "newMachine"
+        ],
+        "type": "object"
+      },
+      "RestoreSummaryNode": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "RestoreUploaded": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Names the upload in the open and confirm steps",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
         "type": "object"
       },
       "RootSettingsInputBody": {
@@ -22699,10 +22806,16 @@
           "removed": {
             "$ref": "#/components/schemas/SystemRemoved",
             "description": "Set on an Unclaimed Node its Controller removed, until it joins again"
+          },
+          "startedAt": {
+            "description": "When this process started. A page waiting out a restart reads a later one once the Node is back",
+            "format": "date-time",
+            "type": "string"
           }
         },
         "required": [
           "claim",
+          "startedAt",
           "passkeys"
         ],
         "type": "object"
@@ -75753,6 +75866,7 @@
                           "enum": [
                             "already_claimed",
                             "join_pending",
+                            "lifecycle_busy",
                             "setup_busy"
                           ],
                           "type": "string"
@@ -75825,6 +75939,572 @@
         "summary": "Create the first Admin and make this Node a Controller",
         "tags": [
           "identity"
+        ],
+        "x-slipstream-access": "setup"
+      }
+    },
+    "/setup/restore": {
+      "post": {
+        "operationId": "uploadRestore",
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreUploaded"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "setup_code_wrong"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "already_claimed",
+                            "lifecycle_busy",
+                            "setup_busy"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "backup_no_space"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "setupCode": []
+          }
+        ],
+        "summary": "Upload a Backup to restore on this Node",
+        "tags": [
+          "restore"
+        ],
+        "x-slipstream-access": "setup"
+      }
+    },
+    "/setup/restore/{id}/confirm": {
+      "post": {
+        "operationId": "confirmRestore",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmRestoreInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "setup_code_wrong"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "restore_unknown"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "already_claimed",
+                            "join_pending",
+                            "lifecycle_busy",
+                            "setup_busy"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "backup_no_space",
+                            "invalid",
+                            "old_controller_on"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "setupCode": []
+          }
+        ],
+        "summary": "Restore the opened Backup. The Node restarts to finish it, then opens sign-in",
+        "tags": [
+          "restore"
+        ],
+        "x-slipstream-access": "setup"
+      }
+    },
+    "/setup/restore/{id}/open": {
+      "post": {
+        "operationId": "openRestore",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenRestoreInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreSummary"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "setup_code_wrong"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "restore_unknown"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "already_claimed",
+                            "setup_busy"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "backup_damaged",
+                            "backup_no_space",
+                            "backup_not_a_backup",
+                            "backup_too_new",
+                            "backup_wrong_passphrase",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "setupCode": []
+          }
+        ],
+        "summary": "Open the uploaded Backup with its passphrase and summarize it",
+        "tags": [
+          "restore"
         ],
         "x-slipstream-access": "setup"
       }
@@ -76081,6 +76761,7 @@
                           "enum": [
                             "already_claimed",
                             "join_pending",
+                            "lifecycle_busy",
                             "node_unaddressed",
                             "setup_busy"
                           ],

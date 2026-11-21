@@ -174,8 +174,10 @@ func (n *Node) startController(ctx context.Context) error {
 		shelf        *files.Files
 		searchQueue  = &searches.Late{}
 	)
+	var keeping entry.Recorder
 	keeper := reconciling.New(reconciling.Config{
 		Library: lib.db,
+		History: &keeping,
 		Touch:   func(ids ...role.NodeID) { downloads.Touch(ids...) },
 		Metainfo: func(ctx context.Context, node role.NodeID, hash bencode.InfoHash, client *downloadclients.ClientID) ([]byte, error) {
 			return metainfoOn(ctx, cluster, node, hash, client)
@@ -319,6 +321,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db, Catalog: cat, Outbox: n.notifications, Changed: history.ChangedEvent.Bind(n.hub),
 		Batch: n.cfg.Timings.Housekeeping.PruneBatch, Log: n.rootLog.With("subsystem", "history"),
 	})
+	keeping = n.history.Recorder("reconciling", reconciling.Entries())
 	kept, err := backups.Open(ctx, backups.Config{
 		Library: lib.db,
 		Keys:    lib.keys,

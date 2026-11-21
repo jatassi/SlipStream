@@ -25,9 +25,10 @@ type healthOutput struct {
 }
 
 type status struct {
-	Claim    string   `json:"claim" enum:"unclaimed,controller,worker"`
-	Passkeys passkeys `json:"passkeys" doc:"Whether passkeys work at the address this request used"`
-	Removed  *removed `json:"removed,omitempty" doc:"Set on an Unclaimed Node its Controller removed, until it joins again"`
+	Claim     string    `json:"claim" enum:"unclaimed,controller,worker"`
+	StartedAt time.Time `json:"startedAt" doc:"When this process started. A page waiting out a restart reads a later one once the Node is back"`
+	Passkeys  passkeys  `json:"passkeys" doc:"Whether passkeys work at the address this request used"`
+	Removed   *removed  `json:"removed,omitempty" doc:"Set on an Unclaimed Node its Controller removed, until it joins again"`
 }
 
 type removed struct {
@@ -151,7 +152,7 @@ func Routes(r *api.Router, facts system.Facts, node Node) {
 			return nil, err
 		}
 		v := a.Passkeys()
-		out := status{Claim: claim.String(), Passkeys: passkeys{Available: v.Available, Reason: string(v.Reason)}}
+		out := status{Claim: claim.String(), StartedAt: facts.StartedAt, Passkeys: passkeys{Available: v.Available, Reason: string(v.Reason)}}
 		if r, ok := node.Removal(); ok && claim == system.Unclaimed {
 			out.Removed = &removed{At: r.At, Controller: r.ControllerName}
 		}

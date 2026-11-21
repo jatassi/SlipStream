@@ -1062,6 +1062,7 @@ export const getGetStatusResponseMock = (
         },
       }
     : {}),
+  startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   ...overrideResponse,
 });
 

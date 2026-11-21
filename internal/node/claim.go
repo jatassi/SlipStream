@@ -98,6 +98,12 @@ func (n *Node) librarySchemas() []storage.Schema[storage.Library] {
 // it at start only if library.db exists, and otherwise when it is claimed
 // as a Controller.
 func (n *Node) openLibrary(ctx context.Context) (*libraryDB, error) {
+	return n.openLibraryWith(ctx, backups.BeforeMigrating(n.backups, n.backingUp))
+}
+
+// openLibraryWith is openLibrary with hook before a migration: none for a
+// restore's finish, whose library.db isn't live until its Write.
+func (n *Node) openLibraryWith(ctx context.Context, hook storage.PreMigrationHook) (*libraryDB, error) {
 	n.libMu.Lock()
 	defer n.libMu.Unlock()
 	if lib := n.lib.Load(); lib != nil {
@@ -106,7 +112,7 @@ func (n *Node) openLibrary(ctx context.Context) (*libraryDB, error) {
 	lib, err := openLibraryFiles(ctx, libraryFiles{
 		dir:     n.env.DataDir,
 		schemas: n.librarySchemas(),
-		hook:    backups.BeforeMigrating(n.backups, n.backingUp),
+		hook:    hook,
 		timings: n.cfg.Timings,
 		hub:     n.hub,
 		log:     n.rootLog,
@@ -190,6 +196,9 @@ func (s surfaceNode) ClaimController(ctx context.Context, claim func(*identity.S
 	}
 	if s.n.pairing.Awaiting() {
 		return identity.ErrJoinPending
+	}
+	if err := s.n.lifecycleIdle(); err != nil {
+		return err
 	}
 	lib, err := s.n.openLibrary(context.WithoutCancel(ctx))
 	if err != nil {
