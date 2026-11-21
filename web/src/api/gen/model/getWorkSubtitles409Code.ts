@@ -1,1 +1,1 @@
-export type GetWorkSubtitles409Code = "worker_node";
+export type GetWorkSubtitles409Code = "superseded" | "worker_node";

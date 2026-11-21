@@ -1,1 +1,1 @@
-export type GetIdentitySettings409Code = "worker_node";
+export type GetIdentitySettings409Code = "superseded" | "worker_node";

@@ -1,1 +1,1 @@
-export type DuplicateCustomFormat409Code = "worker_node";
+export type DuplicateCustomFormat409Code = "superseded" | "worker_node";

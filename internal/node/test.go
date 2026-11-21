@@ -57,6 +57,10 @@ type Test struct {
 	// BeforeRestoreStage sees each step of a restore's finish at start
 	// before it runs. An error stops the start there, as a crash would.
 	BeforeRestoreStage func(RestoreStep) error
+	// BeforeWipeStep sees each step of a Wipe and join's finish at start:
+	// each file's name before it goes, WipeFinish and WipeJoin. An error
+	// stops the start there, as a crash would.
+	BeforeWipeStep func(step string) error
 	// Today stands in for the Node's clock where it decides which Items
 	// are out and which years a search names, for a synctest bubble, whose
 	// time starts in 2000.
@@ -111,6 +115,13 @@ func (t Test) beforeRestoreStage(s RestoreStep) error {
 		return nil
 	}
 	return t.BeforeRestoreStage(s)
+}
+
+func (t Test) beforeWipeStep(step string) error {
+	if t.BeforeWipeStep == nil {
+		return nil
+	}
+	return t.BeforeWipeStep(step)
 }
 
 func (t Test) started(h Half) {

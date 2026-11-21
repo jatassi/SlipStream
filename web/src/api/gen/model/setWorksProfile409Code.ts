@@ -1,1 +1,1 @@
-export type SetWorksProfile409Code = "impact_changed" | "worker_node";
+export type SetWorksProfile409Code = "impact_changed" | "superseded" | "worker_node";

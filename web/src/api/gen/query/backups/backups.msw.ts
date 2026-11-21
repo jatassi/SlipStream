@@ -1488,25 +1488,6 @@ export const getPrepareRecoverySheetMockHandler = (
   );
 };
 
-export const getRetireControllerMockHandler = (
-  overrideResponse?:
-    | void
-    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<void> | void),
-  options?: RequestHandlerOptions,
-) => {
-  return http.post(
-    "*/api/v1/backups/retire",
-    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
-      if (typeof overrideResponse === "function") {
-        await overrideResponse(info);
-      }
-
-      return new HttpResponse(null, { status: 204 });
-    },
-    options,
-  );
-};
-
 export const getDeleteBackupMockHandler = (
   overrideResponse?:
     | BackupsBackupList
@@ -1581,7 +1562,6 @@ export const getBackupsMock = () => [
   getCheckBackupPassphraseMockHandler(),
   getSaveBackupPassphraseMockHandler(),
   getPrepareRecoverySheetMockHandler(),
-  getRetireControllerMockHandler(),
   getDeleteBackupMockHandler(),
   getPrepareBackupDownloadMockHandler(),
   getPullBackupMockHandler(),

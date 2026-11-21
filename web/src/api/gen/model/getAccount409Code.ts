@@ -1,1 +1,1 @@
-export type GetAccount409Code = "worker_node";
+export type GetAccount409Code = "superseded" | "worker_node";

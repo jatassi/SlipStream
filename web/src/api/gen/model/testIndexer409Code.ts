@@ -1,1 +1,1 @@
-export type TestIndexer409Code = "worker_node";
+export type TestIndexer409Code = "superseded" | "worker_node";

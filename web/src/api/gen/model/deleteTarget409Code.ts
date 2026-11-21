@@ -1,1 +1,1 @@
-export type DeleteTarget409Code = "target_in_use" | "worker_node";
+export type DeleteTarget409Code = "superseded" | "target_in_use" | "worker_node";

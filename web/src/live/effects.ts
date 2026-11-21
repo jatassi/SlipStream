@@ -67,6 +67,10 @@ export const effects = withCalendar({
   "metadata.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListMetadataProvidersQueryKey() });
   },
+  // Every Admin read answers superseded once fenced, and again once resumed.
+  "nodes.fenced": (_data, { refresh }) => {
+    refresh();
+  },
   "naming.changed": (_data, { refresh }) => {
     refresh(everyNaming);
     refresh(renameCounts);

@@ -53,8 +53,11 @@ func (n *Node) resumeLifecycle(ctx context.Context) error {
 	if !ok {
 		return errors.Join(d.Leftovers(), atomicfile.Remove(filepath.Join(d.Path, backups.UploadFile), d.Retry))
 	}
-	if r, restoring := op.(*lifecycle.Restore); restoring {
-		return n.finishRestore(ctx, d, r)
+	switch op := op.(type) {
+	case *lifecycle.Restore:
+		return n.finishRestore(ctx, d, op)
+	case *lifecycle.Wipe:
+		return n.finishWipe(d, op)
 	}
 	return nil
 }

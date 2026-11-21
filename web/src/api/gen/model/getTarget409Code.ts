@@ -1,1 +1,1 @@
-export type GetTarget409Code = "worker_node";
+export type GetTarget409Code = "superseded" | "worker_node";

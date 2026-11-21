@@ -1,1 +1,1 @@
-export type IgnoreSubtitleTrack409Code = "worker_node";
+export type IgnoreSubtitleTrack409Code = "superseded" | "worker_node";

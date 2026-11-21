@@ -1,1 +1,1 @@
-export type ListTransferSpeeds409Code = "worker_node";
+export type ListTransferSpeeds409Code = "superseded" | "worker_node";

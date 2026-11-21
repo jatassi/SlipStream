@@ -1,1 +1,1 @@
-export type ClearTrackerGoal409Code = "worker_node";
+export type ClearTrackerGoal409Code = "superseded" | "worker_node";

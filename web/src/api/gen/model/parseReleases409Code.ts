@@ -1,1 +1,1 @@
-export type ParseReleases409Code = "worker_node";
+export type ParseReleases409Code = "superseded" | "worker_node";

@@ -1,1 +1,1 @@
-export type TestNotificationDraft409Code = "worker_node";
+export type TestNotificationDraft409Code = "superseded" | "worker_node";

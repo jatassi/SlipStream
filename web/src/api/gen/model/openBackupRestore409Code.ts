@@ -1,1 +1,1 @@
-export type OpenBackupRestore409Code = "worker_node";
+export type OpenBackupRestore409Code = "superseded" | "worker_node";

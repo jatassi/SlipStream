@@ -1,1 +1,1 @@
-export type GetManualSearch409Code = "worker_node";
+export type GetManualSearch409Code = "superseded" | "worker_node";

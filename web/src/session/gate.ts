@@ -18,6 +18,7 @@ export type Entry =
   | { readonly kind: "sign-in" }
   | { readonly kind: "worker" }
   | { readonly kind: "unreachable" }
+  | { readonly kind: "superseded"; readonly account: IdentityAccount | null }
   | { readonly kind: "new-pin"; readonly account: IdentityAccount }
   | { readonly kind: "first-run"; readonly account: IdentityAccount; readonly at: Place }
   | { readonly kind: "app"; readonly account: IdentityAccount }
@@ -62,14 +63,17 @@ const firstSetupAt = (
     ? currentPlace(shownSteps(view, envOf(status)))
     : undefined;
 
+// A Superseded Controller shows only its own page, to whoever opens it.
 export const entryOf = (
   status: SystemStatus,
   session: IdentitySession | null,
   firstRun?: FirstrunFirstRun,
 ): Entry =>
-  entries[status.claim](
-    session === null ? null : { session, firstSetup: firstSetupAt(status, session, firstRun) },
-  );
+  status.superseded === true
+    ? { kind: "superseded", account: session?.account ?? null }
+    : entries[status.claim](
+        session === null ? null : { session, firstSetup: firstSetupAt(status, session, firstRun) },
+      );
 
 type Cell = (href: string, redirect: string | undefined, entry: Entry) => string | null;
 
@@ -79,6 +83,10 @@ const toSignIn: Cell = (href) => `/sign-in?redirect=${encodeURIComponent(href)}`
 const toRedirect: Cell = (_href, to) => safeRedirect(to);
 const toNewPin: Cell = () => "/new-pin";
 const toServing: Cell = () => "/serving";
+const toSuperseded: Cell = () => "/superseded";
+// Signed out, Sign in stays open, so an Admin can sign in to the Superseded page.
+const toSupersededSignedIn: Cell = (_href, _to, entry) =>
+  entry.kind === "superseded" && entry.account === null ? null : "/superseded";
 const toFirstSetup: Cell = (_href, _to, entry) =>
   entry.kind === "first-run" ? `/setup/${entry.at}` : null;
 
@@ -92,6 +100,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     portal: () => "/portal",
     unreachable: toServing,
     "first-run": toFirstSetup,
+    superseded: toSuperseded,
   },
   portal: {
     setup: () => "/setup",
@@ -102,6 +111,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     portal: render,
     unreachable: toServing,
     "first-run": toFirstSetup,
+    superseded: toSuperseded,
   },
   "sign-in": {
     setup: () => "/setup",
@@ -112,6 +122,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     portal: toRedirect,
     unreachable: toServing,
     "first-run": toFirstSetup,
+    superseded: toSupersededSignedIn,
   },
   setup: {
     setup: render,
@@ -122,6 +133,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     portal: () => "/portal",
     unreachable: toServing,
     "first-run": toFirstSetup,
+    superseded: toSuperseded,
   },
   worker: {
     setup: () => "/setup",
@@ -132,6 +144,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     portal: () => "/portal",
     unreachable: toServing,
     "first-run": toFirstSetup,
+    superseded: toSuperseded,
   },
   "new-pin": {
     setup: () => "/setup",
@@ -142,6 +155,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     portal: () => "/portal",
     unreachable: toServing,
     "first-run": toFirstSetup,
+    superseded: toSuperseded,
   },
   unreachable: {
     setup: () => "/setup",
@@ -152,6 +166,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     portal: () => "/portal",
     unreachable: render,
     "first-run": toFirstSetup,
+    superseded: toSuperseded,
   },
   "first-run": {
     setup: () => "/setup",
@@ -162,6 +177,18 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     portal: () => "/portal",
     unreachable: toServing,
     "first-run": render,
+    superseded: toSuperseded,
+  },
+  superseded: {
+    setup: () => "/setup",
+    "sign-in": () => "/sign-in",
+    worker: () => "/worker",
+    "new-pin": toNewPin,
+    app: () => "/",
+    portal: () => "/portal",
+    unreachable: toServing,
+    "first-run": toFirstSetup,
+    superseded: render,
   },
   link: {
     setup: render,
@@ -172,6 +199,7 @@ const redirects: { readonly [W in Want]: { readonly [E in EntryKind]: Cell } } =
     portal: render,
     unreachable: toServing,
     "first-run": render,
+    superseded: toSuperseded,
   },
 };
 
@@ -184,13 +212,11 @@ async function entryNow(queryClient: QueryClient): Promise<Entry> {
     if (session === null) {
       return entryOf(await queryClient.query(statusQuery), null);
     }
-    if (!opensFirstSetup(session)) {
-      return signedIn(session, undefined);
+    const status = await queryClient.query({ ...statusQuery, staleTime: "static" });
+    if (!opensFirstSetup(session) || status.superseded === true) {
+      return entryOf(status, session);
     }
-    const [status, firstRun] = await Promise.all([
-      queryClient.query({ ...statusQuery, staleTime: "static" }),
-      queryClient.query({ ...firstRunQuery, staleTime: "static" }),
-    ]);
+    const firstRun = await queryClient.query({ ...firstRunQuery, staleTime: "static" });
     return entryOf(status, session, firstRun);
   } catch (error) {
     if (isProblem(error, "controller_unreachable")) {

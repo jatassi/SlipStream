@@ -1,1 +1,1 @@
-export type GetAddress409Code = "worker_node";
+export type GetAddress409Code = "superseded" | "worker_node";

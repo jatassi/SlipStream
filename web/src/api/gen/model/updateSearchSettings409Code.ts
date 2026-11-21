@@ -1,1 +1,1 @@
-export type UpdateSearchSettings409Code = "worker_node";
+export type UpdateSearchSettings409Code = "superseded" | "worker_node";

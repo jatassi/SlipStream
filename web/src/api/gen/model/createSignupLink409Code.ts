@@ -1,1 +1,5 @@
-export type CreateSignupLink409Code = "account_exists" | "address_unset" | "worker_node";
+export type CreateSignupLink409Code =
+  | "account_exists"
+  | "address_unset"
+  | "superseded"
+  | "worker_node";

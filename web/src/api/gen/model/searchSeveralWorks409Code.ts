@@ -1,1 +1,1 @@
-export type SearchSeveralWorks409Code = "reconciling" | "worker_node";
+export type SearchSeveralWorks409Code = "reconciling" | "superseded" | "worker_node";

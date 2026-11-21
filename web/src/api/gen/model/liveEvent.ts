@@ -32,6 +32,7 @@ import type { LiveEventMetadataChanged } from "./liveEventMetadataChanged.ts";
 import type { LiveEventNamingChanged } from "./liveEventNamingChanged.ts";
 import type { LiveEventNodesChanged } from "./liveEventNodesChanged.ts";
 import type { LiveEventNodeSettingsChanged } from "./liveEventNodeSettingsChanged.ts";
+import type { LiveEventNodesFenced } from "./liveEventNodesFenced.ts";
 import type { LiveEventNodesTraffic } from "./liveEventNodesTraffic.ts";
 import type { LiveEventNotificationsChanged } from "./liveEventNotificationsChanged.ts";
 import type { LiveEventNotificationsSeen } from "./liveEventNotificationsSeen.ts";
@@ -89,6 +90,7 @@ export type LiveEvent =
   | LiveEventNamingChanged
   | LiveEventNodeSettingsChanged
   | LiveEventNodesChanged
+  | LiveEventNodesFenced
   | LiveEventNodesTraffic
   | LiveEventNotificationsChanged
   | LiveEventNotificationsSeen

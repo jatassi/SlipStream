@@ -355,10 +355,6 @@ func (s surfaceNode) DownloadClients() (*downloadclients.Clients, bool) {
 	return h.clients, true
 }
 
-func (s surfaceNode) Retire(ctx context.Context) error {
-	return s.n.half.Load().nodes.Retire(ctx)
-}
-
 func (s surfaceNode) Backups() (*backups.Backups, bool) {
 	h := s.n.half.Load()
 	if h == nil || h.backups == nil {

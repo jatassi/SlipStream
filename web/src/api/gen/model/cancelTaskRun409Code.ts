@@ -1,1 +1,1 @@
-export type CancelTaskRun409Code = "worker_node";
+export type CancelTaskRun409Code = "superseded" | "worker_node";

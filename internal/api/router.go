@@ -50,7 +50,11 @@ type Services struct {
 	// Reconciling is the detail of the reconciling problem: what
 	// Reconciling waits on, read as the refusal is written.
 	Reconciling func(ctx context.Context) (string, error)
-	Log         *slog.Logger
+	// Superseded is whether this Controller is Superseded now. It is read
+	// on every Admin request, so it must not block. Nil is a Node never
+	// Superseded.
+	Superseded func() bool
+	Log        *slog.Logger
 }
 
 // Node is the Node serving the API as the access checks read it, on every
@@ -141,6 +145,10 @@ type Op struct {
 	// Gzip compresses the response for a client that accepts gzip, for an
 	// operation that answers megabytes.
 	Gzip bool
+	// WhileSuperseded answers on a Superseded Controller, which refuses
+	// every other Admin operation with superseded: the Superseded page's
+	// own.
+	WhileSuperseded bool
 }
 
 var idShape = regexp.MustCompile(`^[a-z]+[A-Z][A-Za-z0-9]*$`)
@@ -181,11 +189,15 @@ func humaOperation[P any](o *Owner, level Level[P], op Op, input reflect.Type) (
 	if input.NumField() > 0 {
 		declared = append(declared, Invalid)
 	}
+	fenced := level.rank >= Admin.rank && !op.WhileSuperseded
+	if fenced {
+		declared = append(declared, Superseded)
+	}
 	limit := op.MaxBody
 	if limit == 0 {
 		limit = defaultBodyLimit
 	}
-	middlewares := huma.Middlewares{admitMiddleware(o.router, level)}
+	middlewares := huma.Middlewares{admitMiddleware(o.router, level, fenced)}
 	if op.Gzip {
 		middlewares = append(middlewares, gzipMiddleware(o.router))
 	}
@@ -270,7 +282,9 @@ func (o *Owner) check(level *access, op Op, input reflect.Type) {
 	}
 }
 
-func admitMiddleware[P any](r *Router, level Level[P]) func(huma.Context, func(huma.Context)) {
+// admitMiddleware runs the access check. fenced is an operation a
+// Superseded Controller refuses once the claim passes.
+func admitMiddleware[P any](r *Router, level Level[P], fenced bool) func(huma.Context, func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
 		req, w := humago.Unwrap(ctx)
 		if err := r.refusedByClaim(ctx.Context(), level.access); err != nil {
@@ -287,6 +301,10 @@ func admitMiddleware[P any](r *Router, level Level[P]) func(huma.Context, func(h
 			return
 		}
 		err := level.admit(ctx.Context(), r.services.Gate, c, ctx.Header(setupCodeHeader), func(p P) {
+			if fenced && r.services.Superseded != nil && r.services.Superseded() {
+				writeProblem(w, Superseded.problem())
+				return
+			}
 			next(huma.WithValue(ctx, principalKey{}, p))
 		})
 		if err == nil {

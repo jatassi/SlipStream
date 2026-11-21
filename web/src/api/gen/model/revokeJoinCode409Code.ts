@@ -1,1 +1,1 @@
-export type RevokeJoinCode409Code = "worker_node";
+export type RevokeJoinCode409Code = "superseded" | "worker_node";

@@ -5,4 +5,5 @@ export type SearchWork409Code =
   | "nothing_wanted"
   | "reconciling"
   | "root_unreachable"
+  | "superseded"
   | "worker_node";

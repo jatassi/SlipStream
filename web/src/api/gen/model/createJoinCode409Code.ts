@@ -1,1 +1,1 @@
-export type CreateJoinCode409Code = "no_link_address" | "worker_node";
+export type CreateJoinCode409Code = "no_link_address" | "superseded" | "worker_node";

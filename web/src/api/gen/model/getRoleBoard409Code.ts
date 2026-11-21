@@ -1,1 +1,1 @@
-export type GetRoleBoard409Code = "worker_node";
+export type GetRoleBoard409Code = "superseded" | "worker_node";

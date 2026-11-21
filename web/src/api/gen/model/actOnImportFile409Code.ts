@@ -1,1 +1,5 @@
-export type ActOnImportFile409Code = "import_not_offered" | "reconciling" | "worker_node";
+export type ActOnImportFile409Code =
+  | "import_not_offered"
+  | "reconciling"
+  | "superseded"
+  | "worker_node";

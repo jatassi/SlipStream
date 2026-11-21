@@ -1,1 +1,1 @@
-export type StartPlexSignIn409Code = "worker_node";
+export type StartPlexSignIn409Code = "superseded" | "worker_node";

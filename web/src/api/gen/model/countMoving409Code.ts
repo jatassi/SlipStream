@@ -1,1 +1,1 @@
-export type CountMoving409Code = "worker_node";
+export type CountMoving409Code = "superseded" | "worker_node";

@@ -1,1 +1,1 @@
-export type ForgetFiles409Code = "files_not_gone" | "worker_node";
+export type ForgetFiles409Code = "files_not_gone" | "superseded" | "worker_node";

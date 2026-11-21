@@ -1063,6 +1063,7 @@ export const getGetStatusResponseMock = (
       }
     : {}),
   startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  ...(faker.datatype.boolean() ? { superseded: faker.datatype.boolean() } : {}),
   ...overrideResponse,
 });
 

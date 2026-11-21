@@ -304,10 +304,6 @@ func (h handlers) downloadSheet(context.Context, identity.Admin, *struct{}) (*ap
 	return &api.Download{Name: backups.SheetFile, Size: int64(len(sheet)), Body: io.NopCloser(bytes.NewReader(sheet))}, nil
 }
 
-func (h handlers) retire(ctx context.Context, _ identity.Admin, _ *struct{}) (*struct{}, error) {
-	return nil, h.k.Retire(ctx)
-}
-
 func (h handlers) getSettings(ctx context.Context, _ identity.Admin, _ *struct{}) (*backupSettingsOutput, error) {
 	return settingsOf(ctx, open(h.k).Settings())
 }

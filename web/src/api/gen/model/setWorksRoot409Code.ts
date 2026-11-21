@@ -1,1 +1,1 @@
-export type SetWorksRoot409Code = "worker_node";
+export type SetWorksRoot409Code = "superseded" | "worker_node";

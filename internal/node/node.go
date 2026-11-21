@@ -30,6 +30,7 @@ import (
 	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/install"
+	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/media"
@@ -285,6 +286,9 @@ type Node struct {
 	// restoreMu guards pending, the first-run page's restore.
 	restoreMu sync.Mutex
 	pending   *pendingRestore
+	// wiped is the Join Code a Wipe and join finished at this start joins
+	// with.
+	wiped joincode.Code
 
 	stopOnce sync.Once
 	stopping chan struct{}
@@ -505,14 +509,16 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 		return 0, "", err
 	}
 	n.pairing, err = pairing.Open(pairing.Config{
-		DataDir:   n.env.DataDir.Path(),
-		Key:       n.key.Public(),
-		Link:      n.link,
-		Name:      cfg.Name,
-		Claims:    surfaceNode{n},
-		AwaitDial: cfg.Timings.Link.AwaitDial,
-		Removed:   n.removed,
-		Log:       n.rootLog.With("subsystem", "pairing"),
+		DataDir:          n.env.DataDir.Path(),
+		Key:              n.key.Public(),
+		Link:             n.link,
+		Name:             cfg.Name,
+		Claims:           surfaceNode{n},
+		AwaitDial:        cfg.Timings.Link.AwaitDial,
+		Removed:          n.removed,
+		UnreachableAfter: cfg.Timings.Pairing.UnreachableAfter,
+		Local:            localPage{n},
+		Log:              n.rootLog.With("subsystem", "pairing"),
 	})
 	if err != nil {
 		return 0, "", refusedRecord(err)
@@ -533,11 +539,8 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	if err != nil {
 		return 0, "", n.stoppedOr(err)
 	}
-	if code := cfg.Join.Code; !code.IsZero() {
-		n.stack.Go("join-code", func(ctx context.Context) error {
-			n.joinAtStart(ctx, code)
-			return nil
-		})
+	if err := n.joinAtStartFrom(cfg.Join.Code); err != nil {
+		return 0, "", err
 	}
 	return claim, setupCode, n.startHTTP(ctx, cfg, l, surface.Services{Node: surfaceNode{n}, Hub: n.hub, Live: cfg.Timings.Live}, n.gate)
 }

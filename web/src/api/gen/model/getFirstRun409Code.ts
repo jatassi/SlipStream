@@ -1,1 +1,1 @@
-export type GetFirstRun409Code = "worker_node";
+export type GetFirstRun409Code = "superseded" | "worker_node";

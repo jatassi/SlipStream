@@ -1,1 +1,1 @@
-export type GetSubtitleAttempt409Code = "worker_node";
+export type GetSubtitleAttempt409Code = "superseded" | "worker_node";

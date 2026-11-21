@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -288,5 +289,41 @@ func TestDevNeverTakesAnUpdateBackup(t *testing.T) {
 	w.opened("2.1.0")
 	if got := w.listed(); len(got) != 0 {
 		t.Fatalf("the index lists %v, want no update Backup across a dev start", got)
+	}
+}
+
+// Resume regenerates the fence inside a library Write, while a running
+// Backup waits on the library writer to checkpoint after its snapshot.
+func TestTheFenceDoesntWaitForARunningBackup(t *testing.T) {
+	w := newWorld(t)
+	w.opened("2.1.0")
+	entered, release := make(chan struct{}), make(chan struct{})
+	var calls atomic.Int32
+	w.freeHook = func() {
+		if calls.Add(1) == 1 {
+			close(entered)
+			<-release
+		}
+	}
+	run, err := w.backups.Take(t.Context(), backups.Request{Trigger: archive.Manual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-entered
+	var once sync.Once
+	t.Cleanup(func() { once.Do(func() { close(release) }) })
+	done := make(chan error, 1)
+	go func() { done <- w.backups.RegenerateFence() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("RegenerateFence waited for the running Backup")
+	}
+	once.Do(func() { close(release) })
+	if _, err := run.Wait(t.Context()); err != nil {
+		t.Fatal(err)
 	}
 }
