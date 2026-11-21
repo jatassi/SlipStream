@@ -11,10 +11,12 @@ import { UnreachableError, isProblem } from "./errors";
 
 const unreachableRetries = 2;
 
-export function createQueryClient(onSignedOut: () => void): QueryClient {
+export function createQueryClient(onSignedOut: () => void, onSuperseded?: () => void): QueryClient {
   const onError = (error: unknown) => {
     if (isProblem(error, "signed_out")) {
       onSignedOut();
+    } else if (isProblem(error, "superseded")) {
+      onSuperseded?.();
     }
   };
   return new QueryClient({

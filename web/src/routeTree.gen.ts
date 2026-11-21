@@ -18,6 +18,7 @@ import { Route as ServingRouteImport } from "./routes/serving";
 import { Route as SetupRouteImport } from "./routes/setup";
 import { Route as SignInRouteImport } from "./routes/sign-in";
 import { Route as SignupRouteImport } from "./routes/signup";
+import { Route as SupersededRouteImport } from "./routes/superseded";
 import { Route as WorkerRouteImport } from "./routes/worker";
 import { Route as AppIndexRouteImport } from "./routes/_app/index";
 import { Route as AppSplatRouteImport } from "./routes/_app/$";
@@ -138,6 +139,11 @@ const SignInRoute = SignInRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: "/signup",
   path: "/signup",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SupersededRoute = SupersededRouteImport.update({
+  id: "/superseded",
+  path: "/superseded",
   getParentRoute: () => rootRouteImport,
 } as any);
 const WorkerRoute = WorkerRouteImport.update({
@@ -565,6 +571,7 @@ export interface FileRoutesByFullPath {
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/signup": typeof SignupRoute;
+  "/superseded": typeof SupersededRoute;
   "/worker": typeof WorkerRoute;
   "/activity": typeof AppActivityRouteRouteWithChildren;
   "/library": typeof AppLibraryRouteRouteWithChildren;
@@ -649,6 +656,7 @@ export interface FileRoutesByTo {
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/signup": typeof SignupRoute;
+  "/superseded": typeof SupersededRoute;
   "/worker": typeof WorkerRoute;
   "/$": typeof AppSplatRoute;
   "/account": typeof AppAccountRoute;
@@ -730,6 +738,7 @@ export interface FileRoutesById {
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/signup": typeof SignupRoute;
+  "/superseded": typeof SupersededRoute;
   "/worker": typeof WorkerRoute;
   "/_app/activity": typeof AppActivityRouteRouteWithChildren;
   "/_app/library": typeof AppLibraryRouteRouteWithChildren;
@@ -820,6 +829,7 @@ export interface FileRouteTypes {
     | "/setup"
     | "/sign-in"
     | "/signup"
+    | "/superseded"
     | "/worker"
     | "/activity"
     | "/library"
@@ -904,6 +914,7 @@ export interface FileRouteTypes {
     | "/setup"
     | "/sign-in"
     | "/signup"
+    | "/superseded"
     | "/worker"
     | "/$"
     | "/account"
@@ -984,6 +995,7 @@ export interface FileRouteTypes {
     | "/setup"
     | "/sign-in"
     | "/signup"
+    | "/superseded"
     | "/worker"
     | "/_app/activity"
     | "/_app/library"
@@ -1073,6 +1085,7 @@ export interface RootRouteChildren {
   SetupRoute: typeof SetupRoute;
   SignInRoute: typeof SignInRoute;
   SignupRoute: typeof SignupRoute;
+  SupersededRoute: typeof SupersededRoute;
   WorkerRoute: typeof WorkerRoute;
   SetupStepRoute: typeof SetupStepRoute;
   AccountPasskeysNewRoute: typeof AccountPasskeysNewRoute;
@@ -1141,6 +1154,13 @@ declare module "@tanstack/react-router" {
       path: "/signup";
       fullPath: "/signup";
       preLoaderRoute: typeof SignupRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/superseded": {
+      id: "/superseded";
+      path: "/superseded";
+      fullPath: "/superseded";
+      preLoaderRoute: typeof SupersededRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/worker": {
@@ -1967,6 +1987,7 @@ const rootRouteChildren: RootRouteChildren = {
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
   SignupRoute: SignupRoute,
+  SupersededRoute: SupersededRoute,
   WorkerRoute: WorkerRoute,
   SetupStepRoute: SetupStepRoute,
   AccountPasskeysNewRoute: AccountPasskeysNewRoute,

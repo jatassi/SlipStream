@@ -13,7 +13,7 @@ import { routeTransitions } from "./app/route-transition";
 import { type LiveStream, createLiveStream } from "./live/stream";
 import type { SessionEndReason } from "./live/types";
 import { createAppRouter } from "./router";
-import { refreshSession, sessionQuery } from "./session/session";
+import { refreshSession, sessionQuery, statusQuery } from "./session/session";
 
 const SessionEnded = LiveSessionEnded.extend({ type: z.literal("session-ended") });
 
@@ -61,6 +61,17 @@ async function regate({ queryClient, router }: Parts) {
   await queryClient.resetQueries();
 }
 
+// A page's read answered superseded: this Controller was replaced while the
+// tab was open, so the gate reads the status again and opens the Superseded
+// page.
+async function toSuperseded({ queryClient, router }: Parts) {
+  if (router.state.location.pathname === "/superseded") {
+    return;
+  }
+  await queryClient.refetchQueries({ queryKey: statusQuery.queryKey });
+  await router.invalidate();
+}
+
 // Under the dev server Vite serves every module as its own file.
 function prefetchPages(router: Parts["router"]): () => void {
   if (!import.meta.env.PROD) {
@@ -78,9 +89,14 @@ function prefetchPages(router: Parts["router"]): () => void {
 export function createApp(history: RouterHistory = createBrowserHistory()) {
   const channel = new BroadcastChannel("slipstream-session");
   const transitions = routeTransitions(history);
-  const queryClient = createQueryClient(() => {
-    endSession("expired");
-  });
+  const queryClient = createQueryClient(
+    () => {
+      endSession("expired");
+    },
+    () => {
+      void toSuperseded(parts);
+    },
+  );
   const live = createLiveStream({
     queryClient,
     onSessionEnded: endSession,
