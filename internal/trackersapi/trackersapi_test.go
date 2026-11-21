@@ -87,7 +87,7 @@ func serve(t *testing.T) *served {
 	clients := downloadclients.New(downloadclients.Config{Library: lib, Roster: roster{}, Uses: grabs.TorrentUses{}, Seeding: late{&r.trackers}})
 	r.trackers = trackers.New(trackers.Config{
 		Library: lib, Clients: clients, Grabs: grabs.TrackerFacts{}, Roster: roster{},
-		Soon: func() {}, Reconciling: trackers.NotReconciling, Changed: discard[trackers.SeedingChanged]{}, TrackersChanged: discard[indexers.TrackerChanged]{},
+		Soon: func() {}, Reconciling: notReconciling, Changed: discard[trackers.SeedingChanged]{}, TrackersChanged: discard[indexers.TrackerChanged]{},
 		Routing: trackers.Routing{Roster: h}, Rerouted: func() {},
 	})
 	return &served{owner: ownertest.Serve(t, lib, func(router *api.Router) { trackersapi.Routes(router, r) }), lib: lib, holding: h}
@@ -295,4 +295,9 @@ func TestTheListCountsATrackersTorrentsAndItsPageSumsThem(t *testing.T) {
 	}
 	s.owner.Expect(t, http.MethodGet, "/api/v1/trackers/"+seedpool+"/windows?list=history", "", http.StatusOK, `{"windows":[],"nextOffset":null}`)
 	s.owner.Expect(t, http.MethodGet, "/api/v1/torrents/goals/preview", "", http.StatusOK, `{"acts":[],"kept":[],"waits":[]}`)
+}
+
+// notReconciling is a Controller that is never Reconciling.
+func notReconciling(context.Context, storage.Reader[storage.Library]) (bool, error) {
+	return false, nil
 }

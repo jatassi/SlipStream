@@ -12,6 +12,26 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const assignRole = `-- name: AssignRole :execrows
+INSERT INTO nodes_role (node_id, role, assigned_at)
+VALUES (?1, ?2, ?3)
+ON CONFLICT (node_id, role) DO NOTHING
+`
+
+type AssignRoleParams struct {
+	NodeID     role.NodeID
+	Role       role.Name
+	AssignedAt storage.Time
+}
+
+func (q *Queries) AssignRole(ctx context.Context, arg AssignRoleParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, assignRole, arg.NodeID, arg.Role, arg.AssignedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteAddresses = `-- name: DeleteAddresses :exec
 DELETE FROM nodes_address WHERE node_id = ?1
 `

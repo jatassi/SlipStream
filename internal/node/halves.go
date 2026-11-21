@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/contenttype"
@@ -58,6 +59,7 @@ import (
 	"github.com/jatassi/slipstream/internal/providers/subsource"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
+	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -165,6 +167,21 @@ func (n *Node) startController(ctx context.Context) error {
 		meta         *metadata.Metadata
 		searchQueue  = &searches.Late{}
 	)
+	keeper := reconciling.New(reconciling.Config{
+		Library: lib.db,
+		Touch:   func(ids ...role.NodeID) { downloads.Touch(ids...) },
+		Metainfo: func(ctx context.Context, node role.NodeID, hash bencode.InfoHash, client *downloadclients.ClientID) ([]byte, error) {
+			req := &dlv1.MetainfoRequest{InfoHash: hash[:]}
+			if client != nil {
+				req.ClientId = client.Bytes()
+			}
+			res, err := downloadingv1connect.DownloadingService.On(cluster, node).Metainfo(ctx, req)
+			return res.GetMetainfo(), err
+		},
+		Page: n.cfg.Timings.Downloading.HoldingsPage,
+		Max:  n.cfg.Timings.Downloading.HoldingsMax,
+		Log:  n.rootLog.With("subsystem", "reconciling"),
+	})
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
 		Touch:        func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
@@ -178,7 +195,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Sealer:    lib.sealer,
 		Roster:    openedRoster{&side},
 		Uses:      imports.Uses{TorrentUses: grabs.TorrentUses{}},
-		Blocklist: grabs.BlocklistOn{Reconciling: trackers.NotReconciling, Changes: grabs.BlocklistChangedEvent.Bind(n.hub)},
+		Blocklist: grabs.BlocklistOn{Reconciling: reconciling.Blocked, Changes: grabs.BlocklistChangedEvent.Bind(n.hub)},
 		Seeding:   lateSeeder{&seeding},
 		Live: downloadclients.LiveConfig{
 			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },
@@ -186,7 +203,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Sample:  n.cfg.Timings.Downloading.LiveSample,
 		},
 		Hub:          n.hub,
-		Keeps:        downloadclients.NoKeeps,
+		Keeps:        keeper,
 		HoldingsPage: n.cfg.Timings.Downloading.HoldingsPage,
 		HoldingsMax:  n.cfg.Timings.Downloading.HoldingsMax,
 		Log:          n.rootLog.With("subsystem", "downloadclients"),
@@ -199,11 +216,11 @@ func (n *Node) startController(ctx context.Context) error {
 		Routing:         trackers.Routing{Roster: openedRoster{&side}},
 		Rerouted:        func() { pipeline.Rerouted() },
 		Soon:            func() { scheduler.Soon(trackers.TaskID) },
-		Reconciling:     trackers.NotReconciling,
+		Reconciling:     reconciling.Blocked,
 		Changed:         trackers.SeedingChangedEvent.Bind(n.hub),
 		TrackersChanged: indexers.TrackersEvent.Bind(n.hub),
 	})
-	downloads = downloading.Def.Serve(downloadclients.Derive{Keeps: downloadclients.NoKeeps, HoldingsPage: n.cfg.Timings.Downloading.HoldingsPage}.Intent, clients.Apply)
+	downloads = downloading.Def.Serve(downloadclients.Derive{Keeps: keeper, HoldingsPage: n.cfg.Timings.Downloading.HoldingsPage}.Intent, clients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
 	copies := transfers.New(transfers.ControllerConfig{
 		Library: lib.db,
@@ -306,6 +323,7 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Applied: func(id role.NodeID, scope string) {
 			clients.Applied(id, scope)
+			keeper.Applied(id, scope)
 			copies.Applied(id, scope)
 			servers.Applied(id, scope)
 		},
@@ -315,7 +333,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Probe:   func(ctx context.Context, id role.NodeID) ([]role.ProbeResult, error) { return systems.Probe(ctx, id) },
 		Always:  n.env.Test.Always,
 		Fence:   provesNothing{},
-		Paired:  func(context.Context, *storage.Tx[storage.Library], role.NodeID) error { return nil },
+		Paired:  reconciling.Paired,
+		Pending: reconciling.Pending,
 		Timings: n.cfg.Timings.Nodes,
 		Stall:   n.cfg.Timings.Role.Stall,
 		Log:     n.rootLog.With("subsystem", "nodes"),
@@ -520,7 +539,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Tasks:       lateTasks{&scheduler},
 		GapCap:      subtitles.NoGapCap,
 		Roster:      side,
-		Reconciling: trackers.NotReconciling,
+		Reconciling: reconciling.Blocked,
 		History:     n.history.Recorder("subtitles", subtitles.Entries()),
 		Timings:     n.cfg.Timings.Subtitles,
 		Clock:       time.Now,
@@ -561,7 +580,7 @@ func (n *Node) startController(ctx context.Context) error {
 		SearchChanged:    grabs.SearchChangedEvent.Bind(n.hub),
 		FilesChanged:     files.ChangedEvent.Bind(n.hub),
 		BlocklistChanged: grabs.BlocklistChangedEvent.Bind(n.hub),
-		Reconciling:      trackers.NotReconciling,
+		Reconciling:      reconciling.Blocked,
 		BeforeStep:       n.env.Test.BeforeStep,
 		Tasks:            lateTasks{&scheduler},
 		GapCap:           grabs.NoGapCap,
@@ -686,6 +705,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("indexers", registry.Run)
 	n.claimed.Go("grabs", pipeline.Run)
 	n.claimed.Go("torrent clients", clients.Run)
+	n.claimed.Go("reconciling", keeper.Run)
 	n.claimed.Go("transfers", copies.Run)
 	n.claimed.Go("media servers", servers.Run)
 	n.claimed.Go("files", shelf.Run)

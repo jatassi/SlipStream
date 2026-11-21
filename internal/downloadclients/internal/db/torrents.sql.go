@@ -153,7 +153,7 @@ FROM downloadclients_torrent WHERE id = ?1
 type GetFetchedRow struct {
 	NodeID           role.NodeID
 	Metainfo         []byte
-	ContentType      works.TypeID
+	ContentType      *works.TypeID
 	SaveFolder       *string
 	RemovedAt        storage.Time
 	Attached         *bool
@@ -309,7 +309,7 @@ func (q *Queries) GetRaw(ctx context.Context, arg GetRawParams) (GetRawRow, erro
 }
 
 const getRetarget = `-- name: GetRetarget :one
-SELECT node_id, client_id, info_hash, metainfo, content_type, tracker_id, reported_at, removed_at FROM downloadclients_torrent
+SELECT node_id, client_id, info_hash, metainfo, content_type, adopted, tracker_id, reported_at, removed_at FROM downloadclients_torrent
 WHERE id = ?1
 `
 
@@ -318,7 +318,8 @@ type GetRetargetRow struct {
 	ClientID    *ClientID
 	InfoHash    []byte
 	Metainfo    []byte
-	ContentType works.TypeID
+	ContentType *works.TypeID
+	Adopted     int64
 	TrackerID   *indexers.TrackerID
 	ReportedAt  storage.Time
 	RemovedAt   storage.Time
@@ -333,6 +334,7 @@ func (q *Queries) GetRetarget(ctx context.Context, id TorrentID) (GetRetargetRow
 		&i.InfoHash,
 		&i.Metainfo,
 		&i.ContentType,
+		&i.Adopted,
 		&i.TrackerID,
 		&i.ReportedAt,
 		&i.RemovedAt,
@@ -385,14 +387,61 @@ func (q *Queries) GetThresholds(ctx context.Context) (GetThresholdsRow, error) {
 	return i, err
 }
 
+const insertAdopted = `-- name: InsertAdopted :exec
+INSERT INTO downloadclients_torrent (
+    id, node_id, client_id, info_hash, metainfo, name, size, private, trackers, adopted, save_folder, wanted, added_order,
+    added_at, seeding_seconds, totals_at
+) VALUES (
+    ?1, ?2, ?3, ?4, ?5, ?6,
+    ?7, ?8, ?9, 1, ?10, 'started', ?11,
+    ?12, ?13, ?12
+)
+`
+
+type InsertAdoptedParams struct {
+	ID             TorrentID
+	NodeID         role.NodeID
+	ClientID       *ClientID
+	InfoHash       []byte
+	Metainfo       []byte
+	Name           string
+	Size           int64
+	Private        int64
+	Trackers       string
+	SaveFolder     *string
+	AddedOrder     int64
+	AddedAt        storage.Time
+	SeedingSeconds int64
+}
+
+func (q *Queries) InsertAdopted(ctx context.Context, arg InsertAdoptedParams) error {
+	_, err := q.db.ExecContext(ctx, insertAdopted,
+		arg.ID,
+		arg.NodeID,
+		arg.ClientID,
+		arg.InfoHash,
+		arg.Metainfo,
+		arg.Name,
+		arg.Size,
+		arg.Private,
+		arg.Trackers,
+		arg.SaveFolder,
+		arg.AddedOrder,
+		arg.AddedAt,
+		arg.SeedingSeconds,
+	)
+	return err
+}
+
 const insertTorrent = `-- name: InsertTorrent :exec
 INSERT INTO downloadclients_torrent (
-    id, node_id, client_id, info_hash, metainfo, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
-    uploaded, downloaded, active_seconds, seeding_seconds, announced_seconds, totals_at
+    id, node_id, client_id, info_hash, metainfo, name, size, private, trackers, content_type, adopted, tracker_id, wanted, added_order,
+    added_at, uploaded, downloaded, active_seconds, seeding_seconds, announced_seconds, totals_at
 ) VALUES (
     ?1, ?2, ?3, ?4, ?5, ?6, ?7,
-    ?8, ?9, ?10, ?11, 'started', ?12, ?13,
-    ?14, ?15, ?16, ?17, ?18, ?19
+    ?8, ?9, ?10, ?11, ?12, 'started', ?13,
+    ?14,
+    ?15, ?16, ?17, ?18, ?19, ?20
 )
 `
 
@@ -406,7 +455,8 @@ type InsertTorrentParams struct {
 	Size             int64
 	Private          int64
 	Trackers         string
-	ContentType      works.TypeID
+	ContentType      *works.TypeID
+	Adopted          int64
 	TrackerID        *indexers.TrackerID
 	AddedOrder       int64
 	AddedAt          storage.Time
@@ -430,6 +480,7 @@ func (q *Queries) InsertTorrent(ctx context.Context, arg InsertTorrentParams) er
 		arg.Private,
 		arg.Trackers,
 		arg.ContentType,
+		arg.Adopted,
 		arg.TrackerID,
 		arg.AddedOrder,
 		arg.AddedAt,
@@ -750,7 +801,7 @@ type ListHashFactsRow struct {
 	Size             int64
 	Private          int64
 	Trackers         string
-	ContentType      works.TypeID
+	ContentType      *works.TypeID
 	TrackerID        *indexers.TrackerID
 	Wanted           string
 	AddedOrder       int64
@@ -873,7 +924,7 @@ type ListHeldRow struct {
 	Size             int64
 	Private          int64
 	Trackers         string
-	ContentType      works.TypeID
+	ContentType      *works.TypeID
 	TrackerID        *indexers.TrackerID
 	Wanted           string
 	AddedOrder       int64
@@ -1033,7 +1084,7 @@ func (q *Queries) ListHoldingNodes(ctx context.Context) ([]role.NodeID, error) {
 
 const listIntent = `-- name: ListIntent :many
 SELECT id, client_id, info_hash, wanted, added_order, removed_at, delete_files, retry FROM downloadclients_torrent
-WHERE node_id = ?1 AND parted_at IS NULL
+WHERE node_id = ?1 AND parted_at IS NULL AND withheld_at IS NULL
 ORDER BY added_order
 `
 
@@ -1109,6 +1160,103 @@ func (q *Queries) ListKept(ctx context.Context, nodeID role.NodeID) ([]ListKeptR
 			&i.Name,
 			&i.Size,
 			&i.Report,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLiveOnNodeAfter = `-- name: ListLiveOnNodeAfter :many
+SELECT id, info_hash, added_order FROM downloadclients_torrent
+WHERE node_id = ?1 AND added_order > ?2 AND removed_at IS NULL AND withheld_at IS NULL
+ORDER BY added_order
+LIMIT ?3
+`
+
+type ListLiveOnNodeAfterParams struct {
+	NodeID role.NodeID
+	After  int64
+	Page   int64
+}
+
+type ListLiveOnNodeAfterRow struct {
+	ID         TorrentID
+	InfoHash   []byte
+	AddedOrder int64
+}
+
+// A page of node's live Torrents outside the review list, in added order.
+func (q *Queries) ListLiveOnNodeAfter(ctx context.Context, arg ListLiveOnNodeAfterParams) ([]ListLiveOnNodeAfterRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveOnNodeAfter, arg.NodeID, arg.After, arg.Page)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLiveOnNodeAfterRow
+	for rows.Next() {
+		var i ListLiveOnNodeAfterRow
+		if err := rows.Scan(&i.ID, &i.InfoHash, &i.AddedOrder); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecorded = `-- name: ListRecorded :many
+SELECT t.id, t.node_id, t.info_hash, t.parted_at IS NOT NULL AS written_off FROM downloadclients_torrent t
+WHERE t.info_hash IN (/*SLICE:info_hashes*/?) AND (t.parted_at IS NULL OR t.removed_reason = 'node_written_off' AND t.id = (
+    SELECT n.id FROM downloadclients_torrent n WHERE n.info_hash = t.info_hash ORDER BY n.added_order DESC LIMIT 1))
+ORDER BY t.info_hash, t.parted_at IS NOT NULL
+`
+
+type ListRecordedRow struct {
+	ID         TorrentID
+	NodeID     role.NodeID
+	InfoHash   []byte
+	WrittenOff bool
+}
+
+// Each hash's live Torrent, and the newest Torrent of a hash with no live
+// one when its Node was written off.
+func (q *Queries) ListRecorded(ctx context.Context, infoHashes [][]byte) ([]ListRecordedRow, error) {
+	query := listRecorded
+	var queryParams []interface{}
+	if len(infoHashes) > 0 {
+		for _, v := range infoHashes {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", strings.Repeat(",?", len(infoHashes))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRecordedRow
+	for rows.Next() {
+		var i ListRecordedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.InfoHash,
+			&i.WrittenOff,
 		); err != nil {
 			return nil, err
 		}
@@ -1346,6 +1494,38 @@ func (q *Queries) MergeTotals(ctx context.Context, arg MergeTotalsParams) error 
 	return err
 }
 
+const moveRecorded = `-- name: MoveRecorded :execrows
+UPDATE downloadclients_torrent SET
+    node_id = ?1, client_id = ?2,
+    attached = CASE WHEN ?2 IS NULL THEN NULL ELSE attached END,
+    raw_uploaded = CASE WHEN ?2 IS NULL THEN NULL ELSE raw_uploaded END,
+    raw_downloaded = CASE WHEN ?2 IS NULL THEN NULL ELSE raw_downloaded END,
+    raw_active_seconds = CASE WHEN ?2 IS NULL THEN NULL ELSE raw_active_seconds END,
+    raw_seeding_seconds = CASE WHEN ?2 IS NULL THEN NULL ELSE raw_seeding_seconds END,
+    removed_at = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE removed_at END,
+    removed_reason = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE removed_reason END,
+    parted_at = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE parted_at END,
+    freed = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE freed END
+WHERE id = ?3 AND (parted_at IS NULL AND removed_at IS NULL OR removed_reason = 'node_written_off')
+`
+
+type MoveRecordedParams struct {
+	NodeID   role.NodeID
+	ClientID *ClientID
+	ID       TorrentID
+}
+
+// A live Torrent, or one a write-off parted, moves to node and client with
+// its totals, Grab and reported_at. A built-in target holds no external
+// origin or raw counters.
+func (q *Queries) MoveRecorded(ctx context.Context, arg MoveRecordedParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, moveRecorded, arg.NodeID, arg.ClientID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const nextOrder = `-- name: NextOrder :one
 SELECT CAST(coalesce(max(added_order), 0) + 1 AS INTEGER) FROM downloadclients_torrent
 `
@@ -1372,6 +1552,25 @@ type RehomeParams struct {
 // place: no client holds it yet.
 func (q *Queries) Rehome(ctx context.Context, arg RehomeParams) error {
 	_, err := q.db.ExecContext(ctx, rehome, arg.NodeID, arg.ClientID, arg.ID)
+	return err
+}
+
+const release = `-- name: Release :exec
+UPDATE downloadclients_torrent SET withheld_at = NULL WHERE id IN (/*SLICE:ids*/?)
+`
+
+func (q *Queries) Release(ctx context.Context, ids []TorrentID) error {
+	query := release
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
 	return err
 }
 
@@ -1768,6 +1967,31 @@ func (q *Queries) Vanish(ctx context.Context, arg VanishParams) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const withhold = `-- name: Withhold :exec
+UPDATE downloadclients_torrent SET withheld_at = ?1 WHERE id IN (/*SLICE:ids*/?) AND withheld_at IS NULL
+`
+
+type WithholdParams struct {
+	At  storage.Time
+	Ids []TorrentID
+}
+
+func (q *Queries) Withhold(ctx context.Context, arg WithholdParams) error {
+	query := withhold
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.At)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
 }
 
 const writeOff = `-- name: WriteOff :exec

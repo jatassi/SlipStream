@@ -57,6 +57,11 @@ INSERT INTO nodes_role (node_id, role, assigned_at)
 VALUES (sqlc.arg(node_id), sqlc.arg(role), sqlc.arg(assigned_at))
 ON CONFLICT (node_id, role) DO NOTHING;
 
+-- name: AssignRole :execrows
+INSERT INTO nodes_role (node_id, role, assigned_at)
+VALUES (sqlc.arg(node_id), sqlc.arg(role), sqlc.arg(assigned_at))
+ON CONFLICT (node_id, role) DO NOTHING;
+
 -- name: DeleteRole :exec
 DELETE FROM nodes_role WHERE node_id = sqlc.arg(node_id) AND role = sqlc.arg(role);
 

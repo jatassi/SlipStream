@@ -261,7 +261,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, BlocklistChanged: blocklisted,
 		QueueChanged: discard[grabs.QueueChanged]{},
 		Tasks:        &grabstest.StoredCadences{}, GapCap: grabs.NoGapCap,
-		Reconciling: trackers.NotReconciling,
+		Reconciling: notReconciling,
 		Log:         slog.New(slog.DiscardHandler),
 		History:     grabstest.History(),
 	})
@@ -726,4 +726,9 @@ func TestSendToTakesExactlyOneClient(t *testing.T) {
 	}
 	f.s.Expect(t, http.MethodPost, path, `{"builtInOn":"`+f.home.String()+`"}`, http.StatusNotFound,
 		`{"status":404,"code":"grab_not_found","title":"No Grab has that id"}`)
+}
+
+// notReconciling is a Controller that is never Reconciling.
+func notReconciling(context.Context, storage.Reader[storage.Library]) (bool, error) {
+	return false, nil
 }

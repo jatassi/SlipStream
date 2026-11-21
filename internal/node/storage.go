@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/notifications"
+	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -60,6 +61,7 @@ func LibrarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
 		history.Schema(),
 		notifications.Schema(),
 		firstrun.Schema(),
+		reconciling.Schema(),
 	}
 	return append(core, types.Schemas()...)
 }

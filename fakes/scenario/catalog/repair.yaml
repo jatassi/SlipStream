@@ -1,0 +1,474 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  home's two Nodes and the Unclaimed Node office, for pairing a Worker that
+  already seeds with a new Controller. home holds every Role but Searching,
+  Downloading, Acquire and Relaying, and the Worker seedbox holds Searching
+  and Downloading. The site lists one seeded 1080p release of each of 40
+  movies, so 40 Grabs leave seedbox seeding 40 torrents. office is claimed
+  as a second Controller, and seedbox joins it with office's Join Code.
+seed: repair
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [storage, converting, subtitles, metadata, media-server-link, notifying, serving]
+  - name: seedbox
+    setup: join
+    roles: [searching, downloading]
+  - name: office
+    setup: none
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - id: 9300001
+      imdb_id: tt9300001
+      title: The Quiet Orchard
+      released: 2000-05-01
+      runtime: 95m
+    - id: 9300002
+      imdb_id: tt9300002
+      title: The Quiet Harbor
+      released: 2001-05-02
+      runtime: 95m
+    - id: 9300003
+      imdb_id: tt9300003
+      title: The Quiet Lantern
+      released: 2002-05-03
+      runtime: 95m
+    - id: 9300004
+      imdb_id: tt9300004
+      title: The Quiet River
+      released: 2003-05-04
+      runtime: 95m
+    - id: 9300005
+      imdb_id: tt9300005
+      title: The Hollow Orchard
+      released: 2004-05-05
+      runtime: 95m
+    - id: 9300006
+      imdb_id: tt9300006
+      title: The Hollow Harbor
+      released: 2005-05-06
+      runtime: 95m
+    - id: 9300007
+      imdb_id: tt9300007
+      title: The Hollow Lantern
+      released: 2006-05-07
+      runtime: 95m
+    - id: 9300008
+      imdb_id: tt9300008
+      title: The Hollow River
+      released: 2007-05-08
+      runtime: 95m
+    - id: 9300009
+      imdb_id: tt9300009
+      title: The Silver Orchard
+      released: 2008-05-09
+      runtime: 95m
+    - id: 9300010
+      imdb_id: tt9300010
+      title: The Silver Harbor
+      released: 2009-05-01
+      runtime: 95m
+    - id: 9300011
+      imdb_id: tt9300011
+      title: The Silver Lantern
+      released: 2010-05-02
+      runtime: 95m
+    - id: 9300012
+      imdb_id: tt9300012
+      title: The Silver River
+      released: 2011-05-03
+      runtime: 95m
+    - id: 9300013
+      imdb_id: tt9300013
+      title: The Burning Orchard
+      released: 2012-05-04
+      runtime: 95m
+    - id: 9300014
+      imdb_id: tt9300014
+      title: The Burning Harbor
+      released: 2013-05-05
+      runtime: 95m
+    - id: 9300015
+      imdb_id: tt9300015
+      title: The Burning Lantern
+      released: 2014-05-06
+      runtime: 95m
+    - id: 9300016
+      imdb_id: tt9300016
+      title: The Burning River
+      released: 2015-05-07
+      runtime: 95m
+    - id: 9300017
+      imdb_id: tt9300017
+      title: The Northern Orchard
+      released: 2016-05-08
+      runtime: 95m
+    - id: 9300018
+      imdb_id: tt9300018
+      title: The Northern Harbor
+      released: 2017-05-09
+      runtime: 95m
+    - id: 9300019
+      imdb_id: tt9300019
+      title: The Northern Lantern
+      released: 2018-05-01
+      runtime: 95m
+    - id: 9300020
+      imdb_id: tt9300020
+      title: The Northern River
+      released: 2019-05-02
+      runtime: 95m
+    - id: 9300021
+      imdb_id: tt9300021
+      title: The Hidden Orchard
+      released: 2000-05-03
+      runtime: 95m
+    - id: 9300022
+      imdb_id: tt9300022
+      title: The Hidden Harbor
+      released: 2001-05-04
+      runtime: 95m
+    - id: 9300023
+      imdb_id: tt9300023
+      title: The Hidden Lantern
+      released: 2002-05-05
+      runtime: 95m
+    - id: 9300024
+      imdb_id: tt9300024
+      title: The Hidden River
+      released: 2003-05-06
+      runtime: 95m
+    - id: 9300025
+      imdb_id: tt9300025
+      title: The Golden Orchard
+      released: 2004-05-07
+      runtime: 95m
+    - id: 9300026
+      imdb_id: tt9300026
+      title: The Golden Harbor
+      released: 2005-05-08
+      runtime: 95m
+    - id: 9300027
+      imdb_id: tt9300027
+      title: The Golden Lantern
+      released: 2006-05-09
+      runtime: 95m
+    - id: 9300028
+      imdb_id: tt9300028
+      title: The Golden River
+      released: 2007-05-01
+      runtime: 95m
+    - id: 9300029
+      imdb_id: tt9300029
+      title: The Distant Orchard
+      released: 2008-05-02
+      runtime: 95m
+    - id: 9300030
+      imdb_id: tt9300030
+      title: The Distant Harbor
+      released: 2009-05-03
+      runtime: 95m
+    - id: 9300031
+      imdb_id: tt9300031
+      title: The Distant Lantern
+      released: 2010-05-04
+      runtime: 95m
+    - id: 9300032
+      imdb_id: tt9300032
+      title: The Distant River
+      released: 2011-05-05
+      runtime: 95m
+    - id: 9300033
+      imdb_id: tt9300033
+      title: The Crimson Orchard
+      released: 2012-05-06
+      runtime: 95m
+    - id: 9300034
+      imdb_id: tt9300034
+      title: The Crimson Harbor
+      released: 2013-05-07
+      runtime: 95m
+    - id: 9300035
+      imdb_id: tt9300035
+      title: The Crimson Lantern
+      released: 2014-05-08
+      runtime: 95m
+    - id: 9300036
+      imdb_id: tt9300036
+      title: The Crimson River
+      released: 2015-05-09
+      runtime: 95m
+    - id: 9300037
+      imdb_id: tt9300037
+      title: The Restless Orchard
+      released: 2016-05-01
+      runtime: 95m
+    - id: 9300038
+      imdb_id: tt9300038
+      title: The Restless Harbor
+      released: 2017-05-02
+      runtime: 95m
+    - id: 9300039
+      imdb_id: tt9300039
+      title: The Restless Lantern
+      released: 2018-05-03
+      runtime: 95m
+    - id: 9300040
+      imdb_id: tt9300040
+      title: The Restless River
+      released: 2019-05-04
+      runtime: 95m
+releases:
+  - name: The.Quiet.Orchard.2000.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300001
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Quiet.Harbor.2001.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300002
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Quiet.Lantern.2002.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300003
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Quiet.River.2003.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300004
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Hollow.Orchard.2004.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300005
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Hollow.Harbor.2005.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300006
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Hollow.Lantern.2006.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300007
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Hollow.River.2007.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300008
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Silver.Orchard.2008.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300009
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Silver.Harbor.2009.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300010
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Silver.Lantern.2010.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300011
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Silver.River.2011.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300012
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Burning.Orchard.2012.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300013
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Burning.Harbor.2013.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300014
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Burning.Lantern.2014.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300015
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Burning.River.2015.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300016
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Northern.Orchard.2016.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300017
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Northern.Harbor.2017.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300018
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Northern.Lantern.2018.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300019
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Northern.River.2019.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300020
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Hidden.Orchard.2000.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300021
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Hidden.Harbor.2001.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300022
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Hidden.Lantern.2002.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300023
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Hidden.River.2003.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300024
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Golden.Orchard.2004.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300025
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Golden.Harbor.2005.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300026
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Golden.Lantern.2006.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300027
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Golden.River.2007.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300028
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Distant.Orchard.2008.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300029
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Distant.Harbor.2009.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300030
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Distant.Lantern.2010.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300031
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Distant.River.2011.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300032
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Crimson.Orchard.2012.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300033
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Crimson.Harbor.2013.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300034
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Crimson.Lantern.2014.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300035
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Crimson.River.2015.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300036
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Restless.Orchard.2016.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300037
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Restless.Harbor.2017.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300038
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Restless.Lantern.2018.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300039
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+  - name: The.Restless.River.2019.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9300040
+    video: {width: 1920, height: 1080, seconds: 1}
+    seeders: 12
+    seeded: true
+    advertised_size: 2.1GiB
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]

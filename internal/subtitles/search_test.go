@@ -560,6 +560,17 @@ func TestSearchOffSkipsTheRunWhileMapsStillBuild(t *testing.T) {
 	})
 }
 
+func TestReconcilingSkipsTheRunAndSaysWhy(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := world(t, nil)
+		w.Restoring(true)
+		var skip *tasks.SkipError
+		if err := runTask(t, w); !errors.As(err, &skip) || !skip.Owned || !strings.Contains(skip.Cause, "Reconciling") {
+			t.Fatalf("a run while Reconciling = %v, want its owned Reconciling skip", err)
+		}
+	})
+}
+
 func TestUpgradesOffQueuesOnlyMissingWants(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := world(t, nil)

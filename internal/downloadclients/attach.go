@@ -24,6 +24,9 @@ type Want struct {
 	Metainfo    bencode.Metainfo
 	Raw         []byte
 	ContentType works.TypeID
+	// adopted carries an adopted Torrent's origin to the Torrent a
+	// Retarget adds: it has no Content Type.
+	adopted bool
 	// Tracker is the Tracker the Grab's Release reached, zero for none.
 	Tracker indexers.TrackerID
 	// WrittenOff reports whether the Admin wrote off what a Node holds
@@ -123,9 +126,13 @@ func insert(ctx context.Context, q *db.Queries, id ID, want Want, now storage.Ti
 	if m.Info.Private {
 		private = 1
 	}
+	contentType, adopted := &want.ContentType, int64(0)
+	if want.adopted {
+		contentType, adopted = nil, 1
+	}
 	return q.InsertTorrent(ctx, db.InsertTorrentParams{
 		ID: id, NodeID: want.Target.Node, ClientID: want.Target.Client, InfoHash: m.InfoHash[:], Metainfo: want.Raw, Name: m.Info.Name, Size: size,
-		Private: private, Trackers: string(trackers), ContentType: want.ContentType, TrackerID: trackerOf(want), AddedOrder: order, AddedAt: now,
+		Private: private, Trackers: string(trackers), ContentType: contentType, Adopted: adopted, TrackerID: trackerOf(want), AddedOrder: order, AddedAt: now,
 		Uploaded: totals.Uploaded, Downloaded: totals.Downloaded, ActiveSeconds: totals.ActiveSeconds,
 		SeedingSeconds: totals.SeedingSeconds, AnnouncedSeconds: totals.AnnouncedSeconds, TotalsAt: totals.TotalsAt,
 	})

@@ -2,12 +2,17 @@ package downloadclients
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
+
+// ErrNoMetainfo refuses moving an adopted Torrent whose external client
+// couldn't export its metainfo: SlipStream can't add it anywhere else.
+var ErrNoMetainfo = errors.New("this torrent's client couldn't give SlipStream its metainfo, so it can't move to another client")
 
 // InClientError refuses sending a Torrent its client already holds to
 // another client on the same Node, which holds one live copy of a
@@ -70,11 +75,17 @@ func Retarget(ctx context.Context, tx *storage.Tx[file], id ID, to Target, now s
 	if err := removeIn(ctx, q, rows[id], ByAdmin, false, now); err != nil {
 		return Retargeted{}, err
 	}
+	if t.Metainfo == nil {
+		return Retargeted{}, ErrNoMetainfo
+	}
 	m, err := bencode.DecodeMetainfo(t.Metainfo)
 	if err != nil {
 		return Retargeted{}, err
 	}
-	want := Want{Target: to, Metainfo: m, Raw: t.Metainfo, ContentType: t.ContentType}
+	want := Want{Target: to, Metainfo: m, Raw: t.Metainfo, adopted: t.Adopted == 1}
+	if t.ContentType != nil {
+		want.ContentType = *t.ContentType
+	}
 	if t.TrackerID != nil {
 		want.Tracker = *t.TrackerID
 	}

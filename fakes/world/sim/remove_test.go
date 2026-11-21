@@ -11,16 +11,20 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// TestARemovedWorkerJoinsAgainWithoutItsOldTorrents removes seedbox while
+// TestARemovedWorkerJoinsAgainKeepingItsOldTorrent removes seedbox while
 // it seeds an imported Grab: it needs a write-off, and once written off
 // seedbox records the removal, restarts Unclaimed saying who removed it,
-// and keeps the file. Joined again with a new Join Code it is a new Node,
-// and Downloading ticked on it adds none of the old torrents.
-func TestARemovedWorkerJoinsAgainWithoutItsOldTorrents(t *testing.T) {
+// and keeps the file. Joined again with a new Join Code it is a new Node
+// that keeps the torrent it still holds, and adoption moves the written-off
+// Torrent's record to it.
+func TestARemovedWorkerJoinsAgainKeepingItsOldTorrent(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
@@ -29,6 +33,8 @@ func TestARemovedWorkerJoinsAgainWithoutItsOldTorrents(t *testing.T) {
 		simtest.ExpectImported(t, simtest.Await(t, w))
 		a := w.API()
 		old := seedbox(t, a).ID
+		lib := w.Node("home").Half().Library
+		torrent := onlyTorrent(t, lib)
 
 		if r := a.Admin("home", http.MethodDelete, "/api/v1/nodes/"+old, ""); r.Status != http.StatusConflict || !strings.Contains(r.Body, `"code":"node_holds_work"`) {
 			t.Fatalf("removing seedbox while it seeds = %d %s, want 409 node_holds_work", r.Status, r.Body)
@@ -67,13 +73,35 @@ func TestARemovedWorkerJoinsAgainWithoutItsOldTorrents(t *testing.T) {
 			t.Fatalf("home lists %v, want home and the new seedbox only", names)
 		}
 		simtest.Eventually(t, "the new seedbox is up", func() bool { return seedbox(t, a).Link.State == "up" })
+		simtest.Eventually(t, "adoption grants the new seedbox Downloading", func() bool { return stateOf(seedbox(t, a), "downloading") == "holding" })
 		a.SetRoles("home", joined, "searching", "downloading")
 		simtest.Eventually(t, "the new seedbox runs Downloading", func() bool {
 			f := seedbox(t, a).Facts
 			return f != nil && slices.Contains(f.Running, "downloading")
 		})
-		if n := box.adds() - added; n != 0 {
-			t.Fatalf("seedbox's engines added %d torrents once it was removed, want none of the removed Node's", n)
+		if n := box.adds() - added; n != 1 {
+			t.Errorf("seedbox's engines added %d torrents once it was removed, want the one it kept", n)
 		}
+		expectMovedTo(t, lib, torrent, joined)
 	})
+}
+
+// onlyTorrent is the one Torrent lib records.
+func onlyTorrent(t *testing.T, lib *storage.DB[storage.Library]) downloadclients.ID {
+	t.Helper()
+	var id downloadclients.ID
+	if err := lib.QueryRowContext(t.Context(), "SELECT id FROM downloadclients_torrent").Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+// expectMovedTo fails t unless lib records Torrent id live on the Node
+// joined.
+func expectMovedTo(t *testing.T, lib *storage.DB[storage.Library], id downloadclients.ID, joined string) {
+	t.Helper()
+	var on role.NodeID
+	if err := lib.QueryRowContext(t.Context(), "SELECT node_id FROM downloadclients_torrent WHERE id = ? AND parted_at IS NULL", id).Scan(&on); err != nil || on.String() != joined {
+		t.Errorf("home records Torrent %s live on %s, %v; want it moved to the new seedbox %s", id, on, err, joined)
+	}
 }
