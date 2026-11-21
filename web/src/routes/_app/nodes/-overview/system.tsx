@@ -15,7 +15,7 @@ export function System({ node }: { node: NodesNode }) {
     queryFn: ({ signal }) => getNodeSystem(node.id, { signal }),
   });
   if (system.isPending) {
-    return <Skeleton label="Loading the Node's system" />;
+    return <Skeleton label="Loading the Node's system" shape="facts" />;
   }
   if (system.isError) {
     const failure: unknown = system.error;

@@ -38,7 +38,7 @@ export function AddSheet() {
         }
       }}
     >
-      <Suspense fallback={<Skeleton label={loading} />}>
+      <Suspense fallback={<Skeleton label={loading} shape="form" />}>
         <Previewing key={`${type.id}/${candidate.key}`} adding={state.adding} />
       </Suspense>
     </Dialog>
@@ -73,7 +73,7 @@ function Previewing({ adding: { type, candidate } }: { adding: Adding }) {
     );
   }
   if (preview.data === undefined || settings.data === undefined || settings.isFetching) {
-    return <Skeleton label={loading} />;
+    return <Skeleton label={loading} shape="form" />;
   }
   return <AddForm type={type} previewed={preview.data} settings={settings.data.settings} />;
 }

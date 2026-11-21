@@ -80,7 +80,11 @@ function MatchFields({
           onMatch({ ...match, workId, itemIds: [] });
         }}
       />
-      <Suspense fallback={<Skeleton label={`Loading the ${type.item.many.toLowerCase()}`} />}>
+      <Suspense
+        fallback={
+          <Skeleton label={`Loading the ${type.item.many.toLowerCase()}`} shape="rows" lines={2} />
+        }
+      >
         {type.items !== "one" && (
           <ItemPicks type={type} workId={match.workId} chosen={match.itemIds} onChosen={items} />
         )}

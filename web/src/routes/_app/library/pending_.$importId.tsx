@@ -16,11 +16,9 @@ import {
 } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
 import { DownloadEntry, waitingFiles } from "../../../imports/download-entry";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
 import { Empty } from "../../../ui/empty";
-// oxlint-disable-next-line import/max-dependencies -- the pushed page loads every read a download's Pending import draws from
-import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/library/pending_/$importId")({
   staticData: { title: loaderTitle },
@@ -40,7 +38,7 @@ export const Route = createFileRoute("/_app/library/pending_/$importId")({
       trail: [{ title: "Pending imports", pathname: "/library/pending" }],
     };
   },
-  pendingComponent: () => <Skeleton label="Loading the Pending import" />,
+  pendingComponent: () => <PagePending label="Loading the Pending import" shape="rows" lines={2} />,
   component: PendingImport,
 });
 

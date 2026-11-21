@@ -134,7 +134,7 @@ export function SendToSheet({
 }) {
   return (
     <Dialog title="Send to another client" open={open} onOpenChange={onOpenChange}>
-      <Suspense fallback={<Skeleton label="Loading the clients" />}>
+      <Suspense fallback={<Skeleton label="Loading the clients" shape="rows" lines={2} />}>
         <SendTo
           grab={grab}
           onDone={() => {

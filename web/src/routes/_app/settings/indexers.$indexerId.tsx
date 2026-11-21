@@ -20,9 +20,8 @@ import {
 } from "../../../api/gen/query/nodes/nodes";
 import { ensureQuery } from "../../../api/query-client";
 import { IndexerPage } from "../../../indexers/indexer-page";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
-import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/settings/indexers/$indexerId")({
   staticData: { title: loaderTitle },
@@ -42,7 +41,7 @@ export const Route = createFileRoute("/_app/settings/indexers/$indexerId")({
       ],
     };
   },
-  pendingComponent: () => <Skeleton label="Loading the Indexer" />,
+  pendingComponent: () => <PagePending label="Loading the Indexer" shape="facts" />,
   component: IndexerRoute,
 });
 

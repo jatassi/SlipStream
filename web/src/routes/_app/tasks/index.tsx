@@ -7,11 +7,10 @@ import {
   useListTasksSuspense,
 } from "../../../api/gen/query/tasks/tasks";
 import { ensureQuery } from "../../../api/query-client";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { Schedule } from "../../../tasks/schedule";
 import { TaskGroups } from "../../../tasks/task-groups";
 import { useClock } from "../../../tasks/use-now";
-import { Skeleton } from "../../../ui/skeleton";
 import { StatusSentence } from "../../../ui/status-sentence";
 
 export const Route = createFileRoute("/_app/tasks/")({
@@ -21,7 +20,7 @@ export const Route = createFileRoute("/_app/tasks/")({
       ensureQuery(context.queryClient, getListTasksSuspenseQueryOptions()),
       ensureQuery(context.queryClient, getListOpenTaskRunsSuspenseQueryOptions()),
     ]),
-  pendingComponent: () => <Skeleton label="Loading Tasks" />,
+  pendingComponent: () => <PagePending label="Loading Tasks" shape="table" lines={1} />,
   component: TasksPage,
 });
 

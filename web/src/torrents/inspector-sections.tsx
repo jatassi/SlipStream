@@ -28,7 +28,7 @@ export function Sections({
     return detail.isError ? (
       <SignalLine tone="fail">{sentenceOf(detail.error)}</SignalLine>
     ) : (
-      <Skeleton label="Loading its numbers" />
+      <Skeleton label="Loading its numbers" shape="facts" />
     );
   }
   return (

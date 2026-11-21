@@ -9,7 +9,7 @@ import { Overview } from "../-overview/overview";
 export const Route = createFileRoute("/_app/nodes/$nodeId/")({
   staticData: { title: loaderTitle },
   loader: ({ context, params }) => loadNode(context.queryClient, params.nodeId),
-  pendingComponent: () => <Skeleton label="Loading the Node" />,
+  pendingComponent: () => <Skeleton label="Loading the Node" shape="facts" />,
   errorComponent: NodeProblem,
   component: function NodeOverview() {
     return <Overview nodeId={Route.useParams().nodeId} />;

@@ -146,7 +146,10 @@ function Downloads({ downloads }: { downloads: readonly Download[] }) {
       ) : (
         <ul aria-label="Pending imports from downloads" className="flex flex-col gap-2">
           {downloads.map(({ entry, type }) => (
-            <Suspense key={entry.id} fallback={<Skeleton label="Loading the download" />}>
+            <Suspense
+              key={entry.id}
+              fallback={<Skeleton label="Loading the download" shape="rows" lines={2} />}
+            >
               <DownloadEntry entry={entry} type={type} />
             </Suspense>
           ))}

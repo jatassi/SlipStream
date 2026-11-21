@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_app/settings/media-servers/$serverId/set
   staticData: { title: section.label },
   loader: ({ context: { queryClient } }) =>
     ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
-  pendingComponent: () => <Skeleton label="Loading Settings" />,
+  pendingComponent: () => <Skeleton label="Loading Settings" shape="facts" />,
   component: function Settings() {
     return <SettingsTab server={useGetMediaServerSuspense(Route.useParams().serverId).data} />;
   },

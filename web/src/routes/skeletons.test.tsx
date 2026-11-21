@@ -47,3 +47,9 @@ test.each(
     .element(page.getByRole("status").and(page.getByLabelText(/^Loading/u)))
     .toBeVisible();
 });
+
+test("a page whose route names its title shows the title while its data loads", async () => {
+  renderApp({ path: "/health", handlers: pendingForever() });
+  await expect.element(page.getByRole("status", { name: "Loading Health" })).toBeVisible();
+  await expect.element(page.getByRole("heading", { level: 1, name: "Health" })).toBeVisible();
+});

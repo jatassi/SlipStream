@@ -6,9 +6,8 @@ import {
 } from "../../../api/gen/query/formats/formats";
 import { ensureQuery } from "../../../api/query-client";
 import { NewFormatEditor } from "../../../formats/format-pages";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
-import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/settings/custom-formats/new")({
   staticData: { title: loaderTitle },
@@ -22,7 +21,7 @@ export const Route = createFileRoute("/_app/settings/custom-formats/new")({
       ],
     };
   },
-  pendingComponent: () => <Skeleton label="Loading the Custom Format editor" />,
+  pendingComponent: () => <PagePending label="Loading the Custom Format editor" shape="form" />,
   component: NewFormatPage,
 });
 

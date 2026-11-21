@@ -61,7 +61,7 @@ function Offers({ workId, grab }: { workId: string; grab: Grabbing }) {
     );
   }
   if (listed.data === undefined) {
-    return <Skeleton label="Loading the releases" />;
+    return <Skeleton label="Loading the releases" shape="rows" lines={2} />;
   }
   return (
     <>

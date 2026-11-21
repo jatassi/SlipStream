@@ -86,7 +86,7 @@ function Steps({
     return <WorkPick rows={rows} type={type} onPick={setPicked} />;
   }
   return (
-    <Suspense fallback={<Skeleton label={`Loading ${picked.label}`} />}>
+    <Suspense fallback={<Skeleton label={`Loading ${picked.label}`} shape="rows" lines={2} />}>
       <IntoFiles
         entry={entry}
         type={type}
@@ -121,7 +121,11 @@ export function ImportIntoSheet({
         }
       }}
     >
-      <Suspense fallback={<Skeleton label={`Loading the ${type.work.many.toLowerCase()}`} />}>
+      <Suspense
+        fallback={
+          <Skeleton label={`Loading the ${type.work.many.toLowerCase()}`} shape="rows" lines={2} />
+        }
+      >
         <Steps entry={entry} type={type} onDone={onClose} />
       </Suspense>
     </Dialog>

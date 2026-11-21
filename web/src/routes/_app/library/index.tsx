@@ -7,9 +7,8 @@ import {
   librarySearch,
   rememberedSearch,
 } from "../../../library/routed";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { Empty } from "../../../ui/empty";
-import { Skeleton } from "../../../ui/skeleton";
 import { enabledTypes } from "../../../works/fields";
 import { AddButton, AddMenu } from "./-add-menu";
 import { libraryReads } from "./-view";
@@ -27,7 +26,7 @@ export const Route = createFileRoute("/_app/library/")({
     }
   },
   loader: ({ context }) => libraryReads(context.queryClient),
-  pendingComponent: () => <Skeleton label="Loading the Library" />,
+  pendingComponent: () => <PagePending label="Loading the Library" shape="grid" />,
   component: Library,
 });
 

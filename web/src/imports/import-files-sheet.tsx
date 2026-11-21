@@ -261,7 +261,7 @@ export function ImportFilesSheet({
         }
       }}
     >
-      <Suspense fallback={<Skeleton label="Loading the files" />}>
+      <Suspense fallback={<Skeleton label="Loading the files" shape="rows" lines={2} />}>
         {opened === undefined ? (
           <FolderStep onOpened={setOpened} />
         ) : (

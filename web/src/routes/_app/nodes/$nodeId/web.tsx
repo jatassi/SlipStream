@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/web")({
   staticData: { title: section.label },
   loader: ({ context, params }) =>
     ensureQuery(context.queryClient, getGetNodeConfigSuspenseQueryOptions(params.nodeId)),
-  pendingComponent: () => <Skeleton label="Loading the settings" />,
+  pendingComponent: () => <Skeleton label="Loading the settings" shape="facts" />,
   errorComponent: NodeProblem,
   component: function WebAndApi() {
     const { nodeId } = Route.useParams();

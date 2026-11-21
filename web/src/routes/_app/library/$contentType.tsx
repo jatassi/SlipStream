@@ -7,10 +7,9 @@ import {
   librarySearch,
   rememberedSearch,
 } from "../../../library/routed";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
 import { Empty } from "../../../ui/empty";
-import { Skeleton } from "../../../ui/skeleton";
 import { enabledTypeOf, enabledTypes } from "../../../works/fields";
 import { AddButton } from "./-add-menu";
 import { libraryReads } from "./-view";
@@ -34,7 +33,7 @@ export const Route = createFileRoute("/_app/library/$contentType")({
     const [{ contentTypes }] = await libraryReads(context.queryClient);
     return { title: enabledTypeOf(contentTypes, contentType).name };
   },
-  pendingComponent: () => <Skeleton label="Loading the Library" />,
+  pendingComponent: () => <PagePending label="Loading the Library" shape="grid" />,
   component: ContentTypeLibrary,
 });
 

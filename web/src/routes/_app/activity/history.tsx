@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_app/activity/history")({
       ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading History" />,
+  pendingComponent: () => <Skeleton label="Loading History" shape="rows" lines={2} />,
   component: ActivityHistory,
 });
 

@@ -6,8 +6,8 @@ import {
   useListContentTypesSuspense,
 } from "../../../api/gen/query/works/works";
 import { useRemoved } from "../../../live/removed";
+import { PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
-import { Skeleton } from "../../../ui/skeleton";
 import { toast } from "../../../ui/toast";
 import { typeOf } from "../../../works/fields";
 import { loadWork } from "../../../works/page/load";
@@ -16,7 +16,7 @@ import { WorkPage } from "../../../works/page/work-page";
 export const Route = createFileRoute("/_app/works/$workId")({
   staticData: { title: loaderTitle },
   loader: ({ context, params: { workId } }) => loadWork(context.queryClient, workId),
-  pendingComponent: () => <Skeleton label="Loading the Work" />,
+  pendingComponent: () => <PagePending label="Loading the Work" shape="facts" />,
   component: WorkRoute,
 });
 

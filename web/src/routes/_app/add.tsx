@@ -3,13 +3,11 @@ import { z } from "zod";
 
 import { getListContentTypesSuspenseQueryOptions } from "../../api/gen/query/works/works";
 import { ensureQuery } from "../../api/query-client";
-import { Page } from "../../shell/page";
+import { Page, PagePending } from "../../shell/page";
 import { loaderTitle } from "../../shell/titles";
-import { Skeleton } from "../../ui/skeleton";
 import { loadCandidates } from "../../works/add/adding";
 import { Candidates } from "../../works/add/candidates";
 import { addLabel, enabledTypeOf, libraryTrail } from "../../works/fields";
-// oxlint-disable-next-line import/max-dependencies -- the page loads the catalog and shows its results
 import { CatalogSearch, searchForm } from "./-catalog-search";
 
 export const Route = createFileRoute("/_app/add")({
@@ -30,7 +28,7 @@ export const Route = createFileRoute("/_app/add")({
     }
     return { title: addLabel(type), trail: libraryTrail(contentTypes, type.id), type };
   },
-  pendingComponent: () => <Skeleton label="Loading the catalog" />,
+  pendingComponent: () => <PagePending label="Loading the catalog" shape="rows" lines={2} />,
   component: AddPage,
 });
 

@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_app/settings/trackers/$trackerId/_torren
     ]);
     return { title: trackerOf(trackers, trackerId).name };
   },
-  pendingComponent: () => <Skeleton label="Loading the torrents" />,
+  pendingComponent: () => <Skeleton label="Loading the torrents" shape="table" lines={2} />,
   component: TrackerTorrents,
 });
 

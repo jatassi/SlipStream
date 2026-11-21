@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_app/activity/torrents/$torrentId")({
   staticData: { title: loaderTitle },
   loader: ({ context: { queryClient }, params: { torrentId } }) =>
     loadInspected(queryClient, torrentId),
-  pendingComponent: () => <Skeleton label="Loading the torrent" />,
+  pendingComponent: () => <Skeleton label="Loading the torrent" shape="facts" />,
   component: function TorrentPage() {
     const navigate = useNavigate();
     return (

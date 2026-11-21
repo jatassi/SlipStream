@@ -10,11 +10,10 @@ import {
   useListQualitiesSuspense,
 } from "../../../api/gen/query/targets/targets";
 import { ensureQuery } from "../../../api/query-client";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { bodyOf, newDraft } from "../../../targets/draft";
 import { TargetEditor } from "../../../targets/target-editor";
 import { toast } from "../../../ui/toast";
-import { Skeleton } from "../../../ui/skeleton";
 import { loaderTitle } from "../../../shell/titles";
 
 export const Route = createFileRoute("/_app/settings/targets/new")({
@@ -32,7 +31,7 @@ export const Route = createFileRoute("/_app/settings/targets/new")({
       ],
     };
   },
-  pendingComponent: () => <Skeleton label="Loading the Target editor" />,
+  pendingComponent: () => <PagePending label="Loading the Target editor" shape="form" />,
   component: NewTargetPage,
 });
 

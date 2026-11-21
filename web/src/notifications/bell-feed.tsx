@@ -10,7 +10,7 @@ import { FeedSheet } from "./feed-sheet";
 
 function Feed({ onFollow }: { onFollow: () => void }) {
   return (
-    <Suspense fallback={<Skeleton label="Loading notifications" />}>
+    <Suspense fallback={<Skeleton label="Loading notifications" shape="rows" lines={2} />}>
       <FeedSheet onFollow={onFollow} />
     </Suspense>
   );

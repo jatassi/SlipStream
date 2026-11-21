@@ -29,7 +29,7 @@ function presetOptions(type: WorksContentType, preview: MonitoringPreview, inclu
 export function MonitoringFields({ type, works, preview, choice, onChange }: FieldsProps) {
   if (preview.data === undefined) {
     return preview.error === null ? (
-      <Skeleton label="Counting what each choice monitors" />
+      <Skeleton label="Counting what each choice monitors" shape="form" />
     ) : (
       <SignalLine tone="fail" announce>
         {sentenceOf(preview.error)}

@@ -11,9 +11,8 @@ import {
 import { ensureQuery } from "../../../api/query-client";
 import { AddIndexerForm } from "../../../indexers/add/add-form";
 import { addStepTrail } from "../../../indexers/add/trail";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
-import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/settings/indexers/new/rss")({
   staticData: { title: loaderTitle },
@@ -24,7 +23,7 @@ export const Route = createFileRoute("/_app/settings/indexers/new/rss")({
     ]);
     return { title: "Add an RSS feed", trail: addStepTrail };
   },
-  pendingComponent: () => <Skeleton label="Loading the form" />,
+  pendingComponent: () => <PagePending label="Loading the form" shape="form" />,
   component: AddRssPage,
 });
 

@@ -1,7 +1,8 @@
 import { type ReactNode, createContext, use, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
-import { useRouteTitle } from "./titles";
+import { Skeleton, type SkeletonProps, skeletonBar } from "../ui/skeleton";
+import { usePendingTitle, useRouteTitle } from "./titles";
 
 /**
  * Where a page's heading and main action go. In the desktop shell the heading
@@ -141,5 +142,42 @@ function LargeTitle({
     <h1 ref={ref} className="min-w-0 text-title-large text-ink-1">
       {title}
     </h1>
+  );
+}
+
+// A loader-named title's place while the loader runs, at the title's own line height.
+const titleBars: { readonly [K in Heading["kind"]]: string | undefined } = {
+  content: "mb-6 text-sentence",
+  large: "mt-1 mb-4 text-title-large",
+  bar: undefined,
+};
+
+/**
+ * A page's pending state: its title at once when the route names it, else a
+ * bar in its place, then the skeleton of what loads.
+ */
+export function PagePending(props: SkeletonProps) {
+  const title = usePendingTitle();
+  const { heading } = useShellSlots();
+  const bar = titleBars[heading.kind];
+  return (
+    <>
+      {title === undefined ? (
+        bar !== undefined && (
+          <div aria-hidden="true" className={bar}>
+            <span className={`h-[1lh] w-48 ${skeletonBar}`} />
+          </div>
+        )
+      ) : (
+        <PageHead
+          heading={heading}
+          title={title}
+          beside={undefined}
+          action={undefined}
+          actionSlot={null}
+        />
+      )}
+      <Skeleton {...props} />
+    </>
   );
 }

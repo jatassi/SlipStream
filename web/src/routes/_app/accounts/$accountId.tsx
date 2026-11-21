@@ -6,9 +6,8 @@ import {
   useGetAccountSuspense,
 } from "../../../api/gen/query/identity/identity";
 import { ensureQuery } from "../../../api/query-client";
-import { Page } from "../../../shell/page";
+import { Page, PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
-import { Skeleton } from "../../../ui/skeleton";
 import { AccountSections } from "./-account-sections";
 import { AccountDialogs, type Asking } from "./-confirmations";
 
@@ -21,7 +20,7 @@ export const Route = createFileRoute("/_app/accounts/$accountId")({
     );
     return { title: account.displayName, trail: [{ title: "Accounts", pathname: "/accounts" }] };
   },
-  pendingComponent: () => <Skeleton label="Loading the Account" />,
+  pendingComponent: () => <PagePending label="Loading the Account" shape="facts" />,
   component: AccountPage,
 });
 

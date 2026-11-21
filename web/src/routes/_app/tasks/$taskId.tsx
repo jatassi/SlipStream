@@ -6,9 +6,9 @@ import {
   getListTasksSuspenseQueryOptions,
 } from "../../../api/gen/query/tasks/tasks";
 import { ensureQuery } from "../../../api/query-client";
+import { PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
 import { TaskDetail } from "../../../tasks/task-detail";
-import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/tasks/$taskId")({
   staticData: { title: loaderTitle },
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_app/tasks/$taskId")({
     ]);
     return { title: task.name };
   },
-  pendingComponent: () => <Skeleton label="Loading the task" />,
+  pendingComponent: () => <PagePending label="Loading the task" shape="facts" />,
   component: TaskPage,
 });
 

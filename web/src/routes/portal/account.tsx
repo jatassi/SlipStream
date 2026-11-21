@@ -11,7 +11,7 @@ export const Route = createFileRoute("/portal/account")({
   staticData: { title: "Your Account" },
   validateSearch: accountSearch,
   loader: ({ context }) => loadYourAccount(context.queryClient),
-  pendingComponent: () => <Skeleton label="Loading Your Account" />,
+  pendingComponent: () => <Skeleton label="Loading Your Account" shape="facts" />,
   component: Account,
 });
 

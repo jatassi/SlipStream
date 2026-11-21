@@ -62,7 +62,7 @@ function Opened({
     return <Refused sentence={sentenceOf(search.error)} />;
   }
   if (search.data === undefined) {
-    return <Skeleton label={reading} />;
+    return <Skeleton label={reading} shape="rows" lines={2} />;
   }
   return (
     <ManualBody

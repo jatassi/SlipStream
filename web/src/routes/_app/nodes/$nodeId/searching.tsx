@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_app/nodes/$nodeId/searching")({
       ensureQuery(queryClient, getListIndexersSuspenseQueryOptions()),
     ]);
   },
-  pendingComponent: () => <Skeleton label="Loading Searching" />,
+  pendingComponent: () => <Skeleton label="Loading Searching" shape="rows" lines={2} />,
   errorComponent: NodeProblem,
   component: function Searching() {
     const node = useNode(Route.useParams().nodeId);

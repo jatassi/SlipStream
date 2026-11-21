@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_app/settings/media-servers/$serverId/det
   staticData: { title: section.label },
   loader: ({ context: { queryClient }, params: { serverId } }) =>
     ensureQuery(queryClient, getListMediaServerCredentialHoldersSuspenseQueryOptions(serverId)),
-  pendingComponent: () => <Skeleton label="Loading Details" />,
+  pendingComponent: () => <Skeleton label="Loading Details" shape="facts" />,
   component: function Details() {
     return <DetailsTab server={useGetMediaServerSuspense(Route.useParams().serverId).data} />;
   },
