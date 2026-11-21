@@ -45,6 +45,7 @@ func (n *Node) startLink(cfg Config, streams *Streams, l *Listeners) error {
 		Trust:    peers,
 		Lockstep: n.env.Test.lockstep(n.lockstep),
 		Pair:     peers.Pair,
+		Told:     peers.Told,
 		Log:      n.rootLog.With("subsystem", "link"),
 	})
 	if err != nil {

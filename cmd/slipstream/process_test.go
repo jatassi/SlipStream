@@ -587,6 +587,8 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.link.log_archive_ttl", Value: "10m0s", Default: "10m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_LOG_ARCHIVE_TTL"},
 			{Key: "timings.link.join_dial", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_JOIN_DIAL"},
 			{Key: "timings.link.await_dial", Value: "10m0s", Default: "10m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_AWAIT_DIAL"},
+			{Key: "timings.pairing.superseded_dial", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_PAIRING_SUPERSEDED_DIAL"},
+			{Key: "timings.pairing.unreachable_after", Value: "15m0s", Default: "15m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_PAIRING_UNREACHABLE_AFTER"},
 			{Key: "timings.role.restart_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_RESTART_MIN"},
 			{Key: "timings.role.restart_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_RESTART_MAX"},
 			{Key: "timings.role.beat", Value: "15s", Default: "15s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_BEAT"},

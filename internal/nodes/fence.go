@@ -108,7 +108,7 @@ func (s *Service) fence(ctx context.Context, c toldClaim) error {
 	}
 	name := s.Name(node)
 	if claim.State == Proven {
-		s.cfg.Log.Warn(name+" carried proof that a Backup of this library was restored on another Controller", "by", c.s.By.Fingerprint())
+		s.cfg.Log.Warn(name+" sent proof that a Backup of this library was restored on another Controller", "by", c.s.By.Fingerprint())
 	} else {
 		s.cfg.Log.Warn(name+" is paired with another Controller and sent no proof of a restore", "by", c.s.By.Fingerprint())
 	}
