@@ -44,10 +44,11 @@ func (s *Subtitles) search(ctx context.Context, _ tasks.Unit, p *tasks.Progress)
 	if _, err := s.Reconcile(ctx); err != nil {
 		return err
 	}
-	var on bool
+	var on, halt bool
 	var n int
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		halt, err := s.cfg.Reconciling(ctx, tx)
+		var err error
+		halt, err = s.cfg.Reconciling(ctx, tx)
 		if err != nil || halt {
 			return err
 		}
@@ -64,6 +65,9 @@ func (s *Subtitles) search(ctx context.Context, _ tasks.Unit, p *tasks.Progress)
 	})
 	if err != nil {
 		return err
+	}
+	if halt {
+		return tasks.SkipOwned("Skipped because SlipStream is Reconciling after a restore. Subtitle search starts again once Reconciling finishes.")
 	}
 	if !on {
 		return tasks.SkipOwned("Subtitle search is off in Settings.")
