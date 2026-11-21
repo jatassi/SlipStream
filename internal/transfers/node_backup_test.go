@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 	"testing/synctest"
@@ -76,6 +77,19 @@ func (c *backupCopy) arrived(rs []*tv1.Result) bool {
 	return false
 }
 
+// private fails t unless only its owner can read the file at path, where
+// the OS keeps Unix modes.
+func private(t *testing.T, path string) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Errorf("the copy's mode is %v, want 0600", info.Mode().Perm())
+	}
+}
+
 // folderFacts is the last facts' Backup folder at folder.
 func folderFacts(fs []*tv1.Facts, folder string) *tv1.BackupFolderFacts {
 	if len(fs) == 0 {
@@ -108,6 +122,7 @@ func TestAWorkerReceivesOnlyCiphertextAndNames(t *testing.T) {
 		if err != nil || !bytes.Equal(got, c.data) {
 			t.Fatalf("the destination holds %d bytes (%v), want the Backup's %d", len(got), err, len(c.data))
 		}
+		private(t, filepath.Join(c.to, backupName))
 		entries, err := os.ReadDir(c.to)
 		if err != nil {
 			t.Fatal(err)

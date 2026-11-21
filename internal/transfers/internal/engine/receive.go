@@ -598,7 +598,11 @@ func (r *run) openStaged(f *staged) error {
 	if f.out != nil {
 		return nil
 	}
-	out, err := r.e.cfg.Disk.OpenWrite(r.ctx, f.path)
+	open := r.e.cfg.Disk.OpenWrite
+	if r.spec.backup != nil {
+		open = r.e.cfg.Disk.OpenPrivate
+	}
+	out, err := open(r.ctx, f.path)
 	if err != nil {
 		return fmt.Errorf("open the staged file: %w", err)
 	}

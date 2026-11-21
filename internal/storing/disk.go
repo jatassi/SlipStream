@@ -29,6 +29,9 @@ type Disk interface {
 	// OpenWrite opens path to write at offsets, creating it when missing
 	// and keeping what it holds.
 	OpenWrite(ctx context.Context, path string) (WriteAtFile, error)
+	// OpenPrivate is OpenWrite, creating the file readable and writable
+	// by its owner alone, as a Backup is.
+	OpenPrivate(ctx context.Context, path string) (WriteAtFile, error)
 	Remove(ctx context.Context, path string) error
 	// RemoveAll removes path and everything beneath it; a missing path is
 	// already removed.
