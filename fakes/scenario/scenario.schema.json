@@ -232,6 +232,10 @@
           "path_limit": {
             "type": "integer",
             "minimum": 0
+          },
+          "backups_folder": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
           }
         },
         "additionalProperties": false,
@@ -263,6 +267,25 @@
         "storage": {
           "properties": {
             "busy_timeout": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "backups": {
+          "properties": {
+            "scrypt": {
+              "type": "integer"
+            },
+            "zstd_window": {
+              "type": "integer"
+            },
+            "zstd_memory": {
+              "type": "integer"
+            },
+            "windows_retry": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             }

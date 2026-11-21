@@ -62,6 +62,9 @@ func Config(s scenario.Scenario, i int, listen []string, link netip.AddrPort, en
 	if limit := s.Nodes[i].PathLimit; limit > 0 {
 		set(root, "storage.path_limit", &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!int", Value: strconv.FormatInt(limit, 10)})
 	}
+	if folder := s.Nodes[i].BackupsFolder; folder != "" {
+		set(root, "backups.folder", scalar(folder))
+	}
 	if t := scenario.SetTimings(s.Timings); t != nil {
 		root.Content = append(root.Content, scalar("timings"), t)
 	}
