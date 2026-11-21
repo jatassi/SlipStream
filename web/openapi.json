@@ -18489,7 +18489,7 @@
             "type": "boolean"
           },
           "granted": {
-            "description": "The line naming the Downloading Role its adoption gave it, such as vps-relay now holds Downloading for the 1,240 torrents it reported; null when it got none",
+            "description": "The line naming the Downloading Role its adoption gave it, such as vps-relay now has the Downloading Role for the 1,240 torrents it reported; null when it got none",
             "type": [
               "string",
               "null"

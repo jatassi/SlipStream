@@ -2,7 +2,6 @@ package reconciling
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
@@ -121,7 +120,7 @@ func (s *Service) look(ctx context.Context) error {
 			continue
 		}
 		err = s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-			return db.New(tx).SetLooked(ctx, db.SetLookedParams{FilesFound: sql.NullInt64{Int64: int64(found), Valid: true}, At: storage.Now(), TorrentID: id})
+			return db.New(tx).SetLooked(ctx, db.SetLookedParams{FilesFound: int64(found), At: storage.Now(), TorrentID: id})
 		})
 		if err != nil {
 			return fmt.Errorf("record what a Node found of a torrent's files: %w", err)

@@ -6,7 +6,7 @@ export interface ReconcilingNodeRow {
   /** Whether Reconciling stopped waiting on it. It still keeps every torrent until it reports them */
   continued: boolean;
   /**
-   * The line naming the Downloading Role its adoption gave it, such as vps-relay now holds Downloading for the 1,240 torrents it reported; null when it got none
+   * The line naming the Downloading Role its adoption gave it, such as vps-relay now has the Downloading Role for the 1,240 torrents it reported; null when it got none
    * @nullable
    */
   granted: string | null;

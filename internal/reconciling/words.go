@@ -87,7 +87,7 @@ func refusalWords(w Waits, names map[nodes.ID]string) string {
 // Downloading Role.
 func GrantWords(name string, held int) string {
 	if held == 1 {
-		return name + " now holds Downloading for the 1 torrent it reported."
+		return name + " now has the Downloading Role for the 1 torrent it reported."
 	}
-	return fmt.Sprintf("%s now holds Downloading for the %s torrents it reported.", name, setting.Grouped(held))
+	return fmt.Sprintf("%s now has the Downloading Role for the %s torrents it reported.", name, setting.Grouped(held))
 }

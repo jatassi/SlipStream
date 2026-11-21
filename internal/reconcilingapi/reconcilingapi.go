@@ -173,7 +173,7 @@ type nodeRow struct {
 	Reported  bool                 `json:"reported" doc:"Whether every page of its list of torrents is in"`
 	Adopted   bool                 `json:"adopted" doc:"Whether its torrents were matched with the library"`
 	Continued bool                 `json:"continued" doc:"Whether Reconciling stopped waiting on it. It still keeps every torrent until it reports them"`
-	Granted   api.Nullable[string] `json:"granted" doc:"The line naming the Downloading Role its adoption gave it, such as vps-relay now holds Downloading for the 1,240 torrents it reported; null when it got none"`
+	Granted   api.Nullable[string] `json:"granted" doc:"The line naming the Downloading Role its adoption gave it, such as vps-relay now has the Downloading Role for the 1,240 torrents it reported; null when it got none"`
 	Refused   api.Nullable[string] `json:"refused" doc:"Why SlipStream refused its list of torrents; null when it didn't. It keeps every torrent until a list is taken"`
 	Link      string               `json:"link" enum:"in-step,reconnecting,offline,lapsed,mismatched" doc:"How it stands with this Controller. A Node on a new machine that stays offline may still be paired with the old Controller"`
 	LinkSince time.Time            `json:"linkSince" doc:"Since when it stands so"`

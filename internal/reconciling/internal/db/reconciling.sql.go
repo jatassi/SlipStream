@@ -1008,12 +1008,12 @@ func (q *Queries) SetAdopted(ctx context.Context, arg SetAdoptedParams) error {
 }
 
 const setLooked = `-- name: SetLooked :exec
-UPDATE reconciling_torrent SET files_found = ?1, looked_at = ?2
+UPDATE reconciling_torrent SET files_found = CAST(?1 AS INTEGER), looked_at = ?2
 WHERE torrent_id = ?3
 `
 
 type SetLookedParams struct {
-	FilesFound sql.NullInt64
+	FilesFound int64
 	At         storage.Time
 	TorrentID  downloadclients.ID
 }

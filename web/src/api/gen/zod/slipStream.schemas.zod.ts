@@ -9875,7 +9875,7 @@ export const ReconcilingNodeRow = zod.object({
     .string()
     .nullable()
     .describe(
-      "The line naming the Downloading Role its adoption gave it, such as vps-relay now holds Downloading for the 1,240 torrents it reported; null when it got none",
+      "The line naming the Downloading Role its adoption gave it, such as vps-relay now has the Downloading Role for the 1,240 torrents it reported; null when it got none",
     ),
   held: zod.int().min(reconcilingNodeRowHeldMin).describe("How many torrents its list held"),
   id: zod.uuid(),

@@ -189,7 +189,7 @@ ORDER BY torrent_id
 LIMIT sqlc.arg(page);
 
 -- name: SetLooked :exec
-UPDATE reconciling_torrent SET files_found = sqlc.arg(files_found), looked_at = sqlc.arg(at)
+UPDATE reconciling_torrent SET files_found = CAST(sqlc.arg(files_found) AS INTEGER), looked_at = sqlc.arg(at)
 WHERE torrent_id = sqlc.arg(torrent_id);
 
 -- name: ListToLook :many
