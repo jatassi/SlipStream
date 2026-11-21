@@ -33,7 +33,7 @@ func keys(t *testing.T) *secret.Keys {
 
 func open(t *testing.T, path string, k *secret.Keys) *backups.Vault {
 	t.Helper()
-	v, err := backups.OpenVault(path, k)
+	v, err := backups.OpenVault(path, k, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +293,7 @@ func TestAVaultOpensAfterVacuumInto(t *testing.T) {
 	if !restored.Proven(oldKey, newKey, backups.Prove(v.Fence(), oldKey, newKey)) {
 		t.Fatal("the copied Vault lost its fence secret")
 	}
-	if _, err := backups.OpenVault(filepath.Join(to, backups.VaultFile), keys(t)); err == nil {
+	if _, err := backups.OpenVault(filepath.Join(to, backups.VaultFile), keys(t), 0); err == nil {
 		t.Fatal("backup.key opened under another library.key")
 	}
 }

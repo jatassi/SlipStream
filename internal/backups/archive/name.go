@@ -2,6 +2,7 @@ package archive
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -62,4 +63,16 @@ func suffix(id ID) string {
 		low >>= 5
 	}
 	return string(b)
+}
+
+func (n Name) MarshalText() ([]byte, error) { return []byte(n.s), nil }
+
+// UnmarshalText is ParseName, so a stored name is held to the pattern too.
+func (n *Name) UnmarshalText(b []byte) error {
+	parsed, err := ParseName(string(b))
+	if err != nil {
+		return fmt.Errorf("%q: %w", b, err)
+	}
+	*n = parsed
+	return nil
 }
