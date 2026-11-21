@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { ReconcilingBanner } from "../banner";
 import { useAdminNav } from "../nav";
 import { AdminBarActions, adminTabActions } from "./admin-actions";
 import { PhoneFrame } from "./frame";
@@ -11,6 +12,7 @@ export function PhoneShell({ children }: { children: ReactNode }) {
     <>
       <PhoneFrame rows={rows} barActions={<AdminBarActions />} tabActions={adminTabActions}>
         {children}
+        <ReconcilingBanner />
       </PhoneFrame>
       <MoreSheet rows={rows} />
     </>

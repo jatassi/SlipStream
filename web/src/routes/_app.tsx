@@ -1,6 +1,7 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 import type { ComponentType, ReactNode } from "react";
 
+import { requireRehomed } from "../reconciling/rehome-gate";
 import { requireEntry } from "../session/gate";
 import { DesktopShell } from "../shell/desktop/layout";
 import { NotFound, ShellError } from "../shell/errors";
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ context, location }) => {
     await requireEntry(context, "app", location);
     await context.live.connect();
+    await requireRehomed(context.queryClient, location);
   },
   component: () => (
     <AppFrame>
