@@ -222,9 +222,11 @@ func DeleteSelfAddresses(ctx context.Context, tx *storage.Tx[file], self link.Ke
 }
 
 // AssignIn gives node r in tx with no probe or reach test: the caller has
-// the Node's own report that it already runs r's work.
-func AssignIn(ctx context.Context, tx *storage.Tx[file], node ID, r role.Name) error {
-	return db.New(tx).InsertRole(ctx, db.InsertRoleParams{NodeID: node, Role: r, AssignedAt: storage.Now()})
+// the Node's own report that it already runs r's work. It answers false
+// when node already held r.
+func AssignIn(ctx context.Context, tx *storage.Tx[file], node ID, r role.Name) (bool, error) {
+	n, err := db.New(tx).AssignRole(ctx, db.AssignRoleParams{NodeID: node, Role: r, AssignedAt: storage.Now()})
+	return n > 0, err
 }
 
 // unpaired is each old Controller key this Controller replaced that no
