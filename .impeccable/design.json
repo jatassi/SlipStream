@@ -994,7 +994,7 @@
       },
       {
         "name": "The Reduce Motion Rule",
-        "body": "Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, fills jump without the sheen, and overlays appear without travel. Page transitions and the sidebar cut. Spinners, steps, the PIN shake and canvas animations stop. No animation is exempt.",
+        "body": "Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, fills jump without the sheen, and overlays appear without travel. Page transitions and the sidebar cut. Spinners, steps, skeleton bars, the PIN shake and canvas animations stop, and a skeleton still waits 300ms but appears without the fade. No animation is exempt.",
         "section": "components"
       }
     ],

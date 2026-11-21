@@ -25,7 +25,6 @@ export function NoTorrents() {
 
 const torrents = { one: "torrent", many: "torrents" } as const;
 
-/** What a tab with no torrents says, and how it names the torrents another tab holds. */
 const tabWords: {
   readonly [T in Tab]: { readonly nothing: string; readonly there: (count: number) => string };
 } = {

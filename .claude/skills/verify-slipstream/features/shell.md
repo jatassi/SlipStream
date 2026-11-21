@@ -29,6 +29,7 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 - `shell-toast` adding a Work shows the toast `Added The Quiet Orchard`, top right in the desktop shell and top centre on phone (P-013).
 - `shell-route-error` with the Controller down, a page that fails to load says `SlipStream isn't responding. Check that it's running, then try again.` inside the standing shell, `Details` shows the message, and `Try again` loads the page once the Controller is back (P-015).
 - `shell-not-found` a dead address such as `/nowhere` reads `There's nothing at this address.` with `Go to Library`, inside the shell.
+- `shell-pending` a page whose data takes longer than a second keeps its title and draws the loaded layout's frame while it loads: Health shows its heading `Health` over the status `Loading Health`, a glass sheet of rows.
 - `shell-brand` the sidebar carries the Two Nodes mark and wordmark, and the page links the mark as its favicon with `theme-color` `#0c0d0e` (P-017).
 - `shell-portal` `/portal` shows the portal shell: in a desktop browser a top nav `Portal` with Home, Search, Requests and Account and an `Account` menu; on phone a tab bar `Tabs` with the same four. An Admin opens it from `Open the portal` and returns through `Back to Library` in the portal's `Account` menu or on its Account page (story 40).
 - `startup-plays` a new tab plays the startup sequence, an image named `SlipStream`, over the page while it loads.
@@ -195,6 +196,15 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Restart SlipStream?" }).getByRole("button", { name: "Cancel" })'
   ```
 
+- **Hold a page's data.** Delay the browser's health read by 5 seconds and open Health. Within the delay the page shows the heading `Health` and the status `Loading Health` with its rows, and both are gone once the data lands.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.route("**/api/v1/system/health", async (route) => { await new Promise((done) => setTimeout(done, 5000)); await route.continue(); }); await page.goto("{nodes.home.browserUrl}/health"); await page.getByRole("status", { name: "Loading Health" }).waitFor({ timeout: 4000 }); }'
+  $FW exec $RUN --proof shell/shell-pending -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("main")' --filename={runDir}/proof/shell/shell-pending/health.aria.yml
+  $FW exec $RUN --proof shell/shell-pending -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/shell/shell-pending/health.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("status", { name: "Loading Health" }).waitFor({ state: "hidden", timeout: 15000 }); await page.unrouteAll(); }'
+  ```
+
 - **Follow a dead link.** Go to `/nowhere`. The content reads `There's nothing at this address.` with `Go to Library`, and the sidebar stays.
 
   ```sh
@@ -332,6 +342,8 @@ Steps:
   ```
 
 ## Gotchas
+
+- `shell-pending` needs the delay on a page reached by a fresh load or a link, because a page whose data is already cached shows at once. The router waits a second before it shows a pending page, so a delay under about 1.5 seconds never shows one.
 
 - `getByRole("button", { name: "Search" })` also matches the capsule `Search Works or run a command` on desktop and the large title's and tab bar's `Search` on phone. A page's own Search, such as the Work page's, is its main action: scope it to `getByRole("banner")` with `exact: true` on desktop, where the top bar holds it, and to `getByRole("main")` on phone. The Add page's catalog Search sits in `getByRole("main")` in both shells.
 - On phone, the back link and a tab can share a name (`Library` above `/add` with no Content Type). Scope them to `getByRole("banner")` or `getByRole("navigation", { name: "Tabs" })`.

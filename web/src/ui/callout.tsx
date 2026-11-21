@@ -47,7 +47,6 @@ const card = "rounded-card text-(length:--body-size) leading-(--body-line-height
 
 type Shown = { readonly action: CalloutAction; readonly look: ButtonLook };
 
-/** The fix in the tone's own look, then a red Callout's other buttons in on-fail. */
 function buttonsOf(props: CalloutProps): readonly Shown[] {
   const fix: Shown[] =
     props.action === undefined ? [] : [{ action: props.action, look: props.tone }];

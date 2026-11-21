@@ -145,7 +145,6 @@ function LargeTitle({
   );
 }
 
-// A loader-named title's place while the loader runs, at the title's own line height.
 const titleBars: { readonly [K in Heading["kind"]]: string | undefined } = {
   content: "mb-6 text-sentence",
   large: "mt-1 mb-4 text-title-large",

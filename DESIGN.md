@@ -266,10 +266,11 @@ components:
     textColor: "{colors.fail-text}"
     rounded: "{rounded.card}"
     padding: "16px 20px 20px"
-  warning-line:
+  callout:
     backgroundColor: "{colors.warn-card}"
     textColor: "{colors.warn-text}"
-    padding: "12px 20px"
+    rounded: "{rounded.card}"
+    padding: "12px 16px"
   input:
     backgroundColor: "{colors.well}"
     textColor: "{colors.ink-1}"
@@ -363,7 +364,7 @@ Every `hsl(214 …)` value in the frontmatter is the neutral resolution of a for
 ### Secondary
 
 - **Signal Red** (`fail` and its family): Failure only. `fail` is the solid chip, button, dot and failed stage segment, with `fail-deep` ink on it. `fail-card` is the near-opaque failure card, with `fail-text` for its copy, `fail-dim` for its secondary copy and `fail-ink` for its labels and for failure text set on glass. `fail-line` is the card's edge.
-- **Signal Amber** (`warn` and its family): Warnings only, built the same way as red. `warn-line` is the one amber hairline on warning lines and amber rows.
+- **Signal Amber** (`warn` and its family): Warnings only, built the same way as red, with `warn-ink` for warning text set on glass. `warn-line` is the one amber hairline on amber callouts and amber rows.
 
 ### Tertiary
 
@@ -485,7 +486,7 @@ Depth comes from translucency over the ambient, not from shadows. Surfaces at re
 - **Glass, blurred.** Only things that float.
   - The top bar, the phone tab bar, the nav bar and the status bar use `blur(24px) saturate(1.6)` over `chrome`. So does the portal's top nav once it turns to glass.
   - Menus, popovers, tooltips, the palette, the Inspector, Dialogs and sheets use `blur(30px) saturate(1.7)` over `popover` or `sheet`.
-- **Solid.** Failure cards and warning lines (`fail-card`, `warn-card` at .97), and every signal chip and button. Solid white on the primary action, Met, toasts and badges.
+- **Solid.** Failure cards and callouts (`fail-card`, `warn-card` at .97), and every signal chip and button. Solid white on the primary action, Met, toasts and badges.
 - **Artwork.** The blurred ambient behind every page. A sharp, edge-masked backdrop sits behind the header of a Work page and of the portal's Work page.
 
 ### Shadow Vocabulary
@@ -494,7 +495,7 @@ The frontmatter's `shadows` block holds each shadow's value.
 
 - **Float** (`float`): Menus, popovers, a Select's list and tooltips.
 - **Float large** (`float-large`): The palette, Dialogs and the Inspector.
-- **Signal lift** (`signal-lift`): Failure cards and red Signal rows. Warning lines and amber Signal rows use `warn-line` as an inset ring with no drop.
+- **Signal lift** (`signal-lift`): Failure cards, red callouts and red Signal rows. Amber callouts and amber Signal rows use `warn-line` as an inset ring with no drop.
 - **Poster** (`poster`): Large posters and portal poster cards.
 - **Toast** (`toast`).
 - **Live glow** (`live-glow`): The fill of a live bar, the current stage segment, the bar on a selected row and the live dot. The live dot adds a 3px ring at `hsl(var(--h) 90% 65% / .32)`.
@@ -632,9 +633,34 @@ The answer to "what broke". A near-opaque red-black card (`fail-card`, radius 14
 
 The compact red or amber row for lists that can grow long: the Conversion queue's Needs you band, problems inside a table, and Needs you rows past the first few cards. It is one line of chevron, signal chip, subject (600), a two-line clamped verdict and the time, padded 12px by 16px with radius 14. On phone, the chevron, chip and time share the first line, and the subject and verdict wrap below. It expands in place to the full detail, such as each attempt with its Node, time and error in a `well`. Enter or Space toggles it, with `aria-expanded`. The chevron turns over 250ms.
 
-### Warning line
+### Callout
 
-Warnings are amber lines, never solid cards. A warning line is `warn-card` with a `warn-line` hairline, radius 14 and 12px by 20px padding, holding an amber chip, a bold subject, `warn-dim` detail, a "since" time when the warning has a start, and one Warn button. Attached under a failure card, it is that card's last strip. On its own, it is a Signal row at rest. On phone, it is a row that opens a sheet.
+A condition the person weighs before going on, in amber or red (`Callout` in `web/src/ui/callout.tsx`). A callout is the signal's card, `warn-card` with a `warn-line` hairline or `fail-card` with the signal lift, at radius 14 with 12px by 16px padding. It holds the signal chip that names the condition, then the sentence, a "since" time in Data when the condition has a start, and at most one fix as a Warn or Fail button. It is a status, so a screen reader reads it as it appears. A callout names a condition and a Signal line reports what was just done. If no word fits the chip, it is a Signal line.
+- **Condition:** Inside a form, sheet or dialog, such as Slow pattern in the Custom Format editor or Many sources after a Torznab Test. The chip and the sentence, usually with no button, because the form's own Save or Grab is the decision. In a narrow frame the sentence wraps under the chip.
+- **Standing:** On a page, such as Restart needed, Port taken or a Settings section's worst Health item. A bold subject leads and the detail follows in the dim ink, then the time and the fix. A red callout may add a failure card's other buttons in `on-fail` after its fix, as Torrents' client cards add Edit client.
+- **Phone:** A standing callout is a 44px row of the chip, the subject and a chevron. It opens a sheet titled with the subject that holds the card and one full-width button per action, and an action closes the sheet first. A condition stays in place.
+
+### Signal line
+
+One sentence led by its signal's icon, beside the control whose outcome it reports (`SignalLine` in `web/src/ui/signal-line.tsx`), such as a refused save, a Test that passed with its warnings, or a Node that can't be reached. The icon is in the signal's hue (`fail`, `warn` or `ok`), the words are in `fail-ink`, `warn-ink` or `ink-1`, and the line takes the text size around it. It is announced only when it reports what was just done, as an alert for a failure and a status otherwise, so a list of five failing Indexers isn't five alerts. A field's error under its input belongs to Fields, and a tinted word in a row's cell is that row's state.
+
+### Empty
+
+What a list, table or section shows when it has nothing (`Empty` in `web/src/ui/empty.tsx`). One sentence in `ink-2`, at most 64ch, says what is missing and then what to do or what SlipStream does next. An optional way forward follows it, as one button, a button group or a link. In Console the action sits after the sentence when both fit on its line. In Touch it sits under the sentence. An empty has no title and no icon, because its sentence already leads with what is missing.
+- **Sheet:** In place of a List or Table with no rows, or a section that can't show, such as a Node that is offline. A glass sheet with radius 14 and a hairline ring, as wide as the list it stands in for and at least a row tall, with 12px by 16px padding.
+- **Row:** Inside a list frame that already exists, such as the folder browser, a rename plan, the catalog picker or the palette. A row's height and padding, with no surface.
+- **Inline:** In content that already has a frame or heading, such as an Inspector section, a dialog or a day under its heading. No surface.
+- **Filtered:** A filter that hides every row says so and offers Clear filters. A view that is empty while another view has items names them and opens it. Torrents' Downloading tab reads "Nothing is downloading. 16 torrents are seeding." with Show Seeding.
+
+### Skeleton
+
+A placeholder in the loaded layout's frame while its data loads (`Skeleton` in `web/src/ui/skeleton.tsx`), so the page doesn't move when the data lands. It is a status named for what loads, such as "Loading Torrents". Its bars are `fill` at radius 6, and each shape draws the loaded component's frame and row heights.
+- **Rows:** A List. A glass sheet of 6 rows at the List's one-line or two-line height, with hairlines between rows, a title bar and, on two-line rows, a Meta bar.
+- **Table:** A Table. Its 32px header, then 8 rows at the table's line height. On phone, where a table turns into a list, it draws rows.
+- **Grid:** The Library grid at the medium size. 12 empty poster frames on `glass-raised`, each with a label bar and a Meta bar.
+- **Facts:** A Facts sheet of 4 rows, with a label bar in the label column and a value bar. In Touch the label bar sits over the value bar.
+- **Form:** 3 fields, each a label bar over an empty `well` at the input's height, at most 480px wide.
+- **Page:** A route that renders its own page shows its title at once while it loads, or a bar of the title's height while its loader names the title, and then the shape. A route inside a layout that owns the page, such as a Node's sections, shows the shape alone.
 
 ### Details
 
@@ -679,7 +705,7 @@ The page under Library that lists what SlipStream is searching for, at `/library
 - **Table.** Lists and tables' table, 60px two-line rows. Each header names the Content Type's nouns, such as Series and Episodes, and Work on All. Work (the poster and label, as in the Library's table), Items (ranges of the codes Needs you uses, such as "S02E01 to S02E08", and nothing for a Work of one Item, left out while no type in view has many Items), Reason ("Missing. 3 upgrades."), Last searched ("Found nothing on Mon at 09:12", or "Not searched yet"), Next search ("Tomorrow at 14:00", "Searching" with the spinner, "Queued", "Only when you search"), then a small Search button and a "…" menu with Manual search and Open Work. Items hides below 900px of the table's width and Last searched below 760px.
 - **Phone.** An inset list of two-line touch rows. The title is the Work, and the second line reads the reason, the Items and the next search as one sentence ("Missing. S02E01 to S02E08. Next search tomorrow at 14:00."). A row opens an action sheet with Search, Manual search and Open Work.
 - **Paging.** 100 rows a page. "Load more" ends the table on desktop, and the next page loads as the end scrolls into view on phone.
-- **Empty.** "Nothing to search for." in the Empty pattern.
+- **Empty.** "Nothing to search for." as an Empty sheet.
 - **Entry.** Wanted in the Library views, and the command "Open Wanted".
 
 ### Status marks
@@ -831,11 +857,12 @@ The mark is Two Nodes: a stream S whose two ends are dots, one for each kind of 
 - **Overlays.** Menus and tooltips take 180ms, the palette and toasts 220ms, the Inspector 280ms, sheets 340ms in and 260ms out, and Dialogs 360ms.
 - **Shell.** The sidebar collapses and expands over 280ms on the standard ease. A page change in the desktop shell crossfades the content alone over 180ms. On phone, a push slides the new page in from the right over 340ms on the spring while the old page drifts 30% left and dims to 60%, and a pop reverses it. The bars, the sidebar and the tab bar hold still through both. In an installed web app, a drag of 80px or more from the screen's left 20px goes back.
 - **Live.** Fills move linearly once a second, and the sheen loops every 2.4s. The spinner turns every 0.8s.
+- **Loading.** Skeleton bars breathe between `fill` and `fill-hover` over 2.4s on the standard ease, slower than any live motion, so a skeleton reads as waiting. A skeleton appears after 300ms with a 180ms fade, so data that lands sooner never flashes one.
 - **Startup.** The sequence runs 4.4s and leaves over 360ms, as the Logo section says.
 
 The frontmatter's `motion` block holds these easings and the overlay durations. `release gen tokens` writes them to the theme as `--ease-*` and `--duration-*`.
 
-**The Reduce Motion Rule.** Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, fills jump without the sheen, and overlays appear without travel. Page transitions and the sidebar cut. Spinners, steps, the PIN shake and canvas animations stop. No animation is exempt.
+**The Reduce Motion Rule.** Under `prefers-reduced-motion: reduce`, the tint and backdrop swap at once, fills jump without the sheen, and overlays appear without travel. Page transitions and the sidebar cut. Spinners, steps, skeleton bars, the PIN shake and canvas animations stop, and a skeleton still waits 300ms but appears without the fade. No animation is exempt.
 
 ## Do's and Don'ts
 
