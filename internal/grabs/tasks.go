@@ -52,9 +52,10 @@ func (gr *Grabs) Tasks() []tasks.Task {
 		Name: "Backlog search",
 		About: "Searches for the missing and upgradable files that are due. A file that keeps coming up empty is searched for less often each time, down to the least often Settings > Automatic search allows. " +
 			"Run now searches only for the files already due. To search for every file now, use the Search button on Wanted.",
-		Group:   tasks.ControllerGroup,
-		Cadence: tasks.Every{Interval: BacklogEvery},
-		Noun:    setting.Noun{One: "step", Many: "steps"},
+		Group:            tasks.ControllerGroup,
+		Cadence:          tasks.Every{Interval: BacklogEvery},
+		WhileReconciling: tasks.Pauses,
+		Noun:             setting.Noun{One: "step", Many: "steps"},
 		Units: func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
 			return []tasks.Unit{{Key: "due", Label: "Due searches", Place: tasks.OnController()}}, nil
 		},

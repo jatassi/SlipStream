@@ -93,6 +93,27 @@ type Task struct {
 	// Tuning is settings the task's owner stores, shown on the task's page
 	// and changed through PATCH /tasks/{id}.
 	Tuning setting.Panel
+	// WhileReconciling is what a run does while a restored Controller is
+	// Reconciling. Every task declares it.
+	WhileReconciling WhileReconciling
+}
+
+// WhileReconciling is Runs or Pauses. Its zero value is no declaration,
+// which Open refuses.
+type WhileReconciling uint8
+
+const (
+	_ WhileReconciling = iota
+	// Runs runs as at any other time.
+	Runs
+	// Pauses ends each unit skipped before it starts, and has the task run
+	// again once Reconciling ends.
+	Pauses
+)
+
+// PausedWhileReconciling is the skip a paused task's unit ends with.
+func PausedWhileReconciling(name string) error {
+	return SkipOwned("Skipped because SlipStream is Reconciling after a restore. " + name + " starts again once Reconciling finishes.")
 }
 
 type Group struct{ roles role.Group }

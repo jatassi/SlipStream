@@ -647,6 +647,13 @@ func (n *Node) startController(ctx context.Context) error {
 			Keep:  n.history,
 			Batch: n.cfg.Timings.Housekeeping.PruneBatch,
 			Steps: housekeepingSteps(registry, servers, n.history, pipeline, found, shelf, subtitler),
+			Reconciling: func(ctx context.Context) (paused bool, err error) {
+				err = lib.db.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+					paused, err = reconciling.Blocked(ctx, r)
+					return err
+				})
+				return paused, err
+			},
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
@@ -656,13 +663,14 @@ func (n *Node) startController(ctx context.Context) error {
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
 		}, found), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask(), subtitler.Task()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
-		Roster:     side,
-		Zone:       n.zone(),
-		Rand:       n.tasksRand,
-		Hub:        n.hub,
-		Changed:    tasks.ChangedEvent.Bind(n.hub),
-		Progressed: tasks.ProgressEvent.Bind(n.hub),
-		Log:        n.rootLog.With("subsystem", "tasks"),
+		Roster:      side,
+		Zone:        n.zone(),
+		Rand:        n.tasksRand,
+		Hub:         n.hub,
+		Changed:     tasks.ChangedEvent.Bind(n.hub),
+		Progressed:  tasks.ProgressEvent.Bind(n.hub),
+		Reconciling: reconciling.Blocked,
+		Log:         n.rootLog.With("subsystem", "tasks"),
 	})
 	if err != nil {
 		return err
@@ -1062,7 +1070,7 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 // Grabs it deleted.
 func housekeepingSteps(registry *indexers.Indexers, servers *mediaservers.MediaServers, h *history.Service, pipeline *grabs.Grabs, found *imports.Imports, shelf *files.Files, subtitler *subtitles.Subtitles) []housekeeping.Step {
 	return []housekeeping.Step{
-		housekeeping.Plain("indexer-queries", "Indexer queries and sessions", registry.Prune), servers.Housekeeping(),
+		housekeeping.Plain("indexer-queries", "Indexer queries and sessions", tasks.Runs, registry.Prune), servers.Housekeeping(),
 		h.Retention(), pipeline.Retention(), found.Retention(), shelf.Retention(), subtitler.Retention(),
 	}
 }

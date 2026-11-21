@@ -8,13 +8,14 @@ import (
 	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/tasks"
 )
 
 // Retention is the Import records step: every import record older than
 // Keep history for. A live file keeps how it was placed, and a forced fill
 // its Import, on their own rows.
 func (f *Files) Retention() housekeeping.Step {
-	return housekeeping.Aged("import-records", "Import records", setting.Noun{One: "import record", Many: "import records"}, "",
+	return housekeeping.Aged("import-records", "Import records", tasks.Pauses, setting.Noun{One: "import record", Many: "import records"}, "",
 		func(ctx context.Context, before time.Time, _ struct{}, limit int) (housekeeping.Swept[struct{}], error) {
 			var n int64
 			err := f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {

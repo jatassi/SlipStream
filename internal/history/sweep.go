@@ -10,12 +10,13 @@ import (
 	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/tasks"
 )
 
 // Retention is the History step: entries older than Keep history for, and
 // everything at or below the Clear floor, except what the Outbox owes.
 func (s *Service) Retention() housekeeping.Step {
-	return housekeeping.Aged("history", "History", setting.Noun{One: "entry", Many: "entries"}, "that are still being sent",
+	return housekeeping.Aged("history", "History", tasks.Pauses, setting.Noun{One: "entry", Many: "entries"}, "that are still being sent",
 		func(ctx context.Context, before time.Time, after EventID, limit int) (housekeeping.Swept[EventID], error) {
 			return s.sweep(ctx, before, after, limit)
 		})
