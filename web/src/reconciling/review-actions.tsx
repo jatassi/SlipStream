@@ -11,7 +11,7 @@ import { Button } from "../ui/button";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { ListRow } from "../ui/list";
 import { toast } from "../ui/toast";
-import { groupWords, torrentsWords } from "./words";
+import { groupWords, theseWords, torrentsWords } from "./words";
 
 const forgetTorrents = async (
   count: number,
@@ -90,7 +90,7 @@ function ForgetGroup({ group }: { group: ReconcilingGroup }) {
           setOpen(true);
         }}
       >
-        {`Forget these ${group.count}`}
+        {`Forget ${theseWords(group.count)}`}
       </Button>
       <ConfirmDialog
         title={`Forget ${torrentsWords(group.count)}`}
@@ -115,7 +115,7 @@ export function GroupAction({ group }: { group: ReconcilingGroup }) {
   if (readdAll) {
     return (
       <Press
-        label={`Re-add these ${group.count}`}
+        label={`Re-add ${theseWords(group.count)}`}
         action={() => readd(group.count, { reason: group.reason, found: group.found })}
       />
     );

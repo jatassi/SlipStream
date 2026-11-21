@@ -23,6 +23,10 @@ export const counted = (count: number, one: string, many: string): string =>
 
 export const torrentsWords = (count: number): string => counted(count, "torrent", "torrents");
 
+/** A group's object after its verb: "this torrent" for one, "these 3" for more. */
+export const theseWords = (count: number): string =>
+  count === 1 ? "this torrent" : `these ${grouped.format(count)}`;
+
 const rootsWords = (count: number): string => counted(count, "library root", "library roots");
 
 const capital = (words: string): string => words.charAt(0).toUpperCase() + words.slice(1);
