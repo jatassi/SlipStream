@@ -6,4 +6,5 @@ export interface SupersededView {
   replacement?: SupersededReplacement;
   state: SupersededViewState;
   worker?: string;
+  workerId?: string;
 }

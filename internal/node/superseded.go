@@ -47,6 +47,8 @@ func (f fence) Name(node nodes.ID) string { return f.h.nodes.Name(node) }
 
 func (f fence) Stop(ctx context.Context) error { return f.h.nodes.Stop(ctx) }
 
+func (f fence) Retire(ctx context.Context) error { return f.h.nodes.Retire(ctx) }
+
 func (f fence) Resume(ctx context.Context) error {
 	return f.h.nodes.Resume(ctx, f.h.backups.RegenerateFence)
 }

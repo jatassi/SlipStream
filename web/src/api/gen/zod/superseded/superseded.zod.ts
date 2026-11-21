@@ -3,6 +3,11 @@ import * as zod from "zod";
 import { SupersededView, WipeInputBody } from "../slipStream.schemas.zod.ts";
 
 /**
+ * @summary Retire this Controller after its library was restored on another machine
+ */
+export const RetireControllerResponse = zod.void();
+
+/**
  * @summary Read whether a restore on another machine replaced this Controller
  */
 export const GetSupersededResponse = SupersededView;

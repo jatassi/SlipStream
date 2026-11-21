@@ -11573,6 +11573,7 @@ export const SupersededView = zod.object({
   replacement: SupersededReplacement.exactOptional(),
   state: zod.enum(["none", "unproven", "proven", "stopped", "retired"]),
   worker: zod.string().exactOptional(),
+  workerId: zod.string().exactOptional(),
 });
 
 export type SupersededView = zod.input<typeof SupersededView>;

@@ -23,14 +23,20 @@ import (
 // fence is a Controller fenced by a proof vps-relay carried, recording
 // each Wipe.
 type fence struct {
-	f     nodes.Fence
-	wiped []joincode.Code
+	f       nodes.Fence
+	wiped   []joincode.Code
+	retired int
 }
 
 func (f *fence) Fenced(context.Context) (nodes.Fence, bool, error) { return f.f, true, nil }
 func (*fence) Name(nodes.ID) string                                { return "vps-relay" }
 func (*fence) Stop(context.Context) error                          { return nodes.ErrNotTold }
 func (*fence) Resume(context.Context) error                        { return nil }
+
+func (f *fence) Retire(context.Context) error {
+	f.retired++
+	return nil
+}
 
 func (f *fence) Wipe(_ context.Context, code joincode.Code) error {
 	f.wiped = append(f.wiped, code)
@@ -60,7 +66,7 @@ func serve(t *testing.T) (*ownertest.Owner, *fence) {
 // Worker that carried the proof.
 func TestTheSupersededPageReadsWhoReplacedThisController(t *testing.T) {
 	o, f := serve(t)
-	want := `{"state":"proven","at":"2026-11-14T10:12:00Z","replacement":{"key":"` + f.f.By.Fingerprint() + `","address":"192.168.1.20"},"worker":"vps-relay"}` + "\n"
+	want := `{"state":"proven","at":"2026-11-14T10:12:00Z","replacement":{"key":"` + f.f.By.Fingerprint() + `","address":"192.168.1.20"},"worker":"vps-relay","workerId":"` + f.f.ByNode.String() + `"}` + "\n"
 	if status, got := o.CallSignedIn(t, http.MethodGet, "/api/v1/superseded", ""); status != http.StatusOK || got != want {
 		t.Fatalf("getSuperseded = %d %s, want 200 %s", status, got, want)
 	}
@@ -95,5 +101,18 @@ func TestStopWithNoClaimIsRefused(t *testing.T) {
 	want := `{"status":409,"code":"not_told","title":"No Worker said a restore replaced this Controller"}` + "\n"
 	if status, got := o.CallSignedIn(t, http.MethodPost, "/api/v1/superseded/stop", ""); status != http.StatusConflict || got != want {
 		t.Fatalf("stopSupersededController = %d %s, want 409 %s", status, got, want)
+	}
+}
+
+// TestRetireNeedsAReconfirmedSession retires the Controller: the API key
+// is refused and never reaches Retire, a reconfirmed session retires it
+// with 204.
+func TestRetireNeedsAReconfirmedSession(t *testing.T) {
+	o, f := serve(t)
+	if status, _ := o.Call(t, http.MethodPost, "/api/v1/backups/retire", ""); status != http.StatusUnauthorized && status != http.StatusForbidden || f.retired != 0 {
+		t.Fatalf("the API key's retire = %d with %d retires, want it refused", status, f.retired)
+	}
+	if status, got := o.CallSignedIn(t, http.MethodPost, "/api/v1/backups/retire", ""); status != http.StatusNoContent || f.retired != 1 {
+		t.Fatalf("retireController = %d %s with %d retires, want 204 and one", status, got, f.retired)
 	}
 }

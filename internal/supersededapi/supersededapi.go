@@ -22,6 +22,9 @@ type Fence interface {
 	// Name is the name of the Node that carried the claim.
 	Name(node nodes.ID) string
 	Stop(ctx context.Context) error
+	// Retire makes this Controller Superseded where no Worker carries a
+	// proof.
+	Retire(ctx context.Context) error
 	Resume(ctx context.Context) error
 	// Wipe takes the superseded Backup, writes the wipe record and
 	// restarts, so the next start deletes the library and joins with code.
@@ -77,6 +80,8 @@ type view struct {
 	Replacement *replacement `json:"replacement,omitempty"`
 	// Worker is the name of the Node that carried the claim.
 	Worker *string `json:"worker,omitempty"`
+	// WorkerID is that Node's id, so its page can offer Stop.
+	WorkerID *nodes.ID `json:"workerId,omitempty"`
 }
 
 type replacement struct {
@@ -110,8 +115,8 @@ func viewOf(f nodes.Fence, fenced bool, name func(nodes.ID) string) view {
 		v.Replacement = &r
 	}
 	if !f.ByNode.IsZero() {
-		worker := name(f.ByNode)
-		v.Worker = &worker
+		worker, id := name(f.ByNode), f.ByNode
+		v.Worker, v.WorkerID = &worker, &id
 	}
 	return v
 }
@@ -146,6 +151,13 @@ func Routes(r *api.Router, n Fencer) {
 		Errors: []*api.Code{notTold}, WhileSuperseded: true,
 	}, func(ctx context.Context, _ identity.Admin, _ *struct{}) (*struct{}, error) {
 		return nil, answer(open(n).Stop(ctx))
+	})
+
+	api.Register(o, api.ReconfirmedSession, api.Op{
+		ID: "retireController", Method: http.MethodPost, Path: "/backups/retire",
+		Summary: "Retire this Controller after its library was restored on another machine", Status: http.StatusNoContent,
+	}, func(ctx context.Context, _ identity.Admin, _ *struct{}) (*struct{}, error) {
+		return nil, open(n).Retire(ctx)
 	})
 
 	api.Register(o, api.ReconfirmedSession, api.Op{
