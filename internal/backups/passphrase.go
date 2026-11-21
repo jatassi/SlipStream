@@ -50,22 +50,27 @@ func (b *Backups) Check(typed string) (bool, error) {
 // Replace makes a new passphrase, and a new fence secret with it, so the
 // current one is no longer saved, then starts a Backup with it. With
 // deleteOlder, every Backup of an earlier passphrase is deleted, copies
-// included, once that Backup passes its check.
+// included, once the first Backup of the new one passes its check, which
+// the index records so a stop before that Backup keeps the choice.
 func (b *Backups) Replace(ctx context.Context, by storage.UUID, deleteOlder bool) (*Run, error) {
 	v, err := b.cfg.Engine.Vault(b.cfg.Keys)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := v.Replace(b.cfg.Engine.cfg.Rand); err != nil {
+	gen, err := v.Replace(b.cfg.Engine.cfg.Rand)
+	if err != nil {
 		return nil, err
 	}
 	if err := b.cfg.Engine.Index().Update(func(l *Ledger) error {
-		l.PassphraseConfirmedAt, l.Sheet = time.Time{}, Sheet{}
+		l.PassphraseConfirmedAt, l.Sheet, l.DeleteBefore = time.Time{}, Sheet{}, 0
+		if deleteOlder {
+			l.DeleteBefore = gen
+		}
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return b.Take(ctx, Request{Trigger: archive.Manual, By: by, DeleteOlder: deleteOlder})
+	return b.Take(ctx, Request{Trigger: archive.Manual, By: by})
 }
 
 // Delete deletes a listed Backup and its copies. The newest Backup that

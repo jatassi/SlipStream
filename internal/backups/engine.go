@@ -98,7 +98,6 @@ type request struct {
 	Trigger          archive.Trigger
 	By               string
 	WhileReconciling bool
-	DeleteOlder      bool
 	// Retention prunes once the Backup passes; nil prunes nothing, as in
 	// the hook, which can't read stored settings yet.
 	Retention *Retention
@@ -208,8 +207,8 @@ func (e *Engine) taking(ctx context.Context, src source, req request) (Entry, er
 }
 
 // passed lists done as it passed its check and marks what it lets go
-// Deleting: what retention prunes, and with DeleteOlder every Backup of
-// an earlier passphrase.
+// Deleting: what retention prunes and, once done is of the passphrase
+// DeleteBefore names or a later one, every Backup of an earlier one.
 func (l *Ledger) passed(done Entry, req request) {
 	l.set(done)
 	if req.Retention != nil {
@@ -219,8 +218,9 @@ func (l *Ledger) passed(done Entry, req request) {
 			l.set(pruned)
 		}
 	}
-	if req.DeleteOlder {
-		l.deleteBefore(done.Generation)
+	if l.DeleteBefore != 0 && done.Generation >= l.DeleteBefore {
+		l.deleteBefore(l.DeleteBefore)
+		l.DeleteBefore = 0
 	}
 }
 

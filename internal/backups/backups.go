@@ -112,9 +112,6 @@ type Request struct {
 	Trigger archive.Trigger
 	// By is the Admin who pressed Back up now, zero otherwise.
 	By storage.UUID
-	// DeleteOlder deletes every Backup of an earlier passphrase once this
-	// one passes its check.
-	DeleteOlder bool
 }
 
 // Run answers Wait once its Backup ends.
@@ -200,7 +197,7 @@ func (b *Backups) backup(ctx context.Context, p *tasks.Progress) error {
 	b.mu.Unlock()
 	req := request{Trigger: archive.Scheduled}
 	if run != nil {
-		req.Trigger, req.DeleteOlder = run.req.Trigger, run.req.DeleteOlder
+		req.Trigger = run.req.Trigger
 		if !run.req.By.IsZero() {
 			req.By = run.req.By.String()
 		}

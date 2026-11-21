@@ -69,6 +69,36 @@ func TestReplaceDeletesOlderBackupsOnceTheNewOnePasses(t *testing.T) {
 	}
 }
 
+func TestReplacesDeleteOlderSurvivesAStopBeforeItsBackup(t *testing.T) {
+	w := newWorld(t)
+	w.opened("2.1.0")
+	older := w.taken(archive.Manual)
+	w.free.Store(0)
+	run, err := w.backups.Replace(t.Context(), storage.NewUUID(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run.Wait(t.Context()); err == nil {
+		t.Fatal("the Backup of the new passphrase passed with no room")
+	}
+	w.free.Store(1 << 40)
+	w.wg.Wait()
+	w.opened("2.1.0")
+	if got, want := w.listed(), []string{older.Name.String() + " verified"}; !slices.Equal(got, want) {
+		t.Fatalf("after the restart listed %q, want the older Backup kept until a Backup of the new passphrase passes", got)
+	}
+	next := w.taken(archive.Scheduled)
+	if got, want := w.listed(), []string{next.Name.String() + " verified"}; !slices.Equal(got, want) {
+		t.Fatalf("listed %q, want only the first Backup of the new passphrase %q", got, want)
+	}
+	if got := w.generations(); !slices.Equal(got, []backups.Generation{next.Generation}) {
+		t.Fatalf("backup.key keeps generations %v, want only %d", got, next.Generation)
+	}
+	if w.ledger().DeleteBefore != 0 {
+		t.Fatal("the index still asks the next Backup to delete older ones")
+	}
+}
+
 func TestReplaceKeepsThemWithDeleteOlderOff(t *testing.T) {
 	w := newWorld(t)
 	w.opened("2.1.0")
