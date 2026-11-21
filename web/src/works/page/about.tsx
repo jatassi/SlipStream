@@ -13,11 +13,11 @@ import type {
   WorksWebLink,
   WorksWorkView,
 } from "../../api/gen/model";
-import { clock } from "../../format";
 import { Data } from "../../ui/data";
 import { Details } from "../../ui/details";
 import { Fact, Facts } from "../../ui/facts";
 import { Icon } from "../../ui/icon";
+import { RelativeTime } from "../../ui/relative-time";
 import { Section } from "../../ui/section";
 // oxlint-disable-next-line import/max-dependencies -- About shows every place a type puts a field, with its art and links
 import { type Placed, codeOf, placedOf } from "../fields-by-tier";
@@ -137,7 +137,7 @@ export function Ratings({ ratings }: { ratings: readonly WorksRating[] }) {
           <Data className="text-ink-1">{ratingValue(rating)}</Data>
           <span className="text-meta text-ink-3">
             {rating.votes !== null && `${votesOf(rating.votes)} · `}fetched{" "}
-            <Data>{clock(rating.fetchedAt)}</Data>
+            <RelativeTime at={rating.fetchedAt} form="clock" data />
           </span>
         </li>
       ))}

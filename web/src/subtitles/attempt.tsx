@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 import { sentenceOf } from "../api/errors";
 import type { SubtitlesProvider } from "../api/gen/model";
-import { useNow } from "../tasks/use-now";
+import { useClock } from "../ui/clock";
 import { SignalLine } from "../ui/signal-line";
 import { Spinner } from "../ui/spinner";
 import { toast } from "../ui/toast";
@@ -41,7 +41,7 @@ export function AttemptLine({
   line: ReturnType<typeof useAttemptLine>;
   providers: readonly SubtitlesProvider[];
 }) {
-  const clock = { now: useNow(60_000), zone: undefined };
+  const clock = useClock();
   if (error !== null) {
     return (
       <SignalLine tone="fail" announce>

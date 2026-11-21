@@ -10,9 +10,11 @@ import { bytes } from "../../format";
 import { ProgressCell } from "../../grabs/progress-cell";
 import { isFailed } from "../../grabs/stages";
 import { waitWords } from "../../grabs/search-words";
-import { useNow } from "../../tasks/use-now";
 import { useQualityNames } from "../../targets/quality-names";
+import { type Clock, useClock } from "../../ui/clock";
 import { Data } from "../../ui/data";
+import { whenWords } from "../../ui/time-words";
+// oxlint-disable-next-line import/max-dependencies -- a cell names its file, its held step and its wait, each on the shared clock
 import { GrabNowButton } from "./grab-now";
 
 function FileFacts({ file }: { file: FilesLibraryFile }) {
@@ -41,11 +43,9 @@ const stepWords: { readonly [S in FilesStep]: (node: string) => string } = {
   waiting: () => "Waiting for you",
 };
 
-const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
-
 /** "Waiting for the import delay, until 4:10 PM." */
-export const delayWords = (until: string): string =>
-  `Waiting for the import delay, until ${time.format(new Date(until))}.`;
+const delayWords = (until: string, clock: Clock): string =>
+  `Waiting for the import delay, ${whenWords(until, "until", clock)}.`;
 
 type Held = Pick<FilesHeldCell, "grabId" | "until"> & { readonly step: FilesStep | null };
 
@@ -53,13 +53,14 @@ function HeldFacts({ held, grabs }: { held: Held; grabs: readonly GrabsGrab[] })
   const { nodes } = useListNodesSuspense().data;
   const nodeId = grabs.find(({ id }) => id === held.grabId)?.nodeId;
   const node = nodes.find(({ id }) => id === nodeId)?.name ?? "another Node";
+  const clock = useClock();
   return (
     <>
       {held.step !== null && (
         <span className="text-meta text-ink-2">{stepWords[held.step](node)}</span>
       )}
       {held.until !== null && (
-        <span className="text-meta text-ink-3">{delayWords(held.until)}</span>
+        <span className="text-meta text-ink-3">{delayWords(held.until, clock)}</span>
       )}
     </>
   );
@@ -70,14 +71,14 @@ function HeldFacts({ held, grabs }: { held: Held; grabs: readonly GrabsGrab[] })
  * the Releases a wait holds for it, with Grab now.
  */
 function SearchFacts({ cell, workId }: { cell: Searchable; workId: string }) {
-  const now = useNow(30_000);
+  const clock = useClock();
   return (
     <>
       {cell.gone && <span className="text-meta text-ink-3">File gone</span>}
       {cell.waitUntil !== null && (
         <>
           <span className="text-meta text-ink-2">
-            {waitWords(cell.candidates, cell.waitUntil, { now, zone: undefined })}
+            {waitWords(cell.candidates, cell.waitUntil, clock)}
           </span>
           <GrabNowButton
             workId={workId}

@@ -14,6 +14,7 @@ import { useListRootsSuspense } from "../../api/gen/query/roots/roots";
 import { SendToSheet } from "../../grabs/send-to-sheet";
 import { rootWords } from "../../roots/words";
 import { Callout } from "../../ui/callout";
+import { useClock } from "../../ui/clock";
 import { type ImportWait, type Naming, clientErrorWords, importWaitWords } from "./need-words";
 
 /** A waiting Grab that the Admin can send to another client. */
@@ -97,6 +98,7 @@ function ClientErrorWait({
   error: FilesClientError;
 }) {
   const navigate = useNavigate();
+  const clock = useClock();
   const torrentId = grab?.torrentId ?? null;
   return (
     <Callout
@@ -119,7 +121,7 @@ function ClientErrorWait({
             }
       }
     >
-      {clientErrorWords(error)}
+      {clientErrorWords(error, clock)}
     </Callout>
   );
 }

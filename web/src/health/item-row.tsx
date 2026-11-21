@@ -1,5 +1,4 @@
 import type { HealthCategoryID, HealthItem } from "../api/gen/model";
-import { PlainTime } from "../ui/relative-time";
 import { useShell } from "../ui/shell-context";
 import { SignalRow } from "../ui/signal-row";
 import { ItemBody } from "./item-body";
@@ -23,7 +22,7 @@ export function ItemRow({ category, item }: ItemProps) {
           subject={item.subject}
           verdict={item.text}
           timeLead="since"
-          time={<PlainTime at={item.since} form="clock" />}
+          at={item.since}
         >
           <ItemBody category={category} item={item} />
         </SignalRow>

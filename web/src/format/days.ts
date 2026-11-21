@@ -68,6 +68,7 @@ const longDayYear = formatter({
   month: "long",
   year: "numeric",
 });
+const shortMonth = formatter({ month: "short", year: "numeric" });
 const shortWeekday = formatter({ weekday: "short" });
 const longWeekday = formatter({ weekday: "long" });
 
@@ -87,6 +88,25 @@ export function dayWords(date: string): string {
   const at = new Date(Date.UTC(year, monthPart - 1, dayPart ?? 1));
   return dayPart === undefined ? monthYear.format(at) : fullDate.format(at);
 }
+
+/** A stored date at the source's precision in a column's short words: "Apr 9, 2021", "Apr 2021" or "2021". */
+export function shortDayWords(date: string): string {
+  const [year = 0, month, day] = date.split("-").map(Number);
+  if (month === undefined) {
+    return String(year);
+  }
+  const at = new Date(Date.UTC(year, month - 1, day ?? 1));
+  return day === undefined ? shortMonth.format(at) : shortDate.format(at);
+}
+
+const localDay = new Intl.DateTimeFormat(undefined, {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+/** The day an instant falls on in the person's zone: "Nov 19, 2026". */
+export const localDayWords = (at: Date): string => localDay.format(at);
 
 export const monthWords = ({ year, month }: Month): string =>
   monthYear.format(new Date(Date.UTC(year, month - 1, 1)));

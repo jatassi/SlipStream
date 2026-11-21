@@ -4,10 +4,10 @@ import type { FilesNotFoundNeed, FilesUpgradeNeed, WorksContentType } from "../.
 import { ManualSearchButton, useStartSearch } from "../../grabs/search";
 import { Button } from "../../ui/button";
 import { Callout } from "../../ui/callout";
+import { useClock } from "../../ui/clock";
 import { List, ListRow } from "../../ui/list";
 import { notFoundWords } from "../../grabs/search-words";
 import { useWorkSearching } from "../../grabs/searching-query";
-import { useNow } from "../../tasks/use-now";
 import { type Naming, notFoundSubject, upgradeWords } from "./need-words";
 
 export function Upgrades({
@@ -66,7 +66,7 @@ export function NotFound({
   needs: readonly FilesNotFoundNeed[];
 }) {
   const search = useStartSearch();
-  const now = useNow(30_000);
+  const clock = useClock();
   const { groups } = useWorkSearching(naming.work.id);
   return (
     <List label="Not found">
@@ -76,7 +76,7 @@ export function NotFound({
           <ListRow
             key={`${need.itemIds.join(" ")} ${need.edition}`}
             title={notFoundSubject(naming, need)}
-            meta={group === undefined ? undefined : notFoundWords(group, { now, zone: undefined })}
+            meta={group === undefined ? undefined : notFoundWords(group, clock)}
             trailing={
               <span className="flex gap-2">
                 <Button

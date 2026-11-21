@@ -2,7 +2,7 @@ import { Collapsible } from "@base-ui/react/collapsible";
 import type { ReactNode } from "react";
 
 import { Chevron } from "./chevron";
-import { Data } from "./data";
+import { PlainTime } from "./relative-time";
 import { useShell } from "./shell-context";
 import { SignalChip } from "./signal-chip";
 
@@ -19,7 +19,7 @@ export function SignalRow({
   chip,
   subject,
   verdict,
-  time,
+  at,
   timeLead,
   children,
 }: {
@@ -27,8 +27,8 @@ export function SignalRow({
   chip: string;
   subject: string;
   verdict: string;
-  /** A PlainTime, since the whole row is the button that opens it. */
-  time?: ReactNode;
+  /** The instant the row's time names, read as a clock time. */
+  at?: string;
   /** A word before the time, such as "since". */
   timeLead?: string;
   children: ReactNode;
@@ -53,8 +53,8 @@ export function SignalRow({
         <span className="truncate font-semibold [grid-area:subject]">{subject}</span>
         <span className={`line-clamp-2 [grid-area:verdict] ${look.dim}`}>{verdict}</span>
         <span className={`justify-self-end whitespace-nowrap [grid-area:time] ${look.dim}`}>
-          {timeLead !== undefined && `${timeLead} `}
-          <Data>{time}</Data>
+          {at !== undefined && timeLead !== undefined && `${timeLead} `}
+          {at !== undefined && <PlainTime at={at} form="clock" data />}
         </span>
       </Collapsible.Trigger>
       <Collapsible.Panel className="px-4 pb-4">{children}</Collapsible.Panel>

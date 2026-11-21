@@ -796,7 +796,7 @@
       }
     },
     {
-      "files": ["src/format/**", "src/library/values.ts", "src/works/page/cell-facts.tsx"],
+      "files": ["src/format/**"],
       "rules": {
         "slipstream/no-restricted-syntax": [
           "error",

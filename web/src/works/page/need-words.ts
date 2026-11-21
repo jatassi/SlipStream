@@ -7,7 +7,9 @@ import type {
   WorksContentType,
   WorksWorkView,
 } from "../../api/gen/model";
-import { bytes, clock } from "../../format";
+import { bytes } from "../../format";
+import type { Clock } from "../../ui/clock";
+import { whenWords } from "../../ui/time-words";
 import { type FailedGrab, trackStage } from "../../grabs/stages";
 import { stageLabel } from "../../ui/stage-track";
 import { codeOf } from "../fields-by-tier";
@@ -71,9 +73,12 @@ export function notFoundSubject(naming: Naming, need: FilesNotFoundNeed): string
 export const upgradeWords = (naming: Naming, need: FilesUpgradeNeed): string =>
   `Upgrade available for ${cellsOf(naming, need, need.upgrades)}`;
 
-export const clientErrorWords = ({ client, node, message, failsAt }: FilesClientError) => {
+export const clientErrorWords = (
+  { client, node, message, failsAt }: FilesClientError,
+  clock: Clock,
+) => {
   const said = /[.!?]$/u.test(message) ? message : `${message}.`;
-  return `${client} on ${node} reports "${said}" Fix it in ${client}. SlipStream fails this Grab if the error lasts past ${clock(failsAt)}.`;
+  return `${client} on ${node} reports "${said}" Fix it in ${client}. SlipStream fails this Grab if the error lasts ${whenWords(failsAt, "until", clock)}.`;
 };
 
 /** The words of an Import's wait, which Pending imports shows in full. */

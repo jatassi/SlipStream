@@ -1,6 +1,3 @@
-import type { Clock } from "./ui/clock";
-import { placeOf, timeForms, whenWords } from "./ui/time-words";
-
 const units = ["bytes", "KB", "MB", "GB", "TB"] as const;
 
 export function bytes(count: number): string {
@@ -90,14 +87,3 @@ export function lengthWords(milliseconds: number): string {
   const hours = Math.floor(seconds / hour);
   return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
 }
-
-// The frozen Work page and Library, and their tests, word times through these
-// until S46 merges, when they move onto ui/time-words and these go.
-export const clock = (iso: string): string =>
-  timeForms.clock(placeOf(iso, { now: new Date(), zone: undefined }));
-export const laterAtWords = (iso: string, reading: Clock): string =>
-  whenWords(iso, "next", reading);
-export const pastAtWords = (iso: string, reading: Clock): string => whenWords(iso, "at", reading);
-export const laterWords = (iso: string, reading: Clock): { words: string } => ({
-  words: whenWords(iso, "until", reading).replace(/^until /u, ""),
-});

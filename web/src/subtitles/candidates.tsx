@@ -11,12 +11,11 @@ import type {
   SubtitlesProvider,
 } from "../api/gen/model";
 import { pickSubtitleCandidate } from "../api/gen/query/subtitles/subtitles";
-import { useNow } from "../tasks/use-now";
 import { Button } from "../ui/button";
 import { Chip } from "../ui/chip";
 import { useClock } from "../ui/clock";
-// oxlint-disable-next-line import/max-dependencies -- the sheet reads the search, picks and follows the attempt it starts
 import { Data } from "../ui/data";
+// oxlint-disable-next-line import/max-dependencies -- the sheet reads the search, picks and follows the attempt it starts
 import { Details } from "../ui/details";
 import { Icon } from "../ui/icon";
 import { SignalLine } from "../ui/signal-line";
@@ -40,7 +39,7 @@ function Notes({
   outcomes: readonly SubtitlesOutcome[];
   providers: readonly SubtitlesProvider[];
 }) {
-  const clock = { now: useNow(60_000), zone: undefined };
+  const clock = useClock();
   return outcomes
     .filter(({ kind }) => kind !== "ok")
     .map((outcome) => (
