@@ -296,15 +296,15 @@ func admitMiddleware[P any](r *Router, level Level[P], fenced bool) func(huma.Co
 			writeProblem(w, code.problem())
 			return
 		}
-		if fenced && r.services.Superseded != nil && r.services.Superseded() {
-			writeProblem(w, Superseded.problem())
-			return
-		}
 		c, ok := r.caller(w, req, level.authenticates)
 		if !ok {
 			return
 		}
 		err := level.admit(ctx.Context(), r.services.Gate, c, ctx.Header(setupCodeHeader), func(p P) {
+			if fenced && r.services.Superseded != nil && r.services.Superseded() {
+				writeProblem(w, Superseded.problem())
+				return
+			}
 			next(huma.WithValue(ctx, principalKey{}, p))
 		})
 		if err == nil {
