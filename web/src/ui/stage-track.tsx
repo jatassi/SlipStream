@@ -1,3 +1,5 @@
+import { definedWord } from "./defined";
+import { Popover } from "./popover";
 import { useShell } from "./shell-context";
 
 export const stages = [
@@ -33,6 +35,14 @@ const segmentLook: { readonly [S in Segment]: string } = {
   ahead: "flex-1 bg-fill",
   "not-needed": "flex-[0.45] ring-1 ring-hairline-strong ring-inset",
   failed: "flex-1 bg-fail",
+};
+
+const segmentWord: { readonly [S in Segment]: string } = {
+  done: "Done",
+  current: "In progress",
+  ahead: "Not started",
+  "not-needed": "Not needed",
+  failed: "Failed",
 };
 
 const sizeLook = {
@@ -81,26 +91,101 @@ function trackRole(title: string, progress: TrackProgress, skipped: readonly Sta
 
 const noSkips: readonly Stage[] = [];
 
+/** Where the track's journey starts and ends, named under its two ends. */
+export type TrackLabels = "none" | "ends";
+
+/**
+ * A job's track, one segment per stage. A phone draws it large with its
+ * ends named, so a skipped stage's outline sits inside a journey that reads
+ * Searching to Available.
+ */
 export function StageTrack({
   title,
   progress,
   skipped = noSkips,
   size = "default",
+  labels = "none",
 }: {
   title: string;
   progress: TrackProgress;
   skipped?: readonly Stage[];
   size?: keyof typeof sizeLook;
+  labels?: TrackLabels;
 }) {
-  const shown = useShell() === "phone" ? "large" : size;
-  return (
+  const phone = useShell() === "phone";
+  const track = (
     <div
       {...trackRole(title, progress, skipped)}
-      className={`flex w-full gap-[3px] ${sizeLook[shown]}`}
+      className={`flex w-full gap-[3px] ${sizeLook[phone ? "large" : size]}`}
     >
       {stages.map((stage) => (
         <span key={stage} className={segmentLook[segmentOf(stage, progress, skipped)]} />
       ))}
     </div>
+  );
+  if (!phone && labels === "none") {
+    return track;
+  }
+  return (
+    <div className="flex w-full flex-col gap-1">
+      {track}
+      <span aria-hidden="true" className="flex justify-between text-meta text-ink-3">
+        <span>{stageLabel.searching}</span>
+        <span>{stageLabel.available}</span>
+      </span>
+    </div>
+  );
+}
+
+/** The six stops, each with its segment's look and its word for this track. */
+function StageLegend({
+  progress,
+  skipped,
+}: {
+  progress: TrackProgress;
+  skipped: readonly Stage[];
+}) {
+  return (
+    <ul className="flex flex-col gap-2">
+      {stages.map((stage) => {
+        const segment = segmentOf(stage, progress, skipped);
+        return (
+          <li key={stage} className="flex items-center gap-3 text-meta">
+            <span className="flex h-1.5 w-4 shrink-0 *:rounded-[1.5px]">
+              <span className={segmentLook[segment]} />
+            </span>
+            <span className="flex-1 text-ink-1">{stageLabel[stage]}</span>
+            <span className="text-ink-3">{segmentWord[segment]}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** A job's stage word over its track, which opens the track's legend on hover, tap and Enter. */
+export function StageWord({
+  word,
+  title,
+  progress,
+  skipped = noSkips,
+}: {
+  word: string;
+  title: string;
+  progress: TrackProgress;
+  skipped?: readonly Stage[];
+}) {
+  return (
+    <Popover
+      label={`Stages of ${title}`}
+      opensOn="hover"
+      trigger={
+        <button type="button" className={`rounded-chip text-left ${definedWord}`}>
+          {word}
+        </button>
+      }
+    >
+      <StageLegend progress={progress} skipped={skipped} />
+    </Popover>
   );
 }

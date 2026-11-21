@@ -75,7 +75,12 @@ function Work({
         {work}
       </h3>
       {track && (
-        <StageTrack title={work} progress={{ kind: "failed", stage }} skipped={track.skipped} />
+        <StageTrack
+          title={work}
+          progress={{ kind: "failed", stage }}
+          skipped={track.skipped}
+          labels="ends"
+        />
       )}
     </div>
   );

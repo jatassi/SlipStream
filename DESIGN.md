@@ -615,7 +615,9 @@ The first line of every page that watches live work. It reads as one sentence of
 
 A job's path from Searching to Available, one segment per stage (Searching, Downloading, Transfer, Import, Conversion, Available). Segments are 6px tall (8px on phone and in the Inspector) with 3px gaps.
 
-A Grab's track keeps all six stops, and only the lit stop follows its stage. Downloading lights while the Grab fetches and downloads. Transfer lights while any file of its Import is sending from another Node, and Import lights for the rest of the Import. A failed Grab lights the stop of the stage it failed at, and an imported Grab reads Available. A Grab's Conversion stop reads Not needed.
+A Grab's track keeps all six stops, and only the lit stop follows its stage. Downloading lights while the Grab fetches and downloads. Transfer lights while any file of its Import is sending from another Node, and Import lights for the rest of the Import. A failed Grab lights the stop of the stage it failed at. A Grab's Conversion stop reads Not needed. An imported Grab shows the quiet Imported mark (a tick in `ink-3`) in place of its word and track, so the work still moving stands out.
+
+The stage word over a track has the dotted underline of a defined word and opens the track's legend on hover, tap and Enter, a detail Popover named "Stages of" and the Work. It lists the six stops, each with its segment in its look, the stop's name in `ink-1` and the segment's word in `ink-3`: Done, In progress, Not started, Not needed or Failed. On phone, and in a full failure card, the track names its ends, Searching under its left end and Available under its right, in Meta at `ink-3`.
 - **Done:** Flat `ink-2`.
 - **Current:** `ink-1` with the live glow.
 - **Ahead:** `fill`.

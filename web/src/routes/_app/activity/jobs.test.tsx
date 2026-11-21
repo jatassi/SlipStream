@@ -116,6 +116,7 @@ test("Activity leads with what moves and what failed, then the failure, then eac
     .element(harvestCard())
     .toMatchTextContent(
       "Orchard Harvest" +
+        "SearchingAvailable" +
         "Cause" +
         "SlipStream couldn't download the release's .torrent file or magnet link from the Indexer." +
         "Recovery" +

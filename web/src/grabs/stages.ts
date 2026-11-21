@@ -1,4 +1,7 @@
+import { Tick02Icon } from "@hugeicons/core-free-icons";
+
 import type { GrabsFailure, GrabsFailureStage, GrabsGrab, GrabsGrabStage } from "../api/gen/model";
+import type { StatusMark } from "../ui/state-marks";
 import type { Stage, TrackProgress } from "../ui/stage-track";
 
 export const stageWord = {
@@ -8,6 +11,13 @@ export const stageWord = {
   imported: "Imported",
   failed: "Failed",
 } as const satisfies Record<GrabsGrabStage, string>;
+
+/** A finished Grab's quiet mark, in place of a track whose work is done. */
+export const importedMark: StatusMark = {
+  word: stageWord.imported,
+  icon: Tick02Icon,
+  tone: "quiet",
+};
 
 const stopOf = {
   fetching: "downloading",

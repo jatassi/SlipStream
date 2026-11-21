@@ -20,7 +20,8 @@ export type Defines<S extends string, Row extends Term, Plain extends S = never>
     (K extends Plain ? { readonly definition?: never } : { readonly definition: Definition });
 };
 
-const definedWord = "underline decoration-ink-4 decoration-dotted underline-offset-3";
+/** The dotted underline of a word that opens what it means. */
+export const definedWord = "underline decoration-ink-4 decoration-dotted underline-offset-3";
 
 const trigger =
   "relative inline-flex rounded-chip before:absolute before:-inset-x-1 before:-inset-y-2 focus-visible:outline-2 focus-visible:outline-offset-2";

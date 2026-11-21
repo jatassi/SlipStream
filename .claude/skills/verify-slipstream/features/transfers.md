@@ -16,7 +16,7 @@ A Transfer copies a finished download's files from the Node that downloaded them
 
 - Desktop shell: `Nodes`, the Node in the Roster or the picker, then its `Transfers` page tab, `/nodes/<id>/transfers`. The palette's `Go to Transfers` opens it for the browser's own Node, home.
 - Phone shell: `More`, then `Nodes`, the Node's row in the Roster, then `Transfers` in the list named for the Node, a pushed page.
-- Activity: a Grab whose Import is sending a file reads `Importing` in `Stage`, with its track lighting Transfer, and the Import's words in `Progress`.
+- Activity: a Grab whose Import is sending a file reads `Importing` in `Stage`, with its track lighting Transfer, and the Import's words in `Progress`. Hovering or tapping `Importing` opens `Stages of <Work>`, each stop with its word, such as `Transfer` `In progress` and `Conversion` `Not needed`.
 - API on the Controller (Admin): `GET /api/v1/transfers` with `nodeId` or `source` (an info hash), `GET /api/v1/transfers/{id}`, `GET /api/v1/transfers/speeds`, `GET` and `PATCH /api/v1/transfers/nodes/{nodeId}/settings` with `{"sendLimit": <bytes a second>}`, and the event `transfers.changed`. `GET /api/v1/grabs` carries the Grab's `import`, whose `sending` counts the files a Transfer is sending. A Transfer's `purpose` reads `import`, and its `job` is the id of the Import that asked for it.
 
 ## Driving it with fakeworld, curl and playwright cli
