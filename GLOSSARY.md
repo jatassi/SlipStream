@@ -205,7 +205,7 @@ _Avoid_: Backup target, backup location, remote
 
 **Backup passphrase**:
 The ten generated words that encrypt every new Backup. The Controller keeps a copy, and the Admin needs it only to restore a Backup on another machine.
-_In UI_: "Backup passphrase", or "passphrase" inside Settings > Backups.
+_In UI_: "Backup passphrase", or "passphrase" inside Settings > Backups. A Node's Backups section and the first-run restore count as outside it.
 _Avoid_: Backup password, encryption key, recovery key
 
 **Recovery sheet**:
@@ -214,13 +214,13 @@ _In UI_: "recovery sheet".
 _Avoid_: Recovery kit, emergency kit, recovery file
 
 **Reconciling**:
-The state every restored Controller starts in, including after a manual rollback, until it matches the Backup to what Nodes hold: each Node keeps every torrent it holds, the Controller adopts the ones it doesn't know, and work in flight from the Backup pauses. Nothing searches, blocklists, or removes or renames a torrent or file until it finishes.
+The state every restored Controller starts in, including after a manual rollback, until it matches the Backup to what Nodes hold. Each Node keeps every torrent it holds, the Controller adopts the ones it doesn't know, and work in flight from the Backup pauses. Nothing searches, blocklists, or removes or renames a torrent or file until it finishes.
 _In UI_: "Reconciling", with its hover definition.
 _Avoid_: Resync, recovery mode
 
 **Superseded**:
 The state of a Controller that a restore of its Backup on another machine replaced, proven by a Worker that carries the new Controller's proof, or that an Admin stopped or retired. It keeps every torrent paused, runs nothing and shows one page, which offers to wipe it and join the new Controller as a Worker.
-_In UI_: none; the page says "This Controller was replaced".
+_In UI_: none. The page says "This Controller was replaced".
 _Avoid_: Fenced, old Controller, zombie
 
 **Role**:
@@ -685,7 +685,7 @@ _In UI_: "Member".
 _Avoid_: Portal user, user, guest
 
 **Setup code**:
-A one-time code a Node prints to its console and log, which unlocks its own page: on a fresh install, to create the first Admin, join a SlipStream or restore a Backup; on a Worker out of reach of its Controller for a while, to pair it with another one. A recovery sheet names it as the way into a new machine's restore.
+A one-time code a Node prints to its console and log, which unlocks its own page. On a fresh install that page creates the first Admin, joins a SlipStream or restores a Backup. On a Worker out of reach of its Controller for a while, it pairs the Worker with another Controller. A recovery sheet names it as the way into a new machine's restore.
 _In UI_: "Setup code".
 _Avoid_: Bootstrap token, install key
 
