@@ -174,7 +174,7 @@ test("outside a restore the page lists only the Nodes that keep their torrents, 
   await expect
     .element(
       page.getByText(
-        "A newly paired Node keeps every torrent until SlipStream matches the torrents it reports with the library.",
+        "A newly paired Node keeps every torrent until SlipStream has matched its list of torrents with the library.",
       ),
     )
     .toBeVisible();

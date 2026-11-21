@@ -28,7 +28,7 @@ export function Lead({ page, clock }: { page: ReconcilingPage; clock: Clock }) {
       <p className="max-w-[64ch] text-ink-1">
         {page.nodes.length === 0
           ? "Every Node's torrents are matched with the library."
-          : "A newly paired Node keeps every torrent until SlipStream matches the torrents it reports with the library."}
+          : "A newly paired Node keeps every torrent until SlipStream has matched its list of torrents with the library."}
       </p>
     );
   }

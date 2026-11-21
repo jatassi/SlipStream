@@ -62,7 +62,7 @@ func (s *Service) waits(ctx context.Context) (on bool, w Waits, names map[nodes.
 }
 
 func refusalWords(w Waits, names map[nodes.ID]string) string {
-	const lead = "SlipStream is matching the restored library with what your Nodes hold. "
+	const lead = "SlipStream is matching the restored library with the torrents and files on your Nodes. "
 	var on []string
 	if w.Rehome {
 		on = append(on, "the old Controller's folders")
