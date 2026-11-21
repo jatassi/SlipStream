@@ -53,23 +53,15 @@ func Open(ctx context.Context, lib *storage.DB[file], path string) (*Keys, error
 	if err != nil && !errors.Is(err, storage.ErrNoRows) {
 		return nil, err
 	}
-	k, err := readKey(path)
+	k, err := Verify(path, stored, hasRow)
 	switch {
-	case errors.Is(err, fs.ErrNotExist) && hasRow:
-		return nil, &storage.RefusedError{Err: errMissing}
 	case errors.Is(err, fs.ErrNotExist):
 		if k, err = createKey(path); err != nil {
 			return nil, err
 		}
-	case errors.Is(err, errMalformed) && hasRow:
-		return nil, &storage.RefusedError{Err: errForeign}
 	case err != nil:
 		return nil, err
-	}
-	if hasRow {
-		if subtle.ConstantTimeCompare(stored, k.check()) != 1 {
-			return nil, &storage.RefusedError{Err: errForeign}
-		}
+	case hasRow:
 		return k, nil
 	}
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
@@ -77,6 +69,30 @@ func Open(ctx context.Context, lib *storage.DB[file], path string) (*Keys, error
 	})
 	if err != nil {
 		return nil, err
+	}
+	return k, nil
+}
+
+// ReadKeys reads library.key at path with no database.
+func ReadKeys(path string) (*Keys, error) { return readKey(path) }
+
+// Verify reads library.key at path and checks it against the secret set's
+// schema 1 check row, which the caller read with no database open. With a
+// row, a missing or foreign file is a *storage.RefusedError, so a start
+// exits 5 with Open's text. With no row, a missing file is fs.ErrNotExist.
+func Verify(path string, check []byte, hasRow bool) (*Keys, error) {
+	k, err := readKey(path)
+	switch {
+	case !hasRow:
+		return k, err
+	case errors.Is(err, fs.ErrNotExist):
+		return nil, &storage.RefusedError{Err: errMissing}
+	case errors.Is(err, errMalformed):
+		return nil, &storage.RefusedError{Err: errForeign}
+	case err != nil:
+		return nil, err
+	case subtle.ConstantTimeCompare(check, k.check()) != 1:
+		return nil, &storage.RefusedError{Err: errForeign}
 	}
 	return k, nil
 }

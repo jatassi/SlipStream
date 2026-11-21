@@ -170,3 +170,62 @@ func refused(t *testing.T, err error, want string) {
 		t.Fatalf("err = %v, want *storage.RefusedError %q", err, want)
 	}
 }
+
+func checkRow(t *testing.T, path string) []byte {
+	t.Helper()
+	lib := storagetest.Library(t, secret.Schema())
+	if _, err := secret.Open(t.Context(), lib, path); err != nil {
+		t.Fatal(err)
+	}
+	var check []byte
+	if err := lib.QueryRowContext(t.Context(), "SELECT value FROM secret_check WHERE id = 1").Scan(&check); err != nil {
+		t.Fatal(err)
+	}
+	return check
+}
+
+func TestVerifyAcceptsItsOwnKey(t *testing.T) {
+	path := keyPath(t)
+	write(t, path, fixedKey)
+	keys, err := secret.Verify(path, checkRow(t, path), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := hex.EncodeToString(keys.PINPepper()); got != fixedPepper {
+		t.Fatalf("PINPepper = %s, want %s", got, fixedPepper)
+	}
+	read, err := secret.ReadKeys(path)
+	if err != nil || hex.EncodeToString(read.PINPepper()) != fixedPepper {
+		t.Fatalf("ReadKeys = %v; want the same key", err)
+	}
+}
+
+func TestVerifyRefusesAForeignKey(t *testing.T) {
+	path := keyPath(t)
+	write(t, path, fixedKey)
+	check := checkRow(t, path)
+	for name, content := range map[string]string{"another key": otherKey, "a truncated key": fixedKey[:40]} {
+		t.Run(name, func(t *testing.T) {
+			write(t, path, content)
+			_, err := secret.Verify(path, check, true)
+			refused(t, err, "library.key doesn't belong to this library.db. Restore the library.key that does")
+		})
+	}
+}
+
+func TestVerifyRefusesAMissingKeyWithARow(t *testing.T) {
+	path := keyPath(t)
+	write(t, path, fixedKey)
+	check := checkRow(t, path)
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	_, err := secret.Verify(path, check, true)
+	refused(t, err, "library.key is missing, but library.db was set up with one. Restore library.key from the Backup that holds this library.db")
+	if _, err := secret.Verify(path, nil, false); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Verify with no row = %v, want a missing file", err)
+	}
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Verify wrote library.key: %v", err)
+	}
+}

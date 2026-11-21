@@ -6,6 +6,7 @@ ignore ./web/node_modules
 
 require (
 	connectrpc.com/connect/v2 v2.0.1
+	filippo.io/age v1.3.2
 	fyne.io/systray v1.12.2
 	github.com/andybalholm/cascadia v1.3.5
 	github.com/asticode/go-astisub v0.45.0
@@ -45,6 +46,7 @@ require (
 )
 
 require (
+	filippo.io/hpke v0.4.0 // indirect
 	github.com/asticode/go-astikit v0.20.0 // indirect
 	github.com/asticode/go-astits v1.8.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect

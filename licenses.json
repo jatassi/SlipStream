@@ -38,6 +38,7 @@
 		{"name": "modernc.org/sqlite", "version": "v1.60.1", "license": "BSD-3-Clause", "reason": "LICENSE is BSD-3-Clause; LICENSE-SQLITE is SQLite's public-domain dedication, LICENSE-SQLITE_VEC covers the vec package SlipStream does not import, and LICENSE-3RD-PARTY.md lists the module's dependencies, each checked on its own"}
 	],
 	"vendored": [
+		{"name": "age word list", "path": "internal/notices/age"},
 		{"name": "alass", "path": "internal/notices/alass"},
 		{"name": "anatomy kit", "path": "web/vendor/anatomy"},
 		{"name": "ffsubsync", "path": "internal/notices/ffsubsync"},
