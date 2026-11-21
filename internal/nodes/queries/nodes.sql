@@ -154,3 +154,8 @@ ON CONFLICT (id) DO UPDATE SET state = excluded.state, by_key = excluded.by_key,
 
 -- name: DeleteFence :exec
 DELETE FROM nodes_fence WHERE id = 1;
+
+-- name: ListRemovedSince :many
+-- The keys of the Nodes removed at or after a time: a restore in place
+-- removes them again from the library it restores.
+SELECT removed_key FROM nodes_node WHERE removed_at >= sqlc.arg(since) ORDER BY removed_at, id;

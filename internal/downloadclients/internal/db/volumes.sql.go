@@ -12,6 +12,16 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const deleteAllVolumes = `-- name: DeleteAllVolumes :exec
+DELETE FROM downloadclients_volume
+`
+
+// A restore's samples were taken by the old Controller's machine.
+func (q *Queries) DeleteAllVolumes(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllVolumes)
+	return err
+}
+
 const getVolume = `-- name: GetVolume :one
 SELECT node_id, mount, name, total, free, sampled_at FROM downloadclients_volume WHERE node_id = ?1
 `

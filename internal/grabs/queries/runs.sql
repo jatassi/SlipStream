@@ -59,3 +59,9 @@ DELETE FROM grabs_search WHERE id IN (
         AND NOT EXISTS (
             SELECT 1 FROM grabs_search_grab sg JOIN grabs_grab g ON g.id = sg.grab_id
             WHERE sg.search_id = s.id AND sg.made = 1 AND g.stage = 'fetching'));
+
+-- name: DeleteOpenQueueRuns :execrows
+-- A restore ends the queue runs the Backup caught open. Their due rows keep
+-- their lane, lose search_id by its ON DELETE SET NULL, and run again once
+-- Reconciling ends.
+DELETE FROM grabs_search WHERE finished_at IS NULL AND manual_id IS NULL;

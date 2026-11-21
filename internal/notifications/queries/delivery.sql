@@ -57,3 +57,10 @@ ORDER BY connection_id;
 
 -- name: OldestDueAt :one
 SELECT at FROM notifications_delivery WHERE state = 'due' ORDER BY at LIMIT 1;
+
+-- name: GiveUpDueBefore :execrows
+-- A restore gives up what was due before its Backup was taken: the old
+-- Controller most likely sent it already.
+UPDATE notifications_delivery
+SET state = 'given_up', ended_at = sqlc.arg(ended_at), reason = sqlc.arg(reason)
+WHERE state = 'due' AND at < sqlc.arg(before);
