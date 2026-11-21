@@ -5,5 +5,5 @@ export const settingsGroupLabels = {
   "Targets and Profiles": ["Targets", "Profiles", "Custom Formats", "Editions"],
   "Search and download": ["Indexers", "Automatic search", "Trackers", "Download Clients"],
   Access: ["Address", "Sign-in", "API key"],
-  System: ["Nodes", "Email", "Media Servers", "Notifications"],
+  System: ["Nodes", "Backups", "Email", "Media Servers", "Notifications"],
 } as const;

@@ -44,6 +44,7 @@ test("the page tabs link to every section and mark the current one", async () =>
     ["Web and API", `/nodes/${homeId}/web`],
     ["Torrent client", `/nodes/${homeId}/torrent-client`],
     ["Searching", `/nodes/${homeId}/searching`],
+    ["Backups", `/nodes/${homeId}/backups`],
     ["Logs", `/nodes/${homeId}/logs`],
     ["Log settings", `/nodes/${homeId}/log-settings`],
   ]);
@@ -154,7 +155,7 @@ test("on phone, a Node lists its sections, and each pushes with a back link to t
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Roles", "Web and API", "Torrent client", "Searching", "Logs", "Log settings"]);
+  ).toEqual(["Roles", "Web and API", "Torrent client", "Searching", "Backups", "Logs", "Log settings"]);
 
   await userEvent.click(sections.getByRole("link", { name: "Logs" }));
   await expect.poll(() => router.state.location.href).toBe(`/nodes/${homeId}/logs`);
