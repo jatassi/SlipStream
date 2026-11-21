@@ -1,7 +1,5 @@
-import { useState } from "react";
-
 import type { BackupsPassphraseState } from "../../api/gen/model";
-import { getBackupPassphrase, saveBackupPassphrase } from "../../api/gen/query/backups/backups";
+import { saveBackupPassphrase } from "../../api/gen/query/backups/backups";
 import { dateOf } from "../../format";
 import { useAttempt } from "../../targets/attempt";
 import { Button } from "../../ui/button";
@@ -9,6 +7,7 @@ import { ReadOnlyField } from "../../ui/read-only-field";
 import { Section } from "../../ui/section";
 import { downloadSheet } from "./downloads";
 import { ReplaceButton } from "./passphrase-replace";
+import { ShowButton, useShownPassphrase } from "./passphrase-show";
 
 export const passphraseAbout =
   "SlipStream keeps a copy and uses it for every scheduled Backup. You need this passphrase only to restore a Backup on another machine. Store it in a password manager or print it.";
@@ -27,38 +26,9 @@ const savedWords = (state: BackupsPassphraseState) =>
     ? "You haven't confirmed that you saved this passphrase."
     : `You confirmed that you saved this passphrase on ${dateOf(state.savedAt)}.`;
 
-function ShowButton({
-  shown,
-  setShown,
-}: {
-  shown: string | undefined;
-  setShown: (passphrase: string | undefined) => void;
-}) {
-  const show = useAttempt(async () => {
-    setShown((await getBackupPassphrase()).passphrase);
-  });
-  return (
-    <>
-      {shown === undefined ? (
-        <Button busy={show.busy} onClick={show.run}>
-          Show passphrase
-        </Button>
-      ) : (
-        <Button
-          onClick={() => {
-            setShown(undefined);
-          }}
-        >
-          Hide passphrase
-        </Button>
-      )}
-      {show.failure}
-    </>
-  );
-}
-
 export function PassphraseSection({ state }: { state: BackupsPassphraseState }) {
-  const [shown, setShown] = useState<string>();
+  const passphrase = useShownPassphrase();
+  const { shown } = passphrase;
   const download = useAttempt(downloadSheet);
   const saved = useAttempt(saveBackupPassphrase);
   return (
@@ -73,7 +43,7 @@ export function PassphraseSection({ state }: { state: BackupsPassphraseState }) 
         {download.failure}
         {saved.failure}
         <div className="flex flex-wrap items-center gap-2">
-          <ShowButton shown={shown} setShown={setShown} />
+          <ShowButton passphrase={passphrase} />
           <Button busy={download.busy} onClick={download.run}>
             Download recovery sheet
           </Button>
@@ -82,11 +52,7 @@ export function PassphraseSection({ state }: { state: BackupsPassphraseState }) 
               I saved it
             </Button>
           )}
-          <ReplaceButton
-            replaced={() => {
-              setShown(undefined);
-            }}
-          />
+          <ReplaceButton replaced={passphrase.hide} />
         </div>
       </div>
     </Section>

@@ -13,8 +13,11 @@ import {
 import { home, nodesAre, seedbox } from "../../test/nodes";
 import { renderApp } from "../../test/render-app";
 
-afterEach(() => {
+const desktop = { width: window.innerWidth, height: window.innerHeight };
+
+afterEach(async () => {
   vi.useRealTimers();
+  await page.viewport(desktop.width, desktop.height);
 });
 
 const atBackupsNow = () => {
@@ -137,6 +140,22 @@ test("Show passphrase asks for the PIN first, then shows the words with Copy", a
   await expect
     .element(main().getByRole("button", { name: "Copy Backup passphrase" }))
     .toBeVisible();
+});
+
+test("the words show after the PIN even when the shell switched while the prompt was open", async () => {
+  open(backupsServer({ reconfirmed: false }));
+  await userEvent.click(main().getByRole("button", { name: "Show passphrase" }));
+  const prompt = page.getByRole("dialog", { name: "Confirm it's you" });
+  await expect.element(prompt).toBeVisible();
+  await page.viewport(390, desktop.height);
+  await expect.poll(() => document.querySelector('nav[aria-label="Tabs"]')).not.toBeNull();
+  await page.viewport(desktop.width, desktop.height);
+  await expect.poll(() => document.querySelector('nav[aria-label="Main"]')).not.toBeNull();
+  await userEvent.click(prompt.getByRole("textbox", { name: "PIN", exact: true }));
+  await userEvent.keyboard("2468");
+  await expect
+    .element(main().getByRole("textbox", { name: "Backup passphrase" }))
+    .toHaveValue(words);
 });
 
 test("Replace deletes older Backups by default, and the box can keep them", async () => {
