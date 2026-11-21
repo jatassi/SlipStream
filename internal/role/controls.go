@@ -38,11 +38,13 @@ type Nodes interface {
 
 // NodeScope is the node scope as the control half derives it: the Roles a
 // Node holds, assigned or covering, the Roles it no longer holds but still
-// holds work for, so it drains them, and its name.
+// holds work for, so it drains them, its name, and each old Controller key
+// this Controller replaced, with the proof that fences it.
 type NodeScope struct {
-	Holds    []Name
-	Draining []Name
-	Name     string
+	Holds      []Name
+	Draining   []Name
+	Name       string
+	Superseded []link.SupersededProof
 }
 
 type ControlsConfig struct {
@@ -619,7 +621,11 @@ func (c *Controls) deriveIn(ctx context.Context, srv Served, node NodeID) (proto
 }
 
 func nodeIntent(s NodeScope) *nodev1.NodeIntent {
-	return &nodev1.NodeIntent{Roles: roleStrings(s.Holds), Draining: roleStrings(s.Draining), Name: s.Name}
+	in := &nodev1.NodeIntent{Roles: roleStrings(s.Holds), Draining: roleStrings(s.Draining), Name: s.Name}
+	for _, p := range s.Superseded {
+		in.Superseded = append(in.Superseded, &nodev1.SupersededEntry{OldKey: p.Key[:], Proof: p.Proof})
+	}
+	return in
 }
 
 func roleStrings(ns []Name) []string {

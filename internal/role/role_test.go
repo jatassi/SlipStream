@@ -687,6 +687,58 @@ func TestAResetWorkerForgetsItsCachedIntent(t *testing.T) {
 	})
 }
 
+// TestARepairDropsCachedIntentsAndKeepsTheEpoch resets the cached
+// intents of a running Worker, as a re-pair does before its restart: the
+// probe keeps running and is never released, a result it queues meanwhile
+// is applied once the Worker is back, and a restart on the same local.db
+// holds nothing until the Controller sends the intent again.
+func TestARepairDropsCachedIntentsAndKeepsTheEpoch(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.setIntent(t, c.workerID, "cached")
+		c.assign(c.workerID, roletest.Name)
+		local := storagetest.Local(t, role.LocalSchema())
+		w := c.startWorker(t, local)
+		c.pair.Connect(t)
+		synctest.Wait()
+		if _, err := c.path().Set(fault.Rule{Fault: fault.Stall{}}); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(partitioned)
+
+		if err := w.ResetIntents(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if err := w.probe.Report(t.Context(), 7); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		if !w.Holds(roletest.Name) || w.probe.Releases() != 0 {
+			t.Fatalf("after the reset the running Worker holds the probe %v and released it %d times, want held and never released", w.Holds(roletest.Name), w.probe.Releases())
+		}
+		w.stop()
+		again := c.startWorker(t, local)
+		time.Sleep(linktest.Timings.RedialMax + linktest.Timings.Handshake)
+		synctest.Wait()
+		check(t, "restarted after the reset, the probe", snapshot(t, again.probe), "no snapshot")
+		if again.Holds(roletest.Name) || again.probe.Starts() != 0 {
+			t.Fatalf("restarted after the reset the probe is held %v and started %d times, want neither", again.Holds(roletest.Name), again.probe.Starts())
+		}
+
+		c.path().Clear("")
+		time.Sleep(redialed)
+		synctest.Wait()
+		check(t, "back in step, the probe", snapshot(t, again.probe), `"cached" live may start true`)
+		applied, err := roletest.Applied(t.Context(), c.lib, c.workerID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(applied, []uint64{7}) {
+			t.Fatalf("the Controller applied %v, want the result queued before the restart, 7", applied)
+		}
+	})
+}
+
 func TestAMismatchedWorkerKeepsItsLastIntent(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		local := storagetest.Local(t, role.LocalSchema())

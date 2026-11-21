@@ -31,7 +31,11 @@ type HoldingConfig struct {
 	Timings Timings
 	// Rand is the Node's seeded role stream, safe for concurrent draws.
 	Rand *rand.Rand
-	Log  *slog.Logger
+	// Superseded is called with each old Controller key and proof every
+	// node-scope intent lists, cached or new. It is nil on the
+	// Controller, whose own intent lists none. It must not block.
+	Superseded func([]link.SupersededProof)
+	Log        *slog.Logger
 }
 
 // Holding is the holder half: this Node's cached intent, its facts and
@@ -169,12 +173,30 @@ func (h *Holding) Reset(ctx context.Context) error {
 	return nil
 }
 
+// ResetIntents forgets every cached intent in local.db and leaves the
+// epoch, the outbox and what runs now, so the next start holds no Role
+// until its Controller sends one. A Worker that paired again calls it just
+// before it restarts.
+func (h *Holding) ResetIntents(ctx context.Context) error {
+	if err := h.cfg.Local.Write(ctx, holding.ClearIntents); err != nil {
+		return fmt.Errorf("clear the saved Role assignments: %w", err)
+	}
+	return nil
+}
+
 // remember caches an intent in memory. The caller holds h.mu or owns h.
 func (h *Holding) remember(scope string, c cached) error {
 	if scope == nodeScope {
 		in := &nodev1.NodeIntent{}
 		if err := c.payload.UnmarshalTo(in); err != nil {
 			return fmt.Errorf("node intent: %w", err)
+		}
+		if h.cfg.Superseded != nil {
+			superseded, err := supersededOf(in)
+			if err != nil {
+				return err
+			}
+			h.cfg.Superseded(superseded)
 		}
 		draining := names(in.GetDraining())
 		for _, r := range symmetricDifference(h.draining, draining) {
@@ -186,6 +208,18 @@ func (h *Holding) remember(scope string, c cached) error {
 	h.notify(scope)
 	h.wake()
 	return nil
+}
+
+func supersededOf(in *nodev1.NodeIntent) ([]link.SupersededProof, error) {
+	out := make([]link.SupersededProof, 0, len(in.GetSuperseded()))
+	for _, e := range in.GetSuperseded() {
+		key, err := link.KeyFromBytes(e.GetOldKey())
+		if err != nil {
+			return nil, fmt.Errorf("node intent: superseded key: %w", err)
+		}
+		out = append(out, link.SupersededProof{Key: key, Proof: e.GetProof()})
+	}
+	return out, nil
 }
 
 // notify closes the channel scope's watchers wait on. The caller holds
