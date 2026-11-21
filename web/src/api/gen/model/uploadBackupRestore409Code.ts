@@ -1,1 +1,1 @@
-export type UploadBackupRestore409Code = "lifecycle_busy" | "worker_node";
+export type UploadBackupRestore409Code = "lifecycle_busy" | "superseded" | "worker_node";

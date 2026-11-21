@@ -22,7 +22,9 @@ import (
 // record holding code.
 func wipedBox(t *testing.T, env Env, code string) {
 	t.Helper()
-	seedMigrated(t, env, env.DataDir, "old")
+	if err := openLibraryIn(t, env, env.DataDir).close(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	for _, name := range []string{"backup.key", "backups.json"} {
 		writeFile(t, filepath.Join(env.DataDir.Path(), name), name)
 	}
