@@ -7,7 +7,7 @@ import (
 )
 
 // Level is an operation's access level. Its type parameter is the principal
-// its handlers receive. The seven values below are the whole set.
+// its handlers receive. The eight values below are the whole set.
 type Level[P any] struct {
 	*access
 	admit admitFunc[P]
@@ -70,13 +70,19 @@ var (
 		&access{name: "reconfirmed", rank: 6, security: []map[string][]string{{schemeSession: {scopeAdmin, scopeReconfirmed}}, {schemeAPIKey: {}}}, codes: []*Code{SignedOut, APIKeyWrong, PINRequired, NeedsAdmin, NeedsReconfirm, WorkerNode}, authenticates: true, byClaim: true},
 		narrowed(identity.Caller.Reconfirmed),
 	}
+	// ReconfirmedSession admits a reconfirmed Admin session only, never the
+	// API key.
+	ReconfirmedSession = Level[identity.Admin]{
+		&access{name: "reconfirmedSession", rank: 7, security: []map[string][]string{{schemeSession: {scopeAdmin, scopeReconfirmed}}}, codes: []*Code{SignedOut, NeedsAccount, PINRequired, NeedsAdmin, NeedsReconfirm, WorkerNode}, authenticates: true, byClaim: true},
+		narrowed(identity.Caller.ReconfirmedSession),
+	}
 )
 
-// zeroLevel ends the panic for a Level that is none of the seven, such as
+// zeroLevel ends the panic for a Level that is none of the eight, such as
 // another package's api.Level[identity.Admin]{}.
-const zeroLevel = "a zero api.Level; use api.Public, api.Setup, api.Bearer, api.Account, api.Confirmed, api.Admin or api.Reconfirmed"
+const zeroLevel = "a zero api.Level; use api.Public, api.Setup, api.Bearer, api.Account, api.Confirmed, api.Admin, api.Reconfirmed or api.ReconfirmedSession"
 
-var levels = []*access{Public.access, Setup.access, Bearer.access, Account.access, Confirmed.access, Admin.access, Reconfirmed.access}
+var levels = []*access{Public.access, Setup.access, Bearer.access, Account.access, Confirmed.access, Admin.access, Reconfirmed.access, ReconfirmedSession.access}
 
 func narrowed[P any](narrow func(identity.Caller) (P, error)) admitFunc[P] {
 	return func(_ context.Context, _ *identity.Gate, c identity.Caller, _ string, next func(P)) error {

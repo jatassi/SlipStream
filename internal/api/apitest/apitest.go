@@ -75,6 +75,8 @@ var walk = map[string][]want{
 	"confirmed":   {signedOut, pass, pass, needsReconfirm, needsReconfirm, pinRequired, needsAccount},
 	"admin":       {signedOut, needsAdmin, pass, needsAdmin, pass, pinRequired, pass},
 	"reconfirmed": {signedOut, needsAdmin, pass, needsAdmin, needsReconfirm, pinRequired, pass},
+	// reconfirmedSession is reconfirmed without the API key.
+	"reconfirmedSession": {signedOut, needsAdmin, pass, needsAdmin, needsReconfirm, pinRequired, needsAccount},
 }
 
 // workerWalk is the walk on a Worker, which holds no Account: every check
@@ -82,7 +84,7 @@ var walk = map[string][]want{
 // credential.
 var workerWalk = func() map[string][]want {
 	w := map[string][]want{"public": walk["public"], "setup": walk["setup"]}
-	for _, level := range []string{"bearer", "account", "confirmed", "admin", "reconfirmed"} {
+	for _, level := range []string{"bearer", "account", "confirmed", "admin", "reconfirmed", "reconfirmedSession"} {
 		w[level] = slices.Repeat([]want{workerNode}, len(callers))
 	}
 	return w
