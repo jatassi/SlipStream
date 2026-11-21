@@ -202,8 +202,9 @@ type Node struct {
 	deadline time.Duration
 	ready    Ready
 
-	server  *control.Server
-	isReady atomic.Bool
+	server *control.Server
+	// phaseOf is the Phase, which status reads before ready.
+	phaseOf atomic.Uint32
 
 	// Set during start, before the Node is ready. cfgMu guards the Node
 	// settings table's keys in cfg, which setConfig changes later.
@@ -424,7 +425,7 @@ func (n *Node) startLogged(ctx context.Context) error {
 			n.log.Warn("host below the supported floor", "reason", msg)
 		}
 	}
-	n.isReady.Store(true)
+	n.setPhase(PhaseReady)
 	n.log.Info("ready", "ready", n.ready)
 	return nil
 }

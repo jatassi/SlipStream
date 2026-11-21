@@ -90,7 +90,7 @@ func TestAppOpensTheSetupPageAndASecondLaunchOpensItAgain(t *testing.T) {
 	if rec := p.record("tray"); rec["state"] != "none" {
 		t.Fatalf("tray record = %v, want state none", rec)
 	}
-	want := map[string]any{"pid": float64(ready.PID), "version": ready.Version, "install": "dev", "mode": "app", "claim": "unclaimed", "tray": "none", "url": url}
+	want := map[string]any{"pid": float64(ready.PID), "version": ready.Version, "install": "dev", "mode": "app", "phase": "ready", "claim": "unclaimed", "tray": "none", "url": url}
 	got := statusOf(t, dir)
 	startedSince(t, got, launched)
 	if !maps.Equal(got, want) {
