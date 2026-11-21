@@ -75,7 +75,7 @@ export function PairButton({ title, node }: { title: string; node: string }) {
           setOpen(true);
         }}
       >
-        Create Join Code
+        New Join Code
       </Button>
       <PairDialog title={title} node={node} open={open} onOpenChange={setOpen} />
     </>
