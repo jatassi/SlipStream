@@ -57,8 +57,12 @@ type EngineConfig struct {
 // Engine takes one Backup at a time, since scrypt alone needs about
 // 256 MiB. The hook and the service share one Engine through the Node.
 type Engine struct {
-	cfg   EngineConfig
-	mu    sync.Mutex
+	cfg EngineConfig
+	// mu holds one Backup, Recover or Delete at a time.
+	mu sync.Mutex
+	// vmu guards vault alone, so a fence check or Resume never waits for
+	// a Backup, which itself waits on the library writer.
+	vmu   sync.Mutex
 	vault *Vault
 }
 
@@ -74,8 +78,8 @@ func (e *Engine) Index() *Index { return e.cfg.Index }
 // Vault opens backup.key with keys once. Every later call answers the
 // same Vault, so the file has one writer.
 func (e *Engine) Vault(keys *secret.Keys) (*Vault, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.vmu.Lock()
+	defer e.vmu.Unlock()
 	if e.vault == nil {
 		v, err := OpenVault(filepath.Join(e.cfg.Dir, VaultFile), keys, e.cfg.Timings.WindowsRetry)
 		if err != nil {
@@ -84,6 +88,13 @@ func (e *Engine) Vault(keys *secret.Keys) (*Vault, error) {
 		e.vault = v
 	}
 	return e.vault, nil
+}
+
+// opened is the Vault Vault opened, nil before it.
+func (e *Engine) opened() *Vault {
+	e.vmu.Lock()
+	defer e.vmu.Unlock()
+	return e.vault
 }
 
 // source is the library.db a Backup snapshots: *storage.DB[Library] once
@@ -158,7 +169,7 @@ func (e *Engine) take(ctx context.Context, src source, req request) (Entry, erro
 }
 
 func (e *Engine) taking(ctx context.Context, src source, req request) (Entry, error) {
-	if e.vault == nil {
+	if e.opened() == nil {
 		panic("backups: a Backup taken before the Vault opened")
 	}
 	if err := e.recover(); err != nil {
@@ -180,7 +191,7 @@ func (e *Engine) taking(ctx context.Context, src source, req request) (Entry, er
 			return Entry{}, &SpaceError{Folder: dir, Need: need, Free: free}
 		}
 	}
-	gen, pass, err := e.vault.Current(e.cfg.Rand)
+	gen, pass, err := e.opened().Current(e.cfg.Rand)
 	if err != nil {
 		return Entry{}, err
 	}
@@ -238,7 +249,7 @@ func (l *Ledger) deleteBefore(gen Generation) {
 // dropUnused drops each passphrase generation no listed Backup uses.
 func (e *Engine) dropUnused() error {
 	l := e.cfg.Index.Read()
-	return e.vault.Drop(func(g Generation) bool {
+	return e.opened().Drop(func(g Generation) bool {
 		return slices.ContainsFunc(l.Backups, func(entry Entry) bool { return entry.Generation == g })
 	})
 }
@@ -296,7 +307,7 @@ func (e *Engine) sources(snap string) (archive.Sources, error) {
 	if err != nil {
 		return archive.Sources{}, fmt.Errorf("read %s: %w", secret.KeyFile, err)
 	}
-	backupKey, err := e.vault.Bytes()
+	backupKey, err := e.opened().Bytes()
 	if err != nil {
 		return archive.Sources{}, err
 	}
@@ -407,7 +418,7 @@ func (e *Engine) recheck(entry Entry) error {
 	case statErr != nil:
 		return fmt.Errorf("check a Backup: %w", statErr)
 	}
-	pass, ok := e.vault.Passphrase(entry.Generation)
+	pass, ok := e.opened().Passphrase(entry.Generation)
 	checked := entry
 	switch opened, err := checkFile(final, pass, e.cfg.Timings.limits(recheckLimit)); {
 	case !ok:
