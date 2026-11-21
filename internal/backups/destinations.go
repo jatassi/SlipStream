@@ -1,6 +1,7 @@
 package backups
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -35,14 +36,17 @@ func (d *DestinationID) UnmarshalText(b []byte) error {
 	if hex.DecodedLen(len(b)) != len(d) {
 		return fmt.Errorf("a destination id is %d hex characters, not %d", hex.EncodedLen(len(d)), len(b))
 	}
-	_, err := hex.Decode(d[:], b)
-	return err
+	if _, err := hex.Decode(d[:], b); err != nil {
+		return fmt.Errorf("read a destination id: %w", err)
+	}
+	return nil
 }
 
 // ParseDestinationID reads an id as String writes it.
 func ParseDestinationID(s string) (DestinationID, error) {
 	var d DestinationID
-	return d, d.UnmarshalText([]byte(s))
+	err := d.UnmarshalText([]byte(s))
+	return d, err
 }
 
 // Destination is a folder on a Node that holds a copy of every Backup.
@@ -222,7 +226,7 @@ func (b *Backups) Add(ctx context.Context, admin identity.Admin, node role.NodeI
 // Remove removes destination id. It deletes and cancels nothing: its
 // copies stay on its Node, a copy in flight finishes into its folder, and
 // that outcome changes nothing.
-func (b *Backups) Remove(ctx context.Context, id DestinationID) error {
+func (b *Backups) Remove(_ context.Context, id DestinationID) error {
 	b.copyMu.Lock()
 	defer b.copyMu.Unlock()
 	err := b.cfg.Engine.Index().Update(func(l *Ledger) error {
@@ -307,13 +311,13 @@ func (b *Backups) Run(ctx context.Context) error {
 // have changed.
 func (b *Backups) touchFolders() {
 	l := b.cfg.Engine.Index().Read()
-	nodes := []role.NodeID{b.cfg.Self()}
+	ids := []role.NodeID{b.cfg.Self()}
 	for _, d := range l.Destinations {
-		if !slices.Contains(nodes, d.Node) {
-			nodes = append(nodes, d.Node)
+		if !slices.Contains(ids, d.Node) {
+			ids = append(ids, d.Node)
 		}
 	}
-	b.cfg.Transfers.TouchFolders(nodes...)
+	b.cfg.Transfers.TouchFolders(ids...)
 }
 
 // job keys a Backup's Transfer: "copy/<destination>/<backup>" or
@@ -432,26 +436,7 @@ func (b *Backups) queueCopies(ctx context.Context, id DestinationID, p *tasks.Pr
 	if !ok || !d.RemovedAt.IsZero() {
 		return nil
 	}
-	var every time.Duration
-	var queued []archive.ID
-	err := b.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		var err error
-		if every, err = checkCopiesIn(ctx, tx); err != nil {
-			return err
-		}
-		queued = nil
-		for _, e := range l.Backups {
-			c, has := e.Copy(id)
-			if e.State != Verified || !e.Local || has && (c.State == Copying || c.State == Copied) {
-				continue
-			}
-			if _, err := b.cfg.Transfers.Want(ctx, tx, b.copyOf(e, d)); err != nil {
-				return err
-			}
-			queued = append(queued, e.ID)
-		}
-		return nil
-	})
+	every, queued, err := b.want(ctx, l, d)
 	if err != nil {
 		return err
 	}
@@ -481,6 +466,32 @@ func (b *Backups) queueCopies(ctx context.Context, id DestinationID, p *tasks.Pr
 		p.Note(fmt.Sprintf("Queued %d %s to copy.", len(queued), noun.Of(int64(len(queued)))))
 	}
 	return nil
+}
+
+// want Wants a copy to d of every verified Backup on this machine that d
+// has no copy of in flight or done, and reads Check copies.
+func (b *Backups) want(ctx context.Context, l Ledger, d Destination) (time.Duration, []archive.ID, error) {
+	var every time.Duration
+	var queued []archive.ID
+	err := b.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		if every, err = checkCopiesIn(ctx, tx); err != nil {
+			return err
+		}
+		queued = nil
+		for _, e := range l.Backups {
+			c, has := e.Copy(d.ID)
+			if e.State != Verified || !e.Local || has && (c.State == Copying || c.State == Copied) {
+				continue
+			}
+			if _, err := b.cfg.Transfers.Want(ctx, tx, b.copyOf(e, d)); err != nil {
+				return err
+			}
+			queued = append(queued, e.ID)
+		}
+		return nil
+	})
+	return every, queued, err
 }
 
 // askCheck asks a check of destination id's newest copied Backup once
@@ -602,113 +613,151 @@ func (b *Backups) settle(ctx context.Context) error {
 func (b *Backups) settled(ctx context.Context) ([]Destination, error) {
 	b.copyMu.Lock()
 	defer b.copyMu.Unlock()
-	var records map[string]outcome
-	var names map[role.NodeID]string
-	err := b.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[storage.Library]) error {
-		all, err := b.cfg.Transfers.OfPurpose(ctx, rd, transfers.Backup)
-		if err != nil {
-			return err
-		}
-		records = make(map[string]outcome, len(all))
-		for _, t := range all {
-			records[t.Job] = outcome{t: t, done: len(t.Files) > 0 && !slices.ContainsFunc(t.Files, func(f transfers.File) bool { return !f.Verified })}
-		}
-		peers, err := nodes.PeersIn(ctx, rd)
-		names = make(map[role.NodeID]string, len(peers))
-		for id, p := range peers {
-			names[id] = p.Name
-		}
-		return err
-	})
-	if err != nil {
+	st := settling{b: b}
+	if err := b.cfg.Library.Read(ctx, st.read); err != nil {
 		return nil, err
 	}
 	l := b.cfg.Engine.Index().Read()
-	sums := b.pulledSums(l, records)
-	keyed := b.keyedSums(l)
-	now := b.cfg.Engine.cfg.Clock().UTC()
+	st.sums, st.keyed, st.now = b.pulledSums(l, st.records), b.keyedSums(l), b.cfg.Engine.cfg.Clock().UTC()
 	var ended []transfers.Transfer
-	var requeue []Destination
-	err = b.cfg.Engine.Index().Update(func(l *Ledger) error {
-		ended, requeue = nil, nil
-		for s, o := range records {
-			j, ok := parseJob(s)
-			if !ok || !o.done && o.t.Failure == nil {
-				continue
-			}
-			ended = append(ended, o.t)
-			e, ok := l.Entry(j.backup)
-			if !ok {
-				continue
-			}
-			if j.pull {
-				pulled(&e, o, sums[e.ID])
-				l.set(e)
-				continue
-			}
-			c, ok := e.Copy(j.dest)
-			if d, known := l.Destination(j.dest); !ok || !known || !d.RemovedAt.IsZero() {
-				continue
-			}
-			if o.done {
-				c.State, c.CopiedAt, c.Cause, c.Check = Copied, now, "", Check{}
-			} else {
-				c.State, c.Cause = CopyFailed, o.t.Failure.Sentence
-			}
-			e.setCopy(c)
-			l.set(e)
-		}
+	err := b.cfg.Engine.Index().Update(func(l *Ledger) error {
+		st.requeue = nil
+		ended = st.outcomes(l)
 		for i := range l.Backups {
-			e := &l.Backups[i]
-			if e.Pull != nil && e.Pull.State == Copying {
-				if _, ok := records[job{pull: true, backup: e.ID}.String()]; !ok {
-					e.Pull = nil
-				}
-			}
-			for _, c := range slices.Clone(e.Copies) {
-				d, _ := l.Destination(c.Destination)
-				if c.State == Copying {
-					if _, ok := records[job{dest: c.Destination, backup: e.ID}.String()]; !ok {
-						c.State = CopyWaiting
-					}
-				}
-				facts, ok := b.folderFacts(d)
-				listed := ok && facts.Error == "" && slices.Contains(facts.Names, e.Name.String())
-				switch {
-				case e.State == Deleting && ok && facts.Error == "" && !listed:
-					e.dropCopy(c.Destination)
-					continue
-				case c.State == Copied && ok && facts.Error == "" && !listed:
-					c.State, c.Cause = CopyFailed, fmt.Sprintf("%s no longer has this copy in %s.", names[d.Node], d.Folder)
-				case c.Check.Result == CheckAsked && ok && facts.Check != nil && string(facts.Check.Key) == string(c.Check.Key[:]) && facts.Check.Name == e.Name.String():
-					c.Check.At = now
-					switch want, known := keyed[keyedAt{e.ID, c.Check.Key}]; {
-					case facts.Check.Error != "":
-						c.Check.Result, c.Check.Cause = CheckUnreadable, fmt.Sprintf("%s couldn't read its copy of the Backup.", names[d.Node])
-						b.cfg.Log.Warn("check a Backup copy", "node", names[d.Node], "folder", d.Folder, "backup", e.Name, "err", facts.Check.Error)
-					case known && string(facts.Check.Sum) == string(want[:]):
-						c.Check.Result, c.Check.Cause = CheckOK, ""
-					default:
-						c.Check.Result, c.Check.Cause = CheckMismatch, ""
-						c.State, c.Cause = CopyFailed, fmt.Sprintf("The copy on %s doesn't match the Backup.", names[d.Node])
-						if !slices.Contains(requeue, d) {
-							requeue = append(requeue, d)
-						}
-					}
-				}
-				e.setCopy(c)
-			}
+			st.follow(l, &l.Backups[i])
 		}
 		l.Backups = slices.DeleteFunc(l.Backups, func(e Entry) bool { return e.State == Deleting && !e.Local && len(e.Copies) == 0 })
 		l.Destinations = slices.DeleteFunc(l.Destinations, func(d Destination) bool {
-			return !d.RemovedAt.IsZero() && !inFlight(records, d.ID)
+			return !d.RemovedAt.IsZero() && !inFlight(st.records, d.ID)
 		})
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	return requeue, b.end(ctx, ended)
+	return st.requeue, b.end(ctx, ended)
+}
+
+// settling is what one settle read: the Backup Transfers by job, the
+// Nodes' names, the BLAKE3 of each pulled Backup and of each check out.
+type settling struct {
+	b       *Backups
+	records map[string]outcome
+	names   map[role.NodeID]string
+	sums    map[archive.ID]*Sum
+	keyed   map[keyedAt]Sum
+	now     time.Time
+	requeue []Destination
+}
+
+func (st *settling) read(ctx context.Context, rd storage.Reader[storage.Library]) error {
+	all, err := st.b.cfg.Transfers.OfPurpose(ctx, rd, transfers.Backup)
+	if err != nil {
+		return err
+	}
+	st.records = make(map[string]outcome, len(all))
+	for _, t := range all {
+		st.records[t.Job] = outcome{t: t, done: len(t.Files) > 0 && !slices.ContainsFunc(t.Files, func(f transfers.File) bool { return !f.Verified })}
+	}
+	peers, err := nodes.PeersIn(ctx, rd)
+	if err != nil {
+		return err
+	}
+	st.names = make(map[role.NodeID]string, len(peers))
+	for id, p := range peers {
+		st.names[id] = p.Name
+	}
+	return nil
+}
+
+// outcomes writes each ended Transfer's outcome into l and returns those
+// Transfers. One for a destination removed since changes nothing.
+func (st *settling) outcomes(l *Ledger) []transfers.Transfer {
+	var ended []transfers.Transfer
+	for s, o := range st.records {
+		j, ok := parseJob(s)
+		if !ok || !o.done && o.t.Failure == nil {
+			continue
+		}
+		ended = append(ended, o.t)
+		e, ok := l.Entry(j.backup)
+		if !ok {
+			continue
+		}
+		if j.pull {
+			pulled(&e, o, st.sums[e.ID])
+			l.set(e)
+			continue
+		}
+		c, ok := e.Copy(j.dest)
+		if d, known := l.Destination(j.dest); !ok || !known || !d.RemovedAt.IsZero() {
+			continue
+		}
+		if o.done {
+			c.State, c.CopiedAt, c.Cause, c.Check = Copied, st.now, "", Check{}
+		} else {
+			c.State, c.Cause = CopyFailed, o.t.Failure.Sentence
+		}
+		e.setCopy(c)
+		l.set(e)
+	}
+	return ended
+}
+
+// follow brings e's pull and copies to what the ledger and each Node's
+// facts say.
+func (st *settling) follow(l *Ledger, e *Entry) {
+	if e.Pull != nil && e.Pull.State == Copying {
+		if _, ok := st.records[job{pull: true, backup: e.ID}.String()]; !ok {
+			e.Pull = nil
+		}
+	}
+	for _, c := range slices.Clone(e.Copies) {
+		d, _ := l.Destination(c.Destination)
+		if c.State == Copying {
+			if _, ok := st.records[job{dest: c.Destination, backup: e.ID}.String()]; !ok {
+				c.State = CopyWaiting
+			}
+		}
+		facts, ok := st.b.folderFacts(d)
+		read := ok && facts.Error == ""
+		gone := read && !slices.Contains(facts.Names, e.Name.String())
+		switch {
+		case e.State == Deleting && gone:
+			e.dropCopy(c.Destination)
+			continue
+		case c.State == Copied && gone:
+			c.State, c.Cause = CopyFailed, fmt.Sprintf("%s no longer has this copy in %s.", st.names[d.Node], d.Folder)
+		case c.Check.Result == CheckAsked && ok && answers(facts.Check, e.Name, c.Check.Key):
+			st.checked(e, &c, d, facts.Check)
+		}
+		e.setCopy(c)
+	}
+}
+
+// answers is whether a is the answer to the check of name under key.
+func answers(a *transfers.CheckAnswer, name archive.Name, key Sum) bool {
+	return a != nil && bytes.Equal(a.Key, key[:]) && a.Name == name.String()
+}
+
+// checked compares d's answer to the check of e's copy c with the
+// Backup's own keyed BLAKE3. A mismatch fails the copy and queues it
+// again.
+func (st *settling) checked(e *Entry, c *Copy, d Destination, a *transfers.CheckAnswer) {
+	c.Check.At = st.now
+	switch want, known := st.keyed[keyedAt{e.ID, c.Check.Key}]; {
+	case a.Error != "":
+		c.Check.Result, c.Check.Cause = CheckUnreadable, st.names[d.Node]+" couldn't read its copy of the Backup."
+		st.b.cfg.Log.Warn("check a Backup copy", "node", st.names[d.Node], "folder", d.Folder, "backup", e.Name, "err", a.Error)
+	case known && bytes.Equal(a.Sum, want[:]):
+		c.Check.Result, c.Check.Cause = CheckOK, ""
+	default:
+		c.Check.Result, c.Check.Cause = CheckMismatch, ""
+		c.State, c.Cause = CopyFailed, fmt.Sprintf("The copy on %s doesn't match the Backup.", st.names[d.Node])
+		if !slices.Contains(st.requeue, d) {
+			st.requeue = append(st.requeue, d)
+		}
+	}
 }
 
 // inFlight is whether a copy Transfer still runs into destination d.

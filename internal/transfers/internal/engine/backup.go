@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"errors"
@@ -162,7 +163,7 @@ func (e *Engine) check(ctx context.Context, f *tv1.BackupFolder) *tv1.BackupChec
 	e.backups.mu.Lock()
 	last := e.backups.checked[f.GetFolder()]
 	e.backups.mu.Unlock()
-	if last.GetName() == f.GetCheck() && string(last.GetKey()) == string(f.GetCheckKey()) {
+	if last.GetName() == f.GetCheck() && bytes.Equal(last.GetKey(), f.GetCheckKey()) {
 		return last
 	}
 	c := &tv1.BackupCheck{Name: f.GetCheck(), Key: f.GetCheckKey()}
@@ -185,7 +186,7 @@ func (e *Engine) keyedSum(ctx context.Context, f *tv1.BackupFolder) ([]byte, err
 	}
 	in, err := e.cfg.Disk.Open(ctx, path)
 	if err != nil {
-		return nil, err //nolint:wrapcheck // the Disk's own error names the path
+		return nil, err
 	}
 	defer func() { _ = in.Close() }()
 	h, err := blake3.NewKeyed(f.GetCheckKey())

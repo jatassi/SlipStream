@@ -110,10 +110,6 @@ func judge(s snapshot) judgment {
 		j.views[i] = v
 	}
 	for _, l := range lines {
-		if s.paused {
-			j.hold(l)
-			continue
-		}
 		j.run(s, l)
 	}
 	for _, in := range j.intents {
@@ -332,12 +328,16 @@ func (j *judgment) hold(l *line) {
 	}
 }
 
-// run judges one pair's line: its first Transfer is active and every
+// run judges one pair's line, held while the library is Reconciling: its first Transfer is active and every
 // other waits behind it. One whose receiver reported a step-aside wait
 // goes to the back, so alone on its pair it stays active and its receiver
 // retries. A Low one goes behind every Normal one until it has waited
 // LowWait, unless its receiver already runs it: nothing is preempted.
 func (j *judgment) run(s snapshot, l *line) {
+	if s.paused {
+		j.hold(l)
+		return
+	}
 	rank := func(c candidate) int {
 		switch {
 		case c.aside != nil:

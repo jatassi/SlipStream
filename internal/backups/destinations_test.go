@@ -25,11 +25,11 @@ import (
 
 const vpsFolder = "/srv/backups"
 
-// add adds folder on vps as a Backup destination and waits for its first
+// add adds vpsFolder on vps as a Backup destination and waits for its first
 // queue.
-func (w *world) add(folder string) backups.Destination {
+func (w *world) add() backups.Destination {
 	w.t.Helper()
-	a, err := w.backups.Add(w.t.Context(), identity.Admin{}, w.vps, folder)
+	a, err := w.backups.Add(w.t.Context(), identity.Admin{}, w.vps, vpsFolder)
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func copied(t *testing.T) (*world, backups.Entry, backups.Destination) {
 	w := newWorld(t)
 	w.opened("2.1.0")
 	e := w.taken(archive.Scheduled)
-	d := w.add(vpsFolder)
+	d := w.add()
 	w.arrive(w.vps, w.only())
 	w.report(w.vps, &tv1.BackupFolderFacts{Folder: vpsFolder, Names: []string{e.Name.String()}})
 	w.settle()
@@ -201,9 +201,12 @@ func TestACheckMismatchFailsTheCopyAndQueuesItAgain(t *testing.T) {
 	}
 }
 
+// pullFailed is whether e's pull failed, and false once it arrived.
+func pullFailed(e backups.Entry) bool { return e.Pull != nil && e.Pull.State == backups.CopyFailed }
+
 func keyed(t *testing.T, path string, key []byte) []byte {
 	t.Helper()
-	f, err := os.Open(path) //nolint:gosec // the test's own Backup
+	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +242,7 @@ func TestACopyWithNoLocalFileCantBeChecked(t *testing.T) {
 // longer lists it. Removing a destination asks its Node to delete
 // nothing and leaves its copies there.
 func TestDeletesTravelByNameAndRemovingADestinationDeletesNothing(t *testing.T) {
-	w, e, d := copied(t)
+	w, e, _ := copied(t)
 	w.change(e.ID, func(e *backups.Entry) { e.State = backups.Deleting })
 	if err := w.eng.Recover(); err != nil {
 		t.Fatal(err)
@@ -256,7 +259,7 @@ func TestDeletesTravelByNameAndRemovingADestinationDeletesNothing(t *testing.T) 
 		t.Fatalf("the index still lists %d Backups once vps deleted its copy", len(l.Backups))
 	}
 
-	w, e, d = copied(t)
+	w, e, d := copied(t)
 	if err := w.backups.Remove(t.Context(), d.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +282,7 @@ func TestACopyFinishingAfterItsDestinationWasRemovedChangesNothing(t *testing.T)
 	w := newWorld(t)
 	w.opened("2.1.0")
 	e := w.taken(archive.Scheduled)
-	d := w.add(vpsFolder)
+	d := w.add()
 	tr := w.only()
 	if err := w.backups.Remove(t.Context(), d.ID); err != nil {
 		t.Fatal(err)
@@ -304,7 +307,7 @@ func TestACopyFinishingAfterItsDestinationWasRemovedChangesNothing(t *testing.T)
 func TestAnOfflineDestinationCatchesUp(t *testing.T) {
 	w := newWorld(t)
 	w.opened("2.1.0")
-	d := w.add(vpsFolder)
+	d := w.add()
 	var units []tasks.Unit
 	if err := w.lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
 		var err error
@@ -343,7 +346,7 @@ func TestAnOfflineDestinationCatchesUp(t *testing.T) {
 func TestAPulledCopyIsCheckedAgainstTheIndex(t *testing.T) {
 	w, e, d := copied(t)
 	path := w.backups.Path(e)
-	good, err := os.ReadFile(path) //nolint:gosec // the test's own Backup
+	good, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,11 +376,8 @@ func TestAPulledCopyIsCheckedAgainstTheIndex(t *testing.T) {
 		w.settle()
 		got := w.entry(e.ID)
 		_, statErr := os.Stat(path)
-		if got.Local != tc.local || (statErr == nil) != tc.local {
-			t.Fatalf("%s: Local %v with the file there %v", tc.name, got.Local, statErr == nil)
-		}
-		if tc.local && got.Pull != nil || !tc.local && (got.Pull == nil || got.Pull.State != backups.CopyFailed) {
-			t.Fatalf("%s: the pull reads %+v", tc.name, got.Pull)
+		if got.Local != tc.local || (statErr == nil) != tc.local || pullFailed(got) == tc.local {
+			t.Fatalf("%s: Local %v with the file there %v, the pull %+v", tc.name, got.Local, statErr == nil, got.Pull)
 		}
 	}
 }
@@ -389,7 +389,7 @@ func TestACopyWhoseTransferTheLibraryDoesntKnowWaits(t *testing.T) {
 	w := newWorld(t)
 	w.opened("2.1.0")
 	e := w.taken(archive.Scheduled)
-	d := w.add(vpsFolder)
+	d := w.add()
 	tr := w.only()
 	if err := w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := w.tr.Want(ctx, tx, transfers.Request{Purpose: transfers.Backup, Job: tr.Job})
@@ -420,7 +420,7 @@ func TestADestinationWarnsWhenItsCopiesFailOrGoStale(t *testing.T) {
 		t.Fatalf("a fresh copy reads %+v", a)
 	}
 	a := w.backups.DestinationHealth(w.now().Add(4*24*time.Hour), stale, names, up)
-	if len(a.Items) != 1 || a.Items[0].Says.Subject != "Backup copies in "+vpsFolder+" on vps" || a.Items[0].Says.Text != "The newest copy is 4 days old." {
+	if len(a.Items) != 1 || a.Items[0].Subject != "Backup copies in "+vpsFolder+" on vps" || a.Items[0].Text != "The newest copy is 4 days old." {
 		t.Fatalf("a stale copy reads %+v", a.Items)
 	}
 	w.change(e.ID, func(e *backups.Entry) {
@@ -431,7 +431,7 @@ func TestADestinationWarnsWhenItsCopiesFailOrGoStale(t *testing.T) {
 	if a := w.backups.DestinationHealth(w.now(), stale, names, up); len(a.Items) != 1 || a.Items[0].Key != backups.DestinationKey(d.ID) {
 		t.Fatalf("a mismatched copy reads %+v", a.Items)
 	}
-	if a := w.backups.DestinationHealth(w.now(), stale, names, func(role.NodeID) bool { return false }); len(a.Items) != 0 || len(a.Unsure) != 1 || a.Unsure[0].Says.Text != "vps is offline." {
+	if a := w.backups.DestinationHealth(w.now(), stale, names, func(role.NodeID) bool { return false }); len(a.Items) != 0 || len(a.Unsure) != 1 || a.Unsure[0].Text != "vps is offline." {
 		t.Fatalf("an offline destination reads %+v", a)
 	}
 }

@@ -60,19 +60,20 @@ func (t *Transfers) Apply(ctx context.Context, tx *storage.Tx[storage.Library], 
 
 // current is the unfailed Transfer named by id when node receives it,
 // false for anything else.
-func current(ctx context.Context, tx *storage.Tx[storage.Library], node role.NodeID, id []byte) (Transfer, int64, bool, error) {
+func current(ctx context.Context, tx *storage.Tx[storage.Library], node role.NodeID, id []byte) (tr Transfer, place int64, ok bool, err error) {
 	at, ok := idOf(id)
 	if !ok {
 		return Transfer{}, 0, false, nil
 	}
-	tr, err := load(ctx, tx, at)
+	tr, err = load(ctx, tx, at)
 	if errors.Is(err, storage.ErrNoRows) {
 		return Transfer{}, 0, false, nil
 	}
 	if err != nil {
 		return Transfer{}, 0, false, err
 	}
-	dest, place, err := destinationIn(ctx, tx, tr)
+	var dest role.NodeID
+	dest, place, err = destinationIn(ctx, tx, tr)
 	if err != nil {
 		return Transfer{}, 0, false, err
 	}
