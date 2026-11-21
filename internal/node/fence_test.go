@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -32,23 +33,15 @@ func supersededOn(t *testing.T, c client, apiKey string) supersededPage {
 // historyItems is the key of each Health item n's History records.
 func historyItems(t *testing.T, n *Node) []string {
 	t.Helper()
-	var keys []string
+	var listed string
 	err := n.lib.Load().db.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		rows, err := r.QueryContext(ctx, `SELECT key FROM history_item ORDER BY event_id`)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var k string
-			if err := rows.Scan(&k); err != nil {
-				return err
-			}
-			keys = append(keys, k)
-		}
-		return rows.Err()
+		return r.QueryRowContext(ctx, `SELECT json_group_array(key) FROM (SELECT key FROM history_item ORDER BY event_id)`).Scan(&listed)
 	})
 	if err != nil {
+		t.Fatal(err)
+	}
+	var keys []string
+	if err := json.Unmarshal([]byte(listed), &keys); err != nil {
 		t.Fatal(err)
 	}
 	return keys
