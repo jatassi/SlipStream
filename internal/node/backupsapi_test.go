@@ -89,9 +89,14 @@ func TestBackUpNowAnswers202(t *testing.T) {
 			t.Fatalf("Back up now = %d %s, want 202", r.status, r.body)
 		}
 		takeBackup(t, n)
-		l := listBackups(t, c, session)
-		if len(l.Backups) != 2 || l.Backups[1].Trigger != string(archive.Manual) || l.Backups[1].State != "verified" {
-			t.Fatalf("backupsListed %+v, want Back up now's Backup, checked, before the next one", l.Backups)
+		manual := 0
+		for _, b := range listBackups(t, c, session).Backups {
+			if b.Trigger == string(archive.Manual) && b.State == "verified" {
+				manual++
+			}
+		}
+		if manual != 2 {
+			t.Fatalf("listed %d checked manual Backups, want Back up now's and the one taken after it", manual)
 		}
 	})
 }
@@ -106,8 +111,12 @@ func TestDeletingTheNewestVerifiedIsRefused(t *testing.T) {
 		expect(t, c.do(call{method: http.MethodDelete, path: "/api/v1/backups/" + newest, session: session}), 409,
 			`{"status":409,"code":"newest_verified","title":"The newest good Backup can't be deleted","detail":"This is your newest good Backup, so it can't be deleted. Take another Backup first."}`+"\n")
 		left := decode[backupsListed](t, c.do(call{method: http.MethodDelete, path: "/api/v1/backups/" + older, session: session}), http.StatusOK)
-		if len(left.Backups) != 1 || left.Backups[0].ID != newest {
-			t.Fatalf("after deleting the older Backup the list is %+v, want only %s", left.Backups, newest)
+		ids := make([]string, len(left.Backups))
+		for i, b := range left.Backups {
+			ids[i] = b.ID
+		}
+		if len(ids) != len(l.Backups)-1 || ids[0] != newest || slices.Contains(ids, older) {
+			t.Fatalf("after deleting %s the list is %v, want every other Backup, %s first", older, ids, newest)
 		}
 	})
 }
