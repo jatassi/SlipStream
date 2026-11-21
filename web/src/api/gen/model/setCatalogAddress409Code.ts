@@ -1,1 +1,1 @@
-export type SetCatalogAddress409Code = "worker_node";
+export type SetCatalogAddress409Code = "superseded" | "worker_node";

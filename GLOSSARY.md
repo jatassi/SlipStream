@@ -218,6 +218,11 @@ The state every restored Controller starts in, including after a manual rollback
 _In UI_: "Reconciling", with its hover definition.
 _Avoid_: Resync, recovery mode
 
+**Superseded**:
+The state of a Controller that a restore of its Backup on another machine replaced, proven by a Worker that carries the new Controller's proof, or that an Admin stopped or retired. It keeps every torrent paused, runs nothing and shows one page, which offers to wipe it and join the new Controller as a Worker.
+_In UI_: none; the page says "This Controller was replaced".
+_Avoid_: Fenced, old Controller, zombie
+
 **Role**:
 A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Converting, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving.
 _In UI_: "Role", and each Role's name.
@@ -680,7 +685,7 @@ _In UI_: "Member".
 _Avoid_: Portal user, user, guest
 
 **Setup code**:
-A one-time code a fresh install prints to its console and log, which unlocks its first-run page to create the first Admin, join a SlipStream or restore a Backup. A recovery sheet names it as the way into a new machine's restore.
+A one-time code a Node prints to its console and log, which unlocks its own page: on a fresh install, to create the first Admin, join a SlipStream or restore a Backup; on a Worker out of reach of its Controller for a while, to pair it with another one. A recovery sheet names it as the way into a new machine's restore.
 _In UI_: "Setup code".
 _Avoid_: Bootstrap token, install key
 

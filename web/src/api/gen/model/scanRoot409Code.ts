@@ -1,1 +1,1 @@
-export type ScanRoot409Code = "worker_node";
+export type ScanRoot409Code = "superseded" | "worker_node";

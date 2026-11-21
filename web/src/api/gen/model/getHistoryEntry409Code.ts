@@ -1,1 +1,1 @@
-export type GetHistoryEntry409Code = "worker_node";
+export type GetHistoryEntry409Code = "superseded" | "worker_node";

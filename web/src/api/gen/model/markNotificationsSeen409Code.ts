@@ -1,1 +1,1 @@
-export type MarkNotificationsSeen409Code = "worker_node";
+export type MarkNotificationsSeen409Code = "superseded" | "worker_node";

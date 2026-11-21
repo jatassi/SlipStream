@@ -1,1 +1,1 @@
-export type PrepareRecoverySheet409Code = "worker_node";
+export type PrepareRecoverySheet409Code = "superseded" | "worker_node";

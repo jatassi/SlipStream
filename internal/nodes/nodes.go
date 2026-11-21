@@ -53,6 +53,14 @@ type Publisher interface {
 	Publish(ctx context.Context, v Changed)
 }
 
+// Fenced tells Admins that this Controller became Superseded, or that an
+// Admin resumed it.
+type Fenced struct {
+	Superseded bool `json:"superseded"`
+}
+
+var FencedEvent = live.AdminEvent[Fenced]("nodes.fenced")
+
 // SettingsChanged tells Admins that a Node's settings view changed: a
 // save, or a restart that adopted a pending value.
 type SettingsChanged struct {
@@ -138,6 +146,9 @@ type Config struct {
 	// Paired is called in the Write that pairs a key the roster has no row
 	// for, with the new row's id.
 	Paired func(ctx context.Context, tx *storage.Tx[file], node ID) error
+	// Fenced is called once a Write that made this Controller Superseded,
+	// or resumed it, commits, with every Node's id.
+	Fenced func(ctx context.Context, superseded bool, nodes []ID)
 	Log    *slog.Logger
 }
 
@@ -190,6 +201,11 @@ type Service struct {
 	invites map[JoinCodeID]*inviting
 	// tells queues the superseded claims pinned Workers made, for Run.
 	tells chan toldClaim
+	// fmu orders the fence's Writes and their Fenced calls. superseded is
+	// whether the committed fence holds this Controller, read on every
+	// request.
+	fmu        sync.Mutex
+	superseded atomic.Bool
 	// dmu guards kept: the Nodes the link keeps for nodes_dial.
 	dmu  sync.Mutex
 	kept map[link.Key]link.Target
@@ -320,6 +336,11 @@ func (s *Service) load(ctx context.Context) error {
 		}
 		s.removed[key] = true
 	}
+	f, fenced, err := FenceIn(ctx, s.cfg.Library)
+	if err != nil {
+		return err
+	}
+	s.superseded.Store(fenced && f.Superseded())
 	return nil
 }
 

@@ -1,1 +1,1 @@
-export type ListMediaServers409Code = "worker_node";
+export type ListMediaServers409Code = "superseded" | "worker_node";

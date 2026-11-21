@@ -1,1 +1,1 @@
-export type GetCounts409Code = "worker_node";
+export type GetCounts409Code = "superseded" | "worker_node";

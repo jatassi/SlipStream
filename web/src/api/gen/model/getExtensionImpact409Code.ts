@@ -1,1 +1,1 @@
-export type GetExtensionImpact409Code = "worker_node";
+export type GetExtensionImpact409Code = "superseded" | "worker_node";

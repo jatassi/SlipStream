@@ -182,3 +182,27 @@ func noTime(_ []string, a slog.Attr) slog.Attr {
 	}
 	return a
 }
+
+// TestAWorkersGateOpensForItsOwnPageUntilShut opens a paired Worker's
+// closed gate: the new code admits a Setup operation, and the gate stays
+// open after it, though the Node is claimed. Shut closes it, and the code
+// no longer admits anything.
+func TestAWorkersGateOpensForItsOwnPageUntilShut(t *testing.T) {
+	g, _, err := NewGate(t.Context(), (&claimedFlag{claim: system.Worker}).claimed, slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := g.OpenForWorker()
+	if again := g.OpenForWorker(); again != code {
+		t.Fatalf("a second OpenForWorker drew %q, want the open code %q", again, code)
+	}
+	for range 2 {
+		if err := g.Run(t.Context(), Caller{}, code, func(Claim) {}); err != nil {
+			t.Fatalf("Run on the Worker's open gate = %v", err)
+		}
+	}
+	g.Shut()
+	if err := g.Run(t.Context(), Caller{}, code, func(Claim) {}); !errors.Is(err, ErrAlreadyClaimed) {
+		t.Fatalf("Run after Shut = %v, want ErrAlreadyClaimed", err)
+	}
+}

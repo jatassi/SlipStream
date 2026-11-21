@@ -1,1 +1,1 @@
-export type ClearTrackerRule409Code = "tracker_public" | "worker_node";
+export type ClearTrackerRule409Code = "superseded" | "tracker_public" | "worker_node";

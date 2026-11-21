@@ -1,1 +1,1 @@
-export type GetMetadataSettings409Code = "worker_node";
+export type GetMetadataSettings409Code = "superseded" | "worker_node";

@@ -1,1 +1,1 @@
-export type RetireController409Code = "worker_node";
+export type RetireController409Code = "superseded" | "worker_node";

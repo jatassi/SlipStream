@@ -64,8 +64,8 @@ const (
 )
 
 // Gate admits setup operations while the Node is Unclaimed: open, busy
-// while one runs, and closed for the life of the process once the Node is
-// claimed.
+// while one runs, and closed once the Node is claimed. A paired Worker
+// that can't reach its Controller opens it again for its own page.
 type Gate struct {
 	claim func(context.Context) (system.Claim, error)
 	log   *slog.Logger
@@ -73,6 +73,11 @@ type Gate struct {
 	mu    sync.Mutex
 	state gateState
 	code  string
+	// shown is code as the log showed it.
+	shown string
+	// forWorker is the gate open on a paired Worker, which a Setup
+	// operation's end leaves open rather than closing.
+	forWorker bool
 }
 
 // NewGate asks claim once. An Unclaimed Node draws a Setup code, logs it
@@ -132,13 +137,41 @@ func (g *Gate) leave(ctx context.Context) {
 	if err != nil {
 		g.log.Error("setup gate can't read whether the Node is claimed", "error", err)
 	}
-	if c != system.Unclaimed {
-		g.Close()
-		return
-	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	if g.state == gateClosed {
+		return
+	}
+	if c != system.Unclaimed && !g.forWorker {
+		g.used()
+		return
+	}
 	g.state = gateOpen
+}
+
+// OpenForWorker opens the gate on a paired Worker that hasn't reached its
+// Controller for a while, so its local page takes a Join Code, and
+// answers the new Setup code, which the caller logs with the page's
+// address. A gate already open for it answers its code.
+func (g *Gate) OpenForWorker() string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.forWorker {
+		return g.shown
+	}
+	code := newSetupCode()
+	g.state, g.code, g.shown, g.forWorker = gateOpen, normalizeSetupCode(code), code, true
+	return code
+}
+
+// Shut closes a gate OpenForWorker opened, once the Worker reaches its
+// Controller again.
+func (g *Gate) Shut() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.forWorker {
+		g.closeLocked()
+	}
 }
 
 // Close closes the gate for good. A claim made outside it, by the join op or
@@ -146,10 +179,17 @@ func (g *Gate) leave(ctx context.Context) {
 func (g *Gate) Close() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	g.used()
+}
+
+func (g *Gate) used() {
 	if g.state == gateClosed {
 		return
 	}
-	g.state = gateClosed
-	g.code = ""
+	g.closeLocked()
 	g.log.Info("setup code used")
+}
+
+func (g *Gate) closeLocked() {
+	g.state, g.code, g.shown, g.forWorker = gateClosed, "", "", false
 }

@@ -1,1 +1,1 @@
-export type ListRoots409Code = "worker_node";
+export type ListRoots409Code = "superseded" | "worker_node";

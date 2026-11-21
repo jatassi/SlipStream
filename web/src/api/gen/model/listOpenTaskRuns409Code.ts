@@ -1,1 +1,1 @@
-export type ListOpenTaskRuns409Code = "worker_node";
+export type ListOpenTaskRuns409Code = "superseded" | "worker_node";

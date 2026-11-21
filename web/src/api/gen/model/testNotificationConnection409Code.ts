@@ -1,1 +1,1 @@
-export type TestNotificationConnection409Code = "worker_node";
+export type TestNotificationConnection409Code = "superseded" | "worker_node";

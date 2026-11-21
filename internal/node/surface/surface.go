@@ -53,6 +53,7 @@ import (
 	"github.com/jatassi/slipstream/internal/shellapi"
 	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/subtitlesapi"
+	"github.com/jatassi/slipstream/internal/supersededapi"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/systemapi"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -77,6 +78,7 @@ var Events = []live.Event{
 	identity.AddressChangedEvent,
 	nodes.ChangedEvent,
 	nodes.SettingsChangedEvent,
+	nodes.FencedEvent,
 	nodes.TrafficEvent,
 	works.ChangedEvent,
 	works.RemovedEvent,
@@ -149,6 +151,8 @@ type Node interface {
 	shellapi.Shell
 	systemapi.Systems
 	Removal() (pairing.Removal, bool)
+	Superseded() bool
+	supersededapi.Fencer
 	tasksapi.Clock
 	servingapi.Worker
 	healthapi.Watch
@@ -204,6 +208,7 @@ func Mount(r *api.Router, s Services) {
 	subtitlesapi.Routes(r, s.Node)
 	reconcilingapi.Routes(r, s.Node)
 	restoreapi.Routes(r, s.Node)
+	supersededapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

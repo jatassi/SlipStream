@@ -1,1 +1,1 @@
-export type RefreshWorks409Code = "worker_node";
+export type RefreshWorks409Code = "superseded" | "worker_node";

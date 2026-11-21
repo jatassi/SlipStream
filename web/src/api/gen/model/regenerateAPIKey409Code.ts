@@ -1,1 +1,1 @@
-export type RegenerateAPIKey409Code = "worker_node";
+export type RegenerateAPIKey409Code = "superseded" | "worker_node";

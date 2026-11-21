@@ -139,6 +139,25 @@ func (n *Node) joinAtStart(ctx context.Context, code joincode.Code) {
 	}
 }
 
+// joinAtStartFrom runs joinAtStart with the Join Code a Wipe and join
+// finished at this start, or else with join.code, when either is set.
+func (n *Node) joinAtStartFrom(code joincode.Code) error {
+	if !n.wiped.IsZero() {
+		if err := n.env.Test.beforeWipeStep(WipeJoin); err != nil {
+			return err
+		}
+		code = n.wiped
+	}
+	if code.IsZero() {
+		return nil
+	}
+	n.stack.Go("join-code", func(ctx context.Context) error {
+		n.joinAtStart(ctx, code)
+		return nil
+	})
+	return nil
+}
+
 // serveJoin is JoinOp. A Join awaiting its Controller's dial sends its
 // lines every minute, and stops when a send fails, as slipstream join's
 // Ctrl-C makes it. A --node-port this Node doesn't listen on is written to

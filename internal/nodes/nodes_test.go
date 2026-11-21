@@ -121,6 +121,7 @@ type controller struct {
 	svc     *nodes.Service
 	pub     *published
 	traffic *heard
+	fenced  *fencings
 	stop    func()
 	// edit changes the roster's Config at each open.
 	edit []func(*nodes.Config)
@@ -146,7 +147,7 @@ func startController(t *testing.T, edit ...func(*nodes.Config)) *controller {
 	s := &side{}
 	node := linktest.Start(t, nw, "home", []netip.Addr{linktest.ControllerAddr}, linktest.Side{Trust: s, Pair: s.Pair, Told: s.Told, Lockstep: s, LaneHandler: echoLanes{}})
 	lib := storagetest.Library(t, nodes.Schema(), role.LibrarySchema(), roletest.Schema(), history.Schema())
-	c := &controller{net: nw, node: node, lib: lib, edit: edit}
+	c := &controller{net: nw, node: node, lib: lib, fenced: &fencings{}, edit: edit}
 	c.open(t, s)
 	return c
 }
@@ -169,6 +170,7 @@ func (c *controller) open(t *testing.T, s *side) {
 		Storage:    storesNothing,
 		Television: func(nodes.ID) bool { return false },
 		Facts:      func(nodes.ID, string) {},
+		Fenced:     c.fenced.note,
 		Timings:    nodes.DefaultTimings(),
 		Stall:      45 * time.Second,
 		Log:        discard,

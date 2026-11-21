@@ -1,1 +1,1 @@
-export type GetSeedingSettings409Code = "worker_node";
+export type GetSeedingSettings409Code = "superseded" | "worker_node";

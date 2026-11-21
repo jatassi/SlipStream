@@ -122,3 +122,26 @@ func (d Dir) remove(suffix string) error {
 	}
 	return atomicfile.SyncDir(d.Path)
 }
+
+// WipeFiles is what Wipe and join deletes, in order: library.db with its
+// sidecars first, so no start finds a library whose key is gone, then its
+// key, backup.key with the fence secret, and the Backups index.
+var WipeFiles = []string{library, library + sidecars[0], library + sidecars[1], "library.key", "backup.key", "backups.json"}
+
+// Wipe deletes each of WipeFiles that is present, calling before with its
+// name first: an error stops there, as a crash would. Any order of stops
+// converges, since the record stays until Finish.
+func (d Dir) Wipe(before func(name string) error) error {
+	for _, name := range WipeFiles {
+		if !d.present(name) {
+			continue
+		}
+		if err := before(name); err != nil {
+			return err
+		}
+		if err := atomicfile.Remove(filepath.Join(d.Path, name), d.Retry); err != nil {
+			return err
+		}
+	}
+	return atomicfile.SyncDir(d.Path)
+}

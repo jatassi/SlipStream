@@ -1,1 +1,1 @@
-export type SignOutOfPlex409Code = "worker_node";
+export type SignOutOfPlex409Code = "superseded" | "worker_node";

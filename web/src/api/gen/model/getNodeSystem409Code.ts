@@ -1,1 +1,1 @@
-export type GetNodeSystem409Code = "node_mismatched" | "worker_node";
+export type GetNodeSystem409Code = "node_mismatched" | "superseded" | "worker_node";

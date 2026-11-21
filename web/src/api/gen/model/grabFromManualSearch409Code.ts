@@ -1,1 +1,5 @@
-export type GrabFromManualSearch409Code = "manual_search_replaced" | "reconciling" | "worker_node";
+export type GrabFromManualSearch409Code =
+  | "manual_search_replaced"
+  | "reconciling"
+  | "superseded"
+  | "worker_node";

@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { sentenceOf } from "../../api/errors";
-import { retireController } from "../../api/gen/query/backups/backups";
+import { retireController } from "../../api/gen/query/superseded/superseded";
 import { Button } from "../../ui/button";
 import { ConfirmDialog } from "../../ui/confirm-dialog";
 

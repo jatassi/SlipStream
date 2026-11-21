@@ -1,1 +1,1 @@
-export type KeepSubtitleUpload409Code = "worker_node";
+export type KeepSubtitleUpload409Code = "superseded" | "worker_node";

@@ -1,1 +1,1 @@
-export type SetDownloadClientThresholds409Code = "worker_node";
+export type SetDownloadClientThresholds409Code = "superseded" | "worker_node";

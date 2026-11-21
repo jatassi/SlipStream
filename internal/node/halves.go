@@ -178,6 +178,7 @@ func (n *Node) startController(ctx context.Context) error {
 	var keeping entry.Recorder
 	keeper := reconciling.New(reconciling.Config{
 		Library: lib.db,
+		Self:    func() role.NodeID { return side.Self() },
 		History: &keeping,
 		Touch:   func(ids ...role.NodeID) { downloads.Touch(ids...) },
 		Metainfo: func(ctx context.Context, node role.NodeID, hash bencode.InfoHash, client *downloadclients.ClientID) ([]byte, error) {
@@ -354,6 +355,7 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	arrivals := roots.NewArrivals()
+	fenced := nodes.FencedEvent.Bind(n.hub)
 	var systems *nodesystem.Nodes
 	side, err = nodes.Open(ctx, nodes.Config{
 		Library: lib.db,
@@ -388,9 +390,13 @@ func (n *Node) startController(ctx context.Context) error {
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)
 		},
-		Probe:   func(ctx context.Context, id role.NodeID) ([]role.ProbeResult, error) { return systems.Probe(ctx, id) },
-		Always:  n.env.Test.Always,
-		Fence:   provesNothing{},
+		Probe:  func(ctx context.Context, id role.NodeID) ([]role.ProbeResult, error) { return systems.Probe(ctx, id) },
+		Always: n.env.Test.Always,
+		Fence:  kept,
+		Fenced: func(ctx context.Context, superseded bool, ids []role.NodeID) {
+			downloads.Touch(ids...)
+			fenced.Publish(ctx, nodes.Fenced{Superseded: superseded})
+		},
 		Paired:  reconciling.Paired,
 		Pending: reconciling.Pending,
 		Timings: n.cfg.Timings.Nodes,
@@ -1208,12 +1214,6 @@ func (p claimPeers) Unknown(key link.Key, peer link.NodeInfo, from netip.AddrPor
 		h.nodes.Unknown(key, peer, from)
 	}
 }
-
-// provesNothing is the Controller's Fencer until it holds a fence secret:
-// every claim that a restore replaced it is unproven.
-type provesNothing struct{}
-
-func (provesNothing) Proven(_, _, _ []byte) bool { return false }
 
 // claimStreams serves Serve streams from a Node that serves on the
 // Controller, and resets them on any other Node.

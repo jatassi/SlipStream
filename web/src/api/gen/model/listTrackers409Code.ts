@@ -1,1 +1,1 @@
-export type ListTrackers409Code = "worker_node";
+export type ListTrackers409Code = "superseded" | "worker_node";

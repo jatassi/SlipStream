@@ -1,1 +1,1 @@
-export type ClearMetadataCache409Code = "worker_node";
+export type ClearMetadataCache409Code = "superseded" | "worker_node";

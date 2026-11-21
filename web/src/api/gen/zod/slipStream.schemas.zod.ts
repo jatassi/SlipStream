@@ -9421,6 +9421,13 @@ export const NodesFacts = zod.object({
 export type NodesFacts = zod.input<typeof NodesFacts>;
 export type NodesFactsOutput = zod.output<typeof NodesFacts>;
 
+export const NodesFenced = zod.object({
+  superseded: zod.boolean(),
+});
+
+export type NodesFenced = zod.input<typeof NodesFenced>;
+export type NodesFencedOutput = zod.output<typeof NodesFenced>;
+
 export const NodesGesture = zod.object({
   from: zod.uuid().exactOptional().describe("The Node the Role moves from; absent for an add"),
   note: zod
@@ -11553,6 +11560,25 @@ export const SubtitlesWorkSubtitles = zod.object({
 export type SubtitlesWorkSubtitles = zod.input<typeof SubtitlesWorkSubtitles>;
 export type SubtitlesWorkSubtitlesOutput = zod.output<typeof SubtitlesWorkSubtitles>;
 
+export const SupersededReplacement = zod.object({
+  address: zod.string(),
+  key: zod.string(),
+});
+
+export type SupersededReplacement = zod.input<typeof SupersededReplacement>;
+export type SupersededReplacementOutput = zod.output<typeof SupersededReplacement>;
+
+export const SupersededView = zod.object({
+  at: zod.iso.datetime({ offset: true }).exactOptional(),
+  replacement: SupersededReplacement.exactOptional(),
+  state: zod.enum(["none", "unproven", "proven", "stopped", "retired"]),
+  worker: zod.string().exactOptional(),
+  workerId: zod.string().exactOptional(),
+});
+
+export type SupersededView = zod.input<typeof SupersededView>;
+export type SupersededViewOutput = zod.output<typeof SupersededView>;
+
 export const SystemBuild = zod.object({
   commit: zod.string().exactOptional(),
   fingerprint: zod.string().exactOptional(),
@@ -11686,6 +11712,12 @@ export const SystemStatus = zod.object({
     .datetime({ offset: true })
     .describe(
       "When this process started. A page waiting out a restart reads a later one once the Node is back",
+    ),
+  superseded: zod
+    .boolean()
+    .exactOptional()
+    .describe(
+      "Whether a restore on another machine replaced this Controller, or an Admin stopped or retired it",
     ),
 });
 
@@ -13273,6 +13305,15 @@ export const UnmatchedOutputBody = zod.object({
 export type UnmatchedOutputBody = zod.input<typeof UnmatchedOutputBody>;
 export type UnmatchedOutputBodyOutput = zod.output<typeof UnmatchedOutputBody>;
 
+export const wipeInputBodyJoinCodeMax = 1024;
+
+export const WipeInputBody = zod.object({
+  joinCode: zod.string().min(1).max(wipeInputBodyJoinCodeMax),
+});
+
+export type WipeInputBody = zod.input<typeof WipeInputBody>;
+export type WipeInputBodyOutput = zod.output<typeof WipeInputBody>;
+
 export const WorkPlanInputBody = zod.object({
   draft: FilesRenameDraft.exactOptional().describe(
     "Unsaved naming settings to plan under instead of the stored ones",
@@ -14681,6 +14722,14 @@ export const LiveEventNodesChanged = zod.object({
 export type LiveEventNodesChanged = zod.input<typeof LiveEventNodesChanged>;
 export type LiveEventNodesChangedOutput = zod.output<typeof LiveEventNodesChanged>;
 
+export const LiveEventNodesFenced = zod.object({
+  event: zod.enum(["nodes.fenced"]),
+  data: NodesFenced,
+});
+
+export type LiveEventNodesFenced = zod.input<typeof LiveEventNodesFenced>;
+export type LiveEventNodesFencedOutput = zod.output<typeof LiveEventNodesFenced>;
+
 export const LiveEventNodesTraffic = zod.object({
   event: zod.enum(["nodes.traffic"]),
   data: NodesTraffic,
@@ -14892,6 +14941,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventNamingChanged,
   LiveEventNodeSettingsChanged,
   LiveEventNodesChanged,
+  LiveEventNodesFenced,
   LiveEventNodesTraffic,
   LiveEventNotificationsChanged,
   LiveEventNotificationsSeen,

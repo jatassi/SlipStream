@@ -1,1 +1,1 @@
-export type ListNotificationConnections409Code = "worker_node";
+export type ListNotificationConnections409Code = "superseded" | "worker_node";

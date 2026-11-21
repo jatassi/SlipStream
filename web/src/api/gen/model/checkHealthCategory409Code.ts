@@ -1,1 +1,1 @@
-export type CheckHealthCategory409Code = "worker_node";
+export type CheckHealthCategory409Code = "superseded" | "worker_node";

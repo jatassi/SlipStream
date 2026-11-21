@@ -1,1 +1,1 @@
-export type UpdateIndexerSettings409Code = "worker_node";
+export type UpdateIndexerSettings409Code = "superseded" | "worker_node";
