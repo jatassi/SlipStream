@@ -208,11 +208,11 @@ func (t *Transfers) store(ctx context.Context, fail []judged) error {
 			if tr.Failure != nil {
 				continue
 			}
-			root, err := roots.Get(ctx, tx, rootOf(tr.Destination))
+			node, _, err := destinationIn(ctx, tx, tr)
 			if err != nil {
 				return err
 			}
-			if err := t.fail(ctx, tx, tr, root.Node, f.code, f.position, ""); err != nil {
+			if err := t.fail(ctx, tx, tr, node, f.code, f.position, ""); err != nil {
 				return err
 			}
 			fired[tr.Purpose] = append(fired[tr.Purpose], tr.Job)

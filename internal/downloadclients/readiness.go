@@ -16,7 +16,7 @@ import (
 // removal, then FailedSource with the report's error, Checking,
 // Incomplete and Ready from its latest report. A Torrent ref with no
 // Torrent or no report, or one removed other than by a write-off, is
-// Unknown, and so is every Path ref. Moved closes when a report or
+// Unknown, and so is every Path and Backup ref. Moved closes when a report or
 // removal changes what this reads.
 func (c *Clients) ReadinessIn(ctx context.Context, rd storage.Reader[file], node role.NodeID, refs []source.Ref) (map[source.Ref]source.Readiness, error) {
 	out := make(map[source.Ref]source.Readiness, len(refs))
@@ -26,7 +26,7 @@ func (c *Clients) ReadinessIn(ctx context.Context, rd storage.Reader[file], node
 		switch r := ref.(type) {
 		case source.Torrent:
 			torrents, hashes = append(torrents, r), append(hashes, r.Hash[:])
-		case source.Path:
+		case source.Path, source.Backup:
 			out[r] = source.Readiness{}
 		}
 	}

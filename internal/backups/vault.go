@@ -17,6 +17,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/atomicfile"
 	"github.com/jatassi/slipstream/internal/backups/archive"
@@ -33,6 +34,7 @@ type Generation uint32
 type Vault struct {
 	mu     sync.Mutex
 	path   string
+	retry  time.Duration
 	sealer *secret.Sealer
 	ring   keyring
 	raw    []byte
@@ -57,9 +59,10 @@ type fenceSecret struct {
 }
 
 // OpenVault reads path. A missing file is an empty Vault: the first
-// Current makes generation 1 and a fence secret.
-func OpenVault(path string, keys *secret.Keys) (*Vault, error) {
-	v := &Vault{path: path, sealer: keys.Sealer()}
+// Current makes generation 1 and a fence secret. retry is the Windows
+// rename retry.
+func OpenVault(path string, keys *secret.Keys, retry time.Duration) (*Vault, error) {
+	v := &Vault{path: path, retry: retry, sealer: keys.Sealer()}
 	b, err := os.ReadFile(path) //nolint:gosec // path is the data dir's backup.key, chosen by the Node
 	if errors.Is(err, fs.ErrNotExist) {
 		return v, nil
@@ -261,7 +264,7 @@ func (v *Vault) commit(next keyring) error {
 	if err != nil {
 		return err
 	}
-	if err := atomicfile.Write(v.path, b); err != nil {
+	if err := atomicfile.Replace(v.path, b, v.retry); err != nil {
 		return fmt.Errorf("write %s: %w", VaultFile, err)
 	}
 	v.ring, v.raw = next, b

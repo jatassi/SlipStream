@@ -6,6 +6,7 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/metadata"
@@ -16,7 +17,7 @@ import (
 func TestTheCatalogListsEachTaskOnceInItsWindowOrder(t *testing.T) {
 	seen := map[tasks.TaskID]bool{}
 	var window []tasks.TaskID
-	for _, task := range catalog(housekeeping.Config{}, metadata.RefreshConfig{}, imports.New(imports.Config{Transfers: transfers.New(transfers.ControllerConfig{})})) {
+	for _, task := range catalog(housekeeping.Config{}, metadata.RefreshConfig{}, imports.New(imports.Config{Transfers: transfers.New(transfers.ControllerConfig{})}), &backups.Backups{}) {
 		if seen[task.ID] {
 			t.Fatalf("the catalog lists %q twice", task.ID)
 		}
@@ -28,7 +29,7 @@ func TestTheCatalogListsEachTaskOnceInItsWindowOrder(t *testing.T) {
 			window = append(window, task.ID)
 		}
 	}
-	if want := []tasks.TaskID{"metadata-refresh", "library-scan", "housekeeping"}; !slices.Equal(window, want) {
+	if want := []tasks.TaskID{"backup", "metadata-refresh", "library-scan", "housekeeping"}; !slices.Equal(window, want) {
 		t.Fatalf("window order %q, want %q", window, want)
 	}
 }

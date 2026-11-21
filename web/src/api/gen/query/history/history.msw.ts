@@ -22,6 +22,7 @@ export const getListHistoryResponseMock = (
         "library",
         "subtitles",
         "health",
+        "backups",
       ] as const),
       id: faker.number.int(),
       kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -64,6 +65,7 @@ export const getListHistoryKindsResponseMock = (
         "library",
         "subtitles",
         "health",
+        "backups",
       ] as const),
       kinds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
@@ -97,6 +99,7 @@ export const getGetHistoryEntryResponseMock = (
       "library",
       "subtitles",
       "health",
+      "backups",
     ] as const),
     id: faker.number.int(),
     kind: faker.string.alpha({ length: { min: 10, max: 20 } }),

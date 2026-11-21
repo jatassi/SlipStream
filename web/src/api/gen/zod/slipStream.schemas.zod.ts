@@ -31,6 +31,128 @@ export const ActInputBody = zod.object({
 export type ActInputBody = zod.input<typeof ActInputBody>;
 export type ActInputBodyOutput = zod.output<typeof ActInputBody>;
 
+export const BackupsCopies = zod.object({
+  copied: zod.int(),
+  copying: zod.int(),
+  failed: zod.int(),
+  waiting: zod.int().describe("Waiting for a copy to start"),
+});
+
+export type BackupsCopies = zod.input<typeof BackupsCopies>;
+export type BackupsCopiesOutput = zod.output<typeof BackupsCopies>;
+
+export const BackupsCheck = zod.object({
+  at: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the result came in; null while none has"),
+  cause: zod.string().exactOptional().describe("Why the check failed, as a sentence"),
+  result: zod
+    .enum(["none", "asked", "ok", "mismatch", "unreadable", "no_local_file"])
+    .describe(
+      "none: not checked yet; asked: waiting for its Node; no_local_file: this machine has no file of the Backup to check it against",
+    ),
+});
+
+export type BackupsCheck = zod.input<typeof BackupsCheck>;
+export type BackupsCheckOutput = zod.output<typeof BackupsCheck>;
+
+export const backupsNewestBackupIdRegExp = new RegExp("^[0-9a-f]{32}$");
+
+export const BackupsNewest = zod.object({
+  backupId: zod.string().regex(backupsNewestBackupIdRegExp),
+  check: BackupsCheck.describe("Its last check"),
+  copiedAt: zod.iso.datetime({ offset: true }),
+  name: zod.string().describe("The Backup's file name"),
+});
+
+export type BackupsNewest = zod.input<typeof BackupsNewest>;
+export type BackupsNewestOutput = zod.output<typeof BackupsNewest>;
+
+export const backupsDestinationIdRegExp = new RegExp("^[0-9a-f]{32}$");
+
+export const BackupsDestination = zod.object({
+  addedAt: zod.iso.datetime({ offset: true }),
+  copies: BackupsCopies.describe("Its copies of the listed Backups, by state"),
+  folder: zod.string().describe("As the Admin typed it"),
+  id: zod.string().regex(backupsDestinationIdRegExp),
+  newest: zod
+    .union([BackupsNewest, zod.null()])
+    .describe("Its newest copy, null before one is copied"),
+  nodeId: zod.uuid(),
+  removing: zod
+    .boolean()
+    .describe("Removed, while a copy already running into its folder finishes"),
+});
+
+export type BackupsDestination = zod.input<typeof BackupsDestination>;
+export type BackupsDestinationOutput = zod.output<typeof BackupsDestination>;
+
+export const BackupsRoom = zod.object({
+  free: zod.int().describe("The bytes SlipStream may write on the folder's volume"),
+  need: zod.int().describe("The bytes of every listed Backup"),
+});
+
+export type BackupsRoom = zod.input<typeof BackupsRoom>;
+export type BackupsRoomOutput = zod.output<typeof BackupsRoom>;
+
+export const BackupsAdded = zod.object({
+  destination: BackupsDestination,
+  room: zod
+    .union([BackupsRoom, zod.null()])
+    .describe(
+      "The room the folder's volume lacks to hold every listed Backup; null when it has enough",
+    ),
+});
+
+export type BackupsAdded = zod.input<typeof BackupsAdded>;
+export type BackupsAddedOutput = zod.output<typeof BackupsAdded>;
+
+export const BackupsDestinationList = zod.object({
+  destinations: zod.array(BackupsDestination).describe("In the order they were added"),
+});
+
+export type BackupsDestinationList = zod.input<typeof BackupsDestinationList>;
+export type BackupsDestinationListOutput = zod.output<typeof BackupsDestinationList>;
+
+export const backupsNewDestinationFolderMax = 4096;
+
+export const BackupsNewDestination = zod.object({
+  folder: zod
+    .string()
+    .min(1)
+    .max(backupsNewDestinationFolderMax)
+    .describe("An absolute folder in the Node's path style"),
+  nodeId: zod.uuid(),
+});
+
+export type BackupsNewDestination = zod.input<typeof BackupsNewDestination>;
+export type BackupsNewDestinationOutput = zod.output<typeof BackupsNewDestination>;
+
+export const BackupsRefusal = zod.object({
+  reason: zod
+    .enum([
+      "not_absolute",
+      "not_found",
+      "not_a_folder",
+      "unwritable",
+      "inside_root",
+      "contains_root",
+      "inside_data",
+      "contains_data",
+      "inside_downloads",
+      "contains_downloads",
+      "unresponsive",
+      "network_share",
+      "outside",
+      "node_offline",
+    ])
+    .describe("Why the folder can't hold Backups"),
+});
+
+export type BackupsRefusal = zod.input<typeof BackupsRefusal>;
+export type BackupsRefusalOutput = zod.output<typeof BackupsRefusal>;
+
 export const Bare = zod.union([zod.number(), zod.string(), zod.array(zod.string())]);
 
 export type Bare = zod.input<typeof Bare>;
@@ -154,9 +276,9 @@ export const checkFolderInputBodyPathMax = 4096;
 export const CheckFolderInputBody = zod.object({
   path: zod.string().min(1).max(checkFolderInputBodyPathMax),
   purpose: zod
-    .enum(["root", "downloads", "import"])
+    .enum(["root", "downloads", "import", "backups"])
     .describe(
-      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders",
+      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders; backups: a folder for Backups, writable and apart from every root and downloads folder on the Node",
     ),
   rootId: zod
     .uuid()
@@ -1779,7 +1901,7 @@ export type EmailChangeInputBodyOutput = zod.output<typeof EmailChangeInputBody>
 export const NotificationsEvent = zod.object({
   bellByDefault: zod.boolean(),
   fixed: zod.boolean().describe("Never chosen: a Test is sent only when the Admin asks"),
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "system"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups", "system"]),
   id: zod.string(),
   label: zod.string(),
   onByDefault: zod.boolean().describe("A new connection gets it unless the Admin picks otherwise"),
@@ -4979,7 +5101,7 @@ export const SettingFolderField = zod.object({
     .boolean()
     .describe("The saved value differs from the running one until the Node restarts"),
   purpose: zod
-    .enum(["downloads"])
+    .enum(["downloads", "backups"])
     .describe("The rules the Node judges the folder by, as checkFolder names them"),
   running: zod.string(),
   source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
@@ -5600,7 +5722,7 @@ export type HistoryKind = zod.input<typeof HistoryKind>;
 export type HistoryKindOutput = zod.output<typeof HistoryKind>;
 
 export const HistoryGroup = zod.object({
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups"]),
   kinds: zod.array(HistoryKind),
   label: zod.string(),
 });
@@ -5661,7 +5783,7 @@ export type HistoryWorkSummaryOutput = zod.output<typeof HistoryWorkSummary>;
 
 export const HistoryListEntry = zod.object({
   at: zod.iso.datetime({ offset: true }).describe("When it was captured"),
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups"]),
   id: zod.int(),
   kind: zod.string().describe("A kind GET /history/kinds lists"),
   links: HistoryLinks,
@@ -11201,7 +11323,7 @@ export type SystemBuildOutput = zod.output<typeof SystemBuild>;
 
 export const SystemConfigSection = zod.object({
   fields: zod.array(SettingField),
-  id: zod.enum(["web", "log", "torrent"]),
+  id: zod.enum(["web", "log", "torrent", "backups"]),
 });
 
 export type SystemConfigSection = zod.input<typeof SystemConfigSection>;
@@ -12684,11 +12806,26 @@ export const TransfersChanged = zod.object({
 export type TransfersChanged = zod.input<typeof TransfersChanged>;
 export type TransfersChangedOutput = zod.output<typeof TransfersChanged>;
 
+export const transfersDestinationBackupDestinationIdRegExp = new RegExp("^[0-9a-f]{32}$");
+
 export const TransfersDestination = zod.object({
-  kind: zod.enum(["root"]).describe("root is a library root"),
-  nodeId: zod.uuid().describe("The Node that holds the root now"),
+  backupDestinationId: zod
+    .string()
+    .regex(transfersDestinationBackupDestinationIdRegExp)
+    .exactOptional()
+    .describe("The Backup destination, for backup"),
+  folder: zod
+    .string()
+    .exactOptional()
+    .describe("The folder on its Node, for backup and backups_folder"),
+  kind: zod
+    .enum(["root", "backup", "backups_folder"])
+    .describe(
+      "root is a library root, backup a Backup destination, and backups_folder the Controller's Backups folder",
+    ),
+  nodeId: zod.uuid().describe("The Node that holds it now"),
   nodeName: zod.string(),
-  rootId: zod.uuid(),
+  rootId: zod.uuid().exactOptional().describe("The root, for root"),
 });
 
 export type TransfersDestination = zod.input<typeof TransfersDestination>;
@@ -12791,6 +12928,8 @@ export const TransfersWait = zod.object({
     "storage_draining",
     "source_checking",
     "source_not_ready",
+    "folder_not_ready",
+    "reconciling",
   ]),
   nodeId: zod.uuid().describe("The Node it waits for"),
 });
@@ -12817,7 +12956,11 @@ export const TransfersTransfer = zod.object({
   id: zod.uuid(),
   job: zod.string().describe("The id of the job that asked for it, such as its Grab's"),
   jobName: zod.string().describe("The job's name, such as a Work's title and year"),
-  purpose: zod.enum(["import"]).describe("The kind of job that asked for it"),
+  purpose: zod
+    .enum(["import", "backup"])
+    .describe(
+      "The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller",
+    ),
   rate: zod
     .int()
     .min(transfersTransferRateMin)

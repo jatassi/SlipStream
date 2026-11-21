@@ -131,7 +131,7 @@ type FolderField struct {
 	Running string `json:"running"`
 	Default string `json:"default"`
 	NodeID  string `json:"nodeId" format:"uuid" doc:"The Node the path is on, which browses and judges it"`
-	Purpose string `json:"purpose" enum:"downloads" doc:"The rules the Node judges the folder by, as checkFolder names them"`
+	Purpose string `json:"purpose" enum:"downloads,backups" doc:"The rules the Node judges the folder by, as checkFolder names them"`
 }
 
 // SpaceField is a Space on the wire.

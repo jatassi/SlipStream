@@ -62,6 +62,10 @@ var nodeSettings = []settingRow{
 		desc:  setting.Folder{Key: "torrent.downloads", Label: "Downloads folder", Purpose: setting.FolderDownloads},
 		rowOf: rowOf[string]{at: func(c *Config) *string { return &c.Torrent.Downloads }},
 	},
+	folderRow{
+		desc:  setting.Folder{Key: "backups.folder", Label: "Backups folder", Purpose: setting.FolderBackups},
+		rowOf: rowOf[string]{at: func(c *Config) *string { return &c.Backups.Folder }},
+	},
 }
 
 var logLevels = []setting.Option[logs.Level]{

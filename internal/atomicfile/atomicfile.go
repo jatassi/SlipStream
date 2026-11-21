@@ -36,7 +36,7 @@ func Create(path string, data []byte, retry time.Duration) error {
 	if err != nil {
 		return err
 	}
-	err = retried(retry, func() error { return os.Link(tmp, path) })
+	err = Retried(retry, func() error { return os.Link(tmp, path) })
 	if err = errors.Join(err, Remove(tmp, retry)); err != nil {
 		return fmt.Errorf("create %s: %w", path, err)
 	}
@@ -63,13 +63,13 @@ func temp(path string, data []byte) (string, error) {
 // retry, as cmd/go's robustio retries them: an antivirus scan or the search
 // indexer holds a file it has just seen open for a moment.
 func Rename(oldPath, newPath string, retry time.Duration) error {
-	return retried(retry, func() error { return os.Rename(oldPath, newPath) })
+	return Retried(retry, func() error { return os.Rename(oldPath, newPath) })
 }
 
 // Remove deletes path, retrying as Rename does. A path already gone is no
 // error.
 func Remove(path string, retry time.Duration) error {
-	err := retried(retry, func() error {
+	err := Retried(retry, func() error {
 		err := os.Remove(path)
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil
@@ -82,9 +82,10 @@ func Remove(path string, retry time.Duration) error {
 	return nil
 }
 
-// retried runs op until it succeeds, fails with an error that isn't
-// ephemeral, or retry has passed since the first failure.
-func retried(retry time.Duration, op func() error) error {
+// Retried runs op until it succeeds, fails with an error that isn't
+// ephemeral, or retry has passed since the first failure. A rename or
+// delete through a storing.Disk takes it too.
+func Retried(retry time.Duration, op func() error) error {
 	err := op()
 	deadline := time.Now().Add(retry)
 	for wait := time.Millisecond; err != nil && ephemeral(err) && time.Now().Before(deadline); wait = min(2*wait, 100*time.Millisecond) {

@@ -139,6 +139,8 @@ func (n *Node) dispatch(name string) (control.Handler, error) {
 		return n.serveRestart, nil
 	case identity.ResetOp.Name:
 		return n.serveAdminReset, nil
+	case BackupOp.Name:
+		return n.serveBackup, nil
 	}
 	return nil, &control.Error{Code: control.CodeUnknownOp, Message: fmt.Sprintf("unknown op %q for node version %s", name, n.env.Version)}
 }

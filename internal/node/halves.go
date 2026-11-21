@@ -9,6 +9,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/calls"
@@ -92,6 +93,7 @@ type peers interface {
 // half is the claimed part of a running Node. Each Node starts at most one,
 // from Unclaimed or at start, and never restarts it in process.
 type half struct {
+	backups *backups.Backups
 	// self is the Node's id in its Controller's library.
 	self     role.NodeID
 	peers    peers
@@ -171,17 +173,13 @@ func (n *Node) startController(ctx context.Context) error {
 		found        *imports.Imports
 		shelf        *files.Files
 		searchQueue  = &searches.Late{}
+		kept         *backups.Backups
 	)
 	keeper := reconciling.New(reconciling.Config{
 		Library: lib.db,
 		Touch:   func(ids ...role.NodeID) { downloads.Touch(ids...) },
 		Metainfo: func(ctx context.Context, node role.NodeID, hash bencode.InfoHash, client *downloadclients.ClientID) ([]byte, error) {
-			req := &dlv1.MetainfoRequest{InfoHash: hash[:]}
-			if client != nil {
-				req.ClientId = client.Bytes()
-			}
-			res, err := downloadingv1connect.DownloadingService.On(cluster, node).Metainfo(ctx, req)
-			return res.GetMetainfo(), err
+			return metainfoOn(ctx, cluster, node, hash, client)
 		},
 		Page: n.cfg.Timings.Downloading.HoldingsPage,
 		Max:  n.cfg.Timings.Downloading.HoldingsMax,
@@ -203,12 +201,7 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Roster: openedRoster{&side},
 		Look: func(ctx context.Context, node role.NodeID, folder string, files []downloadclients.LookFile) ([]bool, error) {
-			req := &dlv1.LookRequest{Folder: folder, Entries: make([]*dlv1.LookEntry, len(files))}
-			for i, f := range files {
-				req.Entries[i] = &dlv1.LookEntry{Name: f.Name, Size: f.Size}
-			}
-			res, err := downloadingv1connect.DownloadingService.On(cluster, node).Look(ctx, req)
-			return res.GetFound(), err
+			return lookOn(ctx, cluster, node, folder, files)
 		},
 		Forgot:  func() { pipeline.Rerouted() },
 		Changed: reconciling.ChangedEvent.Bind(n.hub),
@@ -262,14 +255,18 @@ func (n *Node) startController(ctx context.Context) error {
 		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
 			return roots.DestinationsIn(ctx, r, ids, stored, side)
 		},
-		RootsMoved: func() <-chan struct{} { return homes.Watch() },
-		Readiness:  clients.ReadinessIn,
-		Moved:      clients.Moved,
-		Sample:     func(ctx context.Context, id role.NodeID) error { return homes.Sample(ctx, id) },
-		Hub:        n.hub,
-		Changed:    transfers.ChangedEvent.Bind(n.hub),
-		Timings:    n.cfg.Timings.Transfers,
-		Log:        n.rootLog.With("subsystem", "transfers"),
+		RootsMoved:   func() <-chan struct{} { return homes.Watch() },
+		Readiness:    clients.ReadinessIn,
+		Moved:        clients.Moved,
+		LowWait:      backups.CopyWaitLimitIn,
+		Paused:       whileReconciling,
+		Folders:      func(id role.NodeID) []transfers.BackupFolder { return kept.Folders(id) },
+		FoldersNoted: func(id role.NodeID) { kept.FoldersNoted(id) },
+		Sample:       func(ctx context.Context, id role.NodeID) error { return homes.Sample(ctx, id) },
+		Hub:          n.hub,
+		Changed:      transfers.ChangedEvent.Bind(n.hub),
+		Timings:      n.cfg.Timings.Transfers,
+		Log:          n.rootLog.With("subsystem", "transfers"),
 	})
 	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
 	servers := mediaservers.New(mediaservers.Config{
@@ -327,6 +324,25 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db, Catalog: cat, Outbox: n.notifications, Changed: history.ChangedEvent.Bind(n.hub),
 		Batch: n.cfg.Timings.Housekeeping.PruneBatch, Log: n.rootLog.With("subsystem", "history"),
 	})
+	kept, err = backups.Open(ctx, backups.Config{
+		Library: lib.db,
+		Keys:    lib.keys,
+		Engine:  n.backups,
+		Start: func(ctx context.Context, st tasks.Start) (tasks.Started, error) {
+			return scheduler.Start(ctx, st)
+		},
+		Reconciling: whileReconciling,
+		History:     n.history.Recorder("backups", backups.Entries()),
+		Log:         n.rootLog.With("subsystem", "backups"),
+		Transfers:   copies,
+		Self:        func() role.NodeID { return side.Self() },
+		Check: func(ctx context.Context, admin identity.Admin, node role.NodeID, folder string) (roots.Verdict, error) {
+			return homes.Check(ctx, admin, node, folder, storing.PurposeBackups, nil)
+		},
+	})
+	if err != nil {
+		return err
+	}
 	arrivals := roots.NewArrivals()
 	var systems *nodesystem.Nodes
 	side, err = nodes.Open(ctx, nodes.Config{
@@ -696,7 +712,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}, found), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask(), subtitler.Task()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
+		}, found, kept), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask(), subtitler.Task()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
 		Roster:      side,
 		Zone:        n.zone(),
 		Rand:        n.tasksRand,
@@ -721,6 +737,7 @@ func (n *Node) startController(ctx context.Context) error {
 		grabs:   pipeline,
 		clients: clients,
 		tasks:   scheduler,
+		backups: kept,
 
 		mediaServers: servers.Service(),
 
@@ -749,6 +766,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("torrent clients", clients.Run)
 	n.claimed.Go("reconciling", keeper.Run)
 	n.claimed.Go("transfers", copies.Run)
+	n.claimed.Go("backup copies", kept.Run)
 	n.claimed.Go("media servers", servers.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("subtitles", subtitler.Run)
@@ -1063,6 +1081,7 @@ func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatc
 		Sources: n.downloading,
 		Roots:   n.store,
 		Timings: n.cfg.Timings.Transfers,
+		Retry:   n.cfg.Timings.Backups.WindowsRetry,
 		Hooks:   n.env.Test.Transfers,
 		Log:     n.rootLog.With("subsystem", "transfers"),
 	})
@@ -1240,4 +1259,22 @@ func (c claimLanes) stream(key link.Key, s link.Stream) {
 
 func notAController() *linkv1.PairResponse {
 	return &linkv1.PairResponse{Outcome: &linkv1.PairResponse_Refused{Refused: &linkv1.Refused{Reason: linkv1.RefusedReason_REFUSED_REASON_NOT_A_CONTROLLER}}}
+}
+
+func metainfoOn(ctx context.Context, cluster *rpc.Cluster, node role.NodeID, hash bencode.InfoHash, client *downloadclients.ClientID) ([]byte, error) {
+	req := &dlv1.MetainfoRequest{InfoHash: hash[:]}
+	if client != nil {
+		req.ClientId = client.Bytes()
+	}
+	res, err := downloadingv1connect.DownloadingService.On(cluster, node).Metainfo(ctx, req)
+	return res.GetMetainfo(), err
+}
+
+func lookOn(ctx context.Context, cluster *rpc.Cluster, node role.NodeID, folder string, looked []downloadclients.LookFile) ([]bool, error) {
+	req := &dlv1.LookRequest{Folder: folder, Entries: make([]*dlv1.LookEntry, len(looked))}
+	for i, f := range looked {
+		req.Entries[i] = &dlv1.LookEntry{Name: f.Name, Size: f.Size}
+	}
+	res, err := downloadingv1connect.DownloadingService.On(cluster, node).Look(ctx, req)
+	return res.GetFound(), err
 }

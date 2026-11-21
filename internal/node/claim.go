@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
@@ -45,6 +46,7 @@ import (
 
 type libraryDB struct {
 	db     *storage.DB[storage.Library]
+	keys   *secret.Keys
 	sealer *secret.Sealer
 	minter artwork.Minter
 	mail   *mail.Mail
@@ -59,6 +61,9 @@ func (l *libraryDB) close(ctx context.Context) error {
 type libraryFiles struct {
 	dir     DataDir
 	schemas []storage.Schema[storage.Library]
+	// hook is the Backup before a migration, nil for a library.db no Node
+	// has started on.
+	hook    storage.PreMigrationHook
 	timings TimingsBlock
 	hub     *live.Hub
 	log     *slog.Logger
@@ -67,7 +72,7 @@ type libraryFiles struct {
 // openLibraryFiles is where a running Node and `slipstream admin reset`
 // offline both open library.db.
 func openLibraryFiles(ctx context.Context, f libraryFiles) (*libraryDB, error) {
-	db, err := storage.OpenLibrary(ctx, f.dir.LibraryDB(), f.schemas, preMigrationHook, f.timings.Storage, f.log.With("subsystem", "storage"))
+	db, err := storage.OpenLibrary(ctx, f.dir.LibraryDB(), f.schemas, f.hook, f.timings.Storage, f.log.With("subsystem", "storage"))
 	if err != nil {
 		return nil, err
 	}
@@ -77,12 +82,16 @@ func openLibraryFiles(ctx context.Context, f libraryFiles) (*libraryDB, error) {
 	}
 	sealer := keys.Sealer()
 	smtp := mail.New(mail.Config{Library: db, Sealer: sealer, Timings: f.timings.Mail})
-	lib := &libraryDB{db: db, sealer: sealer, minter: artwork.NewMinter(keys.ArtworkToken()), mail: smtp, outbox: mail.NewOutbox(smtp, f.log.With("subsystem", "mail"))}
+	lib := &libraryDB{db: db, keys: keys, sealer: sealer, minter: artwork.NewMinter(keys.ArtworkToken()), mail: smtp, outbox: mail.NewOutbox(smtp, f.log.With("subsystem", "mail"))}
 	lib.ids, err = identity.New(ctx, identity.Config{Library: db, Pepper: keys.PINPepper(), Sealer: sealer, Hub: f.hub, Mail: smtp, Outbox: lib.outbox})
 	if err != nil {
 		return nil, errors.Join(err, lib.close(ctx))
 	}
 	return lib, nil
+}
+
+func (n *Node) librarySchemas() []storage.Schema[storage.Library] {
+	return append(LibrarySchemas(n.env.Types), n.env.Test.Library...)
 }
 
 // openLibrary opens library.db and what opens with it once. A Node opens
@@ -96,7 +105,8 @@ func (n *Node) openLibrary(ctx context.Context) (*libraryDB, error) {
 	}
 	lib, err := openLibraryFiles(ctx, libraryFiles{
 		dir:     n.env.DataDir,
-		schemas: append(LibrarySchemas(n.env.Types), n.env.Test.Library...),
+		schemas: n.librarySchemas(),
+		hook:    backups.BeforeMigrating(n.backups, n.backingUp),
 		timings: n.cfg.Timings,
 		hub:     n.hub,
 		log:     n.rootLog,
@@ -329,6 +339,14 @@ func (s surfaceNode) DownloadClients() (*downloadclients.Clients, bool) {
 		return nil, false
 	}
 	return h.clients, true
+}
+
+func (s surfaceNode) Backups() (*backups.Backups, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.backups == nil {
+		return nil, false
+	}
+	return h.backups, true
 }
 
 func (s surfaceNode) Transfers() (*transfers.Transfers, bool) {

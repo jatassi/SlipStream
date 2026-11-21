@@ -41,7 +41,7 @@ func TestS26DropsTheIndexersAndFailsGrabsStillFetching(t *testing.T) {
 	path := filepath.Join(t.TempDir(), storage.LibraryFile)
 	open := func(schemas []storage.Schema[storage.Library]) *storage.DB[storage.Library] {
 		t.Helper()
-		lib, err := storage.OpenLibrary(ctx, path, schemas, preMigrationHook, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
+		lib, err := storage.OpenLibrary(ctx, path, schemas, nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -132,7 +132,7 @@ func TestS27KeepsEveryIndexerAndWhatNamesIt(t *testing.T) {
 	path := filepath.Join(t.TempDir(), storage.LibraryFile)
 	open := func(schemas []storage.Schema[storage.Library]) *storage.DB[storage.Library] {
 		t.Helper()
-		lib, err := storage.OpenLibrary(ctx, path, schemas, preMigrationHook, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
+		lib, err := storage.OpenLibrary(ctx, path, schemas, nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -106,6 +106,10 @@ type Node struct {
 	// it writes in bytes, so a world can give one Node Windows' 259. Zero
 	// leaves the OS's.
 	PathLimit int64 `jsonschema:"minimum=0" yaml:"path_limit,omitempty"`
+	// BackupsFolder is the Node's backups.folder, relative to its data dir,
+	// so a run can give the Backups folder a volume of its own. Empty
+	// leaves the default.
+	BackupsFolder string `jsonschema:"pattern=^[a-z][a-z0-9-]*$" yaml:"backups_folder,omitempty"`
 }
 
 const MaxNodes = 31

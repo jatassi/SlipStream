@@ -29,7 +29,7 @@ type statement struct {
 
 func openAt(t *testing.T, path string, schemas []storage.Schema[storage.Library]) *storage.DB[storage.Library] {
 	t.Helper()
-	lib, err := storage.OpenLibrary(t.Context(), path, schemas, preMigrationHook, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
+	lib, err := storage.OpenLibrary(t.Context(), path, schemas, nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}

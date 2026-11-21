@@ -60,7 +60,7 @@ type candidate struct {
 	t Transfer
 	// files is what it sends now: its missing files that have room.
 	files []File
-	d     roots.Destination
+	d     dest
 	recv  *tv1.Receiving
 	// aside is the wait its receiver reported that steps it aside.
 	aside *Wait
@@ -76,9 +76,9 @@ func judge(s snapshot) judgment {
 	var lines []*line
 	reserved := map[volumeAt]int64{}
 	for i, t := range s.transfers {
-		d := s.dests[rootOf(t.Destination)]
+		d := s.dest(t)
 		recv := s.receiving(t, d)
-		in := j.intent(s, d.Node)
+		in := j.intent(s, d.node)
 		in.Keep = append(in.Keep, kept(t))
 		j.intent(s, t.Source)
 		v := s.base(t, d, recv)
@@ -99,7 +99,7 @@ func judge(s snapshot) judgment {
 			} else if files, sp := s.space(t, d, recv, reserved); sp != nil {
 				v.State, v.Space = NeedsSpace, sp
 			} else {
-				key := pairKey{t.Source, d.Node}
+				key := pairKey{t.Source, d.node}
 				at := slices.IndexFunc(lines, func(l *line) bool { return l.key == key })
 				if at < 0 {
 					lines, at = append(lines, &line{key: key}), len(lines)
@@ -127,6 +127,44 @@ func (j *judgment) intent(s snapshot, node role.NodeID) *tv1.Intent {
 	return in
 }
 
+// dest is where a Transfer's files go now, as judge reads it. root is
+// nil for the two Backup kinds, which have no root State and no space
+// step: a full disk fails their copy at the receiver.
+type dest struct {
+	node  role.NodeID
+	place int64
+	root  *roots.Destination
+}
+
+// dest is t's destination in s.
+func (s snapshot) dest(t Transfer) dest {
+	switch d := t.Destination.(type) {
+	case Root:
+		r := s.dests[d.ID]
+		return dest{node: r.Node, place: r.Place, root: &r}
+	case BackupDestination:
+		return dest{node: d.Node, place: backupPlace}
+	case BackupsFolder:
+		return dest{node: d.Node, place: backupPlace}
+	}
+	panic("transfers: a destination of no known kind")
+}
+
+// wire is t's destination as its receiver's intent names it. A Backup
+// kind names its one file's Backup name, which the receiver renames the
+// file to once it verifies.
+func (d dest) wire(t Transfer) *tv1.Destination {
+	switch dd := t.Destination.(type) {
+	case Root:
+		return &tv1.Destination{Kind: &tv1.Destination_Root{Root: &tv1.RootDestination{RootId: dd.ID.Bytes(), Place: d.place}}}
+	case BackupDestination:
+		return &tv1.Destination{Kind: &tv1.Destination_Backup{Backup: &tv1.BackupPlace{Folder: dd.Folder, Name: t.Files[0].Name}}}
+	case BackupsFolder:
+		return &tv1.Destination{Kind: &tv1.Destination_BackupsFolder{BackupsFolder: &tv1.BackupPlace{Folder: dd.Folder, Name: t.Files[0].Name}}}
+	}
+	panic("transfers: a destination of no known kind")
+}
+
 // missing is a file its receiver still has to copy.
 func missing(f File) bool { return !f.Verified && !f.Placed }
 
@@ -142,8 +180,8 @@ func kept(t Transfer) *tv1.Kept {
 
 // base is t's view before judge decides its state: its bytes, its
 // receiver's details and its pair's last speed.
-func (s snapshot) base(t Transfer, d roots.Destination, recv *tv1.Receiving) View {
-	v := View{Transfer: t, DestNode: d.Node, Rate: s.pairs[pairKey{t.Source, d.Node}].Rate}
+func (s snapshot) base(t Transfer, d dest, recv *tv1.Receiving) View {
+	v := View{Transfer: t, DestNode: d.node, Rate: s.pairs[pairKey{t.Source, d.node}].Rate}
 	for _, f := range t.Files {
 		v.Total += f.Size
 		if !missing(f) {
@@ -159,8 +197,8 @@ func (s snapshot) base(t Transfer, d roots.Destination, recv *tv1.Receiving) Vie
 
 // receiving is t's facts from its destination Node, nil while it has
 // none.
-func (s snapshot) receiving(t Transfer, d roots.Destination) *tv1.Receiving {
-	for _, r := range s.facts[d.Node].GetReceiving() {
+func (s snapshot) receiving(t Transfer, d dest) *tv1.Receiving {
+	for _, r := range s.facts[d.node].GetReceiving() {
 		if bytes.Equal(r.GetTransferId(), t.ID.Bytes()) {
 			return r
 		}
@@ -180,8 +218,8 @@ func (s snapshot) sending(t Transfer) *tv1.Sending {
 // judgedFailure is the failure the snapshot alone decides: the root moved
 // onto the source Node, or the source's Node was written off with a file
 // still to copy.
-func (s snapshot) judgedFailure(t Transfer, d roots.Destination) (Code, int, bool) {
-	if d.Node == t.Source {
+func (s snapshot) judgedFailure(t Transfer, d dest) (Code, int, bool) {
+	if d.node == t.Source {
 		return Rerouted, -1, true
 	}
 	for _, f := range t.Files {
@@ -193,12 +231,14 @@ func (s snapshot) judgedFailure(t Transfer, d roots.Destination) (Code, int, boo
 }
 
 // stepAside is the wait the Controller's own inputs give t alone.
-func (s snapshot) stepAside(t Transfer, d roots.Destination) *Wait {
-	if s.ends[d.Node].DrainsStorage {
-		return &Wait{Kind: StorageDraining, Node: d.Node}
-	}
-	if d.State != roots.Ready && d.State != roots.Offline {
-		return &Wait{Kind: RootNotReady, Node: d.Node, Root: d.ID, Detail: d.Detail}
+func (s snapshot) stepAside(t Transfer, d dest) *Wait {
+	if r := d.root; r != nil {
+		if s.ends[d.node].DrainsStorage {
+			return &Wait{Kind: StorageDraining, Node: d.node}
+		}
+		if r.State != roots.Ready && r.State != roots.Offline {
+			return &Wait{Kind: RootNotReady, Node: d.node, Root: r.ID, Detail: r.Detail}
+		}
 	}
 	for _, f := range t.Files {
 		if !missing(f) {
@@ -213,14 +253,17 @@ func (s snapshot) stepAside(t Transfer, d roots.Destination) *Wait {
 
 // reported is the step-aside wait t's receiver last reported, nil for
 // none.
-func (s snapshot) reported(t Transfer, d roots.Destination, recv *tv1.Receiving) *Wait {
+func (s snapshot) reported(t Transfer, d dest, recv *tv1.Receiving) *Wait {
 	w := recv.GetWait()
 	switch w.GetKind() {
 	case tv1.Wait_KIND_SOURCE_NOT_READY:
 		f := t.Files[slices.IndexFunc(t.Files, missing)]
 		return &Wait{Kind: SourceNotReady, Node: t.Source, Name: f.Name, Detail: w.GetDetail()}
 	case tv1.Wait_KIND_ROOT_NOT_READY:
-		return &Wait{Kind: RootNotReady, Node: d.Node, Root: d.ID, Detail: w.GetDetail()}
+		if d.root == nil {
+			return &Wait{Kind: FolderNotReady, Node: d.node, Detail: w.GetDetail()}
+		}
+		return &Wait{Kind: RootNotReady, Node: d.node, Root: d.root.ID, Detail: w.GetDetail()}
 	case tv1.Wait_KIND_UNSPECIFIED, tv1.Wait_KIND_CONNECTING, tv1.Wait_KIND_DISK_FULL:
 	}
 	return nil
@@ -238,14 +281,14 @@ type volumeAt struct {
 // sent, and the rest wait for room. t needs space only when its first
 // missing file doesn't fit, or while its receiver found the disk full and
 // no volume sample is newer than that report.
-func (s snapshot) space(t Transfer, d roots.Destination, recv *tv1.Receiving, reserved map[volumeAt]int64) ([]File, *Space) {
+func (s snapshot) space(t Transfer, d dest, recv *tv1.Receiving, reserved map[volumeAt]int64) ([]File, *Space) {
 	files := slices.DeleteFunc(slices.Clone(t.Files), func(f File) bool { return !missing(f) })
-	vol := d.Volume
-	if vol == nil {
+	if d.root == nil || d.root.Volume == nil {
 		return files, nil
 	}
-	at := volumeAt{d.Node, vol.ID}
-	room := vol.Free - s.levels.For(d.Node, vol.Mount, vol.Total).Error.Bytes - reserved[at]
+	vol := d.root.Volume
+	at := volumeAt{d.node, vol.ID}
+	room := vol.Free - s.levels.For(d.node, vol.Mount, vol.Total).Error.Bytes - reserved[at]
 	credit := recv.GetVerifiedBytes()
 	var fit, need int64
 	sent := len(files)
@@ -255,7 +298,7 @@ func (s snapshot) space(t Transfer, d roots.Destination, recv *tv1.Receiving, re
 		need += left
 		if sent == len(files) && fit+left > room {
 			if i == 0 {
-				return nil, &Space{Node: d.Node, Volume: vol.Name, Need: fit + left - room}
+				return nil, &Space{Node: d.node, Volume: vol.Name, Need: fit + left - room}
 			}
 			sent = i
 		}
@@ -269,27 +312,47 @@ func (s snapshot) space(t Transfer, d roots.Destination, recv *tv1.Receiving, re
 			full = s.now
 		}
 		if !vol.SampledAt.After(full) {
-			return nil, &Space{Node: d.Node, Volume: vol.Name, Need: need}
+			return nil, &Space{Node: d.node, Volume: vol.Name, Need: need}
 		}
 	}
 	reserved[at] += fit
 	return files[:sent], nil
 }
 
-// run judges one pair's line: its first Transfer is active and every
+// hold judges a line while the library is Reconciling: nothing on it is
+// active, and each Transfer keeps its staging and waits.
+func (j *judgment) hold(l *line) {
+	for _, c := range l.cands {
+		v := &j.views[c.i]
+		v.State, v.Wait = Waiting, &Wait{Kind: Reconciling}
+	}
+}
+
+// run judges one pair's line, held while the library is Reconciling: its first Transfer is active and every
 // other waits behind it. One whose receiver reported a step-aside wait
 // goes to the back, so alone on its pair it stays active and its receiver
-// retries.
+// retries. A Low one goes behind every Normal one until it has waited
+// LowWait, unless its receiver already runs it: nothing is preempted.
 func (j *judgment) run(s snapshot, l *line) {
-	slices.SortStableFunc(l.cands, func(a, b candidate) int {
+	if s.paused {
+		j.hold(l)
+		return
+	}
+	rank := func(c candidate) int {
 		switch {
-		case a.aside == nil && b.aside != nil:
-			return -1
-		case a.aside != nil && b.aside == nil:
+		case c.aside != nil:
+			return 2
+		case s.waitsLow(c):
 			return 1
 		}
 		return 0
-	})
+	}
+	slices.SortStableFunc(l.cands, func(a, b candidate) int { return rank(a) - rank(b) })
+	for _, c := range l.cands[1:] {
+		if s.waitsLow(c) {
+			j.wake(c.t.Created.Add(s.lowWait))
+		}
+	}
 	for ahead, c := range l.cands[1:] {
 		v := &j.views[c.i]
 		if c.aside != nil {
@@ -300,18 +363,16 @@ func (j *judgment) run(s snapshot, l *line) {
 	}
 	c := l.cands[0]
 	v := &j.views[c.i]
-	if w := s.pairWait(c.t.Source, c.d.Node); w != nil {
+	if w := s.pairWait(c.t.Source, c.d.node); w != nil {
 		v.State, v.Wait = Waiting, w
 		return
 	}
 	route, next := s.route(c, l.key)
-	if !next.IsZero() && (j.next.IsZero() || next.Before(j.next)) {
-		j.next = next
-	}
+	j.wake(next)
 	v.Route = route
 	switch {
 	case route == tv1.Route_ROUTE_BOTH_DIAL:
-		v.State, v.Wait = Waiting, &Wait{Kind: NoRoute, Node: c.d.Node}
+		v.State, v.Wait = Waiting, &Wait{Kind: NoRoute, Node: c.d.node}
 	case c.aside != nil:
 		v.State, v.Wait = Waiting, c.aside
 	case c.recv.GetActive() && c.recv.GetRoute() == route && c.recv.GetMoving():
@@ -323,6 +384,19 @@ func (j *judgment) run(s snapshot, l *line) {
 		v.State, v.Wait = Waiting, &Wait{Kind: Connecting, Node: c.t.Source}
 	}
 	j.activate(s, c, route)
+}
+
+// waitsLow is whether c is a Low Transfer that still waits behind Normal
+// ones: younger than LowWait, and not running at its receiver.
+func (s snapshot) waitsLow(c candidate) bool {
+	return c.t.Priority == Low && s.now.Before(c.t.Created.Add(s.lowWait)) && !c.recv.GetActive()
+}
+
+// wake makes at the instant the answer changes next, when it is earlier.
+func (j *judgment) wake(at time.Time) {
+	if !at.IsZero() && (j.next.IsZero() || at.Before(j.next)) {
+		j.next = at
+	}
 }
 
 // pairWait is the wait an end of a pair gives every Transfer on it: Node
@@ -385,12 +459,12 @@ func (j *judgment) activate(s snapshot, c candidate, route tv1.Route) {
 	}
 	send := j.intent(s, c.t.Source)
 	send.Active = append(send.Active, &tv1.Active{
-		TransferId: c.t.ID.Bytes(), Side: tv1.Side_SIDE_SEND, Peer: s.peer(c.d.Node), Route: route, Files: files,
+		TransferId: c.t.ID.Bytes(), Side: tv1.Side_SIDE_SEND, Peer: s.peer(c.d.node), Route: route, Files: files,
 	})
-	recv := j.intent(s, c.d.Node)
+	recv := j.intent(s, c.d.node)
 	recv.Active = append(recv.Active, &tv1.Active{
 		TransferId: c.t.ID.Bytes(), Side: tv1.Side_SIDE_RECEIVE, Peer: s.peer(c.t.Source), Route: route, Files: files,
-		Destination: &tv1.Destination{Kind: &tv1.Destination_Root{Root: &tv1.RootDestination{RootId: c.d.ID.Bytes(), Place: c.d.Place}}},
+		Destination: c.d.wire(c.t),
 	})
 }
 
@@ -411,6 +485,8 @@ func sourceOf(ref source.Ref) *tv1.Source {
 		return &tv1.Source{Ref: &tv1.Source_Torrent{Torrent: &tv1.TorrentPayload{InfoHash: r.Hash[:], FileIndex: uint32(r.File)}}} //nolint:gosec // G115: a torrent's file index fits libtorrent's int
 	case source.Path:
 		return &tv1.Source{Ref: &tv1.Source_Path{Path: &tv1.PathSource{Abs: r.Abs}}}
+	case source.Backup:
+		return &tv1.Source{Ref: &tv1.Source_Backup{Backup: &tv1.BackupPlace{Folder: r.Folder, Name: r.Name}}}
 	}
 	panic("transfers: a source of no known kind")
 }
