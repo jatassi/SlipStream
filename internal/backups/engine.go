@@ -361,16 +361,28 @@ func (e *Engine) recheck(entry Entry) error {
 	return e.cfg.Index.Update(func(l *Ledger) error { l.set(checked); return nil })
 }
 
-// deleteMarked deletes the file of each Deleting entry and drops it.
+// deleteMarked deletes the file of each Deleting entry and drops it. One
+// with copies stays, no longer Local, until its destinations delete them.
 func (e *Engine) deleteMarked() error {
 	for _, entry := range e.cfg.Index.Read().Backups {
-		if entry.State != Deleting {
+		if entry.State != Deleting || !entry.Local && len(entry.Copies) > 0 {
 			continue
 		}
 		if err := e.remove(e.path(entry.Name)); err != nil {
 			return err
 		}
-		if err := e.cfg.Index.Update(func(l *Ledger) error { l.drop(entry.ID); return nil }); err != nil {
+		if err := e.cfg.Index.Update(func(l *Ledger) error {
+			now, ok := l.Entry(entry.ID)
+			switch {
+			case !ok:
+			case len(now.Copies) == 0:
+				l.drop(entry.ID)
+			default:
+				now.Local = false
+				l.set(now)
+			}
+			return nil
+		}); err != nil {
 			return err
 		}
 	}

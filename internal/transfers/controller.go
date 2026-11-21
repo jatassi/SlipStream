@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/nodes"
 	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -444,17 +445,33 @@ func (t *Transfers) Find(ctx context.Context, rd storage.Reader[storage.Library]
 	return tr, err == nil, err
 }
 
-// OfPurpose is every record of p in rd, in (Created, ID) order.
+// OfPurpose is every record of p in rd, in (Created, ID) order, each
+// failure with its Sentence.
 func (t *Transfers) OfPurpose(ctx context.Context, rd storage.Reader[storage.Library], p PurposeKind) ([]Transfer, error) {
 	ids, err := ledger.New(rd).TransfersOfPurpose(ctx, string(p))
 	if err != nil {
 		return nil, err
+	}
+	peers, err := nodes.PeersIn(ctx, rd)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[role.NodeID]string, len(peers))
+	for id, p := range peers {
+		names[id] = p.Name
 	}
 	out := make([]Transfer, 0, len(ids))
 	for _, id := range ids {
 		tr, err := load(ctx, rd, id)
 		if err != nil {
 			return nil, err
+		}
+		if f := tr.Failure; f != nil {
+			dest, _, err := destinationIn(ctx, rd, tr)
+			if err != nil {
+				return nil, err
+			}
+			f.Sentence = sentence(tr, dest, f.Code, f.Position, f.Detail, names)
 		}
 		out = append(out, tr)
 	}
