@@ -406,3 +406,32 @@ func TestACopyWhoseTransferTheLibraryDoesntKnowWaits(t *testing.T) {
 		t.Fatalf("the copy is %s with %d Transfers", c.State, len(w.records()))
 	}
 }
+
+// TestADestinationWarnsWhenItsCopiesFailOrGoStale: a destination's item
+// is quiet while its newest copy is fresh, warns once a check finds a
+// mismatch or the newest copy is older than the threshold, and is unsure
+// while its Node is offline.
+func TestADestinationWarnsWhenItsCopiesFailOrGoStale(t *testing.T) {
+	w, e, d := copied(t)
+	names := map[role.NodeID]string{w.home: "home", w.vps: "vps"}
+	up := func(role.NodeID) bool { return true }
+	stale := 3 * 24 * time.Hour
+	if a := w.backups.DestinationHealth(w.now(), stale, names, up); len(a.Items) != 0 || a.Next.IsZero() {
+		t.Fatalf("a fresh copy reads %+v", a)
+	}
+	a := w.backups.DestinationHealth(w.now().Add(4*24*time.Hour), stale, names, up)
+	if len(a.Items) != 1 || a.Items[0].Says.Subject != "Backup copies in "+vpsFolder+" on vps" || a.Items[0].Says.Text != "The newest copy is 4 days old." {
+		t.Fatalf("a stale copy reads %+v", a.Items)
+	}
+	w.change(e.ID, func(e *backups.Entry) {
+		c, _ := e.Copy(d.ID)
+		c.Check.Result = backups.CheckMismatch
+		e.Copies = []backups.Copy{c}
+	})
+	if a := w.backups.DestinationHealth(w.now(), stale, names, up); len(a.Items) != 1 || a.Items[0].Key != backups.DestinationKey(d.ID) {
+		t.Fatalf("a mismatched copy reads %+v", a.Items)
+	}
+	if a := w.backups.DestinationHealth(w.now(), stale, names, func(role.NodeID) bool { return false }); len(a.Items) != 0 || len(a.Unsure) != 1 || a.Unsure[0].Says.Text != "vps is offline." {
+		t.Fatalf("an offline destination reads %+v", a)
+	}
+}

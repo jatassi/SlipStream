@@ -681,7 +681,8 @@ func (b *Backups) settled(ctx context.Context) ([]Destination, error) {
 					c.Check.At = now
 					switch want, known := keyed[keyedAt{e.ID, c.Check.Key}]; {
 					case facts.Check.Error != "":
-						c.Check.Result, c.Check.Cause = CheckUnreadable, fmt.Sprintf("%s couldn't read its copy: %s.", names[d.Node], facts.Check.Error)
+						c.Check.Result, c.Check.Cause = CheckUnreadable, fmt.Sprintf("%s couldn't read its copy of the Backup.", names[d.Node])
+						b.cfg.Log.Warn("check a Backup copy", "node", names[d.Node], "folder", d.Folder, "backup", e.Name, "err", facts.Check.Error)
 					case known && string(facts.Check.Sum) == string(want[:]):
 						c.Check.Result, c.Check.Cause = CheckOK, ""
 					default:
