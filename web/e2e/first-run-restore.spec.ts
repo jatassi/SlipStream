@@ -49,6 +49,8 @@ test("an Unclaimed Node restores the dead Controller's Backup from its first-run
 }) => {
   const file = await takeBackup(world);
   const passphrase = await readPassphrase(adminPage);
+  // home dies next, so its page can't take the closing accessibility check.
+  await adminPage.close();
   await world.fw.node("kill", "home");
 
   const page = await (await newContext("spare")).newPage();
