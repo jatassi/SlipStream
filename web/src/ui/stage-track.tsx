@@ -91,9 +91,6 @@ function trackRole(title: string, progress: TrackProgress, skipped: readonly Sta
 
 const noSkips: readonly Stage[] = [];
 
-/** Where the track's journey starts and ends, named under its two ends. */
-export type TrackLabels = "none" | "ends";
-
 /**
  * A job's track, one segment per stage. A phone draws it large with its
  * ends named, so a skipped stage's outline sits inside a journey that reads
@@ -110,7 +107,7 @@ export function StageTrack({
   progress: TrackProgress;
   skipped?: readonly Stage[];
   size?: keyof typeof sizeLook;
-  labels?: TrackLabels;
+  labels?: "none" | "ends";
 }) {
   const phone = useShell() === "phone";
   const track = (

@@ -5,11 +5,11 @@ import { type Noun, countWords } from "../../format";
 import { Artwork } from "../../ui/artwork";
 import { Icon } from "../../ui/icon";
 import { Popover } from "../../ui/popover";
-import { StateBar } from "../../ui/state-square";
+import { EpisodeStrip, inOrder, segmentsOf } from "../../ui/episode-strip";
 import { lowered } from "../monitoring/labels";
 import { ColumnNames } from "./columns";
 import { LevelControls } from "./controls";
-// oxlint-disable-next-line import/max-dependencies -- the header holds its name, state bar, tally, search state word and controls
+// oxlint-disable-next-line import/max-dependencies -- the header holds its name, episode strip, tally, search state word and controls
 import type { LevelSearch } from "./level-search";
 import type { LevelTarget, LevelView } from "./model";
 
@@ -82,7 +82,9 @@ function Title({
         />
       </button>
       <span className="flex min-w-0 items-center gap-3 text-meta font-normal text-ink-3 tabular-nums">
-        {!phone && <StateBar counts={level.counts} />}
+        {!phone && (
+          <EpisodeStrip strip={segmentsOf(inOrder(level.slots), "header")} look="header" named />
+        )}
         <span className="truncate">{tallyWords(level, item)}</span>
         <StateWord search={search} />
       </span>
@@ -92,10 +94,11 @@ function Title({
 
 /**
  * A level's header, its card's top or the whole closed card: poster, name,
- * state bar, tally and search state word, the column names while open,
+ * episode strip, tally and search state word, the column names while open,
  * then its Monitor switch, Search and a menu with Manual search, and Grab
  * now while a cell of it waits for a better Release. A phone leaves out the
- * poster and state bar, so the tally and state word fit beside the controls.
+ * poster and runs a thin strip along the header's bottom edge, so the tally
+ * and state word fit beside the controls.
  */
 export const LevelHeader = memo(function LevelHeader({
   level,
@@ -119,8 +122,17 @@ export const LevelHeader = memo(function LevelHeader({
   return (
     <div className={first ? "" : "pt-3"}>
       <div
-        className={`flex h-14 items-center gap-3 bg-glass px-4 ${open ? "rounded-t-card" : "rounded-card"}`}
+        className={`relative flex h-14 items-center gap-3 bg-glass px-4 ${open ? "rounded-t-card" : "rounded-card"}`}
       >
+        {phone && (
+          <span className="absolute inset-x-4 bottom-1">
+            <EpisodeStrip
+              strip={segmentsOf(inOrder(level.slots), "edge")}
+              look="edge"
+              named={false}
+            />
+          </span>
+        )}
         {!phone && <Artwork use="poster" size="row" url={level.poster} />}
         <Title
           level={level}

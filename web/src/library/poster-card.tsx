@@ -3,6 +3,7 @@ import { memo } from "react";
 
 import { Artwork } from "../ui/artwork";
 import { Checkbox } from "../ui/checkbox";
+import { EpisodeStrip, byCounts, segmentsOf } from "../ui/episode-strip";
 import { type CellHandlers, focusTarget } from "./picking";
 import type { LibraryWork } from "./rows";
 import { WorkMenu } from "./row-menu";
@@ -18,7 +19,16 @@ export type PosterCardProps = {
   readonly onPick: (id: string, range: boolean) => void;
 };
 
-// The pick checkbox shows on hover or focus until picking starts, then on every card.
+// A Work of many Items carries its strip on the poster, so every card keeps one height.
+const stripOf = (work: LibraryWork) =>
+  work.type.items === "many" && work.items > 0 ? (
+    <EpisodeStrip
+      strip={segmentsOf(byCounts(work.itemStatus), "poster")}
+      look="poster"
+      named={false}
+    />
+  ) : undefined;
+
 function PickBox({
   work,
   picked,
@@ -42,7 +52,8 @@ function PickBox({
 }
 
 /**
- * One Work in the grid: its poster, quiet when nothing of it is monitored,
+ * One Work in the grid: its poster, quiet when nothing of it is monitored
+ * and with an episode strip over its bottom edge for a Work of many Items,
  * its label, its first fact and its status. It draws again only when its
  * row or its pick changes. Its menu, shown on hover or focus and always on
  * a touch screen, holds Search and Manual search.
@@ -80,6 +91,7 @@ export const PosterCard = memo(function PosterCard({
           url={work.poster}
           label={work.label}
           quiet={work.monitored === "none"}
+          overlay={stripOf(work)}
         />
         <span className="truncate text-body font-semibold text-ink-1">{work.label}</span>
       </Link>

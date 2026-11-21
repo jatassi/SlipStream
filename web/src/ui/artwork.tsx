@@ -1,12 +1,10 @@
 import { type ReactNode, useState } from "react";
 
-/** The sizes the artwork proxy serves an image at. */
 export type ArtSize = "small" | "medium" | "large";
 
 /** An artwork route at a size, the one place a `?size=` is written. */
 export const sized = (route: string, size: ArtSize): string => `${route}?size=${size}`;
 
-/** What a slot shows with no image: nothing, the title, the initials, or the label as text. */
 type Placeholder = "nothing" | "title" | "initials" | "label";
 
 type Fade = "artwork" | "ambient" | "none";
@@ -155,7 +153,7 @@ const placeholders: {
 type Seen = { readonly url: string; readonly as: "faded" | "at-once" | "failed" };
 
 /** One image's lifecycle: no image, waiting for it, shown with or without its fade, or failed. */
-export type ArtPhase = "none" | "loading" | Seen["as"];
+type ArtPhase = "none" | "loading" | Seen["as"];
 
 const phaseOf = (url: string | undefined, seen: Seen | undefined): ArtPhase => {
   if (url === undefined) {
@@ -167,7 +165,14 @@ const phaseOf = (url: string | undefined, seen: Seen | undefined): ArtPhase => {
 export type ArtworkProps =
   | { use: "poster"; size: "option" | "row"; url: string | undefined }
   | { use: "poster"; size: "preview" | "hero"; url: string | undefined; label: string }
-  | { use: "poster"; size: "card"; url: string | undefined; label: string; quiet: boolean }
+  | {
+      use: "poster";
+      size: "card";
+      url: string | undefined;
+      label: string;
+      quiet: boolean;
+      overlay?: ReactNode;
+    }
   | { use: "still"; size: "wide"; url: string; label: string }
   | { use: "headshot"; size: "tile"; url: string | undefined; label: string }
   | { use: "logo"; size: "title"; url: string | undefined; label: string }
@@ -217,6 +222,9 @@ export function Artwork(props: ArtworkProps) {
             setSeen({ url, as: "failed" });
           }}
         />
+      )}
+      {"overlay" in props && props.overlay !== undefined && (
+        <span className="absolute inset-x-2 bottom-2">{props.overlay}</span>
       )}
     </span>
   );
