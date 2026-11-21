@@ -83,7 +83,7 @@ func (r *run) openSource(o *tv1.Open) (*sending, *tv1.Frame) {
 	if !ok {
 		return nil, nil
 	}
-	path, err := r.e.cfg.Sources.Open(f.ref)
+	path, err := r.e.open(f.ref)
 	if err != nil {
 		return nil, absentFrame(err)
 	}

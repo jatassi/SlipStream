@@ -22,7 +22,7 @@ CREATE TABLE transfers_record_next (
     priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('normal', 'low')),
     -- First come, first served: (created_at, id).
     created_at INTEGER NOT NULL,
-    failure_code TEXT CHECK (failure_code IN ('source_gone', 'source_failed', 'damaged', 'source_written_off', 'rerouted', 'no_space')),
+    failure_code TEXT CHECK (failure_code IN ('source_gone', 'source_failed', 'damaged', 'source_written_off', 'rerouted', 'folder_failed')),
     -- The file the failure names, NULL when it names none.
     failure_position INTEGER CHECK (failure_position >= 0),
     -- The engine's text, or 'read_back' for damage found only on reading

@@ -18,7 +18,7 @@ const (
 	BackupKind  Kind = "backup"
 )
 
-// Ref names one file a sender reads: a Torrent or a Path. Refs are
+// Ref names one file a sender reads: a Torrent, a Path or a Backup. Refs are
 // comparable, so they key maps.
 type Ref interface {
 	Kind() Kind

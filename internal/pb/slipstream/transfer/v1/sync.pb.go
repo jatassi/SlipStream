@@ -199,9 +199,10 @@ const (
 	Failed_CODE_SOURCE_GONE   Failed_Code = 1
 	Failed_CODE_SOURCE_FAILED Failed_Code = 2
 	Failed_CODE_DAMAGED       Failed_Code = 3
-	// CODE_NO_SPACE is a Backup folder that ran out of space. A copy
-	// fails rather than waiting for room.
-	Failed_CODE_NO_SPACE Failed_Code = 4
+	// CODE_FOLDER_FAILED is a Backup folder that can't take the file: out
+	// of space, or the rename into place failed. A copy fails rather than
+	// waiting for room.
+	Failed_CODE_FOLDER_FAILED Failed_Code = 4
 )
 
 // Enum value maps for Failed_Code.
@@ -211,14 +212,14 @@ var (
 		1: "CODE_SOURCE_GONE",
 		2: "CODE_SOURCE_FAILED",
 		3: "CODE_DAMAGED",
-		4: "CODE_NO_SPACE",
+		4: "CODE_FOLDER_FAILED",
 	}
 	Failed_Code_value = map[string]int32{
 		"CODE_UNSPECIFIED":   0,
 		"CODE_SOURCE_GONE":   1,
 		"CODE_SOURCE_FAILED": 2,
 		"CODE_DAMAGED":       3,
-		"CODE_NO_SPACE":      4,
+		"CODE_FOLDER_FAILED": 4,
 	}
 )
 
@@ -1863,19 +1864,19 @@ const file_slipstream_transfer_v1_sync_proto_rawDesc = "" +
 	"\vtransfer_id\x18\x01 \x01(\fR\n" +
 	"transferId\x12\x1a\n" +
 	"\bposition\x18\x02 \x01(\rR\bposition\x12\x14\n" +
-	"\x05place\x18\x03 \x01(\x03R\x05place\"\x87\x02\n" +
+	"\x05place\x18\x03 \x01(\x03R\x05place\"\x8c\x02\n" +
 	"\x06Failed\x12\x1f\n" +
 	"\vtransfer_id\x18\x01 \x01(\fR\n" +
 	"transferId\x127\n" +
 	"\x04code\x18\x02 \x01(\x0e2#.slipstream.transfer.v1.Failed.CodeR\x04code\x12\x1a\n" +
 	"\bposition\x18\x03 \x01(\rR\bposition\x12\x16\n" +
-	"\x06detail\x18\x04 \x01(\tR\x06detail\"o\n" +
+	"\x06detail\x18\x04 \x01(\tR\x06detail\"t\n" +
 	"\x04Code\x12\x14\n" +
 	"\x10CODE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10CODE_SOURCE_GONE\x10\x01\x12\x16\n" +
 	"\x12CODE_SOURCE_FAILED\x10\x02\x12\x10\n" +
-	"\fCODE_DAMAGED\x10\x03\x12\x11\n" +
-	"\rCODE_NO_SPACE\x10\x04*=\n" +
+	"\fCODE_DAMAGED\x10\x03\x12\x16\n" +
+	"\x12CODE_FOLDER_FAILED\x10\x04*=\n" +
 	"\x04Side\x12\x14\n" +
 	"\x10SIDE_UNSPECIFIED\x10\x00\x12\r\n" +
 	"\tSIDE_SEND\x10\x01\x12\x10\n" +

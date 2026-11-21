@@ -1072,6 +1072,7 @@ func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatc
 		Sources: n.downloading,
 		Roots:   n.store,
 		Timings: n.cfg.Timings.Transfers,
+		Retry:   n.cfg.Timings.Backups.WindowsRetry,
 		Hooks:   n.env.Test.Transfers,
 		Log:     n.rootLog.With("subsystem", "transfers"),
 	})

@@ -255,8 +255,9 @@ message Failed {
     CODE_SOURCE_GONE = 1;
     CODE_SOURCE_FAILED = 2;
     CODE_DAMAGED = 3;
-    // CODE_NO_SPACE is a Backup folder that ran out of space. A copy
-    // fails rather than waiting for room.
-    CODE_NO_SPACE = 4;
+    // CODE_FOLDER_FAILED is a Backup folder that can't take the file: out
+    // of space, or the rename into place failed. A copy fails rather than
+    // waiting for room.
+    CODE_FOLDER_FAILED = 4;
   }
 }

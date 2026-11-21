@@ -72,6 +72,9 @@ type Timings struct {
 	RetryMax  time.Duration
 	Damaged   int
 	Piece     int64
+	// Retry is how long a rename or delete in a Backup folder retries a
+	// Windows sharing violation.
+	Retry time.Duration
 }
 
 type Hooks struct {
@@ -99,6 +102,8 @@ type Engine struct {
 	cfg   Config
 	limit *limiter
 	facts *reporter
+
+	backups backupFolders
 
 	mu   sync.Mutex
 	live bool
@@ -139,6 +144,7 @@ func (e *Engine) follow(ctx context.Context, h Holder, snap role.Snapshot[*tv1.I
 		return
 	}
 	e.limit.apply(snap.Intent.GetSendLimit())
+	e.followFolders(ctx, snap.Intent.GetBackupFolders())
 	want := map[ID]spec{}
 	for _, a := range snap.Intent.GetActive() {
 		sp, err := parseActive(a)
@@ -384,5 +390,8 @@ func (e *Engine) snapshot() *tv1.Facts {
 	}
 	slices.SortFunc(f.Receiving, func(a, b *tv1.Receiving) int { return bytes.Compare(a.GetTransferId(), b.GetTransferId()) })
 	slices.SortFunc(f.Sending, func(a, b *tv1.Sending) int { return bytes.Compare(a.GetTransferId(), b.GetTransferId()) })
+	e.backups.mu.Lock()
+	f.BackupFolders = e.backups.facts
+	e.backups.mu.Unlock()
 	return f
 }

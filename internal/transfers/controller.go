@@ -140,9 +140,10 @@ const (
 	Damaged          Code = "damaged"
 	SourceWrittenOff Code = "source_written_off"
 	Rerouted         Code = "rerouted"
-	// NoSpace is a Backup kind's receiver that ran out of space: a copy
-	// fails rather than waiting for room.
-	NoSpace Code = "no_space"
+	// FolderFailed is a Backup kind's receiver that couldn't write the
+	// Backup into its folder, out of space or refused: a copy fails rather
+	// than waiting for room.
+	FolderFailed Code = "folder_failed"
 )
 
 // readBack is a damaged failure's detail when only the receiver's read of

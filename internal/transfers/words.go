@@ -82,8 +82,8 @@ func sentence(t Transfer, dest role.NodeID, code Code, position int, detail stri
 		return fmt.Sprintf("SlipStream gave up %s's work before %s was copied.", from, file)
 	case Rerouted:
 		return fmt.Sprintf("The library root moved to %s, which already has these files. Nothing needs copying.", from)
-	case NoSpace:
-		return fmt.Sprintf("%s ran out of space for %s.", names[dest], file)
+	case FolderFailed:
+		return fmt.Sprintf("%s couldn't write %s to its Backup folder: %s.", names[dest], file, detail)
 	}
 	panic("transfers: a failure of no known code")
 }

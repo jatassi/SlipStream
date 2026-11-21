@@ -117,7 +117,7 @@ var codes = map[tv1.Failed_Code]Code{
 	tv1.Failed_CODE_SOURCE_GONE:   SourceGone,
 	tv1.Failed_CODE_SOURCE_FAILED: SourceFailed,
 	tv1.Failed_CODE_DAMAGED:       Damaged,
-	tv1.Failed_CODE_NO_SPACE:      NoSpace,
+	tv1.Failed_CODE_FOLDER_FAILED: FolderFailed,
 }
 
 func (t *Transfers) failed(ctx context.Context, tx *storage.Tx[storage.Library], node role.NodeID, f *tv1.Failed) error {

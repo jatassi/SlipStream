@@ -28,7 +28,7 @@ func TestTheSchemaChecksEveryKindGoWrites(t *testing.T) {
 		schema = append(schema, b...)
 	}
 	for column, want := range map[string][]string{
-		"failure_code":     {string(SourceGone), string(SourceFailed), string(Damaged), string(SourceWrittenOff), string(Rerouted), string(NoSpace)},
+		"failure_code":     {string(SourceGone), string(SourceFailed), string(Damaged), string(SourceWrittenOff), string(Rerouted), string(FolderFailed)},
 		"destination_kind": {Root{}.kind(), BackupDestination{}.kind(), BackupsFolder{}.kind()},
 		"source_kind":      {string(source.TorrentKind), string(source.PathKind), string(source.BackupKind)},
 		"priority":         {string(Normal), string(Low)},
