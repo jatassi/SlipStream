@@ -27,6 +27,17 @@ func (q *Queries) DeleteTorrents(ctx context.Context) error {
 	return err
 }
 
+const getResume = `-- name: GetResume :one
+SELECT resume FROM downloading_torrent WHERE info_hash = ?
+`
+
+func (q *Queries) GetResume(ctx context.Context, infoHash []byte) ([]byte, error) {
+	row := q.db.QueryRowContext(ctx, getResume, infoHash)
+	var resume []byte
+	err := row.Scan(&resume)
+	return resume, err
+}
+
 const listTorrents = `-- name: ListTorrents :many
 SELECT info_hash, save_folder, private, resume, announced_seconds, failed FROM downloading_torrent ORDER BY info_hash
 `
@@ -47,6 +58,51 @@ func (q *Queries) ListTorrents(ctx context.Context) ([]DownloadingTorrent, error
 			&i.Resume,
 			&i.AnnouncedSeconds,
 			&i.Failed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTorrentsAfter = `-- name: ListTorrentsAfter :many
+SELECT info_hash, save_folder, private, resume FROM downloading_torrent
+WHERE info_hash > ?1 ORDER BY info_hash LIMIT ?2
+`
+
+type ListTorrentsAfterParams struct {
+	After []byte
+	Page  int64
+}
+
+type ListTorrentsAfterRow struct {
+	InfoHash   []byte
+	SaveFolder string
+	Private    bool
+	Resume     []byte
+}
+
+func (q *Queries) ListTorrentsAfter(ctx context.Context, arg ListTorrentsAfterParams) ([]ListTorrentsAfterRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTorrentsAfter, arg.After, arg.Page)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTorrentsAfterRow
+	for rows.Next() {
+		var i ListTorrentsAfterRow
+		if err := rows.Scan(
+			&i.InfoHash,
+			&i.SaveFolder,
+			&i.Private,
+			&i.Resume,
 		); err != nil {
 			return nil, err
 		}

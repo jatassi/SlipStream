@@ -744,3 +744,48 @@ func TestAClientErrorIsReportedOnceAMinuteUntilItClears(t *testing.T) {
 		}
 	})
 }
+
+// TestExternalKeepAllForgetsNoLocalRow sends orchard, then a share that
+// keeps everything: one that no longer lists orchard and discards it with
+// its files, and one that lists harbor, which isn't in the client. The
+// actor keeps orchard's local row and the torrent in the client, and adds
+// nothing.
+func TestExternalKeepAllForgetsNoLocalRow(t *testing.T) {
+	inEachVersion(t, func(t *testing.T, version string) {
+		r := newRig(t, version, faketransmission.Daemon{})
+		r.want("orchard")
+		r.start()
+		r.sleep(30 * time.Second)
+		rows := func() int {
+			var n int
+			if err := r.local.QueryRowContext(t.Context(), "SELECT count(*) FROM downloading_external").Scan(&n); err != nil {
+				t.Fatal(err)
+			}
+			return n
+		}
+		if got := rows(); got != 1 {
+			t.Fatalf("the actor keeps %d local rows for orchard, want 1", got)
+		}
+
+		r.share.KeepAll = true
+		r.want("harbor")
+		r.update()
+		r.sleep(5 * time.Minute)
+		if got := rows(); got != 1 {
+			t.Errorf("under keep_all the actor keeps %d local rows, want orchard's alone", got)
+		}
+
+		rel := r.rels["orchard"]
+		r.share.Discards = []*dlv1.Discard{{Id: rel.id.Bytes(), InfoHash: rel.hash[:], DeleteFiles: true, ClientId: r.id.Bytes()}}
+		r.update()
+		r.sleep(5 * time.Minute)
+		if _, ok := r.inClient(); !ok {
+			t.Error("under keep_all the discard removed orchard from the client")
+		}
+		for _, rep := range r.h.reported() {
+			if p := rep.GetParted(); p != nil {
+				t.Errorf("under keep_all the actor confirmed %v, want nothing parted", p)
+			}
+		}
+	})
+}
