@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world"
@@ -225,6 +226,26 @@ func (a *API) do(q request) (Reply, []*http.Cookie) {
 	}
 	end(0, data)
 	return Reply{res.StatusCode, string(data)}, res.Cookies()
+}
+
+// WithoutStartedAt is getStatus's reply with its startedAt taken out, once
+// it is a time: each start sets a new one.
+func WithoutStartedAt(t *testing.T, r Reply) Reply {
+	t.Helper()
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(r.Body), &fields); err != nil {
+		t.Fatalf("getStatus answered %q: %v", r.Body, err)
+	}
+	var at time.Time
+	if err := json.Unmarshal(fields["startedAt"], &at); err != nil || at.IsZero() {
+		t.Fatalf("getStatus answered %q, want a startedAt", r.Body)
+	}
+	delete(fields, "startedAt")
+	b, err := json.Marshal(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return Reply{r.Status, string(b) + "\n"}
 }
 
 func Expect(t *testing.T, what string, got, want Reply) {
