@@ -22,7 +22,7 @@ The Controller keeps Backups of its library in its Backups folder, `backups` in 
 - Phone: Settings, then Backups in the System list. The same page, one column.
 - Host CLI: `slipstream backup --data-dir <dir>` on the Controller's host, while the Controller runs.
 - Node settings: `backups.folder` in the Controller's Node settings, a folder with the `backups` purpose, on Nodes > the Controller > Backups.
-- API on the Controller (Admin): `GET` and `POST /api/v1/backup-destinations`, `DELETE /api/v1/backup-destinations/{id}`, and `GET /api/v1/transfers` for the copies. `GET /api/v1/backups` lists the Backups, `POST /api/v1/backups` takes one, and `GET /api/v1/backups/passphrase` needs a re-confirmed session or the API key.
+- API on the Controller (Admin): `GET` and `POST /api/v1/backup-destinations`, `DELETE /api/v1/backup-destinations/{id}`, and `GET /api/v1/transfers` for the copies. `GET /api/v1/backups` lists the Backups, `POST /api/v1/backups` takes one, and `GET /api/v1/backups/passphrase` needs a re-confirmed Admin session; the API key gets 403.
 - Start: a start that would migrate `library.db` first takes an update Backup while status answers `backing up`. Its failure exits 7 with `Free space in <folder>, or start the previous version of SlipStream.` or `Start the previous version of SlipStream, then check the log for the cause.` Only Go tests drive it, since a release build carries no pending migration.
 
 ## Driving it with fakeworld, playwright cli and the host CLI
@@ -112,7 +112,7 @@ Steps:
 
 ## Gotchas
 
-- The passphrase lives sealed in `backup.key`. Read it with the API key from `GET /api/v1/backups/passphrase` or the helper, outside `$FW exec`, and keep it out of the journal and of screenshots that land on a PR.
+- The passphrase lives sealed in `backup.key`. Read it in a signed-in Admin session on Settings > Backups, or with the helper, outside `$FW exec`, and keep it out of the journal and of screenshots that land on a PR.
 - `tar --zstd` needs the `zstd` CLI. Without it, decompress with any zstd decoder first, then `tar t` the result.
 - Give every `$FW exec` a path: a `head -c` with an empty path reads stdin and never ends.
 - Unmount the volume before `fakeworld stop`, or the scratch dir under it can't be deleted.

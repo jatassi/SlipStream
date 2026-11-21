@@ -60,14 +60,22 @@ Steps:
   $FW exec $RUN --proof restore/first-run-upload -- ls {nodes.spare.dataDir}/backups
   ```
 
-- **Restore from the first-run page in a browser.** In a fresh `dead-controller` run, take a Backup on home, read the passphrase with the API key and kill home. Open a session on spare, enter its Setup code, choose `Restore a Backup`, pick the file, type the passphrase, tick that home is off and press `Restore`. Then sign in as Ada.
+- **Restore from the first-run page in a browser.** In a fresh `dead-controller` run, add and search both movies on home and wait for two `seeding` torrents, take a Backup, then remove The Quiet Harbor's torrent so the restored library lists one no Node holds. Read the passphrase from Settings > Backups in the Admin's session into `$RUN/reveal/pass`, copy the Backup out of home's Backups folder and kill home. Open a session on spare, enter its Setup code from `$RUN/nodes/spare.log`, choose `Restore a Backup`, pick the file, type the passphrase, tick that home is off and press `Restore`. The page waits on `SlipStream is restarting to finish the restore.`, then lands on sign-in; Ada's PIN opens `Find the old Controller's folders`. Save all, then the banner reads `Pair seedbox again.`; on Reconciling `Create Join Code` gives the code `slipstream join` takes on seedbox, and spare's log reads `adopted a Node's torrents` with `"torrents":1`. The review list's Files found then lists The Quiet Harbor with `Re-add`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-spare open --config={runDir}/browser/desktop/playwright-cli.json
   $FW exec $RUN -- $PW cli -s={runId}-spare goto '{nodes.spare.browserUrl}/setup'
+  $FW exec $RUN -- $PW cli -s={runId}-spare fill 'getByLabel("Setup code")' <code>
+  $FW exec $RUN -- $PW cli -s={runId}-spare click 'getByRole("button", { name: "Continue" })'
   $FW exec $RUN -- $PW cli -s={runId}-spare click 'getByRole("button", { name: "Restore a Backup" })'
+  $FW exec $RUN -- $PW cli -s={runId}-spare click 'getByLabel("Backup file")'
   $FW exec $RUN -- $PW cli -s={runId}-spare upload <backup>
+  $FW exec $RUN -- $PW cli -s={runId}-spare fill 'getByRole("textbox", { name: "Backup passphrase" })' "$(cat $RUN/reveal/pass)"
+  $FW exec $RUN -- $PW cli -s={runId}-spare click 'getByRole("button", { name: "Open the Backup" })'
   $FW exec $RUN --proof restore/first-run-page -- $PW cli -s={runId}-spare screenshot --filename={runDir}/proof/restore/first-run-page/summary.png
+  $FW exec $RUN -- $PW cli -s={runId}-spare check 'getByRole("checkbox", { name: "home is off, and I'"'"'ll wipe it if it starts again" })'
+  $FW exec $RUN -- $PW cli -s={runId}-spare click 'getByRole("button", { name: "Restore", exact: true })'
+  $FW exec $RUN -- {runDir}/bin/slipstream join --data-dir {nodes.seedbox.dataDir} <join code>
   ```
 
 - **Restore in place.** Take a Backup on home, then add and search The Quiet Orchard and wait for it to seed on seedbox. Restore with home running.
@@ -87,3 +95,5 @@ Steps:
 - The restart after an online restore cuts Health's evaluations, which log `evaluate a Health category` at ERROR with `context canceled`. `$FW exec` names them; they aren't the restore's failure.
 - `GET /api/v1/backups` lists the Backups; `backups.json` is the file behind it.
 - The first-run page's upload holds spare's Setup gate, and the restart logs a new Setup code; the page needs neither.
+- The API key can't read the passphrase (403) or confirm it saved (409 `passphrase_needs_session`); read it in a signed-in Admin's session.
+- Keep the passphrase out of `$FW exec` arguments that land in the journal of a run you share: the `fill` step above writes it there.
