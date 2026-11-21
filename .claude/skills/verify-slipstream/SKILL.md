@@ -102,6 +102,6 @@ ls $RUN/proof $RUN/summary.md
 ## Helpers
 
 - `bun .claude/skills/verify-slipstream/bin/check-map.ts` checks the feature map: the README's index against the files, each file's H1, paragraph and four H2s, unique sub-feature ids, and that every cited `P-###` row exists and is neither out of scope nor excepted. It prints shipped parity rows no sub-feature cites and exits 1 on a problem. Run it after editing anything under `features/`.
-- `bun web/harness/bin/sign-in.ts <run> <identity> <shell>` signs the identity in through the real sign-in page, past the startup sequence, and writes `<run>/auth/<identity>-<shell>.json` for `state-load`.
+- `bun web/harness/bin/sign-in.ts <run> <identity> <shell> [<node>]` signs the identity in through the real sign-in page, past the startup sequence, and writes `<run>/auth/<identity>-<shell>.json` for `state-load`. It signs in to the Controller, or to the Node named last, such as a new machine a Backup was restored onto. It waits only for the page to leave `/sign-in`, so it works when that page is the re-home step or the Superseded page.
 - `$FW` with no arguments prints every verb, including the capture readers.
 - `web/harness/fakeworld.ts` (`fw(runDir)`) drives the same verbs from TypeScript, for a script too long for the shell.
