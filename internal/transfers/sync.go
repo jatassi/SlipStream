@@ -35,7 +35,11 @@ func (t *Transfers) Derive(ctx context.Context, rd storage.Reader[storage.Librar
 	if strayed {
 		t.Touch()
 	}
-	return in, nil
+	out := proto.CloneOf(in)
+	for _, f := range t.cfg.Folders(node) {
+		out.BackupFolders = append(out.BackupFolders, &tv1.BackupFolder{Folder: f.Folder, Delete: f.Delete, CheckKey: f.CheckKey, Check: f.Check})
+	}
+	return out, nil
 }
 
 // Apply applies one of node's Results in tx. A FileVerified counts only
@@ -196,6 +200,9 @@ func (t *Transfers) Noted(node role.NodeID, scope string) {
 		return
 	}
 	facts, _ := t.cfg.Facts(node)
+	if len(facts.GetBackupFolders()) > 0 {
+		t.cfg.FoldersNoted(node)
+	}
 	now := time.Now()
 	t.mu.Lock()
 	for _, r := range facts.GetReceiving() {

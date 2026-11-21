@@ -218,6 +218,13 @@ type ControllerConfig struct {
 	// Paused is whether the library is Reconciling, read in rd: nothing
 	// becomes active, and every Transfer keeps its staging.
 	Paused func(ctx context.Context, rd storage.Reader[storage.Library]) (bool, error)
+	// Folders is node's Backup folders for its intent. It reads no
+	// library: backups answers it from backups.json, and Touches the
+	// Nodes whose folders change.
+	Folders func(node role.NodeID) []BackupFolder
+	// FoldersNoted is told each time node reports facts, which carry its
+	// Backup folders' facts. It must not block.
+	FoldersNoted func(node role.NodeID)
 	// Sample asks node for a fresh sample of its volumes.
 	Sample func(ctx context.Context, node role.NodeID) error
 	// Hub wakes the loop on the events of the inputs above that publish
@@ -435,6 +442,23 @@ func (t *Transfers) Find(ctx context.Context, rd storage.Reader[storage.Library]
 	}
 	tr, err := load(ctx, rd, id)
 	return tr, err == nil, err
+}
+
+// OfPurpose is every record of p in rd, in (Created, ID) order.
+func (t *Transfers) OfPurpose(ctx context.Context, rd storage.Reader[storage.Library], p PurposeKind) ([]Transfer, error) {
+	ids, err := ledger.New(rd).TransfersOfPurpose(ctx, string(p))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Transfer, 0, len(ids))
+	for _, id := range ids {
+		tr, err := load(ctx, rd, id)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, tr)
+	}
+	return out, nil
 }
 
 // LiveIn is every Transfer id with a record, for the files sweep.

@@ -64,3 +64,6 @@ SELECT * FROM transfers_node ORDER BY node_id;
 -- name: SetNodeSettings :exec
 INSERT INTO transfers_node (node_id, send_limit) VALUES (sqlc.arg(node_id), sqlc.arg(send_limit))
 ON CONFLICT (node_id) DO UPDATE SET send_limit = excluded.send_limit;
+
+-- name: TransfersOfPurpose :many
+SELECT id FROM transfers_record WHERE purpose = sqlc.arg(purpose) ORDER BY created_at, id;

@@ -479,3 +479,30 @@ func (q *Queries) TransferOfJob(ctx context.Context, arg TransferOfJobParams) (l
 	err := row.Scan(&id)
 	return id, err
 }
+
+const transfersOfPurpose = `-- name: TransfersOfPurpose :many
+SELECT id FROM transfers_record WHERE purpose = ?1 ORDER BY created_at, id
+`
+
+func (q *Queries) TransfersOfPurpose(ctx context.Context, purpose string) ([]local.TransferID, error) {
+	rows, err := q.db.QueryContext(ctx, transfersOfPurpose, purpose)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []local.TransferID
+	for rows.Next() {
+		var id local.TransferID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

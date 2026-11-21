@@ -119,14 +119,16 @@ func serve(t *testing.T) *world {
 			}
 			return out, nil
 		},
-		Moved:   func() <-chan struct{} { return nil },
-		LowWait: func(context.Context, storage.Reader[storage.Library]) (time.Duration, error) { return time.Hour, nil },
-		Paused:  func(context.Context, storage.Reader[storage.Library]) (bool, error) { return false, nil },
-		Sample:  func(context.Context, role.NodeID) error { return nil },
-		Hub:     live.NewHub([]live.Event{transfers.ChangedEvent}),
-		Changed: quiet{},
-		Timings: transfers.DefaultTimings(),
-		Log:     slog.New(slog.DiscardHandler),
+		Moved:        func() <-chan struct{} { return nil },
+		Folders:      func(role.NodeID) []transfers.BackupFolder { return nil },
+		FoldersNoted: func(role.NodeID) {},
+		LowWait:      func(context.Context, storage.Reader[storage.Library]) (time.Duration, error) { return time.Hour, nil },
+		Paused:       func(context.Context, storage.Reader[storage.Library]) (bool, error) { return false, nil },
+		Sample:       func(context.Context, role.NodeID) error { return nil },
+		Hub:          live.NewHub([]live.Event{transfers.ChangedEvent}),
+		Changed:      quiet{},
+		Timings:      transfers.DefaultTimings(),
+		Log:          slog.New(slog.DiscardHandler),
 	})
 	w.tr.Register(transfers.Purpose{
 		Kind:     transfers.Import,

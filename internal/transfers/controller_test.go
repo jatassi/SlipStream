@@ -266,7 +266,9 @@ func newCluster(t *testing.T) *cluster {
 			}
 			return out, nil
 		},
-		Moved: func() <-chan struct{} { return nil },
+		Moved:        func() <-chan struct{} { return nil },
+		Folders:      func(role.NodeID) []transfers.BackupFolder { return nil },
+		FoldersNoted: func(role.NodeID) {},
 		LowWait: func(context.Context, storage.Reader[storage.Library]) (time.Duration, error) {
 			return 24 * time.Hour, nil
 		},
