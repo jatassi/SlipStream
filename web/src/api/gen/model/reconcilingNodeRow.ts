@@ -3,7 +3,7 @@ import type { ReconcilingNodeRowLink } from "./reconcilingNodeRowLink.ts";
 export interface ReconcilingNodeRow {
   /** Whether its torrents were matched with the library */
   adopted: boolean;
-  /** Whether Reconciling stopped waiting on it. It still keeps every torrent until it reports them */
+  /** Whether Reconciling stopped waiting on it. It still keeps every torrent until SlipStream has matched its list of torrents with the library */
   continued: boolean;
   /**
    * The line naming the Downloading Role its adoption gave it, such as vps-relay now has the Downloading Role for the 1,240 torrents it reported; null when it got none
@@ -16,13 +16,13 @@ export interface ReconcilingNodeRow {
    */
   held: number;
   id: string;
-  /** How it stands with this Controller. A Node on a new machine that stays offline may still be paired with the old Controller */
+  /** Its connection to this Controller. A Node on a new machine that stays offline may still be paired with the old Controller */
   link: ReconcilingNodeRowLink;
-  /** Since when it stands so */
+  /** When its connection last changed */
   linkSince: string;
   name: string;
   /**
-   * Why SlipStream refused its list of torrents; null when it didn't. It keeps every torrent until a list is taken
+   * Why SlipStream refused its list of torrents; null when it didn't. It keeps every torrent until SlipStream has matched its list of torrents with the library
    * @nullable
    */
   refused: string | null;
