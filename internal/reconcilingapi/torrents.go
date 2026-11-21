@@ -166,9 +166,12 @@ func cursorOf(s string) (reconciling.Cursor, error) {
 	if len(parts) != 4 {
 		return reconciling.Cursor{}, fmt.Errorf("a cursor has 4 parts, this one %d", len(parts))
 	}
-	found, err := strconv.Atoi(parts[1])
+	found, err := strconv.ParseInt(parts[1], 10, 8)
 	if err != nil {
 		return reconciling.Cursor{}, fmt.Errorf("read a review list cursor: %w", err)
+	}
+	if found < -1 || found > 1 {
+		return reconciling.Cursor{}, fmt.Errorf("a cursor's found part is -1, 0 or 1, this one %d", found)
 	}
 	since, err := strconv.ParseInt(parts[2], 10, 64)
 	if err != nil {
@@ -179,7 +182,7 @@ func cursorOf(s string) (reconciling.Cursor, error) {
 		return reconciling.Cursor{}, err
 	}
 	return reconciling.Cursor{
-		Reason: reconciling.Reason(parts[0]), Found: reconciling.Found(found), //nolint:gosec // a Found is -1, 0 or 1
+		Reason: reconciling.Reason(parts[0]), Found: reconciling.Found(found),
 		Since: storage.FromTime(time.UnixMicro(since)), Torrent: downloadclients.ID{UUID: id},
 	}, nil
 }
