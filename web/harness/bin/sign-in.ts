@@ -24,7 +24,8 @@ const { width, height, ...device } = preset;
 const person = pick(manifest, identity);
 // A Node named on the line takes the sign-in, such as a new machine a
 // Backup restored onto, which the manifest still lists as Unclaimed.
-const target = name === undefined ? manifest.nodes.find((n) => n.claim === "controller") : node(manifest, name);
+const target =
+  name === undefined ? manifest.nodes.find((n) => n.claim === "controller") : node(manifest, name);
 if (target === undefined) {
   throw new Error(`the manifest of ${run} has no Controller`);
 }
