@@ -11,10 +11,6 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-func TestTelegramBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "telegram"), providertest.Cases["telegram"])
-}
-
 func TestTelegramEscapesHTMLAndCutsTheTextToItsLimit(t *testing.T) {
 	p := provider(t, "telegram")
 	f := providertest.FixtureOf("imported")

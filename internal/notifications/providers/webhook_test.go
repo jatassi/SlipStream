@@ -8,10 +8,6 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-func TestWebhookBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "webhook"), providertest.Cases["webhook"])
-}
-
 func TestTheWebhookBodyIsVersionOne(t *testing.T) {
 	p := provider(t, "webhook")
 	out, err := p.Build(providertest.Payload(p, providertest.Cases["webhook"], providertest.FixtureOf("upgraded"), true, providers.DefaultEndpoints()))

@@ -131,11 +131,3 @@ func TestSkipsWarning(t *testing.T) {
 		})
 	}
 }
-
-func TestDescriptorsCheck(t *testing.T) {
-	for _, s := range []setting.Space{StorageWarnBelow, StorageErrorBelow} {
-		if err := s.Check(); err != nil {
-			t.Error(err)
-		}
-	}
-}

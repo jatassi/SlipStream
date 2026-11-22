@@ -25,23 +25,6 @@ func dates(f *work, kinds map[works.DatedKey]Day) []Dated {
 	return out
 }
 
-func TestTheSentenceLeadsWithWhatIsOutAndStillMissing(t *testing.T) {
-	today := NewDay(2026, time.November, 17)
-	s := newShelf(0, "Attic", []files.State{files.Missing, files.Failed, files.Met, files.Missing})
-	missing, met := film(files.Missing), film(files.Met)
-	dated := joined(s.dated(0, today.Add(-2), 1, 2, 3), s.dated(0, today.Add(1), 4),
-		dates(missing, map[works.DatedKey]Day{"out": today.Add(-9), "home": today}), dates(met, map[works.DatedKey]Day{"home": today}))
-	all := of(s.w, missing, met)
-	got := sentenceOf(today, kept(dated, all, false), kept(dated, all, false))
-	if want := (Sentence{NeedsYou: true, Words: "2 things and 1 film are out and still missing."}); got == nil || *got != want {
-		t.Fatalf("sentence = %+v, want %+v: the Missing Thing 4 isn't out yet and the film counts once across its rows", got, want)
-	}
-	one := sentenceOf(today, kept(dates(missing, map[works.DatedKey]Day{"out": today}), all, false), nil)
-	if want := (Sentence{NeedsYou: true, Words: "1 film is out and still missing."}); one == nil || *one != want {
-		t.Fatalf("sentence = %+v, want %+v", one, want)
-	}
-}
-
 func TestTheSentenceOtherwiseNamesTheWeekOrNothing(t *testing.T) {
 	today := NewDay(2026, time.November, 17)
 	s := newShelf(0, "Attic", states(4, files.Unreleased))

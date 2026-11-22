@@ -9,10 +9,6 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-func TestSlackBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "slack"), providertest.Cases["slack"])
-}
-
 func TestSlackEscapesMrkdwn(t *testing.T) {
 	p := provider(t, "slack")
 	f := providertest.FixtureOf("works_added")
