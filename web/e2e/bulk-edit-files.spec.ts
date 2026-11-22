@@ -20,7 +20,7 @@ test.describe.configure({ timeout: 120_000 });
 const videosUnder = async (dir: string) =>
   (await readdir(dir, { recursive: true })).filter((name) => /\.(mkv|mp4)$/u.test(name));
 
-test("a Work with files stays in its library root, and Delete takes its files from disk", async ({
+test("a Work with files stays in its library root unless moved, and Delete takes its files from disk", async ({
   adminPage: page,
   world,
 }) => {
@@ -38,8 +38,11 @@ test("a Work with files stays in its library root, and Delete takes its files fr
   });
   await dialog.getByRole("combobox", { name: "Library root" }).click();
   await page.getByRole("option", { name: /archive/u }).click();
-  const stays = `${orchard} has files, so it stays in its library root. SlipStream can't move files between library roots yet.`;
-  await expect(dialog.getByText(stays)).toBeVisible();
+  await expect(
+    dialog.getByText(`${orchard} has files. Moving it copies its files to the new root.`),
+  ).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Move it…" })).toBeVisible();
+  const stays = `${orchard} has files, so it stays in its library root.`;
   await dialog.getByRole("button", { name: "Set library root" }).click();
   await expect(toasts(page)).toContainText(`Set the library root of ${saltRoad}. ${stays}`);
 

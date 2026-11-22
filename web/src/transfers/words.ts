@@ -56,7 +56,7 @@ function movingPart(copying: readonly TransfersTransfer[], nodeId: string, sends
 
 /**
  * The sentence that opens a Node's Transfers: what it sends and receives now,
- * then how many wait and how many failed, or "Nothing moving".
+ * then how many wait and how many failed, or "Nothing running".
  */
 export function statusOf(
   transfers: readonly TransfersTransfer[],
@@ -88,7 +88,7 @@ export function statusOf(
         ]
       : []),
   ];
-  return parts.length > 0 ? parts : [{ kind: "plain", text: "Nothing moving" }];
+  return parts.length > 0 ? parts : [{ kind: "plain", text: "Nothing running" }];
 }
 
 /** Which Node opens the lanes, as a Details value. */

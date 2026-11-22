@@ -95,7 +95,7 @@ test("lanes, round trip, route and retried chunks stay under Details until opene
 test("with nothing to send or receive, the section says so", async () => {
   const api = transfersApi();
   renderApp({ path, handlers: [...api.handlers, twoNodes] });
-  await expect.element(page.getByText("Nothing moving")).toBeVisible();
+  await expect.element(page.getByText("Nothing running")).toBeVisible();
   await expect
     .element(page.getByText("No Transfer has moved bytes between home and another Node yet."))
     .toBeVisible();

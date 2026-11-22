@@ -58,16 +58,17 @@ test("the root dialog shows free space and names the Works with files that stay"
   await expect
     .element(
       dialog.getByText(
-        "Film 2 and Film 3 have files, so they stay in their library roots. SlipStream can't move files between library roots yet.",
+        "2 of these films have files. Moving them copies their files to the new root.",
       ),
     )
     .toBeVisible();
+  await expect.element(dialog.getByRole("button", { name: "Move them…" })).toBeVisible();
 
   await userEvent.click(dialog.getByRole("button", { name: "Set library root" }));
   await expect
     .element(
       page.getByText(
-        "Set the library root of The Quiet Orchard. Film 2 and Film 3 have files, so they stay in their library roots. SlipStream can't move files between library roots yet.",
+        "Set the library root of The Quiet Orchard. Film 2 and Film 3 have files, so they stay in their library roots.",
       ),
     )
     .toBeVisible();

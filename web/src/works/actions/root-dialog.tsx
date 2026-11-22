@@ -7,7 +7,8 @@ import { ConfirmDialog } from "../../ui/confirm-dialog";
 import { Select } from "../../ui/select";
 import { act } from "./act";
 import type { Subject } from "./actions";
-import { filesStay, namedOf } from "./outcomes";
+import { namedOf } from "./outcomes";
+import { WithFiles } from "./with-files";
 
 /** A Work for the root picker: its files decide whether it can move. */
 export type Rooted = Subject & { readonly files: number };
@@ -44,7 +45,7 @@ export function RootDialog({ type, works, open, onOpenChange }: RootDialogProps)
         value={rootId}
         onValueChange={setRootId}
       />
-      {staying.length > 0 && <p>{filesStay(namedOf(staying))}</p>}
+      {staying.length > 0 && <WithFiles type={type} staying={staying} />}
     </ConfirmDialog>
   );
 }
