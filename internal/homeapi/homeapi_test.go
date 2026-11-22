@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
@@ -32,6 +33,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -111,6 +113,8 @@ type world struct {
 	s          *ownertest.Owner
 	h          *home.Service
 	clients    *downloadclients.Clients
+	found      *imports.Imports
+	sealer     *secret.Sealer
 	saved      int
 	added      int
 	grabsAdded int
@@ -166,8 +170,14 @@ func newWorld(t *testing.T) *world {
 		Touch: func(...role.NodeID) {}, Changed: discard[downloadclients.Changed]{}, CardsChanged: discard[downloadclients.ClientsChanged]{},
 		Volumes: discard[roots.VolumesChanged]{}, Log: slog.New(slog.DiscardHandler),
 	})
+	w.sealer = secrettest.Sealer(t)
+	xs := indexers.New(indexers.Config{
+		Library: lib, Sealer: w.sealer, Roster: indexerstest.Alone(w.r.self), Works: w.works,
+		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
+		Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
+	})
 	g := grabs.New(grabs.Config{
-		Library: lib, Works: w.works, Targets: goals, Files: shelf, Roster: w.r, Router: router, Imports: imports.GrabImports{}, Downloads: clients,
+		Library: lib, Sealer: w.sealer, Indexers: xs, Works: w.works, Targets: goals, Files: shelf, Roster: w.r, Router: router, Imports: imports.GrabImports{}, Downloads: clients,
 		Names:   map[works.TypeID]release.Names{contenttypetest.ID: fx, filmsID: fx},
 		Timings: grabs.DefaultTimings(), Today: time.Now, Log: slog.New(slog.DiscardHandler),
 	})
@@ -175,7 +185,7 @@ func newWorld(t *testing.T) *world {
 	h := home.New(home.Config{
 		Library: lib, Grabs: g, Imports: found, Works: w.works, Files: shelf, Clients: clients, Changed: heard[home.SettingsChanged]{&w.saved},
 	})
-	w.h, w.clients = h, clients
+	w.h, w.clients, w.found = h, clients, found
 	w.s = ownertest.Serve(t, lib, func(r *api.Router) {
 		homeapi.Routes(r, node{h, artwork.NewMinter([]byte("home test key, 32 bytes long ok!"))})
 	})
@@ -487,6 +497,60 @@ func TestAGrabThatWaitsOnAnAdminIsInNeedsYouAndNotJobs(t *testing.T) {
 		if n.Grab.ID == held["no_space"].String() && (n.Wait.ImportWait == nil || n.Wait.ImportWait.RootID != w.root.ID.String()) {
 			t.Fatalf("no_space wait = %+v, want it to name its root", n.Wait)
 		}
+	}
+}
+
+func TestAGrabWhoseFileWaitsIsInNeitherListAndPendingImportsCountsIt(t *testing.T) {
+	w := newWorld(t)
+	attic := w.add(t, contenttypetest.ID, "The Attic", 1)
+	confirm := w.grab(t, attic, grabbing{stage: grabs.Importing, torrent: w.torrent(t, "Confirm", nil, nil), created: 1})
+	w.importing(t, confirm, "waiting", `{"code":"confirm"}`, "")
+
+	got := w.home(t, epoch)
+	if len(got.Jobs.Rows) != 0 || got.Jobs.Moving != 0 || len(got.NeedsYou.Rows) != 0 || got.NeedsYou.Waiting != 0 {
+		t.Fatalf("jobs = %v, %d moving; needs you = %v, %d waiting; want the Grab in neither", got.jobs(), got.Jobs.Moving, got.needs(), got.NeedsYou.Waiting)
+	}
+	if n := must[int](t)(w.found.Count(t.Context())); n != 1 {
+		t.Fatalf("pending imports = %d, want 1: the Import whose file waits", n)
+	}
+}
+
+func TestAFetchThatWaitsOnItsIndexerStaysInJobs(t *testing.T) {
+	w := newWorld(t)
+	attic := w.add(t, contenttypetest.ID, "The Attic", 1)
+	site := indexers.ID{UUID: storage.NewUUID()}
+	err := w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return indexerstest.Torznab(ctx, tx, w.sealer, site, "Quick Site", w.r.self, "https://site.test/api", "key")
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.exec(t, `INSERT INTO indexers_status (indexer_id, state, rung, until_at, since_at, solver_tried, revision) VALUES (?, 'failing', 1, ?, 0, 0, 1)`,
+		site, storage.FromTime(time.Now().Add(time.Hour)))
+	fetch := w.grab(t, attic, grabbing{stage: grabs.Fetching, created: 1})
+	w.exec(t, `UPDATE grabs_grab SET indexer_id = ?, release_link_sealed = x'00', release_magnet = NULL WHERE id = ?`, site, fetch)
+
+	status, body := w.s.Call(t, http.MethodGet, "/api/v1/home?since="+url.QueryEscape(epoch.Format(time.RFC3339)), "")
+	var got struct {
+		Jobs struct {
+			Rows []struct {
+				Grab struct {
+					ID        string `json:"id"`
+					FetchWait *struct {
+						Sentence string `json:"sentence"`
+					} `json:"fetchWait"`
+				} `json:"grab"`
+			} `json:"rows"`
+		} `json:"jobs"`
+		NeedsYou struct {
+			Waiting int `json:"waiting"`
+		} `json:"needsYou"`
+	}
+	if err := json.Unmarshal([]byte(body), &got); status != http.StatusOK || err != nil {
+		t.Fatalf("GET /home = %d %s, want 200", status, body)
+	}
+	if len(got.Jobs.Rows) != 1 || got.Jobs.Rows[0].Grab.ID != fetch.String() || got.Jobs.Rows[0].Grab.FetchWait == nil || got.NeedsYou.Waiting != 0 {
+		t.Fatalf("GET /home = %s, want the fetch in Jobs with Quick Site's wait, and nothing waiting on an Admin", body)
 	}
 }
 
