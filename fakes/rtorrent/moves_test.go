@@ -29,7 +29,10 @@ func resumed(t *testing.T, metainfo []byte) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	top := v.(map[string]any)
+	top, ok := v.(map[string]any)
+	if !ok {
+		t.Fatalf("the metainfo is %T, not a dictionary", v)
+	}
 	top["libtorrent_resume"] = map[string]any{"bitfield": int64(1), "files": []any{map[string]any{"mtime": int64(1), "priority": int64(1)}}}
 	out, err := bencode.Encode(top)
 	if err != nil {

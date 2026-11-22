@@ -27,7 +27,10 @@ type webClient struct {
 
 func (c *webClient) call(method string, params ...any) json.RawMessage {
 	c.t.Helper()
-	body, _ := json.Marshal(map[string]any{"method": method, "params": params, "id": 1})
+	body, err := json.Marshal(map[string]any{"method": method, "params": params, "id": 1})
+	if err != nil {
+		c.t.Fatal(err)
+	}
 	r, _ := http.NewRequestWithContext(c.t.Context(), http.MethodPost, c.f.Address.URL("/json"), bytes.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	for _, k := range c.cookies {

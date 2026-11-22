@@ -182,7 +182,7 @@ func (d DirDisk) Move(from, to storing.Rel) error {
 }
 
 func (d DirDisk) Open(rel storing.Rel) (io.ReadCloser, error) {
-	return os.Open(d.path(rel)) //nolint:wrapcheck,gosec // the path names itself, in the suite's own folder
+	return os.Open(d.path(rel)) //nolint:wrapcheck // the path names itself
 }
 
 func (d DirDisk) Write(rel storing.Rel, r io.Reader) error {

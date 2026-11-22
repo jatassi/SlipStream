@@ -26,13 +26,16 @@ type rpcClient struct {
 	session string
 }
 
-func (c *rpcClient) call(method string, args map[string]any) map[string]any {
+func (c *rpcClient) call(method string, args map[string]any) map[string]json.RawMessage {
 	c.t.Helper()
 	req := map[string]any{"method": method, "arguments": args}
 	if c.json2 {
 		req = map[string]any{"jsonrpc": "2.0", "method": method, "params": args, "id": 1}
 	}
-	body, _ := json.Marshal(req)
+	body, err := json.Marshal(req)
+	if err != nil {
+		c.t.Fatal(err)
+	}
 	for range 2 {
 		r, _ := http.NewRequestWithContext(c.t.Context(), http.MethodPost, c.f.Address.URL("/transmission/rpc"), bytes.NewReader(body))
 		r.Header.Set("X-Transmission-Session-Id", c.session)
@@ -47,8 +50,8 @@ func (c *rpcClient) call(method string, args map[string]any) map[string]any {
 			continue
 		}
 		var reply struct {
-			Result    json.RawMessage `json:"result"`
-			Arguments map[string]any  `json:"arguments"`
+			Result    json.RawMessage            `json:"result"`
+			Arguments map[string]json.RawMessage `json:"arguments"`
 		}
 		if err := json.Unmarshal(out, &reply); err != nil {
 			c.t.Fatalf("%s: %v in %s", method, err, out)
@@ -56,12 +59,19 @@ func (c *rpcClient) call(method string, args map[string]any) map[string]any {
 		if !c.json2 {
 			return reply.Arguments
 		}
-		var result map[string]any
-		_ = json.Unmarshal(reply.Result, &result)
+		var result map[string]json.RawMessage
+		decode(c.t, reply.Result, &result)
 		return result
 	}
 	c.t.Fatalf("%s: the daemon kept answering 409", method)
 	return nil
+}
+
+func decode(t *testing.T, raw json.RawMessage, out any) {
+	t.Helper()
+	if err := json.Unmarshal(raw, out); err != nil {
+		t.Fatalf("%v in %s", err, raw)
+	}
 }
 
 func TestAVerifiedAddAdoptsTheFilesAndTheLastAnnounceRises(t *testing.T) {
@@ -89,13 +99,17 @@ func TestAVerifiedAddAdoptsTheFilesAndTheLastAnnounceRises(t *testing.T) {
 				rpc.call(c.verify, map[string]any{"ids": hashes})
 				rpc.call(c.start, map[string]any{"ids": hashes})
 				read := func() (percents []float64, last float64) {
-					got := rpc.call(c.get, map[string]any{"ids": hashes, "fields": []string{c.percent, c.stats}})
-					for _, raw := range got["torrents"].([]any) {
-						row := raw.(map[string]any)
-						percents = append(percents, row[c.percent].(float64))
+					var rows []map[string]json.RawMessage
+					decode(t, rpc.call(c.get, map[string]any{"ids": hashes, "fields": []string{c.percent, c.stats}})["torrents"], &rows)
+					for _, row := range rows {
+						var p float64
+						decode(t, row[c.percent], &p)
+						percents = append(percents, p)
 					}
-					first := got["torrents"].([]any)[0].(map[string]any)
-					return percents, first[c.stats].([]any)[0].(map[string]any)[c.last].(float64)
+					var stats []map[string]json.RawMessage
+					decode(t, rows[0][c.stats], &stats)
+					decode(t, stats[0][c.last], &last)
+					return percents, last
 				}
 				percents, before := read()
 				if percents[0] != 1 || percents[1] != 0.5 {

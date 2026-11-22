@@ -88,12 +88,13 @@ func Entered(kind string) func(get func(path string) ([]byte, error)) ([]fake.En
 // no fake-tracker.
 func Tracker(env fake.Env, node string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h, ok := env.Shared.Get(fake.TrackerAnnounce)
+		v, _ := env.Shared.Get(fake.TrackerAnnounce)
+		h, ok := v.(http.Handler)
 		if !ok {
 			http.Error(w, "the world runs no fake-tracker", http.StatusBadGateway)
 			return
 		}
-		h.(http.Handler).ServeHTTP(w, r.WithContext(fake.WithOrigin(r.Context(), node)))
+		h.ServeHTTP(w, r.WithContext(fake.WithOrigin(r.Context(), node)))
 	})
 }
 

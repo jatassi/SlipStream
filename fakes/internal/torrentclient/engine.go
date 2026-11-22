@@ -12,6 +12,7 @@ package torrentclient
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -660,7 +661,7 @@ func (e *Engine) sendLine(t *torrent, ln *Line, event string) {
 		q.Set("event", event)
 	}
 	u.RawQuery = q.Encode()
-	req := httptest.NewRequest(http.MethodGet, u.String(), http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, u.String(), http.NoBody)
 	rec := httptest.NewRecorder()
 	e.cfg.Tracker.ServeHTTP(rec, req)
 	ln.AnnouncedAt, ln.Failure, ln.NextAt = e.at, "", time.Time{}
