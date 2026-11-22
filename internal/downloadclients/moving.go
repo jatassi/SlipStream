@@ -424,7 +424,8 @@ func withRefused(ids []ID, results []Result, refused map[ID]*Refusal) []Result {
 // applyMove records what a report of node's Torrent id says for a Move,
 // each Node time converted to the Controller's received: when its
 // trackers last answered and are next due, its pause once each tracker
-// answered its stopped, and its arrival.
+// answered its stopped, and its arrival. The built-in client holds a
+// paused torrent with HOLD_WANTED, an external one reports its run paused.
 func applyMove(ctx context.Context, q *db.Queries, node role.NodeID, id ID, r *dlv1.TorrentReport, received time.Time) error {
 	ctl := func(ms int64) storage.Time {
 		if ms == 0 {
@@ -438,7 +439,7 @@ func applyMove(ctx context.Context, q *db.Queries, node role.NodeID, id ID, r *d
 			return err
 		}
 	}
-	if r.GetHold() == dlv1.Hold_HOLD_WANTED {
+	if r.GetHold() == dlv1.Hold_HOLD_WANTED || r.GetRun() == dlv1.Wanted_WANTED_PAUSED {
 		err := q.SetPausedAt(ctx, db.SetPausedAtParams{At: storage.FromTime(received), ID: id, NodeID: node, Stopped: boolInt(stopped), Blind: stoppedBlind})
 		if err != nil {
 			return err

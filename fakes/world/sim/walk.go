@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/tmdb"
+	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/tvdb"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
@@ -84,8 +85,11 @@ type walk struct {
 	// clients is where each Node reaches the fake Download Client of each
 	// kind, and the folder that client downloads into, by Node then kind.
 	clients map[string]map[string]clientAt
-	// envs are the client and subtitle provider fakes' Envs, by name.
-	envs   map[string]fake.Env
+	// envs are the tracker, client and subtitle provider fakes' Envs, by
+	// name.
+	envs map[string]fake.Env
+	// runDir holds the fakes' event log.
+	runDir string
 	voices voices
 }
 
@@ -306,17 +310,19 @@ func clientFront(kind, origin string) fault.Front {
 	return fault.Front{Target: fault.Target(kind), Origin: origin, Layers: fault.Conn | fault.HTTP}
 }
 
-// serveClients serves the fake of each kind of Download Client the
-// Scenario's Nodes have, one front a Node, each downloading into its own
-// folder under dir.
+// serveClients serves fake-tracker and the fake of each kind of Download
+// Client the Scenario's Nodes have, one front a Node, each downloading
+// into its own folder under dir and announcing to fake-tracker.
 func (w *walk) serveClients(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *servers, catalog *releases.Catalog, dir string, log *slog.Logger) {
 	t.Helper()
 	runDir := t.TempDir()
+	w.runDir = runDir
 	sink, err := events.Create(runDir, func(events.Record) []events.Record { return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = sink.Close() })
+	shared := w.serveTracker(t, s, local, fakes, catalog, runDir, sink, log)
 	served := map[string]fake.Server{}
 	for _, n := range s.Nodes {
 		for _, c := range n.DownloadClients {
@@ -327,7 +333,7 @@ func (w *walk) serveClients(t *testing.T, s scenario.Scenario, local *fault.Host
 			server, ok := served[c.Kind]
 			if !ok {
 				env := fake.NewEnv(s, spec, log, w.faults, sink)
-				env.Releases, env.Files, env.Dir, env.Media = catalog, runDir, filepath.Join(dir, c.Kind), w.mediaDir
+				env.Releases, env.Files, env.Dir, env.Media, env.Shared = catalog, runDir, filepath.Join(dir, c.Kind), w.mediaDir, shared
 				if server, err = spec.New(s, env); err != nil {
 					t.Fatal(err)
 				}
@@ -346,6 +352,22 @@ func (w *walk) serveClients(t *testing.T, s scenario.Scenario, local *fault.Host
 			w.clients[n.Name][c.Kind] = clientAt{url: spec.URL(at), folder: clientfake.Folder(filepath.Join(dir, c.Kind), n.Name)}
 		}
 	}
+}
+
+// serveTracker serves fake-tracker, answering the Shared the client fakes
+// find its announce handler in.
+func (w *walk) serveTracker(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *servers, catalog *releases.Catalog, runDir string, sink *events.Log, log *slog.Logger) *fake.Shared {
+	t.Helper()
+	shared := fake.NewShared()
+	env := fake.NewEnv(s, tracker.Fake, log, w.faults, sink)
+	env.Releases, env.Files, env.Shared = catalog, runDir, shared
+	server, err := tracker.Fake.New(s, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakes.serve(t, local, server)
+	w.envs[tracker.Fake.Name] = env
+	return shared
 }
 
 // ClientFolder is the folder the client of kind on the Node named on
@@ -376,6 +398,30 @@ func (w *World) Faults() *fault.Plan { return w.walk.faults }
 // labeled label name, one of the trackers each Node's swarm runs.
 func (w *World) Announce(label string) string { return w.walk.announce[label] }
 
+// Announced is one announce fake-tracker heard from the Node named Node.
+type Announced struct {
+	Node string
+	At   time.Time
+	tracker.Announce
+}
+
+// Announces are the announces of hash fake-tracker heard, oldest first.
+func (w *World) Announces(hash bencode.InfoHash) []Announced {
+	w.t.Helper()
+	recs, err := events.Select(w.walk.runDir, events.Query{Kind: tracker.Announces.Kind, Match: map[string]string{"infoHash": hash.String()}})
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	out := make([]Announced, len(recs))
+	for i, r := range recs {
+		out[i] = Announced{Node: r.Node, At: r.At}
+		if err := json.Unmarshal(r.Data, &out[i].Announce); err != nil {
+			w.t.Fatal(err)
+		}
+	}
+	return out
+}
+
 // InfoHash is the walk's torrent of release.
 func (w *World) InfoHash(release string) bencode.InfoHash { return w.walk.hashes[release] }
 
@@ -397,8 +443,9 @@ func (w *walk) env(n *Node, e *node.Env) {
 	e.Types = contenttype.NewSet(movie.Def, series.Def)
 	e.Engine = func(cfg engine.Config) (engine.Engine, error) {
 		swarm := enginetest.NewWorld()
+		announces := clientfake.Tracker(w.envs[tracker.Fake.Name], n.spec.Name)
 		for _, announce := range w.announce {
-			swarm.Tracker(announce, enginetest.TrackerRules{Interval: 30 * time.Minute})
+			swarm.Tracker(announce, enginetest.TrackerRules{Forward: announces})
 		}
 		for h, payload := range w.payloads {
 			swarm.Payload(h, payload)
