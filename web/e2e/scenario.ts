@@ -24,6 +24,7 @@ export type Scenario =
   | "packs"
   | "imports"
   | "media-servers"
+  | "moves"
   | "auto-search"
   | "hold"
   | "pack-beats-singles"
