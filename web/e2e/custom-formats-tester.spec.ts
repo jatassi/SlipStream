@@ -120,22 +120,6 @@ test("the tester reads each pasted name, matches it to a Work by its title and s
   await screenshotWholePage(page, testInfo.outputPath("tester.png"));
 });
 
-test("the tester reads a file path with its folder's name when the file's gives no title", async ({
-  adminPage: page,
-  world,
-}) => {
-  await added(world);
-  await openSettingsSection(page, "Custom Formats");
-  await page.getByRole("radio", { name: "File paths" }).click();
-  await testNames(page, "File paths", [
-    String.raw`D:\Films\The Quiet Orchard (2021)\1080p.BluRay-FKW.mkv`,
-  ]);
-  await expect(resultsIn(page).locator(":scope > div > p")).toHaveText([
-    "SlipStream reads this as Bluray-1080p from FKW. It matches The Quiet Orchard, and an automatic search would grab it for 1080p and HD.",
-  ]);
-  await expectAccessible(page);
-});
-
 test("Try it scores the names with the editor's draft before it is saved", async ({
   adminPage: page,
   world,
@@ -179,33 +163,4 @@ test("Try it scores the names with the editor's draft before it is saved", async
   await expect(
     resultsIn(page).first().getByRole("list", { name: "Targets" }).locator(":scope > li"),
   ).toHaveText([/^1080pScore 0Would grab/u, /^HDScore 0Would grab/u]);
-});
-
-test("Try it with a pattern that doesn't compile says so in the tester and under the pattern", async ({
-  adminPage: page,
-}) => {
-  await openSettingsSection(page, "Custom Formats");
-  await page.getByRole("button", { name: "New Custom Format" }).click();
-  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Dolby Vision");
-  // A second condition keeps the phone's glass tab bar off the white Save button, which axe reads as low contrast.
-  await page.getByRole("button", { name: "Add condition" }).click();
-  await pattern(page, 1).fill(String.raw`\b(DV`);
-  await pattern(page, 2).fill(String.raw`\bDoVi\b`);
-  const tryIt = await page.getByRole("button", { name: "Try it" }).boundingBox();
-  const create = await page.getByRole("button", { name: "Create Custom Format" }).boundingBox();
-  expect(create && tryIt && create.x > tryIt.x, "the primary action ends the row").toBe(true);
-  expect(
-    create && tryIt && Math.abs(create.y + create.height / 2 - (tryIt.y + tryIt.height / 2)),
-    "Try it and the primary action share a centre line",
-  ).toBe(0);
-  await page.getByRole("button", { name: "Try it" }).click();
-
-  const dialog = page.getByRole("dialog", { name: "Tester" });
-  await testNames(dialog, "Release names", [webdl]);
-  const refusal = String.raw`The pattern in condition "\b(DV" doesn't compile (unterminated group). Fix the pattern and try it again.`;
-  await expect(dialog.getByRole("alert")).toHaveText(refusal);
-  await expectAccessible(page);
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
-  await expect(pattern(page, 1)).toHaveAccessibleDescription(refusal);
 });

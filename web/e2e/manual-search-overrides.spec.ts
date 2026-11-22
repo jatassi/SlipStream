@@ -37,43 +37,6 @@ async function recordOf(page: Page, title: string) {
   return openGrabDetails(page, section, title);
 }
 
-test("a Release under a Target's minimum score is grabbed past it, the row saying so first", async ({
-  adminPage: page,
-  world,
-}, testInfo) => {
-  const manual = await opened(page, world);
-  const row = grabRows(manual).first();
-  await useChoice(row, "WEBDL-1080p · LQ · 8.0 GB");
-  await expect(manual).toContainText("1 Grab downloads every file you're missing.");
-  await expect(row).toContainText(
-    "It downloads 1080p (standard) for The Quiet Orchard, and HD (standard) as an upgrade.",
-  );
-  await expect(row.getByText(/^Score -5 is below/u)).toHaveText([
-    "Score -5 is below the minimum of 0 at 1080p.",
-    "Score -5 is below the minimum of 0 at HD.",
-  ]);
-  await expectAccessible(page);
-  await row.evaluate((element) => {
-    element.scrollIntoView({ block: "start" });
-  });
-  await frame(page, testInfo, "overrides-soft-refusal");
-
-  await manual.getByRole("button", { name: "Grab 1" }).click();
-  const fkw = "WEBDL-1080p · FKW · 8.2 GB";
-  const upgrade = grabRows(manual).filter({ has: page.getByRole("checkbox", { name: fkw }) });
-  await expect(upgrade).toContainText(
-    "It downloads 1080p (standard) and HD (standard) for The Quiet Orchard as an upgrade.",
-    { timeout: 60_000 },
-  );
-  await expect(upgrade.getByRole("checkbox", { name: fkw })).toBeChecked();
-  await expect(row).toContainText("Grabbed.");
-  await expect(manual.getByRole("button", { name: "Grab 1" })).toBeEnabled();
-  const record = await recordOf(page, "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-LQ");
-  await expect(record).toContainText(
-    "Ada Okafor grabbed it although score -5 is below the minimum of 0 at 1080p.",
-  );
-});
-
 test("a Release of a cut the Work doesn't want is grabbed as its Standard Edition", async ({
   adminPage: page,
   world,

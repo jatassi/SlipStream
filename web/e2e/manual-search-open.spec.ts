@@ -71,6 +71,12 @@ async function failedPackNeedsYou(page: Page, world: World, series: string, test
   const e10 = await itemId(world, series, "S02E10");
   await failedGrab(world, series, e10);
   await page.goto(`/works/${series}`);
+  await needsYouAction(page, "Details");
+  const record = page.getByRole("dialog", { name: "Grab of The Lantern Keepers" });
+  await expect(record).toContainText("The.Lantern.Keepers.S02.1080p.WEB-DL.H264-FKW");
+  await expect(record).toContainText("Failed");
+  await page.keyboard.press("Escape");
+  await expect(record).toBeHidden();
   await needsYouAction(page, "Manual search");
   const failed = sheet(page, lanternKeepers);
   await searched(failed);
