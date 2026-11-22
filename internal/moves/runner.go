@@ -416,6 +416,7 @@ func (m *Moves) apply(ctx context.Context, judged []work, now time.Time) ([]work
 func (m *Moves) applyOne(ctx context.Context, tx *storage.Tx[file], u *Unit, a Action, now time.Time) (bool, []role.NodeID, error) {
 	switch a := a.(type) {
 	case Arrived, Stop, Resume, AskStart, SwitchTorrent, Rollback, Parted:
+		m.beforeStep(ctx, *u, a)
 		nodes, err := m.applyTorrent(ctx, tx, u, a, now)
 		return false, nodes, err
 	case Hold:
@@ -492,14 +493,18 @@ func (m *Moves) start(ctx context.Context, w work) {
 			return
 		}
 		defer func() { <-m.jobs }()
-		if m.cfg.BeforeStep != nil {
-			m.cfg.BeforeStep(ctx, Step{Unit: w.u.ID, Work: w.u.Subject.Work, Action: actionName(w.action)})
-		}
+		m.beforeStep(ctx, w.u, w.action)
 		if err := m.step(ctx, w.u, w.action); err != nil && ctx.Err() == nil {
 			m.cfg.Log.Warn("a Move's step failed", "unit", w.u.ID.String(), "step", actionName(w.action), "err", err.Error())
 			m.retry(ctx, w.u.ID)
 		}
 	}()
+}
+
+func (m *Moves) beforeStep(ctx context.Context, u Unit, a Action) {
+	if m.cfg.BeforeStep != nil {
+		m.cfg.BeforeStep(ctx, Step{Unit: u.ID, Work: u.Subject.Work, Action: actionName(a)})
+	}
 }
 
 // retry has unit id due again after retry_after.

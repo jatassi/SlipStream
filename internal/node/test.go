@@ -55,8 +55,8 @@ type Test struct {
 	// BeforeImport sees each Import file's probe, place and landing on the
 	// Controller before it runs.
 	BeforeImport func(context.Context, imports.Step)
-	// BeforeMoveStep sees each IO step of a Move's unit on the Controller
-	// before it runs.
+	// BeforeMoveStep sees each step of a Move's unit on the Controller
+	// before it lands, as moves.Config's BeforeStep does.
 	BeforeMoveStep func(context.Context, moves.Step)
 	// BeforeRestoreStage sees each step of a restore's finish at start
 	// before it runs. An error stops the start there, as a crash would.

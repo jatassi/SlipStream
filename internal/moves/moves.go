@@ -116,7 +116,9 @@ type Config struct {
 	CopyGoalRun func(ctx context.Context, tx *storage.Tx[file], from, to downloadclients.ID) error
 	Recorder    entry.Recorder
 	Timings     Timings
-	// BeforeStep sees each IO step before it runs, in tests.
+	// BeforeStep sees each IO step before it runs, each torrent handoff
+	// step inside its Write, and a torrent's record of its place, in
+	// tests.
 	BeforeStep func(ctx context.Context, s Step)
 	Clock      func() time.Time
 	Log        *slog.Logger

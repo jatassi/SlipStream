@@ -79,8 +79,22 @@ func actionName(a Action) string {
 		return "reconcile"
 	case PlaceTorrent:
 		return "place_torrent"
+	case Arrived:
+		return "arrived"
+	case Stop:
+		return "stop"
+	case Resume:
+		return "resume"
+	case AskStart:
+		return "ask_start"
+	case SwitchTorrent:
+		return "switch_torrent"
+	case Rollback:
+		return "rollback"
+	case Parted:
+		return "parted"
 	}
-	panic(fmt.Sprintf("moves: %T runs no IO", a))
+	panic(fmt.Sprintf("moves: %T is no step", a))
 }
 
 // update re-reads unit id in one Write and, while it is still in phase,

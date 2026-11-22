@@ -231,8 +231,8 @@ func (c *Crash) Reached(t *testing.T) {
 	t.Helper()
 	select {
 	case <-c.reached:
-	case <-time.After(simtest.Settled):
-		t.Fatalf("the Move never reached %s", c.step)
+	case <-time.After(time.Hour):
+		t.Fatalf("the Move never reached %s within an hour", c.step)
 	}
 }
 

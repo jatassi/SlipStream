@@ -74,6 +74,10 @@ func (m *Moves) takeTorrentLane(ctx context.Context, u Unit) error {
 	return err
 }
 
+// RecordPlace is the step that records a torrent's place in an arriving
+// Torrent, once the destination Node placed its payload.
+const RecordPlace = "record_place"
+
 // placeTorrent has the destination Node put u's payload in its client's
 // folder, from the staging of Transfer tr or from the client on that Node
 // that holds it, then adds the arriving Torrent. A built-in destination
@@ -97,6 +101,9 @@ func (m *Moves) placeTorrent(ctx context.Context, u Unit, tr *transfers.ID) erro
 	res, err := m.cfg.Downloading(t.To.Node).PlacePayload(ctx, req)
 	if err != nil {
 		return err
+	}
+	if m.cfg.BeforeStep != nil {
+		m.cfg.BeforeStep(ctx, Step{Unit: u.ID, Action: RecordPlace})
 	}
 	now := m.now()
 	_, err = m.update(ctx, u.ID, PhasePlace, func(ctx context.Context, tx *storage.Tx[file], cu *Unit) error {
@@ -296,8 +303,15 @@ func (m *Moves) touchTorrents(us ...Unit) {
 }
 
 // undoTorrent ends u's Transfer and removes its arriving Torrent with its
-// files, unless the failed unit keeps it for a Retry.
+// files, unless the failed unit keeps it for a Retry. A unit that ended
+// placing before any arriving Torrent recorded its place has the
+// destination discard what the place may have put there.
 func (m *Moves) undoTorrent(ctx context.Context, u Unit) error {
+	if u.Torrent.Arriving == nil && endedAt(u.Stage) == PhasePlace {
+		if err := m.discardPlaced(ctx, u); err != nil {
+			return err
+		}
+	}
 	now := m.now()
 	var touched downloadclients.Touched
 	_, err := m.update(ctx, u.ID, u.Stage.Phase(), func(ctx context.Context, tx *storage.Tx[file], cu *Unit) error {
@@ -327,6 +341,44 @@ func (m *Moves) undoTorrent(ctx context.Context, u Unit) error {
 		m.cfg.Clients.Touched(touched)
 	}
 	m.cfg.Transfers.Touch()
+	return err
+}
+
+// endedAt is the phase a failed or canceled unit ended in.
+func endedAt(s Stage) Phase {
+	switch s := s.(type) {
+	case Failed:
+		return s.At
+	case Canceled:
+		return s.At
+	}
+	return s.Phase()
+}
+
+// discardPlaced has u's destination Node remove each payload file a
+// place may have put in its client's folder.
+func (m *Moves) discardPlaced(ctx context.Context, u Unit) error {
+	var src downloadclients.MoveSource
+	err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		src, err = sourceIn(ctx, r, u)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	t := u.Torrent
+	req := &dlv1.DiscardPayloadRequest{InfoHash: src.InfoHash[:], Held: u.Lane.sameNode()}
+	if src.ContentType != nil {
+		req.ContentType = string(*src.ContentType)
+	}
+	if t.To.Client != nil {
+		req.ClientId = t.To.Client.Bytes()
+	}
+	for _, f := range u.Files {
+		req.Files = append(req.Files, &dlv1.DiscardFile{Index: int32(f.Index), Path: f.Sits.String(), Size: f.Size}) //nolint:gosec // G115: a torrent's file index fits
+	}
+	_, err = m.cfg.Downloading(t.To.Node).DiscardPayload(ctx, req)
 	return err
 }
 
