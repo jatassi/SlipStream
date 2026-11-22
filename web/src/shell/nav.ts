@@ -75,6 +75,15 @@ export type NavTable = readonly [NavRow, ...NavRow[]];
 
 export const adminNav: NavTable = [
   {
+    id: "home",
+    label: "Home",
+    icon: Home01Icon,
+    to: "/",
+    audience: "admin",
+    place: "main",
+    tab: { order: 0 },
+  },
+  {
     id: "library",
     label: "Library",
     icon: LibraryIcon,

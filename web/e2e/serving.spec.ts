@@ -39,7 +39,7 @@ test(
     );
     await signOut(page);
     expect((await asserted).status()).toBe(200);
-    await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
     expect(new URL(page.url()).origin).toBe(new URL(world.baseURL).origin);
     const system = await page.evaluate(async () => {
       const response = await fetch("/api/v1/system");

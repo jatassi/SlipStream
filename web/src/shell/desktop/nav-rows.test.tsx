@@ -108,6 +108,6 @@ test("on a phone the Activity tab carries the fill", async () => {
   await expect.element(fill).toHaveAttribute("aria-valuetext", "50%, paused");
   await expect.poll(() => reached(fill.element())).toBeCloseTo(0.5, 2);
   await expect
-    .poll(() => tabs().getByRole("listitem").nth(1).element().textContent)
+    .poll(() => tabs().getByRole("listitem").nth(2).element().textContent)
     .toBe("Activity2");
 });

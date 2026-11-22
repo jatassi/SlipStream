@@ -3,7 +3,7 @@ import { isPhone, navigate, shellNav } from "./shell.ts";
 
 test("the shell reaches every destination and titles each tab", async ({ adminPage: page }) => {
   await expect(shellNav(page)).toBeVisible();
-  await expect(page).toHaveTitle("Library · SlipStream");
+  await expect(page).toHaveTitle("Home · SlipStream");
 
   await navigate(page, "Activity");
   await expect(page.getByRole("heading", { name: "Activity" })).toBeVisible();

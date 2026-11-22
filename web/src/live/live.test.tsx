@@ -13,21 +13,9 @@ import {
 import { ada, grace, homePage, problem } from "../test/handlers";
 import { liveServer, seeded, synced } from "../test/live-server";
 import { renderApp } from "../test/render-app";
+import { countRequests } from "../test/requests";
+// oxlint-disable-next-line import/max-dependencies -- the live stream's effects reach every owner's reads
 import { worker } from "../test/worker";
-
-function countRequests() {
-  const counts = new Map<string, number>();
-  const count = ({ request }: { request: Request }) => {
-    const path = new URL(request.url).pathname.replace(
-      /^\/api\/v1\/nodes\/[^/]+\//u,
-      "/api/v1/nodes/:id/",
-    );
-    const key = `${request.method} ${path}`;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  };
-  worker.events.on("request:start", count);
-  return (key: string) => counts.get(key) ?? 0;
-}
 
 afterEach(() => {
   worker.events.removeAllListeners();
@@ -190,7 +178,7 @@ test("live.access-changed keeps a promoted Member in the portal they were in, wi
   server.clients[0]?.dispatchEvent(new MessageEvent("live.access-changed", { data: "{}" }));
   await expect.poll(() => server.clients).toHaveLength(2);
   await userEvent.click(page.getByRole("button", { name: "Account" }));
-  await expect.element(page.getByRole("menuitem", { name: "Back to Library" })).toBeVisible();
+  await expect.element(page.getByRole("menuitem", { name: "Back to Home" })).toBeVisible();
   expect(app.router.state.location.href).toBe("/portal");
 });
 
