@@ -14,7 +14,7 @@ import (
 
 const (
 	// ClearAfter is how long after the announce that opened a window a
-	// stopped must come to clear it.
+	// stopped must come to clear it, the default of Windows.ClearAfter.
 	ClearAfter = 5 * time.Minute
 	// Duplicate is how soon the same event from the same peer is rejected.
 	Duplicate = 30 * time.Second
@@ -31,6 +31,10 @@ const (
 // Windows plays checkMinInterval for the fake trackers, keyed by passkey,
 // info hash and peer ID. It is safe for concurrent use.
 type Windows struct {
+	// ClearAfter is how long after the announce that opened a window a
+	// stopped must come to clear it. It is set before the first Admit.
+	ClearAfter time.Duration
+
 	mu       sync.Mutex
 	interval time.Duration
 	rand     *rand.Rand
@@ -52,7 +56,7 @@ type peerEvent struct {
 type window struct{ opened, closes time.Time }
 
 func NewWindows(minInterval time.Duration, r *rand.Rand) *Windows {
-	return &Windows{interval: minInterval, rand: r, windows: map[peer]window{}, last: map[peerEvent]time.Time{}}
+	return &Windows{ClearAfter: ClearAfter, interval: minInterval, rand: r, windows: map[peer]window{}, last: map[peerEvent]time.Time{}}
 }
 
 // Rule is the rule a rejected announce broke. UNIT3D answers both with one
@@ -91,7 +95,7 @@ func (w *Windows) Admit(passkey string, h bencode.InfoHash, peerID [20]byte, eve
 		w.windows[p] = window{opened: now, closes: now.Add(w.draw())}
 	}
 	switch {
-	case event == "stopped" && (!open || now.Sub(win.opened) > ClearAfter):
+	case event == "stopped" && (!open || now.Sub(win.opened) > w.ClearAfter):
 		delete(w.windows, p)
 	case open && event != "completed" && event != "stopped":
 		return Window, rejected(now.Sub(win.opened))

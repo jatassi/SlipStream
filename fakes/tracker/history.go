@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/bencode"
 )
 
@@ -61,11 +62,13 @@ type History struct {
 	HitAndRun   bool   `json:"hitAndRun"`
 }
 
-// upsert is AutoUpsertHistories for one accepted announce by peer p: it
-// credits the time since the history's last announce when that came less
-// than historyGap ago from an active seeder and p still seeds, then takes
-// p's seeder and active and adds the transfer.
-func (s *server) upsert(k historyKey, origin string, p *peer, up, down int64, now time.Time) {
+// upsert is AutoUpsertHistories for one accepted announce by peer p,
+// keyed pk: it credits the time since the history's last announce when
+// that came less than historyGap ago from an active seeder and p still
+// seeds, then takes p's seeder and active and adds the transfer. The rust
+// variant keeps the history an active seeder's when p stops while
+// another peer of the account seeds.
+func (s *server) upsert(k historyKey, pk peerKey, origin string, p *peer, up, down int64, now time.Time) {
 	h, ok := s.histories[k]
 	if !ok {
 		h = &history{}
@@ -75,6 +78,9 @@ func (s *server) upsert(k historyKey, origin string, p *peer, up, down int64, no
 		h.seedtime += now.Sub(h.updatedAt).Truncate(time.Second)
 	}
 	h.seeder, h.active, h.updatedAt, h.origin = p.seeder, p.active, now, origin
+	if s.variant == scenario.Rust && !p.active && s.seedsElsewhere(pk, now) {
+		h.seeder, h.active = true, true
+	}
 	h.uploaded += up
 	h.downloaded += down
 	s.settle(k, h, now)

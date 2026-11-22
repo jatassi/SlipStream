@@ -211,6 +211,14 @@ type Tracker struct {
 	// window's base. Zero is Interval.
 	MinInterval time.Duration `yaml:"min_interval,omitempty"`
 	Mode        TrackerMode   `jsonschema:"enum=plain,enum=unit3d,enum=gazelle" yaml:"mode,omitempty"`
+	// Variant is the UNIT3D announce unit3d mode plays: php, UNIT3D's own,
+	// or rust, unit3d-announce, where a stopped from one peer leaves the
+	// account's history active while another of its peers seeds. Empty is
+	// php.
+	Variant UNIT3DVariant `jsonschema:"enum=php,enum=rust" yaml:"variant,omitempty"`
+	// ClearAfter is how long after the announce that opened a unit3d mode
+	// window a stopped must come to clear it. Zero is UNIT3D's, 5m.
+	ClearAfter time.Duration `yaml:"clear_after,omitempty"`
 	// AllowPeerIDs are the peer ID prefixes gazelle mode accepts. Empty is
 	// libtorrent's, -LT.
 	AllowPeerIDs []string `yaml:"allow_peer_ids,omitempty"`
@@ -268,6 +276,14 @@ const (
 	UNIT3D TrackerMode = "unit3d"
 	// Gazelle rejects peer IDs whose prefix is not on AllowPeerIDs.
 	Gazelle TrackerMode = "gazelle"
+)
+
+// UNIT3DVariant is the announce code a UNIT3D tracker runs.
+type UNIT3DVariant string
+
+const (
+	PHP  UNIT3DVariant = "php"
+	Rust UNIT3DVariant = "rust"
 )
 
 // Leecher is a peer that dials Node's listen port through its leecher
@@ -420,10 +436,21 @@ func (t Tracker) check(add func(format string, args ...any)) {
 	if len(t.AllowPeerIDs) > 0 && t.Mode != Gazelle {
 		add("tracker allow_peer_ids is for gazelle mode, not %q", t.Mode)
 	}
+	switch t.Variant {
+	case "", PHP, Rust:
+	default:
+		add("tracker variant %q is not php or rust", t.Variant)
+	}
+	if t.Variant != "" && t.Mode != UNIT3D {
+		add("tracker variant is for unit3d mode, not %q", t.Mode)
+	}
+	if t.ClearAfter != 0 && t.Mode != UNIT3D {
+		add("tracker clear_after is for unit3d mode, not %q", t.Mode)
+	}
 	if slices.Contains(t.AllowPeerIDs, "") {
 		add("tracker allow_peer_ids lists an empty prefix, which allows every peer ID")
 	}
-	for name, d := range map[string]time.Duration{"prewarn": t.Prewarn, "grace": t.Grace, "inactive_after": t.InactiveAfter} {
+	for name, d := range map[string]time.Duration{"prewarn": t.Prewarn, "grace": t.Grace, "inactive_after": t.InactiveAfter, "clear_after": t.ClearAfter} {
 		if d < 0 {
 			add("tracker %s %s is negative", name, d)
 		}
