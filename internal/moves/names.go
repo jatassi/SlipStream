@@ -102,7 +102,7 @@ func waitWords(w Wait, from, to string) string {
 	case WaitNodeOffline:
 		return "Waiting until " + from + " and " + to + " are connected"
 	case WaitNoRoute:
-		return from + " and " + to + " can't reach each other yet. The copy waits until they can."
+		return from + " and " + to + " can't connect to each other yet. The copy waits until they can."
 	case WaitSpace:
 		return "Waiting for free space on " + to
 	case WaitRenames:
