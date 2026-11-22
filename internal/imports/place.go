@@ -7,6 +7,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -174,27 +175,14 @@ func (im *Imports) grantCopy(ctx context.Context, tx *storage.Tx[file], imp *Imp
 	if f.Outcome != Placing {
 		return nil
 	}
-	d, err := im.cfg.Roots.DestinationIn(ctx, tx, f.Dest.Root)
+	room, known, err := im.CopyRoom(ctx, tx, f.Dest.Root)
 	if err != nil {
 		return err
 	}
-	if d.Volume == nil {
+	if !known {
 		f.PlacedBy, f.Hold = ByCopy, nil
 		return nil
 	}
-	levels, err := health.LevelsIn(ctx, tx)
-	if err != nil {
-		return err
-	}
-	reserved, err := im.cfg.Transfers.ReservedIn(ctx, tx, d.Node, d.Volume.ID)
-	if err != nil {
-		return err
-	}
-	copies, err := im.copiesOn(ctx, tx, d)
-	if err != nil {
-		return err
-	}
-	room := d.Volume.Free - levels.For(d.Node, d.Volume.Mount, d.Volume.Total).Error.Bytes - reserved - copies
 	if size > room {
 		f.wait(NoSpace)
 		f.Hold.Free, f.Hold.Needs = max(room, 0), size
@@ -204,15 +192,48 @@ func (im *Imports) grantCopy(ctx context.Context, tx *storage.Tx[file], imp *Imp
 	return nil
 }
 
+// CopyRoom is the bytes a same-Node copy into root may still take on its
+// volume, read in r: free space minus the Error level, minus what
+// Transfers reserve there, minus the copies imports granted and those
+// OtherCopies answers. known is false while root's Node hasn't found its
+// volume.
+func (im *Imports) CopyRoom(ctx context.Context, r storage.Reader[file], root roots.ID) (room int64, known bool, err error) {
+	d, err := im.cfg.Roots.DestinationIn(ctx, r, root)
+	if err != nil || d.Volume == nil {
+		return 0, false, err
+	}
+	levels, err := health.LevelsIn(ctx, r)
+	if err != nil {
+		return 0, false, err
+	}
+	reserved, err := im.cfg.Transfers.ReservedIn(ctx, r, d.Node, d.Volume.ID)
+	if err != nil {
+		return 0, false, err
+	}
+	copies, err := im.copiesOn(ctx, r, d)
+	if err != nil {
+		return 0, false, err
+	}
+	others, err := im.cfg.OtherCopies(ctx, r, d.Node, d.Volume.ID)
+	if err != nil {
+		return 0, false, err
+	}
+	return d.Volume.Free - levels.For(d.Node, d.Volume.Mount, d.Volume.Total).Error.Bytes - reserved - copies - others, true, nil
+}
+
+// OtherCopies is the bytes of the copies another owner granted on node's
+// volume, read in r.
+type OtherCopies func(ctx context.Context, r storage.Reader[file], node role.NodeID, volume string) (int64, error)
+
 // copiesOn is the bytes of every copy granted into a root on d's volume.
-func (im *Imports) copiesOn(ctx context.Context, tx *storage.Tx[file], d roots.Destination) (int64, error) {
-	rows, err := db.New(tx).ListCopies(ctx)
+func (im *Imports) copiesOn(ctx context.Context, r storage.Reader[file], d roots.Destination) (int64, error) {
+	rows, err := db.New(r).ListCopies(ctx)
 	if err != nil {
 		return 0, err
 	}
 	var n int64
 	for _, row := range rows {
-		other, err := im.cfg.Roots.DestinationIn(ctx, tx, row.RootID)
+		other, err := im.cfg.Roots.DestinationIn(ctx, r, row.RootID)
 		if err != nil {
 			return 0, err
 		}

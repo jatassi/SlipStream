@@ -23,6 +23,7 @@ type Config struct {
 	Roots   *roots.Roots
 	Files   *files.Files
 	Imports Imports
+	Moves   Moves
 	Leaver  Leaver
 	// Queue takes the searches an Admin's add and monitoring ask for, in
 	// their Write.
@@ -59,10 +60,28 @@ type Imports interface {
 	Touch()
 }
 
+// Moves cancels the open Moves of a deleted Work before their switch: in
+// the delete's Write, then a poke once it commits. NoMoves when nil.
+type Moves interface {
+	CancelOf(ctx context.Context, tx *storage.Tx[storage.Library], ws []works.WorkID) error
+	Poke()
+}
+
+// NoMoves is the Moves of a library nothing moves.
+type NoMoves struct{}
+
+func (NoMoves) CancelOf(context.Context, *storage.Tx[storage.Library], []works.WorkID) error {
+	return nil
+}
+func (NoMoves) Poke() {}
+
 type Library struct {
 	cfg Config
 }
 
 func New(cfg Config) *Library {
+	if cfg.Moves == nil {
+		cfg.Moves = NoMoves{}
+	}
 	return &Library{cfg: cfg}
 }

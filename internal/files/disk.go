@@ -146,8 +146,19 @@ func (f *Files) read(ctx context.Context) (queue, error) {
 			return err
 		}
 		out.moves = make([]move, len(rows))
+		var ws []works.WorkID
 		for i, row := range rows {
 			out.moves[i] = moveOf(row)
+			if !slices.Contains(ws, row.WorkID) {
+				ws = append(ws, row.WorkID)
+			}
+		}
+		held, err := f.cfg.Moves.Holds(ctx, r, ws)
+		if err != nil {
+			return err
+		}
+		for i, m := range out.moves {
+			out.moves[i].held = held[m.work] && (m.ring.IsZero() || m.sits != m.holding())
 		}
 		if out.prunes, err = q.ListPrune(ctx); err != nil {
 			return err
@@ -229,7 +240,7 @@ func (f *Files) drain(ctx context.Context) (skippedLost bool, err error) {
 	moves, err := f.ring(ctx, q.moves)
 	errs = append(errs, err)
 	for _, m := range moves {
-		if hop := m.next(); hop != m.path && !q.lost[m.root] {
+		if hop := m.next(); hop != m.path && !m.held && !q.lost[m.root] {
 			_, err := f.step(ctx, m, hop)
 			errs = append(errs, err)
 		}
@@ -259,7 +270,7 @@ func (f *Files) land(ctx context.Context, q queue, prepared map[ID]storing.Rel) 
 	var touched []works.WorkID
 	pending := q.pending()
 	for _, m := range q.moves {
-		if m.next() != m.path || q.lost[m.root] || m.leaves() && prepared[m.file].String() != m.origin {
+		if m.held || m.next() != m.path || q.lost[m.root] || m.leaves() && prepared[m.file].String() != m.origin {
 			continue
 		}
 		if at, ok := pending[folded(m.root, m.path)]; ok && at != m.file {
@@ -470,7 +481,7 @@ func (f *Files) sweep(ctx context.Context, ids []roots.ID) (unanswered, lost []r
 		return ids, nil
 	}
 	found, unanswered := f.held(ctx, asked)
-	live, err := f.claimed(ctx)
+	live, err := f.claimed(ctx, asked)
 	if err != nil {
 		f.logSweep(ctx, err)
 		return asked, lost
@@ -627,7 +638,7 @@ func (c claims) keeps(root roots.ID, e held) bool {
 	return c.staging[id]
 }
 
-func (f *Files) claimed(ctx context.Context) (claims, error) {
+func (f *Files) claimed(ctx context.Context, rs []roots.ID) (claims, error) {
 	c := claims{holding: map[storage.UUID]bool{}, staging: map[storage.UUID]bool{}}
 	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		ids, err := db.New(r).ListFileIDs(ctx)
@@ -639,6 +650,21 @@ func (f *Files) claimed(ctx context.Context) (claims, error) {
 		}
 		if c.paths, err = f.cfg.Grabs.Holding(ctx, r); err != nil {
 			return err
+		}
+		reserved, err := f.cfg.Moves.Reserved(ctx, r, rs)
+		if err != nil {
+			return err
+		}
+		if c.paths == nil {
+			c.paths = map[roots.ID]map[string]bool{}
+		}
+		for root, rels := range reserved {
+			if c.paths[root] == nil {
+				c.paths[root] = map[string]bool{}
+			}
+			for _, rel := range rels {
+				c.paths[root][rel.String()] = true
+			}
 		}
 		live, err := f.cfg.Transfers(ctx, r)
 		for id := range live {

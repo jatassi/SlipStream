@@ -82,6 +82,8 @@ type library struct {
 	changed told
 	// moved is each files.moved its disk queues published.
 	moved moves
+	// moving is files' Moves, NoMoves when nil.
+	moving files.Moves
 	// servers is what its files owners told the Media Servers.
 	servers tellings
 	// queue is what its files owners ask to search.
@@ -174,7 +176,7 @@ func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 		Today: func() time.Time { return today },
 		Disk:  disk, Changed: &l.changed, Moved: &l.moved, MediaServers: &l.servers, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
-		Queue: l.queue, Subtitles: l.subtitles,
+		Queue: l.queue, Subtitles: l.subtitles, Homes: l.held, Moves: l.moving,
 	})
 	if err != nil {
 		l.t.Fatal(err)

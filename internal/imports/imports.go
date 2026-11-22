@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -80,6 +81,9 @@ type Config struct {
 	// Transfers still send to a volume.
 	Probes    storing.Probes
 	Transfers *transfers.Transfers
+	// OtherCopies is the copies S48 (Moves) granted on a volume, none when
+	// nil.
+	OtherCopies OtherCopies
 	// Grabs is told how each download's Import goes, through Follow.
 	Grabs   *grabs.Grabs
 	Timings Timings
@@ -160,6 +164,9 @@ func New(cfg Config) *Imports {
 	}
 	if cfg.Reconciling == nil {
 		cfg.Reconciling = NotReconciling{}
+	}
+	if cfg.OtherCopies == nil {
+		cfg.OtherCopies = func(context.Context, storage.Reader[file], role.NodeID, string) (int64, error) { return 0, nil }
 	}
 	im := &Imports{cfg: cfg, probes: newSlots(), wake: make(chan struct{}, 1), hooked: map[string]after{}}
 	cfg.Transfers.Register(im.purpose())

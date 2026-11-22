@@ -308,3 +308,13 @@ GROUP BY import_id ORDER BY import_id;
 SELECT f.id, coalesce(m.sits, f.path) AS place FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
 WHERE f.root_id = sqlc.arg(root_id) AND f.id IN (sqlc.slice(ids))
 ORDER BY f.id;
+
+-- name: ListSitsOfWorks :many
+SELECT f.id, f.work_id, f.root_id, f.path, m.sits, m.ring, f.size, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at
+FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.work_id IN (sqlc.slice(work_ids)) ORDER BY f.id;
+
+-- name: SwitchFile :exec
+UPDATE files_file SET root_id = sqlc.arg(root_id), modified_at = sqlc.arg(modified_at), node_file_id = sqlc.narg(node_file_id),
+    node_volume_id = sqlc.narg(node_volume_id)
+WHERE id = sqlc.arg(id);
