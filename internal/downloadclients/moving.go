@@ -24,11 +24,29 @@ type MovingTo struct {
 	Client *ClientID
 }
 
+// Move is a Torrent's Move as its row shows it.
+type Move struct {
+	Unit, Batch storage.UUID
+	Phase       string
+	// Waiting is empty while it waits for nothing.
+	Waiting    string
+	ToNode     role.NodeID
+	ToNodeName string
+	// Words is its sentence, such as "Copying to den".
+	Words string
+}
+
 // Moving is what downloadclients asks of S48 (Moves).
 type Moving interface {
 	// Moving is, for each of ids that is the source of a Move before its
 	// switch, where it is moving.
 	Moving(ctx context.Context, r storage.Reader[file], ids []ID) (map[ID]MovingTo, error)
+	// MovesOf is the Move of each of ids that moves or keeps a failed
+	// Move's copy.
+	MovesOf(ctx context.Context, r storage.Reader[file], ids []ID) (map[ID]Move, error)
+	// UsesClient is how many Moves that haven't ended move a torrent into
+	// or out of client.
+	UsesClient(ctx context.Context, r storage.Reader[file], client ClientID) (int64, error)
 }
 
 // NoMoving moves nothing.
@@ -38,6 +56,14 @@ type noMoving struct{}
 
 func (noMoving) Moving(context.Context, storage.Reader[file], []ID) (map[ID]MovingTo, error) {
 	return nil, nil
+}
+
+func (noMoving) MovesOf(context.Context, storage.Reader[file], []ID) (map[ID]Move, error) {
+	return nil, nil
+}
+
+func (noMoving) UsesClient(context.Context, storage.Reader[file], ClientID) (int64, error) {
+	return 0, nil
 }
 
 // Arriving is a Move's destination Torrent, a new row of From's metainfo

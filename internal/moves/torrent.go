@@ -463,3 +463,35 @@ func uuidsOf(ids []downloadclients.ID) []storage.UUID {
 	}
 	return out
 }
+
+// MovesOf is the Move of each of ids that moves, or keeps a failed
+// Move's copy, read in r: downloadclients' Moving.
+func (m *Moves) MovesOf(ctx context.Context, r storage.Reader[file], ids []downloadclients.ID) (map[downloadclients.ID]downloadclients.Move, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	q := db.New(r)
+	rows, err := q.ListMovingTorrents(ctx, uuidsOf(ids))
+	if err != nil || len(rows) == 0 {
+		return nil, err
+	}
+	us, err := unitsOf(ctx, q, rows)
+	if err != nil {
+		return nil, err
+	}
+	vs, err := m.views(ctx, r, us)
+	out := make(map[downloadclients.ID]downloadclients.Move, len(vs))
+	for _, v := range vs {
+		out[*v.Torrent] = downloadclients.Move{
+			Unit: v.Unit.UUID, Batch: v.Batch.UUID, Phase: string(v.Phase), Waiting: string(v.Waiting),
+			ToNode: v.To.Node, ToNodeName: v.To.NodeName, Words: v.Words,
+		}
+	}
+	return out, err
+}
+
+// UsesClient is how many units that haven't ended move a torrent into or
+// out of client, read in r: downloadclients' Moving.
+func (m *Moves) UsesClient(ctx context.Context, r storage.Reader[file], client downloadclients.ClientID) (int64, error) {
+	return db.New(r).CountClientUnits(ctx, client.UUID)
+}

@@ -36,6 +36,14 @@ func (m moving) Moving(_ context.Context, _ storage.Reader[storage.Library], ids
 	return out, nil
 }
 
+func (moving) MovesOf(context.Context, storage.Reader[storage.Library], []dc.ID) (map[dc.ID]dc.Move, error) {
+	return nil, nil
+}
+
+func (moving) UsesClient(context.Context, storage.Reader[storage.Library], dc.ClientID) (int64, error) {
+	return 0, nil
+}
+
 // move is the Orchard on seedbox mid-Move to den's built-in client, its
 // arriving Torrent inserted.
 type move struct {

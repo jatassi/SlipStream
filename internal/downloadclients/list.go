@@ -45,6 +45,8 @@ type Row struct {
 	AddedAt     time.Time
 	// Uses are its Grabs, newest first.
 	Uses []Use
+	// Move is its Move, nil while none moves it.
+	Move *Move
 	// Held is true while an unfinished Grab holds it, so Mark failed can
 	// blocklist its Release.
 	Held     bool
@@ -179,9 +181,24 @@ func (c *Clients) List(ctx context.Context, f Filter) (Listing, error) {
 				out.Rows = append(out.Rows, row)
 			}
 		}
-		return nil
+		return c.moves(ctx, r, out.Rows)
 	})
 	return out, err
+}
+
+// moves sets each of rows' Move, read in r.
+func (c *Clients) moves(ctx context.Context, r storage.Reader[file], rows []Row) error {
+	ids := make([]ID, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+	of, err := c.cfg.Moving.MovesOf(ctx, r, ids)
+	for i := range rows {
+		if m, ok := of[rows[i].ID]; ok {
+			rows[i].Move = &m
+		}
+	}
+	return err
 }
 
 func (f Filter) lets(row Row, labels map[works.WorkID]string) bool {
@@ -494,6 +511,9 @@ func (c *Clients) Get(ctx context.Context, id ID) (Detail, error) {
 		i := slices.IndexFunc(rows, func(row Row) bool { return row.ID == id })
 		if i < 0 {
 			return ErrNotFound
+		}
+		if err := c.moves(ctx, r, rows[i:i+1]); err != nil {
+			return err
 		}
 		d, err = detailOf(rows[i], details)
 		return err

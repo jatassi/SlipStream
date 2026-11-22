@@ -1,6 +1,7 @@
 import type { DownloadclientsFault } from "./downloadclientsFault.ts";
 import type { DownloadclientsRetried } from "./downloadclientsRetried.ts";
 import type { DownloadclientsSeedingView } from "./downloadclientsSeedingView.ts";
+import type { DownloadclientsTorrentMove } from "./downloadclientsTorrentMove.ts";
 import type { DownloadclientsTorrentRowClientKind } from "./downloadclientsTorrentRowClientKind.ts";
 import type { DownloadclientsTorrentRowHold } from "./downloadclientsTorrentRowHold.ts";
 import type { DownloadclientsTorrentRowLastKnownCause } from "./downloadclientsTorrentRowLastKnownCause.ts";
@@ -50,6 +51,8 @@ export interface DownloadclientsTorrentRow {
   lastKnown?: string;
   /** Why the row shows its last report: its Node isn't connected, its external client isn't responding or refused the sign-in, or its external client is off */
   lastKnownCause?: DownloadclientsTorrentRowLastKnownCause;
+  /** Its Move in flight, or failed with its copy kept; null for none */
+  move: DownloadclientsTorrentMove | null;
   /** The release's name in its metainfo, shown for a Torrent whose Work was deleted */
   name: string;
   nodeId: string;

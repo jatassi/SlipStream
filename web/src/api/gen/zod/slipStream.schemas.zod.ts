@@ -1953,6 +1953,37 @@ export const DownloadclientsTorrentGrab = zod.object({
 export type DownloadclientsTorrentGrab = zod.input<typeof DownloadclientsTorrentGrab>;
 export type DownloadclientsTorrentGrabOutput = zod.output<typeof DownloadclientsTorrentGrab>;
 
+export const DownloadclientsTorrentMove = zod.object({
+  batchId: zod.uuid(),
+  phase: zod.enum(["queued", "transfer", "place", "switch", "failed"]),
+  toNodeId: zod.uuid(),
+  toNodeName: zod.string(),
+  unitId: zod.uuid(),
+  waiting: zod
+    .enum([
+      "pair_busy",
+      "low_priority",
+      "node_offline",
+      "no_route",
+      "space",
+      "renames",
+      "downloading",
+      "importing",
+      "open_files",
+      "playing",
+      "media_servers",
+      "guard",
+      "linked_torrent",
+      "reconciling",
+    ])
+    .exactOptional()
+    .describe("What it waits for; absent while it waits for nothing"),
+  words: zod.string().describe("What it does now, such as Copying to den"),
+});
+
+export type DownloadclientsTorrentMove = zod.input<typeof DownloadclientsTorrentMove>;
+export type DownloadclientsTorrentMoveOutput = zod.output<typeof DownloadclientsTorrentMove>;
+
 export const downloadclientsTrackerDetailLeechersMin = 0;
 
 export const downloadclientsTrackerDetailMinIntervalSecondsMin = 0;
@@ -2121,6 +2152,9 @@ export const DownloadclientsTorrentDetail = zod.object({
     .describe(
       "Its Node responded, so trackers and files are live. Otherwise they are from its last report",
     ),
+  move: zod
+    .union([DownloadclientsTorrentMove, zod.null()])
+    .describe("Its Move in flight, or failed with its copy kept; null for none"),
   name: zod
     .string()
     .describe("The release's name in its metainfo, shown for a Torrent whose Work was deleted"),
@@ -2313,6 +2347,9 @@ export const DownloadclientsTorrentRow = zod.object({
     .describe(
       "Why the row shows its last report: its Node isn't connected, its external client isn't responding or refused the sign-in, or its external client is off",
     ),
+  move: zod
+    .union([DownloadclientsTorrentMove, zod.null()])
+    .describe("Its Move in flight, or failed with its copy kept; null for none"),
   name: zod
     .string()
     .describe("The release's name in its metainfo, shown for a Torrent whose Work was deleted"),

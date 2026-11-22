@@ -407,3 +407,32 @@ func TestAStartedMoveTakesItsLaneAtOnce(t *testing.T) {
 		}
 	})
 }
+
+// TestAMovingTorrentShowsItsMove lists The Quiet Orchard while it moves
+// to den: its row carries the Move to den, and the moved row carries none.
+func TestAMovingTorrentShowsItsMove(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := launchMoves(t)
+		s := seedOrchard(t, w, kinds[0])
+		clients := w.Node("home").Half().Clients
+		batch := moveTorrent(t, w, s, client{"den", "transmission"}.side(t, w))
+		l, err := clients.List(t.Context(), downloadclients.Filter{IDs: []downloadclients.ID{s.id}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(l.Rows) != 1 || l.Rows[0].Move == nil || l.Rows[0].Move.ToNodeName != "den" || l.Rows[0].Move.Batch != batch.UUID {
+			t.Fatalf("the moving row is %+v, want its Move to den", l.Rows)
+		}
+		if unit := ended(t, w, batch); unit.Phase != moves.PhaseDone {
+			t.Fatalf("the unit ended %s %+v, want done", unit.Phase, unit.Failure)
+		}
+		l, err = clients.List(t.Context(), downloadclients.Filter{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(l.Rows) != 1 || l.Rows[0].Move != nil {
+			t.Errorf("the moved rows are %+v, want one with no Move", l.Rows)
+		}
+	})
+}

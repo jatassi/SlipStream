@@ -134,6 +134,14 @@ SELECT * FROM moves_unit
 WHERE torrent_id IN (sqlc.slice(torrents)) AND (phase IN ('queued', 'transfer', 'place', 'switch') OR keeps_copy = 1)
 ORDER BY seq;
 
+-- name: CountClientUnits :one
+-- A unit uses its clients until it ends, and a failed one while it keeps
+-- its copy.
+SELECT count(*) FROM moves_unit
+WHERE kind = 'torrent' AND (from_client_id = sqlc.arg(client) OR to_client_id = sqlc.arg(client))
+    AND (phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup') OR keeps_copy = 1
+        OR (phase IN ('failed', 'canceled') AND undone_at IS NULL));
+
 -- name: ListOpenUnitsOfTorrents :many
 SELECT * FROM moves_unit
 WHERE torrent_id IN (sqlc.slice(torrents)) AND (phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup') OR keeps_copy = 1)

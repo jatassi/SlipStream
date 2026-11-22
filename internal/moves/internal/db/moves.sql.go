@@ -143,6 +143,22 @@ func (q *Queries) CountBusyRoot(ctx context.Context, root roots.ID) (int64, erro
 	return count, err
 }
 
+const countClientUnits = `-- name: CountClientUnits :one
+SELECT count(*) FROM moves_unit
+WHERE kind = 'torrent' AND (from_client_id = ?1 OR to_client_id = ?1)
+    AND (phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup') OR keeps_copy = 1
+        OR (phase IN ('failed', 'canceled') AND undone_at IS NULL))
+`
+
+// A unit uses its clients until it ends, and a failed one while it keeps
+// its copy.
+func (q *Queries) CountClientUnits(ctx context.Context, client storage.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countClientUnits, client)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteFinishedBatches = `-- name: DeleteFinishedBatches :execrows
 DELETE FROM moves_batch WHERE id IN (
     SELECT b.id FROM moves_batch b WHERE b.finished_at IS NOT NULL AND b.finished_at < ?1

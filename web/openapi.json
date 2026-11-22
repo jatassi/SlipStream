@@ -2898,6 +2898,17 @@
             "description": "Its Node responded, so trackers and files are live. Otherwise they are from its last report",
             "type": "boolean"
           },
+          "move": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsTorrentMove"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its Move in flight, or failed with its copy kept; null for none"
+          },
           "name": {
             "description": "The release's name in its metainfo, shown for a Torrent whose Work was deleted",
             "type": "string"
@@ -3096,7 +3107,8 @@
           "seeding",
           "retryable",
           "held",
-          "addedAt"
+          "addedAt",
+          "move"
         ],
         "type": "object"
       },
@@ -3152,6 +3164,69 @@
         "required": [
           "rows",
           "counts"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsTorrentMove": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "queued",
+              "transfer",
+              "place",
+              "switch",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "toNodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "toNodeName": {
+            "type": "string"
+          },
+          "unitId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "waiting": {
+            "description": "What it waits for; absent while it waits for nothing",
+            "enum": [
+              "pair_busy",
+              "low_priority",
+              "node_offline",
+              "no_route",
+              "space",
+              "renames",
+              "downloading",
+              "importing",
+              "open_files",
+              "playing",
+              "media_servers",
+              "guard",
+              "linked_torrent",
+              "reconciling"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "description": "What it does now, such as Copying to den",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unitId",
+          "batchId",
+          "phase",
+          "toNodeId",
+          "toNodeName",
+          "words"
         ],
         "type": "object"
       },
@@ -3256,6 +3331,17 @@
               "off"
             ],
             "type": "string"
+          },
+          "move": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsTorrentMove"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its Move in flight, or failed with its copy kept; null for none"
           },
           "name": {
             "description": "The release's name in its metainfo, shown for a Torrent whose Work was deleted",
@@ -3426,7 +3512,8 @@
           "seeding",
           "retryable",
           "held",
-          "addedAt"
+          "addedAt",
+          "move"
         ],
         "type": "object"
       },

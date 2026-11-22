@@ -967,6 +967,14 @@ func (l lateMoves) CancelIn(ctx context.Context, tx *storage.Tx[storage.Library]
 	return (*l.moves).CancelIn(ctx, tx, id)
 }
 
+func (l lateMoves) MovesOf(ctx context.Context, r storage.Reader[storage.Library], ids []downloadclients.ID) (map[downloadclients.ID]downloadclients.Move, error) {
+	return (*l.moves).MovesOf(ctx, r, ids)
+}
+
+func (l lateMoves) UsesClient(ctx context.Context, r storage.Reader[storage.Library], client downloadclients.ClientID) (int64, error) {
+	return (*l.moves).UsesClient(ctx, r, client)
+}
+
 // today is the time now in the Controller's zone.
 func (n *Node) today() time.Time {
 	if n.env.Test.Today != nil {
