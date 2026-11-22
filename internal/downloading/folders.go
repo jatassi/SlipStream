@@ -180,3 +180,51 @@ func (n *Node) placeHeld(ctx context.Context, base string, h bencode.InfoHash, h
 	}
 	return nil
 }
+
+// DiscardPayload removes what a Move's place may have put in req's
+// Download Client's folder before an arriving Torrent recorded it: each
+// file at its place whose size is the torrent's, and the folders that
+// leaves empty under the Content Type's, or under the client's folder for
+// an adopted torrent.
+func (n *Node) DiscardPayload(ctx context.Context, req *dlv1.DiscardPayloadRequest) (*dlv1.DiscardPayloadResponse, error) {
+	var h bencode.InfoHash
+	if len(req.GetInfoHash()) != len(h) {
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "an info hash is %d bytes, not %d", len(h), len(req.GetInfoHash()))
+	}
+	copy(h[:], req.GetInfoHash())
+	base, under, _, err := n.placeTarget(req.GetClientId(), req.GetContentType(), h)
+	if err != nil {
+		return nil, err
+	}
+	var keep storing.Rel
+	if ct := req.GetContentType(); ct != "" {
+		if keep, err = storing.ParseRel(folderName(ct)); err != nil {
+			return nil, rpc.Errorf(rpc.CodeInvalidArgument, "the Content Type %q: %v", ct, err)
+		}
+	}
+	for _, f := range req.GetFiles() {
+		rel, err := storing.ParseRel(path.Join(under, f.GetPath()))
+		if err != nil {
+			return nil, rpc.Errorf(rpc.CodeInvalidArgument, "the file %q: %v", f.GetPath(), err)
+		}
+		if req.GetHeld() && n.isHeld(ctx, h, int(f.GetIndex()), n.cfg.Disk.Host().Style.Under(base, rel)) {
+			continue
+		}
+		if err := storing.DiscardUnder(ctx, n.cfg.Disk, base, keep, rel, f.GetSize()); err != nil {
+			return nil, storing.WireError(err)
+		}
+	}
+	return &dlv1.DiscardPayloadResponse{}, nil
+}
+
+// isHeld is whether the file at at is file index of torrent h as the
+// client on this Node that holds it has it.
+func (n *Node) isHeld(ctx context.Context, h bencode.InfoHash, index int, at string) bool {
+	held, err := n.Path(h, index)
+	if err != nil {
+		return false
+	}
+	a, errA := n.cfg.Disk.Resolve(ctx, at)
+	b, errB := n.cfg.Disk.Resolve(ctx, held)
+	return errA == nil && errB == nil && a == b
+}

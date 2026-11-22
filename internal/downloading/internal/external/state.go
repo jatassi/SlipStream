@@ -715,6 +715,11 @@ func (s *state) wantedSync(ctx context.Context, t *track, st clients.Status) {
 		intent = clients.Paused
 	}
 	send, change, next := wantedStep(intent, st.Run, st.StoppedAtLimit, t.wanted)
+	if send == clients.Started && t.ask != nil && t.lines == nil {
+		// qBittorrent and Deluge tell a start's announce only by the
+		// countdown rising, so the paused torrent's is read first.
+		return
+	}
 	if send != 0 {
 		act := map[clients.Run]clients.Act{clients.Started: clients.Resume, clients.Paused: clients.Pause}[send]
 		if err := s.client.Act(ctx, act, []bencode.InfoHash{t.hash}); err != nil {

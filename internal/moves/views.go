@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/moves/internal/db"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -13,9 +14,11 @@ import (
 
 // View is the one projection of a unit for every reader.
 type View struct {
-	Unit        UnitID
-	Batch       BatchID
+	Unit  UnitID
+	Batch BatchID
+	// Work is a Work unit's, Torrent a torrent unit's.
 	Work        works.WorkID
+	Torrent     *downloadclients.ID
 	Label       string
 	ContentType works.TypeID
 	From        Place
@@ -47,19 +50,31 @@ func (m *Moves) viewOf(u Unit, blocked bool, n Named) View {
 		Unit: u.ID, Batch: u.Batch, Work: u.Subject.Work, Label: w.Label, ContentType: u.Subject.Type,
 		From: n.Place(u.Subject.From), To: n.Place(u.Subject.To), Phase: u.Stage.Phase(), Bytes: u.Planned.Bytes, Notes: u.Notes,
 	}
+	if t := u.Torrent; t != nil {
+		src := n.torrents[t.Torrent]
+		v.Work, v.Torrent, v.Label, v.ContentType = works.WorkID{}, &t.Torrent, src.Name, ""
+		if src.ContentType != nil {
+			v.ContentType = *src.ContentType
+		}
+		v.From = Place{End: End{Node: t.From.Node}, NodeName: n.nodes[t.From.Node], Client: n.sides.client(t.From)}
+		v.To = Place{End: End{Node: t.To.Node}, NodeName: n.nodes[t.To.Node], Client: n.sides.client(t.To)}
+	}
 	wait, since := waitOf(u.Stage)
 	if wait != "" {
 		v.Waiting, v.Since = wait, &since
 	}
 	switch s := u.Stage.(type) {
 	case Queued:
-		if !m.cfg.Roster.InStep(u.Subject.From.Node) || !m.cfg.Roster.InStep(u.Subject.To.Node) {
+		if from, to := u.nodes(); !m.cfg.Roster.InStep(from) || !m.cfg.Roster.InStep(to) {
 			v.Waiting = WaitNodeOffline
 		}
 	case Switching:
 		v.SwitchNow = s.SwitchNow == nil && (s.Wait == WaitPlaying || s.Wait == WaitMediaServers)
 	case Failed:
 		v.Failure = &FailureView{Code: s.Code, Words: failureWords(s.Code)}
+		if t := u.Torrent; t != nil {
+			v.Failure.Words = m.torrentFailureWords(s, v.From.NodeName, v.To.NodeName, n.sides.words(t.To))
+		}
 		v.Undone = s.Undone != nil
 	case Canceled:
 		v.Undone = s.Undone != nil
@@ -77,13 +92,26 @@ func (m *Moves) views(ctx context.Context, r storage.Reader[file], us []Unit) ([
 	if err != nil {
 		return nil, err
 	}
-	ws := make([]works.WorkID, len(us))
-	for i, u := range us {
-		ws[i] = u.Subject.Work
+	var ws []works.WorkID
+	var ts []downloadclients.ID
+	for _, u := range us {
+		if u.Torrent != nil {
+			ts = append(ts, u.Torrent.Torrent)
+		} else {
+			ws = append(ws, u.Subject.Work)
+		}
 	}
 	n, err := m.namesOf(ctx, r, ws)
 	if err != nil {
 		return nil, err
+	}
+	if len(ts) > 0 {
+		if n.torrents, err = downloadclients.MoveSources(ctx, r, ts); err != nil {
+			return nil, err
+		}
+		if n.sides, err = sidesIn(ctx, r, us); err != nil {
+			return nil, err
+		}
 	}
 	out := make([]View, len(us))
 	for i, u := range us {

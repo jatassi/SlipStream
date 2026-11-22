@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/moves/internal/db"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -16,9 +17,10 @@ import (
 
 // Dropped is a planned unit a Start left out, and why.
 type Dropped struct {
-	Work  works.WorkID
-	Label string
-	Words string
+	Work    works.WorkID
+	Torrent *downloadclients.ID
+	Label   string
+	Words   string
 }
 
 // Started is a Start's batch: its units, and the planned units it left
@@ -102,8 +104,10 @@ func (m *Moves) recheck(ctx context.Context, tx *storage.Tx[file], p Plan) (keep
 	var ws []works.WorkID
 	var ids []roots.ID
 	for _, u := range p.Units {
-		ws = append(ws, u.Subject.Work)
-		ids = appendOnce(ids, u.Subject.To.Root)
+		if u.Torrent == nil {
+			ws = append(ws, u.Subject.Work)
+			ids = appendOnce(ids, u.Subject.To.Root)
+		}
 	}
 	open, err := db.New(tx).ListOpenUnitsOfWorks(ctx, ws)
 	if err != nil {
@@ -120,6 +124,10 @@ func (m *Moves) recheck(ctx context.Context, tx *storage.Tx[file], p Plan) (keep
 	for _, u := range p.Units {
 		r, red := Reason{}, false
 		switch {
+		case u.Torrent != nil && u.Verdict.Color != Red:
+			if r, red, err = recheckTorrent(ctx, tx, u, m.now()); err != nil {
+				return nil, nil, err
+			}
 		case u.Verdict.Color == Red:
 			r, red = worst(u.Verdict), true
 		case moving[u.Subject.Work]:
@@ -128,7 +136,11 @@ func (m *Moves) recheck(ctx context.Context, tx *storage.Tx[file], p Plan) (keep
 			r, red = notReady, true
 		}
 		if red {
-			dropped = append(dropped, Dropped{Work: u.Subject.Work, Label: u.Label, Words: r.Words})
+			d := Dropped{Work: u.Subject.Work, Label: u.Label, Words: r.Words}
+			if u.Torrent != nil {
+				d.Torrent = &u.Torrent.Torrent
+			}
+			dropped = append(dropped, d)
 			continue
 		}
 		keep = append(keep, u)
@@ -154,11 +166,21 @@ func insertUnit(ctx context.Context, q *db.Queries, u Unit, wait Wait) error {
 	if err != nil {
 		return fmt.Errorf("moves: the notes of unit %s: %w", u.ID, err)
 	}
-	s := u.Subject
 	row := db.InsertUnitParams{
-		ID: u.ID, BatchID: u.Batch, Seq: u.Seq, Position: int64(u.Position), WorkID: s.Work, ContentType: &s.Type,
-		FromRootID: s.From.Root, FromNodeID: s.From.Node, ToRootID: s.To.Root, ToNodeID: s.To.Node, Lane: string(u.Lane),
+		ID: u.ID, BatchID: u.Batch, Seq: u.Seq, Position: int64(u.Position), Kind: "work", Lane: string(u.Lane),
 		PlannedBytes: u.Planned.Bytes, PlannedAt: storage.FromTime(u.Planned.At), Notes: string(notes),
+	}
+	if t := u.Torrent; t != nil {
+		row.Kind, row.TorrentID, row.FromNodeID, row.ToNodeID = "torrent", t.Torrent.UUID, t.From.Node, t.To.Node
+		if t.From.Client != nil {
+			row.FromClientID = t.From.Client.UUID
+		}
+		if t.To.Client != nil {
+			row.ToClientID = t.To.Client.UUID
+		}
+	} else {
+		s := u.Subject
+		row.WorkID, row.ContentType, row.FromRootID, row.FromNodeID, row.ToRootID, row.ToNodeID = s.Work, &s.Type, s.From.Root, s.From.Node, s.To.Root, s.To.Node
 	}
 	if wait != "" {
 		row.Waiting, row.WaitingAt = new(string(wait)), storage.FromTime(u.Planned.At)
@@ -214,7 +236,7 @@ func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Ad
 		}
 		lanes[pu.Lane] = true
 		u := Unit{
-			ID: UnitID{UUID: storage.NewUUID()}, Batch: batch, Seq: seq + int64(i), Position: i, Lane: pu.Lane, Subject: pu.Subject,
+			ID: UnitID{UUID: storage.NewUUID()}, Batch: batch, Seq: seq + int64(i), Position: i, Lane: pu.Lane, Subject: pu.Subject, Torrent: pu.Torrent,
 			Stage: Queued{Wait: wait, Since: now}, Planned: Planned{Bytes: pu.Bytes, At: now}, Files: pu.Files, Notes: Notes{Amber: amberOf(pu.Verdict)},
 		}
 		if err := insertUnit(ctx, q, u, wait); err != nil {

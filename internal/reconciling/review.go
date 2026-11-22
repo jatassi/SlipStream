@@ -257,7 +257,7 @@ func readdOne(ctx context.Context, tx *storage.Tx[file], torrent downloadclients
 		return nodes.ID{}, err
 	}
 	if onto != review.NodeID {
-		if err := downloadclients.MoveRecorded(ctx, tx, torrent, onto, nil); err != nil {
+		if err := downloadclients.Rerecord(ctx, tx, torrent, onto, nil); err != nil {
 			return nodes.ID{}, err
 		}
 	}

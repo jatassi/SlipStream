@@ -1766,6 +1766,7 @@ export const getActOnTorrentsResponseMock = (
                 "not_running",
                 "failed",
                 "not_retryable",
+                "moving",
               ] as const),
               ...(faker.datatype.boolean()
                 ? { node: faker.string.alpha({ length: { min: 10, max: 20 } }) }

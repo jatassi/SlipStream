@@ -35,10 +35,11 @@ type Options struct {
 
 // Ask is what an Admin previews.
 type Ask struct {
-	Origin  Origin
-	Works   []WorkTo
-	Roots   []RootTo
-	Options Options
+	Origin   Origin
+	Works    []WorkTo
+	Roots    []RootTo
+	Torrents []TorrentTo
+	Options  Options
 }
 
 // Token names one preview, which a Start takes.
@@ -63,8 +64,10 @@ type Plan struct {
 }
 
 // PlanUnit is one planned unit. Bytes are what copies; a link copies none.
+// Torrent is a torrent unit's, Subject zero.
 type PlanUnit struct {
 	Subject WorkSubject
+	Torrent *TorrentSubject
 	Label   string
 	Lane    Lane
 	Files   []File
@@ -139,6 +142,11 @@ func (m *Moves) Preview(ctx context.Context, ask Ask) (Plan, error) {
 	for i := range units {
 		units[i].Verdict = verdictOf(units[i], facts[i])
 	}
+	torrents, err := m.planTorrents(ctx, ask.Torrents)
+	if err != nil {
+		return Plan{}, err
+	}
+	units = append(units, torrents...)
 	var named map[role.NodeID]string
 	err = m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		named, err = nodeNamesIn(ctx, r)

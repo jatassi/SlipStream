@@ -3,15 +3,16 @@ description: >-
   Three Nodes for S48 (Moves). The Controller home reaches the Media
   Servers. The Worker seedbox pairs by Join Code and holds Searching,
   Storage with movies-d and series-d, and Downloading with the built-in
-  client and qBittorrent 5.2 named Box. The Worker den pairs by Join Code
-  and holds Storage with movies-e and series-e, and movies-f on a second
-  volume, and Downloading with the built-in client and Transmission 4.1.
+  client, qBittorrent 5.2 named Box and Deluge 2.1. The Worker den pairs
+  by Join Code and holds Storage with movies-e and series-e, and movies-f
+  on a second volume, and Downloading with the built-in client,
+  Transmission 4.1 and rTorrent 0.16.
   Living room Plex holds movies-d in its Movies section, movies-e and
   movies-f in Movies 4K, and both series roots in TV Shows. Den Jellyfin
   holds movies-d in Movies and movies-e and movies-f in Movies 4K. Den
   Emby holds every movie root in one library. fake-tracker plays UNIT3D's
-  Rust announce with short intervals and a 3 second clear, so a handoff
-  runs in seconds.
+  Rust announce with a 1 minute interval and a 3 second clear, and a
+  Move's guard waits 5 seconds, so a handoff runs in seconds.
 seed: moves
 admin:
   email: ada@example.test
@@ -51,6 +52,11 @@ nodes:
         password: quiet-orchard
         folder: /downloads
         pair: true
+      - kind: deluge
+        version: "2.1"
+        password: quiet-orchard
+        folder: /downloads
+        pair: true
   - name: den
     setup: join
     roles: [storage, downloading]
@@ -61,9 +67,17 @@ nodes:
         password: quiet-orchard
         folder: /downloads
         pair: true
+      - kind: rtorrent
+        version: "0.16"
+        username: ada
+        password: quiet-orchard
+        folder: /srv/torrents
+        pair: true
 timings:
   node:
     stop_deadline: 15s
+  moves:
+    guard: 5s
 tmdb:
   movies:
     - id: 9000001
@@ -102,8 +116,8 @@ releases:
 tracker:
   mode: unit3d
   variant: rust
-  interval: 10s
-  min_interval: 6s
+  interval: 1m
+  min_interval: 40s
   clear_after: 3s
 library:
   storage_levels: {warn_below: 0B, error_below: 0B}

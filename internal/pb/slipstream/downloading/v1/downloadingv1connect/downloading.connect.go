@@ -58,6 +58,9 @@ const (
 	// DownloadingServicePlacePayloadProcedure is the procedure name of the DownloadingService's
 	// PlacePayload RPC.
 	DownloadingServicePlacePayloadProcedure = "/slipstream.downloading.v1.DownloadingService/PlacePayload"
+	// DownloadingServiceDiscardPayloadProcedure is the procedure name of the DownloadingService's
+	// DiscardPayload RPC.
+	DownloadingServiceDiscardPayloadProcedure = "/slipstream.downloading.v1.DownloadingService/DiscardPayload"
 	// DownloadingControlServiceTorrentProcedure is the procedure name of the
 	// DownloadingControlService's Torrent RPC.
 	DownloadingControlServiceTorrentProcedure = "/slipstream.downloading.v1.DownloadingControlService/Torrent"
@@ -144,6 +147,13 @@ var (
 			Procedure:  DownloadingServicePlacePayloadProcedure,
 		}
 	})
+	downloadingServiceDiscardPayloadSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_downloading_v1_downloading_proto.Services().ByName("DownloadingService").Methods().ByName("DiscardPayload"),
+			Procedure:  DownloadingServiceDiscardPayloadProcedure,
+		}
+	})
 )
 
 // DownloadingServiceClient is a client for the slipstream.downloading.v1.DownloadingService
@@ -189,6 +199,11 @@ type DownloadingServiceClient interface {
 	// this Node, moved, or those of the torrent this Node holds, linked,
 	// cloned or copied. Placing again converges.
 	PlacePayload(context.Context, *v1.PlacePayloadRequest) (*v1.PlacePayloadResponse, error)
+	// DiscardPayload removes what a Move's place may have put in its
+	// destination Download Client's folder before any arriving Torrent
+	// recorded it: each file at its path there whose size is the
+	// torrent's. A file already gone is discarded.
+	DiscardPayload(context.Context, *v1.DiscardPayloadRequest) (*v1.DiscardPayloadResponse, error)
 }
 
 // NewDownloadingServiceClient constructs a client for the
@@ -241,6 +256,11 @@ type DownloadingServiceHandler interface {
 	// this Node, moved, or those of the torrent this Node holds, linked,
 	// cloned or copied. Placing again converges.
 	PlacePayload(context.Context, *v1.PlacePayloadRequest) (*v1.PlacePayloadResponse, error)
+	// DiscardPayload removes what a Move's place may have put in its
+	// destination Download Client's folder before any arriving Torrent
+	// recorded it: each file at its path there whose size is the
+	// torrent's. A file already gone is discarded.
+	DiscardPayload(context.Context, *v1.DiscardPayloadRequest) (*v1.DiscardPayloadResponse, error)
 }
 
 // RegisterDownloadingServiceHandler registers svc as the
@@ -259,6 +279,7 @@ func RegisterDownloadingServiceHandler(server *connect.Server, svc DownloadingSe
 		connect.Method{Spec: downloadingServiceMetainfoSpec(), Handler: adapter.metainfo},
 		connect.Method{Spec: downloadingServiceLookSpec(), Handler: adapter.look},
 		connect.Method{Spec: downloadingServicePlacePayloadSpec(), Handler: adapter.placePayload},
+		connect.Method{Spec: downloadingServiceDiscardPayloadSpec(), Handler: adapter.discardPayload},
 	)
 }
 
@@ -307,6 +328,10 @@ func (UnimplementedDownloadingServiceHandler) Look(context.Context, *v1.LookRequ
 
 func (UnimplementedDownloadingServiceHandler) PlacePayload(context.Context, *v1.PlacePayloadRequest) (*v1.PlacePayloadResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.PlacePayload is not implemented")
+}
+
+func (UnimplementedDownloadingServiceHandler) DiscardPayload(context.Context, *v1.DiscardPayloadRequest) (*v1.DiscardPayloadResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.DiscardPayload is not implemented")
 }
 
 type downloadingServiceClient struct {
@@ -396,6 +421,14 @@ func (c *downloadingServiceClient) Look(ctx context.Context, req *v1.LookRequest
 func (c *downloadingServiceClient) PlacePayload(ctx context.Context, req *v1.PlacePayloadRequest) (*v1.PlacePayloadResponse, error) {
 	var res v1.PlacePayloadResponse
 	if err := c.client.CallUnary(ctx, downloadingServicePlacePayloadSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *downloadingServiceClient) DiscardPayload(ctx context.Context, req *v1.DiscardPayloadRequest) (*v1.DiscardPayloadResponse, error) {
+	var res v1.DiscardPayloadResponse
+	if err := c.client.CallUnary(ctx, downloadingServiceDiscardPayloadSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -529,6 +562,18 @@ func (h downloadingServiceHandler) placePayload(ctx context.Context, _ connect.S
 		return err
 	}
 	res, err := h.svc.PlacePayload(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h downloadingServiceHandler) discardPayload(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.DiscardPayloadRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.DiscardPayload(ctx, &req)
 	if err != nil {
 		return err
 	}

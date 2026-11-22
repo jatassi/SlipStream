@@ -991,7 +991,9 @@ export const DownloadclientsRefusal = zod.object({
   client: zod
     .string()
     .exactOptional()
-    .describe("client_away and client_off: the external client's name"),
+    .describe(
+      "client_away and client_off: the external client's name; moving: the external client it moves to, absent for the built-in client",
+    ),
   code: zod.enum([
     "not_found",
     "removed",
@@ -1006,11 +1008,14 @@ export const DownloadclientsRefusal = zod.object({
     "not_running",
     "failed",
     "not_retryable",
+    "moving",
   ]),
   node: zod
     .string()
     .exactOptional()
-    .describe("client_away and client_off: the name of the external client's Node"),
+    .describe(
+      "client_away and client_off: the name of the external client's Node; moving: the Node it moves to, absent for its own Node",
+    ),
   workId: zod
     .uuid()
     .exactOptional()
@@ -9021,9 +9026,15 @@ export type MovesFailure = zod.input<typeof MovesFailure>;
 export type MovesFailureOutput = zod.output<typeof MovesFailure>;
 
 export const MovesPlace = zod.object({
+  client: zod
+    .string()
+    .exactOptional()
+    .describe("A torrent's Download Client, such as qBittorrent or the built-in client"),
   nodeId: zod.uuid(),
   nodeName: zod.string(),
-  root: zod.string().describe("The library root in words, such as Movies library root on den"),
+  root: zod
+    .string()
+    .describe("The library root in words, such as Movies library root on den; empty for a torrent"),
   rootId: zod.uuid(),
 });
 
@@ -9039,7 +9050,7 @@ export const MovesMoveUnit = zod.object({
   failure: zod.union([MovesFailure, zod.null()]).describe("Why it failed; null unless it failed"),
   from: MovesPlace,
   id: zod.uuid(),
-  kind: zod.enum(["work"]),
+  kind: zod.enum(["work", "torrent"]),
   name: zod.string(),
   notes: zod.array(zod.string()).describe("What it recorded for the Admin, as sentences"),
   phase: zod.enum([
@@ -9054,6 +9065,7 @@ export const MovesMoveUnit = zod.object({
   ]),
   switchNow: zod.boolean().describe("Switch now can pass its wait"),
   to: MovesPlace,
+  torrentId: zod.uuid().exactOptional().describe("A torrent unit's"),
   undone: zod.boolean().describe("A failed or canceled Move removed what it placed"),
   waiting: zod
     .enum([
@@ -9076,7 +9088,7 @@ export const MovesMoveUnit = zod.object({
     .describe("What it waits for; absent while it waits for nothing"),
   waitingSince: zod.iso.datetime({ offset: true }).exactOptional(),
   words: zod.string().describe("What it does now, such as Copying to den"),
-  workId: zod.uuid(),
+  workId: zod.uuid().describe("A Work unit's; the zero id for a torrent"),
 });
 
 export type MovesMoveUnit = zod.input<typeof MovesMoveUnit>;
@@ -9123,12 +9135,25 @@ export type MovesChangedOutput = zod.output<typeof MovesChanged>;
 
 export const MovesDropped = zod.object({
   name: zod.string(),
+  torrentId: zod.uuid().exactOptional(),
   words: zod.string().describe("Why it stays"),
-  workId: zod.uuid(),
+  workId: zod.uuid().describe("A Work unit's; the zero id for a torrent"),
 });
 
 export type MovesDropped = zod.input<typeof MovesDropped>;
 export type MovesDroppedOutput = zod.output<typeof MovesDropped>;
+
+export const MovesTorrentTo = zod.object({
+  clientId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The external Download Client it moves to; absent for the Node's built-in client"),
+  nodeId: zod.uuid().describe("The Node of the Download Client it moves to"),
+  torrentId: zod.uuid(),
+});
+
+export type MovesTorrentTo = zod.input<typeof MovesTorrentTo>;
+export type MovesTorrentToOutput = zod.output<typeof MovesTorrentTo>;
 
 export const MovesWorkTo = zod.object({
   rootId: zod.uuid().describe("The library root it moves to"),
@@ -9138,13 +9163,18 @@ export const MovesWorkTo = zod.object({
 export type MovesWorkTo = zod.input<typeof MovesWorkTo>;
 export type MovesWorkToOutput = zod.output<typeof MovesWorkTo>;
 
+export const movesMoveAskTorrentsMax = 10000;
+
 export const movesMoveAskWorksMax = 10000;
 
 export const MovesMoveAsk = zod.object({
   origin: zod
-    .enum(["work", "bulk"])
-    .describe("Where the Admin starts it: a Work's page, or the Library's bulk bar"),
-  works: zod.array(MovesWorkTo).min(1).max(movesMoveAskWorksMax),
+    .enum(["work", "bulk", "torrent"])
+    .describe(
+      "Where the Admin starts it: a Work's page, the Library's bulk bar, or the Torrent table",
+    ),
+  torrents: zod.array(MovesTorrentTo).max(movesMoveAskTorrentsMax).nullish(),
+  works: zod.array(MovesWorkTo).max(movesMoveAskWorksMax).describe("At least one Work or torrent"),
 });
 
 export type MovesMoveAsk = zod.input<typeof MovesMoveAsk>;
@@ -9160,6 +9190,8 @@ export const MovesReason = zod.object({
     "waits",
     "moving",
     "probe",
+    "torrent",
+    "hit_and_run",
   ]),
   code: zod.string().describe("Stable per reason, such as space_error or mapping_missing"),
   color: zod.enum(["amber", "red"]),
@@ -9177,15 +9209,18 @@ export const MovesPreviewUnit = zod.object({
     .min(movesPreviewUnitBytesMin)
     .describe("Bytes that copy; a hard link or a clone copies none"),
   from: MovesPlace,
-  key: zod.string().describe("Stable per unit inside the preview, such as work:<id>"),
-  kind: zod.enum(["work"]),
+  key: zod
+    .string()
+    .describe("Stable per unit inside the preview, such as work:<id> or torrent:<id>"),
+  kind: zod.enum(["work", "torrent"]),
   name: zod.string(),
   reasons: zod.array(MovesReason).describe("Each check worse than green"),
   to: MovesPlace,
+  torrentId: zod.uuid().exactOptional().describe("A torrent unit's"),
   verdict: zod
     .enum(["green", "amber", "red"])
     .describe("green moves, amber moves with a note, red stays"),
-  workId: zod.uuid(),
+  workId: zod.uuid().describe("A Work unit's; the zero id for a torrent"),
 });
 
 export type MovesPreviewUnit = zod.input<typeof MovesPreviewUnit>;

@@ -91,13 +91,15 @@ func (c *Clients) retry(ctx context.Context, a Action) ([]Result, *Preview, erro
 		if err != nil {
 			return err
 		}
+		moving, err := c.refusedMoving(ctx, tx, a.IDs)
+		if err != nil {
+			return err
+		}
 		q, at := db.New(tx), storage.Now().Time()
 		for _, id := range a.IDs {
-			r := Result{ID: id, Refusal: rows.refusal(id)}
-			if r.Refusal == nil {
-				if r.Refusal, err = rows.retryRefusal(id); err != nil {
-					return err
-				}
+			r := Result{ID: id}
+			if r.Refusal, err = rows.retryRefusalOf(id, moving); err != nil {
+				return err
 			}
 			results = append(results, r)
 			if r.Refusal != nil {
@@ -115,6 +117,18 @@ func (c *Clients) retry(ctx context.Context, a Action) ([]Result, *Preview, erro
 	}
 	c.committed(nodes, changed)
 	return results, nil, nil
+}
+
+// retryRefusalOf is why the Retry of id is refused, moving holding the
+// refusals of Torrents in a Move.
+func (a acted) retryRefusalOf(id ID, moving map[ID]*Refusal) (*Refusal, error) {
+	if f := a.refusal(id); f != nil {
+		return f, nil
+	}
+	if f := moving[id]; f != nil {
+		return f, nil
+	}
+	return a.retryRefusal(id)
 }
 
 // startRetry records row's Retry at and pauses its Torrent.

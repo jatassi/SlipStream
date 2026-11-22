@@ -55,6 +55,7 @@ func (s ControlService) Torrent(ctx context.Context, req *dlv1.TorrentRequest) (
 			ActiveSeconds: row.ActiveSeconds, SeedingSeconds: row.SeedingSeconds, AnnouncedSeconds: row.AnnouncedSeconds,
 		},
 		ContentType: desc.Name,
+		SeedMode:    row.Arriving && row.ClientID == nil,
 	}
 	if row.SaveFolder != nil {
 		res.SaveFolder = *row.SaveFolder

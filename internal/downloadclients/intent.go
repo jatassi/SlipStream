@@ -58,6 +58,7 @@ func listed(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv
 			UnregisteredGapSeconds: int64(th.UnregisteredGap / time.Second),
 		},
 	}
+	now := storage.Now().Time()
 	for _, row := range rows {
 		var client []byte
 		if row.ClientID != nil {
@@ -68,10 +69,15 @@ func listed(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv
 			if err != nil {
 				return nil, fmt.Errorf("torrent %s: %w", row.ID, err)
 			}
-			intent.Torrents = append(intent.Torrents, &dlv1.Torrent{
+			t := &dlv1.Torrent{
 				Id: row.ID.Bytes(), InfoHash: row.InfoHash, Wanted: wantedOnWire[Wanted(row.Wanted)], Order: row.AddedOrder, ClientId: client,
-				RetryAtUnixMs: retryAt,
-			})
+				RetryAtUnixMs: retryAt, Arriving: row.Arriving, WatchAnnounce: row.WatchAnnounce == 1,
+			}
+			if !row.StartAskedAt.IsZero() {
+				t.StartAskedUnixMs = row.StartAskedAt.Time().UnixMilli()
+				t.StartWindowMs = max(row.StartUntilAt.Time().Sub(now), 0).Milliseconds()
+			}
+			intent.Torrents = append(intent.Torrents, t)
 			continue
 		}
 		intent.Discards = append(intent.Discards, &dlv1.Discard{Id: row.ID.Bytes(), InfoHash: row.InfoHash, DeleteFiles: row.DeleteFiles == 1, ClientId: client})

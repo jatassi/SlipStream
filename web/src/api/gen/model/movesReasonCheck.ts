@@ -6,4 +6,6 @@ export type MovesReasonCheck =
   | "media_servers"
   | "waits"
   | "moving"
-  | "probe";
+  | "probe"
+  | "torrent"
+  | "hit_and_run";

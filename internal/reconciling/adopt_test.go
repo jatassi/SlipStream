@@ -417,7 +417,7 @@ func scansNoTorrents(t *testing.T, w *world, node role.NodeID, trs []torrent) {
 	}
 	err := w.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		plans := storagetest.Plan(t, r, func(r storage.Reader[storage.Library]) error {
-			if _, err := dc.RecordedIn(ctx, r, hashes); err != nil {
+			if _, err := dc.RecordedIn(ctx, r, node, hashes); err != nil {
 				return err
 			}
 			_, err := dc.LiveOnNode(ctx, r, node, 0, len(trs))

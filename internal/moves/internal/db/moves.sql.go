@@ -415,11 +415,12 @@ func (q *Queries) InsertBatch(ctx context.Context, arg InsertBatchParams) error 
 }
 
 const insertUnit = `-- name: InsertUnit :exec
-INSERT INTO moves_unit (id, batch_id, seq, position, kind, work_id, content_type, from_root_id, from_node_id, to_root_id, to_node_id,
-    lane, phase, waiting, waiting_at, due_at, planned_bytes, planned_at, notes)
-VALUES (?1, ?2, ?3, ?4, 'work', ?5, ?6,
-    ?7, ?8, ?9, ?10,
-    ?11, 'queued', ?12, ?13, ?14, ?15, ?16, ?17)
+INSERT INTO moves_unit (id, batch_id, seq, position, kind, work_id, content_type, torrent_id, from_root_id, from_node_id, from_client_id,
+    to_root_id, to_node_id, to_client_id, lane, phase, waiting, waiting_at, due_at, planned_bytes, planned_at, notes)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
+    ?8, ?9, ?10, ?11, ?12, ?13,
+    ?14, ?15, 'queued', ?16, ?17, ?18, ?19,
+    ?20, ?21)
 `
 
 type InsertUnitParams struct {
@@ -427,12 +428,16 @@ type InsertUnitParams struct {
 	BatchID      BatchID
 	Seq          int64
 	Position     int64
+	Kind         string
 	WorkID       works.WorkID
 	ContentType  *works.TypeID
+	TorrentID    storage.UUID
 	FromRootID   roots.ID
 	FromNodeID   role.NodeID
+	FromClientID storage.UUID
 	ToRootID     roots.ID
 	ToNodeID     role.NodeID
+	ToClientID   storage.UUID
 	Lane         string
 	Waiting      *string
 	WaitingAt    storage.Time
@@ -448,12 +453,16 @@ func (q *Queries) InsertUnit(ctx context.Context, arg InsertUnitParams) error {
 		arg.BatchID,
 		arg.Seq,
 		arg.Position,
+		arg.Kind,
 		arg.WorkID,
 		arg.ContentType,
+		arg.TorrentID,
 		arg.FromRootID,
 		arg.FromNodeID,
+		arg.FromClientID,
 		arg.ToRootID,
 		arg.ToNodeID,
+		arg.ToClientID,
 		arg.Lane,
 		arg.Waiting,
 		arg.WaitingAt,
@@ -466,9 +475,9 @@ func (q *Queries) InsertUnit(ctx context.Context, arg InsertUnitParams) error {
 }
 
 const insertUnitFile = `-- name: InsertUnitFile :exec
-INSERT INTO moves_unit_file (unit_id, position, kind, file_id, sits_rel, size, modified_at, node_file_id, node_volume_id, ledger)
+INSERT INTO moves_unit_file (unit_id, position, kind, file_id, sits_rel, payload_index, size, modified_at, node_file_id, node_volume_id, ledger)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
-    ?8, ?9, ?10)
+    ?8, ?9, ?10, ?11)
 `
 
 type InsertUnitFileParams struct {
@@ -477,6 +486,7 @@ type InsertUnitFileParams struct {
 	Kind         string
 	FileID       files.ID
 	SitsRel      string
+	PayloadIndex *int64
 	Size         int64
 	ModifiedAt   storage.Time
 	NodeFileID   *string
@@ -491,6 +501,7 @@ func (q *Queries) InsertUnitFile(ctx context.Context, arg InsertUnitFileParams) 
 		arg.Kind,
 		arg.FileID,
 		arg.SitsRel,
+		arg.PayloadIndex,
 		arg.Size,
 		arg.ModifiedAt,
 		arg.NodeFileID,
@@ -915,6 +926,86 @@ func (q *Queries) ListLatestUnitsOfWorks(ctx context.Context, argWorks []works.W
 	return items, nil
 }
 
+const listMovingTorrents = `-- name: ListMovingTorrents :many
+SELECT id, batch_id, seq, position, kind, work_id, content_type, torrent_id, from_root_id, from_node_id, from_client_id, to_root_id, to_node_id, to_client_id, to_folder, lane, phase, waiting, waiting_at, due_at, handoff, handoff_at, pass, switch_now_at, failure_code, failure_detail, failed_phase, keeps_copy, undone_at, reconcile, transfer_id, dest_torrent_id, pairs_with_unit_id, planned_bytes, planned_at, switched_at, cleaned_at, notes FROM moves_unit
+WHERE torrent_id IN (/*SLICE:torrents*/?) AND (phase IN ('queued', 'transfer', 'place', 'switch') OR keeps_copy = 1)
+ORDER BY seq
+`
+
+// A torrent moves from its unit's insert until its switch, and while a
+// failed unit keeps its copy.
+func (q *Queries) ListMovingTorrents(ctx context.Context, torrents []storage.UUID) ([]MovesUnit, error) {
+	query := listMovingTorrents
+	var queryParams []interface{}
+	if len(torrents) > 0 {
+		for _, v := range torrents {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:torrents*/?", strings.Repeat(",?", len(torrents))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:torrents*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MovesUnit
+	for rows.Next() {
+		var i MovesUnit
+		if err := rows.Scan(
+			&i.ID,
+			&i.BatchID,
+			&i.Seq,
+			&i.Position,
+			&i.Kind,
+			&i.WorkID,
+			&i.ContentType,
+			&i.TorrentID,
+			&i.FromRootID,
+			&i.FromNodeID,
+			&i.FromClientID,
+			&i.ToRootID,
+			&i.ToNodeID,
+			&i.ToClientID,
+			&i.ToFolder,
+			&i.Lane,
+			&i.Phase,
+			&i.Waiting,
+			&i.WaitingAt,
+			&i.DueAt,
+			&i.Handoff,
+			&i.HandoffAt,
+			&i.Pass,
+			&i.SwitchNowAt,
+			&i.FailureCode,
+			&i.FailureDetail,
+			&i.FailedPhase,
+			&i.KeepsCopy,
+			&i.UndoneAt,
+			&i.Reconcile,
+			&i.TransferID,
+			&i.DestTorrentID,
+			&i.PairsWithUnitID,
+			&i.PlannedBytes,
+			&i.PlannedAt,
+			&i.SwitchedAt,
+			&i.CleanedAt,
+			&i.Notes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listNeeds = `-- name: ListNeeds :many
 SELECT id, batch_id, seq, position, kind, work_id, content_type, torrent_id, from_root_id, from_node_id, from_client_id, to_root_id, to_node_id, to_client_id, to_folder, lane, phase, waiting, waiting_at, due_at, handoff, handoff_at, pass, switch_now_at, failure_code, failure_detail, failed_phase, keeps_copy, undone_at, reconcile, transfer_id, dest_torrent_id, pairs_with_unit_id, planned_bytes, planned_at, switched_at, cleaned_at, notes FROM moves_unit
 WHERE phase = 'failed' OR (phase = 'switch' AND waiting IS NOT NULL AND waiting_at <= ?1)
@@ -1070,6 +1161,84 @@ SELECT id, batch_id, seq, position, kind, work_id, content_type, torrent_id, fro
 
 func (q *Queries) ListOpenUnitsOfBatch(ctx context.Context, batchID BatchID) ([]MovesUnit, error) {
 	rows, err := q.db.QueryContext(ctx, listOpenUnitsOfBatch, batchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MovesUnit
+	for rows.Next() {
+		var i MovesUnit
+		if err := rows.Scan(
+			&i.ID,
+			&i.BatchID,
+			&i.Seq,
+			&i.Position,
+			&i.Kind,
+			&i.WorkID,
+			&i.ContentType,
+			&i.TorrentID,
+			&i.FromRootID,
+			&i.FromNodeID,
+			&i.FromClientID,
+			&i.ToRootID,
+			&i.ToNodeID,
+			&i.ToClientID,
+			&i.ToFolder,
+			&i.Lane,
+			&i.Phase,
+			&i.Waiting,
+			&i.WaitingAt,
+			&i.DueAt,
+			&i.Handoff,
+			&i.HandoffAt,
+			&i.Pass,
+			&i.SwitchNowAt,
+			&i.FailureCode,
+			&i.FailureDetail,
+			&i.FailedPhase,
+			&i.KeepsCopy,
+			&i.UndoneAt,
+			&i.Reconcile,
+			&i.TransferID,
+			&i.DestTorrentID,
+			&i.PairsWithUnitID,
+			&i.PlannedBytes,
+			&i.PlannedAt,
+			&i.SwitchedAt,
+			&i.CleanedAt,
+			&i.Notes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOpenUnitsOfTorrents = `-- name: ListOpenUnitsOfTorrents :many
+SELECT id, batch_id, seq, position, kind, work_id, content_type, torrent_id, from_root_id, from_node_id, from_client_id, to_root_id, to_node_id, to_client_id, to_folder, lane, phase, waiting, waiting_at, due_at, handoff, handoff_at, pass, switch_now_at, failure_code, failure_detail, failed_phase, keeps_copy, undone_at, reconcile, transfer_id, dest_torrent_id, pairs_with_unit_id, planned_bytes, planned_at, switched_at, cleaned_at, notes FROM moves_unit
+WHERE torrent_id IN (/*SLICE:torrents*/?) AND (phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup') OR keeps_copy = 1)
+ORDER BY seq
+`
+
+func (q *Queries) ListOpenUnitsOfTorrents(ctx context.Context, torrents []storage.UUID) ([]MovesUnit, error) {
+	query := listOpenUnitsOfTorrents
+	var queryParams []interface{}
+	if len(torrents) > 0 {
+		for _, v := range torrents {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:torrents*/?", strings.Repeat(",?", len(torrents))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:torrents*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}
@@ -1646,8 +1815,9 @@ UPDATE moves_unit SET phase = ?1, waiting = ?2, waiting_at = ?3, due_at = ?4,
     pass = ?5, switch_now_at = ?6, failure_code = ?7, failure_detail = ?8,
     failed_phase = ?9, undone_at = ?10, reconcile = ?11, transfer_id = ?12,
     planned_bytes = ?13, planned_at = ?14, switched_at = ?15, cleaned_at = ?16,
-    notes = ?17
-WHERE id = ?18
+    notes = ?17, handoff = ?18, handoff_at = ?19, keeps_copy = ?20,
+    dest_torrent_id = ?21, to_folder = ?22
+WHERE id = ?23
 `
 
 type UpdateUnitParams struct {
@@ -1668,6 +1838,11 @@ type UpdateUnitParams struct {
 	SwitchedAt    storage.Time
 	CleanedAt     storage.Time
 	Notes         string
+	Handoff       *string
+	HandoffAt     storage.Time
+	KeepsCopy     int64
+	DestTorrentID storage.UUID
+	ToFolder      *string
 	ID            UnitID
 }
 
@@ -1690,6 +1865,11 @@ func (q *Queries) UpdateUnit(ctx context.Context, arg UpdateUnitParams) error {
 		arg.SwitchedAt,
 		arg.CleanedAt,
 		arg.Notes,
+		arg.Handoff,
+		arg.HandoffAt,
+		arg.KeepsCopy,
+		arg.DestTorrentID,
+		arg.ToFolder,
 		arg.ID,
 	)
 	return err
@@ -1783,13 +1963,14 @@ func (q *Queries) WakeFromRoots(ctx context.Context, arg WakeFromRootsParams) er
 const wakeNodes = `-- name: WakeNodes :exec
 UPDATE moves_unit SET due_at = ?1
 WHERE waiting = ?2 AND (due_at IS NULL OR due_at > ?1)
-    AND (from_node_id IN (/*SLICE:nodes*/?) OR to_node_id IN (/*SLICE:nodes*/?))
+    AND (from_node_id IN (/*SLICE:froms*/?) OR to_node_id IN (/*SLICE:tos*/?))
 `
 
 type WakeNodesParams struct {
 	Now     storage.Time
 	Waiting *string
-	Nodes   []role.NodeID
+	Froms   []role.NodeID
+	Tos     []role.NodeID
 }
 
 func (q *Queries) WakeNodes(ctx context.Context, arg WakeNodesParams) error {
@@ -1797,13 +1978,21 @@ func (q *Queries) WakeNodes(ctx context.Context, arg WakeNodesParams) error {
 	var queryParams []interface{}
 	queryParams = append(queryParams, arg.Now)
 	queryParams = append(queryParams, arg.Waiting)
-	if len(arg.Nodes) > 0 {
-		for _, v := range arg.Nodes {
+	if len(arg.Froms) > 0 {
+		for _, v := range arg.Froms {
 			queryParams = append(queryParams, v)
 		}
-		query = strings.Replace(query, "/*SLICE:nodes*/?", strings.Repeat(",?", len(arg.Nodes))[1:], 1)
+		query = strings.Replace(query, "/*SLICE:froms*/?", strings.Repeat(",?", len(arg.Froms))[1:], 1)
 	} else {
-		query = strings.Replace(query, "/*SLICE:nodes*/?", "NULL", 1)
+		query = strings.Replace(query, "/*SLICE:froms*/?", "NULL", 1)
+	}
+	if len(arg.Tos) > 0 {
+		for _, v := range arg.Tos {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:tos*/?", strings.Repeat(",?", len(arg.Tos))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:tos*/?", "NULL", 1)
 	}
 	_, err := q.db.ExecContext(ctx, query, queryParams...)
 	return err
@@ -1815,6 +2004,44 @@ UPDATE moves_unit SET due_at = ?1 WHERE reconcile = 1
 
 func (q *Queries) WakeReconcile(ctx context.Context, now storage.Time) error {
 	_, err := q.db.ExecContext(ctx, wakeReconcile, now)
+	return err
+}
+
+const wakeTorrents = `-- name: WakeTorrents :exec
+UPDATE moves_unit SET due_at = ?1
+WHERE waiting = ?2 AND (due_at IS NULL OR due_at > ?1)
+    AND (torrent_id IN (/*SLICE:sources*/?) OR dest_torrent_id IN (/*SLICE:dests*/?))
+`
+
+type WakeTorrentsParams struct {
+	Now     storage.Time
+	Waiting *string
+	Sources []storage.UUID
+	Dests   []storage.UUID
+}
+
+func (q *Queries) WakeTorrents(ctx context.Context, arg WakeTorrentsParams) error {
+	query := wakeTorrents
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Now)
+	queryParams = append(queryParams, arg.Waiting)
+	if len(arg.Sources) > 0 {
+		for _, v := range arg.Sources {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:sources*/?", strings.Repeat(",?", len(arg.Sources))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:sources*/?", "NULL", 1)
+	}
+	if len(arg.Dests) > 0 {
+		for _, v := range arg.Dests {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:dests*/?", strings.Repeat(",?", len(arg.Dests))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:dests*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
 	return err
 }
 

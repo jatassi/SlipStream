@@ -237,6 +237,11 @@ UPDATE grabs_grab SET tracker_id = NULL WHERE tracker_id = sqlc.arg(tracker_id);
 -- name: ListDownloading :many
 SELECT id, work_id FROM grabs_grab WHERE torrent_id = sqlc.arg(torrent_id) AND stage = 'downloading' ORDER BY id;
 
+-- name: RepointAll :exec
+-- A Move's switch moves every Grab of its torrent, at every stage.
+UPDATE grabs_grab SET torrent_id = sqlc.arg(to_id), node_id = sqlc.arg(node_id), updated_at = sqlc.arg(updated_at)
+WHERE torrent_id = sqlc.arg(from_id);
+
 -- name: Repoint :exec
 -- send-to moves every Grab downloading a Torrent with it.
 UPDATE grabs_grab SET torrent_id = sqlc.arg(to_id), node_id = sqlc.arg(node_id), updated_at = sqlc.arg(updated_at)

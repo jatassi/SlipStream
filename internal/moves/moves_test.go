@@ -47,7 +47,7 @@ func seedUnit(ctx context.Context, tx *storage.Tx[file], batch BatchID, seq int6
 		Subject: WorkSubject{Work: id[works.WorkID](), Type: typ, From: End{Root: id[roots.ID](), Node: id[role.NodeID]()}, To: End{Root: id[roots.ID](), Node: id[role.NodeID]()}},
 	}
 	p := db.InsertUnitParams{
-		ID: u.ID, BatchID: batch, Seq: seq, WorkID: u.Subject.Work, ContentType: &typ, FromRootID: u.Subject.From.Root, FromNodeID: u.Subject.From.Node,
+		ID: u.ID, BatchID: batch, Seq: seq, Kind: "work", WorkID: u.Subject.Work, ContentType: &typ, FromRootID: u.Subject.From.Root, FromNodeID: u.Subject.From.Node,
 		ToRootID: u.Subject.To.Root, ToNodeID: u.Subject.To.Node, Lane: string(lane), PlannedAt: storage.FromTime(at), Notes: "{}",
 	}
 	if wait != "" {

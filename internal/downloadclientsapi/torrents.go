@@ -503,11 +503,11 @@ type actResult struct {
 }
 
 type refusal struct {
-	Code      string     `json:"code" enum:"not_found,removed,importing,not_held,use_not_this_release,reconciling,offline,client_away,client_off,window,not_running,failed,not_retryable"`
+	Code      string     `json:"code" enum:"not_found,removed,importing,not_held,use_not_this_release,reconciling,offline,client_away,client_off,window,not_running,failed,not_retryable,moving"`
 	WorkID    *string    `json:"workId,omitempty" format:"uuid" doc:"importing: the Work whose import holds it; use_not_this_release: the Work whose Pending import waits on it"`
 	AcceptsAt *time.Time `json:"acceptsAt,omitempty" doc:"window: when every tracker allows another announce"`
-	Client    string     `json:"client,omitempty" doc:"client_away and client_off: the external client's name"`
-	Node      string     `json:"node,omitempty" doc:"client_away and client_off: the name of the external client's Node"`
+	Client    string     `json:"client,omitempty" doc:"client_away and client_off: the external client's name; moving: the external client it moves to, absent for the built-in client"`
+	Node      string     `json:"node,omitempty" doc:"client_away and client_off: the name of the external client's Node; moving: the Node it moves to, absent for its own Node"`
 }
 
 type preview struct {

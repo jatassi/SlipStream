@@ -1,1 +1,1 @@
-export type MovesPreviewUnitKind = "work";
+export type MovesPreviewUnitKind = "work" | "torrent";

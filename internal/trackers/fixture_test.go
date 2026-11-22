@@ -87,6 +87,26 @@ type library struct {
 	nodes *nodes.Service
 	// node, work and item are what every planted Grab names.
 	node, work, item storage.UUID
+	// moving is the Torrents a Move takes elsewhere, and canceled those
+	// whose Move a goal canceled.
+	moving   map[downloadclients.ID]bool
+	canceled []downloadclients.ID
+}
+
+func (l *library) Moving(_ context.Context, _ storage.Reader[storage.Library], ids []downloadclients.ID) (map[downloadclients.ID]downloadclients.MovingTo, error) {
+	out := map[downloadclients.ID]downloadclients.MovingTo{}
+	for _, id := range ids {
+		if l.moving[id] {
+			out[id] = downloadclients.MovingTo{Node: role.NodeID{UUID: storage.NewUUID()}}
+		}
+	}
+	return out, nil
+}
+
+func (l *library) CancelIn(_ context.Context, _ *storage.Tx[storage.Library], id downloadclients.ID) error {
+	l.canceled = append(l.canceled, id)
+	delete(l.moving, id)
+	return nil
 }
 
 func newLibrary(t *testing.T) *library {
@@ -95,7 +115,7 @@ func newLibrary(t *testing.T) *library {
 		t: t, changed: &published{}, trackersChanged: &identities{},
 		lib: storagetest.Library(t, identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(),
 			grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema()),
-		node: storage.NewUUID(), work: storage.NewUUID(), item: storage.NewUUID(), board: &board{},
+		node: storage.NewUUID(), work: storage.NewUUID(), item: storage.NewUUID(), board: &board{}, moving: map[downloadclients.ID]bool{},
 	}
 	nodeRoster := roster{&l.offline, &l.draining, &l.nodes}
 	l.clients = downloadclients.New(downloadclients.Config{
@@ -106,7 +126,7 @@ func newLibrary(t *testing.T) *library {
 		Library: l.lib, Clients: l.clients, Grabs: grabs.TrackerFacts{}, Roster: nodeRoster,
 		Routing: trackers.Routing{Roster: l.board}, Rerouted: func() { l.rerouted++ }, Soon: func() { l.soon++ },
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return l.reconciling, nil },
-		Changed:     l.changed, TrackersChanged: l.trackersChanged,
+		Changed:     l.changed, TrackersChanged: l.trackersChanged, Moving: l,
 	})
 	l.exec(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, l.node)
 	l.exec(`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, l.work)

@@ -176,6 +176,7 @@ func (n *Node) startController(ctx context.Context) error {
 		cluster      *rpc.Cluster
 		homes        *roots.Roots
 		seeding      *trackers.Trackers
+		mover        *moves.Moves
 		pipeline     *grabs.Grabs
 		scheduler    *tasks.Scheduler
 		meta         *metadata.Metadata
@@ -235,6 +236,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Uses:      imports.Uses{TorrentUses: grabs.TorrentUses{}},
 		Blocklist: grabs.BlocklistOn{Reconciling: reconciling.Blocked, Changes: grabs.BlocklistChangedEvent.Bind(n.hub)},
 		Seeding:   lateSeeder{&seeding},
+		Moving:    lateMoves{&mover},
 		Live: downloadclients.LiveConfig{
 			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },
 			Event:   downloadclients.LiveEvent.Bind(n.hub),
@@ -257,6 +259,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Reconciling:     reconciling.Blocked,
 		Changed:         trackers.SeedingChangedEvent.Bind(n.hub),
 		TrackersChanged: indexers.TrackersEvent.Bind(n.hub),
+		Moving:          lateMoves{&mover},
 	})
 	downloads = downloading.Def.Serve(downloadclients.Derive{Keeps: keeper, HoldingsPage: n.cfg.Timings.Downloading.HoldingsPage}.Intent, clients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
@@ -715,14 +718,19 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
 	pipeline.Register(found.Importer())
-	mover := moves.New(moves.Config{
+	mover = moves.New(moves.Config{
 		Library: lib.db, Works: tree, Files: shelf, Roots: homes, Disk: homes, Imports: found, Transfers: copies, MediaServers: servers,
 		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
 			return roots.DestinationsIn(ctx, r, ids, stored, side)
 		},
 		Writing: subtitles.Writing, Roster: side, Videos: imports.Videos, Reconciling: reconciling.Blocked, Hub: n.hub,
 		Changed: moves.ChangedEvent.Bind(n.hub), FilesChanged: files.ChangedEvent.Bind(n.hub),
-		Touch:    func(nodes ...role.NodeID) { stored.Touch(nodes...) },
+		Touch:   func(nodes ...role.NodeID) { stored.Touch(nodes...) },
+		Clients: clients,
+		Downloading: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
+			return downloadingv1connect.DownloadingService.On(cluster, id)
+		},
+		Repoint: grabs.RepointTorrentIn, CopyGoalRun: trackers.CopyGoalRunIn,
 		Recorder: n.history.Recorder("moves", moves.Entries()), Timings: n.cfg.Timings.Moves, BeforeStep: n.env.Test.BeforeMoveStep,
 		Clock: time.Now, Log: n.rootLog.With("subsystem", "moves"),
 	})
@@ -945,6 +953,18 @@ func (s lateSeeder) Judge(ctx context.Context, r storage.Reader[storage.Library]
 
 func (s lateSeeder) EndlessUnits(ctx context.Context, r storage.Reader[storage.Library], node role.NodeID) (int64, error) {
 	return (*s.trackers).Seeder().EndlessUnits(ctx, r, node)
+}
+
+// lateMoves is the Moves once they are made: downloadclients and
+// trackers are made first.
+type lateMoves struct{ moves **moves.Moves }
+
+func (l lateMoves) Moving(ctx context.Context, r storage.Reader[storage.Library], ids []downloadclients.ID) (map[downloadclients.ID]downloadclients.MovingTo, error) {
+	return (*l.moves).Moving(ctx, r, ids)
+}
+
+func (l lateMoves) CancelIn(ctx context.Context, tx *storage.Tx[storage.Library], id downloadclients.ID) error {
+	return (*l.moves).CancelIn(ctx, tx, id)
 }
 
 // today is the time now in the Controller's zone.

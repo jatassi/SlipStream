@@ -79,9 +79,10 @@ type Recorded struct {
 }
 
 // RecordedIn is the Torrent the library records for each of hashes that
-// it records one for, in r's snapshot. A hash live on several Nodes
-// answers the first added.
-func RecordedIn(ctx context.Context, r storage.Reader[file], hashes []bencode.InfoHash) (map[bencode.InfoHash]Recorded, error) {
+// it records one for, as here reads it, in r's snapshot. A hash live on
+// several Nodes answers the first added, unless a Move's arriving Torrent
+// of it is on here: that one is recorded on its own Node.
+func RecordedIn(ctx context.Context, r storage.Reader[file], here role.NodeID, hashes []bencode.InfoHash) (map[bencode.InfoHash]Recorded, error) {
 	out := map[bencode.InfoHash]Recorded{}
 	if len(hashes) == 0 {
 		return out, nil
@@ -96,7 +97,7 @@ func RecordedIn(ctx context.Context, r storage.Reader[file], hashes []bencode.In
 	}
 	for _, row := range rows {
 		h := bencode.InfoHash(row.InfoHash)
-		if _, ok := out[h]; !ok {
+		if _, ok := out[h]; !ok || row.Arriving && row.NodeID == here {
 			out[h] = Recorded{ID: row.ID, Node: row.NodeID, WrittenOff: row.WrittenOff}
 		}
 	}
@@ -124,17 +125,17 @@ func LiveOnNode(ctx context.Context, r storage.Reader[file], node role.NodeID, a
 	return out, nil
 }
 
-// MoveRecorded moves Torrent id to client on node, keeping its totals,
+// Rerecord records Torrent id on client on node, keeping its totals,
 // Grab and reported_at. A Torrent a write-off parted is live again on
 // node. A built-in target keeps no external origin or raw counters. The
 // caller Touches both Nodes after commit.
-func MoveRecorded(ctx context.Context, tx *storage.Tx[file], id ID, node role.NodeID, client *ClientID) error {
-	n, err := db.New(tx).MoveRecorded(ctx, db.MoveRecordedParams{NodeID: node, ClientID: client, ID: id})
+func Rerecord(ctx context.Context, tx *storage.Tx[file], id ID, node role.NodeID, client *ClientID) error {
+	n, err := db.New(tx).Rerecord(ctx, db.RerecordParams{NodeID: node, ClientID: client, ID: id})
 	if err != nil {
-		return fmt.Errorf("move Torrent %s: %w", id, err)
+		return fmt.Errorf("record Torrent %s on another Node: %w", id, err)
 	}
 	if n == 0 {
-		return fmt.Errorf("move Torrent %s: SlipStream no longer tracks it", id)
+		return fmt.Errorf("record Torrent %s on another Node: SlipStream no longer tracks it", id)
 	}
 	return nil
 }

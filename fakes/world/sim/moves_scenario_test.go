@@ -14,7 +14,7 @@ import (
 )
 
 // TestTheMovesScenarioBoots launches the moves Scenario and sees its five
-// roots on seedbox and den and each Node's external client responding.
+// roots on seedbox and den and each Node's external clients responding.
 func TestTheMovesScenarioBoots(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
@@ -57,7 +57,7 @@ func TestTheMovesScenarioBoots(t *testing.T) {
 			}
 		}
 		slices.Sort(clients)
-		if want := []string{"den Transmission responding", "seedbox Box responding"}; !slices.Equal(clients, want) {
+		if want := []string{"den Transmission responding", "den rTorrent responding", "seedbox Box responding", "seedbox Deluge responding"}; !slices.Equal(clients, want) {
 			t.Fatalf("the external clients read %q, want %q", clients, want)
 		}
 	})

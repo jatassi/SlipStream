@@ -70,6 +70,7 @@ export const getStartMovesResponseMock = (
   dropped: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean() ? { torrentId: faker.string.uuid() } : {}),
       words: faker.string.alpha({ length: { min: 10, max: 20 } }),
       workId: faker.string.uuid(),
     }),
@@ -91,13 +92,16 @@ export const getPreviewMovesResponseMock = (
   units: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     bytes: faker.number.int({ min: 0 }),
     from: {
+      ...(faker.datatype.boolean()
+        ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       nodeId: faker.string.uuid(),
       nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
       root: faker.string.alpha({ length: { min: 10, max: 20 } }),
       rootId: faker.string.uuid(),
     },
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    kind: faker.helpers.arrayElement(["work"] as const),
+    kind: faker.helpers.arrayElement(["work", "torrent"] as const),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     reasons: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
@@ -110,6 +114,8 @@ export const getPreviewMovesResponseMock = (
           "waits",
           "moving",
           "probe",
+          "torrent",
+          "hit_and_run",
         ] as const),
         code: faker.string.alpha({ length: { min: 10, max: 20 } }),
         color: faker.helpers.arrayElement(["amber", "red"] as const),
@@ -117,11 +123,15 @@ export const getPreviewMovesResponseMock = (
       }),
     ),
     to: {
+      ...(faker.datatype.boolean()
+        ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       nodeId: faker.string.uuid(),
       nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
       root: faker.string.alpha({ length: { min: 10, max: 20 } }),
       rootId: faker.string.uuid(),
     },
+    ...(faker.datatype.boolean() ? { torrentId: faker.string.uuid() } : {}),
     verdict: faker.helpers.arrayElement(["green", "amber", "red"] as const),
     workId: faker.string.uuid(),
   })),
@@ -1105,13 +1115,16 @@ export const getCancelMoveUnitResponseMock = (
     null,
   ]),
   from: {
+    ...(faker.datatype.boolean()
+      ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     nodeId: faker.string.uuid(),
     nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
     root: faker.string.alpha({ length: { min: 10, max: 20 } }),
     rootId: faker.string.uuid(),
   },
   id: faker.string.uuid(),
-  kind: faker.helpers.arrayElement(["work"] as const),
+  kind: faker.helpers.arrayElement(["work", "torrent"] as const),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1128,11 +1141,15 @@ export const getCancelMoveUnitResponseMock = (
   ] as const),
   switchNow: faker.datatype.boolean(),
   to: {
+    ...(faker.datatype.boolean()
+      ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     nodeId: faker.string.uuid(),
     nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
     root: faker.string.alpha({ length: { min: 10, max: 20 } }),
     rootId: faker.string.uuid(),
   },
+  ...(faker.datatype.boolean() ? { torrentId: faker.string.uuid() } : {}),
   undone: faker.datatype.boolean(),
   ...(faker.datatype.boolean()
     ? {
@@ -1185,13 +1202,16 @@ export const getRetryMoveUnitResponseMock = (
     null,
   ]),
   from: {
+    ...(faker.datatype.boolean()
+      ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     nodeId: faker.string.uuid(),
     nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
     root: faker.string.alpha({ length: { min: 10, max: 20 } }),
     rootId: faker.string.uuid(),
   },
   id: faker.string.uuid(),
-  kind: faker.helpers.arrayElement(["work"] as const),
+  kind: faker.helpers.arrayElement(["work", "torrent"] as const),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1208,11 +1228,15 @@ export const getRetryMoveUnitResponseMock = (
   ] as const),
   switchNow: faker.datatype.boolean(),
   to: {
+    ...(faker.datatype.boolean()
+      ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     nodeId: faker.string.uuid(),
     nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
     root: faker.string.alpha({ length: { min: 10, max: 20 } }),
     rootId: faker.string.uuid(),
   },
+  ...(faker.datatype.boolean() ? { torrentId: faker.string.uuid() } : {}),
   undone: faker.datatype.boolean(),
   ...(faker.datatype.boolean()
     ? {
@@ -1265,13 +1289,16 @@ export const getSwitchMoveUnitNowResponseMock = (
     null,
   ]),
   from: {
+    ...(faker.datatype.boolean()
+      ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     nodeId: faker.string.uuid(),
     nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
     root: faker.string.alpha({ length: { min: 10, max: 20 } }),
     rootId: faker.string.uuid(),
   },
   id: faker.string.uuid(),
-  kind: faker.helpers.arrayElement(["work"] as const),
+  kind: faker.helpers.arrayElement(["work", "torrent"] as const),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1288,11 +1315,15 @@ export const getSwitchMoveUnitNowResponseMock = (
   ] as const),
   switchNow: faker.datatype.boolean(),
   to: {
+    ...(faker.datatype.boolean()
+      ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
     nodeId: faker.string.uuid(),
     nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
     root: faker.string.alpha({ length: { min: 10, max: 20 } }),
     rootId: faker.string.uuid(),
   },
+  ...(faker.datatype.boolean() ? { torrentId: faker.string.uuid() } : {}),
   undone: faker.datatype.boolean(),
   ...(faker.datatype.boolean()
     ? {
@@ -1373,13 +1404,16 @@ export const getGetMoveResponseMock = (
       null,
     ]),
     from: {
+      ...(faker.datatype.boolean()
+        ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       nodeId: faker.string.uuid(),
       nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
       root: faker.string.alpha({ length: { min: 10, max: 20 } }),
       rootId: faker.string.uuid(),
     },
     id: faker.string.uuid(),
-    kind: faker.helpers.arrayElement(["work"] as const),
+    kind: faker.helpers.arrayElement(["work", "torrent"] as const),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
       faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1396,11 +1430,15 @@ export const getGetMoveResponseMock = (
     ] as const),
     switchNow: faker.datatype.boolean(),
     to: {
+      ...(faker.datatype.boolean()
+        ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       nodeId: faker.string.uuid(),
       nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
       root: faker.string.alpha({ length: { min: 10, max: 20 } }),
       rootId: faker.string.uuid(),
     },
+    ...(faker.datatype.boolean() ? { torrentId: faker.string.uuid() } : {}),
     undone: faker.datatype.boolean(),
     ...(faker.datatype.boolean()
       ? {
@@ -1444,13 +1482,16 @@ export const getPreviewMoveBackResponseMock = (
   units: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     bytes: faker.number.int({ min: 0 }),
     from: {
+      ...(faker.datatype.boolean()
+        ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       nodeId: faker.string.uuid(),
       nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
       root: faker.string.alpha({ length: { min: 10, max: 20 } }),
       rootId: faker.string.uuid(),
     },
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    kind: faker.helpers.arrayElement(["work"] as const),
+    kind: faker.helpers.arrayElement(["work", "torrent"] as const),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     reasons: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
@@ -1463,6 +1504,8 @@ export const getPreviewMoveBackResponseMock = (
           "waits",
           "moving",
           "probe",
+          "torrent",
+          "hit_and_run",
         ] as const),
         code: faker.string.alpha({ length: { min: 10, max: 20 } }),
         color: faker.helpers.arrayElement(["amber", "red"] as const),
@@ -1470,11 +1513,15 @@ export const getPreviewMoveBackResponseMock = (
       }),
     ),
     to: {
+      ...(faker.datatype.boolean()
+        ? { client: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
       nodeId: faker.string.uuid(),
       nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
       root: faker.string.alpha({ length: { min: 10, max: 20 } }),
       rootId: faker.string.uuid(),
     },
+    ...(faker.datatype.boolean() ? { torrentId: faker.string.uuid() } : {}),
     verdict: faker.helpers.arrayElement(["green", "amber", "red"] as const),
     workId: faker.string.uuid(),
   })),

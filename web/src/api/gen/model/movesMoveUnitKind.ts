@@ -1,1 +1,1 @@
-export type MovesMoveUnitKind = "work";
+export type MovesMoveUnitKind = "work" | "torrent";

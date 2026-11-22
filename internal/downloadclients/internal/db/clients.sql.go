@@ -39,7 +39,7 @@ func (q *Queries) AddressHolder(ctx context.Context, arg AddressHolderParams) (A
 
 const countLiveByClient = `-- name: CountLiveByClient :many
 SELECT client_id, count(*) AS torrents FROM downloadclients_torrent
-WHERE client_id IS NOT NULL AND removed_at IS NULL
+WHERE client_id IS NOT NULL AND removed_at IS NULL AND arriving_unit IS NULL
 GROUP BY client_id ORDER BY client_id
 `
 

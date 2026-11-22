@@ -32,6 +32,7 @@ const (
 	CheckWaits        Check = "waits"
 	CheckMoving       Check = "moving"
 	CheckProbe        Check = "probe"
+	CheckHitAndRun    Check = "hit_and_run"
 )
 
 // Reason is one check's answer worse than green. Code is stable per
