@@ -13,7 +13,8 @@ import type { IconSvgElement } from "@hugeicons/react";
 import { IconButton } from "../ui/icon-button";
 import { Menu, type MenuEntry } from "../ui/menu";
 import { type Subject, type TorrentAction, actionLabels } from "./actions";
-import { type WorkNames, useActing } from "./acting";
+import { useActing } from "./acting";
+import type { WorkNames } from "./remove-preview";
 
 export const actionIcons: { readonly [A in TorrentAction]: IconSvgElement } = {
   pause: PauseIcon,

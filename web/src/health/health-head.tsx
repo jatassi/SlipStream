@@ -2,6 +2,7 @@ import type { HealthReport } from "../api/gen/model";
 import { useCheckSystemHealth } from "../api/gen/query/health/health";
 import { Button } from "../ui/button";
 import { StatusSentence } from "../ui/status-sentence";
+import { bodyText } from "../ui/type";
 import { Checked, useCheckAnswered } from "./checked";
 import { itemAnchor, levels } from "./levels";
 
@@ -36,15 +37,17 @@ export function HealthHead({ report }: { report: HealthReport }) {
 export function HealthVerdict({
   report: { first, level, categories },
   at,
+  scale = "page",
 }: {
   report: HealthReport;
   at: string;
+  scale?: "page" | "section";
 }) {
   if (first === null || level === null) {
     return (
       <div>
-        <StatusSentence parts={[{ kind: "plain", text: "Everything is working." }]} />
-        <p className="mt-1 text-ink-3">
+        <StatusSentence parts={[{ kind: "plain", text: "Everything is working." }]} scale={scale} />
+        <p className={`mt-1 text-ink-3 ${scale === "section" ? bodyText : ""}`}>
           Checked {andList.format(categories.map((category) => category.phrase))}
         </p>
       </div>
@@ -52,6 +55,7 @@ export function HealthVerdict({
   }
   return (
     <StatusSentence
+      scale={scale}
       parts={[
         {
           kind: levels[level].part,

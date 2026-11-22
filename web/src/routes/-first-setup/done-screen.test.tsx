@@ -23,12 +23,12 @@ function open() {
   return { app, server };
 }
 
-test("the done screen offers an Add for each enabled Content Type beside Go to Library", async () => {
+test("the done screen offers an Add for each enabled Content Type beside Go to Home", async () => {
   open();
   await expect.element(stepHeading("First setup")).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Add a film" })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Add an anthology" })).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Go to Library" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Go to Home" })).toBeVisible();
   expect(page.getByRole("button", { name: `Add a ${zines.work.one}` }).query()).toBeNull();
 });
 

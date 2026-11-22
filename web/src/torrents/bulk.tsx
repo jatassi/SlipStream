@@ -1,6 +1,7 @@
 import { Button } from "../ui/button";
 import { type Subject, type TorrentAction, actionLabels, menuFor } from "./actions";
-import { type WorkNames, useActing } from "./acting";
+import { useActing } from "./acting";
+import type { WorkNames } from "./remove-preview";
 import { actionIcons } from "./actions-menu";
 import type { Row } from "./model";
 

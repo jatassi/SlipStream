@@ -117,6 +117,6 @@ test("a download whose Import failed to read a file says SlipStream tries once m
   await expect
     .element(needsYou)
     .toHaveTextContent(
-      `Needs you1Waiting${stuck.releaseTitle}Reading a file of this download failed. SlipStream tries once more, then fails the file.Open Pending imports`,
+      `Needs you1Waiting${stuck.releaseTitle}Reading a file of this download failed. SlipStream tries once more. If that fails too, the file isn't imported.Open Pending imports`,
     );
 });

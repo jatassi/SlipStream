@@ -40,7 +40,7 @@ function WorkCell({ grab, work }: GrabRow) {
   );
 }
 
-function StageCell({ grab, work }: GrabRow) {
+export function StageCell({ grab, work }: Pick<GrabRow, "grab" | "work">) {
   if (grab.failure !== undefined) {
     return <span>{grab.failure.message}</span>;
   }

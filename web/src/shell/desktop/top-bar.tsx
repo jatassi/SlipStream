@@ -7,6 +7,7 @@ import { Icon } from "../../ui/icon";
 import { Kbd } from "../../ui/kbd";
 import { ConnectionLine } from "../connection-line";
 import { openPalette, paletteShortcut } from "../palette-state";
+import { TopBarRates } from "./top-bar-rates";
 
 export const ActionSlotTarget = createContext<(element: HTMLElement | null) => void>(() => {});
 
@@ -21,6 +22,7 @@ type TopBarSlot = { readonly id: string; readonly Slot: ComponentType };
 const topBarSlots = [
   { id: "connection", Slot: ConnectionLine },
   { id: "tasks", Slot: TasksCapsule },
+  { id: "rates", Slot: TopBarRates },
   { id: "bell", Slot: Bell },
   { id: "page-action", Slot: PageAction },
 ] as const satisfies readonly TopBarSlot[];

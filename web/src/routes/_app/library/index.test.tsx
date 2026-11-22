@@ -9,15 +9,6 @@ import { asPhone } from "../../../test/viewport";
 
 const card = (label: string) => page.getByRole("listitem").filter({ hasText: label });
 
-test("/ opens the Library", async () => {
-  const { router } = renderApp({
-    path: "/",
-    handlers: [getListContentTypesMockHandler({ contentTypes: [cinema] })],
-  });
-  await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
-  expect(router.state.location.href).toBe("/library");
-});
-
 test("the Library draws each Work as a poster under its letter, and adds a Work", async () => {
   const { router } = renderApp({ path: "/library", handlers: cinemaLibrary().handlers });
   await expect.element(page.getByRole("heading", { name: "Q 1" })).toBeVisible();

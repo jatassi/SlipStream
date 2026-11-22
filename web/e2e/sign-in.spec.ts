@@ -37,6 +37,6 @@ test("sign-in ignores a redirect to another site", async ({ page, world }) => {
   const { email, pin } = world.admin();
   await page.goto("/sign-in?redirect=//evil.example");
   await declinePasskeyPrompt(page, await submitPin(page, email, pin));
-  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
-  expect(page.url()).toBe(`${world.baseURL}/library`);
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  expect(page.url()).toBe(`${world.baseURL}/`);
 });

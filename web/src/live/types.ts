@@ -14,5 +14,13 @@ export type LiveEffect<N extends ProductEventName> = (
 ) => void;
 export type LiveEffects = { readonly [N in ProductEventName]: LiveEffect<N> };
 
+/** Runs an event's own effect, then another table's. */
+export const both =
+  <N extends ProductEventName>(own: LiveEffect<N>, more: LiveEffect<N>): LiveEffect<N> =>
+  (data, ctx) => {
+    own(data, ctx);
+    more(data, ctx);
+  };
+
 export type LiveState = "idle" | "connecting" | "open" | "reconnecting" | "paused";
 export type SessionEndReason = LiveSessionEnded["reason"];

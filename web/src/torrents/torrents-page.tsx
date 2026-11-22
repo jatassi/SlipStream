@@ -36,10 +36,10 @@ export function TorrentsPage({ search, selected, onSearchChange, onSelect, scope
         scope={scope}
         selection={{ selected, onSelect }}
         renderMenu={(row) => (
-          <ActionsMenu subject={subject(row)} actions={menuFor(row)} names={names.work} />
+          <ActionsMenu subject={subject(row)} actions={menuFor(row)} names={names.works} />
         )}
         renderBulk={(picked, clear) => (
-          <BulkBar picked={picked} subjectOf={subject} names={names.work} onClear={clear} />
+          <BulkBar picked={picked} subjectOf={subject} names={names.works} onClear={clear} />
         )}
       />
       <Outlet />

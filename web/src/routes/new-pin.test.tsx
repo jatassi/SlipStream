@@ -46,8 +46,8 @@ test("an Admin whose PIN was turned off sees only Set a new PIN, then the app on
   await expect.element(page.getByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
 
   await typeTwice("2468");
-  await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
-  expect(router.state.location.pathname).toBe("/library");
+  await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  expect(router.state.location.pathname).toBe("/");
   expect(server.changes).toEqual([{ new: "2468" }]);
 });
 
@@ -97,6 +97,6 @@ test("Sign out on Set a new PIN asks first", async () => {
 
 test("a session that needs no new PIN is taken home from Set a new PIN", async () => {
   const { router } = renderApp({ path: "/new-pin" });
-  await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
-  expect(router.state.location.pathname).toBe("/library");
+  await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  expect(router.state.location.pathname).toBe("/");
 });

@@ -57,7 +57,11 @@ export function typeOf(types: WorksContentType[], id: string): WorksContentType 
 
 /** The crumbs above a page of one Content Type's Works: Library, then that type's library while it is enabled. */
 export function libraryTrail(types: readonly WorksContentType[], id: string): Crumb[] {
-  const library = { title: adminNav[0].label, pathname: adminNav[0].to };
+  const row = adminNav.find((each) => each.id === "library");
+  if (row === undefined) {
+    throw new Error("the Admin nav has no Library row");
+  }
+  const library = { title: row.label, pathname: row.to };
   const type = types.find((candidate) => candidate.id === id && candidate.enabled);
   return type === undefined
     ? [library]

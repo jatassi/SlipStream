@@ -47,10 +47,11 @@ test("at rest the palette lists the commands, and Esc returns focus to the capsu
   await userEvent.click(capsule());
 
   await expect.poll(groupLabels).toEqual(["Commands"]);
-  await expect.poll(highlighted).toBe("Go to Library");
+  await expect.poll(highlighted).toBe("Go to Home");
   await expect
     .poll(() => optionTexts("Commands"))
     .toEqual([
+      "Go to Home",
       "Go to Library",
       "Go to FilmsLibrary",
       "Go to Activity",

@@ -42,7 +42,7 @@ function emptyGrabsWords(failed: number): string {
 
 function WorkGrabTable({ grabs, work }: { grabs: readonly GrabsGrab[]; work: string }) {
   const torrentOf = useTorrentOf();
-  const names = useNames().work;
+  const names = useNames().works;
   return (
     <GrabTable
       layout="work"

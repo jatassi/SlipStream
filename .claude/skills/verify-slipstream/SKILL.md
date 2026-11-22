@@ -62,7 +62,7 @@ $FW exec $RUN -- $PW cli -s={runId}-admin-desktop state-load {runDir}/auth/admin
 $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto {nodes.home.browserUrl}/
 ```
 
-The session name carries the run id, so another agent's sessions in the same worktree stay apart. Swap `desktop` for `phone` for the phone shell. `{nodes.home.browserUrl}/` redirects to `/library`. Then follow the feature file's recipe. Target elements by role and accessible name, scoped to a landmark where a name repeats, as in `click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'`; snapshot refs change on every snapshot.
+The session name carries the run id, so another agent's sessions in the same worktree stay apart. Swap `desktop` for `phone` for the phone shell. `{nodes.home.browserUrl}/` opens Home. Then follow the feature file's recipe. Target elements by role and accessible name, scoped to a landmark where a name repeats, as in `click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'`; snapshot refs change on every snapshot.
 
 Every new tab plays the 4.4s startup sequence over the page. Verify sessions start past it: `fakeworld browser` writes `browser/startup-played.js` (a copy of `web/harness/startup-played.js`) and names it as each config's `initScript`, which marks every tab as played before the app loads, as the browser tier's fixtures and `bin/sign-in.ts` do. To see the sequence on purpose, open a session from a copy of the config without the init script; the tab then plays it once, and any key, click or tap skips it:
 

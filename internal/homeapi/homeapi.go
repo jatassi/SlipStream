@@ -74,13 +74,13 @@ type recent struct {
 type arrival struct {
 	ImportID string    `json:"importId" format:"uuid"`
 	Work     work      `json:"work"`
-	At       time.Time `json:"at" doc:"When its last file landed"`
+	At       time.Time `json:"at" doc:"When SlipStream imported its last file"`
 	Words    string    `json:"words" doc:"What it did, such as Imported 10 episodes · 2 upgrades"`
 }
 
 type today struct {
-	Imported int `json:"imported" minimum:"0" doc:"Finished Imports that landed a file since since, other than upgrades"`
-	Upgraded int `json:"upgraded" minimum:"0" doc:"Finished Imports that landed a file since since and whose every file replaced one"`
+	Imported int `json:"imported" minimum:"0" doc:"Finished Imports, other than upgrades, that imported a file at or after the time in the since parameter"`
+	Upgraded int `json:"upgraded" minimum:"0" doc:"Finished Imports that imported a file at or after the time in the since parameter and whose every file replaced one"`
 }
 
 type work struct {
@@ -93,7 +93,7 @@ type work struct {
 }
 
 type summaryInput struct {
-	Since time.Time `query:"since" required:"true" doc:"The instant today's totals count from: the browser's midnight"`
+	Since time.Time `query:"since" required:"true" doc:"The browser's local midnight, from which today's totals count"`
 }
 
 type summaryOutput struct{ Body summary }

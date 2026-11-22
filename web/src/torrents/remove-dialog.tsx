@@ -8,7 +8,14 @@ import { ConfirmDialog } from "../ui/confirm-dialog";
 import { SignalLine } from "../ui/signal-line";
 import { Spinner } from "../ui/spinner";
 import type { Subject } from "./actions";
-import { type Parting, Preview, SpaceNote, freesWords, list } from "./remove-preview";
+import {
+  type Parting,
+  type WorkNames,
+  Preview,
+  SpaceNote,
+  freesWords,
+  list,
+} from "./remove-preview";
 
 const titles: { readonly [P in Parting]: (subjects: readonly Subject[]) => string } = {
   remove: ([only, ...rest]) =>
@@ -54,7 +61,7 @@ type RemoveDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (subjects: readonly Subject[], deleteFiles: boolean) => Promise<void>;
-  work: (id: string) => string | undefined;
+  work: WorkNames;
 };
 
 /**

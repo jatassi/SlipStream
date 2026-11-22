@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import { Icon } from "./icon";
 import { LiveDot } from "./live-chip";
@@ -7,7 +7,8 @@ import { signals } from "./signal-chip";
 
 export type StatusPart =
   | { kind: "live"; text: string }
-  | { kind: "plain"; text: string }
+  /** `words` draws the text with a part inside it, such as a defined term. */
+  | { kind: "plain"; text: string; words?: ReactNode }
   | { kind: "failure"; text: string; href: string }
   | { kind: "warning"; text: string; href: string };
 
@@ -28,7 +29,7 @@ function Part({ part }: { part: StatusPart }) {
     );
   }
   if (part.kind === "plain") {
-    return <span>{part.text}</span>;
+    return <span>{part.words ?? part.text}</span>;
   }
   const { icon, ink } = signalLink[part.kind];
   return (
@@ -39,8 +40,21 @@ function Part({ part }: { part: StatusPart }) {
   );
 }
 
-export function StatusSentence({ parts }: { parts: readonly StatusPart[] }) {
-  const type = useShell() === "phone" ? "text-sentence-touch" : "text-sentence";
+/** `section` sets the sentence at a card title's size, for a page that leads with another. */
+export function StatusSentence({
+  parts,
+  scale = "page",
+}: {
+  parts: readonly StatusPart[];
+  scale?: "page" | "section";
+}) {
+  const phone = useShell() === "phone";
+  const type =
+    scale === "section"
+      ? "text-card-title font-semibold"
+      : phone
+        ? "text-sentence-touch"
+        : "text-sentence";
   return (
     <p className={`${type} text-ink-1 tabular-nums text-shadow-[0_1px_16px_rgb(0_0_0/.45)]`}>
       {parts.map((part, index) => (

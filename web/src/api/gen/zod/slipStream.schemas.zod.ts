@@ -6119,7 +6119,7 @@ export type HomeWork = zod.input<typeof HomeWork>;
 export type HomeWorkOutput = zod.output<typeof HomeWork>;
 
 export const HomeArrival = zod.object({
-  at: zod.iso.datetime({ offset: true }).describe("When its last file landed"),
+  at: zod.iso.datetime({ offset: true }).describe("When SlipStream imported its last file"),
   importId: zod.uuid(),
   words: zod.string().describe("What it did, such as Imported 10 episodes · 2 upgrades"),
   work: HomeWork,
@@ -6190,11 +6190,15 @@ export const HomeToday = zod.object({
   imported: zod
     .int()
     .min(homeTodayImportedMin)
-    .describe("Finished Imports that landed a file since since, other than upgrades"),
+    .describe(
+      "Finished Imports, other than upgrades, that imported a file at or after the time in the since parameter",
+    ),
   upgraded: zod
     .int()
     .min(homeTodayUpgradedMin)
-    .describe("Finished Imports that landed a file since since and whose every file replaced one"),
+    .describe(
+      "Finished Imports that imported a file at or after the time in the since parameter and whose every file replaced one",
+    ),
 });
 
 export type HomeToday = zod.input<typeof HomeToday>;

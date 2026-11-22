@@ -40,7 +40,7 @@ try {
     baseURL: target.browserUrl,
   });
   await context.addInitScript({ path: startupPlayedScript });
-  // The page after sign-in may be the Library, the re-home step of a
+  // The page after sign-in may be Home, the re-home step of a
   // restore or the Superseded page, which offers no passkey.
   const page = await context.newPage();
   await page.goto("/sign-in");

@@ -10643,7 +10643,7 @@
         "additionalProperties": false,
         "properties": {
           "at": {
-            "description": "When its last file landed",
+            "description": "When SlipStream imported its last file",
             "format": "date-time",
             "type": "string"
           },
@@ -10841,13 +10841,13 @@
         "additionalProperties": false,
         "properties": {
           "imported": {
-            "description": "Finished Imports that landed a file since since, other than upgrades",
+            "description": "Finished Imports, other than upgrades, that imported a file at or after the time in the since parameter",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
           "upgraded": {
-            "description": "Finished Imports that landed a file since since and whose every file replaced one",
+            "description": "Finished Imports that imported a file at or after the time in the since parameter and whose every file replaced one",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -49383,13 +49383,13 @@
         "operationId": "getHome",
         "parameters": [
           {
-            "description": "The instant today's totals count from: the browser's midnight",
+            "description": "The browser's local midnight, from which today's totals count",
             "explode": false,
             "in": "query",
             "name": "since",
             "required": true,
             "schema": {
-              "description": "The instant today's totals count from: the browser's midnight",
+              "description": "The browser's local midnight, from which today's totals count",
               "format": "date-time",
               "type": "string"
             }

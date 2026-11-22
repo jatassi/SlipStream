@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller with a Movies root whose volume is below
+  the Storage warning level but above the error level, so Health holds a
+  Storage warning on any host.
+seed: low-space-warning
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 15s
+library:
+  storage_levels: {warn_below: 1024TiB, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
