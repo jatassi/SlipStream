@@ -1,6 +1,7 @@
 import {
   Cancel01Icon,
   Delete02Icon,
+  ArrowDataTransferHorizontalIcon,
   Edit02Icon,
   FileRemoveIcon,
   MoreHorizontalIcon,
@@ -61,6 +62,33 @@ function scanItems(root: RootsRoot, name: string, onAct: (acting: Acting) => voi
       ];
 }
 
+/** Make default, unless the root is its type's default. */
+const defaultItems = (root: RootsRoot, label: string): MenuItem[] =>
+  root.default
+    ? []
+    : [
+        {
+          label: "Make default",
+          icon: StarIcon,
+          onSelect: () =>
+            void calling(() => makeDefaultRoot(root.id), defaultWords(label, root.path)),
+        },
+      ];
+
+/** Move root… while the root holds Works. */
+const moveItems = (root: RootsRoot, onAct: (acting: Acting) => void): MenuItem[] =>
+  root.works > 0
+    ? [
+        {
+          label: "Move root…",
+          icon: ArrowDataTransferHorizontalIcon,
+          onSelect: () => {
+            onAct({ kind: "move", rootId: root.id });
+          },
+        },
+      ]
+    : [];
+
 /** The root's scan actions, Make default, Edit and Delete; a root on a written-off Node leads with Re-home. */
 const defaultWords = (label: string, path: string) =>
   `New ${label.toLowerCase()} now go into ${path}.`;
@@ -84,16 +112,7 @@ export function RootMenu({
       onAct({ kind: "edit", rootId: root.id });
     },
   };
-  const makeDefault: MenuItem[] = root.default
-    ? []
-    : [
-        {
-          label: "Make default",
-          icon: StarIcon,
-          onSelect: () =>
-            void calling(() => makeDefaultRoot(root.id), defaultWords(label, root.path)),
-        },
-      ];
+  const makeDefault = defaultItems(root, label);
   return (
     <Menu
       label={root.path}
@@ -101,7 +120,13 @@ export function RootMenu({
       items={[
         ...(lost
           ? [edit, ...makeDefault, "separator" as const, ...scanItems(root, name, onAct)]
-          : [...scanItems(root, name, onAct), "separator" as const, ...makeDefault, edit]),
+          : [
+              ...scanItems(root, name, onAct),
+              "separator" as const,
+              ...makeDefault,
+              edit,
+              ...moveItems(root, onAct),
+            ]),
         "separator",
         {
           label: "Delete",
