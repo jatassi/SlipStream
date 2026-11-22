@@ -180,7 +180,8 @@ var (
 	pendingWords = map[downloadclients.Wanted]string{downloadclients.Paused: "pause", downloadclients.Started: "resume"}
 )
 
-func rowOf(r downloadclients.Row) TorrentRow {
+// RowOf is r on the wire.
+func RowOf(r downloadclients.Row) TorrentRow {
 	out := TorrentRow{
 		ID: r.ID.String(), NodeID: r.Node.String(), Name: r.Name, ContentType: string(r.ContentType),
 		State: string(r.State), Hold: string(r.Hold), Until: when(r.Until), InLine: r.QueuePosition,
@@ -348,7 +349,7 @@ func (h handlers) listTorrents(ctx context.Context, _ identity.Admin, in *listIn
 	}
 	out := torrentList{Rows: make([]TorrentRow, len(l.Rows)), Counts: countsOf(l.Counts)}
 	for i, r := range l.Rows {
-		out.Rows[i] = rowOf(r)
+		out.Rows[i] = RowOf(r)
 	}
 	return &torrentListOutput{Body: out}, nil
 }
@@ -400,7 +401,7 @@ type torrentGrab struct {
 
 func detailOf(d downloadclients.Detail) TorrentDetail {
 	out := TorrentDetail{
-		TorrentRow: rowOf(d.Row), Downloaded: d.Totals.Downloaded, Active: int64(d.Totals.Active / time.Second),
+		TorrentRow: RowOf(d.Row), Downloaded: d.Totals.Downloaded, Active: int64(d.Totals.Active / time.Second),
 		InfoHash: d.InfoHash.String(), SaveFolder: d.SaveFolder, PieceSize: d.PieceSize, Private: d.Private,
 		Trackers: []trackerDetail{}, Files: []fileDetail{}, Grabs: []torrentGrab{}, Live: d.Live, AnnounceAt: when(d.AnnounceAt),
 	}
