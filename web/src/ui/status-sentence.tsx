@@ -40,8 +40,21 @@ function Part({ part }: { part: StatusPart }) {
   );
 }
 
-export function StatusSentence({ parts }: { parts: readonly StatusPart[] }) {
-  const type = useShell() === "phone" ? "text-sentence-touch" : "text-sentence";
+/** `section` sets the sentence at a card title's size, for a page that leads with another. */
+export function StatusSentence({
+  parts,
+  scale = "page",
+}: {
+  parts: readonly StatusPart[];
+  scale?: "page" | "section";
+}) {
+  const phone = useShell() === "phone";
+  const type =
+    scale === "section"
+      ? "text-card-title font-semibold"
+      : phone
+        ? "text-sentence-touch"
+        : "text-sentence";
   return (
     <p className={`${type} text-ink-1 tabular-nums text-shadow-[0_1px_16px_rgb(0_0_0/.45)]`}>
       {parts.map((part, index) => (

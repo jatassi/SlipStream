@@ -10,6 +10,7 @@ import { Meter } from "../ui/meter";
 import { Section } from "../ui/section";
 import { SignalChip } from "../ui/signal-chip";
 // oxlint-disable-next-line import/max-dependencies -- a volume's row draws its level, meter and free space
+import { bodyText } from "../ui/type";
 import { seeAllLink } from "./jobs";
 
 const rank = (level: HealthVolumeLevel) => (level === null ? 2 : levels[level].rank);
@@ -42,7 +43,9 @@ export function storageOrder(volumes: readonly HealthVolume[]): NodeVolumes[] {
 function StorageRow({ volume }: { volume: HealthVolume }) {
   const level = volume.level ?? undefined;
   return (
-    <li className="flex flex-col gap-2 px-4 py-3 not-first:shadow-[inset_0_1px_0_var(--color-hairline)]">
+    <li
+      className={`flex flex-col gap-2 px-4 py-3 ${bodyText} not-first:shadow-[inset_0_1px_0_var(--color-hairline)]`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="flex min-w-0 items-center gap-2">
           {level !== undefined && <SignalChip kind={level}>{levels[level].chip}</SignalChip>}
@@ -78,7 +81,7 @@ export function Storage({
             const node = nodes.find(({ id }) => id === group.nodeId);
             return (
               <div key={group.nodeId} className="flex flex-col gap-2">
-                <h3 className="flex items-center gap-2 font-semibold text-ink-2">
+                <h3 className={`flex items-center gap-2 font-semibold text-ink-2 ${bodyText}`}>
                   {node !== undefined && <NodeDot node={node} />}
                   {group.name}
                 </h3>

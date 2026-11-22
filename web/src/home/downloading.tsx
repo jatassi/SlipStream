@@ -7,9 +7,10 @@ import type {
   ShellCounts,
 } from "../api/gen/model";
 import { fillOf } from "../shell/counts";
-import { Rates, totalOf, useLatestTraffic } from "../torrents/rates";
+import { Rates, moving, totalOf, useLatestTraffic } from "../torrents/rates";
 import { ProgressBar } from "../ui/progress";
 import { Section } from "../ui/section";
+import { bodyText } from "../ui/type";
 import { nodeCounts } from "./words";
 
 const dot = (
@@ -47,9 +48,11 @@ function NodeLine({
   const { plain, failures, warnings } = nodeCounts(counted);
   const pace = traffic?.nodes.find(({ id }) => id === counted.nodeId);
   return (
-    <li className="px-4 py-3 text-ink-2 not-first:shadow-[inset_0_1px_0_var(--color-hairline)]">
+    <li
+      className={`px-4 py-3 text-ink-2 ${bodyText} not-first:shadow-[inset_0_1px_0_var(--color-hairline)]`}
+    >
       <span className="font-semibold text-ink-1">{name}</span>
-      {pace !== undefined && (
+      {pace !== undefined && moving(pace) && (
         <>
           {dot}
           <Rates pace={pace} />
@@ -72,8 +75,7 @@ function NodeLine({
 }
 
 /**
- * The torrent client side: the rates across every Node once a sample has
- * arrived, every download's progress as one bar, and each Downloading Node's
+ * The torrent client side: the rates across every Node while bytes move, every download's progress as one bar, and each Downloading Node's
  * counts. Home leaves it out while no Node downloads.
  */
 export function Downloading({
@@ -86,15 +88,17 @@ export function Downloading({
   nodes: readonly NodesNode[];
 }) {
   const traffic = useLatestTraffic();
+  const total = traffic === undefined ? undefined : totalOf(traffic);
+  const pace = total !== undefined && moving(total) ? total : undefined;
   const fill = fillOf(counts, "downloads");
   return (
     <Section title="Downloading">
       <div className="flex flex-col gap-3">
-        {(traffic !== undefined || fill !== undefined) && (
-          <div className="flex flex-col gap-2">
-            {traffic !== undefined && (
+        {(pace !== undefined || fill !== undefined) && (
+          <div className={`flex flex-col gap-2 ${bodyText}`}>
+            {pace !== undefined && (
               <span className="text-ink-1">
-                <Rates pace={totalOf(traffic)} />
+                <Rates pace={pace} />
               </span>
             )}
             {fill !== undefined && (

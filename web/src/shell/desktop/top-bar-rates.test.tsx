@@ -11,7 +11,7 @@ afterEach(restoreViewport);
 
 const mb = 1024 * 1024;
 
-test("the top bar and Downloading sum every Node's rates once a sample arrives, and the top bar's hide at 1360px", async () => {
+test("the top bar and Downloading sum every Node's rates while bytes move, and the top bar's hide at 1360px", async () => {
   const { app, server } = renderHome(summaryOf());
   const downloading = page.getByRole("region", { name: "Downloading" });
   await expect.element(downloading.getByRole("list", { name: "Downloading Nodes" })).toBeVisible();
@@ -39,4 +39,15 @@ test("the top bar and Downloading sum every Node's rates once a sample arrives, 
   await resize(1360, 900);
   await expect.element(banner.getByLabelText("Down")).not.toBeInTheDocument();
   await expect.poll(() => downloading.element().textContent).toContain(total);
+
+  server.clients[0]?.send({
+    event: "nodes.traffic",
+    data: {
+      at: new Date().toISOString(),
+      links: [],
+      nodes: [{ id: homeId, downBps: 0, upBps: 0, torrents: [] }],
+    },
+  });
+  await expect.element(downloading.getByLabelText("Down")).not.toBeInTheDocument();
+  await expect.element(downloading.getByRole("listitem")).toHaveTextContent("home·1 downloading");
 });

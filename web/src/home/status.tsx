@@ -2,6 +2,7 @@ import type { HealthReport, HomeSummary, ShellCounts } from "../api/gen/model";
 import { useMedia, wideDesktopQuery } from "../shell/media";
 import { type StatusPart, StatusSentence } from "../ui/status-sentence";
 import { Term } from "../ui/term";
+import { bodyText } from "../ui/type";
 import { counted, signalParts, todayWords } from "./words";
 
 /** The jobs part, which says they wait for Reconciling while a restore is matched. */
@@ -41,7 +42,9 @@ export function HomeStatus({
       <StatusSentence
         parts={[jobsStatus(summary.jobs.moving, counts), ...signalParts(summary, counts, report)]}
       />
-      {wide && today !== undefined && <p className="text-ink-2 tabular-nums">{today}</p>}
+      {wide && today !== undefined && (
+        <p className={`text-ink-2 tabular-nums ${bodyText}`}>{today}</p>
+      )}
     </div>
   );
 }

@@ -11,10 +11,10 @@ import { Empty } from "../ui/empty";
 import { Section } from "../ui/section";
 // oxlint-disable-next-line import/max-dependencies -- a Job's row draws its Work, stage, progress and menu
 import { type Column, Table } from "../ui/table";
+import { bodyText } from "../ui/type";
 import { jobAnchor, useHomeTint } from "./tint";
 
-export const seeAllLink =
-  "w-fit rounded-item text-ink-2 underline-offset-4 hover:text-ink-1 hover:underline";
+export const seeAllLink = `w-fit rounded-item text-ink-2 underline-offset-4 hover:text-ink-1 hover:underline ${bodyText}`;
 
 function WorkCell({ job: { grab, work } }: { job: HomeJob }) {
   return (

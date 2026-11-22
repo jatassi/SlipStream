@@ -18,6 +18,9 @@ export const totalOf = ({ nodes }: NodesTraffic): Pace => ({
   upBps: nodes.reduce((sum, node) => sum + node.upBps, 0),
 });
 
+/** Whether any byte moves, since a sample at rest reads only dashes. */
+export const moving = ({ downBps, upBps }: Pace): boolean => downBps > 0 || upBps > 0;
+
 /** "↓ 42.1 MB/s · ↑ 3.2 MB/s" */
 export function Rates({ pace: { downBps, upBps } }: { pace: Pace }) {
   return (

@@ -16,7 +16,7 @@ export function Health({ report }: { report: HealthReport }) {
   return (
     <Section id={healthAnchor} title="Health">
       <div className="flex flex-col gap-3">
-        <HealthVerdict report={report} at="/health" />
+        <HealthVerdict report={report} at="/health" scale="section" />
         {troubled.length > 0 && (
           <List label="Health categories with a problem">
             {troubled.map((category) => (
