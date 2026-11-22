@@ -295,12 +295,12 @@ func fromIndexer(g Grab) bool {
 	return g.Stage == Fetching && g.Release.link.Set() && !g.Ticket.Indexer.IsZero()
 }
 
-// Moving counts the Grabs in flight.
-func (gr *Grabs) Moving(ctx context.Context, _ identity.Admin) (int, error) {
+// InFlight counts the Grabs in flight.
+func (gr *Grabs) InFlight(ctx context.Context, _ identity.Admin) (int, error) {
 	var n int64
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		n, err = db.New(r).CountMoving(ctx, inFlightStages)
+		n, err = db.New(r).CountInFlight(ctx, inFlightStages)
 		return err
 	})
 	return int(n), err

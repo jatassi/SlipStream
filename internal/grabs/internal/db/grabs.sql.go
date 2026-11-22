@@ -103,12 +103,12 @@ func (q *Queries) AnswerSearchIndexer(ctx context.Context, arg AnswerSearchIndex
 	return result.RowsAffected()
 }
 
-const countMoving = `-- name: CountMoving :one
+const countInFlight = `-- name: CountInFlight :one
 SELECT COUNT(*) FROM grabs_grab WHERE stage IN (/*SLICE:stages*/?)
 `
 
-func (q *Queries) CountMoving(ctx context.Context, stages []Stage) (int64, error) {
-	query := countMoving
+func (q *Queries) CountInFlight(ctx context.Context, stages []Stage) (int64, error) {
+	query := countInFlight
 	var queryParams []interface{}
 	if len(stages) > 0 {
 		for _, v := range stages {
