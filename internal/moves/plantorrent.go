@@ -144,8 +144,10 @@ func torrentLane(from, to Side) Lane {
 	return Lane("vol:" + from.Node.String() + ":" + key(from) + ">" + key(to))
 }
 
-// torrentVerdict judges one torrent's Move. Each reason is red: a
-// torrent either moves whole or stays.
+// torrentVerdict judges one torrent's Move. Each reason but one is red:
+// a torrent either moves whole or stays. A private torrent out of an
+// external client into the built-in one is amber, its Hit and run window
+// counted from now.
 func torrentVerdict(t TorrentTo, src downloadclients.MoveSource, rd torrentRead, badPath bool) Verdict {
 	red := func(c Check, code, words string) Verdict {
 		return Verdict{Color: Red, Reasons: []Reason{{Check: c, Color: Red, Code: code, Words: words}}}
@@ -182,6 +184,9 @@ func torrentVerdict(t TorrentTo, src downloadclients.MoveSource, rd torrentRead,
 	})
 	if len(held) > 0 {
 		return red(CheckDestination, "already_held", "A Download Client on "+rd.nodes[t.To.Node]+" already holds this torrent.")
+	}
+	if src.Private && src.Client != nil && t.To.Client == nil {
+		return Verdict{Color: Amber, Reasons: []Reason{{Check: CheckHitAndRun, Color: Amber, Code: "window_starts", Words: "SlipStream starts counting this Hit and run window from now."}}}
 	}
 	return Verdict{}
 }

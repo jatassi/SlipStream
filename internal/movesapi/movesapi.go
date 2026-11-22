@@ -91,7 +91,7 @@ func placeOf(p moves.Place) place {
 }
 
 type reason struct {
-	Check string `json:"check" enum:"space,names,folder,destination,media_servers,waits,moving,probe,torrent"`
+	Check string `json:"check" enum:"space,names,folder,destination,media_servers,waits,moving,probe,torrent,hit_and_run"`
 	Color string `json:"color" enum:"amber,red"`
 	Code  string `json:"code" doc:"Stable per reason, such as space_error or mapping_missing"`
 	Words string `json:"words"`

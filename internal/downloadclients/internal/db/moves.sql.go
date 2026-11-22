@@ -276,7 +276,7 @@ func (q *Queries) ListHeldOnNode(ctx context.Context, arg ListHeldOnNodeParams) 
 
 const listMoveSources = `-- name: ListMoveSources :many
 SELECT t.id, t.node_id, t.client_id, t.info_hash, t.metainfo IS NOT NULL AS has_metainfo, t.content_type, t.size, t.name, t.wanted,
-       t.withheld_at, t.removed_at, t.arriving_unit IS NOT NULL AS arriving, t.completion,
+       t.private = 1 AS private, t.withheld_at, t.removed_at, t.arriving_unit IS NOT NULL AS arriving, t.completion,
        coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, c.client_version
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.id IN (/*SLICE:ids*/?)
@@ -293,6 +293,7 @@ type ListMoveSourcesRow struct {
 	Size          int64
 	Name          string
 	Wanted        string
+	Private       bool
 	WithheldAt    storage.Time
 	RemovedAt     storage.Time
 	Arriving      bool
@@ -331,6 +332,7 @@ func (q *Queries) ListMoveSources(ctx context.Context, ids []TorrentID) ([]ListM
 			&i.Size,
 			&i.Name,
 			&i.Wanted,
+			&i.Private,
 			&i.WithheldAt,
 			&i.RemovedAt,
 			&i.Arriving,

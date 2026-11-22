@@ -17014,7 +17014,8 @@
               "waits",
               "moving",
               "probe",
-              "torrent"
+              "torrent",
+              "hit_and_run"
             ],
             "type": "string"
           },

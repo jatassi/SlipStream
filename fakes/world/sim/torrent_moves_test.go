@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"reflect"
 	"slices"
 	"testing"
 	"testing/synctest"
@@ -295,5 +296,27 @@ func TestARefusedStartSeedsFromTheSourceAgainKeepingTheCopy(t *testing.T) {
 		within(t, time.Hour, "the cancel removes the kept copy", func() bool {
 			return slices.Equal(wantedOf(t, w, s), []string{"seedbox:started"})
 		})
+	})
+}
+
+// TestAPrivateTorrentIntoTheBuiltInClientNotesItsWindowStarts previews
+// The Quiet Orchard's Move out of qBittorrent into seedbox's built-in
+// client: it can move, with the amber note that its Hit and run window
+// counts from now.
+func TestAPrivateTorrentIntoTheBuiltInClientNotesItsWindowStarts(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := launchMoves(t)
+		s := seedOrchard(t, w, client{"seedbox", "qbittorrent"})
+		plan, err := w.Node("home").Half().Moves.Preview(t.Context(), moves.Ask{Origin: moves.OriginTorrent, Torrents: []moves.TorrentTo{{Torrent: s.id, To: kinds[0].side(t, w)}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := moves.Verdict{Color: moves.Amber, Reasons: []moves.Reason{{
+			Check: moves.CheckHitAndRun, Color: moves.Amber, Code: "window_starts", Words: "SlipStream starts counting this Hit and run window from now.",
+		}}}
+		if plan.Movable() != 1 || !reflect.DeepEqual(plan.Units[0].Verdict, want) {
+			t.Errorf("the preview is %+v, want it movable with %+v", plan.Units, want)
+		}
 	})
 }

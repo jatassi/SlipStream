@@ -7,4 +7,5 @@ export type MovesReasonCheck =
   | "waits"
   | "moving"
   | "probe"
-  | "torrent";
+  | "torrent"
+  | "hit_and_run";

@@ -257,6 +257,8 @@ type MoveSource struct {
 	// destination is added from.
 	Metainfo bool
 	Wanted   Wanted
+	// Private is a private torrent, which a Hit and run window may hold.
+	Private bool
 	// Withheld is on the review list after a restore.
 	Withheld bool
 	Removed  bool
@@ -293,7 +295,7 @@ func MoveSources(ctx context.Context, r storage.Reader[file], ids []ID) (map[ID]
 		s := MoveSource{
 			Node: row.NodeID, Client: refOf(row.ClientID, row.ClientKind, row.ClientName), InfoHash: bencode.InfoHash(row.InfoHash),
 			Name: row.Name, Size: row.Size, ContentType: row.ContentType, Metainfo: row.HasMetainfo, Wanted: Wanted(row.Wanted),
-			Withheld: !row.WithheldAt.IsZero(), Removed: !row.RemovedAt.IsZero(), Arriving: row.Arriving,
+			Private: row.Private, Withheld: !row.WithheldAt.IsZero(), Removed: !row.RemovedAt.IsZero(), Arriving: row.Arriving,
 		}
 		if row.ClientVersion != nil {
 			if s.Version, err = clients.ParseVersion(*row.ClientVersion); err != nil {

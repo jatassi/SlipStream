@@ -9191,6 +9191,7 @@ export const MovesReason = zod.object({
     "moving",
     "probe",
     "torrent",
+    "hit_and_run",
   ]),
   code: zod.string().describe("Stable per reason, such as space_error or mapping_missing"),
   color: zod.enum(["amber", "red"]),
