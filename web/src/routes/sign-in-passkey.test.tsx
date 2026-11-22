@@ -83,7 +83,7 @@ test("a passkey chosen from autofill signs in", async () => {
   const { get } = stubPasskeys({ autofill: true });
   get.mockResolvedValue(credential);
   const { router } = renderApp({ path: "/sign-in", handlers: passkeyServer().handlers });
-  await expect.poll(() => router.state.location.href).toBe("/library");
+  await expect.poll(() => router.state.location.href).toBe("/");
   expect(get.mock.calls[0]?.[1]).toMatchObject({ mediation: "conditional" });
 });
 

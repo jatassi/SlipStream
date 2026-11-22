@@ -65,16 +65,24 @@ test("the sidebar lists Library with each enabled Content Type, Activity and the
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Library", "Films", "Activity", "Nodes", "Health", "Accounts", "Settings", "Tasks"]);
+  ).toEqual([
+    "Home",
+    "Library",
+    "Films",
+    "Activity",
+    "Nodes",
+    "Health",
+    "Accounts",
+    "Settings",
+    "Tasks",
+  ]);
   await expect
     .element(mainNav().getByRole("link", { name: "Library" }))
     .toHaveAttribute("aria-current", "page");
   await expect
     .element(mainNav().getByRole("link", { name: "Films" }))
     .not.toHaveAttribute("aria-current");
-  await expect
-    .element(page.getByRole("link", { name: "SlipStream" }))
-    .toHaveAttribute("href", "/library");
+  await expect.element(page.getByRole("link", { name: "SlipStream" })).toHaveAttribute("href", "/");
   expect(currentLinks()).toEqual(["Library"]);
 
   contentTypes = [cinema, { ...shows, enabled: true }];

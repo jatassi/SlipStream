@@ -2,29 +2,19 @@ import type { Page } from "@playwright/test";
 import { z } from "zod";
 
 import { type World, expect, expectAccessible, test } from "./fixtures.ts";
+import { grabOnSeedbox, nodeId } from "./grabs.ts";
 import { isPhone, navigate } from "./shell.ts";
 import { screenshotWholePage } from "./whole-page.ts";
 
 test.use({ scenario: "home" });
 
-const Nodes = z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string() })) });
 const Settings = z.object({ sendLimit: z.object({ value: z.number() }) });
-const Added = z.object({ work: z.object({ id: z.string() }) });
 const Imports = z.object({ imports: z.tuple([z.object({ id: z.string() })]) });
 const Transfers = z.object({
   transfers: z.array(z.object({ purpose: z.string(), job: z.string() })),
 });
 
 const pace = / of 36 MB · [\d.]+ [KM]B\/s/u;
-
-async function nodeId(world: World, name: string): Promise<string> {
-  const { nodes } = Nodes.parse((await world.api("GET", "/api/v1/nodes")).body);
-  const node = nodes.find((candidate) => candidate.name === name);
-  if (node === undefined) {
-    throw new Error(`the Scenario has no ${name}`);
-  }
-  return node.id;
-}
 
 async function openTransfers(page: Page, id: string, name: string): Promise<void> {
   await page.goto(`/nodes/${id}`);
@@ -33,24 +23,6 @@ async function openTransfers(page: Page, id: string, name: string): Promise<void
     : page.getByRole("navigation", { name });
   await sections.getByRole("link", { name: "Transfers" }).click();
   await expect(page).toHaveURL(/\/nodes\/[\da-f-]+\/transfers$/u);
-}
-
-// The Quiet Orchard, added and searched the way a script would, with
-// seedbox's send limit holding its Transfer to about a minute.
-async function grabOnSeedbox(world: World): Promise<string> {
-  const settings = `/api/v1/transfers/nodes/${await nodeId(world, "seedbox")}/settings` as const;
-  const limited = await world.api("PATCH", settings, { sendLimit: 512 * 1024 });
-  expect(limited.status, "seedbox's send limit is saved").toBe(200);
-  const added = await world.api("POST", "/api/v1/works", {
-    contentType: "movie",
-    key: "9000001",
-    preset: "all",
-  });
-  expect(added.status, "The Quiet Orchard is added").toBe(200);
-  const workId = Added.parse(added.body).work.id;
-  const search = await world.api("POST", `/api/v1/works/${workId}/search`);
-  expect(search.status, "its search starts").toBe(202);
-  return workId;
 }
 
 async function importOf(world: World, workId: string): Promise<string> {

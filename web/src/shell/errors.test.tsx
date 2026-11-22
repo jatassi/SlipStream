@@ -76,12 +76,12 @@ test("a page for Admins says so and links to the portal", async () => {
     .toHaveAttribute("href", "/portal");
 });
 
-test("a dead address in the app says there's nothing there and links to Library", async () => {
+test("a dead address in the app says there's nothing there and links to Home", async () => {
   renderApp({ path: "/nowhere/at/all" });
   await expect.element(page.getByText("There's nothing at this address.")).toBeVisible();
   await expect
-    .element(page.getByRole("button", { name: "Go to Library" }))
-    .toHaveAttribute("href", "/library");
+    .element(page.getByRole("button", { name: "Go to Home" }))
+    .toHaveAttribute("href", "/");
   await expect.element(mainNav()).toBeVisible();
 });
 

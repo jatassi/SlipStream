@@ -6,7 +6,7 @@ import type { Identity } from "./manifest.ts";
 export async function signIn(page: Page, identity: Identity): Promise<void> {
   await page.goto("/sign-in");
   await declinePasskeyPrompt(page, await submitPin(page, identity.email, identity.pin));
-  await page.getByRole("heading", { name: identity.admin ? "Library" : "Home" }).waitFor();
+  await page.getByRole("heading", { name: "Home", level: 1 }).waitFor();
 }
 
 // The PIN field submits on its last digit.

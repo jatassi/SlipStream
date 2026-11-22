@@ -9,6 +9,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -50,8 +51,8 @@ func (q *Queries) ListExisting(ctx context.Context, ids []GrabID) ([]GrabID, err
 }
 
 const listFailed = `-- name: ListFailed :many
-SELECT id, work_id, failure_code, source FROM grabs_grab
-WHERE stage = 'failed' ORDER BY created_at DESC
+SELECT id, work_id, failure_code, source, created_at FROM grabs_grab INDEXED BY grabs_grab_failing
+WHERE stage = 'failed' AND replaced = 0 ORDER BY created_at DESC
 `
 
 type ListFailedRow struct {
@@ -59,6 +60,7 @@ type ListFailedRow struct {
 	WorkID      works.WorkID
 	FailureCode *Code
 	Source      Source
+	CreatedAt   storage.Time
 }
 
 func (q *Queries) ListFailed(ctx context.Context) ([]ListFailedRow, error) {
@@ -75,6 +77,7 @@ func (q *Queries) ListFailed(ctx context.Context) ([]ListFailedRow, error) {
 			&i.WorkID,
 			&i.FailureCode,
 			&i.Source,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

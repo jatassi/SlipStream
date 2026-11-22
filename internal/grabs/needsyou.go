@@ -8,8 +8,8 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// needsYouCap bounds the count History's sentence words: it reads every
-// failed Grab only until this many need the Admin.
+// needsYouCap bounds the count History's sentence words: it reads failed
+// Grabs only until this many need the Admin.
 const needsYouCap = 100
 
 // needsYouBatch is how many failed Grabs one pass reads the cells of.
@@ -17,34 +17,64 @@ const needsYouBatch = 500
 
 // NeedsYou counts the failed Grabs Activity lists under Needs you: each
 // failed in a way the Admin didn't choose, isn't searched again, and a cell
-// still reads from. It reads failed Grabs only, newest first, and stops at
-// 100.
+// still reads from. It reads only the failed Grabs no later Grab replaced,
+// newest first, and stops at 100.
 func NeedsYou(ctx context.Context, r storage.Reader[file]) (int, error) {
+	_, n, err := needsYouWalk(ctx, r, 0)
+	return n, err
+}
+
+// needsYouWalk is the first keep failed Grabs that need you, newest first,
+// and how many there are, counted up to needsYouCap.
+func needsYouWalk(ctx context.Context, r storage.Reader[file], keep int) (kept []db.ListFailedRow, n int, err error) {
 	rows, err := db.New(r).ListFailed(ctx)
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
-	var failed []Grab
+	var failed []db.ListFailedRow
 	for _, row := range rows {
-		g := Grab{ID: row.ID, WorkID: row.WorkID, Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}
-		if g.NeedsYou() {
-			failed = append(failed, g)
+		if failedOf(row).NeedsYou() {
+			failed = append(failed, row)
 		}
 	}
-	n := 0
 	for batch := range slices.Chunk(failed, needsYouBatch) {
-		current, again, err := grabsCellsReadFrom(ctx, r, batch)
+		needing, err := needingOf(ctx, r, batch)
 		if err != nil {
-			return 0, err
+			return nil, 0, err
 		}
-		for _, g := range batch {
-			if current[g.ID] && !again[g.ID] {
-				n++
+		for _, row := range needing {
+			if len(kept) < keep {
+				kept = append(kept, row)
+			}
+			n++
+			if n >= needsYouCap {
+				return kept, needsYouCap, nil
 			}
 		}
-		if n >= needsYouCap {
-			return needsYouCap, nil
+	}
+	return kept, n, nil
+}
+
+// needingOf is each of batch that is its cell's current Grab and isn't
+// being tried again.
+func needingOf(ctx context.Context, r storage.Reader[file], batch []db.ListFailedRow) ([]db.ListFailedRow, error) {
+	grabs := make([]Grab, len(batch))
+	for i, row := range batch {
+		grabs[i] = failedOf(row)
+	}
+	current, again, err := grabsCellsReadFrom(ctx, r, grabs)
+	if err != nil {
+		return nil, err
+	}
+	var out []db.ListFailedRow
+	for _, row := range batch {
+		if current[row.ID] && !again[row.ID] {
+			out = append(out, row)
 		}
 	}
-	return n, nil
+	return out, nil
+}
+
+func failedOf(row db.ListFailedRow) Grab {
+	return Grab{ID: row.ID, WorkID: row.WorkID, Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}
 }

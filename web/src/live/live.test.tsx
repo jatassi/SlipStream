@@ -13,21 +13,9 @@ import {
 import { ada, grace, homePage, problem } from "../test/handlers";
 import { liveServer, seeded, synced } from "../test/live-server";
 import { renderApp } from "../test/render-app";
+import { countRequests } from "../test/requests";
+// oxlint-disable-next-line import/max-dependencies -- the live stream's effects reach every owner's reads
 import { worker } from "../test/worker";
-
-function countRequests() {
-  const counts = new Map<string, number>();
-  const count = ({ request }: { request: Request }) => {
-    const path = new URL(request.url).pathname.replace(
-      /^\/api\/v1\/nodes\/[^/]+\//u,
-      "/api/v1/nodes/:id/",
-    );
-    const key = `${request.method} ${path}`;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  };
-  worker.events.on("request:start", count);
-  return (key: string) => counts.get(key) ?? 0;
-}
 
 afterEach(() => {
   worker.events.removeAllListeners();
@@ -44,7 +32,7 @@ const overview = "GET /api/v1/nodes/:id/system";
 test("identity.sessions-changed refetches the session once", async () => {
   const server = liveServer();
   const requests = countRequests();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
   await expect.poll(() => app.live.getState()).toBe("open");
   await expect.poll(() => requests("GET /api/v1/session")).toBe(2);
@@ -145,7 +133,7 @@ test("live.session-ended clears this tab and every other tab", async () => {
   const server = liveServer();
   const first = renderApp({ path: homePage, handlers: server.handlers });
   await expect.element(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  const second = renderApp({ path: "/" });
+  const second = renderApp({ path: "/library" });
   await expect.poll(() => server.clients.length).toBe(2);
   await expect.poll(() => second.queryClient.isFetching()).toBe(0);
 
@@ -190,7 +178,7 @@ test("live.access-changed keeps a promoted Member in the portal they were in, wi
   server.clients[0]?.dispatchEvent(new MessageEvent("live.access-changed", { data: "{}" }));
   await expect.poll(() => server.clients).toHaveLength(2);
   await userEvent.click(page.getByRole("button", { name: "Account" }));
-  await expect.element(page.getByRole("menuitem", { name: "Back to Library" })).toBeVisible();
+  await expect.element(page.getByRole("menuitem", { name: "Back to Home" })).toBeVisible();
   expect(app.router.state.location.href).toBe("/portal");
 });
 
@@ -246,7 +234,7 @@ test("a refused stream with a live session reopens after a second", async () => 
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
   const server = liveServer();
   const app = renderApp({
-    path: "/",
+    path: "/library",
     handlers: [
       http.get("*/api/v1/events", () => problem(500, "internal", "Something failed"), {
         once: true,
@@ -272,7 +260,7 @@ test("a hidden tab releases its stream after 10 seconds and reopens when shown",
     document.dispatchEvent(new Event("visibilitychange"));
   };
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await expect.poll(() => app.live.getState()).toBe("open");
 
   show("hidden");

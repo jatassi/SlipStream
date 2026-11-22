@@ -88,7 +88,7 @@ func TestNodeSettingsAreEachNodesOwnAndReachItsIntent(t *testing.T) {
 	lib := open(t)
 	seedbox, home := addNode(t, lib, "seedbox"), addNode(t, lib, "home")
 	r, cards := &readers{}, &told{}
-	c := dc.New(dc.Config{Library: lib, Touch: r.touch, Changed: r, CardsChanged: cards})
+	c := dc.New(dc.Config{Library: lib, Touch: r.touch, Changed: r, CardsChanged: cards, Volumes: noVolumes{}})
 	limit := int64(512 * 1024)
 	off := false
 	set := func(ch dc.NodeChange) dc.NodeSettings {
@@ -144,7 +144,7 @@ func TestThresholdsKeepWhatIsLeftAndReachEveryDownloadingNode(t *testing.T) {
 	lib := open(t)
 	seedbox, home := addNode(t, lib, "seedbox"), addNode(t, lib, "home")
 	r, cards := &readers{}, &told{}
-	c := dc.New(dc.Config{Library: lib, Touch: r.touch, Changed: r, CardsChanged: cards, Roster: &roster{serving: []role.NodeID{seedbox, home}}})
+	c := dc.New(dc.Config{Library: lib, Touch: r.touch, Changed: r, CardsChanged: cards, Volumes: noVolumes{}, Roster: &roster{serving: []role.NodeID{seedbox, home}}})
 	gap, metadataWait, clientError := int64(3600), int64(60), int64(600)
 	o, err := c.SetThresholds(t.Context(), dc.ThresholdChange{
 		UnregisteredGap: parsed(dc.UnregisteredGap.Parse(&gap)), MetadataWait: parsed(dc.MetadataWait.Parse(&metadataWait)),

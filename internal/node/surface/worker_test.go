@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/history"
+	"github.com/jatassi/slipstream/internal/home"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -69,6 +70,7 @@ func (worker) MediaServers() (mediaservers.Service, bool) { return nil, false }
 func (worker) Notifications() (*notifications.Service, bool) { return nil, false }
 
 func (worker) Calendar() (*calendar.Calendar, bool) { return nil, false }
+func (worker) Home() (*home.Service, bool)          { return nil, false }
 
 func (worker) History() (*history.Service, bool) { return nil, false }
 

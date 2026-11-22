@@ -20,7 +20,7 @@ func TestAPacksTargetsNameEachTargetOnce(t *testing.T) {
 			v.Targets = append(v.Targets, grabs.Cell{Key: files.CellKey{Item: item, Edition: targets.AnyEdition, Target: target}})
 		}
 	}
-	got := grabOf(v)
+	got := GrabOf(v)
 	if want := []string{hd.String(), uhd.String()}; !slices.Equal(got.TargetIDs, want) || len(got.Targets) != 6 {
 		t.Errorf("a Grab of 3 Items for 2 Targets lists targetIds %q over %d cells, want %q over 6", got.TargetIDs, len(got.Targets), want)
 	}

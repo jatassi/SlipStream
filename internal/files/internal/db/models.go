@@ -74,6 +74,7 @@ type FilesImported struct {
 	Cells    string
 	Replaced string
 	At       storage.Time
+	Quality  *release.Quality
 }
 
 type FilesMove struct {

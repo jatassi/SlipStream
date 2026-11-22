@@ -1,29 +1,14 @@
 import type { HealthVolume, RootsRoot, RootsRootVolume } from "../api/gen/model";
-import { bytes } from "../format";
 import { levels } from "../health/levels";
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
 import { Meter } from "../ui/meter";
-import { RelativeTime } from "../ui/relative-time";
 import { SignalChip } from "../ui/signal-chip";
+import { Free } from "./free";
 import { hasOwnLevels } from "./volume-levels-dialog";
 import { VolumeMenu } from "./volume-menu";
 
 const kindChip = { local: undefined, removable: "Removable", network: "Network" } as const;
-
-function Free({ volume, live }: { volume: RootsRootVolume; live: boolean }) {
-  return (
-    <span className="text-ink-2 tabular-nums">
-      {`${bytes(volume.free)} free of ${bytes(volume.total)}`}
-      {!live && (
-        <>
-          {" as of "}
-          <RelativeTime at={volume.sampledAt} form="clock" />
-        </>
-      )}
-    </span>
-  );
-}
 
 export function VolumeRow({
   volume,
@@ -49,7 +34,7 @@ export function VolumeRow({
           {health !== undefined && hasOwnLevels(health) && <Chip>Own levels</Chip>}
         </span>
         <span className="flex items-center gap-2">
-          <Free volume={volume} live={live} />
+          <Free {...volume} live={live} />
           {health !== undefined && <VolumeMenu volume={health} />}
         </span>
       </div>

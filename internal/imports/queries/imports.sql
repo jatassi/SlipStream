@@ -185,3 +185,6 @@ ORDER BY position;
 -- name: MarkTold :exec
 UPDATE imports_file SET told_at = sqlc.arg(told_at)
 WHERE import_id = sqlc.arg(import_id) AND outcome = 'placed' AND told_at IS NULL;
+
+-- name: ListUnfinishedAmong :many
+SELECT id FROM imports_import WHERE id IN (sqlc.slice(ids)) AND finished_at IS NULL ORDER BY id;

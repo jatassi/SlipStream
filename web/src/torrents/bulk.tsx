@@ -1,6 +1,7 @@
 import { Button } from "../ui/button";
 import { type Subject, type TorrentAction, actionLabels, menuFor } from "./actions";
 import { useActing } from "./acting";
+import type { WorkNames } from "./remove-preview";
 import { actionIcons } from "./actions-menu";
 import type { Row } from "./model";
 
@@ -10,13 +11,15 @@ const bulkActions = ["pause", "resume", "remove"] as const satisfies readonly To
 export function BulkBar({
   picked,
   subjectOf,
+  names,
   onClear,
 }: {
   picked: readonly Row[];
   subjectOf: (row: Row) => Subject;
+  names: WorkNames;
   onClear: () => void;
 }) {
-  const { start, dialogs } = useActing();
+  const { start, dialogs } = useActing(names);
   const offering = (action: TorrentAction) =>
     picked.filter((row) => menuFor(row).includes(action)).map((row) => subjectOf(row));
   return (

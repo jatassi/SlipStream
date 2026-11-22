@@ -45,7 +45,7 @@ test("a forward navigation starts one push transition and Back one pop", async (
   await page.evaluate(() => document.activeViewTransition?.finished);
 
   await page.goBack();
-  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
   expect(await transitionTypes(page)).toEqual([["push"], ["pop"]]);
   await expect
     .poll(() => contentAnimations(page))

@@ -53,7 +53,7 @@ function useFinish(open: boolean) {
       return;
     }
     markFirstSetupFinished(queryClient);
-    void navigate({ to: "/library", replace: true });
+    void navigate({ to: "/", replace: true });
   }, [open, queryClient, navigate]);
   return async (href: string) => {
     leaving.current = true;

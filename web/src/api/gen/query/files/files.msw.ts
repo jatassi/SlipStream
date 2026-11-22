@@ -434,6 +434,7 @@ export const getGetWorkCellsResponseFilesWaitingNeedMock = (
       "no_space",
       "root_not_ready",
       "probe_timeout",
+      "probe_error",
       "client_error",
     ] as const),
     grabId: faker.string.uuid(),

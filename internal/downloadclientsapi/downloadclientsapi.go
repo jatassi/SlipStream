@@ -414,6 +414,14 @@ func Routes(r *api.Router, clients Clients) {
 	}, h.listTorrents)
 
 	api.Register(o, api.Admin, api.Op{
+		ID:      "getTorrentCounts",
+		Method:  http.MethodGet,
+		Path:    "/torrents/counts",
+		Summary: "Count each Downloading Node's Torrents downloading, seeding, failed and with a warning",
+		Status:  http.StatusOK,
+	}, h.getTorrentCounts)
+
+	api.Register(o, api.Admin, api.Op{
 		ID:      "getTorrent",
 		Method:  http.MethodGet,
 		Path:    "/torrents/{id}",

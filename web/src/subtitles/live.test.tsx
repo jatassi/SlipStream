@@ -17,7 +17,7 @@ const tried = "0a2c4e6a-8c0e-4a2c-8e6a-8c0e2a4c6d8f";
 
 test("subtitles.changed refreshes the named Works' subtitles and the section's lead", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     attic: getGetWorkSubtitlesQueryKey(attic),
@@ -36,7 +36,7 @@ test("subtitles.changed refreshes the named Works' subtitles and the section's l
 
 test("subtitles.providers-changed refreshes the providers and every subtitle setting", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     providers: getListSubtitleProvidersQueryKey(),
@@ -52,7 +52,7 @@ test("subtitles.providers-changed refreshes the providers and every subtitle set
 
 test("subtitles.attempt refreshes only that attempt", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     tried: getGetSubtitleAttemptQueryKey(film, tried),

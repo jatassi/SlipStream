@@ -1691,6 +1691,40 @@ export const DownloadclientsNewClient = zod.object({
 export type DownloadclientsNewClient = zod.input<typeof DownloadclientsNewClient>;
 export type DownloadclientsNewClientOutput = zod.output<typeof DownloadclientsNewClient>;
 
+export const downloadclientsNodeTorrentsDownloadingMin = 0;
+
+export const downloadclientsNodeTorrentsFailuresMin = 0;
+
+export const downloadclientsNodeTorrentsSeedingMin = 0;
+
+export const downloadclientsNodeTorrentsTorrentsMin = 0;
+
+export const downloadclientsNodeTorrentsWarningsMin = 0;
+
+export const DownloadclientsNodeTorrents = zod.object({
+  downloading: zod.int().min(downloadclientsNodeTorrentsDownloadingMin),
+  failures: zod.int().min(downloadclientsNodeTorrentsFailuresMin),
+  nodeId: zod.uuid(),
+  seeding: zod.int().min(downloadclientsNodeTorrentsSeedingMin),
+  torrents: zod
+    .int()
+    .min(downloadclientsNodeTorrentsTorrentsMin)
+    .describe("Every Torrent it holds, paused, queued and complete ones too"),
+  warnings: zod.int().min(downloadclientsNodeTorrentsWarningsMin),
+});
+
+export type DownloadclientsNodeTorrents = zod.input<typeof DownloadclientsNodeTorrents>;
+export type DownloadclientsNodeTorrentsOutput = zod.output<typeof DownloadclientsNodeTorrents>;
+
+export const DownloadclientsNodeTorrentsList = zod.object({
+  nodes: zod.array(DownloadclientsNodeTorrents).describe("One per Downloading Node, in Node order"),
+});
+
+export type DownloadclientsNodeTorrentsList = zod.input<typeof DownloadclientsNodeTorrentsList>;
+export type DownloadclientsNodeTorrentsListOutput = zod.output<
+  typeof DownloadclientsNodeTorrentsList
+>;
+
 export const downloadclientsRatioLaneValueMin = 0;
 
 export const DownloadclientsRatioLane = zod.object({
@@ -2927,10 +2961,11 @@ export const FilesWaitingNeed = zod.object({
       "no_space",
       "root_not_ready",
       "probe_timeout",
+      "probe_error",
       "client_error",
     ])
     .describe(
-      "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of sync with the Controller, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't have the Downloading Role. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, and client_error while its external client reports an error",
+      "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of sync with the Controller, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't have the Downloading Role. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, probe_error while reading a file failed once and SlipStream tries once more, and client_error while its external client reports an error",
     ),
   grabId: zod.uuid(),
   importWait: zod
@@ -6064,6 +6099,139 @@ export const HoldersOutputBody = zod.object({
 
 export type HoldersOutputBody = zod.input<typeof HoldersOutputBody>;
 export type HoldersOutputBodyOutput = zod.output<typeof HoldersOutputBody>;
+
+export const HomeWork = zod.object({
+  backdropUrl: zod
+    .string()
+    .nullable()
+    .describe("The artwork route without a size; null when it has none"),
+  contentType: zod.string(),
+  failed: zod.boolean().describe("Its status is failed, so it never tints Home"),
+  id: zod.uuid(),
+  label: zod.string(),
+  posterUrl: zod
+    .string()
+    .nullable()
+    .describe("The artwork route without a size; null when it has none"),
+});
+
+export type HomeWork = zod.input<typeof HomeWork>;
+export type HomeWorkOutput = zod.output<typeof HomeWork>;
+
+export const HomeArrival = zod.object({
+  at: zod.iso.datetime({ offset: true }).describe("When SlipStream imported its last file"),
+  importId: zod.uuid(),
+  words: zod.string().describe("What it did, such as Imported 10 episodes · 2 upgrades"),
+  work: HomeWork,
+});
+
+export type HomeArrival = zod.input<typeof HomeArrival>;
+export type HomeArrivalOutput = zod.output<typeof HomeArrival>;
+
+export const HomeJob = zod.object({
+  grab: GrabsGrab,
+  torrent: zod
+    .union([DownloadclientsTorrentRow, zod.null()])
+    .describe(
+      "Its Torrent as the Torrents view lists it, without queuePosition; null until the .torrent is fetched",
+    ),
+  work: HomeWork,
+});
+
+export type HomeJob = zod.input<typeof HomeJob>;
+export type HomeJobOutput = zod.output<typeof HomeJob>;
+
+export const homeJobsMovingMin = 0;
+
+export const HomeJobs = zod.object({
+  moving: zod.int().min(homeJobsMovingMin).describe("Every moving Grab"),
+  rows: zod
+    .array(HomeJob)
+    .describe("The moving Grabs, nearest Available first, at most Rows on Home"),
+});
+
+export type HomeJobs = zod.input<typeof HomeJobs>;
+export type HomeJobsOutput = zod.output<typeof HomeJobs>;
+
+export const HomeNeed = zod.object({
+  grab: GrabsGrab,
+  wait: zod
+    .union([FilesWaitingNeed, zod.null()])
+    .describe("What it waits on, as the Work page words it; null for a failed Grab"),
+  work: HomeWork,
+});
+
+export type HomeNeed = zod.input<typeof HomeNeed>;
+export type HomeNeedOutput = zod.output<typeof HomeNeed>;
+
+export const homeNeedsYouFailedMin = 0;
+export const homeNeedsYouFailedMax = 100;
+
+export const homeNeedsYouWaitingMin = 0;
+
+export const HomeNeedsYou = zod.object({
+  failed: zod
+    .int()
+    .min(homeNeedsYouFailedMin)
+    .max(homeNeedsYouFailedMax)
+    .describe("Failed Grabs that need attention, counted up to 100; 100 means 100 or more"),
+  rows: zod.array(HomeNeed).describe("Newest first, at most Rows on Home"),
+  waiting: zod.int().min(homeNeedsYouWaitingMin).describe("Grabs that wait on an Admin"),
+});
+
+export type HomeNeedsYou = zod.input<typeof HomeNeedsYou>;
+export type HomeNeedsYouOutput = zod.output<typeof HomeNeedsYou>;
+
+export const homeTodayImportedMin = 0;
+
+export const homeTodayUpgradedMin = 0;
+
+export const HomeToday = zod.object({
+  imported: zod
+    .int()
+    .min(homeTodayImportedMin)
+    .describe(
+      "Finished Imports, other than upgrades, that imported a file at or after the time in the since parameter",
+    ),
+  upgraded: zod
+    .int()
+    .min(homeTodayUpgradedMin)
+    .describe(
+      "Finished Imports that imported a file at or after the time in the since parameter and whose every file replaced one",
+    ),
+});
+
+export type HomeToday = zod.input<typeof HomeToday>;
+export type HomeTodayOutput = zod.output<typeof HomeToday>;
+
+export const HomeRecent = zod.object({
+  rows: zod.array(HomeArrival).describe("Finished Imports, newest first, at most Rows on Home"),
+  today: HomeToday,
+});
+
+export type HomeRecent = zod.input<typeof HomeRecent>;
+export type HomeRecentOutput = zod.output<typeof HomeRecent>;
+
+export const HomeSettings = zod.object({
+  settings: zod.array(SettingField).describe("Rows on Home"),
+});
+
+export type HomeSettings = zod.input<typeof HomeSettings>;
+export type HomeSettingsOutput = zod.output<typeof HomeSettings>;
+
+export const HomeSettingsChanged = zod.object({});
+
+export type HomeSettingsChanged = zod.input<typeof HomeSettingsChanged>;
+export type HomeSettingsChangedOutput = zod.output<typeof HomeSettingsChanged>;
+
+export const HomeSummary = zod.object({
+  jobs: HomeJobs,
+  needsYou: HomeNeedsYou,
+  recent: HomeRecent,
+});
+
+export type HomeSummary = zod.input<typeof HomeSummary>;
+export type HomeSummaryOutput = zod.output<typeof HomeSummary>;
 
 export const identityAccountDisplayNameMax = 100;
 
@@ -14538,6 +14706,14 @@ export const LiveEventHistoryChanged = zod.object({
 export type LiveEventHistoryChanged = zod.input<typeof LiveEventHistoryChanged>;
 export type LiveEventHistoryChangedOutput = zod.output<typeof LiveEventHistoryChanged>;
 
+export const LiveEventHomeSettingsChanged = zod.object({
+  event: zod.enum(["home.settings-changed"]),
+  data: HomeSettingsChanged,
+});
+
+export type LiveEventHomeSettingsChanged = zod.input<typeof LiveEventHomeSettingsChanged>;
+export type LiveEventHomeSettingsChangedOutput = zod.output<typeof LiveEventHomeSettingsChanged>;
+
 export const LiveEventIdentityAccountsChanged = zod.object({
   event: zod.enum(["identity.accounts-changed"]),
   data: IdentityAccountsChanged,
@@ -14942,6 +15118,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventGrabsSearchChanged,
   LiveEventHealthChanged,
   LiveEventHistoryChanged,
+  LiveEventHomeSettingsChanged,
   LiveEventIdentityAccountsChanged,
   LiveEventIdentityAddressChanged,
   LiveEventIdentityLinksChanged,

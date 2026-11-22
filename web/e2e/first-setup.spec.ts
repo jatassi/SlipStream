@@ -151,12 +151,12 @@ test("a new Admin walks first setup step by step, resumes it after a reload and 
     "metadata.region": "GB",
   });
 
-  await page.getByRole("button", { name: "Go to Library" }).click();
-  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
-  expect(page.url()).toBe(`${world.baseURL}/library`);
+  await page.getByRole("button", { name: "Go to Home" }).click();
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  expect(page.url()).toBe(`${world.baseURL}/`);
   await page.goto("/setup/roots");
-  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
-  expect(page.url()).toBe(`${world.baseURL}/library`);
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  expect(page.url()).toBe(`${world.baseURL}/`);
   expect(await read(page, "/api/v1/first-run")).toMatchObject({ open: false });
 });
 

@@ -60,9 +60,7 @@ test("the avatar menu opens Your Account with the Member's name", async () => {
   await expect
     .element(page.getByRole("region", { name: "Profile" }).getByText("Grace Lindqvist"))
     .toBeVisible();
-  await expect
-    .element(page.getByRole("button", { name: "Back to Library" }))
-    .not.toBeInTheDocument();
+  await expect.element(page.getByRole("button", { name: "Back to Home" })).not.toBeInTheDocument();
 
   await userEvent.click(page.getByRole("button", { name: "Account" }));
   await expect
@@ -93,18 +91,18 @@ test("an Admin can open the portal to see what Members see", async () => {
     .toHaveAttribute("aria-current", "page");
 
   await userEvent.click(page.getByRole("button", { name: "Account" }));
-  await userEvent.click(page.getByRole("menuitem", { name: "Back to Library" }));
-  await expect.poll(() => router.state.location.href).toBe("/library");
+  await userEvent.click(page.getByRole("menuitem", { name: "Back to Home" }));
+  await expect.poll(() => router.state.location.href).toBe("/");
   await expect.element(mainNav()).toBeVisible();
 });
 
-test("on a phone an Admin finds the way back to Library on the portal's Account page", async () => {
+test("on a phone an Admin finds the way back to Home on the portal's Account page", async () => {
   await asPhone();
   const { router } = renderApp({ path: "/portal/account", handlers: accountLists() });
-  await userEvent.click(page.getByRole("button", { name: "Back to Library" }));
-  await expect.poll(() => router.state.location.href).toBe("/library");
+  await userEvent.click(page.getByRole("button", { name: "Back to Home" }));
+  await expect.poll(() => router.state.location.href).toBe("/");
   await expect
-    .element(page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Library" }))
+    .element(page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Home" }))
     .toHaveAttribute("aria-current", "page");
 });
 

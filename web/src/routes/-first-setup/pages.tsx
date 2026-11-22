@@ -55,7 +55,7 @@ export function StepPage({
       <Progress number={number ?? 0} count={count} ahead={ahead.map((id) => screens[id].name)} />
       <p>{screen.why}</p>
       <screen.Body key={step.id} step={step} nav={nav} />
-      <FinishSetup finish={() => leave("/library")} />
+      <FinishSetup finish={() => leave("/")} />
     </EntryPage>
   );
 }

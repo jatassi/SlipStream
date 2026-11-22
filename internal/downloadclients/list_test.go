@@ -79,7 +79,7 @@ func (l *listed) add(t *testing.T, node role.NodeID, name string, r *dlv1.Torren
 
 func (l *listed) clients() *dc.Clients {
 	return dc.New(dc.Config{
-		Library: l.lib, Touch: func(...role.NodeID) {}, Changed: published{}, CardsChanged: &told{}, Roster: l.r, Uses: l.u, Seeding: l.s,
+		Library: l.lib, Touch: func(...role.NodeID) {}, Changed: published{}, CardsChanged: &told{}, Volumes: noVolumes{}, Roster: l.r, Uses: l.u, Seeding: l.s,
 		Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return l.node },
 		Facts:  func(role.NodeID) (*dlv1.Facts, bool) { return nil, false },
 		Live:   dc.LiveConfig{Watched: func() []role.NodeID { return nil }, Event: &admin{}, Sample: liveSample},
@@ -297,7 +297,7 @@ func TestACardReadsItsNodesClientFactsSettingsAndTotals(t *testing.T) {
 	removeTorrent(t, l.lib, gone, dc.ByAdmin)
 	cards := &told{}
 	c := dc.New(dc.Config{
-		Library: l.lib, Touch: func(...role.NodeID) {}, Changed: published{}, CardsChanged: cards, Roster: l.r,
+		Library: l.lib, Touch: func(...role.NodeID) {}, Changed: published{}, CardsChanged: cards, Volumes: noVolumes{}, Roster: l.r,
 		Facts: func(n role.NodeID) (*dlv1.Facts, bool) { f, ok := facts[n]; return f, ok },
 	})
 	limit := int64(1 << 20)

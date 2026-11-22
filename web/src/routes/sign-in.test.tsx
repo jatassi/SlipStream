@@ -42,7 +42,7 @@ test("a signed-out visit to / lands on sign-in with a redirect back", async () =
 });
 
 test("a wrong PIN shows the server's title and clears the PIN, and the right one signs in", async () => {
-  const { router } = renderApp({ path: "/", handlers: adaServer() });
+  const { router } = renderApp({ path: "/library", handlers: adaServer() });
   await userEvent.fill(page.getByLabelText("Email"), "ada@example.test");
   await typePin("1235");
   await expect.element(page.getByRole("alert")).toBeVisible();
@@ -73,7 +73,7 @@ test.each([
 });
 
 test("the browser remembers the email that signed in and fills it next time", async () => {
-  renderApp({ path: "/", handlers: adaServer() });
+  renderApp({ path: "/library", handlers: adaServer() });
   await userEvent.fill(page.getByLabelText("Email"), " ada@example.test ");
   await typePin("1234");
   await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();

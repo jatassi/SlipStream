@@ -30,6 +30,9 @@ func (im Import) progress() grabs.ImportOf {
 	out := grabs.ImportOf{ID: im.ID.UUID, OneItemEach: true, Finished: !im.Finished.IsZero()}
 	held := map[works.ItemID]bool{}
 	for _, f := range im.Files {
+		if f.Hold != nil && out.Wait == nil {
+			out.Wait = &grabs.GrabWait{Code: string(f.Hold.Code), Hold: f.rootHold()}
+		}
 		switch f.Outcome {
 		case Pending:
 			out.Reading++

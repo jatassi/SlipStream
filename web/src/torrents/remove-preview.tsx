@@ -12,6 +12,18 @@ import { owedWords } from "./seeding";
 
 export type Parting = "remove" | "mark-failed";
 
+/**
+ * Each Work's name by its id, for the Works a torrent's files belong to, and
+ * what to call a Work the lookup doesn't have.
+ */
+export type WorkNames = {
+  readonly of: (id: string) => string | undefined;
+  readonly unknown: string;
+};
+
+/** Names from the Library, which lacks a Work only once it's deleted. */
+export const libraryNames = (of: WorkNames["of"]): WorkNames => ({ of, unknown: "A deleted Work" });
+
 export const list = new Intl.ListFormat("en", { type: "conjunction" });
 
 const cancelsLead: { readonly [P in Parting]: (count: number) => string } = {
@@ -92,18 +104,24 @@ function CanceledList({
   work,
 }: {
   cancels: readonly DownloadclientsCanceled[];
-  work: (id: string) => string | undefined;
+  work: WorkNames;
 }) {
   return (
     <ul className="mt-2 flex flex-col gap-1">
       {cancels.map((cancel) => (
         <li key={cancel.grabId} className="flex min-w-0 flex-col">
-          <span className="text-ink-1">{work(cancel.workId) ?? "A deleted Work"}</span>
+          <span className="text-ink-1">{work.of(cancel.workId) ?? work.unknown}</span>
           <Data className="truncate text-meta text-ink-3">{cancel.release}</Data>
         </li>
       ))}
     </ul>
   );
+}
+
+/** The Works that stop seeding, with every Work the lookup lacks named once and first. */
+function stoppingNames(ids: readonly string[], work: WorkNames) {
+  const known = ids.map((id) => work.of(id)).filter((name) => name !== undefined);
+  return known.length < ids.length ? [work.unknown, ...known] : known;
 }
 
 /** `besides` is the Grab whose cancel removes the torrent, which the dialog already names. */
@@ -117,17 +135,17 @@ export function Preview({
   parting: Parting;
   acted: DownloadclientsActed;
   subjects: readonly Subject[];
-  work: (id: string) => string | undefined;
+  work: WorkNames;
   besides?: string;
 }) {
   const preview = acted.preview;
   const cancels = (preview?.cancels ?? []).filter(({ grabId }) => grabId !== besides);
   const refused = outcomeWords(acted.results, subjects, {
     action: parting,
-    work,
+    work: work.of,
     clock: useClock(),
   }).refused;
-  const stops = (preview?.stopSeeding ?? []).map((id) => work(id) ?? "A deleted Work");
+  const stops = stoppingNames(preview?.stopSeeding ?? [], work);
   return (
     <>
       {refused.map((sentence) => (

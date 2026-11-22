@@ -26,7 +26,7 @@ const aither = "0a2c4e6a-8c0e-4a2c-8e6a-8c0e2a4c6d8f";
 
 test("indexers.changed refreshes the list, every Indexer page and the Trackers", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     list: getListIndexersQueryKey(),
@@ -42,7 +42,7 @@ test("indexers.changed refreshes the list, every Indexer page and the Trackers",
 
 test("indexers.status-changed refreshes the list, that Indexer and its queries", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     list: getListIndexersQueryKey(),
@@ -58,7 +58,7 @@ test("indexers.status-changed refreshes the list, that Indexer and its queries",
 
 test("indexers.rss-changed refreshes the list and that Indexer", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     list: getListIndexersQueryKey(),
@@ -74,7 +74,7 @@ test("indexers.rss-changed refreshes the list and that Indexer", async () => {
 
 test("indexers.settings-changed refreshes the Indexer settings", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     settings: getGetIndexerSettingsQueryKey(),
@@ -86,7 +86,7 @@ test("indexers.settings-changed refreshes the Indexer settings", async () => {
 
 test("trackers.seeding-changed for a Tracker refreshes the list, that Tracker, its routes and the Download Clients", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     list: getListTrackersQueryKey(),
@@ -117,7 +117,7 @@ test("trackers.seeding-changed for a Tracker refreshes the list, that Tracker, i
 
 test("trackers.seeding-changed for no Tracker refreshes the list, the default goal and the settings", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     list: getListTrackersQueryKey(),

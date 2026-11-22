@@ -177,8 +177,8 @@ export function DoneScreen({
             {addLabel(type)}
           </LeaveButton>
         ))}
-        <LeaveButton look="primary" href="/library" leaving={leaving} leave={leave}>
-          Go to Library
+        <LeaveButton look="primary" href="/" leaving={leaving} leave={leave}>
+          Go to Home
         </LeaveButton>
       </div>
     </>

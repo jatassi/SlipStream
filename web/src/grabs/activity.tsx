@@ -6,7 +6,7 @@ import { Button } from "../ui/button";
 import { Empty } from "../ui/empty";
 import { Section } from "../ui/section";
 import { GrabFailure } from "./failure-cards";
-import { GrabTable } from "./grab-table";
+import { GrabTable, useTorrentOf } from "./grab-table";
 import { JobsStatus } from "./jobs-status";
 import { type FailedGrab, needsYou, withoutReplacedFailures } from "./stages";
 
@@ -30,6 +30,27 @@ function Failed({
           />
         ))}
       </div>
+    </Section>
+  );
+}
+
+function JobsTable({
+  jobs,
+  work,
+  labels,
+}: {
+  jobs: readonly GrabsGrab[];
+  work: (grab: GrabsGrab) => string;
+  labels: ReadonlyMap<string, string>;
+}) {
+  const torrentOf = useTorrentOf();
+  const names = { of: (id: string) => labels.get(id), unknown: "A deleted Work" };
+  return (
+    <Section title="Jobs" count={jobs.length}>
+      <GrabTable
+        layout="activity"
+        rows={jobs.map((grab) => ({ grab, work: work(grab), torrent: torrentOf(grab), names }))}
+      />
     </Section>
   );
 }
@@ -68,11 +89,7 @@ export function ActivityBody({
         {filter}
       </div>
       {failed.length > 0 && <Failed grabs={failed} work={work} />}
-      {jobs.length > 0 && (
-        <Section title="Jobs" count={jobs.length}>
-          <GrabTable layout="activity" rows={jobs.map((grab) => ({ grab, work: work(grab) }))} />
-        </Section>
-      )}
+      {jobs.length > 0 && <JobsTable jobs={jobs} work={work} labels={labels} />}
     </>
   );
 }

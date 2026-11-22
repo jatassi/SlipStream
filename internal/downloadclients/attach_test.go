@@ -14,6 +14,7 @@ import (
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -276,6 +277,10 @@ func clients() *dc.Clients {
 type published struct{}
 
 func (published) Publish(context.Context, dc.Changed) {}
+
+type noVolumes struct{}
+
+func (noVolumes) Publish(context.Context, roots.VolumesChanged) {}
 
 var reportedAt = time.Date(2026, 10, 19, 21, 0, 0, 0, time.UTC)
 

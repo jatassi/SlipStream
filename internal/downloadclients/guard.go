@@ -2,6 +2,7 @@ package downloadclients
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/health"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -97,20 +99,37 @@ type disk struct {
 }
 
 // record keeps the downloads volume f carries when it is newer than the
-// one recorded.
+// one recorded, and tells the Admins when its mount, name or figures
+// changed, as roots does for a root's volume.
 func (c *Clients) record(ctx context.Context, node role.NodeID, f *dlv1.Facts) error {
 	v := f.GetDownloads()
 	if v == nil {
 		return nil
 	}
+	put := db.PutVolumeParams{
+		NodeID: node, Mount: v.GetMount(), Name: v.GetName(), Total: v.GetTotal(), Free: v.GetFree(),
+		SampledAt: storage.FromTime(time.UnixMilli(v.GetSampledAtUnixMs())),
+	}
+	var changed bool
 	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return db.New(tx).PutVolume(ctx, db.PutVolumeParams{
-			NodeID: node, Mount: v.GetMount(), Name: v.GetName(), Total: v.GetTotal(), Free: v.GetFree(),
-			SampledAt: storage.FromTime(time.UnixMilli(v.GetSampledAtUnixMs())),
-		})
+		q := db.New(tx)
+		was, err := q.GetVolume(ctx, node)
+		switch {
+		case errors.Is(err, storage.ErrNoRows):
+			changed = true
+		case err != nil:
+			return err
+		default:
+			changed = put.SampledAt.Compare(was.SampledAt) >= 0 &&
+				(was.Mount != put.Mount || was.Name != put.Name || was.Total != put.Total || was.Free != put.Free)
+		}
+		return q.PutVolume(ctx, put)
 	})
 	if err != nil {
 		return fmt.Errorf("record node %s's downloads volume: %w", node, err)
+	}
+	if changed {
+		c.cfg.Volumes.Publish(ctx, roots.VolumesChanged{NodeID: node.String(), VolumeIDs: []string{put.Mount}})
 	}
 	c.disk.mu.Lock()
 	defer c.disk.mu.Unlock()

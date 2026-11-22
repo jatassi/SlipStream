@@ -83,7 +83,7 @@ func Routes(r *api.Router, sh Shell) {
 		if !grabsOK || !nodesOK || !clientsOK || !healthOK || !importsOK || !reconcilingOK {
 			panic("shellapi: getCounts ran on a Node that is no Controller")
 		}
-		n, err := g.Moving(ctx, by)
+		n, err := g.InFlight(ctx, by)
 		if err != nil {
 			return nil, err
 		}

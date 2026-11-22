@@ -2,7 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import type { CalendarAnswer } from "../api/gen/model";
 import { calendarPaths } from "../calendar/calendar-query";
-import type { LiveEffect, LiveEffects, ProductEventName } from "./types";
+import { type LiveEffects, both } from "./types";
 
 /** The Works the Calendar answers list, of the spans a page shows or of every cached span. */
 function worksOf(queryClient: QueryClient, shown: boolean): Set<string> {
@@ -70,13 +70,6 @@ export const calendarEffects = {
     }
   },
 } satisfies Partial<LiveEffects>;
-
-const both =
-  <N extends ProductEventName>(own: LiveEffect<N>, more: LiveEffect<N>): LiveEffect<N> =>
-  (data, ctx) => {
-    own(data, ctx);
-    more(data, ctx);
-  };
 
 /** The table with the Calendar's effects run after its own. */
 export const withCalendar = (table: LiveEffects): LiveEffects => ({

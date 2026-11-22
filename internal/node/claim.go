@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/history"
+	"github.com/jatassi/slipstream/internal/home"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -393,6 +394,14 @@ func (s surfaceNode) Calendar() (*calendar.Calendar, bool) {
 		return nil, false
 	}
 	return h.calendar, true
+}
+
+func (s surfaceNode) Home() (*home.Service, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.home == nil {
+		return nil, false
+	}
+	return h.home, true
 }
 
 func (s surfaceNode) Subtitles() (*subtitles.Subtitles, bool) {

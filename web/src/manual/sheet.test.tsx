@@ -17,7 +17,10 @@ import { openManualSearch } from "./sheet-state";
 test("the sheet leads with the headline, then each Grab in words, the cell nothing fills, the folded line and the Searching line", async () => {
   const server = manualServer({ plan: () => filmPlan });
   const live = liveServer();
-  renderApp({ path: "/", handlers: [...live.handlers, ...server.handlers, ...targetHandlers()] });
+  renderApp({
+    path: "/library",
+    handlers: [...live.handlers, ...server.handlers, ...targetHandlers()],
+  });
   const cell = {
     itemId: "0199f3a1-5c2e-7d4f-8a6b-1c3e5a7c9eab",
     targetId: starter.id,

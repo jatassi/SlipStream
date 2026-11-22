@@ -9,14 +9,18 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -561,4 +565,39 @@ func heldItems(t *testing.T, lib *storage.DB[storage.Library]) map[string]string
 		t.Fatal(err)
 	}
 	return got
+}
+
+func TestALandingTakesItsLiveFilesQualityAndAGoneFilesStaysUnknown(t *testing.T) {
+	open := opener(t)
+	before := open(identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema().Through(8))
+	node, work, live := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
+	err := before.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return exec(ctx, tx,
+			st(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, node),
+			st(`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, work),
+		)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := rootstest.Root(t, before, role.NodeID{UUID: node}, contenttypetest.ID, t.TempDir()).ID.UUID
+	err = before.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		const record = `INSERT INTO files_imported (id, file_id, import_id, work_id, placed_by, items, cells, replaced, at)
+			VALUES (?, ?, ?, ?, 'move', '[]', '[]', '[]', 1)`
+		return exec(ctx, tx,
+			st(`INSERT INTO files_file (id, work_id, cut, root_id, path, size, probe, quality) VALUES (?, ?, 'standard', ?, 'Orchard.mkv', 1, '{}', 'remux-2160p')`, live, work, root),
+			st(record, storage.NewUUID(), live, storage.NewUUID(), work),
+			st(record, storage.NewUUID(), nil, storage.NewUUID(), work),
+		)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+	lib := open(identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	distinct(t, lib, `SELECT coalesce(quality, 'none') FROM files_imported WHERE file_id IS NOT NULL`, "remux-2160p")
+	distinct(t, lib, `SELECT coalesce(quality, 'none') FROM files_imported WHERE file_id IS NULL`, "none")
 }

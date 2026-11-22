@@ -82,7 +82,7 @@ export function openSheet(
 ) {
   const live = liveServer();
   renderApp({
-    path: "/",
+    path: "/library",
     handlers: [
       ...(extra.handlers ?? []),
       ...live.handlers,

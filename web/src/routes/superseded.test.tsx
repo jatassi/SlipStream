@@ -179,7 +179,7 @@ test("a Member sees that an Admin can act", async () => {
 
 test("a tab open when the Controller is fenced moves to the Superseded page", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   worker.use(
     fenced,

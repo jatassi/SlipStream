@@ -2,29 +2,23 @@ import { type ReactNode, useState } from "react";
 
 import { sentenceOf } from "../api/errors";
 import { actOnTorrents } from "../api/gen/query/downloadclients/downloadclients";
-import { useProjection } from "../library/projection";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { toast } from "../ui/toast";
 import { type Subject, type TorrentAction, outcomeWords } from "./actions";
 import { PauseDialog } from "./pause-dialog";
 import { RemoveDialog } from "./remove-dialog";
-import type { Parting } from "./remove-preview";
+import type { Parting, WorkNames } from "./remove-preview";
 
 type Asking = {
   readonly action: Parting | "recheck" | "pause";
   readonly subjects: readonly Subject[];
 };
 
-function useWorkNames(): (id: string) => string | undefined {
-  const works = useProjection().byId;
-  return (id) => works.get(id)?.label;
-}
-
 async function actAndSay(
   action: TorrentAction,
   subjects: readonly Subject[],
   deleteFiles: boolean,
-  work: (id: string) => string | undefined,
+  work: WorkNames,
 ) {
   const { results } = await actOnTorrents({
     action,
@@ -33,7 +27,7 @@ async function actAndSay(
   });
   const { done, refused } = outcomeWords(results, subjects, {
     action,
-    work,
+    work: work.of,
     clock: { now: new Date(), zone: undefined },
   });
   if (done !== undefined) {
@@ -54,11 +48,10 @@ function failed(error: unknown) {
  * a torrent that still owes its Tracker; `dialogs` is where those
  * questions render.
  */
-export function useActing(): {
+export function useActing(work: WorkNames): {
   start: (action: TorrentAction, subjects: readonly Subject[]) => void;
   dialogs: ReactNode;
 } {
-  const work = useWorkNames();
   const [asking, setAsking] = useState<Asking>();
   const [open, setOpen] = useState(false);
 
@@ -118,7 +111,7 @@ function Asked({
     subjects: readonly Subject[],
     deleteFiles?: boolean,
   ) => Promise<void>;
-  work: (id: string) => string | undefined;
+  work: WorkNames;
 }) {
   const parting = asking.action;
   if (parting === "pause") {

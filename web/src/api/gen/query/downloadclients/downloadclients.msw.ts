@@ -7,6 +7,7 @@ import type {
   DownloadclientsActed,
   DownloadclientsClientsList,
   DownloadclientsExternalClient,
+  DownloadclientsNodeTorrentsList,
   DownloadclientsSettings,
   DownloadclientsTestReport,
   DownloadclientsThresholds,
@@ -1778,6 +1779,20 @@ export const getActOnTorrentsResponseMock = (
   ...overrideResponse,
 });
 
+export const getGetTorrentCountsResponseMock = (
+  overrideResponse: Partial<Extract<DownloadclientsNodeTorrentsList, object>> = {},
+): DownloadclientsNodeTorrentsList => ({
+  nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    downloading: faker.number.int({ min: 0 }),
+    failures: faker.number.int({ min: 0 }),
+    nodeId: faker.string.uuid(),
+    seeding: faker.number.int({ min: 0 }),
+    torrents: faker.number.int({ min: 0 }),
+    warnings: faker.number.int({ min: 0 }),
+  })),
+  ...overrideResponse,
+});
+
 export const getGetTorrentResponseMock = (
   overrideResponse: Partial<Extract<DownloadclientsTorrentDetail, object>> = {},
 ): DownloadclientsTorrentDetail => ({
@@ -2293,6 +2308,30 @@ export const getActOnTorrentsMockHandler = (
   );
 };
 
+export const getGetTorrentCountsMockHandler = (
+  overrideResponse?:
+    | DownloadclientsNodeTorrentsList
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<DownloadclientsNodeTorrentsList> | DownloadclientsNodeTorrentsList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/torrents/counts",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetTorrentCountsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getGetTorrentMockHandler = (
   overrideResponse?:
     | DownloadclientsTorrentDetail
@@ -2328,5 +2367,6 @@ export const getDownloadclientsMock = () => [
   getTestDownloadClientMockHandler(),
   getListTorrentsMockHandler(),
   getActOnTorrentsMockHandler(),
+  getGetTorrentCountsMockHandler(),
   getGetTorrentMockHandler(),
 ];

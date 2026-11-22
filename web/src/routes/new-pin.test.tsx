@@ -46,8 +46,8 @@ test("an Admin whose PIN was turned off sees only Set a new PIN, then the app on
   await expect.element(page.getByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
 
   await typeTwice("2468");
-  await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
-  expect(router.state.location.pathname).toBe("/library");
+  await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  expect(router.state.location.pathname).toBe("/");
   expect(server.changes).toEqual([{ new: "2468" }]);
 });
 
@@ -69,7 +69,7 @@ test("a Member on a phone sets it on the keypad and lands in the portal", async 
 test("a PIN the Node refuses says why and the page stays", async () => {
   const server = pinRequiredServer();
   renderApp({
-    path: "/",
+    path: "/library",
     handlers: [
       http.post("*/api/v1/account/pin", () =>
         problem(429, "too_many_attempts", "Too many failed sign-ins from this IP address."),
@@ -87,7 +87,7 @@ test("a PIN the Node refuses says why and the page stays", async () => {
 
 test("Sign out on Set a new PIN asks first", async () => {
   const server = pinRequiredServer();
-  renderApp({ path: "/", handlers: server.handlers });
+  renderApp({ path: "/library", handlers: server.handlers });
   await userEvent.click(page.getByRole("button", { name: "Sign out" }));
   await expect
     .element(page.getByRole("dialog", { name: "Sign out of this device?" }))
@@ -97,6 +97,6 @@ test("Sign out on Set a new PIN asks first", async () => {
 
 test("a session that needs no new PIN is taken home from Set a new PIN", async () => {
   const { router } = renderApp({ path: "/new-pin" });
-  await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
-  expect(router.state.location.pathname).toBe("/library");
+  await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  expect(router.state.location.pathname).toBe("/");
 });

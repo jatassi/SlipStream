@@ -8,19 +8,21 @@ import {
   getListWorkFilesMockHandler,
   getPlanRenamesMockHandler,
 } from "../api/gen/query/files/files.msw";
+import { getGetTorrentCountsMockHandler } from "../api/gen/query/downloadclients/downloadclients.msw";
 import { getGetWorkSearchingMockHandler } from "../api/gen/query/grabs/grabs.msw";
 import { getListHistoryMockHandler } from "../api/gen/query/history/history.msw";
+import { getGetHomeMockHandler } from "../api/gen/query/home/home.msw";
 import { getGetSessionMockHandler } from "../api/gen/query/identity/identity.msw";
 import {
   getListNotificationConnectionsMockHandler,
   getListNotificationsMockHandler,
 } from "../api/gen/query/notifications/notifications.msw";
+// oxlint-disable-next-line import/max-dependencies -- the base handlers answer every read the shell and Settings make
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import {
   getGetWorkSubtitlesMockHandler,
   getListSubtitleProvidersMockHandler,
 } from "../api/gen/query/subtitles/subtitles.msw";
-// oxlint-disable-next-line import/max-dependencies -- the base handlers answer every read the shell and Settings make
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 import { getListQualitiesMockHandler } from "../api/gen/query/targets/targets.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
@@ -28,6 +30,7 @@ import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
 import { quietHealth } from "./health";
 import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
+import { housekeepingHandler } from "./notifications";
 import { board, boardIs, homeSeat } from "./roles";
 import { qualityList } from "./targets";
 
@@ -137,6 +140,17 @@ const noSubtitles = [
   getListSubtitleProvidersMockHandler({ providers: [] }),
 ];
 
+// A Home with nothing moving, failed or arrived, and no Downloading Node.
+const quietHome = [
+  getGetHomeMockHandler({
+    jobs: { rows: [], moving: 0 },
+    needsYou: { rows: [], failed: 0, waiting: 0 },
+    recent: { rows: [], today: { imported: 0, upgraded: 0 } },
+  }),
+  getGetTorrentCountsMockHandler({ nodes: [] }),
+  housekeepingHandler,
+];
+
 // A Work page with no History entries.
 const quietHistory = getListHistoryMockHandler({ entries: [], next: null });
 
@@ -145,6 +159,7 @@ export const baseHandlers: RequestHandler[] = [
   signedInAsAda,
   resyncStream,
   nothingMoving,
+  ...quietHome,
   nodesAre(home),
   topologyIs(topologyOf([home], { sentence: "home is online." })),
   boardIs(board(homeSeat)),

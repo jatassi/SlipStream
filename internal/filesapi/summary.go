@@ -34,7 +34,7 @@ func CountsOf(c files.Counts) api.Counts[State] {
 type need struct{}
 
 func (need) Variants() (discriminator string, variants []any) {
-	return "kind", []any{failedNeed{}, upgradeNeed{}, notFoundNeed{}, waitingNeed{}, noRootNeed{}}
+	return "kind", []any{failedNeed{}, upgradeNeed{}, notFoundNeed{}, WaitingNeed{}, noRootNeed{}}
 }
 
 type failedNeed struct {
@@ -60,10 +60,11 @@ type notFoundNeed struct {
 	GroupKey string   `json:"groupKey" doc:"The key of the search group whose latest search found them nothing. Its state in the Work's searching says when it searched and when it searches next"`
 }
 
-type waitingNeed struct {
+// WaitingNeed is a Grab that waits on an Admin, as the Work page words it.
+type WaitingNeed struct {
 	Kind        string                    `json:"kind" enum:"waiting"`
 	GrabID      string                    `json:"grabId" format:"uuid"`
-	Code        string                    `json:"code" enum:"node_away,client_away,client_off,no_space,root_not_ready,probe_timeout,client_error" doc:"Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of sync with the Controller, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't have the Downloading Role. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, and client_error while its external client reports an error"`
+	Code        string                    `json:"code" enum:"node_away,client_away,client_off,no_space,root_not_ready,probe_timeout,probe_error,client_error" doc:"Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of sync with the Controller, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't have the Downloading Role. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, probe_error while reading a file failed once and SlipStream tries once more, and client_error while its external client reports an error"`
 	ClientError api.Nullable[clientError] `json:"clientError" doc:"The client's error, for client_error; null otherwise"`
 	ImportWait  api.Nullable[importWait]  `json:"importWait" doc:"The root the Import waits on, for no_space and root_not_ready; null otherwise"`
 }
@@ -99,21 +100,24 @@ var needVariants = map[files.NeedKind]func(files.Need) any{
 	files.NeedNotFound: func(n files.Need) any {
 		return notFoundNeed{Kind: "not_found", ItemIDs: itemIDs(n.Items), Edition: string(n.Edition), GroupKey: n.Group}
 	},
-	files.NeedWaiting: func(n files.Need) any {
-		w := waitingNeed{Kind: "waiting", GrabID: n.Grab.String(), Code: n.Code}
-		if e := n.ClientError; e != nil {
-			w.ClientError = api.Some(clientError{Client: e.Client, Node: e.Node, Message: e.Message, FailsAt: e.FailsAt})
+	files.NeedWaiting: func(n files.Need) any { return WaitingOf(n) },
+	files.NeedNoRoot:  func(files.Need) any { return noRootNeed{Kind: "no_root"} },
+}
+
+// WaitingOf is waiting Need n on the wire.
+func WaitingOf(n files.Need) WaitingNeed {
+	w := WaitingNeed{Kind: "waiting", GrabID: n.Grab.String(), Code: n.Code}
+	if e := n.ClientError; e != nil {
+		w.ClientError = api.Some(clientError{Client: e.Client, Node: e.Node, Message: e.Message, FailsAt: e.FailsAt})
+	}
+	if h := n.Hold; h != nil {
+		iw := importWait{RootID: h.Root.String()}
+		if h.Needs > 0 {
+			iw.Space = api.Some(space{Free: h.Free, Needs: h.Needs})
 		}
-		if h := n.Hold; h != nil {
-			iw := importWait{RootID: h.Root.String()}
-			if h.Needs > 0 {
-				iw.Space = api.Some(space{Free: h.Free, Needs: h.Needs})
-			}
-			w.ImportWait = api.Some(iw)
-		}
-		return w
-	},
-	files.NeedNoRoot: func(files.Need) any { return noRootNeed{Kind: "no_root"} },
+		w.ImportWait = api.Some(iw)
+	}
+	return w
 }
 
 func needsOf(ns []files.Need) []api.OneOf[need] {

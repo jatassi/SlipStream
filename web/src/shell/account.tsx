@@ -1,4 +1,4 @@
-import { LibraryIcon, Logout01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { Home01Icon, Logout01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 
 import { usePref, writePref } from "./prefs";
@@ -9,7 +9,7 @@ export const startupLabel = "Startup animation";
 
 /** An Admin's way into the portal, to see what Members see, and back. */
 export const toPortal = { label: "Open the portal", icon: UserGroupIcon, to: "/portal" } as const;
-export const fromPortal = { label: "Back to Library", icon: LibraryIcon, to: "/library" } as const;
+export const fromPortal = { label: "Back to Home", icon: Home01Icon, to: "/" } as const;
 
 /** The account menu's closing items, the same on desktop and phone. */
 export function useLeaveActions(): readonly {

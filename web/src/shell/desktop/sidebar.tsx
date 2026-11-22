@@ -40,7 +40,7 @@ function Brand({ collapsed }: { collapsed: boolean }) {
         onClick={toggleSidebar}
       />
       <BrandLink
-        to="/library"
+        to="/"
         aria-label="SlipStream"
         className={`grid items-center rounded-item text-[17px] tracking-[-0.03em] whitespace-nowrap text-ink-1 transition-[grid-template-columns] duration-(--duration-inspector) ease-standard motion-reduce:transition-none ${collapsed ? "grid-cols-[auto_0fr]" : "grid-cols-[auto_1fr]"}`}
       >

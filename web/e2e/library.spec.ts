@@ -14,6 +14,7 @@ const posterCards = (page: Page) =>
 test("an Admin adds a movie from the catalog and sees its missing cell", async ({
   adminPage: page,
 }) => {
+  await navigate(page, "Library");
   await expect(page.getByText("Nothing in the library yet.")).toBeVisible();
   await page.getByRole("main").getByRole("button", { name: "Add a movie" }).click();
   await page.getByRole("searchbox", { name: "Title" }).fill("quiet orchard");

@@ -310,7 +310,8 @@ type clientWait struct {
 	Off    bool                     `json:"off" doc:"The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't have the Downloading Role. False while the client's Node is offline"`
 }
 
-type grab struct {
+// Grab is a Grab on the wire.
+type Grab struct {
 	ID           string                   `json:"id" format:"uuid"`
 	WorkID       string                   `json:"workId" format:"uuid"`
 	Items        []string                 `json:"items" nullable:"false" doc:"The ids of the Items its Release covers in the Work, in tree order"`
@@ -411,8 +412,9 @@ func failureOf(v grabs.View) *failure {
 	return f
 }
 
-func grabOf(v grabs.View) grab {
-	out := grab{
+// GrabOf is v on the wire.
+func GrabOf(v grabs.View) Grab {
+	out := Grab{
 		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition),
 		Items: []string{}, ReleaseTitle: v.Release.Title, ReleaseFacts: factsOf(v.ReleaseSummary), ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), InFlight: v.Stage.InFlight(), History: []entered{}, CreatedAt: v.Created,
@@ -471,7 +473,7 @@ func grabOf(v grabs.View) grab {
 }
 
 type grabList struct {
-	Grabs []grab `json:"grabs" nullable:"false" doc:"Newest first"`
+	Grabs []Grab `json:"grabs" nullable:"false" doc:"Newest first"`
 }
 
 type grabListOutput struct{ Body grabList }
@@ -479,7 +481,7 @@ type grabListOutput struct{ Body grabList }
 const indexerGrabsPage = 50
 
 type indexerGrabList struct {
-	Grabs      []grab `json:"grabs" nullable:"false" doc:"Newest first"`
+	Grabs      []Grab `json:"grabs" nullable:"false" doc:"Newest first"`
 	NextOffset *int   `json:"nextOffset" doc:"The offset of the next page; null on the last"`
 }
 
@@ -494,7 +496,7 @@ type grabInput struct {
 	GrabID string `path:"grabId" format:"uuid"`
 }
 
-type grabOutput struct{ Body grab }
+type grabOutput struct{ Body Grab }
 
 func Routes(r *api.Router, p Pipeline) {
 	o := r.Owner("grabs", api.Admin)
@@ -651,9 +653,9 @@ func (h handlers) listGrabs(ctx context.Context, by identity.Admin, _ *struct{})
 	if err != nil {
 		return nil, err
 	}
-	out := grabList{Grabs: []grab{}}
+	out := grabList{Grabs: []Grab{}}
 	for _, v := range views {
-		out.Grabs = append(out.Grabs, grabOf(v))
+		out.Grabs = append(out.Grabs, GrabOf(v))
 	}
 	return &grabListOutput{Body: out}, nil
 }
@@ -667,7 +669,7 @@ func (h handlers) getGrab(ctx context.Context, by identity.Admin, in *grabInput)
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &grabOutput{Body: grabOf(v)}, nil
+	return &grabOutput{Body: GrabOf(v)}, nil
 }
 
 func (h handlers) listIndexerGrabs(ctx context.Context, by identity.Admin, in *indexerGrabsInput) (*indexerGrabsOutput, error) {
@@ -679,12 +681,12 @@ func (h handlers) listIndexerGrabs(ctx context.Context, by identity.Admin, in *i
 	if err != nil {
 		return nil, answer(err)
 	}
-	out := indexerGrabList{Grabs: []grab{}}
+	out := indexerGrabList{Grabs: []Grab{}}
 	if len(views) > indexerGrabsPage {
 		views, out.NextOffset = views[:indexerGrabsPage], new(in.Offset+indexerGrabsPage)
 	}
 	for _, v := range views {
-		out.Grabs = append(out.Grabs, grabOf(v))
+		out.Grabs = append(out.Grabs, GrabOf(v))
 	}
 	return &indexerGrabsOutput{Body: out}, nil
 }

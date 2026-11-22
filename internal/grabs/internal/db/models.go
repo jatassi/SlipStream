@@ -125,6 +125,7 @@ type GrabsGrab struct {
 	SentBuiltInOn     *role.NodeID
 	SentClientID      *downloadclients.ClientID
 	FoundBy           FoundBy
+	Replaced          int64
 }
 
 type GrabsGrabItem struct {

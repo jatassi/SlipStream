@@ -1,10 +1,10 @@
 # First setup
 
-After the claim, the new Admin lands on first setup at `/setup/<step>`: a short run of steps that each say why they matter, with `Step n of m`, the steps ahead, `Back`, `Skip`, `Continue` and `Finish setup` on every one. The place is stored on the Controller, so a reload or another browser resumes on the same step, and any app URL brings the Admin back to it. A last screen lists each step as set or skipped, and `Go to Library` finishes setup for good.
+After the claim, the new Admin lands on first setup at `/setup/<step>`: a short run of steps that each say why they matter, with `Step n of m`, the steps ahead, `Back`, `Skip`, `Continue` and `Finish setup` on every one. The place is stored on the Controller, so a reload or another browser resumes on the same step, and any app URL brings the Admin back to it. A last screen lists each step as set or skipped, and `Go to Home` finishes setup for good.
 
 ## Sub-features
 
-- `first-setup-frame` each step shows its title, one sentence on why it matters, `Step n of m` and `After this:` with the names of the steps ahead. `Skip`, `Continue`, `Back` and `Finish setup` work on every step, and `Finish setup` lands on the Library (P-106).
+- `first-setup-frame` each step shows its title, one sentence on why it matters, `Step n of m` and `After this:` with the names of the steps ahead. `Skip`, `Continue`, `Back` and `Finish setup` work on every step, and `Finish setup` lands on Home (P-106).
 - `first-setup-resume` a reload, a second browser or any app URL such as `/settings/address` opens the step the Admin is on, and a step completed elsewhere reads done (P-106).
 - `first-setup-address` the address step suggests the address in use, warns that a plain-HTTP address can't hold a passkey, and `Continue` saves it (P-106).
 - `first-setup-passkey` the passkey step shows only where the browser and address can hold a passkey, its `Add a passkey` runs registration, and the frame's `Skip` is its only Skip (P-106).
@@ -13,7 +13,7 @@ After the claim, the new Admin lands on first setup at `/setup/<step>`: a short 
 - `first-setup-roots` the library roots step lists one row per enabled Content Type, `Add a folder` opens `Add a library root` with the type chosen and no Node picker while one Node holds Storage, and says Works wait for a root while one is missing (P-106).
 - `first-setup-downloads` the downloads step lists each Downloading Node with its `torrent.downloads` folder, its free space, the different-drive recommendation when the Node's roots sit on another volume, and the restart notice after a change. A Node whose settings don't load says so in its own row with `Try again`, and the step keeps `Back`, `Skip` and `Finish setup` (P-106).
 - `first-setup-targets` the Targets step says in one sentence what each enabled type's default Profile grabs, holds the Profile, qualities, cutoff and sizes under `Details`, and `Edit` opens the Target editor in place (P-106).
-- `first-setup-done` the last screen lists each shown step as `Set` or `Skipped`, a skipped step's `Set it in Settings` finishes and opens its place in Settings, while email isn't set up `Email isn't set up.` links `/settings/email` the same way, and after `Go to Library` no URL opens first setup again (P-106).
+- `first-setup-done` the last screen lists each shown step as `Set` or `Skipped`, a skipped step's `Set it in Settings` finishes and opens its place in Settings, while email isn't set up `Email isn't set up.` links `/settings/email` the same way, and after `Go to Home` no URL opens first setup again (P-106).
 
 ## How to get to it (user POV)
 
@@ -86,11 +86,11 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Continue" })'
   ```
 
-- **Finish.** The last screen at `/setup/done` lists `Library roots` as `Skipped` with `Set it in Settings` and every other step as `Set`, then `Email isn't set up.` with its own `Set it in Settings`, and offers `Add a Movie`, `Add a Series` and `Go to Library`. `Go to Library` opens `/library`, a later `/setup/roots` lands on the Library too, and `GET /api/v1/first-run` reads `"open":false`.
+- **Finish.** The last screen at `/setup/done` lists `Library roots` as `Skipped` with `Set it in Settings` and every other step as `Set`, then `Email isn't set up.` with its own `Set it in Settings`, and offers `Add a Movie`, `Add a Series` and `Go to Home`. `Go to Home` opens `/`, a later `/setup/roots` lands on Home too, and `GET /api/v1/first-run` reads `"open":false`.
 
   ```sh
   $FW exec $RUN --proof first-run/first-setup-done -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/first-run/first-setup-done/summary.aria.yml
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Go to Library" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Go to Home" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/setup/roots'
   $FW exec $RUN --proof first-run/first-setup-done -- $PW cli -s={runId}-admin-desktop eval 'location.href'
   $FW exec $RUN --proof first-run/first-setup-done -- $PW cli -s={runId}-admin-desktop eval 'fetch("/api/v1/first-run").then((r) => r.text())'

@@ -77,16 +77,16 @@ test("Continue on a step that already reads done moves on without a write", asyn
   expect(server.writes).toEqual([]);
 });
 
-test("Finish setup on any step lands in the Library, and setup never comes back", async () => {
+test("Finish setup on any step lands on Home, and setup never comes back", async () => {
   const { app, server } = open("/setup/media");
   await userEvent.click(page.getByRole("button", { name: "Finish setup" }));
-  await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
   expect(server.finishes).toHaveLength(1);
   await app.router.navigate({ to: "/setup/$step", params: { step: "roots" } });
-  await expect.poll(() => pathname(app)).toBe("/library");
+  await expect.poll(() => pathname(app)).toBe("/");
 });
 
-test("the done screen lists each step as set or skipped, and Go to Library finishes", async () => {
+test("the done screen lists each step as set or skipped, and Go to Home finishes", async () => {
   const { app, server } = open("/library", [done("address"), skipped("media"), done("roots")]);
   await expect.element(stepHeading("First setup")).toBeVisible();
   expect(pathname(app)).toBe("/setup/done");
@@ -100,8 +100,8 @@ test("the done screen lists each step as set or skipped, and Go to Library finis
   await expect
     .element(summary.getByRole("listitem", { name: "Library roots" }).getByRole("link"))
     .not.toBeInTheDocument();
-  await userEvent.click(page.getByRole("button", { name: "Go to Library" }));
-  await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Go to Home" }));
+  await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
   expect(server.finishes).toHaveLength(1);
 });
 
@@ -142,7 +142,7 @@ test("with email set up, the done screen leaves it out", async () => {
   await expect.element(page.getByText("Email isn't set up.")).not.toBeInTheDocument();
 });
 
-test("a tab that missed another browser's finish follows it into the Library on its next Continue", async () => {
+test("a tab that missed another browser's finish follows it to Home on its next Continue", async () => {
   const server = firstSetup([done("address"), todo("media"), todo("roots")]);
   const app = renderApp({
     path: "/setup/media",
@@ -150,7 +150,7 @@ test("a tab that missed another browser's finish follows it into the Library on 
   });
   await expect.element(stepHeading("Kinds of media")).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Continue" }));
-  await expect.poll(() => pathname(app)).toBe("/library");
+  await expect.poll(() => pathname(app)).toBe("/");
   await expect.element(page.getByText("First setup is already finished")).not.toBeInTheDocument();
   expect(server.writes).toEqual([]);
   expect(server.finishes).toEqual([]);
@@ -161,6 +161,6 @@ test("a tab follows another browser's finish into the Library", async () => {
   await expect.element(stepHeading("Kinds of media")).toBeVisible();
   server.state.open = false;
   server.send({ event: "firstrun.changed", data: {} });
-  await expect.poll(() => pathname(app)).toBe("/library");
+  await expect.poll(() => pathname(app)).toBe("/");
   expect(server.finishes).toHaveLength(0);
 });
