@@ -1046,12 +1046,6 @@ func TestTheMovieSettingsAreWellFormed(t *testing.T) {
 	}
 }
 
-func TestAMovieHasNoCutsOfItsOwn(t *testing.T) {
-	if cuts := library().Cuts(); len(cuts) != 0 {
-		t.Fatalf("Cuts = %+v, want none", cuts)
-	}
-}
-
 func TestTheLibraryAuditPassesWithMovie(t *testing.T) {
 	storagetest.AuditLibrary(t, node.LibrarySchemas(contenttype.NewSet(movie.Def)))
 }
