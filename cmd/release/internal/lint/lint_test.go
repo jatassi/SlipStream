@@ -34,4 +34,3 @@ func TestRunPrintsSortedFindingsAndFailsOnlyWithFindings(t *testing.T) {
 		t.Errorf("a clean run = %q, %v; want no output and no error", clean.String(), err)
 	}
 }
-

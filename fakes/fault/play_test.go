@@ -289,71 +289,87 @@ func faulted(t *testing.T, f fault.Fault, h http.Handler) http.Handler {
 	return plan(t, f).HTTP("tracker", fault.Route{Name: "announce"}, func(*http.Request) string { return "home" }, h)
 }
 
+// httpCheck judges one answer to a faulted request: the reply, the
+// client's error and how many requests reached the handler.
+type httpCheck func(t *testing.T, r reply, err error, served int32)
+
+func answered(want string) httpCheck {
+	return func(t *testing.T, r reply, err error, served int32) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := r.withRetry(); got != want || served != 0 {
+			t.Fatalf("answered %q after %d calls to the handler, want %q and none", got, served, want)
+		}
+	}
+}
+
+func timedOut(t *testing.T, _ reply, err error, served int32) {
+	if !errors.Is(err, context.DeadlineExceeded) || served != 0 {
+		t.Fatalf("the request ended with %v after %d calls to the handler, want the client's deadline and none", err, served)
+	}
+}
+
+func malformed(t *testing.T, r reply, err error, _ int32) {
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := r.status + " " + r.header.Get("Content-Type") + " " + r.body; got != "200 OK application/json \x00malformed" || json.Valid([]byte(r.body)) {
+		t.Fatalf("answered %q", got)
+	}
+}
+
+func retyped(t *testing.T, r reply, err error, _ int32) {
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := r.status + " " + r.header.Get("Content-Type"); got != "200 OK text/html" || r.body != genuineBody || r.bodyErr != nil {
+		t.Fatalf("answered %q with %d bytes and %v", got, len(r.body), r.bodyErr)
+	}
+}
+
+func delayed(t *testing.T, r reply, err error, _ int32) {
+	if err != nil || r.status != "200 OK" || r.body != genuineBody || r.bodyErr != nil {
+		t.Fatalf("answered %q with %d bytes, %v, %v; want the real answer", r.status, len(r.body), err, r.bodyErr)
+	}
+	if r.headersAfter < 300*time.Millisecond {
+		t.Fatalf("answered after %v, want at least the 300ms delay", r.headersAfter)
+	}
+}
+
+func truncated(t *testing.T, r reply, err error, _ int32) {
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.contentLength != int64(len(genuineBody)) || r.body != genuineBody[:len(genuineBody)/2] || !errors.Is(r.bodyErr, io.ErrUnexpectedEOF) {
+		t.Fatalf("declared %d, read %d bytes and %v; want %d declared, half sent, then an unexpected EOF", r.contentLength, len(r.body), r.bodyErr, len(genuineBody))
+	}
+}
+
+func slowed(t *testing.T, r reply, err error, _ int32) {
+	if err != nil || r.body != genuineBody || r.bodyErr != nil {
+		t.Fatalf("read %d bytes, %v, %v", len(r.body), err, r.bodyErr)
+	}
+	if r.headersAfter > 300*time.Millisecond || r.after < 450*time.Millisecond {
+		t.Fatalf("headers after %v and 510 bytes at 1KiB/s after %v", r.headersAfter, r.after)
+	}
+}
+
 func TestEachHTTPFaultPlays(t *testing.T) {
-	answered := func(want string) func(*testing.T, reply, error, int32) {
-		return func(t *testing.T, r reply, err error, served int32) {
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := r.withRetry(); got != want || served != 0 {
-				t.Fatalf("answered %q after %d calls to the handler, want %q and none", got, served, want)
-			}
-		}
-	}
-	timedOut := func(t *testing.T, _ reply, err error, served int32) {
-		if !errors.Is(err, context.DeadlineExceeded) || served != 0 {
-			t.Fatalf("the request ended with %v after %d calls to the handler, want the client's deadline and none", err, served)
-		}
-	}
 	for _, c := range []struct {
 		fault string
-		check func(t *testing.T, r reply, err error, served int32)
+		check httpCheck
 	}{
 		{"status=404", answered("404 Not Found [] Not Found\n")},
 		{"status=503,retry-after=1s", answered("503 Service Unavailable [Retry-After: 1] Service Unavailable\n")},
 		{"status=429,retry-after=30s,reset-header=X-RateLimit-Reset", answered("429 Too Many Requests [Retry-After: 30 X-RateLimit-Reset: 30] Too Many Requests\n")},
-		{"malformed", func(t *testing.T, r reply, err error, _ int32) {
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := r.status + " " + r.header.Get("Content-Type") + " " + r.body; got != "200 OK application/json \x00malformed" || json.Valid([]byte(r.body)) {
-				t.Fatalf("answered %q", got)
-			}
-		}},
-		{"content-type=text/html", func(t *testing.T, r reply, err error, _ int32) {
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := r.status + " " + r.header.Get("Content-Type"); got != "200 OK text/html" || r.body != genuineBody || r.bodyErr != nil {
-				t.Fatalf("answered %q with %d bytes and %v", got, len(r.body), r.bodyErr)
-			}
-		}},
+		{"malformed", malformed},
+		{"content-type=text/html", retyped},
 		{"hang", timedOut},
 		{"delay=1m", timedOut},
-		{"delay=300ms", func(t *testing.T, r reply, err error, _ int32) {
-			if err != nil || r.status != "200 OK" || r.body != genuineBody || r.bodyErr != nil {
-				t.Fatalf("answered %q with %d bytes, %v, %v; want the real answer", r.status, len(r.body), err, r.bodyErr)
-			}
-			if r.headersAfter < 300*time.Millisecond {
-				t.Fatalf("answered after %v, want at least the 300ms delay", r.headersAfter)
-			}
-		}},
-		{"truncate", func(t *testing.T, r reply, err error, _ int32) {
-			if err != nil {
-				t.Fatal(err)
-			}
-			if r.contentLength != int64(len(genuineBody)) || r.body != genuineBody[:len(genuineBody)/2] || !errors.Is(r.bodyErr, io.ErrUnexpectedEOF) {
-				t.Fatalf("declared %d, read %d bytes and %v; want %d declared, half sent, then an unexpected EOF", r.contentLength, len(r.body), r.bodyErr, len(genuineBody))
-			}
-		}},
-		{"slow-body=1KiB/s", func(t *testing.T, r reply, err error, _ int32) {
-			if err != nil || r.body != genuineBody || r.bodyErr != nil {
-				t.Fatalf("read %d bytes, %v, %v", len(r.body), err, r.bodyErr)
-			}
-			if r.headersAfter > 300*time.Millisecond || r.after < 450*time.Millisecond {
-				t.Fatalf("headers after %v and 510 bytes at 1KiB/s after %v", r.headersAfter, r.after)
-			}
-		}},
+		{"delay=300ms", delayed},
+		{"truncate", truncated},
+		{"slow-body=1KiB/s", slowed},
 	} {
 		t.Run(c.fault, func(t *testing.T) {
 			f, err := fault.Parse(c.fault)
