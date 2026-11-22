@@ -1,11 +1,13 @@
+import { Suspense, useRef } from "react";
+
 import type { NodesOutcome } from "../../../../api/gen/model";
-import { blocks } from "../../../../nodes/roles";
-import { Button } from "../../../../ui/button";
+import { drainingOf } from "../../../../moves/drain-plan";
+import { type DrainMove, DrainSection } from "../../../../moves/drain-section";
 import { Dialog } from "../../../../ui/dialog";
-import { useShell } from "../../../../ui/shell-context";
 import { SignalLine } from "../../../../ui/signal-line";
 import { Checks, Planned } from "./outcome";
 import { type Change, type Review, useReview } from "./plan";
+import { ReviewFooter } from "./review-footer";
 
 function Body({ review }: { review: Review }) {
   if (review.step === "planning") {
@@ -33,7 +35,9 @@ function Body({ review }: { review: Review }) {
 
 /**
  * The Review: what a change of Roles does, in words, with each guardrail's
- * check, before it is applied. A check that blocks keeps Apply off.
+ * check, before it is applied. A check that blocks keeps Apply off. A
+ * change that drains Storage or Downloading offers to move what the Node
+ * keeps, started once the change applies.
  */
 export function ReviewDialog({
   change,
@@ -44,8 +48,12 @@ export function ReviewDialog({
   onClose: () => void;
   onApplied: (outcome: NodesOutcome) => Promise<void>;
 }) {
-  const { review, apply } = useReview(change, onApplied);
-  const stacked = useShell() === "phone";
+  const drain = useRef<DrainMove>(null);
+  const { review, apply } = useReview(change, async (outcome) => {
+    await drain.current?.start();
+    await onApplied(outcome);
+  });
+  const draining = "outcome" in review ? drainingOf(review.outcome) : undefined;
   return (
     <Dialog
       title="Review the change"
@@ -60,21 +68,14 @@ export function ReviewDialog({
       <div aria-live="polite">
         <Body review={review} />
       </div>
-      <div className={`mt-6 flex gap-2 ${stacked ? "flex-col-reverse" : "justify-end"}`}>
-        <Button disabled={review.step === "applying"} onClick={onClose}>
-          Cancel
-        </Button>
-        {"outcome" in review && (
-          <Button
-            look="primary"
-            busy={review.step === "applying"}
-            disabled={blocks(review.outcome).length > 0}
-            onClick={() => void apply(review)}
-          >
-            Apply
-          </Button>
-        )}
-      </div>
+      {draining !== undefined && (
+        <Suspense fallback={null}>
+          <div className="mt-4">
+            <DrainSection draining={draining} ref={drain} />
+          </div>
+        </Suspense>
+      )}
+      <ReviewFooter review={review} onClose={onClose} onApply={apply} />
     </Dialog>
   );
 }

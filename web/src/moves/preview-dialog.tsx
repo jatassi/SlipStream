@@ -10,7 +10,7 @@ import { Plan } from "./preview-plan";
 import { type Previewing, useMovePreview } from "./use-move-preview";
 
 /** Toasts each unit that Start left out, then what started. */
-function told(started: MovesStartedMoves, startedWords: string) {
+export function told(started: MovesStartedMoves, startedWords: string) {
   for (const { name, words } of started.dropped) {
     toast(`${name} stays where it is. ${words}`, { kind: "fail" });
   }

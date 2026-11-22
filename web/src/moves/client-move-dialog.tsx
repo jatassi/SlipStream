@@ -25,7 +25,7 @@ const clientsOn = (card: Card) => [
 ];
 
 /** Where a torrent can go other than from: the first Node's built-in client, else the next one. */
-function firstOther(cards: readonly Card[], from: Side): Side | undefined {
+export function firstOther(cards: readonly Card[], from: Side): Side | undefined {
   for (const card of cards) {
     for (const { value } of clientsOn(card)) {
       const side = { nodeId: card.nodeId, ...(value !== builtIn && { clientId: value }) };
@@ -37,13 +37,13 @@ function firstOther(cards: readonly Card[], from: Side): Side | undefined {
   return undefined;
 }
 
-const sideBody = (side: Side): MovesSide => ({
+export const sideBody = (side: Side): MovesSide => ({
   nodeId: side.nodeId,
   ...(side.clientId !== undefined && { clientId: side.clientId }),
 });
 
 /** A Node, then a Download Client on it. */
-function ClientPicker({
+export function ClientPicker({
   cards,
   value,
   onValueChange,

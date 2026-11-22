@@ -245,10 +245,9 @@ func torrentLane(from, to Side) Lane {
 	return Lane("vol:" + from.Node.String() + ":" + key(from) + ">" + key(to))
 }
 
-// torrentVerdict judges one torrent's Move. Each reason but one is red:
-// a torrent either moves whole or stays. A private torrent out of an
-// external client into the built-in one is amber, its Hit and run window
-// counted from now.
+// torrentVerdict judges one torrent's Move. A torrent either moves whole
+// or stays, so only its notes are amber: a drain's torrent still
+// downloading, and a Hit and run window that starts or stops counting.
 func torrentVerdict(t TorrentTo, src downloadclients.MoveSource, rd torrentRead, badPath, drain bool) Verdict {
 	red := func(c Check, code, words string) Verdict {
 		return Verdict{Color: Red, Reasons: []Reason{{Check: c, Color: Red, Code: code, Words: words}}}
@@ -286,15 +285,23 @@ func torrentVerdict(t TorrentTo, src downloadclients.MoveSource, rd torrentRead,
 	if len(held) > 0 {
 		return red(CheckDestination, "already_held", "A Download Client on "+rd.nodes[t.To.Node]+" already holds this torrent.")
 	}
+	var notes []Reason
+	if !src.Complete {
+		notes = append(notes, Reason{Check: CheckTorrent, Color: Amber, Code: "downloading",
+			Words: rd.nodes[src.Node] + " is finishing its work. This torrent moves once it finishes downloading."})
+	}
 	if src.Private && src.Client != nil && t.To.Client == nil {
-		return Verdict{Color: Amber, Reasons: []Reason{{Check: CheckHitAndRun, Color: Amber, Code: "window_starts", Words: "SlipStream starts counting this Hit and run window from now."}}}
+		notes = append(notes, Reason{Check: CheckHitAndRun, Color: Amber, Code: "window_starts", Words: "SlipStream starts counting this Hit and run window from now."})
 	}
 	if o, ok := rd.owing[t.Torrent]; ok {
 		words := owedWords(o) + " " + rd.clients[*t.To.Client].Name + " on " + rd.nodes[t.To.Node] +
 			" follows its own rules, and SlipStream stops counting this Hit and run window."
-		return Verdict{Color: Amber, Reasons: []Reason{{Check: CheckHitAndRun, Color: Amber, Code: "window_stops", Words: words}}}
+		notes = append(notes, Reason{Check: CheckHitAndRun, Color: Amber, Code: "window_stops", Words: words})
 	}
-	return Verdict{}
+	if len(notes) == 0 {
+		return Verdict{}
+	}
+	return Verdict{Color: Amber, Reasons: notes}
 }
 
 // recheckTorrent is the reason a torrent unit planned as pu can't move
