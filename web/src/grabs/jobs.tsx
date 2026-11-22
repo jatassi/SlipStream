@@ -1,4 +1,5 @@
 import { useListGrabsSuspense } from "../api/gen/query/grabs/grabs";
+import { useListMovesSuspense } from "../api/gen/query/moves/moves";
 import { useListContentTypesSuspense } from "../api/gen/query/works/works";
 import { useLibrary } from "../library/projection";
 import { RunningList } from "../tasks/running";
@@ -39,6 +40,7 @@ export function TypeFilter({
 /** Every Job, narrowed to one Content Type when more than one has Jobs. */
 export function Jobs({ type, onTypeChange }: Choice) {
   const { grabs } = useListGrabsSuspense().data;
+  const { batches } = useListMovesSuspense().data;
   const works = useLibrary();
   const labels = new Map(works.map((work) => [work.id, work.label]));
   const typeOf = new Map(works.map((work) => [work.id, work.type.id]));
@@ -69,6 +71,7 @@ export function Jobs({ type, onTypeChange }: Choice) {
       ) : (
         <ActivityBody
           grabs={shown}
+          moves={batches}
           labels={labels}
           filter={
             (types.length > 1 || type !== undefined) && (

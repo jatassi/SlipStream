@@ -1,19 +1,22 @@
 import { useListRootsSuspense, useListVolumesSuspense } from "../../api/gen/query/roots/roots";
 import type { WorksContentType } from "../../api/gen/model";
+import { Button } from "../../ui/button";
 import { Select } from "../../ui/select";
 import { freeOf } from "../../roots/root-columns";
 
-/** The Work's library root, fixed while it has files: a Work with any keeps its root until Moves. */
+/** The Work's library root: a Work with files changes root only by a Move, which "Move to…" opens. */
 export function RootField({
   type,
   value,
   files,
   onValueChange,
+  onMove,
 }: {
   type: WorksContentType;
   value: string;
   files: number;
   onValueChange: (root: string) => void;
+  onMove: () => void;
 }) {
   const roots = useListRootsSuspense().data.roots.filter((root) => root.contentType === type.id);
   const { nodes } = useListVolumesSuspense().data;
@@ -30,9 +33,11 @@ export function RootField({
         onValueChange={onValueChange}
       />
       {files > 0 && (
-        <p className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
-          {`This ${type.work.one.toLowerCase()} has files, so it stays in its library root. SlipStream can't move files between library roots yet.`}
-        </p>
+        <div>
+          <Button size="small" onClick={onMove}>
+            Move to…
+          </Button>
+        </div>
       )}
     </div>
   );

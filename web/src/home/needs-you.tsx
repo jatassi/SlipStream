@@ -12,6 +12,7 @@ import { typeOf } from "../works/fields";
 // oxlint-disable-next-line import/max-dependencies -- Needs you draws failure cards, Signal rows, waiting Callouts and pending imports
 import { Waiting } from "../works/page/waiting";
 import { seeAllLink } from "./jobs";
+import { MoveNeeds } from "./move-need";
 import { failedCap, needsAnchor } from "./words";
 
 // As the Work page does: the first failures as cards, the rest as Signal rows.
@@ -41,7 +42,8 @@ const failedOf = (needs: readonly HomeNeed[]) =>
 
 /**
  * What only the Admin can resolve: failed Grabs, Grabs that wait on the
- * Admin in their Work page's words, then the pending imports row. It is left
+ * Admin in their Work page's words, Moves that failed or wait long to
+ * switch, then the pending imports row. It is left
  * out while nothing needs the Admin.
  */
 export function NeedsYou({
@@ -52,12 +54,12 @@ export function NeedsYou({
   types: WorksContentType[];
 }) {
   const pending = useCounts()?.pendingImports ?? 0;
-  const { rows, failed, waiting } = needsYou;
-  if (rows.length === 0 && pending === 0) {
+  const { rows, moves, failed, waiting } = needsYou;
+  if (rows.length === 0 && moves.length === 0 && pending === 0) {
     return null;
   }
   const failures = failedOf(rows);
-  const total = failed + waiting;
+  const total = failed + waiting + moves.length;
   return (
     <Section id={needsAnchor} title="Needs you" {...(failed < failedCap && { count: total })}>
       <div className="flex flex-col gap-3">
@@ -82,8 +84,9 @@ export function NeedsYou({
               />
             ),
         )}
+        <MoveNeeds needs={moves} />
         <PendingLink preload={false} />
-        {total > rows.length && (
+        {total > rows.length + moves.length && (
           <Link to="/activity" preload={false} className={seeAllLink}>
             See all {failed >= failedCap ? `${failedCap}+` : total} in Activity
           </Link>

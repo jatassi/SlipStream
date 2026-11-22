@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 
 import { getListTorrentsSuspenseQueryOptions } from "../../../api/gen/query/downloadclients/downloadclients";
 import { getListGrabsSuspenseQueryOptions } from "../../../api/gen/query/grabs/grabs";
+import { getListMovesSuspenseQueryOptions } from "../../../api/gen/query/moves/moves";
 import {
   getListQualitiesSuspenseQueryOptions,
   getListTargetsSuspenseQueryOptions,
@@ -11,6 +12,7 @@ import { getListTransfersSuspenseQueryOptions } from "../../../api/gen/query/tra
 import { ensureQuery } from "../../../api/query-client";
 import { ensureLibrary } from "../../../library/projection";
 import { Jobs } from "../../../grabs/jobs";
+// oxlint-disable-next-line import/max-dependencies -- the route loads every list Activity shows, Moves included
 import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/activity/")({
@@ -18,6 +20,7 @@ export const Route = createFileRoute("/_app/activity/")({
   loader: ({ context: { queryClient } }) =>
     Promise.all([
       ensureQuery(queryClient, getListGrabsSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListMovesSuspenseQueryOptions()),
       ensureLibrary(queryClient),
       ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
       ensureQuery(queryClient, getListTorrentsSuspenseQueryOptions()),

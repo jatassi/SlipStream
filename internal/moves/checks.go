@@ -125,7 +125,7 @@ func movingCheck(_ PlanUnit, f planFacts) (Reason, bool) {
 func probeCheck(u PlanUnit, f planFacts) (Reason, bool) {
 	switch {
 	case f.probe != nil:
-		return Reason{Color: Red, Code: "probe_failed", Words: "SlipStream couldn't read its files on their Node. Preview again once the Node answers."}, true
+		return Reason{Color: Red, Code: "probe_failed", Words: "SlipStream couldn't read its files on their Node. Preview again once the Node responds."}, true
 	case f.missing > 0:
 		return Reason{Color: Red, Code: "source_missing", Words: "Some of its files are gone from their root. Scan the library, then preview again."}, true
 	case !slices.ContainsFunc(u.Files, func(f File) bool { return f.Kind == KindLibrary }):
