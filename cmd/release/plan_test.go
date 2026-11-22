@@ -310,10 +310,9 @@ func TestPlanJSON(t *testing.T) {
 		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":1,"shards":3},` +
 		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":2,"shards":3},` +
 		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":3,"shards":3},` +
-		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":1,"shards":4},` +
-		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":2,"shards":4},` +
-		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":3,"shards":4},` +
-		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":4,"shards":4},` +
+		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":1,"shards":3},` +
+		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":2,"shards":3},` +
+		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":3,"shards":3},` +
 		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4","shard":1,"shards":4},` +
 		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4","shard":2,"shards":4},` +
 		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4","shard":3,"shards":4},` +
