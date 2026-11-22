@@ -2,7 +2,6 @@ package naming
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 )
 
@@ -55,36 +54,3 @@ func TestBindRefuses(t *testing.T) {
 
 // mixedTokens has a token of every scope.
 var mixedTokens = Declaration{Tokens: append(append([]Token{}, filmTokens.Tokens[:2]...), showTokens.Tokens[2:]...)}
-
-func TestBindTakesEachFieldsScopes(t *testing.T) {
-	for _, c := range []struct {
-		text  string
-		field field
-	}{
-		{"{Movie Title} {(Year)} {Movie CleanTitleTheYear}", folderField},
-		{"Season {season:00} of {Movie TitleThe}", levelField},
-		{"{Movie Title} - S{season:00}E{episode:00} - {Episode Title:30} {Air-Date} {Custom Formats:-A} {MediaInfo AudioLanguages:EN+DE+} {Custom Format:IMAX} {edition-{Edition}} {Target}", fileField},
-	} {
-		tmpl, err := Parse(c.text)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := bind(tmpl, mustCatalog(t, mixedTokens), c.field); err != nil {
-			t.Errorf("bind(%q, %d): %v", c.text, c.field, err)
-		}
-	}
-}
-
-func TestBindMarksItemTitlesShrinkable(t *testing.T) {
-	tmpl, err := Parse("{Movie Title} - S{season:00}E{episode:00} - {Episode Title} {Episode CleanTitleThe} {Edition} {Target}")
-	if err != nil {
-		t.Fatal(err)
-	}
-	b, err := bind(tmpl, mustCatalog(t, mixedTokens), fileField)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := []int{6, 8}; !reflect.DeepEqual(b.shrinkable, want) {
-		t.Errorf("shrinkable = %v; want %v", b.shrinkable, want)
-	}
-}

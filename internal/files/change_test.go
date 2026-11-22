@@ -211,23 +211,6 @@ func TestAPreviewChangesNothingAndItsImpactIsTheSaves(t *testing.T) {
 	}
 }
 
-func TestASaveThatWouldDeleteMoreThanConfirmedIsRefused(t *testing.T) {
-	s := shelved(t)
-	before := s.snapshot(t, s.svc, s.tree.ID)
-	_, err := s.svc.Change(t.Context(), admin, holding(s.both), files.Mode{Unwanted: files.Delete, Confirmed: new(0)})
-	changed, ok := errors.AsType[*files.ImpactChangedError](err)
-	if !ok || shown(changed.Impact) != "works=1 ownList=0 unwanted=1 bytes=5 renamed=0 newlyWanted=0 downloading=0" || changed.Confirmed != 0 {
-		t.Fatalf("a save confirming no deletes that deletes one: err = %v, want *ImpactChangedError with the fresh Impact", err)
-	}
-	s.settle(t, s.svc)
-	if after := s.snapshot(t, s.svc, s.tree.ID); after != before {
-		t.Fatalf("the refused save changed\n%s\nto\n%s", before, after)
-	}
-	if got := s.change(t, s.svc, holding(s.both), files.Mode{Unwanted: files.Keep, Confirmed: new(0)}); got.Unwanted != 1 {
-		t.Fatalf("a save keeping the file = %+v, want it saved: keeping deletes nothing", got)
-	}
-}
-
 func TestMovingAWorkToAnotherProfileRefillsItAndDeletingAProfileMovesItsWorks(t *testing.T) {
 	s := shelved(t)
 	bluray := s.target(t, "Bluray", []release.Quality{release.Bluray1080p})

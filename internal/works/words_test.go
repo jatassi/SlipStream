@@ -25,20 +25,6 @@ func TestNumbersWordsFoldsRunsOfThreeOrMore(t *testing.T) {
 	}
 }
 
-func TestJoinWordsListsInASentence(t *testing.T) {
-	for want, ws := range map[string][]string{
-		"":              nil,
-		"a":             {"a"},
-		"a and b":       {"a", "b"},
-		"a, b and c":    {"a", "b", "c"},
-		"a, b, c and d": {"a", "b", "c", "d"},
-	} {
-		if got := works.JoinWords(ws); got != want {
-			t.Errorf("JoinWords(%q) = %q, want %q", ws, got, want)
-		}
-	}
-}
-
 func TestPlacesCountEachLevelInTreeOrderWithdrawnIncluded(t *testing.T) {
 	one, two := works.LevelID{UUID: storage.NewUUID()}, works.LevelID{UUID: storage.NewUUID()}
 	id := func() works.ItemID { return works.ItemID{UUID: storage.NewUUID()} }

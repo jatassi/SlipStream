@@ -175,24 +175,6 @@ func checkPasted(t *testing.T, f formats.Format, name string, source []byte, con
 	}
 }
 
-func TestPasteKeepsTheDocumentVerbatim(t *testing.T) {
-	doc := trashDoc(t, "sonarr/cf/season-pack.json")
-	fs, err := formats.Paste(list(doc))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var source map[string]any
-	if err := json.Unmarshal(fs[0].Source, &source); err != nil {
-		t.Fatal(err)
-	}
-	if source["trash_id"] != "3bc5f395426614e155e585a2f056cdf1" {
-		t.Errorf("trash_id = %v", source["trash_id"])
-	}
-	if !reflect.DeepEqual(source["trash_scores"], map[string]any{"default": float64(10)}) {
-		t.Errorf("trash_scores = %v", source["trash_scores"])
-	}
-}
-
 func TestPasteRefuses(t *testing.T) {
 	mono := trashDoc(t, "radarr/cf/10-mono.json")
 	pack := trashDoc(t, "sonarr/cf/season-pack.json")

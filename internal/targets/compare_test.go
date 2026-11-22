@@ -10,14 +10,22 @@ import (
 )
 
 func TestStepsLeaveOutRevisionOnlyUnderDontPrefer(t *testing.T) {
-	for p, want := range map[targets.Propers][]targets.Step{
-		targets.PreferAndUpgrade: {targets.ByTier, targets.ByRevision, targets.ByScore},
-		targets.PreferNoUpgrade:  {targets.ByTier, targets.ByRevision, targets.ByScore},
-		targets.DontPrefer:       {targets.ByTier, targets.ByScore},
+	v1 := targets.Scored{Facts: release.Facts{Quality: release.Known(release.WEBDL1080p), Revision: release.Revision{Version: 1}}}
+	proper := targets.Scored{Facts: release.Facts{Quality: release.Known(release.WEBDL1080p), Revision: release.Revision{Version: 2}}}
+	for p, want := range map[targets.Propers]struct {
+		steps []targets.Step
+		by    int
+	}{
+		targets.PreferAndUpgrade: {[]targets.Step{targets.ByTier, targets.ByRevision, targets.ByScore}, 1},
+		targets.PreferNoUpgrade:  {[]targets.Step{targets.ByTier, targets.ByRevision, targets.ByScore}, 1},
+		targets.DontPrefer:       {[]targets.Step{targets.ByTier, targets.ByScore}, 0},
 	} {
 		target := must[targets.Target](t)(targets.NewTarget(scoredSpec(discsOverWeb, release.Remux1080p, 0, 0, 1, p)))
-		if got := target.Steps(); !slices.Equal(got, want) {
-			t.Errorf("%s: Steps = %v, want %v", p, got, want)
+		if got := target.Steps(); !slices.Equal(got, want.steps) {
+			t.Errorf("%s: Steps = %v, want %v", p, got, want.steps)
+		}
+		if got := target.CompareBy(targets.ByRevision, &proper, &v1); got != want.by {
+			t.Errorf("%s: CompareBy(ByRevision) = %d, want %d", p, got, want.by)
 		}
 	}
 }
@@ -57,17 +65,6 @@ func TestCompareFindsTheFirstStepTwoReleasesDifferOn(t *testing.T) {
 		}
 		if back, worse := target.Compare(&c.b, &c.a); back != c.step || worse != -c.better {
 			t.Errorf("%s: Compare the other way = %d, %d", name, back, worse)
-		}
-	}
-}
-
-func TestCompareByTiesAtRevisionUnderDontPrefer(t *testing.T) {
-	v1 := targets.Scored{Facts: release.Facts{Quality: release.Known(release.WEBDL1080p), Revision: release.Revision{Version: 1}}}
-	proper := targets.Scored{Facts: release.Facts{Quality: release.Known(release.WEBDL1080p), Revision: release.Revision{Version: 2}}}
-	for p, want := range map[targets.Propers]int{targets.PreferAndUpgrade: 1, targets.PreferNoUpgrade: 1, targets.DontPrefer: 0} {
-		target := must[targets.Target](t)(targets.NewTarget(scoredSpec(discsOverWeb, release.Remux1080p, 0, 0, 1, p)))
-		if got := target.CompareBy(targets.ByRevision, &proper, &v1); got != want {
-			t.Errorf("%s: CompareBy(ByRevision) = %d, want %d", p, got, want)
 		}
 	}
 }

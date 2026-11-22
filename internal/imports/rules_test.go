@@ -164,23 +164,6 @@ func TestNotThisReleaseIsOfferedOnlyOnAGrabsImport(t *testing.T) {
 	}
 }
 
-func TestEveryActionIsTheWiresInItsOrder(t *testing.T) {
-	seen := map[ActionKind]bool{}
-	for _, rl := range rules {
-		if rl.recommended != "" {
-			seen[rl.recommended] = true
-		}
-		for _, a := range rl.also {
-			seen[a] = true
-		}
-	}
-	for a := range seen {
-		if !slices.Contains(ActionKinds, a) {
-			t.Errorf("a rule offers %s, which ActionKinds doesn't list", a)
-		}
-	}
-}
-
 func TestEveryOfferedHoldOffersRetryAndDontImport(t *testing.T) {
 	f := File{Outcome: Pending, Hold: &Hold{Code: ProbeTimeout, Attempts: 3}}
 	if rec, also := f.Actions(Import{Source: FromGrab}); rec != ActRetry || !slices.Equal(also, []ActionKind{ActDecline}) {
@@ -235,5 +218,19 @@ func TestTheReasonTableIsPinnedToTheWire(t *testing.T) {
 	}
 	if !slices.Equal(wire, ActionKinds) {
 		t.Errorf("the wire's actions are %v, want ActionKinds %v", wire, ActionKinds)
+	}
+	seen := map[ActionKind]bool{}
+	for _, rl := range rules {
+		if rl.recommended != "" {
+			seen[rl.recommended] = true
+		}
+		for _, a := range rl.also {
+			seen[a] = true
+		}
+	}
+	for a := range seen {
+		if !slices.Contains(ActionKinds, a) {
+			t.Errorf("a rule offers %s, which ActionKinds doesn't list", a)
+		}
 	}
 }
