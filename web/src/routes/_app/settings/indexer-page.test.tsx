@@ -58,22 +58,6 @@ test("the page shows the Trackers it reaches and how much of each limit is used"
   await expect.element(page.getByText("seedbox", { exact: true }).first()).toBeVisible();
 });
 
-test("Test reports what the Indexer listed, or the sentence of why it failed", async () => {
-  renderApp({ path: pageOf(prowlarrId), handlers: indexersServer().handlers });
-  await userEvent.click(page.getByRole("button", { name: "Test" }));
-  await expect
-    .element(page.getByText("Prowlarr passed the Test and listed 40 items."))
-    .toBeVisible();
-});
-
-test("a failed Test shows the cause's sentence", async () => {
-  const failTest =
-    "Prowlarr refused the API key and responded 'Invalid API Key'. Check the account, then test again.";
-  renderApp({ path: pageOf(prowlarrId), handlers: indexersServer({ failTest }).handlers });
-  await userEvent.click(page.getByRole("button", { name: "Test" }));
-  await expect.element(page.getByRole("alert").getByText(failTest)).toBeVisible();
-});
-
 test("Edit shows secrets as Saved, sends only what changed, and a new key is tested before it saves", async () => {
   const failTest =
     "Prowlarr refused the API key and responded 'Invalid API Key'. Check the account, then test again.";

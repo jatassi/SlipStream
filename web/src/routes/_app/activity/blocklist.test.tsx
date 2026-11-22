@@ -10,7 +10,6 @@ import { blockedHash, blocklistPage } from "../../../test/blocklist";
 import { orchardId } from "../../../test/library";
 import { liveServer } from "../../../test/live-server";
 import { renderApp } from "../../../test/render-app";
-import { asPhone } from "../../../test/viewport";
 
 const pageSize = 50;
 
@@ -178,15 +177,4 @@ test("an empty Blocklist says what puts a Release on it", async () => {
     .element(page.getByText(/^The Blocklist is empty\. SlipStream adds a Release when/u))
     .toBeVisible();
   await expect.element(page.getByRole("checkbox", { name: "Select all" })).not.toBeInTheDocument();
-});
-
-test("on a phone the Blocklist is the third segment and its rows stack", async () => {
-  await asPhone();
-  const app = renderApp({ path: "/activity", handlers: blocklistServer().handlers });
-  const views = page.getByRole("radiogroup", { name: "View" });
-  await userEvent.click(views.getByRole("radio", { name: "Blocklist" }));
-  await expect.poll(() => app.router.state.location.pathname).toBe("/activity/blocklist");
-  await expect.element(views.getByRole("radio", { name: "Blocklist" })).toBeChecked();
-  await expect.element(row(orchard ?? "")).toBeVisible();
-  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
 });

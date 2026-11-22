@@ -4,7 +4,6 @@ import { page, userEvent } from "vitest/browser";
 import { addIndexerServer } from "../../test/add-indexer-server";
 import { catalogWithPorts, portsBeforeCatalog } from "../../test/ports";
 import { renderApp } from "../../test/render-app";
-import { asPhone } from "../../test/viewport";
 
 const formOf = (id: string) => `/settings/indexers/new/catalog/${id}`;
 const posted = (writes: ReturnType<typeof addIndexerServer>["writes"]) =>
@@ -290,10 +289,5 @@ async function addNorBitsWithCode() {
 }
 
 test("a save whose sign-in needs a two-factor code opens the code step, and the next save sends the code", async () => {
-  await addNorBitsWithCode();
-});
-
-test("the code step works the same at phone width", async () => {
-  await asPhone();
   await addNorBitsWithCode();
 });

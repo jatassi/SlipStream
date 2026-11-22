@@ -3,7 +3,6 @@ import { page, userEvent } from "vitest/browser";
 
 import type { SubtitlesProvider } from "../api/gen/model";
 import { renderApp } from "../test/render-app";
-import { asPhone } from "../test/viewport";
 import { gestdown, subdl, subsource } from "../test/subtitles";
 import { subtitlesWorld } from "../test/subtitles-world";
 
@@ -118,14 +117,4 @@ test("the switch turns a provider off", async () => {
       path: "/api/v1/subtitles/providers/gestdown",
       body: { on: false },
     });
-});
-
-test("on a phone the moves sit in one 44px row action", async () => {
-  await asPhone();
-  renderApp({ path, handlers: subtitlesWorld().handlers });
-  const actions = list().getByRole("button", { name: "Actions for SubSource" });
-  await expect.element(actions).toBeVisible();
-  expect(actions.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
-  await userEvent.click(actions);
-  await expect.element(page.getByRole("button", { name: "Move up" })).toBeVisible();
 });

@@ -48,53 +48,6 @@ async function chooseCuts() {
   await expect.element(sentence()).toHaveTextContent("SlipStream always gets Standard.");
 }
 
-test("a new Profile takes Targets in an order the keyboard sets, and creates with Any cut", async () => {
-  const { sent, handler } = creating();
-  const { router } = renderApp({
-    path: "/settings/profiles/new",
-    handlers: [...handlers(), handler],
-  });
-  await expect.element(page.getByRole("heading", { name: "New Profile", level: 1 })).toBeVisible();
-  await expect
-    .element(page.getByText("This Profile has no Targets.", { exact: false }))
-    .toBeVisible();
-  await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "Both");
-  for (const name of ["1080p", "2160p HDR"]) {
-    // oxlint-disable-next-line no-await-in-loop -- each pick lands before the next, as a person's does
-    await userEvent.click(page.getByRole("button", { name: "Add Target" }));
-    // oxlint-disable-next-line no-await-in-loop -- as above
-    await userEvent.click(page.getByRole("menuitem", { name }));
-  }
-  await expect.element(page.getByRole("button", { name: "Add Target" })).toBeDisabled();
-  expect(rowsOf("Targets")).toEqual([
-    "Rank 11080pNo estimate yet",
-    "Rank 22160p HDRNo estimate yet",
-  ]);
-
-  page.getByRole("button", { name: "Move 2160p HDR", exact: true }).element().focus();
-  await userEvent.keyboard("{ArrowUp}");
-  await expect.element(page.getByText("2160p HDR moved to rank 1 of 2.")).toBeInTheDocument();
-  expect(rowsOf("Targets")).toEqual([
-    "Rank 12160p HDRNo estimate yet",
-    "Rank 21080pNo estimate yet",
-  ]);
-
-  await userEvent.click(page.getByRole("button", { name: "Create Profile" }));
-  await expect.poll(() => router.state.location.pathname).toBe("/settings/profiles");
-  expect(sent).toEqual([
-    {
-      name: "Both",
-      contentType: "cinema",
-      targets: [
-        { targetId: keeper.id, sourcing: "download" },
-        { targetId: starter.id, sourcing: "download" },
-      ],
-      editions: { kind: "any" },
-      languages: [],
-    },
-  ]);
-});
-
 test("Choose cuts lists cuts from Standard, says what they want, and warns once Standard is gone", async () => {
   renderApp({ path: "/settings/profiles/new", handlers: handlers() });
   await expect

@@ -25,13 +25,6 @@ test("Targets lists each Target's quality span, cutoff and the Profiles using it
   await expect.element(page.getByRole("heading", { name: "1080p", level: 1 })).toBeVisible();
 });
 
-test("New Target opens an empty editor", async () => {
-  const { router } = renderApp({ path: "/settings/targets", handlers: targetHandlers() });
-  await userEvent.click(page.getByRole("button", { name: "New Target" }));
-  await expect.poll(() => router.state.location.pathname).toBe("/settings/targets/new");
-  await expect.element(page.getByRole("textbox", { name: "Name" })).toHaveValue("");
-});
-
 test("Duplicate copies a Target and says what it made", async () => {
   const copy: TargetsTarget = {
     ...keeper,

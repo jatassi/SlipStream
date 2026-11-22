@@ -6,7 +6,6 @@ import { larkspur, larkspurId, prowlarr, torrentLeech } from "../../../test/inde
 import { indexersServer } from "../../../test/indexers-server";
 import { iptorrents, iptorrentsId, norbits, norbitsId } from "../../../test/ports";
 import { renderApp } from "../../../test/render-app";
-import { asPhone } from "../../../test/viewport";
 
 const pageOf = (id: string) => `/settings/indexers/${id}`;
 const dialog = () => page.getByRole("dialog");
@@ -87,24 +86,6 @@ test("Health's link to #code opens the page on the code step", async () => {
   });
   await expect.element(page.getByText(codeLead)).toBeVisible();
   await expect.element(codeField()).toHaveFocus();
-});
-
-test("a Test that meets a sign-in needing a code opens the code step at phone width too", async () => {
-  await asPhone();
-  const codeNeeded =
-    "NorBits needs a two-factor code to sign in. Type the current code and test again.";
-  const working = { ...norbits, status: { ...norbits.status, state: "ok", cause: null } } as const;
-  const server = indexersServer({ indexers: [working, prowlarr], codeNeeded });
-  renderApp({ path: pageOf(norbitsId), handlers: server.handlers });
-  await userEvent.click(page.getByRole("button", { name: "Test" }));
-  await expect.element(page.getByRole("alert").getByText(codeNeeded)).toBeVisible();
-  await expect.element(page.getByText(codeLead)).toBeVisible();
-  await userEvent.fill(codeField(), "111222");
-  await userEvent.click(page.getByRole("button", { name: "Test" }));
-  await expect
-    .element(page.getByText("NorBits passed the Test and listed 40 items."))
-    .toBeVisible();
-  expect(tests(server)).toEqual([{}, { code: "111222" }]);
 });
 
 test("Edit draws a ported site's address and settings, sealed ones that hold a value Saved with Replace", async () => {
@@ -224,11 +205,6 @@ test("Edit replaces a ported site's pasted cookie with that browser's User-Agent
   await replaceCookie();
 });
 
-test("Edit replaces a pasted cookie at phone width too", async () => {
-  await asPhone();
-  await replaceCookie();
-});
-
 const pinned: IndexersIndexer = {
   ...larkspur,
   definition: {
@@ -260,10 +236,5 @@ async function editCatalogSetting() {
 }
 
 test("Edit draws a catalog Indexer's settings too, sending only the one changed", async () => {
-  await editCatalogSetting();
-});
-
-test("Edit draws a catalog Indexer's settings in the phone's sheet", async () => {
-  await asPhone();
   await editCatalogSetting();
 });

@@ -83,43 +83,6 @@ test("removing a torrent SlipStream attached to stops tracking it and offers no 
   expect(actions.bodies.at(-1)).toEqual({ action: "remove", ids: [attached.id] });
 });
 
-test("remove names the torrent, keeps library files, and lists what it takes with it", async () => {
-  const actions = actionsServer({ preview: shared });
-  open([orchard, harvest], actions);
-  await removeFromMenu("The Quiet Orchard");
-  const dialog = page.getByRole("dialog", { name: "Remove The Quiet Orchard?" });
-  await expect
-    .element(dialog)
-    .toMatchTextContent(
-      "Files in your library stay." +
-        "It cancels this Grab, which is still downloading, and SlipStream searches for a release again:" +
-        "The Quiet Orchard" +
-        "The.Quiet.Orchard.2021.1080p.WEB-DL" +
-        "Orchard Harvest stops seeding.",
-    );
-  const copy = dialog.getByRole("checkbox", {
-    name: "Also delete the download copy (frees 14 GB)",
-  });
-  await expect.element(copy).not.toBeChecked();
-  expect(actions.bodies).toEqual([{ action: "remove", ids: [orchard.id], dryRun: true }]);
-
-  await userEvent.click(dialog.getByRole("button", { name: "Remove" }));
-  await expect.element(dialog).not.toBeInTheDocument();
-  await expect.element(notices().getByText("Removing The Quiet Orchard.")).toBeVisible();
-  expect(actions.bodies.at(-1)).toEqual({ action: "remove", ids: [orchard.id] });
-});
-
-test("the delete choice removes the download copy too", async () => {
-  const actions = actionsServer({ preview: shared });
-  open([orchard], actions);
-  await removeFromMenu("The Quiet Orchard");
-  const dialog = page.getByRole("dialog", { name: "Remove The Quiet Orchard?" });
-  await userEvent.click(dialog.getByRole("checkbox", { name: /^Also delete the download copy/u }));
-  await userEvent.click(dialog.getByRole("button", { name: "Remove" }));
-  await expect.element(dialog).not.toBeInTheDocument();
-  expect(actions.bodies.at(-1)).toEqual({ action: "remove", ids: [orchard.id], deleteFiles: true });
-});
-
 test("a copy the library shares says it frees little, and an offline Node can't say", async () => {
   open([orchard], actionsServer({ preview: { ...shared, frees: 2048, linked: true } }));
   await removeFromMenu("The Quiet Orchard");

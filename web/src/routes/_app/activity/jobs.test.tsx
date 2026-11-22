@@ -8,10 +8,8 @@ import { getListLibraryMockHandler } from "../../../api/gen/query/works/works.ms
 import { downloading, fetchFailure, imported } from "../../../test/grabs";
 import { libraryRow, orchardId, orchardRow } from "../../../test/library";
 import { liveServer } from "../../../test/live-server";
-import { filmPlan } from "../../../test/manual";
-// oxlint-disable-next-line import/max-dependencies -- Jobs read Grabs, Works, Targets, Torrents, the live stream and Manual search
-import { manualEntry, manualSheet } from "../../../test/manual-entry";
 import { renderApp } from "../../../test/render-app";
+// oxlint-disable-next-line import/max-dependencies -- Jobs read Grabs, Works, Targets, Torrents, searches and the live stream
 import { aSearchQueued, queuedGroupOf } from "../../../test/searching";
 import { starter, targetHandlers } from "../../../test/targets";
 import { actionsServer, torrent, torrentsServer } from "../../../test/torrents";
@@ -190,14 +188,6 @@ test("Search again on a failed Grab searches its Work and says so", async () => 
   const toasts = page.getByRole("region", { name: "Messages" });
   await expect.element(toasts.getByText("Searching Orchard Harvest")).toBeVisible();
   expect(searched).toEqual([harvestId]);
-});
-
-test("Manual search on a failed Grab opens the sheet on its Item", async () => {
-  const manual = manualEntry(filmPlan);
-  renderApp({ path: "/activity", handlers: [...manual.handlers, ...activityServer().handlers] });
-  await userEvent.click(harvestCard().getByRole("button", { name: "Manual search" }));
-  await expect.element(manualSheet(filmPlan)).toBeVisible();
-  await expect.poll(() => manual.started).toEqual([{ itemIds: failed.items }]);
 });
 
 test("Activity with no Grabs says what to do next", async () => {

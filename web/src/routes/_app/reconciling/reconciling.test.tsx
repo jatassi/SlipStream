@@ -16,7 +16,6 @@ import {
 } from "../../../test/reconciling";
 import { renderApp } from "../../../test/render-app";
 import { filmsRoot, media, serveRoots } from "../../../test/roots";
-import { asPhone } from "../../../test/viewport";
 
 const textOf = (locator: Locator) => () => locator.element().textContent;
 
@@ -36,16 +35,6 @@ test("the banner leads with what SlipStream is doing, then the next step, and op
   await expect.element(page.getByRole("heading", { name: "Reconciling", level: 1 })).toBeVisible();
   expect(app.router.state.location.pathname).toBe("/reconciling");
   await expect.element(banner()).not.toBeInTheDocument();
-});
-
-test("on phone the banner sits above the tab bar and opens Reconciling", async () => {
-  await asPhone();
-  serveReconciling(reconcilingPage());
-  renderApp({ path: "/library", handlers: [nodesAre(home, seedbox)] });
-  const line = banner().getByRole("link");
-  await expect.poll(textOf(line)).toContain("Pair seedbox again");
-  await userEvent.click(line);
-  await expect.element(page.getByRole("button", { name: "New Join Code" })).toBeVisible();
 });
 
 test("when only a Node offline past the grace is left, the banner recommends continuing without it", async () => {

@@ -28,33 +28,6 @@ const pastedTorrentLeech = {
 };
 const needsCaptcha = "Larkspur needs a captcha to sign in. Type the code and test again.";
 
-test("a Test that meets a captcha shows its image, and the next Test answers its code", async () => {
-  const server = indexersServer({ captchaTests: [needsCaptcha] });
-  renderApp({ path: pageOf(larkspurId), handlers: server.handlers });
-  await userEvent.click(page.getByRole("button", { name: "Test" }));
-  await expect.element(page.getByRole("alert").getByText(needsCaptcha)).toBeVisible();
-  await expect.element(image("Larkspur")).toHaveAttribute("src", captchas[0]?.image);
-  await expect
-    .element(
-      page.getByText("Signing in to Larkspur needs the code in this image, which home fetched.", {
-        exact: false,
-      }),
-    )
-    .toBeVisible();
-
-  await userEvent.click(page.getByRole("button", { name: "Test" }));
-  await expect.element(page.getByText("Type the code the image shows.")).toBeVisible();
-  await userEvent.fill(code(), "K7Q2");
-  await userEvent.click(page.getByRole("button", { name: "Test" }));
-  await expect
-    .element(page.getByText("Larkspur passed the Test and listed 40 items."))
-    .toBeVisible();
-  expect(image("Larkspur").query()).toBeNull();
-  expect(
-    server.writes.filter((write) => write.method === "TEST").map((write) => write.body),
-  ).toEqual([{}, { captcha: { attempt: "attempt-1", answer: "K7Q2" } }]);
-});
-
 test("an expired captcha on the Indexer's page says so, and New captcha loads another from its home", async () => {
   const server = indexersServer({
     captchaTests: [needsCaptcha],

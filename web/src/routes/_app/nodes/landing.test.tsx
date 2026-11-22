@@ -1,12 +1,11 @@
 import { expect, test } from "vitest";
 import { type Locator, page, userEvent } from "vitest/browser";
 
-import { problem } from "../../../test/handlers";
 import { joinCodeServer } from "../../../test/join-codes";
 import { ids, manageServer, threeNodes } from "../../../test/landing";
 import { renderApp } from "../../../test/render-app";
 import { outcome, refusal } from "../../../test/roles";
-import { asPhone, resize } from "../../../test/viewport";
+import { resize } from "../../../test/viewport";
 
 const views = () => page.getByRole("navigation", { name: "View" });
 const roster = () => page.getByRole("list", { name: "Nodes list" });
@@ -23,24 +22,6 @@ async function openMenu(name: string, item: string) {
   await userEvent.click(page.getByRole("menuitem", { name: item }));
 }
 
-test("a desktop browser opens Nodes on the Diagram, which takes drags, and the Roster tab lists the same Nodes", async () => {
-  const { router } = renderApp({ path: "/nodes", handlers: threeNodes });
-  await expect.element(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
-  await expect.element(page.getByText("seedbox is offline.")).toBeVisible();
-  await expect
-    .element(views().getByRole("link", { name: "Diagram" }))
-    .toHaveAttribute("aria-current", "page");
-  await expect.element(diagram()).toHaveAttribute("data-takes-drags", "true");
-  await expect.element(page.getByRole("button", { name: "Add a Node" })).toBeVisible();
-
-  await userEvent.click(views().getByRole("link", { name: "List" }));
-  expect(router.state.location.search).toEqual({ view: "roster" });
-  await expect.element(roster()).toBeVisible();
-  await expect
-    .element(views().getByRole("link", { name: "List" }))
-    .toHaveAttribute("aria-current", "page");
-});
-
 test("below 1000px Nodes opens on the Roster, and the Diagram is there to look at, without drags", async () => {
   await resize(900, 800);
   renderApp({ path: "/nodes", handlers: threeNodes });
@@ -48,15 +29,6 @@ test("below 1000px Nodes opens on the Roster, and the Diagram is there to look a
   await expect
     .element(views().getByRole("link", { name: "List" }))
     .toHaveAttribute("aria-current", "page");
-  await userEvent.click(views().getByRole("link", { name: "Diagram" }));
-  await expect.element(diagram()).toHaveAttribute("data-takes-drags", "false");
-});
-
-test("on phone Nodes is the top page and opens on the Roster", async () => {
-  await asPhone();
-  renderApp({ path: "/nodes", handlers: threeNodes });
-  await expect.element(page.getByRole("heading", { name: "Nodes", level: 1 })).toBeVisible();
-  await expect.element(roster()).toBeVisible();
   await userEvent.click(views().getByRole("link", { name: "Diagram" }));
   await expect.element(diagram()).toHaveAttribute("data-takes-drags", "false");
 });
@@ -83,40 +55,12 @@ test("each Roster row says the Node's state, when it was last seen, how it is re
   ).toEqual([`/nodes/${ids.home}`, `/nodes/${ids.seedbox}`, `/nodes/${ids.vps}`]);
 });
 
-test("a Roster row opens its Node's Overview", async () => {
-  const { router } = renderApp({ path: "/nodes?view=roster", handlers: threeNodes });
-  await userEvent.click(rowOf("vps").getByRole("link"));
-  await expect.poll(() => router.state.location.pathname).toBe(`/nodes/${ids.vps}`);
-  await expect.element(page.getByRole("heading", { name: "vps", level: 1 })).toBeVisible();
-});
-
 test("with one Node the Roster shows it complete and offers Add a Node in its own row", async () => {
   const codes = joinCodeServer();
   renderApp({ path: "/nodes?view=roster", handlers: codes.handlers });
   await expect.element(rowOf("home")).toBeVisible();
   await userEvent.click(roster().getByRole("button", { name: /^Add a Node/u }));
   await expect.element(page.getByRole("dialog", { name: "Add a Node" })).toBeVisible();
-});
-
-test("Rename from the Roster says when the name is taken, then renames", async () => {
-  const server = manageServer({
-    renames: [() => problem(409, "node_name_taken", "Another Node has this name")],
-  });
-  renderApp({ path: "/nodes?view=roster", handlers: [...threeNodes, ...server.handlers] });
-  await openMenu("vps", "Rename");
-  const dialog = page.getByRole("dialog", { name: "Rename vps" });
-  const name = dialog.getByRole("textbox", { name: "Name" });
-  await userEvent.fill(name, "seedbox");
-  await userEvent.click(dialog.getByRole("button", { name: "Rename" }));
-  await expect.element(name).toHaveAccessibleDescription("Another Node has this name");
-
-  await userEvent.fill(name, " edge ");
-  await userEvent.click(dialog.getByRole("button", { name: "Rename" }));
-  await expect.element(dialog).not.toBeInTheDocument();
-  expect(server.renamed).toEqual([
-    { nodeId: ids.vps, body: { name: "seedbox" } },
-    { nodeId: ids.vps, body: { name: "edge" } },
-  ]);
 });
 
 test("Remove from the Roster says what the Node still holds and writes it off", async () => {

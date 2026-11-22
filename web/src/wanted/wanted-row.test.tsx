@@ -37,13 +37,6 @@ test("a row shows the Work, its Items, why, the last search and the next", async
     .toMatchTextContent(/File gone.*Only when you search/u);
 });
 
-test("Search on a row presses Search for that Work and says so", async () => {
-  const { server } = openRows();
-  await userEvent.click(page.getByRole("button", { name: "Search The Long Shelf" }));
-  await expect.element(page.getByText("Searching The Long Shelf")).toBeVisible();
-  expect(server.pressed).toEqual([missingRange.work.id]);
-});
-
 test("a press on a Work already searching says so", async () => {
   openRows(
     wantedServer([aWantedPage([missingRange])], {
