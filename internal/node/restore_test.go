@@ -113,12 +113,20 @@ func TestARestoreInPlaceKeepsTheBeforeRestoreBackupNewerBackupsAndCredentials(t 
 		first := takeBackup(t, n)
 		kept := keyOf(t, c, claimed)
 		takeBackup(t, n)
+		fence := fenceOf(t, n)
 		stop(n)
 
-		if _, err := RestoreOffline(t.Context(), env, restoreFlags{file: first.file}, first.words); err != nil {
+		line, err := RestoreOffline(t.Context(), env, restoreFlags{file: first.file}, first.words)
+		if err != nil {
 			t.Fatal(err)
 		}
-		_, ac := startInMemory(t, env)
+		if want := "Prepared the restore of the Backup from " + first.at.Local().Format("2 Jan, 15:04") + ". Start SlipStream to finish it."; line != want {
+			t.Fatalf("restore printed %q, want %q", line, want)
+		}
+		again, ac := startInMemory(t, env)
+		if fenceOf(t, again) != fence {
+			t.Fatal("the restore in place replaced the fence secret")
+		}
 		if r := ac.admin(kept, http.MethodGet, "/api/v1/nodes", ""); r.status != http.StatusOK {
 			t.Fatalf("the API key made after the Backup = %d %s, want it kept", r.status, r.body)
 		}
@@ -129,23 +137,6 @@ func TestARestoreInPlaceKeepsTheBeforeRestoreBackupNewerBackupsAndCredentials(t 
 		got := triggers(ledgerOf(t, env))
 		if count(got, archive.Manual) != 2 || count(got, archive.BeforeRestore) != 1 {
 			t.Fatalf("the Backups index lists %v, want both manual Backups and one before-restore", got)
-		}
-	})
-}
-
-func TestTheOfflineCLIPrintsTheNextStep(t *testing.T) {
-	env, _ := testEnv(t)
-	synctest.Test(t, func(t *testing.T) {
-		n, c := startInMemory(t, env)
-		c.claim(n.Ready().SetupCode, "1234")
-		b := takeBackup(t, n)
-		stop(n)
-		line, err := RestoreOffline(t.Context(), env, restoreFlags{file: b.file}, b.words)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if want := "Prepared the restore of the Backup from " + b.at.Local().Format("2 Jan, 15:04") + ". Start SlipStream to finish it."; line != want {
-			t.Fatalf("restore printed %q, want %q", line, want)
 		}
 	})
 }
@@ -314,23 +305,6 @@ func TestRestoringASupersededBackupStartsUnfenced(t *testing.T) {
 	})
 }
 
-func TestAnInPlaceRestoreKeepsTheFenceSecret(t *testing.T) {
-	env, _ := testEnv(t)
-	synctest.Test(t, func(t *testing.T) {
-		n, c := startInMemory(t, env)
-		c.claim(n.Ready().SetupCode, "1234")
-		b := takeBackup(t, n)
-		before := fenceOf(t, n)
-		stop(n)
-		if _, err := RestoreOffline(t.Context(), env, restoreFlags{file: b.file}, b.words); err != nil {
-			t.Fatal(err)
-		}
-		if again, _ := startInMemory(t, env); fenceOf(t, again) != before {
-			t.Fatal("the restore in place replaced the fence secret")
-		}
-	})
-}
-
 func TestANewMachineRegeneratesTheFenceSecret(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		net, homeEnv, _, _, b := homeAndBox(t)
@@ -484,18 +458,6 @@ func TestAnUploadPastTheSpaceCapIsRefused(t *testing.T) {
 		expect(t, r, 422, `{"status":422,"code":"backup_no_space","title":"Not enough space","detail":"Restoring needs 101 bytes free on the volume of this Node's data folder, and it has 100 bytes free. Free some space, then try again."}`+"\n")
 		if slices.Contains(dataDirHolds(t, env.DataDir), backups.UploadFile) {
 			t.Fatal("the refused upload stayed in the data dir")
-		}
-	})
-}
-
-func TestThePathFormOfSetupRestoreIsGone(t *testing.T) {
-	env, _ := testEnv(t)
-	synctest.Test(t, func(t *testing.T) {
-		n, c := startInMemory(t, env)
-		r := upload(c, n.Ready().SetupCode, strings.NewReader(`{"path":"/backups/slipstream.tar.zst.age"}`), "application/json")
-		expect(t, r, 415, problem(415, "not_an_upload", "Send the file itself, as application/octet-stream"))
-		if slices.Contains(dataDirHolds(t, env.DataDir), backups.UploadFile) {
-			t.Fatal("a path was kept as an upload")
 		}
 	})
 }

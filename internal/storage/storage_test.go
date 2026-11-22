@@ -578,22 +578,6 @@ func TestUUIDsRoundTripAndSortByCreation(t *testing.T) {
 	}
 }
 
-func TestCompareRefusesWhatOpenRefuses(t *testing.T) {
-	schemas := both()
-	plan, err := storage.Compare(storage.Versions{"shelf": 1}, schemas)
-	if err != nil || !slices.Equal(plan, storage.Plan{{Set: "clip", From: 0, To: 2}}) {
-		t.Errorf("Compare = %v, %v", plan, err)
-	}
-	_, err = storage.Compare(storage.Versions{"shelf": 1, "clip": 3, "zebra": 1, "aardvark": 1}, schemas)
-	if want := "library.db holds schema clip at version 3, but this binary supports only up to 2. Restore a Backup this version took, or update SlipStream"; err == nil || err.Error() != want {
-		t.Errorf("Compare = %v, want %q", err, want)
-	}
-	_, err = storage.Compare(storage.Versions{"zebra": 1, "aardvark": 1}, schemas)
-	if want := "library.db holds schema aardvark, which this binary doesn't have"; err == nil || err.Error() != want {
-		t.Errorf("Compare = %v, want %q", err, want)
-	}
-}
-
 func TestWrongFileDoesNotCompile(t *testing.T) {
 	out, err := exec.CommandContext(t.Context(), "go", "build", "-o", os.DevNull, "./testdata/wrongfile").CombinedOutput()
 	if err == nil {

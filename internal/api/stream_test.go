@@ -67,16 +67,14 @@ func openStream(t *testing.T, h http.Handler, target string) (contentType string
 	}
 }
 
-func TestAStreamWritesEachMessageAsAnEvent(t *testing.T) {
-	contentType, body := openStream(t, streamFixture(newRouter(t, &bytes.Buffer{}), ticks), "/api/v1/fixture")
+func TestAStreamWritesEachMessageAsAnEventOrAProblemBeforeItOpens(t *testing.T) {
+	h := streamFixture(newRouter(t, &bytes.Buffer{}), ticks)
+	contentType, body := openStream(t, h, "/api/v1/fixture")
 	got := contentType + "\n" + body()
 	if want := "text/event-stream\nid: 7\nretry: 3000\nevent: fixture.tick\ndata: {\"n\":1}\n\n: keepalive\n\n"; got != want {
 		t.Errorf("stream = %q, want %q", got, want)
 	}
-}
-
-func TestAStreamAnswersAProblemBeforeItOpens(t *testing.T) {
-	w := get(t, streamFixture(newRouter(t, &bytes.Buffer{}), ticks), "/api/v1/fixture?gone=true")
+	w := get(t, h, "/api/v1/fixture?gone=true")
 	want := `{"status":410,"code":"fixture_gone","title":"The fixture is gone"}` + "\n"
 	if w.Code != http.StatusGone || w.Body.String() != want {
 		t.Fatalf("got %d %q, want 410 %q", w.Code, w.Body, want)

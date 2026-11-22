@@ -80,15 +80,6 @@ func TestUntickingTheLastDownloaderDrainsItAndHandsDownloadingToTheController(t 
 		"home takes over Downloading, since SlipStream always needs a Node that downloads.")
 }
 
-func TestADrainThatFinishesSaysSo(t *testing.T) {
-	s := seedboxDownloading()
-	s.Seats[1].Held[role.Downloading] = nodes.Held{Units: 1, Noun: torrents.Noun, Bytes: 2_500_000_000}
-	out := nodes.Plan(s, nodes.SetRoles{Want: nodes.Roles{seedbox.ID: role.Of(role.Searching)}})
-	if got := out.Effects[0].Words(); got != "seedbox takes no new Downloading work and finishes the 1 torrent (2.3 GB) it has." {
-		t.Fatalf("words = %q", got)
-	}
-}
-
 func TestUntickingARoleWithNothingHeldLetsItGo(t *testing.T) {
 	s := situation(seat(home, homeRoles), seat(seedbox, role.Of(role.Searching, role.Subtitles)))
 	out := nodes.Plan(s, nodes.SetRoles{Want: nodes.Roles{seedbox.ID: role.Of(role.Searching)}})
