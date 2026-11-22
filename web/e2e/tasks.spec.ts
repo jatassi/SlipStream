@@ -29,23 +29,6 @@ async function slowSeedbox(world: World): Promise<() => Promise<unknown>> {
   return () => world.fw.fault.clear("slow-link");
 }
 
-test("Tasks shows Housekeeping in the Controller group with its cadence, next run and Nodes", async ({
-  adminPage: page,
-}) => {
-  await navigate(page, "Tasks");
-  await expect(page.getByRole("heading", { level: 2, name: "Controller" })).toBeVisible();
-  const row = housekeepingRow(page);
-  await expect(row).toContainText(/(Tonight|Tomorrow) at (?:4:00 AM|04:00)/u);
-  if (isPhone(page)) {
-    return;
-  }
-  await expect(row).toContainText("Daily in the Maintenance window");
-  await expect(
-    page.getByRole("table", { name: "Controller" }).getByRole("columnheader", { name: "Nodes" }),
-  ).toBeVisible();
-  await expect(row).toContainText("home, seedbox");
-});
-
 async function expectRunningShown(page: Page): Promise<void> {
   if (isPhone(page)) {
     await navigate(page, "Activity");

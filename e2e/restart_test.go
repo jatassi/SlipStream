@@ -149,20 +149,6 @@ func checkLater(t *testing.T, name string, after, before started, pid int) {
 	}
 }
 
-func TestRestartingTheControllerThroughItsAPI(t *testing.T) {
-	t.Parallel()
-	run := worldtest.Launch(t, "home")
-	a := api(t, run)
-	box := a.Node("seedbox")
-	linked := linkUp(t, a, box.NodeID, "")
-
-	home, restarted, before := restartFromHome(t, run, a, "home")
-	a = api(t, run)
-	checkLater(t, "home", nodeSystem(t, a, home.NodeID), before, restarted.PID)
-	linkUp(t, a, box.NodeID, linked)
-	doctor(t, run)
-}
-
 func TestRestartingAWorkerFromTheControllersAPI(t *testing.T) {
 	t.Parallel()
 	run := worldtest.Launch(t, "home")

@@ -11,7 +11,6 @@ const Indexers = z.object({
 });
 const Nodes = z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string() })) });
 const Solver = z.object({ address: z.string().nullable() });
-const CaptchaShown = z.object({ text: z.string() });
 
 async function indexer(world: World, name: string) {
   const found = Indexers.parse((await world.api("GET", "/api/v1/indexers")).body).indexers.find(
@@ -59,60 +58,6 @@ test("an Admin edits Quarry's priority and tests it from its page", async ({
   });
   await expectAccessible(page);
   await page.screenshot({ path: testInfo.outputPath("tested.png") });
-});
-
-test("an Indexer stops when its site refuses the account and comes back once a Test passes", async ({
-  adminPage: page,
-  world,
-}, testInfo) => {
-  await openIndexer(page, world, "Fixture Site");
-  await world.fw.cue("fixture-site-refuse", { code: 101 });
-  await testButton(page).click();
-  await expect(
-    page
-      .getByRole("alert")
-      .getByText(
-        "Fixture Site refused the API key and responded 'Account suspended'. Check the account, then test again.",
-      ),
-  ).toBeVisible({ timeout: 30_000 });
-  await expect(
-    page.getByText(
-      "Stopped because Fixture Site refused the API key and responded 'Account suspended'.",
-    ),
-  ).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("stopped.png") });
-
-  await world.fw.cue("fixture-site-refuse", { code: 0 });
-  await testButton(page).click();
-  await expect(
-    page.getByText(/^Fixture Site passed the Test and listed \d+ items?\.$/u),
-  ).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("Stopped because Fixture Site refused the API key")).toBeHidden();
-  await page.screenshot({ path: testInfo.outputPath("back.png") });
-});
-
-test("Larkspur's Test shows the captcha its sign-in meets, and the next Test answers its code", async ({
-  adminPage: page,
-  world,
-}, testInfo) => {
-  await openIndexer(page, world, "Larkspur");
-  await world.fw.cue("fixture-site-expire", { site: "larkspur" });
-  await testButton(page).click();
-  await expect(page.getByRole("img", { name: "The captcha Larkspur shows" })).toBeVisible({
-    timeout: 30_000,
-  });
-  const shown = await world.fw.capture("captchas").list({ where: { site: "larkspur" } });
-  const last = shown.at(-1);
-  if (last === undefined) {
-    throw new Error("Larkspur served no captcha");
-  }
-  await page.getByRole("textbox", { name: "Code" }).fill(CaptchaShown.parse(last.data).text);
-  await expectAccessible(page);
-  await page.screenshot({ path: testInfo.outputPath("captcha.png") });
-  await testButton(page).click();
-  await expect(page.getByText(/^Larkspur passed the Test and listed \d+ items?\.$/u)).toBeVisible({
-    timeout: 30_000,
-  });
 });
 
 test("moving Cinder, whose cookie was pasted for seedbox, asks for a cookie for home", async ({

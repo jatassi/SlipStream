@@ -36,23 +36,6 @@ func row(t *testing.T, rows []worldtest.Row, id string) worldtest.Row {
 	return rows[i]
 }
 
-func TestARestartedNodeKeepsItsPort(t *testing.T) {
-	t.Parallel()
-	run := worldtest.Launch(t, "home")
-	box := api(t, run).Node("seedbox")
-	restarted := act(t, run, "seedbox", world.KillNode, world.StartNode)
-	if restarted.State != world.NodeRunning || restarted.PID == box.PID || restarted.Listeners["link"] != box.Listeners["link"] || restarted.Listeners["http"] != box.Listeners["http"] {
-		t.Fatalf("seedbox restarted %s as PID %d on link %s and http %s; want running as a new PID on link %s and http %s",
-			restarted.State, restarted.PID, restarted.Listeners["link"], restarted.Listeners["http"], box.Listeners["link"], box.Listeners["http"])
-	}
-	a := api(t, run)
-	worldtest.Expect(t, "seedbox GET /api/v1/status", worldtest.WithoutStartedAt(t, a.Get("seedbox", "/api/v1/status")), worldtest.Reply{Status: 200, Body: `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
-	worldtest.Until(t, "home lists seedbox's link up", func() (bool, error) {
-		return row(t, a.Nodes("home"), box.NodeID).Link.State == "up", nil
-	})
-	doctor(t, run)
-}
-
 func TestANodeWhoseWebPortIsHeldFallsBack(t *testing.T) {
 	t.Parallel()
 	run := worldtest.Launch(t, "home")

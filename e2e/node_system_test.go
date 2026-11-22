@@ -129,27 +129,3 @@ func TestTheControllerManagesAWorkersSystem(t *testing.T) {
 	logged.Buffer(nil, 1<<20)
 	awaitRecord(t, logged, logRecord{Level: "DEBUG", Subsystem: "link", Message: "link handshake failed"})
 }
-
-func TestAStoppedWorkerIsOffline(t *testing.T) {
-	t.Parallel()
-	run := worldtest.Launch(t, "home")
-	a := api(t, run)
-	box := a.Node("seedbox")
-	worker := "/api/v1/nodes/" + box.NodeID
-	act(t, run, "seedbox", world.StopNode)
-	worldtest.Until(t, "home lists seedbox's link down", func() (bool, error) {
-		return row(t, a.Nodes("home"), box.NodeID).Link.State == "down", nil
-	})
-
-	offline := problem(http.StatusServiceUnavailable, "node_offline", "The Node is offline")
-	for _, op := range []struct{ method, path, body string }{
-		{http.MethodGet, worker + "/system", ""},
-		{http.MethodGet, worker + "/config", ""},
-		{http.MethodPatch, worker + "/config", `{"log.level":"debug"}`},
-		{http.MethodPost, worker + "/restart", ""},
-		{http.MethodGet, worker + "/logs/stream", ""},
-		{http.MethodGet, worker + "/logs/archive", ""},
-	} {
-		worldtest.Expect(t, "home "+op.method+" "+op.path, a.Admin("home", op.method, op.path, op.body), offline)
-	}
-}

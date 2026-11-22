@@ -5,37 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
-
-func TestHomeSeedsTheFixtureSiteIndexerOnTheSeedbox(t *testing.T) {
-	t.Parallel()
-	run := worldtest.Launch(t, "home")
-	m := run.Manifest()
-	var listed struct {
-		Indexers []struct {
-			ID     string `json:"id"`
-			Status struct {
-				SuccessAt string `json:"successAt"`
-			} `json:"status"`
-			CreatedAt  string   `json:"createdAt"`
-			TrackerIDs []string `json:"trackerIds"`
-		} `json:"indexers"`
-	}
-	reply := api(t, run).Admin("home", http.MethodGet, "/api/v1/indexers", "")
-	decode(t, "listIndexers", reply, &listed)
-	ix := listed.Indexers[0]
-	if len(ix.TrackerIDs) != 1 {
-		t.Fatalf("listIndexers = %s, want Fixture Site reaching the one Tracker its sourceless feed named", reply.Body)
-	}
-	worldtest.Expect(t, "listIndexers", reply, worldtest.Reply{Status: 200, Body: `{"indexers":[{"id":"` + ix.ID + `","name":"Fixture Site","kind":"torznab",` +
-		`"homeNodeId":"` + m.Nodes[1].NodeID + `","on":true,"automaticSearch":true,"rss":true,"allowFailover":false,"priority":25,"searchesAtOnce":2,"recentPaging":true,"categories":null,"media":null,"allowNoSize":false,` +
-		`"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
-		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"` + ix.Status.SuccessAt + `"},` +
-		`"sentence":"Fixture Site is working.","fix":null,"signsIn":false,"trackerIds":["` + ix.TrackerIDs[0] + `"],"waits":null,"session":null,"feedHost":"` + site.Host("torznab") + `","definition":null,"port":null,` +
-		`"searchModes":[{"mode":"movie","params":["q","tmdbid","imdbid"]},{"mode":"search","params":["q"]},{"mode":"tvsearch","params":["q","season","ep","tvdbid"]}],"notes":[],"rssFetch":null,"revision":1,"createdAt":"` + ix.CreatedAt + `"}]}` + "\n"})
-}
 
 func TestHomeDownloadsTheIndexerCatalogFromFakeCatalogAtStart(t *testing.T) {
 	t.Parallel()

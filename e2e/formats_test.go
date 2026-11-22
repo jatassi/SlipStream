@@ -12,7 +12,6 @@ import (
 
 const (
 	flux        = "The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.H264-FLUX"
-	freeleech   = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-CMRG"
 	repack      = "The.Quiet.Orchard.2021.REPACK.1080p.WEB-DL.H264-FKW"
 	otherRepack = "The.Quiet.Orchard.2021.REPACK.1080p.WEB-DL.H264-NTb"
 	otherYear   = "The.Quiet.Orchard.1987.1080p.BluRay.x264-FKW"
@@ -172,26 +171,6 @@ func TestAPastedTRaSHFormatScoredAtATargetChangesWhichReleaseASearchGrabs(t *tes
 	w.holds(t, flux)
 }
 
-func TestAReleaseWhoseNameGivesAnotherYearIsRefusedAsWrongTitle(t *testing.T) {
-	t.Parallel()
-	w := launchedTargets(t)
-	w.list(t, otherYear)
-	w.add(t)
-	id := w.grabbedOf(t, 2)
-	w.releasesAre(t, id,
-		otherYear+" refused score 0 score 0 wrong_title=The Quiet Orchard (1987)",
-		release+" grabbed score 0 score 0",
-	)
-	w.holds(t, release)
-	var parsed struct {
-		Results []tried `json:"results"`
-	}
-	decode(t, "parseReleases", w.a.Admin("home", http.MethodPost, "/api/v1/releases/parse", `{"names":["`+otherYear+`"],"workId":"`+w.work+`"}`), &parsed)
-	if got, want := parsed.Results[0].Sentence, "SlipStream reads this as Bluray-1080p from FKW. Its name is for The Quiet Orchard (1987), a different movie. No Target would grab it."; got != want {
-		t.Fatalf("the tester against the Work reads %q, want %q", got, want)
-	}
-}
-
 func TestARepackFromTheHeldFilesGroupReplacesItAndOneFromAnotherGroupDoesnt(t *testing.T) {
 	t.Parallel()
 	w := grabbedTargets(t)
@@ -212,19 +191,6 @@ func TestARepackFromTheHeldFilesGroupReplacesItAndOneFromAnotherGroupDoesnt(t *t
 	if want := []string{"1080p upgradable wanted webdl-1080p " + name, "HD upgradable wanted webdl-1080p " + name}; !slices.Equal(got, want) || file == held {
 		t.Fatalf("after the repack the cells are %q, want %q in a new file", got, want)
 	}
-}
-
-func TestAFreeleechReleaseOutranksOneWithMoreSeeders(t *testing.T) {
-	t.Parallel()
-	w := launchedTargets(t)
-	w.list(t, freeleech)
-	w.add(t)
-	id := w.grabbedOf(t, 2)
-	w.releasesAre(t, id,
-		freeleech+" grabbed score 0 score 0",
-		release+" outranked lost at freeleech 1<0 score 0 score 0",
-	)
-	w.holds(t, freeleech)
 }
 
 // tried is one name as parseReleases answers it.

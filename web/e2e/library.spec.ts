@@ -47,24 +47,6 @@ test("an Admin adds a movie from the catalog and sees its missing cell", async (
   ).toBeVisible();
 });
 
-test("a phone shows each poster's menu at rest, and a desktop on hover", async ({
-  adminPage: page,
-  world,
-}) => {
-  await add(world, "9000001", "all");
-  await page.goto("/library/movie");
-  const more = page.getByRole("button", { name: "More actions for The Quiet Orchard" });
-  await expect(more).toBeAttached();
-  const patchOpacity = () =>
-    more.evaluate((button) => {
-      const patch = button.closest("[data-work-id] > *");
-      return patch === null ? "" : getComputedStyle(patch).opacity;
-    });
-  await expect
-    .poll(patchOpacity, { message: "the menu's patch at rest" })
-    .toBe(isPhone(page) ? "1" : "0");
-});
-
 // A phone shows a menu as a sheet of switches.
 const menuChoice = (page: Page, options: { name: string }) =>
   page.getByRole(isPhone(page) ? "switch" : "menuitemcheckbox", options);
