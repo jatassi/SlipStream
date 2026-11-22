@@ -244,3 +244,24 @@ SELECT EXISTS (SELECT 1 FROM moves_unit WHERE lane = sqlc.arg(lane) AND phase IN
 
 -- name: ListOpenUnitsBeforeSwitch :many
 SELECT * FROM moves_unit WHERE work_id IN (sqlc.slice(works)) AND phase IN ('queued', 'transfer', 'place', 'switch') ORDER BY seq;
+
+-- name: ListEmptyingBatches :many
+-- The unfinished batches that delete the roots they empty, once every
+-- unit has ended.
+SELECT b.id FROM moves_batch b
+WHERE b.finished_at IS NULL AND b.delete_emptied_roots = 1 AND NOT EXISTS (
+    SELECT 1 FROM moves_unit u WHERE u.batch_id = b.id AND u.phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup')
+)
+ORDER BY b.created_at;
+
+-- name: ListBatchRoots :many
+-- Each source root of the batch's Work units, with the root most of its
+-- units went to.
+SELECT from_root_id, to_root_id, count(*) AS units FROM moves_unit
+WHERE batch_id = sqlc.arg(batch_id) AND kind = 'work'
+GROUP BY from_root_id, to_root_id
+ORDER BY from_root_id, units DESC, to_root_id;
+
+-- name: FinishBatchKeeping :exec
+UPDATE moves_batch SET finished_at = sqlc.arg(at), notes = json_set(notes, '$.kept', json(CAST(sqlc.arg(kept) AS TEXT)))
+WHERE id = sqlc.arg(id) AND finished_at IS NULL;

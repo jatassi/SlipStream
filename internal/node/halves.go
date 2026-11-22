@@ -731,7 +731,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Downloading: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
 			return downloadingv1connect.DownloadingService.On(cluster, id)
 		},
-		Repoint: grabs.RepointTorrentIn, CopyGoalRun: trackers.CopyGoalRunIn,
+		Repoint: grabs.RepointTorrentIn, CopyGoalRun: trackers.CopyGoalRunIn, Reroute: trackers.RerouteIn,
 		Recorder: n.history.Recorder("moves", moves.Entries()), Timings: n.cfg.Timings.Moves, BeforeStep: n.env.Test.BeforeMoveStep,
 		Clock: time.Now, Log: n.rootLog.With("subsystem", "moves"),
 	})

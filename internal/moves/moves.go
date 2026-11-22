@@ -114,8 +114,11 @@ type Config struct {
 	// goal: grabs.RepointTorrentIn and trackers.CopyGoalRunIn.
 	Repoint     func(ctx context.Context, tx *storage.Tx[file], from, to downloadclients.ID, node role.NodeID) error
 	CopyGoalRun func(ctx context.Context, tx *storage.Tx[file], from, to downloadclients.ID) error
-	Recorder    entry.Recorder
-	Timings     Timings
+	// Reroute has each Tracker route to one client go to another, in a
+	// Start that repoints routing: trackers.RerouteIn.
+	Reroute  func(ctx context.Context, tx *storage.Tx[file], from, to downloadclients.Choice) error
+	Recorder entry.Recorder
+	Timings  Timings
 	// BeforeStep sees each IO step before it runs, each torrent handoff
 	// step inside its Write, and a torrent's record of its place, in
 	// tests.

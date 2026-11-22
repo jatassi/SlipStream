@@ -93,6 +93,14 @@ ON CONFLICT (tracker_id, home_node_id) DO UPDATE SET built_in_on = excluded.buil
 -- name: ClearRoute :exec
 DELETE FROM trackers_route WHERE tracker_id = sqlc.arg(tracker_id) AND home_node_id = sqlc.arg(home_node_id);
 
+-- name: RerouteClient :exec
+-- A Move that takes a client's torrents takes the routes to it: to the
+-- external client from_client, or to the built-in client on from_node.
+UPDATE trackers_route SET
+    built_in_on = CASE WHEN sqlc.narg(to_client) IS NULL THEN sqlc.arg(to_node) END,
+    client_id = sqlc.narg(to_client)
+WHERE client_id = sqlc.narg(from_client) OR built_in_on = sqlc.narg(from_node);
+
 -- name: RepointRoutes :exec
 UPDATE OR IGNORE trackers_route SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sqlc.arg(from_id);
 

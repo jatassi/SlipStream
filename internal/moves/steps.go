@@ -693,9 +693,14 @@ func (m *Moves) finishCleanup(ctx context.Context, u Unit) error {
 }
 
 // finishBatch marks batch finished once no unit but the one being written
-// is open.
+// is open, unless it deletes the roots it empties: deleteEmptied finishes
+// that one.
 func (m *Moves) finishBatch(ctx context.Context, tx *storage.Tx[file], batch BatchID, now storage.Time, writing UnitID) error {
 	q := db.New(tx)
+	b, err := q.GetBatch(ctx, batch)
+	if err != nil || b.DeleteEmptiedRoots == 1 {
+		return err
+	}
 	open, err := q.ListOpenUnitsOfBatch(ctx, batch)
 	if err != nil {
 		return err

@@ -218,6 +218,22 @@ func (q *Queries) FinishBatch(ctx context.Context, arg FinishBatchParams) error 
 	return err
 }
 
+const finishBatchKeeping = `-- name: FinishBatchKeeping :exec
+UPDATE moves_batch SET finished_at = ?1, notes = json_set(notes, '$.kept', json(CAST(?2 AS TEXT)))
+WHERE id = ?3 AND finished_at IS NULL
+`
+
+type FinishBatchKeepingParams struct {
+	At   storage.Time
+	Kept string
+	ID   BatchID
+}
+
+func (q *Queries) FinishBatchKeeping(ctx context.Context, arg FinishBatchKeepingParams) error {
+	_, err := q.db.ExecContext(ctx, finishBatchKeeping, arg.At, arg.Kept, arg.ID)
+	return err
+}
+
 const getBatch = `-- name: GetBatch :one
 SELECT id, origin, created_at, created_by, finished_at, canceled_at, homed_works, include_torrents, repoint_routing, delete_emptied_roots, plan_token_hash, notes FROM moves_batch WHERE id = ?1
 `
@@ -569,6 +585,44 @@ func (q *Queries) ListBatchDestinations(ctx context.Context, batchID BatchID) ([
 	return items, nil
 }
 
+const listBatchRoots = `-- name: ListBatchRoots :many
+SELECT from_root_id, to_root_id, count(*) AS units FROM moves_unit
+WHERE batch_id = ?1 AND kind = 'work'
+GROUP BY from_root_id, to_root_id
+ORDER BY from_root_id, units DESC, to_root_id
+`
+
+type ListBatchRootsRow struct {
+	FromRootID roots.ID
+	ToRootID   roots.ID
+	Units      int64
+}
+
+// Each source root of the batch's Work units, with the root most of its
+// units went to.
+func (q *Queries) ListBatchRoots(ctx context.Context, batchID BatchID) ([]ListBatchRootsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listBatchRoots, batchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBatchRootsRow
+	for rows.Next() {
+		var i ListBatchRootsRow
+		if err := rows.Scan(&i.FromRootID, &i.ToRootID, &i.Units); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBatchTypes = `-- name: ListBatchTypes :many
 SELECT DISTINCT batch_id, content_type FROM moves_unit WHERE batch_id IN (/*SLICE:ids*/?) AND content_type IS NOT NULL ORDER BY batch_id, content_type
 `
@@ -831,6 +885,39 @@ func (q *Queries) ListDue(ctx context.Context, arg ListDueParams) ([]MovesUnit, 
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEmptyingBatches = `-- name: ListEmptyingBatches :many
+SELECT b.id FROM moves_batch b
+WHERE b.finished_at IS NULL AND b.delete_emptied_roots = 1 AND NOT EXISTS (
+    SELECT 1 FROM moves_unit u WHERE u.batch_id = b.id AND u.phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup')
+)
+ORDER BY b.created_at
+`
+
+// The unfinished batches that delete the roots they empty, once every
+// unit has ended.
+func (q *Queries) ListEmptyingBatches(ctx context.Context) ([]BatchID, error) {
+	rows, err := q.db.QueryContext(ctx, listEmptyingBatches)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BatchID
+	for rows.Next() {
+		var id BatchID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

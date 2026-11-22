@@ -74,7 +74,7 @@ func (m *Moves) Start(ctx context.Context, by identity.Admin, token Token, confi
 				return err
 			}
 		}
-		return nil
+		return m.reroute(ctx, tx, p.Ask)
 	})
 	if err != nil {
 		return Started{}, err
@@ -84,6 +84,24 @@ func (m *Moves) Start(ctx context.Context, by identity.Admin, token Token, confi
 		m.Poke()
 	}
 	return out, nil
+}
+
+// reroute has the routes to each client ask moves go to its destination,
+// when ask repoints routing.
+func (m *Moves) reroute(ctx context.Context, tx *storage.Tx[file], ask Ask) error {
+	if !ask.Options.RepointRouting {
+		return nil
+	}
+	for _, c := range ask.Clients {
+		if err := m.cfg.Reroute(ctx, tx, choiceOf(c.From), choiceOf(c.To)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func choiceOf(s Side) downloadclients.Choice {
+	return downloadclients.Choice{Client: s.Client, BuiltInOn: s.Node}
 }
 
 // ErrNothingToMove refuses a Start whose every unit is red or taken.
