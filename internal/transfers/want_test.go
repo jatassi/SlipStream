@@ -180,7 +180,7 @@ func TestADownloadFolderDestinationStoresItsNodeAndReachesItsReceiver(t *testing
 	synctest.Test(t, func(t *testing.T) {
 		r := newCluster(t)
 		client := [16]byte{7}
-		to := transfers.DownloadFolder{Node: r.home, Client: &client, ContentType: "movie", InfoHash: bencode.InfoHash{9}}
+		to := transfers.DownloadFolder{Node: r.home, Client: &client, ContentType: "films", InfoHash: bencode.InfoHash{9}}
 		var id transfers.ID
 		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			var err error
@@ -188,12 +188,12 @@ func TestADownloadFolderDestinationStoresItsNodeAndReachesItsReceiver(t *testing
 			return err
 		})
 		v := r.view(t, id)
-		if got, ok := v.Destination.(transfers.DownloadFolder); !ok || got.Node != to.Node || *got.Client != client || got.ContentType != "movie" || got.InfoHash != to.InfoHash || v.DestNode != r.home {
+		if got, ok := v.Destination.(transfers.DownloadFolder); !ok || got.Node != to.Node || *got.Client != client || got.ContentType != "films" || got.InfoHash != to.InfoHash || v.DestNode != r.home {
 			t.Errorf("the destination reads %+v on %s, want %+v", v.Destination, v.DestNode, to)
 		}
 		in, _ := r.homeEnd.now()
 		d := in.GetActive()[0].GetDestination().GetDownloadFolder()
-		if [16]byte(d.GetClientId()) != client || d.GetContentType() != "movie" || bencode.InfoHash(d.GetInfoHash()) != to.InfoHash {
+		if [16]byte(d.GetClientId()) != client || d.GetContentType() != "films" || bencode.InfoHash(d.GetInfoHash()) != to.InfoHash {
 			t.Errorf("home receives into %v, want %+v", d, to)
 		}
 		r.homeEnd.report(t, verifiedResult(id, 0, 1))

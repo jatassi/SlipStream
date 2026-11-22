@@ -50,20 +50,20 @@ var (
 // end is one Node's Transfers half on a linktest Node, with its own
 // local.db and a disk the test can fault.
 type end struct {
-	t       *testing.T
-	name    string
-	ln      *linktest.Node
-	lanes   *lateLanes
-	h       *holder
-	local   *storage.DB[storage.Local]
-	disk    storing.Disk
-	plan    *fault.Plan
-	dir     string
-	sources *sources
+	t         *testing.T
+	name      string
+	ln        *linktest.Node
+	lanes     *lateLanes
+	h         *holder
+	local     *storage.DB[storage.Local]
+	disk      storing.Disk
+	plan      *fault.Plan
+	dir       string
+	sources   *sources
 	stager    *stager
 	downloads *downloads
 	timings   transfers.Timings
-	hooks   transfers.Hooks
+	hooks     transfers.Hooks
 
 	node *transfers.Node
 	stop context.CancelFunc
@@ -1100,7 +1100,7 @@ func TestATransferIntoADownloadFolderStagesInIt(t *testing.T) {
 		w[0].start()
 		w[1].start()
 		recv := tr.active(tv1.Side_SIDE_RECEIVE, tv1.Route_ROUTE_RECEIVER_DIALS)
-		recv.Destination = &tv1.Destination{Kind: &tv1.Destination_DownloadFolder{DownloadFolder: &tv1.DownloadFolder{ContentType: "movie", InfoHash: make([]byte, 20)}}}
+		recv.Destination = &tv1.Destination{Kind: &tv1.Destination_DownloadFolder{DownloadFolder: &tv1.DownloadFolder{ContentType: "films", InfoHash: make([]byte, 20)}}}
 		tr.sender.h.set(&tv1.Intent{Active: []*tv1.Active{tr.active(tv1.Side_SIDE_SEND, tv1.Route_ROUTE_RECEIVER_DIALS)}}, role.Live)
 		tr.receiver.h.set(&tv1.Intent{Active: []*tv1.Active{recv}, Keep: []*tv1.Kept{tr.kept()}}, role.Live)
 		w[1].h.await(t, "every file verified", func(rs []*tv1.Result, _ []*tv1.Facts) bool {

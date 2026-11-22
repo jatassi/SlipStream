@@ -306,13 +306,13 @@ func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 
 func moviesRoot(t *testing.T, w *sim.World) simtest.RootRow {
 	t.Helper()
-	roots := simtest.Decode[struct {
+	rows := simtest.Decode[struct {
 		Roots []simtest.RootRow `json:"roots"`
 	}](t, "listRoots", w.API().Admin("home", http.MethodGet, "/api/v1/roots", "")).Roots
-	if len(roots) != 1 {
-		t.Fatalf("listRoots = %+v, want the movies root", roots)
+	if len(rows) != 1 {
+		t.Fatalf("listRoots = %+v, want the movies root", rows)
 	}
-	return roots[0]
+	return rows[0]
 }
 
 func rehome(t *testing.T, w *sim.World, root simtest.RootRow, to, path string) {
@@ -431,7 +431,9 @@ func TestALibraryFileOnSeedboxArrivesWholeInDensRoot(t *testing.T) {
 				return nil
 			},
 			After: func([]string) {},
-			Names: func(context.Context, storage.Reader[storage.Library], []string) (map[string]string, error) { return nil, nil },
+			Names: func(context.Context, storage.Reader[storage.Library], []string) (map[string]string, error) {
+				return nil, nil
+			},
 		}
 		w := sim.Launch(t, s, sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {
 			if name == "home" {
