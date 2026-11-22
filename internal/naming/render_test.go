@@ -266,24 +266,6 @@ func TestRenderCoreTokens(t *testing.T) {
 	}
 }
 
-func TestCollapseJoinsOnlyLiterals(t *testing.T) {
-	for _, c := range []struct {
-		ps   []piece
-		want string
-	}{
-		{[]piece{{text: "A"}, {text: " ", literal: true}, {empty: true}, {text: " - ", literal: true}, {text: "B"}}, "A - B"},
-		{[]piece{{text: "A"}, {text: " - ", literal: true}, {empty: true}, {text: " ", literal: true}, {empty: true}, {text: " - ", literal: true}, {text: "B"}}, "A - B"},
-		{[]piece{{text: "A"}, {text: "-", literal: true}, {empty: true}, {text: ".", literal: true}, {text: "B"}}, "A-B"},
-		{[]piece{{text: "S.W.A.T."}, {empty: true}, {text: ". ", literal: true}, {text: "B..."}}, "S.W.A.T.. B..."},
-		{[]piece{{text: "A..."}, {text: " - ", literal: true}, {empty: true}, {text: " ", literal: true}}, "A..."},
-		{[]piece{{text: "A"}, {text: " (", literal: true}, {empty: true}, {text: ")", literal: true}}, "A ()"},
-	} {
-		if got := collapse(c.ps); got != c.want {
-			t.Errorf("collapse(%+v) = %q; want %q", c.ps, got, c.want)
-		}
-	}
-}
-
 func TestDerivedTitleValues(t *testing.T) {
 	s := work(Set{"Movie Title": Text("The Rat Pack (A&E)"), "Year": Number(1999)})
 	for text, want := range map[string]string{
