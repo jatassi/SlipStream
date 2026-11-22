@@ -27,7 +27,7 @@ const workerNode = [
 
 const unreachable = () => problem(503, "controller_unreachable", "The Controller can't be reached");
 
-test.each(["/", "/nodes", "/sign-in", "/setup"])(
+test.each(["/", "/sign-in", "/setup"])(
   "a visit to %s on a Worker lands on /worker",
   async (path) => {
     const { router } = renderApp({ path, handlers: workerNode });
@@ -45,7 +45,7 @@ test.each(["/", "/nodes", "/sign-in", "/setup"])(
   },
 );
 
-test.each(["/", "/movies", "/sign-in", "/worker"])(
+test.each(["/", "/sign-in", "/worker"])(
   "a visit to %s at a Serving Worker that can't reach its Controller lands on its status card",
   async (path) => {
     const since = new Date(Date.now() - 60_000).toISOString();

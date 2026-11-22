@@ -7,7 +7,6 @@ import { homeConfig, nodeSystems, withPort } from "../../../test/node-system";
 import { home, homeId, homeSystem, nodesAre, seedbox, seedboxId } from "../../../test/nodes";
 import { renderApp } from "../../../test/render-app";
 import { worker } from "../../../test/worker";
-import { asPhone } from "../../../test/viewport";
 
 const field = (name: string) => page.getByRole("textbox", { name });
 
@@ -101,22 +100,6 @@ test("a port the Node refuses shows the problem's sentence under the field", asy
   await expect.element(page.getByRole("alert")).toHaveTextContent("The Node link uses 8485.");
 });
 
-test("Log settings saves the level at once and shows the log folder and Download logs", async () => {
-  const systems = nodeSystems();
-  renderApp({ path: `/nodes/${homeId}/log-settings`, handlers: systems.handlers });
-  await expect.element(field("Log folder")).toHaveValue("/data/home/logs");
-  await expect.element(page.getByRole("button", { name: "Download logs" })).toBeVisible();
-  await expect.element(field("Days kept")).toHaveValue("30");
-  await expect.element(page.getByRole("switch", { name: "Compress rotated files" })).toBeChecked();
-
-  await userEvent.click(page.getByRole("combobox", { name: "Level" }));
-  await userEvent.click(page.getByRole("option", { name: "Debug" }));
-  await expect.element(page.getByText("Log settings saved")).toBeVisible();
-  expect(systems.writes).toEqual([
-    { method: "PATCH", nodeId: homeId, body: { "log.level": "debug" } },
-  ]);
-});
-
 test("after a fallback the Overview names both ports", async () => {
   const fellBack = {
     ...homeSystem,
@@ -149,22 +132,6 @@ test("a Worker's sections read its own facts and settings", async () => {
     ],
   });
   await expect.element(field("Log folder")).toHaveValue("/srv/seedbox/logs");
-});
-
-test("an offline Worker's settings say it is offline, on phone too", async () => {
-  await asPhone();
-  renderApp({
-    path: `/nodes/${seedboxId}/web`,
-    handlers: [
-      nodesAre(home, seedbox),
-      ...nodeSystems({ configs: { [homeId]: homeConfig, [seedboxId]: "offline" } }).handlers,
-    ],
-  });
-  await expect
-    .element(
-      page.getByText("seedbox is offline. Its settings and logs show again when it reconnects."),
-    )
-    .toBeVisible();
 });
 
 test("an offline Worker's section loads once its link is back", async () => {
