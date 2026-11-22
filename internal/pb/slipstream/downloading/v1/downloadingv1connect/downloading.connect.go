@@ -55,6 +55,9 @@ const (
 	DownloadingServiceMetainfoProcedure = "/slipstream.downloading.v1.DownloadingService/Metainfo"
 	// DownloadingServiceLookProcedure is the procedure name of the DownloadingService's Look RPC.
 	DownloadingServiceLookProcedure = "/slipstream.downloading.v1.DownloadingService/Look"
+	// DownloadingServicePlacePayloadProcedure is the procedure name of the DownloadingService's
+	// PlacePayload RPC.
+	DownloadingServicePlacePayloadProcedure = "/slipstream.downloading.v1.DownloadingService/PlacePayload"
 	// DownloadingControlServiceTorrentProcedure is the procedure name of the
 	// DownloadingControlService's Torrent RPC.
 	DownloadingControlServiceTorrentProcedure = "/slipstream.downloading.v1.DownloadingControlService/Torrent"
@@ -134,6 +137,13 @@ var (
 			Procedure:  DownloadingServiceLookProcedure,
 		}
 	})
+	downloadingServicePlacePayloadSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_downloading_v1_downloading_proto.Services().ByName("DownloadingService").Methods().ByName("PlacePayload"),
+			Procedure:  DownloadingServicePlacePayloadProcedure,
+		}
+	})
 )
 
 // DownloadingServiceClient is a client for the slipstream.downloading.v1.DownloadingService
@@ -174,6 +184,11 @@ type DownloadingServiceClient interface {
 	// Look is whether each entry's file lies under folder at its size, in
 	// the order asked, for the torrents no Node reported holding.
 	Look(context.Context, *v1.LookRequest) (*v1.LookResponse, error)
+	// PlacePayload puts a Move's payload in the folder its destination
+	// Download Client keeps the torrent in: the files a Transfer staged on
+	// this Node, moved, or those of the torrent this Node holds, linked,
+	// cloned or copied. Placing again converges.
+	PlacePayload(context.Context, *v1.PlacePayloadRequest) (*v1.PlacePayloadResponse, error)
 }
 
 // NewDownloadingServiceClient constructs a client for the
@@ -221,6 +236,11 @@ type DownloadingServiceHandler interface {
 	// Look is whether each entry's file lies under folder at its size, in
 	// the order asked, for the torrents no Node reported holding.
 	Look(context.Context, *v1.LookRequest) (*v1.LookResponse, error)
+	// PlacePayload puts a Move's payload in the folder its destination
+	// Download Client keeps the torrent in: the files a Transfer staged on
+	// this Node, moved, or those of the torrent this Node holds, linked,
+	// cloned or copied. Placing again converges.
+	PlacePayload(context.Context, *v1.PlacePayloadRequest) (*v1.PlacePayloadResponse, error)
 }
 
 // RegisterDownloadingServiceHandler registers svc as the
@@ -238,6 +258,7 @@ func RegisterDownloadingServiceHandler(server *connect.Server, svc DownloadingSe
 		connect.Method{Spec: downloadingServiceCheckClientsSpec(), Handler: adapter.checkClients},
 		connect.Method{Spec: downloadingServiceMetainfoSpec(), Handler: adapter.metainfo},
 		connect.Method{Spec: downloadingServiceLookSpec(), Handler: adapter.look},
+		connect.Method{Spec: downloadingServicePlacePayloadSpec(), Handler: adapter.placePayload},
 	)
 }
 
@@ -282,6 +303,10 @@ func (UnimplementedDownloadingServiceHandler) Metainfo(context.Context, *v1.Meta
 
 func (UnimplementedDownloadingServiceHandler) Look(context.Context, *v1.LookRequest) (*v1.LookResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.Look is not implemented")
+}
+
+func (UnimplementedDownloadingServiceHandler) PlacePayload(context.Context, *v1.PlacePayloadRequest) (*v1.PlacePayloadResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.downloading.v1.DownloadingService.PlacePayload is not implemented")
 }
 
 type downloadingServiceClient struct {
@@ -363,6 +388,14 @@ func (c *downloadingServiceClient) Metainfo(ctx context.Context, req *v1.Metainf
 func (c *downloadingServiceClient) Look(ctx context.Context, req *v1.LookRequest) (*v1.LookResponse, error) {
 	var res v1.LookResponse
 	if err := c.client.CallUnary(ctx, downloadingServiceLookSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *downloadingServiceClient) PlacePayload(ctx context.Context, req *v1.PlacePayloadRequest) (*v1.PlacePayloadResponse, error) {
+	var res v1.PlacePayloadResponse
+	if err := c.client.CallUnary(ctx, downloadingServicePlacePayloadSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -484,6 +517,18 @@ func (h downloadingServiceHandler) look(ctx context.Context, _ connect.Spec, str
 		return err
 	}
 	res, err := h.svc.Look(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h downloadingServiceHandler) placePayload(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.PlacePayloadRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.PlacePayload(ctx, &req)
 	if err != nil {
 		return err
 	}

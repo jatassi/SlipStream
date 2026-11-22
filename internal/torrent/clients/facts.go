@@ -42,6 +42,12 @@ type Facts struct {
 	// NoMovingState is a kind that can move finished files without
 	// reporting it, so the Test warns while the Import delay is 0.
 	NoMovingState bool
+	// AnnounceRead is a kind whose Announces reads when a torrent last
+	// announced, which a Move out of it needs.
+	AnnounceRead bool
+	// StoppedRead is a kind that tells a stopped announce apart, so a
+	// Move's stop counts from it rather than from the paused state alone.
+	StoppedRead bool
 }
 
 // SignIn is which sign-in fields a kind takes.
@@ -64,36 +70,39 @@ var allActs = []Act{Pause, Resume, Recheck, Announce}
 
 var facts = map[Kind]Facts{
 	QBittorrent: {
-		Name:        "qBittorrent",
-		WebUI:       "/",
-		SignIn:      SignIn{Username: Optional, Password: Optional, APIKey: true},
-		Label:       AnyLabel,
-		Floor:       Version{4, 6, 0},
-		Acts:        allActs,
-		DeletesData: true,
-		Lockout:     true,
+		Name:         "qBittorrent",
+		WebUI:        "/",
+		SignIn:       SignIn{Username: Optional, Password: Optional, APIKey: true},
+		Label:        AnyLabel,
+		Floor:        Version{4, 6, 0},
+		Acts:         allActs,
+		DeletesData:  true,
+		Lockout:      true,
+		AnnounceRead: true,
 	},
 	Transmission: {
-		Name:        "Transmission",
-		Path:        "/transmission/rpc",
-		WebUI:       "/transmission/web/",
-		SignIn:      SignIn{Username: Optional, Password: Optional},
-		Label:       NoComma,
-		Floor:       Version{4, 0, 0},
-		Acts:        allActs,
-		DeletesData: true,
-		Lockout:     true,
+		Name:         "Transmission",
+		Path:         "/transmission/rpc",
+		WebUI:        "/transmission/web/",
+		SignIn:       SignIn{Username: Optional, Password: Optional},
+		Label:        NoComma,
+		Floor:        Version{4, 0, 0},
+		Acts:         allActs,
+		DeletesData:  true,
+		Lockout:      true,
+		AnnounceRead: true,
 	},
 	Deluge: {
-		Name:        "Deluge",
-		Path:        "/json",
-		WebUI:       "/",
-		SignIn:      SignIn{Password: Required},
-		Daemon:      true,
-		Label:       LowerWord,
-		Floor:       Version{2, 1, 0},
-		Acts:        allActs,
-		DeletesData: true,
+		Name:         "Deluge",
+		Path:         "/json",
+		WebUI:        "/",
+		SignIn:       SignIn{Password: Required},
+		Daemon:       true,
+		Label:        LowerWord,
+		Floor:        Version{2, 1, 0},
+		Acts:         allActs,
+		DeletesData:  true,
+		AnnounceRead: true,
 	},
 	RTorrent: {
 		Name:          "rTorrent",
@@ -103,6 +112,7 @@ var facts = map[Kind]Facts{
 		Floor:         Version{0, 9, 8},
 		Acts:          allActs,
 		NoMovingState: true,
+		AnnounceRead:  true,
 	},
 }
 

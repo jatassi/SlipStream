@@ -5,10 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
+	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 )
@@ -78,4 +82,101 @@ func (n *Node) Arriving(a storing.Arriving) (string, error) {
 		folder = builtinFolder(base, a.ContentType, a.InfoHash)
 	}
 	return filepath.Join(folder, filepath.FromSlash(a.Path.String())), nil
+}
+
+// PlacePayload puts a Move's payload in the folder req's Download Client
+// keeps the torrent in: each staged file moved there, or each file of the
+// torrent another client on this Node holds linked, cloned or copied. A
+// file already placed counts as placed, so placing again converges. It
+// answers the folder as the client sees it.
+func (n *Node) PlacePayload(ctx context.Context, req *dlv1.PlacePayloadRequest) (*dlv1.PlacePayloadResponse, error) {
+	var h bencode.InfoHash
+	if len(req.GetInfoHash()) != len(h) {
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "an info hash is %d bytes, not %d", len(h), len(req.GetInfoHash()))
+	}
+	copy(h[:], req.GetInfoHash())
+	base, under, folder, err := n.placeTarget(req.GetClientId(), req.GetContentType(), h)
+	if err != nil {
+		return nil, err
+	}
+	to := func(p string) (storing.Rel, error) {
+		rel, err := storing.ParseRel(path.Join(under, p))
+		if err != nil {
+			return storing.Rel{}, rpc.Errorf(rpc.CodeInvalidArgument, "the file %q: %v", p, err)
+		}
+		return rel, nil
+	}
+	switch from := req.GetFrom().(type) {
+	case *dlv1.PlacePayloadRequest_Staged:
+		err = n.placeStaged(ctx, base, from.Staged, to)
+	case *dlv1.PlacePayloadRequest_Held:
+		err = n.placeHeld(ctx, base, h, from.Held, req.GetAllowCopy(), to)
+	default:
+		err = rpc.Errorf(rpc.CodeInvalidArgument, "a place names no payload")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &dlv1.PlacePayloadResponse{Folder: folder}, nil
+}
+
+// placeTarget is where a payload for h of ct goes in the client clientID
+// names, the built-in one when it names none: the folder files are placed
+// under, their path under it, and the save folder as the client sees it.
+func (n *Node) placeTarget(clientID []byte, ct string, h bencode.InfoHash) (base, under, folder string, err error) {
+	if len(clientID) == 0 {
+		return n.builtin.Dir(), path.Join(folderName(ct), h.String()), builtinFolder(n.builtin.Dir(), ct, h), nil
+	}
+	id, err := storage.UUIDFromBytes(clientID)
+	if err != nil {
+		return "", "", "", rpc.Errorf(rpc.CodeInvalidArgument, "client id: %v", err)
+	}
+	a := n.actor(id)
+	var known, added bool
+	if a != nil {
+		base, known = a.Folder()
+		folder, added = a.AddFolder(ct)
+	}
+	if !known || !added {
+		return "", "", "", rpc.Errorf(rpc.CodeUnavailable, "%v", errNoClient)
+	}
+	return base, folderName(ct), folder, nil
+}
+
+func (n *Node) placeStaged(ctx context.Context, base string, staged *dlv1.StagedPayload, to func(string) (storing.Rel, error)) error {
+	transfer, err := storage.UUIDFromBytes(staged.GetTransferId())
+	if err != nil {
+		return rpc.Errorf(rpc.CodeInvalidArgument, "transfer id: %v", err)
+	}
+	for _, f := range staged.GetFiles() {
+		dst, err := to(f.GetPath())
+		if err != nil {
+			return err
+		}
+		src, err := storing.ParseRel(path.Join(storing.StagingDir, transfer.String(), strconv.Itoa(int(f.GetPosition()))+".part"))
+		if err != nil {
+			return rpc.Errorf(rpc.CodeInvalidArgument, "position %d: %v", f.GetPosition(), err)
+		}
+		if _, err := storing.MoveUnder(ctx, n.cfg.Disk, base, src, dst); err != nil {
+			return storing.WireError(err)
+		}
+	}
+	return nil
+}
+
+func (n *Node) placeHeld(ctx context.Context, base string, h bencode.InfoHash, held *dlv1.HeldPayload, allowCopy bool, to func(string) (storing.Rel, error)) error {
+	for _, f := range held.GetFiles() {
+		dst, err := to(f.GetPath())
+		if err != nil {
+			return err
+		}
+		src, err := n.Path(h, int(f.GetIndex()))
+		if err != nil {
+			return rpc.Errorf(rpc.CodeFailedPrecondition, "file %d of the torrent: %v", f.GetIndex(), err)
+		}
+		if _, _, err := storing.PlaceUnder(ctx, n.cfg.Disk, base, src, dst, allowCopy); err != nil {
+			return storing.WireError(err)
+		}
+	}
+	return nil
 }

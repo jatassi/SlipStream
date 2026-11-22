@@ -258,7 +258,7 @@ func (r Remote) place(ctx context.Context, at At, from Source, to Rel, allowCopy
 	}
 	res, err := r(at.Node).Place(ctx, req)
 	if err != nil {
-		return Placed{}, placeAnswer(err)
+		return Placed{}, PlaceAnswer(err)
 	}
 	step, err := steps.parse(res.GetStep())
 	if err != nil {
@@ -267,7 +267,9 @@ func (r Remote) place(ctx context.Context, at At, from Source, to Rel, allowCopy
 	return Placed{Size: res.GetSize(), Step: step, Seen: seenOf(res.GetIdentity())}, nil
 }
 
-func placeAnswer(err error) error {
+// PlaceAnswer is a place's error as the caller reads it across the wire:
+// *NeedsCopyError, *NeedsSpaceError and ErrOccupied keep their meaning.
+func PlaceAnswer(err error) error {
 	if d, ok := rpc.DetailOf[*storagev1.NeedsCopy](err); ok {
 		return &NeedsCopyError{Size: d.GetSize()}
 	}

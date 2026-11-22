@@ -85,6 +85,9 @@ func (c *client) DefaultFolder(ctx context.Context, _ clients.Label) (string, er
 // again heals a torrent whose label never arrived.
 func (c *client) Add(ctx context.Context, a clients.Add) error {
 	opts := map[string]any{"add_paused": a.Paused}
+	if a.Complete {
+		opts["seed_mode"] = true
+	}
 	if a.Folder != "" {
 		opts["download_location"] = a.Folder
 	}
@@ -123,6 +126,33 @@ func (c *client) label(ctx context.Context, h bencode.InfoHash, label clients.La
 		return nil
 	}
 	return err
+}
+
+// Announces reads each torrent's next_announce, the seconds to its next
+// announce, and derives the last announce from it rising.
+func (c *client) Announces(ctx context.Context, hashes []bencode.InfoHash) (map[bencode.InfoHash][]clients.TrackerLine, error) {
+	if err := c.onDaemon(ctx); err != nil {
+		return nil, err
+	}
+	ids := make([]string, len(hashes))
+	for i, h := range hashes {
+		ids[i] = h.String()
+	}
+	var rows map[string]struct {
+		Next int64 `json:"next_announce"`
+	}
+	if err := c.call(ctx, "core.get_torrents_status", []any{map[string]any{"id": ids}, []string{"next_announce"}}, &rows); err != nil {
+		return nil, err
+	}
+	left := make(map[bencode.InfoHash]time.Duration, len(rows))
+	for id, r := range rows {
+		h, err := bencode.ParseInfoHash(id)
+		if err != nil {
+			return nil, fmt.Errorf("read the client's core.get_torrents_status: %w", err)
+		}
+		left[h] = time.Duration(r.Next) * time.Second
+	}
+	return c.countdowns.Read(left, time.Now()), nil
 }
 
 // keys are the status keys a poll reads.

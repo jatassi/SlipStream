@@ -1,0 +1,131 @@
+// Package clientcases is the cases every Download Client conformance
+// suite runs alike: a complete add over files already on disk, and the
+// last announce a Move's guard reads.
+package clientcases
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/jatassi/slipstream/conformance/internal/torrentfile"
+	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/torrent/clients"
+)
+
+// Folder is a folder the target saves to, as the target names it and as
+// this machine sees it.
+type Folder struct {
+	Client, Node string
+}
+
+// poll is how often a case reads the target while it waits.
+const poll = time.Second
+
+// CompleteAdd adds whole over its payload written whole in folder, and a
+// second torrent over its payload cut short, both paused and complete,
+// and asserts that once their checks end the client holds whole finished
+// and the short one not. It removes the short one and leaves whole
+// paused for LastAnnounce.
+func CompleteAdd(t *testing.T, c clients.Client, label clients.Label, folder Folder, whole torrentfile.Seeded) {
+	t.Helper()
+	short := torrentfile.Seed(t, "http://tracker.invalid/announce")
+	t.Cleanup(func() { _ = c.Remove(context.WithoutCancel(t.Context()), short.Hash, true) })
+	for _, p := range []struct {
+		s torrentfile.Seeded
+		n int
+	}{{whole, len(whole.Data)}, {short, len(short.Data) / 2}} {
+		path := filepath.Join(folder.Node, p.s.Name)
+		if err := os.MkdirAll(folder.Node, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, p.s.Data[:p.n], 0o600); err != nil {
+			t.Fatal(err)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		add := clients.Add{
+			Metainfo: p.s.Metainfo, Hash: p.s.Hash, Folder: folder.Client, Label: label, Paused: true, Complete: true,
+			Files: []clients.FileStat{{Size: info.Size(), Modified: info.ModTime()}},
+		}
+		if err := c.Add(t.Context(), add); err != nil {
+			t.Fatalf("Add of a complete torrent: %v", err)
+		}
+	}
+	got := checked(t, c, whole.Hash, short.Hash)
+	if s := got[whole.Hash]; !s.Finished || s.Done != s.Size || s.Run != clients.Paused {
+		t.Errorf("after a complete add over the whole file: %+v, want it finished and paused", s)
+	}
+	if s := got[short.Hash]; s.Finished || s.Done >= s.Size {
+		t.Errorf("after a complete add over a short file: %+v, want it unfinished", s)
+	}
+	if err := c.Remove(t.Context(), short.Hash, true); err != nil {
+		t.Errorf("Remove: %v", err)
+	}
+}
+
+// checked polls until the client lists each of hashes with no check
+// running, and answers their statuses.
+func checked(t *testing.T, c clients.Client, hashes ...bencode.InfoHash) map[bencode.InfoHash]clients.Status {
+	t.Helper()
+	deadline := time.Now().Add(time.Minute)
+	for {
+		got, err := c.Poll(t.Context(), hashes)
+		if err != nil {
+			t.Fatalf("Poll: %v", err)
+		}
+		done := len(got) == len(hashes)
+		for _, s := range got {
+			done = done && s.Activity != clients.Checking
+		}
+		if done {
+			return got
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("after a minute the client lists %+v, want each of %d torrents listed and checked", got, len(hashes))
+		}
+		time.Sleep(poll)
+	}
+}
+
+// LastAnnounce starts h, which announces to a tracker that answers it
+// every interval, and asserts that Announces reads an answer at or after
+// the start with the next announce after it within two intervals. It
+// pauses h again.
+func LastAnnounce(t *testing.T, c clients.Client, h bencode.InfoHash, interval time.Duration) {
+	t.Helper()
+	start := time.Now().Truncate(time.Second)
+	if err := c.Act(t.Context(), clients.Resume, []bencode.InfoHash{h}); err != nil {
+		t.Fatalf("Act(Resume): %v", err)
+	}
+	deadline := start.Add(2*interval + 5*poll)
+	for {
+		got, err := c.Announces(t.Context(), []bencode.InfoHash{h})
+		if err != nil {
+			t.Fatalf("Announces: %v", err)
+		}
+		if announcedSince(got[h], start) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("Announces = %+v two intervals after the start, want an answer since %s and the next after it", got[h], start)
+		}
+		time.Sleep(poll)
+	}
+	if err := c.Act(t.Context(), clients.Pause, []bencode.InfoHash{h}); err != nil {
+		t.Errorf("Act(Pause): %v", err)
+	}
+}
+
+func announcedSince(lines []clients.TrackerLine, start time.Time) bool {
+	for _, ln := range lines {
+		if !ln.Last.Before(start) && ln.Next.After(ln.Last) {
+			return true
+		}
+	}
+	return false
+}
