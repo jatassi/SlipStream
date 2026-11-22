@@ -285,6 +285,13 @@ func (a *Actor) Folder() (string, bool) {
 	return f, f != ""
 }
 
+// AddFolder is the folder the actor adds a torrent of contentType to, as
+// the client sees it, false until the download folder is known.
+func (a *Actor) AddFolder(contentType string) (string, bool) {
+	f := a.pub.Load().clientFolder
+	return joinClient(f, a.cfg.Subfolder(contentType)), f != ""
+}
+
 // Live is each of the client's torrents as its last poll saw it, and its
 // payload rates summed.
 func (a *Actor) Live() (rows []*dlv1.Live, down, up int64) {

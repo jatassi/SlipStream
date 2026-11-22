@@ -1,17 +1,21 @@
 package external
 
 import (
+	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloading/internal/announce"
+	"github.com/jatassi/slipstream/internal/downloading/internal/arrival"
 	"github.com/jatassi/slipstream/internal/downloading/internal/db"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -94,7 +98,16 @@ type track struct {
 	// the outbox.
 	vanished, told bool
 	completion     *dlv1.Completion
-	sent           *dlv1.TorrentReport
+	// ask is a Move's open start ask, nil for none; watch a Move watching
+	// its announces, and lines their last read; arriving a Move's
+	// destination, added complete over the files the Move placed, with
+	// pieceLength its metainfo's, 0 until read.
+	ask         *arrival.Ask
+	watch       bool
+	lines       []clients.TrackerLine
+	arriving    bool
+	pieceLength int64
+	sent        *dlv1.TorrentReport
 	// sentAt is when sent went, which an error's heartbeat counts from.
 	sentAt     time.Time
 	sentTotals *dlv1.ClientCounters
@@ -152,9 +165,14 @@ func (s *state) update(ctx context.Context, share Share) {
 		s.next = time.Time{}
 	}
 	listed := map[bencode.InfoHash]bool{}
+	now := time.Now()
 	for _, it := range share.Torrents {
 		t := s.list(it.GetId(), it.GetInfoHash())
 		t.intent, t.discard = runOf(it.GetWanted()), nil
+		t.ask, t.watch, t.arriving = arrival.Of(t.ask, it, s.cfg.Timings.ReplyWait, now), it.GetWatchAnnounce(), it.GetArriving()
+		if !t.watch && t.ask == nil {
+			t.lines = nil
+		}
 		t.wanted = t.wanted.Shown(t.intent)
 		listed[t.hash] = true
 	}
@@ -171,19 +189,24 @@ func (s *state) update(ctx context.Context, share Share) {
 		}
 	}
 	if len(forget) > 0 {
-		err := s.cfg.Local.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
-			for _, h := range forget {
-				if err := db.New(tx).DeleteExternal(ctx, db.DeleteExternalParams{ClientID: s.cfg.ID, InfoHash: h[:]}); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		if err != nil && ctx.Err() == nil {
-			s.cfg.Log.Error("forget torrents the client no longer holds for SlipStream", "err", err.Error())
-		}
+		s.forget(ctx, forget)
 	}
 	s.publish()
+}
+
+// forget deletes the local rows of hashes.
+func (s *state) forget(ctx context.Context, hashes []bencode.InfoHash) {
+	err := s.cfg.Local.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
+		for _, h := range hashes {
+			if err := db.New(tx).DeleteExternal(ctx, db.DeleteExternalParams{ClientID: s.cfg.ID, InfoHash: h[:]}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil && ctx.Err() == nil {
+		s.cfg.Log.Error("forget torrents the client no longer holds for SlipStream", "err", err.Error())
+	}
 }
 
 // list is the track of hash, made from its local row when the Node has
@@ -246,7 +269,79 @@ func (s *state) schedule(last time.Time, asap bool) {
 	default:
 		every := time.Duration(s.share.Client.GetCheckEverySeconds()) * time.Second
 		s.next = nextPoll(last, s.reach, every, s.watchers > 0, s.cfg.Timings, s.cfg.Rand)
+		if s.reach.failures == 0 && len(s.announcing()) > 0 {
+			s.next = earliest(s.next, last.Add(s.cfg.Timings.AnnounceWatch))
+		}
+		for _, t := range s.tracks {
+			s.next = earliest(s.next, t.ask.Tick(time.Now()))
+		}
 	}
+}
+
+// earliest is the earlier of two times, zero being none.
+func earliest(a, b time.Time) time.Time {
+	if a.IsZero() || !b.IsZero() && b.Before(a) {
+		return b
+	}
+	return a
+}
+
+// announcing is the live torrents whose announces a Move reads: those it
+// watches and those it asked to start.
+func (s *state) announcing() []*track {
+	var out []*track
+	for _, t := range s.sorted() {
+		if t.live() && (t.watch || t.ask != nil) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// readAnnounces reads the announces of each torrent a Move watches or
+// asked to start, and judges each open start by them. A failed read
+// leaves the last one standing.
+func (s *state) readAnnounces(ctx context.Context, now time.Time) {
+	ts := s.announcing()
+	if len(ts) == 0 {
+		return
+	}
+	hashes := make([]bencode.InfoHash, len(ts))
+	for i, t := range ts {
+		hashes[i] = t.hash
+	}
+	got, err := s.client.Announces(ctx, hashes)
+	if err != nil {
+		if ctx.Err() == nil {
+			s.cfg.Log.Warn("read when the client's torrents last announced", "err", problemOf(err).Error())
+		}
+		return
+	}
+	for _, t := range ts {
+		t.lines = got[t.hash]
+		for _, ln := range t.lines {
+			if !ln.Last.IsZero() {
+				t.ask.Replied(ln.Last)
+			}
+			if reason := cmp.Or(ln.Failure, trackerError(t.status)); !ln.FailedAt.IsZero() && reason != "" {
+				t.ask.Failed(ln.FailedAt, reason)
+			}
+		}
+		t.ask.Tick(now)
+	}
+}
+
+// trackerError is the first tracker error st reports, "" for none.
+func trackerError(st *clients.Status) string {
+	if st == nil {
+		return ""
+	}
+	for _, m := range st.Trackers {
+		if m.Error {
+			return m.Message
+		}
+	}
+	return ""
 }
 
 // pass is one poll and everything it decides, in one local Write, then
@@ -378,6 +473,7 @@ func (s *state) poll(ctx context.Context, now time.Time) *batch {
 		}
 	}
 	s.reach = succeeded(s.reach, s.attention(mass), now)
+	s.readAnnounces(ctx, now)
 	s.report(now, b)
 	return b
 }
@@ -439,6 +535,9 @@ func (s *state) listed(ctx context.Context, t *track, st clients.Status, now tim
 		return
 	}
 	t.status = &st
+	if t.arriving && t.pieceLength == 0 {
+		s.readPieceLength(ctx, t)
+	}
 	if st.Done > t.lastDone || t.lastGrowth.IsZero() {
 		t.lastDone, t.lastGrowth = st.Done, now
 	}
@@ -532,23 +631,68 @@ func (s *state) send(ctx context.Context, t *track) bool {
 	if err != nil || res.GetOrigin() == dlv1.Origin_ORIGIN_ATTACHED {
 		return false
 	}
-	base := s.share.Client.GetFolder()
-	if base == "" {
-		if base, err = s.client.DefaultFolder(ctx, s.label); err != nil {
-			s.cfg.Log.Warn("read the client's default folder", "err", err.Error())
+	folder := res.GetSaveFolder()
+	if folder == "" {
+		base := s.share.Client.GetFolder()
+		if base == "" {
+			if base, err = s.client.DefaultFolder(ctx, s.label); err != nil {
+				s.cfg.Log.Warn("read the client's default folder", "err", err.Error())
+				return false
+			}
+			s.defaultFolder = base
+		}
+		folder = joinClient(base, s.cfg.Subfolder(res.GetContentType()))
+	}
+	add := clients.Add{Metainfo: res.GetMetainfo(), Hash: t.hash, Folder: folder, Label: s.label, Paused: t.intent == clients.Paused, Complete: t.arriving}
+	if t.arriving {
+		if add.Files, err = s.placed(t, res.GetMetainfo(), folder); err != nil {
+			s.cfg.Log.Warn("read the files a Move placed for a torrent", "info_hash", t.hash.String(), "err", err.Error())
 			return false
 		}
-		s.defaultFolder = base
 	}
-	err = s.client.Add(ctx, clients.Add{
-		Metainfo: res.GetMetainfo(), Hash: t.hash, Folder: joinClient(base, s.cfg.Subfolder(res.GetContentType())),
-		Label: s.label, Paused: t.intent == clients.Paused,
-	})
+	err = s.client.Add(ctx, add)
 	if err != nil {
 		s.cfg.Log.Warn("add a torrent to the client", "info_hash", t.hash.String(), "err", err.Error())
 		return false
 	}
 	return true
+}
+
+// readPieceLength reads the piece length of an arriving torrent the
+// actor didn't add this run, for its check's result.
+func (s *state) readPieceLength(ctx context.Context, t *track) {
+	res, err := s.fetch(ctx, t)
+	if err != nil {
+		return
+	}
+	if m, err := bencode.DecodeMetainfo(res.GetMetainfo()); err == nil {
+		t.pieceLength = m.Info.PieceLength
+	}
+}
+
+// placed is each file of the torrent metainfo describes as it lies in
+// folder on this Node, and keeps the torrent's piece length for its
+// check's result.
+func (s *state) placed(t *track, metainfo []byte, folder string) ([]clients.FileStat, error) {
+	m, err := bencode.DecodeMetainfo(metainfo)
+	if err != nil {
+		return nil, err
+	}
+	t.pieceLength = m.Info.PieceLength
+	out := make([]clients.FileStat, len(m.Info.Files))
+	for i, f := range m.Info.Files {
+		rel := strings.Join(append([]string{m.Info.Name}, f.Path...), "/")
+		p, _, ok := s.folders.OnNode(joinClient(folder, rel), filepath.Separator)
+		if !ok {
+			return nil, fmt.Errorf("no Client folder holds %s", folder)
+		}
+		info, err := os.Stat(p)
+		if err != nil {
+			return nil, fmt.Errorf("can't read a file the Move placed: %w", err)
+		}
+		out[i] = clients.FileStat{Size: info.Size(), Modified: info.ModTime()}
+	}
+	return out, nil
 }
 
 // joinClient is name under folder, with the separator the client's own
@@ -565,7 +709,12 @@ func joinClient(folder, name string) string {
 }
 
 func (s *state) wantedSync(ctx context.Context, t *track, st clients.Status) {
-	send, change, next := wantedStep(t.intent, st.Run, st.StoppedAtLimit, t.wanted)
+	intent := t.intent
+	t.ask.Tick(time.Now())
+	if t.ask.Held() {
+		intent = clients.Paused
+	}
+	send, change, next := wantedStep(intent, st.Run, st.StoppedAtLimit, t.wanted)
 	if send != 0 {
 		act := map[clients.Run]clients.Act{clients.Started: clients.Resume, clients.Paused: clients.Pause}[send]
 		if err := s.client.Act(ctx, act, []bencode.InfoHash{t.hash}); err != nil {
@@ -573,6 +722,9 @@ func (s *state) wantedSync(ctx context.Context, t *track, st clients.Status) {
 			return
 		}
 		t.status.Run = send
+		if send == clients.Started {
+			t.ask.Start(time.Now())
+		}
 	}
 	if change != nil {
 		t.change = change

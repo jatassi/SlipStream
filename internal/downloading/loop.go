@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/backoff"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloading/internal/announce"
+	"github.com/jatassi/slipstream/internal/downloading/internal/arrival"
 	"github.com/jatassi/slipstream/internal/downloading/internal/db"
 	"github.com/jatassi/slipstream/internal/downloading/internal/plan"
 	"github.com/jatassi/slipstream/internal/magnet"
@@ -144,6 +145,10 @@ type torrent struct {
 	sentCompletion bool
 	sentTotals     *dlv1.TotalsRow
 	listed         bool
+	// ask is a Move's open start ask, nil for none, and watch a Move
+	// watching its announces.
+	ask   *arrival.Ask
+	watch bool
 }
 
 // Loop is the client's actor: it reads the engine's events and every
@@ -353,9 +358,11 @@ func (l *loop) snapshot(s role.Snapshot[*dlv1.Intent]) {
 	for _, t := range l.torrents {
 		t.listed = false
 	}
+	now := time.Now()
 	for _, it := range in.GetTorrents() {
-		t := l.list(it.GetId(), it.GetInfoHash())
+		t := l.list(it.GetId(), it.GetInfoHash(), it)
 		t.Order, t.Paused, t.Discard = it.GetOrder(), it.GetWanted() == dlv1.Wanted_WANTED_PAUSED, plan.Kept
+		t.ask, t.watch = arrival.Of(t.ask, it, l.c.cfg.Timings.ReplyWait, now), it.GetWatchAnnounce()
 		if at := it.GetRetryAtUnixMs(); at > t.retried {
 			l.retry(t, at)
 		}
@@ -380,7 +387,7 @@ func (l *loop) snapshot(s role.Snapshot[*dlv1.Intent]) {
 
 func (l *loop) discards(ds []*dlv1.Discard) {
 	for _, d := range ds {
-		t := l.list(d.GetId(), d.GetInfoHash())
+		t := l.list(d.GetId(), d.GetInfoHash(), nil)
 		t.Discard = plan.KeepFiles
 		if d.GetDeleteFiles() {
 			t.Discard = plan.DeleteFiles
@@ -485,7 +492,7 @@ func mayDiscover(p privacy) bool {
 	panic("downloading: unknown privacy")
 }
 
-func (l *loop) list(id, hash []byte) *torrent {
+func (l *loop) list(id, hash []byte, it *dlv1.Torrent) *torrent {
 	h := bencode.InfoHash(hash)
 	t := l.torrents[h]
 	if t == nil {
@@ -494,6 +501,7 @@ func (l *loop) list(id, hash []byte) *torrent {
 			t.failed = *f
 		}
 		l.torrents[h] = t
+		t.ask = arrival.Of(nil, it, l.c.cfg.Timings.ReplyWait, time.Now())
 		l.addFromResume(t)
 	}
 	t.listed = true
@@ -504,7 +512,8 @@ func (l *loop) list(id, hash []byte) *torrent {
 }
 
 // addFromResume adds t back from the resume data the Node holds, its
-// start spread over Timings.StartSpread, and reports whether it did.
+// start spread over Timings.StartSpread unless it carries a start ask, and
+// reports whether it did.
 func (l *loop) addFromResume(t *torrent) bool {
 	row, ok := l.rows[t.Hash]
 	if !ok || row.Resume == nil {
@@ -515,8 +524,11 @@ func (l *loop) addFromResume(t *torrent) bool {
 		l.c.cfg.Log.Warn("can't add a torrent from its resume data, so the Node fetches it again", "info_hash", t.Hash.String(), "err", err.Error())
 		return false
 	}
-	spread := l.c.cfg.Timings.StartSpread
-	t.NotBefore = time.Now().Add(time.Duration(l.c.cfg.Rand.Int64N(int64(spread) + 1)))
+	// A start ask is due inside its window, which the spread could outlast.
+	if t.ask == nil {
+		spread := l.c.cfg.Timings.StartSpread
+		t.NotBefore = time.Now().Add(time.Duration(l.c.cfg.Rand.Int64N(int64(spread) + 1)))
+	}
 	t.Private, t.folder, t.announced = row.Private, row.SaveFolder, time.Duration(row.AnnouncedSeconds)*time.Second
 	l.added(t, handle)
 	return true
@@ -545,6 +557,7 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 		return
 	}
 	t.Private, t.folder = m.Info.Private, res.GetSaveFolder()
+	seed := res.GetSeedMode()
 	if t.folder == "" {
 		t.folder = builtinFolder(l.c.cfg.Dir, res.GetContentType(), t.Hash)
 	}
@@ -563,7 +576,7 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 	}
 	t.announced = time.Duration(announced) * time.Second
 	handle, err := l.eng.Add(engine.AddParams{
-		Metainfo: res.GetMetainfo(), SavePath: t.folder, Discover: mayDiscover(withInfo{private: t.Private}),
+		Metainfo: res.GetMetainfo(), SavePath: t.folder, Discover: mayDiscover(withInfo{private: t.Private}), SeedMode: seed,
 		Baseline: engine.Totals{
 			Uploaded: b.GetUploaded(), Downloaded: b.GetDownloaded(),
 			Active: time.Duration(b.GetActiveSeconds()) * time.Second, Seeding: time.Duration(b.GetSeedingSeconds()) * time.Second,
@@ -573,7 +586,7 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 		l.fail(t, err, time.Now())
 		return
 	}
-	t.NeedsCheck = true
+	t.NeedsCheck = !seed
 	t.sentTotals = &dlv1.TotalsRow{
 		Id: t.id.Bytes(), Uploaded: b.GetUploaded(), Downloaded: b.GetDownloaded(),
 		ActiveSeconds: b.GetActiveSeconds(), SeedingSeconds: b.GetSeedingSeconds(), AnnouncedSeconds: b.GetAnnouncedSeconds(),
@@ -604,8 +617,11 @@ func (l *loop) decide(now time.Time) {
 		HoldDownloads:   l.intent.Intent.GetHoldDownloads(),
 		DiskRecovered:   l.diskRecovered(),
 	}
+	var wake time.Time
 	ts := make([]plan.Torrent, 0, len(l.torrents))
 	for _, t := range l.torrents {
+		wake = earliest(wake, t.ask.Tick(now))
+		t.Paused = t.Paused || t.ask.Held()
 		if t.failed == "" || t.Discard != plan.Kept {
 			ts = append(ts, t.Torrent)
 		}
@@ -614,11 +630,9 @@ func (l *loop) decide(now time.Time) {
 	for _, t := range l.torrents {
 		t.state = p.States[t.Hash]
 	}
-	wake := p.Wake
+	wake = earliest(wake, p.Wake)
 	for _, cmd := range p.Commands {
-		if at := l.do(cmd, now); !at.IsZero() && (wake.IsZero() || at.Before(wake)) {
-			wake = at
-		}
+		wake = earliest(wake, l.do(cmd, now))
 	}
 	if !wake.IsZero() {
 		l.wake.Reset(max(wake.Sub(now), 0))
@@ -634,6 +648,7 @@ func (l *loop) do(cmd plan.Command, now time.Time) time.Time {
 	case plan.Resume:
 		t := l.torrents[cmd.Hash]
 		t.Phase, t.Resumed, t.DiskFull = plan.Running, now, false
+		t.ask.Start(now)
 		l.call(t, "resume a torrent", l.eng.Resume(t.handle))
 	case plan.Pause:
 		t := l.torrents[cmd.Hash]
@@ -852,9 +867,11 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 		l.ledger.Sent(t.Hash, l.tracker(t, ev.Tracker), announce.Event(ev.Event), ev.At, t.Complete)
 	case engine.TrackerReplied:
 		t.announced += l.ledger.Answered(t.Hash, l.tracker(t, ev.Tracker), ev.At)
+		t.ask.Replied(ev.At)
 		t.replied[ev.Tracker] = ev.At
 		l.call(t, "list a torrent's trackers", l.eng.PostTrackers(t.handle))
 	case engine.TrackerFailed:
+		t.ask.Failed(ev.At, ev.Reason)
 		if l.ledger.Failed(t.Hash, l.tracker(t, ev.Tracker), ev.Reason, l.unregisteredGap(), ev.At) {
 			t.recordFault(dlv1.FaultKind_FAULT_KIND_UNREGISTERED, ev.At)
 		}
@@ -967,6 +984,14 @@ func (t *torrent) observe(s engine.State) {
 	case checking(s):
 		t.Complete = false
 	}
+}
+
+// earliest is the earlier of two wake times, zero being none.
+func earliest(a, b time.Time) time.Time {
+	if a.IsZero() || !b.IsZero() && b.Before(a) {
+		return b
+	}
+	return a
 }
 
 func complete(s engine.State) bool { return s == engine.StateSeeding || s == engine.StateFinished }

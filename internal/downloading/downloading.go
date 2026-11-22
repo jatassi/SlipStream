@@ -121,6 +121,12 @@ type Timings struct {
 	// Controller's own refuse a page past them.
 	HoldingsPage int `yaml:"holdings_page"`
 	HoldingsMax  int `yaml:"holdings_max"`
+	// ReplyWait is how long a Move's destination waits for a tracker to
+	// answer the start it asked for before it calls the start refused.
+	ReplyWait time.Duration `yaml:"reply_wait"`
+	// AnnounceWatchEvery is how often an external client is read for when
+	// the torrents a Move watches last announced.
+	AnnounceWatchEvery time.Duration `yaml:"announce_watch_every"`
 }
 
 // ErrorHeartbeat is how often a Node resends the report of a torrent its
@@ -141,7 +147,7 @@ func DefaultTimings() Timings {
 		ClientRetryMin: 5 * time.Second, ClientRetryMax: 5 * time.Minute, ClientRefusedRetry: 30 * time.Minute,
 		ClientGrace: time.Minute, ClientResendWait: 2 * time.Minute, ClientMissingShare: 50, ClientMissingFloor: 3,
 		ClientTrackers: time.Minute, ClientCall: 30 * time.Second, ClientLiveFloor: 2 * time.Second,
-		HoldingsPage: 1000, HoldingsMax: 100_000,
+		HoldingsPage: 1000, HoldingsMax: 100_000, ReplyWait: 10 * time.Second, AnnounceWatchEvery: 5 * time.Second,
 	}
 }
 

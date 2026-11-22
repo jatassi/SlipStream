@@ -349,6 +349,8 @@ type node struct {
 	local *storage.DB[storage.Local]
 	dir   string
 	ctl   *control
+	// disk is the Node's disk a composite places payloads on.
+	disk storing.Disk
 	// free is what the downloads folder's volume has left.
 	free atomic.Int64
 }
