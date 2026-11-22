@@ -1,4 +1,5 @@
 import {
+  ArrowDataTransferHorizontalIcon,
   Delete02Icon,
   Megaphone01Icon,
   MoreHorizontalIcon,
@@ -23,6 +24,7 @@ export const actionIcons: { readonly [A in TorrentAction]: IconSvgElement } = {
   recheck: RefreshIcon,
   retry: RepeatIcon,
   "mark-failed": UnavailableIcon,
+  move: ArrowDataTransferHorizontalIcon,
   remove: Delete02Icon,
 };
 
