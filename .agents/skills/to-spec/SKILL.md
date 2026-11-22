@@ -57,11 +57,14 @@ Exception: if a prototype produced a snippet that encodes a decision more precis
 
 ## Testing Decisions
 
-A list of testing decisions that were made. Include:
+A list of testing decisions that were made. Follow the Tests section of AGENTS.md. Include:
 
-- A description of what makes a good test (only test external behavior, not implementation details)
-- Which modules will be tested
-- Prior art for the tests (i.e. similar types of tests in the codebase)
+- The seam the tests drive, the highest one that sees the behavior.
+- The invariants the tests break, such as "every file exists on the Node the database names". Don't list cases or cross every option with every other. The build picks the fewest cases that fail when an invariant breaks.
+- Which level owns each behavior. A flow that a browser spec walks gets no component test that repeats it.
+- Prior art for the tests (similar tests in the codebase).
+
+The user stories are not a test list. One test often covers several stories, and a story about copy or layout needs no test.
 
 ## Out of Scope
 
