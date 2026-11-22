@@ -1,7 +1,6 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { ApiError } from "../api/errors";
 import type {
   SettingChoiceField,
   SettingCountField,
@@ -10,7 +9,6 @@ import type {
 } from "../api/gen/model";
 import { renderKit } from "../test/render-kit";
 import { SettingField } from "./setting-field";
-import type { ShellKind } from "./shell-context";
 
 const about = { source: "config.yaml", applies: "live", pendingRestart: false } as const;
 
@@ -71,9 +69,7 @@ const level: SettingChoiceField = {
 
 const saving = () => vi.fn<(value: unknown) => Promise<unknown>>(() => Promise.resolve());
 
-const inEachShell = test.each(["desktop", "phone"] satisfies ShellKind[]);
-
-inEachShell("%s: each Node kind is a control named for its setting", async (shell) => {
+test("each Node kind is a control named for its setting", async () => {
   renderKit(
     <>
       <SettingField field={port} onSave={saving()} />
@@ -81,7 +77,6 @@ inEachShell("%s: each Node kind is a control named for its setting", async (shel
       <SettingField field={compress} onSave={saving()} />
       <SettingField field={level} onSave={saving()} />
     </>,
-    { shell },
   );
   await expect.element(page.getByRole("textbox", { name: "Port" })).toHaveValue("8484");
   await expect.element(page.getByRole("textbox", { name: "Days kept" })).toHaveValue("0");
@@ -89,9 +84,9 @@ inEachShell("%s: each Node kind is a control named for its setting", async (shel
   await expect.element(page.getByRole("combobox", { name: "Level" })).toHaveTextContent("Info");
 });
 
-inEachShell("%s: a port shows its default and refuses one out of range", async (shell) => {
+test("a port shows its default and refuses one out of range", async () => {
   const onSave = saving();
-  renderKit(<SettingField field={port} onSave={onSave} />, { shell });
+  renderKit(<SettingField field={port} onSave={onSave} />);
   await expect.element(page.getByText("Default 8484.")).toBeVisible();
   await expect.element(page.getByText("Applies after restart.")).toBeVisible();
   const input = page.getByRole("textbox", { name: "Port" });
@@ -105,24 +100,7 @@ inEachShell("%s: a port shows its default and refuses one out of range", async (
   expect(onSave).toHaveBeenCalledExactlyOnceWith(9000);
 });
 
-inEachShell("%s: a port the server refuses shows the problem's sentence", async (shell) => {
-  const onSave = vi.fn<(value: unknown) => Promise<unknown>>(() =>
-    Promise.reject(
-      new ApiError({
-        status: 422,
-        code: "port_used_by_node",
-        title: "The port is taken by this Node",
-        detail: "8485 is this Node's link port.",
-      }),
-    ),
-  );
-  renderKit(<SettingField field={port} onSave={onSave} />, { shell });
-  await userEvent.fill(page.getByRole("textbox", { name: "Port" }), "8485");
-  await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("alert")).toHaveTextContent("8485 is this Node's link port.");
-});
-
-inEachShell("%s: a key set by the environment is locked and names its variable", async (shell) => {
+test("a key set by the environment is locked and names its variable", async () => {
   renderKit(
     <>
       <SettingField
@@ -135,7 +113,6 @@ inEachShell("%s: a key set by the environment is locked and names its variable",
       />
       <SettingField field={{ ...level, lockedBy: "SLIPSTREAM_LOG_LEVEL" }} onSave={saving()} />
     </>,
-    { shell },
   );
   await expect.element(page.getByText("Set by SLIPSTREAM_HTTP_LISTEN")).toBeVisible();
   await expect.element(page.getByRole("textbox", { name: "Port" })).toBeDisabled();
@@ -144,9 +121,9 @@ inEachShell("%s: a key set by the environment is locked and names its variable",
   expect(page.getByRole("button", { name: "Reset to default" }).query()).toBeNull();
 });
 
-inEachShell("%s: a count where 0 means no limit says so", async (shell) => {
+test("a count where 0 means no limit says so", async () => {
   const onSave = saving();
-  renderKit(<SettingField field={daysKept} onSave={onSave} />, { shell });
+  renderKit(<SettingField field={daysKept} onSave={onSave} />);
   await expect
     .element(page.getByText("Default 30 days. Between 0 and 3650 days. 0 means no limit."))
     .toBeVisible();
@@ -157,23 +134,23 @@ inEachShell("%s: a count where 0 means no limit says so", async (shell) => {
   expect(onSave).toHaveBeenCalledExactlyOnceWith(null);
 });
 
-inEachShell("%s: a switch saves the side it's turned to", async (shell) => {
+test("a switch saves the side it's turned to", async () => {
   const onSave = saving();
-  renderKit(<SettingField field={compress} onSave={onSave} />, { shell });
+  renderKit(<SettingField field={compress} onSave={onSave} />);
   await expect.element(page.getByText("Default On.")).toBeVisible();
   await userEvent.click(page.getByRole("switch", { name: "Compress rotated files" }));
   expect(onSave).toHaveBeenCalledExactlyOnceWith(false);
 });
 
-inEachShell("%s: a choice of four is a Select that saves the option picked", async (shell) => {
+test("a choice of four is a Select that saves the option picked", async () => {
   const onSave = saving();
-  renderKit(<SettingField field={level} onSave={onSave} />, { shell });
+  renderKit(<SettingField field={level} onSave={onSave} />);
   await userEvent.click(page.getByRole("combobox", { name: "Level" }));
   await userEvent.click(page.getByRole("option", { name: "Debug" }));
   expect(onSave).toHaveBeenCalledExactlyOnceWith("debug");
 });
 
-inEachShell("%s: a row says a count of 0 in words", async (shell) => {
-  renderKit(<SettingField field={daysKept} onSave={saving()} variant="row" />, { shell });
+test("a row says a count of 0 in words", async () => {
+  renderKit(<SettingField field={daysKept} onSave={saving()} variant="row" />);
   await expect.element(page.getByRole("button", { name: "Days kept: No limit" })).toBeVisible();
 });

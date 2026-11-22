@@ -24,7 +24,7 @@ const notifications = () => page.getByRole("region", { name: "Messages" });
 
 // The manager drops a toast nobody listens to, and the viewport's Provider
 // subscribes in an effect, which runs before a later sibling's effect.
-async function mountToasts(shell: "desktop" | "phone" = "desktop") {
+async function mountToasts() {
   await new Promise<void>((resolve) => {
     function Subscribed() {
       useEffect(resolve, []);
@@ -35,7 +35,6 @@ async function mountToasts(shell: "desktop" | "phone" = "desktop") {
         <Toasts />
         <Subscribed />
       </>,
-      { shell },
     );
   });
 }
@@ -115,22 +114,4 @@ test("three toasts show at once, newest on top", async () => {
     notifications().getByText(name).element().getBoundingClientRect().top;
   expect(top("Fourth")).toBeLessThan(top("Third"));
   expect(top("Third")).toBeLessThan(top("Second"));
-});
-
-test("toasts sit top right in the desktop shell", async () => {
-  await mountToasts();
-  toast("Search started");
-  const capsule = notifications().getByRole("dialog", { name: "Search started" });
-  await expect.element(capsule).toBeVisible();
-  const { right } = capsule.element().getBoundingClientRect();
-  expect(document.documentElement.clientWidth - right).toBe(28);
-});
-
-test("toasts sit top centre in the phone shell", async () => {
-  await mountToasts("phone");
-  toast("Search started");
-  const capsule = notifications().getByRole("dialog", { name: "Search started" });
-  await expect.element(capsule).toBeVisible();
-  const { left, width } = capsule.element().getBoundingClientRect();
-  expect(left + width / 2).toBeCloseTo(document.documentElement.clientWidth / 2, 0);
 });

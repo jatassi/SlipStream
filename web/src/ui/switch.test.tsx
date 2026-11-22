@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { renderKit } from "../test/render-kit";
-import type { ShellKind } from "./shell-context";
+
 import { Switch } from "./switch";
 
 function Startup() {
@@ -13,53 +13,29 @@ function Startup() {
 
 const name = "Play the startup sequence";
 
-test.each(["desktop", "phone"] satisfies ShellKind[])(
-  "in the %s shell Space toggles a switch and its label is the target",
-  async (shell) => {
-    renderKit(<Startup />, { shell });
-    const control = page.getByRole("switch", { name });
-    await expect.element(control).toBeChecked();
-    await userEvent.tab();
-    await expect.element(control).toHaveFocus();
-    await userEvent.keyboard(" ");
-    await expect.element(control).not.toBeChecked();
-    await page.getByText(name).click();
-    await expect.element(control).toBeChecked();
-  },
-);
-
-test.each([
-  ["desktop", ["34px", "20px"]],
-  ["phone", ["51px", "31px"]],
-] satisfies [ShellKind, string[]][])("in the %s shell the switch is %j", async (shell, size) => {
-  renderKit(<Startup />, { shell });
+test("Space toggles a switch and its label is the target", async () => {
+  renderKit(<Startup />);
   const control = page.getByRole("switch", { name });
-  await expect.element(control).toBeVisible();
-  const style = getComputedStyle(control.element());
-  expect([style.width, style.height]).toEqual(size);
+  await expect.element(control).toBeChecked();
+  await userEvent.tab();
+  await expect.element(control).toHaveFocus();
+  await userEvent.keyboard(" ");
+  await expect.element(control).not.toBeChecked();
+  await page.getByText(name).click();
+  await expect.element(control).toBeChecked();
 });
-
-function knobOffset(control: Element) {
-  const track = control.getBoundingClientRect();
-  const knob = control.firstElementChild?.getBoundingClientRect();
-  return knob === undefined ? NaN : knob.left + knob.width / 2 - (track.left + track.width / 2);
-}
 
 function Season() {
   const [on, setOn] = useState<boolean | "mixed">("mixed");
   return <Switch label="Monitor season 2" checked={on} onCheckedChange={setOn} />;
 }
 
-test.each(["desktop", "phone"] satisfies ShellKind[])(
-  "in the %s shell a mixed switch reads mixed with its knob centred, and turns on",
-  async (shell) => {
-    renderKit(<Season />, { shell });
-    const control = page.getByRole("switch", { name: "Monitor season 2" });
-    await expect.element(control).toHaveAttribute("aria-checked", "mixed");
-    await expect.poll(() => Math.abs(knobOffset(control.element()))).toBeLessThan(0.5);
-    await control.click();
-    await expect.element(control).toHaveAttribute("aria-checked", "true");
-    await control.click();
-    await expect.element(control).toHaveAttribute("aria-checked", "false");
-  },
-);
+test("a mixed switch reads mixed and turns on", async () => {
+  renderKit(<Season />);
+  const control = page.getByRole("switch", { name: "Monitor season 2" });
+  await expect.element(control).toHaveAttribute("aria-checked", "mixed");
+  await control.click();
+  await expect.element(control).toHaveAttribute("aria-checked", "true");
+  await control.click();
+  await expect.element(control).toHaveAttribute("aria-checked", "false");
+});

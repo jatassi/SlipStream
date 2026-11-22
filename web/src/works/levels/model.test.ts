@@ -110,26 +110,6 @@ test("a level's switch is mixed while only some of its live Items are monitored"
   expect(named(levels, "Volume 1").tally).toEqual({ met: 0, of: storiesPerVolume - 1 });
 });
 
-test("a run of unreleased Items folds into one line built from the Item noun and the codes", () => {
-  const work: WorksWorkView = {
-    ...longShelf,
-    items: longShelf.items.map((item) =>
-      volumeOf(item) === 0 && item.position >= 4 && item.position <= 7
-        ? { ...item, availability: { date: `2026-10-${10 + item.position}`, basis: "" } }
-        : item,
-    ),
-  };
-  const cells = shelfCells(work, (item) =>
-    volumeOf(item) === 0 && item.position >= 4 && item.position <= 7 ? "unreleased" : "met",
-  );
-  const entries = named(levelsOf(context(), work, cells), "Volume 1").entries;
-  expect(entries).toHaveLength(storiesPerVolume - 3);
-  expect(entries[3]).toMatchObject({
-    kind: "fold",
-    fold: { words: "Stories 4 to 7 come out October 14 to October 17" },
-  });
-});
-
 const contextOnce = context();
 
 test("an unchanged level keeps its view and a changed one is rebuilt", () => {

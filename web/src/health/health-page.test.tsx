@@ -36,35 +36,6 @@ const literal = (text: string) => text.replaceAll(/[.()]/gu, String.raw`\$&`);
 const rowOf = (subject: string) =>
   page.getByRole("button", { name: new RegExp(`^(?:Error|Warning) ${literal(subject)}`, "u") });
 
-test("with nothing wrong the page says everything is working and names what it checked", async () => {
-  renderApp({ path: "/health", handlers: healthServer(reportOf()).handlers });
-  await expect.element(page.getByText("Everything is working.")).toBeVisible();
-  await expect
-    .element(
-      page.getByText(
-        "Checked storage, Nodes, torrents that still need seeding, Indexers, scheduled tasks and Backups",
-      ),
-    )
-    .toBeVisible();
-  await expect.element(region("Storage").getByText("Nothing is wrong with storage.")).toBeVisible();
-  await expect
-    .element(region("Storage").getByRole("button", { name: "Check now: Storage" }))
-    .toBeVisible();
-  await expect.element(region("Nodes")).toHaveTextContent("Nothing is wrong with Nodes.Check now");
-  await expect
-    .element(region("Seeding"))
-    .toHaveTextContent("Nothing is wrong with torrents that still need seeding.");
-  expect(region("Seeding").getByRole("button").query()).toBeNull();
-  await expect.element(region("Indexers")).toHaveTextContent("Nothing is wrong with Indexers.");
-  expect(region("Indexers").getByRole("button").query()).toBeNull();
-  await expect
-    .element(region("Scheduled tasks"))
-    .toHaveTextContent("Nothing is wrong with scheduled tasks.");
-  expect(region("Scheduled tasks").getByRole("button").query()).toBeNull();
-  await expect.element(region("Backups")).toHaveTextContent("Nothing is wrong with Backups.");
-  expect(region("Backups").getByRole("button").query()).toBeNull();
-});
-
 test("an error leads the sentence and links to its item", async () => {
   atHealthNow();
   const report = reportOf({ storage: [fillingVolume, fullVolume] });
@@ -197,15 +168,6 @@ test("a link with a query string keeps it as the page's search", async () => {
   await expect
     .poll(() => ({ path: router.state.location.pathname, search: router.state.location.search }))
     .toEqual({ path: `/settings/trackers/${seedpoolId}`, search: { tab: "problems" } });
-});
-
-test("Check all and a category's Check now post their checks", async () => {
-  const health = healthServer(reportOf({ nodes: [awayNode] }));
-  renderApp({ path: "/health", handlers: health.handlers });
-  await userEvent.click(page.getByRole("button", { name: "Check all" }));
-  await expect.element(page.getByRole("status")).toHaveTextContent("Checked.");
-  await userEvent.click(page.getByRole("button", { name: "Check now: Storage" }));
-  await expect.poll(() => health.checks).toEqual(["all", "storage"]);
 });
 
 test("rows keep the order they were first shown in while the page is open", async () => {

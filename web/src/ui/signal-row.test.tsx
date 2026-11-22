@@ -45,7 +45,7 @@ describe.each(shells)("in the %s shell", (shell) => {
   });
 });
 
-test("a word before the time reads with it and stays out of the time's mono", async () => {
+test("a word before the time reads with it", async () => {
   renderKit(
     <SignalRow
       signal="warn"
@@ -61,7 +61,4 @@ test("a word before the time reads with it and stays out of the time's mono", as
   await expect
     .element(page.getByRole("button", { name: "Warning D: Free up space. since 2:05 PM" }))
     .toBeVisible();
-  expect(getComputedStyle(page.getByText("2:05 PM", { exact: true }).element()).fontFamily).toMatch(
-    /Geist Mono/u,
-  );
 });

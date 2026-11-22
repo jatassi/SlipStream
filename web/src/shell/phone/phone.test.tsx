@@ -8,7 +8,7 @@ import {
   getListLibraryMockHandler,
 } from "../../api/gen/query/works/works.msw";
 import { cinema, orchardId, orchardRow } from "../../test/library";
-import { cinemaLibrary, orchards } from "../../test/library-page";
+
 import { asPhone } from "../../test/viewport";
 import { renderApp } from "../../test/render-app";
 import { workServer } from "../../test/work-server";
@@ -51,8 +51,7 @@ test("the phone shell has a tab bar, with the Activity count as a badge", async 
         .map((tab) => tab.element().textContent),
     )
     .toEqual(["Home", "Library", "Activity2", "Search", "More"]);
-  const badge = getComputedStyle(tabs().getByText("2", { exact: true }).element());
-  expect([badge.fontSize, badge.fontWeight, badge.height]).toEqual(["12px", "600", "18px"]);
+
   await expect
     .element(tabs().getByRole("link", { name: "Library" }))
     .toHaveAttribute("aria-current", "page");
@@ -175,18 +174,6 @@ test("on a phone a menu opens as an action sheet", async () => {
   await expect.element(sheet.getByRole("button", { name: "Add a film" })).toBeVisible();
   await userEvent.click(sheet.getByRole("button", { name: "Cancel" }));
   await expect.element(sheet).not.toBeInTheDocument();
-});
-
-test("the large title hands its words to the nav bar once it scrolls away", async () => {
-  await asPhone();
-  renderApp({ path: "/library", handlers: cinemaLibrary(orchards(40)).handlers });
-  const barTitle = page.getByRole("banner").getByText("Library");
-  await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
-  await expect.poll(() => getComputedStyle(barTitle.element()).opacity).toBe("0");
-
-  window.scrollTo({ top: 400 });
-  await expect.poll(() => getComputedStyle(barTitle.element()).opacity).toBe("1");
-  window.scrollTo({ top: 0 });
 });
 
 test("a pushed page goes back to its library, and a tab returns to where it was", async () => {

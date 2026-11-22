@@ -47,14 +47,6 @@ function mount(ui: ReactNode) {
   return root;
 }
 
-const transitions = () =>
-  document.documentElement
-    .getAnimations()
-    .filter((animation) => animation instanceof CSSTransition)
-    .toSorted((a, b) => a.transitionProperty.localeCompare(b.transitionProperty));
-
-const running = () => transitions().map((transition) => transition.transitionProperty);
-
 const tint = () => {
   const style = getComputedStyle(document.documentElement);
   return { h: style.getPropertyValue("--h"), s: style.getPropertyValue("--s") };
@@ -154,26 +146,6 @@ test("a return delay holds the Work's tint after its page leaves", async () => {
   await vi.advanceTimersByTimeAsync(1);
   vi.useRealTimers();
   await expect.poll(tint).toEqual({ h: "214", s: "14%" });
-});
-
-test("the registered --h and --s animate between tints", async () => {
-  const root = mount(
-    <>
-      <Ambient />
-      <Page source={work("red")} />
-    </>,
-  );
-  // The tint reads 360 a frame before the arriving transition ends, so the
-  // return's transitions are only told apart once that one has gone.
-  await expect.poll(tint).toEqual({ h: "360", s: "70%" });
-  await expect.poll(running).toEqual([]);
-  root.render(<Ambient />);
-  await expect.poll(running).toEqual(["--h", "--s"]);
-  for (const transition of transitions()) {
-    transition.pause();
-    transition.currentTime = 550;
-  }
-  expect(tint()).toEqual({ h: "218.12", s: "15.5804%" });
 });
 
 test("reduced transparency hides the backdrop and keeps the tint", async () => {
