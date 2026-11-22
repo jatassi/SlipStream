@@ -506,3 +506,55 @@ func TestATorrentMovesBack(t *testing.T) {
 		}
 	})
 }
+
+// TestAPrivateTorrentIntoAnExternalClientNotesItsWindowStops previews The
+// Quiet Orchard's Move out of seedbox's built-in client into Transmission
+// on den, its Tracker needing 3 days of seeding with the margin: it can move, with the
+// amber note that SlipStream stops counting its Hit and run window.
+func TestAPrivateTorrentIntoAnExternalClientNotesItsWindowStops(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := launchMoves(t)
+		torznab := addTracker(t, w, "torznab", indexers.Private)
+		put(t, w.API(), fmt.Sprintf("/api/v1/trackers/%s/rule", torznab), `{"clears":"time","ratio":null,"seedSeconds":252000}`)
+		s := seedOrchard(t, w, kinds[0])
+		within(t, time.Hour, "its Hit and run window opens", func() bool {
+			d, err := w.Node("home").Half().Clients.Get(t.Context(), s.id)
+			return err == nil && d.Seeding.Owes != nil
+		})
+		plan, err := w.Node("home").Half().Moves.Preview(t.Context(), moves.Ask{Origin: moves.OriginTorrent, Torrents: []moves.TorrentTo{{Torrent: s.id, To: client{"den", "transmission"}.side(t, w)}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := moves.Verdict{Color: moves.Amber, Reasons: []moves.Reason{{
+			Check: moves.CheckHitAndRun, Color: moves.Amber, Code: "window_stops",
+			Words: "torznab needs 3 more days of seeding. Transmission on den follows its own rules, and SlipStream stops counting this Hit and run window.",
+		}}}
+		if plan.Movable() != 1 || !reflect.DeepEqual(plan.Units[0].Verdict, want) {
+			t.Errorf("the preview is %+v, want it movable with %+v", plan.Units[0].Verdict, want)
+		}
+	})
+}
+
+// TestATorrentWithNoRoomAtItsDestinationStays previews The Quiet
+// Orchard's Move into den's built-in client with every volume's error
+// level at 100%: it is red for space.
+func TestATorrentWithNoRoomAtItsDestinationStays(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := launchMoves(t)
+		s := seedOrchard(t, w, kinds[0])
+		simtest.Eventually(t, "den samples its downloads volume", func() bool {
+			var n int
+			return w.Node("home").Half().Library.QueryRowContext(t.Context(), `SELECT count(*) FROM downloadclients_volume WHERE node_id = ?`, nodeID(t, w, "den")).Scan(&n) == nil && n == 1
+		})
+		onTorrents(t, w, `UPDATE health_settings SET error_amount = 100, error_unit = 'percent'`)
+		plan, err := w.Node("home").Half().Moves.Preview(t.Context(), moves.Ask{Origin: moves.OriginTorrent, Torrents: []moves.TorrentTo{{Torrent: s.id, To: moves.Side{Node: nodeID(t, w, "den")}}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v := plan.Units[0].Verdict; v.Color != moves.Red || v.Reasons[0].Code != "space_error" {
+			t.Errorf("the verdict is %+v, want red space_error", v)
+		}
+	})
+}

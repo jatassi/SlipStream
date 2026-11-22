@@ -3,6 +3,7 @@ package moves
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/trackers/seeding"
 )
 
 // TorrentTo is one seeding torrent and the Download Client it moves to.
@@ -34,6 +36,16 @@ type torrentRead struct {
 	nodes map[role.NodeID]string
 	// clients is each destination client's Node, and its name.
 	clients map[downloadclients.ClientID]downloadclients.External
+	// owing is each built-in source whose Tracker needs more seeding of
+	// it: a Move into an external client stops SlipStream counting it.
+	owing map[downloadclients.ID]owing
+}
+
+// owing is a torrent's Tracker and what its Hit and run window still
+// needs.
+type owing struct {
+	tracker string
+	owes    seeding.Owes
 }
 
 // planTorrents plans and judges a unit per torrent of ts. A drain's
@@ -45,7 +57,10 @@ func (m *Moves) planTorrents(ctx context.Context, ts []TorrentTo, drain bool) ([
 	var rd torrentRead
 	err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		rd, err = readTorrents(ctx, r, ts)
+		if rd, err = readTorrents(ctx, r, ts); err != nil {
+			return err
+		}
+		rd.owing, err = m.owingOf(ctx, r, ts, rd)
 		return err
 	})
 	if err != nil {
@@ -59,7 +74,40 @@ func (m *Moves) planTorrents(ctx context.Context, ts []TorrentTo, drain bool) ([
 		}
 		out = append(out, planTorrent(t, src, rd, m.now(), drain))
 	}
-	return out, nil
+	return out, m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error { return torrentRooms(ctx, r, out) })
+}
+
+// torrentRooms reds each unit of us that copies into a built-in client
+// whose downloads volume has no room left once the units before it took
+// theirs.
+func torrentRooms(ctx context.Context, r storage.Reader[file], us []PlanUnit) error {
+	room := map[role.NodeID]*int64{}
+	for i, u := range us {
+		to := u.Torrent.To
+		if u.Bytes == 0 || to.Client != nil || u.Verdict.Color == Red {
+			continue
+		}
+		left, ok := room[to.Node]
+		if !ok {
+			n, known, err := downloadclients.DownloadRoom(ctx, r, to.Node)
+			if err != nil {
+				return err
+			}
+			if known {
+				left = &n
+			}
+			room[to.Node] = left
+		}
+		switch {
+		case left == nil:
+		case *left < u.Bytes:
+			reason := Reason{Check: CheckSpace, Color: Red, Code: "space_error", Words: "The destination's downloads folder has no room for it. Free up space there, then preview again."}
+			us[i].Verdict = Verdict{Color: Red, Reasons: []Reason{reason}}
+		default:
+			*left -= u.Bytes
+		}
+	}
+	return nil
 }
 
 func readTorrents(ctx context.Context, r storage.Reader[file], ts []TorrentTo) (torrentRead, error) {
@@ -97,6 +145,42 @@ func readTorrents(ctx context.Context, r storage.Reader[file], ts []TorrentTo) (
 		}
 	}
 	return rd, nil
+}
+
+// owingOf is what each torrent of ts moving out of the built-in client
+// into an external one still owes its Tracker, read in r.
+func (m *Moves) owingOf(ctx context.Context, r storage.Reader[file], ts []TorrentTo, rd torrentRead) (map[downloadclients.ID]owing, error) {
+	var hashes []bencode.InfoHash
+	for _, t := range ts {
+		if src, ok := rd.sources[t.Torrent]; ok && src.Client == nil && src.Private && t.To.Client != nil {
+			hashes = append(hashes, src.InfoHash)
+		}
+	}
+	if len(hashes) == 0 {
+		return nil, nil
+	}
+	rows, err := m.cfg.Clients.Rows(ctx, r, downloadclients.Filter{Hashes: hashes})
+	out := map[downloadclients.ID]owing{}
+	for _, row := range rows {
+		if row.Tracker != nil && row.Seeding.Owes != nil {
+			out[row.ID] = owing{tracker: row.Tracker.Name, owes: *row.Seeding.Owes}
+		}
+	}
+	return out, err
+}
+
+// owedWords is what o still needs, in the Hit and run window's words.
+func owedWords(o owing) string {
+	const day = 24 * time.Hour
+	switch d := o.owes.Time; {
+	case d >= day:
+		n := int((d + day - 1) / day)
+		return fmt.Sprintf("%s needs %d more %s of seeding.", o.tracker, n, plural(n, "day", "days"))
+	case d > 0:
+		n := int((d + time.Hour - 1) / time.Hour)
+		return fmt.Sprintf("%s needs %d more %s of seeding.", o.tracker, n, plural(n, "hour", "hours"))
+	}
+	return o.tracker + " needs more seeding."
 }
 
 // torrentsMoving is which of ids an open unit moves or keeps a copy of,
@@ -198,6 +282,11 @@ func torrentVerdict(t TorrentTo, src downloadclients.MoveSource, rd torrentRead,
 	}
 	if src.Private && src.Client != nil && t.To.Client == nil {
 		return Verdict{Color: Amber, Reasons: []Reason{{Check: CheckHitAndRun, Color: Amber, Code: "window_starts", Words: "SlipStream starts counting this Hit and run window from now."}}}
+	}
+	if o, ok := rd.owing[t.Torrent]; ok {
+		words := owedWords(o) + " " + rd.clients[*t.To.Client].Name + " on " + rd.nodes[t.To.Node] +
+			" follows its own rules, and SlipStream stops counting this Hit and run window."
+		return Verdict{Color: Amber, Reasons: []Reason{{Check: CheckHitAndRun, Color: Amber, Code: "window_stops", Words: words}}}
 	}
 	return Verdict{}
 }
