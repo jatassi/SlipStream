@@ -15,12 +15,18 @@ import (
 
 // backupsController is a running Controller claimed on a fresh data dir,
 // with its Admin session and its API key.
+// backupsController is a claimed Controller whose start's catch-up runs
+// have ended. Its first scheduled Backup is one of them, and it waits
+// behind the other Maintenance window tasks, so left running it can land
+// in the middle of a test's own Backups.
 func backupsController(t *testing.T) (n *Node, c client, session, apiKey string) {
 	t.Helper()
 	env, _ := testEnv(t)
 	n, c = startInMemory(t, env)
 	claimed := c.claim(n.Ready().SetupCode, "1234")
-	return n, c, sessionOf(t, claimed), keyOf(t, c, claimed)
+	session, apiKey = sessionOf(t, claimed), keyOf(t, c, claimed)
+	synctest.Wait()
+	return n, c, session, apiKey
 }
 
 func asKey(apiKey string) map[string]string { return map[string]string{"X-Api-Key": apiKey} }
