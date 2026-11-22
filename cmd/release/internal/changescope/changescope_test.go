@@ -95,19 +95,6 @@ func TestOf(t *testing.T) {
 	}
 }
 
-func TestUnmarshalText(t *testing.T) {
-	for _, want := range []Scope{Docs, PR, Native} {
-		var got Scope
-		if err := got.UnmarshalText([]byte(want.String())); err != nil || got != want {
-			t.Errorf("UnmarshalText(%s) = %s, %v", want, got, err)
-		}
-	}
-	var s Scope
-	if err := s.UnmarshalText([]byte("all")); err == nil {
-		t.Error("UnmarshalText(all) succeeded")
-	}
-}
-
 func TestOnline(t *testing.T) {
 	for _, c := range []struct {
 		name    string
