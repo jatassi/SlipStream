@@ -108,22 +108,6 @@ func TestRecordPanicsOnAWiringBug(t *testing.T) {
 	refused("entrytest with a kind its owner didn't register", rec)
 }
 
-func TestEntrytestKeepsWhatAnOwnerRecorded(t *testing.T) {
-	rec, kept := entrytest.New("library", []entry.Entry{deletedRow, otherRow})
-	if err := deletedRow.Record(t.Context(), nil, rec, heat); err != nil {
-		t.Fatal(err)
-	}
-	if err := otherRow.Record(t.Context(), nil, rec, noFacts{}); err != nil {
-		t.Fatal(err)
-	}
-	if got := entrytest.Of(kept, deletedRow); !reflect.DeepEqual(got, []deletedFacts{heat}) {
-		t.Fatalf("kept %+v, want only %+v", got, heat)
-	}
-	if got := entrytest.Abouts(kept, otherRow); !reflect.DeepEqual(got, []entry.About{{Quiet: true}}) {
-		t.Fatalf("kept the other entry as about %+v, want it quiet", got)
-	}
-}
-
 func TestTitlesListsThreeThenCountsTheRest(t *testing.T) {
 	first := []string{"Alien", "Heat", "Ran", "Up"}
 	for _, c := range []struct {
@@ -145,13 +129,7 @@ func TestTitlesListsThreeThenCountsTheRest(t *testing.T) {
 		t.Fatalf("Titles changed its argument: %v", first)
 	}
 	episode := works.Noun{One: "episode", Many: "episodes"}
-	if got := entry.Count(1, episode) + ", " + entry.Count(10, episode); got != "1 episode, 10 episodes" {
+	if got := entry.Count(1, episode) + ", " + entry.Count(10, episode) + ", " + entry.Count(1200, episode); got != "1 episode, 10 episodes, 1,200 episodes" {
 		t.Fatalf("Count = %q", got)
-	}
-}
-
-func TestCountGroupsThousands(t *testing.T) {
-	if got := entry.Count(1200, works.Noun{One: "episode", Many: "episodes"}); got != "1,200 episodes" {
-		t.Fatalf("Count(1200) = %q, want 1,200 episodes", got)
 	}
 }

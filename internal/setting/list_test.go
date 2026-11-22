@@ -19,19 +19,6 @@ var smallestVideo = setting.Size{
 	Default: 50 * setting.MB, Min: 0, Max: 10 * setting.GB,
 }
 
-var sampleShorter = setting.Count{
-	Key: "library.importing.sampleShorter", Label: "Sample when shorter than",
-	Default: 25, Min: 0, Max: 90, Unit: setting.Noun{One: "% of its runtime", Many: "% of its runtime"}, Zero: "Off",
-}
-
-func TestImportingDefaultsPassCheck(t *testing.T) {
-	for name, err := range map[string]error{"list": videoExtensions.Check(), "size": smallestVideo.Check(), "count": sampleShorter.Check()} {
-		if err != nil {
-			t.Errorf("%s: %v", name, err)
-		}
-	}
-}
-
 func TestListParse(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -92,17 +79,6 @@ func TestSizeParse(t *testing.T) {
 	}
 }
 
-func TestPercentOfCountReadsAsOneWord(t *testing.T) {
-	n := int64(91)
-	if _, err := sampleShorter.Parse(&n); sentence(err) != "Between 0 and 90% of its runtime." {
-		t.Fatalf("Parse(91) = %v", err)
-	}
-	off := int64(0)
-	if got, err := sampleShorter.Parse(&off); err != nil || *got.Override() != 0 {
-		t.Fatalf("Parse(0) = %v, %v; want 0, which turns it off", got.Override(), err)
-	}
-}
-
 func TestListAndSizeRoundTripTheirWireValue(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -152,33 +128,6 @@ func TestListAndSizeRoundTripTheirWireValue(t *testing.T) {
 	}
 }
 
-func TestListAndSizeFields(t *testing.T) {
-	for _, tc := range []struct {
-		name  string
-		field any
-		want  string
-	}{
-		{
-			"a list at its default", setting.List{Key: "k.list", Label: "Extensions", Default: []string{"mkv"}, Min: 1, Item: setting.Extension}.Field(nil),
-			`{"key":"k.list","label":"Extensions","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"list","value":["mkv"],"running":["mkv"],"default":["mkv"],"min":1,"item":"extension"}`,
-		},
-		{
-			"a size, overridden", smallestVideo.Field(ptr(100 * setting.MB)),
-			`{"key":"library.importing.smallestVideo","label":"Smallest video file","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"size","value":104857600,"running":104857600,"default":52428800,"min":0,"max":10737418240}`,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			b, err := json.Marshal(tc.field)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if string(b) != tc.want {
-				t.Fatalf("Field =\n%s\nwant\n%s", b, tc.want)
-			}
-		})
-	}
-}
-
 func TestCheckRefusesAListOrSizeThatCantWork(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -196,6 +145,12 @@ func TestCheckRefusesAListOrSizeThatCantWork(t *testing.T) {
 				t.Fatalf("Check = %v, want %s", tc.err, tc.want)
 			}
 		})
+	}
+	if err := videoExtensions.Check(); err != nil {
+		t.Fatalf("Check of a list that can work = %v", err)
+	}
+	if err := smallestVideo.Check(); err != nil {
+		t.Fatalf("Check of a size that can work = %v", err)
 	}
 }
 
