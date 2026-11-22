@@ -7,6 +7,7 @@ import {
   DownloadclientsClientsList,
   DownloadclientsExternalClient,
   DownloadclientsNewClient,
+  DownloadclientsNodeTorrentsList,
   DownloadclientsSettings,
   DownloadclientsSettingsPatch,
   DownloadclientsTestReport,
@@ -143,6 +144,11 @@ export const ListTorrentsResponse = DownloadclientsTorrentList;
 export const ActOnTorrentsBody = ActInputBody;
 
 export const ActOnTorrentsResponse = DownloadclientsActed;
+
+/**
+ * @summary Count each Downloading Node's Torrents downloading, seeding, failed and with a warning
+ */
+export const GetTorrentCountsResponse = DownloadclientsNodeTorrentsList;
 
 /**
  * @summary Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds

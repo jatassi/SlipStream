@@ -41,6 +41,7 @@ import type {
   DownloadclientsClientsList,
   DownloadclientsExternalClient,
   DownloadclientsNewClient,
+  DownloadclientsNodeTorrentsList,
   DownloadclientsSettings,
   DownloadclientsSettingsPatch,
   DownloadclientsTestReport,
@@ -60,6 +61,10 @@ import type {
   GetTorrent409,
   GetTorrent422,
   GetTorrent500,
+  GetTorrentCounts401,
+  GetTorrentCounts403,
+  GetTorrentCounts409,
+  GetTorrentCounts500,
   ListDownloadClients401,
   ListDownloadClients403,
   ListDownloadClients409,
@@ -1610,6 +1615,132 @@ export const useActOnTorrents = <
 > => {
   return useMutation(getActOnTorrentsMutationOptions(options), queryClient);
 };
+export const getGetTorrentCountsUrl = () => {
+  return `/api/v1/torrents/counts`;
+};
+
+/**
+ * @summary Count each Downloading Node's Torrents downloading, seeding, failed and with a warning
+ */
+export const getTorrentCounts = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DownloadclientsNodeTorrentsList> => {
+  return apiFetch<DownloadclientsNodeTorrentsList>(getGetTorrentCountsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTorrentCountsQueryKey = () => {
+  return [`/api/v1/torrents/counts`] as const;
+};
+
+export const getGetTorrentCountsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTorrentCounts>>,
+  TError = ErrorType<
+    GetTorrentCounts401 | GetTorrentCounts403 | GetTorrentCounts409 | GetTorrentCounts500
+  >,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTorrentCounts>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTorrentCountsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTorrentCounts>>> = ({ signal }) =>
+    getTorrentCounts({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTorrentCounts>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetTorrentCountsSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTorrentCounts>>
+>;
+export type GetTorrentCountsSuspenseQueryError = ErrorType<
+  GetTorrentCounts401 | GetTorrentCounts403 | GetTorrentCounts409 | GetTorrentCounts500
+>;
+
+export function useGetTorrentCountsSuspense<
+  TData = Awaited<ReturnType<typeof getTorrentCounts>>,
+  TError = ErrorType<
+    GetTorrentCounts401 | GetTorrentCounts403 | GetTorrentCounts409 | GetTorrentCounts500
+  >,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTorrentCounts>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetTorrentCountsSuspense<
+  TData = Awaited<ReturnType<typeof getTorrentCounts>>,
+  TError = ErrorType<
+    GetTorrentCounts401 | GetTorrentCounts403 | GetTorrentCounts409 | GetTorrentCounts500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTorrentCounts>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetTorrentCountsSuspense<
+  TData = Awaited<ReturnType<typeof getTorrentCounts>>,
+  TError = ErrorType<
+    GetTorrentCounts401 | GetTorrentCounts403 | GetTorrentCounts409 | GetTorrentCounts500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTorrentCounts>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Count each Downloading Node's Torrents downloading, seeding, failed and with a warning
+ */
+
+export function useGetTorrentCountsSuspense<
+  TData = Awaited<ReturnType<typeof getTorrentCounts>>,
+  TError = ErrorType<
+    GetTorrentCounts401 | GetTorrentCounts403 | GetTorrentCounts409 | GetTorrentCounts500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getTorrentCounts>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetTorrentCountsSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export const getGetTorrentUrl = (id: string) => {
   return `/api/v1/torrents/${id}`;
 };
