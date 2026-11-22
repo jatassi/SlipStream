@@ -644,12 +644,13 @@ func TestStopRunWithoutASupervisorNamesEachNode(t *testing.T) {
 	runDir := t.TempDir()
 	log := `{"seq":1,"at":"2026-10-14T00:00:00Z","kind":"run.launched","node":"world","data":{"pid":4242,"control":"` + filepath.ToSlash(filepath.Join(runDir, "gone.sock")) + `"}}
 {"seq":2,"at":"2026-10-14T00:00:01Z","kind":"node.spawned","node":"home","data":{"pid":4250,"dataDir":"/tmp/ssfw/k3v9x2qa/home"}}
+{"seq":3,"at":"2026-10-14T00:00:01Z","kind":"node.spawned","node":"nas","data":{"pid":4251,"dataDir":"/tmp/ssfw/k3v9x2qa/nas"}}
 `
 	if err := os.WriteFile(filepath.Join(runDir, "events.jsonl"), []byte(log), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := world.StopRun(worldtest.Context(t), runDir)
-	want := "the supervisor (PID 4242) is not running; stop each Node with:\n  slipstream stop --data-dir /tmp/ssfw/k3v9x2qa/home"
+	want := "the supervisor (PID 4242) is not running; stop each Node with:\n  slipstream stop --data-dir /tmp/ssfw/k3v9x2qa/home\n  slipstream stop --data-dir /tmp/ssfw/k3v9x2qa/nas"
 	if _, gone := errors.AsType[*world.SupervisorGoneError](err); !gone || err.Error() != want {
 		t.Fatalf("StopRun = %v, want %s", err, want)
 	}
