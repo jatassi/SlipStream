@@ -12,13 +12,15 @@ import (
 	"time"
 
 	conformance "github.com/jatassi/slipstream/conformance/deluge"
+	"github.com/jatassi/slipstream/conformance/internal/torrentfile"
 	"github.com/jatassi/slipstream/internal/torrent/clients"
 )
 
 // TestDelugeConforms runs the suite against the Deluge web UI at
 // TEST_ONLINE_DELUGE_URL, signing in with TEST_ONLINE_DELUGE_PASSWORD,
 // connecting to the daemon at TEST_ONLINE_DELUGE_DAEMON (host:port) when
-// it is set, else to the only one, and saving to TEST_ONLINE_DELUGE_FOLDER.
+// it is set, else to the only one, and saving to TEST_ONLINE_DELUGE_FOLDER,
+// which this machine sees at TEST_ONLINE_DELUGE_NODE_FOLDER.
 func TestDelugeConforms(t *testing.T) {
 	address := os.Getenv("TEST_ONLINE_DELUGE_URL")
 	if address == "" {
@@ -36,12 +38,16 @@ func TestDelugeConforms(t *testing.T) {
 		}
 		daemon = &clients.Daemon{Host: host, Port: n}
 	}
+	seeded, interval := torrentfile.Online(t, os.Getenv("TEST_ONLINE_TRACKER_URL"), os.Getenv("TEST_ONLINE_TRACKER_INTERVAL"))
 	conformance.Run(t, conformance.Target{
-		Address:  address,
-		Password: os.Getenv("TEST_ONLINE_DELUGE_PASSWORD"),
-		Daemon:   daemon,
-		HTTP:     &http.Client{Timeout: time.Minute},
-		Folder:   os.Getenv("TEST_ONLINE_DELUGE_FOLDER"),
-		Log:      slog.New(slog.NewTextHandler(t.Output(), &slog.HandlerOptions{Level: slog.LevelDebug})),
+		Address:    address,
+		Password:   os.Getenv("TEST_ONLINE_DELUGE_PASSWORD"),
+		Daemon:     daemon,
+		HTTP:       &http.Client{Timeout: time.Minute},
+		Folder:     os.Getenv("TEST_ONLINE_DELUGE_FOLDER"),
+		NodeFolder: os.Getenv("TEST_ONLINE_DELUGE_NODE_FOLDER"),
+		Seeded:     seeded,
+		Interval:   interval,
+		Log:        slog.New(slog.NewTextHandler(t.Output(), &slog.HandlerOptions{Level: slog.LevelDebug})),
 	})
 }

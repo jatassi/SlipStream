@@ -13,11 +13,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/conformance/internal/clientcases"
 	"github.com/jatassi/slipstream/conformance/internal/torrentfile"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/torrent/clients"
 	"github.com/jatassi/slipstream/internal/torrent/clients/deluge"
 )
+
+// Seeded is a torrent of one file with its payload.
+type Seeded = torrentfile.Seeded
 
 type Target struct {
 	// Address is the web UI address, as an Admin types it.
@@ -26,17 +30,25 @@ type Target struct {
 	// Daemon is the daemon to connect to, nil for the only one.
 	Daemon *clients.Daemon
 	HTTP   *http.Client
-	// Folder is a folder the target saves to, as the target names it.
-	Folder string
-	Log    *slog.Logger
+	// Folder is a folder the target saves to, as the target names it,
+	// and NodeFolder the same folder as this machine sees it, where the
+	// suite writes the files a complete add takes.
+	Folder, NodeFolder string
+	// Seeded is a torrent the target announces to a tracker that answers
+	// it every Interval, with its payload.
+	Seeded   Seeded
+	Interval time.Duration
+	Log      *slog.Logger
 }
 
 // Run drives the Deluge client through every call SlipStream makes and
 // asserts what holds on both sides: Test reads a supported version, the
-// daemons and the Label plugin with no warnings, a paused add lands in the
-// folder with the label, a second add of it changes nothing, its one file
-// is listed, it starts and stops, and a remove with data drops it. A wrong
-// password is refused.
+// daemons and the Label plugin with no warnings, a paused add lands in
+// the folder with the label, a second add of it changes nothing, its
+// one file is listed, it starts and stops, and a remove with data drops
+// it. A wrong password is refused. A complete add over files on disk
+// finishes over a whole file and not over a short one, and a started
+// torrent's last announce reads the tracker's answer.
 func Run(t *testing.T, tgt Target) {
 	t.Helper()
 	label, err := clients.ParseLabel(clients.DefaultLabel, clients.Deluge)
@@ -52,6 +64,9 @@ func Run(t *testing.T, tgt Target) {
 	r.add(meta, name)
 	r.act()
 	r.remove()
+	t.Cleanup(func() { _ = r.c.Remove(context.WithoutCancel(t.Context()), tgt.Seeded.Hash, true) })
+	clientcases.CompleteAdd(t, r.c, label, clientcases.Folder{Client: tgt.Folder, Node: tgt.NodeFolder}, tgt.Seeded)
+	clientcases.LastAnnounce(t, r.c, tgt.Seeded.Hash, tgt.Interval)
 	r.refused()
 	if err := r.c.Close(t.Context()); err != nil {
 		t.Errorf("Close: %v", err)

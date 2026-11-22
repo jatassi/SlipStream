@@ -39,8 +39,9 @@ type client struct {
 	// host is the web UI's id for the daemon it connected to, and check a
 	// web UI that lists more than one daemon and can say which it is
 	// connected to.
-	host  string
-	check bool
+	host       string
+	check      bool
+	countdowns clients.Countdowns
 }
 
 // rpcError is a JSON-RPC error: 1 not authenticated, 2 unknown method, 3

@@ -51,8 +51,9 @@ type client struct {
 	// ran is what each torrent was last seen or asked to do, since
 	// qBittorrent reports a torrent it checks as checking whether it was
 	// stopped or started.
-	ran      map[bencode.InfoHash]clients.Run
-	trackers map[bencode.InfoHash]trackers
+	ran        map[bencode.InfoHash]clients.Run
+	trackers   map[bencode.InfoHash]trackers
+	countdowns clients.Countdowns
 }
 
 // trackers is one torrent's tracker messages and when they were read.

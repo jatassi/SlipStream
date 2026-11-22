@@ -83,6 +83,9 @@ type Client interface {
 	// Files is one torrent's files, in index order.
 	Files(ctx context.Context, h bencode.InfoHash) ([]File, error)
 	Act(ctx context.Context, a Act, hashes []bencode.InfoHash) error
+	// Announces is when each of hashes last announced, per tracker line,
+	// for the torrents a Move guards, stops or starts.
+	Announces(ctx context.Context, hashes []bencode.InfoHash) (map[bencode.InfoHash][]TrackerLine, error)
 	// Remove removes one torrent, deleting its data when data is set and
 	// the kind DeletesData. A kind that doesn't removes the torrent only,
 	// and the Node deletes its files.
@@ -115,6 +118,40 @@ type Add struct {
 	Folder string
 	Label  Label
 	Paused bool
+	// Complete adds over the files already in Folder, checking them in
+	// place of downloading: qBittorrent's skip_checking, Deluge's
+	// seed_mode, rTorrent's libtorrent_resume built from Files, and
+	// Transmission's verify after the add.
+	Complete bool
+	// Files are the torrent's files as they lie in Folder, in index
+	// order, for rTorrent's resume data.
+	Files []FileStat
+}
+
+// FileStat is one file of a torrent on disk: its size and modification
+// time.
+type FileStat struct {
+	Size     int64
+	Modified time.Time
+}
+
+// TrackerLine is one tracker line's announces as the client reports them,
+// on the client's machine's clock.
+type TrackerLine struct {
+	// Index is the line's place in the metainfo's tracker list, 0 for a
+	// kind that reports one countdown for the whole torrent.
+	Index int
+	// Last is the tracker's last successful answer, zero while unknown.
+	// qBittorrent and Deluge report no such time: Last is the read at
+	// which the countdown to the next announce rose since the read
+	// before, so the first read is zero.
+	Last time.Time
+	// Next is when the next announce is due, zero while none is.
+	Next time.Time
+	// FailedAt is the tracker's last failed answer and Failure its reason,
+	// zero where the kind can't tell.
+	FailedAt time.Time
+	Failure  string
 }
 
 // Tested is what a passing Test learned.

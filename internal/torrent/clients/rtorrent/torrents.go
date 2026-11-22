@@ -2,6 +2,7 @@ package rtorrent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -28,13 +29,113 @@ func (c *client) Add(ctx context.Context, a clients.Add) error {
 	if a.Paused {
 		method = "load.raw"
 	}
-	params := []any{"", a.Metainfo}
+	meta := a.Metainfo
+	if a.Complete {
+		var err error
+		if meta, err = resumed(a.Metainfo, a.Files); err != nil {
+			return err
+		}
+	}
+	params := []any{"", meta}
 	if a.Folder != "" {
 		params = append(params, "d.directory.set="+quoted(a.Folder))
 	}
 	params = append(params, "d.custom1.set="+quoted(a.Label.String()))
 	_, err := c.send(ctx, method, params)
 	return err
+}
+
+// resumed is metainfo with libtorrent_resume, the fast resume data with
+// which rTorrent takes the files on disk as complete with no check: every
+// chunk done, and each file's chunks with the modification time it has
+// on disk.
+func resumed(metainfo []byte, files []clients.FileStat) ([]byte, error) {
+	m, err := bencode.DecodeMetainfo(metainfo)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) != len(m.Info.Files) {
+		return nil, fmt.Errorf("the torrent has %d files and %d were read on disk", len(m.Info.Files), len(files))
+	}
+	v, err := bencode.Decode(metainfo)
+	if err != nil {
+		return nil, err
+	}
+	top, ok := v.(map[string]any)
+	if !ok {
+		return nil, errors.New("the metainfo is not a dictionary")
+	}
+	top["info"] = bencode.Raw(m.RawInfo)
+	piece := m.Info.PieceLength
+	var offset int64
+	list := make([]any, len(files))
+	for i, f := range m.Info.Files {
+		var chunks int64
+		if f.Length > 0 {
+			chunks = (offset+f.Length-1)/piece - offset/piece + 1
+		}
+		list[i] = map[string]any{"priority": int64(1), "mtime": files[i].Modified.Unix(), "completed": chunks}
+		offset += f.Length
+	}
+	top["libtorrent_resume"] = map[string]any{"bitfield": (offset + piece - 1) / piece, "files": list}
+	return bencode.Encode(top)
+}
+
+// Announces is one t.multicall per hash of each tracker's last success,
+// last failure and next announce. rTorrent gives no failure's reason per
+// tracker.
+func (c *client) Announces(ctx context.Context, hashes []bencode.InfoHash) (map[bencode.InfoHash][]clients.TrackerLine, error) {
+	calls := make([]call, len(hashes))
+	for i, h := range hashes {
+		calls[i] = call{method: "t.multicall", params: []any{target(h), "", "t.success_time_last=", "t.failed_time_last=", "t.activity_time_next="}}
+	}
+	results, err := c.multicall(ctx, calls)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[bencode.InfoHash][]clients.TrackerLine, len(hashes))
+	for i, h := range hashes {
+		switch err := asError(results[i]); {
+		case missing(err):
+			continue
+		case err != nil:
+			return nil, err
+		}
+		rows, ok := results[i].([]any)
+		if !ok {
+			return nil, fmt.Errorf("the client responded to t.multicall with %v", results[i])
+		}
+		lines, err := trackerLines(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[h] = lines
+	}
+	return out, nil
+}
+
+// trackerLines reads a t.multicall's rows of last success, last failure
+// and next announce.
+func trackerLines(rows []any) ([]clients.TrackerLine, error) {
+	lines := make([]clients.TrackerLine, len(rows))
+	for j, r := range rows {
+		row, ok := r.([]any)
+		if !ok || len(row) != 3 {
+			return nil, fmt.Errorf("the client responded to t.multicall with the row %v", r)
+		}
+		times := make([]time.Time, 3)
+		for k, x := range row {
+			n, ok := x.(int64)
+			if !ok {
+				return nil, fmt.Errorf("the client responded to t.multicall with the row %v", r)
+			}
+			if n > 0 {
+				times[k] = time.Unix(n, 0)
+			}
+		}
+		lines[j] = clients.TrackerLine{Index: j, Last: times[0], FailedAt: times[1], Next: times[2]}
+	}
+	return lines, nil
 }
 
 // fields are the d.* calls a poll makes for each hash.

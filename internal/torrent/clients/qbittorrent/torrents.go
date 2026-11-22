@@ -115,6 +115,9 @@ func (c *client) Add(ctx context.Context, a clients.Add) error {
 		stopped = "stopped"
 	}
 	fields := [][2]string{{"category", a.Label.String()}, {stopped, strconv.FormatBool(a.Paused)}}
+	if a.Complete {
+		fields = append(fields, [2]string{"skip_checking", "true"})
+	}
 	if a.Folder != "" {
 		fields = append(fields, [2]string{"savepath", a.Folder}, [2]string{"autoTMM", "false"})
 	}
@@ -378,6 +381,32 @@ func (c *client) Files(ctx context.Context, h bencode.InfoHash) ([]clients.File,
 		files[i] = clients.File{Index: r.Index, Path: r.Name, Size: r.Size, Done: int64(math.Round(r.Progress * float64(r.Size)))}
 	}
 	return files, nil
+}
+
+// Announces reads torrents/properties' reannounce, the seconds to the
+// next announce, for each hash, and derives the last announce from it
+// rising. A hash the client doesn't list is missing from the map.
+func (c *client) Announces(ctx context.Context, hashes []bencode.InfoHash) (map[bencode.InfoHash][]clients.TrackerLine, error) {
+	left := make(map[bencode.InfoHash]time.Duration, len(hashes))
+	for _, h := range hashes {
+		var p struct {
+			Reannounce int64 `json:"reannounce"`
+		}
+		res, err := c.do(ctx, get("torrents/properties", url.Values{"hash": {h.String()}}))
+		switch {
+		case err != nil:
+			return nil, err
+		case res.Status == http.StatusNotFound:
+			continue
+		case res.Status != http.StatusOK:
+			return nil, fmt.Errorf("the client responded to torrents/properties with status %d", res.Status)
+		}
+		if err := json.Unmarshal(res.Body, &p); err != nil {
+			return nil, fmt.Errorf("read the client's torrents/properties: %w", err)
+		}
+		left[h] = time.Duration(p.Reannounce) * time.Second
+	}
+	return c.countdowns.Read(left, time.Now()), nil
 }
 
 // acts is each Act's call before WebAPI 2.11.0 and from it.

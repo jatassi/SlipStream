@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
@@ -24,7 +25,14 @@ const Size = 1 << 16
 // announces to it.
 func Tracked(t *testing.T) (*releases.Catalog, *fake.Shared) {
 	t.Helper()
-	s := scenario.Scenario{Seed: "clients"}
+	return TrackedEvery(t, 0)
+}
+
+// TrackedEvery is Tracked with fake-tracker answering interval, 0 for
+// its default.
+func TrackedEvery(t *testing.T, interval time.Duration) (*releases.Catalog, *fake.Shared) {
+	t.Helper()
+	s := scenario.Scenario{Seed: "clients", Tracker: scenario.Tracker{Interval: interval}}
 	dir := t.TempDir()
 	c := &releases.Catalog{}
 	for _, name := range []string{"orchard", "lantern"} {
@@ -49,14 +57,21 @@ func Tracked(t *testing.T) (*releases.Catalog, *fake.Shared) {
 // client saving r there finds it.
 func Place(t *testing.T, folder string, r releases.Release, n int) {
 	t.Helper()
-	data, err := os.ReadFile(r.Disk(r.Files[0]))
-	if err != nil {
-		t.Fatal(err)
-	}
+	data := Payload(t, r)
 	if err := os.MkdirAll(folder, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(folder, r.Files[0].Path), data[:n], 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// Payload is the bytes of r's first file.
+func Payload(t *testing.T, r releases.Release) []byte {
+	t.Helper()
+	data, err := os.ReadFile(r.Disk(r.Files[0]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
