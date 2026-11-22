@@ -27,7 +27,7 @@ type plan struct {
 func newPlan(t *testing.T) *plan {
 	p := &plan{t: t, shows: roots.ID{UUID: storage.NewUUID()}, movies: roots.ID{UUID: storage.NewUUID()}, names: map[link.ChangeID]string{}}
 	p.due = link.Due{
-		Now: t0, Timings: link.DefaultTimings(),
+		Now: t0, Timings: link.DefaultTimings(), MovedHold: plexkind.Kind.About().MovedHold,
 		Mappings: []link.PlanMapping{
 			{Root: p.shows, Library: "2", Folder: mustPath(t, `D:\Plex\Shows`), Shown: true, Confirmed: true, Scanned: true},
 			{Root: p.movies, Library: "1", Folder: mustPath(t, `D:\Plex\Movies`), Shown: true, Confirmed: true, Scanned: true},
@@ -83,6 +83,17 @@ func (p *plan) row(name string, root roots.ID, kind link.ChangeKind, from, to st
 	p.names[r.ID] = name
 	p.due.Rows = append(p.due.Rows, r)
 	return &p.due.Rows[len(p.due.Rows)-1]
+}
+
+// move adds a Move's carry named name, from fromRel in root from to toRel
+// in root to, at step since a minute ago.
+func (p *plan) move(name string, from, to roots.ID, fromRel, toRel string, step link.Step) *link.Row {
+	r := p.row(name, to, link.ChangeMoved, "", toRel)
+	src := p.mapping(from)
+	r.FromRoot, r.FromLibrary, r.FromRel = from, src.Library, mustRel(p.t, fromRel)
+	r.From = src.Folder.Join(r.FromRel)
+	r.Step, r.StepAt = step, t0.Add(-time.Minute)
+	return r
 }
 
 // jobs is each Job of Plan as a line: its work, step and changes.
@@ -201,6 +212,43 @@ func TestPlan(t *testing.T) {
 				"carry at snapshotted since 14:01:20 [a c]",
 				"carry at scanned since 14:01:40 [b]",
 			},
+		},
+		{
+			name: "a Move's carry holds its source folder in its source section",
+			rows: func(p *plan) {
+				p.move("moved", p.shows, p.movies, "Heat (1995)/Heat.mkv", "Heat (1995)/Heat.mkv", link.StepScanned)
+				p.row("beside", p.shows, link.ChangeRemoved, "", "Heat (1995)/Heat.nfo.mkv")
+				p.row("same folder in the destination", p.movies, link.ChangeAdded, "", "Heat (1995)/Heat.en.mkv")
+			},
+			want: []string{"refresh [same folder in the destination]", "carry at scanned since 14:01:00 [moved]"},
+		},
+		{
+			name: "a Move's carry goes apart from a rename at the same step",
+			rows: func(p *plan) {
+				p.move("moved", p.shows, p.movies, "Heat (1995)/Heat.mkv", "Heat (1995)/Heat.mkv", link.StepSnapshotted)
+				r := p.row("renamed", p.movies, link.ChangeMoved, "Alien/Alien.mkv", "Alien (1979)/Alien.mkv")
+				r.Step, r.StepAt = link.StepSnapshotted, t0.Add(-time.Minute)
+			},
+			want: []string{"carry at snapshotted since 14:01:00 [moved]", "carry at snapshotted since 14:01:00 [renamed]"},
+		},
+		{
+			name: "a restored Move's carry waits until its source is gone",
+			rows: func(p *plan) {
+				p.move("waiting", p.shows, p.movies, "Heat (1995)/Heat.mkv", "Heat (1995)/Heat.mkv", link.StepRestored)
+				gone := p.move("gone", p.shows, p.movies, "Alien/Alien.mkv", "Alien/Alien.mkv", link.StepRestored)
+				gone.SourceGone = t0.Add(-time.Second)
+			},
+			want: []string{"carry at restored since 14:01:00 [gone]"},
+		},
+		{
+			name: "a Move's carry unconfirmed past its source gone skips to its end",
+			rows: func(p *plan) {
+				early := p.move("early", p.shows, p.movies, "Heat (1995)/Heat.mkv", "Heat (1995)/Heat.mkv", link.StepScanned)
+				early.SourceGone = t0.Add(-time.Minute)
+				late := p.move("late", p.shows, p.movies, "Alien/Alien.mkv", "Alien/Alien.mkv", link.StepScanned)
+				late.StepAt, late.SourceGone = t0.Add(-3*time.Minute), t0.Add(-2*time.Minute)
+			},
+			want: []string{"carry at scanned since 14:01:00 [early]", "carry at restored since 13:59:00 [late]"},
 		},
 		{
 			name: "a fresh mapping's Job goes first and holds its rows",

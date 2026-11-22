@@ -20,7 +20,10 @@ type step[W link.Work] struct {
 type did struct {
 	// waiting is a step that hasn't finished: the Job stays at its step
 	// and is called again at wait.
-	waiting  bool
+	waiting bool
+	// restart is a waiting step that starts its wait again: the Job's At
+	// becomes now.
+	restart  bool
 	wait     time.Time
 	outcomes []link.Outcome
 	learned  []link.IndexEntry
@@ -43,7 +46,10 @@ func run[W link.Work](ctx context.Context, c *conn, steps []step[W], j link.Job,
 	}
 	a := link.Advanced{Job: j, Wait: d.wait, Outcomes: d.outcomes, Learned: d.learned}
 	a.Job.Work = w
-	if !d.waiting {
+	switch {
+	case d.restart:
+		a.Job.At = time.Now()
+	case !d.waiting:
 		a.Job.Step, a.Job.At = s.at, time.Now()
 		a.Done = i == len(steps)-1
 	}
