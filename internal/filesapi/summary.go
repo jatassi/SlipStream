@@ -101,7 +101,7 @@ var needVariants = map[files.NeedKind]func(files.Need) any{
 		return notFoundNeed{Kind: "not_found", ItemIDs: itemIDs(n.Items), Edition: string(n.Edition), GroupKey: n.Group}
 	},
 	files.NeedWaiting: func(n files.Need) any { return WaitingOf(n) },
-	files.NeedNoRoot: func(files.Need) any { return noRootNeed{Kind: "no_root"} },
+	files.NeedNoRoot:  func(files.Need) any { return noRootNeed{Kind: "no_root"} },
 }
 
 // WaitingOf is waiting Need n on the wire.

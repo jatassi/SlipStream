@@ -42,16 +42,17 @@ func (c *Clients) NodeCounts(ctx context.Context) ([]NodeTorrents, error) {
 		f := Facts{Removing: !row.RemovedAt.IsZero(), Wanted: Wanted(row.Wanted), Report: rep}
 		s := StateOf(f)
 		n.Torrents++
-		switch s {
-		case StateDownloading:
+		if s == StateDownloading {
 			n.Downloading++
-		case StateSeeding:
+		}
+		if s == StateSeeding {
 			n.Seeding++
 		}
-		switch SeverityOf(f, s) {
-		case SeverityFailure:
+		sev := SeverityOf(f, s)
+		if sev == SeverityFailure {
 			n.Failures++
-		case SeverityWarning:
+		}
+		if sev == SeverityWarning {
 			n.Warnings++
 		}
 	}

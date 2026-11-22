@@ -38,27 +38,41 @@ func needsYouWalk(ctx context.Context, r storage.Reader[file], keep int) (kept [
 		}
 	}
 	for batch := range slices.Chunk(failed, needsYouBatch) {
-		grabs := make([]Grab, len(batch))
-		for i, row := range batch {
-			grabs[i] = failedOf(row)
-		}
-		current, again, err := grabsCellsReadFrom(ctx, r, grabs)
+		needing, err := needingOf(ctx, r, batch)
 		if err != nil {
 			return nil, 0, err
 		}
-		for _, row := range batch {
-			if !current[row.ID] || again[row.ID] {
-				continue
-			}
+		for _, row := range needing {
 			if len(kept) < keep {
 				kept = append(kept, row)
 			}
-			if n++; n >= needsYouCap {
+			n++
+			if n >= needsYouCap {
 				return kept, needsYouCap, nil
 			}
 		}
 	}
 	return kept, n, nil
+}
+
+// needingOf is each of batch that is its cell's current Grab and isn't
+// being tried again.
+func needingOf(ctx context.Context, r storage.Reader[file], batch []db.ListFailedRow) ([]db.ListFailedRow, error) {
+	grabs := make([]Grab, len(batch))
+	for i, row := range batch {
+		grabs[i] = failedOf(row)
+	}
+	current, again, err := grabsCellsReadFrom(ctx, r, grabs)
+	if err != nil {
+		return nil, err
+	}
+	var out []db.ListFailedRow
+	for _, row := range batch {
+		if current[row.ID] && !again[row.ID] {
+			out = append(out, row)
+		}
+	}
+	return out, nil
 }
 
 func failedOf(row db.ListFailedRow) Grab {
