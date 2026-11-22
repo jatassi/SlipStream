@@ -53,7 +53,7 @@ type rmProcessInfo struct {
 func holders(path string) ([]string, error) {
 	var session uint32
 	var key [33]uint16
-	if r, _, _ := rmStartSession.Call(uintptr(unsafe.Pointer(&session)), 0, uintptr(unsafe.Pointer(&key[0]))); r != 0 {
+	if r, _, _ := rmStartSession.Call(uintptr(unsafe.Pointer(&session)), 0, uintptr(unsafe.Pointer(&key[0]))); r != 0 { //nolint:gosec // G103: pointers for a Win32 call
 		return nil, fmt.Errorf("RmStartSession: %w", syscall.Errno(r))
 	}
 	defer func() { _, _, _ = rmEndSession.Call(uintptr(session)) }()
@@ -61,18 +61,18 @@ func holders(path string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("RmRegisterResources: %w", err)
 	}
-	if r, _, _ := rmRegisterResources.Call(uintptr(session), 1, uintptr(unsafe.Pointer(&file)), 0, 0, 0, 0); r != 0 {
+	if r, _, _ := rmRegisterResources.Call(uintptr(session), 1, uintptr(unsafe.Pointer(&file)), 0, 0, 0, 0); r != 0 { //nolint:gosec // G103: pointers for a Win32 call
 		return nil, fmt.Errorf("RmRegisterResources: %w", syscall.Errno(r))
 	}
 	var infos []rmProcessInfo
 	for {
 		var needed, reasons uint32
 		n := uint32(len(infos)) //nolint:gosec // a few processes
-		var first uintptr
+		var first *rmProcessInfo
 		if n > 0 {
-			first = uintptr(unsafe.Pointer(&infos[0]))
+			first = &infos[0]
 		}
-		r, _, _ := rmGetList.Call(uintptr(session), uintptr(unsafe.Pointer(&needed)), uintptr(unsafe.Pointer(&n)), first, uintptr(unsafe.Pointer(&reasons)))
+		r, _, _ := rmGetList.Call(uintptr(session), uintptr(unsafe.Pointer(&needed)), uintptr(unsafe.Pointer(&n)), uintptr(unsafe.Pointer(first)), uintptr(unsafe.Pointer(&reasons))) //nolint:gosec // G103: pointers for a Win32 call
 		if syscall.Errno(r) == windows.ERROR_MORE_DATA {
 			infos = make([]rmProcessInfo, needed)
 			continue
