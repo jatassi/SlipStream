@@ -546,7 +546,7 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 	}
 	t.Private, t.folder = m.Info.Private, res.GetSaveFolder()
 	if t.folder == "" {
-		t.folder = filepath.Join(l.c.cfg.Dir, folderName(res.GetContentType()), t.Hash.String())
+		t.folder = builtinFolder(l.c.cfg.Dir, res.GetContentType(), t.Hash)
 	}
 	b := res.GetBaseline()
 	var announced int64
@@ -581,11 +581,6 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 	l.added(t, handle)
 	l.call(t, "save a torrent's resume data", l.eng.SaveResume(handle))
 }
-
-var unsafeInName = strings.NewReplacer(`\`, "_", "/", "_", ":", "_", "*", "_", "?", "_", `"`, "_", "<", "_", ">", "_", "|", "_")
-
-// folderName is a Content Type's name as a folder name on every OS.
-func folderName(name string) string { return unsafeInName.Replace(name) }
 
 func (l *loop) settle(now time.Time) {
 	if l.intent.Intent != nil {

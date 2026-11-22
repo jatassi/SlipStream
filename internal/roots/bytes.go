@@ -3,6 +3,7 @@ package roots
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
@@ -149,6 +150,28 @@ func (r *Roots) RemoveAll(ctx context.Context, root ID, rel storing.Rel) error {
 		return err
 	}
 	return r.cfg.Remote.RemoveAll(ctx, at, rel)
+}
+
+// RemoveIf removes rel from root on its Node only while its size and
+// modified time, to the millisecond, are the ones asked, answering
+// whether it was removed, gone or changed.
+func (r *Roots) RemoveIf(ctx context.Context, root ID, rel storing.Rel, size int64, modified time.Time) (storing.Removal, error) {
+	at, err := r.at(ctx, root)
+	if err != nil {
+		return 0, err
+	}
+	return r.cfg.Remote.RemoveIf(ctx, at, rel, size, modified)
+}
+
+// ProbeMove reads one page of a Move plan on node, its companions by the
+// Admin's video file extensions.
+func (r *Roots) ProbeMove(ctx context.Context, node role.NodeID, p storing.ProbeMove) (storing.Probed, error) {
+	videos, err := r.cfg.Videos(ctx, r.cfg.Library)
+	if err != nil {
+		return storing.Probed{}, err
+	}
+	p.Videos = videos
+	return r.cfg.Remote.ProbeMove(ctx, node, p)
 }
 
 func (r *Roots) ListHeld(ctx context.Context, root ID, folder storing.HeldFolder) ([]string, error) {

@@ -32,6 +32,7 @@ import (
 type payload string
 
 func (p payload) Path(bencode.InfoHash, int) (string, error) { return string(p), nil }
+func (p payload) Arriving(storing.Arriving) (string, error)  { return string(p), nil }
 
 func closed(ch <-chan struct{}) bool {
 	select {
