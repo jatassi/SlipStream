@@ -518,3 +518,13 @@ func (gr *Grabs) waitUntil(ctx context.Context, until time.Time) result {
 	}
 	return rerun
 }
+
+// TorrentsOfWorks is the torrents each of ws imported from, read in r.
+func TorrentsOfWorks(ctx context.Context, r storage.Reader[storage.Library], ws []works.WorkID) (map[works.WorkID][]downloadclients.ID, error) {
+	rows, err := db.New(r).ListTorrentsOfWorks(ctx, ws)
+	out := map[works.WorkID][]downloadclients.ID{}
+	for _, row := range rows {
+		out[row.WorkID] = append(out[row.WorkID], row.TorrentID)
+	}
+	return out, err
+}

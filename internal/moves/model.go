@@ -268,8 +268,11 @@ type Unit struct {
 	Stage   Stage
 	// Due is when the runner looks again with no event; nil: only an
 	// event or a hook.
-	Due       *time.Time
-	Planned   Planned
+	Due     *time.Time
+	Planned Planned
+	// PairsWith is the torrent unit whose payload a Work unit places its
+	// linked files from.
+	PairsWith *UnitID
 	Notes     Notes
 	Reconcile bool
 	// Files are loaded only where a step needs them.
@@ -321,6 +324,15 @@ func (u Unit) pass() int {
 	return 0
 }
 
+// Via is where a Work unit's file comes from: its library root, or the
+// payload its linked torrent's unit placed at the destination.
+type Via string
+
+const (
+	ViaLibrary  Via = "library"
+	ViaArriving Via = "arriving"
+)
+
 type FileKind string
 
 const (
@@ -345,6 +357,7 @@ const (
 type File struct {
 	Position int
 	Kind     FileKind
+	Via      Via
 	// ID is a library file's or a sidecar's row, zero for a companion.
 	ID   files.ID
 	Sits storing.Rel
@@ -355,7 +368,8 @@ type File struct {
 	Placed *storing.Seen
 	// Ledger is a sidecar its source root's ledger marked SlipStream's.
 	Ledger bool
-	// Index is a payload file's index in its torrent.
+	// Index is a payload file's index in its torrent, and the payload
+	// file a file via arriving places from.
 	Index   int
 	Cleanup Cleanup
 	// Copy is the bytes of a same-Node copy grant held, 0 for none.

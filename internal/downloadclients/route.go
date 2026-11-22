@@ -168,3 +168,16 @@ func Usable(ctx context.Context, r storage.Reader[file], c Choice, downloading f
 	}
 	return t, nil
 }
+
+// GrabsToOn is the external client node's new Grabs go to, nil for its
+// built-in one, read in r.
+func GrabsToOn(ctx context.Context, r storage.Reader[file], node role.NodeID) (*ClientID, error) {
+	id, err := db.New(r).GetGrabsTo(ctx, node)
+	switch {
+	case errors.Is(err, storage.ErrNoRows):
+		return nil, nil
+	case err != nil:
+		return nil, err
+	}
+	return &id, nil
+}

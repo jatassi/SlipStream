@@ -195,6 +195,9 @@ func stagedAt(t transfers.Transfer, f File, src downloadclients.MoveSource) int 
 // watched.
 func (m *Moves) handOff(ctx context.Context, tx *storage.Tx[file], u *Unit, now time.Time) error {
 	u.Stage, u.Due = Switching{Since: now, Handoff: &HandoffAt{Step: HandoffGuard, At: now}}, &now
+	if err := releasePair(ctx, tx, u.ID, now); err != nil {
+		return err
+	}
 	return m.cfg.Clients.WatchIn(ctx, tx, u.Torrent.Torrent, true)
 }
 
@@ -272,6 +275,9 @@ func (m *Moves) rollback(ctx context.Context, tx *storage.Tx[file], u *Unit, cod
 	if err := m.unwind(ctx, tx, *u); err != nil {
 		return err
 	}
+	if err := unpair(ctx, tx, u.ID, m.now()); err != nil {
+		return err
+	}
 	keeps := u.Torrent.Arriving != nil && (code == DestinationUnreachable || code == SwitchRefused)
 	s := Failed{Code: code, At: u.Stage.Phase(), Detail: detail, KeepsCopy: keeps}
 	u.Stage, u.Due = s, new(m.now())
@@ -303,6 +309,9 @@ func (m *Moves) cancelIn(ctx context.Context, tx *storage.Tx[file], u *Unit, now
 	}
 	if u.Torrent != nil {
 		if err := m.unwind(ctx, tx, *u); err != nil {
+			return err
+		}
+		if err := unpair(ctx, tx, u.ID, now); err != nil {
 			return err
 		}
 	}

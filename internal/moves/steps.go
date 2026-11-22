@@ -305,7 +305,7 @@ func merged(was, fresh []File) []File {
 	}
 	for _, f := range fresh {
 		if i := slices.IndexFunc(was, func(g File) bool { return sameFile(f, g) && g.Dropped == nil }); i >= 0 {
-			f.Placed, f.Position = was[i].Placed, was[i].Position
+			f.Placed, f.Position, f.Via, f.Index = was[i].Placed, was[i].Position, was[i].Via, was[i].Index
 		} else {
 			f.Position = next
 		}
@@ -350,11 +350,25 @@ func (m *Moves) placeFile(ctx context.Context, u Unit, pos int) error {
 		if _, err = m.cfg.Disk.Move(ctx, to, transfers.StagedRel(sc.transfer, sc.position), hold, false); err == nil {
 			placed, err = m.move(ctx, to, hold, f)
 		}
+	case f.Via == ViaArriving:
+		var from storing.Arriving
+		err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+			var err error
+			from, err = arrivingSource(ctx, r, u, f)
+			return err
+		})
+		if err != nil {
+			return err
+		}
+		var done bool
+		if placed, done, err = m.placeFrom(ctx, u, f, hold, from); done || err != nil {
+			return err
+		}
 	case !u.Lane.sameNode():
 		return m.recopy(ctx, u.ID)
 	default:
 		var done bool
-		if placed, done, err = m.placeLocal(ctx, u, f, hold); done || err != nil {
+		if placed, done, err = m.placeFrom(ctx, u, f, hold, storing.Library{Root: u.Subject.From.Root.UUID, Rel: f.Sits}); done || err != nil {
 			return err
 		}
 	}
@@ -377,12 +391,12 @@ func (m *Moves) placeFile(ctx context.Context, u Unit, pos int) error {
 	return err
 }
 
-// placeLocal places f from the source root on the same Node: a link, a
-// clone, or a copy once granted. done is a step that ended in a grant or
-// a wait for space, whose Write already recorded it.
-func (m *Moves) placeLocal(ctx context.Context, u Unit, f File, hold storing.Rel) (placed storing.Placed, done bool, err error) {
+// placeFrom places f from a file on the destination Node, its source
+// root's or its paired torrent's payload: a link, a clone, or a copy once
+// granted. done is a step that ended in a grant or a wait for space,
+// whose Write already recorded it.
+func (m *Moves) placeFrom(ctx context.Context, u Unit, f File, hold storing.Rel, from storing.Source) (placed storing.Placed, done bool, err error) {
 	to := u.Subject.To.Root
-	from := storing.Library{Root: u.Subject.From.Root.UUID, Rel: f.Sits}
 	if f.Ledger {
 		_, err = m.cfg.Disk.PlaceSidecar(ctx, to, hold, from, f.Copy > 0)
 	} else {

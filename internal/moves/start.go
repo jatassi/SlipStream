@@ -185,6 +185,9 @@ func insertUnit(ctx context.Context, q *db.Queries, u Unit, wait Wait) error {
 	if wait != "" {
 		row.Waiting, row.WaitingAt = new(string(wait)), storage.FromTime(u.Planned.At)
 	}
+	if u.PairsWith != nil {
+		row.PairsWithUnitID = *u.PairsWith
+	}
 	if err := q.InsertUnit(ctx, row); err != nil {
 		return err
 	}
@@ -234,6 +237,7 @@ func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Ad
 		return nil, err
 	}
 	lanes := map[Lane]bool{}
+	torrents := map[downloadclients.ID]UnitID{}
 	out := make([]Unit, 0, len(keep))
 	for i, pu := range keep {
 		var wait Wait
@@ -244,6 +248,17 @@ func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Ad
 		u := Unit{
 			ID: UnitID{UUID: storage.NewUUID()}, Batch: batch, Seq: seq + int64(i), Position: i, Lane: pu.Lane, Subject: pu.Subject, Torrent: pu.Torrent,
 			Stage: Queued{Wait: wait, Since: now}, Planned: Planned{Bytes: pu.Bytes, At: now}, Files: pu.Files, Notes: Notes{Amber: amberOf(pu.Verdict)},
+		}
+		if pu.Torrent != nil {
+			torrents[pu.Torrent.Torrent] = u.ID
+		}
+		if pu.Linked != nil {
+			if t, ok := torrents[*pu.Linked]; ok {
+				u.PairsWith, wait = &t, WaitLinkedTorrent
+				u.Stage = Queued{Wait: wait, Since: now}
+			} else {
+				u.Files = fromLibrary(u.Files)
+			}
 		}
 		if err := insertUnit(ctx, q, u, wait); err != nil {
 			return nil, err

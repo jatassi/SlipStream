@@ -48,11 +48,11 @@ SELECT CAST(coalesce(max(seq), 0) + 1 AS INTEGER) FROM moves_unit;
 
 -- name: InsertUnit :exec
 INSERT INTO moves_unit (id, batch_id, seq, position, kind, work_id, content_type, torrent_id, from_root_id, from_node_id, from_client_id,
-    to_root_id, to_node_id, to_client_id, lane, phase, waiting, waiting_at, due_at, planned_bytes, planned_at, notes)
+    to_root_id, to_node_id, to_client_id, lane, phase, waiting, waiting_at, due_at, pairs_with_unit_id, planned_bytes, planned_at, notes)
 VALUES (sqlc.arg(id), sqlc.arg(batch_id), sqlc.arg(seq), sqlc.arg(position), sqlc.arg(kind), sqlc.narg(work_id), sqlc.narg(content_type),
     sqlc.narg(torrent_id), sqlc.narg(from_root_id), sqlc.arg(from_node_id), sqlc.narg(from_client_id), sqlc.narg(to_root_id), sqlc.arg(to_node_id),
-    sqlc.narg(to_client_id), sqlc.arg(lane), 'queued', sqlc.narg(waiting), sqlc.arg(waiting_at), sqlc.arg(due_at), sqlc.arg(planned_bytes),
-    sqlc.arg(planned_at), sqlc.arg(notes));
+    sqlc.narg(to_client_id), sqlc.arg(lane), 'queued', sqlc.narg(waiting), sqlc.arg(waiting_at), sqlc.arg(due_at), sqlc.narg(pairs_with_unit_id),
+    sqlc.arg(planned_bytes), sqlc.arg(planned_at), sqlc.arg(notes));
 
 -- name: GetUnit :one
 SELECT * FROM moves_unit WHERE id = sqlc.arg(id);
@@ -179,9 +179,27 @@ WHERE phase = 'failed' OR (phase = 'switch' AND waiting IS NOT NULL AND waiting_
 ORDER BY seq DESC LIMIT sqlc.arg(n);
 
 -- name: InsertUnitFile :exec
-INSERT INTO moves_unit_file (unit_id, position, kind, file_id, sits_rel, payload_index, size, modified_at, node_file_id, node_volume_id, ledger)
-VALUES (sqlc.arg(unit_id), sqlc.arg(position), sqlc.arg(kind), sqlc.narg(file_id), sqlc.arg(sits_rel), sqlc.narg(payload_index), sqlc.arg(size),
-    sqlc.arg(modified_at), sqlc.narg(node_file_id), sqlc.narg(node_volume_id), sqlc.arg(ledger));
+INSERT INTO moves_unit_file (unit_id, position, kind, via, file_id, sits_rel, payload_index, size, modified_at, node_file_id, node_volume_id, ledger)
+VALUES (sqlc.arg(unit_id), sqlc.arg(position), sqlc.arg(kind), sqlc.arg(via), sqlc.narg(file_id), sqlc.arg(sits_rel), sqlc.narg(payload_index),
+    sqlc.arg(size), sqlc.arg(modified_at), sqlc.narg(node_file_id), sqlc.narg(node_volume_id), sqlc.arg(ledger));
+
+-- name: ReleasePair :exec
+-- A torrent unit's Place ended: the Work unit placing from its payload
+-- takes its lane next.
+UPDATE moves_unit SET waiting = NULL, waiting_at = NULL, due_at = sqlc.arg(now)
+WHERE pairs_with_unit_id = sqlc.arg(torrent_unit) AND waiting = 'linked_torrent';
+
+-- name: UnpairFiles :exec
+-- A torrent unit failed or was canceled: each file its Work unit hasn't
+-- placed from the payload comes from the library instead.
+UPDATE moves_unit_file SET via = 'library', payload_index = NULL
+WHERE unit_id IN (SELECT id FROM moves_unit WHERE pairs_with_unit_id = sqlc.arg(torrent_unit)) AND via = 'arriving' AND placed = 0;
+
+-- name: Unpair :exec
+UPDATE moves_unit SET pairs_with_unit_id = NULL, due_at = sqlc.arg(now),
+    waiting = CASE WHEN waiting = 'linked_torrent' THEN NULL ELSE waiting END,
+    waiting_at = CASE WHEN waiting = 'linked_torrent' THEN NULL ELSE waiting_at END
+WHERE pairs_with_unit_id = sqlc.arg(torrent_unit);
 
 -- name: ListUnitFiles :many
 SELECT * FROM moves_unit_file WHERE unit_id IN (sqlc.slice(units)) ORDER BY unit_id, position;

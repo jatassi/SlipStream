@@ -79,6 +79,9 @@ type Plan struct {
 type PlanUnit struct {
 	Subject WorkSubject
 	Torrent *TorrentSubject
+	// Linked is the torrent a Work unit places its linked files from,
+	// whose unit the plan puts before it.
+	Linked  *downloadclients.ID
 	Label   string
 	Lane    Lane
 	Files   []File
@@ -152,6 +155,11 @@ func (m *Moves) Preview(ctx context.Context, ask Ask) (Plan, error) {
 	}
 	for i := range units {
 		units[i].Verdict = verdictOf(units[i], facts[i])
+	}
+	if ask.Options.IncludeLinkedTorrents {
+		if units, err = m.linkTorrents(ctx, units); err != nil {
+			return Plan{}, err
+		}
 	}
 	ts, err := m.clientTorrents(ctx, ask)
 	if err != nil {

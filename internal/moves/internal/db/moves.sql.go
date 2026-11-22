@@ -432,35 +432,36 @@ func (q *Queries) InsertBatch(ctx context.Context, arg InsertBatchParams) error 
 
 const insertUnit = `-- name: InsertUnit :exec
 INSERT INTO moves_unit (id, batch_id, seq, position, kind, work_id, content_type, torrent_id, from_root_id, from_node_id, from_client_id,
-    to_root_id, to_node_id, to_client_id, lane, phase, waiting, waiting_at, due_at, planned_bytes, planned_at, notes)
+    to_root_id, to_node_id, to_client_id, lane, phase, waiting, waiting_at, due_at, pairs_with_unit_id, planned_bytes, planned_at, notes)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
     ?8, ?9, ?10, ?11, ?12, ?13,
     ?14, ?15, 'queued', ?16, ?17, ?18, ?19,
-    ?20, ?21)
+    ?20, ?21, ?22)
 `
 
 type InsertUnitParams struct {
-	ID           UnitID
-	BatchID      BatchID
-	Seq          int64
-	Position     int64
-	Kind         string
-	WorkID       works.WorkID
-	ContentType  *works.TypeID
-	TorrentID    storage.UUID
-	FromRootID   roots.ID
-	FromNodeID   role.NodeID
-	FromClientID storage.UUID
-	ToRootID     roots.ID
-	ToNodeID     role.NodeID
-	ToClientID   storage.UUID
-	Lane         string
-	Waiting      *string
-	WaitingAt    storage.Time
-	DueAt        storage.Time
-	PlannedBytes int64
-	PlannedAt    storage.Time
-	Notes        string
+	ID              UnitID
+	BatchID         BatchID
+	Seq             int64
+	Position        int64
+	Kind            string
+	WorkID          works.WorkID
+	ContentType     *works.TypeID
+	TorrentID       storage.UUID
+	FromRootID      roots.ID
+	FromNodeID      role.NodeID
+	FromClientID    storage.UUID
+	ToRootID        roots.ID
+	ToNodeID        role.NodeID
+	ToClientID      storage.UUID
+	Lane            string
+	Waiting         *string
+	WaitingAt       storage.Time
+	DueAt           storage.Time
+	PairsWithUnitID UnitID
+	PlannedBytes    int64
+	PlannedAt       storage.Time
+	Notes           string
 }
 
 func (q *Queries) InsertUnit(ctx context.Context, arg InsertUnitParams) error {
@@ -483,6 +484,7 @@ func (q *Queries) InsertUnit(ctx context.Context, arg InsertUnitParams) error {
 		arg.Waiting,
 		arg.WaitingAt,
 		arg.DueAt,
+		arg.PairsWithUnitID,
 		arg.PlannedBytes,
 		arg.PlannedAt,
 		arg.Notes,
@@ -491,15 +493,16 @@ func (q *Queries) InsertUnit(ctx context.Context, arg InsertUnitParams) error {
 }
 
 const insertUnitFile = `-- name: InsertUnitFile :exec
-INSERT INTO moves_unit_file (unit_id, position, kind, file_id, sits_rel, payload_index, size, modified_at, node_file_id, node_volume_id, ledger)
+INSERT INTO moves_unit_file (unit_id, position, kind, via, file_id, sits_rel, payload_index, size, modified_at, node_file_id, node_volume_id, ledger)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
-    ?8, ?9, ?10, ?11)
+    ?8, ?9, ?10, ?11, ?12)
 `
 
 type InsertUnitFileParams struct {
 	UnitID       UnitID
 	Position     int64
 	Kind         string
+	Via          string
 	FileID       files.ID
 	SitsRel      string
 	PayloadIndex *int64
@@ -515,6 +518,7 @@ func (q *Queries) InsertUnitFile(ctx context.Context, arg InsertUnitFileParams) 
 		arg.UnitID,
 		arg.Position,
 		arg.Kind,
+		arg.Via,
 		arg.FileID,
 		arg.SitsRel,
 		arg.PayloadIndex,
@@ -1798,6 +1802,23 @@ func (q *Queries) OpenUnitsOfBatch(ctx context.Context, batchID BatchID) (int64,
 	return count, err
 }
 
+const releasePair = `-- name: ReleasePair :exec
+UPDATE moves_unit SET waiting = NULL, waiting_at = NULL, due_at = ?1
+WHERE pairs_with_unit_id = ?2 AND waiting = 'linked_torrent'
+`
+
+type ReleasePairParams struct {
+	Now         storage.Time
+	TorrentUnit UnitID
+}
+
+// A torrent unit's Place ended: the Work unit placing from its payload
+// takes its lane next.
+func (q *Queries) ReleasePair(ctx context.Context, arg ReleasePairParams) error {
+	_, err := q.db.ExecContext(ctx, releasePair, arg.Now, arg.TorrentUnit)
+	return err
+}
+
 const setDue = `-- name: SetDue :exec
 UPDATE moves_unit SET due_at = ?1 WHERE id = ?2
 `
@@ -1823,6 +1844,35 @@ type SetSettingsParams struct {
 
 func (q *Queries) SetSettings(ctx context.Context, arg SetSettingsParams) error {
 	_, err := q.db.ExecContext(ctx, setSettings, arg.NeedsYouAfterMinutes, arg.PlexBoundMinutes)
+	return err
+}
+
+const unpair = `-- name: Unpair :exec
+UPDATE moves_unit SET pairs_with_unit_id = NULL, due_at = ?1,
+    waiting = CASE WHEN waiting = 'linked_torrent' THEN NULL ELSE waiting END,
+    waiting_at = CASE WHEN waiting = 'linked_torrent' THEN NULL ELSE waiting_at END
+WHERE pairs_with_unit_id = ?2
+`
+
+type UnpairParams struct {
+	Now         storage.Time
+	TorrentUnit UnitID
+}
+
+func (q *Queries) Unpair(ctx context.Context, arg UnpairParams) error {
+	_, err := q.db.ExecContext(ctx, unpair, arg.Now, arg.TorrentUnit)
+	return err
+}
+
+const unpairFiles = `-- name: UnpairFiles :exec
+UPDATE moves_unit_file SET via = 'library', payload_index = NULL
+WHERE unit_id IN (SELECT id FROM moves_unit WHERE pairs_with_unit_id = ?1) AND via = 'arriving' AND placed = 0
+`
+
+// A torrent unit failed or was canceled: each file its Work unit hasn't
+// placed from the payload comes from the library instead.
+func (q *Queries) UnpairFiles(ctx context.Context, torrentUnit UnitID) error {
+	_, err := q.db.ExecContext(ctx, unpairFiles, torrentUnit)
 	return err
 }
 

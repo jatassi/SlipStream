@@ -155,6 +155,8 @@ func next(u Unit, f Facts, now time.Time, r Rules) Action {
 	switch s := u.Stage.(type) {
 	case Queued:
 		switch {
+		case s.Wait == WaitLinkedTorrent:
+			return Hold{Wait: WaitLinkedTorrent}
 		case !f.Head:
 			return Hold{Wait: WaitPairBusy}
 		case !f.NodesUp:

@@ -54,16 +54,22 @@ func (m *Moves) planTorrents(ctx context.Context, ts []TorrentTo, drain bool) ([
 	if len(ts) == 0 {
 		return nil, nil
 	}
-	var rd torrentRead
+	var out []PlanUnit
 	err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		if rd, err = readTorrents(ctx, r, ts); err != nil {
-			return err
-		}
-		rd.owing, err = m.owingOf(ctx, r, ts, rd)
+		out, err = m.planTorrentsIn(ctx, r, ts, drain)
 		return err
 	})
+	return out, err
+}
+
+// planTorrentsIn is planTorrents in r.
+func (m *Moves) planTorrentsIn(ctx context.Context, r storage.Reader[file], ts []TorrentTo, drain bool) ([]PlanUnit, error) {
+	rd, err := readTorrents(ctx, r, ts)
 	if err != nil {
+		return nil, err
+	}
+	if rd.owing, err = m.owingOf(ctx, r, ts, rd); err != nil {
 		return nil, err
 	}
 	out := make([]PlanUnit, 0, len(ts))
@@ -74,7 +80,7 @@ func (m *Moves) planTorrents(ctx context.Context, ts []TorrentTo, drain bool) ([
 		}
 		out = append(out, planTorrent(t, src, rd, m.now(), drain))
 	}
-	return out, m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error { return torrentRooms(ctx, r, out) })
+	return out, torrentRooms(ctx, r, out)
 }
 
 // torrentRooms reds each unit of us that copies into a built-in client
