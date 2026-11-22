@@ -1963,13 +1963,14 @@ func (q *Queries) WakeFromRoots(ctx context.Context, arg WakeFromRootsParams) er
 const wakeNodes = `-- name: WakeNodes :exec
 UPDATE moves_unit SET due_at = ?1
 WHERE waiting = ?2 AND (due_at IS NULL OR due_at > ?1)
-    AND (from_node_id IN (/*SLICE:nodes*/?) OR to_node_id IN (/*SLICE:nodes*/?))
+    AND (from_node_id IN (/*SLICE:froms*/?) OR to_node_id IN (/*SLICE:tos*/?))
 `
 
 type WakeNodesParams struct {
 	Now     storage.Time
 	Waiting *string
-	Nodes   []role.NodeID
+	Froms   []role.NodeID
+	Tos     []role.NodeID
 }
 
 func (q *Queries) WakeNodes(ctx context.Context, arg WakeNodesParams) error {
@@ -1977,13 +1978,21 @@ func (q *Queries) WakeNodes(ctx context.Context, arg WakeNodesParams) error {
 	var queryParams []interface{}
 	queryParams = append(queryParams, arg.Now)
 	queryParams = append(queryParams, arg.Waiting)
-	if len(arg.Nodes) > 0 {
-		for _, v := range arg.Nodes {
+	if len(arg.Froms) > 0 {
+		for _, v := range arg.Froms {
 			queryParams = append(queryParams, v)
 		}
-		query = strings.Replace(query, "/*SLICE:nodes*/?", strings.Repeat(",?", len(arg.Nodes))[1:], 1)
+		query = strings.Replace(query, "/*SLICE:froms*/?", strings.Repeat(",?", len(arg.Froms))[1:], 1)
 	} else {
-		query = strings.Replace(query, "/*SLICE:nodes*/?", "NULL", 1)
+		query = strings.Replace(query, "/*SLICE:froms*/?", "NULL", 1)
+	}
+	if len(arg.Tos) > 0 {
+		for _, v := range arg.Tos {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:tos*/?", strings.Repeat(",?", len(arg.Tos))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:tos*/?", "NULL", 1)
 	}
 	_, err := q.db.ExecContext(ctx, query, queryParams...)
 	return err

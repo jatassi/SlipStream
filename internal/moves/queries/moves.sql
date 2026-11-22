@@ -142,7 +142,7 @@ ORDER BY seq;
 -- name: WakeNodes :exec
 UPDATE moves_unit SET due_at = sqlc.arg(now)
 WHERE waiting = sqlc.arg(waiting) AND (due_at IS NULL OR due_at > sqlc.arg(now))
-    AND (from_node_id IN (sqlc.slice(nodes)) OR to_node_id IN (sqlc.slice(nodes)));
+    AND (from_node_id IN (sqlc.slice(froms)) OR to_node_id IN (sqlc.slice(tos)));
 
 -- name: WakeFromRoots :exec
 UPDATE moves_unit SET due_at = sqlc.arg(now)

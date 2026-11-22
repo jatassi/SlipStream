@@ -222,7 +222,7 @@ func applyWakes(ctx context.Context, tx *storage.Tx[file], fired map[Wait]*scope
 		case r.scope == byTorrent:
 			err = q.WakeTorrents(ctx, db.WakeTorrentsParams{Now: now, Waiting: &waiting, Sources: s.torrents, Dests: s.torrents})
 		case r.scope == byNode:
-			err = q.WakeNodes(ctx, db.WakeNodesParams{Now: now, Waiting: &waiting, Nodes: s.nodes})
+			err = q.WakeNodes(ctx, db.WakeNodesParams{Now: now, Waiting: &waiting, Froms: s.nodes, Tos: s.nodes})
 		case r.scope == byServerRoots:
 			var showing []roots.ID
 			if showing, err = mediaservers.ShowingRoots(ctx, tx, s.servers); err == nil {
