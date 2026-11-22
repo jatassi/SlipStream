@@ -81,9 +81,24 @@ type JobChange struct {
 	Path    ServerPath
 	// From is zero unless the change is a carry.
 	From ServerPath
+	// FromLibrary is the library From is in on a Move's carry, the file
+	// switched from another root. It is "" on every other change, so only
+	// a Move's carry takes a kind's Move steps.
+	FromLibrary string
 	// Snapshot is set once, at StepSnapshotted, and nil while the server
 	// held no item at From.
 	Snapshot *Snapshot
+}
+
+// Move is whether ch is a Move's carry.
+func (ch JobChange) Move() bool { return ch.FromLibrary != "" }
+
+// OldLibrary is the library the item at From is in.
+func (ch JobChange) OldLibrary() string {
+	if ch.Move() {
+		return ch.FromLibrary
+	}
+	return ch.Library
 }
 
 // Library is one Plex section, or one Jellyfin or Emby library.
