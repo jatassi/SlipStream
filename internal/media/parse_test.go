@@ -72,29 +72,40 @@ func TestParseReadsTheBundledFFprobe(t *testing.T) {
 	}
 }
 
-func TestParseReadsTheTransferFromTheFirstFrame(t *testing.T) {
-	streams := []byte(`{"format":{"format_name":"matroska,webm"},"streams":[{"codec_type":"video","codec_name":"hevc","color_transfer":"unknown"}]}`)
-	frame := []byte(`{"frames":[{"color_transfer":"arib-std-b67"}]}`)
-	got, err := media.Parse(streams, frame)
-	if err != nil || !equal(got.HDR, []release.HDR{"HLG"}) {
-		t.Fatalf("Parse = %v, %v; want HLG from the frame", got.HDR, err)
-	}
-}
-
-func TestParseSkipsCoverArt(t *testing.T) {
-	streams := []byte(`{"format":{"format_name":"mov,mp4,m4a,3gp,3g2,mj2"},"streams":[
+func TestParseReadsTheFirstFrameSkipsCoverArtAndRefusesAudioOnly(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		streams, frame string
+		check          func(media.Record, error) bool
+	}{
+		{
+			"the transfer from the first frame",
+			`{"format":{"format_name":"matroska,webm"},"streams":[{"codec_type":"video","codec_name":"hevc","color_transfer":"unknown"}]}`,
+			`{"frames":[{"color_transfer":"arib-std-b67"}]}`,
+			func(got media.Record, err error) bool { return err == nil && equal(got.HDR, []release.HDR{"HLG"}) },
+		},
+		{
+			"cover art skipped",
+			`{"format":{"format_name":"mov,mp4,m4a,3gp,3g2,mj2"},"streams":[
 		{"codec_type":"video","codec_name":"mjpeg","width":600,"height":900,"disposition":{"attached_pic":1}},
-		{"codec_type":"video","codec_name":"h264","width":1920,"height":1080}]}`)
-	got, err := media.Parse(streams, []byte(`{"frames":[]}`))
-	if err != nil || got.Codec != "h264" || got.Width != 1920 {
-		t.Fatalf("Parse = %+v, %v; want the h264 stream", got.Video, err)
-	}
-}
-
-func TestParseRefusesAFileWithoutVideo(t *testing.T) {
-	streams := []byte(`{"format":{"format_name":"mp4","duration":"3.5"},"streams":[{"codec_type":"audio","codec_name":"aac"}]}`)
-	_, err := media.Parse(streams, []byte(`{}`))
-	if unreadable, ok := errors.AsType[*media.UnreadableError](err); !ok || unreadable.Line != "no video stream" {
-		t.Fatalf("Parse(audio only) = %v, want ffprobe can't read the file: no video stream", err)
+		{"codec_type":"video","codec_name":"h264","width":1920,"height":1080}]}`,
+			`{"frames":[]}`,
+			func(got media.Record, err error) bool { return err == nil && got.Codec == "h264" && got.Width == 1920 },
+		},
+		{
+			"a file without video refused",
+			`{"format":{"format_name":"mp4","duration":"3.5"},"streams":[{"codec_type":"audio","codec_name":"aac"}]}`,
+			`{}`,
+			func(_ media.Record, err error) bool {
+				unreadable, ok := errors.AsType[*media.UnreadableError](err)
+				return ok && unreadable.Line == "no video stream"
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got, err := media.Parse([]byte(tc.streams), []byte(tc.frame)); !tc.check(got, err) {
+				t.Fatalf("Parse = %+v, %v", got, err)
+			}
+		})
 	}
 }

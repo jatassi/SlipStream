@@ -7,10 +7,6 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-func TestEmailBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "email"), providertest.Cases["email"])
-}
-
 func TestEmailSendsAgainOnlyToTheAddressesThatDidntTakeIt(t *testing.T) {
 	p := provider(t, "email")
 	payload := providertest.Payload(p, providertest.Cases["email"], providertest.FixtureOf("test"), false, providers.DefaultEndpoints())

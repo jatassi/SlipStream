@@ -7,10 +7,6 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-func TestGotifyBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "gotify"), providertest.Cases["gotify"])
-}
-
 func TestGotifyReadsItsResponses(t *testing.T) {
 	providertest.Classify(t, provider(t, "gotify"), []providertest.ClassifyCase{
 		{Name: "a message", Reply: providertest.Post(200, `{"id":25}`), Want: providers.Verdict{Outcome: providers.Sent}},

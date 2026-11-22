@@ -5,7 +5,20 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/notifications/providers"
+	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
+
+func TestEachProviderBuildsEachMessageAsItsGolden(t *testing.T) {
+	for _, p := range providers.Table {
+		t.Run(string(p.ID), func(t *testing.T) {
+			c, ok := providertest.Cases[p.ID]
+			if !ok {
+				t.Fatalf("%s has no fixture connection", p.ID)
+			}
+			providertest.Golden(t, p, c)
+		})
+	}
+}
 
 func TestTheTableListsElevenProvidersWithDistinctFields(t *testing.T) {
 	var ids []providers.ID

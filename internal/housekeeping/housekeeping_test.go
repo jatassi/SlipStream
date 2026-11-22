@@ -53,16 +53,14 @@ func TestDrainPassesAFullBatchOfKeptRowsAndStopsOnAShortOne(t *testing.T) {
 	if r.batches != 3 {
 		t.Fatalf("Drain ran %d batches, want 3: two full, then a short one", r.batches)
 	}
-}
 
-func TestDrainRunsAnotherBatchAfterAFullOne(t *testing.T) {
-	r := &rows{kept: map[int]bool{}, ids: []int{1, 2, 3, 4}}
-	tally, err := Drain(t.Context(), 2, r.batch)
+	exact := &rows{kept: map[int]bool{}, ids: []int{1, 2, 3, 4}}
+	tally, err = Drain(t.Context(), 2, exact.batch)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tally != (Tally{Deleted: 4}) || r.batches != 3 {
-		t.Fatalf("tally = %+v after %d batches, want 4 deleted after 3", tally, r.batches)
+	if tally != (Tally{Deleted: 4}) || exact.batches != 3 {
+		t.Fatalf("tally = %+v after %d batches, want 4 deleted after 3: a full last batch needs one more to see the end", tally, exact.batches)
 	}
 }
 

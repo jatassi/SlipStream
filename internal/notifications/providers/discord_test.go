@@ -19,10 +19,6 @@ func provider(t *testing.T, id providers.ID) providers.Provider {
 	return p
 }
 
-func TestDiscordBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "discord"), providertest.Cases["discord"])
-}
-
 func TestDiscordReadsItsResponses(t *testing.T) {
 	now := providertest.Now
 	providertest.Classify(t, provider(t, "discord"), []providertest.ClassifyCase{

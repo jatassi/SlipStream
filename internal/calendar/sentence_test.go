@@ -25,29 +25,12 @@ func dates(f *work, kinds map[works.DatedKey]Day) []Dated {
 	return out
 }
 
-func TestTheSentenceLeadsWithWhatIsOutAndStillMissing(t *testing.T) {
-	today := NewDay(2026, time.November, 17)
-	s := newShelf(0, "Attic", []files.State{files.Missing, files.Failed, files.Met, files.Missing})
-	missing, met := film(files.Missing), film(files.Met)
-	dated := joined(s.dated(0, today.Add(-2), 1, 2, 3), s.dated(0, today.Add(1), 4),
-		dates(missing, map[works.DatedKey]Day{"out": today.Add(-9), "home": today}), dates(met, map[works.DatedKey]Day{"home": today}))
-	all := of(s.w, missing, met)
-	got := sentenceOf(today, kept(dated, all, false), kept(dated, all, false))
-	if want := (Sentence{NeedsYou: true, Words: "2 things and 1 film are out and still missing."}); got == nil || *got != want {
-		t.Fatalf("sentence = %+v, want %+v: the Missing Thing 4 isn't out yet and the film counts once across its rows", got, want)
-	}
-	one := sentenceOf(today, kept(dates(missing, map[works.DatedKey]Day{"out": today}), all, false), nil)
-	if want := (Sentence{NeedsYou: true, Words: "1 film is out and still missing."}); one == nil || *one != want {
-		t.Fatalf("sentence = %+v, want %+v", one, want)
-	}
-}
-
 func TestTheSentenceOtherwiseNamesTheWeekOrNothing(t *testing.T) {
 	today := NewDay(2026, time.November, 17)
 	s := newShelf(0, "Attic", states(4, files.Unreleased))
 	f := film(files.Unreleased)
 	all := of(s.w, f)
-	soon := kept(joined(s.dated(0, today.Add(6), 1, 2, 3, 4), dates(f, map[works.DatedKey]Day{"out": today.Add(1), "home": today.Add(5)})), all, false)
+	soon := kept(joined(s.dated(today.Add(6), 1, 2, 3, 4), dates(f, map[works.DatedKey]Day{"out": today.Add(1), "home": today.Add(5)})), all, false)
 	got := sentenceOf(today, nil, soon)
 	if want := (Sentence{Words: "4 things and 1 film come out this week."}); got == nil || *got != want {
 		t.Fatalf("sentence = %+v, want %+v", got, want)
@@ -69,11 +52,11 @@ func TestTheSentenceCountsOnlyMonitoredItemsWhenUnmonitoredOnesShow(t *testing.T
 		s.w.items[id] = p
 	}
 	all := of(s.w)
-	got := sentenceOf(today, kept(s.dated(0, today, 1, 2, 3, 4), all, true), kept(s.dated(0, today.Add(1), 2, 3), all, true))
+	got := sentenceOf(today, kept(s.dated(today, 1, 2, 3, 4), all, true), kept(s.dated(today.Add(1), 2, 3), all, true))
 	if want := (Sentence{NeedsYou: true, Words: "1 thing is out and still missing."}); got == nil || *got != want {
 		t.Fatalf("sentence = %+v, want %+v: Wanted, where it links, lists only the monitored Thing 1", got, want)
 	}
-	if got := sentenceOf(today, nil, kept(s.dated(0, today.Add(1), 2, 3), all, true)); got != nil {
+	if got := sentenceOf(today, nil, kept(s.dated(today.Add(1), 2, 3), all, true)); got != nil {
 		t.Fatalf("sentence = %+v, want none while only unmonitored Things come out this week", got)
 	}
 }

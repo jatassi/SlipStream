@@ -8,10 +8,6 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-func TestCustomScriptBuildsEachRunAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "script"), providertest.Cases["script"])
-}
-
 func TestTheScriptsEventFileIsTheWebhookBody(t *testing.T) {
 	for _, f := range providertest.Fixtures {
 		run, err := provider(t, "script").Build(providertest.Payload(provider(t, "script"), providertest.Cases["script"], f, false, providers.DefaultEndpoints()))

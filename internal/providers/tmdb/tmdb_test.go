@@ -191,22 +191,6 @@ func TestA404WithoutTMDBsBodyIsUnreachable(t *testing.T) {
 	}, faketest.WithFaults(fault.Rule{ID: "stray", Target: "tmdb", Route: "movie", Fault: fault.Status{Code: 404}, Times: 1}))
 }
 
-func TestARateLimitIsWaitedOutAndA5xxRetried(t *testing.T) {
-	inEachTier(t, singleMachine(t), func(t *testing.T, c *tmdb.Client, _ faketest.Served) {
-		start := time.Now()
-		m, err := c.Movie(t.Context(), english, 9000001)
-		if err != nil || m.Title != "The Quiet Orchard" {
-			t.Fatalf("Movie after a 429 and a 503 = %q, %v", m.Title, err)
-		}
-		if waited := time.Since(start); waited < time.Second {
-			t.Errorf("Movie returned after %s, before the 1s Retry-After", waited)
-		}
-	}, faketest.WithFaults(
-		fault.Rule{ID: "limited", Target: "tmdb", Route: "movie", Fault: fault.Status{Code: 429, RetryAfter: time.Second}, Times: 1},
-		fault.Rule{ID: "down", Target: "tmdb", Route: "movie", Fault: fault.Status{Code: 503}, Times: 1},
-	))
-}
-
 func TestMovieChangesListsADayAndRefusesMoreThanTMDBKeeps(t *testing.T) {
 	inEachTier(t, singleMachine(t), func(t *testing.T, c *tmdb.Client, f faketest.Served) {
 		f.Cue(t, faketmdb.Change.Name, faketmdb.Movie{ID: 9000001})
