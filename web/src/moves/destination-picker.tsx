@@ -1,0 +1,34 @@
+import type { WorksContentType } from "../api/gen/model";
+import { useListNodesSuspense } from "../api/gen/query/nodes/nodes";
+import { useListRootsSuspense, useListVolumesSuspense } from "../api/gen/query/roots/roots";
+import { freeOf } from "../roots/root-columns";
+import { Select } from "../ui/select";
+
+/** The roots of the Work's Content Type only, each with its Node and free space. */
+export function DestinationPicker({
+  type,
+  value,
+  onValueChange,
+}: {
+  type: WorksContentType;
+  value: string;
+  onValueChange: (rootId: string) => void;
+}) {
+  const roots = useRootsOf(type);
+  const { nodes } = useListVolumesSuspense().data;
+  const names = new Map(useListNodesSuspense().data.nodes.map(({ id, name }) => [id, name]));
+  return (
+    <Select
+      label="Move to"
+      options={roots.map((root) => ({
+        value: root.id,
+        label: `${root.path} on ${names.get(root.nodeId) ?? root.nodeId} · ${freeOf(root, nodes)}`,
+      }))}
+      value={value}
+      onValueChange={onValueChange}
+    />
+  );
+}
+
+export const useRootsOf = (type: WorksContentType) =>
+  useListRootsSuspense().data.roots.filter((root) => root.contentType === type.id);

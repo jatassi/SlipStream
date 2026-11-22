@@ -23,6 +23,8 @@ type EditDialogProps = {
   readonly onOpenChange: (open: boolean) => void;
   /** Opens the Work's rename plan in the dialog's place. */
   readonly onRename: () => void;
+  /** Opens the Move Dialog, the way a Work with files changes root. */
+  readonly onMove: () => void;
 };
 
 /**
@@ -37,7 +39,7 @@ function useFields({
   save,
   onOpenChange,
   onMoved,
-}: Omit<EditDialogProps, "open" | "onRename"> & { onMoved: () => void }) {
+}: Omit<EditDialogProps, "open" | "onRename" | "onMove"> & { onMoved: () => void }) {
   const profiles = useListProfilesSuspense().data.profiles.filter(
     (profile) => profile.contentType === subject.type.id,
   );
@@ -79,11 +81,11 @@ function useFields({
 
 /**
  * The Work's Profile, saved through the Impact, its library root while it
- * has no files, and for a Work of many Items its level folders and its
+ * has no files or "Move to…" while it has, and for a Work of many Items its level folders and its
  * type's options. Once a change leaves files with old names or folders, it
  * links to the Work's rename plan.
  */
-export function EditDialog({ open, onRename, ...props }: EditDialogProps) {
+export function EditDialog({ open, onRename, onMove, ...props }: EditDialogProps) {
   const { subject, work, files, onOpenChange } = props;
   const [renames, setRenames] = useState(false);
   const renamed = () => {
@@ -97,7 +99,13 @@ export function EditDialog({ open, onRename, ...props }: EditDialogProps) {
     <Dialog title={`Edit ${subject.label}`} open={open} onOpenChange={onOpenChange}>
       <div className="flex flex-col gap-4">
         <ProfilePicker profiles={fields.profiles} value={profile} onValueChange={setProfile} />
-        <RootField type={subject.type} value={root} files={files} onValueChange={setRoot} />
+        <RootField
+          type={subject.type}
+          value={root}
+          files={files}
+          onValueChange={setRoot}
+          onMove={onMove}
+        />
         <LevelFolders type={subject.type} on={levelFolders} onChange={setLevelFolders} />
         <OptionsFields type={subject.type} work={work} onSaved={renamed} />
         {renames && <RenameLine onRename={onRename} />}

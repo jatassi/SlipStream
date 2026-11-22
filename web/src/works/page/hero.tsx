@@ -8,15 +8,17 @@ import { placed } from "./about";
 import { factsLine } from "./facts";
 import { aboutText, ratingValue } from "./fields-format";
 import { Backdrop, TitleHeading, artOf } from "./hero-art";
+import { MoveBand } from "./move-band";
+// oxlint-disable-next-line import/max-dependencies -- the hero lays out its art, facts, summary, search line, Move band and actions
 import { type HeroControls, Actions } from "./hero-actions";
-// oxlint-disable-next-line import/max-dependencies -- the hero lays out its art, facts, summary, search line and actions
 import { Overview } from "./overview";
 import { Summary } from "./summary";
 
 /**
  * The Work page's header over its backdrop: the poster, the title
  * treatment, the facts line and first rating, what its cells add up to,
- * the line about its searches, the overview, then the actions.
+ * the line about its searches, the overview, its Move while one runs, then
+ * the actions.
  */
 export function Hero({
   type,
@@ -60,6 +62,7 @@ export function Hero({
       </div>
       <div className="mt-4 flex flex-col gap-4">
         {overview !== undefined && <Overview text={aboutText(overview.value)} />}
+        <MoveBand move={work.move} />
         {warning}
         <Actions work={work} actions={actions} />
         {phone && searchLine}

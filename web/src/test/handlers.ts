@@ -28,6 +28,10 @@ import { getListQualitiesMockHandler } from "../api/gen/query/targets/targets.ms
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
+import {
+  getGetMoveSettingsMockHandler,
+  getListMovesMockHandler,
+} from "../api/gen/query/moves/moves.msw";
 import { quietHealth } from "./health";
 import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
 import { housekeepingHandler } from "./notifications";
@@ -151,6 +155,12 @@ const quietHome = [
   housekeepingHandler,
 ];
 
+// Activity with no Move batches, and Moves with no settings shown.
+const noMoves = [
+  getListMovesMockHandler({ batches: [] }),
+  getGetMoveSettingsMockHandler({ settings: [] }),
+];
+
 // A Work page with no History entries.
 const quietHistory = getListHistoryMockHandler({ entries: [], next: null });
 
@@ -171,6 +181,7 @@ export const baseHandlers: RequestHandler[] = [
   ...quietHealth,
   ...quietBell,
   quietHistory,
+  ...noMoves,
   theQualities,
   ...noSubtitles,
   ...tagMocks,

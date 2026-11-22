@@ -12,7 +12,15 @@ import type { WorkReads } from "./reads";
 // oxlint-disable-next-line import/max-dependencies -- the hero's actions open the Editions editor and every Work dialog, and count what the Work monitors
 import { WorkDialogs } from "./work-dialogs";
 
-type Open = "editions" | "another" | "edit" | "delete" | "monitoring" | "rename" | undefined;
+type Open =
+  | "editions"
+  | "another"
+  | "edit"
+  | "delete"
+  | "monitoring"
+  | "rename"
+  | "move"
+  | undefined;
 
 export type WorkActions = {
   readonly hero: HeroActions;
@@ -22,9 +30,15 @@ export type WorkActions = {
   readonly dialogs: ReactNode;
 };
 
-const menuOf = (subject: Subject, work: WorksWorkView, open: (next: Open) => () => void) =>
+const menuOf = (
+  subject: Subject,
+  work: WorksWorkView,
+  files: number,
+  open: (next: Open) => () => void,
+) =>
   [
     { label: "Edit…", onSelect: open("edit") },
+    ...(files > 0 ? [{ label: "Move to…", onSelect: open("move") }] : []),
     {
       label: "Refresh metadata",
       disabled: work.goneUpstreamAt !== null,
@@ -93,23 +107,20 @@ export function useWorkActions({
       editionsFrom: editionsSource(wants),
       openEditions: opener("editions"),
       monitoring: useMonitoring(subject, work, opener("monitoring")),
-      menu: menuOf(subject, work, opener),
+      menu: menuOf(subject, work, listing.files.length, opener),
     },
     wantAnother: editions("another"),
     openDelete: opener("delete"),
     dialogs: (
       <WorkDialogs
-        open={
-          open === "edit" || open === "delete" || open === "monitoring" || open === "rename"
-            ? open
-            : undefined
-        }
+        open={open === "editions" || open === "another" ? undefined : open}
         subject={subject}
         work={work}
         files={listing.files.length}
         save={save}
         onClose={opener(undefined)}
         onRename={opener("rename")}
+        onMove={opener("move")}
         onDeleting={onDeleting}
       />
     ),
