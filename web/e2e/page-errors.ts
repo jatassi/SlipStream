@@ -74,7 +74,7 @@ function resizeLoopReporter(): void {
             `${describe(e.target)} ${Math.round(e.contentRect.width)}x${Math.round(e.contentRect.height)}`,
         );
         recent.push({ frame, line: `frame ${frame} [${creator}] ${sizes.join(", ")}` });
-        while (recent.length > 0 && recent[0].frame < frame - 2) {
+        while ((recent[0]?.frame ?? frame) < frame - 2) {
           recent.shift();
         }
         callback(entries, observer);
