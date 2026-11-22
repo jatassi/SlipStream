@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/conformance/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/providers/plex"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 // server drives a Plex through the wire client, the way the Plex kind
@@ -106,6 +107,22 @@ func (s *server) Moved(ctx context.Context, library string, from, to []link.Serv
 		return slices.ContainsFunc(dest, func(d link.ServerPath) bool { return d.Key() == f.Key() })
 	})
 	return s.refresh(ctx, library, src)
+}
+
+// CopyMoved copies the file, refreshes its folder in the destination
+// section, then deletes the source and refreshes the vacated folder in
+// the source section.
+func (s *server) CopyMoved(ctx context.Context, from, to mediaservers.Library, rel storing.Rel) error {
+	if err := mediaservers.Copy(from, to, rel); err != nil {
+		return err
+	}
+	if err := s.refresh(ctx, to.Library, []link.ServerPath{to.Folder.Join(rel).Dir()}); err != nil {
+		return err
+	}
+	if err := from.Disk.Remove(rel); err != nil {
+		return err
+	}
+	return s.refresh(ctx, from.Library, []link.ServerPath{from.Folder.Join(rel).Dir()})
 }
 
 func (s *server) SidecarRemoved(ctx context.Context, library string, video, _ link.ServerPath) error {

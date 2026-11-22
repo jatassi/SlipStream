@@ -16,6 +16,7 @@
 package plex
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net"
@@ -112,7 +113,8 @@ func Playing(srv Server) fake.Spec {
 }
 
 // newServer plays the Plex the Scenario names, or none, as fake-plex-tv's
-// account owns it, with a section per Content Type of the roots it holds.
+// account owns it, with a section per Content Type of the roots it holds
+// and per section a root names.
 func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	p, ok, err := serverfake.Playing(s, name, Versions)
 	if err != nil {
@@ -127,7 +129,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		if !ok {
 			return nil, fmt.Errorf("plex %s holds a %s root, and fake-plex plays no section of it", p.Name, l.ContentType)
 		}
-		srv.Sections = append(srv.Sections, Section{Key: strconv.Itoa(i + 1), Title: title, Type: typ, Folders: l.Folders, Scanned: true})
+		srv.Sections = append(srv.Sections, Section{Key: strconv.Itoa(i + 1), Title: cmp.Or(l.Name, title), Type: typ, Folders: l.Folders, Scanned: true})
 	}
 	return serve(env, srv)
 }

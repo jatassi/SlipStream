@@ -16,9 +16,11 @@ import (
 )
 
 // Library is one library the Scenario's server plays: its Content Type's
-// folders as the server names them.
+// folders as the server names them. Name is the library the Scenario
+// names, "" for the one the Content Type's roots share.
 type Library struct {
 	ContentType string
+	Name        string
 	Folders     []string
 }
 
@@ -49,9 +51,13 @@ func Playing(s scenario.Scenario, kind string, versions []string) (Played, bool,
 		return Played{}, false, fmt.Errorf("%s %s plays version %s; fake-%s plays %v", kind, m.Name, p.Version, kind, versions)
 	}
 	for _, r := range s.HeldRoots(m) {
-		i := slices.IndexFunc(p.Libraries, func(l Library) bool { return l.ContentType == r.ContentType })
+		name := ""
+		if h := slices.IndexFunc(m.Roots, func(h scenario.MediaServerRoot) bool { return h.Folder == r.Folder }); h >= 0 {
+			name = m.Roots[h].Library
+		}
+		i := slices.IndexFunc(p.Libraries, func(l Library) bool { return l.ContentType == r.ContentType && l.Name == name })
 		if i < 0 {
-			p.Libraries = append(p.Libraries, Library{ContentType: r.ContentType})
+			p.Libraries = append(p.Libraries, Library{ContentType: r.ContentType, Name: name})
 			i = len(p.Libraries) - 1
 		}
 		p.Libraries[i].Folders = append(p.Libraries[i].Folders, p.Folder(r.Folder))
