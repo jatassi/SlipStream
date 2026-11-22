@@ -115,6 +115,9 @@ func TestBrowserShardsRunEveryTestOnce(t *testing.T) {
 		for n := 1; n <= 4; n++ {
 			count := map[string]int{}
 			for _, s := range shardsOf(c.tests, c.seconds, n) {
+				if lo, hi := len(c.tests)/n, (len(c.tests)+n-1)/n; c.seconds == nil && (len(s) < lo || len(s) > hi) {
+					t.Errorf("%s: a shard of %d has %d tests, want %d to %d", name, n, len(s), lo, hi)
+				}
 				for _, test := range s {
 					count[test]++
 				}
@@ -122,14 +125,6 @@ func TestBrowserShardsRunEveryTestOnce(t *testing.T) {
 			if len(count) != len(c.tests) || slices.ContainsFunc(c.tests, func(test string) bool { return count[test] != 1 }) {
 				t.Errorf("%s: %d shards run %v, want each of %d tests once", name, n, count, len(c.tests))
 			}
-		}
-	}
-}
-
-func TestBrowserShardsWithoutTimingsCutEvenly(t *testing.T) {
-	for _, s := range shardsOf(browserTests(100), nil, 4) {
-		if len(s) != 25 {
-			t.Errorf("a shard has %d tests, want 25", len(s))
 		}
 	}
 }

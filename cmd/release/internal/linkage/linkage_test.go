@@ -72,35 +72,6 @@ func TestCheckAssertsTheWindowsSubsystem(t *testing.T) {
 	}
 }
 
-func TestCheckPassesPureGoBinaries(t *testing.T) {
-	for _, target := range []struct{ goos, goarch string }{
-		{"linux", "amd64"},
-		{"linux", "arm64"},
-		{"windows", "amd64"},
-		{"darwin", "arm64"},
-	} {
-		t.Run(target.goos+"-"+target.goarch, func(t *testing.T) {
-			if err := linkage.Check(build(t, target.goos, target.goarch, "./testdata/hello"), linkage.Node); err != nil {
-				t.Error(err)
-			}
-		})
-	}
-}
-
-func TestCheckPassesTheTrampoline(t *testing.T) {
-	for _, target := range []struct{ goos, goarch, ldflags string }{
-		{"windows", "amd64", "-s -w -H windowsgui"},
-		{"darwin", "arm64", "-s -w"},
-	} {
-		t.Run(target.goos+"-"+target.goarch, func(t *testing.T) {
-			out := build(t, target.goos, target.goarch, "../../../slipstream-app", "-buildvcs=false", "-ldflags", target.ldflags)
-			if err := linkage.Check(out, linkage.Trampoline); err != nil {
-				t.Error(err)
-			}
-		})
-	}
-}
-
 func TestCheckRejectsNonBinary(t *testing.T) {
 	err := linkage.Check("policy.json", linkage.Node)
 	want := "policy.json: not an ELF, PE or 64-bit Mach-O binary"

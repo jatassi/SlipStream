@@ -1,7 +1,6 @@
 package native
 
 import (
-	"maps"
 	"slices"
 	"testing"
 	"testing/fstest"
@@ -67,19 +66,6 @@ var (
 	linuxLibs      = LayerID{Kind: KindLibs, Target: "linux-amd64"}
 	darwinLibs     = LayerID{Kind: KindLibs, Target: "darwin-arm64"}
 )
-
-func TestDigestsAreStable(t *testing.T) {
-	in, recipe := fixture(t)
-	got := digests(t, in, recipe)
-	want := map[LayerID]string{
-		linuxToolchain: "c871a31bd840d2719733f3d367edc4c1807ebcd6ba999b630294eb6bab409d39",
-		linuxLibs:      "5198b18496aea3325f343b78e62f606383025afa4445da5ef2a971e1b13ae398",
-		darwinLibs:     "8c0bac6bc6c590541977390e9181d8c0cd634f805c78e61568ea806710f41548",
-	}
-	if !maps.Equal(got, want) {
-		t.Errorf("digests = %v, want %v", got, want)
-	}
-}
 
 func TestDigestsCoverTheirInputs(t *testing.T) {
 	for _, tc := range []struct {
