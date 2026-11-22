@@ -67,6 +67,10 @@ var plexMove = moveFacts{Measured: false, SameSection: secondPart, CrossSection:
 // MoveMeasured is whether the recorded run measured the Plex Move.
 func MoveMeasured() bool { return plexMove.Measured }
 
+// SameSectionPart is whether a copy in the item's section is a second
+// Part of the item.
+func SameSectionPart() bool { return plexMove.SameSection == secondPart }
+
 // confirmMoved waits until an item holds each snapshotted change's new
 // path, as a new item or a second Part of the snapshot's. Past
 // Timings.MovedConfirm it refreshes the destinations again and waits

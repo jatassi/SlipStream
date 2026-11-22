@@ -221,6 +221,7 @@ func Shared(t *testing.T, tg Target) {
 	} {
 		cases = append(cases, Case{Name: c.name, Run: func(t *testing.T) { c.run(t, tg) }})
 	}
+	cases = append(cases, moveCases(tg)...)
 	Each(t, cases)
 }
 
