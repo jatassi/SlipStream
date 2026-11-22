@@ -139,6 +139,13 @@ type world struct {
 }
 
 // late is the Trackers' seeder once they are made, after the clients.
+// films names every Content Type's client folder Films.
+type films struct{}
+
+func (films) Describe(works.TypeID) (works.Description, bool) {
+	return works.Description{Name: "Films"}, true
+}
+
 type late struct{ x **trackers.Trackers }
 
 func (l late) Judge(ctx context.Context, r storage.Reader[storage.Library], rows []downloadclients.Row) (map[downloadclients.ID]downloadclients.Judged, error) {
@@ -164,6 +171,7 @@ func serveWorld(t *testing.T) *world {
 		Facts:  func(n role.NodeID) (*dlv1.Facts, bool) { f, ok := w.facts[n]; return f, ok },
 		Remote: func(n role.NodeID) downloadingv1connect.DownloadingServiceHandler { return calledOn{w.node, n} },
 		Sealer: sealer,
+		Types:  films{},
 		Live:   downloadclients.LiveConfig{Sample: time.Second},
 		Log:    slog.New(slog.DiscardHandler),
 	})

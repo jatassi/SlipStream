@@ -213,7 +213,7 @@ func TestAMoveTakesTheTorrentsOnceTheNewNodeFindsTheirFiles(t *testing.T) {
 	c := w.add(t, transmissionOn(w.self))
 	id := downloadclients.ClientID{UUID: must(storage.ParseUUID(c.ID))}
 	torrent := w.holdIn(t, "Orchard", downloadclients.Target{Node: w.self, Client: &id}, nil)
-	w.node.lost = map[string]bool{"fixture/Orchard/Orchard.mkv": true}
+	w.node.lost = map[string]bool{"Films/Orchard/Orchard.mkv": true}
 
 	w.o.Expect(t, http.MethodPatch, "/api/v1/external-download-clients/"+c.ID, `{"nodeId":"`+media.String()+`"}`, http.StatusConflict,
 		`{"status":409,"code":"download_client_files_missing","title":"Some of this client's files aren't at its folders on the new Node",`+

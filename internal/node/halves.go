@@ -220,6 +220,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Changed: reconciling.ChangedEvent.Bind(n.hub),
 		Log:     n.rootLog.With("subsystem", "reconciling"),
 	})
+	var tree *works.Works
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
 		Touch:        func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
@@ -237,6 +238,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Blocklist: grabs.BlocklistOn{Reconciling: reconciling.Blocked, Changes: grabs.BlocklistChangedEvent.Bind(n.hub)},
 		Seeding:   lateSeeder{&seeding},
 		Moving:    lateMoves{&mover},
+		Types:     lateTypes{&tree},
 		Live: downloadclients.LiveConfig{
 			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },
 			Event:   downloadclients.LiveEvent.Bind(n.hub),
@@ -477,7 +479,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	tree, err := works.Open(ctx, works.Config{
+	tree, err = works.Open(ctx, works.Config{
 		Library:      lib.db,
 		Catalogs:     contenttype.Project(opened, func(t contenttype.Library) works.Catalog { return t }),
 		Source:       meta,
@@ -946,6 +948,14 @@ func (t lateTasks) SetCadence(ctx context.Context, id tasks.TaskID, v setting.St
 // lateSeeder is the Trackers' seeder once they are made: the download
 // clients are made before them, since the Trackers read Torrents through
 // them.
+// lateTypes is the Content Types once the Works open, which open after
+// the Download Clients.
+type lateTypes struct{ works **works.Works }
+
+func (t lateTypes) Describe(id works.TypeID) (works.Description, bool) {
+	return (*t.works).Describe(id)
+}
+
 type lateSeeder struct{ trackers **trackers.Trackers }
 
 func (s lateSeeder) Judge(ctx context.Context, r storage.Reader[storage.Library], rows []downloadclients.Row) (map[downloadclients.ID]downloadclients.Judged, error) {

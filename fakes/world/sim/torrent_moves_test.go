@@ -9,6 +9,7 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
+	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -555,6 +557,44 @@ func TestATorrentWithNoRoomAtItsDestinationStays(t *testing.T) {
 		}
 		if v := plan.Units[0].Verdict; v.Color != moves.Red || v.Reasons[0].Code != "space_error" {
 			t.Errorf("the verdict is %+v, want red space_error", v)
+		}
+	})
+}
+
+// TestAClientsNodeChangeTakesItsTorrents changes Box's Node from seedbox
+// to den, as an Admin does once the client and its disk run there. A
+// Client folder where den finds none of its files refuses the change;
+// with its disk's folder den finds The Quiet Orchard's files, the Torrent
+// goes with the client to den, nothing is copied, and it keeps seeding.
+func TestAClientsNodeChangeTakesItsTorrents(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := launchMoves(t)
+		s := seedOrchard(t, w, client{"seedbox", "qbittorrent"})
+		box, den := clientOn(t, w, "seedbox", "qbittorrent"), nodeID(t, w, "den")
+		path := "/api/v1/external-download-clients/" + box.String()
+		edit := func(folder string) worldtest.Reply {
+			body, err := json.Marshal(map[string]any{"nodeId": den.String(), "clientFolders": []map[string]string{{"client": "/downloads", "node": folder}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return w.API().Admin("home", http.MethodPatch, path, string(body))
+		}
+		if r := edit(t.TempDir()); r.Status != http.StatusConflict || !strings.Contains(r.Body, `"code":"download_client_files_missing"`) {
+			t.Fatalf("changing Box's Node to den with a Client folder that holds nothing = %d %s, want 409 download_client_files_missing", r.Status, r.Body)
+		}
+		if r := edit(w.ClientFolder("seedbox", "qbittorrent")); r.Status != http.StatusOK {
+			t.Fatalf("changing Box's Node to den = %d %s, want 200", r.Status, r.Body)
+		}
+		home := w.Node("home").Half()
+		var node storage.UUID
+		if err := home.Library.QueryRowContext(t.Context(), `SELECT node_id FROM downloadclients_torrent WHERE id = ?`, s.id).Scan(&node); err != nil || node != den.UUID {
+			t.Fatalf("The Quiet Orchard's Torrent is on %s (%v) after the change, want den", node, err)
+		}
+		within(t, time.Hour, "The Quiet Orchard seeds from Box on den", func() bool { return seeding(t, home) == 1 })
+		var units int
+		if err := home.Library.QueryRowContext(t.Context(), `SELECT count(*) FROM moves_unit`).Scan(&units); err != nil || units != 0 {
+			t.Errorf("the Node change made %d Move units (%v), want none", units, err)
 		}
 	})
 }

@@ -105,7 +105,8 @@ func (c *Clients) lookOne(ctx context.Context, now External, base string, row db
 	}
 	folder, under := base, ""
 	if row.ContentType != nil {
-		under = string(*row.ContentType)
+		desc, _ := c.cfg.Types.Describe(*row.ContentType)
+		under = desc.Name
 	}
 	if row.SaveFolder != nil {
 		onNode, _, ok := now.Folders.OnNode(*row.SaveFolder, '/')
