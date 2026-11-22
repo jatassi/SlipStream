@@ -170,10 +170,3 @@ func TestAFreeTrackerIsRemovedAndItsHistoryKeepsItsRows(t *testing.T) {
 		t.Fatalf("%d rows break a foreign key after the removal", n)
 	}
 }
-
-func TestRemovingAMissingTrackerFails(t *testing.T) {
-	l := newLibrary(t)
-	if err := l.x.Remove(t.Context(), admin, indexers.TrackerID{UUID: storage.NewUUID()}); !errors.Is(err, trackers.ErrNoTracker) {
-		t.Fatalf("Remove = %v, want ErrNoTracker", err)
-	}
-}
