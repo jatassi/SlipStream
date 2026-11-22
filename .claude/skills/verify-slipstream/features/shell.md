@@ -4,7 +4,7 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 
 ## Sub-features
 
-- `shell-sidebar` the desktop sidebar lists Library with one child per enabled Content Type (`Movies` and `TV` in `home`), Activity, a separator, Nodes, Health, Accounts, Settings and Tasks, with the brand link `SlipStream` above and the `Account` button below (P-001, P-002).
+- `shell-sidebar` the desktop sidebar lists Home, then Library with one child per enabled Content Type (`Movies` and `TV` in `home`), Activity, a separator, Nodes, Health, Accounts, Settings and Tasks, with the brand link `SlipStream` above and the `Account` button below (P-001, P-002).
 - `shell-current-page` the current row is the only link with `aria-current="page"` (the brand link `SlipStream` never is), and the page's title names it; on phone a Work and Add go back to `Movies` (P-001).
 - `shell-collapse` `Collapse sidebar` shrinks the sidebar to a 60px rail whose icons name themselves in a tooltip on hover; the choice survives a reload, and a window below 1100px starts collapsed (P-001). The toggle and the brand mark share the top row and keep their places in both widths, the toggle at x 14 to 46 inside the rail and the mark at x 74 to 98 just past its edge, while the wordmark wipes in and out with the sidebar.
 - `shell-activity-count` a moving Grab shows `Activity 1 live` in the sidebar and `Activity 1` on the phone's tab, and the count leaves when the Grab is imported.
@@ -14,7 +14,7 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 - `shell-bell` the bell `Notifications` sits before the page's action in the desktop top bar and beside `Search` on a phone's top-level page; with unread rows it is named `Notifications, 3 unread` and shows the count, `99+` from 100. It opens the popover `Notifications` anchored under the bell (a dialog role without `aria-modal`, headed `Notifications`), a bottom sheet on phone, listing the rows newest first with `Show older notifications`; opening it marks them read, so the name returns to `Notifications`. With none it reads `No notifications in the last 90 days.`, from Keep history for (P-009).
 - `shell-toast-region` toasts sit in the region `Messages`, so `Notifications` names only the bell.
 - `shell-account-menu` `Account` at the sidebar's foot opens a menu with `Open the portal`, the `Startup sequence` checkbox, `Restart SlipStream…` and `Sign out`; `Restart SlipStream…` asks `Restart SlipStream?` (P-010).
-- `shell-tab-bar` the phone's tab bar `Tabs` holds `Library`, `Activity`, `Search` and `More` (P-004).
+- `shell-tab-bar` the phone's tab bar `Tabs` holds `Home`, `Library`, `Activity`, `Search` and `More` (P-004).
 - `shell-more-sheet` `More` opens the sheet `More` with each enabled Content Type's library (`Movies`, `TV`), `Nodes`, `Tasks`, the Admin's name, `Open the portal`, `Restart SlipStream…`, `Sign out`, the `Startup sequence` switch, `SlipStream <version>` and `Cancel` (P-005).
 - `shell-phone-pages` a top-level page opens on its large title with `Search`, `Notifications` and `Account` beside it; a Work page is pushed, with a back link labelled after its library (`Movies`) that pops back to it; a menu opens as an action sheet (P-016).
 - `shell-palette` Ctrl+K (⌘K on macOS) or the capsule opens the palette `Search Works or run a command`; typing a word of any title a Work is known by, accents ignored, lists it under Works from the library's server search with its poster, year, Content Type and status (`The Quiet Orchard 2021 · Movie · Missing`), Enter opens it, and Esc returns focus where it was (P-006, P-019).
@@ -28,23 +28,23 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 - `shell-titles` the tab is titled `<page> · SlipStream`, as `Activity · SlipStream` and `The Quiet Orchard · SlipStream` (P-014).
 - `shell-toast` adding a Work shows the toast `Added The Quiet Orchard`, top right in the desktop shell and top centre on phone (P-013).
 - `shell-route-error` with the Controller down, a page that fails to load says `SlipStream isn't responding. Check that it's running, then try again.` inside the standing shell, `Details` shows the message, and `Try again` loads the page once the Controller is back (P-015).
-- `shell-not-found` a dead address such as `/nowhere` reads `There's nothing at this address.` with `Go to Library`, inside the shell.
+- `shell-not-found` a dead address such as `/nowhere` reads `There's nothing at this address.` with `Go to Home`, inside the shell.
 - `shell-pending` a page whose data takes longer than a second keeps its title and draws the loaded layout's frame while it loads: Health shows its heading `Health` over the status `Loading Health`, a glass sheet of rows.
 - `shell-brand` the sidebar carries the Two Nodes mark and wordmark, and the page links the mark as its favicon with `theme-color` `#0c0d0e` (P-017).
-- `shell-portal` `/portal` shows the portal shell: in a desktop browser a top nav `Portal` with Home, Search, Requests and Account and an `Account` menu; on phone a tab bar `Tabs` with the same four. An Admin opens it from `Open the portal` and returns through `Back to Library` in the portal's `Account` menu or on its Account page (story 40).
+- `shell-portal` `/portal` shows the portal shell: in a desktop browser a top nav `Portal` with Home, Search, Requests and Account and an `Account` menu; on phone a tab bar `Tabs` with the same four. An Admin opens it from `Open the portal` and returns through `Back to Home` in the portal's `Account` menu or on its Account page (story 40).
 - `startup-plays` a new tab plays the startup sequence, an image named `SlipStream`, over the page while it loads.
 - `startup-skip` any key, click or tap ends it at once, and a reload in the same tab doesn't replay it.
 - `startup-off` unchecking `Startup sequence` stores `slipstream.startupOff` in this browser, and the next new tab opens with no sequence.
 
 ## How to get to it (user POV)
 
-- Desktop shell: the sidebar's rows (`Library`, `Movies`, `TV`, `Activity`, `Nodes`, `Health`, `Accounts`, `Settings`, `Tasks`), the brand link `SlipStream`, `Collapse sidebar` or `Expand sidebar`, and the `Account` button at its foot, which opens the menu with `Your Account`, `Open the portal`, `Startup sequence`, `Restart SlipStream…` and `Sign out`.
+- Desktop shell: the sidebar's rows (`Home`, `Library`, `Movies`, `TV`, `Activity`, `Nodes`, `Health`, `Accounts`, `Settings`, `Tasks`), the brand link `SlipStream`, `Collapse sidebar` or `Expand sidebar`, and the `Account` button at its foot, which opens the menu with `Your Account`, `Open the portal`, `Startup sequence`, `Restart SlipStream…` and `Sign out`.
 - Desktop shell: the top bar's capsule `Search Works or run a command` ending with a `⌘K` keycap on macOS and `Ctrl+K` elsewhere, and at the right the connection line while reconnecting, the running-tasks capsule while a run is shown, the bell `Notifications`, and the page's action (`Add` on the Library).
-- Desktop shell: Ctrl+K, or ⌘K on macOS, from any page opens the palette; its commands are `Go to Library`, `Go to Movies Library`, `Go to TV Library`, `Go to Activity`, `Go to Nodes`, `Go to Health`, `Go to Accounts`, `Go to Settings`, `Go to Tasks`, then the browser's own Node's sections `Go to Overview`, `Go to Roles`, `Go to Web and API`, `Go to Torrent client` (on a Node that stands in Downloading), `Go to Logs` and `Go to Log settings`, then `Add a Movie`, `Add a Series`, `Toggle sidebar` (desktop only), `New Signup link`, `Your Account`, `Add a passkey`, `Restart SlipStream…` and `Sign out`.
-- Phone shell: the tab bar's `Library` and `Activity` tabs, its `Search` tab (the palette, full screen) and its `More` tab (the More sheet, holding `Movies`, `TV`, `Nodes`, `Health`, `Accounts`, `Settings`, `Tasks`, `Your Account`, `Open the portal`, `Restart SlipStream…`, `Sign out` and `Startup sequence`).
+- Desktop shell: Ctrl+K, or ⌘K on macOS, from any page opens the palette; its commands are `Go to Home`, `Go to Library`, `Go to Movies Library`, `Go to TV Library`, `Go to Activity`, `Go to Nodes`, `Go to Health`, `Go to Accounts`, `Go to Settings`, `Go to Tasks`, then the browser's own Node's sections `Go to Overview`, `Go to Roles`, `Go to Web and API`, `Go to Torrent client` (on a Node that stands in Downloading), `Go to Logs` and `Go to Log settings`, then `Add a Movie`, `Add a Series`, `Toggle sidebar` (desktop only), `New Signup link`, `Your Account`, `Add a passkey`, `Restart SlipStream…` and `Sign out`.
+- Phone shell: the tab bar's `Home`, `Library` and `Activity` tabs, its `Search` tab (the palette, full screen) and its `More` tab (the More sheet, holding `Movies`, `TV`, `Nodes`, `Health`, `Accounts`, `Settings`, `Tasks`, `Your Account`, `Open the portal`, `Restart SlipStream…`, `Sign out` and `Startup sequence`).
 - Phone shell: the large title's `Search` button opens the palette, its `Notifications` button opens the bell's sheet, and its `Account` button opens the More sheet; a pushed page's back link names the page above it (a Work's library, or the tab it came from).
 - Both shells: `/` redirects to `/library`, and any address the app doesn't know shows the not-found page.
-- Both shells: the portal at `/portal`, through `Open the portal` in the desktop `Account` menu or the More sheet; the portal leads back through `Back to Library`.
+- Both shells: the portal at `/portal`, through `Open the portal` in the desktop `Account` menu or the More sheet; the portal leads back through `Back to Home`.
 - The startup sequence: any new tab or window on the Controller, signed in or not. Verify sessions open past it; the recipe below opens one that plays it.
 - API: `GET /api/v1/notifications/feed?limit=1` gives the bell's `unread`, and `POST /api/v1/notifications/feed/seen {through}` is what opening it sends.
 - API: `GET /api/v1/counts` gives the Activity count and `downloads {done, wanted, allPaused}` for the fill, `GET /api/v1/content-types` the Library's children, and `GET /api/v1/system` the More sheet's version.
@@ -53,17 +53,17 @@ Every signed-in Admin page sits in one of two shells. In a desktop browser the d
 
 Preconditions:
 
-- The baseline: a `home` run, doctor passing, `{runId}-admin-desktop` signed in on the Library, which lists nothing yet.
+- The baseline: a `home` run, doctor passing, `{runId}-admin-desktop` signed in on Home, whose Jobs, Needs you and Recent are empty.
 - `{runId}-admin-phone` open the same way with `phone` in place of `desktop` (the skill's Drive).
 - The route-error steps kill and restart the Controller, so run them last.
 
 Steps:
 
-- **See the desktop shell.** The sidebar lists `Library`, `Movies`, `TV`, `Activity`, `Nodes`, `Health`, `Accounts`, `Settings` and `Tasks`, the Library row is current, and the title reads `Library · SlipStream`.
+- **See the desktop shell.** The sidebar lists `Home`, `Library`, `Movies`, `TV`, `Activity`, `Nodes`, `Health`, `Accounts`, `Settings` and `Tasks`, the Home row is current, and the title reads `Home · SlipStream`.
 
   ```sh
-  $FW exec $RUN --proof shell/shell-sidebar -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/shell/shell-sidebar/library.aria.yml
-  $FW exec $RUN --proof shell/shell-sidebar -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/shell/shell-sidebar/library.png
+  $FW exec $RUN --proof shell/shell-sidebar -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/shell/shell-sidebar/home.aria.yml
+  $FW exec $RUN --proof shell/shell-sidebar -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/shell/shell-sidebar/home.png
   $FW exec $RUN --proof shell/shell-current-page -- $PW cli -s={runId}-admin-desktop eval 'document.title + " " + document.querySelector("nav[aria-label=Main] [aria-current=page]").textContent'
   ```
 
@@ -205,7 +205,7 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("status", { name: "Loading Health" }).waitFor({ state: "hidden", timeout: 15000 }); await page.unrouteAll(); }'
   ```
 
-- **Follow a dead link.** Go to `/nowhere`. The content reads `There's nothing at this address.` with `Go to Library`, and the sidebar stays.
+- **Follow a dead link.** Go to `/nowhere`. The content reads `There's nothing at this address.` with `Go to Home`, and the sidebar stays.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/nowhere'
@@ -220,10 +220,10 @@ Steps:
 
   The output holds `<meta name="theme-color" content="#0c0d0e" />`, `<link rel="icon" type="image/svg+xml" href="/assets/mark-….svg" />`, the apple-touch-icon and the manifest.
 
-- **See the phone shell.** In `{runId}-admin-phone`, the Library opens on its large title with `Search`, `Account` and `Add`, and the tab bar `Tabs` lists `Library`, `Activity`, `Search` and `More`. `Add` opens the action sheet `Add a Work`.
+- **See the phone shell.** In `{runId}-admin-phone`, the Library opens on its large title with `Search`, `Account` and `Add`, and the tab bar `Tabs` lists `Home`, `Library`, `Activity`, `Search` and `More`. `Add` opens the action sheet `Add a Work`.
 
   ```sh
-  $FW exec $RUN -- $PW cli -s={runId}-admin-phone goto '{nodes.home.browserUrl}/'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone goto '{nodes.home.browserUrl}/library'
   $FW exec $RUN --proof shell/shell-tab-bar -- $PW cli -s={runId}-admin-phone snapshot --filename={runDir}/proof/shell/shell-tab-bar/library.aria.yml
   $FW exec $RUN --proof shell/shell-tab-bar -- $PW cli -s={runId}-admin-phone screenshot --filename={runDir}/proof/shell/shell-tab-bar/library.png
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("main").getByRole("button", { name: "Add" })'
@@ -287,7 +287,7 @@ Steps:
   $FW exec $RUN --proof shell/shell-activity-fill -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("navigation", { name: "Main" }).getByRole("progressbar", { name: "Downloads" }).waitFor({ state: "detached", timeout: 30000 }); }'
   ```
 
-- **Open the portal.** On the desktop, `Account` › `Open the portal`; on the phone, `More` › `Open the portal`. The desktop shows the top nav `Portal` and the heading `Home`; the phone shows the tab bar `Tabs` with `Home`, `Search`, `Requests` and `Account`. `Back to Library` in the desktop's `Account` menu, and on the phone's `Account` tab, returns to `/library`.
+- **Open the portal.** On the desktop, `Account` › `Open the portal`; on the phone, `More` › `Open the portal`. The desktop shows the top nav `Portal` and the heading `Home`; the phone shows the tab bar `Tabs` with `Home`, `Search`, `Requests` and `Account`. `Back to Home` in the desktop's `Account` menu, and on the phone's `Account` tab, returns to `/`.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Account" })'
@@ -297,9 +297,9 @@ Steps:
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("dialog", { name: "More" }).getByRole("button", { name: "Open the portal" })'
   $FW exec $RUN --proof shell/shell-portal -- $PW cli -s={runId}-admin-phone snapshot --filename={runDir}/proof/shell/shell-portal/phone.aria.yml
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Account" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Back to Library" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("menuitem", { name: "Back to Home" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: "Account" })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("main").getByRole("button", { name: "Back to Library" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-phone click 'getByRole("main").getByRole("button", { name: "Back to Home" })'
   ```
 
 - **Play the startup sequence.** Write a config without the init script, open a session from it, and go to the Library. The image `SlipStream` covers the page; Shift ends it, a reload doesn't replay it, and a new tab plays it again. Unchecking `Startup sequence` in `Account` stops the next new tab from playing it.
