@@ -128,8 +128,9 @@ func (j *judgment) intent(s snapshot, node role.NodeID) *tv1.Intent {
 }
 
 // dest is where a Transfer's files go now, as judge reads it. root is
-// nil for the two Backup kinds, which have no root State and no space
-// step: a full disk fails their copy at the receiver.
+// nil for the two Backup kinds and a download folder, which have no root
+// State and no space step: a full disk fails a Backup's copy at the
+// receiver, and makes a download folder's wait.
 type dest struct {
 	node  role.NodeID
 	place int64
@@ -146,6 +147,8 @@ func (s snapshot) dest(t Transfer) dest {
 		return dest{node: d.Node, place: backupPlace}
 	case BackupsFolder:
 		return dest{node: d.Node, place: backupPlace}
+	case DownloadFolder:
+		return dest{node: d.Node, place: backupPlace}
 	}
 	panic("transfers: a destination of no known kind")
 }
@@ -161,6 +164,12 @@ func (d dest) wire(t Transfer) *tv1.Destination {
 		return &tv1.Destination{Kind: &tv1.Destination_Backup{Backup: &tv1.BackupPlace{Folder: dd.Folder, Name: t.Files[0].Name}}}
 	case BackupsFolder:
 		return &tv1.Destination{Kind: &tv1.Destination_BackupsFolder{BackupsFolder: &tv1.BackupPlace{Folder: dd.Folder, Name: t.Files[0].Name}}}
+	case DownloadFolder:
+		w := &tv1.DownloadFolder{ContentType: dd.ContentType, InfoHash: dd.InfoHash[:]}
+		if dd.Client != nil {
+			w.ClientId = dd.Client[:]
+		}
+		return &tv1.Destination{Kind: &tv1.Destination_DownloadFolder{DownloadFolder: w}}
 	}
 	panic("transfers: a destination of no known kind")
 }
@@ -487,6 +496,8 @@ func sourceOf(ref source.Ref) *tv1.Source {
 		return &tv1.Source{Ref: &tv1.Source_Path{Path: &tv1.PathSource{Abs: r.Abs}}}
 	case source.Backup:
 		return &tv1.Source{Ref: &tv1.Source_Backup{Backup: &tv1.BackupPlace{Folder: r.Folder, Name: r.Name}}}
+	case source.Library:
+		return &tv1.Source{Ref: &tv1.Source_Library{Library: &tv1.LibrarySource{Root: r.Root[:], Rel: r.Rel}}}
 	}
 	panic("transfers: a source of no known kind")
 }
