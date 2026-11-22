@@ -16681,6 +16681,30 @@
         ],
         "type": "object"
       },
+      "MovesClientTo": {
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "description": "The external Download Client; absent for the Node's built-in client",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The Node of the Download Client whose every torrent moves",
+            "format": "uuid",
+            "type": "string"
+          },
+          "to": {
+            "$ref": "#/components/schemas/MovesSide",
+            "description": "The Download Client they move to"
+          }
+        },
+        "required": [
+          "nodeId",
+          "to"
+        ],
+        "type": "object"
+      },
       "MovesDropped": {
         "additionalProperties": false,
         "properties": {
@@ -16737,14 +16761,40 @@
       "MovesMoveAsk": {
         "additionalProperties": false,
         "properties": {
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/MovesClientTo"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "options": {
+            "$ref": "#/components/schemas/MovesMoveOptions"
+          },
           "origin": {
-            "description": "Where the Admin starts it: a Work's page, the Library's bulk bar, or the Torrent table",
+            "description": "Where the Admin starts it: a Work's page, the Library's bulk bar, a root's row, a Node's drain, a Download Client, or the Torrent table",
             "enum": [
               "work",
               "bulk",
+              "root",
+              "drain",
+              "client",
               "torrent"
             ],
             "type": "string"
+          },
+          "roots": {
+            "items": {
+              "$ref": "#/components/schemas/MovesRootTo"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "torrents": {
             "items": {
@@ -16757,7 +16807,7 @@
             ]
           },
           "works": {
-            "description": "At least one Work or torrent",
+            "description": "At least one Work, root, torrent or client",
             "items": {
               "$ref": "#/components/schemas/MovesWorkTo"
             },
@@ -16769,6 +16819,24 @@
           "origin",
           "works"
         ],
+        "type": "object"
+      },
+      "MovesMoveOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "deleteEmptiedRoots": {
+            "description": "Delete each root the Move empties, once every unit ends",
+            "type": "boolean"
+          },
+          "includeLinkedTorrents": {
+            "description": "Also move the seeding torrent a Work's files are linked to",
+            "type": "boolean"
+          },
+          "repointRouting": {
+            "description": "Have each Tracker's new Grabs go to the client its torrents move to",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "MovesMovePreview": {
@@ -17126,6 +17194,44 @@
           "color",
           "code",
           "words"
+        ],
+        "type": "object"
+      },
+      "MovesRootTo": {
+        "additionalProperties": false,
+        "properties": {
+          "rootId": {
+            "description": "The library root whose every Work moves",
+            "format": "uuid",
+            "type": "string"
+          },
+          "to": {
+            "description": "The library root they move to",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rootId",
+          "to"
+        ],
+        "type": "object"
+      },
+      "MovesSide": {
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "description": "An external Download Client; absent for the Node's built-in client",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId"
         ],
         "type": "object"
       },
@@ -65417,6 +65523,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "download_client_not_found",
                             "root_not_found",
                             "torrent_not_found",
                             "work_not_found"

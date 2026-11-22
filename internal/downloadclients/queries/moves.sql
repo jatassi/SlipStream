@@ -99,3 +99,10 @@ ORDER BY t.id;
 SELECT info_hash, client_id FROM downloadclients_torrent
 WHERE node_id = sqlc.arg(node_id) AND info_hash IN (sqlc.slice(hashes)) AND removed_at IS NULL AND arriving_unit IS NULL
 ORDER BY added_order;
+
+-- name: ListTorrentsInClient :many
+-- A client's live Torrents a Move can name, a Move's arriving ones left
+-- out, in added order. A NULL client is node's built-in one.
+SELECT id FROM downloadclients_torrent
+WHERE node_id = sqlc.arg(node_id) AND client_id IS sqlc.narg(client_id) AND removed_at IS NULL AND arriving_unit IS NULL
+ORDER BY added_order;

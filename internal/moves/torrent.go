@@ -61,6 +61,11 @@ func (m *Moves) takeTorrentLane(ctx context.Context, u Unit) error {
 		if src.Removed {
 			return m.fail(ctx, tx, cu, SourceGone, "")
 		}
+		if len(cu.Files) == 0 {
+			if err := filesOfPayload(ctx, db.New(tx), cu, src, now); err != nil {
+				return err
+			}
+		}
 		cu.Planned.At = now
 		if cu.Lane.sameNode() {
 			cu.Stage, cu.Due = Placing{}, &now
@@ -72,6 +77,18 @@ func (m *Moves) takeTorrentLane(ctx context.Context, u Unit) error {
 	})
 	m.cfg.Transfers.Touch()
 	return err
+}
+
+// filesOfPayload writes, in q, the files of src's payload as u's: a
+// drain's torrent that finished downloading after its plan.
+func filesOfPayload(ctx context.Context, q *db.Queries, u *Unit, src downloadclients.MoveSource, now time.Time) error {
+	u.Files, _ = payloadFiles(src, now)
+	for _, f := range u.Files {
+		if err := q.InsertUnitFile(ctx, insertFileColumns(u.ID, f)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RecordPlace is the step that records a torrent's place in an arriving
@@ -404,7 +421,7 @@ func handoffFacts(ctx context.Context, r storage.Reader[file], us []Unit, out []
 			continue
 		}
 		switch u.Stage.(type) {
-		case Placing, Switching, Cleaning:
+		case Queued, Placing, Switching, Cleaning:
 			pairs = append(pairs, downloadclients.Pair{From: u.Torrent.Torrent, To: u.Torrent.Arriving})
 		}
 	}

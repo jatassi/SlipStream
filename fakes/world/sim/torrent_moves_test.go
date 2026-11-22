@@ -3,7 +3,9 @@ package sim_test
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"reflect"
 	"slices"
@@ -433,6 +435,41 @@ func TestAMovingTorrentShowsItsMove(t *testing.T) {
 		}
 		if len(l.Rows) != 1 || l.Rows[0].Move != nil {
 			t.Errorf("the moved rows are %+v, want one with no Move", l.Rows)
+		}
+	})
+}
+
+// TestAClientsTorrentsMoveThroughTheAPI previews moving every torrent of
+// qBittorrent on seedbox into Transmission on den through the API, with
+// the client origin, and starts it: The Quiet Orchard ends in Transmission.
+func TestAClientsTorrentsMoveThroughTheAPI(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := launchMoves(t)
+		s := seedOrchard(t, w, client{"seedbox", "qbittorrent"})
+		den := client{"den", "transmission"}.side(t, w)
+		body := fmt.Sprintf(`{"origin":"client","works":[],"clients":[{"nodeId":%q,"clientId":%q,"to":{"nodeId":%q,"clientId":%q}}]}`,
+			nodeID(t, w, "seedbox"), clientOn(t, w, "seedbox", "qbittorrent"), den.Node, den.Client)
+		p := simtest.Decode[previewReply](t, "previewMoves", w.API().Admin("home", http.MethodPost, "/api/v1/moves/preview", body))
+		if p.Movable != 1 {
+			t.Fatalf("the preview is %+v, want The Quiet Orchard movable", p)
+		}
+		var started struct {
+			BatchID string `json:"batchId"`
+		}
+		r := w.API().Admin("home", http.MethodPost, "/api/v1/moves?confirm=1", fmt.Sprintf(`{"token":%q}`, p.Token))
+		if r.Status != http.StatusAccepted || json.Unmarshal([]byte(r.Body), &started) != nil {
+			t.Fatalf("startMoves = %d %s, want 202", r.Status, r.Body)
+		}
+		id, err := storage.ParseUUID(started.BatchID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if unit := ended(t, w, moves.BatchID{UUID: id}); unit.Phase != moves.PhaseDone {
+			t.Fatalf("the unit ended %s %+v, want done", unit.Phase, unit.Failure)
+		}
+		if got := wantedOf(t, w, s); !slices.Equal(got, []string{"den:started"}) {
+			t.Errorf("the hash's Torrents are %v, want Transmission's alone", got)
 		}
 	})
 }

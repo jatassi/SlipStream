@@ -36,8 +36,9 @@ type torrentRead struct {
 	clients map[downloadclients.ClientID]downloadclients.External
 }
 
-// planTorrents plans and judges a unit per torrent of ts.
-func (m *Moves) planTorrents(ctx context.Context, ts []TorrentTo) ([]PlanUnit, error) {
+// planTorrents plans and judges a unit per torrent of ts. A drain's
+// unfinished torrents move once they finish.
+func (m *Moves) planTorrents(ctx context.Context, ts []TorrentTo, drain bool) ([]PlanUnit, error) {
 	if len(ts) == 0 {
 		return nil, nil
 	}
@@ -56,7 +57,7 @@ func (m *Moves) planTorrents(ctx context.Context, ts []TorrentTo) ([]PlanUnit, e
 		if !ok {
 			return nil, ErrNoTorrent
 		}
-		out = append(out, planTorrent(t, src, rd, m.now()))
+		out = append(out, planTorrent(t, src, rd, m.now(), drain))
 	}
 	return out, nil
 }
@@ -109,24 +110,34 @@ func torrentsMoving(ctx context.Context, r storage.Reader[file], ids []downloadc
 	return out, err
 }
 
-// planTorrent is t's unit, its payload files as planned at now.
-func planTorrent(t TorrentTo, src downloadclients.MoveSource, rd torrentRead, now time.Time) PlanUnit {
+// planTorrent is t's unit, its payload files as planned at now. A drain's
+// unfinished torrent has none yet: it takes them when it takes its lane.
+func planTorrent(t TorrentTo, src downloadclients.MoveSource, rd torrentRead, now time.Time, drain bool) PlanUnit {
 	from := Side{Node: src.Node}
 	if src.Client != nil {
 		from.Client = &src.Client.ID
 	}
 	u := PlanUnit{Torrent: &TorrentSubject{Torrent: t.Torrent, From: from, To: t.To}, Label: src.Name, Lane: torrentLane(from, t.To)}
 	var bad bool
-	for i, f := range src.Files {
-		rel, err := storing.ParseRel(f.Path)
-		bad = bad || err != nil
-		u.Files = append(u.Files, File{Position: i, Kind: KindPayload, Sits: rel, Index: f.Index, Size: f.Size, Seen: storing.Seen{Modified: now}})
-	}
+	u.Files, bad = payloadFiles(src, now)
 	if from.Node != t.To.Node {
 		u.Bytes = src.Size
 	}
-	u.Verdict = torrentVerdict(t, src, rd, bad)
+	u.Verdict = torrentVerdict(t, src, rd, bad, drain)
 	return u
+}
+
+// payloadFiles is src's completed payload as a unit's files at now, and
+// whether a path of it can't be placed.
+func payloadFiles(src downloadclients.MoveSource, now time.Time) ([]File, bool) {
+	var out []File
+	bad := false
+	for i, f := range src.Files {
+		rel, err := storing.ParseRel(f.Path)
+		bad = bad || err != nil
+		out = append(out, File{Position: i, Kind: KindPayload, Sits: rel, Index: f.Index, Size: f.Size, Seen: storing.Seen{Modified: now}})
+	}
+	return out, bad
 }
 
 // torrentLane is a torrent's lane: its Node pair, or its client pair on
@@ -148,7 +159,7 @@ func torrentLane(from, to Side) Lane {
 // a torrent either moves whole or stays. A private torrent out of an
 // external client into the built-in one is amber, its Hit and run window
 // counted from now.
-func torrentVerdict(t TorrentTo, src downloadclients.MoveSource, rd torrentRead, badPath bool) Verdict {
+func torrentVerdict(t TorrentTo, src downloadclients.MoveSource, rd torrentRead, badPath, drain bool) Verdict {
 	red := func(c Check, code, words string) Verdict {
 		return Verdict{Color: Red, Reasons: []Reason{{Check: c, Color: Red, Code: code, Words: words}}}
 	}
@@ -164,7 +175,7 @@ func torrentVerdict(t TorrentTo, src downloadclients.MoveSource, rd torrentRead,
 		return red(CheckTorrent, "no_metainfo", "SlipStream doesn't have its torrent file, so no other client can add it.")
 	case src.Withheld:
 		return red(CheckTorrent, "on_review", "It's on the review list. Review it first.")
-	case !src.Complete:
+	case !src.Complete && !drain:
 		return red(CheckTorrent, "incomplete", "It hasn't finished downloading.")
 	case badPath:
 		return red(CheckNames, "bad_path", "SlipStream can't place a file of it under its name.")
@@ -193,7 +204,7 @@ func torrentVerdict(t TorrentTo, src downloadclients.MoveSource, rd torrentRead,
 
 // recheckTorrent is the reason a torrent unit planned as pu can't move
 // now, read in tx.
-func recheckTorrent(ctx context.Context, tx *storage.Tx[file], pu PlanUnit, now time.Time) (Reason, bool, error) {
+func recheckTorrent(ctx context.Context, tx *storage.Tx[file], pu PlanUnit, now time.Time, drain bool) (Reason, bool, error) {
 	ts := []TorrentTo{{Torrent: pu.Torrent.Torrent, To: pu.Torrent.To}}
 	rd, err := readTorrents(ctx, tx, ts)
 	if err != nil {
@@ -203,6 +214,6 @@ func recheckTorrent(ctx context.Context, tx *storage.Tx[file], pu PlanUnit, now 
 	if !ok {
 		return Reason{Check: CheckTorrent, Color: Red, Code: "torrent_removed", Words: "It was removed from its Download Client."}, true, nil
 	}
-	v := planTorrent(ts[0], src, rd, now).Verdict
+	v := planTorrent(ts[0], src, rd, now, drain).Verdict
 	return worst(v), v.Color == Red, nil
 }

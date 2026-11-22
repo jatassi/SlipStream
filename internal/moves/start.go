@@ -125,7 +125,7 @@ func (m *Moves) recheck(ctx context.Context, tx *storage.Tx[file], p Plan) (keep
 		r, red := Reason{}, false
 		switch {
 		case u.Torrent != nil && u.Verdict.Color != Red:
-			if r, red, err = recheckTorrent(ctx, tx, u, m.now()); err != nil {
+			if r, red, err = recheckTorrent(ctx, tx, u, m.now(), p.Ask.Origin == OriginDrain); err != nil {
 				return nil, nil, err
 			}
 		case u.Verdict.Color == Red:
@@ -219,6 +219,12 @@ func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Ad
 	}
 	if p.Ask.Options.DeleteEmptiedRoots {
 		b.DeleteEmptiedRoots = 1
+	}
+	if p.Ask.Options.IncludeLinkedTorrents {
+		b.IncludeTorrents = 1
+	}
+	if p.Ask.Options.RepointRouting {
+		b.RepointRouting = 1
 	}
 	if err := q.InsertBatch(ctx, b); err != nil {
 		return nil, err

@@ -122,6 +122,9 @@ func wordsOf(v View) string {
 	from, to := v.From.NodeName, v.To.NodeName
 	switch v.Phase {
 	case PhaseQueued, PhaseTransfer, PhasePlace:
+		if v.Phase == PhaseQueued && v.Waiting == WaitDownloading {
+			return from + " is finishing its work. This torrent moves once it finishes downloading."
+		}
 		if w := waitWords(v.Waiting, from, to); w != "" {
 			return w
 		}
@@ -170,7 +173,9 @@ func waitWords(w Wait, from, to string) string {
 		return "Saving watched state, resume positions and ratings on the Media Servers"
 	case WaitReconciling:
 		return "Waiting until Reconciling finishes"
-	case WaitDownloading, WaitGuard, WaitLinkedTorrent, "":
+	case WaitLinkedTorrent:
+		return "Waiting for its torrent to finish copying"
+	case WaitDownloading, WaitGuard, "":
 	}
 	return ""
 }

@@ -206,6 +206,8 @@ type Handoff struct {
 	// check failed.
 	Arrival    *Arrival
 	ArrivalWhy string
+	// Complete is the source's payload complete.
+	Complete bool
 	// Parted is the source parted from its Node.
 	Parted bool
 	// Removed is the source removed by anyone but the Move's switch.
@@ -240,7 +242,7 @@ func Handoffs(ctx context.Context, r storage.Reader[file], pairs []Pair) (map[ID
 		}
 		h := Handoff{
 			Wanted: Wanted(src.Wanted), AnnouncedAt: timeOrNil(src.AnnouncedAt), AnnounceDueAt: timeOrNil(src.AnnounceDueAt),
-			PausedAt: timeOrNil(src.PausedAt), Parted: !src.PartedAt.IsZero(),
+			PausedAt: timeOrNil(src.PausedAt), Complete: src.Completed, Parted: !src.PartedAt.IsZero(),
 			Removed: !src.RemovedAt.IsZero() && (src.RemovedReason == nil || RemoveReason(*src.RemovedReason) != Moved),
 			Final: Totals{
 				Uploaded: src.Uploaded, Downloaded: src.Downloaded, Active: time.Duration(src.ActiveSeconds) * time.Second,
@@ -525,3 +527,9 @@ var stoppedBlind = func() []clients.Kind {
 	}
 	return out
 }()
+
+// TorrentsIn is every live Torrent of node's client, nil for its built-in
+// one, in added order, leaving out a Move's arriving Torrents.
+func TorrentsIn(ctx context.Context, r storage.Reader[file], node role.NodeID, client *ClientID) ([]ID, error) {
+	return db.New(r).ListTorrentsInClient(ctx, db.ListTorrentsInClientParams{NodeID: node, ClientID: client})
+}
