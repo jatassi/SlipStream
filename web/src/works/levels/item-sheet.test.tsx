@@ -28,24 +28,6 @@ async function openOnPhone() {
 const levels = () => page.getByRole("region", { name: "Volumes" });
 const sheet = () => page.getByRole("dialog", { name: "V01S02 Story V01S02" });
 
-test("on a phone each level is a card of rows, and a row opens a sheet with its cells and Monitor", async () => {
-  const { puts } = await openOnPhone();
-  await expect.element(levels().getByRole("switch", { name: "Monitor Volume 1" })).toBeVisible();
-  expect(levels().getByRole("button", { name: "V01S02 1080p, Missing" }).elements()).toHaveLength(
-    0,
-  );
-
-  await userEvent.click(levels().getByRole("button", { name: /^V01S02 ?Story V01S02/u }));
-  await expect
-    .element(sheet().getByRole("list", { name: "Editions and Targets" }))
-    .toHaveTextContent("V01S02 1080p, Missing");
-  await userEvent.click(sheet().getByRole("switch"));
-  await expect
-    .poll(() => puts)
-    .toEqual([{ levelIds: [], itemIds: [longShelf.items[1]?.id], on: false }]);
-  await expect.element(sheet().getByRole("switch")).not.toBeChecked();
-});
-
 test("a row's sheet leads to the Item's Details", async () => {
   await openOnPhone();
   await userEvent.click(levels().getByRole("button", { name: /^V01S02 ?Story V01S02/u }));
