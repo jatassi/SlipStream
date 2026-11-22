@@ -34,7 +34,7 @@ const otherGrab = "9a1c3e5f-7b9d-4f1a-8c3e-7a9b1d3f5c6e";
 
 test("nodes.changed invalidates the Nodes, that Node, the Role board, the counts, the Indexers and the Join Codes", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const seedbox = "6a1f0c2e-8d4b-4f7a-9e3c-2b5d7f9a1c4e";
   const home = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";
@@ -76,7 +76,7 @@ test("a lapse's burst of nodes.changed refetches the counts once and once more a
       alerts: { nodes: "fail" },
     });
   });
-  const app = renderApp({ path: "/", handlers: [...server.handlers, counts] });
+  const app = renderApp({ path: "/library", handlers: [...server.handlers, counts] });
   const countsQuery = () =>
     app.queryClient.getQueryCache().find({ queryKey: getGetCountsQueryKey() });
   const fetchStatus = () => countsQuery()?.state.fetchStatus;
@@ -193,7 +193,7 @@ test("grabs.blocklist-changed invalidates the Blocklist and every Manual search"
 
 test("identity.passkeys-changed invalidates your passkey list", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     passkeys: getListPasskeysQueryKey(),

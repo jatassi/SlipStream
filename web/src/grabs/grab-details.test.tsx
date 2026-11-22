@@ -1,15 +1,16 @@
 import { HttpResponse, http } from "msw";
-import { expect, test } from "vitest";
+import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { GrabsGrab } from "../api/gen/model";
 import { getListGrabsMockHandler } from "../api/gen/query/grabs/grabs.msw";
 import { getListIndexersMockHandler } from "../api/gen/query/indexers/indexers.msw";
 import { getListTrackersMockHandler } from "../api/gen/query/trackers/trackers.msw";
+import { getListLibraryQueryKey } from "../api/gen/query/works/works";
 import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 import { downloading, fetchFailure, waitingToFetch } from "../test/grabs";
+// oxlint-disable-next-line import/max-dependencies -- Details read Grabs, Works, Targets, Indexers, Trackers and Torrents, and count the Library's reads
 import { problem } from "../test/handlers";
-// oxlint-disable-next-line import/max-dependencies -- Details read Grabs, Works, Targets, Indexers, Trackers and Torrents
 import { torrentLeech, torrentLeechTrackerId, trackers } from "../test/indexers";
 import { orchardRow } from "../test/library";
 import { homeId } from "../test/nodes";
@@ -17,6 +18,7 @@ import { renderApp } from "../test/render-app";
 import { type ValueForm, placeOf, timeForms, whenWords } from "../ui/time-words";
 import { starter, targetHandlers } from "../test/targets";
 import { actionsServer, torrentsServer } from "../test/torrents";
+import { worker } from "../test/worker";
 
 const own = () => ({ now: new Date(), zone: undefined });
 const shown = (form: ValueForm, at: string) => timeForms[form](placeOf(at, own()));
@@ -50,6 +52,20 @@ function grabServer(grab: GrabsGrab) {
       }),
     ],
   };
+}
+
+afterEach(() => {
+  worker.events.removeAllListeners();
+});
+
+function countLibraryReads() {
+  let reads = 0;
+  worker.events.on("request:start", ({ request }) => {
+    if (request.method === "GET" && new URL(request.url).pathname === "/api/v1/library") {
+      reads += 1;
+    }
+  });
+  return () => reads;
 }
 
 const menu = () => page.getByRole("button", { name: "The Quiet Orchard actions" });
@@ -225,7 +241,7 @@ test("a failure whose detail says only its cause shows no Detail row", async () 
     );
 });
 
-test("Cancel on a downloading Grab names it once and lists only the other Grabs its torrent's removal cancels", async () => {
+test("Cancel on a downloading Grab names it once, lists only the other Grabs its torrent's removal cancels and reads no Library", async () => {
   const other = {
     grabId: "7d9f1b3c-5e7a-4c9b-8d2f-6a8c0e2f4a6b",
     workId: orchardRow.id,
@@ -247,7 +263,13 @@ test("Cancel on a downloading Grab names it once and lists only the other Grabs 
     ...downloading,
     actions: { cancel: true, blocklistable: true, sendTo: false },
   };
-  renderApp({ path: "/activity", handlers: [actions.handler, ...grabServer(grab).handlers] });
+  const { queryClient } = renderApp({
+    path: "/activity",
+    handlers: [actions.handler, ...grabServer(grab).handlers],
+  });
+  await expect.element(menu()).toBeVisible();
+  queryClient.removeQueries({ queryKey: getListLibraryQueryKey() });
+  const libraryReads = countLibraryReads();
   await open("Cancel Grab");
   const cancel = page.getByRole("dialog", { name: "Cancel this Grab?" });
   await expect
@@ -257,4 +279,5 @@ test("Cancel on a downloading Grab names it once and lists only the other Grabs 
     );
   expect(cancel.getByText(downloading.releaseTitle).elements()).toHaveLength(1);
   await expect.element(cancel.getByText(other.release)).toBeVisible();
+  expect(libraryReads()).toBe(0);
 });

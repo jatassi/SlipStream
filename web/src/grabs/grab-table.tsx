@@ -1,15 +1,27 @@
 import { Link } from "@tanstack/react-router";
 
-import type { GrabsGrab } from "../api/gen/model";
+import type { DownloadclientsTorrentList, GrabsGrab } from "../api/gen/model";
+import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downloadclients";
+import type { Row } from "../torrents/model";
 import { Data } from "../ui/data";
 import { StageTrack, StageWord } from "../ui/stage-track";
 import { Mark } from "../ui/state-mark";
 import { type Column, Table } from "../ui/table";
+import type { Job } from "./job";
 import { ForCell, JobMenu } from "./job-cells";
+// oxlint-disable-next-line import/max-dependencies -- a Grab's row draws its Work, stage, progress and menu, and finds its Torrent for them
 import { ProgressCell } from "./progress-cell";
 import { importedMark, progressOf, skippedStages, stageWord } from "./stages";
 
-export type GrabRow = { readonly grab: GrabsGrab; readonly work: string };
+export type GrabRow = Job;
+
+const byId = ({ rows }: DownloadclientsTorrentList) => new Map(rows.map((row) => [row.id, row]));
+
+/** Finds a Grab's Torrent in the torrent list, while the list holds it. */
+export function useTorrentOf(): (grab: GrabsGrab) => Row | undefined {
+  const torrents = useListTorrentsSuspense(undefined, { query: { select: byId } }).data;
+  return (grab) => (grab.torrentId === null ? undefined : torrents.get(grab.torrentId));
+}
 
 function WorkCell({ grab, work }: GrabRow) {
   return (

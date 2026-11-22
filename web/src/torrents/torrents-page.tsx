@@ -35,9 +35,11 @@ export function TorrentsPage({ search, selected, onSearchChange, onSelect, scope
         onSearchChange={onSearchChange}
         scope={scope}
         selection={{ selected, onSelect }}
-        renderMenu={(row) => <ActionsMenu subject={subject(row)} actions={menuFor(row)} />}
+        renderMenu={(row) => (
+          <ActionsMenu subject={subject(row)} actions={menuFor(row)} names={names.work} />
+        )}
         renderBulk={(picked, clear) => (
-          <BulkBar picked={picked} subjectOf={subject} onClear={clear} />
+          <BulkBar picked={picked} subjectOf={subject} names={names.work} onClear={clear} />
         )}
       />
       <Outlet />

@@ -10,13 +10,16 @@ const rows = (count: number, unread: number) =>
   Array.from({ length: count }, (_, at) => feedRow(count - at, at < unread));
 
 test("the bell names its unread count, and 99+ from 100", async () => {
-  renderApp({ path: "/", handlers: notificationsWorld({ feed: rows(3, 3), unread: 3 }).handlers });
+  renderApp({
+    path: "/library",
+    handlers: notificationsWorld({ feed: rows(3, 3), unread: 3 }).handlers,
+  });
   await expect.element(page.getByRole("button", { name: "Notifications, 3 unread" })).toBeVisible();
 });
 
 test("past 99 unread the bell reads 99+", async () => {
   renderApp({
-    path: "/",
+    path: "/library",
     handlers: notificationsWorld({ feed: rows(3, 3), unread: 100 }).handlers,
   });
   await expect
@@ -26,7 +29,7 @@ test("past 99 unread the bell reads 99+", async () => {
 
 test("opening the bell lists the newest rows in a popover under it and moves the cursor to the newest", async () => {
   const world = notificationsWorld({ feed: rows(3, 2), unread: 2 });
-  renderApp({ path: "/", handlers: world.handlers });
+  renderApp({ path: "/library", handlers: world.handlers });
   const bell = page.getByRole("button", { name: "Notifications, 2 unread" });
   await userEvent.click(bell);
   const popover = page.getByRole("dialog", { name: "Notifications" });
@@ -48,7 +51,7 @@ test("opening the bell lists the newest rows in a popover under it and moves the
 
 test("the feed pages older rows on Show older notifications", async () => {
   const world = notificationsWorld({ feed: rows(35, 0) });
-  renderApp({ path: "/", handlers: world.handlers });
+  renderApp({ path: "/library", handlers: world.handlers });
   await userEvent.click(page.getByRole("button", { name: "Notifications", exact: true }));
   const dialog = page.getByRole("dialog", { name: "Notifications" });
   await expect.element(dialog.getByText("Imported Heat 6", { exact: true })).toBeVisible();
@@ -59,13 +62,13 @@ test("the feed pages older rows on Show older notifications", async () => {
 });
 
 test("an empty bell says how long it keeps notifications", async () => {
-  renderApp({ path: "/", handlers: notificationsWorld().handlers });
+  renderApp({ path: "/library", handlers: notificationsWorld().handlers });
   await userEvent.click(page.getByRole("button", { name: "Notifications", exact: true }));
   await expect.element(page.getByText("No notifications in the last 90 days.")).toBeVisible();
 });
 
 test("following a row's link closes the popover", async () => {
-  renderApp({ path: "/", handlers: notificationsWorld({ feed: rows(3, 0) }).handlers });
+  renderApp({ path: "/library", handlers: notificationsWorld({ feed: rows(3, 0) }).handlers });
   await userEvent.click(page.getByRole("button", { name: "Notifications", exact: true }));
   const popover = page.getByRole("dialog", { name: "Notifications" });
   const link = popover.getByRole("link", { name: /Imported Heat 3/u });
@@ -79,7 +82,10 @@ test("following a row's link closes the popover", async () => {
 
 test("on phone the bell opens a bottom sheet titled Notifications", async () => {
   await asPhone();
-  renderApp({ path: "/", handlers: notificationsWorld({ feed: rows(3, 1), unread: 1 }).handlers });
+  renderApp({
+    path: "/library",
+    handlers: notificationsWorld({ feed: rows(3, 1), unread: 1 }).handlers,
+  });
   await userEvent.click(page.getByRole("button", { name: "Notifications, 1 unread" }));
   const sheet = page.getByRole("dialog", { name: "Notifications" });
   await expect.element(sheet).toHaveAttribute("aria-modal", "true");

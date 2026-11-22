@@ -1,25 +1,23 @@
 import { useState } from "react";
 
 import { sentenceOf } from "../api/errors";
-import type { GrabsGrab } from "../api/gen/model";
 import { cancelGrab } from "../api/gen/query/grabs/grabs";
 import { Checkbox } from "../ui/checkbox";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { Data } from "../ui/data";
 import { toast } from "../ui/toast";
 import { Stops } from "./cancel-preview";
+import type { Job } from "./job";
 
 export function CancelGrab({
-  grab,
-  work,
   open,
   onOpenChange,
-}: {
-  grab: GrabsGrab;
-  work: string;
+  ...job
+}: Job & {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { grab, work } = job;
   const [blocklist, setBlocklist] = useState(false);
   return (
     <ConfirmDialog
@@ -42,7 +40,7 @@ export function CancelGrab({
         <span className="text-ink-1">{work}</span>
         <Data className="wrap-anywhere text-meta text-ink-3">{grab.releaseTitle}</Data>
       </div>
-      <Stops grab={grab} work={work} />
+      <Stops {...job} />
       {grab.actions.blocklistable && (
         <Checkbox
           label="Also blocklist this Release"

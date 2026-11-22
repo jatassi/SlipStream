@@ -30,6 +30,7 @@ function Content({ row, names }: { row: Row; names: Names }) {
         <Actions
           row={row}
           name={names.work(row.workId) ?? row.name}
+          names={names.work}
           trackersAccept={inspected.trackersAccept}
         />
       </InspectorSection>

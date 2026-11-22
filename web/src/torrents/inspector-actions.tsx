@@ -4,7 +4,7 @@ import { Button } from "../ui/button";
 import { IconButton } from "../ui/icon-button";
 import { Menu } from "../ui/menu";
 import { type TorrentAction, actionLabels, menuFor, subjectOf } from "./actions";
-import { useActing } from "./acting";
+import { type WorkNames, useActing } from "./acting";
 import { actionIcons, menuItems } from "./actions-menu";
 import type { Row } from "./model";
 
@@ -13,13 +13,15 @@ const onButtons = new Set<TorrentAction>(["pause", "resume", "retry", "remove"])
 export function Actions({
   row,
   name,
+  names,
   trackersAccept,
 }: {
   row: Row;
   name: string;
+  names: WorkNames;
   trackersAccept: boolean;
 }) {
-  const { start, dialogs } = useActing();
+  const { start, dialogs } = useActing(names);
   const subject = subjectOf(row, name);
   const offered = menuFor(row, trackersAccept);
   const buttons = offered.filter((action) => onButtons.has(action));

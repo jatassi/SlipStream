@@ -1,10 +1,9 @@
 import { Link } from "@tanstack/react-router";
 
 import type { GrabsFetchWait, GrabsGrab, GrabsGrabImport } from "../api/gen/model";
-import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downloadclients";
 import { bytes } from "../format";
 import { useLiveRow } from "../live/torrents";
-import { paceOf } from "../torrents/model";
+import { type Row, paceOf } from "../torrents/model";
 import { Data } from "../ui/data";
 import { ProgressCell as Cell, percentOf } from "../ui/progress";
 import { MetadataCell } from "./metadata-cell";
@@ -38,15 +37,20 @@ function Progress({
 }
 
 // A download's speed and time left come from its Torrent's live samples.
-function LiveProgress({ grab, torrentId }: { grab: GrabsGrab; torrentId: string }) {
+function LiveProgress({
+  grab,
+  torrentId,
+  torrent,
+}: {
+  grab: GrabsGrab;
+  torrentId: string;
+  torrent: Row | undefined;
+}) {
   const live = useLiveRow(torrentId);
-  const state = useListTorrentsSuspense(undefined, {
-    query: { select: ({ rows }) => rows.find(({ id }) => id === torrentId)?.state },
-  }).data;
   if (live === undefined) {
     return <ReportedProgress grab={grab} />;
   }
-  const { eta, rate } = paceOf(state, live);
+  const { eta, rate } = paceOf(torrent?.state, live);
   const pace = [eta, rate].filter((part) => part !== "").join(" · ");
   return <Progress grab={grab} progress={{ done: live.done, total: live.wanted }} pace={pace} />;
 }
@@ -83,7 +87,7 @@ function ImportCell({ progress }: { progress: GrabsGrabImport }) {
   );
 }
 
-export function ProgressCell({ grab }: { grab: GrabsGrab }) {
+export function ProgressCell({ grab, torrent }: { grab: GrabsGrab; torrent: Row | undefined }) {
   if (grab.fetchWait !== undefined) {
     return <FetchWaitCell wait={grab.fetchWait} />;
   }
@@ -99,6 +103,6 @@ export function ProgressCell({ grab }: { grab: GrabsGrab }) {
   return grab.torrentId === null ? (
     <ReportedProgress grab={grab} />
   ) : (
-    <LiveProgress grab={grab} torrentId={grab.torrentId} />
+    <LiveProgress grab={grab} torrentId={grab.torrentId} torrent={torrent} />
   );
 }

@@ -14,7 +14,7 @@ import { renderApp } from "../test/render-app";
 
 test("media-servers.changed invalidates the list and only the named servers", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     list: getListMediaServersQueryKey(),
@@ -32,7 +32,7 @@ test("media-servers.changed invalidates the list and only the named servers", as
 
 test("media-servers.sessions-changed invalidates only the named servers' sessions", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     den: getListMediaServerSessionsQueryKey(denJellyfin.id),
@@ -49,7 +49,7 @@ test("media-servers.sessions-changed invalidates only the named servers' session
 
 test("media-servers.unhealthy invalidates the list and the server", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     list: getListMediaServersQueryKey(),
@@ -65,7 +65,7 @@ test("media-servers.unhealthy invalidates the list and the server", async () => 
 
 test("media-servers.items-found invalidates each named Work", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, { work: getGetWorkQueryKey(orchardId) });
 

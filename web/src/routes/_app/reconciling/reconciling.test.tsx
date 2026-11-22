@@ -115,7 +115,7 @@ test("Later ends the step and leaves the folder waiting on the Reconciling page"
     { live },
   );
   serveRoots({ check: ({ path }) => ({ usable: false, path, refusal: { reason: "not_found" } }) });
-  renderApp({ path: "/", handlers: [...live.handlers, nodesAre(media, seedbox)] });
+  renderApp({ path: "/library", handlers: [...live.handlers, nodesAre(media, seedbox)] });
   await expect
     .element(
       page.getByText(
