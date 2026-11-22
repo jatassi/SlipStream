@@ -113,7 +113,7 @@ export const GetMoveQueryParams = zod.object({
 export const GetMoveResponse = MovesBatchPage;
 
 /**
- * @summary Preview moving a Move's Works back to the roots they left
+ * @summary Preview moving a Move's Works back to the roots they left, and its torrents back to the Download Clients they left
  */
 export const PreviewMoveBackParams = zod.object({
   batchId: zod.uuid(),

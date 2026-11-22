@@ -576,7 +576,7 @@ func Routes(r *api.Router, n Mover) {
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "previewMoveBack", Method: http.MethodGet, Path: "/moves/{batchId}/back",
-		Summary: "Preview moving a Move's Works back to the roots they left",
+		Summary: "Preview moving a Move's Works back to the roots they left, and its torrents back to the Download Clients they left",
 		Status:  http.StatusOK, Errors: []*api.Code{moveNotFound}, Gzip: true,
 	}, h.back)
 

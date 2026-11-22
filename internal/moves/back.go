@@ -13,9 +13,9 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Back previews moving each Work batch moved back to the root it left.
-// A Work whose old root is gone is a red unit, so the Admin picks a root
-// for it.
+// Back previews moving each Work batch moved back to the root it left,
+// and each torrent back to the Download Client it left. A Work whose old
+// root is gone is a red unit, so the Admin picks a root for it.
 func (m *Moves) Back(ctx context.Context, batch BatchID) (Plan, error) {
 	var done []Unit
 	var gone []PlanUnit
@@ -38,13 +38,19 @@ func (m *Moves) Back(ctx context.Context, batch BatchID) (Plan, error) {
 		return Plan{}, err
 	}
 	ask := Ask{Origin: OriginBulk}
-	if len(done) == 1 {
-		ask.Origin = OriginWork
-	}
 	for _, u := range done {
-		if !gonePlanned(gone, u.Subject.Work) {
+		switch {
+		case u.Torrent != nil:
+			ask.Torrents = append(ask.Torrents, TorrentTo{Torrent: *u.Torrent.Arriving, To: u.Torrent.From})
+		case !gonePlanned(gone, u.Subject.Work):
 			ask.Works = append(ask.Works, WorkTo{Work: u.Subject.Work, To: u.Subject.From.Root})
 		}
+	}
+	switch {
+	case len(ask.Works) == 0 && len(gone) == 0:
+		ask.Origin = OriginTorrent
+	case len(done) == 1:
+		ask.Origin = OriginWork
 	}
 	p, err := m.Preview(ctx, ask)
 	if err != nil {
@@ -58,10 +64,12 @@ func (m *Moves) Back(ctx context.Context, batch BatchID) (Plan, error) {
 // planned unit.
 func (m *Moves) goneRoots(ctx context.Context, r storage.Reader[file], us []Unit) ([]PlanUnit, error) {
 	var ids []roots.ID
-	ws := make([]works.WorkID, len(us))
-	for i, u := range us {
-		ids = appendOnce(ids, u.Subject.From.Root)
-		ws[i] = u.Subject.Work
+	var ws []works.WorkID
+	for _, u := range us {
+		if u.Torrent == nil {
+			ids = appendOnce(ids, u.Subject.From.Root)
+			ws = append(ws, u.Subject.Work)
+		}
 	}
 	dests, err := m.cfg.Destinations(ctx, r, ids)
 	if err != nil {
@@ -73,7 +81,7 @@ func (m *Moves) goneRoots(ctx context.Context, r storage.Reader[file], us []Unit
 	}
 	var out []PlanUnit
 	for _, u := range us {
-		if _, ok := dests[u.Subject.From.Root]; ok {
+		if _, ok := dests[u.Subject.From.Root]; ok || u.Torrent != nil {
 			continue
 		}
 		reason := Reason{Check: CheckDestination, Color: Red, Code: "root_gone", Words: "The root it moved from is gone. Pick another root to move it to."}

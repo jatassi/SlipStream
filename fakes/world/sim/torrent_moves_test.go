@@ -473,3 +473,36 @@ func TestAClientsTorrentsMoveThroughTheAPI(t *testing.T) {
 		}
 	})
 }
+
+// TestATorrentMovesBack moves The Quiet Orchard from seedbox's built-in
+// client to Transmission on den, then back: it seeds from seedbox's
+// built-in client alone.
+func TestATorrentMovesBack(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := launchMoves(t)
+		s := seedOrchard(t, w, kinds[0])
+		m := w.Node("home").Half().Moves
+		batch := moveTorrent(t, w, s, client{"den", "transmission"}.side(t, w))
+		if unit := ended(t, w, batch); unit.Phase != moves.PhaseDone {
+			t.Fatalf("the unit ended %s %+v, want done", unit.Phase, unit.Failure)
+		}
+		back, err := m.Back(t.Context(), batch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if back.Movable() != 1 || back.Units[0].Torrent.To != kinds[0].side(t, w) {
+			t.Fatalf("the way back is %+v, want the torrent movable to seedbox's built-in client", back.Units)
+		}
+		started, err := m.Start(t.Context(), identity.Admin{}, back.Token, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if unit := ended(t, w, started.Batch); unit.Phase != moves.PhaseDone {
+			t.Fatalf("the way back ended %s %+v, want done", unit.Phase, unit.Failure)
+		}
+		if got := wantedOf(t, w, s); !slices.Equal(got, []string{"seedbox:started"}) {
+			t.Errorf("the hash's Torrents are %v, want seedbox's alone, started", got)
+		}
+	})
+}

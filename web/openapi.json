@@ -66940,7 +66940,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Preview moving a Move's Works back to the roots they left",
+        "summary": "Preview moving a Move's Works back to the roots they left, and its torrents back to the Download Clients they left",
         "tags": [
           "moves"
         ],

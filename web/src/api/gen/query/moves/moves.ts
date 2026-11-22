@@ -1203,7 +1203,7 @@ export const getPreviewMoveBackUrl = (batchId: string) => {
 };
 
 /**
- * @summary Preview moving a Move's Works back to the roots they left
+ * @summary Preview moving a Move's Works back to the roots they left, and its torrents back to the Download Clients they left
  */
 export const previewMoveBack = async (
   batchId: string,
@@ -1329,7 +1329,7 @@ export function usePreviewMoveBackSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Preview moving a Move's Works back to the roots they left
+ * @summary Preview moving a Move's Works back to the roots they left, and its torrents back to the Download Clients they left
  */
 
 export function usePreviewMoveBackSuspense<
