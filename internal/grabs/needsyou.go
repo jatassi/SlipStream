@@ -8,8 +8,8 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// needsYouCap bounds the count History's sentence words: it reads every
-// failed Grab only until this many need the Admin.
+// needsYouCap bounds the count History's sentence words: it reads failed
+// Grabs only until this many need the Admin.
 const needsYouCap = 100
 
 // needsYouBatch is how many failed Grabs one pass reads the cells of.
@@ -17,8 +17,8 @@ const needsYouBatch = 500
 
 // NeedsYou counts the failed Grabs Activity lists under Needs you: each
 // failed in a way the Admin didn't choose, isn't searched again, and a cell
-// still reads from. It reads failed Grabs only, newest first, and stops at
-// 100.
+// still reads from. It reads only the failed Grabs no later Grab replaced,
+// newest first, and stops at 100.
 func NeedsYou(ctx context.Context, r storage.Reader[file]) (int, error) {
 	_, n, err := needsYouWalk(ctx, r, 0)
 	return n, err
