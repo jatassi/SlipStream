@@ -149,6 +149,22 @@ test("a bulk action names what it did and groups what it refused alike", () => {
   });
 });
 
+test("several moving torrents are counted once, wherever they move", () => {
+  expect(
+    outcomeWords(
+      [
+        { id: "a", done: false, refusal: { code: "moving", node: "den" } },
+        { id: "b", done: false, refusal: { code: "moving", client: "qBittorrent" } },
+        { id: "c", done: false, refusal: { code: "moving", node: "den" } },
+      ],
+      [orchard, harvest, attic],
+      context("pause"),
+    ).refused,
+  ).toEqual([
+    "3 torrents are moving to another Download Client. Cancel their Moves in Activity, then try again.",
+  ]);
+});
+
 test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
   [
     "an import names the Work it is finishing",
@@ -191,6 +207,24 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     { code: "not_running" },
     "announce",
     "The Quiet Orchard isn't running, so it has nothing to announce.",
+  ],
+  [
+    "a torrent moving to another Node names the Node",
+    { code: "moving", node: "den" },
+    "resume",
+    "The Quiet Orchard is moving to den. Cancel its Move in Activity, then try again.",
+  ],
+  [
+    "a torrent moving to another client on its Node names the client",
+    { code: "moving", client: "qBittorrent" },
+    "pause",
+    "The Quiet Orchard is moving to qBittorrent. Cancel its Move in Activity, then try again.",
+  ],
+  [
+    "a torrent moving to another Node's client names both",
+    { code: "moving", client: "Transmission", node: "den" },
+    "remove",
+    "The Quiet Orchard is moving to Transmission on den. Cancel its Move in Activity, then try again.",
   ],
   [
     "a failed torrent can only go",

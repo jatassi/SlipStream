@@ -2058,6 +2058,29 @@ func (q *Queries) Repoint(ctx context.Context, arg RepointParams) error {
 	return err
 }
 
+const repointAll = `-- name: RepointAll :exec
+UPDATE grabs_grab SET torrent_id = ?1, node_id = ?2, updated_at = ?3
+WHERE torrent_id = ?4
+`
+
+type RepointAllParams struct {
+	ToID      downloadclients.ID
+	NodeID    role.NodeID
+	UpdatedAt storage.Time
+	FromID    downloadclients.ID
+}
+
+// A Move's switch moves every Grab of its torrent, at every stage.
+func (q *Queries) RepointAll(ctx context.Context, arg RepointAllParams) error {
+	_, err := q.db.ExecContext(ctx, repointAll,
+		arg.ToID,
+		arg.NodeID,
+		arg.UpdatedAt,
+		arg.FromID,
+	)
+	return err
+}
+
 const repointTracker = `-- name: RepointTracker :exec
 UPDATE grabs_grab SET tracker_id = ?1 WHERE tracker_id = ?2
 `

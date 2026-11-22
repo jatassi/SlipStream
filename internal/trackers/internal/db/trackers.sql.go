@@ -47,6 +47,24 @@ func (q *Queries) ClearRoute(ctx context.Context, arg ClearRouteParams) error {
 	return err
 }
 
+const copyGoalRun = `-- name: CopyGoalRun :exec
+INSERT INTO trackers_goal_run (torrent_id, acted_at, action, kept)
+SELECT ?1, r.acted_at, r.action, r.kept FROM trackers_goal_run r WHERE r.torrent_id = ?2
+ON CONFLICT (torrent_id) DO NOTHING
+`
+
+type CopyGoalRunParams struct {
+	ToID   downloadclients.ID
+	FromID downloadclients.ID
+}
+
+// A Move's destination takes its source's goal run, so a goal that ran
+// doesn't run again on it.
+func (q *Queries) CopyGoalRun(ctx context.Context, arg CopyGoalRunParams) error {
+	_, err := q.db.ExecContext(ctx, copyGoalRun, arg.ToID, arg.FromID)
+	return err
+}
+
 const deleteGoalRuns = `-- name: DeleteGoalRuns :exec
 DELETE FROM trackers_goal_run WHERE torrent_id IN (/*SLICE:torrent_ids*/?)
 `

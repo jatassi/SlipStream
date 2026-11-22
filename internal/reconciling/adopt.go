@@ -25,9 +25,9 @@ const (
 	Adopt Decision = "adopt"
 	// Kept: recorded on the Node that holds it.
 	Kept Decision = "kept"
-	// Move: recorded on a Node that reported without it, or was written
-	// off, so its record moves to the Node that holds it.
-	Move Decision = "move"
+	// Rerecord: recorded on a Node that reported without it, or was
+	// written off, so it is recorded again on the Node that holds it.
+	Rerecord Decision = "move"
 	// Wait: recorded on a Node that hasn't reported. It is kept and
 	// decided again.
 	Wait Decision = "wait"
@@ -73,7 +73,7 @@ func decide(here nodes.ID, content bool, rec *Recorded) Decision {
 	case rec.Node == here && rec.Said != WrittenOff:
 		return Kept
 	case rec.Said == Lacks || rec.Said == WrittenOff:
-		return Move
+		return Rerecord
 	case rec.Said == NotYet:
 		return Wait
 	default:
@@ -164,7 +164,7 @@ func (s *Service) adoptNode(ctx context.Context, node nodes.ID) (changed, retry 
 
 // candidates is each row of rows decide adopts, read in r.
 func (s *Service) candidates(ctx context.Context, r storage.Reader[file], node nodes.ID, rows []db.ReconcilingHeld) (map[bencode.InfoHash]downloadclients.Holding, error) {
-	recorded, err := recordedOf(ctx, r, rows)
+	recorded, err := recordedOf(ctx, r, node, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func judge(h bencode.InfoHash, held downloadclients.Holding, raw []byte, err err
 // applyPage decides rows again in tx and does what each decision says.
 func (s *Service) applyPage(ctx context.Context, tx *storage.Tx[file], node nodes.ID, rows []db.ReconcilingHeld, got map[bencode.InfoHash]*fetched) (changed bool, touched []role.NodeID, err error) {
 	q := db.New(tx)
-	recorded, err := recordedOf(ctx, tx, rows)
+	recorded, err := recordedOf(ctx, tx, node, rows)
 	if err != nil {
 		return false, nil, err
 	}
@@ -249,7 +249,7 @@ func (s *Service) applyPage(ctx context.Context, tx *storage.Tx[file], node node
 		if !ok {
 			continue
 		}
-		if d == Move {
+		if d == Rerecord {
 			touched = append(touched, rec.Node)
 		}
 		var settled storage.Time
@@ -287,8 +287,8 @@ func apply(ctx context.Context, tx *storage.Tx[file], node nodes.ID, row db.Reco
 		}
 		_, err = downloadclients.Adopt(ctx, tx, downloadclients.Adopted{Node: node, Client: row.ClientID, Held: held, Metainfo: f.metainfo})
 		return d, true, err
-	case Move:
-		return d, true, moveTo(ctx, tx, rec.Torrent, node, row.ClientID)
+	case Rerecord:
+		return d, true, rerecordOn(ctx, tx, rec.Torrent, node, row.ClientID)
 	case Conflict:
 		return d, true, db.New(tx).PutReview(ctx, db.PutReviewParams{TorrentID: rec.Torrent, NodeID: rec.Node, Reason: string(Conflict), Since: now})
 	case Wait:
@@ -298,10 +298,10 @@ func apply(ctx context.Context, tx *storage.Tx[file], node nodes.ID, row db.Reco
 	return d, true, nil
 }
 
-// moveTo moves Torrent id's record to client on node, off the review list
-// if it was on it.
-func moveTo(ctx context.Context, tx *storage.Tx[file], id downloadclients.ID, node nodes.ID, client *downloadclients.ClientID) error {
-	if err := downloadclients.MoveRecorded(ctx, tx, id, node, client); err != nil {
+// rerecordOn records Torrent id on client on node, off the review list if
+// it was on it.
+func rerecordOn(ctx context.Context, tx *storage.Tx[file], id downloadclients.ID, node nodes.ID, client *downloadclients.ClientID) error {
+	if err := downloadclients.Rerecord(ctx, tx, id, node, client); err != nil {
 		return err
 	}
 	if err := downloadclients.Release(ctx, tx, []downloadclients.ID{id}); err != nil {
@@ -312,12 +312,12 @@ func moveTo(ctx context.Context, tx *storage.Tx[file], id downloadclients.ID, no
 
 // recordedOf is what the library records for each of rows' hashes, and
 // what each record's Node has said, read in r.
-func recordedOf(ctx context.Context, r storage.Reader[file], rows []db.ReconcilingHeld) (map[bencode.InfoHash]*Recorded, error) {
+func recordedOf(ctx context.Context, r storage.Reader[file], node nodes.ID, rows []db.ReconcilingHeld) (map[bencode.InfoHash]*Recorded, error) {
 	hashes := make([]bencode.InfoHash, len(rows))
 	for i, row := range rows {
 		hashes[i] = bencode.InfoHash(row.InfoHash)
 	}
-	records, err := downloadclients.RecordedIn(ctx, r, hashes)
+	records, err := downloadclients.RecordedIn(ctx, r, node, hashes)
 	if err != nil {
 		return nil, err
 	}
@@ -457,11 +457,11 @@ func notHeld(ctx context.Context, tx *storage.Tx[file], node nodes.ID, cause Cau
 		}
 		if len(waiting) > 0 {
 			w := waiting[0]
-			if err := downloadclients.MoveRecorded(ctx, tx, t.ID, w.NodeID, w.ClientID); err != nil {
+			if err := downloadclients.Rerecord(ctx, tx, t.ID, w.NodeID, w.ClientID); err != nil {
 				return changed, touched, err
 			}
-			move := string(Move)
-			if err := q.Decide(ctx, db.DecideParams{Decision: &move, SettledAt: now, NodeID: w.NodeID, InfoHash: t.InfoHash[:]}); err != nil {
+			rerecord := string(Rerecord)
+			if err := q.Decide(ctx, db.DecideParams{Decision: &rerecord, SettledAt: now, NodeID: w.NodeID, InfoHash: t.InfoHash[:]}); err != nil {
 				return changed, touched, err
 			}
 			changed, touched = true, append(touched, w.NodeID, node)

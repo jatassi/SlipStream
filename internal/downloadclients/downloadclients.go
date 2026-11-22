@@ -104,6 +104,8 @@ const (
 	ReleaseFaulted RemoveReason = "release_fault"
 	// Canceled is an Admin canceling a downloading Grab.
 	Canceled RemoveReason = "canceled"
+	// Moved is a Move's switch: the torrent seeds from its destination.
+	Moved RemoveReason = "moved"
 	// Forgotten is a Torrent on the review list an Admin forgot after a
 	// restore. It is stored as admin and read from its withheld_at, never
 	// written.
@@ -111,7 +113,7 @@ const (
 )
 
 // RemoveReasons is every RemoveReason, the list the schema's CHECK holds.
-var RemoveReasons = []RemoveReason{ByAdmin, ByMarkFailed, NodeWrittenOff, ByClient, ClientDeleted, GoalMet, ReleaseFaulted, Canceled}
+var RemoveReasons = []RemoveReason{ByAdmin, ByMarkFailed, NodeWrittenOff, ByClient, ClientDeleted, GoalMet, ReleaseFaulted, Canceled, Moved}
 
 // Removal is set when the Torrent leaves its Node's intent. It is Removing
 // until Parted: the Node confirmed, or a write-off ended the wait.

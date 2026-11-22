@@ -141,6 +141,14 @@ sql:
             go_type:
               type: int64
               pointer: true
+          - column: downloadclients_torrent.arrival
+            go_type:
+              type: string
+              pointer: true
+          - column: downloadclients_torrent.arrival_reason
+            go_type:
+              type: string
+              pointer: true
           - column: downloadclients_torrent.attached
             go_type:
               type: bool

@@ -2275,7 +2275,7 @@
             "type": "string"
           },
           "client": {
-            "description": "client_away and client_off: the external client's name",
+            "description": "client_away and client_off: the external client's name; moving: the external client it moves to, absent for the built-in client",
             "type": "string"
           },
           "code": {
@@ -2292,12 +2292,13 @@
               "window",
               "not_running",
               "failed",
-              "not_retryable"
+              "not_retryable",
+              "moving"
             ],
             "type": "string"
           },
           "node": {
-            "description": "client_away and client_off: the name of the external client's Node",
+            "description": "client_away and client_off: the name of the external client's Node; moving: the Node it moves to, absent for its own Node",
             "type": "string"
           },
           "workId": {

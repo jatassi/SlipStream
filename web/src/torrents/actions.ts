@@ -150,11 +150,20 @@ const refusalWords: {
     `${names.join(", ")} failed in the torrent client and can't ${verbs[action]}. Remove it instead.`,
   not_retryable: ({ names }) =>
     `${names.join(", ")} can't be retried. Retry checks only a torrent that failed after it finished downloading.`,
+  moving: ({ names, refusal }) =>
+    names.length === 1
+      ? `${names[0]} is moving to ${movingTo(refusal)}. Cancel its Move in Activity, then try again.`
+      : `${torrents(names.length)} are moving to another Download Client. Cancel their Moves in Activity, then try again.`,
 };
+
+function movingTo({ client, node }: DownloadclientsRefusal): string {
+  if (client !== undefined && node !== undefined) return `${client} on ${node}`;
+  return client ?? node ?? "the built-in client";
+}
 
 // Refusals that say the same thing for every Torrent they hold group into one sentence.
 const groupKey = ({ code, workId, acceptsAt, client }: DownloadclientsRefusal) =>
-  [code, workId ?? "", acceptsAt ?? "", client ?? ""].join("\n");
+  code === "moving" ? code : [code, workId ?? "", acceptsAt ?? "", client ?? ""].join("\n");
 
 /** What an action's answer says: the Torrents it acts on, and why it refused any. */
 export function outcomeWords(

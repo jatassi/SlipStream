@@ -991,7 +991,9 @@ export const DownloadclientsRefusal = zod.object({
   client: zod
     .string()
     .exactOptional()
-    .describe("client_away and client_off: the external client's name"),
+    .describe(
+      "client_away and client_off: the external client's name; moving: the external client it moves to, absent for the built-in client",
+    ),
   code: zod.enum([
     "not_found",
     "removed",
@@ -1006,11 +1008,14 @@ export const DownloadclientsRefusal = zod.object({
     "not_running",
     "failed",
     "not_retryable",
+    "moving",
   ]),
   node: zod
     .string()
     .exactOptional()
-    .describe("client_away and client_off: the name of the external client's Node"),
+    .describe(
+      "client_away and client_off: the name of the external client's Node; moving: the Node it moves to, absent for its own Node",
+    ),
   workId: zod
     .uuid()
     .exactOptional()
