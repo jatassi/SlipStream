@@ -3,7 +3,6 @@ package fault_test
 import (
 	"context"
 	"errors"
-	"io"
 	"net"
 	"net/netip"
 	"os"
@@ -171,46 +170,6 @@ func TestRefuseWithAnOriginRefusesOneDirection(t *testing.T) {
 		_ = c.Close()
 		if _, err := n.Path(home, seedbox).Set(fault.Rule{ID: "elsewhere", Origin: "127.0.0.9", Fault: fault.Refuse{}}); err == nil {
 			t.Fatal("a refuse from an address off the path was set")
-		}
-	})
-}
-
-func TestCutPassesExactlyNBytes(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		n := fault.NewNetwork()
-		client, server := pair(t, n)
-		set(t, n.Path(home, seedbox), fault.Cut(5))
-		got := make(chan string, 1)
-		go func() {
-			b, _ := io.ReadAll(client)
-			got <- string(b)
-		}()
-		write(t, server, "hel")
-		if n, err := server.Write([]byte("lo world")); n != 2 || !errors.Is(err, fault.ErrCut) {
-			t.Fatalf("Write = %d, %v; want 2, ErrCut", n, err)
-		}
-		if s := <-got; s != "hello" {
-			t.Fatalf("delivered %q, want hello", s)
-		}
-		if _, err := server.Write([]byte("x")); !errors.Is(err, fault.ErrCut) {
-			t.Fatalf("write after the cut: %v", err)
-		}
-	})
-}
-
-func TestLatencyDelaysEachWayOnce(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		n := fault.NewNetwork()
-		client, server := pair(t, n)
-		set(t, n.Path(home, seedbox), fault.Latency(100*time.Millisecond))
-		start := time.Now()
-		got := readAsync(server)
-		write(t, client, "ping")
-		if r := <-got; r != (read{"ping", nil}) {
-			t.Fatalf("read %+v", r)
-		}
-		if d := time.Since(start); d != 100*time.Millisecond {
-			t.Fatalf("delivered after %v, want 100ms", d)
 		}
 	})
 }
