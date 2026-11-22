@@ -25,11 +25,11 @@ func TestTVDBConforms(t *testing.T) {
 	}
 	var bodies []shape.Body
 	tgt := conformance.Target{Endpoints: provider.DefaultEndpoints(), Client: &http.Client{Timeout: time.Minute}, Key: key, Refused: "0", Known: simpsons, Lines: lines, Timings: provider.DefaultTimings()}
-	if shape.Update {
+	if *shape.Update {
 		tgt.Record = func(key string, body []byte) { bodies = append(bodies, shape.Body{Key: key, JSON: body}) }
 	}
 	conformance.Run(t, tgt)
-	if shape.Update && !t.Failed() {
+	if *shape.Update && !t.Failed() {
 		if err := shape.Write("shape.json", bodies); err != nil {
 			t.Fatal(err)
 		}

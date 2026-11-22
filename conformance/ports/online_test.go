@@ -43,13 +43,13 @@ func TestThePublicPortsConform(t *testing.T) {
 				t.Skipf("%s resolves only to loopback while the site is down: https://github.com/jatassi/SlipStream/issues/477", e.IndexerURLs[0])
 			}
 			tgt := conformance.Target{Port: e.ID, Address: e.IndexerURLs[0], Client: &http.Client{Timeout: time.Minute}, Timings: searching.DefaultTimings(), Search: q}
-			if shape.Update {
+			if *shape.Update {
 				tgt.Record = func(key string, body []byte) { bodies = append(bodies, shape.Body{Key: key, JSON: body}) }
 			}
 			conformance.Run(t, tgt)
 		})
 	}
-	if shape.Update && !t.Failed() {
+	if *shape.Update && !t.Failed() {
 		if err := shape.Write("shape.json", bodies); err != nil {
 			t.Fatal(err)
 		}

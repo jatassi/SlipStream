@@ -551,9 +551,8 @@ jobs:
         with:
           cache: go-plan
       - name: Run the online conformance suites
-        run: go run ./cmd/release test -tier online
+        run: go run ./cmd/release test -tier online ${{ inputs.update-shapes && '-update' || '' }}
         env:
-          TEST_ONLINE_UPDATE: ${{ inputs.update-shapes && '1' || '' }}
           TEST_ONLINE_TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
           TEST_ONLINE_TVDB_KEY: ${{ secrets.TVDB_API_KEY }}
           TEST_ONLINE_OMDB_KEY: ${{ secrets.OMDB_API_KEY }}

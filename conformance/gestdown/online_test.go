@@ -29,11 +29,11 @@ func TestGestdownConforms(t *testing.T) {
 		Endpoints: provider.DefaultEndpoints(), Client: &http.Client{Timeout: time.Minute},
 		Series: breakingBad, Unknown: unknown, Season: 1, Episode: 1, Lines: lines, Timings: provider.DefaultTimings(),
 	}
-	if shape.Update {
+	if *shape.Update {
 		tgt.Record = func(key string, body []byte) { bodies = append(bodies, shape.Body{Key: key, JSON: body}) }
 	}
 	conformance.Run(t, tgt)
-	if shape.Update && !t.Failed() {
+	if *shape.Update && !t.Failed() {
 		if err := shape.Write("shape.json", bodies); err != nil {
 			t.Fatal(err)
 		}
