@@ -32,11 +32,16 @@ const counted = new Intl.NumberFormat("en");
 export const filesWords = (count: number) =>
   count === 1 ? "1 file" : `${counted.format(count)} files`;
 
-function inUseWords({ files, grabs }: RootsInUse): string {
-  const held = files > 0 ? `holds ${filesWords(files)}` : "";
-  const flying =
-    grabs > 0 ? `has ${grabs === 1 ? "a Grab" : `${String(grabs)} Grabs`} in flight` : "";
-  return [held, flying].filter(Boolean).join(" and ");
+const inFlight = (count: number, noun: string) =>
+  count === 1 ? `a ${noun}` : `${counted.format(count)} ${noun}s`;
+
+function inUseWords({ files, grabs, moves }: RootsInUse): string {
+  const parts = [
+    files > 0 ? `holds ${filesWords(files)}` : "",
+    grabs > 0 ? `has ${inFlight(grabs, "Grab")} in flight` : "",
+    moves > 0 ? `has ${inFlight(moves, "Move")} in flight` : "",
+  ].filter(Boolean);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts.join("");
 }
 
 export function deleteRefusal(error: unknown): string {

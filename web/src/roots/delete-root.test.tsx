@@ -31,13 +31,13 @@ test("Delete moves the root's Works to the root picked and leaves the folder on 
   await expect.element(page.getByRole("heading", { name: "Films 1", level: 2 })).toBeVisible();
 });
 
-test("Delete is refused with the counts while the root holds files or a Grab", async () => {
+test("Delete is refused with the counts while the root holds files, a Grab or a Move", async () => {
   const empty: RootsRoot = { ...archiveRoot, works: 0 };
   serveRoots({
     roots: [filmsRoot, empty],
     remove: () =>
-      refused(409, "root_in_use", "The root holds files or has a Grab in flight", {
-        use: { files: 40, grabs: 1 },
+      refused(409, "root_in_use", "The root holds files or has a Grab or a Move in flight", {
+        use: { files: 40, grabs: 1, moves: 2 },
       }),
   });
   openRoots();
@@ -46,7 +46,7 @@ test("Delete is refused with the counts while the root holds files or a Grab", a
   await userEvent.click(dialog.getByRole("button", { name: "Delete" }));
   await expect
     .element(
-      dialog.getByText("It can't be deleted while it holds 40 files and has a Grab in flight."),
+      dialog.getByText("It can't be deleted while it holds 40 files, has a Grab in flight and has 2 Moves in flight."),
     )
     .toBeVisible();
 });
