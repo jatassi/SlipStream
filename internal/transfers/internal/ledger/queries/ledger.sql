@@ -1,11 +1,14 @@
 -- name: InsertTransfer :exec
-INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, priority, created_at)
+INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder,
+    destination_client, destination_content_type, destination_info_hash, priority, created_at)
 VALUES (sqlc.arg(id), sqlc.arg(purpose), sqlc.arg(job), sqlc.arg(source_node), sqlc.arg(destination_kind), sqlc.arg(destination_root),
-    sqlc.arg(destination_backup), sqlc.arg(destination_node), sqlc.arg(destination_folder), sqlc.arg(priority), sqlc.arg(created_at));
+    sqlc.arg(destination_backup), sqlc.arg(destination_node), sqlc.arg(destination_folder), sqlc.arg(destination_client), sqlc.arg(destination_content_type),
+    sqlc.arg(destination_info_hash), sqlc.arg(priority), sqlc.arg(created_at));
 
 -- name: InsertFile :exec
-INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, size)
-VALUES (sqlc.arg(transfer_id), sqlc.arg(position), sqlc.arg(group_key), sqlc.arg(name), sqlc.arg(source_kind), sqlc.arg(info_hash), sqlc.arg(file_index), sqlc.arg(path), sqlc.arg(source_folder), sqlc.arg(size));
+INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, source_root, size)
+VALUES (sqlc.arg(transfer_id), sqlc.arg(position), sqlc.arg(group_key), sqlc.arg(name), sqlc.arg(source_kind), sqlc.arg(info_hash), sqlc.arg(file_index), sqlc.arg(path),
+    sqlc.arg(source_folder), sqlc.arg(source_root), sqlc.arg(size));
 
 -- name: TransferOfJob :one
 SELECT id FROM transfers_record WHERE purpose = sqlc.arg(purpose) AND job = sqlc.arg(job);
@@ -67,3 +70,13 @@ ON CONFLICT (node_id) DO UPDATE SET send_limit = excluded.send_limit;
 
 -- name: TransfersOfPurpose :many
 SELECT id FROM transfers_record WHERE purpose = sqlc.arg(purpose) ORDER BY created_at, id;
+
+-- name: LibrarySending :many
+SELECT DISTINCT source_root, path FROM transfers_file
+WHERE source_kind = 'library' AND placed = 0 AND dropped = 0 AND path IN (sqlc.slice(paths))
+ORDER BY source_root, path;
+
+-- name: CountUsingRoot :one
+SELECT count(*) FROM transfers_record r
+WHERE r.destination_root = sqlc.arg(root)
+    OR EXISTS (SELECT 1 FROM transfers_file f WHERE f.transfer_id = r.id AND f.source_root = sqlc.arg(root) AND f.placed = 0 AND f.dropped = 0);

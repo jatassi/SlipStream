@@ -22,7 +22,12 @@ export const getListTransfersResponseMock = (
         ...(faker.datatype.boolean()
           ? { folder: faker.string.alpha({ length: { min: 10, max: 20 } }) }
           : {}),
-        kind: faker.helpers.arrayElement(["root", "backup", "backups_folder"] as const),
+        kind: faker.helpers.arrayElement([
+          "root",
+          "backup",
+          "backups_folder",
+          "download_folder",
+        ] as const),
         nodeId: faker.string.uuid(),
         nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
         ...(faker.datatype.boolean() ? { rootId: faker.string.uuid() } : {}),
@@ -45,7 +50,7 @@ export const getListTransfersResponseMock = (
       id: faker.string.uuid(),
       job: faker.string.alpha({ length: { min: 10, max: 20 } }),
       jobName: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      purpose: faker.helpers.arrayElement(["import", "backup"] as const),
+      purpose: faker.helpers.arrayElement(["import", "backup", "move"] as const),
       rate: faker.number.int({ min: 0 }),
       ...(faker.datatype.boolean()
         ? { reason: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -200,7 +205,12 @@ export const getGetTransferResponseMock = (
     ...(faker.datatype.boolean()
       ? { folder: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
-    kind: faker.helpers.arrayElement(["root", "backup", "backups_folder"] as const),
+    kind: faker.helpers.arrayElement([
+      "root",
+      "backup",
+      "backups_folder",
+      "download_folder",
+    ] as const),
     nodeId: faker.string.uuid(),
     nodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
     ...(faker.datatype.boolean() ? { rootId: faker.string.uuid() } : {}),
@@ -221,7 +231,7 @@ export const getGetTransferResponseMock = (
   id: faker.string.uuid(),
   job: faker.string.alpha({ length: { min: 10, max: 20 } }),
   jobName: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  purpose: faker.helpers.arrayElement(["import", "backup"] as const),
+  purpose: faker.helpers.arrayElement(["import", "backup", "move"] as const),
   rate: faker.number.int({ min: 0 }),
   ...(faker.datatype.boolean()
     ? { reason: faker.string.alpha({ length: { min: 10, max: 20 } }) }

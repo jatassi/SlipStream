@@ -56,8 +56,8 @@ const (
 	// SourceNotReady: Node can't open the file Name yet. Detail is the
 	// error.
 	SourceNotReady
-	// FolderNotReady: Node can't stage in the Backup folder yet. Detail is
-	// the receiver's error.
+	// FolderNotReady: Node can't stage in the Backup folder or the
+	// download folder yet. Detail is the receiver's error.
 	FolderNotReady
 	// Reconciling: the library is Reconciling after a restore, so no
 	// Transfer starts until it finishes.

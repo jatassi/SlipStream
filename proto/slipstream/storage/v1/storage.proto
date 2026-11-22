@@ -119,6 +119,13 @@ service StorageService {
   // Probe reads one root file's media record with the bundled ffprobe. A
   // file ffprobe can't read is FAILED_PRECONDITION with an Unprobed detail.
   rpc Probe(ProbeRequest) returns (ProbeResponse);
+  // ProbeMove reads one page of a Move's plan: each source file with its
+  // companions, each payload file, and the files at each destination
+  // path. A page of more than 10000 paths is refused.
+  rpc ProbeMove(ProbeMoveRequest) returns (ProbeMoveResponse);
+  // RemoveIf removes a root-relative file only while its size and
+  // modified time are the ones asked.
+  rpc RemoveIf(RemoveIfRequest) returns (RemoveIfResponse);
 }
 
 // FolderService is the folder ops every Node serves, Storage or not, so an
@@ -316,11 +323,35 @@ message PlaceRequest {
     // path is an absolute path in one of the Node's library roots or
     // download folders. Any other is refused with an Outside detail.
     string path = 7;
+    // library is a file in a library root the Node holds, read while the
+    // Node drains Storage too.
+    LibrarySource library = 8;
+    // arriving is a payload file a Move placed in a download folder.
+    ArrivingSource arriving = 9;
   }
   string to = 4;
   // allow_copy lets a place copy the file when link and clone both refuse.
   // Without it the place fails with a NeedsCopy detail.
   bool allow_copy = 5;
+  // ledger records the placed file in the root's Sidecar ledger.
+  bool ledger = 10;
+}
+
+// LibrarySource is the file at rel, '/' separated, under the root.
+message LibrarySource {
+  bytes root_id = 1;
+  string rel = 2;
+}
+
+// ArrivingSource is the file at path, '/' separated as the torrent's
+// metainfo names it, of the torrent with info_hash in the folder a
+// Download Client keeps it in: client_id names an external client, empty
+// for the built-in one, and content_type is empty for an adopted torrent.
+message ArrivingSource {
+  bytes client_id = 1;
+  string content_type = 2;
+  bytes info_hash = 3;
+  string path = 4;
 }
 
 message PlaceResponse {
@@ -403,6 +434,8 @@ message MoveRequest {
   // video_extensions are the Admin's video file extensions, lower case
   // without the dot. A file with one is never another's companion.
   repeated string video_extensions = 5;
+  // ledger records the file at to in the root's Sidecar ledger.
+  bool ledger = 6;
 }
 
 message MoveResponse {
@@ -549,6 +582,96 @@ message ProbeRequest {
 message ProbeResponse {
   // record is media.Record as JSON, the shape files_file.probe keeps.
   bytes record = 1;
+}
+
+message ProbeMoveRequest {
+  repeated ProbeRoot sources = 1;
+  repeated ProbeRoot destinations = 2;
+  repeated Payload payloads = 3;
+  // video_extensions are as on MoveRequest: they say which files are a
+  // source file's companions.
+  repeated string video_extensions = 4;
+}
+
+// ProbeRoot is root-relative paths under one root.
+message ProbeRoot {
+  bytes root_id = 1;
+  repeated string rels = 2;
+}
+
+message ProbeMoveResponse {
+  // Each list is in request order.
+  repeated ProbedSource sources = 1;
+  repeated ProbedDestination destinations = 2;
+  repeated ProbedPayload payloads = 3;
+}
+
+message ProbedSource {
+  repeated ProbedFile files = 1;
+}
+
+// ProbedFile is a source file, missing when the root holds none at its
+// path.
+message ProbedFile {
+  bool missing = 1;
+  int64 size = 2;
+  Identity identity = 3;
+  repeated ProbedCompanion companions = 4;
+}
+
+// ProbedCompanion is a companion of a source file. name is in the file's
+// folder, so a companion can't name a path outside it.
+message ProbedCompanion {
+  string name = 1;
+  int64 size = 2;
+  Identity identity = 3;
+  // ledger: the root's Sidecar ledger holds its bytes.
+  bool ledger = 4;
+}
+
+message ProbedDestination {
+  repeated ProbedPath paths = 1;
+}
+
+// ProbedPath is the files in a destination path's folder whose names
+// equal its name without case, each by its name in that folder.
+message ProbedPath {
+  repeated ProbedOccupant occupants = 1;
+}
+
+message ProbedOccupant {
+  string name = 1;
+  int64 size = 2;
+  Identity identity = 3;
+}
+
+message ProbedPayload {
+  bool missing = 1;
+  int64 size = 2;
+  Identity identity = 3;
+  // volume is the Volume.id the file lies on.
+  string volume = 4;
+}
+
+message RemoveIfRequest {
+  bytes root_id = 1;
+  string path = 2;
+  int64 size = 3;
+  int64 modified_unix_ms = 4;
+}
+
+message RemoveIfResponse {
+  Removal removal = 1;
+}
+
+enum Removal {
+  REMOVAL_UNSPECIFIED = 0;
+  REMOVAL_REMOVED = 1;
+  // gone: no file was at the path.
+  REMOVAL_GONE = 2;
+  // changed: the file's size or modified time isn't the one asked, so it
+  // stays.
+  REMOVAL_CHANGED = 3;
 }
 
 // Unprobed details a Probe of a file ffprobe can't read.

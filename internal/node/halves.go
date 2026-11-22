@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"errors"
+	"maps"
 	"net"
 	"net/http"
 	"net/netip"
@@ -80,6 +81,7 @@ import (
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/trackers"
 	"github.com/jatassi/slipstream/internal/transfers"
+	"github.com/jatassi/slipstream/internal/transfers/source"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -263,8 +265,16 @@ func (n *Node) startController(ctx context.Context) error {
 		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
 			return roots.DestinationsIn(ctx, r, ids, stored, side)
 		},
-		RootsMoved:   func() <-chan struct{} { return homes.Watch() },
-		Readiness:    clients.ReadinessIn,
+		RootsMoved: func() <-chan struct{} { return homes.Watch() },
+		Readiness: func(ctx context.Context, rd storage.Reader[storage.Library], node role.NodeID, refs []source.Ref) (map[source.Ref]source.Readiness, error) {
+			out, err := clients.ReadinessIn(ctx, rd, node, refs)
+			if err != nil {
+				return nil, err
+			}
+			library, err := roots.LibraryReadiness(ctx, rd, refs)
+			maps.Copy(out, library)
+			return out, err
+		},
 		Moved:        clients.Moved,
 		LowWait:      backups.CopyWaitLimitIn,
 		Paused:       whileReconciling,
@@ -277,6 +287,9 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:          n.rootLog.With("subsystem", "transfers"),
 	})
 	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
+	for _, p := range n.env.Test.Purposes {
+		copies.Register(p)
+	}
 	servers := mediaservers.New(mediaservers.Config{
 		Library: lib.db,
 		Sealer:  lib.sealer,
@@ -426,11 +439,11 @@ func (n *Node) startController(ctx context.Context) error {
 	subtitlesv1connect.SubtitlesService.Mount(dispatch, n.subtitlesHolder(client))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
-	storagev1connect.StorageService.Mount(dispatch, n.store)
-	storagev1connect.FolderService.Mount(dispatch, n.store)
 	if err := n.mountSidecars(ctx, dispatch, local); err != nil {
 		return err
 	}
+	storagev1connect.StorageService.Mount(dispatch, n.store)
+	storagev1connect.FolderService.Mount(dispatch, n.store)
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
@@ -709,7 +722,7 @@ func (n *Node) startController(ctx context.Context) error {
 	})
 	cat.Seal()
 
-	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
+	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found, Transfers: copies}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
 		Library: lib.db,
 		Catalog: append(catalog(housekeeping.Config{
@@ -1046,11 +1059,11 @@ func (n *Node) startWorker(ctx context.Context) error {
 	subtitlesv1connect.SubtitlesService.Mount(dispatch, n.subtitlesHolder(client))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
-	storagev1connect.StorageService.Mount(dispatch, n.store)
-	storagev1connect.FolderService.Mount(dispatch, n.store)
 	if err := n.mountSidecars(ctx, dispatch, local); err != nil {
 		return err
 	}
+	storagev1connect.StorageService.Mount(dispatch, n.store)
+	storagev1connect.FolderService.Mount(dispatch, n.store)
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
@@ -1102,15 +1115,16 @@ func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatc
 	n.claimed.OnStop("local.db", func(context.Context) error { return local.Close() })
 	n.claimed.OnStop("torrent resume data", n.downloads.Shutdown(local))
 	copier := transfers.NewNode(transfers.NodeConfig{
-		Local:   local,
-		Disk:    n.disk,
-		Link:    n.link,
-		Sources: n.downloading,
-		Roots:   n.store,
-		Timings: n.cfg.Timings.Transfers,
-		Retry:   n.cfg.Timings.Backups.WindowsRetry,
-		Hooks:   n.env.Test.Transfers,
-		Log:     n.rootLog.With("subsystem", "transfers"),
+		Local:     local,
+		Disk:      n.disk,
+		Link:      n.link,
+		Sources:   opener{store: n.store, torrents: n.downloading},
+		Roots:     n.store,
+		Downloads: n.downloading,
+		Timings:   n.cfg.Timings.Transfers,
+		Retry:     n.cfg.Timings.Backups.WindowsRetry,
+		Hooks:     n.env.Test.Transfers,
+		Log:       n.rootLog.With("subsystem", "transfers"),
 	})
 	holding, err := role.NewHolding(ctx, role.HoldingConfig{
 		Local:      local,
@@ -1298,4 +1312,28 @@ func lookOn(ctx context.Context, cluster *rpc.Cluster, node role.NodeID, folder 
 	}
 	res, err := downloadingv1connect.DownloadingService.On(cluster, node).Look(ctx, req)
 	return res.GetFound(), err
+}
+
+// opener serves a Transfer's sources on this Node: a library file from
+// the root that holds it, read even while the Node drains its Storage,
+// and every other source from its Download Client.
+type opener struct {
+	store    *storing.Store
+	torrents transfers.Opener
+}
+
+func (o opener) Open(ref source.Ref) (string, error) {
+	lib, ok := ref.(source.Library)
+	if !ok {
+		return o.torrents.Open(ref)
+	}
+	rel, err := storing.ParseRel(lib.Rel)
+	if err != nil {
+		return "", &source.Absent{Reason: source.Gone, Detail: err.Error()}
+	}
+	root, err := storage.UUIDFromBytes(lib.Root[:])
+	if err != nil {
+		return "", err
+	}
+	return o.store.OpenLibrary(context.Background(), root, rel)
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/transfers/source"
@@ -142,4 +143,70 @@ func TestReservedInCountsWhatLiveTransfersStillSend(t *testing.T) {
 			t.Errorf("ReservedIn on another volume = %d, want 0", got)
 		}
 	})
+}
+
+func TestALibrarySourceIsSentByItsRootAndPath(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newCluster(t)
+		at := source.Library{Root: [16]byte(storage.NewUUID().Bytes()), Rel: "Heat (1995)/Heat.mkv"}
+		id := r.want(t, "move", transfers.FileRequest{Name: "Heat.mkv", Source: at, Size: 1 << 20})
+		if got := r.view(t, id).Files[0].Source; got != at {
+			t.Errorf("the recorded source is %v, want %v", got, at)
+		}
+		in, _ := r.seedboxEnd.now()
+		lib := in.GetActive()[0].GetFiles()[0].GetSource().GetLibrary()
+		if [16]byte(lib.GetRoot()) != at.Root || lib.GetRel() != at.Rel {
+			t.Errorf("seedbox is asked to send %v, want %v", lib, at)
+		}
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			sending, err := transfers.Sending(ctx, tx, []source.Library{at, {Root: at.Root, Rel: "Ronin (1998)/Ronin.mkv"}})
+			if err != nil || len(sending) != 1 || !sending[at] {
+				t.Errorf("Sending = %v, %v; want only %v", sending, err, at)
+			}
+			for _, root := range []roots.ID{r.root, {UUID: mustUUID(t, at.Root)}} {
+				if n, err := transfers.UsingRoot(ctx, tx, root); n != 1 || err != nil {
+					t.Errorf("UsingRoot(%s) = %d, %v; want the one Transfer", root, n, err)
+				}
+			}
+			return err
+		})
+		r.homeEnd.report(t, failed(id, tv1.Failed_CODE_SOURCE_GONE, ""))
+		_, f, _ := r.purpose.seen()
+		check(t, "Failed", f, []string{"move: seedbox no longer has Heat.mkv."})
+	})
+}
+
+func TestADownloadFolderDestinationStoresItsNodeAndReachesItsReceiver(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newCluster(t)
+		client := [16]byte{7}
+		to := transfers.DownloadFolder{Node: r.home, Client: &client, ContentType: "films", InfoHash: bencode.InfoHash{9}}
+		var id transfers.ID
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			var err error
+			id, err = r.tr.Want(ctx, tx, transfers.Request{Purpose: transfers.Import, Job: "payload", Source: r.seedbox, Destination: to, Files: []transfers.FileRequest{episode(1, "")}})
+			return err
+		})
+		v := r.view(t, id)
+		if got, ok := v.Destination.(transfers.DownloadFolder); !ok || got.Node != to.Node || *got.Client != client || got.ContentType != "films" || got.InfoHash != to.InfoHash || v.DestNode != r.home {
+			t.Errorf("the destination reads %+v on %s, want %+v", v.Destination, v.DestNode, to)
+		}
+		in, _ := r.homeEnd.now()
+		d := in.GetActive()[0].GetDestination().GetDownloadFolder()
+		if [16]byte(d.GetClientId()) != client || d.GetContentType() != "films" || bencode.InfoHash(d.GetInfoHash()) != to.InfoHash {
+			t.Errorf("home receives into %v, want %+v", d, to)
+		}
+		r.homeEnd.report(t, verifiedResult(id, 0, 1))
+		verified, _, _ := r.purpose.seen()
+		check(t, "Verified", verified, []string{"payload "})
+	})
+}
+
+func mustUUID(t *testing.T, b [16]byte) storage.UUID {
+	t.Helper()
+	u, err := storage.UUIDFromBytes(b[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u
 }

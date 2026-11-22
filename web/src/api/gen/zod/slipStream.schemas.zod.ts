@@ -13293,9 +13293,9 @@ export const TransfersDestination = zod.object({
     .exactOptional()
     .describe("The folder on its Node, for backup and backups_folder"),
   kind: zod
-    .enum(["root", "backup", "backups_folder"])
+    .enum(["root", "backup", "backups_folder", "download_folder"])
     .describe(
-      "root is a library root, backup a Backup destination, and backups_folder the Controller's Backups folder",
+      "root is a library root, backup a Backup destination, backups_folder the Controller's Backups folder, and download_folder a Download Client's folder",
     ),
   nodeId: zod.uuid().describe("The Node that holds it now"),
   nodeName: zod.string(),
@@ -13431,9 +13431,9 @@ export const TransfersTransfer = zod.object({
   job: zod.string().describe("The id of the job that asked for it, such as its Grab's"),
   jobName: zod.string().describe("The job's name, such as a Work's title and year"),
   purpose: zod
-    .enum(["import", "backup"])
+    .enum(["import", "backup", "move"])
     .describe(
-      "The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller",
+      "The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller, and move copies a library file or a torrent's payload to another Node",
     ),
   rate: zod
     .int()

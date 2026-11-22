@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
@@ -35,12 +36,15 @@ const (
 	// Backup copies a Backup to a Backup destination, or pulls one back
 	// into the Controller's Backups folder.
 	Backup PurposeKind = "backup"
+	// Move copies a Work's files to another library root, or a torrent's
+	// payload to another Download Client's folder.
+	Move PurposeKind = "move"
 )
 
 // Destination is where a Transfer's files go. A root's Node is never
 // stored: judge reads it from the root each time, so a re-home moves it.
-// The two Backup kinds are never re-homed, so their record stores their
-// Node and folder.
+// The two Backup kinds and DownloadFolder are never re-homed, so their
+// record stores their Node.
 type Destination interface{ kind() string }
 
 // Root is a library root destination. Its receiver stages file position
@@ -63,17 +67,31 @@ type BackupsFolder struct {
 	Folder string
 }
 
+// DownloadFolder is a torrent payload's folder in a Download Client on
+// Node: the built-in client's when Client is nil, else the external
+// client's, resolved on Node. ContentType is "" for an adopted torrent.
+// Its receiver stages in the client's folder.
+type DownloadFolder struct {
+	Node        role.NodeID
+	Client      *[16]byte
+	ContentType string
+	InfoHash    bencode.InfoHash
+}
+
 func (Root) kind() string              { return rootKind }
 func (BackupDestination) kind() string { return backupKind }
 func (BackupsFolder) kind() string     { return backupsFolderKind }
+func (DownloadFolder) kind() string    { return downloadFolderKind }
 
 const (
-	rootKind          = "root"
-	backupKind        = "backup"
-	backupsFolderKind = "backups_folder"
+	rootKind           = "root"
+	backupKind         = "backup"
+	backupsFolderKind  = "backups_folder"
+	downloadFolderKind = "download_folder"
 )
 
-// backupPlace is a Backup kind's place, which never moves.
+// backupPlace is the place of a Backup kind and of a download folder,
+// which never moves.
 const backupPlace = 1
 
 // Priority is a Transfer's place in its pair's line.
@@ -352,6 +370,11 @@ func record(ctx context.Context, q *ledger.Queries, r Request) (id ID, failed, o
 		row.DestinationBackup, row.DestinationNode, row.DestinationFolder = d.ID[:], d.Node, &d.Folder
 	case BackupsFolder:
 		row.DestinationNode, row.DestinationFolder = d.Node, &d.Folder
+	case DownloadFolder:
+		row.DestinationNode, row.DestinationContentType, row.DestinationInfoHash = d.Node, &d.ContentType, d.InfoHash[:]
+		if d.Client != nil {
+			row.DestinationClient = d.Client[:]
+		}
 	}
 	if err = q.InsertTransfer(ctx, row); err != nil {
 		return ID{}, false, false, fmt.Errorf("record the Transfer: %w", err)
@@ -412,6 +435,8 @@ func fileRow(id ID, position int, f FileRequest) ledger.InsertFileParams {
 		p.Path = &s.Abs
 	case source.Backup:
 		p.SourceFolder = &s.Folder
+	case source.Library:
+		p.Path, p.SourceRoot = &s.Rel, s.Root[:]
 	}
 	return p
 }
@@ -559,14 +584,24 @@ func destinationOf(row ledger.Transfer) Destination {
 		return BackupDestination{ID: [16]byte(row.DestinationBackup), Node: row.DestinationNode, Folder: *row.DestinationFolder}
 	case backupsFolderKind:
 		return BackupsFolder{Node: row.DestinationNode, Folder: *row.DestinationFolder}
+	case downloadFolderKind:
+		d := DownloadFolder{Node: row.DestinationNode, ContentType: *row.DestinationContentType, InfoHash: bencode.InfoHash(row.DestinationInfoHash)}
+		if row.DestinationClient != nil {
+			d.Client = (*[16]byte)(row.DestinationClient)
+		}
+		return d
 	}
 	panic("transfers: a destination of no known kind")
 }
 
-// fromPath is whether f's source is a path.
+// fromPath is whether f's source is a file the sender reads from its
+// disk itself: a path or a library file.
 func (f File) fromPath() bool {
-	_, ok := f.Source.(source.Path)
-	return ok
+	switch f.Source.(type) {
+	case source.Path, source.Library:
+		return true
+	}
+	return false
 }
 
 func refOf(f ledger.File) (source.Ref, error) {
@@ -582,6 +617,8 @@ func refOf(f ledger.File) (source.Ref, error) {
 		return source.Path{Abs: *f.Path}, nil
 	case source.BackupKind:
 		return source.Backup{Folder: *f.SourceFolder, Name: f.Name}, nil
+	case source.LibraryKind:
+		return source.Library{Root: [16]byte(f.SourceRoot), Rel: *f.Path}, nil
 	}
 	return nil, fmt.Errorf("file %d of Transfer %s has the source kind %q", f.Position, f.TransferID, f.SourceKind)
 }

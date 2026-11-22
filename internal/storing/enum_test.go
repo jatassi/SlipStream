@@ -56,6 +56,7 @@ func TestEveryEnumValueMapsBothWays(t *testing.T) {
 	walkEnum(t, heldFolders)
 	walkEnum(t, unreadReasons)
 	walkEnum(t, steps)
+	walkEnum(t, removals)
 }
 
 func TestEnumMethodsReadTheTable(t *testing.T) {

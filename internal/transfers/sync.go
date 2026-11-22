@@ -90,6 +90,8 @@ func destinationIn(ctx context.Context, rd storage.Reader[storage.Library], tr T
 		return d.Node, backupPlace, nil
 	case BackupsFolder:
 		return d.Node, backupPlace, nil
+	case DownloadFolder:
+		return d.Node, backupPlace, nil
 	}
 	panic("transfers: a destination of no known kind")
 }

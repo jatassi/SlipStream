@@ -23,12 +23,14 @@ type spec struct {
 	peer  link.Key
 	addrs link.Addresses
 	route tv1.Route
-	// root and place are the receiver's destination, or backup is the
-	// Backup folder and name it renames its one file to.
-	root   storage.UUID
-	place  int64
-	backup *tv1.BackupPlace
-	files  []file
+	// root and place are the receiver's destination, backup is the
+	// Backup folder and name it renames its one file to, or download is
+	// the download folder it stages in.
+	root     storage.UUID
+	place    int64
+	backup   *tv1.BackupPlace
+	download *Download
+	files    []file
 }
 
 type file struct {
@@ -43,7 +45,7 @@ type file struct {
 // list is the Controller catching up on files already reported.
 func (s spec) sameRun(o spec) bool {
 	return s.id == o.id && s.side == o.side && s.peer == o.peer && s.addrs == o.addrs && s.root == o.root && s.place == o.place &&
-		proto.Equal(s.backup, o.backup)
+		proto.Equal(s.backup, o.backup) && sameDownload(s.download, o.download)
 }
 
 // receivesDropped reports whether s receives a file live doesn't list: a
@@ -110,6 +112,12 @@ func (s spec) receiving(d *tv1.Destination) (spec, error) {
 		s.backup, s.place = k.Backup, backupPlace
 	case *tv1.Destination_BackupsFolder:
 		s.backup, s.place = k.BackupsFolder, backupPlace
+	case *tv1.Destination_DownloadFolder:
+		d, err := parseDownload(k.DownloadFolder)
+		if err != nil {
+			return spec{}, fmt.Errorf("transfer %s: %w", s.id, err)
+		}
+		s.download, s.place = &d, backupPlace
 	default:
 		return spec{}, fmt.Errorf("transfer %s: no destination", s.id)
 	}
@@ -149,6 +157,42 @@ func parseSource(s *tv1.Source) (source.Ref, error) {
 		return source.Path{Abs: r.Path.GetAbs()}, nil
 	case *tv1.Source_Backup:
 		return source.Backup{Folder: r.Backup.GetFolder(), Name: r.Backup.GetName()}, nil
+	case *tv1.Source_Library:
+		if len(r.Library.GetRoot()) != len([16]byte{}) || r.Library.GetRel() == "" {
+			return nil, errors.New("a library source with no root or path")
+		}
+		return source.Library{Root: [16]byte(r.Library.GetRoot()), Rel: r.Library.GetRel()}, nil
 	}
 	return nil, errors.New("a source of no kind this build reads")
+}
+
+// Download is a download folder destination: the folder a Download Client
+// on this Node keeps the torrent with InfoHash in. Client is nil for the
+// built-in client.
+type Download struct {
+	Client      *[16]byte
+	ContentType string
+	InfoHash    bencode.InfoHash
+}
+
+func parseDownload(w *tv1.DownloadFolder) (Download, error) {
+	if len(w.GetInfoHash()) != len(bencode.InfoHash{}) {
+		return Download{}, fmt.Errorf("a download folder with an info hash of %d bytes", len(w.GetInfoHash()))
+	}
+	d := Download{ContentType: w.GetContentType(), InfoHash: bencode.InfoHash(w.GetInfoHash())}
+	switch c := w.GetClientId(); len(c) {
+	case 0:
+	case len([16]byte{}):
+		d.Client = (*[16]byte)(c)
+	default:
+		return Download{}, fmt.Errorf("a download folder with a client id of %d bytes", len(c))
+	}
+	return d, nil
+}
+
+func sameDownload(a, b *Download) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.ContentType == b.ContentType && a.InfoHash == b.InfoHash && (a.Client == nil) == (b.Client == nil) && (a.Client == nil || *a.Client == *b.Client)
 }

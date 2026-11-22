@@ -73,7 +73,7 @@ func (s *Sidecars) BuildSpeechMap(ctx context.Context, req *storagev1.BuildSpeec
 	if err != nil {
 		return nil, wireError(err)
 	}
-	info, err := s.stat(ctx, dir, rel)
+	info, err := s.store.stat(ctx, dir, rel)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, wireError(s.store.folderError(err))
 	}
@@ -278,7 +278,7 @@ func (s *Sidecars) ReadSpeechMap(ctx context.Context, req *storagev1.ReadSpeechM
 	if err != nil {
 		return nil, wireError(err)
 	}
-	info, err := s.stat(ctx, dir, rel)
+	info, err := s.store.stat(ctx, dir, rel)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return stale, nil
