@@ -1,39 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
-import { Suspense } from "react";
 
 import { sentenceOf } from "../api/errors";
-import type { GrabsGrab } from "../api/gen/model";
-import {
-  actOnTorrents,
-  useListTorrentsSuspense,
-} from "../api/gen/query/downloadclients/downloadclients";
-import { useProjection } from "../library/projection";
+import { actOnTorrents } from "../api/gen/query/downloadclients/downloadclients";
 import { subjectOf } from "../torrents/actions";
 import { Preview, freesWords } from "../torrents/remove-preview";
 import { SignalLine } from "../ui/signal-line";
 import { Spinner } from "../ui/spinner";
+import type { Job } from "./job";
 
 // A downloading Grab's cancel is its Torrent's remove, so it shows the same dry run.
-function TorrentGoes({
-  grab,
-  torrentId,
-  work,
-}: {
-  grab: GrabsGrab;
-  torrentId: string;
-  work: string;
-}) {
-  const works = useProjection().byId;
-  const row = useListTorrentsSuspense(undefined, {
-    query: { select: ({ rows }) => rows.find(({ id }) => id === torrentId) },
-  }).data;
+function TorrentGoes({ grab, torrentId, work, torrent, names }: Job & { torrentId: string }) {
   const preview = useQuery({
     queryKey: ["cancel-preview", grab.id, torrentId],
     queryFn: ({ signal }) =>
       actOnTorrents({ action: "remove", ids: [torrentId], dryRun: true }, { signal }),
     gcTime: 0,
   });
-  const subject = row === undefined ? { id: torrentId, name: work } : subjectOf(row, work);
+  const subject = torrent === undefined ? { id: torrentId, name: work } : subjectOf(torrent, work);
   return (
     <>
       <p>
@@ -53,7 +36,7 @@ function TorrentGoes({
           parting="remove"
           acted={preview.data}
           subjects={[subject]}
-          work={(id) => works.get(id)?.label}
+          work={names}
           besides={grab.id}
         />
       )}
@@ -61,13 +44,10 @@ function TorrentGoes({
   );
 }
 
-export function Stops({ grab, work }: { grab: GrabsGrab; work: string }) {
+export function Stops(job: Job) {
+  const { grab } = job;
   if (grab.stage === "downloading" && grab.torrentId !== null) {
-    return (
-      <Suspense fallback={<Spinner label="Checking what this changes" />}>
-        <TorrentGoes grab={grab} torrentId={grab.torrentId} work={work} />
-      </Suspense>
-    );
+    return <TorrentGoes {...job} torrentId={grab.torrentId} />;
   }
   if (grab.stage === "importing") {
     return (

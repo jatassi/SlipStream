@@ -8,42 +8,34 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import type { GrabsGrab } from "../api/gen/model";
-import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downloadclients";
 import { ActionsMenu } from "../torrents/actions-menu";
 import { type TorrentAction, menuFor, subjectOf } from "../torrents/actions";
 import { IconButton } from "../ui/icon-button";
 import { Menu, type MenuEntry } from "../ui/menu";
 import { type GrabView, GrabDialogs } from "./grab-details";
-// oxlint-disable-next-line import/max-dependencies -- a Grab's menu wraps its Torrent's and adds Details, Import by hand and Cancel
+import type { Job } from "./job";
 import { byHand } from "./stages";
 
-type Job = { readonly grab: GrabsGrab; readonly work: string };
-
 /** A Grab's own menu items around its Torrent's: Details first, Cancel Grab last. */
-type GrabItems = (torrent: readonly MenuEntry[]) => MenuEntry[];
+type GrabItems = (torrentItems: readonly MenuEntry[]) => MenuEntry[];
 
 const jobActions = new Set<TorrentAction>(["pause", "resume", "remove"]);
 
 function TorrentMenu({
   grab,
   work,
-  torrentId,
+  row,
+  names,
   itemsWith,
-}: Job & { torrentId: string; itemsWith: GrabItems }) {
+}: Omit<Job, "torrent"> & { row: NonNullable<Job["torrent"]>; itemsWith: GrabItems }) {
   const navigate = useNavigate();
-  const row = useListTorrentsSuspense(undefined, {
-    query: { select: ({ rows }) => rows.find(({ id }) => id === torrentId) },
-  }).data;
-  if (row === undefined) {
-    return <GrabMenu work={work} items={itemsWith([])} />;
-  }
   const actions =
     grab.stage === "downloading" ? menuFor(row).filter((action) => jobActions.has(action)) : [];
   return (
     <ActionsMenu
       subject={subjectOf(row, work)}
       actions={actions}
+      names={names}
       extra={itemsWith([
         {
           label: "Open its torrent",
@@ -75,9 +67,10 @@ function GrabMenu({ work, items }: { work: string; items: readonly MenuEntry[] }
  * A Grab's menu: its Details, Cancel while it can be canceled, and once it
  * has a Torrent, opening it and, while it downloads, pause, resume or remove.
  */
-export function JobMenu({ grab, work }: Job) {
+export function JobMenu(job: Job) {
+  const { grab, work, torrent } = job;
   const [view, setView] = useState<GrabView>();
-  const itemsWith: GrabItems = (torrent) => [
+  const itemsWith: GrabItems = (torrentItems) => [
     {
       label: "Details",
       icon: InformationCircleIcon,
@@ -85,7 +78,7 @@ export function JobMenu({ grab, work }: Job) {
         setView("details");
       },
     },
-    ...torrent,
+    ...torrentItems,
     ...(byHand(grab)
       ? [
           {
@@ -113,12 +106,12 @@ export function JobMenu({ grab, work }: Job) {
   ];
   return (
     <>
-      {grab.torrentId === null ? (
+      {torrent === undefined ? (
         <GrabMenu work={work} items={itemsWith([])} />
       ) : (
-        <TorrentMenu grab={grab} work={work} torrentId={grab.torrentId} itemsWith={itemsWith} />
+        <TorrentMenu {...job} row={torrent} itemsWith={itemsWith} />
       )}
-      <GrabDialogs grab={grab} work={work} view={view} onView={setView} />
+      <GrabDialogs {...job} view={view} onView={setView} />
     </>
   );
 }

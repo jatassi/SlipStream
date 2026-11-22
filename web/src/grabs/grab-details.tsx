@@ -12,6 +12,7 @@ import { GrabFacts } from "./grab-facts";
 // oxlint-disable-next-line import/max-dependencies -- Details shows the Grab, its download's files and each sheet acting on it
 import { GrabOutcome, GrabRecord, GrabStages } from "./grab-record";
 import { ImportByHand, ImportLines } from "./import-lines";
+import type { Job } from "./job";
 import { SendToSheet } from "./send-to-sheet";
 import { byHand } from "./stages";
 
@@ -85,16 +86,14 @@ function GrabActions({ grab, onView }: { grab: GrabsGrab; onView: OnView }) {
  * client. `view` names the open one; the caller opens it from a menu or a card.
  */
 export function GrabDialogs({
-  grab,
-  work,
   view,
   onView,
-}: {
-  grab: GrabsGrab;
-  work: string;
+  ...job
+}: Job & {
   view: GrabView | undefined;
   onView: OnView;
 }) {
+  const { grab, work } = job;
   const close = (open: boolean) => {
     if (!open) {
       onView(undefined);
@@ -115,7 +114,7 @@ export function GrabDialogs({
         </div>
         <GrabActions grab={grab} onView={onView} />
       </Dialog>
-      <CancelGrab grab={grab} work={work} open={view === "cancel"} onOpenChange={close} />
+      <CancelGrab {...job} open={view === "cancel"} onOpenChange={close} />
       {grab.actions.sendTo && (
         <SendToSheet grab={grab} open={view === "send-to"} onOpenChange={close} />
       )}

@@ -9,6 +9,10 @@ import { useStartSearch } from "./search";
 import { type FailedGrab, skippedStages, trackStage } from "./stages";
 import { type Stop, useRecoveryFacts } from "./stopped-facts";
 
+/** A failed Grab knows only its own Work's name; it has no Torrent to cancel. */
+const workOf = (grab: FailedGrab, work: string, id: string) =>
+  id === grab.workId ? work : undefined;
+
 export const failureAnchor = (grab: FailedGrab): string => `failed-${grab.id}`;
 
 function failedAt(grab: FailedGrab): string {
@@ -59,6 +63,7 @@ export function GrabFailure({
   const recovery = useRecoveryFacts(grab, stop);
   const [view, setView] = useState<GrabView>();
   const { cause } = grab.failure;
+  const failed = { grab, work, torrent: undefined, names: (id: string) => workOf(grab, work, id) };
   const actions = useCardActions(grab, form, () => {
     setView("details");
   });
@@ -86,7 +91,7 @@ export function GrabFailure({
         }}
         actions={actions}
       />
-      <GrabDialogs grab={grab} work={work} view={view} onView={setView} />
+      <GrabDialogs {...failed} view={view} onView={setView} />
     </div>
   );
 }

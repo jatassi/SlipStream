@@ -2,7 +2,6 @@ import { type ReactNode, useState } from "react";
 
 import { sentenceOf } from "../api/errors";
 import { actOnTorrents } from "../api/gen/query/downloadclients/downloadclients";
-import { useProjection } from "../library/projection";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { toast } from "../ui/toast";
 import { type Subject, type TorrentAction, outcomeWords } from "./actions";
@@ -15,16 +14,14 @@ type Asking = {
   readonly subjects: readonly Subject[];
 };
 
-function useWorkNames(): (id: string) => string | undefined {
-  const works = useProjection().byId;
-  return (id) => works.get(id)?.label;
-}
+/** Each Work's name by its id, for the Works a torrent's files belong to. */
+export type WorkNames = (id: string) => string | undefined;
 
 async function actAndSay(
   action: TorrentAction,
   subjects: readonly Subject[],
   deleteFiles: boolean,
-  work: (id: string) => string | undefined,
+  work: WorkNames,
 ) {
   const { results } = await actOnTorrents({
     action,
@@ -54,11 +51,10 @@ function failed(error: unknown) {
  * a torrent that still owes its Tracker; `dialogs` is where those
  * questions render.
  */
-export function useActing(): {
+export function useActing(work: WorkNames): {
   start: (action: TorrentAction, subjects: readonly Subject[]) => void;
   dialogs: ReactNode;
 } {
-  const work = useWorkNames();
   const [asking, setAsking] = useState<Asking>();
   const [open, setOpen] = useState(false);
 
@@ -118,7 +114,7 @@ function Asked({
     subjects: readonly Subject[],
     deleteFiles?: boolean,
   ) => Promise<void>;
-  work: (id: string) => string | undefined;
+  work: WorkNames;
 }) {
   const parting = asking.action;
   if (parting === "pause") {

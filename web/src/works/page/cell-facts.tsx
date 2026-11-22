@@ -5,6 +5,7 @@ import type {
   FilesStep,
   GrabsGrab,
 } from "../../api/gen/model";
+import { useListTorrentsSuspense } from "../../api/gen/query/downloadclients/downloadclients";
 import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
 import { bytes } from "../../format";
 import { ProgressCell } from "../../grabs/progress-cell";
@@ -13,8 +14,8 @@ import { waitWords } from "../../grabs/search-words";
 import { Quality } from "../../release/quality";
 import { type Clock, useClock } from "../../ui/clock";
 import { Data } from "../../ui/data";
+// oxlint-disable-next-line import/max-dependencies -- a cell names its file, its download, its held step and its wait, each on the shared clock
 import { whenWords } from "../../ui/time-words";
-// oxlint-disable-next-line import/max-dependencies -- a cell names its file, its held step and its wait, each on the shared clock
 import { GrabNowButton } from "./grab-now";
 
 function FileFacts({ file }: { file: FilesLibraryFile }) {
@@ -94,6 +95,13 @@ function SearchFacts({ cell, workId }: { cell: Searchable; workId: string }) {
   );
 }
 
+function GrabProgress({ grab }: { grab: GrabsGrab }) {
+  const torrent = useListTorrentsSuspense(undefined, {
+    query: { select: ({ rows }) => rows.find(({ id }) => id === grab.torrentId) },
+  }).data;
+  return <ProgressCell grab={grab} torrent={torrent} />;
+}
+
 type Searchable = Pick<
   FilesCell,
   "gone" | "waitUntil" | "candidates" | "itemId" | "edition" | "targetId"
@@ -115,7 +123,7 @@ function StateFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly GrabsGra
       const importing = grab?.stage === "importing" && grab.import !== null;
       return (
         <>
-          {grab !== undefined && <ProgressCell grab={grab} />}
+          {grab !== undefined && <GrabProgress grab={grab} />}
           <HeldFacts held={importing ? { ...cell, step: null } : cell} grabs={grabs} />
           {cell.file !== null && <Replaces file={cell.file} />}
         </>

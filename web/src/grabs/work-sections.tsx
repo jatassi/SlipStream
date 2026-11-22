@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 
+import type { GrabsGrab } from "../api/gen/model";
 import { getListTorrentsSuspenseQueryOptions } from "../api/gen/query/downloadclients/downloadclients";
 import {
   getListGrabsSuspenseQueryOptions,
@@ -8,8 +9,9 @@ import {
 } from "../api/gen/query/grabs/grabs";
 import { getListTransfersSuspenseQueryOptions } from "../api/gen/query/transfers/transfers";
 import { ensureQuery } from "../api/query-client";
+import { useNames } from "../torrents/names";
 import { Section } from "../ui/section";
-import { GrabTable } from "./grab-table";
+import { GrabTable, useTorrentOf } from "./grab-table";
 import { needsYou, withoutReplacedFailures } from "./stages";
 
 /** What a Work's searches and Grabs sections read. */
@@ -38,6 +40,17 @@ function emptyGrabsWords(failed: number): string {
     : `No other Grabs. The ${String(failed)} failed ones are under Needs you.`;
 }
 
+function WorkGrabTable({ grabs, work }: { grabs: readonly GrabsGrab[]; work: string }) {
+  const torrentOf = useTorrentOf();
+  const names = useNames().work;
+  return (
+    <GrabTable
+      layout="work"
+      rows={grabs.map((grab) => ({ grab, work, torrent: torrentOf(grab), names }))}
+    />
+  );
+}
+
 export function Grabs({ workId, work }: { workId: string; work: string }) {
   const all = useWorkGrabs(workId);
   const grabs = all.filter((grab) => !needsYou(grab));
@@ -46,7 +59,7 @@ export function Grabs({ workId, work }: { workId: string; work: string }) {
       {grabs.length === 0 ? (
         <p className="text-ink-3">{emptyGrabsWords(all.length - grabs.length)}</p>
       ) : (
-        <GrabTable layout="work" rows={grabs.map((grab) => ({ grab, work }))} />
+        <WorkGrabTable grabs={grabs} work={work} />
       )}
     </Section>
   );

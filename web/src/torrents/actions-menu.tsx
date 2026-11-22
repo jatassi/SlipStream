@@ -13,7 +13,7 @@ import type { IconSvgElement } from "@hugeicons/react";
 import { IconButton } from "../ui/icon-button";
 import { Menu, type MenuEntry } from "../ui/menu";
 import { type Subject, type TorrentAction, actionLabels } from "./actions";
-import { useActing } from "./acting";
+import { type WorkNames, useActing } from "./acting";
 
 export const actionIcons: { readonly [A in TorrentAction]: IconSvgElement } = {
   pause: PauseIcon,
@@ -54,13 +54,15 @@ const noEntries: readonly MenuEntry[] = [];
 export function ActionsMenu({
   subject,
   actions,
+  names,
   extra = noEntries,
 }: {
   subject: Subject;
   actions: readonly TorrentAction[];
+  names: WorkNames;
   extra?: readonly MenuEntry[];
 }) {
-  const { start, dialogs } = useActing();
+  const { start, dialogs } = useActing(names);
   const items = [
     ...extra,
     ...(extra.length > 0 && actions.length > 0 ? (["separator"] as const) : []),
