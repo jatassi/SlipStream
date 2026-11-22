@@ -90,6 +90,11 @@ func TestSeriesReadsTheRecord(t *testing.T) {
 		if err != nil || poster.Host != "artworks.example.test" {
 			t.Errorf("poster %q = %v, %v; want it on the artwork endpoint", s.Poster, poster, err)
 		}
+	})
+}
+
+func TestSeriesNamesFallBackToEnglish(t *testing.T) {
+	inEachTier(t, "series", func(t *testing.T, c *tvdb.Client, _ faketest.Served) {
 		forest, err := c.Series(t.Context(), ask("fr-FR"), 1004)
 		if err != nil || forest.Name != "The Shell Forest" || forest.English != "The Shell Forest" || forest.Original != "Kōkaku no Mori" || forest.OriginalLanguage != "jpn" || forest.TMDB != 7004 {
 			t.Errorf("Series(1004) in French = %+v, %v; want English as the fallback name", forest, err)

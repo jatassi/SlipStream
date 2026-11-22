@@ -50,10 +50,10 @@ func newShelf(rank int, label string, boxes ...[]files.State) shelf {
 	return s
 }
 
-func (s shelf) dated(box int, day Day, places ...int) []Dated {
+func (s shelf) dated(day Day, places ...int) []Dated {
 	var out []Dated
 	for _, p := range places {
-		out = append(out, Dated{Work: s.w.row.ID, Item: s.boxes[box][p-1], Kind: shipped, Day: day})
+		out = append(out, Dated{Work: s.w.row.ID, Item: s.boxes[0][p-1], Kind: shipped, Day: day})
 	}
 	return out
 }
@@ -85,12 +85,12 @@ func rowsOf(t *testing.T, days []DayRows) []Row {
 
 func TestAMixedRowReadsItsMostUrgentStateAndCountsTheMet(t *testing.T) {
 	s := newShelf(0, "Attic", append(append(states(8, files.Met), files.Missing, files.Downloading), 0))
-	rows := rowsOf(t, collapse(kept(s.dated(0, nov17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), of(s.w), false)))
+	rows := rowsOf(t, collapse(kept(s.dated(nov17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), of(s.w), false)))
 	if len(rows) != 1 || rows[0].State != files.Missing || rows[0].Met != 8 || rows[0].Of != 10 || len(rows[0].Items) != 11 {
 		t.Fatalf("rows = %+v, want one Missing row, 8 of 10 Met, its Thing with no cell uncounted", rows)
 	}
 	bare := newShelf(0, "Cellar", []files.State{0})
-	if rows := rowsOf(t, collapse(kept(bare.dated(0, nov17, 1), of(bare.w), false))); rows[0].State != 0 || rows[0].Of != 0 {
+	if rows := rowsOf(t, collapse(kept(bare.dated(nov17, 1), of(bare.w), false))); rows[0].State != 0 || rows[0].Of != 0 {
 		t.Fatalf("row = %+v, want no state while no Item has a cell", rows[0])
 	}
 }
@@ -100,7 +100,7 @@ func TestRowsGoByDayThenWorkThenKindAndAnItemOfOneIsARowPerKind(t *testing.T) {
 	f := newWork(works.Row{Bare: works.Bare{Summary: works.Summary{ID: works.WorkID{UUID: storage.NewUUID()}, ContentType: "films", Label: "Heatwave"}}}, 0, single,
 		files.WorkStates{Items: []files.ItemState{{Item: film, Status: files.Unreleased}}})
 	s := newShelf(1, "Attic", states(1, files.Met))
-	dated := append(s.dated(0, nov17, 1),
+	dated := append(s.dated(nov17, 1),
 		Dated{Work: f.row.ID, Item: film.ID, Kind: "home", Day: nov17},
 		Dated{Work: f.row.ID, Item: film.ID, Kind: "out", Day: nov17},
 		Dated{Work: f.row.ID, Item: film.ID, Kind: "home", Day: nov17.Add(-3)},
