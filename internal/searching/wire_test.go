@@ -34,6 +34,17 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 		t.Fatalf("the RSS job came across as %+v, %+v, %v; want %+v", got, site, err, feed)
 	}
 
+	native := Job{
+		ID: "n", Indexer: "h", Revision: 4, Kind: Native, Address: "https://hdbits.test/", Port: "hdbits",
+		Settings: map[string]string{"username": "u", "apiKey": "k"},
+		Session:  &Session{UserAgent: "Mozilla/5.0", Token: "bearer", Earned: earned},
+		Call:     TestCall{Code: "123456"},
+	}
+	got, site, err = decodeJob(encodeJob(native))
+	if err != nil || !reflect.DeepEqual(got, native) || site.Port != "hdbits" || site.Code != "123456" {
+		t.Fatalf("the native job came across as %+v, %+v, %v; want %+v", got, site, err, native)
+	}
+
 	for _, call := range []Call{TestCall{Captcha: &CaptchaAnswer{PreLogin: []byte(`{"Action":"x"}`), Text: "x7k2"}}, CaptchaCall{}} {
 		catalog := Job{
 			ID: "c", Indexer: "l", Revision: 2, Kind: Catalog, Address: "https://larkspur.test/", Definition: &Definition{YAML: []byte("id: larkspur"), SHA: "abc"},
@@ -83,19 +94,6 @@ func TestARecentCallBelowOffset0IsRefused(t *testing.T) {
 	job := Job{ID: "f", Indexer: "b", Kind: Torznab, Address: "https://site.test/torznab", Call: RecentCall{Offset: -1}}
 	if _, _, err := decodeJob(encodeJob(job)); err == nil {
 		t.Fatal("a recent call at offset -1 came across, want it refused")
-	}
-}
-
-func TestANativeJobCrossesTheWireWithItsPortTokenAndCode(t *testing.T) {
-	native := Job{
-		ID: "n", Indexer: "h", Revision: 4, Kind: Native, Address: "https://hdbits.test/", Port: "hdbits",
-		Settings: map[string]string{"username": "u", "apiKey": "k"},
-		Session:  &Session{UserAgent: "Mozilla/5.0", Token: "bearer", Earned: time.UnixMilli(1_780_000_000_000).UTC()},
-		Call:     TestCall{Code: "123456"},
-	}
-	got, site, err := decodeJob(encodeJob(native))
-	if err != nil || !reflect.DeepEqual(got, native) || site.Port != "hdbits" || site.Code != "123456" {
-		t.Fatalf("the native job came across as %+v, %+v, %v; want %+v", got, site, err, native)
 	}
 }
 

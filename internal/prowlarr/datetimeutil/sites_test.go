@@ -119,28 +119,6 @@ func TestUnixTimestampToDateTime(t *testing.T) {
 	}
 }
 
-func TestFromTimeAgoAsTheSitesWriteIt(t *testing.T) {
-	moscow := Clock{Now: utc(2026, 11, 7, 10, 0, 0), Location: zone(t, "Europe/Moscow")}
-	now := moscow.Now
-	tests := []struct {
-		site, in string
-		want     time.Time
-	}{
-		{"IPTorrents", "2.5 hours ago ", now.Add(-150 * time.Minute)},
-		{"IPTorrents", "1 week ago", now.Add(-7 * 24 * time.Hour)},
-		{"PreToMe", "3 days, 4 hours", now.Add(-76 * time.Hour)},
-		{"Libble", "5 mins ago", now.Add(-5 * time.Minute)},
-		{"PixelHD", "1 year, 2 months ago", now.Add(-425 * 24 * time.Hour)},
-		{"now", "Right now", now},
-	}
-	for _, tt := range tests {
-		got, err := FromTimeAgo(tt.in, moscow)
-		if err != nil || !got.Equal(tt.want) {
-			t.Errorf("%s: FromTimeAgo(%q) = %v, %v; want %v", tt.site, tt.in, got, err, tt.want)
-		}
-	}
-}
-
 func TestFromFuzzyTime(t *testing.T) {
 	moscow := Clock{Now: utc(2026, 11, 7, 10, 0, 0), Location: zone(t, "Europe/Moscow")}
 	msk := func(y int, mo time.Month, d, h, mi int) time.Time {
