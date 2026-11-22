@@ -19,6 +19,7 @@ import { indexerEffects } from "./indexer-effects";
 import { libraryEffects, renameCounts } from "./library-effects";
 // oxlint-disable-next-line import/max-dependencies -- every product event's effects meet in this one table
 import { mediaServerEffects } from "./media-server-effects";
+import { moveEffects } from "./move-effects";
 import { notificationEffects } from "./notification-effects";
 import { everyPath } from "./refresh";
 import { searchEffects } from "./search-effects";
@@ -39,6 +40,7 @@ export const effects = withCalendar(
     ...indexerEffects,
     ...targetsEffects,
     ...mediaServerEffects,
+    ...moveEffects,
     ...notificationEffects,
     ...historyEffects,
     ...searchEffects,

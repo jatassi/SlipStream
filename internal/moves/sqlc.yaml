@@ -1,0 +1,86 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        emit_pointers_for_null_types: true
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: moves_settings.id
+            go_type:
+              type: Singleton
+          - column: moves_batch.id
+            go_type:
+              type: BatchID
+          - column: "*.batch_id"
+            go_type:
+              type: BatchID
+          - column: moves_unit.id
+            go_type:
+              type: UnitID
+          - column: "*.unit_id"
+            go_type:
+              type: UnitID
+          - column: "*.pairs_with_unit_id"
+            go_type:
+              type: UnitID
+          - column: moves_batch.created_by
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: "*.work_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: "*.content_type"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: TypeID
+              pointer: true
+          - column: "*.from_root_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/roots
+              type: ID
+          - column: "*.to_root_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/roots
+              type: ID
+          - column: "*.from_node_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: "*.to_node_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: "*.torrent_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: "*.dest_torrent_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: "*.from_client_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: "*.to_client_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: "*.transfer_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/transfers
+              type: ID
+          - column: moves_unit_file.file_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/files
+              type: ID

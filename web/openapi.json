@@ -10308,7 +10308,8 @@
               "library",
               "subtitles",
               "health",
-              "backups"
+              "backups",
+              "moves"
             ],
             "type": "string"
           },
@@ -10434,7 +10435,8 @@
               "library",
               "subtitles",
               "health",
-              "backups"
+              "backups",
+              "moves"
             ],
             "type": "string"
           },
@@ -16360,6 +16362,38 @@
         ],
         "type": "object"
       },
+      "MovesChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "batchIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unitIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "workIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "batchIds",
+          "unitIds",
+          "workIds"
+        ],
+        "type": "object"
+      },
       "MovingOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -18887,6 +18921,7 @@
               "subtitles",
               "health",
               "backups",
+              "moves",
               "system"
             ],
             "type": "string"
@@ -20197,11 +20232,17 @@
             "description": "The Grabs in flight for its Works or into it",
             "format": "int64",
             "type": "integer"
+          },
+          "moves": {
+            "description": "The Moves from it or into it that haven't finished",
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
           "files",
-          "grabs"
+          "grabs",
+          "moves"
         ],
         "type": "object"
       },
@@ -42758,6 +42799,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/MovesChanged"
+                          },
+                          "event": {
+                            "const": "moves.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event moves.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/NamingChanged"
                           },
                           "event": {
@@ -48636,12 +48703,12 @@
             }
           },
           {
-            "description": "Only these groups; left out, all six",
+            "description": "Only these groups; left out, all seven",
             "explode": false,
             "in": "query",
             "name": "groups",
             "schema": {
-              "description": "Only these groups; left out, all six",
+              "description": "Only these groups; left out, all seven",
               "items": {
                 "enum": [
                   "grabs",
@@ -48649,7 +48716,8 @@
                   "library",
                   "subtitles",
                   "health",
-                  "backups"
+                  "backups",
+                  "moves"
                 ],
                 "type": "string"
               },

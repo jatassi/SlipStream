@@ -28,6 +28,7 @@ import (
 	"github.com/jatassi/slipstream/internal/media"
 	mslink "github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -167,6 +168,7 @@ type TimingsBlock struct {
 	Transfers     transfers.Timings      `yaml:"transfers"`
 	Grabs         grabs.Timings          `yaml:"grabs"`
 	Files         files.Timings          `yaml:"files"`
+	Moves         moves.Timings          `yaml:"moves"`
 	Formats       formats.Timings        `yaml:"formats"`
 	Downloading   downloading.Timings    `yaml:"downloading"`
 	Media         media.Timings          `yaml:"media"`
@@ -258,6 +260,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Transfers:     transfers.DefaultTimings(),
 			Grabs:         grabs.DefaultTimings(),
 			Files:         files.DefaultTimings(),
+			Moves:         moves.DefaultTimings(),
 			Formats:       formats.DefaultTimings(),
 			Downloading:   downloading.DefaultTimings(),
 			Media:         media.DefaultTimings(),
@@ -317,6 +320,9 @@ func loadConfig(fsys fs.FS, environ []string, types contenttype.Set, kind instal
 // job cap longer than the longest search wait, so a search past its wait
 // is late, never failing, and the Holdings bounds.
 func (c *Config) CheckConfig(fail func(key string, err error)) {
+	if err := c.Timings.Moves.Check(); err != nil {
+		fail("timings.moves", err)
+	}
 	if len(c.Link.Advertise) > 0 {
 		if _, err := link.ParseAddresses(c.Link.Advertise); err != nil {
 			fail("link.advertise", err)

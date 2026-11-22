@@ -2422,7 +2422,16 @@ export type EmailChangeInputBodyOutput = zod.output<typeof EmailChangeInputBody>
 export const NotificationsEvent = zod.object({
   bellByDefault: zod.boolean(),
   fixed: zod.boolean().describe("Never chosen: a Test is sent only when the Admin asks"),
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups", "system"]),
+  group: zod.enum([
+    "grabs",
+    "imports",
+    "library",
+    "subtitles",
+    "health",
+    "backups",
+    "moves",
+    "system",
+  ]),
   id: zod.string(),
   label: zod.string(),
   onByDefault: zod.boolean().describe("A new connection gets it unless the Admin picks otherwise"),
@@ -5955,7 +5964,7 @@ export type HistoryKind = zod.input<typeof HistoryKind>;
 export type HistoryKindOutput = zod.output<typeof HistoryKind>;
 
 export const HistoryGroup = zod.object({
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups", "moves"]),
   kinds: zod.array(HistoryKind),
   label: zod.string(),
 });
@@ -6016,7 +6025,7 @@ export type HistoryWorkSummaryOutput = zod.output<typeof HistoryWorkSummary>;
 
 export const HistoryListEntry = zod.object({
   at: zod.iso.datetime({ offset: true }).describe("When it was captured"),
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups", "moves"]),
   id: zod.int(),
   kind: zod.string().describe("A kind GET /history/kinds lists"),
   links: HistoryLinks,
@@ -8939,6 +8948,15 @@ export const MoveFilesInputBody = zod.object({
 export type MoveFilesInputBody = zod.input<typeof MoveFilesInputBody>;
 export type MoveFilesInputBodyOutput = zod.output<typeof MoveFilesInputBody>;
 
+export const MovesChanged = zod.object({
+  batchIds: zod.array(zod.uuid()),
+  unitIds: zod.array(zod.uuid()),
+  workIds: zod.array(zod.uuid()),
+});
+
+export type MovesChanged = zod.input<typeof MovesChanged>;
+export type MovesChangedOutput = zod.output<typeof MovesChanged>;
+
 export const movingOutputBodyFilesMin = 0;
 
 export const MovingOutputBody = zod.object({
@@ -10759,6 +10777,7 @@ export type RootsFolderProblemOutput = zod.output<typeof RootsFolderProblem>;
 export const RootsInUse = zod.object({
   files: zod.int().describe("The files it holds, those waiting to be deleted counted"),
   grabs: zod.int().describe("The Grabs in flight for its Works or into it"),
+  moves: zod.int().describe("The Moves from it or into it that haven't finished"),
 });
 
 export type RootsInUse = zod.input<typeof RootsInUse>;
@@ -14898,6 +14917,14 @@ export const LiveEventMetadataChanged = zod.object({
 export type LiveEventMetadataChanged = zod.input<typeof LiveEventMetadataChanged>;
 export type LiveEventMetadataChangedOutput = zod.output<typeof LiveEventMetadataChanged>;
 
+export const LiveEventMovesChanged = zod.object({
+  event: zod.enum(["moves.changed"]),
+  data: MovesChanged,
+});
+
+export type LiveEventMovesChanged = zod.input<typeof LiveEventMovesChanged>;
+export type LiveEventMovesChangedOutput = zod.output<typeof LiveEventMovesChanged>;
+
 export const LiveEventNamingChanged = zod.object({
   event: zod.enum(["naming.changed"]),
   data: NamingChanged,
@@ -15139,6 +15166,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventMediaServersSessionsChanged,
   LiveEventMediaServersUnhealthy,
   LiveEventMetadataChanged,
+  LiveEventMovesChanged,
   LiveEventNamingChanged,
   LiveEventNodeSettingsChanged,
   LiveEventNodesChanged,

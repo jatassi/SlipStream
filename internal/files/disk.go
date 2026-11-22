@@ -125,6 +125,31 @@ type queue struct {
 	lost      map[roots.ID]bool
 }
 
+// queuedMoves is every queued rename, read in r, each held while a Move holds
+// its Work, unless a ring in holding must finish.
+func (f *Files) queuedMoves(ctx context.Context, r storage.Reader[file]) ([]move, error) {
+	rows, err := db.New(r).ListMoves(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]move, len(rows))
+	var ws []works.WorkID
+	for i, row := range rows {
+		out[i] = moveOf(row)
+		if !slices.Contains(ws, row.WorkID) {
+			ws = append(ws, row.WorkID)
+		}
+	}
+	held, err := f.cfg.Moves.Holds(ctx, r, ws)
+	if err != nil {
+		return nil, err
+	}
+	for i, m := range out {
+		out[i].held = held[m.work] && (m.ring.IsZero() || m.sits != m.holding())
+	}
+	return out, nil
+}
+
 func (f *Files) read(ctx context.Context) (queue, error) {
 	var out queue
 	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
@@ -141,24 +166,8 @@ func (f *Files) read(ctx context.Context) (queue, error) {
 		for _, row := range replacers {
 			out.replacers[row.FileID] = row.Path
 		}
-		rows, err := q.ListMoves(ctx)
-		if err != nil {
+		if out.moves, err = f.queuedMoves(ctx, r); err != nil {
 			return err
-		}
-		out.moves = make([]move, len(rows))
-		var ws []works.WorkID
-		for i, row := range rows {
-			out.moves[i] = moveOf(row)
-			if !slices.Contains(ws, row.WorkID) {
-				ws = append(ws, row.WorkID)
-			}
-		}
-		held, err := f.cfg.Moves.Holds(ctx, r, ws)
-		if err != nil {
-			return err
-		}
-		for i, m := range out.moves {
-			out.moves[i].held = held[m.work] && (m.ring.IsZero() || m.sits != m.holding())
 		}
 		if out.prunes, err = q.ListPrune(ctx); err != nil {
 			return err

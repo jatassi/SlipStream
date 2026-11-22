@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/lifecycle"
 	"github.com/jatassi/slipstream/internal/link"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/reconciling"
@@ -65,7 +66,7 @@ func restoredWrite(ctx context.Context, db *storage.DB[storage.Library], dir Dat
 			return carryCredentials(ctx, tx, op, pre)
 		},
 		identity.DeleteSessions, health.DeleteItems, roots.DeleteVolumes, downloadclients.DeleteVolumes,
-		grabs.CancelOpenRuns, files.DropQueuedMoves,
+		grabs.CancelOpenRuns, files.DropQueuedMoves, moves.Restored,
 		func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			return nodes.DeleteSelfAddresses(ctx, tx, self)
 		},

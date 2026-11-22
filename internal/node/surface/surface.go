@@ -38,6 +38,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaserversapi"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadataapi"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/namingapi"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -101,6 +102,7 @@ var Events = []live.Event{
 	files.MovedEvent,
 	naming.ChangedEvent,
 	imports.ChangedEvent,
+	moves.ChangedEvent,
 	grabs.ChangedEvent,
 	grabs.SearchChangedEvent,
 	grabs.BlocklistChangedEvent,

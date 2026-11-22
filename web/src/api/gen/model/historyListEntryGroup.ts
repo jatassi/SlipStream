@@ -4,4 +4,5 @@ export type HistoryListEntryGroup =
   | "library"
   | "subtitles"
   | "health"
-  | "backups";
+  | "backups"
+  | "moves";

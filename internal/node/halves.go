@@ -36,6 +36,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
@@ -570,6 +571,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Arrivals: arrivals,
 		Contents: files.RootContents{},
 		Inflight: imports.RootImports{},
+		Busy:     moves.Busy,
 		Videos:   imports.Videos,
 		Changed:  roots.ChangedEvent.Bind(n.hub),
 		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
@@ -599,6 +601,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Timings:     n.cfg.Timings.Files,
 		Rand:        n.filesRand,
 		Reconciling: reconciling.Blocked,
+		Moves:       moves.FilesHooks{},
+		Homes:       homes,
 		Log:         n.rootLog.With("subsystem", "files"),
 	})
 	if err != nil {
@@ -700,6 +704,7 @@ func (n *Node) startController(ctx context.Context) error {
 			return mediav1connect.MediaService.On(cluster, node)
 		},
 		Transfers:    copies,
+		OtherCopies:  moves.OtherCopies,
 		Grabs:        pipeline,
 		Timings:      imports.Timings{RetryMin: n.cfg.Timings.Grabs.RetryMin, RetryMax: n.cfg.Timings.Grabs.RetryMax},
 		Rand:         n.importsRand,
@@ -718,12 +723,23 @@ func (n *Node) startController(ctx context.Context) error {
 	if err := found.Carry(ctx); err != nil {
 		return err
 	}
-	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue,
+	mover := moves.New(moves.Config{
+		Library: lib.db, Works: tree, Files: shelf, Roots: homes, Disk: homes, Imports: found, Transfers: copies, MediaServers: servers,
+		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
+			return roots.DestinationsIn(ctx, r, ids, stored, side)
+		},
+		Writing: subtitles.Writing, Roster: side, Videos: imports.Videos, Reconciling: reconciling.Blocked, Hub: n.hub,
+		Changed: moves.ChangedEvent.Bind(n.hub), FilesChanged: files.ChangedEvent.Bind(n.hub),
+		Touch:    func(nodes ...role.NodeID) { stored.Touch(nodes...) },
+		Recorder: n.history.Recorder("moves", moves.Entries()), Timings: n.cfg.Timings.Moves, BeforeStep: n.env.Test.BeforeMoveStep,
+		Clock: time.Now, Log: n.rootLog.With("subsystem", "moves"),
+	})
+	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue, Moves: mover.Hooks().Library,
 		History: n.history.Recorder("library", library.Entries()), Subtitles: subtitler,
 	})
 	cat.Seal()
 
-	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found, Transfers: copies}
+	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found, Transfers: copies, Moves: mover}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
 		Library: lib.db,
 		Catalog: append(catalog(housekeeping.Config{
@@ -735,7 +751,7 @@ func (n *Node) startController(ctx context.Context) error {
 			},
 			Keep:  n.history,
 			Batch: n.cfg.Timings.Housekeeping.PruneBatch,
-			Steps: housekeepingSteps(registry, servers, n.history, pipeline, found, shelf, subtitler),
+			Steps: append(housekeepingSteps(registry, servers, n.history, pipeline, found, shelf, subtitler), moves.Retention(lib.db)),
 			Reconciling: func(ctx context.Context) (paused bool, err error) {
 				err = lib.db.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 					paused, err = reconciling.Blocked(ctx, r)
@@ -810,6 +826,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("backup copies", kept.Run)
 	n.claimed.Go("media servers", servers.Run)
 	n.claimed.Go("files", shelf.Run)
+	n.claimed.Go("moves", mover.Run)
 	n.claimed.Go("subtitles", subtitler.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.claimed.Go("library scan", found.Run)
