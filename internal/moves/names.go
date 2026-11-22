@@ -1,0 +1,205 @@
+package moves
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/jatassi/slipstream/internal/moves/internal/db"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/setting"
+	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
+)
+
+// Place is one side of a unit, with its Node's name and its root in
+// words, such as "Movies library root on den".
+type Place struct {
+	End
+	NodeName string
+	Root     string
+}
+
+// Named is what a reader shows beside a unit's ids, read in one Reader.
+type Named struct {
+	works map[works.WorkID]works.Summary
+	nodes map[role.NodeID]string
+	roots map[roots.ID]string
+}
+
+func (m *Moves) namesOf(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (Named, error) {
+	var n Named
+	var err error
+	if n.works, err = works.SummariesOf(ctx, r, ws); err != nil {
+		return n, err
+	}
+	if n.roots, err = m.cfg.Roots.WordsIn(ctx, r); err != nil {
+		return n, err
+	}
+	n.nodes, err = nodeNamesIn(ctx, r)
+	return n, err
+}
+
+// Place is e with its Node and root named.
+func (n Named) Place(e End) Place {
+	return Place{End: e, NodeName: n.nodes[e.Node], Root: n.roots[e.Root]}
+}
+
+// noun is the Content Types' noun for n of them: the type's when every
+// one is of t, "Works" when they mix.
+func (m *Moves) noun(types []works.TypeID, n int) string {
+	if len(types) != 1 {
+		return plural(n, "Work", "Works")
+	}
+	d, _ := m.cfg.Works.Describe(types[0])
+	return plural(n, strings.ToLower(d.Work.One), strings.ToLower(d.Work.Many))
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}
+
+// wordsOf is the band's sentence for v: what the Move does now.
+func wordsOf(v View) string {
+	from, to := v.From.NodeName, v.To.NodeName
+	switch v.Phase {
+	case PhaseQueued, PhaseTransfer, PhasePlace:
+		if w := waitWords(v.Waiting, from, to); w != "" {
+			return w
+		}
+		if v.Phase == PhaseQueued {
+			return "Moving to " + to
+		}
+		return "Copying to " + to
+	case PhaseSwitch:
+		if w := waitWords(v.Waiting, from, to); w != "" {
+			return w
+		}
+		return "Switching to " + to
+	case PhaseCleanup:
+		return "Removing the files from " + from
+	case PhaseDone:
+		return "Moved to " + to
+	case PhaseFailed:
+		return v.Failure.Words
+	case PhaseCanceled:
+	}
+	return "Move canceled"
+}
+
+// waitWords is a wait's sentence, empty for none.
+func waitWords(w Wait, from, to string) string {
+	switch w {
+	case WaitPairBusy:
+		return "Waiting for another Move from " + from + " to " + to
+	case WaitLowPriority:
+		return "Waiting until the downloads between " + from + " and " + to + " finish copying"
+	case WaitNodeOffline:
+		return "Waiting until " + from + " and " + to + " are connected"
+	case WaitNoRoute:
+		return from + " and " + to + " can't reach each other yet. The copy waits until they can."
+	case WaitSpace:
+		return "Waiting for free space on " + to
+	case WaitRenames:
+		return "Waiting until its files' renames finish"
+	case WaitImporting:
+		return "Waiting until its Import finishes"
+	case WaitOpenFiles:
+		return "Waiting until SlipStream finishes writing or sending its files"
+	case WaitPlaying:
+		return "Waiting until playback ends"
+	case WaitMediaServers:
+		return "Saving watched state, resume positions and ratings on the Media Servers"
+	case WaitReconciling:
+		return "Waiting until Reconciling finishes"
+	case WaitDownloading, WaitGuard, WaitLinkedTorrent, "":
+	}
+	return ""
+}
+
+// needWords is Needs you's sentence for v, at now.
+func needWords(v View, now time.Time) string {
+	if v.Failure != nil {
+		return fmt.Sprintf("%s couldn't move to %s. %s", v.Label, v.To.NodeName, v.Failure.Words)
+	}
+	waited := fmt.Sprintf("%s has waited %s to switch to %s.", v.Label, setting.Words(now.Sub(*v.Since).Truncate(time.Minute)), v.To.NodeName)
+	switch v.Waiting {
+	case WaitPlaying:
+		return waited + " Someone is playing it on a Media Server."
+	case WaitMediaServers:
+		return waited + " SlipStream can't connect to a Media Server to save who watched it."
+	case WaitImporting:
+		return waited + " An Import into it hasn't finished."
+	case WaitOpenFiles:
+		return waited + " SlipStream is still writing or sending its files."
+	case WaitPairBusy, WaitLowPriority, WaitNodeOffline, WaitNoRoute, WaitSpace, WaitRenames, WaitDownloading, WaitGuard, WaitLinkedTorrent, WaitReconciling, "":
+	}
+	return waited
+}
+
+// Names is every Node's name and every root in words, for a preview's
+// places.
+func (m *Moves) Names(ctx context.Context) (Named, error) {
+	var n Named
+	err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		n, err = m.namesOf(ctx, r, nil)
+		return err
+	})
+	return n, err
+}
+
+// NotesWords is what v's unit recorded for the Admin, as sentences: the
+// preview's amber reasons, and the source files cleanup left in place.
+func NotesWords(v View) []string {
+	out := []string{}
+	for _, r := range v.Notes.Amber {
+		out = append(out, r.Words)
+	}
+	if n := len(v.Notes.Skipped); n > 0 {
+		out = append(out, fmt.Sprintf("%d %s on %s changed after this Move was planned. SlipStream left %s in place, and the next Library scan finds %s.",
+			n, plural(n, "file", "files"), v.From.NodeName, plural(n, "it", "them"), plural(n, "it", "them")))
+	}
+	return out
+}
+
+// CanceledWords is the toast of a cancel of batch that canceled canceled
+// units and left switched units that had switched.
+func (m *Moves) CanceledWords(ctx context.Context, batch BatchID, canceled, switched int) (string, error) {
+	var types []works.TypeID
+	var to []string
+	err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		q := db.New(r)
+		of, err := typesOf(ctx, q, []BatchID{batch})
+		if err != nil {
+			return err
+		}
+		types = of[batch]
+		nodes, err := nodeNamesIn(ctx, r)
+		if err != nil {
+			return err
+		}
+		dests, err := q.ListBatchDestinations(ctx, batch)
+		for _, d := range dests {
+			to = append(to, nodes[d])
+		}
+		return err
+	})
+	if err != nil {
+		return "", err
+	}
+	words := fmt.Sprintf("Canceled %d %s.", canceled, plural(canceled, "Move", "Moves"))
+	if switched == 0 {
+		return words, nil
+	}
+	stay := fmt.Sprintf(" %d %s already switched %s.", switched, m.noun(types, switched), plural(switched, "stays", "stay"))
+	if len(to) == 1 {
+		stay = fmt.Sprintf(" %d %s already switched %s on %s.", switched, m.noun(types, switched), plural(switched, "stays", "stay"), to[0])
+	}
+	return words + stay, nil
+}

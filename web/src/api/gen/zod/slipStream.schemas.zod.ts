@@ -2422,7 +2422,16 @@ export type EmailChangeInputBodyOutput = zod.output<typeof EmailChangeInputBody>
 export const NotificationsEvent = zod.object({
   bellByDefault: zod.boolean(),
   fixed: zod.boolean().describe("Never chosen: a Test is sent only when the Admin asks"),
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups", "system"]),
+  group: zod.enum([
+    "grabs",
+    "imports",
+    "library",
+    "subtitles",
+    "health",
+    "backups",
+    "moves",
+    "system",
+  ]),
   id: zod.string(),
   label: zod.string(),
   onByDefault: zod.boolean().describe("A new connection gets it unless the Admin picks otherwise"),
@@ -5955,7 +5964,7 @@ export type HistoryKind = zod.input<typeof HistoryKind>;
 export type HistoryKindOutput = zod.output<typeof HistoryKind>;
 
 export const HistoryGroup = zod.object({
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups", "moves"]),
   kinds: zod.array(HistoryKind),
   label: zod.string(),
 });
@@ -6016,7 +6025,7 @@ export type HistoryWorkSummaryOutput = zod.output<typeof HistoryWorkSummary>;
 
 export const HistoryListEntry = zod.object({
   at: zod.iso.datetime({ offset: true }).describe("When it was captured"),
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups"]),
+  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups", "moves"]),
   id: zod.int(),
   kind: zod.string().describe("A kind GET /history/kinds lists"),
   links: HistoryLinks,
@@ -6153,6 +6162,26 @@ export const HomeJobs = zod.object({
 export type HomeJobs = zod.input<typeof HomeJobs>;
 export type HomeJobsOutput = zod.output<typeof HomeJobs>;
 
+export const HomeMoveNeed = zod.object({
+  batchId: zod.uuid(),
+  kind: zod.enum(["failed", "waiting"]),
+  since: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When it began to wait; absent for a failed Move"),
+  switchNow: zod.boolean().describe("Switch now can pass its wait"),
+  unitId: zod.uuid(),
+  words: zod
+    .string()
+    .describe(
+      "What happened and what to do, such as Heat (1995) has waited 1 hour to switch to den. Someone is playing it on a Media Server.",
+    ),
+  work: HomeWork,
+});
+
+export type HomeMoveNeed = zod.input<typeof HomeMoveNeed>;
+export type HomeMoveNeedOutput = zod.output<typeof HomeMoveNeed>;
+
 export const HomeNeed = zod.object({
   grab: GrabsGrab,
   wait: zod
@@ -6175,6 +6204,11 @@ export const HomeNeedsYou = zod.object({
     .min(homeNeedsYouFailedMin)
     .max(homeNeedsYouFailedMax)
     .describe("Failed Grabs that need attention, counted up to 100; 100 means 100 or more"),
+  moves: zod
+    .array(HomeMoveNeed)
+    .describe(
+      "Moves that failed or waited past Show a waiting switch in Needs you after, newest first, at most Rows on Home",
+    ),
   rows: zod.array(HomeNeed).describe("Newest first, at most Rows on Home"),
   waiting: zod.int().min(homeNeedsYouWaitingMin).describe("Grabs that wait on an Admin"),
 });
@@ -8939,6 +8973,294 @@ export const MoveFilesInputBody = zod.object({
 export type MoveFilesInputBody = zod.input<typeof MoveFilesInputBody>;
 export type MoveFilesInputBodyOutput = zod.output<typeof MoveFilesInputBody>;
 
+export const movesBatchRowTotalMin = 0;
+
+export const MovesBatchRow = zod.object({
+  canCancel: zod.boolean().describe("A unit hasn't switched yet"),
+  canMoveBack: zod.boolean().describe("A unit moved"),
+  canRetry: zod.boolean().describe("A unit failed"),
+  canceledAt: zod.iso.datetime({ offset: true }).exactOptional(),
+  counts: zod.record(zod.string(), zod.int()).describe("Units per phase"),
+  createdAt: zod.iso.datetime({ offset: true }),
+  finishedAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When its last unit ended; absent while one runs"),
+  id: zod.uuid(),
+  origin: zod.enum(["work", "bulk", "root", "drain", "client", "torrent"]),
+  total: zod.int().min(movesBatchRowTotalMin),
+  words: zod.string().describe("The batch in a sentence, such as 12 of 43 movies switched"),
+});
+
+export type MovesBatchRow = zod.input<typeof MovesBatchRow>;
+export type MovesBatchRowOutput = zod.output<typeof MovesBatchRow>;
+
+export const MovesBatchList = zod.object({
+  batches: zod.array(MovesBatchRow).describe("Open ones first, then newest first"),
+  next: zod.string().exactOptional().describe("The after of the next page; absent on the last"),
+});
+
+export type MovesBatchList = zod.input<typeof MovesBatchList>;
+export type MovesBatchListOutput = zod.output<typeof MovesBatchList>;
+
+export const MovesFailure = zod.object({
+  code: zod.enum([
+    "source_gone",
+    "source_failed",
+    "damaged",
+    "source_written_off",
+    "destination_gone",
+    "destination_check_failed",
+    "switch_refused",
+    "destination_unreachable",
+  ]),
+  words: zod.string(),
+});
+
+export type MovesFailure = zod.input<typeof MovesFailure>;
+export type MovesFailureOutput = zod.output<typeof MovesFailure>;
+
+export const MovesPlace = zod.object({
+  nodeId: zod.uuid(),
+  nodeName: zod.string(),
+  root: zod.string().describe("The library root in words, such as Movies library root on den"),
+  rootId: zod.uuid(),
+});
+
+export type MovesPlace = zod.input<typeof MovesPlace>;
+export type MovesPlaceOutput = zod.output<typeof MovesPlace>;
+
+export const movesMoveUnitBytesMin = 0;
+
+export const MovesMoveUnit = zod.object({
+  batchId: zod.uuid(),
+  bytes: zod.int().min(movesMoveUnitBytesMin),
+  contentType: zod.string(),
+  failure: zod.union([MovesFailure, zod.null()]).describe("Why it failed; null unless it failed"),
+  from: MovesPlace,
+  id: zod.uuid(),
+  kind: zod.enum(["work"]),
+  name: zod.string(),
+  notes: zod.array(zod.string()).describe("What it recorded for the Admin, as sentences"),
+  phase: zod.enum([
+    "queued",
+    "transfer",
+    "place",
+    "switch",
+    "cleanup",
+    "done",
+    "failed",
+    "canceled",
+  ]),
+  switchNow: zod.boolean().describe("Switch now can pass its wait"),
+  to: MovesPlace,
+  undone: zod.boolean().describe("A failed or canceled Move removed what it placed"),
+  waiting: zod
+    .enum([
+      "pair_busy",
+      "low_priority",
+      "node_offline",
+      "no_route",
+      "space",
+      "renames",
+      "downloading",
+      "importing",
+      "open_files",
+      "playing",
+      "media_servers",
+      "guard",
+      "linked_torrent",
+      "reconciling",
+    ])
+    .exactOptional()
+    .describe("What it waits for; absent while it waits for nothing"),
+  waitingSince: zod.iso.datetime({ offset: true }).exactOptional(),
+  words: zod.string().describe("What it does now, such as Copying to den"),
+  workId: zod.uuid(),
+});
+
+export type MovesMoveUnit = zod.input<typeof MovesMoveUnit>;
+export type MovesMoveUnitOutput = zod.output<typeof MovesMoveUnit>;
+
+export const MovesBatchPage = zod.object({
+  batch: MovesBatchRow,
+  next: zod.int().exactOptional().describe("The after of the next page; absent on the last"),
+  units: zod.array(MovesMoveUnit).describe("In the batch's order"),
+});
+
+export type MovesBatchPage = zod.input<typeof MovesBatchPage>;
+export type MovesBatchPageOutput = zod.output<typeof MovesBatchPage>;
+
+export const movesCanceledMovesCanceledMin = 0;
+
+export const movesCanceledMovesSwitchedMin = 0;
+
+export const MovesCanceledMoves = zod.object({
+  canceled: zod
+    .int()
+    .min(movesCanceledMovesCanceledMin)
+    .describe("Units canceled before their switch"),
+  switched: zod
+    .int()
+    .min(movesCanceledMovesSwitchedMin)
+    .describe("Units that had already switched, which stay"),
+  words: zod
+    .string()
+    .describe("The toast, such as Canceled 31 Moves. 12 movies already switched stay on den."),
+});
+
+export type MovesCanceledMoves = zod.input<typeof MovesCanceledMoves>;
+export type MovesCanceledMovesOutput = zod.output<typeof MovesCanceledMoves>;
+
+export const MovesChanged = zod.object({
+  batchIds: zod.array(zod.uuid()),
+  unitIds: zod.array(zod.uuid()),
+  workIds: zod.array(zod.uuid()),
+});
+
+export type MovesChanged = zod.input<typeof MovesChanged>;
+export type MovesChangedOutput = zod.output<typeof MovesChanged>;
+
+export const MovesDropped = zod.object({
+  name: zod.string(),
+  words: zod.string().describe("Why it stays"),
+  workId: zod.uuid(),
+});
+
+export type MovesDropped = zod.input<typeof MovesDropped>;
+export type MovesDroppedOutput = zod.output<typeof MovesDropped>;
+
+export const MovesWorkTo = zod.object({
+  rootId: zod.uuid().describe("The library root it moves to"),
+  workId: zod.uuid(),
+});
+
+export type MovesWorkTo = zod.input<typeof MovesWorkTo>;
+export type MovesWorkToOutput = zod.output<typeof MovesWorkTo>;
+
+export const movesMoveAskWorksMax = 10000;
+
+export const MovesMoveAsk = zod.object({
+  origin: zod
+    .enum(["work", "bulk"])
+    .describe("Where the Admin starts it: a Work's page, or the Library's bulk bar"),
+  works: zod.array(MovesWorkTo).min(1).max(movesMoveAskWorksMax),
+});
+
+export type MovesMoveAsk = zod.input<typeof MovesMoveAsk>;
+export type MovesMoveAskOutput = zod.output<typeof MovesMoveAsk>;
+
+export const MovesReason = zod.object({
+  check: zod.enum([
+    "space",
+    "names",
+    "folder",
+    "destination",
+    "media_servers",
+    "waits",
+    "moving",
+    "probe",
+  ]),
+  code: zod.string().describe("Stable per reason, such as space_error or mapping_missing"),
+  color: zod.enum(["amber", "red"]),
+  words: zod.string(),
+});
+
+export type MovesReason = zod.input<typeof MovesReason>;
+export type MovesReasonOutput = zod.output<typeof MovesReason>;
+
+export const movesPreviewUnitBytesMin = 0;
+
+export const MovesPreviewUnit = zod.object({
+  bytes: zod
+    .int()
+    .min(movesPreviewUnitBytesMin)
+    .describe("Bytes that copy; a hard link or a clone copies none"),
+  from: MovesPlace,
+  key: zod.string().describe("Stable per unit inside the preview, such as work:<id>"),
+  kind: zod.enum(["work"]),
+  name: zod.string(),
+  reasons: zod.array(MovesReason).describe("Each check worse than green"),
+  to: MovesPlace,
+  verdict: zod
+    .enum(["green", "amber", "red"])
+    .describe("green moves, amber moves with a note, red stays"),
+  workId: zod.uuid(),
+});
+
+export type MovesPreviewUnit = zod.input<typeof MovesPreviewUnit>;
+export type MovesPreviewUnitOutput = zod.output<typeof MovesPreviewUnit>;
+
+export const movesMovePreviewHomedMin = 0;
+
+export const movesMovePreviewMovableMin = 0;
+
+export const movesMovePreviewTotalMin = 0;
+
+export const MovesMovePreview = zod.object({
+  button: zod.string().describe("The Start button's label, such as Move 41 of 43"),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  homed: zod
+    .int()
+    .min(movesMovePreviewHomedMin)
+    .describe("Works without files the Start homes in their new root"),
+  movable: zod
+    .int()
+    .min(movesMovePreviewMovableMin)
+    .describe("The units that aren't red, which a Start confirms"),
+  recommendation: zod
+    .string()
+    .describe(
+      "The preview in a sentence, such as Move 41 of 43 movies to den. 2 can't move: The Office and Heat.",
+    ),
+  token: zod.string().describe("Names the preview for its Start"),
+  total: zod.int().min(movesMovePreviewTotalMin),
+  units: zod.array(MovesPreviewUnit),
+});
+
+export type MovesMovePreview = zod.input<typeof MovesMovePreview>;
+export type MovesMovePreviewOutput = zod.output<typeof MovesMovePreview>;
+
+export const MovesMoveSettings = zod.object({
+  settings: zod
+    .array(SettingField)
+    .describe(
+      "When a waiting switch shows in Needs you, then how long the old files wait for Plex",
+    ),
+});
+
+export type MovesMoveSettings = zod.input<typeof MovesMoveSettings>;
+export type MovesMoveSettingsOutput = zod.output<typeof MovesMoveSettings>;
+
+export const MovesMoveSettingsValues = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type MovesMoveSettingsValues = zod.input<typeof MovesMoveSettingsValues>;
+export type MovesMoveSettingsValuesOutput = zod.output<typeof MovesMoveSettingsValues>;
+
+export const MovesStartAsk = zod.object({
+  token: zod.string().min(1),
+});
+
+export type MovesStartAsk = zod.input<typeof MovesStartAsk>;
+export type MovesStartAskOutput = zod.output<typeof MovesStartAsk>;
+
+export const movesStartedMovesStartedMin = 0;
+
+export const MovesStartedMoves = zod.object({
+  batchId: zod.uuid(),
+  dropped: zod
+    .array(MovesDropped)
+    .describe("The preview's units that can't move now; empty for a Start sent again"),
+  started: zod.int().min(movesStartedMovesStartedMin).describe("The units the batch moves"),
+});
+
+export type MovesStartedMoves = zod.input<typeof MovesStartedMoves>;
+export type MovesStartedMovesOutput = zod.output<typeof MovesStartedMoves>;
+
 export const movingOutputBodyFilesMin = 0;
 
 export const MovingOutputBody = zod.object({
@@ -10759,6 +11081,7 @@ export type RootsFolderProblemOutput = zod.output<typeof RootsFolderProblem>;
 export const RootsInUse = zod.object({
   files: zod.int().describe("The files it holds, those waiting to be deleted counted"),
   grabs: zod.int().describe("The Grabs in flight for its Works or into it"),
+  moves: zod.int().describe("The Moves from it or into it that haven't finished"),
 });
 
 export type RootsInUse = zod.input<typeof RootsInUse>;
@@ -13725,6 +14048,37 @@ export const WorksWebLink = zod.object({
 export type WorksWebLink = zod.input<typeof WorksWebLink>;
 export type WorksWebLinkOutput = zod.output<typeof WorksWebLink>;
 
+export const WorksWorkMove = zod.object({
+  batchId: zod.uuid(),
+  phase: zod.enum(["queued", "transfer", "place", "switch", "cleanup", "failed", "canceled"]),
+  toNodeId: zod.uuid(),
+  toNodeName: zod.string(),
+  unitId: zod.uuid(),
+  waiting: zod
+    .enum([
+      "pair_busy",
+      "low_priority",
+      "node_offline",
+      "no_route",
+      "space",
+      "renames",
+      "downloading",
+      "importing",
+      "open_files",
+      "playing",
+      "media_servers",
+      "guard",
+      "linked_torrent",
+      "reconciling",
+    ])
+    .exactOptional()
+    .describe("What it waits for; absent while it waits for nothing"),
+  words: zod.string().describe("What it does now, such as Copying to den"),
+});
+
+export type WorksWorkMove = zod.input<typeof WorksWorkMove>;
+export type WorksWorkMoveOutput = zod.output<typeof WorksWorkMove>;
+
 export const WorksOpenIn = zod.object({
   kind: MediaserversKind,
   label: zod.string().describe("The kind's name, such as Plex"),
@@ -13789,6 +14143,9 @@ export const WorksWorkView = zod.object({
     .describe(
       "Items a refresh adds arrive monitored, unless they sit in an aside level and monitorAsides is off",
     ),
+  move: zod
+    .union([WorksWorkMove, zod.null()])
+    .describe("Its Move in flight, or failed; null for none"),
   openIn: zod.array(WorksOpenIn).describe("A link to the Work on each Media Server that holds it"),
   options: zod
     .array(SettingField)
@@ -14898,6 +15255,14 @@ export const LiveEventMetadataChanged = zod.object({
 export type LiveEventMetadataChanged = zod.input<typeof LiveEventMetadataChanged>;
 export type LiveEventMetadataChangedOutput = zod.output<typeof LiveEventMetadataChanged>;
 
+export const LiveEventMovesChanged = zod.object({
+  event: zod.enum(["moves.changed"]),
+  data: MovesChanged,
+});
+
+export type LiveEventMovesChanged = zod.input<typeof LiveEventMovesChanged>;
+export type LiveEventMovesChangedOutput = zod.output<typeof LiveEventMovesChanged>;
+
 export const LiveEventNamingChanged = zod.object({
   event: zod.enum(["naming.changed"]),
   data: NamingChanged,
@@ -15139,6 +15504,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventMediaServersSessionsChanged,
   LiveEventMediaServersUnhealthy,
   LiveEventMetadataChanged,
+  LiveEventMovesChanged,
   LiveEventNamingChanged,
   LiveEventNodeSettingsChanged,
   LiveEventNodesChanged,

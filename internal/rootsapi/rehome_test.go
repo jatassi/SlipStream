@@ -335,7 +335,7 @@ func TestDeleteRefusesFilesAndGrabs(t *testing.T) {
 	s.grab(t, held, "imported")
 	s.grab(t, s.add(t, "fetching", ""), "importing")
 	inUse := func(files, grabs int) string {
-		return fmt.Sprintf(`{"status":409,"code":"root_in_use","title":"The root holds files or has a Grab in flight","use":{"files":%d,"grabs":%d}}`, files, grabs)
+		return fmt.Sprintf(`{"status":409,"code":"root_in_use","title":"The root holds files or has a Grab or a Move in flight","use":{"files":%d,"grabs":%d,"moves":0}}`, files, grabs)
 	}
 	s.Expect(t, http.MethodDelete, "/api/v1/roots/"+id, "", http.StatusConflict, inUse(1, 1))
 

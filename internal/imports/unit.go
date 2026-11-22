@@ -175,7 +175,7 @@ func (im *Imports) read(ctx context.Context, root roots.Root) (known, error) {
 	var k known
 	err := im.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		if k.files, err = files.OnRoot(ctx, r, root.ID); err != nil {
+		if k.files, err = im.cfg.Files.OnRoot(ctx, r, root.ID); err != nil {
 			return err
 		}
 		all, err := unfinishedRootImports(ctx, r)

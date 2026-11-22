@@ -62,7 +62,7 @@ type option struct {
 type event struct {
 	ID            string `json:"id"`
 	Label         string `json:"label"`
-	Group         string `json:"group" enum:"grabs,imports,library,subtitles,health,backups,system"`
+	Group         string `json:"group" enum:"grabs,imports,library,subtitles,health,backups,moves,system"`
 	OnByDefault   bool   `json:"onByDefault" doc:"A new connection gets it unless the Admin picks otherwise"`
 	BellByDefault bool   `json:"bellByDefault"`
 	Fixed         bool   `json:"fixed" doc:"Never chosen: a Test is sent only when the Admin asks"`

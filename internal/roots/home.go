@@ -19,13 +19,48 @@ func (r *Roots) Home(ctx context.Context, tx *storage.Tx[file], work works.WorkI
 	if err != nil {
 		return err
 	}
-	_, _, err = r.home(ctx, tx, work, to)
+	_, _, err = r.home(ctx, tx, work, to, false)
 	return err
+}
+
+// HomeMoved is Home with the Move permit: it allows a Work with files.
+// Only files.Switch calls it, in the Write that switches the rows.
+func (r *Roots) HomeMoved(ctx context.Context, tx *storage.Tx[file], work works.WorkID, root ID) error {
+	to, err := Get(ctx, tx, root)
+	if err != nil {
+		return err
+	}
+	_, _, err = r.home(ctx, tx, work, to, true)
+	return err
+}
+
+// Homed is one Work of a root, and whether it has a live file.
+type Homed struct {
+	Work     works.WorkID
+	HasFiles bool
+}
+
+// WorksIn is one page of root's Works after the given id, in id order,
+// read in rd.
+func (r *Roots) WorksIn(ctx context.Context, rd storage.Reader[file], root ID, after works.WorkID, limit int) ([]Homed, error) {
+	ids, err := db.New(rd).ListWorksOfRootAfter(ctx, db.ListWorksOfRootAfterParams{RootID: root, After: after, N: int64(limit)})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Homed, len(ids))
+	for i, w := range ids {
+		has, err := r.cfg.Contents.HasFiles(ctx, rd, w)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = Homed{Work: w, HasFiles: has}
+	}
+	return out, nil
 }
 
 // home is Home into to. It answers whether work moved and the root it
 // left, zero when it was rootless.
-func (r *Roots) home(ctx context.Context, tx *storage.Tx[file], work works.WorkID, to Root) (moved bool, left ID, err error) {
+func (r *Roots) home(ctx context.Context, tx *storage.Tx[file], work works.WorkID, to Root, permit bool) (moved bool, left ID, err error) {
 	w, err := works.SummaryOf(ctx, tx, work)
 	if err != nil {
 		return false, ID{}, err
@@ -44,7 +79,7 @@ func (r *Roots) home(ctx context.Context, tx *storage.Tx[file], work works.WorkI
 	switch has, err := r.cfg.Contents.HasFiles(ctx, tx, work); {
 	case err != nil:
 		return false, ID{}, err
-	case has:
+	case has && !permit:
 		return false, ID{}, ErrHasFiles
 	}
 	if err := r.cfg.Contents.ForgetGoneOf(ctx, tx, work); err != nil {
@@ -67,7 +102,7 @@ func (r *Roots) HomeAll(ctx context.Context, _ identity.Admin, ws []works.WorkID
 			return err
 		}
 		for _, w := range ws {
-			went, left, err := r.home(ctx, tx, w, to)
+			went, left, err := r.home(ctx, tx, w, to, false)
 			switch {
 			case errors.Is(err, works.ErrNoWork), errors.Is(err, ErrHasFiles), errors.Is(err, ErrWrongType):
 				refused[w] = err

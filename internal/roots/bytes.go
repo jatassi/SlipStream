@@ -24,6 +24,32 @@ func (r *Roots) Place(ctx context.Context, root ID, to storing.Rel, from storing
 	return placed, r.waiting(ctx, at.Node, err)
 }
 
+// PlaceSidecar is Place for a Sidecar its source's ledger marks
+// SlipStream's: the Node records the placed file in root's ledger.
+func (r *Roots) PlaceSidecar(ctx context.Context, root ID, to storing.Rel, from storing.Source, allowCopy bool) (storing.Placed, error) {
+	at, err := r.at(ctx, root)
+	if err != nil {
+		return storing.Placed{}, err
+	}
+	placed, err := r.cfg.Remote.PlaceSidecar(ctx, at, from, to, allowCopy)
+	return placed, r.waiting(ctx, at.Node, err)
+}
+
+// MoveSidecar renames the Sidecar from to to within root on its Node,
+// and records it at to in root's ledger.
+func (r *Roots) MoveSidecar(ctx context.Context, root ID, from, to storing.Rel) (storing.Placed, error) {
+	at, err := r.at(ctx, root)
+	if err != nil {
+		return storing.Placed{}, err
+	}
+	videos, err := r.cfg.Videos(ctx, r.cfg.Library)
+	if err != nil {
+		return storing.Placed{}, err
+	}
+	moved, err := r.cfg.Remote.MoveSidecar(ctx, at, from, to, videos)
+	return moved, r.waiting(ctx, at.Node, err)
+}
+
 // Move renames from to to within root on its Node, and with carry from's
 // companions after it, answering the moved file and the companions left;
 // moving again converges. The Node may refuse with a *WaitingError.

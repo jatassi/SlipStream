@@ -36,6 +36,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
@@ -151,6 +152,8 @@ type half struct {
 	// and receives this Node's, on every Node.
 	transfers *transfers.Transfers
 	copier    *transfers.Node
+	// moves drives every Move, on a Controller.
+	moves *moves.Moves
 	// serving proxies to the Controller while a Worker holds Serving.
 	serving *serving.Worker
 }
@@ -287,9 +290,6 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:          n.rootLog.With("subsystem", "transfers"),
 	})
 	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
-	for _, p := range n.env.Test.Purposes {
-		copies.Register(p)
-	}
 	servers := mediaservers.New(mediaservers.Config{
 		Library: lib.db,
 		Sealer:  lib.sealer,
@@ -570,6 +570,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Arrivals: arrivals,
 		Contents: files.RootContents{},
 		Inflight: imports.RootImports{},
+		Busy:     moves.Busy,
 		Videos:   imports.Videos,
 		Changed:  roots.ChangedEvent.Bind(n.hub),
 		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
@@ -599,6 +600,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Timings:     n.cfg.Timings.Files,
 		Rand:        n.filesRand,
 		Reconciling: reconciling.Blocked,
+		Moves:       moves.FilesHooks{},
+		Homes:       homes,
 		Log:         n.rootLog.With("subsystem", "files"),
 	})
 	if err != nil {
@@ -700,6 +703,7 @@ func (n *Node) startController(ctx context.Context) error {
 			return mediav1connect.MediaService.On(cluster, node)
 		},
 		Transfers:    copies,
+		OtherCopies:  moves.OtherCopies,
 		Grabs:        pipeline,
 		Timings:      imports.Timings{RetryMin: n.cfg.Timings.Grabs.RetryMin, RetryMax: n.cfg.Timings.Grabs.RetryMax},
 		Rand:         n.importsRand,
@@ -711,19 +715,31 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
 	pipeline.Register(found.Importer())
+	mover := moves.New(moves.Config{
+		Library: lib.db, Works: tree, Files: shelf, Roots: homes, Disk: homes, Imports: found, Transfers: copies, MediaServers: servers,
+		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
+			return roots.DestinationsIn(ctx, r, ids, stored, side)
+		},
+		Writing: subtitles.Writing, Roster: side, Videos: imports.Videos, Reconciling: reconciling.Blocked, Hub: n.hub,
+		Changed: moves.ChangedEvent.Bind(n.hub), FilesChanged: files.ChangedEvent.Bind(n.hub),
+		Touch:    func(nodes ...role.NodeID) { stored.Touch(nodes...) },
+		Recorder: n.history.Recorder("moves", moves.Entries()), Timings: n.cfg.Timings.Moves, BeforeStep: n.env.Test.BeforeMoveStep,
+		Clock: time.Now, Log: n.rootLog.With("subsystem", "moves"),
+	})
+	copies.Register(mover.Purpose())
 	front := home.New(home.Config{
-		Library: lib.db, Grabs: pipeline, Imports: found, Works: tree, Files: shelf, Clients: clients,
+		Library: lib.db, Moves: mover, Grabs: pipeline, Imports: found, Works: tree, Files: shelf, Clients: clients,
 		Changed: home.SettingsChangedEvent.Bind(n.hub),
 	})
 	if err := found.Carry(ctx); err != nil {
 		return err
 	}
-	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue,
+	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue, Moves: mover.Hooks().Library,
 		History: n.history.Recorder("library", library.Entries()), Subtitles: subtitler,
 	})
 	cat.Seal()
 
-	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found, Transfers: copies}
+	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found, Transfers: copies, Moves: mover}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
 		Library: lib.db,
 		Catalog: append(catalog(housekeeping.Config{
@@ -735,7 +751,7 @@ func (n *Node) startController(ctx context.Context) error {
 			},
 			Keep:  n.history,
 			Batch: n.cfg.Timings.Housekeeping.PruneBatch,
-			Steps: housekeepingSteps(registry, servers, n.history, pipeline, found, shelf, subtitler),
+			Steps: append(housekeepingSteps(registry, servers, n.history, pipeline, found, shelf, subtitler), moves.Retention(lib.db)),
 			Reconciling: func(ctx context.Context) (paused bool, err error) {
 				err = lib.db.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 					paused, err = reconciling.Blocked(ctx, r)
@@ -794,6 +810,7 @@ func (n *Node) startController(ctx context.Context) error {
 
 		transfers: copies,
 		copier:    copier,
+		moves:     mover,
 	}
 	if h.health, err = n.openHealth(ctx, lib.db, h); err != nil {
 		return err
@@ -810,6 +827,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("backup copies", kept.Run)
 	n.claimed.Go("media servers", servers.Run)
 	n.claimed.Go("files", shelf.Run)
+	n.claimed.Go("moves", mover.Run)
 	n.claimed.Go("subtitles", subtitler.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.claimed.Go("library scan", found.Run)

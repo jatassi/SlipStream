@@ -144,7 +144,7 @@ const noSubtitles = [
 const quietHome = [
   getGetHomeMockHandler({
     jobs: { rows: [], moving: 0 },
-    needsYou: { rows: [], failed: 0, waiting: 0 },
+    needsYou: { rows: [], moves: [], failed: 0, waiting: 0 },
     recent: { rows: [], today: { imported: 0, upgraded: 0 } },
   }),
   getGetTorrentCountsMockHandler({ nodes: [] }),

@@ -1,8 +1,6 @@
 package sim_test
 
 import (
-	"bytes"
-	"context"
 	"errors"
 	"io/fs"
 	"net"
@@ -25,11 +23,8 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/node"
 	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
-	"github.com/jatassi/slipstream/internal/roots"
-	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/transfers"
-	"github.com/jatassi/slipstream/internal/transfers/source"
 )
 
 func seedboxNAS(t *testing.T) scenario.Scenario {
@@ -404,92 +399,4 @@ func downloads(t *testing.T, w *sim.World) []os.FileInfo {
 		t.Fatal(err)
 	}
 	return out
-}
-
-// TestALibraryFileOnSeedboxArrivesWholeInDensRoot gives seedbox a movies
-// root of its own and asks for a move of one of its files into den's:
-// seedbox serves the file from its root, and den verifies it in staging
-// byte for byte.
-func TestALibraryFileOnSeedboxArrivesWholeInDensRoot(t *testing.T) {
-	t.Parallel()
-	synctest.Test(t, func(t *testing.T) {
-		s, err := scenario.Load("seeding")
-		if err != nil {
-			t.Fatal(err)
-		}
-		s.Nodes[1].Roles = append(s.Nodes[1].Roles, "storage")
-		s.Library.Roots = append(s.Library.Roots, scenario.LibraryRoot{ContentType: "movie", Folder: "seedbox-movies", Node: "seedbox"})
-		verified := make(chan transfers.ID, 1)
-		move := transfers.Purpose{
-			Kind: transfers.Move,
-			Verified: func(_ context.Context, _ *storage.Tx[storage.Library], tr transfers.Transfer, _ string) error {
-				verified <- tr.ID
-				return nil
-			},
-			Failed: func(_ context.Context, _ *storage.Tx[storage.Library], _ transfers.Transfer, f transfers.Failure) error {
-				t.Errorf("the move failed: %s", f.Sentence)
-				return nil
-			},
-			After: func([]string) {},
-			Names: func(context.Context, storage.Reader[storage.Library], []string) (map[string]string, error) {
-				return nil, nil
-			},
-		}
-		w := sim.Launch(t, s, sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {
-			if name == "home" {
-				e.Test.Purposes = []transfers.Purpose{move}
-			}
-		}))
-		synctest.Wait()
-		a := w.API()
-		from, to := rootOn(t, a, "seedbox"), rootOn(t, a, "den")
-		film := []byte("a film of seedbox's, moving to den")
-		if err := os.MkdirAll(filepath.Join(from.Path, "Heat (1995)"), 0o750); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(from.Path, "Heat (1995)", "Heat.mkv"), film, 0o600); err != nil {
-			t.Fatal(err)
-		}
-		home := w.Node("home").Half()
-		err = home.Library.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			_, err := home.Transfers.Want(ctx, tx, transfers.Request{
-				Purpose: transfers.Move, Job: "heat", Source: nodeID(t, w, "seedbox"), Destination: transfers.Root{ID: roots.ID{UUID: uuidOf(t, to.ID)}},
-				Files: []transfers.FileRequest{{Name: "Heat.mkv", Size: int64(len(film)), Source: source.Library{Root: [16]byte(uuidOf(t, from.ID).Bytes()), Rel: "Heat (1995)/Heat.mkv"}}},
-			})
-			return err
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		home.Transfers.Touch()
-		id := <-verified
-		got, err := os.ReadFile(filepath.Join(to.Path, storing.StagingDir, id.String(), "0.part"))
-		if err != nil || !bytes.Equal(got, film) {
-			t.Errorf("den staged %q, %v; want seedbox's file whole", got, err)
-		}
-	})
-}
-
-// rootOn is the one root on the Node named name.
-func rootOn(t *testing.T, a *worldtest.API, name string) simtest.RootRow {
-	t.Helper()
-	id := a.Node(name).NodeID
-	for _, r := range simtest.Decode[struct {
-		Roots []simtest.RootRow `json:"roots"`
-	}](t, "listRoots", a.Admin("home", http.MethodGet, "/api/v1/roots", "")).Roots {
-		if r.NodeID == id {
-			return r
-		}
-	}
-	t.Fatalf("listRoots has no root on %s", name)
-	return simtest.RootRow{}
-}
-
-func uuidOf(t *testing.T, s string) storage.UUID {
-	t.Helper()
-	id, err := storage.ParseUUID(s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return id
 }

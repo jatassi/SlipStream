@@ -14,6 +14,7 @@ export * from "./indexers/indexers.ts";
 export * from "./mail/mail.ts";
 export * from "./mediaservers/mediaservers.ts";
 export * from "./metadata/metadata.ts";
+export * from "./moves/moves.ts";
 export * from "./naming/naming.ts";
 export * from "./nodes/nodes.ts";
 export * from "./notifications/notifications.ts";

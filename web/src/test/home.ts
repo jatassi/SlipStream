@@ -109,7 +109,7 @@ export function summaryOf({
 } = {}): HomeSummary {
   return {
     jobs: { rows: jobs, moving },
-    needsYou: { rows: needs, failed, waiting },
+    needsYou: { rows: needs, moves: [], failed, waiting },
     recent: { rows: arrivals, today },
   };
 }

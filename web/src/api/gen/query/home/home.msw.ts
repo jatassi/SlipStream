@@ -527,6 +527,32 @@ export const getGetHomeResponseMock = (
   },
   needsYou: {
     failed: faker.number.int({ min: 0, max: 100 }),
+    moves: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        batchId: faker.string.uuid(),
+        kind: faker.helpers.arrayElement(["failed", "waiting"] as const),
+        ...(faker.datatype.boolean()
+          ? { since: faker.date.past().toISOString().slice(0, 19) + "Z" }
+          : {}),
+        switchNow: faker.datatype.boolean(),
+        unitId: faker.string.uuid(),
+        words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        work: {
+          backdropUrl: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+          contentType: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          failed: faker.datatype.boolean(),
+          id: faker.string.uuid(),
+          label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          posterUrl: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+        },
+      }),
+    ),
     rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         grab: {

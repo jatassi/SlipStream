@@ -314,9 +314,14 @@ _In UI_: "Error level".
 _Avoid_: Critical threshold, hard limit
 
 **Move**:
-An admin-started job that relocates one Work's files to another library root, or one torrent to another Download Client, then deletes the source. Files that cross Nodes go as Transfers, and the whole Work or torrent switches over at once before the source is deleted.
+An admin-started job that relocates one Work's files to another library root, or one torrent to another Download Client. Files that cross Nodes go as Transfers, and the whole Work or torrent switches over at once before the source is deleted.
 _In UI_: "Move".
-_Avoid_: Migration, relocation, sync, transfer (for the whole job), Handover
+_Avoid_: Migration, relocation, sync, transfer (for the whole job), Handover, cutover
+
+**Switch**:
+The step of a Move that makes the destination the only copy of a Work or a torrent, in one Write. Before it the source plays and seeds and the Move can be cancelled, and after it the source is deleted.
+_In UI_: "switch", as a verb in the Move's own sentences, such as "Switching to den", "12 of 43 movies switched" and "Switch now".
+_Avoid_: Cutover, swap
 
 **Media Server**:
 An external player-facing server that serves the library to players, such as Plex, Jellyfin or Emby.
@@ -349,9 +354,9 @@ _In UI_: none. Say "change", such as "3 changes wait for Living room Plex".
 _Avoid_: Notification, event, update, refresh (for the change itself)
 
 **Carry**:
-A Media Server change that puts an item's file at a new path, from a rename or an upgrade under a new name, and keeps every user's Watch data and the item's collections on the item at the new path. The change lists what the server couldn't keep as lost.
+A Media Server change that puts an item's file at a new path, from a rename, an upgrade under a new name or a Move to another library root, and keeps every user's Watch data and the item's collections on the item at the new path. The change lists what the server couldn't keep as lost.
 _In UI_: none. Say what the server kept and lost.
-_Avoid_: Move (that is the Admin's job), restore, migration
+_Avoid_: Move (that is the Admin's job that sends one), restore, migration
 
 **Watch data**:
 What a Media Server records for each of its users about one item: played, play count, resume position, favourite, last played and rating.

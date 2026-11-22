@@ -54,7 +54,7 @@ var (
 	folderExists        = api.NewCode(http.StatusConflict, "folder_exists", "A folder of that name is already there")
 	folderOutside       = api.NewCode(http.StatusUnprocessableEntity, "folder_outside", "The folder isn't in a library root or a download folder on the Node")
 	rehomeMissing       = api.NewCarrying[missingFiles](http.StatusConflict, "rehome_missing", "Recorded files aren't at the new place", "missing")
-	rootInUse           = api.NewCarrying[inUse](http.StatusConflict, "root_in_use", "The root holds files or has a Grab in flight", "use")
+	rootInUse           = api.NewCarrying[inUse](http.StatusConflict, "root_in_use", "The root holds files or has a Grab or a Move in flight", "use")
 	rootIsDefault       = api.NewCode(http.StatusConflict, "root_is_default", "The root is the default for its kind of media. Make another root the default, then delete this one.")
 	worksToRequired     = api.NewCode(http.StatusUnprocessableEntity, "works_to_required", "The root's Works need another root of their Content Type to go to")
 	worksToWrongType    = api.NewCode(http.StatusUnprocessableEntity, "works_to_wrong_type", "The root's Works can go only to a root of their Content Type")
@@ -85,7 +85,7 @@ func answer(err error) error {
 		return rehomeMissing.With(missingOf(missing))
 	}
 	if use, ok := errors.AsType[*roots.InUseError](err); ok {
-		return rootInUse.With(inUse{Files: use.Files, Grabs: use.Grabs})
+		return rootInUse.With(inUse{Files: use.Files, Grabs: use.Grabs, Moves: use.Moves})
 	}
 	if fe, ok := errors.AsType[*storing.FolderError](err); ok {
 		return folderUnreadable.With(folderProblem{Kind: fe.Kind.String(), OSText: fe.Text, Account: fe.Account})
@@ -188,6 +188,7 @@ func missingOf(e *roots.MissingError) missingFiles {
 type inUse struct {
 	Files int64 `json:"files" doc:"The files it holds, those waiting to be deleted counted"`
 	Grabs int64 `json:"grabs" doc:"The Grabs in flight for its Works or into it"`
+	Moves int64 `json:"moves" doc:"The Moves from it or into it that haven't finished"`
 }
 
 type refusal struct {

@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -134,6 +135,45 @@ func (q *Queries) InsertIntent(ctx context.Context, arg InsertIntentParams) erro
 		arg.StartedAt,
 	)
 	return err
+}
+
+const listWriting = `-- name: ListWriting :many
+SELECT f.file_id FROM subtitles_file f
+WHERE f.file_id IN (/*SLICE:ids*/?) AND (f.map_state = 'building' OR EXISTS (SELECT 1 FROM subtitles_write w WHERE w.file_id = f.file_id))
+ORDER BY f.file_id
+`
+
+func (q *Queries) ListWriting(ctx context.Context, ids []files.ID) ([]files.ID, error) {
+	query := listWriting
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []files.ID
+	for rows.Next() {
+		var file_id files.ID
+		if err := rows.Scan(&file_id); err != nil {
+			return nil, err
+		}
+		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const putTried = `-- name: PutTried :exec

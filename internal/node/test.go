@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/link"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -46,9 +47,6 @@ type Test struct {
 	Lockstep func(http.Handler) http.Handler
 	// Transfers sees into what this Node sends in a Transfer.
 	Transfers transfers.Hooks
-	// Purposes is Transfer purposes the Controller registers beside the
-	// binary's own.
-	Purposes []transfers.Purpose
 	// BeforeStep sees each Grab step on the Controller before it runs.
 	BeforeStep func(context.Context, grabs.Stage)
 	// BeforeScanStep sees each phase of a root's Library scan unit before
@@ -57,6 +55,9 @@ type Test struct {
 	// BeforeImport sees each Import file's probe, place and landing on the
 	// Controller before it runs.
 	BeforeImport func(context.Context, imports.Step)
+	// BeforeMoveStep sees each IO step of a Move's unit on the Controller
+	// before it runs.
+	BeforeMoveStep func(context.Context, moves.Step)
 	// BeforeRestoreStage sees each step of a restore's finish at start
 	// before it runs. An error stops the start there, as a crash would.
 	BeforeRestoreStage func(RestoreStep) error
@@ -85,6 +86,8 @@ type Half struct {
 	Imports *imports.Imports
 	// Transfers is the Controller's Transfers.
 	Transfers *transfers.Transfers
+	// Moves is the Controller's S48 (Moves).
+	Moves *moves.Moves
 }
 
 func (t Test) held(local *storage.DB[storage.Local]) []role.Held {
