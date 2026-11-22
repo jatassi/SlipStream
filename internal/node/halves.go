@@ -287,6 +287,9 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:          n.rootLog.With("subsystem", "transfers"),
 	})
 	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
+	for _, p := range n.env.Test.Purposes {
+		copies.Register(p)
+	}
 	servers := mediaservers.New(mediaservers.Config{
 		Library: lib.db,
 		Sealer:  lib.sealer,
@@ -719,7 +722,7 @@ func (n *Node) startController(ctx context.Context) error {
 	})
 	cat.Seal()
 
-	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
+	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found, Transfers: copies}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
 		Library: lib.db,
 		Catalog: append(catalog(housekeeping.Config{

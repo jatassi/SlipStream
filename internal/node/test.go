@@ -46,6 +46,9 @@ type Test struct {
 	Lockstep func(http.Handler) http.Handler
 	// Transfers sees into what this Node sends in a Transfer.
 	Transfers transfers.Hooks
+	// Purposes is Transfer purposes the Controller registers beside the
+	// binary's own.
+	Purposes []transfers.Purpose
 	// BeforeStep sees each Grab step on the Controller before it runs.
 	BeforeStep func(context.Context, grabs.Stage)
 	// BeforeScanStep sees each phase of a root's Library scan unit before
@@ -80,6 +83,8 @@ type Half struct {
 	Clients *downloadclients.Clients
 	// Imports is the Controller's Library scan and Pending imports.
 	Imports *imports.Imports
+	// Transfers is the Controller's Transfers.
+	Transfers *transfers.Transfers
 }
 
 func (t Test) held(local *storage.DB[storage.Local]) []role.Held {
