@@ -3,6 +3,7 @@ package downloadclients_test
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -12,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/live"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -34,6 +36,15 @@ type guarded struct {
 	facts   *dlv1.Facts
 	touched int
 	cards   int
+	volumes []roots.VolumesChanged
+}
+
+type volumesHeard struct{ g *guarded }
+
+func (v volumesHeard) Publish(_ context.Context, e roots.VolumesChanged) {
+	v.g.mu.Lock()
+	defer v.g.mu.Unlock()
+	v.g.volumes = append(v.g.volumes, e)
 }
 
 func newGuarded(t *testing.T) *guarded {
@@ -47,7 +58,7 @@ func newGuarded(t *testing.T) *guarded {
 			defer g.mu.Unlock()
 			g.touched += len(nodes)
 		},
-		CardsChanged: g,
+		CardsChanged: g, Volumes: volumesHeard{g},
 		Facts: func(role.NodeID) (*dlv1.Facts, bool) {
 			g.mu.Lock()
 			defer g.mu.Unlock()
@@ -159,6 +170,21 @@ func TestTheGuardLiftsOnTheFirstSampleAbove(t *testing.T) {
 	in := intent(t, g.lib, g.node)
 	if in.GetSampleEverySeconds() != 300 {
 		t.Errorf("the intent samples every %ds, want Storage's 5 minutes", in.GetSampleEverySeconds())
+	}
+}
+
+func TestADownloadsVolumeSampleTellsTheAdminsOnlyWhenItsFiguresChange(t *testing.T) {
+	g := newGuarded(t)
+	start := time.Now()
+	g.sample(30*setting.GB, start)
+	g.sample(30*setting.GB, start.Add(time.Minute))
+	g.sample(29*setting.GB, start.Add(2*time.Minute))
+	g.sample(10*setting.GB, start.Add(90*time.Second))
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	want := roots.VolumesChanged{NodeID: g.node.String(), VolumeIDs: []string{"/data"}}
+	if len(g.volumes) != 2 || !slices.Equal(g.volumes[1].VolumeIDs, want.VolumeIDs) || g.volumes[1].NodeID != want.NodeID {
+		t.Fatalf("volumes.changed = %+v; want %+v twice, for the first sample and the one with less free, not for a newer sample of the same figures or an older one", g.volumes, want)
 	}
 }
 

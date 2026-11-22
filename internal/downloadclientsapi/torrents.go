@@ -354,6 +354,38 @@ func (h handlers) listTorrents(ctx context.Context, _ identity.Admin, in *listIn
 	return &torrentListOutput{Body: out}, nil
 }
 
+// NodeTorrents is one Downloading Node's Torrents counted as the Torrents
+// status sentence counts them.
+type NodeTorrents struct {
+	NodeID      string `json:"nodeId" format:"uuid"`
+	Torrents    int    `json:"torrents" minimum:"0" doc:"Every Torrent it holds, paused, queued and complete ones too"`
+	Downloading int    `json:"downloading" minimum:"0"`
+	Seeding     int    `json:"seeding" minimum:"0"`
+	Failures    int    `json:"failures" minimum:"0"`
+	Warnings    int    `json:"warnings" minimum:"0"`
+}
+
+type nodeTorrentsList struct {
+	Nodes []NodeTorrents `json:"nodes" nullable:"false" doc:"One per Downloading Node, in Node order"`
+}
+
+type nodeTorrentsOutput struct{ Body nodeTorrentsList }
+
+func (h handlers) getTorrentCounts(ctx context.Context, _ identity.Admin, _ *struct{}) (*nodeTorrentsOutput, error) {
+	clients, _ := open(h.clients)
+	counts, err := clients.NodeCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := nodeTorrentsList{Nodes: make([]NodeTorrents, len(counts))}
+	for i, c := range counts {
+		out.Nodes[i] = NodeTorrents{
+			NodeID: c.Node.String(), Torrents: c.Torrents, Downloading: c.Downloading, Seeding: c.Seeding, Failures: c.Failures, Warnings: c.Warnings,
+		}
+	}
+	return &nodeTorrentsOutput{Body: out}, nil
+}
+
 // TorrentDetail is one Torrent as the Inspector shows it.
 type TorrentDetail struct {
 	TorrentRow
