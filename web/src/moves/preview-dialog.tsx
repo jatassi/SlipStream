@@ -21,7 +21,8 @@ export type PreviewDialogProps = {
   readonly title: string;
   readonly previewing: Previewing | undefined;
   readonly picker?: ReactNode;
-  readonly homedWords: (homed: number) => string;
+  /** The Works without files a Start homes; a Move back homes none. */
+  readonly homedWords?: (homed: number) => string;
   readonly startedWords: (started: number, plan: MovesMovePreview) => string;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
@@ -62,7 +63,7 @@ export function PreviewDialog({
         </SignalLine>
       )}
       {plan !== undefined && (
-        <Plan plan={plan} homed={plan.homed > 0 ? homedWords(plan.homed) : undefined} />
+        <Plan plan={plan} homed={plan.homed > 0 ? homedWords?.(plan.homed) : undefined} />
       )}
     </ConfirmDialog>
   );

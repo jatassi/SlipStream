@@ -69,7 +69,6 @@ export function MoveBackDialog({
     <PreviewDialog
       title="Move back"
       previewing={{ kind: "back", batchId }}
-      homedWords={() => ""}
       startedWords={(started, plan) =>
         started === 1
           ? `Moving ${plan.units.find(({ verdict }) => verdict !== "red")?.name ?? "it"} back.`
