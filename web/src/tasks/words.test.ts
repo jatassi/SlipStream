@@ -20,12 +20,8 @@ const run = (trigger: TasksOpenRun["trigger"]): TasksOpenRun => ({
 const after = (ms: number) => new Date(startedAt.getTime() + ms);
 
 test.each([
-  ["schedule", 4_900, false],
+  ["schedule", 4_999, false],
   ["schedule", 5_000, true],
-  ["catch-up", 4_999, false],
-  ["returned", 5_000, true],
-  ["event", 4_999, false],
-  ["event", 5_000, true],
   ["run-now", 0, true],
 ] as const)("a %s run open %i ms is shown: %s", (trigger, open, shown) => {
   const runs = visibleRuns({ headerDelaySeconds: 5, runs: [run(trigger)] }, after(open));

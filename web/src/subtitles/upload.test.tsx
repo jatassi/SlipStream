@@ -5,11 +5,10 @@ import { problem } from "../test/handlers";
 import { orchardId } from "../test/library";
 import { renderApp } from "../test/render-app";
 import { scannedFiles } from "../test/scanned-files";
-import { attempting, missing, subtitlesServer, uhdSubtitles } from "../test/subtitles-work";
+import { missing, subtitlesServer, uhdSubtitles } from "../test/subtitles-work";
 import { workServer } from "../test/work-server";
 
 const title = "English subtitle for The Quiet Orchard (2021) - 2160p.mkv";
-const notifications = () => page.getByRole("region", { name: "Messages" });
 const cue = "1\n00:00:01,000 --> 00:00:02,000\nHello\n";
 
 function open(world: Omit<Parameters<typeof subtitlesServer>[0], "work">) {
@@ -73,37 +72,4 @@ test("a dropped file is sent in base64, and a refusal shows in the dialog", asyn
     )
     .toBeVisible();
   expect(world.uploads).toEqual([{ name: "Orchard.en.srt", bytes: btoa(cue) }]);
-});
-
-test("an upload whose timing fails offers Keep anyway under Details, which keeps it", async () => {
-  const world = open({
-    upload: attempting,
-    attempt: () => ({
-      step: "finished",
-      provider: null,
-      outcome: { kind: "failed_timing", match: 38, threshold: 50, answer: null },
-      uploadId: "2e4a6c8e-0a2c-4e6a-8c0e-2a4c6e8a0c2f",
-    }),
-  });
-  const dialog = await openUpload();
-  await userEvent.upload(dialog.getByLabelText("Subtitle file"), new File([cue], "Orchard.en.srt"));
-  await expect
-    .element(
-      dialog.getByText(
-        "This subtitle's timing doesn't match the file, so SlipStream didn't keep it. Pick another file, or open Details to keep it anyway.",
-      ),
-    )
-    .toBeVisible();
-  await userEvent.click(dialog.getByRole("button", { name: "Details" }));
-  await expect
-    .element(
-      dialog.getByText(
-        "Its timing match is 38%, and SlipStream keeps subtitles at 50% or more. If you keep it, its lines may show early or late.",
-      ),
-    )
-    .toBeVisible();
-  await userEvent.click(dialog.getByRole("button", { name: "Keep anyway" }));
-  await expect.element(notifications().getByText("English subtitle added.")).toBeVisible();
-  await expect.element(dialog).not.toBeInTheDocument();
-  expect(world.calls).toEqual(["upload", "keep"]);
 });

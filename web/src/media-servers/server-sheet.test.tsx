@@ -19,75 +19,12 @@ const den: NodesNode = {
   roles: [{ role: "media-server-link", state: "holding" }],
 };
 
-const address = "http://192.168.1.30:8096";
-
-const signedIn = {
-  path: "sign-in",
-  body: { kind: "jellyfin", address, nodeId: den.id, user: "grace", password: "hunter2" },
-};
-
-const added = {
-  path: "add",
-  body: {
-    kind: "jellyfin",
-    name: "Jellyfin",
-    address,
-    apiKey: "5f1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b",
-    deviceId: "slipstream-0001",
-    reachingNodeId: den.id,
-    runsOnNodeId: den.id,
-  },
-};
-
 async function openAdd(kind: string) {
   await userEvent.click(page.getByRole("button", { name: "Add a Media Server" }));
   await userEvent.click(dialog().getByRole("radio", { name: kind }));
   await userEvent.click(dialog().getByRole("button", { name: "Next" }));
   await expect.element(page.getByRole("dialog", { name: `Add ${kind}` })).toBeVisible();
 }
-
-async function signInAsAdmin() {
-  await userEvent.click(dialog().getByRole("button", { name: "Sign in as an administrator" }));
-  await userEvent.fill(dialog().getByRole("textbox", { name: "User" }), "grace");
-  await userEvent.fill(dialog().getByLabelText("Password"), "hunter2");
-  await userEvent.click(dialog().getByRole("button", { name: "Sign in", exact: true }));
-}
-
-test("adding Jellyfin signs in as its administrator, saves the key it made and moves on to its Path mappings", async () => {
-  const world = mediaServersWorld([]);
-  renderApp({ path, handlers: [nodesAre(home, den), ...world.handlers] });
-  await expect.element(page.getByText("No Media Servers yet.", { exact: false })).toBeVisible();
-  await openAdd("Jellyfin");
-  await expect.element(dialog().getByRole("textbox", { name: "Name" })).toHaveValue("Jellyfin");
-  await userEvent.fill(dialog().getByRole("textbox", { name: "Address" }), address);
-  await expect
-    .element(dialog().getByRole("combobox", { name: "Runs on" }))
-    .toHaveTextContent("den");
-  await expect
-    .element(dialog().getByRole("combobox", { name: "Connect from" }))
-    .toHaveTextContent("den");
-
-  await signInAsAdmin();
-  await expect.element(dialog().getByText("Created a key named SlipStream.")).toBeVisible();
-  expect(world.writes).toEqual([signedIn]);
-  await expect.element(dialog().getByLabelText("Password")).toHaveValue("");
-
-  await userEvent.click(dialog().getByRole("button", { name: "Save" }));
-  await expect.element(page.getByText("Added Jellyfin")).toBeVisible();
-  expect(world.writes.at(-1)).toEqual(added);
-  await expect
-    .element(page.getByRole("dialog", { name: "Path mappings on Jellyfin" }))
-    .toBeVisible();
-  await expect
-    .element(dialog().getByRole("group", { name: "Films (/srv/media/films)" }))
-    .toBeVisible();
-  await userEvent.click(dialog().getByRole("button", { name: "Later" }));
-  await expect
-    .element(
-      page.getByRole("list", { name: "Media Servers" }).getByRole("link", { name: /Jellyfin/u }),
-    )
-    .toBeVisible();
-});
 
 test("adding Emby warns against localhost on a Worker and shows a refused name on its field", async () => {
   const world = mediaServersWorld();

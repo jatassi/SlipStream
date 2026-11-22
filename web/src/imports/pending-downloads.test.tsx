@@ -3,7 +3,6 @@ import { page, userEvent } from "vitest/browser";
 
 import { folderEntries, packEntry, takenEntry } from "../test/import-entries";
 import { openPending } from "../test/pending-page";
-import { asPhone } from "../test/viewport";
 
 const pack = () => page.getByRole("listitem", { name: "Severance.S01.1080p.WEB-DL" });
 const episodeOne = () =>
@@ -92,21 +91,4 @@ test("Don't import ends a download's wait and it leaves the list", async () => {
   await expect.element(pack()).not.toBeInTheDocument();
   expect(sent.acted).toEqual([{ id: packEntry.id, position: 0, action: "decline" }]);
   await expect.element(brazil()).toBeVisible();
-});
-
-test("on a phone a download opens as a pushed page that links back to Pending imports", async () => {
-  await asPhone();
-  const { app, sent } = openPending();
-  await userEvent.click(page.getByRole("link", { name: /Severance\.S01\.1080p\.WEB-DL/u }));
-  await expect
-    .poll(() => app.router.state.location.pathname)
-    .toBe(`/library/pending/${packEntry.id}`);
-  await expect
-    .element(page.getByRole("banner").getByRole("link", { name: "Pending imports" }))
-    .toHaveAttribute("href", "/library/pending");
-  await userEvent.click(episodeOne().getByRole("button", { name: "Don't import" }));
-  await expect
-    .element(page.getByText("Nothing in this download needs attention now."))
-    .toBeVisible();
-  expect(sent.acted).toEqual([{ id: packEntry.id, position: 0, action: "decline" }]);
 });

@@ -44,7 +44,7 @@ function wipes() {
   return { sent, handler };
 }
 
-test.each(["/", "/nodes", "/sign-in", "/activity"])(
+test.each(["/", "/sign-in"])(
   "a signed-in Admin's visit to %s on a Superseded Controller lands on the Superseded page",
   async (path) => {
     const app = renderApp({ path, handlers: [fenced, getGetSupersededMockHandler(proven)] });

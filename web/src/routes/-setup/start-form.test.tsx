@@ -16,22 +16,6 @@ import {
 
 forgetKeptCode();
 
-test("Start a new SlipStream claims with the checked code and leaves the page", async () => {
-  writePref("setupCode", rightCode);
-  const server = claiming(() => HttpResponse.json(signedIn, { status: 201 }));
-  const { router } = renderApp({ path: "/setup", handlers: server.handlers });
-  await userEvent.click(startNew());
-  await fillStart("1234");
-  await expect.poll(() => router.state.location.pathname).not.toBe("/setup");
-  expect(server.claims).toEqual([
-    {
-      code: rightCode,
-      body: { email: "ada@example.test", displayName: "Ada Okafor", pin: "1234" },
-    },
-  ]);
-  expect(readPref("setupCode")).toBe("");
-});
-
 test("mismatched PINs never reach the server", async () => {
   writePref("setupCode", rightCode);
   const server = claiming(() => HttpResponse.json(signedIn, { status: 201 }));

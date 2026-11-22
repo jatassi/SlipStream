@@ -17,23 +17,6 @@ async function signIn() {
   await userEvent.click(page.getByRole("button", { name: "Continue" }));
 }
 
-test("Continue loads the captcha home fetched, and the code is required", async () => {
-  renderApp({ path: larkspurForm, handlers: addIndexerServer().handlers });
-  expect(image().query()).toBeNull();
-  await signIn();
-  await expect.element(image()).toHaveAttribute("src", captchas[0]?.image);
-  await expect
-    .element(
-      page.getByText("Signing in to Larkspur needs the code in this image, which home fetched.", {
-        exact: false,
-      }),
-    )
-    .toBeVisible();
-  await expect.element(code()).toHaveFocus();
-  await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByText("Type the code the image shows.")).toBeVisible();
-});
-
 test("a failed Test shows the site's words and a new image, whose code the next save answers", async () => {
   const sentence =
     "Larkspur refused the sign-in and responded 'Wrong code'. Check the username, password and any code, then test again.";

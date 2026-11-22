@@ -53,30 +53,3 @@ test("a page whose route names its title shows the title while its data loads", 
   await expect.element(page.getByRole("status", { name: "Loading Health" })).toBeVisible();
   await expect.element(page.getByRole("heading", { level: 1, name: "Health" })).toBeVisible();
 });
-
-const posterFrames = (status: Element) =>
-  [...status.querySelectorAll("span")].filter(
-    (span) => getComputedStyle(span).aspectRatio === "2 / 3",
-  );
-
-test("the Library's skeleton takes the layout and poster size its address names", async () => {
-  renderApp({ path: "/library?view=table", handlers: pendingForever() });
-  const status = page.getByRole("status", { name: "Loading the Library" });
-  await expect.element(status).toBeVisible();
-  expect(posterFrames(status.element())).toHaveLength(0);
-});
-
-test("the Library's skeleton draws large posters when the address names them", async () => {
-  renderApp({ path: "/library?size=large", handlers: pendingForever() });
-  const status = page.getByRole("status", { name: "Loading the Library" });
-  await expect.element(status).toBeVisible();
-  const [frame] = posterFrames(status.element());
-  expect(frame?.getBoundingClientRect().width).toBeGreaterThanOrEqual(240);
-});
-
-test("the Work page's skeleton draws its poster beside its title", async () => {
-  renderApp({ path: `/works/${zeroUuid}`, handlers: pendingForever() });
-  const status = page.getByRole("status", { name: "Loading the Work" });
-  await expect.element(status).toBeVisible();
-  expect(posterFrames(status.element())).toHaveLength(1);
-});

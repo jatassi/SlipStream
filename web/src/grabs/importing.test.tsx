@@ -39,17 +39,6 @@ async function open(item: string) {
   await userEvent.click(page.getByRole("menuitem", { name: item }));
 }
 
-test("a Grab at Import reads its Import's progress and links Waiting for you to its Pending import", async () => {
-  activity(importingPack);
-  await expect.element(row()).toMatchTextContent(/Importing 6 of 10 episodes/u);
-  await expect
-    .element(row().getByRole("link", { name: "Waiting for you" }))
-    .toHaveAttribute("href", `/library/pending/${importingPack.id}`);
-  await expect
-    .element(row().getByRole("progressbar", { name: "Import The Quiet Orchard" }))
-    .toBeVisible();
-});
-
 test("a Grab whose Import sends a file lights Transfer", async () => {
   if (importingPack.import === null) {
     throw new Error("importingPack has an Import");

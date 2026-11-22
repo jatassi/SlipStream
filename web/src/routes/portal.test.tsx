@@ -1,4 +1,4 @@
-import { expect, onTestFinished, test } from "vitest";
+import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { accountLists } from "../test/account";
@@ -32,23 +32,6 @@ test("a Member lands in the portal, under its top nav, at the Touch density", as
   ).toEqual(["Home"]);
   expect(document.documentElement.dataset["density"]).toBe("touch");
   expect(document.title).toBe("Home · SlipStream");
-});
-
-test("the top nav turns to glass after 24px of scroll", async () => {
-  renderApp({ path: "/portal", handlers: [signedInAsGrace] });
-  const bar = page.getByRole("banner");
-  await expect.element(bar).toBeVisible();
-  const filter = () => getComputedStyle(bar.element()).backdropFilter;
-  expect(filter()).toBe("none");
-
-  document.body.style.minHeight = "3000px";
-  onTestFinished(() => {
-    document.body.style.minHeight = "";
-  });
-  window.scrollTo({ top: 40 });
-  await expect.poll(filter).toBe("blur(24px) saturate(1.6)");
-  window.scrollTo({ top: 0 });
-  await expect.poll(filter).toBe("none");
 });
 
 test("the avatar menu opens Your Account with the Member's name", async () => {

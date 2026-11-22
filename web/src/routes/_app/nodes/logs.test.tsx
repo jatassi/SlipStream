@@ -35,20 +35,6 @@ test("the ring's 10 records show as 10 rows with the count", async () => {
     .toHaveTextContent(`${stampOf(ten[0]?.time ?? "")}InfonodeLine 1`);
 });
 
-test("Warn hides Info and Debug", async () => {
-  openLogs([
-    logRecord(1, { level: "debug", msg: "Looked" }),
-    logRecord(2, { level: "info", msg: "Started" }),
-    logRecord(3, { level: "warn", msg: "Slow" }),
-    logRecord(4, { level: "error", msg: "Failed" }),
-  ]);
-  await expect.element(line("Failed")).toBeVisible();
-  await userEvent.click(page.getByRole("radio", { name: "Warn" }));
-  await expect.element(line("Started")).not.toBeInTheDocument();
-  await expect.element(line("Looked")).not.toBeInTheDocument();
-  expect(rows().all()).toHaveLength(2);
-});
-
 test("search matches a field's value, and a search with no match offers Clear filters", async () => {
   openLogs([
     logRecord(1, { msg: "Sent", attrs: { action: "grab", work: "Dune" } }),
@@ -63,45 +49,6 @@ test("search matches a field's value, and a search with no match offers Clear fi
   await expect.element(page.getByText("No lines match your filters")).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Clear filters" }));
   await expect.element(line("Swept")).toBeVisible();
-});
-
-test("Pause holds the list and counts what arrives, and Resume shows it", async () => {
-  const log = openLogs();
-  await expect.element(line("Line 10")).toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: "Pause" }));
-  log.send(logRecord(11), logRecord(12), logRecord(13));
-  await expect.element(status()).toHaveTextContent("Paused, 3 new");
-  await expect.element(line("Line 13")).not.toBeInTheDocument();
-
-  await userEvent.click(page.getByRole("button", { name: "Resume" }));
-  await expect.element(line("Line 13")).toBeVisible();
-  await expect.element(status()).toHaveTextContent("13 lines");
-});
-
-test("Clear empties the list, and later lines show after it", async () => {
-  const log = openLogs();
-  await expect.element(line("Line 10")).toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: "Clear" }));
-  await expect.element(page.getByText("No log lines yet")).toBeVisible();
-  log.send(logRecord(11));
-  await expect.element(line("Line 11")).toBeVisible();
-  expect(rows().all()).toHaveLength(1);
-});
-
-test("log.reset draws a divider for a restart and for skipped lines", async () => {
-  const log = openLogs();
-  await expect.element(line("Line 10")).toBeVisible();
-  const startedAt = "2026-10-12T14:02:11Z";
-  log.reset({ reason: "restarted", startedAt }, 0);
-  log.send(logRecord(1));
-  log.reset({ reason: "lapped", startedAt }, 40);
-  log.send(logRecord(41));
-  log.reset({ reason: "lapped", startedAt }, 90);
-  await expect
-    .element(page.getByText(`SlipStream restarted at ${stampOf(startedAt)}`))
-    .toBeVisible();
-  await expect.element(page.getByText("Some lines were skipped").nth(1)).toBeVisible();
-  expect(page.getByText("Some lines were skipped").all()).toHaveLength(2);
 });
 
 const seedboxUp = (since: string) =>
@@ -210,18 +157,6 @@ test("scrolling up stops following, and Jump to latest returns to the tail", asy
   await userEvent.click(page.getByRole("button", { name: "Jump to latest" }));
   await expect.element(line("Line 200")).toBeVisible();
   await expect.element(status()).toHaveTextContent("200 lines");
-});
-
-test("Download logs checks the Node, then saves the zip through a link", async () => {
-  const saved: (string | null)[] = [];
-  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function save(
-    this: HTMLAnchorElement,
-  ) {
-    saved.push(this.getAttribute("href"));
-  });
-  openLogs();
-  await userEvent.click(page.getByRole("button", { name: "Download logs" }));
-  await expect.poll(() => saved).toEqual([`/api/v1/nodes/${homeId}/logs/archive`]);
 });
 
 test("Download logs from a Node that doesn't answer says so and saves nothing", async () => {

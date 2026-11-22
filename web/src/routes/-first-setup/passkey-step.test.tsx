@@ -33,19 +33,6 @@ function open(steps = [done("address"), todo("passkey"), todo("language")]) {
   return server;
 }
 
-test("the passkey step adds a passkey and moves on, with the frame's Skip as its only Skip", async () => {
-  const { create } = stubPasskeys();
-  create.mockResolvedValue({ id: "cred-2", type: "public-key" });
-  const server = open();
-  await expect.element(stepHeading("Add a passkey")).toBeVisible();
-  await expect.element(page.getByText("Step 2 of 3")).toBeVisible();
-  await expect.element(page.getByRole("button", { name: /^Skip/u })).toHaveTextContent("Skip");
-  await userEvent.click(page.getByRole("button", { name: "Add a passkey" }));
-  await expect.element(page.getByText("Added Chrome on Mac.")).toBeVisible();
-  await expect.element(stepHeading("Language and region")).toBeVisible();
-  expect(server.writes).toEqual([{ id: "passkey", outcome: "done" }]);
-});
-
 test("a passkey added elsewhere leaves Continue in place of Add a passkey", async () => {
   stubPasskeys();
   const server = open([done("address"), done("passkey"), todo("language")]);

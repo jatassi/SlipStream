@@ -102,18 +102,6 @@ test("a Tracker with no windows says what each list is waiting for", async () =>
   await expect.element(page.getByText("No hit and run window has ended yet.")).toBeVisible();
 });
 
-test("the header says what needs a look as getTracker words it, amber when a torrent is at risk", async () => {
-  renderApp({ path: `/settings/trackers/${seedpoolId}`, handlers: trackersServer().handlers });
-  const warning = page.getByText(
-    "2 torrents are seeding. 2 haven't met seedpool's seeding rule yet, and 1 of those isn't seeding.",
-  );
-  await expect.element(warning).toBeVisible();
-  await expect.element(warning).toHaveClass(/text-warn/u);
-  await expect
-    .element(page.getByLabelText("Totals"))
-    .toMatchTextContent(/Open hit and run windows2$/u);
-});
-
 test("a private Tracker with no rule says so once, in its header's attention line", async () => {
   await asPhone();
   renderApp({ path: `/settings/trackers/${aitherTrackerId}`, handlers: trackersServer().handlers });

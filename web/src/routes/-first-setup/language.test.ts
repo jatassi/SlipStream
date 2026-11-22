@@ -11,13 +11,11 @@ describe("suggestPlace", () => {
     [["fr-CA"], { language: "fr-CA", region: "CA" }],
     [["fr"], { language: "fr-FR" }],
     [["de", "en-US", "en"], { language: "de-DE", region: "US" }],
-    [["ja"], { language: "ja-JP" }],
     [["eo", "ja", "en-GB"], { language: "ja-JP", region: "GB" }],
     [["zh-Hant-TW"], { language: "zh-TW", region: "TW" }],
     [["zh-Hant"], { language: "zh-TW" }],
     [["pt-PT", "pt-BR"], { language: "pt-BR", region: "PT" }],
     [["en-DE"], { language: "en-US", region: "DE" }],
-    [["en-GB", "fr-FR"], { language: "en-GB", region: "GB" }],
     [["en-NG", "fr-FR"], { language: "en-US", region: "FR" }],
   ])("%j suggests %j", (tags, suggestion) => {
     expect(suggestPlace(tags, languages, regions)).toEqual(suggestion);

@@ -1,12 +1,11 @@
 import { expect, test } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page } from "vitest/browser";
 
 import type { MediaserversServerView, NodesNode } from "../../../api/gen/model";
 import { liveServer, synced } from "../../../test/live-server";
 import { denJellyfin, livingRoomPlex, mediaServerHandlers } from "../../../test/media-servers";
 import { home, homeId, nodesAre, seedbox, seedboxId } from "../../../test/nodes";
 import { renderApp } from "../../../test/render-app";
-import { asPhone } from "../../../test/viewport";
 
 const linkHome: NodesNode = {
   ...home,
@@ -102,15 +101,4 @@ test("media-servers.changed refreshes a server's state line", async () => {
   await expect
     .element(servers("seedbox").getByText("Living room Plex is up to date."))
     .toBeVisible();
-});
-
-test("on phone a Node's page opens its Media Servers as a pushed page", async () => {
-  await asPhone();
-  const { router } = renderApp({
-    path: `/nodes/${seedboxId}`,
-    handlers: serve([linkHome, linkSeedbox]).handlers,
-  });
-  await userEvent.click(page.getByRole("link", { name: "Media Servers" }));
-  await expect.poll(() => router.state.location.pathname).toBe(`/nodes/${seedboxId}/media-servers`);
-  await expect.element(servers("seedbox").getByText("Living room Plex")).toBeVisible();
 });

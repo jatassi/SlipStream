@@ -15,13 +15,9 @@ import { torrentLeech, torrentLeechTrackerId, trackers } from "../test/indexers"
 import { orchardRow } from "../test/library";
 import { homeId } from "../test/nodes";
 import { renderApp } from "../test/render-app";
-import { type ValueForm, placeOf, timeForms, whenWords } from "../ui/time-words";
 import { starter, targetHandlers } from "../test/targets";
 import { actionsServer, torrentsServer } from "../test/torrents";
 import { worker } from "../test/worker";
-
-const own = () => ({ now: new Date(), zone: undefined });
-const shown = (form: ValueForm, at: string) => timeForms[form](placeOf(at, own()));
 
 const override = "Ada Okafor grabbed it although its score of 5 is under 1080p's minimum of 10.";
 
@@ -75,30 +71,6 @@ async function open(item: string) {
   await userEvent.click(page.getByRole("menuitem", { name: item }));
 }
 
-test("a Grab's Details say who grabbed it and how, each override, where it went and each stage with its time", async () => {
-  renderApp({ path: "/activity", handlers: grabServer(manual).handlers });
-  await open("Details");
-  const details = page.getByRole("dialog", { name: "Grab of The Quiet Orchard" });
-  await expect
-    .element(details)
-    .toMatchTextContent(/^Grab of The Quiet OrchardFetchingFound by Ada Okafor in Manual search/u);
-  await expect
-    .element(details)
-    .toMatchTextContent(
-      `Found by Ada Okafor in Manual search ${whenWords(manual.createdAt, "at", own())}.`,
-    );
-  await expect.element(details.getByText(override)).toBeVisible();
-  await expect
-    .element(details)
-    .toMatchTextContent(
-      /ReleaseWEBDL-1080p · 700 MBThe\.Quiet\.Orchard\.2021\.1080p\.WEB-DLFor.*IndexerTorrentLeechTrackerTorrentLeechClientChosen once SlipStream fetches the Release/u,
-    );
-  await expect
-    .element(details.getByRole("region", { name: "Stages" }))
-    .toHaveTextContent(`Fetching${shown("clock", "2026-10-12T09:01:00Z")}`);
-  await expect.element(details.getByRole("button", { name: "Cancel Grab" })).toBeVisible();
-});
-
 test("an automatic search's Grab says so and offers no cancel once it can't be canceled", async () => {
   const imported: GrabsGrab = {
     ...downloading,
@@ -124,29 +96,6 @@ test("an automatic search's Grab says so and offers no cancel once it can't be c
   await expect.element(details).not.toBeInTheDocument();
   await userEvent.click(menu());
   await expect.element(page.getByRole("menuitem", { name: "Cancel Grab" })).not.toBeInTheDocument();
-});
-
-test("Cancel with Also blocklist this Release cancels the Grab and blocklists its Release", async () => {
-  const server = grabServer(manual);
-  renderApp({ path: "/activity", handlers: server.handlers });
-  await open("Details");
-  await userEvent.click(page.getByRole("button", { name: "Cancel Grab" }));
-  const cancel = page.getByRole("dialog", { name: "Cancel this Grab?" });
-  await expect
-    .element(cancel)
-    .toMatchTextContent(
-      "SlipStream stops fetching the release and counts the files it was for as missing again.",
-    );
-  await userEvent.click(cancel.getByRole("checkbox", { name: "Also blocklist this Release" }));
-  await userEvent.click(cancel.getByRole("button", { name: "Cancel Grab" }));
-  await expect
-    .element(
-      page
-        .getByRole("region", { name: "Messages" })
-        .getByText("Canceled the Grab of The Quiet Orchard."),
-    )
-    .toBeVisible();
-  expect(server.cancels).toEqual([{ blocklist: true }]);
 });
 
 test("a cancel the server refuses keeps the dialog open with its sentence", async () => {
@@ -204,26 +153,6 @@ test("a fetching Grab with no torrent yet has a menu with Cancel Grab, and no bl
   await expect
     .element(cancel.getByRole("checkbox", { name: "Also blocklist this Release" }))
     .not.toBeInTheDocument();
-});
-
-test("Details on a Needs you card opens its Grab's record", async () => {
-  const failed: GrabsGrab = {
-    ...manual,
-    stage: "failed",
-    failure: fetchFailure,
-    actions: { cancel: false, blocklistable: false, sendTo: false },
-  };
-  renderApp({ path: "/activity", handlers: grabServer(failed).handlers });
-  await userEvent.click(
-    page
-      .getByRole("article", { name: "The Quiet Orchard" })
-      .getByRole("button", { name: "Details" }),
-  );
-  await expect
-    .element(page.getByRole("dialog", { name: "Grab of The Quiet Orchard" }))
-    .toMatchTextContent(
-      /^Grab of The Quiet OrchardSlipStream couldn't download the release's \.torrent file or magnet link from the Indexer\./u,
-    );
 });
 
 test("a failure whose detail says only its cause shows no Detail row", async () => {

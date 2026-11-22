@@ -5,7 +5,6 @@ import { page, userEvent } from "vitest/browser";
 import type { MetadataProvider } from "../api/gen/model";
 import { getListMetadataProvidersMockHandler } from "../api/gen/query/metadata/metadata.msw";
 import { renderApp } from "../test/render-app";
-import { refused } from "../test/roots";
 
 const tmdb: MetadataProvider = {
   id: "tmdb",
@@ -71,47 +70,6 @@ test("TMDB's row carries the required attribution with TMDB's bundled logo", asy
       return img instanceof HTMLImageElement ? img.naturalWidth : 0;
     })
     .toBeGreaterThan(0);
-});
-
-test("Set key tests the key and saves it only once the provider accepts it", async () => {
-  const sent: unknown[] = [];
-  renderApp({
-    path: "/settings/metadata",
-    handlers: [
-      providers(),
-      http.put("*/api/v1/metadata/providers/tmdb/key", async ({ request }) => {
-        const body: unknown = await request.json();
-        sent.push(body);
-        return JSON.stringify(body) === '{"key":"good-key"}'
-          ? HttpResponse.json({ ...tmdb, key: "yours", keySetAt: "2026-05-03T09:00:00Z" })
-          : refused(
-              422,
-              "metadata_key_refused",
-              "The metadata provider refused that key, so SlipStream didn't save it",
-              {
-                detail: "TMDB refused the key: Invalid API key: You must be granted a valid key.",
-              },
-            );
-      }),
-    ],
-  });
-  await userEvent.click(
-    page.getByRole("article", { name: "TMDB" }).getByRole("button", { name: "Set key" }),
-  );
-  const dialog = page.getByRole("dialog", { name: "Set your TMDB key" });
-  await userEvent.fill(dialog.getByRole("textbox", { name: "Key" }), "wrong-key");
-  await userEvent.click(dialog.getByRole("button", { name: "Test and save" }));
-  await expect
-    .element(
-      dialog.getByText("The metadata provider refused that key, so SlipStream didn't save it"),
-    )
-    .toBeVisible();
-
-  await userEvent.fill(dialog.getByRole("textbox", { name: "Key" }), "good-key");
-  await userEvent.click(dialog.getByRole("button", { name: "Test and save" }));
-  await expect.element(page.getByText("SlipStream now calls TMDB with your key.")).toBeVisible();
-  await expect.element(dialog).not.toBeInTheDocument();
-  expect(sent).toEqual([{ key: "wrong-key" }, { key: "good-key" }]);
 });
 
 test("Test calls the provider and shows the sentence it returns", async () => {

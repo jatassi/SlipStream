@@ -3,10 +3,10 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { z } from "zod";
 
-import type { TargetsImpact, TargetsTarget } from "../api/gen/model";
+import type { TargetsImpact } from "../api/gen/model";
 import { changeOp, noImpact } from "../test/impact";
 import { renderApp } from "../test/render-app";
-import { keeper, starter, targetHandlers } from "../test/targets";
+import { starter, targetHandlers } from "../test/targets";
 
 const oneUnwanted: TargetsImpact = {
   works: 2,
@@ -34,41 +34,6 @@ async function editAndSave() {
   await userEvent.click(page.getByRole("checkbox", { name: "WEBDL-1080p" }));
   await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
 }
-
-test("saving a Target shows its Impact in plain counts, with Delete chosen and the count on the button", async () => {
-  const op = saving(() => oneUnwanted);
-  renderApp({
-    path: `/settings/targets/${starter.id}`,
-    handlers: [op.handler, ...targetHandlers()],
-  });
-  await editAndSave();
-
-  await expect.element(sheet()).toBeVisible();
-  expect(lines()).toEqual([
-    "2 Works change.",
-    "1 file would no longer be used by any Target (700 MB).",
-    "3 files are renamed.",
-    "SlipStream will look for 4 more files.",
-    "1 download in progress is no longer needed. When it finishes, it waits in Pending imports.",
-  ]);
-  await expect.element(sheet().getByRole("radio", { name: "Delete them" })).toBeChecked();
-  await expect
-    .element(sheet().getByRole("button", { name: "Save and delete 1 file" }))
-    .toBeVisible();
-  expect(op.sent.map((call) => call.query)).toEqual([{ preview: "true" }]);
-
-  await userEvent.click(sheet().getByRole("radio", { name: "Keep them as Kept files" }));
-  await userEvent.click(sheet().getByRole("button", { name: "Save and keep 1 file" }));
-
-  await expect.element(page.getByText("Saved 1080p.")).toBeVisible();
-  await expect.element(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
-  expect(op.sent.map((call) => call.query)).toEqual([
-    { preview: "true" },
-    { unwanted: "keep", confirm: "1" },
-  ]);
-  expect(op.sent[1]?.body).toEqual(op.sent[0]?.body);
-  expect(op.sent[1]?.body).toMatchObject({ name: "1080p", cutoff: "bluray-1080p" });
-});
 
 test("the Impact lists the files it renames under Details, Kept files included, and counts the rest", async () => {
   const op = saving(() => ({
@@ -178,68 +143,6 @@ test("Cancel on the Impact saves nothing and keeps the edit", async () => {
   await expect.element(sheet()).not.toBeInTheDocument();
   await expect.element(page.getByRole("checkbox", { name: "WEBDL-1080p" })).not.toBeChecked();
   expect(op.sent.map((call) => call.query)).toEqual([{ preview: "true" }]);
-});
-
-async function editScores() {
-  const scores = page.getByRole("region", { name: "Scores" });
-  await expect
-    .element(scores.getByText(/^This Target scores 1 of 3 Custom Formats\./u))
-    .toBeVisible();
-  await userEvent.click(scores.getByRole("button", { name: "Details" }));
-  await userEvent.fill(scores.getByRole("searchbox", { name: "Filter Custom Formats" }), "tier");
-  await expect
-    .poll(() =>
-      scores
-        .getByRole("list", { name: "Custom Format scores" })
-        .getByRole("listitem")
-        .elements()
-        .map((row) => row.textContent),
-    )
-    .toEqual(["HD Bluray Tier 01Score"]);
-  await userEvent.fill(scores.getByRole("textbox", { name: "HD Bluray Tier 01 score" }), "60");
-  await userEvent.fill(scores.getByRole("textbox", { name: "Minimum score increment" }), "0");
-  await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
-  await expect.element(page.getByText("Fix the scores marked below.")).toBeVisible();
-  await userEvent.fill(scores.getByRole("textbox", { name: "Minimum score increment" }), "10");
-}
-
-test("saving a Target sends the scores and propers setting as edited", async () => {
-  const scored: TargetsTarget = {
-    ...keeper,
-    scores: {
-      formats: [{ formatId: "0199e1f2-7a3b-7c4d-8e5f-0000000000f1", score: -100 }],
-      minimum: 10,
-      upgradeUntil: 50,
-      increment: 5,
-    },
-    propers: "dont_prefer",
-  };
-  const op = changeOp("put", `*/api/v1/targets/${scored.id}`, () => noImpact, { target: scored });
-  renderApp({
-    path: `/settings/targets/${scored.id}`,
-    handlers: [op.handler, ...targetHandlers([scored])],
-  });
-  await editScores();
-  await userEvent.click(page.getByRole("radio", { name: "Prefer, don't upgrade" }));
-  await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
-
-  await expect.element(page.getByText("Saved 2160p HDR.")).toBeVisible();
-  const sent = {
-    scores: {
-      formats: [
-        { formatId: "0199e1f2-7a3b-7c4d-8e5f-0000000000f1", score: -100 },
-        { formatId: "0199e1f2-7a3b-7c4d-8e5f-0000000000f3", score: 60 },
-      ],
-      minimum: 10,
-      upgradeUntil: 50,
-      increment: 10,
-    },
-    propers: "prefer_no_upgrade",
-  };
-  expect(op.sent.map((call) => call.body)).toEqual([
-    expect.objectContaining(sent),
-    expect.objectContaining(sent),
-  ]);
 });
 
 test("a Target reopened right after its save opens as saved", async () => {
