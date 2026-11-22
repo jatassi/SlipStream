@@ -74,12 +74,14 @@ test("the recommended action is the primary button and the rest sit in the menu"
   await userEvent.click(
     brazil().getByRole("button", { name: "Other actions for Brazil.1985.1080p.BluRay.mkv" }),
   );
-  expect(
-    page
-      .getByRole("menuitem")
-      .elements()
-      .map((item) => item.textContent),
-  ).toEqual(["Turn on renaming", "Don't import", "Not this Release"]);
+  await expect
+    .poll(() =>
+      page
+        .getByRole("menuitem")
+        .elements()
+        .map((item) => item.textContent),
+    )
+    .toEqual(["Turn on renaming", "Don't import", "Not this Release"]);
   await userEvent.click(page.getByRole("menuitem", { name: "Turn on renaming" }));
   await expect.poll(() => app.router.state.location.pathname).toBe("/settings/naming");
 });

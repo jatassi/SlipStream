@@ -8,21 +8,38 @@ declare global {
 }
 
 const refusal = /^Fetch API cannot load .+ due to access control checks\.$/u;
+const resizeLoop = /ResizeObserver loop/u;
 
 // WebKit refuses a fetch a page starts after its beforeunload and reports it
 // as a page error; Chromium and Firefox drop it silently.
 export async function pageErrors(context: BrowserContext): Promise<string[]> {
   const errors: string[] = [];
   const leaving = new Set<Page>();
+  // Chromium fires a ResizeObserver loop at the window alone and WebKit also
+  // reports it as a page error, so the deliveries join that page error and
+  // never stand as one of their own. Either can arrive first.
+  const unnamedLoops: number[] = [];
+  const deliveries: string[] = [];
+  const name = (): void => {
+    while (unnamedLoops.length > 0 && deliveries.length > 0) {
+      const at = unnamedLoops.shift() ?? 0;
+      errors[at] += ` (the ResizeObserver deliveries before it: ${deliveries.shift() ?? ""})`;
+    }
+  };
   context.on("weberror", (error) => {
     const page = error.page();
     const text = String(error.error());
     if (page === null || !leaving.has(page) || !refusal.test(text)) {
+      if (resizeLoop.test(text)) {
+        unnamedLoops.push(errors.length);
+      }
       errors.push(text);
+      name();
     }
   });
-  await context.exposeBinding("reportResizeLoop", (_source, deliveries: string) => {
-    errors.push(`the ResizeObserver deliveries before the loop error: ${deliveries}`);
+  await context.exposeBinding("reportResizeLoop", (_source, delivered: string) => {
+    deliveries.push(delivered);
+    name();
   });
   await context.addInitScript(resizeLoopReporter);
   if (context.browser()?.browserType().name() === "webkit") {
