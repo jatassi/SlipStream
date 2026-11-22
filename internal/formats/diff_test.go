@@ -32,8 +32,19 @@ func TestDiff(t *testing.T) {
 			}
 		})
 	}
-	if got := formats.Diff([]formats.Versions{{Before: &before}}, limit).Match(at(release.R1080p))[0]; !got.Before || got.After {
-		t.Errorf("a deleted format: %+v", got)
+	hdr := format(1, formats.Radarr, title(`\bHDR\b`))
+	dv := format(2, formats.Radarr, title(`\bDV\b`))
+	widened := format(2, formats.Radarr, title(`\b(DV|HDR)\b`))
+	each := formats.Diff([]formats.Versions{{Before: &hdr}, {Before: &dv, After: &widened}, {After: &hdr}}, limit)
+	flips := each.Match(release.Read{Release: "Film.2160p.HDR"})
+	want := []formats.Flip{{Before: true}, {After: true}, {After: true}}
+	if len(flips) != len(want) {
+		t.Fatalf("Match = %+v, want %+v", flips, want)
+	}
+	for i := range want {
+		if flips[i].Before != want[i].Before || flips[i].After != want[i].After {
+			t.Errorf("format %d: Match = %+v, want %+v", i, flips[i], want[i])
+		}
 	}
 }
 
@@ -62,23 +73,6 @@ func TestAnEditReadsOnlyTheNameWhenBothVersionsTestOnlyTheTitle(t *testing.T) {
 	} {
 		if got := formats.Diff([]formats.Versions{{Before: c.before, After: c.after}}, limit).NameOnly(); got != c.want {
 			t.Errorf("%s: NameOnly = %t, want %t", c.name, got, c.want)
-		}
-	}
-}
-
-func TestDiffFlipsEachFormatOfOneChangeOnItsOwn(t *testing.T) {
-	hdr := format(1, formats.Radarr, title(`\bHDR\b`))
-	dv := format(2, formats.Radarr, title(`\bDV\b`))
-	widened := format(2, formats.Radarr, title(`\b(DV|HDR)\b`))
-	e := formats.Diff([]formats.Versions{{Before: &hdr}, {Before: &dv, After: &widened}, {After: &hdr}}, limit)
-	got := e.Match(release.Read{Release: "Film.2160p.HDR"})
-	want := []formats.Flip{{Before: true}, {After: true}, {After: true}}
-	if len(got) != len(want) {
-		t.Fatalf("Match = %+v, want %+v", got, want)
-	}
-	for i := range want {
-		if got[i].Before != want[i].Before || got[i].After != want[i].After {
-			t.Errorf("format %d: Match = %+v, want %+v", i, got[i], want[i])
 		}
 	}
 }
