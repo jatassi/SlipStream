@@ -96,17 +96,13 @@ func checkTools(t *testing.T, dist string) {
 	}
 }
 
-func TestBuildWithoutBundleKeysNeverReadsTheEnv(t *testing.T) {
-	flag, err := bundledKeys(false, func(name string) string {
+func TestBundledKeysReadOnlyWhenAskedAndRefuseAnEmptySecret(t *testing.T) {
+	if flag, err := bundledKeys(false, func(name string) string {
 		t.Errorf("a build without -bundle-keys read %s", name)
 		return "k"
-	})
-	if err != nil || flag != "" {
+	}); err != nil || flag != "" {
 		t.Fatalf("bundledKeys(false) = %q, %v; want no flag", flag, err)
 	}
-}
-
-func TestBundleKeysRefusesAnEmptySecret(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		env  map[string]string
