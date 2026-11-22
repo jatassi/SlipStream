@@ -134,7 +134,7 @@ func (s *Sidecars) ListSidecars(ctx context.Context, req *storagev1.ListSidecars
 	}
 	dir, err := s.store.resolve(ctx, root, false)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	res := &storagev1.ListSidecarsResponse{}
 	folders := map[Rel][]Entry{}
@@ -183,13 +183,13 @@ func (s *Sidecars) listed(ctx context.Context, dir string, l sidecarListing, vid
 	if _, err := s.store.stat(ctx, dir, l.video); errors.Is(err, fs.ErrNotExist) {
 		listed.VideoMissing = true
 	} else if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	seen := map[Rel]bool{}
 	for _, stem := range l.stems {
 		found, err := s.companionsOf(ctx, dir, stem, videos, folders)
 		if err != nil {
-			return nil, wireError(err)
+			return nil, WireError(err)
 		}
 		for _, c := range found {
 			if !seen[c.path] {
@@ -246,14 +246,14 @@ func (s *Sidecars) ReadSidecar(ctx context.Context, req *storagev1.ReadSidecarRe
 	}
 	dir, err := s.store.resolve(ctx, root, false)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	f, err := s.store.cfg.Disk.Open(ctx, s.store.host.Style.Under(dir, rel))
 	if errors.Is(err, fs.ErrNotExist) {
 		return &storagev1.ReadSidecarResponse{State: storagev1.ReadSidecarState_READ_SIDECAR_STATE_GONE}, nil
 	}
 	if err != nil {
-		return nil, wireError(s.store.folderError(err))
+		return nil, WireError(s.store.folderError(err))
 	}
 	defer func() { _ = f.Close() }()
 	h := sha256.New()
@@ -262,7 +262,7 @@ func (s *Sidecars) ReadSidecar(ctx context.Context, req *storagev1.ReadSidecarRe
 		_, err = io.Copy(h, f)
 	}
 	if err != nil {
-		return nil, wireError(s.store.folderError(err))
+		return nil, WireError(s.store.folderError(err))
 	}
 	switch got := [32]byte(h.Sum(nil)); {
 	case got != sha:
@@ -307,7 +307,7 @@ func (s *Sidecars) WriteSidecar(ctx context.Context, req *storagev1.WriteSidecar
 	}
 	dir, err := s.store.resolve(ctx, root, true)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	stale := &storagev1.WriteSidecarResponse{State: storagev1.WriteSidecarState_WRITE_SIDECAR_STATE_STALE}
 	if video.segments()[0] == HoldingDir {
@@ -318,7 +318,7 @@ func (s *Sidecars) WriteSidecar(ctx context.Context, req *storagev1.WriteSidecar
 	case errors.Is(err, fs.ErrNotExist):
 		return stale, nil
 	case err != nil:
-		return nil, wireError(err)
+		return nil, WireError(err)
 	case !identityOfInfo(info).Same(Identity{Seen: seenOf(req.GetIdentity()), Size: req.GetSize()}):
 		return stale, nil
 	}
@@ -328,7 +328,7 @@ func (s *Sidecars) WriteSidecar(ctx context.Context, req *storagev1.WriteSidecar
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 	case err != nil:
-		return nil, wireError(err)
+		return nil, WireError(err)
 	case there == sha:
 		if err := s.putLedger(ctx, root, req.GetLedger(), sha, target); err != nil {
 			return nil, err
@@ -341,7 +341,7 @@ func (s *Sidecars) WriteSidecar(ctx context.Context, req *storagev1.WriteSidecar
 		return nil, err
 	}
 	if err := s.write(ctx, s.store.host.Style.Under(dir, target), data); err != nil {
-		return nil, wireError(s.store.refused(ctx, dir, err))
+		return nil, WireError(s.store.refused(ctx, dir, err))
 	}
 	return &storagev1.WriteSidecarResponse{State: storagev1.WriteSidecarState_WRITE_SIDECAR_STATE_WRITTEN, Path: target.String()}, nil
 }
@@ -378,7 +378,7 @@ func (s *Sidecars) RemoveSidecar(ctx context.Context, req *storagev1.RemoveSidec
 	}
 	dir, err := s.store.resolve(ctx, root, false)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	removed := &storagev1.RemoveSidecarResponse{State: storagev1.RemoveSidecarState_REMOVE_SIDECAR_STATE_REMOVED}
 	_, there, err := s.store.hash(ctx, dir, rel)
@@ -386,12 +386,12 @@ func (s *Sidecars) RemoveSidecar(ctx context.Context, req *storagev1.RemoveSidec
 	case errors.Is(err, fs.ErrNotExist):
 		return removed, nil
 	case err != nil:
-		return nil, wireError(err)
+		return nil, WireError(err)
 	case there != sha:
 		return &storagev1.RemoveSidecarResponse{State: storagev1.RemoveSidecarState_REMOVE_SIDECAR_STATE_CHANGED, Occupant: there[:]}, nil
 	}
 	if err := s.store.cfg.Disk.Remove(ctx, s.store.host.Style.Under(dir, rel)); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, wireError(s.store.folderError(err))
+		return nil, WireError(s.store.folderError(err))
 	}
 	return removed, nil
 }

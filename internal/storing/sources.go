@@ -54,7 +54,7 @@ func (s *Store) ListVideos(ctx context.Context, req *storagev1.ListVideosRequest
 	}
 	l, err := s.listVideos(ctx, req.GetPath(), videos)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	res := &storagev1.ListVideosResponse{Path: l.path}
 	if !l.root.IsZero() {
@@ -68,7 +68,7 @@ func (s *Store) ListVideos(ctx context.Context, req *storagev1.ListVideosRequest
 
 func (s *Store) RemoveSource(ctx context.Context, req *storagev1.RemoveSourceRequest) (*storagev1.RemoveSourceResponse, error) {
 	if err := s.removeSource(ctx, req.GetPath()); err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	return &storagev1.RemoveSourceResponse{}, nil
 }

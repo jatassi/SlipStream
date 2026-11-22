@@ -195,7 +195,7 @@ func (s *Store) probeRoot(ctx context.Context, r *storagev1.ProbeRoot) (storage.
 	}
 	dir, err := s.resolve(ctx, root, false)
 	if err != nil {
-		return root, lister{}, nil, wireError(err)
+		return root, lister{}, nil, WireError(err)
 	}
 	return root, lister{s: s, dir: dir, listed: map[Rel][]Entry{}}, rels, nil
 }
@@ -215,13 +215,13 @@ func (s *Store) probeSource(ctx context.Context, r *storagev1.ProbeRoot, videos 
 			out.Files[i] = &storagev1.ProbedFile{Missing: true}
 			continue
 		case err != nil:
-			return nil, wireError(err)
+			return nil, WireError(err)
 		}
 		f := &storagev1.ProbedFile{Size: info.Size(), Identity: identityOf(info)}
 		folder, name := rel.split()
 		es, err := l.list(ctx, folder)
 		if err != nil {
-			return nil, wireError(err)
+			return nil, WireError(err)
 		}
 		for _, c := range companions(es, name, videos) {
 			at := folder.join(c)
@@ -230,13 +230,13 @@ func (s *Store) probeSource(ctx context.Context, r *storagev1.ProbeRoot, videos 
 			case errors.Is(err, fs.ErrNotExist):
 				continue
 			case err != nil:
-				return nil, wireError(err)
+				return nil, WireError(err)
 			}
 			pc := &storagev1.ProbedCompanion{Name: c, Size: cinfo.Size(), Identity: identityOf(cinfo)}
 			if subtitleName(c) {
 				_, sha, err := s.hash(ctx, l.dir, at)
 				if err != nil {
-					return nil, wireError(err)
+					return nil, WireError(err)
 				}
 				hashes, marked = append(hashes, sha[:]), append(marked, pc)
 			}
@@ -277,11 +277,11 @@ func (s *Store) probeDestination(ctx context.Context, r *storagev1.ProbeRoot) (*
 		folder, _ := rel.split()
 		es, err := l.list(ctx, folder)
 		if err != nil {
-			return nil, wireError(err)
+			return nil, WireError(err)
 		}
 		found, err := s.occupants(ctx, l.dir, rel, es)
 		if err != nil {
-			return nil, wireError(err)
+			return nil, WireError(err)
 		}
 		p := &storagev1.ProbedPath{}
 		for _, o := range found {
@@ -307,11 +307,11 @@ func (s *Store) probePayload(ctx context.Context, p *storagev1.Payload) (*storag
 	case errors.Is(err, fs.ErrNotExist):
 		return &storagev1.ProbedPayload{Missing: true}, nil
 	case err != nil:
-		return nil, wireError(s.folderError(err))
+		return nil, WireError(s.folderError(err))
 	}
 	vol, err := s.Volume(ctx, path)
 	if err != nil {
-		return nil, wireError(s.folderError(err))
+		return nil, WireError(s.folderError(err))
 	}
 	return &storagev1.ProbedPayload{Size: info.Size(), Identity: identityOf(info), Volume: vol.ID}, nil
 }
@@ -335,7 +335,7 @@ func (s *Store) RemoveIf(ctx context.Context, req *storagev1.RemoveIfRequest) (*
 	}
 	removal, err := s.removeIf(ctx, root, rel, req.GetSize(), time.UnixMilli(req.GetModifiedUnixMs()))
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	return &storagev1.RemoveIfResponse{Removal: removals.of(removal).wire}, nil
 }

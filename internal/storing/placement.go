@@ -327,3 +327,15 @@ func (p placer) copy(ctx context.Context, from, to string) error {
 	}
 	return nil
 }
+
+// PlaceUnder places the file at from at rel under folder, a folder no
+// root names, by Place's ladder and with its convergence.
+func PlaceUnder(ctx context.Context, d Disk, folder, from string, rel Rel, allowCopy bool) (Info, Step, error) {
+	return placer{d: d, style: d.Host().Style, root: folder, walks: &sync.RWMutex{}}.place(ctx, from, rel, allowCopy)
+}
+
+// MoveUnder renames from to to, both under folder, a folder no root
+// names, as Move does without its companions.
+func MoveUnder(ctx context.Context, d Disk, folder string, from, to Rel) (Info, error) {
+	return placer{d: d, style: d.Host().Style, root: folder, walks: &sync.RWMutex{}}.moveFile(ctx, from, to)
+}
