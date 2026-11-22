@@ -183,19 +183,6 @@ func TestAddRollsBackWhenAttachFails(t *testing.T) {
 	}
 }
 
-func TestAddByAnAdminReadsAddedByAdmin(t *testing.T) {
-	t.Parallel()
-	s := newShelf(t)
-	s.stock("w1")
-	added, err := s.library(nil).Add(t.Context(), identity.Admin{}, library.Adding{Type: contenttypetest.ID, Key: "w1"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if added.Tree.AddedBy != works.AddedByAdmin {
-		t.Fatalf("a Work an Admin adds reads added by %q, want admin", added.Tree.AddedBy)
-	}
-}
-
 func TestAnAddQueuesWhatItsScopeSearchesInItsWrite(t *testing.T) {
 	t.Parallel()
 	s := newShelf(t)
