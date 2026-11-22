@@ -123,7 +123,7 @@ func restoreCollections(ctx context.Context, c *conn, _ link.Job, w *link.Carry)
 		if len(all) == len(titles) {
 			continue
 		}
-		if err := c.c.SetCollections(ctx, m.RatingKey, typeOf(m), all); err != nil {
+		if err := c.c.SetCollections(ctx, m.RatingKey, plex.TypeOf(m.Type), all); err != nil {
 			return did{}, err
 		}
 	}
@@ -171,13 +171,6 @@ func unconfirmed(cs []link.JobChange, found map[string]plex.Metadata) []link.Job
 		}
 	}
 	return out
-}
-
-func typeOf(m plex.Metadata) plex.ItemType {
-	if m.Type == "episode" {
-		return plex.TypeEpisode
-	}
-	return plex.TypeMovie
 }
 
 // moved is whether w is a Move's carry.

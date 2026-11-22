@@ -278,6 +278,51 @@ func (q *Queries) ListPlayingFiles(ctx context.Context, argFiles []files.ID) ([]
 	return items, nil
 }
 
+const listServersOfMoveFiles = `-- name: ListServersOfMoveFiles :many
+SELECT DISTINCT server_id FROM mediaservers_change
+WHERE file_id IN (/*SLICE:files*/?) AND from_root_id = ?2 AND state <> 'sent'
+ORDER BY server_id
+`
+
+type ListServersOfMoveFilesParams struct {
+	Files      []files.ID
+	FromRootID roots.ID
+}
+
+func (q *Queries) ListServersOfMoveFiles(ctx context.Context, arg ListServersOfMoveFilesParams) ([]link.ServerID, error) {
+	query := listServersOfMoveFiles
+	var queryParams []interface{}
+	if len(arg.Files) > 0 {
+		for _, v := range arg.Files {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:files*/?", strings.Repeat(",?", len(arg.Files))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:files*/?", "NULL", 1)
+	}
+	queryParams = append(queryParams, arg.FromRootID)
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []link.ServerID
+	for rows.Next() {
+		var server_id link.ServerID
+		if err := rows.Scan(&server_id); err != nil {
+			return nil, err
+		}
+		items = append(items, server_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listShowingRoots = `-- name: ListShowingRoots :many
 SELECT DISTINCT root_id FROM mediaservers_mapping
 WHERE shown = 1 AND server_id IN (/*SLICE:servers*/?)
@@ -351,11 +396,10 @@ func (q *Queries) ListUnfiledPlays(ctx context.Context) ([]ListUnfiledPlaysRow, 
 	return items, nil
 }
 
-const stampSourcesGone = `-- name: StampSourcesGone :many
+const stampSourcesGone = `-- name: StampSourcesGone :exec
 UPDATE mediaservers_change SET source_gone_at = ?1
 WHERE file_id IN (/*SLICE:files*/?) AND from_root_id = ?3
     AND source_gone_at IS NULL AND state <> 'sent'
-RETURNING server_id
 `
 
 type StampSourcesGoneParams struct {
@@ -364,7 +408,7 @@ type StampSourcesGoneParams struct {
 	FromRootID roots.ID
 }
 
-func (q *Queries) StampSourcesGone(ctx context.Context, arg StampSourcesGoneParams) ([]link.ServerID, error) {
+func (q *Queries) StampSourcesGone(ctx context.Context, arg StampSourcesGoneParams) error {
 	query := stampSourcesGone
 	var queryParams []interface{}
 	queryParams = append(queryParams, arg.At)
@@ -377,24 +421,6 @@ func (q *Queries) StampSourcesGone(ctx context.Context, arg StampSourcesGonePara
 		query = strings.Replace(query, "/*SLICE:files*/?", "NULL", 1)
 	}
 	queryParams = append(queryParams, arg.FromRootID)
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []link.ServerID
-	for rows.Next() {
-		var server_id link.ServerID
-		if err := rows.Scan(&server_id); err != nil {
-			return nil, err
-		}
-		items = append(items, server_id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
 }

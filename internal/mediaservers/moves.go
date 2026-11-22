@@ -389,7 +389,11 @@ func DropMovePrepared(ctx context.Context, tx *storage.Tx[storage.Library], fs [
 // from, and wakes their senders before tx commits. A stamped row keeps its
 // time.
 func (m *MediaServers) SourcesGone(ctx context.Context, tx *storage.Tx[storage.Library], from roots.ID, fs []files.ID) error {
-	servers, err := db.New(tx).StampSourcesGone(ctx, db.StampSourcesGoneParams{At: storage.FromTime(time.Now()), Files: fs, FromRootID: from})
+	q := db.New(tx)
+	if err := q.StampSourcesGone(ctx, db.StampSourcesGoneParams{At: storage.FromTime(time.Now()), Files: fs, FromRootID: from}); err != nil {
+		return err
+	}
+	servers, err := q.ListServersOfMoveFiles(ctx, db.ListServersOfMoveFilesParams{Files: fs, FromRootID: from})
 	if err != nil {
 		return err
 	}

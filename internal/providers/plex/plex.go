@@ -328,6 +328,14 @@ const (
 	TypeEpisode ItemType = 4
 )
 
+// TypeOf is the listing that holds an item whose Metadata.Type is t.
+func TypeOf(t string) ItemType {
+	if t == "episode" {
+		return TypeEpisode
+	}
+	return TypeMovie
+}
+
 // ItemTypes are the listings that between them hold every file of a
 // section.
 var ItemTypes = []ItemType{TypeMovie, TypeEpisode}

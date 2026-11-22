@@ -33,11 +33,15 @@ WHERE server_id = sqlc.arg(server_id) AND file_id = sqlc.arg(file_id) AND from_r
 DELETE FROM mediaservers_change
 WHERE file_id IN (sqlc.slice(files)) AND from_root_id IS NOT NULL AND state = 'prepared';
 
--- name: StampSourcesGone :many
+-- name: StampSourcesGone :exec
 UPDATE mediaservers_change SET source_gone_at = sqlc.arg(at)
 WHERE file_id IN (sqlc.slice(files)) AND from_root_id = sqlc.arg(from_root_id)
-    AND source_gone_at IS NULL AND state <> 'sent'
-RETURNING server_id;
+    AND source_gone_at IS NULL AND state <> 'sent';
+
+-- name: ListServersOfMoveFiles :many
+SELECT DISTINCT server_id FROM mediaservers_change
+WHERE file_id IN (sqlc.slice(files)) AND from_root_id = sqlc.arg(from_root_id) AND state <> 'sent'
+ORDER BY server_id;
 
 -- name: CountOpenMovesFrom :one
 SELECT count(*) FROM mediaservers_change WHERE from_root_id = sqlc.arg(root_id) AND state <> 'sent';
