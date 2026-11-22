@@ -2,6 +2,7 @@ package rtorrent
 
 import (
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/internal/torrentclient"
 )
@@ -214,6 +215,49 @@ var onTorrent = map[string]torrentCommand{
 		delete(c.held, t.Hash)
 	}),
 	"f.multicall": files,
+	"t.multicall": trackers,
+}
+
+// trackers is t.multicall: a pattern, "" for every tracker, then t.*
+// commands such as t.success_time_last=, each tracker answered as an
+// array in metainfo order. Times are seconds, 0 for none.
+func trackers(_ *rtorrent, t torrentclient.Torrent, _ *held, args []any) (any, error) {
+	if len(args) == 0 {
+		return nil, errTooFew
+	}
+	if pattern, ok := args[0].(string); !ok || pattern != "" {
+		return nil, localError(`fake-rtorrent plays t.multicall with the pattern "" only`)
+	}
+	out := []any{}
+	for _, ln := range t.Lines {
+		failed := int64(0)
+		if ln.Failure != "" {
+			failed = unix(ln.AnnouncedAt)
+		}
+		fields := map[string]any{
+			"t.url=": ln.URL, "t.is_enabled=": int64(1), "t.success_time_last=": unix(ln.SucceededAt), "t.failed_time_last=": failed,
+			"t.activity_time_last=": unix(ln.AnnouncedAt), "t.activity_time_next=": unix(ln.NextAt),
+			"t.normal_interval=": int64(ln.Interval.Seconds()), "t.scrape_complete=": ln.Seeders, "t.scrape_incomplete=": ln.Leechers,
+		}
+		row := []any{}
+		for _, raw := range args[1:] {
+			cmd, ok := raw.(string)
+			v, known := fields[cmd]
+			if !ok || !known {
+				return nil, localError(`Command "` + strings.TrimSuffix(cmd, "=") + `" does not exist.`)
+			}
+			row = append(row, v)
+		}
+		out = append(out, row)
+	}
+	return out, nil
+}
+
+func unix(t time.Time) int64 {
+	if t.IsZero() {
+		return 0
+	}
+	return t.Unix()
 }
 
 func oneString(args []any) (string, bool) {

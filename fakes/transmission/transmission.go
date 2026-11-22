@@ -184,6 +184,7 @@ func serve(env fake.Env, daemons []Daemon) (fake.Server, error) {
 		}
 		s.daemons[d.Node] = &daemon{Daemon: d, version: v, captures: c, engine: torrentclient.New(torrentclient.Config{
 			Releases: env.Releases, Dir: d.Dir, Name: d.Folder, Windows: d.Windows, Rate: d.Rate, Slots: d.Slots, SeedRatio: d.SeedRatio, Check: d.Check,
+			Tracker: clientfake.Tracker(env, d.Node), PeerID: clientfake.PeerID("-TR4010-", d.Node),
 		})}
 	}
 	engineOf := func(node string) (*torrentclient.Engine, bool) {

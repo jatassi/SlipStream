@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -61,6 +62,7 @@ const (
 	RuleTorrent      = "unknown-torrent"
 	RuleUnregistered = "unregistered"
 	RulePeerID       = "gazelle-peer-id"
+	RuleRejectStart  = "reject-start"
 )
 
 // Announces is the capture of every announce, in tracker.announce records
@@ -73,10 +75,21 @@ var Announces = fake.CaptureSpec{Name: "announces", Kind: "tracker.announce"}
 // keeps none.
 var Seeding = fake.CaptureSpec{Name: "seeding", Kind: "tracker.seeding"}
 
+// Peers is the capture of each peer's started and stopped as the tracker
+// accepted them, a tracker.peer record at each, whose node is the
+// announcing origin.
+var Peers = fake.CaptureSpec{Name: "peers", Kind: "tracker.peer"}
+
 // Unregister answers a release's announces with "Unregistered torrent"
 // from now on, as for a torrent the tracker deleted while it seeds:
 // {"release": "<name>"}.
 var Unregister = fake.CueSpec{Name: "tracker-unregister"}
+
+// RejectStart answers one peer's next started of a release with a
+// failure reason, as a tracker that refuses a second seeder does:
+// {"release": "<name>", "origin_node": "<node>" or "peer_id": "<hex>",
+// "reason": "<failure reason>"}.
+var RejectStart = fake.CueSpec{Name: "tracker-reject-start"}
 
 // sharedSwarm is the key of fake-tracker's swarm in its run's Shared.
 const sharedSwarm = "tracker"
@@ -87,8 +100,8 @@ var Fake = fake.Spec{
 	New:       newServer,
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.NoOnlineRun("private trackers get fixtures only, #26 Q12"),
-	Captures:  []fake.CaptureSpec{Announces, Seeding},
-	Cues:      []fake.CueSpec{Unregister},
+	Captures:  []fake.CaptureSpec{Announces, Seeding, Peers},
+	Cues:      []fake.CueSpec{Unregister, RejectStart},
 }
 
 // SeedersTarget is the fault target of the seeder fronts of release.
@@ -134,9 +147,11 @@ type server struct {
 	// allowPeerIDs is nil outside gazelle mode, and windows outside unit3d.
 	allowPeerIDs []string
 	windows      *unit3d.Windows
+	variant      scenario.UNIT3DVariant
 	fronts       fake.Fronts
 	announces    *fake.Capture
 	seeding      *fake.Capture
+	peerRecords  *fake.Capture
 	hitrun       hitrunTimings
 
 	mu        sync.Mutex
@@ -144,6 +159,7 @@ type server struct {
 	peers     map[peerKey]*peer
 	completed map[bencode.InfoHash]int64
 	histories map[historyKey]*history
+	rejects   []RejectStartArgs
 	// closed stops the histories' timers once the server stops serving.
 	closed bool
 }
@@ -157,6 +173,10 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	peerRecords, err := env.Capture(Peers.Name)
+	if err != nil {
+		return nil, err
+	}
 	srv := &server{
 		accounts:            map[string]string{releases.Passkey(s, releases.Seeders): releases.Seeders},
 		tracker:             s.Tracker,
@@ -165,6 +185,8 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		fronts:              env.Fronts,
 		announces:           announces,
 		seeding:             seeding,
+		peerRecords:         peerRecords,
+		variant:             cmp.Or(s.Tracker.Variant, scenario.PHP),
 		hitrun: hitrunTimings{
 			prewarn:       cmp.Or(s.Tracker.Prewarn, DefaultPrewarn),
 			grace:         cmp.Or(s.Tracker.Grace, DefaultGrace),
@@ -190,6 +212,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		}
 	case scenario.UNIT3D:
 		srv.windows = unit3d.NewWindows(srv.minInterval, env.Streams.Stream("unit3d-windows"))
+		srv.windows.ClearAfter = cmp.Or(s.Tracker.ClearAfter, unit3d.ClearAfter)
 	}
 	if env.Releases != nil {
 		for _, r := range env.Releases.Releases {
@@ -199,7 +222,13 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	if err := fake.OnCue(env, Unregister.Name, srv.unregister); err != nil {
 		return nil, err
 	}
+	if err := fake.OnCue(env, RejectStart.Name, srv.rejectStart); err != nil {
+		return nil, err
+	}
 	env.Shared.Put(sharedSwarm, srv)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /announce/{passkey}", srv.announce)
+	env.Shared.Put(fake.TrackerAnnounce, http.Handler(mux))
 	return serving{Server: fake.HTTP(env, fake.Routes{
 		"announce": {Pattern: "GET /announce/{passkey}", Handler: srv.announce},
 	}), srv: srv}, nil
@@ -238,6 +267,48 @@ func (s *server) unregister(_ context.Context, a UnregisterArgs) (any, error) {
 	return nil, fmt.Errorf("the tracker has no release %q", a.Release)
 }
 
+// RejectStartArgs names the peer whose next started of Release the
+// RejectStart cue answers with Reason: by OriginNode, the Node it
+// announces from, or by PeerID as the announces capture records it.
+type RejectStartArgs struct {
+	Release    string `json:"release"`
+	OriginNode string `json:"origin_node,omitempty"`
+	PeerID     string `json:"peer_id,omitempty"`
+	Reason     string `json:"reason"`
+}
+
+func (s *server) rejectStart(_ context.Context, a RejectStartArgs) (any, error) {
+	switch {
+	case (a.OriginNode == "") == (a.PeerID == ""):
+		return nil, errors.New("name the peer by origin_node or by peer_id, not both")
+	case a.Reason == "":
+		return nil, errors.New("give the failure reason the tracker answers")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, t := range s.torrents {
+		if t.release == a.Release {
+			s.rejects = append(s.rejects, a)
+			return a, nil
+		}
+	}
+	return nil, fmt.Errorf("the tracker has no release %q", a.Release)
+}
+
+// rejected is the reason a RejectStart cue answers a started by the
+// peer peerID of release from origin, which it answers only once.
+func (s *server) rejected(release, origin, peerID string) (string, bool) {
+	i := slices.IndexFunc(s.rejects, func(r RejectStartArgs) bool {
+		return r.Release == release && (r.OriginNode == origin || r.PeerID == peerID)
+	})
+	if i < 0 {
+		return "", false
+	}
+	reason := s.rejects[i].Reason
+	s.rejects = slices.Delete(s.rejects, i, i+1)
+	return reason, true
+}
+
 func (s *server) announce(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	a := Announce{
@@ -263,7 +334,7 @@ func (s *server) announce(w http.ResponseWriter, r *http.Request) {
 		"min interval": int64(s.minInterval / time.Second),
 	}
 	s.mu.Lock()
-	a.Rule, a.Failure = s.judge(a, hash, q.Get("peer_id"), now)
+	a.Rule, a.Failure = s.judge(a, hash, q.Get("peer_id"), origin, now)
 	a.Accepted = a.Rule == ""
 	s.announces.Record(r.Context(), a)
 	switch {
@@ -290,12 +361,17 @@ func (s *server) announce(w http.ResponseWriter, r *http.Request) {
 
 // judge is the rule a breaks and the failure reason the tracker answers,
 // both empty when it accepts a.
-func (s *server) judge(a Announce, hash bencode.InfoHash, peerID string, now time.Time) (rule, failure string) {
+func (s *server) judge(a Announce, hash bencode.InfoHash, peerID, origin string, now time.Time) (rule, failure string) {
 	if _, account := s.accounts[a.Passkey]; !account {
 		return RulePasskey, FailurePasskey
 	}
 	if rule, failure := s.judgeTorrent(hash); rule != "" {
 		return rule, failure
+	}
+	if a.Event == "started" {
+		if reason, ok := s.rejected(s.torrents[hash].release, origin, a.PeerID); ok {
+			return RuleRejectStart, reason
+		}
 	}
 	switch {
 	case s.allowPeerIDs != nil && !slices.ContainsFunc(s.allowPeerIDs, func(p string) bool { return strings.HasPrefix(peerID, p) }):

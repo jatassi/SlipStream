@@ -160,3 +160,19 @@ func TestWindowsLastBetween85And95PercentOfTheMinInterval(t *testing.T) {
 		t.Fatalf("windows closed between %v and %v, want them spread over the 3-minute band", shortest, longest)
 	}
 }
+
+func TestWindowsClearAfterTheirOwnClearAfter(t *testing.T) {
+	w := unit3d.NewWindows(30*time.Minute, seeded())
+	w.ClearAfter = time.Minute
+	for i, s := range []announce{
+		{at: 0, event: "started"},
+		{at: time.Minute + time.Second, event: "stopped"},
+		{at: 2 * time.Minute, event: "started"},
+		{at: 2*time.Minute + 59*time.Second, event: "stopped"},
+		{at: 3 * time.Minute, event: "started", broke: unit3d.Window},
+	} {
+		if broke, reason := w.Admit("pk", bencode.InfoHash{}, [20]byte{}, s.event, t0.Add(s.at)); broke != s.broke {
+			t.Fatalf("step %d: %q at +%v broke %q (%q), want %q", i, s.event, s.at, broke, reason, s.broke)
+		}
+	}
+}

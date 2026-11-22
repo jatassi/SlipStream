@@ -3,19 +3,28 @@
 // before any protocol. It writes each torrent's payload from the release
 // catalog into a real folder as the torrent downloads, under the client's
 // own name for that folder, and plays the faults row 16 of
-// docs/offline-boundaries.md lists. It computes progress when it is read,
-// so it runs no goroutine and fake time under synctest moves it.
+// docs/offline-boundaries.md lists. It announces each running torrent to
+// its HTTP trackers through Config.Tracker, keeping each line's last
+// answer and next due. It computes progress and sends the announces that
+// fell due when it is read, so it runs no goroutine and fake time under
+// synctest moves it.
 package torrentclient
 
 import (
+	"cmp"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"math"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,6 +53,25 @@ type Config struct {
 	// Check is how long the client checks a torrent's data when it is
 	// added or rechecked, 0 for at once.
 	Check time.Duration
+	// Tracker answers the announces the engine sends its torrents' HTTP
+	// trackers, as fake-tracker does through the Node's front; nil sends
+	// none. PeerID is the 20 byte peer ID they carry.
+	Tracker http.Handler
+	PeerID  string
+}
+
+// Add is a torrent to add.
+type Add struct {
+	Metainfo []byte
+	// Folder is its save folder as the client names it, "" for the
+	// default folder.
+	Folder string
+	Labels []string
+	Paused bool
+	// Complete adopts the files already in the folder by size, as a client
+	// told to skip its check does. A missing or short file leaves the
+	// torrent incomplete from that file on.
+	Complete bool
 }
 
 type State uint8
@@ -90,6 +118,24 @@ type Torrent struct {
 	Metainfo []byte
 	Private  bool
 	Trackers []string
+	// Lines are its announces to each of Trackers, in that order.
+	Lines []Line
+}
+
+// Line is one tracker of a torrent as the client announces to it.
+type Line struct {
+	URL string
+	// AnnouncedAt is the last announce's answer, zero before one, and
+	// Failure the tracker's failure reason for it, or why it got none.
+	AnnouncedAt time.Time
+	Failure     string
+	// SucceededAt is the last announce the tracker accepted, zero before.
+	SucceededAt time.Time
+	// NextAt is when the client announces next, zero while it doesn't.
+	NextAt time.Time
+	// Interval is the interval the tracker last answered.
+	Interval          time.Duration
+	Seeders, Leechers int64
 }
 
 type File struct {
@@ -137,6 +183,10 @@ type torrent struct {
 	hidden  time.Time
 	// checked is when a check of its data ends.
 	checked time.Time
+	// announcing is a torrent whose trackers had its started and not yet
+	// its stopped, and reported one whose completed they had or that was
+	// complete when it started.
+	announcing, reported bool
 }
 
 func New(cfg Config) *Engine {
@@ -146,11 +196,10 @@ func New(cfg Config) *Engine {
 // DefaultFolder is where the client saves a torrent added with no folder.
 func (e *Engine) DefaultFolder() string { return e.cfg.Name }
 
-// Add adds the torrent metainfo describes to folder, or to the default
-// folder for "", and answers it. A torrent already in the client is
-// answered unchanged with duplicate set.
-func (e *Engine) Add(metainfo []byte, folder string, labels []string, paused bool) (t Torrent, duplicate bool, err error) {
-	m, err := bencode.DecodeMetainfo(metainfo)
+// Add adds the torrent a describes and answers it. A torrent already in
+// the client is answered unchanged with duplicate set.
+func (e *Engine) Add(a Add) (t Torrent, duplicate bool, err error) {
+	m, err := bencode.DecodeMetainfo(a.Metainfo)
 	if err != nil {
 		return Torrent{}, false, ErrCorrupt
 	}
@@ -160,14 +209,15 @@ func (e *Engine) Add(metainfo []byte, folder string, labels []string, paused boo
 	if i := e.index(m.InfoHash); i >= 0 {
 		return e.snapshot(i), true, nil
 	}
-	if folder == "" {
-		folder = e.cfg.Name
-	}
+	folder := cmp.Or(a.Folder, e.cfg.Name)
 	e.nextID++
 	added := &torrent{Torrent: Torrent{
-		ID: e.nextID, Hash: m.InfoHash, Name: m.Info.Name, Folder: folder, Labels: slices.Clone(labels),
-		State: Downloading, Metainfo: slices.Clone(metainfo), Private: m.Info.Private, Trackers: m.Trackers(),
+		ID: e.nextID, Hash: m.InfoHash, Name: m.Info.Name, Folder: folder, Labels: slices.Clone(a.Labels),
+		State: Downloading, Metainfo: slices.Clone(a.Metainfo), Private: m.Info.Private, Trackers: m.Trackers(),
 	}}
+	for _, u := range added.Trackers {
+		added.Lines = append(added.Lines, Line{URL: u})
+	}
 	for _, f := range m.Info.Files {
 		p := m.Info.Name
 		if f.Path != nil {
@@ -181,10 +231,14 @@ func (e *Engine) Add(metainfo []byte, folder string, labels []string, paused boo
 			added.payload = append(added.payload, r.Disk(f))
 		}
 	}
-	if paused {
+	if a.Paused {
 		added.State = Stopped
 	}
-	added.checked = e.at.Add(e.cfg.Check)
+	if a.Complete {
+		e.adopt(added)
+	} else {
+		added.checked = e.at.Add(e.cfg.Check)
+	}
 	if e.lateNext > 0 {
 		added.hidden = e.at.Add(e.lateNext)
 		e.lateNext = 0
@@ -195,7 +249,32 @@ func (e *Engine) Add(metainfo []byte, folder string, labels []string, paused boo
 	}
 	e.torrents = append(e.torrents, added)
 	e.settle()
+	e.announce()
 	return e.snapshot(len(e.torrents) - 1), false, nil
+}
+
+// adopt takes the files on disk under t's folder as its data: each file
+// at its full size, then what the first short or missing one holds.
+func (e *Engine) adopt(t *torrent) {
+	dir, ok := e.local(t.Folder)
+	if !ok {
+		return
+	}
+	done := int64(0)
+	for _, f := range t.Files {
+		info, err := os.Stat(filepath.Join(dir, filepath.FromSlash(f.Path)))
+		if err != nil {
+			break
+		}
+		done += min(info.Size(), f.Size)
+		if info.Size() < f.Size {
+			break
+		}
+	}
+	t.Done, t.written = done, done
+	if done == t.Size && t.CompletedAt.IsZero() {
+		t.CompletedAt = e.at
+	}
 }
 
 // List is each torrent of hashes the client lists, in add order, or every
@@ -236,9 +315,12 @@ func (e *Engine) Start(h bencode.InfoHash) error {
 	})
 }
 
-// Verify rechecks a torrent's data, which the engine holds as written.
+// Verify rechecks a torrent's data, taking what the files on disk hold.
 func (e *Engine) Verify(h bencode.InfoHash) error {
-	return e.change(h, func(t *torrent) { t.checked = e.at.Add(e.cfg.Check) })
+	return e.change(h, func(t *torrent) {
+		e.adopt(t)
+		t.checked = e.at.Add(e.cfg.Check)
+	})
 }
 
 // Announce is a reannounce, which changes nothing the engine holds.
@@ -259,6 +341,9 @@ func (e *Engine) Remove(h bencode.InfoHash, data bool) error {
 		return ErrNotFound
 	}
 	t := e.torrents[i]
+	if t.announcing {
+		e.send(t, "stopped")
+	}
 	e.torrents = slices.Delete(e.torrents, i, i+1)
 	if !data {
 		return nil
@@ -365,6 +450,7 @@ func (e *Engine) change(h bencode.InfoHash, f func(*torrent)) error {
 	}
 	f(e.torrents[i])
 	e.settle()
+	e.announce()
 	return nil
 }
 
@@ -448,6 +534,7 @@ func (e *Engine) advance() {
 			}
 		}
 	}
+	e.announce()
 }
 
 // untilNext is how long until t ends a check, completes or meets the
@@ -510,6 +597,114 @@ func (e *Engine) run(t *torrent, step time.Duration) {
 		t.Uploaded += e.bytesIn(step)
 	case Stopped, Checking, Queued:
 	}
+}
+
+// retry is how soon the client announces again after an announce the
+// tracker answered with no interval.
+const retry = time.Minute
+
+// announce sends each torrent's trackers what changed: a started when it
+// starts, a stopped when it stops, a completed when its last byte
+// arrives, and a regular announce to each line that fell due.
+func (e *Engine) announce() {
+	if e.cfg.Tracker == nil {
+		return
+	}
+	for _, t := range e.torrents {
+		live := !e.checking(t) && (t.State == Downloading || t.State == Seeding)
+		switch {
+		case live && !t.announcing:
+			t.announcing, t.reported = true, t.Done == t.Size
+			e.send(t, "started")
+		case !live && t.announcing:
+			t.announcing = false
+			e.send(t, "stopped")
+		case live && !t.reported && t.Done == t.Size:
+			t.reported = true
+			e.send(t, "completed")
+		case live:
+			e.sendDue(t)
+		}
+	}
+}
+
+func (e *Engine) sendDue(t *torrent) {
+	for i := range t.Lines {
+		if ln := &t.Lines[i]; !ln.NextAt.IsZero() && !ln.NextAt.After(e.at) {
+			e.sendLine(t, ln, "")
+		}
+	}
+}
+
+func (e *Engine) send(t *torrent, event string) {
+	for i := range t.Lines {
+		e.sendLine(t, &t.Lines[i], event)
+	}
+}
+
+// sendLine announces event to ln's tracker, if it is an HTTP one, and
+// keeps its answer.
+func (e *Engine) sendLine(t *torrent, ln *Line, event string) {
+	u, err := url.Parse(ln.URL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || e.cfg.Tracker == nil {
+		return
+	}
+	q := u.Query()
+	q.Set("info_hash", string(t.Hash[:]))
+	q.Set("peer_id", e.cfg.PeerID)
+	q.Set("port", "6881")
+	q.Set("uploaded", strconv.FormatInt(t.Uploaded, 10))
+	q.Set("downloaded", strconv.FormatInt(t.Downloaded, 10))
+	q.Set("left", strconv.FormatInt(t.Size-t.Done, 10))
+	q.Set("compact", "1")
+	if event != "" {
+		q.Set("event", event)
+	}
+	u.RawQuery = q.Encode()
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, u.String(), http.NoBody)
+	rec := httptest.NewRecorder()
+	e.cfg.Tracker.ServeHTTP(rec, req)
+	ln.AnnouncedAt, ln.Failure, ln.NextAt = e.at, "", time.Time{}
+	reply, ok := decodeReply(rec)
+	switch {
+	case !ok:
+		ln.Failure = "Could not connect to tracker"
+	case reply.failure != "":
+		ln.Failure = reply.failure
+	default:
+		ln.SucceededAt, ln.Seeders, ln.Leechers = e.at, reply.complete, reply.incomplete
+	}
+	if ok && reply.interval > 0 {
+		ln.Interval = reply.interval
+	}
+	if event != "stopped" {
+		ln.NextAt = e.at.Add(cmp.Or(ln.Interval, retry))
+	}
+}
+
+type reply struct {
+	failure              string
+	interval             time.Duration
+	complete, incomplete int64
+}
+
+// decodeReply is a tracker's bencoded answer, false for none.
+func decodeReply(rec *httptest.ResponseRecorder) (reply, bool) {
+	if rec.Code != http.StatusOK {
+		return reply{}, false
+	}
+	v, err := bencode.Decode(rec.Body.Bytes())
+	d, isDict := v.(map[string]any)
+	if err != nil || !isDict {
+		return reply{}, false
+	}
+	var r reply
+	r.failure, _ = d["failure reason"].(string)
+	interval, _ := d["interval"].(int64)
+	r.interval = time.Duration(interval) * time.Second
+	r.complete, _ = d["complete"].(int64)
+	r.incomplete, _ = d["incomplete"].(int64)
+	return r, true
 }
 
 // local is folder, as the client names it, on the real disk: Dir with the
@@ -594,4 +789,19 @@ func (e *Engine) deleteFiles(t *torrent) error {
 		}
 	}
 	return nil
+}
+
+// NextAnnounce is how long until the torrent's next announce at now, 0
+// while it announces to none.
+func (t Torrent) NextAnnounce(now time.Time) time.Duration {
+	var next time.Time
+	for _, ln := range t.Lines {
+		if !ln.NextAt.IsZero() && (next.IsZero() || ln.NextAt.Before(next)) {
+			next = ln.NextAt
+		}
+	}
+	if next.IsZero() {
+		return 0
+	}
+	return max(next.Sub(now), 0)
 }

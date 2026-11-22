@@ -191,6 +191,7 @@ func serve(env fake.Env, clients []Client) (fake.Server, error) {
 				Daemon: d, id: hex.EncodeToString(sum[:16]), version: v, labels: labels, moveTo: map[bencode.InfoHash]string{}, paused: map[bencode.InfoHash]bool{},
 				engine: torrentclient.New(torrentclient.Config{
 					Releases: env.Releases, Dir: d.Dir, Name: d.Folder, Windows: d.Windows, Rate: d.Rate, Slots: d.Slots, SeedRatio: d.SeedRatio, Check: d.Check,
+					Tracker: clientfake.Tracker(env, c.Node), PeerID: clientfake.PeerID("-DE211s-", c.Node+" "+d.Host),
 				}),
 			})
 		}

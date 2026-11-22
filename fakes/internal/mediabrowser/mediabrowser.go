@@ -6,6 +6,7 @@
 package mediabrowser
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -294,7 +295,7 @@ func ServeScenario(env fake.Env, p Product, s scenario.Scenario, versions []stri
 		if !ok {
 			return nil, fmt.Errorf("%s %s holds a %s root, and fake-%s plays no library of it", p.Name, played.Name, l.ContentType, p.Name)
 		}
-		srv.Libraries = append(srv.Libraries, Library{Name: name, Type: typ, Folders: l.Folders, Scanned: true})
+		srv.Libraries = append(srv.Libraries, Library{Name: cmp.Or(l.Name, name), Type: typ, Folders: l.Folders, Scanned: true})
 	}
 	return Serve(env, p, srv)
 }

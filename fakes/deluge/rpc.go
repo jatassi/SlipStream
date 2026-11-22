@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/internal/torrentclient"
@@ -311,6 +312,9 @@ type addOptions struct {
 	AddPaused         *bool   `json:"add_paused"`
 	MoveCompleted     *bool   `json:"move_completed"`
 	MoveCompletedPath *string `json:"move_completed_path"`
+	// SeedMode takes the files already in the download location as
+	// complete, with no check.
+	SeedMode *bool `json:"seed_mode"`
 }
 
 // add is core.add_torrent_file: the hash, or AddTorrentError for a
@@ -339,7 +343,7 @@ func (d *daemon) add(p params) (any, *rpcError) {
 	if opts.MoveCompletedPath != nil {
 		moveTo = *opts.MoveCompletedPath
 	}
-	t, duplicate, err := d.engine.Add(meta, folder, nil, paused)
+	t, duplicate, err := d.engine.Add(torrentclient.Add{Metainfo: meta, Folder: folder, Paused: paused, Complete: opts.SeedMode != nil && *opts.SeedMode})
 	switch {
 	case errors.Is(err, torrentclient.ErrCorrupt):
 		return nil, failure("AddTorrentError", "Unable to add torrent, decoding filedump failed: "+err.Error())
@@ -480,6 +484,7 @@ func (d *daemon) status(t torrentclient.Torrent, all []torrentclient.Torrent, ke
 		trackers[i] = map[string]any{"url": u, "tier": i}
 	}
 	every["private"], every["trackers"] = t.Private, trackers
+	every["next_announce"] = int64(t.NextAnnounce(time.Now()).Seconds())
 	if !d.LabelOff {
 		every["label"] = labelOf(t)
 	}

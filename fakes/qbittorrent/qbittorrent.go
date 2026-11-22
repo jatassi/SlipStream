@@ -190,6 +190,7 @@ func serve(env fake.Env, clients []Client) (fake.Server, error) {
 			Client: c, version: v,
 			engine: torrentclient.New(torrentclient.Config{
 				Releases: env.Releases, Dir: c.Dir, Name: c.Folder, Windows: c.Windows, Rate: c.Rate, Slots: c.Slots, SeedRatio: c.SeedRatio, Check: c.Check,
+				Tracker: clientfake.Tracker(env, c.Node), PeerID: clientfake.PeerID("-qB4670-", c.Node),
 			}),
 			sessions: map[string]*session{}, failures: map[string]int{}, banned: map[string]time.Time{},
 			categories: map[string]string{},

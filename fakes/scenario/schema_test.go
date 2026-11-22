@@ -125,7 +125,7 @@ func TestCatalog(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	if want := []string{"auto-search", "busy-feed", "catalog-sites", "cgnat-home", "dead-controller", "external-clients", "external-kinds", "fault-loop", "first-run", "five-indexers-one-late", "full-backups-folder", "gone-with-rss", "hold", "home", "hostile-worker", "imports", "indexers", "limited-tracker", "low-space-warning", "low-space", "magnets", "manual-search", "media-servers", "movies", "music", "offline-destination", "pack-beats-singles", "packs", "ported-sites", "repair", "restore-in-place-after-grab", "scale", "seedbox-nas", "seeding-routing", "seeding", "series-files-scale", "series-scale", "series", "serving", "showcase", "single-machine", "sizes", "subtitles", "targets", "torrents"}; !reflect.DeepEqual(got, want) {
+	if want := []string{"auto-search", "busy-feed", "catalog-sites", "cgnat-home", "dead-controller", "external-clients", "external-kinds", "fault-loop", "first-run", "five-indexers-one-late", "full-backups-folder", "gone-with-rss", "hold", "home", "hostile-worker", "imports", "indexers", "limited-tracker", "low-space-warning", "low-space", "magnets", "manual-search", "media-servers", "moves", "movies", "music", "offline-destination", "pack-beats-singles", "packs", "ported-sites", "repair", "restore-in-place-after-grab", "scale", "seedbox-nas", "seeding-routing", "seeding", "series-files-scale", "series-scale", "series", "serving", "showcase", "single-machine", "sizes", "subtitles", "targets", "torrents"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("catalog = %v, want %v", got, want)
 	}
 }

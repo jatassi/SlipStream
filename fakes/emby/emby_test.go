@@ -49,23 +49,27 @@ func server(version, root string, delay time.Duration) emby.Server {
 		Libraries: []emby.Library{
 			{Name: "Movies", Type: "movies", Folders: []string{join(root, "Movies")}, Scanned: true},
 			{Name: "Fresh", Type: "movies", Folders: []string{join(root, "Fresh")}},
+			{Name: "Movies 4K", Type: "movies", Folders: []string{join(root, "Movies 4K")}, Scanned: true},
 		},
 	}
 }
 
-// seeded is a media dir whose Movies folder holds one film and whose
-// Fresh folder is empty.
+// seeded is a media dir whose Movies and Movies 4K folders each hold one
+// film and whose Fresh folder is empty.
 func seeded(t *testing.T) string {
 	t.Helper()
 	media := t.TempDir()
-	file := filepath.Join(media, "Movies", "Metropolis (1927)", "Metropolis (1927).mkv")
-	for _, dir := range []string{filepath.Dir(file), filepath.Join(media, "Fresh")} {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(media, "Fresh"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, lib := range []string{"Movies", "Movies 4K"} {
+		file := filepath.Join(media, lib, "Metropolis (1927)", "Metropolis (1927).mkv")
+		if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
 			t.Fatal(err)
 		}
-	}
-	if err := os.WriteFile(file, []byte("Metropolis"), 0o600); err != nil {
-		t.Fatal(err)
+		if err := os.WriteFile(file, []byte("Metropolis "+lib), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return media
 }
@@ -84,9 +88,10 @@ func target(t *testing.T, f faketest.Served, root string, settle, bound time.Dur
 	return conformance.Target{
 		Address: f.Address.URL(""), Key: "conformance-key", HTTP: f.Client,
 		Library: "Movies", Folder: path(t, join(root, "Movies")),
-		Disk:  conformance.DirDisk{Dir: filepath.Join(f.Media, "Movies")},
-		Fresh: &conformance.Fresh{Library: "Fresh", Folder: path(t, join(root, "Fresh")), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "Fresh")}},
-		Admin: &conformance.Admin{User: "jackson", Password: "conformance-password"},
+		Disk:   conformance.DirDisk{Dir: filepath.Join(f.Media, "Movies")},
+		Fresh:  &conformance.Library{Library: "Fresh", Folder: path(t, join(root, "Fresh")), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "Fresh")}},
+		Second: &conformance.Library{Library: "Movies 4K", Folder: path(t, join(root, "Movies 4K")), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "Movies 4K")}},
+		Admin:  &conformance.Admin{User: "jackson", Password: "conformance-password"},
 		Play: func(t *testing.T, p link.ServerPath, d link.Decision) (conformance.Played, func()) {
 			played, _ := f.Cue(t, "emby-play", emby.Play{Path: p.String(), User: "jackson", Player: "Living Room", Decision: d}).(emby.Played)
 			return conformance.Played{Session: played.Session, Item: played.Item}, func() { f.Cue(t, "emby-stop", emby.Stop{Session: played.Session}) }
