@@ -13,7 +13,7 @@ export function HealthHead({ report }: { report: HealthReport }) {
   return (
     <div className="mb-6">
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <Status report={report} />
+        <HealthVerdict report={report} at="" />
         <Button
           busy={check.isPending}
           onClick={() => {
@@ -32,7 +32,14 @@ export function HealthHead({ report }: { report: HealthReport }) {
   );
 }
 
-function Status({ report: { first, level, categories } }: { report: HealthReport }) {
+/** The verdict line: everything working, or the worst item linking to its row on the page at `at`. */
+export function HealthVerdict({
+  report: { first, level, categories },
+  at,
+}: {
+  report: HealthReport;
+  at: string;
+}) {
   if (first === null || level === null) {
     return (
       <div>
@@ -49,7 +56,7 @@ function Status({ report: { first, level, categories } }: { report: HealthReport
         {
           kind: levels[level].part,
           text: first.text,
-          href: `#${itemAnchor(first.category, first.key)}`,
+          href: `${at}#${itemAnchor(first.category, first.key)}`,
         },
       ]}
     />
