@@ -13,7 +13,7 @@ import { renderApp } from "../test/render-app";
 
 test("download-clients.changed invalidates the cards and only the named Nodes' client settings", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const seedbox = "6a1f0c2e-8d4b-4f7a-9e3c-2b5d7f9a1c4e";
   const home = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";
@@ -32,7 +32,7 @@ test("download-clients.changed invalidates the cards and only the named Nodes' c
 
 test("download-clients.changed naming a client invalidates the torrents and every Work's needs", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const work = "3c5e7a9b-1d2f-4a6c-8e0b-2d4f6a8c0e1a";
   const invalidated = seeded(app, {
@@ -49,7 +49,7 @@ test("download-clients.changed naming a client invalidates the torrents and ever
 
 test("download-clients.changed for a Node's settings alone leaves the torrents and Work needs", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     cards: getListDownloadClientsQueryKey(),
@@ -65,7 +65,7 @@ test("download-clients.changed for a Node's settings alone leaves the torrents a
 
 test("torrents.changed invalidates the counts and the cards", async () => {
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
   const invalidated = seeded(app, {
     counts: getGetCountsQueryKey(),

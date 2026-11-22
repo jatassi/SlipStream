@@ -44,7 +44,7 @@ const overview = "GET /api/v1/nodes/:id/system";
 test("identity.sessions-changed refetches the session once", async () => {
   const server = liveServer();
   const requests = countRequests();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
   await expect.poll(() => app.live.getState()).toBe("open");
   await expect.poll(() => requests("GET /api/v1/session")).toBe(2);
@@ -145,7 +145,7 @@ test("live.session-ended clears this tab and every other tab", async () => {
   const server = liveServer();
   const first = renderApp({ path: homePage, handlers: server.handlers });
   await expect.element(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  const second = renderApp({ path: "/" });
+  const second = renderApp({ path: "/library" });
   await expect.poll(() => server.clients.length).toBe(2);
   await expect.poll(() => second.queryClient.isFetching()).toBe(0);
 
@@ -246,7 +246,7 @@ test("a refused stream with a live session reopens after a second", async () => 
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
   const server = liveServer();
   const app = renderApp({
-    path: "/",
+    path: "/library",
     handlers: [
       http.get("*/api/v1/events", () => problem(500, "internal", "Something failed"), {
         once: true,
@@ -272,7 +272,7 @@ test("a hidden tab releases its stream after 10 seconds and reopens when shown",
     document.dispatchEvent(new Event("visibilitychange"));
   };
   const server = liveServer();
-  const app = renderApp({ path: "/", handlers: server.handlers });
+  const app = renderApp({ path: "/library", handlers: server.handlers });
   await expect.poll(() => app.live.getState()).toBe("open");
 
   show("hidden");
