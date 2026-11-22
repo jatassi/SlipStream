@@ -55,6 +55,9 @@ type Config struct {
 	// FileIDs is files.IDsAt: the file whose bytes sit at each path of a
 	// root.
 	FileIDs func(ctx context.Context, r storage.Reader[storage.Library], root roots.ID, rels []storing.Rel) (map[storing.Rel]files.ID, error)
+	// FilePlaces is files.PlacesOf: where the bytes of each file of a root
+	// sit.
+	FilePlaces func(ctx context.Context, r storage.Reader[storage.Library], root roots.ID, fs []files.ID) (map[files.ID]storing.Rel, error)
 	// WorkFiles is files.LeftIn of one Work: its files whose bytes sit at
 	// their paths.
 	WorkFiles func(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) ([]files.File, error)

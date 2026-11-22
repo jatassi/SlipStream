@@ -237,3 +237,20 @@ func IDsAt(ctx context.Context, r storage.Reader[file], root roots.ID, rels []st
 	}
 	return out, nil
 }
+
+// PlacesOf reads, in r, where the bytes of each of fs in root sit: at its
+// move's place while one is pending, else at its path. A file not in root
+// is left out.
+func PlacesOf(ctx context.Context, r storage.Reader[file], root roots.ID, fs []ID) (map[ID]storing.Rel, error) {
+	rows, err := db.New(r).PlacesOf(ctx, db.PlacesOfParams{RootID: root, Ids: fs})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[ID]storing.Rel, len(rows))
+	for _, row := range rows {
+		if out[row.ID], err = storing.ParseRel(row.Place); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}

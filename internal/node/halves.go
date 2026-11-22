@@ -301,7 +301,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Link: func(node role.NodeID) mediaserverv1connect.MediaServerLinkServiceHandler {
 			return mediaserverv1connect.MediaServerLinkService.On(cluster, node)
 		},
-		FileIDs: files.IDsAt,
+		FileIDs:    files.IDsAt,
+		FilePlaces: files.PlacesOf,
 		WorkFiles: func(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) ([]files.File, error) {
 			return files.LeftIn(ctx, r, []works.WorkID{work})
 		},
