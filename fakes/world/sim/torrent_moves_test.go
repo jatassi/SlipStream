@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"slices"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/moves"
+	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -317,6 +319,70 @@ func TestAPrivateTorrentIntoTheBuiltInClientNotesItsWindowStarts(t *testing.T) {
 		}}}
 		if plan.Movable() != 1 || !reflect.DeepEqual(plan.Units[0].Verdict, want) {
 			t.Errorf("the preview is %+v, want it movable with %+v", plan.Units, want)
+		}
+	})
+}
+
+// startedBy is the Nodes fake-tracker heard a started of s from.
+func startedBy(w *sim.World, s seeded) []string {
+	var out []string
+	for _, a := range w.Announces(s.hash) {
+		if a.Event == "started" && !slices.Contains(out, a.Node) {
+			out = append(out, a.Node)
+		}
+	}
+	return out
+}
+
+// TestAPausedTorrentMovesPaused moves The Quiet Orchard, paused in
+// seedbox's built-in client, to Transmission on den: it switches with no
+// guard, den's copy stays paused, and den never announces a start.
+func TestAPausedTorrentMovesPaused(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := launchMoves(t)
+		s := seedOrchard(t, w, kinds[0])
+		act(t, w, downloadclients.Action{Kind: downloadclients.Pause, IDs: []downloadclients.ID{s.id}})
+		if unit := ended(t, w, moveTorrent(t, w, s, client{"den", "transmission"}.side(t, w))); unit.Phase != moves.PhaseDone {
+			t.Fatalf("the unit ended %s %+v (%s), want done", unit.Phase, unit.Failure, unit.Words)
+		}
+		if got := wantedOf(t, w, s); !slices.Equal(got, []string{"den:paused"}) {
+			t.Errorf("the hash's Torrents are %v, want den's alone, paused", got)
+		}
+		if got := startedBy(w, s); slices.Contains(got, "den") {
+			t.Errorf("fake-tracker heard den start the paused torrent: %v", got)
+		}
+	})
+}
+
+// TestAShortPayloadFailsTheDestinationsCheck cuts the payload den placed
+// in Transmission's folder before its check: the Move fails
+// destination_check_failed, seedbox seeds on, and den never announces.
+func TestAShortPayloadFailsTheDestinationsCheck(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		var w *sim.World
+		w = launchMoves(t, sim.Edit(func(name string, e *node.Env) {
+			if name == "home" {
+				e.Test.BeforeMoveStep = func(_ context.Context, s moves.Step) {
+					if s.Action == moves.RecordPlace {
+						if err := os.Truncate(placedAtDen(w), sim.PayloadSize/2); err != nil {
+							t.Error(err)
+						}
+					}
+				}
+			}
+		}))
+		s := seedOrchard(t, w, kinds[0])
+		unit := ended(t, w, moveTorrent(t, w, s, client{"den", "transmission"}.side(t, w)))
+		if unit.Phase != moves.PhaseFailed || unit.Failure.Code != moves.DestinationCheckFailed {
+			t.Fatalf("the unit ended %s %+v, want failed destination_check_failed", unit.Phase, unit.Failure)
+		}
+		within(t, time.Hour, "the undo removes den's copy", func() bool {
+			return slices.Equal(wantedOf(t, w, s), []string{"seedbox:started"})
+		})
+		if got := startedBy(w, s); slices.Contains(got, "den") {
+			t.Errorf("fake-tracker heard den start a copy that failed its check: %v", got)
 		}
 	})
 }
