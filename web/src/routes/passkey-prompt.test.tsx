@@ -50,7 +50,7 @@ test("a sign-in that asks for the prompt offers a passkey, and Not now closes it
     .toBeVisible();
   await userEvent.click(prompt().getByRole("button", { name: "Not now" }));
   await expect.element(prompt()).not.toBeInTheDocument();
-  await expect.element(page.getByRole("heading", { name: "Library" })).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
 });
 
 test("Don't ask again turns the prompt off for the Account", async () => {
