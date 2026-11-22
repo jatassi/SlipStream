@@ -46,7 +46,9 @@ test("Delete is refused with the counts while the root holds files, a Grab or a 
   await userEvent.click(dialog.getByRole("button", { name: "Delete" }));
   await expect
     .element(
-      dialog.getByText("It can't be deleted while it holds 40 files, has a Grab in flight and has 2 Moves in flight."),
+      dialog.getByText(
+        "It can't be deleted while it holds 40 files, has a Grab in flight and has 2 Moves in flight.",
+      ),
     )
     .toBeVisible();
 });
