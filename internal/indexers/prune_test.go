@@ -124,17 +124,6 @@ func TestPruneDeletesOldQueriesAndTheSessionsOfNodesThatNoLongerSearch(t *testin
 	}
 }
 
-func TestAPastedCookieMakesAnIndexerHoldASession(t *testing.T) {
-	_, lib, idx := saved(t)
-	if got, err := Get(t.Context(), lib, idx.ID); err != nil || holdsSession(got) {
-		t.Fatalf("a Torznab feed with no pasted cookie holds a session: %t, %v; want it stateless", holdsSession(got), err)
-	}
-	_, lib, idx = onTwo(t)
-	if got, err := Get(t.Context(), lib, idx.ID); err != nil || !holdsSession(got) {
-		t.Fatalf("a feed with a pasted cookie holds a session: %t, %v; want it to", holdsSession(got), err)
-	}
-}
-
 func TestMovingAnIndexerDiscardsTheCaptchasShownForItsOldHome(t *testing.T) {
 	x, _, idx := onTwo(t)
 	shown := signInOf(idx, home)

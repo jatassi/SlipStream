@@ -231,6 +231,13 @@ func TestTwinsAutomaticSearchGrabsTheChainsFirstOfferAnIndexerTakes(t *testing.T
 				if got := newTwinWorld(t, tw).searchedAutomatically(t); got != tw.grabbed {
 					t.Fatalf("automatic search grabbed %q, want %q", got, tw.grabbed)
 				}
+				got := ""
+				if p := newTwinWorld(t, tw).searchedByHand(t).Plan.Rows[0].Pick; p != nil {
+					got = p.Release.Title
+				}
+				if _, want, _ := strings.Cut(tw.grabbed, "Site "); got != want {
+					t.Fatalf("the plan's first row is %q, want automatic search's Grab %q", got, want)
+				}
 			})
 		})
 	}
@@ -255,24 +262,6 @@ func (a atticWorld) searchedByHand(t *testing.T) grabs.ManualView {
 		t.Fatalf("the Manual search is still searching: %s", v.Line)
 	}
 	return v
-}
-
-func TestTwinsManualSearchsFirstRowIsAutomaticSearchsGrab(t *testing.T) {
-	for _, tw := range twins {
-		t.Run(tw.name, func(t *testing.T) {
-			synctest.Test(t, func(t *testing.T) {
-				v := newTwinWorld(t, tw).searchedByHand(t)
-				got := ""
-				if p := v.Plan.Rows[0].Pick; p != nil {
-					got = p.Release.Title
-				}
-				_, want, _ := strings.Cut(tw.grabbed, "Site ")
-				if got != want {
-					t.Fatalf("the plan's first row is %q, want automatic search's Grab %q", got, want)
-				}
-			})
-		})
-	}
 }
 
 func TestAManualOnlyIndexersBetterReleaseLeadsThePlan(t *testing.T) {

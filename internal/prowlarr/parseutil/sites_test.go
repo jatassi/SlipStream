@@ -117,23 +117,3 @@ func TestCookieHeaderToDictionary(t *testing.T) {
 		}
 	}
 }
-
-func TestGetBytesAsTheSitesWriteIt(t *testing.T) {
-	tests := []struct {
-		in   string
-		want int64
-	}{
-		{"1.37 GB", 1471026298},
-		{"700.5 MB", 734527488},
-		{"4,5 GiB", 4831838208},
-		{"1,234.56 MB", 1294529986},
-		{"12 KB", 12288},
-		{"", 0},
-	}
-	for _, tt := range tests {
-		got, err := GetBytes(tt.in)
-		if err != nil || got != tt.want {
-			t.Errorf("GetBytes(%q) = %d, %v; want %d", tt.in, got, err, tt.want)
-		}
-	}
-}

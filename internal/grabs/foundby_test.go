@@ -29,7 +29,7 @@ func grabTitled(t *testing.T, w *grabstest.World, title string) grabs.View {
 	return grabs.View{}
 }
 
-func TestAGrabNamesTheRunThatMadeItAndWhatFoundItsRelease(t *testing.T) {
+func TestAGrabKeepsWhatFoundItsReleaseOnceANewerRunReplacesItsRun(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := failureWorld(t)
 		first := heard(w, "E01", "1080p.WEB-DL", 'a')
@@ -41,48 +41,30 @@ func TestAGrabNamesTheRunThatMadeItAndWhatFoundItsRelease(t *testing.T) {
 		if v.Search != run || v.FoundBy != grabs.FoundBySearch {
 			t.Fatalf("the Grab reads run %v found by %q, want run %v found by search", v.Search, v.FoundBy, run)
 		}
+		failWith(t, w, v.ID, grabs.ReleaseFault)
 		second := heard(w, "E01", "1080p.WEB-DL", 'b')
 		w.Answer("Quick Site", time.Second, searching.Answer{Releases: []searching.Release{second.Release}})
-		failWith(t, w, v.ID, grabs.ReleaseFault)
 		w.Run()
 		time.Sleep(time.Minute)
 		synctest.Wait()
-		again := grabTitled(t, w, second.Title)
+		made := grabTitled(t, w, second.Title)
 		runs, err := w.Grabs.Searches(t.Context(), identity.Admin{}, w.Work)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(runs) == 0 || runs[0].Trigger != searches.FailedGrab {
-			t.Fatalf("the Searches list is %+v, want a run after a failed Grab first", runs)
+		if len(runs) == 0 || runs[0].Trigger != searches.FailedGrab || made.Search != runs[0].ID || made.FoundBy != grabs.FoundByFailedGrab {
+			t.Fatalf("the next Grab reads run %v found by %q, want the first of %+v, a run after a failed Grab, found by failed_grab", made.Search, made.FoundBy, runs)
 		}
-		if again.Search != runs[0].ID || again.FoundBy != grabs.FoundByFailedGrab {
-			t.Fatalf("the next Grab reads run %v found by %q, want run %v found by failed_grab", again.Search, again.FoundBy, runs[0].ID)
-		}
-	})
-}
-
-func TestAGrabKeepsWhatFoundItsReleaseOnceANewerRunReplacesItsRun(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		w := failureWorld(t)
-		first := heard(w, "E01", "1080p.WEB-DL", 'a')
-		failWith(t, w, grabbedOver(t, w, first), grabs.ReleaseFault)
-		second := heard(w, "E01", "1080p.WEB-DL", 'b')
-		w.Answer("Quick Site", time.Second, searching.Answer{Releases: []searching.Release{second.Release}})
-		w.Run()
-		time.Sleep(time.Minute)
-		synctest.Wait()
-		made := grabTitled(t, w, second.Title).Search
 		w.Answer("Quick Site", time.Second, searching.Answer{})
 		press(t, w, grabs.Scope{})
 		time.Sleep(time.Minute)
 		synctest.Wait()
-		runs, err := w.Grabs.Searches(t.Context(), identity.Admin{}, w.Work)
-		if err != nil {
+		if runs, err = w.Grabs.Searches(t.Context(), identity.Admin{}, w.Work); err != nil {
 			t.Fatal(err)
 		}
 		for _, r := range runs {
-			if r.ID == made {
-				t.Fatalf("the Searches list is %+v, want run %v replaced by a newer run", runs, made)
+			if r.ID == made.Search {
+				t.Fatalf("the Searches list is %+v, want run %v replaced by a newer run", runs, made.Search)
 			}
 		}
 		again := grabTitled(t, w, second.Title)
