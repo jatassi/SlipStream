@@ -9221,6 +9221,26 @@ export const MovesMovePreview = zod.object({
 export type MovesMovePreview = zod.input<typeof MovesMovePreview>;
 export type MovesMovePreviewOutput = zod.output<typeof MovesMovePreview>;
 
+export const MovesMoveSettings = zod.object({
+  settings: zod
+    .array(SettingField)
+    .describe(
+      "When a waiting switch shows in Needs you, then how long the old files wait for Plex",
+    ),
+});
+
+export type MovesMoveSettings = zod.input<typeof MovesMoveSettings>;
+export type MovesMoveSettingsOutput = zod.output<typeof MovesMoveSettings>;
+
+export const MovesMoveSettingsValues = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type MovesMoveSettingsValues = zod.input<typeof MovesMoveSettingsValues>;
+export type MovesMoveSettingsValuesOutput = zod.output<typeof MovesMoveSettingsValues>;
+
 export const MovesStartAsk = zod.object({
   token: zod.string().min(1),
 });

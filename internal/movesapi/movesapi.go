@@ -1,6 +1,6 @@
 // Package movesapi is S48 (Moves)'s operations: preview a Move, start it,
-// follow its batches and units, cancel, retry, switch now and preview the
-// way back. Every operation translates HTTP; moves decides.
+// follow its batches and units, cancel, retry, switch now, preview the
+// way back, and its settings. Every operation translates HTTP; moves decides.
 package movesapi
 
 import (
@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -483,4 +484,14 @@ func Routes(r *api.Router, n Mover) {
 	}, func(ctx context.Context, _ identity.Admin, in *unitInput) (*unitOutput, error) {
 		return h.unitAct(ctx, in, func(m *moves.Moves, id moves.UnitID) error { return m.SwitchNow(ctx, id) })
 	})
+
+	api.Register(o, api.Admin, api.Op{
+		ID: "getMoveSettings", Method: http.MethodGet, Path: "/moves/settings",
+		Summary: "Get the Moves settings of Settings > Library roots", Status: http.StatusOK,
+	}, h.getSettings)
+	api.Register(o, api.Admin, api.Op{
+		ID: "patchMoveSettings", Method: http.MethodPatch, Path: "/moves/settings",
+		Summary: "Change the Moves settings by key, all or none", Status: http.StatusOK,
+		Errors: []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
+	}, h.patchSettings)
 }

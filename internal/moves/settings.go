@@ -47,19 +47,14 @@ func minutes(n *int64) *int64 {
 	return new(*n * 60)
 }
 
-// Panel is the Moves section of Settings > Library roots.
-func Panel(lib *storage.DB[file], changed func(ctx context.Context)) setting.Panel {
-	return panel{lib: lib, changed: changed}
-}
+// Settings is the Moves heading of Settings > Library roots.
+func (m *Moves) Settings() setting.Panel { return panel{m} }
 
-type panel struct {
-	lib     *storage.DB[file]
-	changed func(ctx context.Context)
-}
+type panel struct{ m *Moves }
 
 func (p panel) Fields(ctx context.Context) ([]setting.Field, error) {
 	var row db.GetSettingsRow
-	err := p.lib.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+	err := p.m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
 		row, err = db.New(r).GetSettings(ctx)
 		return err
@@ -70,9 +65,10 @@ func (p panel) Fields(ctx context.Context) ([]setting.Field, error) {
 	return []setting.Field{NeedsYouAfter.Field(minutes(row.NeedsYouAfterMinutes)), PlexBound.Field(minutes(row.PlexBoundMinutes))}, nil
 }
 
-// Apply stores the patch in one Write, all or none.
+// Apply stores the patch in one Write, all or none, and wakes the units
+// that wait out the Plex bound so they judge it again.
 func (p panel) Apply(ctx context.Context, patch setting.Patch) error {
-	err := p.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+	err := p.m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
 		row, err := q.GetSettings(ctx)
 		if err != nil {
@@ -92,12 +88,16 @@ func (p panel) Apply(ctx context.Context, patch setting.Patch) error {
 				return err
 			}
 		}
-		return q.SetSettings(ctx, next)
+		if err := q.SetSettings(ctx, next); err != nil {
+			return err
+		}
+		waiting := string(WaitMediaServers)
+		return q.Wake(ctx, db.WakeParams{Now: storage.FromTime(p.m.now()), Waiting: &waiting})
 	})
 	if err != nil {
 		return err
 	}
-	p.changed(ctx)
+	p.m.Poke()
 	return nil
 }
 

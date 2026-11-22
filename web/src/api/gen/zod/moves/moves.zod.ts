@@ -6,6 +6,8 @@ import {
   MovesCanceledMoves,
   MovesMoveAsk,
   MovesMovePreview,
+  MovesMoveSettings,
+  MovesMoveSettingsValues,
   MovesMoveUnit,
   MovesStartAsk,
   MovesStartedMoves,
@@ -46,6 +48,18 @@ export const StartMovesResponse = MovesStartedMoves;
 export const PreviewMovesBody = MovesMoveAsk;
 
 export const PreviewMovesResponse = MovesMovePreview;
+
+/**
+ * @summary Get the Moves settings of Settings > Library roots
+ */
+export const GetMoveSettingsResponse = MovesMoveSettings;
+
+/**
+ * @summary Change the Moves settings by key, all or none
+ */
+export const PatchMoveSettingsBody = MovesMoveSettingsValues;
+
+export const PatchMoveSettingsResponse = MovesMoveSettings;
 
 /**
  * @summary Cancel a unit of a Move before its switch; it removes what it placed
