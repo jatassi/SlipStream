@@ -7,7 +7,9 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/movestest"
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
@@ -50,13 +52,13 @@ func problemCode(t *testing.T, what string, r worldtest.Reply, status int) strin
 	return p.Code
 }
 
-func previewOver(t *testing.T, w *sim.World, work fmt.Stringer, root string) previewReply {
+func previewOver(t *testing.T, w movestest.World, folder string) previewReply {
 	t.Helper()
-	body := fmt.Sprintf(`{"origin":"work","works":[{"workId":%q,"rootId":%q}]}`, work, root)
+	body := fmt.Sprintf(`{"origin":"work","works":[{"workId":%q,"rootId":%q}]}`, w.Work, w.Roots[folder].ID)
 	return simtest.Decode[previewReply](t, "previewMoves", w.API().Admin("home", http.MethodPost, "/api/v1/moves/preview", body))
 }
 
-func startOver(w *sim.World, token string, confirm int) worldtest.Reply {
+func startOver(w movestest.World, token string, confirm int) worldtest.Reply {
 	return w.API().Admin("home", http.MethodPost, fmt.Sprintf("/api/v1/moves?confirm=%d", confirm), fmt.Sprintf(`{"token":%q}`, token))
 }
 
@@ -67,8 +69,8 @@ func startOver(w *sim.World, token string, confirm int) worldtest.Reply {
 func TestTheMovesAPIStartsOnceAndRefusesWhatItCannotDo(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w, work, byFolder := movingWorld(t)
-		plan := previewOver(t, w, work, byFolder["movies-f"].ID)
+		w := movestest.Launch(t)
+		plan := previewOver(t, w, "movies-f")
 		if plan.Movable != 1 || plan.Button != "Move" || plan.Recommendation != "Move The Quiet Orchard to den." {
 			t.Fatalf("the preview is %+v, want one Work that moves to den", plan)
 		}
@@ -92,7 +94,7 @@ func TestTheMovesAPIStartsOnceAndRefusesWhatItCannotDo(t *testing.T) {
 			}
 		}
 		back := simtest.Decode[previewReply](t, "previewMoveBack", w.API().Admin("home", http.MethodGet, "/api/v1/moves/"+batch+"/back", ""))
-		if back.Movable != 1 || back.Units[0].To.RootID != byFolder["movies-e"].ID {
+		if back.Movable != 1 || back.Units[0].To.RootID != w.Roots["movies-e"].ID {
 			t.Errorf("the Move back is %+v, want one Work back to movies-e", back)
 		}
 	})
@@ -100,7 +102,7 @@ func TestTheMovesAPIStartsOnceAndRefusesWhatItCannotDo(t *testing.T) {
 
 // startedOver starts token's preview, then sends the Start again, and
 // answers the batch both named.
-func startedOver(t *testing.T, w *sim.World, token string) string {
+func startedOver(t *testing.T, w movestest.World, token string) string {
 	t.Helper()
 	var batches [2]string
 	for i := range batches {
@@ -121,7 +123,7 @@ func startedOver(t *testing.T, w *sim.World, token string) string {
 
 // doneOver waits until batch's one unit is done over HTTP, and answers
 // its id.
-func doneOver(t *testing.T, w *sim.World, batch string) string {
+func doneOver(t *testing.T, w movestest.World, batch string) string {
 	t.Helper()
 	var b batchReply
 	simtest.Eventually(t, "the unit is done", func() bool {
@@ -132,4 +134,44 @@ func doneOver(t *testing.T, w *sim.World, batch string) string {
 		t.Errorf("the done batch reads %+v, want it moved to den and able to move back", b)
 	}
 	return b.Units[0].ID
+}
+
+// TestTheMovesSettingsChangeByKeyAllOrNone reads the two Moves settings,
+// changes the Plex bound, and sees a value out of range refused with
+// nothing stored.
+func TestTheMovesSettingsChangeByKeyAllOrNone(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		s, err := scenario.Load("moves")
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := sim.Launch(t, s)
+		type settings struct {
+			Settings []struct {
+				Key   string `json:"key"`
+				Value int64  `json:"value"`
+			} `json:"settings"`
+		}
+		patch := func(body string) worldtest.Reply {
+			return w.API().Admin("home", http.MethodPatch, "/api/v1/moves/settings", body)
+		}
+		changed := simtest.Decode[settings](t, "patchMoveSettings", patch(`{"values":{"moves.plexBound":600}}`))
+		refused := patch(`{"values":{"moves.needsYouAfter":7200,"moves.plexBound":10}}`)
+		if code := problemCode(t, "a Plex bound under a minute", refused, http.StatusUnprocessableEntity); code != "setting_out_of_range" {
+			t.Errorf("a Plex bound under a minute answered %s, want setting_out_of_range", code)
+		}
+		got := simtest.Decode[settings](t, "getMoveSettings", w.API().Admin("home", http.MethodGet, "/api/v1/moves/settings", ""))
+		want := map[string]int64{"moves.needsYouAfter": 3600, "moves.plexBound": 600}
+		for _, read := range []settings{changed, got} {
+			if len(read.Settings) != len(want) {
+				t.Fatalf("the settings are %+v, want %v", read.Settings, want)
+			}
+			for _, f := range read.Settings {
+				if f.Value != want[f.Key] {
+					t.Errorf("%s is %d, want %d", f.Key, f.Value, want[f.Key])
+				}
+			}
+		}
+	})
 }
