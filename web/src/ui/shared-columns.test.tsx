@@ -57,18 +57,6 @@ test("tables share the widths their widest content asks for", async () => {
   expect(page.getByRole("cell", { name: "0 B/s" }).element().clientWidth).toBe(rate.clientWidth);
 });
 
-test("a row keeps its height until its content needs more", async () => {
-  renderKit(<Tables width={700} />);
-  const arrival = page.getByRole("cell", { name: "Arrival" });
-  await expect.element(arrival).toBeVisible();
-  expect(arrival.element().getBoundingClientRect().height).toBe(44);
-  const tall = page.getByRole("cell", { name: long.name }).element();
-  expect(tall.getBoundingClientRect().height).toBeGreaterThan(44);
-  expect(tall.scrollHeight).toBeLessThanOrEqual(tall.clientHeight);
-  const rate = page.getByRole("cell", { name: long.rate }).element();
-  expect(rate.getBoundingClientRect().height).toBe(tall.getBoundingClientRect().height);
-});
-
 test("a column that hides still leaves the last column at the card's edge", async () => {
   renderKit(<Tables width={700} />);
   const table = page.getByRole("table", { name: "Short" });

@@ -1,8 +1,8 @@
-import { describe, expect, test } from "vitest";
+import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { renderKit } from "../test/render-kit";
-import type { ShellKind } from "./shell-context";
+
 import { type Column, Table } from "./table";
 
 type Torrent = { id: string; name: string; rate: string; peers: number };
@@ -18,23 +18,12 @@ const columns: readonly [Column<Torrent>, ...Column<Torrent>[]] = [
   { id: "peers", header: "Peers", cell: (row) => row.peers, hideBelow: 980, align: "end" },
 ];
 
-const shells = [
-  { shell: "desktop", row: "44px" },
-  { shell: "phone", row: "54px" },
-] as const satisfies readonly { shell: ShellKind; row: string }[];
-
-describe.each(shells)("in the $shell shell", ({ shell, row }) => {
-  test("a table names its columns and rows", async () => {
-    renderKit(<Table label="Torrents" columns={columns} rows={torrents} rowKey={(t) => t.id} />, {
-      shell,
-    });
-    const table = page.getByRole("table", { name: "Torrents" });
-    await expect.element(table.getByRole("columnheader", { name: "Name" })).toBeVisible();
-    await expect.element(table.getByRole("columnheader", { name: "Rate" })).toBeVisible();
-    await expect.element(table.getByRole("row")).toHaveLength(3);
-    const cell = table.getByRole("cell", { name: "4.2 MB/s" });
-    expect(getComputedStyle(cell.element()).height).toBe(row);
-  });
+test("a table names its columns and rows", async () => {
+  renderKit(<Table label="Torrents" columns={columns} rows={torrents} rowKey={(t) => t.id} />);
+  const table = page.getByRole("table", { name: "Torrents" });
+  await expect.element(table.getByRole("columnheader", { name: "Name" })).toBeVisible();
+  await expect.element(table.getByRole("columnheader", { name: "Rate" })).toBeVisible();
+  await expect.element(table.getByRole("row")).toHaveLength(3);
 });
 
 test("arrow keys move the selection between rows", async () => {

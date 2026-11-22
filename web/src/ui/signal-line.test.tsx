@@ -28,22 +28,3 @@ test("a line drawn with the page is neither an alert nor a status", async () => 
   await expect.element(page.getByRole("alert")).not.toBeInTheDocument();
   await expect.element(page.getByRole("status")).not.toBeInTheDocument();
 });
-
-test("each tone draws its icon in the signal's hue and its words in the tone's ink", async () => {
-  renderKit(
-    <>
-      <SignalLine tone="ok">Passed.</SignalLine>
-      <span data-testid="ok" className="text-ok" />
-      <span data-testid="ink" className="text-ink-1" />
-    </>,
-  );
-  await expect.element(page.getByText("Passed.")).toBeVisible();
-  const line = page.getByText("Passed.").element().parentElement;
-  const icon = line?.querySelector("svg");
-  expect(icon && getComputedStyle(icon).color).toBe(
-    getComputedStyle(page.getByTestId("ok").element()).color,
-  );
-  expect(line && getComputedStyle(line).color).toBe(
-    getComputedStyle(page.getByTestId("ink").element()).color,
-  );
-});

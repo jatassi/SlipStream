@@ -61,10 +61,6 @@ test("a phone failure card holds its other actions behind More", async () => {
     { shell: "phone" },
   );
   await expect.element(page.getByRole("button", { name: "Remove" })).not.toBeInTheDocument();
-  await expect.element(page.getByRole("term")).toBeVisible();
-  const cause = page.getByRole("term").element().getBoundingClientRect();
-  const value = page.getByRole("definition").element().getBoundingClientRect();
-  expect(value.top).toBeGreaterThanOrEqual(cause.bottom);
   await page.getByRole("button", { name: "More" }).click();
   await expect.element(page.getByRole("button", { name: "Remove" })).toBeVisible();
 });

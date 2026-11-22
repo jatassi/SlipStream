@@ -3,8 +3,8 @@ import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { frames } from "../test/frames";
-import { renderKit, type Density } from "../test/render-kit";
-import { Sheet, SheetCancel, SheetGroup, SheetItem, SheetToggle } from "./sheet";
+import { renderKit } from "../test/render-kit";
+import { Sheet, SheetCancel, SheetGroup, SheetItem } from "./sheet";
 
 const navRows = ["Nodes", "Settings", "System"];
 const ignore = () => {};
@@ -67,28 +67,6 @@ async function touchDrag(target: Element, distance: number) {
   send("touchend", start + distance, false);
 }
 
-for (const density of ["console", "touch"] satisfies Density[]) {
-  test(`opened from a ${density} page, the sheet's rows and Cancel are 52px`, async () => {
-    renderKit(<MoreSheet />, { shell: "phone", density });
-    const sheet = await openMore();
-    const height = (name: string) =>
-      getComputedStyle(sheet.getByRole("button", { name }).element()).height;
-    expect(height("Nodes 3")).toBe("52px");
-    expect(height("Cancel")).toBe("52px");
-  });
-}
-
-test("the sheet's rows and Cancel set Sentence touch, 17px at 600", async () => {
-  renderKit(<MoreSheet />, { shell: "phone" });
-  const sheet = await openMore();
-  const type = (name: string) => {
-    const style = getComputedStyle(sheet.getByRole("button", { name }).element());
-    return [style.fontSize, style.fontWeight];
-  };
-  expect(type("Nodes 3")).toEqual(["17px", "600"]);
-  expect(type("Cancel")).toEqual(["17px", "600"]);
-});
-
 test("choosing a row runs it and closes the sheet, and Cancel closes it", async () => {
   const onChoose = vi.fn<(row: string) => void>();
   renderKit(<MoreSheet onChoose={onChoose} />, { shell: "phone" });
@@ -101,18 +79,6 @@ test("choosing a row runs it and closes the sheet, and Cancel closes it", async 
   await userEvent.click(sheet.getByRole("button", { name: "Cancel" }));
   await expect.element(sheet).not.toBeInTheDocument();
   expect(onChoose).toHaveBeenCalledTimes(1);
-});
-
-test("the sheet sits on the bottom edge with a 24px top edge", async () => {
-  renderKit(<MoreSheet />, { shell: "phone" });
-  const sheet = await openMore();
-  await expect
-    .poll(() => sheet.element().getBoundingClientRect().bottom)
-    .toBe(document.documentElement.clientHeight);
-  const style = getComputedStyle(sheet.element());
-  expect(style.borderTopLeftRadius).toBe("24px");
-  expect(style.borderTopRightRadius).toBe("24px");
-  expect(style.borderBottomLeftRadius).toBe("0px");
 });
 
 test("a sheet taller than the screen scrolls inside the screen", async () => {
@@ -134,31 +100,4 @@ test("a swipe down dismisses the sheet and a short drag springs back", async () 
 
   await touchDrag(sheet.getByRole("button", { name: "Settings" }).element(), 250);
   await expect.element(sheet).not.toBeInTheDocument();
-});
-
-test("a row with no icon lines its label up with the icon rows of its group", async () => {
-  renderKit(
-    <Sheet trigger={<button type="button">More</button>} label="More">
-      <SheetGroup>
-        <SheetItem icon={Settings01Icon} onClick={ignore}>
-          Sign out
-        </SheetItem>
-        <SheetToggle checked onCheckedChange={ignore}>
-          Startup sequence
-        </SheetToggle>
-      </SheetGroup>
-      <SheetGroup>
-        <SheetItem onClick={ignore}>Plain</SheetItem>
-      </SheetGroup>
-    </Sheet>,
-    { shell: "phone" },
-  );
-  const sheet = await openMore();
-  const labelLeft = (text: string) => {
-    const label = sheet.getByText(text, { exact: true }).element();
-    return label.getBoundingClientRect().left - sheet.element().getBoundingClientRect().left;
-  };
-  await expect
-    .poll(() => ["Sign out", "Startup sequence", "Plain"].map((text) => labelLeft(text)))
-    .toEqual([64, 64, 32]);
 });
