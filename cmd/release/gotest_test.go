@@ -65,32 +65,28 @@ func TestPartitionPacksByTestFileSizeWithoutTimings(t *testing.T) {
 }
 
 func TestPartitionPacksLongestFirst(t *testing.T) {
-	past := timings{Packages: map[string]packageTimings{
-		"a": {Seconds: 10}, "b": {Seconds: 6}, "c": {Seconds: 5}, "d": {Seconds: 4}, "e": {Seconds: 3},
-	}}
-	shards := partition(packages("a", "b", "c", "d", "e"), past, 2, true)
-	got := []string{strings.Join(shards[0][0].packages, " "), strings.Join(shards[1][0].packages, " ")}
-	if want := []string{"a d", "b c e"}; !slices.Equal(got, want) {
-		t.Errorf("shards = %q, want %q", got, want)
-	}
-}
-
-// go test starts a shard's packages in the order it lists them, so a long
-// package listed last starts only when the others free the CPUs.
-func TestPartitionListsAShardsPackagesLongestFirst(t *testing.T) {
-	past := timings{Packages: map[string]packageTimings{"a": {Seconds: 1}, "m": {Seconds: 5}, "z": {Seconds: 10}}}
-	shards := partition(packages("a", "m", "z"), past, 1, true)
-	if got, want := shards[0][0].packages, []string{"z", "m", "a"}; !slices.Equal(got, want) {
-		t.Errorf("shard lists %q, want %q", got, want)
-	}
-}
-
-func TestPartitionWeighsUnseenPackagesAsTheMean(t *testing.T) {
-	past := timings{Packages: map[string]packageTimings{"a": {Seconds: 9}, "b": {Seconds: 3}}}
-	shards := partition(packages("a", "b", "new"), past, 2, true)
-	got := []string{strings.Join(shards[0][0].packages, " "), strings.Join(shards[1][0].packages, " ")}
-	if want := []string{"a", "new b"}; !slices.Equal(got, want) {
-		t.Errorf("shards = %q, want %q", got, want)
+	for _, c := range []struct {
+		name    string
+		seconds map[string]float64
+		pkgs    []string
+		shards  int
+		want    []string
+	}{
+		{"onto the emptiest shard", map[string]float64{"a": 10, "b": 6, "c": 5, "d": 4, "e": 3}, []string{"a", "b", "c", "d", "e"}, 2, []string{"a d", "b c e"}},
+		{"listing a shard's longest package first", map[string]float64{"a": 1, "m": 5, "z": 10}, []string{"a", "m", "z"}, 1, []string{"z m a"}},
+		{"weighing an unseen package as the mean", map[string]float64{"a": 9, "b": 3}, []string{"a", "b", "new"}, 2, []string{"a", "new b"}},
+	} {
+		past := timings{Packages: map[string]packageTimings{}}
+		for p, secs := range c.seconds {
+			past.Packages[p] = packageTimings{Seconds: secs}
+		}
+		var got []string
+		for _, runs := range partition(packages(c.pkgs...), past, c.shards, true) {
+			got = append(got, strings.Join(runs[0].packages, " "))
+		}
+		if !slices.Equal(got, c.want) {
+			t.Errorf("%s: shards = %q, want %q", c.name, got, c.want)
+		}
 	}
 }
 
@@ -304,45 +300,61 @@ func runCounts(shards [][]goRun) map[string]int {
 	return count
 }
 
-func TestLoadTimingsMergesTheTargetsShards(t *testing.T) {
-	dir := t.TempDir()
-	write := func(name, content string) {
-		t.Helper()
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+func TestLoadTimings(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		files  map[string]string
+		target string
+		want   map[string]packageTimings
+		cpus   int
+	}{
+		{
+			"merges the target's shards",
+			map[string]string{
+				"linux-amd64-go-1.json":   `{"target":"linux-amd64","packages":{"p":{"seconds":3,"tests":{"TestA":2}}}}`,
+				"linux-amd64-go-2.json":   `{"target":"linux-amd64","packages":{"p":{"seconds":4,"tests":{"TestB":3}},"q":{"seconds":1}}}`,
+				"windows-amd64-go-1.json": `{"target":"windows-amd64","packages":{"p":{"seconds":90}}}`,
+			},
+			"linux-amd64",
+			map[string]packageTimings{"p": {Seconds: 7, Tests: map[string]float64{"TestA": 2, "TestB": 3}}, "q": {Seconds: 1}},
+			0,
+		},
+		{
+			"fills a missing package and the CPUs from another target",
+			map[string]string{
+				"linux-amd64-e2e-1.json":   `{"target":"linux-amd64","cpus":4,"packages":{"e2e":{"seconds":866},"p":{"seconds":5}}}`,
+				"windows-amd64-e2e-1.json": `{"target":"windows-amd64","cpus":2,"packages":{"e2e":{"seconds":999},"p":{"seconds":77},"q":{"seconds":3}}}`,
+				"darwin-arm64-e2e-1.json":  `{"target":"darwin-arm64","packages":{"p":{"seconds":2}}}`,
+			},
+			"darwin-arm64",
+			map[string]packageTimings{"e2e": {Seconds: 866}, "p": {Seconds: 2}, "q": {Seconds: 3}},
+			4,
+		},
+		{
+			"fills an unseen test from another target at this target's scale",
+			map[string]string{
+				"linux-amd64-browser-1.json":  `{"target":"linux-amd64","packages":{"browser":{"seconds":40,"tests":{"[webkit-phone] › a":10,"[webkit-phone] › slow":30}}}}`,
+				"darwin-arm64-browser-2.json": `{"target":"darwin-arm64","packages":{"browser":{"seconds":20,"tests":{"[webkit-phone] › a":20}}}}`,
+			},
+			"darwin-arm64",
+			map[string]packageTimings{"browser": {Seconds: 20, Tests: map[string]float64{"[webkit-phone] › a": 20, "[webkit-phone] › slow": 60}}},
+			0,
+		},
+	} {
+		dir := t.TempDir()
+		for name, content := range c.files {
+			writeTimings(t, dir, name, content)
+		}
+		got, err := loadTimings(dir, c.target)
+		if err != nil {
 			t.Fatal(err)
 		}
+		if fmt.Sprint(got.Packages) != fmt.Sprint(c.want) || got.CPUs != c.cpus {
+			t.Errorf("%s: %s timings = %v on %d CPUs, want %v on %d", c.name, c.target, got.Packages, got.CPUs, c.want, c.cpus)
+		}
 	}
-	write("linux-amd64-go-1.json", `{"target":"linux-amd64","packages":{"p":{"seconds":3,"tests":{"TestA":2}}}}`)
-	write("linux-amd64-go-2.json", `{"target":"linux-amd64","packages":{"p":{"seconds":4,"tests":{"TestB":3}},"q":{"seconds":1}}}`)
-	write("windows-amd64-go-1.json", `{"target":"windows-amd64","packages":{"p":{"seconds":90}}}`)
-	got, err := loadTimings(dir, "linux-amd64")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := map[string]packageTimings{"p": {Seconds: 7, Tests: map[string]float64{"TestA": 2, "TestB": 3}}, "q": {Seconds: 1}}
-	if fmt.Sprint(got.Packages) != fmt.Sprint(want) {
-		t.Errorf("timings = %v, want %v", got.Packages, want)
-	}
-	if none, err := loadTimings(filepath.Join(dir, "missing"), "linux-amd64"); err != nil || len(none.Packages) != 0 {
+	if none, err := loadTimings(filepath.Join(t.TempDir(), "missing"), "linux-amd64"); err != nil || len(none.Packages) != 0 {
 		t.Errorf("timings of a missing dir = %v, %v, want none", none, err)
-	}
-}
-
-func TestLoadTimingsFillsAMissingPackageFromAnotherTarget(t *testing.T) {
-	dir := t.TempDir()
-	writeTimings(t, dir, "linux-amd64-e2e-1.json", `{"target":"linux-amd64","cpus":4,"packages":{"e2e":{"seconds":866},"p":{"seconds":5}}}`)
-	writeTimings(t, dir, "windows-amd64-e2e-1.json", `{"target":"windows-amd64","cpus":2,"packages":{"e2e":{"seconds":999},"p":{"seconds":77},"q":{"seconds":3}}}`)
-	writeTimings(t, dir, "darwin-arm64-e2e-1.json", `{"target":"darwin-arm64","packages":{"p":{"seconds":2}}}`)
-	got, err := loadTimings(dir, "darwin-arm64")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := map[string]packageTimings{"e2e": {Seconds: 866}, "p": {Seconds: 2}, "q": {Seconds: 3}}
-	if fmt.Sprint(got.Packages) != fmt.Sprint(want) {
-		t.Errorf("darwin-arm64 timings = %v, want its own p, linux-amd64's e2e and windows-amd64's q: %v", got.Packages, want)
-	}
-	if got.CPUs != 4 {
-		t.Errorf("darwin-arm64 CPUs = %d, want linux-amd64's 4", got.CPUs)
 	}
 }
 
@@ -423,20 +435,6 @@ func TestGoTestLogPrintsWhatGoTestPrintsWithoutV(t *testing.T) {
 	}
 	if fmt.Sprint(log.timings.Packages) != fmt.Sprint(wantTimings) {
 		t.Errorf("timings = %v, want %v", log.timings.Packages, wantTimings)
-	}
-}
-
-func TestLoadTimingsFillsAnUnseenTestFromAnotherTargetAtThisTargetsScale(t *testing.T) {
-	dir := t.TempDir()
-	writeTimings(t, dir, "linux-amd64-browser-1.json", `{"target":"linux-amd64","packages":{"browser":{"seconds":40,"tests":{"[webkit-phone] › a":10,"[webkit-phone] › slow":30}}}}`)
-	writeTimings(t, dir, "darwin-arm64-browser-2.json", `{"target":"darwin-arm64","packages":{"browser":{"seconds":20,"tests":{"[webkit-phone] › a":20}}}}`)
-	got, err := loadTimings(dir, "darwin-arm64")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := map[string]float64{"[webkit-phone] › a": 20, "[webkit-phone] › slow": 60}
-	if fmt.Sprint(got.Packages["browser"].Tests) != fmt.Sprint(want) {
-		t.Errorf("darwin-arm64 browser tests = %v, want its own a and linux-amd64's slow at twice its seconds: %v", got.Packages["browser"].Tests, want)
 	}
 }
 
