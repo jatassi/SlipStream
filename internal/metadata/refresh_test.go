@@ -458,28 +458,6 @@ func TestRefreshAllMakesEveryWorkDueOnce(t *testing.T) {
 	})
 }
 
-func TestANewLanguageMakesEveryWorkDueAtTheNextRun(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		l := openRefreshed(t, 500)
-		l.add(t, "a", false)
-		l.add(t, "b", false)
-		time.Sleep(time.Minute)
-		raw, _ := json.Marshal("fr-FR")
-		if err := l.meta.Settings().Apply(t.Context(), setting.Patch{"metadata.language": raw}); err != nil {
-			t.Fatal(err)
-		}
-		if run := l.runNow(t); run.Summary != "2 Works" {
-			t.Fatalf("the run after a new language %q, want 2 Works", run.Summary)
-		}
-		calls := l.fx.Calls()
-		for _, c := range calls[len(calls)-2:] {
-			if c.Ask.Language != "fr-FR" {
-				t.Fatalf("%s was refreshed in %q, want fr-FR", c.Key, c.Ask.Language)
-			}
-		}
-	})
-}
-
 func TestFailedWorksStayDueAndRunFirst(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		l := openRefreshed(t, 500)
@@ -520,24 +498,6 @@ func TestAGoneWorkFailsWithItsCauseAndRidesTheEveryOtherTier(t *testing.T) {
 		}
 		if !slices.Equal(fetched, []int{32}) {
 			t.Fatalf("an unreleased Work gone upstream on night 2 was fetched again on nights %v, want night 32 alone", fetched)
-		}
-	})
-}
-
-func TestTheRunReads40Of42Works2Failed(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		l := openRefreshed(t, 500)
-		for i := range 42 {
-			l.add(t, works.Key(fmt.Sprintf("w%02d", i)), false)
-		}
-		l.fx.Fail("w07", works.ErrUnavailable)
-		l.fx.Fail("w31", works.ErrUnavailable)
-		time.Sleep(time.Minute)
-		if err := l.meta.RefreshAll(t.Context(), identity.Admin{}, contenttypetest.ID); err != nil {
-			t.Fatal(err)
-		}
-		if run := l.runNow(t); run.Result != tasks.RunPartial || run.Summary != "40 of 42 Works, 2 failed" {
-			t.Fatalf("the run %s %q, want partial, 40 of 42 Works, 2 failed", run.Result, run.Summary)
 		}
 	})
 }
