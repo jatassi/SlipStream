@@ -100,3 +100,23 @@ test("a download whose Import waits on its root says the root isn't ready", asyn
       `Needs you1Waiting${stuck.releaseTitle}The Films library root on home isn't ready. SlipStream retries once it is.Open Pending imports`,
     );
 });
+
+test("a download whose Import failed to read a file says SlipStream tries once more", async () => {
+  const needsYou = openWith(
+    [
+      {
+        kind: "waiting",
+        grabId: stuck.id,
+        code: "probe_error",
+        clientError: null,
+        importWait: null,
+      },
+    ],
+    [stuck],
+  );
+  await expect
+    .element(needsYou)
+    .toHaveTextContent(
+      `Needs you1Waiting${stuck.releaseTitle}Reading a file of this download failed. SlipStream tries once more, then fails the file.Open Pending imports`,
+    );
+});

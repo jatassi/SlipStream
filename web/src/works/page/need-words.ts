@@ -82,7 +82,7 @@ export const clientErrorWords = (
 };
 
 /** The words of an Import's wait, which Pending imports shows in full. */
-export type ImportWait = "no_space" | "root_not_ready" | "probe_timeout";
+export type ImportWait = "no_space" | "root_not_ready" | "probe_timeout" | "probe_error";
 
 /**
  * An Import's wait, naming its library root as root words name it and, for
@@ -91,6 +91,9 @@ export type ImportWait = "no_space" | "root_not_ready" | "probe_timeout";
 export function importWaitWords(code: ImportWait, root: string, space: FilesSpace | null): string {
   if (code === "probe_timeout") {
     return "Reading a file of this download timed out 3 times. Retry the import, or check the disk the file is on.";
+  }
+  if (code === "probe_error") {
+    return "Reading a file of this download failed. SlipStream tries once more, then fails the file.";
   }
   if (code === "root_not_ready") {
     return `The ${root} isn't ready. SlipStream retries once it is.`;
