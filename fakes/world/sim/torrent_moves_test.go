@@ -28,6 +28,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/node"
+	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -744,5 +745,50 @@ func TestACutReportPathDuringTheStartSeedsFromOneSideAtATime(t *testing.T) {
 		if wrong := oneLive(w.Announces(s.hash)); wrong != "" {
 			t.Error(wrong)
 		}
+	})
+}
+
+// TestAForgedArrivalFromTheSourceNodeAppliesAsNothing cuts den's reports
+// as home asks den to start The Quiet Orchard, then has seedbox report
+// that den's copy started, echoing the ask: the report counts only for
+// seedbox's own Torrents, so the Move never switches on it and rolls
+// back once its bound passes.
+func TestAForgedArrivalFromTheSourceNodeAppliesAsNothing(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		var w *sim.World
+		var cut atomic.Bool
+		w = launchMoves(t, sim.Edit(func(name string, e *node.Env) {
+			if name == "home" {
+				e.Test.BeforeMoveStep = func(_ context.Context, s moves.Step) {
+					if s.Action == "ask_start" && cut.CompareAndSwap(false, true) {
+						simtest.Flip(t, w.Path("den", "home"), fault.Stall{})
+					}
+				}
+			}
+		}))
+		s := seedOrchard(t, w, kinds[0])
+		batch := moveTorrent(t, w, s, client{"den", ""}.side(t, w))
+		home := w.Node("home").Half()
+		var arriving storage.UUID
+		var asked storage.Time
+		within(t, time.Hour, "home asks den to start", func() bool {
+			return home.Library.QueryRowContext(t.Context(), `SELECT id, start_asked_at FROM downloadclients_torrent
+				WHERE info_hash = ? AND arriving_unit IS NOT NULL AND start_asked_at IS NOT NULL`, s.hash[:]).Scan(&arriving, &asked) == nil
+		})
+		forged := &dlv1.Report{Kind: &dlv1.Report_Torrents{Torrents: &dlv1.Torrents{Reports: []*dlv1.TorrentReport{{
+			Id: arriving.Bytes(), AtUnixMs: time.Now().UnixMilli(),
+			Arrival: &dlv1.Arrival{AskedUnixMs: asked.Time().UnixMilli(), Result: dlv1.ArrivalResult_ARRIVAL_RESULT_STARTED},
+		}}}}}
+		err := home.Library.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			return home.Clients.Apply(ctx, tx, nodeID(t, w, "seedbox"), forged)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if unit := ended(t, w, batch); unit.Phase != moves.PhaseFailed || unit.Failure == nil || unit.Failure.Code != moves.DestinationUnreachable {
+			t.Fatalf("after seedbox's forged report the unit ended %s %+v, want failed destination_unreachable", unit.Phase, unit.Failure)
+		}
+		within(t, time.Hour, "seedbox seeds again", func() bool { return slices.Contains(wantedOf(t, w, s), "seedbox:started") })
 	})
 }
