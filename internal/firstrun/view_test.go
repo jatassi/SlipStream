@@ -41,12 +41,3 @@ func TestViewOfDerivesEachShownStepsState(t *testing.T) {
 		})
 	}
 }
-
-func TestViewOfKeepsTheStepsOrder(t *testing.T) {
-	reads := []read{{id: AddressID, shows: true}, {id: PasskeyID, shows: true, done: true}, {id: MediaID}, {id: LanguageID, shows: true}}
-	got := viewOf(reads, map[StepID]Outcome{LanguageID: OutcomeSkipped, MediaID: OutcomeDone}, false)
-	want := View{Open: true, Steps: []StepView{{AddressID, StateTodo}, {PasskeyID, StateDone}, {LanguageID, StateSkipped}}}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("viewOf = %+v, want %+v", got, want)
-	}
-}

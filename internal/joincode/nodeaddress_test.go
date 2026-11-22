@@ -23,15 +23,11 @@ func goldenNodeAddress(t *testing.T) (joincode.NodeAddress, ed25519.PublicKey) {
 	return a, key
 }
 
-func TestNodeAddressGoldenText(t *testing.T) {
-	a, _ := goldenNodeAddress(t)
-	if a.String() != goldenAddress {
-		t.Errorf("String() = %s, want %s", a.String(), goldenAddress)
-	}
-}
-
 func TestParseNodeAddressReadsAPastedCopy(t *testing.T) {
-	_, key := goldenNodeAddress(t)
+	made, key := goldenNodeAddress(t)
+	if made.String() != goldenAddress {
+		t.Errorf("String() = %s, want %s", made.String(), goldenAddress)
+	}
 	for _, s := range []string{
 		goldenAddress,
 		strings.ToLower(goldenAddress),

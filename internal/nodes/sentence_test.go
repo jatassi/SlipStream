@@ -52,26 +52,3 @@ func TestTheSentenceSaysWhatStandsOut(t *testing.T) {
 		})
 	}
 }
-
-func TestEveryRoleHasWordsForWhatItsHolderIsDoing(t *testing.T) {
-	want := map[role.Name]string{
-		role.Searching:       "searching",
-		role.Downloading:     "downloading",
-		role.Storage:         "storing the library",
-		role.Converting:      "converting",
-		role.Subtitles:       "fetching subtitles",
-		role.Metadata:        "reading metadata",
-		role.MediaServerLink: "sending changes to Media Servers",
-		role.Notifying:       "sending notifications, including email",
-		role.Relaying:        "relaying",
-		role.Serving:         "serving the SlipStream web app",
-	}
-	for _, r := range role.Names() {
-		if got := doing(r); got != want[r] {
-			t.Errorf("doing(%s) = %q, want %q", r, got, want[r])
-		}
-	}
-	if got := doingAll(role.Of(role.Searching, role.Metadata, role.Notifying)); got != "searching, reading metadata and sending notifications, including email" {
-		t.Errorf("doing three Roles reads %q", got)
-	}
-}

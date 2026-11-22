@@ -32,17 +32,6 @@ func goldenCode(t *testing.T) (joincode.Code, ed25519.PublicKey) {
 	return c, key
 }
 
-func TestGoldenText(t *testing.T) {
-	c, _ := goldenCode(t)
-	if c.String() != golden {
-		t.Errorf("String() = %s, want %s", c.String(), golden)
-	}
-	text, err := c.MarshalText()
-	if err != nil || string(text) != golden {
-		t.Errorf("MarshalText() = %s, %v", text, err)
-	}
-}
-
 func TestParseReadsAnEmailedCopy(t *testing.T) {
 	for _, s := range []string{
 		golden,
@@ -64,7 +53,13 @@ func TestParseKeepsEveryField(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, key := goldenCode(t)
+	made, key := goldenCode(t)
+	if made.String() != golden {
+		t.Errorf("String() = %s, want %s", made.String(), golden)
+	}
+	if text, err := made.MarshalText(); err != nil || string(text) != golden {
+		t.Errorf("MarshalText() = %s, %v", text, err)
+	}
 	if !c.Names(key) {
 		t.Error("the code does not name its Controller's key")
 	}

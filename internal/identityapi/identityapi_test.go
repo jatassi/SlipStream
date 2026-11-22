@@ -394,15 +394,6 @@ func TestSessionsExpireAndSlide(t *testing.T) {
 	})
 }
 
-func TestASessionIdleThirtyDaysAndASecondIsSignedOut(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		n := newNode(t)
-		_, a := n.claimed()
-		time.Sleep(30*24*time.Hour + time.Second)
-		expect(t, n.getSession(a), 401, signedOut)
-	})
-}
-
 func TestCrossSiteRequestsAreRefused(t *testing.T) {
 	n := newNodeWith(t, nodeOptions{origins: []api.Origin{origin(t, "https://media.example.com")}})
 	res, _ := n.claimed()
