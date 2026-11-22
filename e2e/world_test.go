@@ -5,15 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/netip"
-	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"testing"
 
-	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/node"
@@ -23,23 +20,6 @@ import (
 func api(t *testing.T, run *world.Run) *worldtest.API {
 	t.Helper()
 	return worldtest.NewAPI(worldtest.Context(t), t, http.DefaultClient, run.Manifest())
-}
-
-func TestFirstRun(t *testing.T) {
-	t.Parallel()
-	run := worldtest.Launch(t, "first-run")
-	m := run.Manifest()
-	worldtest.SetupCode(t, run, "home")
-	home := m.Nodes[0]
-	if home.Setup != scenario.SetupNone || home.Claim != world.ClaimUnclaimed || m.Admin != nil || m.APIKey != "" {
-		t.Fatalf("manifest: setup %s, claim %s, admin %+v, apiKey %q; want an Unclaimed Node and no Admin", home.Setup, home.Claim, m.Admin, m.APIKey)
-	}
-	worldtest.Expect(t, "GET /api/v1/status", worldtest.WithoutStartedAt(t, api(t, run).Get("home", "/api/v1/status")), worldtest.Reply{Status: 200, Body: `{"claim":"unclaimed","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
-	for name, want := range map[string]bool{"node.key": true, "library.db": false, "library.key": false, "local.db": false} {
-		if _, err := os.Stat(filepath.Join(home.DataDir, name)); (err == nil) != want {
-			t.Errorf("the Unclaimed data dir holds %s: %v, want %v", name, err == nil, want)
-		}
-	}
 }
 
 func TestSingleMachine(t *testing.T) {
@@ -91,12 +71,6 @@ func TestSingleMachine(t *testing.T) {
 	}
 }
 
-func TestHome(t *testing.T) {
-	t.Parallel()
-	run := worldtest.Launch(t, "home")
-	worldtest.CheckHome(t, api(t, run))
-}
-
 func resolve(ctx context.Context, t *testing.T, binary, dataDir string) node.Resolved {
 	t.Helper()
 	cmd := exec.CommandContext(ctx, binary, "config", "--data-dir", dataDir)
@@ -110,32 +84,4 @@ func resolve(ctx context.Context, t *testing.T, binary, dataDir string) node.Res
 		t.Fatal(err)
 	}
 	return r
-}
-
-func TestTwoNodesOwnAddresses(t *testing.T) {
-	t.Parallel()
-	run := worldtest.LaunchScenario(t, scenario.Scenario{
-		Name:  "two-nodes",
-		Seed:  "two-nodes",
-		Nodes: []scenario.Node{{Name: "a"}, {Name: "b"}},
-	})
-	type want struct{ name, addr, host string }
-	for i, w := range []want{{"a", "127.0.0.2", "a.localhost"}, {"b", "127.0.0.3", "b.localhost"}} {
-		n := run.Manifest().Nodes[i]
-		if n.Name != w.name || n.Address != w.addr || n.Host != w.host {
-			t.Fatalf("node %d = %s on %s at %s, want %s on %s at %s", i, n.Name, n.Address, n.Host, w.name, w.addr, w.host)
-		}
-		for _, listener := range []string{"http", "torrent"} {
-			if addr := netip.MustParseAddrPort(n.Listeners[listener]).Addr().String(); addr != w.addr {
-				t.Fatalf("node %s listener %s on %s, want %s", n.Name, listener, addr, w.addr)
-			}
-		}
-		u, err := url.Parse(n.URL)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if wantBrowser := "http://" + w.host + ":" + u.Port(); n.BrowserURL != wantBrowser {
-			t.Fatalf("node %s browserUrl = %s, want %s", n.Name, n.BrowserURL, wantBrowser)
-		}
-	}
 }

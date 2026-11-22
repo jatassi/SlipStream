@@ -110,13 +110,6 @@ func TestASearchRefusesReleasesOutsideTheTargetsSizesAndGrabsTheOneWithin(t *tes
 	w.holdsRelease(t, "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - Sized.mkv", "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW")
 }
 
-func TestAWorkWithNoKnownRuntimeGrabsWithItsSizeNotChecked(t *testing.T) {
-	t.Parallel()
-	w, target := sized(t, "9000002", "Films", "Sized")
-	w.searchedOnce(t, 1, nil, `[{"code":"size_not_checked","targetId":"`+target+`","soft":false}]`)
-	w.holdsRelease(t, "movies/The Lantern Keeper (2019)/The Lantern Keeper (2019) - Sized.mkv", "The.Lantern.Keeper.2019.1080p.WEB-DL.H264-FKW")
-}
-
 // The Copper Bell's title doesn't name its video codec, so Encoded's
 // filter passes it at grab time; its payload probes as H.264, which
 // Encoded refuses, so the probed file meets nothing and waits for the

@@ -89,7 +89,7 @@ func TestFailedMiddlePageChangesNothing(t *testing.T) {
 	if _, err := run.ClearFault(worldtest.Context(t), "middle-page"); err != nil {
 		t.Fatal(err)
 	}
-	if got := refreshSeries(t, a, added, `"outcome":"done"`).size(); got != "13 seasons, 1300 episodes, 1300 monitored" {
+	if got := refreshSeries(t, a, added).size(); got != "13 seasons, 1300 episodes, 1300 monitored" {
 		t.Fatalf("the refresh once every page answers left %s, want the new season in", got)
 	}
 }

@@ -3,9 +3,12 @@ package e2e
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
@@ -29,6 +32,17 @@ func TestFirstSetupRunsFromTheClaimUntilTheAdminFinishesIt(t *testing.T) {
 	run := worldtest.Launch(t, "first-run")
 	a := api(t, run)
 	code := worldtest.SetupCode(t, run, "home")
+	m := run.Manifest()
+	unclaimed := m.Nodes[0]
+	if unclaimed.Setup != scenario.SetupNone || unclaimed.Claim != world.ClaimUnclaimed || m.Admin != nil || m.APIKey != "" {
+		t.Fatalf("manifest: setup %s, claim %s, admin %+v, apiKey %q; want an Unclaimed Node and no Admin", unclaimed.Setup, unclaimed.Claim, m.Admin, m.APIKey)
+	}
+	worldtest.Expect(t, "GET /api/v1/status", worldtest.WithoutStartedAt(t, a.Get("home", "/api/v1/status")), worldtest.Reply{Status: 200, Body: `{"claim":"unclaimed","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
+	for name, want := range map[string]bool{"node.key": true, "library.db": false, "library.key": false, "local.db": false} {
+		if _, err := os.Stat(filepath.Join(unclaimed.DataDir, name)); (err == nil) != want {
+			t.Errorf("the Unclaimed data dir holds %s: %v, want %v", name, err == nil, want)
+		}
+	}
 	checkCode := func(code string) worldtest.Reply {
 		return a.Setup("home", code, http.MethodPost, "/api/v1/setup/code", "")
 	}
