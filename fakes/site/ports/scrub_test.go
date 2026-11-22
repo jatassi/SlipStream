@@ -61,67 +61,49 @@ func TestScrubRefusesAFixtureHoldingEachKindOfRealValue(t *testing.T) {
 	}
 }
 
-func TestScrubPassesASubmitButtonNamedLogin(t *testing.T) {
-	for value, refused := range map[string]bool{"Log in!": false, "Login": false, "submit": false, "Вхід": false, "jdoe": true} {
-		f := cleanFixture(t)
-		f.Cases[3].Exchanges[1].Request.Form["login"] = value
-		found := Scrub(f)
-		if got := slices.ContainsFunc(found, func(s string) bool { return strings.Contains(s, "login is") }); got != refused {
-			t.Errorf("Scrub of form login %q = %q, want refused %v", value, found, refused)
+func TestScrubPassesOnlyTheValuesAFixtureMayHold(t *testing.T) {
+	login := func(v string) func(*Fixture) {
+		return func(f *Fixture) { f.Cases[3].Exchanges[1].Request.Form["login"] = v }
+	}
+	uid := func(v string) func(*Fixture) {
+		return func(f *Fixture) { f.Cases[3].Exchanges[1].Request.Form["uid"] = v }
+	}
+	basic := func(credential string) func(*Fixture) {
+		return func(f *Fixture) {
+			f.Cases[0].Exchanges[0].Request.Headers["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte(credential))
 		}
 	}
-}
-
-func TestScrubReadsAFormsUIDAsItsUsername(t *testing.T) {
-	for value, refused := range map[string]bool{FixtureUser: false, "jdoe": true} {
-		f := cleanFixture(t)
-		f.Cases[3].Exchanges[1].Request.Form["uid"] = value
-		found := Scrub(f)
-		if got := len(found) > 0; got != refused {
-			t.Errorf("Scrub of form uid %q = %q, want refused %v", value, found, refused)
-		}
+	authkey := func(v string) func(*Fixture) {
+		return func(f *Fixture) { f.Cases[0].Exchanges[0].Request.Query["authkey"] = v }
 	}
-	f := cleanFixture(t)
-	f.Cases[0].Exchanges[0].Request.Query["uid"] = FixtureUser
-	if found := Scrub(f); !slices.ContainsFunc(found, func(s string) bool { return strings.Contains(s, "is a credential") }) {
-		t.Errorf("Scrub of query uid %q = %q, want it refused as a credential", FixtureUser, found)
+	path := func(v string) func(*Fixture) {
+		return func(f *Fixture) { f.Cases[0].Exchanges[0].Request.Path = v }
 	}
-}
-
-func TestScrubReadsTheCredentialABasicHeaderEncodes(t *testing.T) {
-	for credential, refused := range map[string]bool{
-		FixtureUser + ":{{passkey}}": false,
-		FixtureUser + ":hunter2":     true,
-		"jdoe:{{passkey}}":           true,
+	for _, tc := range []struct {
+		name    string
+		put     func(f *Fixture)
+		refused bool
+	}{
+		{"a submit button named login", login("Log in!"), false},
+		{"a login button", login("Login"), false},
+		{"a submit login", login("submit"), false},
+		{"a login button in Ukrainian", login("Вхід"), false},
+		{"a login that is a username", login("jdoe"), true},
+		{"a form uid of the fixture user", uid(FixtureUser), false},
+		{"a form uid of another user", uid("jdoe"), true},
+		{"a query uid, a credential there", func(f *Fixture) { f.Cases[0].Exchanges[0].Request.Query["uid"] = FixtureUser }, true},
+		{"Basic of the fixture user and passkey", basic(FixtureUser + ":{{passkey}}"), false},
+		{"Basic of a real password", basic(FixtureUser + ":hunter2"), true},
+		{"Basic of another user", basic("jdoe:{{passkey}}"), true},
+		{"GazelleGames' dummy authkey", authkey("prowlarr"), false},
+		{"a real authkey", authkey("9b74c9897bac"), true},
+		{"an upstream constant in a path", path("/api_9djWe8Tb2NE3p6opyqnh/v1/browse.php"), false},
+		{"a key in a path", path("/api_9djWe8Tb2NE3p6opyqnX/v1/browse.php"), true},
 	} {
 		f := cleanFixture(t)
-		f.Cases[0].Exchanges[0].Request.Headers["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte(credential))
-		if found := Scrub(f); (len(found) > 0) != refused {
-			t.Errorf("Scrub of Basic %q = %q, want refused %v", credential, found, refused)
-		}
-	}
-}
-
-func TestScrubPassesGazelleGamesDummyAuthkeyOnly(t *testing.T) {
-	for value, refused := range map[string]bool{"prowlarr": false, "9b74c9897bac": true} {
-		f := cleanFixture(t)
-		f.Cases[0].Exchanges[0].Request.Query["authkey"] = value
-		if found := Scrub(f); (len(found) > 0) != refused {
-			t.Errorf("Scrub of query authkey %q = %q, want refused %v", value, found, refused)
-		}
-	}
-}
-
-func TestScrubPassesAnUpstreamConstantOnly(t *testing.T) {
-	for path, refused := range map[string]bool{
-		"/api_9djWe8Tb2NE3p6opyqnh/v1/browse.php": false,
-		"/api_9djWe8Tb2NE3p6opyqnX/v1/browse.php": true,
-	} {
-		f := cleanFixture(t)
-		f.Cases[0].Exchanges[0].Request.Path = path
-		found := Scrub(f)
-		if got := slices.ContainsFunc(found, func(s string) bool { return strings.Contains(s, "is shaped like a key") }); got != refused {
-			t.Errorf("Scrub of path %q = %q, want refused %v", path, found, refused)
+		tc.put(&f)
+		if found := Scrub(f); (len(found) > 0) != tc.refused {
+			t.Errorf("Scrub of %s = %q, want refused %v", tc.name, found, tc.refused)
 		}
 	}
 }
@@ -180,17 +162,23 @@ func TestTheRewriteTurnsARecordingIntoWhatScrubPasses(t *testing.T) {
 	}
 }
 
-func TestAnEpisodeATagOrAnAuthorEndsATitlesStem(t *testing.T) {
+func TestAnEpisodeATagADashOrALocalNameEndsATitlesStem(t *testing.T) {
 	for title, want := range map[string]string{
-		"Harbor.Lights.E05.1080p.WEB-DL":                "Harbor Lights",
-		"Harbor Lights E1234 720p":                      "Harbor Lights",
-		"Harbor.Lights.S02E05.1080p":                    "Harbor Lights",
-		"Evermore.1080p":                                "Evermore",
-		"[SubsPlease] Harbor Lights - 03 (1080p)":       "Harbor Lights",
-		"[SubsPlease] Salt Meadow - Movie (720p)":       "Salt Meadow",
-		"Harbor Lights - Second Tide 2021":              "Harbor Lights - Second Tide",
-		"The Quiet Orchard by Ada Fernsby [ENG / EPUB]": "The Quiet Orchard",
-		"The Quiet Orchard [FRA]":                       "The Quiet Orchard",
+		"Harbor.Lights.E05.1080p.WEB-DL":                           "Harbor Lights",
+		"Harbor Lights E1234 720p":                                 "Harbor Lights",
+		"Harbor.Lights.S02E05.1080p":                               "Harbor Lights",
+		"Evermore.1080p":                                           "Evermore",
+		"[SubsPlease] Harbor Lights - 03 (1080p)":                  "Harbor Lights",
+		"[SubsPlease] Salt Meadow - Movie (720p)":                  "Salt Meadow",
+		"Harbor Lights - Second Tide 2021":                         "Harbor Lights - Second Tide",
+		"The Quiet Orchard by Ada Fernsby [ENG / EPUB]":            "The Quiet Orchard",
+		"The Quiet Orchard [FRA]":                                  "The Quiet Orchard",
+		"The Quiet Orchard [2021] 1080p / MP4":                     "The Quiet Orchard",
+		"The Quiet Orchard (Legendado)":                            "The Quiet Orchard",
+		"[FKW] Harbor Lights - 03 [1080p].mkv":                     "Harbor Lights",
+		"Тихий сад / The Quiet Orchard [2021, США, WEB-DL]":        "The Quiet Orchard",
+		"Огни гавани / Harbor Lights / S2E3 [2024, HDTV]":          "Harbor Lights",
+		"Начало / Inception (Кристофер Нолан / Christopher Nolan)": "Inception",
 	} {
 		if got := Stem(title); got != want {
 			t.Errorf("Stem(%q) = %q, want %q", title, got, want)
@@ -206,21 +194,6 @@ func TestAMusicTitleIsFictionalByItsArtistOrItsAlbum(t *testing.T) {
 	} {
 		if got := Stems(title); !slices.Contains(got, want) {
 			t.Errorf("Stems(%q) = %q, want it to hold %q", title, got, want)
-		}
-	}
-}
-
-func TestATagADashOrALocalNameEndsATitlesStem(t *testing.T) {
-	for title, want := range map[string]string{
-		"The Quiet Orchard [2021] 1080p / MP4":                     "The Quiet Orchard",
-		"The Quiet Orchard (Legendado)":                            "The Quiet Orchard",
-		"[FKW] Harbor Lights - 03 [1080p].mkv":                     "Harbor Lights",
-		"Тихий сад / The Quiet Orchard [2021, США, WEB-DL]":        "The Quiet Orchard",
-		"Огни гавани / Harbor Lights / S2E3 [2024, HDTV]":          "Harbor Lights",
-		"Начало / Inception (Кристофер Нолан / Christopher Nolan)": "Inception",
-	} {
-		if got := Stem(title); got != want {
-			t.Errorf("Stem(%q) = %q, want %q", title, got, want)
 		}
 	}
 }

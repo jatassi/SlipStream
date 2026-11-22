@@ -51,4 +51,3 @@ func TestLeafNamesLoopbackAndLocalhost(t *testing.T) {
 		}
 	}
 }
-

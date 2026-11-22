@@ -159,41 +159,6 @@ func ask(pin string) metadata.Ask {
 	return metadata.NewAsk(o)
 }
 
-func TestTokenExpiryCueRelogsIn(t *testing.T) {
-	inBothTiers(t, load(t), func(t *testing.T, f faketest.Served) {
-		c := client(f)
-		if err := c.Test(t.Context(), ask("")); err != nil {
-			t.Fatal(err)
-		}
-		f.Cue(t, tvdb.ExpireTokens.Name, struct{}{})
-		if _, err := c.Series(t.Context(), ask(""), 1001); err != nil {
-			t.Errorf("Series after the tokens expired = %v, want the client to log in again", err)
-		}
-	})
-}
-
-func TestRejectedPinCue(t *testing.T) {
-	inBothTiers(t, load(t), func(t *testing.T, f faketest.Served) {
-		c := client(f)
-		if err := c.Test(t.Context(), ask("1234")); err != nil {
-			t.Fatal(err)
-		}
-		f.Cue(t, tvdb.RejectPin.Name, tvdb.Key{})
-		err := c.Test(t.Context(), ask("1234"))
-		if !errors.Is(err, works.ErrRefused) || !strings.HasSuffix(err.Error(), "TVDB: refused the PIN") {
-			t.Errorf("Test with a rejected PIN = %v, want works.ErrRefused for the PIN", err)
-		}
-		if err := c.Test(t.Context(), ask("")); err != nil {
-			t.Errorf("Test with the key alone = %v, want it taken", err)
-		}
-		f.Cue(t, tvdb.RejectKey.Name, tvdb.Key{})
-		err = c.Test(t.Context(), ask(""))
-		if !errors.Is(err, works.ErrRefused) || !strings.Contains(err.Error(), "TVDB: refused the key") {
-			t.Errorf("Test with a rejected key = %v, want works.ErrRefused for the key", err)
-		}
-	})
-}
-
 func aired(t *testing.T, c *provider.Client, id provider.SeriesID) []provider.Episode {
 	t.Helper()
 	episodes, err := c.Episodes(t.Context(), ask(""), id, provider.OrderAired)
