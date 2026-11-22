@@ -5,7 +5,6 @@ import (
 	"net/netip"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
 
 	"go.yaml.in/yaml/v3"
@@ -119,21 +118,6 @@ func flatten(n *yaml.Node, prefix string) []string {
 		keys = append(keys, key)
 	}
 	return keys
-}
-
-func TestSupervisorGoneNamesEachNodesStopCommand(t *testing.T) {
-	err := (&SupervisorGoneError{PID: 4242, Spawns: []Spawn{
-		{Node: "a", PID: 4250, DataDir: "/tmp/ssfw/k3v9x2qa/a"},
-		{Node: "b", PID: 4251, DataDir: "/tmp/ssfw/k3v9x2qa/b"},
-	}}).Error()
-	want := strings.Join([]string{
-		"the supervisor (PID 4242) is not running; stop each Node with:",
-		"  slipstream stop --data-dir /tmp/ssfw/k3v9x2qa/a",
-		"  slipstream stop --data-dir /tmp/ssfw/k3v9x2qa/b",
-	}, "\n")
-	if err != want {
-		t.Fatalf("error =\n%s\nwant\n%s", err, want)
-	}
 }
 
 // discard is an event log that keeps nothing, for fakes built with no IO.

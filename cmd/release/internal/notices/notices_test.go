@@ -91,40 +91,37 @@ func TestGenerateListsEveryShippedDependency(t *testing.T) {
 	}
 }
 
-func TestVendoredSourceNeedsItsCommit(t *testing.T) {
-	root := fixtureRepo(t)
-	edit(t, root, "web/vendor/sketch/VENDORED.md", "Commit: ", "Revision: ")
-	assertError(t, notices.Check(t.Context(), root), `web/vendor/sketch/VENDORED.md: no "Commit: " line`)
-}
-
-func TestCheckFailsOnDrift(t *testing.T) {
-	root := fixtureRepo(t)
-	edit(t, root, "native/licenses/zlib.txt", "zlib License", "zlib license, amended")
-	assertError(t, notices.Check(t.Context(), root), "internal/notices/NOTICES.txt is stale; run go run ./cmd/release notices generate")
-}
-
-func TestOverrideDoesNotCoverTheNextVersion(t *testing.T) {
-	root := fixtureRepo(t)
-	edit(t, root, "go.mod", "example.com/odd v1.0.0", "example.com/odd v1.0.1")
-	assertError(t, notices.Check(t.Context(), root),
-		"override example.com/odd v1.0.0 in licenses.json matches no shipped dependency\n"+
-			"Go module example.com/odd v1.0.1: license NOASSERTION is not on the allow-list in licenses.json")
-}
-
-func TestDeniedLicenseFailsWithItsReason(t *testing.T) {
-	root := fixtureRepo(t)
-	edit(t, root, "web/node_modules/tick/package.json", `"0BSD"`, `"GPL-2.0-only"`)
-	assertError(t, notices.Check(t.Context(), root),
-		"npm package tick 1.0.0: license GPL-2.0-only is denied: GPL-2.0-only cannot combine with GPL-3.0 (ADR 0010, ADR 0021)")
-}
-
-func TestModuleWithoutLicenseIsDenied(t *testing.T) {
-	root := fixtureRepo(t)
-	if err := os.Remove(filepath.Join(root, "third_party", "bsd", "LICENSE")); err != nil {
-		t.Fatal(err)
+func TestCheckRefusesWhatTheNoticesCannotShip(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		change func(t *testing.T, root string)
+		want   string
+	}{
+		{"a vendored source without its commit", func(t *testing.T, root string) {
+			edit(t, root, "web/vendor/sketch/VENDORED.md", "Commit: ", "Revision: ")
+		}, `web/vendor/sketch/VENDORED.md: no "Commit: " line`},
+		{"a license text that drifted", func(t *testing.T, root string) {
+			edit(t, root, "native/licenses/zlib.txt", "zlib License", "zlib license, amended")
+		}, "internal/notices/NOTICES.txt is stale; run go run ./cmd/release notices generate"},
+		{"an override for the version before", func(t *testing.T, root string) {
+			edit(t, root, "go.mod", "example.com/odd v1.0.0", "example.com/odd v1.0.1")
+		}, "override example.com/odd v1.0.0 in licenses.json matches no shipped dependency\n" +
+			"Go module example.com/odd v1.0.1: license NOASSERTION is not on the allow-list in licenses.json"},
+		{"a denied license", func(t *testing.T, root string) {
+			edit(t, root, "web/node_modules/tick/package.json", `"0BSD"`, `"GPL-2.0-only"`)
+		}, "npm package tick 1.0.0: license GPL-2.0-only is denied: GPL-2.0-only cannot combine with GPL-3.0 (ADR 0010, ADR 0021)"},
+		{"a module without a license", func(t *testing.T, root string) {
+			if err := os.Remove(filepath.Join(root, "third_party", "bsd", "LICENSE")); err != nil {
+				t.Fatal(err)
+			}
+		}, "Go module example.com/bsd v1.0.0: license NONE is denied: code with no license grants no right to redistribute it (ADR 0010, ADR 0021)"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			root := fixtureRepo(t)
+			c.change(t, root)
+			assertError(t, notices.Check(t.Context(), root), c.want)
+		})
 	}
-	assertError(t, notices.Check(t.Context(), root),
-		"Go module example.com/bsd v1.0.0: license NONE is denied: code with no license grants no right to redistribute it (ADR 0010, ADR 0021)")
 }
 
 func TestStaleNodeModulesNamesTheFix(t *testing.T) {

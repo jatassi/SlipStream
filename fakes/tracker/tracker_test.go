@@ -179,11 +179,6 @@ func TestALeecherGetsOnlyItsOwnSeederAndBadPeerFronts(t *testing.T) {
 	inBothTiers(t, s, announces, records)
 }
 
-func TestAScenarioWithoutAnIntervalAnswersThirtySeconds(t *testing.T) {
-	a := announce{0, passkey, orchard, seeder, 6881, "started", 0, replied(1, 0, 0, "30", "30", "")}
-	inBothTiers(t, scenario.Scenario{Seed: "tracker"}, []announce{a}, []string{accepted(a)})
-}
-
 var unit3dTracker = scenario.Tracker{Interval: 40 * time.Minute, MinInterval: 30 * time.Minute, Mode: scenario.UNIT3D}
 
 func TestUNIT3DRejectsAStartedInsideTheWindow(t *testing.T) {
@@ -237,25 +232,32 @@ func TestGazelleRejectsAnUnlistedPeerID(t *testing.T) {
 	}
 }
 
-func TestAnUnregisteredTorrentFailsWithTheInterval(t *testing.T) {
-	s := scenario.Scenario{Seed: "tracker", Tracker: scenario.Tracker{Interval: 5 * time.Second}}
-	a := announce{0, passkey, ghost, seeder, 6881, "started", 0, failed(tracker.FailureUnregistered, "5", "5")}
-	inBothTiers(t, s, []announce{a}, []string{record(a, tracker.RuleUnregistered, tracker.FailureUnregistered)})
-}
-
-func TestFailWithoutIntervalOmitsInterval(t *testing.T) {
-	s := scenario.Scenario{Seed: "tracker", Tracker: scenario.Tracker{Interval: 5 * time.Second, FailWithoutInterval: true}}
-	announces := []announce{
+func TestEachReplyCarriesTheIntervalUnlessTheScenarioDropsIt(t *testing.T) {
+	unset := announce{0, passkey, orchard, seeder, 6881, "started", 0, replied(1, 0, 0, "30", "30", "")}
+	unregistered := announce{0, passkey, ghost, seeder, 6881, "started", 0, failed(tracker.FailureUnregistered, "5", "5")}
+	dropped := []announce{
 		{0, passkey, ghost, seeder, 6881, "started", 0, failed(tracker.FailureUnregistered, "", "")},
 		{0, "wrongpasskey", orchard, seeder, 6881, "started", 0, failed(tracker.FailurePasskey, "", "")},
 		{0, passkey, orchard, seeder, 6881, "started", 0, replied(1, 0, 0, "5", "5", "")},
 	}
-	records := []string{
-		record(announces[0], tracker.RuleUnregistered, tracker.FailureUnregistered),
-		record(announces[1], tracker.RulePasskey, tracker.FailurePasskey),
-		accepted(announces[2]),
+	for _, c := range []struct {
+		name      string
+		tracker   scenario.Tracker
+		announces []announce
+		records   []string
+	}{
+		{"thirty seconds when the scenario sets none", scenario.Tracker{}, []announce{unset}, []string{accepted(unset)}},
+		{"on a failure", scenario.Tracker{Interval: 5 * time.Second}, []announce{unregistered}, []string{record(unregistered, tracker.RuleUnregistered, tracker.FailureUnregistered)}},
+		{"on a success only when failures drop it", scenario.Tracker{Interval: 5 * time.Second, FailWithoutInterval: true}, dropped, []string{
+			record(dropped[0], tracker.RuleUnregistered, tracker.FailureUnregistered),
+			record(dropped[1], tracker.RulePasskey, tracker.FailurePasskey),
+			accepted(dropped[2]),
+		}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			inBothTiers(t, scenario.Scenario{Seed: "tracker", Tracker: c.tracker}, c.announces, c.records)
+		})
 	}
-	inBothTiers(t, s, announces, records)
 }
 
 // send is one announce of orchard by account's passkey, after the one

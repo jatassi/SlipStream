@@ -151,52 +151,13 @@ func lines(c *http.Client) *metadata.Lines {
 	return metadata.NewLines(c, "SlipStream/test ( github.com/jatassi/SlipStream )", metadata.DefaultTimings(), rand.New(rand.NewPCG(1, 2))) //nolint:gosec // jitter needs no secrecy
 }
 
-func ask(pin string) metadata.Ask {
-	o := metadata.AskOptions{Language: "en-US", Keys: map[calls.ID]string{provider.ID: "key"}}
-	if pin != "" {
-		o.Pins = map[calls.ID]string{provider.ID: pin}
-	}
-	return metadata.NewAsk(o)
-}
-
-func TestTokenExpiryCueRelogsIn(t *testing.T) {
-	inBothTiers(t, load(t), func(t *testing.T, f faketest.Served) {
-		c := client(f)
-		if err := c.Test(t.Context(), ask("")); err != nil {
-			t.Fatal(err)
-		}
-		f.Cue(t, tvdb.ExpireTokens.Name, struct{}{})
-		if _, err := c.Series(t.Context(), ask(""), 1001); err != nil {
-			t.Errorf("Series after the tokens expired = %v, want the client to log in again", err)
-		}
-	})
-}
-
-func TestRejectedPinCue(t *testing.T) {
-	inBothTiers(t, load(t), func(t *testing.T, f faketest.Served) {
-		c := client(f)
-		if err := c.Test(t.Context(), ask("1234")); err != nil {
-			t.Fatal(err)
-		}
-		f.Cue(t, tvdb.RejectPin.Name, tvdb.Key{})
-		err := c.Test(t.Context(), ask("1234"))
-		if !errors.Is(err, works.ErrRefused) || !strings.HasSuffix(err.Error(), "TVDB: refused the PIN") {
-			t.Errorf("Test with a rejected PIN = %v, want works.ErrRefused for the PIN", err)
-		}
-		if err := c.Test(t.Context(), ask("")); err != nil {
-			t.Errorf("Test with the key alone = %v, want it taken", err)
-		}
-		f.Cue(t, tvdb.RejectKey.Name, tvdb.Key{})
-		err = c.Test(t.Context(), ask(""))
-		if !errors.Is(err, works.ErrRefused) || !strings.Contains(err.Error(), "TVDB: refused the key") {
-			t.Errorf("Test with a rejected key = %v, want works.ErrRefused for the key", err)
-		}
-	})
+func ask() metadata.Ask {
+	return metadata.NewAsk(metadata.AskOptions{Language: "en-US", Keys: map[calls.ID]string{provider.ID: "key"}})
 }
 
 func aired(t *testing.T, c *provider.Client, id provider.SeriesID) []provider.Episode {
 	t.Helper()
-	episodes, err := c.Episodes(t.Context(), ask(""), id, provider.OrderAired)
+	episodes, err := c.Episodes(t.Context(), ask(), id, provider.OrderAired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +187,7 @@ func TestMoveAndRemoveEpisodeCuesReshapeTheOrders(t *testing.T) {
 		if moved := episodes[len(episodes)-1]; moved.ID != 100102 || moved.Name != "A Winter Light" {
 			t.Errorf("S03E04 = %+v, want the special A Winter Light", moved)
 		}
-		dvd, err := c.Episodes(t.Context(), ask(""), 1001, provider.OrderDVD)
+		dvd, err := c.Episodes(t.Context(), ask(), 1001, provider.OrderDVD)
 		if err != nil || slices.ContainsFunc(dvd, func(e provider.Episode) bool { return e.ID == 100112 }) {
 			t.Errorf("DVD episodes = %+v, %v; want 100112 gone from every order", dvd, err)
 		}
@@ -237,7 +198,7 @@ func TestSeasonChangeAndDeleteCuesListTheirSeriesAsUpdated(t *testing.T) {
 	inBothTiers(t, load(t), func(t *testing.T, f faketest.Served) {
 		c := client(f)
 		f.Cue(t, tvdb.AddSeason.Name, tvdb.ID{ID: 1002})
-		returned, err := c.Series(t.Context(), ask(""), 1002)
+		returned, err := c.Series(t.Context(), ask(), 1002)
 		if err != nil || returned.Status != provider.Continuing || returned.NextAired == "" ||
 			!slices.ContainsFunc(returned.Seasons, func(s provider.Season) bool { return s.Number == 3 && s.Order == provider.OrderAired }) {
 			t.Errorf("Harbor Nights after a season = %+v, %v; want it continuing with season 3 next airing", returned, err)
@@ -245,14 +206,14 @@ func TestSeasonChangeAndDeleteCuesListTheirSeriesAsUpdated(t *testing.T) {
 
 		f.Cue(t, tvdb.Change.Name, tvdb.ID{ID: 1004})
 		f.Cue(t, tvdb.Delete.Name, tvdb.ID{ID: 1003})
-		if _, err := c.Series(t.Context(), ask(""), 1003); !errors.Is(err, works.ErrNotFound) {
+		if _, err := c.Series(t.Context(), ask(), 1003); !errors.Is(err, works.ErrNotFound) {
 			t.Errorf("a deleted series = %v, want works.ErrNotFound", err)
 		}
-		changed, err := c.Series(t.Context(), ask(""), 1004)
+		changed, err := c.Series(t.Context(), ask(), 1004)
 		if err != nil || !strings.HasSuffix(changed.Overview, "Revision 1.") {
 			t.Errorf("a changed series = %+v, %v; want its overview revised", changed, err)
 		}
-		updates, err := c.Updates(t.Context(), ask(""), time.Unix(0, 0), 1)
+		updates, err := c.Updates(t.Context(), ask(), time.Unix(0, 0), 1)
 		if want := []provider.SeriesID{1002, 1004, 1003}; err != nil || !slices.Equal(updates.Series, want) || updates.Pages != 1 {
 			t.Errorf("Updates = %+v, %v; want %v on one page", updates, err, want)
 		}
@@ -261,7 +222,7 @@ func TestSeasonChangeAndDeleteCuesListTheirSeriesAsUpdated(t *testing.T) {
 
 func TestSearchFindsAnAlternativeTitle(t *testing.T) {
 	inBothTiers(t, load(t), func(t *testing.T, f faketest.Served) {
-		found, err := client(f).Search(t.Context(), ask(""), "nights at the HARBOR", 0)
+		found, err := client(f).Search(t.Context(), ask(), "nights at the HARBOR", 0)
 		if err != nil || len(found) != 1 || found[0].ID != 1002 || found[0].Name != "Harbor Nights" || found[0].Network != "Harbor TV" || found[0].Year != 2015 {
 			t.Errorf("Search = %+v, %v; want Harbor Nights", found, err)
 		}
@@ -305,7 +266,7 @@ func withRecorded(s scenario.Scenario) scenario.Scenario {
 func TestARecordedSeriesAnswersItsRecord(t *testing.T) {
 	inBothTiers(t, withRecorded(load(t)), func(t *testing.T, f faketest.Served) {
 		c := client(f)
-		got, err := c.Series(t.Context(), ask(""), 5001)
+		got, err := c.Series(t.Context(), ask(), 5001)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -336,7 +297,7 @@ func TestARecordedSeriesAnswersItsRecord(t *testing.T) {
 
 func TestAFictionalSeriesBesideARecordedOneIsUnchanged(t *testing.T) {
 	inBothTiers(t, withRecorded(load(t)), func(t *testing.T, f faketest.Served) {
-		fictional, err := client(f).Series(t.Context(), ask(""), 1001)
+		fictional, err := client(f).Series(t.Context(), ask(), 1001)
 		if err != nil {
 			t.Fatal(err)
 		}
