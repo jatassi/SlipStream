@@ -173,6 +173,19 @@ func (s *Store) Place(ctx context.Context, req *storagev1.PlaceRequest) (*storag
 		from = Payload{InfoHash: h, FileIndex: int(src.Payload.GetFileIndex())}
 	case *storagev1.PlaceRequest_Path:
 		from = NodePath{Abs: src.Path}
+	case *storagev1.PlaceRequest_Library:
+		lib := Library{}
+		if lib.Root, err = rootID(src.Library.GetRootId()); err != nil {
+			return nil, err
+		}
+		if lib.Rel, err = relOf(src.Library.GetRel()); err != nil {
+			return nil, err
+		}
+		from = lib
+	case *storagev1.PlaceRequest_Arriving:
+		if from, err = arrivingOf(src.Arriving); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "a place names no source")
 	}
@@ -183,6 +196,11 @@ func (s *Store) Place(ctx context.Context, req *storagev1.PlaceRequest) (*storag
 	info, step, err := s.place(ctx, root, from, to, req.GetAllowCopy())
 	if err != nil {
 		return nil, wireError(err)
+	}
+	if req.GetLedger() {
+		if err := s.recordLedger(ctx, root, to); err != nil {
+			return nil, wireError(err)
+		}
 	}
 	return &storagev1.PlaceResponse{Size: info.Size(), Step: step.Wire(), Identity: identityOf(info)}, nil
 }
@@ -207,6 +225,11 @@ func (s *Store) Move(ctx context.Context, req *storagev1.MoveRequest) (*storagev
 	info, left, err := s.move(ctx, root, from, to, req.GetCarry(), videos)
 	if err != nil {
 		return nil, wireError(err)
+	}
+	if req.GetLedger() {
+		if err := s.recordLedger(ctx, root, to); err != nil {
+			return nil, wireError(err)
+		}
 	}
 	res := &storagev1.MoveResponse{Size: info.Size(), Identity: identityOf(info)}
 	for _, l := range left {

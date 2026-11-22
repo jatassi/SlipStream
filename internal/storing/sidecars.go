@@ -68,6 +68,7 @@ type Sidecars struct {
 // the rows whose map is gone. Builds run under ctx.
 func NewSidecars(ctx context.Context, s *Store, local *storage.DB[storage.Local], dir string, m speech.Mapper, t SidecarTimings) (*Sidecars, error) {
 	sc := &Sidecars{store: s, local: local, maps: dir, mapper: m, t: t}
+	s.ledger.Store(local)
 	sc.builds = newBuilds(ctx, sc)
 	if err := sc.sweep(ctx); err != nil {
 		return nil, fmt.Errorf("speech maps: %w", err)
@@ -179,7 +180,7 @@ func listingsOf(ls []*storagev1.SidecarListing) ([]sidecarListing, error) {
 
 func (s *Sidecars) listed(ctx context.Context, dir string, l sidecarListing, videos media.Videos, folders map[Rel][]Entry) (*storagev1.SidecarListed, error) {
 	listed := &storagev1.SidecarListed{Video: l.video.String()}
-	if _, err := s.stat(ctx, dir, l.video); errors.Is(err, fs.ErrNotExist) {
+	if _, err := s.store.stat(ctx, dir, l.video); errors.Is(err, fs.ErrNotExist) {
 		listed.VideoMissing = true
 	} else if err != nil {
 		return nil, wireError(err)
@@ -226,7 +227,7 @@ func (s *Sidecars) companionsOf(ctx context.Context, dir string, stem Rel, video
 			continue
 		}
 		p := folder.join(c)
-		size, sha, err := s.hash(ctx, dir, p)
+		size, sha, err := s.store.hash(ctx, dir, p)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
@@ -312,7 +313,7 @@ func (s *Sidecars) WriteSidecar(ctx context.Context, req *storagev1.WriteSidecar
 	if video.segments()[0] == HoldingDir {
 		return stale, nil
 	}
-	info, err := s.stat(ctx, dir, video)
+	info, err := s.store.stat(ctx, dir, video)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return stale, nil
@@ -323,7 +324,7 @@ func (s *Sidecars) WriteSidecar(ctx context.Context, req *storagev1.WriteSidecar
 	}
 	folder, name := video.split()
 	target := folder.join(stemOf(name) + "." + tail)
-	_, there, err := s.hash(ctx, dir, target)
+	_, there, err := s.store.hash(ctx, dir, target)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 	case err != nil:
@@ -380,7 +381,7 @@ func (s *Sidecars) RemoveSidecar(ctx context.Context, req *storagev1.RemoveSidec
 		return nil, wireError(err)
 	}
 	removed := &storagev1.RemoveSidecarResponse{State: storagev1.RemoveSidecarState_REMOVE_SIDECAR_STATE_REMOVED}
-	_, there, err := s.hash(ctx, dir, rel)
+	_, there, err := s.store.hash(ctx, dir, rel)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return removed, nil
@@ -416,40 +417,4 @@ func hashOf(b []byte) ([32]byte, error) {
 		return [32]byte{}, rpc.Errorf(rpc.CodeInvalidArgument, "a sha256 is %d bytes, not %d", sha256.Size, len(b))
 	}
 	return [32]byte(b), nil
-}
-
-// stat reads rel under dir in the stat deadline.
-func (s *Sidecars) stat(ctx context.Context, dir string, rel Rel) (Info, error) {
-	p := s.store.host.Style.Under(dir, rel)
-	info, err := timed(ctx, s.store, dir, func(ctx context.Context) (Info, error) { return s.store.cfg.Disk.Stat(ctx, p) })
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		return nil, err
-	case err != nil:
-		return nil, s.store.folderError(err)
-	case info.Dir():
-		return nil, fmt.Errorf("%s is a folder: %w", rel, fs.ErrNotExist)
-	}
-	return info, nil
-}
-
-// hash is the size and sha256 of the file rel under dir.
-func (s *Sidecars) hash(ctx context.Context, dir string, rel Rel) (size int64, sha [32]byte, err error) {
-	if _, err := s.stat(ctx, dir, rel); err != nil {
-		return 0, [32]byte{}, err
-	}
-	f, err := s.store.cfg.Disk.Open(ctx, s.store.host.Style.Under(dir, rel))
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return 0, [32]byte{}, err
-		}
-		return 0, [32]byte{}, s.store.folderError(err)
-	}
-	defer func() { _ = f.Close() }()
-	h := sha256.New()
-	n, err := io.Copy(h, f)
-	if err != nil {
-		return 0, [32]byte{}, s.store.folderError(err)
-	}
-	return n, [32]byte(h.Sum(nil)), nil
 }

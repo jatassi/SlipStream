@@ -21,7 +21,11 @@ func (s *Sidecars) putLedger(ctx context.Context, root storage.UUID, record bool
 	if !record {
 		return nil
 	}
-	err := s.local.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
+	return putLedger(ctx, s.local, root, sha, at)
+}
+
+func putLedger(ctx context.Context, local *storage.DB[storage.Local], root storage.UUID, sha [32]byte, at Rel) error {
+	err := local.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
 		return db.New(tx).PutLedger(ctx, db.PutLedgerParams{RootID: root, Sha256: sha[:], Path: at.String(), WrittenAt: storage.Now()})
 	})
 	if err != nil {
@@ -39,17 +43,30 @@ func (s *Sidecars) markLedger(ctx context.Context, root storage.UUID, cs []*stor
 	for i, c := range cs {
 		hashes[i] = c.GetSha256()
 	}
+	held, err := ledgerHolds(ctx, s.local, root, hashes)
+	if err != nil {
+		return err
+	}
+	for _, c := range cs {
+		c.Ledger = containsHash(held, c.GetSha256())
+	}
+	return nil
+}
+
+func containsHash(held [][]byte, h []byte) bool {
+	return slices.ContainsFunc(held, func(x []byte) bool { return bytes.Equal(x, h) })
+}
+
+// ledgerHolds is which of hashes the ledger of root holds.
+func ledgerHolds(ctx context.Context, local *storage.DB[storage.Local], root storage.UUID, hashes [][]byte) ([][]byte, error) {
 	var held [][]byte
-	err := s.local.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Local]) error {
+	err := local.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Local]) error {
 		var err error
 		held, err = db.New(r).LedgerHolds(ctx, db.LedgerHoldsParams{RootID: root, Hashes: hashes})
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("read the ledger: %w", err)
+		return nil, fmt.Errorf("read the ledger: %w", err)
 	}
-	for _, c := range cs {
-		c.Ledger = slices.ContainsFunc(held, func(h []byte) bool { return bytes.Equal(h, c.GetSha256()) })
-	}
-	return nil
+	return held, nil
 }

@@ -51,6 +51,10 @@ const (
 	StorageServiceWalkProcedure = "/slipstream.storage.v1.StorageService/Walk"
 	// StorageServiceProbeProcedure is the procedure name of the StorageService's Probe RPC.
 	StorageServiceProbeProcedure = "/slipstream.storage.v1.StorageService/Probe"
+	// StorageServiceProbeMoveProcedure is the procedure name of the StorageService's ProbeMove RPC.
+	StorageServiceProbeMoveProcedure = "/slipstream.storage.v1.StorageService/ProbeMove"
+	// StorageServiceRemoveIfProcedure is the procedure name of the StorageService's RemoveIf RPC.
+	StorageServiceRemoveIfProcedure = "/slipstream.storage.v1.StorageService/RemoveIf"
 	// FolderServiceBrowseProcedure is the procedure name of the FolderService's Browse RPC.
 	FolderServiceBrowseProcedure = "/slipstream.storage.v1.FolderService/Browse"
 	// FolderServiceSuggestProcedure is the procedure name of the FolderService's Suggest RPC.
@@ -136,6 +140,20 @@ var (
 			Procedure:  StorageServiceProbeProcedure,
 		}
 	})
+	storageServiceProbeMoveSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("StorageService").Methods().ByName("ProbeMove"),
+			Procedure:  StorageServiceProbeMoveProcedure,
+		}
+	})
+	storageServiceRemoveIfSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("StorageService").Methods().ByName("RemoveIf"),
+			Procedure:  StorageServiceRemoveIfProcedure,
+		}
+	})
 )
 
 // StorageServiceClient is a client for the slipstream.storage.v1.StorageService service.
@@ -170,6 +188,13 @@ type StorageServiceClient interface {
 	// Probe reads one root file's media record with the bundled ffprobe. A
 	// file ffprobe can't read is FAILED_PRECONDITION with an Unprobed detail.
 	Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error)
+	// ProbeMove reads one page of a Move's plan: each source file with its
+	// companions, each payload file, and the files at each destination
+	// path. A page of more than 10000 paths is refused.
+	ProbeMove(context.Context, *v1.ProbeMoveRequest) (*v1.ProbeMoveResponse, error)
+	// RemoveIf removes a root-relative file only while its size and
+	// modified time are the ones asked.
+	RemoveIf(context.Context, *v1.RemoveIfRequest) (*v1.RemoveIfResponse, error)
 }
 
 // NewStorageServiceClient constructs a client for the slipstream.storage.v1.StorageService service.
@@ -210,6 +235,13 @@ type StorageServiceHandler interface {
 	// Probe reads one root file's media record with the bundled ffprobe. A
 	// file ffprobe can't read is FAILED_PRECONDITION with an Unprobed detail.
 	Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error)
+	// ProbeMove reads one page of a Move's plan: each source file with its
+	// companions, each payload file, and the files at each destination
+	// path. A page of more than 10000 paths is refused.
+	ProbeMove(context.Context, *v1.ProbeMoveRequest) (*v1.ProbeMoveResponse, error)
+	// RemoveIf removes a root-relative file only while its size and
+	// modified time are the ones asked.
+	RemoveIf(context.Context, *v1.RemoveIfRequest) (*v1.RemoveIfResponse, error)
 }
 
 // RegisterStorageServiceHandler registers svc as the slipstream.storage.v1.StorageService
@@ -227,6 +259,8 @@ func RegisterStorageServiceHandler(server *connect.Server, svc StorageServiceHan
 		connect.Method{Spec: storageServiceSampleSpec(), Handler: adapter.sample},
 		connect.Method{Spec: storageServiceWalkSpec(), Handler: adapter.walk},
 		connect.Method{Spec: storageServiceProbeSpec(), Handler: adapter.probe},
+		connect.Method{Spec: storageServiceProbeMoveSpec(), Handler: adapter.probeMove},
+		connect.Method{Spec: storageServiceRemoveIfSpec(), Handler: adapter.removeIf},
 	)
 }
 
@@ -271,6 +305,14 @@ func (UnimplementedStorageServiceHandler) Walk(context.Context, *v1.WalkRequest)
 
 func (UnimplementedStorageServiceHandler) Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.Probe is not implemented")
+}
+
+func (UnimplementedStorageServiceHandler) ProbeMove(context.Context, *v1.ProbeMoveRequest) (*v1.ProbeMoveResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.ProbeMove is not implemented")
+}
+
+func (UnimplementedStorageServiceHandler) RemoveIf(context.Context, *v1.RemoveIfRequest) (*v1.RemoveIfResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.RemoveIf is not implemented")
 }
 
 type storageServiceClient struct {
@@ -352,6 +394,22 @@ func (c *storageServiceClient) Walk(ctx context.Context, req *v1.WalkRequest) (*
 func (c *storageServiceClient) Probe(ctx context.Context, req *v1.ProbeRequest) (*v1.ProbeResponse, error) {
 	var res v1.ProbeResponse
 	if err := c.client.CallUnary(ctx, storageServiceProbeSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *storageServiceClient) ProbeMove(ctx context.Context, req *v1.ProbeMoveRequest) (*v1.ProbeMoveResponse, error) {
+	var res v1.ProbeMoveResponse
+	if err := c.client.CallUnary(ctx, storageServiceProbeMoveSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *storageServiceClient) RemoveIf(ctx context.Context, req *v1.RemoveIfRequest) (*v1.RemoveIfResponse, error) {
+	var res v1.RemoveIfResponse
+	if err := c.client.CallUnary(ctx, storageServiceRemoveIfSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -473,6 +531,30 @@ func (h storageServiceHandler) probe(ctx context.Context, _ connect.Spec, stream
 		return err
 	}
 	res, err := h.svc.Probe(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h storageServiceHandler) probeMove(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ProbeMoveRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ProbeMove(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h storageServiceHandler) removeIf(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.RemoveIfRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.RemoveIf(ctx, &req)
 	if err != nil {
 		return err
 	}

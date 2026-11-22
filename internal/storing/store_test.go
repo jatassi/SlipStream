@@ -159,6 +159,15 @@ func (p payloads) Path(h bencode.InfoHash, index int) (string, error) {
 	return path, nil
 }
 
+// Arriving reads a's torrent's entry as the folder its client keeps it in.
+func (p payloads) Arriving(a Arriving) (string, error) {
+	folder, ok := p[a.InfoHash]
+	if !ok {
+		return "", errors.New("the torrent is not in this Node's folders")
+	}
+	return filepath.Join(folder, filepath.FromSlash(a.Path.String())), nil
+}
+
 func TestAFolderWithoutItsMarkerReadsUnmounted(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		d := newTestDisk(t)
