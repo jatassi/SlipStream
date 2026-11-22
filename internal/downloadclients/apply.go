@@ -15,6 +15,7 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/clients"
@@ -41,6 +42,8 @@ type Config struct {
 	// CardsChanged tells the Admins a Node's client card or settings
 	// moved.
 	CardsChanged Publisher[ClientsChanged]
+	// Volumes tells the Admins a Node's downloads volume changed.
+	Volumes roots.VolumesPublisher
 	// Rerouted tells the Grabs a client was added, edited or deleted, so
 	// a Grab pinned to a client that turned on or off routes again.
 	Rerouted func()

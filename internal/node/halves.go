@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/home"
 	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -132,6 +133,9 @@ type half struct {
 	// calendar reads release dates in a span of days, on a Controller.
 	calendar *calendar.Calendar
 
+	// home reads Home and keeps its setting, on a Controller.
+	home *home.Service
+
 	// history lists what happened to the library, on a Controller.
 	history *history.Service
 
@@ -215,6 +219,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Touch:        func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
 		Changed:      downloadclients.ChangedEvent.Bind(n.hub),
 		CardsChanged: downloadclients.ClientsChangedEvent.Bind(n.hub),
+		Volumes:      roots.VolumesChangedEvent.Bind(n.hub),
 		Rerouted:     func() { pipeline.Rerouted() },
 		Facts:        func(id role.NodeID) (*dlv1.Facts, bool) { return downloads.Facts(id) },
 		Remote: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
@@ -692,6 +697,10 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
 	pipeline.Register(found.Importer())
+	front := home.New(home.Config{
+		Library: lib.db, Grabs: pipeline, Imports: found, Works: tree, Files: shelf, Clients: clients,
+		Changed: home.SettingsChangedEvent.Bind(n.hub),
+	})
 	if err := found.Carry(ctx); err != nil {
 		return err
 	}
@@ -762,6 +771,8 @@ func (n *Node) startController(ctx context.Context) error {
 		notifications: n.notifications,
 
 		calendar: dates,
+
+		home: front,
 
 		history: n.history,
 

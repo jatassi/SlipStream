@@ -23,6 +23,8 @@ import (
 	"github.com/jatassi/slipstream/internal/healthapi"
 	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/historyapi"
+	"github.com/jatassi/slipstream/internal/home"
+	"github.com/jatassi/slipstream/internal/homeapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -119,6 +121,7 @@ var Events = []live.Event{
 	notifications.ChangedEvent,
 	notifications.SeenEvent,
 	history.ChangedEvent,
+	home.SettingsChangedEvent,
 	subtitles.ChangedEvent,
 	subtitles.ProvidersChangedEvent,
 	subtitles.AttemptEvent,
@@ -161,6 +164,7 @@ type Node interface {
 	notificationsapi.Notes
 	calendarapi.Calendar
 	historyapi.History
+	homeapi.Home
 	subtitlesapi.Owner
 	reconcilingapi.Reconciler
 	restoreapi.Restorer
@@ -205,6 +209,7 @@ func Mount(r *api.Router, s Services) {
 	notificationsapi.Routes(r, s.Node)
 	calendarapi.Routes(r, s.Node)
 	historyapi.Routes(r, s.Node)
+	homeapi.Routes(r, s.Node)
 	subtitlesapi.Routes(r, s.Node)
 	reconcilingapi.Routes(r, s.Node)
 	restoreapi.Routes(r, s.Node)

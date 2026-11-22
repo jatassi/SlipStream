@@ -19,6 +19,9 @@ type ImportOf struct {
 	// hold the same one, so its count is a count of Items.
 	OneItemEach bool
 	Finished    bool
+	// Wait is the import wait of its first held file, nil while none is
+	// held.
+	Wait *GrabWait
 }
 
 // Imports reads Grabs' Imports, which imports implements.

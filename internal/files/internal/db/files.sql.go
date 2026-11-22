@@ -600,9 +600,9 @@ func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
 }
 
 const insertImported = `-- name: InsertImported :exec
-INSERT INTO files_imported (id, file_id, import_id, grab_id, work_id, placed_by, items, cells, replaced, at)
+INSERT INTO files_imported (id, file_id, import_id, grab_id, work_id, placed_by, items, cells, replaced, quality, at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
-    ?7, ?8, ?9, ?10)
+    ?7, ?8, ?9, ?10, ?11)
 `
 
 type InsertImportedParams struct {
@@ -615,6 +615,7 @@ type InsertImportedParams struct {
 	Items    string
 	Cells    string
 	Replaced string
+	Quality  *release.Quality
 	At       storage.Time
 }
 
@@ -629,6 +630,7 @@ func (q *Queries) InsertImported(ctx context.Context, arg InsertImportedParams) 
 		arg.Items,
 		arg.Cells,
 		arg.Replaced,
+		arg.Quality,
 		arg.At,
 	)
 	return err
@@ -1414,6 +1416,115 @@ func (q *Queries) ListItemsOfFiles(ctx context.Context, fileIds []FileID) ([]Lis
 	return items, nil
 }
 
+const listLandingsBefore = `-- name: ListLandingsBefore :many
+SELECT id, import_id, work_id, items, quality, replaced, at FROM files_imported INDEXED BY files_imported_at
+WHERE import_id IS NOT NULL AND (at < ?1 OR (at = ?1 AND id < ?2))
+ORDER BY at DESC, id DESC LIMIT ?3
+`
+
+type ListLandingsBeforeParams struct {
+	At  storage.Time
+	ID  storage.UUID
+	Lim int64
+}
+
+type ListLandingsBeforeRow struct {
+	ID       storage.UUID
+	ImportID storage.UUID
+	WorkID   works.WorkID
+	Items    string
+	Quality  *release.Quality
+	Replaced string
+	At       storage.Time
+}
+
+func (q *Queries) ListLandingsBefore(ctx context.Context, arg ListLandingsBeforeParams) ([]ListLandingsBeforeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLandingsBefore, arg.At, arg.ID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLandingsBeforeRow
+	for rows.Next() {
+		var i ListLandingsBeforeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ImportID,
+			&i.WorkID,
+			&i.Items,
+			&i.Quality,
+			&i.Replaced,
+			&i.At,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLandingsOf = `-- name: ListLandingsOf :many
+SELECT id, import_id, work_id, items, quality, replaced, at FROM files_imported
+WHERE import_id IN (/*SLICE:import_ids*/?) ORDER BY import_id, at, id
+`
+
+type ListLandingsOfRow struct {
+	ID       storage.UUID
+	ImportID storage.UUID
+	WorkID   works.WorkID
+	Items    string
+	Quality  *release.Quality
+	Replaced string
+	At       storage.Time
+}
+
+func (q *Queries) ListLandingsOf(ctx context.Context, importIds []storage.UUID) ([]ListLandingsOfRow, error) {
+	query := listLandingsOf
+	var queryParams []interface{}
+	if len(importIds) > 0 {
+		for _, v := range importIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:import_ids*/?", strings.Repeat(",?", len(importIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:import_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLandingsOfRow
+	for rows.Next() {
+		var i ListLandingsOfRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ImportID,
+			&i.WorkID,
+			&i.Items,
+			&i.Quality,
+			&i.Replaced,
+			&i.At,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLeftIn = `-- name: ListLeftIn :many
 SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by FROM files_file f
 WHERE f.work_id IN (/*SLICE:work_ids*/?) AND f.gone_at IS NULL AND NOT EXISTS (SELECT 1 FROM files_move m WHERE m.file_id = f.id)
@@ -1587,6 +1698,52 @@ func (q *Queries) ListMovingFilesOfWorks(ctx context.Context, workIds []works.Wo
 	return items, nil
 }
 
+const listNewestLandings = `-- name: ListNewestLandings :many
+SELECT id, import_id, work_id, items, quality, replaced, at FROM files_imported INDEXED BY files_imported_at
+WHERE import_id IS NOT NULL ORDER BY at DESC, id DESC LIMIT ?1
+`
+
+type ListNewestLandingsRow struct {
+	ID       storage.UUID
+	ImportID storage.UUID
+	WorkID   works.WorkID
+	Items    string
+	Quality  *release.Quality
+	Replaced string
+	At       storage.Time
+}
+
+func (q *Queries) ListNewestLandings(ctx context.Context, lim int64) ([]ListNewestLandingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listNewestLandings, lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNewestLandingsRow
+	for rows.Next() {
+		var i ListNewestLandingsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ImportID,
+			&i.WorkID,
+			&i.Items,
+			&i.Quality,
+			&i.Replaced,
+			&i.At,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPaths = `-- name: ListPaths :many
 SELECT path FROM files_file ORDER BY id
 `
@@ -1748,6 +1905,41 @@ func (q *Queries) ListReplacers(ctx context.Context) ([]ListReplacersRow, error)
 	for rows.Next() {
 		var i ListReplacersRow
 		if err := rows.Scan(&i.FileID, &i.Path); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTalliesSince = `-- name: ListTalliesSince :many
+SELECT import_id, CAST(min(json_array_length(replaced) > 0) AS INTEGER) AS upgraded FROM files_imported
+WHERE import_id IN (SELECT DISTINCT i.import_id FROM files_imported i INDEXED BY files_imported_at
+    WHERE i.at >= ?1 AND i.import_id IS NOT NULL)
+GROUP BY import_id ORDER BY import_id
+`
+
+type ListTalliesSinceRow struct {
+	ImportID storage.UUID
+	Upgraded int64
+}
+
+func (q *Queries) ListTalliesSince(ctx context.Context, since storage.Time) ([]ListTalliesSinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTalliesSince, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTalliesSinceRow
+	for rows.Next() {
+		var i ListTalliesSinceRow
+		if err := rows.Scan(&i.ImportID, &i.Upgraded); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -215,6 +215,12 @@ func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library],
 	if err != nil {
 		return nil, err
 	}
+	return g.waitsOf(ctx, r, open)
+}
+
+// waitsOf is what each of open, unfinished Grabs, waits on while its own
+// Node is in step, as waits words it.
+func (g GrabCells) waitsOf(ctx context.Context, r storage.Reader[storage.Library], open []db.GrabsGrab) (map[GrabID]waiting, error) {
 	ids := make([]downloadclients.ID, len(open))
 	for i, gr := range open {
 		ids[i] = gr.TorrentID

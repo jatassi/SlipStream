@@ -163,7 +163,10 @@ function ImportWaitLine({
 }
 
 const isImportWait = (code: FilesWaitingNeedCode): code is ImportWait =>
-  code === "no_space" || code === "root_not_ready" || code === "probe_timeout";
+  code === "no_space" ||
+  code === "root_not_ready" ||
+  code === "probe_timeout" ||
+  code === "probe_error";
 
 /**
  * A Grab waiting on its Node that is away, on its client that isn't

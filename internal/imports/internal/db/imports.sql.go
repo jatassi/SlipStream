@@ -1210,6 +1210,43 @@ func (q *Queries) ListUnfinished(ctx context.Context) ([]ImportsImport, error) {
 	return items, nil
 }
 
+const listUnfinishedAmong = `-- name: ListUnfinishedAmong :many
+SELECT id FROM imports_import WHERE id IN (/*SLICE:ids*/?) AND finished_at IS NULL ORDER BY id
+`
+
+func (q *Queries) ListUnfinishedAmong(ctx context.Context, ids []ImportID) ([]ImportID, error) {
+	query := listUnfinishedAmong
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportID
+	for rows.Next() {
+		var id ImportID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUnfinishedImports = `-- name: ListUnfinishedImports :many
 SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE finished_at IS NULL ORDER BY source <> 'root', root_id, folder, id
 `

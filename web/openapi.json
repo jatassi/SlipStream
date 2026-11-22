@@ -2086,6 +2086,66 @@
         ],
         "type": "object"
       },
+      "DownloadclientsNodeTorrents": {
+        "additionalProperties": false,
+        "properties": {
+          "downloading": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "failures": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "seeding": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "torrents": {
+            "description": "Every Torrent it holds, paused, queued and complete ones too",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "warnings": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "nodeId",
+          "torrents",
+          "downloading",
+          "seeding",
+          "failures",
+          "warnings"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsNodeTorrentsList": {
+        "additionalProperties": false,
+        "properties": {
+          "nodes": {
+            "description": "One per Downloading Node, in Node order",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsNodeTorrents"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodes"
+        ],
+        "type": "object"
+      },
       "DownloadclientsOwes": {
         "additionalProperties": false,
         "properties": {
@@ -5342,7 +5402,7 @@
             "description": "The client's error, for client_error; null otherwise"
           },
           "code": {
-            "description": "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of sync with the Controller, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't have the Downloading Role. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, and client_error while its external client reports an error",
+            "description": "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of sync with the Controller, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't have the Downloading Role. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, probe_error while reading a file failed once and SlipStream tries once more, and client_error while its external client reports an error",
             "enum": [
               "node_away",
               "client_away",
@@ -5350,6 +5410,7 @@
               "no_space",
               "root_not_ready",
               "probe_timeout",
+              "probe_error",
               "client_error"
             ],
             "type": "string"
@@ -10575,6 +10636,268 @@
         },
         "required": [
           "holders"
+        ],
+        "type": "object"
+      },
+      "HomeArrival": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "description": "When its last file landed",
+            "format": "date-time",
+            "type": "string"
+          },
+          "importId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "words": {
+            "description": "What it did, such as Imported 10 episodes · 2 upgrades",
+            "type": "string"
+          },
+          "work": {
+            "$ref": "#/components/schemas/HomeWork"
+          }
+        },
+        "required": [
+          "importId",
+          "work",
+          "at",
+          "words"
+        ],
+        "type": "object"
+      },
+      "HomeJob": {
+        "additionalProperties": false,
+        "properties": {
+          "grab": {
+            "$ref": "#/components/schemas/GrabsGrab"
+          },
+          "torrent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsTorrentRow"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its Torrent as the Torrents view lists it, without queuePosition; null until the .torrent is fetched"
+          },
+          "work": {
+            "$ref": "#/components/schemas/HomeWork"
+          }
+        },
+        "required": [
+          "grab",
+          "work",
+          "torrent"
+        ],
+        "type": "object"
+      },
+      "HomeJobs": {
+        "additionalProperties": false,
+        "properties": {
+          "moving": {
+            "description": "Every moving Grab",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rows": {
+            "description": "The moving Grabs, nearest Available first, at most Rows on Home",
+            "items": {
+              "$ref": "#/components/schemas/HomeJob"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "moving"
+        ],
+        "type": "object"
+      },
+      "HomeNeed": {
+        "additionalProperties": false,
+        "properties": {
+          "grab": {
+            "$ref": "#/components/schemas/GrabsGrab"
+          },
+          "wait": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesWaitingNeed"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What it waits on, as the Work page words it; null for a failed Grab"
+          },
+          "work": {
+            "$ref": "#/components/schemas/HomeWork"
+          }
+        },
+        "required": [
+          "grab",
+          "work",
+          "wait"
+        ],
+        "type": "object"
+      },
+      "HomeNeedsYou": {
+        "additionalProperties": false,
+        "properties": {
+          "failed": {
+            "description": "Failed Grabs that need attention, counted up to 100; 100 means 100 or more",
+            "format": "int64",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rows": {
+            "description": "Newest first, at most Rows on Home",
+            "items": {
+              "$ref": "#/components/schemas/HomeNeed"
+            },
+            "type": "array"
+          },
+          "waiting": {
+            "description": "Grabs that wait on an Admin",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rows",
+          "failed",
+          "waiting"
+        ],
+        "type": "object"
+      },
+      "HomeRecent": {
+        "additionalProperties": false,
+        "properties": {
+          "rows": {
+            "description": "Finished Imports, newest first, at most Rows on Home",
+            "items": {
+              "$ref": "#/components/schemas/HomeArrival"
+            },
+            "type": "array"
+          },
+          "today": {
+            "$ref": "#/components/schemas/HomeToday"
+          }
+        },
+        "required": [
+          "rows",
+          "today"
+        ],
+        "type": "object"
+      },
+      "HomeSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "settings": {
+            "description": "Rows on Home",
+            "items": {
+              "$ref": "#/components/schemas/SettingField"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "settings"
+        ],
+        "type": "object"
+      },
+      "HomeSettingsChanged": {
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "HomeSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "jobs": {
+            "$ref": "#/components/schemas/HomeJobs"
+          },
+          "needsYou": {
+            "$ref": "#/components/schemas/HomeNeedsYou"
+          },
+          "recent": {
+            "$ref": "#/components/schemas/HomeRecent"
+          }
+        },
+        "required": [
+          "jobs",
+          "needsYou",
+          "recent"
+        ],
+        "type": "object"
+      },
+      "HomeToday": {
+        "additionalProperties": false,
+        "properties": {
+          "imported": {
+            "description": "Finished Imports that landed a file since since, other than upgrades",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "upgraded": {
+            "description": "Finished Imports that landed a file since since and whose every file replaced one",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "imported",
+          "upgraded"
+        ],
+        "type": "object"
+      },
+      "HomeWork": {
+        "additionalProperties": false,
+        "properties": {
+          "backdropUrl": {
+            "description": "The artwork route without a size; null when it has none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "failed": {
+            "description": "Its status is failed, so it never tints Home",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "posterUrl": {
+            "description": "The artwork route without a size; null when it has none",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "contentType",
+          "label",
+          "posterUrl",
+          "backdropUrl",
+          "failed"
         ],
         "type": "object"
       },
@@ -41887,6 +42210,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/HomeSettingsChanged"
+                          },
+                          "event": {
+                            "const": "home.settings-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event home.settings-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/IdentityAccountsChanged"
                           },
                           "event": {
@@ -49025,6 +49374,485 @@
         "summary": "Read one History entry in full",
         "tags": [
           "history"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/home": {
+      "get": {
+        "operationId": "getHome",
+        "parameters": [
+          {
+            "description": "The instant today's totals count from: the browser's midnight",
+            "explode": false,
+            "in": "query",
+            "name": "since",
+            "required": true,
+            "schema": {
+              "description": "The instant today's totals count from: the browser's midnight",
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeSummary"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get Home: the moving Grabs, what needs attention and the newest finished Imports",
+        "tags": [
+          "home"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/home-settings": {
+      "get": {
+        "operationId": "getHomeSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get Home's settings",
+        "tags": [
+          "home"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "updateHomeSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range",
+                            "unknown_setting"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change Home's settings by key, all or none",
+        "tags": [
+          "home"
         ],
         "x-slipstream-access": "admin"
       }
@@ -89556,6 +90384,141 @@
           }
         ],
         "summary": "Pause, resume, announce, recheck, mark failed or remove Torrents, and return the result for each",
+        "tags": [
+          "downloadclients"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/torrents/counts": {
+      "get": {
+        "operationId": "getTorrentCounts",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadclientsNodeTorrentsList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Count each Downloading Node's Torrents downloading, seeding, failed and with a warning",
         "tags": [
           "downloadclients"
         ],

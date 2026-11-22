@@ -97,7 +97,7 @@ func TestTheDiskGuardIsAHealthItem(t *testing.T) {
 	r := &roster{serving: []role.NodeID{g.node}}
 	at := time.Now().Truncate(time.Millisecond)
 	g.c = dc.New(dc.Config{
-		Library: g.lib, Touch: func(...role.NodeID) {}, Changed: published{}, CardsChanged: &told{}, Roster: r,
+		Library: g.lib, Touch: func(...role.NodeID) {}, Changed: published{}, CardsChanged: &told{}, Volumes: noVolumes{}, Roster: r,
 		Facts: func(role.NodeID) (*dlv1.Facts, bool) {
 			g.mu.Lock()
 			defer g.mu.Unlock()

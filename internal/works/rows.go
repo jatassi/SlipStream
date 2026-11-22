@@ -342,3 +342,33 @@ func treeOrder(levels []db.WorksLevel, items []db.WorksItem) map[LevelID]int {
 func (w *Works) Links(t Tree) []WebLink {
 	return w.types[t.ContentType].catalog.Links(t.Key, t.Fields)
 }
+
+// BackdropsIn is the backdrop of each of ids that has one, read in r. A
+// Row leaves it out, so the Library never reads it.
+func (w *Works) BackdropsIn(ctx context.Context, r storage.Reader[file], ids []WorkID) (map[WorkID]artwork.Ref, error) {
+	summaries, err := SummariesOf(ctx, r, ids)
+	if err != nil {
+		return nil, err
+	}
+	byType := map[TypeID][]WorkID{}
+	for id, s := range summaries {
+		byType[s.ContentType] = append(byType[s.ContentType], id)
+	}
+	q, out := db.New(r), map[WorkID]artwork.Ref{}
+	for _, typ := range slices.Sorted(maps.Keys(byType)) {
+		kind := w.types[typ].desc.Art.Backdrop
+		if kind == "" {
+			continue
+		}
+		for chunk := range slices.Chunk(byType[typ], Batch) {
+			art, err := q.ListWorkArtOfWorks(ctx, db.ListWorkArtOfWorksParams{Kind: kind, WorkIds: chunk})
+			if err != nil {
+				return nil, err
+			}
+			for _, a := range art {
+				out[a.WorkID] = artwork.Ref{Source: artwork.SourceID(a.Source), Shape: artwork.ShapeBackdrop, Path: a.Path}
+			}
+		}
+	}
+	return out, nil
+}

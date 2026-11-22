@@ -48,15 +48,15 @@ func TestTheGrabEnumsNameEveryStageCodeStepOutcomeAndSourceInOrder(t *testing.T)
 		}
 	}
 	for _, c := range []struct{ name, got, want string }{
-		{"grab.Stage", enumOf[grab](t, "Stage"), joined(grabs.Stages)},
+		{"grab.Stage", enumOf[Grab](t, "Stage"), joined(grabs.Stages)},
 		{"entered.Stage", enumOf[entered](t, "Stage"), joined(grabs.Stages)},
 		{"failure.Stage", enumOf[failure](t, "Stage"), joined(inFlight)},
 		{"heldCell.Stage", enumOf[heldCell](t, "Stage"), joined(inFlight)},
 		{"failure.Code", enumOf[failure](t, "Code"), joined(grabs.Codes)},
 		{"lostAt.Step", enumOf[lostAt](t, "Step"), joined(grabs.Steps)},
 		{"search.Outcome", enumOf[search](t, "Outcome"), joined(grabs.Outcomes)},
-		{"grab.Source", enumOf[grab](t, "Source"), joined(grabs.Sources)},
-		{"grab.FoundBy", enumOf[grab](t, "FoundBy"), joined(grabs.FoundBys)},
+		{"grab.Source", enumOf[Grab](t, "Source"), joined(grabs.Sources)},
+		{"grab.FoundBy", enumOf[Grab](t, "FoundBy"), joined(grabs.FoundBys)},
 	} {
 		if c.got != c.want {
 			t.Errorf("%s enum = %q, want %q", c.name, c.got, c.want)

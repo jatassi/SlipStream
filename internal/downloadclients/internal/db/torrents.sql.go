@@ -659,6 +659,45 @@ func (q *Queries) ListAttached(ctx context.Context, ids []TorrentID) ([]ListAtta
 	return items, nil
 }
 
+const listCountable = `-- name: ListCountable :many
+SELECT node_id, removed_at, wanted, report FROM downloadclients_torrent WHERE parted_at IS NULL ORDER BY node_id, added_order
+`
+
+type ListCountableRow struct {
+	NodeID    role.NodeID
+	RemovedAt storage.Time
+	Wanted    string
+	Report    *string
+}
+
+func (q *Queries) ListCountable(ctx context.Context) ([]ListCountableRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCountable)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCountableRow
+	for rows.Next() {
+		var i ListCountableRow
+		if err := rows.Scan(
+			&i.NodeID,
+			&i.RemovedAt,
+			&i.Wanted,
+			&i.Report,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDownloads = `-- name: ListDownloads :many
 SELECT id, size, wanted, report FROM downloadclients_torrent
 WHERE removed_at IS NULL AND completion IS NULL

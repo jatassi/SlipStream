@@ -366,3 +366,6 @@ UPDATE downloadclients_torrent SET withheld_at = NULL WHERE id IN (sqlc.slice(id
 
 -- name: GetLook :one
 SELECT node_id, metainfo, save_folder FROM downloadclients_torrent WHERE id = sqlc.arg(id);
+
+-- name: ListCountable :many
+SELECT node_id, removed_at, wanted, report FROM downloadclients_torrent WHERE parted_at IS NULL ORDER BY node_id, added_order;

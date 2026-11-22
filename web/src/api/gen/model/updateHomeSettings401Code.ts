@@ -1,0 +1,1 @@
+export type UpdateHomeSettings401Code = "api_key_wrong" | "signed_out";

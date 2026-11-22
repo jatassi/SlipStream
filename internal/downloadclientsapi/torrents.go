@@ -180,7 +180,8 @@ var (
 	pendingWords = map[downloadclients.Wanted]string{downloadclients.Paused: "pause", downloadclients.Started: "resume"}
 )
 
-func rowOf(r downloadclients.Row) TorrentRow {
+// RowOf is r on the wire.
+func RowOf(r downloadclients.Row) TorrentRow {
 	out := TorrentRow{
 		ID: r.ID.String(), NodeID: r.Node.String(), Name: r.Name, ContentType: string(r.ContentType),
 		State: string(r.State), Hold: string(r.Hold), Until: when(r.Until), InLine: r.QueuePosition,
@@ -348,9 +349,41 @@ func (h handlers) listTorrents(ctx context.Context, _ identity.Admin, in *listIn
 	}
 	out := torrentList{Rows: make([]TorrentRow, len(l.Rows)), Counts: countsOf(l.Counts)}
 	for i, r := range l.Rows {
-		out.Rows[i] = rowOf(r)
+		out.Rows[i] = RowOf(r)
 	}
 	return &torrentListOutput{Body: out}, nil
+}
+
+// NodeTorrents is one Downloading Node's Torrents counted as the Torrents
+// status sentence counts them.
+type NodeTorrents struct {
+	NodeID      string `json:"nodeId" format:"uuid"`
+	Torrents    int    `json:"torrents" minimum:"0" doc:"Every Torrent it holds, paused, queued and complete ones too"`
+	Downloading int    `json:"downloading" minimum:"0"`
+	Seeding     int    `json:"seeding" minimum:"0"`
+	Failures    int    `json:"failures" minimum:"0"`
+	Warnings    int    `json:"warnings" minimum:"0"`
+}
+
+type nodeTorrentsList struct {
+	Nodes []NodeTorrents `json:"nodes" nullable:"false" doc:"One per Downloading Node, in Node order"`
+}
+
+type nodeTorrentsOutput struct{ Body nodeTorrentsList }
+
+func (h handlers) getTorrentCounts(ctx context.Context, _ identity.Admin, _ *struct{}) (*nodeTorrentsOutput, error) {
+	clients, _ := open(h.clients)
+	counts, err := clients.NodeCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := nodeTorrentsList{Nodes: make([]NodeTorrents, len(counts))}
+	for i, c := range counts {
+		out.Nodes[i] = NodeTorrents{
+			NodeID: c.Node.String(), Torrents: c.Torrents, Downloading: c.Downloading, Seeding: c.Seeding, Failures: c.Failures, Warnings: c.Warnings,
+		}
+	}
+	return &nodeTorrentsOutput{Body: out}, nil
 }
 
 // TorrentDetail is one Torrent as the Inspector shows it.
@@ -400,7 +433,7 @@ type torrentGrab struct {
 
 func detailOf(d downloadclients.Detail) TorrentDetail {
 	out := TorrentDetail{
-		TorrentRow: rowOf(d.Row), Downloaded: d.Totals.Downloaded, Active: int64(d.Totals.Active / time.Second),
+		TorrentRow: RowOf(d.Row), Downloaded: d.Totals.Downloaded, Active: int64(d.Totals.Active / time.Second),
 		InfoHash: d.InfoHash.String(), SaveFolder: d.SaveFolder, PieceSize: d.PieceSize, Private: d.Private,
 		Trackers: []trackerDetail{}, Files: []fileDetail{}, Grabs: []torrentGrab{}, Live: d.Live, AnnounceAt: when(d.AnnounceAt),
 	}
