@@ -10,10 +10,12 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tracker"
@@ -595,6 +597,152 @@ func TestAClientsNodeChangeTakesItsTorrents(t *testing.T) {
 		var units int
 		if err := home.Library.QueryRowContext(t.Context(), `SELECT count(*) FROM moves_unit`).Scan(&units); err != nil || units != 0 {
 			t.Errorf("the Node change made %d Move units (%v), want none", units, err)
+		}
+	})
+}
+
+// seedSeconds is the seeding seconds the Torrent of hash in a client of
+// node counts.
+func seedSeconds(t *testing.T, w *sim.World, s seeded, node string) int64 {
+	t.Helper()
+	var n int64
+	err := w.Node("home").Half().Library.QueryRowContext(t.Context(), `SELECT t.seeding_seconds FROM downloadclients_torrent t
+		JOIN nodes_node n ON n.id = t.node_id WHERE t.info_hash = ? AND n.name = ? ORDER BY t.added_order DESC LIMIT 1`, s.hash[:], node).Scan(&n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// TestAMovedTorrentKeepsCountingItsTotals moves The Quiet Orchard from
+// seedbox's built-in client into den's built-in client and into
+// Transmission on den: the destination starts from the source's seeding
+// time and keeps counting it.
+func TestAMovedTorrentKeepsCountingItsTotals(t *testing.T) {
+	t.Parallel()
+	for _, to := range []client{{"den", ""}, {"den", "transmission"}} {
+		t.Run(to.String(), func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				w := launchMoves(t)
+				s := seedOrchard(t, w, kinds[0])
+				within(t, time.Hour, "seedbox counts 10 minutes of seeding", func() bool { return seedSeconds(t, w, s, "seedbox") >= 600 })
+				if unit := ended(t, w, moveTorrent(t, w, s, to.side(t, w))); unit.Phase != moves.PhaseDone {
+					t.Fatalf("the unit ended %s %+v (%s), want done", unit.Phase, unit.Failure, unit.Words)
+				}
+				was := seedSeconds(t, w, s, "seedbox")
+				if now := seedSeconds(t, w, s, "den"); now < was {
+					t.Fatalf("den counts %d seconds of seeding once it switched, want at least seedbox's %d", now, was)
+				}
+				within(t, time.Hour, "den counts on from seedbox's seeding time", func() bool { return seedSeconds(t, w, s, "den") > was })
+			})
+		})
+	}
+}
+
+// TestABuiltInTorrentIntoQBittorrentReleasesItsWindow moves a private
+// torrent whose Hit and run window owes from seedbox's built-in client
+// into Box on seedbox: Box follows its own rules, so the window is
+// released.
+func TestABuiltInTorrentIntoQBittorrentReleasesItsWindow(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := launchMoves(t)
+		torznab := addTracker(t, w, "torznab", indexers.Private)
+		put(t, w.API(), fmt.Sprintf("/api/v1/trackers/%s/rule", torznab), `{"clears":"time","ratio":null,"seedSeconds":252000}`)
+		s := seedOrchard(t, w, kinds[0])
+		state := func() string {
+			var st string
+			if err := w.Node("home").Half().Library.QueryRowContext(t.Context(), `SELECT state FROM trackers_window WHERE info_hash = ?`, s.hash[:]).Scan(&st); err != nil {
+				return err.Error()
+			}
+			return st
+		}
+		within(t, time.Hour, "its Hit and run window opens", func() bool { return state() == "owing" })
+		if unit := ended(t, w, moveTorrent(t, w, s, kinds[1].side(t, w))); unit.Phase != moves.PhaseDone {
+			t.Fatalf("the unit ended %s %+v (%s), want done", unit.Phase, unit.Failure, unit.Words)
+		}
+		within(t, time.Hour, "its window is released", func() bool { return state() == "released" })
+	})
+}
+
+// TestAGoalMetMidMoveCancelsTheMove starts The Quiet Orchard's Move from
+// seedbox to den while den is down, then gives its public Tracker a goal
+// it already met: the goal cancels the Move, removes the source as goal_met, and den
+// never gets the torrent.
+func TestAGoalMetMidMoveCancelsTheMove(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := launchMoves(t)
+		torznab := addTracker(t, w, "torznab", indexers.Public)
+		s := seedOrchard(t, w, kinds[0])
+		within(t, time.Hour, "seedbox counts 2 minutes of seeding", func() bool { return seedSeconds(t, w, s, "seedbox") >= 120 })
+		to, a := client{"den", ""}.side(t, w), w.API()
+		w.Node("den").Stop()
+		batch := moveTorrent(t, w, s, to)
+		put(t, a, fmt.Sprintf("/api/v1/trackers/%s/goal", torznab), `{"combine":"first","ratio":null,"seedSeconds":60,"action":"remove"}`)
+		var unit moves.View
+		within(t, time.Hour, "the goal cancels the Move", func() bool {
+			_, units, err := w.Node("home").Half().Moves.Get(t.Context(), batch, -1, 10)
+			if err != nil || len(units) != 1 {
+				return false
+			}
+			unit = units[0]
+			return unit.Phase == moves.PhaseCanceled
+		})
+		if got := goalRunOf(t, w, s).removed; got != string(downloadclients.GoalMet) {
+			t.Errorf("the source was removed %q, want goal_met", got)
+		}
+		if got := wantedOf(t, w, s); len(got) != 0 {
+			t.Errorf("the hash's Torrents are %v after the goal, want none", got)
+		}
+	})
+}
+
+// TestACutReportPathDuringTheStartSeedsFromOneSideAtATime cuts den's
+// reports to home as home asks den to start The Quiet Orchard: home never
+// hears the start, rolls the Move back once its bound passes and resumes
+// seedbox. A Retry hands off again while den's late report of the first
+// start arrives, which the Retry ignores, and fake-tracker never sees
+// seedbox and den started at once.
+func TestACutReportPathDuringTheStartSeedsFromOneSideAtATime(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		var w *sim.World
+		var cut atomic.Bool
+		w = launchMoves(t, sim.Edit(func(name string, e *node.Env) {
+			if name != "home" {
+				return
+			}
+			e.Test.BeforeMoveStep = func(_ context.Context, s moves.Step) {
+				if s.Action == "ask_start" && cut.CompareAndSwap(false, true) {
+					simtest.Flip(t, w.Path("den", "home"), fault.Stall{})
+				}
+			}
+		}))
+		s := seedOrchard(t, w, kinds[0])
+		unit := ended(t, w, moveTorrent(t, w, s, client{"den", ""}.side(t, w)))
+		if !cut.Load() || unit.Phase != moves.PhaseFailed || unit.Failure == nil || unit.Failure.Code != moves.DestinationUnreachable {
+			t.Fatalf("with den's reports cut at its start the unit ended %s %+v, want failed destination_unreachable", unit.Phase, unit.Failure)
+		}
+		within(t, time.Hour, "seedbox seeds again", func() bool { return slices.Contains(wantedOf(t, w, s), "seedbox:started") })
+		within(t, time.Hour, "the rollback is undone", func() bool {
+			_, units, err := w.Node("home").Half().Moves.Get(t.Context(), unit.Batch, -1, 10)
+			return err == nil && len(units) == 1 && units[0].Undone
+		})
+
+		if err := w.Node("home").Half().Moves.Retry(t.Context(), unit.Unit); err != nil {
+			t.Fatal(err)
+		}
+		w.Path("den", "home").Clear("")
+		if again := ended(t, w, unit.Batch); again.Phase != moves.PhaseDone {
+			t.Fatalf("the Retry ended %s %+v, want done", again.Phase, again.Failure)
+		}
+		if got := wantedOf(t, w, s); !slices.Equal(got, []string{"den:started"}) {
+			t.Errorf("the hash's Torrents are %v after the Retry, want den's alone, started", got)
+		}
+		if wrong := oneLive(w.Announces(s.hash)); wrong != "" {
+			t.Error(wrong)
 		}
 	})
 }
