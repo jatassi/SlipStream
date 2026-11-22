@@ -61,7 +61,7 @@ test("a column that hides still leaves the last column at the card's edge", asyn
   renderKit(<Tables width={700} />);
   const table = page.getByRole("table", { name: "Short" });
   await expect.element(table).toBeVisible();
-  expect(getComputedStyle(page.getByText("31").element()).display).toBe("none");
+  await expect.element(page.getByText("31")).not.toBeVisible();
   expect(edgesOf("Short")).toEqual(edgesOf("Long"));
   const pause = table.getByRole("cell", { name: "Pause" }).element().getBoundingClientRect();
   expect(pause.right).toBe(table.element().getBoundingClientRect().right);

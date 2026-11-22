@@ -53,10 +53,7 @@ test("arrow keys move the selection between rows", async () => {
   expect(picked).toStrictEqual(["b"]);
 });
 
-test.each([
-  { width: 1000, peers: "table-cell" },
-  { width: 600, peers: "none" },
-])("a $width px container shows the peers column as $peers", async ({ width, peers }) => {
+function renderTorrents(width: number) {
   renderKit(
     <div style={{ width }}>
       <Table
@@ -68,26 +65,26 @@ test.each([
       />
     </div>,
   );
-  await expect.element(page.getByRole("table", { name: "Torrents" })).toBeVisible();
-  expect(getComputedStyle(page.getByText("31").element()).display).toBe(peers);
-  expect(getComputedStyle(page.getByText("4.2 MB/s").element()).display).toBe("table-cell");
+}
+
+test("a container wider than a column's breakpoint shows that column", async () => {
+  renderTorrents(1000);
+  await expect.element(page.getByRole("columnheader", { name: "Peers" })).toBeVisible();
+  await expect.element(page.getByText("31")).toBeVisible();
 });
 
-test("a narrow container stacks the rows", async () => {
-  renderKit(
-    <div style={{ width: 400 }}>
-      <Table
-        label="Torrents"
-        columns={columns}
-        rows={torrents}
-        rowKey={(t) => t.id}
-        stackBelow={500}
-      />
-    </div>,
-  );
-  const cell = page.getByText("4.2 MB/s");
-  await expect.element(cell).toBeVisible();
-  expect(getComputedStyle(cell.element()).display).toBe("block");
+test("a container narrower than a column's breakpoint hides that column and keeps the rest", async () => {
+  renderTorrents(600);
+  await expect.element(page.getByText("4.2 MB/s")).toBeVisible();
+  await expect.element(page.getByRole("columnheader", { name: "Rate" })).toBeVisible();
+  await expect.element(page.getByText("Peers")).not.toBeVisible();
+  await expect.element(page.getByText("31")).not.toBeVisible();
+});
+
+test("a narrow container stacks the rows under no column headers", async () => {
+  renderTorrents(400);
+  await expect.element(page.getByText("4.2 MB/s")).toBeVisible();
+  await expect.element(page.getByText("Rate")).not.toBeVisible();
 });
 
 test("a stacked row leaves out a cell with nothing in it", async () => {

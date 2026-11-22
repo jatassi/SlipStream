@@ -17,15 +17,9 @@ function openWith(level: "warn" | "fail" | null = null) {
   return health;
 }
 
-test("a volume with a Storage warning says Warning and fills its bar in the warning colour", async () => {
+test("a volume with a Storage warning says Warning", async () => {
   openWith("warn");
-  const chip = volumes().getByText("Warning", { exact: true });
-  await expect.element(chip).toBeVisible();
-  const bar = volumes().getByRole("meter", { name: "/srv/media used" }).element();
-  const fill = bar.querySelector("[class*=rounded-capsule] > *");
-  expect(fill && getComputedStyle(fill).backgroundColor).toBe(
-    getComputedStyle(chip.element()).backgroundColor,
-  );
+  await expect.element(volumes().getByText("Warning", { exact: true })).toBeVisible();
 });
 
 test("a volume with nothing wrong carries no level", async () => {

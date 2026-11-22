@@ -892,6 +892,26 @@
       }
     },
     {
+      "files": ["src/**/*.test.ts", "src/**/*.test.tsx"],
+      "rules": {
+        "slipstream/no-restricted-syntax": [
+          "error",
+          {
+            "selector": "JSXAttribute[name.name='className'] Literal[value=/\\bfont-mono\\b/]",
+            "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
+          },
+          {
+            "selector": "JSXAttribute[name.name='className'] TemplateElement[value.raw=/\\bfont-mono\\b/]",
+            "message": "Geist Mono sets only copied or compared values; use Data from src/ui/data.tsx"
+          },
+          {
+            "selector": "CallExpression[callee.name='getComputedStyle']",
+            "message": "A test asserts what a user observes, not a computed style. See the Tests section of AGENTS.md"
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/ui/data.tsx"],
       "rules": {
         "slipstream/no-restricted-syntax": "off"

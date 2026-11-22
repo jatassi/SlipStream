@@ -75,7 +75,6 @@ test("the kit's React helpers draw and animate a figure in the Vite app", async 
   await expect.element(svg).toBeVisible();
   const fill = root.querySelector(".iso-fill");
   expect(fill?.getAttribute("d")).toBe(slab.fill);
-  expect(getComputedStyle(svg.element()).display).toBe("block");
   expect(root.querySelector(".iso-face-text")?.textContent).toBe("Controller");
   expect(tube.length).toBeGreaterThan(0);
   expect(root.querySelectorAll(".tb-body")).toHaveLength(tube.length);

@@ -57,11 +57,7 @@ test("the sequence doesn't play when it's off in this browser", async () => {
 
 function SidebarMark() {
   const name = useMarkTransitionName();
-  return (
-    <div data-testid="sidebar-mark" style={name === undefined ? {} : { viewTransitionName: name }}>
-      Mark
-    </div>
-  );
+  return <div style={name === undefined ? {} : { viewTransitionName: name }}>Mark</div>;
 }
 
 test("in the desktop shell the mark settles into the element named for it", async () => {
@@ -97,7 +93,4 @@ test("in the desktop shell the mark settles into the element named for it", asyn
   );
   await transition?.finished;
   expect(sequence.query()).toBeNull();
-  await expect
-    .poll(() => getComputedStyle(page.getByTestId("sidebar-mark").element()).viewTransitionName)
-    .toBe("none");
 });

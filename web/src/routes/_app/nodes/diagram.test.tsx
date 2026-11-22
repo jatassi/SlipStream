@@ -191,12 +191,9 @@ test("a television's screen is lit while its Node is online and a Media Server i
     if (element === null) {
       throw new Error(`${name} draws no television`);
     }
-    return { lit: element.dataset["screen"] === "lit", fill: getComputedStyle(element).fill };
+    return element.dataset["screen"] === "lit";
   };
-  const [lit, alsoLit, dark] = [screen("home"), screen("seedbox"), screen("office")];
-  expect([lit.lit, alsoLit.lit, dark.lit]).toEqual([true, true, false]);
-  expect(lit.fill).toBe(alsoLit.fill);
-  expect(dark.fill).not.toBe(lit.fill);
+  expect([screen("home"), screen("seedbox"), screen("office")]).toEqual([true, true, false]);
 });
 
 test("the Notifying Role's Inspector says the Node sees the connections' secrets while it sends", async () => {

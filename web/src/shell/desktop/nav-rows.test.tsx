@@ -23,14 +23,6 @@ const reached = (bar: Element) => {
   return indicator.getBoundingClientRect().width / bar.getBoundingClientRect().width;
 };
 
-const shade = (bar: Element) => {
-  const indicator = bar.firstElementChild;
-  if (indicator === null) {
-    throw new Error("the fill draws no indicator");
-  }
-  return Number(getComputedStyle(indicator).opacity);
-};
-
 const live = (downloads: DownloadclientsAggregate) => ({
   event: "torrents.live" as const,
   data: { at: new Date().toISOString(), rows: [], downloads },
@@ -46,14 +38,13 @@ test("the Activity row fills with the downloads' combined progress and follows t
   await expect.element(fill).toHaveAttribute("aria-valuetext", "25%");
   await expect.element(mainNav().getByRole("link", { name: "Activity 2 live" })).toBeVisible();
   await expect.poll(() => reached(fill.element())).toBeCloseTo(0.25, 2);
-  expect(shade(fill.element())).toBe(1);
 
   server.clients[0]?.send(live({ done: 90, wanted: 120, allPaused: false }));
   await expect.element(fill).toHaveAttribute("aria-valuetext", "75%");
   await expect.poll(() => reached(fill.element())).toBeCloseTo(0.75, 2);
 });
 
-test("the fill dims when every download is paused, and brightens once one resumes", async () => {
+test("the fill says paused when every download is paused, and stops once one resumes", async () => {
   const server = liveServer();
   renderApp({
     path: "/library",
@@ -61,11 +52,9 @@ test("the fill dims when every download is paused, and brightens once one resume
   });
   const fill = mainNav().getByRole("progressbar", { name: "Downloads" });
   await expect.element(fill).toHaveAttribute("aria-valuetext", "25%, paused");
-  await expect.poll(() => shade(fill.element())).toBeCloseTo(0.4, 2);
 
   server.clients[0]?.send(live({ done: 30, wanted: 120, allPaused: false }));
   await expect.element(fill).toHaveAttribute("aria-valuetext", "25%");
-  await expect.poll(() => shade(fill.element())).toBe(1);
 });
 
 test("with nothing to download the Activity row draws no fill", async () => {
@@ -95,7 +84,6 @@ test("under reduced motion the fill jumps to each sample", async () => {
   server.clients[0]?.send(live({ done: 90, wanted: 120, allPaused: true }));
   await expect.element(fill).toHaveAttribute("aria-valuetext", "75%, paused");
   expect(reached(fill.element())).toBeCloseTo(0.75, 2);
-  expect(shade(fill.element())).toBeCloseTo(0.4, 2);
 });
 
 test("on a phone the Activity tab carries the fill", async () => {
