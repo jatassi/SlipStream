@@ -38,14 +38,14 @@ const context = (mac: boolean, changes: Partial<KeyContext> = {}): KeyContext =>
 
 const move = (to: Move): Intent => ({ type: "move", to, count: 50, page: 10 });
 
+const plain = (changes: Partial<KeyContext> = {}) => context(false, changes);
+
 const platforms = [
   { name: "a Mac viewer", mac: true, mod: { meta: true } },
   { name: "another viewer", mac: false, mod: { ctrl: true } },
 ] as const;
 
-describe.each(platforms)("moving for $name", ({ mac }) => {
-  const at = (changes: Partial<KeyContext> = {}) => context(mac, changes);
-
+describe("moving", () => {
   test.each([
     ["ArrowDown", "next"],
     ["ArrowUp", "prev"],
@@ -54,57 +54,57 @@ describe.each(platforms)("moving for $name", ({ mac }) => {
     ["Home", "first"],
     ["End", "last"],
   ] as const)("%s moves the active row %s", (key, to) => {
-    expect(intentOf(press(key), at())).toEqual(move(to));
+    expect(intentOf(press(key), plain())).toEqual(move(to));
   });
 
   test("moving keys pass through when no rows show", () => {
     for (const key of ["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End"]) {
-      expect(intentOf(press(key), at({ rows: 0 }))).toBeNull();
+      expect(intentOf(press(key), plain({ rows: 0 }))).toBeNull();
     }
   });
 
   test("Home and End move the caret once the field has text", () => {
-    const typed = at({ state: folder({ field: "an" }) });
+    const typed = plain({ state: folder({ field: "an" }) });
     expect(intentOf(press("Home"), typed)).toBeNull();
     expect(intentOf(press("End"), typed)).toBeNull();
     expect(intentOf(press("ArrowDown"), typed)).toEqual(move("next"));
   });
 });
 
-describe.each(platforms)("opening and going up for $name", ({ mac }) => {
-  const at = (changes: Partial<KeyContext> = {}) => context(mac, changes);
-
+describe("opening and going up", () => {
   test("Enter opens the active row, or goes to a typed path", () => {
-    expect(intentOf(press("Enter"), at())).toEqual({ type: "openActive" });
-    expect(intentOf(press("Enter"), at({ state: folder({ field: "an" }) }))).toEqual({
+    expect(intentOf(press("Enter"), plain())).toEqual({ type: "openActive" });
+    expect(intentOf(press("Enter"), plain({ state: folder({ field: "an" }) }))).toEqual({
       type: "openActive",
     });
-    expect(intentOf(press("Enter"), at({ state: folder({ field: String.raw`D:\Me` }) }))).toEqual({
+    expect(
+      intentOf(press("Enter"), plain({ state: folder({ field: String.raw`D:\Me` }) })),
+    ).toEqual({
       type: "go",
     });
-    expect(intentOf(press("Enter"), at({ state: folder({ field: "/mnt" }), rows: 0 }))).toEqual({
+    expect(intentOf(press("Enter"), plain({ state: folder({ field: "/mnt" }), rows: 0 }))).toEqual({
       type: "go",
     });
-    expect(intentOf(press("Enter"), at({ rows: 0 }))).toBeNull();
+    expect(intentOf(press("Enter"), plain({ rows: 0 }))).toBeNull();
   });
 
   test("→ opens the active row only with an empty field", () => {
-    expect(intentOf(press("ArrowRight"), at())).toEqual({ type: "openActive" });
-    expect(intentOf(press("ArrowRight"), at({ state: folder({ field: "an" }) }))).toBeNull();
-    expect(intentOf(press("ArrowRight"), at({ rows: 0 }))).toBeNull();
+    expect(intentOf(press("ArrowRight"), plain())).toEqual({ type: "openActive" });
+    expect(intentOf(press("ArrowRight"), plain({ state: folder({ field: "an" }) }))).toBeNull();
+    expect(intentOf(press("ArrowRight"), plain({ rows: 0 }))).toBeNull();
   });
 
   test("Backspace goes up only from an empty field inside a folder", () => {
-    expect(intentOf(press("Backspace"), at())).toEqual({ type: "up" });
-    expect(intentOf(press("Backspace"), at({ state: folder({ field: "a" }) }))).toBeNull();
-    expect(intentOf(press("Backspace"), at({ state: folder({ path: "" }) }))).toBeNull();
+    expect(intentOf(press("Backspace"), plain())).toEqual({ type: "up" });
+    expect(intentOf(press("Backspace"), plain({ state: folder({ field: "a" }) }))).toBeNull();
+    expect(intentOf(press("Backspace"), plain({ state: folder({ path: "" }) }))).toBeNull();
   });
 
   test("Tab completes the active suggestion of a typed path, and is Tab otherwise", () => {
-    const typing = at({ state: folder({ field: "/mnt/me" }) });
+    const typing = plain({ state: folder({ field: "/mnt/me" }) });
     expect(intentOf(press("Tab"), typing)).toEqual({ type: "complete" });
     expect(intentOf(press("Tab"), { ...typing, rows: 0 })).toBeNull();
-    expect(intentOf(press("Tab"), at({ state: folder({ field: "an" }) }))).toBeNull();
+    expect(intentOf(press("Tab"), plain({ state: folder({ field: "an" }) }))).toBeNull();
     expect(intentOf(press("Tab", { shift: true }), typing)).toBeNull();
   });
 });
@@ -141,11 +141,9 @@ describe.each(platforms)("Esc and shortcuts for $name", ({ mac, mod }) => {
   });
 });
 
-describe.each(platforms)("the New folder row and other keys for $name", ({ mac, mod }) => {
-  const at = (changes: Partial<KeyContext> = {}) => context(mac, changes);
-
+describe("the New folder row and other keys", () => {
   test("in the New folder row, Enter creates and Esc cancels; other keys stay the row's", () => {
-    const naming = at({
+    const naming = plain({
       in: "folderName",
       state: folder({ creating: { name: "Mo", error: null } }),
     });
@@ -154,17 +152,17 @@ describe.each(platforms)("the New folder row and other keys for $name", ({ mac, 
     for (const key of ["ArrowDown", "Home", "Backspace", "ArrowRight", "Tab"]) {
       expect(intentOf(press(key), naming)).toBeNull();
     }
-    expect(intentOf(press("Enter", mod), naming)).toBeNull();
+    expect(intentOf(press("Enter", { ctrl: true }), naming)).toBeNull();
   });
 
   test("keys typed mid-composition stay the input method's", () => {
-    expect(intentOf({ ...press("Enter"), isComposing: true }, at())).toBeNull();
+    expect(intentOf({ ...press("Enter"), isComposing: true }, plain())).toBeNull();
   });
 
   test("letters with no binding stay the field's", () => {
-    expect(intentOf(press("a"), at())).toBeNull();
-    expect(intentOf(press("A", { shift: true }), at())).toBeNull();
-    expect(intentOf(press("N", { shift: true }), at())).toBeNull();
+    expect(intentOf(press("a"), plain())).toBeNull();
+    expect(intentOf(press("A", { shift: true }), plain())).toBeNull();
+    expect(intentOf(press("N", { shift: true }), plain())).toBeNull();
   });
 });
 

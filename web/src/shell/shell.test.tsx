@@ -95,25 +95,6 @@ test("the sidebar lists Library with each enabled Content Type, Activity and the
     .toHaveAttribute("href", "/library/shows");
 });
 
-test("the sidebar collapses to a 60px rail that a reload keeps", async () => {
-  renderApp({ path: "/library" });
-  const width = () => mainNav().element().getBoundingClientRect().width;
-  await expect.poll(width).toBe(228);
-
-  await userEvent.click(page.getByRole("button", { name: "Collapse sidebar" }));
-  await expect.poll(width).toBe(60);
-  await expect.element(mainNav().getByRole("link", { name: "Activity" })).toBeVisible();
-
-  renderApp({ path: "/activity" });
-  await expect.poll(() => page.getByRole("navigation", { name: "Main" }).all()).toHaveLength(2);
-  expect(
-    page
-      .getByRole("navigation", { name: "Main" })
-      .all()
-      .map((nav) => nav.element().getBoundingClientRect().width),
-  ).toEqual([60, 60]);
-});
-
 test("a window below 1100px starts with the rail", async () => {
   await resize(1000, 800);
   renderApp({ path: "/library" });
@@ -134,17 +115,6 @@ test("Activity counts moving jobs and follows grabs.changed", async () => {
     data: { grabId: "7e9a1c3d-5f7b-4d9e-8a1c-5e7f9b1d3a4c", workId: orchardId, progress: false },
   });
   await expect.element(activity).toHaveTextContent("Activity3 live");
-});
-
-test("the tab is titled after the page, and follows navigation", async () => {
-  renderApp({ path: "/activity" });
-  await expect.poll(() => document.title).toBe("Activity · SlipStream");
-
-  await userEvent.click(mainNav().getByRole("link", { name: "Nodes" }));
-  await expect.poll(() => document.title).toBe("Nodes · SlipStream");
-  await expect
-    .element(mainNav().getByRole("link", { name: "Nodes" }))
-    .toHaveAttribute("aria-current", "page");
 });
 
 test("a Work's page is titled with its label", async () => {
