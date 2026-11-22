@@ -257,7 +257,7 @@ func imported(ctx context.Context, q *db.Queries, l Landing, g File, v Verdict) 
 	}
 	return q.InsertImported(ctx, db.InsertImportedParams{
 		ID: storage.NewUUID(), FileID: g.ID, ImportID: l.Batch.Import, GrabID: l.Grab, WorkID: l.Batch.Work, PlacedBy: l.PlacedBy,
-		Items: string(cols[0]), Cells: string(cols[1]), Replaced: string(cols[2]), At: storage.Now(),
+		Items: string(cols[0]), Cells: string(cols[1]), Replaced: string(cols[2]), Quality: &g.Quality, At: storage.Now(),
 	})
 }
 

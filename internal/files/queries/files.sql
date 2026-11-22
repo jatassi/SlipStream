@@ -20,9 +20,9 @@ SELECT file_id, item_id FROM files_file_item ORDER BY file_id, position;
 SELECT file_id, item_id FROM files_file_item WHERE file_id IN (sqlc.slice(file_ids)) ORDER BY file_id, position;
 
 -- name: InsertImported :exec
-INSERT INTO files_imported (id, file_id, import_id, grab_id, work_id, placed_by, items, cells, replaced, at)
+INSERT INTO files_imported (id, file_id, import_id, grab_id, work_id, placed_by, items, cells, replaced, quality, at)
 VALUES (sqlc.arg(id), sqlc.arg(file_id), sqlc.narg(import_id), sqlc.narg(grab_id), sqlc.arg(work_id), sqlc.arg(placed_by),
-    sqlc.arg(items), sqlc.arg(cells), sqlc.arg(replaced), sqlc.arg(at));
+    sqlc.arg(items), sqlc.arg(cells), sqlc.arg(replaced), sqlc.arg(quality), sqlc.arg(at));
 
 -- name: ListPlacedByOfFiles :many
 SELECT id, placed_by FROM files_file WHERE id IN (sqlc.slice(file_ids)) AND placed_by IS NOT NULL ORDER BY id;
@@ -282,3 +282,22 @@ DELETE FROM files_imported WHERE id IN (
 -- A restore drops the moves and renames the Backup caught queued. The scan
 -- after it finds each file where it is.
 DELETE FROM files_move;
+
+-- name: ListNewestLandings :many
+SELECT id, import_id, work_id, items, quality, replaced, at FROM files_imported INDEXED BY files_imported_at
+WHERE import_id IS NOT NULL ORDER BY at DESC, id DESC LIMIT sqlc.arg(lim);
+
+-- name: ListLandingsBefore :many
+SELECT id, import_id, work_id, items, quality, replaced, at FROM files_imported INDEXED BY files_imported_at
+WHERE import_id IS NOT NULL AND (at < sqlc.arg(at) OR (at = sqlc.arg(at) AND id < sqlc.arg(id)))
+ORDER BY at DESC, id DESC LIMIT sqlc.arg(lim);
+
+-- name: ListLandingsOf :many
+SELECT id, import_id, work_id, items, quality, replaced, at FROM files_imported
+WHERE import_id IN (sqlc.slice(import_ids)) ORDER BY import_id, at, id;
+
+-- name: ListTalliesSince :many
+SELECT import_id, CAST(min(json_array_length(replaced) > 0) AS INTEGER) AS upgraded FROM files_imported
+WHERE import_id IN (SELECT DISTINCT i.import_id FROM files_imported i INDEXED BY files_imported_at
+    WHERE i.at >= sqlc.arg(since) AND i.import_id IS NOT NULL)
+GROUP BY import_id ORDER BY import_id;

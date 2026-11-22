@@ -96,6 +96,11 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
               type: UUID
+          - column: files_imported.quality
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: Quality
+              pointer: true
           - column: files_imported.at
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
