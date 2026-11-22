@@ -41,7 +41,7 @@ func (m *Moves) Run(ctx context.Context) error {
 		if !m.sleep(ctx, wait) {
 			return nil
 		}
-		if !m.sleep(ctx, m.cfg.Timings.PassEvery-m.now().Sub(began)) {
+		if rest := m.cfg.Timings.PassEvery - m.now().Sub(began); rest > 0 && !m.sleep(ctx, rest) {
 			return nil
 		}
 	}

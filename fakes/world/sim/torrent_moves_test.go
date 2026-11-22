@@ -386,3 +386,24 @@ func TestAShortPayloadFailsTheDestinationsCheck(t *testing.T) {
 		}
 	})
 }
+
+// TestAStartedMoveTakesItsLaneAtOnce starts a Move long after the runner
+// last passed: its unit leaves queued within a pass, not at the next
+// unrelated event.
+func TestAStartedMoveTakesItsLaneAtOnce(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := launchMoves(t)
+		s := seedOrchard(t, w, kinds[0])
+		time.Sleep(time.Minute)
+		batch := moveTorrent(t, w, s, client{"den", "transmission"}.side(t, w))
+		time.Sleep(5 * time.Second)
+		_, units, err := w.Node("home").Half().Moves.Get(t.Context(), batch, -1, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if units[0].Phase == moves.PhaseQueued {
+			t.Errorf("the unit is still queued 5 seconds after its Start: %s", units[0].Words)
+		}
+	})
+}
