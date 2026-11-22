@@ -39,6 +39,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadataapi"
 	"github.com/jatassi/slipstream/internal/moves"
+	"github.com/jatassi/slipstream/internal/movesapi"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/namingapi"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -152,6 +153,7 @@ type Node interface {
 	grabsapi.Pipeline
 	downloadclientsapi.Clients
 	transfersapi.Copies
+	movesapi.Mover
 	backupsapi.Keeper
 	shellapi.Shell
 	systemapi.Systems
@@ -201,6 +203,7 @@ func Mount(r *api.Router, s Services) {
 	grabsapi.Routes(r, s.Node)
 	downloadclientsapi.Routes(r, s.Node)
 	transfersapi.Routes(r, s.Node)
+	movesapi.Routes(r, s.Node)
 	backupsapi.Routes(r, s.Node)
 	shellapi.Routes(r, s.Node)
 	tasksapi.Routes(r, s.Node)

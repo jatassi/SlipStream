@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -61,10 +62,25 @@ type Imports interface {
 }
 
 // Moves cancels the open Moves of a deleted Work before their switch: in
-// the delete's Write, then a poke once it commits. NoMoves when nil.
+// the delete's Write, then a poke once it commits. Of is a Work's Move as
+// its page shows it, nil while none is in flight or failed. NoMoves when
+// nil.
 type Moves interface {
 	CancelOf(ctx context.Context, tx *storage.Tx[storage.Library], ws []works.WorkID) error
 	Poke()
+	Of(ctx context.Context, r storage.Reader[storage.Library], w works.WorkID) (*Moving, error)
+}
+
+// Moving is a Work's Move as its page shows it.
+type Moving struct {
+	Unit, Batch storage.UUID
+	Phase       string
+	// Waiting is empty while it waits for nothing.
+	Waiting    string
+	ToNode     role.NodeID
+	ToNodeName string
+	// Words is its sentence, such as "Copying to den".
+	Words string
 }
 
 // NoMoves is the Moves of a library nothing moves.
@@ -74,6 +90,10 @@ func (NoMoves) CancelOf(context.Context, *storage.Tx[storage.Library], []works.W
 	return nil
 }
 func (NoMoves) Poke() {}
+
+func (NoMoves) Of(context.Context, storage.Reader[storage.Library], works.WorkID) (*Moving, error) {
+	return nil, nil
+}
 
 type Library struct {
 	cfg Config

@@ -28,6 +28,9 @@ SELECT phase, count(*) AS n FROM moves_unit WHERE batch_id = sqlc.arg(batch_id) 
 -- name: CountBatchesPhases :many
 SELECT batch_id, phase, count(*) AS n FROM moves_unit WHERE batch_id IN (sqlc.slice(ids)) GROUP BY batch_id, phase ORDER BY batch_id, phase;
 
+-- name: ListBatchTypes :many
+SELECT DISTINCT batch_id, content_type FROM moves_unit WHERE batch_id IN (sqlc.slice(ids)) AND content_type IS NOT NULL ORDER BY batch_id, content_type;
+
 -- name: OpenUnitsOfBatch :one
 SELECT count(*) FROM moves_unit
 WHERE batch_id = sqlc.arg(batch_id) AND (phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup') OR (phase IN ('failed', 'canceled') AND undone_at IS NULL));
@@ -58,6 +61,12 @@ SELECT * FROM moves_unit WHERE id IN (sqlc.slice(ids)) ORDER BY seq;
 
 -- name: ListUnitsOfBatch :many
 SELECT * FROM moves_unit WHERE batch_id = sqlc.arg(batch_id) AND position > sqlc.arg(after) ORDER BY position LIMIT sqlc.arg(n);
+
+-- name: ListBatchDestinations :many
+SELECT DISTINCT to_node_id FROM moves_unit WHERE batch_id = sqlc.arg(batch_id) ORDER BY to_node_id;
+
+-- name: ListDoneUnitsOfBatch :many
+SELECT * FROM moves_unit WHERE batch_id = sqlc.arg(batch_id) AND phase = 'done' ORDER BY position;
 
 -- name: ListOpenUnitsOfBatch :many
 SELECT * FROM moves_unit WHERE batch_id = sqlc.arg(batch_id) AND phase IN ('queued', 'transfer', 'place', 'switch') ORDER BY position;

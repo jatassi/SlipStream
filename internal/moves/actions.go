@@ -43,42 +43,52 @@ func (m *Moves) Cancel(ctx context.Context, id UnitID) error {
 	})
 }
 
-// CancelBatch cancels every unit of batch before its switch.
-func (m *Moves) CancelBatch(ctx context.Context, batch BatchID) error {
+// CancelBatch cancels every unit of batch before its switch, answering
+// how many it canceled and how many had already switched.
+func (m *Moves) CancelBatch(ctx context.Context, batch BatchID) (canceled, switched int, err error) {
 	now := m.now()
 	var us []Unit
-	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+	err = m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
 		if _, err := q.GetBatch(ctx, batch); err != nil {
 			return notFound(err)
 		}
+		counts, err := q.CountBatchPhases(ctx, batch)
+		if err != nil {
+			return err
+		}
+		switched = switchedIn(counts)
 		rows, err := q.ListOpenUnitsOfBatch(ctx, batch)
 		if err != nil {
 			return err
 		}
-		all, err := unitsOf(ctx, q, rows)
-		if err != nil {
+		if us, err = unitsOf(ctx, q, rows); err != nil {
 			return err
 		}
-		us = us[:0]
-		for _, u := range all {
-			if !u.beforeSwitch() {
-				continue
-			}
-			u.Stage, u.Due = Canceled{At: u.Stage.Phase()}, &now
-			if err := save(ctx, tx, u); err != nil {
+		for i := range us {
+			us[i].Stage, us[i].Due = Canceled{At: us[i].Stage.Phase()}, &now
+			if err := save(ctx, tx, us[i]); err != nil {
 				return err
 			}
-			us = append(us, u)
 		}
 		return q.CancelBatch(ctx, db.CancelBatchParams{At: storage.FromTime(now), ID: batch})
 	})
 	if err != nil || len(us) == 0 {
-		return err
+		return 0, switched, err
 	}
 	m.cfg.Changed.Publish(ctx, changedOf(us...))
 	m.Poke()
-	return nil
+	return len(us), switched, nil
+}
+
+func switchedIn(counts []db.CountBatchPhasesRow) int {
+	n := 0
+	for _, c := range counts {
+		if Phase(c.Phase) == PhaseCleanup || Phase(c.Phase) == PhaseDone {
+			n += int(c.N)
+		}
+	}
+	return n
 }
 
 // Retry queues a failed unit again once its undo finished.

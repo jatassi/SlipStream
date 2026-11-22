@@ -25,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
@@ -183,7 +184,7 @@ func newWorld(t *testing.T) *world {
 	})
 	found := imports.New(imports.Config{Library: lib, Works: w.works, Files: shelf, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})
 	h := home.New(home.Config{
-		Library: lib, Grabs: g, Imports: found, Works: w.works, Files: shelf, Clients: clients, Changed: heard[home.SettingsChanged]{&w.saved},
+		Library: lib, Moves: noMoves{}, Grabs: g, Imports: found, Works: w.works, Files: shelf, Clients: clients, Changed: heard[home.SettingsChanged]{&w.saved},
 	})
 	w.h, w.clients, w.found = h, clients, found
 	w.s = ownertest.Serve(t, lib, func(r *api.Router) {
@@ -729,4 +730,10 @@ func TestRecentListsFinishedImportsNewestFirstInWords(t *testing.T) {
 	if got.Recent.Today.Imported != 4 || got.Recent.Today.Upgraded != 1 {
 		t.Fatalf("today = %+v, want 4 imported (the pack straddling since among them) and 1 upgraded", got.Recent.Today)
 	}
+}
+
+type noMoves struct{}
+
+func (noMoves) NeedsYou(context.Context, storage.Reader[storage.Library], int) ([]moves.Need, error) {
+	return nil, nil
 }

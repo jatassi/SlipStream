@@ -103,6 +103,7 @@ export const orchard: WorksWorkView = {
   levelFolders: true,
   options: [],
   openIn: [],
+  move: null,
 };
 
 export const orchardRow: WorksLibraryRow = {

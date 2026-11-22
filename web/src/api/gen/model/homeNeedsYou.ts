@@ -1,3 +1,4 @@
+import type { HomeMoveNeed } from "./homeMoveNeed.ts";
 import type { HomeNeed } from "./homeNeed.ts";
 
 export interface HomeNeedsYou {
@@ -7,6 +8,8 @@ export interface HomeNeedsYou {
    * @maximum 100
    */
   failed: number;
+  /** Moves that failed or waited past Show a waiting switch in Needs you after, newest first, at most Rows on Home */
+  moves: HomeMoveNeed[];
   /** Newest first, at most Rows on Home */
   rows: HomeNeed[];
   /**

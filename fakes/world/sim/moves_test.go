@@ -133,7 +133,7 @@ func TestACanceledMoveLeavesNothingAtTheDestination(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := m.CancelBatch(t.Context(), started.Batch); err != nil {
+		if _, _, err := m.CancelBatch(t.Context(), started.Batch); err != nil {
 			t.Fatal(err)
 		}
 		simtest.Eventually(t, "the canceled unit is undone", func() bool {

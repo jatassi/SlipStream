@@ -13,6 +13,7 @@ var (
 	ErrReconciling = files.ErrReconciling
 	ErrPlanExpired = errors.New("the Move's preview expired. Preview the Move again")
 	ErrNotFound    = errors.New("no Move has this id")
+	ErrNoRoot      = errors.New("no library root has this id")
 	// ErrUnitSwitched refuses a cancel of a unit past its switch.
 	ErrUnitSwitched = errors.New("the files already switched to the new root. Move them back instead")
 	// ErrSwitchNotWaiting refuses "Switch now" of a unit that waits for

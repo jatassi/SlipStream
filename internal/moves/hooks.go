@@ -100,6 +100,20 @@ func (h libraryHooks) CancelOf(ctx context.Context, tx *storage.Tx[file], ws []w
 
 func (h libraryHooks) Poke() { h.m.Poke() }
 
+// Of is w's latest unit as the Work page shows it, nil once it moved or
+// its cancel was undone.
+func (h libraryHooks) Of(ctx context.Context, r storage.Reader[file], w works.WorkID) (*library.Moving, error) {
+	of, err := h.m.Of(ctx, r, []works.WorkID{w})
+	v, ok := of[w]
+	if err != nil || !ok || v.Phase == PhaseDone || v.Phase == PhaseCanceled && v.Undone {
+		return nil, err
+	}
+	return &library.Moving{
+		Unit: v.Unit.UUID, Batch: v.Batch.UUID, Phase: string(v.Phase), Waiting: string(v.Waiting),
+		ToNode: v.To.Node, ToNodeName: v.To.NodeName, Words: v.Words,
+	}, nil
+}
+
 // Busy is how many units that haven't ended use root, read in r.
 func Busy(ctx context.Context, r storage.Reader[file], root roots.ID) (int64, error) {
 	return db.New(r).CountBusyRoot(ctx, root)

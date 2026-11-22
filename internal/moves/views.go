@@ -3,6 +3,7 @@ package moves
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/moves/internal/db"
@@ -12,12 +13,14 @@ import (
 
 // View is the one projection of a unit for every reader.
 type View struct {
-	Unit  UnitID
-	Batch BatchID
-	Work  works.WorkID
-	From  End
-	To    End
-	Phase Phase
+	Unit        UnitID
+	Batch       BatchID
+	Work        works.WorkID
+	Label       string
+	ContentType works.TypeID
+	From        Place
+	To          Place
+	Phase       Phase
 	// Waiting is reconciling while a restored Controller is Reconciling,
 	// node_offline for a queued unit whose Node is away, else stored.
 	Waiting Wait
@@ -29,6 +32,8 @@ type View struct {
 	// Undone is a failed or canceled unit whose undo finished.
 	Undone bool
 	Notes  Notes
+	// Words is the band's sentence: what the Move does now.
+	Words string
 }
 
 type FailureView struct {
@@ -36,8 +41,12 @@ type FailureView struct {
 	Words string
 }
 
-func (m *Moves) viewOf(u Unit, blocked bool) View {
-	v := View{Unit: u.ID, Batch: u.Batch, Work: u.Subject.Work, From: u.Subject.From, To: u.Subject.To, Phase: u.Stage.Phase(), Bytes: u.Planned.Bytes, Notes: u.Notes}
+func (m *Moves) viewOf(u Unit, blocked bool, n Named) View {
+	w := n.works[u.Subject.Work]
+	v := View{
+		Unit: u.ID, Batch: u.Batch, Work: u.Subject.Work, Label: w.Label, ContentType: u.Subject.Type,
+		From: n.Place(u.Subject.From), To: n.Place(u.Subject.To), Phase: u.Stage.Phase(), Bytes: u.Planned.Bytes, Notes: u.Notes,
+	}
 	wait, since := waitOf(u.Stage)
 	if wait != "" {
 		v.Waiting, v.Since = wait, &since
@@ -58,7 +67,29 @@ func (m *Moves) viewOf(u Unit, blocked bool) View {
 	if blocked && u.open() {
 		v.Waiting = WaitReconciling
 	}
+	v.Words = wordsOf(v)
 	return v
+}
+
+// views is us' views, read in r.
+func (m *Moves) views(ctx context.Context, r storage.Reader[file], us []Unit) ([]View, error) {
+	blocked, err := m.cfg.Reconciling(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	ws := make([]works.WorkID, len(us))
+	for i, u := range us {
+		ws[i] = u.Subject.Work
+	}
+	n, err := m.namesOf(ctx, r, ws)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]View, len(us))
+	for i, u := range us {
+		out[i] = m.viewOf(u, blocked, n)
+	}
+	return out, nil
 }
 
 func waitOf(st Stage) (Wait, time.Time) {
@@ -77,7 +108,8 @@ func waitOf(st Stage) (Wait, time.Time) {
 	return "", time.Time{}
 }
 
-// BatchView is one batch and how many of its units are in each phase.
+// BatchView is one batch, how many of its units are in each phase, its
+// sentence and what the Admin can do to it.
 type BatchView struct {
 	ID         BatchID
 	Origin     Origin
@@ -85,6 +117,44 @@ type BatchView struct {
 	FinishedAt *time.Time
 	CanceledAt *time.Time
 	Counts     map[Phase]int
+	Total      int
+	// Words is its sentence, such as "12 of 43 movies switched".
+	Words                        string
+	CanRetry, CanCancel, CanBack bool
+}
+
+// finish fills b's total, sentence and actions from its counts, its units
+// of types.
+func (m *Moves) finish(b *BatchView, types []works.TypeID) {
+	c := b.Counts
+	for _, n := range c {
+		b.Total += n
+	}
+	switched := c[PhaseCleanup] + c[PhaseDone]
+	open := c[PhaseQueued] + c[PhaseTransfer] + c[PhasePlace] + c[PhaseSwitch]
+	noun := m.noun(types, b.Total)
+	b.CanRetry, b.CanCancel, b.CanBack = c[PhaseFailed] > 0, open > 0, c[PhaseDone] > 0
+	if open+c[PhaseCleanup] > 0 {
+		b.Words = fmt.Sprintf("%d of %d %s switched", switched, b.Total, noun)
+		return
+	}
+	b.Words = fmt.Sprintf("%d of %d %s moved.", c[PhaseDone], b.Total, noun)
+	if n := c[PhaseFailed]; n > 0 {
+		b.Words += fmt.Sprintf(" %d failed.", n)
+	}
+	if n := c[PhaseCanceled]; n > 0 {
+		b.Words += fmt.Sprintf(" %d canceled.", n)
+	}
+}
+
+// typesOf is each of batches' units' Content Types, read in q.
+func typesOf(ctx context.Context, q *db.Queries, batches []BatchID) (map[BatchID][]works.TypeID, error) {
+	rows, err := q.ListBatchTypes(ctx, batches)
+	out := map[BatchID][]works.TypeID{}
+	for _, row := range rows {
+		out[row.BatchID] = append(out[row.BatchID], *row.ContentType)
+	}
+	return out, err
 }
 
 func notFound(err error) error {
@@ -116,6 +186,10 @@ func (m *Moves) List(ctx context.Context, after BatchID, limit int) ([]BatchView
 		if err != nil {
 			return err
 		}
+		types, err := typesOf(ctx, q, ids)
+		if err != nil {
+			return err
+		}
 		out = make([]BatchView, len(rows))
 		for i, row := range rows {
 			out[i] = batchViewOf(row)
@@ -124,6 +198,7 @@ func (m *Moves) List(ctx context.Context, after BatchID, limit int) ([]BatchView
 					out[i].Counts[Phase(c.Phase)] = int(c.N)
 				}
 			}
+			m.finish(&out[i], types[row.ID])
 		}
 		return nil
 	})
@@ -173,18 +248,20 @@ func (m *Moves) Get(ctx context.Context, id BatchID, after, limit int) (BatchVie
 		for _, c := range counts {
 			b.Counts[Phase(c.Phase)] = int(c.N)
 		}
-		blocked, err := m.cfg.Reconciling(ctx, r)
+		types, err := typesOf(ctx, q, []BatchID{id})
 		if err != nil {
 			return err
 		}
+		m.finish(&b, types[id])
 		rows, err := q.ListUnitsOfBatch(ctx, db.ListUnitsOfBatchParams{BatchID: id, After: int64(after), N: int64(limit)})
 		if err != nil {
 			return err
 		}
 		us, err := unitsOf(ctx, q, rows)
-		for _, u := range us {
-			out = append(out, m.viewOf(u, blocked))
+		if err != nil {
+			return err
 		}
+		out, err = m.views(ctx, r, us)
 		return err
 	})
 	return b, out, err
@@ -198,8 +275,10 @@ func (m *Moves) Unit(ctx context.Context, id UnitID) (View, error) {
 		if err != nil {
 			return err
 		}
-		blocked, err := m.cfg.Reconciling(ctx, r)
-		v = m.viewOf(u, blocked)
+		vs, err := m.views(ctx, r, []Unit{u})
+		if err == nil {
+			v = vs[0]
+		}
 		return err
 	})
 	return v, err
@@ -219,21 +298,26 @@ func (m *Moves) Of(ctx context.Context, r storage.Reader[file], ws []works.WorkI
 	if err != nil {
 		return nil, err
 	}
-	blocked, err := m.cfg.Reconciling(ctx, r)
-	out := make(map[works.WorkID]View, len(us))
-	for _, u := range us {
-		out[u.Subject.Work] = m.viewOf(u, blocked)
+	vs, err := m.views(ctx, r, us)
+	out := make(map[works.WorkID]View, len(vs))
+	for _, v := range vs {
+		out[v.Work] = v
 	}
 	return out, err
 }
 
 // Need is a unit Home's Needs you lists: failed, or waiting at its switch
-// longer than "Show a waiting switch in Needs you after".
-type Need = View
+// longer than "Show a waiting switch in Needs you after". Words is its
+// sentence.
+type Need struct {
+	View
+	Words string
+}
 
 // NeedsYou is at most limit units that need the Admin, newest first,
 // read in r.
-func (m *Moves) NeedsYou(ctx context.Context, r storage.Reader[file], now time.Time, limit int) ([]Need, error) {
+func (m *Moves) NeedsYou(ctx context.Context, r storage.Reader[file], limit int) ([]Need, error) {
+	now := m.now()
 	set, err := settingsIn(ctx, r)
 	if err != nil {
 		return nil, err
@@ -247,9 +331,10 @@ func (m *Moves) NeedsYou(ctx context.Context, r storage.Reader[file], now time.T
 	if err != nil {
 		return nil, err
 	}
-	out := make([]Need, len(us))
-	for i, u := range us {
-		out[i] = m.viewOf(u, false)
+	vs, err := m.views(ctx, r, us)
+	out := make([]Need, len(vs))
+	for i, v := range vs {
+		out[i] = Need{View: v, Words: needWords(v, now)}
 	}
-	return out, nil
+	return out, err
 }

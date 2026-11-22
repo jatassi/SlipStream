@@ -57,6 +57,9 @@ type Plan struct {
 	Units     []PlanUnit
 	Homed     []WorkTo
 	ExpiresAt time.Time
+	// Recommendation is the plan's sentence and Button its Start's label,
+	// such as "Move 41 of 43".
+	Recommendation, Button string
 }
 
 // PlanUnit is one planned unit. Bytes are what copies; a link copies none.
@@ -136,7 +139,16 @@ func (m *Moves) Preview(ctx context.Context, ask Ask) (Plan, error) {
 	for i := range units {
 		units[i].Verdict = verdictOf(units[i], facts[i])
 	}
+	var named map[role.NodeID]string
+	err = m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		named, err = nodeNamesIn(ctx, r)
+		return err
+	})
+	if err != nil {
+		return Plan{}, err
+	}
 	plan := Plan{Token: newToken(), Ask: ask, Units: units, Homed: homed, ExpiresAt: m.now().Add(m.cfg.Timings.PlanLifetime)}
+	m.recommend(&plan, named)
 	m.plans.put(plan)
 	return plan, nil
 }
@@ -200,6 +212,14 @@ func (m *Moves) planPage(ctx context.Context, page []WorkTo) ([]PlanUnit, []plan
 	})
 	if err != nil {
 		return nil, nil, err
+	}
+	for _, s := range page {
+		if _, ok := rd.summaries[s.Work]; !ok {
+			return nil, nil, works.ErrNoWork
+		}
+		if _, ok := rd.dests[s.To]; !ok {
+			return nil, nil, ErrNoRoot
+		}
 	}
 	byWork := map[works.WorkID][]files.ID{}
 	for id, s := range rd.sits {

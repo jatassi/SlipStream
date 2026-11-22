@@ -25,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
@@ -370,6 +371,14 @@ func (s surfaceNode) Transfers() (*transfers.Transfers, bool) {
 		return nil, false
 	}
 	return h.transfers, true
+}
+
+func (s surfaceNode) Moves() (*moves.Moves, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.moves == nil {
+		return nil, false
+	}
+	return h.moves, true
 }
 
 func (s surfaceNode) MediaServers() (mediaservers.Service, bool) {

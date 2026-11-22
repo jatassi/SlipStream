@@ -14,6 +14,7 @@ export * from "./indexers/indexers.zod.ts";
 export * from "./mail/mail.zod.ts";
 export * from "./mediaservers/mediaservers.zod.ts";
 export * from "./metadata/metadata.zod.ts";
+export * from "./moves/moves.zod.ts";
 export * from "./naming/naming.zod.ts";
 export * from "./nodes/nodes.zod.ts";
 export * from "./notifications/notifications.zod.ts";

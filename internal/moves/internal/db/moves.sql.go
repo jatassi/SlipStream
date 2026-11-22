@@ -511,6 +511,75 @@ func (q *Queries) LaneHeld(ctx context.Context, lane string) (bool, error) {
 	return exists, err
 }
 
+const listBatchDestinations = `-- name: ListBatchDestinations :many
+SELECT DISTINCT to_node_id FROM moves_unit WHERE batch_id = ?1 ORDER BY to_node_id
+`
+
+func (q *Queries) ListBatchDestinations(ctx context.Context, batchID BatchID) ([]role.NodeID, error) {
+	rows, err := q.db.QueryContext(ctx, listBatchDestinations, batchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []role.NodeID
+	for rows.Next() {
+		var to_node_id role.NodeID
+		if err := rows.Scan(&to_node_id); err != nil {
+			return nil, err
+		}
+		items = append(items, to_node_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBatchTypes = `-- name: ListBatchTypes :many
+SELECT DISTINCT batch_id, content_type FROM moves_unit WHERE batch_id IN (/*SLICE:ids*/?) AND content_type IS NOT NULL ORDER BY batch_id, content_type
+`
+
+type ListBatchTypesRow struct {
+	BatchID     BatchID
+	ContentType *works.TypeID
+}
+
+func (q *Queries) ListBatchTypes(ctx context.Context, ids []BatchID) ([]ListBatchTypesRow, error) {
+	query := listBatchTypes
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBatchTypesRow
+	for rows.Next() {
+		var i ListBatchTypesRow
+		if err := rows.Scan(&i.BatchID, &i.ContentType); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBatches = `-- name: ListBatches :many
 SELECT id, origin, created_at, created_by, finished_at, canceled_at, homed_works, include_torrents, repoint_routing, delete_emptied_roots, plan_token_hash, notes FROM moves_batch
 WHERE CAST(?1 AS INTEGER) = 1 OR (finished_at IS NOT NULL) > CAST(?2 AS INTEGER)
@@ -591,6 +660,72 @@ func (q *Queries) ListCopyGrants(ctx context.Context, node role.NodeID) ([]ListC
 	for rows.Next() {
 		var i ListCopyGrantsRow
 		if err := rows.Scan(&i.ToNodeID, &i.Lane, &i.Bytes); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDoneUnitsOfBatch = `-- name: ListDoneUnitsOfBatch :many
+SELECT id, batch_id, seq, position, kind, work_id, content_type, torrent_id, from_root_id, from_node_id, from_client_id, to_root_id, to_node_id, to_client_id, to_folder, lane, phase, waiting, waiting_at, due_at, handoff, handoff_at, pass, switch_now_at, failure_code, failure_detail, failed_phase, keeps_copy, undone_at, reconcile, transfer_id, dest_torrent_id, pairs_with_unit_id, planned_bytes, planned_at, switched_at, cleaned_at, notes FROM moves_unit WHERE batch_id = ?1 AND phase = 'done' ORDER BY position
+`
+
+func (q *Queries) ListDoneUnitsOfBatch(ctx context.Context, batchID BatchID) ([]MovesUnit, error) {
+	rows, err := q.db.QueryContext(ctx, listDoneUnitsOfBatch, batchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MovesUnit
+	for rows.Next() {
+		var i MovesUnit
+		if err := rows.Scan(
+			&i.ID,
+			&i.BatchID,
+			&i.Seq,
+			&i.Position,
+			&i.Kind,
+			&i.WorkID,
+			&i.ContentType,
+			&i.TorrentID,
+			&i.FromRootID,
+			&i.FromNodeID,
+			&i.FromClientID,
+			&i.ToRootID,
+			&i.ToNodeID,
+			&i.ToClientID,
+			&i.ToFolder,
+			&i.Lane,
+			&i.Phase,
+			&i.Waiting,
+			&i.WaitingAt,
+			&i.DueAt,
+			&i.Handoff,
+			&i.HandoffAt,
+			&i.Pass,
+			&i.SwitchNowAt,
+			&i.FailureCode,
+			&i.FailureDetail,
+			&i.FailedPhase,
+			&i.KeepsCopy,
+			&i.UndoneAt,
+			&i.Reconcile,
+			&i.TransferID,
+			&i.DestTorrentID,
+			&i.PairsWithUnitID,
+			&i.PlannedBytes,
+			&i.PlannedAt,
+			&i.SwitchedAt,
+			&i.CleanedAt,
+			&i.Notes,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

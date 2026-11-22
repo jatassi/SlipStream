@@ -22,6 +22,17 @@ type workView struct {
 	LevelFolders  bool                          `json:"levelFolders" doc:"New files sit in a folder per level; unread for a Content Type with no levels"`
 	Options       []api.OneOf[settingapi.Field] `json:"options" nullable:"false" doc:"The Content Type's own options for the Work, in Edit's order; empty when it has none"`
 	OpenIn        []openIn                      `json:"openIn" nullable:"false" doc:"A link to the Work on each Media Server that holds it"`
+	Move          api.Nullable[workMove]        `json:"move" doc:"Its Move in flight, or failed; null for none"`
+}
+
+type workMove struct {
+	UnitID     string `json:"unitId" format:"uuid"`
+	BatchID    string `json:"batchId" format:"uuid"`
+	Phase      string `json:"phase" enum:"queued,transfer,place,switch,cleanup,failed,canceled"`
+	Waiting    string `json:"waiting,omitempty" enum:"pair_busy,low_priority,node_offline,no_route,space,renames,downloading,importing,open_files,playing,media_servers,guard,linked_torrent,reconciling" doc:"What it waits for; absent while it waits for nothing"`
+	ToNodeID   string `json:"toNodeId" format:"uuid"`
+	ToNodeName string `json:"toNodeName"`
+	Words      string `json:"words" doc:"What it does now, such as Copying to den"`
 }
 
 type openIn struct {
@@ -89,6 +100,12 @@ func viewOf(m artwork.Minter, w library.Work, links []mediaservers.OpenIn) workV
 	}
 	if r := w.Root; r != nil {
 		out.Root = api.Some(workRoot{ID: r.ID.String(), NodeID: r.Node.String(), Path: r.Path})
+	}
+	if mv := w.Move; mv != nil {
+		out.Move = api.Some(workMove{
+			UnitID: mv.Unit.String(), BatchID: mv.Batch.String(), Phase: mv.Phase, Waiting: mv.Waiting,
+			ToNodeID: mv.ToNode.String(), ToNodeName: mv.ToNodeName, Words: mv.Words,
+		})
 	}
 	return out
 }

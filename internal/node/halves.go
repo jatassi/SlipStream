@@ -152,6 +152,8 @@ type half struct {
 	// and receives this Node's, on every Node.
 	transfers *transfers.Transfers
 	copier    *transfers.Node
+	// moves drives every Move, on a Controller.
+	moves *moves.Moves
 	// serving proxies to the Controller while a Worker holds Serving.
 	serving *serving.Worker
 }
@@ -713,13 +715,6 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
 	pipeline.Register(found.Importer())
-	front := home.New(home.Config{
-		Library: lib.db, Grabs: pipeline, Imports: found, Works: tree, Files: shelf, Clients: clients,
-		Changed: home.SettingsChangedEvent.Bind(n.hub),
-	})
-	if err := found.Carry(ctx); err != nil {
-		return err
-	}
 	mover := moves.New(moves.Config{
 		Library: lib.db, Works: tree, Files: shelf, Roots: homes, Disk: homes, Imports: found, Transfers: copies, MediaServers: servers,
 		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
@@ -732,6 +727,13 @@ func (n *Node) startController(ctx context.Context) error {
 		Clock: time.Now, Log: n.rootLog.With("subsystem", "moves"),
 	})
 	copies.Register(mover.Purpose())
+	front := home.New(home.Config{
+		Library: lib.db, Moves: mover, Grabs: pipeline, Imports: found, Works: tree, Files: shelf, Clients: clients,
+		Changed: home.SettingsChangedEvent.Bind(n.hub),
+	})
+	if err := found.Carry(ctx); err != nil {
+		return err
+	}
 	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue, Moves: mover.Hooks().Library,
 		History: n.history.Recorder("library", library.Entries()), Subtitles: subtitler,
 	})
@@ -808,6 +810,7 @@ func (n *Node) startController(ctx context.Context) error {
 
 		transfers: copies,
 		copier:    copier,
+		moves:     mover,
 	}
 	if h.health, err = n.openHealth(ctx, lib.db, h); err != nil {
 		return err
