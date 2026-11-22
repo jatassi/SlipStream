@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	"github.com/jatassi/slipstream/internal/mediaservers/queue"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
 )
@@ -20,12 +21,16 @@ const changesPage = 50
 // change before names, the newest for a zero before.
 func (s service) Changes(ctx context.Context, id link.ServerID, before link.ChangeID) (Changes, error) {
 	var rows []db.MediaserversChange
+	var words map[roots.ID]string
 	err := s.m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		q := db.New(r)
 		if _, err := q.GetServer(ctx, id); err != nil {
 			return err
 		}
 		var err error
+		if words, err = s.m.cfg.RootWords(ctx, r); err != nil {
+			return err
+		}
 		if before.IsZero() {
 			rows, err = q.ListChanges(ctx, db.ListChangesParams{ServerID: id, N: changesPage + 1})
 		} else {
@@ -49,16 +54,16 @@ func (s service) Changes(ctx context.Context, id link.ServerID, before link.Chan
 		return Changes{}, err
 	}
 	for _, c := range cs {
-		out.Changes = append(out.Changes, changeView(c))
+		out.Changes = append(out.Changes, changeView(c, words[c.Root]))
 	}
 	return out, nil
 }
 
-func changeView(c queue.Change) ChangeView {
+func changeView(c queue.Change, root string) ChangeView {
 	v := ChangeView{
 		ID: c.ID.String(), Kind: string(c.Kind), Path: c.Path.String(), State: string(c.State), Step: string(c.Step),
 		Result: string(c.Result), Lost: make([]string, len(c.Lost)), CreatedAt: c.Created, Attempts: c.Attempts,
-		Words: c.Words(),
+		Words: c.Words(root),
 	}
 	if c.Carry() {
 		v.FromPath = c.From.String()

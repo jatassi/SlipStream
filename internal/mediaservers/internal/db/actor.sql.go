@@ -49,7 +49,7 @@ func (q *Queries) CoverLibrary(ctx context.Context, arg CoverLibraryParams) erro
 }
 
 const getChanges = `-- name: GetChanges :many
-SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change WHERE id IN (/*SLICE:ids*/?) ORDER BY created_at, id
+SELECT id, server_id, kind, root_id, path, from_root_id, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, source_gone_at, result, lost, problem FROM mediaservers_change WHERE id IN (/*SLICE:ids*/?) ORDER BY created_at, id
 `
 
 func (q *Queries) GetChanges(ctx context.Context, ids []link.ChangeID) ([]MediaserversChange, error) {
@@ -77,6 +77,7 @@ func (q *Queries) GetChanges(ctx context.Context, ids []link.ChangeID) ([]Medias
 			&i.Kind,
 			&i.RootID,
 			&i.Path,
+			&i.FromRootID,
 			&i.FromPath,
 			&i.FileID,
 			&i.ReplacedBy,
@@ -89,6 +90,7 @@ func (q *Queries) GetChanges(ctx context.Context, ids []link.ChangeID) ([]Medias
 			&i.NextAttemptAt,
 			&i.CreatedAt,
 			&i.SentAt,
+			&i.SourceGoneAt,
 			&i.Result,
 			&i.Lost,
 			&i.Problem,
@@ -107,7 +109,7 @@ func (q *Queries) GetChanges(ctx context.Context, ids []link.ChangeID) ([]Medias
 }
 
 const listDue = `-- name: ListDue :many
-SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change
+SELECT id, server_id, kind, root_id, path, from_root_id, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, source_gone_at, result, lost, problem FROM mediaservers_change
 WHERE server_id = ?1 AND state = 'due'
 ORDER BY created_at, id
 `
@@ -127,6 +129,7 @@ func (q *Queries) ListDue(ctx context.Context, serverID link.ServerID) ([]Medias
 			&i.Kind,
 			&i.RootID,
 			&i.Path,
+			&i.FromRootID,
 			&i.FromPath,
 			&i.FileID,
 			&i.ReplacedBy,
@@ -139,6 +142,7 @@ func (q *Queries) ListDue(ctx context.Context, serverID link.ServerID) ([]Medias
 			&i.NextAttemptAt,
 			&i.CreatedAt,
 			&i.SentAt,
+			&i.SourceGoneAt,
 			&i.Result,
 			&i.Lost,
 			&i.Problem,
@@ -157,7 +161,7 @@ func (q *Queries) ListDue(ctx context.Context, serverID link.ServerID) ([]Medias
 }
 
 const listSending = `-- name: ListSending :many
-SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change WHERE state = 'sending' ORDER BY server_id, created_at, id
+SELECT id, server_id, kind, root_id, path, from_root_id, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, source_gone_at, result, lost, problem FROM mediaservers_change WHERE state = 'sending' ORDER BY server_id, created_at, id
 `
 
 func (q *Queries) ListSending(ctx context.Context) ([]MediaserversChange, error) {
@@ -175,6 +179,7 @@ func (q *Queries) ListSending(ctx context.Context) ([]MediaserversChange, error)
 			&i.Kind,
 			&i.RootID,
 			&i.Path,
+			&i.FromRootID,
 			&i.FromPath,
 			&i.FileID,
 			&i.ReplacedBy,
@@ -187,6 +192,7 @@ func (q *Queries) ListSending(ctx context.Context) ([]MediaserversChange, error)
 			&i.NextAttemptAt,
 			&i.CreatedAt,
 			&i.SentAt,
+			&i.SourceGoneAt,
 			&i.Result,
 			&i.Lost,
 			&i.Problem,

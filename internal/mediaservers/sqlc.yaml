@@ -44,6 +44,10 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/roots
               type: ID
+          - column: mediaservers_change.from_root_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/roots
+              type: ID
           - column: "*.file_id"
             go_type:
               import: github.com/jatassi/slipstream/internal/files

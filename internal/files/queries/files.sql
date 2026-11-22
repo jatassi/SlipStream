@@ -301,3 +301,10 @@ SELECT import_id, CAST(min(json_array_length(replaced) > 0) AS INTEGER) AS upgra
 WHERE import_id IN (SELECT DISTINCT i.import_id FROM files_imported i INDEXED BY files_imported_at
     WHERE i.at >= sqlc.arg(since) AND i.import_id IS NOT NULL)
 GROUP BY import_id ORDER BY import_id;
+
+-- name: PlacesOf :many
+-- Where the bytes of each of ids in a root sit: at its move's place while
+-- one is pending, else at its path.
+SELECT f.id, coalesce(m.sits, f.path) AS place FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.root_id = sqlc.arg(root_id) AND f.id IN (sqlc.slice(ids))
+ORDER BY f.id;

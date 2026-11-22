@@ -20,6 +20,7 @@ type MediaserversChange struct {
 	Kind          link.ChangeKind
 	RootID        roots.ID
 	Path          string
+	FromRootID    roots.ID
 	FromPath      *string
 	FileID        files.ID
 	ReplacedBy    files.ID
@@ -32,6 +33,7 @@ type MediaserversChange struct {
 	NextAttemptAt storage.Time
 	CreatedAt     storage.Time
 	SentAt        storage.Time
+	SourceGoneAt  storage.Time
 	Result        *link.Result
 	Lost          string
 	Problem       *string

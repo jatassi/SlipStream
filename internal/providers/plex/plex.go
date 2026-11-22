@@ -232,6 +232,16 @@ func (c *Client) RefreshItem(ctx context.Context, ratingKey ID) error {
 	return c.do(ctx, http.MethodPut, "/library/metadata/"+string(ratingKey)+"/refresh", nil, true, nil)
 }
 
+// SetCollections sets the collections of the item at ratingKey, of type
+// typ, to titles and locks them, so a later refresh keeps them.
+func (c *Client) SetCollections(ctx context.Context, ratingKey ID, typ ItemType, titles []string) error {
+	q := url.Values{"type": {strconv.Itoa(int(typ))}, "id": {string(ratingKey)}, "collection.locked": {"1"}}
+	for i, t := range titles {
+		q.Set(fmt.Sprintf("collection[%d].tag.tag", i), t)
+	}
+	return c.do(ctx, http.MethodPut, "/library/metadata/"+string(ratingKey), q, true, nil)
+}
+
 // Metadata is one item.
 type Metadata struct {
 	RatingKey            ID           `json:"ratingKey"`
@@ -317,6 +327,14 @@ const (
 	TypeMovie   ItemType = 1
 	TypeEpisode ItemType = 4
 )
+
+// TypeOf is the listing that holds an item whose Metadata.Type is t.
+func TypeOf(t string) ItemType {
+	if t == "episode" {
+		return TypeEpisode
+	}
+	return TypeMovie
+}
 
 // ItemTypes are the listings that between them hold every file of a
 // section.

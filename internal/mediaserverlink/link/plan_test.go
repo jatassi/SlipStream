@@ -189,3 +189,33 @@ func TestReadyHoldsAChangeBehindAnEarlierRowThatWaits(t *testing.T) {
 		t.Fatalf("ready %v, want only the carry on another path %v", got, ids(other))
 	}
 }
+
+func TestReadyHoldsAMovesCarryUntilBothItsRootsMappingsAreConfirmed(t *testing.T) {
+	w := newWorld(t)
+	w.due.Mappings[1].Confirmed = false
+	moved := w.row(w.movies, link.ChangeMoved, "Heat/Heat.mkv", "Heat/Heat.mkv", time.Minute)
+	moved.FromRoot = w.shows
+	if _, got := w.ready(0); len(got) != 0 {
+		t.Errorf("Ready with the source mapping unconfirmed = %v, want nothing", got)
+	}
+	w.due.Mappings[1].Confirmed = true
+	if _, got := w.ready(0); !reflect.DeepEqual(got, ids(moved)) {
+		t.Errorf("Ready with both mappings confirmed = %v, want the Move's carry", got)
+	}
+}
+
+func TestReadyHoldsAMovesCarryAtTheKindsMovedHoldUntilItsSourceIsGone(t *testing.T) {
+	w := newWorld(t)
+	w.due.MovedHold = link.StepSnapshotted
+	moved := w.row(w.movies, link.ChangeMoved, "Heat/Heat.mkv", "Heat/Heat.mkv", time.Minute)
+	moved.FromRoot, moved.Step, moved.StepAt = w.shows, link.StepSnapshotted, t0.Add(-time.Minute)
+	renamed := w.row(w.movies, link.ChangeMoved, "Alien/Alien.mkv", "Alien (1979)/Alien.mkv", time.Minute)
+	renamed.Step, renamed.StepAt = link.StepSnapshotted, t0.Add(-time.Minute)
+	if _, got := w.ready(0); !reflect.DeepEqual(got, ids(renamed)) {
+		t.Errorf("Ready before the source is gone = %v, want only the rename", got)
+	}
+	w.due.Rows[0].SourceGone = t0
+	if _, got := w.ready(0); !reflect.DeepEqual(got, ids(&w.due.Rows[0], &w.due.Rows[1])) {
+		t.Errorf("Ready once the source is gone = %v, want both", got)
+	}
+}

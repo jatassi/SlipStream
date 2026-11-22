@@ -2157,6 +2157,58 @@ func (q *Queries) PathTaken(ctx context.Context, arg PathTakenParams) (bool, err
 	return exists, err
 }
 
+const placesOf = `-- name: PlacesOf :many
+SELECT f.id, coalesce(m.sits, f.path) AS place FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.root_id = ?1 AND f.id IN (/*SLICE:ids*/?)
+ORDER BY f.id
+`
+
+type PlacesOfParams struct {
+	RootID roots.ID
+	Ids    []FileID
+}
+
+type PlacesOfRow struct {
+	ID    FileID
+	Place string
+}
+
+// Where the bytes of each of ids in a root sit: at its move's place while
+// one is pending, else at its path.
+func (q *Queries) PlacesOf(ctx context.Context, arg PlacesOfParams) ([]PlacesOfRow, error) {
+	query := placesOf
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.RootID)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PlacesOfRow
+	for rows.Next() {
+		var i PlacesOfRow
+		if err := rows.Scan(&i.ID, &i.Place); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const proofOfRoot = `-- name: ProofOfRoot :many
 SELECT CAST(coalesce(m.sits, f.path) AS TEXT) AS path
 FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id

@@ -34,13 +34,13 @@ type family struct {
 
 var (
 	Jellyfin link.Kind = family{
-		about:            link.About{Name: "jellyfin", Label: "Jellyfin", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("12.2")},
+		about:            link.About{Name: "jellyfin", Label: "Jellyfin", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("12.2"), MovedHold: link.StepSnapshotted},
 		flavor:           jellyfin.Jellyfin,
 		scanDropsReports: true,
 		details:          "/web/#/details",
 	}
 	Emby link.Kind = family{
-		about:         link.About{Name: "emby", Label: "Emby", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("4.10")},
+		about:         link.About{Name: "emby", Label: "Emby", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("4.10"), MovedHold: link.StepSnapshotted},
 		flavor:        jellyfin.Emby,
 		favoriteApart: true,
 		details:       "/web/index.html#!/item",

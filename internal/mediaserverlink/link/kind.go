@@ -35,6 +35,10 @@ type About struct {
 	Browser bool
 	// Floor is the oldest version Save accepts.
 	Floor Version
+	// MovedHold is the step a Move's carry waits at until the Move removed
+	// its source files: the last step the kind can take while the old item
+	// is still on disk.
+	MovedHold Step
 }
 
 // Kind is everything SlipStream knows about one Media Server product.

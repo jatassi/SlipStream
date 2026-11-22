@@ -8,6 +8,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	"github.com/jatassi/slipstream/internal/mediaservers/queue"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 )
@@ -15,9 +16,10 @@ import (
 // changeOf is a mediaservers_change row as the queue models it.
 func changeOf(r db.MediaserversChange) (queue.Change, error) {
 	c := queue.Change{
-		ID: r.ID, Server: r.ServerID, Kind: r.Kind, Root: r.RootID, File: r.FileID, ReplacedBy: r.ReplacedBy,
-		Upgrade: r.Upgrade, State: r.State, Step: r.Step, StepAt: r.StepAt.Time(), Attempts: int(r.Attempts),
-		NextAt: r.NextAttemptAt.Time(), Created: r.CreatedAt.Time(), Sent: r.SentAt.Time(),
+		ID: r.ID, Server: r.ServerID, Kind: r.Kind, Root: r.RootID, FromRoot: r.FromRootID, File: r.FileID,
+		ReplacedBy: r.ReplacedBy, Upgrade: r.Upgrade, State: r.State, Step: r.Step, StepAt: r.StepAt.Time(),
+		Attempts: int(r.Attempts), NextAt: r.NextAttemptAt.Time(), Created: r.CreatedAt.Time(), Sent: r.SentAt.Time(),
+		SourceGone: r.SourceGoneAt.Time(),
 	}
 	var err error
 	if r.Path != "" {
@@ -129,25 +131,54 @@ func write(ctx context.Context, q *db.Queries, op queue.Op) error {
 	}
 	if op.Do == queue.Insert {
 		return q.InsertChange(ctx, db.InsertChangeParams{
-			ID: c.ID, ServerID: c.Server, Kind: c.Kind, RootID: c.Root, Path: col.path, FromPath: col.from,
-			FileID: c.File, ReplacedBy: c.ReplacedBy, Upgrade: c.Upgrade, State: c.State, Step: c.Step,
-			StepAt: storage.FromTime(c.StepAt), Snapshot: col.snapshot, Attempts: int64(c.Attempts),
+			ID: c.ID, ServerID: c.Server, Kind: c.Kind, RootID: c.Root, Path: col.path, FromRootID: c.FromRoot,
+			FromPath: col.from, FileID: c.File, ReplacedBy: c.ReplacedBy, Upgrade: c.Upgrade, State: c.State,
+			Step: c.Step, StepAt: storage.FromTime(c.StepAt), Snapshot: col.snapshot, Attempts: int64(c.Attempts),
 			NextAttemptAt: storage.FromTime(c.NextAt), CreatedAt: storage.FromTime(c.Created),
-			SentAt: storage.FromTime(c.Sent), Result: col.result, Lost: col.lost, Problem: col.problem,
+			SentAt: storage.FromTime(c.Sent), SourceGoneAt: storage.FromTime(c.SourceGone), Result: col.result,
+			Lost: col.lost, Problem: col.problem,
 		})
 	}
 	return q.UpdateChange(ctx, db.UpdateChangeParams{
-		ID: c.ID, Kind: c.Kind, Path: col.path, FromPath: col.from, FileID: c.File, ReplacedBy: c.ReplacedBy,
-		Upgrade: c.Upgrade, State: c.State, Step: c.Step, StepAt: storage.FromTime(c.StepAt), Snapshot: col.snapshot,
+		ID: c.ID, Kind: c.Kind, RootID: c.Root, Path: col.path, FromRootID: c.FromRoot, FromPath: col.from,
+		SourceGoneAt: storage.FromTime(c.SourceGone), FileID: c.File, ReplacedBy: c.ReplacedBy, Upgrade: c.Upgrade,
+		State: c.State, Step: c.Step, StepAt: storage.FromTime(c.StepAt), Snapshot: col.snapshot,
 		Attempts: int64(c.Attempts), NextAttemptAt: storage.FromTime(c.NextAt), SentAt: storage.FromTime(c.Sent),
 		Result: col.result, Lost: col.lost, Problem: col.problem,
 	})
 }
 
+// openAt reads into out the server's open rows at each of paths, one
+// query per root.
+func openAt(ctx context.Context, q *db.Queries, server link.ServerID, paths []queue.At, out map[queue.At]queue.Change) error {
+	var inRoots []roots.ID
+	at := map[roots.ID][]string{}
+	for _, p := range paths {
+		if _, ok := at[p.Root]; !ok {
+			inRoots = append(inRoots, p.Root)
+		}
+		at[p.Root] = append(at[p.Root], p.Rel.String())
+	}
+	for _, root := range inRoots {
+		rows, err := q.OpenAtPaths(ctx, db.OpenAtPathsParams{ServerID: server, RootID: root, Paths: at[root]})
+		if err != nil {
+			return err
+		}
+		for _, r := range rows {
+			c, err := changeOf(r)
+			if err != nil {
+				return err
+			}
+			out[c.At()] = c
+		}
+	}
+	return nil
+}
+
 // openFor reads every foldable row of in's server that in can fold into,
 // as queue.Open names them.
 func openFor(ctx context.Context, q *db.Queries, in queue.Change) (queue.Open, error) {
-	open := queue.Open{AtPath: map[storing.Rel]queue.Change{}}
+	open := queue.Open{AtPath: map[queue.At]queue.Change{}}
 	carries, err := q.OpenCarry(ctx, db.OpenCarryParams{ServerID: in.Server, FileID: in.File})
 	if err != nil {
 		return open, err
@@ -158,22 +189,10 @@ func openFor(ctx context.Context, q *db.Queries, in queue.Change) (queue.Open, e
 		if err != nil {
 			return open, err
 		}
-		open.Carry, paths = &c, append(paths, c.From)
+		open.Carry, paths = &c, append(paths, c.Origin())
 	}
-	at := make([]string, len(paths))
-	for i, p := range paths {
-		at[i] = p.String()
-	}
-	rows, err := q.OpenAtPaths(ctx, db.OpenAtPathsParams{ServerID: in.Server, RootID: in.Root, Paths: at})
-	if err != nil {
+	if err := openAt(ctx, q, in.Server, paths, open.AtPath); err != nil {
 		return open, err
-	}
-	for _, r := range rows {
-		c, err := changeOf(r)
-		if err != nil {
-			return open, err
-		}
-		open.AtPath[c.Path] = c
 	}
 	p := db.OpenPartnerParams{ServerID: in.Server}
 	if in.Kind == link.ChangeRemoved {
@@ -215,7 +234,7 @@ func takenPlace(open queue.Open, back queue.Change) *queue.Change {
 	if back.Carry() {
 		return open.Carry
 	}
-	if c, ok := open.AtPath[back.Path]; ok {
+	if c, ok := open.AtPath[back.At()]; ok {
 		return &c
 	}
 	return nil

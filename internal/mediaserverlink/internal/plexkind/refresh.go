@@ -30,7 +30,7 @@ func scanFolders(ctx context.Context, c *conn, _ link.Job, w *link.Refresh) (did
 			videos = append(videos, ch)
 		}
 	}
-	if err := c.refreshFolders(ctx, places(videos, newPath)); err != nil {
+	if err := c.refreshFolders(ctx, places(videos, newPlace)); err != nil {
 		return did{}, err
 	}
 	if err := c.refreshSidecars(ctx, sidecars); err != nil {
@@ -42,8 +42,8 @@ func scanFolders(ctx context.Context, c *conn, _ link.Job, w *link.Refresh) (did
 // refreshSidecars refreshes each item with a file in a changed Sidecar's
 // folder, and the folder itself when it holds none.
 func (c *conn) refreshSidecars(ctx context.Context, cs []link.JobChange) error {
-	libraries, _ := groups(cs, func(link.JobChange) bool { return true })
-	ps := places(cs, newPath)
+	libraries, _ := groups(cs, library, all)
+	ps := places(cs, newPlace)
 	for _, lib := range libraries {
 		var folders []link.ServerPath
 		for _, p := range ps {
