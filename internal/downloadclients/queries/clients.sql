@@ -95,3 +95,24 @@ UPDATE downloadclients_client SET
     client_version = sqlc.narg(client_version)
 WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND deleted_at IS NULL
   AND (poll_settings_version IS NULL OR poll_settings_version <= sqlc.arg(poll_settings_version));
+
+-- name: ListLookable :many
+-- The client's live Torrents, whose files its new Node must find.
+SELECT id, name, content_type, metainfo, save_folder FROM downloadclients_torrent
+WHERE client_id = sqlc.arg(client_id) AND parted_at IS NULL AND removed_at IS NULL AND arriving_unit IS NULL
+ORDER BY added_order;
+
+-- name: ListHeldElsewhere :many
+-- The client's Torrents whose info hash node already holds live.
+SELECT t.name FROM downloadclients_torrent t
+WHERE t.client_id = sqlc.arg(client_id) AND t.parted_at IS NULL AND EXISTS (
+    SELECT 1 FROM downloadclients_torrent o
+    WHERE o.node_id = sqlc.arg(node_id) AND o.info_hash = t.info_hash AND o.parted_at IS NULL
+        AND o.arriving_unit IS NULL AND o.removed_reason IS NOT 'moved'
+)
+ORDER BY t.added_order;
+
+-- name: RerecordClient :exec
+-- The client's Torrents go with it to node, keeping their raw counters.
+UPDATE downloadclients_torrent SET node_id = sqlc.arg(node_id)
+WHERE client_id = sqlc.arg(client_id) AND parted_at IS NULL;

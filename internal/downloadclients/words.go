@@ -3,6 +3,7 @@ package downloadclients
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/torrent/clients"
 )
@@ -117,18 +118,42 @@ func InUse(node string) string {
 	return node + "'s new Grabs go to this client. Choose another client for them first."
 }
 
-// HasTorrents is the sentence of a refusal to delete or move client name
-// while it holds count Torrents SlipStream tracks.
-func HasTorrents(name string, count int, moving bool) string {
-	switch {
-	case count == 1 && moving:
-		return name + " can't move to another Node while it has 1 torrent that SlipStream tracks. Remove the torrent first, or select Stop tracking and delete, then add the client again on the other Node."
-	case count == 1:
+// HasTorrents is the sentence of a refusal to delete client name while it
+// holds count Torrents SlipStream tracks.
+func HasTorrents(name string, count int) string {
+	if count == 1 {
 		return name + " has 1 torrent that SlipStream tracks. Stop tracking it to delete the client."
-	case moving:
-		return fmt.Sprintf("%s can't move to another Node while it has %d torrents that SlipStream tracks. Remove the torrents first, or select Stop tracking and delete, then add the client again on the other Node.", name, count)
 	}
 	return fmt.Sprintf("%s has %d torrents that SlipStream tracks. Stop tracking them to delete the client.", name, count)
+}
+
+// FilesMissing is the sentence of a refusal to change a client's Node to
+// node while node doesn't find the files of count of its torrents.
+func FilesMissing(node string, count int) string {
+	torrents := "1 torrent"
+	if count != 1 {
+		torrents = fmt.Sprintf("%d torrents", count)
+	}
+	return fmt.Sprintf("%s didn't find the files of %s at this client's folders. Check each Client folder's path on %s.", node, torrents, node)
+}
+
+// MovesUse is the sentence of a refusal to change client name's Node
+// while count Moves use it.
+func MovesUse(name string, count int64) string {
+	if count == 1 {
+		return "1 Move uses " + name + ". Wait for it to finish, or cancel it in Activity, then change the client's Node."
+	}
+	return fmt.Sprintf("%d Moves use %s. Wait for them to finish, or cancel them in Activity, then change the client's Node.", count, name)
+}
+
+// HeldOnNode is the sentence of a refusal to change a client's Node to
+// node while node holds names live already.
+func HeldOnNode(node string, names []string) string {
+	listed := names[0]
+	if len(names) > 1 {
+		listed = strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
+	}
+	return fmt.Sprintf("%s already has %s. Remove them from %s first, then change this client's Node.", node, listed, node)
 }
 
 // Importing is the sentence of a refusal to delete client name while a

@@ -1722,6 +1722,29 @@
         ],
         "type": "object"
       },
+      "DownloadclientsFilesMissing": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "description": "The torrents whose files the new Node didn't find",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "first": {
+            "description": "The first 20 of them, in the order SlipStream added them",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsMissingTorrent"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "count",
+          "first"
+        ],
+        "type": "object"
+      },
       "DownloadclientsHitAndRun": {
         "additionalProperties": false,
         "properties": {
@@ -1976,6 +1999,23 @@
           "at",
           "rows",
           "downloads"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsMissingTorrent": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "torrentId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "torrentId",
+          "name"
         ],
         "type": "object"
       },
@@ -45415,14 +45455,19 @@
                         "code": {
                           "enum": [
                             "download_client_address_taken",
+                            "download_client_files_missing",
                             "download_client_has_torrents",
                             "download_client_in_use",
+                            "download_client_moving",
                             "download_client_name_taken",
                             "node_not_downloading",
                             "superseded",
                             "worker_node"
                           ],
                           "type": "string"
+                        },
+                        "missing": {
+                          "$ref": "#/components/schemas/DownloadclientsFilesMissing"
                         }
                       },
                       "type": "object"

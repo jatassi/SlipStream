@@ -1605,6 +1605,24 @@ export const DownloadclientsFileDetail = zod.object({
 export type DownloadclientsFileDetail = zod.input<typeof DownloadclientsFileDetail>;
 export type DownloadclientsFileDetailOutput = zod.output<typeof DownloadclientsFileDetail>;
 
+export const DownloadclientsMissingTorrent = zod.object({
+  name: zod.string(),
+  torrentId: zod.uuid(),
+});
+
+export type DownloadclientsMissingTorrent = zod.input<typeof DownloadclientsMissingTorrent>;
+export type DownloadclientsMissingTorrentOutput = zod.output<typeof DownloadclientsMissingTorrent>;
+
+export const DownloadclientsFilesMissing = zod.object({
+  count: zod.int().min(1).describe("The torrents whose files the new Node didn't find"),
+  first: zod
+    .array(DownloadclientsMissingTorrent)
+    .describe("The first 20 of them, in the order SlipStream added them"),
+});
+
+export type DownloadclientsFilesMissing = zod.input<typeof DownloadclientsFilesMissing>;
+export type DownloadclientsFilesMissingOutput = zod.output<typeof DownloadclientsFilesMissing>;
+
 export const DownloadclientsLiveRow = zod.object({
   done: zod.int().describe("Bytes downloaded"),
   downBps: zod.int().describe("Payload bytes a second it downloads"),

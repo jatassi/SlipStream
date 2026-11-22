@@ -490,7 +490,7 @@ func Routes(r *api.Router, clients Clients) {
 		Path:    "/external-download-clients/{id}",
 		Summary: "Change an external Download Client, testing it first when the change is to its Node, kind, address, sign-in, daemon, label, folder or remote path mappings",
 		Status:  http.StatusOK,
-		Errors:  append([]*api.Code{clientNotFound, clientNameTaken, clientAddressTaken, clientInUse, clientHasTorrents}, tested...),
+		Errors:  append([]*api.Code{clientNotFound, clientNameTaken, clientAddressTaken, clientInUse, clientHasTorrents, clientFilesMissing.Code, clientMoving}, tested...),
 	}, h.editClient)
 
 	api.Register(o, api.Admin, api.Op{

@@ -34,6 +34,19 @@ type node struct {
 	// next, a pass of Transmission 4.1.1 while nil.
 	tests  []test
 	answer *dlv1.TestClientResponse
+	// looks are the Looks the Node ran, and lost the names it doesn't
+	// find.
+	looks []*dlv1.LookRequest
+	lost  map[string]bool
+}
+
+func (n *node) Look(_ context.Context, req *dlv1.LookRequest) (*dlv1.LookResponse, error) {
+	n.looks = append(n.looks, req)
+	res := &dlv1.LookResponse{}
+	for _, e := range req.GetEntries() {
+		res.Found = append(res.Found, !n.lost[e.GetName()])
+	}
+	return res, nil
 }
 
 func (n *node) Inspect(_ context.Context, req *dlv1.InspectRequest) (*dlv1.InspectResponse, error) {

@@ -233,12 +233,11 @@ func (e *InUseError) Error() string {
 	return fmt.Sprintf("node %s's new Grabs go to the client", e.Node)
 }
 
-// HasTorrentsError refuses moving or deleting client Name while it holds
-// Count Torrents SlipStream tracks.
+// HasTorrentsError refuses deleting client Name while it holds Count
+// Torrents SlipStream tracks.
 type HasTorrentsError struct {
-	Name   string
-	Count  int
-	Moving bool
+	Name  string
+	Count int
 }
 
 func (e *HasTorrentsError) Error() string {
@@ -362,8 +361,11 @@ func (c *Clients) drafted(e External, s clients.Secrets) error {
 // the Test reads. The Test uses the saved secrets wherever ed leaves them,
 // and a passing Test is the client's poll at the new version. Turning off
 // or moving the client its Node's new Grabs go to is *InUseError, and
-// moving one that holds Torrents is *HasTorrentsError. It fails as
-// CreateClient does, and with ErrNoClient.
+// moving one Moves use is *MovesUseError. A move has the new Node find
+// every live torrent's files first, *FilesMissingError when it doesn't,
+// and takes the client's Torrents along in the Write, *HeldOnNodeError
+// when that Node holds some live already. It fails as CreateClient does,
+// and with ErrNoClient.
 func (c *Clients) EditClient(ctx context.Context, id ClientID, ed Edit) (ExternalCard, error) {
 	was, saved, err := c.saved(ctx, id)
 	if err != nil {
@@ -376,7 +378,7 @@ func (c *Clients) EditClient(ctx context.Context, id ClientID, ed Edit) (Externa
 	if now.Node != was.Node && !c.cfg.Roster.Holds(role.Downloading, now.Node) {
 		return ExternalCard{}, ErrNotDownloading
 	}
-	err = c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error { return edits(ctx, r, was, now) })
+	err = c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error { return c.edits(ctx, r, was, now) })
 	if err != nil {
 		return ExternalCard{}, err
 	}
@@ -388,9 +390,20 @@ func (c *Clients) EditClient(ctx context.Context, id ClientID, ed Edit) (Externa
 		}
 		report = &r
 	}
+	moved := now.Node != was.Node
+	if moved {
+		if err := c.look(ctx, now, report.NodeFolder); err != nil {
+			return ExternalCard{}, err
+		}
+	}
 	err = c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		if err := edits(ctx, tx, was, now); err != nil {
+		if err := c.edits(ctx, tx, was, now); err != nil {
 			return err
+		}
+		if moved {
+			if err := rerecord(ctx, tx, now); err != nil {
+				return err
+			}
 		}
 		p, err := rowOf(c.cfg.Sealer, now, s)
 		if err != nil {
@@ -418,8 +431,8 @@ func (c *Clients) EditClient(ctx context.Context, id ClientID, ed Edit) (Externa
 
 // edits refuses going from was to now when now's name or address is
 // another client's, when it turns off or moves the client its Node's new
-// Grabs go to, or when it moves a client that holds Torrents.
-func edits(ctx context.Context, r storage.Reader[file], was, now External) error {
+// Grabs go to, or when it moves a client Moves use.
+func (c *Clients) edits(ctx context.Context, r storage.Reader[file], was, now External) error {
 	if err := free(ctx, r, now); err != nil {
 		return err
 	}
@@ -430,7 +443,7 @@ func edits(ctx context.Context, r storage.Reader[file], was, now External) error
 	if err := notGrabsTo(ctx, r, was.ID); err != nil || !moved {
 		return err
 	}
-	return untracked(ctx, r, was, true)
+	return c.notMoving(ctx, r, was)
 }
 
 // notGrabsTo is *InUseError when a Node's new Grabs go to client id.
@@ -446,12 +459,12 @@ func notGrabsTo(ctx context.Context, r storage.Reader[file], id ClientID) error 
 }
 
 // untracked is *HasTorrentsError while e holds Torrents SlipStream tracks.
-func untracked(ctx context.Context, r storage.Reader[file], e External, moving bool) error {
+func untracked(ctx context.Context, r storage.Reader[file], e External) error {
 	n, err := db.New(r).CountTracked(ctx, &e.ID)
 	if err != nil || n == 0 {
 		return err
 	}
-	return &HasTorrentsError{Name: e.Name, Count: int(n), Moving: moving}
+	return &HasTorrentsError{Name: e.Name, Count: int(n)}
 }
 
 // TestSaved tests client id with ed's unsaved changes, on the Node it
@@ -501,7 +514,7 @@ func (c *Clients) DeleteClient(ctx context.Context, id ClientID, stopTracking bo
 		}
 		now := storage.Now()
 		if !stopTracking {
-			if err := untracked(ctx, tx, e, false); err != nil {
+			if err := untracked(ctx, tx, e); err != nil {
 				return err
 			}
 		} else if err := q.StopTracking(ctx, db.StopTrackingParams{At: now, ClientID: &id}); err != nil {
