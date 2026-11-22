@@ -27,3 +27,6 @@ export const densityOf = { desktop: "console", phone: "touch" } as const satisfi
 
 /** Wide enough for the Nodes Diagram to be the default view and to take drags. */
 export const diagramQuery = "(min-width: 1000px)";
+
+/** Wide enough for the status sentence's totals and the top bar's rates, which hide at 1360px and below. */
+export const wideDesktopQuery = "(min-width: 1361px)";

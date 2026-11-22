@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import { Icon } from "./icon";
 import { LiveDot } from "./live-chip";
@@ -7,7 +7,8 @@ import { signals } from "./signal-chip";
 
 export type StatusPart =
   | { kind: "live"; text: string }
-  | { kind: "plain"; text: string }
+  /** `words` draws the text with a part inside it, such as a defined term. */
+  | { kind: "plain"; text: string; words?: ReactNode }
   | { kind: "failure"; text: string; href: string }
   | { kind: "warning"; text: string; href: string };
 
@@ -28,7 +29,7 @@ function Part({ part }: { part: StatusPart }) {
     );
   }
   if (part.kind === "plain") {
-    return <span>{part.text}</span>;
+    return <span>{part.words ?? part.text}</span>;
   }
   const { icon, ink } = signalLink[part.kind];
   return (
