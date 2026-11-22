@@ -111,6 +111,12 @@ func (c *Clients) RollbackIn(ctx context.Context, tx *storage.Tx[file], src, dst
 	return q.Unwatch(ctx, src)
 }
 
+// ResumeIn has a Move's source seed again in tx after its stop went
+// unseen, its watch kept for the next guard.
+func (c *Clients) ResumeIn(ctx context.Context, tx *storage.Tx[file], src ID) error {
+	return db.New(tx).ResumeSource(ctx, src)
+}
+
 // SwitchIn makes arriving Torrent dst the torrent's live one in tx: src
 // is removed moved with its files first, so it holds the hash no more,
 // then dst takes the larger of its totals and src's final ones.

@@ -374,7 +374,7 @@ export const getPreviewMovesUrl = () => {
 };
 
 /**
- * @summary Preview moving Works to other library roots: a verdict for each, and a token to start it with
+ * @summary Preview moving Works to other library roots, or torrents to other Download Clients: a verdict for each, and a token to start it with
  */
 export const previewMoves = async (
   movesMoveAsk: MovesMoveAsk,
@@ -465,7 +465,7 @@ export type PreviewMovesMutationError = ErrorType<
 export type PreviewMovesMutationVariables = { data: MovesMoveAsk };
 
 /**
- * @summary Preview moving Works to other library roots: a verdict for each, and a token to start it with
+ * @summary Preview moving Works to other library roots, or torrents to other Download Clients: a verdict for each, and a token to start it with
  */
 export const usePreviewMoves = <
   TError = ErrorType<

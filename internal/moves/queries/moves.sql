@@ -47,11 +47,12 @@ DELETE FROM moves_batch WHERE id IN (
 SELECT CAST(coalesce(max(seq), 0) + 1 AS INTEGER) FROM moves_unit;
 
 -- name: InsertUnit :exec
-INSERT INTO moves_unit (id, batch_id, seq, position, kind, work_id, content_type, from_root_id, from_node_id, to_root_id, to_node_id,
-    lane, phase, waiting, waiting_at, due_at, planned_bytes, planned_at, notes)
-VALUES (sqlc.arg(id), sqlc.arg(batch_id), sqlc.arg(seq), sqlc.arg(position), 'work', sqlc.arg(work_id), sqlc.arg(content_type),
-    sqlc.arg(from_root_id), sqlc.arg(from_node_id), sqlc.arg(to_root_id), sqlc.arg(to_node_id),
-    sqlc.arg(lane), 'queued', sqlc.narg(waiting), sqlc.arg(waiting_at), sqlc.arg(due_at), sqlc.arg(planned_bytes), sqlc.arg(planned_at), sqlc.arg(notes));
+INSERT INTO moves_unit (id, batch_id, seq, position, kind, work_id, content_type, torrent_id, from_root_id, from_node_id, from_client_id,
+    to_root_id, to_node_id, to_client_id, lane, phase, waiting, waiting_at, due_at, planned_bytes, planned_at, notes)
+VALUES (sqlc.arg(id), sqlc.arg(batch_id), sqlc.arg(seq), sqlc.arg(position), sqlc.arg(kind), sqlc.narg(work_id), sqlc.narg(content_type),
+    sqlc.narg(torrent_id), sqlc.narg(from_root_id), sqlc.arg(from_node_id), sqlc.narg(from_client_id), sqlc.narg(to_root_id), sqlc.arg(to_node_id),
+    sqlc.narg(to_client_id), sqlc.arg(lane), 'queued', sqlc.narg(waiting), sqlc.arg(waiting_at), sqlc.arg(due_at), sqlc.arg(planned_bytes),
+    sqlc.arg(planned_at), sqlc.arg(notes));
 
 -- name: GetUnit :one
 SELECT * FROM moves_unit WHERE id = sqlc.arg(id);
@@ -84,7 +85,8 @@ UPDATE moves_unit SET phase = sqlc.arg(phase), waiting = sqlc.narg(waiting), wai
     pass = sqlc.arg(pass), switch_now_at = sqlc.arg(switch_now_at), failure_code = sqlc.narg(failure_code), failure_detail = sqlc.narg(failure_detail),
     failed_phase = sqlc.narg(failed_phase), undone_at = sqlc.arg(undone_at), reconcile = sqlc.arg(reconcile), transfer_id = sqlc.narg(transfer_id),
     planned_bytes = sqlc.arg(planned_bytes), planned_at = sqlc.arg(planned_at), switched_at = sqlc.arg(switched_at), cleaned_at = sqlc.arg(cleaned_at),
-    notes = sqlc.arg(notes)
+    notes = sqlc.arg(notes), handoff = sqlc.narg(handoff), handoff_at = sqlc.arg(handoff_at), keeps_copy = sqlc.arg(keeps_copy),
+    dest_torrent_id = sqlc.narg(dest_torrent_id), to_folder = sqlc.narg(to_folder)
 WHERE id = sqlc.arg(id);
 
 -- name: SetDue :exec
@@ -120,6 +122,23 @@ UPDATE moves_unit SET due_at = sqlc.arg(now) WHERE waiting = sqlc.arg(waiting) A
 UPDATE moves_unit SET due_at = sqlc.arg(now)
 WHERE waiting = sqlc.arg(waiting) AND (due_at IS NULL OR due_at > sqlc.arg(now)) AND work_id IN (sqlc.slice(works));
 
+-- name: WakeTorrents :exec
+UPDATE moves_unit SET due_at = sqlc.arg(now)
+WHERE waiting = sqlc.arg(waiting) AND (due_at IS NULL OR due_at > sqlc.arg(now))
+    AND (torrent_id IN (sqlc.slice(sources)) OR dest_torrent_id IN (sqlc.slice(dests)));
+
+-- name: ListMovingTorrents :many
+-- A torrent moves from its unit's insert until its switch, and while a
+-- failed unit keeps its copy.
+SELECT * FROM moves_unit
+WHERE torrent_id IN (sqlc.slice(torrents)) AND (phase IN ('queued', 'transfer', 'place', 'switch') OR keeps_copy = 1)
+ORDER BY seq;
+
+-- name: ListOpenUnitsOfTorrents :many
+SELECT * FROM moves_unit
+WHERE torrent_id IN (sqlc.slice(torrents)) AND (phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup') OR keeps_copy = 1)
+ORDER BY seq;
+
 -- name: WakeNodes :exec
 UPDATE moves_unit SET due_at = sqlc.arg(now)
 WHERE waiting = sqlc.arg(waiting) AND (due_at IS NULL OR due_at > sqlc.arg(now))
@@ -152,9 +171,9 @@ WHERE phase = 'failed' OR (phase = 'switch' AND waiting IS NOT NULL AND waiting_
 ORDER BY seq DESC LIMIT sqlc.arg(n);
 
 -- name: InsertUnitFile :exec
-INSERT INTO moves_unit_file (unit_id, position, kind, file_id, sits_rel, size, modified_at, node_file_id, node_volume_id, ledger)
-VALUES (sqlc.arg(unit_id), sqlc.arg(position), sqlc.arg(kind), sqlc.narg(file_id), sqlc.arg(sits_rel), sqlc.arg(size), sqlc.arg(modified_at),
-    sqlc.narg(node_file_id), sqlc.narg(node_volume_id), sqlc.arg(ledger));
+INSERT INTO moves_unit_file (unit_id, position, kind, file_id, sits_rel, payload_index, size, modified_at, node_file_id, node_volume_id, ledger)
+VALUES (sqlc.arg(unit_id), sqlc.arg(position), sqlc.arg(kind), sqlc.narg(file_id), sqlc.arg(sits_rel), sqlc.narg(payload_index), sqlc.arg(size),
+    sqlc.arg(modified_at), sqlc.narg(node_file_id), sqlc.narg(node_volume_id), sqlc.arg(ledger));
 
 -- name: ListUnitFiles :many
 SELECT * FROM moves_unit_file WHERE unit_id IN (sqlc.slice(units)) ORDER BY unit_id, position;

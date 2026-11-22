@@ -10,14 +10,17 @@ export interface MovesPreviewUnit {
    */
   bytes: number;
   from: MovesPlace;
-  /** Stable per unit inside the preview, such as work:<id> */
+  /** Stable per unit inside the preview, such as work:<id> or torrent:<id> */
   key: string;
   kind: MovesPreviewUnitKind;
   name: string;
   /** Each check worse than green */
   reasons: MovesReason[];
   to: MovesPlace;
+  /** A torrent unit's */
+  torrentId?: string;
   /** green moves, amber moves with a note, red stays */
   verdict: MovesPreviewUnitVerdict;
+  /** A Work unit's; the zero id for a torrent */
   workId: string;
 }

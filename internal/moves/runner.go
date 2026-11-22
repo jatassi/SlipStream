@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/moves/internal/db"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/transfers/source"
@@ -117,7 +118,11 @@ func (m *Moves) pass(ctx context.Context) (time.Duration, error) {
 	if err := m.copyFacts(ctx, units, facts); err != nil {
 		return 0, err
 	}
-	rules := Rules{PlexBound: set.PlexBound, PlayingEvery: m.cfg.Timings.PlayingEvery}
+	tm := m.cfg.Timings
+	rules := Rules{
+		PlexBound: set.PlexBound, PlayingEvery: tm.PlayingEvery,
+		Guard: tm.Guard, ReplyWait: tm.ReplyWait, StopBound: tm.StopBound, HandoffBound: tm.HandoffBound, DownloadingEvery: tm.DownloadingEvery,
+	}
 	judged := make([]work, len(units))
 	for i, u := range units {
 		judged[i] = work{u: u, facts: facts[i], action: next(u, facts[i], now, rules)}
@@ -233,8 +238,12 @@ func (m *Moves) factsOf(ctx context.Context, r storage.Reader[file], units []Uni
 	var switching []int
 	for i, u := range units {
 		out[i].Head = heads[u.ID]
+		from, to := u.nodes()
+		out[i].NodesUp = m.cfg.Roster.InStep(from) && m.cfg.Roster.InStep(to)
+		if u.Torrent != nil {
+			continue
+		}
 		s := u.Subject
-		out[i].NodesUp = m.cfg.Roster.InStep(s.From.Node) && m.cfg.Roster.InStep(s.To.Node)
 		switch u.Stage.(type) {
 		case Switching:
 			switching = append(switching, i)
@@ -246,8 +255,8 @@ func (m *Moves) factsOf(ctx context.Context, r storage.Reader[file], units []Uni
 			out[i].Safe = safe
 		}
 	}
-	if len(switching) == 0 {
-		return out, nil
+	if err := handoffFacts(ctx, r, units, out); err != nil || len(switching) == 0 {
+		return out, err
 	}
 	return out, m.switchFacts(ctx, r, units, switching, out)
 }
@@ -370,8 +379,9 @@ func libraryFiles(u Unit) []files.ID {
 // A unit that changed since the pass read it is left for the next pass.
 func (m *Moves) apply(ctx context.Context, judged []work, now time.Time) ([]work, error) {
 	var steps []work
+	var touch []role.NodeID
 	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		steps = nil
+		steps, touch = nil, nil
 		for _, w := range judged {
 			cur, err := load(ctx, tx, w.u.ID)
 			if err != nil {
@@ -380,10 +390,11 @@ func (m *Moves) apply(ctx context.Context, judged []work, now time.Time) ([]work
 			if !same(cur, w.u) {
 				continue
 			}
-			step, err := m.applyOne(ctx, tx, &cur, w.action, now)
+			step, nodes, err := m.applyOne(ctx, tx, &cur, w.action, now)
 			if err != nil {
 				return err
 			}
+			touch = append(touch, nodes...)
 			if step {
 				steps = append(steps, work{u: cur, facts: w.facts, action: w.action})
 			}
@@ -393,13 +404,20 @@ func (m *Moves) apply(ctx context.Context, judged []work, now time.Time) ([]work
 		}
 		return nil
 	})
+	if err == nil && len(touch) > 0 {
+		m.cfg.Clients.Touch(touch...)
+	}
 	return steps, err
 }
 
 // applyOne changes u in tx by a, an Action that needs no IO, or leases
-// u's IO step for a and answers true.
-func (m *Moves) applyOne(ctx context.Context, tx *storage.Tx[file], u *Unit, a Action, now time.Time) (bool, error) {
+// u's IO step for a and answers true. It answers the Nodes whose
+// downloading intent to Touch once tx commits.
+func (m *Moves) applyOne(ctx context.Context, tx *storage.Tx[file], u *Unit, a Action, now time.Time) (bool, []role.NodeID, error) {
 	switch a := a.(type) {
+	case Arrived, Stop, Resume, AskStart, SwitchTorrent, Rollback, Parted:
+		nodes, err := m.applyTorrent(ctx, tx, u, a, now)
+		return false, nodes, err
 	case Hold:
 		u.Stage, u.Due = waiting(u.Stage, a.Wait, now), nil
 		if !a.Until.IsZero() {
@@ -409,14 +427,14 @@ func (m *Moves) applyOne(ctx context.Context, tx *storage.Tx[file], u *Unit, a A
 		u.Due = nil
 	case ReleaseServers:
 		if err := m.cfg.MediaServers.SourcesGone(ctx, tx, u.Subject.From.Root, libraryFiles(*u)); err != nil {
-			return false, err
+			return false, nil, err
 		}
 		u.Notes.Released, u.Due = true, &now
 	default:
 		u.Due = new(now.Add(m.cfg.Timings.StepLease))
-		return true, nil
+		return true, nil, nil
 	}
-	return false, nil
+	return false, nil, nil
 }
 
 // same is whether cur is still the unit the pass judged.

@@ -20,6 +20,16 @@ import (
 
 // step runs a's IO and the Write that records it.
 func (m *Moves) step(ctx context.Context, u Unit, a Action) error {
+	if u.Torrent != nil {
+		switch a := a.(type) {
+		case TakeLane:
+			return m.takeTorrentLane(ctx, u)
+		case PlaceTorrent:
+			return m.placeTorrent(ctx, u, a.Transfer)
+		case Undo:
+			return m.undoTorrent(ctx, u)
+		}
+	}
 	switch a := a.(type) {
 	case TakeLane:
 		return m.takeLane(ctx, u)
@@ -67,6 +77,8 @@ func actionName(a Action) string {
 		return "undo"
 	case Reconcile:
 		return "reconcile"
+	case PlaceTorrent:
+		return "place_torrent"
 	}
 	panic(fmt.Sprintf("moves: %T runs no IO", a))
 }
@@ -105,7 +117,9 @@ func changedOf(us ...Unit) Changed {
 	for _, u := range us {
 		c.BatchIDs = appendOnce(c.BatchIDs, u.Batch.String())
 		c.UnitIDs = append(c.UnitIDs, u.ID.String())
-		c.WorkIDs = appendOnce(c.WorkIDs, u.Subject.Work.String())
+		if u.Torrent == nil {
+			c.WorkIDs = appendOnce(c.WorkIDs, u.Subject.Work.String())
+		}
 	}
 	return c
 }
@@ -134,6 +148,9 @@ func fileAt(u *Unit, pos int) *File {
 
 // fail ends u with code in tx, its undo due now.
 func (m *Moves) fail(ctx context.Context, tx *storage.Tx[file], u *Unit, code FailureCode, detail string) error {
+	if u.Torrent != nil {
+		return m.rollback(ctx, tx, u, code, detail)
+	}
 	s := Failed{Code: code, At: u.Stage.Phase(), Detail: detail}
 	u.Stage, u.Due = s, new(m.now())
 	return m.recordFailed(ctx, tx, *u, s)

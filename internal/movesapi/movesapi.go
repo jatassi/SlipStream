@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/moves"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -42,6 +44,8 @@ var (
 	moveNotFound     = api.NewCode(http.StatusNotFound, "move_not_found", "SlipStream has no Move with this id")
 	workNotFound     = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 	rootNotFound     = api.NewCode(http.StatusNotFound, "root_not_found", "No root has that id")
+	torrentNotFound  = api.NewCode(http.StatusNotFound, "torrent_not_found", "No torrent has that id")
+	emptyAsk         = api.NewCode(http.StatusUnprocessableEntity, "move_ask_empty", "Pick a Work or a torrent to move.")
 )
 
 // answer is err as its problem.
@@ -66,6 +70,8 @@ func answer(err error) error {
 		return workNotFound
 	case errors.Is(err, moves.ErrNoRoot):
 		return rootNotFound
+	case errors.Is(err, moves.ErrNoTorrent):
+		return torrentNotFound
 	case errors.Is(err, moves.ErrReconciling):
 		return api.Reconciling
 	}
@@ -76,30 +82,32 @@ type place struct {
 	NodeID   string `json:"nodeId" format:"uuid"`
 	NodeName string `json:"nodeName"`
 	RootID   string `json:"rootId" format:"uuid"`
-	Root     string `json:"root" doc:"The library root in words, such as Movies library root on den"`
+	Root     string `json:"root" doc:"The library root in words, such as Movies library root on den; empty for a torrent"`
+	Client   string `json:"client,omitempty" doc:"A torrent's Download Client, such as qBittorrent or the built-in client"`
 }
 
 func placeOf(p moves.Place) place {
-	return place{NodeID: p.Node.String(), NodeName: p.NodeName, RootID: p.End.Root.String(), Root: p.Root}
+	return place{NodeID: p.Node.String(), NodeName: p.NodeName, RootID: p.End.Root.String(), Root: p.Root, Client: p.Client}
 }
 
 type reason struct {
-	Check string `json:"check" enum:"space,names,folder,destination,media_servers,waits,moving,probe"`
+	Check string `json:"check" enum:"space,names,folder,destination,media_servers,waits,moving,probe,torrent"`
 	Color string `json:"color" enum:"amber,red"`
 	Code  string `json:"code" doc:"Stable per reason, such as space_error or mapping_missing"`
 	Words string `json:"words"`
 }
 
 type previewUnit struct {
-	Key     string   `json:"key" doc:"Stable per unit inside the preview, such as work:<id>"`
-	Kind    string   `json:"kind" enum:"work"`
-	Name    string   `json:"name"`
-	WorkID  string   `json:"workId" format:"uuid"`
-	From    place    `json:"from"`
-	To      place    `json:"to"`
-	Verdict string   `json:"verdict" enum:"green,amber,red" doc:"green moves, amber moves with a note, red stays"`
-	Reasons []reason `json:"reasons" nullable:"false" doc:"Each check worse than green"`
-	Bytes   int64    `json:"bytes" minimum:"0" doc:"Bytes that copy; a hard link or a clone copies none"`
+	Key       string   `json:"key" doc:"Stable per unit inside the preview, such as work:<id> or torrent:<id>"`
+	Kind      string   `json:"kind" enum:"work,torrent"`
+	Name      string   `json:"name"`
+	WorkID    string   `json:"workId" format:"uuid" doc:"A Work unit's; the zero id for a torrent"`
+	TorrentID string   `json:"torrentId,omitempty" format:"uuid" doc:"A torrent unit's"`
+	From      place    `json:"from"`
+	To        place    `json:"to"`
+	Verdict   string   `json:"verdict" enum:"green,amber,red" doc:"green moves, amber moves with a note, red stays"`
+	Reasons   []reason `json:"reasons" nullable:"false" doc:"Each check worse than green"`
+	Bytes     int64    `json:"bytes" minimum:"0" doc:"Bytes that copy; a hard link or a clone copies none"`
 }
 
 type movePreview struct {
@@ -128,9 +136,20 @@ func previewOf(p moves.Plan, named moves.Named) movePreview {
 		for j, r := range u.Verdict.Reasons {
 			pu.Reasons[j] = reason{Check: string(r.Check), Color: r.Color.String(), Code: r.Code, Words: r.Words}
 		}
+		if t := u.Torrent; t != nil {
+			pu.Key, pu.Kind, pu.TorrentID = "torrent:"+t.Torrent.String(), "torrent", t.Torrent.String()
+			pu.From, pu.To = torrentPlace(t.From, named), torrentPlace(t.To, named)
+		}
 		out.Units[i] = pu
 	}
 	return out
+}
+
+// torrentPlace is a torrent's side on the wire.
+func torrentPlace(s moves.Side, named moves.Named) place {
+	p := placeOf(named.Place(moves.End{Node: s.Node}))
+	p.Client = named.ClientWords(s)
+	return p
 }
 
 type workTo struct {
@@ -138,9 +157,16 @@ type workTo struct {
 	RootID string `json:"rootId" format:"uuid" doc:"The library root it moves to"`
 }
 
+type torrentTo struct {
+	TorrentID string `json:"torrentId" format:"uuid"`
+	NodeID    string `json:"nodeId" format:"uuid" doc:"The Node of the Download Client it moves to"`
+	ClientID  string `json:"clientId,omitempty" format:"uuid" doc:"The external Download Client it moves to; absent for the Node's built-in client"`
+}
+
 type moveAsk struct {
-	Origin string   `json:"origin" enum:"work,bulk" doc:"Where the Admin starts it: a Work's page, or the Library's bulk bar"`
-	Works  []workTo `json:"works" minItems:"1" maxItems:"10000" nullable:"false"`
+	Origin   string      `json:"origin" enum:"work,bulk,torrent" doc:"Where the Admin starts it: a Work's page, the Library's bulk bar, or the Torrent table"`
+	Works    []workTo    `json:"works" maxItems:"10000" nullable:"false" doc:"At least one Work or torrent"`
+	Torrents []torrentTo `json:"torrents,omitempty" maxItems:"10000"`
 }
 
 type previewInput struct{ Body moveAsk }
@@ -157,9 +183,10 @@ type startInput struct {
 }
 
 type dropped struct {
-	WorkID string `json:"workId" format:"uuid"`
-	Name   string `json:"name"`
-	Words  string `json:"words" doc:"Why it stays"`
+	WorkID    string `json:"workId" format:"uuid" doc:"A Work unit's; the zero id for a torrent"`
+	TorrentID string `json:"torrentId,omitempty" format:"uuid"`
+	Name      string `json:"name"`
+	Words     string `json:"words" doc:"Why it stays"`
 }
 
 type startedMoves struct {
@@ -178,8 +205,9 @@ type failure struct {
 type moveUnit struct {
 	ID           string                `json:"id" format:"uuid"`
 	BatchID      string                `json:"batchId" format:"uuid"`
-	Kind         string                `json:"kind" enum:"work"`
-	WorkID       string                `json:"workId" format:"uuid"`
+	Kind         string                `json:"kind" enum:"work,torrent"`
+	WorkID       string                `json:"workId" format:"uuid" doc:"A Work unit's; the zero id for a torrent"`
+	TorrentID    string                `json:"torrentId,omitempty" format:"uuid" doc:"A torrent unit's"`
 	Name         string                `json:"name"`
 	ContentType  string                `json:"contentType"`
 	Phase        string                `json:"phase" enum:"queued,transfer,place,switch,cleanup,done,failed,canceled"`
@@ -203,6 +231,9 @@ func unitOf(v moves.View) moveUnit {
 	}
 	if f := v.Failure; f != nil {
 		out.Failure = api.Some(failure{Code: string(f.Code), Words: f.Words})
+	}
+	if v.Torrent != nil {
+		out.Kind, out.TorrentID = "torrent", v.Torrent.String()
 	}
 	return out
 }
@@ -300,6 +331,16 @@ func (h handlers) preview(ctx context.Context, _ identity.Admin, in *previewInpu
 		}
 		ask.Works = append(ask.Works, moves.WorkTo{Work: works.WorkID{UUID: work}, To: roots.ID{UUID: root}})
 	}
+	for _, t := range in.Body.Torrents {
+		to, err := torrentToOf(t)
+		if err != nil {
+			return nil, err
+		}
+		ask.Torrents = append(ask.Torrents, to)
+	}
+	if len(ask.Works) == 0 && len(ask.Torrents) == 0 {
+		return nil, emptyAsk
+	}
 	p, err := m.Preview(ctx, ask)
 	if err != nil {
 		return nil, answer(err)
@@ -307,8 +348,28 @@ func (h handlers) preview(ctx context.Context, _ identity.Admin, in *previewInpu
 	return h.answerPlan(ctx, m, p)
 }
 
+func torrentToOf(t torrentTo) (moves.TorrentTo, error) {
+	id, err := storage.ParseUUID(t.TorrentID)
+	if err != nil {
+		return moves.TorrentTo{}, torrentNotFound
+	}
+	node, err := storage.ParseUUID(t.NodeID)
+	if err != nil {
+		return moves.TorrentTo{}, torrentNotFound
+	}
+	to := moves.TorrentTo{Torrent: downloadclients.ID{UUID: id}, To: moves.Side{Node: role.NodeID{UUID: node}}}
+	if t.ClientID != "" {
+		c, err := storage.ParseUUID(t.ClientID)
+		if err != nil {
+			return moves.TorrentTo{}, torrentNotFound
+		}
+		to.To.Client = &downloadclients.ClientID{UUID: c}
+	}
+	return to, nil
+}
+
 func (h handlers) answerPlan(ctx context.Context, m *moves.Moves, p moves.Plan) (*previewOutput, error) {
-	named, err := m.Names(ctx)
+	named, err := m.PlanNames(ctx, p)
 	if err != nil {
 		return nil, err
 	}
@@ -324,6 +385,9 @@ func (h handlers) start(ctx context.Context, by identity.Admin, in *startInput) 
 	out.Body.BatchID, out.Body.Started, out.Body.Dropped = s.Batch.String(), s.Units, make([]dropped, len(s.Dropped))
 	for i, d := range s.Dropped {
 		out.Body.Dropped[i] = dropped{WorkID: d.Work.String(), Name: d.Label, Words: d.Words}
+		if d.Torrent != nil {
+			out.Body.Dropped[i].TorrentID = d.Torrent.String()
+		}
 	}
 	return out, nil
 }
@@ -427,8 +491,8 @@ func Routes(r *api.Router, n Mover) {
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "previewMoves", Method: http.MethodPost, Path: "/moves/preview",
-		Summary: "Preview moving Works to other library roots: a verdict for each, and a token to start it with",
-		Status:  http.StatusOK, Errors: []*api.Code{workNotFound, rootNotFound}, Gzip: true,
+		Summary: "Preview moving Works to other library roots, or torrents to other Download Clients: a verdict for each, and a token to start it with",
+		Status:  http.StatusOK, Errors: []*api.Code{workNotFound, rootNotFound, torrentNotFound, emptyAsk}, Gzip: true,
 	}, h.preview)
 
 	api.Register(o, api.Admin, api.Op{

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jatassi/slipstream/internal/history/entry"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -19,13 +20,23 @@ type MovedFacts struct {
 	Bytes int64      `json:"bytes"`
 }
 
+// TorrentMovedFacts is a torrent moved: its name, Content Type when
+// known, and where it seeded before and seeds now, in words.
+type TorrentMovedFacts struct {
+	Name string       `json:"name"`
+	Type works.TypeID `json:"type,omitempty"`
+	From string       `json:"from"`
+	To   string       `json:"to"`
+}
+
 // FailedFacts is a Move that failed: its subject, the phase it failed in
-// and why.
+// and why. Torrent is a torrent unit's name, its Work zero.
 type FailedFacts struct {
-	Work  entry.Work  `json:"work"`
-	Phase Phase       `json:"phase"`
-	Code  FailureCode `json:"code"`
-	Words string      `json:"words"`
+	Work    entry.Work  `json:"work"`
+	Torrent string      `json:"torrent,omitempty"`
+	Phase   Phase       `json:"phase"`
+	Code    FailureCode `json:"code"`
+	Words   string      `json:"words"`
 }
 
 func (f MovedFacts) About() entry.About {
@@ -33,13 +44,22 @@ func (f MovedFacts) About() entry.About {
 }
 
 func (f FailedFacts) About() entry.About {
+	if f.Torrent != "" {
+		return entry.About{}
+	}
 	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}}
 }
+
+func (f TorrentMovedFacts) About() entry.About { return entry.About{Type: f.Type} }
 
 var (
 	movedRow = entry.Row[MovedFacts]{
 		Spec:   entry.Spec{Kind: "work_moved", Label: "Work moved", Group: entry.Moves, OnByDefault: true},
 		Render: renderMoved,
+	}
+	torrentMovedRow = entry.Row[TorrentMovedFacts]{
+		Spec:   entry.Spec{Kind: "torrent_moved", Label: "Torrent moved", Group: entry.Moves, OnByDefault: true},
+		Render: renderTorrentMoved,
 	}
 	failedRow = entry.Row[FailedFacts]{
 		Spec:   entry.Spec{Kind: "move_failed", Label: "Move failed", Group: entry.Moves, OnByDefault: true, BellByDefault: true},
@@ -48,7 +68,7 @@ var (
 )
 
 // Entries is the kinds moves records.
-func Entries() []entry.Entry { return []entry.Entry{movedRow, failedRow} }
+func Entries() []entry.Entry { return []entry.Entry{movedRow, torrentMovedRow, failedRow} }
 
 func renderMoved(f MovedFacts, _ entry.Context) entry.Message {
 	return entry.Message{
@@ -58,7 +78,16 @@ func renderMoved(f MovedFacts, _ entry.Context) entry.Message {
 	}
 }
 
+func renderTorrentMoved(f TorrentMovedFacts, _ entry.Context) entry.Message {
+	return entry.Message{
+		Title: "Moved " + f.Name + " to " + f.To, Lines: []string{"It seeds from " + f.To + " now, not " + f.From + "."}, Tone: entry.Good,
+	}
+}
+
 func renderFailed(f FailedFacts, _ entry.Context) entry.Message {
+	if f.Torrent != "" {
+		return entry.Message{Title: "Couldn't move " + f.Torrent, Lines: []string{f.Words}, Tone: entry.Fail}
+	}
 	return entry.Message{
 		Title: "Couldn't move " + f.Work.Label, Lines: []string{f.Words},
 		Link: entry.WorkLink(f.Work.ID), Poster: f.Work.Poster, Tone: entry.Fail,
@@ -92,8 +121,38 @@ func (m *Moves) recordMoved(ctx context.Context, tx *storage.Tx[file], u Unit) e
 	return movedRow.Record(ctx, tx, m.cfg.Recorder, f)
 }
 
+// recordTorrentMoved records torrent unit u's torrent_moved in tx, the
+// switch's Write.
+func (m *Moves) recordTorrentMoved(ctx context.Context, tx *storage.Tx[file], u Unit) error {
+	src, err := sourceIn(ctx, tx, u)
+	if err != nil {
+		return err
+	}
+	n, err := sidesIn(ctx, tx, []Unit{u})
+	if err != nil {
+		return err
+	}
+	f := TorrentMovedFacts{Name: src.Name, From: n.words(u.Torrent.From), To: n.words(u.Torrent.To)}
+	if src.ContentType != nil {
+		f.Type = *src.ContentType
+	}
+	return torrentMovedRow.Record(ctx, tx, m.cfg.Recorder, f)
+}
+
 // recordFailed records u's move_failed in tx, the Write that fails it.
 func (m *Moves) recordFailed(ctx context.Context, tx *storage.Tx[file], u Unit, s Failed) error {
+	if u.Torrent != nil {
+		src, err := sourceIn(ctx, tx, u)
+		if err != nil {
+			return err
+		}
+		n, err := sidesIn(ctx, tx, []Unit{u})
+		if err != nil {
+			return err
+		}
+		words := m.torrentFailureWords(s, n.nodes[u.Torrent.From.Node], n.nodes[u.Torrent.To.Node], n.words(u.Torrent.To))
+		return failedRow.Record(ctx, tx, m.cfg.Recorder, FailedFacts{Torrent: src.Name, Phase: s.At, Code: s.Code, Words: words})
+	}
 	w, err := entry.WorkIn(ctx, tx, m.cfg.Works, u.Subject.Work)
 	if err != nil {
 		return err
@@ -121,4 +180,40 @@ func failureWords(c FailureCode) string {
 	case SourceFailed:
 	}
 	return "SlipStream couldn't read its files. Check their Node, then try again."
+}
+
+// A destination's own refusals of a start, as downloading reports them:
+// the ask came too late for its window, or no tracker answered in it.
+const (
+	refusedLate     = "late"
+	refusedNoAnswer = "no_answer"
+)
+
+// torrentFailureWords is a torrent unit's failure sentence: from and to
+// are its Nodes' names, client its destination in words.
+func (m *Moves) torrentFailureWords(s Failed, from, to, client string) string {
+	why := ""
+	if s.Detail != "" {
+		why = ": " + s.Detail
+	}
+	switch s.Code {
+	case SourceGone:
+		return "It was removed from " + from + " before it moved."
+	case DestinationGone:
+		return "Its copy in " + client + " was removed before it moved. Try again."
+	case DestinationCheckFailed:
+		return client + " found the copy damaged" + why + ". Try again."
+	case SwitchRefused:
+		switch s.Detail {
+		case refusedLate:
+			return to + " was asked to start too late to answer in time. It seeds from " + from + " again."
+		case refusedNoAnswer:
+			return "No tracker answered the torrent's start on " + to + " in time. It seeds from " + from + " again."
+		}
+		return "A tracker refused the torrent on " + to + why + ". It seeds from " + from + " again."
+	case DestinationUnreachable:
+		return to + " didn't start the torrent within " + setting.Words(m.cfg.Timings.HandoffBound) + ". It seeds from " + from + " again."
+	case Damaged, SourceFailed, SourceWrittenOff:
+	}
+	return failureWords(s.Code)
 }

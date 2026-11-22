@@ -3347,6 +3347,7 @@ export * from "./movesReasonCheck.ts";
 export * from "./movesReasonColor.ts";
 export * from "./movesStartAsk.ts";
 export * from "./movesStartedMoves.ts";
+export * from "./movesTorrentTo.ts";
 export * from "./movesWorkTo.ts";
 export * from "./movingOutputBody.ts";
 export * from "./namingChanged.ts";

@@ -2,10 +2,12 @@ package moves
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/moves/internal/db"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -20,13 +22,17 @@ type Place struct {
 	End
 	NodeName string
 	Root     string
+	// Client is a torrent unit's Download Client in words, Root "".
+	Client string
 }
 
 // Named is what a reader shows beside a unit's ids, read in one Reader.
 type Named struct {
-	works map[works.WorkID]works.Summary
-	nodes map[role.NodeID]string
-	roots map[roots.ID]string
+	works    map[works.WorkID]works.Summary
+	nodes    map[role.NodeID]string
+	roots    map[roots.ID]string
+	torrents map[downloadclients.ID]downloadclients.MoveSource
+	sides    sides
 }
 
 func (m *Moves) namesOf(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (Named, error) {
@@ -43,6 +49,53 @@ func (m *Moves) namesOf(ctx context.Context, r storage.Reader[file], ws []works.
 }
 
 // Place is e with its Node and root named.
+// sides is each Node's and external client's name, for torrent units'
+// Download Clients.
+type sides struct {
+	nodes   map[role.NodeID]string
+	clients map[downloadclients.ClientID]string
+}
+
+// sidesIn reads the names of us' Download Clients in r. A deleted
+// client has none.
+func sidesIn(ctx context.Context, r storage.Reader[file], us []Unit) (sides, error) {
+	n := sides{clients: map[downloadclients.ClientID]string{}}
+	var err error
+	if n.nodes, err = nodeNamesIn(ctx, r); err != nil {
+		return n, err
+	}
+	for _, u := range us {
+		if u.Torrent == nil {
+			continue
+		}
+		for _, c := range []*downloadclients.ClientID{u.Torrent.From.Client, u.Torrent.To.Client} {
+			if c == nil {
+				continue
+			}
+			if _, ok := n.clients[*c]; ok {
+				continue
+			}
+			e, err := downloadclients.ExternalOf(ctx, r, *c)
+			if err != nil && !errors.Is(err, downloadclients.ErrNoClient) {
+				return n, err
+			}
+			n.clients[*c] = e.Name
+		}
+	}
+	return n, nil
+}
+
+// client is s's client in words: its name, or the built-in client.
+func (n sides) client(s Side) string {
+	if s.Client == nil {
+		return "the built-in client"
+	}
+	return n.clients[*s.Client]
+}
+
+// words is s in words, such as "qBittorrent on den".
+func (n sides) words(s Side) string { return n.client(s) + " on " + n.nodes[s.Node] }
+
 func (n Named) Place(e End) Place {
 	return Place{End: e, NodeName: n.nodes[e.Node], Root: n.roots[e.Root]}
 }
@@ -153,6 +206,29 @@ func (m *Moves) Names(ctx context.Context) (Named, error) {
 	})
 	return n, err
 }
+
+// PlanNames is Names with the Download Clients of p's torrent units.
+func (m *Moves) PlanNames(ctx context.Context, p Plan) (Named, error) {
+	var us []Unit
+	for _, u := range p.Units {
+		if u.Torrent != nil {
+			us = append(us, Unit{Torrent: u.Torrent})
+		}
+	}
+	var n Named
+	err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		if n, err = m.namesOf(ctx, r, nil); err != nil {
+			return err
+		}
+		n.sides, err = sidesIn(ctx, r, us)
+		return err
+	})
+	return n, err
+}
+
+// ClientWords is s's Download Client in words, read by PlanNames.
+func (n Named) ClientWords(s Side) string { return n.sides.client(s) }
 
 // NotesWords is what v's unit recorded for the Admin, as sentences: the
 // preview's amber reasons, and the source files cleanup left in place.

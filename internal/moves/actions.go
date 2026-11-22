@@ -8,14 +8,14 @@ import (
 )
 
 // act changes unit id in one Write with fn, then has the runner pass.
-func (m *Moves) act(ctx context.Context, id UnitID, fn func(u *Unit) error) error {
+func (m *Moves) act(ctx context.Context, id UnitID, fn func(ctx context.Context, tx *storage.Tx[file], u *Unit) error) error {
 	var u Unit
 	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error
 		if u, err = load(ctx, tx, id); err != nil {
 			return err
 		}
-		if err := fn(&u); err != nil {
+		if err := fn(ctx, tx, &u); err != nil {
 			return err
 		}
 		return save(ctx, tx, u)
@@ -23,6 +23,7 @@ func (m *Moves) act(ctx context.Context, id UnitID, fn func(u *Unit) error) erro
 	if err != nil {
 		return err
 	}
+	m.touchTorrents(u)
 	m.cfg.Changed.Publish(ctx, changedOf(u))
 	m.Poke()
 	return nil
@@ -32,14 +33,11 @@ func (m *Moves) act(ctx context.Context, id UnitID, fn func(u *Unit) error) erro
 // A unit past its switch is ErrUnitSwitched, one already ended nothing.
 func (m *Moves) Cancel(ctx context.Context, id UnitID) error {
 	now := m.now()
-	return m.act(ctx, id, func(u *Unit) error {
-		switch {
-		case u.beforeSwitch():
-			u.Stage, u.Due = Canceled{At: u.Stage.Phase()}, &now
-		case u.Stage.Phase() == PhaseCleanup || u.Stage.Phase() == PhaseDone:
+	return m.act(ctx, id, func(ctx context.Context, tx *storage.Tx[file], u *Unit) error {
+		if p := u.Stage.Phase(); p == PhaseCleanup || p == PhaseDone {
 			return ErrUnitSwitched
 		}
-		return nil
+		return m.cancelIn(ctx, tx, u, now)
 	})
 }
 
@@ -66,7 +64,9 @@ func (m *Moves) CancelBatch(ctx context.Context, batch BatchID) (canceled, switc
 			return err
 		}
 		for i := range us {
-			us[i].Stage, us[i].Due = Canceled{At: us[i].Stage.Phase()}, &now
+			if err := m.cancelIn(ctx, tx, &us[i], now); err != nil {
+				return err
+			}
 			if err := save(ctx, tx, us[i]); err != nil {
 				return err
 			}
@@ -76,6 +76,7 @@ func (m *Moves) CancelBatch(ctx context.Context, batch BatchID) (canceled, switc
 	if err != nil || len(us) == 0 {
 		return 0, switched, err
 	}
+	m.touchTorrents(us...)
 	m.cfg.Changed.Publish(ctx, changedOf(us...))
 	m.Poke()
 	return len(us), switched, nil
@@ -93,13 +94,12 @@ func switchedIn(counts []db.CountBatchPhasesRow) int {
 
 // Retry queues a failed unit again once its undo finished.
 func (m *Moves) Retry(ctx context.Context, id UnitID) error {
-	return m.act(ctx, id, func(u *Unit) error {
+	return m.act(ctx, id, func(ctx context.Context, tx *storage.Tx[file], u *Unit) error {
 		s, ok := u.Stage.(Failed)
 		if !ok || s.Undone == nil {
 			return ErrUnitNotFailed
 		}
-		u.Stage, u.Due = Queued{Wait: WaitPairBusy, Since: m.now()}, nil
-		return nil
+		return m.retryIn(ctx, tx, u, s)
 	})
 }
 
@@ -107,7 +107,7 @@ func (m *Moves) Retry(ctx context.Context, id UnitID) error {
 // anyway. Any other unit is ErrSwitchNotWaiting.
 func (m *Moves) SwitchNow(ctx context.Context, id UnitID) error {
 	now := m.now()
-	return m.act(ctx, id, func(u *Unit) error {
+	return m.act(ctx, id, func(_ context.Context, _ *storage.Tx[file], u *Unit) error {
 		s, ok := u.Stage.(Switching)
 		if !ok || s.Wait != WaitPlaying && s.Wait != WaitMediaServers {
 			return ErrSwitchNotWaiting

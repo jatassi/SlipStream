@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -21,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -102,9 +104,18 @@ type Config struct {
 	Changed      Publisher[Changed]
 	FilesChanged Publisher[files.Changed]
 	// Touch has the Nodes' Storage intents derived again.
-	Touch    func(nodes ...role.NodeID)
-	Recorder entry.Recorder
-	Timings  Timings
+	Touch func(nodes ...role.NodeID)
+	// Clients holds the Torrents a torrent unit moves.
+	Clients *downloadclients.Clients
+	// Downloading is a Node's downloading service, which places a
+	// torrent's payload in its destination client's folder.
+	Downloading func(node role.NodeID) downloadingv1connect.DownloadingServiceHandler
+	// Repoint and CopyGoalRun are a torrent switch's Grabs and seeding
+	// goal: grabs.RepointTorrentIn and trackers.CopyGoalRunIn.
+	Repoint     func(ctx context.Context, tx *storage.Tx[file], from, to downloadclients.ID, node role.NodeID) error
+	CopyGoalRun func(ctx context.Context, tx *storage.Tx[file], from, to downloadclients.ID) error
+	Recorder    entry.Recorder
+	Timings     Timings
 	// BeforeStep sees each IO step before it runs, in tests.
 	BeforeStep func(ctx context.Context, s Step)
 	Clock      func() time.Time

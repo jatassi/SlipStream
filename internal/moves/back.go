@@ -98,9 +98,15 @@ func (m *Moves) recommend(p *Plan, nodeNames map[role.NodeID]string) {
 	var types []works.TypeID
 	var to []role.NodeID
 	var red []string
+	torrents := 0
 	for _, u := range p.Units {
-		types = appendOnce(types, u.Subject.Type)
-		to = appendOnce(to, u.Subject.To.Node)
+		if u.Torrent != nil {
+			torrents++
+			to = appendOnce(to, u.Torrent.To.Node)
+		} else {
+			types = appendOnce(types, u.Subject.Type)
+			to = appendOnce(to, u.Subject.To.Node)
+		}
 		if u.Verdict.Color == Red {
 			red = append(red, u.Label)
 		}
@@ -110,6 +116,9 @@ func (m *Moves) recommend(p *Plan, nodeNames map[role.NodeID]string) {
 		where = " to " + nodeNames[to[0]]
 	}
 	noun := m.noun(types, total)
+	if torrents == total {
+		noun = plural(total, "torrent", "torrents")
+	}
 	switch {
 	case total == 0:
 		p.Recommendation, p.Button = "Nothing here has files to move.", "Move"

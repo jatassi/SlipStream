@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/moves/internal/db"
 	"github.com/jatassi/slipstream/internal/role"
@@ -134,6 +135,40 @@ type WorkSubject struct {
 
 func (WorkSubject) subject() {}
 
+// Side is a torrent's Node and Download Client, nil for the built-in one.
+type Side struct {
+	Node   role.NodeID
+	Client *downloadclients.ClientID
+}
+
+// TorrentSubject is a seeding torrent moving to another Download Client.
+// Folder is an external destination's folder once placed, Arriving its
+// destination Torrent once inserted.
+type TorrentSubject struct {
+	Torrent  downloadclients.ID
+	From, To Side
+	Folder   string
+	Arriving *downloadclients.ID
+}
+
+func (TorrentSubject) subject() {}
+
+// Handoff is a torrent unit's step at its switch: it waits out the guard,
+// stops the source, then starts the destination.
+type Handoff string
+
+const (
+	HandoffGuard    Handoff = "guard"
+	HandoffStopping Handoff = "stopping"
+	HandoffStarting Handoff = "starting"
+)
+
+// HandoffAt is a handoff's step and when it began.
+type HandoffAt struct {
+	Step Handoff
+	At   time.Time
+}
+
 // Stage is a unit's phase with exactly the facts that phase has. rows.go
 // parses it from the row; nothing else builds one from columns.
 type Stage interface{ Phase() Phase }
@@ -166,11 +201,12 @@ type Placing struct {
 }
 
 // Switching is a placed unit waiting for its switch. SwitchNow passes the
-// playing and media_servers waits.
+// playing and media_servers waits. Handoff is a torrent unit's.
 type Switching struct {
 	Wait      Wait
 	Since     time.Time
 	SwitchNow *time.Time
+	Handoff   *HandoffAt
 }
 
 // Cleaning is a switched unit removing its source files.
@@ -189,7 +225,10 @@ type Failed struct {
 	// At is the phase it failed in.
 	At     Phase
 	Detail string
-	Undone *time.Time
+	// KeepsCopy is a torrent that failed at its start: its arriving
+	// Torrent stays, paused, for a Retry.
+	KeepsCopy bool
+	Undone    *time.Time
 }
 
 // Canceled is a unit the Admin, or a delete of its Work, canceled before
@@ -222,8 +261,11 @@ type Unit struct {
 	Seq      int64
 	Position int
 	Lane     Lane
-	Subject  WorkSubject
-	Stage    Stage
+	// Subject is a Work unit's, zero for a torrent unit, whose Torrent is
+	// set.
+	Subject WorkSubject
+	Torrent *TorrentSubject
+	Stage   Stage
 	// Due is when the runner looks again with no event; nil: only an
 	// event or a hook.
 	Due       *time.Time
@@ -232,6 +274,14 @@ type Unit struct {
 	Reconcile bool
 	// Files are loaded only where a step needs them.
 	Files []File
+}
+
+// nodes is u's source and destination Nodes.
+func (u Unit) nodes() (from, to role.NodeID) {
+	if u.Torrent != nil {
+		return u.Torrent.From.Node, u.Torrent.To.Node
+	}
+	return u.Subject.From.Node, u.Subject.To.Node
 }
 
 // open is whether u is before its switch or cleaning, or has an undo to
@@ -277,6 +327,9 @@ const (
 	KindLibrary   FileKind = "library"
 	KindCompanion FileKind = "companion"
 	KindSidecar   FileKind = "sidecar"
+	// KindPayload is a torrent's payload file: Sits is its path in the
+	// torrent, Index its index.
+	KindPayload FileKind = "payload"
 )
 
 type Cleanup string
@@ -301,7 +354,9 @@ type File struct {
 	// Placed is the destination's, once placed.
 	Placed *storing.Seen
 	// Ledger is a sidecar its source root's ledger marked SlipStream's.
-	Ledger  bool
+	Ledger bool
+	// Index is a payload file's index in its torrent.
+	Index   int
 	Cleanup Cleanup
 	// Copy is the bytes of a same-Node copy grant held, 0 for none.
 	Copy int64

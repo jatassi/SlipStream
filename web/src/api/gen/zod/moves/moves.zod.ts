@@ -43,7 +43,7 @@ export const StartMovesBody = MovesStartAsk;
 export const StartMovesResponse = MovesStartedMoves;
 
 /**
- * @summary Preview moving Works to other library roots: a verdict for each, and a token to start it with
+ * @summary Preview moving Works to other library roots, or torrents to other Download Clients: a verdict for each, and a token to start it with
  */
 export const PreviewMovesBody = MovesMoveAsk;
 

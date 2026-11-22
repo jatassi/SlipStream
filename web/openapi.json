@@ -16600,11 +16600,16 @@
           "name": {
             "type": "string"
           },
+          "torrentId": {
+            "format": "uuid",
+            "type": "string"
+          },
           "words": {
             "description": "Why it stays",
             "type": "string"
           },
           "workId": {
+            "description": "A Work unit's; the zero id for a torrent",
             "format": "uuid",
             "type": "string"
           }
@@ -16646,19 +16651,30 @@
         "additionalProperties": false,
         "properties": {
           "origin": {
-            "description": "Where the Admin starts it: a Work's page, or the Library's bulk bar",
+            "description": "Where the Admin starts it: a Work's page, the Library's bulk bar, or the Torrent table",
             "enum": [
               "work",
-              "bulk"
+              "bulk",
+              "torrent"
             ],
             "type": "string"
           },
+          "torrents": {
+            "items": {
+              "$ref": "#/components/schemas/MovesTorrentTo"
+            },
+            "maxItems": 10000,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "works": {
+            "description": "At least one Work or torrent",
             "items": {
               "$ref": "#/components/schemas/MovesWorkTo"
             },
             "maxItems": 10000,
-            "minItems": 1,
             "type": "array"
           }
         },
@@ -16788,7 +16804,8 @@
           },
           "kind": {
             "enum": [
-              "work"
+              "work",
+              "torrent"
             ],
             "type": "string"
           },
@@ -16821,6 +16838,11 @@
           },
           "to": {
             "$ref": "#/components/schemas/MovesPlace"
+          },
+          "torrentId": {
+            "description": "A torrent unit's",
+            "format": "uuid",
+            "type": "string"
           },
           "undone": {
             "description": "A failed or canceled Move removed what it placed",
@@ -16855,6 +16877,7 @@
             "type": "string"
           },
           "workId": {
+            "description": "A Work unit's; the zero id for a torrent",
             "format": "uuid",
             "type": "string"
           }
@@ -16881,6 +16904,10 @@
       "MovesPlace": {
         "additionalProperties": false,
         "properties": {
+          "client": {
+            "description": "A torrent's Download Client, such as qBittorrent or the built-in client",
+            "type": "string"
+          },
           "nodeId": {
             "format": "uuid",
             "type": "string"
@@ -16889,7 +16916,7 @@
             "type": "string"
           },
           "root": {
-            "description": "The library root in words, such as Movies library root on den",
+            "description": "The library root in words, such as Movies library root on den; empty for a torrent",
             "type": "string"
           },
           "rootId": {
@@ -16918,12 +16945,13 @@
             "$ref": "#/components/schemas/MovesPlace"
           },
           "key": {
-            "description": "Stable per unit inside the preview, such as work:\u003cid\u003e",
+            "description": "Stable per unit inside the preview, such as work:\u003cid\u003e or torrent:\u003cid\u003e",
             "type": "string"
           },
           "kind": {
             "enum": [
-              "work"
+              "work",
+              "torrent"
             ],
             "type": "string"
           },
@@ -16940,6 +16968,11 @@
           "to": {
             "$ref": "#/components/schemas/MovesPlace"
           },
+          "torrentId": {
+            "description": "A torrent unit's",
+            "format": "uuid",
+            "type": "string"
+          },
           "verdict": {
             "description": "green moves, amber moves with a note, red stays",
             "enum": [
@@ -16950,6 +16983,7 @@
             "type": "string"
           },
           "workId": {
+            "description": "A Work unit's; the zero id for a torrent",
             "format": "uuid",
             "type": "string"
           }
@@ -16979,7 +17013,8 @@
               "media_servers",
               "waits",
               "moving",
-              "probe"
+              "probe",
+              "torrent"
             ],
             "type": "string"
           },
@@ -17044,6 +17079,30 @@
           "batchId",
           "started",
           "dropped"
+        ],
+        "type": "object"
+      },
+      "MovesTorrentTo": {
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "description": "The external Download Client it moves to; absent for the Node's built-in client",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The Node of the Download Client it moves to",
+            "format": "uuid",
+            "type": "string"
+          },
+          "torrentId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "torrentId",
+          "nodeId"
         ],
         "type": "object"
       },
@@ -65271,6 +65330,7 @@
                         "code": {
                           "enum": [
                             "root_not_found",
+                            "torrent_not_found",
                             "work_not_found"
                           ],
                           "type": "string"
@@ -65322,7 +65382,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "invalid"
+                            "invalid",
+                            "move_ask_empty"
                           ],
                           "type": "string"
                         }
@@ -65371,7 +65432,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Preview moving Works to other library roots: a verdict for each, and a token to start it with",
+        "summary": "Preview moving Works to other library roots, or torrents to other Download Clients: a verdict for each, and a token to start it with",
         "tags": [
           "moves"
         ],

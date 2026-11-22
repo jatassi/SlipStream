@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/live"
@@ -34,6 +35,9 @@ const (
 	// inTransfer wakes every unit that copies now, whatever its wait, so
 	// its view follows its Transfer's.
 	inTransfer
+	// byTorrent wakes the torrent units whose source or destination
+	// Torrent the event names.
+	byTorrent
 )
 
 // waitRule is which events mark a unit with a wait due, and how a wake is
@@ -48,9 +52,7 @@ type waitRule struct {
 	every bool
 }
 
-// waits is the registry: every stored Wait and what ends it. A wait the
-// Work half of S48 (Moves) never stores still has a rule, which the
-// torrent half's events meet.
+// waits is the registry: every stored Wait and what ends it.
 var waits = map[Wait]waitRule{
 	WaitPairBusy:      {laneFreed: true},
 	WaitNodeOffline:   {on: []live.Event{nodes.ChangedEvent}, scope: byNode, laneFreed: true},
@@ -58,22 +60,23 @@ var waits = map[Wait]waitRule{
 	WaitNoRoute:       {on: []live.Event{transfers.ChangedEvent}, scope: inTransfer},
 	WaitSpace:         {on: []live.Event{roots.VolumesChangedEvent, transfers.ChangedEvent}},
 	WaitRenames:       {on: []live.Event{files.MovedEvent}, scope: byWork},
-	WaitDownloading:   {every: true},
+	WaitDownloading:   {on: []live.Event{downloadclients.ChangedEvent}, scope: byTorrent, every: true},
 	WaitImporting:     {on: []live.Event{imports.ChangedEvent}},
 	WaitOpenFiles:     {on: []live.Event{transfers.ChangedEvent, imports.ChangedEvent, subtitles.ChangedEvent}},
 	WaitPlaying:       {on: []live.Event{mediaservers.SessionsChangedEvent}, scope: byServerRoots, every: true},
 	WaitMediaServers:  {on: []live.Event{mediaservers.ChangedEvent}, scope: byServerRoots, every: true},
-	WaitGuard:         {every: true},
+	WaitGuard:         {on: []live.Event{downloadclients.ChangedEvent}, scope: byTorrent, every: true},
 	WaitLinkedTorrent: {every: true},
 }
 
 // scope is what fired events named for one wait: every unit when all,
 // else the ids.
 type scope struct {
-	all     bool
-	works   []works.WorkID
-	nodes   []role.NodeID
-	servers []link.ServerID
+	all      bool
+	works    []works.WorkID
+	nodes    []role.NodeID
+	servers  []link.ServerID
+	torrents []storage.UUID
 }
 
 func (s *scope) add(o scope) {
@@ -81,6 +84,7 @@ func (s *scope) add(o scope) {
 	s.works = append(s.works, o.works...)
 	s.nodes = append(s.nodes, o.nodes...)
 	s.servers = append(s.servers, o.servers...)
+	s.torrents = append(s.torrents, o.torrents...)
 }
 
 // Wake follows every event the registry names, and reconciling.changed,
@@ -159,6 +163,16 @@ func (r waitRule) named(msg live.Message) (bool, scope) {
 		case mediaservers.SessionsChanged:
 			return true, scope{servers: parsed[link.ServerID](c.ServerIDs)}
 		}
+	case byTorrent:
+		if c, ok := msg.Data.(downloadclients.Changed); ok {
+			var ids []storage.UUID
+			for _, s := range c.IDs {
+				if id, err := storage.ParseUUID(s); err == nil {
+					ids = append(ids, id)
+				}
+			}
+			return true, scope{torrents: ids}
+		}
 	case everyUnit, inTransfer:
 	}
 	return true, scope{all: true}
@@ -205,6 +219,8 @@ func applyWakes(ctx context.Context, tx *storage.Tx[file], fired map[Wait]*scope
 			err = q.Wake(ctx, db.WakeParams{Now: now, Waiting: &waiting})
 		case r.scope == byWork:
 			err = q.WakeWorks(ctx, db.WakeWorksParams{Now: now, Waiting: &waiting, Works: s.works})
+		case r.scope == byTorrent:
+			err = q.WakeTorrents(ctx, db.WakeTorrentsParams{Now: now, Waiting: &waiting, Sources: s.torrents, Dests: s.torrents})
 		case r.scope == byNode:
 			err = q.WakeNodes(ctx, db.WakeNodesParams{Now: now, Waiting: &waiting, Nodes: s.nodes})
 		case r.scope == byServerRoots:
