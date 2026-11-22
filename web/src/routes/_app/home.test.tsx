@@ -116,7 +116,7 @@ test("Rows on Home saves from Home's menu and Home reads its lists again", async
   const before = requests("GET /api/v1/home");
   await userEvent.click(page.getByRole("button", { name: "Home options" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Rows on Home…" }));
-  const dialog = page.getByRole("dialog", { name: "Home" });
+  const dialog = page.getByRole("dialog", { name: "Rows on Home" });
   await expect
     .element(dialog.getByText("How many entries Needs you, Jobs and Recent each show."))
     .toBeVisible();
