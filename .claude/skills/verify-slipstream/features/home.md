@@ -29,7 +29,7 @@ Steps:
   $FW exec $RUN --proof home/home-summary -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/home?since=$(date -u +%Y-%m-%dT00:00:00Z)"
   ```
 
-- **Count Torrents.** home's row counts the Grab's torrent as downloading, then seeding.
+- **Count Torrents.** The one row is seedbox's, the Node that holds Downloading, and counts the Grab's torrent as downloading, then seeding.
 
   ```sh
   $FW exec $RUN --proof home/home-counts -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents/counts'
@@ -46,3 +46,4 @@ Steps:
 
 - `since` is required and is the browser's midnight; a later instant makes `today` read 0.
 - Torrent rows on Home carry `inLine` 0, because a read of a few Torrents can't place them in the queue.
+- With one Grab every list holds one row, so saving 3 changes nothing a read can see. The cut shows only once a list has more than 3 rows.
