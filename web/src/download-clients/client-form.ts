@@ -159,7 +159,12 @@ const whole = new Set([
   "download_client_unavailable",
   "download_client_in_use",
   "download_client_has_torrents",
+  "download_client_moving",
 ]);
+
+const Missing = z.object({
+  missing: z.object({ count: z.number(), first: z.array(z.object({ name: z.string() })) }),
+});
 
 /** A refused save or Test, other than a failed Test, as the form shows it. */
 export function refusalOf(error: unknown): SubmitErrors {
@@ -174,6 +179,14 @@ export function refusalOf(error: unknown): SubmitErrors {
   }
   if (isProblem(error, "node_not_downloading")) {
     return { fields: { nodeId: error.title } };
+  }
+  if (isProblem(error, "download_client_files_missing")) {
+    const { count, first } = Missing.parse(error.body).missing;
+    const more = count > first.length ? ` and ${count - first.length} more` : "";
+    return {
+      form: `${sentenceOf(error)} Not found: ${first.map(({ name }) => name).join(", ")}${more}.`,
+      fields: {},
+    };
   }
   if (isApiError(error) && whole.has(error.code)) {
     return { form: sentenceOf(error), fields: {} };

@@ -30,7 +30,7 @@ import {
 /** What the sheet opened on: a new client for a Node, or a saved client. */
 export type Opened =
   | { readonly kind: "add"; readonly nodeId: string }
-  | { readonly kind: "edit"; readonly client: External };
+  | { readonly kind: "edit"; readonly client: External; readonly changingNode?: boolean };
 
 /** Saves the draft, answering the client as saved, or null when an edit changed nothing. */
 async function save(saved: External | undefined, value: ClientValues, kind: Kind) {
