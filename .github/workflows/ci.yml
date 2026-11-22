@@ -551,15 +551,16 @@ jobs:
         with:
           cache: go-plan
       - name: Run the online conformance suites
-        run: go run ./cmd/release test -tier online ${{ inputs.update-shapes && '-update' || '' }}
+        run: go run ./cmd/release test -tier online
         env:
+          TEST_ONLINE_UPDATE: ${{ inputs.update-shapes && '1' || '' }}
           TEST_ONLINE_TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
           TEST_ONLINE_TVDB_KEY: ${{ secrets.TVDB_API_KEY }}
           TEST_ONLINE_OMDB_KEY: ${{ secrets.OMDB_API_KEY }}
           TEST_ONLINE_SUBDL_KEY: ${{ secrets.SUBDL_API_KEY }}
           TEST_ONLINE_SUBSOURCE_KEY: ${{ secrets.SUBSOURCE_API_KEY }}
       - name: Upload the updated shape.json files
-        if: inputs.update-shapes
+        if: ${{ !cancelled() && inputs.update-shapes }}
         uses: actions/upload-artifact@v7
         with:
           name: shapes
