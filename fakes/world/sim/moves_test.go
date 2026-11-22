@@ -1,10 +1,12 @@
 package sim_test
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/synctest"
 
@@ -145,4 +147,71 @@ func TestACanceledMoveLeavesNothingAtTheDestination(t *testing.T) {
 			t.Errorf("a canceled Move lost its source file: %v", err)
 		}
 	})
+}
+
+// TestACrossNodeMoveCarriesItsCompanions moves a Work with a subtitle
+// beside it from den's movies-e to seedbox's movies-d: both files arrive
+// whole through a Transfer, the Work's row names movies-d, and den keeps
+// neither.
+func TestACrossNodeMoveCarriesItsCompanions(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w, work, byFolder := movingWorld(t)
+		m := w.Node("home").Half().Moves
+		was := withSubtitle(t, byFolder["movies-e"].Path)
+		to := rootID(t, byFolder["movies-d"])
+		plan, err := m.Preview(t.Context(), moves.Ask{Origin: moves.OriginWork, Works: []moves.WorkTo{{Work: work, To: to}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(plan.Units) != 1 || plan.Units[0].Verdict.Color == moves.Red || len(plan.Units[0].Files) != 2 {
+			t.Fatalf("the preview is %+v, want one unit that moves the film and its subtitle", plan.Units)
+		}
+		started, err := m.Start(t.Context(), identity.Admin{}, plan.Token, plan.Movable())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if unit := ended(t, m, started.Batch); unit.Phase != moves.PhaseDone {
+			t.Fatalf("the unit ended %s %+v, want done", unit.Phase, unit.Failure)
+		}
+		var at roots.ID
+		err = w.Node("home").Half().Library.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+			return r.QueryRowContext(ctx, `SELECT root_id FROM files_file WHERE work_id = ?`, work).Scan(&at)
+		})
+		if err != nil || at != to {
+			t.Fatalf("the Work's file is in root %s (%v), want movies-d %s", at, err, to)
+		}
+		assertMoved(t, was, byFolder["movies-e"].Path, byFolder["movies-d"].Path)
+	})
+}
+
+// withSubtitle writes a subtitle beside The Quiet Orchard in root, and
+// answers both files' bytes by Rel.
+func withSubtitle(t *testing.T, root string) map[string][]byte {
+	t.Helper()
+	srt := strings.TrimSuffix(orchard, ".mkv") + ".en.srt"
+	subtitle := []byte("1\n00:00:01,000 --> 00:00:02,000\nHello\n")
+	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(srt)), subtitle, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	film, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(orchard)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return map[string][]byte{orchard: film, srt: subtitle}
+}
+
+// assertMoved asserts each of was is in root to with its bytes and gone
+// from root from.
+func assertMoved(t *testing.T, was map[string][]byte, from, to string) {
+	t.Helper()
+	for rel, want := range was {
+		got, err := os.ReadFile(filepath.Join(to, filepath.FromSlash(rel)))
+		if err != nil || !bytes.Equal(got, want) {
+			t.Errorf("the destination holds %s as %d bytes (%v), want the source's %d", rel, len(got), err, len(want))
+		}
+		if _, err := os.Stat(filepath.Join(from, filepath.FromSlash(rel))); !os.IsNotExist(err) {
+			t.Errorf("the source still holds %s: %v", rel, err)
+		}
+	}
 }

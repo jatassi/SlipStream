@@ -288,9 +288,6 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:          n.rootLog.With("subsystem", "transfers"),
 	})
 	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
-	for _, p := range n.env.Test.Purposes {
-		copies.Register(p)
-	}
 	servers := mediaservers.New(mediaservers.Config{
 		Library: lib.db,
 		Sealer:  lib.sealer,
@@ -734,6 +731,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Recorder: n.history.Recorder("moves", moves.Entries()), Timings: n.cfg.Timings.Moves, BeforeStep: n.env.Test.BeforeMoveStep,
 		Clock: time.Now, Log: n.rootLog.With("subsystem", "moves"),
 	})
+	copies.Register(mover.Purpose())
 	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue, Moves: mover.Hooks().Library,
 		History: n.history.Recorder("library", library.Entries()), Subtitles: subtitler,
 	})

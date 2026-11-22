@@ -96,28 +96,31 @@ func (m *Moves) pass(ctx context.Context) (time.Duration, error) {
 			return 0, err
 		}
 	}
-	var judged []work
+	var units []Unit
+	var facts []Facts
+	var set Settings
 	err = m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		units, heads, err := m.dueUnits(ctx, r, now)
-		if err != nil {
+		var heads map[UnitID]bool
+		var err error
+		if units, heads, err = m.dueUnits(ctx, r, now); err != nil {
 			return err
 		}
-		facts, err := m.factsOf(ctx, r, units, heads)
-		if err != nil {
+		if facts, err = m.factsOf(ctx, r, units, heads); err != nil {
 			return err
 		}
-		set, err := settingsIn(ctx, r)
-		if err != nil {
-			return err
-		}
-		rules := Rules{PlexBound: set.PlexBound, PlayingEvery: m.cfg.Timings.PlayingEvery}
-		for i, u := range units {
-			judged = append(judged, work{u: u, facts: facts[i], action: next(u, facts[i], now, rules)})
-		}
-		return nil
+		set, err = settingsIn(ctx, r)
+		return err
 	})
 	if err != nil {
 		return 0, err
+	}
+	if err := m.copyFacts(ctx, units, facts); err != nil {
+		return 0, err
+	}
+	rules := Rules{PlexBound: set.PlexBound, PlayingEvery: m.cfg.Timings.PlayingEvery}
+	judged := make([]work, len(units))
+	for i, u := range units {
+		judged[i] = work{u: u, facts: facts[i], action: next(u, facts[i], now, rules)}
 	}
 	steps, err := m.apply(ctx, judged, now)
 	if err != nil {
@@ -290,6 +293,30 @@ func (m *Moves) switchFacts(ctx context.Context, r storage.Reader[file], units [
 		}
 		if f.Snapshotted, err = m.cfg.MediaServers.Snapshotted(ctx, r, libraryFiles(u), u.Subject.From.Root); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// copyFacts reads, into facts, the Transfer's view of each unit of units
+// that copies now.
+func (m *Moves) copyFacts(ctx context.Context, units []Unit, facts []Facts) error {
+	var jobs []string
+	for _, u := range units {
+		if _, ok := u.Stage.(Copying); ok {
+			jobs = append(jobs, u.ID.String())
+		}
+	}
+	if len(jobs) == 0 {
+		return nil
+	}
+	views, err := m.cfg.Transfers.ViewsOf(ctx, transfers.Move, jobs)
+	if err != nil {
+		return err
+	}
+	for i, u := range units {
+		if v, ok := views[u.ID.String()]; ok {
+			facts[i].Transfer = &v
 		}
 	}
 	return nil

@@ -25,11 +25,11 @@ type Check string
 
 const (
 	CheckSpace        Check = "space"
+	CheckNames        Check = "names"
 	CheckFolder       Check = "folder"
 	CheckDestination  Check = "destination"
 	CheckMediaServers Check = "media_servers"
 	CheckWaits        Check = "waits"
-	CheckRoute        Check = "route"
 	CheckMoving       Check = "moving"
 	CheckProbe        Check = "probe"
 )
@@ -61,6 +61,9 @@ type planFacts struct {
 	occupied int
 	covers   []mediaservers.Cover
 	playing  bool
+	// budget is the destination root's path budget, and longest the
+	// longest Rel of the unit's files, or of a queued rename's target.
+	budget, longest int
 	// room is the bytes left on the destination volume before this unit,
 	// nil when no copy goes there or its volume is unknown.
 	room *int64
@@ -75,9 +78,9 @@ type check struct {
 // reason; the unit's color is the worst of all.
 var checks = []check{
 	{CheckDestination, destinationCheck},
-	{CheckRoute, routeCheck},
 	{CheckMoving, movingCheck},
 	{CheckProbe, probeCheck},
+	{CheckNames, namesCheck},
 	{CheckFolder, folderCheck},
 	{CheckSpace, spaceCheck},
 	{CheckMediaServers, coverageCheck},
@@ -112,15 +115,6 @@ func destinationCheck(u PlanUnit, f planFacts) (Reason, bool) {
 	return Reason{}, false
 }
 
-// routeCheck refuses a unit between two Nodes: S48 (Moves) builds the
-// Transfer between Nodes in a later change.
-func routeCheck(u PlanUnit, _ planFacts) (Reason, bool) {
-	if u.Lane.sameNode() {
-		return Reason{}, false
-	}
-	return Reason{Color: Red, Code: "other_node", Words: "SlipStream can't move files to a root on another Node yet."}, true
-}
-
 func movingCheck(_ PlanUnit, f planFacts) (Reason, bool) {
 	if !f.moving {
 		return Reason{}, false
@@ -138,6 +132,15 @@ func probeCheck(u PlanUnit, f planFacts) (Reason, bool) {
 		return Reason{Color: Red, Code: "no_files", Words: "It has no files to move."}, true
 	}
 	return Reason{}, false
+}
+
+// namesCheck refuses a unit whose paths don't fit the destination root's
+// Node, which opens no path longer than its budget.
+func namesCheck(_ PlanUnit, f planFacts) (Reason, bool) {
+	if f.longest <= f.budget {
+		return Reason{}, false
+	}
+	return Reason{Color: Red, Code: "names_too_long", Words: "Some of its file paths are too long for the destination root's Node. Shorten the Work's names, then preview again."}, true
 }
 
 func folderCheck(_ PlanUnit, f planFacts) (Reason, bool) {

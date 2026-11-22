@@ -208,7 +208,7 @@ func TestVerdictOf(t *testing.T) {
 	ready := func(root roots.ID) roots.Destination {
 		return roots.Destination{Root: roots.Root{ID: root, ContentType: kind, Node: node}, State: roots.Ready, Volume: vol}
 	}
-	green := planFacts{from: ready(from), to: ready(to)}
+	green := planFacts{from: ready(from), to: ready(to), budget: 200, longest: 40}
 	for _, c := range []struct {
 		name  string
 		u     PlanUnit
@@ -217,11 +217,7 @@ func TestVerdictOf(t *testing.T) {
 		color Color
 	}{
 		{"a destination not ready", unit, func(f planFacts) planFacts { f.to.State = roots.Offline; return f }, CheckDestination, Red},
-		{"another Node", func() PlanUnit {
-			u := unit
-			u.Lane = laneOf(End{Node: node}, End{Node: id[role.NodeID]()}, "", "")
-			return u
-		}(), func(f planFacts) planFacts { return f }, CheckRoute, Red},
+		{"a path past the destination's budget", unit, func(f planFacts) planFacts { f.longest = 201; return f }, CheckNames, Red},
 		{"already moving", unit, func(f planFacts) planFacts { f.moving = true; return f }, CheckMoving, Red},
 		{"a probe that missed its deadline", unit, func(f planFacts) planFacts { f.probe = context.DeadlineExceeded; return f }, CheckProbe, Red},
 		{"a missing source file", unit, func(f planFacts) planFacts { f.missing = 1; return f }, CheckProbe, Red},
@@ -246,6 +242,12 @@ func TestVerdictOf(t *testing.T) {
 	}
 	if v := verdictOf(unit, green); v.Color != Green || len(v.Reasons) != 0 {
 		t.Errorf("a unit with nothing in its way is %+v, want green", v)
+	}
+	across := unit
+	across.Subject.To.Node = id[role.NodeID]()
+	across.Lane = laneOf(across.Subject.From, across.Subject.To, "1", "1")
+	if v := verdictOf(across, green); v.Color != Green {
+		t.Errorf("a unit to another Node's root is %+v, want green", v)
 	}
 }
 
@@ -318,5 +320,41 @@ func TestMergedKeepsPlacesAndDropsChanged(t *testing.T) {
 	})
 	if len(got) != 3 || got[0].Placed == nil || got[1].Dropped == nil || got[2].Position != 2 || got[2].Placed != nil || got[2].Size != 2 {
 		t.Errorf("merged is %+v, want a kept, b's old copy dropped and b again at position 2", got)
+	}
+}
+
+func TestReconcileOf(t *testing.T) {
+	from, to := id[roots.ID](), id[roots.ID]()
+	rel := func(s string) storing.Rel { r, _ := storing.ParseRel(s); return r }
+	a, b := rel("M/a.mkv"), rel("M/a.srt")
+	u := Unit{Subject: WorkSubject{From: End{Root: from}, To: End{Root: to}}, Files: []File{{Position: 0, Sits: a, Size: 10}, {Position: 1, Sits: b, Size: 2}}}
+	at := func(root roots.ID, rels ...storing.Rel) storing.Probed {
+		p := storing.Probed{Files: map[storing.Library]storing.ProbedFile{}, Occupants: map[storing.Library][]storing.ProbedFile{}}
+		for _, r := range rels {
+			size := int64(10)
+			if r == b {
+				size = 2
+			}
+			k := storing.Library{Root: root.UUID, Rel: r}
+			p.Files[k] = storing.ProbedFile{Rel: r, Size: size}
+			p.Occupants[k] = []storing.ProbedFile{{Rel: r, Size: size}}
+		}
+		return p
+	}
+	for _, c := range []struct {
+		name     string
+		src, dst storing.Probed
+		want     reconciled
+	}{
+		{"a whole source moves again", at(from, a, b), at(to, a), again},
+		{"a gone source with every file placed switches", at(from), at(to, a, b), switchRestored},
+		{"a gone source with a file missing at the destination fails", at(from), at(to, a), lost},
+		{"half a source fails", at(from, a), at(to, a, b), lost},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got := reconcileOf(u, c.src, c.dst); got != c.want {
+				t.Errorf("reconcileOf is %d, want %d", got, c.want)
+			}
+		})
 	}
 }

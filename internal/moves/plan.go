@@ -1,6 +1,7 @@
 package moves
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -182,6 +183,8 @@ type pageRead struct {
 	covers    []mediaservers.Cover
 	// plays is whether a Media Server plays each file now.
 	plays map[files.ID]bool
+	// budgets is each root's path budget.
+	budgets map[roots.ID]int
 }
 
 func (m *Moves) planPage(ctx context.Context, page []WorkTo) ([]PlanUnit, []planFacts, error) {
@@ -231,6 +234,9 @@ func (m *Moves) readPage(ctx context.Context, r storage.Reader[file], page []Wor
 	if rd.moving, err = movingOf(ctx, r, ws); err != nil {
 		return rd, err
 	}
+	if rd.budgets, err = roots.BudgetsIn(ctx, r); err != nil {
+		return rd, err
+	}
 	var ids []roots.ID
 	for _, s := range page {
 		ids = appendOnce(ids, s.To)
@@ -273,25 +279,30 @@ func appendOnce[T comparable](s []T, v T) []T {
 	return append(s, v)
 }
 
-// probed is one Work's share of its Node's probe.
+// probed is one Work's share of its Nodes' probes: the source Node's
+// page, and the destination Node's when it is another.
 type probed struct {
-	got storing.Probed
-	err error
+	src, dst storing.Probed
+	err      error
 }
 
-// probeAsk is one Work's part of a probe page.
+// probeAsk is one Work's part of a probe page: its files as sources, as
+// destinations, or both on one Node.
 type probeAsk struct {
-	work     works.WorkID
-	from, to roots.ID
-	rels     []storing.Rel
+	work          works.WorkID
+	from, to      roots.ID
+	rels          []storing.Rel
+	sources, dest bool
 }
 
-// probePage asks node about page: its sources, and the destinations on node.
-func (m *Moves) probePage(ctx context.Context, node role.NodeID, page []probeAsk, rd pageRead) (storing.Probed, error) {
+// probePage asks node about page.
+func (m *Moves) probePage(ctx context.Context, node role.NodeID, page []probeAsk) (storing.Probed, error) {
 	req := storing.ProbeMove{}
 	for _, a := range page {
-		req.Sources = addRels(req.Sources, a.from, a.rels)
-		if to, ok := rd.dests[a.to]; ok && to.Node == node {
+		if a.sources {
+			req.Sources = addRels(req.Sources, a.from, a.rels)
+		}
+		if a.dest {
 			req.Destinations = addRels(req.Destinations, a.to, a.rels)
 		}
 	}
@@ -300,9 +311,42 @@ func (m *Moves) probePage(ctx context.Context, node role.NodeID, page []probeAsk
 	return m.cfg.Disk.ProbeMove(ctx, node, req)
 }
 
-// probeAll probes each source Node for the page's Works: each source file
-// with its companions, and each destination path's occupants.
+// probeAll probes the page's Works on their Nodes: each source file with
+// its companions on its source Node, and each destination path's
+// occupants on the destination's Node.
 func (m *Moves) probeAll(ctx context.Context, page []WorkTo, rd pageRead, byWork map[works.WorkID][]files.ID) map[works.WorkID]probed {
+	out := map[works.WorkID]probed{}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	slots := make(chan struct{}, m.cfg.Timings.ProbesInFlight)
+	for node, asks := range asksOf(page, rd, byWork) {
+		for _, pg := range pages(asks, func(a probeAsk) []storing.Rel { return a.rels }, m.cfg.Timings.ProbePage, m.cfg.Timings.ProbePageBytes) {
+			wg.Go(func() {
+				slots <- struct{}{}
+				defer func() { <-slots }()
+				got, err := m.probePage(ctx, node, pg)
+				mu.Lock()
+				defer mu.Unlock()
+				for _, a := range pg {
+					p := out[a.work]
+					if a.sources {
+						p.src = got
+					} else {
+						p.dst = got
+					}
+					p.err = cmp.Or(p.err, err)
+					out[a.work] = p
+				}
+			})
+		}
+	}
+	wg.Wait()
+	return out
+}
+
+// asksOf is each Node's share of the page's probes: the sources, with the
+// destinations on the same Node, and the destinations on another.
+func asksOf(page []WorkTo, rd pageRead, byWork map[works.WorkID][]files.ID) map[role.NodeID][]probeAsk {
 	byNode := map[role.NodeID][]probeAsk{}
 	for _, s := range page {
 		from, ok := rd.homes[s.Work]
@@ -310,32 +354,18 @@ func (m *Moves) probeAll(ctx context.Context, page []WorkTo, rd pageRead, byWork
 		if !ok || !known {
 			continue
 		}
-		a := probeAsk{work: s.Work, from: from, to: s.To}
+		a := probeAsk{work: s.Work, from: from, to: s.To, sources: true}
 		for _, id := range byWork[s.Work] {
 			a.rels = append(a.rels, rd.sits[id].Sits)
 		}
+		dst, known := rd.dests[s.To]
+		a.dest = known && dst.Node == src.Node
 		byNode[src.Node] = append(byNode[src.Node], a)
-	}
-	out := map[works.WorkID]probed{}
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	slots := make(chan struct{}, m.cfg.Timings.ProbesInFlight)
-	for node, asks := range byNode {
-		for _, pg := range pages(asks, func(a probeAsk) []storing.Rel { return a.rels }, m.cfg.Timings.ProbePage, m.cfg.Timings.ProbePageBytes) {
-			wg.Go(func() {
-				slots <- struct{}{}
-				defer func() { <-slots }()
-				got, err := m.probePage(ctx, node, pg, rd)
-				mu.Lock()
-				defer mu.Unlock()
-				for _, a := range pg {
-					out[a.work] = probed{got: got, err: err}
-				}
-			})
+		if known && !a.dest {
+			byNode[dst.Node] = append(byNode[dst.Node], probeAsk{work: s.Work, from: from, to: s.To, rels: a.rels, dest: true})
 		}
 	}
-	wg.Wait()
-	return out
+	return byNode
 }
 
 // pages splits asks into pages of at most probe_page paths and
@@ -378,7 +408,7 @@ func (m *Moves) planUnit(s WorkTo, rd pageRead, ids []files.ID, p probed) (PlanU
 		Subject: WorkSubject{Work: s.Work, Type: sum.ContentType, From: End{Root: from.ID, Node: from.Node}, To: End{Root: to.ID, Node: to.Node}},
 		Label:   sum.Label,
 	}
-	f := planFacts{from: from, to: to, moving: rd.moving[s.Work], probe: p.err, covers: rd.covers}
+	f := planFacts{from: from, to: to, moving: rd.moving[s.Work], probe: p.err, covers: rd.covers, budget: rd.budgets[s.To]}
 	if from.Volume != nil && to.Volume != nil {
 		u.Lane = laneOf(u.Subject.From, u.Subject.To, from.Volume.ID, to.Volume.ID)
 	}
@@ -386,15 +416,16 @@ func (m *Moves) planUnit(s WorkTo, rd pageRead, ids []files.ID, p probed) (PlanU
 	for _, id := range ids {
 		sat := rd.sits[id]
 		f.playing = f.playing || rd.plays[id]
+		f.longest = max(f.longest, len(sat.Path.String()))
 		at := storing.Library{Root: from.ID.UUID, Rel: sat.Sits}
-		got, ok := p.got.Files[at]
+		got, ok := p.src.Files[at]
 		if !ok {
 			f.missing++
 			continue
 		}
 		rels = append(rels, sat.Sits)
 		u.Files = append(u.Files, File{Position: len(u.Files), Kind: KindLibrary, ID: id, Sits: sat.Sits, Size: got.Size, Seen: got.Seen})
-		for _, c := range p.got.Companions[at] {
+		for _, c := range p.src.Companions[at] {
 			kind := KindCompanion
 			if c.Ledger {
 				kind = KindSidecar
@@ -402,8 +433,15 @@ func (m *Moves) planUnit(s WorkTo, rd pageRead, ids []files.ID, p probed) (PlanU
 			u.Files = append(u.Files, File{Position: len(u.Files), Kind: kind, Sits: c.Rel, Size: c.Size, Seen: c.Seen, Ledger: c.Ledger})
 		}
 	}
-	if p.err == nil && to.Node == from.Node {
-		f.occupied = occupants(p.got, to.ID, rels)
+	for _, file := range u.Files {
+		f.longest = max(f.longest, len(file.Sits.String()))
+	}
+	dst := p.src
+	if to.Node != from.Node {
+		dst = p.dst
+	}
+	if p.err == nil {
+		f.occupied = occupants(dst, to.ID, rels)
 	}
 	if !sameVolume(from, to) {
 		for _, file := range u.Files {

@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -222,8 +223,9 @@ func sameFile(a, b File) bool {
 	return a.Kind == b.Kind && a.ID == b.ID && a.Sits == b.Sits && a.Size == b.Size && a.Seen.Same(b.Seen)
 }
 
-// takeLane probes the source and starts the unit's Place on its lane. A
-// file mid-ring in holding has the unit wait for its renames.
+// takeLane probes the source and starts the unit on its lane: its Place
+// on one Node, its Transfer across Nodes. A file mid-ring in holding has
+// the unit wait for its renames.
 func (m *Moves) takeLane(ctx context.Context, u Unit) error {
 	now := m.now()
 	got, missing, ringing, err := m.fresh(ctx, u)
@@ -245,10 +247,14 @@ func (m *Moves) takeLane(ctx context.Context, u Unit) error {
 			return m.fail(ctx, tx, cu, SourceGone, fmt.Sprintf("%d files are gone from the source root", len(missing)))
 		}
 		cu.Files = merged(cu.Files, got)
-		cu.Stage, cu.Due = Placing{Pass: cu.pass()}, &now
 		cu.Planned.At = now
-		return nil
+		if cu.Lane.sameNode() {
+			cu.Stage, cu.Due = Placing{Pass: cu.pass()}, &now
+			return nil
+		}
+		return m.copy(ctx, tx, cu)
 	})
+	m.cfg.Transfers.Touch()
 	return err
 }
 
@@ -283,11 +289,19 @@ func merged(was, fresh []File) []File {
 }
 
 // placeFile puts one file at its Rel in the destination root through its
-// holding name: a link, a clone, or a copy with a grant.
+// holding name: from its Transfer's staged copy across Nodes, else a
+// link, a clone, or a copy with a grant.
 func (m *Moves) placeFile(ctx context.Context, u Unit, pos int) error {
 	f := *fileAt(&u, pos)
 	to := u.Subject.To.Root
 	hold := holdingOf(u.ID, pos, f.Sits)
+	var sc *stagedCopy
+	if s, ok := u.Stage.(Placing); ok && s.Transfer != nil {
+		var err error
+		if sc, err = m.staged(ctx, u, f); err != nil {
+			return err
+		}
+	}
 	p, err := m.probe(ctx, u.Subject.To.Node, to, []storing.Rel{f.Sits, hold}, false)
 	if err != nil {
 		return err
@@ -301,33 +315,68 @@ func (m *Moves) placeFile(ctx context.Context, u Unit, pos int) error {
 		return m.failIn(ctx, u.ID, PhasePlace, DestinationCheckFailed, "another file is at "+f.Sits.String())
 	case held != nil && held.Size == f.Size:
 		placed, err = m.move(ctx, to, hold, f)
-	default:
-		from := storing.Library{Root: u.Subject.From.Root.UUID, Rel: f.Sits}
-		if f.Ledger {
-			_, err = m.cfg.Disk.PlaceSidecar(ctx, to, hold, from, f.Copy > 0)
-		} else {
-			_, err = m.cfg.Disk.Place(ctx, to, hold, from, f.Copy > 0)
-		}
-		if needs, ok := errors.AsType[*storing.NeedsCopyError](err); ok {
-			return m.grant(ctx, u.ID, pos, needs.Size)
-		}
-		if _, ok := errors.AsType[*storing.NeedsSpaceError](err); ok {
-			return m.waitSpace(ctx, u.ID)
-		}
-		if err == nil {
+	case sc != nil:
+		if _, err = m.cfg.Disk.Move(ctx, to, transfers.StagedRel(sc.transfer, sc.position), hold, false); err == nil {
 			placed, err = m.move(ctx, to, hold, f)
+		}
+	case !u.Lane.sameNode():
+		return m.recopy(ctx, u.ID)
+	default:
+		var done bool
+		if placed, done, err = m.placeLocal(ctx, u, f, hold); done || err != nil {
+			return err
 		}
 	}
 	if err != nil {
 		return err
 	}
 	now := m.now()
-	_, err = m.update(ctx, u.ID, PhasePlace, func(_ context.Context, _ *storage.Tx[file], cu *Unit) error {
+	_, err = m.update(ctx, u.ID, PhasePlace, func(ctx context.Context, tx *storage.Tx[file], cu *Unit) error {
 		g := fileAt(cu, pos)
 		g.Placed, g.Copy = &placed.Seen, 0
 		cu.Due = &now
+		if sc != nil {
+			return m.cfg.Transfers.Placed(ctx, tx, sc.transfer, sc.position)
+		}
 		return nil
 	})
+	if sc != nil {
+		m.cfg.Transfers.Touch()
+	}
+	return err
+}
+
+// placeLocal places f from the source root on the same Node: a link, a
+// clone, or a copy once granted. done is a step that ended in a grant or
+// a wait for space, whose Write already recorded it.
+func (m *Moves) placeLocal(ctx context.Context, u Unit, f File, hold storing.Rel) (placed storing.Placed, done bool, err error) {
+	to := u.Subject.To.Root
+	from := storing.Library{Root: u.Subject.From.Root.UUID, Rel: f.Sits}
+	if f.Ledger {
+		_, err = m.cfg.Disk.PlaceSidecar(ctx, to, hold, from, f.Copy > 0)
+	} else {
+		_, err = m.cfg.Disk.Place(ctx, to, hold, from, f.Copy > 0)
+	}
+	if needs, ok := errors.AsType[*storing.NeedsCopyError](err); ok {
+		return storing.Placed{}, true, m.grant(ctx, u.ID, f.Position, needs.Size)
+	}
+	if _, ok := errors.AsType[*storing.NeedsSpaceError](err); ok {
+		return storing.Placed{}, true, m.waitSpace(ctx, u.ID)
+	}
+	if err != nil {
+		return storing.Placed{}, false, err
+	}
+	placed, err = m.move(ctx, to, hold, f)
+	return placed, false, err
+}
+
+// recopy has unit id send its unplaced files again: its Transfer holds no
+// staged copy of one, after a restore or a re-home of the destination.
+func (m *Moves) recopy(ctx context.Context, id UnitID) error {
+	_, err := m.update(ctx, id, PhasePlace, func(ctx context.Context, tx *storage.Tx[file], cu *Unit) error {
+		return m.copy(ctx, tx, cu)
+	})
+	m.cfg.Transfers.Touch()
 	return err
 }
 
@@ -404,7 +453,8 @@ func (m *Moves) removeDropped(ctx context.Context, u Unit, pos int) error {
 }
 
 // finalPass compares the source with the unit's files once more: the
-// same files move on to the switch, any difference is placed first.
+// same files move on to the switch, any difference is placed first, sent
+// across Nodes in the next pass's group.
 func (m *Moves) finalPass(ctx context.Context, u Unit) error {
 	now := m.now()
 	got, missing, _, err := m.fresh(ctx, u)
@@ -423,8 +473,12 @@ func (m *Moves) finalPass(ctx context.Context, u Unit) error {
 		}
 		cu.Files = files
 		cu.Stage = Placing{Pass: cu.pass() + 1}
-		return nil
+		if cu.Lane.sameNode() {
+			return nil
+		}
+		return m.copy(ctx, tx, cu)
 	})
+	m.cfg.Transfers.Touch()
 	return err
 }
 
@@ -455,9 +509,16 @@ func (m *Moves) switchWork(ctx context.Context, u Unit) error {
 	if f := unplaced(p, u); f != nil {
 		return m.failIn(ctx, u.ID, PhaseSwitch, DestinationCheckFailed, f.Sits.String()+" isn't the file SlipStream placed")
 	}
+	return m.switchFiles(ctx, u, false)
+}
+
+// switchFiles switches the Work's rows to u's placed files in one Write.
+// restored is a restore's reconcile, whose files the caller just found
+// placed: rows a scan marked gone at the source switch too.
+func (m *Moves) switchFiles(ctx context.Context, u Unit, restored bool) error {
 	now := m.now()
 	var switched bool
-	cu, err := m.update(ctx, u.ID, PhaseSwitch, func(ctx context.Context, tx *storage.Tx[file], cu *Unit) error {
+	cu, err := m.update(ctx, u.ID, u.Stage.Phase(), func(ctx context.Context, tx *storage.Tx[file], cu *Unit) error {
 		if err := m.fence(ctx, tx); err != nil {
 			return err
 		}
@@ -465,11 +526,18 @@ func (m *Moves) switchWork(ctx context.Context, u Unit) error {
 		if err != nil {
 			return err
 		}
+		if restored {
+			cu.Files = u.Files
+			if err := m.endCopy(ctx, tx, cu.ID); err != nil {
+				return err
+			}
+		}
+		cu.Reconcile = false
 		busy := importing[cu.Subject.Work]
 		if !busy {
 			err = m.cfg.Files.Switch(ctx, tx, files.SwitchIn{
 				Work: cu.Subject.Work, From: cu.Subject.From.Root, To: cu.Subject.To.Root,
-				Files: switchedOf(cu.Files), GoneBefore: storage.FromTime(cu.Planned.At),
+				Files: switchedOf(cu.Files), GoneBefore: storage.FromTime(cu.Planned.At), Restored: restored,
 			})
 		}
 		if _, stale := errors.AsType[*files.StaleError](err); busy || stale {
@@ -593,34 +661,18 @@ func (m *Moves) finishBatch(ctx context.Context, tx *storage.Tx[file], batch Bat
 	return q.FinishBatch(ctx, db.FinishBatchParams{At: now, ID: batch})
 }
 
-// undo removes what a canceled or failed unit left at the destination:
-// each placed copy, each file at its holding name, and any copy a crash
-// left at its Rel before its Write.
+// undo removes what a canceled or failed unit left at the destination,
+// ends its Transfer, and drops its Media Servers' snapshots.
 func (m *Moves) undo(ctx context.Context, u Unit) error {
-	to := u.Subject.To.Root
-	var rels []storing.Rel
-	for _, f := range u.Files {
-		rels = append(rels, f.Sits, holdingOf(u.ID, f.Position, f.Sits))
-	}
-	if len(rels) > 0 {
-		p, err := m.probe(ctx, u.Subject.To.Node, to, rels, false)
-		if err != nil {
-			return err
-		}
-		for _, f := range u.Files {
-			if err := m.unplace(ctx, u, p, f); err != nil {
-				return err
-			}
-		}
-		for _, dir := range folders(u.Files) {
-			if _, err := m.cfg.Disk.Prune(ctx, to, dir, nil); err != nil {
-				return err
-			}
-		}
+	if err := m.sweep(ctx, u); err != nil {
+		return err
 	}
 	now := m.now()
 	phase := u.Stage.Phase()
 	_, err := m.update(ctx, u.ID, phase, func(ctx context.Context, tx *storage.Tx[file], cu *Unit) error {
+		if err := m.endCopy(ctx, tx, cu.ID); err != nil {
+			return err
+		}
 		if err := mediaservers.DropMovePrepared(ctx, tx, libraryFiles(*cu)); err != nil {
 			return err
 		}
@@ -632,42 +684,168 @@ func (m *Moves) undo(ctx context.Context, u Unit) error {
 			s.Undone = &now
 			cu.Stage = s
 		}
-		for i := range cu.Files {
-			cu.Files[i].Copy, cu.Files[i].Placed, cu.Files[i].Dropped = 0, nil, nil
-		}
+		cu.Files = unplacedFiles(cu.Files)
 		cu.Due = nil
 		return m.finishBatch(ctx, tx, cu.Batch, storage.FromTime(now), cu.ID)
+	})
+	m.cfg.Transfers.Touch()
+	return err
+}
+
+// unplacedFiles is fs as planned, none placed, dropped or granted a copy.
+func unplacedFiles(fs []File) []File {
+	for i := range fs {
+		fs[i].Copy, fs[i].Placed, fs[i].Dropped = 0, nil, nil
+	}
+	return fs
+}
+
+// sweep removes what u may have left at its destination, from one probe
+// of every file's Rel and holding name. A holding file is the unit's by
+// its name. A file at a Rel is removed only while no library row names
+// that Rel in the destination root and its size is the planned one, so a
+// Place a crash left unrecorded goes too.
+func (m *Moves) sweep(ctx context.Context, u Unit) error {
+	if len(u.Files) == 0 {
+		return nil
+	}
+	to := u.Subject.To.Root
+	var rels, sits []storing.Rel
+	for _, f := range u.Files {
+		rels = append(rels, f.Sits, holdingOf(u.ID, f.Position, f.Sits))
+		sits = append(sits, f.Sits)
+	}
+	var rowed map[storing.Rel]files.ID
+	err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		rowed, err = files.IDsAt(ctx, r, to, sits)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	p, err := m.probe(ctx, u.Subject.To.Node, to, rels, false)
+	if err != nil {
+		return err
+	}
+	for _, f := range u.Files {
+		hold := holdingOf(u.ID, f.Position, f.Sits)
+		if h := occupant(p, to, hold); h != nil && h.Rel == hold {
+			if _, err := m.cfg.Disk.RemoveIf(ctx, to, hold, h.Size, h.Seen.Modified); err != nil {
+				return err
+			}
+		}
+		at := occupant(p, to, f.Sits)
+		if _, owned := rowed[f.Sits]; owned || at == nil || at.Rel != f.Sits || at.Size != f.Size {
+			continue
+		}
+		if _, err := m.cfg.Disk.RemoveIf(ctx, to, f.Sits, at.Size, at.Seen.Modified); err != nil {
+			return err
+		}
+	}
+	for _, dir := range folders(u.Files) {
+		if _, err := m.cfg.Disk.Prune(ctx, to, dir, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// reconciled is what a restored unit does once Reconciling ends.
+type reconciled uint8
+
+const (
+	// again moves a unit whose source is whole from its lane again.
+	again reconciled = iota
+	// switchRestored switches a unit whose destination holds every file
+	// and whose source is gone.
+	switchRestored
+	// lost fails a unit neither side holds whole.
+	lost
+)
+
+// reconcileOf judges u against the probes of its source, src, and its
+// destination, dst, each of its files at its Rel with its size.
+func reconcileOf(u Unit, src, dst storing.Probed) reconciled {
+	from, to := u.Subject.From.Root, u.Subject.To.Root
+	whole, none, placed := true, true, true
+	for _, f := range u.Files {
+		if f.Dropped != nil {
+			continue
+		}
+		got, ok := src.Files[storing.Library{Root: from.UUID, Rel: f.Sits}]
+		whole = whole && ok && got.Size == f.Size
+		none = none && !ok
+		at := occupant(dst, to, f.Sits)
+		placed = placed && at != nil && at.Rel == f.Sits && at.Size == f.Size
+	}
+	switch {
+	case whole:
+		return again
+	case none && placed:
+		return switchRestored
+	}
+	return lost
+}
+
+// reconcile judges a restored unit against both roots once Reconciling
+// ends. A unit past its switch only clears its mark: its rows already
+// name the destination.
+func (m *Moves) reconcile(ctx context.Context, u Unit) error {
+	if !u.beforeSwitch() {
+		return m.unmark(ctx, u)
+	}
+	var rels []storing.Rel
+	for _, f := range u.Files {
+		if f.Dropped == nil {
+			rels = append(rels, f.Sits)
+		}
+	}
+	src, err := m.probe(ctx, u.Subject.From.Node, u.Subject.From.Root, rels, true)
+	if err != nil {
+		return err
+	}
+	dst, err := m.probe(ctx, u.Subject.To.Node, u.Subject.To.Root, rels, false)
+	if err != nil {
+		return err
+	}
+	switch reconcileOf(u, src, dst) {
+	case again:
+		return m.again(ctx, u)
+	case switchRestored:
+		u.Files = slices.DeleteFunc(u.Files, func(f File) bool { return f.Dropped != nil })
+		for i, f := range u.Files {
+			at := occupant(dst, u.Subject.To.Root, f.Sits)
+			u.Files[i].Placed = &at.Seen
+		}
+		return m.switchFiles(ctx, u, true)
+	case lost:
+	}
+	_, err = m.update(ctx, u.ID, u.Stage.Phase(), func(ctx context.Context, tx *storage.Tx[file], cu *Unit) error {
+		cu.Reconcile = false
+		return m.fail(ctx, tx, cu, SourceGone, "the source root no longer holds every file the Move planned")
 	})
 	return err
 }
 
-// unplace removes f's bytes from the destination where they are the unit's
-// own: its holding name, its placed copy, or a file at its Rel with its
-// size and the source's identity, a link a crash left unrecorded.
-func (m *Moves) unplace(ctx context.Context, u Unit, p storing.Probed, f File) error {
-	to := u.Subject.To.Root
-	hold := holdingOf(u.ID, f.Position, f.Sits)
-	if h := occupant(p, to, hold); h != nil && h.Rel == hold {
-		if _, err := m.cfg.Disk.RemoveIf(ctx, to, hold, h.Size, h.Seen.Modified); err != nil {
-			return err
-		}
+// again sweeps what a restored unit placed and queues it on its lane, to
+// plan its files afresh when it takes the lane.
+func (m *Moves) again(ctx context.Context, u Unit) error {
+	if err := m.sweep(ctx, u); err != nil {
+		return err
 	}
-	at := occupant(p, to, f.Sits)
-	if at == nil || at.Rel != f.Sits || at.Size != f.Size {
-		return nil
-	}
-	mine := f.Placed != nil && at.Seen.Same(*f.Placed) || !f.Seen.ID.IsZero() && at.Seen.ID == f.Seen.ID
-	if !mine {
-		return nil
-	}
-	_, err := m.cfg.Disk.RemoveIf(ctx, to, f.Sits, at.Size, at.Seen.Modified)
+	now := m.now()
+	_, err := m.update(ctx, u.ID, u.Stage.Phase(), func(ctx context.Context, tx *storage.Tx[file], cu *Unit) error {
+		cu.Reconcile, cu.Files = false, unplacedFiles(cu.Files)
+		cu.Stage, cu.Due = Queued{Since: now}, &now
+		return m.endCopy(ctx, tx, cu.ID)
+	})
+	m.cfg.Transfers.Touch()
 	return err
 }
 
-// reconcile clears a restored unit's mark once Reconciling ends: every
-// step judges both roots again before it writes, so the unit goes on from
-// its stored Stage.
-func (m *Moves) reconcile(ctx context.Context, u Unit) error {
+// unmark clears a restored unit's mark: it goes on from its stored Stage.
+func (m *Moves) unmark(ctx context.Context, u Unit) error {
 	now := m.now()
 	_, err := m.update(ctx, u.ID, u.Stage.Phase(), func(_ context.Context, _ *storage.Tx[file], cu *Unit) error {
 		cu.Reconcile, cu.Due = false, &now

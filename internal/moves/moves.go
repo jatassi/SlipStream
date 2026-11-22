@@ -132,7 +132,10 @@ type Moves struct {
 	// reconciled is set when reconciling.changed fired: Reconciling may
 	// have ended, so a restored unit is due.
 	reconciled bool
-	jobs       chan struct{}
+	// copiedUnits is the units the Transfers hooks changed, published
+	// once their Write commits.
+	copiedUnits []Unit
+	jobs        chan struct{}
 }
 
 func New(cfg Config) *Moves {
