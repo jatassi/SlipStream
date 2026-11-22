@@ -154,3 +154,28 @@ test("Edit re-homes a root: it shows the check's progress, the missing files, an
     rootId: filmsRoot.id,
   });
 });
+
+test("Edit on a root that Moves, Imports and Transfers use says what to wait for", async () => {
+  const { world } = serveRoots();
+  world.rehome = () =>
+    refused(409, "root_busy", "Moves, Imports or Transfers are using this root", {
+      busy: { moves: 3, imports: 1, transfers: 2 },
+    });
+  openRoots();
+  await act(filmsRoot, "Edit");
+  const dialog = page.getByRole("dialog", { name: "Edit the Films root" });
+  const folder = dialog.getByRole("textbox", { name: "Folder" });
+  await userEvent.clear(folder);
+  await userEvent.type(folder, "/srv/new/films");
+  await expect
+    .element(dialog.getByText("This folder is on /srv/media, 1.2 TB free."))
+    .toBeVisible();
+  await userEvent.click(dialog.getByRole("button", { name: "Save" }));
+  await expect
+    .element(
+      dialog.getByText(
+        "The Films root can't be re-homed while 3 Moves, 1 Import and 2 Transfers use it. Wait for them to finish, or cancel the Moves in Activity.",
+      ),
+    )
+    .toBeVisible();
+});

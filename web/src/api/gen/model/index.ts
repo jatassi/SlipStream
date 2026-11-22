@@ -4038,6 +4038,7 @@ export * from "./revokeJoinCode422.ts";
 export * from "./revokeJoinCode422Code.ts";
 export * from "./revokeJoinCode500.ts";
 export * from "./revokeJoinCode500Code.ts";
+export * from "./rootsBusy.ts";
 export * from "./rootsChanged.ts";
 export * from "./rootSettingsInputBody.ts";
 export * from "./rootsFolder.ts";

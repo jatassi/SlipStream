@@ -71,6 +71,8 @@ func Config(tb testing.TB, lib *storage.DB[storage.Library], types ...works.Type
 		Arrivals: roots.NewArrivals(),
 		Contents: files.RootContents{},
 		Inflight: Idle{},
+		Busy:     Idle{}.Busy,
+		Rehomed:  Idle{},
 		Videos: func(context.Context, storage.Reader[storage.Library]) (media.Videos, error) {
 			return media.DefaultVideos, nil
 		},
@@ -216,3 +218,9 @@ func (Idle) Into(context.Context, storage.Reader[storage.Library], roots.ID, []w
 }
 
 func (Idle) Release(context.Context, *storage.Tx[storage.Library], roots.ID) error { return nil }
+
+func (Idle) Busy(context.Context, storage.Reader[storage.Library], roots.ID) (roots.Busy, error) {
+	return roots.Busy{}, nil
+}
+
+func (Idle) Rehomed(context.Context, *storage.Tx[storage.Library], roots.ID) error { return nil }

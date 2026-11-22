@@ -129,6 +129,7 @@ type server struct {
 	changed         *published
 	data, downloads string
 	verifying       func()
+	busy            roots.Busy
 	started         []tasks.Start
 	steps           map[tasks.UnitKey]tasks.Step
 }
@@ -162,6 +163,9 @@ func serve(t *testing.T) *server {
 	cfg := rootstest.Config(t, lib, contenttypetest.ID, "other")
 	local := rootstest.Store(t, s.data, s.downloads)
 	cfg.Roster, cfg.Changed, cfg.Inflight = roster{}, s.changed, imports.RootImports{}
+	cfg.Busy = func(context.Context, storage.Reader[storage.Library], roots.ID) (roots.Busy, error) {
+		return s.busy, nil
+	}
 	offline := unreached{err: fmt.Errorf("call: %w", link.ErrDisconnected)}
 	cfg.Remote = func(n role.NodeID) storagev1connect.StorageServiceHandler {
 		switch n {

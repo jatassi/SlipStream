@@ -21081,6 +21081,35 @@
         },
         "type": "object"
       },
+      "RootsBusy": {
+        "additionalProperties": false,
+        "properties": {
+          "imports": {
+            "description": "The Imports into it that haven't finished",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "moves": {
+            "description": "The Moves from it or into it that haven't finished",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "transfers": {
+            "description": "The Transfers into it or sending a file from it",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "moves",
+          "imports",
+          "transfers"
+        ],
+        "type": "object"
+      },
       "RootsChanged": {
         "additionalProperties": false,
         "properties": {
@@ -81538,10 +81567,14 @@
                     },
                     {
                       "properties": {
+                        "busy": {
+                          "$ref": "#/components/schemas/RootsBusy"
+                        },
                         "code": {
                           "enum": [
                             "node_not_storage",
                             "rehome_missing",
+                            "root_busy",
                             "superseded",
                             "worker_node"
                           ],

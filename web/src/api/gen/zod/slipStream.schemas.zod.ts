@@ -11181,6 +11181,27 @@ export const RootSettingsInputBody = zod.object({
 export type RootSettingsInputBody = zod.input<typeof RootSettingsInputBody>;
 export type RootSettingsInputBodyOutput = zod.output<typeof RootSettingsInputBody>;
 
+export const rootsBusyImportsMin = 0;
+
+export const rootsBusyMovesMin = 0;
+
+export const rootsBusyTransfersMin = 0;
+
+export const RootsBusy = zod.object({
+  imports: zod.int().min(rootsBusyImportsMin).describe("The Imports into it that haven't finished"),
+  moves: zod
+    .int()
+    .min(rootsBusyMovesMin)
+    .describe("The Moves from it or into it that haven't finished"),
+  transfers: zod
+    .int()
+    .min(rootsBusyTransfersMin)
+    .describe("The Transfers into it or sending a file from it"),
+});
+
+export type RootsBusy = zod.input<typeof RootsBusy>;
+export type RootsBusyOutput = zod.output<typeof RootsBusy>;
+
 export const RootsChanged = zod.object({
   rootIds: zod.array(zod.string()),
 });

@@ -40,21 +40,34 @@ func (e *MissingError) Error() string {
 
 const firstMissing = 20
 
+// BusyError is a re-home refused while Moves, Imports or Transfers use the
+// root.
+type BusyError struct{ Busy Busy }
+
+func (e *BusyError) Error() string {
+	return fmt.Sprintf("%d Moves, %d Imports and %d Transfers use the root", e.Busy.Moves, e.Busy.Imports, e.Busy.Transfers)
+}
+
 var errStale = errors.New("the root recorded a file the re-home hasn't checked")
 
 // Rehome moves root id to a new place: a folder its Node judges usable
 // apart from every other root, holding every file the root records at the
 // same size, where Recorded places its bytes. Files that aren't there are
 // a *MissingError unless h.Forget is their count, and then they're
-// forgotten in the Write that moves the root. The root's place bumps, so its Node adopts it there.
+// forgotten in the Write that moves the root. A root that Moves, Imports
+// or Transfers use is a *BusyError, before the check and in that Write.
+// The root's place bumps, so its Node adopts it there, and Rehomed hears
+// of it in the same Write.
 func (r *Roots) Rehome(ctx context.Context, _ identity.Admin, id ID, h Rehome) (View, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var was Root
 	err := r.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
 		var err error
-		was, err = Get(ctx, rd, id)
-		return err
+		if was, err = Get(ctx, rd, id); err != nil {
+			return err
+		}
+		return r.idle(ctx, rd, id)
 	})
 	if err != nil {
 		return View{}, err
@@ -149,6 +162,9 @@ func (r *Roots) verify(ctx context.Context, to Root, recorded []storing.Recorded
 func (r *Roots) move(ctx context.Context, to Root, forget *int, checked map[storing.Recorded]storing.MissingReason) (View, error) {
 	var view View
 	err := r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		if err := r.idle(ctx, tx, to.ID); err != nil {
+			return err
+		}
 		recorded, err := r.cfg.Contents.Recorded(ctx, tx, to.ID)
 		if err != nil {
 			return err
@@ -170,6 +186,9 @@ func (r *Roots) move(ctx context.Context, to Root, forget *int, checked map[stor
 		if err := db.New(tx).MoveRoot(ctx, db.MoveRootParams{ID: to.ID, NodeID: to.Node, Path: to.Path}); err != nil {
 			return err
 		}
+		if err := r.cfg.Rehomed.Rehomed(ctx, tx, to.ID); err != nil {
+			return err
+		}
 		moved, err := Get(ctx, tx, to.ID)
 		if err != nil {
 			return err
@@ -182,6 +201,17 @@ func (r *Roots) move(ctx context.Context, to Root, forget *int, checked map[stor
 		return nil
 	})
 	return view, err
+}
+
+func (r *Roots) idle(ctx context.Context, rd storage.Reader[file], id ID) error {
+	busy, err := r.cfg.Busy(ctx, rd, id)
+	if err != nil {
+		return err
+	}
+	if !busy.Zero() {
+		return &BusyError{Busy: busy}
+	}
+	return nil
 }
 
 func absentOf(recorded []storing.Recorded, checked map[storing.Recorded]storing.MissingReason) ([]Absent, error) {

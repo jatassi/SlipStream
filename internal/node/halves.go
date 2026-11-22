@@ -573,7 +573,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Arrivals: arrivals,
 		Contents: files.RootContents{},
 		Inflight: imports.RootImports{},
-		Busy:     moves.Busy,
+		Busy:     rootBusy,
+		Rehomed:  servers,
 		Videos:   imports.Videos,
 		Changed:  roots.ChangedEvent.Bind(n.hub),
 		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
@@ -1383,4 +1384,22 @@ func (o opener) Open(ref source.Ref) (string, error) {
 		return "", err
 	}
 	return o.store.OpenLibrary(context.Background(), root, rel)
+}
+
+// rootBusy is what uses root: the open Moves naming it, the unfinished
+// Imports into it and the live Transfers into or out of it.
+func rootBusy(ctx context.Context, r storage.Reader[storage.Library], root roots.ID) (roots.Busy, error) {
+	movesIn, err := moves.Busy(ctx, r, root)
+	if err != nil {
+		return roots.Busy{}, err
+	}
+	importsIn, err := imports.RootImports{}.Into(ctx, r, root, nil)
+	if err != nil {
+		return roots.Busy{}, err
+	}
+	transfersIn, err := transfers.UsingRoot(ctx, r, root)
+	if err != nil {
+		return roots.Busy{}, err
+	}
+	return roots.Busy{Moves: int(movesIn), Imports: int(importsIn), Transfers: transfersIn}, nil
 }

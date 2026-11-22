@@ -6,7 +6,7 @@ import { useListContentTypesSuspense } from "../api/gen/query/works/works";
 import { Button } from "../ui/button";
 import { toast } from "../ui/toast";
 import { PlaceActions, PlaceForm, useSaving } from "./place-form";
-import { filesWords, missingOf, placeRefusal } from "./refused";
+import { busyRefusal, filesWords, missingOf, placeRefusal } from "./refused";
 import { MissingFiles, RehomeProgress } from "./rehome-parts";
 import { type Place, samePlace, usePlace } from "./use-place";
 
@@ -28,7 +28,9 @@ function useRehome(root: RootsRoot, label: string, onSaved: (root: RootsRoot) =>
     (error) => {
       const missing = missingOf(error);
       setFound(missing && { place, missing });
-      return missing === undefined ? placeRefusal(error, namer) : undefined;
+      return missing === undefined
+        ? (busyRefusal(error, label) ?? placeRefusal(error, namer))
+        : undefined;
     },
   );
   return {

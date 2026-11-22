@@ -89,12 +89,12 @@ func (r *Roots) inUse(ctx context.Context, tx *storage.Tx[file], id ID, homed []
 	if err != nil {
 		return err
 	}
-	moves, err := r.cfg.Busy(ctx, tx, id)
+	busy, err := r.cfg.Busy(ctx, tx, id)
 	if err != nil {
 		return err
 	}
-	if files := use[id].Files; files > 0 || grabs > 0 || moves > 0 {
-		return &InUseError{Files: files, Grabs: grabs, Moves: moves}
+	if files := use[id].Files; files > 0 || grabs > 0 || busy.Moves > 0 {
+		return &InUseError{Files: files, Grabs: grabs, Moves: int64(busy.Moves)}
 	}
 	return nil
 }

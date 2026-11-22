@@ -136,21 +136,35 @@ func (q *Queries) QueueLibrary(ctx context.Context, arg QueueLibraryParams) erro
 	return err
 }
 
-const unconfirm = `-- name: Unconfirm :exec
+const unconfirmRoot = `-- name: UnconfirmRoot :many
 UPDATE mediaservers_mapping SET confirmed_at = NULL, confirmed_place = NULL
-WHERE server_id = ?1 AND root_id = ?2
+WHERE root_id = ?1 AND confirmed_at IS NOT NULL
+RETURNING server_id
 `
 
-type UnconfirmParams struct {
-	ServerID link.ServerID
-	RootID   roots.ID
-}
-
-// Unconfirm is a re-home: the root's place moved past the one the Admin
-// confirmed.
-func (q *Queries) Unconfirm(ctx context.Context, arg UnconfirmParams) error {
-	_, err := q.db.ExecContext(ctx, unconfirm, arg.ServerID, arg.RootID)
-	return err
+// UnconfirmRoot is a re-home: the root's place moved past the one the
+// Admin confirmed. It returns the servers whose mapping it unconfirmed.
+func (q *Queries) UnconfirmRoot(ctx context.Context, rootID roots.ID) ([]link.ServerID, error) {
+	rows, err := q.db.QueryContext(ctx, unconfirmRoot, rootID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []link.ServerID
+	for rows.Next() {
+		var server_id link.ServerID
+		if err := rows.Scan(&server_id); err != nil {
+			return nil, err
+		}
+		items = append(items, server_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const upsertMapping = `-- name: UpsertMapping :exec
