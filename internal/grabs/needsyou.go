@@ -20,31 +20,47 @@ const needsYouBatch = 500
 // still reads from. It reads failed Grabs only, newest first, and stops at
 // 100.
 func NeedsYou(ctx context.Context, r storage.Reader[file]) (int, error) {
+	_, n, err := needsYouWalk(ctx, r, 0)
+	return n, err
+}
+
+// needsYouWalk is the first keep failed Grabs that need you, newest first,
+// and how many there are, counted up to needsYouCap.
+func needsYouWalk(ctx context.Context, r storage.Reader[file], keep int) (kept []db.ListFailedRow, n int, err error) {
 	rows, err := db.New(r).ListFailed(ctx)
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
-	var failed []Grab
+	var failed []db.ListFailedRow
 	for _, row := range rows {
-		g := Grab{ID: row.ID, WorkID: row.WorkID, Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}
-		if g.NeedsYou() {
-			failed = append(failed, g)
+		if failedOf(row).NeedsYou() {
+			failed = append(failed, row)
 		}
 	}
-	n := 0
 	for batch := range slices.Chunk(failed, needsYouBatch) {
-		current, again, err := grabsCellsReadFrom(ctx, r, batch)
-		if err != nil {
-			return 0, err
+		grabs := make([]Grab, len(batch))
+		for i, row := range batch {
+			grabs[i] = failedOf(row)
 		}
-		for _, g := range batch {
-			if current[g.ID] && !again[g.ID] {
-				n++
+		current, again, err := grabsCellsReadFrom(ctx, r, grabs)
+		if err != nil {
+			return nil, 0, err
+		}
+		for _, row := range batch {
+			if !current[row.ID] || again[row.ID] {
+				continue
+			}
+			if len(kept) < keep {
+				kept = append(kept, row)
+			}
+			if n++; n >= needsYouCap {
+				return kept, needsYouCap, nil
 			}
 		}
-		if n >= needsYouCap {
-			return needsYouCap, nil
-		}
 	}
-	return n, nil
+	return kept, n, nil
+}
+
+func failedOf(row db.ListFailedRow) Grab {
+	return Grab{ID: row.ID, WorkID: row.WorkID, Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}
 }

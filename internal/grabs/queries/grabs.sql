@@ -49,6 +49,14 @@ SELECT * FROM grabs_grab WHERE work_id = sqlc.arg(work_id) AND stage NOT IN ('im
 -- name: ListOpenGrabsOfWorks :many
 SELECT * FROM grabs_grab WHERE work_id IN (sqlc.slice(work_ids)) AND stage NOT IN ('imported', 'failed') ORDER BY created_at, id;
 
+-- name: ListInFlight :many
+SELECT sqlc.embed(grabs_grab), coalesce(grabs_stage.entered_at, grabs_grab.updated_at) AS entered_at
+FROM grabs_grab LEFT JOIN grabs_stage ON grabs_stage.grab_id = grabs_grab.id AND grabs_stage.stage = grabs_grab.stage
+WHERE grabs_grab.stage IN (sqlc.slice(stages)) ORDER BY grabs_grab.created_at, grabs_grab.id;
+
+-- name: ListGrabsByID :many
+SELECT * FROM grabs_grab WHERE id IN (sqlc.slice(ids)) ORDER BY created_at DESC, id DESC;
+
 -- name: CountInFlight :one
 SELECT COUNT(*) FROM grabs_grab WHERE stage IN (sqlc.slice(stages));
 
