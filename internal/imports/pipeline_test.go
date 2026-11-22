@@ -2,6 +2,7 @@ package imports
 
 import (
 	"context"
+	"fmt"
 	"math/rand/v2"
 	"slices"
 	"strconv"
@@ -78,6 +79,18 @@ func outcomesOf(imp *Import) []Outcome {
 	return out
 }
 
+// holdsOf is each of imp's files' Hold, "none" for none.
+func holdsOf(imp *Import) []string {
+	out := make([]string, len(imp.Files))
+	for i, f := range imp.Files {
+		out[i] = "none"
+		if f.Hold != nil {
+			out[i] = fmt.Sprintf("%+v", *f.Hold)
+		}
+	}
+	return out
+}
+
 // stopAt holds the first IO of import at at until ctx ends, and answers
 // once it is held.
 func (w *world) stopAt(id ImportID, at StepAt) <-chan struct{} {
@@ -118,7 +131,7 @@ func (w *world) until(t *testing.T, what string, id ImportID, ok func(*Import) b
 			return got
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("%s: not within 30s; the files are %v", what, outcomesOf(got))
+			t.Fatalf("%s: not within 30s; the files are %v, held by %v", what, outcomesOf(got), holdsOf(got))
 		}
 		time.Sleep(time.Millisecond)
 	}
