@@ -221,9 +221,10 @@ func (m *Moves) applyTorrent(ctx context.Context, tx *storage.Tx[file], u *Unit,
 	return nil, nil
 }
 
-// handoffTo moves u's handoff to s at at, due at due.
+// handoffTo moves u's handoff to s at at, due at due, or sooner once a
+// report of either Torrent wakes its guard wait.
 func (m *Moves) handoffTo(u *Unit, s Handoff, at, due time.Time) {
-	u.Stage, u.Due = Switching{Since: at, Handoff: &HandoffAt{Step: s, At: at}}, &due
+	u.Stage, u.Due = Switching{Wait: WaitGuard, Since: at, Handoff: &HandoffAt{Step: s, At: at}}, &due
 }
 
 // switchTorrent hands u's torrent to its arriving Torrent in tx: the
