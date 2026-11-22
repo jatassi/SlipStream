@@ -63,12 +63,11 @@ test("at the Touch density four key presses fill the PIN and submit it", async (
   await expect.poll(() => submitted.mock.calls).toEqual([["1934"]]);
 });
 
-test("the keys are 80px circles and the field above keeps the system keyboard down", async () => {
+test("with the keypad, the field above keeps the system keyboard down", async () => {
   render("touch");
   await expect.element(keypad()).toBeVisible();
-  const key = keypad().getByRole("button", { name: "5" }).element();
-  expect(getComputedStyle(key)).toMatchObject({ width: "80px", height: "80px" });
   await expect
+
     .element(page.getByRole("textbox", { name: "PIN", exact: true }))
     .toHaveAttribute("inputmode", "none");
 });

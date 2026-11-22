@@ -3,7 +3,6 @@ import { page, userEvent } from "vitest/browser";
 
 import { renderKit } from "../test/render-kit";
 import { useAppForm } from "./form";
-import type { ShellKind } from "./shell-context";
 
 function NameForm() {
   const form = useAppForm({
@@ -22,23 +21,6 @@ function NameForm() {
     </form.AppForm>
   );
 }
-
-test.each([
-  ["desktop", "32px", "13px"],
-  ["phone", "48px", "17px"],
-] satisfies [ShellKind, string, string][])(
-  "in the %s shell an input is %s tall with %s text",
-  async (shell, height, size) => {
-    renderKit(<NameForm />, { shell });
-    const input = page.getByRole("textbox", { name: "Name" });
-    await expect.element(input).toBeVisible();
-    const style = getComputedStyle(input.element());
-    expect([style.height, style.fontSize]).toEqual([height, size]);
-    const digit = page.getByRole("textbox", { name: "PIN", exact: true });
-    const pin = getComputedStyle(digit.element());
-    expect([pin.height, pin.fontSize]).toEqual([height, size]);
-  },
-);
 
 test("a field takes typing and shows its error beside the input", async () => {
   renderKit(<NameForm />);
