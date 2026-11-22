@@ -2,6 +2,7 @@ package transmission
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -34,7 +35,10 @@ var legacy = map[string]string{
 	"seconds_seeding": "secondsSeeding", "seconds_downloading": "secondsDownloading", "rate_download": "rateDownload",
 	"rate_upload": "rateUpload", "peers_connected": "peersConnected", "peers_sending_to_us": "peersSendingToUs",
 	"peers_getting_from_us": "peersGettingFromUs", "queue_position": "queuePosition", "bytes_completed": "bytesCompleted",
-	"is_private": "isPrivate",
+	"is_private": "isPrivate", "tracker_stats": "trackerStats", "announce_state": "announceState",
+	"has_announced": "hasAnnounced", "last_announce_time": "lastAnnounceTime", "last_announce_succeeded": "lastAnnounceSucceeded",
+	"last_announce_result": "lastAnnounceResult", "next_announce_time": "nextAnnounceTime", "seeder_count": "seederCount",
+	"leecher_count": "leecherCount",
 }
 
 var torrentLegacy = func() map[string]string {
@@ -252,7 +256,7 @@ func (d *daemon) add(ctx context.Context, args json.RawMessage) (any, *rpcError)
 	if err != nil {
 		return nil, errCorrupt
 	}
-	t, duplicate, err := d.engine.Add(meta, a.Dir, labels, a.Paused)
+	t, duplicate, err := d.engine.Add(torrentclient.Add{Metainfo: meta, Folder: a.Dir, Labels: labels, Paused: a.Paused})
 	if err != nil {
 		return nil, errCorrupt
 	}
@@ -334,6 +338,12 @@ func (d *daemon) get(ids []json.RawMessage, fields []string) map[string]any {
 	return map[string]any{"torrents": torrents}
 }
 
+// Transmission's tr_tracker_state.
+const (
+	announceInactive = 0
+	announceWaiting  = 1
+)
+
 // Transmission's tr_torrent_activity.
 const (
 	stopped     = 0
@@ -372,6 +382,19 @@ func (d *daemon) fields(t torrentclient.Torrent) map[string]any {
 	for i, u := range t.Trackers {
 		trackers[i] = map[string]any{"id": i, "announce": u, "tier": i}
 	}
+	stats := make([]map[string]any, len(t.Lines))
+	for i, ln := range t.Lines {
+		state := announceInactive
+		if !ln.NextAt.IsZero() {
+			state = announceWaiting
+		}
+		stats[i] = map[string]any{
+			"id": i, "announce": ln.URL, "tier": i, "announce_state": state,
+			"has_announced": !ln.AnnouncedAt.IsZero(), "last_announce_time": unix(ln.AnnouncedAt),
+			"last_announce_succeeded": !ln.AnnouncedAt.IsZero() && ln.Failure == "", "last_announce_result": cmp.Or(ln.Failure, "Success"),
+			"next_announce_time": unix(ln.NextAt), "seeder_count": ln.Seeders, "leecher_count": ln.Leechers,
+		}
+	}
 	return map[string]any{
 		"id": t.ID, "hash_string": t.Hash.String(), "name": t.Name, "status": status,
 		"percent_done": percent, "left_until_done": t.Size - t.Done, "size_when_done": t.Size, "total_size": t.Size,
@@ -382,7 +405,7 @@ func (d *daemon) fields(t torrentclient.Torrent) map[string]any {
 		"rate_download": t.Rates.Down, "rate_upload": t.Rates.Up, "peers_connected": t.Rates.Peers,
 		"peers_sending_to_us": t.Rates.Seeds, "peers_getting_from_us": t.Rates.Peers - t.Rates.Seeds,
 		"queue_position": t.Order, "files": files,
-		"is_private": t.Private, "trackers": trackers,
+		"is_private": t.Private, "trackers": trackers, "tracker_stats": stats,
 	}
 }
 

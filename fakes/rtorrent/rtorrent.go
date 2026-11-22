@@ -159,6 +159,7 @@ func serve(env fake.Env, clients []Client) (fake.Server, error) {
 		}
 		s.clients[c.Node] = &rtorrent{Client: c, version: v, held: map[bencode.InfoHash]*held{}, engine: torrentclient.New(torrentclient.Config{
 			Releases: env.Releases, Dir: c.Dir, Name: c.Folder, Rate: c.Rate, Check: c.Check,
+			Tracker: clientfake.Tracker(env, c.Node), PeerID: clientfake.PeerID("-lt0E00-", c.Node),
 		})}
 	}
 	engineOf := func(node string) (*torrentclient.Engine, bool) {
@@ -316,7 +317,7 @@ func (c *rtorrent) loadQueued() {
 		if l.label != "" {
 			labels = []string{l.label}
 		}
-		_, duplicate, err := c.engine.Add(l.metainfo, l.folder, labels, !l.start)
+		_, duplicate, err := c.engine.Add(torrentclient.Add{Metainfo: l.metainfo, Folder: l.folder, Labels: labels, Paused: !l.start, Complete: resumed(l.metainfo)})
 		if err != nil || duplicate {
 			continue
 		}
@@ -335,4 +336,17 @@ func directory(t torrentclient.Torrent, h *held) string {
 		return t.Folder + t.Name
 	}
 	return t.Folder + "/" + t.Name
+}
+
+// resumed reports whether metainfo carries libtorrent_resume, the fast
+// resume data with which rTorrent takes the files on disk as complete
+// with no check.
+func resumed(metainfo []byte) bool {
+	v, err := bencode.Decode(metainfo)
+	top, ok := v.(map[string]any)
+	if err != nil || !ok {
+		return false
+	}
+	_, ok = top["libtorrent_resume"]
+	return ok
 }
