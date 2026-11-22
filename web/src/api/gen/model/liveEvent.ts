@@ -1,3 +1,4 @@
+import type { LiveEventBackupsChanged } from "./liveEventBackupsChanged.ts";
 import type { LiveEventDownloadClientsChanged } from "./liveEventDownloadClientsChanged.ts";
 import type { LiveEventFilesChanged } from "./liveEventFilesChanged.ts";
 import type { LiveEventFilesMoved } from "./liveEventFilesMoved.ts";
@@ -31,9 +32,11 @@ import type { LiveEventMetadataChanged } from "./liveEventMetadataChanged.ts";
 import type { LiveEventNamingChanged } from "./liveEventNamingChanged.ts";
 import type { LiveEventNodesChanged } from "./liveEventNodesChanged.ts";
 import type { LiveEventNodeSettingsChanged } from "./liveEventNodeSettingsChanged.ts";
+import type { LiveEventNodesFenced } from "./liveEventNodesFenced.ts";
 import type { LiveEventNodesTraffic } from "./liveEventNodesTraffic.ts";
 import type { LiveEventNotificationsChanged } from "./liveEventNotificationsChanged.ts";
 import type { LiveEventNotificationsSeen } from "./liveEventNotificationsSeen.ts";
+import type { LiveEventReconcilingChanged } from "./liveEventReconcilingChanged.ts";
 import type { LiveEventRootsChanged } from "./liveEventRootsChanged.ts";
 import type { LiveEventSubtitlesAttempt } from "./liveEventSubtitlesAttempt.ts";
 import type { LiveEventSubtitlesChanged } from "./liveEventSubtitlesChanged.ts";
@@ -53,6 +56,7 @@ import type { LiveEventWorksRemoved } from "./liveEventWorksRemoved.ts";
 import type { LiveEventWorksTypeChanged } from "./liveEventWorksTypeChanged.ts";
 
 export type LiveEvent =
+  | LiveEventBackupsChanged
   | LiveEventDownloadClientsChanged
   | LiveEventFilesChanged
   | LiveEventFilesMoved
@@ -86,9 +90,11 @@ export type LiveEvent =
   | LiveEventNamingChanged
   | LiveEventNodeSettingsChanged
   | LiveEventNodesChanged
+  | LiveEventNodesFenced
   | LiveEventNodesTraffic
   | LiveEventNotificationsChanged
   | LiveEventNotificationsSeen
+  | LiveEventReconcilingChanged
   | LiveEventRootsChanged
   | LiveEventSubtitlesAttempt
   | LiveEventSubtitlesChanged

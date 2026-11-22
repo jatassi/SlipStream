@@ -10,3 +10,7 @@ SELECT * FROM downloadclients_volume ORDER BY node_id;
 
 -- name: GetVolume :one
 SELECT * FROM downloadclients_volume WHERE node_id = sqlc.arg(node_id);
+
+-- name: DeleteAllVolumes :exec
+-- A restore's samples were taken by the old Controller's machine.
+DELETE FROM downloadclients_volume;

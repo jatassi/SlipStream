@@ -62,6 +62,9 @@ test("each Role's state reads as a line", () => {
     "Offline since 9:31 PM · longer than the Offline grace",
   );
   expect(line({ role: "searching", state: "covering" })).toBe("Covering for seedbox");
+  expect(line({ role: "downloading", state: "keeping" })).toBe(
+    "Keeping every torrent until SlipStream has matched its torrents with the library",
+  );
 });
 
 test("a probe that fails or is weak, or a guardrail on adding the Role, hints why", () => {

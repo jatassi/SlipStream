@@ -205,6 +205,7 @@ test("the Library counts the pending imports that need you and links to Pending 
         downloads: { done: 0, wanted: 0, allPaused: false },
         alerts: { nodes: null, health: null, tasks: null },
         pendingImports: 4,
+        reconciling: null,
       }),
     ],
   });

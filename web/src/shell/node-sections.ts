@@ -1,5 +1,6 @@
 import {
   ArrowDataTransferHorizontalIcon,
+  DatabaseRestoreIcon,
   Download04Icon,
   Globe02Icon,
   InformationCircleIcon,
@@ -68,6 +69,13 @@ export const nodeSections = [
     icon: ArrowDataTransferHorizontalIcon,
     to: "/nodes/$nodeId/transfers",
     shows: (_node, nodes) => nodes.length > 1,
+  },
+  {
+    id: "backups",
+    label: "Backups",
+    icon: DatabaseRestoreIcon,
+    to: "/nodes/$nodeId/backups",
+    shows: (node) => node.self,
   },
   { id: "logs", label: "Logs", icon: TextAlignLeftIcon, to: "/nodes/$nodeId/logs" },
   {

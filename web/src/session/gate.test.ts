@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { FirstrunFirstRun } from "../api/gen/model";
-import { ada, grace, noPasskeys } from "../test/handlers";
+import { ada, grace, noPasskeys, startedAt } from "../test/handlers";
 import { type Entry, entryOf, redirectFor } from "./gate";
 import { safeRedirect } from "./safe-redirect";
 
@@ -13,6 +13,8 @@ const app: Entry = { kind: "app", account: ada };
 const portal: Entry = { kind: "portal", account: grace };
 const unreachable: Entry = { kind: "unreachable" };
 const firstRun: Entry = { kind: "first-run", account: ada, at: "roots" };
+const replaced: Entry = { kind: "superseded", account: ada };
+const replacedSignedOut: Entry = { kind: "superseded", account: null };
 
 const cells = [
   ["app", setup, "/setup"],
@@ -23,6 +25,7 @@ const cells = [
   ["app", portal, "/portal"],
   ["app", unreachable, "/serving"],
   ["app", firstRun, "/setup/roots"],
+  ["app", replaced, "/superseded"],
   ["portal", setup, "/setup"],
   ["portal", signIn, "/sign-in?redirect=%2Fsystem%3Fx%3D1"],
   ["portal", worker, "/worker"],
@@ -31,6 +34,7 @@ const cells = [
   ["portal", portal, null],
   ["portal", unreachable, "/serving"],
   ["portal", firstRun, "/setup/roots"],
+  ["portal", replaced, "/superseded"],
   ["sign-in", setup, "/setup"],
   ["sign-in", signIn, null],
   ["sign-in", worker, "/worker"],
@@ -39,6 +43,8 @@ const cells = [
   ["sign-in", portal, "/system"],
   ["sign-in", unreachable, "/serving"],
   ["sign-in", firstRun, "/setup/roots"],
+  ["sign-in", replaced, "/superseded"],
+  ["sign-in", replacedSignedOut, null],
   ["setup", setup, null],
   ["setup", signIn, "/sign-in"],
   ["setup", worker, "/worker"],
@@ -47,6 +53,7 @@ const cells = [
   ["setup", portal, "/portal"],
   ["setup", unreachable, "/serving"],
   ["setup", firstRun, "/setup/roots"],
+  ["setup", replaced, "/superseded"],
   ["worker", setup, "/setup"],
   ["worker", signIn, "/sign-in"],
   ["worker", worker, null],
@@ -55,6 +62,7 @@ const cells = [
   ["worker", portal, "/portal"],
   ["worker", unreachable, "/serving"],
   ["worker", firstRun, "/setup/roots"],
+  ["worker", replaced, "/superseded"],
   ["new-pin", setup, "/setup"],
   ["new-pin", signIn, "/sign-in"],
   ["new-pin", worker, "/worker"],
@@ -63,6 +71,7 @@ const cells = [
   ["new-pin", portal, "/portal"],
   ["new-pin", unreachable, "/serving"],
   ["new-pin", firstRun, "/setup/roots"],
+  ["new-pin", replaced, "/superseded"],
   ["link", setup, null],
   ["link", signIn, null],
   ["link", worker, null],
@@ -71,6 +80,7 @@ const cells = [
   ["link", portal, null],
   ["link", unreachable, "/serving"],
   ["link", firstRun, null],
+  ["link", replaced, "/superseded"],
   ["first-run", setup, "/setup"],
   ["first-run", signIn, "/sign-in?redirect=%2Fsystem%3Fx%3D1"],
   ["first-run", worker, "/worker"],
@@ -79,6 +89,7 @@ const cells = [
   ["first-run", portal, "/portal"],
   ["first-run", unreachable, "/serving"],
   ["first-run", firstRun, null],
+  ["first-run", replaced, "/superseded"],
   ["unreachable", setup, "/setup"],
   ["unreachable", signIn, "/sign-in"],
   ["unreachable", worker, "/worker"],
@@ -87,6 +98,17 @@ const cells = [
   ["unreachable", portal, "/portal"],
   ["unreachable", unreachable, null],
   ["unreachable", firstRun, "/setup/roots"],
+  ["unreachable", replaced, "/superseded"],
+  ["superseded", setup, "/setup"],
+  ["superseded", signIn, "/sign-in"],
+  ["superseded", worker, "/worker"],
+  ["superseded", newPin, "/new-pin"],
+  ["superseded", app, "/"],
+  ["superseded", portal, "/portal"],
+  ["superseded", unreachable, "/serving"],
+  ["superseded", firstRun, "/setup/roots"],
+  ["superseded", replaced, null],
+  ["superseded", replacedSignedOut, null],
 ] as const;
 
 describe("redirectFor", () => {
@@ -99,7 +121,7 @@ describe("redirectFor", () => {
   });
 });
 
-const controller = { claim: "controller", passkeys: noPasskeys } as const;
+const controller = { claim: "controller", passkeys: noPasskeys, startedAt } as const;
 const session = (account: typeof ada, pinRequired = false) =>
   ({ account, pinRequired, keyPrompt: "ask" }) as const;
 const settingUp = (account: typeof ada) => ({ ...session(account), firstRun: "open" }) as const;
@@ -114,7 +136,9 @@ const steps: FirstrunFirstRun = {
 
 describe("entryOf", () => {
   test("an Unclaimed Node sets up", () => {
-    expect(entryOf({ claim: "unclaimed", passkeys: noPasskeys }, null)).toEqual({ kind: "setup" });
+    expect(entryOf({ claim: "unclaimed", passkeys: noPasskeys, startedAt }, null)).toEqual({
+      kind: "setup",
+    });
   });
 
   test("a Controller with no session signs in", () => {
@@ -144,8 +168,17 @@ describe("entryOf", () => {
     });
   });
 
+  test("a Superseded Controller shows only its own page, signed in or out", () => {
+    const fenced = { ...controller, superseded: true } as const;
+    expect(entryOf(fenced, null)).toEqual({ kind: "superseded", account: null });
+    expect(entryOf(fenced, settingUp(ada), steps)).toEqual({ kind: "superseded", account: ada });
+    expect(entryOf(fenced, session(grace, true))).toEqual({ kind: "superseded", account: grace });
+  });
+
   test("a Worker is managed elsewhere", () => {
-    expect(entryOf({ claim: "worker", passkeys: noPasskeys }, null)).toEqual({ kind: "worker" });
+    expect(entryOf({ claim: "worker", passkeys: noPasskeys, startedAt }, null)).toEqual({
+      kind: "worker",
+    });
   });
 });
 

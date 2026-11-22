@@ -59,6 +59,23 @@ func expectReply(t *testing.T, r httpReply, status int, body string) {
 	}
 }
 
+// expectStatus is expectReply for getStatus, which also carries the
+// instant the Node started.
+func expectStatus(t *testing.T, r httpReply, claim string) {
+	t.Helper()
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(r.body), &fields); err != nil || fields["startedAt"] == nil {
+		t.Fatalf("getStatus answered %d %q, want a startedAt", r.status, r.body)
+	}
+	delete(fields, "startedAt")
+	b, err := json.Marshal(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.body = string(b) + "\n"
+	expectReply(t, r, 200, `{"claim":"`+claim+`","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
+}
+
 func claimController(t *testing.T, ready node.Ready, code string) httpReply {
 	t.Helper()
 	return call(t, ready, http.MethodPost, "/api/v1/setup/controller", `{"email":"admin@example.com","displayName":"Admin","pin":"1234"}`, map[string]string{"X-Setup-Code": code})
@@ -114,7 +131,7 @@ func TestAFreshNodeIsClaimedOverHTTP(t *testing.T) {
 		t.Fatalf("the setup code record logs %v, readiness reports %s", logged, ready.SetupCode)
 	}
 	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/health", "", nil), 200, `{"status":"ok"}`+"\n")
-	expectReply(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"unclaimed","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
+	expectStatus(t, call(t, ready, http.MethodGet, "/api/v1/status", "", nil), "unclaimed")
 
 	claimed := claimController(t, ready, ready.SetupCode)
 	if claimed.status != http.StatusCreated {
@@ -154,7 +171,7 @@ func TestAFreshNodeIsClaimedOverHTTP(t *testing.T) {
 	if _, has := again.readyRecord()["setup_code"]; has {
 		t.Fatalf("a claimed Node's readiness record has a setup_code: %v", again.readyRecord())
 	}
-	expectReply(t, call(t, readyAgain, http.MethodGet, "/api/v1/status", "", nil), 200, `{"claim":"controller","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
+	expectStatus(t, call(t, readyAgain, http.MethodGet, "/api/v1/status", "", nil), "controller")
 	expectReply(t, claimController(t, readyAgain, ready.SetupCode), 409, `{"status":409,"code":"already_claimed","title":"This Node is already set up"}`+"\n")
 }
 

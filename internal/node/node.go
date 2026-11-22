@@ -23,12 +23,14 @@ import (
 	// database: Windows and a container with TZ set.
 	_ "time/tzdata"
 
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/install"
+	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/media"
@@ -95,6 +97,8 @@ type Env struct {
 	// Zone is where the Maintenance window's wall-clock times are kept;
 	// nil is the process's own, time.Local.
 	Zone *time.Location
+	// Restore is the restore the Docker variables ask for, nil for none.
+	Restore *EnvRestore
 	// Test adds test-only Roles; a process leaves it zero.
 	Test Test
 }
@@ -105,6 +109,10 @@ type Env struct {
 // default.
 func ProcessEnv(cmd, dataDirFlag string) (Env, error) {
 	environ, follows, err := restartOf(os.Environ())
+	if err != nil {
+		return Env{}, &UsageError{Err: err}
+	}
+	environ, restore, err := envRestore(environ)
 	if err != nil {
 		return Env{}, &UsageError{Err: err}
 	}
@@ -154,6 +162,7 @@ func ProcessEnv(cmd, dataDirFlag string) (Env, error) {
 		Disk:      OSDisk,
 		Restart:   processRestart(layout.Executable, os.Args, environ, dir.LogsDir(), os.Stderr),
 		RestartOf: follows,
+		Restore:   restore,
 	}, nil
 }
 
@@ -202,8 +211,9 @@ type Node struct {
 	deadline time.Duration
 	ready    Ready
 
-	server  *control.Server
-	isReady atomic.Bool
+	server *control.Server
+	// phaseOf is the Phase, which status reads before ready.
+	phaseOf atomic.Uint32
 
 	// Set during start, before the Node is ready. cfgMu guards the Node
 	// settings table's keys in cfg, which setConfig changes later.
@@ -259,6 +269,8 @@ type Node struct {
 	// write through too.
 	store *storing.Store
 	disk  storing.Disk
+	// backups takes every Backup, the hook's included.
+	backups *backups.Engine
 	// claimed is where library.db and a half push their stops, so they
 	// stop after HTTP and the link, whenever they start. Its goroutines
 	// halt as the Node starts stopping, so a call they have in flight ends
@@ -271,6 +283,12 @@ type Node struct {
 	// claimMu serializes claims, so a Controller claim and a Join never
 	// interleave.
 	claimMu sync.Mutex
+	// restoreMu guards pending, the first-run page's restore.
+	restoreMu sync.Mutex
+	pending   *pendingRestore
+	// wiped is the Join Code a Wipe and join finished at this start joins
+	// with.
+	wiped joincode.Code
 
 	stopOnce sync.Once
 	stopping chan struct{}
@@ -366,6 +384,9 @@ func (n *Node) start(ctx context.Context) error {
 		if !errors.Is(err, ErrStopped) {
 			n.log.Error("start failed", "err", err.Error())
 		}
+		if hint, ok := hookHint(err); ok {
+			_, _ = fmt.Fprintln(n.env.Stderr, hint)
+		}
 		return errors.Join(err, n.stack.unwind(n.deadline))
 	}
 	return nil
@@ -424,7 +445,7 @@ func (n *Node) startLogged(ctx context.Context) error {
 			n.log.Warn("host below the supported floor", "reason", msg)
 		}
 	}
-	n.isReady.Store(true)
+	n.setPhase(PhaseReady)
 	n.log.Info("ready", "ready", n.ready)
 	return nil
 }
@@ -462,6 +483,15 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	}
 	// The claimed half stops before the torrent engine closes under it.
 	n.claimed = n.stack.Sub("claimed")
+	if err := n.restoreFromEnv(ctx); err != nil {
+		return 0, "", err
+	}
+	if err := n.resumeLifecycle(ctx); err != nil {
+		return 0, "", err
+	}
+	if n.backups, err = backupsEngine(n.env.DataDir, cfg, n.disk, n.key.Public(), n.env.Version, n.librarySchemas(), n.rootLog.With("subsystem", "backups")); err != nil {
+		return 0, "", err
+	}
 	if _, err := os.Stat(n.env.DataDir.LibraryDB()); err == nil {
 		if _, err := n.openLibrary(ctx); err != nil {
 			return 0, "", n.stoppedOr(err)
@@ -479,14 +509,16 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 		return 0, "", err
 	}
 	n.pairing, err = pairing.Open(pairing.Config{
-		DataDir:   n.env.DataDir.Path(),
-		Key:       n.key.Public(),
-		Link:      n.link,
-		Name:      cfg.Name,
-		Claims:    surfaceNode{n},
-		AwaitDial: cfg.Timings.Link.AwaitDial,
-		Removed:   n.removed,
-		Log:       n.rootLog.With("subsystem", "pairing"),
+		DataDir:          n.env.DataDir.Path(),
+		Key:              n.key.Public(),
+		Link:             n.link,
+		Name:             cfg.Name,
+		Claims:           surfaceNode{n},
+		AwaitDial:        cfg.Timings.Link.AwaitDial,
+		Removed:          n.removed,
+		UnreachableAfter: cfg.Timings.Pairing.UnreachableAfter,
+		Local:            localPage{n},
+		Log:              n.rootLog.With("subsystem", "pairing"),
 	})
 	if err != nil {
 		return 0, "", refusedRecord(err)
@@ -507,11 +539,8 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	if err != nil {
 		return 0, "", n.stoppedOr(err)
 	}
-	if code := cfg.Join.Code; !code.IsZero() {
-		n.stack.Go("join-code", func(ctx context.Context) error {
-			n.joinAtStart(ctx, code)
-			return nil
-		})
+	if err := n.joinAtStartFrom(cfg.Join.Code); err != nil {
+		return 0, "", err
 	}
 	return claim, setupCode, n.startHTTP(ctx, cfg, l, surface.Services{Node: surfaceNode{n}, Hub: n.hub, Live: cfg.Timings.Live}, n.gate)
 }

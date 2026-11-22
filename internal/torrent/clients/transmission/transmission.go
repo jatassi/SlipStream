@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -255,7 +256,11 @@ type torrent struct {
 	Peers       int   `json:"peers_connected"`
 	Seeds       int   `json:"peers_sending_to_us"`
 	Queue       int   `json:"queue_position"`
-	Files       []struct {
+	Private     bool  `json:"is_private"`
+	Trackers    []struct {
+		Announce string `json:"announce"`
+	} `json:"trackers"`
+	Files []struct {
 		Name string `json:"name"`
 		Size int64  `json:"length"`
 		Done int64  `json:"bytes_completed"`
@@ -265,7 +270,7 @@ type torrent struct {
 var pollFields = fields{
 	"hash_string", "name", "status", "left_until_done", "size_when_done", "download_dir", "labels", "error", "error_string",
 	"is_finished", "done_date", "uploaded_ever", "downloaded_ever", "seconds_seeding", "seconds_downloading",
-	"rate_download", "rate_upload", "peers_connected", "peers_sending_to_us", "queue_position",
+	"rate_download", "rate_upload", "peers_connected", "peers_sending_to_us", "queue_position", "is_private", "trackers",
 }
 
 func (c *client) get(ctx context.Context, hashes []bencode.InfoHash, named fields) ([]torrent, error) {
@@ -297,6 +302,32 @@ func (c *client) Poll(ctx context.Context, hashes []bencode.InfoHash) (map[benco
 		out[h] = s
 	}
 	return out, nil
+}
+
+// List reads every torrent's hash and labels, since Transmission filters
+// by neither, then polls those with the label.
+func (c *client) List(ctx context.Context, label clients.Label) (map[bencode.InfoHash]clients.Status, error) {
+	var res struct {
+		Torrents []torrent `json:"torrents"`
+	}
+	if err := c.call(ctx, "torrent_get", map[string]any{"fields": fields{"hash_string", "labels"}}, &res); err != nil {
+		return nil, err
+	}
+	var hashes []bencode.InfoHash
+	for _, t := range res.Torrents {
+		if !slices.Contains(t.Labels, label.String()) {
+			continue
+		}
+		h, err := bencode.ParseInfoHash(t.Hash)
+		if err != nil {
+			return nil, fmt.Errorf("read the client's torrent_get: %w", err)
+		}
+		hashes = append(hashes, h)
+	}
+	if len(hashes) == 0 {
+		return map[bencode.InfoHash]clients.Status{}, nil
+	}
+	return c.Poll(ctx, hashes)
 }
 
 // Transmission's tr_torrent_activity.
@@ -331,8 +362,14 @@ func status(t torrent) clients.Status {
 			Active:  time.Duration(t.Downloading+t.Seeding) * time.Second,
 			Seeding: time.Duration(t.Seeding) * time.Second,
 		},
-		Rates: clients.Rates{Down: t.RateDown, Up: t.RateUp, Peers: t.Peers, Seeds: t.Seeds},
+		Rates:   clients.Rates{Down: t.RateDown, Up: t.RateUp, Peers: t.Peers, Seeds: t.Seeds},
+		Private: t.Private,
 	}
+	var urls []string
+	for _, tr := range t.Trackers {
+		urls = append(urls, tr.Announce)
+	}
+	s.Hosts = clients.HostsOf(urls)
 	switch t.Status {
 	case stopped:
 		s.Run, s.Activity = clients.Paused, clients.Downloading

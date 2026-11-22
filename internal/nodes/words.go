@@ -257,3 +257,8 @@ func keepsConfig(n Named, r role.Name, kept []string) Check {
 		fmt.Sprintf("%s still has %s. First delete %s, or move %s to another Node that %s.", n.Name, names, them, them, r.Purpose()),
 		"Has "+names)
 }
+
+// keepingWords is the Nodes page line for a Node waiting to be adopted.
+func keepingWords(v NodeView) string {
+	return v.Name + " keeps every torrent until SlipStream has matched its list of torrents with the library."
+}

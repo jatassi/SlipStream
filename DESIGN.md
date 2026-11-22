@@ -881,6 +881,47 @@ Desktop Nodes opens on the Diagram, an isometric drawing of the install seen fro
 
 The Roster says everything the Diagram draws, in rows, and a screen reader reads the Roster.
 
+### Term
+
+A standard term in a sentence, such as Reconciling, reads in the sentence's own color with a dotted `ink-3` underline offset 4px and a help cursor. Hovering it, or pressing it where nothing hovers, opens a Popover holding its one-sentence definition. Its words are its GLOSSARY.md `_In UI_` line, never a coined label.
+
+### Backups section
+
+Settings > Backups leads with one sentence that names the schedule, the newest good Backup and the Nodes with a copy of it. After a failure it says when the last one failed and links to the Backup task for the cause. Advice follows as signal lines, the most urgent first: save the passphrase, add a destination, download the recovery sheet again. Then come the sections in order:
+
+- **Backups.** Back up now sits in the section's header. Each row is the time in Numeral, a check mark (Checked, Failed, Backing up…), a meta line ("Scheduled · SlipStream 2.1.0 · 96 MB") and a copies line naming each destination's state. A Backup taken while SlipStream was Reconciling says so with the Term. The row's menu offers Download, Restore… and Delete… in the danger tone.
+- **Backup destinations.** One card per destination, "{Node}: {folder}" with the folder in Data, its newest copy and that copy's check, and Remove. Add a Backup destination opens a Node picker and the folder field, and a folder without room for the Backups says how much they need.
+- **Backup passphrase.** When it was saved, then Show passphrase, Download recovery sheet, I saved it (while unsaved) and Replace…. Show and the recovery sheet ask for the PIN first. The passphrase shows in Data with Copy and one sentence on what it is for. Replace asks to confirm, with "Delete older Backups and their copies once the new Backup is checked" ticked.
+- **Schedule.** Back up every and Keep scheduled Backups for, the space Backups use, and a link to the Controller's Backups settings on its Node page, which hold the backups folder and link back here.
+- **Restore.** Restore a file… opens the restore flow in a dialog.
+- **Details.** The keep, warn, copy-wait and check settings, Check my saved copy, and Retire this Controller in the fail look.
+
+### Restore flow
+
+One flow serves the first-run page, Restore a file and a listed Backup's Restore…, in one column of steps that replace each other:
+
+1. **File.** A file field ("Backup file") under a lead on which Backup to pick. A listed Backup skips it, or first asks to Copy it back from the destination that holds it, with a Spinner while it copies.
+2. **Uploading.** A LiveBar, "Uploading the Backup", filling as the file goes up. The dialog can't close while it runs.
+3. **Passphrase.** "Backup passphrase" and Open the Backup, with Pick another file as a ghost button. A wrong passphrase stays here with the Node's sentence; any other refusal goes back to the file.
+4. **Summary.** One sentence on when, by which version and of which Controller the Backup was taken. Onto a new machine it then says the old Controller must stay off, behind a checkbox that Restore waits on, ticks each Node the Backup lists so a removed one can be unticked, and names the PIN to sign in with. In place it says what is lost and that files come back while SlipStream is Reconciling.
+5. **Restarting.** A Spinner and one sentence while the public status shows the same start time. Once the Node is back the flow goes to sign-in. Past the wait it says to check the log, with Try again.
+
+### Reconciling banner
+
+While a restore reconciles, every admin page carries one line naming what SlipStream is doing, then the next step in `ink-2`. On desktop it is a `glass` strip under the top bar with a hairline below, 12px by 28px padding: a Spinner, the two sentences, and on the right a small "Open Reconciling" button. When a single Node offline past the grace is all that's left, a primary "Continue without {Node}" button sits before it. On phone it is a `chrome` card in Meta at the end of the content, sticky above the tab bar so it never covers the page's last rows, and the whole card opens Reconciling. The Reconciling pages themselves carry no banner.
+
+### Reconciling page
+
+Reached from the banner and from Health, with no nav row. It leads with the Reconciling Term and the Backup it restored, then the next step in one sentence, with the Backup name and the start time under Details. Finish now is the page's one action and asks to confirm, naming every wait it ends. Sections follow in order: Nodes, waiting ones first, each row one sentence with its one action (New Join Code or Continue without); Nodes not in this Backup; Library roots, each with Find its folder and Continue without; and the review list's groups, each a sentence and a link to review them. Outside a restore the page lists only the Nodes that keep their torrents, with no Finish now.
+
+### Re-home step
+
+After a restore onto a new machine, every admin page opens "Find the old Controller's folders" until Save all or Later. It leads with how many folders are at the same path on this machine, then lists each library root at its old path in Data with the root edit's check under it: "The folder is there.", the refusal, or the files it lacks with "Save anyway, forget N files" in the warn look. Change folder opens the root edit's place form. Later and the primary Save all close the step, and a folder left for later waits on the Reconciling page.
+
+### Superseded page
+
+A Superseded Controller opens one page from every address, an entry card titled "This Controller was replaced". For an Admin it leads with when and where the library was restored and what stopped, then recommends Wipe and join as a Worker: a Join Code field with its help line and a primary button that asks to confirm in the fail look, naming the Backup it takes and that media files and torrents stay. The new Controller's key, the Worker that reported it and Resume this Controller, which also confirms, sit under Details. Signed out it says only that it was replaced, with Sign in. After a wipe the card says it is restarting, and the tab follows the Node to its next page. A paired Worker out of reach of its Controller shows a Setup code and Join Code form on its own card to pair again. Before any of this, a Worker that says another Controller replaced this one without a proof raises a Nodes Health Error that opens that Worker's Overview, where an "Another Controller" section above Remove says so and offers Stop this Controller in the fail look, confirming what stops and that Resume undoes it.
+
 ### PIN keypad
 
 Portal sign-in and onboarding take a 4-digit PIN on a keypad of 80px circular keys in a three-column grid. A key is `hsl(var(--h) 30% 92% / .1)` with a hairline ring, and its digit is 34px Geist at 400. A press lights the key at once and fades it back over 250ms. Four 18px dots show entry. A filled dot turns `ink-1` with the Work glow and scales to 108% on the spring. A status line below counts the digits ("0 of 4"). A new PIN is entered twice, and a mismatch shakes the dots once (420ms, 9px each way) and says so in `fail-ink`.

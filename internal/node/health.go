@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -30,6 +31,7 @@ func healthCategories(h *half) []health.Category {
 		{About: indexers.HealthAbout, Source: health.Join(h.indexers.HealthSource(), h.tasks.HealthSource(health.IndexersID))},
 		{About: subtitles.HealthAbout, Source: health.Join(h.subtitles.HealthSource(), h.tasks.HealthSource(health.SubtitlesID))},
 		{About: tasks.HealthAbout, Source: h.tasks.HealthSource(health.ScheduledTasksID)},
+		{About: backups.HealthAbout, Source: h.backups.HealthSource()},
 		{About: notifications.HealthAbout, Source: h.notifications.HealthSource()},
 	}
 }

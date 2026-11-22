@@ -4,6 +4,7 @@ import type { SystemStatus } from "../../api/gen/model";
 import { Button } from "../../ui/button";
 import type { ChoiceId, FormProps } from "./form-props";
 import { JoinForm } from "./join-form";
+import { RestoreForm } from "./restore-form";
 import { StartForm } from "./start-form";
 
 export type Choice = {
@@ -15,7 +16,7 @@ export type Choice = {
   readonly Form: ComponentType<FormProps>;
 };
 
-/** What this Node can become. S49 adds "restore". */
+/** What this Node can become. */
 export const choices: { readonly [C in ChoiceId]: Choice & { readonly id: C } } = {
   start: {
     id: "start",
@@ -31,6 +32,13 @@ export const choices: { readonly [C in ChoiceId]: Choice & { readonly id: C } } 
       "This Node becomes a Worker of a SlipStream you already run, with a Join Code from Add a Node.",
     primary: (status) => status.removed !== undefined,
     Form: JoinForm,
+  },
+  restore: {
+    id: "restore",
+    label: "Restore a Backup",
+    about: "Rebuild a SlipStream from a Backup file. You need its Backup passphrase.",
+    primary: () => false,
+    Form: RestoreForm,
   },
 };
 

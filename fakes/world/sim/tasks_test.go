@@ -137,12 +137,13 @@ func TestHousekeepingWarnsOnlyOnceAUnitMissedThreeIntervals(t *testing.T) {
 
 func held(release <-chan struct{}) tasks.Task {
 	return tasks.Task{
-		ID:      "held",
-		Name:    "Held",
-		Group:   tasks.ControllerGroup,
-		Cadence: tasks.Every{Interval: setting.Duration{Key: "tasks.held.cadence", Default: time.Hour, Min: time.Hour, Max: 24 * time.Hour, Step: time.Hour}},
-		Overdue: tasks.Wait,
-		Noun:    setting.Noun{One: "step", Many: "steps"},
+		ID:               "held",
+		Name:             "Held",
+		Group:            tasks.ControllerGroup,
+		Cadence:          tasks.Every{Interval: setting.Duration{Key: "tasks.held.cadence", Default: time.Hour, Min: time.Hour, Max: 24 * time.Hour, Step: time.Hour}},
+		Overdue:          tasks.Wait,
+		WhileReconciling: tasks.Runs,
+		Noun:             setting.Noun{One: "step", Many: "steps"},
 		Units: func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
 			return []tasks.Unit{{Key: "held", Label: "Held", Place: tasks.OnController()}}, nil
 		},
@@ -203,12 +204,13 @@ func (s searches) Search(ctx context.Context, _ *rpctestv1.SearchRequest) (*rpct
 
 func searching(h node.Half) tasks.Task {
 	return tasks.Task{
-		ID:      "searching",
-		Name:    "Searching",
-		Group:   tasks.ControllerGroup,
-		Cadence: tasks.Every{Interval: setting.Duration{Key: "tasks.searching.cadence", Default: 24 * time.Hour, Min: time.Hour, Max: 24 * time.Hour, Step: time.Hour}},
-		Overdue: tasks.Wait,
-		Noun:    setting.Noun{One: "search", Many: "searches"},
+		ID:               "searching",
+		Name:             "Searching",
+		Group:            tasks.ControllerGroup,
+		Cadence:          tasks.Every{Interval: setting.Duration{Key: "tasks.searching.cadence", Default: 24 * time.Hour, Min: time.Hour, Max: 24 * time.Hour, Step: time.Hour}},
+		Overdue:          tasks.Wait,
+		WhileReconciling: tasks.Runs,
+		Noun:             setting.Noun{One: "search", Many: "searches"},
 		Units: func(ctx context.Context, r storage.Reader[storage.Library]) ([]tasks.Unit, error) {
 			named, err := nodes.Names(ctx, r)
 			if err != nil {

@@ -7,6 +7,8 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/backups"
+	"github.com/jatassi/slipstream/internal/backupsapi"
 	"github.com/jatassi/slipstream/internal/calendarapi"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloadclientsapi"
@@ -42,12 +44,16 @@ import (
 	"github.com/jatassi/slipstream/internal/notificationsapi"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/pairingapi"
+	"github.com/jatassi/slipstream/internal/reconciling"
+	"github.com/jatassi/slipstream/internal/reconcilingapi"
+	"github.com/jatassi/slipstream/internal/restoreapi"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rootsapi"
 	"github.com/jatassi/slipstream/internal/servingapi"
 	"github.com/jatassi/slipstream/internal/shellapi"
 	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/subtitlesapi"
+	"github.com/jatassi/slipstream/internal/supersededapi"
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/systemapi"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -72,6 +78,7 @@ var Events = []live.Event{
 	identity.AddressChangedEvent,
 	nodes.ChangedEvent,
 	nodes.SettingsChangedEvent,
+	nodes.FencedEvent,
 	nodes.TrafficEvent,
 	works.ChangedEvent,
 	works.RemovedEvent,
@@ -115,6 +122,8 @@ var Events = []live.Event{
 	subtitles.ChangedEvent,
 	subtitles.ProvidersChangedEvent,
 	subtitles.AttemptEvent,
+	reconciling.ChangedEvent,
+	backups.ChangedEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the
@@ -138,9 +147,12 @@ type Node interface {
 	grabsapi.Pipeline
 	downloadclientsapi.Clients
 	transfersapi.Copies
+	backupsapi.Keeper
 	shellapi.Shell
 	systemapi.Systems
 	Removal() (pairing.Removal, bool)
+	Superseded() bool
+	supersededapi.Fencer
 	tasksapi.Clock
 	servingapi.Worker
 	healthapi.Watch
@@ -150,6 +162,8 @@ type Node interface {
 	calendarapi.Calendar
 	historyapi.History
 	subtitlesapi.Owner
+	reconcilingapi.Reconciler
+	restoreapi.Restorer
 }
 
 // Services are what the operations run against. Document passes none.
@@ -181,6 +195,7 @@ func Mount(r *api.Router, s Services) {
 	grabsapi.Routes(r, s.Node)
 	downloadclientsapi.Routes(r, s.Node)
 	transfersapi.Routes(r, s.Node)
+	backupsapi.Routes(r, s.Node)
 	shellapi.Routes(r, s.Node)
 	tasksapi.Routes(r, s.Node)
 	servingapi.Routes(r, s.Node)
@@ -191,6 +206,9 @@ func Mount(r *api.Router, s Services) {
 	calendarapi.Routes(r, s.Node)
 	historyapi.Routes(r, s.Node)
 	subtitlesapi.Routes(r, s.Node)
+	reconcilingapi.Routes(r, s.Node)
+	restoreapi.Routes(r, s.Node)
+	supersededapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each

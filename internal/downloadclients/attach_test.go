@@ -89,7 +89,7 @@ func intentOf(t *testing.T, lib library, node role.NodeID) []dc.ID {
 	t.Helper()
 	var ids []dc.ID
 	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		in, err := dc.Intent(ctx, r, node)
+		in, err := dc.Derive{Keeps: dc.NoKeeps}.Intent(ctx, r, node)
 		for _, tor := range in.GetTorrents() {
 			u, err := storage.UUIDFromBytes(tor.GetId())
 			if err != nil {

@@ -1,1 +1,1 @@
-export type MarkSubtitleBad409Code = "worker_node";
+export type MarkSubtitleBad409Code = "superseded" | "worker_node";

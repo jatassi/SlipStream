@@ -177,6 +177,11 @@ func expect(t *testing.T, r reply, status int, body string) {
 	}
 }
 
+// statusOf is getStatus's body on n for claim, at the address the tests use.
+func statusOf(n *Node, claim string) string {
+	return `{"claim":"` + claim + `","startedAt":"` + n.started.Format(time.RFC3339Nano) + `","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"
+}
+
 // keyOf regenerates the API key with the session claimed's cookie set,
 // since a claim never shows the key.
 func keyOf(t *testing.T, c client, claimed reply) string {
@@ -433,7 +438,7 @@ func TestTheAccessWalkPassesOnAStartedNode(t *testing.T) {
 	if err := json.Unmarshal([]byte(r.body), &res); err != nil || r.status != http.StatusCreated {
 		t.Fatalf("claimController = %d %s", r.status, r.body)
 	}
-	lib, err := storage.OpenLibrary(t.Context(), env.DataDir.LibraryDB(), LibrarySchemas(noTypes), preMigrationHook, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
+	lib, err := storage.OpenLibrary(t.Context(), env.DataDir.LibraryDB(), LibrarySchemas(noTypes), nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}

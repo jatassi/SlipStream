@@ -33,7 +33,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/clientfake"
 	"github.com/jatassi/slipstream/fakes/internal/torrentclient"
 	"github.com/jatassi/slipstream/fakes/scenario"
-	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
@@ -131,7 +130,8 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 type version struct {
 	app, api string
 	// stop is 5.0's rename, WebAPI 2.11.0: stop and start, the stopped add
-	// parameter, stopped* states, and root_path in torrents/info.
+	// parameter, stopped* states, and root_path and private in
+	// torrents/info.
 	stop bool
 	// v52 is 5.2's sign-in and answers: the QBT_SID_<port> cookie, 204 and
 	// 401 from auth/login, API keys, 204 for a result with no data, JSON
@@ -167,7 +167,6 @@ type client struct {
 	failures   map[string]int
 	banned     map[string]time.Time
 	categories map[string]string
-	announce   map[bencode.InfoHash]string
 }
 
 type session struct {
@@ -193,7 +192,7 @@ func serve(env fake.Env, clients []Client) (fake.Server, error) {
 				Releases: env.Releases, Dir: c.Dir, Name: c.Folder, Windows: c.Windows, Rate: c.Rate, Slots: c.Slots, SeedRatio: c.SeedRatio, Check: c.Check,
 			}),
 			sessions: map[string]*session{}, failures: map[string]int{}, banned: map[string]time.Time{},
-			categories: map[string]string{}, announce: map[bencode.InfoHash]string{},
+			categories: map[string]string{},
 		}
 		maps.Copy(s.clients[c.Node].categories, c.Categories)
 	}

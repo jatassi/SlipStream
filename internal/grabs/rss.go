@@ -22,18 +22,21 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const rssName = "RSS sync"
+
 // rssTask is RSS sync: one unit per Indexer that is on with RSS on,
 // placed as the Indexer health check's.
 func (gr *Grabs) rssTask() tasks.Task {
 	return tasks.Task{
-		ID:      RSSTaskID,
-		Name:    "RSS sync",
-		About:   "Reads the new uploads of each Indexer with RSS on, and grabs any that are missing from the library or upgrade a file there.",
-		Group:   tasks.GroupOf(role.Searching.Group()),
-		Cadence: tasks.Every{Interval: RSSEvery},
-		Noun:    setting.Noun{One: "Indexer", Many: "Indexers"},
-		Units:   gr.cfg.Indexers.RSSUnits,
-		Shown:   anyRSS,
+		ID:               RSSTaskID,
+		Name:             "RSS sync",
+		About:            "Reads the new uploads of each Indexer with RSS on, and grabs any that are missing from the library or upgrade a file there.",
+		Group:            tasks.GroupOf(role.Searching.Group()),
+		Cadence:          tasks.Every{Interval: RSSEvery},
+		WhileReconciling: tasks.Pauses,
+		Noun:             setting.Noun{One: "Indexer", Many: "Indexers"},
+		Units:            gr.cfg.Indexers.RSSUnits,
+		Shown:            anyRSS,
 		Off: func(ctx context.Context, r storage.Reader[file]) (bool, error) {
 			s, err := db.New(r).GetSettings(ctx)
 			return !RSSOn.Value(s.RssOn), err
@@ -70,10 +73,6 @@ func (gr *Grabs) RSSIn(ctx context.Context, r storage.Reader[file]) (time.Durati
 	}
 	return RSSEvery.Value(every), RSSOn.Value(s.RssOn), nil
 }
-
-// reconcilingSkip is the RSS unit's owned skip while a restored
-// Controller is Reconciling.
-const reconcilingSkip = "Skipped because SlipStream is Reconciling after a restore. RSS sync starts again once Reconciling finishes."
 
 // syncFeed is one RSS sync of Indexer id: it reads the feed's new
 // Releases, matches them to Works, and in one fenced Write decides each
@@ -120,7 +119,7 @@ func (gr *Grabs) syncFeed(ctx context.Context, id indexers.ID) (string, error) {
 		return err
 	})
 	if errors.Is(err, ErrReconciling) {
-		return "", tasks.SkipOwned(reconcilingSkip)
+		return "", tasks.PausedWhileReconciling(rssName)
 	}
 	if err != nil {
 		return "", err

@@ -167,7 +167,7 @@ func serveWorld(t *testing.T) *world {
 		Live:   downloadclients.LiveConfig{Sample: time.Second},
 		Log:    slog.New(slog.DiscardHandler),
 	})
-	w.trackers = trackers.New(trackers.Config{Library: lib, Clients: clients, Roster: w.roster, Reconciling: trackers.NotReconciling, Routing: trackers.Routing{Roster: w.roster}})
+	w.trackers = trackers.New(trackers.Config{Library: lib, Clients: clients, Roster: w.roster, Reconciling: notReconciling, Routing: trackers.Routing{Roster: w.roster}})
 	w.o = ownertest.Serve(t, lib, func(r *api.Router) { downloadclientsapi.Routes(r, controller{clients, side, w.trackers}) })
 	return w
 }
@@ -233,4 +233,9 @@ func TestClientSettingsRefuse(t *testing.T) {
 	if len(*touched) != 0 {
 		t.Fatalf("refusals touched %v, want no intent", *touched)
 	}
+}
+
+// notReconciling is a Controller that is never Reconciling.
+func notReconciling(context.Context, storage.Reader[storage.Library]) (bool, error) {
+	return false, nil
 }

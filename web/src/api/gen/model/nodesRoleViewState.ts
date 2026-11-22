@@ -4,4 +4,5 @@ export type NodesRoleViewState =
   | "lapsed"
   | "draining"
   | "writing-off"
-  | "covering";
+  | "covering"
+  | "keeping";

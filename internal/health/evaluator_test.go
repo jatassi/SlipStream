@@ -218,6 +218,7 @@ func (w *world) open(t *testing.T) *health.Health {
 			{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 			{About: health.About{ID: health.SubtitlesID, Label: "Subtitles", Phrase: "subtitles"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 			{About: health.About{ID: health.ScheduledTasksID, Label: "Scheduled tasks", Phrase: "scheduled tasks", Events: []live.Event{tasksEvent}}, Source: health.Source{Answer: w.tasks.Answer}},
+			{About: health.About{ID: health.BackupsID, Label: "Backups", Phrase: "Backups"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 			{About: health.About{ID: health.NotificationsID, Label: "Notifications", Phrase: "notification connections"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 		},
 		Names: func(context.Context, storage.Reader[storage.Library]) (map[role.NodeID]string, error) {
@@ -445,7 +446,7 @@ func TestCheckNowAnswersTheReportItLeft(t *testing.T) {
 			key  health.Key
 			want error
 		}{
-			{"backups", "", health.ErrNoCategory},
+			{"other", "", health.ErrNoCategory},
 			{health.NodesID, "gone", health.ErrNoItem},
 			{health.NodesID, "other", health.ErrNoCheck},
 			{health.ScheduledTasksID, "", health.ErrNoCheck},

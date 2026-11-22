@@ -12,11 +12,13 @@ import (
 
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
 	"github.com/jatassi/slipstream/cmd/release/internal/pack"
+	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/install"
+	"github.com/jatassi/slipstream/internal/worktree"
 )
 
 func init() {
-	register("tag", "check a release tag vX.Y.Z and write its version, pre-release flag and image tags; -notes writes its release notes", runTag)
+	register("tag", "check a release tag vX.Y.Z and write its version, pre-release flag and image tags; -notes writes its release notes; -backup adds a Backup the tag's released binary writes to "+releasesDir, runTag)
 }
 
 const imageRepo = "ghcr.io/jatassi/slipstream"
@@ -26,6 +28,7 @@ const installDoc = "https://github.com/jatassi/SlipStream/blob/%s/docs/install.m
 func runTag(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("tag", flag.ContinueOnError)
 	notes := flags.String("notes", "", "also write the release notes to this file")
+	backup := flags.String("backup", "", "the tag's released slipstream binary: take a Backup with it and add it to "+releasesDir)
 	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
 	}
@@ -36,6 +39,9 @@ func runTag(ctx context.Context, args []string) error {
 	v, err := pack.ParseTag(tag)
 	if err != nil {
 		return err
+	}
+	if *backup != "" {
+		return addReleaseBackup(ctx, *backup, tag)
 	}
 	for _, o := range tagOutputs(v) {
 		fmt.Printf("%s=%s\n", o[0], o[1])
@@ -57,6 +63,28 @@ func runTag(ctx context.Context, args []string) error {
 	if err := os.WriteFile(*notes, []byte(releaseNotes(tag, v, in)), 0o644); err != nil {
 		return fmt.Errorf("write the release notes: %w", err)
 	}
+	return nil
+}
+
+// addReleaseBackup adds the Backup binary writes, refusing a binary that
+// isn't a clean build of tag.
+func addReleaseBackup(ctx context.Context, binary, tag string) error {
+	stamp, err := buildinfo.ReadFile(binary)
+	if err != nil {
+		return err
+	}
+	if stamp.Version != tag || stamp.Fingerprint != worktree.CleanFingerprint {
+		return fmt.Errorf("%s is a build stamped %s with fingerprint %s; a release Backup takes a clean build of %s", binary, stamp.Version, stamp.Fingerprint, tag)
+	}
+	root, err := repoRoot(ctx)
+	if err != nil {
+		return err
+	}
+	into, err := writeReleaseBackup(ctx, root, binary)
+	if err != nil {
+		return err
+	}
+	fmt.Println(into)
 	return nil
 }
 

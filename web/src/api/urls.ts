@@ -9,3 +9,8 @@ export const nodeLogsStreamUrl = (nodeId: string, after?: number) =>
   after === undefined
     ? `${nodePath(nodeId)}/logs/stream`
     : `${nodePath(nodeId)}/logs/stream?after=${after}`;
+
+export const recoverySheetUrl = "/api/v1/backups/recovery-sheet";
+
+export const backupFileUrl = (backupId: string) =>
+  `/api/v1/backups/${encodeURIComponent(backupId)}/file`;

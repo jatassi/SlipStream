@@ -52,9 +52,10 @@ func (c nodeControl) ClientSecrets(context.Context, *dlv1.ClientSecretsRequest) 
 // external is a release the fake Transmission downloads at 100 bytes a
 // second.
 type external struct {
-	name string
-	hash bencode.InfoHash
-	id   storage.UUID
+	name     string
+	hash     bencode.InfoHash
+	id       storage.UUID
+	metainfo []byte
 }
 
 // composite is a Node's Downloading Role over its built-in client and one
@@ -83,10 +84,10 @@ func (n *node) startComposite(version string, releaseSize int) *composite {
 		Node: clientNode, Version: version, Dir: t.TempDir(), Folder: "/downloads", Rate: 100,
 		Username: "admin", Password: clientPassword,
 	}
-	catalog := faketest.Catalog(t, releaseSize, "orchard")
+	catalog := faketest.Catalog(t, releaseSize, "orchard", "lantern", "harbor")
 	c := &composite{n: n, daemon: d, rels: map[string]external{}, judged: map[string]bool{}}
 	for _, rel := range catalog.Releases {
-		x := external{name: rel.Name, hash: rel.InfoHash, id: storage.NewUUID()}
+		x := external{name: rel.Name, hash: rel.InfoHash, id: storage.NewUUID(), metainfo: rel.Metainfo}
 		c.rels[rel.Name] = x
 		n.ctl.answer(x.id, &dlv1.TorrentResponse{Metainfo: rel.Metainfo, ContentType: "Movies"})
 	}
@@ -187,21 +188,26 @@ func (c *composite) send(withClient bool, ts ...*dlv1.Torrent) {
 // session of the test's own sees it.
 func (c *composite) inClient(t *testing.T, name string) bool {
 	t.Helper()
-	a, err := clients.ParseAddress(c.client.GetAddress(), clients.Transmission)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := clients.Session{
-		HTTP: c.served.Client, Address: a, Username: c.daemon.Username, Secrets: clients.Secrets{Password: clientPassword},
-		Call: 30 * time.Second, Log: slog.New(slog.DiscardHandler),
-	}
 	h := c.rels[name].hash
-	got, err := transmission.Open(s).Poll(t.Context(), []bencode.InfoHash{h})
+	got, err := c.session(t).Poll(t.Context(), []bencode.InfoHash{h})
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, ok := got[h]
 	return ok
+}
+
+// session is a session of the test's own with the fake Transmission.
+func (c *composite) session(t *testing.T) clients.Client {
+	t.Helper()
+	a, err := clients.ParseAddress(c.client.GetAddress(), clients.Transmission)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return transmission.Open(clients.Session{
+		HTTP: c.served.Client, Address: a, Username: c.daemon.Username, Secrets: clients.Secrets{Password: clientPassword},
+		Call: 30 * time.Second, Log: slog.New(slog.DiscardHandler),
+	})
 }
 
 func (c *composite) polls() []*dlv1.ClientPoll {

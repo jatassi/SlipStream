@@ -1,1 +1,1 @@
-export type CountSubtitleTrack409Code = "worker_node";
+export type CountSubtitleTrack409Code = "superseded" | "worker_node";

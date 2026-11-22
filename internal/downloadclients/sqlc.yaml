@@ -53,6 +53,7 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/works
               type: TypeID
+              pointer: true
           - column: downloadclients_node.utp
             go_type:
               type: bool

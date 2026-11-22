@@ -61,6 +61,7 @@ var failureWords = map[Code]Words{
 		nextReleaseWords,
 	},
 	Declined:   {Cause: "You chose not to import this download."},
+	Restored:   {"No Node had this Grab's torrent after the restore.", searchAgainWords},
 	Unreadable: {"ffprobe can't read the downloaded video. SlipStream added the release to the Blocklist.", nextReleaseWords},
 }
 

@@ -25,9 +25,11 @@ type healthOutput struct {
 }
 
 type status struct {
-	Claim    string   `json:"claim" enum:"unclaimed,controller,worker"`
-	Passkeys passkeys `json:"passkeys" doc:"Whether passkeys work at the address this request used"`
-	Removed  *removed `json:"removed,omitempty" doc:"Set on an Unclaimed Node its Controller removed, until it joins again"`
+	Claim      string    `json:"claim" enum:"unclaimed,controller,worker"`
+	StartedAt  time.Time `json:"startedAt" doc:"When this process started. A page waiting out a restart reads a later one once the Node is back"`
+	Passkeys   passkeys  `json:"passkeys" doc:"Whether passkeys work at the address this request used"`
+	Removed    *removed  `json:"removed,omitempty" doc:"Set on an Unclaimed Node its Controller removed, until it joins again"`
+	Superseded bool      `json:"superseded,omitempty" doc:"Whether a restore on another machine replaced this Controller, or an Admin stopped or retired it"`
 }
 
 type removed struct {
@@ -123,6 +125,8 @@ type Node interface {
 	// Removal is when and by whom the Node was removed, false unless its
 	// Controller removed it since it last joined.
 	Removal() (pairing.Removal, bool)
+	// Superseded is whether this Node is a Superseded Controller.
+	Superseded() bool
 }
 
 // Routes reports this Node's facts and claim, and every Node's system.
@@ -151,7 +155,7 @@ func Routes(r *api.Router, facts system.Facts, node Node) {
 			return nil, err
 		}
 		v := a.Passkeys()
-		out := status{Claim: claim.String(), Passkeys: passkeys{Available: v.Available, Reason: string(v.Reason)}}
+		out := status{Claim: claim.String(), StartedAt: facts.StartedAt, Passkeys: passkeys{Available: v.Available, Reason: string(v.Reason)}, Superseded: node.Superseded()}
 		if r, ok := node.Removal(); ok && claim == system.Unclaimed {
 			out.Removed = &removed{At: r.At, Controller: r.ControllerName}
 		}

@@ -83,12 +83,19 @@ export type LiveMap = { [N in LiveEventName]: PayloadOf<N> };
 
 export const noPasskeys: SystemPasskeys = { available: false, reason: "plain_http" };
 
-const controller = getGetStatusMockHandler({ claim: "controller", passkeys: noPasskeys });
+export const startedAt = "2026-11-01T09:00:00Z";
+
+const controller = getGetStatusMockHandler({
+  claim: "controller",
+  passkeys: noPasskeys,
+  startedAt,
+});
 const nothingMoving = getGetCountsMockHandler({
   activity: 0,
   downloads: { done: 0, wanted: 0, allPaused: false },
   alerts: { nodes: null, health: null, tasks: null },
   pendingImports: 0,
+  reconciling: null,
 });
 const signedInAsAda = getGetSessionMockHandler({
   account: ada,
@@ -164,6 +171,7 @@ export function pendingForever(): RequestHandler[] {
     controller,
     signedInAsAda,
     resyncStream,
+    nothingMoving,
     http.all("*/api/v1/*", async () => {
       await released;
       return problem(503, "unavailable", "Released at the end of the test");

@@ -527,7 +527,10 @@ func (a Address) Check() error {
 // the Node's folder check uses.
 type FolderPurpose string
 
-const FolderDownloads FolderPurpose = "downloads"
+const (
+	FolderDownloads FolderPurpose = "downloads"
+	FolderBackups   FolderPurpose = "backups"
+)
 
 // Folder is a path on one Node, which judges it for Purpose.
 type Folder struct {

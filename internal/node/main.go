@@ -30,6 +30,16 @@ const usageText = `usage: slipstream <command>
   restart [--data-dir <dir>] restart the Node on <dir> and print its address once
                              it responds again
   status [--data-dir <dir>]  print the running Node's status as JSON
+  backup [--data-dir <dir>]  take a Backup on the running Controller, check it
+                             and print its path
+  restore [--data-dir <dir>] [--passphrase-file <path>] [--old-controller-off]
+          [--remove <node>]... <file>
+                             restore the Backup <file>. It prompts for the
+                             passphrase without --passphrase-file. A Backup
+                             of another machine needs --old-controller-off.
+                             --remove leaves out a Node the Backup lists. A
+                             stopped Node finishes the restore when it starts,
+                             and a running one restarts to finish it
   config [--data-dir <dir>]  print the resolved configuration and every endpoint as JSON
   config set [--data-dir <dir>] <key> <value>
   config unset [--data-dir <dir>] <key>
@@ -99,6 +109,10 @@ func run(args []string, types contenttype.Set) int {
 		return app(rest, types)
 	case "status":
 		return status(rest, types)
+	case "backup":
+		return backupCommand(rest, types)
+	case "restore":
+		return restoreCommand(rest, types)
 	case "restart":
 		return restart(rest, types)
 	case "join":

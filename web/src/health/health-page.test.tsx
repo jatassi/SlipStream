@@ -42,7 +42,7 @@ test("with nothing wrong the page says everything is working and names what it c
   await expect
     .element(
       page.getByText(
-        "Checked storage, Nodes, torrents that still need seeding, Indexers and scheduled tasks",
+        "Checked storage, Nodes, torrents that still need seeding, Indexers, scheduled tasks and Backups",
       ),
     )
     .toBeVisible();
@@ -61,6 +61,8 @@ test("with nothing wrong the page says everything is working and names what it c
     .element(region("Scheduled tasks"))
     .toHaveTextContent("Nothing is wrong with scheduled tasks.");
   expect(region("Scheduled tasks").getByRole("button").query()).toBeNull();
+  await expect.element(region("Backups")).toHaveTextContent("Nothing is wrong with Backups.");
+  expect(region("Backups").getByRole("button").query()).toBeNull();
 });
 
 test("an error leads the sentence and links to its item", async () => {
@@ -88,6 +90,7 @@ test("categories with errors come first, then warnings, then the quiet ones", as
     "seeding",
     "indexers",
     "scheduled-tasks",
+    "backups",
   ]);
 });
 

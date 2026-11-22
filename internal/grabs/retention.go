@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -18,7 +19,7 @@ import (
 // its stages, Items, cells, carry and search joins, and leaves its
 // Blocklist entries, files, import records, Imports and failure counts.
 func (gr *Grabs) Retention() housekeeping.Step {
-	return housekeeping.Aged("finished-grabs", "Finished Grabs", setting.Noun{One: "Grab", Many: "Grabs"}, "that are still in use", gr.sweep)
+	return housekeeping.Aged("finished-grabs", "Finished Grabs", tasks.Pauses, setting.Noun{One: "Grab", Many: "Grabs"}, "that are still in use", gr.sweep)
 }
 
 // finishedAt is the last finished Grab a batch read, in the walk's order.

@@ -155,7 +155,7 @@ func newRig(t *testing.T) *rig {
 	var err error
 	svc, err = nodes.Open(t.Context(), nodes.Config{
 		Library: r.lib, Key: homeNode.Key, Name: "home", Link: homeNode.Link, Changed: unheard{},
-		Served: []role.Served{control}, Owners: owners, Timings: nodes.DefaultTimings(), Stall: 45 * time.Second, Log: log,
+		Served: []role.Served{control}, Owners: owners, Paired: nodestest.Paired, Timings: nodes.DefaultTimings(), Stall: 45 * time.Second, Log: log,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -10,6 +10,7 @@ const groupLabels: { readonly [G in Group]: string } = {
   library: "Library",
   subtitles: "Subtitles",
   health: "Health",
+  backups: "Backups",
   system: "System",
 };
 

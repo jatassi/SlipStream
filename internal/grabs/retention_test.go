@@ -111,7 +111,7 @@ func (a *aged) importing(grab grabs.GrabID) {
 // housekeeping runs the Finished Grabs step as Housekeeping does.
 func (a *aged) housekeeping() {
 	a.t.Helper()
-	task := housekeeping.Task(housekeeping.Config{Keep: keepDefault{}, Batch: 1000, Steps: []housekeeping.Step{a.g.Retention()}})
+	task := housekeeping.Task(housekeeping.Config{Reconciling: func(context.Context) (bool, error) { return false, nil }, Keep: keepDefault{}, Batch: 1000, Steps: []housekeeping.Step{a.g.Retention()}})
 	if err := task.Run(a.t.Context(), tasks.Unit{Key: "finished-grabs"}, &tasks.Progress{}); err != nil {
 		a.t.Fatal(err)
 	}

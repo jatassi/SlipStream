@@ -31,7 +31,7 @@ type mediaServer struct {
 	uses   uses
 }
 
-func newMediaServer(t *testing.T) *mediaServer {
+func newMediaServer(t *testing.T, edit ...func(*dc.Config)) *mediaServer {
 	t.Helper()
 	lib := open(t)
 	node := addNode(t, lib, "Media server")
@@ -39,12 +39,16 @@ func newMediaServer(t *testing.T) *mediaServer {
 		lib: lib, node: node, heard: &heard{}, cards: &told{}, uses: uses{},
 		client: mustImport(t, lib, secrettest.Sealer(t), transmission(t, node, "Transmission", "http://192.168.1.20:9091")),
 	}
-	s.c = dc.New(dc.Config{
+	cfg := dc.Config{
 		Library: lib, Touch: s.heard.touch, Changed: s.heard, CardsChanged: s.cards, Uses: s.uses, Blocklist: s.heard, Seeding: seeder{},
 		Roster: &roster{serving: []role.NodeID{node}}, Log: slog.New(slog.DiscardHandler),
 		Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return &client{} },
 		Live:   dc.LiveConfig{Watched: func() []role.NodeID { return nil }, Event: &admin{}, Sample: liveSample},
-	})
+	}
+	for _, e := range edit {
+		e(&cfg)
+	}
+	s.c = dc.New(cfg)
 	return s
 }
 
@@ -103,7 +107,7 @@ func (s *mediaServer) intent(t *testing.T) *dlv1.Intent {
 	var in *dlv1.Intent
 	err := s.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		in, err = dc.Intent(ctx, r, s.node)
+		in, err = dc.Derive{Keeps: dc.NoKeeps}.Intent(ctx, r, s.node)
 		return err
 	})
 	if err != nil {

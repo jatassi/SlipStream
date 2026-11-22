@@ -1,1 +1,1 @@
-export type SetTransferSettings409Code = "worker_node";
+export type SetTransferSettings409Code = "superseded" | "worker_node";

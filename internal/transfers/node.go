@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/link"
 	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
@@ -35,8 +36,11 @@ type NodeConfig struct {
 	Sources Opener
 	Roots   Stager
 	Timings Timings
-	Hooks   Hooks
-	Log     *slog.Logger
+	// Retry is timings.backups.windows_retry: how long a rename or delete
+	// in a Backup folder retries a Windows sharing violation.
+	Retry time.Duration
+	Hooks Hooks
+	Log   *slog.Logger
 }
 
 // Node sends and receives the Transfers its transfers intent makes
@@ -56,7 +60,7 @@ func NewNode(cfg NodeConfig) *Node {
 			Chunk: t.Chunk, Report: t.Report, Dial: t.Dial, Estimate: t.Estimate,
 			LanesStart: t.LanesStart, LanesGrow: t.LanesGrow, LanesGain: t.LanesGain, LanesMax: t.LanesMax, Ahead: t.Ahead,
 			SyncBytes: t.SyncBytes, SyncEvery: t.SyncEvery, RetryMin: t.RetryMin, RetryMax: t.RetryMax,
-			Damaged: t.Damaged, Piece: t.Piece,
+			Damaged: t.Damaged, Piece: t.Piece, Retry: cfg.Retry,
 		},
 		Hooks: engine.Hooks{Read: cfg.Hooks.Read, Sent: cfg.Hooks.Sent, Lane: cfg.Hooks.Lane},
 		Log:   cfg.Log,

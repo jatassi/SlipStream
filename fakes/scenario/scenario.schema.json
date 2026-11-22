@@ -232,6 +232,10 @@
           "path_limit": {
             "type": "integer",
             "minimum": 0
+          },
+          "backups_folder": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
           }
         },
         "additionalProperties": false,
@@ -263,6 +267,25 @@
         "storage": {
           "properties": {
             "busy_timeout": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "backups": {
+          "properties": {
+            "scrypt": {
+              "type": "integer"
+            },
+            "zstd_window": {
+              "type": "integer"
+            },
+            "zstd_memory": {
+              "type": "integer"
+            },
+            "windows_retry": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             }
@@ -344,6 +367,20 @@
           "additionalProperties": false,
           "type": "object"
         },
+        "pairing": {
+          "properties": {
+            "superseded_dial": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "unreachable_after": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
         "role": {
           "properties": {
             "restart_min": {
@@ -397,6 +434,13 @@
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             },
             "reach": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "unknown_nodes": {
+              "type": "integer"
+            },
+            "unknown_for": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             }
@@ -708,6 +752,12 @@
             "client_live_floor": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "holdings_page": {
+              "type": "integer"
+            },
+            "holdings_max": {
+              "type": "integer"
             }
           },
           "additionalProperties": false,

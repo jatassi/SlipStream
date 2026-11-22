@@ -42,6 +42,9 @@ type Share struct {
 	// MayStart is the Role in step and not draining: the actor adds no
 	// torrent otherwise.
 	MayStart bool
+	// KeepAll keeps every torrent the share held: the actor adds and
+	// discards nothing, and forgets no local row the share no longer lists.
+	KeepAll bool
 }
 
 type Config struct {

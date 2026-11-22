@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	"github.com/jatassi/slipstream/internal/mediaservers/queue"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/tasks"
 )
 
 // changesPage is how many changes one page of GET changes lists.
@@ -109,7 +110,7 @@ func (s service) Refresh(ctx context.Context, id link.ServerID) error {
 // changes older than Timings.SentAge and plays that ended longer ago than
 // Keep play history for.
 func (m *MediaServers) Housekeeping() housekeeping.Step {
-	return housekeeping.Plain("media-server-history", "Media Server history", m.pruneHistory)
+	return housekeeping.Plain("media-server-history", "Media Server history", tasks.Runs, m.pruneHistory)
 }
 
 func (m *MediaServers) pruneHistory(ctx context.Context) error {

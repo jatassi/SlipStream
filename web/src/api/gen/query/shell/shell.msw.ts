@@ -29,6 +29,16 @@ export const getGetCountsResponseMock = (
     wanted: faker.number.int(),
   },
   pendingImports: faker.number.int({ min: 0 }),
+  reconciling: faker.helpers.arrayElement([
+    {
+      nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      rehome: faker.datatype.boolean(),
+      roots: faker.number.int({ min: 0 }),
+    },
+    null,
+  ]),
   ...overrideResponse,
 });
 

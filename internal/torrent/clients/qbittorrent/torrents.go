@@ -173,6 +173,10 @@ type torrent struct {
 	Seeds      int     `json:"num_seeds"`
 	Leeches    int     `json:"num_leechs"`
 	Priority   int     `json:"priority"`
+	// Private is reported from qBittorrent 5.0, and Tracker is the
+	// tracker it last announced to, "" before.
+	Private bool   `json:"private"`
+	Tracker string `json:"tracker"`
 }
 
 func (c *client) Poll(ctx context.Context, hashes []bencode.InfoHash) (map[bencode.InfoHash]clients.Status, error) {
@@ -195,6 +199,37 @@ func (c *client) Poll(ctx context.Context, hashes []bencode.InfoHash) (map[benco
 		}
 	}
 	return out, nil
+}
+
+// List is torrents/info filtered by the label's category.
+func (c *client) List(ctx context.Context, label clients.Label) (map[bencode.InfoHash]clients.Status, error) {
+	var ts []torrent
+	if err := c.json(ctx, get("torrents/info", url.Values{"category": {label.String()}}), &ts); err != nil {
+		return nil, err
+	}
+	out := make(map[bencode.InfoHash]clients.Status, len(ts))
+	for _, t := range ts {
+		h, s, err := c.report(ctx, t)
+		if err != nil {
+			return nil, err
+		}
+		out[h] = s
+	}
+	return out, nil
+}
+
+// Export is torrents/export, the .torrent qBittorrent keeps of h.
+func (c *client) Export(ctx context.Context, h bencode.InfoHash) ([]byte, error) {
+	res, err := c.do(ctx, get("torrents/export", url.Values{"hash": {h.String()}}))
+	switch {
+	case err != nil:
+		return nil, err
+	case res.Status == http.StatusNotFound:
+		return nil, fmt.Errorf("the client doesn't list torrent %s", h)
+	case res.Status != http.StatusOK:
+		return nil, fmt.Errorf("the client responded to torrents/export with status %d", res.Status)
+	}
+	return res.Body, nil
 }
 
 // report is one torrents/info row by its hash, the run state a check
@@ -263,7 +298,7 @@ func status(t torrent) (clients.Status, error) {
 	}
 	s := clients.Status{
 		Name: t.Name, Size: t.Size, Done: t.Size - t.Left, Run: r.run, Activity: r.activity, Finished: r.finished,
-		Folder: t.SavePath, Label: t.Category, LocalError: words,
+		Folder: t.SavePath, Label: t.Category, LocalError: words, Private: t.Private,
 		StoppedAtLimit: r.finished && r.run == paused &&
 			(t.MaxRatio >= 0 && t.Ratio >= t.MaxRatio || t.MaxSeeding >= 0 && t.Seeding >= t.MaxSeeding*60),
 		Counters: clients.Counters{
@@ -274,6 +309,9 @@ func status(t torrent) (clients.Status, error) {
 	}
 	if r.activity == clients.Queued {
 		s.QueuePosition = t.Priority
+	}
+	if t.Tracker != "" {
+		s.Hosts = clients.HostsOf([]string{t.Tracker})
 	}
 	if t.Completion > 0 {
 		s.FinishedAt = time.Unix(t.Completion, 0)

@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/joincode"
+	"github.com/jatassi/slipstream/internal/lifecycle"
 	"github.com/jatassi/slipstream/internal/pairing"
 )
 
@@ -30,7 +31,6 @@ var (
 	joinCodeExpired       = api.NewCode(http.StatusForbidden, "join_code_expired", "The Join Code has expired")
 	joinCodeUsed          = api.NewCode(http.StatusForbidden, "join_code_used", "The Join Code was already used")
 	controllerKeyMismatch = api.NewCode(http.StatusBadGateway, "controller_key_mismatch", "The Controller's key doesn't match the Join Code")
-	restartRequired       = api.NewCode(http.StatusConflict, "restart_required", "A running Worker can't pair again. Stop it, then run slipstream join with the new code.")
 	nodeUnaddressed       = api.NewCode(http.StatusConflict, "node_unaddressed", "This Node can't connect to the Controller, and it has no address the Controller can connect to")
 	noJoinPending         = api.NewCode(http.StatusNotFound, "no_join_pending", "This Node hasn't started a join that waits for the Controller to connect")
 )
@@ -43,7 +43,6 @@ var refusals = map[pairing.Kind]*api.Code{
 	pairing.AlreadyJoined:        api.AlreadyClaimed,
 	pairing.SupersededController: api.AlreadyClaimed,
 	pairing.IsController:         api.AlreadyClaimed,
-	pairing.RestartRequired:      restartRequired,
 	pairing.JoinPending:          api.JoinPending,
 	pairing.Unaddressed:          nodeUnaddressed,
 }
@@ -119,7 +118,7 @@ func Routes(r *api.Router, j Joiner) {
 		Summary: "Join this Node to a Controller as a Worker with a Join Code. Returns 202 while it awaits the Controller's dial",
 		Status:  http.StatusCreated,
 		Also:    []int{http.StatusAccepted},
-		Errors:  []*api.Code{joinCodeDamaged, joinCodeUnknown, joinCodeExpired, joinCodeUsed, controllerKeyMismatch, restartRequired, api.JoinPending, nodeUnaddressed},
+		Errors:  []*api.Code{joinCodeDamaged, joinCodeUnknown, joinCodeExpired, joinCodeUsed, controllerKeyMismatch, api.JoinPending, nodeUnaddressed, api.LifecycleBusy},
 	}, func(ctx context.Context, _ identity.Claim, in *joinInput) (*claimOutput, error) {
 		code, err := joincode.Parse(in.Body.Code)
 		if err != nil {
@@ -146,6 +145,9 @@ func Routes(r *api.Router, j Joiner) {
 			}
 			if e, ok := errors.AsType[*pairing.Error](res.err); ok {
 				return nil, refusals[e.Kind]
+			}
+			if errors.Is(res.err, lifecycle.ErrBusy) {
+				return nil, api.LifecycleBusy
 			}
 			if res.err != nil {
 				return nil, res.err

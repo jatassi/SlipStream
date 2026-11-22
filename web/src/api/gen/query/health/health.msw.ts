@@ -27,6 +27,7 @@ export const getGetSystemHealthResponseMock = (
         "indexers",
         "subtitles",
         "scheduled-tasks",
+        "backups",
         "notifications",
       ] as const),
       items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -91,6 +92,7 @@ export const getGetSystemHealthResponseMock = (
         "indexers",
         "subtitles",
         "scheduled-tasks",
+        "backups",
         "notifications",
       ] as const),
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -119,6 +121,7 @@ export const getCheckSystemHealthResponseMock = (
           "indexers",
           "subtitles",
           "scheduled-tasks",
+          "backups",
           "notifications",
         ] as const),
         items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -183,6 +186,7 @@ export const getCheckSystemHealthResponseMock = (
           "indexers",
           "subtitles",
           "scheduled-tasks",
+          "backups",
           "notifications",
         ] as const),
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -571,6 +575,7 @@ export const getCheckHealthCategoryResponseMock = (
           "indexers",
           "subtitles",
           "scheduled-tasks",
+          "backups",
           "notifications",
         ] as const),
         items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -635,6 +640,7 @@ export const getCheckHealthCategoryResponseMock = (
           "indexers",
           "subtitles",
           "scheduled-tasks",
+          "backups",
           "notifications",
         ] as const),
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -675,6 +681,7 @@ export const getCheckHealthItemResponseMock = (
           "indexers",
           "subtitles",
           "scheduled-tasks",
+          "backups",
           "notifications",
         ] as const),
         items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -739,6 +746,7 @@ export const getCheckHealthItemResponseMock = (
           "indexers",
           "subtitles",
           "scheduled-tasks",
+          "backups",
           "notifications",
         ] as const),
         key: faker.string.alpha({ length: { min: 10, max: 20 } }),

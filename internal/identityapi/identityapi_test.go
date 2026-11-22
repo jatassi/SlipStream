@@ -87,6 +87,8 @@ func newNodeWith(t *testing.T, o nodeOptions) *node {
 	identityapi.Routes(r, identitytest.Node{Service: svc, SetupOpen: o.setupOpen})
 	api.Register(r.Owner("fixture", api.Admin), api.Admin, api.Op{ID: fixtureAdmin.ID, Method: http.MethodGet, Path: fixtureAdmin.Path},
 		func(context.Context, identity.Admin, *struct{}) (*struct{}, error) { return &struct{}{}, nil })
+	api.Register(r.Owner("fixturesession", api.ReconfirmedSession), api.ReconfirmedSession, api.Op{ID: "getSessionFixture", Method: http.MethodGet, Path: "/fixture-session"},
+		func(context.Context, identity.Admin, *struct{}) (*struct{}, error) { return &struct{}{}, nil })
 	return &node{t: t, mail: sent, lib: lib, h: r.Handler(), doc: r.Document(), code: code, hub: hub, start: head(t, hub)}
 }
 
@@ -498,4 +500,18 @@ func mustUUID(t *testing.T, s string) storage.UUID {
 		t.Fatal(err)
 	}
 	return u
+}
+
+func TestReconfirmedSessionRefusesTheAPIKey(t *testing.T) {
+	n := newNode(t)
+	res, _ := n.claimed()
+	admin := identity.AccountID{UUID: mustUUID(t, res.Account.ID)}
+	session := call{method: http.MethodGet, target: "/api/v1/fixture-session", session: identitytest.Session(t, n.lib, admin)}
+	if w := n.do(session); w.Code != http.StatusNoContent {
+		t.Fatalf("a reconfirmed Admin session = %d %s, want 204", w.Code, w.Body)
+	}
+	key := call{method: http.MethodGet, target: "/api/v1/fixture-session", headers: map[string]string{"X-Api-Key": identitytest.APIKey(t, n.lib)}}
+	expect(t, n.do(key), 403, problem(403, "needs_account", "The API key can't do this. Sign in to an Account to do it."))
+	lapsed := call{method: http.MethodGet, target: "/api/v1/fixture-session", session: identitytest.LapsedSession(t, n.lib, admin)}
+	expect(t, n.do(lapsed), 403, problem(403, "needs_reconfirm", "Confirm it's you to continue"))
 }

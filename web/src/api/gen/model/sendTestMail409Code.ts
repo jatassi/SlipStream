@@ -1,1 +1,1 @@
-export type SendTestMail409Code = "worker_node";
+export type SendTestMail409Code = "superseded" | "worker_node";

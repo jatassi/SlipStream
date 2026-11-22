@@ -13,6 +13,7 @@ export const getGetFirstRunResponseMock = (
     id: faker.helpers.arrayElement([
       "address",
       "passkey",
+      "backup",
       "media",
       "language",
       "roots",
@@ -32,6 +33,7 @@ export const getSetFirstRunStepResponseMock = (
     id: faker.helpers.arrayElement([
       "address",
       "passkey",
+      "backup",
       "media",
       "language",
       "roots",

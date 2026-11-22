@@ -312,7 +312,7 @@ func (w *World) Transitions(ts ...health.Transition) {
 // two entries a batch.
 func (w *World) Housekeeping() {
 	w.t.Helper()
-	task := housekeeping.Task(housekeeping.Config{Keep: w.History, Batch: 2, Steps: []housekeeping.Step{w.History.Retention()}})
+	task := housekeeping.Task(housekeeping.Config{Reconciling: func(context.Context) (bool, error) { return false, nil }, Keep: w.History, Batch: 2, Steps: []housekeeping.Step{w.History.Retention()}})
 	if err := task.Run(w.t.Context(), tasks.Unit{Key: "history"}, &tasks.Progress{}); err != nil {
 		w.t.Fatal(err)
 	}

@@ -7,38 +7,17 @@ import {
   useGetServingSuspense,
 } from "../api/gen/query/serving/serving";
 import { ensureQuery } from "../api/query-client";
-import { countWords } from "../format";
 import { requireEntry } from "../session/gate";
 import { statusQuery } from "../session/session";
-import { EntryPage } from "../shell/entry-page";
-import { useClock } from "../ui/clock";
-// oxlint-disable-next-line import/max-dependencies -- the entry page reads the session, the Controller and the clock
-import { whenWords } from "../ui/time-words";
+import { UnreachableCard } from "./-setup/unreachable-card";
 
 const recheckMs = 5000;
-
-const torrents = { one: "torrent", many: "torrents" } as const;
 
 export const Route = createFileRoute("/serving")({
   beforeLoad: ({ context, location }) => requireEntry(context, "unreachable", location),
   loader: ({ context }) => ensureQuery(context.queryClient, getGetServingSuspenseQueryOptions()),
   component: Serving,
 });
-
-function andList(words: readonly string[]): string {
-  return words.length < 2
-    ? words.join("")
-    : `${words.slice(0, -1).join(", ")} and ${words.slice(-1).join("")}`;
-}
-
-// Anyone who reaches the Worker may see the card, so it counts and never
-// names what anyone requested.
-function holdingLine(holding: readonly string[], seeding: number): string {
-  const seeds = countWords(seeding, torrents);
-  return holding.length === 0
-    ? `Seeding ${seeds}.`
-    : `Roles: ${andList(holding)} · seeding ${seeds}.`;
-}
 
 // The Worker's own app shell boots here while its Controller can't be
 // reached, and goes back once getStatus, which the Worker sends on to its
@@ -47,18 +26,10 @@ function Serving() {
   const { data } = useGetServingSuspense();
   const answered = useQuery({ ...statusQuery, refetchInterval: recheckMs, retry: false }).isSuccess;
   const navigate = useNavigate();
-  const clock = useClock();
   useEffect(() => {
     if (answered) {
       void navigate({ to: "/", replace: true });
     }
   }, [answered, navigate]);
-  const { since } = data;
-  const when = since === undefined ? "" : ` ${whenWords(since, "since", clock)}`;
-  return (
-    <EntryPage title={`${data.name} hasn't been able to reach ${data.controller}${when}.`}>
-      <p>{`${data.name} keeps seeding and finishes what it started.`}</p>
-      <p>{holdingLine(data.holding, data.seeding)}</p>
-    </EntryPage>
-  );
+  return <UnreachableCard data={data} />;
 }

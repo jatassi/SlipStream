@@ -1,1 +1,1 @@
-export type PreviewSeedingGoals409Code = "worker_node";
+export type PreviewSeedingGoals409Code = "superseded" | "worker_node";

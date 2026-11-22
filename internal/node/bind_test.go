@@ -73,7 +73,7 @@ func TestBindHTTPKeepsTheFirstPortThatBinds(t *testing.T) {
 func fallbackEnv(t *testing.T, portsToTry string) Env {
 	t.Helper()
 	env, _ := testEnv(t)
-	env.Environ = []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:8485"}
+	env.Environ = []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:8485", lowScrypt}
 	writeFile(t, filepath.Join(env.DataDir.Path(), "config.yaml"), "http:\n  listen: 127.0.0.1:8484\n  ports_to_try: "+portsToTry+"\n")
 	return env
 }

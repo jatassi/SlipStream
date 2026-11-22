@@ -34,6 +34,8 @@ link:
 timings:
   node:
     stop_deadline: 15s
+  backups:
+    scrypt: 15
 `
 	if string(got) != want {
 		t.Fatalf("config.yaml =\n%s\nwant\n%s", got, want)

@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/reconciling"
 )
 
 // Shell is what the counts read on a Controller. Each is false on any
@@ -23,13 +24,21 @@ type Shell interface {
 	DownloadClients() (*downloadclients.Clients, bool)
 	Health() (*health.Health, bool)
 	Imports() (*imports.Imports, bool)
+	Reconciling() (*reconciling.Service, bool)
 }
 
 type counts struct {
-	Activity  int                       `json:"activity" minimum:"0" doc:"The Grabs neither imported nor failed"`
-	Downloads downloadclients.Aggregate `json:"downloads" doc:"Every download at once; torrents.live keeps it current"`
-	Alerts    alerts                    `json:"alerts"`
-	Pending   int                       `json:"pendingImports" minimum:"0" doc:"The Imports, of any source, with a file waiting for the Admin, ignored ones aside"`
+	Activity    int                       `json:"activity" minimum:"0" doc:"The Grabs neither imported nor failed"`
+	Downloads   downloadclients.Aggregate `json:"downloads" doc:"Every download at once; torrents.live keeps it current"`
+	Alerts      alerts                    `json:"alerts"`
+	Pending     int                       `json:"pendingImports" minimum:"0" doc:"The Imports, of any source, with a file waiting for the Admin, ignored ones aside"`
+	Reconciling api.Nullable[banner]      `json:"reconciling" doc:"What Reconciling after a restore waits on, for the shell's line; null outside it. reconciling.changed keeps it current"`
+}
+
+type banner struct {
+	Rehome bool     `json:"rehome" doc:"Whether the old Controller's folders still need finding. The shell opens that step until it is saved"`
+	Nodes  []string `json:"nodes" nullable:"false" doc:"The name of each Node whose torrents Reconciling waits on"`
+	Roots  int      `json:"roots" minimum:"0" doc:"How many library roots Reconciling waits on to finish scanning"`
 }
 
 type alerts struct {
@@ -70,7 +79,8 @@ func Routes(r *api.Router, sh Shell) {
 		clients, clientsOK := sh.DownloadClients()
 		watch, healthOK := sh.Health()
 		pending, importsOK := sh.Imports()
-		if !grabsOK || !nodesOK || !clientsOK || !healthOK || !importsOK {
+		keeper, reconcilingOK := sh.Reconciling()
+		if !grabsOK || !nodesOK || !clientsOK || !healthOK || !importsOK || !reconcilingOK {
 			panic("shellapi: getCounts ran on a Node that is no Controller")
 		}
 		n, err := g.Moving(ctx, by)
@@ -85,6 +95,14 @@ func Routes(r *api.Router, sh Shell) {
 		if err != nil {
 			return nil, err
 		}
-		return &countsOutput{Body: counts{Activity: n, Downloads: downloads, Alerts: alertsOf(roster.Board().Alert(), watch), Pending: waiting}}, nil
+		b, err := keeper.Banner(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out := counts{Activity: n, Downloads: downloads, Alerts: alertsOf(roster.Board().Alert(), watch), Pending: waiting}
+		if b != nil {
+			out.Reconciling = api.Some(banner{Rehome: b.Rehome, Nodes: b.Nodes, Roots: b.Roots})
+		}
+		return &countsOutput{Body: out}, nil
 	})
 }

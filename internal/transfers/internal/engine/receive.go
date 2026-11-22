@@ -176,7 +176,13 @@ func (r *run) backoff() {
 // folder at another place goes first.
 func (r *run) stage() error {
 	rx := r.rx
-	folder, err := r.e.cfg.Roots.Staging(r.ctx, r.spec.root, r.spec.place, r.spec.id.UUID)
+	var folder string
+	var err error
+	if r.spec.backup != nil {
+		folder, err = r.e.backupStaging(r.ctx, r.spec.backup, r.spec.id)
+	} else {
+		folder, err = r.e.cfg.Roots.Staging(r.ctx, r.spec.root, r.spec.place, r.spec.id.UUID)
+	}
 	if err != nil || rx.folder != "" {
 		return err
 	}
@@ -292,6 +298,9 @@ func (r *run) fill(l *lane) (heard bool, err error) {
 		}
 		stepped, err := r.step(l, f)
 		heard = heard || stepped
+		if err != nil && r.spec.backup != nil && storing.NoSpace(err) {
+			return heard, &failure{code: tv1.Failed_CODE_FOLDER_FAILED, position: f.position, detail: err.Error()}
+		}
 		if err != nil && !r.full(err) {
 			return heard, err
 		}
@@ -589,7 +598,11 @@ func (r *run) openStaged(f *staged) error {
 	if f.out != nil {
 		return nil
 	}
-	out, err := r.e.cfg.Disk.OpenWrite(r.ctx, f.path)
+	open := r.e.cfg.Disk.OpenWrite
+	if r.spec.backup != nil {
+		open = r.e.cfg.Disk.OpenPrivate
+	}
+	out, err := open(r.ctx, f.path)
 	if err != nil {
 		return fmt.Errorf("open the staged file: %w", err)
 	}
@@ -746,6 +759,11 @@ func (r *run) finish(l *lane, f *staged) error {
 		return fmt.Errorf("sync the staged file: %w", err)
 	}
 	f.close()
+	if r.spec.backup != nil {
+		if err := r.e.place(r.ctx, f.path, r.spec.backup); err != nil {
+			return &failure{code: tv1.Failed_CODE_FOLDER_FAILED, position: f.position, detail: err.Error()}
+		}
+	}
 	err = r.e.cfg.Local.Write(context.WithoutCancel(r.ctx), func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
 		err := db.New(tx).SetVerified(ctx, db.SetVerifiedParams{TransferID: r.spec.id, Position: int64(f.position), Place: r.spec.place, Verified: f.verified, Done: 1})
 		if err != nil {

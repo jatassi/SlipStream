@@ -1,1 +1,1 @@
-export type RenameFiles409Code = "root_not_ready" | "worker_node";
+export type RenameFiles409Code = "reconciling" | "root_not_ready" | "superseded" | "worker_node";

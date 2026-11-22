@@ -1,1 +1,1 @@
-export type AddRootImports409Code = "worker_node";
+export type AddRootImports409Code = "superseded" | "worker_node";

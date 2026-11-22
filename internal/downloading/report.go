@@ -46,14 +46,15 @@ func (l *loop) report(now time.Time) {
 }
 
 // changed is the filled report of each torrent whose report changed, and
-// those torrents, which count it sent.
+// those torrents, which count it sent. A torrent kept with no list naming
+// it has no id to report under.
 func (l *loop) changed(now time.Time) ([]*dlv1.TorrentReport, []*torrent) {
 	var reports []*dlv1.TorrentReport
 	var sent []*torrent
 	for _, h := range slices.SortedFunc(maps.Keys(l.torrents), compareHashes) {
 		t := l.torrents[h]
 		r := t.report()
-		if r == nil || proto.Equal(r, t.sent) {
+		if r == nil || t.id.IsZero() || proto.Equal(r, t.sent) {
 			continue
 		}
 		t.sent = r
@@ -200,7 +201,7 @@ func (l *loop) sendTotals(now time.Time) {
 	var rows []*dlv1.TotalsRow
 	var moved []*torrent
 	for _, t := range slices.SortedFunc(maps.Values(l.torrents), compareIDs) {
-		if t.statusAt.IsZero() {
+		if t.statusAt.IsZero() || t.id.IsZero() {
 			continue
 		}
 		row := t.totals(now)

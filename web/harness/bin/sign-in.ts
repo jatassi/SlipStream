@@ -4,13 +4,13 @@ import { argv, stdout } from "node:process";
 
 import { chromium } from "playwright";
 
-import { identity as pick, read } from "../manifest.ts";
-import { signIn } from "../sign-in.ts";
+import { node, identity as pick, read } from "../manifest.ts";
+import { declinePasskeyPrompt, promptsForPasskey, submitPin } from "../sign-in.ts";
 import { startupPlayedScript } from "../startup.ts";
 
-const usage = "usage: bun web/harness/bin/sign-in.ts <run> <identity> <shell>";
+const usage = "usage: bun web/harness/bin/sign-in.ts <run> <identity> <shell> [<node>]";
 
-const [run, identity, shell, ...rest] = argv.slice(2);
+const [run, identity, shell, name, ...rest] = argv.slice(2);
 if (run === undefined || identity === undefined || shell === undefined || rest.length > 0) {
   throw new Error(usage);
 }
@@ -22,8 +22,11 @@ if (preset === undefined) {
 }
 const { width, height, ...device } = preset;
 const person = pick(manifest, identity);
-const controller = manifest.nodes.find((n) => n.claim === "controller");
-if (controller === undefined) {
+// A Node named on the line takes the sign-in, such as a new machine a
+// Backup restored onto, which the manifest still lists as Unclaimed.
+const target =
+  name === undefined ? manifest.nodes.find((n) => n.claim === "controller") : node(manifest, name);
+if (target === undefined) {
   throw new Error(`the manifest of ${run} has no Controller`);
 }
 
@@ -34,10 +37,26 @@ try {
   const context = await browser.newContext({
     ...device,
     viewport: { width, height },
-    baseURL: controller.browserUrl,
+    baseURL: target.browserUrl,
   });
   await context.addInitScript({ path: startupPlayedScript });
-  await signIn(await context.newPage(), person);
+  // The page after sign-in may be the Library, the re-home step of a
+  // restore or the Superseded page, which offers no passkey.
+  const page = await context.newPage();
+  await page.goto("/sign-in");
+  const answer = await submitPin(page, person.email, person.pin);
+  if (!answer.ok()) {
+    throw new Error(`${person.email} could not sign in to ${target.name}: ${answer.status()}`);
+  }
+  await page.waitForURL((url) => url.pathname !== "/sign-in");
+  const replaced = page.getByRole("heading", { name: "This Controller was replaced" });
+  const prompt = page.getByRole("dialog", { name: "Sign in faster here with a passkey" });
+  if (await promptsForPasskey(answer)) {
+    await prompt.or(replaced).first().waitFor();
+  }
+  if (!(await replaced.isVisible())) {
+    await declinePasskeyPrompt(page, answer);
+  }
   const out = join(run, "auth", `${identity}-${shell}.json`);
   await mkdir(dirname(out), { recursive: true });
   await context.storageState({ path: out });

@@ -27,6 +27,7 @@ func machine(t *testing.T, net *fault.Network, addr, name string) (Env, *fault.H
 		"SLIPSTREAM_HTTP_LISTEN=" + addr + ":0",
 		"SLIPSTREAM_LINK_LISTEN=" + addr + ":0",
 		"SLIPSTREAM_NAME=" + name,
+		lowScrypt,
 	}
 	host := net.Host(netip.MustParseAddr(addr))
 	return inMemoryOn(env, host), host
@@ -105,7 +106,7 @@ func joinBox(t *testing.T, box *Node, bc client, boxDir DataDir, code, apiKey st
 	}
 	joined := decode[joinedWorker](t, join(), http.StatusCreated)
 	expect(t, join(), 409, problem(409, "already_claimed", "This Node is already set up"))
-	expect(t, bc.do(call{method: http.MethodGet, path: "/api/v1/status"}), 200, `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
+	expect(t, bc.do(call{method: http.MethodGet, path: "/api/v1/status"}), 200, statusOf(box, "worker"))
 	expect(t, bc.admin(apiKey, http.MethodGet, "/api/v1/system", ""), 409, problem(409, "worker_node", "This Node is a Worker. Manage it from its Controller."))
 	if !loggedClaimed(t, boxDir, "worker") {
 		t.Fatal("the Worker logged no claimed record with claim worker")
@@ -185,9 +186,9 @@ func TestARefusedJoinCodeLeavesTheNodeUnclaimed(t *testing.T) {
 		joinBox(t, box, bc, boxEnv.DataDir, code, apiKey)
 
 		lateEnv.Environ = append(lateEnv.Environ, "SLIPSTREAM_JOIN_CODE="+code)
-		_, lc := startOn(t, lateEnv, lateHost)
+		late, lc := startOn(t, lateEnv, lateHost)
 		synctest.Wait()
-		expect(t, lc.do(call{method: http.MethodGet, path: "/api/v1/status"}), 200, `{"claim":"unclaimed","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
+		expect(t, lc.do(call{method: http.MethodGet, path: "/api/v1/status"}), 200, statusOf(late, "unclaimed"))
 		logged, err := os.ReadFile(filepath.Join(lateEnv.DataDir.LogsDir(), "slipstream.log"))
 		if err != nil {
 			t.Fatal(err)
@@ -254,6 +255,6 @@ func TestAnUnclaimedNodeRefusesEveryHandshake(t *testing.T) {
 		if want := []any{"peer key " + dialer.Key.Fingerprint() + " is refused"}; !slices.Equal(refusals, want) {
 			t.Fatalf("box logged link handshake failed with %v, want %v", refusals, want)
 		}
-		expect(t, bc.do(call{method: http.MethodGet, path: "/api/v1/status"}), 200, `{"claim":"unclaimed","passkeys":{"available":false,"reason":"ip_address"}}`+"\n")
+		expect(t, bc.do(call{method: http.MethodGet, path: "/api/v1/status"}), 200, statusOf(box, "unclaimed"))
 	})
 }

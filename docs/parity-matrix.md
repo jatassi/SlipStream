@@ -400,7 +400,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-267 | Update check daily and on start against GitHub Releases with per-platform assets | `internal/scheduler/tasks/update.go`, `internal/update/service.go` | working | kept | [Updates and rollback](https://github.com/jatassi/SlipStream/issues/182) | planned |
 | P-268 | Self-replace install that relaunches the app | `internal/update/`, `cmd/slipstream/main.go (--complete-update)` | working | kept | [Updates and rollback](https://github.com/jatassi/SlipStream/issues/182) | planned |
 | P-269 | Auto-install setting with no UI | `GET/PUT /update/settings` | half-built | kept | [Updates and rollback](https://github.com/jatassi/SlipStream/issues/182) | planned |
-| P-270 | Pre-update database backup that only logs | `internal/update/service.go (backupDatabase)` | half-built | kept, as a Backup before every migration | [Backups and restore](https://github.com/jatassi/SlipStream/issues/174) | planned |
+| P-270 | Pre-update database backup that only logs | `internal/update/service.go (backupDatabase)` | half-built | kept, as a Backup before every migration | [Backups and restore](https://github.com/jatassi/SlipStream/issues/174) | shipped |
 | P-271 | Linux stub launcher so packaged installs update without sudo | `cmd/stub/main.go` | working | kept | [Updates and rollback](https://github.com/jatassi/SlipStream/issues/182) | planned |
 
 ## Packaging
@@ -506,7 +506,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-346 | Config backup and restore | `docs/Remaining-features.md` | not started | kept, as Backups of the whole Controller database | [Backups and restore](https://github.com/jatassi/SlipStream/issues/174) | planned |
+| P-346 | Config backup and restore | `docs/Remaining-features.md` | not started | kept, as Backups of the whole Controller database | [Backups and restore](https://github.com/jatassi/SlipStream/issues/174) | shipped |
 | P-347 | Dashboard rework | `docs/Remaining-features.md` | not started | superseded by the UI redesign | [Home](https://github.com/jatassi/SlipStream/issues/164) | planned |
 | P-348 | Transcode during import tied to slots | `docs/Remaining-features.md` | not started | superseded by Conversion | [Conversion](https://github.com/jatassi/SlipStream/issues/169) | planned |
 | P-349 | TRaSH Guides import | `docs/Remaining-features.md` | not started | kept | [TRaSH Guides import](https://github.com/jatassi/SlipStream/issues/178) | planned |

@@ -26,10 +26,12 @@ type (
 	// Pair.
 	Pairing struct{}
 	// Superseded is an old Controller's key: its Hello is answered with
-	// the key that replaced it.
+	// the key that replaced it, and the proof that fences it when this
+	// Node holds one.
 	Superseded struct {
 		By        Key
 		Addresses Addresses
+		Proof     []byte
 	}
 	// Removed is a key a Controller removed: its Hello is refused as
 	// removed, and it may Pair again.
@@ -132,8 +134,44 @@ func (e *RefusedError) Error() string { return "the peer refused: " + e.Reason.S
 type SupersededError struct {
 	By        Key
 	Addresses Addresses
+	Proof     []byte
 }
 
 func (e *SupersededError) Error() string {
 	return "the peer reported that key " + e.By.Fingerprint() + " superseded this Node"
+}
+
+func (s Superseded) proto() *linkv1.Superseded {
+	return &linkv1.Superseded{ByKey: s.By[:], Addresses: s.Addresses.Proto(), Proof: s.Proof}
+}
+
+func parseSuperseded(p *linkv1.Superseded) (Superseded, error) {
+	by, err := KeyFromBytes(p.GetByKey())
+	if err != nil {
+		return Superseded{}, fmt.Errorf("superseded: %w", err)
+	}
+	addrs, err := AddressesFromProto(p.GetAddresses())
+	if err != nil {
+		return Superseded{}, fmt.Errorf("superseded: %w", err)
+	}
+	return Superseded{By: by, Addresses: addrs, Proof: p.GetProof()}, nil
+}
+
+// SupersededProof is an old Controller key that a Controller replaced at
+// a restore, with the proof that fences it.
+type SupersededProof struct {
+	Key   Key
+	Proof []byte
+}
+
+func parseSupersededProofs(ps []*linkv1.SupersededProof) ([]SupersededProof, error) {
+	out := make([]SupersededProof, 0, len(ps))
+	for _, p := range ps {
+		key, err := KeyFromBytes(p.GetOldKey())
+		if err != nil {
+			return nil, fmt.Errorf("superseded key: %w", err)
+		}
+		out = append(out, SupersededProof{Key: key, Proof: p.GetProof()})
+	}
+	return out, nil
 }

@@ -34,6 +34,11 @@ type Timings struct {
 	Traffic time.Duration `yaml:"traffic"`
 	// Reach bounds each reach test from a Node.
 	Reach time.Duration `yaml:"reach"`
+	// UnknownNodes is how many Nodes not in the library the Reconciling
+	// page lists at most, and UnknownFor how long it lists each after its
+	// last Hello.
+	UnknownNodes int           `yaml:"unknown_nodes"`
+	UnknownFor   time.Duration `yaml:"unknown_for"`
 }
 
 func DefaultTimings() Timings {
@@ -45,6 +50,9 @@ func DefaultTimings() Timings {
 		DialReport:  30 * time.Second,
 		Traffic:     time.Second,
 		Reach:       10 * time.Second,
+
+		UnknownNodes: 50,
+		UnknownFor:   24 * time.Hour,
 	}
 }
 
@@ -252,8 +260,8 @@ func (s *Service) reload(ctx context.Context) error {
 	return nil
 }
 
-// read is the live rows, their Roles, forfeits and held work, the
-// tombstones' ids and the grace.
+// read is the live rows, their Roles, forfeits, held work and whether
+// each is pending, the tombstones' ids and the grace.
 func (s *Service) read(ctx context.Context) ([]nodeIn, []ID, time.Duration, error) {
 	var (
 		rows    []nodeIn
@@ -278,6 +286,15 @@ func (s *Service) read(ctx context.Context) ([]nodeIn, []ID, time.Duration, erro
 		}
 		for i := range rows {
 			rows[i].work = work[rows[i].id]
+		}
+		if s.cfg.Pending != nil {
+			pending, err := s.cfg.Pending(ctx, r)
+			if err != nil {
+				return err
+			}
+			for i := range rows {
+				rows[i].pending = pending[rows[i].id]
+			}
 		}
 		override, err := db.New(r).GetOfflineGrace(ctx)
 		grace = OfflineGrace.Value(override)
@@ -349,8 +366,9 @@ func (s *Service) seen(node ID) {
 }
 
 // scope is the node scope: the Roles assigned to node, with the Roles the
-// Controller covers on its own, then Always; the Roles node drains; and
-// its name.
+// Controller covers on its own, then Always; the Roles node drains; its
+// name; and, on a Worker, each old Controller key no Node holds, with its
+// proof.
 func (s *Service) scope(ctx context.Context, r storage.Reader[file], node ID) (role.NodeScope, error) {
 	q := db.New(r)
 	row, err := q.GetNode(ctx, node)
@@ -363,10 +381,14 @@ func (s *Service) scope(ctx context.Context, r storage.Reader[file], node ID) (r
 	}
 	board := s.Board()
 	holds := role.Of(assigned...)
+	scope := role.NodeScope{Draining: board.drains(node).Names(), Name: row.Name}
 	if node == s.self {
 		holds |= board.covering()
+	} else if scope.Superseded, err = unpaired(ctx, q); err != nil {
+		return role.NodeScope{}, err
 	}
-	return role.NodeScope{Holds: append(holds.Names(), s.cfg.Always...), Draining: board.drains(node).Names(), Name: row.Name}, nil
+	scope.Holds = append(holds.Names(), s.cfg.Always...)
+	return scope, nil
 }
 
 // touched notes that an owner's intent for nodes changed, so the work it
@@ -495,8 +517,9 @@ func (s *Service) keeps(ctx context.Context, r storage.Reader[file], node ID) (m
 // which Nodes' links are live on another build, records the addresses a
 // Worker's Hello advertises, re-derives the board whenever it wakes, so
 // at each edge, settles the forfeits at its start and whenever an owner's
-// intent changed, writes seen_at every seen_persist and when a session
-// ends, and samples the traffic every traffic.
+// intent changed, records the fence each pinned Worker's superseded claim
+// leaves, writes seen_at every seen_persist and when a session ends, and
+// samples the traffic every traffic.
 func (s *Service) Run(ctx context.Context) error {
 	changes := s.cfg.Link.Subscribe(ctx)
 	s.touched("", nil)
@@ -529,6 +552,10 @@ func (s *Service) Run(ctx context.Context) error {
 		case <-s.recount:
 			if err := s.settle(ctx); err != nil && ctx.Err() == nil {
 				s.cfg.Log.Error("update the work each Node has for its Roles", "err", err.Error())
+			}
+		case c := <-s.tells:
+			if err := s.fence(ctx, c); err != nil && ctx.Err() == nil {
+				s.cfg.Log.Error("record what a Worker said replaced this Controller", "err", err.Error())
 			}
 		case <-persist.C:
 			s.persistSeen(ctx, true)

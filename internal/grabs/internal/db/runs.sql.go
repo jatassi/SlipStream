@@ -24,6 +24,21 @@ func (q *Queries) DeleteHeard(ctx context.Context, searchID SearchID) error {
 	return err
 }
 
+const deleteOpenQueueRuns = `-- name: DeleteOpenQueueRuns :execrows
+DELETE FROM grabs_search WHERE finished_at IS NULL AND manual_id IS NULL
+`
+
+// A restore ends the queue runs the Backup caught open. Their due rows keep
+// their lane, lose search_id by its ON DELETE SET NULL, and run again once
+// Reconciling ends.
+func (q *Queries) DeleteOpenQueueRuns(ctx context.Context) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteOpenQueueRuns)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteRSSSearch = `-- name: DeleteRSSSearch :exec
 DELETE FROM grabs_search WHERE id = ?1 AND trigger = 'rss'
 `

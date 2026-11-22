@@ -117,3 +117,14 @@ func (im *Imports) exists(ctx context.Context, root roots.ID) error {
 		return err
 	})
 }
+
+// ScanRoots starts a run with the units of ids, or adds them to the open
+// run: the scans a restored Controller's Reconciling waits on.
+func (im *Imports) ScanRoots(ctx context.Context, ids []roots.ID) error {
+	units := make([]tasks.UnitKey, len(ids))
+	for i, id := range ids {
+		units[i] = unitKey(id)
+	}
+	_, err := im.cfg.Start(ctx, tasks.Start{Task: TaskID, Units: units, Trigger: tasks.ByEvent})
+	return err
+}

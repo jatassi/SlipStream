@@ -16,14 +16,8 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Intent is node's Downloading intent: its live Torrents, with a Retry
-// waiting for its Node's check, and its discards, the Removing ones, each
-// in added order and naming its client,
-// its settings with defaults, the thresholds, the disk guard's hold, how
-// often to sample the downloads volume, and its external clients, on or
-// off, with every setting but their secrets. The same library gives the
-// same bytes.
-func Intent(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv1.Intent, error) {
+// listed is node's Downloading intent before what Keeps keeps.
+func listed(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv1.Intent, error) {
 	rows, err := db.New(r).ListIntent(ctx, node)
 	if err != nil {
 		return nil, err

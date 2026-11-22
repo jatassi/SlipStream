@@ -206,6 +206,13 @@ var (
 	WorkerNode     = NewCode(http.StatusConflict, "worker_node", "This Node is a Worker. Manage it from its Controller.")
 	PINRequired    = NewCode(http.StatusForbidden, "pin_required", "Set a new PIN to continue")
 	NeedsReconfirm = NewCode(http.StatusForbidden, "needs_reconfirm", "Confirm it's you to continue")
+	// Reconciling refuses a press while a restored Controller is
+	// Reconciling. A handler returns it bare, and its detail names what
+	// Reconciling waits on, from Services.Reconciling.
+	Reconciling = NewCode(http.StatusConflict, "reconciling", "SlipStream is Reconciling after a restore")
+	// Superseded refuses every Admin operation on a Controller a restore
+	// on another machine replaced, but those that say WhileSuperseded.
+	Superseded = NewCode(http.StatusConflict, "superseded", "This Controller was replaced")
 )
 
 var humaStatusCodes = map[int]*Code{

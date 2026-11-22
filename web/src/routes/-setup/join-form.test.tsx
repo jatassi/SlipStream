@@ -106,11 +106,6 @@ const refusals = [
   ],
   [
     409,
-    "restart_required",
-    "This Node can join only after a restart. Restart it, then enter the Join Code again.",
-  ],
-  [
-    409,
     "setup_busy",
     "Another setup is running on this Node. Wait for it to finish, then try again.",
   ],

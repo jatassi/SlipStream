@@ -165,8 +165,8 @@ func (s *Service) linkTo(worker ID) TopologyLink {
 }
 
 // sentence says what stands out on b: each Node out of step or settling,
-// the Roles the Controller covers in their place, and each Node draining
-// or writing off a Role. With nothing to say, it says every Node is
+// the Roles the Controller covers in their place, and each Node draining,
+// writing off or keeping a Role. With nothing to say, it says every Node is
 // online.
 func sentence(b *Board) string {
 	var parts []string
@@ -199,6 +199,8 @@ func sentence(b *Board) string {
 				draining = append(draining, r)
 			case WritingOff:
 				writingOff = append(writingOff, r)
+			case Keeping:
+				parts = append(parts, keepingWords(v))
 			case NoState, Holding, Away, Lapsed, Covering:
 			}
 		}

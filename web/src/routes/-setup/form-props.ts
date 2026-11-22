@@ -1,6 +1,6 @@
 import type { SetupCode } from "../../session/setup-code";
 
-export type ChoiceId = "start" | "join";
+export type ChoiceId = "start" | "join" | "restore";
 
 export type FormProps = {
   readonly code: SetupCode;

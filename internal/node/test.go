@@ -26,6 +26,10 @@ import (
 type Test struct {
 	// Library is library sets beside the binary's own.
 	Library []storage.Schema[storage.Library]
+	// SeedLibrary may write a library.db at path that schemas have already
+	// migrated, before a Node opens the library there, so a test need not
+	// migrate every fresh data dir again. It never writes library.key.
+	SeedLibrary func(path string, schemas []storage.Schema[storage.Library]) error
 	// Served is control halves the Controller serves beside the binary's
 	// own, and Always the Roles every Node holds beyond its nodes_role rows.
 	Served []role.Served
@@ -50,6 +54,13 @@ type Test struct {
 	// BeforeImport sees each Import file's probe, place and landing on the
 	// Controller before it runs.
 	BeforeImport func(context.Context, imports.Step)
+	// BeforeRestoreStage sees each step of a restore's finish at start
+	// before it runs. An error stops the start there, as a crash would.
+	BeforeRestoreStage func(RestoreStep) error
+	// BeforeWipeStep sees each step of a Wipe and join's finish at start:
+	// each file's name before it goes, WipeFinish and WipeJoin. An error
+	// stops the start there, as a crash would.
+	BeforeWipeStep func(step string) error
 	// Today stands in for the Node's clock where it decides which Items
 	// are out and which years a search names, for a synctest bubble, whose
 	// time starts in 2000.
@@ -78,6 +89,13 @@ func (t Test) held(local *storage.DB[storage.Local]) []role.Held {
 	return t.Held(local)
 }
 
+func (t Test) seedLibrary(path string, schemas []storage.Schema[storage.Library]) error {
+	if t.SeedLibrary == nil {
+		return nil
+	}
+	return t.SeedLibrary(path, schemas)
+}
+
 func (t Test) tasks(h Half) []tasks.Task {
 	if t.Tasks == nil {
 		return nil
@@ -90,6 +108,20 @@ func (t Test) lockstep(h http.Handler) http.Handler {
 		return h
 	}
 	return t.Lockstep(h)
+}
+
+func (t Test) beforeRestoreStage(s RestoreStep) error {
+	if t.BeforeRestoreStage == nil {
+		return nil
+	}
+	return t.BeforeRestoreStage(s)
+}
+
+func (t Test) beforeWipeStep(step string) error {
+	if t.BeforeWipeStep == nil {
+		return nil
+	}
+	return t.BeforeWipeStep(step)
 }
 
 func (t Test) started(h Half) {

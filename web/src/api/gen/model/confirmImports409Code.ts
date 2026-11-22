@@ -1,1 +1,1 @@
-export type ConfirmImports409Code = "worker_node";
+export type ConfirmImports409Code = "superseded" | "worker_node";

@@ -560,6 +560,17 @@ func TestSearchOffSkipsTheRunWhileMapsStillBuild(t *testing.T) {
 	})
 }
 
+func TestReconcilingSkipsTheRunAndSaysWhy(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := world(t, nil)
+		w.Restoring(true)
+		var skip *tasks.SkipError
+		if err := runTask(t, w); !errors.As(err, &skip) || !skip.Owned || !strings.Contains(skip.Cause, "Reconciling") {
+			t.Fatalf("a run while Reconciling = %v, want its owned Reconciling skip", err)
+		}
+	})
+}
+
 func TestUpgradesOffQueuesOnlyMissingWants(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := world(t, nil)
@@ -730,7 +741,7 @@ func TestThePruneOfTriedBeforeKeepsAMarkBad(t *testing.T) {
 			exec(t, w, `INSERT INTO subtitles_tried (file_id, language, forced, candidate_key, outcome, tried_at) VALUES (?, ?, 0, ?, ?, ?)`,
 				k.File, k.Language.String(), row.key, row.outcome, row.at)
 		}
-		task := housekeeping.Task(housekeeping.Config{Keep: keepDefault{}, Batch: 1000, Steps: []housekeeping.Step{w.Subs.Retention()}})
+		task := housekeeping.Task(housekeeping.Config{Reconciling: func(context.Context) (bool, error) { return false, nil }, Keep: keepDefault{}, Batch: 1000, Steps: []housekeeping.Step{w.Subs.Retention()}})
 		if err := task.Run(t.Context(), tasks.Unit{Key: "subtitle-tries"}, &tasks.Progress{}); err != nil {
 			t.Fatal(err)
 		}

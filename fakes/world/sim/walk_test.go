@@ -488,7 +488,7 @@ func TestAPayloadProbedAt480pWaitsInPendingImports(t *testing.T) {
 		}
 		var intent []string
 		err := w.Node("home").Half().Library.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-			in, err := downloadclients.Intent(ctx, r, nodeID(t, w, "seedbox"))
+			in, err := downloadclients.Derive{Keeps: downloadclients.NoKeeps}.Intent(ctx, r, nodeID(t, w, "seedbox"))
 			for _, tor := range in.GetTorrents() {
 				intent = append(intent, bencode.InfoHash(tor.GetInfoHash()).String())
 			}

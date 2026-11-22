@@ -107,3 +107,7 @@ WHERE id = 1;
 
 -- name: SetAddress :exec
 UPDATE identity_settings SET address = sqlc.arg(address) WHERE id = 1;
+
+-- name: DeleteAllSessions :exec
+-- A restore signs everyone out.
+DELETE FROM identity_session;

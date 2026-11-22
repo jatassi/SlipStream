@@ -44,7 +44,10 @@ func (s ControlService) Torrent(ctx context.Context, req *dlv1.TorrentRequest) (
 	case err != nil:
 		return nil, err
 	}
-	desc, _ := s.Types.Describe(row.ContentType)
+	var desc works.Description
+	if row.ContentType != nil {
+		desc, _ = s.Types.Describe(*row.ContentType)
+	}
 	res := &dlv1.TorrentResponse{
 		Metainfo: row.Metainfo,
 		Baseline: &dlv1.TotalsRow{

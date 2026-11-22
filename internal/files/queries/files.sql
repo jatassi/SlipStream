@@ -277,3 +277,8 @@ ORDER BY at, id;
 -- name: DeleteImportedBefore :execrows
 DELETE FROM files_imported WHERE id IN (
     SELECT i.id FROM files_imported AS i INDEXED BY files_imported_at WHERE i.at < sqlc.arg(before) ORDER BY i.at LIMIT sqlc.arg(limit));
+
+-- name: DeleteAllMoves :exec
+-- A restore drops the moves and renames the Backup caught queued. The scan
+-- after it finds each file where it is.
+DELETE FROM files_move;

@@ -1,1 +1,1 @@
-export type SuggestFolders409Code = "worker_node";
+export type SuggestFolders409Code = "superseded" | "worker_node";

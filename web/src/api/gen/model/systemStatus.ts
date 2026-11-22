@@ -8,4 +8,8 @@ export interface SystemStatus {
   passkeys: SystemPasskeys;
   /** Set on an Unclaimed Node its Controller removed, until it joins again */
   removed?: SystemRemoved;
+  /** When this process started. A page waiting out a restart reads a later one once the Node is back */
+  startedAt: string;
+  /** Whether a restore on another machine replaced this Controller, or an Admin stopped or retired it */
+  superseded?: boolean;
 }

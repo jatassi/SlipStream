@@ -38,3 +38,8 @@ WHERE w.worse_id IN (sqlc.slice(worse_ids))
   AND (w.event_id IN (SELECT q.event_id FROM notifications_pending q)
        OR w.event_id IN (SELECT r.event_id FROM notifications_delivery r WHERE r.state = 'due'))
 ORDER BY 1;
+
+-- name: DeletePendingBefore :exec
+-- A restore drops what the Backup held as not yet released from before it
+-- was taken: the old Controller most likely released it already.
+DELETE FROM notifications_pending WHERE at < sqlc.arg(before);

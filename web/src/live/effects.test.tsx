@@ -77,9 +77,15 @@ test("a lapse's burst of nodes.changed refetches the counts once and once more a
     });
   });
   const app = renderApp({ path: "/", handlers: [...server.handlers, counts] });
-  const fetchStatus = () => app.queryClient.getQueryState(getGetCountsQueryKey())?.fetchStatus;
+  const countsQuery = () =>
+    app.queryClient.getQueryCache().find({ queryKey: getGetCountsQueryKey() });
+  const fetchStatus = () => countsQuery()?.state.fetchStatus;
   await expect.poll(() => app.live.getState()).toBe("open");
-  await expect.poll(() => asked > 0 && fetchStatus() === "idle").toBe(true);
+  // The shell's counts observer, not only the route's first read, has to be
+  // there for the burst's refetches.
+  await expect
+    .poll(() => asked > 0 && fetchStatus() === "idle" && countsQuery()?.getObserversCount())
+    .toBeTruthy();
   const before = asked;
   const seedbox = "6a1f0c2e-8d4b-4f7a-9e3c-2b5d7f9a1c4e";
   const home = "0f9e8d7c-6b5a-4c3d-8e2f-1a0b9c8d7e6f";

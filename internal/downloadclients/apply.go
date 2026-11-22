@@ -59,7 +59,14 @@ type Config struct {
 	Live      LiveConfig
 	// Hub wakes Run when the storage levels the disk guard follows change.
 	Hub Hub
-	Log *slog.Logger
+	// Keeps takes in each Node's Holdings and, while it blocks, keeps a
+	// torrent a client stopped listing from being marked gone. Nil is
+	// NoKeeps.
+	Keeps Keeps
+	// HoldingsPage and HoldingsMax bound a Holdings round: pages of at
+	// most HoldingsPage torrents, and at most HoldingsMax in all.
+	HoldingsPage, HoldingsMax int
+	Log                       *slog.Logger
 }
 
 type Hub interface {
@@ -105,6 +112,9 @@ type pending struct {
 }
 
 func New(cfg Config) *Clients {
+	if cfg.Keeps == nil {
+		cfg.Keeps = NoKeeps
+	}
 	return &Clients{
 		cfg: cfg, pending: map[role.NodeID]*pending{}, moved: make(chan struct{}),
 		watching: watching{nodes: map[role.NodeID]*watched{}, moved: map[ID]Sample{}},
@@ -125,10 +135,11 @@ func (c *Clients) Moved() <-chan struct{} {
 
 // Apply records one of node's reports in tx: the Torrents' latest
 // reports, a totals batch, a removal's confirmation, an external client's
-// poll, a torrent its client stopped listing, or an external client's raw
-// counters. An id that is not node's changes nothing, and each applies
-// alike when the outbox replays it. Applied tells the readers once tx
-// commits.
+// poll, a torrent its client stopped listing, which nothing marks while
+// Keeps blocks, an external client's raw counters, or a Holdings page,
+// which Keeps takes in checked and clamped, or refused whole. An id that
+// is not node's changes nothing, and each applies alike when the outbox
+// replays it. Applied tells the readers once tx commits.
 func (c *Clients) Apply(ctx context.Context, tx *storage.Tx[file], node role.NodeID, rep *dlv1.Report) error {
 	var (
 		got pending
@@ -150,11 +161,11 @@ func (c *Clients) Apply(ctx context.Context, tx *storage.Tx[file], node role.Nod
 	case *dlv1.Report_Client:
 		got.polled, got.ids, err = applyPoll(ctx, q, node, k.Client)
 	case *dlv1.Report_Vanished:
-		var id ID
-		if id, err = idOf(k.Vanished.GetId()); err == nil {
-			var n int64
-			n, err = q.Vanish(ctx, db.VanishParams{At: storage.Now(), ID: id, NodeID: node})
-			got.ids, got.touch = []ID{id}, n > 0
+		got.ids, got.touch, err = c.vanish(ctx, tx, node, k.Vanished)
+	case *dlv1.Report_Holdings:
+		var p HoldingsPage
+		if p, err = parseHoldings(ctx, q, node, k.Holdings, c.cfg.HoldingsPage, c.cfg.HoldingsMax); err == nil {
+			err = c.cfg.Keeps.Holdings(ctx, tx, node, p)
 		}
 	case *dlv1.Report_ClientTotals:
 		got.ids, err = applyClientTotals(ctx, q, node, k.ClientTotals.GetRows())
@@ -434,6 +445,21 @@ func totalsParams(node role.NodeID, id ID, t *dlv1.TotalsRow, at storage.Time) d
 		ActiveSeconds: t.GetActiveSeconds(), SeedingSeconds: t.GetSeedingSeconds(), AnnouncedSeconds: t.GetAnnouncedSeconds(),
 		TotalsAt: at, ID: id, NodeID: node,
 	}
+}
+
+// vanish marks the Torrent v names gone from its client, unless Keeps
+// blocks.
+func (c *Clients) vanish(ctx context.Context, tx *storage.Tx[file], node role.NodeID, v *dlv1.Vanished) (ids []ID, touch bool, err error) {
+	blocked, err := c.cfg.Keeps.Blocked(ctx, tx)
+	if err != nil || blocked {
+		return nil, false, err
+	}
+	id, err := idOf(v.GetId())
+	if err != nil {
+		return nil, false, err
+	}
+	n, err := db.New(tx).Vanish(ctx, db.VanishParams{At: storage.Now(), ID: id, NodeID: node})
+	return []ID{id}, n > 0, err
 }
 
 func idOf(b []byte) (ID, error) {

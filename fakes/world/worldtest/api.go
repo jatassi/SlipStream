@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world"
@@ -227,6 +228,26 @@ func (a *API) do(q request) (Reply, []*http.Cookie) {
 	return Reply{res.StatusCode, string(data)}, res.Cookies()
 }
 
+// WithoutStartedAt is getStatus's reply with its startedAt taken out, once
+// it is a time: each start sets a new one.
+func WithoutStartedAt(t *testing.T, r Reply) Reply {
+	t.Helper()
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(r.Body), &fields); err != nil {
+		t.Fatalf("getStatus answered %q: %v", r.Body, err)
+	}
+	var at time.Time
+	if err := json.Unmarshal(fields["startedAt"], &at); err != nil || at.IsZero() {
+		t.Fatalf("getStatus answered %q, want a startedAt", r.Body)
+	}
+	delete(fields, "startedAt")
+	b, err := json.Marshal(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return Reply{r.Status, string(b) + "\n"}
+}
+
 func Expect(t *testing.T, what string, got, want Reply) {
 	t.Helper()
 	if got != want {
@@ -390,7 +411,7 @@ func CheckHome(t *testing.T, a *API) {
 	if link := netip.MustParseAddrPort(box.Listeners["link"]).Addr(); box.Claim != world.ClaimWorker || box.Setup != scenario.SetupJoin || link != netip.MustParseAddr("127.0.0.3") {
 		t.Fatalf("the manifest has seedbox with claim %s, setup %s and listeners.link on %s; want worker, join and 127.0.0.3", box.Claim, box.Setup, link)
 	}
-	Expect(t, "seedbox GET /api/v1/status", a.Get("seedbox", "/api/v1/status"), Reply{200, `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
+	Expect(t, "seedbox GET /api/v1/status", WithoutStartedAt(t, a.Get("seedbox", "/api/v1/status")), Reply{200, `{"claim":"worker","passkeys":{"available":false,"reason":"ip_address"}}` + "\n"})
 	Expect(t, "seedbox GET /api/v1/system", a.Admin("seedbox", http.MethodGet, "/api/v1/system", ""),
 		Reply{409, `{"status":409,"code":"worker_node","title":"This Node is a Worker. Manage it from its Controller."}` + "\n"})
 

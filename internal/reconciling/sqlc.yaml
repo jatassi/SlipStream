@@ -1,0 +1,70 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: "*.since"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: "*.node_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: reconciling_torrent.readd_node
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+              pointer: true
+          - column: reconciling_torrent.torrent_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/downloadclients
+              type: ID
+          - column: reconciling_held.client_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/downloadclients
+              type: ClientID
+              pointer: true
+          - column: reconciling_root.root_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/roots
+              type: ID
+          - column: reconciling_held.name
+            go_type:
+              type: string
+              pointer: true
+          - column: reconciling_held.size
+            go_type:
+              type: int64
+              pointer: true
+          - column: reconciling_held.save_folder
+            go_type:
+              type: string
+              pointer: true
+          - column: reconciling_held.decision
+            go_type:
+              type: string
+              pointer: true
+          - column: reconciling_node.pages
+            go_type:
+              type: int64
+              pointer: true
+          - column: reconciling_state.id
+            go_type:
+              type: Singleton
+          - column: reconciling_state.restore_id
+            go_type:
+              type: RestoreID
+          - column: reconciling_node.refused
+            go_type:
+              type: string
+              pointer: true

@@ -4,4 +4,5 @@ export type UpdateDownloadClient409Code =
   | "download_client_in_use"
   | "download_client_name_taken"
   | "node_not_downloading"
+  | "superseded"
   | "worker_node";

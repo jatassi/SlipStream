@@ -1,1 +1,1 @@
-export type UpdateTaskSettings409Code = "worker_node";
+export type UpdateTaskSettings409Code = "superseded" | "worker_node";

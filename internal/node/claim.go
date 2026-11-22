@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
@@ -28,6 +29,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -44,6 +46,7 @@ import (
 
 type libraryDB struct {
 	db     *storage.DB[storage.Library]
+	keys   *secret.Keys
 	sealer *secret.Sealer
 	minter artwork.Minter
 	mail   *mail.Mail
@@ -58,15 +61,22 @@ func (l *libraryDB) close(ctx context.Context) error {
 type libraryFiles struct {
 	dir     DataDir
 	schemas []storage.Schema[storage.Library]
+	// hook is the Backup before a migration, nil for a library.db no Node
+	// has started on.
+	hook    storage.PreMigrationHook
 	timings TimingsBlock
 	hub     *live.Hub
 	log     *slog.Logger
+	test    Test
 }
 
 // openLibraryFiles is where a running Node and `slipstream admin reset`
 // offline both open library.db.
 func openLibraryFiles(ctx context.Context, f libraryFiles) (*libraryDB, error) {
-	db, err := storage.OpenLibrary(ctx, f.dir.LibraryDB(), f.schemas, preMigrationHook, f.timings.Storage, f.log.With("subsystem", "storage"))
+	if err := f.test.seedLibrary(f.dir.LibraryDB(), f.schemas); err != nil {
+		return nil, err
+	}
+	db, err := storage.OpenLibrary(ctx, f.dir.LibraryDB(), f.schemas, f.hook, f.timings.Storage, f.log.With("subsystem", "storage"))
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +86,7 @@ func openLibraryFiles(ctx context.Context, f libraryFiles) (*libraryDB, error) {
 	}
 	sealer := keys.Sealer()
 	smtp := mail.New(mail.Config{Library: db, Sealer: sealer, Timings: f.timings.Mail})
-	lib := &libraryDB{db: db, sealer: sealer, minter: artwork.NewMinter(keys.ArtworkToken()), mail: smtp, outbox: mail.NewOutbox(smtp, f.log.With("subsystem", "mail"))}
+	lib := &libraryDB{db: db, keys: keys, sealer: sealer, minter: artwork.NewMinter(keys.ArtworkToken()), mail: smtp, outbox: mail.NewOutbox(smtp, f.log.With("subsystem", "mail"))}
 	lib.ids, err = identity.New(ctx, identity.Config{Library: db, Pepper: keys.PINPepper(), Sealer: sealer, Hub: f.hub, Mail: smtp, Outbox: lib.outbox})
 	if err != nil {
 		return nil, errors.Join(err, lib.close(ctx))
@@ -84,10 +94,20 @@ func openLibraryFiles(ctx context.Context, f libraryFiles) (*libraryDB, error) {
 	return lib, nil
 }
 
+func (n *Node) librarySchemas() []storage.Schema[storage.Library] {
+	return append(LibrarySchemas(n.env.Types), n.env.Test.Library...)
+}
+
 // openLibrary opens library.db and what opens with it once. A Node opens
 // it at start only if library.db exists, and otherwise when it is claimed
 // as a Controller.
 func (n *Node) openLibrary(ctx context.Context) (*libraryDB, error) {
+	return n.openLibraryWith(ctx, backups.BeforeMigrating(n.backups, n.backingUp))
+}
+
+// openLibraryWith is openLibrary with hook before a migration: none for a
+// restore's finish, whose library.db isn't live until its Write.
+func (n *Node) openLibraryWith(ctx context.Context, hook storage.PreMigrationHook) (*libraryDB, error) {
 	n.libMu.Lock()
 	defer n.libMu.Unlock()
 	if lib := n.lib.Load(); lib != nil {
@@ -95,10 +115,12 @@ func (n *Node) openLibrary(ctx context.Context) (*libraryDB, error) {
 	}
 	lib, err := openLibraryFiles(ctx, libraryFiles{
 		dir:     n.env.DataDir,
-		schemas: append(LibrarySchemas(n.env.Types), n.env.Test.Library...),
+		schemas: n.librarySchemas(),
+		hook:    hook,
 		timings: n.cfg.Timings,
 		hub:     n.hub,
 		log:     n.rootLog,
+		test:    n.env.Test,
 	})
 	if err != nil {
 		return nil, err
@@ -180,6 +202,9 @@ func (s surfaceNode) ClaimController(ctx context.Context, claim func(*identity.S
 	if s.n.pairing.Awaiting() {
 		return identity.ErrJoinPending
 	}
+	if err := s.n.lifecycleIdle(); err != nil {
+		return err
+	}
 	lib, err := s.n.openLibrary(context.WithoutCancel(ctx))
 	if err != nil {
 		return err
@@ -202,6 +227,20 @@ func (s surfaceNode) Nodes() (*nodes.Service, bool) {
 		return nil, false
 	}
 	return h.nodes, true
+}
+
+func (s surfaceNode) Reconciling() (*reconciling.Service, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.reconciling == nil {
+		return nil, false
+	}
+	return h.reconciling, true
+}
+
+// refusal is the reconciling problem's detail, which only a Controller
+// writes.
+func (s surfaceNode) refusal(ctx context.Context) (string, error) {
+	return s.n.half.Load().reconciling.Refusal(ctx)
 }
 
 func (s surfaceNode) Systems() (*nodesystem.Nodes, bool) {
@@ -316,6 +355,14 @@ func (s surfaceNode) DownloadClients() (*downloadclients.Clients, bool) {
 	return h.clients, true
 }
 
+func (s surfaceNode) Backups() (*backups.Backups, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.backups == nil {
+		return nil, false
+	}
+	return h.backups, true
+}
+
 func (s surfaceNode) Transfers() (*transfers.Transfers, bool) {
 	h := s.n.half.Load()
 	if h == nil || h.transfers == nil {
@@ -406,8 +453,14 @@ func (s surfaceNode) FirstRunOpen(ctx context.Context) (bool, error) {
 	return f.IsOpen(ctx)
 }
 
+// Join is claimWorker's Join. The HTTP server's graceful stop lets the
+// answer finish before a restart onto a re-paired Controller ends it.
 func (s surfaceNode) Join(ctx context.Context, code joincode.Code, awaiting func(pairing.Pending)) (pairing.Joined, error) {
-	return s.n.join(ctx, code, awaiting)
+	joined, repaired, err := s.n.join(ctx, code, awaiting)
+	if repaired {
+		s.n.repaired(context.WithoutCancel(ctx))
+	}
+	return joined, err
 }
 
 // Pending holds a joined claim at awaiting-dial until the Worker half

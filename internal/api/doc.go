@@ -17,11 +17,13 @@
 //
 // The level decides the principal the handler receives: api.Public gives
 // identity.Anyone, api.Setup identity.Claim, api.Bearer identity.Bearer,
-// api.Account and api.Confirmed identity.Account, and api.Admin and
-// api.Reconfirmed identity.Admin. A domain method only an Admin may run
-// takes the identity.Admin too. Confirmed and Reconfirmed also need the
-// session to have confirmed its PIN within the re-confirm window; choose
-// them for actions that change who can get in.
+// api.Account and api.Confirmed identity.Account, and api.Admin,
+// api.Reconfirmed and api.ReconfirmedSession identity.Admin. A domain
+// method only an Admin may run takes the identity.Admin too. Confirmed,
+// Reconfirmed and ReconfirmedSession also need the session to have
+// confirmed its PIN within the re-confirm window; choose them for actions
+// that change who can get in. ReconfirmedSession refuses the API key too,
+// for what reads or replaces the Backup passphrase or the whole library.
 //
 // # GET and HEAD have no side effects
 //

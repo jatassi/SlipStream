@@ -34,8 +34,9 @@ func TestARemovedWorkerRecordsItAndJoinsAgainAsANewNode(t *testing.T) {
 		var removals atomic.Int32
 		p, err := pairing.Open(pairing.Config{
 			DataDir: dir, Key: box.Key, Link: box.Link, Name: "box", Claims: claims(system.Unclaimed), AwaitDial: time.Minute,
-			Removed: func(context.Context) { removals.Add(1) },
-			Log:     discard,
+			Removed:          func(context.Context) { removals.Add(1) },
+			UnreachableAfter: 15 * time.Minute, Local: &localPage{},
+			Log: discard,
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -108,8 +109,8 @@ func expectRemoved(t *testing.T, p *pairing.Pairing, dir string, controller link
 	if want := "This Node was removed from home on " + removal.At.Local().Format("2 Jan") + ". Join with a new Join Code to use it again."; removal.Sentence() != want {
 		t.Fatalf("the sentence reads %q, want %q", removal.Sentence(), want)
 	}
-	if record(t, dir)["schema"] != float64(2) {
-		t.Fatalf("pairing.json is %v, want schema 2", record(t, dir))
+	if record(t, dir)["schema"] != float64(3) {
+		t.Fatalf("pairing.json is %v, want schema 3", record(t, dir))
 	}
 }
 

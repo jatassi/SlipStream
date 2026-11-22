@@ -106,7 +106,7 @@ func TestTheGateOpensBusiesAndCloses(t *testing.T) {
 	if !regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$`).MatchString(code) {
 		t.Fatalf("setup code %q is not XXXX-XXXX-XXXX in Crockford base32", code)
 	}
-	if want := `level=INFO msg="setup code" code=` + code + ` hint="open this Node in a browser to start a new SlipStream or join one"` + "\n"; log.String() != want {
+	if want := `level=INFO msg="setup code" code=` + code + ` hint="open this Node in a browser to start a new SlipStream, join one or restore a Backup"` + "\n"; log.String() != want {
 		t.Fatalf("log = %q, want %q", log.String(), want)
 	}
 	var c Caller
@@ -181,4 +181,28 @@ func noTime(_ []string, a slog.Attr) slog.Attr {
 		return slog.Attr{}
 	}
 	return a
+}
+
+// TestAWorkersGateOpensForItsOwnPageUntilShut opens a paired Worker's
+// closed gate: the new code admits a Setup operation, and the gate stays
+// open after it, though the Node is claimed. Shut closes it, and the code
+// no longer admits anything.
+func TestAWorkersGateOpensForItsOwnPageUntilShut(t *testing.T) {
+	g, _, err := NewGate(t.Context(), (&claimedFlag{claim: system.Worker}).claimed, slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := g.OpenForWorker()
+	if again := g.OpenForWorker(); again != code {
+		t.Fatalf("a second OpenForWorker drew %q, want the open code %q", again, code)
+	}
+	for range 2 {
+		if err := g.Run(t.Context(), Caller{}, code, func(Claim) {}); err != nil {
+			t.Fatalf("Run on the Worker's open gate = %v", err)
+		}
+	}
+	g.Shut()
+	if err := g.Run(t.Context(), Caller{}, code, func(Claim) {}); !errors.Is(err, ErrAlreadyClaimed) {
+		t.Fatalf("Run after Shut = %v, want ErrAlreadyClaimed", err)
+	}
 }

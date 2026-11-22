@@ -1,11 +1,16 @@
 import type { Locator, Page } from "@playwright/test";
 import { z } from "zod";
 
+import { confirmPassphraseSaved } from "./backups.ts";
 import { menuItem } from "./folder-browser.ts";
 import { type World, expect, test } from "./fixtures.ts";
 import { isPhone, navigate } from "./shell.ts";
 
 test.describe.configure({ timeout: 300_000 });
+
+test.beforeEach(async ({ adminPage }) => {
+  await confirmPassphraseSaved(adminPage);
+});
 
 type Alert = "" | " needs attention" | " failed";
 
@@ -78,7 +83,7 @@ async function calmPage(page: Page): Promise<void> {
   await expect(page.getByText("Everything is working.")).toBeVisible();
   await expect(
     page.getByText(
-      "Checked storage, the library, Nodes, download clients, Media Servers, torrents that still need seeding, Indexers, subtitles, scheduled tasks and notification connections",
+      "Checked storage, the library, Nodes, download clients, Media Servers, torrents that still need seeding, Indexers, subtitles, scheduled tasks, Backups and notification connections",
     ),
   ).toBeVisible();
   for (const [label, phrase] of [
@@ -91,12 +96,20 @@ async function calmPage(page: Page): Promise<void> {
     ["Indexers", "Indexers"],
     ["Subtitles", "subtitles"],
     ["Scheduled tasks", "scheduled tasks"],
+    ["Backups", "Backups"],
     ["Notifications", "notification connections"],
   ] as const) {
     // oxlint-disable-next-line no-await-in-loop -- one quiet line per category, in page order
     await expect(category(page, label)).toContainText(`Nothing is wrong with ${phrase}.`);
   }
-  for (const label of ["Library", "Seeding", "Indexers", "Scheduled tasks", "Notifications"]) {
+  for (const label of [
+    "Library",
+    "Seeding",
+    "Indexers",
+    "Scheduled tasks",
+    "Backups",
+    "Notifications",
+  ]) {
     // oxlint-disable-next-line no-await-in-loop -- one quiet line per category, in page order
     await expect(category(page, label).getByRole("button", { name: /^Check now/u })).toHaveCount(0);
   }

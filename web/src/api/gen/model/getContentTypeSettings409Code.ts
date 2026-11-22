@@ -1,1 +1,1 @@
-export type GetContentTypeSettings409Code = "worker_node";
+export type GetContentTypeSettings409Code = "superseded" | "worker_node";

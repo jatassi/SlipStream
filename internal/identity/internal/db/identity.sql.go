@@ -34,6 +34,16 @@ func (q *Queries) ConfirmSession(ctx context.Context, arg ConfirmSessionParams) 
 	return err
 }
 
+const deleteAllSessions = `-- name: DeleteAllSessions :exec
+DELETE FROM identity_session
+`
+
+// A restore signs everyone out.
+func (q *Queries) DeleteAllSessions(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllSessions)
+	return err
+}
+
 const deleteIdleSessions = `-- name: DeleteIdleSessions :exec
 DELETE FROM identity_session WHERE last_seen_at < ?1
 `

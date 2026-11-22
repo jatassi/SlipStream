@@ -1,1 +1,1 @@
-export type GetCalendar409Code = "worker_node";
+export type GetCalendar409Code = "superseded" | "worker_node";

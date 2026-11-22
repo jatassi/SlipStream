@@ -18,6 +18,7 @@ import { Route as ServingRouteImport } from "./routes/serving";
 import { Route as SetupRouteImport } from "./routes/setup";
 import { Route as SignInRouteImport } from "./routes/sign-in";
 import { Route as SignupRouteImport } from "./routes/signup";
+import { Route as SupersededRouteImport } from "./routes/superseded";
 import { Route as WorkerRouteImport } from "./routes/worker";
 import { Route as AppIndexRouteImport } from "./routes/_app/index";
 import { Route as AppSplatRouteImport } from "./routes/_app/$";
@@ -48,6 +49,9 @@ import { Route as AppLibraryPendingRouteImport } from "./routes/_app/library/pen
 import { Route as AppLibraryWantedRouteImport } from "./routes/_app/library/wanted";
 import { Route as AppNodesIndexRouteImport } from "./routes/_app/nodes/index";
 import { Route as AppNodesNodeIdRouteRouteImport } from "./routes/_app/nodes/$nodeId/route";
+import { Route as AppReconcilingIndexRouteImport } from "./routes/_app/reconciling/index";
+import { Route as AppReconcilingFoldersRouteImport } from "./routes/_app/reconciling/folders";
+import { Route as AppReconcilingTorrentsRouteImport } from "./routes/_app/reconciling/torrents";
 import { Route as AppSettingsIndexRouteImport } from "./routes/_app/settings/index";
 import { Route as AppSettingsSectionRouteImport } from "./routes/_app/settings/$section";
 import { Route as AppTasksIndexRouteImport } from "./routes/_app/tasks/index";
@@ -59,6 +63,7 @@ import { Route as AppLibraryCalendarContentTypeRouteImport } from "./routes/_app
 import { Route as AppLibraryPendingImportIdRouteImport } from "./routes/_app/library/pending_.$importId";
 import { Route as AppLibraryWantedContentTypeRouteImport } from "./routes/_app/library/wanted_.$contentType";
 import { Route as AppNodesNodeIdIndexRouteImport } from "./routes/_app/nodes/$nodeId/index";
+import { Route as AppNodesNodeIdBackupsRouteImport } from "./routes/_app/nodes/$nodeId/backups";
 import { Route as AppNodesNodeIdLogSettingsRouteImport } from "./routes/_app/nodes/$nodeId/log-settings";
 import { Route as AppNodesNodeIdLogsRouteImport } from "./routes/_app/nodes/$nodeId/logs";
 import { Route as AppNodesNodeIdMediaServersRouteImport } from "./routes/_app/nodes/$nodeId/media-servers";
@@ -135,6 +140,11 @@ const SignInRoute = SignInRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: "/signup",
   path: "/signup",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SupersededRoute = SupersededRouteImport.update({
+  id: "/superseded",
+  path: "/superseded",
   getParentRoute: () => rootRouteImport,
 } as any);
 const WorkerRoute = WorkerRouteImport.update({
@@ -287,6 +297,21 @@ const AppNodesNodeIdRouteRoute = AppNodesNodeIdRouteRouteImport.update({
   path: "/$nodeId",
   getParentRoute: () => AppNodesRouteRoute,
 } as any);
+const AppReconcilingIndexRoute = AppReconcilingIndexRouteImport.update({
+  id: "/reconciling/",
+  path: "/reconciling/",
+  getParentRoute: () => AppRoute,
+} as any);
+const AppReconcilingFoldersRoute = AppReconcilingFoldersRouteImport.update({
+  id: "/reconciling/folders",
+  path: "/reconciling/folders",
+  getParentRoute: () => AppRoute,
+} as any);
+const AppReconcilingTorrentsRoute = AppReconcilingTorrentsRouteImport.update({
+  id: "/reconciling/torrents",
+  path: "/reconciling/torrents",
+  getParentRoute: () => AppRoute,
+} as any);
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   id: "/settings/",
   path: "/settings/",
@@ -344,6 +369,11 @@ const AppLibraryWantedContentTypeRoute =
 const AppNodesNodeIdIndexRoute = AppNodesNodeIdIndexRouteImport.update({
   id: "/",
   path: "/",
+  getParentRoute: () => AppNodesNodeIdRouteRoute,
+} as any);
+const AppNodesNodeIdBackupsRoute = AppNodesNodeIdBackupsRouteImport.update({
+  id: "/backups",
+  path: "/backups",
   getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any);
 const AppNodesNodeIdLogSettingsRoute =
@@ -547,6 +577,7 @@ export interface FileRoutesByFullPath {
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/signup": typeof SignupRoute;
+  "/superseded": typeof SupersededRoute;
   "/worker": typeof WorkerRoute;
   "/activity": typeof AppActivityRouteRouteWithChildren;
   "/library": typeof AppLibraryRouteRouteWithChildren;
@@ -572,6 +603,8 @@ export interface FileRoutesByFullPath {
   "/library/calendar": typeof AppLibraryCalendarRoute;
   "/library/pending": typeof AppLibraryPendingRoute;
   "/library/wanted": typeof AppLibraryWantedRoute;
+  "/reconciling/folders": typeof AppReconcilingFoldersRoute;
+  "/reconciling/torrents": typeof AppReconcilingTorrentsRoute;
   "/settings/$section": typeof AppSettingsSectionRoute;
   "/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
@@ -580,6 +613,7 @@ export interface FileRoutesByFullPath {
   "/activity/": typeof AppActivityIndexRoute;
   "/library/": typeof AppLibraryIndexRoute;
   "/nodes/": typeof AppNodesIndexRoute;
+  "/reconciling/": typeof AppReconcilingIndexRoute;
   "/settings/": typeof AppSettingsIndexRoute;
   "/tasks/": typeof AppTasksIndexRoute;
   "/settings/media-servers/$serverId": typeof AppSettingsMediaServersServerIdRouteRouteWithChildren;
@@ -588,6 +622,7 @@ export interface FileRoutesByFullPath {
   "/library/calendar/$contentType": typeof AppLibraryCalendarContentTypeRoute;
   "/library/pending/$importId": typeof AppLibraryPendingImportIdRoute;
   "/library/wanted/$contentType": typeof AppLibraryWantedContentTypeRoute;
+  "/nodes/$nodeId/backups": typeof AppNodesNodeIdBackupsRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
@@ -628,6 +663,7 @@ export interface FileRoutesByTo {
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/signup": typeof SignupRoute;
+  "/superseded": typeof SupersededRoute;
   "/worker": typeof WorkerRoute;
   "/$": typeof AppSplatRoute;
   "/account": typeof AppAccountRoute;
@@ -649,6 +685,8 @@ export interface FileRoutesByTo {
   "/library/calendar": typeof AppLibraryCalendarRoute;
   "/library/pending": typeof AppLibraryPendingRoute;
   "/library/wanted": typeof AppLibraryWantedRoute;
+  "/reconciling/folders": typeof AppReconcilingFoldersRoute;
+  "/reconciling/torrents": typeof AppReconcilingTorrentsRoute;
   "/settings/$section": typeof AppSettingsSectionRoute;
   "/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
@@ -657,6 +695,7 @@ export interface FileRoutesByTo {
   "/activity": typeof AppActivityIndexRoute;
   "/library": typeof AppLibraryIndexRoute;
   "/nodes": typeof AppNodesIndexRoute;
+  "/reconciling": typeof AppReconcilingIndexRoute;
   "/settings": typeof AppSettingsIndexRoute;
   "/tasks": typeof AppTasksIndexRoute;
   "/settings/trackers/$trackerId": typeof AppSettingsTrackersTrackerIdTorrentsIndexRoute;
@@ -664,6 +703,7 @@ export interface FileRoutesByTo {
   "/library/calendar/$contentType": typeof AppLibraryCalendarContentTypeRoute;
   "/library/pending/$importId": typeof AppLibraryPendingImportIdRoute;
   "/library/wanted/$contentType": typeof AppLibraryWantedContentTypeRoute;
+  "/nodes/$nodeId/backups": typeof AppNodesNodeIdBackupsRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
@@ -706,6 +746,7 @@ export interface FileRoutesById {
   "/setup": typeof SetupRoute;
   "/sign-in": typeof SignInRoute;
   "/signup": typeof SignupRoute;
+  "/superseded": typeof SupersededRoute;
   "/worker": typeof WorkerRoute;
   "/_app/activity": typeof AppActivityRouteRouteWithChildren;
   "/_app/library": typeof AppLibraryRouteRouteWithChildren;
@@ -732,6 +773,8 @@ export interface FileRoutesById {
   "/_app/library/calendar": typeof AppLibraryCalendarRoute;
   "/_app/library/pending": typeof AppLibraryPendingRoute;
   "/_app/library/wanted": typeof AppLibraryWantedRoute;
+  "/_app/reconciling/folders": typeof AppReconcilingFoldersRoute;
+  "/_app/reconciling/torrents": typeof AppReconcilingTorrentsRoute;
   "/_app/settings/$section": typeof AppSettingsSectionRoute;
   "/_app/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/_app/works/$workId": typeof AppWorksWorkIdRoute;
@@ -740,6 +783,7 @@ export interface FileRoutesById {
   "/_app/activity/": typeof AppActivityIndexRoute;
   "/_app/library/": typeof AppLibraryIndexRoute;
   "/_app/nodes/": typeof AppNodesIndexRoute;
+  "/_app/reconciling/": typeof AppReconcilingIndexRoute;
   "/_app/settings/": typeof AppSettingsIndexRoute;
   "/_app/tasks/": typeof AppTasksIndexRoute;
   "/_app/settings/media-servers/$serverId": typeof AppSettingsMediaServersServerIdRouteRouteWithChildren;
@@ -748,6 +792,7 @@ export interface FileRoutesById {
   "/_app/library/calendar_/$contentType": typeof AppLibraryCalendarContentTypeRoute;
   "/_app/library/pending_/$importId": typeof AppLibraryPendingImportIdRoute;
   "/_app/library/wanted_/$contentType": typeof AppLibraryWantedContentTypeRoute;
+  "/_app/nodes/$nodeId/backups": typeof AppNodesNodeIdBackupsRoute;
   "/_app/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/_app/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/_app/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
@@ -793,6 +838,7 @@ export interface FileRouteTypes {
     | "/setup"
     | "/sign-in"
     | "/signup"
+    | "/superseded"
     | "/worker"
     | "/activity"
     | "/library"
@@ -818,6 +864,8 @@ export interface FileRouteTypes {
     | "/library/calendar"
     | "/library/pending"
     | "/library/wanted"
+    | "/reconciling/folders"
+    | "/reconciling/torrents"
     | "/settings/$section"
     | "/tasks/$taskId"
     | "/works/$workId"
@@ -826,6 +874,7 @@ export interface FileRouteTypes {
     | "/activity/"
     | "/library/"
     | "/nodes/"
+    | "/reconciling/"
     | "/settings/"
     | "/tasks/"
     | "/settings/media-servers/$serverId"
@@ -834,6 +883,7 @@ export interface FileRouteTypes {
     | "/library/calendar/$contentType"
     | "/library/pending/$importId"
     | "/library/wanted/$contentType"
+    | "/nodes/$nodeId/backups"
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/media-servers"
@@ -874,6 +924,7 @@ export interface FileRouteTypes {
     | "/setup"
     | "/sign-in"
     | "/signup"
+    | "/superseded"
     | "/worker"
     | "/$"
     | "/account"
@@ -895,6 +946,8 @@ export interface FileRouteTypes {
     | "/library/calendar"
     | "/library/pending"
     | "/library/wanted"
+    | "/reconciling/folders"
+    | "/reconciling/torrents"
     | "/settings/$section"
     | "/tasks/$taskId"
     | "/works/$workId"
@@ -903,6 +956,7 @@ export interface FileRouteTypes {
     | "/activity"
     | "/library"
     | "/nodes"
+    | "/reconciling"
     | "/settings"
     | "/tasks"
     | "/settings/trackers/$trackerId"
@@ -910,6 +964,7 @@ export interface FileRouteTypes {
     | "/library/calendar/$contentType"
     | "/library/pending/$importId"
     | "/library/wanted/$contentType"
+    | "/nodes/$nodeId/backups"
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/media-servers"
@@ -951,6 +1006,7 @@ export interface FileRouteTypes {
     | "/setup"
     | "/sign-in"
     | "/signup"
+    | "/superseded"
     | "/worker"
     | "/_app/activity"
     | "/_app/library"
@@ -977,6 +1033,8 @@ export interface FileRouteTypes {
     | "/_app/library/calendar"
     | "/_app/library/pending"
     | "/_app/library/wanted"
+    | "/_app/reconciling/folders"
+    | "/_app/reconciling/torrents"
     | "/_app/settings/$section"
     | "/_app/tasks/$taskId"
     | "/_app/works/$workId"
@@ -985,6 +1043,7 @@ export interface FileRouteTypes {
     | "/_app/activity/"
     | "/_app/library/"
     | "/_app/nodes/"
+    | "/_app/reconciling/"
     | "/_app/settings/"
     | "/_app/tasks/"
     | "/_app/settings/media-servers/$serverId"
@@ -993,6 +1052,7 @@ export interface FileRouteTypes {
     | "/_app/library/calendar_/$contentType"
     | "/_app/library/pending_/$importId"
     | "/_app/library/wanted_/$contentType"
+    | "/_app/nodes/$nodeId/backups"
     | "/_app/nodes/$nodeId/log-settings"
     | "/_app/nodes/$nodeId/logs"
     | "/_app/nodes/$nodeId/media-servers"
@@ -1037,6 +1097,7 @@ export interface RootRouteChildren {
   SetupRoute: typeof SetupRoute;
   SignInRoute: typeof SignInRoute;
   SignupRoute: typeof SignupRoute;
+  SupersededRoute: typeof SupersededRoute;
   WorkerRoute: typeof WorkerRoute;
   SetupStepRoute: typeof SetupStepRoute;
   AccountPasskeysNewRoute: typeof AccountPasskeysNewRoute;
@@ -1105,6 +1166,13 @@ declare module "@tanstack/react-router" {
       path: "/signup";
       fullPath: "/signup";
       preLoaderRoute: typeof SignupRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/superseded": {
+      id: "/superseded";
+      path: "/superseded";
+      fullPath: "/superseded";
+      preLoaderRoute: typeof SupersededRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/worker": {
@@ -1317,6 +1385,27 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppNodesNodeIdRouteRouteImport;
       parentRoute: typeof AppNodesRouteRoute;
     };
+    "/_app/reconciling/": {
+      id: "/_app/reconciling/";
+      path: "/reconciling";
+      fullPath: "/reconciling/";
+      preLoaderRoute: typeof AppReconcilingIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/reconciling/folders": {
+      id: "/_app/reconciling/folders";
+      path: "/reconciling/folders";
+      fullPath: "/reconciling/folders";
+      preLoaderRoute: typeof AppReconcilingFoldersRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/reconciling/torrents": {
+      id: "/_app/reconciling/torrents";
+      path: "/reconciling/torrents";
+      fullPath: "/reconciling/torrents";
+      preLoaderRoute: typeof AppReconcilingTorrentsRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     "/_app/settings/": {
       id: "/_app/settings/";
       path: "/settings";
@@ -1392,6 +1481,13 @@ declare module "@tanstack/react-router" {
       path: "/";
       fullPath: "/nodes/$nodeId/";
       preLoaderRoute: typeof AppNodesNodeIdIndexRouteImport;
+      parentRoute: typeof AppNodesNodeIdRouteRoute;
+    };
+    "/_app/nodes/$nodeId/backups": {
+      id: "/_app/nodes/$nodeId/backups";
+      path: "/backups";
+      fullPath: "/nodes/$nodeId/backups";
+      preLoaderRoute: typeof AppNodesNodeIdBackupsRouteImport;
       parentRoute: typeof AppNodesNodeIdRouteRoute;
     };
     "/_app/nodes/$nodeId/log-settings": {
@@ -1683,6 +1779,7 @@ const AppLibraryRouteRouteWithChildren = AppLibraryRouteRoute._addFileChildren(
 );
 
 interface AppNodesNodeIdRouteRouteChildren {
+  AppNodesNodeIdBackupsRoute: typeof AppNodesNodeIdBackupsRoute;
   AppNodesNodeIdLogSettingsRoute: typeof AppNodesNodeIdLogSettingsRoute;
   AppNodesNodeIdLogsRoute: typeof AppNodesNodeIdLogsRoute;
   AppNodesNodeIdMediaServersRoute: typeof AppNodesNodeIdMediaServersRoute;
@@ -1695,6 +1792,7 @@ interface AppNodesNodeIdRouteRouteChildren {
 }
 
 const AppNodesNodeIdRouteRouteChildren: AppNodesNodeIdRouteRouteChildren = {
+  AppNodesNodeIdBackupsRoute: AppNodesNodeIdBackupsRoute,
   AppNodesNodeIdLogSettingsRoute: AppNodesNodeIdLogSettingsRoute,
   AppNodesNodeIdLogsRoute: AppNodesNodeIdLogsRoute,
   AppNodesNodeIdMediaServersRoute: AppNodesNodeIdMediaServersRoute,
@@ -1818,9 +1916,12 @@ interface AppRouteChildren {
   AppSystemRoute: typeof AppSystemRoute;
   AppIndexRoute: typeof AppIndexRoute;
   AppAccountsAccountIdRoute: typeof AppAccountsAccountIdRoute;
+  AppReconcilingFoldersRoute: typeof AppReconcilingFoldersRoute;
+  AppReconcilingTorrentsRoute: typeof AppReconcilingTorrentsRoute;
   AppSettingsSectionRoute: typeof AppSettingsSectionRoute;
   AppWorksWorkIdRoute: typeof AppWorksWorkIdRoute;
   AppAccountsIndexRoute: typeof AppAccountsIndexRoute;
+  AppReconcilingIndexRoute: typeof AppReconcilingIndexRoute;
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute;
   AppSettingsMediaServersServerIdRouteRoute: typeof AppSettingsMediaServersServerIdRouteRouteWithChildren;
   AppSettingsTrackersTrackerIdRouteRoute: typeof AppSettingsTrackersTrackerIdRouteRouteWithChildren;
@@ -1850,9 +1951,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppSystemRoute: AppSystemRoute,
   AppIndexRoute: AppIndexRoute,
   AppAccountsAccountIdRoute: AppAccountsAccountIdRoute,
+  AppReconcilingFoldersRoute: AppReconcilingFoldersRoute,
+  AppReconcilingTorrentsRoute: AppReconcilingTorrentsRoute,
   AppSettingsSectionRoute: AppSettingsSectionRoute,
   AppWorksWorkIdRoute: AppWorksWorkIdRoute,
   AppAccountsIndexRoute: AppAccountsIndexRoute,
+  AppReconcilingIndexRoute: AppReconcilingIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
   AppSettingsMediaServersServerIdRouteRoute:
     AppSettingsMediaServersServerIdRouteRouteWithChildren,
@@ -1904,6 +2008,7 @@ const rootRouteChildren: RootRouteChildren = {
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
   SignupRoute: SignupRoute,
+  SupersededRoute: SupersededRoute,
   WorkerRoute: WorkerRoute,
   SetupStepRoute: SetupStepRoute,
   AccountPasskeysNewRoute: AccountPasskeysNewRoute,

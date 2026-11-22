@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/lifecycle"
 	"github.com/jatassi/slipstream/internal/settingapi"
 )
 
@@ -128,7 +129,7 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/setup/controller",
 		Summary: "Create the first Admin and make this Node a Controller",
 		Status:  http.StatusCreated,
-		Errors:  []*api.Code{api.JoinPending},
+		Errors:  []*api.Code{api.JoinPending, api.LifecycleBusy},
 	}, func(ctx context.Context, c identity.Claim, in *claimInput) (*signedInOutput, error) {
 		pin, err := identity.ParsePIN(in.Body.PIN)
 		if err != nil {
@@ -145,6 +146,9 @@ func Routes(r *api.Router, lib Library) {
 		}
 		if errors.Is(err, identity.ErrJoinPending) {
 			return nil, api.JoinPending
+		}
+		if errors.Is(err, lifecycle.ErrBusy) {
+			return nil, api.LifecycleBusy
 		}
 		if err != nil {
 			return nil, err

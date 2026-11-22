@@ -1,1 +1,1 @@
-export type TestMetadataProvider409Code = "worker_node";
+export type TestMetadataProvider409Code = "superseded" | "worker_node";

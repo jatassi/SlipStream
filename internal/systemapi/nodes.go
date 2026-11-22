@@ -104,7 +104,7 @@ type nodeConfig struct {
 }
 
 type configSection struct {
-	ID     string                        `json:"id" enum:"web,log,torrent"`
+	ID     string                        `json:"id" enum:"web,log,torrent,backups"`
 	Fields []api.OneOf[settingapi.Field] `json:"fields" nullable:"false"`
 }
 

@@ -62,16 +62,17 @@ SELECT CAST(coalesce(max(added_order), 0) + 1 AS INTEGER) FROM downloadclients_t
 
 -- name: InsertTorrent :exec
 INSERT INTO downloadclients_torrent (
-    id, node_id, client_id, info_hash, metainfo, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
-    uploaded, downloaded, active_seconds, seeding_seconds, announced_seconds, totals_at
+    id, node_id, client_id, info_hash, metainfo, name, size, private, trackers, content_type, adopted, tracker_id, wanted, added_order,
+    added_at, uploaded, downloaded, active_seconds, seeding_seconds, announced_seconds, totals_at
 ) VALUES (
     sqlc.arg(id), sqlc.arg(node_id), sqlc.narg(client_id), sqlc.arg(info_hash), sqlc.arg(metainfo), sqlc.arg(name), sqlc.arg(size),
-    sqlc.arg(private), sqlc.arg(trackers), sqlc.arg(content_type), sqlc.narg(tracker_id), 'started', sqlc.arg(added_order), sqlc.arg(added_at),
+    sqlc.arg(private), sqlc.arg(trackers), sqlc.narg(content_type), sqlc.arg(adopted), sqlc.narg(tracker_id), 'started', sqlc.arg(added_order),
+    sqlc.arg(added_at),
     sqlc.arg(uploaded), sqlc.arg(downloaded), sqlc.arg(active_seconds), sqlc.arg(seeding_seconds), sqlc.arg(announced_seconds), sqlc.arg(totals_at)
 );
 
 -- name: ListAttached :many
-SELECT t.id, t.info_hash, t.size, t.removed_reason, t.removed_by_name, t.report, t.completion, t.fault, t.fault_at,
+SELECT t.id, t.info_hash, t.name, t.size, t.removed_reason, t.removed_by_name, t.withheld_at, t.report, t.completion, t.fault, t.fault_at,
        t.node_id, t.client_error_ms, t.client_error_at, t.client_id, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.id IN (sqlc.slice(ids))
@@ -84,7 +85,7 @@ ORDER BY added_order;
 
 -- name: ListIntent :many
 SELECT id, client_id, info_hash, wanted, added_order, removed_at, delete_files, retry FROM downloadclients_torrent
-WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL
+WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL AND withheld_at IS NULL
 ORDER BY added_order;
 
 -- name: ListKept :many
@@ -299,7 +300,7 @@ UPDATE downloadclients_torrent SET
 WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id);
 
 -- name: GetRetarget :one
-SELECT node_id, client_id, info_hash, metainfo, content_type, tracker_id, reported_at, removed_at FROM downloadclients_torrent
+SELECT node_id, client_id, info_hash, metainfo, content_type, adopted, tracker_id, reported_at, removed_at FROM downloadclients_torrent
 WHERE id = sqlc.arg(id);
 
 -- name: Rehome :exec
@@ -314,3 +315,54 @@ SELECT t.id, t.node_id, t.info_hash, t.fault, t.fault_at, t.removed_at, t.client
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.fault IS NOT NULL
 ORDER BY t.fault_at, t.id;
+
+-- name: InsertAdopted :exec
+INSERT INTO downloadclients_torrent (
+    id, node_id, client_id, info_hash, metainfo, name, size, private, trackers, adopted, save_folder, wanted, added_order,
+    added_at, seeding_seconds, totals_at
+) VALUES (
+    sqlc.arg(id), sqlc.arg(node_id), sqlc.narg(client_id), sqlc.arg(info_hash), sqlc.narg(metainfo), sqlc.arg(name),
+    sqlc.arg(size), sqlc.arg(private), sqlc.arg(trackers), 1, sqlc.narg(save_folder), 'started', sqlc.arg(added_order),
+    sqlc.arg(added_at), sqlc.arg(seeding_seconds), sqlc.arg(added_at)
+);
+
+-- name: ListRecorded :many
+-- Each hash's live Torrent, and the newest Torrent of a hash with no live
+-- one when its Node was written off.
+SELECT t.id, t.node_id, t.info_hash, t.parted_at IS NOT NULL AS written_off FROM downloadclients_torrent t
+WHERE t.info_hash IN (sqlc.slice(info_hashes)) AND (t.parted_at IS NULL OR t.removed_reason = 'node_written_off' AND t.id = (
+    SELECT n.id FROM downloadclients_torrent n WHERE n.info_hash = t.info_hash ORDER BY n.added_order DESC LIMIT 1))
+ORDER BY t.info_hash, t.parted_at IS NOT NULL;
+
+-- name: ListLiveOnNodeAfter :many
+-- A page of node's live Torrents outside the review list, in added order.
+SELECT id, info_hash, added_order FROM downloadclients_torrent
+WHERE node_id = sqlc.arg(node_id) AND added_order > sqlc.arg(after) AND removed_at IS NULL AND withheld_at IS NULL
+ORDER BY added_order
+LIMIT sqlc.arg(page);
+
+-- name: MoveRecorded :execrows
+-- A live Torrent, or one a write-off parted, moves to node and client with
+-- its totals, Grab and reported_at. A built-in target holds no external
+-- origin or raw counters.
+UPDATE downloadclients_torrent SET
+    node_id = sqlc.arg(node_id), client_id = sqlc.narg(client_id),
+    attached = CASE WHEN sqlc.narg(client_id) IS NULL THEN NULL ELSE attached END,
+    raw_uploaded = CASE WHEN sqlc.narg(client_id) IS NULL THEN NULL ELSE raw_uploaded END,
+    raw_downloaded = CASE WHEN sqlc.narg(client_id) IS NULL THEN NULL ELSE raw_downloaded END,
+    raw_active_seconds = CASE WHEN sqlc.narg(client_id) IS NULL THEN NULL ELSE raw_active_seconds END,
+    raw_seeding_seconds = CASE WHEN sqlc.narg(client_id) IS NULL THEN NULL ELSE raw_seeding_seconds END,
+    removed_at = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE removed_at END,
+    removed_reason = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE removed_reason END,
+    parted_at = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE parted_at END,
+    freed = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE freed END
+WHERE id = sqlc.arg(id) AND (parted_at IS NULL AND removed_at IS NULL OR removed_reason = 'node_written_off');
+
+-- name: Withhold :exec
+UPDATE downloadclients_torrent SET withheld_at = sqlc.arg(at) WHERE id IN (sqlc.slice(ids)) AND withheld_at IS NULL;
+
+-- name: Release :exec
+UPDATE downloadclients_torrent SET withheld_at = NULL WHERE id IN (sqlc.slice(ids));
+
+-- name: GetLook :one
+SELECT node_id, metainfo, save_folder FROM downloadclients_torrent WHERE id = sqlc.arg(id);

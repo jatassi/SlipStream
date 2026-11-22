@@ -31,14 +31,16 @@ func TestUnknownOpNamesTheNodeVersion(t *testing.T) {
 	}
 }
 
-func TestOnlyStopIsServedBeforeReady(t *testing.T) {
+func TestOnlyStopAndStatusAreServedBeforeReady(t *testing.T) {
 	n := &Node{env: Env{Version: "test"}}
 	_, err := n.dispatch("join")
-	want := ControlError{Code: "not_ready", Message: "node is starting and serves only stop until ready"}
+	want := ControlError{Code: "not_ready", Message: "node is starting and serves only stop and status until ready"}
 	if got, ok := errors.AsType[*ControlError](err); !ok || *got != want {
 		t.Fatalf("join before ready: err = %v, want %v", err, want)
 	}
-	if h, err := n.dispatch("stop"); h == nil || err != nil {
-		t.Fatalf("stop before ready: handler %v, err %v", h != nil, err)
+	for _, op := range []string{"stop", "status"} {
+		if h, err := n.dispatch(op); h == nil || err != nil {
+			t.Fatalf("%s before ready: handler %v, err %v", op, h != nil, err)
+		}
 	}
 }

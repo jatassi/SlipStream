@@ -38,3 +38,7 @@ ON CONFLICT (node_id, mount) DO UPDATE SET
 
 -- name: DeleteVolumeLevels :exec
 DELETE FROM health_volume WHERE node_id = sqlc.arg(node_id) AND mount = sqlc.arg(mount);
+
+-- name: DeleteAllItems :exec
+-- A restore's items were the old Controller's; each check raises its own again.
+DELETE FROM health_item;

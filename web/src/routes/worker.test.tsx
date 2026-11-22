@@ -1,11 +1,11 @@
-import { http } from "msw";
+import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import type { ServingWorker } from "../api/gen/model";
 import { getGetServingMockHandler } from "../api/gen/query/serving/serving.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
-import { noPasskeys, problem, signedOut } from "../test/handlers";
+import { noPasskeys, problem, signedOut, startedAt } from "../test/handlers";
 import { renderApp } from "../test/render-app";
 import { worker } from "../test/worker";
 
@@ -18,7 +18,7 @@ const seedbox: ServingWorker = {
 };
 
 const workerNode = [
-  getGetStatusMockHandler({ claim: "worker", passkeys: noPasskeys }),
+  getGetStatusMockHandler({ claim: "worker", passkeys: noPasskeys, startedAt }),
   getGetServingMockHandler(seedbox),
   http.get("*/api/v1/session", () =>
     problem(409, "worker_node", "This Node is a Worker. Manage it from its Controller."),
@@ -59,7 +59,9 @@ test.each(["/", "/movies", "/sign-in", "/worker"])(
     });
     await expect
       .element(
-        page.getByRole("heading", { name: /^seedbox hasn't been able to reach home since .+\.$/u }),
+        page.getByRole("heading", {
+          name: /^seedbox hasn't been able to reach home since .+[^.]$/u,
+        }),
       )
       .toBeVisible();
     expect(router.state.location.href).toBe("/serving");
@@ -100,7 +102,10 @@ test("the status card goes back to the app once the Controller answers", async (
   await expect
     .element(page.getByRole("heading", { name: /hasn't been able to reach/u }))
     .toBeVisible();
-  worker.use(signedOut, getGetStatusMockHandler({ claim: "controller", passkeys: noPasskeys }));
+  worker.use(
+    signedOut,
+    getGetStatusMockHandler({ claim: "controller", passkeys: noPasskeys, startedAt }),
+  );
   await expect
     .element(page.getByRole("heading", { name: "Sign in to SlipStream" }), { timeout: 10_000 })
     .toBeVisible();
@@ -111,4 +116,34 @@ test("/worker on a Controller with no session goes to sign-in", async () => {
   const { router } = renderApp({ path: "/worker", handlers: [signedOut] });
   await expect.element(page.getByRole("heading", { name: "Sign in to SlipStream" })).toBeVisible();
   expect(router.state.location.href).toBe("/sign-in");
+});
+
+test("a Worker that can't reach its Controller pairs again with its log's Setup code and a Join Code", async () => {
+  const sent: { setupCode: string | null; body: unknown }[] = [];
+  renderApp({
+    path: "/worker",
+    handlers: [
+      getGetServingMockHandler({ ...seedbox, since: new Date().toISOString() }),
+      ...workerNode,
+      http.post("*/api/v1/setup/worker", async ({ request }) => {
+        sent.push({ setupCode: request.headers.get("X-Setup-Code"), body: await request.json() });
+        return sent.length === 1
+          ? problem(403, "setup_code_wrong", "Wrong Setup code")
+          : HttpResponse.json({ state: "joined", nodeId: "n" }, { status: 201 });
+      }),
+    ],
+  });
+  await userEvent.fill(page.getByLabelText("Setup code"), "abcd-efgh-jklm");
+  await userEvent.fill(page.getByLabelText("Join Code"), "SLJ1-ABCD");
+  await userEvent.click(page.getByRole("button", { name: "Pair again" }));
+  await expect.element(page.getByText("That isn't this Node's newest Setup code.")).toBeVisible();
+  await userEvent.fill(page.getByLabelText("Setup code"), "WXYZ-2345-6789");
+  await userEvent.click(page.getByRole("button", { name: "Pair again" }));
+  await expect
+    .element(page.getByText("seedbox joined the new Controller and restarts now."))
+    .toBeVisible();
+  expect(sent).toEqual([
+    { setupCode: "ABCDEFGHJK1M", body: { code: "SLJ1-ABCD" } },
+    { setupCode: "WXYZ23456789", body: { code: "SLJ1-ABCD" } },
+  ]);
 });

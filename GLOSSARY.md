@@ -194,7 +194,7 @@ _In UI_: none until it ships.
 _Avoid_: Failover, promotion, migration
 
 **Backup**:
-An encrypted copy of the Controller's library database, from which a Node can be restored as Controller. It never holds the Controller's key.
+An encrypted, checked copy of the Controller's library database and library.key, from which a Node can be restored as Controller. It never holds the Node key.
 _In UI_: "Backup".
 _Avoid_: Config backup, snapshot, dump, export
 
@@ -203,10 +203,25 @@ A folder on a Node that receives a copy of every Backup.
 _In UI_: "Backup destination".
 _Avoid_: Backup target, backup location, remote
 
+**Backup passphrase**:
+The ten generated words that encrypt every new Backup. The Controller keeps a copy, and the Admin needs it only to restore a Backup on another machine.
+_In UI_: "Backup passphrase", or "passphrase" inside Settings > Backups. A Node's Backups section and the first-run restore count as outside it.
+_Avoid_: Backup password, encryption key, recovery key
+
+**Recovery sheet**:
+A text file with the Backup passphrase, each folder that holds Backups and the steps to restore, which the Admin keeps away from the Controller.
+_In UI_: "recovery sheet".
+_Avoid_: Recovery kit, emergency kit, recovery file
+
 **Reconciling**:
-The state every restored Controller starts in, including after a manual rollback, until it matches the Backup to what Nodes hold. It cancels in-flight jobs from the Backup, adopts torrents it doesn't know and sends unmatched files to Pending imports, and nothing searches, blocklists, or removes or renames a torrent or file until it finishes.
+The state every restored Controller starts in, including after a manual rollback, until it matches the Backup to what Nodes hold, with each Node keeping every torrent it holds and the Controller adopting the ones it doesn't know. Until it finishes, work in flight from the Backup pauses and nothing searches, blocklists, or removes or renames a torrent or file.
 _In UI_: "Reconciling", with its hover definition.
 _Avoid_: Resync, recovery mode
+
+**Superseded**:
+The state of a Controller that a restore of its Backup on another machine replaced, proven by a Worker that carries the new Controller's proof, or that an Admin stopped or retired. It keeps every torrent paused, runs nothing and shows one page, which offers to wipe it and join the new Controller as a Worker.
+_In UI_: none. The page says "This Controller was replaced".
+_Avoid_: Fenced, old Controller, zombie
 
 **Role**:
 A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Converting, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving.
@@ -670,7 +685,7 @@ _In UI_: "Member".
 _Avoid_: Portal user, user, guest
 
 **Setup code**:
-A one-time code a fresh install prints to its console and log, which unlocks its first-run page to create the first Admin, join a SlipStream or restore a Backup.
+A one-time code a Node prints to its console and log, which unlocks its own page to create the first Admin, join a SlipStream or restore a Backup on a fresh install, or to pair a Worker out of reach of its Controller for a while with another one. A recovery sheet names it as the way into a new machine's restore.
 _In UI_: "Setup code".
 _Avoid_: Bootstrap token, install key
 

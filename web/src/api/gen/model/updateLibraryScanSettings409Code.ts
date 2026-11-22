@@ -1,1 +1,1 @@
-export type UpdateLibraryScanSettings409Code = "worker_node";
+export type UpdateLibraryScanSettings409Code = "superseded" | "worker_node";

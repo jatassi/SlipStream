@@ -60,6 +60,7 @@ func TestTheNodeSettingsTableReadsItsDefaultsFromDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	downloads := jsonText(t, filepath.Join(testDataPath, "downloads"))
+	folder := jsonText(t, filepath.Join(testDataPath, "backups"))
 	want := `[` +
 		`{"key":"http.listen","label":"Port","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"port","value":8484,"running":8484,"default":8484},` +
 		`{"key":"http.ports_to_try","label":"Ports to try","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"count","value":1,"running":1,"default":1,"min":1,"max":100,"unit":{"one":"port","many":"ports"}},` +
@@ -70,7 +71,8 @@ func TestTheNodeSettingsTableReadsItsDefaultsFromDefaults(t *testing.T) {
 		`{"key":"log.compress","label":"Compress rotated files","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true,"default":true},` +
 		`{"key":"log.viewer_lines","label":"Lines kept for the viewer","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":2000,"running":2000,"default":2000,"min":100,"max":50000,"unit":{"one":"line","many":"lines"}},` +
 		`{"key":"torrent.listen","label":"Listen address","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"address","value":"0.0.0.0:6881","running":"0.0.0.0:6881","default":"0.0.0.0:6881"},` +
-		`{"key":"torrent.downloads","label":"Downloads folder","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"folder","value":` + downloads + `,"running":` + downloads + `,"default":` + downloads + `,"nodeId":"` + testNodeID.String() + `","purpose":"downloads"}` +
+		`{"key":"torrent.downloads","label":"Downloads folder","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"folder","value":` + downloads + `,"running":` + downloads + `,"default":` + downloads + `,"nodeId":"` + testNodeID.String() + `","purpose":"downloads"},` +
+		`{"key":"backups.folder","label":"Backups folder","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"folder","value":` + folder + `,"running":` + folder + `,"default":` + folder + `,"nodeId":"` + testNodeID.String() + `","purpose":"backups"}` +
 		`]`
 	if string(got) != want {
 		t.Fatalf("fields =\n%s\nwant\n%s", got, want)

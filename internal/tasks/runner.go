@@ -322,11 +322,7 @@ func (s *Scheduler) unit(a *active, u Unit, node role.NodeID) result {
 	standing, _ := s.cfg.Roster.Standing(node)
 	switch who := s.peerOf(ctx, node); {
 	case node == s.self || standing == nodes.InStep:
-		p := &Progress{step: func(st Step) { s.stepped(a, u.Key, st) }}
-		res = classify(a.runCtx, r.task.Run(a.runCtx, placedOn(u, node), p), u.Place, who)
-		if res.outcome == Succeeded {
-			res.note = p.note
-		}
+		res = s.runUnit(a, u, node, who)
 	case who.name == "":
 		res = unsent(rpc.NotHolder, "", u.Place, peer{name: "the Node"})
 	case standing == nodes.MismatchedNode:
@@ -341,6 +337,32 @@ func (s *Scheduler) unit(a *active, u Unit, node role.NodeID) result {
 		s.cfg.Log.Error("record a unit", "task", r.task.ID, "unit", u.Key, "err", err)
 	}
 	s.changed(ctx, r.task.ID)
+	return res
+}
+
+// runUnit runs u through its task's Run, unless the task pauses while
+// Reconciling and the Controller is.
+func (s *Scheduler) runUnit(a *active, u Unit, node role.NodeID, who peer) result {
+	r := a.run
+	if r.task.WhileReconciling == Pauses {
+		var paused bool
+		err := s.cfg.Library.Read(a.runCtx, func(ctx context.Context, rd storage.Reader[file]) error {
+			var err error
+			paused, err = s.cfg.Reconciling(ctx, rd)
+			return err
+		})
+		if err == nil && paused {
+			err = PausedWhileReconciling(r.task.Name)
+		}
+		if err != nil {
+			return classify(a.runCtx, err, u.Place, who)
+		}
+	}
+	p := &Progress{step: func(st Step) { s.stepped(a, u.Key, st) }}
+	res := classify(a.runCtx, r.task.Run(a.runCtx, placedOn(u, node), p), u.Place, who)
+	if res.outcome == Succeeded {
+		res.note = p.note
+	}
 	return res
 }
 

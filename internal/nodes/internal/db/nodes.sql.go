@@ -12,6 +12,26 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const assignRole = `-- name: AssignRole :execrows
+INSERT INTO nodes_role (node_id, role, assigned_at)
+VALUES (?1, ?2, ?3)
+ON CONFLICT (node_id, role) DO NOTHING
+`
+
+type AssignRoleParams struct {
+	NodeID     role.NodeID
+	Role       role.Name
+	AssignedAt storage.Time
+}
+
+func (q *Queries) AssignRole(ctx context.Context, arg AssignRoleParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, assignRole, arg.NodeID, arg.Role, arg.AssignedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteAddresses = `-- name: DeleteAddresses :exec
 DELETE FROM nodes_address WHERE node_id = ?1
 `
@@ -27,6 +47,15 @@ DELETE FROM nodes_dial WHERE node_id = ?1
 
 func (q *Queries) DeleteDials(ctx context.Context, nodeID role.NodeID) error {
 	_, err := q.db.ExecContext(ctx, deleteDials, nodeID)
+	return err
+}
+
+const deleteFence = `-- name: DeleteFence :exec
+DELETE FROM nodes_fence WHERE id = 1
+`
+
+func (q *Queries) DeleteFence(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteFence)
 	return err
 }
 
@@ -77,6 +106,24 @@ type DeleteRoleParams struct {
 func (q *Queries) DeleteRole(ctx context.Context, arg DeleteRoleParams) error {
 	_, err := q.db.ExecContext(ctx, deleteRole, arg.NodeID, arg.Role)
 	return err
+}
+
+const getFence = `-- name: GetFence :one
+SELECT id, state, by_key, by_node, addresses, fenced_at FROM nodes_fence WHERE id = 1
+`
+
+func (q *Queries) GetFence(ctx context.Context) (NodesFence, error) {
+	row := q.db.QueryRowContext(ctx, getFence)
+	var i NodesFence
+	err := row.Scan(
+		&i.ID,
+		&i.State,
+		&i.ByKey,
+		&i.ByNode,
+		&i.Addresses,
+		&i.FencedAt,
+	)
+	return i, err
 }
 
 const getJoinCode = `-- name: GetJoinCode :one
@@ -286,6 +333,39 @@ type InsertRoleParams struct {
 func (q *Queries) InsertRole(ctx context.Context, arg InsertRoleParams) error {
 	_, err := q.db.ExecContext(ctx, insertRole, arg.NodeID, arg.Role, arg.AssignedAt)
 	return err
+}
+
+const insertSuperseded = `-- name: InsertSuperseded :exec
+INSERT INTO nodes_superseded (public_key, node_id, proof, superseded_at)
+VALUES (?1, ?2, ?3, ?4)
+`
+
+type InsertSupersededParams struct {
+	PublicKey    []byte
+	NodeID       role.NodeID
+	Proof        []byte
+	SupersededAt storage.Time
+}
+
+func (q *Queries) InsertSuperseded(ctx context.Context, arg InsertSupersededParams) error {
+	_, err := q.db.ExecContext(ctx, insertSuperseded,
+		arg.PublicKey,
+		arg.NodeID,
+		arg.Proof,
+		arg.SupersededAt,
+	)
+	return err
+}
+
+const isSuperseded = `-- name: IsSuperseded :one
+SELECT EXISTS (SELECT 1 FROM nodes_superseded WHERE public_key = ?1)
+`
+
+func (q *Queries) IsSuperseded(ctx context.Context, publicKey []byte) (bool, error) {
+	row := q.db.QueryRowContext(ctx, isSuperseded, publicKey)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const listAddresses = `-- name: ListAddresses :many
@@ -512,6 +592,35 @@ func (q *Queries) ListRemovedNodes(ctx context.Context) ([]ListRemovedNodesRow, 
 	return items, nil
 }
 
+const listRemovedSince = `-- name: ListRemovedSince :many
+SELECT removed_key FROM nodes_node WHERE removed_at >= ?1 ORDER BY removed_at, id
+`
+
+// The keys of the Nodes removed at or after a time: a restore in place
+// removes them again from the library it restores.
+func (q *Queries) ListRemovedSince(ctx context.Context, since storage.Time) ([][]byte, error) {
+	rows, err := q.db.QueryContext(ctx, listRemovedSince, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items [][]byte
+	for rows.Next() {
+		var removed_key []byte
+		if err := rows.Scan(&removed_key); err != nil {
+			return nil, err
+		}
+		items = append(items, removed_key)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRoles = `-- name: ListRoles :many
 SELECT node_id, role, assigned_at FROM nodes_role ORDER BY node_id, role
 `
@@ -526,6 +635,40 @@ func (q *Queries) ListRoles(ctx context.Context) ([]NodesRole, error) {
 	for rows.Next() {
 		var i NodesRole
 		if err := rows.Scan(&i.NodeID, &i.Role, &i.AssignedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnpairedSuperseded = `-- name: ListUnpairedSuperseded :many
+SELECT s.public_key, s.proof FROM nodes_superseded s
+WHERE NOT EXISTS (SELECT 1 FROM nodes_node n WHERE n.public_key = s.public_key OR n.removed_key = s.public_key)
+ORDER BY s.public_key
+`
+
+type ListUnpairedSupersededRow struct {
+	PublicKey []byte
+	Proof     []byte
+}
+
+func (q *Queries) ListUnpairedSuperseded(ctx context.Context) ([]ListUnpairedSupersededRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUnpairedSuperseded)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUnpairedSupersededRow
+	for rows.Next() {
+		var i ListUnpairedSupersededRow
+		if err := rows.Scan(&i.PublicKey, &i.Proof); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -636,6 +779,32 @@ func (q *Queries) NodeRoles(ctx context.Context, nodeID role.NodeID) ([]role.Nam
 	return items, nil
 }
 
+const putFence = `-- name: PutFence :exec
+INSERT INTO nodes_fence (id, state, by_key, by_node, addresses, fenced_at)
+VALUES (1, ?1, ?2, ?3, ?4, ?5)
+ON CONFLICT (id) DO UPDATE SET state = excluded.state, by_key = excluded.by_key, by_node = excluded.by_node,
+    addresses = excluded.addresses, fenced_at = excluded.fenced_at
+`
+
+type PutFenceParams struct {
+	State     string
+	ByKey     []byte
+	ByNode    role.NodeID
+	Addresses string
+	FencedAt  storage.Time
+}
+
+func (q *Queries) PutFence(ctx context.Context, arg PutFenceParams) error {
+	_, err := q.db.ExecContext(ctx, putFence,
+		arg.State,
+		arg.ByKey,
+		arg.ByNode,
+		arg.Addresses,
+		arg.FencedAt,
+	)
+	return err
+}
+
 const removeNode = `-- name: RemoveNode :exec
 UPDATE nodes_node SET removed_at = ?1, removed_key = public_key, public_key = NULL
 WHERE id = ?2 AND removed_at IS NULL
@@ -686,6 +855,20 @@ UPDATE nodes_settings SET join_code_lifetime_seconds = ?1 WHERE id = 1
 
 func (q *Queries) SetJoinCodeLifetime(ctx context.Context, joinCodeLifetimeSeconds *int64) error {
 	_, err := q.db.ExecContext(ctx, setJoinCodeLifetime, joinCodeLifetimeSeconds)
+	return err
+}
+
+const setNodeKey = `-- name: SetNodeKey :exec
+UPDATE nodes_node SET public_key = ?1 WHERE id = ?2 AND removed_at IS NULL
+`
+
+type SetNodeKeyParams struct {
+	PublicKey []byte
+	ID        role.NodeID
+}
+
+func (q *Queries) SetNodeKey(ctx context.Context, arg SetNodeKeyParams) error {
+	_, err := q.db.ExecContext(ctx, setNodeKey, arg.PublicKey, arg.ID)
 	return err
 }
 

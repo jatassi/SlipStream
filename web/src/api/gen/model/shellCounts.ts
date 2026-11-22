@@ -1,5 +1,6 @@
 import type { DownloadclientsAggregate } from "./downloadclientsAggregate.ts";
 import type { ShellAlerts } from "./shellAlerts.ts";
+import type { ShellBanner } from "./shellBanner.ts";
 
 export interface ShellCounts {
   /**
@@ -15,4 +16,6 @@ export interface ShellCounts {
    * @minimum 0
    */
   pendingImports: number;
+  /** What Reconciling after a restore waits on, for the shell's line; null outside it. reconciling.changed keeps it current */
+  reconciling: ShellBanner | null;
 }

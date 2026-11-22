@@ -193,6 +193,16 @@ func (c Caller) Admin() (Admin, error) {
 	panic("identity: unknown caller kind")
 }
 
+// ReconfirmedSession is an Admin whose session confirmed within the
+// re-confirm window. The API key is refused: what it guards reads or
+// replaces the Backup passphrase or the whole library.
+func (c Caller) ReconfirmedSession() (Admin, error) {
+	if c.kind == apiKeyCaller {
+		return Admin{}, ErrNeedsAccount
+	}
+	return c.Reconfirmed()
+}
+
 // Reconfirmed is an Admin whose session confirmed within the re-confirm
 // window, or the API key.
 func (c Caller) Reconfirmed() (Admin, error) {

@@ -225,6 +225,13 @@ func (d *testDisk) OpenWrite(ctx context.Context, path string) (WriteAtFile, err
 	return d.os.OpenWrite(ctx, d.at(path))
 }
 
+func (d *testDisk) OpenPrivate(ctx context.Context, path string) (WriteAtFile, error) {
+	if err := d.fault(ctx, "create", path); err != nil {
+		return nil, err
+	}
+	return d.os.OpenPrivate(ctx, d.at(path))
+}
+
 func (d *testDisk) Create(ctx context.Context, path string) (File, error) {
 	if err := d.fault(ctx, "create", path); err != nil {
 		return nil, err

@@ -2,12 +2,16 @@ package trackers_test
 
 import (
 	"context"
+	"log/slog"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/link"
+	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/trackers/seeding"
@@ -163,4 +167,62 @@ func TestARegrabMeetsItsGoalAgain(t *testing.T) {
 	l.runGoals()
 	l.expectFate("grabbed again with the totals it had", again, removed)
 	l.expectFate("the first", first, removed)
+}
+
+// TestAKeepingNodeNeverHasAGoalPauseRewrittenToARemove meets Harbor's
+// pause goal on the Controller, which has no Downloading Role and waits
+// to be adopted: it reads Keeping and the goal pauses Harbor, run after
+// run. Once the Node no longer waits it drains, and the pause turns into
+// a remove that keeps the copy.
+func TestAKeepingNodeNeverHasAGoalPauseRewrittenToARemove(t *testing.T) {
+	l := newLibrary(t)
+	nyaa := l.tracker("Nyaa", indexers.Public)
+	l.own(nyaa, nil, seeding.MustFinite(seeding.First, 200, 0, seeding.Pause))
+	harbor := l.torrent("Harbor", &nyaa, false, time.Now().Add(-time.Hour), 8*gib, 4*gib)
+	node := role.NodeID{UUID: l.node}
+
+	l.openRoster(true)
+	if st := l.nodes.Who(role.Downloading).State(node); st != nodes.Keeping {
+		t.Fatalf("the waiting Node's Downloading is %q, want keeping", st)
+	}
+	l.runGoals()
+	paused := fate{wanted: "paused", action: "pause"}
+	l.expectFate("on the Keeping Node", harbor, paused)
+	l.runGoals()
+	l.expectFate("after another run on the Keeping Node", harbor, paused)
+
+	l.openRoster(false)
+	if st := l.nodes.Who(role.Downloading).State(node); st != nodes.Draining {
+		t.Fatalf("the adopted Node's Downloading is %q, want draining", st)
+	}
+	l.runGoals()
+	l.expectFate("once the Node drains", harbor, fate{wanted: "paused", removed: "goal_met", action: "remove", kept: "draining"})
+}
+
+// openRoster opens the roster with the library's Node as the Controller,
+// its Downloading work counted from the Torrents, and waiting to be
+// adopted while pending.
+func (l *library) openRoster(pending bool) {
+	l.t.Helper()
+	var raw []byte
+	if err := l.lib.QueryRowContext(l.t.Context(), `SELECT public_key FROM nodes_node WHERE id = ?`, l.node).Scan(&raw); err != nil {
+		l.t.Fatal(err)
+	}
+	key := link.Key(raw)
+	owners := nodestest.Unowned()
+	for i, o := range owners {
+		if o.Role == role.Downloading {
+			owners[i] = l.clients.DownloadingOwner()
+		}
+	}
+	svc, err := nodes.Open(l.t.Context(), nodes.Config{
+		Library: l.lib, Key: key, Name: "home", Owners: owners, Timings: nodes.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
+		Pending: func(context.Context, storage.Reader[storage.Library]) (map[nodes.ID]bool, error) {
+			return map[nodes.ID]bool{{UUID: l.node}: pending}, nil
+		},
+	})
+	if err != nil {
+		l.t.Fatal(err)
+	}
+	l.nodes = svc
 }

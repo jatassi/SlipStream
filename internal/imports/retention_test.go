@@ -83,7 +83,7 @@ func TestAnOldFinishedImportGoesWithItsFilesUnlessItsGrabStays(t *testing.T) {
 	open := w.seedImport(t, old, false, storage.UUID{})
 	young := w.seedImport(t, time.Hour, true, storage.UUID{})
 
-	task := housekeeping.Task(housekeeping.Config{Keep: keepDefault{}, Batch: 1, Steps: []housekeeping.Step{w.im.Retention()}})
+	task := housekeeping.Task(housekeeping.Config{Reconciling: func(context.Context) (bool, error) { return false, nil }, Keep: keepDefault{}, Batch: 1, Steps: []housekeeping.Step{w.im.Retention()}})
 	if err := task.Run(t.Context(), tasks.Unit{Key: "finished-imports"}, &tasks.Progress{}); err != nil {
 		t.Fatal(err)
 	}

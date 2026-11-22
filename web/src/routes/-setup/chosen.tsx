@@ -22,8 +22,10 @@ export function Chosen({
   restarted: () => void;
 }) {
   const { data: status } = useSuspenseQuery(statusQuery);
-  const claim = useQuery(workerClaimQuery(code));
   const [chosen, setChosen] = useState<Screen>();
+  // A restore's upload holds the Setup gate, and its restart changes the
+  // code, so the Join's re-check stays off while the restore form is open.
+  const claim = useQuery({ ...workerClaimQuery(code), enabled: chosen !== "restore" });
   useJoinOutcome(claim, restarted);
   const screen = chosen ?? opening(claim);
   if (screen === undefined) {

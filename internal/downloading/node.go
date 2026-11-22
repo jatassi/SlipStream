@@ -76,6 +76,9 @@ type Node struct {
 	mu     sync.Mutex
 	actors map[storage.UUID]*external.Actor
 	local  *storage.DB[storage.Local]
+	// sent is the last Holdings round the Node queued, which only
+	// holdingsLoop touches. A restart forgets it, so the round goes again.
+	sent uint64
 
 	watching *nodeWatching
 }
@@ -106,9 +109,11 @@ func (n *Node) Run(local *storage.DB[storage.Local], ctl Control) func(context.C
 		n.local = local
 		n.mu.Unlock()
 		in := make(chan role.Snapshot[*dlv1.Intent], 1)
+		rounds := make(chan *dlv1.HoldingsRequest, 1)
 		var wg sync.WaitGroup
 		var err error
 		wg.Go(func() { err = n.builtin.Run(local, ctl)(ctx, filtered{Holder: h, in: in}) })
+		wg.Go(func() { n.holdingsLoop(ctx, local, h, rounds) })
 		for s := range h.Intent(ctx) {
 			mine, shares := split(s)
 			n.routes.Store(routesOf(s.Intent))
@@ -118,8 +123,14 @@ func (n *Node) Run(local *storage.DB[storage.Local], ctl Control) func(context.C
 			}
 			in <- mine
 			n.sync(ctx, shares, local, ctl, h)
+			select {
+			case <-rounds:
+			default:
+			}
+			rounds <- s.Intent.GetHoldings()
 		}
 		close(in)
+		close(rounds)
 		wg.Wait()
 		n.mu.Lock()
 		actors := n.actors
@@ -138,7 +149,7 @@ func split(s role.Snapshot[*dlv1.Intent]) (mine role.Snapshot[*dlv1.Intent], sha
 	in := s.Intent
 	builtin := &dlv1.Intent{
 		Settings: in.GetSettings(), HoldDownloads: in.GetHoldDownloads(), Thresholds: in.GetThresholds(),
-		SampleEverySeconds: in.GetSampleEverySeconds(),
+		SampleEverySeconds: in.GetSampleEverySeconds(), KeepAll: in.GetKeepAll(), KeepHashes: in.GetKeepHashes(), PauseAll: in.GetPauseAll(),
 	}
 	byClient := map[storage.UUID]*external.Share{}
 	for _, c := range in.GetClients() {
@@ -148,6 +159,7 @@ func split(s role.Snapshot[*dlv1.Intent]) (mine role.Snapshot[*dlv1.Intent], sha
 				StalledAfter:    time.Duration(in.GetSettings().GetStalledAfterSeconds()) * time.Second,
 				UnregisteredGap: time.Duration(in.GetThresholds().GetUnregisteredGapSeconds()) * time.Second,
 				MayStart:        s.MayStart(),
+				KeepAll:         in.GetKeepAll(),
 			}
 		}
 	}

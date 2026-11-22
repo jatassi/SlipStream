@@ -1,6 +1,7 @@
 package pairing_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -23,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/internal/pairing"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/system"
 )
@@ -30,10 +33,12 @@ import (
 var discard = slog.New(slog.DiscardHandler)
 
 // lazy answers a link's Trust and Pair through whatever is set once the
-// link exists.
+// link exists, and keeps each claim a pinned peer told it.
 type lazy struct {
 	trust link.Trust
 	pair  link.PairFunc
+	mu    sync.Mutex
+	told  []link.Superseded
 }
 
 func (l *lazy) Admit(key link.Key) link.Admission { return l.trust.Admit(key) }
@@ -42,32 +47,56 @@ func (l *lazy) Pair(ctx context.Context, peer link.Key, req *linkv1.PairRequest)
 	return l.pair(ctx, peer, req)
 }
 
+func (l *lazy) Told(_ link.Key, s link.Superseded) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.told = append(l.told, s)
+}
+
+func (l *lazy) heard() []link.Superseded {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return slices.Clone(l.told)
+}
+
 type controller struct {
+	name string
 	node *linktest.Node
+	side *lazy
+	lib  *storage.DB[storage.Library]
 	svc  *nodes.Service
 }
 
 func startController(t *testing.T, net *fault.Network, name, addr string, advertise []netip.AddrPort) controller {
 	t.Helper()
 	l := &lazy{}
-	node := linktest.Start(t, net, name, []netip.Addr{netip.MustParseAddr(addr)}, linktest.Side{Trust: l, Pair: l.Pair, Advertise: advertise})
+	node := linktest.Start(t, net, name, []netip.Addr{netip.MustParseAddr(addr)}, linktest.Side{Trust: l, Pair: l.Pair, Told: l.Told, Advertise: advertise})
+	return controller{name: name, node: node, side: l}.forget(t)
+}
+
+// forget opens c's roster on an empty library under c's key, as a
+// Controller that has no record of any Node.
+func (c controller) forget(t *testing.T) controller {
+	t.Helper()
 	hub := live.NewHub([]live.Event{nodes.ChangedEvent})
 	t.Cleanup(hub.Close)
+	c.lib = storagetest.Library(t, nodes.Schema(), role.LibrarySchema())
 	svc, err := nodes.Open(t.Context(), nodes.Config{
-		Library: storagetest.Library(t, nodes.Schema(), role.LibrarySchema()),
-		Key:     node.Key,
-		Name:    name,
-		Link:    node.Link,
+		Library: c.lib,
+		Key:     c.node.Key,
+		Name:    c.name,
+		Link:    c.node.Link,
 		Changed: nodes.ChangedEvent.Bind(hub),
 		Owners:  nodestest.Unowned(),
+		Paired:  nodestest.Paired,
 		Timings: nodes.DefaultTimings(),
 		Log:     discard,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	l.trust, l.pair = svc, svc.Pair
-	return controller{node: node, svc: svc}
+	c.side.trust, c.side.pair, c.svc = svc, svc.Pair, svc
+	return c
 }
 
 func (c controller) mint(t *testing.T) joincode.Code {
@@ -86,9 +115,18 @@ func (c claims) Claim(context.Context) (system.Claim, error) { return system.Cla
 // worker is box on 127.0.0.3 with its pairing over the link.
 func worker(t *testing.T, net *fault.Network, dir string, claim system.Claim) (*linktest.Node, *pairing.Pairing) {
 	t.Helper()
+	return workerWith(t, net, dir, claim, &localPage{})
+}
+
+// workerWith is worker with page as its local page.
+func workerWith(t *testing.T, net *fault.Network, dir string, claim system.Claim, page *localPage) (*linktest.Node, *pairing.Pairing) {
+	t.Helper()
 	l := &lazy{}
 	node := linktest.Start(t, net, "box", []netip.Addr{linktest.WorkerAddr}, linktest.Side{Trust: l, Pair: l.Pair})
-	p, err := pairing.Open(pairing.Config{DataDir: dir, Key: node.Key, Link: node.Link, Name: "box", Claims: claims(claim), AwaitDial: 10 * time.Minute, Log: discard})
+	p, err := pairing.Open(pairing.Config{
+		DataDir: dir, Key: node.Key, Link: node.Link, Name: "box", Claims: claims(claim), AwaitDial: 10 * time.Minute,
+		UnreachableAfter: 15 * time.Minute, Local: page, Log: discard,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +175,7 @@ func TestARepairSupersedesTheOldController(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if again, _ := reopened.Record(); again.Controller != rec.Controller || len(again.Superseded) != 1 || again.Superseded[0] != rec.Superseded[0] || again.NodeID != rec.NodeID || again.ControllerName != "restored" {
+		if again, _ := reopened.Record(); again.Controller != rec.Controller || len(again.Superseded) != 1 || !sameSuperseded(again.Superseded[0], rec.Superseded[0]) || again.NodeID != rec.NodeID || again.ControllerName != "restored" {
 			t.Fatalf("pairing.json read back as %+v, want %+v", again, rec)
 		}
 	})
@@ -155,13 +193,17 @@ func checkSuperseded(t *testing.T, p *pairing.Pairing, box *linktest.Node, first
 		t.Fatal("the superseded Controller's session is still up")
 	}
 	want := link.Superseded{By: second.node.Key, Addresses: rec.Controller.Addresses}
-	if got := p.Admit(first.node.Key); got != want {
+	if got, ok := p.Admit(first.node.Key).(link.Superseded); !ok || got.By != want.By || got.Addresses != want.Addresses || got.Proof != nil {
 		t.Fatalf("the superseded key is admitted as %#v, want %#v", got, want)
 	}
 	if p.Admit(second.node.Key) != (link.Pinned{}) || p.Admit(box.Key) != (link.Refused{}) {
 		t.Fatal("the current Controller is not pinned, or an unknown key is not refused")
 	}
 	return rec
+}
+
+func sameSuperseded(a, b pairing.Superseded) bool {
+	return a.Key == b.Key && a.By == b.By && a.At.Equal(b.At) && a.Addresses == b.Addresses && bytes.Equal(a.Proof, b.Proof) && a.ToldAt.Equal(b.ToldAt)
 }
 
 // forward is a port forward on its own Host: every connection to at is
@@ -346,7 +388,7 @@ func TestAClaimNoControllerDialsFailsAtAwaitDial(t *testing.T) {
 
 func TestARecordThisBinaryCannotReadIsRefused(t *testing.T) {
 	for _, c := range []struct{ name, record, want string }{
-		{"another schema", `{"schema":3}`, "schema 3, want 1 or 2"},
+		{"another schema", `{"schema":4}`, "schema 4, want 1 to 3"},
 		{"a schema 1 removal", `{"schema":1,"removed":{}}`, "removed in a schema 1 record"},
 		{"an unknown key", `{"schema":1,"later":true}`, `decode: json: unknown field "later"`},
 	} {

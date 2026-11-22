@@ -32,7 +32,10 @@ test.for([
     await expect
       .element(row())
       .toMatchTextContent(
-        new RegExp(`Fetching${line}Fails at .+ if no peer sends the metadata$`, "u"),
+        new RegExp(
+          `Fetching${line}Fails (?:tonight |tomorrow )?at .+ if no peer sends the metadata$`,
+          "u",
+        ),
       );
   },
 );

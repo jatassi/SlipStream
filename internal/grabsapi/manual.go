@@ -244,7 +244,7 @@ func (h handlers) startManualSearch(ctx context.Context, by identity.Admin, in *
 	id, started, err := open(h.p).StartManualSearch(ctx, by, work, scope)
 	switch {
 	case errors.Is(err, grabs.ErrReconciling):
-		return nil, reconciling.Because("Open Manual search again once Reconciling finishes.")
+		return nil, api.Reconciling
 	case errors.Is(err, grabs.ErrNoCell):
 		return nil, api.Invalid.On("cell", "The Item has no file of that Edition and Target.")
 	}
@@ -351,7 +351,7 @@ func (h handlers) grabFromManualSearch(ctx context.Context, by identity.Admin, i
 	case errors.Is(err, grabs.ErrManualSearchReplaced):
 		return nil, manualSearchReplaced
 	case errors.Is(err, grabs.ErrReconciling):
-		return nil, reconciling.Because("Open Manual search again once Reconciling finishes.")
+		return nil, api.Reconciling
 	case err != nil:
 		return nil, answer(err)
 	}

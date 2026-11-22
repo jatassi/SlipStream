@@ -22,8 +22,10 @@ import (
 // Controller removed makes a Node a Worker.
 const RecordFile = "pairing.json"
 
-// schema 2 adds removed; it reads a schema 1 record as it was.
-const schema = 2
+// schema 2 adds removed, and schema 3 each superseded key's addresses,
+// proof and toldAt, and refusedUnknownAt. Each reads an older record as
+// it was.
+const schema = 3
 
 func recordPath(dataDir string) string { return filepath.Join(dataDir, RecordFile) }
 
@@ -39,6 +41,10 @@ type Record struct {
 	// Removed is set once the Controller removed this Node, which is then
 	// Unclaimed. The rest is the pairing it lost.
 	Removed *Removal
+	// RefusedUnknownAt is when the pinned Controller first refused this
+	// Node's Hello as a key it has no record of, zero since it last
+	// paired or was welcomed.
+	RefusedUnknownAt time.Time
 }
 
 // Removal is when the Controller removed this Node, and its name.
@@ -59,11 +65,17 @@ func IsWorker(dataDir string) (bool, error) {
 	return ok && rec.Removed == nil, err
 }
 
-// Superseded is a Controller key a re-pair replaced, with the key that
-// replaced it.
+// Superseded is a Controller key a re-pair or a restore replaced, with
+// the key that replaced it. Addresses is where that Controller was last
+// reached. Proof is what the pinned Controller minted to fence it, nil
+// when it gave none, and ToldAt when that Controller first answered a
+// Tell carrying Proof.
 type Superseded struct {
-	Key, By link.Key
-	At      time.Time
+	Key, By   link.Key
+	At        time.Time
+	Addresses link.Addresses
+	Proof     []byte
+	ToldAt    time.Time
 }
 
 // RecordError is a pairing.json this binary cannot use.
@@ -79,12 +91,13 @@ func (e *RecordError) Unwrap() error { return e.Err }
 // recordJSON only gains fields across versions; decoding refuses the
 // rest.
 type recordJSON struct {
-	Schema     int              `json:"schema"`
-	NodeID     string           `json:"nodeId"`
-	Controller controllerJSON   `json:"controller"`
-	Superseded []supersededJSON `json:"superseded"`
-	PairedAt   time.Time        `json:"pairedAt"`
-	Removed    *removalJSON     `json:"removed,omitempty"`
+	Schema           int              `json:"schema"`
+	NodeID           string           `json:"nodeId"`
+	Controller       controllerJSON   `json:"controller"`
+	Superseded       []supersededJSON `json:"superseded"`
+	PairedAt         time.Time        `json:"pairedAt"`
+	Removed          *removalJSON     `json:"removed,omitempty"`
+	RefusedUnknownAt *time.Time       `json:"refusedUnknownAt,omitempty"`
 }
 
 type removalJSON struct {
@@ -99,9 +112,53 @@ type controllerJSON struct {
 }
 
 type supersededJSON struct {
-	Key   link.Key  `json:"key"`
-	ByKey link.Key  `json:"byKey"`
-	At    time.Time `json:"at"`
+	Key       link.Key         `json:"key"`
+	ByKey     link.Key         `json:"byKey"`
+	At        time.Time        `json:"at"`
+	Addresses []netip.AddrPort `json:"addresses,omitempty"`
+	Proof     []byte           `json:"proof,omitempty"`
+	ToldAt    *time.Time       `json:"toldAt,omitempty"`
+}
+
+// three is whether j carries a field schema 3 added.
+func (j recordJSON) three() bool {
+	if j.RefusedUnknownAt != nil {
+		return true
+	}
+	for _, s := range j.Superseded {
+		if s.Addresses != nil || s.Proof != nil || s.ToldAt != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// fits refuses a schema this binary doesn't read, and a field the
+// record's schema doesn't have.
+func (j recordJSON) fits() error {
+	switch {
+	case j.Schema < 1 || j.Schema > schema:
+		return fmt.Errorf("schema %d, want 1 to %d", j.Schema, schema)
+	case j.Schema == 1 && j.Removed != nil:
+		return errors.New("removed in a schema 1 record")
+	case j.Schema < 3 && j.three():
+		return fmt.Errorf("a schema 3 field in a schema %d record", j.Schema)
+	}
+	return nil
+}
+
+func (s supersededJSON) decode() (Superseded, error) {
+	sup := Superseded{Key: s.Key, By: s.ByKey, At: s.At, Proof: s.Proof}
+	if len(s.Addresses) > 0 {
+		var err error
+		if sup.Addresses, err = link.ParseAddresses(s.Addresses); err != nil {
+			return Superseded{}, err
+		}
+	}
+	if s.ToldAt != nil {
+		sup.ToldAt = *s.ToldAt
+	}
+	return sup, nil
 }
 
 func readRecord(path string) (Record, bool, error) {
@@ -129,11 +186,8 @@ func decode(data []byte) (Record, error) {
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
 		return Record{}, errors.New("data after the record")
 	}
-	if j.Schema != 1 && j.Schema != schema {
-		return Record{}, fmt.Errorf("schema %d, want 1 or %d", j.Schema, schema)
-	}
-	if j.Schema == 1 && j.Removed != nil {
-		return Record{}, errors.New("removed in a schema 1 record")
+	if err := j.fits(); err != nil {
+		return Record{}, err
 	}
 	id, err := storage.ParseUUID(j.NodeID)
 	if err != nil {
@@ -153,11 +207,18 @@ func decode(data []byte) (Record, error) {
 		ControllerName: j.Controller.Name,
 		PairedAt:       j.PairedAt,
 	}
-	for _, s := range j.Superseded {
-		rec.Superseded = append(rec.Superseded, Superseded{Key: s.Key, By: s.ByKey, At: s.At})
+	for i, s := range j.Superseded {
+		sup, err := s.decode()
+		if err != nil {
+			return Record{}, fmt.Errorf("superseded %d addresses: %w", i, err)
+		}
+		rec.Superseded = append(rec.Superseded, sup)
 	}
 	if r := j.Removed; r != nil {
 		rec.Removed = &Removal{At: r.At, ControllerName: r.ControllerName}
+	}
+	if j.RefusedUnknownAt != nil {
+		rec.RefusedUnknownAt = *j.RefusedUnknownAt
 	}
 	return rec, nil
 }
@@ -171,10 +232,17 @@ func encode(rec Record) ([]byte, error) {
 		PairedAt:   rec.PairedAt,
 	}
 	for _, s := range rec.Superseded {
-		j.Superseded = append(j.Superseded, supersededJSON{Key: s.Key, ByKey: s.By, At: s.At})
+		sj := supersededJSON{Key: s.Key, ByKey: s.By, At: s.At, Addresses: s.Addresses.All(), Proof: s.Proof}
+		if !s.ToldAt.IsZero() {
+			sj.ToldAt = &s.ToldAt
+		}
+		j.Superseded = append(j.Superseded, sj)
 	}
 	if r := rec.Removed; r != nil {
 		j.Removed = &removalJSON{At: r.At, ControllerName: r.ControllerName}
+	}
+	if !rec.RefusedUnknownAt.IsZero() {
+		j.RefusedUnknownAt = &rec.RefusedUnknownAt
 	}
 	data, err := json.MarshalIndent(j, "", "  ")
 	if err != nil {

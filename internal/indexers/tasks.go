@@ -38,29 +38,31 @@ var healthCheckCadence = setting.Duration{
 // Tasks are the Indexers' scheduled tasks.
 func (x *Indexers) Tasks() []tasks.Task {
 	return []tasks.Task{{
-		ID:      CatalogRefreshTaskID,
-		Name:    "Indexer catalog refresh",
-		About:   "Downloads the Indexer catalog's new and changed definitions. Each Indexer moves to its definition's new version once that version loads.",
-		Group:   tasks.ControllerGroup,
-		Cadence: tasks.Every{Interval: catalogCadence, AtStart: true},
-		Noun:    setting.Noun{One: "catalog", Many: "catalogs"},
+		ID:               CatalogRefreshTaskID,
+		Name:             "Indexer catalog refresh",
+		About:            "Downloads the Indexer catalog's new and changed definitions. Each Indexer moves to its definition's new version once that version loads.",
+		Group:            tasks.ControllerGroup,
+		Cadence:          tasks.Every{Interval: catalogCadence, AtStart: true},
+		WhileReconciling: tasks.Runs,
+		Noun:             setting.Noun{One: "catalog", Many: "catalogs"},
 		Units: func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
 			return []tasks.Unit{{Key: "catalog", Label: "the Indexer catalog", Place: tasks.OnController()}}, nil
 		},
 		Run:    func(ctx context.Context, _ tasks.Unit, _ *tasks.Progress) error { return x.refresh(ctx) },
 		Health: string(health.IndexersID),
 	}, {
-		ID:      HealthCheckTaskID,
-		Name:    "Indexer health check",
-		About:   "Tests each Indexer that is on from the Node it searches from. It skips an Indexer that stopped because its site refused the sign-in or the account. Test that Indexer or save a change to it to include it again.",
-		Group:   tasks.GroupOf(role.Searching.Group()),
-		Cadence: tasks.Every{Interval: healthCheckCadence},
-		Noun:    setting.Noun{One: "Indexer", Many: "Indexers"},
-		Units:   x.healthUnits,
-		Shown:   anyIndexer,
-		Run:     func(ctx context.Context, u tasks.Unit, _ *tasks.Progress) error { return x.healthCheck(ctx, u.Key) },
-		Follows: []live.Event{ChangedEvent, StatusChangedEvent},
-		Health:  string(health.IndexersID),
+		ID:               HealthCheckTaskID,
+		Name:             "Indexer health check",
+		About:            "Tests each Indexer that is on from the Node it searches from. It skips an Indexer that stopped because its site refused the sign-in or the account. Test that Indexer or save a change to it to include it again.",
+		Group:            tasks.GroupOf(role.Searching.Group()),
+		Cadence:          tasks.Every{Interval: healthCheckCadence},
+		WhileReconciling: tasks.Runs,
+		Noun:             setting.Noun{One: "Indexer", Many: "Indexers"},
+		Units:            x.healthUnits,
+		Shown:            anyIndexer,
+		Run:              func(ctx context.Context, u tasks.Unit, _ *tasks.Progress) error { return x.healthCheck(ctx, u.Key) },
+		Follows:          []live.Event{ChangedEvent, StatusChangedEvent},
+		Health:           string(health.IndexersID),
 	}}
 }
 

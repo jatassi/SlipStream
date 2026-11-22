@@ -327,7 +327,7 @@ export const getGetNodeConfigResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",
@@ -505,7 +505,7 @@ export const getGetNodeConfigResponseMock = (
             { ...getGetNodeConfigResponseSettingSizeFieldMock() },
           ]),
       ),
-      id: faker.helpers.arrayElement(["web", "log", "torrent"] as const),
+      id: faker.helpers.arrayElement(["web", "log", "torrent", "backups"] as const),
     }),
   ),
   ...overrideResponse,
@@ -810,7 +810,7 @@ export const getUpdateNodeConfigResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",
@@ -988,7 +988,7 @@ export const getUpdateNodeConfigResponseMock = (
             { ...getUpdateNodeConfigResponseSettingSizeFieldMock() },
           ]),
       ),
-      id: faker.helpers.arrayElement(["web", "log", "torrent"] as const),
+      id: faker.helpers.arrayElement(["web", "log", "torrent", "backups"] as const),
     }),
   ),
   ...overrideResponse,
@@ -1062,6 +1062,8 @@ export const getGetStatusResponseMock = (
         },
       }
     : {}),
+  startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  ...(faker.datatype.boolean() ? { superseded: faker.datatype.boolean() } : {}),
   ...overrideResponse,
 });
 

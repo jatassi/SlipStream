@@ -339,7 +339,7 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 	facts := Facts{Removing: !h.RemovedAt.IsZero(), Wanted: Wanted(h.Wanted), Report: rep}
 	state := StateOf(facts)
 	row := Row{
-		ID: h.ID, Node: h.NodeID, InfoHash: bencode.InfoHash(h.InfoHash), Private: h.Private == 1, Name: h.Name, Size: h.Size, ContentType: h.ContentType, AddedAt: h.AddedAt.Time(),
+		ID: h.ID, Node: h.NodeID, InfoHash: bencode.InfoHash(h.InfoHash), Private: h.Private == 1, Name: h.Name, Size: h.Size, ContentType: typeOf(h.ContentType), AddedAt: h.AddedAt.Time(),
 		Uses: uses, Held: held(uses), State: state, Severity: SeverityOf(facts, state), Tabs: TabsOf(facts, state),
 		Client: refOf(h.ClientID, h.ClientKind, h.ClientName), Attached: h.Attached != nil && *h.Attached,
 		DeleteFiles: removalOf(h.ClientID, h.Attached, h.ClientOn) == removedByNode,
@@ -610,4 +610,12 @@ func atMillis(ms int64) time.Time {
 		return time.Time{}
 	}
 	return time.UnixMilli(ms).UTC()
+}
+
+// typeOf is a Torrent's Content Type, none for an adopted one.
+func typeOf(t *works.TypeID) works.TypeID {
+	if t == nil {
+		return ""
+	}
+	return *t
 }

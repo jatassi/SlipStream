@@ -340,32 +340,82 @@ func (l *loop) detach(run *attached) {
 
 // snapshot brings the torrents in line with s's lists: each listed one is
 // held, added back from its resume data when the Node has any; each held
-// one neither lists is discarded with its files kept.
+// one neither lists is discarded with its files kept. Under keep_all every
+// torrent is kept and each one the Node holds resume data for is added
+// back, and the discards are ignored; keep_hashes keeps its torrents the
+// same way. pause_all keeps and pauses every torrent.
 func (l *loop) snapshot(s role.Snapshot[*dlv1.Intent]) {
 	l.intent, l.intended = s, true
 	l.configure()
 	l.cadence(time.Duration(s.Intent.GetSampleEverySeconds()) * time.Second)
+	in := s.Intent
+	keepAll, pauseAll := in.GetKeepAll() || in.GetPauseAll(), in.GetPauseAll()
 	for _, t := range l.torrents {
 		t.listed = false
 	}
-	for _, it := range s.Intent.GetTorrents() {
+	for _, it := range in.GetTorrents() {
 		t := l.list(it.GetId(), it.GetInfoHash())
 		t.Order, t.Paused, t.Discard = it.GetOrder(), it.GetWanted() == dlv1.Wanted_WANTED_PAUSED, plan.Kept
 		if at := it.GetRetryAtUnixMs(); at > t.retried {
 			l.retry(t, at)
 		}
 	}
-	for _, d := range s.Intent.GetDiscards() {
+	if !keepAll {
+		l.discards(in.GetDiscards())
+	}
+	kept := l.kept(in, keepAll)
+	for _, t := range l.torrents {
+		switch {
+		case t.listed && t.Discard != plan.Kept:
+		case t.listed, keepAll || kept[t.Hash]:
+			if t.Phase != plan.Parting {
+				t.Discard = plan.Kept
+			}
+			t.Paused = pauseAll || t.listed && t.Paused
+		case t.Discard == plan.Kept:
+			t.Discard = plan.KeepFiles
+		}
+	}
+}
+
+func (l *loop) discards(ds []*dlv1.Discard) {
+	for _, d := range ds {
 		t := l.list(d.GetId(), d.GetInfoHash())
 		t.Discard = plan.KeepFiles
 		if d.GetDeleteFiles() {
 			t.Discard = plan.DeleteFiles
 		}
 	}
-	for _, t := range l.torrents {
-		if !t.listed && t.Discard == plan.Kept {
-			t.Discard = plan.KeepFiles
+}
+
+// kept is every hash in's keep_hashes names, and under keep_all every one
+// the Node keeps a row for, each added back from its resume data.
+func (l *loop) kept(in *dlv1.Intent, keepAll bool) map[bencode.InfoHash]bool {
+	kept := map[bencode.InfoHash]bool{}
+	for _, h := range in.GetKeepHashes() {
+		kept[bencode.InfoHash(h)] = true
+	}
+	if keepAll {
+		for h := range l.rows {
+			kept[h] = true
 		}
+	}
+	for h := range kept {
+		l.keep(h)
+	}
+	return kept
+}
+
+// keep adds h back from its resume data when no list names it, so a
+// torrent the Node keeps seeds. A torrent it holds no resume data for
+// stays a row only.
+func (l *loop) keep(h bencode.InfoHash) {
+	if l.torrents[h] != nil {
+		return
+	}
+	t := &torrent{Torrent: plan.Torrent{Hash: h, Phase: plan.Fetching}, replied: map[int]time.Time{}}
+	if l.addFromResume(t) {
+		l.torrents[h] = t
 	}
 }
 
@@ -454,21 +504,22 @@ func (l *loop) list(id, hash []byte) *torrent {
 }
 
 // addFromResume adds t back from the resume data the Node holds, its
-// start spread over Timings.StartSpread.
-func (l *loop) addFromResume(t *torrent) {
+// start spread over Timings.StartSpread, and reports whether it did.
+func (l *loop) addFromResume(t *torrent) bool {
 	row, ok := l.rows[t.Hash]
 	if !ok || row.Resume == nil {
-		return
+		return false
 	}
 	handle, err := l.eng.Add(engine.AddParams{Resume: row.Resume, SavePath: row.SaveFolder, Discover: mayDiscover(withInfo{private: row.Private})})
 	if err != nil {
 		l.c.cfg.Log.Warn("can't add a torrent from its resume data, so the Node fetches it again", "info_hash", t.Hash.String(), "err", err.Error())
-		return
+		return false
 	}
 	spread := l.c.cfg.Timings.StartSpread
 	t.NotBefore = time.Now().Add(time.Duration(l.c.cfg.Rand.Int64N(int64(spread) + 1)))
 	t.Private, t.folder, t.announced = row.Private, row.SaveFolder, time.Duration(row.AnnouncedSeconds)*time.Second
 	l.added(t, handle)
+	return true
 }
 
 func (l *loop) added(t *torrent, handle engine.Handle) {

@@ -118,25 +118,31 @@ func StopNode(ctx context.Context, network link.Network, dir DataDir) error {
 	return nil
 }
 
-// dispatch serves stop at any time and every other op once the Node is ready.
+// dispatch serves stop and status at any time and every other op once the
+// Node is ready.
 func (n *Node) dispatch(name string) (control.Handler, error) {
-	if name == StopOp.Name {
+	switch name {
+	case StopOp.Name:
 		return n.serveStop, nil
+	case StatusOp.Name:
+		return n.serveStatus, nil
 	}
-	if !n.isReady.Load() {
-		return nil, &control.Error{Code: control.CodeNotReady, Message: fmt.Sprintf("node is starting and serves only %s until ready", StopOp.Name)}
+	if n.phase() != PhaseReady {
+		return nil, &control.Error{Code: control.CodeNotReady, Message: fmt.Sprintf("node is starting and serves only %s and %s until ready", StopOp.Name, StatusOp.Name)}
 	}
 	switch name {
 	case pairing.JoinOp.Name:
 		return n.serveJoin, nil
-	case StatusOp.Name:
-		return n.serveStatus, nil
 	case ConfigOp.Name:
 		return n.serveConfig, nil
 	case RestartOp.Name:
 		return n.serveRestart, nil
 	case identity.ResetOp.Name:
 		return n.serveAdminReset, nil
+	case BackupOp.Name:
+		return n.serveBackup, nil
+	case RestoreOp.Name:
+		return n.serveRestore, nil
 	}
 	return nil, &control.Error{Code: control.CodeUnknownOp, Message: fmt.Sprintf("unknown op %q for node version %s", name, n.env.Version)}
 }

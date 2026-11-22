@@ -345,11 +345,19 @@ func CatalogRefreshed(ctx context.Context, c *http.Client, baseURL, apiKey strin
 	return catalog.RefreshedAt != nil, err
 }
 
-// AwaitCatalog returns once a refresh has read the Indexer catalog. It
-// reads session's event stream until indexers.catalog-changed, and checks
-// the catalog when the stream's first message ends, so a refresh that
-// finished before the stream opened counts too.
+// AwaitCatalog returns once a refresh has read the Indexer catalog, as
+// session's event stream tells with indexers.catalog-changed.
 func AwaitCatalog(ctx context.Context, c *http.Client, baseURL, apiKey string, session *http.Cookie) error {
+	return AwaitEvent(ctx, c, baseURL, session, "indexers.catalog-changed", func() (bool, error) {
+		return CatalogRefreshed(ctx, c, baseURL, apiKey)
+	})
+}
+
+// AwaitEvent returns once done holds. It reads session's event stream,
+// checking done when the stream's first message ends and after each
+// message named event, so a change that landed before the stream opened
+// counts too.
+func AwaitEvent(ctx context.Context, c *http.Client, baseURL string, session *http.Cookie, event string, done func() (bool, error)) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/v1/events", http.NoBody)
 	if err != nil {
 		return fmt.Errorf("open the event stream: %w", err)
@@ -365,19 +373,19 @@ func AwaitCatalog(ctx context.Context, c *http.Client, baseURL, apiKey string, s
 		return fmt.Errorf("open the event stream: %d %s", res.StatusCode, bytes.TrimSpace(reply))
 	}
 	lines := bufio.NewScanner(res.Body)
-	checked := false
+	check, checked := false, false
 	for lines.Scan() {
 		switch line := lines.Text(); {
-		case line == "event: indexers.catalog-changed":
-			return nil
-		case line == "" && !checked:
-			checked = true
-			if done, err := CatalogRefreshed(ctx, c, baseURL, apiKey); err != nil || done {
+		case line == "event: "+event:
+			check = true
+		case line == "" && (check || !checked):
+			check, checked = false, true
+			if ok, err := done(); err != nil || ok {
 				return err
 			}
 		}
 	}
-	return fmt.Errorf("the event stream ended before the Indexer catalog refreshed: %w", cmp.Or(lines.Err(), ctx.Err(), io.ErrUnexpectedEOF))
+	return fmt.Errorf("the event stream ended before %s: %w", event, cmp.Or(lines.Err(), ctx.Err(), io.ErrUnexpectedEOF))
 }
 
 // SignIn signs in as the Account with email and pin and returns its

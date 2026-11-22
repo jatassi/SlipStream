@@ -177,9 +177,10 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
                 }),
               }),
         });
+        const text = await response.text();
         return {
           status: response.status,
-          body: response.status === 204 ? null : ((await response.json()) as unknown),
+          body: text === "" ? null : (JSON.parse(text) as unknown),
         };
       },
     });

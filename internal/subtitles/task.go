@@ -13,17 +13,20 @@ import (
 	"github.com/jatassi/slipstream/internal/tasks"
 )
 
+const taskName = "Subtitle search"
+
 // Task is Subtitle search: one unit on the Controller that reconciles the
 // wants, queues every due one and ends. The drain works the queue within
 // each provider's allowance, so a long drain never fails a run.
 func (s *Subtitles) Task() tasks.Task {
 	return tasks.Task{
-		ID:      TaskID,
-		Name:    "Subtitle search",
-		About:   "Searches for the wanted subtitles that are due and keeps each one only when its timing matches the file.",
-		Group:   tasks.GroupOf(role.Subtitles.Group()),
-		Cadence: tasks.Every{Interval: Every},
-		Noun:    setting.Noun{One: "step", Many: "steps"},
+		ID:               TaskID,
+		Name:             "Subtitle search",
+		About:            "Searches for the wanted subtitles that are due and keeps each one only when its timing matches the file.",
+		Group:            tasks.GroupOf(role.Subtitles.Group()),
+		Cadence:          tasks.Every{Interval: Every},
+		WhileReconciling: tasks.Pauses,
+		Noun:             setting.Noun{One: "step", Many: "steps"},
 		Units: func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
 			return []tasks.Unit{{Key: "due", Label: "Due subtitles", Place: tasks.OnController()}}, nil
 		},
@@ -44,10 +47,11 @@ func (s *Subtitles) search(ctx context.Context, _ tasks.Unit, p *tasks.Progress)
 	if _, err := s.Reconcile(ctx); err != nil {
 		return err
 	}
-	var on bool
+	var on, halt bool
 	var n int
 	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		halt, err := s.cfg.Reconciling(ctx, tx)
+		var err error
+		halt, err = s.cfg.Reconciling(ctx, tx)
 		if err != nil || halt {
 			return err
 		}
@@ -64,6 +68,9 @@ func (s *Subtitles) search(ctx context.Context, _ tasks.Unit, p *tasks.Progress)
 	})
 	if err != nil {
 		return err
+	}
+	if halt {
+		return tasks.PausedWhileReconciling(taskName)
 	}
 	if !on {
 		return tasks.SkipOwned("Subtitle search is off in Settings.")
@@ -84,7 +91,7 @@ func queuedWords(n int) string {
 // older than Keep history for, oldest first. A Mark bad stays, so no
 // search takes that subtitle again.
 func (s *Subtitles) Retention() housekeeping.Step {
-	return housekeeping.Aged("subtitle-tries", "Subtitle tries", setting.Noun{One: "try", Many: "tries"}, "that are marked bad",
+	return housekeeping.Aged("subtitle-tries", "Subtitle tries", tasks.Runs, setting.Noun{One: "try", Many: "tries"}, "that are marked bad",
 		func(ctx context.Context, before time.Time, _ struct{}, limit int) (housekeeping.Swept[struct{}], error) {
 			var n int64
 			err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
