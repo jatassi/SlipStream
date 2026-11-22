@@ -9,7 +9,7 @@ import (
 func TestParse(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{"en", "en"}, {"eng", "en"}, {"EN", "en"}, {"fre", "fr"}, {"fra", "fr"}, {"ger", "de"},
-		{"chi", "zh"}, {"zho", "zh"}, {"iw", "he"}, {"fil", "fil"}, {"yue", "yue"},
+		{"chi", "zh"}, {"zho", "zh"}, {"iw", "he"}, {"fil", "fil"}, {"yue", "yue"}, {"spa", "es"}, {"jpn", "ja"}, {"haw", "haw"},
 		{"pt", "pt"}, {"pt-BR", "pt-BR"}, {"pt-br", "pt-BR"}, {"pt_BR", "pt-BR"},
 	}
 	for _, c := range cases {
@@ -17,25 +17,13 @@ func TestParse(t *testing.T) {
 		if err != nil || got.String() != c.want {
 			t.Errorf("Parse(%q) = %q, %v; want %q", c.in, got, err, c.want)
 		}
+		if back, ok := ParseTag(got.Tag()); got.Tag() != c.want || !ok || back != got {
+			t.Errorf("Parse(%q) has the tag %q, which reads back as %q, %v; want %q both ways", c.in, got.Tag(), back, ok, c.want)
+		}
 	}
 	for _, in := range []string{"", "und", "mis", "mul", "zxx", "original", "en-US", "pt-PT", "zh-Hant", "sh", "sdh", "cc", "xx", "the", "english"} {
 		if got, err := Parse(in); err == nil {
 			t.Errorf("Parse(%q) = %q; want a refusal", in, got)
-		}
-	}
-}
-
-func TestTag(t *testing.T) {
-	cases := []struct{ in, tag string }{
-		{"eng", "en"}, {"spa", "es"}, {"jpn", "ja"}, {"fil", "fil"}, {"haw", "haw"}, {"pt-BR", "pt-BR"},
-	}
-	for _, c := range cases {
-		code := must(t, c.in)
-		if code.Tag() != c.tag {
-			t.Errorf("%q Tag = %q; want %q", c.in, code.Tag(), c.tag)
-		}
-		if back, ok := ParseTag(code.Tag()); !ok || back != code {
-			t.Errorf("ParseTag(%q) = %q, %v; want %q", code.Tag(), back, ok, code)
 		}
 	}
 }
