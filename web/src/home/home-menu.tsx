@@ -54,7 +54,7 @@ export function HomeMenu() {
           },
         ]}
       />
-      <Dialog title="Home" open={open} onOpenChange={setOpen}>
+      <Dialog title="Rows on Home" open={open} onOpenChange={setOpen}>
         {open && <RowsField />}
       </Dialog>
     </>

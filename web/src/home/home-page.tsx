@@ -1,5 +1,5 @@
 import { Page } from "../shell/page";
-import type { WorkNames } from "../torrents/acting";
+import type { WorkNames } from "../torrents/remove-preview";
 import { Downloading } from "./downloading";
 import { Health } from "./health";
 import { HomeMenu } from "./home-menu";
@@ -16,10 +16,10 @@ import { Storage } from "./storage";
  * a Work Home doesn't show reads as another Work, so Home never reads the
  * Library.
  */
-const namesOf =
-  (labels: ReadonlyMap<string, string>): WorkNames =>
-  (id) =>
-    labels.get(id) ?? "Another Work";
+const namesOf = (labels: ReadonlyMap<string, string>): WorkNames => ({
+  of: (id) => labels.get(id),
+  unknown: "Another Work",
+});
 
 export function HomePage() {
   const { summary, counts, report, volumes, nodes, contentTypes, counted } = useHomeReads();

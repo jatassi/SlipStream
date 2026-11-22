@@ -93,7 +93,7 @@ export function importWaitWords(code: ImportWait, root: string, space: FilesSpac
     return "Reading a file of this download timed out 3 times. Retry the import, or check the disk the file is on.";
   }
   if (code === "probe_error") {
-    return "Reading a file of this download failed. SlipStream tries once more, then fails the file.";
+    return "Reading a file of this download failed. SlipStream tries once more. If that fails too, the file isn't imported.";
   }
   if (code === "root_not_ready") {
     return `The ${root} isn't ready. SlipStream retries once it is.`;

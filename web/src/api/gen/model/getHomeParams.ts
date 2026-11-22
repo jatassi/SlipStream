@@ -1,6 +1,6 @@
 export type GetHomeParams = {
   /**
-   * The instant today's totals count from: the browser's midnight
+   * The browser's local midnight, from which today's totals count
    */
   since: string;
 };

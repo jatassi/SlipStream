@@ -7,15 +7,12 @@ import { toast } from "../ui/toast";
 import { type Subject, type TorrentAction, outcomeWords } from "./actions";
 import { PauseDialog } from "./pause-dialog";
 import { RemoveDialog } from "./remove-dialog";
-import type { Parting } from "./remove-preview";
+import type { Parting, WorkNames } from "./remove-preview";
 
 type Asking = {
   readonly action: Parting | "recheck" | "pause";
   readonly subjects: readonly Subject[];
 };
-
-/** Each Work's name by its id, for the Works a torrent's files belong to. */
-export type WorkNames = (id: string) => string | undefined;
 
 async function actAndSay(
   action: TorrentAction,
@@ -30,7 +27,7 @@ async function actAndSay(
   });
   const { done, refused } = outcomeWords(results, subjects, {
     action,
-    work,
+    work: work.of,
     clock: { now: new Date(), zone: undefined },
   });
   if (done !== undefined) {

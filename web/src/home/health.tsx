@@ -18,7 +18,7 @@ export function Health({ report }: { report: HealthReport }) {
       <div className="flex flex-col gap-3">
         <HealthVerdict report={report} at="/health" scale="section" />
         {troubled.length > 0 && (
-          <List label="Health categories with a problem">
+          <List label="Health problems">
             {troubled.map((category) => (
               <ListRow
                 key={category.id}

@@ -75,7 +75,10 @@ export function Storage({
     <Section title="Storage">
       <div className="flex flex-col gap-3">
         {volumes.length === 0 ? (
-          <Empty look="sheet">No Storage Node has reported a volume yet.</Empty>
+          <Empty look="sheet">
+            No Node has reported a volume yet. Each library root and downloads folder shows here
+            once its Node reports its free space.
+          </Empty>
         ) : (
           storageOrder(volumes).map((group) => {
             const node = nodes.find(({ id }) => id === group.nodeId);

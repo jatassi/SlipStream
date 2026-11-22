@@ -1,5 +1,5 @@
 import type { GrabsGrab } from "../api/gen/model";
-import type { WorkNames } from "../torrents/acting";
+import type { WorkNames } from "../torrents/remove-preview";
 import type { Row } from "../torrents/model";
 
 /**

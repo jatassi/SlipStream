@@ -69,7 +69,13 @@ test("each empty section says what fills it, and Downloading is left out with no
       ),
     )
     .toBeVisible();
-  await expect.element(page.getByText("No Storage Node has reported a volume yet.")).toBeVisible();
+  await expect
+    .element(
+      page.getByText(
+        "No Node has reported a volume yet. Each library root and downloads folder shows here once its Node reports its free space.",
+      ),
+    )
+    .toBeVisible();
   await expect.element(page.getByText("Everything is working.")).toBeVisible();
   await expect.element(page.getByRole("heading", { name: "Downloading" })).not.toBeInTheDocument();
 });
@@ -161,7 +167,7 @@ test("Health lines each category with a problem, linking to it on the Health pag
   await expect
     .element(
       page
-        .getByRole("list", { name: "Health categories with a problem" })
+        .getByRole("list", { name: "Health problems" })
         .getByRole("link", { name: "Storage · 1 warning" }),
     )
     .toHaveAttribute("href", "/health#storage");

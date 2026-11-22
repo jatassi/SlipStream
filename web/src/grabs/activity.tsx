@@ -44,7 +44,7 @@ function JobsTable({
   labels: ReadonlyMap<string, string>;
 }) {
   const torrentOf = useTorrentOf();
-  const names = (id: string) => labels.get(id);
+  const names = { of: (id: string) => labels.get(id), unknown: "A deleted Work" };
   return (
     <Section title="Jobs" count={jobs.length}>
       <GrabTable

@@ -8,7 +8,7 @@ import { HomeSettings, HomeSummary, SettingsInputBody } from "../slipStream.sche
 export const GetHomeQueryParams = zod.object({
   since: zod.iso
     .datetime({ offset: true })
-    .describe("The instant today's totals count from: the browser's midnight"),
+    .describe("The browser's local midnight, from which today's totals count"),
 });
 
 export const GetHomeResponse = HomeSummary;

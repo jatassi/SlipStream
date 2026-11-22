@@ -4,7 +4,7 @@ import type { HomeJob, HomeSummary, NodesNode } from "../api/gen/model";
 import { StageCell } from "../grabs/grab-table";
 import { JobMenu } from "../grabs/job-menu";
 import { ProgressCell } from "../grabs/progress-cell";
-import type { WorkNames } from "../torrents/acting";
+import type { WorkNames } from "../torrents/remove-preview";
 import { Artwork } from "../ui/artwork";
 import { Data } from "../ui/data";
 import { Empty } from "../ui/empty";

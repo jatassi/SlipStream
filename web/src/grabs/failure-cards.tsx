@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { openManualSearch } from "../manual/sheet-state";
+import { libraryNames } from "../torrents/remove-preview";
 import { Data } from "../ui/data";
 import { FailureCard } from "../ui/failure-card";
 import { type GrabView, GrabDialogs } from "./grab-details";
@@ -10,8 +11,8 @@ import { type FailedGrab, skippedStages, trackStage } from "./stages";
 import { type Stop, useRecoveryFacts } from "./stopped-facts";
 
 /** A failed Grab knows only its own Work's name; it has no Torrent to cancel. */
-const workOf = (grab: FailedGrab, work: string, id: string) =>
-  id === grab.workId ? work : undefined;
+const namesOf = (grab: FailedGrab, work: string) =>
+  libraryNames((id) => (id === grab.workId ? work : undefined));
 
 export const failureAnchor = (grab: FailedGrab): string => `failed-${grab.id}`;
 
@@ -63,7 +64,7 @@ export function GrabFailure({
   const recovery = useRecoveryFacts(grab, stop);
   const [view, setView] = useState<GrabView>();
   const { cause } = grab.failure;
-  const failed = { grab, work, torrent: undefined, names: (id: string) => workOf(grab, work, id) };
+  const failed = { grab, work, torrent: undefined, names: namesOf(grab, work) };
   const actions = useCardActions(grab, form, () => {
     setView("details");
   });

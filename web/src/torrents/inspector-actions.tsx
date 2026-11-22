@@ -4,7 +4,8 @@ import { Button } from "../ui/button";
 import { IconButton } from "../ui/icon-button";
 import { Menu } from "../ui/menu";
 import { type TorrentAction, actionLabels, menuFor, subjectOf } from "./actions";
-import { type WorkNames, useActing } from "./acting";
+import { useActing } from "./acting";
+import type { WorkNames } from "./remove-preview";
 import { actionIcons, menuItems } from "./actions-menu";
 import type { Row } from "./model";
 
