@@ -238,9 +238,18 @@ func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Ad
 	if a, ok := by.Account(); ok {
 		b.CreatedBy = a.Profile().ID.UUID
 	}
+	notes := batchNotes{}
 	if p.Ask.Options.DeleteEmptiedRoots {
 		b.DeleteEmptiedRoots = 1
+		for _, rt := range p.Ask.Roots {
+			notes.Emptying = append(notes.Emptying, emptied{From: rt.Root, To: rt.To})
+		}
 	}
+	raw, err := json.Marshal(notes)
+	if err != nil {
+		return nil, fmt.Errorf("moves: the notes of batch %s: %w", batch, err)
+	}
+	b.Notes = string(raw)
 	if p.Ask.Options.IncludeLinkedTorrents {
 		b.IncludeTorrents = 1
 	}

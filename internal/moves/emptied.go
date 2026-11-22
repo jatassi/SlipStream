@@ -14,9 +14,17 @@ import (
 )
 
 // emptied is a source root of a batch that deletes the roots it empties,
-// and the root most of its Works went to.
+// and the root its Works went to.
 type emptied struct {
-	From, To roots.ID
+	From roots.ID `json:"from"`
+	To   roots.ID `json:"to"`
+}
+
+// batchNotes is what a batch records at its Start beside its units: each
+// root it asked to move whose emptied root it deletes, a root with no
+// Works among them.
+type batchNotes struct {
+	Emptying []emptied `json:"emptying,omitempty"`
 }
 
 // deleteEmptied deletes the source roots of each batch that asked for it
@@ -69,21 +77,18 @@ func (m *Moves) emptyBatch(ctx context.Context, batch BatchID) (waits bool, err 
 	return false, m.finishKeeping(ctx, batch, kept)
 }
 
-// batchRoots lists each source root of batch once, with the root most of
+// batchRoots is each root batch deletes once it is empty, with the root
 // its Works went to.
 func batchRoots(ctx context.Context, r storage.Reader[file], batch BatchID) ([]emptied, error) {
-	rows, err := db.New(r).ListBatchRoots(ctx, batch)
+	row, err := db.New(r).GetBatch(ctx, batch)
 	if err != nil {
 		return nil, err
 	}
-	var rs []emptied
-	for _, row := range rows {
-		if len(rs) > 0 && rs[len(rs)-1].From == row.FromRootID {
-			continue
-		}
-		rs = append(rs, emptied{From: row.FromRootID, To: row.ToRootID})
+	var notes batchNotes
+	if err := json.Unmarshal([]byte(row.Notes), &notes); err != nil {
+		return nil, fmt.Errorf("moves: the notes of batch %s: %w", batch, err)
 	}
-	return rs, nil
+	return notes.Emptying, nil
 }
 
 // carried reports whether a Media Server still carries a Move from any

@@ -32,7 +32,7 @@ func seeded(t testing.TB) (lib *storage.DB[storage.Library], batch BatchID) {
 	lib = storagetest.Library(t, Schema())
 	batch = id[BatchID]()
 	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[file]) error {
-		return db.New(tx).InsertBatch(ctx, db.InsertBatchParams{ID: batch, Origin: string(OriginWork), CreatedAt: storage.FromTime(at), PlanTokenHash: []byte("t")})
+		return db.New(tx).InsertBatch(ctx, db.InsertBatchParams{ID: batch, Origin: string(OriginWork), CreatedAt: storage.FromTime(at), PlanTokenHash: []byte("t"), Notes: "{}"})
 	})
 	if err != nil {
 		t.Fatal(err)

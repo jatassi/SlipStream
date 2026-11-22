@@ -1,7 +1,7 @@
 -- name: InsertBatch :exec
-INSERT INTO moves_batch (id, origin, created_at, created_by, homed_works, include_torrents, repoint_routing, delete_emptied_roots, plan_token_hash)
+INSERT INTO moves_batch (id, origin, created_at, created_by, homed_works, include_torrents, repoint_routing, delete_emptied_roots, plan_token_hash, notes)
 VALUES (sqlc.arg(id), sqlc.arg(origin), sqlc.arg(created_at), sqlc.arg(created_by), sqlc.arg(homed_works), sqlc.arg(include_torrents),
-    sqlc.arg(repoint_routing), sqlc.arg(delete_emptied_roots), sqlc.arg(plan_token_hash));
+    sqlc.arg(repoint_routing), sqlc.arg(delete_emptied_roots), sqlc.arg(plan_token_hash), sqlc.arg(notes));
 
 -- name: BatchOfToken :one
 SELECT * FROM moves_batch WHERE plan_token_hash = sqlc.arg(hash);
@@ -253,14 +253,6 @@ WHERE b.finished_at IS NULL AND b.delete_emptied_roots = 1 AND NOT EXISTS (
     SELECT 1 FROM moves_unit u WHERE u.batch_id = b.id AND u.phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup')
 )
 ORDER BY b.created_at;
-
--- name: ListBatchRoots :many
--- Each source root of the batch's Work units, with the root most of its
--- units went to.
-SELECT from_root_id, to_root_id, count(*) AS units FROM moves_unit
-WHERE batch_id = sqlc.arg(batch_id) AND kind = 'work'
-GROUP BY from_root_id, to_root_id
-ORDER BY from_root_id, units DESC, to_root_id;
 
 -- name: FinishBatchKeeping :exec
 UPDATE moves_batch SET finished_at = sqlc.arg(at), notes = json_set(notes, '$.kept', json(CAST(sqlc.arg(kept) AS TEXT)))

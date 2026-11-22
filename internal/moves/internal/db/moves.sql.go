@@ -414,9 +414,9 @@ func (q *Queries) HeldWorks(ctx context.Context, argWorks []works.WorkID) ([]wor
 }
 
 const insertBatch = `-- name: InsertBatch :exec
-INSERT INTO moves_batch (id, origin, created_at, created_by, homed_works, include_torrents, repoint_routing, delete_emptied_roots, plan_token_hash)
+INSERT INTO moves_batch (id, origin, created_at, created_by, homed_works, include_torrents, repoint_routing, delete_emptied_roots, plan_token_hash, notes)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
-    ?7, ?8, ?9)
+    ?7, ?8, ?9, ?10)
 `
 
 type InsertBatchParams struct {
@@ -429,6 +429,7 @@ type InsertBatchParams struct {
 	RepointRouting     int64
 	DeleteEmptiedRoots int64
 	PlanTokenHash      []byte
+	Notes              string
 }
 
 func (q *Queries) InsertBatch(ctx context.Context, arg InsertBatchParams) error {
@@ -442,6 +443,7 @@ func (q *Queries) InsertBatch(ctx context.Context, arg InsertBatchParams) error 
 		arg.RepointRouting,
 		arg.DeleteEmptiedRoots,
 		arg.PlanTokenHash,
+		arg.Notes,
 	)
 	return err
 }
@@ -575,44 +577,6 @@ func (q *Queries) ListBatchDestinations(ctx context.Context, batchID BatchID) ([
 			return nil, err
 		}
 		items = append(items, to_node_id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listBatchRoots = `-- name: ListBatchRoots :many
-SELECT from_root_id, to_root_id, count(*) AS units FROM moves_unit
-WHERE batch_id = ?1 AND kind = 'work'
-GROUP BY from_root_id, to_root_id
-ORDER BY from_root_id, units DESC, to_root_id
-`
-
-type ListBatchRootsRow struct {
-	FromRootID roots.ID
-	ToRootID   roots.ID
-	Units      int64
-}
-
-// Each source root of the batch's Work units, with the root most of its
-// units went to.
-func (q *Queries) ListBatchRoots(ctx context.Context, batchID BatchID) ([]ListBatchRootsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listBatchRoots, batchID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListBatchRootsRow
-	for rows.Next() {
-		var i ListBatchRootsRow
-		if err := rows.Scan(&i.FromRootID, &i.ToRootID, &i.Units); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
