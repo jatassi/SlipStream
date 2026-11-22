@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/mediaservers"
@@ -45,24 +46,12 @@ func (m *Moves) deleteEmptied(ctx context.Context) (pending bool, err error) {
 func (m *Moves) emptyBatch(ctx context.Context, batch BatchID) (waits bool, err error) {
 	var rs []emptied
 	err = m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		rows, err := db.New(r).ListBatchRoots(ctx, batch)
+		rs, err = batchRoots(ctx, r, batch)
 		if err != nil {
 			return err
 		}
-		for _, row := range rows {
-			if len(rs) > 0 && rs[len(rs)-1].From == row.FromRootID {
-				continue
-			}
-			rs = append(rs, emptied{From: row.FromRootID, To: row.ToRootID})
-		}
-		for _, e := range rs {
-			n, err := mediaservers.OpenMovesFrom(ctx, r, e.From)
-			if err != nil {
-				return err
-			}
-			waits = waits || n > 0
-		}
-		return nil
+		waits, err = carried(ctx, r, rs)
+		return err
 	})
 	if err != nil || waits {
 		return waits, err
@@ -77,9 +66,42 @@ func (m *Moves) emptyBatch(ctx context.Context, batch BatchID) (waits bool, err 
 			kept = append(kept, e.From)
 		}
 	}
+	return false, m.finishKeeping(ctx, batch, kept)
+}
+
+// batchRoots lists each source root of batch once, with the root most of
+// its Works went to.
+func batchRoots(ctx context.Context, r storage.Reader[file], batch BatchID) ([]emptied, error) {
+	rows, err := db.New(r).ListBatchRoots(ctx, batch)
+	if err != nil {
+		return nil, err
+	}
+	var rs []emptied
+	for _, row := range rows {
+		if len(rs) > 0 && rs[len(rs)-1].From == row.FromRootID {
+			continue
+		}
+		rs = append(rs, emptied{From: row.FromRootID, To: row.ToRootID})
+	}
+	return rs, nil
+}
+
+// carried reports whether a Media Server still carries a Move from any
+// of rs.
+func carried(ctx context.Context, r storage.Reader[file], rs []emptied) (bool, error) {
+	for _, e := range rs {
+		n, err := mediaservers.OpenMovesFrom(ctx, r, e.From)
+		if err != nil || n > 0 {
+			return n > 0, err
+		}
+	}
+	return false, nil
+}
+
+func (m *Moves) finishKeeping(ctx context.Context, batch BatchID, kept []roots.ID) error {
 	notes, err := json.Marshal(kept)
 	if err != nil {
-		return false, err
+		return fmt.Errorf("encode the kept roots: %w", err)
 	}
 	err = m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		return db.New(tx).FinishBatchKeeping(ctx, db.FinishBatchKeepingParams{At: storage.FromTime(m.now()), Kept: string(notes), ID: batch})
@@ -87,7 +109,7 @@ func (m *Moves) emptyBatch(ctx context.Context, batch BatchID) (waits bool, err 
 	if err == nil {
 		m.cfg.Changed.Publish(ctx, Changed{BatchIDs: []string{batch.String()}, UnitIDs: []string{}, WorkIDs: []string{}})
 	}
-	return false, err
+	return err
 }
 
 // deleteRoot deletes e.From with its Works going to e.To, first making

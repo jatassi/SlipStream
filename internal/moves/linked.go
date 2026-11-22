@@ -5,6 +5,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/moves/internal/db"
@@ -20,40 +21,15 @@ import (
 // the Work unit places its linked files from it, via arriving, and sends
 // only the rest.
 func (m *Moves) linkTorrents(ctx context.Context, us []PlanUnit) ([]PlanUnit, error) {
-	var ws []works.WorkID
-	for _, u := range us {
-		if u.Torrent == nil && u.Verdict.Color != Red && u.Subject.From.Node != u.Subject.To.Node {
-			ws = append(ws, u.Subject.Work)
-		}
-	}
+	ws := crossingWorks(us)
 	if len(ws) == 0 {
 		return us, nil
 	}
-	var of map[works.WorkID][]downloadclients.ID
-	var srcs map[downloadclients.ID]downloadclients.MoveSource
-	tos := map[role.NodeID]*downloadclients.ClientID{}
+	var lf linkFacts
 	err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		if of, err = grabs.TorrentsOfWorks(ctx, r, ws); err != nil {
-			return err
-		}
-		var ids []downloadclients.ID
-		for _, ts := range of {
-			for _, t := range ts {
-				ids = appendOnce(ids, t)
-			}
-		}
-		if srcs, err = downloadclients.MoveSources(ctx, r, ids); err != nil {
-			return err
-		}
-		for _, u := range us {
-			if _, ok := tos[u.Subject.To.Node]; !ok && u.Torrent == nil {
-				if tos[u.Subject.To.Node], err = downloadclients.GrabsToOn(ctx, r, u.Subject.To.Node); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
+		lf, err = readLinkFacts(ctx, r, us, ws)
+		return err
 	})
 	if err != nil {
 		return nil, err
@@ -67,15 +43,65 @@ func (m *Moves) linkTorrents(ctx context.Context, us []PlanUnit) ([]PlanUnit, er
 	var out []PlanUnit
 	for _, u := range us {
 		if u.Torrent == nil {
-			if t, ok, err := m.linkOne(ctx, &u, of[u.Subject.Work], srcs, tos[u.Subject.To.Node], asked); err != nil {
+			t, ok, err := m.linkOne(ctx, &u, lf.of[u.Subject.Work], lf.srcs, lf.tos[u.Subject.To.Node], asked)
+			if err != nil {
 				return nil, err
-			} else if ok {
+			}
+			if ok {
 				out = append(out, t)
 			}
 		}
 		out = append(out, u)
 	}
 	return out, nil
+}
+
+// crossingWorks lists the Works of us's units that may move and cross
+// Nodes.
+func crossingWorks(us []PlanUnit) []works.WorkID {
+	var ws []works.WorkID
+	for _, u := range us {
+		if u.Torrent == nil && u.Verdict.Color != Red && u.Subject.From.Node != u.Subject.To.Node {
+			ws = append(ws, u.Subject.Work)
+		}
+	}
+	return ws
+}
+
+// linkFacts is what linking reads up front: the torrents each Work
+// imported from, where each of those lies, and the client each
+// destination Node's new Grabs go to.
+type linkFacts struct {
+	of   map[works.WorkID][]downloadclients.ID
+	srcs map[downloadclients.ID]downloadclients.MoveSource
+	tos  map[role.NodeID]*downloadclients.ClientID
+}
+
+func readLinkFacts(ctx context.Context, r storage.Reader[file], us []PlanUnit, ws []works.WorkID) (linkFacts, error) {
+	lf := linkFacts{tos: map[role.NodeID]*downloadclients.ClientID{}}
+	var err error
+	if lf.of, err = grabs.TorrentsOfWorks(ctx, r, ws); err != nil {
+		return linkFacts{}, err
+	}
+	var ids []downloadclients.ID
+	for _, ts := range lf.of {
+		for _, t := range ts {
+			ids = appendOnce(ids, t)
+		}
+	}
+	if lf.srcs, err = downloadclients.MoveSources(ctx, r, ids); err != nil {
+		return linkFacts{}, err
+	}
+	for _, u := range us {
+		node := u.Subject.To.Node
+		if _, ok := lf.tos[node]; ok || u.Torrent != nil {
+			continue
+		}
+		if lf.tos[node], err = downloadclients.GrabsToOn(ctx, r, node); err != nil {
+			return linkFacts{}, err
+		}
+	}
+	return lf, nil
 }
 
 // linkOne links Work unit u to the first of ts that seeds complete on its
@@ -96,36 +122,54 @@ func (m *Moves) linkOne(ctx context.Context, u *PlanUnit, ts []downloadclients.I
 		if err != nil {
 			return PlanUnit{}, false, err
 		}
-		linked := false
-		for i, f := range u.Files {
-			for p, got := range probed.Payloads {
-				if f.Kind == KindLibrary && !f.Seen.ID.IsZero() && got.Seen.ID == f.Seen.ID && p.InfoHash == src.InfoHash {
-					u.Files[i].Via, u.Files[i].Index = ViaArriving, p.FileIndex
-					u.Bytes -= f.Size
-					linked = true
-				}
-			}
-		}
-		if !linked {
+		if !linkPayload(u, src.InfoHash, probed) {
 			continue
 		}
-		var t []PlanUnit
-		err = m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-			var err error
-			t, err = m.planTorrentsIn(ctx, r, []TorrentTo{{Torrent: id, To: Side{Node: u.Subject.To.Node, Client: to}}}, false)
-			return err
-		})
+		t, err := m.planLinked(ctx, id, Side{Node: u.Subject.To.Node, Client: to})
 		if err != nil {
 			return PlanUnit{}, false, err
 		}
-		if t[0].Verdict.Color == Red {
+		if t.Verdict.Color == Red {
 			u.Files, u.Bytes = fromLibrary(u.Files), u.Bytes+arrivingBytes(u.Files)
 			continue
 		}
 		asked[id], u.Linked = true, &id
-		return t[0], true, nil
+		return t, true, nil
 	}
 	return PlanUnit{}, false, nil
+}
+
+// linkPayload has each library file of u that probed finds as a payload
+// file of the torrent with hash come via arriving from it, and reports
+// whether any did.
+func linkPayload(u *PlanUnit, hash bencode.InfoHash, probed storing.Probed) bool {
+	linked := false
+	for i, f := range u.Files {
+		if f.Kind != KindLibrary || f.Seen.ID.IsZero() {
+			continue
+		}
+		for p, got := range probed.Payloads {
+			if got.Seen.ID == f.Seen.ID && p.InfoHash == hash {
+				u.Files[i].Via, u.Files[i].Index = ViaArriving, p.FileIndex
+				u.Bytes -= f.Size
+				linked = true
+			}
+		}
+	}
+	return linked
+}
+
+func (m *Moves) planLinked(ctx context.Context, id downloadclients.ID, to Side) (PlanUnit, error) {
+	var t []PlanUnit
+	err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		t, err = m.planTorrentsIn(ctx, r, []TorrentTo{{Torrent: id, To: to}}, false)
+		return err
+	})
+	if err != nil {
+		return PlanUnit{}, err
+	}
+	return t[0], nil
 }
 
 // probePayloads reads req's payload files on node, under probe_deadline.

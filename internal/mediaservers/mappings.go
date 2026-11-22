@@ -291,8 +291,12 @@ func (m *MediaServers) saveMapping(ctx context.Context, q *db.Queries, id link.S
 // mappings: their changes wait until the Admin confirms them again. The
 // roots.changed after the Write publishes the servers it unconfirmed.
 func (m *MediaServers) Rehomed(ctx context.Context, tx *storage.Tx[storage.Library], root roots.ID) error {
-	ids, err := db.New(tx).UnconfirmRoot(ctx, root)
+	q := db.New(tx)
+	ids, err := q.ListConfirmedOfRoot(ctx, root)
 	if err != nil {
+		return err
+	}
+	if err := q.UnconfirmRoot(ctx, root); err != nil {
 		return err
 	}
 	m.unconfirmed.add(ids)

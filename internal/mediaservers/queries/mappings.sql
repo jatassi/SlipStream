@@ -29,12 +29,16 @@ SET scanned_at = iif((server_folder IS NOT excluded.server_folder OR library_key
 -- name: DeleteMapping :exec
 DELETE FROM mediaservers_mapping WHERE server_id = sqlc.arg(server_id) AND root_id = sqlc.arg(root_id);
 
--- UnconfirmRoot is a re-home: the root's place moved past the one the
--- Admin confirmed. It returns the servers whose mapping it unconfirmed.
--- name: UnconfirmRoot :many
-UPDATE mediaservers_mapping SET confirmed_at = NULL, confirmed_place = NULL
+-- name: ListConfirmedOfRoot :many
+SELECT server_id FROM mediaservers_mapping
 WHERE root_id = sqlc.arg(root_id) AND confirmed_at IS NOT NULL
-RETURNING server_id;
+ORDER BY server_id;
+
+-- UnconfirmRoot is a re-home: the root's place moved past the one the
+-- Admin confirmed.
+-- name: UnconfirmRoot :exec
+UPDATE mediaservers_mapping SET confirmed_at = NULL, confirmed_place = NULL
+WHERE root_id = sqlc.arg(root_id) AND confirmed_at IS NOT NULL;
 
 -- QueueLibrary queues a whole library refresh of a root's library, unless
 -- one is open for it already.

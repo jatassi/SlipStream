@@ -68,6 +68,35 @@ func (q *Queries) ListAllMappings(ctx context.Context) ([]MediaserversMapping, e
 	return items, nil
 }
 
+const listConfirmedOfRoot = `-- name: ListConfirmedOfRoot :many
+SELECT server_id FROM mediaservers_mapping
+WHERE root_id = ?1 AND confirmed_at IS NOT NULL
+ORDER BY server_id
+`
+
+func (q *Queries) ListConfirmedOfRoot(ctx context.Context, rootID roots.ID) ([]link.ServerID, error) {
+	rows, err := q.db.QueryContext(ctx, listConfirmedOfRoot, rootID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []link.ServerID
+	for rows.Next() {
+		var server_id link.ServerID
+		if err := rows.Scan(&server_id); err != nil {
+			return nil, err
+		}
+		items = append(items, server_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMappings = `-- name: ListMappings :many
 SELECT server_id, root_id, shown, server_folder, library_key, library_name, library_folder, guess, confirmed_at, confirmed_place, scanned_at, scan_requested_at, scan_started_at FROM mediaservers_mapping WHERE server_id = ?1 ORDER BY root_id
 `
@@ -136,35 +165,16 @@ func (q *Queries) QueueLibrary(ctx context.Context, arg QueueLibraryParams) erro
 	return err
 }
 
-const unconfirmRoot = `-- name: UnconfirmRoot :many
+const unconfirmRoot = `-- name: UnconfirmRoot :exec
 UPDATE mediaservers_mapping SET confirmed_at = NULL, confirmed_place = NULL
 WHERE root_id = ?1 AND confirmed_at IS NOT NULL
-RETURNING server_id
 `
 
 // UnconfirmRoot is a re-home: the root's place moved past the one the
-// Admin confirmed. It returns the servers whose mapping it unconfirmed.
-func (q *Queries) UnconfirmRoot(ctx context.Context, rootID roots.ID) ([]link.ServerID, error) {
-	rows, err := q.db.QueryContext(ctx, unconfirmRoot, rootID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []link.ServerID
-	for rows.Next() {
-		var server_id link.ServerID
-		if err := rows.Scan(&server_id); err != nil {
-			return nil, err
-		}
-		items = append(items, server_id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+// Admin confirmed.
+func (q *Queries) UnconfirmRoot(ctx context.Context, rootID roots.ID) error {
+	_, err := q.db.ExecContext(ctx, unconfirmRoot, rootID)
+	return err
 }
 
 const upsertMapping = `-- name: UpsertMapping :exec

@@ -445,17 +445,6 @@ func TestADraftTestAnswersTheVersionAndWarnings(t *testing.T) {
 	}
 }
 
-func exec(t *testing.T, lib *storage.DB[storage.Library], query string, args ...any) {
-	t.Helper()
-	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, query, args...)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func must[T any](v T, err error) T {
 	if err != nil {
 		panic(err)

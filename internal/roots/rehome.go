@@ -165,22 +165,7 @@ func (r *Roots) move(ctx context.Context, to Root, forget *int, checked map[stor
 		if err := r.idle(ctx, tx, to.ID); err != nil {
 			return err
 		}
-		recorded, err := r.cfg.Contents.Recorded(ctx, tx, to.ID)
-		if err != nil {
-			return err
-		}
-		missing, err := absentOf(recorded, checked)
-		if err != nil {
-			return err
-		}
-		if len(missing) > 0 && (forget == nil || *forget != len(missing)) {
-			return &MissingError{Count: len(missing), First: missing[:min(len(missing), firstMissing)]}
-		}
-		paths := make([]storing.Rel, len(missing))
-		for i, m := range missing {
-			paths[i] = m.Path
-		}
-		if err := r.cfg.Contents.Forget(ctx, tx, to.ID, paths); err != nil {
+		if err := r.forgetMissing(ctx, tx, to.ID, forget, checked); err != nil {
 			return err
 		}
 		if err := db.New(tx).MoveRoot(ctx, db.MoveRootParams{ID: to.ID, NodeID: to.Node, Path: to.Path}); err != nil {
@@ -201,6 +186,27 @@ func (r *Roots) move(ctx context.Context, to Root, forget *int, checked map[stor
 		return nil
 	})
 	return view, err
+}
+
+// forgetMissing forgets root id's files checked found missing in tx when
+// forget is their count, and is *MissingError when it isn't.
+func (r *Roots) forgetMissing(ctx context.Context, tx *storage.Tx[file], id ID, forget *int, checked map[storing.Recorded]storing.MissingReason) error {
+	recorded, err := r.cfg.Contents.Recorded(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	missing, err := absentOf(recorded, checked)
+	if err != nil {
+		return err
+	}
+	if len(missing) > 0 && (forget == nil || *forget != len(missing)) {
+		return &MissingError{Count: len(missing), First: missing[:min(len(missing), firstMissing)]}
+	}
+	paths := make([]storing.Rel, len(missing))
+	for i, m := range missing {
+		paths[i] = m.Path
+	}
+	return r.cfg.Contents.Forget(ctx, tx, id, paths)
 }
 
 func (r *Roots) idle(ctx context.Context, rd storage.Reader[file], id ID) error {

@@ -375,58 +375,70 @@ func (c *Clients) EditClient(ctx context.Context, id ClientID, ed Edit) (Externa
 	if err != nil {
 		return ExternalCard{}, err
 	}
-	if now.Node != was.Node && !c.cfg.Roster.Holds(role.Downloading, now.Node) {
-		return ExternalCard{}, ErrNotDownloading
-	}
-	err = c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error { return c.edits(ctx, r, was, now) })
+	report, err := c.vetEdit(ctx, was, now, saved, s)
 	if err != nil {
 		return ExternalCard{}, err
 	}
-	var report *TestReport
-	if tested(was, now, saved, s) {
-		r, err := c.test(ctx, now, s)
-		if err != nil {
-			return ExternalCard{}, err
-		}
-		report = &r
-	}
-	moved := now.Node != was.Node
-	if moved {
-		if err := c.look(ctx, now, report.NodeFolder); err != nil {
-			return ExternalCard{}, err
-		}
-	}
 	err = c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		if err := c.edits(ctx, tx, was, now); err != nil {
-			return err
-		}
-		if moved {
-			if err := rerecord(ctx, tx, now); err != nil {
-				return err
-			}
-		}
-		p, err := rowOf(c.cfg.Sealer, now, s)
-		if err != nil {
-			return err
-		}
-		at := storage.Now()
-		p.UpdatedAt = at
-		n, err := db.New(tx).UpdateClient(ctx, p)
-		switch {
-		case err != nil:
-			return err
-		case n == 0:
-			return ErrNoClient
-		case report == nil:
-			return nil
-		}
-		return passed(ctx, tx, now, *report, at)
+		return c.writeEdit(ctx, tx, was, now, s, report)
 	})
 	if err != nil {
 		return ExternalCard{}, err
 	}
 	c.saveDone(id, was.Node, now.Node)
 	return c.ClientCard(ctx, id)
+}
+
+// vetEdit refuses going from was to now as EditClient does before its
+// Write, and returns the Test's report when the edit needs one.
+func (c *Clients) vetEdit(ctx context.Context, was, now External, saved, s clients.Secrets) (*TestReport, error) {
+	moved := now.Node != was.Node
+	if moved && !c.cfg.Roster.Holds(role.Downloading, now.Node) {
+		return nil, ErrNotDownloading
+	}
+	err := c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error { return c.edits(ctx, r, was, now) })
+	if err != nil || !tested(was, now, saved, s) {
+		return nil, err
+	}
+	report, err := c.test(ctx, now, s)
+	if err != nil {
+		return nil, err
+	}
+	if moved {
+		if err := c.look(ctx, now, report.NodeFolder); err != nil {
+			return nil, err
+		}
+	}
+	return &report, nil
+}
+
+// writeEdit saves now over was in tx, taking the client's Torrents to its
+// new Node and recording a passing Test.
+func (c *Clients) writeEdit(ctx context.Context, tx *storage.Tx[file], was, now External, s clients.Secrets, report *TestReport) error {
+	if err := c.edits(ctx, tx, was, now); err != nil {
+		return err
+	}
+	if now.Node != was.Node {
+		if err := rerecord(ctx, tx, now); err != nil {
+			return err
+		}
+	}
+	p, err := rowOf(c.cfg.Sealer, now, s)
+	if err != nil {
+		return err
+	}
+	at := storage.Now()
+	p.UpdatedAt = at
+	n, err := db.New(tx).UpdateClient(ctx, p)
+	switch {
+	case err != nil:
+		return err
+	case n == 0:
+		return ErrNoClient
+	case report == nil:
+		return nil
+	}
+	return passed(ctx, tx, now, *report, at)
 }
 
 // edits refuses going from was to now when now's name or address is

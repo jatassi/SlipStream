@@ -344,58 +344,86 @@ func uuidOf(s string) (storage.UUID, error) {
 type handlers struct{ n Mover }
 
 func (h handlers) preview(ctx context.Context, _ identity.Admin, in *previewInput) (*previewOutput, error) {
-	m := open(h.n)
-	ask := moves.Ask{Origin: moves.Origin(in.Body.Origin)}
-	for _, w := range in.Body.Works {
-		work, err := storage.ParseUUID(w.WorkID)
-		if err != nil {
-			return nil, workNotFound
-		}
-		root, err := storage.ParseUUID(w.RootID)
-		if err != nil {
-			return nil, rootNotFound
-		}
-		ask.Works = append(ask.Works, moves.WorkTo{Work: works.WorkID{UUID: work}, To: roots.ID{UUID: root}})
+	ask, err := askOf(in.Body)
+	if err != nil {
+		return nil, err
 	}
-	for _, rt := range in.Body.Roots {
-		from, err := storage.ParseUUID(rt.RootID)
-		if err != nil {
-			return nil, rootNotFound
-		}
-		to, err := storage.ParseUUID(rt.To)
-		if err != nil {
-			return nil, rootNotFound
-		}
-		ask.Roots = append(ask.Roots, moves.RootTo{Root: roots.ID{UUID: from}, To: roots.ID{UUID: to}})
-	}
-	for _, t := range in.Body.Torrents {
-		to, err := torrentToOf(t)
-		if err != nil {
-			return nil, err
-		}
-		ask.Torrents = append(ask.Torrents, to)
-	}
-	for _, c := range in.Body.Clients {
-		from, err := sideOf(side{NodeID: c.NodeID, ClientID: c.ClientID})
-		if err != nil {
-			return nil, err
-		}
-		to, err := sideOf(c.To)
-		if err != nil {
-			return nil, err
-		}
-		ask.Clients = append(ask.Clients, moves.ClientTo{From: from, To: to})
-	}
-	o := in.Body.Options
-	ask.Options = moves.Options{IncludeLinkedTorrents: o.IncludeLinkedTorrents, RepointRouting: o.RepointRouting, DeleteEmptiedRoots: o.DeleteEmptiedRoots}
 	if len(ask.Works) == 0 && len(ask.Roots) == 0 && len(ask.Torrents) == 0 && len(ask.Clients) == 0 {
 		return nil, emptyAsk
 	}
+	m := open(h.n)
 	p, err := m.Preview(ctx, ask)
 	if err != nil {
 		return nil, answer(err)
 	}
 	return h.answerPlan(ctx, m, p)
+}
+
+func askOf(b moveAsk) (moves.Ask, error) {
+	o := b.Options
+	ask := moves.Ask{
+		Origin:  moves.Origin(b.Origin),
+		Options: moves.Options{IncludeLinkedTorrents: o.IncludeLinkedTorrents, RepointRouting: o.RepointRouting, DeleteEmptiedRoots: o.DeleteEmptiedRoots},
+	}
+	var err error
+	if ask.Works, err = each(b.Works, workToOf); err != nil {
+		return moves.Ask{}, err
+	}
+	if ask.Roots, err = each(b.Roots, rootToOf); err != nil {
+		return moves.Ask{}, err
+	}
+	if ask.Torrents, err = each(b.Torrents, torrentToOf); err != nil {
+		return moves.Ask{}, err
+	}
+	if ask.Clients, err = each(b.Clients, clientToOf); err != nil {
+		return moves.Ask{}, err
+	}
+	return ask, nil
+}
+
+func each[In, Out any](ins []In, of func(In) (Out, error)) ([]Out, error) {
+	var out []Out
+	for _, in := range ins {
+		o, err := of(in)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, nil
+}
+
+func workToOf(w workTo) (moves.WorkTo, error) {
+	work, err := storage.ParseUUID(w.WorkID)
+	if err != nil {
+		return moves.WorkTo{}, workNotFound
+	}
+	root, err := storage.ParseUUID(w.RootID)
+	if err != nil {
+		return moves.WorkTo{}, rootNotFound
+	}
+	return moves.WorkTo{Work: works.WorkID{UUID: work}, To: roots.ID{UUID: root}}, nil
+}
+
+func rootToOf(rt rootTo) (moves.RootTo, error) {
+	from, err := storage.ParseUUID(rt.RootID)
+	if err != nil {
+		return moves.RootTo{}, rootNotFound
+	}
+	to, err := storage.ParseUUID(rt.To)
+	if err != nil {
+		return moves.RootTo{}, rootNotFound
+	}
+	return moves.RootTo{Root: roots.ID{UUID: from}, To: roots.ID{UUID: to}}, nil
+}
+
+func clientToOf(c clientTo) (moves.ClientTo, error) {
+	from, err := sideOf(side{NodeID: c.NodeID, ClientID: c.ClientID})
+	if err != nil {
+		return moves.ClientTo{}, err
+	}
+	to, err := sideOf(c.To)
+	return moves.ClientTo{From: from, To: to}, err
 }
 
 func torrentToOf(t torrentTo) (moves.TorrentTo, error) {

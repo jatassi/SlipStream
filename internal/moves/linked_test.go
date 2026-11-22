@@ -2,6 +2,7 @@ package moves
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"testing"
 
@@ -36,7 +37,7 @@ func paired(t *testing.T) (lib *storage.DB[storage.Library], torrent, work UnitI
 		}
 		if err := tx.QueryRowContext(ctx, `UPDATE moves_unit SET pairs_with_unit_id = ?, waiting = 'linked_torrent', waiting_at = 0 WHERE id = ? RETURNING id`,
 			tu.ID, wu.ID).Scan(&wu.ID); err != nil {
-			return err
+			return fmt.Errorf("pair the Work unit: %w", err)
 		}
 		for i, f := range []File{
 			{Kind: KindLibrary, Via: ViaArriving, ID: id[files.ID](), Sits: rel(t, "Film/Film.mkv"), Size: 10, Index: 0},
@@ -109,7 +110,7 @@ func TestAPairedWorkWaitsForItsTorrentsPlace(t *testing.T) {
 		t.Fatal(err)
 	}
 	w = reload(t, lib, work)
-	if s := w.Stage.(Queued); s.Wait != "" || w.Due == nil || w.PairsWith == nil {
+	if s, ok := w.Stage.(Queued); !ok || s.Wait != "" || w.Due == nil || w.PairsWith == nil {
 		t.Errorf("after the torrent's Place the Work unit is %+v due %v paired %v, want it free, due and still paired", s, w.Due, w.PairsWith)
 	}
 }
@@ -127,7 +128,7 @@ func TestAFailedTorrentLeavesItsWorkTheLibrarysFiles(t *testing.T) {
 	if got := []Via{w.Files[0].Via, w.Files[1].Via}; !slices.Equal(got, []Via{ViaArriving, ViaLibrary}) {
 		t.Errorf("the Work unit's linked files come via %v, want the placed one arriving and the other from the library", got)
 	}
-	if s := w.Stage.(Queued); s.Wait != "" || w.Due == nil || w.PairsWith != nil {
+	if s, ok := w.Stage.(Queued); !ok || s.Wait != "" || w.Due == nil || w.PairsWith != nil {
 		t.Errorf("the Work unit is %+v due %v paired %v, want it unpaired, free and due", s, w.Due, w.PairsWith)
 	}
 	if got := copyRequest(w).Files; len(got) != 2 {
