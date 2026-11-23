@@ -241,7 +241,7 @@ test("Move client… changes its Node, and a Node that doesn't find the torrents
       code: "download_client_files_missing",
       title: "Some of this client's files aren't at its folders on the new Node",
       detail:
-        "seedbox didn't find the files of 2 torrents at this client's folders. Check each Client folder's path on seedbox.",
+        "The files of 2 torrents aren't at this client's folders on seedbox. Check its Remote path mappings for seedbox.",
       missing: {
         count: 2,
         first: [

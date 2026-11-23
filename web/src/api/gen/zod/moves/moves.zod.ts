@@ -27,7 +27,7 @@ export const ListMovesQueryParams = zod.object({
 export const ListMovesResponse = MovesBatchList;
 
 /**
- * @summary Start a previewed Move; a Start sent again answers the same batch
+ * @summary Start a previewed Move. A Start sent again returns the same batch
  */
 export const startMovesQueryConfirmMin = 0;
 
@@ -62,7 +62,7 @@ export const PatchMoveSettingsBody = MovesMoveSettingsValues;
 export const PatchMoveSettingsResponse = MovesMoveSettings;
 
 /**
- * @summary Cancel a unit of a Move before its switch; it removes what it placed
+ * @summary Cancel a unit of a Move before its switch. It removes what it placed
  */
 export const CancelMoveUnitParams = zod.object({
   unitId: zod.uuid(),
@@ -122,7 +122,7 @@ export const PreviewMoveBackParams = zod.object({
 export const PreviewMoveBackResponse = MovesMovePreview;
 
 /**
- * @summary Cancel every unit of a Move that hasn't switched; each one removes what it placed
+ * @summary Cancel every unit of a Move that hasn't switched. Each one removes what it placed
  */
 export const CancelMovesParams = zod.object({
   batchId: zod.uuid(),

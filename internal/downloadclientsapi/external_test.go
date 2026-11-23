@@ -217,7 +217,7 @@ func TestAMoveTakesTheTorrentsOnceTheNewNodeFindsTheirFiles(t *testing.T) {
 
 	w.o.Expect(t, http.MethodPatch, "/api/v1/external-download-clients/"+c.ID, `{"nodeId":"`+media.String()+`"}`, http.StatusConflict,
 		`{"status":409,"code":"download_client_files_missing","title":"Some of this client's files aren't at its folders on the new Node",`+
-			`"detail":"Media server didn't find the files of 1 torrent at this client's folders. Check each Client folder's path on Media server.",`+
+			`"detail":"The files of 1 torrent aren't at this client's folders on Media server. Check its Remote path mappings for Media server.",`+
 			`"missing":{"count":1,"first":[{"torrentId":"id1","name":"Orchard"}]}}`)
 	if last := w.node.tests[len(w.node.tests)-1]; last.at != media {
 		t.Errorf("the move tested on %s, want Media server", last.at)

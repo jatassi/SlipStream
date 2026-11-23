@@ -36,8 +36,8 @@ func TestWordsSayWhatAChangeDidAndWhatItLost(t *testing.T) {
 		{tb.doomed(tb.change(link.ChangeRemoved, "A", "old")), "This change is part of an upgrade. SlipStream sends it together with the upgrade's other file change."},
 		{prepared, "Saved every user's watch data before the rename. SlipStream sends this change once the rename finishes."},
 		{missed, "SlipStream couldn't save the watch data before the rename. It tries again when it sends this change."},
-		{sent(tb.change(link.ChangeMoved, "A>d:A", "f"), link.ResultAccepted, link.LostCollections), "Sent the move to Vault (E:). Lost: collections."},
-		{moving, "Saved every user's watch data before the move. SlipStream sends this change once the move finishes."},
+		{sent(tb.change(link.ChangeMoved, "A>d:A", "f"), link.ResultAccepted, link.LostCollections), "Sent the Move to Vault (E:). Lost: collections."},
+		{moving, "Saved every user's watch data before the Move. SlipStream sends this change once the Move finishes."},
 	} {
 		if got := c.change.Words("Vault (E:)"); got != c.want {
 			t.Errorf("%s reads %q, want %q", show(tb, c.change), got, c.want)

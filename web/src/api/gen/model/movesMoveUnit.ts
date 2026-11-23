@@ -18,7 +18,7 @@ export interface MovesMoveUnit {
   /** What it recorded for the Admin, as sentences */
   notes: string[];
   phase: MovesMoveUnitPhase;
-  /** Switch now can pass its wait */
+  /** Whether Switch now can end its wait */
   switchNow: boolean;
   to: MovesPlace;
   /** A torrent unit's */

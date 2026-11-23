@@ -56,7 +56,7 @@ type job struct {
 
 type needsYou struct {
 	Rows    []need     `json:"rows" nullable:"false" doc:"Newest first, at most Rows on Home"`
-	Moves   []moveNeed `json:"moves" nullable:"false" doc:"Moves that failed or waited past Show a waiting switch in Needs you after, newest first, at most Rows on Home"`
+	Moves   []moveNeed `json:"moves" nullable:"false" doc:"Moves that failed, or waited past the moves.needsYouAfter setting, newest first, at most Rows on Home"`
 	Failed  int        `json:"failed" minimum:"0" maximum:"100" doc:"Failed Grabs that need attention, counted up to 100; 100 means 100 or more"`
 	Waiting int        `json:"waiting" minimum:"0" doc:"Grabs that wait on an Admin"`
 }
@@ -74,7 +74,7 @@ type moveNeed struct {
 	Work      work       `json:"work"`
 	Words     string     `json:"words" doc:"What happened and what to do, such as Heat (1995) has waited 1 hour to switch to den. Someone is playing it on a Media Server."`
 	Since     *time.Time `json:"since,omitempty" doc:"When it began to wait; absent for a failed Move"`
-	SwitchNow bool       `json:"switchNow" doc:"Switch now can pass its wait"`
+	SwitchNow bool       `json:"switchNow" doc:"Whether Switch now can end its wait"`
 }
 
 type recent struct {

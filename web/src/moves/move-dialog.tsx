@@ -101,7 +101,7 @@ export function MoveBackDialog({
       startedWords={(started, plan) =>
         started === 1
           ? `Moving ${plan.units.find(({ verdict }) => verdict !== "red")?.name ?? "it"} back.`
-          : `Moving ${started} back to the roots they left.`
+          : `Started ${countWords(started, { one: "Move", many: "Moves" })} back.`
       }
       open={open}
       onOpenChange={onOpenChange}

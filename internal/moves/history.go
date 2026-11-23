@@ -3,6 +3,7 @@ package moves
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/history/entry"
@@ -81,7 +82,7 @@ func renderMoved(f MovedFacts, _ entry.Context) entry.Message {
 
 func renderTorrentMoved(f TorrentMovedFacts, _ entry.Context) entry.Message {
 	return entry.Message{
-		Title: "Moved " + f.Name + " to " + f.To, Lines: []string{"It seeds from " + f.To + " now, not " + f.From + "."}, Tone: entry.Good,
+		Title: "Moved " + f.Name + " to " + f.To, Lines: []string{"It moved from " + f.From + "."}, Tone: entry.Good,
 	}
 }
 
@@ -203,13 +204,14 @@ func (m *Moves) torrentFailureWords(s Failed, from, to, client string) string {
 	case DestinationGone:
 		return "Its copy in " + client + " was removed before it moved. Try again."
 	case DestinationCheckFailed:
-		return client + " found the copy damaged" + why + ". Try again."
+		n, _ := strconv.Atoi(s.Detail)
+		return fmt.Sprintf("The copy in %s is missing %d %s. Try again.", client, n, plural(n, "piece", "pieces"))
 	case SwitchRefused:
 		switch s.Detail {
 		case refusedLate:
-			return to + " was asked to start too late to answer in time. It seeds from " + from + " again."
+			return to + " got the request to start the torrent too late. It seeds from " + from + " again."
 		case refusedNoAnswer:
-			return "No tracker answered the torrent's start on " + to + " in time. It seeds from " + from + " again."
+			return "No tracker responded to the torrent's start on " + to + " in time. It seeds from " + from + " again."
 		}
 		return "A tracker refused the torrent on " + to + why + ". It seeds from " + from + " again."
 	case DestinationUnreachable:

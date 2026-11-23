@@ -31,7 +31,7 @@ var lost = map[link.Loss]string{
 func (c Change) Words(to string) string {
 	what := "rename"
 	if c.Move() {
-		what = "move"
+		what = "Move"
 	}
 	switch c.State {
 	case Prepared:
@@ -74,7 +74,7 @@ func (c Change) sent(to string) string {
 	}
 	s := did[c.Kind]
 	if c.Move() {
-		s = "Sent the move to " + to + "."
+		s = "Sent the Move to " + to + "."
 	}
 	switch {
 	case !c.Carry():

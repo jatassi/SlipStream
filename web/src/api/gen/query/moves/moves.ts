@@ -261,7 +261,7 @@ export const getStartMovesUrl = (params: StartMovesParams) => {
 };
 
 /**
- * @summary Start a previewed Move; a Start sent again answers the same batch
+ * @summary Start a previewed Move. A Start sent again returns the same batch
  */
 export const startMoves = async (
   movesStartAsk: MovesStartAsk,
@@ -343,7 +343,7 @@ export type StartMovesMutationError = ErrorType<
 export type StartMovesMutationVariables = { data: MovesStartAsk; params: StartMovesParams };
 
 /**
- * @summary Start a previewed Move; a Start sent again answers the same batch
+ * @summary Start a previewed Move. A Start sent again returns the same batch
  */
 export const useStartMoves = <
   TError = ErrorType<
@@ -753,7 +753,7 @@ export const getCancelMoveUnitUrl = (unitId: string) => {
 };
 
 /**
- * @summary Cancel a unit of a Move before its switch; it removes what it placed
+ * @summary Cancel a unit of a Move before its switch. It removes what it placed
  */
 export const cancelMoveUnit = async (
   unitId: string,
@@ -823,7 +823,7 @@ export type CancelMoveUnitMutationError = ErrorType<
 export type CancelMoveUnitMutationVariables = { unitId: string };
 
 /**
- * @summary Cancel a unit of a Move before its switch; it removes what it placed
+ * @summary Cancel a unit of a Move before its switch. It removes what it placed
  */
 export const useCancelMoveUnit = <
   TError = ErrorType<
@@ -1367,7 +1367,7 @@ export const getCancelMovesUrl = (batchId: string) => {
 };
 
 /**
- * @summary Cancel every unit of a Move that hasn't switched; each one removes what it placed
+ * @summary Cancel every unit of a Move that hasn't switched. Each one removes what it placed
  */
 export const cancelMoves = async (
   batchId: string,
@@ -1437,7 +1437,7 @@ export type CancelMovesMutationError = ErrorType<
 export type CancelMovesMutationVariables = { batchId: string };
 
 /**
- * @summary Cancel every unit of a Move that hasn't switched; each one removes what it placed
+ * @summary Cancel every unit of a Move that hasn't switched. Each one removes what it placed
  */
 export const useCancelMoves = <
   TError = ErrorType<

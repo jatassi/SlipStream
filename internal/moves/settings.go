@@ -14,7 +14,7 @@ import (
 
 var (
 	NeedsYouAfter = setting.Duration{
-		Key: "moves.needsYouAfter", Label: "Show a waiting switch in Needs you after",
+		Key: "moves.needsYouAfter", Label: "Show a Move waiting to switch in Needs you after",
 		Default: time.Hour, Min: 5 * time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute,
 	}
 	PlexBound = setting.Duration{

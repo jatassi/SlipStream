@@ -30,7 +30,7 @@ func builtinFolder(dir, ct string, h bencode.InfoHash) string {
 
 // errNoClient is a Download Client this Node runs no actor for, or whose
 // download folder its actor doesn't know yet.
-var errNoClient = errors.New("this Node doesn't know the Download Client's folder yet")
+var errNoClient = errors.New("this Node hasn't read the Download Client's folder yet")
 
 // clientBase is the download folder of a Download Client on this Node:
 // the built-in client's downloads folder when client is nil, else the

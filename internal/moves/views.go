@@ -335,7 +335,7 @@ func (m *Moves) Of(ctx context.Context, r storage.Reader[file], ws []works.WorkI
 }
 
 // Need is a unit Home's Needs you lists: failed, or waiting at its switch
-// longer than "Show a waiting switch in Needs you after". Words is its
+// longer than "Show a Move waiting to switch in Needs you after". Words is its
 // sentence.
 type Need struct {
 	View

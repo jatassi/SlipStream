@@ -156,6 +156,6 @@ export function downloadingWords(plan: MovesMovePreview): string | undefined {
     return undefined;
   }
   return n === 1
-    ? "1 torrent is still downloading. It moves once it finishes, or send it to another client now."
-    : `${n} torrents are still downloading. They move once they finish, or send them to another client now.`;
+    ? "1 torrent is still downloading. It moves once it finishes. To move it now, send its Grab to another client."
+    : `${n} torrents are still downloading. They move once they finish. To move them now, send their Grabs to another client.`;
 }

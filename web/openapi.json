@@ -10868,7 +10868,7 @@
             "type": "string"
           },
           "switchNow": {
-            "description": "Switch now can pass its wait",
+            "description": "Whether Switch now can end its wait",
             "type": "boolean"
           },
           "unitId": {
@@ -10932,7 +10932,7 @@
             "type": "integer"
           },
           "moves": {
-            "description": "Moves that failed or waited past Show a waiting switch in Needs you after, newest first, at most Rows on Home",
+            "description": "Moves that failed, or waited past the moves.needsYouAfter setting, newest first, at most Rows on Home",
             "items": {
               "$ref": "#/components/schemas/HomeMoveNeed"
             },
@@ -17028,7 +17028,7 @@
             "type": "string"
           },
           "switchNow": {
-            "description": "Switch now can pass its wait",
+            "description": "Whether Switch now can end its wait",
             "type": "boolean"
           },
           "to": {
@@ -65502,7 +65502,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Start a previewed Move; a Start sent again answers the same batch",
+        "summary": "Start a previewed Move. A Start sent again returns the same batch",
         "tags": [
           "moves"
         ],
@@ -66203,7 +66203,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Cancel a unit of a Move before its switch; it removes what it placed",
+        "summary": "Cancel a unit of a Move before its switch. It removes what it placed",
         "tags": [
           "moves"
         ],
@@ -67210,7 +67210,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Cancel every unit of a Move that hasn't switched; each one removes what it placed",
+        "summary": "Cancel every unit of a Move that hasn't switched. Each one removes what it placed",
         "tags": [
           "moves"
         ],

@@ -244,7 +244,7 @@ type moveUnit struct {
 	Bytes        int64                 `json:"bytes" minimum:"0"`
 	Failure      api.Nullable[failure] `json:"failure" doc:"Why it failed; null unless it failed"`
 	Undone       bool                  `json:"undone" doc:"A failed or canceled Move removed what it placed"`
-	SwitchNow    bool                  `json:"switchNow" doc:"Switch now can pass its wait"`
+	SwitchNow    bool                  `json:"switchNow" doc:"Whether Switch now can end its wait"`
 	Notes        []string              `json:"notes" nullable:"false" doc:"What it recorded for the Admin, as sentences"`
 	Words        string                `json:"words" doc:"What it does now, such as Copying to den"`
 }
@@ -580,7 +580,7 @@ func Routes(r *api.Router, n Mover) {
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "startMoves", Method: http.MethodPost, Path: "/moves",
-		Summary: "Start a previewed Move; a Start sent again answers the same batch",
+		Summary: "Start a previewed Move. A Start sent again returns the same batch",
 		Status:  http.StatusAccepted, Errors: []*api.Code{planChanged, planExpired, nothingToMove, api.Reconciling},
 	}, h.start)
 
@@ -598,7 +598,7 @@ func Routes(r *api.Router, n Mover) {
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "cancelMoves", Method: http.MethodPost, Path: "/moves/{batchId}/cancel",
-		Summary: "Cancel every unit of a Move that hasn't switched; each one removes what it placed",
+		Summary: "Cancel every unit of a Move that hasn't switched. Each one removes what it placed",
 		Status:  http.StatusOK, Errors: []*api.Code{moveNotFound},
 	}, h.cancelBatch)
 
@@ -618,7 +618,7 @@ func Routes(r *api.Router, n Mover) {
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "cancelMoveUnit", Method: http.MethodPost, Path: "/moves/units/{unitId}/cancel",
-		Summary: "Cancel a unit of a Move before its switch; it removes what it placed",
+		Summary: "Cancel a unit of a Move before its switch. It removes what it placed",
 		Status:  http.StatusOK, Errors: []*api.Code{moveNotFound, unitSwitched},
 	}, func(ctx context.Context, _ identity.Admin, in *unitInput) (*unitOutput, error) {
 		return h.unitAct(ctx, in, func(m *moves.Moves, id moves.UnitID) error { return m.Cancel(ctx, id) })

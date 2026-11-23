@@ -98,9 +98,9 @@ function ClientForm({ opened, kinds, nodes, onDone }: Props) {
         </form.Field>
         {changingNode && (
           <p className="text-ink-2">
-            Pick the Node it runs on now and each Client folder&apos;s path there. That Node first
-            checks that it finds every torrent&apos;s files, then the client and its torrents move
-            to it. Nothing is copied.
+            Pick the Node it runs on now, and set each Remote path mapping to the folder&apos;s path
+            on that Node. SlipStream first checks that every torrent&apos;s files are there. Then
+            the client and its torrents move to that Node. Nothing is copied.
           </p>
         )}
         <Fields sheet={sheet} kinds={kinds} nodes={nodes} changingNode={changingNode} />

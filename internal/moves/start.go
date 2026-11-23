@@ -105,7 +105,7 @@ func choiceOf(s Side) downloadclients.Choice {
 }
 
 // ErrNothingToMove refuses a Start whose every unit is red or taken.
-var ErrNothingToMove = errors.New("nothing in the preview can move now. Preview the Move again")
+var ErrNothingToMove = errors.New("nothing in the preview can move now")
 
 func startedOf(ctx context.Context, q *db.Queries, batch BatchID) (Started, error) {
 	counts, err := q.CountBatchPhases(ctx, batch)

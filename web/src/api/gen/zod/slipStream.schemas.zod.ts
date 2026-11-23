@@ -6229,7 +6229,7 @@ export const HomeMoveNeed = zod.object({
     .datetime({ offset: true })
     .exactOptional()
     .describe("When it began to wait; absent for a failed Move"),
-  switchNow: zod.boolean().describe("Switch now can pass its wait"),
+  switchNow: zod.boolean().describe("Whether Switch now can end its wait"),
   unitId: zod.uuid(),
   words: zod
     .string()
@@ -6267,7 +6267,7 @@ export const HomeNeedsYou = zod.object({
   moves: zod
     .array(HomeMoveNeed)
     .describe(
-      "Moves that failed or waited past Show a waiting switch in Needs you after, newest first, at most Rows on Home",
+      "Moves that failed, or waited past the moves.needsYouAfter setting, newest first, at most Rows on Home",
     ),
   rows: zod.array(HomeNeed).describe("Newest first, at most Rows on Home"),
   waiting: zod.int().min(homeNeedsYouWaitingMin).describe("Grabs that wait on an Admin"),
@@ -9118,7 +9118,7 @@ export const MovesMoveUnit = zod.object({
     "failed",
     "canceled",
   ]),
-  switchNow: zod.boolean().describe("Switch now can pass its wait"),
+  switchNow: zod.boolean().describe("Whether Switch now can end its wait"),
   to: MovesPlace,
   torrentId: zod.uuid().exactOptional().describe("A torrent unit's"),
   undone: zod.boolean().describe("A failed or canceled Move removed what it placed"),

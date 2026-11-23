@@ -181,12 +181,12 @@ func owedWords(o owing) string {
 	switch d := o.owes.Time; {
 	case d >= day:
 		n := int((d + day - 1) / day)
-		return fmt.Sprintf("%s needs %d more %s of seeding.", o.tracker, n, plural(n, "day", "days"))
+		return fmt.Sprintf("It needs %d more %s of seeding on %s.", n, plural(n, "day", "days"), o.tracker)
 	case d > 0:
 		n := int((d + time.Hour - 1) / time.Hour)
-		return fmt.Sprintf("%s needs %d more %s of seeding.", o.tracker, n, plural(n, "hour", "hours"))
+		return fmt.Sprintf("It needs %d more %s of seeding on %s.", n, plural(n, "hour", "hours"), o.tracker)
 	}
-	return o.tracker + " needs more seeding."
+	return "It needs more seeding on " + o.tracker + "."
 }
 
 // torrentsMoving is which of ids an open unit moves or keeps a copy of,
@@ -267,7 +267,7 @@ func torrentVerdict(t TorrentTo, src downloadclients.MoveSource, rd torrentRead,
 	case !src.Complete && !drain:
 		return red(CheckTorrent, "incomplete", "It hasn't finished downloading.")
 	case badPath:
-		return red(CheckNames, "bad_path", "SlipStream can't place a file of it under its name.")
+		return red(CheckNames, "bad_path", `One of its file paths has a backslash, a drive letter or a ".." folder, so SlipStream can't copy it.`)
 	case same:
 		return red(CheckDestination, "same_client", "It's already in this Download Client.")
 	case rd.nodes[t.To.Node] == "":

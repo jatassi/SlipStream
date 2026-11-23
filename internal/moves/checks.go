@@ -141,7 +141,7 @@ func namesCheck(_ PlanUnit, f planFacts) (Reason, bool) {
 	if f.longest <= f.budget {
 		return Reason{}, false
 	}
-	return Reason{Color: Red, Code: "names_too_long", Words: "Some of its file paths are too long for the destination root's Node. Shorten the Work's names, then preview again."}, true
+	return Reason{Color: Red, Code: "names_too_long", Words: "Some of its file paths are too long for the destination root's Node. Shorten its folder and file names, then preview again."}, true
 }
 
 func folderCheck(_ PlanUnit, f planFacts) (Reason, bool) {
@@ -172,7 +172,7 @@ func coverageCheck(u PlanUnit, f planFacts) (Reason, bool) {
 		case i < 0 || !shows(f.covers[i].State):
 			return Reason{Color: Red, Code: "mapping_missing", Words: "A Media Server shows its files now but doesn't show the destination root. Add that root to the server's library, then preview again."}, true
 		case f.covers[i].State == mediaservers.MapUnconfirmed || f.covers[i].Fresh:
-			worst = Reason{Color: Amber, Code: "mapping_unconfirmed", Words: "A Media Server hasn't confirmed it shows the destination root. Its watch history may not carry over."}
+			worst = Reason{Color: Amber, Code: "mapping_unconfirmed", Words: "A Media Server hasn't confirmed it shows the destination root. The server may lose who watched it, their resume positions and ratings."}
 		}
 	}
 	return worst, worst.Color > Green
@@ -186,7 +186,7 @@ func waitsCheck(_ PlanUnit, f planFacts) (Reason, bool) {
 	if !f.playing {
 		return Reason{}, false
 	}
-	return Reason{Color: Amber, Code: "playing", Words: "Someone is playing it now. The switch waits until they stop."}, true
+	return Reason{Color: Amber, Code: "playing", Words: "Someone is playing it now. It switches once they stop."}, true
 }
 
 // sameVolume is whether u's source and destination share a volume, so its

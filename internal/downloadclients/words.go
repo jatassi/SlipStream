@@ -134,7 +134,7 @@ func FilesMissing(node string, count int) string {
 	if count != 1 {
 		torrents = fmt.Sprintf("%d torrents", count)
 	}
-	return fmt.Sprintf("%s didn't find the files of %s at this client's folders. Check each Client folder's path on %s.", node, torrents, node)
+	return fmt.Sprintf("The files of %s aren't at this client's folders on %s. Check its Remote path mappings for %s.", torrents, node, node)
 }
 
 // MovesUse is the sentence of a refusal to change client name's Node

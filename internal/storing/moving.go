@@ -435,7 +435,7 @@ func (r Remote) ProbeMove(ctx context.Context, node role.NodeID, p ProbeMove) (P
 		return Probed{}, answer(err)
 	}
 	if len(res.GetSources()) != len(p.Sources) || len(res.GetDestinations()) != len(p.Destinations) || len(res.GetPayloads()) != len(p.Payloads) {
-		return Probed{}, errors.New("the Node's probe answers another page than asked")
+		return Probed{}, errors.New("the Node's probe returned another page than the one asked for")
 	}
 	out := Probed{Files: map[Library]ProbedFile{}, Companions: map[Library][]ProbedFile{}, Payloads: map[Payload]ProbedFile{}, Occupants: map[Library][]ProbedFile{}}
 	for i, at := range p.Sources {
@@ -466,7 +466,7 @@ func probeRootWire(at ProbeRoot) *storagev1.ProbeRoot {
 
 func (p *Probed) sources(at ProbeRoot, files []*storagev1.ProbedFile) error {
 	if len(files) != len(at.Rels) {
-		return errors.New("the Node's probe answers another page than asked")
+		return errors.New("the Node's probe returned another page than the one asked for")
 	}
 	for i, rel := range at.Rels {
 		key, w := Library{Root: at.Root, Rel: rel}, files[i]
@@ -489,7 +489,7 @@ func (p *Probed) sources(at ProbeRoot, files []*storagev1.ProbedFile) error {
 
 func (p *Probed) destinations(at ProbeRoot, paths []*storagev1.ProbedPath) error {
 	if len(paths) != len(at.Rels) {
-		return errors.New("the Node's probe answers another page than asked")
+		return errors.New("the Node's probe returned another page than the one asked for")
 	}
 	for i, rel := range at.Rels {
 		key := Library{Root: at.Root, Rel: rel}
