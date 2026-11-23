@@ -248,6 +248,23 @@ func TestARootBusiedWhileARehomeChecksStaysPut(t *testing.T) {
 	}
 }
 
+// TestABusyRootIsRehomedWhileReconcilingHoldsItsJobs re-homes a root a
+// restored Import and Transfer use while Reconciling holds them, as the
+// re-home step does after a restore on a new machine.
+func TestABusyRootIsRehomedWhileReconcilingHoldsItsJobs(t *testing.T) {
+	s := serve(t)
+	from, to := t.TempDir(), t.TempDir()
+	id := s.create(t, body("fixture", from))
+	s.file(t, s.add(t, "held", ""), id, to, "held/first.mkv", 10)
+	s.busy, s.reconciling = roots.Busy{Imports: 1, Transfers: 1}, true
+	if code, reply := s.Call(t, http.MethodPatch, "/api/v1/roots/"+id, rehome(to, "")); code != http.StatusOK {
+		t.Fatalf("rehomeRoot while Reconciling = %d %s, want 200", code, reply)
+	}
+	if got := s.roots(t)[0].Path; got != to {
+		t.Fatalf("the root after its re-home is at %s, want %s", got, to)
+	}
+}
+
 // moving records a move of the file at rel, as one of a ring of renames
 // that pass through holding, whose bytes the disk queue last recorded at
 // sits, and answers the file's holding path.

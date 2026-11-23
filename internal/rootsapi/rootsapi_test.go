@@ -130,6 +130,7 @@ type server struct {
 	data, downloads string
 	verifying       func()
 	busy            roots.Busy
+	reconciling     bool
 	started         []tasks.Start
 	steps           map[tasks.UnitKey]tasks.Step
 }
@@ -165,6 +166,9 @@ func serve(t *testing.T) *server {
 	cfg.Roster, cfg.Changed, cfg.Inflight = roster{}, s.changed, imports.RootImports{}
 	cfg.Busy = func(context.Context, storage.Reader[storage.Library], roots.ID) (roots.Busy, error) {
 		return s.busy, nil
+	}
+	cfg.Reconciling = func(context.Context, storage.Reader[storage.Library]) (bool, error) {
+		return s.reconciling, nil
 	}
 	offline := unreached{err: fmt.Errorf("call: %w", link.ErrDisconnected)}
 	cfg.Remote = func(n role.NodeID) storagev1connect.StorageServiceHandler {

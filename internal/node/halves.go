@@ -572,18 +572,19 @@ func (n *Node) startController(ctx context.Context) error {
 		Folders: func(id role.NodeID) storagev1connect.FolderServiceHandler {
 			return storagev1connect.FolderService.On(cluster, id)
 		},
-		Arrivals: arrivals,
-		Contents: files.RootContents{},
-		Inflight: imports.RootImports{},
-		Busy:     rootBusy,
-		Rehomed:  servers,
-		Videos:   imports.Videos,
-		Changed:  roots.ChangedEvent.Bind(n.hub),
-		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
-		Cadence:  clients.CadenceChanged,
-		Names:    side.Names,
-		Describe: tree.Describe,
-		Log:      n.rootLog.With("subsystem", "roots"),
+		Arrivals:    arrivals,
+		Contents:    files.RootContents{},
+		Inflight:    imports.RootImports{},
+		Busy:        rootBusy,
+		Reconciling: reconciling.Blocked,
+		Rehomed:     servers,
+		Videos:      imports.Videos,
+		Changed:     roots.ChangedEvent.Bind(n.hub),
+		Volumes:     roots.VolumesChangedEvent.Bind(n.hub),
+		Cadence:     clients.CadenceChanged,
+		Names:       side.Names,
+		Describe:    tree.Describe,
+		Log:         n.rootLog.With("subsystem", "roots"),
 	})
 	if err != nil {
 		return err

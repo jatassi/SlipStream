@@ -64,15 +64,16 @@ func Everywhere(cfg *roots.Config, store *storing.Store) {
 func Config(tb testing.TB, lib *storage.DB[storage.Library], types ...works.TypeID) roots.Config {
 	tb.Helper()
 	cfg := roots.Config{
-		Library:  lib,
-		Types:    types,
-		Roster:   Roster{},
-		Storage:  Unreported{},
-		Arrivals: roots.NewArrivals(),
-		Contents: files.RootContents{},
-		Inflight: Idle{},
-		Busy:     Idle{}.Busy,
-		Rehomed:  Idle{},
+		Library:     lib,
+		Types:       types,
+		Roster:      Roster{},
+		Storage:     Unreported{},
+		Arrivals:    roots.NewArrivals(),
+		Contents:    files.RootContents{},
+		Inflight:    Idle{},
+		Reconciling: Idle{}.Reconciling,
+		Busy:        Idle{}.Busy,
+		Rehomed:     Idle{},
 		Videos: func(context.Context, storage.Reader[storage.Library]) (media.Videos, error) {
 			return media.DefaultVideos, nil
 		},
@@ -221,6 +222,10 @@ func (Idle) Release(context.Context, *storage.Tx[storage.Library], roots.ID) err
 
 func (Idle) Busy(context.Context, storage.Reader[storage.Library], roots.ID) (roots.Busy, error) {
 	return roots.Busy{}, nil
+}
+
+func (Idle) Reconciling(context.Context, storage.Reader[storage.Library]) (bool, error) {
+	return false, nil
 }
 
 func (Idle) Rehomed(context.Context, *storage.Tx[storage.Library], roots.ID) error { return nil }

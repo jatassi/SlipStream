@@ -240,6 +240,9 @@ type Config struct {
 	// Busy is what uses root, read in r: composed of the moves, imports
 	// and transfers counts.
 	Busy func(ctx context.Context, r storage.Reader[file], root ID) (Busy, error)
+	// Reconciling is whether Reconciling runs, read in r. Every Move,
+	// Import and Transfer waits while it does, so none keeps a root busy.
+	Reconciling func(ctx context.Context, r storage.Reader[file]) (bool, error)
 	// Rehomed is told, in the Write that moves a root, that it moved.
 	Rehomed Rehomed
 	Changed Publisher

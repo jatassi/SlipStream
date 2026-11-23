@@ -55,7 +55,8 @@ var errStale = errors.New("the root recorded a file the re-home hasn't checked")
 // same size, where Recorded places its bytes. Files that aren't there are
 // a *MissingError unless h.Forget is their count, and then they're
 // forgotten in the Write that moves the root. A root that Moves, Imports
-// or Transfers use is a *BusyError, before the check and in that Write.
+// or Transfers use is a *BusyError, before the check and in that Write,
+// unless Reconciling holds them.
 // The root's place bumps, so its Node adopts it there, and Rehomed hears
 // of it in the same Write.
 func (r *Roots) Rehome(ctx context.Context, _ identity.Admin, id ID, h Rehome) (View, error) {
@@ -210,6 +211,9 @@ func (r *Roots) forgetMissing(ctx context.Context, tx *storage.Tx[file], id ID, 
 }
 
 func (r *Roots) idle(ctx context.Context, rd storage.Reader[file], id ID) error {
+	if paused, err := r.cfg.Reconciling(ctx, rd); err != nil || paused {
+		return err
+	}
 	busy, err := r.cfg.Busy(ctx, rd, id)
 	if err != nil {
 		return err
