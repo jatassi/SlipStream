@@ -3,6 +3,7 @@ package sim_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -189,37 +190,13 @@ func TestARefusedStartAfterItsWorkSwitchedFailsOnlyTheTorrent(t *testing.T) {
 func TestATorrentCanceledAfterItsPlaceLeavesItsWorkToTheLibrary(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		reached, release := make(chan struct{}), make(chan struct{})
-		var held atomic.Bool
-		l := grabLinked(t, sim.Edit(func(name string, e *node.Env) {
-			if name != "home" {
-				return
-			}
-			e.Test.BeforeMoveStep = func(_ context.Context, s moves.Step) {
-				if s.Action == "take_lane" && !s.Work.IsZero() && held.CompareAndSwap(false, true) {
-					close(reached)
-					<-release
-				}
-			}
-		}))
+		hold, reached, free := holdWorkLane()
+		l := grabLinked(t, hold)
 		batch := l.start(t)
 		<-reached
-		_, units, err := l.w.Node("home").Half().Moves.Get(t.Context(), batch, -1, 10)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, u := range units {
-			if u.Torrent == nil {
-				continue
-			}
-			if u.Phase != moves.PhaseSwitch {
-				t.Fatalf("the torrent is %s as its Work takes its lane, want placed and at its switch", u.Phase)
-			}
-			if err := l.w.Node("home").Half().Moves.Cancel(t.Context(), u.Unit); err != nil {
-				t.Fatal(err)
-			}
-		}
-		close(release)
+		defer free()
+		l.cancelTorrentAtSwitch(t, batch)
+		free()
 		work, torrent := l.ended(t, batch)
 		if work.Phase != moves.PhaseDone {
 			t.Errorf("the Work ended %s %+v, want done", work.Phase, work.Failure)
@@ -234,19 +211,66 @@ func TestATorrentCanceledAfterItsPlaceLeavesItsWorkToTheLibrary(t *testing.T) {
 	})
 }
 
+// holdWorkLane holds home's first Work unit as it takes its lane until
+// free runs, closing reached once it holds.
+func holdWorkLane() (hold sim.Option, reached <-chan struct{}, free func()) {
+	at, release := make(chan struct{}), make(chan struct{})
+	var held, released atomic.Bool
+	hold = sim.Edit(func(name string, e *node.Env) {
+		if name != "home" {
+			return
+		}
+		e.Test.BeforeMoveStep = func(_ context.Context, s moves.Step) {
+			if s.Action == "take_lane" && !s.Work.IsZero() && held.CompareAndSwap(false, true) {
+				close(at)
+				<-release
+			}
+		}
+	})
+	return hold, at, func() {
+		if released.CompareAndSwap(false, true) {
+			close(release)
+		}
+	}
+}
+
+// cancelTorrentAtSwitch cancels batch's torrent unit, failing unless it
+// placed its payload and waits at its switch.
+func (l linked) cancelTorrentAtSwitch(t *testing.T, batch moves.BatchID) {
+	t.Helper()
+	_, units, err := l.w.Node("home").Half().Moves.Get(t.Context(), batch, -1, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range units {
+		if u.Torrent == nil {
+			continue
+		}
+		if u.Phase != moves.PhaseSwitch {
+			t.Fatalf("the torrent is %s as its Work takes its lane, want placed and at its switch", u.Phase)
+		}
+		if err := l.w.Node("home").Half().Moves.Cancel(t.Context(), u.Unit); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // sameFiles counts the files under dir that are of.
 func sameFiles(t *testing.T, dir string, of os.FileInfo) int {
 	t.Helper()
 	n := 0
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
 		if err != nil || !d.Type().IsRegular() {
 			return err
 		}
 		info, err := d.Info()
-		if err == nil && os.SameFile(info, of) {
+		if err != nil {
+			return fmt.Errorf("stat %s: %w", d.Name(), err)
+		}
+		if os.SameFile(info, of) {
 			n++
 		}
-		return err
+		return nil
 	})
 	if err != nil {
 		t.Fatal(err)

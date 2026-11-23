@@ -34,33 +34,9 @@ var moveCount = flag.Int("scale.moves", 5000, "generated movies to seed and move
 func TestMovesScale(t *testing.T) {
 	wall := startWallClock(t)
 	synctest.Test(t, func(t *testing.T) {
-		var mu sync.Mutex
-		switched := map[moves.UnitID]time.Time{}
-		var longest time.Duration
-		hook := sim.Edit(func(name string, e *node.Env) {
-			if name != "home" {
-				return
-			}
-			e.Test.BeforeMoveStep = func(_ context.Context, s moves.Step) {
-				switch s.Action {
-				case "switch":
-					at := wall.now()
-					mu.Lock()
-					switched[s.Unit] = at
-					mu.Unlock()
-				case "remove_source":
-					at := wall.now()
-					mu.Lock()
-					if from, ok := switched[s.Unit]; ok {
-						longest = max(longest, at.Sub(from))
-						delete(switched, s.Unit)
-					}
-					mu.Unlock()
-				}
-			}
-		})
+		timer := &switchTimer{wall: wall, at: map[moves.UnitID]time.Time{}}
 		var w movestest.World
-		seeded := wall.took(func() { w = movestest.Seed(t, *moveCount, hook) })
+		seeded := wall.took(func() { w = movestest.Seed(t, *moveCount, timer.option()) })
 		t.Logf("seeded %d movies in %s (wall)", len(w.Seeded), seeded.Round(time.Millisecond))
 
 		to := w.Root(t, "movies-f")
@@ -95,12 +71,50 @@ func TestMovesScale(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		mu.Lock()
-		defer mu.Unlock()
 		t.Logf("drain: %v in %s (fake), %s (wall); the longest switch to cleanup took %s (wall)",
-			b.Counts, time.Since(fakeStart).Round(time.Second), wall.now().Sub(wallStart).Round(time.Millisecond), longest.Round(time.Millisecond))
+			b.Counts, time.Since(fakeStart).Round(time.Second), wall.now().Sub(wallStart).Round(time.Millisecond), timer.longestSoFar().Round(time.Millisecond))
 		if b.Counts[moves.PhaseDone] != plan.Movable() {
 			t.Errorf("the batch ended %v, want every unit done", b.Counts)
 		}
 	})
+}
+
+// switchTimer keeps the longest wall time from a unit's switch step to its
+// cleanup step on home.
+type switchTimer struct {
+	wall    wallClock
+	mu      sync.Mutex
+	at      map[moves.UnitID]time.Time
+	longest time.Duration
+}
+
+func (s *switchTimer) option() sim.Option {
+	return sim.Edit(func(name string, e *node.Env) {
+		if name == "home" {
+			e.Test.BeforeMoveStep = func(_ context.Context, step moves.Step) { s.saw(step) }
+		}
+	})
+}
+
+func (s *switchTimer) saw(step moves.Step) {
+	if step.Action != "switch" && step.Action != "remove_source" {
+		return
+	}
+	now := s.wall.now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if step.Action == "switch" {
+		s.at[step.Unit] = now
+		return
+	}
+	if from, ok := s.at[step.Unit]; ok {
+		s.longest = max(s.longest, now.Sub(from))
+		delete(s.at, step.Unit)
+	}
+}
+
+func (s *switchTimer) longestSoFar() time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.longest
 }

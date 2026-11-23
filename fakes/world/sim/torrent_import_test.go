@@ -24,27 +24,10 @@ import (
 func TestATorrentWaitsForItsGrabsImportBeforeItSwitches(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		reached, release := make(chan struct{}), make(chan struct{})
-		var held atomic.Bool
-		w := launchMoves(t, sim.Edit(func(name string, e *node.Env) {
-			if name != "home" {
-				return
-			}
-			e.Test.BeforeImport = func(_ context.Context, s imports.Step) {
-				if s.At == imports.AtProbe && held.CompareAndSwap(false, true) {
-					close(reached)
-					<-release
-				}
-			}
-		}))
+		hold, reached, free := holdImport()
+		w := launchMoves(t, hold)
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		<-reached
-		var released atomic.Bool
-		free := func() {
-			if released.CompareAndSwap(false, true) {
-				close(release)
-			}
-		}
 		defer free()
 		var s seeded
 		var hash []byte
@@ -54,18 +37,7 @@ func TestATorrentWaitsForItsGrabsImportBeforeItSwitches(t *testing.T) {
 		}
 		s.hash = bencode.InfoHash(hash)
 		batch := moveTorrent(t, w, s, moves.Side{Node: nodeID(t, w, "den")})
-		var unit moves.View
-		within(t, 30*time.Minute, "the unit waits for the Import", func() bool {
-			_, units, err := w.Node("home").Half().Moves.Get(t.Context(), batch, -1, 10)
-			if err != nil || len(units) != 1 {
-				t.Fatalf("batch %s has %d units (%v), want 1", batch, len(units), err)
-			}
-			unit = units[0]
-			if unit.Phase != moves.PhaseQueued && unit.Phase != moves.PhaseTransfer && unit.Phase != moves.PhasePlace && unit.Phase != moves.PhaseSwitch {
-				t.Fatalf("the unit is %s %+v with the Import open, want it waiting before its switch", unit.Phase, unit.Failure)
-			}
-			return unit.Phase == moves.PhaseSwitch && unit.Waiting == moves.WaitImporting
-		})
+		unit := waitsForTheImport(t, w, batch)
 		if unit.Words != "Waiting until its Import finishes" {
 			t.Errorf("the unit reads %q, want the Import wait's words", unit.Words)
 		}
@@ -81,4 +53,46 @@ func TestATorrentWaitsForItsGrabsImportBeforeItSwitches(t *testing.T) {
 			t.Errorf("the source was removed %q, want moved", got)
 		}
 	})
+}
+
+// holdImport holds home's first Import before its probe until free runs,
+// closing reached once it holds.
+func holdImport() (hold sim.Option, reached <-chan struct{}, free func()) {
+	at, release := make(chan struct{}), make(chan struct{})
+	var held, released atomic.Bool
+	hold = sim.Edit(func(name string, e *node.Env) {
+		if name != "home" {
+			return
+		}
+		e.Test.BeforeImport = func(_ context.Context, s imports.Step) {
+			if s.At == imports.AtProbe && held.CompareAndSwap(false, true) {
+				close(at)
+				<-release
+			}
+		}
+	})
+	return hold, at, func() {
+		if released.CompareAndSwap(false, true) {
+			close(release)
+		}
+	}
+}
+
+// waitsForTheImport is batch's one unit once it waits at its switch for
+// the Import, failing if it gets past its switch first.
+func waitsForTheImport(t *testing.T, w *sim.World, batch moves.BatchID) moves.View {
+	t.Helper()
+	var unit moves.View
+	within(t, 30*time.Minute, "the unit waits for the Import", func() bool {
+		_, units, err := w.Node("home").Half().Moves.Get(t.Context(), batch, -1, 10)
+		if err != nil || len(units) != 1 {
+			t.Fatalf("batch %s has %d units (%v), want 1", batch, len(units), err)
+		}
+		unit = units[0]
+		if unit.Phase != moves.PhaseQueued && unit.Phase != moves.PhaseTransfer && unit.Phase != moves.PhasePlace && unit.Phase != moves.PhaseSwitch {
+			t.Fatalf("the unit is %s %+v with the Import open, want it waiting before its switch", unit.Phase, unit.Failure)
+		}
+		return unit.Phase == moves.PhaseSwitch && unit.Waiting == moves.WaitImporting
+	})
+	return unit
 }

@@ -124,11 +124,11 @@ func (m *Moves) recommend(p *Plan, nodeNames map[role.NodeID]string) {
 		where = " to " + nodeNames[to[0]]
 	}
 	counted := fmt.Sprintf("%d %s", total, m.noun(types, total))
-	switch works := total - torrents; {
-	case works == 0:
+	switch ws := total - torrents; {
+	case ws == 0:
 		counted = fmt.Sprintf("%d %s", total, plural(total, "torrent", "torrents"))
 	case torrents > 0:
-		counted = fmt.Sprintf("%d %s and %d %s", works, m.noun(types, works), torrents, plural(torrents, "torrent", "torrents"))
+		counted = fmt.Sprintf("%d %s and %d %s", ws, m.noun(types, ws), torrents, plural(torrents, "torrent", "torrents"))
 	}
 	switch {
 	case total == 0:

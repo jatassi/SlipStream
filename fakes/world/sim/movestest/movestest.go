@@ -101,11 +101,11 @@ func Seed(t *testing.T, n int, opts ...sim.Option) World {
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
+			defer func() { _ = rows.Close() }()
 			for rows.Next() {
 				var id works.WorkID
 				if err := rows.Scan(&id); err != nil {
-					return err
+					return fmt.Errorf("scan a seeded movie: %w", err)
 				}
 				w.Seeded = append(w.Seeded, id)
 			}
