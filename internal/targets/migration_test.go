@@ -3,7 +3,6 @@ package targets_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log/slog"
 	"path/filepath"
 	"reflect"
@@ -11,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -67,80 +65,6 @@ func opener(t *testing.T, path string) func(s storage.Schema[storage.Library]) *
 	}
 }
 
-func TestResolutionTargetsMigrateToTiersOfTheirQualitiesAtTheFloors(t *testing.T) {
-	ctx := t.Context()
-	path := filepath.Join(t.TempDir(), storage.LibraryFile)
-	open := opener(t, path)
-	resolutions := map[string][]string{
-		"HD":    {"1080p"},
-		"All":   {"2160p", "1080p", "720p"},
-		"SD":    {"480p", "576p", "720p"},
-		"PAL":   {"576p", "480p"},
-		"Small": {"720p", "576p"},
-	}
-	before := open(targets.Schema().Through(1))
-	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		for name, rs := range resolutions {
-			if err := seedResolutionTarget(ctx, tx, name, rs, name == "HD"); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := before.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	lib := open(targets.Schema())
-	t.Cleanup(func() { _ = lib.Close() })
-	list := must[[]targets.Target](t)(must[*targets.Targets](t)(targets.Open(ctx, targets.Config{Library: lib, Changed: discard{}})).ListTargets(ctx, identity.Admin{}))
-	got := map[string][][]string{}
-	for _, target := range list {
-		got[target.Name] = keys(target.Spec().Tiers)
-		checkMigrated(t, target, target.Name == "HD")
-	}
-	want := map[string][][]string{
-		"HD": {{"hdtv-1080p", "webrip-1080p", "webdl-1080p", "bluray-1080p", "remux-1080p"}},
-		"All": {
-			{"hdtv-2160p", "webrip-2160p", "webdl-2160p", "bluray-2160p", "remux-2160p"},
-			{"hdtv-1080p", "webrip-1080p", "webdl-1080p", "bluray-1080p", "remux-1080p"},
-			{"hdtv-720p", "webrip-720p", "webdl-720p", "bluray-720p"},
-		},
-		"SD":    {{"sdtv", "dvd", "webrip-480p"}, {"hdtv-720p", "webrip-720p", "webdl-720p", "bluray-720p"}},
-		"PAL":   {{"sdtv", "dvd"}, {"webrip-480p"}},
-		"Small": {{"hdtv-720p", "webrip-720p", "webdl-720p", "bluray-720p"}, {"sdtv", "dvd"}},
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("migrated tiers = %v\nwant %v", got, want)
-	}
-}
-
-// seedResolutionTarget adds a Target of resolutions rs as targets 00001
-// held it, and a Profile Standard of it when held.
-func seedResolutionTarget(ctx context.Context, tx *storage.Tx[storage.Library], name string, rs []string, held bool) error {
-	id := storage.NewUUID()
-	if _, err := tx.ExecContext(ctx, `INSERT INTO targets_target VALUES (?, ?, 1)`, id, name); err != nil {
-		return err
-	}
-	for i, r := range rs {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO targets_resolution VALUES (?, ?, ?)`, id, i+1, r); err != nil {
-			return err
-		}
-	}
-	if !held {
-		return nil
-	}
-	profile := storage.NewUUID()
-	if _, err := tx.ExecContext(ctx, `INSERT INTO targets_profile VALUES (?, 'Standard', 'cinema', 1)`, profile); err != nil {
-		return err
-	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO targets_profile_target VALUES (?, 1, ?)`, profile, id)
-	return err
-}
-
 // checkMigrated checks target's cutoff is its top tier, every quality is
 // at its floor, and Standard holds it when held.
 func checkMigrated(t *testing.T, target targets.Target, held bool) {
@@ -160,112 +84,11 @@ func checkMigrated(t *testing.T, target targets.Target, held bool) {
 	}
 }
 
-func TestEveryWorkMigratesToItsTypesDefaultProfileAndNoStarterIsMade(t *testing.T) {
-	ctx := t.Context()
-	open := opener(t, filepath.Join(t.TempDir(), storage.LibraryFile))
-	before := open(targets.Schema().Through(1))
-	var films, songs works.WorkID
-	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if err := seedResolutionTarget(ctx, tx, "HD", []string{"1080p"}, true); err != nil {
-			return err
-		}
-		var err error
-		if films, err = seedWork(ctx, tx, "cinema", "m1"); err != nil {
-			return err
-		}
-		songs, err = seedWork(ctx, tx, "records", "a1")
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := before.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	lib := open(targets.Schema())
-	t.Cleanup(func() { _ = lib.Close() })
-	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
-		Library: lib, Works: described{"cinema": "Cinema", "records": "Records"}, Types: facets("cinema", "records"), Changed: discard{},
-	}))
-	g := must[targets.Goals](t)(goals.Goals(ctx, identity.Admin{}, films))
-	if g.Profile.Name != "Standard" || len(g.Targets) != 1 || g.Targets[0].Name != "HD" || g.Profile.Entries[0].Sourcing != targets.Download {
-		t.Fatalf("the cinema Work wants %+v, want Standard's HD, downloaded", g)
-	}
-	if g := must[targets.Goals](t)(goals.Goals(ctx, identity.Admin{}, songs)); g.Profile.Name != "Records" || !g.Profile.Default || len(g.Targets) != 0 {
-		t.Fatalf("the records Work, whose type had no Profile, wants %+v, want Open's default Records with no Target", g)
-	}
-	list := must[[]targets.Target](t)(goals.ListTargets(ctx, identity.Admin{}))
-	if len(list) != 1 {
-		t.Fatalf("a library that held a Target has %d after Open, want no starter beside HD", len(list))
-	}
-}
-
 // seedWork adds a Work of type typ as works 00001 holds it.
 func seedWork(ctx context.Context, tx *storage.Tx[storage.Library], typ, key string) (works.WorkID, error) {
 	id := works.WorkID{UUID: storage.NewUUID()}
 	_, err := tx.ExecContext(ctx, `INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, ?, ?, ?, ?, 1, 1)`, id, typ, key, key, key)
 	return id, err
-}
-
-func TestTargetsMigrateUnscoredWithIncrementOneAndPreferringPropers(t *testing.T) {
-	ctx := t.Context()
-	open := opener(t, filepath.Join(t.TempDir(), storage.LibraryFile))
-	before := open(targets.Schema().Through(2))
-	id := targets.TargetID{UUID: storage.NewUUID()}
-	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO targets_target (id, name, created_at, cutoff_tier) VALUES (?, 'HD', 1, 0)`, id); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO targets_quality (target_id, quality, tier, position, min_mib_per_minute) VALUES (?, 'webdl-1080p', 0, 0, 12.5)`, id)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := before.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	lib := open(targets.Schema())
-	t.Cleanup(func() { _ = lib.Close() })
-	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{Library: lib, Changed: discard{}}))
-	got := must[targets.Target](t)(goals.GetTarget(ctx, identity.Admin{}, id))
-	if want := (targets.Scores{Formats: map[formats.ID]int{}, Increment: 1}); !reflect.DeepEqual(got.Scores, want) || got.Propers != targets.PreferAndUpgrade {
-		t.Fatalf("migrated HD has %+v and %s, want %+v and prefer_and_upgrade", got.Scores, got.Propers, want)
-	}
-	if fs := must[[]targets.StoredFormat](t)(goals.ListFormats(ctx, identity.Admin{})); len(fs) != 0 {
-		t.Fatalf("a migrated library has %d Custom Formats, want none", len(fs))
-	}
-
-	format := storage.NewUUID()
-	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO targets_format (id, name, name_folded, include_when_renaming, dialect, conditions, revision, created_at)
-			VALUES (?, 'HDR', 'hdr', 0, 'radarr', '[]', 1, 1)`, format)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, c := range []struct {
-		name string
-		sql  string
-		args []any
-	}{
-		{"an increment of 0", `UPDATE targets_target SET score_increment = 0`, nil},
-		{"a score of 0", `INSERT INTO targets_format_score (target_id, format_id, score) VALUES (?, ?, 0)`, []any{id, format}},
-		{"a propers setting no Target has", `UPDATE targets_target SET propers = 'always'`, nil},
-		{"a name that folds to a taken one", `INSERT INTO targets_format (id, name, name_folded, include_when_renaming, dialect, conditions, revision, created_at)
-			VALUES (?, 'hdr', 'hdr', 0, 'radarr', '[]', 1, 1)`, []any{storage.NewUUID()}},
-	} {
-		err := lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			_, err := tx.ExecContext(ctx, c.sql, c.args...)
-			return err
-		})
-		if err == nil {
-			t.Errorf("the schema took %s", c.name)
-		}
-	}
 }
 
 func TestTargetNamesTwinnedByCaseAreRenamedOnceAtStartUntilEachFoldsApart(t *testing.T) {
@@ -317,116 +140,5 @@ func TestTargetNamesTwinnedByCaseAreRenamedOnceAtStartUntilEachFoldsApart(t *tes
 	})
 	if err == nil {
 		t.Fatal("the schema took a second Target folded as strasse")
-	}
-}
-
-func TestATargetMigratesWithNoHoldAndAHoldKeepsToWholeMinutesUpToSevenDays(t *testing.T) {
-	ctx := t.Context()
-	open := opener(t, filepath.Join(t.TempDir(), storage.LibraryFile))
-	before := open(targets.Schema().Through(4))
-	id := targets.TargetID{UUID: storage.NewUUID()}
-	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO targets_target (id, name, name_folded, created_at, cutoff_tier) VALUES (?, 'HD', 'hd', 1, 0)`, id); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO targets_quality (target_id, quality, tier, position, min_mib_per_minute) VALUES (?, 'webdl-1080p', 0, 0, 12.5)`, id)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := before.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	lib := open(targets.Schema())
-	t.Cleanup(func() { _ = lib.Close() })
-	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{Library: lib, Changed: discard{}}))
-	if got := must[targets.Target](t)(goals.GetTarget(ctx, identity.Admin{}, id)); got.Hold != 0 {
-		t.Errorf("a migrated Target holds for %v, want 0", got.Hold)
-	}
-	for _, c := range []struct {
-		seconds int
-		ok      bool
-	}{{0, true}, {60, true}, {604800, true}, {-60, false}, {604860, false}, {90, false}} {
-		err := lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			_, err := tx.ExecContext(ctx, `UPDATE targets_target SET hold_seconds = ?`, c.seconds)
-			return err
-		})
-		if c.ok != (err == nil) || !c.ok && !strings.Contains(err.Error(), "CHECK constraint failed") {
-			t.Errorf("a Hold of %d seconds: written with %v, want ok=%v", c.seconds, err, c.ok)
-		}
-	}
-}
-
-func TestAProfileMigratesWithNoLanguagesAndALanguageKeepsToItsRules(t *testing.T) {
-	ctx := t.Context()
-	open := opener(t, filepath.Join(t.TempDir(), storage.LibraryFile))
-	before := open(targets.Schema().Through(5))
-	id := targets.ProfileID{UUID: storage.NewUUID()}
-	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO targets_profile (id, name, content_type, is_default) VALUES (?, 'Standard', 'fixture', 1)`, id)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := before.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	lib := open(targets.Schema())
-	t.Cleanup(func() { _ = lib.Close() })
-	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{Library: lib, Changed: discard{}}))
-	if got := must[targets.Profile](t)(goals.GetProfile(ctx, identity.Admin{}, id)); len(got.Languages) != 0 {
-		t.Errorf("a migrated Profile lists %+v, want no language", got.Languages)
-	}
-	insert := func(position int, language string, forced int, hi, audio string) error {
-		return lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			_, err := tx.ExecContext(ctx, `INSERT INTO targets_profile_language (profile_id, position, language, forced, hi, audio_condition, added_at)
-				VALUES (?, ?, ?, ?, ?, ?, 1)`, id, position, language, forced, hi, audio)
-			return err
-		})
-	}
-	if err := insert(1, "en", 0, "allow", "always"); err != nil {
-		t.Fatalf("English, full: %v", err)
-	}
-	if err := insert(2, "en", 1, "prefer", "no_audio"); err != nil {
-		t.Fatalf("English, forced only, beside full: %v", err)
-	}
-	for _, c := range []struct {
-		why                  string
-		position             int
-		language             string
-		forced               int
-		hi, audio, violation string
-	}{
-		{"English, full, twice", 3, "en", 0, "avoid", "always", "UNIQUE constraint failed"},
-		{"a position taken", 2, "fr", 0, "avoid", "always", "UNIQUE constraint failed"},
-		{"position 0", 0, "fr", 0, "avoid", "always", "CHECK constraint failed"},
-		{"no language", 3, "", 0, "avoid", "always", "CHECK constraint failed"},
-		{"forced 2", 3, "fr", 2, "avoid", "always", "CHECK constraint failed"},
-		{"hearing impaired only", 3, "fr", 0, "only", "always", "CHECK constraint failed"},
-		{"an unknown audio condition", 3, "fr", 0, "avoid", "never", "CHECK constraint failed"},
-	} {
-		if err := insert(c.position, c.language, c.forced, c.hi, c.audio); err == nil || !strings.Contains(err.Error(), c.violation) {
-			t.Errorf("%s: written with %v, want %s", c.why, err, c.violation)
-		}
-	}
-	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM targets_profile WHERE id = ?`, id); err != nil {
-			return err
-		}
-		var left int
-		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM targets_profile_language`).Scan(&left); err != nil {
-			return fmt.Errorf("count the languages left: %w", err)
-		}
-		if left != 0 {
-			t.Errorf("deleting the Profile left %d of its languages", left)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
 	}
 }

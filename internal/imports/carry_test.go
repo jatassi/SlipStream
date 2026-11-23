@@ -1,6 +1,7 @@
 package imports
 
 import (
+	"context"
 	"path"
 	"slices"
 	"testing"
@@ -93,4 +94,23 @@ func carriedLines(imp *Import, root roots.ID) []string {
 		out = append(out, line)
 	}
 	return out
+}
+
+func exec(t *testing.T, lib *storage.DB[storage.Library], stmts ...[]any) {
+	t.Helper()
+	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		for _, s := range stmts {
+			sql, ok := s[0].(string)
+			if !ok {
+				t.Fatalf("statement %v starts with no SQL", s)
+			}
+			if _, err := tx.ExecContext(ctx, sql, s[1:]...); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
