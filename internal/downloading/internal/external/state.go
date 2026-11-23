@@ -675,6 +675,9 @@ func joinClient(folder, name string) string {
 	return folder + sep + name
 }
 
+// wantedSync pauses or resumes t to its intent. A pause reads paused only
+// once a poll sees it, since a client may stop the torrent on a later
+// tick than its answer.
 func (s *state) wantedSync(ctx context.Context, t *track, st clients.Status) {
 	intent := t.intent
 	t.ask.Tick(time.Now())
@@ -693,8 +696,8 @@ func (s *state) wantedSync(ctx context.Context, t *track, st clients.Status) {
 			s.cfg.Log.Warn("pause or resume a torrent in the client", "info_hash", t.hash.String(), "err", err.Error())
 			return
 		}
-		t.status.Run = send
 		if send == clients.Started {
+			t.status.Run = send
 			t.ask.Start(time.Now())
 		}
 	}
