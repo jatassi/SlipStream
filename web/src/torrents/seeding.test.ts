@@ -68,13 +68,15 @@ const cases: readonly [string, Seeding, readonly string[]][] = [
   ],
 ];
 
-test.each(cases)("a torrent that %s reads its facts in sentences", (_, seeding, facts) => {
-  const words = write(seeding);
-  for (const sentence of words) {
-    expect(sentence).toMatch(/^\S/u);
-  }
-  const all = words.join(" ");
-  for (const fact of facts) {
-    expect(all).toContain(fact);
+test("each seeding state reads its facts in sentences", () => {
+  for (const [state, seeding, facts] of cases) {
+    const words = write(seeding);
+    for (const sentence of words) {
+      expect(sentence, state).toMatch(/^\S/u);
+    }
+    const all = words.join(" ");
+    for (const fact of facts) {
+      expect(all, state).toContain(fact);
+    }
   }
 });

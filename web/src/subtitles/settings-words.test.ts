@@ -54,13 +54,15 @@ const states: readonly [string, SubtitlesProvider, readonly string[], readonly s
   ],
 ];
 
-test.each(states)("the line for %s names its facts", (_, provider, names, omits) => {
-  const line = providerLine(provider, [movies, tv], clock);
-  expect(line).toMatch(/^[A-Z].*\.$/u);
-  for (const fact of names) {
-    expect(line).toContain(fact);
-  }
-  for (const fact of omits) {
-    expect(line).not.toContain(fact);
+test("each provider line names the facts of its state", () => {
+  for (const [state, provider, names, omits] of states) {
+    const line = providerLine(provider, [movies, tv], clock);
+    expect(line, state).toMatch(/^[A-Z].*\.$/u);
+    for (const fact of names) {
+      expect(line, state).toContain(fact);
+    }
+    for (const fact of omits) {
+      expect(line, state).not.toContain(fact);
+    }
   }
 });
