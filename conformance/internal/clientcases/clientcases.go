@@ -1,6 +1,6 @@
 // Package clientcases is the cases every Download Client conformance
-// suite runs alike: a complete add over files already on disk, and the
-// last announce a Move's guard reads.
+// suite runs alike: a complete add over files already on disk, the last
+// announce a Move's guard reads, and a pause that reads paused.
 package clientcases
 
 import (
@@ -23,6 +23,14 @@ type Folder struct {
 
 // poll is how often a case reads the target while it waits.
 const poll = time.Second
+
+// pauseWait bounds a pause's wait to read paused, and pauseEvery is how
+// often it reads: Transmission 4.1.4 read stopped up to 485 ms after the
+// call, on a tick of about 0.5 s.
+const (
+	pauseWait  = 2 * time.Second
+	pauseEvery = 100 * time.Millisecond
+)
 
 // CompleteAdd adds whole over its payload written whole in folder, and a
 // second torrent over its payload cut short, both paused and complete,
@@ -88,7 +96,7 @@ func checked(t *testing.T, c clients.Client, hashes ...bencode.InfoHash) map[ben
 // LastAnnounce starts h, which announces to a tracker that answers it
 // every interval, and asserts that Announces reads an answer at or after
 // the start with the next announce after it within two intervals. It
-// pauses h again.
+// pauses h again and waits until it reads paused.
 func LastAnnounce(t *testing.T, c clients.Client, h bencode.InfoHash, interval time.Duration) {
 	t.Helper()
 	start := time.Now().Truncate(time.Second)
@@ -109,8 +117,31 @@ func LastAnnounce(t *testing.T, c clients.Client, h bencode.InfoHash, interval t
 		}
 		time.Sleep(poll)
 	}
+	Pause(t, c, h)
+}
+
+// Pause pauses h and polls until the client reads it paused, which a
+// client may do on its next tick after it answered.
+func Pause(t *testing.T, c clients.Client, h bencode.InfoHash) {
+	t.Helper()
 	if err := c.Act(t.Context(), clients.Pause, []bencode.InfoHash{h}); err != nil {
 		t.Errorf("Act(Pause): %v", err)
+		return
+	}
+	deadline := time.Now().Add(pauseWait)
+	for {
+		got, err := c.Poll(t.Context(), []bencode.InfoHash{h})
+		if err != nil {
+			t.Fatalf("Poll: %v", err)
+		}
+		if got[h].Run == clients.Paused {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Errorf("%s after Pause: %+v, want paused", pauseWait, got[h])
+			return
+		}
+		time.Sleep(pauseEvery)
 	}
 }
 

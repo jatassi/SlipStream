@@ -53,6 +53,9 @@ type Config struct {
 	// Check is how long the client checks a torrent's data when it is
 	// added or rechecked, 0 for at once.
 	Check time.Duration
+	// Tick is the client's loop: a Stop takes effect at its next multiple
+	// of Tick, after the call answered, and 0 stops before it answers.
+	Tick time.Duration
 	// Tracker answers the announces the engine sends its torrents' HTTP
 	// trackers, as fake-tracker does through the Node's front; nil sends
 	// none. PeerID is the 20 byte peer ID they carry.
@@ -184,8 +187,9 @@ type torrent struct {
 	written int64
 	stalled bool
 	hidden  time.Time
-	// checked is when a check of its data ends.
-	checked time.Time
+	// checked is when a check of its data ends, and stopAt when a Stop
+	// waiting for the next Tick takes effect.
+	checked, stopAt time.Time
 	// announcing is a torrent whose trackers had its started and not yet
 	// its stopped, and reported one whose completed they had or that was
 	// complete when it started.
@@ -305,14 +309,23 @@ func (e *Engine) Get(h bencode.InfoHash) (Torrent, bool) {
 	return ts[0], true
 }
 
-// Stop stops a torrent, as pausing it in the client does.
+// Stop stops a torrent, as pausing it in the client does, at the next
+// Tick.
 func (e *Engine) Stop(h bencode.InfoHash) error {
-	return e.change(h, func(t *torrent) { t.State = Stopped })
+	return e.change(h, func(t *torrent) {
+		if e.cfg.Tick == 0 {
+			t.State = Stopped
+			return
+		}
+		t.stopAt = e.at.Truncate(e.cfg.Tick).Add(e.cfg.Tick)
+	})
 }
 
-// Start starts a stopped torrent and clears its local error.
+// Start starts a stopped torrent and clears its local error, and drops a
+// Stop still waiting for its Tick.
 func (e *Engine) Start(h bencode.InfoHash) error {
 	return e.change(h, func(t *torrent) {
+		t.stopAt = time.Time{}
 		if t.State == Stopped {
 			t.State, t.LocalError, t.SeedGoalMet = Downloading, "", false
 		}
@@ -513,7 +526,8 @@ func (e *Engine) settle() {
 }
 
 // advance runs the clock from the last read to now, one step to each
-// moment a torrent ends a check, completes or meets its seed ratio, then
+// moment a torrent ends a check, completes, meets its seed ratio or stops
+// on a Tick, then
 // writes the bytes that arrived.
 func (e *Engine) advance() {
 	now := time.Now()
@@ -523,11 +537,15 @@ func (e *Engine) advance() {
 			if need, ok := e.untilNext(t); ok {
 				step = min(step, need)
 			}
+			if !t.stopAt.IsZero() {
+				step = min(step, t.stopAt.Sub(e.at))
+			}
 		}
 		for _, t := range e.torrents {
 			e.run(t, step)
 		}
 		e.at = e.at.Add(step)
+		e.stopDue()
 		e.settle()
 	}
 	for _, t := range e.torrents {
@@ -539,6 +557,15 @@ func (e *Engine) advance() {
 		}
 	}
 	e.announce()
+}
+
+// stopDue stops each torrent whose Stop's Tick has come.
+func (e *Engine) stopDue() {
+	for _, t := range e.torrents {
+		if !t.stopAt.IsZero() && !t.stopAt.After(e.at) {
+			t.State, t.stopAt = Stopped, time.Time{}
+		}
+	}
 }
 
 // untilNext is how long until t ends a check, completes or meets the
