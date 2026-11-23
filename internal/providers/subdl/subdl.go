@@ -193,7 +193,7 @@ func (c *Client) Search(ctx context.Context, cr calls.Credentials, q subtitling.
 }
 
 // offer reads one result. full_season is unreliable, so a pack is known
-// by its members, which carry their episode with season 0.
+// by its members, which carry their episode.
 func (c *Client) offer(s subtitleJSON) (subtitling.Offer, bool) {
 	key, ok := pageID(s.SubtitlePage)
 	lang, err := languageOf(s.Language)

@@ -237,7 +237,9 @@ func (s *server) me(w http.ResponseWriter, r *http.Request) {
 		"usage": map[string]any{
 			"search":    window(searches, searchesPerDay, midnight(now)),
 			"downloads": window(downloads, downloadsPerDay, midnight(now)),
-			"ai":        map[string]any{"used": 0, "limit": 0, "remaining": 0, "period": "month", "reset_at": stamp(month)},
+			"ai": map[string]any{"translations": map[string]any{
+				"period": "month", "reset_at": stamp(month), "quota": map[string]any{"used": 0, "limit": 0, "remaining": 0},
+			}},
 		},
 	})
 }

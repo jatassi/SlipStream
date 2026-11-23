@@ -227,17 +227,17 @@ func (s *server) titleOf(c subcatalog.Subtitle) title {
 }
 
 type titleJSON struct {
-	MovieID        int      `json:"movieId"`
-	Title          string   `json:"title"`
-	AlternateTitle *string  `json:"alternateTitle"`
-	ReleaseYear    int      `json:"releaseYear"`
-	Type           string   `json:"type"`
-	IMDbID         string   `json:"imdbId"`
-	TMDBID         *int     `json:"tmdbId"`
-	Season         *int     `json:"season"`
-	SubtitleCount  int      `json:"subtitleCount"`
-	Posters        []string `json:"posters"`
-	SubsourceLink  string   `json:"subsourceLink"`
+	MovieID        int               `json:"movieId"`
+	Title          string            `json:"title"`
+	AlternateTitle *string           `json:"alternateTitle"`
+	ReleaseYear    int               `json:"releaseYear"`
+	Type           string            `json:"type"`
+	IMDbID         string            `json:"imdbId"`
+	TMDBID         *int              `json:"tmdbId"`
+	Season         *int              `json:"season"`
+	SubtitleCount  int               `json:"subtitleCount"`
+	Posters        map[string]string `json:"posters"`
+	SubsourceLink  string            `json:"subsourceLink"`
 }
 
 func (s *server) titles(w http.ResponseWriter, r *http.Request) {
@@ -268,7 +268,7 @@ func (s *server) titles(w http.ResponseWriter, r *http.Request) {
 		}
 		if found[t.ID] == nil {
 			slug := strings.ToLower(strings.ReplaceAll(t.Name, " ", "-"))
-			j := &titleJSON{MovieID: t.ID, Title: t.Name, ReleaseYear: t.Year, Type: "movie", IMDbID: t.IMDb, Posters: []string{}, SubsourceLink: "/subtitles/" + slug}
+			j := &titleJSON{MovieID: t.ID, Title: t.Name, ReleaseYear: t.Year, Type: "movie", IMDbID: t.IMDb, Posters: map[string]string{}, SubsourceLink: "/subtitles/" + slug}
 			if t.Season > 0 {
 				j.Type, j.Season, j.SubsourceLink = "tvseries", &t.Season, fmt.Sprintf("/subtitles/%s/season-%d", slug, t.Season)
 			}
