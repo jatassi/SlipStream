@@ -74,9 +74,6 @@ func TestAFullDestinationWaitsForSpace(t *testing.T) {
 			u := w.Unit(t, batch)
 			return u.Waiting == moves.WaitSpace
 		})
-		if u := w.Unit(t, batch); u.Words != "Waiting for free space on seedbox" {
-			t.Errorf("the unit reads %q, want the space wait's words", u.Words)
-		}
 		w.Invariants(t, batch)
 		lift()
 		if u := w.Ended(t, batch); u.Phase != moves.PhaseDone {

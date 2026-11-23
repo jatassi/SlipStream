@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"reflect"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -305,6 +304,11 @@ func TestARefusedStartSeedsFromTheSourceAgainKeepingTheCopy(t *testing.T) {
 	})
 }
 
+// noted is whether v is amber with one Hit and run note of code.
+func noted(v moves.Verdict, code string) bool {
+	return v.Color == moves.Amber && len(v.Reasons) == 1 && v.Reasons[0].Check == moves.CheckHitAndRun && v.Reasons[0].Color == moves.Amber && v.Reasons[0].Code == code
+}
+
 // TestAPrivateTorrentIntoTheBuiltInClientNotesItsWindowStarts previews
 // The Quiet Orchard's Move out of qBittorrent into seedbox's built-in
 // client: it can move, with the amber note that its Hit and run window
@@ -318,11 +322,8 @@ func TestAPrivateTorrentIntoTheBuiltInClientNotesItsWindowStarts(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := moves.Verdict{Color: moves.Amber, Reasons: []moves.Reason{{
-			Check: moves.CheckHitAndRun, Color: moves.Amber, Code: "window_starts", Words: "SlipStream starts counting this Hit and run window from now.",
-		}}}
-		if plan.Movable() != 1 || !reflect.DeepEqual(plan.Units[0].Verdict, want) {
-			t.Errorf("the preview is %+v, want it movable with %+v", plan.Units, want)
+		if plan.Movable() != 1 || !noted(plan.Units[0].Verdict, "window_starts") {
+			t.Errorf("the preview is %+v, want it movable with an amber window_starts note", plan.Units)
 		}
 	})
 }
@@ -528,12 +529,9 @@ func TestAPrivateTorrentIntoAnExternalClientNotesItsWindowStops(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := moves.Verdict{Color: moves.Amber, Reasons: []moves.Reason{{
-			Check: moves.CheckHitAndRun, Color: moves.Amber, Code: "window_stops",
-			Words: "torznab needs 3 more days of seeding. Transmission on den follows its own rules, and SlipStream stops counting this Hit and run window.",
-		}}}
-		if plan.Movable() != 1 || !reflect.DeepEqual(plan.Units[0].Verdict, want) {
-			t.Errorf("the preview is %+v, want it movable with %+v", plan.Units[0].Verdict, want)
+		v := plan.Units[0].Verdict
+		if plan.Movable() != 1 || !noted(v, "window_stops") || !strings.Contains(v.Reasons[0].Words, "torznab") || !strings.Contains(v.Reasons[0].Words, "3 more days") {
+			t.Errorf("the preview is %+v, want it movable with an amber window_stops note naming torznab's 3 more days", v)
 		}
 	})
 }

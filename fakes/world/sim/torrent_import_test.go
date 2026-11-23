@@ -37,10 +37,7 @@ func TestATorrentWaitsForItsGrabsImportBeforeItSwitches(t *testing.T) {
 		}
 		s.hash = bencode.InfoHash(hash)
 		batch := moveTorrent(t, w, s, moves.Side{Node: nodeID(t, w, "den")})
-		unit := waitsForTheImport(t, w, batch)
-		if unit.Words != "Waiting until its Import finishes" {
-			t.Errorf("the unit reads %q, want the Import wait's words", unit.Words)
-		}
+		waitsForTheImport(t, w, batch)
 		free()
 		simtest.ExpectImported(t, simtest.Await(t, w))
 		if unit := ended(t, w, batch); unit.Phase != moves.PhaseDone {

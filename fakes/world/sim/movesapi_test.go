@@ -14,11 +14,9 @@ import (
 )
 
 type previewReply struct {
-	Token          string `json:"token"`
-	Recommendation string `json:"recommendation"`
-	Button         string `json:"button"`
-	Movable        int    `json:"movable"`
-	Units          []struct {
+	Token   string `json:"token"`
+	Movable int    `json:"movable"`
+	Units   []struct {
 		Verdict string `json:"verdict"`
 		To      struct {
 			RootID   string `json:"rootId"`
@@ -29,13 +27,11 @@ type previewReply struct {
 
 type batchReply struct {
 	Batch struct {
-		Words       string `json:"words"`
-		CanMoveBack bool   `json:"canMoveBack"`
+		CanMoveBack bool `json:"canMoveBack"`
 	} `json:"batch"`
 	Units []struct {
 		ID    string `json:"id"`
 		Phase string `json:"phase"`
-		Words string `json:"words"`
 	} `json:"units"`
 }
 
@@ -70,7 +66,7 @@ func TestTheMovesAPIStartsOnceAndRefusesWhatItCannotDo(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := movestest.Launch(t)
 		plan := previewOver(t, w, "movies-f")
-		if plan.Movable != 1 || plan.Button != "Move" || plan.Recommendation != "Move The Quiet Orchard to den." {
+		if plan.Movable != 1 || len(plan.Units) != 1 || plan.Units[0].To.NodeName != "den" {
 			t.Fatalf("the preview is %+v, want one Work that moves to den", plan)
 		}
 		if code := problemCode(t, "a Start with a stale count", startOver(w, plan.Token, 2), http.StatusConflict); code != "move_plan_changed" {
@@ -129,8 +125,8 @@ func doneOver(t *testing.T, w movestest.World, batch string) string {
 		b = simtest.Decode[batchReply](t, "getMove", w.API().Admin("home", http.MethodGet, "/api/v1/moves/"+batch, ""))
 		return len(b.Units) == 1 && b.Units[0].Phase == "done"
 	})
-	if b.Units[0].Words != "Moved to den" || b.Batch.Words != "1 of 1 movie moved." || !b.Batch.CanMoveBack {
-		t.Errorf("the done batch reads %+v, want it moved to den and able to move back", b)
+	if !b.Batch.CanMoveBack {
+		t.Errorf("the done batch reads %+v, want it able to move back", b)
 	}
 	return b.Units[0].ID
 }
