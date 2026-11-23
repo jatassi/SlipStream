@@ -18,6 +18,20 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
+// expectOneItem checks a holds want alone, whose words name fact.
+func expectOneItem(t *testing.T, a health.Answer, want health.Item, fact string) {
+	t.Helper()
+	if len(a.Items) != 1 {
+		t.Fatalf("the items are %+v, want one", a.Items)
+	}
+	got := a.Items[0]
+	said := got.Text
+	got.Text = ""
+	if !reflect.DeepEqual(got, want) || !strings.Contains(said, fact) {
+		t.Fatalf("the item is %+v saying %q, want %+v naming %q", got, said, want, fact)
+	}
+}
+
 // TestCheckNowForgetsTheReportsSkippedFromANode has home hold the probe,
 // whose Controller half fails home's two reports, so it skips both: the
 // Nodes category warns about them, and Check now on that item clears it
@@ -63,15 +77,7 @@ func TestCheckNowForgetsTheReportsSkippedFromANode(t *testing.T) {
 			Detail:  []health.Fact{{Label: "Last skipped", At: time.Now().UTC().Truncate(time.Microsecond)}},
 			Action:  health.CheckAction(),
 		}}
-		if len(a.Items) != 1 {
-			t.Fatalf("with two reports skipped the items are %+v, want one", a.Items)
-		}
-		got := a.Items[0]
-		said := got.Text
-		got.Text = ""
-		if !reflect.DeepEqual(got, want) || !strings.Contains(said, "2 results") {
-			t.Fatalf("with two reports skipped the item is %+v saying %q, want %+v saying 2 results", got, said, want)
-		}
+		expectOneItem(t, a, want, "2 results")
 
 		if _, err := src.Check(t.Context(), key); err != nil {
 			t.Fatal(err)

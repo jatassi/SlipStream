@@ -494,6 +494,27 @@ func TestStopWithNoNodeFails(t *testing.T) {
 	}
 }
 
+// everyKeyReads checks each key reads from its own variable and, from its
+// default, holds that default. It answers the keys by name and every
+// endpoint with a default host, the census when no fake replaced one.
+func everyKeyReads(t *testing.T, all []node.Key) (keys map[string]node.Key, census []string) {
+	t.Helper()
+	keys = map[string]node.Key{}
+	for _, k := range all {
+		keys[k.Key] = k
+		if want := "SLIPSTREAM_" + strings.ToUpper(strings.ReplaceAll(k.Key, ".", "_")); k.Env != want {
+			t.Errorf("%s reads from %s, want %s", k.Key, k.Env, want)
+		}
+		if k.Source == "default" && k.Value != k.Default {
+			t.Errorf("%s from its default is %q, want its default %q", k.Key, k.Value, k.Default)
+		}
+		if strings.HasPrefix(k.Key, "endpoints.") && k.Default != "" {
+			census = append(census, k.Key)
+		}
+	}
+	return keys, census
+}
+
 func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 	t.Parallel()
 	dir := dataDir(t)
@@ -512,20 +533,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys := map[string]node.Key{}
-	var census []string
-	for _, k := range got.Keys {
-		keys[k.Key] = k
-		if want := "SLIPSTREAM_" + strings.ToUpper(strings.ReplaceAll(k.Key, ".", "_")); k.Env != want {
-			t.Errorf("%s reads from %s, want %s", k.Key, k.Env, want)
-		}
-		if k.Source == "default" && k.Value != k.Default {
-			t.Errorf("%s from its default is %q, want its default %q", k.Key, k.Value, k.Default)
-		}
-		if strings.HasPrefix(k.Key, "endpoints.") && k.Default != "" {
-			census = append(census, k.Key)
-		}
-	}
+	keys, census := everyKeyReads(t, got.Keys)
 	for _, want := range []node.Key{
 		{Key: "seed", Value: "fixed", Default: "", Source: "env", Env: "SLIPSTREAM_SEED"},
 		{Key: "name", Value: host, Default: host, Source: "default", Env: "SLIPSTREAM_NAME"},
