@@ -3,9 +3,11 @@ package moves
 import (
 	"context"
 	"path"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/moves/internal/db"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -438,12 +440,38 @@ func handoffFacts(ctx context.Context, r storage.Reader[file], us []Unit, out []
 		return nil
 	}
 	got, err := downloadclients.Handoffs(ctx, r, pairs)
+	if err != nil {
+		return err
+	}
+	importing, err := importingFrom(ctx, r, us)
 	for i, u := range us {
 		if u.Torrent != nil {
 			out[i].Handoff = got[u.Torrent.Torrent]
+			out[i].Importing = importing[u.Torrent.Torrent]
 		}
 	}
 	return err
+}
+
+// importingFrom is which sources of us, the torrent units at their guard,
+// a Grab imports from now: its Import reads the source the switch
+// removes.
+func importingFrom(ctx context.Context, r storage.Reader[file], us []Unit) (map[downloadclients.ID]bool, error) {
+	var ids []downloadclients.ID
+	for _, u := range us {
+		if s, ok := u.Stage.(Switching); ok && u.Torrent != nil && s.Handoff.Step == HandoffGuard {
+			ids = append(ids, u.Torrent.Torrent)
+		}
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	uses, err := grabs.TorrentUses{}.Of(ctx, r, ids)
+	out := map[downloadclients.ID]bool{}
+	for id, us := range uses {
+		out[id] = slices.ContainsFunc(us, func(u downloadclients.Use) bool { return u.Stage == downloadclients.UseImporting })
+	}
+	return out, err
 }
 
 // Moving is each of ids a unit moves before its switch, or keeps a copy

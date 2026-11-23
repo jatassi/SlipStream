@@ -1902,7 +1902,7 @@ const unpair = `-- name: Unpair :exec
 UPDATE moves_unit SET pairs_with_unit_id = NULL, due_at = ?1,
     waiting = CASE WHEN waiting = 'linked_torrent' THEN NULL ELSE waiting END,
     waiting_at = CASE WHEN waiting = 'linked_torrent' THEN NULL ELSE waiting_at END
-WHERE pairs_with_unit_id = ?2
+WHERE pairs_with_unit_id = ?2 AND phase IN ('queued', 'transfer', 'place')
 `
 
 type UnpairParams struct {
@@ -1910,6 +1910,8 @@ type UnpairParams struct {
 	TorrentUnit UnitID
 }
 
+// A Work unit past its Place placed every file it takes from the payload
+// and keeps its pair.
 func (q *Queries) Unpair(ctx context.Context, arg UnpairParams) error {
 	_, err := q.db.ExecContext(ctx, unpair, arg.Now, arg.TorrentUnit)
 	return err

@@ -192,6 +192,9 @@ func needWords(v View, now time.Time) string {
 	case WaitMediaServers:
 		return waited + " SlipStream can't connect to a Media Server to save who watched it."
 	case WaitImporting:
+		if v.Torrent != nil {
+			return waited + " An Import from it hasn't finished."
+		}
 		return waited + " An Import into it hasn't finished."
 	case WaitOpenFiles:
 		return waited + " SlipStream is still writing or sending its files."

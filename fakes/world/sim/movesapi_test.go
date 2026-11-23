@@ -7,7 +7,6 @@ import (
 	"testing"
 	"testing/synctest"
 
-	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/sim/movestest"
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
@@ -142,10 +141,7 @@ func doneOver(t *testing.T, w movestest.World, batch string) string {
 func TestTheMovesSettingsChangeByKeyAllOrNone(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		s, err := scenario.Load("moves")
-		if err != nil {
-			t.Fatal(err)
-		}
+		s := movestest.Scenario(t)
 		w := sim.Launch(t, s)
 		type settings struct {
 			Settings []struct {
