@@ -413,7 +413,7 @@ func TestTheOldControllerIsFencedThenJoinsAsAWorker(t *testing.T) {
 	var v reconcilingView
 	worldtest.Until(t, "spare lists Harbor for review", func() (bool, error) {
 		v = w.reconciling(t, "spare")
-		return len(v.Review) > 0, nil
+		return len(v.Review) > 0 && v.Review[0].Found != "not_looked", nil
 	})
 	if len(v.Review) != 1 || v.Review[0].Reason != "not_held" || v.Review[0].Found != "files" {
 		t.Fatalf("getReconciling's review list = %+v, want Harbor not held with its files found", v.Review)
