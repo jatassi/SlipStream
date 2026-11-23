@@ -121,6 +121,7 @@ func (d *DB[F]) Close() error {
 // panics: the reader's snapshot would miss the Write's own rows.
 func (d *DB[F]) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	mustNotHold[F](ctx)
+	count(ctx)
 	rows, err := d.read.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", policyOf[F]().name, err)
@@ -130,11 +131,13 @@ func (d *DB[F]) QueryContext(ctx context.Context, query string, args ...any) (*s
 
 func (d *DB[F]) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
 	mustNotHold[F](ctx)
+	count(ctx)
 	return d.read.QueryRowContext(ctx, query, args...)
 }
 
 func (d *DB[F]) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
 	mustNotHold[F](ctx)
+	count(ctx)
 	stmt, err := d.read.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", policyOf[F]().name, err)
@@ -155,6 +158,7 @@ func (d *DB[F]) file() F {
 }
 
 func (t *Tx[F]) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	count(ctx)
 	res, err := t.tx.ExecContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", policyOf[F]().name, err)
@@ -163,6 +167,7 @@ func (t *Tx[F]) ExecContext(ctx context.Context, query string, args ...any) (sql
 }
 
 func (t *Tx[F]) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
+	count(ctx)
 	stmt, err := t.tx.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", policyOf[F]().name, err)
@@ -171,6 +176,7 @@ func (t *Tx[F]) PrepareContext(ctx context.Context, query string) (*sql.Stmt, er
 }
 
 func (t *Tx[F]) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	count(ctx)
 	rows, err := t.tx.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", policyOf[F]().name, err)
@@ -179,6 +185,7 @@ func (t *Tx[F]) QueryContext(ctx context.Context, query string, args ...any) (*s
 }
 
 func (t *Tx[F]) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	count(ctx)
 	return t.tx.QueryRowContext(ctx, query, args...)
 }
 

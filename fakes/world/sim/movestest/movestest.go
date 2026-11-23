@@ -7,9 +7,11 @@ package movestest
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -21,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/node"
+	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -41,6 +44,8 @@ var Steps = []string{"take_lane", "place_file", "final_pass", "switch", "remove_
 type World struct {
 	*sim.World
 	Work works.WorkID
+	// Seeded is each movie Seed adds, by id.
+	Seeded []works.WorkID
 	// Roots is each root by its folder, such as movies-d.
 	Roots map[string]simtest.RootRow
 	// Was is each source file's bytes by its path in movies-e.
@@ -67,19 +72,83 @@ func Scenario(t testing.TB) scenario.Scenario {
 // subtitle in den's movies-e, walking, with opts.
 func Launch(t *testing.T, opts ...sim.Option) World {
 	t.Helper()
+	return launch(t, Scenario(t), simtest.Settled, opts)
+}
+
+// Seed launches as Launch does, with n generated movies more, each a film
+// in movies-d or movies-e by turns, and waits until the scans record every
+// one of them.
+func Seed(t *testing.T, n int, opts ...sim.Option) World {
+	t.Helper()
 	s := Scenario(t)
-	s.Library.Folders = append(s.Library.Folders, scenario.LibraryFolder{Folder: "movies-e", Files: []scenario.MediaFile{{
-		Path: Film, Video: scenario.MediaVideo{Width: 1920, Height: 1080, Seconds: 6, HDR: "sdr"},
-	}}})
+	gen := scenario.TMDBGenerated{Count: n, Seed: "moves-seed"}
+	s.TMDB.Generated = &gen
+	s.Timings.TMDB = tmdb.Timings{Interval: time.Millisecond, Burst: 100}
+	for i := range n {
+		m := gen.Movie(i)
+		name := fmt.Sprintf("Seeded %d (%s)", i, m.Dates[0].Date[:4])
+		add(&s, []string{"movies-d", "movies-e"}[i%2], scenario.MediaFile{
+			Path:  fmt.Sprintf("%s {tmdb-%d}/%s.mkv", name, m.ID, name),
+			Video: scenario.MediaVideo{Width: 1920, Height: 1080, Seconds: 6, HDR: "sdr"},
+		})
+	}
+	settled := simtest.Settled + time.Duration(n)*time.Second
+	w := launch(t, s, settled, opts)
+	await(t, settled, fmt.Sprintf("the scans record %d seeded movies", n), func() bool {
+		w.Seeded = w.Seeded[:0]
+		err := w.Library(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+			rows, err := r.QueryContext(ctx, `SELECT DISTINCT work_id FROM files_file WHERE work_id <> ? ORDER BY work_id`, w.Work)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var id works.WorkID
+				if err := rows.Scan(&id); err != nil {
+					return err
+				}
+				w.Seeded = append(w.Seeded, id)
+			}
+			return rows.Err()
+		})
+		return err == nil && len(w.Seeded) == n
+	})
+	return w
+}
+
+// add puts f in s's library folder named folder.
+func add(s *scenario.Scenario, folder string, f scenario.MediaFile) {
+	i := slices.IndexFunc(s.Library.Folders, func(l scenario.LibraryFolder) bool { return l.Folder == folder })
+	if i < 0 {
+		s.Library.Folders, i = append(s.Library.Folders, scenario.LibraryFolder{Folder: folder}), len(s.Library.Folders)
+	}
+	s.Library.Folders[i].Files = append(s.Library.Folders[i].Files, f)
+}
+
+// await waits in fake time, up to limit, until ok, failing with what.
+func await(t *testing.T, limit time.Duration, what string, ok func() bool) {
+	t.Helper()
+	for range limit / time.Second {
+		if ok() {
+			return
+		}
+		time.Sleep(time.Second)
+	}
+	t.Fatalf("not within %s: %s", limit, what)
+}
+
+func launch(t *testing.T, s scenario.Scenario, settled time.Duration, opts []sim.Option) World {
+	t.Helper()
+	add(&s, "movies-e", scenario.MediaFile{Path: Film, Video: scenario.MediaVideo{Width: 1920, Height: 1080, Seconds: 6, HDR: "sdr"}})
 	w := World{World: sim.Launch(t, s, append([]sim.Option{sim.WithWalk()}, opts...)...), Roots: map[string]simtest.RootRow{}}
 	for _, r := range simtest.Decode[struct {
 		Roots []simtest.RootRow `json:"roots"`
 	}](t, "listRoots", w.API().Admin("home", http.MethodGet, "/api/v1/roots", "")).Roots {
 		w.Roots[filepath.Base(r.Path)] = r
 	}
-	simtest.Eventually(t, "movies-e's first scan records The Quiet Orchard", func() bool {
+	await(t, settled, "movies-e's first scan records The Quiet Orchard", func() bool {
 		err := w.Library(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
-			return r.QueryRowContext(ctx, `SELECT work_id FROM files_file LIMIT 1`).Scan(&w.Work)
+			return r.QueryRowContext(ctx, `SELECT work_id FROM files_file WHERE path = ?`, Film).Scan(&w.Work)
 		})
 		return err == nil
 	})
