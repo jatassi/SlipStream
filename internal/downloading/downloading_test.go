@@ -899,6 +899,47 @@ func TestTotalsGoToTheControllerInBatches(t *testing.T) {
 	})
 }
 
+// TestAPausedTorrentsReportCountsUpToItsPause seeds the Orchard for two
+// hours in which nothing but its clocks moves, then pauses it: the first
+// report that holds it paused counts the two hours, and no later report
+// or totals row counts more, so a Move's switch can carry it as final.
+func TestAPausedTorrentsReportCountsUpToItsPause(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		f := newFile(t, "Orchard.mkv")
+		n.world.Payload(f.hash, f.payload)
+		id := n.hold(f)
+		c := n.start()
+		c.send(live(f.started(id, 1)))
+		time.Sleep(2 * time.Hour)
+		c.send(live(f.paused(id, 1)))
+		time.Sleep(timings.TotalsReport)
+		synctest.Wait()
+
+		reports := c.h.reportsOf(id)
+		i := slices.IndexFunc(reports, func(r *dlv1.TorrentReport) bool { return r.GetHold() == dlv1.Hold_HOLD_WANTED })
+		if i < 0 {
+			t.Fatal("no report holds the Orchard paused")
+		}
+		paused := reports[i].GetTotals().GetSeedingSeconds()
+		if paused < int64((2 * time.Hour).Seconds()) {
+			t.Errorf("the report that holds the Orchard paused counts %d s of seeding, want the 2 hours before its pause", paused)
+		}
+		later := []int64{}
+		for _, r := range reports[i+1:] {
+			later = append(later, r.GetTotals().GetSeedingSeconds())
+		}
+		for _, rows := range c.h.totals() {
+			for _, row := range rows {
+				later = append(later, row.GetSeedingSeconds())
+			}
+		}
+		if len(later) > 0 && slices.Max(later) > paused {
+			t.Errorf("after the paused report counted %d s of seeding, later reports counted %v", paused, later)
+		}
+	})
+}
+
 // TestTheSeedTimeTrackersCreditReachesTheTotals seeds a private torrent
 // from its completion, pauses it, then seeds and pauses it again: every
 // report's totals carry the seed time its tracker credited, which never
