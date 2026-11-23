@@ -1,6 +1,7 @@
 // Package clientcases is the cases every Download Client conformance
 // suite runs alike: a complete add over files already on disk, the last
-// announce a Move's guard reads, and a pause that reads paused.
+// announce a Move's guard reads, a paused add that reads paused until
+// it is listed and checked, and a pause that reads paused.
 package clientcases
 
 import (
@@ -24,9 +25,10 @@ type Folder struct {
 // poll is how often a case reads the target while it waits.
 const poll = time.Second
 
-// pauseWait bounds a pause's wait to read paused, and pauseEvery is how
-// often it reads: Transmission 4.1.4 read stopped up to 485 ms after the
-// call, on a tick of about 0.5 s.
+// pauseWait bounds a pause's or an add's wait to read settled, and
+// pauseEvery is how often it reads: Transmission 4.1.4 read stopped up to
+// 485 ms after the call, on a tick of about 0.5 s, and qBittorrent 4.6.7
+// listed an add 4 ms after it answered.
 const (
 	pauseWait  = 2 * time.Second
 	pauseEvery = 100 * time.Millisecond
@@ -140,6 +142,33 @@ func Pause(t *testing.T, c clients.Client, h bencode.InfoHash) {
 		if time.Now().After(deadline) {
 			t.Errorf("%s after Pause: %+v, want paused", pauseWait, got[h])
 			return
+		}
+		time.Sleep(pauseEvery)
+	}
+}
+
+// PausedAdd polls until the client lists h, added paused, with no check
+// running, which a client may do on its next tick after it answered the
+// add, and answers its status. Each read must say paused, checking or
+// not.
+func PausedAdd(t *testing.T, c clients.Client, h bencode.InfoHash) (clients.Status, bool) {
+	t.Helper()
+	deadline := time.Now().Add(pauseWait)
+	for {
+		got, err := c.Poll(t.Context(), []bencode.InfoHash{h})
+		if err != nil {
+			t.Fatalf("Poll: %v", err)
+		}
+		s, ok := got[h]
+		if ok && s.Run != clients.Paused {
+			t.Errorf("after a paused add: %+v, want it paused", s)
+			return s, true
+		}
+		if ok && s.Activity != clients.Checking {
+			return s, true
+		}
+		if time.Now().After(deadline) {
+			return s, ok
 		}
 		time.Sleep(pauseEvery)
 	}
