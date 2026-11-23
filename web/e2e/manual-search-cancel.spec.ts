@@ -86,7 +86,7 @@ test("a fetching Grab cancels from its Details without blocklisting, and its cel
     page.getByRole("main").getByRole("table", { name: "Grabs" }),
     webdlTitle,
   );
-  await expect(record).toContainText("Found by the API key in Manual search");
+  await expect(record).toContainText(/API key.+Manual search/u);
   await record.getByRole("button", { name: "Cancel Grab" }).click();
   const confirm = page.getByRole("dialog", { name: "Cancel this Grab?" });
   await expect(

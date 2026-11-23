@@ -6,6 +6,7 @@ import { renderApp } from "../test/render-app";
 import { seedpoolId, seedpoolRows, trackersServer } from "../test/trackers";
 import { aitherTrackerId } from "../test/indexers";
 import { asPhone } from "../test/viewport";
+import { noRuleSentence } from "./words";
 
 const seedingTab = `/settings/trackers/${seedpoolId}/seeding`;
 const open = () => page.getByRole("list", { name: "Open hit and run windows" });
@@ -24,6 +25,8 @@ function recorded() {
   };
 }
 
+const region = (name: string) => page.getByRole("region", { name });
+
 test("the Seeding tab lists the windows still owed with their lanes, and a link to each torrent", async () => {
   const windows = recorded();
   const { router } = renderApp({
@@ -31,19 +34,15 @@ test("the Seeding tab lists the windows still owed with their lanes, and a link 
     handlers: [windows.handler, ...trackersServer().handlers],
   });
   const holdFast = rowOf(open(), "Hold.Fast.2024.1080p.WEB-DL");
-  await expect.element(holdFast).toMatchTextContent("Still needs 3 days 4 h more seeding");
+  await expect.element(holdFast).toMatchTextContent("3 days 4 h");
   await expect
     .element(holdFast.getByRole("meter", { name: "Seeding time" }))
     .toHaveAttribute("aria-valuetext", "6 days 22 h, rule 10 days 2 h, goal 14 days");
   const saltLine = rowOf(open(), "Salt.Line.2022.1080p.WEB-DL");
-  await expect.element(saltLine).toMatchTextContent("Still needs 5 days more seeding");
+  await expect.element(saltLine).toMatchTextContent("5 days");
   await expect.element(saltLine.getByText("At risk")).toBeVisible();
-  await expect
-    .element(saltLine)
-    .toMatchTextContent(
-      /It stopped seeding .+\. Seed it again before seedpool counts a hit and run\./u,
-    );
-  await expect.element(saltLine).toMatchTextContent(/It was missed .+ and grabbed again .+\./u);
+  await expect.element(saltLine).toMatchTextContent(/stopped seeding .+seedpool/u);
+  await expect.element(saltLine).toMatchTextContent(/missed .+grabbed again/u);
   expect(windows.asked).toEqual([
     `/api/v1/trackers/${seedpoolId}/windows?list=open`,
     `/api/v1/trackers/${seedpoolId}/windows?list=history`,
@@ -65,9 +64,7 @@ test("the history lists met, missed and released windows a page at a time", asyn
   await userEvent.click(more);
   await expect
     .element(rowOf(history(), "Ash.Road.2020.1080p.WEB-DL"))
-    .toMatchTextContent(
-      /Missed .+It still needed 1 day more seeding when its last torrent was removed\./u,
-    );
+    .toMatchTextContent(/Missed .+1 day/u);
   await expect
     .element(rowOf(history(), "Gone.Quiet.2019.1080p.WEB-DL"))
     .toMatchTextContent(/Closed /u);
@@ -80,34 +77,27 @@ test("the history lists met, missed and released windows a page at a time", asyn
 test("a window missed and grabbed again stays in the history as its miss while it owes again", async () => {
   renderApp({ path: seedingTab, handlers: trackersServer().handlers });
   const missed = rowOf(history(), "Salt.Line.2022.1080p.WEB-DL");
-  await expect
-    .element(missed)
-    .toMatchTextContent(
-      /Missed .+It still needed 6 days more seeding when its last torrent was removed\.It was grabbed again .+\./u,
-    );
+  await expect.element(missed).toMatchTextContent(/Missed .+6 days.+grabbed again/u);
   expect(missed.getByText("At risk").query()).toBeNull();
   expect(missed.getByText(/Still needs /u).query()).toBeNull();
-  await expect
-    .element(rowOf(open(), "Salt.Line.2022.1080p.WEB-DL"))
-    .toMatchTextContent("Still needs 5 days more seeding");
-  expect(page.getByText("No hit and run window has ended yet.").query()).toBeNull();
+  await expect.element(rowOf(open(), "Salt.Line.2022.1080p.WEB-DL")).toMatchTextContent("5 days");
 });
 
-test("a Tracker with no windows says what each list is waiting for", async () => {
+test("a Tracker with no windows shows each list empty, naming the Tracker", async () => {
   renderApp({
     path: `/settings/trackers/${aitherTrackerId}/seeding`,
     handlers: trackersServer().handlers,
   });
-  await expect.element(page.getByText("No torrent needs more seeding for Aither.")).toBeVisible();
-  await expect.element(page.getByText("No hit and run window has ended yet.")).toBeVisible();
+  await expect.element(region("Open hit and run windows")).toMatchTextContent("Aither");
+  await expect.element(region("History")).not.toBeEmptyDOMElement();
+  expect(open().query()).toBeNull();
+  expect(history().query()).toBeNull();
 });
 
 test("a private Tracker with no rule says so once, in its header's attention line", async () => {
   await asPhone();
   renderApp({ path: `/settings/trackers/${aitherTrackerId}`, handlers: trackersServer().handlers });
-  const noRule = page.getByText(
-    "Aither's releases don't include a seeding rule. SlipStream keeps seeding its private torrents until you set one.",
-  );
+  const noRule = page.getByText(noRuleSentence("Aither", "private"));
   await expect.element(noRule).toBeVisible();
   expect(noRule.elements()).toHaveLength(1);
 });

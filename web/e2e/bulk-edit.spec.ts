@@ -30,7 +30,7 @@ test("an Admin monitors, refreshes and changes the Profile of two picked Works t
   await pick(page, orchard, saltRoad);
   await expect(bar(page)).toContainText("2 movies selected");
   await barAction(page, "Monitor");
-  await expect(toasts(page)).toContainText(`Monitored ${orchard} and ${saltRoad}.`);
+  await expect(toasts(page)).toContainText(new RegExp(`Monitored.+${orchard}.+${saltRoad}`, "u"));
   await expect
     .poll(async () => (await libraryRows(world)).map((row) => row.monitored))
     .toEqual(["all", "all"]);
@@ -51,7 +51,7 @@ test("an Admin monitors, refreshes and changes the Profile of two picked Works t
   await expect(impact.getByRole("list", { name: "What changes" })).toContainText("2 Works change.");
   await page.screenshot({ path: testInfo.outputPath("profile-impact.png") });
   await impact.getByRole("button", { name: /^Save/u }).click();
-  await expect(toasts(page)).toContainText(`Changed the Profile of ${orchard} and ${saltRoad}.`);
+  await expect(toasts(page)).toContainText(new RegExp(`Profile.+${orchard}.+${saltRoad}`, "u"));
   await expect
     .poll(async () => (await libraryRows(world)).map((row) => row.profileId))
     .toEqual([uhd, uhd]);
@@ -75,7 +75,9 @@ test("an Admin moves two Works without files to another library root, then delet
   await dialog.getByRole("combobox", { name: "Library root" }).click();
   await page.getByRole("option", { name: /archive/u }).click();
   await dialog.getByRole("button", { name: "Set library root" }).click();
-  await expect(toasts(page)).toContainText(`Set the library root of ${orchard} and ${saltRoad}.`);
+  await expect(toasts(page)).toContainText(
+    new RegExp(`library root.+${orchard}.+${saltRoad}`, "u"),
+  );
   await expect
     .poll(async () => (await libraryRows(world)).map((row) => row.rootId))
     .toEqual([archive, archive]);

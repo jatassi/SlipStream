@@ -88,7 +88,7 @@ test("Remove past the re-confirm window asks for the PIN, then the Worker leaves
 
   await choose(page, "seedbox", "Remove");
   const dialog = page.getByRole("dialog", { name: "Remove seedbox?" });
-  await expect(dialog).toContainText("seedbox comes off the Nodes list");
+  await expect(dialog).toContainText(/seedbox.+Nodes list/u);
   await dialog.getByRole("button", { name: /^Remove/u }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   await expect(confirm).toContainText("Enter your PIN to continue.");

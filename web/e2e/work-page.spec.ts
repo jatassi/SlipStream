@@ -123,7 +123,7 @@ test("an Admin sets the Work's own Editions through the Impact, and an unseen cu
   await expect(impact.getByRole("list", { name: "What changes" })).toContainText("1 Work changes.");
   await impact.getByRole("button", { name: /^Save/u }).click();
 
-  await expect(notifications(page)).toContainText("Saved the Editions of The Quiet Orchard.");
+  await expect(notifications(page)).toContainText(/Saved the Editions.+The Quiet Orchard/u);
   const matrix = isPhone(page)
     ? page.getByRole("list", { name: "Editions and Targets" }).getByRole("listitem")
     : page

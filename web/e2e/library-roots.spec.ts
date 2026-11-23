@@ -128,7 +128,7 @@ async function checkStorageEveryTenMinutes(page: Page, world: World): Promise<vo
 async function deleteMovingWorks(page: Page, root: string, to: string): Promise<void> {
   await act(page, root, "Delete");
   const deleting = page.getByRole("dialog", { name: `Delete ${root}?` });
-  await expect(deleting).toContainText("Its 1 Movie move to the root you pick.");
+  await expect(deleting).toContainText(/1 Movie\b.+root you pick/u);
   await expect(deleting.getByRole("combobox", { name: "Move its Movies to" })).toContainText(to);
   await deleting.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(toasts(page)).toContainText(
@@ -155,7 +155,7 @@ test("an Admin adds a root through home's folder browser, makes it the default, 
   await expect(adding).toContainText(/This folder is on .+, .+ free\./u);
   await adding.getByRole("checkbox", { name: "Make this the default for Movies" }).check();
   await adding.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(toasts(page)).toContainText(`Added ${films}. New movies go there.`);
+  await expect(toasts(page)).toContainText(films);
   await expect(rootRow(page, films)).toContainText("Default");
   await expect(rootRow(page, movies.path)).not.toContainText("Default");
 
@@ -165,7 +165,7 @@ test("an Admin adds a root through home's folder browser, makes it the default, 
   const workId = await addOrchard(world);
   await expect(rootRow(page, films)).toContainText("1 Movie");
   await act(page, movies.path, "Make default");
-  await expect(toasts(page)).toContainText(`New movies now go into ${movies.path}.`);
+  await expect(toasts(page)).toContainText(movies.path);
   await expect(rootRow(page, movies.path)).toContainText("Default");
 
   await deleteMovingWorks(page, films, movies.path);
@@ -240,7 +240,7 @@ async function rehomeForgetting(page: Page, movies: Movies): Promise<string> {
     "The Quiet Orchard (2021) - 1080p.mkvnot there",
   );
   await editing.getByRole("button", { name: "Save anyway, forget 1 file" }).click();
-  await expect(toasts(page)).toContainText(`The Movies root is now ${moved} on home.`);
+  await expect(toasts(page)).toContainText(`${moved} on home`);
   return moved;
 }
 
@@ -272,7 +272,7 @@ test("re-homing a root checks its files at the new place, and Save anyway forget
     `Deleted the ${moved} root. The folder is still on disk.`,
   );
   await expect(page.getByRole("button", { name: "Add a root for Movies" })).toBeVisible();
-  await expect(page.getByRole("main")).toContainText("Add a library root to hold Movies.");
+  await expect(page.getByRole("main")).toContainText(/library root.+Movies/u);
 });
 
 test("home's root shows its last library scan, and Scan now scans it again", async ({

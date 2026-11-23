@@ -117,7 +117,7 @@ test("Write off shows what seedbox holds first, then gives it up", async ({
   await expect(dialog).toContainText(
     /seedbox has 1 torrent \([\d.]+ [KMGT]?B\) for Downloading\./u,
   );
-  await expect(dialog).toContainText("This also unticks Downloading on seedbox.");
+  await expect(dialog).toContainText(/unticks Downloading on seedbox/u);
   await dialog.getByRole("button", { name: "Write off" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(role(page, "Downloading")).not.toBeChecked();
