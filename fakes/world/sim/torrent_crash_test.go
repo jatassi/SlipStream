@@ -23,7 +23,7 @@ var handoffSteps = []string{"take_lane", "place_torrent", moves.RecordPlace, "ar
 // placedAtDen is where den's Transmission keeps The Quiet Orchard's
 // payload.
 func placedAtDen(w *sim.World) string {
-	return filepath.Join(w.ClientFolder("den", "transmission"), "movie", orchard+".mkv")
+	return filepath.Join(w.ClientFolder("den", "transmission"), "Movies", orchard+".mkv")
 }
 
 // TestATorrentMoveCrashedBeforeEachStepEndsMovedOnce stops the Controller
@@ -103,7 +103,7 @@ func TestACancelAfterAnUnrecordedPlaceLeavesNothingAtTheDestination(t *testing.T
 				s := seedOrchard(t, w, kinds[0])
 				batch := moveTorrent(t, w, s, to.side(t, w))
 				crash.Reached(t)
-				placed := filepath.Join(w.ClientFolder(to.node, to.kind), "movie", orchard+".mkv")
+				placed := filepath.Join(w.ClientFolder(to.node, to.kind), "Movies", orchard+".mkv")
 				if _, err := os.Stat(placed); err != nil {
 					t.Fatalf("%s placed nothing before the crash: %v", to, err)
 				}

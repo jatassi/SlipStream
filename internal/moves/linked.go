@@ -220,7 +220,7 @@ func unpair(ctx context.Context, tx *storage.Tx[file], t UnitID, now time.Time) 
 
 // arrivingSource is where file f of Work unit u lies at its destination
 // Node: the payload file its paired torrent unit placed there, read in r.
-func arrivingSource(ctx context.Context, r storage.Reader[file], u Unit, f File) (storing.Arriving, error) {
+func (m *Moves) arrivingSource(ctx context.Context, r storage.Reader[file], u Unit, f File) (storing.Arriving, error) {
 	t, err := load(ctx, r, *u.PairsWith)
 	if err != nil {
 		return storing.Arriving{}, err
@@ -229,10 +229,7 @@ func arrivingSource(ctx context.Context, r storage.Reader[file], u Unit, f File)
 	if err != nil {
 		return storing.Arriving{}, err
 	}
-	a := storing.Arriving{InfoHash: src.InfoHash}
-	if src.ContentType != nil {
-		a.ContentType = string(*src.ContentType)
-	}
+	a := storing.Arriving{InfoHash: src.InfoHash, ContentType: downloadclients.TypeFolder(m.cfg.Works, src.ContentType)}
 	if c := t.Torrent.To.Client; c != nil {
 		a.Client = new([16]byte(c.Bytes()))
 	}

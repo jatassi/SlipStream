@@ -103,11 +103,7 @@ func (c *Clients) lookOne(ctx context.Context, now External, base string, row db
 	if err != nil {
 		return false, fmt.Errorf("read the files of Torrent %s: %w", row.ID, err)
 	}
-	folder, under := base, ""
-	if row.ContentType != nil {
-		desc, _ := c.cfg.Types.Describe(*row.ContentType)
-		under = desc.Name
-	}
+	folder, under := base, TypeFolder(c.cfg.Types, row.ContentType)
 	if row.SaveFolder != nil {
 		onNode, _, ok := now.Folders.OnNode(*row.SaveFolder, '/')
 		if !ok {

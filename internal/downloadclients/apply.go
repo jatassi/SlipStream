@@ -20,7 +20,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/clients"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
-	"github.com/jatassi/slipstream/internal/works"
 )
 
 // Changed names the Torrents whose record moved.
@@ -71,9 +70,7 @@ type Config struct {
 	Moving Moving
 	// Types names each Content Type's folder in an external client's
 	// download folder.
-	Types interface {
-		Describe(t works.TypeID) (works.Description, bool)
-	}
+	Types Describer
 	// HoldingsPage and HoldingsMax bound a Holdings round: pages of at
 	// most HoldingsPage torrents, and at most HoldingsMax in all.
 	HoldingsPage, HoldingsMax int

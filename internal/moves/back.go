@@ -37,9 +37,18 @@ func (m *Moves) Back(ctx context.Context, batch BatchID) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	ask := Ask{Origin: OriginBulk}
+	// A torrent a Work placed its files from goes back with that Work
+	// again, linked, so its payload crosses once.
+	linked := map[UnitID]bool{}
+	for _, u := range done {
+		if u.PairsWith != nil && !gonePlanned(gone, u.Subject.Work) {
+			linked[*u.PairsWith] = true
+		}
+	}
+	ask := Ask{Origin: OriginBulk, Options: Options{IncludeLinkedTorrents: len(linked) > 0}}
 	for _, u := range done {
 		switch {
+		case linked[u.ID]:
 		case u.Torrent != nil:
 			ask.Torrents = append(ask.Torrents, TorrentTo{Torrent: *u.Torrent.Arriving, To: u.Torrent.From})
 		case !gonePlanned(gone, u.Subject.Work):

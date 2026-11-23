@@ -379,7 +379,7 @@ func (m *Moves) put(ctx context.Context, u Unit, f File, hold storing.Rel, sc *s
 		var from storing.Arriving
 		err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 			var err error
-			from, err = arrivingSource(ctx, r, u, f)
+			from, err = m.arrivingSource(ctx, r, u, f)
 			return err
 		})
 		if err != nil {

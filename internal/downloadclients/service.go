@@ -44,17 +44,13 @@ func (s ControlService) Torrent(ctx context.Context, req *dlv1.TorrentRequest) (
 	case err != nil:
 		return nil, err
 	}
-	var desc works.Description
-	if row.ContentType != nil {
-		desc, _ = s.Types.Describe(*row.ContentType)
-	}
 	res := &dlv1.TorrentResponse{
 		Metainfo: row.Metainfo,
 		Baseline: &dlv1.TotalsRow{
 			Id: id.Bytes(), Uploaded: row.Uploaded, Downloaded: row.Downloaded,
 			ActiveSeconds: row.ActiveSeconds, SeedingSeconds: row.SeedingSeconds, AnnouncedSeconds: row.AnnouncedSeconds,
 		},
-		ContentType: desc.Name,
+		ContentType: TypeFolder(s.Types, row.ContentType),
 		SeedMode:    row.Arriving && row.ClientID == nil,
 	}
 	if row.SaveFolder != nil {

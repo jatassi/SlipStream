@@ -25,12 +25,9 @@ func sourceIn(ctx context.Context, r storage.Reader[file], u Unit) (downloadclie
 
 // torrentCopy is the Transfer of u's payload into its destination
 // client's folder on the other Node.
-func torrentCopy(u Unit, src downloadclients.MoveSource) transfers.Request {
+func (m *Moves) torrentCopy(u Unit, src downloadclients.MoveSource) transfers.Request {
 	t := u.Torrent
-	to := transfers.DownloadFolder{Node: t.To.Node, InfoHash: src.InfoHash}
-	if src.ContentType != nil {
-		to.ContentType = string(*src.ContentType)
-	}
+	to := transfers.DownloadFolder{Node: t.To.Node, InfoHash: src.InfoHash, ContentType: downloadclients.TypeFolder(m.cfg.Works, src.ContentType)}
 	if t.To.Client != nil {
 		to.Client = new([16]byte(t.To.Client.Bytes()))
 	}
@@ -73,7 +70,7 @@ func (m *Moves) takeTorrentLane(ctx context.Context, u Unit) error {
 			cu.Stage, cu.Due = Placing{}, &now
 			return nil
 		}
-		id, err := m.cfg.Transfers.Want(ctx, tx, torrentCopy(*cu, src))
+		id, err := m.cfg.Transfers.Want(ctx, tx, m.torrentCopy(*cu, src))
 		cu.Stage, cu.Due = Copying{Transfer: id}, nil
 		return err
 	})
@@ -116,7 +113,7 @@ func (m *Moves) placeTorrent(ctx context.Context, u Unit, tr *transfers.ID) erro
 	if err != nil {
 		return err
 	}
-	req, positions := placeRequest(u, src, staged, tr)
+	req, positions := m.placeRequest(u, src, staged, tr)
 	res, err := m.cfg.Downloading(t.To.Node).PlacePayload(ctx, req)
 	if err != nil {
 		return err
@@ -156,11 +153,8 @@ func (m *Moves) placeTorrent(ctx context.Context, u Unit, tr *transfers.ID) erro
 // placeRequest is the Place of u's payload: from the positions staged
 // holds when it copied by Transfer tr, else from the client on the
 // destination's Node that holds it. It answers the positions it places.
-func placeRequest(u Unit, src downloadclients.MoveSource, staged transfers.Transfer, tr *transfers.ID) (req *dlv1.PlacePayloadRequest, positions []int) {
-	req = &dlv1.PlacePayloadRequest{InfoHash: src.InfoHash[:], AllowCopy: true}
-	if src.ContentType != nil {
-		req.ContentType = string(*src.ContentType)
-	}
+func (m *Moves) placeRequest(u Unit, src downloadclients.MoveSource, staged transfers.Transfer, tr *transfers.ID) (req *dlv1.PlacePayloadRequest, positions []int) {
+	req = &dlv1.PlacePayloadRequest{InfoHash: src.InfoHash[:], AllowCopy: true, ContentType: downloadclients.TypeFolder(m.cfg.Works, src.ContentType)}
 	if c := u.Torrent.To.Client; c != nil {
 		req.ClientId = c.Bytes()
 	}
@@ -397,10 +391,7 @@ func (m *Moves) discardPlaced(ctx context.Context, u Unit) error {
 		return err
 	}
 	t := u.Torrent
-	req := &dlv1.DiscardPayloadRequest{InfoHash: src.InfoHash[:], Held: u.Lane.sameNode()}
-	if src.ContentType != nil {
-		req.ContentType = string(*src.ContentType)
-	}
+	req := &dlv1.DiscardPayloadRequest{InfoHash: src.InfoHash[:], Held: u.Lane.sameNode(), ContentType: downloadclients.TypeFolder(m.cfg.Works, src.ContentType)}
 	if t.To.Client != nil {
 		req.ClientId = t.To.Client.Bytes()
 	}

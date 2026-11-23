@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -30,9 +32,10 @@ type linked struct {
 	w    *sim.World
 	work works.WorkID
 	seed seeded
-	// film is the file's path in movies-e, was its bytes in movies-d.
-	film string
-	was  []byte
+	// film is the file's path in movies-e, from its path in movies-d,
+	// and was its bytes there.
+	film, from string
+	was        []byte
 }
 
 // grabLinked grabs The Quiet Orchard on a moves world launched with opts
@@ -62,8 +65,8 @@ func grabLinked(t *testing.T, opts ...sim.Option) linked {
 		t.Fatal(err)
 	}
 	l.seed.hash = [20]byte(hash)
-	l.film = filepath.Join(to, filepath.FromSlash(rel))
-	if l.was, err = os.ReadFile(filepath.Join(from, filepath.FromSlash(rel))); err != nil {
+	l.film, l.from = filepath.Join(to, filepath.FromSlash(rel)), filepath.Join(from, filepath.FromSlash(rel))
+	if l.was, err = os.ReadFile(l.from); err != nil {
 		t.Fatal(err)
 	}
 	return l
@@ -137,23 +140,101 @@ func (l linked) expectPlaced(t *testing.T, want int) {
 }
 
 // TestAWorkMovesWithItsLinkedTorrent moves The Quiet Orchard to den's
-// movies-e with its torrent: both units end done, the torrent seeds on den
-// alone, and movies-e's file is a hard link of the payload den seeds.
+// movies-e with its torrent, then back: both ways both units end done and
+// the torrent seeds from its destination alone, from the payload file the
+// library's film is a hard link of, and neither Node keeps another copy.
 func TestAWorkMovesWithItsLinkedTorrent(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		l := grabLinked(t)
-		work, torrent := l.ended(t, l.start(t))
-		for _, u := range []moves.View{work, torrent} {
-			if u.Phase != moves.PhaseDone {
-				t.Errorf("%s ended %s %+v, want done", u.Label, u.Phase, u.Failure)
-			}
-		}
-		if got := wantedOf(t, l.w, l.seed); len(got) != 1 || got[0] != "den:started" {
-			t.Errorf("the hash's Torrents are %v, want den's alone, started", got)
-		}
+		batch := l.start(t)
+		l.expectDone(t, batch)
 		l.expectPlaced(t, 1)
+		l.expectSeedsFilm(t, "den", l.film)
+		m := l.w.Node("home").Half().Moves
+		back, err := m.Back(t.Context(), batch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if back.Movable() != 2 {
+			t.Fatalf("the way back is %+v, want the Work and its torrent movable", back.Units)
+		}
+		started, err := m.Start(t.Context(), identity.Admin{}, back.Token, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		l.expectDone(t, started.Batch)
+		if _, err := os.Stat(l.film); !os.IsNotExist(err) {
+			t.Errorf("movies-e still holds the film: %v", err)
+		}
+		l.expectSeedsFilm(t, "seedbox", l.from)
+		if left := payloads(t, l.w.Node("den").DataDir().Path()); len(left) > 0 {
+			t.Errorf("den keeps %v after the Move back", left)
+		}
 	})
+}
+
+// expectDone checks batch's Work and torrent both end done, and the
+// torrent's hash has one Torrent, started.
+func (l linked) expectDone(t *testing.T, batch moves.BatchID) {
+	t.Helper()
+	work, torrent := l.ended(t, batch)
+	for _, u := range []moves.View{work, torrent} {
+		if u.Phase != moves.PhaseDone {
+			t.Errorf("%s ended %s %+v, want done", u.Label, u.Phase, u.Failure)
+		}
+	}
+	if got := wantedOf(t, l.w, l.seed); len(got) != 1 || !strings.HasSuffix(got[0], ":started") {
+		t.Errorf("the hash's Torrents are %v, want one, started", got)
+	}
+}
+
+// expectSeedsFilm checks node's Torrent of the hash keeps its payload in a
+// folder whose file is film, and every payload file in node's data is
+// film too.
+func (l linked) expectSeedsFilm(t *testing.T, node, film string) {
+	t.Helper()
+	of, err := os.Stat(film)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var id storage.UUID
+	if err := l.w.Node("home").Half().Library.QueryRowContext(t.Context(), `SELECT t.id FROM downloadclients_torrent t
+		JOIN nodes_node n ON n.id = t.node_id WHERE t.info_hash = ? AND t.removed_at IS NULL AND n.name = ?`, l.seed.hash[:], node).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	var folder string
+	within(t, time.Hour, node+" reports where it keeps the torrent", func() bool {
+		folder = simtest.Decode[struct {
+			SaveFolder string `json:"saveFolder"`
+		}](t, "getTorrent", l.w.API().Admin("home", http.MethodGet, "/api/v1/torrents/"+id.String(), "")).SaveFolder
+		return folder != ""
+	})
+	seeds, err := os.Stat(filepath.Join(folder, orchard+".mkv"))
+	if err != nil || !os.SameFile(seeds, of) {
+		t.Errorf("%s seeds the payload in %s, not the film %s (%v)", node, folder, film, err)
+	}
+	for _, p := range payloads(t, l.w.Node(node).DataDir().Path()) {
+		if info, err := os.Stat(p); err != nil || !os.SameFile(info, of) {
+			t.Errorf("%s keeps %s, a copy apart from the film (%v)", node, p, err)
+		}
+	}
+}
+
+// payloads is every video file under dir.
+func payloads(t *testing.T, dir string) []string {
+	t.Helper()
+	var out []string
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && d.Type().IsRegular() && strings.HasSuffix(p, ".mkv") {
+			out = append(out, p)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 // TestARefusedStartAfterItsWorkSwitchedFailsOnlyTheTorrent has

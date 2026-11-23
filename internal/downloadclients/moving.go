@@ -533,3 +533,19 @@ var stoppedBlind = func() []clients.Kind {
 func TorrentsIn(ctx context.Context, r storage.Reader[file], node role.NodeID, client *ClientID) ([]ID, error) {
 	return db.New(r).ListTorrentsInClient(ctx, db.ListTorrentsInClientParams{NodeID: node, ClientID: client})
 }
+
+// Describer describes a Content Type.
+type Describer interface {
+	Describe(t works.TypeID) (works.Description, bool)
+}
+
+// TypeFolder is the folder a torrent of Content Type ct sits in under a
+// Download Client's download folder, the type's name, which a grab and a
+// Move both send its Node. It is "" for an adopted torrent.
+func TypeFolder(types Describer, ct *works.TypeID) string {
+	if ct == nil {
+		return ""
+	}
+	d, _ := types.Describe(*ct)
+	return d.Name
+}
