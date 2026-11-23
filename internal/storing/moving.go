@@ -309,7 +309,8 @@ func (s *Store) probePayload(ctx context.Context, p *storagev1.Payload) (*storag
 	case err != nil:
 		return nil, WireError(s.folderError(err))
 	}
-	vol, err := s.Volume(ctx, path)
+	folder, _ := s.cfg.Disk.Host().Style.Parent(path)
+	vol, err := s.Volume(ctx, folder)
 	if err != nil {
 		return nil, WireError(s.folderError(err))
 	}
