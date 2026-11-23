@@ -538,6 +538,33 @@ func TestQBittorrentReportsACheckedTorrentAsItWasAsked(t *testing.T) {
 	})
 }
 
+func TestQBittorrentKeepsTheFirstAddsRunWhenAColdOneAnswersADuplicate(t *testing.T) {
+	inEachVersion(t, func(t *testing.T, version string) {
+		r := newRig(t, fakeqbittorrent.Client{Version: version, Check: 2 * time.Second, Cold: true})
+		c := r.session()
+		orchard := r.releases[0]
+		if err := c.Add(t.Context(), clients.Add{Metainfo: orchard.metainfo, Hash: orchard.hash, Label: slipstream, Paused: true}); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := r.poll(c, orchard); ok {
+			t.Fatal("a cold qBittorrent lists an add at once")
+		}
+		r.add(c, orchard, "")
+		time.Sleep(time.Second)
+		if got := r.status(c, orchard); got.Activity != clients.Checking || got.Run != clients.Paused {
+			t.Fatalf("checking after a paused add and a started duplicate: %+v, want checking and paused", got)
+		}
+		if err := c.Remove(t.Context(), orchard.hash, true); err != nil {
+			t.Fatal(err)
+		}
+		r.add(c, orchard, "")
+		time.Sleep(time.Second)
+		if got := r.status(c, orchard); got.Activity != clients.Checking || got.Run != clients.Started {
+			t.Fatalf("checking after a started add of a removed torrent: %+v, want checking and started", got)
+		}
+	})
+}
+
 func TestQBittorrentPollsAHundredHashesARequest(t *testing.T) {
 	inEachVersion(t, func(t *testing.T, version string) {
 		r := newRig(t, fakeqbittorrent.Client{Version: version})

@@ -56,6 +56,9 @@ type Config struct {
 	// Tick is the client's loop: a Stop takes effect at its next multiple
 	// of Tick, after the call answered, and 0 stops before it answers.
 	Tick time.Duration
+	// ListAfter is how long an added torrent is missing from reads after
+	// the add answered, 0 for none.
+	ListAfter time.Duration
 	// Tracker answers the announces the engine sends its torrents' HTTP
 	// trackers, as fake-tracker does through the Node's front; nil sends
 	// none. PeerID is the 20 byte peer ID they carry.
@@ -247,8 +250,8 @@ func (e *Engine) Add(a Add) (t Torrent, duplicate bool, err error) {
 	case !a.Unchecked:
 		added.checked = e.at.Add(e.cfg.Check)
 	}
-	if e.lateNext > 0 {
-		added.hidden = e.at.Add(e.lateNext)
+	if late := max(e.lateNext, e.cfg.ListAfter); late > 0 {
+		added.hidden = e.at.Add(late)
 		e.lateNext = 0
 	}
 	if e.dropNext {

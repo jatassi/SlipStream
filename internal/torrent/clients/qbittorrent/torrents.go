@@ -105,7 +105,9 @@ func (c *client) DefaultFolder(ctx context.Context, label clients.Label) (string
 // Add posts the .torrent with its category, which qBittorrent creates
 // when it has none by that name. Automatic management is off whenever a
 // folder is sent, so the folder holds. A duplicate is a 409 from 5.2 and
-// "Fails." before: the next poll resolves both.
+// "Fails." before: the next poll resolves both. Just after it starts,
+// 5.3 answers a duplicate with a 200 that reports it added, so a torrent
+// the client has listed or asked to run keeps that run.
 func (c *client) Add(ctx context.Context, a clients.Add) error {
 	if err := c.versions(ctx); err != nil {
 		return err
@@ -148,7 +150,9 @@ func (c *client) Add(ctx context.Context, a clients.Add) error {
 	case res.Status == http.StatusConflict, res.Status == http.StatusOK && string(res.Body) == "Fails.":
 		return nil
 	case res.Status == http.StatusOK:
-		c.ran[a.Hash] = map[bool]clients.Run{false: clients.Started, true: clients.Paused}[a.Paused]
+		if _, held := c.ran[a.Hash]; !held {
+			c.ran[a.Hash] = map[bool]clients.Run{false: clients.Started, true: clients.Paused}[a.Paused]
+		}
 		return nil
 	case res.Status == http.StatusUnsupportedMediaType:
 		return fmt.Errorf("the client refused the torrent: %s", res.Body)
@@ -439,7 +443,11 @@ func (c *client) Act(ctx context.Context, a clients.Act, hashes []bencode.InfoHa
 }
 
 func (c *client) Remove(ctx context.Context, h bencode.InfoHash, data bool) error {
-	return c.act(ctx, post("torrents/delete", url.Values{"hashes": {h.String()}, "deleteFiles": {strconv.FormatBool(data)}}))
+	if err := c.act(ctx, post("torrents/delete", url.Values{"hashes": {h.String()}, "deleteFiles": {strconv.FormatBool(data)}})); err != nil {
+		return err
+	}
+	delete(c.ran, h)
+	return nil
 }
 
 func joinHashes(hashes []bencode.InfoHash) string {

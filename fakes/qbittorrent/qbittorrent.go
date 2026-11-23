@@ -106,6 +106,10 @@ type Client struct {
 	// MoveFor is how long a finished torrent reads moving, as with an
 	// incomplete-files folder on, 0 for no move.
 	MoveFor time.Duration
+	// Cold plays qBittorrent just after its machine boots: it lists an
+	// add a tick after it answers, and from 5.2 answers a duplicate add
+	// with a 200 that reports it added.
+	Cold bool
 }
 
 // Playing is Fake playing clients, for a test that names them itself.
@@ -154,6 +158,9 @@ const (
 	name   = "qbittorrent"
 	apiDir = "/api/v2/"
 	banFor = time.Hour
+	// coldTick is how long a Cold client takes to list an add. The real
+	// one listed 3 ms after its answer.
+	coldTick = 10 * time.Millisecond
 )
 
 type server struct {
@@ -195,7 +202,8 @@ func serve(env fake.Env, clients []Client) (fake.Server, error) {
 			Client: c, version: v,
 			engine: torrentclient.New(torrentclient.Config{
 				Releases: env.Releases, Dir: c.Dir, Name: c.Folder, Windows: c.Windows, Rate: c.Rate, Slots: c.Slots, SeedRatio: c.SeedRatio, Check: c.Check,
-				Tracker: clientfake.Tracker(env, c.Node), PeerID: clientfake.PeerID("-qB4670-", c.Node),
+				ListAfter: map[bool]time.Duration{true: coldTick}[c.Cold],
+				Tracker:   clientfake.Tracker(env, c.Node), PeerID: clientfake.PeerID("-qB4670-", c.Node),
 			}),
 			sessions: map[string]*session{}, failures: map[string]int{}, banned: map[string]time.Time{},
 			categories: map[string]string{},
