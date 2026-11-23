@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -57,8 +58,18 @@ type World struct {
 	// taken are ports something other than an engine holds.
 	taken map[netip.AddrPort]bool
 	full  bool
-	// adds counts the torrents added, which mints each one's peer ID.
-	adds int
+	// session and adds mint each torrent's peer ID: two Worlds are two
+	// libtorrent sessions, whose peers never share one.
+	session int64
+	adds    int
+}
+
+// sessions numbers the Worlds.
+var sessions atomic.Int64
+
+// peerID is the peer ID of the World's latest torrent, under w.mu.
+func (w *World) peerID() string {
+	return fmt.Sprintf("%s%04d%08d", version.PeerIDPrefix, w.session%10_000, w.adds)
 }
 
 // rates are payload bytes a second.
@@ -66,6 +77,7 @@ type rates struct{ down, up int64 }
 
 func NewWorld() *World {
 	return &World{
+		session:  sessions.Add(1),
 		payloads: map[bencode.InfoHash][]byte{}, transfers: map[bencode.InfoHash]rates{},
 		trackers: map[string]*tracker{}, taken: map[netip.AddrPort]bool{}, lookups: map[bencode.InfoHash]int{},
 		served: map[bencode.InfoHash]bencode.Metainfo{},
@@ -351,7 +363,7 @@ func (e *Engine) FetchMetadata(p engine.MetadataParams) (engine.Handle, error) {
 	t := &torrent{e: e, meta: meta, savePath: p.SavePath, state: engine.StateDownloadingMetadata, discover: p.Discover, fetch: &fetch{}, since: time.Now()}
 	t.trackers = &announcing{t: t}
 	e.w.adds++
-	t.peerID = fmt.Sprintf("%s%012d", version.PeerIDPrefix, e.w.adds)
+	t.peerID = e.w.peerID()
 	h, err := e.hold(t)
 	if err != nil {
 		return 0, err
@@ -448,7 +460,7 @@ func (e *Engine) torrent(p engine.AddParams) (*torrent, error) {
 	}
 	t.trackers = &announcing{t: t}
 	e.w.adds++
-	t.peerID = fmt.Sprintf("%s%012d", version.PeerIDPrefix, e.w.adds)
+	t.peerID = e.w.peerID()
 	switch {
 	case p.SeedMode:
 		t.done, t.state = t.wanted, engine.StateSeeding
