@@ -123,9 +123,12 @@ func (m *Moves) recommend(p *Plan, nodeNames map[role.NodeID]string) {
 	if len(to) == 1 {
 		where = " to " + nodeNames[to[0]]
 	}
-	noun := m.noun(types, total)
-	if torrents == total {
-		noun = plural(total, "torrent", "torrents")
+	counted := fmt.Sprintf("%d %s", total, m.noun(types, total))
+	switch works := total - torrents; {
+	case works == 0:
+		counted = fmt.Sprintf("%d %s", total, plural(total, "torrent", "torrents"))
+	case torrents > 0:
+		counted = fmt.Sprintf("%d %s and %d %s", works, m.noun(types, works), torrents, plural(torrents, "torrent", "torrents"))
 	}
 	switch {
 	case total == 0:
@@ -135,11 +138,11 @@ func (m *Moves) recommend(p *Plan, nodeNames map[role.NodeID]string) {
 	case total == 1:
 		p.Recommendation, p.Button = p.Units[0].Label+" can't move.", "Move"
 	case movable == total:
-		p.Recommendation, p.Button = fmt.Sprintf("Move %d %s%s.", total, noun, where), fmt.Sprintf("Move %d", total)
+		p.Recommendation, p.Button = fmt.Sprintf("Move %s%s.", counted, where), fmt.Sprintf("Move %d", total)
 	case movable == 0:
-		p.Recommendation, p.Button = fmt.Sprintf("None of these %d %s can move.", total, noun), fmt.Sprintf("Move %d of %d", movable, total)
+		p.Recommendation, p.Button = fmt.Sprintf("None of these %s can move.", counted), fmt.Sprintf("Move %d of %d", movable, total)
 	default:
-		p.Recommendation = fmt.Sprintf("Move %d of %d %s%s. %d can't move: %s.", movable, total, noun, where, len(red), listWords(red))
+		p.Recommendation = fmt.Sprintf("Move %d of %s%s. %d can't move: %s.", movable, counted, where, len(red), listWords(red))
 		p.Button = fmt.Sprintf("Move %d of %d", movable, total)
 	}
 }
