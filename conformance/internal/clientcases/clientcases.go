@@ -44,14 +44,7 @@ func CompleteAdd(t *testing.T, c clients.Client, label clients.Label, folder Fol
 		if err := os.WriteFile(path, p.s.Data[:p.n], 0o600); err != nil {
 			t.Fatal(err)
 		}
-		info, err := os.Stat(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		add := clients.Add{
-			Metainfo: p.s.Metainfo, Hash: p.s.Hash, Folder: folder.Client, Label: label, Paused: true, Complete: true,
-			Files: []clients.FileStat{{Size: info.Size(), Modified: info.ModTime()}},
-		}
+		add := clients.Add{Metainfo: p.s.Metainfo, Hash: p.s.Hash, Folder: folder.Client, Label: label, Paused: true, Complete: true}
 		if err := c.Add(t.Context(), add); err != nil {
 			t.Fatalf("Add of a complete torrent: %v", err)
 		}

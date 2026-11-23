@@ -4,13 +4,11 @@ import (
 	"cmp"
 	"context"
 	"errors"
-	"fmt"
 	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -644,12 +642,6 @@ func (s *state) send(ctx context.Context, t *track) bool {
 		folder = joinClient(base, s.cfg.Subfolder(res.GetContentType()))
 	}
 	add := clients.Add{Metainfo: res.GetMetainfo(), Hash: t.hash, Folder: folder, Label: s.label, Paused: t.intent == clients.Paused, Complete: t.arriving}
-	if t.arriving {
-		if add.Files, err = s.placed(t, res.GetMetainfo(), folder); err != nil {
-			s.cfg.Log.Warn("read the files a Move placed for a torrent", "info_hash", t.hash.String(), "err", err.Error())
-			return false
-		}
-	}
 	err = s.client.Add(ctx, add)
 	if err != nil {
 		s.cfg.Log.Warn("add a torrent to the client", "info_hash", t.hash.String(), "err", err.Error())
@@ -668,31 +660,6 @@ func (s *state) readPieceLength(ctx context.Context, t *track) {
 	if m, err := bencode.DecodeMetainfo(res.GetMetainfo()); err == nil {
 		t.pieceLength = m.Info.PieceLength
 	}
-}
-
-// placed is each file of the torrent metainfo describes as it lies in
-// folder on this Node, and keeps the torrent's piece length for its
-// check's result.
-func (s *state) placed(t *track, metainfo []byte, folder string) ([]clients.FileStat, error) {
-	m, err := bencode.DecodeMetainfo(metainfo)
-	if err != nil {
-		return nil, err
-	}
-	t.pieceLength = m.Info.PieceLength
-	out := make([]clients.FileStat, len(m.Info.Files))
-	for i, f := range m.Info.Files {
-		rel := strings.Join(append([]string{m.Info.Name}, f.Path...), "/")
-		p, _, ok := s.folders.OnNode(joinClient(folder, rel), filepath.Separator)
-		if !ok {
-			return nil, fmt.Errorf("no Client folder holds %s", folder)
-		}
-		info, err := os.Stat(p)
-		if err != nil {
-			return nil, fmt.Errorf("can't read a file the Move placed: %w", err)
-		}
-		out[i] = clients.FileStat{Size: info.Size(), Modified: info.ModTime()}
-	}
-	return out, nil
 }
 
 // joinClient is name under folder, with the separator the client's own

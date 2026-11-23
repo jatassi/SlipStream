@@ -18,28 +18,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/clientfake/clientfaketest"
 	"github.com/jatassi/slipstream/fakes/rtorrent"
 	"github.com/jatassi/slipstream/fakes/scenario"
-	"github.com/jatassi/slipstream/internal/bencode"
 )
-
-// resumed is metainfo with libtorrent_resume, as a client that takes its
-// files as complete adds it.
-func resumed(t *testing.T, metainfo []byte) []byte {
-	t.Helper()
-	v, err := bencode.Decode(metainfo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	top, ok := v.(map[string]any)
-	if !ok {
-		t.Fatalf("the metainfo is %T, not a dictionary", v)
-	}
-	top["libtorrent_resume"] = map[string]any{"bitfield": int64(1), "files": []any{map[string]any{"mtime": int64(1), "priority": int64(1)}}}
-	out, err := bencode.Encode(top)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return out
-}
 
 var integer = regexp.MustCompile(`<(?:i4|i8|int)>(-?\d+)</`)
 
@@ -76,7 +55,7 @@ func call(t *testing.T, f faketest.Served, method string, params ...string) []in
 	return out
 }
 
-func TestAResumedLoadAdoptsTheFilesAndTheLastSuccessRises(t *testing.T) {
+func TestAStoppedLoadHoldsNothingUntilACheckAndTheLastSuccessRises(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		cat, shared := clientfaketest.Tracked(t)
 		c := rtorrent.Client{Node: "den", Version: "0.16", Folder: "/downloads", Dir: t.TempDir(), Rate: 1}
@@ -85,12 +64,24 @@ func TestAResumedLoadAdoptsTheFilesAndTheLastSuccessRises(t *testing.T) {
 		clientfaketest.Place(t, filepath.Join(c.Dir, "Movies"), short, clientfaketest.Size/2)
 		f := faketest.InMemory(t, rtorrent.Playing(c), scenario.Scenario{Seed: "rtorrent"}, faketest.WithReleases(cat), faketest.WithShared(shared), faketest.As(c.Node))
 		for _, r := range cat.Releases {
-			call(t, f, "load.raw_start", "", "base64:"+base64.StdEncoding.EncodeToString(resumed(t, r.Metainfo)), "d.directory.set=/downloads/Movies")
+			call(t, f, "load.raw", "", "base64:"+base64.StdEncoding.EncodeToString(r.Metainfo), "d.directory.set=/downloads/Movies")
 		}
-		completed := func(h bencode.InfoHash) int64 { return call(t, f, "d.completed_bytes", h.String())[0] }
-		if got := []int64{completed(whole.InfoHash), completed(short.InfoHash)}; got[0] != clientfaketest.Size || got[1] != clientfaketest.Size/2 {
-			t.Fatalf("after the loads the torrents hold %v bytes, want %d over the whole file and %d over the short one", got, clientfaketest.Size, clientfaketest.Size/2)
+		completed := func() []int64 {
+			return []int64{call(t, f, "d.completed_bytes", whole.InfoHash.String())[0], call(t, f, "d.completed_bytes", short.InfoHash.String())[0]}
 		}
+		if got := completed(); got[0] != 0 || got[1] != 0 {
+			t.Fatalf("after the stopped loads the torrents hold %v bytes, want none until a check", got)
+		}
+		for _, r := range cat.Releases {
+			call(t, f, "d.check_hash", r.InfoHash.String())
+		}
+		if got := completed(); got[0] != clientfaketest.Size || got[1] != clientfaketest.Size/2 {
+			t.Fatalf("after the checks the torrents hold %v bytes, want %d over the whole file and %d over the short one", got, clientfaketest.Size, clientfaketest.Size/2)
+		}
+		if state := call(t, f, "d.state", whole.InfoHash.String())[0]; state != 0 {
+			t.Fatalf("after its check d.state is %d, want 0", state)
+		}
+		call(t, f, "d.start", whole.InfoHash.String())
 		last := func() int64 { return call(t, f, "t.multicall", whole.InfoHash.String(), "", "t.success_time_last=")[0] }
 		before := last()
 		time.Sleep(31 * time.Second)

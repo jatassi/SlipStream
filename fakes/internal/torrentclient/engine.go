@@ -72,6 +72,9 @@ type Add struct {
 	// told to skip its check does. A missing or short file leaves the
 	// torrent incomplete from that file on.
 	Complete bool
+	// Unchecked adds a paused torrent with no check, as rTorrent's stopped
+	// load does: it holds nothing until a Verify.
+	Unchecked bool
 }
 
 type State uint8
@@ -234,9 +237,10 @@ func (e *Engine) Add(a Add) (t Torrent, duplicate bool, err error) {
 	if a.Paused {
 		added.State = Stopped
 	}
-	if a.Complete {
+	switch {
+	case a.Complete:
 		e.adopt(added)
-	} else {
+	case !a.Unchecked:
 		added.checked = e.at.Add(e.cfg.Check)
 	}
 	if e.lateNext > 0 {

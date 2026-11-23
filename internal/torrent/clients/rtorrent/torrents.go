@@ -2,7 +2,6 @@ package rtorrent
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -21,64 +20,50 @@ func quoted(s string) string {
 // Add sends load.raw_start, or load.raw for a paused add, with
 // d.directory.set to the folder, so rTorrent adds the name of a
 // multi-file torrent as the other kinds do, and d.custom1.set to the
-// label. rTorrent loads the torrent after it responds, so the hash shows
-// on a later poll, and it drops a torrent it already holds without
-// running the commands.
+// label. rTorrent drops a torrent it already holds without running the
+// commands. A complete add then sends d.check_hash, which checks the
+// files on disk and leaves the torrent stopped: a stopped load reads 0
+// bytes done until a check or a start.
 func (c *client) Add(ctx context.Context, a clients.Add) error {
 	method := "load.raw_start"
 	if a.Paused {
 		method = "load.raw"
 	}
-	meta := a.Metainfo
-	if a.Complete {
-		var err error
-		if meta, err = resumed(a.Metainfo, a.Files); err != nil {
-			return err
-		}
-	}
-	params := []any{"", meta}
+	params := []any{"", a.Metainfo}
 	if a.Folder != "" {
 		params = append(params, "d.directory.set="+quoted(a.Folder))
 	}
 	params = append(params, "d.custom1.set="+quoted(a.Label.String()))
-	_, err := c.send(ctx, method, params)
-	return err
+	if _, err := c.send(ctx, method, params); err != nil {
+		return err
+	}
+	if !a.Complete {
+		return nil
+	}
+	return c.checkLoaded(ctx, a.Hash)
 }
 
-// resumed is metainfo with libtorrent_resume, the fast resume data with
-// which rTorrent takes the files on disk as complete with no check: every
-// chunk done, and each file's chunks with the modification time it has
-// on disk.
-func resumed(metainfo []byte, files []clients.FileStat) ([]byte, error) {
-	m, err := bencode.DecodeMetainfo(metainfo)
-	if err != nil {
-		return nil, err
-	}
-	if len(files) != len(m.Info.Files) {
-		return nil, fmt.Errorf("the torrent has %d files and %d were read on disk", len(m.Info.Files), len(files))
-	}
-	v, err := bencode.Decode(metainfo)
-	if err != nil {
-		return nil, err
-	}
-	top, ok := v.(map[string]any)
-	if !ok {
-		return nil, errors.New("the metainfo is not a dictionary")
-	}
-	top["info"] = bencode.Raw(m.RawInfo)
-	piece := m.Info.PieceLength
-	var offset int64
-	list := make([]any, len(files))
-	for i, f := range m.Info.Files {
-		var chunks int64
-		if f.Length > 0 {
-			chunks = (offset+f.Length-1)/piece - offset/piece + 1
+// loadWait is how long checkLoaded waits for rTorrent to load an add,
+// which it does after it responds, and loadEvery how often it asks.
+const (
+	loadWait  = 10 * time.Second
+	loadEvery = 250 * time.Millisecond
+)
+
+// checkLoaded sends d.check_hash to h once rTorrent holds it.
+func (c *client) checkLoaded(ctx context.Context, h bencode.InfoHash) error {
+	deadline := time.Now().Add(loadWait)
+	for {
+		_, err := c.send(ctx, "d.check_hash", []any{target(h)})
+		if !missing(err) || !time.Now().Before(deadline) {
+			return err
 		}
-		list[i] = map[string]any{"priority": int64(1), "mtime": files[i].Modified.Unix(), "completed": chunks}
-		offset += f.Length
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for rTorrent to load torrent %s: %w", h, ctx.Err())
+		case <-time.After(loadEvery):
+		}
 	}
-	top["libtorrent_resume"] = map[string]any{"bitfield": (offset + piece - 1) / piece, "files": list}
-	return bencode.Encode(top)
 }
 
 // Announces is one t.multicall per hash of each tracker's last success,
@@ -258,13 +243,14 @@ func (v *values) count(method string) int {
 
 // status is a torrent in SlipStream's terms. d.state 0 is stopped, and a
 // started torrent that is neither active nor hashing is paused. rTorrent
-// has no queue and no moving state, so d.complete alone is finished.
+// has no queue and no moving state, so d.complete with no check running
+// is finished.
 // Seeding time counts from d.timestamp.finished.
 func status(v *values) clients.Status {
-	complete := v.num("d.complete") == 1
+	complete, hashing := v.num("d.complete") == 1, v.num("d.hashing") != 0
 	s := clients.Status{
 		Name: v.str("d.name"), Size: v.num("d.size_bytes"), Done: v.num("d.completed_bytes"),
-		Run: clients.Started, Activity: clients.Downloading, Finished: complete,
+		Run: clients.Started, Activity: clients.Downloading, Finished: complete && !hashing,
 		Folder: v.str("d.directory"), Label: v.str("d.custom1"), Private: v.num("d.is_private") == 1,
 		Counters: clients.Counters{Uploaded: v.num("d.up.total"), Downloaded: v.num("d.down.total")},
 		Rates: clients.Rates{
@@ -272,7 +258,6 @@ func status(v *values) clients.Status {
 			Peers: v.count("d.peers_connected"), Seeds: v.count("d.peers_complete"),
 		},
 	}
-	hashing := v.num("d.hashing") != 0
 	switch {
 	case hashing:
 		s.Activity = clients.Checking
