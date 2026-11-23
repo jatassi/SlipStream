@@ -141,7 +141,7 @@ func (s *Server) RefreshFolder(library string, folder link.ServerPath) error {
 	if !slices.ContainsFunc(l.Folders, folder.Within) {
 		return nil
 	}
-	s.scanFolder(l, folder)
+	s.scanFolder(l, folder, true)
 	return nil
 }
 
@@ -194,7 +194,7 @@ func (s *Server) startScan(l *library) time.Time {
 		defer s.mu.Unlock()
 		l.timer = nil
 		for _, f := range l.Folders {
-			s.scanFolder(l, f)
+			s.scanFolder(l, f, false)
 		}
 		l.scan.Running, l.scan.Ended = false, time.Now()
 		s.publish(Event{Kind: ScanEnded, Library: l.Key})
@@ -251,11 +251,12 @@ func (s *Server) RefreshItem(key string) bool {
 // scanFolder makes the server's items under folder match the disk. Files
 // on disk are placed first, so a rename in one folder joins the item
 // before its old file is dropped, and a move finds its vacated item before
-// a scan of the source purges it.
-func (s *Server) scanFolder(l *library, folder link.ServerPath) {
+// a scan of the source purges it. A partial scan is one of folder alone,
+// not of its whole library.
+func (s *Server) scanFolder(l *library, folder link.ServerPath, partial bool) {
 	d := s.read(folder)
 	changed := s.placeAll(l, d)
-	s.dropVanished(folder, d, changed)
+	s.dropVanished(folder, d, changed, partial)
 	folders := map[string]link.ServerPath{}
 	for _, it := range s.itemsUnder(folder) {
 		folders[it.Folder.Key()] = it.Folder
@@ -301,12 +302,22 @@ func (s *Server) placeAll(l *library, d onDisk) map[*Item]EventKind {
 
 // dropVanished drops the parts under folder that are gone from disk, or
 // marks them missing when PurgesVacated is off. An item left with no part
-// is deleted.
-func (s *Server) dropVanished(folder link.ServerPath, d onDisk, changed map[*Item]EventKind) {
+// is deleted, and with AfterDelete so is one a partial scan finds with no
+// part left in folder.
+func (s *Server) dropVanished(folder link.ServerPath, d onDisk, changed map[*Item]EventKind, partial bool) {
 	for _, it := range s.itemsUnder(folder) {
+		if partial && s.b.Move.AfterDelete && s.b.PurgesVacated && !slices.ContainsFunc(it.Parts, func(p Part) bool {
+			_, present := d.videos[p.File.Key()]
+			return present
+		}) {
+			delete(changed, it)
+			s.forget(it)
+			continue
+		}
 		kept := it.Parts[:0]
 		for _, p := range it.Parts {
 			_, present := d.videos[p.File.Key()]
+			present = present || !p.File.Within(folder)
 			if !present && !s.b.PurgesVacated {
 				p.Missing = true
 			}
@@ -357,14 +368,21 @@ func (s *Server) place(l *library, v disked) (*Item, bool) {
 }
 
 // versionOf is the item in folder that a file named n is another version
-// of. With NewIDOnPathChange only an item with a file still on disk takes
-// it, so a renamed file is a new item.
+// of, or with SameSection the item in l with a file still on disk. With
+// NewIDOnPathChange only an item with a file still on disk takes it, so a
+// renamed file is a new item.
 func (s *Server) versionOf(l *library, folder link.ServerPath, n named) (*Item, bool) {
 	if s.b.ItemPerFile {
 		return nil, false
 	}
 	for _, it := range s.items {
-		if it.Library != l.Key || it.Folder.Key() != folder.Key() || it.GUID != n.guid || s.edition(it.Edition) != s.edition(n.edition) {
+		if it.Library != l.Key || it.GUID != n.guid || s.edition(it.Edition) != s.edition(n.edition) {
+			continue
+		}
+		if it.Folder.Key() != folder.Key() {
+			if s.b.Move.SameSection && slices.ContainsFunc(it.Parts, func(p Part) bool { return s.exists(p.File) }) {
+				return it, true
+			}
 			continue
 		}
 		if s.b.NewIDOnPathChange && !slices.ContainsFunc(it.Parts, func(p Part) bool { return s.exists(p.File) }) {

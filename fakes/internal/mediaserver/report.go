@@ -72,7 +72,7 @@ func (s *Server) scanNearest(p link.ServerPath) {
 	}
 	if s.b.ResolvesNearestItem {
 		if dir, ok := s.nearestItem(l, root, p); ok {
-			s.scanFolder(l, dir)
+			s.scanFolder(l, dir, true)
 		}
 		return
 	}
@@ -83,7 +83,7 @@ func (s *Server) scanNearest(p link.ServerPath) {
 	for !s.isDir(dir) && dir.Key() != root.Key() {
 		dir = dir.Dir()
 	}
-	s.scanFolder(l, dir)
+	s.scanFolder(l, dir, true)
 }
 
 // nearestItem walks up from p to the first path the server holds an item

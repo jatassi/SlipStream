@@ -208,10 +208,12 @@ func MovedDestinationThenSource(t *testing.T, tg Target, shared mediaservers.Tar
 	kept(t, after, 1)
 }
 
-// SourceFirstPurges is case E, which a real server's watch data can't
+// SourceFirstPurges is case E, which a real server's collections can't
 // afford: with autoEmptyTrash on, a refresh of the vacated folder first
-// deletes the item, and the destination's new item has no play count and
-// no collection.
+// deletes the item, and the destination's new item gets the play count
+// back by guid but no collection (recorded run 2026-11-23, case 4; the
+// 2026-11-14 run's destination was an edition, which has its own watch
+// data).
 func SourceFirstPurges(t *testing.T, tg Target, shared mediaservers.Target) {
 	if !tg.Fake {
 		mediaservers.Skip(t, "source first destroys watch data; recorded run 2026-11-14 case E is the real server's result")
@@ -232,7 +234,9 @@ func SourceFirstPurges(t *testing.T, tg Target, shared mediaservers.Target) {
 	if err := c.RefreshPath(t.Context(), plex.ID(tg.Section), f.At(to).Dir().String()); err != nil {
 		t.Fatal(err)
 	}
-	kept(t, f.Found(to), 0)
+	if now := f.Found(to); now.PlayCount != 1 || len(now.Collections) != 0 {
+		t.Fatalf("item %s has play count %d and collections %v, want 1 and none", now.Key, now.PlayCount, now.Collections)
+	}
 }
 
 // BackslashPaths is case A on a Windows server: a refresh path with

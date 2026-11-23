@@ -14,6 +14,7 @@ import (
 var (
 	plex = mediaserver.Behavior{
 		FreshSectionIgnores: true, StableKeyInFolder: true, PurgesVacated: true, ScanTime: 250 * time.Millisecond,
+		Move: mediaserver.MoveRules{SameSection: true, CrossSection: true, AfterDelete: true},
 	}
 	jellyfin = mediaserver.Behavior{
 		MonitorDelay: time.Minute, RestartsOnRepeat: true, ResolvesNearestItem: true, ScanDropsPending: true,
@@ -290,8 +291,82 @@ func TestPlexPurgesAVacatedFolderScannedFirst(t *testing.T) {
 		if !ok {
 			t.Fatal("the destination refresh made no item")
 		}
-		if w.s.UserData("owner", now.Key).PlayCount != 0 || len(w.s.Collections(now.Key)) != 0 {
-			t.Fatal("watch data survived the purge")
+		if w.s.UserData("owner", now.Key).PlayCount != 1 || len(w.s.Collections(now.Key)) != 0 {
+			t.Fatal("the new item didn't get the play count back by guid without the collection")
+		}
+	})
+}
+
+func TestAPlexEditionHasItsOwnWatchData(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		b := plex
+		b.Editions = true
+		w := newWorld(t, b, true, metropolis)
+		watched(t, w)
+		moved := "movies/Metropolis (1927) {edition-Test}/Metropolis (1927) {edition-Test}.mkv"
+		w.move(moved)
+		w.refresh("movies/Metropolis (1927)")
+		w.refresh("movies/Metropolis (1927) {edition-Test}")
+		now, ok := w.item(moved)
+		if !ok || w.s.UserData("owner", now.Key).PlayCount != 0 {
+			t.Fatal("an edition took the plain item's watch data")
+		}
+	})
+}
+
+func TestAPlexCopyInItsSectionIsASecondPart(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWorld(t, plex, true, metropolis)
+		old := watched(t, w)
+		b2 := "movies/b2/Metropolis (1927)/Metropolis (1927).mkv"
+		w.place(b2)
+		w.refresh("movies/b2/Metropolis (1927)")
+		now, ok := w.item(b2)
+		if !ok || now.Key != old.Key || len(now.Parts) != 2 {
+			t.Fatalf("the copy is in %+v, want item %s with two parts", now, old.Key)
+		}
+	})
+}
+
+func TestAPartialRefreshOfAMovesVacatedFolderDestroysThePlexItem(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWorld(t, plex, true, metropolis)
+		old := watched(t, w)
+		b2 := "movies/b2/Metropolis (1927)/Metropolis (1927).mkv"
+		w.place(b2)
+		w.refresh("movies/b2/Metropolis (1927)")
+		w.remove(metropolis)
+		w.refresh("movies/Metropolis (1927)")
+		if _, ok := w.s.Item(old.Key); ok || w.has(b2) {
+			t.Fatal("the item outlived a partial refresh of its vacated folder")
+		}
+		w.refresh("movies/b2/Metropolis (1927)")
+		now, ok := w.item(b2)
+		if !ok || now.Key == old.Key {
+			t.Fatalf("the copy is in %+v, want a new item", now)
+		}
+		if w.s.UserData("owner", now.Key).PlayCount != 1 || len(w.s.Collections(now.Key)) != 0 {
+			t.Fatal("the new item didn't get the play count back by guid without the collection")
+		}
+	})
+}
+
+func TestAWholeSectionRefreshKeepsAMovesPlexItem(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWorld(t, plex, true, metropolis)
+		old := watched(t, w)
+		b2 := "movies/b2/Metropolis (1927)/Metropolis (1927).mkv"
+		w.place(b2)
+		w.refresh("movies/b2/Metropolis (1927)")
+		w.remove(metropolis)
+		w.scan()
+		time.Sleep(300 * time.Millisecond)
+		now, ok := w.item(b2)
+		if !ok || now.Key != old.Key || len(now.Parts) != 1 {
+			t.Fatalf("after the section refresh the copy is in %+v, want item %s with one part", now, old.Key)
+		}
+		if w.s.UserData("owner", now.Key).PlayCount != 1 || len(w.s.Collections(now.Key)) != 1 {
+			t.Fatal("the section refresh lost watch data or the collection")
 		}
 	})
 }

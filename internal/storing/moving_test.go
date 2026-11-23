@@ -61,6 +61,33 @@ func TestRemoveIfRemovesOnlyTheFileAsked(t *testing.T) {
 	})
 }
 
+func TestRemoveIfWaitsOutAFileAnotherProgramHoldsOpen(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		at := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+		for _, c := range []struct {
+			name  string
+			held  int
+			want  Removal
+			stays bool
+		}{
+			{"for a few tries", 4, Removed, false},
+			{"past the bound", 1000, 0, true},
+		} {
+			p := newPlacing(t, false)
+			path := write(t, filepath.Join(p.folder, "Heat (1995)", "Heat.mkv"), "film")
+			stamp(t, path, at)
+			p.disk.held[path] = c.held
+			got, err := p.remote.RemoveIf(t.Context(), p.at, mustRel(t, "Heat (1995)/Heat.mkv"), 4, at)
+			if got != c.want || (err != nil) != c.stays {
+				t.Errorf("%s: RemoveIf = %s, %v; want %s", c.name, got, err, c.want)
+			}
+			if _, err := os.Stat(path); (err == nil) != c.stays {
+				t.Errorf("%s: the file is there: %v, want %v", c.name, err == nil, c.stays)
+			}
+		}
+	})
+}
+
 func TestOpenLibraryServesWhileTheNodeDrainsStorage(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPlacing(t, true)

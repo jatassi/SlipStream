@@ -52,7 +52,7 @@ type opened struct{ rows []link.Row }
 func openCarries(rows []link.Row) opened {
 	var o opened
 	for _, r := range rows {
-		if !r.From.IsZero() && !slices.Contains([]link.Step{link.StepConfirmed, link.StepRestored, link.StepSourceScanned}, r.Step) {
+		if !r.From.IsZero() && !slices.Contains([]link.Step{link.StepConfirmed, link.StepRestored, link.StepSourceScanned, link.StepSettled}, r.Step) {
 			o.rows = append(o.rows, r)
 		}
 	}

@@ -543,7 +543,8 @@ func newPlacing(t *testing.T, draining bool) placing {
 	d := newTestDisk(t)
 	id := storage.NewUUID()
 	p := placing{disk: d, at: At{Node: node, Root: id}, folder: marked(t, id), hash: bencode.InfoHash{1}}
-	p.store = NewStore(Config{Disk: d, Payloads: payloads{p.hash: write(t, filepath.Join(t.TempDir(), "heat.mkv"), "film")}, Timings: Timings{Stat: 10 * time.Second}})
+	p.store = NewStore(Config{Disk: d, Payloads: payloads{p.hash: write(t, filepath.Join(t.TempDir(), "heat.mkv"), "film")}, Timings: Timings{Stat: 10 * time.Second},
+		RemoveRetry: 100 * time.Millisecond, RemoveBound: 10 * time.Second})
 	p.holder = running(t, p.store, intentOf(rootAt(id, p.folder, false)))
 	p.holder.next(t)
 	if draining {

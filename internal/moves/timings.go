@@ -53,6 +53,12 @@ type Timings struct {
 	// sessions again with no event.
 	PlayingEvery     time.Duration `yaml:"playing_every"`
 	DownloadingEvery time.Duration `yaml:"downloading_every"`
+	// RemoveRetry is the first wait before the Node removes a source file
+	// another program holds open again, doubling, and RemoveBound how long
+	// it keeps trying: Plex's media analysis holds a file it just scanned
+	// for 1 to 2 s on Windows (recorded run 2026-11-23, case 3).
+	RemoveRetry time.Duration `yaml:"remove_retry"`
+	RemoveBound time.Duration `yaml:"remove_bound"`
 }
 
 func DefaultTimings() Timings {
@@ -61,17 +67,23 @@ func DefaultTimings() Timings {
 		StopBound: 2 * time.Minute, CompanionsPerFile: 20, PlanLifetime: 30 * time.Minute, Plans: 8, PlanBatch: 500,
 		ProbePage: 2000, ProbePageBytes: 4 << 20, ProbesInFlight: 4, ProbeDeadline: time.Minute,
 		PassEvery: time.Second, PassPage: 500, StepLease: 10 * time.Minute, Jobs: 16, RetryAfter: 30 * time.Second,
-		PlayingEvery: 30 * time.Second, DownloadingEvery: time.Minute,
+		PlayingEvery: 30 * time.Second, DownloadingEvery: time.Minute, RemoveRetry: 100 * time.Millisecond, RemoveBound: 10 * time.Second,
 	}
 }
 
-var ErrTimingsOrder = errors.New("moves timings: bound_margin must be above 0 and handoff_bound above reply_wait plus bound_margin")
+var (
+	ErrTimingsOrder = errors.New("moves timings: bound_margin must be above 0 and handoff_bound above reply_wait plus bound_margin")
+	ErrRemoveRetry  = errors.New("moves timings: remove_retry must be above 0")
+)
 
 // Check refuses Timings whose destination window could end after the
-// Controller's rollback.
+// Controller's rollback, and a remove retry that never waits.
 func (t Timings) Check() error {
-	if t.BoundMargin <= 0 || t.HandoffBound <= t.ReplyWait+t.BoundMargin {
+	switch {
+	case t.BoundMargin <= 0 || t.HandoffBound <= t.ReplyWait+t.BoundMargin:
 		return ErrTimingsOrder
+	case t.RemoveRetry <= 0:
+		return ErrRemoveRetry
 	}
 	return nil
 }

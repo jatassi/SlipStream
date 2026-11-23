@@ -27,8 +27,9 @@ const (
 )
 
 // den is fake-plex on Windows paths with sections Films (1), Shows (2),
-// Fresh (4) and Vault (5), all but Fresh scanned with the files placed before the
-// first call, and a Plex kind connection to it.
+// Fresh (4) and Vault (5) over Vault and Archive, all but Fresh scanned
+// with the files placed before the first call, and a Plex kind connection
+// to it.
 type den struct {
 	t     *testing.T
 	f     faketest.Served
@@ -43,7 +44,7 @@ func newDen(t *testing.T, seed ...string) *den {
 	for _, rel := range seed {
 		d.place(rel)
 	}
-	for _, dir := range []string{"Films", "Shows", "Fresh", "Vault"} {
+	for _, dir := range []string{"Films", "Shows", "Fresh", "Vault", "Archive"} {
 		if err := os.MkdirAll(filepath.Join(d.media, dir), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -54,7 +55,7 @@ func newDen(t *testing.T, seed ...string) *den {
 			{Key: "1", Title: "Films", Folders: []string{d.at("Films").String()}, Scanned: true},
 			{Key: "2", Title: "Shows", Type: "show", Folders: []string{d.at("Shows").String()}, Scanned: true},
 			{Key: "4", Title: "Fresh", Folders: []string{d.at("Fresh").String()}},
-			{Key: "5", Title: "Vault", Folders: []string{d.at("Vault").String()}, Scanned: true},
+			{Key: "5", Title: "Vault", Folders: []string{d.at("Vault").String(), d.at("Archive").String()}, Scanned: true},
 		},
 	}
 	d.f = faketest.InMemory(t, fakeplex.Playing(srv), scenario.Scenario{Seed: "plex"}, faketest.WithMedia(d.media), faketest.As("Den"))

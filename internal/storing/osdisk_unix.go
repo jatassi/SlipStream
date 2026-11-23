@@ -17,6 +17,10 @@ import (
 
 const nativeStyle = Unix
 
+// inUse is err: a file another program holds open never stops a remove
+// here.
+func inUse(err error) error { return err }
+
 func attrsOf(fs.DirEntry) uint32 { return 0 }
 
 func listable(dir string) bool { return unix.Access(dir, unix.R_OK|unix.X_OK) == nil }
