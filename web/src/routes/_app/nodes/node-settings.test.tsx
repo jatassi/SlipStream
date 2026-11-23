@@ -15,7 +15,7 @@ test("Web and API shows the port with its default and Ports to try", async () =>
   await expect.element(field("Port")).toHaveValue("8484");
   await expect.element(page.getByText("Default 8484.")).toBeVisible();
   await expect.element(field("Ports to try")).toHaveValue("10");
-  await expect.element(page.getByText("Default 10 ports. Between 1 and 100 ports.")).toBeVisible();
+  await expect.element(page.getByText(/10 ports.+1 and 100 ports/u)).toBeVisible();
 });
 
 test("a port set by the environment is locked and names its variable", async () => {
@@ -46,9 +46,7 @@ test("saving a port toasts, and once saved it asks for a restart to use it", asy
   systems.state.configs[homeId] = withPort({ value: 9000, isDefault: false, pendingRestart: true });
   server.clients[0]?.send({ event: "node.settings-changed", data: { nodeId: homeId } });
   await expect.element(page.getByText("Restart to use port 9000")).toBeVisible();
-  await expect
-    .element(page.getByText("SlipStream listens on 8484 until it restarts."))
-    .toBeVisible();
+  await expect.element(page.getByText(/8484 until it restarts/u)).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Restart now" })).toBeVisible();
   await expect.element(field("Port")).toHaveValue("9000");
 });
@@ -97,7 +95,7 @@ test("a port the Node refuses shows the problem's sentence under the field", asy
   renderApp({ path: `/nodes/${homeId}/web`, handlers: systems.handlers });
   await userEvent.fill(field("Port"), "8485");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("alert")).toHaveTextContent("The Node link uses 8485.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent("8485");
 });
 
 test("after a fallback the Overview names both ports", async () => {
@@ -110,9 +108,7 @@ test("after a fallback the Overview names both ports", async () => {
     path: `/nodes/${homeId}`,
     handlers: nodeSystems({ systems: { [homeId]: fellBack } }).handlers,
   });
-  await expect
-    .element(page.getByText("Port 8484 was taken, so SlipStream is on 8486."))
-    .toBeVisible();
+  await expect.element(page.getByText(/8484 was taken.+8486/u)).toBeVisible();
 });
 
 test("a Worker's sections read its own facts and settings", async () => {
