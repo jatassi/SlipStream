@@ -110,6 +110,40 @@ func (m *Moves) noun(types []works.TypeID, n int) string {
 	return plural(n, strings.ToLower(d.Work.One), strings.ToLower(d.Work.Many))
 }
 
+// kinds is a count of Work units and of torrent units.
+type kinds struct{ works, torrents int }
+
+// counted is k in words, its Works of types, such as "1 movie and 1
+// torrent".
+func (m *Moves) counted(types []works.TypeID, k kinds) string {
+	ts := fmt.Sprintf("%d %s", k.torrents, plural(k.torrents, "torrent", "torrents"))
+	ws := fmt.Sprintf("%d %s", k.works, m.noun(types, k.works))
+	switch {
+	case k.torrents == 0:
+		return ws
+	case k.works == 0:
+		return ts
+	}
+	return ws + " and " + ts
+}
+
+// tally is done of all in words, each kind as "12 of 43 movies", or as
+// "43 movies" once all of it is done.
+func (m *Moves) tally(types []works.TypeID, done, all kinds) string {
+	if done == all {
+		return m.counted(types, all)
+	}
+	ws := fmt.Sprintf("%d of %d %s", done.works, all.works, m.noun(types, all.works))
+	ts := fmt.Sprintf("%d of %d %s", done.torrents, all.torrents, plural(all.torrents, "torrent", "torrents"))
+	switch {
+	case all.torrents == 0:
+		return ws
+	case all.works == 0:
+		return ts
+	}
+	return ws + " and " + ts
+}
+
 func plural(n int, one, many string) string {
 	if n == 1 {
 		return one
@@ -253,10 +287,11 @@ func NotesWords(v View) []string {
 }
 
 // CanceledWords is the toast of a cancel of batch that canceled canceled
-// units and left switched units that had switched.
-func (m *Moves) CanceledWords(ctx context.Context, batch BatchID, canceled, switched int) (string, error) {
+// units, naming the units that had switched.
+func (m *Moves) CanceledWords(ctx context.Context, batch BatchID, canceled int) (string, error) {
 	var types []works.TypeID
 	var to []string
+	var switched kinds
 	err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		q := db.New(r)
 		of, err := typesOf(ctx, q, []BatchID{batch})
@@ -264,6 +299,11 @@ func (m *Moves) CanceledWords(ctx context.Context, batch BatchID, canceled, swit
 			return err
 		}
 		types = of[batch]
+		counts, err := q.CountBatchPhases(ctx, batch)
+		if err != nil {
+			return err
+		}
+		switched = switchedIn(counts)
 		nodes, err := nodeNamesIn(ctx, r)
 		if err != nil {
 			return err
@@ -278,12 +318,13 @@ func (m *Moves) CanceledWords(ctx context.Context, batch BatchID, canceled, swit
 		return "", err
 	}
 	words := fmt.Sprintf("Canceled %d %s.", canceled, plural(canceled, "Move", "Moves"))
-	if switched == 0 {
+	n := switched.works + switched.torrents
+	if n == 0 {
 		return words, nil
 	}
-	stay := fmt.Sprintf(" %d %s already switched %s.", switched, m.noun(types, switched), plural(switched, "stays", "stay"))
+	stay := fmt.Sprintf(" %s already switched %s.", m.counted(types, switched), plural(n, "stays", "stay"))
 	if len(to) == 1 {
-		stay = fmt.Sprintf(" %d %s already switched %s on %s.", switched, m.noun(types, switched), plural(switched, "stays", "stay"), to[0])
+		stay = fmt.Sprintf(" %s already switched %s on %s.", m.counted(types, switched), plural(n, "stays", "stay"), to[0])
 	}
 	return words + stay, nil
 }

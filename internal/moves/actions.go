@@ -55,7 +55,8 @@ func (m *Moves) CancelBatch(ctx context.Context, batch BatchID) (canceled, switc
 		if err != nil {
 			return err
 		}
-		switched = switchedIn(counts)
+		k := switchedIn(counts)
+		switched = k.works + k.torrents
 		rows, err := q.ListOpenUnitsOfBatch(ctx, batch)
 		if err != nil {
 			return err
@@ -82,14 +83,19 @@ func (m *Moves) CancelBatch(ctx context.Context, batch BatchID) (canceled, switc
 	return len(us), switched, nil
 }
 
-func switchedIn(counts []db.CountBatchPhasesRow) int {
-	n := 0
+// switchedIn is how many units of each kind counts has switched.
+func switchedIn(counts []db.CountBatchPhasesRow) kinds {
+	var k kinds
 	for _, c := range counts {
-		if Phase(c.Phase) == PhaseCleanup || Phase(c.Phase) == PhaseDone {
-			n += int(c.N)
+		switch {
+		case Phase(c.Phase) != PhaseCleanup && Phase(c.Phase) != PhaseDone:
+		case c.Kind == "torrent":
+			k.torrents += int(c.N)
+		default:
+			k.works += int(c.N)
 		}
 	}
-	return n
+	return k
 }
 
 // Retry queues a failed unit again once its undo finished.

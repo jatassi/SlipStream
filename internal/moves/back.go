@@ -132,13 +132,7 @@ func (m *Moves) recommend(p *Plan, nodeNames map[role.NodeID]string) {
 	if len(to) == 1 {
 		where = " to " + nodeNames[to[0]]
 	}
-	counted := fmt.Sprintf("%d %s", total, m.noun(types, total))
-	switch ws := total - torrents; {
-	case ws == 0:
-		counted = fmt.Sprintf("%d %s", total, plural(total, "torrent", "torrents"))
-	case torrents > 0:
-		counted = fmt.Sprintf("%d %s and %d %s", ws, m.noun(types, ws), torrents, plural(torrents, "torrent", "torrents"))
-	}
+	counted := m.counted(types, kinds{works: total - torrents, torrents: torrents})
 	switch {
 	case total == 0:
 		p.Recommendation, p.Button = "Nothing here has files to move.", "Move"

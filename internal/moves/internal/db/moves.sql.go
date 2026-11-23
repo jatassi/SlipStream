@@ -56,10 +56,11 @@ func (q *Queries) CancelBatch(ctx context.Context, arg CancelBatchParams) error 
 }
 
 const countBatchPhases = `-- name: CountBatchPhases :many
-SELECT phase, count(*) AS n FROM moves_unit WHERE batch_id = ?1 GROUP BY phase ORDER BY phase
+SELECT kind, phase, count(*) AS n FROM moves_unit WHERE batch_id = ?1 GROUP BY kind, phase ORDER BY kind, phase
 `
 
 type CountBatchPhasesRow struct {
+	Kind  string
 	Phase string
 	N     int64
 }
@@ -73,7 +74,7 @@ func (q *Queries) CountBatchPhases(ctx context.Context, batchID BatchID) ([]Coun
 	var items []CountBatchPhasesRow
 	for rows.Next() {
 		var i CountBatchPhasesRow
-		if err := rows.Scan(&i.Phase, &i.N); err != nil {
+		if err := rows.Scan(&i.Kind, &i.Phase, &i.N); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -88,11 +89,12 @@ func (q *Queries) CountBatchPhases(ctx context.Context, batchID BatchID) ([]Coun
 }
 
 const countBatchesPhases = `-- name: CountBatchesPhases :many
-SELECT batch_id, phase, count(*) AS n FROM moves_unit WHERE batch_id IN (/*SLICE:ids*/?) GROUP BY batch_id, phase ORDER BY batch_id, phase
+SELECT batch_id, kind, phase, count(*) AS n FROM moves_unit WHERE batch_id IN (/*SLICE:ids*/?) GROUP BY batch_id, kind, phase ORDER BY batch_id, kind, phase
 `
 
 type CountBatchesPhasesRow struct {
 	BatchID BatchID
+	Kind    string
 	Phase   string
 	N       int64
 }
@@ -116,7 +118,12 @@ func (q *Queries) CountBatchesPhases(ctx context.Context, ids []BatchID) ([]Coun
 	var items []CountBatchesPhasesRow
 	for rows.Next() {
 		var i CountBatchesPhasesRow
-		if err := rows.Scan(&i.BatchID, &i.Phase, &i.N); err != nil {
+		if err := rows.Scan(
+			&i.BatchID,
+			&i.Kind,
+			&i.Phase,
+			&i.N,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

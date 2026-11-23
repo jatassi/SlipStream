@@ -529,7 +529,7 @@ func (h handlers) cancelBatch(ctx context.Context, _ identity.Admin, in *batchIn
 	if err != nil {
 		return nil, answer(err)
 	}
-	words, err := m.CanceledWords(ctx, moves.BatchID{UUID: id}, canceled, switched)
+	words, err := m.CanceledWords(ctx, moves.BatchID{UUID: id}, canceled)
 	if err != nil {
 		return nil, err
 	}

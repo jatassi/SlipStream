@@ -145,28 +145,47 @@ type BatchView struct {
 	FinishedAt *time.Time
 	CanceledAt *time.Time
 	Counts     map[Phase]int
-	Total      int
+	// torrents is how many of Counts are torrent units.
+	torrents map[Phase]int
+	Total    int
 	// Words is its sentence, such as "12 of 43 movies switched".
 	Words                        string
 	CanRetry, CanCancel, CanBack bool
 }
 
-// finish fills b's total, sentence and actions from its counts, its units
-// of types.
-func (m *Moves) finish(b *BatchView, types []works.TypeID) {
-	c := b.Counts
-	for _, n := range c {
-		b.Total += n
+// count adds n units of kind in phase to b.
+func (b *BatchView) count(kind, phase string, n int64) {
+	b.Counts[Phase(phase)] += int(n)
+	if kind == "torrent" {
+		b.torrents[Phase(phase)] += int(n)
 	}
-	switched := c[PhaseCleanup] + c[PhaseDone]
+}
+
+// finish fills b's total, sentence and actions from its counts, its Work
+// units of types.
+func (m *Moves) finish(b *BatchView, types []works.TypeID) {
+	c, t := b.Counts, b.torrents
+	var torrents int
+	for p, n := range c {
+		b.Total += n
+		torrents += t[p]
+	}
+	all := kinds{works: b.Total - torrents, torrents: torrents}
+	of := func(phases ...Phase) kinds {
+		var k kinds
+		for _, p := range phases {
+			k.works += c[p] - t[p]
+			k.torrents += t[p]
+		}
+		return k
+	}
 	open := c[PhaseQueued] + c[PhaseTransfer] + c[PhasePlace] + c[PhaseSwitch]
-	noun := m.noun(types, b.Total)
 	b.CanRetry, b.CanCancel, b.CanBack = c[PhaseFailed] > 0, open > 0, c[PhaseDone] > 0
 	if open+c[PhaseCleanup] > 0 {
-		b.Words = fmt.Sprintf("%d of %d %s switched", switched, b.Total, noun)
+		b.Words = m.tally(types, of(PhaseCleanup, PhaseDone), all) + " switched"
 		return
 	}
-	b.Words = fmt.Sprintf("%d of %d %s moved.", c[PhaseDone], b.Total, noun)
+	b.Words = m.tally(types, of(PhaseDone), all) + " moved."
 	if n := c[PhaseFailed]; n > 0 {
 		b.Words += fmt.Sprintf(" %d failed.", n)
 	}
@@ -223,7 +242,7 @@ func (m *Moves) List(ctx context.Context, after BatchID, limit int) ([]BatchView
 			out[i] = batchViewOf(row)
 			for _, c := range counts {
 				if c.BatchID == row.ID {
-					out[i].Counts[Phase(c.Phase)] = int(c.N)
+					out[i].count(c.Kind, c.Phase, c.N)
 				}
 			}
 			m.finish(&out[i], types[row.ID])
@@ -253,7 +272,7 @@ func pageAfter(ctx context.Context, q *db.Queries, after BatchID, limit int) (db
 func batchViewOf(row db.MovesBatch) BatchView {
 	return BatchView{
 		ID: row.ID, Origin: Origin(row.Origin), CreatedAt: row.CreatedAt.Time(), FinishedAt: timeOf(row.FinishedAt),
-		CanceledAt: timeOf(row.CanceledAt), Counts: map[Phase]int{},
+		CanceledAt: timeOf(row.CanceledAt), Counts: map[Phase]int{}, torrents: map[Phase]int{},
 	}
 }
 
@@ -274,7 +293,7 @@ func (m *Moves) Get(ctx context.Context, id BatchID, after, limit int) (BatchVie
 			return err
 		}
 		for _, c := range counts {
-			b.Counts[Phase(c.Phase)] = int(c.N)
+			b.count(c.Kind, c.Phase, c.N)
 		}
 		types, err := typesOf(ctx, q, []BatchID{id})
 		if err != nil {

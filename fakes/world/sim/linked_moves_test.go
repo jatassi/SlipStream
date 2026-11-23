@@ -174,8 +174,9 @@ func TestAWorkMovesWithItsLinkedTorrent(t *testing.T) {
 	})
 }
 
-// expectDone checks batch's Work and torrent both end done, and the
-// torrent's hash has one Torrent, started.
+// expectDone checks batch's Work and torrent both end done and its
+// sentence counts one of each, and the torrent's hash has one Torrent,
+// started.
 func (l linked) expectDone(t *testing.T, batch moves.BatchID) {
 	t.Helper()
 	work, torrent := l.ended(t, batch)
@@ -186,6 +187,13 @@ func (l linked) expectDone(t *testing.T, batch moves.BatchID) {
 	}
 	if got := wantedOf(t, l.w, l.seed); len(got) != 1 || !strings.HasSuffix(got[0], ":started") {
 		t.Errorf("the hash's Torrents are %v, want one, started", got)
+	}
+	b, _, err := l.w.Node("home").Half().Moves.Get(t.Context(), batch, -1, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(b.Words, "1 movie ") || !strings.Contains(b.Words, "1 torrent ") {
+		t.Errorf("the batch reads %q, want it to count 1 movie and 1 torrent", b.Words)
 	}
 }
 

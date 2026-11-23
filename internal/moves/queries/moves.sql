@@ -23,10 +23,10 @@ UPDATE moves_batch SET finished_at = sqlc.arg(at) WHERE id = sqlc.arg(id) AND fi
 UPDATE moves_batch SET canceled_at = sqlc.arg(at) WHERE id = sqlc.arg(id) AND canceled_at IS NULL;
 
 -- name: CountBatchPhases :many
-SELECT phase, count(*) AS n FROM moves_unit WHERE batch_id = sqlc.arg(batch_id) GROUP BY phase ORDER BY phase;
+SELECT kind, phase, count(*) AS n FROM moves_unit WHERE batch_id = sqlc.arg(batch_id) GROUP BY kind, phase ORDER BY kind, phase;
 
 -- name: CountBatchesPhases :many
-SELECT batch_id, phase, count(*) AS n FROM moves_unit WHERE batch_id IN (sqlc.slice(ids)) GROUP BY batch_id, phase ORDER BY batch_id, phase;
+SELECT batch_id, kind, phase, count(*) AS n FROM moves_unit WHERE batch_id IN (sqlc.slice(ids)) GROUP BY batch_id, kind, phase ORDER BY batch_id, kind, phase;
 
 -- name: ListBatchTypes :many
 SELECT DISTINCT batch_id, content_type FROM moves_unit WHERE batch_id IN (sqlc.slice(ids)) AND content_type IS NOT NULL ORDER BY batch_id, content_type;
