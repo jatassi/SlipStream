@@ -1850,11 +1850,17 @@ func (q *Queries) NextSeq(ctx context.Context) (int64, error) {
 
 const openUnitsOfBatch = `-- name: OpenUnitsOfBatch :one
 SELECT count(*) FROM moves_unit
-WHERE batch_id = ?1 AND (phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup') OR (phase IN ('failed', 'canceled') AND undone_at IS NULL))
+WHERE batch_id = ?1 AND id <> ?2 AND (phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup') OR (phase IN ('failed', 'canceled') AND undone_at IS NULL))
 `
 
-func (q *Queries) OpenUnitsOfBatch(ctx context.Context, batchID BatchID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, openUnitsOfBatch, batchID)
+type OpenUnitsOfBatchParams struct {
+	BatchID BatchID
+	Writing UnitID
+}
+
+// The units of a batch but writing that still clean up or undo.
+func (q *Queries) OpenUnitsOfBatch(ctx context.Context, arg OpenUnitsOfBatchParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, openUnitsOfBatch, arg.BatchID, arg.Writing)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

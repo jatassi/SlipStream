@@ -697,20 +697,17 @@ func (m *Moves) finishCleanup(ctx context.Context, u Unit) error {
 }
 
 // finishBatch marks batch finished once no unit but the one being written
-// is open, unless it deletes the roots it empties: deleteEmptied finishes
-// that one.
+// is open, cleaning up or undoing, unless it deletes the roots it empties:
+// deleteEmptied finishes that one.
 func (m *Moves) finishBatch(ctx context.Context, tx *storage.Tx[file], batch BatchID, now storage.Time, writing UnitID) error {
 	q := db.New(tx)
 	b, err := q.GetBatch(ctx, batch)
 	if err != nil || b.DeleteEmptiedRoots == 1 {
 		return err
 	}
-	open, err := q.ListOpenUnitsOfBatch(ctx, batch)
-	if err != nil {
+	open, err := q.OpenUnitsOfBatch(ctx, db.OpenUnitsOfBatchParams{BatchID: batch, Writing: writing})
+	if err != nil || open > 0 {
 		return err
-	}
-	if slices.ContainsFunc(open, func(row db.MovesUnit) bool { return row.ID != writing }) {
-		return nil
 	}
 	return q.FinishBatch(ctx, db.FinishBatchParams{At: now, ID: batch})
 }

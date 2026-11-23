@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -174,6 +175,37 @@ func TestAWorkMovesWithItsLinkedTorrent(t *testing.T) {
 	})
 }
 
+// TestABatchFinishesWhenItsLastCleanupEnds holds The Quiet Orchard's
+// Work unit before it finishes its cleanup until its torrent unit is done:
+// the batch reads unfinished and offers no way back until the Work's
+// cleanup ends.
+func TestABatchFinishesWhenItsLastCleanupEnds(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		hold, reached, free := holdWork("finish_cleanup")
+		l := grabLinked(t, hold)
+		batch := l.start(t)
+		<-reached
+		defer free()
+		m := l.w.Node("home").Half().Moves
+		within(t, time.Hour, "the torrent is done", func() bool {
+			_, units, err := m.Get(t.Context(), batch, -1, 10)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return slices.ContainsFunc(units, func(u moves.View) bool { return u.Torrent != nil && u.Phase == moves.PhaseDone })
+		})
+		if b, _, err := m.Get(t.Context(), batch, -1, 10); err != nil || b.FinishedAt != nil || b.CanBack {
+			t.Errorf("with its Work cleaning up the batch finished at %v and can go back %t (%v), want neither", b.FinishedAt, b.CanBack, err)
+		}
+		free()
+		l.ended(t, batch)
+		if b, _, err := m.Get(t.Context(), batch, -1, 10); err != nil || b.FinishedAt == nil || !b.CanBack {
+			t.Errorf("once both units are done the batch finished at %v and can go back %t (%v), want both", b.FinishedAt, b.CanBack, err)
+		}
+	})
+}
+
 // expectDone checks batch's Work and torrent both end done and its
 // sentence counts one of each, and the torrent's hash has one Torrent,
 // started.
@@ -300,6 +332,12 @@ func TestATorrentCanceledAfterItsPlaceLeavesItsWorkToTheLibrary(t *testing.T) {
 // holdWorkLane holds home's first Work unit as it takes its lane until
 // free runs, closing reached once it holds.
 func holdWorkLane() (hold sim.Option, reached <-chan struct{}, free func()) {
+	return holdWork("take_lane")
+}
+
+// holdWork holds home's first Work unit before its step until free runs,
+// closing reached once it holds.
+func holdWork(step string) (hold sim.Option, reached <-chan struct{}, free func()) {
 	at, release := make(chan struct{}), make(chan struct{})
 	var held, released atomic.Bool
 	hold = sim.Edit(func(name string, e *node.Env) {
@@ -307,7 +345,7 @@ func holdWorkLane() (hold sim.Option, reached <-chan struct{}, free func()) {
 			return
 		}
 		e.Test.BeforeMoveStep = func(_ context.Context, s moves.Step) {
-			if s.Action == "take_lane" && !s.Work.IsZero() && held.CompareAndSwap(false, true) {
+			if s.Action == step && !s.Work.IsZero() && held.CompareAndSwap(false, true) {
 				close(at)
 				<-release
 			}

@@ -180,7 +180,7 @@ func (m *Moves) finish(b *BatchView, types []works.TypeID) {
 		return k
 	}
 	open := c[PhaseQueued] + c[PhaseTransfer] + c[PhasePlace] + c[PhaseSwitch]
-	b.CanRetry, b.CanCancel, b.CanBack = c[PhaseFailed] > 0, open > 0, c[PhaseDone] > 0
+	b.CanRetry, b.CanCancel, b.CanBack = c[PhaseFailed] > 0, open > 0, b.FinishedAt != nil && c[PhaseDone] > 0
 	if open+c[PhaseCleanup] > 0 {
 		b.Words = m.tally(types, of(PhaseCleanup, PhaseDone), all) + " switched"
 		return

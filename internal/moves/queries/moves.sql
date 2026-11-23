@@ -32,8 +32,9 @@ SELECT batch_id, kind, phase, count(*) AS n FROM moves_unit WHERE batch_id IN (s
 SELECT DISTINCT batch_id, content_type FROM moves_unit WHERE batch_id IN (sqlc.slice(ids)) AND content_type IS NOT NULL ORDER BY batch_id, content_type;
 
 -- name: OpenUnitsOfBatch :one
+-- The units of a batch but writing that still clean up or undo.
 SELECT count(*) FROM moves_unit
-WHERE batch_id = sqlc.arg(batch_id) AND (phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup') OR (phase IN ('failed', 'canceled') AND undone_at IS NULL));
+WHERE batch_id = sqlc.arg(batch_id) AND id <> sqlc.arg(writing) AND (phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup') OR (phase IN ('failed', 'canceled') AND undone_at IS NULL));
 
 -- name: DeleteFinishedBatches :execrows
 DELETE FROM moves_batch WHERE id IN (
