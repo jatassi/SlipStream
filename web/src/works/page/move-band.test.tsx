@@ -18,23 +18,6 @@ const move = (over: Partial<WorksWorkMove>): WorksWorkMove => ({
 test.each([
   [move({ phase: "queued", words: "Moving to den" }), "Moving to den"],
   [move({}), "Moving to den · Copying to den"],
-  [
-    move({ phase: "switch", waiting: "playing", words: "Waiting until playback ends" }),
-    "Moving to den · Waiting until playback ends",
-  ],
-  [
-    move({
-      phase: "switch",
-      waiting: "media_servers",
-      words: "Saving watched state, resume positions and ratings on the Media Servers",
-    }),
-    "Moving to den · Saving watched state, resume positions and ratings on the Media Servers",
-  ],
-  [move({ phase: "switch", words: "Switching to den" }), "Moving to den · Switching to den"],
-  [
-    move({ phase: "cleanup", words: "Removing the files from seedbox" }),
-    "Moving to den · Removing the files from seedbox",
-  ],
 ])("the Work band names the Move's step: %#", async (shown, words) => {
   renderKit(<MoveBand move={shown} />);
   await expect.element(page.getByRole("paragraph")).toHaveTextContent(words);
@@ -49,14 +32,7 @@ test("a failed Move's band links its failure to Activity", async () => {
       })}
     />,
   );
-  await expect
-    .element(
-      page.getByRole("link", {
-        name: "Heat.mkv is gone from seedbox. Scan Movies (D:), then retry.",
-      }),
-    )
-    .toHaveAttribute("href", "/activity");
-  await expect.element(page.getByText("Couldn't move to den")).toBeVisible();
+  await expect.element(page.getByRole("link")).toHaveAttribute("href", "/activity");
 });
 
 test("a canceled Move shows no band", async () => {

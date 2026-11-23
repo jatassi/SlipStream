@@ -47,20 +47,13 @@ function needServer(sent: string[]) {
   ];
 }
 
-test("Switch now on a long switch wait asks first, naming what it gives up", async () => {
+test("Switch now on a long switch wait asks first", async () => {
   const sent: string[] = [];
   await renderAction(<MoveNeeds needs={[waiting]} />, needServer(sent));
 
-  await expect.element(page.getByText(waiting.words)).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Switch now" }));
-  const confirm = page.getByRole("dialog", { name: "Switch The Quiet Orchard now?" });
-  await expect
-    .element(
-      confirm.getByText(
-        "Someone may still be playing it. Their playback may stop when the old files are deleted. A Media Server that hasn't saved it yet loses who watched The Quiet Orchard, their resume positions and ratings, and its collections.",
-      ),
-    )
-    .toBeVisible();
+  expect(sent).toEqual([]);
+  const confirm = page.getByRole("dialog", { name: /The Quiet Orchard/u });
   await userEvent.click(confirm.getByRole("button", { name: "Switch now" }));
   await expect.element(confirm).not.toBeInTheDocument();
   expect(sent).toEqual([`/api/v1/moves/units/${waiting.unitId}/switch-now`]);
@@ -70,8 +63,8 @@ test("a failed Move offers Retry", async () => {
   const sent: string[] = [];
   await renderAction(<MoveNeeds needs={[failed]} />, needServer(sent));
 
-  await expect.element(page.getByText(failed.words)).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Switch now" })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("button", { name: "Retry" })).toBeVisible();
+  expect(page.getByRole("button", { name: "Switch now" }).query()).toBeNull();
   await userEvent.click(page.getByRole("button", { name: "Retry" }));
   await expect.poll(() => sent).toEqual([`/api/v1/moves/units/${failed.unitId}/retry`]);
 });

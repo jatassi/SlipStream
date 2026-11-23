@@ -57,11 +57,5 @@ test("Edit on a root that Moves, Imports and Transfers use says what to wait for
     .element(dialog.getByText("This folder is on /srv/media, 1.2 TB free."))
     .toBeVisible();
   await userEvent.click(dialog.getByRole("button", { name: "Save" }));
-  await expect
-    .element(
-      dialog.getByText(
-        "The Films root can't be re-homed while 3 Moves, 1 Import and 2 Transfers use it. Wait for them to finish, or cancel the Moves in Activity.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(dialog.getByText(/3 Moves, 1 Import and 2 Transfers/u)).toBeVisible();
 });

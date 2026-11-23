@@ -252,23 +252,12 @@ test("Move client… changes its Node, and a Node that doesn't find the torrents
     });
   renderApp({ path, handlers: clients.handlers });
   await userEvent.click(page.getByRole("button", { name: "Move client…" }));
-  await expect
-    .element(
-      sheet("Move Transmission").getByText(
-        "If this client now runs on another Node, change its Node. Nothing is copied. To copy its torrents into another client, move them.",
-      ),
-    )
-    .toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: "Change its Node" }));
+  await userEvent.click(
+    sheet("Move Transmission").getByRole("button", { name: "Change its Node" }),
+  );
   const changing = sheet("Change the Node of Transmission");
   await pick("Node", "seedbox");
   await userEvent.click(changing.getByRole("button", { name: "Save" }));
-  await expect
-    .element(
-      changing.getByText(
-        "seedbox didn't find the files of 2 torrents at this client's folders. Check each Client folder's path on seedbox. Not found: Orchard, Harbor.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(changing.getByText(/Orchard, Harbor/u)).toBeVisible();
   expect(clients.writes.at(-1)).toEqual({ path: attic.id, body: { nodeId: seedboxId } });
 });

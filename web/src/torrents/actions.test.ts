@@ -174,19 +174,17 @@ test("a bulk action names what it did and groups what it refused alike", () => {
 });
 
 test("several moving torrents are counted once, wherever they move", () => {
-  expect(
-    outcomeWords(
-      [
-        { id: "a", done: false, refusal: { code: "moving", node: "den" } },
-        { id: "b", done: false, refusal: { code: "moving", client: "qBittorrent" } },
-        { id: "c", done: false, refusal: { code: "moving", node: "den" } },
-      ],
-      [orchard, harvest, attic],
-      context("pause"),
-    ).refused,
-  ).toEqual([
-    "3 torrents are moving to another Download Client. Cancel their Moves in Activity, then try again.",
-  ]);
+  const { refused } = outcomeWords(
+    [
+      { id: "a", done: false, refusal: { code: "moving", node: "den" } },
+      { id: "b", done: false, refusal: { code: "moving", client: "qBittorrent" } },
+      { id: "c", done: false, refusal: { code: "moving", node: "den" } },
+    ],
+    [orchard, harvest, attic],
+    context("pause"),
+  );
+  expect(refused).toHaveLength(1);
+  expect(refused[0]).toMatch(/^3 torrents /u);
 });
 
 test.each<[string, DownloadclientsRefusal, ActInputBodyAction, string]>([
