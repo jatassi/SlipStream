@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/lifecycle"
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/node"
 	nodespkg "github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
@@ -277,6 +278,8 @@ func adopt(t *testing.T, lib *storage.DB[storage.Library], ids []role.NodeID, he
 			return roots.View{}, nil
 		},
 		Scan:   func(context.Context, []roots.ID) error { return nil },
+		Ready:  func(context.Context) ([]roots.Root, error) { return nil, nil },
+		Hub:    live.NewHub([]live.Event{roots.ChangedEvent}),
 		Ending: func(context.Context, *storage.Tx[storage.Library]) error { return nil },
 		Ended:  func(context.Context) {},
 		RootWords: func(context.Context, storage.Reader[storage.Library]) (map[roots.ID]string, error) {

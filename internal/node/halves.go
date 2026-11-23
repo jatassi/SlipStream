@@ -199,7 +199,9 @@ func (n *Node) startController(ctx context.Context) error {
 		Rehome: func(ctx context.Context, by identity.Admin, id roots.ID, h roots.Rehome) (roots.View, error) {
 			return homes.Rehome(ctx, by, id, h)
 		},
-		Scan: func(ctx context.Context, ids []roots.ID) error { return found.ScanRoots(ctx, ids) },
+		Scan:  func(ctx context.Context, ids []roots.ID) error { return found.ScanRoots(ctx, ids) },
+		Ready: func(ctx context.Context) ([]roots.Root, error) { return homes.Ready(ctx) },
+		Hub:   n.hub,
 		Ending: func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			return pipeline.DecideFetching(ctx, tx)
 		},

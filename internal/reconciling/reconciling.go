@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/reconciling/internal/db"
 	"github.com/jatassi/slipstream/internal/role"
@@ -194,6 +195,10 @@ type Config struct {
 	Rehome func(ctx context.Context, by identity.Admin, id roots.ID, h roots.Rehome) (roots.View, error)
 	// Scan starts the Library scan of roots.
 	Scan func(ctx context.Context, roots []roots.ID) error
+	// Ready is each root its Node reports Ready now.
+	Ready func(ctx context.Context) ([]roots.Root, error)
+	// Hub wakes Run on roots.changed, when a root may have turned Ready.
+	Hub *live.Hub
 	// Ending runs in the Write that ends Reconciling: each Grab at
 	// fetching takes its adopted torrent or fails.
 	Ending func(ctx context.Context, tx *storage.Tx[file]) error
@@ -232,8 +237,9 @@ type Service struct {
 	// scanned is set in a Write that finishes a root's scan.
 	scanned atomic.Bool
 	mu      sync.Mutex
-	// asked is each root whose scan Run started, and looked each review
-	// list torrent whose Node Run asked about its files, under mu.
+	// asked is each root whose scan Run started since it last turned
+	// Ready, and looked each review list torrent whose Node Run asked
+	// about its files, under mu.
 	asked  map[roots.ID]bool
 	looked map[downloadclients.ID]bool
 }
@@ -313,6 +319,7 @@ func (s *Service) Run(ctx context.Context) error {
 	if err := s.announce(ctx); err != nil && ctx.Err() == nil {
 		s.cfg.Log.Error("SlipStream couldn't record the restore in History", "err", err)
 	}
+	woken := s.cfg.Hub.Watch(ctx, roots.ChangedEvent)
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 	for {
@@ -332,6 +339,7 @@ func (s *Service) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-s.wake:
+		case <-woken:
 		case <-timer.C:
 		}
 	}
