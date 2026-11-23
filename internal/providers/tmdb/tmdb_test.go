@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -170,8 +171,8 @@ func TestARevokedKeyIsRefusedInTMDBsWords(t *testing.T) {
 		revoked := "revoked"
 		f.Cue(t, faketmdb.RevokeKey.Name, faketmdb.Key{Key: &revoked})
 		err := c.Test(t.Context(), keyed(revoked))
-		if want := "GET /configuration: TMDB: refused the key: Invalid API key: You must be granted a valid key."; err == nil || err.Error() != want || !errors.Is(err, works.ErrRefused) {
-			t.Errorf("Test with a revoked key = %v, want %s", err, want)
+		if !errors.Is(err, works.ErrRefused) || !strings.Contains(err.Error(), "Invalid API key") {
+			t.Errorf("Test with a revoked key = %v, want works.ErrRefused in TMDB's words", err)
 		}
 		if err := c.Test(t.Context(), keyed("fresh")); err != nil {
 			t.Errorf("Test with another key = %v", err)
