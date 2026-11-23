@@ -161,6 +161,9 @@ const (
 	// coldTick is how long a Cold client takes to list an add. The real
 	// one listed 3 ms after its answer.
 	coldTick = 10 * time.Millisecond
+	// startLag is how long a started torrent still lists stopped. The real
+	// 4.6.7 and 5.3.0 listed it started 1443 to 1520 ms after the call.
+	startLag = 1500 * time.Millisecond
 )
 
 type server struct {
@@ -202,8 +205,8 @@ func serve(env fake.Env, clients []Client) (fake.Server, error) {
 			Client: c, version: v,
 			engine: torrentclient.New(torrentclient.Config{
 				Releases: env.Releases, Dir: c.Dir, Name: c.Folder, Windows: c.Windows, Rate: c.Rate, Slots: c.Slots, SeedRatio: c.SeedRatio, Check: c.Check,
-				ListAfter: map[bool]time.Duration{true: coldTick}[c.Cold],
-				Tracker:   clientfake.Tracker(env, c.Node), PeerID: clientfake.PeerID("-qB4670-", c.Node),
+				StartLag: startLag, ListAfter: map[bool]time.Duration{true: coldTick}[c.Cold],
+				Tracker: clientfake.Tracker(env, c.Node), PeerID: clientfake.PeerID("-qB4670-", c.Node),
 			}),
 			sessions: map[string]*session{}, failures: map[string]int{}, banned: map[string]time.Time{},
 			categories: map[string]string{},

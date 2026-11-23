@@ -90,7 +90,7 @@ func (r run) open(password, apiKey string) clients.Client {
 	}
 	return qbittorrent.Open(clients.Session{
 		HTTP: r.tgt.HTTP, Address: a, Username: r.tgt.Username, Secrets: clients.Secrets{Password: password, APIKey: apiKey},
-		Call: time.Minute, Log: r.tgt.Log,
+		Call: time.Minute, RunWait: 5 * time.Second, Log: r.tgt.Log,
 	})
 }
 
@@ -140,13 +140,13 @@ func (r run) add(meta []byte, name string) {
 }
 
 func (r run) act() {
-	for _, a := range []clients.Act{clients.Resume, clients.Recheck, clients.Announce} {
+	if s := clientcases.Resume(r.t, r.c, r.hash); s.Finished {
+		r.t.Errorf("after Resume: %+v, want it not finished", s)
+	}
+	for _, a := range []clients.Act{clients.Recheck, clients.Announce} {
 		if err := r.c.Act(r.t.Context(), a, []bencode.InfoHash{r.hash}); err != nil {
 			r.t.Errorf("Act(%d): %v", a, err)
 		}
-	}
-	if s, _ := r.poll(); s.Run != clients.Started || s.Finished {
-		r.t.Errorf("after Resume: %+v, want started and not finished", s)
 	}
 	clientcases.Pause(r.t, r.c, r.hash)
 }

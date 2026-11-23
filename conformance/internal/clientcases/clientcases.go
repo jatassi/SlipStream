@@ -25,10 +25,11 @@ type Folder struct {
 // poll is how often a case reads the target while it waits.
 const poll = time.Second
 
-// pauseWait bounds a pause's or an add's wait to read settled, and
-// pauseEvery is how often it reads: Transmission 4.1.4 read stopped up to
-// 485 ms after the call, on a tick of about 0.5 s, and qBittorrent 4.6.7
-// listed an add 4 ms after it answered.
+// pauseWait bounds a pause's, a resume's or an add's wait to read
+// settled, and pauseEvery is how often it reads: Transmission 4.1.4 read
+// stopped up to 485 ms after the call, on a tick of about 0.5 s,
+// qBittorrent 4.6.7 listed an add 4 ms after it answered, and qBittorrent
+// 4.6.7 and 5.3.0 listed a start up to 1520 ms after it.
 const (
 	pauseWait  = 2 * time.Second
 	pauseEvery = 100 * time.Millisecond
@@ -142,6 +143,33 @@ func Pause(t *testing.T, c clients.Client, h bencode.InfoHash) {
 		if time.Now().After(deadline) {
 			t.Errorf("%s after Pause: %+v, want paused", pauseWait, got[h])
 			return
+		}
+		time.Sleep(pauseEvery)
+	}
+}
+
+// Resume resumes h and polls until the client reads it started with no
+// check running, which a client may list a tick after it answered, and
+// answers its status. Each read must say started, checking or not.
+func Resume(t *testing.T, c clients.Client, h bencode.InfoHash) clients.Status {
+	t.Helper()
+	if err := c.Act(t.Context(), clients.Resume, []bencode.InfoHash{h}); err != nil {
+		t.Errorf("Act(Resume): %v", err)
+		return clients.Status{}
+	}
+	deadline := time.Now().Add(pauseWait)
+	for {
+		got, err := c.Poll(t.Context(), []bencode.InfoHash{h})
+		if err != nil {
+			t.Fatalf("Poll: %v", err)
+		}
+		s := got[h]
+		if s.Run != clients.Started {
+			t.Errorf("after Resume: %+v, want it started", s)
+			return s
+		}
+		if s.Activity != clients.Checking || time.Now().After(deadline) {
+			return s
 		}
 		time.Sleep(pauseEvery)
 	}

@@ -56,6 +56,9 @@ type Config struct {
 	// Tick is the client's loop: a Stop takes effect at its next multiple
 	// of Tick, after the call answered, and 0 stops before it answers.
 	Tick time.Duration
+	// StartLag is how long a stopped torrent still reads stopped after a
+	// Start answered, 0 for none.
+	StartLag time.Duration
 	// ListAfter is how long an added torrent is missing from reads after
 	// the add answered, 0 for none.
 	ListAfter time.Duration
@@ -190,9 +193,10 @@ type torrent struct {
 	written int64
 	stalled bool
 	hidden  time.Time
-	// checked is when a check of its data ends, and stopAt when a Stop
-	// waiting for the next Tick takes effect.
-	checked, stopAt time.Time
+	// checked is when a check of its data ends, stopAt when a Stop
+	// waiting for the next Tick takes effect, and startAt when a Start
+	// waiting out the StartLag does.
+	checked, stopAt, startAt time.Time
 	// announcing is a torrent whose trackers had its started and not yet
 	// its stopped, and reported one whose completed they had or that was
 	// complete when it started.
@@ -316,6 +320,7 @@ func (e *Engine) Get(h bencode.InfoHash) (Torrent, bool) {
 // Tick.
 func (e *Engine) Stop(h bencode.InfoHash) error {
 	return e.change(h, func(t *torrent) {
+		t.startAt = time.Time{}
 		if e.cfg.Tick == 0 {
 			t.State = Stopped
 			return
@@ -324,15 +329,23 @@ func (e *Engine) Stop(h bencode.InfoHash) error {
 	})
 }
 
-// Start starts a stopped torrent and clears its local error, and drops a
-// Stop still waiting for its Tick.
+// Start starts a stopped torrent and clears its local error, after the
+// StartLag, and drops a Stop still waiting for its Tick.
 func (e *Engine) Start(h bencode.InfoHash) error {
 	return e.change(h, func(t *torrent) {
 		t.stopAt = time.Time{}
-		if t.State == Stopped {
-			t.State, t.LocalError, t.SeedGoalMet = Downloading, "", false
+		switch {
+		case t.State != Stopped:
+		case e.cfg.StartLag == 0:
+			start(t)
+		case t.startAt.IsZero():
+			t.startAt = e.at.Add(e.cfg.StartLag)
 		}
 	})
+}
+
+func start(t *torrent) {
+	t.State, t.LocalError, t.SeedGoalMet, t.startAt = Downloading, "", false, time.Time{}
 }
 
 // Verify rechecks a torrent's data, taking what the files on disk hold.
@@ -529,26 +542,18 @@ func (e *Engine) settle() {
 }
 
 // advance runs the clock from the last read to now, one step to each
-// moment a torrent ends a check, completes, meets its seed ratio or stops
-// on a Tick, then
-// writes the bytes that arrived.
+// moment a torrent ends a check, completes, meets its seed ratio, stops
+// on a Tick or starts after its StartLag, then writes the bytes that
+// arrived.
 func (e *Engine) advance() {
 	now := time.Now()
 	for e.at.Before(now) {
-		step := now.Sub(e.at)
-		for _, t := range e.torrents {
-			if need, ok := e.untilNext(t); ok {
-				step = min(step, need)
-			}
-			if !t.stopAt.IsZero() {
-				step = min(step, t.stopAt.Sub(e.at))
-			}
-		}
+		step := e.step(now)
 		for _, t := range e.torrents {
 			e.run(t, step)
 		}
 		e.at = e.at.Add(step)
-		e.stopDue()
+		e.actDue()
 		e.settle()
 	}
 	for _, t := range e.torrents {
@@ -562,11 +567,32 @@ func (e *Engine) advance() {
 	e.announce()
 }
 
-// stopDue stops each torrent whose Stop's Tick has come.
-func (e *Engine) stopDue() {
+// step is how far the clock runs toward now before a torrent's next
+// moment.
+func (e *Engine) step(now time.Time) time.Duration {
+	step := now.Sub(e.at)
+	for _, t := range e.torrents {
+		if need, ok := e.untilNext(t); ok {
+			step = min(step, need)
+		}
+		for _, at := range []time.Time{t.stopAt, t.startAt} {
+			if !at.IsZero() {
+				step = min(step, at.Sub(e.at))
+			}
+		}
+	}
+	return step
+}
+
+// actDue stops each torrent whose Stop's Tick has come, and starts each
+// whose StartLag has passed.
+func (e *Engine) actDue() {
 	for _, t := range e.torrents {
 		if !t.stopAt.IsZero() && !t.stopAt.After(e.at) {
 			t.State, t.stopAt = Stopped, time.Time{}
+		}
+		if !t.startAt.IsZero() && !t.startAt.After(e.at) {
+			start(t)
 		}
 	}
 }
