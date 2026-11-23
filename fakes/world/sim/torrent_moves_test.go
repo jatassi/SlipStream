@@ -590,9 +590,9 @@ func TestAClientsNodeChangeTakesItsTorrents(t *testing.T) {
 			t.Fatalf("changing Box's Node to den = %d %s, want 200", r.Status, r.Body)
 		}
 		home := w.Node("home").Half()
-		var node storage.UUID
-		if err := home.Library.QueryRowContext(t.Context(), `SELECT node_id FROM downloadclients_torrent WHERE id = ?`, s.id).Scan(&node); err != nil || node != den.UUID {
-			t.Fatalf("The Quiet Orchard's Torrent is on %s (%v) after the change, want den", node, err)
+		var on storage.UUID
+		if err := home.Library.QueryRowContext(t.Context(), `SELECT node_id FROM downloadclients_torrent WHERE id = ?`, s.id).Scan(&on); err != nil || on != den.UUID {
+			t.Fatalf("The Quiet Orchard's Torrent is on %s (%v) after the change, want den", on, err)
 		}
 		within(t, time.Hour, "The Quiet Orchard seeds from Box on den", func() bool { return seeding(t, home) == 1 })
 		var units int
@@ -602,13 +602,13 @@ func TestAClientsNodeChangeTakesItsTorrents(t *testing.T) {
 	})
 }
 
-// seedSeconds is the seeding seconds the Torrent of hash in a client of
-// node counts.
-func seedSeconds(t *testing.T, w *sim.World, s seeded, node string) int64 {
+// seedSeconds is the seeding seconds the Torrent of s in a client of the
+// Node named on counts.
+func seedSeconds(t *testing.T, w *sim.World, s seeded, on string) int64 {
 	t.Helper()
 	var n int64
 	err := w.Node("home").Half().Library.QueryRowContext(t.Context(), `SELECT t.seeding_seconds FROM downloadclients_torrent t
-		JOIN nodes_node n ON n.id = t.node_id WHERE t.info_hash = ? AND n.name = ? ORDER BY t.added_order DESC LIMIT 1`, s.hash[:], node).Scan(&n)
+		JOIN nodes_node n ON n.id = t.node_id WHERE t.info_hash = ? AND n.name = ? ORDER BY t.added_order DESC LIMIT 1`, s.hash[:], on).Scan(&n)
 	if err != nil {
 		t.Fatal(err)
 	}

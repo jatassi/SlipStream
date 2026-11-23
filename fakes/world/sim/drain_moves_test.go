@@ -139,20 +139,7 @@ func TestADownloadingDrainKeepsItsRoleUntilItsTorrentsMove(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for range 240 {
-			_, units, err := m.Get(t.Context(), started.Batch, -1, 10)
-			if err != nil || len(units) != 1 {
-				t.Fatalf("the batch has %d units (%v), want 1", len(units), err)
-			}
-			phase := units[0].Phase
-			if phase == moves.PhaseDone || phase == moves.PhaseFailed {
-				break
-			}
-			if st := stateOf(nodeRow(t, a, "seedbox"), "downloading"); phase != moves.PhaseCleanup && st != "draining" {
-				t.Fatalf("with its torrent's unit %s, seedbox stands %s in Downloading, want draining", phase, st)
-			}
-			time.Sleep(30 * time.Second)
-		}
+		drainsWhileItsUnitRuns(t, a, m, started.Batch)
 		if unit := ended(t, w, started.Batch); unit.Phase != moves.PhaseDone {
 			t.Fatalf("the unit ended %s %+v, want done", unit.Phase, unit.Failure)
 		}
@@ -160,4 +147,24 @@ func TestADownloadingDrainKeepsItsRoleUntilItsTorrentsMove(t *testing.T) {
 			return stateOf(nodeRow(t, a, "seedbox"), "downloading") == "none"
 		})
 	})
+}
+
+// drainsWhileItsUnitRuns follows batch's one unit until it ends and fails
+// t if seedbox stops draining Downloading before the unit's cleanup.
+func drainsWhileItsUnitRuns(t *testing.T, a *worldtest.API, m *moves.Moves, batch moves.BatchID) {
+	t.Helper()
+	for range 240 {
+		_, units, err := m.Get(t.Context(), batch, -1, 10)
+		if err != nil || len(units) != 1 {
+			t.Fatalf("the batch has %d units (%v), want 1", len(units), err)
+		}
+		phase := units[0].Phase
+		if phase == moves.PhaseDone || phase == moves.PhaseFailed {
+			return
+		}
+		if st := stateOf(nodeRow(t, a, "seedbox"), "downloading"); phase != moves.PhaseCleanup && st != "draining" {
+			t.Fatalf("with its torrent's unit %s, seedbox stands %s in Downloading, want draining", phase, st)
+		}
+		time.Sleep(30 * time.Second)
+	}
 }

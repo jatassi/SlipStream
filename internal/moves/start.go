@@ -227,11 +227,9 @@ func amberOf(v Verdict) []Reason {
 	return out
 }
 
-// insert writes p's batch and keep's units with their files. Each unit
-// but the first of its lane in this batch waits pair_busy.
-func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Admin, p Plan, keep []PlanUnit, now time.Time) ([]Unit, error) {
-	q := db.New(tx)
-	batch := BatchID{UUID: storage.NewUUID()}
+// batchRow is the moves_batch row p starts as batch, with the roots it
+// empties in its notes.
+func batchRow(batch BatchID, by identity.Admin, p Plan, now time.Time) (db.InsertBatchParams, error) {
 	b := db.InsertBatchParams{
 		ID: batch, Origin: string(p.Ask.Origin), CreatedAt: storage.FromTime(now), HomedWorks: int64(len(p.Homed)), PlanTokenHash: p.Token.hash(),
 	}
@@ -247,7 +245,7 @@ func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Ad
 	}
 	raw, err := json.Marshal(notes)
 	if err != nil {
-		return nil, fmt.Errorf("moves: the notes of batch %s: %w", batch, err)
+		return b, fmt.Errorf("moves: the notes of batch %s: %w", batch, err)
 	}
 	b.Notes = string(raw)
 	if p.Ask.Options.IncludeLinkedTorrents {
@@ -255,6 +253,18 @@ func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Ad
 	}
 	if p.Ask.Options.RepointRouting {
 		b.RepointRouting = 1
+	}
+	return b, nil
+}
+
+// insert writes p's batch and keep's units with their files. Each unit
+// but the first of its lane in this batch waits pair_busy.
+func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Admin, p Plan, keep []PlanUnit, now time.Time) ([]Unit, error) {
+	q := db.New(tx)
+	batch := BatchID{UUID: storage.NewUUID()}
+	b, err := batchRow(batch, by, p, now)
+	if err != nil {
+		return nil, err
 	}
 	if err := q.InsertBatch(ctx, b); err != nil {
 		return nil, err
