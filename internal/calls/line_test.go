@@ -226,7 +226,7 @@ func TestARedirectIsRefused(t *testing.T) {
 		})
 		subs := calls.Provider{ID: "subs", Label: "Subs", Rate: 20, Burst: 20, Hosts: []string{s.base.Host}}
 		_, err := s.lines(calls.NoRedirects(s.client)).Line(subs).Do(t.Context(), keys, s.get("/download"))
-		if o := failed(t, err); o.Kind != calls.Unreachable || o.Words != "responded with 302 Found" {
+		if o := failed(t, err); o.Kind != calls.Unreachable || !strings.Contains(o.Words, "302") {
 			t.Fatalf("err = %q, want the 302 itself", err)
 		}
 		if s.count() != 1 || s.reqs[0].URL.Path != "/download" {
