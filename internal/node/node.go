@@ -601,6 +601,7 @@ func (n *Node) startStorage(cfg Config) {
 	n.store = storing.NewStore(storing.Config{
 		Disk: n.disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Torrents: n.downloading.Torrents, Timings: cfg.Timings.Storing,
 		Prober: n.env.Media, ProbeTimeout: cfg.Timings.Media.Probe, PathLimit: cfg.Storage.PathLimit,
+		RemoveRetry: cfg.Timings.Moves.RemoveRetry, RemoveBound: cfg.Timings.Moves.RemoveBound,
 	})
 }
 

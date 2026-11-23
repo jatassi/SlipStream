@@ -46,7 +46,7 @@ func CopyMovedKeepsWatchData(t *testing.T, tg Target) {
 	from, to := tg.Case(t), tg.Case(t).In(*tg.Second)
 	defer from.Clear()
 	defer to.Clear()
-	r := Rel(t, "Moved", ".mkv")
+	r := Rel(t, "Copied and deleted", ".mkv")
 	from.Place(r)
 	from.Tell(r)
 	it := from.Found(r)

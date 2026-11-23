@@ -33,6 +33,7 @@ func (s *server) routes(refreshes *fake.Capture) fake.Routes {
 		"edit":          {Pattern: "PUT /library/metadata/{key}", Handler: s.authed(s.edit)},
 		"item-refresh":  {Pattern: "PUT /library/metadata/{key}/refresh", Handler: s.authed(s.itemRefresh(refreshes))},
 		"scrobble":      {Pattern: "GET /:/scrobble", Handler: s.authed(s.scrobble)},
+		"rate":          {Pattern: "PUT /:/rate", Handler: s.authed(s.rate)},
 		"sessions":      {Pattern: "GET /status/sessions", Handler: s.authed(s.sessions)},
 		"transcodes":    {Pattern: "GET /transcode/sessions", Handler: s.authed(s.transcodes)},
 		"notifications": {Pattern: "GET /:/websockets/notifications", Handler: s.authed(s.notifications)},
@@ -243,6 +244,23 @@ func (s *server) scrobble(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.core.Played(s.srv.Owner, key, time.Now())
+}
+
+// rate sets the owner's rating of an item, out of 10.
+func (s *server) rate(w http.ResponseWriter, r *http.Request) {
+	key := r.URL.Query().Get("key")
+	if _, ok := s.core.Item(key); !ok {
+		writeHTML(w, http.StatusNotFound, notFoundBody)
+		return
+	}
+	rating, err := strconv.ParseFloat(r.URL.Query().Get("rating"), 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	d := s.core.UserData(s.srv.Owner, key)
+	d.Rating = rating
+	s.core.SetUserData(s.srv.Owner, key, d)
 }
 
 type tag struct {

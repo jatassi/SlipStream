@@ -353,7 +353,7 @@ func (m *MediaServers) Snapshotted(ctx context.Context, r storage.Reader[storage
 func (m *MediaServers) Safe(ctx context.Context, r storage.Reader[storage.Library], from roots.ID, fs []files.ID) (map[link.ServerID]bool, error) {
 	confirmsFirst := func(k link.Kind) bool { return !snapshotsFirst(k) }
 	return m.everyMoveRow(ctx, db.New(r), fs, from, confirmsFirst, func(c db.MediaserversChange) bool {
-		return slices.Contains([]link.Step{link.StepConfirmed, link.StepRestored, link.StepSourceScanned}, c.Step)
+		return slices.Contains([]link.Step{link.StepConfirmed, link.StepRestored, link.StepSourceScanned, link.StepSettled}, c.Step)
 	})
 }
 

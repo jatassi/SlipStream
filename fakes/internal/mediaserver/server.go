@@ -76,6 +76,31 @@ type Behavior struct {
 	// a scan ends after it was asked for: Plex takes 0.25 s on a tiny
 	// section (case G), Jellyfin 0.5 s (recorded run 2026-11-14).
 	ScanTime time.Duration
+	// Move is what the server does with a file copied to another folder
+	// and then deleted from its source.
+	Move MoveRules
+}
+
+// MoveRules are Plex's answers to a Move's copy-then-delete (recorded run
+// 2026-11-23). Off, the server does none of them.
+type MoveRules struct {
+	// SameSection is a copy into another folder of its item's library,
+	// while the source's file is still on disk, joining that item as
+	// another Part (case 4).
+	SameSection bool
+	// CrossSection is watch data and rating held per guid, so a copy in
+	// another library is a new item that shows them at once while the
+	// source's item still exists, and an item made again after its
+	// destruction gets them back. Collections stay with an item's key and
+	// never follow a new one (cases 1 and 4). Under Plex Pass an edition
+	// has its own, which is how the 2026-11-14 run's edition destination
+	// lost them (case E).
+	CrossSection bool
+	// AfterDelete is a partial scan of a folder that lost an item's file,
+	// with no file of the item left in that folder, destroying the whole
+	// item with its Parts elsewhere and its collections, as autoEmptyTrash
+	// does. A whole-library scan drops only the lost Part (cases 4 and 4b).
+	AfterDelete bool
 }
 
 // Carry is how watch data follows a provider id from a deleted item to a
@@ -237,6 +262,16 @@ func (l *library) fresh() bool { return len(l.scanned) == 0 }
 
 type watchKey struct{ user, item string }
 
+// watched is what the watch data of the item key is held under: the key,
+// or with CrossSection the live item's guid and edition.
+func (s *Server) watched(key string) string {
+	it, ok := s.items[key]
+	if !s.b.Move.CrossSection || !ok {
+		return key
+	}
+	return "guid " + it.GUID + " " + s.edition(it.Edition)
+}
+
 // New is a server holding libs, reading its folders from disk. It does no
 // IO: a library marked Scanned is read on the first call.
 func New(b Behavior, disk Disk, libs []Library) *Server {
@@ -263,7 +298,7 @@ func (s *Server) lock() {
 	for _, l := range s.libs {
 		if l.Scanned {
 			for _, f := range l.Folders {
-				s.scanFolder(l, f)
+				s.scanFolder(l, f, false)
 			}
 		}
 	}
@@ -392,7 +427,7 @@ func keyNumber(k string) int {
 func (s *Server) UserData(user, item string) link.UserData {
 	s.lock()
 	defer s.mu.Unlock()
-	d := s.watch[watchKey{user, item}]
+	d := s.watch[watchKey{user, s.watched(item)}]
 	d.User = user
 	return d
 }
@@ -402,14 +437,14 @@ func (s *Server) SetUserData(user, item string, d link.UserData) {
 	s.lock()
 	defer s.mu.Unlock()
 	d.User = user
-	s.watch[watchKey{user, item}] = d
+	s.watch[watchKey{user, s.watched(item)}] = d
 }
 
 // Played counts one more play of item by user, as a scrobble does.
 func (s *Server) Played(user, item string, at time.Time) {
 	s.lock()
 	defer s.mu.Unlock()
-	k := watchKey{user, item}
+	k := watchKey{user, s.watched(item)}
 	d := s.watch[k]
 	d.User, d.Played, d.PlayCount, d.LastPlayed, d.Position = user, true, d.PlayCount+1, at, 0
 	s.watch[k] = d
@@ -517,8 +552,8 @@ func (s *Server) carryByProvider(it *Item) {
 // in one library.
 func (s *Server) carry(from, to *Item) {
 	for k, d := range s.watch {
-		if k.item == from.Key {
-			s.watch[watchKey{k.user, to.Key}] = d
+		if k.item == s.watched(from.Key) {
+			s.watch[watchKey{k.user, s.watched(to.Key)}] = d
 		}
 	}
 	if from.Library == to.Library {

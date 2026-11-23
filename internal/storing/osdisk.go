@@ -157,8 +157,10 @@ func (OSDisk) OpenPrivate(_ context.Context, path string) (WriteAtFile, error) {
 	return f, nil
 }
 
+// Remove deletes path. A file another program holds open fails with
+// errInUse.
 func (OSDisk) Remove(_ context.Context, path string) error {
-	return os.Remove(path) //nolint:wrapcheck // a PathError names the call and the path; callers classify it with errors.Is
+	return inUse(os.Remove(path))
 }
 
 func (OSDisk) RemoveAll(_ context.Context, path string) error {
