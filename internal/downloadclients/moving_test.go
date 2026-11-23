@@ -230,6 +230,30 @@ func TestTheSwitchHandsTheHashToTheArrivingTorrent(t *testing.T) {
 	}
 }
 
+// TestALateReportLeavesASwitchedSourcesTotals switches the Orchard to den
+// once seedbox counted 2 hours of seeding, then seedbox's last report and
+// totals row for it land, twice each, with 2 seconds more: the switch
+// carried the source's final totals, so both Torrents keep them.
+func TestALateReportLeavesASwitchedSourcesTotals(t *testing.T) {
+	m := newMove(t)
+	apply(t, m.lib, m.box, m.orchard, &dlv1.TorrentReport{Totals: &dlv1.TotalsRow{Id: m.orchard.Bytes(), Uploaded: 4096, SeedingSeconds: 7200}})
+	write(t, m.lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return m.c.SwitchIn(ctx, tx, m.orchard, m.arriving)
+	})
+	late := &dlv1.TotalsRow{Id: m.orchard.Bytes(), Uploaded: 4200, SeedingSeconds: 7202}
+	for range 2 {
+		apply(t, m.lib, m.box, m.orchard, &dlv1.TorrentReport{Totals: late})
+		write(t, m.lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			return m.c.Apply(ctx, tx, m.box, &dlv1.Report{Kind: &dlv1.Report_Totals{Totals: &dlv1.Totals{Rows: []*dlv1.TotalsRow{late}}}})
+		})
+	}
+	for _, id := range []dc.ID{m.orchard, m.arriving} {
+		if got := totalsOf(t, m.lib, id); got.Uploaded != 4096 || got.Seeding != 2*time.Hour {
+			t.Errorf("Torrent %s has %d uploaded and %s seeding after the late reports, want the switch's 4096 and 2h0m0s", id, got.Uploaded, got.Seeding)
+		}
+	}
+}
+
 // TestTheMovesRebuildKeepsEveryTorrentAndHoldsAHashTwice migrates an
 // adopted withheld Torrent through 00011's rebuild: it keeps its columns,
 // may be removed moved, and a Move's arriving Torrent of the same hash on
