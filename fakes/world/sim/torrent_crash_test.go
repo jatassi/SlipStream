@@ -27,20 +27,38 @@ func placedAtDen(w *sim.World) string {
 }
 
 // TestATorrentMoveCrashedBeforeEachStepEndsMovedOnce stops the Controller
-// before each step of a torrent's Move across Nodes and starts it again,
-// alone or with seedbox or den offline until a minute after: the Move
-// ends done with the payload whole in den's Transmission, fake-tracker
-// never sees two peers started at once, and seedbox's Torrent is removed
-// as moved.
+// before each step of a torrent's Move across Nodes and starts it again:
+// the Move ends done with the payload whole in den's Transmission,
+// fake-tracker never sees two peers started at once, and seedbox's
+// Torrent is removed as moved.
 func TestATorrentMoveCrashedBeforeEachStepEndsMovedOnce(t *testing.T) {
 	t.Parallel()
+	crashBeforeEachHandoffStep(t, movestest.Fault{Name: "restart"})
+}
+
+// TestATorrentMoveCrashedWithSeedboxOfflineEndsMovedOnce is
+// TestATorrentMoveCrashedBeforeEachStepEndsMovedOnce with seedbox offline
+// until a minute after the restart.
+func TestATorrentMoveCrashedWithSeedboxOfflineEndsMovedOnce(t *testing.T) {
+	t.Parallel()
+	crashBeforeEachHandoffStep(t, movestest.Fault{Name: "restart, seedbox offline", Offline: "seedbox"})
+}
+
+// TestATorrentMoveCrashedWithDenOfflineEndsMovedOnce is
+// TestATorrentMoveCrashedBeforeEachStepEndsMovedOnce with den offline
+// until a minute after the restart.
+func TestATorrentMoveCrashedWithDenOfflineEndsMovedOnce(t *testing.T) {
+	t.Parallel()
+	crashBeforeEachHandoffStep(t, movestest.Fault{Name: "restart, den offline", Offline: "den"})
+}
+
+func crashBeforeEachHandoffStep(t *testing.T, fault movestest.Fault) {
+	t.Helper()
 	for _, step := range handoffSteps {
-		for _, fault := range []movestest.Fault{{Name: "restart"}, {Name: "restart, seedbox offline", Offline: "seedbox"}, {Name: "restart, den offline", Offline: "den"}} {
-			t.Run(step+"/"+fault.Name, func(t *testing.T) {
-				t.Parallel()
-				synctest.Test(t, func(t *testing.T) { crashedMoveEndsMovedOnce(t, step, fault) })
-			})
-		}
+		t.Run(step, func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) { crashedMoveEndsMovedOnce(t, step, fault) })
+		})
 	}
 }
 
