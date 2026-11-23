@@ -8,6 +8,7 @@ type Timings struct {
 	RetryMin, RetryMax, RefusedRetry, Grace, ResendWait time.Duration
 	MissingShare, MissingFloor                          int
 	Trackers, Call, LiveFloor, LiveSample, TotalsReport time.Duration
+	LoadWait, LoadEvery                                 time.Duration
 	ErrorHeartbeat                                      time.Duration
 	// ReplyWait is how long a Move's start waits for a tracker's answer,
 	// and AnnounceWatch how often the torrents a Move watches are read for

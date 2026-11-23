@@ -698,6 +698,8 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.downloading.client_missing_floor", Value: "3", Default: "3", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_MISSING_FLOOR"},
 			{Key: "timings.downloading.client_trackers", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_TRACKERS"},
 			{Key: "timings.downloading.client_call", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_CALL"},
+			{Key: "timings.downloading.client_load_wait", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_LOAD_WAIT"},
+			{Key: "timings.downloading.client_load_every", Value: "250ms", Default: "250ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_LOAD_EVERY"},
 			{Key: "timings.downloading.client_live_floor", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_LIVE_FLOOR"},
 			{Key: "timings.downloading.holdings_page", Value: "1000", Default: "1000", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_HOLDINGS_PAGE"},
 			{Key: "timings.downloading.holdings_max", Value: "100000", Default: "100000", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_HOLDINGS_MAX"},

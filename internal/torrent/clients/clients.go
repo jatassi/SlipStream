@@ -31,7 +31,11 @@ type Session struct {
 	TrackerEvery time.Duration
 	// Call bounds each request.
 	Call time.Duration
-	Log  *slog.Logger
+	// LoadWait is how long rTorrent's complete add waits for rTorrent to
+	// load the torrent, which it does after it responds, and LoadEvery how
+	// often it asks.
+	LoadWait, LoadEvery time.Duration
+	Log                 *slog.Logger
 }
 
 // Secrets are the values sealed on the Controller and held in Node

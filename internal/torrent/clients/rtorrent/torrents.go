@@ -43,16 +43,10 @@ func (c *client) Add(ctx context.Context, a clients.Add) error {
 	return c.checkLoaded(ctx, a.Hash)
 }
 
-// loadWait is how long checkLoaded waits for rTorrent to load an add,
-// which it does after it responds, and loadEvery how often it asks.
-const (
-	loadWait  = 10 * time.Second
-	loadEvery = 250 * time.Millisecond
-)
-
-// checkLoaded sends d.check_hash to h once rTorrent holds it.
+// checkLoaded sends d.check_hash to h once rTorrent holds it, asking
+// each LoadEvery for LoadWait.
 func (c *client) checkLoaded(ctx context.Context, h bencode.InfoHash) error {
-	deadline := time.Now().Add(loadWait)
+	deadline := time.Now().Add(c.s.LoadWait)
 	for {
 		_, err := c.send(ctx, "d.check_hash", []any{target(h)})
 		if !missing(err) || !time.Now().Before(deadline) {
@@ -61,7 +55,7 @@ func (c *client) checkLoaded(ctx context.Context, h bencode.InfoHash) error {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("wait for rTorrent to load torrent %s: %w", h, ctx.Err())
-		case <-time.After(loadEvery):
+		case <-time.After(c.s.LoadEvery):
 		}
 	}
 }

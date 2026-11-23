@@ -88,7 +88,7 @@ func (r run) open(password string) clients.Client {
 	}
 	return rtorrent.Open(clients.Session{
 		HTTP: r.tgt.HTTP, Address: a, Username: r.tgt.Username, Secrets: clients.Secrets{Password: password},
-		Call: time.Minute, Log: r.tgt.Log,
+		Call: time.Minute, LoadWait: time.Minute, LoadEvery: time.Second, Log: r.tgt.Log,
 	})
 }
 
