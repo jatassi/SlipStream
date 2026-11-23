@@ -3,6 +3,7 @@ package sim_test
 import (
 	"context"
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -412,11 +413,12 @@ func (g *placeGate) before(ctx context.Context, s imports.Step) {
 
 func (g *placeGate) let() { g.once.Do(func() { close(g.open) }) }
 
-// TestARehomeOfAStagedFileSendsItAgain re-homes home's TV root onto a
-// copy of its folder while an episode sent from seedbox waits to move
-// from its staged copy. The re-home unverifies that copy, so the episode
-// is sent again into the new folder and lands there, not failing.
-func TestARehomeOfAStagedFileSendsItAgain(t *testing.T) {
+// TestARehomeWaitsForAStagedFileToLand asks to re-home home's TV root
+// onto a copy of its folder while an episode sent from seedbox waits to
+// move from its staged copy: the re-home is refused and the episode lands
+// in the root's folder. Once it has, the re-home goes through and the
+// root's new folder holds it.
+func TestARehomeWaitsForAStagedFileToLand(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		g := newPlaceGate()
@@ -435,6 +437,14 @@ func TestARehomeOfAStagedFileSendsItAgain(t *testing.T) {
 
 		root := tvRoot(t, c.w)
 		moved := filepath.Join(t.TempDir(), "tv")
+		rehomeRefusedMidImport(t, c.w, root, "home", moved)
+		expectRootAt(t, c.w, root, "home", root.Path)
+		g.let()
+
+		v := c.await(t, id, "the episode lands", func(v importView) bool { return v.count("placed") == 1 || v.count("failed") == 1 })
+		if got := v.outcomes(); !slices.Equal(got, []string{episodeName(1) + ": placed"}) {
+			t.Fatalf("the episode reads %q, want it placed", got)
+		}
 		if err := os.CopyFS(moved, os.DirFS(root.Path)); err != nil {
 			t.Fatal(err)
 		}
@@ -442,13 +452,27 @@ func TestARehomeOfAStagedFileSendsItAgain(t *testing.T) {
 			t.Fatal(err)
 		}
 		rehome(t, c.w, root, "home", moved)
-		g.let()
-
-		v := c.await(t, id, "the episode lands", func(v importView) bool { return v.count("placed") == 1 || v.count("failed") == 1 })
-		if got := v.outcomes(); !slices.Equal(got, []string{episodeName(1) + ": placed"}) {
-			t.Fatalf("after the re-home the episode reads %q, want it sent again and placed", got)
+		expectRootAt(t, c.w, root, "home", moved)
+		if n := episodesIn(t, moved); n != 1 {
+			t.Fatalf("the re-homed root's folder holds %d episodes, want the one placed", n)
 		}
 	})
+}
+
+// episodesIn counts the .mkv files under dir.
+func episodesIn(t *testing.T, dir string) int {
+	t.Helper()
+	n := 0
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && filepath.Ext(path) == ".mkv" {
+			n++
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
 }
 
 // tvRoot is home's TV root.
