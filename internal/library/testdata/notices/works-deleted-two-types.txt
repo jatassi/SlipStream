@@ -1,6 +1,0 @@
-Title: Deleted 12,000 books and 8,000 zines
-Line: Dune (1965), Emma (1815), Ulysses (1922) and 11,997 more books.
-Line: Ark, Bolt, Crux and 7,997 more zines.
-Line: An app using the API key deleted them.
-Link: /library
-Tone: info

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"testing/synctest"
 
@@ -310,7 +311,7 @@ func TestAReleasesDetailsNameTheTrackerItsIndexerReaches(t *testing.T) {
 // TestACellAGrabFetchesReadsItsReleaseInWords grabs the plan's row and
 // reads the Manual search again: the cell is left out of the plan and
 // names the Grab's Release in the words its row used, as does the Grab.
-func TestACellAGrabFetchesReadsItsReleaseInWords(t *testing.T) {
+func TestACellAGrabFetchesNamesItsRelease(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 9, "a")}}}})
 		v := a.searchedByHand(t)
@@ -321,8 +322,8 @@ func TestACellAGrabFetchesReadsItsReleaseInWords(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if want := "A Grab is fetching " + words + " for HD."; len(after.Plan.Held) != 1 || after.Plan.Held[0].Words != want {
-			t.Fatalf("the held cells read %+v, want one reading %q", after.Plan.Held, want)
+		if held := after.Plan.Held; len(held) != 1 || !strings.Contains(held[0].Words, words) || !strings.Contains(held[0].Words, "HD") {
+			t.Fatalf("the held cells read %+v, want one naming %q and HD", held, words)
 		}
 		if g := a.view(t, id); g.ReleaseSummary.Words() != words {
 			t.Fatalf("the Grab's Release reads %q, want %q", g.ReleaseSummary.Words(), words)

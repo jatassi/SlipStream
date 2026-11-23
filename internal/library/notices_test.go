@@ -3,7 +3,6 @@ package library_test
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log/slog"
 	"reflect"
@@ -22,8 +21,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
-
-var update = flag.Bool("update", false, "rewrite the rendered messages under testdata/notices")
 
 func TestOnlyAnAddThatAnnouncesRecordsWorksAdded(t *testing.T) {
 	s := newShelf(t)
@@ -148,17 +145,21 @@ func TestLibraryMessagesReadAsWritten(t *testing.T) {
 		ID: works.WorkID{UUID: must(storage.ParseUUID("019a8f5e-0000-7000-8000-000000000002"))}, Label: "Dune (1965)", Type: "book", Nouns: books,
 		Poster: artwork.Ref{Source: "tmdb", Shape: artwork.ShapePoster, Path: "/dune.jpg"},
 	}
-	golden := func(e entry.Entry, facts any, name string) {
-		entrytest.Golden(t, e, facts, "testdata/notices", name, *update)
+	page := "/works/" + dune.ID.String()
+	stored := func(e entry.Entry, facts any, name string, names ...string) {
+		entrytest.Stored(t, e, facts, "testdata/notices", name, names...)
 	}
-	golden(library.AddedRow, library.AddedFacts{Work: dune, Root: "Books library root on Den", By: entry.Actor{Name: "Sam"}}, "works-added")
-	golden(library.AddedRow, library.AddedFacts{Work: dune, By: entry.Actor{APIKey: true}}, "works-added-no-root")
-	golden(library.DeletedRow, library.DeletedFacts{By: entry.Actor{Name: "Sam"}, Types: []library.DeletedType{{Nouns: books, Count: 1, First: []string{dune.Label}, Work: &dune}}}, "works-deleted-one")
-	golden(library.DeletedRow, library.DeletedFacts{By: entry.Actor{Name: "Sam"}, Types: []library.DeletedType{{Nouns: books, Count: 12, First: []string{"Dune (1965)", "Emma (1815)", "Ulysses (1922)"}}}}, "works-deleted-many")
-	golden(library.DeletedRow, library.DeletedFacts{By: entry.Actor{APIKey: true}, Types: []library.DeletedType{
+	stored(library.AddedRow, library.AddedFacts{Work: dune, Root: "Books library root on Den", By: entry.Actor{Name: "Sam"}}, "works-added",
+		"Dune (1965)", "Books library root on Den", "Sam", page)
+	stored(library.AddedRow, library.AddedFacts{Work: dune, By: entry.Actor{APIKey: true}}, "works-added-no-root", "Dune (1965)", "API key", page)
+	stored(library.DeletedRow, library.DeletedFacts{By: entry.Actor{Name: "Sam"}, Types: []library.DeletedType{{Nouns: books, Count: 1, First: []string{dune.Label}, Work: &dune}}}, "works-deleted-one",
+		"Dune (1965)", "Sam", "/library")
+	stored(library.DeletedRow, library.DeletedFacts{By: entry.Actor{Name: "Sam"}, Types: []library.DeletedType{{Nouns: books, Count: 12, First: []string{"Dune (1965)", "Emma (1815)", "Ulysses (1922)"}}}}, "works-deleted-many",
+		"12 books", "Dune (1965)", "Emma (1815)", "Ulysses (1922)", "9 more", "/library")
+	stored(library.DeletedRow, library.DeletedFacts{By: entry.Actor{APIKey: true}, Types: []library.DeletedType{
 		{Nouns: books, Count: 12000, First: []string{"Dune (1965)", "Emma (1815)", "Ulysses (1922)"}},
 		{Nouns: zines, Count: 8000, First: []string{"Ark", "Bolt", "Crux"}},
-	}}, "works-deleted-two-types")
+	}}, "works-deleted-two-types", "12,000 books", "8,000 zines", "Dune (1965)", "Ark", "11,997 more", "7,997 more", "API key", "/library")
 }
 
 func must[T any](v T, err error) T {

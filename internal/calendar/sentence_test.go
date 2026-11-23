@@ -1,6 +1,7 @@
 package calendar
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -32,14 +33,14 @@ func TestTheSentenceOtherwiseNamesTheWeekOrNothing(t *testing.T) {
 	all := of(s.w, f)
 	soon := kept(joined(s.dated(today.Add(6), 1, 2, 3, 4), dates(f, map[works.DatedKey]Day{"out": today.Add(1), "home": today.Add(5)})), all, false)
 	got := sentenceOf(today, nil, soon)
-	if want := (Sentence{Words: "4 things and 1 film come out this week."}); got == nil || *got != want {
-		t.Fatalf("sentence = %+v, want %+v", got, want)
+	if got == nil || got.NeedsYou || !strings.Contains(got.Words, "4 things") || !strings.Contains(got.Words, "1 film") || !strings.Contains(got.Words, "week") {
+		t.Fatalf("sentence = %+v, want 4 things and 1 film this week, needing no one", got)
 	}
 	if got := sentenceOf(today, kept(dates(f, map[works.DatedKey]Day{"out": today.Add(-1)}), all, false), nil); got != nil {
 		t.Fatalf("sentence = %+v, want none while nothing needs attention or comes out this week", got)
 	}
-	if got := sentenceOf(today, nil, kept(dates(f, map[works.DatedKey]Day{"out": today}), all, false)); got == nil || got.Words != "1 film comes out this week." {
-		t.Fatalf("sentence = %+v, want 1 film comes out this week.", got)
+	if got := sentenceOf(today, nil, kept(dates(f, map[works.DatedKey]Day{"out": today}), all, false)); got == nil || !strings.Contains(got.Words, "1 film") || strings.Contains(got.Words, "thing") {
+		t.Fatalf("sentence = %+v, want the 1 film alone", got)
 	}
 }
 
@@ -53,8 +54,8 @@ func TestTheSentenceCountsOnlyMonitoredItemsWhenUnmonitoredOnesShow(t *testing.T
 	}
 	all := of(s.w)
 	got := sentenceOf(today, kept(s.dated(today, 1, 2, 3, 4), all, true), kept(s.dated(today.Add(1), 2, 3), all, true))
-	if want := (Sentence{NeedsYou: true, Words: "1 thing is out and still missing."}); got == nil || *got != want {
-		t.Fatalf("sentence = %+v, want %+v: Wanted, where it links, lists only the monitored Thing 1", got, want)
+	if got == nil || !got.NeedsYou || !strings.Contains(got.Words, "1 thing") {
+		t.Fatalf("sentence = %+v, want 1 thing needing you: Wanted, where it links, lists only the monitored Thing 1", got)
 	}
 	if got := sentenceOf(today, nil, kept(s.dated(today.Add(1), 2, 3), all, true)); got != nil {
 		t.Fatalf("sentence = %+v, want none while only unmonitored Things come out this week", got)

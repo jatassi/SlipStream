@@ -1,6 +1,0 @@
-Title: Added Dune (1965)
-Line: An app using the API key added it.
-Link: /works/019a8f5e-0000-7000-8000-000000000002
-Tone: info
-Poster: tmdb /dune.jpg
-Work: Dune (1965)

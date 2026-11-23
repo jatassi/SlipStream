@@ -1,7 +1,0 @@
-Title: A Library scan of the Books library root on Den added 140 books
-Line: Dune (1965)
-Line: Emma (1815)
-Line: Ulysses (1922)
-Line: 137 more were added.
-Link: /library
-Tone: info

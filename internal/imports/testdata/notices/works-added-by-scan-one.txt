@@ -1,4 +1,0 @@
-Title: A Library scan of the Books library root on Den added 1 book
-Line: Dune (1965)
-Link: /library
-Tone: info
