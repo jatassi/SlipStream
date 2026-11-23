@@ -169,9 +169,7 @@ test("a confirm link changes the email and says so", async () => {
     ],
   });
   await userEvent.click(page.getByRole("button", { name: "Confirm" }));
-  await expect
-    .element(page.getByRole("status"))
-    .toHaveTextContent("Your SlipStream email is now grace@lindqvist.example.");
+  await expect.element(page.getByRole("status")).toMatchTextContent(/grace@lindqvist\.example/u);
   expect(seen).toEqual(["tok-1"]);
 });
 

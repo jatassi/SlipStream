@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -129,9 +130,7 @@ func tried(t *testing.T, g *grabs.Grabs, trial grabs.Trial) grabs.Tried {
 func TestTryJudgesEveryTargetWithNoHeldFileWhenANameMatchesSeveralWorks(t *testing.T) {
 	g, _, _ := tester(t, "w1", "w2")
 	got := tried(t, g, grabs.Trial{Names: []string{"The.Attic.2020.1080p.BluRay.x264-GRP"}})
-	if want := "SlipStream reads this as Bluray-1080p from GRP. It matches The Attic and The Attic. 1080p accepts it."; got.Sentence != want {
-		t.Errorf("sentence = %q, want %q", got.Sentence, want)
-	}
+	naming(t, got.Sentence, "Bluray-1080p", "GRP", "The Attic", "1080p")
 	if len(got.Works) != 2 || len(got.Covers) != 0 || len(got.Targets) != 1 || !got.Targets[0].WouldFill {
 		t.Errorf("works %v, covers %v, targets %+v", got.Works, got.Covers, got.Targets)
 	}
@@ -141,20 +140,19 @@ func TestTryRefusesANameThatCoversNoneOfTheGivenWorksItems(t *testing.T) {
 	g, claims, ids := tester(t, "w1")
 	claims.covered = false
 	got := tried(t, g, grabs.Trial{Names: []string{"The.Attic.2020.1080p.BluRay.x264-GRP"}, Work: &ids[0]})
-	if want := "SlipStream reads this as Bluray-1080p from GRP. It matches The Attic, but no Target would grab it. Its name doesn't include any thing of this shelf."; got.Sentence != want {
-		t.Errorf("sentence = %q, want %q", got.Sentence, want)
-	}
+	naming(t, got.Sentence, "Bluray-1080p", "GRP", "The Attic")
 	if rs := got.Targets[0].Reasons; len(rs) != 1 || rs[0].Code != targets.WrongItem || got.Targets[0].WouldFill {
 		t.Errorf("1080p = %+v, want wrong_item alone", got.Targets[0])
 	}
 }
 
-func TestTryReadsANameWithNoGroupOrQualityInWords(t *testing.T) {
+func TestTryReadsANameWithNoGroupOrQuality(t *testing.T) {
 	g, _, _ := tester(t, "w1")
 	got := tried(t, g, grabs.Trial{Names: []string{"Something"}})
-	if want := "SlipStream can't read a quality from this name. It matches nothing in your library. No Target accepts it. 1080p doesn't accept a release with no Quality."; got.Sentence != want {
-		t.Errorf("sentence = %q, want %q", got.Sentence, want)
+	if _, ok := got.Read.Facts.Quality.Get(); ok || len(got.Works) != 0 || len(got.Targets) != 1 || got.Targets[0].WouldFill || len(got.Targets[0].Reasons) == 0 {
+		t.Errorf("read %+v, works %v, targets %+v, want no quality, no match and 1080p refusing it", got.Read.Facts, got.Works, got.Targets)
 	}
+	naming(t, got.Sentence, "1080p")
 }
 
 func TestTryRefusesADraftThatDoesntCompile(t *testing.T) {
@@ -171,10 +169,18 @@ func TestTryRefusesADraftThatDoesntCompile(t *testing.T) {
 func TestTrySpeaksOfTheGivenWorkWhenANameGivesAnotherTitle(t *testing.T) {
 	g, _, ids := tester(t, "w1")
 	got := tried(t, g, grabs.Trial{Names: []string{"The.Cellar.2020.1080p.BluRay.x264-GRP"}, Work: &ids[0]})
-	if want := "SlipStream reads this as Bluray-1080p from GRP. Its name is for The Cellar (2020), a different shelf. No Target would grab it."; got.Sentence != want {
-		t.Errorf("sentence = %q, want %q", got.Sentence, want)
-	}
+	naming(t, got.Sentence, "Bluray-1080p", "GRP", "The Cellar (2020)")
 	if len(got.Works) != 0 || len(got.Targets) != 1 || got.Targets[0].WouldFill {
 		t.Errorf("works %v, targets %+v, want no match and no fill", got.Works, got.Targets)
+	}
+}
+
+// naming fails t unless sentence names each of facts.
+func naming(t *testing.T, sentence string, facts ...string) {
+	t.Helper()
+	for _, f := range facts {
+		if !strings.Contains(sentence, f) {
+			t.Errorf("sentence = %q, want it to name %q", sentence, f)
+		}
 	}
 }

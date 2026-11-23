@@ -1,6 +1,7 @@
 package release_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/release"
@@ -25,6 +26,13 @@ func TestVocabularies(t *testing.T) {
 	roundTrips(t, release.VideoCodecs(), release.ParseVideoCodec, "", "h264", "HEVC", "X264")
 	roundTrips(t, release.AudioCodecs(), release.ParseAudioCodec, "", "DTS-HD", "EAC3", "truehd")
 	roundTrips(t, release.ChannelLayouts(), release.ParseChannels, "", "6.1", "5.1.2", "stereo")
+	parseFlag := func(s string) (release.Flag, error) {
+		if f, ok := release.ParseFlag(s); ok {
+			return f, nil
+		}
+		return "", errors.New("no flag")
+	}
+	roundTrips(t, release.Flags(), parseFlag, "g_freeleech")
 }
 
 func TestVideoCodecOfAProbedStream(t *testing.T) {

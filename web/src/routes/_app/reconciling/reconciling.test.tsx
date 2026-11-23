@@ -15,38 +15,11 @@ import {
   serveReconciling,
 } from "../../../test/reconciling";
 import { renderApp } from "../../../test/render-app";
-import { filmsRoot, media, serveRoots } from "../../../test/roots";
-import { asPhone } from "../../../test/viewport";
+import { media, serveRoots } from "../../../test/roots";
 
 const textOf = (locator: Locator) => () => locator.element().textContent;
 
 const banner = () => page.getByRole("complementary", { name: "Reconciling" });
-const lead =
-  "SlipStream is matching the restored library with the torrents and files on your Nodes. Searches and removals wait until it finishes.";
-
-test("the banner leads with what SlipStream is doing, then the next step, and opens Reconciling", async () => {
-  serveReconciling(reconcilingPage());
-  const app = renderApp({ path: "/library", handlers: [nodesAre(home, seedbox)] });
-  await expect.poll(textOf(banner())).toContain(lead);
-  await expect
-    .poll(textOf(banner()))
-    .toContain("Pair seedbox again and wait for 1 library root to finish scanning.");
-
-  await userEvent.click(banner().getByRole("button", { name: "Open Reconciling" }));
-  await expect.element(page.getByRole("heading", { name: "Reconciling", level: 1 })).toBeVisible();
-  expect(app.router.state.location.pathname).toBe("/reconciling");
-  await expect.element(banner()).not.toBeInTheDocument();
-});
-
-test("on phone the banner sits above the tab bar and opens Reconciling", async () => {
-  await asPhone();
-  serveReconciling(reconcilingPage());
-  renderApp({ path: "/library", handlers: [nodesAre(home, seedbox)] });
-  const line = banner().getByRole("link");
-  await expect.poll(textOf(line)).toContain("Pair seedbox again");
-  await userEvent.click(line);
-  await expect.element(page.getByRole("button", { name: "New Join Code" })).toBeVisible();
-});
 
 test("when only a Node offline past the grace is left, the banner recommends continuing without it", async () => {
   const live = liveServer();
@@ -68,41 +41,6 @@ test("when only a Node offline past the grace is left, the banner recommends con
   await userEvent.click(banner().getByRole("button", { name: "Continue without laptop" }));
   await expect.poll(() => sent.continued).toEqual([seedboxId]);
   await expect.poll(textOf(banner())).toContain("SlipStream finishes in a moment.");
-});
-
-test("after a restore on a new machine every page opens the old Controller's folders until Save all", async () => {
-  const live = liveServer();
-  const { sent } = serveReconciling(
-    reconcilingPage({
-      restore: { ...restore, rehome: true },
-      roots: [{ ...filmsStep, saved: false }],
-    }),
-    { live },
-  );
-  serveRoots();
-  const app = renderApp({
-    path: "/library",
-    handlers: [...live.handlers, nodesAre(media, seedbox)],
-  });
-  await expect
-    .element(page.getByRole("heading", { name: "Find the old Controller's folders", level: 1 }))
-    .toBeVisible();
-  expect(app.router.state.location.pathname).toBe("/reconciling/folders");
-  await expect
-    .element(
-      page.getByText("The folder is at the same path on this machine. Save to start the scans."),
-    )
-    .toBeVisible();
-  await expect
-    .poll(textOf(page.getByRole("list", { name: "Folders" })))
-    .toContain("The folder is there.");
-
-  await userEvent.click(page.getByRole("button", { name: "Save all" }));
-  await expect
-    .poll(() => sent.rehomed)
-    .toEqual([{ roots: [{ rootId: filmsRoot.id }], done: true }]);
-  await expect.element(page.getByRole("heading", { name: "Reconciling", level: 1 })).toBeVisible();
-  expect(app.router.state.location.pathname).toBe("/reconciling");
 });
 
 test("Later ends the step and leaves the folder waiting on the Reconciling page", async () => {

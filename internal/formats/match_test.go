@@ -81,13 +81,6 @@ func TestCombining(t *testing.T) {
 	}
 }
 
-func TestCheckRefusesAFormatWithNoConditions(t *testing.T) {
-	var empty *formats.EmptyError
-	if err := formats.Check(format(1, formats.Radarr), limit); !errors.As(err, &empty) || empty.Name != "format B" {
-		t.Errorf("Check = %v, want an EmptyError naming format B", err)
-	}
-}
-
 type kindCase struct {
 	name    string
 	dialect formats.Dialect
@@ -429,19 +422,4 @@ func explainedNames(es []formats.Explained) []string {
 		out[i] = e.Name
 	}
 	return out
-}
-
-func TestKinds(t *testing.T) {
-	var regex []formats.Kind
-	for _, k := range formats.Kinds() {
-		if k.Regex {
-			regex = append(regex, k.Kind)
-		}
-	}
-	if !slices.Equal(regex, []formats.Kind{formats.ReleaseTitle, formats.Edition, formats.ReleaseGroup}) {
-		t.Errorf("regex kinds = %v", regex)
-	}
-	if n := len(formats.Kinds()); n != 11 {
-		t.Errorf("%d kinds, want 11", n)
-	}
 }

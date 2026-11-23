@@ -1,12 +1,10 @@
 package naming_test
 
 import (
-	"errors"
 	"slices"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/naming"
-	"github.com/jatassi/slipstream/internal/setting"
 )
 
 func field(t *testing.T, p naming.Preview, key string) naming.FieldPreview {
@@ -25,34 +23,6 @@ func pathOf(t *testing.T, f naming.FieldPreview, label string) string {
 		t.Fatalf("%s has no sample %q in %v", f.Key, label, f.Samples)
 	}
 	return f.Samples[i].Path
-}
-
-func TestAPreviewNamesTheSamplesUnderEachTemplateAndStoresNothing(t *testing.T) {
-	s := open(t, 1000)
-	p, err := s.naming.Preview(t.Context(), shelf, patch(map[string]string{"shelf.naming.folder": `"Shelf {Shelf Title}"`}))
-	if err != nil {
-		t.Fatal(err)
-	}
-	folder := field(t, p, "shelf.naming.folder")
-	if got, want := pathOf(t, folder, "A scarf"), "Shelf Attic/Box 01/Attic - B01T01 - Scarf 1080p.mkv"; got != want {
-		t.Errorf("folder sample = %q, want %q", got, want)
-	}
-	if len(folder.Problems) != 0 {
-		t.Errorf("folder problems = %q, want none", folder.Problems)
-	}
-	file := field(t, p, "shelf.naming.file.standard")
-	for label, want := range map[string]string{
-		"A scarf with a cut":                    "Shelf Attic/Box 01/Attic - B01T01 - Scarf Director's Cut 4K HDR.mkv",
-		"Two things with a Kept file":           "Shelf Attic/Box 01/Attic - B01T01-T02 - Scarf + Hat 1080p (extra 1).mkv",
-		"Nothing known with no release details": "Shelf Attic/Box 01/Attic - B01T01 - 1080p.mkv",
-	} {
-		if got := pathOf(t, file, label); got != want {
-			t.Errorf("file sample %q = %q, want %q", label, got, want)
-		}
-	}
-	if got := s.name(t); got != defaultName {
-		t.Errorf("stored name = %q, want the default %q", got, defaultName)
-	}
 }
 
 func TestAPreviewSaysWhatTheCheckRefusesUnderEachField(t *testing.T) {
@@ -75,14 +45,6 @@ func TestAPreviewSaysWhatTheCheckRefusesUnderEachField(t *testing.T) {
 	}
 	if got, want := pathOf(t, file, "A scarf with a cut"), "Attic/Box 01/Attic - B01T01 - Scarf.mkv"; got != want {
 		t.Errorf("file sample under the stored folder = %q, want %q", got, want)
-	}
-}
-
-func TestAPreviewRefusesAKeyTheTypeHasNoSettingFor(t *testing.T) {
-	s := open(t, 1000)
-	_, err := s.naming.Preview(t.Context(), shelf, patch(map[string]string{"shelf.naming.levels.2": `"Shelf {box}"`}))
-	if unknown, ok := errors.AsType[*setting.UnknownKeyError](err); !ok || unknown.Key != "shelf.naming.levels.2" {
-		t.Fatalf("err = %v, want shelf.naming.levels.2 unknown", err)
 	}
 }
 

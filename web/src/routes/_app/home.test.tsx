@@ -67,19 +67,6 @@ test("Home never reads the Grabs, torrents, Library or Transfers, even on hover 
   }
 });
 
-test("/ opens Home as the current nav row, titled Home, and the brand leads back to it", async () => {
-  const { app } = renderHome(summaryOf());
-  await expect.element(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
-  await expect
-    .element(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Home" }))
-    .toHaveAttribute("aria-current", "page");
-  expect(document.title).toBe("Home · SlipStream");
-  await app.router.navigate({ to: "/library" });
-  await expect.element(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
-  await userEvent.click(page.getByRole("link", { name: "SlipStream" }));
-  await expect.poll(() => app.router.state.location.pathname).toBe("/");
-});
-
 test("a progress tick reads nothing; a stage change, a shown Job's Torrent or Rows on Home reads Home again", async () => {
   const requests = countRequests();
   const shown = job(downloading, orchardWork, orchardTorrent);

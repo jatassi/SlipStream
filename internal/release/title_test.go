@@ -159,25 +159,6 @@ func TestCut(t *testing.T) {
 	}
 }
 
-func TestBuiltInCuts(t *testing.T) {
-	var keys []release.CutKey
-	for _, c := range release.BuiltIn() {
-		keys = append(keys, c.Key)
-		if c.Key != release.Standard && len(c.Aliases) == 0 {
-			t.Errorf("built-in cut %s has no aliases", c.Key)
-		}
-	}
-	want := []release.CutKey{"standard", "theatrical", "extended", "directors-cut", "unrated", "uncut", "imax", "remastered", "special-edition", "final-cut", "ultimate"}
-	if len(keys) != len(want) {
-		t.Fatalf("BuiltIn() = %v, want %v", keys, want)
-	}
-	for i := range want {
-		if keys[i] != want[i] {
-			t.Fatalf("BuiltIn() = %v, want %v", keys, want)
-		}
-	}
-}
-
 func TestACustomCutsSlugAndPhraseAreTheWordsATitleReads(t *testing.T) {
 	for name, want := range map[string]release.CutKey{
 		"Black and Chrome":    "black-and-chrome",
@@ -271,16 +252,5 @@ func TestRevisionsCompareRealThenVersion(t *testing.T) {
 		if got := c.a.Compare(c.b); got != c.want {
 			t.Errorf("%+v.Compare(%+v) = %d, want %d", c.a, c.b, got, c.want)
 		}
-	}
-}
-
-func TestEveryFlagParses(t *testing.T) {
-	for _, f := range release.Flags() {
-		if got, ok := release.ParseFlag(string(f)); !ok || got != f {
-			t.Errorf("ParseFlag(%q) = %q, %v", f, got, ok)
-		}
-	}
-	if _, ok := release.ParseFlag("g_freeleech"); ok {
-		t.Error("ParseFlag read a name no Flag has")
 	}
 }

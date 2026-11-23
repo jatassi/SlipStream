@@ -56,16 +56,6 @@ func take(f indexers.Facts, c indexers.Claim) (taken, waves int, last indexers.F
 	}
 }
 
-func TestTorrentLeechKeepsThreeForRSSSyncAndTakesElevenBackgroundLinesTwoAtATime(t *testing.T) {
-	taken, waves, last := take(torrentLeech(), indexers.ClaimBackground)
-	if taken != 11 || waves != 5 {
-		t.Fatalf("background lines taken = %d in %d full waves, want 11 two at a time", taken, waves)
-	}
-	if last.Wait == nil || !last.Wait.Until.Equal(now.Add(20*time.Minute)) {
-		t.Fatalf("the twelfth line = %+v, want a wait until the oldest search leaves at %s", last, now.Add(20*time.Minute))
-	}
-}
-
 func TestFitOf(t *testing.T) {
 	full := func(f indexers.Facts) indexers.Facts {
 		f.Window = used(50, now.Add(-40*time.Minute))
@@ -118,6 +108,15 @@ func TestFitOf(t *testing.T) {
 		f.Window = []time.Time{now.Add(-10 * time.Minute)}
 		if got := indexers.FitOf(f, indexers.ClaimBackground, now); got.Wait == nil || got.Wait.Starved || !got.Wait.Until.Equal(now.Add(50*time.Minute)) {
 			t.Fatalf("FitOf = %s, want a wait until %s", fitWords(got), now.Add(50*time.Minute))
+		}
+	})
+	t.Run("TorrentLeech keeps three for RSS sync and takes eleven background lines two at a time", func(t *testing.T) {
+		taken, waves, last := take(torrentLeech(), indexers.ClaimBackground)
+		if taken != 11 || waves != 5 {
+			t.Fatalf("background lines taken = %d in %d full waves, want 11 two at a time", taken, waves)
+		}
+		if last.Wait == nil || !last.Wait.Until.Equal(now.Add(20*time.Minute)) {
+			t.Fatalf("the twelfth line = %+v, want a wait until the oldest search leaves at %s", last, now.Add(20*time.Minute))
 		}
 	})
 	t.Run("RSS off reserves nothing", func(t *testing.T) {

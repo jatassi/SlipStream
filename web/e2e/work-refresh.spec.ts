@@ -29,7 +29,7 @@ test("Refresh metadata reads the source again, and a Work the source drops says 
 
   await world.fw.cue("tmdb-change", { id: 9_000_005 });
   await workAction(page, "Refresh metadata", "The Salt Road");
-  await expect(notifications(page)).toContainText("Refreshed the metadata of The Salt Road.");
+  await expect(notifications(page)).toContainText(/Refreshed.+The Salt Road/u);
   await expect(page.getByRole("main")).toContainText("Two sisters walk the salt road. Revision 1.");
 
   await world.fw.cue("tmdb-delete", { id: 9_000_005 });

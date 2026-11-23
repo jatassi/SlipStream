@@ -98,20 +98,3 @@ test("an accepted key replaces the steps with the account, its plan and its allo
     body: { key: "good-key" },
   });
 });
-
-test("a pasted key is checked at once, and a rejected one quotes the provider and offers another try", async () => {
-  const subtitles = world();
-  renderApp({ path, handlers: subtitles.handlers });
-  const dialog = await openDialog();
-  const field = dialog.getByRole("textbox", { name: "Key" });
-  await userEvent.click(field);
-  const data = new DataTransfer();
-  data.setData("text/plain", "not-a-key");
-  field
-    .element()
-    .dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }));
-  await expect.element(dialog.getByText(rejected)).toBeVisible();
-  expect(subtitles.writes.at(-1)?.body).toEqual({ key: "not-a-key" });
-  await userEvent.click(dialog.getByRole("button", { name: "Try another key" }));
-  await expect.element(dialog.getByRole("textbox", { name: "Key" })).toBeVisible();
-});

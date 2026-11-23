@@ -60,24 +60,12 @@ func TestNoRowAndAFileUsesTheFile(t *testing.T) {
 	if got := hex.EncodeToString(keys.PINPepper()); got != fixedPepper {
 		t.Fatalf("PINPepper = %s, want %s", got, fixedPepper)
 	}
-	if _, err := secret.Open(t.Context(), lib, path); err != nil {
+	again, err := secret.Open(t.Context(), lib, path)
+	if err != nil {
 		t.Fatalf("the file did not write the check row: %v", err)
 	}
-}
-
-func TestARowAndItsFileUsesIt(t *testing.T) {
-	lib := storagetest.Library(t, secret.Schema())
-	path := keyPath(t)
-	write(t, path, fixedKey)
-	if _, err := secret.Open(t.Context(), lib, path); err != nil {
-		t.Fatal(err)
-	}
-	keys, err := secret.Open(t.Context(), lib, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := hex.EncodeToString(keys.PINPepper()); got != fixedPepper {
-		t.Fatalf("PINPepper = %s, want %s", got, fixedPepper)
+	if got := hex.EncodeToString(again.PINPepper()); got != fixedPepper {
+		t.Fatalf("reopened PINPepper = %s, want %s", got, fixedPepper)
 	}
 }
 
@@ -104,9 +92,13 @@ func TestARowWithAForeignFileIsRefused(t *testing.T) {
 	if _, err := secret.Open(t.Context(), lib, path); err != nil {
 		t.Fatal(err)
 	}
-	write(t, path, otherKey)
-	_, err := secret.Open(t.Context(), lib, path)
-	refused(t, err, "library.key doesn't belong to this library.db. Restore the library.key that does")
+	for name, content := range map[string]string{"another key": otherKey, "a truncated key": fixedKey[:40]} {
+		t.Run(name, func(t *testing.T) {
+			write(t, path, content)
+			_, err := secret.Open(t.Context(), lib, path)
+			refused(t, err, "library.key doesn't belong to this library.db. Restore the library.key that does")
+		})
+	}
 }
 
 func TestOnlyTheExactKeyFormIsRead(t *testing.T) {
@@ -142,18 +134,6 @@ func TestOnlyTheExactKeyFormIsRead(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestARowWithATruncatedFileIsRefused(t *testing.T) {
-	lib := storagetest.Library(t, secret.Schema())
-	path := keyPath(t)
-	write(t, path, fixedKey)
-	if _, err := secret.Open(t.Context(), lib, path); err != nil {
-		t.Fatal(err)
-	}
-	write(t, path, fixedKey[:40])
-	_, err := secret.Open(t.Context(), lib, path)
-	refused(t, err, "library.key doesn't belong to this library.db. Restore the library.key that does")
 }
 
 func write(t *testing.T, path, content string) {

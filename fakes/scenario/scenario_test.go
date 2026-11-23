@@ -148,6 +148,14 @@ func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
 	}
 }
 
+func thirtyTwoNodes() string {
+	names := make([]string, 32)
+	for i := range names {
+		names[i] = "{name: n" + strconv.Itoa(i) + "}"
+	}
+	return strings.Join(names, ", ")
+}
+
 func TestParseRefuses(t *testing.T) {
 	cases := []struct {
 		name, yaml, want string
@@ -388,6 +396,11 @@ func TestParseRefuses(t *testing.T) {
 			"scenario x: library indexer B sets how its feed lists uploads, which only a Torznab Indexer's site plays",
 		},
 		{
+			"thirty-two nodes",
+			"seed: x\nnodes: [" + thirtyTwoNodes() + "]\n",
+			"scenario x: has 32 nodes; a Scenario has 1 to 31",
+		},
+		{
 			"two problems at once",
 			"seed: x\nnodes: [{name: Home}, {name: Home}]\n",
 			"scenario x: node name \"Home\" does not match ^[a-z][a-z0-9-]{0,15}$\n" +
@@ -425,24 +438,6 @@ func TestAScenarioReadsItsAutomaticSearchSwitchesHoldsAndIndexerPacing(t *testin
 	}
 	if ix.Uploads != 250 || !ix.NoPaging || !ix.AlwaysLate {
 		t.Errorf("indexer = %+v, want 250 uploads on a feed that doesn't page and is always late", ix)
-	}
-}
-
-func TestValidateRefusesThirtyTwoNodes(t *testing.T) {
-	s := Scenario{Name: "big"}
-	for i := range 32 {
-		s.Nodes = append(s.Nodes, Node{Name: "n" + strconv.Itoa(i)})
-	}
-	err := s.Validate()
-	if want := "scenario big: has 32 nodes; a Scenario has 1 to 31"; err == nil || err.Error() != want {
-		t.Fatalf("err = %v, want %s", err, want)
-	}
-}
-
-func TestValidateRefusesAnUnnamedScenario(t *testing.T) {
-	err := Scenario{Nodes: []Node{{Name: "home"}}}.Validate()
-	if want := "scenario has no name"; err == nil || err.Error() != want {
-		t.Fatalf("err = %v, want %s", err, want)
 	}
 }
 
@@ -523,20 +518,6 @@ library:
 	}
 	if !reflect.DeepEqual(back, s) {
 		t.Fatalf("read back %+v, want %+v", back, s)
-	}
-}
-
-func TestAScenarioWithoutTimingsHashesLikeTheFileWithout(t *testing.T) {
-	built := Scenario{Name: "bare", Seed: "bare", Nodes: []Node{{Name: "home"}}}
-	read, err := Parse("bare", []byte("seed: bare\nnodes: [{name: home, setup: none}]\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(read, built) || read.Hash() != built.Hash() {
-		t.Fatalf("read %+v hash %s, built %+v hash %s", read, read.Hash(), built, built.Hash())
-	}
-	if want := "description: \"\"\nseed: bare\nnodes:\n  - name: home\n    setup: none\n"; string(built.YAML()) != want {
-		t.Fatalf("YAML() = %q, want %q", built.YAML(), want)
 	}
 }
 

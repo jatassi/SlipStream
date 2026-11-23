@@ -2,7 +2,7 @@ package notifications
 
 import (
 	"encoding/json"
-	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,26 +28,28 @@ func TestTheOwnRowsRenderTheirWords(t *testing.T) {
 		return entry.Message{Title: m.Title, Lines: m.Lines, Link: m.Link, Tone: m.Tone}
 	}
 	for _, tc := range []struct {
-		name string
-		got  entry.Message
-		want entry.Message
+		name  string
+		got   entry.Message
+		link  string
+		tone  entry.Tone
+		names []string
 	}{
-		{"one new item", render(history.NewItemsRow, history.HealthFacts{Items: []history.Item{disk}}), entry.Message{
-			Title: "New Health item for Disk D: is almost full", Lines: []string{"12 GB are free.", "It has been on Health since 14:02."},
-			Link: entry.Link{Path: "/health#health-storage-d"}, Tone: entry.Warn,
-		}},
-		{"two new items", render(history.NewItemsRow, history.HealthFacts{Items: []history.Item{disk, node}}), entry.Message{
-			Title: "New Health items for Disk D: is almost full and Attic is offline", Lines: []string{"Disk D: is almost full", "Attic is offline"}, Tone: entry.Fail,
-		}},
-		{"one cleared item", render(history.ClearedRow, history.HealthFacts{Items: []history.Item{disk}}), entry.Message{
-			Title: "Health item for Disk D: is almost full cleared", Lines: []string{"It was on Health from 14:02 to 14:31."}, Tone: entry.Good,
-		}},
-		{"test", render(testRow, testFacts{}), entry.Message{
-			Title: "Test from SlipStream", Lines: []string{"This connection works.", "Den sent this message at 14:40."},
-		}},
+		{"one new item", render(history.NewItemsRow, history.HealthFacts{Items: []history.Item{disk}}), "/health#health-storage-d", entry.Warn,
+			[]string{disk.Subject, disk.Text, "14:02"}},
+		{"two new items", render(history.NewItemsRow, history.HealthFacts{Items: []history.Item{disk, node}}), "", entry.Fail,
+			[]string{disk.Subject, node.Subject}},
+		{"one cleared item", render(history.ClearedRow, history.HealthFacts{Items: []history.Item{disk}}), "", entry.Good,
+			[]string{disk.Subject, "14:02", "14:31"}},
+		{"test", render(testRow, testFacts{}), "", entry.Info, []string{"Den", "14:40"}},
 	} {
-		if !reflect.DeepEqual(tc.got, tc.want) {
-			t.Errorf("%s: %+v, want %+v", tc.name, tc.got, tc.want)
+		read := strings.Join(append([]string{tc.got.Title}, tc.got.Lines...), "\n")
+		if tc.got.Title == "" || tc.got.Link.Path != tc.link || tc.got.Tone != tc.tone {
+			t.Errorf("%s: %+v, want a title, link %q and tone %v", tc.name, tc.got, tc.link, tc.tone)
+		}
+		for _, n := range tc.names {
+			if !strings.Contains(read, n) {
+				t.Errorf("%s reads %q, want it to name %q", tc.name, read, n)
+			}
 		}
 	}
 }

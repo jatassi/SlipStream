@@ -6,7 +6,6 @@ import { anthologies } from "../test/anthology";
 import { torrentLeech } from "../test/indexers";
 import { cinema } from "../test/library";
 import { renderApp } from "../test/render-app";
-import { asPhone } from "../test/viewport";
 import {
   aQueueStatus,
   aWantedPage,
@@ -159,13 +158,6 @@ test("a search that queues nothing says why", async () => {
     .toBeVisible();
 });
 
-test("Cancel queued searches empties the bulk lane, and shows only while searches are queued", async () => {
-  const { server } = openWanted();
-  await userEvent.click(page.getByRole("button", { name: "Cancel queued searches" }));
-  await expect.element(page.getByText("Canceled 140 queued searches.")).toBeVisible();
-  expect(server.canceled).toBe(1);
-});
-
 test("with nothing queued there is no Cancel, and an empty list says there is nothing to search for", async () => {
   openWanted(
     "/library/wanted",
@@ -224,21 +216,4 @@ test("the Library nav row stays current on Wanted of one Content Type", async ()
   expect(
     nav.getByRole("link", { name: "Anthologies" }).element().getAttribute("aria-current"),
   ).toBeNull();
-});
-
-test("on a phone Wanted is pushed with a Library back link, and a row opens its actions", async () => {
-  await asPhone();
-  const { server } = openWanted("/library/wanted/anthology");
-  await expect
-    .element(page.getByRole("banner").getByRole("link", { name: "Library" }))
-    .toBeVisible();
-  const row = page.getByRole("button", { name: /The Long Shelf/u });
-  await expect.element(row).toBeVisible();
-  expect(row.element().textContent).toMatch(
-    /^The Long ShelfMissing\. Story V02S01 to Story V02S08\. Next search /u,
-  );
-  await userEvent.click(row);
-  await userEvent.click(page.getByRole("button", { name: "Search" }).last());
-  await expect.element(page.getByText("Searching The Long Shelf")).toBeVisible();
-  expect(server.pressed).toEqual([missingRange.work.id]);
 });

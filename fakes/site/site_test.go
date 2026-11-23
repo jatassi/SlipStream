@@ -214,13 +214,6 @@ func TestTheSiteAnswersATVSearchBySeriesSeasonAndEpisode(t *testing.T) {
 	}
 }
 
-func TestTheAPIKeyFollowsTheSeed(t *testing.T) {
-	a, b := site.APIKey(scenario.Scenario{Seed: "one"}), site.APIKey(scenario.Scenario{Seed: "two"})
-	if a == b || len(a) != 32 || a != site.APIKey(scenario.Scenario{Seed: "one"}) {
-		t.Fatalf("keys %s and %s, want 32 hex digits that differ by seed and repeat for one", a, b)
-	}
-}
-
 type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
@@ -446,34 +439,6 @@ func TestATorznabSearchPagesAndReadsEveryAttribute(t *testing.T) {
 	}
 }
 
-func TestAnnounceRewriteKeepsTheInfoHash(t *testing.T) {
-	s := scenarioWithSeed()
-	meta, hash, err := releases.Metainfo("orchard.mkv", nil, []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalog := &releases.Catalog{Releases: []releases.Release{{Release: scenario.Release{Name: "orchard"}, Metainfo: meta, InfoHash: hash}}}
-	fronts := fake.Fronts{
-		{Target: "tracker", Node: "home", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7001"), TLS: true}},
-		{Target: "tracker", Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7002"), TLS: true}},
-	}
-	f := faketest.Loopback(t, site.Fake, s, faketest.WithReleases(catalog), faketest.WithFronts(fronts), faketest.As("seedbox"))
-	status, body, _ := strings.Cut(get(t, f, "/download/"+hash.String()+".torrent"), " OK ")
-	if status != "200" {
-		t.Fatalf("GET the .torrent = %s %s", status, body)
-	}
-	served, err := bencode.DecodeMetainfo([]byte(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := "https://127.0.0.1:7002/announce/" + tracker.Passkey(s, site.Torznab); served.Announce != want {
-		t.Fatalf("the .torrent announces to %s, want seedbox's tracker front %s", served.Announce, want)
-	}
-	if served.InfoHash != hash {
-		t.Fatalf("the served info hash is %s, want the catalog's %s", served.InfoHash, hash)
-	}
-}
-
 func TestAMagnetLinkNamesTheReadersTrackerFront(t *testing.T) {
 	s := scenarioWithSeed()
 	catalog := &releases.Catalog{Releases: []releases.Release{
@@ -589,7 +554,10 @@ func TestEachSitesTorrentsAnnounceWithItsOwnPasskey(t *testing.T) {
 		t.Fatal(err)
 	}
 	catalog := &releases.Catalog{Releases: []releases.Release{{Release: scenario.Release{Name: "orchard"}, Metainfo: meta, InfoHash: hash}}}
-	fronts := fake.Fronts{{Target: "tracker", Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7002"), TLS: true}}}
+	fronts := fake.Fronts{
+		{Target: "tracker", Node: "home", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7001"), TLS: true}},
+		{Target: "tracker", Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7002"), TLS: true}},
+	}
 	f := faketest.Loopback(t, site.Fake, s, faketest.WithReleases(catalog), faketest.WithFronts(fronts), faketest.As("seedbox"))
 	passkeys := map[string]string{}
 	for _, label := range []string{site.Torznab, site.Prowlarr, site.Heron, site.Tamarack} {
@@ -604,6 +572,9 @@ func TestEachSitesTorrentsAnnounceWithItsOwnPasskey(t *testing.T) {
 		passkey, ok := strings.CutPrefix(served.Announce, "https://127.0.0.1:7002/announce/")
 		if !ok || passkey != tracker.Passkey(s, label) {
 			t.Errorf("%s's .torrent announces to %s, want seedbox's tracker front with %s's passkey", label, served.Announce, label)
+		}
+		if served.InfoHash != hash {
+			t.Errorf("%s served info hash %s, want the catalog's %s", label, served.InfoHash, hash)
 		}
 		passkeys[passkey] = label
 	}

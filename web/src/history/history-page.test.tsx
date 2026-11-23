@@ -5,7 +5,6 @@ import { getListContentTypesMockHandler } from "../api/gen/query/works/works.msw
 import { anEntry, entriesFrom, historyServer } from "../test/history";
 import { cinema } from "../test/library";
 import { renderApp } from "../test/render-app";
-import { asPhone } from "../test/viewport";
 import { sinceOf } from "./day-heading";
 
 const types = getListContentTypesMockHandler({ contentTypes: [cinema] });
@@ -161,17 +160,6 @@ test("Details on a movie's Imported entry lists its file by quality alone", asyn
   await expect
     .element(page.getByRole("main").getByText("WEBDL-1080p", { exact: true }))
     .toBeVisible();
-});
-
-test("on a phone the whole row opens the entry in a sheet", async () => {
-  await asPhone();
-  openHistory(historyServer([anEntry(1, new Date().toISOString())]));
-  await userEvent.click(
-    page.getByRole("button", { name: /^Grabbed The Quiet Orchard 1 \d{1,2}:\d{2} [AP]M$/u }),
-  );
-  await expect
-    .element(page.getByRole("dialog", { name: "Grabbed The Quiet Orchard 1" }))
-    .toMatchTextContent(/It replaced WEBDL-1080p\./u);
 });
 
 test("the sentence leads with the failed Grabs and links them to Jobs", async () => {

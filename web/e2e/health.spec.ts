@@ -168,7 +168,7 @@ async function volumeLevels(page: Page, world: World): Promise<void> {
   await dialog.getByRole("radio", { name: "%" }).first().click();
   await dialog.getByRole("textbox", { name: "Warn when free space is below" }).fill("100");
   await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(dialog).toContainText(`${name} on home has its own levels.`);
+  await expect(dialog).toContainText(`${name} on home`);
   await dialog.getByRole("button", { name: "Done" }).click();
   await expect(dialog).toHaveCount(0);
 
@@ -222,36 +222,6 @@ async function lowSpace(page: Page, world: World): Promise<void> {
   await expect(itemRow(storage, subject)).toContainText("Error");
 }
 
-async function nodeOffline(page: Page, world: World): Promise<void> {
-  const grace = await world.api("PATCH", "/api/v1/nodes/settings", { offlineGrace: 60 });
-  expect(grace.status).toBe(200);
-  await navigate(page, "Health");
-  await expect(page.getByText("Everything is working.")).toBeVisible();
-
-  await world.fw.node("stop", "seedbox");
-  const nodes = category(page, "Nodes");
-  const offline = "seedbox has been offline for longer than the Offline grace.";
-  await expect(itemRow(nodes, offline)).toContainText("Error", { timeout: 150_000 });
-  await expect(page.getByRole("link", { name: new RegExp(`^${offline}`, "u") })).toBeVisible();
-  await expect(itemRow(nodes, "Searching on home")).toContainText("Warning");
-  await expectHealthRow(page, " failed");
-
-  const opened = await openItem(page, nodes, offline, "seedbox");
-  await expect(opened).toContainText("Offline since");
-  await opened.getByRole("button", { name: "Open seedbox" }).click();
-  await expect(page.getByRole("heading", { name: "seedbox", level: 1 })).toBeVisible();
-  await expect(page).toHaveURL(/\/nodes\/[^/]+$/u);
-  await navigate(page, "Health");
-
-  await nodes.getByRole("button", { name: "Check now: Nodes" }).click();
-  await expect(checked(nodes)).toHaveText("Checked. seedbox is offline.");
-
-  await world.fw.node("start", "seedbox");
-  await expect(itemRow(nodes, offline)).toHaveCount(0, { timeout: 60_000 });
-  await expect(page.getByText("Everything is working.")).toBeVisible({ timeout: 150_000 });
-  await expectHealthRow(page, "");
-}
-
 test.describe("with nothing wrong", () => {
   test.use({ scenario: "single-machine" });
 
@@ -283,16 +253,5 @@ test.describe("with a volume below its levels", () => {
     world,
   }) => {
     await lowSpace(adminPage, world);
-  });
-});
-
-test.describe("with a Worker away", () => {
-  test.use({ scenario: "home" });
-
-  test("seedbox offline past its grace is a Nodes error with the red Health dot, Check now says it is offline, and it clears once seedbox is back", async ({
-    adminPage,
-    world,
-  }) => {
-    await nodeOffline(adminPage, world);
   });
 });

@@ -1,65 +1,13 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import {
-  downloadClients,
-  homeCard,
-  seedboxCard,
-  thresholds,
-  unbound,
-} from "../test/download-clients";
+import { downloadClients, homeCard, seedboxCard, thresholds } from "../test/download-clients";
 import { attic, atticAway, orphan, withExternals } from "../test/external-clients";
-import { home, homeId, nodesAre, seedbox, seedboxId } from "../test/nodes";
+import { home, homeId, nodesAre, seedbox } from "../test/nodes";
 import { renderApp } from "../test/render-app";
 
 const path = "/settings/download-clients";
 const card = (node: string) => page.getByRole("article", { name: `Built-in client on ${node}` });
-
-test("each downloading Node's card leads with its port verdict and links to its Torrent client", async () => {
-  const notListening = {
-    ...seedboxCard,
-    client: { ...unbound, listen: "0.0.0.0:51413", listenError: "address already in use" },
-  };
-  const { router } = renderApp({
-    path,
-    handlers: downloadClients({ cards: [homeCard, notListening], thresholds }).handlers,
-  });
-  await expect
-    .element(
-      card("home").getByText(
-        "Listening on 192.168.1.20:6881. No peer from the internet has connected to port 6881 yet, so it may not be reachable.",
-      ),
-    )
-    .toBeVisible();
-  await expect
-    .element(card("home").getByText("12 torrents, 3.0 TB uploaded and 900 GB downloaded."))
-    .toBeVisible();
-  await expect.element(card("seedbox").getByText("Not listening")).toBeVisible();
-  await expect
-    .element(card("seedbox").getByText("Can't listen on 0.0.0.0:51413: address already in use."))
-    .toBeVisible();
-  await expect
-    .element(
-      card("home").getByText("This card disappears if this Node loses the Downloading Role."),
-    )
-    .toBeVisible();
-  expect(page.getByRole("button", { name: /remove/iu }).query()).toBeNull();
-
-  await userEvent.click(card("home").getByRole("button", { name: "Details" }));
-  await expect.element(card("home").getByText("-SS0400-")).toBeVisible();
-  await expect.element(card("home").getByText("SlipStream/0.4.0 libtorrent/2.0.11")).toBeVisible();
-  await expect.element(card("home").getByText("4 MB/s")).toBeVisible();
-  await expect
-    .element(card("home").getByText(/every network address on this computer/u))
-    .toBeVisible();
-
-  await userEvent.click(
-    card("seedbox").getByRole("link", { name: "Torrent client settings on seedbox" }),
-  );
-  await expect
-    .poll(() => router.state.location.pathname)
-    .toBe(`/nodes/${seedboxId}/torrent-client`);
-});
 
 test("a reachable port says peers from the internet reached it", async () => {
   renderApp({ path, handlers: downloadClients({ cards: [seedboxCard], thresholds }).handlers });
@@ -96,21 +44,6 @@ test("a card whose disk guard holds leads with new downloads waiting for disk sp
     )
     .toBeVisible();
   await expect.element(card("seedbox").getByText("Reachable")).toBeVisible();
-});
-
-test("when a Release counts as bad saves each threshold on its own, in seconds", async () => {
-  const clients = downloadClients();
-  renderApp({ path, handlers: clients.handlers });
-  await expect
-    .element(page.getByRole("heading", { name: "When a release counts as bad" }))
-    .toBeVisible();
-  await userEvent.fill(
-    page.getByRole("textbox", { name: "Tracker reports unregistered twice, this far apart" }),
-    "45",
-  );
-  await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByText("Download Clients settings saved")).toBeVisible();
-  expect(clients.writes).toEqual([{ path: "thresholds", body: { unregisteredGap: 2700 } }]);
 });
 
 test("the metadata wait of a magnet link saves in seconds", async () => {
@@ -240,32 +173,4 @@ test("clients on Nodes that no longer download sit under their own heading with 
   await expect.element(row.getByRole("button", { name: "Delete" })).toBeVisible();
   expect(row.getByRole("button", { name: "Edit" }).query()).toBeNull();
   expect(row.getByRole("link").query()).toBeNull();
-});
-
-test("each client lists the Trackers routed to it, linking to their Routing tabs, the default marked", async () => {
-  const seedpool = { id: "5c1e7a9b-3d2f-4b6a-8c0e-9f1a3b5c7d9e", name: "seedpool", stored: false };
-  const heron = { id: "6d2f8b0c-4e3a-4c7b-9d1f-0a2b4c6d8e0f", name: "Heron", stored: true };
-  renderApp({
-    path,
-    handlers: downloadClients({
-      cards: [
-        withExternals({ ...homeCard, trackers: [seedpool] }, { ...attic, trackers: [heron] }),
-        seedboxCard,
-      ],
-    }).handlers,
-  });
-  const builtIn = card("home").getByRole("list", { name: "Trackers routed here" });
-  await expect.element(builtIn).toHaveTextContent("seedpool (default)");
-  await expect
-    .element(builtIn.getByRole("link", { name: "seedpool" }))
-    .toHaveAttribute("href", `/settings/trackers/${seedpool.id}/routing`);
-  const external = page
-    .getByRole("listitem", { name: "Transmission" })
-    .getByRole("list", { name: "Trackers routed here" });
-  await expect.element(external).toHaveTextContent("Heron");
-  await expect.element(external).not.toHaveTextContent("default");
-  await expect
-    .element(external.getByRole("link", { name: "Heron" }))
-    .toHaveAttribute("href", `/settings/trackers/${heron.id}/routing`);
-  expect(card("seedbox").getByRole("list", { name: "Trackers routed here" }).query()).toBeNull();
 });

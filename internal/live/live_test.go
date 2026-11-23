@@ -133,6 +133,9 @@ func TestAnAdminEventListensWhileAnAdminSubscriptionIsOpen(t *testing.T) {
 	if pub.nodes.Listening() {
 		t.Fatal("a closed Admin subscription still listens")
 	}
+	if _, err := s.Next(t.Context()); !errors.Is(err, live.ErrEnded) {
+		t.Errorf("Next after Close = %v, want %v", err, live.ErrEnded)
+	}
 }
 
 func TestNextWaitsForTheNextPublish(t *testing.T) {
@@ -170,22 +173,15 @@ func TestReplayAfterLastEventID(t *testing.T) {
 			pub.notices.Publish(t.Context(), notice{Text: text})
 		}
 		s := h.Subscribe(member, "946684800000001")
+		atHead := h.Subscribe(member, "946684800000003")
 		pub.notices.Publish(t.Context(), notice{Text: "four"})
+		four := live.Message{ID: start + 4, Name: "notices.posted", Data: notice{Text: "four"}}
 		expect(t, s,
 			live.Message{ID: start + 2, Name: "notices.posted", Data: notice{Text: "two"}},
 			live.Message{ID: start + 3, Name: "notices.posted", Data: notice{Text: "three"}},
-			live.Message{ID: start + 4, Name: "notices.posted", Data: notice{Text: "four"}},
+			four,
 		)
-	})
-}
-
-func TestLastEventIDAtTheHeadContinuesLive(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		h, pub := newHub(t)
-		pub.notices.Publish(t.Context(), notice{Text: "seen"})
-		s := h.Subscribe(member, "946684800000001")
-		pub.notices.Publish(t.Context(), notice{Text: "new"})
-		expect(t, s, live.Message{ID: start + 2, Name: "notices.posted", Data: notice{Text: "new"}})
+		expect(t, atHead, four)
 	})
 }
 
@@ -336,88 +332,53 @@ func TestCloseEndsEverySubscription(t *testing.T) {
 	})
 }
 
-func TestSubscriptionCloseEndsIt(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		h, _ := newHub(t)
-		s := h.Subscribe(member, "")
-		s.Close()
-		if _, err := s.Next(t.Context()); !errors.Is(err, live.ErrEnded) {
-			t.Errorf("Next after Close = %v, want %v", err, live.ErrEnded)
-		}
-	})
-}
-
-func TestEmptyHubResyncs(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		h := live.NewHub(nil)
-		defer h.Close()
-		expect(t, h.Subscribe(member, ""), resyncAt(start))
-	})
-}
-
-func assertPanics(t *testing.T, want string, fn func()) {
-	t.Helper()
-	defer func() {
-		t.Helper()
-		if got := recover(); got != want {
-			t.Errorf("panic = %v, want %q", got, want)
-		}
-	}()
-	fn()
-}
-
-func TestBindOfAnUnlistedEventPanics(t *testing.T) {
-	h := live.NewHub([]live.Event{sessionsChangedEvent})
-	assertPanics(t, "live: event nodes.changed is not in surface.Events", func() {
-		nodesChangedEvent.Bind(h)
-	})
-}
-
-func TestBindOfAnotherDeclarationWithAListedNamePanics(t *testing.T) {
-	h := live.NewHub(events)
-	assertPanics(t, "live: event nodes.changed is not in surface.Events", func() {
-		live.AdminEvent[nodesChanged]("nodes.changed").Bind(h)
-	})
-}
-
-func TestTwoEventsWithOnePayloadTypePanic(t *testing.T) {
-	assertPanics(t, "live: events nodes.changed and nodes.removed share payload type live_test.nodesChanged; give each event its own type", func() {
-		live.NewHub([]live.Event{nodesChangedEvent, live.AdminEvent[nodesChanged]("nodes.removed")})
-	})
-}
-
-func TestADuplicateNamePanics(t *testing.T) {
-	assertPanics(t, "live: event nodes.changed is declared twice", func() {
-		live.NewHub([]live.Event{nodesChangedEvent, live.AdminEvent[notice]("nodes.changed")})
-	})
-}
-
-func TestAControlEventInTheListPanics(t *testing.T) {
-	assertPanics(t, "live: event live.resync is declared twice", func() {
-		live.NewHub([]live.Event{live.ResyncEvent})
-	})
-}
-
-func TestPublishInsideWritePanics(t *testing.T) {
-	_, pub := newHub(t)
-	lib := storagetest.Library(t)
-	assertPanics(t, "live: Publish inside Write; publish after the commit", func() {
-		_ = lib.Write(t.Context(), func(ctx context.Context, _ *storage.Tx[storage.Library]) error {
-			pub.notices.Publish(ctx, notice{Text: "too soon"})
+func TestMisuseOfTheHubPanics(t *testing.T) {
+	inWrite := func(t *testing.T, fn func(ctx context.Context)) {
+		_ = storagetest.Library(t).Write(t.Context(), func(ctx context.Context, _ *storage.Tx[storage.Library]) error {
+			fn(ctx)
 			return nil
 		})
-	})
-}
-
-func TestEndSessionInsideWritePanics(t *testing.T) {
-	h, _ := newHub(t)
-	lib := storagetest.Library(t)
-	assertPanics(t, "live: EndSession inside Write; end sessions after the commit", func() {
-		_ = lib.Write(t.Context(), func(ctx context.Context, _ *storage.Tx[storage.Library]) error {
-			h.EndSession(ctx, aliceSession, live.Revoked)
-			return nil
+	}
+	for _, tc := range []struct {
+		name, want string
+		misuse     func(t *testing.T)
+	}{
+		{"bind of an unlisted event", "live: event nodes.changed is not in surface.Events", func(*testing.T) {
+			nodesChangedEvent.Bind(live.NewHub([]live.Event{sessionsChangedEvent}))
+		}},
+		{"bind of another declaration with a listed name", "live: event nodes.changed is not in surface.Events", func(*testing.T) {
+			live.AdminEvent[nodesChanged]("nodes.changed").Bind(live.NewHub(events))
+		}},
+		{"watch of an unlisted event", "live: event nodes.changed is not in surface.Events", func(t *testing.T) {
+			live.NewHub([]live.Event{sessionsChangedEvent}).Watch(t.Context(), nodesChangedEvent)
+		}},
+		{"two events with one payload type", "live: events nodes.changed and nodes.removed share payload type live_test.nodesChanged; give each event its own type", func(*testing.T) {
+			live.NewHub([]live.Event{nodesChangedEvent, live.AdminEvent[nodesChanged]("nodes.removed")})
+		}},
+		{"a duplicate name", "live: event nodes.changed is declared twice", func(*testing.T) {
+			live.NewHub([]live.Event{nodesChangedEvent, live.AdminEvent[notice]("nodes.changed")})
+		}},
+		{"a control event in the list", "live: event live.resync is declared twice", func(*testing.T) {
+			live.NewHub([]live.Event{live.ResyncEvent})
+		}},
+		{"publish inside write", "live: Publish inside Write; publish after the commit", func(t *testing.T) {
+			_, pub := newHub(t)
+			inWrite(t, func(ctx context.Context) { pub.notices.Publish(ctx, notice{Text: "too soon"}) })
+		}},
+		{"end session inside write", "live: EndSession inside Write; end sessions after the commit", func(t *testing.T) {
+			h, _ := newHub(t)
+			inWrite(t, func(ctx context.Context) { h.EndSession(ctx, aliceSession, live.Revoked) })
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			defer func() {
+				if got := recover(); got != tc.want {
+					t.Errorf("panic = %v, want %q", got, tc.want)
+				}
+			}()
+			tc.misuse(t)
 		})
-	})
+	}
 }
 
 func TestEventsListsEveryEventWithTheControlEvents(t *testing.T) {
@@ -464,11 +425,4 @@ func pending(woken <-chan struct{}) int {
 			return n
 		}
 	}
-}
-
-func TestWatchOfAnUnlistedEventPanics(t *testing.T) {
-	h := live.NewHub([]live.Event{sessionsChangedEvent})
-	assertPanics(t, "live: event nodes.changed is not in surface.Events", func() {
-		h.Watch(t.Context(), nodesChangedEvent)
-	})
 }

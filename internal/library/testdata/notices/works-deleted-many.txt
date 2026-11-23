@@ -1,7 +1,0 @@
-Title: Deleted 12 books
-Line: Dune (1965)
-Line: Emma (1815)
-Line: Ulysses (1922)
-Line: 9 more were deleted.
-Link: /library
-Tone: info

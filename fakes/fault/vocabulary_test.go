@@ -18,89 +18,53 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 )
 
-// q20 is #26 Q20's list of failures every fake plays, each with the fault
-// text that plays it, or why it waits.
-var q20 = []struct {
-	failure string
-	text    string
-	layer   fault.Layer
-	pending string
-}{
-	{failure: "latency", text: "latency=200ms", layer: fault.Conn},
-	{failure: "hang", text: "hang", layer: fault.HTTP},
-	{failure: "refuse", text: "refuse", layer: fault.Conn},
-	{failure: "reset", text: "reset", layer: fault.Conn},
-	{failure: "truncate", text: "truncate", layer: fault.HTTP},
-	{failure: "stall", text: "stall", layer: fault.Conn},
-	{failure: "throttle", text: "throttle=256KiB/s", layer: fault.Conn},
-	{failure: "TLS failure", text: "tls=untrusted", layer: fault.TLS},
-	{failure: "TLS failure", text: "tls=expired", layer: fault.TLS},
-	{failure: "TLS failure", text: "tls=wrong-name", layer: fault.TLS},
-	{failure: "DNS failure", pending: "every Node dials literal addresses until the configurable resolver (#26 Q3)"},
-	{failure: "any HTTP status", text: "status=503", layer: fault.HTTP},
-	{failure: "429 with a reset header", text: "status=429,retry-after=30s,reset-header=X-RateLimit-Reset", layer: fault.HTTP},
-	{failure: "malformed body", text: "malformed", layer: fault.HTTP},
-	{failure: "slow body", text: "slow-body=16KiB/s", layer: fault.HTTP},
-}
-
-func TestVocabulary(t *testing.T) {
-	var failures []string
-	for _, f := range q20 {
-		if !slices.Contains(failures, f.failure) {
-			failures = append(failures, f.failure)
-		}
-		if f.pending != "" {
-			continue
-		}
-		got, err := fault.Parse(f.text)
-		if err != nil {
-			t.Errorf("%s: Parse(%q): %v", f.failure, f.text, err)
-			continue
-		}
-		if got.Layer() != f.layer || got.String() != f.text {
-			t.Errorf("%s: %q parses to %s at the %s layer, want %s", f.failure, f.text, got, got.Layer(), f.layer)
-		}
-	}
-	if len(failures) != 13 {
-		t.Errorf("Q20 names 13 failures, the list has %d: %q", len(failures), failures)
-	}
-}
-
 func TestEveryFaultRoundTrips(t *testing.T) {
 	for _, c := range []struct {
-		f    fault.Fault
-		text string
+		f     fault.Fault
+		text  string
+		layer fault.Layer
 	}{
-		{fault.Refuse{}, "refuse"},
-		{fault.Reset{}, "reset"},
-		{fault.Stall{}, "stall"},
-		{fault.Latency(200 * time.Millisecond), "latency=200ms"},
-		{fault.Latency(90 * time.Second), "latency=1m30s"},
-		{fault.Throttle(256 << 10), "throttle=256KiB/s"},
-		{fault.Throttle(1000), "throttle=1000B/s"},
-		{fault.Cut(64 << 10), "cut=64KiB"},
-		{fault.Cut(3 << 20), "cut=3MiB"},
-		{fault.Cut(0), "cut=0B"},
-		{fault.BadTLS(fault.Untrusted), "tls=untrusted"},
-		{fault.BadTLS(fault.Expired), "tls=expired"},
-		{fault.BadTLS(fault.WrongName), "tls=wrong-name"},
-		{fault.Status{Code: 404}, "status=404"},
-		{fault.Status{Code: 503, RetryAfter: time.Second}, "status=503,retry-after=1s"},
-		{fault.Status{Code: 429, RetryAfter: 30 * time.Second, ResetHeader: "X-RateLimit-Reset"}, "status=429,retry-after=30s,reset-header=X-RateLimit-Reset"},
-		{fault.Hang{}, "hang"},
-		{fault.Delay(15 * time.Second), "delay=15s"},
-		{fault.Delay(1500 * time.Millisecond), "delay=1.5s"},
-		{fault.Malformed{}, "malformed"},
-		{fault.Truncate{}, "truncate"},
-		{fault.SlowBody(1 << 30), "slow-body=1GiB/s"},
-		{fault.ContentType("text/html"), "content-type=text/html"},
-		{fault.ContentType("text/html; charset=utf-8"), "content-type=text/html; charset=utf-8"},
+		{fault.Refuse{}, "refuse", fault.Conn},
+		{fault.Reset{}, "reset", fault.Conn},
+		{fault.Stall{}, "stall", fault.Conn},
+		{fault.Latency(200 * time.Millisecond), "latency=200ms", fault.Conn},
+		{fault.Latency(90 * time.Second), "latency=1m30s", fault.Conn},
+		{fault.Throttle(256 << 10), "throttle=256KiB/s", fault.Conn},
+		{fault.Throttle(1000), "throttle=1000B/s", fault.Conn},
+		{fault.Cut(64 << 10), "cut=64KiB", fault.Conn},
+		{fault.Cut(3 << 20), "cut=3MiB", fault.Conn},
+		{fault.Cut(0), "cut=0B", fault.Conn},
+		{fault.BadTLS(fault.Untrusted), "tls=untrusted", fault.TLS},
+		{fault.BadTLS(fault.Expired), "tls=expired", fault.TLS},
+		{fault.BadTLS(fault.WrongName), "tls=wrong-name", fault.TLS},
+		{fault.Status{Code: 404}, "status=404", fault.HTTP},
+		{fault.Status{Code: 503, RetryAfter: time.Second}, "status=503,retry-after=1s", fault.HTTP},
+		{fault.Status{Code: 429, RetryAfter: 30 * time.Second, ResetHeader: "X-RateLimit-Reset"}, "status=429,retry-after=30s,reset-header=X-RateLimit-Reset", fault.HTTP},
+		{fault.Hang{}, "hang", fault.HTTP},
+		{fault.Delay(15 * time.Second), "delay=15s", fault.HTTP},
+		{fault.Delay(1500 * time.Millisecond), "delay=1.5s", fault.HTTP},
+		{fault.Malformed{}, "malformed", fault.HTTP},
+		{fault.Truncate{}, "truncate", fault.HTTP},
+		{fault.SlowBody(1 << 30), "slow-body=1GiB/s", fault.HTTP},
+		{fault.ContentType("text/html"), "content-type=text/html", fault.HTTP},
+		{fault.ContentType("text/html; charset=utf-8"), "content-type=text/html; charset=utf-8", fault.HTTP},
+		{fault.Full{}, "full", fault.Disk},
+		{fault.Unmounted{}, "unmounted", fault.Disk},
+		{fault.Hung{}, "hung", fault.Disk},
+		{fault.ReadOnly{}, "readonly", fault.Disk},
+		{fault.FoldCase{}, "foldcase", fault.Disk},
+		{fault.NoIDs{}, "noids", fault.Disk},
+		{fault.NoLinks{}, "nolinks", fault.Disk},
+		{fault.NoClones{}, "noclones", fault.Disk},
+		{fault.CloneFull{}, "clonefull", fault.Disk},
+		{fault.Volume{Total: 10 << 30, Free: 1536 << 20}, "volume=10GiB,free=1536MiB", fault.Disk},
+		{fault.Volume{Total: 1 << 40, Free: 0}, "volume=1024GiB,free=0B", fault.Disk},
 	} {
 		if got := c.f.String(); got != c.text {
 			t.Errorf("%#v.String() = %q, want %q", c.f, got, c.text)
 		}
-		if got, err := fault.Parse(c.text); err != nil || got != c.f {
-			t.Errorf("Parse(%q) = %#v, %v; want %#v", c.text, got, err, c.f)
+		if got, err := fault.Parse(c.text); err != nil || got != c.f || got.Layer() != c.layer {
+			t.Errorf("Parse(%q) = %#v, %v; want %#v at the %s layer", c.text, got, err, c.f, c.layer)
 		}
 	}
 }
@@ -124,6 +88,13 @@ func TestParseRefuses(t *testing.T) {
 		"status=429,retry-after=1s,retry-after=2s": "fault status=429,retry-after=1s,retry-after=2s: retry-after given twice",
 		"status=429,body=x":                        `fault status=429,body=x: unknown status parameter "body=x"`,
 		"content-type=html":                        `fault content-type=html: "html" is not a media type such as text/html`,
+		"full=1":                                   "fault full takes no value",
+		"volume":                                   "fault volume needs a value: volume=…",
+		"volume=10GiB":                             "fault volume=10GiB: want volume=<total>,free=<free>",
+		"volume=10GB,free=1GiB":                    `fault volume=10GB,free=1GiB: size "10GB" is not a count of B`,
+		"volume=1GiB,free=2GiB":                    "fault volume=1GiB,free=2GiB: free 2GiB of 1GiB: want a positive total and free no more than it",
+		"volume=0B,free=0B":                        "fault volume=0B,free=0B: free 0B of 0B: want a positive total and free no more than it",
+		"volume=1GiB,free=512KiB,":                 `fault volume=1GiB,free=512KiB,: size "512KiB," needs a unit: B, KiB, MiB or GiB`,
 	} {
 		if _, err := fault.Parse(text); err == nil || err.Error() != want {
 			t.Errorf("Parse(%q) = %v, want %q", text, err, want)

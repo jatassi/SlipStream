@@ -217,30 +217,21 @@ func TestAPrunedGrabsFailureStillRefusesItsRelease(t *testing.T) {
 	})
 }
 
-func TestARefusingCodeWithNoHashOrGUIDStillFailsTheGrabAndRefusesNothing(t *testing.T) {
+func TestARefusalMatchesByIndexerAndGUIDWhenNoHashIsKnown(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := failureWorld(t)
 		bare := heard(w, "E01", "1080p.WEB-DL", 'a')
 		bare.InfoHash = nil
 		id := grabbedOver(t, w, bare)
 		failWith(t, w, id, grabs.ReleaseFault)
-		v, err := w.Grabs.Get(t.Context(), identity.Admin{}, id)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if v.Stage != grabs.Failed {
-			t.Fatalf("the Grab is %s, want failed", v.Stage)
+		if v, err := w.Grabs.Get(t.Context(), identity.Admin{}, id); err != nil || v.Stage != grabs.Failed {
+			t.Fatalf("the Grab is %s (%v), want failed", v.Stage, err)
 		}
 		if refused(t, w, bare) {
 			t.Fatal("a failure with no hash and no GUID refuses its Release")
 		}
-	})
-}
 
-func TestARefusalMatchesByIndexerAndGUIDWhenNoHashIsKnown(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		w := failureWorld(t)
-		bad := heard(w, "E01", "1080p.WEB-DL", 'a')
+		bad := heard(w, "E01", "1080p.WEB-DL", 'b')
 		bad.InfoHash, bad.GUID = nil, "https://site.test/t/1"
 		failWith(t, w, grabbedOver(t, w, bad), grabs.ReleaseFault)
 		if !refused(t, w, bad) {

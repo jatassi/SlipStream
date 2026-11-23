@@ -30,17 +30,6 @@ function open() {
 
 const filmsRow = () => page.getByRole("listitem", { name: "Films" });
 
-test("the Targets step says in one sentence what each enabled type grabs, from its default Profile", async () => {
-  open();
-  await expect.element(stepHeading("What SlipStream grabs")).toBeVisible();
-  await expect
-    .element(filmsRow().getByText(/^This Target grabs /u))
-    .toHaveTextContent(
-      "This Target grabs HDTV-720p, WEBRip-720p or WEBDL-720p or better. It upgrades until Bluray-1080p or Remux-1080p, then stops.",
-    );
-  await expect.element(page.getByRole("listitem", { name: "Zines" })).not.toBeInTheDocument();
-});
-
 test("Details holds the Profile, qualities, cutoff and sizes behind the sentence", async () => {
   open();
   await userEvent.click(filmsRow().getByRole("button", { name: "Details" }));

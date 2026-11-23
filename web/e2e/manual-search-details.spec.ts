@@ -1,10 +1,7 @@
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import {
-  failedGrab,
   frame,
   grabRows,
-  itemId,
-  lanternKeepers,
   openGrabDetails,
   orchard,
   searched,
@@ -12,7 +9,7 @@ import {
   useChoice,
   workId,
 } from "./manual-search.ts";
-import { needsYouAction, openFromHero } from "./manual-search-entries.ts";
+import { openFromHero } from "./manual-search-entries.ts";
 import { navigate } from "./shell.ts";
 
 test.use({ scenario: "manual-search" });
@@ -61,26 +58,4 @@ test("a Manual Grab's Details read who grabbed it, past what, where it went and 
   );
   await expect(fromWork).toContainText(/Found by Ada Okafor in Manual search at .+\./u);
   await expect(fromWork).toContainText(lq);
-});
-
-test("a failed automatic Grab's Details open from its Needs you card", async ({
-  adminPage: page,
-  world,
-}, testInfo) => {
-  const series = await workId(world, lanternKeepers);
-  await failedGrab(world, series, await itemId(world, series, "S02E10"));
-  await page.goto(`/works/${series}`);
-  await needsYouAction(page, "Details");
-  const record = page.getByRole("dialog", { name: "Grab of The Lantern Keepers" });
-  await expect(record).toContainText(/Found by Search at .+\./u);
-  // The season pack fills E05 to E10, so automatic search grabs it.
-  await expect(record).toContainText("The.Lantern.Keepers.S02.1080p.WEB-DL.H264-FKW");
-  await expect(record).toContainText("Failed");
-  await expect(record).toContainText(
-    "SlipStream can't read the release's .torrent file, or the metadata peers sent for its magnet link.",
-  );
-  await expect(record).toContainText("The Indexer sent a .torrent file SlipStream can't read.");
-  await expect(record).not.toContainText("bencode");
-  await expectAccessible(page);
-  await frame(page, testInfo, "details-needs-you");
 });

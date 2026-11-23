@@ -116,7 +116,7 @@ func rule(id, file string, f fault.Fault) fault.Rule {
 	return fault.Rule{ID: id, Target: fault.Target(imagecdn.Fake.Name), Route: "image", Params: map[string]string{"file": file}, Fault: f}
 }
 
-func TestTruncatedAndWrongTypeFaults(t *testing.T) {
+func TestFaultsPlayOnTheImageTheyName(t *testing.T) {
 	inBothTiers(t, func(t *testing.T, f faketest.Served) {
 		cut := get(t, f, "/w500/truncated.jpg")
 		if cut.status != "200 OK" || cut.declared <= int64(len(cut.body)) || !errors.Is(cut.bodyErr, io.ErrUnexpectedEOF) {
@@ -130,11 +130,6 @@ func TestTruncatedAndWrongTypeFaults(t *testing.T) {
 		if whole := get(t, f, "/w500/whole.jpg"); whole.status != "200 OK" || whole.contentType != "image/jpeg" || whole.bodyErr != nil {
 			t.Errorf("an image no rule names answered %s %s, %v", whole.status, whole.contentType, whole.bodyErr)
 		}
-	}, faketest.WithFaults(rule("truncated", "truncated.jpg", fault.Truncate{}), rule("wrong", "wrong.png", fault.ContentType("text/html"))))
-}
-
-func TestMissingAndSlowFaults(t *testing.T) {
-	inBothTiers(t, func(t *testing.T, f faketest.Served) {
 		if r := get(t, f, "/w500/missing.jpg"); r.status != "404 Not Found" {
 			t.Errorf("a missing image answered %s, want 404 Not Found", r.status)
 		}
@@ -142,7 +137,10 @@ func TestMissingAndSlowFaults(t *testing.T) {
 		if want := time.Duration(len(slow.body)) * time.Second / 1024; slow.status != "200 OK" || slow.bodyErr != nil || slow.after < want*9/10 {
 			t.Errorf("a slow image answered %s with %d bytes after %v, %v; want them at 1KiB/s, about %v", slow.status, len(slow.body), slow.after, slow.bodyErr, want)
 		}
-	}, faketest.WithFaults(rule("missing", "missing.jpg", fault.Status{Code: http.StatusNotFound}), rule("slow", "slow.png", fault.SlowBody(1<<10))))
+	}, faketest.WithFaults(
+		rule("truncated", "truncated.jpg", fault.Truncate{}), rule("wrong", "wrong.png", fault.ContentType("text/html")),
+		rule("missing", "missing.jpg", fault.Status{Code: http.StatusNotFound}), rule("slow", "slow.png", fault.SlowBody(1<<10)),
+	))
 }
 
 func TestTheFakeConforms(t *testing.T) {

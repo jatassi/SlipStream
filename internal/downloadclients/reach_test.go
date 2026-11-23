@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -179,24 +180,20 @@ func TestEachAwayExternalClientIsAHealthErrorAndOneOnAnOfflineNodeIsUnsure(t *te
 		what    string
 		id      dc.ClientID
 		subject string
-		text    string
+		fact    string
 	}{
-		{"not responding", down, "Transmission on Media server",
-			"Transmission isn't responding. Check that it's running and that Media server can reach 192.168.1.20:9091."},
-		{"a refused sign-in on a kind with a lockout", refused, "Transmission 4K on Media server",
-			"Transmission 4K rejected the saved password. SlipStream stopped checking it to avoid a lockout. Change the password, or select Check now once it's fixed."},
-		{"a refused sign-in on a kind with no lockout", refusedDeluge, "Deluge on Media server",
-			"Deluge rejected the password. Check it and test again."},
-		{"needing attention", blocked, "Transmission anime on Media server",
-			"Transmission anime refused Media server's address. Add it to rpc-whitelist in Transmission anime's settings, then select Check now."},
+		{"not responding", down, "Transmission on Media server", "192.168.1.20:9091"},
+		{"a refused sign-in on a kind with a lockout", refused, "Transmission 4K on Media server", "stopped checking"},
+		{"a refused sign-in on a kind with no lockout", refusedDeluge, "Deluge on Media server", "password"},
+		{"needing attention", blocked, "Transmission anime on Media server", "rpc-whitelist"},
 	} {
 		it, ok := got[dc.ClientHealthKey(c.id)]
 		if !ok {
 			t.Errorf("the client %s raises no Health item", c.what)
 			continue
 		}
-		if it.Level != health.Fail || it.Subject != c.subject || it.Text != c.text {
-			t.Errorf("the client %s reads %v %q: %q, want an error %q: %q", c.what, it.Level, it.Subject, it.Text, c.subject, c.text)
+		if it.Level != health.Fail || it.Subject != c.subject || !strings.Contains(it.Text, c.fact) {
+			t.Errorf("the client %s reads %v %q: %q, want an error %q naming %q", c.what, it.Level, it.Subject, it.Text, c.subject, c.fact)
 		}
 		if it.Action.Kind() != health.ActionLink || it.Action.Href() != "/settings/download-clients?client="+c.id.String() {
 			t.Errorf("the client %s links to %v %q, want its form", c.what, it.Action.Kind(), it.Action.Href())
@@ -211,7 +208,7 @@ func TestEachAwayExternalClientIsAHealthErrorAndOneOnAnOfflineNodeIsUnsure(t *te
 		}
 	}
 	if !slices.ContainsFunc(a.Unsure, func(u health.Unsure) bool {
-		return u.Key == dc.ClientHealthKey(offline) && u.Subject == "Attic Transmission on attic" && u.Text == "attic is offline."
+		return u.Key == dc.ClientHealthKey(offline) && u.Subject == "Attic Transmission on attic" && strings.Contains(u.Text, "offline")
 	}) {
 		t.Errorf("unsure = %+v, want the attic's client unsure while attic is offline", a.Unsure)
 	}

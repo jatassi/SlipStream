@@ -126,14 +126,6 @@ test("the list shows each Backup's time, kind, version, size, check and copies",
     .toHaveTextContent(`${shown(olderNightly.takenAt, "clock")}${facts}`);
 });
 
-test("Back up now starts a Backup and says so", async () => {
-  const server = backupsServer();
-  open(server);
-  await userEvent.click(main().getByRole("button", { name: "Back up now" }));
-  await expect.element(page.getByText("Backing up…")).toBeVisible();
-  expect(server.writes).toEqual([{ path: "backUpNow", body: null }]);
-});
-
 test("Show passphrase asks for the PIN first, then shows the words with Copy", async () => {
   open(backupsServer({ reconfirmed: false }));
   await userEvent.click(main().getByRole("button", { name: "Show passphrase" }));

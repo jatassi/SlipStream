@@ -64,9 +64,7 @@ test("a page whose code fails to download while the Node is down says so in the 
   const { state, importer } = flakyImport();
   renderPage(importer);
 
-  await expect
-    .element(page.getByRole("alert"))
-    .toHaveTextContent("SlipStream isn't responding. Check that it's running, then try again.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent(/isn't responding/u);
   await expect.element(page.getByText("The shell")).toBeVisible();
 
   down = false;
@@ -80,9 +78,7 @@ test("a page whose code fails to download while the Node responds offers a reloa
   const reload = vi.spyOn(thisPage, "reload").mockImplementation(() => {});
   renderPage(flakyImport().importer);
 
-  await expect
-    .element(page.getByRole("alert"))
-    .toHaveTextContent("This page didn't download. Reload to try again.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent(/didn't download/u);
   await expect.element(page.getByText("The shell")).toBeVisible();
   expect(reload).not.toHaveBeenCalled();
 

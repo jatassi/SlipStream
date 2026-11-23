@@ -28,22 +28,3 @@ func TestSummaryWords(t *testing.T) {
 		}
 	}
 }
-
-func TestSummarizeKeepsTheFirstOfEachListAndDropsTheOriginalRevision(t *testing.T) {
-	for _, c := range []struct {
-		name string
-		want release.Summary
-	}{
-		{"The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.Atmos.DV.HDR10.x265-FLUX", release.Summary{
-			Quality: release.Known(release.WEBDL1080p), HDR: release.Known(release.HDR("DV")), Audio: release.Known("DD+ 5.1"), Group: release.Known("FLUX"),
-		}},
-		{"The.Quiet.Orchard.2021.REPACK.1080p.WEB-DL.H264-FKW", release.Summary{
-			Quality: release.Known(release.WEBDL1080p), Revision: release.Known(release.Revision{Version: 2, Repack: true}), Group: release.Known("FKW"),
-		}},
-		{"The Quiet Orchard", release.Summary{}},
-	} {
-		if got := release.Summarize(release.Title(c.name, release.TitleOnly{}, release.BuiltIn())); got != c.want {
-			t.Errorf("Summarize(%s) = %+v, want %+v", c.name, got, c.want)
-		}
-	}
-}

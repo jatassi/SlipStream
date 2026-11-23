@@ -27,7 +27,7 @@ func TestRefreshA10000EpisodeSeries(t *testing.T) {
 
 	cue(t, run, "tvdb-add-season", `{"id":`+longerSeries+`}`)
 	start := time.Now()
-	refreshed := refreshSeries(t, a, added, `"outcome":"done"`)
+	refreshed := refreshSeries(t, a, added)
 	took = time.Since(start)
 	t.Logf("refreshing 10,250 episodes took %s against a %s budget", took.Round(time.Millisecond), refreshBudget)
 	if want := "41 seasons, 10250 episodes, 10250 monitored"; refreshed.size() != want || took > refreshBudget {

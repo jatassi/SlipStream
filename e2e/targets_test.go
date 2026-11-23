@@ -128,17 +128,6 @@ func (w *walked) holds(t *testing.T, name string) {
 	w.holdsRelease(t, placed, name)
 }
 
-func TestOneFileFillsTwoTargetsAndSitsOnDiskOnce(t *testing.T) {
-	t.Parallel()
-	w := grabbedTargets(t)
-	w.holds(t, release)
-	name := "The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv"
-	got, _ := w.cells(t).summary(t)
-	if want := []string{"1080p upgradable wanted webdl-1080p " + name, "HD upgradable wanted webdl-1080p " + name}; !slices.Equal(got, want) {
-		t.Fatalf("after the import the cells are %q, want %q: one WEB-DL file, named after the first Target, filling both", got, want)
-	}
-}
-
 func TestASearchUpgradesTheHeldWEBDLToTheBlurayAndDeletesIt(t *testing.T) {
 	t.Parallel()
 	w := grabbedTargets(t)
@@ -322,15 +311,10 @@ func extendedFilled(t *testing.T) (w walked, profile, starter string) {
 	return w, profile, starter
 }
 
-func TestUnderAnyCutAnExtendedReleaseFillsTheOnlyTarget(t *testing.T) {
-	t.Parallel()
-	w, _, _ := extendedFilled(t)
-	w.cellsAre(t, "after the search", "any 1080p upgradable wanted webdl-1080p "+cutName)
-}
-
 func TestRemovingACutWithKeepKeepsItsFileAndAddingItBackRestoresItsName(t *testing.T) {
 	t.Parallel()
 	w, profile, starter := extendedFilled(t)
+	w.cellsAre(t, "under any cut", "any 1080p upgradable wanted webdl-1080p "+cutName)
 	w.put(t, profile+"?unwanted=keep", filmsOf(cuts("standard"), starter), "works=1 ownList=0 unwanted=1 renamed=1 newlyWanted=1 downloading=0")
 	holdsOnly(t, w.m, "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - {edition-Extended} 1080p (extra 1).mkv")
 	w.cellsAre(t, "under Standard alone", "standard 1080p missing wanted")

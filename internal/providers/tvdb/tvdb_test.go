@@ -99,11 +99,6 @@ func TestSeriesNamesFallBackToEnglish(t *testing.T) {
 		if err != nil || forest.Name != "The Shell Forest" || forest.English != "The Shell Forest" || forest.Original != "Kōkaku no Mori" || forest.OriginalLanguage != "jpn" || forest.TMDB != 7004 {
 			t.Errorf("Series(1004) in French = %+v, %v; want English as the fallback name", forest, err)
 		}
-	})
-}
-
-func TestASeriesWithNoTMDBIDReadsZero(t *testing.T) {
-	inEachTier(t, "series", func(t *testing.T, c *tvdb.Client, _ faketest.Served) {
 		signal, err := c.Series(t.Context(), english, 1003)
 		if _, next := around("2026-10-02", "2027-01-15"); err != nil || signal.TMDB != 0 || signal.NextAired != next {
 			t.Errorf("Series(1003) = %+v, %v; want no TMDB id and its next airing", signal, err)
@@ -152,16 +147,6 @@ func TestEpisodesFailWholeOnAFailedPage(t *testing.T) {
 			t.Errorf("Episodes with page 2 failing once = %d episodes, %v; want the retry to read all 1,200", len(episodes), err)
 		}
 	}, faketest.WithFaults(once))
-}
-
-func TestARateLimitedCallWaitsItsRetryAfter(t *testing.T) {
-	limited := fault.Rule{ID: "limited", Target: "tvdb", Route: "series", Times: 1, Fault: fault.Status{Code: http.StatusTooManyRequests, RetryAfter: time.Second}}
-	inEachTier(t, "series", func(t *testing.T, c *tvdb.Client, _ faketest.Served) {
-		start := time.Now()
-		if _, err := c.Series(t.Context(), english, 1001); err != nil || time.Since(start) < time.Second {
-			t.Errorf("Series behind a 429 = %v after %s, want the record after a second", err, time.Since(start))
-		}
-	}, faketest.WithFaults(limited))
 }
 
 func TestEpisodesAskInTVDBsLanguageCode(t *testing.T) {

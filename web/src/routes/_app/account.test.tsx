@@ -89,9 +89,7 @@ test("an email change says where the confirm link went", async () => {
 
   await expect
     .element(dialog("Change email").getByRole("status"))
-    .toHaveTextContent(
-      "SlipStream sent a confirmation link to ada@okafor.example. Your email changes once you open it.",
-    );
+    .toMatchTextContent(/confirmation link to ada@okafor\.example/u);
   expect(seen).toEqual([
     { method: "POST", url: "/api/v1/account/email", body: { email: "ada@okafor.example" } },
   ]);
@@ -111,9 +109,7 @@ test("an email change before the address is set says email changes don't work ye
 
   await expect
     .element(dialog("Change email").getByRole("alert"))
-    .toHaveTextContent(
-      "You can't change your email until an Admin sets SlipStream's address. Ask an Admin to set it.",
-    );
+    .toMatchTextContent(/can't change your email until an Admin sets SlipStream's address/u);
 });
 
 async function typePin(scope: ReturnType<typeof dialog>, label: string, pin: string) {

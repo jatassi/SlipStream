@@ -115,6 +115,18 @@ func TestANodeOfflinePastTheGraceIsANodesErrorUntilItIsBack(t *testing.T) {
 		t.Fatalf("past the grace the counts' alerts are health %v and nodes %v, want fail and fail", health, nodes)
 	}
 
+	offline := problem(http.StatusServiceUnavailable, "node_offline", "The Node is offline")
+	for _, op := range []struct{ method, path, body string }{
+		{http.MethodGet, "/system", ""},
+		{http.MethodGet, "/config", ""},
+		{http.MethodPatch, "/config", `{"log.level":"debug"}`},
+		{http.MethodPost, "/restart", ""},
+		{http.MethodGet, "/logs/stream", ""},
+		{http.MethodGet, "/logs/archive", ""},
+	} {
+		worldtest.Expect(t, "home "+op.method+" seedbox's "+op.path, a.Admin("home", op.method, "/api/v1/nodes/"+box+op.path, op.body), offline)
+	}
+
 	checked = decode(t, "checkHealthCategory", a.Admin("home", http.MethodPost, "/api/v1/system/health/nodes/check", ""), &healthChecked{})
 	if len(checked.Unreached) != 1 || checked.Unreached[0].Words != "seedbox is offline." {
 		t.Fatalf("Check now with seedbox offline left %+v unreached, want seedbox is offline.", checked.Unreached)

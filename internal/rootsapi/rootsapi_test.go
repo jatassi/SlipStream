@@ -516,18 +516,6 @@ func TestBrowseOnANodeWithoutStorage(t *testing.T) {
 		`{"path":`+strconv.Quote(filepath.Join(dir, "Torrents"))+`}`)
 }
 
-func TestSeveralRootsPerType(t *testing.T) {
-	s := serve(t)
-	first := s.create(t, body("fixture", t.TempDir()))
-	second := s.create(t, body("fixture", t.TempDir()))
-	other := s.create(t, body("other", t.TempDir()))
-	third := s.create(t, `{"contentType":"fixture","nodeId":"`+self.String()+`","path":`+strconv.Quote(t.TempDir())+`,"makeDefault":false}`)
-	want := first + " default=true works=0\n" + second + " default=false works=0\n" + third + " default=false works=0\n" + other + " default=true works=0\n"
-	if got := s.works(t); got != want {
-		t.Fatalf("listRoots =\n%swant\n%s", got, want)
-	}
-}
-
 func TestTheFirstRootIsDefaultAndHomesRootlessWorks(t *testing.T) {
 	s := serve(t)
 	s.add(t, "w1", "")

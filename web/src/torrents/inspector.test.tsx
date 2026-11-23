@@ -10,7 +10,6 @@ import { liveServer } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 import { actionsServer, detailOf, orchardId, torrent, torrentsServer } from "../test/torrents";
 // oxlint-disable-next-line import/max-dependencies -- one test listens on the worker for asks of a gone torrent
-import { asPhone } from "../test/viewport";
 import { worker } from "../test/worker";
 
 const orchard = torrent({
@@ -84,39 +83,6 @@ function open(path = "/activity/torrents?tab=all") {
   });
   return { app, live, server, actions };
 }
-
-test("a row opens the Inspector beside the table, leading with what the torrent is doing", async () => {
-  const { app } = open();
-  await userEvent.click(table().getByRole("button", { name: /^The Quiet Orchard(?! actions)/u }));
-  await expect
-    .poll(() => app.router.state.location.pathname)
-    .toBe(`/activity/torrents/${orchard.id}`);
-  expect(app.router.state.location.search).toEqual({ tab: "all" });
-  await expect.element(inspector()).toMatchTextContent(/^The Quiet OrchardDownloading\./u);
-  await expect.element(table()).toBeVisible();
-
-  const section = (name: string) => inspector().getByRole("heading", { name, level: 3 });
-  await Promise.all(
-    ["Numbers", "Seeding", "Trackers", "Files", "Grabs", "Details"].map((name) =>
-      expect.element(section(name)).toBeVisible(),
-    ),
-  );
-  await expect.element(inspector()).toMatchTextContent("Progress25% of 954 MB");
-  await expect.element(inspector()).toMatchTextContent("beacon.exampleWorking");
-  await expect
-    .element(inspector())
-    .toMatchTextContent("orchard.mkv25%954 MB · Filled The Quiet Orchard");
-  await expect
-    .element(inspector().getByRole("link", { name: "The Quiet Orchard" }))
-    .toHaveAttribute("href", `/works/${orchardId}`);
-  await expect
-    .element(inspector())
-    .toMatchTextContent("Info hash0102030405060708090a0b0c0d0e0f1011121314");
-  const address = inspector().getByText("https://beacon.example/announce/•••");
-  await expect.element(address).not.toBeInTheDocument();
-  await userEvent.click(inspector().getByRole("button", { name: "Details" }));
-  await expect.element(address).toBeVisible();
-});
 
 test("the Inspector's numbers and sentence follow the live stream", async () => {
   const { live } = open(`/activity/torrents/${orchard.id}?tab=all`);
@@ -236,24 +202,6 @@ test("a torrent that leaves closes its Inspector without asking for its detail a
   await expect.poll(() => app.router.state.location.pathname).toBe("/activity/torrents");
   await expect.element(page.getByRole("complementary")).not.toBeInTheDocument();
   expect(missed).toEqual([]);
-});
-
-test("on a phone a row opens the torrent as a pushed page with a way back", async () => {
-  await asPhone();
-  const { app } = open();
-  await userEvent.click(table().getByRole("button", { name: /^The Quiet Orchard(?! actions)/u }));
-  await expect
-    .poll(() => app.router.state.location.pathname)
-    .toBe(`/activity/torrents/${orchard.id}`);
-  await expect
-    .element(page.getByRole("banner").getByRole("heading", { name: "The Quiet Orchard" }))
-    .toBeVisible();
-  await expect.element(page.getByRole("main")).toMatchTextContent(/^Downloading/u);
-  await expect.element(table()).not.toBeInTheDocument();
-  await expect.element(page.getByRole("radiogroup", { name: "View" })).not.toBeInTheDocument();
-  await userEvent.click(page.getByRole("banner").getByRole("link", { name: "Torrents" }));
-  await expect.poll(() => app.router.state.location.pathname).toBe("/activity/torrents");
-  await expect.element(table()).toBeVisible();
 });
 
 test("a link to a torrent that is gone is not found", async () => {

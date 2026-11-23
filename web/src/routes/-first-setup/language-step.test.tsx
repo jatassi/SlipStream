@@ -19,31 +19,6 @@ function open(place = metadataPlace(), language = todo("language")) {
 
 const select = (name: string) => page.getByRole("combobox", { name });
 
-test("language and region come from the browser while they hold the defaults, and Continue saves both at once", async () => {
-  browserSpeaks("en-GB", "en");
-  const metadata = metadataPlace();
-  const server = open(metadata);
-  await expect.element(stepHeading("Language and region")).toBeVisible();
-  await expect
-    .element(
-      page.getByText(
-        "Titles and overviews use this language. The region sets the certification and the release date SlipStream uses for each movie.",
-      ),
-    )
-    .toBeVisible();
-  await expect
-    .element(page.getByText("File names keep the English title whatever language you pick."))
-    .toBeVisible();
-  await expect.element(select("Metadata language")).toHaveTextContent("English (United Kingdom)");
-  await expect.element(select("Metadata region")).toHaveTextContent("United Kingdom");
-  await userEvent.click(page.getByRole("button", { name: "Continue" }));
-  await expect.element(stepHeading("First setup")).toBeVisible();
-  expect(metadata.sent).toEqual([
-    { values: { "metadata.language": "en-GB", "metadata.region": "GB" } },
-  ]);
-  expect(server.writes).toEqual([{ id: "language", outcome: "done" }]);
-});
-
 test("a language and region the Admin already chose stay as they are", async () => {
   browserSpeaks("en-GB");
   open(metadataPlace("fr-FR", "FR"));

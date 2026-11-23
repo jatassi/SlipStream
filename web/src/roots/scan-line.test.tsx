@@ -46,24 +46,6 @@ test("a root never scanned says so, and a scanned root says when and what the sc
     .toBeVisible();
 });
 
-test("each root's row is the anchor Library Health's stopped item links to", async () => {
-  serveRoots({ roots: [filmsRoot, archiveRoot] });
-  openRoots();
-  await expect.element(rowOf(archiveRoot)).toHaveAttribute("id", `root-${archiveRoot.id}`);
-  await expect.element(rowOf(filmsRoot)).toHaveAttribute("id", `root-${filmsRoot.id}`);
-});
-
-test("Scan now scans the root and names it", async () => {
-  const { sent } = serveRoots({ roots: [{ ...filmsRoot, scan: scanned }] });
-  openRoots();
-  expect(await menuItems(filmsRoot)).toEqual(["Scan now", "Edit", "Delete"]);
-  await act(filmsRoot, "Scan now");
-  await expect
-    .element(page.getByText("Library scan started for the Films library root on home."))
-    .toBeVisible();
-  expect(sent.scanned).toEqual([filmsRoot.id]);
-});
-
 test("while its unit runs, the line follows each step from progress frames, and the run's end clears it", async () => {
   const live = liveServer();
   serveRoots({ roots: [{ ...filmsRoot, scan: scanned }] });

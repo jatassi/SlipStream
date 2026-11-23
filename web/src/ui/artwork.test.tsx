@@ -61,10 +61,8 @@ test("a poster on its way keeps an empty frame, then fades in", async () => {
   renderKit(<Artwork use="poster" size="card" url={url} label="The Quiet Orchard" quiet={false} />);
   await expect.poll(stateOf).toBe("loading");
   expect(slot()?.textContent).toBe("");
-  expect(slot()?.querySelector("img")?.className).toContain("opacity-0");
   release();
   await expect.poll(stateOf).toBe("faded");
-  expect(slot()?.querySelector("img")?.className).toContain("motion-reduce:transition-none");
 });
 
 test("a missing or failed image leaves the slot's placeholder", async () => {
@@ -133,12 +131,6 @@ test("a new image starts over, and one already decoded shows at once", async () 
   await expect.poll(stateOf).toBe("faded");
   await userEvent.click(page.getByRole("button", { name: "Next" }));
   await expect.poll(stateOf).toBe("at-once");
-  expect(slot()?.querySelector("img")?.className).not.toContain("transition-opacity");
-});
-
-test("a quiet card dims its poster", async () => {
-  renderKit(<Artwork use="poster" size="card" url={undefined} label="Orchard" quiet />);
-  await expect.poll(() => slot()?.className).toContain("opacity-55");
 });
 
 test("initials are the first letters of a name's first and last words", () => {

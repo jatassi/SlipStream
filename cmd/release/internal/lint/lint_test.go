@@ -11,7 +11,7 @@ func rule(name string, findings ...lint.Finding) lint.Rule {
 	return lint.Rule{Name: name, Check: func(*lint.Repo) ([]lint.Finding, error) { return findings, nil }}
 }
 
-func TestRunPrintsSortedFindingsAndFails(t *testing.T) {
+func TestRunPrintsSortedFindingsAndFailsOnlyWithFindings(t *testing.T) {
 	var out strings.Builder
 	err := lint.Run(&out, lint.Open(t.Context(), t.TempDir()), []lint.Rule{
 		rule("b-rule",
@@ -28,14 +28,9 @@ func TestRunPrintsSortedFindingsAndFails(t *testing.T) {
 	if err == nil || err.Error() != "3 findings" {
 		t.Errorf("err = %v, want 3 findings", err)
 	}
-}
 
-func TestRunPassesWithoutFindings(t *testing.T) {
-	var out strings.Builder
-	if err := lint.Run(&out, lint.Open(t.Context(), t.TempDir()), []lint.Rule{rule("clean")}); err != nil {
-		t.Fatal(err)
-	}
-	if out.String() != "" {
-		t.Errorf("output = %q, want none", out.String())
+	var clean strings.Builder
+	if err := lint.Run(&clean, lint.Open(t.Context(), t.TempDir()), []lint.Rule{rule("clean")}); err != nil || clean.String() != "" {
+		t.Errorf("a clean run = %q, %v; want no output and no error", clean.String(), err)
 	}
 }

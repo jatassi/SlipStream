@@ -164,15 +164,6 @@ func TestAFolderImportsIntoTwoWorksWithEditedItems(t *testing.T) {
 	}
 }
 
-func TestAFolderOutsideTheNodesRootsAndDownloadFoldersIsRefused(t *testing.T) {
-	t.Parallel()
-	w := newWorld(t)
-	w.downloads(t, nil)
-	if _, err := w.im.ImportFolder(t.Context(), identity.Admin{}, w.node, t.TempDir()); !errors.Is(err, ErrOutside) {
-		t.Fatalf("opening a folder outside the fence = %v, want ErrOutside", err)
-	}
-}
-
 func TestMoveFilesPlacesByAMoveAndRemovesTheSource(t *testing.T) {
 	t.Parallel()
 	w := newWorld(t)

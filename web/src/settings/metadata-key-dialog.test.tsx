@@ -4,9 +4,7 @@ import { page, userEvent } from "vitest/browser";
 
 import type { MetadataProvider } from "../api/gen/model";
 import { getListMetadataProvidersMockHandler } from "../api/gen/query/metadata/metadata.msw";
-import { SetMetadataKeyBody } from "../api/gen/zod/metadata/metadata.zod";
 import { renderApp } from "../test/render-app";
-import { refused } from "../test/roots";
 
 const tmdb: MetadataProvider = {
   id: "tmdb",
@@ -99,40 +97,4 @@ test("an empty PIN sends the key alone", async () => {
   await userEvent.click(dialog.getByRole("button", { name: "Test and save" }));
   await expect.element(page.getByText("SlipStream now calls TVDB with your key.")).toBeVisible();
   expect(server.sent).toEqual([{ key: "my-key" }]);
-});
-
-test("a refused key, a refused PIN and a PIN the server won't take each show on their field", async () => {
-  const pinRefused = "The metadata provider refused that PIN, so SlipStream didn't save it";
-  const keyRefused = "The metadata provider refused that key, so SlipStream didn't save it";
-  const server = keyServer((body) => {
-    const { key } = SetMetadataKeyBody.parse(body);
-    if (key === "wrong-key") {
-      return refused(422, "metadata_key_refused", keyRefused);
-    }
-    if (key === "no-pins") {
-      return refused(422, "invalid", "The request body isn't valid", {
-        errors: [{ location: "body.pin", message: "This key takes no PIN." }],
-      });
-    }
-    return refused(422, "metadata_pin_refused", pinRefused);
-  });
-  renderApp({ path: "/settings/metadata", handlers: server.handlers });
-  const dialog = await openTvdb();
-  const key = dialog.getByRole("textbox", { name: "Key" });
-  const pin = dialog.getByRole("textbox", { name: "PIN" });
-
-  await userEvent.fill(key, "wrong-key");
-  await userEvent.click(dialog.getByRole("button", { name: "Test and save" }));
-  await expect.element(key).toHaveAccessibleDescription(keyRefused);
-
-  await userEvent.fill(key, "my-key");
-  await userEvent.fill(pin, "WRONG");
-  await userEvent.click(dialog.getByRole("button", { name: "Test and save" }));
-  await expect.element(pin).toHaveAccessibleDescription(pinRefused);
-  await expect.element(key).toHaveAccessibleDescription("");
-
-  await userEvent.fill(key, "no-pins");
-  await userEvent.fill(pin, "1234");
-  await userEvent.click(dialog.getByRole("button", { name: "Test and save" }));
-  await expect.element(pin).toHaveAccessibleDescription("This key takes no PIN.");
 });

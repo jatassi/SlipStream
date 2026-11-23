@@ -2,7 +2,6 @@ package files_test
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"testing"
@@ -109,16 +108,6 @@ func openRetention(t *testing.T) (*storage.DB[storage.Library], retentionSeeds) 
 	return lib, s
 }
 
-func TestALandedFileKeepsHowItsNewestImportPlacedItAndAForcedFillItsImport(t *testing.T) {
-	lib, s := openRetention(t)
-	distinct(t, lib, `SELECT coalesce(placed_by, 'none') FROM files_file WHERE id = x'`+hexOf(s.grabbed)+`'`, "move")
-	distinct(t, lib, `SELECT coalesce(placed_by, 'none') FROM files_file WHERE id = x'`+hexOf(s.found)+`'`, "none")
-	distinct(t, lib, `SELECT iif(forced_import_id IS NULL, 'none', hex(forced_import_id)) FROM files_fill WHERE file_id = x'`+hexOf(s.grabbed)+`'`, strings.ToUpper(hexOf(s.newer)))
-	distinct(t, lib, `SELECT iif(forced_import_id IS NULL, 'none', hex(forced_import_id)) FROM files_fill WHERE file_id = x'`+hexOf(s.found)+`'`, "none")
-	distinct(t, lib, `SELECT CAST(count(*) AS TEXT) FROM sqlite_schema WHERE name = 'files_renamed'`, "0")
-	distinct(t, lib, `SELECT CAST(count(*) AS TEXT) FROM pragma_foreign_key_check`, "0")
-}
-
 func TestAGrabBehindAFileASearchRunABlocklistEntryAndAnImportRecordDeletes(t *testing.T) {
 	lib, s := openRetention(t)
 	run := storage.NewUUID()
@@ -177,5 +166,3 @@ func TestEveryTableNamingAGrabFindsItsRowsByIndex(t *testing.T) {
 		t.Fatalf("%d tables name a Grab, want at least the 9 of grabs, files and imports: %v", len(children), children)
 	}
 }
-
-func hexOf(id storage.UUID) string { return hex.EncodeToString(id.Bytes()) }

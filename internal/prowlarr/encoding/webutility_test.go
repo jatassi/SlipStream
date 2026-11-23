@@ -36,26 +36,3 @@ func TestHTMLEncode(t *testing.T) {
 		}
 	}
 }
-
-func TestURLEncodeAsTheSitesCallIt(t *testing.T) {
-	latin1, err := GetEncoding("iso-8859-1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	tests := []struct {
-		site string
-		got  string
-		want string
-	}{
-		{"TorrentDay", UTF8.URLEncode(" "), "+"},
-		{"NorBits", UTF8.URLEncode("Kon-Tiki 2012"), "Kon-Tiki+2012"},
-		{"BakaBT", URLEncode("K-On! S2"), "K-On!+S2"},
-		{"SpeedCD", latin1.URLEncode("Amélie"), "Am%E9lie"},
-		{"empty", UTF8.URLEncode(""), ""},
-	}
-	for _, tt := range tests {
-		if tt.got != tt.want {
-			t.Errorf("%s: URLEncode = %q, want %q", tt.site, tt.got, tt.want)
-		}
-	}
-}

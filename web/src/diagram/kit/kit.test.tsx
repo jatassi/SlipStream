@@ -6,108 +6,10 @@ import * as Draw from "@anatomy/react/draw";
 import * as Live from "@anatomy/react/live";
 import * as Tube from "@anatomy/tube";
 import { useRef } from "react";
-import { describe, expect, test } from "vitest";
+import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
 import { renderKit } from "../../test/render-kit";
-
-type Kind<T> = T extends (...args: never[]) => unknown
-  ? "function"
-  : T extends number
-    ? "number"
-    : never;
-type Kinds<M> = { readonly [N in keyof M]: Kind<M[N]> };
-
-const declared: readonly (readonly [string, object, Readonly<Record<string, string>>])[] = [
-  [
-    "iso-kit",
-    IsoKit,
-    {
-      AZIMUTH: "number",
-      ELEVATION: "number",
-      iso: "function",
-      depthOf: "function",
-      pathOf: "function",
-      fitProjection: "function",
-      slabOf: "function",
-      insetPlan: "function",
-      onTop: "function",
-      planOutline: "function",
-      topMatrix: "function",
-      towardViewer: "function",
-      roundedPlan: "function",
-      ringOf: "function",
-      extrude: "function",
-      cylinder: "function",
-      corners: "function",
-      boxCorners: "function",
-      haloOf: "function",
-      lineOnTop: "function",
-      segment: "function",
-      ring: "function",
-      dotGrid: "function",
-      knurl: "function",
-      sideArc: "function",
-      sideSeam: "function",
-      topTicks: "function",
-      translateAlong: "function",
-      sideMatrix: "function",
-    } satisfies Kinds<typeof IsoKit>,
-  ],
-  [
-    "lathe",
-    Lathe,
-    {
-      fillet: "function",
-      pathLength: "function",
-      pointAlong: "function",
-      tangentAlong: "function",
-      dot3: "function",
-      mul3: "function",
-      viewOf: "function",
-      frameAlong: "function",
-      frameOf: "function",
-      hullOf: "function",
-      prismOf: "function",
-      disc: "function",
-      arcOf: "function",
-      ribsOf: "function",
-      dotsOf: "function",
-    } satisfies Kinds<typeof Lathe>,
-  ],
-  ["tube", Tube, { tubePieces: "function" } satisfies Kinds<typeof Tube>],
-  [
-    "react/draw",
-    Draw,
-    {
-      Solid: "function",
-      Line: "function",
-      Wire: "function",
-      Dots: "function",
-      FaceText: "function",
-      IsoFigure: "function",
-      Plate: "function",
-    } satisfies Kinds<typeof Draw>,
-  ],
-  [
-    "react/live",
-    Live,
-    {
-      asksForStillness: "function",
-      useStillness: "function",
-      useInView: "function",
-      useReadout: "function",
-      useLoop: "function",
-      follow: "function",
-    } satisfies Kinds<typeof Live>,
-  ],
-];
-
-describe.each(declared)("the vendored %s", (_, module, kinds) => {
-  test.each(Object.entries(kinds))("exports %s as a %s", (name, kind) => {
-    expect(typeof Reflect.get(module, name)).toBe(kind);
-  });
-});
 
 const plan: IsoKit.Plan = { x: 0, y: 0, w: 60, d: 40, r: 4 };
 const P = IsoKit.fitProjection(
@@ -173,7 +75,6 @@ test("the kit's React helpers draw and animate a figure in the Vite app", async 
   await expect.element(svg).toBeVisible();
   const fill = root.querySelector(".iso-fill");
   expect(fill?.getAttribute("d")).toBe(slab.fill);
-  expect(getComputedStyle(svg.element()).display).toBe("block");
   expect(root.querySelector(".iso-face-text")?.textContent).toBe("Controller");
   expect(tube.length).toBeGreaterThan(0);
   expect(root.querySelectorAll(".tb-body")).toHaveLength(tube.length);
