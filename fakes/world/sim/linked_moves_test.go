@@ -232,10 +232,10 @@ func (l linked) expectDone(t *testing.T, batch moves.BatchID) {
 	}
 }
 
-// expectSeedsFilm checks node's Torrent of the hash keeps its payload in a
-// folder whose file is film, and every payload file in node's data is
-// film too.
-func (l linked) expectSeedsFilm(t *testing.T, node, film string) {
+// expectSeedsFilm checks the Torrent of the hash on the Node named on
+// keeps its payload in a folder whose file is film, and every payload
+// file in that Node's data is film too.
+func (l linked) expectSeedsFilm(t *testing.T, on, film string) {
 	t.Helper()
 	of, err := os.Stat(film)
 	if err != nil {
@@ -243,11 +243,11 @@ func (l linked) expectSeedsFilm(t *testing.T, node, film string) {
 	}
 	var id storage.UUID
 	if err := l.w.Node("home").Half().Library.QueryRowContext(t.Context(), `SELECT t.id FROM downloadclients_torrent t
-		JOIN nodes_node n ON n.id = t.node_id WHERE t.info_hash = ? AND t.removed_at IS NULL AND n.name = ?`, l.seed.hash[:], node).Scan(&id); err != nil {
+		JOIN nodes_node n ON n.id = t.node_id WHERE t.info_hash = ? AND t.removed_at IS NULL AND n.name = ?`, l.seed.hash[:], on).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 	var folder string
-	within(t, time.Hour, node+" reports where it keeps the torrent", func() bool {
+	within(t, time.Hour, on+" reports where it keeps the torrent", func() bool {
 		folder = simtest.Decode[struct {
 			SaveFolder string `json:"saveFolder"`
 		}](t, "getTorrent", l.w.API().Admin("home", http.MethodGet, "/api/v1/torrents/"+id.String(), "")).SaveFolder
@@ -255,11 +255,11 @@ func (l linked) expectSeedsFilm(t *testing.T, node, film string) {
 	})
 	seeds, err := os.Stat(filepath.Join(folder, orchard+".mkv"))
 	if err != nil || !os.SameFile(seeds, of) {
-		t.Errorf("%s seeds the payload in %s, not the film %s (%v)", node, folder, film, err)
+		t.Errorf("%s seeds the payload in %s, not the film %s (%v)", on, folder, film, err)
 	}
-	for _, p := range payloads(t, l.w.Node(node).DataDir().Path()) {
+	for _, p := range payloads(t, l.w.Node(on).DataDir().Path()) {
 		if info, err := os.Stat(p); err != nil || !os.SameFile(info, of) {
-			t.Errorf("%s keeps %s, a copy apart from the film (%v)", node, p, err)
+			t.Errorf("%s keeps %s, a copy apart from the film (%v)", on, p, err)
 		}
 	}
 }

@@ -1,6 +1,7 @@
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
+import type { Locator, Page } from "@playwright/test";
 import { z } from "zod";
 
 import { workAction } from "./cells.ts";
@@ -25,20 +26,9 @@ async function films(folder: string): Promise<string[]> {
     .map((entry) => join(entry.parentPath, entry.name));
 }
 
-test("a Work moves from seedbox to den with its linked torrent, its file still a hard link of the payload", async ({
-  adminPage: page,
-  world,
-}, testInfo) => {
-  const { mediaDir } = world.manifest;
-  if (mediaDir === undefined) {
-    throw new Error("the moves Scenario has no media folder");
-  }
-  const workId = await imported(world);
-  const [before] = await films(join(mediaDir, "movies-d"));
-  expect(before, "the import placed the film in seedbox's movies-d").toBeDefined();
-  expect((await stat(before ?? "")).nlink, "the film is a hard link of seedbox's payload").toBe(2);
-
-  await page.goto(`/works/${workId}`);
+// previewToDen opens the Work's Move dialog and previews its Move with its
+// torrent to den's movies-e, answering the dialog.
+async function previewToDen(page: Page): Promise<Locator> {
   await workAction(page, "Move to…", orchard);
   const dialog = page.getByRole("dialog", { name: `Move ${orchard}` });
   await dialog.getByRole("combobox", { name: "Move to" }).click();
@@ -54,6 +44,24 @@ test("a Work moves from seedbox to den with its linked torrent, its file still a
     dialog.getByRole("listitem").filter({ hasText: "the built-in client on den" }),
     "Details names the clients the torrent copies between",
   ).toContainText("the built-in client on seedbox");
+  return dialog;
+}
+
+test("a Work moves from seedbox to den with its linked torrent, its file still a hard link of the payload", async ({
+  adminPage: page,
+  world,
+}, testInfo) => {
+  const { mediaDir } = world.manifest;
+  if (mediaDir === undefined) {
+    throw new Error("the moves Scenario has no media folder");
+  }
+  const workId = await imported(world);
+  const [before] = await films(join(mediaDir, "movies-d"));
+  expect(before, "the import placed the film in seedbox's movies-d").toBeDefined();
+  expect((await stat(before ?? "")).nlink, "the film is a hard link of seedbox's payload").toBe(2);
+
+  await page.goto(`/works/${workId}`);
+  const dialog = await previewToDen(page);
   await expectAccessible(page);
   await screenshotWholePage(page, testInfo.outputPath("preview.png"));
   await dialog.getByRole("button", { name: /^Move \d/u }).click();
