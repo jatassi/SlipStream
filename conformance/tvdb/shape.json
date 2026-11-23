@@ -11,7 +11,7 @@
     "$.data.episodes": "array",
     "$.data.episodes[]": "object",
     "$.data.episodes[].absoluteNumber": "number",
-    "$.data.episodes[].aired": "string",
+    "$.data.episodes[].aired": "null|string",
     "$.data.episodes[].airsAfterSeason": "number",
     "$.data.episodes[].airsBeforeEpisode": "number",
     "$.data.episodes[].airsBeforeSeason": "number",
