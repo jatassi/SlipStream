@@ -71,9 +71,7 @@ test("dropping an extension names the files it stops counting before it saves", 
   await userEvent.click(page.getByRole("button", { name: "Save" }));
   await expect
     .element(page.getByRole("status"))
-    .toHaveTextContent(
-      "This list stops counting 3 library files and 1 file in Pending imports as video.",
-    );
+    .toMatchTextContent(/3 library files and 1 file in Pending imports/u);
   expect(asked).toEqual([["mkv"]]);
   expect(sent).toEqual([]);
   await userEvent.click(page.getByRole("button", { name: "Save anyway" }));

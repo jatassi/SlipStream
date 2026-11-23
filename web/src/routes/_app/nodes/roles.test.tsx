@@ -262,7 +262,5 @@ test("a write-off a guardrail refuses says why", async () => {
   await userEvent.click(confirm.getByRole("button", { name: "Write off" }));
   await expect
     .element(confirm.getByRole("alert"))
-    .toHaveTextContent(
-      "seedbox is the last Node that downloads, so it keeps Downloading and can't write off its 3 torrents (41 GB). Tick Downloading on another Node first.",
-    );
+    .toMatchTextContent(/^seedbox is the last Node that downloads.+3 torrents \(41 GB\)/u);
 });

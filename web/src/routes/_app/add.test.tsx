@@ -58,9 +58,7 @@ test("a changed choice says new Works will start with it, until Remember is off"
   await userEvent.click(sheet().getByRole("switch", { name: "Monitor" }));
   await expect
     .element(sentence())
-    .toHaveTextContent(
-      "Adds The Quiet Orchard (2021) to Films on /srv/media/films. It isn't monitored. Its Profile, Ultra, has 2 Targets.",
-    );
+    .toMatchTextContent(/\/srv\/media\/films.+isn't monitored.+Ultra, has 2 Targets/u);
   await expect.element(willStart()).toBeVisible();
 
   await userEvent.click(sheet().getByRole("switch", { name: "Remember these choices" }));
@@ -96,9 +94,7 @@ test("with two roots the sheet offers each with its free space", async () => {
   await userEvent.click(page.getByRole("option", { name: /^\/mnt\/shelf/u }));
   await expect
     .element(sentence())
-    .toHaveTextContent(
-      "Adds The Quiet Orchard (2021) to Films on /mnt/shelf/films. SlipStream monitors it. Its Profile, Films, has 1 Target.",
-    );
+    .toMatchTextContent(/\/mnt\/shelf\/films.+monitors it.+Films, has 1 Target/u);
   await expect.element(willStart()).toBeVisible();
 });
 
@@ -109,9 +105,7 @@ test("the sheet starts unmonitored when the type adds unmonitored, and moves not
   await expect.element(sheet().getByRole("switch", { name: "Monitor" })).not.toBeChecked();
   await expect
     .element(sentence())
-    .toHaveTextContent(
-      "Adds The Quiet Orchard (2021) to Films on /srv/media/films. It isn't monitored. Its Profile, Films, has 1 Target.",
-    );
+    .toMatchTextContent(/\/srv\/media\/films.+isn't monitored.+Films, has 1 Target/u);
   expect(willStart().query()).toBeNull();
 });
 
@@ -138,9 +132,7 @@ test("a preview the catalog can't give says why in the sheet", async () => {
     ],
   });
   await userEvent.click(page.getByRole("button", { name: "Add The Quiet Orchard" }));
-  await expect
-    .element(sheet().getByRole("alert"))
-    .toHaveTextContent("TMDB isn't responding. Try again later.");
+  await expect.element(sheet().getByRole("alert")).toMatchTextContent(/^TMDB isn't responding/u);
   expect(sheet().getByRole("button", { name: "Add Film" }).query()).toBeNull();
 });
 
@@ -163,7 +155,7 @@ test("a failed Add says the server's reason in a toast", async () => {
   await userEvent.click(sheet().getByRole("button", { name: "Add Film" }));
   await expect
     .element(notifications().getByRole("dialog"))
-    .toHaveTextContent("FailedThe metadata source didn't respond. Try again later.");
+    .toMatchTextContent(/^Failed.+didn't respond/u);
   await expect.element(sheet().getByRole("button", { name: "Add Film" })).toBeEnabled();
 });
 

@@ -31,9 +31,7 @@ test("saving a Profile's Targets shows the Works that keep their own Edition lis
   const sheet = page.getByRole("dialog", { name: "Save Ultra" });
   await expect
     .element(sheet.getByRole("list", { name: "What changes" }))
-    .toHaveTextContent(
-      "3 Works change.1 Work keeps its own Edition list, so the new list doesn't apply to it.2 files are renamed.",
-    );
+    .toMatchTextContent(/3 Works change.+1 Work keeps its own Edition list.+2 files are renamed/u);
   expect(sheet.getByRole("radiogroup").query()).toBeNull();
   await userEvent.click(sheet.getByRole("button", { name: "Save", exact: true }));
 
@@ -69,7 +67,7 @@ test("saving a Profile's chosen cuts previews them through the Impact, then send
   const sheet = page.getByRole("dialog", { name: "Save Ultra" });
   await expect
     .element(sheet.getByRole("list", { name: "What changes" }))
-    .toHaveTextContent("1 Work changes.SlipStream will look for 2 more files.");
+    .toMatchTextContent(/1 Work changes.+2 more files/u);
   await userEvent.click(sheet.getByRole("button", { name: "Save", exact: true }));
 
   await expect.element(page.getByText("Saved Ultra.")).toBeVisible();

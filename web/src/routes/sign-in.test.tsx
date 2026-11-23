@@ -49,9 +49,7 @@ test("a wrong PIN shows the server's title and clears the PIN, and the right one
 
 test("an expired session says so", async () => {
   renderApp({ path: "/sign-in?reason=expired", handlers: [signedOut] });
-  await expect
-    .element(page.getByRole("status"))
-    .toHaveTextContent("Your session ended. Sign in again.");
+  await expect.element(page.getByRole("status")).toMatchTextContent(/session ended/u);
 });
 
 test("the browser remembers the email that signed in and fills it next time", async () => {

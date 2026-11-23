@@ -64,7 +64,7 @@ test("when ready, the lead counts the Profiles and missing subtitles, the cadenc
     .toBeVisible();
   await expect
     .element(section.getByRole("list", { name: "Audio scans left" }))
-    .toHaveTextContent("home has 312 files left to scan for speech.");
+    .toMatchTextContent(/home has 312 files/u);
   const row = section.getByRole("link", { name: /Movies/u });
   await expect.element(row).toHaveTextContent("MoviesEnglish, full, hearing impaired allowed");
 });

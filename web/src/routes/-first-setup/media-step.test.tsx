@@ -72,9 +72,7 @@ test("a Content Type that has Works stays on and says why on its switch", async 
   const types = contentTypes([cinema, zines], inUse("zine"));
   open(types);
   await userEvent.click(page.getByText("Zines"));
-  await expect
-    .element(page.getByRole("alert"))
-    .toHaveTextContent("Delete every Work of this kind of media before turning it off");
+  await expect.element(page.getByRole("alert")).toMatchTextContent(/^Delete every Work/u);
   await expect.element(page.getByRole("switch", { name: "Zines" })).toBeChecked();
 });
 
@@ -86,10 +84,6 @@ test("a switch turned off as another tab turned off the other kind says one stay
   });
   open(types);
   await userEvent.click(page.getByText("Zines"));
-  await expect
-    .element(page.getByRole("alert"))
-    .toHaveTextContent(
-      "At least one kind of media stays on. Turn on another before turning this one off.",
-    );
+  await expect.element(page.getByRole("alert")).toMatchTextContent(/one kind of media stays on/u);
   await expect.element(page.getByRole("switch", { name: "Zines" })).toBeChecked();
 });

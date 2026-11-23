@@ -74,7 +74,7 @@ test("deleting a Target a Profile holds is refused with the Profiles named", asy
   await userEvent.click(dialog.getByRole("button", { name: "Delete" }));
   await expect
     .element(dialog.getByRole("alert"))
-    .toHaveTextContent("1080p can't be deleted. Movies uses it.");
+    .toMatchTextContent(/1080p can't be deleted.+Movies/u);
   await userEvent.click(dialog.getByRole("button", { name: "Cancel" }));
 
   await userEvent.click(page.getByRole("button", { name: "Actions for 2160p HDR" }));

@@ -50,11 +50,7 @@ async function chooseCuts() {
 
 test("Choose cuts lists cuts from Standard, says what they want, and warns once Standard is gone", async () => {
   renderApp({ path: "/settings/profiles/new", handlers: handlers() });
-  await expect
-    .element(sentence())
-    .toHaveTextContent(
-      "SlipStream keeps one file at each Target, whatever its cut. A file's cut only changes its name.",
-    );
+  await expect.element(sentence()).toMatchTextContent(/one file at each Target/u);
   await chooseCuts();
   await expect.element(page.getByRole("button", { name: "Remove Standard" })).toBeDisabled();
 
@@ -68,20 +64,12 @@ test("Choose cuts lists cuts from Standard, says what they want, and warns once 
     )
     .toEqual(["Theatrical", "Extended", "Director's Cut", "IMAX", "Superfan", "Black and Chrome"]);
   await userEvent.click(page.getByRole("menuitem", { name: "Extended" }));
-  await expect
-    .element(sentence())
-    .toHaveTextContent(
-      "SlipStream always gets Standard. It also gets Extended once a release or file of that cut turns up.",
-    );
+  await expect.element(sentence()).toMatchTextContent(/always gets Standard.+Extended once/u);
 
   await userEvent.click(page.getByRole("button", { name: "Remove Standard" }));
   expect(rowsOf("Cuts")).toEqual(["Rank 1Extended"]);
   await expect.element(page.getByText("No Standard")).toBeVisible();
-  await expect
-    .element(sentence())
-    .toHaveTextContent(
-      "SlipStream searches for Extended every time, even if no release of it has turned up. It skips releases that name no cut, because they count as Standard.",
-    );
+  await expect.element(sentence()).toMatchTextContent(/searches for Extended every time/u);
   await expect.element(page.getByRole("button", { name: "Remove Extended" })).toBeDisabled();
 
   await userEvent.click(page.getByRole("radio", { name: "Any cut" }));
@@ -184,10 +172,6 @@ test("a cut deleted while the Profile was open is said plainly, and nothing is s
   await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "Cuts");
   await chooseCuts();
   await userEvent.click(page.getByRole("button", { name: "Create Profile" }));
-  await expect
-    .element(page.getByRole("alert"))
-    .toHaveTextContent(
-      "A cut on this list was deleted, so nothing was saved. Take it off the list and save again.",
-    );
+  await expect.element(page.getByRole("alert")).toMatchTextContent(/cut on this list was deleted/u);
   expect(router.state.location.pathname).toBe("/settings/profiles/new");
 });

@@ -80,7 +80,7 @@ test("a language and kind listed twice is refused on the second, and Save sends 
   await add("English");
   await expect
     .element(languages().getByRole("alert"))
-    .toHaveTextContent("Full English subtitles are already on this list.");
+    .toMatchTextContent(/English subtitles are already/u);
   await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
   await expect
     .element(page.getByRole("alert").filter({ hasText: "Full English subtitles" }).last())

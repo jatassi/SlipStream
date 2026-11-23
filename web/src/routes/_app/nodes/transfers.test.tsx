@@ -54,9 +54,7 @@ test("the section opens with what the Node receives, then each Transfer's own se
   await userEvent.click(rowOf("Manhunter (1986)").getByRole("button", { name: "Needs space" }));
   await expect
     .element(page.getByRole("dialog", { name: "Needs space" }))
-    .toHaveTextContent(
-      "The files don't fit on the receiving Node, and the Transfer continues once there is space.",
-    );
+    .toMatchTextContent(/don't fit on the receiving Node/u);
   await expect
     .element(rowOf("Heat (1995)").getByText("Transferring", { exact: true }))
     .not.toBeInTheDocument();

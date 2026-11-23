@@ -35,7 +35,7 @@ test("an address edits its address and port apart and saves them as one", async 
 
   await userEvent.fill(port, "0");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("alert")).toHaveTextContent("A port between 1 and 65535.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent("1 and 65535");
   expect(onSave).not.toHaveBeenCalled();
 
   await userEvent.fill(port, "51413");

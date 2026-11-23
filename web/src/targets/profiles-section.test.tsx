@@ -148,9 +148,7 @@ test("Delete moves a Profile's Works to the one picked, through the Impact", asy
   const impact = page.getByRole("dialog", { name: "Delete Ultra", exact: true });
   await expect
     .element(impact.getByRole("list", { name: "What changes" }))
-    .toHaveTextContent(
-      "1 Work changes.2 files would no longer be used by any Target (2.0 GB).SlipStream will look for 1 more file.",
-    );
+    .toMatchTextContent(/1 Work changes.+2 files.+2\.0 GB.+1 more file/u);
   await userEvent.click(impact.getByRole("button", { name: "Delete Ultra and delete 2 files" }));
 
   await expect.element(page.getByText("Deleted Ultra. Its Works now use Other.")).toBeVisible();

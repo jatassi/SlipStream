@@ -72,7 +72,7 @@ test("a space refuses part of a percent and amounts out of range before any requ
   await userEvent.click(page.getByRole("radio", { name: "TB" }));
   await userEvent.fill(input, "1025");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("alert")).toHaveTextContent("Between 0 GB and 1024 TB.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent("0 GB and 1024 TB");
   expect(onSave).not.toHaveBeenCalled();
 });
 

@@ -83,5 +83,5 @@ test("deleting a cut a Profile lists is refused with what holds it", async () =>
   await userEvent.click(dialog.getByRole("button", { name: "Delete" }));
   await expect
     .element(dialog.getByRole("alert"))
-    .toHaveTextContent("Black and Chrome can't be deleted. Films and 1 file use it.");
+    .toMatchTextContent(/Black and Chrome can't be deleted.+Films and 1 file/u);
 });

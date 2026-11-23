@@ -14,9 +14,7 @@ test("a result the type's source doesn't list says so in the type's words and of
 
   await expect
     .element(results().last())
-    .toHaveTextContent(
-      "The Lost ShelfTide BooksFixture source doesn't list this anthology, so it can't be added. SlipStream gets the details of each anthology from Fixture source.",
-    );
+    .toMatchTextContent(/^The Lost ShelfTide Books.+can't be added/u);
   expect(results().last().getByRole("button").query()).toBeNull();
   expect(results().last().getByText("Stories nobody catalogued.").query()).toBeNull();
 

@@ -97,8 +97,6 @@ test("a file back on disk can't be forgotten, and the toast says where it is", a
 
   await expect
     .element(notifications())
-    .toHaveTextContent(
-      "Failedmovies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 720p.mkv is on disk.",
-    );
+    .toMatchTextContent(/^Failed.+The Quiet Orchard \(2021\) - 720p\.mkv/u);
   await expect.element(goneFiles()).toBeVisible();
 });

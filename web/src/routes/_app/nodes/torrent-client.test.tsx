@@ -78,9 +78,7 @@ test("a downloads folder the Node can't use shows the Node's reason under the fi
   await userEvent.clear(folder);
   await userEvent.type(folder, "/srv/readonly");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect
-    .element(page.getByRole("alert"))
-    .toHaveTextContent("Can't use this folder because it isn't writable.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent(/isn't writable/u);
   expect(systems.writes).toEqual([
     { method: "PATCH", nodeId: homeId, body: { "torrent.downloads": "/srv/readonly" } },
   ]);

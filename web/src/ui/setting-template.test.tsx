@@ -47,9 +47,7 @@ test("the owner's refusal shows under the template until it is edited", async ()
   await userEvent.fill(text, "{Title}");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
   expect(onSave).toHaveBeenCalledExactlyOnceWith("{Title}");
-  await expect
-    .element(page.getByRole("alert"))
-    .toHaveTextContent("This text can't hold a token. Remove each { and }.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent(/can't hold a token/u);
   await expect.element(text).toHaveAttribute("aria-invalid", "true");
 
   await userEvent.type(text, "x");

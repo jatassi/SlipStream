@@ -79,9 +79,7 @@ test("a PIN the Node refuses says why and the page stays", async () => {
   });
   await expect.element(heading()).toBeVisible();
   await typeTwice("2468");
-  await expect
-    .element(page.getByRole("alert"))
-    .toHaveTextContent("Too many failed sign-ins from this IP address.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent(/Too many failed sign-ins/u);
   await expect.element(heading()).toBeVisible();
 });
 

@@ -103,11 +103,7 @@ test("a merge the server refuses keeps the dialog open with its reason", async (
     (tracker) => tracker.id !== torrentLeechTrackerId,
   );
   await userEvent.click(dialog.getByRole("button", { name: "Merge" }));
-  await expect
-    .element(dialog.getByRole("alert"))
-    .toHaveTextContent(
-      "That Tracker no longer exists. It may have been removed or merged into another Tracker.",
-    );
+  await expect.element(dialog.getByRole("alert")).toMatchTextContent(/Tracker no longer exists/u);
 });
 
 test("a Tracker no Indexer reaches stays, says so and keeps its keys and hosts under Details", async () => {

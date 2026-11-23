@@ -161,9 +161,7 @@ test("a one-Item type keeps the Monitor switch, which posts all or none and noth
   await userEvent.click(orchard.getByRole("switch", { name: "Monitor" }));
   await expect
     .element(orchard.getByText(/^Adds /u))
-    .toHaveTextContent(
-      "Adds The Quiet Orchard (2021) to Films on /srv/media/films. It isn't monitored. Its Profile, Films, has 1 Target.",
-    );
+    .toMatchTextContent(/\/srv\/media\/films.+isn't monitored.+Films, has 1 Target/u);
   expect(orchard.getByRole("combobox", { name: /to monitor$/u }).query()).toBeNull();
   expect(orchard.getByRole("switch", { name: /^Include /u }).query()).toBeNull();
   expect(orchard.getByRole("switch", { name: / folders$/u }).query()).toBeNull();

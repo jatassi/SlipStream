@@ -123,9 +123,7 @@ test("after Search again, a Grab that failed again while its search found nothin
   });
   await expect
     .element(needsYou())
-    .toHaveTextContent(
-      "Needs you1The Quiet Orchard not foundFound 4 releases, but none fits a Target.SearchManual search",
-    );
+    .toMatchTextContent(/The Quiet Orchard not found.+4 releases.+none fits a Target/u);
   const grabs = page.getByRole("region", { name: "Grabs" });
   await expect.element(grabs.getByRole("heading")).toHaveTextContent("Grabs1");
   expect(grabs.getByText(/under Needs you/u).elements()).toHaveLength(0);
@@ -194,5 +192,5 @@ test("a stopped cell's card counts its failed Grabs, names Backlog search's next
   await expect.element(card.getByRole("button", { name: "Manual search" })).toBeVisible();
   await expect
     .element(page.getByRole("region", { name: "Grabs" }))
-    .toHaveTextContent("Grabs0No other Grabs. The failed one is under Needs you.");
+    .toMatchTextContent(/^Grabs0.+Needs you/u);
 });

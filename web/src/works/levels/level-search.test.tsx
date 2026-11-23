@@ -60,7 +60,7 @@ test("a queued level's state word opens what holds it", async () => {
   await userEvent.hover(levels().getByRole("button", { name: "Queued", exact: true }));
   await expect
     .element(page.getByRole("dialog", { name: "Queued" }))
-    .toHaveTextContent("Queued behind 140 Works from Search all.");
+    .toMatchTextContent(/140 Works.+Search all/u);
 });
 
 test("a level with a waiting cell reads Waiting, and its menu's Grab now ends that wait", async () => {

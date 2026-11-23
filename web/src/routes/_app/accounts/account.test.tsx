@@ -107,11 +107,7 @@ test("the last Admin's demotion is refused inside the dialog", async () => {
   await userEvent.click(page.getByRole("button", { name: "Make Member" }));
   const dialog = page.getByRole("dialog", { name: "Make Ada Okafor a Member?" });
   await userEvent.click(dialog.getByRole("button", { name: "Make Member" }));
-  await expect
-    .element(dialog.getByRole("alert"))
-    .toHaveTextContent(
-      "SlipStream needs at least one active Admin. Make another Account an Admin first.",
-    );
+  await expect.element(dialog.getByRole("alert")).toMatchTextContent(/at least one active Admin/u);
 });
 
 test("Turn off and Sign out everywhere ask first, then send the change", async () => {

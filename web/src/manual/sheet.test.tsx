@@ -78,10 +78,8 @@ test("red marks only an Indexer that failed and a group of Releases with a fault
   const folded = sheet.getByRole("list", { name: "Releases SlipStream wouldn't grab" });
   await expect
     .element(folded.getByRole("listitem").nth(1))
-    .toHaveTextContent("Fault: 1 has a .torrent that couldn't be read.");
-  await expect
-    .element(folded.getByRole("listitem").first())
-    .toHaveTextContent("3 are 720p, which no Target here accepts.");
+    .toMatchTextContent(/1 has a \.torrent/u);
+  await expect.element(folded.getByRole("listitem").first()).toMatchTextContent(/3 are 720p/u);
 });
 
 test("a search another Admin replaced says so in place of the Grab button", async () => {

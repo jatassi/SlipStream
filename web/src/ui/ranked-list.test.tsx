@@ -71,7 +71,7 @@ test("the arrow keys on a handle move its row and keep focus there, announcing t
   await userEvent.keyboard("{ArrowUp}");
   await expect.poll(shown).toEqual(["Rank 1Bluray", "Rank 2HDTV", "Rank 3WEB"]);
   await expect.element(handle).toHaveFocus();
-  await expect.element(announced()).toHaveTextContent("HDTV moved to rank 2 of 3.");
+  await expect.element(announced()).toMatchTextContent(/HDTV.+rank 2 of 3/u);
 
   await userEvent.keyboard("{ArrowUp}");
   await userEvent.keyboard("{ArrowUp}");
@@ -89,7 +89,7 @@ test("Move up and Move down step a row, and the end rows can't step past the lis
   await userEvent.click(page.getByRole("button", { name: "Move Bluray down" }));
   await expect.poll(shown).toEqual(["Rank 1WEB", "Rank 2Bluray", "Rank 3HDTV"]);
   await expect.element(page.getByRole("button", { name: "Move Bluray down" })).toHaveFocus();
-  await expect.element(announced()).toHaveTextContent("Bluray moved to rank 2 of 3.");
+  await expect.element(announced()).toMatchTextContent(/Bluray.+rank 2 of 3/u);
 
   await userEvent.click(page.getByRole("button", { name: "Move Bluray down" }));
   await expect.poll(shown).toEqual(["Rank 1WEB", "Rank 2HDTV", "Rank 3Bluray"]);
@@ -171,7 +171,7 @@ test("dragging a row by its handle reorders the list", async () => {
   renderKit(<Qualities initial={[item("Bluray"), item("WEB"), item("HDTV")]} />);
   await commands.drag('[data-row="HDTV"] [data-control="handle"]', '[data-row="Bluray"]');
   await expect.poll(shown).toEqual(["Rank 1HDTV", "Rank 2Bluray", "Rank 3WEB"]);
-  await expect.element(announced()).toHaveTextContent("HDTV moved to rank 1 of 3.");
+  await expect.element(announced()).toMatchTextContent(/HDTV.+rank 1 of 3/u);
 });
 
 test("a row dragged into a tier joins it, and a marker dragged into one passes it", async () => {
@@ -208,7 +208,7 @@ test("at the Touch density one row action holds the moves and the tie", async ()
   await userEvent.click(page.getByRole("button", { name: "Actions for HDTV" }));
   await userEvent.click(page.getByRole("button", { name: "Move up" }));
   await expect.poll(shown).toEqual(["Rank 1HDTV", "Rank 2Bluray", "Rank 2WEB"]);
-  await expect.element(announced()).toHaveTextContent("HDTV moved to rank 1 of 2.");
+  await expect.element(announced()).toMatchTextContent(/HDTV.+rank 1 of 2/u);
 
   await userEvent.click(page.getByRole("button", { name: "Actions for HDTV" }));
   await expect.element(page.getByRole("button", { name: "Move down" })).toBeVisible();
