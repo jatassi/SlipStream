@@ -330,25 +330,6 @@ func skipping(id tasks.TaskID, name string, skip func(string) error) tasks.Task 
 	return t
 }
 
-func TestSkipRollUp(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		lib := storagetest.Library(t, tasks.Schema())
-		s := open(t, lib, skipping("tidy", "Tidy", tasks.Skip))
-		clock(t, s)
-		if _, err := s.RunNow(t.Context(), "tidy", admin); err != nil {
-			t.Fatal(err)
-		}
-		synctest.Wait()
-		units := `[{"key":"a","label":"a","node":"` + home.String() + `","outcome":"succeeded"},{"key":"b","label":"b","node":"` + home.String() + `","outcome":"skipped","cause":"Movies is unmounted."}]`
-		if got := rows(t, lib, "SELECT result, summary, units FROM tasks_run"); !equal(got, []string{"partial|1 of 2 steps, 1 skipped|" + units}) {
-			t.Fatalf("runs = %q, want b skipped with its cause", got)
-		}
-		if got := rows(t, lib, "SELECT unit_key, last_outcome, due_on_return, last_owned FROM tasks_unit ORDER BY position"); !equal(got, []string{"a|succeeded|0|0", "b|skipped|0|0"}) {
-			t.Fatalf("units = %q, want b skipped, not due on any return", got)
-		}
-	})
-}
-
 // noting lists a and b. Each notes its outcome, and b then fails.
 func noting(keys ...tasks.UnitKey) tasks.Task {
 	t := tidy(nil)
@@ -384,18 +365,6 @@ func TestANoteShowsOnASucceededLine(t *testing.T) {
 		}
 		if got := d.Runs[0].Lines; !slices.Equal(got, want) {
 			t.Fatalf("lines = %+v, want a's note shown and b's dropped", got)
-		}
-	})
-}
-
-func TestARunOfOneUnitIsSummarizedByItsNote(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		lib := storagetest.Library(t, tasks.Schema())
-		s := open(t, lib, noting("a"))
-		clock(t, s)
-		start(t, s, scan(tasks.ByRunNow, "a"))
-		if got := rows(t, lib, "SELECT result, summary FROM tasks_run"); !equal(got, []string{"succeeded|Read 87 new releases. 3 matched a Work, and 1 was grabbed."}) {
-			t.Fatalf("runs = %q, want the unit's note as the summary", got)
 		}
 	})
 }

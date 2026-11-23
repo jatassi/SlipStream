@@ -38,6 +38,19 @@ Before each push, run:
 
 Don't run locally the whole Go, e2e, component or browser tier, the Diagram check (unless you changed the Diagram roots) or another OS or engine. CI runs them. To run one lane again, dispatch the `ci` workflow with `tier` and `filter`. The full CI run on a feature's final PR into main is its all-tiers run, after you merge main and run the checks above.
 
+## Tests
+
+A test earns its place when a plausible bug fails it and no other test does. Before you add one, find the test that already drives the same path, and extend that test instead.
+
+- Test at the highest seam that sees the behavior: a package's API test world, then a Go e2e test, then a browser spec. Add a lower test only for a case the higher seam can't reach cheaply, such as a parser's edge input or a crash point.
+- Give each behavior one level. A flow a browser spec walks gets no component test that repeats it.
+- Assert what a user or a caller observes: an API answer, a row read back, a file on disk, a request a fake server received, a role and an accessible name. Assert the fact a sentence carries, such as a count, a state or a name, and not the sentence. WRITING.md review and the copy lints check copy.
+- Don't assert pixel sizes, font weights, colors, durations, class names or element nesting. Don't test React, Base UI, TanStack, `encoding/json`, sqlc or SQLite. Don't assert that a fake returns what the test told it to return.
+- Cover the inputs of one function with a table, or with a property over generated inputs such as a `Fuzz` target that seeds the examples. Don't write one test per example.
+- A spec's user stories aren't a test list. Its Testing Decisions name the seam and the invariants, and the build writes the fewest cases that break each invariant.
+- Never add a retry, a longer wait or a skip to make a flaky test pass. Find the race, as PRs #535 and #663 did, or delete the test when another test covers its behavior.
+- Deleting a test that no bug would fail is a good change.
+
 ## Verification
 
-Every PR that changes behaviour a user or a script can observe (UI, portal, API, host CLI, between Nodes) runs the verify-slipstream skill on the PR's head and pastes the run's `summary.md` into the PR's Verify section. Screenshots and videos go to the maintainer inline in chat, or on one private claude.ai Artifact when there are more than a few, and the PR carries only that link. Never attach media to a PR or commit anything under `.verify/`. The same PR updates or adds the feature files under `.claude/skills/verify-slipstream/features/` for every feature it touches and runs `bin/check-map.ts`. A PR that marks a parity row shipped cites it from a sub-feature. A PR that fixes a product bug verify found adds a regression test built from the run's journal. A PR with no observable change says "No observable change" and why. The rule is per PR, not per spec.
+Every PR that changes behaviour a user or a script can observe (UI, portal, API, host CLI, between Nodes) runs the verify-slipstream skill on the PR's head and pastes the run's `summary.md` into the PR's Verify section. Screenshots and videos go to the maintainer inline in chat, or on one private claude.ai Artifact when there are more than a few, and the PR carries only that link. Never attach media to a PR or commit anything under `.verify/`. The same PR updates or adds the feature files under `.claude/skills/verify-slipstream/features/` for every feature it touches and runs `bin/check-map.ts`. A PR that marks a parity row shipped cites it from a sub-feature. A PR that fixes a product bug verify found adds a regression test built from the run's journal, at the highest seam that fails without the fix, or extends the test that already drives that path. A PR with no observable change says "No observable change" and why. The rule is per PR, not per spec.

@@ -76,6 +76,9 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 	if _, _, err := LoadConfig(testDataDir(t), nil, noTypes, install.Dev); err != nil {
 		t.Fatalf("defaults do not load: %v", err)
 	}
+	if host, _ := os.Hostname(); cfg.Name != host {
+		t.Fatalf("name = %q, want the host name %q", cfg.Name, host)
+	}
 }
 
 func TestLoadConfigDrawsASeedOnlyWhenNoneIsSet(t *testing.T) {
@@ -167,17 +170,6 @@ func TestAJoinCodeIsAlwaysRedacted(t *testing.T) {
 	_, _, err = LoadConfig(testDataDir(t), []string{"SLIPSTREAM_JOIN_CODE=" + damaged}, noTypes, install.Dev)
 	if want := "env: SLIPSTREAM_JOIN_CODE: the Join Code is mistyped or cut short"; err == nil || err.Error() != want || ExitCode(err) != ExitUsage {
 		t.Fatalf("err = %v, want %q with exit %d", err, want, ExitUsage)
-	}
-}
-
-func TestTheLinkAndRoleSectionsHaveTheirDefaults(t *testing.T) {
-	cfg := Defaults(noTypes, install.Dev)
-	got := fmt.Sprint(cfg.Link, cfg.Timings.Link, cfg.Timings.Role)
-	if want := "{[::]:8485 [] 16777216} {10s 25s 10s 1s 1m0s 300ms 20s 10m0s 20s 10m0s} {1s 1m0s 15s 45s 10m0s}"; got != want {
-		t.Fatalf("link, timings.link, timings.role = %s, want %s", got, want)
-	}
-	if host, _ := os.Hostname(); cfg.Name != host {
-		t.Fatalf("name = %q, want the host name %q", cfg.Name, host)
 	}
 }
 

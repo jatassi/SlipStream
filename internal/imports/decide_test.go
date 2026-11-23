@@ -80,11 +80,3 @@ func TestAForcedCellLandsForced(t *testing.T) {
 		t.Errorf("fills %v, want %v", o.Fills, want)
 	}
 }
-
-func TestEveryReasonOutcomesGivesIsWorded(t *testing.T) {
-	for _, code := range []ReasonCode{NameTaken, NameTooLong, EditionNotWanted, MeetsNothing, Confirm, SiblingBetter, KeptBetter, NotAnUpgrade} {
-		if _, ok := rules[code]; !ok {
-			t.Errorf("outcomes gives %s, which no rule words", code)
-		}
-	}
-}

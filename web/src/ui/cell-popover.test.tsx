@@ -44,7 +44,7 @@ test("hovering a cell opens its detail after 120ms and moving to the next cell m
   await vi.advanceTimersByTimeAsync(119);
   await expect.element(detail("S01E01")).not.toBeInTheDocument();
   await vi.advanceTimersByTimeAsync(1);
-  await expect.element(detail("S01E01")).toHaveTextContent("Archive 1080p is in the library.");
+  await expect.element(detail("S01E01")).toMatchTextContent(/Archive 1080p.+in the library/u);
 
   await userEvent.hover(page.getByRole("button", { name: "S01E02" }));
   await expect.element(detail("S01E02")).toHaveTextContent("Archive 1080p is missing.");

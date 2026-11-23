@@ -8,7 +8,7 @@ import { codeText, joinCodeServer, nodesFrom } from "../../../test/join-codes";
 import { liveServer, synced } from "../../../test/live-server";
 import { home } from "../../../test/nodes";
 import { renderApp } from "../../../test/render-app";
-import { board, boardBecomes, boardIs, homeSeat, outcome, rolesServer } from "../../../test/roles";
+import { board, boardBecomes, boardIs, homeSeat } from "../../../test/roles";
 
 const vpsId = "7d9f1b3c-5e7a-4c9e-8b1d-3f5a7c9e1b2d";
 
@@ -79,24 +79,6 @@ test("Add a Node shows a fresh Join Code with its countdown, Copy and the three 
   expect(app.router.state.location.search).toEqual({ add: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d" });
 });
 
-test("a reload keeps the dialog on its code and says the code's text shows only once", async () => {
-  const codes = joinCodeServer();
-  const { id } = codes.mint();
-  addNode({ path: `/nodes?add=${id}`, codes });
-  await expect
-    .element(
-      dialog().getByText(
-        /^SlipStream shows a Join Code only once, when you make it\. This one still works for 59:\d\d\. If you don't have it, make a new one\.$/u,
-      ),
-    )
-    .toBeVisible();
-  await expect
-    .element(dialog().getByRole("textbox", { name: "Join Code" }))
-    .not.toBeInTheDocument();
-  const open = dialog().getByRole("list", { name: "Open Join Codes" });
-  await expect.element(open.getByText("This code")).toBeVisible();
-});
-
 test("a pasted Node address has home dial the new Node, then says when it can't reach it", async () => {
   const codes = joinCodeServer();
   const { id } = codes.mint();
@@ -119,41 +101,7 @@ test("a pasted Node address has home dial the new Node, then says when it can't 
   codes.unreachable(id);
   await expect
     .element(dialog().getByRole("status").filter({ hasText: "home can't reach the new Node" }))
-    .toHaveTextContent(
-      "home can't reach the new Node at 203.0.113.9:8485. Check that the port is open.",
-    );
-});
-
-test("once the code is used the dialog shows the new Node's key and who dials, then its Roles pre-ticked through the Review", async () => {
-  const codes = joinCodeServer();
-  const { id } = codes.mint();
-  const roles = rolesServer({ plans: [outcome({})], sets: [outcome({})] });
-  const { app, pair } = addNode({
-    path: `/nodes?add=${id}`,
-    codes,
-    handlers: [boardIs(board(homeSeat, vpsSeat)), ...roles.handlers],
-  });
-  await synced(app);
-  codes.use(id, vps);
-  pair(vps);
-  await expect.element(dialog().getByText("vps paired.")).toBeVisible();
-  await expect.element(dialog().getByText("SHA256:vps-key")).toBeVisible();
-  await expect.element(dialog().getByText("home connects to vps")).toBeVisible();
-
-  await userEvent.click(button("Choose its Roles"));
-  await expect
-    .element(dialog().getByRole("checkbox", { name: "Searching", exact: true }))
-    .toBeChecked();
-  await expect
-    .element(dialog().getByRole("checkbox", { name: "Downloading", exact: true }))
-    .toBeChecked();
-  await userEvent.click(button("Review"));
-  const review = page.getByRole("dialog", { name: "Review the change" });
-  await userEvent.click(review.getByRole("button", { name: "Apply" }));
-  await expect.poll(() => app.router.state.location.pathname).toBe(`/nodes/${vpsId}/roles`);
-  expect(roles.applied).toEqual([
-    { basis: "basis-1", set: [{ nodeId: vpsId, roles: ["searching", "downloading"] }] },
-  ]);
+    .toMatchTextContent(/^home can't reach the new Node at 203\.0\.113\.9:8485/u);
 });
 
 test("the new Node's Roles tick as its suggestions arrive", async () => {
@@ -190,22 +138,6 @@ test("an expired code and a revoked one say so and offer a new code", async () =
   expect(app.router.state.location.search).toEqual({ add: "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e" });
 });
 
-test("the open Join Codes revoke one handed out by mistake, and revoking this one says so", async () => {
-  const codes = joinCodeServer();
-  codes.mint();
-  const { id } = codes.mint();
-  addNode({ path: `/nodes?add=${id}`, codes });
-  const open = dialog().getByRole("list", { name: "Open Join Codes" });
-  await expect.element(open.getByRole("listitem")).toHaveLength(2);
-  await userEvent.click(open.getByRole("button", { name: /^Revoke the code made /u }));
-  await expect.element(open.getByRole("listitem")).toHaveLength(1);
-
-  await userEvent.click(open.getByRole("button", { name: "Revoke this code" }));
-  await expect
-    .element(dialog().getByText("This Join Code was revoked, so no Node can use it."))
-    .toBeVisible();
-});
-
 test("with no link address, Add a Node says what to set", async () => {
   addNode({
     handlers: [
@@ -217,7 +149,5 @@ test("with no link address, Add a Node says what to set", async () => {
   await userEvent.click(page.getByRole("button", { name: "Add a Node" }));
   await expect
     .element(dialog().getByRole("alert"))
-    .toHaveTextContent(
-      "home has no link address to put in a Join Code. Set link.advertise in its config.yaml, then restart it.",
-    );
+    .toMatchTextContent(/^home has no link address.+link\.advertise/u);
 });

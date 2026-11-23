@@ -1,5 +1,0 @@
-Title: Deleted Dune (1965)
-Line: Sam deleted it.
-Link: /library
-Tone: info
-Poster: tmdb /dune.jpg

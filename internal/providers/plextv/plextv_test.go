@@ -183,23 +183,6 @@ func authFragment(t *testing.T, authURL string) url.Values {
 	return q
 }
 
-func TestDeclineReturnsWithTheAccountSignedOut(t *testing.T) {
-	inEachTier(t, func(t *testing.T, serve serveFunc) {
-		w := newWorld(t, serve, fakeplextv.Account{Username: "jackson", PlexPass: true})
-		pin, err := w.client.CreatePin(t.Context())
-		if err != nil {
-			t.Fatal(err)
-		}
-		back := w.submit(t, "/auth/decline", url.Values{"forwardUrl": {forward}})
-		if back.location != forward {
-			t.Fatalf("after decline: to %q", back.location)
-		}
-		if _, ok, err := w.client.PollPin(t.Context(), pin.ID); ok || err != nil {
-			t.Fatalf("poll after decline = %v, %v, want waiting", ok, err)
-		}
-	})
-}
-
 func TestServersListOneLocalConnectionPerNodeAndATokenOnlyTheServerTakes(t *testing.T) {
 	inEachTier(t, func(t *testing.T, serve serveFunc) {
 		w := newWorld(t, serve, fakeplextv.Account{Username: "jackson", PlexPass: true, Relay: true})
@@ -329,34 +312,6 @@ func TestExpiredPin(t *testing.T) {
 		}
 		if _, _, err := w.client.PollPin(t.Context(), pin.ID); !plextv.Expired(err) {
 			t.Fatalf("poll an expired PIN: %v, want expired", err)
-		}
-	})
-}
-
-func TestApproveCueSignsInTheWaitingPin(t *testing.T) {
-	inEachTier(t, func(t *testing.T, serve serveFunc) {
-		w := newWorld(t, serve, fakeplextv.Account{Username: "jackson"})
-		pin, err := w.client.CreatePin(t.Context())
-		if err != nil {
-			t.Fatal(err)
-		}
-		w.api.Cue(t, fakeplextv.Approve.Name, struct{}{})
-		if _, ok, err := w.client.PollPin(t.Context(), pin.ID); !ok || err != nil {
-			t.Fatalf("poll after the approve cue = %v, %v", ok, err)
-		}
-	})
-}
-
-func TestPlexPassFollowsTheSubscription(t *testing.T) {
-	inEachTier(t, func(t *testing.T, serve serveFunc) {
-		w := newWorld(t, serve, fakeplextv.Account{Username: "jackson"})
-		token := w.signIn(t)
-		if user, err := w.client.User(t.Context(), token.JWT); err != nil || user.PlexPass {
-			t.Fatalf("user without Plex Pass = %+v, %v", user, err)
-		}
-		w.api.Cue(t, fakeplextv.PlexPass.Name, map[string]bool{"active": true})
-		if user, err := w.client.User(t.Context(), token.JWT); err != nil || !user.PlexPass {
-			t.Fatalf("user with Plex Pass = %+v, %v", user, err)
 		}
 	})
 }

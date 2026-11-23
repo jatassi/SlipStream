@@ -5,31 +5,12 @@ import type { HealthItem } from "../api/gen/model";
 import { healthServer, minutesAgo, reportOf } from "../test/health";
 import { renderApp } from "../test/render-app";
 import { seedpoolId, trackersServer } from "../test/trackers";
-import { asPhone } from "../test/viewport";
 
 const trackerPage = `/settings/trackers/${seedpoolId}`;
 const tabs = () => page.getByRole("navigation", { name: "seedpool" });
 const goalForm = () => page.getByRole("form", { name: "Seeding goal" });
 const ruleSection = () => page.getByRole("region", { name: "Rule" });
 const ruleForm = () => page.getByRole("form", { name: "Seeding rule" });
-
-test("Settings > Trackers lists each Tracker's privacy, rule, goal and torrents, and links to its page", async () => {
-  const { router } = renderApp({ path: "/settings/trackers", handlers: trackersServer().handlers });
-  const list = page.getByRole("list", { name: "Trackers" });
-  const row = list.getByRole("link", { name: /^seedpool/u });
-  await expect.element(row).toMatchTextContent("Private · Rule 10 days · Default goal");
-  await expect.element(row).toMatchTextContent("3 torrents· 2 need more seeding");
-  await expect.element(row.getByText("1 torrent at hit and run risk")).toBeInTheDocument();
-  await expect
-    .element(list.getByRole("link", { name: /^TorrentLeech/u }))
-    .toMatchTextContent("Private · Rule ratio 1.0 or 10 days · Default goal");
-  await expect
-    .element(list.getByRole("link", { name: /^Aither/u }))
-    .toMatchTextContent("Private · No rule known · Default goal");
-  await userEvent.click(row);
-  await expect.element(page.getByRole("heading", { name: "seedpool", level: 1 })).toBeVisible();
-  expect(router.state.location.pathname).toBe(trackerPage);
-});
 
 test("the default goal saves whole, and Forever sends no ratio, time or action", async () => {
   const server = trackersServer();
@@ -210,24 +191,6 @@ test("Remove of a Tracker nothing uses goes back to Settings > Trackers", async 
   );
   await expect.poll(() => router.state.location.pathname).toBe("/settings/trackers");
   expect(page.getByRole("link", { name: /^seedpool/u }).query()).toBeNull();
-});
-
-test("on a phone the Tracker page lists its sections as rows, with no tab row", async () => {
-  await asPhone();
-  const { router } = renderApp({ path: trackerPage, handlers: trackersServer().handlers });
-  await expect.element(page.getByText(/^seedpool requires 10 days of seeding/u)).toBeVisible();
-  await expect.element(tabs()).not.toBeInTheDocument();
-  const sections = page.getByRole("list", { name: "seedpool" });
-  expect(
-    sections
-      .getByRole("link")
-      .all()
-      .map((link) => link.element().textContent),
-  ).toEqual(["Seeding2 needs attention", "Routing", "Indexers1"]);
-  await userEvent.click(sections.getByRole("link", { name: /^Seeding/u }));
-  await expect.poll(() => router.state.location.pathname).toBe(`${trackerPage}/seeding`);
-  const back = page.getByRole("banner").getByRole("link", { name: "seedpool" });
-  await expect.element(back).toHaveAttribute("href", trackerPage);
 });
 
 test("Settings > Trackers shows how often the Seeding goals task runs", async () => {

@@ -1,77 +1,66 @@
 package nodes
 
 import (
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/role"
 )
 
+// TestTheSentenceSaysWhatStandsOut checks the Nodes page's sentence names
+// the Nodes that stand out, and only those, with the state each is in.
 func TestTheSentenceSaysWhatStandsOut(t *testing.T) {
 	crateIn := nodeIn{id: crate, name: "crate", assigned: role.Of(role.Searching), attached: true, since: start, seen: start}
 	for _, tc := range []struct {
-		name string
-		edit func(in *inputs)
-		at   time.Duration
-		want string
+		name  string
+		edit  func(in *inputs)
+		at    time.Duration
+		names []string
+		state string
 	}{
-		{"one Node", func(in *inputs) { in.nodes = in.nodes[:1] }, 0, "home is the only Node."},
-		{"two in step", func(*inputs) {}, 0, "Both Nodes are online."},
-		{"three in step", func(in *inputs) { in.nodes = append(in.nodes, crateIn) }, 0, "All 3 Nodes are online."},
-		{"a blip", func(in *inputs) { in.detach(box, start) }, 30 * time.Second, "seedbox is reconnecting."},
-		{"offline within the grace", func(in *inputs) { in.detach(box, start) }, 5 * time.Minute, "seedbox is offline."},
-		{"lapsed and covered", func(in *inputs) { in.detach(box, start) }, 15 * time.Minute, "seedbox is offline. home is searching in its place."},
+		{"one Node", func(in *inputs) { in.nodes = in.nodes[:1] }, 0, []string{"home"}, "only"},
+		{"two in step", func(*inputs) {}, 0, nil, "online"},
+		{"three in step", func(in *inputs) { in.nodes = append(in.nodes, crateIn) }, 0, nil, "3"},
+		{"a blip", func(in *inputs) { in.detach(box, start) }, 30 * time.Second, []string{"seedbox"}, "reconnecting"},
+		{"offline within the grace", func(in *inputs) { in.detach(box, start) }, 5 * time.Minute, []string{"seedbox"}, "offline"},
+		{"lapsed and covered", func(in *inputs) { in.detach(box, start) }, 15 * time.Minute, []string{"home", "seedbox"}, "searching"},
 		{"two lapsed and covered", func(in *inputs) {
 			in.nodes = append(in.nodes, crateIn)
 			in.detach(box, start)
 			in.detach(crate, start)
-		}, 15 * time.Minute, "seedbox is offline. crate is offline. home is searching in their place."},
+		}, 15 * time.Minute, []string{"crate", "home", "seedbox"}, "searching"},
 		{"back and settling", func(in *inputs) {
 			in.detach(box, start)
 			in.attach(box, start.Add(20*time.Minute))
-		}, 20 * time.Minute, "seedbox is back online and takes new work again shortly. home is searching in its place."},
+		}, 20 * time.Minute, []string{"home", "seedbox"}, "back online"},
 		{"mismatched", func(in *inputs) {
 			in.detach(box, start)
 			in.node(box).mismatched = true
-		}, 5 * time.Minute, "seedbox runs another version."},
+		}, 5 * time.Minute, []string{"seedbox"}, "version"},
 		{"draining", func(in *inputs) {
 			b := in.node(box)
 			b.assigned, b.work = role.Of(role.Searching), role.Of(role.Downloading)
-		}, 0, "seedbox is finishing its Downloading work."},
+		}, 0, []string{"seedbox"}, "finishing"},
 		{"writing off", func(in *inputs) {
 			b := in.node(box)
 			b.assigned, b.work, b.forfeit = role.Of(role.Searching), role.Of(role.Downloading), role.Of(role.Downloading)
-		}, 0, "SlipStream is giving up seedbox's Downloading work."},
+		}, 0, []string{"seedbox"}, "giving up"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			in := cluster()
 			tc.edit(in)
-			if got := sentence(in.at(start.Add(tc.at))); got != tc.want {
-				t.Errorf("sentence = %q, want %q", got, tc.want)
+			got := sentence(in.at(start.Add(tc.at)))
+			var named []string
+			for _, n := range []string{"crate", "home", "seedbox"} {
+				if strings.Contains(got, n) {
+					named = append(named, n)
+				}
+			}
+			if !slices.Equal(named, tc.names) || !strings.Contains(got, tc.state) {
+				t.Errorf("sentence = %q, want it to name %v and say %q", got, tc.names, tc.state)
 			}
 		})
-	}
-}
-
-func TestEveryRoleHasWordsForWhatItsHolderIsDoing(t *testing.T) {
-	want := map[role.Name]string{
-		role.Searching:       "searching",
-		role.Downloading:     "downloading",
-		role.Storage:         "storing the library",
-		role.Converting:      "converting",
-		role.Subtitles:       "fetching subtitles",
-		role.Metadata:        "reading metadata",
-		role.MediaServerLink: "sending changes to Media Servers",
-		role.Notifying:       "sending notifications, including email",
-		role.Relaying:        "relaying",
-		role.Serving:         "serving the SlipStream web app",
-	}
-	for _, r := range role.Names() {
-		if got := doing(r); got != want[r] {
-			t.Errorf("doing(%s) = %q, want %q", r, got, want[r])
-		}
-	}
-	if got := doingAll(role.Of(role.Searching, role.Metadata, role.Notifying)); got != "searching, reading metadata and sending notifications, including email" {
-		t.Errorf("doing three Roles reads %q", got)
 	}
 }

@@ -95,11 +95,14 @@ func (w *walked) lastSearch(t *testing.T) string {
 // TestAFailingIndexerClimbsTheLadderAndStepsDownOnASuccess puts Quarry in
 // maintenance, where every page answers 503: each search past its backoff
 // fails and climbs a rung of the 1s, 2s, 4s ladder. Out of maintenance the
-// next search finds the Release and steps down one rung.
+// next search finds the Release and steps down one rung. Quarry's priority
+// is the worst, so each Grab fetches from another Indexer: a fetch from
+// Quarry would be a second success and step down a second rung.
 func TestAFailingIndexerClimbsTheLadderAndStepsDownOnASuccess(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "indexers")
 	quarry := w.indexers(t)["Quarry"].ID
+	w.patchIndexer(t, quarry, `{"priority":50}`)
 	maintain := func(on bool) {
 		args, err := json.Marshal(site.SiteArgs{Site: site.Quarry, On: on})
 		if err != nil {

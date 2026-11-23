@@ -21,11 +21,9 @@ test("the page leads with the status sentence and its fix, with the machinery un
   const { router } = renderApp({ path: pageOf(larkspurId), handlers: indexersServer().handlers });
   await expect.element(page.getByRole("heading", { name: "Larkspur", level: 1 })).toBeVisible();
   await expect
-    .element(page.getByText("Stopped because Larkspur rejected the username or password."))
+    .element(page.getByText(/^Stopped because Larkspur rejected the username or password/u))
     .toBeVisible();
-  await expect
-    .element(page.getByText("Update the username or password with Edit. Saving tests them."))
-    .toBeVisible();
+  await expect.element(page.getByText(/^Update the username or password with Edit/u)).toBeVisible();
   await expect.element(page.getByText("Found 12 Releases")).toBeVisible();
   await expect.element(page.getByText(".torrent fetch")).toBeVisible();
   await expect
@@ -48,7 +46,7 @@ test("the page leads with the status sentence and its fix, with the machinery un
 
 test("the page shows the Trackers it reaches and how much of each limit is used", async () => {
   renderApp({ path: pageOf(torrentLeechId), handlers: indexersServer().handlers });
-  await expect.element(page.getByText("TorrentLeech is working.")).toBeVisible();
+  await expect.element(page.getByText(/^TorrentLeech is working/u)).toBeVisible();
   await expect.element(page.getByText("4 of 10 per hour")).toBeVisible();
   await expect.element(page.getByText("orchard", { exact: true })).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Details" }));
@@ -56,22 +54,6 @@ test("the page shows the Trackers it reaches and how much of each limit is used"
   await expect.element(page.getByRole("meter", { name: "Searches used" })).toBeVisible();
   await expect.element(page.getByRole("switch", { name: "Allow failover" })).toBeVisible();
   await expect.element(page.getByText("seedbox", { exact: true }).first()).toBeVisible();
-});
-
-test("Test reports what the Indexer listed, or the sentence of why it failed", async () => {
-  renderApp({ path: pageOf(prowlarrId), handlers: indexersServer().handlers });
-  await userEvent.click(page.getByRole("button", { name: "Test" }));
-  await expect
-    .element(page.getByText("Prowlarr passed the Test and listed 40 items."))
-    .toBeVisible();
-});
-
-test("a failed Test shows the cause's sentence", async () => {
-  const failTest =
-    "Prowlarr refused the API key and responded 'Invalid API Key'. Check the account, then test again.";
-  renderApp({ path: pageOf(prowlarrId), handlers: indexersServer({ failTest }).handlers });
-  await userEvent.click(page.getByRole("button", { name: "Test" }));
-  await expect.element(page.getByRole("alert").getByText(failTest)).toBeVisible();
 });
 
 test("Edit shows secrets as Saved, sends only what changed, and a new key is tested before it saves", async () => {
@@ -140,14 +122,10 @@ test("moving an Indexer that signs in warns of the new address, then saves its h
   await userEvent.click(dialog().getByRole("combobox", { name: "Search from" }));
   await userEvent.click(page.getByRole("option", { name: "home" }));
   await expect
-    .element(
-      dialog().getByText(
-        "TorrentLeech will see a sign-in from home's address. It may ask for a captcha or email you about it.",
-      ),
-    )
+    .element(dialog().getByText(/^TorrentLeech will see a sign-in from home's address/u))
     .toBeVisible();
   await userEvent.click(dialog().getByRole("button", { name: "Move" }));
-  await expect.element(page.getByText("TorrentLeech searches from home now")).toBeVisible();
+  await expect.element(page.getByText(/^TorrentLeech searches from home/u)).toBeVisible();
   expect(server.writes).toEqual([
     { method: "PATCH", id: torrentLeechId, body: { homeNodeId: homeId } },
   ]);
@@ -212,7 +190,5 @@ test("an Indexer with RSS on shows when RSS sync last read it, and a gap", async
   renderApp({ path: pageOf(prowlarrId), handlers: server.handlers });
   await userEvent.click(page.getByRole("button", { name: "Details" }));
   await expect.element(page.getByText("Read 5 minutes ago")).toBeVisible();
-  await expect
-    .element(page.getByText("RSS sync may have missed releases. Its Health item says what to do."))
-    .toBeVisible();
+  await expect.element(page.getByText(/^RSS sync may have missed releases/u)).toBeVisible();
 });

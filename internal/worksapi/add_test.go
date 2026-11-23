@@ -230,11 +230,6 @@ func TestEveryPresetFitsTheAddDefault(t *testing.T) {
 			t.Fatalf("after remembering preset %s, fixture.add.monitor is %s", preset, got)
 		}
 	}
-}
-
-func TestRememberWritesIncludeAndLevelFoldersBack(t *testing.T) {
-	w := newWorld(t)
-	s := w.s
 	s.add(t, `{"contentType":"fixture","key":"w1","preset":"first","includeAsides":true,"levelFolders":false,"remember":true}`)
 	if got, want := s.defaults(t), (defaults{profile: "fixture", root: w.first.Path, monitor: "first", asides: true}); got != want {
 		t.Fatalf("after remembering first, Include and no level folders, defaults = %+v, want %+v", got, want)

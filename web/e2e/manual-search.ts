@@ -38,7 +38,9 @@ const Manual = z.object({
     ),
   }),
 });
-const Search = z.object({ searches: z.array(z.object({ outcome: z.string().nullable() })) });
+const Search = z.object({
+  searches: z.array(z.object({ outcome: z.string().nullable(), grabIds: z.array(z.string()) })),
+});
 
 /** The scanned Work of that title. */
 export async function workId(world: World, label: string): Promise<string> {
@@ -62,27 +64,33 @@ export async function itemId(world: World, work: string, code: string): Promise<
   return item.id;
 }
 
-/** An automatic search of one Item, run to its outcome. */
-export async function searchedItem(world: World, work: string, item: string): Promise<void> {
+/** An automatic search of one Item, run to its outcome, and the Grabs it made. */
+async function searchedItem(world: World, work: string, item: string): Promise<string[]> {
   const started = await world.api("POST", `/api/v1/works/${work}/search`, {
     levelIds: [],
     itemIds: [item],
   });
   expect(started.status, "the search starts").toBe(202);
+  let grabIds: string[] = [];
   await expect
     .poll(
-      async () =>
-        Search.parse((await world.api("GET", `/api/v1/works/${work}/searches`)).body).searches[0]
-          ?.outcome ?? null,
+      async () => {
+        const run = Search.parse((await world.api("GET", `/api/v1/works/${work}/searches`)).body)
+          .searches[0];
+        grabIds = run?.grabIds ?? [];
+        return run?.outcome ?? null;
+      },
       { message: "the search finishes", timeout: 60_000 },
     )
     .not.toBeNull();
+  return grabIds;
 }
 
 /**
  * An automatic search of one Item whose Grab fails on a damaged .torrent. The
  * first failure stops the cell, so SlipStream doesn't search it again and
- * Needs you lists it.
+ * Needs you lists it. The search's Grab fetches its .torrent after the run
+ * finishes, so the damage stays until that fetch has failed it.
  */
 export async function failedGrab(world: World, work: string, item: string): Promise<void> {
   const stop = await world.api("PATCH", "/api/v1/search-settings", {
@@ -95,7 +103,16 @@ export async function failedGrab(world: World, work: string, item: string): Prom
     route: "torznab.download",
     fault: "malformed",
   });
-  await searchedItem(world, work, item);
+  const [grab] = await searchedItem(world, work, item);
+  if (grab === undefined) {
+    throw new Error("the search grabbed nothing");
+  }
+  await expect
+    .poll(() => grabStage(world, grab), {
+      message: "the damaged .torrent fails the Grab",
+      timeout: 60_000,
+    })
+    .toBe("failed");
   await world.fw.fault.clear("torrent-damaged");
 }
 

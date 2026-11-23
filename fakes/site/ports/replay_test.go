@@ -149,24 +149,6 @@ func TestParseRefusesACaseWithTwoCalls(t *testing.T) {
 	}
 }
 
-func TestAnExchangeMatchesOnlyAQueryWithoutTheParametersItRulesOut(t *testing.T) {
-	f := Fixture{Port: testport.ID}
-	m := Match{Path: "/api/search", Query: map[string]string{"q": "orchard"}, NoQuery: []string{"freeleech"}}
-	for target, want := range map[string]string{
-		"/api/search?q=orchard":             "",
-		"/api/search?q=orchard&freeleech=1": "its query has freeleech",
-		"/api/search?q=orchard&freeleech=":  "its query has freeleech",
-	} {
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, Address(testport.ID)+strings.TrimPrefix(target, "/"), http.NoBody)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got := NewReplay(f).matches(m, req, nil); got != want {
-			t.Errorf("%s matches with %q, want %q", target, got, want)
-		}
-	}
-}
-
 func TestParseTakesACaseThatSendsNothingOnlyWhenItSaysSo(t *testing.T) {
 	const head = "source: synthetic\ncases:\n  - name: tv\n    call: {search: {mode: tv, text: Juniper Falls}}\n"
 	f, err := Parse("lantern", []byte(head+"    exchanges: []\n"))

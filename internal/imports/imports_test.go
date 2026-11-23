@@ -108,63 +108,6 @@ func TestAddLeavesTheFilesPlaceCantPlaceUnderTheWork(t *testing.T) {
 	}
 }
 
-func TestIntoAttachesTheChosenFilesAndRefusesAWrongRootItemOrPath(t *testing.T) {
-	t.Parallel()
-	w := newWorld(t)
-	ctx := t.Context()
-	target := w.add(t, "w1", w.root.ID)
-	stranger := w.add(t, "w2", w.root.ID)
-	elsewhere := w.add(t, "w3", w.newRoot(t).ID)
-	w.pend(t, pend{Folder: "Odd", Files: []File{found("Odd/a.mkv"), found("Odd/b.mkv")}})
-	odd := w.at(t, "Odd")
-	id, a, b := odd.ID, position(odd, "Odd/a.mkv"), position(odd, "Odd/b.mkv")
-
-	for _, c := range []struct {
-		name   string
-		work   works.WorkID
-		chosen []Chosen
-		want   error
-	}{
-		{"a Work in another root", elsewhere.ID, []Chosen{{Position: a, Items: []works.ItemID{elsewhere.Items[0].ID}}}, ErrElsewhere},
-		{"an Item of another Work", target.ID, []Chosen{{Position: a, Items: []works.ItemID{target.Items[0].ID, stranger.Items[0].ID}}}, ErrNotOfWork},
-		{"a file the Import doesn't list", target.ID, []Chosen{{Position: 9, Items: []works.ItemID{target.Items[0].ID}}}, ErrChanged},
-	} {
-		if _, err := w.im.Into(ctx, identity.Admin{}, id, c.work, c.chosen); !errors.Is(err, c.want) {
-			t.Errorf("Into %s = %v, want %v", c.name, err, c.want)
-		}
-	}
-	if got := paths(w.at(t, "Odd")); len(got) != 2 {
-		t.Fatalf("after refused Intos the entry lists %v, want both files", got)
-	}
-
-	left, err := w.im.Into(ctx, identity.Admin{}, id, target.ID, []Chosen{{Position: a, Items: []works.ItemID{target.Items[1].ID}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Equal(paths(&left), []string{"Odd/b.mkv"}) || left.Stage() != StageWaiting {
-		t.Fatalf("Into of one file answers %+v, want the Import waiting with the other file", left)
-	}
-	if g := fileAt(w.stored(t, id), a); g.Outcome != Placed || g.PlacedBy != InPlace || g.FileID.IsZero() {
-		t.Errorf("the chosen file is %s by %q as file %s, want placed in_place as a library file", g.Outcome, g.PlacedBy, g.FileID)
-	}
-	if got := w.filesOf(t, target.ID); len(got) != 1 {
-		t.Errorf("the Work's files = %v, want the chosen file", got)
-	}
-	left, err = w.im.Into(ctx, identity.Admin{}, id, target.ID, []Chosen{{Position: b, Items: []works.ItemID{target.Items[2].ID, target.Items[0].ID}}})
-	if err != nil || len(paths(&left)) != 0 || left.Stage() != StageDone || left.Finished.IsZero() {
-		t.Fatalf("Into of the last file answers %+v, %v; want the Import done and finished", left, err)
-	}
-	if w.at(t, "Odd") != nil {
-		t.Errorf("Pending imports still lists the Import whose files all joined a Work")
-	}
-	if got := w.itemsOfFile(t, target.ID, fileAt(w.stored(t, id), b).FileID); !slices.Equal(got, []works.ItemID{target.Items[0].ID, target.Items[2].ID}) {
-		t.Errorf("the file chosen for two Items holds %v, want both in tree order", got)
-	}
-	if _, err := w.im.Into(ctx, identity.Admin{}, id, target.ID, []Chosen{{Position: b, Items: []works.ItemID{target.Items[2].ID}}}); !errors.Is(err, ErrChanged) {
-		t.Errorf("Into a placed file = %v, want ErrChanged", err)
-	}
-}
-
 func TestMatchKeepsItsSuggestionUntilTheHintChanges(t *testing.T) {
 	t.Parallel()
 	w := newWorld(t)

@@ -43,9 +43,7 @@ test("many Works change Profile through one Impact across all of them", async ()
   const impact = page.getByRole("dialog", { name: "Give 4 Films the Profile Ultra" });
   await expect
     .element(impact.getByRole("list", { name: "What changes" }))
-    .toHaveTextContent(
-      "4 Works change.2 files would no longer be used by any Target (1.4 GB).SlipStream will look for 3 more files.",
-    );
+    .toMatchTextContent(/4 Works change.+2 files.+1\.4 GB.+3 more files/u);
   await userEvent.click(impact.getByRole("button", { name: "Save and delete 2 files" }));
 
   await expect.element(page.getByText("Changed the Profile of 4 Films.")).toBeVisible();

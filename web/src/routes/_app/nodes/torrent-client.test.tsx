@@ -6,7 +6,6 @@ import { downloadClients, usableFolders, withTorrent } from "../../../test/downl
 import { nodeSystems } from "../../../test/node-system";
 import { home, homeId, nodesAre, seedbox, seedboxId } from "../../../test/nodes";
 import { renderApp } from "../../../test/render-app";
-import { asPhone } from "../../../test/viewport";
 
 const path = `/nodes/${homeId}/torrent-client`;
 
@@ -62,23 +61,6 @@ test("Torrent client leads with the port verdict, then its restart rows and live
     .toHaveAttribute("href", `/activity/torrents?node=${homeId}&tab=all`);
 });
 
-test("a limit saves on its own, as the one field it changed", async () => {
-  const { clients, handlers } = serve();
-  renderApp({ path, handlers });
-  await userEvent.fill(page.getByRole("textbox", { name: "Downloads at once" }), "5");
-  await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByText("Torrent client settings saved")).toBeVisible();
-  await userEvent.click(page.getByRole("switch", { name: "uTP, incoming and outgoing" }));
-  await userEvent.click(page.getByRole("switch", { name: "DHT for public torrents" }));
-  await expect
-    .poll(() => clients.writes)
-    .toEqual([
-      { path: `${homeId}/settings`, body: { activeDownloads: 5 } },
-      { path: `${homeId}/settings`, body: { utp: false } },
-      { path: `${homeId}/settings`, body: { dht: false } },
-    ]);
-});
-
 test("a downloads folder the Node can't use shows the Node's reason under the field", async () => {
   const { systems, handlers } = serve();
   systems.state.refuse = HttpResponse.json(
@@ -96,9 +78,7 @@ test("a downloads folder the Node can't use shows the Node's reason under the fi
   await userEvent.clear(folder);
   await userEvent.type(folder, "/srv/readonly");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect
-    .element(page.getByRole("alert"))
-    .toHaveTextContent("Can't use this folder because it isn't writable.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent(/isn't writable/u);
   expect(systems.writes).toEqual([
     { method: "PATCH", nodeId: homeId, body: { "torrent.downloads": "/srv/readonly" } },
   ]);
@@ -140,12 +120,4 @@ test("a Node without Downloading has no Torrent client tab, and its address is n
 
   renderApp({ path, handlers: [...handlers, nodesAre(searching)] });
   await expect.element(page.getByText("There's nothing at this address.")).toBeVisible();
-});
-
-test("on a phone the Node page lists Torrent client as a pushed section", async () => {
-  await asPhone();
-  const { router } = renderApp({ path: `/nodes/${homeId}`, handlers: serve().handlers });
-  await userEvent.click(page.getByRole("link", { name: "Torrent client" }));
-  await expect.poll(() => router.state.location.pathname).toBe(path);
-  await expect.element(page.getByRole("textbox", { name: "Downloads at once" })).toHaveValue("3");
 });

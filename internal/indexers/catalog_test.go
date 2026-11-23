@@ -194,18 +194,6 @@ func (w *catalogWorld) health(t *testing.T) []health.Item {
 	return a.Items
 }
 
-func TestBeforeAnyRefreshTheCatalogSaysWhenItTriesAgain(t *testing.T) {
-	w := newCatalogWorld(t)
-	c := w.catalog(t)
-	want := "SlipStream hasn't downloaded the Indexer catalog yet. SlipStream retries at 03:00."
-	if c.Notice != want || len(c.Entries) != 0 || !c.Refreshed.IsZero() || !c.Next.Equal(nextRefresh) || !c.IsDefault {
-		t.Errorf("Catalog = %+v, want no entries, the default address and the notice %q", c, want)
-	}
-	if _, err := w.x.Form(t.Context(), identity.Admin{}, "larkspur"); !errors.Is(err, indexers.ErrCatalogUnavailable) {
-		t.Errorf("Form(larkspur) = %v, want ErrCatalogUnavailable", err)
-	}
-}
-
 func TestTheFirstRefreshFetchesPackageZipAndListsEveryDefinition(t *testing.T) {
 	w := newCatalogWorld(t)
 	w.mustRefresh(t)

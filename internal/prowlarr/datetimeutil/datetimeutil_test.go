@@ -101,6 +101,12 @@ func TestFromTimeAgo(t *testing.T) {
 		{"1 year", now.Add(-365 * 24 * time.Hour)},
 		{"10s", now.Add(-10 * time.Second)},
 		{"Just now", now},
+		{"2.5 hours ago ", now.Add(-150 * time.Minute)},
+		{"1 week ago", now.Add(-7 * 24 * time.Hour)},
+		{"3 days, 4 hours", now.Add(-76 * time.Hour)},
+		{"5 mins ago", now.Add(-5 * time.Minute)},
+		{"1 year, 2 months ago", now.Add(-425 * 24 * time.Hour)},
+		{"Right now", now},
 	}
 	for _, tt := range tests {
 		got, err := FromTimeAgo(tt.in, testClock)

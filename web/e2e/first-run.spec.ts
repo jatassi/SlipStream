@@ -117,13 +117,21 @@ test("a setup link fills in and checks the code, and drops it from the address b
   await expect.poll(() => page.url()).toBe(`${world.baseURL}/setup`);
 });
 
-test("a setup link from an earlier start of the Node says to read the new code", async ({
+test("a setup link from an earlier start of the Node says to read the new code, and a second link opened in the tab fills in", async ({
   page,
+  world,
 }) => {
   await page.goto("/setup#code=0000-0000-0000");
   await expect(page.getByText(staleLink)).toBeVisible();
   await expect(setupCode(page)).toHaveValue("");
   await expect.poll(() => page.url()).toMatch(/\/setup$/u);
+
+  const code = await world.setupCode();
+  await page.evaluate((linked) => {
+    window.location.hash = `code=${linked}`;
+  }, code);
+  await expect(page.getByText("Setup code filled in")).toBeVisible();
+  await expect.poll(() => page.url()).toBe(`${world.baseURL}/setup`);
 });
 
 test("a reload keeps the code this tab already entered", async ({ page, world }) => {
@@ -133,38 +141,6 @@ test("a reload keeps the code this tab already entered", async ({ page, world })
   await page.reload();
   await expect(startNew(page)).toBeVisible();
   await expect(setupCode(page)).toHaveCount(0);
-});
-
-test("a second setup link opened in the same tab fills in", async ({ page, world }) => {
-  await page.goto("/setup");
-  await expect(setupCode(page)).toBeVisible();
-  const code = await world.setupCode();
-  await page.evaluate((linked) => {
-    window.location.hash = `code=${linked}`;
-  }, code);
-  await expect(page.getByText("Setup code filled in")).toBeVisible();
-  await expect.poll(() => page.url()).toBe(`${world.baseURL}/setup`);
-});
-
-test("Start a new SlipStream claims the Node and leaves the first-run page", async ({
-  page,
-  world,
-}) => {
-  await page.goto("/setup");
-  await enterCode(page, await world.setupCode());
-  await startNewSlipStream(page);
-  expect((await world.api("GET", "/api/v1/status")).body).toMatchObject({ claim: "controller" });
-  await page.goto("/setup");
-  await expect(page).toHaveURL(/\/setup\/address$/u);
-});
-
-test("den joins home with a Join Code from Add a Node", async ({ page, world, newContext }) => {
-  await claimHome(page, world);
-  const code = await mintJoinCode(page);
-  const den = await openDen(newContext, world);
-  await joinWith(den, code);
-  await expectWorkerOfHome(den);
-  await expect(addANode(page).getByText("den paired.")).toBeVisible();
 });
 
 test("den that can't reach home waits on its page until home dials the pasted Node address", async ({
@@ -212,6 +188,7 @@ test("a Node removed from home says so and leads with Join", async ({
   const den = await openDen(newContext, world);
   await joinWith(den, code);
   await expectWorkerOfHome(den);
+  await expect(addANode(page).getByText("den paired.")).toBeVisible();
   const firstCode = await world.setupCode("den");
 
   const { nodes } = Nodes.parse((await call(page, "GET", "/api/v1/nodes")).body);

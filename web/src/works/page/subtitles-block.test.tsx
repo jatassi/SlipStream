@@ -175,14 +175,12 @@ test("the file's Details list its embedded tracks and the subtitle files beside 
   const tracks = uhdRow().getByRole("list", { name: "Embedded subtitles" });
   await expect.element(tracks.getByText("English · subrip")).toBeVisible();
   await expect.element(tracks.getByText("Counts for English.")).toBeVisible();
-  await expect
-    .element(tracks.getByText("An image subtitle, which can't count for a language."))
-    .toBeVisible();
+  await expect.element(tracks.getByText(/^An image subtitle/u)).toBeVisible();
   const beside = uhdRow().getByRole("list", { name: "Subtitle files beside this video" });
   await expect.element(beside.getByText("The Quiet Orchard (2021) - 2160p.de.srt")).toBeVisible();
-  await expect.element(beside.getByText("Downloaded from SubDL. Used for German.")).toBeVisible();
+  await expect.element(beside.getByText(/SubDL.+German/u)).toBeVisible();
   await expect.element(beside.getByText("The Quiet Orchard (2021) - 2160p.sv.srt")).toBeVisible();
-  await expect.element(beside.getByText("Not used for a wanted language.")).toBeVisible();
+  await expect.element(beside.getByText(/^Not used/u)).toBeVisible();
 });
 
 test("Don't count this track stops an embedded track from counting, and the want then reads missing", async () => {
@@ -194,17 +192,13 @@ test("Don't count this track stops an embedded track from counting, and the want
   await expect.poll(() => world.calls).toEqual(["ignore 0"]);
 
   world.change({ files: [uhdSubtitles([missing("en", "never_searched")])] });
-  await expect
-    .element(subtitleRow("English").getByText("Due in the next Subtitle search."))
-    .toBeVisible();
+  await expect.element(subtitleRow("English").getByText(/next Subtitle search/u)).toBeVisible();
 });
 
 test("Search starts a search for the subtitle and says so in a toast", async () => {
   const world = open({ work: { files: [uhdSubtitles([missing("en", "never_searched")])] } });
   await userEvent.click(subtitleRow("English").getByRole("button", { name: "Search" }));
-  await expect
-    .element(notifications().getByText("Searching for the English subtitle."))
-    .toBeVisible();
+  await expect.element(notifications().getByText(/English subtitle/u)).toBeVisible();
   expect(world.calls).toEqual(["search"]);
 });
 

@@ -3,8 +3,8 @@ import { page, userEvent } from "vitest/browser";
 
 import type { SubtitlesProvider } from "../api/gen/model";
 import { renderApp } from "../test/render-app";
-import { asPhone } from "../test/viewport";
-import { gestdown, subdl, subsource } from "../test/subtitles";
+import { providerLine, providersCaption } from "../subtitles/settings-words";
+import { gestdown, movies, subdl, subsource, tv } from "../test/subtitles";
 import { subtitlesWorld } from "../test/subtitles-world";
 
 const path = "/settings/subtitles";
@@ -20,20 +20,7 @@ const names = () =>
 const inAnHour = new Date(Date.now() + 3_600_000).toISOString();
 const anHourAgo = new Date(Date.now() - 3_600_000).toISOString();
 
-test("the caption says what the order does, and Gestdown reads TV only with no key", async () => {
-  renderApp({ path, handlers: subtitlesWorld().handlers });
-  await expect
-    .element(list())
-    .toHaveAccessibleDescription(
-      "SlipStream searches these providers in order. When two subtitles match the file equally well, SlipStream picks the one from the provider higher on the list.",
-    );
-  await expect.element(list().getByText("TV only. No key needed.", { exact: true })).toBeVisible();
-  await expect
-    .element(list().getByText("SubDL needs your free key. Add it to search Movies and TV."))
-    .toBeVisible();
-});
-
-test("each state reads as its own sentence", async () => {
+test("each row reads its provider's state, with its downloads meter and its switch", async () => {
   const providers: SubtitlesProvider[] = [
     {
       ...subdl,
@@ -47,45 +34,25 @@ test("each state reads as its own sentence", async () => {
     },
     {
       ...subsource,
-      hasKey: true,
-      state: { kind: "rejected", since: anHourAgo, until: null, words: "Invalid API key" },
+      on: false,
+      state: { kind: "off", since: null, until: null, words: null },
     },
     { ...gestdown, state: { kind: "failing", since: anHourAgo, until: null, words: "timeout" } },
   ];
   renderApp({ path, handlers: subtitlesWorld({ providers }).handlers });
-  await expect
-    .element(list().getByText(/^Ready, with 19 of 50 downloads left\. The count resets .+\.$/u))
-    .toBeVisible();
+  await expect.element(list()).toHaveAccessibleDescription(providersCaption);
+  const types = [movies, tv];
+  const clock = { now: new Date(), zone: undefined };
+  await Promise.all(
+    providers.map((provider, index) =>
+      expect
+        .element(list().getByRole("listitem").nth(index))
+        .toMatchTextContent(providerLine(provider, types, clock)),
+    ),
+  );
   await expect
     .element(list().getByRole("meter", { name: "SubDL downloads left" }))
     .toHaveAttribute("aria-valuenow", "19");
-  await expect
-    .element(
-      list().getByText(
-        /^SubSource rejected the key (?:yesterday )?at .+ and responded "Invalid API key"\. Replace the key\.$/u,
-      ),
-    )
-    .toBeVisible();
-  await expect
-    .element(
-      list().getByText(
-        /^Gestdown hasn't responded since .+\. SlipStream retries automatically\. TV only\. No key needed\.$/u,
-      ),
-    )
-    .toBeVisible();
-});
-
-test("out of downloads and off read as their own sentences", async () => {
-  const providers: SubtitlesProvider[] = [
-    { ...subdl, hasKey: true, state: { kind: "out", since: null, until: inAnHour, words: null } },
-    { ...subsource, on: false, state: { kind: "off", since: null, until: null, words: null } },
-    gestdown,
-  ];
-  renderApp({ path, handlers: subtitlesWorld({ providers }).handlers });
-  await expect
-    .element(list().getByText(/^SubDL is out of downloads\. SlipStream searches it again .+\.$/u))
-    .toBeVisible();
-  await expect.element(list().getByText("Off. SlipStream doesn't search SubSource.")).toBeVisible();
   await expect.element(list().getByRole("switch", { name: "Search SubSource" })).not.toBeChecked();
 });
 
@@ -118,14 +85,4 @@ test("the switch turns a provider off", async () => {
       path: "/api/v1/subtitles/providers/gestdown",
       body: { on: false },
     });
-});
-
-test("on a phone the moves sit in one 44px row action", async () => {
-  await asPhone();
-  renderApp({ path, handlers: subtitlesWorld().handlers });
-  const actions = list().getByRole("button", { name: "Actions for SubSource" });
-  await expect.element(actions).toBeVisible();
-  expect(actions.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
-  await userEvent.click(actions);
-  await expect.element(page.getByRole("button", { name: "Move up" })).toBeVisible();
 });

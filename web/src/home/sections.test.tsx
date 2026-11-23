@@ -31,6 +31,8 @@ const gib = 1024 ** 3;
 const volume = (more: Partial<HealthVolume>): HealthVolume => ({ ...mediaLevels, ...more });
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
+const region = (name: string) => page.getByRole("region", { name });
+
 test("Needs you shows three failure cards, then Signal rows, waiting Callouts and pending imports", async () => {
   const failures = ["09:05", "09:04", "09:03", "09:02"].map((at, index) =>
     need(failedGrab(`2026-10-12T${at}:00Z`), homeWork(`Failed ${index + 1}`), null),
@@ -46,36 +48,20 @@ test("Needs you shows three failure cards, then Signal rows, waiting Callouts an
   await expect.element(needs.getByRole("article", { name: "Failed 1" })).toBeVisible();
   expect(needs.getByRole("article").all()).toHaveLength(3);
   await expect.element(needs.getByRole("button", { name: /Failed 4/u })).toBeVisible();
-  await expect
-    .element(needs.getByText("Waiting to send to the built-in client on seedbox"))
-    .toBeVisible();
-  await expect.element(needs.getByText("3 pending imports need attention")).toBeVisible();
+  await expect.element(needs.getByText(/ seedbox$/u)).toBeVisible();
+  await expect.element(needs.getByText(/^3 pending imports/u)).toBeVisible();
   await expect
     .element(needs.getByRole("link", { name: "See all 7 in Activity" }))
     .toHaveAttribute("href", "/activity");
 });
 
-test("each empty section says what fills it, and Downloading is left out with no Downloading Node", async () => {
+test("each empty section shows no rows, and Downloading is left out with no Downloading Node", async () => {
   renderApp({ path: "/", handlers: homeServer(summaryOf()).handlers });
-  await expect
-    .element(
-      page.getByText("No jobs are moving. Open a Work and choose Search to find a release for it."),
-    )
-    .toBeVisible();
-  await expect
-    .element(
-      page.getByText(
-        "Nothing was imported in the last 90 days. Each download or folder Import shows here once its files are in the library.",
-      ),
-    )
-    .toBeVisible();
-  await expect
-    .element(
-      page.getByText(
-        "No Node has reported a volume yet. Each library root and downloads folder shows here once its Node reports its free space.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(region("Recent")).toMatchTextContent("90 days");
+  expect(page.getByRole("table", { name: "Jobs" }).query()).toBeNull();
+  expect(page.getByRole("list", { name: "Recent" }).query()).toBeNull();
+  expect(region("Storage").getByRole("list").query()).toBeNull();
+  await expect.element(region("Jobs")).not.toBeEmptyDOMElement();
   await expect.element(page.getByText("Everything is working.")).toBeVisible();
   await expect.element(page.getByRole("heading", { name: "Downloading" })).not.toBeInTheDocument();
 });
@@ -121,9 +107,7 @@ test("Recent words each arrival and links to its Work and to History's imports",
   const recent = page.getByRole("list", { name: "Recent" });
   await expect
     .element(recent.getByRole("link", { name: /^The Quiet Orchard/u }))
-    .toHaveTextContent(
-      "The Quiet OrchardUpgraded to Remux-2160p from WEBDL-1080p · 12 minutes ago",
-    );
+    .toMatchTextContent(/Upgraded to Remux-2160p from WEBDL-1080p.+12 minutes/u);
   await expect
     .element(recent.getByRole("link", { name: /^Orchard Harvest/u }))
     .toHaveAttribute("href", `/works/${harvestWork.id}`);

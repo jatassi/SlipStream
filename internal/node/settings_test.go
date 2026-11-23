@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -160,6 +161,18 @@ func TestSetWithNoChangesLeavesConfigYAMLAsWritten(t *testing.T) {
 	}
 }
 
+// refusedAs holds when err is a Refusal with want's key, reason and
+// variable, whose sentence names want.Sentence, a fact such as a bound.
+func refusedAs(err error, want nodesystem.Refusal) bool {
+	refused, ok := errors.AsType[*nodesystem.Refusal](err)
+	if !ok || refused.Sentence == "" || !strings.Contains(refused.Sentence, want.Sentence) {
+		return false
+	}
+	got := *refused
+	got.Sentence = want.Sentence
+	return got == want
+}
+
 func TestSetRefusesAndChangesNothing(t *testing.T) {
 	const yaml = "log:\n  max_files: 3\n"
 	for _, c := range []struct {
@@ -170,32 +183,32 @@ func TestSetRefusesAndChangesNothing(t *testing.T) {
 	}{{
 		name:    "a key outside the table",
 		changes: []nodesystem.Change{{Key: "seed", Value: nodesystem.Text("x")}},
-		want:    nodesystem.Refusal{Key: "seed", Reason: nodesystem.UnknownSetting, Sentence: "No setting has this key."},
+		want:    nodesystem.Refusal{Key: "seed", Reason: nodesystem.UnknownSetting},
 	}, {
 		name:    "a key the environment sets",
 		dotEnv:  "SLIPSTREAM_LOG_LEVEL=warn\n",
 		changes: []nodesystem.Change{{Key: "log.level", Value: nodesystem.Text("debug")}},
-		want:    nodesystem.Refusal{Key: "log.level", Reason: nodesystem.SetByEnvironment, Sentence: "Set by SLIPSTREAM_LOG_LEVEL.", Variable: "SLIPSTREAM_LOG_LEVEL"},
+		want:    nodesystem.Refusal{Key: "log.level", Reason: nodesystem.SetByEnvironment, Variable: "SLIPSTREAM_LOG_LEVEL"},
 	}, {
 		name: "one good change and one out of range",
 		changes: []nodesystem.Change{
 			{Key: "log.max_files", Value: nodesystem.Text("4")},
 			{Key: "log.max_size_mb", Value: nodesystem.Number(1001)},
 		},
-		want: nodesystem.Refusal{Key: "log.max_size_mb", Reason: nodesystem.OutOfRange, Sentence: "Between 1 and 1000 MB."},
+		want: nodesystem.Refusal{Key: "log.max_size_mb", Reason: nodesystem.OutOfRange, Sentence: "1000"},
 	}, {
 		name:    "a value of the wrong form",
 		changes: []nodesystem.Change{{Key: "log.compress", Value: nodesystem.Text("maybe")}},
-		want:    nodesystem.Refusal{Key: "log.compress", Reason: nodesystem.OutOfRange, Sentence: "On or off: true or false."},
+		want:    nodesystem.Refusal{Key: "log.compress", Reason: nodesystem.OutOfRange},
 	}, {
 		name:    "the web port on the Node link's port",
 		changes: []nodesystem.Change{{Key: "http.listen", Value: nodesystem.Number(8485)}},
-		want:    nodesystem.Refusal{Key: "http.listen", Reason: nodesystem.PortUsedByNode, Sentence: "The Node link already uses port 8485."},
+		want:    nodesystem.Refusal{Key: "http.listen", Reason: nodesystem.PortUsedByNode, Sentence: "8485"},
 	}} {
 		t.Run(c.name, func(t *testing.T) {
 			f := testConfigFile(t, yaml, c.dotEnv)
 			_, _, err := f.set(t.Context(), nil, c.changes)
-			if refused, ok := errors.AsType[*nodesystem.Refusal](err); !ok || *refused != c.want {
+			if !refusedAs(err, c.want) {
 				t.Fatalf("err = %#v, want %#v", err, c.want)
 			}
 			if got := readConfigYAML(t, f); got != yaml {
@@ -213,8 +226,8 @@ func TestSetRefusesALinkedConfigFile(t *testing.T) {
 		t.Skipf("no symlinks here: %v", err)
 	}
 	_, _, err := f.set(t.Context(), nil, []nodesystem.Change{{Key: "log.level", Value: nodesystem.Text("debug")}})
-	want := nodesystem.Refusal{Reason: nodesystem.NotWritable, Sentence: "config.yaml is a link or a mounted file, so SlipStream can't rewrite it. Edit it by hand."}
-	if refused, ok := errors.AsType[*nodesystem.Refusal](err); !ok || *refused != want {
+	want := nodesystem.Refusal{Reason: nodesystem.NotWritable, Sentence: "config.yaml"}
+	if !refusedAs(err, want) {
 		t.Fatalf("err = %#v, want %#v", err, want)
 	}
 }
@@ -251,8 +264,8 @@ func TestSetConfigWritesThroughTheRunningNode(t *testing.T) {
 
 	port := "[::]:9000"
 	_, _, err = SetConfig(t.Context(), env, []ConfigChange{{Key: "http.listen", Value: &port}})
-	want := nodesystem.Refusal{Key: "http.listen", Reason: nodesystem.SetByEnvironment, Sentence: "Set by SLIPSTREAM_HTTP_LISTEN.", Variable: "SLIPSTREAM_HTTP_LISTEN"}
-	if refused, ok := errors.AsType[*nodesystem.Refusal](err); !ok || *refused != want {
+	want := nodesystem.Refusal{Key: "http.listen", Reason: nodesystem.SetByEnvironment, Variable: "SLIPSTREAM_HTTP_LISTEN"}
+	if !refusedAs(err, want) {
 		t.Fatalf("err = %#v, want %#v", err, want)
 	}
 

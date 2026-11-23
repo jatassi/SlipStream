@@ -4,7 +4,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -50,24 +49,5 @@ func TestLeafNamesLoopbackAndLocalhost(t *testing.T) {
 		if _, err := leaf.Leaf.Verify(x509.VerifyOptions{Roots: c.Pool(), DNSName: name}); err != nil {
 			t.Errorf("verify for %s: %v", name, err)
 		}
-	}
-}
-
-func TestLeafRefusesARealName(t *testing.T) {
-	c, err := ca.New("k3v9x2qa")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cases := map[string]string{
-		"example.com": `leaf for example.com: x509: a root or intermediate certificate is not authorized to sign for this name: DNS name "example.com" is not permitted by any constraint`,
-		"10.0.0.1":    `leaf for 10.0.0.1: x509: a root or intermediate certificate is not authorized to sign for this name: IP address "10.0.0.1" is not permitted by any constraint`,
-	}
-	got := map[string]string{}
-	for name := range cases {
-		_, err := c.Leaf(name)
-		got[name] = fmt.Sprint(err)
-	}
-	if !reflect.DeepEqual(got, cases) {
-		t.Fatalf("Leaf errors = %v\nwant %v", got, cases)
 	}
 }

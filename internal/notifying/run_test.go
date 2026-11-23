@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -23,7 +24,9 @@ const asScript = "notifying-test-script"
 
 func TestMain(m *testing.M) {
 	if len(os.Args) > 2 && os.Args[1] == asScript {
-		os.Exit(playScript(os.Args[2], os.Args[3:]))
+		// syscall.Exit skips the coverage hook of a -cover build, which
+		// would add a GOCOVERDIR warning to the script's output.
+		syscall.Exit(playScript(os.Args[2], os.Args[3:]))
 	}
 	os.Exit(m.Run())
 }

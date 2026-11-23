@@ -559,7 +559,7 @@ jobs:
           TEST_ONLINE_SUBDL_KEY: ${{ secrets.SUBDL_API_KEY }}
           TEST_ONLINE_SUBSOURCE_KEY: ${{ secrets.SUBSOURCE_API_KEY }}
       - name: Upload the updated shape.json files
-        if: inputs.update-shapes
+        if: ${{ !cancelled() && inputs.update-shapes }}
         uses: actions/upload-artifact@v7
         with:
           name: shapes

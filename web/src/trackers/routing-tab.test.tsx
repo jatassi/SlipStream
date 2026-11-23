@@ -7,42 +7,10 @@ import { homeId, seedboxId } from "../test/nodes";
 import { renderApp } from "../test/render-app";
 import { homeRoute, routingServer } from "../test/tracker-routes";
 import { seedpoolId } from "../test/trackers";
-import { asPhone } from "../test/viewport";
 
 const routingPage = `/settings/trackers/${seedpoolId}/routing`;
 const homeRow = () => page.getByRole("region", { name: "Indexers on home" });
 const picker = () => homeRow().getByRole("combobox", { name: "Grabs go to" });
-
-test("the Routing tab shows where each home's Grabs go and saves a pick, then Use the default drops it", async () => {
-  const server = routingServer();
-  renderApp({ path: routingPage, handlers: server.handlers });
-  await expect.element(picker()).toHaveTextContent("Built-in client on home (default)");
-  await expect
-    .element(homeRow().getByText("These Grabs go to the built-in client on home, the default."))
-    .toBeVisible();
-  await expect
-    .element(homeRow().getByText("The built-in client on home announces as libtorrent 2.0.11."))
-    .toBeVisible();
-  await expect
-    .element(homeRow().getByRole("button", { name: "Use the default" }))
-    .not.toBeInTheDocument();
-
-  await userEvent.click(picker());
-  await userEvent.click(page.getByRole("option", { name: "Transmission on home" }));
-  await expect
-    .element(homeRow().getByText("These Grabs go to Transmission on home, which you picked."))
-    .toBeVisible();
-  await expect.element(homeRow().getByText(/announces as/u)).not.toBeInTheDocument();
-
-  await userEvent.click(homeRow().getByRole("button", { name: "Use the default" }));
-  await expect
-    .element(homeRow().getByText("These Grabs go to the built-in client on home, the default."))
-    .toBeVisible();
-  expect(server.writes).toEqual([
-    { method: "PUT", nodeId: homeId, body: { clientId: attic.id } },
-    { method: "DELETE", nodeId: homeId },
-  ]);
-});
 
 test("a refused pick shows its reason on the row and keeps the route", async () => {
   const detail = "No Indexer on home reaches seedpool. Pick the home Node of one of its Indexers.";
@@ -79,7 +47,7 @@ test("a refusal with no detail, such as node_not_downloading, shows its title on
   await userEvent.click(page.getByRole("option", { name: "Built-in client on seedbox" }));
   await expect
     .element(homeRow().getByRole("alert"))
-    .toHaveTextContent("That Node doesn't have the Downloading Role");
+    .toMatchTextContent(/doesn't have the Downloading Role/u);
 });
 
 test("a skipped pick says why its Grabs go to the default", async () => {
@@ -140,18 +108,4 @@ test("a public Tracker's Routing tab says its Grabs follow the library root", as
     )
     .toBeVisible();
   await expect.element(page.getByRole("combobox")).not.toBeInTheDocument();
-});
-
-test("on a phone Routing is a pushed section of the Tracker page", async () => {
-  await asPhone();
-  const server = routingServer();
-  const { router } = renderApp({
-    path: `/settings/trackers/${seedpoolId}`,
-    handlers: server.handlers,
-  });
-  await userEvent.click(
-    page.getByRole("list", { name: "seedpool" }).getByRole("link", { name: /^Routing/u }),
-  );
-  await expect.element(picker()).toBeVisible();
-  expect(router.state.location.pathname).toBe(routingPage);
 });

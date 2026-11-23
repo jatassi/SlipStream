@@ -168,17 +168,17 @@ func TestHoldingsPastTheCapAreRefusedWhole(t *testing.T) {
 	for _, c := range []struct {
 		name string
 		rep  *dlv1.Report
-		want string
+		fact string
 	}{
-		{"4 pages", holdings(1, 0, 4, entry(1)), "The Node sent a list of 4 pages, which is over the limit of 5 torrents."},
-		{"a page of 3", holdings(1, 0, 3, entry(1), entry(2), entry(3)), "A page lists 3 torrents, more than the 2 a page holds."},
-		{"a last page of 2", holdings(1, 2, 3, entry(5), entry(6)), "The Node's list is over the limit of 5 torrents."},
-		{"page 3 of 3 counted from 0", holdings(1, 3, 3), "The Node sent page 4 of a list that has 3 pages."},
-		{"a short info hash", holdings(1, 0, 3, entry(1), short), "An info hash is 12 bytes, not 20."},
+		{"4 pages", holdings(1, 0, 4, entry(1)), "4 pages"},
+		{"a page of 3", holdings(1, 0, 3, entry(1), entry(2), entry(3)), "3 torrents"},
+		{"a last page of 2", holdings(1, 2, 3, entry(5), entry(6)), "5 torrents"},
+		{"page 3 of 3 counted from 0", holdings(1, 3, 3), "page 4"},
+		{"a short info hash", holdings(1, 0, 3, entry(1), short), "12 bytes"},
 	} {
 		s.report(t, s.node, c.rep)
-		if got := k.last(t); got.Refused != c.want || len(got.Entries) != 0 || got.Round != 1 {
-			t.Errorf("%s: refused %q with %d entries, want %q with none", c.name, got.Refused, len(got.Entries), c.want)
+		if got := k.last(t); !strings.Contains(got.Refused, c.fact) || len(got.Entries) != 0 || got.Round != 1 {
+			t.Errorf("%s: refused %q with %d entries, want a refusal naming %q with none", c.name, got.Refused, len(got.Entries), c.fact)
 		}
 	}
 	s.report(t, s.node, holdings(1, 2, 3, entry(5)))

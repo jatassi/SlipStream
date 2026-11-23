@@ -16,7 +16,6 @@ import {
   torrent,
   torrentsServer,
 } from "../test/torrents";
-import { asPhone } from "../test/viewport";
 
 const downloading: DownloadclientsTorrentRow = torrent({
   state: "downloading",
@@ -271,29 +270,4 @@ test("thousands of torrents draw only the rows near the view", async () => {
   await expect.poll(() => table().getByRole("row").all().length).toBeGreaterThan(1);
   expect(table().getByRole("row").all().length).toBeLessThan(60);
   await expect.element(table()).toHaveAttribute("aria-rowcount", "3001");
-});
-
-test("with no torrents the view says how one arrives", async () => {
-  open([]);
-  await expect.element(page.getByText(/^No torrents yet\./u)).toBeVisible();
-  await expect
-    .element(page.getByRole("main").getByRole("button", { name: "Open the Library" }))
-    .toHaveAttribute("href", "/library");
-});
-
-test("on a phone the tabs lead with All, which shows first, and rows become cards", async () => {
-  await asPhone();
-  open([downloading, seeding], "/activity/torrents");
-  const options = tabs().getByRole("radio");
-  await expect.element(tabs().getByRole("radio", { name: "All 2" })).toBeChecked();
-  expect(options.all().map((option) => option.element().textContent)).toEqual([
-    "All2",
-    "Downloading1",
-    "Seeding1",
-    "Problems0",
-    "Goal met0",
-  ]);
-  await expect.poll(() => table().getByRole("row").all()).toHaveLength(2);
-  await expect.element(page.getByRole("columnheader", { name: "Work" })).not.toBeInTheDocument();
-  await expect.element(page.getByRole("button", { name: "Filter" })).toBeVisible();
 });

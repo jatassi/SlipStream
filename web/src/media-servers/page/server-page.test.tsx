@@ -16,7 +16,7 @@ test("a server's page leads with its state and what's playing, and keeps the mac
   const world = mediaServersWorld();
   renderApp({ path, handlers: world.handlers });
   await expect.element(page.getByRole("heading", { name: "Den Jellyfin" })).toBeVisible();
-  await expect.element(page.getByText("Den Jellyfin is up to date.")).toBeVisible();
+  await expect.element(page.getByText(/^Den Jellyfin is up to date/u)).toBeVisible();
   const tabs = page.getByRole("navigation", { name: "Den Jellyfin" });
   await Promise.all(
     ["Now playing", "Changes", "Path mappings", "Settings", "Details"].map((tab) =>
@@ -35,28 +35,18 @@ test("a server's page leads with its state and what's playing, and keeps the mac
   await userEvent.hover(playing.getByRole("button", { name: "Hardware transcode" }));
   await expect
     .element(page.getByRole("dialog", { name: "Hardware transcode" }))
-    .toHaveTextContent(
-      "The server converts the file on its graphics hardware into a format the player can play.",
-    );
-  await expect
-    .element(playing.getByText("Transcoding because the player can't play its container."))
-    .toBeVisible();
+    .toMatchTextContent(/graphics hardware/u);
+  await expect.element(playing.getByText(/^Transcoding because .+container/u)).toBeVisible();
   await userEvent.click(playing.getByRole("button", { name: "Details" }));
-  await expect
-    .element(playing.getByText("Reasons from Den Jellyfin: ContainerNotSupported"))
-    .toBeVisible();
+  await expect.element(playing.getByText(/Den Jellyfin.+ContainerNotSupported/u)).toBeVisible();
 
   await userEvent.click(tabs.getByRole("link", { name: "Details" }));
   await expect.element(page.getByText("Jellyfin 12.2.0")).toBeVisible();
   await expect.element(page.getByText("The Controller reaches it")).toBeVisible();
 
   await userEvent.click(page.getByRole("button", { name: "Test" }));
-  await expect.element(page.getByText("home connected to Den Jellyfin 12.2.0.")).toBeVisible();
-  await expect
-    .element(
-      page.getByText("The Controller sends changes while the Node it connects from is offline."),
-    )
-    .toBeVisible();
+  await expect.element(page.getByText(/^home connected to Den Jellyfin 12\.2\.0/u)).toBeVisible();
+  await expect.element(page.getByText(/^The Controller sends changes/u)).toBeVisible();
   expect(world.writes).toEqual([{ path: "test", body: null }]);
 });
 
@@ -65,9 +55,7 @@ test("Now playing says when nobody is playing", async () => {
     path,
     handlers: [sessionsAre({ reachable: true, sessions: [] }), ...mediaServersWorld().handlers],
   });
-  await expect
-    .element(page.getByText("Nobody is playing anything on Den Jellyfin right now."))
-    .toBeVisible();
+  await expect.element(page.getByText(/^Nobody is playing .+Den Jellyfin/u)).toBeVisible();
 });
 
 test("Now playing can't check sessions while the reaching Node is offline", async () => {
@@ -75,40 +63,22 @@ test("Now playing can't check sessions while the reaching Node is offline", asyn
     path,
     handlers: [sessionsAre({ reachable: false, sessions: [] }), ...mediaServersWorld().handlers],
   });
-  await expect
-    .element(
-      page.getByText(
-        "SlipStream can't check what's playing on Den Jellyfin while home is offline.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(page.getByText(/Den Jellyfin while home is offline/u)).toBeVisible();
 });
 
 test("the Changes tab says what is failing or waiting, and what each rename lost", async () => {
   renderApp({ path: `${path}/changes`, handlers: mediaServersWorld().handlers });
   await expect
-    .element(
-      page.getByText(
-        "1 change couldn't be sent to Den Jellyfin. SlipStream retries automatically. 1 more is waiting.",
-      ),
-    )
+    .element(page.getByText(/^1 change couldn't be sent to Den Jellyfin.+1 more is waiting/u))
     .toBeVisible();
   const changes = page.getByRole("list", { name: "Changes on Den Jellyfin" });
   const row = (name: string) => changes.getByRole("listitem").filter({ hasText: name });
   await expect.element(row("Night Train (2018) DVD.mkv").getByText("Failing")).toBeVisible();
-  await expect
-    .element(
-      row("Night Train (2018) DVD.mkv").getByText("Den Jellyfin responded with status 500.", {
-        exact: false,
-      }),
-    )
-    .toBeVisible();
+  await expect.element(row("Night Train (2018) DVD.mkv").getByText(/status 500/u)).toBeVisible();
   await expect.element(row("The Long Field (2019)").getByText("Waiting")).toBeVisible();
   const rename = row("The Quiet Orchard (2021) Bluray-1080p.mkv");
   await expect.element(rename.getByText("Lost data")).toBeVisible();
-  await expect
-    .element(rename.getByText("Sent the rename. Lost: play count, last played."))
-    .toBeVisible();
+  await expect.element(rename.getByText(/play count, last played/u)).toBeVisible();
   await expect
     .element(rename.getByText("The Quiet Orchard (2021)/The Quiet Orchard.mkv"))
     .toBeVisible();
@@ -121,9 +91,7 @@ test("Refresh libraries asks first, then queues the refresh", async () => {
   await userEvent.click(page.getByRole("button", { name: "Refresh libraries" }));
   const dialog = page.getByRole("dialog", { name: "Refresh every library on Den Jellyfin?" });
   await userEvent.click(dialog.getByRole("button", { name: "Refresh" }));
-  await expect
-    .element(page.getByText("Queued a refresh of Den Jellyfin's libraries"))
-    .toBeVisible();
+  await expect.element(page.getByText(/^Queued a refresh of Den Jellyfin/u)).toBeVisible();
   expect(world.writes).toEqual([{ path: "refresh", body: null }]);
 });
 
@@ -167,9 +135,7 @@ test("on phone the server's top page shows what's playing and lists its other se
   await userEvent.click(page.getByRole("button", { name: "Hardware transcode" }));
   await expect
     .element(page.getByRole("dialog", { name: "Hardware transcode" }))
-    .toHaveTextContent(
-      "The server converts the file on its graphics hardware into a format the player can play.",
-    );
+    .toMatchTextContent(/graphics hardware/u);
   await userEvent.keyboard("{Escape}");
   await Promise.all(
     ["Changes", "Path mappings", "Settings", "Details"].map((name) =>

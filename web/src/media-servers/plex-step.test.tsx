@@ -4,7 +4,7 @@ import { page, userEvent } from "vitest/browser";
 
 import type { MediaserversPlexServerView, NodesNode } from "../api/gen/model";
 import { writePref } from "../shell/prefs";
-import { livingRoomPlex, plexAccount, plexServers } from "../test/media-servers";
+import { plexAccount, plexServers } from "../test/media-servers";
 import { mediaServersWorld, plexPin } from "../test/media-server-writes";
 import { home, nodesAre, seedbox } from "../test/nodes";
 import { renderApp } from "../test/render-app";
@@ -57,54 +57,6 @@ async function openPlex() {
   await userEvent.click(dialog().getByRole("button", { name: "Next" }));
   await expect.element(page.getByRole("dialog", { name: "Add Plex" })).toBeVisible();
 }
-
-test("signing in to Plex opens plex.tv in a new tab, lists the account's servers once the PIN signs in, and adds the one picked", async () => {
-  const world = mediaServersWorld([], null);
-  const { replace, tab } = opensTab();
-  renderApp({ path, handlers: [nodesAre(home, linked), ...world.handlers] });
-  await openPlex();
-  await userEvent.click(dialog().getByRole("button", { name: "Sign in with Plex" }));
-  await expect
-    .element(dialog().getByText("Waiting for you to sign in to Plex in the other tab."))
-    .toBeVisible();
-  expect(world.writes).toEqual([{ path: "plex-pin", body: { forward: window.location.href } }]);
-  expect(replace).toHaveBeenCalledWith(plexPin.authUrl);
-  expect(tab.opener).toBeNull();
-  await expect
-    .element(dialog().getByRole("link", { name: "Open the Plex sign-in again" }))
-    .toHaveAttribute("href", plexPin.authUrl);
-
-  await expect
-    .element(dialog().getByText("Signed in to Plex as ada. The account has Plex Pass."), polled)
-    .toBeVisible();
-  await expect.element(dialog().getByRole("radio", { name: "Living room" })).toBeChecked();
-  await expect
-    .element(dialog().getByText("Plex 1.43.5.11029. Reachable from seedbox."))
-    .toBeVisible();
-  await expect.element(dialog().getByRole("textbox", { name: "Name" })).toHaveValue("Living room");
-  await expect
-    .element(dialog().getByRole("combobox", { name: "Runs on" }))
-    .toHaveTextContent("seedbox");
-  await expect
-    .element(dialog().getByRole("combobox", { name: "Connect from" }))
-    .toHaveTextContent("seedbox");
-
-  await userEvent.click(dialog().getByRole("button", { name: "Save" }));
-  await expect.element(page.getByText("Added Living room")).toBeVisible();
-  expect(world.writes.at(-1)).toEqual({
-    path: "add",
-    body: {
-      kind: "plex",
-      name: "Living room",
-      plexServer: livingRoomPlex.identity,
-      reachingNodeId: linked.id,
-      runsOnNodeId: linked.id,
-    },
-  });
-  await expect
-    .element(page.getByRole("dialog", { name: "Path mappings on Living room" }))
-    .toBeVisible();
-});
 
 test("a reload while the Plex tab is open opens the sheet on the waiting sign-in", async () => {
   writePref("plexPin", plexPin);

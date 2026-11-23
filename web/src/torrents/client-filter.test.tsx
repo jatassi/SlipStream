@@ -3,7 +3,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { downloadClients, homeCard } from "../test/download-clients";
 import { attic, withExternals } from "../test/external-clients";
-import { liveServer } from "../test/live-server";
+import { liveServer, synced } from "../test/live-server";
 import { renderApp } from "../test/render-app";
 import { torrent, torrentsServer } from "../test/torrents";
 
@@ -34,6 +34,7 @@ test("the client filter narrows the table to one client and writes the address",
     path: "/activity/torrents",
     handlers: [...live.handlers, ...server.handlers],
   });
+  await synced(app);
   await expect.poll(() => table().getByRole("row").all()).toHaveLength(3);
 
   await userEvent.click(page.getByRole("combobox", { name: "Client" }));

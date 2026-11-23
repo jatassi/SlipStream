@@ -51,8 +51,8 @@ func finished(row db.ListTargetsOfWorksRow, torrent downloadclients.ID) db.ListF
 }
 
 func TestEachReasonKeepsAFinishedGrab(t *testing.T) {
-	seeding, needsYou, importing, shadowed, prunable := newCell(), newCell(), newCell(), newCell(), newCell()
-	torrent := downloadclients.ID{UUID: storage.NewUUID()}
+	seeding, needsYou, importing, shadowed, prunable, both, again, canceled := newCell(), newCell(), newCell(), newCell(), newCell(), newCell(), newCell(), newCell()
+	torrent, held := downloadclients.ID{UUID: storage.NewUUID()}, downloadclients.ID{UUID: storage.NewUUID()}
 	rows := []db.ListTargetsOfWorksRow{
 		seeding.grabOf(Imported, "", true),
 		needsYou.grabOf(Failed, ImportFailed, false),
@@ -61,55 +61,31 @@ func TestEachReasonKeepsAFinishedGrab(t *testing.T) {
 		shadowed.grabOf(Imported, "", true),
 		prunable.grabOf(Failed, ImportFailed, false),
 		prunable.grabOf(Imported, "", true),
+		both.grabOf(Failed, ImportFailed, false),
+		again.grabOf(Failed, DownloadFailed, false),
+		canceled.grabOf(Failed, Canceled, false),
 	}
+	none := downloadclients.ID{}
 	cands := []db.ListFinishedBeforeRow{
-		finished(rows[0], torrent), finished(rows[1], downloadclients.ID{}), finished(rows[2], downloadclients.ID{}),
-		finished(rows[4], downloadclients.ID{}), finished(rows[5], downloadclients.ID{}), finished(rows[6], downloadclients.ID{}),
+		finished(rows[0], torrent), finished(rows[1], none), finished(rows[2], none), finished(rows[4], none),
+		finished(rows[5], none), finished(rows[6], none), finished(rows[7], held), finished(rows[8], none),
+		finished(rows[9], none),
 	}
 	got := retained(cands, batchFacts{
-		live:      map[downloadclients.ID]bool{torrent: true},
+		live:      map[downloadclients.ID]bool{torrent: true, held: true},
 		importing: map[GrabID]bool{rows[2].ID: true},
 		cells:     cellReads{rows: rows},
 	})
-	want := map[GrabID]why{rows[0].ID: forSeeding, rows[1].ID: forNeedsYou, rows[2].ID: forImporting, rows[4].ID: forShadows}
+	want := map[GrabID]why{
+		rows[0].ID: forSeeding, rows[1].ID: forNeedsYou, rows[2].ID: forImporting, rows[4].ID: forShadows,
+		rows[7].ID: forSeeding | forNeedsYou,
+	}
 	if len(got) != len(want) {
-		t.Fatalf("retained keeps %v, want %v", got, want)
+		t.Fatalf("retained keeps %v, want %v: a Grab searched again or canceled needs no one, and a cell's Grabs pruned together both go", got, want)
 	}
 	for id, w := range want {
 		if got[id] != w {
 			t.Errorf("Grab %s is kept for %b, want %b", id, got[id], w)
 		}
-	}
-}
-
-func TestAGrabKeptForTwoReasonsHasBoth(t *testing.T) {
-	c := newCell()
-	torrent := downloadclients.ID{UUID: storage.NewUUID()}
-	row := c.grabOf(Failed, ImportFailed, false)
-	got := retained([]db.ListFinishedBeforeRow{finished(row, torrent)}, batchFacts{
-		live: map[downloadclients.ID]bool{torrent: true}, cells: cellReads{rows: []db.ListTargetsOfWorksRow{row}},
-	})
-	if got[row.ID] != forSeeding|forNeedsYou {
-		t.Fatalf("a seeding failed Grab its cell reads is kept for %b, want seeding and needs you, %b", got[row.ID], forSeeding|forNeedsYou)
-	}
-}
-
-func TestAFailedGrabSearchedAgainOrCanceledNeedsNoOne(t *testing.T) {
-	again, canceled := newCell(), newCell()
-	rows := []db.ListTargetsOfWorksRow{again.grabOf(Failed, DownloadFailed, false), canceled.grabOf(Failed, Canceled, false)}
-	got := retained([]db.ListFinishedBeforeRow{finished(rows[0], downloadclients.ID{}), finished(rows[1], downloadclients.ID{})},
-		batchFacts{cells: cellReads{rows: rows}})
-	if len(got) != 0 {
-		t.Fatalf("retained keeps %v, want neither a Grab searched again nor a canceled one", got)
-	}
-}
-
-func TestPruningBothGrabsOfACellTogetherKeepsNeither(t *testing.T) {
-	c := newCell()
-	rows := []db.ListTargetsOfWorksRow{c.grabOf(Failed, ImportFailed, false), c.grabOf(Imported, "", true)}
-	got := retained([]db.ListFinishedBeforeRow{finished(rows[0], downloadclients.ID{}), finished(rows[1], downloadclients.ID{})},
-		batchFacts{cells: cellReads{rows: rows}})
-	if len(got) != 0 {
-		t.Fatalf("retained keeps %v, want both of the cell's Grabs to go together", got)
 	}
 }

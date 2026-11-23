@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 
 import { type LogRecord, type LogRow, lineOf } from "./buffer";
-import { isFiltered, noFilter, subsystemsOf, visibleRows } from "./filter";
+import { noFilter, subsystemsOf, visibleRows } from "./filter";
 
 const line = (seq: number, over: Partial<LogRecord>): LogRow =>
   lineOf({
@@ -29,11 +29,6 @@ const rows: readonly LogRow[] = [
 
 const shown = (filter: Partial<typeof noFilter>) =>
   visibleRows(rows, { ...noFilter, ...filter }).map((row) => (row.kind === "line" ? row.seq : "|"));
-
-test("no filter keeps every row", () => {
-  expect(isFiltered(noFilter)).toBe(false);
-  expect(visibleRows(rows, noFilter)).toBe(rows);
-});
 
 test("the minimum level keeps that level and above, and dividers always stay", () => {
   expect(shown({ min: "warn" })).toEqual(["|", 3, 4]);

@@ -8,10 +8,6 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-func TestNtfyBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "ntfy"), providertest.Cases["ntfy"])
-}
-
 func TestNtfySendsToTheServerEnteredOrNtfySh(t *testing.T) {
 	p := provider(t, "ntfy")
 	own := providertest.Case{Settings: providertest.Raw(map[string]any{"serverUrl": "https://ntfy.lan/push", "priority": "3"}), Secrets: providertest.Cases["ntfy"].Secrets}

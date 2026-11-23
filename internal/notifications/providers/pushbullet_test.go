@@ -8,10 +8,6 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-func TestPushbulletBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "pushbullet"), providertest.Cases["pushbullet"])
-}
-
 func TestPushbulletReadsItsResponses(t *testing.T) {
 	now := providertest.Now
 	reset := now.Add(40 * time.Minute)

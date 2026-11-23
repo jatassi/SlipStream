@@ -69,58 +69,12 @@ func failsWith(t *testing.T, rec *recorder, wants ...string) {
 
 const bothOddPending = `[{"method":"should_be_even","args":[3]},{"method":"should_be_even","args":[5]}]`
 
-func TestPendingRowsThatFailPass(t *testing.T) {
-	rec, _ := fixture(t, bothOddPending, "[]", Fixture{Checks: checks})
-	failsWith(t, rec)
-}
-
-func TestARowThatFailsAndIsNotPendingFails(t *testing.T) {
-	rec, _ := fixture(t, `[{"method":"should_be_even","args":[3]}]`, "[]", Fixture{Checks: checks})
-	failsWith(t, rec, `should_be_even [5]: 5 has the other parity`)
-}
-
-func TestAPendingRowThatPassesFails(t *testing.T) {
-	pending := `[{"method":"should_be_even","args":[2]},{"method":"should_be_even","args":[3]},{"method":"should_be_even","args":[5]}]`
-	rec, _ := fixture(t, pending, "[]", Fixture{Checks: checks})
-	failsWith(t, rec, "should_be_even [2] passes now")
-}
-
-func TestAMethodWithNoCheckFails(t *testing.T) {
-	rec, _ := fixture(t, bothOddPending, "[]", Fixture{Checks: map[string]Check{"should_be_even": parity(false)}})
-	failsWith(t, rec, "Upstream method should_be_odd")
-}
-
-func TestAnUnportedMethodNeedsNoCheck(t *testing.T) {
-	rec, _ := fixture(t, bothOddPending, "[]", Fixture{
-		Checks:   map[string]Check{"should_be_even": parity(false)},
-		Unported: map[string]string{"should_be_odd": "SlipStream reads no parity."},
-	})
-	failsWith(t, rec)
-}
-
-func TestACheckForNoMethodFails(t *testing.T) {
+func TestRun(t *testing.T) {
 	more := map[string]Check{"should_be_prime": parity(true)}
 	for k, v := range checks {
 		more[k] = v
 	}
-	rec, _ := fixture(t, bothOddPending, "[]", Fixture{Checks: more})
-	failsWith(t, rec, "should_be_prime has a check")
-}
-
-func TestAPendingRowTheFixtureLacksFails(t *testing.T) {
-	pending := `[{"method":"should_be_even","args":[3]},{"method":"should_be_even","args":[5]},{"method":"should_be_even","args":[7]}]`
-	rec, _ := fixture(t, pending, "[]", Fixture{Checks: checks})
-	failsWith(t, rec, "should_be_even [7] is pending")
-}
-
-func TestAnOverrideRunsTheRowWithSlipStreamsArguments(t *testing.T) {
-	overrides := `[{"method":"should_be_even","args":[5],"ours":[6],"reason":"SlipStream reads it as 6."}]`
-	rec, _ := fixture(t, `[{"method":"should_be_even","args":[3]}]`, overrides, Fixture{Checks: checks})
-	failsWith(t, rec)
-}
-
-func TestAnOverrideCarriesSlipStreamsReading(t *testing.T) {
-	even := map[string]Check{
+	readsOdd := map[string]Check{
 		"should_be_even": func(r Row) error {
 			odd := false
 			r.Reads(&odd)
@@ -131,9 +85,44 @@ func TestAnOverrideCarriesSlipStreamsReading(t *testing.T) {
 		},
 		"should_be_odd": parity(true),
 	}
-	overrides := `[{"method":"should_be_even","args":[3],"reads":true,"reason":"SlipStream reads 3 as odd."}]`
-	rec, _ := fixture(t, `[{"method":"should_be_even","args":[5]}]`, overrides, Fixture{Checks: even})
-	failsWith(t, rec)
+	evenOnly := map[string]Check{"should_be_even": parity(false)}
+	for _, c := range []struct {
+		why                string
+		pending, overrides string
+		fixture            Fixture
+		fails              []string
+	}{
+		{"pending rows that fail pass", bothOddPending, "[]", Fixture{Checks: checks}, nil},
+		{"a row that fails and isn't pending fails", `[{"method":"should_be_even","args":[3]}]`, "[]", Fixture{Checks: checks}, []string{`should_be_even [5]: 5 has the other parity`}},
+		{
+			"a pending row that passes fails",
+			`[{"method":"should_be_even","args":[2]},{"method":"should_be_even","args":[3]},{"method":"should_be_even","args":[5]}]`, "[]",
+			Fixture{Checks: checks}, []string{"should_be_even [2] passes now"},
+		},
+		{"a method with no check fails", bothOddPending, "[]", Fixture{Checks: evenOnly}, []string{"Upstream method should_be_odd"}},
+		{"an unported method needs no check", bothOddPending, "[]", Fixture{Checks: evenOnly, Unported: map[string]string{"should_be_odd": "SlipStream reads no parity."}}, nil},
+		{"a check for no method fails", bothOddPending, "[]", Fixture{Checks: more}, []string{"should_be_prime has a check"}},
+		{
+			"a pending row the fixture lacks fails",
+			`[{"method":"should_be_even","args":[3]},{"method":"should_be_even","args":[5]},{"method":"should_be_even","args":[7]}]`, "[]",
+			Fixture{Checks: checks}, []string{"should_be_even [7] is pending"},
+		},
+		{
+			"an override runs the row with SlipStream's arguments",
+			`[{"method":"should_be_even","args":[3]}]`, `[{"method":"should_be_even","args":[5],"ours":[6],"reason":"SlipStream reads it as 6."}]`,
+			Fixture{Checks: checks}, nil,
+		},
+		{
+			"an override carries SlipStream's reading",
+			`[{"method":"should_be_even","args":[5]}]`, `[{"method":"should_be_even","args":[3],"reads":true,"reason":"SlipStream reads 3 as odd."}]`,
+			Fixture{Checks: readsOdd}, nil,
+		},
+	} {
+		t.Run(c.why, func(t *testing.T) {
+			rec, _ := fixture(t, c.pending, c.overrides, c.fixture)
+			failsWith(t, rec, c.fails...)
+		})
+	}
 }
 
 func TestUpdatePendingWritesTheFailingRows(t *testing.T) {
