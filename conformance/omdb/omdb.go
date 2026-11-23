@@ -32,7 +32,9 @@ type Target struct {
 	// or none.
 	Key string
 	// Known is the IMDb id of a title the target rates on IMDb (with
-	// votes), Rotten Tomatoes and Metacritic, and gives an awards line.
+	// votes) and Metacritic, and gives an awards line. OMDb stopped
+	// sending Rotten Tomatoes ratings by 2026-11-23, so Known's is checked
+	// only when the target sends one.
 	Known string
 	// Series is the IMDb id of a series the target rates on IMDb (with
 	// votes) whose first season rates each episode.
@@ -47,7 +49,8 @@ type Target struct {
 
 // Run drives the OMDb client through every call SlipStream makes and
 // asserts what holds on both sides: the test call answers, Known reads
-// three ratings inside their scales and an awards line, an unknown id is
+// IMDb and Metacritic ratings, every rating inside its scale, and an
+// awards line, an unknown id is
 // works.ErrNotFound, Series reads an IMDb rating and its first season one
 // per episode, and a season the target lacks is works.ErrNotFound and not
 // an outage. A target with a key also gets a wrong key refused.
@@ -78,18 +81,17 @@ func Run(t *testing.T, tgt Target) {
 	if err != nil {
 		t.Fatalf("Title(%s): %v", tgt.Known, err)
 	}
-	for _, source := range []works.RatingSource{"imdb", "rottentomatoes", "metacritic"} {
-		i := slices.IndexFunc(title.Ratings, func(r works.Rating) bool { return r.Source == source })
-		if i < 0 {
+	for _, source := range []works.RatingSource{"imdb", "metacritic"} {
+		if !slices.ContainsFunc(title.Ratings, func(r works.Rating) bool { return r.Source == source }) {
 			t.Errorf("Title(%s) = %+v, want a %s rating", tgt.Known, title, source)
-			continue
 		}
-		r := title.Ratings[i]
-		if r.Value <= 0 || r.Value > works.RatingSources[source].Scale {
-			t.Errorf("Title(%s) %s rating = %v, want inside 0 to %v", tgt.Known, source, r.Value, works.RatingSources[source].Scale)
+	}
+	for _, r := range title.Ratings {
+		if scale := works.RatingSources[r.Source].Scale; r.Value <= 0 || r.Value > scale {
+			t.Errorf("Title(%s) %s rating = %v, want inside 0 to %v", tgt.Known, r.Source, r.Value, scale)
 		}
-		if (source == "imdb") != (r.Votes != nil) || (r.Votes != nil && *r.Votes <= 0) {
-			t.Errorf("Title(%s) %s votes = %v, want a count on IMDb alone", tgt.Known, source, r.Votes)
+		if (r.Source == "imdb") != (r.Votes != nil) || (r.Votes != nil && *r.Votes <= 0) {
+			t.Errorf("Title(%s) %s votes = %v, want a count on IMDb alone", tgt.Known, r.Source, r.Votes)
 		}
 	}
 	if title.Awards == "" {

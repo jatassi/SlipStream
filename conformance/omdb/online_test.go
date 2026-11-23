@@ -16,8 +16,7 @@ import (
 )
 
 const (
-	// fightClub is rated on IMDb, Rotten Tomatoes and Metacritic and has an
-	// awards line.
+	// fightClub is rated on IMDb and Metacritic and has an awards line.
 	fightClub = "tt0137523"
 	// breakingBad rates every episode of its first season.
 	breakingBad = "tt0903747"
