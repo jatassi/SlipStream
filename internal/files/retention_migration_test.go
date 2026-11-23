@@ -166,4 +166,3 @@ func TestEveryTableNamingAGrabFindsItsRowsByIndex(t *testing.T) {
 		t.Fatalf("%d tables name a Grab, want at least the 9 of grabs, files and imports: %v", len(children), children)
 	}
 }
-

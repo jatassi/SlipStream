@@ -103,4 +103,3 @@ func distinct(t *testing.T, lib *storage.DB[storage.Library], query, want string
 		t.Fatalf("%s = %v after the migration, want only %s", query, got, want)
 	}
 }
-

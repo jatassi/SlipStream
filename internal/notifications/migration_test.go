@@ -164,4 +164,3 @@ func exec(t *testing.T, lib *storage.DB[storage.Library], stmts ...string) {
 		t.Fatal(err)
 	}
 }
-
