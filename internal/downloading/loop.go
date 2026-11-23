@@ -115,7 +115,8 @@ type torrent struct {
 	handle engine.Handle
 	folder string
 	// status is the engine's latest, from Updates, and statusAt when it
-	// came.
+	// came. Paused stops its clocks where they ran on to, so the paused
+	// torrent's report counts up to its pause.
 	status   engine.Status
 	statusAt time.Time
 	trackers []engine.Tracker
@@ -840,6 +841,10 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 			l.found(t)
 		}
 	case engine.Paused:
+		if !t.statusAt.IsZero() {
+			now := time.Now()
+			t.status.Totals, t.statusAt = t.counters(now), now
+		}
 		switch {
 		case t.Phase == plan.Checking && !t.NeedsCheck, t.Phase == plan.Pausing, t.Phase == plan.Running:
 			t.Phase = plan.Added
