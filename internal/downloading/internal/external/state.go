@@ -99,11 +99,14 @@ type track struct {
 	// ask is a Move's open start ask, nil for none; watch a Move watching
 	// its announces, and lines their last read; arriving a Move's
 	// destination, added complete over the files the Move placed, with
-	// pieceLength its metainfo's, 0 until read.
+	// checked once its complete add went through this run or a poll saw
+	// it checking or finished, and pieceLength its metainfo's, 0 until
+	// read once checked.
 	ask         *arrival.Ask
 	watch       bool
 	lines       []clients.TrackerLine
 	arriving    bool
+	checked     bool
 	pieceLength int64
 	sent        *dlv1.TorrentReport
 	// sentAt is when sent went, which an error's heartbeat counts from.
@@ -534,7 +537,11 @@ func (s *state) listed(ctx context.Context, t *track, st clients.Status, now tim
 		return
 	}
 	t.status = &st
-	if t.arriving && t.pieceLength == 0 {
+	switch {
+	case !t.arriving:
+	case !t.checked:
+		s.recheck(ctx, t, st)
+	case t.pieceLength == 0:
 		s.readPieceLength(ctx, t)
 	}
 	if st.Done > t.lastDone || t.lastGrowth.IsZero() {
@@ -648,11 +655,26 @@ func (s *state) send(ctx context.Context, t *track) bool {
 		s.cfg.Log.Warn("add a torrent to the client", "info_hash", t.hash.String(), "err", err.Error())
 		return false
 	}
+	t.checked = add.Complete
 	return true
 }
 
-// readPieceLength reads the piece length of an arriving torrent the
-// actor didn't add this run, for its check's result.
+// recheck sends an arriving torrent the client lists unchecked once more,
+// as one whose complete add failed after the client took it, or held
+// before a restart, is: the client keeps the torrent it holds and checks
+// its files. This poll's status predates the check, so the piece length
+// its result needs is read on the next.
+func (s *state) recheck(ctx context.Context, t *track, st clients.Status) {
+	if st.Activity == clients.Checking || st.Finished {
+		t.checked = true
+		s.readPieceLength(ctx, t)
+		return
+	}
+	s.send(ctx, t)
+}
+
+// readPieceLength reads the piece length of a checked arriving torrent,
+// for its check's result.
 func (s *state) readPieceLength(ctx context.Context, t *track) {
 	res, err := s.fetch(ctx, t)
 	if err != nil {
