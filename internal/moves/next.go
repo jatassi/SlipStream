@@ -19,7 +19,9 @@ type Facts struct {
 	// has no record of it.
 	Transfer *transfers.View
 	// Importing and OpenFiles hold its switch: an Import of its Items, or
-	// a Transfer, Speech Map or Sidecar write on its files.
+	// a Transfer, Speech Map or Sidecar write on its files. A torrent
+	// unit's Importing is an Import of a Grab of its source, read at its
+	// guard.
 	Importing, OpenFiles bool
 	// Playing is the servers someone plays its files on now.
 	Playing []link.ServerID
@@ -304,7 +306,7 @@ func nextTorrent(u Unit, f Facts, now time.Time, r Rules) Action {
 		}
 		return Hold{Wait: WaitDownloading, Until: now.Add(r.DownloadingEvery)}
 	case Switching:
-		return nextHandoff(*s.Handoff, h, f.NodesUp, now, r)
+		return nextHandoff(*s.Handoff, f, now, r)
 	case Cleaning:
 		if h.Parted {
 			return Parted{SwitchedAt: s.SwitchedAt}
@@ -322,13 +324,15 @@ func nextTorrent(u Unit, f Facts, now time.Time, r Rules) Action {
 	return Nothing{}
 }
 
-// nextHandoff is a placed torrent's switch. A source paused by the Admin
-// or a goal switches at once and its destination stays paused. Otherwise
-// the guard waits until the source's trackers last answered Guard ago and
-// aren't due within ReplyWait, then the source stops, then the
-// destination starts. A stop unseen in StopBound resumes the source; a
-// start unconfirmed in HandoffBound, or refused, rolls back.
-func nextHandoff(at HandoffAt, h downloadclients.Handoff, up bool, now time.Time, r Rules) Action {
+// nextHandoff is a placed torrent's switch. The guard waits until no
+// Import reads the source. A source paused by the Admin or a goal then
+// switches at once and its destination stays paused. Otherwise the guard
+// waits until the source's trackers last answered Guard ago and aren't
+// due within ReplyWait, then the source stops, then the destination
+// starts. A stop unseen in StopBound resumes the source; a start
+// unconfirmed in HandoffBound, or refused, rolls back.
+func nextHandoff(at HandoffAt, f Facts, now time.Time, r Rules) Action {
+	h := f.Handoff
 	switch {
 	case h.Removed:
 		return Rollback{Code: SourceGone}
@@ -337,7 +341,7 @@ func nextHandoff(at HandoffAt, h downloadclients.Handoff, up bool, now time.Time
 	}
 	switch at.Step {
 	case HandoffGuard:
-		return nextGuard(h, up, now, r)
+		return nextGuard(h, f, now, r)
 	case HandoffStopping:
 		bound := at.At.Add(r.StopBound)
 		switch {
@@ -361,11 +365,13 @@ func nextHandoff(at HandoffAt, h downloadclients.Handoff, up bool, now time.Time
 	return Hold{Wait: WaitGuard, Until: bound}
 }
 
-func nextGuard(h downloadclients.Handoff, up bool, now time.Time, r Rules) Action {
+func nextGuard(h downloadclients.Handoff, f Facts, now time.Time, r Rules) Action {
 	switch {
+	case f.Importing:
+		return Hold{Wait: WaitImporting}
 	case h.Wanted == downloadclients.Paused:
 		return SwitchTorrent{}
-	case !up:
+	case !f.NodesUp:
 		return Hold{Wait: WaitNodeOffline}
 	case h.AnnouncedAt == nil:
 		return Hold{Wait: WaitGuard, Until: now.Add(r.Guard)}

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
@@ -184,6 +185,8 @@ func TestNext(t *testing.T) {
 		{"past the bound the servers are released", Unit{Stage: Cleaning{SwitchedAt: at.Add(-time.Hour)}}, Facts{Safe: map[link.ServerID]bool{server: false}}, ReleaseServers{}},
 		{"a pending source file is removed", Unit{Stage: Cleaning{SwitchedAt: at}, Files: []File{{Position: 3, Cleanup: CleanupPending}}}, Facts{}, RemoveSource{Pos: 3}},
 		{"every source file done finishes", Unit{Stage: Cleaning{SwitchedAt: at}, Files: []File{{Cleanup: CleanupDone}}}, Facts{}, FinishCleanup{}},
+		{"an Import from a torrent holds its guard", Unit{Torrent: &TorrentSubject{}, Stage: Switching{Handoff: &HandoffAt{Step: HandoffGuard}}},
+			Facts{Importing: true, Handoff: downloadclients.Handoff{Wanted: downloadclients.Paused}}, Hold{Wait: WaitImporting}},
 		{"a failed unit undoes", Unit{Stage: Failed{}}, Facts{}, Undo{}},
 		{"an undone cancel rests", Unit{Stage: Canceled{Undone: &at}}, Facts{}, Nothing{}},
 		{"a done unit rests", Unit{Stage: Done{}}, Facts{}, Nothing{}},
