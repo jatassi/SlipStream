@@ -88,8 +88,41 @@ test("the Move Dialog leads with the recommendation and groups each film by verd
     {
       origin: "bulk",
       works: [film(1), film(2), film(3)].map(({ id }) => ({ workId: id, rootId: archiveRoot.id })),
+      options: { includeLinkedTorrents: true },
     },
   ]);
+});
+
+test("unticking Also move their torrents previews the films alone", async () => {
+  const sent: Sent = { previews: [], starts: [] };
+  await renderAction(<Opened />, moveServer([threeFilms], [started()], sent));
+
+  const dialog = page.getByRole("dialog", { name: "Move 3 films" });
+  await expect
+    .element(dialog.getByText("Move 2 of 3 films to home. 1 can't move: Film 3."))
+    .toBeVisible();
+  await userEvent.click(dialog.getByRole("checkbox", { name: "Also move their torrents" }));
+  await expect.poll(() => sent.previews.length).toBe(2);
+  expect(sent.previews[1]).toMatchObject({ options: { includeLinkedTorrents: false } });
+});
+
+test("a film's linked torrent doesn't count as a film it started", async () => {
+  const sent: Sent = { previews: [], starts: [] };
+  const [orchard] = threeFilms.units;
+  if (orchard === undefined) {
+    throw new Error("threeFilms has no unit");
+  }
+  const withTorrent: MovesMovePreview = {
+    ...threeFilms,
+    units: [
+      { ...orchard, key: "torrent:1", kind: "torrent", name: "Orchard.mkv" },
+      ...threeFilms.units,
+    ],
+  };
+  await renderAction(<Opened />, moveServer([withTorrent], [started({ started: 3 })], sent));
+
+  await userEvent.click(page.getByRole("button", { name: "Move 2 of 3" }));
+  await expect.element(page.getByText("Moving 2 films to home.")).toBeVisible();
 });
 
 test("Start confirms the count the preview showed and toasts each film it left out", async () => {
