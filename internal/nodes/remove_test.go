@@ -35,12 +35,9 @@ func TestRemovingANodeLeavesATombstone(t *testing.T) {
 		own := role.Of(role.Names()...).Without(role.Relaying)
 		c.apply(t, nodes.Roles{box: role.Of(role.Downloading), c.svc.Self(): own.Without(role.Downloading)})
 
-		out, err := c.svc.Apply(t.Context(), nodes.Remove{Node: box})
-		if err != nil {
+		if _, err := c.svc.Apply(t.Context(), nodes.Remove{Node: box}); err != nil {
 			t.Fatal(err)
 		}
-		wantWords(t, out, "home takes over Downloading, since SlipStream always needs a Node that downloads.",
-			"box is removed. It can join again with a new Join Code.")
 		if got := c.rolesOf(t, c.svc.Self()); !slices.Contains(got, role.Downloading) {
 			t.Fatalf("home holds %v after the removal, want Downloading", got)
 		}

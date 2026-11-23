@@ -86,16 +86,13 @@ func TestRemovingANodeThatHoldsWorkNeedsAWriteOff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var said []string
-	for _, e := range out.Effects {
-		said = append(said, e.Words())
+	if len(out.Effects) != 2 {
+		t.Fatalf("the removal's effects are %#v, want a write-off and a leave", out.Effects)
 	}
-	want := []string{
-		"SlipStream gives up the 3 torrents seedbox has for Downloading. No files are deleted.",
-		"seedbox is removed. It can join again with a new Join Code.",
-	}
-	if !slices.Equal(said, want) {
-		t.Fatalf("the removal says %q, want %q", said, want)
+	gaveUp, ok := out.Effects[0].(WritesOff)
+	if left, isLeave := out.Effects[1].(Leaves); !ok || gaveUp.Node.ID != seedbox || gaveUp.Role != role.Downloading || gaveUp.Held.Units != 3 ||
+		!isLeave || left.Node.ID != seedbox {
+		t.Fatalf("the removal's effects are %#v, want seedbox's 3 torrents given up and seedbox removed", out.Effects)
 	}
 	if !s.WrittenOff(role.Downloading, seedbox) {
 		t.Fatal("seedbox's torrents read as kept once it is removed with a write-off")

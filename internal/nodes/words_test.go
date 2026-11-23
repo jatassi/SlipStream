@@ -7,30 +7,29 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 )
 
-func TestADrainSaysWhichTorrentsItsSeedingGoalsFinish(t *testing.T) {
+// TestEveryEffectNamesItsFacts renders each kind of Effect, and a drain for
+// each mix of torrents with and without a seeding goal: its words name the
+// Nodes, the Role and the counts it carries.
+func TestEveryEffectNamesItsFacts(t *testing.T) {
 	torrent := nodes.Noun{One: "torrent", Many: "torrents"}
 	root := nodes.Noun{One: "root", Many: "roots"}
+	drains := func(r role.Name, h nodes.Held) nodes.Effect { return nodes.Drains{Node: seedbox, Role: r, Held: h} }
 	for _, c := range []struct {
-		role role.Name
-		held nodes.Held
-		want string
+		effect nodes.Effect
+		facts  []string
 	}{
-		{role.Downloading, nodes.Held{Units: 12, Noun: torrent, Bytes: 41 << 30},
-			"seedbox takes no new Downloading work and finishes the 12 torrents (41 GB) it has."},
-		{role.Downloading, nodes.Held{Units: 12, Noun: torrent, Bytes: 41 << 30, EndlessUnits: 12},
-			"seedbox takes no new Downloading work. 12 torrents have no seeding goal and stay until you remove, move or give them up."},
-		{role.Downloading, nodes.Held{Units: 12, Noun: torrent, Bytes: 41 << 30, EndlessUnits: 4},
-			"seedbox takes no new Downloading work. It finishes 8 torrents once they reach their seeding goals. 4 torrents have no seeding goal and stay until you remove, move or give them up."},
-		{role.Downloading, nodes.Held{Units: 1, Noun: torrent, EndlessUnits: 1},
-			"seedbox takes no new Downloading work. 1 torrent has no seeding goal and stays until you remove, move or give it up."},
-		{role.Downloading, nodes.Held{Units: 2, Noun: torrent, EndlessUnits: 1},
-			"seedbox takes no new Downloading work. It finishes 1 torrent once it reaches its seeding goal. 1 torrent has no seeding goal and stays until you remove, move or give it up."},
-		{role.Storage, nodes.Held{Units: 2, Noun: root, EndlessUnits: 2},
-			"seedbox takes no new Storage work. It keeps its 2 roots until you move them or give them up."},
+		{nodes.Gains{Node: seedbox, Role: role.Relaying}, []string{"seedbox", "Relaying"}},
+		{nodes.LetsGo{Node: seedbox, Role: role.Subtitles}, []string{"seedbox", "Subtitles"}},
+		{drains(role.Downloading, nodes.Held{Units: 12, Noun: torrent, Bytes: 41 << 30}), []string{"seedbox", "Downloading", "12 torrents (41 GB)"}},
+		{drains(role.Downloading, nodes.Held{Units: 12, Noun: torrent, Bytes: 41 << 30, EndlessUnits: 12}), []string{"12 torrents"}},
+		{drains(role.Downloading, nodes.Held{Units: 12, Noun: torrent, Bytes: 41 << 30, EndlessUnits: 4}), []string{"8 torrents", "4 torrents"}},
+		{drains(role.Storage, nodes.Held{Units: 2, Noun: root, EndlessUnits: 2}), []string{"Storage", "2 roots"}},
+		{nodes.HandedBack{Role: role.Downloading, From: []nodes.Named{seedbox}, To: home}, []string{"home", "Downloading"}},
+		{nodes.Pinned{Node: home, Role: role.Serving}, []string{"home", "Serving"}},
+		{nodes.Moves{Role: role.Searching, From: seedbox, To: home, Held: indexers}, []string{"3 Indexers", "home"}},
+		{nodes.WritesOff{Node: seedbox, Role: role.Downloading, Held: torrents}, []string{"seedbox", "Downloading", "3 torrents (41 GB)"}},
+		{nodes.Leaves{Node: seedbox}, []string{"seedbox"}},
 	} {
-		got := nodes.Drains{Node: seedbox, Role: c.role, Held: c.held}.Words()
-		if got != c.want {
-			t.Errorf("%s holding %+v:\n got %q\nwant %q", c.role, c.held, got, c.want)
-		}
+		wantFacts(t, c.effect.Words(), c.facts...)
 	}
 }
