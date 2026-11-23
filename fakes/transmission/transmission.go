@@ -147,6 +147,9 @@ const (
 	sessionHeader = "X-Transmission-Session-Id"
 	versionHeader = "X-Transmission-Rpc-Version"
 	base          = "/transmission/"
+	// tick is the session loop on which a torrent_stop takes effect:
+	// Transmission 4.1.4 read stopped 469 to 485 ms after the call.
+	tick = 500 * time.Millisecond
 )
 
 type server struct {
@@ -183,7 +186,7 @@ func serve(env fake.Env, daemons []Daemon) (fake.Server, error) {
 			return nil, fmt.Errorf("fake-transmission plays %v, not %q", Versions, d.Version)
 		}
 		s.daemons[d.Node] = &daemon{Daemon: d, version: v, captures: c, engine: torrentclient.New(torrentclient.Config{
-			Releases: env.Releases, Dir: d.Dir, Name: d.Folder, Windows: d.Windows, Rate: d.Rate, Slots: d.Slots, SeedRatio: d.SeedRatio, Check: d.Check,
+			Releases: env.Releases, Dir: d.Dir, Name: d.Folder, Windows: d.Windows, Rate: d.Rate, Slots: d.Slots, SeedRatio: d.SeedRatio, Check: d.Check, Tick: tick,
 			Tracker: clientfake.Tracker(env, d.Node), PeerID: clientfake.PeerID("-TR4010-", d.Node),
 		})}
 	}

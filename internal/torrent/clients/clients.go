@@ -31,7 +31,11 @@ type Session struct {
 	TrackerEvery time.Duration
 	// Call bounds each request.
 	Call time.Duration
-	Log  *slog.Logger
+	// LoadWait is how long rTorrent's complete add waits for rTorrent to
+	// load the torrent, which it does after it responds, and LoadEvery how
+	// often it asks.
+	LoadWait, LoadEvery time.Duration
+	Log                 *slog.Logger
 }
 
 // Secrets are the values sealed on the Controller and held in Node
@@ -119,20 +123,10 @@ type Add struct {
 	Label  Label
 	Paused bool
 	// Complete adds over the files already in Folder, checking them in
-	// place of downloading: qBittorrent's skip_checking, Deluge's
-	// seed_mode, rTorrent's libtorrent_resume built from Files, and
-	// Transmission's verify after the add.
+	// place of downloading: qBittorrent's skip_checking or, from WebAPI
+	// 2.16.0, seedMode, Deluge's seed_mode, and a check after the add in
+	// rTorrent and Transmission.
 	Complete bool
-	// Files are the torrent's files as they lie in Folder, in index
-	// order, for rTorrent's resume data.
-	Files []FileStat
-}
-
-// FileStat is one file of a torrent on disk: its size and modification
-// time.
-type FileStat struct {
-	Size     int64
-	Modified time.Time
 }
 
 // TrackerLine is one tracker line's announces as the client reports them,

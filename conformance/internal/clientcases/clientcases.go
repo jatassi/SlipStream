@@ -1,6 +1,7 @@
 // Package clientcases is the cases every Download Client conformance
-// suite runs alike: a complete add over files already on disk, and the
-// last announce a Move's guard reads.
+// suite runs alike: a complete add over files already on disk, the last
+// announce a Move's guard reads, a paused add that reads paused until
+// it is listed and checked, and a pause that reads paused.
 package clientcases
 
 import (
@@ -24,6 +25,15 @@ type Folder struct {
 // poll is how often a case reads the target while it waits.
 const poll = time.Second
 
+// pauseWait bounds a pause's or an add's wait to read settled, and
+// pauseEvery is how often it reads: Transmission 4.1.4 read stopped up to
+// 485 ms after the call, on a tick of about 0.5 s, and qBittorrent 4.6.7
+// listed an add 4 ms after it answered.
+const (
+	pauseWait  = 2 * time.Second
+	pauseEvery = 100 * time.Millisecond
+)
+
 // CompleteAdd adds whole over its payload written whole in folder, and a
 // second torrent over its payload cut short, both paused and complete,
 // and asserts that once their checks end the client holds whole finished
@@ -44,14 +54,7 @@ func CompleteAdd(t *testing.T, c clients.Client, label clients.Label, folder Fol
 		if err := os.WriteFile(path, p.s.Data[:p.n], 0o600); err != nil {
 			t.Fatal(err)
 		}
-		info, err := os.Stat(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		add := clients.Add{
-			Metainfo: p.s.Metainfo, Hash: p.s.Hash, Folder: folder.Client, Label: label, Paused: true, Complete: true,
-			Files: []clients.FileStat{{Size: info.Size(), Modified: info.ModTime()}},
-		}
+		add := clients.Add{Metainfo: p.s.Metainfo, Hash: p.s.Hash, Folder: folder.Client, Label: label, Paused: true, Complete: true}
 		if err := c.Add(t.Context(), add); err != nil {
 			t.Fatalf("Add of a complete torrent: %v", err)
 		}
@@ -95,7 +98,7 @@ func checked(t *testing.T, c clients.Client, hashes ...bencode.InfoHash) map[ben
 // LastAnnounce starts h, which announces to a tracker that answers it
 // every interval, and asserts that Announces reads an answer at or after
 // the start with the next announce after it within two intervals. It
-// pauses h again.
+// pauses h again and waits until it reads paused.
 func LastAnnounce(t *testing.T, c clients.Client, h bencode.InfoHash, interval time.Duration) {
 	t.Helper()
 	start := time.Now().Truncate(time.Second)
@@ -116,8 +119,58 @@ func LastAnnounce(t *testing.T, c clients.Client, h bencode.InfoHash, interval t
 		}
 		time.Sleep(poll)
 	}
+	Pause(t, c, h)
+}
+
+// Pause pauses h and polls until the client reads it paused, which a
+// client may do on its next tick after it answered.
+func Pause(t *testing.T, c clients.Client, h bencode.InfoHash) {
+	t.Helper()
 	if err := c.Act(t.Context(), clients.Pause, []bencode.InfoHash{h}); err != nil {
 		t.Errorf("Act(Pause): %v", err)
+		return
+	}
+	deadline := time.Now().Add(pauseWait)
+	for {
+		got, err := c.Poll(t.Context(), []bencode.InfoHash{h})
+		if err != nil {
+			t.Fatalf("Poll: %v", err)
+		}
+		if got[h].Run == clients.Paused {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Errorf("%s after Pause: %+v, want paused", pauseWait, got[h])
+			return
+		}
+		time.Sleep(pauseEvery)
+	}
+}
+
+// PausedAdd polls until the client lists h, added paused, with no check
+// running, which a client may do on its next tick after it answered the
+// add, and answers its status. Each read must say paused, checking or
+// not.
+func PausedAdd(t *testing.T, c clients.Client, h bencode.InfoHash) (clients.Status, bool) {
+	t.Helper()
+	deadline := time.Now().Add(pauseWait)
+	for {
+		got, err := c.Poll(t.Context(), []bencode.InfoHash{h})
+		if err != nil {
+			t.Fatalf("Poll: %v", err)
+		}
+		s, ok := got[h]
+		if ok && s.Run != clients.Paused {
+			t.Errorf("after a paused add: %+v, want it paused", s)
+			return s, true
+		}
+		if ok && s.Activity != clients.Checking {
+			return s, true
+		}
+		if time.Now().After(deadline) {
+			return s, ok
+		}
+		time.Sleep(pauseEvery)
 	}
 }
 

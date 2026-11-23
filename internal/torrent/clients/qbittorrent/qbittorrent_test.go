@@ -209,7 +209,7 @@ func calls(got []exchange) []exchange {
 // for want of a session, auth/login in the version's generation, the call
 // again and app/webapiVersion.
 func signIn(version string) []exchange {
-	login := map[bool]int{false: http.StatusOK, true: http.StatusNoContent}[version == "5.2"]
+	login := map[bool]int{false: http.StatusOK, true: http.StatusNoContent}[version >= "5.2"]
 	return []exchange{
 		{call: "app/version", status: http.StatusForbidden}, {call: "auth/login", status: login},
 		{call: "app/version", status: http.StatusOK}, {call: "app/webapiVersion", status: http.StatusOK},
@@ -217,7 +217,7 @@ func signIn(version string) []exchange {
 }
 
 func TestQBittorrentSignsInInItsVersionsGeneration(t *testing.T) {
-	wantVersion := map[string]string{"4.6": "4.6.7", "5.1": "5.1.4", "5.2": "5.2.3"}
+	wantVersion := map[string]string{"4.6": "4.6.7", "5.1": "5.1.4", "5.2": "5.2.3", "5.3": "5.3"}
 	inEachVersion(t, func(t *testing.T, version string) {
 		r := newRig(t, fakeqbittorrent.Client{Version: version})
 		c := r.session()
@@ -534,6 +534,33 @@ func TestQBittorrentReportsACheckedTorrentAsItWasAsked(t *testing.T) {
 		time.Sleep(5 * time.Second)
 		if got := r.status(c, orchard); got.Run != clients.Paused || got.Activity != clients.Downloading {
 			t.Fatalf("paused after checking: %+v", got)
+		}
+	})
+}
+
+func TestQBittorrentKeepsTheFirstAddsRunWhenAColdOneAnswersADuplicate(t *testing.T) {
+	inEachVersion(t, func(t *testing.T, version string) {
+		r := newRig(t, fakeqbittorrent.Client{Version: version, Check: 2 * time.Second, Cold: true})
+		c := r.session()
+		orchard := r.releases[0]
+		if err := c.Add(t.Context(), clients.Add{Metainfo: orchard.metainfo, Hash: orchard.hash, Label: slipstream, Paused: true}); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := r.poll(c, orchard); ok {
+			t.Fatal("a cold qBittorrent lists an add at once")
+		}
+		r.add(c, orchard, "")
+		time.Sleep(time.Second)
+		if got := r.status(c, orchard); got.Activity != clients.Checking || got.Run != clients.Paused {
+			t.Fatalf("checking after a paused add and a started duplicate: %+v, want checking and paused", got)
+		}
+		if err := c.Remove(t.Context(), orchard.hash, true); err != nil {
+			t.Fatal(err)
+		}
+		r.add(c, orchard, "")
+		time.Sleep(time.Second)
+		if got := r.status(c, orchard); got.Activity != clients.Checking || got.Run != clients.Started {
+			t.Fatalf("checking after a started add of a removed torrent: %+v, want checking and started", got)
 		}
 	})
 }

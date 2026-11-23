@@ -127,7 +127,7 @@ func (r run) add(meta []byte, name string) {
 	if err := r.c.Add(ctx, clients.Add{Metainfo: meta, Hash: r.hash, Label: r.label}); err != nil {
 		r.t.Errorf("adding the torrent again: %v, want the duplicate ignored", err)
 	}
-	s, ok := r.poll()
+	s, ok := clientcases.PausedAdd(r.t, r.c, r.hash)
 	if !ok || s.Name != name || s.Label != r.label.String() || s.Folder != r.tgt.Folder || s.Run != clients.Paused || s.Finished || s.Size != torrentfile.Size || s.Done != 0 {
 		r.t.Errorf("after a paused add: %+v, %v, want %s paused in %s labeled %s with nothing done", s, ok, name, r.tgt.Folder, r.label)
 	}
@@ -146,12 +146,7 @@ func (r run) act() {
 	if s, _ := r.poll(); s.Run != clients.Started || s.Finished {
 		r.t.Errorf("after Resume: %+v, want started and not finished", s)
 	}
-	if err := r.c.Act(r.t.Context(), clients.Pause, []bencode.InfoHash{r.hash}); err != nil {
-		r.t.Errorf("Act(Pause): %v", err)
-	}
-	if s, _ := r.poll(); s.Run != clients.Paused {
-		r.t.Errorf("after Pause: %+v, want paused", s)
-	}
+	clientcases.Pause(r.t, r.c, r.hash)
 }
 
 func (r run) remove() {

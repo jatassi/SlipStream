@@ -88,7 +88,7 @@ func (r run) open(password string) clients.Client {
 	}
 	return rtorrent.Open(clients.Session{
 		HTTP: r.tgt.HTTP, Address: a, Username: r.tgt.Username, Secrets: clients.Secrets{Password: password},
-		Call: time.Minute, Log: r.tgt.Log,
+		Call: time.Minute, LoadWait: time.Minute, LoadEvery: time.Second, Log: r.tgt.Log,
 	})
 }
 
@@ -164,12 +164,7 @@ func (r run) act() {
 	if s, _ := r.poll(); s.Run != clients.Started || s.Finished {
 		r.t.Errorf("after Resume: %+v, want started and not finished", s)
 	}
-	if err := r.c.Act(r.t.Context(), clients.Pause, []bencode.InfoHash{r.hash}); err != nil {
-		r.t.Errorf("Act(Pause): %v", err)
-	}
-	if s, _ := r.poll(); s.Run != clients.Paused {
-		r.t.Errorf("after Pause: %+v, want paused", s)
-	}
+	clientcases.Pause(r.t, r.c, r.hash)
 }
 
 func (r run) remove() {

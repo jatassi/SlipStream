@@ -4,13 +4,11 @@ import (
 	"cmp"
 	"context"
 	"errors"
-	"fmt"
 	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -101,11 +99,14 @@ type track struct {
 	// ask is a Move's open start ask, nil for none; watch a Move watching
 	// its announces, and lines their last read; arriving a Move's
 	// destination, added complete over the files the Move placed, with
-	// pieceLength its metainfo's, 0 until read.
+	// checked once its complete add went through this run or a poll saw
+	// it checking or finished, and pieceLength its metainfo's, 0 until
+	// read once checked.
 	ask         *arrival.Ask
 	watch       bool
 	lines       []clients.TrackerLine
 	arriving    bool
+	checked     bool
 	pieceLength int64
 	sent        *dlv1.TorrentReport
 	// sentAt is when sent went, which an error's heartbeat counts from.
@@ -408,7 +409,8 @@ func (s *state) session(ctx context.Context) error {
 	session := clients.Session{
 		HTTP: s.cfg.HTTP, Address: address, Username: c.GetUsername(),
 		Secrets:      clients.Secrets{Password: res.GetSecrets().GetPassword(), APIKey: res.GetSecrets().GetApiKey()},
-		TrackerEvery: s.cfg.Timings.Trackers, Call: s.cfg.Timings.Call, Log: s.cfg.Log,
+		TrackerEvery: s.cfg.Timings.Trackers, Call: s.cfg.Timings.Call,
+		LoadWait: s.cfg.Timings.LoadWait, LoadEvery: s.cfg.Timings.LoadEvery, Log: s.cfg.Log,
 	}
 	if d := c.GetDaemon(); d != nil {
 		session.Daemon = &clients.Daemon{Host: d.GetHost(), Port: int(d.GetPort())}
@@ -535,7 +537,11 @@ func (s *state) listed(ctx context.Context, t *track, st clients.Status, now tim
 		return
 	}
 	t.status = &st
-	if t.arriving && t.pieceLength == 0 {
+	switch {
+	case !t.arriving:
+	case !t.checked:
+		s.recheck(ctx, t, st)
+	case t.pieceLength == 0:
 		s.readPieceLength(ctx, t)
 	}
 	if st.Done > t.lastDone || t.lastGrowth.IsZero() {
@@ -644,22 +650,31 @@ func (s *state) send(ctx context.Context, t *track) bool {
 		folder = joinClient(base, s.cfg.Subfolder(res.GetContentType()))
 	}
 	add := clients.Add{Metainfo: res.GetMetainfo(), Hash: t.hash, Folder: folder, Label: s.label, Paused: t.intent == clients.Paused, Complete: t.arriving}
-	if t.arriving {
-		if add.Files, err = s.placed(t, res.GetMetainfo(), folder); err != nil {
-			s.cfg.Log.Warn("read the files a Move placed for a torrent", "info_hash", t.hash.String(), "err", err.Error())
-			return false
-		}
-	}
 	err = s.client.Add(ctx, add)
 	if err != nil {
 		s.cfg.Log.Warn("add a torrent to the client", "info_hash", t.hash.String(), "err", err.Error())
 		return false
 	}
+	t.checked = add.Complete
 	return true
 }
 
-// readPieceLength reads the piece length of an arriving torrent the
-// actor didn't add this run, for its check's result.
+// recheck sends an arriving torrent the client lists unchecked once more,
+// as one whose complete add failed after the client took it, or held
+// before a restart, is: the client keeps the torrent it holds and checks
+// its files. This poll's status predates the check, so the piece length
+// its result needs is read on the next.
+func (s *state) recheck(ctx context.Context, t *track, st clients.Status) {
+	if st.Activity == clients.Checking || st.Finished {
+		t.checked = true
+		s.readPieceLength(ctx, t)
+		return
+	}
+	s.send(ctx, t)
+}
+
+// readPieceLength reads the piece length of a checked arriving torrent,
+// for its check's result.
 func (s *state) readPieceLength(ctx context.Context, t *track) {
 	res, err := s.fetch(ctx, t)
 	if err != nil {
@@ -668,31 +683,6 @@ func (s *state) readPieceLength(ctx context.Context, t *track) {
 	if m, err := bencode.DecodeMetainfo(res.GetMetainfo()); err == nil {
 		t.pieceLength = m.Info.PieceLength
 	}
-}
-
-// placed is each file of the torrent metainfo describes as it lies in
-// folder on this Node, and keeps the torrent's piece length for its
-// check's result.
-func (s *state) placed(t *track, metainfo []byte, folder string) ([]clients.FileStat, error) {
-	m, err := bencode.DecodeMetainfo(metainfo)
-	if err != nil {
-		return nil, err
-	}
-	t.pieceLength = m.Info.PieceLength
-	out := make([]clients.FileStat, len(m.Info.Files))
-	for i, f := range m.Info.Files {
-		rel := strings.Join(append([]string{m.Info.Name}, f.Path...), "/")
-		p, _, ok := s.folders.OnNode(joinClient(folder, rel), filepath.Separator)
-		if !ok {
-			return nil, fmt.Errorf("no Client folder holds %s", folder)
-		}
-		info, err := os.Stat(p)
-		if err != nil {
-			return nil, fmt.Errorf("can't read a file the Move placed: %w", err)
-		}
-		out[i] = clients.FileStat{Size: info.Size(), Modified: info.ModTime()}
-	}
-	return out, nil
 }
 
 // joinClient is name under folder, with the separator the client's own
@@ -708,6 +698,9 @@ func joinClient(folder, name string) string {
 	return folder + sep + name
 }
 
+// wantedSync pauses or resumes t to its intent. A pause reads paused only
+// once a poll sees it, since a client may stop the torrent on a later
+// tick than its answer.
 func (s *state) wantedSync(ctx context.Context, t *track, st clients.Status) {
 	intent := t.intent
 	t.ask.Tick(time.Now())
@@ -726,8 +719,8 @@ func (s *state) wantedSync(ctx context.Context, t *track, st clients.Status) {
 			s.cfg.Log.Warn("pause or resume a torrent in the client", "info_hash", t.hash.String(), "err", err.Error())
 			return
 		}
-		t.status.Run = send
 		if send == clients.Started {
+			t.status.Run = send
 			t.ask.Start(time.Now())
 		}
 	}

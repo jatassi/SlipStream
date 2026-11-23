@@ -148,7 +148,9 @@ const maxContent = 64 << 20
 // add is torrents/add for .torrent files. The category is created when
 // it doesn't exist. Automatic management is off, qBittorrent's default,
 // so a torrent with no save path goes to the default save path.
-// skip_checking takes the files already in the save path as complete.
+// skip_checking, or seedMode from WebAPI 2.16.0, takes the files already
+// in the save path as complete. A Cold client from 5.2 answers a
+// duplicate as added and leaves the torrent as it was.
 func (c *client) add(w http.ResponseWriter, r *http.Request, _ *session) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxContent)
 	if err := r.ParseMultipartForm(maxContent); err != nil { //nolint:gosec // the body is bounded above
@@ -156,11 +158,14 @@ func (c *client) add(w http.ResponseWriter, r *http.Request, _ *session) {
 		return
 	}
 	category, save := r.PostFormValue("category"), strings.TrimSpace(r.PostFormValue("savepath"))
-	stopped := "paused"
+	stopped, skip := "paused", "skip_checking"
 	if c.version.stop {
 		stopped = "stopped"
 	}
-	paused, complete := parseBool(r.PostFormValue(stopped)), parseBool(r.PostFormValue("skip_checking"))
+	if c.version.seedMode {
+		skip = "seedMode"
+	}
+	paused, complete := parseBool(r.PostFormValue(stopped)), parseBool(r.PostFormValue(skip))
 	folder := save
 	switch {
 	case save == "":
@@ -185,7 +190,7 @@ func (c *client) add(w http.ResponseWriter, r *http.Request, _ *session) {
 			labels = []string{category}
 		}
 		t, duplicate, err := c.engine.Add(torrentclient.Add{Metainfo: meta, Folder: folder, Labels: labels, Paused: paused, Complete: complete})
-		if err != nil || duplicate {
+		if err != nil || duplicate && (!c.Cold || !c.version.v52) {
 			failed++
 			continue
 		}
