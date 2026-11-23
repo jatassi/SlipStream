@@ -624,12 +624,12 @@ func (q *Queries) ListWorksOfRoot(ctx context.Context, rootID RootID) ([]works.W
 }
 
 const listWorksOfRootAfter = `-- name: ListWorksOfRootAfter :many
-SELECT work_id FROM roots_work WHERE root_id = ?1 AND work_id > ?2 ORDER BY work_id LIMIT ?3
+SELECT work_id FROM roots_work WHERE root_id = ?1 AND (?2 IS NULL OR work_id > ?2) ORDER BY work_id LIMIT ?3
 `
 
 type ListWorksOfRootAfterParams struct {
 	RootID RootID
-	After  works.WorkID
+	After  interface{}
 	N      int64
 }
 

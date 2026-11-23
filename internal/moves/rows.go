@@ -1,6 +1,7 @@
 package moves
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -19,6 +20,9 @@ func unitOf(row db.MovesUnit) (Unit, error) {
 		Planned:   Planned{Bytes: row.PlannedBytes, At: row.PlannedAt.Time()},
 		Reconcile: row.Reconcile == 1,
 		Due:       timeOf(row.DueAt),
+	}
+	if !row.PairsWithUnitID.IsZero() {
+		u.PairsWith = &row.PairsWithUnitID
 	}
 	if row.Kind == "torrent" {
 		u.Torrent = torrentOf(row)
@@ -156,7 +160,7 @@ func fileOf(row db.MovesUnitFile) (File, error) {
 		return File{}, fmt.Errorf("file %d of unit %s: %w", row.Position, row.UnitID, err)
 	}
 	f := File{
-		Position: int(row.Position), Kind: FileKind(row.Kind), ID: row.FileID, Sits: sits, Size: row.Size,
+		Position: int(row.Position), Kind: FileKind(row.Kind), Via: Via(row.Via), ID: row.FileID, Sits: sits, Size: row.Size,
 		Seen: seenOf(row.ModifiedAt, row.NodeFileID, row.NodeVolumeID), Ledger: row.Ledger == 1,
 		Cleanup: Cleanup(deref(row.Cleanup)), Copy: row.CopyBytes, Dropped: timeOf(row.DroppedAt),
 	}
@@ -185,7 +189,7 @@ func fileColumns(u UnitID, f File) db.UpdateUnitFileParams {
 }
 
 func insertFileColumns(u UnitID, f File) db.InsertUnitFileParams {
-	p := db.InsertUnitFileParams{UnitID: u, Position: int64(f.Position), Kind: string(f.Kind), SitsRel: f.Sits.String(), Size: f.Size}
+	p := db.InsertUnitFileParams{UnitID: u, Position: int64(f.Position), Kind: string(f.Kind), Via: string(cmp.Or(f.Via, ViaLibrary)), SitsRel: f.Sits.String(), Size: f.Size}
 	if !f.ID.IsZero() {
 		p.FileID = f.ID
 	}
@@ -193,7 +197,7 @@ func insertFileColumns(u UnitID, f File) db.InsertUnitFileParams {
 	if f.Ledger {
 		p.Ledger = 1
 	}
-	if f.Kind == KindPayload {
+	if f.Kind == KindPayload || f.Via == ViaArriving {
 		p.PayloadIndex = new(int64(f.Index))
 	}
 	return p

@@ -305,7 +305,7 @@ func merged(was, fresh []File) []File {
 	}
 	for _, f := range fresh {
 		if i := slices.IndexFunc(was, func(g File) bool { return sameFile(f, g) && g.Dropped == nil }); i >= 0 {
-			f.Placed, f.Position = was[i].Placed, was[i].Position
+			f.Placed, f.Position, f.Via, f.Index = was[i].Placed, was[i].Position, was[i].Via, was[i].Index
 		} else {
 			f.Position = next
 		}
@@ -324,8 +324,6 @@ func merged(was, fresh []File) []File {
 // link, a clone, or a copy with a grant.
 func (m *Moves) placeFile(ctx context.Context, u Unit, pos int) error {
 	f := *fileAt(&u, pos)
-	to := u.Subject.To.Root
-	hold := holdingOf(u.ID, pos, f.Sits)
 	var sc *stagedCopy
 	if s, ok := u.Stage.(Placing); ok && s.Transfer != nil {
 		var err error
@@ -333,32 +331,8 @@ func (m *Moves) placeFile(ctx context.Context, u Unit, pos int) error {
 			return err
 		}
 	}
-	p, err := m.probe(ctx, u.Subject.To.Node, to, []storing.Rel{f.Sits, hold}, false)
-	if err != nil {
-		return err
-	}
-	at, held := occupant(p, to, f.Sits), occupant(p, to, hold)
-	var placed storing.Placed
-	switch {
-	case at != nil && at.Rel == f.Sits && at.Size == f.Size:
-		placed = storing.Placed{Size: at.Size, Seen: at.Seen}
-	case at != nil:
-		return m.failIn(ctx, u.ID, PhasePlace, DestinationCheckFailed, "another file is at "+f.Sits.String())
-	case held != nil && held.Size == f.Size:
-		placed, err = m.move(ctx, to, hold, f)
-	case sc != nil:
-		if _, err = m.cfg.Disk.Move(ctx, to, transfers.StagedRel(sc.transfer, sc.position), hold, false); err == nil {
-			placed, err = m.move(ctx, to, hold, f)
-		}
-	case !u.Lane.sameNode():
-		return m.recopy(ctx, u.ID)
-	default:
-		var done bool
-		if placed, done, err = m.placeLocal(ctx, u, f, hold); done || err != nil {
-			return err
-		}
-	}
-	if err != nil {
+	placed, done, err := m.put(ctx, u, f, holdingOf(u.ID, pos, f.Sits), sc)
+	if done || err != nil {
 		return err
 	}
 	now := m.now()
@@ -377,12 +351,54 @@ func (m *Moves) placeFile(ctx context.Context, u Unit, pos int) error {
 	return err
 }
 
-// placeLocal places f from the source root on the same Node: a link, a
-// clone, or a copy once granted. done is a step that ended in a grant or
-// a wait for space, whose Write already recorded it.
-func (m *Moves) placeLocal(ctx context.Context, u Unit, f File, hold storing.Rel) (placed storing.Placed, done bool, err error) {
+// put places f at its Rel through hold, from whichever source fits what
+// the destination root holds. done is a step whose Write already recorded
+// it.
+func (m *Moves) put(ctx context.Context, u Unit, f File, hold storing.Rel, sc *stagedCopy) (placed storing.Placed, done bool, err error) {
 	to := u.Subject.To.Root
-	from := storing.Library{Root: u.Subject.From.Root.UUID, Rel: f.Sits}
+	p, err := m.probe(ctx, u.Subject.To.Node, to, []storing.Rel{f.Sits, hold}, false)
+	if err != nil {
+		return storing.Placed{}, false, err
+	}
+	at, held := occupant(p, to, f.Sits), occupant(p, to, hold)
+	switch {
+	case at != nil && at.Rel == f.Sits && at.Size == f.Size:
+		return storing.Placed{Size: at.Size, Seen: at.Seen}, false, nil
+	case at != nil:
+		return storing.Placed{}, true, m.failIn(ctx, u.ID, PhasePlace, DestinationCheckFailed, "another file is at "+f.Sits.String())
+	case held != nil && held.Size == f.Size:
+		placed, err = m.move(ctx, to, hold, f)
+		return placed, false, err
+	case sc != nil:
+		if _, err = m.cfg.Disk.Move(ctx, to, transfers.StagedRel(sc.transfer, sc.position), hold, false); err != nil {
+			return storing.Placed{}, false, err
+		}
+		placed, err = m.move(ctx, to, hold, f)
+		return placed, false, err
+	case f.Via == ViaArriving:
+		var from storing.Arriving
+		err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+			var err error
+			from, err = arrivingSource(ctx, r, u, f)
+			return err
+		})
+		if err != nil {
+			return storing.Placed{}, false, err
+		}
+		return m.placeFrom(ctx, u, f, hold, from)
+	case !u.Lane.sameNode():
+		return storing.Placed{}, true, m.recopy(ctx, u.ID)
+	default:
+		return m.placeFrom(ctx, u, f, hold, storing.Library{Root: u.Subject.From.Root.UUID, Rel: f.Sits})
+	}
+}
+
+// placeFrom places f from a file on the destination Node, its source
+// root's or its paired torrent's payload: a link, a clone, or a copy once
+// granted. done is a step that ended in a grant or a wait for space,
+// whose Write already recorded it.
+func (m *Moves) placeFrom(ctx context.Context, u Unit, f File, hold storing.Rel, from storing.Source) (placed storing.Placed, done bool, err error) {
+	to := u.Subject.To.Root
 	if f.Ledger {
 		_, err = m.cfg.Disk.PlaceSidecar(ctx, to, hold, from, f.Copy > 0)
 	} else {
@@ -679,9 +695,14 @@ func (m *Moves) finishCleanup(ctx context.Context, u Unit) error {
 }
 
 // finishBatch marks batch finished once no unit but the one being written
-// is open.
+// is open, unless it deletes the roots it empties: deleteEmptied finishes
+// that one.
 func (m *Moves) finishBatch(ctx context.Context, tx *storage.Tx[file], batch BatchID, now storage.Time, writing UnitID) error {
 	q := db.New(tx)
+	b, err := q.GetBatch(ctx, batch)
+	if err != nil || b.DeleteEmptiedRoots == 1 {
+		return err
+	}
 	open, err := q.ListOpenUnitsOfBatch(ctx, batch)
 	if err != nil {
 		return err

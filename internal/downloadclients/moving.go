@@ -24,11 +24,29 @@ type MovingTo struct {
 	Client *ClientID
 }
 
+// Move is a Torrent's Move as its row shows it.
+type Move struct {
+	Unit, Batch storage.UUID
+	Phase       string
+	// Waiting is empty while it waits for nothing.
+	Waiting    string
+	ToNode     role.NodeID
+	ToNodeName string
+	// Words is its sentence, such as "Copying to den".
+	Words string
+}
+
 // Moving is what downloadclients asks of S48 (Moves).
 type Moving interface {
 	// Moving is, for each of ids that is the source of a Move before its
 	// switch, where it is moving.
 	Moving(ctx context.Context, r storage.Reader[file], ids []ID) (map[ID]MovingTo, error)
+	// MovesOf is the Move of each of ids that moves or keeps a failed
+	// Move's copy.
+	MovesOf(ctx context.Context, r storage.Reader[file], ids []ID) (map[ID]Move, error)
+	// UsesClient is how many Moves that haven't ended move a torrent into
+	// or out of client.
+	UsesClient(ctx context.Context, r storage.Reader[file], client ClientID) (int64, error)
 }
 
 // NoMoving moves nothing.
@@ -38,6 +56,14 @@ type noMoving struct{}
 
 func (noMoving) Moving(context.Context, storage.Reader[file], []ID) (map[ID]MovingTo, error) {
 	return nil, nil
+}
+
+func (noMoving) MovesOf(context.Context, storage.Reader[file], []ID) (map[ID]Move, error) {
+	return nil, nil
+}
+
+func (noMoving) UsesClient(context.Context, storage.Reader[file], ClientID) (int64, error) {
+	return 0, nil
 }
 
 // Arriving is a Move's destination Torrent, a new row of From's metainfo
@@ -180,6 +206,8 @@ type Handoff struct {
 	// check failed.
 	Arrival    *Arrival
 	ArrivalWhy string
+	// Complete is the source's payload complete.
+	Complete bool
 	// Parted is the source parted from its Node.
 	Parted bool
 	// Removed is the source removed by anyone but the Move's switch.
@@ -214,7 +242,7 @@ func Handoffs(ctx context.Context, r storage.Reader[file], pairs []Pair) (map[ID
 		}
 		h := Handoff{
 			Wanted: Wanted(src.Wanted), AnnouncedAt: timeOrNil(src.AnnouncedAt), AnnounceDueAt: timeOrNil(src.AnnounceDueAt),
-			PausedAt: timeOrNil(src.PausedAt), Parted: !src.PartedAt.IsZero(),
+			PausedAt: timeOrNil(src.PausedAt), Complete: src.Completed, Parted: !src.PartedAt.IsZero(),
 			Removed: !src.RemovedAt.IsZero() && (src.RemovedReason == nil || RemoveReason(*src.RemovedReason) != Moved),
 			Final: Totals{
 				Uploaded: src.Uploaded, Downloaded: src.Downloaded, Active: time.Duration(src.ActiveSeconds) * time.Second,
@@ -499,3 +527,9 @@ var stoppedBlind = func() []clients.Kind {
 	}
 	return out
 }()
+
+// TorrentsIn is every live Torrent of node's client, nil for its built-in
+// one, in added order, leaving out a Move's arriving Torrents.
+func TorrentsIn(ctx context.Context, r storage.Reader[file], node role.NodeID, client *ClientID) ([]ID, error) {
+	return db.New(r).ListTorrentsInClient(ctx, db.ListTorrentsInClientParams{NodeID: node, ClientID: client})
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
@@ -191,21 +192,35 @@ func (s *Service) changed(ctx context.Context) {
 	s.Wake()
 }
 
-// scan starts the scan of each saved root Reconciling waits on, once per
-// root while this process runs.
+// scan starts the scan of each saved root Reconciling waits on once its
+// Node reports it Ready, and again each time it turns Ready: a scan of a
+// root its Node hasn't checked since it started ends Skipped, and records
+// nothing Reconciling waits on.
 func (s *Service) scan(ctx context.Context) error {
-	var due []roots.ID
+	var waits []roots.ID
 	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		ids, err := db.New(r).ListToScan(ctx)
-		for _, id := range ids {
-			if !s.asked[id] {
-				due = append(due, id)
-			}
-		}
+		var err error
+		waits, err = db.New(r).ListToScan(ctx)
 		return err
 	})
-	if err != nil || len(due) == 0 {
+	if err != nil || len(waits) == 0 {
 		return err
+	}
+	ready, err := s.cfg.Ready(ctx)
+	if err != nil {
+		return err
+	}
+	var due []roots.ID
+	for _, id := range waits {
+		switch {
+		case !slices.ContainsFunc(ready, func(r roots.Root) bool { return r.ID == id }):
+			delete(s.asked, id)
+		case !s.asked[id]:
+			due = append(due, id)
+		}
+	}
+	if len(due) == 0 {
+		return nil
 	}
 	if err := s.cfg.Scan(ctx, due); err != nil {
 		return fmt.Errorf("start the scans Reconciling waits on: %w", err)

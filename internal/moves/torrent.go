@@ -61,6 +61,11 @@ func (m *Moves) takeTorrentLane(ctx context.Context, u Unit) error {
 		if src.Removed {
 			return m.fail(ctx, tx, cu, SourceGone, "")
 		}
+		if len(cu.Files) == 0 {
+			if err := filesOfPayload(ctx, db.New(tx), cu, src, now); err != nil {
+				return err
+			}
+		}
 		cu.Planned.At = now
 		if cu.Lane.sameNode() {
 			cu.Stage, cu.Due = Placing{}, &now
@@ -72,6 +77,18 @@ func (m *Moves) takeTorrentLane(ctx context.Context, u Unit) error {
 	})
 	m.cfg.Transfers.Touch()
 	return err
+}
+
+// filesOfPayload writes, in q, the files of src's payload as u's: a
+// drain's torrent that finished downloading after its plan.
+func filesOfPayload(ctx context.Context, q *db.Queries, u *Unit, src downloadclients.MoveSource, now time.Time) error {
+	u.Files, _ = payloadFiles(src, now)
+	for _, f := range u.Files {
+		if err := q.InsertUnitFile(ctx, insertFileColumns(u.ID, f)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RecordPlace is the step that records a torrent's place in an arriving
@@ -178,6 +195,9 @@ func stagedAt(t transfers.Transfer, f File, src downloadclients.MoveSource) int 
 // watched.
 func (m *Moves) handOff(ctx context.Context, tx *storage.Tx[file], u *Unit, now time.Time) error {
 	u.Stage, u.Due = Switching{Since: now, Handoff: &HandoffAt{Step: HandoffGuard, At: now}}, &now
+	if err := releasePair(ctx, tx, u.ID, now); err != nil {
+		return err
+	}
 	return m.cfg.Clients.WatchIn(ctx, tx, u.Torrent.Torrent, true)
 }
 
@@ -255,6 +275,9 @@ func (m *Moves) rollback(ctx context.Context, tx *storage.Tx[file], u *Unit, cod
 	if err := m.unwind(ctx, tx, *u); err != nil {
 		return err
 	}
+	if err := unpair(ctx, tx, u.ID, m.now()); err != nil {
+		return err
+	}
 	keeps := u.Torrent.Arriving != nil && (code == DestinationUnreachable || code == SwitchRefused)
 	s := Failed{Code: code, At: u.Stage.Phase(), Detail: detail, KeepsCopy: keeps}
 	u.Stage, u.Due = s, new(m.now())
@@ -286,6 +309,9 @@ func (m *Moves) cancelIn(ctx context.Context, tx *storage.Tx[file], u *Unit, now
 	}
 	if u.Torrent != nil {
 		if err := m.unwind(ctx, tx, *u); err != nil {
+			return err
+		}
+		if err := unpair(ctx, tx, u.ID, now); err != nil {
 			return err
 		}
 	}
@@ -404,7 +430,7 @@ func handoffFacts(ctx context.Context, r storage.Reader[file], us []Unit, out []
 			continue
 		}
 		switch u.Stage.(type) {
-		case Placing, Switching, Cleaning:
+		case Queued, Placing, Switching, Cleaning:
 			pairs = append(pairs, downloadclients.Pair{From: u.Torrent.Torrent, To: u.Torrent.Arriving})
 		}
 	}
@@ -462,4 +488,36 @@ func uuidsOf(ids []downloadclients.ID) []storage.UUID {
 		out[i] = id.UUID
 	}
 	return out
+}
+
+// MovesOf is the Move of each of ids that moves, or keeps a failed
+// Move's copy, read in r: downloadclients' Moving.
+func (m *Moves) MovesOf(ctx context.Context, r storage.Reader[file], ids []downloadclients.ID) (map[downloadclients.ID]downloadclients.Move, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	q := db.New(r)
+	rows, err := q.ListMovingTorrents(ctx, uuidsOf(ids))
+	if err != nil || len(rows) == 0 {
+		return nil, err
+	}
+	us, err := unitsOf(ctx, q, rows)
+	if err != nil {
+		return nil, err
+	}
+	vs, err := m.views(ctx, r, us)
+	out := make(map[downloadclients.ID]downloadclients.Move, len(vs))
+	for _, v := range vs {
+		out[*v.Torrent] = downloadclients.Move{
+			Unit: v.Unit.UUID, Batch: v.Batch.UUID, Phase: string(v.Phase), Waiting: string(v.Waiting),
+			ToNode: v.To.Node, ToNodeName: v.To.NodeName, Words: v.Words,
+		}
+	}
+	return out, err
+}
+
+// UsesClient is how many units that haven't ended move a torrent into or
+// out of client, read in r: downloadclients' Moving.
+func (m *Moves) UsesClient(ctx context.Context, r storage.Reader[file], client downloadclients.ClientID) (int64, error) {
+	return db.New(r).CountClientUnits(ctx, client.UUID)
 }

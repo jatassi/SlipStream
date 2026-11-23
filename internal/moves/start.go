@@ -74,7 +74,7 @@ func (m *Moves) Start(ctx context.Context, by identity.Admin, token Token, confi
 				return err
 			}
 		}
-		return nil
+		return m.reroute(ctx, tx, p.Ask)
 	})
 	if err != nil {
 		return Started{}, err
@@ -84,6 +84,24 @@ func (m *Moves) Start(ctx context.Context, by identity.Admin, token Token, confi
 		m.Poke()
 	}
 	return out, nil
+}
+
+// reroute has the routes to each client ask moves go to its destination,
+// when ask repoints routing.
+func (m *Moves) reroute(ctx context.Context, tx *storage.Tx[file], ask Ask) error {
+	if !ask.Options.RepointRouting {
+		return nil
+	}
+	for _, c := range ask.Clients {
+		if err := m.cfg.Reroute(ctx, tx, choiceOf(c.From), choiceOf(c.To)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func choiceOf(s Side) downloadclients.Choice {
+	return downloadclients.Choice{Client: s.Client, BuiltInOn: s.Node}
 }
 
 // ErrNothingToMove refuses a Start whose every unit is red or taken.
@@ -125,7 +143,7 @@ func (m *Moves) recheck(ctx context.Context, tx *storage.Tx[file], p Plan) (keep
 		r, red := Reason{}, false
 		switch {
 		case u.Torrent != nil && u.Verdict.Color != Red:
-			if r, red, err = recheckTorrent(ctx, tx, u, m.now()); err != nil {
+			if r, red, err = recheckTorrent(ctx, tx, u, m.now(), p.Ask.Origin == OriginDrain); err != nil {
 				return nil, nil, err
 			}
 		case u.Verdict.Color == Red:
@@ -185,6 +203,9 @@ func insertUnit(ctx context.Context, q *db.Queries, u Unit, wait Wait) error {
 	if wait != "" {
 		row.Waiting, row.WaitingAt = new(string(wait)), storage.FromTime(u.Planned.At)
 	}
+	if u.PairsWith != nil {
+		row.PairsWithUnitID = *u.PairsWith
+	}
 	if err := q.InsertUnit(ctx, row); err != nil {
 		return err
 	}
@@ -206,19 +227,44 @@ func amberOf(v Verdict) []Reason {
 	return out
 }
 
-// insert writes p's batch and keep's units with their files. Each unit
-// but the first of its lane in this batch waits pair_busy.
-func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Admin, p Plan, keep []PlanUnit, now time.Time) ([]Unit, error) {
-	q := db.New(tx)
-	batch := BatchID{UUID: storage.NewUUID()}
+// batchRow is the moves_batch row p starts as batch, with the roots it
+// empties in its notes.
+func batchRow(batch BatchID, by identity.Admin, p Plan, now time.Time) (db.InsertBatchParams, error) {
 	b := db.InsertBatchParams{
 		ID: batch, Origin: string(p.Ask.Origin), CreatedAt: storage.FromTime(now), HomedWorks: int64(len(p.Homed)), PlanTokenHash: p.Token.hash(),
 	}
 	if a, ok := by.Account(); ok {
 		b.CreatedBy = a.Profile().ID.UUID
 	}
+	notes := batchNotes{}
 	if p.Ask.Options.DeleteEmptiedRoots {
 		b.DeleteEmptiedRoots = 1
+		for _, rt := range p.Ask.Roots {
+			notes.Emptying = append(notes.Emptying, emptied{From: rt.Root, To: rt.To})
+		}
+	}
+	raw, err := json.Marshal(notes)
+	if err != nil {
+		return b, fmt.Errorf("moves: the notes of batch %s: %w", batch, err)
+	}
+	b.Notes = string(raw)
+	if p.Ask.Options.IncludeLinkedTorrents {
+		b.IncludeTorrents = 1
+	}
+	if p.Ask.Options.RepointRouting {
+		b.RepointRouting = 1
+	}
+	return b, nil
+}
+
+// insert writes p's batch and keep's units with their files. Each unit
+// but the first of its lane in this batch waits pair_busy.
+func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Admin, p Plan, keep []PlanUnit, now time.Time) ([]Unit, error) {
+	q := db.New(tx)
+	batch := BatchID{UUID: storage.NewUUID()}
+	b, err := batchRow(batch, by, p, now)
+	if err != nil {
+		return nil, err
 	}
 	if err := q.InsertBatch(ctx, b); err != nil {
 		return nil, err
@@ -228,6 +274,7 @@ func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Ad
 		return nil, err
 	}
 	lanes := map[Lane]bool{}
+	torrents := map[downloadclients.ID]UnitID{}
 	out := make([]Unit, 0, len(keep))
 	for i, pu := range keep {
 		var wait Wait
@@ -238,6 +285,17 @@ func (m *Moves) insert(ctx context.Context, tx *storage.Tx[file], by identity.Ad
 		u := Unit{
 			ID: UnitID{UUID: storage.NewUUID()}, Batch: batch, Seq: seq + int64(i), Position: i, Lane: pu.Lane, Subject: pu.Subject, Torrent: pu.Torrent,
 			Stage: Queued{Wait: wait, Since: now}, Planned: Planned{Bytes: pu.Bytes, At: now}, Files: pu.Files, Notes: Notes{Amber: amberOf(pu.Verdict)},
+		}
+		if pu.Torrent != nil {
+			torrents[pu.Torrent.Torrent] = u.ID
+		}
+		if pu.Linked != nil {
+			if t, ok := torrents[*pu.Linked]; ok {
+				u.PairsWith, wait = &t, WaitLinkedTorrent
+				u.Stage = Queued{Wait: wait, Since: now}
+			} else {
+				u.Files = fromLibrary(u.Files)
+			}
 		}
 		if err := insertUnit(ctx, q, u, wait); err != nil {
 			return nil, err

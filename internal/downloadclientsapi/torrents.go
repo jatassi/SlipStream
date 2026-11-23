@@ -63,6 +63,17 @@ type TorrentRow struct {
 	ImportAt    *time.Time                `json:"importAt,omitempty" doc:"When a finished external torrent imports, set while its client's Import delay runs"`
 	AtLimit     bool                      `json:"stoppedAtLimit,omitempty" doc:"Its external client stopped it at its seeding limit"`
 	AddedAt     time.Time                 `json:"addedAt"`
+	Move        api.Nullable[torrentMove] `json:"move" doc:"Its Move in flight, or failed with its copy kept; null for none"`
+}
+
+type torrentMove struct {
+	UnitID     string `json:"unitId" format:"uuid"`
+	BatchID    string `json:"batchId" format:"uuid"`
+	Phase      string `json:"phase" enum:"queued,transfer,place,switch,failed"`
+	Waiting    string `json:"waiting,omitempty" enum:"pair_busy,low_priority,node_offline,no_route,space,renames,downloading,importing,open_files,playing,media_servers,guard,linked_torrent,reconciling" doc:"What it waits for; absent while it waits for nothing"`
+	ToNodeID   string `json:"toNodeId" format:"uuid"`
+	ToNodeName string `json:"toNodeName"`
+	Words      string `json:"words" doc:"What it does now, such as Copying to den"`
 }
 
 type retried struct {
@@ -220,6 +231,12 @@ func RowOf(r downloadclients.Row) TorrentRow {
 	out.Retryable, out.Held = r.Retryable, r.Held
 	if rt := r.Retry; rt != nil {
 		out.Retry = &retried{At: rt.At, Found: rt.Found}
+	}
+	if m := r.Move; m != nil {
+		out.Move = api.Some(torrentMove{
+			UnitID: m.Unit.String(), BatchID: m.Batch.String(), Phase: m.Phase, Waiting: m.Waiting,
+			ToNodeID: m.ToNode.String(), ToNodeName: m.ToNodeName, Words: m.Words,
+		})
 	}
 	return out
 }

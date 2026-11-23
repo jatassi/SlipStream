@@ -11,6 +11,7 @@ import type { DownloadclientsTorrentDetailSeverity } from "./downloadclientsTorr
 import type { DownloadclientsTorrentDetailState } from "./downloadclientsTorrentDetailState.ts";
 import type { DownloadclientsTorrentDetailTabsItem } from "./downloadclientsTorrentDetailTabsItem.ts";
 import type { DownloadclientsTorrentGrab } from "./downloadclientsTorrentGrab.ts";
+import type { DownloadclientsTorrentMove } from "./downloadclientsTorrentMove.ts";
 import type { DownloadclientsTrackerCell } from "./downloadclientsTrackerCell.ts";
 import type { DownloadclientsTrackerDetail } from "./downloadclientsTrackerDetail.ts";
 import type { DownloadclientsTrackerRef } from "./downloadclientsTrackerRef.ts";
@@ -73,6 +74,8 @@ export interface DownloadclientsTorrentDetail {
   lastKnownCause?: DownloadclientsTorrentDetailLastKnownCause;
   /** Its Node responded, so trackers and files are live. Otherwise they are from its last report */
   live: boolean;
+  /** Its Move in flight, or failed with its copy kept; null for none */
+  move: DownloadclientsTorrentMove | null;
   /** The release's name in its metainfo, shown for a Torrent whose Work was deleted */
   name: string;
   nodeId: string;

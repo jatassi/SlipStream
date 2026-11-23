@@ -203,24 +203,39 @@ func TestATestedEditsTestIsThePollAtTheNewVersion(t *testing.T) {
 	}
 }
 
-func TestAMoveIsTestedFromTheNewNodeAndRefusedWithTorrents(t *testing.T) {
+// TestAMoveTakesTheTorrentsOnceTheNewNodeFindsTheirFiles changes
+// Transmission's Node: Media server tests it, looks for Orchard's files
+// under its download folder, and refuses while it doesn't find them.
+// Found, the client and Orchard's row move to Media server in one Write.
+func TestAMoveTakesTheTorrentsOnceTheNewNodeFindsTheirFiles(t *testing.T) {
 	w := serveWorld(t)
 	media := w.downloader(t, "Media server")
 	c := w.add(t, transmissionOn(w.self))
 	id := downloadclients.ClientID{UUID: must(storage.ParseUUID(c.ID))}
 	torrent := w.holdIn(t, "Orchard", downloadclients.Target{Node: w.self, Client: &id}, nil)
+	w.node.lost = map[string]bool{"Films/Orchard/Orchard.mkv": true}
 
 	w.o.Expect(t, http.MethodPatch, "/api/v1/external-download-clients/"+c.ID, `{"nodeId":"`+media.String()+`"}`, http.StatusConflict,
-		`{"status":409,"code":"download_client_has_torrents","title":"This client has torrents that SlipStream tracks",`+
-			`"detail":"Transmission can't move to another Node while it has 1 torrent that SlipStream tracks. Remove the torrent first, or select Stop tracking and delete, then add the client again on the other Node."}`)
-	if len(w.node.tests) != 1 {
-		t.Errorf("a refused move ran %d Tests, want none", len(w.node.tests)-1)
+		`{"status":409,"code":"download_client_files_missing","title":"Some of this client's files aren't at its folders on the new Node",`+
+			`"detail":"Media server didn't find the files of 1 torrent at this client's folders. Check each Client folder's path on Media server.",`+
+			`"missing":{"count":1,"first":[{"torrentId":"id1","name":"Orchard"}]}}`)
+	if last := w.node.tests[len(w.node.tests)-1]; last.at != media {
+		t.Errorf("the move tested on %s, want Media server", last.at)
+	}
+	if got := w.node.looks[0]; got.GetFolder() != "/downloads" || len(got.GetEntries()) != 1 || got.GetEntries()[0].GetSize() != 1000 {
+		t.Errorf("the move looked for %v, want Orchard's 1000 bytes under /downloads", got)
 	}
 
-	exec(t, w.lib, "UPDATE downloadclients_torrent SET removed_at = 1, removed_reason = 'admin', parted_at = 1, freed = 0 WHERE id = ?", torrent)
-	moved := w.edit(t, c.ID, `{"nodeId":"`+media.String()+`"}`)
-	if last := w.node.tests[len(w.node.tests)-1]; last.at != media || moved.NodeID != media.String() {
-		t.Errorf("the move tested on %s and reads %+v, want it tested from Media server and saved there", last.at, moved)
+	w.node.lost = nil
+	if moved := w.edit(t, c.ID, `{"nodeId":"`+media.String()+`"}`); moved.NodeID != media.String() {
+		t.Errorf("the move reads %+v, want the client on Media server", moved)
+	}
+	var on role.NodeID
+	err := w.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		return r.QueryRowContext(ctx, `SELECT node_id FROM downloadclients_torrent WHERE id = ?`, torrent).Scan(&on)
+	})
+	if err != nil || on != media {
+		t.Errorf("after the move Orchard is on %s (%v), want Media server", on, err)
 	}
 }
 
@@ -427,17 +442,6 @@ func TestADraftTestAnswersTheVersionAndWarnings(t *testing.T) {
 			`A download could be removed before SlipStream imports it. To keep downloads until they're imported, set qBittorrent to stop torrents at the limit."],"daemons":[]}`)
 	if got := w.externals(t, w.self); len(got) != 0 {
 		t.Errorf("a draft's Test saved %+v, want nothing saved", got)
-	}
-}
-
-func exec(t *testing.T, lib *storage.DB[storage.Library], query string, args ...any) {
-	t.Helper()
-	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, query, args...)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
 	}
 }
 

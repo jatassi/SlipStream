@@ -307,16 +307,19 @@ func TestPlanJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := `{"include":[` +
-		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":1,"shards":3},` +
-		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":2,"shards":3},` +
-		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":3,"shards":3},` +
-		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":1,"shards":3},` +
-		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":2,"shards":3},` +
-		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":3,"shards":3},` +
-		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4","shard":1,"shards":4},` +
-		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4","shard":2,"shards":4},` +
-		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4","shard":3,"shards":4},` +
-		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4","shard":4,"shards":4}]}`
+		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":1,"shards":4},` +
+		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":2,"shards":4},` +
+		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":3,"shards":4},` +
+		`{"target":"linux-amd64","runner":"ubuntu-24.04","goos":"linux","goarch":"amd64","shard":4,"shards":4},` +
+		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":1,"shards":4},` +
+		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":2,"shards":4},` +
+		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":3,"shards":4},` +
+		`{"target":"windows-amd64","runner":"windows-2025","goos":"windows","goarch":"amd64","shard":4,"shards":4},` +
+		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4","shard":1,"shards":5},` +
+		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4","shard":2,"shards":5},` +
+		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4","shard":3,"shards":5},` +
+		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4","shard":4,"shards":5},` +
+		`{"target":"darwin-arm64","runner":"macos-15","goos":"darwin","goarch":"arm64","xcode":"16.4","shard":5,"shards":5}]}`
 	if string(got) != want {
 		t.Errorf("e2e matrix JSON = %s, want %s", got, want)
 	}

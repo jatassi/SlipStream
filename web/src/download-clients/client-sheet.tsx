@@ -34,9 +34,11 @@ function Fields({
   sheet,
   kinds,
   nodes,
-}: { sheet: ClientSheetState } & Omit<Props, "opened" | "onDone">) {
+  changingNode,
+}: { sheet: ClientSheetState; changingNode: boolean } & Omit<Props, "opened" | "onDone">) {
   const { form, saved, result } = sheet;
-  const picksNode = nodes.length > 1 && (saved === undefined || saved.torrents === 0);
+  const picksNode =
+    nodes.length > 1 && (saved === undefined || saved.torrents === 0 || changingNode);
   return (
     <form.Subscribe selector={(state) => [state.values.kind, state.values.nodeId] as const}>
       {([kindId, nodeId]) => {
@@ -75,6 +77,7 @@ function Fields({
 
 function ClientForm({ opened, kinds, nodes, onDone }: Props) {
   const sheet = useClientSheet(opened, kinds, onDone);
+  const changingNode = opened.kind === "edit" && opened.changingNode === true;
   const { form } = sheet;
   return (
     <form
@@ -93,7 +96,14 @@ function ClientForm({ opened, kinds, nodes, onDone }: Props) {
             </div>
           )}
         </form.Field>
-        <Fields sheet={sheet} kinds={kinds} nodes={nodes} />
+        {changingNode && (
+          <p className="text-ink-2">
+            Pick the Node it runs on now and each Client folder&apos;s path there. That Node first
+            checks that it finds every torrent&apos;s files, then the client and its torrents move
+            to it. Nothing is copied.
+          </p>
+        )}
+        <Fields sheet={sheet} kinds={kinds} nodes={nodes} changingNode={changingNode} />
         <form.FormAlert />
         <div className="flex flex-wrap justify-end gap-2">
           <Button onClick={onDone}>Cancel</Button>
@@ -113,8 +123,11 @@ export function ClientSheet({
   onOpenChange,
   ...props
 }: Omit<Props, "onDone"> & { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { opened } = props;
   const title =
-    props.opened.kind === "add" ? "Add a Download Client" : `Edit ${props.opened.client.name}`;
+    opened.kind === "add"
+      ? "Add a Download Client"
+      : `${opened.changingNode === true ? "Change the Node of" : "Edit"} ${opened.client.name}`;
   return (
     <Dialog title={title} size={680} open={open} onOpenChange={onOpenChange}>
       <ClientForm

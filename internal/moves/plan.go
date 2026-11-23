@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/moves/internal/db"
@@ -29,7 +30,16 @@ type WorkTo struct {
 // RootTo is every Work of Root, moving to To.
 type RootTo struct{ Root, To roots.ID }
 
+// ClientTo is every torrent of the Download Client From, moving to To.
+type ClientTo struct{ From, To Side }
+
 type Options struct {
+	// IncludeLinkedTorrents moves the torrent a Work's files are linked
+	// to with the Work.
+	IncludeLinkedTorrents bool
+	// RepointRouting has each Tracker route new Grabs to the
+	// destination client of its torrents.
+	RepointRouting     bool
 	DeleteEmptiedRoots bool
 }
 
@@ -39,6 +49,7 @@ type Ask struct {
 	Works    []WorkTo
 	Roots    []RootTo
 	Torrents []TorrentTo
+	Clients  []ClientTo
 	Options  Options
 }
 
@@ -68,6 +79,9 @@ type Plan struct {
 type PlanUnit struct {
 	Subject WorkSubject
 	Torrent *TorrentSubject
+	// Linked is the torrent a Work unit places its linked files from,
+	// whose unit the plan puts before it.
+	Linked  *downloadclients.ID
 	Label   string
 	Lane    Lane
 	Files   []File
@@ -142,7 +156,16 @@ func (m *Moves) Preview(ctx context.Context, ask Ask) (Plan, error) {
 	for i := range units {
 		units[i].Verdict = verdictOf(units[i], facts[i])
 	}
-	torrents, err := m.planTorrents(ctx, ask.Torrents)
+	if ask.Options.IncludeLinkedTorrents {
+		if units, err = m.linkTorrents(ctx, units); err != nil {
+			return Plan{}, err
+		}
+	}
+	ts, err := m.clientTorrents(ctx, ask)
+	if err != nil {
+		return Plan{}, err
+	}
+	torrents, err := m.planTorrents(ctx, ts, ask.Origin == OriginDrain)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -165,6 +188,9 @@ func (m *Moves) Preview(ctx context.Context, ask Ask) (Plan, error) {
 // root without files, which a Start homes.
 func (m *Moves) resolve(ctx context.Context, ask Ask) (subjects, homed []WorkTo, err error) {
 	subjects = slices.Clone(ask.Works)
+	if err := m.rootsKnown(ctx, ask.Roots); err != nil {
+		return nil, nil, err
+	}
 	for _, rt := range ask.Roots {
 		var after works.WorkID
 		for {
@@ -191,6 +217,48 @@ func (m *Moves) resolve(ctx context.Context, ask Ask) (subjects, homed []WorkTo,
 		}
 	}
 	return subjects, homed, nil
+}
+
+// rootsKnown is ErrNoRoot unless every root of rs is one.
+func (m *Moves) rootsKnown(ctx context.Context, rs []RootTo) error {
+	var ids []roots.ID
+	for _, rt := range rs {
+		ids = appendOnce(appendOnce(ids, rt.Root), rt.To)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		dests, err := m.cfg.Destinations(ctx, r, ids)
+		if err != nil {
+			return err
+		}
+		for _, id := range ids {
+			if _, ok := dests[id]; !ok {
+				return ErrNoRoot
+			}
+		}
+		return nil
+	})
+}
+
+// clientTorrents is ask's torrents, then every torrent of each of its
+// clients.
+func (m *Moves) clientTorrents(ctx context.Context, ask Ask) ([]TorrentTo, error) {
+	out := slices.Clone(ask.Torrents)
+	err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		for _, c := range ask.Clients {
+			ids, err := downloadclients.TorrentsIn(ctx, r, c.From.Node, c.From.Client)
+			if err != nil {
+				return err
+			}
+			for _, id := range ids {
+				out = append(out, TorrentTo{Torrent: id, To: c.To})
+			}
+		}
+		return nil
+	})
+	return out, err
 }
 
 // pageRead is what one page's Read answers.

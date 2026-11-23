@@ -41,7 +41,7 @@ func (m *Moves) Run(ctx context.Context) error {
 		if !m.sleep(ctx, wait) {
 			return nil
 		}
-		if !m.sleep(ctx, m.cfg.Timings.PassEvery-m.now().Sub(began)) {
+		if rest := m.cfg.Timings.PassEvery - m.now().Sub(began); rest > 0 && !m.sleep(ctx, rest) {
 			return nil
 		}
 	}
@@ -134,7 +134,15 @@ func (m *Moves) pass(ctx context.Context) (time.Duration, error) {
 	for _, w := range steps {
 		m.start(ctx, w)
 	}
-	return m.untilDue(ctx)
+	pending, err := m.deleteEmptied(ctx)
+	if err != nil {
+		return 0, err
+	}
+	wait, err := m.untilDue(ctx)
+	if pending && (wait == idle || wait > tm.PlayingEvery) {
+		wait = tm.PlayingEvery
+	}
+	return wait, err
 }
 
 // dueUnits is the head of each free lane and one page of due units, none

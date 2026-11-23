@@ -63,13 +63,7 @@ export function LibraryRootsSection() {
       ))}
       <StorageBlock volumes={volumes} roots={roots} nodes={nodes} />
       <Settings />
-      <ActingDialogs
-        acting={acting}
-        roots={roots}
-        onClose={() => {
-          setActing(undefined);
-        }}
-      />
+      <ActingDialogs acting={acting} roots={roots} onAct={setActing} />
     </div>
   );
 }

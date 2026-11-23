@@ -113,18 +113,24 @@ test("with den stopped, the Controller refreshes Den Jellyfin through its fallba
     "Den Jellyfin can't be checked while den is offline. SlipStream sends changes through the Controller until den is back.",
   );
   await openServer(page, "Den Jellyfin");
+  const scans = world.fw.capture("jellyfin-scans");
+  const after = (await scans.list()).at(-1)?.seq ?? 0;
   await page.getByRole("button", { name: "Refresh libraries" }).click();
   await page
     .getByRole("dialog", { name: "Refresh every library on Den Jellyfin?" })
     .getByRole("button", { name: "Refresh" })
     .click();
-  await world.fw.capture("jellyfin-scans").wait({ node: "home", timeout: 60_000 });
   await openTab(page, "Den Jellyfin", "Changes");
   const refreshes = page
     .getByRole("list", { name: "Changes on Den Jellyfin" })
     .getByRole("listitem")
     .filter({ hasText: "Whole library" });
-  await expect(refreshes.first()).toContainText("Refreshed the whole library.");
+  // The refresh waits out Wait before sending, unless it folded into the
+  // one the world's saved Path mappings queued at its start.
+  await expect(refreshes.first()).toContainText("Refreshed the whole library.", {
+    timeout: settles,
+  });
+  await scans.wait({ node: "home", after, timeout: 60_000 });
   await expect(page.getByText("Every recent change reached Den Jellyfin.")).toBeVisible();
   await expectAccessible(page);
 });

@@ -475,6 +475,32 @@ func (q *Queries) RepointWindows(ctx context.Context, arg RepointWindowsParams) 
 	return err
 }
 
+const rerouteClient = `-- name: RerouteClient :exec
+UPDATE trackers_route SET
+    built_in_on = CASE WHEN ?1 IS NULL THEN ?2 END,
+    client_id = ?1
+WHERE client_id = ?3 OR built_in_on = ?4
+`
+
+type RerouteClientParams struct {
+	ToClient   *downloadclients.ClientID
+	ToNode     *role.NodeID
+	FromClient *downloadclients.ClientID
+	FromNode   *role.NodeID
+}
+
+// A Move that takes a client's torrents takes the routes to it: to the
+// external client from_client, or to the built-in client on from_node.
+func (q *Queries) RerouteClient(ctx context.Context, arg RerouteClientParams) error {
+	_, err := q.db.ExecContext(ctx, rerouteClient,
+		arg.ToClient,
+		arg.ToNode,
+		arg.FromClient,
+		arg.FromNode,
+	)
+	return err
+}
+
 const setAdminRule = `-- name: SetAdminRule :exec
 INSERT INTO trackers_rule (tracker_id, source, clears, ratio_centi, seed_seconds, updated_at)
 VALUES (?1, 'admin', ?2, ?3, ?4, ?5)

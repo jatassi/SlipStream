@@ -35,7 +35,7 @@ test("the status sentence counts what moves, fails and waits, with Health's wors
   );
   await expect
     .element(homeSentence())
-    .toHaveTextContent("1 job moving · 1 failure · 2 waiting for you · Storage warning");
+    .toHaveTextContent("1 job running · 1 failure · 2 waiting for you · Storage warning");
   await expect
     .element(homeSentence().getByRole("link", { name: "1 failure" }))
     .toHaveAttribute("href", `#failed-${failed.grab.id}`);
@@ -50,9 +50,9 @@ test("the status sentence counts what moves, fails and waits, with Health's wors
   await expect.element(page.getByText("Today: 5 imported · 1 upgraded")).not.toBeInTheDocument();
 });
 
-test("a quiet Home reads Nothing moving with no totals line, and 100 failures read 100+", async () => {
+test("a quiet Home reads Nothing running with no totals line, and 100 failures read 100+", async () => {
   const { server } = renderHome(summaryOf());
-  await expect.element(homeSentence()).toMatchTextContent(/^Nothing moving$/u);
+  await expect.element(homeSentence()).toMatchTextContent(/^Nothing running$/u);
   await expect.element(page.getByText(/^Today:/u)).not.toBeInTheDocument();
   await expect.element(page.getByRole("heading", { name: "Needs you" })).not.toBeInTheDocument();
   server.become(
@@ -65,7 +65,7 @@ test("a quiet Home reads Nothing moving with no totals line, and 100 failures re
     event: "grabs.changed",
     data: { grabId: downloading.id, workId: harvestWork.id, progress: false },
   });
-  await expect.element(homeSentence()).toHaveTextContent("Nothing moving · 100+ failures");
+  await expect.element(homeSentence()).toHaveTextContent("Nothing running · 100+ failures");
   await expect.element(page.getByRole("link", { name: "See all 100+ in Activity" })).toBeVisible();
 });
 
