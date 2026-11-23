@@ -4,9 +4,9 @@ description: >-
   Servers. The Worker seedbox pairs by Join Code and holds Searching,
   Storage with movies-d and series-d, and Downloading with the built-in
   client, qBittorrent 5.2 named Box and Deluge 2.1. The Worker den pairs
-  by Join Code and holds Storage with movies-e and series-e, and movies-f
-  on a second volume, and Downloading with the built-in client,
-  Transmission 4.1 and rTorrent 0.16.
+  by Join Code and holds Storage with movies-e, series-e and movies-f,
+  which the simulation tier plays as a second volume, and Downloading with
+  the built-in client, Transmission 4.1 and rTorrent 0.16.
   Living room Plex holds movies-d in its Movies section, movies-e and
   movies-f in Movies 4K, and both series roots in TV Shows. Den Jellyfin
   holds movies-d in Movies and movies-e and movies-f in Movies 4K. Den
@@ -126,5 +126,5 @@ library:
     - {content_type: series, folder: series-d, node: seedbox}
     - {content_type: movie, folder: movies-e, node: den}
     - {content_type: series, folder: series-e, node: den}
-    - {content_type: movie, folder: movies-f, node: den, volume: {total_gib: 500, free_gib: 400}}
+    - {content_type: movie, folder: movies-f, node: den}
   indexers: [{name: Fixture Site, kind: torznab, site: torznab, home: seedbox}]

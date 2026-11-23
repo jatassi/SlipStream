@@ -47,14 +47,27 @@ type World struct {
 	Was map[string][]byte
 }
 
-// Launch starts the moves Scenario with The Quiet Orchard and its
-// subtitle in den's movies-e, walking, with opts.
-func Launch(t *testing.T, opts ...sim.Option) World {
+// Scenario is the moves Scenario with movies-f a volume of its own on
+// den, which only the simulation tier plays.
+func Scenario(t testing.TB) scenario.Scenario {
 	t.Helper()
 	s, err := scenario.Load("moves")
 	if err != nil {
 		t.Fatal(err)
 	}
+	for i, r := range s.Library.Roots {
+		if r.Folder == "movies-f" {
+			s.Library.Roots[i].Volume = &scenario.LibraryVolume{TotalGiB: 500, FreeGiB: 400}
+		}
+	}
+	return s
+}
+
+// Launch starts the moves Scenario with The Quiet Orchard and its
+// subtitle in den's movies-e, walking, with opts.
+func Launch(t *testing.T, opts ...sim.Option) World {
+	t.Helper()
+	s := Scenario(t)
 	s.Library.Folders = append(s.Library.Folders, scenario.LibraryFolder{Folder: "movies-e", Files: []scenario.MediaFile{{
 		Path: Film, Video: scenario.MediaVideo{Width: 1920, Height: 1080, Seconds: 6, HDR: "sdr"},
 	}}})
@@ -250,10 +263,7 @@ type Fault struct {
 // offline.
 func Faults(t *testing.T, folder string) []Fault {
 	t.Helper()
-	s, err := scenario.Load("moves")
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := Scenario(t)
 	out := []Fault{{Name: "restart"}, {Name: "restart, den offline", Offline: "den"}}
 	for _, r := range s.Library.Roots {
 		if r.Folder == folder && r.Node != "den" {

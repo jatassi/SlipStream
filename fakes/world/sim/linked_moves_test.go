@@ -87,6 +87,9 @@ func (l linked) start(t *testing.T) moves.BatchID {
 	if len(plan.Units) != 2 || plan.Movable() != 2 {
 		t.Fatalf("the preview is %+v, want the Work and its torrent movable", plan.Units)
 	}
+	if want := "Move 1 movie and 1 torrent to den."; plan.Recommendation != want {
+		t.Errorf("the preview reads %q, want %q", plan.Recommendation, want)
+	}
 	started, err := m.Start(t.Context(), identity.Admin{}, plan.Token, 2)
 	if err != nil {
 		t.Fatal(err)

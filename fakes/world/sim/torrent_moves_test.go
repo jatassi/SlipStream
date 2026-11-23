@@ -17,9 +17,9 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
-	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/movestest"
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -41,10 +41,7 @@ const orchard = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW"
 // announces to fake-tracker.
 func launchMoves(t *testing.T, opts ...sim.Option) *sim.World {
 	t.Helper()
-	s, err := scenario.Load("moves")
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := movestest.Scenario(t)
 	return sim.Launch(t, s, append([]sim.Option{sim.WithWalk()}, opts...)...)
 }
 
