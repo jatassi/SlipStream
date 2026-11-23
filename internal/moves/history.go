@@ -3,6 +3,7 @@ package moves
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -194,7 +195,7 @@ const (
 func (m *Moves) torrentFailureWords(s Failed, from, to, client string) string {
 	why := ""
 	if s.Detail != "" {
-		why = ": " + s.Detail
+		why = ": " + strings.TrimRight(s.Detail, ".")
 	}
 	switch s.Code {
 	case SourceGone:
