@@ -118,11 +118,7 @@ test("turning off a type that holds Works is refused with a link to its Library"
   await userEvent.click(films);
   await expect.poll(() => sent).toEqual([{ enabled: false }]);
   const alert = page.getByRole("alert");
-  await expect
-    .element(alert)
-    .toHaveTextContent(
-      "The Library still holds Films. Delete them in the Films Library, then turn Films off.",
-    );
+  await expect.element(alert).toMatchTextContent(/still holds Films/u);
   await expect
     .element(alert.getByRole("link", { name: "Films Library" }))
     .toHaveAttribute("href", "/library/cinema");

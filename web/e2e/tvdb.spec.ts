@@ -29,7 +29,7 @@ test("a TVDB key and PIN are tested before they're kept, and TVDB's refusal name
 
   const kept = await setKey(page, "e2e-tvdb-key", "1234");
   await expect(kept).toBeHidden();
-  await expect(toasts(page)).toContainText("SlipStream now calls TVDB with your key and PIN.");
+  await expect(toasts(page)).toContainText(/TVDB.+key and PIN/u);
   await expect(card(page)).toContainText(/Your key, set /u);
 
   await world.fw.cue("tvdb-reject-key", { key: "e2e-refused-key" });

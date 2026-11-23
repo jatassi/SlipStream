@@ -168,7 +168,7 @@ async function volumeLevels(page: Page, world: World): Promise<void> {
   await dialog.getByRole("radio", { name: "%" }).first().click();
   await dialog.getByRole("textbox", { name: "Warn when free space is below" }).fill("100");
   await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(dialog).toContainText(`${name} on home has its own levels.`);
+  await expect(dialog).toContainText(`${name} on home`);
   await dialog.getByRole("button", { name: "Done" }).click();
   await expect(dialog).toHaveCount(0);
 

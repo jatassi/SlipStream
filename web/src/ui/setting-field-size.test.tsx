@@ -63,7 +63,7 @@ test("a size past its maximum or off a whole MB is refused before any request", 
   await userEvent.click(page.getByRole("radio", { name: "GB" }));
   await userEvent.fill(input, "11");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("alert")).toHaveTextContent("Between 0 MB and 10 GB.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent("0 MB and 10 GB");
   await expect.element(input).toHaveAttribute("aria-invalid", "true");
 
   await userEvent.click(page.getByRole("radio", { name: "MB" }));

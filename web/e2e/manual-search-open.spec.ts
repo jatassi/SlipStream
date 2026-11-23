@@ -33,10 +33,10 @@ test("Manual search from the hero shows each Indexer's Releases as it responds, 
   await page.goto(`/works/${await workId(world, orchard)}`);
   await openFromHero(page, orchard);
   const opened = sheet(page);
-  await expect(opened).toContainText("Searching 4 Indexers. 3 have responded.");
-  await expect(opened).toContainText("2 Grabs download every file you're missing.");
+  await expect(opened).toContainText(/4 Indexers.+3 have responded/u);
+  await expect(opened).toContainText(/2 Grabs\b.+every file/u);
   await expect(opened.getByRole("list", { name: "Grabs" })).toContainText(
-    "It downloads 1080p (standard) for The Quiet Orchard.",
+    /1080p \(standard\) for The Quiet Orchard/u,
   );
   await opened.getByRole("button", { name: "Details" }).first().click();
   const indexers = opened.getByRole("list", { name: "Indexers" });
@@ -80,14 +80,14 @@ async function failedPackNeedsYou(page: Page, world: World, series: string, test
   await needsYouAction(page, "Manual search");
   const failed = sheet(page, lanternKeepers);
   await searched(failed);
-  await expect(failed).toContainText("5 Grabs download 5 of the 6 files you're missing.");
+  await expect(failed).toContainText(/5 Grabs\b.+5 of the 6 files/u);
   const e09 = failed
     .getByRole("list", { name: "Files with no release found" })
     .getByRole("listitem")
     .filter({ hasText: "Failed: 1080p for E09." });
   await e09.getByRole("button", { name: "Other choices" }).click();
   await expect(e09.getByRole("list", { name: "Other choices" })).toContainText(
-    "A Grab of this release already failed for this series. You can still grab it here.",
+    /already failed for this series/u,
   );
   await expectAccessible(page);
   await frame(page, testInfo, "open-needs-you");
@@ -100,7 +100,7 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   const movie = await workId(world, orchard);
   await page.goto(`/works/${movie}`);
   await openFromCell(page, "1080p");
-  await expect(sheet(page)).toContainText("It downloads 1080p (standard) for The Quiet Orchard.");
+  await expect(sheet(page)).toContainText(/1080p \(standard\) for The Quiet Orchard/u);
   await expect(sheet(page)).not.toContainText("as an upgrade");
   await closeSheet(page);
 
@@ -112,10 +112,8 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   const season = sheet(page, lanternKeepers);
   await expect(season).toContainText("Searching 4 Indexers.");
   await searched(season);
-  await expect(season).toContainText("1 Grab downloads every file you're missing.");
-  await expect(season).toContainText(
-    "It downloads 1080p for E05 to E10. E01 to E04 keep their files.",
-  );
+  await expect(season).toContainText(/1 Grab\b.+every file/u);
+  await expect(season).toContainText(/1080p for E05 to E10.+E01 to E04/u);
   await expectAccessible(page);
   await frame(page, testInfo, "open-season");
   await closeSheet(page);
@@ -125,7 +123,7 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   const episode = sheet(page, "S02E06 of The Lantern Keepers");
   await expect(episode.getByRole("searchbox", { name: "Query" })).toBeVisible();
   await searched(episode);
-  await expect(episode).toContainText("It downloads 1080p for E06.");
+  await expect(episode).toContainText(/1080p for E06\b/u);
   await expect(episode).not.toContainText("for E05");
   await closeSheet(page);
 

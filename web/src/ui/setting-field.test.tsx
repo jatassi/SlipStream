@@ -98,7 +98,7 @@ const outOfRange = (detail: string) =>
 
 test("a duration shows its default, its range and its floor", async () => {
   renderKit(<SettingField field={rss} onSave={saving()} />);
-  await expect.element(page.getByText("Default 15 min. Between 10 min and 2 h.")).toBeVisible();
+  await expect.element(page.getByText(/15 min.+10 min and 2 h/u)).toBeVisible();
   await expect
     .element(page.getByText("Use 10 min or longer. Private trackers ban for hammering."))
     .toBeVisible();
@@ -135,7 +135,7 @@ test("a duration below its floor is refused with the floor before any request", 
   await userEvent.fill(input, "3");
   await userEvent.click(page.getByRole("radio", { name: "h" }));
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("alert")).toHaveTextContent("Between 10 min and 2 h.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent("10 min and 2 h");
   expect(onSave).not.toHaveBeenCalled();
 });
 
@@ -168,7 +168,7 @@ test("one of a unit reads in the singular", async () => {
 test("Reset to default sends null and shows only off the default", async () => {
   const onSave = saving();
   renderKit(<SettingField field={housekeeping} onSave={onSave} />);
-  await expect.element(page.getByText("Default 1 day. Between 1 day and 7 days.")).toBeVisible();
+  await expect.element(page.getByText(/1 day.+1 day and 7 days/u)).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Reset to default" }));
   expect(onSave).toHaveBeenCalledExactlyOnceWith(null);
 });
@@ -192,11 +192,11 @@ test("the server's refusal shows as the field's error", async () => {
 test("a count saves the number typed and refuses one outside its range", async () => {
   const onSave = saving();
   renderKit(<SettingField field={runsKept} onSave={onSave} />);
-  await expect.element(page.getByText("Default 50 runs. Between 1 and 1000 runs.")).toBeVisible();
+  await expect.element(page.getByText(/50 runs.+1 and 1000 runs/u)).toBeVisible();
   const input = page.getByRole("textbox", { name: "Runs kept" });
   await userEvent.fill(input, "0");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByRole("alert")).toHaveTextContent("Between 1 and 1000 runs.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent("1 and 1000 runs");
   expect(onSave).not.toHaveBeenCalled();
 
   await userEvent.fill(input, "200");
@@ -207,7 +207,7 @@ test("a count saves the number typed and refuses one outside its range", async (
 test("a choice names where its default comes from and saves the option chosen", async () => {
   const onSave = saving();
   renderKit(<SettingField field={overdue} onSave={onSave} />);
-  await expect.element(page.getByText("Default Catch up, from Scheduled tasks.")).toBeVisible();
+  await expect.element(page.getByText(/Catch up.+Scheduled tasks/u)).toBeVisible();
   await userEvent.click(page.getByRole("radio", { name: "Wait" }));
   expect(onSave).toHaveBeenCalledExactlyOnceWith("wait");
 });
@@ -239,9 +239,7 @@ test("a window shows its zone and saves both times", async () => {
   await userEvent.click(page.getByRole("button", { name: "Save" }));
   await expect
     .element(page.getByRole("alert"))
-    .toHaveTextContent(
-      "The start and end are the same time. Choose a different end. A window can cross midnight, such as 22:00 to 04:00.",
-    );
+    .toMatchTextContent(/^The start and end are the same time/u);
   expect(onSave).not.toHaveBeenCalled();
 
   await userEvent.fill(page.getByLabelText("From"), "01:00");

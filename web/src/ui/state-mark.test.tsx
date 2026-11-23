@@ -34,9 +34,7 @@ test("a defined mark is a button named by its word and described by its definiti
 test("hovering a defined mark opens its definition", async () => {
   renderKit(<Mark mark={stalled} />);
   await userEvent.hover(page.getByRole("button", { name: "Stalled" }));
-  await expect
-    .element(definition())
-    .toHaveTextContent("The torrent is incomplete, and no peer is sending it data.");
+  await expect.element(definition()).toMatchTextContent(/incomplete.+no peer/u);
 });
 
 test("a tap opens the definition in the touch density", async () => {

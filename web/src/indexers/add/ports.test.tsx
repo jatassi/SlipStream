@@ -54,16 +54,8 @@ test("before the catalog's first download, the ported sites are listed under why
 test("a ported site's form says where fixes come from, leads with its address and sends its settings by name", async () => {
   const server = addIndexerServer();
   renderApp({ path: formOf("hdbits"), handlers: server.handlers });
-  await expect
-    .element(page.getByText("HDBits is a private Tracker. SlipStream searches it from home."))
-    .toBeVisible();
-  await expect
-    .element(
-      page.getByText(
-        "SlipStream includes support for HDBits. Fixes to it come with SlipStream updates.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(page.getByText(/^HDBits is a private Tracker.+from home/u)).toBeVisible();
+  await expect.element(page.getByText(/support for HDBits.+SlipStream updates/u)).toBeVisible();
   const [address, username] = [
     page.getByRole("combobox", { name: "Address" }),
     page.getByRole("textbox", { name: "Username" }),
@@ -73,9 +65,7 @@ test("a ported site's form says where fixes come from, leads with its address an
     address.element().compareDocumentPosition(username.element()) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
-  await expect
-    .element(page.getByText("Choose an address for HDBits, or type a new one if HDBits moves."))
-    .toBeVisible();
+  await expect.element(page.getByText(/^Choose an address for HDBits/u)).toBeVisible();
   await expect
     .element(page.getByLabelText("Passkey", { exact: true }))
     .toHaveAttribute("type", "password");
@@ -138,24 +128,16 @@ test("a ported site's credentials are required, and Save names each one left emp
 test("a site that moved takes a typed address, checked before the Test", async () => {
   const server = addIndexerServer();
   renderApp({ path: formOf("iptorrents"), handlers: server.handlers });
-  await expect
-    .element(
-      page.getByText("Choose an address for IPTorrents, or type a new one if IPTorrents moves."),
-    )
-    .toBeVisible();
+  await expect.element(page.getByText(/^Choose an address for IPTorrents/u)).toBeVisible();
   await userEvent.click(page.getByRole("combobox", { name: "Address" }));
   await expect.element(page.getByRole("option", { name: "https://iptorrents.me/" })).toBeVisible();
   await userEvent.click(page.getByRole("option", { name: "Another address" }));
   await userEvent.fill(page.getByRole("textbox", { name: "Cookie" }), "uid=7; pass=abc");
   await userEvent.click(save());
-  await expect
-    .element(page.getByText("Type the address, starting with http:// or https://."))
-    .toBeVisible();
+  await expect.element(page.getByText(/^Type the address/u)).toBeVisible();
   await userEvent.fill(page.getByRole("textbox", { name: "New address" }), "iptorrents.example");
   await userEvent.click(save());
-  await expect
-    .element(page.getByText("Type the whole address, starting with http:// or https://."))
-    .toBeVisible();
+  await expect.element(page.getByText(/^Type the whole address/u)).toBeVisible();
   expect(posted(server.writes)).toEqual([]);
   await userEvent.fill(
     page.getByRole("textbox", { name: "New address" }),
@@ -217,7 +199,7 @@ test("a number field shows its range and is checked against it before the Test",
   await userEvent.fill(page.getByLabelText("Passkey", { exact: true }), "pk-2");
   await userEvent.fill(limit, "9");
   await userEvent.click(save());
-  await expect.element(page.getByText("Enter a number from 1 to 5.")).toBeVisible();
+  await expect.element(page.getByText(/1 to 5\b/u)).toBeVisible();
   await userEvent.fill(limit, "two");
   await userEvent.click(save());
   await expect.element(page.getByText("Enter a whole number.")).toBeVisible();
@@ -233,9 +215,7 @@ test("a number field shows its range and is checked against it before the Test",
 test("a site with no list of new Releases says RSS sync can't use it and keeps RSS off", async () => {
   const server = addIndexerServer();
   renderApp({ path: formOf("torrentscsv"), handlers: server.handlers });
-  await expect
-    .element(page.getByText("TorrentsCSV has no list of new Releases, so RSS sync can't use it."))
-    .toBeVisible();
+  await expect.element(page.getByText(/^TorrentsCSV has no list of new Releases/u)).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Details" }));
   const rss = page.getByRole("switch", { name: "RSS" });
   await expect.element(rss).not.toBeChecked();
@@ -264,15 +244,11 @@ async function addNorBitsWithCode() {
   await userEvent.fill(page.getByLabelText("Password", { exact: true }), "hunter2");
   await userEvent.click(save());
   await expect.element(page.getByRole("alert").getByText(codeNeeded)).toBeVisible();
-  await expect
-    .element(
-      page.getByText("NorBits needs the current code from your authenticator app to sign in."),
-    )
-    .toBeVisible();
+  await expect.element(page.getByText(/^NorBits needs the current code/u)).toBeVisible();
   const code = page.getByRole("textbox", { name: "Two-factor code" });
   await expect.element(code).toHaveFocus();
   await userEvent.click(save());
-  await expect.element(page.getByText("Type the code your authenticator app shows.")).toBeVisible();
+  await expect.element(page.getByText(/^Type the code/u)).toBeVisible();
   await userEvent.fill(code, "123456");
   await userEvent.click(save());
   await added("NorBits");

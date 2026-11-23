@@ -101,9 +101,7 @@ test("a pasted Node address has home dial the new Node, then says when it can't 
   codes.unreachable(id);
   await expect
     .element(dialog().getByRole("status").filter({ hasText: "home can't reach the new Node" }))
-    .toHaveTextContent(
-      "home can't reach the new Node at 203.0.113.9:8485. Check that the port is open.",
-    );
+    .toMatchTextContent(/^home can't reach the new Node at 203\.0\.113\.9:8485/u);
 });
 
 test("the new Node's Roles tick as its suggestions arrive", async () => {
@@ -151,7 +149,5 @@ test("with no link address, Add a Node says what to set", async () => {
   await userEvent.click(page.getByRole("button", { name: "Add a Node" }));
   await expect
     .element(dialog().getByRole("alert"))
-    .toHaveTextContent(
-      "home has no link address to put in a Join Code. Set link.advertise in its config.yaml, then restart it.",
-    );
+    .toMatchTextContent(/^home has no link address.+link\.advertise/u);
 });

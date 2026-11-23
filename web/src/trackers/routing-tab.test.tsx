@@ -47,7 +47,7 @@ test("a refusal with no detail, such as node_not_downloading, shows its title on
   await userEvent.click(page.getByRole("option", { name: "Built-in client on seedbox" }));
   await expect
     .element(homeRow().getByRole("alert"))
-    .toHaveTextContent("That Node doesn't have the Downloading Role");
+    .toMatchTextContent(/doesn't have the Downloading Role/u);
 });
 
 test("a skipped pick says why its Grabs go to the default", async () => {

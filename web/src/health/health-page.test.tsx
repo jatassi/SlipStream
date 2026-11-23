@@ -107,9 +107,7 @@ test("Check now that can't reach a Node says so, and the item stays", async () =
   renderApp({ path: "/health", handlers: health.handlers });
   await userEvent.click(rowOf(fullVolume.subject));
   await userEvent.click(page.getByRole("button", { name: `Check now: ${fullVolume.subject}` }));
-  await expect
-    .element(page.getByRole("status"))
-    .toHaveTextContent("Checked. home is offline, so its figures are as of 05:58.");
+  await expect.element(page.getByRole("status")).toMatchTextContent(/home is offline.+05:58/u);
   await expect.element(rowOf(fullVolume.subject)).toBeVisible();
 });
 

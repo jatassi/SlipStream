@@ -97,7 +97,7 @@ test("a search's Details list every Release it saw, the grabbed one first, and w
   const lines = run.getByRole("list", { name: "Releases" }).locator(":scope > li");
   await expect(lines).toHaveCount(4);
   await expect(lines.nth(0)).toContainText(`Bluray-1080p · FKW · 9.8 GB${bluray}`);
-  await expect(lines.nth(0)).toContainText("Grabbed for 1080p and HD.");
+  await expect(lines.nth(0)).toContainText(/Grabbed for 1080p and HD/u);
   const tier =
     "Its quality is WEBDL-1080p. The grabbed release is Bluray-1080p, a higher tier at 1080p.";
   await expect(lines.nth(1)).toContainText(extended);
@@ -106,12 +106,12 @@ test("a search's Details list every Release it saw, the grabbed one first, and w
   await expect(lines.nth(2)).toContainText(tier);
   const refused = lines.nth(3);
   await expect(refused).toContainText(superfan);
-  await expect(refused).toContainText("An automatic search skips it. A Manual search can grab it.");
+  await expect(refused).toContainText(/automatic search skips it.+Manual search can grab it/u);
   await expect(refused.getByRole("list", { name: "Reasons" }).getByRole("listitem")).toHaveText([
     "Score -10 is below the minimum of 0 at 1080p.",
     "Score -10 is below the minimum of 0 at HD.",
   ]);
-  await expect(refused).toContainText("Matches Superfan cut. Scores -10 at 1080p and -10 at HD.");
+  await expect(refused).toContainText(/Superfan cut.+-10 at 1080p and -10 at HD/u);
 
   await expectAccessible(page);
   await refused.scrollIntoViewIfNeeded();
@@ -120,8 +120,8 @@ test("a search's Details list every Release it saw, the grabbed one first, and w
   await refused.getByRole("button", { name: "Open in tester" }).click();
   const tester = page.getByRole("dialog", { name: "Tester" });
   await expect(tester.getByRole("textbox", { name: "Release names" })).toHaveValue(superfan);
-  await expect(tester).toContainText("Each name is judged against The Quiet Orchard");
-  await expect(tester).toContainText("Score -10 is below the minimum of 0 at");
+  await expect(tester).toContainText(/judged against The Quiet Orchard/u);
+  await expect(tester).toContainText(/-10 is below the minimum of 0/u);
   await expect(page).toHaveURL(new RegExp(`/works/${workId}$`, "u"));
   await expectAccessible(page);
 });

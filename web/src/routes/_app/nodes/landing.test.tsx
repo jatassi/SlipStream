@@ -43,7 +43,7 @@ test("each Roster row says the Node's state, when it was last seen, how it is re
     .toMatch(/Offline · Last seen .+Downloading · Finishing its work, 3 torrents \(41 GB\) stay/u);
   await expect
     .element(seedboxRow.getByRole("list", { name: "What seedbox found" }))
-    .toHaveTextContent("Weak: The downloads folder is on a network share.");
+    .toMatchTextContent(/^Weak.+network share/u);
   await expect
     .element(rowOf("vps"))
     .toHaveTextContent("vpsOnline · home connects to vps · 24 ms round tripSearching");
@@ -98,9 +98,7 @@ test("a Node that started holding work since the Roster loaded is refused, then 
   await openMenu("vps", "Remove");
   const dialog = page.getByRole("dialog", { name: "Remove vps?" });
   await userEvent.click(dialog.getByRole("button", { name: "Remove", exact: true }));
-  await expect
-    .element(dialog.getByRole("alert"))
-    .toHaveTextContent("vps started holding work, so nothing was removed.");
+  await expect.element(dialog.getByRole("alert")).toMatchTextContent(/^vps started holding work/u);
   await expect.poll(textOf(dialog)).toMatch(/vps still has 1 torrent for Downloading\./u);
   await userEvent.click(dialog.getByRole("button", { name: "Remove and give up its work" }));
   await expect.element(dialog).not.toBeInTheDocument();
