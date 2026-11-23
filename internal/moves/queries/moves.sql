@@ -196,10 +196,12 @@ UPDATE moves_unit_file SET via = 'library', payload_index = NULL
 WHERE unit_id IN (SELECT id FROM moves_unit WHERE pairs_with_unit_id = sqlc.arg(torrent_unit)) AND via = 'arriving' AND placed = 0;
 
 -- name: Unpair :exec
+-- A Work unit past its Place placed every file it takes from the payload
+-- and keeps its pair.
 UPDATE moves_unit SET pairs_with_unit_id = NULL, due_at = sqlc.arg(now),
     waiting = CASE WHEN waiting = 'linked_torrent' THEN NULL ELSE waiting END,
     waiting_at = CASE WHEN waiting = 'linked_torrent' THEN NULL ELSE waiting_at END
-WHERE pairs_with_unit_id = sqlc.arg(torrent_unit);
+WHERE pairs_with_unit_id = sqlc.arg(torrent_unit) AND phase IN ('queued', 'transfer', 'place');
 
 -- name: ListUnitFiles :many
 SELECT * FROM moves_unit_file WHERE unit_id IN (sqlc.slice(units)) ORDER BY unit_id, position;
