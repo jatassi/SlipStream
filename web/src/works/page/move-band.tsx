@@ -1,7 +1,10 @@
 import type { WorksWorkMove } from "../../api/gen/model";
 import { StatusSentence, type StatusPart } from "../../ui/status-sentence";
 
-/** "Moving to den", then the step the Move is on, while it runs; its failure once it fails. */
+/**
+ * The step the Move is on while it runs, led by "Moving to den" unless the
+ * step already names den; its failure once it fails.
+ */
 export function MoveBand({ move }: { move: WorksWorkMove | null }) {
   if (move === null || move.phase === "canceled") {
     return null;
@@ -17,10 +20,11 @@ export function MoveBand({ move }: { move: WorksWorkMove | null }) {
       />
     );
   }
-  const lead = `Moving to ${move.toNodeName}`;
-  const parts: StatusPart[] = [{ kind: "live", text: lead }];
-  if (move.words !== lead) {
-    parts.push({ kind: "plain", text: move.words });
-  }
+  const parts: StatusPart[] = move.words.includes(` to ${move.toNodeName}`)
+    ? [{ kind: "live", text: move.words }]
+    : [
+        { kind: "live", text: `Moving to ${move.toNodeName}` },
+        { kind: "plain", text: move.words },
+      ];
   return <StatusSentence scale="section" parts={parts} />;
 }

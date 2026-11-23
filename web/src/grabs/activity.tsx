@@ -89,7 +89,11 @@ export function ActivityBody({
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <JobsStatus grabs={grabs} failed={failed} />
+        <JobsStatus
+          grabs={grabs}
+          failed={failed}
+          moves={moves.filter(({ finishedAt }) => finishedAt === undefined).length}
+        />
         {filter}
       </div>
       {failed.length > 0 && <Failed grabs={failed} work={work} />}

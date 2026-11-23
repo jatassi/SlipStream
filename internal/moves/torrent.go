@@ -23,6 +23,20 @@ func sourceIn(ctx context.Context, r storage.Reader[file], u Unit) (downloadclie
 	return got[u.Torrent.Torrent], err
 }
 
+// titledSourceIn is sourceIn named by its newest Grab's release title.
+func titledSourceIn(ctx context.Context, r storage.Reader[file], u Unit) (downloadclients.MoveSource, error) {
+	srcs, err := downloadclients.MoveSources(ctx, r, []downloadclients.ID{u.Torrent.Torrent})
+	if err != nil {
+		return downloadclients.MoveSource{}, err
+	}
+	dests := map[downloadclients.ID]downloadclients.ID{}
+	if a := u.Torrent.Arriving; a != nil {
+		dests[u.Torrent.Torrent] = *a
+	}
+	err = titled(ctx, r, srcs, dests)
+	return srcs[u.Torrent.Torrent], err
+}
+
 // torrentCopy is the Transfer of u's payload into its destination
 // client's folder on the other Node.
 func (m *Moves) torrentCopy(u Unit, src downloadclients.MoveSource) transfers.Request {
@@ -539,4 +553,32 @@ func (m *Moves) MovesOf(ctx context.Context, r storage.Reader[file], ids []downl
 // out of client, read in r: downloadclients' Moving.
 func (m *Moves) UsesClient(ctx context.Context, r storage.Reader[file], client downloadclients.ClientID) (int64, error) {
 	return db.New(r).CountClientUnits(ctx, client.UUID)
+}
+
+// titled names each of srcs, read in r, by its newest Grab's release
+// title: the Grab of the torrent, or of its Move's destination in dests
+// once the switch took its Grabs. One no Grab used keeps its name.
+func titled(ctx context.Context, r storage.Reader[file], srcs map[downloadclients.ID]downloadclients.MoveSource, dests map[downloadclients.ID]downloadclients.ID) error {
+	ids := make([]downloadclients.ID, 0, len(srcs)+len(dests))
+	for id := range srcs {
+		ids = append(ids, id)
+	}
+	for _, id := range dests {
+		ids = append(ids, id)
+	}
+	uses, err := grabs.TorrentUses{}.Of(ctx, r, ids)
+	if err != nil {
+		return err
+	}
+	for id, src := range srcs {
+		us := uses[id]
+		if len(us) == 0 {
+			us = uses[dests[id]]
+		}
+		if len(us) > 0 {
+			src.Name = us[0].Release
+			srcs[id] = src
+		}
+	}
+	return nil
 }

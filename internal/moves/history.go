@@ -54,13 +54,16 @@ func (f FailedFacts) About() entry.About {
 
 func (f TorrentMovedFacts) About() entry.About { return entry.About{Type: f.Type} }
 
+// moveNoun counts a Work or a torrent moved in History's 7-day sentence.
+var moveNoun = works.Noun{One: "Move", Many: "Moves"}
+
 var (
 	movedRow = entry.Row[MovedFacts]{
-		Spec:   entry.Spec{Kind: "work_moved", Label: "Work moved", Group: entry.Moves, OnByDefault: true},
+		Spec:   entry.Spec{Kind: "work_moved", Label: "Work moved", Group: entry.Moves, OnByDefault: true, Tally: moveNoun},
 		Render: renderMoved,
 	}
 	torrentMovedRow = entry.Row[TorrentMovedFacts]{
-		Spec:   entry.Spec{Kind: "torrent_moved", Label: "Torrent moved", Group: entry.Moves, OnByDefault: true},
+		Spec:   entry.Spec{Kind: "torrent_moved", Label: "Torrent moved", Group: entry.Moves, OnByDefault: true, Tally: moveNoun},
 		Render: renderTorrentMoved,
 	}
 	failedRow = entry.Row[FailedFacts]{
@@ -126,7 +129,7 @@ func (m *Moves) recordMoved(ctx context.Context, tx *storage.Tx[file], u Unit) e
 // recordTorrentMoved records torrent unit u's torrent_moved in tx, the
 // switch's Write.
 func (m *Moves) recordTorrentMoved(ctx context.Context, tx *storage.Tx[file], u Unit) error {
-	src, err := sourceIn(ctx, tx, u)
+	src, err := titledSourceIn(ctx, tx, u)
 	if err != nil {
 		return err
 	}
@@ -144,7 +147,7 @@ func (m *Moves) recordTorrentMoved(ctx context.Context, tx *storage.Tx[file], u 
 // recordFailed records u's move_failed in tx, the Write that fails it.
 func (m *Moves) recordFailed(ctx context.Context, tx *storage.Tx[file], u Unit, s Failed) error {
 	if u.Torrent != nil {
-		src, err := sourceIn(ctx, tx, u)
+		src, err := titledSourceIn(ctx, tx, u)
 		if err != nil {
 			return err
 		}

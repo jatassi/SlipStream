@@ -126,6 +126,9 @@ func readTorrents(ctx context.Context, r storage.Reader[file], ts []TorrentTo) (
 	if rd.sources, err = downloadclients.MoveSources(ctx, r, ids); err != nil {
 		return rd, err
 	}
+	if err := titled(ctx, r, rd.sources, nil); err != nil {
+		return rd, err
+	}
 	if rd.moving, err = torrentsMoving(ctx, r, ids); err != nil {
 		return rd, err
 	}

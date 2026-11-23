@@ -17,7 +17,8 @@ const move = (over: Partial<WorksWorkMove>): WorksWorkMove => ({
 
 test.each([
   [move({ phase: "queued", words: "Moving to den" }), "Moving to den"],
-  [move({}), "Moving to den · Copying to den"],
+  [move({}), "Copying to den"],
+  [move({ phase: "cleanup", words: "Removing the files from seedbox" }), "Moving to den · Removing the files from seedbox"],
 ])("the Work band names the Move's step: %#", async (shown, words) => {
   renderKit(<MoveBand move={shown} />);
   await expect.element(page.getByRole("paragraph")).toHaveTextContent(words);

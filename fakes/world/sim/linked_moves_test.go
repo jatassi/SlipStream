@@ -206,8 +206,8 @@ func TestABatchFinishesWhenItsLastCleanupEnds(t *testing.T) {
 	})
 }
 
-// expectDone checks batch's Work and torrent both end done and its
-// sentence counts one of each, and the torrent's hash has one Torrent,
+// expectDone checks batch's Work and torrent both end done, the torrent
+// named by its release, and its sentence counts one of each, and the torrent's hash has one Torrent,
 // started.
 func (l linked) expectDone(t *testing.T, batch moves.BatchID) {
 	t.Helper()
@@ -216,6 +216,9 @@ func (l linked) expectDone(t *testing.T, batch moves.BatchID) {
 		if u.Phase != moves.PhaseDone {
 			t.Errorf("%s ended %s %+v, want done", u.Label, u.Phase, u.Failure)
 		}
+	}
+	if torrent.Label != orchard {
+		t.Errorf("the torrent is named %q, want its release %q", torrent.Label, orchard)
 	}
 	if got := wantedOf(t, l.w, l.seed); len(got) != 1 || !strings.HasSuffix(got[0], ":started") {
 		t.Errorf("the hash's Torrents are %v, want one, started", got)
