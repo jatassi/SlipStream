@@ -474,7 +474,7 @@ func controllerWithBackup(t *testing.T, env Env) (b taken, session, apiKey strin
 	return b, sessionOf(t, claimed), apiKey
 }
 
-func TestEachStagingErrorHasItsMessage(t *testing.T) {
+func TestEachStagingErrorHasItsCode(t *testing.T) {
 	home, _ := testEnv(t)
 	home.Test.Library = []storage.Schema[storage.Library]{markerAt(false)}
 	var b taken
