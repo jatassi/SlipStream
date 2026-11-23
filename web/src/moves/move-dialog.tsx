@@ -36,14 +36,9 @@ export function MoveDialog({ type, works, from, origin, open, onOpenChange }: Mo
   );
   const [withTorrents, setWithTorrents] = useState(true);
   const noun = { one: type.work.one.toLowerCase(), many: type.work.many.toLowerCase() };
-  const [only] = works;
   return (
     <PreviewDialog
-      title={
-        works.length === 1 && only !== undefined
-          ? `Move ${only.label}`
-          : `Move ${countWords(works.length, noun)}`
-      }
+      title={titleOf(works, noun)}
       previewing={
         rootId === ""
           ? undefined
@@ -77,6 +72,13 @@ export function MoveDialog({ type, works, from, origin, open, onOpenChange }: Mo
     />
   );
 }
+
+const titleOf = (works: readonly Subject[], noun: { one: string; many: string }) => {
+  const [only] = works;
+  return works.length === 1 && only !== undefined
+    ? `Move ${only.label}`
+    : `Move ${countWords(works.length, noun)}`;
+};
 
 /** The movable torrent units a Work Move's plan took for its Works' linked torrents. */
 const torrentsOf = (plan: MovesMovePreview) =>
