@@ -32,6 +32,10 @@ const (
 // to stopped*.
 var stopSince, _ = clients.ParseVersion("2.11.0")
 
+// seedModeSince is the WebAPI version that replaced torrents/add's
+// skip_checking, which later versions ignore, with seedMode.
+var seedModeSince, _ = clients.ParseVersion("2.16.0")
+
 // Open starts a session with the qBittorrent at s.Address. It does no IO.
 func Open(s clients.Session) clients.Client { return open(s) }
 
@@ -209,6 +213,9 @@ func (c *client) versions(ctx context.Context) error {
 
 // renamed is a session past WebAPI 2.11.0's rename of pause to stop.
 func (c *client) renamed() bool { return !c.api.Less(stopSince) }
+
+// seedMode is a session past WebAPI 2.16.0's seedMode.
+func (c *client) seedMode() bool { return !c.api.Less(seedModeSince) }
 
 func (c *client) Version(ctx context.Context) (clients.Version, error) {
 	if err := c.versions(ctx); err != nil {

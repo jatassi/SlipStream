@@ -209,7 +209,7 @@ func calls(got []exchange) []exchange {
 // for want of a session, auth/login in the version's generation, the call
 // again and app/webapiVersion.
 func signIn(version string) []exchange {
-	login := map[bool]int{false: http.StatusOK, true: http.StatusNoContent}[version == "5.2"]
+	login := map[bool]int{false: http.StatusOK, true: http.StatusNoContent}[version >= "5.2"]
 	return []exchange{
 		{call: "app/version", status: http.StatusForbidden}, {call: "auth/login", status: login},
 		{call: "app/version", status: http.StatusOK}, {call: "app/webapiVersion", status: http.StatusOK},
@@ -217,7 +217,7 @@ func signIn(version string) []exchange {
 }
 
 func TestQBittorrentSignsInInItsVersionsGeneration(t *testing.T) {
-	wantVersion := map[string]string{"4.6": "4.6.7", "5.1": "5.1.4", "5.2": "5.2.3"}
+	wantVersion := map[string]string{"4.6": "4.6.7", "5.1": "5.1.4", "5.2": "5.2.3", "5.3": "5.3"}
 	inEachVersion(t, func(t *testing.T, version string) {
 		r := newRig(t, fakeqbittorrent.Client{Version: version})
 		c := r.session()

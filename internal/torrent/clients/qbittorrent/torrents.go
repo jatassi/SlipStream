@@ -116,7 +116,11 @@ func (c *client) Add(ctx context.Context, a clients.Add) error {
 	}
 	fields := [][2]string{{"category", a.Label.String()}, {stopped, strconv.FormatBool(a.Paused)}}
 	if a.Complete {
-		fields = append(fields, [2]string{"skip_checking", "true"})
+		skip := "skip_checking"
+		if c.seedMode() {
+			skip = "seedMode"
+		}
+		fields = append(fields, [2]string{skip, "true"})
 	}
 	if a.Folder != "" {
 		fields = append(fields, [2]string{"savepath", a.Folder}, [2]string{"autoTMM", "false"})

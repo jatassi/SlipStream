@@ -22,7 +22,7 @@ const interval = 2 * time.Second
 func TestFakeQBittorrentConforms(t *testing.T) {
 	for _, version := range qbittorrent.Versions {
 		c := qbittorrent.Client{Node: "Media server", Version: version, Username: "jackson", Password: "orchard", BanAfter: 5, Folder: "/downloads", Rate: 100, Check: time.Second}
-		if version == "5.2" {
+		if version >= "5.2" {
 			c.APIKey = "qbt_0123456789abcdefghijklmnopqrstuv"
 		}
 		target := func(t *testing.T, f faketest.Served, cat *releases.Catalog) conformance.Target {

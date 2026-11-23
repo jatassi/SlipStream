@@ -38,7 +38,7 @@ import (
 
 // Versions are the versions this fake plays. The lowest is qBittorrent's
 // floor in SlipStream's kind facts.
-var Versions = []string{"4.6", "5.1", "5.2"}
+var Versions = []string{"4.6", "5.1", "5.2", "5.3"}
 
 // Fake is the qBittorrent an Admin adds on a Node, at that Node's front.
 // Its address is typed, as the Challenge solver's is, so Endpoints sets
@@ -137,12 +137,17 @@ type version struct {
 	// 401 from auth/login, API keys, 204 for a result with no data, JSON
 	// or a 409 from torrents/add, and tracker status 5 for an error.
 	v52 bool
+	// seedMode is WebAPI 2.16.0's torrents/add seedMode, which replaced
+	// skip_checking: 5.3 ignores skip_checking, and earlier versions
+	// seedMode.
+	seedMode bool
 }
 
 var versions = map[string]version{
 	"4.6": {app: "v4.6.7", api: "2.9.3"},
 	"5.1": {app: "v5.1.4", api: "2.11.4", stop: true},
 	"5.2": {app: "v5.2.3", api: "2.15.1", stop: true, v52: true},
+	"5.3": {app: "v5.3.0", api: "2.16.2", stop: true, v52: true, seedMode: true},
 }
 
 const (
