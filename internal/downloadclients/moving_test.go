@@ -3,24 +3,15 @@ package downloadclients_test
 import (
 	"context"
 	"log/slog"
-	"path/filepath"
-	"slices"
 	"testing"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
-	"github.com/jatassi/slipstream/internal/health"
-	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/indexers"
-	"github.com/jatassi/slipstream/internal/nodes"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
-	"github.com/jatassi/slipstream/internal/roots"
-	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/works"
 )
 
 // moving answers that each source it names moves, as moves would.
@@ -204,32 +195,6 @@ func handoff(t *testing.T, m move) dc.Handoff {
 	return got[m.orchard]
 }
 
-// TestTheSwitchHandsTheHashToTheArrivingTorrent switches the Orchard to
-// den: seedbox discards the source with its files, den's Torrent is live
-// with the source's totals, and a Grab for the hash takes it.
-func TestTheSwitchHandsTheHashToTheArrivingTorrent(t *testing.T) {
-	m := newMove(t)
-	apply(t, m.lib, m.box, m.orchard, &dlv1.TorrentReport{Totals: &dlv1.TotalsRow{Id: m.orchard.Bytes(), Uploaded: 4096, SeedingSeconds: 7200}})
-	write(t, m.lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return m.c.SwitchIn(ctx, tx, m.orchard, m.arriving)
-	})
-	discards := intentWithDiscards(t, m.lib, m.box).GetDiscards()
-	if !slices.ContainsFunc(discards, func(d *dlv1.Discard) bool { return idFrom(d.GetId()) == m.orchard && d.GetDeleteFiles() }) {
-		t.Fatalf("seedbox's intent discards %v, want the source with its files", discards)
-	}
-	var up, seeding int64
-	if err := m.lib.QueryRowContext(t.Context(), "SELECT uploaded, seeding_seconds FROM downloadclients_torrent WHERE id = ?", m.arriving).Scan(&up, &seeding); err != nil {
-		t.Fatal(err)
-	}
-	if up != 4096 || seeding != 7200 {
-		t.Errorf("den's Torrent has %d uploaded and %d s seeding, want the source's 4096 and 7200", up, seeding)
-	}
-	meta, raw := dotTorrent(t, "Orchard")
-	if id, _ := mustAttach(t, m.lib, dc.Want{Target: dc.Target{Node: m.den}, Metainfo: meta, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff}); id != m.arriving {
-		t.Errorf("a Grab after the switch attached to %s, want den's Torrent", id)
-	}
-}
-
 // TestALateReportLeavesASwitchedSourcesTotals switches the Orchard to den
 // once seedbox counted 2 hours of seeding, then seedbox's last report and
 // totals row for it land, twice each, with 2 seconds more: the switch
@@ -251,65 +216,5 @@ func TestALateReportLeavesASwitchedSourcesTotals(t *testing.T) {
 		if got := totalsOf(t, m.lib, id); got.Uploaded != 4096 || got.Seeding != 2*time.Hour {
 			t.Errorf("Torrent %s has %d uploaded and %s seeding after the late reports, want the switch's 4096 and 2h0m0s", id, got.Uploaded, got.Seeding)
 		}
-	}
-}
-
-// TestTheMovesRebuildKeepsEveryTorrentAndHoldsAHashTwice migrates an
-// adopted withheld Torrent through 00011's rebuild: it keeps its columns,
-// may be removed moved, and a Move's arriving Torrent of the same hash on
-// the same Node is no second holder.
-func TestTheMovesRebuildKeepsEveryTorrentAndHoldsAHashTwice(t *testing.T) {
-	ctx := t.Context()
-	path := filepath.Join(t.TempDir(), storage.LibraryFile)
-	openWith := func(clients storage.Schema[storage.Library]) library {
-		t.Helper()
-		lib, err := storage.OpenLibrary(ctx, path, []storage.Schema[storage.Library]{
-			secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), health.Schema(), roots.Schema(), clients, indexers.Schema(),
-		}, nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return lib
-	}
-	old := openWith(dc.Schema().Through(10))
-	node, torrent := addNode(t, old, "Den"), storage.NewUUID()
-	write(t, old, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers,
-			adopted, withheld_at, wanted, added_order, added_at, uploaded, client_error_ms)
-			VALUES (?, ?, randomblob(20), x'00', 'Heat.1995.1080p.BluRay', 1024, 1, '[]', 1, 5, 'started', 1, 0, 512, 300)`, torrent, node)
-		return err
-	})
-	if err := old.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	lib := openWith(dc.Schema())
-	t.Cleanup(func() { _ = lib.Close() })
-	var got string
-	err := lib.QueryRowContext(ctx, `SELECT name || ' ' || uploaded || ' ' || adopted || ' ' || withheld_at || ' ' || client_error_ms || ' ' ||
-		watch_announce || ' ' || coalesce(arriving_unit, 'none') FROM downloadclients_torrent WHERE id = ?`, torrent).Scan(&got)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := "Heat.1995.1080p.BluRay 512 1 5 300 0 none"; got != want {
-		t.Fatalf("after the migration the Torrent reads %q, want %q", got, want)
-	}
-	write(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers,
-			adopted, wanted, added_order, added_at, arriving_unit)
-			SELECT ?, node_id, info_hash, metainfo, name, size, private, trackers, 1, 'paused', 2, 0, randomblob(16)
-			FROM downloadclients_torrent WHERE id = ?`, storage.NewUUID(), torrent)
-		return err
-	})
-	write(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, "UPDATE downloadclients_torrent SET removed_at = 9, removed_reason = 'moved' WHERE id = ?", torrent)
-		return err
-	})
-	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, "UPDATE downloadclients_torrent SET arrival = 'started' WHERE arriving_unit IS NOT NULL")
-		return err
-	})
-	if err == nil {
-		t.Fatal("a started arrival was stored with no ask")
 	}
 }

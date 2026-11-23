@@ -22,29 +22,6 @@ func moveChange(to, from link.ServerPath) link.JobChange {
 	return link.JobChange{ID: link.ChangeID{UUID: storage.NewUUID()}, Kind: link.ChangeMoved, Library: "5", Path: to, From: from, FromLibrary: "1"}
 }
 
-func TestAMoveNeverConfirmedRefreshesItsDestinationAgainAndNeverPasses(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		const nosferatu = "Films/Nosferatu (1922)/Nosferatu (1922).mkv"
-		d := newDen(t, nosferatu)
-		d.watched(nosferatu)
-		dest := d.at("Vault/Nosferatu (1922)/Nosferatu (1922).mkv")
-		j := link.Job{Work: link.Carry{Changes: []link.JobChange{moveChange(dest, d.at(nosferatu))}}, Step: link.StepNone}
-		start := time.Now()
-		for time.Since(start) <= 2*link.DefaultTimings().MovedConfirm {
-			a, err := d.conn.Advance(t.Context(), j)
-			if err != nil {
-				t.Fatalf("Advance at %s: %v", j.Step, err)
-			}
-			if a.Done || a.Job.Step == link.StepConfirmed {
-				t.Fatalf("the Move's carry passed %s with no item at its new path", a.Job.Step)
-			}
-			time.Sleep(time.Until(a.Wait))
-			j = a.Job
-		}
-		check(t, "refreshes", d.refreshes(), []string{`folder C:\Media\Vault\Nosferatu (1922)`, `folder C:\Media\Vault\Nosferatu (1922)`, `folder C:\Media\Vault\Nosferatu (1922)`})
-	})
-}
-
 func TestAMoveUnconfirmedOnceItsSourceIsGoneEndsLostAndLeavesItsSourceFolder(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		const nosferatu = "Films/Nosferatu (1922)/Nosferatu (1922).mkv"

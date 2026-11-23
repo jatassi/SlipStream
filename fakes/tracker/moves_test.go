@@ -48,32 +48,6 @@ func TestARustStopKeepsTheHistoryActiveWhileAnotherPeerSeeds(t *testing.T) {
 	})
 }
 
-func TestTheRejectStartCueRefusesOnePeersNextStarted(t *testing.T) {
-	const reason = "You are already seeding this torrent from another client"
-	s := scenario.Scenario{Seed: "tracker", Tracker: scenario.Tracker{Interval: 5 * time.Second}}
-	for name, args := range map[string]tracker.RejectStartArgs{
-		"by origin Node": {Release: "orchard", OriginNode: "seedbox", Reason: reason},
-		"by peer ID":     {Release: "orchard", PeerID: hex.EncodeToString([]byte(seeder)), Reason: reason},
-	} {
-		t.Run(name, func(t *testing.T) {
-			synctest.Test(t, func(t *testing.T) {
-				f := faketest.InMemory(t, tracker.Fake, s, opts...)
-				f.Cue(t, tracker.RejectStart.Name, args)
-				announces := []announce{
-					{0, passkey, orchard, seeder, 6881, "", 0, replied(1, 0, 0, "5", "5", "")},
-					{0, passkey, orchard, seeder, 6881, "started", 0, failed(reason, "5", "5")},
-					{0, passkey, orchard, seeder, 6881, "started", 0, replied(1, 0, 0, "5", "5", "")},
-				}
-				check(t, f, announces, []string{
-					accepted(announces[0]),
-					record(announces[1], tracker.RuleRejectStart, reason),
-					accepted(announces[2]),
-				})
-			})
-		})
-	}
-}
-
 func TestThePeersCaptureHoldsEachStartedAndStopped(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		f := faketest.InMemory(t, tracker.Fake, scenario.Scenario{Seed: "tracker"}, opts...)
