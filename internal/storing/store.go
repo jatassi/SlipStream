@@ -47,6 +47,11 @@ type Config struct {
 	ProbeTimeout time.Duration
 	// PathLimit is storage.path_limit, which the facts report.
 	PathLimit int64
+	// RemoveRetry is the first wait before a remove of a file another
+	// program holds open runs again, doubling, and RemoveBound how long
+	// after the first try it gives up: timings.moves.remove_retry and
+	// timings.moves.remove_bound.
+	RemoveRetry, RemoveBound time.Duration
 }
 
 // resampleEvery is the least time between two samples a placement asks

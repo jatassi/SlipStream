@@ -19,6 +19,16 @@ import (
 
 const nativeStyle = Windows
 
+// inUse is err, wrapping errInUse for a sharing or lock violation: Plex's
+// media analysis holds a file it just scanned for 1 to 2 s (recorded run
+// 2026-11-23, case 3).
+func inUse(err error) error {
+	if errors.Is(err, windows.ERROR_SHARING_VIOLATION) || errors.Is(err, windows.ERROR_LOCK_VIOLATION) {
+		return fmt.Errorf("%w: %w", errInUse, err)
+	}
+	return err
+}
+
 // Directory access rights that x/sys/windows leaves out.
 const (
 	fileAddFile         = 0x2

@@ -356,7 +356,7 @@ func (s *Store) removeIf(ctx context.Context, root storage.UUID, rel Rel, size i
 	case info.Dir() || info.Size() != size || info.ModTime().UnixMilli() != modified.UnixMilli():
 		return Changed, nil
 	}
-	err = s.cfg.Disk.Remove(ctx, s.host.Style.Under(dir, rel))
+	err = s.removeHeld(ctx, s.host.Style.Under(dir, rel))
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return Gone, nil
@@ -364,6 +364,31 @@ func (s *Store) removeIf(ctx context.Context, root storage.UUID, rel Rel, size i
 		return 0, s.folderError(err)
 	}
 	return Removed, nil
+}
+
+// errInUse is a remove another program's open handle refused.
+var errInUse = errors.New("another program has the file open")
+
+// removeHeld deletes path, trying again while another program holds it
+// open, up to RemoveBound after the first try.
+func (s *Store) removeHeld(ctx context.Context, path string) error {
+	deadline := time.Now().Add(s.cfg.RemoveBound)
+	wait := s.cfg.RemoveRetry
+	for {
+		err := s.cfg.Disk.Remove(ctx, path)
+		left := time.Until(deadline)
+		if !errors.Is(err, errInUse) || left <= 0 {
+			return err
+		}
+		t := time.NewTimer(min(wait, left))
+		select {
+		case <-t.C:
+		case <-ctx.Done():
+			t.Stop()
+			return fmt.Errorf("remove %s: %w", path, ctx.Err())
+		}
+		wait *= 2
+	}
 }
 
 // recordLedger records the file at rel under root in root's Sidecar

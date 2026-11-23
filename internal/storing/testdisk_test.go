@@ -37,6 +37,9 @@ type testDisk struct {
 	broken     map[string]bool
 	readOnly   map[string]bool
 	unreadable map[string]bool
+	// held paths fail this many more removes as a file another program
+	// holds open fails them.
+	held map[string]int
 	// linkErr is the errno every Link fails with, nil for none. cloneErr is
 	// the errno every Clone fails with; nil clones, by writing from's
 	// bytes into to+".part" and renaming it, as a volume that shares
@@ -69,6 +72,7 @@ func newTestDisk(t *testing.T) *testDisk {
 		broken:     map[string]bool{},
 		readOnly:   map[string]bool{},
 		unreadable: map[string]bool{},
+		held:       map[string]int{},
 		volumes:    map[string]Volume{},
 		calls:      map[string]int{},
 	}
@@ -248,6 +252,15 @@ func (d *testDisk) Create(ctx context.Context, path string) (File, error) {
 func (d *testDisk) Remove(ctx context.Context, path string) error {
 	if err := d.fault(ctx, "remove", path); err != nil {
 		return err
+	}
+	d.mu.Lock()
+	held := d.held[path] > 0
+	if held {
+		d.held[path]--
+	}
+	d.mu.Unlock()
+	if held {
+		return fmt.Errorf("%w: %w", errInUse, &fs.PathError{Op: "remove", Path: path, Err: syscall.Errno(32)})
 	}
 	return os.Remove(d.at(path)) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
