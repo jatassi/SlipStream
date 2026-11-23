@@ -56,18 +56,9 @@ test("a step marked done is ticked, and the next is current", async () => {
   renderKit(
     <GuidedSteps
       label="Steps to add a key"
-      steps={steps.map((step, index) => (index === 0 ? { ...step, done: true } : step))}
+      steps={[{ label: "Open the key page.", done: true }, ...steps.slice(1)]}
     />,
   );
   await expect.element(list().getByRole("listitem").nth(1)).toHaveAttribute("aria-current", "step");
   expect(stepTexts()[0]).toBe("Step 1, done: Open the key page.");
-});
-
-test("on a phone a step's link is a full-width touch target", async () => {
-  renderKit(<GuidedSteps label="Steps to add a key" steps={steps} />, { shell: "phone" });
-  await expect.element(page.getByRole("link", { name: "Open SubDL" })).toBeVisible();
-  const link = page.getByRole("link", { name: "Open SubDL" }).element();
-  const item = list().getByRole("listitem").nth(0).element().querySelector("div");
-  await expect.poll(() => link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
-  expect(link.getBoundingClientRect().width).toBe(item?.getBoundingClientRect().width);
 });

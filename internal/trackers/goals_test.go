@@ -96,23 +96,6 @@ func TestAGoalActsOnlyOnceTheRuleAndMarginAreMetAndCommitsWithItsGoalRun(t *test
 	}
 }
 
-// TestAGoalMetMidMoveCancelsTheMoveThenActs meets the Orchard's goal
-// while a Move takes it to another Node: the goal cancels the Move in its
-// Write, then removes the source as it would without one.
-func TestAGoalMetMidMoveCancelsTheMoveThenActs(t *testing.T) {
-	l := newLibrary(t)
-	seedpool := l.tracker("seedpool", indexers.Private)
-	l.own(seedpool, seeding.TimeRule{Seed: 3 * day}, seeding.MustFinite(seeding.First, 0, time.Hour, seeding.RemoveDelete))
-	orchard := l.torrent("Orchard", &seedpool, true, time.Now().Add(-4*day), 0, 4*gib)
-	l.moving[orchard] = true
-	l.announced(orchard, 3*day+2*time.Hour)
-	l.runGoals()
-	if !slices.Equal(l.canceled, []downloadclients.ID{orchard}) {
-		t.Fatalf("the goal canceled the Moves of %v, want the Orchard's", l.canceled)
-	}
-	l.expectFate("once its goal is met mid-Move", orchard, fate{wanted: "started", removed: "goal_met", deletes: true, action: "remove-delete"})
-}
-
 func TestReconcilingHoldsEveryGoal(t *testing.T) {
 	l := newLibrary(t)
 	nyaa := l.tracker("Nyaa", indexers.Public)

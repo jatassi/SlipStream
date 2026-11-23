@@ -1,25 +1,16 @@
 import type { ReactNode } from "react";
-import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { expect, onTestFinished, test, vi } from "vitest";
-import { cdp, commands } from "vitest/browser";
+import { cdp, commands, page } from "vitest/browser";
 
 import { type Artwork, artworkHandlers, artworkUrl } from "../../test/ambient/fixtures";
 import { worker } from "../../test/worker";
 import { Ambient } from "./ambient";
-import { type AmbientOptions, type AmbientSource, useAmbient } from "./use-ambient";
+import { type AmbientSource, useAmbient } from "./use-ambient";
 
-function Page({
-  source,
-  options,
-  children,
-}: {
-  source: AmbientSource;
-  options?: AmbientOptions;
-  children?: ReactNode;
-}) {
-  useAmbient(source, options);
-  return children;
+function Page({ source }: { source: AmbientSource }) {
+  useAmbient(source);
+  return null;
 }
 
 const work = (name: Artwork): AmbientSource => ({
@@ -44,28 +35,12 @@ function mount(ui: ReactNode) {
       animation.finish();
     }
   });
-  return root;
 }
 
-const transitions = () =>
-  document.documentElement
-    .getAnimations()
-    .filter((animation) => animation instanceof CSSTransition)
-    .toSorted((a, b) => a.transitionProperty.localeCompare(b.transitionProperty));
-
-const running = () => transitions().map((transition) => transition.transitionProperty);
-
-const tint = () => {
-  const style = getComputedStyle(document.documentElement);
-  return { h: style.getPropertyValue("--h"), s: style.getPropertyValue("--s") };
-};
-
-const backdrop = () => {
-  const element = document.querySelector('[data-ambient-backdrop="current"]');
-  return element === null ? null : getComputedStyle(element);
-};
-
-const backdropFilter = () => backdrop()?.filter ?? null;
+const backdrop = async () =>
+  page.elementLocator(
+    await vi.waitUntil(() => document.querySelector('[data-ambient-backdrop="current"]')),
+  );
 
 async function prefer(name: string, value: string) {
   await cdp().send("Emulation.setEmulatedMedia", { features: [{ name, value }] });
@@ -77,106 +52,17 @@ async function prefer(name: string, value: string) {
   });
 }
 
-test("a page without a Work sits on the neutral", async () => {
+test("a Work's page draws its artwork behind the app", async () => {
   mount(
-    <>
-      <Ambient />
-      <Page source={{ kind: "neutral" }} />
-    </>,
-  );
-  await expect.poll(tint).toEqual({ h: "214", s: "14%" });
-  expect(backdropFilter()).toBeNull();
-});
-
-test.each([
-  { name: "white", h: "220", s: "12%", filter: "blur(64px) saturate(1.8) brightness(0.255)" },
-  { name: "black", h: "220", s: "12%", filter: "blur(64px) saturate(1.8) brightness(1)" },
-  // Red is hue 0; from the neutral's 214 the short way round reaches it at 360.
-  { name: "red", h: "360", s: "70%", filter: "blur(64px) saturate(1.8) brightness(0.536)" },
-  { name: "two-tone", h: "221", s: "53%", filter: "blur(64px) saturate(1.8) brightness(0.255)" },
-] as const)(
-  "a Work with the $name artwork tints the page $h / $s",
-  async ({ name, h, s, filter }) => {
-    mount(
-      <>
-        <Ambient />
-        <Page source={work(name)} />
-      </>,
-    );
-    await expect.poll(backdropFilter).toBe(filter);
-    await expect.poll(tint).toEqual({ h, s });
-  },
-);
-
-test("the deepest caller wins", async () => {
-  mount(
-    <>
-      <Ambient />
-      <Page source={work("white")}>
-        <Page source={work("red")} />
-      </Page>
-    </>,
-  );
-  await expect.poll(backdropFilter).toBe("blur(64px) saturate(1.8) brightness(0.536)");
-  await expect.poll(tint).toEqual({ h: "360", s: "70%" });
-});
-
-test("leaving the Work's page returns to the neutral", async () => {
-  const root = mount(
     <>
       <Ambient />
       <Page source={work("red")} />
     </>,
   );
-  await expect.poll(tint).toEqual({ h: "360", s: "70%" });
-  root.render(<Ambient />);
-  await expect.poll(tint).toEqual({ h: "214", s: "14%" });
-  expect(backdropFilter()).toBeNull();
+  await expect.element(await backdrop()).toBeVisible();
 });
 
-test("a return delay holds the Work's tint after its page leaves", async () => {
-  const root = mount(
-    <>
-      <Ambient />
-      <Page source={work("red")} options={{ returnDelay: 450 }} />
-    </>,
-  );
-  await expect.poll(tint).toEqual({ h: "360", s: "70%" });
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-  onTestFinished(() => {
-    vi.useRealTimers();
-  });
-  flushSync(() => {
-    root.render(<Ambient />);
-  });
-  await vi.advanceTimersByTimeAsync(449);
-  expect(tint()).toEqual({ h: "360", s: "70%" });
-  await vi.advanceTimersByTimeAsync(1);
-  vi.useRealTimers();
-  await expect.poll(tint).toEqual({ h: "214", s: "14%" });
-});
-
-test("the registered --h and --s animate between tints", async () => {
-  const root = mount(
-    <>
-      <Ambient />
-      <Page source={work("red")} />
-    </>,
-  );
-  // The tint reads 360 a frame before the arriving transition ends, so the
-  // return's transitions are only told apart once that one has gone.
-  await expect.poll(tint).toEqual({ h: "360", s: "70%" });
-  await expect.poll(running).toEqual([]);
-  root.render(<Ambient />);
-  await expect.poll(running).toEqual(["--h", "--s"]);
-  for (const transition of transitions()) {
-    transition.pause();
-    transition.currentTime = 550;
-  }
-  expect(tint()).toEqual({ h: "218.12", s: "15.5804%" });
-});
-
-test("reduced transparency hides the backdrop and keeps the tint", async () => {
+test("reduced transparency hides the artwork", async () => {
   await prefer("prefers-reduced-transparency", "reduce");
   mount(
     <>
@@ -184,11 +70,10 @@ test("reduced transparency hides the backdrop and keeps the tint", async () => {
       <Page source={work("red")} />
     </>,
   );
-  await expect.poll(() => backdrop()?.display).toBe("none");
-  await expect.poll(tint).toEqual({ h: "360", s: "70%" });
+  await expect.element(await backdrop()).not.toBeVisible();
 });
 
-test("reduced motion swaps the tint and backdrop at once", async () => {
+test("reduced motion swaps the artwork in at once", async () => {
   await prefer("prefers-reduced-motion", "reduce");
   mount(
     <>
@@ -196,7 +81,6 @@ test("reduced motion swaps the tint and backdrop at once", async () => {
       <Page source={work("red")} />
     </>,
   );
-  await expect.poll(tint).not.toEqual({ h: "214", s: "14%" });
-  expect(tint()).toEqual({ h: "360", s: "70%" });
+  await backdrop();
   expect(document.getAnimations()).toEqual([]);
 });

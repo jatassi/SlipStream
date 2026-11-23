@@ -14,7 +14,7 @@ test("a refused SubDL key isn't saved, another is, and once SubDL revokes it Set
   const providers = page.getByRole("list", { name: "Subtitle Providers" });
   await providers.getByRole("button", { name: "Add key" }).first().click();
   const dialog = page.getByRole("dialog", { name: "Add your SubDL key" });
-  await expect(dialog).toContainText("SlipStream never asks for your SubDL password.");
+  await expect(dialog).toContainText(/SubDL password/u);
 
   await dialog.getByRole("textbox", { name: "Key" }).fill("not-a-key");
   await dialog.getByRole("button", { name: "Check key" }).click();

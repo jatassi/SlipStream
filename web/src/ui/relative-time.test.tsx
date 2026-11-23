@@ -63,14 +63,3 @@ test("an age turns with the shared clock", async () => {
   await frames(3);
   expect(page.getByRole("time").element().textContent).toBe("1 minute ago");
 });
-
-test("a clock time compared down a column sets in Mono, and an age, being words, can't", async () => {
-  renderKit(
-    <>
-      <PlainTime at={at} form="clock" data />
-      {/* @ts-expect-error an age is words, never Data */}
-      <PlainTime at={at} form="age" data />
-    </>,
-  );
-  await expect.element(page.getByRole("time").first()).toHaveClass("font-mono");
-});

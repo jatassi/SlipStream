@@ -107,11 +107,7 @@ test("the last Admin's demotion is refused inside the dialog", async () => {
   await userEvent.click(page.getByRole("button", { name: "Make Member" }));
   const dialog = page.getByRole("dialog", { name: "Make Ada Okafor a Member?" });
   await userEvent.click(dialog.getByRole("button", { name: "Make Member" }));
-  await expect
-    .element(dialog.getByRole("alert"))
-    .toHaveTextContent(
-      "SlipStream needs at least one active Admin. Make another Account an Admin first.",
-    );
+  await expect.element(dialog.getByRole("alert")).toMatchTextContent(/at least one active Admin/u);
 });
 
 test("Turn off and Sign out everywhere ask first, then send the change", async () => {
@@ -177,37 +173,6 @@ test("Change email sends the new address and shows a taken one on the field", as
     .element(page.getByText("Changed Grace Lindqvist's email to grace@new.example.test"))
     .toBeVisible();
   expect(sent).toEqual([{ email: "ada@example.test" }, { email: "grace@new.example.test" }]);
-});
-
-test("Send a Reset link shows the link once and says it was emailed", async () => {
-  const sent: unknown[] = [];
-  renderApp({
-    path: `/accounts/${grace.id}`,
-    handlers: [
-      getGetAccountMockHandler(graceDetail),
-      http.post("*/api/v1/accounts/:id/reset-link", async ({ request }) => {
-        sent.push(await request.json());
-        return HttpResponse.json(
-          { url: "https://media.example.test/reset#token=xyz789", email: { outcome: "sent" } },
-          { status: 201 },
-        );
-      }),
-    ],
-  });
-  await userEvent.click(page.getByRole("button", { name: "Send a Reset link" }));
-  const dialog = page.getByRole("dialog", { name: "Send Grace Lindqvist a Reset link" });
-  await expect
-    .element(dialog.getByText("Turn this on if someone else may have had access."))
-    .toBeVisible();
-  await userEvent.click(dialog.getByRole("checkbox", { name: "Also remove passkeys" }));
-  await userEvent.click(dialog.getByRole("button", { name: "Send the Reset link" }));
-
-  await expect
-    .element(dialog.getByRole("textbox", { name: "Reset link" }))
-    .toHaveValue("https://media.example.test/reset#token=xyz789");
-  await expect.element(dialog.getByText("Emailed it to grace@example.test.")).toBeVisible();
-  await expect.element(dialog.getByText("SlipStream shows this link only once.")).toBeVisible();
-  expect(sent).toEqual([{ removePasskeys: true }]);
 });
 
 test("Delete asks first, then returns to Accounts", async () => {

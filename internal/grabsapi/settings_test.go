@@ -39,13 +39,6 @@ var defaults = map[string]any{
 	"indexers.searchWait": 120.0,
 }
 
-func TestTheSearchSettingsListEveryKeyWithItsDefault(t *testing.T) {
-	f := searchable(t, site{})
-	if got := values(t, f); !reflect.DeepEqual(got, defaults) {
-		t.Fatalf("getSearchSettings = %v, want %v", got, defaults)
-	}
-}
-
 func TestASearchSettingsChangeOutsideARangeChangesNothing(t *testing.T) {
 	f := searchable(t, site{})
 	for _, refused := range []string{
@@ -81,6 +74,9 @@ func TestASearchSettingsChangeOutsideARangeChangesNothing(t *testing.T) {
 
 func TestASearchSettingsChangeStoresEveryValueAndNullResetsIt(t *testing.T) {
 	f := searchable(t, site{})
+	if got := values(t, f); !reflect.DeepEqual(got, defaults) {
+		t.Fatalf("getSearchSettings = %v, want %v", got, defaults)
+	}
 	change := `{"values":{"search.backlogOn":false,"search.backlogUpgrades":false,"search.rssOn":false,"search.longestGap":172800,` +
 		`"search.fullPace":0,"search.stopCount":1,"search.stopWindow":3600,"indexers.searchWait":45,"tasks.rss-sync.cadence":1800}}`
 	if code, body := f.s.Call(t, http.MethodPatch, "/api/v1/search-settings", change); code != http.StatusOK {

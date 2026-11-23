@@ -35,13 +35,20 @@ func TestTheCatalogListsEachTaskOnceInItsWindowOrder(t *testing.T) {
 }
 
 func TestHousekeepingPrunesInItsUnitsOrder(t *testing.T) {
-	var labels []string
-	for _, s := range housekeepingSteps(nil, nil, nil, nil, nil, nil, nil) {
-		labels = append(labels, s.Label)
+	type unit struct {
+		label string
+		while tasks.WhileReconciling
 	}
-	want := []string{"Indexer queries and sessions", "Media Server history", "History", "Finished Grabs", "Finished Imports", "Import records", "Subtitle tries"}
-	if !slices.Equal(labels, want) {
-		t.Fatalf("Housekeeping's units are %q, want %q", labels, want)
+	var got []unit
+	for _, s := range housekeepingSteps(nil, nil, nil, nil, nil, nil, nil) {
+		got = append(got, unit{s.Label, s.WhileReconciling})
+	}
+	want := []unit{
+		{"Indexer queries and sessions", tasks.Runs}, {"Media Server history", tasks.Runs}, {"History", tasks.Pauses},
+		{"Finished Grabs", tasks.Pauses}, {"Finished Imports", tasks.Pauses}, {"Import records", tasks.Pauses}, {"Subtitle tries", tasks.Runs},
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("Housekeeping's units are %v, want %v", got, want)
 	}
 }
 
@@ -65,16 +72,4 @@ func TestEveryTaskDeclaresWhileReconciling(t *testing.T) {
 			}
 		}
 	})
-}
-
-func TestHousekeepingPausesItsPrunesWhileReconciling(t *testing.T) {
-	want := map[string]tasks.WhileReconciling{
-		"Indexer queries and sessions": tasks.Runs, "Media Server history": tasks.Runs, "History": tasks.Pauses,
-		"Finished Grabs": tasks.Pauses, "Finished Imports": tasks.Pauses, "Import records": tasks.Pauses, "Subtitle tries": tasks.Runs,
-	}
-	for _, s := range housekeepingSteps(nil, nil, nil, nil, nil, nil, nil) {
-		if s.WhileReconciling != want[s.Label] {
-			t.Errorf("%s declares %d while Reconciling, want %d", s.Label, s.WhileReconciling, want[s.Label])
-		}
-	}
 }

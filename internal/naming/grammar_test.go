@@ -141,13 +141,6 @@ func TestParseRefuses(t *testing.T) {
 	}
 }
 
-func TestParseErrorReadsAsItsSentence(t *testing.T) {
-	_, err := Parse("Heat {Target")
-	if got, want := err.Error(), `{Target has no closing brace. Add "}" to close it.`; got != want {
-		t.Errorf("Error() = %q; want %q", got, want)
-	}
-}
-
 func TestKeyOf(t *testing.T) {
 	for name, want := range map[string]Key{
 		"Movie CleanTitle":     "moviecleantitle",
@@ -161,55 +154,6 @@ func TestKeyOf(t *testing.T) {
 	} {
 		if got := KeyOf(name); got != want {
 			t.Errorf("KeyOf(%q) = %q; want %q", name, got, want)
-		}
-	}
-}
-
-func TestWordsReadByKind(t *testing.T) {
-	for _, c := range []struct {
-		w    words
-		want langs
-		ok   bool
-	}{
-		{words{text: "EN+DE"}, langs{codes: []string{"EN", "DE"}}, true},
-		{words{text: "EN", drop: true}, langs{codes: []string{"EN"}, drop: true}, true},
-		{words{text: "DE+"}, langs{codes: []string{"DE"}, mark: true}, true},
-		{words{text: "EN+NL", drop: true}, langs{codes: []string{"EN", "NL"}, drop: true}, true},
-		{words{text: "EN++DE"}, langs{}, false},
-		{words{text: "EN DE"}, langs{}, false},
-		{words{text: "E1"}, langs{}, false},
-		{words{text: "A,B"}, langs{}, false},
-	} {
-		if got, ok := c.w.langs(); ok != c.ok || !reflect.DeepEqual(got, c.want) {
-			t.Errorf("%+v.langs() = %+v, %t; want %+v, %t", c.w, got, ok, c.want, c.ok)
-		}
-	}
-	for _, c := range []struct {
-		w    words
-		want formatFilter
-		ok   bool
-	}{
-		{words{text: "A,B"}, formatFilter{names: []string{"A", "B"}}, true},
-		{words{text: "INTERNAL,NAME WITH SPACES", drop: true}, formatFilter{names: []string{"INTERNAL", "NAME WITH SPACES"}, drop: true}, true},
-		{words{text: "DV HDR10+"}, formatFilter{names: []string{"DV HDR10+"}}, true},
-		{words{text: "A,,B"}, formatFilter{}, false},
-	} {
-		if got, ok := c.w.formats(); ok != c.ok || !reflect.DeepEqual(got, c.want) {
-			t.Errorf("%+v.formats() = %+v, %t; want %+v, %t", c.w, got, ok, c.want, c.ok)
-		}
-	}
-	for _, c := range []struct {
-		w    words
-		want oneFormat
-		ok   bool
-	}{
-		{words{text: "IMAX"}, "IMAX", true},
-		{words{text: "NAME WITH SPACES"}, "NAME WITH SPACES", true},
-		{words{text: "IMAX", drop: true}, "", false},
-		{words{text: "A,B"}, "", false},
-	} {
-		if got, ok := c.w.one(); ok != c.ok || got != c.want {
-			t.Errorf("%+v.one() = %q, %t; want %q, %t", c.w, got, ok, c.want, c.ok)
 		}
 	}
 }

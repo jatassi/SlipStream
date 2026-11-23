@@ -255,17 +255,12 @@ func TestMultiEpisodeSonarrCases(t *testing.T) {
 		{"should_format_single_anime_episode_with_prefixed_range_multi_episode_properly", anime, PrefixedRange, south(1), "Show - 100 - City Sushi"},
 		{"should_format_prefixed_range_multi_episode_using_episode_separator", "{Series Title} - {season:0}x{episode:00} - {Episode Title}", PrefixedRange, south(3), "Show - 15x06-x08 - City Sushi"},
 		{"should_format_range_multi_episode_wrapped_in_brackets", "{Series Title} (S{season:00}E{episode:00}) {Episode Title}", Range, south(3), "Show (S15E06-08) City Sushi"},
+		{"a level template names one level whatever the span", "Season {season:00}", PrefixedRange, south(2), "Season 15"},
 	}
 	for _, c := range cases {
 		if got := renderStub(t, c.template, c.style, c.units); got != c.want {
 			t.Errorf("%s: got %q; want %q", c.name, got, c.want)
 		}
-	}
-}
-
-func TestBlockSpanSkipsALevelTemplate(t *testing.T) {
-	if got := renderStub(t, "Season {season:00}", PrefixedRange, eps(1, 2)); got != "Season 01" {
-		t.Errorf("level template = %q; want %q", got, "Season 01")
 	}
 }
 

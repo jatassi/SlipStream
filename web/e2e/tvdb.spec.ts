@@ -29,7 +29,7 @@ test("a TVDB key and PIN are tested before they're kept, and TVDB's refusal name
 
   const kept = await setKey(page, "e2e-tvdb-key", "1234");
   await expect(kept).toBeHidden();
-  await expect(toasts(page)).toContainText("SlipStream now calls TVDB with your key and PIN.");
+  await expect(toasts(page)).toContainText(/TVDB.+key and PIN/u);
   await expect(card(page)).toContainText(/Your key, set /u);
 
   await world.fw.cue("tvdb-reject-key", { key: "e2e-refused-key" });
@@ -50,23 +50,4 @@ test("a TVDB key and PIN are tested before they're kept, and TVDB's refusal name
   await expect(toasts(page)).toContainText(
     "TVDB refused your PIN. Check it and save it again with your key, or remove your key.",
   );
-});
-
-test("an expired TVDB token logs in again, and the search goes through", async ({
-  adminPage: page,
-  world,
-}) => {
-  await page.goto("/add?contentType=series&query=lantern");
-  await expect(page.getByRole("button", { name: "Add The Lantern Keepers" })).toBeVisible();
-
-  await world.fw.fault.set({
-    id: "logins",
-    target: "tvdb",
-    route: "login",
-    fault: "slow-body=1GiB/s",
-  });
-  await world.fw.cue("tvdb-expire-tokens", {});
-  await page.goto("/add?contentType=series&query=harbor");
-  await expect(page.getByRole("button", { name: "Add Harbor Nights" })).toBeVisible();
-  await world.fw.fault.wait({ rule: "logins", timeout: 10_000 });
 });

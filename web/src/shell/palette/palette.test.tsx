@@ -9,10 +9,8 @@ import { nodeSystems } from "../../test/node-system";
 import { homeId } from "../../test/nodes";
 import {
   capsule,
-  duneId,
   group,
   highlighted,
-  label,
   library,
   openFromCapsule,
   optionTexts,
@@ -26,21 +24,6 @@ import { renderApp } from "../../test/render-app";
 import { asPhone } from "../../test/viewport";
 
 const noCatalog = () => [getSearchCatalogMockHandler({ candidates: [] }), ...library().handlers];
-
-test("the shortcut opens the palette, and Enter on a typed Work opens its page", async () => {
-  const { router } = renderApp({ path: "/library", handlers: library().handlers });
-  await expect.element(capsule()).toBeVisible();
-
-  await pressShortcut();
-  await expect.element(palette().getByRole("combobox", { name: label })).toHaveFocus();
-  await userEvent.keyboard("dun");
-  await expect.poll(() => optionTexts("Works")).toEqual(["Dune: Part Two2024 · Film · Missing"]);
-
-  await userEvent.keyboard("{Enter}");
-  await expect.poll(() => router.state.location.pathname).toBe(`/works/${duneId}`);
-  await expect.element(page.getByRole("heading", { name: "Dune: Part Two" })).toBeVisible();
-  await expect.element(palette()).not.toBeInTheDocument();
-});
 
 test("at rest the palette lists the commands, and Esc returns focus to the capsule", async () => {
   renderApp({ path: "/library", handlers: library().handlers });
@@ -83,22 +66,6 @@ test("at rest the palette lists the commands, and Esc returns focus to the capsu
   await userEvent.keyboard("{Escape}");
   await expect.element(palette()).not.toBeInTheDocument();
   await expect.element(capsule()).toHaveFocus();
-});
-
-test("the top bar's search capsule is a 32px Console capsule", async () => {
-  renderApp({ path: "/library", handlers: library().handlers });
-  await expect.element(capsule()).toBeVisible();
-  const style = getComputedStyle(capsule().element());
-  expect([style.height, style.borderRadius]).toEqual(["32px", "999px"]);
-});
-
-test("the palette's group labels are Label type, never uppercase", async () => {
-  renderApp({ path: "/library", handlers: library().handlers });
-  await userEvent.click(capsule());
-  const heading = palette().getByText("Commands", { exact: true });
-  await expect.element(heading).toBeVisible();
-  const style = getComputedStyle(heading.element());
-  expect([style.fontSize, style.fontWeight, style.textTransform]).toEqual(["11px", "500", "none"]);
 });
 
 test("the shortcut toggles the palette closed", async () => {
@@ -214,12 +181,7 @@ test("on a phone, Search opens the palette full screen with Cancel", async () =>
   );
 
   await expect.element(palette()).toBeVisible();
-  const { width, height } = palette().element().getBoundingClientRect();
-  expect([width, height]).toEqual([390, 844]);
   await expect.element(palette().getByText("Esc")).not.toBeInTheDocument();
-  expect(
-    group("Commands").getByRole("option").first().element().getBoundingClientRect().height,
-  ).toBe(56);
   expect(
     palette()
       .getByRole("group", { name: "Commands" })

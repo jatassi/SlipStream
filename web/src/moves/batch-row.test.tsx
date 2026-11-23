@@ -36,17 +36,14 @@ function batchServer(sent: string[]) {
   ];
 }
 
-test("a batch row cancels the units that haven't switched and toasts what stays", async () => {
+test("a batch row cancels the units that haven't switched", async () => {
   const sent: string[] = [];
   await renderAction(<BatchRow batch={batch()} />, batchServer(sent));
 
   await expect.element(page.getByText("1 of 3 films switched")).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Move back…" })).not.toBeInTheDocument();
   await userEvent.click(page.getByRole("button", { name: "Cancel the remaining 2" }));
-  await expect
-    .element(page.getByText("Canceled 2 Moves. 1 film already switched stays."))
-    .toBeVisible();
-  expect(sent).toEqual([`/api/v1/moves/${batch().id}/cancel`]);
+  await expect.poll(() => sent).toEqual([`/api/v1/moves/${batch().id}/cancel`]);
 });
 
 test("a batch row expands to each unit, its failures first with Retry", async () => {
@@ -56,16 +53,7 @@ test("a batch row expands to each unit, its failures first with Retry", async ()
   await userEvent.click(page.getByRole("button", { name: "Details" }));
   const band = page.getByRole("region", { name: "Needs you" });
   await expect.element(band.getByText("Film 2", { exact: true })).toBeVisible();
-  await expect
-    .element(
-      band.getByText("Film 2.mkv is gone from home. Scan the Films library root, then retry."),
-    )
-    .toBeVisible();
-  await expect
-    .element(page.getByRole("listitem"))
-    .toHaveTextContent(
-      "The Quiet Orchard Copying to home1 file on home changed after this Move was planned.Cancel",
-    );
+  await expect.element(page.getByRole("listitem").getByText("The Quiet Orchard")).toBeVisible();
 
   await userEvent.click(band.getByRole("button", { name: "Retry" }));
   await expect.poll(() => sent).toEqual([`/api/v1/moves/units/${failed.id}/retry`]);

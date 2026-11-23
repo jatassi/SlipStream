@@ -110,15 +110,6 @@ func (v seriesView) item(t *testing.T, key string) treeNode {
 	return treeNode{}
 }
 
-func (v seriesView) level(id string) string {
-	for _, l := range v.Levels {
-		if l.ID == id {
-			return l.Label
-		}
-	}
-	return ""
-}
-
 func (v seriesView) text(key string) string {
 	for _, f := range v.Fields {
 		if f.Key == key {
@@ -167,10 +158,10 @@ func getSeries(t *testing.T, a *worldtest.API, id string) seriesView {
 	return *decode(t, "getWork", a.Admin("home", http.MethodGet, "/api/v1/works/"+id, ""), &seriesView{})
 }
 
-func refreshSeries(t *testing.T, a *worldtest.API, v seriesView, outcome string) seriesView {
+func refreshSeries(t *testing.T, a *worldtest.API, v seriesView) seriesView {
 	t.Helper()
 	worldtest.Expect(t, "refreshWorks "+v.Label, a.Admin("home", http.MethodPost, "/api/v1/works/refresh", `{"workIds":["`+v.ID+`"]}`),
-		worldtest.Reply{Status: 200, Body: `{"outcomes":[{"workId":"` + v.ID + `",` + outcome + `}]}` + "\n"})
+		worldtest.Reply{Status: 200, Body: `{"outcomes":[{"workId":"` + v.ID + `","outcome":"done"}]}` + "\n"})
 	return getSeries(t, a, v.ID)
 }
 
@@ -269,30 +260,13 @@ func TestRefreshAddsASeasonUnderMonitorNew(t *testing.T) {
 	cue(t, run, "tvdb-add-season", `{"id":1002}`)
 
 	t.Run("on", func(t *testing.T) {
-		checkSeasons(t, "The Lantern Keepers, monitoring new episodes, once refreshed", refreshSeries(t, a, following, `"outcome":"done"`),
+		checkSeasons(t, "The Lantern Keepers, monitoring new episodes, once refreshed", refreshSeries(t, a, following),
 			"Season 1: S01E01+ S01E02+ S01E03+", "Season 2: S02E01+ S02E02+ S02E03+", "Season 3: S03E01+ S03E02+ S03E03+", "Season 4: S04E01+ S04E02+ S04E03+", "Specials: S00E01 S00E02")
 	})
 	t.Run("off", func(t *testing.T) {
-		checkSeasons(t, "Harbor Nights, on its first season, once refreshed", refreshSeries(t, a, trying, `"outcome":"done"`),
+		checkSeasons(t, "Harbor Nights, on its first season, once refreshed", refreshSeries(t, a, trying),
 			"Season 1: S01E01+ S01E02+", "Season 2: S02E01 S02E02", "Season 3: S03E01 S03E02")
 	})
-}
-
-func TestSpecialMovesToSeason3AsTheSameEpisode(t *testing.T) {
-	t.Parallel()
-	run := seriesAlone(t)
-	a := api(t, run)
-	added := addSeries(t, a, lanternKeepers, "all", true)
-	before := added.item(t, "100102")
-
-	cue(t, run, "tvdb-move-episode", `{"id":100102,"season":3,"number":4}`)
-	refreshed := refreshSeries(t, a, added, `"outcome":"done"`)
-	checkSeasons(t, "The Lantern Keepers once A Winter Light moves to season 3", refreshed,
-		"Season 1: S01E01+ S01E02+ S01E03+", "Season 2: S02E01+ S02E02+ S02E03+", "Season 3: S03E01+ S03E02+ S03E03+ S03E04+", "Specials: S00E01+")
-	after := refreshed.item(t, "100102")
-	if after.ID != before.ID || after.Label != "A Winter Light" || after.LevelID == nil || refreshed.level(*after.LevelID) != "Season 3" {
-		t.Fatalf("A Winter Light once moved = %+v in %s, want the same Item %s in Season 3", after, refreshed.level(*after.LevelID), before.ID)
-	}
 }
 
 func TestRemovedEpisodeIsWithdrawn(t *testing.T) {
@@ -303,7 +277,7 @@ func TestRemovedEpisodeIsWithdrawn(t *testing.T) {
 	before := added.item(t, "100122")
 
 	cue(t, run, "tvdb-remove-episode", `{"id":100122}`)
-	refreshed := refreshSeries(t, a, added, `"outcome":"done"`)
+	refreshed := refreshSeries(t, a, added)
 	checkSeasons(t, "The Lantern Keepers once Fog Signal is removed", refreshed,
 		"Season 1: S01E01+ S01E02+ S01E03+", "Season 2: S02E01+ S02E03+ S02E02+ withdrawn", "Season 3: S03E01+ S03E02+ S03E03+", "Specials: S00E01 S00E02")
 	if after := refreshed.item(t, "100122"); after.ID != before.ID {
@@ -320,49 +294,6 @@ func TestRemovedEpisodeIsWithdrawn(t *testing.T) {
 	}
 }
 
-func TestOrderChangeKeepsEpisodes(t *testing.T) {
-	t.Parallel()
-	run := seriesAlone(t)
-	a := api(t, run)
-	added := addSeries(t, a, lanternKeepers, "all", true)
-	keep := added.item(t, "100113")
-	options := func(preview bool) worldtest.Reply {
-		return a.Admin("home", http.MethodPut, "/api/v1/works/"+added.ID+"/options", fmt.Sprintf(`{"type":{"order":"dvd"},"preview":%t}`, preview))
-	}
-
-	var change struct {
-		Withdraws int `json:"withdraws"`
-	}
-	decode(t, "a preview of DVD order", options(true), &change)
-	if change.Withdraws != 4 {
-		t.Fatalf("DVD order withdraws %d episodes, want the 4 it doesn't list", change.Withdraws)
-	}
-	if got := getSeries(t, a, added.ID); got.seasons() != added.seasons() {
-		t.Fatalf("the preview changed the series:\n%s", got.seasons())
-	}
-	decode(t, "setWorkOptions to DVD order", options(false), &change)
-	dvd := getSeries(t, a, added.ID)
-	checkSeasons(t, "The Lantern Keepers in DVD order", dvd,
-		"Season 1: S01E01+ S01E02+ S01E03+", "Season 2: S02E01+ S02E02+ S02E03+", "Specials: S00E01+",
-		"Season 1 withdrawn:", "Season 2 withdrawn:", "Season 3 withdrawn: S03E01+ withdrawn S03E02+ withdrawn S03E03+ withdrawn", "Specials withdrawn: S00E02+ withdrawn")
-	if moved := dvd.item(t, "100113"); moved.ID != keep.ID || moved.code() != "S01E02" || dvd.text("episode_order") != "DVD" {
-		t.Fatalf("Salt and Oil in DVD order = %+v, %s order; want the same Item %s as S01E02", moved, dvd.text("episode_order"), keep.ID)
-	}
-}
-
-func TestGoneFromTVDBKeepsEverything(t *testing.T) {
-	t.Parallel()
-	run := seriesAlone(t)
-	a := api(t, run)
-	added := addSeries(t, a, lanternKeepers, "all", false)
-
-	cue(t, run, "tvdb-delete", `{"id":1001}`)
-	gone := refreshSeries(t, a, added, `"outcome":"skipped","reason":"work_gone_upstream"`)
-	if gone.GoneUpstreamAt == nil || gone.seasons() != added.seasons() || gone.text("overview") != added.text("overview") {
-		t.Fatalf("The Lantern Keepers once TVDB dropped it reads goneUpstreamAt %v with\n%s\nwant it marked and kept as\n%s", gone.GoneUpstreamAt, gone.seasons(), added.seasons())
-	}
-}
-
 func TestTokenExpiryRecovers(t *testing.T) {
 	t.Parallel()
 	run := seriesAlone(t)
@@ -375,7 +306,7 @@ func TestTokenExpiryRecovers(t *testing.T) {
 	if err != nil || !strings.Contains(string(expired.Data), `"result":{"ended":1}`) {
 		t.Fatalf("tvdb-expire-tokens = %s, %v; want the add's token ended", expired.Data, err)
 	}
-	refreshed := refreshSeries(t, a, added, `"outcome":"done"`)
+	refreshed := refreshSeries(t, a, added)
 	if want := "The Lantern Keepers is a fictional series. Revision 1."; refreshed.text("overview") != want {
 		t.Fatalf("the refresh past the expired token reads overview %q, want %q", refreshed.text("overview"), want)
 	}

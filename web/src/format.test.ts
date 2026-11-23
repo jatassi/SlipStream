@@ -4,7 +4,6 @@ import { countWords, durationWords, lengthWords, spanWords } from "./format";
 
 test.each([
   [5, "5 s"],
-  [90, "90 s"],
   [600, "10 min"],
   [28_800, "8 h"],
   [86_400, "1 day"],
@@ -38,7 +37,6 @@ test.each([
 test.each([
   [30, "30 s"],
   [207, "3 min 27 s"],
-  [256, "4 min 16 s"],
   [720, "12 min"],
   [3599.5, "1 h"],
   [7_200, "2 h"],

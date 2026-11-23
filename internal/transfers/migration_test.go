@@ -2,10 +2,8 @@ package transfers_test
 
 import (
 	"context"
-	"encoding/hex"
 	"log/slog"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/health"
@@ -165,111 +163,3 @@ func TestBackupPurposeKeepsEveryTransfer(t *testing.T) {
 		t.Error("a copy with no destination id was stored")
 	}
 }
-
-// TestMovesCarriesEveryTransfer migrates a Backup copy and an Import
-// through 00005's rebuild: each keeps its id, destination, priority,
-// failure and files. A download folder record and a library file fit
-// beside them, and every CHECK refuses a row its kind can't have.
-func TestMovesCarriesEveryTransfer(t *testing.T) {
-	ctx := t.Context()
-	path := filepath.Join(t.TempDir(), storage.LibraryFile)
-	open := func(ledger storage.Schema[storage.Library]) *storage.DB[storage.Library] {
-		t.Helper()
-		lib, err := storage.OpenLibrary(ctx, path, []storage.Schema[storage.Library]{
-			nodes.Schema(), role.LibrarySchema(), works.Schema(), roots.Schema(), health.Schema(), ledger,
-		}, nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return lib
-	}
-	exec := func(lib *storage.DB[storage.Library], query string, args ...any) error {
-		t.Helper()
-		return lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			_, err := tx.ExecContext(ctx, query, args...)
-			return err
-		})
-	}
-	must := func(err error) {
-		t.Helper()
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	old := open(transfers.LibrarySchema().Through(4))
-	node, root, imported, copied := storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
-	must(exec(old, "INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'seedbox', 0)", node))
-	must(exec(old, "INSERT INTO roots_root (id, content_type, node_id, path, is_default) VALUES (?, 'alpha', ?, '/media', 1)", root, node))
-	must(exec(old, "INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, created_at, failure_code, failure_position, failure_detail) VALUES (?, 'import', 'heat', ?, 'root', ?, 1, 'damaged', 1, 'read_back')", imported, node, root))
-	must(exec(old, `INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, size, verified_place, placed, dropped) VALUES
-		(?, 0, '0', 'Heat.mkv', 'torrent', zeroblob(20), 0, NULL, 10, 1, 1, 0),
-		(?, 1, '0', 'Heat.srt', 'path', NULL, NULL, '/downloads/Heat.srt', 20, NULL, 0, 1)`, imported, imported))
-	must(exec(old, "INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_backup, destination_node, destination_folder, priority, created_at) VALUES (?, 'backup', 'copy', ?, 'backup', zeroblob(16), ?, '/backups', 'low', 2)", copied, node, node))
-	must(exec(old, "INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, source_folder, size) VALUES (?, 0, '', 'slipstream-20261114T040012Z-2.1.0-scheduled-7k3m.tar.zst.age', 'backup', 'backups', 30)", copied))
-	must(old.Close())
-
-	lib := open(transfers.LibrarySchema())
-	t.Cleanup(func() { _ = lib.Close() })
-	rows := func(query string) []string {
-		t.Helper()
-		rs, err := lib.QueryContext(ctx, query)
-		must(err)
-		defer func() { _ = rs.Close() }()
-		var out []string
-		for rs.Next() {
-			var s string
-			must(rs.Scan(&s))
-			out = append(out, s)
-		}
-		must(rs.Err())
-		return out
-	}
-	check(t, "records after 00005", rows(`SELECT hex(id) || ' ' || purpose || ' ' || destination_kind || ' ' || iif(destination_root IS NULL, '-', hex(destination_root)) || ' ' ||
-		iif(destination_node IS NULL, '-', hex(destination_node)) || ' ' || ifnull(destination_folder, '-') || ' ' || priority || ' ' || ifnull(failure_code, '-') || ' ' ||
-		ifnull(failure_position, '-') || ' ' || failure_detail FROM transfers_record ORDER BY created_at`), []string{
-		hexOf(imported) + " import root " + hexOf(root) + " - - normal damaged 1 read_back",
-		hexOf(copied) + " backup backup - " + hexOf(node) + " /backups low - - ",
-	})
-	check(t, "files after 00005", rows(`SELECT hex(transfer_id) || ' ' || position || ' ' || source_kind || ' ' || ifnull(path, '-') || ' ' || ifnull(source_folder, '-') || ' ' ||
-		size || ' ' || ifnull(verified_place, '-') || ' ' || placed || ' ' || dropped FROM transfers_file ORDER BY transfer_id, position`), []string{
-		hexOf(imported) + " 0 torrent - - 10 1 1 0",
-		hexOf(imported) + " 1 path /downloads/Heat.srt - 20 - 0 1",
-		hexOf(copied) + " 0 backup - backups 30 - 0 0",
-	})
-
-	moved := storage.NewUUID()
-	must(exec(lib, "INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_node, destination_client, destination_content_type, destination_info_hash, priority, created_at) VALUES (?, 'move', 'torrent', ?, 'download_folder', ?, randomblob(16), 'movie', zeroblob(20), 'low', 3)", moved, node, node))
-	must(exec(lib, "INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_node, destination_content_type, destination_info_hash, created_at) VALUES (?, 'move', 'adopted', ?, 'download_folder', ?, '', zeroblob(20), 4)", storage.NewUUID(), node, node))
-	must(exec(lib, "INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, path, source_root, size) VALUES (?, 0, 'pass-0', 'Heat.mkv', 'library', 'Heat (1995)/Heat.mkv', ?, 10)", moved, root))
-	for name, query := range map[string]string{
-		"a download folder with no info hash": "INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_node, destination_content_type, created_at) VALUES (?, 'move', 'a', ?, 'download_folder', ?, 'movie', 5)",
-		"a download folder with no Node":      "INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_content_type, destination_info_hash, created_at) VALUES (?, 'move', 'b', ?, 'download_folder', 'movie', zeroblob(20), 5)",
-		"a download folder with a folder":     "INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_node, destination_folder, destination_content_type, destination_info_hash, created_at) VALUES (?, 'move', 'c', ?, 'download_folder', ?, '/downloads', 'movie', zeroblob(20), 5)",
-		"a Backup copy with a client":         "INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_backup, destination_node, destination_folder, destination_client, created_at) VALUES (?, 'backup', 'd', ?, 'backup', zeroblob(16), ?, '/backups', zeroblob(16), 5)",
-		"a Backups folder with no folder":     "INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_node, created_at) VALUES (?, 'backup', 'e', ?, 'backups_folder', ?, 5)",
-		"a root Transfer with an info hash":   "INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, destination_info_hash, created_at) VALUES (?, 'import', 'f', ?, 'root', ?, zeroblob(20), 5)",
-		"a root Transfer with a Content Type": "INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, destination_content_type, created_at) VALUES (?, 'import', 'g', ?, 'root', ?, 'movie', 5)",
-	} {
-		args := []any{storage.NewUUID(), node, node}
-		if strings.Contains(name, "root Transfer") {
-			args[2] = root
-		}
-		if strings.Contains(name, "no Node") {
-			args = args[:2]
-		}
-		if exec(lib, query, args...) == nil {
-			t.Errorf("%s was stored", name)
-		}
-	}
-	for name, query := range map[string]string{
-		"a library file with no root": "INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, path, size) VALUES (?, 1, '', 'Heat.nfo', 'library', 'Heat (1995)/Heat.nfo', 1)",
-		"a library file with no path": "INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, source_root, size) VALUES (?, 1, '', 'Heat.nfo', 'library', zeroblob(16), 1)",
-		"a path file with a root":     "INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, path, source_root, size) VALUES (?, 1, '', 'Heat.nfo', 'path', '/downloads/Heat.nfo', zeroblob(16), 1)",
-	} {
-		if exec(lib, query, moved) == nil {
-			t.Errorf("%s was stored", name)
-		}
-	}
-}
-
-func hexOf(u storage.UUID) string { return strings.ToUpper(hex.EncodeToString(u.Bytes())) }

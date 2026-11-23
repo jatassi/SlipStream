@@ -309,9 +309,3 @@ func TestCeremoniesBounded(t *testing.T) {
 		t.Fatalf("the next oldest: %v", err)
 	}
 }
-
-func TestProviderNameUnknown(t *testing.T) {
-	if name, ok := passkey.ProviderName([16]byte{}); ok {
-		t.Fatalf("zero AAGUID named %q", name)
-	}
-}

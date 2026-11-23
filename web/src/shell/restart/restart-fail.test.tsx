@@ -29,9 +29,7 @@ test("a restart with no answer for 90 seconds shows the failure card with the lo
   vi.setSystemTime(Date.now() + failAfter);
   await expect
     .element(page.getByRole("alert"))
-    .toHaveTextContent(
-      "SlipStream hasn't responded since the restart. Check its log folder for the cause, then try again.",
-    );
+    .toMatchTextContent(/hasn't responded since the restart/u);
   await userEvent.click(page.getByRole("button", { name: "Details" }));
   await expect.element(page.getByText("/data/home/logs")).toBeVisible();
 

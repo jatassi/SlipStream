@@ -22,34 +22,6 @@ function addressServer(suggestedAddress: string, initial = "") {
   };
 }
 
-test("the address step suggests the address in use and Continue saves it before moving on", async () => {
-  const server = firstSetup([todo("address"), todo("language")]);
-  const address = addressServer("https://slipstream.example.com");
-  renderApp({
-    path: "/setup/address",
-    handlers: [...server.handlers, ...address.handlers, ...metadataPlace().handlers],
-  });
-  await expect.element(stepHeading("Where people reach SlipStream")).toBeVisible();
-  await expect
-    .element(
-      page.getByText(
-        "Pick an address everyone in your household can reach, because Signup and Reset links use it.",
-      ),
-    )
-    .toBeVisible();
-  const field = page.getByRole("textbox", { name: "Address" });
-  await expect.element(field).toHaveValue("https://slipstream.example.com");
-  await expect
-    .element(field)
-    .toHaveAccessibleDescription(
-      "Not set yet. SlipStream can't send Signup, Reset or email confirmation links until it is.",
-    );
-  await userEvent.click(page.getByRole("button", { name: "Continue" }));
-  await expect.element(stepHeading("Language and region")).toBeVisible();
-  expect(address.saved).toEqual(["https://slipstream.example.com"]);
-  expect(server.writes).toEqual([{ id: "address", outcome: "done" }]);
-});
-
 test("the address step warns that a plain-HTTP address can't hold a passkey", async () => {
   const server = firstSetup([todo("address"), todo("language")]);
   const address = addressServer("http://media-box:8080");

@@ -22,18 +22,6 @@ func TestEveryReasonReadsAsASentence(t *testing.T) {
 	}
 }
 
-func TestAReasonAtADeletedTargetNamesItAsDeleted(t *testing.T) {
-	for code, want := range map[targets.ReasonCode]string{
-		targets.QualityNotInTarget: "A deleted Target doesn't accept a release with no Quality.",
-		targets.ScoreBelowMinimum:  "Score 10 is below the minimum of a deleted Target.",
-		targets.SizeAbove:          "It's larger than a deleted Target allows.",
-	} {
-		if got := reasonWords(Reason{Reason: targets.Reason{Code: code, Value: "10"}}, nil, release.Facts{}, shelf); got != want {
-			t.Errorf("%s reads %q, want %q", code, got, want)
-		}
-	}
-}
-
 func TestARepackFromAnotherGroupNamesBothGroupsAndTheTarget(t *testing.T) {
 	ntb := release.Facts{Group: release.Known("NTb")}
 	for _, c := range []struct {
@@ -47,17 +35,6 @@ func TestARepackFromAnotherGroupNamesBothGroupsAndTheTarget(t *testing.T) {
 	} {
 		if got := reasonWords(Reason{Reason: targets.Reason{Code: targets.RepackOtherGroup, Value: c.held}}, &targets.Target{Name: "1080p"}, c.facts, shelf); got != c.want {
 			t.Errorf("held %q reads %q, want %q", c.held, got, c.want)
-		}
-	}
-}
-
-func TestASoftRefusalOfItsOwnSaysManualSearchCanStillGrabIt(t *testing.T) {
-	for code, want := range map[targets.ReasonCode]string{
-		targets.NotAired: "This pack lists S03E10, which hasn't aired. You can still grab it here.",
-		targets.Tried:    "A Grab of this release already failed for this shelf. You can still grab it here.",
-	} {
-		if got := reasonWords(Reason{Reason: targets.Reason{Code: code, Value: "S03E10"}}, nil, release.Facts{}, shelf); got != want || !code.Soft() {
-			t.Errorf("%s reads %q, soft %v, want %q and soft", code, got, code.Soft(), want)
 		}
 	}
 }

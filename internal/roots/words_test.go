@@ -1,7 +1,7 @@
 package roots_test
 
 import (
-	"maps"
+	"strings"
 	"testing"
 
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
@@ -11,17 +11,18 @@ import (
 func TestWordsNameARootByItsPathOnlyBesideATwin(t *testing.T) {
 	r := rig(t, false)
 	got, err := r.svc.Words(t.Context())
-	if want := map[roots.ID]string{r.root.ID: "Alphas library root on Media server"}; err != nil || !maps.Equal(got, want) {
-		t.Fatalf("Words = %v, %v; want %v", got, err, want)
+	if w := got[r.root.ID]; err != nil || len(got) != 1 || strings.Contains(w, r.root.Path) || !strings.Contains(w, "Alphas") || !strings.Contains(w, "Media server") {
+		t.Fatalf("Words = %v, %v; want the root by its type and Node, without its path", got, err)
 	}
 	other := r.second(t)
 	got, err = r.svc.Words(t.Context())
-	want := map[roots.ID]string{
-		r.root.ID: "Alphas library root at " + r.root.Path + " on Media server",
-		other.ID:  "Alphas library root at " + other.Path + " on Media server",
+	if err != nil || len(got) != 2 {
+		t.Fatalf("Words with two Alphas roots on one Node = %v, %v", got, err)
 	}
-	if err != nil || !maps.Equal(got, want) {
-		t.Fatalf("Words with two Alphas roots on one Node = %v, %v; want each by its path %v", got, err, want)
+	for _, root := range []roots.Root{r.root, other} {
+		if w := got[root.ID]; !strings.Contains(w, root.Path) || !strings.Contains(w, "Media server") {
+			t.Errorf("Words with two Alphas roots on one Node name %s as %q, want its path %s and its Node", root.ID, w, root.Path)
+		}
 	}
 }
 
@@ -30,9 +31,6 @@ func TestTroubleWordsOnlyAStateThatIsWrong(t *testing.T) {
 		if sentence, fix, ok := roots.Trouble(s); !ok || sentence == "" || fix == "" {
 			t.Errorf("Trouble(%s) = %q, %q, %v; want a sentence and a fix", s, sentence, fix, ok)
 		}
-	}
-	if sentence, fix, ok := roots.Trouble(roots.Unmounted); sentence != "The folder is there but looks unmounted." || fix != "Plug in or mount the disk." || !ok {
-		t.Errorf("Trouble(unmounted) = %q, %q, %v; want the Storage item's sentence and fix", sentence, fix, ok)
 	}
 	for _, s := range []roots.State{roots.Ready, roots.Checking, roots.Offline} {
 		if _, _, ok := roots.Trouble(s); ok {

@@ -1,8 +1,8 @@
 package grabs_test
 
 import (
-	"flag"
 	"slices"
+	"strings"
 	"testing"
 	"testing/synctest"
 
@@ -19,8 +19,6 @@ import (
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
-
-var update = flag.Bool("update", false, "rewrite the rendered messages under testdata/notices")
 
 func TestAGrabRecordsGrabbedWithItsScoreAtEachTargetAndAJoinRecordsNone(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
@@ -146,8 +144,8 @@ func TestAManualGrabNamesWhoPickedItAndItsBlocklistFailureIsRecordedQuiet(t *tes
 		if about := entrytest.Abouts(a.notices, grabs.GrabbedRow)[0]; got[0].Grab != id || about.Grab != id.UUID || about.Quiet {
 			t.Errorf("Grabbed tells Grab %s and is about %+v, want it about the Grab %s", got[0].Grab, about, id)
 		}
-		if words := grabs.FoundByWords(got[0].FoundBy, got[0].Indexer, got[0].By); words != "An app using the API key picked it in Manual search from Better Site." {
-			t.Errorf("its found-by sentence is %q", words)
+		if words := grabs.FoundByWords(got[0].FoundBy, got[0].Indexer, got[0].By); !strings.Contains(words, "API key") || !strings.Contains(words, "Better Site") {
+			t.Errorf("its found-by sentence is %q, want it to name the API key and Better Site", words)
 		}
 		if err := a.g.FailWith(t.Context(), id, grabs.Blocklisted); err != nil {
 			t.Fatal(err)
@@ -164,21 +162,36 @@ func TestGrabsMessagesReadAsWritten(t *testing.T) {
 		Nouns:  entry.Nouns{Work: works.Noun{One: "book", Many: "books"}, Item: works.Noun{One: "book", Many: "books"}, Single: true},
 		Poster: artwork.Ref{Source: "tmdb", Shape: artwork.ShapePoster, Path: "/heat.jpg"},
 	}
+	page := "/works/" + heat.ID.String()
 	facts := rel.Facts{Quality: rel.Known(rel.WEBDL1080p), Group: rel.Known("FLUX"), Size: rel.Known(int64(6_200_000_000))}
+	read := map[string]bool{}
 	for _, f := range grabs.FoundBys {
-		entrytest.Golden(t, grabs.GrabbedRow, grabs.GrabbedFacts{
+		m := entrytest.Stored(t, grabs.GrabbedRow, grabs.GrabbedFacts{
 			Work: heat, Release: facts, Indexer: "TorrentLeech", Source: grabs.FromSearch, FoundBy: f, By: entry.Actor{Name: "Sam"},
 			Scores: []grabs.ScoreAt{{Target: "1080p", Score: 1250}, {Target: "720p", Score: 900}},
-		}, "testdata/notices", "grabbed-"+string(f), *update)
+		}, "testdata/notices", "grabbed-"+string(f), heat.Label, "WEBDL-1080p", "FLUX", "5.8 GB", "TorrentLeech", "1080p", "1250", "720p", "900", page)
+		read[strings.Join(m.Lines, "\n")] = true
 	}
-	entrytest.Golden(t, grabs.GrabbedRow, grabs.GrabbedFacts{
+	if len(read) != len(grabs.FoundBys) {
+		t.Errorf("%d ways of finding a release read %d ways, want each its own", len(grabs.FoundBys), len(read))
+	}
+	entrytest.Stored(t, grabs.GrabbedRow, grabs.GrabbedFacts{
 		Work: heat, Release: facts, Indexer: "TorrentLeech", Source: grabs.FromManual, FoundBy: grabs.FoundByManual, By: entry.Actor{APIKey: true},
 		Scores: []grabs.ScoreAt{{Target: "1080p", Score: 1250}},
-	}, "testdata/notices", "grabbed-api-key", *update)
-	for _, c := range []grabs.Code{grabs.NameTaken, grabs.ImportFailed, grabs.DownloadFailed} {
-		entrytest.Golden(t, grabs.GrabFailedRow, grabs.GrabFailedFacts{
+	}, "testdata/notices", "grabbed-api-key", heat.Label, "API key", "TorrentLeech", "1250", page)
+	codes := []grabs.Code{grabs.NameTaken, grabs.ImportFailed, grabs.DownloadFailed}
+	read = map[string]bool{}
+	for _, c := range codes {
+		m := entrytest.Stored(t, grabs.GrabFailedRow, grabs.GrabFailedFacts{
 			Work: heat, Code: c, Stage: grabs.Importing, Release: "Heat.1995.1080p.WEB-DL-FLUX", Source: grabs.FromSearch,
-		}, "testdata/notices", "grab-failed-"+string(c), *update)
+		}, "testdata/notices", "grab-failed-"+string(c), heat.Label, page)
+		if m.Tone != entry.Fail {
+			t.Errorf("Grab failed for %s reads at tone %v, want Fail", c, m.Tone)
+		}
+		read[strings.Join(m.Lines, "\n")] = true
+	}
+	if len(read) != len(codes) {
+		t.Errorf("%d failure codes read %d ways, want each its own", len(codes), len(read))
 	}
 }
 

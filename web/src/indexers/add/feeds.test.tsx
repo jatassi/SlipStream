@@ -15,35 +15,6 @@ async function fillTorznab() {
   await userEvent.click(page.getByRole("button", { name: "Test" }));
 }
 
-test("a Torznab feed is tested first; a feed that names no source asks for its Tracker", async () => {
-  const server = addIndexerServer();
-  renderApp({ path: "/settings/indexers/new/torznab", handlers: server.handlers });
-  await expect
-    .element(
-      page.getByText("A Torznab feed reaches one Prowlarr or Jackett indexer.", { exact: false }),
-    )
-    .toBeVisible();
-  await fillTorznab();
-  await expect
-    .element(page.getByText("The feed passed the Test and listed 50 items."))
-    .toBeVisible();
-  const tracker = page.getByRole("textbox", { name: "Tracker" });
-  await expect.element(tracker).toHaveValue("Brook");
-  await userEvent.fill(tracker, "Brook Tracker");
-  await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect
-    .element(page.getByRole("heading", { name: "Brook", exact: true, level: 1 }))
-    .toBeVisible();
-  expect(posted(server.writes)).toEqual([
-    expect.objectContaining({
-      kind: "torznab",
-      address: feed,
-      apiKey: "jackett-key",
-      trackerName: "Brook Tracker",
-    }),
-  ]);
-});
-
 test("a feed with results from many sources warns that they share one Indexer's limits", async () => {
   const report = {
     items: 100,

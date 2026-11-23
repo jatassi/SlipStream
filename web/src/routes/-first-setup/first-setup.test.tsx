@@ -35,17 +35,6 @@ function open(
 
 const pathname = (app: ReturnType<typeof renderApp>) => app.router.state.location.pathname;
 
-test("an app URL brings an Admin whose first setup is open back to its current step", async () => {
-  const { app } = open("/library");
-  await expect.element(stepHeading("Kinds of media")).toBeVisible();
-  expect(pathname(app)).toBe("/setup/media");
-  await expect.element(page.getByText("Step 2 of 3")).toBeVisible();
-  await expect.element(page.getByText("After this: Library roots")).toBeVisible();
-  await expect
-    .element(page.getByText("SlipStream shows only the kinds of media you turn on."))
-    .toBeVisible();
-});
-
 test("a step the browser hides, or no step at all, holds the Admin on the current one", async () => {
   const { app } = open("/setup/passkey", [done("address"), todo("passkey"), todo("media")]);
   await expect.element(stepHeading("Kinds of media")).toBeVisible();

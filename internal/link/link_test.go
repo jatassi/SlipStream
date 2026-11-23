@@ -224,10 +224,14 @@ func rawHello(t *testing.T, l *link.Link, key link.Key, version string) *linkv1.
 
 func TestACallWithNoSessionIsNotSent(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		p := linktest.New(t, linktest.Side{}, linktest.Side{})
+		p := linktest.New(t, linktest.Side{}, linktest.Side{Streams: record(make(chan link.Key, 1))})
 		_, err := syncOnce(t.Context(), p.Worker.Link, p.Controller.Key)
 		if !errors.Is(err, link.ErrDisconnected) || err.Error() != "unavailable: no live link session to the peer" {
 			t.Fatalf("a call with no session = %v", err)
+		}
+		_, err = p.Controller.OpenStream(t.Context(), p.Worker.Key, link.KindTransfer)
+		if why, ok := rpc.NotSent(err); !ok || why != rpc.Disconnected {
+			t.Fatalf("opening a stream with no session = %v, want it not sent as disconnected", err)
 		}
 	})
 }
@@ -291,16 +295,6 @@ func TestATransferStreamReachesItsHandler(t *testing.T) {
 	})
 }
 
-func TestATransferStreamWithNoSessionIsNotSent(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		p := linktest.New(t, linktest.Side{}, linktest.Side{Streams: record(make(chan link.Key, 1))})
-		_, err := p.Controller.OpenStream(t.Context(), p.Worker.Key, link.KindTransfer)
-		if why, ok := rpc.NotSent(err); !ok || why != rpc.Disconnected {
-			t.Fatalf("opening with no session = %v, want it not sent as disconnected", err)
-		}
-	})
-}
-
 // Each side refuses: the opener before sending, and the acceptor for a
 // peer that opened anyway.
 func TestATransferStreamBetweenVersionsIsRefused(t *testing.T) {
@@ -356,34 +350,21 @@ func TestAServeStreamCrossesVersions(t *testing.T) {
 	})
 }
 
-func TestAServeStreamOnAnUnwelcomedSessionIsRefused(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		peers := make(chan link.Key, 1)
-		p := linktest.New(t, linktest.Side{}, linktest.Side{Streams: map[link.Kind]func(link.Key, link.Stream){link.KindServe: record(peers)[link.KindTransfer]}})
-		st, err := p.Controller.UnwelcomedStream(t.Context(), p.Worker.Target(), link.KindServe)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := st.Read(make([]byte, 1)); err == nil {
-			t.Fatal("a Serve stream on a session with no Hello was served")
-		}
-		expectNoPeer(t, peers)
-	})
-}
-
-func TestATransferStreamOnAnUnwelcomedSessionIsRefused(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		peers := make(chan link.Key, 1)
-		p := linktest.New(t, linktest.Side{}, linktest.Side{Streams: record(peers)})
-		st, err := p.Controller.UnwelcomedStream(t.Context(), p.Worker.Target(), link.KindTransfer)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := st.Read(make([]byte, 1)); err == nil {
-			t.Fatal("a stream on a session with no Hello was served")
-		}
-		expectNoPeer(t, peers)
-	})
+func TestAStreamOnAnUnwelcomedSessionIsRefused(t *testing.T) {
+	for _, kind := range []link.Kind{link.KindServe, link.KindTransfer} {
+		synctest.Test(t, func(t *testing.T) {
+			peers := make(chan link.Key, 1)
+			p := linktest.New(t, linktest.Side{}, linktest.Side{Streams: map[link.Kind]func(link.Key, link.Stream){kind: record(peers)[link.KindTransfer]}})
+			st, err := p.Controller.UnwelcomedStream(t.Context(), p.Worker.Target(), kind)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := st.Read(make([]byte, 1)); err == nil {
+				t.Fatalf("a kind-%d stream on a session with no Hello was served", kind)
+			}
+			expectNoPeer(t, peers)
+		})
+	}
 }
 
 func expectNoPeer(t *testing.T, peers chan link.Key) {

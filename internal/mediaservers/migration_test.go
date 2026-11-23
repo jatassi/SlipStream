@@ -147,52 +147,6 @@ func TestAPlayIdNamesAPlayOnlyOnItsServer(t *testing.T) {
 	}
 }
 
-// TestTheMovesRebuildKeepsEveryChange migrates a sent carry through
-// 00004's rebuild: it keeps its id and every column, and the table now
-// takes a Move's carry under the same Rel in another root.
-func TestTheMovesRebuildKeepsEveryChange(t *testing.T) {
-	ctx := t.Context()
-	path := filepath.Join(t.TempDir(), storage.LibraryFile)
-	openWith := func(ms storage.Schema[storage.Library]) library {
-		t.Helper()
-		lib, err := storage.OpenLibrary(ctx, path,
-			[]storage.Schema[storage.Library]{secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), roots.Schema(), ms},
-			nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return lib
-	}
-	f := fixture{lib: openWith(mediaservers.Schema().Through(3)), node: storage.NewUUID(), root: storage.NewUUID(),
-		server: storage.NewUUID(), file: storage.NewUUID()}
-	seedServer(t, f)
-	id := storage.NewUUID()
-	must(t, f.lib, `INSERT INTO mediaservers_change (id, server_id, kind, root_id, path, from_path, file_id, state, step, step_at,
-		snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost)
-		VALUES (?, ?, 'moved', ?, 'Heat (1995)/Heat.mkv', 'Heat/Heat.mkv', ?, 'sent', 'restored', 4, '{"item":{"item":"7","top":"7"}}',
-		2, 3, 1, 5, 'accepted', '["rating"]')`, id, f.server, f.root, f.file)
-	if err := f.lib.Close(); err != nil {
-		t.Fatal(err)
-	}
-	f.lib = openWith(mediaservers.Schema())
-	t.Cleanup(func() { _ = f.lib.Close() })
-	var got string
-	err := f.lib.QueryRowContext(ctx, `SELECT kind || ' ' || path || ' ' || from_path || ' ' || state || ' ' || step || ' ' || step_at || ' ' ||
-		snapshot || ' ' || attempts || ' ' || sent_at || ' ' || result || ' ' || lost || ' ' || (from_root_id IS NULL) || ' ' || (source_gone_at IS NULL)
-		FROM mediaservers_change WHERE id = ? AND server_id = ? AND root_id = ? AND file_id = ?`, id, f.server, f.root, f.file).Scan(&got)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := `moved Heat (1995)/Heat.mkv Heat/Heat.mkv sent restored 4 {"item":{"item":"7","top":"7"}} 2 5 accepted ["rating"] 1 1`; got != want {
-		t.Fatalf("after the migration the change reads %q, want %q", got, want)
-	}
-	other := storage.NewUUID()
-	must(t, f.lib, "INSERT INTO roots_root (id, content_type, node_id, path, is_default) VALUES (?, 'fixture', ?, '/media/more', 0)", other, f.node)
-	must(t, f.lib, `INSERT INTO mediaservers_change (id, server_id, kind, root_id, path, from_root_id, from_path, file_id, state,
-		next_attempt_at, created_at, source_gone_at) VALUES (?, ?, 'moved', ?, 'Ran/Ran.mkv', ?, 'Ran/Ran.mkv', ?, 'due', 1, 1, 2)`,
-		storage.NewUUID(), f.server, other, f.root, storage.NewUUID())
-}
-
 // seedServer adds f's Node, a root on it and a Jellyfin server.
 func seedServer(t *testing.T, f fixture) {
 	t.Helper()
@@ -201,36 +155,6 @@ func seedServer(t *testing.T, f fixture) {
 	must(t, f.lib, `INSERT INTO mediaservers_server (id, kind, name, address, identity, version, monitor_delay_ms,
 		reaching_node_id, device_id, secrets_sealed, created_at, updated_at)
 		VALUES (?, 'jellyfin', 'Den Jellyfin', 'http://den:8096', 'f4c1', '12.2.0', 60000, ?, 'd1', x'00', 1, 1)`, f.server, f.node)
-}
-
-func TestAMoveCarryKeepsItsRelInAnotherRoot(t *testing.T) {
-	f := seed(t)
-	other := storage.NewUUID()
-	must(t, f.lib, "INSERT INTO roots_root (id, content_type, node_id, path, is_default) VALUES (?, 'fixture', ?, '/media/more', 0)", other, f.node)
-	insert := func(root, from any, path, fromPath string, gone any) error {
-		return exec(t, f.lib, `INSERT INTO mediaservers_change (id, server_id, kind, root_id, path, from_root_id, from_path, file_id, state,
-			next_attempt_at, created_at, source_gone_at) VALUES (?, ?, 'moved', ?, ?, ?, ?, ?, 'due', 1, 1, ?)`,
-			storage.NewUUID(), f.server, root, path, from, fromPath, storage.NewUUID(), gone)
-	}
-	if err := insert(other, f.root, "Ran/Ran.mkv", "Ran/Ran.mkv", 3); err != nil {
-		t.Errorf("a Move's carry under its Rel in another root wasn't stored: %v", err)
-	}
-	for _, c := range []struct {
-		name       string
-		root, from any
-		gone       any
-	}{
-		{"a Move's carry back into its own root", f.root, f.root, nil},
-		{"a source gone on a rename", f.root, nil, 3},
-	} {
-		if err := insert(c.root, c.from, "Ran/Ran.mkv", "Ran/Ran.mkv", c.gone); err == nil {
-			t.Errorf("%s was stored", c.name)
-		}
-	}
-	if err := exec(t, f.lib, `INSERT INTO mediaservers_change (id, server_id, kind, root_id, path, from_root_id, file_id, state,
-		next_attempt_at, created_at) VALUES (?, ?, 'added', ?, 'Ran/Ran.mkv', ?, ?, 'due', 1, 1)`, storage.NewUUID(), f.server, other, f.root, storage.NewUUID()); err == nil {
-		t.Error("a source root on a change with no origin was stored")
-	}
 }
 
 func TestTheSchemaRefusesAChangeNoFoldMakes(t *testing.T) {

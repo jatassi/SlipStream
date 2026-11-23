@@ -80,62 +80,46 @@ func TestAnArrivingTorrentSeedsWithoutACheckAndIsJudgedStartedOnTheReply(t *test
 	})
 }
 
-func TestAStartIsRefusedOnAFailureReply(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		reason := "Torrent not registered with this tracker"
-		n := newNode(t, enginetest.TrackerRules{Failure: reason})
-		f := newFile(t, "Orchard.mkv")
-		id := n.arriving(f)
-		c := n.start()
-		c.send(live(f.asking(id, time.Minute)))
-
-		want := &dlv1.Arrival{AskedUnixMs: asked, Result: dlv1.ArrivalResult_ARRIVAL_RESULT_REFUSED, Reason: reason}
-		if got := arrivalOf(t, c, id); !proto.Equal(got, want) {
-			t.Errorf("arrival %v, want %v", got, want)
-		}
-	})
-}
-
-func TestAStartIsRefusedWithNoReplyInTheReplyWait(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute, HoldStarted: true})
-		f := newFile(t, "Orchard.mkv")
-		id := n.arriving(f)
-		c := n.start()
-		c.send(live(f.asking(id, time.Minute)))
-
-		time.Sleep(timings.ReplyWait - time.Second)
-		synctest.Wait()
-		if got := arrivalOf(t, c, id); got != nil {
-			t.Fatalf("arrival %v within the reply wait, want none yet", got)
-		}
-		time.Sleep(time.Second)
-		synctest.Wait()
-		want := &dlv1.Arrival{AskedUnixMs: asked, Result: dlv1.ArrivalResult_ARRIVAL_RESULT_REFUSED, Reason: "no_answer"}
-		if got := arrivalOf(t, c, id); !proto.Equal(got, want) {
-			t.Errorf("arrival %v once the reply wait passed, want %v", got, want)
-		}
-	})
-}
-
-func TestAWindowUnderTheReplyWaitIsRefusedLateAndNeverStarts(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
-		f := newFile(t, "Orchard.mkv")
-		id := n.arriving(f)
-		c := n.start()
-		c.send(live(f.asking(id, timings.ReplyWait-time.Second)))
-		time.Sleep(time.Minute)
-		synctest.Wait()
-
-		if at := startedAnnounces(n.world, f.hash, time.Time{}); len(at) != 0 {
-			t.Errorf("a late ask announced started at %v, want never", at)
-		}
-		want := &dlv1.Arrival{AskedUnixMs: asked, Result: dlv1.ArrivalResult_ARRIVAL_RESULT_REFUSED, Reason: "late"}
-		if got := arrivalOf(t, c, id); !proto.Equal(got, want) {
-			t.Errorf("arrival %v, want %v", got, want)
-		}
-	})
+func TestAStartIsRefusedUnlessTheTrackerAnswersItsStartedInTime(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		rules  enginetest.TrackerRules
+		window time.Duration
+		reason string
+		// quiet holds the arrival unjudged until the reply wait passes, and
+		// late never announces started.
+		quiet, late bool
+	}{
+		{"a failure reply", enginetest.TrackerRules{Failure: "Torrent not registered with this tracker"}, time.Minute, "Torrent not registered with this tracker", false, false},
+		{"no reply in the reply wait", enginetest.TrackerRules{Interval: 30 * time.Minute, HoldStarted: true}, time.Minute, "no_answer", true, false},
+		{"a window under the reply wait", enginetest.TrackerRules{Interval: 30 * time.Minute}, timings.ReplyWait - time.Second, "late", false, true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				n := newNode(t, c.rules)
+				f := newFile(t, "Orchard.mkv")
+				id := n.arriving(f)
+				cl := n.start()
+				cl.send(live(f.asking(id, c.window)))
+				if c.quiet {
+					time.Sleep(timings.ReplyWait - time.Second)
+					synctest.Wait()
+					if got := arrivalOf(t, cl, id); got != nil {
+						t.Fatalf("arrival %v within the reply wait, want none yet", got)
+					}
+				}
+				time.Sleep(timings.ReplyWait)
+				synctest.Wait()
+				want := &dlv1.Arrival{AskedUnixMs: asked, Result: dlv1.ArrivalResult_ARRIVAL_RESULT_REFUSED, Reason: c.reason}
+				if got := arrivalOf(t, cl, id); !proto.Equal(got, want) {
+					t.Errorf("arrival %v, want %v", got, want)
+				}
+				if at := startedAnnounces(n.world, f.hash, time.Time{}); c.late && len(at) != 0 {
+					t.Errorf("a late ask announced started at %v, want never", at)
+				}
+			})
+		})
+	}
 }
 
 func TestTheWindowsEndPausesAnAskStillOpenAndNotOneTheIntentDropped(t *testing.T) {

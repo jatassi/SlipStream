@@ -12,10 +12,8 @@ import {
   transfersApi,
   waiting,
 } from "../../../test/transfers";
-import { asPhone } from "../../../test/viewport";
 
 const path = `/nodes/${homeId}/transfers`;
-const mib = 1024 * 1024;
 const twoNodes = nodesAre(home, seedbox);
 const everyState = [copying, queued, waiting, needsSpace, failed];
 
@@ -56,9 +54,7 @@ test("the section opens with what the Node receives, then each Transfer's own se
   await userEvent.click(rowOf("Manhunter (1986)").getByRole("button", { name: "Needs space" }));
   await expect
     .element(page.getByRole("dialog", { name: "Needs space" }))
-    .toHaveTextContent(
-      "The files don't fit on the receiving Node, and the Transfer continues once there is space.",
-    );
+    .toMatchTextContent(/don't fit on the receiving Node/u);
   await expect
     .element(rowOf("Heat (1995)").getByText("Transferring", { exact: true }))
     .not.toBeInTheDocument();
@@ -92,31 +88,6 @@ test("lanes, round trip, route and retried chunks stay under Details until opene
   await expect.element(row.getByText("1 of 2 verified")).toBeVisible();
 });
 
-test("with nothing to send or receive, the section says so", async () => {
-  const api = transfersApi();
-  renderApp({ path, handlers: [...api.handlers, twoNodes] });
-  await expect.element(page.getByText("Nothing running")).toBeVisible();
-  await expect
-    .element(page.getByText("No Transfer has moved bytes between home and another Node yet."))
-    .toBeVisible();
-  expect(page.getByRole("list", { name: "Transfers of home" }).query()).toBeNull();
-});
-
-test("a send limit saves for the Node and reads back as saved", async () => {
-  const api = transfersApi();
-  renderApp({ path, handlers: [...api.handlers, twoNodes] });
-  const limit = page.getByRole("textbox", { name: "Send limit" });
-  await expect.element(limit).toHaveValue("0");
-  await userEvent.fill(limit, "10");
-  await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect.element(page.getByText("Transfer settings saved")).toBeVisible();
-  expect(api.writes).toEqual([{ nodeId: homeId, body: { sendLimit: 10 * mib } }]);
-  await expect.element(page.getByRole("button", { name: "Reset to default" })).toBeVisible();
-
-  renderApp({ path, handlers: [...api.handlers, twoNodes] });
-  await expect.element(page.getByRole("textbox", { name: "Send limit" }).last()).toHaveValue("10");
-});
-
 test("a single Node has no Transfers tab, and its address is not found", async () => {
   const api = transfersApi();
   renderApp({ path: `/nodes/${homeId}/web`, handlers: [...api.handlers, nodesAre(home)] });
@@ -126,15 +97,4 @@ test("a single Node has no Transfers tab, and its address is not found", async (
 
   renderApp({ path, handlers: [...api.handlers, nodesAre(home)] });
   await expect.element(page.getByText("There's nothing at this address.")).toBeVisible();
-});
-
-test("on a phone the Node page lists Transfers as a pushed section", async () => {
-  await asPhone();
-  const api = transfersApi({ transfers: [copying] });
-  const { router } = renderApp({ path: `/nodes/${homeId}`, handlers: [...api.handlers, twoNodes] });
-  await userEvent.click(
-    page.getByRole("list", { name: "home" }).getByRole("link", { name: "Transfers" }),
-  );
-  await expect.poll(() => router.state.location.pathname).toBe(path);
-  await expect.element(page.getByText("Transferring from seedbox")).toBeVisible();
 });

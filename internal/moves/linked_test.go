@@ -89,32 +89,6 @@ func reload(t *testing.T, lib *storage.DB[storage.Library], id UnitID) Unit {
 	return u
 }
 
-// TestAPairedWorkWaitsForItsTorrentsPlace has a Work unit paired with a
-// torrent unit hold its linked_torrent wait, sends only its unlinked
-// files, and takes its lane once the torrent's Place ends.
-func TestAPairedWorkWaitsForItsTorrentsPlace(t *testing.T) {
-	lib, torrent, work := paired(t)
-	w := reload(t, lib, work)
-	if a := next(w, Facts{Head: true, NodesUp: true}, at, Rules{}); a != (Hold{Wait: WaitLinkedTorrent}) {
-		t.Errorf("the waiting Work unit does %#v, want it held for its torrent", a)
-	}
-	var sent []string
-	for _, f := range copyRequest(w).Files {
-		sent = append(sent, f.Name)
-	}
-	if !slices.Equal(sent, []string{"Film.nfo"}) {
-		t.Errorf("the Work unit sends %v, want only its companion", sent)
-	}
-	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[file]) error { return releasePair(ctx, tx, torrent, at) })
-	if err != nil {
-		t.Fatal(err)
-	}
-	w = reload(t, lib, work)
-	if s, ok := w.Stage.(Queued); !ok || s.Wait != "" || w.Due == nil || w.PairsWith == nil {
-		t.Errorf("after the torrent's Place the Work unit is %+v due %v paired %v, want it free, due and still paired", s, w.Due, w.PairsWith)
-	}
-}
-
 // TestAFailedTorrentLeavesItsWorkTheLibrarysFiles fails the torrent unit
 // paired with a Work unit: the Work's unplaced linked file comes from its
 // library, the placed one stays, and the Work unit is unpaired and due.

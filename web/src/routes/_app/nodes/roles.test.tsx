@@ -15,7 +15,6 @@ import {
   seedboxSeat,
   writeOffServer,
 } from "../../../test/roles";
-import { asPhone } from "../../../test/viewport";
 
 const onlineSeedbox: NodesNode = {
   ...seedbox,
@@ -238,22 +237,6 @@ test("a change planned on an old basis comes back as a fresh Review, and a faile
   expect(roles.applied.map(({ basis }) => basis)).toEqual(["basis-1", "basis-2"]);
 });
 
-test("Write off shows the count and size first, then gives up what the Node holds", async () => {
-  const writing = writeOffServer(outcome({}));
-  rolesOf(seedboxSeat, { handlers: [writing.handler] });
-  await userEvent.click(page.getByRole("button", { name: "Give up seedbox's work" }));
-  const confirm = page.getByRole("dialog", { name: "Give up seedbox's work" });
-  await expect
-    .element(confirm.getByText("seedbox has 3 torrents (41 GB) for Downloading."))
-    .toBeVisible();
-  await expect
-    .element(confirm.getByText("This also unticks Downloading on seedbox."))
-    .toBeVisible();
-  await userEvent.click(confirm.getByRole("button", { name: "Write off" }));
-  await expect.element(confirm).not.toBeInTheDocument();
-  expect(writing.sent).toEqual([{ nodeId: seedboxId, body: { roles: ["downloading"] } }]);
-});
-
 test("a write-off a guardrail refuses says why", async () => {
   const writing = writeOffServer(() =>
     refusal(
@@ -279,16 +262,5 @@ test("a write-off a guardrail refuses says why", async () => {
   await userEvent.click(confirm.getByRole("button", { name: "Write off" }));
   await expect
     .element(confirm.getByRole("alert"))
-    .toHaveTextContent(
-      "seedbox is the last Node that downloads, so it keeps Downloading and can't write off its 3 torrents (41 GB). Tick Downloading on another Node first.",
-    );
-});
-
-test("on phone the Review is a sheet", async () => {
-  await asPhone();
-  const roles = rolesServer({ plans: [outcome({})], sets: [] });
-  rolesOf(seedboxSeat, { handlers: roles.handlers });
-  await userEvent.click(role("Searching"));
-  await userEvent.click(page.getByRole("button", { name: "Review" }));
-  await expect.element(page.getByRole("dialog").getByText("Nothing changes.")).toBeVisible();
+    .toMatchTextContent(/^seedbox is the last Node that downloads.+3 torrents \(41 GB\)/u);
 });

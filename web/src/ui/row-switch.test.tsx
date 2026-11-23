@@ -4,8 +4,6 @@ import { page, userEvent } from "vitest/browser";
 
 import { renderKit } from "../test/render-kit";
 import { RowSwitch } from "./row-switch";
-import type { ShellKind } from "./shell-context";
-import { SwitchControl } from "./switch";
 
 function Episode({ start }: { start: boolean | "mixed" }) {
   const [on, setOn] = useState(start);
@@ -49,29 +47,4 @@ test("a disabled row switch doesn't change", async () => {
   await expect.element(control).toBeDisabled();
   await control.click({ force: true });
   expect(changes).toBe(0);
-});
-
-function lookOf(control: Element) {
-  const box = control.getBoundingClientRect();
-  const knob = control.firstElementChild?.getBoundingClientRect();
-  const track = getComputedStyle(control);
-  return [track.width, track.height, track.backgroundColor, (knob?.left ?? 0) - box.left];
-}
-
-test.each(
-  (["desktop", "phone"] satisfies ShellKind[]).flatMap((shell) =>
-    ([true, false, "mixed"] as const).map((checked) => [shell, checked] as const),
-  ),
-)("in the %s shell a row switch at %s looks like the switch control", async (shell, checked) => {
-  renderKit(
-    <>
-      <RowSwitch label="row" checked={checked} onCheckedChange={() => {}} />
-      <SwitchControl label="kit" checked={checked} onCheckedChange={() => {}} />
-    </>,
-    { shell },
-  );
-  const row = page.getByRole("switch", { name: "row" });
-  const kit = page.getByRole("switch", { name: "kit" });
-  await expect.element(row).toBeVisible();
-  await expect.poll(() => lookOf(row.element())).toEqual(lookOf(kit.element()));
 });

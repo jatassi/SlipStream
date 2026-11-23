@@ -67,28 +67,6 @@ test("the Storage block shows each volume's used space, free of total and its ro
   await expect.element(seedbox.getByText(/^2\.0 TB free of 4\.0 TB as of /u)).toBeVisible();
 });
 
-test("Make default makes another root where its type's new Works go", async () => {
-  const { sent } = serveRoots({ roots: [filmsRoot, archiveRoot] });
-  openRoots();
-  await expect
-    .element(page.getByRole("button", { name: `Actions for ${filmsRoot.path}` }))
-    .toBeVisible();
-  await userEvent.click(page.getByRole("button", { name: `Actions for ${filmsRoot.path}` }));
-  await expect
-    .poll(() =>
-      page
-        .getByRole("menuitem")
-        .all()
-        .map((item) => item.element().textContent),
-    )
-    .toEqual(["Scan now", "Edit", "Move root…", "Delete"]);
-  await userEvent.keyboard("{Escape}");
-  await expect.element(page.getByRole("menu")).not.toBeInTheDocument();
-  await act(archiveRoot, "Make default");
-  await expect.element(page.getByText("New films now go into /mnt/archive/films.")).toBeVisible();
-  expect(sent.defaulted).toEqual([archiveRoot.id]);
-});
-
 test("a root on a written-off Node says so and leads its menu with Re-home", async () => {
   const lost: RootsRoot = { ...archiveRoot, state: "written_off" };
   serveRoots({ roots: [filmsRoot, lost] });

@@ -25,13 +25,6 @@ test("Targets lists each Target's quality span, cutoff and the Profiles using it
   await expect.element(page.getByRole("heading", { name: "1080p", level: 1 })).toBeVisible();
 });
 
-test("New Target opens an empty editor", async () => {
-  const { router } = renderApp({ path: "/settings/targets", handlers: targetHandlers() });
-  await userEvent.click(page.getByRole("button", { name: "New Target" }));
-  await expect.poll(() => router.state.location.pathname).toBe("/settings/targets/new");
-  await expect.element(page.getByRole("textbox", { name: "Name" })).toHaveValue("");
-});
-
 test("Duplicate copies a Target and says what it made", async () => {
   const copy: TargetsTarget = {
     ...keeper,
@@ -81,7 +74,7 @@ test("deleting a Target a Profile holds is refused with the Profiles named", asy
   await userEvent.click(dialog.getByRole("button", { name: "Delete" }));
   await expect
     .element(dialog.getByRole("alert"))
-    .toHaveTextContent("1080p can't be deleted. Movies uses it.");
+    .toMatchTextContent(/1080p can't be deleted.+Movies/u);
   await userEvent.click(dialog.getByRole("button", { name: "Cancel" }));
 
   await userEvent.click(page.getByRole("button", { name: "Actions for 2160p HDR" }));

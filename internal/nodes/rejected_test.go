@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/rand/v2"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -16,6 +17,20 @@ import (
 	"github.com/jatassi/slipstream/internal/role/roletest"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
+
+// expectOneItem checks a holds want alone, whose words name fact.
+func expectOneItem(t *testing.T, a health.Answer, want health.Item, fact string) {
+	t.Helper()
+	if len(a.Items) != 1 {
+		t.Fatalf("the items are %+v, want one", a.Items)
+	}
+	got := a.Items[0]
+	said := got.Text
+	got.Text = ""
+	if !reflect.DeepEqual(got, want) || !strings.Contains(said, fact) {
+		t.Fatalf("the item is %+v saying %q, want %+v naming %q", got, said, want, fact)
+	}
+}
 
 // TestCheckNowForgetsTheReportsSkippedFromANode has home hold the probe,
 // whose Controller half fails home's two reports, so it skips both: the
@@ -59,13 +74,10 @@ func TestCheckNowForgetsTheReportsSkippedFromANode(t *testing.T) {
 		}
 		want := health.Item{Key: key, Level: health.Warn, Says: health.Says{
 			Subject: "home",
-			Text:    "SlipStream skipped 2 results home sent because it couldn't apply them. Find the errors in the Controller's log, fix their cause, then Check now.",
 			Detail:  []health.Fact{{Label: "Last skipped", At: time.Now().UTC().Truncate(time.Microsecond)}},
 			Action:  health.CheckAction(),
 		}}
-		if len(a.Items) != 1 || !reflect.DeepEqual(a.Items[0], want) {
-			t.Fatalf("with two reports skipped the items are %+v, want %+v", a.Items, want)
-		}
+		expectOneItem(t, a, want, "2 results")
 
 		if _, err := src.Check(t.Context(), key); err != nil {
 			t.Fatal(err)

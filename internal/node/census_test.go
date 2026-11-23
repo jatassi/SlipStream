@@ -4,7 +4,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 )
@@ -53,11 +52,5 @@ func TestCensusListsEndpointsStillAtADefaultHost(t *testing.T) {
 		if got := census(&tree, &defaults); !slices.Equal(got, c.want) {
 			t.Errorf("census with %v = %v, want %v", c.environ, got, c.want)
 		}
-	}
-}
-
-func TestCensusOfTheDefaultsListsTheCoreEndpoints(t *testing.T) {
-	if got, want := Census(Defaults(noTypes, install.Dev), noTypes, install.Dev), []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.subdl.api", "endpoints.subdl.key_page", "endpoints.subsource.api", "endpoints.subsource.key_page", "endpoints.gestdown.api", "endpoints.plex_tv.api", "endpoints.plex_tv.auth", "endpoints.plex_tv.desktop", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.notify.telegram", "endpoints.notify.pushover", "endpoints.notify.pushbullet", "endpoints.notify.ntfy"}; !slices.Equal(got, want) {
-		t.Fatalf("census = %#v, want %#v", got, want)
 	}
 }

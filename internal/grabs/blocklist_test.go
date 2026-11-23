@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
-	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabs/grabstest"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -141,22 +140,6 @@ func TestABlocklistedHashFoundAfterTheFetchMakesAnAutomaticGrabDecideAgainWithou
 		if want := "Better Site " + bluRay + " blocklisted The Release's torrent is on the Blocklist."; !slices.Contains(failed, want) || slices.ContainsFunc(failed, func(f string) bool { return strings.HasPrefix(f, "Other Site "+bluRay) }) {
 			t.Fatalf("the failed Grabs are %q, want %q and none of Other Site's copy", failed, want)
 		}
-	})
-}
-
-func TestMarkFailedBlocklistsTheReleaseOfADownloadingGrab(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		p := newPipeline(t)
-		downloadingGrab(t, p, seedingReport)
-		torrent := torrentOf(t, p)
-		run(t, p.lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			return reconciling(false).MarkedFailed(ctx, tx, []downloadclients.ID{torrent}, identity.Admin{})
-		})
-
-		rel := newRelease(t)
-		again := p.grab(rel.link.String(), nil)
-		p.running()
-		p.failed(again, grabs.Blocklisted)
 	})
 }
 

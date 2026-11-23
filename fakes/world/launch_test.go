@@ -528,43 +528,45 @@ func TestLaunchUnderAnExpiredContextLeavesNothing(t *testing.T) {
 	}
 }
 
-func TestLaunchRefusesAnExistingRunDir(t *testing.T) {
-	t.Parallel()
-	runDir := t.TempDir()
-	_, err := world.Launch(worldtest.Context(t), world.Options{Binary: "slipstream", Scenario: stubScenario(), RunDir: runDir, Origin: worldtest.Origin(t)})
-	if want := "run dir " + runDir + " already exists"; err == nil || err.Error() != want {
-		t.Fatalf("Launch = %v, want %s", err, want)
-	}
-}
-
-func TestLaunchRefusesAFakeWithoutAnOnlineStance(t *testing.T) {
+func TestLaunchRefusesBeforeItMakesTheRunDir(t *testing.T) {
 	t.Parallel()
 	bare := echo
 	bare.Online = fake.Online{}
-	runDir := filepath.Join(t.TempDir(), "run")
-	_, err := world.LaunchWith(worldtest.Context(t), world.Options{Binary: "slipstream", Scenario: stubScenario(), RunDir: runDir, Origin: worldtest.Origin(t)}, []fake.Spec{bare})
-	if want := "fake echo declares no Online stance; set fake.OnlineSuite(suite) or fake.NoOnlineRun(reason)"; err == nil || err.Error() != want {
-		t.Fatalf("Launch = %v\nwant %s", err, want)
-	}
-	if _, err := os.Stat(runDir); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("run dir after a refused launch: %v, want it absent", err)
-	}
-}
-
-func TestLaunchRefusesVolumeFigures(t *testing.T) {
-	t.Parallel()
-	s, err := scenario.Load("home")
+	home, err := scenario.Load("home")
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Library.Roots[0].Volume = &scenario.LibraryVolume{TotalGiB: 10, FreeGiB: 1}
-	runDir := filepath.Join(t.TempDir(), "run")
-	_, err = world.Launch(worldtest.Context(t), world.Options{Binary: "slipstream", Scenario: s, RunDir: runDir, Origin: worldtest.Origin(t)})
-	if want := "scenario home: library root movies: volume figures play only in the simulation tier"; err == nil || err.Error() != want {
-		t.Fatalf("Launch = %v\nwant %s", err, want)
-	}
-	if _, err := os.Stat(runDir); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("run dir after a refused launch: %v, want it absent", err)
+	home.Library.Roots[0].Volume = &scenario.LibraryVolume{TotalGiB: 10, FreeGiB: 1}
+	existing := t.TempDir()
+	for _, c := range []struct {
+		name     string
+		scenario scenario.Scenario
+		fakes    []fake.Spec
+		runDir   string
+		want     string
+	}{
+		{"an existing run dir", stubScenario(), nil, existing, "run dir " + existing + " already exists"},
+		{"a fake without an Online stance", stubScenario(), []fake.Spec{bare}, "", "fake echo declares no Online stance; set fake.OnlineSuite(suite) or fake.NoOnlineRun(reason)"},
+		{"volume figures", home, nil, "", "scenario home: library root movies: volume figures play only in the simulation tier"},
+	} {
+		runDir := c.runDir
+		if runDir == "" {
+			runDir = filepath.Join(t.TempDir(), "run")
+		}
+		opts := world.Options{Binary: "slipstream", Scenario: c.scenario, RunDir: runDir, Origin: worldtest.Origin(t)}
+		launch := world.Launch
+		if c.fakes != nil {
+			launch = func(ctx context.Context, opts world.Options) (*world.Run, error) {
+				return world.LaunchWith(ctx, opts, c.fakes)
+			}
+		}
+		_, err := launch(worldtest.Context(t), opts)
+		if err == nil || err.Error() != c.want {
+			t.Errorf("%s: Launch = %v\nwant %s", c.name, err, c.want)
+		}
+		if _, err := os.Stat(runDir); c.runDir == "" && !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("%s: run dir after a refused launch: %v, want it absent", c.name, err)
+		}
 	}
 }
 
@@ -642,12 +644,13 @@ func TestStopRunWithoutASupervisorNamesEachNode(t *testing.T) {
 	runDir := t.TempDir()
 	log := `{"seq":1,"at":"2026-10-14T00:00:00Z","kind":"run.launched","node":"world","data":{"pid":4242,"control":"` + filepath.ToSlash(filepath.Join(runDir, "gone.sock")) + `"}}
 {"seq":2,"at":"2026-10-14T00:00:01Z","kind":"node.spawned","node":"home","data":{"pid":4250,"dataDir":"/tmp/ssfw/k3v9x2qa/home"}}
+{"seq":3,"at":"2026-10-14T00:00:01Z","kind":"node.spawned","node":"nas","data":{"pid":4251,"dataDir":"/tmp/ssfw/k3v9x2qa/nas"}}
 `
 	if err := os.WriteFile(filepath.Join(runDir, "events.jsonl"), []byte(log), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := world.StopRun(worldtest.Context(t), runDir)
-	want := "the supervisor (PID 4242) is not running; stop each Node with:\n  slipstream stop --data-dir /tmp/ssfw/k3v9x2qa/home"
+	want := "the supervisor (PID 4242) is not running; stop each Node with:\n  slipstream stop --data-dir /tmp/ssfw/k3v9x2qa/home\n  slipstream stop --data-dir /tmp/ssfw/k3v9x2qa/nas"
 	if _, gone := errors.AsType[*world.SupervisorGoneError](err); !gone || err.Error() != want {
 		t.Fatalf("StopRun = %v, want %s", err, want)
 	}

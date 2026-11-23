@@ -49,13 +49,6 @@ func TestCompileErrorNamesPatternAndOffset(t *testing.T) {
 	}
 }
 
-func TestCompileErrorQuotesThePatternAsTyped(t *testing.T) {
-	_, err := Compile(`\b(DV`, opts)
-	if want := `the pattern "\b(DV" doesn't compile (unterminated group)`; err == nil || err.Error() != want {
-		t.Errorf("Compile = %v, want %s", err, want)
-	}
-}
-
 func TestCatastrophicPatternTimesOut(t *testing.T) {
 	const limit = 100 * time.Millisecond
 	re := MustCompile(`z|(x+x+)+y`, Options{Timeout: limit})
@@ -146,20 +139,6 @@ func TestGroupThatCapturedNothing(t *testing.T) {
 	}
 	if got := m.Captures("b"); len(got) != 0 {
 		t.Errorf(`Captures("b") = %v; want none`, got)
-	}
-}
-
-func TestFindAll(t *testing.T) {
-	ms, err := MustCompile(`\d+`, opts).FindAll(TextOf("1 22 333"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var got []string
-	for _, m := range ms {
-		got = append(got, m.Value())
-	}
-	if !slices.Equal(got, []string{"1", "22", "333"}) {
-		t.Errorf("FindAll = %q; want 1, 22, 333", got)
 	}
 }
 

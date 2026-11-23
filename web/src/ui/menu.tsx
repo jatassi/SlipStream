@@ -86,7 +86,7 @@ function ActionSheet({ trigger, label, items }: MenuProps) {
   );
 }
 
-const popup = `group/rows max-h-(--available-height) min-w-[220px] overflow-y-auto p-1 ${floatingPanel}`;
+const popup = `group/rows max-h-[min(400px,var(--available-height))] min-w-[220px] overflow-y-auto p-1 ${floatingPanel}`;
 
 const item =
   "flex h-(--menu-item-height) cursor-default items-center gap-2 rounded-item px-3 text-(length:--body-size) leading-(--body-line-height) outline-none select-none data-disabled:opacity-40 data-highlighted:bg-fill-hover focus-visible:shadow-[inset_0_-2px_0_var(--color-glow)]";

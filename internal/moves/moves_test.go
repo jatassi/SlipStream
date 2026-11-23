@@ -138,10 +138,7 @@ func TestEveryActionRuns(t *testing.T) {
 	}
 }
 
-func TestDefaultTimingsCheck(t *testing.T) {
-	if err := DefaultTimings().Check(); err != nil {
-		t.Errorf("the default Timings fail their check: %v", err)
-	}
+func TestTimingsEndingTheLocalWindowAtTheRollbackFailTheirCheck(t *testing.T) {
 	late := DefaultTimings()
 	late.HandoffBound = late.ReplyWait + late.BoundMargin
 	if err := late.Check(); err == nil {

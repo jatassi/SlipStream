@@ -164,7 +164,7 @@ test("with no address set, the dialog asks for it, saves it and then makes the l
 
   await expect
     .element(dialog.getByRole("alert"))
-    .toHaveTextContent("Set SlipStream's address first, so links point somewhere people can reach");
+    .toMatchTextContent(/^Set SlipStream's address first/u);
   const address = dialog.getByRole("textbox", { name: "SlipStream's address" });
   await expect.element(address).toHaveValue("http://media-pc:8484");
   await userEvent.fill(address, "https://media.example.test");

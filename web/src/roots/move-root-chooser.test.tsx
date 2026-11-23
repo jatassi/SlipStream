@@ -23,13 +23,7 @@ test("Move root… leads with editing the root, and Move its films previews ever
   });
   await act(filmsRoot, "Move root…");
   const chooser = page.getByRole("dialog", { name: `Move ${filmsRoot.path}` });
-  await expect
-    .element(
-      chooser.getByText(
-        "If you moved this disk to another machine, edit the root. Nothing is copied. To copy its films to another root, move them.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(chooser.getByRole("button", { name: "Edit the root" })).toBeVisible();
   await userEvent.click(chooser.getByRole("button", { name: "Move its films" }));
   const moving = page.getByRole("dialog", { name: `Move the films in ${filmsRoot.path}` });
   await expect

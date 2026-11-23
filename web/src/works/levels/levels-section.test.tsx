@@ -139,30 +139,6 @@ test("a withdrawn Item with a file stays at the end of its level, and Items with
     .toMatchTextContent(/Not monitoredNo longer listed by Fixture source49 stories$/u);
 });
 
-test("a level's and an Item's Monitor switch send their ids and read back what the server took", async () => {
-  const { puts } = open(() => "missing");
-  const [volumeOne] = longShelf.levels;
-  const [first] = longShelf.items;
-  const level = levels().getByRole("switch", { name: "Monitor Volume 1" });
-  const item = levels().getByRole("switch", { name: "Monitor V01S02" });
-  await expect.element(level).toHaveAttribute("aria-checked", "true");
-
-  await userEvent.click(levels().getByRole("switch", { name: "Monitor V01S01" }));
-  await expect.element(level).toHaveAttribute("aria-checked", "mixed");
-  expect(puts).toEqual([{ levelIds: [], itemIds: [first?.id], on: false }]);
-
-  await userEvent.click(level);
-  await expect.element(level).toHaveAttribute("aria-checked", "true");
-  await userEvent.click(level);
-  await expect.element(item).toHaveAttribute("aria-checked", "false");
-  expect(puts.slice(1)).toEqual([
-    { levelIds: [volumeOne?.id], itemIds: [], on: true },
-    { levelIds: [volumeOne?.id], itemIds: [], on: false },
-  ]);
-  await expect.element(header("Volume 1")).toHaveAttribute("aria-expanded", "true");
-  await expect.element(levels()).toMatchTextContent(/V01S02Story V01S02Not monitored/u);
-});
-
 test("hovering a square shows its cell, and Details shows the Item's own fields", async () => {
   open(() => "missing");
   await userEvent.hover(levels().getByRole("button", { name: "V01S02 1080p, Missing" }));

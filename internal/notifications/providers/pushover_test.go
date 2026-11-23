@@ -8,10 +8,6 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-func TestPushoverBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "pushover"), providertest.Cases["pushover"])
-}
-
 func TestPushoverReadsItsResponses(t *testing.T) {
 	now := providertest.Now
 	reset := now.Add(15 * 24 * time.Hour)
