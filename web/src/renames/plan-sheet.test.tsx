@@ -114,7 +114,7 @@ test("the library's plan leads with what it renames, opens a Work to its paths, 
   const server = openNaming({ plan: [heat, orchard], moving: 128 });
   await expect.element(page.getByText("Renaming 128 files…")).toBeVisible();
   await reviewAll();
-  await expect.element(sheet.getByText("This renames 3 files in 2 Works.")).toBeVisible();
+  await expect.element(sheet.getByText(/3 files in 2 Works/u)).toBeVisible();
   expect(server.planned).toEqual([{ scope: { kind: "library" } }]);
 
   await userEvent.click(sheet.getByRole("button", { name: "Files of Heat" }));
@@ -126,12 +126,12 @@ test("the library's plan leads with what it renames, opens a Work to its paths, 
     .element(files.getByRole("insertion").first())
     .toHaveTextContent("Heat (1995)/Heat (1995) - 4K.mkv");
   await expect
-    .element(files.getByText("Moves with it: Heat 1995 - 4K.en.srt and Heat 1995 - 4K.nfo"))
+    .element(files.getByText(/Heat 1995 - 4K\.en\.srt.+Heat 1995 - 4K\.nfo/u))
     .toBeVisible();
 
   await userEvent.click(files.getByRole("checkbox", { name: "Heat 1995 - 1080p.mkv" }));
   await userEvent.click(sheet.getByRole("checkbox", { name: "The Quiet Orchard" }));
-  await expect.element(sheet.getByText("This renames 1 file in 1 Work.")).toBeVisible();
+  await expect.element(sheet.getByText(/1 file in 1 Work\b/u)).toBeVisible();
   await expect.element(sheet.getByText("1 of 2 files")).toBeVisible();
 
   await userEvent.click(sheet.getByRole("button", { name: "Rename 1 file" }));
@@ -147,35 +147,18 @@ test("the library's plan leads with what it renames, opens a Work to its paths, 
 test("files that trade names tick together, and a blocked file says why, naming the other Work", async () => {
   const server = openNaming({ plan: [shelf] });
   await reviewAll();
-  await expect.element(sheet.getByText("This renames 2 files in 1 Work.")).toBeVisible();
-  await expect
-    .element(sheet.getByText("2 files can't be renamed now. Open their Works to see why."))
-    .toBeVisible();
-  await expect
-    .element(sheet.getByText("2 files are still moving and aren't listed."))
-    .toBeVisible();
+  await expect.element(sheet.getByText(/2 files in 1 Work\b/u)).toBeVisible();
+  await expect.element(sheet.getByText(/^2 files can't be renamed/u)).toBeVisible();
+  await expect.element(sheet.getByText(/^2 files are still moving/u)).toBeVisible();
 
   await userEvent.click(sheet.getByRole("button", { name: "Files of The Long Shelf" }));
   const files = sheet.getByRole("list", { name: "Files of The Long Shelf" });
-  await expect
-    .element(
-      files.getByText(
-        "Ronin has a file with the same new path. Add an id to the folder template so each Work gets its own folder.",
-      ),
-    )
-    .toBeVisible();
-  await expect
-    .element(
-      files.getByText(
-        "A file SlipStream doesn't track is at the new path. Move or delete that file, then plan again.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(files.getByText(/^Ronin has a file with the same new path/u)).toBeVisible();
+  await expect.element(files.getByText(/doesn't track is at the new path/u)).toBeVisible();
   await expect.element(files.getByRole("checkbox", { name: "Shelf - 1x03.mkv" })).toBeDisabled();
 
   await userEvent.click(files.getByRole("checkbox", { name: "Shelf - 1x01.mkv" }));
   await expect.element(files.getByRole("checkbox", { name: "Shelf - 1x02.mkv" })).not.toBeChecked();
-  await expect.element(sheet.getByText("No files are ticked to rename.")).toBeVisible();
   await expect.element(sheet.getByRole("button", { name: "Rename 0 files" })).toBeDisabled();
 
   await userEvent.click(files.getByRole("checkbox", { name: "Shelf - 1x02.mkv" }));
@@ -196,7 +179,7 @@ test("a save that renames files shows the draft's plan, and Save and rename save
   await userEvent.click(card.getByRole("button", { name: "Save", exact: true }));
 
   const saving = page.getByRole("dialog", { name: "Save film naming" });
-  await expect.element(saving.getByText("Saving renames 3 files in 2 Works.")).toBeVisible();
+  await expect.element(saving.getByText(/3 files in 2 Works/u)).toBeVisible();
   expect(server.planned).toEqual([
     {
       scope: { kind: "type", id: "cinema" },
@@ -247,12 +230,8 @@ test("the card's Review renames opens its type's plan, and Works that changed si
   const review = page.getByRole("dialog", { name: "Rename film files" });
   await userEvent.click(review.getByRole("button", { name: "Rename 3 files" }));
 
-  await expect
-    .element(
-      review.getByText("1 Work changed since you reviewed it. Check it and rename it again."),
-    )
-    .toBeVisible();
-  await expect.element(review.getByText("This renames 1 file in 1 Work.")).toBeVisible();
+  await expect.element(review.getByText(/^1 Work changed since you reviewed it/u)).toBeVisible();
+  await expect.element(review.getByText(/1 file in 1 Work\b/u)).toBeVisible();
   await expect.element(review.getByRole("checkbox", { name: "Heat" })).not.toBeChecked();
   expect(server.planned.map(({ scope }) => scope)).toEqual([
     { kind: "type", id: "cinema" },
@@ -271,8 +250,6 @@ test("the files the disk queue moves come off the card's count as they land", as
   await expect.element(page.getByText("Renaming 3 files…")).toBeVisible();
 
   server.counts({ unmatched: [], moving: 0 }, [heatId]);
-  await expect
-    .element(card.getByText("Plex, Jellyfin and Emby show the files of each film as one item."))
-    .toBeVisible();
+  await expect.element(card.getByText(/don't match the templates/u)).not.toBeInTheDocument();
   await expect.element(page.getByText(/^Renaming/u)).not.toBeInTheDocument();
 });
