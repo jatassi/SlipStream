@@ -674,6 +674,8 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.moves.retry_after", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MOVES_RETRY_AFTER"},
 			{Key: "timings.moves.playing_every", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MOVES_PLAYING_EVERY"},
 			{Key: "timings.moves.downloading_every", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MOVES_DOWNLOADING_EVERY"},
+			{Key: "timings.moves.remove_retry", Value: "100ms", Default: "100ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_MOVES_REMOVE_RETRY"},
+			{Key: "timings.moves.remove_bound", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MOVES_REMOVE_BOUND"},
 			{Key: "timings.formats.match", Value: "100ms", Default: "100ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_FORMATS_MATCH"},
 			{Key: "timings.downloading.facts", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_FACTS"},
 			{Key: "timings.downloading.announce_floor", Value: "5m0s", Default: "5m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_ANNOUNCE_FLOOR"},
