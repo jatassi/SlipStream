@@ -618,14 +618,18 @@ func (s *state) unlisted(ctx context.Context, t *track, now time.Time) {
 	}
 }
 
-// add sends the torrent and records it as added.
+// add sends the torrent and records it as added. Only the first add sets
+// what the client was sent: a resend may reach a client that already
+// holds the torrent and keeps it as the first add left it.
 func (s *state) add(ctx context.Context, t *track, now time.Time) bool {
 	if !s.send(ctx, t) {
 		return false
 	}
+	if t.row.Origin == nil {
+		t.wanted.Applied = t.intent
+	}
 	added := originAdded
 	t.row.Origin, t.row.SentAt = &added, storage.FromTime(now)
-	t.wanted.Applied = t.intent
 	return true
 }
 

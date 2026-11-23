@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
 	"math/rand/v2"
 	"net/http"
 	"os"
@@ -513,6 +514,36 @@ func TestADroppedAddIsSentOnceMore(t *testing.T) {
 			t.Errorf("after the resend: %s, want responding", p.GetState())
 		}
 	})
+}
+
+// A pause made while the client doesn't list the first add reaches it
+// whether the client kept that add, listing it late, or dropped it and
+// takes the resend.
+func TestAPauseWhileTheAddIsUnlistedReachesTheClient(t *testing.T) {
+	for cue, args := range map[string]map[string]any{
+		"late-add": {"after": (timings.ResendWait + 3*checkEvery).String()},
+		"drop-add": {},
+	} {
+		t.Run(cue, func(t *testing.T) {
+			inEachVersion(t, func(t *testing.T, version string) {
+				r := newRig(t, version, faketransmission.Daemon{Rate: 10})
+				r.want("orchard")
+				r.cue(cue, maps.Clone(args))
+				r.start()
+				r.share.Torrents[0].Wanted = dlv1.Wanted_WANTED_PAUSED
+				r.update()
+				r.sleep(timings.ResendWait + 5*checkEvery)
+				if s, ok := r.inClient(); !ok || s.Run != clients.Paused {
+					t.Fatalf("once listed the client has it %v %d, want paused", ok, s.Run)
+				}
+				for _, rep := range r.reportsOf("orchard") {
+					if wc := rep.GetWantedChange(); wc != nil {
+						t.Fatalf("reported a change in the client %v that nobody made", wc)
+					}
+				}
+			})
+		})
+	}
 }
 
 func TestAPauseInTheClientIsReportedAndAResumeInSlipStreamReachesIt(t *testing.T) {
