@@ -3,6 +3,7 @@ package trackers
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/trackers/internal/db"
@@ -26,4 +27,18 @@ func RepointTracker(ctx context.Context, tx *storage.Tx[file], from, into indexe
 		return err
 	}
 	return q.RepointWindows(ctx, db.RepointWindowsParams{IntoID: into, FromID: from})
+}
+
+// RerouteIn has each Tracker route to client from go to client to, in
+// tx: a Move that takes a client's torrents takes the routes to it. A
+// Choice without Client is the built-in client on BuiltInOn.
+func RerouteIn(ctx context.Context, tx *storage.Tx[file], from, to downloadclients.Choice) error {
+	p := db.RerouteClientParams{FromClient: from.Client, ToClient: to.Client}
+	if from.Client == nil {
+		p.FromNode = &from.BuiltInOn
+	}
+	if to.Client == nil {
+		p.ToNode = &to.BuiltInOn
+	}
+	return db.New(tx).RerouteClient(ctx, p)
 }

@@ -20,15 +20,44 @@ import (
 // one root on node.
 func (w *world) newMachine(node role.NodeID) roots.ID {
 	w.t.Helper()
-	root := roots.ID{UUID: storage.NewUUID()}
+	root := w.rootOn(node)
 	w.write(func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, "INSERT INTO roots_root (id, content_type, node_id, path, is_default) VALUES (?, ?, ?, '/media/fixture', 1)", root, contenttypetest.ID, node)
-		if err != nil {
-			return err
-		}
 		return reconciling.Begin(ctx, tx, reconciling.BeginArgs{ID: "restore-1", Cause: reconciling.Restore, Backup: "nightly", TakenAt: time.Now(), NewMachine: true})
 	})
 	return root
+}
+
+func (w *world) rootOn(node role.NodeID) roots.ID {
+	w.t.Helper()
+	root := roots.ID{UUID: storage.NewUUID()}
+	w.write(func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, "INSERT INTO roots_root (id, content_type, node_id, path, is_default) VALUES (?, ?, ?, '/media/fixture', 1)", root, contenttypetest.ID, node)
+		return err
+	})
+	return root
+}
+
+// reports has root's Node report it Ready or not, and publishes
+// roots.changed as the roots recorder does.
+func (w *world) reports(root roots.ID, ready bool) {
+	w.t.Helper()
+	w.mu.Lock()
+	w.ready[root] = ready
+	w.mu.Unlock()
+	roots.ChangedEvent.Bind(w.hub).Publish(w.t.Context(), roots.Changed{RootIDs: []string{root.String()}})
+	synctest.Wait()
+}
+
+func (w *world) scansOf(root roots.ID) int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	n := 0
+	for _, ids := range w.scans {
+		if slices.Contains(ids, root) {
+			n++
+		}
+	}
+	return n
 }
 
 // scanned finishes root's scan as imports' Write does.
@@ -55,8 +84,7 @@ func TestTheEndRunsQueuedWork(t *testing.T) {
 			t.Fatalf("Rehome = %+v, %v, want the root saved", saved, err)
 		}
 		synctest.Wait()
-		w.keeper.Wake()
-		synctest.Wait()
+		w.reports(root, true)
 		if !slices.Equal(w.rehomed, []roots.ID{root}) || len(w.scans) != 1 || !slices.Equal(w.scans[0], []roots.ID{root}) {
 			t.Fatalf("the re-home step rehomed %v and started scans %v, want the root through Rehome and one scan of it", w.rehomed, w.scans)
 		}
@@ -206,6 +234,44 @@ func TestTheReviewListSaysWhichFilesItsNodeStillHas(t *testing.T) {
 		})
 		if found["orchard"] != reconciling.Files || found["attic"] != reconciling.NoFiles {
 			t.Errorf("the review list found %v, want orchard's files and none of attic's", found)
+		}
+	})
+}
+
+// TestARestoredRootScansOnceItsNodeReportsItReady restores in place
+// while the root's Node hasn't checked its folder since it started: a
+// scan then would end Skipped and record nothing, so Reconciling starts
+// it only once the Node reports the root Ready, and again each time the
+// root turns Ready after its scan ended without one.
+func TestARestoredRootScansOnceItsNodeReportsItReady(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWorld(t)
+		relay := w.node("vps-relay")
+		root := w.rootOn(relay)
+		w.restore()
+		w.keeper.Wake()
+		synctest.Wait()
+		if n := w.scansOf(root); n != 0 {
+			t.Fatalf("before vps-relay checked the root Reconciling started %d scans of it, want none", n)
+		}
+		w.reports(root, true)
+		if n := w.scansOf(root); n != 1 {
+			t.Fatalf("once vps-relay reports the root Ready Reconciling started %d scans of it, want 1", n)
+		}
+		w.reports(root, true)
+		if n := w.scansOf(root); n != 1 {
+			t.Fatalf("with the root still Ready Reconciling started %d scans of it, want still 1", n)
+		}
+		w.reports(root, false)
+		w.reports(root, true)
+		if n := w.scansOf(root); n != 2 {
+			t.Fatalf("after the root turned Ready again with its scan unrecorded Reconciling started %d scans of it, want 2", n)
+		}
+		w.scanned(root)
+		w.reports(root, false)
+		w.reports(root, true)
+		if n := w.scansOf(root); n != 2 {
+			t.Fatalf("after the root's scan was recorded Reconciling started %d scans of it, want still 2", n)
 		}
 	})
 }

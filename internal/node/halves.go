@@ -199,7 +199,9 @@ func (n *Node) startController(ctx context.Context) error {
 		Rehome: func(ctx context.Context, by identity.Admin, id roots.ID, h roots.Rehome) (roots.View, error) {
 			return homes.Rehome(ctx, by, id, h)
 		},
-		Scan: func(ctx context.Context, ids []roots.ID) error { return found.ScanRoots(ctx, ids) },
+		Scan:  func(ctx context.Context, ids []roots.ID) error { return found.ScanRoots(ctx, ids) },
+		Ready: func(ctx context.Context) ([]roots.Root, error) { return homes.Ready(ctx) },
+		Hub:   n.hub,
 		Ending: func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			return pipeline.DecideFetching(ctx, tx)
 		},
@@ -220,6 +222,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Changed: reconciling.ChangedEvent.Bind(n.hub),
 		Log:     n.rootLog.With("subsystem", "reconciling"),
 	})
+	var tree *works.Works
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
 		Touch:        func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
@@ -237,6 +240,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Blocklist: grabs.BlocklistOn{Reconciling: reconciling.Blocked, Changes: grabs.BlocklistChangedEvent.Bind(n.hub)},
 		Seeding:   lateSeeder{&seeding},
 		Moving:    lateMoves{&mover},
+		Types:     lateTypes{&tree},
 		Live: downloadclients.LiveConfig{
 			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },
 			Event:   downloadclients.LiveEvent.Bind(n.hub),
@@ -477,7 +481,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	tree, err := works.Open(ctx, works.Config{
+	tree, err = works.Open(ctx, works.Config{
 		Library:      lib.db,
 		Catalogs:     contenttype.Project(opened, func(t contenttype.Library) works.Catalog { return t }),
 		Source:       meta,
@@ -570,17 +574,19 @@ func (n *Node) startController(ctx context.Context) error {
 		Folders: func(id role.NodeID) storagev1connect.FolderServiceHandler {
 			return storagev1connect.FolderService.On(cluster, id)
 		},
-		Arrivals: arrivals,
-		Contents: files.RootContents{},
-		Inflight: imports.RootImports{},
-		Busy:     moves.Busy,
-		Videos:   imports.Videos,
-		Changed:  roots.ChangedEvent.Bind(n.hub),
-		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
-		Cadence:  clients.CadenceChanged,
-		Names:    side.Names,
-		Describe: tree.Describe,
-		Log:      n.rootLog.With("subsystem", "roots"),
+		Arrivals:    arrivals,
+		Contents:    files.RootContents{},
+		Inflight:    imports.RootImports{},
+		Busy:        rootBusy,
+		Reconciling: reconciling.Blocked,
+		Rehomed:     servers,
+		Videos:      imports.Videos,
+		Changed:     roots.ChangedEvent.Bind(n.hub),
+		Volumes:     roots.VolumesChangedEvent.Bind(n.hub),
+		Cadence:     clients.CadenceChanged,
+		Names:       side.Names,
+		Describe:    tree.Describe,
+		Log:         n.rootLog.With("subsystem", "roots"),
 	})
 	if err != nil {
 		return err
@@ -730,7 +736,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Downloading: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
 			return downloadingv1connect.DownloadingService.On(cluster, id)
 		},
-		Repoint: grabs.RepointTorrentIn, CopyGoalRun: trackers.CopyGoalRunIn,
+		Repoint: grabs.RepointTorrentIn, CopyGoalRun: trackers.CopyGoalRunIn, Reroute: trackers.RerouteIn,
 		Recorder: n.history.Recorder("moves", moves.Entries()), Timings: n.cfg.Timings.Moves, BeforeStep: n.env.Test.BeforeMoveStep,
 		Clock: time.Now, Log: n.rootLog.With("subsystem", "moves"),
 	})
@@ -945,6 +951,14 @@ func (t lateTasks) SetCadence(ctx context.Context, id tasks.TaskID, v setting.St
 // lateSeeder is the Trackers' seeder once they are made: the download
 // clients are made before them, since the Trackers read Torrents through
 // them.
+// lateTypes is the Content Types once the Works open, which open after
+// the Download Clients.
+type lateTypes struct{ works **works.Works }
+
+func (t lateTypes) Describe(id works.TypeID) (works.Description, bool) {
+	return (*t.works).Describe(id)
+}
+
 type lateSeeder struct{ trackers **trackers.Trackers }
 
 func (s lateSeeder) Judge(ctx context.Context, r storage.Reader[storage.Library], rows []downloadclients.Row) (map[downloadclients.ID]downloadclients.Judged, error) {
@@ -965,6 +979,14 @@ func (l lateMoves) Moving(ctx context.Context, r storage.Reader[storage.Library]
 
 func (l lateMoves) CancelIn(ctx context.Context, tx *storage.Tx[storage.Library], id downloadclients.ID) error {
 	return (*l.moves).CancelIn(ctx, tx, id)
+}
+
+func (l lateMoves) MovesOf(ctx context.Context, r storage.Reader[storage.Library], ids []downloadclients.ID) (map[downloadclients.ID]downloadclients.Move, error) {
+	return (*l.moves).MovesOf(ctx, r, ids)
+}
+
+func (l lateMoves) UsesClient(ctx context.Context, r storage.Reader[storage.Library], client downloadclients.ClientID) (int64, error) {
+	return (*l.moves).UsesClient(ctx, r, client)
 }
 
 // today is the time now in the Controller's zone.
@@ -1375,4 +1397,22 @@ func (o opener) Open(ref source.Ref) (string, error) {
 		return "", err
 	}
 	return o.store.OpenLibrary(context.Background(), root, rel)
+}
+
+// rootBusy is what uses root: the open Moves naming it, the unfinished
+// Imports into it and the live Transfers into or out of it.
+func rootBusy(ctx context.Context, r storage.Reader[storage.Library], root roots.ID) (roots.Busy, error) {
+	movesIn, err := moves.Busy(ctx, r, root)
+	if err != nil {
+		return roots.Busy{}, err
+	}
+	importsIn, err := imports.RootImports{}.Into(ctx, r, root, nil)
+	if err != nil {
+		return roots.Busy{}, err
+	}
+	transfersIn, err := transfers.UsingRoot(ctx, r, root)
+	if err != nil {
+		return roots.Busy{}, err
+	}
+	return roots.Busy{Moves: int(movesIn), Imports: int(importsIn), Transfers: transfersIn}, nil
 }

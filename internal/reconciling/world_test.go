@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/history/entry/entrytest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
@@ -55,9 +56,13 @@ type world struct {
 	// and each Forget.
 	rehomed []roots.ID
 	scans   [][]roots.ID
-	ending  int
-	ended   int
-	forgot  int
+	// ready is each root its Node reports Ready, and hub carries
+	// roots.changed.
+	ready  map[roots.ID]bool
+	hub    *live.Hub
+	ending int
+	ended  int
+	forgot int
 	// onDisk is each save folder whose files every Node still has.
 	onDisk  map[string]bool
 	history *entrytest.Recorder
@@ -83,6 +88,7 @@ func idle(t *testing.T, page int) *world {
 		lib:  storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), health.Schema(), roots.Schema(), dc.Schema(), indexers.Schema(), reconciling.Schema()),
 		page: page, meta: map[bencode.InfoHash][]byte{}, failing: map[bencode.InfoHash]error{},
 		asked: map[bencode.InfoHash]int{}, touched: map[role.NodeID]int{}, onDisk: map[string]bool{},
+		ready: map[roots.ID]bool{}, hub: live.NewHub([]live.Event{roots.ChangedEvent}),
 	}
 }
 
@@ -115,6 +121,18 @@ func (w *world) start(ctx context.Context) {
 			w.scans = append(w.scans, ids)
 			return nil
 		},
+		Ready: func(context.Context) ([]roots.Root, error) {
+			w.mu.Lock()
+			defer w.mu.Unlock()
+			var out []roots.Root
+			for id, ready := range w.ready {
+				if ready {
+					out = append(out, roots.Root{ID: id})
+				}
+			}
+			return out, nil
+		},
+		Hub: w.hub,
 		Ending: func(context.Context, *storage.Tx[storage.Library]) error {
 			w.mu.Lock()
 			defer w.mu.Unlock()

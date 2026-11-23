@@ -57,32 +57,43 @@ func TestACanceledMoveLeavesNothingAtTheDestination(t *testing.T) {
 }
 
 // TestAMoveCrashedBeforeEachStepEndsMovedOnce stops the Controller just
-// before each step of a Move, on one Node and across Nodes, and starts it
-// again, alone or with a Node the Move touches offline until a minute
-// after: the invariants hold at the restart, and the Move ends done with
-// every file whole at the destination once.
+// before each step of a Move on one Node, from movies-e to movies-f, and
+// starts it again, alone or with den offline until a minute after: the
+// invariants hold at the restart, and the Move ends done with every file
+// whole at the destination once.
 func TestAMoveCrashedBeforeEachStepEndsMovedOnce(t *testing.T) {
 	t.Parallel()
-	for _, to := range []string{"movies-f", "movies-d"} {
-		for _, step := range movestest.Steps {
-			for _, fault := range movestest.Faults(t, to) {
-				t.Run(to+"/"+step+"/"+fault.Name, func(t *testing.T) {
-					t.Parallel()
-					synctest.Test(t, func(t *testing.T) {
-						crash := movestest.CrashAt(step)
-						w := movestest.Launch(t, crash.Option())
-						batch := w.Start(t, to)
-						crash.Reached(t)
-						w.Restart(t, fault)
-						w.Invariants(t, batch)
-						if unit := w.Ended(t, batch); unit.Phase != moves.PhaseDone {
-							t.Fatalf("the unit ended %s %+v, want done", unit.Phase, unit.Failure)
-						}
-						w.Invariants(t, batch)
-						w.Moved(t, to)
-					})
+	crashBeforeEachStep(t, "movies-f")
+}
+
+// TestAMoveAcrossNodesCrashedBeforeEachStepEndsMovedOnce is
+// TestAMoveCrashedBeforeEachStepEndsMovedOnce across Nodes, to seedbox's
+// movies-d, with den or seedbox offline.
+func TestAMoveAcrossNodesCrashedBeforeEachStepEndsMovedOnce(t *testing.T) {
+	t.Parallel()
+	crashBeforeEachStep(t, "movies-d")
+}
+
+func crashBeforeEachStep(t *testing.T, to string) {
+	t.Helper()
+	for _, step := range movestest.Steps {
+		for _, fault := range movestest.Faults(t, to) {
+			t.Run(step+"/"+fault.Name, func(t *testing.T) {
+				t.Parallel()
+				synctest.Test(t, func(t *testing.T) {
+					crash := movestest.CrashAt(step)
+					w := movestest.Launch(t, crash.Option())
+					batch := w.Start(t, to)
+					crash.Reached(t)
+					w.Restart(t, fault)
+					w.Invariants(t, batch)
+					if unit := w.Ended(t, batch); unit.Phase != moves.PhaseDone {
+						t.Fatalf("the unit ended %s %+v, want done", unit.Phase, unit.Failure)
+					}
+					w.Invariants(t, batch)
+					w.Moved(t, to)
 				})
-			}
+			})
 		}
 	}
 }

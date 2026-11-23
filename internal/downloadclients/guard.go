@@ -222,3 +222,21 @@ func (c *Clients) sampleVolume(ctx context.Context, node role.NodeID) error {
 		}
 	}
 }
+
+// DownloadRoom is the bytes node's built-in downloads folder can take
+// before its volume falls below its error level, read in rd. known is
+// false while node hasn't sampled the volume.
+func DownloadRoom(ctx context.Context, rd storage.Reader[file], node role.NodeID) (room int64, known bool, err error) {
+	row, err := db.New(rd).GetVolume(ctx, node)
+	if errors.Is(err, storage.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, err
+	}
+	levels, err := health.LevelsIn(ctx, rd)
+	if err != nil {
+		return 0, false, err
+	}
+	return row.Free - levels.For(node, row.Mount, row.Total).Error.Bytes, true, nil
+}

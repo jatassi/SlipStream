@@ -29,6 +29,8 @@ var (
 	clientNotFound     = api.NewCode(http.StatusNotFound, "download_client_not_found", "No Download Client has this id")
 	clientFieldRefused = api.NewCode(http.StatusUnprocessableEntity, "download_client_field_refused", "SlipStream can't use a value in this client's settings")
 	nodeNotDownloading = api.NewCode(http.StatusConflict, "node_not_downloading", "That Node doesn't have the Downloading Role")
+	clientFilesMissing = api.NewCarrying[filesMissing](http.StatusConflict, "download_client_files_missing", "Some of this client's files aren't at its folders on the new Node", "missing")
+	clientMoving       = api.NewCode(http.StatusConflict, "download_client_moving", "Moves are using this client")
 	clientImporting    = api.NewCode(http.StatusConflict, "download_client_importing", "A Grab is importing from this client")
 )
 
@@ -40,6 +42,9 @@ func answer(err error, names map[nodes.ID]nodes.Named, kind clients.Kind) error 
 		away    *downloadclients.UnavailableError
 		inUse   *downloadclients.InUseError
 		held    *downloadclients.HasTorrentsError
+		missing *downloadclients.FilesMissingError
+		moving  *downloadclients.MovesUseError
+		there   *downloadclients.HeldOnNodeError
 		imports *downloadclients.ImportingError
 		taken   *downloadclients.AddressTakenError
 		refused *downloadclients.RefusedError
@@ -57,7 +62,13 @@ func answer(err error, names map[nodes.ID]nodes.Named, kind clients.Kind) error 
 	case errors.As(err, &inUse):
 		return clientInUse.Because(downloadclients.InUse(name(inUse.Node)))
 	case errors.As(err, &held):
-		return clientHasTorrents.Because(downloadclients.HasTorrents(held.Name, held.Count, held.Moving))
+		return clientHasTorrents.Because(downloadclients.HasTorrents(held.Name, held.Count))
+	case errors.As(err, &missing):
+		return clientFilesMissing.Explained(downloadclients.FilesMissing(name(missing.Node), missing.Count), missingOf(missing))
+	case errors.As(err, &moving):
+		return clientMoving.Because(downloadclients.MovesUse(moving.Name, moving.Count))
+	case errors.As(err, &there):
+		return clientHasTorrents.Because(downloadclients.HeldOnNode(name(there.Node), there.Names))
 	case errors.As(err, &imports):
 		return clientImporting.Because(downloadclients.Importing(imports.Name))
 	case errors.As(err, &taken):
@@ -72,6 +83,24 @@ func answer(err error, names map[nodes.ID]nodes.Named, kind clients.Kind) error 
 		return nodeNotDownloading
 	}
 	return settingapi.Refused(err)
+}
+
+type filesMissing struct {
+	Count int              `json:"count" minimum:"1" doc:"The torrents whose files the new Node didn't find"`
+	First []missingTorrent `json:"first" nullable:"false" doc:"The first 20 of them, in the order SlipStream added them"`
+}
+
+type missingTorrent struct {
+	TorrentID string `json:"torrentId" format:"uuid"`
+	Name      string `json:"name"`
+}
+
+func missingOf(e *downloadclients.FilesMissingError) filesMissing {
+	out := filesMissing{Count: e.Count, First: make([]missingTorrent, len(e.First))}
+	for i, t := range e.First {
+		out.First[i] = missingTorrent{TorrentID: t.ID.String(), Name: t.Name}
+	}
+	return out
 }
 
 // fieldsOf is the fields c names that kind takes.

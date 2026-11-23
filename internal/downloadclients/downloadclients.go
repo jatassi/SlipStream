@@ -233,7 +233,8 @@ type Fault struct {
 
 // MergeTotals records a Node's totals for its Torrent id, keeping the
 // larger of each counter, so a resent or restarted report never lowers
-// them. An id that is not node's Torrent changes nothing.
+// them. An id that is not node's Torrent, or that a Move's switch
+// moved, changes nothing.
 func MergeTotals(ctx context.Context, tx *storage.Tx[file], node role.NodeID, id ID, t Totals) error {
 	return db.New(tx).MergeTotals(ctx, db.MergeTotalsParams{
 		Uploaded:         t.Uploaded,

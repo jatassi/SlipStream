@@ -8,10 +8,10 @@ import { counted, signalParts, todayWords } from "./words";
 /** The jobs part, which says they wait for Reconciling while a restore is matched. */
 function jobsStatus(moving: number, counts: ShellCounts): StatusPart {
   if (moving === 0) {
-    return { kind: "plain", text: "Nothing moving" };
+    return { kind: "plain", text: "Nothing running" };
   }
   if (counts.reconciling === null) {
-    return { kind: "live", text: counted(moving, "job moving", "jobs moving") };
+    return { kind: "live", text: counted(moving, "job running", "jobs running") };
   }
   const jobs = counted(moving, "job", "jobs");
   return {

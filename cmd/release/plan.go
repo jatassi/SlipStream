@@ -51,7 +51,9 @@ type touched struct {
 // slowed the simulation package past go test's 20 minute limit under -race,
 // and in two, the simulation package's part with the subtitles tests ran
 // past go test's 25 minute limit on linux-amd64. darwin-arm64 runs it in
-// four: in three, that part passed the same limit there.
+// four: in three, that part passed the same limit there. Each target gained
+// a shard with S48's Move crash matrices, 54 cases that run 20 minutes on
+// 4 CPUs under -race, which put a three-shard part past that limit.
 // Windows runs the go tier in three: in two, internal/files, worksapi and
 // grabs shared a runner past the job's 30 minute limit.
 var lanes = []lane{
@@ -59,7 +61,7 @@ var lanes = []lane{
 	{kind: "lint", tier: "lint", savesCaches: true, shards: map[string]int{"linux-amd64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
 	{kind: "lint-repo", tier: "lint", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "go", tier: "go", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 3}},
-	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 3, "linux-arm64": 3, "windows-amd64": 3, "darwin-arm64": 4}},
+	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 4, "linux-arm64": 4, "windows-amd64": 4, "darwin-arm64": 5}},
 	{kind: "browser", tier: "browser", shards: map[string]int{"linux-amd64": 6, "linux-arm64": 2, "windows-amd64": 4, "darwin-arm64": 6}},
 	{kind: "component", tier: "component", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "diagram", tier: "component", shards: map[string]int{"linux-amd64": 1}, onlyWhen: func(t touched) bool { return t.diagram }},

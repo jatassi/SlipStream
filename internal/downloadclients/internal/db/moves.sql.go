@@ -354,6 +354,42 @@ func (q *Queries) ListMoveSources(ctx context.Context, ids []TorrentID) ([]ListM
 	return items, nil
 }
 
+const listTorrentsInClient = `-- name: ListTorrentsInClient :many
+SELECT id FROM downloadclients_torrent
+WHERE node_id = ?1 AND client_id IS ?2 AND removed_at IS NULL AND arriving_unit IS NULL
+ORDER BY added_order
+`
+
+type ListTorrentsInClientParams struct {
+	NodeID   role.NodeID
+	ClientID *ClientID
+}
+
+// A client's live Torrents a Move can name, a Move's arriving ones left
+// out, in added order. A NULL client is node's built-in one.
+func (q *Queries) ListTorrentsInClient(ctx context.Context, arg ListTorrentsInClientParams) ([]TorrentID, error) {
+	rows, err := q.db.QueryContext(ctx, listTorrentsInClient, arg.NodeID, arg.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TorrentID
+	for rows.Next() {
+		var id TorrentID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeMoved = `-- name: RemoveMoved :execrows
 UPDATE downloadclients_torrent SET removed_at = ?1, removed_reason = 'moved', delete_files = 1,
     watch_announce = 0, announced_at = NULL, announce_due_at = NULL, paused_at = NULL

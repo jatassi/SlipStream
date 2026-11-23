@@ -28,7 +28,7 @@ func copyRequest(u Unit) transfers.Request {
 		Destination: transfers.Root{ID: u.Subject.To.Root}, Priority: transfers.Low,
 	}
 	for _, f := range u.Files {
-		if f.Placed == nil {
+		if f.Placed == nil && f.Via != ViaArriving {
 			r.Files = append(r.Files, transfers.FileRequest{Group: groupOf(u.pass()), Name: path.Base(f.Sits.String()), Source: sourceOf(u, f), Size: f.Size})
 		}
 	}

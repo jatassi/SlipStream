@@ -201,6 +201,18 @@ type Inflight interface {
 	Release(ctx context.Context, tx *storage.Tx[file], root ID) error
 }
 
+// Busy is how many open Moves, unfinished Imports and live Transfers use
+// a root.
+type Busy struct{ Moves, Imports, Transfers int }
+
+func (b Busy) Zero() bool { return b == Busy{} }
+
+// Rehomed is what follows a root to its new place: mediaservers
+// unconfirms the root's Path mappings.
+type Rehomed interface {
+	Rehomed(ctx context.Context, tx *storage.Tx[file], root ID) error
+}
+
 type Roster interface {
 	Holds(r role.Name, node role.NodeID) bool
 	InStep(node role.NodeID) bool
@@ -225,9 +237,14 @@ type Config struct {
 	Arrivals *Arrivals
 	Contents Contents
 	Inflight Inflight
-	// Busy is how many open Moves use root, read in r: the moves hook.
-	// None when nil.
-	Busy    func(ctx context.Context, r storage.Reader[file], root ID) (int64, error)
+	// Busy is what uses root, read in r: composed of the moves, imports
+	// and transfers counts.
+	Busy func(ctx context.Context, r storage.Reader[file], root ID) (Busy, error)
+	// Reconciling is whether Reconciling runs, read in r. Every Move,
+	// Import and Transfer waits while it does, so none keeps a root busy.
+	Reconciling func(ctx context.Context, r storage.Reader[file]) (bool, error)
+	// Rehomed is told, in the Write that moves a root, that it moved.
+	Rehomed Rehomed
 	Changed Publisher
 	Volumes VolumesPublisher
 	// Cadence tells the torrent clients, which sample their downloads
@@ -272,9 +289,6 @@ type Roots struct {
 // root, as the first root of a type does, and publishes only when it
 // wrote.
 func Open(ctx context.Context, cfg Config) (*Roots, error) {
-	if cfg.Busy == nil {
-		cfg.Busy = func(context.Context, storage.Reader[file], ID) (int64, error) { return 0, nil }
-	}
 	var homed []ID
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error

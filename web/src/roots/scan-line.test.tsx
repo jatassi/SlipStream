@@ -35,6 +35,7 @@ const menuItems = async (root: RootsRoot) => {
   return items;
 };
 
+const rowActions = ["Edit", "Move root…", "Delete"];
 test("a root never scanned says so, and a scanned root says when and what the scan found", async () => {
   serveRoots({ roots: [filmsRoot, { ...archiveRoot, scan: scanned }] });
   openRoots();
@@ -56,7 +57,7 @@ test("each root's row is the anchor Library Health's stopped item links to", asy
 test("Scan now scans the root and names it", async () => {
   const { sent } = serveRoots({ roots: [{ ...filmsRoot, scan: scanned }] });
   openRoots();
-  expect(await menuItems(filmsRoot)).toEqual(["Scan now", "Edit", "Delete"]);
+  expect(await menuItems(filmsRoot)).toEqual(["Scan now", ...rowActions]);
   await act(filmsRoot, "Scan now");
   await expect
     .element(page.getByText("Library scan started for the Films library root on home."))
@@ -105,7 +106,7 @@ test("while its unit runs, the line follows each step from progress frames, and 
   });
   step({ key, phase: "probing", done: 13, total: 40 });
   await expect.element(row.getByText("Reading media info, 13 of 40 files")).toBeVisible();
-  expect(await menuItems(filmsRoot)).toEqual(["Cancel library scan", "Edit", "Delete"]);
+  expect(await menuItems(filmsRoot)).toEqual(["Cancel library scan", ...rowActions]);
 
   live.clients[0]?.send({ event: "tasks.changed", data: { taskId: "library-scan" } });
   await expect
@@ -136,7 +137,7 @@ test("a stopped scan shows why, and Mark them gone states the count before it ma
   const { sent } = serveRoots({ roots: [{ ...filmsRoot, scan: stopped }] });
   openRoots();
   await expect.element(rowOf(filmsRoot).getByText(stopped.summary)).toBeVisible();
-  expect(await menuItems(filmsRoot)).toEqual(["Mark them gone", "Scan now", "Edit", "Delete"]);
+  expect(await menuItems(filmsRoot)).toEqual(["Mark them gone", "Scan now", ...rowActions]);
   await act(filmsRoot, "Mark them gone");
   const dialog = page.getByRole("dialog", { name: "Mark 1,912 files gone?" });
   await expect

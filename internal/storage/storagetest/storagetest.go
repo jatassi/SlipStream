@@ -2,6 +2,9 @@ package storagetest
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -30,7 +33,10 @@ func Local(t testing.TB, schemas ...storage.Schema[storage.Local]) *storage.DB[s
 
 func opened[F storage.File](t testing.TB, name string, schemas []storage.Schema[F], open opener[F]) *storage.DB[F] {
 	t.Helper()
-	file := imageOf(t, name, schemas, open)
+	file, err := imageOf(name, schemas, open)
+	if err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(t.TempDir(), name)
 	if err := os.WriteFile(path, file, 0o600); err != nil {
 		t.Fatal(err)
@@ -47,6 +53,25 @@ func opened[F storage.File](t testing.TB, name string, schemas []storage.Schema[
 	return db
 }
 
+// SeedLibrary writes a library.db at path that schemas have already
+// migrated, unless path holds a file, for node.Test's SeedLibrary. It may
+// run off the test goroutine, so it returns its error.
+func SeedLibrary(path string, schemas []storage.Schema[storage.Library]) error {
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("seed library.db: %w", err)
+	}
+	file, err := imageOf(storage.LibraryFile, schemas, openLibrary)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, file, 0o600); err != nil {
+		return fmt.Errorf("seed library.db: %w", err)
+	}
+	return nil
+}
+
 // image is a file freshly migrated with schemas. Migrating costs seconds
 // under -race, so each schema list migrates once per test binary and every
 // later open starts from a copy of the file already at its target. A clean
@@ -61,29 +86,33 @@ var images struct {
 	list []image
 }
 
-func imageOf[F storage.File](t testing.TB, name string, schemas []storage.Schema[F], open opener[F]) []byte {
-	t.Helper()
+func imageOf[F storage.File](name string, schemas []storage.Schema[F], open opener[F]) (file []byte, err error) {
 	images.mu.Lock()
 	defer images.mu.Unlock()
 	for _, img := range images.list {
 		if reflect.DeepEqual(img.schemas, schemas) {
-			return img.file
+			return img.file, nil
 		}
 	}
-	path := filepath.Join(t.TempDir(), name)
+	dir, err := os.MkdirTemp("", "image")
+	if err != nil {
+		return nil, fmt.Errorf("migrate %s image: %w", name, err)
+	}
+	defer func() { err = errors.Join(err, os.RemoveAll(dir)) }()
+	path := filepath.Join(dir, name)
 	db, err := open(context.Background(), path, schemas, slog.New(slog.DiscardHandler))
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 	if err := db.Close(); err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-	file, err := os.ReadFile(path) //nolint:gosec // G304: a file in the test's own temporary directory
+	file, err = os.ReadFile(path) //nolint:gosec // G304: a file in our own temporary directory
 	if err != nil {
-		t.Fatal(err)
+		return nil, fmt.Errorf("migrate %s image: %w", name, err)
 	}
 	images.list = append(images.list, image{schemas: slices.Clone(schemas), file: file})
-	return file
+	return file, nil
 }
 
 func openLibrary(ctx context.Context, path string, schemas []storage.Schema[storage.Library], log *slog.Logger) (*storage.DB[storage.Library], error) {

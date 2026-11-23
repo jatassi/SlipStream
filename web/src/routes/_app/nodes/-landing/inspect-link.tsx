@@ -1,4 +1,6 @@
-import { useSyncExternalStore } from "react";
+import { Suspense, useSyncExternalStore } from "react";
+
+import { useListTransfersSuspense } from "../../../../api/gen/query/transfers/transfers";
 
 import { subscribeTraffic, trafficPair } from "../../../../live/traffic";
 import { Details } from "../../../../ui/details";
@@ -43,11 +45,39 @@ export function LinkWords({
           </p>
         )}
       </InspectorSection>
+      <Suspense fallback={null}>
+        <MovesOnLink controllerId={landing.nodes[0]?.id ?? ""} worker={worker} />
+      </Suspense>
       {link.dialer !== undefined && (
         <Details summary={`${dialer} connected to ${listener}.`}>
           <p>The moving dots are brightest at the Node that opened the connection.</p>
         </Details>
       )}
     </>
+  );
+}
+
+/** The Moves whose files cross the link now, each with the way it goes. */
+function MovesOnLink({ controllerId, worker }: { controllerId: string; worker: NodeRow }) {
+  const { transfers } = useListTransfersSuspense({ nodeId: worker.id }).data;
+  const moving = transfers.filter(
+    ({ purpose, state, source, destination }) =>
+      purpose === "move" &&
+      state !== "failed" &&
+      (source.nodeId === controllerId || destination.nodeId === controllerId),
+  );
+  if (moving.length === 0) {
+    return null;
+  }
+  return (
+    <InspectorSection title="Moving on this link">
+      <ul className="flex flex-col gap-1">
+        {moving.map((transfer) => (
+          <li key={transfer.id}>
+            {transfer.jobName}, from {transfer.source.nodeName} to {transfer.destination.nodeName}
+          </li>
+        ))}
+      </ul>
+    </InspectorSection>
   );
 }

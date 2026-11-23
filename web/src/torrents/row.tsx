@@ -5,12 +5,11 @@ import type { LiveRow } from "../live/torrents";
 import { QualityName } from "../release/quality";
 import { Data } from "../ui/data";
 import { Artwork } from "../ui/artwork";
-import { Mark } from "../ui/state-mark";
-import { type Row, rateWords, stateLine, trackerLine } from "./model";
+import { type Row, rateWords, trackerLine } from "./model";
 import type { Names } from "./names";
-import { torrentMark } from "./terms";
 
 export { ProgressCell } from "./progress-cell";
+export { StateCell } from "./state-cell";
 
 export type CellProps = {
   readonly row: Row;
@@ -57,17 +56,6 @@ export function WorkCell(props: CellProps) {
     <span className="flex min-w-0 items-center gap-3">
       <Artwork use="poster" size="row" url={props.names.poster(props.row.workId)} />
       <WorkLines {...props} />
-    </span>
-  );
-}
-
-export function StateCell({ row, live, names, clock }: CellProps) {
-  return (
-    <span className="flex min-w-0 flex-col items-start gap-0.5">
-      <Mark mark={torrentMark(row)} />
-      <span className="max-w-full truncate text-meta text-ink-3">
-        {stateLine(row, live, { node: names.node(row.nodeId), clock })}
-      </span>
     </span>
   );
 }

@@ -45,7 +45,8 @@ var (
 	workNotFound     = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 	rootNotFound     = api.NewCode(http.StatusNotFound, "root_not_found", "No root has that id")
 	torrentNotFound  = api.NewCode(http.StatusNotFound, "torrent_not_found", "No torrent has that id")
-	emptyAsk         = api.NewCode(http.StatusUnprocessableEntity, "move_ask_empty", "Pick a Work or a torrent to move.")
+	clientNotFound   = api.NewCode(http.StatusNotFound, "download_client_not_found", "No Download Client has this id")
+	emptyAsk         = api.NewCode(http.StatusUnprocessableEntity, "move_ask_empty", "Pick a Work, a root, a torrent or a Download Client to move.")
 )
 
 // answer is err as its problem.
@@ -163,10 +164,35 @@ type torrentTo struct {
 	ClientID  string `json:"clientId,omitempty" format:"uuid" doc:"The external Download Client it moves to; absent for the Node's built-in client"`
 }
 
+type rootTo struct {
+	RootID string `json:"rootId" format:"uuid" doc:"The library root whose every Work moves"`
+	To     string `json:"to" format:"uuid" doc:"The library root they move to"`
+}
+
+type side struct {
+	NodeID   string `json:"nodeId" format:"uuid"`
+	ClientID string `json:"clientId,omitempty" format:"uuid" doc:"An external Download Client; absent for the Node's built-in client"`
+}
+
+type clientTo struct {
+	NodeID   string `json:"nodeId" format:"uuid" doc:"The Node of the Download Client whose every torrent moves"`
+	ClientID string `json:"clientId,omitempty" format:"uuid" doc:"The external Download Client; absent for the Node's built-in client"`
+	To       side   `json:"to" doc:"The Download Client they move to"`
+}
+
+type moveOptions struct {
+	IncludeLinkedTorrents bool `json:"includeLinkedTorrents,omitempty" doc:"Also move the seeding torrent a Work's files are linked to"`
+	RepointRouting        bool `json:"repointRouting,omitempty" doc:"Have each Tracker's new Grabs go to the client its torrents move to"`
+	DeleteEmptiedRoots    bool `json:"deleteEmptiedRoots,omitempty" doc:"Delete each root the Move empties, once every unit ends"`
+}
+
 type moveAsk struct {
-	Origin   string      `json:"origin" enum:"work,bulk,torrent" doc:"Where the Admin starts it: a Work's page, the Library's bulk bar, or the Torrent table"`
-	Works    []workTo    `json:"works" maxItems:"10000" nullable:"false" doc:"At least one Work or torrent"`
+	Origin   string      `json:"origin" enum:"work,bulk,root,drain,client,torrent" doc:"Where the Admin starts it: a Work's page, the Library's bulk bar, a root's row, a Node's drain, a Download Client, or the Torrent table"`
+	Works    []workTo    `json:"works" maxItems:"10000" nullable:"false" doc:"At least one Work, root, torrent or client"`
+	Roots    []rootTo    `json:"roots,omitempty" maxItems:"100"`
 	Torrents []torrentTo `json:"torrents,omitempty" maxItems:"10000"`
+	Clients  []clientTo  `json:"clients,omitempty" maxItems:"100"`
+	Options  moveOptions `json:"options,omitempty"`
 }
 
 type previewInput struct{ Body moveAsk }
@@ -318,29 +344,14 @@ func uuidOf(s string) (storage.UUID, error) {
 type handlers struct{ n Mover }
 
 func (h handlers) preview(ctx context.Context, _ identity.Admin, in *previewInput) (*previewOutput, error) {
-	m := open(h.n)
-	ask := moves.Ask{Origin: moves.Origin(in.Body.Origin)}
-	for _, w := range in.Body.Works {
-		work, err := storage.ParseUUID(w.WorkID)
-		if err != nil {
-			return nil, workNotFound
-		}
-		root, err := storage.ParseUUID(w.RootID)
-		if err != nil {
-			return nil, rootNotFound
-		}
-		ask.Works = append(ask.Works, moves.WorkTo{Work: works.WorkID{UUID: work}, To: roots.ID{UUID: root}})
+	ask, err := askOf(in.Body)
+	if err != nil {
+		return nil, err
 	}
-	for _, t := range in.Body.Torrents {
-		to, err := torrentToOf(t)
-		if err != nil {
-			return nil, err
-		}
-		ask.Torrents = append(ask.Torrents, to)
-	}
-	if len(ask.Works) == 0 && len(ask.Torrents) == 0 {
+	if len(ask.Works) == 0 && len(ask.Roots) == 0 && len(ask.Torrents) == 0 && len(ask.Clients) == 0 {
 		return nil, emptyAsk
 	}
+	m := open(h.n)
 	p, err := m.Preview(ctx, ask)
 	if err != nil {
 		return nil, answer(err)
@@ -348,24 +359,96 @@ func (h handlers) preview(ctx context.Context, _ identity.Admin, in *previewInpu
 	return h.answerPlan(ctx, m, p)
 }
 
+func askOf(b moveAsk) (moves.Ask, error) {
+	o := b.Options
+	ask := moves.Ask{
+		Origin:  moves.Origin(b.Origin),
+		Options: moves.Options{IncludeLinkedTorrents: o.IncludeLinkedTorrents, RepointRouting: o.RepointRouting, DeleteEmptiedRoots: o.DeleteEmptiedRoots},
+	}
+	var err error
+	if ask.Works, err = each(b.Works, workToOf); err != nil {
+		return moves.Ask{}, err
+	}
+	if ask.Roots, err = each(b.Roots, rootToOf); err != nil {
+		return moves.Ask{}, err
+	}
+	if ask.Torrents, err = each(b.Torrents, torrentToOf); err != nil {
+		return moves.Ask{}, err
+	}
+	if ask.Clients, err = each(b.Clients, clientToOf); err != nil {
+		return moves.Ask{}, err
+	}
+	return ask, nil
+}
+
+func each[In, Out any](ins []In, of func(In) (Out, error)) ([]Out, error) {
+	var out []Out
+	for _, in := range ins {
+		o, err := of(in)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, nil
+}
+
+func workToOf(w workTo) (moves.WorkTo, error) {
+	work, err := storage.ParseUUID(w.WorkID)
+	if err != nil {
+		return moves.WorkTo{}, workNotFound
+	}
+	root, err := storage.ParseUUID(w.RootID)
+	if err != nil {
+		return moves.WorkTo{}, rootNotFound
+	}
+	return moves.WorkTo{Work: works.WorkID{UUID: work}, To: roots.ID{UUID: root}}, nil
+}
+
+func rootToOf(rt rootTo) (moves.RootTo, error) {
+	from, err := storage.ParseUUID(rt.RootID)
+	if err != nil {
+		return moves.RootTo{}, rootNotFound
+	}
+	to, err := storage.ParseUUID(rt.To)
+	if err != nil {
+		return moves.RootTo{}, rootNotFound
+	}
+	return moves.RootTo{Root: roots.ID{UUID: from}, To: roots.ID{UUID: to}}, nil
+}
+
+func clientToOf(c clientTo) (moves.ClientTo, error) {
+	from, err := sideOf(side{NodeID: c.NodeID, ClientID: c.ClientID})
+	if err != nil {
+		return moves.ClientTo{}, err
+	}
+	to, err := sideOf(c.To)
+	return moves.ClientTo{From: from, To: to}, err
+}
+
 func torrentToOf(t torrentTo) (moves.TorrentTo, error) {
 	id, err := storage.ParseUUID(t.TorrentID)
 	if err != nil {
 		return moves.TorrentTo{}, torrentNotFound
 	}
-	node, err := storage.ParseUUID(t.NodeID)
+	to, err := sideOf(side{NodeID: t.NodeID, ClientID: t.ClientID})
+	return moves.TorrentTo{Torrent: downloadclients.ID{UUID: id}, To: to}, err
+}
+
+func sideOf(s side) (moves.Side, error) {
+	node, err := storage.ParseUUID(s.NodeID)
 	if err != nil {
-		return moves.TorrentTo{}, torrentNotFound
+		return moves.Side{}, clientNotFound
 	}
-	to := moves.TorrentTo{Torrent: downloadclients.ID{UUID: id}, To: moves.Side{Node: role.NodeID{UUID: node}}}
-	if t.ClientID != "" {
-		c, err := storage.ParseUUID(t.ClientID)
+	out := moves.Side{Node: role.NodeID{UUID: node}}
+	if s.ClientID != "" {
+		c, err := storage.ParseUUID(s.ClientID)
 		if err != nil {
-			return moves.TorrentTo{}, torrentNotFound
+			return moves.Side{}, clientNotFound
 		}
-		to.To.Client = &downloadclients.ClientID{UUID: c}
+		out.Client = &downloadclients.ClientID{UUID: c}
 	}
-	return to, nil
+	return out, nil
 }
 
 func (h handlers) answerPlan(ctx context.Context, m *moves.Moves, p moves.Plan) (*previewOutput, error) {
@@ -492,7 +575,7 @@ func Routes(r *api.Router, n Mover) {
 	api.Register(o, api.Admin, api.Op{
 		ID: "previewMoves", Method: http.MethodPost, Path: "/moves/preview",
 		Summary: "Preview moving Works to other library roots, or torrents to other Download Clients: a verdict for each, and a token to start it with",
-		Status:  http.StatusOK, Errors: []*api.Code{workNotFound, rootNotFound, torrentNotFound, emptyAsk}, Gzip: true,
+		Status:  http.StatusOK, Errors: []*api.Code{workNotFound, rootNotFound, torrentNotFound, clientNotFound, emptyAsk}, Gzip: true,
 	}, h.preview)
 
 	api.Register(o, api.Admin, api.Op{
@@ -521,7 +604,7 @@ func Routes(r *api.Router, n Mover) {
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "previewMoveBack", Method: http.MethodGet, Path: "/moves/{batchId}/back",
-		Summary: "Preview moving a Move's Works back to the roots they left",
+		Summary: "Preview moving a Move's Works back to the roots they left, and its torrents back to the Download Clients they left",
 		Status:  http.StatusOK, Errors: []*api.Code{moveNotFound}, Gzip: true,
 	}, h.back)
 

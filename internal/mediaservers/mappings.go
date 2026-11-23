@@ -2,9 +2,9 @@ package mediaservers
 
 import (
 	"context"
-	"errors"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
@@ -287,44 +287,37 @@ func (m *MediaServers) saveMapping(ctx context.Context, q *db.Queries, id link.S
 	return q.QueueLibrary(ctx, db.QueueLibraryParams{ID: link.ChangeID{UUID: storage.NewUUID()}, ServerID: id, RootID: mp.Root, At: now})
 }
 
-// unconfirm clears the confirmation of every mapping whose root moved to
-// another place since the Admin confirmed it: its changes wait until the
-// Admin confirms the mapping again.
-func (m *MediaServers) unconfirm(ctx context.Context) {
-	var servers []link.ServerID
-	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		servers = nil
-		all, err := roots.All(ctx, tx)
-		if err != nil {
-			return err
-		}
-		places := map[roots.ID]int64{}
-		for _, root := range all {
-			places[root.ID] = root.Place
-		}
-		q := db.New(tx)
-		mappings, err := q.ListAllMappings(ctx)
-		if err != nil {
-			return err
-		}
-		for _, mp := range mappings {
-			if mp.ConfirmedPlace == nil || *mp.ConfirmedPlace == places[mp.RootID] {
-				continue
-			}
-			if err := q.Unconfirm(ctx, db.UnconfirmParams{ServerID: mp.ServerID, RootID: mp.RootID}); err != nil {
-				return err
-			}
-			if !slices.Contains(servers, mp.ServerID) {
-				servers = append(servers, mp.ServerID)
-			}
-		}
-		return nil
-	})
-	switch {
-	case err != nil && !errors.Is(err, context.Canceled):
-		m.cfg.Log.Error("unconfirm the Path mappings of re-homed roots", "err", err.Error())
-	case len(servers) > 0:
-		m.cfg.Log.Info("unconfirmed the Path mappings of re-homed roots", "servers", len(servers))
-		m.changed(ctx, servers...)
+// Rehomed clears, in the Write that moves root, the confirmation of its
+// mappings: their changes wait until the Admin confirms them again. The
+// roots.changed after the Write publishes the servers it unconfirmed.
+func (m *MediaServers) Rehomed(ctx context.Context, tx *storage.Tx[storage.Library], root roots.ID) error {
+	q := db.New(tx)
+	ids, err := q.ListConfirmedOfRoot(ctx, root)
+	if err != nil {
+		return err
 	}
+	if err := q.UnconfirmRoot(ctx, root); err != nil {
+		return err
+	}
+	m.unconfirmed.add(ids)
+	return nil
+}
+
+type unconfirmed struct {
+	mu  sync.Mutex
+	ids []link.ServerID
+}
+
+func (u *unconfirmed) add(ids []link.ServerID) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.ids = append(u.ids, ids...)
+}
+
+func (u *unconfirmed) take() []link.ServerID {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	ids := u.ids
+	u.ids = nil
+	return ids
 }

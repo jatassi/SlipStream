@@ -2,9 +2,9 @@ import { HttpResponse } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { downloadClients, homeCard } from "../test/download-clients";
+import { downloadClients, homeCard, seedboxCard } from "../test/download-clients";
 import { attic, passed, refusal, withExternals } from "../test/external-clients";
-import { homeId } from "../test/nodes";
+import { homeId, seedboxId } from "../test/nodes";
 import { renderApp } from "../test/render-app";
 
 const path = "/settings/download-clients";
@@ -232,4 +232,43 @@ test("a Deluge whose web UI lists more than one daemon offers them and tests aga
   await expect
     .element(adding().getByRole("combobox", { name: "Daemon" }))
     .toHaveTextContent("192.168.1.30:58846");
+});
+
+test("Move client… changes its Node, and a Node that doesn't find the torrents' files names them", async () => {
+  const clients = downloadClients({ cards: [withExternals(homeCard, attic), seedboxCard] });
+  clients.state.answers.update = () =>
+    refusal(409, {
+      code: "download_client_files_missing",
+      title: "Some of this client's files aren't at its folders on the new Node",
+      detail:
+        "seedbox didn't find the files of 2 torrents at this client's folders. Check each Client folder's path on seedbox.",
+      missing: {
+        count: 2,
+        first: [
+          { torrentId: "t1", name: "Orchard" },
+          { torrentId: "t2", name: "Harbor" },
+        ],
+      },
+    });
+  renderApp({ path, handlers: clients.handlers });
+  await userEvent.click(page.getByRole("button", { name: "Move client…" }));
+  await expect
+    .element(
+      sheet("Move Transmission").getByText(
+        "If this client now runs on another Node, change its Node. Nothing is copied. To copy its torrents into another client, move them.",
+      ),
+    )
+    .toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Change its Node" }));
+  const changing = sheet("Change the Node of Transmission");
+  await pick("Node", "seedbox");
+  await userEvent.click(changing.getByRole("button", { name: "Save" }));
+  await expect
+    .element(
+      changing.getByText(
+        "seedbox didn't find the files of 2 torrents at this client's folders. Check each Client folder's path on seedbox. Not found: Orchard, Harbor.",
+      ),
+    )
+    .toBeVisible();
+  expect(clients.writes.at(-1)).toEqual({ path: attic.id, body: { nodeId: seedboxId } });
 });

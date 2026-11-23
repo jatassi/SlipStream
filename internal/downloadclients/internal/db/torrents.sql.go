@@ -24,7 +24,7 @@ UPDATE downloadclients_torrent SET
     raw_uploaded = ?5, raw_downloaded = ?6,
     raw_active_seconds = ?7, raw_seeding_seconds = ?8,
     totals_at = ?9
-WHERE id = ?10 AND node_id = ?11
+WHERE id = ?10 AND node_id = ?11 AND removed_reason IS NOT 'moved'
 `
 
 type AddCountedParams struct {
@@ -41,6 +41,7 @@ type AddCountedParams struct {
 	NodeID            role.NodeID
 }
 
+// As MergeTotals, a moved Torrent's totals are final.
 func (q *Queries) AddCounted(ctx context.Context, arg AddCountedParams) error {
 	_, err := q.db.ExecContext(ctx, addCounted,
 		arg.Uploaded,
@@ -1549,7 +1550,7 @@ UPDATE downloadclients_torrent SET
     seeding_seconds = MAX(seeding_seconds, CAST(?4 AS INTEGER)),
     announced_seconds = MAX(announced_seconds, CAST(?5 AS INTEGER)),
     totals_at = ?6
-WHERE id = ?7 AND node_id = ?8
+WHERE id = ?7 AND node_id = ?8 AND removed_reason IS NOT 'moved'
 `
 
 type MergeTotalsParams struct {
@@ -1563,6 +1564,8 @@ type MergeTotalsParams struct {
 	NodeID           role.NodeID
 }
 
+// A Move's switch carried a moved Torrent's totals as final, so a late
+// report of it changes nothing.
 func (q *Queries) MergeTotals(ctx context.Context, arg MergeTotalsParams) error {
 	_, err := q.db.ExecContext(ctx, mergeTotals,
 		arg.Uploaded,

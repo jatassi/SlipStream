@@ -263,3 +263,10 @@ SELECT * FROM grabs_carry ORDER BY grab_id;
 
 -- name: DeleteCarried :exec
 DELETE FROM grabs_carry WHERE grab_id = sqlc.arg(grab_id);
+
+-- name: ListTorrentsOfWorks :many
+-- The torrents each of works imported from: a Move takes one with a Work
+-- whose files are links to its payload.
+SELECT DISTINCT work_id, torrent_id FROM grabs_grab
+WHERE work_id IN (sqlc.slice(works)) AND stage = 'imported' AND torrent_id IS NOT NULL
+ORDER BY work_id, torrent_id;

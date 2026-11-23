@@ -42,7 +42,7 @@ test("seedbox's Transfers say nothing moves and save a send limit the Node reads
 }, testInfo) => {
   const seedbox = await nodeId(world, "seedbox");
   await openTransfers(page, seedbox, "seedbox");
-  await expect(page.getByText("Nothing moving", { exact: true })).toBeVisible();
+  await expect(page.getByText("Nothing running", { exact: true })).toBeVisible();
 
   await page.getByRole("textbox", { name: "Send limit" }).fill("10");
   await page.getByRole("main").getByRole("button", { name: "Save", exact: true }).click();
@@ -88,6 +88,6 @@ test.describe("between two Workers", () => {
 
     await expect(job).toContainText("Imported", { timeout: 90_000 });
     await openTransfers(page, nas, "nas");
-    await expect(page.getByText("Nothing moving", { exact: true })).toBeVisible();
+    await expect(page.getByText("Nothing running", { exact: true })).toBeVisible();
   });
 });

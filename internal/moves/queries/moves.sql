@@ -1,7 +1,7 @@
 -- name: InsertBatch :exec
-INSERT INTO moves_batch (id, origin, created_at, created_by, homed_works, include_torrents, repoint_routing, delete_emptied_roots, plan_token_hash)
+INSERT INTO moves_batch (id, origin, created_at, created_by, homed_works, include_torrents, repoint_routing, delete_emptied_roots, plan_token_hash, notes)
 VALUES (sqlc.arg(id), sqlc.arg(origin), sqlc.arg(created_at), sqlc.arg(created_by), sqlc.arg(homed_works), sqlc.arg(include_torrents),
-    sqlc.arg(repoint_routing), sqlc.arg(delete_emptied_roots), sqlc.arg(plan_token_hash));
+    sqlc.arg(repoint_routing), sqlc.arg(delete_emptied_roots), sqlc.arg(plan_token_hash), sqlc.arg(notes));
 
 -- name: BatchOfToken :one
 SELECT * FROM moves_batch WHERE plan_token_hash = sqlc.arg(hash);
@@ -48,11 +48,11 @@ SELECT CAST(coalesce(max(seq), 0) + 1 AS INTEGER) FROM moves_unit;
 
 -- name: InsertUnit :exec
 INSERT INTO moves_unit (id, batch_id, seq, position, kind, work_id, content_type, torrent_id, from_root_id, from_node_id, from_client_id,
-    to_root_id, to_node_id, to_client_id, lane, phase, waiting, waiting_at, due_at, planned_bytes, planned_at, notes)
+    to_root_id, to_node_id, to_client_id, lane, phase, waiting, waiting_at, due_at, pairs_with_unit_id, planned_bytes, planned_at, notes)
 VALUES (sqlc.arg(id), sqlc.arg(batch_id), sqlc.arg(seq), sqlc.arg(position), sqlc.arg(kind), sqlc.narg(work_id), sqlc.narg(content_type),
     sqlc.narg(torrent_id), sqlc.narg(from_root_id), sqlc.arg(from_node_id), sqlc.narg(from_client_id), sqlc.narg(to_root_id), sqlc.arg(to_node_id),
-    sqlc.narg(to_client_id), sqlc.arg(lane), 'queued', sqlc.narg(waiting), sqlc.arg(waiting_at), sqlc.arg(due_at), sqlc.arg(planned_bytes),
-    sqlc.arg(planned_at), sqlc.arg(notes));
+    sqlc.narg(to_client_id), sqlc.arg(lane), 'queued', sqlc.narg(waiting), sqlc.arg(waiting_at), sqlc.arg(due_at), sqlc.narg(pairs_with_unit_id),
+    sqlc.arg(planned_bytes), sqlc.arg(planned_at), sqlc.arg(notes));
 
 -- name: GetUnit :one
 SELECT * FROM moves_unit WHERE id = sqlc.arg(id);
@@ -134,6 +134,14 @@ SELECT * FROM moves_unit
 WHERE torrent_id IN (sqlc.slice(torrents)) AND (phase IN ('queued', 'transfer', 'place', 'switch') OR keeps_copy = 1)
 ORDER BY seq;
 
+-- name: CountClientUnits :one
+-- A unit uses its clients until it ends, and a failed one while it keeps
+-- its copy.
+SELECT count(*) FROM moves_unit
+WHERE kind = 'torrent' AND (from_client_id = sqlc.arg(client) OR to_client_id = sqlc.arg(client))
+    AND (phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup') OR keeps_copy = 1
+        OR (phase IN ('failed', 'canceled') AND undone_at IS NULL));
+
 -- name: ListOpenUnitsOfTorrents :many
 SELECT * FROM moves_unit
 WHERE torrent_id IN (sqlc.slice(torrents)) AND (phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup') OR keeps_copy = 1)
@@ -171,9 +179,27 @@ WHERE phase = 'failed' OR (phase = 'switch' AND waiting IS NOT NULL AND waiting_
 ORDER BY seq DESC LIMIT sqlc.arg(n);
 
 -- name: InsertUnitFile :exec
-INSERT INTO moves_unit_file (unit_id, position, kind, file_id, sits_rel, payload_index, size, modified_at, node_file_id, node_volume_id, ledger)
-VALUES (sqlc.arg(unit_id), sqlc.arg(position), sqlc.arg(kind), sqlc.narg(file_id), sqlc.arg(sits_rel), sqlc.narg(payload_index), sqlc.arg(size),
-    sqlc.arg(modified_at), sqlc.narg(node_file_id), sqlc.narg(node_volume_id), sqlc.arg(ledger));
+INSERT INTO moves_unit_file (unit_id, position, kind, via, file_id, sits_rel, payload_index, size, modified_at, node_file_id, node_volume_id, ledger)
+VALUES (sqlc.arg(unit_id), sqlc.arg(position), sqlc.arg(kind), sqlc.arg(via), sqlc.narg(file_id), sqlc.arg(sits_rel), sqlc.narg(payload_index),
+    sqlc.arg(size), sqlc.arg(modified_at), sqlc.narg(node_file_id), sqlc.narg(node_volume_id), sqlc.arg(ledger));
+
+-- name: ReleasePair :exec
+-- A torrent unit's Place ended: the Work unit placing from its payload
+-- takes its lane next.
+UPDATE moves_unit SET waiting = NULL, waiting_at = NULL, due_at = sqlc.arg(now)
+WHERE pairs_with_unit_id = sqlc.arg(torrent_unit) AND waiting = 'linked_torrent';
+
+-- name: UnpairFiles :exec
+-- A torrent unit failed or was canceled: each file its Work unit hasn't
+-- placed from the payload comes from the library instead.
+UPDATE moves_unit_file SET via = 'library', payload_index = NULL
+WHERE unit_id IN (SELECT id FROM moves_unit WHERE pairs_with_unit_id = sqlc.arg(torrent_unit)) AND via = 'arriving' AND placed = 0;
+
+-- name: Unpair :exec
+UPDATE moves_unit SET pairs_with_unit_id = NULL, due_at = sqlc.arg(now),
+    waiting = CASE WHEN waiting = 'linked_torrent' THEN NULL ELSE waiting END,
+    waiting_at = CASE WHEN waiting = 'linked_torrent' THEN NULL ELSE waiting_at END
+WHERE pairs_with_unit_id = sqlc.arg(torrent_unit);
 
 -- name: ListUnitFiles :many
 SELECT * FROM moves_unit_file WHERE unit_id IN (sqlc.slice(units)) ORDER BY unit_id, position;
@@ -218,3 +244,16 @@ SELECT EXISTS (SELECT 1 FROM moves_unit WHERE lane = sqlc.arg(lane) AND phase IN
 
 -- name: ListOpenUnitsBeforeSwitch :many
 SELECT * FROM moves_unit WHERE work_id IN (sqlc.slice(works)) AND phase IN ('queued', 'transfer', 'place', 'switch') ORDER BY seq;
+
+-- name: ListEmptyingBatches :many
+-- The unfinished batches that delete the roots they empty, once every
+-- unit has ended.
+SELECT b.id FROM moves_batch b
+WHERE b.finished_at IS NULL AND b.delete_emptied_roots = 1 AND NOT EXISTS (
+    SELECT 1 FROM moves_unit u WHERE u.batch_id = b.id AND u.phase IN ('queued', 'transfer', 'place', 'switch', 'cleanup')
+)
+ORDER BY b.created_at;
+
+-- name: FinishBatchKeeping :exec
+UPDATE moves_batch SET finished_at = sqlc.arg(at), notes = json_set(notes, '$.kept', json(CAST(sqlc.arg(kept) AS TEXT)))
+WHERE id = sqlc.arg(id) AND finished_at IS NULL;

@@ -369,6 +369,43 @@ export const getGetHomeResponseMock = (
             ...(faker.datatype.boolean()
               ? { lastKnownCause: faker.helpers.arrayElement(["node", "client", "off"] as const) }
               : {}),
+            move: faker.helpers.arrayElement([
+              {
+                batchId: faker.string.uuid(),
+                phase: faker.helpers.arrayElement([
+                  "queued",
+                  "transfer",
+                  "place",
+                  "switch",
+                  "failed",
+                ] as const),
+                toNodeId: faker.string.uuid(),
+                toNodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                unitId: faker.string.uuid(),
+                ...(faker.datatype.boolean()
+                  ? {
+                      waiting: faker.helpers.arrayElement([
+                        "pair_busy",
+                        "low_priority",
+                        "node_offline",
+                        "no_route",
+                        "space",
+                        "renames",
+                        "downloading",
+                        "importing",
+                        "open_files",
+                        "playing",
+                        "media_servers",
+                        "guard",
+                        "linked_torrent",
+                        "reconciling",
+                      ] as const),
+                    }
+                  : {}),
+                words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              },
+              null,
+            ]),
             name: faker.string.alpha({ length: { min: 10, max: 20 } }),
             nodeId: faker.string.uuid(),
             ...(faker.datatype.boolean()

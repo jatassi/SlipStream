@@ -150,16 +150,17 @@ func TestEveryWarningAndRefusalHasASentence(t *testing.T) {
 		}
 	}
 	for _, got := range []string{
-		dc.Unreached("Media server"), dc.InUse("Media server"), dc.HasTorrents("Transmission", 12, false), dc.HasTorrents("Transmission", 12, true),
+		dc.Unreached("Media server"), dc.InUse("Media server"), dc.HasTorrents("Transmission", 12),
+		dc.FilesMissing("Media server", 3), dc.MovesUse("Transmission", 2), dc.HeldOnNode("Media server", []string{"Orchard", "Harbor"}),
 		dc.GrabsToRefused(&dc.GrabsToError{Name: "Transmission", Off: true}, "Media server"),
 		dc.GrabsToRefused(&dc.GrabsToError{Name: "Transmission"}, "Media server"),
 	} {
 		readsAsWritten(t, "refusal", got)
 	}
-	if got, want := dc.HasTorrents("Transmission", 1, false), "Transmission has 1 torrent that SlipStream tracks. Stop tracking it to delete the client."; got != want {
+	if got, want := dc.HasTorrents("Transmission", 1), "Transmission has 1 torrent that SlipStream tracks. Stop tracking it to delete the client."; got != want {
 		t.Errorf("one held torrent reads %q, want %q", got, want)
 	}
-	if got, want := dc.HasTorrents("Transmission", 2, true), "Transmission can't move to another Node while it has 2 torrents that SlipStream tracks. Remove the torrents first, or select Stop tracking and delete, then add the client again on the other Node."; got != want {
-		t.Errorf("a move with torrents reads %q, want %q", got, want)
+	if got, want := dc.MovesUse("Transmission", 1), "1 Move uses Transmission. Wait for it to finish, or cancel it in Activity, then change the client's Node."; got != want {
+		t.Errorf("one Move reads %q, want %q", got, want)
 	}
 }

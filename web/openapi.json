@@ -1722,6 +1722,29 @@
         ],
         "type": "object"
       },
+      "DownloadclientsFilesMissing": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "description": "The torrents whose files the new Node didn't find",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "first": {
+            "description": "The first 20 of them, in the order SlipStream added them",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsMissingTorrent"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "count",
+          "first"
+        ],
+        "type": "object"
+      },
       "DownloadclientsHitAndRun": {
         "additionalProperties": false,
         "properties": {
@@ -1976,6 +1999,23 @@
           "at",
           "rows",
           "downloads"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsMissingTorrent": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "torrentId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "torrentId",
+          "name"
         ],
         "type": "object"
       },
@@ -2898,6 +2938,17 @@
             "description": "Its Node responded, so trackers and files are live. Otherwise they are from its last report",
             "type": "boolean"
           },
+          "move": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsTorrentMove"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its Move in flight, or failed with its copy kept; null for none"
+          },
           "name": {
             "description": "The release's name in its metainfo, shown for a Torrent whose Work was deleted",
             "type": "string"
@@ -3096,7 +3147,8 @@
           "seeding",
           "retryable",
           "held",
-          "addedAt"
+          "addedAt",
+          "move"
         ],
         "type": "object"
       },
@@ -3152,6 +3204,69 @@
         "required": [
           "rows",
           "counts"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsTorrentMove": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "queued",
+              "transfer",
+              "place",
+              "switch",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "toNodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "toNodeName": {
+            "type": "string"
+          },
+          "unitId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "waiting": {
+            "description": "What it waits for; absent while it waits for nothing",
+            "enum": [
+              "pair_busy",
+              "low_priority",
+              "node_offline",
+              "no_route",
+              "space",
+              "renames",
+              "downloading",
+              "importing",
+              "open_files",
+              "playing",
+              "media_servers",
+              "guard",
+              "linked_torrent",
+              "reconciling"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "description": "What it does now, such as Copying to den",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unitId",
+          "batchId",
+          "phase",
+          "toNodeId",
+          "toNodeName",
+          "words"
         ],
         "type": "object"
       },
@@ -3256,6 +3371,17 @@
               "off"
             ],
             "type": "string"
+          },
+          "move": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsTorrentMove"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its Move in flight, or failed with its copy kept; null for none"
           },
           "name": {
             "description": "The release's name in its metainfo, shown for a Torrent whose Work was deleted",
@@ -3426,7 +3552,8 @@
           "seeding",
           "retryable",
           "held",
-          "addedAt"
+          "addedAt",
+          "move"
         ],
         "type": "object"
       },
@@ -16594,6 +16721,30 @@
         ],
         "type": "object"
       },
+      "MovesClientTo": {
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "description": "The external Download Client; absent for the Node's built-in client",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The Node of the Download Client whose every torrent moves",
+            "format": "uuid",
+            "type": "string"
+          },
+          "to": {
+            "$ref": "#/components/schemas/MovesSide",
+            "description": "The Download Client they move to"
+          }
+        },
+        "required": [
+          "nodeId",
+          "to"
+        ],
+        "type": "object"
+      },
       "MovesDropped": {
         "additionalProperties": false,
         "properties": {
@@ -16650,14 +16801,40 @@
       "MovesMoveAsk": {
         "additionalProperties": false,
         "properties": {
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/MovesClientTo"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "options": {
+            "$ref": "#/components/schemas/MovesMoveOptions"
+          },
           "origin": {
-            "description": "Where the Admin starts it: a Work's page, the Library's bulk bar, or the Torrent table",
+            "description": "Where the Admin starts it: a Work's page, the Library's bulk bar, a root's row, a Node's drain, a Download Client, or the Torrent table",
             "enum": [
               "work",
               "bulk",
+              "root",
+              "drain",
+              "client",
               "torrent"
             ],
             "type": "string"
+          },
+          "roots": {
+            "items": {
+              "$ref": "#/components/schemas/MovesRootTo"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "torrents": {
             "items": {
@@ -16670,7 +16847,7 @@
             ]
           },
           "works": {
-            "description": "At least one Work or torrent",
+            "description": "At least one Work, root, torrent or client",
             "items": {
               "$ref": "#/components/schemas/MovesWorkTo"
             },
@@ -16682,6 +16859,24 @@
           "origin",
           "works"
         ],
+        "type": "object"
+      },
+      "MovesMoveOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "deleteEmptiedRoots": {
+            "description": "Delete each root the Move empties, once every unit ends",
+            "type": "boolean"
+          },
+          "includeLinkedTorrents": {
+            "description": "Also move the seeding torrent a Work's files are linked to",
+            "type": "boolean"
+          },
+          "repointRouting": {
+            "description": "Have each Tracker's new Grabs go to the client its torrents move to",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "MovesMovePreview": {
@@ -17039,6 +17234,44 @@
           "color",
           "code",
           "words"
+        ],
+        "type": "object"
+      },
+      "MovesRootTo": {
+        "additionalProperties": false,
+        "properties": {
+          "rootId": {
+            "description": "The library root whose every Work moves",
+            "format": "uuid",
+            "type": "string"
+          },
+          "to": {
+            "description": "The library root they move to",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rootId",
+          "to"
+        ],
+        "type": "object"
+      },
+      "MovesSide": {
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "description": "An external Download Client; absent for the Node's built-in client",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId"
         ],
         "type": "object"
       },
@@ -20886,6 +21119,35 @@
             ]
           }
         },
+        "type": "object"
+      },
+      "RootsBusy": {
+        "additionalProperties": false,
+        "properties": {
+          "imports": {
+            "description": "The Imports into it that haven't finished",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "moves": {
+            "description": "The Moves from it or into it that haven't finished",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "transfers": {
+            "description": "The Transfers into it or sending a file from it",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "moves",
+          "imports",
+          "transfers"
+        ],
         "type": "object"
       },
       "RootsChanged": {
@@ -45193,14 +45455,19 @@
                         "code": {
                           "enum": [
                             "download_client_address_taken",
+                            "download_client_files_missing",
                             "download_client_has_torrents",
                             "download_client_in_use",
+                            "download_client_moving",
                             "download_client_name_taken",
                             "node_not_downloading",
                             "superseded",
                             "worker_node"
                           ],
                           "type": "string"
+                        },
+                        "missing": {
+                          "$ref": "#/components/schemas/DownloadclientsFilesMissing"
                         }
                       },
                       "type": "object"
@@ -65330,6 +65597,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "download_client_not_found",
                             "root_not_found",
                             "torrent_not_found",
                             "work_not_found"
@@ -66746,7 +67014,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Preview moving a Move's Works back to the roots they left",
+        "summary": "Preview moving a Move's Works back to the roots they left, and its torrents back to the Download Clients they left",
         "tags": [
           "moves"
         ],
@@ -81344,10 +81612,14 @@
                     },
                     {
                       "properties": {
+                        "busy": {
+                          "$ref": "#/components/schemas/RootsBusy"
+                        },
                         "code": {
                           "enum": [
                             "node_not_storage",
                             "rehome_missing",
+                            "root_busy",
                             "superseded",
                             "worker_node"
                           ],

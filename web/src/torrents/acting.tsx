@@ -4,18 +4,19 @@ import { sentenceOf } from "../api/errors";
 import { actOnTorrents } from "../api/gen/query/downloadclients/downloadclients";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { toast } from "../ui/toast";
-import { type Subject, type TorrentAction, outcomeWords } from "./actions";
+import { TorrentMoveDialog } from "../moves/client-move-dialog";
+import { type Acted, type Subject, type TorrentAction, outcomeWords } from "./actions";
 import { PauseDialog } from "./pause-dialog";
 import { RemoveDialog } from "./remove-dialog";
 import type { Parting, WorkNames } from "./remove-preview";
 
 type Asking = {
-  readonly action: Parting | "recheck" | "pause";
+  readonly action: Parting | "recheck" | "pause" | "move";
   readonly subjects: readonly Subject[];
 };
 
 async function actAndSay(
-  action: TorrentAction,
+  action: Acted,
   subjects: readonly Subject[],
   deleteFiles: boolean,
   work: WorkNames,
@@ -55,7 +56,7 @@ export function useActing(work: WorkNames): {
   const [asking, setAsking] = useState<Asking>();
   const [open, setOpen] = useState(false);
 
-  const act = (action: TorrentAction, subjects: readonly Subject[], deleteFiles = false) =>
+  const act = (action: Acted, subjects: readonly Subject[], deleteFiles = false) =>
     actAndSay(action, subjects, deleteFiles, work);
 
   const ask = (next: Asking) => {
@@ -65,6 +66,7 @@ export function useActing(work: WorkNames): {
 
   const begin = async (action: TorrentAction, subjects: readonly Subject[]) => {
     if (
+      action === "move" ||
       action === "remove" ||
       action === "mark-failed" ||
       (action === "pause" && subjects.some(({ owing }) => owing !== undefined))
@@ -106,14 +108,13 @@ function Asked({
   asking: Asking;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  act: (
-    action: TorrentAction,
-    subjects: readonly Subject[],
-    deleteFiles?: boolean,
-  ) => Promise<void>;
+  act: (action: Acted, subjects: readonly Subject[], deleteFiles?: boolean) => Promise<void>;
   work: WorkNames;
 }) {
   const parting = asking.action;
+  if (parting === "move") {
+    return <MoveAsked subjects={asking.subjects} open={open} onOpenChange={onOpenChange} />;
+  }
   if (parting === "pause") {
     return (
       <PauseDialog
@@ -142,6 +143,23 @@ function Asked({
       onConfirm={(going, deleteFiles) => act(parting, going, deleteFiles)}
     />
   );
+}
+
+function MoveAsked({
+  subjects,
+  ...props
+}: {
+  subjects: readonly Subject[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const torrents = subjects.map(({ id, name, nodeId, clientId }) => ({
+    id,
+    name,
+    nodeId: nodeId ?? "",
+    clientId,
+  }));
+  return <TorrentMoveDialog torrents={torrents} {...props} />;
 }
 
 function RecheckDialog({

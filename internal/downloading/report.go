@@ -189,18 +189,25 @@ func (t *torrent) engineState() dlv1.EngineState {
 	return dlv1.EngineState_ENGINE_STATE_DOWNLOADING
 }
 
-// totals is t's counters at now: the engine's latest, with the clocks
-// run on since, as the engine reports a torrent only when something
-// besides its clocks moved.
-func (t *torrent) totals(now time.Time) *dlv1.TotalsRow {
+// counters is t's counters at now: the engine's latest, with the clocks
+// run on since while the engine runs it, as the engine reports a torrent
+// only when something besides its clocks moved. A pause still waiting on
+// its trackers runs.
+func (t *torrent) counters(now time.Time) engine.Totals {
 	tot := t.status.Totals
-	if t.Phase == plan.Running {
+	if t.Phase == plan.Running || t.Phase == plan.Pausing {
 		ran := now.Sub(t.statusAt)
 		tot.Active += ran
 		if t.Complete {
 			tot.Seeding += ran
 		}
 	}
+	return tot
+}
+
+// totals is t's counters at now as a totals row.
+func (t *torrent) totals(now time.Time) *dlv1.TotalsRow {
+	tot := t.counters(now)
 	row := &dlv1.TotalsRow{
 		Id: t.id.Bytes(), Uploaded: tot.Uploaded, Downloaded: tot.Downloaded,
 		ActiveSeconds: int64(tot.Active / time.Second), SeedingSeconds: int64(tot.Seeding / time.Second),

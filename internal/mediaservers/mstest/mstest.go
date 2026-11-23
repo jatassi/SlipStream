@@ -18,7 +18,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"testing/synctest"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/emby"
@@ -117,7 +116,7 @@ func New(t *testing.T) *World {
 	}
 	cfg := rootstest.Config(t, w.Lib, contenttypetest.ID)
 	cfg.Describe = func(works.TypeID) (works.Description, bool) { return contenttypetest.Description, true }
-	cfg.Changed, cfg.Contents = rootsChanged{w}, empty{}
+	cfg.Changed, cfg.Contents, cfg.Rehomed = rootsChanged{w}, empty{}, rehomed{w}
 	if w.roots, err = roots.Open(t.Context(), cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -299,14 +298,13 @@ func (w *World) RootOn(t *testing.T, node role.NodeID, name string) roots.Root {
 }
 
 // Rehome moves root to a fresh folder named name on home, as an Admin
-// does, and waits until the Media Servers follow it.
+// does.
 func (w *World) Rehome(t *testing.T, root roots.ID, name string) {
 	t.Helper()
 	to := folder(t, name)
 	if _, err := w.roots.Rehome(t.Context(), identity.Admin{}, root, roots.Rehome{Path: &to}); err != nil {
 		t.Fatal(err)
 	}
-	synctest.Wait()
 }
 
 func folder(t *testing.T, name string) string {
@@ -332,6 +330,12 @@ func (e changedEvents) Publish(ctx context.Context, v mediaservers.Changed) {
 	e.w.changed = append(e.w.changed, v)
 	e.w.mu.Unlock()
 	mediaservers.ChangedEvent.Bind(e.w.hub).Publish(ctx, v)
+}
+
+type rehomed struct{ w *World }
+
+func (r rehomed) Rehomed(ctx context.Context, tx *storage.Tx[storage.Library], root roots.ID) error {
+	return r.w.ms.Rehomed(ctx, tx, root)
 }
 
 type rootsChanged struct{ w *World }

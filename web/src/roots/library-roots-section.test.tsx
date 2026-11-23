@@ -81,7 +81,7 @@ test("Make default makes another root where its type's new Works go", async () =
         .all()
         .map((item) => item.element().textContent),
     )
-    .toEqual(["Scan now", "Edit", "Delete"]);
+    .toEqual(["Scan now", "Edit", "Move root…", "Delete"]);
   await userEvent.keyboard("{Escape}");
   await expect.element(page.getByRole("menu")).not.toBeInTheDocument();
   await act(archiveRoot, "Make default");

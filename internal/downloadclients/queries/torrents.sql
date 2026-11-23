@@ -1,4 +1,6 @@
 -- name: MergeTotals :exec
+-- A Move's switch carried a moved Torrent's totals as final, so a late
+-- report of it changes nothing.
 UPDATE downloadclients_torrent SET
     uploaded = MAX(uploaded, CAST(sqlc.arg(uploaded) AS INTEGER)),
     downloaded = MAX(downloaded, CAST(sqlc.arg(downloaded) AS INTEGER)),
@@ -6,7 +8,7 @@ UPDATE downloadclients_torrent SET
     seeding_seconds = MAX(seeding_seconds, CAST(sqlc.arg(seeding_seconds) AS INTEGER)),
     announced_seconds = MAX(announced_seconds, CAST(sqlc.arg(announced_seconds) AS INTEGER)),
     totals_at = sqlc.arg(totals_at)
-WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id);
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND removed_reason IS NOT 'moved';
 
 -- name: GetNodeSettings :one
 SELECT * FROM downloadclients_node WHERE node_id = ?;
@@ -298,13 +300,14 @@ SELECT raw_uploaded, raw_downloaded, raw_active_seconds, raw_seeding_seconds FRO
 WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND client_id IS NOT NULL;
 
 -- name: AddCounted :exec
+-- As MergeTotals, a moved Torrent's totals are final.
 UPDATE downloadclients_torrent SET
     uploaded = uploaded + sqlc.arg(uploaded), downloaded = downloaded + sqlc.arg(downloaded),
     active_seconds = active_seconds + sqlc.arg(active_seconds), seeding_seconds = seeding_seconds + sqlc.arg(seeding_seconds),
     raw_uploaded = sqlc.arg(raw_uploaded), raw_downloaded = sqlc.arg(raw_downloaded),
     raw_active_seconds = sqlc.arg(raw_active_seconds), raw_seeding_seconds = sqlc.arg(raw_seeding_seconds),
     totals_at = sqlc.arg(totals_at)
-WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id);
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND removed_reason IS NOT 'moved';
 
 -- name: GetRetarget :one
 SELECT node_id, client_id, info_hash, metainfo, content_type, adopted, tracker_id, reported_at, removed_at FROM downloadclients_torrent

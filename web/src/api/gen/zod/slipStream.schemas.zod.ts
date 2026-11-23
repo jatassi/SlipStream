@@ -1605,6 +1605,24 @@ export const DownloadclientsFileDetail = zod.object({
 export type DownloadclientsFileDetail = zod.input<typeof DownloadclientsFileDetail>;
 export type DownloadclientsFileDetailOutput = zod.output<typeof DownloadclientsFileDetail>;
 
+export const DownloadclientsMissingTorrent = zod.object({
+  name: zod.string(),
+  torrentId: zod.uuid(),
+});
+
+export type DownloadclientsMissingTorrent = zod.input<typeof DownloadclientsMissingTorrent>;
+export type DownloadclientsMissingTorrentOutput = zod.output<typeof DownloadclientsMissingTorrent>;
+
+export const DownloadclientsFilesMissing = zod.object({
+  count: zod.int().min(1).describe("The torrents whose files the new Node didn't find"),
+  first: zod
+    .array(DownloadclientsMissingTorrent)
+    .describe("The first 20 of them, in the order SlipStream added them"),
+});
+
+export type DownloadclientsFilesMissing = zod.input<typeof DownloadclientsFilesMissing>;
+export type DownloadclientsFilesMissingOutput = zod.output<typeof DownloadclientsFilesMissing>;
+
 export const DownloadclientsLiveRow = zod.object({
   done: zod.int().describe("Bytes downloaded"),
   downBps: zod.int().describe("Payload bytes a second it downloads"),
@@ -1953,6 +1971,37 @@ export const DownloadclientsTorrentGrab = zod.object({
 export type DownloadclientsTorrentGrab = zod.input<typeof DownloadclientsTorrentGrab>;
 export type DownloadclientsTorrentGrabOutput = zod.output<typeof DownloadclientsTorrentGrab>;
 
+export const DownloadclientsTorrentMove = zod.object({
+  batchId: zod.uuid(),
+  phase: zod.enum(["queued", "transfer", "place", "switch", "failed"]),
+  toNodeId: zod.uuid(),
+  toNodeName: zod.string(),
+  unitId: zod.uuid(),
+  waiting: zod
+    .enum([
+      "pair_busy",
+      "low_priority",
+      "node_offline",
+      "no_route",
+      "space",
+      "renames",
+      "downloading",
+      "importing",
+      "open_files",
+      "playing",
+      "media_servers",
+      "guard",
+      "linked_torrent",
+      "reconciling",
+    ])
+    .exactOptional()
+    .describe("What it waits for; absent while it waits for nothing"),
+  words: zod.string().describe("What it does now, such as Copying to den"),
+});
+
+export type DownloadclientsTorrentMove = zod.input<typeof DownloadclientsTorrentMove>;
+export type DownloadclientsTorrentMoveOutput = zod.output<typeof DownloadclientsTorrentMove>;
+
 export const downloadclientsTrackerDetailLeechersMin = 0;
 
 export const downloadclientsTrackerDetailMinIntervalSecondsMin = 0;
@@ -2121,6 +2170,9 @@ export const DownloadclientsTorrentDetail = zod.object({
     .describe(
       "Its Node responded, so trackers and files are live. Otherwise they are from its last report",
     ),
+  move: zod
+    .union([DownloadclientsTorrentMove, zod.null()])
+    .describe("Its Move in flight, or failed with its copy kept; null for none"),
   name: zod
     .string()
     .describe("The release's name in its metainfo, shown for a Torrent whose Work was deleted"),
@@ -2313,6 +2365,9 @@ export const DownloadclientsTorrentRow = zod.object({
     .describe(
       "Why the row shows its last report: its Node isn't connected, its external client isn't responding or refused the sign-in, or its external client is off",
     ),
+  move: zod
+    .union([DownloadclientsTorrentMove, zod.null()])
+    .describe("Its Move in flight, or failed with its copy kept; null for none"),
   name: zod
     .string()
     .describe("The release's name in its metainfo, shown for a Torrent whose Work was deleted"),
@@ -9133,6 +9188,29 @@ export const MovesChanged = zod.object({
 export type MovesChanged = zod.input<typeof MovesChanged>;
 export type MovesChangedOutput = zod.output<typeof MovesChanged>;
 
+export const MovesSide = zod.object({
+  clientId: zod
+    .uuid()
+    .exactOptional()
+    .describe("An external Download Client; absent for the Node's built-in client"),
+  nodeId: zod.uuid(),
+});
+
+export type MovesSide = zod.input<typeof MovesSide>;
+export type MovesSideOutput = zod.output<typeof MovesSide>;
+
+export const MovesClientTo = zod.object({
+  clientId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The external Download Client; absent for the Node's built-in client"),
+  nodeId: zod.uuid().describe("The Node of the Download Client whose every torrent moves"),
+  to: MovesSide.describe("The Download Client they move to"),
+});
+
+export type MovesClientTo = zod.input<typeof MovesClientTo>;
+export type MovesClientToOutput = zod.output<typeof MovesClientTo>;
+
 export const MovesDropped = zod.object({
   name: zod.string(),
   torrentId: zod.uuid().exactOptional(),
@@ -9142,6 +9220,32 @@ export const MovesDropped = zod.object({
 
 export type MovesDropped = zod.input<typeof MovesDropped>;
 export type MovesDroppedOutput = zod.output<typeof MovesDropped>;
+
+export const MovesMoveOptions = zod.object({
+  deleteEmptiedRoots: zod
+    .boolean()
+    .exactOptional()
+    .describe("Delete each root the Move empties, once every unit ends"),
+  includeLinkedTorrents: zod
+    .boolean()
+    .exactOptional()
+    .describe("Also move the seeding torrent a Work's files are linked to"),
+  repointRouting: zod
+    .boolean()
+    .exactOptional()
+    .describe("Have each Tracker's new Grabs go to the client its torrents move to"),
+});
+
+export type MovesMoveOptions = zod.input<typeof MovesMoveOptions>;
+export type MovesMoveOptionsOutput = zod.output<typeof MovesMoveOptions>;
+
+export const MovesRootTo = zod.object({
+  rootId: zod.uuid().describe("The library root whose every Work moves"),
+  to: zod.uuid().describe("The library root they move to"),
+});
+
+export type MovesRootTo = zod.input<typeof MovesRootTo>;
+export type MovesRootToOutput = zod.output<typeof MovesRootTo>;
 
 export const MovesTorrentTo = zod.object({
   clientId: zod
@@ -9163,18 +9267,28 @@ export const MovesWorkTo = zod.object({
 export type MovesWorkTo = zod.input<typeof MovesWorkTo>;
 export type MovesWorkToOutput = zod.output<typeof MovesWorkTo>;
 
+export const movesMoveAskClientsMax = 100;
+
+export const movesMoveAskRootsMax = 100;
+
 export const movesMoveAskTorrentsMax = 10000;
 
 export const movesMoveAskWorksMax = 10000;
 
 export const MovesMoveAsk = zod.object({
+  clients: zod.array(MovesClientTo).max(movesMoveAskClientsMax).nullish(),
+  options: MovesMoveOptions.exactOptional(),
   origin: zod
-    .enum(["work", "bulk", "torrent"])
+    .enum(["work", "bulk", "root", "drain", "client", "torrent"])
     .describe(
-      "Where the Admin starts it: a Work's page, the Library's bulk bar, or the Torrent table",
+      "Where the Admin starts it: a Work's page, the Library's bulk bar, a root's row, a Node's drain, a Download Client, or the Torrent table",
     ),
+  roots: zod.array(MovesRootTo).max(movesMoveAskRootsMax).nullish(),
   torrents: zod.array(MovesTorrentTo).max(movesMoveAskTorrentsMax).nullish(),
-  works: zod.array(MovesWorkTo).max(movesMoveAskWorksMax).describe("At least one Work or torrent"),
+  works: zod
+    .array(MovesWorkTo)
+    .max(movesMoveAskWorksMax)
+    .describe("At least one Work, root, torrent or client"),
 });
 
 export type MovesMoveAsk = zod.input<typeof MovesMoveAsk>;
@@ -11084,6 +11198,27 @@ export const RootSettingsInputBody = zod.object({
 
 export type RootSettingsInputBody = zod.input<typeof RootSettingsInputBody>;
 export type RootSettingsInputBodyOutput = zod.output<typeof RootSettingsInputBody>;
+
+export const rootsBusyImportsMin = 0;
+
+export const rootsBusyMovesMin = 0;
+
+export const rootsBusyTransfersMin = 0;
+
+export const RootsBusy = zod.object({
+  imports: zod.int().min(rootsBusyImportsMin).describe("The Imports into it that haven't finished"),
+  moves: zod
+    .int()
+    .min(rootsBusyMovesMin)
+    .describe("The Moves from it or into it that haven't finished"),
+  transfers: zod
+    .int()
+    .min(rootsBusyTransfersMin)
+    .describe("The Transfers into it or sending a file from it"),
+});
+
+export type RootsBusy = zod.input<typeof RootsBusy>;
+export type RootsBusyOutput = zod.output<typeof RootsBusy>;
 
 export const RootsChanged = zod.object({
   rootIds: zod.array(zod.string()),
