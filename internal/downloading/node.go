@@ -282,7 +282,7 @@ func (n *Node) actorConfig(id storage.UUID, kind clients.Kind, open func(clients
 		Timings: external.Timings{
 			RetryMin: t.ClientRetryMin, RetryMax: t.ClientRetryMax, RefusedRetry: t.ClientRefusedRetry, Grace: t.ClientGrace,
 			ResendWait: t.ClientResendWait, MissingShare: t.ClientMissingShare, MissingFloor: t.ClientMissingFloor,
-			Trackers: t.ClientTrackers, Call: t.ClientCall, LoadWait: t.ClientLoadWait, LoadEvery: t.ClientLoadEvery, LiveFloor: t.ClientLiveFloor, LiveSample: t.LiveSample, TotalsReport: t.TotalsReport,
+			Trackers: t.ClientTrackers, Call: t.ClientCall, LoadWait: t.ClientLoadWait, LoadEvery: t.ClientLoadEvery, RunWait: t.ClientRunWait, LiveFloor: t.ClientLiveFloor, LiveSample: t.LiveSample, TotalsReport: t.TotalsReport,
 			ErrorHeartbeat: ErrorHeartbeat, ReplyWait: t.ReplyWait, AnnounceWatch: t.AnnounceWatchEvery,
 		},
 		Local: local, Holder: h, Control: ctl,
@@ -624,7 +624,7 @@ func (n *Node) draft(kind clients.Kind, c *dlv1.Client, secrets *dlv1.Secrets) (
 		HTTP: n.cfg.HTTP, Address: address, Username: c.GetUsername(),
 		Secrets:      clients.Secrets{Password: secrets.GetPassword(), APIKey: secrets.GetApiKey()},
 		TrackerEvery: n.cfg.Timings.ClientTrackers, Call: n.cfg.Timings.ClientCall,
-		LoadWait: n.cfg.Timings.ClientLoadWait, LoadEvery: n.cfg.Timings.ClientLoadEvery, Log: n.cfg.Log,
+		LoadWait: n.cfg.Timings.ClientLoadWait, LoadEvery: n.cfg.Timings.ClientLoadEvery, RunWait: n.cfg.Timings.ClientRunWait, Log: n.cfg.Log,
 	}
 	if d := c.GetDaemon(); d != nil {
 		s.Daemon = &clients.Daemon{Host: d.GetHost(), Port: int(d.GetPort())}

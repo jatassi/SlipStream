@@ -244,7 +244,8 @@ func (c *client) Export(ctx context.Context, h bencode.InfoHash) ([]byte, error)
 }
 
 // report is one torrents/info row by its hash, the run state a check
-// hides taken from what the torrent was last seen or asked to do.
+// hides taken from what the torrent was last seen or asked to do, and a
+// run Act asked for kept until a listing reads it or RunWait passes.
 func (c *client) report(ctx context.Context, t torrent) (bencode.InfoHash, clients.Status, error) {
 	h, err := bencode.ParseInfoHash(t.Hash)
 	if err != nil {
@@ -254,8 +255,16 @@ func (c *client) report(ctx context.Context, t torrent) (bencode.InfoHash, clien
 	if err != nil {
 		return h, clients.Status{}, err
 	}
-	if run, ok := c.ran[h]; ok && s.Activity == clients.Checking {
-		s.Run = run
+	if run, ok := c.ran[h]; ok {
+		at, asked := c.asked[h]
+		switch {
+		case s.Activity == clients.Checking:
+			s.Run = run
+		case asked && s.Run != run && time.Since(at) < c.s.RunWait:
+			s.Run = run
+		default:
+			delete(c.asked, h)
+		}
 	}
 	c.ran[h] = s.Run
 	s.Trackers, err = c.trackersOf(ctx, h, t.State)
@@ -435,8 +444,9 @@ func (c *client) Act(ctx context.Context, a clients.Act, hashes []bencode.InfoHa
 		return err
 	}
 	if run, ok := map[clients.Act]clients.Run{clients.Pause: clients.Paused, clients.Resume: clients.Started}[a]; ok {
+		now := time.Now()
 		for _, h := range hashes {
-			c.ran[h] = run
+			c.ran[h], c.asked[h] = run, now
 		}
 	}
 	return nil
@@ -447,6 +457,7 @@ func (c *client) Remove(ctx context.Context, h bencode.InfoHash, data bool) erro
 		return err
 	}
 	delete(c.ran, h)
+	delete(c.asked, h)
 	return nil
 }
 

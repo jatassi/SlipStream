@@ -40,7 +40,7 @@ var seedModeSince, _ = clients.ParseVersion("2.16.0")
 func Open(s clients.Session) clients.Client { return open(s) }
 
 func open(s clients.Session) *client {
-	return &client{s: s, ran: map[bencode.InfoHash]clients.Run{}, trackers: map[bencode.InfoHash]trackers{}}
+	return &client{s: s, ran: map[bencode.InfoHash]clients.Run{}, asked: map[bencode.InfoHash]time.Time{}, trackers: map[bencode.InfoHash]trackers{}}
 }
 
 type client struct {
@@ -55,7 +55,12 @@ type client struct {
 	// ran is what each torrent was last seen or asked to do, since
 	// qBittorrent reports a torrent it checks as checking whether it was
 	// stopped or started.
-	ran        map[bencode.InfoHash]clients.Run
+	ran map[bencode.InfoHash]clients.Run
+	// asked is when Act asked for each torrent's run in ran that no
+	// listing has read yet. qBittorrent lists a started torrent stopped
+	// for about 1.5 s, so ran outlasts a listing of the run before it
+	// until the session's RunWait has passed.
+	asked      map[bencode.InfoHash]time.Time
 	trackers   map[bencode.InfoHash]trackers
 	countdowns clients.Countdowns
 }

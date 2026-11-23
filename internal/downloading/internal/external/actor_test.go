@@ -45,7 +45,7 @@ const (
 var timings = external.Timings{
 	RetryMin: 5 * time.Second, RetryMax: 5 * time.Minute, RefusedRetry: 30 * time.Minute, Grace: time.Minute,
 	ResendWait: 2 * time.Minute, MissingShare: 50, MissingFloor: 3, Trackers: time.Minute, Call: 30 * time.Second,
-	LoadWait: 10 * time.Second, LoadEvery: 250 * time.Millisecond, LiveFloor: 2 * time.Second, LiveSample: time.Second, TotalsReport: 5 * time.Minute,
+	LoadWait: 10 * time.Second, LoadEvery: 250 * time.Millisecond, RunWait: 5 * time.Second, LiveFloor: 2 * time.Second, LiveSample: time.Second, TotalsReport: 5 * time.Minute,
 	ErrorHeartbeat: downloading.ErrorHeartbeat,
 }
 

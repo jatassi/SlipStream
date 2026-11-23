@@ -118,6 +118,9 @@ type Timings struct {
 	// ClientLoadEvery how often it asks.
 	ClientLoadWait  time.Duration `yaml:"client_load_wait"`
 	ClientLoadEvery time.Duration `yaml:"client_load_every"`
+	// ClientRunWait is how long a start or a stop sent to a client reads
+	// as sent while the client still lists the run before it.
+	ClientRunWait time.Duration `yaml:"client_run_wait"`
 	// ClientLiveFloor is the shortest gap between two polls of one client
 	// while an Admin watches.
 	ClientLiveFloor time.Duration `yaml:"client_live_floor"`
@@ -152,7 +155,7 @@ func DefaultTimings() Timings {
 		ClientRetryMin: 5 * time.Second, ClientRetryMax: 5 * time.Minute, ClientRefusedRetry: 30 * time.Minute,
 		ClientGrace: time.Minute, ClientResendWait: 2 * time.Minute, ClientMissingShare: 50, ClientMissingFloor: 3,
 		ClientTrackers: time.Minute, ClientCall: 30 * time.Second,
-		ClientLoadWait: 10 * time.Second, ClientLoadEvery: 250 * time.Millisecond, ClientLiveFloor: 2 * time.Second,
+		ClientLoadWait: 10 * time.Second, ClientLoadEvery: 250 * time.Millisecond, ClientRunWait: 5 * time.Second, ClientLiveFloor: 2 * time.Second,
 		HoldingsPage: 1000, HoldingsMax: 100_000, ReplyWait: 10 * time.Second, AnnounceWatchEvery: 5 * time.Second,
 	}
 }

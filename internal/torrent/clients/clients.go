@@ -35,7 +35,11 @@ type Session struct {
 	// load the torrent, which it does after it responds, and LoadEvery how
 	// often it asks.
 	LoadWait, LoadEvery time.Duration
-	Log                 *slog.Logger
+	// RunWait is how long a start or a stop the client asked for reads as
+	// asked while the product still lists the run before it, as
+	// qBittorrent lists a started torrent stopped for 1.5 s.
+	RunWait time.Duration
+	Log     *slog.Logger
 }
 
 // Secrets are the values sealed on the Controller and held in Node

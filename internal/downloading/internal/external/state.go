@@ -410,7 +410,7 @@ func (s *state) session(ctx context.Context) error {
 		HTTP: s.cfg.HTTP, Address: address, Username: c.GetUsername(),
 		Secrets:      clients.Secrets{Password: res.GetSecrets().GetPassword(), APIKey: res.GetSecrets().GetApiKey()},
 		TrackerEvery: s.cfg.Timings.Trackers, Call: s.cfg.Timings.Call,
-		LoadWait: s.cfg.Timings.LoadWait, LoadEvery: s.cfg.Timings.LoadEvery, Log: s.cfg.Log,
+		LoadWait: s.cfg.Timings.LoadWait, LoadEvery: s.cfg.Timings.LoadEvery, RunWait: s.cfg.Timings.RunWait, Log: s.cfg.Log,
 	}
 	if d := c.GetDaemon(); d != nil {
 		session.Daemon = &clients.Daemon{Host: d.GetHost(), Port: int(d.GetPort())}
