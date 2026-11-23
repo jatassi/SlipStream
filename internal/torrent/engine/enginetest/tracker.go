@@ -3,6 +3,7 @@ package enginetest
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	neturl "net/url"
@@ -297,12 +298,21 @@ func forward(h http.Handler, t *torrent, event string) reply {
 	if w, ok := d["warning message"].(string); ok {
 		r.warning = w
 	}
-	seeders, sok := d["complete"].(int64)
-	leechers, lok := d["incomplete"].(int64)
+	seeders, sok := count(d["complete"])
+	leechers, lok := count(d["incomplete"])
 	if sok && lok {
-		r.swarm = &engine.Swarm{Seeders: int(seeders), Leechers: int(leechers)}
+		r.swarm = &engine.Swarm{Seeders: seeders, Leechers: leechers}
 	}
 	return r
+}
+
+// count reads a swarm count as libtorrent does: a 32-bit int, else absent.
+func count(v any) (int, bool) {
+	n, ok := v.(int64)
+	if !ok || n < 0 || n > math.MaxInt32 {
+		return 0, false
+	}
+	return int(n), true
 }
 
 func seconds(v any) time.Duration {
