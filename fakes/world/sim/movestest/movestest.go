@@ -249,6 +249,65 @@ func (c *Crash) Reached(t *testing.T) {
 	}
 }
 
+// Pause holds a Move once, just before its step, until Resume: the test
+// changes the world while the step waits.
+type Pause struct {
+	step            string
+	reached, resume chan struct{}
+	held            atomic.Bool
+}
+
+// PauseAt is a Pause before step, one of Steps.
+func PauseAt(step string) *Pause {
+	return &Pause{step: step, reached: make(chan struct{}), resume: make(chan struct{})}
+}
+
+// Option sets the Pause on home's BeforeMoveStep.
+func (p *Pause) Option() sim.Option {
+	return sim.Edit(func(name string, e *node.Env) {
+		if name != "home" {
+			return
+		}
+		e.Test.BeforeMoveStep = func(ctx context.Context, s moves.Step) {
+			if s.Action == p.step && p.held.CompareAndSwap(false, true) {
+				close(p.reached)
+				select {
+				case <-p.resume:
+				case <-ctx.Done():
+				}
+			}
+		}
+	})
+}
+
+// Reached waits until the Move reached the Pause's step.
+func (p *Pause) Reached(t *testing.T) {
+	t.Helper()
+	select {
+	case <-p.reached:
+	case <-time.After(time.Hour):
+		t.Fatalf("the Move never reached %s within an hour", p.step)
+	}
+}
+
+// Resume lets the step run.
+func (p *Pause) Resume() { close(p.resume) }
+
+// StrayAt writes rel's source bytes at rel in the root in folder, as a
+// Place leaves its file when a crash comes before its Write records it,
+// and answers the stray's path.
+func (w World) StrayAt(t *testing.T, folder, rel string) string {
+	t.Helper()
+	path := filepath.Join(w.Roots[folder].Path, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, w.Was[rel], 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 // Fault is what goes wrong with the Controller down: the restart alone,
 // or the restart with one Node offline until after it.
 type Fault struct {

@@ -514,7 +514,9 @@ func (m *Moves) finalPass(ctx context.Context, u Unit) error {
 		}
 		files := merged(cu.Files, got)
 		cu.Due, cu.Planned.At = &now, now
-		if slices.EqualFunc(files, cu.Files, func(a, b File) bool { return sameFile(a, b) && a.Position == b.Position }) {
+		if slices.EqualFunc(files, cu.Files, func(a, b File) bool {
+			return sameFile(a, b) && a.Position == b.Position && (a.Dropped == nil) == (b.Dropped == nil)
+		}) {
 			cu.Stage = Switching{}
 			return nil
 		}
