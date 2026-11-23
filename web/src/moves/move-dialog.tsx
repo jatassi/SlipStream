@@ -15,7 +15,7 @@ import { PreviewDialog } from "./preview-dialog";
 type MoveDialogProps = {
   readonly type: WorksContentType;
   readonly works: readonly Subject[];
-  /** The root they're in now, which the picker starts past; absent for a bulk pick. */
+  /** The root they're in now, which the picker leaves out; absent for a bulk pick. */
   readonly from?: string;
   readonly origin: MovesMoveAskOrigin;
   readonly open: boolean;
@@ -27,13 +27,8 @@ type MoveDialogProps = {
  * Type, after a preview that gives each one a verdict.
  */
 export function MoveDialog({ type, works, from, origin, open, onOpenChange }: MoveDialogProps) {
-  const roots = useRootsOf(type);
-  const [rootId, setRootId] = useState(
-    (
-      roots.find((root) => root.id !== from && root.default) ??
-      roots.find((root) => root.id !== from)
-    )?.id ?? "",
-  );
+  const roots = useRootsOf(type).filter((root) => root.id !== from);
+  const [rootId, setRootId] = useState((roots.find((root) => root.default) ?? roots[0])?.id ?? "");
   const [withTorrents, setWithTorrents] = useState(true);
   const noun = { one: type.work.one.toLowerCase(), many: type.work.many.toLowerCase() };
   return (
@@ -53,7 +48,7 @@ export function MoveDialog({ type, works, from, origin, open, onOpenChange }: Mo
       }
       picker={
         <>
-          <DestinationPicker type={type} value={rootId} onValueChange={setRootId} />
+          <DestinationPicker roots={roots} value={rootId} onValueChange={setRootId} />
           <Checkbox
             label={works.length === 1 ? "Also move its torrent" : "Also move their torrents"}
             checked={withTorrents}
@@ -65,7 +60,7 @@ export function MoveDialog({ type, works, from, origin, open, onOpenChange }: Mo
         `${countWords(homed, noun)} without files ${homed === 1 ? "goes" : "go"} into the new root too.`
       }
       startedWords={(started, plan) =>
-        `Moving ${countWords(started - torrentsOf(plan), noun)} to ${plan.units.find(({ verdict }) => verdict !== "red")?.to.nodeName ?? "the new root"}.`
+        `Moving ${movingWords(started, torrentsOf(plan), noun)} to ${plan.units.find(({ verdict }) => verdict !== "red")?.to.nodeName ?? "the new root"}.`
       }
       open={open}
       onOpenChange={onOpenChange}
@@ -79,6 +74,16 @@ const titleOf = (works: readonly Subject[], noun: { one: string; many: string })
     ? `Move ${only.label}`
     : `Move ${countWords(works.length, noun)}`;
 };
+
+/** started units in words, torrents of them torrents, such as "1 movie and 1 torrent". */
+function movingWords(started: number, torrents: number, noun: { one: string; many: string }) {
+  const works = countWords(started - torrents, noun);
+  const ts = countWords(torrents, { one: "torrent", many: "torrents" });
+  if (torrents === 0) {
+    return works;
+  }
+  return started === torrents ? ts : `${works} and ${ts}`;
+}
 
 /** The movable torrent units a Work Move's plan took for its Works' linked torrents. */
 const torrentsOf = (plan: MovesMovePreview) =>
@@ -143,7 +148,7 @@ export function RootMoveDialog({
       }
       picker={
         <>
-          <DestinationPicker type={type} value={rootId} onValueChange={setRootId} />
+          <DestinationPicker roots={roots} value={rootId} onValueChange={setRootId} />
           <Checkbox
             label="Delete this root when it's empty"
             checked={deleteEmptied}

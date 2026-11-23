@@ -1,17 +1,24 @@
-import type { MovesMovePreview } from "../api/gen/model";
+import type { MovesMovePreview, MovesPlace } from "../api/gen/model";
 import { bytes } from "../format";
 import { Details } from "../ui/details";
 import { PreviewGroups } from "./preview-groups";
 
-/** Each pair of roots the preview copies between, with the bytes that cross. */
+/** A root, or a torrent's Download Client and its Node. */
+function where(place: MovesPlace): string {
+  return place.client === undefined ? place.root : `${place.client} on ${place.nodeName}`;
+}
+
+/** Each pair of roots or clients the preview copies between, with the bytes that cross. */
 function Machinery({ plan }: { plan: MovesMovePreview }) {
   const pairs = new Map<string, { from: string; to: string; bytes: number }>();
   for (const unit of plan.units) {
     if (unit.verdict === "red") {
       continue;
     }
-    const key = `${unit.from.rootId}>${unit.to.rootId}`;
-    const pair = pairs.get(key) ?? { from: unit.from.root, to: unit.to.root, bytes: 0 };
+    const from = where(unit.from);
+    const to = where(unit.to);
+    const key = `${from}>${to}`;
+    const pair = pairs.get(key) ?? { from, to, bytes: 0 };
     pairs.set(key, { ...pair, bytes: pair.bytes + unit.bytes });
   }
   if (pairs.size === 0) {

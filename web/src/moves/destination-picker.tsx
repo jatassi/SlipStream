@@ -4,24 +4,17 @@ import { useListRootsSuspense, useListVolumesSuspense } from "../api/gen/query/r
 import { freeOf } from "../roots/root-columns";
 import { Select } from "../ui/select";
 
-/** The roots of the Work's Content Type only, each with its Node and free space. */
+/** Roots of the Work's Content Type to move to, each with its Node and free space. */
 export function DestinationPicker({
-  type,
+  roots,
   value,
   onValueChange,
 }: {
-  type: WorksContentType;
+  roots: readonly RootsRoot[];
   value: string;
   onValueChange: (rootId: string) => void;
 }) {
-  return (
-    <RootPicker
-      label="Move to"
-      roots={useRootsOf(type)}
-      value={value}
-      onValueChange={onValueChange}
-    />
-  );
+  return <RootPicker label="Move to" roots={roots} value={value} onValueChange={onValueChange} />;
 }
 
 /** One of roots, each with its Node and free space. */

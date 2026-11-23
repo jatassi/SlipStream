@@ -42,13 +42,22 @@ test("a Work moves from seedbox to den with its linked torrent, its file still a
   await workAction(page, "Move to…", orchard);
   const dialog = page.getByRole("dialog", { name: `Move ${orchard}` });
   await dialog.getByRole("combobox", { name: "Move to" }).click();
+  await expect(
+    page.getByRole("option", { name: /movies-d on seedbox/u }),
+    "the root the film is in isn't a destination",
+  ).toHaveCount(0);
   await clickWhenStill(page.getByRole("option", { name: /movies-e on den/u }));
   await expect(dialog.getByRole("checkbox", { name: "Also move its torrent" })).toBeChecked();
   await expect(dialog.getByText("Move 1 movie and 1 torrent to den.")).toBeVisible();
+  await dialog.getByRole("button", { name: "Details" }).click();
+  await expect(
+    dialog.getByRole("listitem").filter({ hasText: "the built-in client on den" }),
+    "Details names the clients the torrent copies between",
+  ).toContainText("the built-in client on seedbox");
   await expectAccessible(page);
   await screenshotWholePage(page, testInfo.outputPath("preview.png"));
   await dialog.getByRole("button", { name: /^Move \d/u }).click();
-  await expect(toasts(page)).toContainText("Moving 1 movie to den.");
+  await expect(toasts(page)).toContainText("Moving 1 movie and 1 torrent to den.");
 
   const { batches } = Moves.parse((await world.api("GET", "/api/v1/moves")).body);
   const [batch] = batches;
