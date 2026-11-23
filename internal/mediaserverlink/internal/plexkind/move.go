@@ -59,10 +59,10 @@ type moveFacts struct {
 	AfterDelete afterDelete
 }
 
-// plexMove is the spec's expected values until the recorded run lands.
-// Only the change that records the run edits this literal.
-var plexMove = moveFacts{Measured: false, SameSection: secondPart, CrossSection: newItem,
-	WatchCarries: true, CollectionsCarry: false, CollectionsReplace: true, AfterDelete: keepsOtherPart}
+// plexMove is what Plex 1.43.5.11029 did in the recorded run of
+// 2026-11-23 (conformance/plex/recorded/2026-11-23-plex-moves.md).
+var plexMove = moveFacts{Measured: true, SameSection: secondPart, CrossSection: newItem,
+	WatchCarries: true, CollectionsCarry: false, CollectionsReplace: false, AfterDelete: trash}
 
 // MoveMeasured is whether the recorded run measured the Plex Move.
 func MoveMeasured() bool { return plexMove.Measured }
