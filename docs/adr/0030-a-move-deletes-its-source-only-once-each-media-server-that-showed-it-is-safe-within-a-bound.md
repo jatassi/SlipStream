@@ -10,7 +10,8 @@ What it amends in ADR 0016:
 
 What it amends in ADR 0024:
 
-- **Plex writes collection membership back across sections.** A Move between two Plex sections finds or creates each snapshot collection by title in the destination section and tags the item into it. ADR 0024 rejected writing collections back on Plex because a rename within a section carries them. A Move across sections doesn't, so this is the one case where SlipStream writes them.
+- **Plex writes collection membership back when a Move changes the item.** A Move between two Plex sections finds or creates each snapshot collection by title in the destination section and tags the item into it. ADR 0024 rejected writing collections back on Plex because a rename within a section carries them. A Move doesn't: the recorded run of 2026-11-23 (`conformance/plex/recorded/2026-11-23-plex-moves.md`) measured that a copy in another section is a new item whose watch state and rating follow its guid at once, while collections never follow a new ratingKey. A collection write adds titles and never removes one, so sending the item's own titles with the snapshot's is safe.
+- **A same-section Plex Move refreshes the whole section after the delete, never the vacated folder.** In its own section a copy joins the item as a second Part. A path refresh of the vacated folder then destroyed the whole item with its surviving Part, and Plex made it again a minute later under a new ratingKey without collections. A whole-section refresh kept the item, its ratingKey and its collections. Across sections a path refresh of the vacated folder removes only the old item.
 - **A Plex confirm on a Move never passes on its timeout.** It refreshes the destination folders again, and only the bound lets the source go without it.
 
 ## Considered Options
