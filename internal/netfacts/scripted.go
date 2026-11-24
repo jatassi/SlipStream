@@ -70,6 +70,9 @@ func (s *scripted) sockets(ctx context.Context, ports []uint16) ([]netmodel.List
 	listeners, err := s.host.Sockets(ctx, ports)
 	for i, l := range listeners {
 		listeners[i].Docker = slices.ContainsFunc(f.Firewall, func(r script.Rule) bool { return r.Port == l.Port && r.Policy == script.Docker })
+		if l.Loopback {
+			listeners[i].V4, listeners[i].V6, listeners[i].Loopback = netmodel.Yes, netmodel.Yes, false
+		}
 	}
 	return listeners, err
 }

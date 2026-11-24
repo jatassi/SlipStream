@@ -47,7 +47,9 @@ type MediaServer struct {
 	Custom []string `yaml:"custom,omitempty"`
 	// Published are the addresses the server publishes beside each Node's
 	// front: Plex's plex.tv connections, Jellyfin's published server
-	// addresses, Emby's WAN and remote addresses.
+	// addresses, Emby's WAN and remote addresses. A Plex URL here or in
+	// Custom with no port names the port the server listens on, since the
+	// world draws every port.
 	Published []string `yaml:"published,omitempty"`
 	// Mapping is where Plex's own check of its public address left it.
 	Mapping string `jsonschema:"enum=mapped,enum=failed,enum=pending" yaml:"mapping,omitempty"`

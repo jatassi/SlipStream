@@ -176,7 +176,11 @@ func (in *familyIn) cause() *Fix {
 		}
 		return fix(FixProxyForward, Params{Addr: in.route.Proxy, Node: in.o.node, Port: in.port})
 	}
-	for _, r := range []row{rowBind, rowFirewall, rowClass} {
+	dns := rowDNSA
+	if in.fam == netmodel.IPv6 {
+		dns = rowDNSAAAA
+	}
+	for _, r := range []row{dns, rowBind, rowFirewall, rowClass} {
 		if r.Applies(in) {
 			if o := r.Eval(in); o.Result != Passes && o.Fix != nil {
 				return o.Fix

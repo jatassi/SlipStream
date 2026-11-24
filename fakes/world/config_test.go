@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
+	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/internal/contenttype"
@@ -167,19 +168,39 @@ type discard struct{}
 
 func (discard) Append(rec events.Record) (events.Record, error) { return rec, nil }
 
+// catalogPlan builds every fake s plays into one plan, sharing what a
+// world's fakes share, with each front and Node listening at a stand-in
+// address.
 func catalogPlan(t *testing.T, s scenario.Scenario) *fault.Plan {
 	t.Helper()
 	names := make([]string, len(s.Nodes))
 	for i, n := range s.Nodes {
 		names[i] = n.Name
 	}
-	plan := fault.NewPlan(planFronts(fakes, names, s.Releases, s.Leecher), nil)
+	planned := planFronts(fakes, names, s.Releases, s.Leecher)
+	plan := fault.NewPlan(planned, nil)
+	table := make(fake.Fronts, len(planned))
+	for i, p := range planned {
+		table[i] = fake.Front{Target: p.Target, Node: p.Origin, Address: fake.Address{AddrPort: netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), uint16(1024+i))}}
+	}
+	shared, files := fake.NewShared(), t.TempDir()
 	for _, spec := range fakes {
-		if spec.NewUDP != nil || !plays(spec, s) {
+		if !plays(spec, s) {
 			continue
 		}
-		if _, err := spec.New(s, fake.NewEnv(s, spec, slog.New(slog.DiscardHandler), plan, discard{})); err != nil {
-			t.Fatal(err)
+		env := fake.NewEnv(s, spec, slog.New(slog.DiscardHandler), plan, discard{})
+		env.Shared, env.Releases, env.Fronts, env.Files, env.Dir = shared, &releases.Catalog{}, table, files, t.TempDir()
+		env.Listeners = func(string) (node.Listeners, error) {
+			return node.Listeners{HTTP: netip.MustParseAddrPort("127.0.0.1:8484")}, nil
+		}
+		var err error
+		if spec.NewUDP != nil {
+			_, err = spec.NewUDP(s, env)
+		} else {
+			_, err = spec.New(s, env)
+		}
+		if err != nil {
+			t.Fatalf("catalog %s: %v", s.Name, err)
 		}
 	}
 	return plan

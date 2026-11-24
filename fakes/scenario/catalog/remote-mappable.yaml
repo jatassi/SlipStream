@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  S51 (Reachability diagnostic) behind a router that can open ports. The
+  Controller atlas sits behind a router at 203.0.113.9 that speaks PCP,
+  NAT-PMP and UPnP and forwards nothing, and runs Plex at
+  plex.mappable.localhost. The Worker seedbox at 192.0.2.44 tests from
+  outside, and its connection stops at the router.
+seed: remote-mappable
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: atlas
+    setup: controller
+    site: home
+    firewall: [{service: plex, family: ipv4, policy: allows}]
+    media_servers:
+      - kind: plex
+        name: Plex
+        runs_on: atlas
+        remote: true
+        custom: ["http://plex.mappable.localhost"]
+  - name: seedbox
+    setup: join
+    site: ams
+network:
+  sites:
+    - {name: home, wan: public, address: 203.0.113.9, mapping: [pcp, nat-pmp, upnp]}
+    - {name: ams, wan: none, address: 192.0.2.44}
+  dns:
+    - {name: plex.mappable.localhost, a: [203.0.113.9]}
+timings:
+  node:
+    stop_deadline: 15s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]

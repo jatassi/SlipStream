@@ -17,7 +17,8 @@ import (
 )
 
 // A scripted Node reads its network from the script, and again each time
-// the script changes.
+// the script changes. The world binds every listener to a loopback
+// address, so a socket there listens on every network.
 func TestAScriptedNodeReadsItsScript(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "atlas.json")
 	write := func(f script.File, at time.Time) {
@@ -33,7 +34,7 @@ func TestAScriptedNodeReadsItsScript(t *testing.T) {
 		return []netmodel.Listener{{Port: 8484, Program: netmodel.Program{Name: "SlipStream", SlipStream: true}, V4: netmodel.Yes, V6: netmodel.Yes}}
 	}
 	host.Sockets = func(context.Context, []uint16) ([]netmodel.Listener, error) {
-		return []netmodel.Listener{{Port: 32400, V4: netmodel.Yes}}, nil
+		return []netmodel.Listener{{Port: 32400, V4: netmodel.No, V6: netmodel.No, Loopback: true}}, nil
 	}
 	n := netfacts.New(netfacts.Config{Local: storagetest.Local(t, netfacts.Schema()), Env: netfacts.Scripted(path, host), Timings: timings(), Rules: netmodel.Rules{DocumentationGlobal: true}, Log: slog.New(slog.DiscardHandler)})
 	yes, no := netmodel.Yes, netmodel.No
@@ -58,14 +59,14 @@ func TestAScriptedNodeReadsItsScript(t *testing.T) {
 				{Name: "eth0", Index: 1, Addrs: []netmodel.IfaceAddr{{Prefix: netip.MustParsePrefix("192.168.1.20/24"), Class: netmodel.Private, Temporary: no, Deprecated: no}, {Prefix: netip.MustParsePrefix("2001:db8:1::20/64"), Class: netmodel.Global, Temporary: yes, Deprecated: no}}},
 				{Name: "wg0", Index: 2, Tunnel: true, Addrs: []netmodel.IfaceAddr{{Prefix: netip.MustParsePrefix("10.64.0.2/32"), Class: netmodel.Private, Temporary: no, Deprecated: no}}},
 			},
-			listeners: []netmodel.Listener{{Port: 32400, V4: yes, Docker: true}, {Port: 8484, Program: netmodel.Program{Name: "SlipStream", SlipStream: true}, V4: no, V6: no, Loopback: true}},
+			listeners: []netmodel.Listener{{Port: 32400, V4: yes, V6: yes, Docker: true}, {Port: 8484, Program: netmodel.Program{Name: "SlipStream", SlipStream: true}, V4: no, V6: no, Loopback: true}},
 			policies:  []netmodel.Policy{netmodel.Allows, netmodel.PolicyUnknown, netmodel.PolicyUnknown, netmodel.Blocks},
 		},
 		{
 			name:      "every network after a change",
 			file:      script.File{Interfaces: []script.Interface{{Name: "eth0", Addresses: []script.Address{{Prefix: netip.MustParsePrefix("203.0.113.9/24")}}}}, Egress: "eth0", Bind: script.BindAll},
 			ifaces:    []netmodel.Iface{{Name: "eth0", Index: 1, Addrs: []netmodel.IfaceAddr{{Prefix: netip.MustParsePrefix("203.0.113.9/24"), Class: netmodel.Global, Temporary: no, Deprecated: no}}}},
-			listeners: []netmodel.Listener{{Port: 32400, V4: yes}, {Port: 8484, Program: netmodel.Program{Name: "SlipStream", SlipStream: true}, V4: yes, V6: yes}},
+			listeners: []netmodel.Listener{{Port: 32400, V4: yes, V6: yes}, {Port: 8484, Program: netmodel.Program{Name: "SlipStream", SlipStream: true}, V4: yes, V6: yes}},
 			policies:  []netmodel.Policy{netmodel.PolicyUnknown, netmodel.PolicyUnknown, netmodel.PolicyUnknown, netmodel.PolicyUnknown},
 		},
 	} {

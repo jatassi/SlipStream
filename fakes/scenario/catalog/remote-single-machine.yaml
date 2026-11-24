@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  S51 (Reachability diagnostic) on one machine. The Controller atlas is
+  the only Node, behind a router at 203.0.113.9 that speaks no mapping
+  protocol and forwards Plex to atlas, so nothing can test from outside.
+  atlas runs Plex with Remote Access off at plex.single.localhost, and the
+  plex-mapping cue plays Plex's own check.
+seed: remote-single-machine
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: atlas
+    setup: controller
+    site: home
+    firewall: [{service: plex, family: ipv4, policy: allows}]
+    media_servers:
+      - kind: plex
+        name: Plex
+        runs_on: atlas
+        custom: ["http://plex.single.localhost"]
+network:
+  sites:
+    - name: home
+      wan: public
+      address: 203.0.113.9
+      forwards: [{node: atlas, service: plex}]
+  dns:
+    - {name: plex.single.localhost, a: [203.0.113.9]}
+timings:
+  node:
+    stop_deadline: 15s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
