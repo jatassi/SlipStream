@@ -52,6 +52,7 @@ test("a Clear between events leaves only what the first page now holds", async (
   await userEvent.click(page.getByRole("button", { name: "History options" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Clear History…" }));
   await userEvent.click(page.getByRole("button", { name: "Clear History", exact: true }));
+  await expect.poll(() => history.cleared).toBe(1);
   history.record(anEntry(4, new Date().toISOString()));
   live.clients[0]?.send({ event: "history.changed", data: {} });
   await expect.poll(() => rows().all().length).toBe(1);
