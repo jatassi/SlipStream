@@ -68,6 +68,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.media_servers.sent_age", "timings.media_servers.index_page",
 		"timings.notifications.send", "timings.notifications.ladder",
 		"timings.housekeeping.prune_batch", "timings.netfacts.stun", "timings.netfacts.gateway", "timings.netfacts.ssdp_wait", "timings.netfacts.resolve", "timings.netfacts.connect", "timings.netfacts.tls", "timings.netfacts.read", "timings.netfacts.read_bytes", "timings.netfacts.pass", "timings.netfacts.confirm_floor",
+		"timings.reachability.unit", "timings.reachability.read_fresh", "timings.reachability.echo", "timings.reachability.suggest",
 	}
 	if !slices.Equal(paths, want) {
 		t.Fatalf("leaves = %v, want %v", paths, want)

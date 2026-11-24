@@ -67,6 +67,7 @@ import (
 	"github.com/jatassi/slipstream/internal/providers/subsource"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
+	"github.com/jatassi/slipstream/internal/reachability"
 	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
@@ -131,6 +132,9 @@ type half struct {
 	// mediaServersHealth is the Media Servers' Health category, on a
 	// Controller.
 	mediaServersHealth health.Source
+
+	// reachability is Remote access, on a Controller.
+	reachability *reachability.Reachability
 
 	// notifications is the Admin's notification connections and the bell,
 	// on a Controller.
@@ -334,7 +338,26 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:   n.rootLog.With("subsystem", "mediaservers"),
 	})
 	linked = mediaserverlink.Def.Serve(servers.Intent, servers.Apply)
-	network := netmodel.Def.Serve(netfacts.Quiet, netfacts.NoResults)
+	reach := reachability.New(reachability.Config{
+		Library: lib.db,
+		Hub:     n.hub,
+		Log:     n.rootLog.With("subsystem", "reachability"),
+		Roster:  reachRoster{openedRoster{&side}},
+		Tasks:   lateTasks{&scheduler},
+		Network: func(id role.NodeID) networkv1connect.NodeNetworkServiceHandler {
+			return networkv1connect.NodeNetworkService.On(cluster, id)
+		},
+		MediaServers: servers,
+		Rules:        netmodel.RulesOf(n.cfg.Network),
+		LinkSource:   n.linkSource(),
+		WebPort:      n.webPort,
+		Timings:      n.cfg.Timings.Reachability,
+		Zone:         n.zone(),
+		Changed:      reachability.ChangedEvent.Bind(n.hub),
+		Now:          time.Now,
+	})
+	network := netmodel.Def.Serve(reach.Intent, reach.Apply)
+	reach.Serve(network)
 	cat := entry.NewCatalog()
 	n.notifications = notifications.New(notifications.Config{
 		Library:   lib.db,
@@ -410,6 +433,7 @@ func (n *Node) startController(ctx context.Context) error {
 			clients.Arrived(id, scope)
 			copies.Noted(id, scope)
 			servers.Noted(id, scope)
+			reach.Noted(id, scope)
 		},
 		Applied: func(id role.NodeID, scope string) {
 			clients.Applied(id, scope)
@@ -787,7 +811,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}, found, kept), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask(), subtitler.Task()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
+		}, found, kept), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask(), subtitler.Task(), reach.Task()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
 		Roster:      side,
 		Zone:        n.zone(),
 		Rand:        n.tasksRand,
@@ -818,6 +842,8 @@ func (n *Node) startController(ctx context.Context) error {
 
 		mediaServersHealth: servers.HealthSource(),
 
+		reachability: reach,
+
 		notifications: n.notifications,
 
 		calendar: dates,
@@ -846,6 +872,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("transfers", copies.Run)
 	n.claimed.Go("backup copies", kept.Run)
 	n.claimed.Go("media servers", servers.Run)
+	n.claimed.Go("reachability", reach.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("moves", mover.Run)
 	n.claimed.Go("subtitles", subtitler.Run)
@@ -948,6 +975,10 @@ func (t lateTasks) EveryIn(ctx context.Context, r storage.Reader[storage.Library
 
 func (t lateTasks) Next(ctx context.Context, id tasks.TaskID) (time.Time, error) {
 	return (*t.tasks).Next(ctx, id)
+}
+
+func (t lateTasks) Start(ctx context.Context, st tasks.Start) (tasks.Started, error) {
+	return (*t.tasks).Start(ctx, st)
 }
 
 func (t lateTasks) SetCadence(ctx context.Context, id tasks.TaskID, v setting.Stored[int64]) error {

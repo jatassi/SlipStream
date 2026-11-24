@@ -44,6 +44,7 @@ import (
 	"github.com/jatassi/slipstream/internal/providers/subsource"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
+	"github.com/jatassi/slipstream/internal/reachability"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/serving"
@@ -194,6 +195,7 @@ type TimingsBlock struct {
 	Notifications notifications.Timings  `yaml:"notifications"`
 	Housekeeping  housekeeping.Timings   `yaml:"housekeeping"`
 	Netfacts      netfacts.Timings       `yaml:"netfacts"`
+	Reachability  reachability.Timings   `yaml:"reachability"`
 }
 
 type Timings struct {
@@ -288,6 +290,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Notifications: notifications.DefaultTimings(),
 			Housekeeping:  housekeeping.DefaultTimings(),
 			Netfacts:      netfacts.DefaultTimings(),
+			Reachability:  reachability.DefaultTimings(),
 		},
 	}
 }

@@ -7,8 +7,11 @@ import (
 	"net/netip"
 
 	"github.com/jatassi/slipstream/internal/netfacts"
+	"github.com/jatassi/slipstream/internal/netfacts/script"
 	"github.com/jatassi/slipstream/internal/netmodel"
 	"github.com/jatassi/slipstream/internal/node/internal/host"
+	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/role"
 )
 
 // osPackets opens this process's UDP sockets for netfacts.
@@ -103,4 +106,43 @@ func hasLoopback6(ctx context.Context, interfaces func(context.Context) ([]netmo
 		}
 	}
 	return false, nil
+}
+
+// linkSource is where a Node's link appears to come from: its remote
+// address, or under scripted-network the address the script's links table
+// says its site shows outside.
+func (n *Node) linkSource() func(string, netip.AddrPort) netip.Addr {
+	path := n.cfg.Network.Script
+	if path == "" {
+		return func(_ string, remote netip.AddrPort) netip.Addr { return remote.Addr() }
+	}
+	return func(name string, remote netip.AddrPort) netip.Addr {
+		f, err := script.Read(path)
+		if err != nil {
+			n.rootLog.Warn("read the network script's links", "err", err)
+			return remote.Addr()
+		}
+		for _, l := range f.Links {
+			if l.Node == name {
+				return l.Address
+			}
+		}
+		return remote.Addr()
+	}
+}
+
+// webPort is the port SlipStream's own web listener took.
+func (n *Node) webPort() uint16 { return n.web.Load().Port }
+
+// reachRoster is the nodes service as reachability reads it.
+type reachRoster struct{ openedRoster }
+
+func (r reachRoster) Self() role.NodeID { return (*r.side).Self() }
+
+func (r reachRoster) Serving(name role.Name) []role.NodeID { return (*r.side).Who(name).Serving() }
+
+func (r reachRoster) Remote(id role.NodeID) (netip.AddrPort, bool, bool) { return (*r.side).Remote(id) }
+
+func (r reachRoster) Names(ctx context.Context) (map[role.NodeID]nodes.Named, error) {
+	return (*r.side).Names(ctx)
 }

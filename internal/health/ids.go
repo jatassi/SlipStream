@@ -8,6 +8,7 @@ const (
 	NodesID           ID = "nodes"
 	DownloadClientsID ID = "download-clients"
 	MediaServersID    ID = "media-servers"
+	RemoteAccessID    ID = "remote-access"
 	SeedingID         ID = "seeding"
 	IndexersID        ID = "indexers"
 	SubtitlesID       ID = "subtitles"
@@ -18,5 +19,5 @@ const (
 
 // IDs is every category, in page order.
 func IDs() []ID {
-	return []ID{StorageID, LibraryID, NodesID, DownloadClientsID, MediaServersID, SeedingID, IndexersID, SubtitlesID, ScheduledTasksID, BackupsID, NotificationsID}
+	return []ID{StorageID, LibraryID, NodesID, DownloadClientsID, MediaServersID, RemoteAccessID, SeedingID, IndexersID, SubtitlesID, ScheduledTasksID, BackupsID, NotificationsID}
 }

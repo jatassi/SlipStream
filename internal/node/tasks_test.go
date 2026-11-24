@@ -63,7 +63,7 @@ func TestEveryTaskDeclaresWhileReconciling(t *testing.T) {
 		want := map[tasks.TaskID]tasks.WhileReconciling{
 			"metadata-refresh": tasks.Runs, "library-scan": tasks.Runs, "housekeeping": tasks.Runs,
 			"indexer-catalog-refresh": tasks.Runs, "indexer-health-check": tasks.Runs, "seeding-goals": tasks.Runs, "plex-sign-in": tasks.Runs,
-			"subtitle-search": tasks.Pauses, "backlog-search": tasks.Pauses, "rss-sync": tasks.Pauses,
+			"subtitle-search": tasks.Pauses, "reachability": tasks.Pauses, "backlog-search": tasks.Pauses, "rss-sync": tasks.Pauses,
 		}
 		s := n.half.Load().tasks
 		for id, w := range want {

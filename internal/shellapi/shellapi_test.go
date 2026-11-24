@@ -138,6 +138,11 @@ var quietMediaServers = health.Category{
 	Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }},
 }
 
+var quietRemoteAccess = health.Category{
+	About:  health.About{ID: health.RemoteAccessID, Label: "Remote access", Phrase: "remote access"},
+	Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }},
+}
+
 var quietSeeding = health.Category{
 	About:  health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still need seeding"},
 	Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }},
@@ -178,7 +183,7 @@ func openHealth(t *testing.T, lib *storage.DB[storage.Library], roster *nodes.Se
 		Library:    lib,
 		Hub:        hub,
 		Changed:    discard[health.Changed]{},
-		Categories: []health.Category{quietLibrary, {About: nodes.HealthAbout, Source: roster.HealthSource()}, quietClients, quietMediaServers, quietSeeding, quietIndexers, quietSubtitles, failedTask, quietBackups, quietNotifications},
+		Categories: []health.Category{quietLibrary, {About: nodes.HealthAbout, Source: roster.HealthSource()}, quietClients, quietMediaServers, quietRemoteAccess, quietSeeding, quietIndexers, quietSubtitles, failedTask, quietBackups, quietNotifications},
 		Timings:    health.DefaultTimings(),
 		Log:        slog.New(slog.DiscardHandler),
 	})

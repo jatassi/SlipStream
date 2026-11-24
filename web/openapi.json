@@ -9935,6 +9935,7 @@
           "nodes",
           "download-clients",
           "media-servers",
+          "remote-access",
           "seeding",
           "indexers",
           "subtitles",
@@ -20453,6 +20454,975 @@
         },
         "required": [
           "destinationId"
+        ],
+        "type": "object"
+      },
+      "ReachabilityActionView": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "pair-node",
+              "map-ports"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label"
+        ],
+        "type": "object"
+      },
+      "ReachabilityCard": {
+        "additionalProperties": false,
+        "properties": {
+          "exposureId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "fix": {
+            "$ref": "#/components/schemas/ReachabilityFixView"
+          },
+          "kind": {
+            "enum": [
+              "untested",
+              "warn",
+              "fail"
+            ],
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "reachable",
+              "fixable",
+              "needs-relay"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "exposureId",
+          "subject",
+          "verdict",
+          "fix"
+        ],
+        "type": "object"
+      },
+      "ReachabilityChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "exposureIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "exposureIds"
+        ],
+        "type": "object"
+      },
+      "ReachabilityCheckID": {
+        "enum": [
+          "dns.a",
+          "dns.aaaa",
+          "origin.bind",
+          "origin.firewall",
+          "origin.class",
+          "outside.connect",
+          "outside.connect-back",
+          "tls.certificate",
+          "identity",
+          "http.plain",
+          "plex.custom-url",
+          "plex.mapping"
+        ],
+        "type": "string"
+      },
+      "ReachabilityCheckView": {
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "description": "The Node that saw it",
+            "type": "string"
+          },
+          "fact": {
+            "description": "Shown, never pointing: an overruled local guess or a connect-back",
+            "type": "boolean"
+          },
+          "family": {
+            "enum": [
+              "ipv4",
+              "ipv6"
+            ],
+            "type": "string"
+          },
+          "fix": {
+            "$ref": "#/components/schemas/ReachabilityFixView"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ReachabilityCheckID"
+          },
+          "meaning": {
+            "type": "string"
+          },
+          "observed": {
+            "type": "string"
+          },
+          "points": {
+            "description": "What a failing or untested result points to",
+            "enum": [
+              "reachable",
+              "fixable",
+              "needs-relay"
+            ],
+            "type": "string"
+          },
+          "result": {
+            "enum": [
+              "passes",
+              "fails",
+              "not-tested",
+              "not-used",
+              "not-reached"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "result",
+          "fact",
+          "meaning",
+          "fix"
+        ],
+        "type": "object"
+      },
+      "ReachabilityClassLine": {
+        "additionalProperties": false,
+        "properties": {
+          "line": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId",
+          "name",
+          "line"
+        ],
+        "type": "object"
+      },
+      "ReachabilityCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "fix": {
+            "description": "Fixable, resting on a failing check",
+            "format": "int64",
+            "type": "integer"
+          },
+          "lookRight": {
+            "description": "Reachable by what SlipStream sees here, not tested from outside",
+            "format": "int64",
+            "type": "integer"
+          },
+          "relay": {
+            "description": "Needs a relay",
+            "format": "int64",
+            "type": "integer"
+          },
+          "untested": {
+            "description": "Fixable, resting on Not tested",
+            "format": "int64",
+            "type": "integer"
+          },
+          "work": {
+            "description": "Reachable and tested from outside",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "work",
+          "lookRight",
+          "untested",
+          "fix",
+          "relay"
+        ],
+        "type": "object"
+      },
+      "ReachabilityExposurePublic": {
+        "additionalProperties": false,
+        "properties": {
+          "public": {
+            "description": "The address players outside the home use",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public"
+        ],
+        "type": "object"
+      },
+      "ReachabilityExposureView": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "ui-portal",
+              "media-server"
+            ],
+            "type": "string"
+          },
+          "public": {
+            "description": "The address players outside the home use; the UI and portal's is Address",
+            "type": "string"
+          },
+          "subject": {
+            "description": "SlipStream UI and portal, or the Media Server's name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "subject",
+          "public"
+        ],
+        "type": "object"
+      },
+      "ReachabilityFactID": {
+        "enum": [
+          "split-horizon",
+          "tested-through-proxy",
+          "proxy-leg",
+          "sign-in-page",
+          "ipv6-viewers-direct",
+          "ipv6-skips-proxy",
+          "address-churn",
+          "tester-away",
+          "same-network",
+          "at-address",
+          "serves-it",
+          "tester-dns",
+          "claim-contradicted",
+          "link-unconfirmed",
+          "plex-relay-quality",
+          "plex-mapping",
+          "plex-tested",
+          "other-program",
+          "own-bind",
+          "echo-through-program",
+          "echo-own-stream",
+          "echo-tester-address",
+          "echo-source",
+          "class",
+          "class-from-reaching",
+          "mapping-permanent",
+          "stun-varies-port",
+          "stun-varies-address",
+          "firewalld-partial",
+          "connect-back"
+        ],
+        "type": "string"
+      },
+      "ReachabilityFactView": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ReachabilityFactID"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ],
+        "type": "object"
+      },
+      "ReachabilityFixID": {
+        "enum": [
+          "forward-not-seen",
+          "manual-forward",
+          "no-gateway",
+          "mappable",
+          "mappable-plex",
+          "cgnat",
+          "double-nat",
+          "vpn",
+          "firewall",
+          "firewall-unknown",
+          "firewall-docker",
+          "bind",
+          "bind-program",
+          "bind-family",
+          "bind-unknown",
+          "plain-http",
+          "private-address",
+          "stale-a",
+          "extra-a",
+          "private-a",
+          "dns-failed",
+          "no-a",
+          "aaaa-off-origin",
+          "prefix-change",
+          "aaaa-failed",
+          "private-aaaa",
+          "broken-aaaa",
+          "untested-ipv6",
+          "proxy-port",
+          "proxy-forward",
+          "custom-url",
+          "certificate",
+          "identity",
+          "sign-in-server",
+          "sign-in-ui",
+          "echo-unconfirmed",
+          "not-tested"
+        ],
+        "type": "string"
+      },
+      "ReachabilityFixView": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ReachabilityActionView",
+            "description": "The fix's button, null with none"
+          },
+          "command": {
+            "description": "The firewall command, when the fix carries one",
+            "type": "string"
+          },
+          "details": {
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ReachabilityFixID"
+          },
+          "step": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "step",
+          "action"
+        ],
+        "type": "object"
+      },
+      "ReachabilityGatewayView": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "wan": {
+            "description": "The address the router says it has on the internet, empty when it said none",
+            "type": "string"
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "type": "object"
+      },
+      "ReachabilityHopView": {
+        "additionalProperties": false,
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/ReachabilityCheckView"
+            },
+            "type": "array"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/ReachabilityFactView"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "player",
+              "dns",
+              "proxy",
+              "relay",
+              "tls",
+              "node-link",
+              "origin",
+              "media-server"
+            ],
+            "type": "string"
+          },
+          "worst": {
+            "enum": [
+              "passes",
+              "fails",
+              "not-tested",
+              "not-used",
+              "not-reached"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "worst",
+          "checks",
+          "facts"
+        ],
+        "type": "object"
+      },
+      "ReachabilityIfaceView": {
+        "additionalProperties": false,
+        "properties": {
+          "addresses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tunnel": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "tunnel",
+          "addresses"
+        ],
+        "type": "object"
+      },
+      "ReachabilityLastRun": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "testers": {
+            "items": {
+              "$ref": "#/components/schemas/ReachabilityNodeName"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "at",
+          "testers"
+        ],
+        "type": "object"
+      },
+      "ReachabilityListenView": {
+        "additionalProperties": false,
+        "properties": {
+          "ipv4": {
+            "enum": [
+              "unknown",
+              "yes",
+              "no"
+            ],
+            "type": "string"
+          },
+          "ipv6": {
+            "enum": [
+              "unknown",
+              "yes",
+              "no"
+            ],
+            "type": "string"
+          },
+          "loopback": {
+            "type": "boolean"
+          },
+          "port": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "program": {
+            "description": "Empty when SlipStream couldn't see the owner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "port",
+          "program",
+          "ipv4",
+          "ipv6",
+          "loopback"
+        ],
+        "type": "object"
+      },
+      "ReachabilityMappingView": {
+        "additionalProperties": false,
+        "properties": {
+          "expires": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "external": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "internal": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "permanent": {
+            "description": "The router took the mapping only with no expiry",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "external",
+          "internal",
+          "permanent",
+          "expires"
+        ],
+        "type": "object"
+      },
+      "ReachabilityNewExposure": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "ui-portal",
+              "media-server"
+            ],
+            "type": "string"
+          },
+          "public": {
+            "description": "The address players outside the home use, for kind media-server",
+            "type": "string"
+          },
+          "serverId": {
+            "description": "The Media Server, for kind media-server",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "ReachabilityNodeName": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId",
+          "name"
+        ],
+        "type": "object"
+      },
+      "ReachabilityNodeNetwork": {
+        "additionalProperties": false,
+        "properties": {
+          "firewall": {
+            "items": {
+              "$ref": "#/components/schemas/ReachabilityRuleView"
+            },
+            "type": "array"
+          },
+          "gateway": {
+            "$ref": "#/components/schemas/ReachabilityGatewayView",
+            "description": "Null when no router was asked"
+          },
+          "interfaces": {
+            "items": {
+              "$ref": "#/components/schemas/ReachabilityIfaceView"
+            },
+            "type": "array"
+          },
+          "line": {
+            "description": "The Node's class, in no signal color",
+            "type": "string"
+          },
+          "listeners": {
+            "items": {
+              "$ref": "#/components/schemas/ReachabilityListenView"
+            },
+            "type": "array"
+          },
+          "mappings": {
+            "items": {
+              "$ref": "#/components/schemas/ReachabilityMappingView"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "now": {
+            "description": "Read on opening; false is the last stored look, for a Node that is away",
+            "type": "boolean"
+          },
+          "observedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "nodeId",
+          "name",
+          "line",
+          "now",
+          "observedAt",
+          "interfaces",
+          "listeners",
+          "firewall",
+          "gateway",
+          "mappings"
+        ],
+        "type": "object"
+      },
+      "ReachabilityRemoteAccess": {
+        "additionalProperties": false,
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/ReachabilityCard",
+            "description": "The one recommendation, null when every route works and was tested"
+          },
+          "lastRun": {
+            "$ref": "#/components/schemas/ReachabilityLastRun",
+            "description": "Null before the first check"
+          },
+          "nodes": {
+            "description": "One line per Node, the Controller first; empty while nothing is set up",
+            "items": {
+              "$ref": "#/components/schemas/ReachabilityClassLine"
+            },
+            "type": "array"
+          },
+          "nothingWanted": {
+            "description": "Nothing is set up for use away from home: the page shows its Empty state",
+            "type": "boolean"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/ReachabilityRoute"
+            },
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReachabilityStatus"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/ReachabilitySuggestionView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "nothingWanted",
+          "status",
+          "card",
+          "routes",
+          "lastRun",
+          "suggestions",
+          "nodes"
+        ],
+        "type": "object"
+      },
+      "ReachabilityRoute": {
+        "additionalProperties": false,
+        "properties": {
+          "card": {
+            "enum": [
+              "none",
+              "untested",
+              "warn",
+              "fail"
+            ],
+            "type": "string"
+          },
+          "checked": {
+            "description": "False until the first check of this route finished",
+            "type": "boolean"
+          },
+          "exposure": {
+            "$ref": "#/components/schemas/ReachabilityExposureView"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/ReachabilityFactView"
+            },
+            "type": "array"
+          },
+          "families": {
+            "description": "The families the route offers, as its tag",
+            "type": "string"
+          },
+          "fix": {
+            "$ref": "#/components/schemas/ReachabilityFixView",
+            "description": "The step that fixes the deciding check, null with none"
+          },
+          "folded": {
+            "description": "Reachable and tested: the route shows as one line",
+            "type": "boolean"
+          },
+          "hops": {
+            "items": {
+              "$ref": "#/components/schemas/ReachabilityHopView"
+            },
+            "type": "array"
+          },
+          "judgedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "route": {
+            "enum": [
+              "direct",
+              "own-proxy",
+              "through-relay",
+              "unplaced"
+            ],
+            "type": "string"
+          },
+          "skipped": {
+            "description": "Why the route wasn't checked since its last result, null while its origin is in step",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tested": {
+            "description": "Every offered family was tested from outside",
+            "type": "boolean"
+          },
+          "testedBy": {
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "reachable",
+              "fixable",
+              "needs-relay"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "exposure",
+          "checked",
+          "tested",
+          "folded",
+          "card",
+          "fix",
+          "skipped",
+          "judgedAt",
+          "hops",
+          "facts"
+        ],
+        "type": "object"
+      },
+      "ReachabilityRuleView": {
+        "additionalProperties": false,
+        "properties": {
+          "family": {
+            "enum": [
+              "ipv4",
+              "ipv6"
+            ],
+            "type": "string"
+          },
+          "policy": {
+            "enum": [
+              "unknown",
+              "allows",
+              "blocks"
+            ],
+            "type": "string"
+          },
+          "port": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "port",
+          "family",
+          "policy"
+        ],
+        "type": "object"
+      },
+      "ReachabilityRunStarted": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "description": "The Scheduled task run the routes were queued in",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runId"
+        ],
+        "type": "object"
+      },
+      "ReachabilitySettingsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "settings": {
+            "items": {
+              "$ref": "#/components/schemas/SettingField"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "settings"
+        ],
+        "type": "object"
+      },
+      "ReachabilitySettingsValues": {
+        "additionalProperties": false,
+        "properties": {
+          "values": {
+            "additionalProperties": {},
+            "description": "Each setting's new value by key, all or none; null resets one to its default",
+            "type": "object"
+          }
+        },
+        "required": [
+          "values"
+        ],
+        "type": "object"
+      },
+      "ReachabilityStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/ReachabilityCounts"
+          },
+          "parts": {
+            "description": "The status sentence's parts, joined with · on screen",
+            "items": {
+              "$ref": "#/components/schemas/ReachabilityStatusPart"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "counts",
+          "parts"
+        ],
+        "type": "object"
+      },
+      "ReachabilityStatusPart": {
+        "additionalProperties": false,
+        "properties": {
+          "exposureId": {
+            "description": "The route the part is about, which it links to",
+            "format": "uuid",
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "tone": {
+            "enum": [
+              "ok",
+              "neutral",
+              "warn",
+              "fail"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "tone",
+          "text"
+        ],
+        "type": "object"
+      },
+      "ReachabilitySuggestionView": {
+        "additionalProperties": false,
+        "properties": {
+          "addressPrivate": {
+            "description": "The UI and portal has no Address outsiders can use: set one first",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "ui-portal",
+              "media-server"
+            ],
+            "type": "string"
+          },
+          "public": {
+            "description": "The prefilled public address, empty when none is known",
+            "type": "string"
+          },
+          "serverId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "subject",
+          "public",
+          "addressPrivate"
         ],
         "type": "object"
       },
@@ -44224,6 +45194,32 @@
                           "event"
                         ],
                         "title": "Event notifications.seen",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/ReachabilityChanged"
+                          },
+                          "event": {
+                            "const": "reachability.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event reachability.changed",
                         "type": "object"
                       },
                       {
@@ -79658,6 +80654,2137 @@
         "summary": "Read release or file names as a search would: the facts, the Work each matches, every Custom Format with each condition's result, and the score and verdict at each Target",
         "tags": [
           "formats"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/remote-access": {
+      "get": {
+        "operationId": "getRemoteAccess",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReachabilityRemoteAccess"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get Remote access: every route set up for use away from home with its verdict, the suggestions and each Node's class",
+        "tags": [
+          "reachability"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/remote-access/echo/{id}": {
+      "get": {
+        "operationId": "remoteAccessEcho",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain; charset=utf-8": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "echo_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [],
+        "summary": "Answer a route test's single-use check once, so the Controller sees the test arrived from outside",
+        "tags": [
+          "reachability"
+        ],
+        "x-slipstream-access": "public"
+      }
+    },
+    "/remote-access/exposures": {
+      "post": {
+        "operationId": "addExposure",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReachabilityNewExposure"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReachabilityExposureView"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "server_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "exposure_exists",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "public_not_url",
+                            "public_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Set the UI and portal, or a Media Server, up for use away from home, and check it",
+        "tags": [
+          "reachability"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/remote-access/exposures/{id}": {
+      "delete": {
+        "operationId": "removeExposure",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "exposure_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Stop checking a route, and forget its result",
+        "tags": [
+          "reachability"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "editExposure",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReachabilityExposurePublic"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReachabilityExposureView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "exposure_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "public_not_url",
+                            "public_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change a Media Server's public address, and check it again",
+        "tags": [
+          "reachability"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/remote-access/nodes/{id}": {
+      "get": {
+        "operationId": "getNodeNetwork",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReachabilityNodeNetwork"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Node's Network section, read now with nothing sent outside the machine",
+        "tags": [
+          "reachability"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/remote-access/nodes/{id}/settings": {
+      "get": {
+        "operationId": "getNodeNetworkSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReachabilitySettingsBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Node's Remote access settings",
+        "tags": [
+          "reachability"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "patchNodeNetworkSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReachabilitySettingsValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReachabilitySettingsBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range",
+                            "unknown_setting"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change a Node's Remote access settings by key, all or none",
+        "tags": [
+          "reachability"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/remote-access/run": {
+      "post": {
+        "operationId": "runRemoteAccess",
+        "parameters": [
+          {
+            "description": "Left out, every route",
+            "explode": false,
+            "in": "query",
+            "name": "exposure",
+            "schema": {
+              "description": "Left out, every route",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReachabilityRunStarted"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "exposure_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "nothing_wanted",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Check every route again, or one, with a fresh look at each Node's network",
+        "tags": [
+          "reachability"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/remote-access/settings": {
+      "get": {
+        "operationId": "getRemoteAccessSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReachabilitySettingsBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get the Remote access settings of Settings \u003e Access",
+        "tags": [
+          "reachability"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "patchRemoteAccessSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReachabilitySettingsValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReachabilitySettingsBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range",
+                            "unknown_setting"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change the Remote access settings by key, all or none",
+        "tags": [
+          "reachability"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/remote-access/suggestions/{id}/dismiss": {
+      "post": {
+        "operationId": "dismissSuggestion",
+        "parameters": [
+          {
+            "description": "ui-portal, or a Media Server's id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "ui-portal, or a Media Server's id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "server_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Hide a suggestion: ui-portal, or a Media Server's id",
+        "tags": [
+          "reachability"
         ],
         "x-slipstream-access": "admin"
       }

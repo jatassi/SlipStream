@@ -578,3 +578,47 @@ func hostPort(host string, port uint16) string {
 func toolName(t netmodel.Tool) string {
 	return [...]string{"The firewall", "Windows Defender Firewall", "The macOS firewall", "firewalld", "ufw"}[t]
 }
+
+// NotWatched is the class line of a Node nothing on which is checked.
+func (w Words) NotWatched(n role.NodeID) string {
+	return fmt.Sprintf("Not checked, because nothing on %s is set up for use away from home.", w.Node(n))
+}
+
+// NotReadYet is the class line of a Node no check has read yet.
+func (w Words) NotReadYet(n role.NodeID) string {
+	return w.Node(n) + "'s network hasn't been checked yet."
+}
+
+// Skipped is a route whose origin is away.
+func (w Words) Skipped(origin role.NodeID, since string) string {
+	return fmt.Sprintf("Not checked since %s because %s is offline.", since, w.Node(origin))
+}
+
+// TestedBy is who tested a route from outside.
+func (w Words) TestedBy(j judge.Judged, tester role.NodeID) string {
+	for _, fv := range j.Families {
+		if fv.Tested && fv.ByPlex {
+			return "Tested by Plex."
+		}
+	}
+	if tester.IsZero() {
+		return "Not tested from outside."
+	}
+	return fmt.Sprintf("Tested from %s.", w.Node(tester))
+}
+
+// Families is a route's offered families as its tag.
+func Families(offered []netmodel.Family) string {
+	switch {
+	case len(offered) == 2:
+		return "IPv4 and IPv6"
+	case len(offered) == 1 && offered[0] == netmodel.IPv6:
+		return "IPv6 only"
+	}
+	return "IPv4"
+}
+
+// ActionLabel is a fix's button.
+func ActionLabel(k judge.ActionKind) string {
+	return map[judge.ActionKind]string{judge.PairNode: "Pair a Node", judge.MapPorts: "Turn on Open router ports automatically"}[k]
+}

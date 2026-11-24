@@ -2,7 +2,6 @@ package netfacts
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -10,7 +9,6 @@ import (
 	"github.com/jatassi/slipstream/internal/netmodel"
 	netv1 "github.com/jatassi/slipstream/internal/pb/slipstream/network/v1"
 	"github.com/jatassi/slipstream/internal/role"
-	"github.com/jatassi/slipstream/internal/storage"
 )
 
 // Watch is the network channel's run. While the intent says to watch it
@@ -122,14 +120,3 @@ func (n *Netfacts) follow(i *netv1.Intent) {
 // Release is the channel's release at removal: the watch holds nothing
 // past its run.
 func (n *Netfacts) Release(context.Context) error { return nil }
-
-// Quiet derives an intent that never watches, so no Node sends anything
-// until a feature asks it to.
-func Quiet(context.Context, storage.Reader[storage.Library], role.NodeID) (*netv1.Intent, error) {
-	return &netv1.Intent{}, nil
-}
-
-// NoResults refuses every result: the network channel has none.
-func NoResults(context.Context, *storage.Tx[storage.Library], role.NodeID, *emptypb.Empty) error {
-	return errors.New("the network channel has no results")
-}
