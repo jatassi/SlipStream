@@ -38,6 +38,8 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/netfacts"
+	"github.com/jatassi/slipstream/internal/netmodel"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/notifications"
@@ -51,6 +53,7 @@ import (
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1/mediaserverv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/network/v1/networkv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1/notifyv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
@@ -331,6 +334,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:   n.rootLog.With("subsystem", "mediaservers"),
 	})
 	linked = mediaserverlink.Def.Serve(servers.Intent, servers.Apply)
+	network := netmodel.Def.Serve(netfacts.Quiet, netfacts.NoResults)
 	cat := entry.NewCatalog()
 	n.notifications = notifications.New(notifications.Config{
 		Library:   lib.db,
@@ -393,7 +397,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Traffic: nodes.TrafficEvent.Bind(n.hub),
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
-		Served:          append([]role.Served{downloads, stored, transferring, linked}, n.env.Test.Served...),
+		Served:          append([]role.Served{downloads, stored, transferring, linked, network}, n.env.Test.Served...),
 		Owners:          owners(clients, servers, n.notifications),
 		Kept:            grabs.Kept,
 		Torrents:        clients,
@@ -438,6 +442,7 @@ func (n *Node) startController(ctx context.Context) error {
 	dispatch := rpc.NewDispatch(n.link, self, self, func(r role.Name) bool { return holding.Holds(r) })
 	cluster = rpc.NewCluster(dispatch, side)
 	n.mediaLink = n.newMediaLink()
+	n.network = n.newNetwork()
 	holding, local, copier, err := n.startHolding(ctx, role.InProcess(controls), dispatch, nil, nil)
 	if err != nil {
 		return err
@@ -455,6 +460,7 @@ func (n *Node) startController(ctx context.Context) error {
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
+	networkv1connect.NodeNetworkService.Mount(dispatch, netfacts.NewService(n.network))
 	providers := make([]calls.Provider, len(holder.Testers))
 	for i, t := range holder.Testers {
 		providers[i] = t.Provider()
@@ -1110,6 +1116,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	var holding *role.Holding
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, func(r role.Name) bool { return holding.Holds(r) })
 	n.mediaLink = n.newMediaLink()
+	n.network = n.newNetwork()
 	holding, local, copier, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), dispatch, []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)}, side.Remember)
 	if err != nil {
 		return err
@@ -1128,6 +1135,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
+	networkv1connect.NodeNetworkService.Mount(dispatch, netfacts.NewService(n.network))
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)
 	rec, _ := side.Record()
@@ -1256,6 +1264,7 @@ func (n *Node) heldRoles(local *storage.DB[storage.Local], dispatch *rpc.Dispatc
 		storing.Def.Hold(n.store.Run, n.store.Release),
 		transfers.Def.Hold(copier.Run, copier.Release),
 		mediaserverlink.Def.Hold(n.mediaLink.Run(local, mediaserverv1connect.MediaServerControlService.Call(dispatch)), n.mediaLink.Release),
+		netmodel.Def.Hold(n.network.Watch, n.network.Release),
 	}
 }
 

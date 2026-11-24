@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -12,6 +13,8 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/jatassi/slipstream/fakes/fault"
+	"github.com/jatassi/slipstream/internal/netmodel"
 	nodehost "github.com/jatassi/slipstream/internal/node/internal/host"
 )
 
@@ -56,6 +59,8 @@ func TestBindHTTPKeepsTheFirstPortThatBinds(t *testing.T) {
 		bound  []string
 		closed []string
 		err    string
+		// noIPv6 is a host without ::1.
+		noIPv6 bool
 	}{
 		{name: "a free port", addr: "127.0.0.1:8484", tries: 10, tried: []string{"127.0.0.1:8484"}, bound: []string{"127.0.0.1:8484"}},
 		{name: "two taken ports", addr: "127.0.0.1:8484", tries: 10, taken: []string{"127.0.0.1:8484", "127.0.0.1:8485"}, tried: []string{"127.0.0.1:8484", "127.0.0.1:8485", "127.0.0.1:8486"}, bound: []string{"127.0.0.1:8486"}},
@@ -69,6 +74,7 @@ func TestBindHTTPKeepsTheFirstPortThatBinds(t *testing.T) {
 			name: "this machine only with the port taken on one loopback", addr: "[::1]:8484", tries: 10, taken: []string{"127.0.0.1:8484"},
 			tried: []string{"[::1]:8484", "127.0.0.1:8484", "[::1]:8485", "127.0.0.1:8485"}, bound: []string{"[::1]:8485", "127.0.0.1:8485"}, closed: []string{"[::1]:8484"},
 		},
+		{name: "this machine only on a host without IPv6", addr: "[::1]:8484", tries: 10, noIPv6: true, tried: []string{"127.0.0.1:8484"}, bound: []string{"127.0.0.1:8484"}},
 		{name: "this machine only on any port", addr: "[::1]:0", tries: 10, tried: []string{"[::1]:0", "127.0.0.1:40000"}, bound: []string{"[::1]:40000", "127.0.0.1:40000"}},
 		{
 			name: "this machine only on any port taken on the other loopback", addr: "[::1]:0", tries: 10, taken: []string{"127.0.0.1:40000"},
@@ -77,7 +83,7 @@ func TestBindHTTPKeepsTheFirstPortThatBinds(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			var tried, closed []string
-			lns, err := bindHTTP(takenAddrs(c.taken, &tried, &closed), netip.MustParseAddrPort(c.addr), c.tries)
+			lns, err := bindHTTP(takenAddrs(c.taken, &tried, &closed), netip.MustParseAddrPort(c.addr), c.tries, !c.noIPv6)
 			if !slices.Equal(tried, c.tried) || !slices.Equal(closed, c.closed) {
 				t.Fatalf("tried %v and closed %v, want %v and %v", tried, closed, c.tried, c.closed)
 			}
@@ -99,8 +105,8 @@ func TestBindHTTPKeepsTheFirstPortThatBinds(t *testing.T) {
 }
 
 // Go opens [::] dual-stack, so its families come from IPV6_V6ONLY, not
-// its address. A host with no IPv6 opens it as IPv4 alone and can't bind
-// ::1.
+// its address. A host with no IPv6 opens it as IPv4 alone and binds
+// This machine only on 127.0.0.1 alone.
 func TestTheWebListenersReadTheirFamilies(t *testing.T) {
 	listen := func(network, address string) (net.Listener, error) {
 		return (&net.ListenConfig{}).Listen(t.Context(), network, address)
@@ -115,10 +121,10 @@ func TestTheWebListenersReadTheirFamilies(t *testing.T) {
 		want []nodehost.Families
 	}{
 		{"[::]:0", []nodehost.Families{{IPv4: true, IPv6: ipv6}}},
-		{"[::1]:0", map[bool][]nodehost.Families{true: {{IPv6: true}, {IPv4: true}}}[ipv6]},
+		{"[::1]:0", map[bool][]nodehost.Families{true: {{IPv6: true}, {IPv4: true}}, false: {{IPv4: true}}}[ipv6]},
 		{"127.0.0.1:0", []nodehost.Families{{IPv4: true}}},
 	} {
-		lns, err := bindHTTP(listen, netip.MustParseAddrPort(c.addr), 1)
+		lns, err := bindHTTP(listen, netip.MustParseAddrPort(c.addr), 1, ipv6)
 		if (err != nil) != (c.want == nil) {
 			t.Fatalf("binding %s: %v", c.addr, err)
 		}
@@ -263,4 +269,37 @@ func TestOnePortToTryFailsTheStart(t *testing.T) {
 			t.Fatalf("start = %v, want %s with exit %d", err, want, ExitFailed)
 		}
 	})
+}
+
+// This machine only binds ::1 beside 127.0.0.1 only on a host that has
+// it, so a host with IPv6 turned off still starts.
+func TestThisMachineOnlyBindsTheLoopbacksTheHostHas(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		addrs []netip.Addr
+		want  string
+	}{
+		{"a host with IPv6", []netip.Addr{netip.MustParseAddr("127.0.0.1"), netip.IPv6Loopback()}, "[::1]:8484"},
+		{"a host with IPv6 turned off", []netip.Addr{netip.MustParseAddr("127.0.0.1")}, "127.0.0.1:8484"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				env := fallbackEnv(t, "3")
+				writeFile(t, filepath.Join(env.DataDir.Path(), "config.yaml"), "http:\n  listen: \"[::1]:8484\"\n")
+				host := fault.NewNetwork().Host(c.addrs...)
+				env = inMemoryOn(env, host)
+				env.Network.Interfaces = func(context.Context) ([]netmodel.Iface, error) {
+					lo := netmodel.Iface{Name: "lo"}
+					for _, a := range c.addrs {
+						lo.Addrs = append(lo.Addrs, netmodel.IfaceAddr{Prefix: netip.PrefixFrom(a, a.BitLen())})
+					}
+					return []netmodel.Iface{lo}, nil
+				}
+				n, _ := startOn(t, env, host)
+				if got := n.Ready().Listeners.HTTP.String(); got != c.want {
+					t.Errorf("listeners.http = %s, want %s", got, c.want)
+				}
+			})
+		})
+	}
 }

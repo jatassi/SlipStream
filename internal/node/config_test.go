@@ -31,7 +31,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 	}
 	want := []string{
 		"seed", "name", "torrent.listen", "torrent.downloads", "torrent.loopback_peers", "http.listen", "http.trusted_origins", "http.ports_to_try", "http.trusted_proxies", "link.listen", "link.advertise", "link.stream_window", "join.code",
-		"log.level", "log.max_size_mb", "log.max_files", "log.max_age_days", "log.compress", "log.viewer_lines", "storage.path_limit", "backups.folder",
+		"log.level", "log.max_size_mb", "log.max_files", "log.max_age_days", "log.compress", "log.viewer_lines", "storage.path_limit", "backups.folder", "network.script",
 		"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.subdl.api", "endpoints.subdl.key_page", "endpoints.subsource.api", "endpoints.subsource.key_page", "endpoints.gestdown.api", "endpoints.plex_tv.api", "endpoints.plex_tv.auth", "endpoints.plex_tv.desktop", "endpoints.torrent.dht_routers", "endpoints.network.stun", "endpoints.network.gateway", "endpoints.network.resolver", "endpoints.network.outside_dialer", "endpoints.indexers.catalog", "endpoints.notify.telegram", "endpoints.notify.pushover", "endpoints.notify.pushbullet", "endpoints.notify.ntfy", "endpoints.searching.sites",
 		"timings.node.stop_deadline", "timings.node.restart_lock_wait", "timings.storage.busy_timeout", "timings.backups.scrypt", "timings.backups.zstd_window", "timings.backups.zstd_memory", "timings.backups.windows_retry", "timings.http.read_header", "timings.http.idle",
 		"timings.live.heartbeat", "timings.live.retry",
@@ -67,7 +67,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.media_servers.section_folders", "timings.media_servers.session_cap", "timings.media_servers.index_age",
 		"timings.media_servers.sent_age", "timings.media_servers.index_page",
 		"timings.notifications.send", "timings.notifications.ladder",
-		"timings.housekeeping.prune_batch",
+		"timings.housekeeping.prune_batch", "timings.netfacts.stun", "timings.netfacts.gateway", "timings.netfacts.ssdp_wait", "timings.netfacts.resolve", "timings.netfacts.connect", "timings.netfacts.tls", "timings.netfacts.read", "timings.netfacts.read_bytes", "timings.netfacts.pass", "timings.netfacts.confirm_floor",
 	}
 	if !slices.Equal(paths, want) {
 		t.Fatalf("leaves = %v, want %v", paths, want)

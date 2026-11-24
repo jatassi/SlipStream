@@ -16,6 +16,8 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/link/linktest"
+	networkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/network/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/network/v1/networkv1connect"
 	notifyv1 "github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1/notifyv1connect"
 	rpctestv1 "github.com/jatassi/slipstream/internal/pb/slipstream/rpctest/v1"
@@ -231,34 +233,54 @@ func TestOnlyTheControllerCallsNodeAndRoleServices(t *testing.T) {
 			t.Errorf("the Controller's Search on itself = %v, %v", own, err)
 		}
 
-		forged := rpc.NewCluster(c.worker, c.roster)
-		_, err = rpctestv1connect.PingService.On(forged, c.controllerID).Ping(t.Context(), &rpctestv1.PingRequest{})
-		if rpc.CodeOf(err) != rpc.CodePermissionDenied {
-			t.Errorf("a Worker's Ping on the Controller = %v (code %v), want permission denied", err, rpc.CodeOf(err))
-		}
-		_, err = rpctestv1connect.SearchService.On(forged, c.controllerID).Search(t.Context(), &rpctestv1.SearchRequest{})
-		if rpc.CodeOf(err) != rpc.CodePermissionDenied {
-			t.Errorf("a Worker's Search on the Controller = %v (code %v), want permission denied", err, rpc.CodeOf(err))
-		}
-		if p, s := c.pingers[c.controllerID].calls.Load(), c.searchers[c.controllerID].calls.Load(); p != 0 || s != 1 {
-			t.Errorf("the Controller's pinger ran %d times and its searcher %d, want 0 and 1", p, s)
-		}
-
 		c.roster.holders[role.Notifying] = []role.NodeID{c.controllerID}
-		n := &notifier{}
+		n, nw := &notifier{}, &networker{}
 		notifyv1connect.NotifyingService.Mount(c.controller, n)
-		_, err = notifyv1connect.NotifyingService.On(forged, c.controllerID).Post(t.Context(), &notifyv1.PostRequest{Method: http.MethodPost, Url: "https://discord.com/api/webhooks/1/secret"})
-		if rpc.CodeOf(err) != rpc.CodePermissionDenied {
-			t.Errorf("a Worker's Post on the Controller = %v (code %v), want permission denied", err, rpc.CodeOf(err))
+		networkv1connect.NodeNetworkService.Mount(c.controller, nw)
+		forged := rpc.NewCluster(c.worker, c.roster)
+		for name, call := range map[string]func() error{
+			"Ping": func() error {
+				_, err := rpctestv1connect.PingService.On(forged, c.controllerID).Ping(t.Context(), &rpctestv1.PingRequest{})
+				return err
+			},
+			"Search": func() error {
+				_, err := rpctestv1connect.SearchService.On(forged, c.controllerID).Search(t.Context(), &rpctestv1.SearchRequest{})
+				return err
+			},
+			"Post": func() error {
+				_, err := notifyv1connect.NotifyingService.On(forged, c.controllerID).Post(t.Context(), &notifyv1.PostRequest{Method: http.MethodPost, Url: "https://discord.com/api/webhooks/1/secret"})
+				return err
+			},
+			"Run": func() error {
+				_, err := notifyv1connect.NotifyingService.On(forged, c.controllerID).Run(t.Context(), &notifyv1.RunRequest{Path: "/opt/notify.sh"})
+				return err
+			},
+			"Dial": func() error {
+				_, err := networkv1connect.NodeNetworkService.On(forged, c.controllerID).Dial(t.Context(), &networkv1.DialRequest{Target: &networkv1.DialRequest_Host{Host: "plex.example.org"}, Port: 32400})
+				return err
+			},
+		} {
+			if err := call(); rpc.CodeOf(err) != rpc.CodePermissionDenied {
+				t.Errorf("a Worker's %s on the Controller = %v (code %v), want permission denied", name, err, rpc.CodeOf(err))
+			}
 		}
-		_, err = notifyv1connect.NotifyingService.On(forged, c.controllerID).Run(t.Context(), &notifyv1.RunRequest{Path: "/opt/notify.sh"})
-		if rpc.CodeOf(err) != rpc.CodePermissionDenied {
-			t.Errorf("a Worker's Run on the Controller = %v (code %v), want permission denied", err, rpc.CodeOf(err))
+		if _, err := networkv1connect.NodeNetworkService.On(c.cluster, c.controllerID).Dial(t.Context(), &networkv1.DialRequest{}); err != nil {
+			t.Errorf("the Controller's Dial on itself: %v", err)
 		}
-		if got := n.calls.Load(); got != 0 {
-			t.Errorf("the Controller's Notifying service ran %d times for a Worker, want 0", got)
+		if p, s, ns, nws := c.pingers[c.controllerID].calls.Load(), c.searchers[c.controllerID].calls.Load(), n.calls.Load(), nw.calls.Load(); p != 0 || s != 1 || ns != 0 || nws != 1 {
+			t.Errorf("the Controller's pinger, searcher, Notifying and network services ran %d, %d, %d and %d times, want 0, 1, 0 and 1", p, s, ns, nws)
 		}
 	})
+}
+
+type networker struct {
+	networkv1connect.UnimplementedNodeNetworkServiceHandler
+	calls atomic.Int32
+}
+
+func (n *networker) Dial(context.Context, *networkv1.DialRequest) (*networkv1.DialResponse, error) {
+	n.calls.Add(1)
+	return &networkv1.DialResponse{}, nil
 }
 
 type notifier struct {

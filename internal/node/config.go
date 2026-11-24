@@ -30,6 +30,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/netfacts"
+	"github.com/jatassi/slipstream/internal/netmodel"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -61,16 +62,17 @@ import (
 type Config struct {
 	Seed string `yaml:"seed"`
 	// Name is sent once, at Pair. The Controller's row owns it after.
-	Name      string           `yaml:"name"`
-	Torrent   engine.Settings  `yaml:"torrent"`
-	HTTP      api.Settings     `yaml:"http"`
-	Link      link.Settings    `yaml:"link"`
-	Join      pairing.Settings `yaml:"join"`
-	Log       logs.Settings    `yaml:"log"`
-	Storage   storing.Settings `yaml:"storage"`
-	Backups   backups.Settings `yaml:"backups"`
-	Endpoints EndpointsBlock   `yaml:"endpoints"`
-	Timings   TimingsBlock     `yaml:"timings"`
+	Name      string            `yaml:"name"`
+	Torrent   engine.Settings   `yaml:"torrent"`
+	HTTP      api.Settings      `yaml:"http"`
+	Link      link.Settings     `yaml:"link"`
+	Join      pairing.Settings  `yaml:"join"`
+	Log       logs.Settings     `yaml:"log"`
+	Storage   storing.Settings  `yaml:"storage"`
+	Backups   backups.Settings  `yaml:"backups"`
+	Network   netmodel.Settings `yaml:"network"`
+	Endpoints EndpointsBlock    `yaml:"endpoints"`
+	Timings   TimingsBlock      `yaml:"timings"`
 }
 
 type EndpointsBlock struct {
@@ -191,6 +193,7 @@ type TimingsBlock struct {
 	MediaServers  mslink.Timings         `yaml:"media_servers"`
 	Notifications notifications.Timings  `yaml:"notifications"`
 	Housekeeping  housekeeping.Timings   `yaml:"housekeeping"`
+	Netfacts      netfacts.Timings       `yaml:"netfacts"`
 }
 
 type Timings struct {
@@ -284,6 +287,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			MediaServers:  mslink.DefaultTimings(),
 			Notifications: notifications.DefaultTimings(),
 			Housekeeping:  housekeeping.DefaultTimings(),
+			Netfacts:      netfacts.DefaultTimings(),
 		},
 	}
 }
