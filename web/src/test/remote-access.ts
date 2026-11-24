@@ -2,6 +2,7 @@ import { HttpResponse, http } from "msw";
 
 import type {
   ReachabilityCard,
+  ReachabilityCheckView,
   ReachabilityNodeNetwork,
   ReachabilityRemoteAccess,
   ReachabilityRoute,
@@ -39,12 +40,33 @@ export const uiSuggestion: ReachabilitySuggestionView = {
   addressPrivate: false,
 };
 
-const forward = {
+export const forward = {
   id: "manual-forward",
   title: "Port 32400 is closed at your router.",
   step: "Forward TCP port 32400 to 192.168.1.20, port 32400.",
   action: null,
 } as const;
+
+export const dnsA: ReachabilityCheckView = {
+  id: "dns.a",
+  result: "passes",
+  fact: false,
+  meaning: "The A record points at your home.",
+  fix: null,
+  by: "home",
+};
+
+export const connectRefused: ReachabilityCheckView = {
+  id: "outside.connect",
+  family: "ipv4",
+  result: "fails",
+  points: "fixable",
+  fact: false,
+  meaning: "A Node outside your home can connect.",
+  fix: forward,
+  observed: "Connection refused",
+  by: "seedbox",
+};
 
 /** Living room Plex Direct on home, its forward missing: Fixable on a failing check. */
 export const plexRoute: ReachabilityRoute = {
@@ -72,34 +94,13 @@ export const plexRoute: ReachabilityRoute = {
       kind: "dns",
       worst: "passes",
       facts: [],
-      checks: [
-        {
-          id: "dns.a",
-          result: "passes",
-          fact: false,
-          meaning: "The A record points at your home.",
-          fix: null,
-          by: "home",
-        },
-      ],
+      checks: [dnsA],
     },
     {
       kind: "origin",
       worst: "fails",
       facts: [],
-      checks: [
-        {
-          id: "outside.connect",
-          family: "ipv4",
-          result: "fails",
-          points: "fixable",
-          fact: false,
-          meaning: "A Node outside your home tried to connect to the public address.",
-          fix: forward,
-          observed: "Connection refused",
-          by: "seedbox",
-        },
-      ],
+      checks: [connectRefused],
     },
     { kind: "media-server", worst: "not-reached", checks: [], facts: [] },
   ],

@@ -4,7 +4,14 @@ import { page, userEvent } from "vitest/browser";
 import type { ReachabilityCard } from "../../../api/gen/model";
 import { joinCodeServer } from "../../../test/join-codes";
 import { homeId } from "../../../test/nodes";
-import { cards, remoteAccessServer, wanted } from "../../../test/remote-access";
+import {
+  cards,
+  connectRefused,
+  dnsA,
+  forward,
+  remoteAccessServer,
+  wanted,
+} from "../../../test/remote-access";
 import { renderApp } from "../../../test/render-app";
 
 function open(card: ReachabilityCard | null) {
@@ -52,3 +59,20 @@ test("a route nothing outside tested offers to add a Node and raises no signal",
     .not.toBeInTheDocument();
   await expect.element(page.getByRole("dialog", { name: "Add a Node" })).toBeVisible();
 });
+
+test.each([
+  { hop: "DNS", check: dnsA, leads: dnsA.meaning, meaningShown: 1 },
+  { hop: "Origin", check: connectRefused, leads: forward.step, meaningShown: 0 },
+])(
+  "the $hop hop's check says what passing means only when it passes",
+  async ({ hop, check, leads, meaningShown }) => {
+    open(cards.warn);
+    await userEvent.click(
+      page
+        .getByRole("list", { name: "Hops of Living room Plex" })
+        .getByRole("button", { name: new RegExp(`^${hop}:`, "u") }),
+    );
+    await expect.element(page.getByText(leads, { exact: false })).toBeVisible();
+    expect(page.getByText(check.meaning).elements()).toHaveLength(meaningShown);
+  },
+);

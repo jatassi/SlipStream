@@ -18,7 +18,7 @@ function Check({ check, judgedAt }: { check: ReachabilityCheckView; judgedAt: st
   return (
     <InspectorSection title={resultWords(check)}>
       <div className="flex flex-col items-start gap-2">
-        <p>{check.meaning}</p>
+        {check.result === "passes" && <p>{check.meaning}</p>}
         {pointing && check.fix !== null && <FixText fix={check.fix} />}
         {(check.observed !== undefined || check.by !== undefined) && (
           <Details>
@@ -37,7 +37,7 @@ function Check({ check, judgedAt }: { check: ReachabilityCheckView; judgedAt: st
   );
 }
 
-/** A hop's facts, then each check leading with what it means and its fix, with its values under Details. */
+/** A hop's facts, then each check leading with what its passing means or its fix, with its values under Details. */
 export function HopChecks({
   hop,
   judgedAt,
