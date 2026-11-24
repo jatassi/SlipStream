@@ -52,7 +52,7 @@ func ParseSummary(m *netv1.Facts) (Summary, error) {
 	if !s.Watched {
 		return s, nil
 	}
-	class, err := enum[Class4](int32(m.GetClass()), BehindRouter)
+	class, err := Enum[Class4](int32(m.GetClass()), BehindRouter)
 	if err != nil {
 		return Summary{}, fmt.Errorf("class: %w", err)
 	}
@@ -151,9 +151,9 @@ func ParseFacts(node role.NodeID, m *netv1.NetworkFacts, r Rules) (NetworkFacts,
 				p = netip.PrefixFrom(addr, p.Bits())
 			}
 			fail("interface prefix", err)
-			temp, err := enum[Tri](int32(a.GetTemporary()), No)
+			temp, err := Enum[Tri](int32(a.GetTemporary()), No)
 			fail("temporary", err)
-			dep, err := enum[Tri](int32(a.GetDeprecated()), No)
+			dep, err := Enum[Tri](int32(a.GetDeprecated()), No)
 			fail("deprecated", err)
 			i.Addrs = append(i.Addrs, IfaceAddr{Prefix: p, Class: r.Of(addr), Temporary: temp, Deprecated: dep})
 		}
@@ -168,9 +168,9 @@ func ParseFacts(node role.NodeID, m *netv1.NetworkFacts, r Rules) (NetworkFacts,
 	fail("gateway", err)
 	f.Gateway.WAN, err = ParseAddr(gw.GetWan())
 	fail("gateway WAN", err)
-	pcp, err1 := enum[Tri](int32(gw.GetPcp()), No)
-	natPMP, err2 := enum[Tri](int32(gw.GetNatPmp()), No)
-	upnp, err3 := enum[Tri](int32(gw.GetUpnp()), No)
+	pcp, err1 := Enum[Tri](int32(gw.GetPcp()), No)
+	natPMP, err2 := Enum[Tri](int32(gw.GetNatPmp()), No)
+	upnp, err3 := Enum[Tri](int32(gw.GetUpnp()), No)
 	fail("gateway protocols", errors.Join(err1, err2, err3))
 	f.Gateway.Protocols = Protocols{PCP: pcp, NATPMP: natPMP, UPnP: upnp}
 	for _, w := range gw.GetForwards() {
@@ -186,7 +186,7 @@ func ParseFacts(node role.NodeID, m *netv1.NetworkFacts, r Rules) (NetworkFacts,
 		fail("STUN answer", err)
 		p, err := port(w.GetMappedPort())
 		fail("STUN port", err)
-		e, err := enum[STUNError](int32(w.GetError()), STUNNoAnswer)
+		e, err := Enum[STUNError](int32(w.GetError()), STUNNoAnswer)
 		fail("STUN error", err)
 		a := STUNAnswer{Server: w.GetServer(), Err: e}
 		if addr.IsValid() {
@@ -197,8 +197,8 @@ func ParseFacts(node role.NodeID, m *netv1.NetworkFacts, r Rules) (NetworkFacts,
 	for _, w := range m.GetListeners() {
 		p, err := port(w.GetPort())
 		fail("listener port", err)
-		v4, err1 := enum[Tri](int32(w.GetV4()), No)
-		v6, err2 := enum[Tri](int32(w.GetV6()), No)
+		v4, err1 := Enum[Tri](int32(w.GetV4()), No)
+		v6, err2 := Enum[Tri](int32(w.GetV6()), No)
 		fail("listener family", errors.Join(err1, err2))
 		f.Listeners = append(f.Listeners, Listener{
 			Port: p, Program: Program{Name: w.GetProgram(), SlipStream: w.GetSlipstream()},
@@ -208,9 +208,9 @@ func ParseFacts(node role.NodeID, m *netv1.NetworkFacts, r Rules) (NetworkFacts,
 	for _, w := range m.GetFirewall() {
 		p, err := port(w.GetPort())
 		fail("rule port", err)
-		tool, err := enum[Tool](int32(w.GetTool()), UFW)
+		tool, err := Enum[Tool](int32(w.GetTool()), UFW)
 		fail("rule tool", err)
-		policy, err := enum[Policy](int32(w.GetPolicy()), Blocks)
+		policy, err := Enum[Policy](int32(w.GetPolicy()), Blocks)
 		fail("rule policy", err)
 		fam, err := ParseFamily(w.GetFamily())
 		fail("rule family", err)
@@ -220,9 +220,9 @@ func ParseFacts(node role.NodeID, m *netv1.NetworkFacts, r Rules) (NetworkFacts,
 		ext, err1 := port(w.GetExternal())
 		in, err2 := port(w.GetInternal())
 		fail("mapping port", errors.Join(err1, err2))
-		proto, err := enum[MapProtocol](int32(w.GetProtocol()), MapUPnP)
+		proto, err := Enum[MapProtocol](int32(w.GetProtocol()), MapUPnP)
 		fail("mapping protocol", err)
-		refused, err := enum[MapRefusal](int32(w.GetRefused()), NoAnswer)
+		refused, err := Enum[MapRefusal](int32(w.GetRefused()), NoAnswer)
 		fail("mapping refusal", err)
 		mp := Mapping{Protocol: proto, External: ext, Internal: in, Lifetime: time.Duration(w.GetLifetimeMs()) * time.Millisecond, Refused: refused}
 		if w.GetExpiresAtMs() != 0 {
@@ -283,7 +283,8 @@ func port(p uint32) (uint16, error) {
 	return uint16(p), nil
 }
 
-func enum[T ~uint8](v int32, last T) (T, error) {
+// Enum is a wire value as T, refusing one past last.
+func Enum[T ~uint8](v int32, last T) (T, error) {
 	if v < 0 || v > int32(last) {
 		return 0, fmt.Errorf("value %d out of range", v)
 	}
