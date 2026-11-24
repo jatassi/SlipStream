@@ -169,8 +169,8 @@ func TestFieldReportsIsDefault(t *testing.T) {
 			`{"key":"log.max_files","label":"Files kept","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"count","value":0,"running":0,"default":5,"min":0,"max":100,"unit":{"one":"file","many":"files"},"zero":"No limit"}`,
 		},
 		{
-			"a port", setting.Port{Key: "http.listen", Label: "Port", Default: 8484}.Field(ptr[uint16](9000)),
-			`{"key":"http.listen","label":"Port","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"port","value":9000,"running":9000,"default":8484}`,
+			"a listen address on this machine only", webListen.Field(ptr(netip.MustParseAddrPort("[::1]:9000"))),
+			`{"key":"http.listen","label":"Listen on","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"listen","value":{"host":"local","port":9000,"address":"[::1]:9000"},"running":{"host":"local","port":9000,"address":"[::1]:9000"},"default":{"host":"all","port":8484,"address":"[::]:8484"}}`,
 		},
 		{
 			"a switch", setting.Switch{Key: "log.compress", Label: "Compress rotated files", Default: true}.Field(nil),
@@ -233,32 +233,32 @@ func TestFieldReportsIsDefault(t *testing.T) {
 	}
 }
 
-func TestPortParse(t *testing.T) {
-	port := setting.Port{Key: "http.listen", Label: "Port", Default: 8484}
+var webListen = setting.Listen{Key: "http.listen", Label: "Listen on", Default: netip.MustParseAddrPort("[::]:8484")}
+
+func TestListenParseAndHost(t *testing.T) {
 	for _, tc := range []struct {
-		n       *int64
-		want    *uint16
+		host    string
+		port    int64
+		want    setting.ListenAt
 		refusal string
 	}{
-		{nil, nil, ""},
-		{ptr[int64](1), ptr[uint16](1), ""},
-		{ptr[int64](65535), ptr[uint16](65535), ""},
-		{ptr[int64](0), nil, "Between 1 and 65535."},
-		{ptr[int64](65536), nil, "Between 1 and 65535."},
+		{"::", 1, setting.ListenAt{Host: "all", Port: 1, Address: "[::]:1"}, ""},
+		{"::1", 65535, setting.ListenAt{Host: "local", Port: 65535, Address: "[::1]:65535"}, ""},
+		{"127.0.0.1", 8484, setting.ListenAt{Host: "other", Port: 8484, Address: "127.0.0.1:8484"}, ""},
+		{"0.0.0.0", 8484, setting.ListenAt{Host: "other", Port: 8484, Address: "0.0.0.0:8484"}, ""},
+		{"::", 0, setting.ListenAt{}, "Between 1 and 65535."},
+		{"::", 65536, setting.ListenAt{}, "Between 1 and 65535."},
 	} {
-		got, err := port.Parse(tc.n)
+		got, err := webListen.Parse(netip.MustParseAddr(tc.host), tc.port)
 		if tc.refusal != "" {
 			if s := sentence(err); s != tc.refusal {
-				t.Fatalf("Parse(%d) refusal = %q, want %q", *tc.n, s, tc.refusal)
+				t.Fatalf("Parse(%s, %d) refusal = %q, want %q", tc.host, tc.port, s, tc.refusal)
 			}
 			continue
 		}
-		if o := got.Override(); err != nil || (o == nil) != (tc.want == nil) || (o != nil && *o != *tc.want) {
-			t.Fatalf("Parse = %v, %v; want %v", o, err, tc.want)
+		if err != nil || setting.ListenOn(*got.Override()) != tc.want {
+			t.Fatalf("Parse(%s, %d) = %v, %v; want %+v", tc.host, tc.port, got.Override(), err, tc.want)
 		}
-	}
-	if got := port.Value(nil); got != 8484 {
-		t.Fatalf("Value(nil) = %d, want the default 8484", got)
 	}
 }
 

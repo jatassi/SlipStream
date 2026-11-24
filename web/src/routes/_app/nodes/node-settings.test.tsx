@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { liveServer } from "../../../test/live-server";
-import { homeConfig, nodeSystems, withPort } from "../../../test/node-system";
+import { homeConfig, listenAt, nodeSystems, withListen } from "../../../test/node-system";
 import { home, homeId, homeSystem, nodesAre, seedbox, seedboxId } from "../../../test/nodes";
 import { renderApp } from "../../../test/render-app";
 import { worker } from "../../../test/worker";
@@ -13,13 +13,17 @@ const field = (name: string) => page.getByRole("textbox", { name });
 test("Web and API shows the port with its default and Ports to try", async () => {
   renderApp({ path: `/nodes/${homeId}/web`, handlers: nodeSystems().handlers });
   await expect.element(field("Port")).toHaveValue("8484");
-  await expect.element(page.getByText("Default 8484.")).toBeVisible();
+  await expect.element(page.getByText("Default All networks, port 8484.")).toBeVisible();
   await expect.element(field("Ports to try")).toHaveValue("10");
   await expect.element(page.getByText(/10 ports.+1 and 100 ports/u)).toBeVisible();
 });
 
 test("a port set by the environment is locked and names its variable", async () => {
-  const locked = withPort({ source: "env", lockedBy: "SLIPSTREAM_HTTP_LISTEN", value: 9000 });
+  const locked = withListen({
+    source: "env",
+    lockedBy: "SLIPSTREAM_HTTP_LISTEN",
+    value: listenAt(9000),
+  });
   renderApp({
     path: `/nodes/${homeId}/web`,
     handlers: nodeSystems({ configs: { [homeId]: locked } }).handlers,
@@ -40,10 +44,14 @@ test("saving a port toasts, and once saved it asks for a restart to use it", asy
   await userEvent.click(page.getByRole("button", { name: "Save" }));
   await expect.element(page.getByText("Web and API settings saved")).toBeVisible();
   expect(systems.writes).toEqual([
-    { method: "PATCH", nodeId: homeId, body: { "http.listen": 9000 } },
+    { method: "PATCH", nodeId: homeId, body: { "http.listen": "[::]:9000" } },
   ]);
 
-  systems.state.configs[homeId] = withPort({ value: 9000, isDefault: false, pendingRestart: true });
+  systems.state.configs[homeId] = withListen({
+    value: listenAt(9000),
+    isDefault: false,
+    pendingRestart: true,
+  });
   server.clients[0]?.send({ event: "node.settings-changed", data: { nodeId: homeId } });
   await expect.element(page.getByText("Restart to use port 9000")).toBeVisible();
   await expect.element(page.getByText(/8484 until it restarts/u)).toBeVisible();
@@ -55,7 +63,11 @@ test("a saved port shows from the save's answer, without waiting for the live ev
   const systems = nodeSystems();
   renderApp({ path: `/nodes/${homeId}/web`, handlers: systems.handlers });
   await expect.element(field("Port")).toHaveValue("8484");
-  systems.state.configs[homeId] = withPort({ value: 9000, isDefault: false, pendingRestart: true });
+  systems.state.configs[homeId] = withListen({
+    value: listenAt(9000),
+    isDefault: false,
+    pendingRestart: true,
+  });
   await userEvent.fill(field("Port"), "9000");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
   await expect.element(page.getByText("Restart to use port 9000")).toBeVisible();
@@ -70,7 +82,7 @@ test("on Docker the pending port says the container's mapping must change too", 
       build: { version: "0.4.0", os: "linux", arch: "amd64", installKind: "docker" },
     },
   };
-  const pending = withPort({ value: 9000, isDefault: false, pendingRestart: true });
+  const pending = withListen({ value: listenAt(9000), isDefault: false, pendingRestart: true });
   renderApp({
     path: `/nodes/${homeId}/web`,
     handlers: [nodesAre(docker), ...nodeSystems({ configs: { [homeId]: pending } }).handlers],

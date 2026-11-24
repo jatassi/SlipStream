@@ -11,7 +11,7 @@ import type {
   SettingFolderField,
   SettingIPField,
   SettingListField,
-  SettingPortField,
+  SettingListenField,
   SettingRateField,
   SettingSizeField,
   SettingSpaceField,
@@ -295,24 +295,32 @@ export const getGetSubtitleNodeSettingsResponseSettingWindowFieldMock = (
   ...overrideResponse,
 });
 
-export const getGetSubtitleNodeSettingsResponseSettingPortFieldMock = (
-  overrideResponse: Partial<SettingPortField> = {},
-): SettingPortField => ({
+export const getGetSubtitleNodeSettingsResponseSettingListenFieldMock = (
+  overrideResponse: Partial<SettingListenField> = {},
+): SettingListenField => ({
   ...{
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
-    default: faker.number.int(),
+    default: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    kind: faker.helpers.arrayElement(["port"] as const),
+    kind: faker.helpers.arrayElement(["listen"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     ...(faker.datatype.boolean()
       ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     pendingRestart: faker.datatype.boolean(),
-    running: faker.number.int(),
+    running: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
     source: faker.helpers.arrayElement([
       "database",
       "default",
@@ -320,7 +328,11 @@ export const getGetSubtitleNodeSettingsResponseSettingPortFieldMock = (
       ".env",
       "env",
     ] as const),
-    value: faker.number.int(),
+    value: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
   },
   ...overrideResponse,
 });
@@ -638,7 +650,7 @@ export const getGetSubtitleNodeSettingsResponseMock = (
       { ...getGetSubtitleNodeSettingsResponseSettingCountFieldMock() },
       { ...getGetSubtitleNodeSettingsResponseSettingChoiceFieldMock() },
       { ...getGetSubtitleNodeSettingsResponseSettingWindowFieldMock() },
-      { ...getGetSubtitleNodeSettingsResponseSettingPortFieldMock() },
+      { ...getGetSubtitleNodeSettingsResponseSettingListenFieldMock() },
       { ...getGetSubtitleNodeSettingsResponseSettingSwitchFieldMock() },
       { ...getGetSubtitleNodeSettingsResponseSettingRateFieldMock() },
       { ...getGetSubtitleNodeSettingsResponseSettingAddressFieldMock() },
@@ -810,24 +822,32 @@ export const getUpdateSubtitleNodeSettingsResponseSettingWindowFieldMock = (
   ...overrideResponse,
 });
 
-export const getUpdateSubtitleNodeSettingsResponseSettingPortFieldMock = (
-  overrideResponse: Partial<SettingPortField> = {},
-): SettingPortField => ({
+export const getUpdateSubtitleNodeSettingsResponseSettingListenFieldMock = (
+  overrideResponse: Partial<SettingListenField> = {},
+): SettingListenField => ({
   ...{
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
-    default: faker.number.int(),
+    default: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    kind: faker.helpers.arrayElement(["port"] as const),
+    kind: faker.helpers.arrayElement(["listen"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     ...(faker.datatype.boolean()
       ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     pendingRestart: faker.datatype.boolean(),
-    running: faker.number.int(),
+    running: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
     source: faker.helpers.arrayElement([
       "database",
       "default",
@@ -835,7 +855,11 @@ export const getUpdateSubtitleNodeSettingsResponseSettingPortFieldMock = (
       ".env",
       "env",
     ] as const),
-    value: faker.number.int(),
+    value: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
   },
   ...overrideResponse,
 });
@@ -1153,7 +1177,7 @@ export const getUpdateSubtitleNodeSettingsResponseMock = (
       { ...getUpdateSubtitleNodeSettingsResponseSettingCountFieldMock() },
       { ...getUpdateSubtitleNodeSettingsResponseSettingChoiceFieldMock() },
       { ...getUpdateSubtitleNodeSettingsResponseSettingWindowFieldMock() },
-      { ...getUpdateSubtitleNodeSettingsResponseSettingPortFieldMock() },
+      { ...getUpdateSubtitleNodeSettingsResponseSettingListenFieldMock() },
       { ...getUpdateSubtitleNodeSettingsResponseSettingSwitchFieldMock() },
       { ...getUpdateSubtitleNodeSettingsResponseSettingRateFieldMock() },
       { ...getUpdateSubtitleNodeSettingsResponseSettingAddressFieldMock() },
@@ -1638,24 +1662,32 @@ export const getGetSubtitleSettingsResponseSettingWindowFieldMock = (
   ...overrideResponse,
 });
 
-export const getGetSubtitleSettingsResponseSettingPortFieldMock = (
-  overrideResponse: Partial<SettingPortField> = {},
-): SettingPortField => ({
+export const getGetSubtitleSettingsResponseSettingListenFieldMock = (
+  overrideResponse: Partial<SettingListenField> = {},
+): SettingListenField => ({
   ...{
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
-    default: faker.number.int(),
+    default: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    kind: faker.helpers.arrayElement(["port"] as const),
+    kind: faker.helpers.arrayElement(["listen"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     ...(faker.datatype.boolean()
       ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     pendingRestart: faker.datatype.boolean(),
-    running: faker.number.int(),
+    running: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
     source: faker.helpers.arrayElement([
       "database",
       "default",
@@ -1663,7 +1695,11 @@ export const getGetSubtitleSettingsResponseSettingPortFieldMock = (
       ".env",
       "env",
     ] as const),
-    value: faker.number.int(),
+    value: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
   },
   ...overrideResponse,
 });
@@ -2011,7 +2047,7 @@ export const getGetSubtitleSettingsResponseMock = (
       { ...getGetSubtitleSettingsResponseSettingCountFieldMock() },
       { ...getGetSubtitleSettingsResponseSettingChoiceFieldMock() },
       { ...getGetSubtitleSettingsResponseSettingWindowFieldMock() },
-      { ...getGetSubtitleSettingsResponseSettingPortFieldMock() },
+      { ...getGetSubtitleSettingsResponseSettingListenFieldMock() },
       { ...getGetSubtitleSettingsResponseSettingSwitchFieldMock() },
       { ...getGetSubtitleSettingsResponseSettingRateFieldMock() },
       { ...getGetSubtitleSettingsResponseSettingAddressFieldMock() },
@@ -2183,24 +2219,32 @@ export const getUpdateSubtitleSettingsResponseSettingWindowFieldMock = (
   ...overrideResponse,
 });
 
-export const getUpdateSubtitleSettingsResponseSettingPortFieldMock = (
-  overrideResponse: Partial<SettingPortField> = {},
-): SettingPortField => ({
+export const getUpdateSubtitleSettingsResponseSettingListenFieldMock = (
+  overrideResponse: Partial<SettingListenField> = {},
+): SettingListenField => ({
   ...{
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
-    default: faker.number.int(),
+    default: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    kind: faker.helpers.arrayElement(["port"] as const),
+    kind: faker.helpers.arrayElement(["listen"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     ...(faker.datatype.boolean()
       ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     pendingRestart: faker.datatype.boolean(),
-    running: faker.number.int(),
+    running: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
     source: faker.helpers.arrayElement([
       "database",
       "default",
@@ -2208,7 +2252,11 @@ export const getUpdateSubtitleSettingsResponseSettingPortFieldMock = (
       ".env",
       "env",
     ] as const),
-    value: faker.number.int(),
+    value: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
   },
   ...overrideResponse,
 });
@@ -2556,7 +2604,7 @@ export const getUpdateSubtitleSettingsResponseMock = (
       { ...getUpdateSubtitleSettingsResponseSettingCountFieldMock() },
       { ...getUpdateSubtitleSettingsResponseSettingChoiceFieldMock() },
       { ...getUpdateSubtitleSettingsResponseSettingWindowFieldMock() },
-      { ...getUpdateSubtitleSettingsResponseSettingPortFieldMock() },
+      { ...getUpdateSubtitleSettingsResponseSettingListenFieldMock() },
       { ...getUpdateSubtitleSettingsResponseSettingSwitchFieldMock() },
       { ...getUpdateSubtitleSettingsResponseSettingRateFieldMock() },
       { ...getUpdateSubtitleSettingsResponseSettingAddressFieldMock() },

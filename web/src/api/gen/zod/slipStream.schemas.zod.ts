@@ -384,9 +384,22 @@ export const SettingWindowField = zod.object({
 export type SettingWindowField = zod.input<typeof SettingWindowField>;
 export type SettingWindowFieldOutput = zod.output<typeof SettingWindowField>;
 
-export const SettingPortField = zod.object({
+export const SettingListenAt = zod.object({
+  address: zod.string().describe("The address and port, such as [::]:8484"),
+  host: zod
+    .enum(["all", "local", "other"])
+    .describe(
+      "all is every network, local is this machine only, other is an address set in config.yaml or the environment",
+    ),
+  port: zod.int(),
+});
+
+export type SettingListenAt = zod.input<typeof SettingListenAt>;
+export type SettingListenAtOutput = zod.output<typeof SettingListenAt>;
+
+export const SettingListenField = zod.object({
   applies: zod.enum(["live", "restart"]),
-  default: zod.int(),
+  default: SettingListenAt,
   defaultFrom: zod
     .string()
     .exactOptional()
@@ -395,7 +408,7 @@ export const SettingPortField = zod.object({
     .boolean()
     .describe("The setting has no override; Reset to default leaves it unchanged"),
   key: zod.string(),
-  kind: zod.enum(["port"]),
+  kind: zod.enum(["listen"]),
   label: zod.string(),
   lockedBy: zod
     .string()
@@ -404,13 +417,13 @@ export const SettingPortField = zod.object({
   pendingRestart: zod
     .boolean()
     .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int(),
+  running: SettingListenAt,
   source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.int(),
+  value: SettingListenAt,
 });
 
-export type SettingPortField = zod.input<typeof SettingPortField>;
-export type SettingPortFieldOutput = zod.output<typeof SettingPortField>;
+export type SettingListenField = zod.input<typeof SettingListenField>;
+export type SettingListenFieldOutput = zod.output<typeof SettingListenField>;
 
 export const SettingSwitchField = zod.object({
   applies: zod.enum(["live", "restart"]),
@@ -700,7 +713,7 @@ export const SettingField = zod.discriminatedUnion("kind", [
   SettingCountField,
   SettingChoiceField,
   SettingWindowField,
-  SettingPortField,
+  SettingListenField,
   SettingSwitchField,
   SettingRateField,
   SettingAddressField,

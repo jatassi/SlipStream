@@ -349,45 +349,61 @@ func (w Window) Check() error {
 	return nil
 }
 
-// Port is a TCP port, 1 to 65535.
-type Port struct {
+// Listen is the address a web server listens on and its port, 1 to
+// 65535: all networks, this machine only, or an address set by hand.
+type Listen struct {
 	Key, Label string
-	Default    uint16
+	Default    netip.AddrPort
 }
 
-func (p Port) Value(override *uint16) uint16 {
+// The hosts Listen offers. This machine only listens on both loopbacks.
+var (
+	AllNetworks = netip.IPv6Unspecified()
+	ThisMachine = netip.IPv6Loopback()
+)
+
+func (l Listen) Value(override *netip.AddrPort) netip.AddrPort {
 	if override == nil {
-		return p.Default
+		return l.Default
 	}
 	return *override
 }
 
-// Parse accepts a port number; nil resets.
-func (p Port) Parse(n *int64) (Stored[uint16], error) {
-	if n == nil {
-		return Stored[uint16]{}, nil
+// Parse accepts host with a port from 1 to 65535.
+func (l Listen) Parse(host netip.Addr, port int64) (Stored[netip.AddrPort], error) {
+	if port < 1 || port > 65535 {
+		return Stored[netip.AddrPort]{}, refuse(l.Key, "Between 1 and 65535.")
 	}
-	if *n < 1 || *n > 65535 {
-		return Stored[uint16]{}, refuse(p.Key, "Between 1 and 65535.")
-	}
-	return override(uint16(*n)), nil
+	return override(netip.AddrPortFrom(host, uint16(port))), nil
 }
 
-func (p Port) Field(override *uint16) PortField {
-	return PortField{
-		About:   about(p.Key, p.Label, override == nil),
-		Kind:    "port",
-		Value:   int64(p.Value(override)),
-		Running: int64(p.Value(override)),
-		Default: int64(p.Default),
+func (l Listen) Field(override *netip.AddrPort) ListenField {
+	return ListenField{
+		About:   about(l.Key, l.Label, override == nil),
+		Kind:    "listen",
+		Value:   ListenOn(l.Value(override)),
+		Running: ListenOn(l.Value(override)),
+		Default: ListenOn(l.Default),
 	}
 }
 
-func (p Port) Check() error {
-	if p.Default == 0 {
-		return fmt.Errorf("setting %s: default 0 is not a port", p.Key)
+func (l Listen) Check() error {
+	if l.Default.Port() == 0 {
+		return fmt.Errorf("setting %s: default %s has no port", l.Key, l.Default)
 	}
 	return nil
+}
+
+// ListenOn is a as Listen's field shows it.
+func ListenOn(a netip.AddrPort) ListenAt {
+	host := "other"
+	switch a.Addr() {
+	case AllNetworks:
+		host = "all"
+	case ThisMachine:
+		host = "local"
+	}
+	return ListenAt{Host: host, Port: int64(a.Port()), Address: a.String()}
 }
 
 // Switch is on or off.

@@ -4,8 +4,8 @@ import type { SettingCountField } from "./settingCountField.ts";
 import type { SettingDurationField } from "./settingDurationField.ts";
 import type { SettingFolderField } from "./settingFolderField.ts";
 import type { SettingIPField } from "./settingIPField.ts";
+import type { SettingListenField } from "./settingListenField.ts";
 import type { SettingListField } from "./settingListField.ts";
-import type { SettingPortField } from "./settingPortField.ts";
 import type { SettingRateField } from "./settingRateField.ts";
 import type { SettingSizeField } from "./settingSizeField.ts";
 import type { SettingSpaceField } from "./settingSpaceField.ts";
@@ -18,7 +18,7 @@ export type SettingField =
   | SettingCountField
   | SettingChoiceField
   | SettingWindowField
-  | SettingPortField
+  | SettingListenField
   | SettingSwitchField
   | SettingRateField
   | SettingAddressField

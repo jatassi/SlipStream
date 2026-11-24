@@ -22471,7 +22471,7 @@
             "folder": "#/components/schemas/SettingFolderField",
             "ip": "#/components/schemas/SettingIPField",
             "list": "#/components/schemas/SettingListField",
-            "port": "#/components/schemas/SettingPortField",
+            "listen": "#/components/schemas/SettingListenField",
             "rate": "#/components/schemas/SettingRateField",
             "size": "#/components/schemas/SettingSizeField",
             "space": "#/components/schemas/SettingSpaceField",
@@ -22495,7 +22495,7 @@
             "$ref": "#/components/schemas/SettingWindowField"
           },
           {
-            "$ref": "#/components/schemas/SettingPortField"
+            "$ref": "#/components/schemas/SettingListenField"
           },
           {
             "$ref": "#/components/schemas/SettingSwitchField"
@@ -22803,23 +22803,35 @@
         ],
         "type": "object"
       },
-      "SettingNoun": {
+      "SettingListenAt": {
         "additionalProperties": false,
         "properties": {
-          "many": {
+          "address": {
+            "description": "The address and port, such as [::]:8484",
             "type": "string"
           },
-          "one": {
+          "host": {
+            "description": "all is every network, local is this machine only, other is an address set in config.yaml or the environment",
+            "enum": [
+              "all",
+              "local",
+              "other"
+            ],
             "type": "string"
+          },
+          "port": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
-          "one",
-          "many"
+          "host",
+          "port",
+          "address"
         ],
         "type": "object"
       },
-      "SettingPortField": {
+      "SettingListenField": {
         "additionalProperties": false,
         "properties": {
           "applies": {
@@ -22830,8 +22842,7 @@
             "type": "string"
           },
           "default": {
-            "format": "int64",
-            "type": "integer"
+            "$ref": "#/components/schemas/SettingListenAt"
           },
           "defaultFrom": {
             "description": "Where the default comes from, when it is another setting's value",
@@ -22846,7 +22857,7 @@
           },
           "kind": {
             "enum": [
-              "port"
+              "listen"
             ],
             "type": "string"
           },
@@ -22862,8 +22873,7 @@
             "type": "boolean"
           },
           "running": {
-            "format": "int64",
-            "type": "integer"
+            "$ref": "#/components/schemas/SettingListenAt"
           },
           "source": {
             "enum": [
@@ -22876,8 +22886,7 @@
             "type": "string"
           },
           "value": {
-            "format": "int64",
-            "type": "integer"
+            "$ref": "#/components/schemas/SettingListenAt"
           }
         },
         "required": [
@@ -22891,6 +22900,22 @@
           "applies",
           "isDefault",
           "pendingRestart"
+        ],
+        "type": "object"
+      },
+      "SettingNoun": {
+        "additionalProperties": false,
+        "properties": {
+          "many": {
+            "type": "string"
+          },
+          "one": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "one",
+          "many"
         ],
         "type": "object"
       },
