@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/storing"
 )
@@ -217,7 +218,7 @@ func Shared(t *testing.T, tg Target) {
 		{"Identity", Identity}, {"LibrariesAndFolders", LibrariesAndFolders}, {"AddedShowsUp", AddedShowsUp},
 		{"ReplacedKeepsItem", ReplacedKeepsItem}, {"RemovedLeaves", RemovedLeaves}, {"FreshFolderNeedsScan", FreshFolderNeedsScan},
 		{"ScanEndSignal", ScanEndSignal}, {"CarryKeepsWatchData", CarryKeepsWatchData}, {"SidecarRemoved", SidecarRemoved},
-		{"Sessions", Sessions}, {"CopyMovedLands", CopyMovedLands},
+		{"Sessions", Sessions}, {"CopyMovedLands", CopyMovedLands}, {"Exposed", Exposed},
 	} {
 		cases = append(cases, Case{Name: c.name, Run: func(t *testing.T) { c.run(t, tg) }})
 	}
@@ -422,5 +423,24 @@ func Sessions(t *testing.T, tg Target) {
 			sessions, err := tg.Server.Sessions(t.Context())
 			return !slices.ContainsFunc(sessions, func(s link.Session) bool { return s.Path.Key() == f.At(r).Key() }), err
 		})
+	}
+}
+
+// Exposed is what S51 (Reachability diagnostic) reads of a server: once a
+// recorded run measured the kind's names, each fact the kind reads has a
+// value, and Plex reports its mapping state.
+func Exposed(t *testing.T, tg Target) {
+	if !mediaserverlink.ExposedMeasured(tg.Kind) {
+		Skip(t, "waits for a recorded run against the product")
+	}
+	x, err := tg.Server.Exposed(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if x.Remote == link.Unknown || x.IPv6 == link.Unknown {
+		t.Errorf("remote access reads %v and IPv6 %v, want both read", x.Remote, x.IPv6)
+	}
+	if tg.Kind == "plex" && (x.Mapping == nil || x.Mapping.State == "" || x.MappingRoot == "") {
+		t.Errorf("Plex's mapping state reads %+v and %q", x.Mapping, x.MappingRoot)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/netip"
 	"regexp"
 	"slices"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
+	"github.com/jatassi/slipstream/fakes/internal/plexaccount"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 )
 
@@ -24,19 +26,21 @@ var collectionTag = regexp.MustCompile(`^collection\[\d+\]\.tag\.tag$`)
 
 func (s *server) routes(refreshes *fake.Capture) fake.Routes {
 	return fake.Routes{
-		"identity":      {Pattern: "GET /identity", Handler: s.identity},
-		"root":          {Pattern: "GET /{$}", Handler: s.authed(s.root)},
-		"sections":      {Pattern: "GET /library/sections", Handler: s.authed(s.sections)},
-		"refresh":       {Pattern: "/library/sections/{section}/refresh", Handler: s.authed(s.refresh(refreshes))},
-		"section-all":   {Pattern: "GET /library/sections/{section}/all", Handler: s.authed(s.sectionAll)},
-		"metadata":      {Pattern: "GET /library/metadata/{key}", Handler: s.authed(s.metadata)},
-		"edit":          {Pattern: "PUT /library/metadata/{key}", Handler: s.authed(s.edit)},
-		"item-refresh":  {Pattern: "PUT /library/metadata/{key}/refresh", Handler: s.authed(s.itemRefresh(refreshes))},
-		"scrobble":      {Pattern: "GET /:/scrobble", Handler: s.authed(s.scrobble)},
-		"rate":          {Pattern: "PUT /:/rate", Handler: s.authed(s.rate)},
-		"sessions":      {Pattern: "GET /status/sessions", Handler: s.authed(s.sessions)},
-		"transcodes":    {Pattern: "GET /transcode/sessions", Handler: s.authed(s.transcodes)},
-		"notifications": {Pattern: "GET /:/websockets/notifications", Handler: s.authed(s.notifications)},
+		"identity":       {Pattern: "GET /identity", Handler: s.identity},
+		"root":           {Pattern: "GET /{$}", Handler: s.authed(s.root)},
+		"myplex-account": {Pattern: "GET /myplex/account", Handler: s.authed(s.myPlexAccount)},
+		"prefs":          {Pattern: "GET /:/prefs", Handler: s.authed(s.prefs)},
+		"sections":       {Pattern: "GET /library/sections", Handler: s.authed(s.sections)},
+		"refresh":        {Pattern: "/library/sections/{section}/refresh", Handler: s.authed(s.refresh(refreshes))},
+		"section-all":    {Pattern: "GET /library/sections/{section}/all", Handler: s.authed(s.sectionAll)},
+		"metadata":       {Pattern: "GET /library/metadata/{key}", Handler: s.authed(s.metadata)},
+		"edit":           {Pattern: "PUT /library/metadata/{key}", Handler: s.authed(s.edit)},
+		"item-refresh":   {Pattern: "PUT /library/metadata/{key}/refresh", Handler: s.authed(s.itemRefresh(refreshes))},
+		"scrobble":       {Pattern: "GET /:/scrobble", Handler: s.authed(s.scrobble)},
+		"rate":           {Pattern: "PUT /:/rate", Handler: s.authed(s.rate)},
+		"sessions":       {Pattern: "GET /status/sessions", Handler: s.authed(s.sessions)},
+		"transcodes":     {Pattern: "GET /transcode/sessions", Handler: s.authed(s.transcodes)},
+		"notifications":  {Pattern: "GET /:/websockets/notifications", Handler: s.authed(s.notifications)},
 	}
 }
 
@@ -94,8 +98,53 @@ func (s *server) identity(w http.ResponseWriter, _ *http.Request) {
 func (s *server) root(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, container{map[string]any{
 		"size": 0, "friendlyName": s.srv.Name, "machineIdentifier": s.srv.Identifier, "version": s.srv.Version,
-		"myPlexSubscription": s.srv.PlexPass, "myPlexUsername": s.srv.Owner, "claimed": true,
+		"myPlexSubscription": s.srv.PlexPass, "myPlexUsername": s.srv.Owner, "claimed": true, "myPlex": true,
+		"myPlexMappingState": s.remote().Mapping.State, "myPlexSigninState": "ok",
 	}})
+}
+
+func (s *server) remote() plexaccount.Remote {
+	srv, _ := s.account.Server(s.srv.Identifier)
+	return srv.Remote
+}
+
+// myPlexAccount is /myplex/account as the recorded run of 2026-11-24
+// read it, rooted at MyPlex. The private address is the front the request
+// came to.
+func (s *server) myPlexAccount(w http.ResponseWriter, r *http.Request) {
+	m := s.remote().Mapping
+	private, _ := netip.ParseAddrPort(r.Host)
+	out := map[string]any{
+		"mappingState": m.State, "mappingError": m.Error, "reachabilityPending": m.Pending, "signInState": "ok",
+		"publicAddress": "", "publicPort": 0, "privateAddress": "", "privatePort": 0,
+		"subscriptionActive": s.srv.PlexPass, "username": s.srv.Owner,
+	}
+	if m.Public.IsValid() {
+		out["publicAddress"], out["publicPort"] = m.Public.Addr().String(), m.Public.Port()
+	}
+	if private.IsValid() {
+		out["privateAddress"], out["privatePort"] = private.Addr().String(), private.Port()
+	}
+	writeJSON(w, map[string]any{"MyPlex": out})
+}
+
+// prefs answers the network settings of the recorded run of 2026-11-24,
+// with Remote Access and the custom URLs the server publishes. It only
+// reads.
+func (s *server) prefs(w http.ResponseWriter, _ *http.Request) {
+	rm := s.remote()
+	setting := func(id, typ string, def, value any, hidden bool) map[string]any {
+		return map[string]any{"id": id, "label": "", "summary": "", "type": typ, "default": def, "value": value, "hidden": hidden, "advanced": true, "group": "network"}
+	}
+	settings := []map[string]any{
+		setting("customConnections", "text", "", strings.Join(rm.Custom, ","), false),
+		setting("PublishServerOnPlexOnlineKey", "bool", false, rm.On, true),
+		setting("ManualPortMappingMode", "bool", false, false, true),
+		setting("ManualPortMappingPort", "int", 32400, 32400, true),
+		setting("EnableIPv6", "bool", true, true, true),
+		setting("RelayEnabled", "bool", true, true, false),
+	}
+	writeJSON(w, container{map[string]any{"size": len(settings), "Setting": settings}})
 }
 
 type location struct {

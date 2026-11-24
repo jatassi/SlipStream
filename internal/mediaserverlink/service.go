@@ -61,31 +61,50 @@ func (s linkService) SignIn(ctx context.Context, req *msv1.SignInRequest) (*msv1
 	return &msv1.SignInResponse{Credential: CredentialOnWire(cred)}, nil
 }
 
-// Advance runs one step on a server of this Node's intent, with its
-// credential at the request's settings version or newer.
-func (s linkService) Advance(ctx context.Context, req *msv1.AdvanceRequest) (*msv1.AdvanceResponse, error) {
-	u, err := storage.UUIDFromBytes(req.GetServerId())
+// saved dials a server of this Node's intent with its credential at
+// version or newer.
+func (s linkService) saved(ctx context.Context, server []byte, version int64) (link.ServerRef, link.Conn, error) {
+	u, err := storage.UUIDFromBytes(server)
 	if err != nil {
-		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "read the Media Server id: %v", err)
+		return link.ServerRef{}, nil, rpc.Errorf(rpc.CodeInvalidArgument, "read the Media Server id: %v", err)
 	}
 	id := link.ServerID{UUID: u}
 	t, ok := s.l.target(id)
 	if !ok {
-		return nil, rpc.Errorf(rpc.CodeFailedPrecondition, "this Node doesn't reach Media Server %s", id)
+		return link.ServerRef{}, nil, rpc.Errorf(rpc.CodeFailedPrecondition, "this Node doesn't reach Media Server %s", id)
 	}
-	t.ref.SettingsVersion = max(t.ref.SettingsVersion, req.GetSettingsVersion())
+	t.ref.SettingsVersion = max(t.ref.SettingsVersion, version)
 	h, err := s.l.credential(ctx, t.ref)
+	if err != nil {
+		return link.ServerRef{}, nil, err
+	}
+	return t.ref, s.l.dial(t, h), nil
+}
+
+// Advance runs one step on a server of this Node's intent.
+func (s linkService) Advance(ctx context.Context, req *msv1.AdvanceRequest) (*msv1.AdvanceResponse, error) {
+	ref, conn, err := s.saved(ctx, req.GetServerId(), req.GetSettingsVersion())
 	if err != nil {
 		return nil, err
 	}
-	job, err := JobOf(t.ref, req.GetJob())
+	job, err := JobOf(ref, req.GetJob())
 	if err != nil {
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "read the job: %v", err)
 	}
-	a, err := s.l.dial(t, h).Advance(ctx, job)
+	a, err := conn.Advance(ctx, job)
 	if err != nil {
 		p, err := ProblemOnWire(err)
 		return &msv1.AdvanceResponse{Problem: p}, err
 	}
 	return AdvancedOnWire(a), nil
+}
+
+// Exposed reads what a server of this Node's intent reports about its use
+// away from home.
+func (s linkService) Exposed(ctx context.Context, req *msv1.ExposedRequest) (*msv1.ExposedResponse, error) {
+	_, conn, err := s.saved(ctx, req.GetServerId(), req.GetSettingsVersion())
+	if err != nil {
+		return nil, err
+	}
+	return ExposedOnWire(conn.Exposed(ctx))
 }

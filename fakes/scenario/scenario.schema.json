@@ -221,6 +221,32 @@
                     "type": "string"
                   },
                   "type": "array"
+                },
+                "runs_on": {
+                  "type": "string"
+                },
+                "remote": {
+                  "type": "boolean"
+                },
+                "custom": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "published": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "mapping": {
+                  "type": "string",
+                  "enum": [
+                    "mapped",
+                    "failed",
+                    "pending"
+                  ]
                 }
               },
               "additionalProperties": false,

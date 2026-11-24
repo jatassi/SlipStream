@@ -47,6 +47,7 @@ func (s *server) routes() fake.Routes {
 		r["set-user-data"] = fake.Route{Pattern: "POST /UserItems/{id}/UserData", Handler: s.guard(signedIn, s.setUserData)}
 		r["played"] = fake.Route{Pattern: "POST /UserPlayedItems/{id}", Handler: s.guard(signedIn, s.markPlayed)}
 		r["socket"] = fake.Route{Pattern: "GET /socket", Handler: s.socket}
+		r["network"] = fake.Route{Pattern: "GET /System/Configuration/network", Handler: s.guard(elevated, s.network)}
 	} else {
 		r["libraries"] = fake.Route{Pattern: "GET /Library/VirtualFolders/Query", Handler: s.guard(signedIn, s.libraries)}
 		r["item-refresh"] = fake.Route{Pattern: "POST /Items/{id}/Refresh", Handler: s.guard(elevated, s.refreshItem)}
@@ -54,6 +55,7 @@ func (s *server) routes() fake.Routes {
 		r["favorite"] = fake.Route{Pattern: "POST /Users/{user}/FavoriteItems/{id}", Handler: s.guard(signedIn, s.favorite(true))}
 		r["unfavorite"] = fake.Route{Pattern: "DELETE /Users/{user}/FavoriteItems/{id}", Handler: s.guard(signedIn, s.favorite(false))}
 		r["socket"] = fake.Route{Pattern: "GET /embywebsocket", Handler: s.socket}
+		r["system-info"] = fake.Route{Pattern: "GET /System/Info", Handler: s.guard(elevated, s.systemInfo)}
 	}
 	return r
 }
@@ -72,6 +74,24 @@ func (s *server) info(w http.ResponseWriter, _ *http.Request, _ caller) {
 	writeJSON(w, map[string]any{
 		"LocalAddress": "http://127.0.0.1:8096", "ServerName": s.srv.Name, "Version": s.srv.Version,
 		"ProductName": s.p.ProductName, "OperatingSystem": "", "Id": s.srv.ID, "StartupWizardCompleted": true,
+	})
+}
+
+func (s *server) network(w http.ResponseWriter, _ *http.Request, _ caller) {
+	writeJSON(w, map[string]any{
+		"EnableRemoteAccess": s.srv.Remote, "EnableIPv6": s.srv.IPv6, "EnableIPv4": true,
+		"PublishedServerUriBySubnet": append([]string{}, s.srv.Published...), "InternalHttpPort": 8096,
+	})
+}
+
+func (s *server) systemInfo(w http.ResponseWriter, _ *http.Request, _ caller) {
+	wan, remote := "", []string{}
+	if len(s.srv.Published) > 0 {
+		wan, remote = s.srv.Published[0], s.srv.Published[1:]
+	}
+	writeJSON(w, map[string]any{
+		"LocalAddress": "http://127.0.0.1:8096", "WanAddress": wan, "RemoteAddresses": remote, "ServerName": s.srv.Name,
+		"Version": s.srv.Version, "Id": s.srv.ID, "HttpServerPortNumber": 8096,
 	})
 }
 

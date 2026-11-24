@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/netip"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,8 +17,10 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	fakeplex "github.com/jatassi/slipstream/fakes/plex"
 	fakeplextv "github.com/jatassi/slipstream/fakes/plextv"
+	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/mediaservers/mstest"
+	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
 )
@@ -48,8 +53,13 @@ type plexRig struct {
 
 func newPlexRig(t *testing.T) plexRig {
 	t.Helper()
+	return newPlexRigOf(t, livingRoom, fakeplextv.Account{Username: "plex-admin", PlexPass: true})
+}
+
+func newPlexRigOf(t *testing.T, srv fakeplex.Server, a fakeplextv.Account) plexRig {
+	t.Helper()
 	r := newRig(t)
-	return plexRig{rig: r, plex: r.w.Plex(t, livingRoom, fakeplextv.Account{Username: "plex-admin", PlexPass: true})}
+	return plexRig{rig: r, plex: r.w.Plex(t, srv, a)}
 }
 
 func decode[T any](t *testing.T, body string) T {
@@ -199,6 +209,74 @@ func expectReached(t *testing.T, c mediaservers.PlexConnection, uri string, ok b
 			t.Errorf("%s from %s responded: %t", c.URI, from.NodeID, from.OK)
 		}
 	}
+}
+
+// TestARelayIsNeverListedOrPicked signs in to an account whose resources
+// list a relay to the server: the Add sheet lists only the two Nodes'
+// connections, and Add saves home's.
+func TestARelayIsNeverListedOrPicked(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newPlexRigOf(t, livingRoom, fakeplextv.Account{Username: "plex-admin", PlexPass: true, Relay: true})
+		r.signIn(t)
+		out := decode[struct {
+			Servers []mediaservers.PlexServerView `json:"servers"`
+		}](t, r.expect(t, http.MethodGet, servers+"/plex/servers", "", http.StatusOK))
+		if len(out.Servers) != 1 || len(out.Servers[0].Connections) != 2 {
+			t.Fatalf("the account lists %+v", out.Servers)
+		}
+		for _, c := range out.Servers[0].Connections {
+			if c.URI != homeConn && c.URI != seedboxConn {
+				t.Errorf("the Add sheet lists %s", c.URI)
+			}
+		}
+		if v := r.addPlex(t, r.w.Home.String()); v.Address != homeConn || v.FallbackAddress != "" {
+			t.Errorf("the server saved at %s, falling back to %q", v.Address, v.FallbackAddress)
+		}
+	})
+}
+
+// TestExposureReadsOnlyThroughTheReachingNode reads a Plex on seedbox that
+// publishes a custom URL while Plex's own check is pending: with seedbox
+// up its Exposed comes from seedbox, and with seedbox away it is absent
+// rather than read from the Controller, while plex.tv still lists the
+// server with no token.
+func TestExposureReadsOnlyThroughTheReachingNode(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		srv := livingRoom
+		srv.Remote, srv.Custom, srv.Published, srv.Mapping = true, []string{"https://plex.example.test:443"}, []string{"https://203.0.113.9:32400"}, "pending"
+		r := newPlexRigOf(t, srv, fakeplextv.Account{Username: "plex-admin", PlexPass: true})
+		r.signIn(t)
+		u, err := storage.ParseUUID(r.addPlex(t, r.w.Seedbox.String()).ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		up := &link.Exposed{
+			Local: netip.MustParseAddrPort(mstest.HomeIP + ":32400"), Remote: link.Yes, IPv6: link.Yes, MappingRoot: "mapped",
+			Mapping: &link.PlexMapping{State: "mapped", Pending: true}, Custom: srv.Custom,
+		}
+		for _, c := range []struct {
+			name string
+			away bool
+			want *link.Exposed
+		}{{"seedbox up", false, up}, {"seedbox away", true, nil}} {
+			if c.away {
+				r.w.Offline(r.w.Seedbox)
+			}
+			x, err := r.w.Exposure(t.Context(), link.ServerID{UUID: u})
+			if err != nil {
+				t.Fatalf("%s: %v", c.name, err)
+			}
+			if x.Reaching != r.w.Seedbox || !reflect.DeepEqual(x.Exposed, c.want) {
+				t.Errorf("%s: reaching %v exposes %+v, want %+v", c.name, x.Reaching, x.Exposed, c.want)
+			}
+			if x.Resource == nil || x.Resource.Token != "" || !slices.ContainsFunc(x.Resource.Connections, func(c plextv.Connection) bool {
+				return c.Address == "203.0.113.9" && !c.Local
+			}) {
+				t.Errorf("%s: plex.tv lists %+v", c.name, x.Resource)
+			}
+		}
+	})
 }
 
 // TestAddPlexPicksTheFirstConnectionThatResponds saves the local

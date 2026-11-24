@@ -384,6 +384,12 @@ func (w *World) filePlaces(_ context.Context, _ storage.Reader[storage.Library],
 // Moves is the Controller's Media Servers, for the calls a Move makes.
 func (w *World) Moves() *mediaservers.MediaServers { return w.ms }
 
+// Exposure is what server id publishes, as S51 (Reachability diagnostic)
+// reads it.
+func (w *World) Exposure(ctx context.Context, id link.ServerID) (mediaservers.Exposure, error) {
+	return w.ms.Exposure(ctx, id)
+}
+
 // empty is roots that record no files.
 type empty struct{}
 
