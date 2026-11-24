@@ -2,6 +2,7 @@ package judgetest
 
 import (
 	"fmt"
+	"net/netip"
 	"reflect"
 	"slices"
 	"testing"
@@ -117,11 +118,12 @@ func Rows() []Row {
 	}
 	plexOn := judge.Params{Node: Atlas, Program: "Plex Media Server", Port: 32400}
 	ui := "slipstream.open.localhost"
+	proxyCustom := "http://" + netip.AddrPortFrom(ProxyIP, 32400).String()
 	return []Row{
 		// Jackson's own proxy (U2).
 		row("own proxy tested from atlas", OwnProxy().Tested(v4, Passed), with(reachable, judge.FactTestedThroughProxy, judge.FactPlexMapping)),
 		row("own proxy with a custom URL listed with its default port",
-			OwnProxy().Custom("http://198.51.100.8:32400,https://plex.proxy.fake.localhost:443").Tested(v4, Passed), reachable),
+			OwnProxy().Custom(proxyCustom+",https://plex.proxy.fake.localhost:443").Tested(v4, Passed), reachable),
 		row("own proxy untested", OwnProxy(),
 			untested(judge.Fixable, judge.CheckOutsideConnect, v4, judge.FixNotTested, judge.Params{})),
 		row("own proxy certificate expired", OwnProxy().Tested(v4, Expired),
@@ -132,7 +134,7 @@ func Rows() []Row {
 				judge.Params{Host: "plex.proxy.fake.localhost", Date: Expires.AddDate(1, 0, 0), Raw: "wrong-name"})),
 		row("own proxy sign-in page before Plex", OwnProxy().Tested(v4, SignInPage),
 			failing(judge.Fixable, false, judge.CheckIdentity, v4, judge.FixSignInServer, judge.Params{Host: "plex.proxy.fake.localhost", Program: "Plex"})),
-		row("Plex doesn't list the public URL", OwnProxy().Custom("http://198.51.100.8:32400").Tested(v4, Passed),
+		row("Plex doesn't list the public URL", OwnProxy().Custom(proxyCustom).Tested(v4, Passed),
 			failing(judge.Fixable, true, judge.CheckPlexCustomURL, 0, judge.FixCustomURL, judge.Params{URL: "https://plex.proxy.fake.localhost"})),
 		row("paired proxy closed with its leg home open", PairedProxy().Tested(v4, Closed).ProxyLeg(true),
 			failing(judge.Fixable, false, judge.CheckOutsideConnect, v4, judge.FixProxyPort, judge.Params{Port: 443, Addr: ProxyIP},
