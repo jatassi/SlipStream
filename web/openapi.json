@@ -16624,7 +16624,7 @@
             "type": "boolean"
           },
           "canMoveBack": {
-            "description": "A unit moved",
+            "description": "The batch finished, and a unit it moved hasn't moved again since",
             "type": "boolean"
           },
           "canRetry": {
