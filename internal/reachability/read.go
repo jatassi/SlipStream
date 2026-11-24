@@ -347,7 +347,7 @@ func (r *Reachability) NodeNetwork(ctx context.Context, _ identity.Admin, node r
 	if err != nil {
 		return out, nil //nolint:nilerr // a Node that can't answer now shows its last stored pass
 	}
-	f, err := netmodel.ParseFacts(node, resp.GetFacts(), r.cfg.Rules)
+	f, err := netmodel.ParseFacts(node, resp.GetFacts(), r.cfg.Rules, r.now())
 	if err != nil {
 		return NodeNetwork{}, err
 	}

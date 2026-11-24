@@ -48,6 +48,8 @@ type Site struct {
 	Player judgetest.Outcome
 	// Claims is the Node id its Read answer names, zero for its own.
 	Claims role.NodeID
+	// Stamp is the observed time its Read answer claims, nil for now.
+	Stamp *time.Time
 }
 
 // Call is one request the Controller sent a Node.
@@ -293,6 +295,9 @@ func (n node) Read(_ context.Context, _ *netv1.ReadRequest) (*netv1.ReadResponse
 	}
 	nf := s.Facts
 	nf.At = time.Now()
+	if s.Stamp != nil {
+		nf.At = *s.Stamp
+	}
 	if !s.Claims.IsZero() {
 		nf.Node = s.Claims
 	}

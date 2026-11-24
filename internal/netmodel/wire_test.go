@@ -33,7 +33,7 @@ func TestFactsCrossTheWire(t *testing.T) {
 		Firewall:  []netmodel.Rule{{Tool: netmodel.Firewalld, Port: 32400, Family: netmodel.IPv6, Policy: netmodel.Allows, Partial: true, Because: "public zone"}},
 		Mappings:  []netmodel.Mapping{{Protocol: netmodel.MapNATPMP, External: 8484, Internal: 8484, Lifetime: time.Hour, Expires: time.UnixMilli(1_700_003_600_000)}, {Protocol: netmodel.MapUPnP, External: 32400, Refused: netmodel.NotAuthorized}},
 	}
-	got, err := netmodel.ParseFacts(asked, netmodel.FactsOnWire(sent), r)
+	got, err := netmodel.ParseFacts(asked, netmodel.FactsOnWire(sent), r, sent.At)
 	want := sent
 	want.Node, want.Previous4 = asked, netmodel.NetworkFacts{}.Previous4
 	if err != nil || !reflect.DeepEqual(got, want) {
@@ -47,12 +47,14 @@ func TestFactsCrossTheWire(t *testing.T) {
 	}
 
 	for name, m := range map[string]*netv1.NetworkFacts{
-		"a short address":     {Egress: &netv1.Egress{Local: []byte{1, 2, 3}}},
-		"a port past 16 bits": {Listeners: []*netv1.Listener{{Port: 70000}}},
-		"an unknown tri":      {Listeners: []*netv1.Listener{{Port: 1, V4: 7}}},
-		"no family":           {Firewall: []*netv1.Rule{{Port: 1}}},
+		"a short address":                  {AtMs: sent.At.UnixMilli(), Egress: &netv1.Egress{Local: []byte{1, 2, 3}}},
+		"a port past 16 bits":              {AtMs: sent.At.UnixMilli(), Listeners: []*netv1.Listener{{Port: 70000}}},
+		"an unknown tri":                   {AtMs: sent.At.UnixMilli(), Listeners: []*netv1.Listener{{Port: 1, V4: 7}}},
+		"no family":                        {AtMs: sent.At.UnixMilli(), Firewall: []*netv1.Rule{{Port: 1}}},
+		"no observed time":                 {},
+		"an observed time two hours ahead": {AtMs: sent.At.Add(2 * time.Hour).UnixMilli()},
 	} {
-		if _, err := netmodel.ParseFacts(asked, m, r); err == nil {
+		if _, err := netmodel.ParseFacts(asked, m, r, sent.At); err == nil {
 			t.Errorf("%s parsed", name)
 		}
 	}

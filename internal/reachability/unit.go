@@ -294,7 +294,7 @@ func (g *gathered) readNode(ctx context.Context, c judge.Candidate, ports []uint
 	if err != nil {
 		return netmodel.NetworkFacts{}, nil, err
 	}
-	fresh, err := netmodel.ParseFacts(c.Node, resp.GetFacts(), r.cfg.Rules)
+	fresh, err := netmodel.ParseFacts(c.Node, resp.GetFacts(), r.cfg.Rules, r.now())
 	if err != nil {
 		return netmodel.NetworkFacts{}, nil, err
 	}

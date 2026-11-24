@@ -41,6 +41,13 @@ func sent(calls []reachabilitytest.Call, node role.NodeID, method string) int {
 	return n
 }
 
+// stamp makes node's Read answers claim at as their observed time.
+func stamp(node role.NodeID, at time.Time) func(*reachabilitytest.World) {
+	return func(w *reachabilitytest.World) {
+		w.Site(node, func(s *reachabilitytest.Site) { s.Stamp = &at })
+	}
+}
+
 func runNow(t *testing.T, w *reachabilitytest.World) {
 	t.Helper()
 	if _, err := w.Reach.RunNow(t.Context(), storage.NewUUID(), nil); err != nil {
@@ -67,6 +74,11 @@ func TestAUnitJudgesTheRouteFromTheNodesThatMayTestIt(t *testing.T) {
 		{
 			name: "an offline tester leaves it untested", shape: judgetest.Open, verdict: judge.Reachable,
 			play:  func(w *reachabilitytest.World) { w.Away(judgetest.Seedbox, true) },
+			never: []role.NodeID{judgetest.Seedbox},
+		},
+		{
+			name: "a tester claiming no observed time isn't read", shape: judgetest.Open, verdict: judge.Reachable,
+			play:  stamp(judgetest.Seedbox, time.Time{}),
 			never: []role.NodeID{judgetest.Seedbox},
 		},
 		{

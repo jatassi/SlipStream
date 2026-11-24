@@ -131,11 +131,20 @@ func FactsOnWire(f NetworkFacts) *netv1.NetworkFacts {
 	return m
 }
 
-// ParseFacts is a Node's facts as the Controller judges them, under the
-// id of the Node it asked: an id inside the message is never read.
-func ParseFacts(node role.NodeID, m *netv1.NetworkFacts, r Rules) (NetworkFacts, error) {
+// aheadOfNow is how far past the Controller's now a Node's observed time
+// may lie. Clocks between Nodes differ; a time further ahead would keep its
+// row against every later read, since a stored row is replaced only by a
+// newer one.
+const aheadOfNow = time.Hour
+
+// ParseFacts is a Node's facts as the Controller judges them at now, under
+// the id of the Node it asked: an id inside the message is never read.
+func ParseFacts(node role.NodeID, m *netv1.NetworkFacts, r Rules, now time.Time) (NetworkFacts, error) {
 	f := NetworkFacts{Node: node, At: time.UnixMilli(m.GetAtMs()), Watched: m.GetWatched()}
 	var errs []error
+	if m.GetAtMs() <= 0 || f.At.After(now.Add(aheadOfNow)) {
+		errs = append(errs, fmt.Errorf("observed time %d is not a time this Node could have read", m.GetAtMs()))
+	}
 	fail := func(what string, err error) {
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", what, err))
