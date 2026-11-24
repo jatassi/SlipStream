@@ -68,7 +68,7 @@ export const connectRefused: ReachabilityCheckView = {
   by: "seedbox",
 };
 
-export const connectBack: ReachabilityCheckView = {
+export const connectBack = {
   id: "outside.connect-back",
   family: "ipv4",
   result: "fails",
@@ -78,7 +78,7 @@ export const connectBack: ReachabilityCheckView = {
   fix: null,
   observed: "203.0.113.9:32400",
   by: "seedbox",
-};
+} as const satisfies ReachabilityCheckView;
 
 /** Living room Plex Direct on home, its forward missing: Fixable on a failing check. */
 export const plexRoute: ReachabilityRoute = {
