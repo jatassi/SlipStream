@@ -35,6 +35,7 @@ import { contentTypesSection } from "./content-types";
 import { EmailSection } from "./email";
 import { metadataSection } from "./metadata";
 import { nodesSection } from "./nodes";
+import { remoteAccessSection } from "./remote-access";
 import type { SettingsGroup, SettingsSection } from "./section";
 import { SignInSection } from "./sign-in";
 import { subtitlesSection } from "./subtitles";
@@ -142,7 +143,11 @@ export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
     label: "Search and download",
     sections: [indexersSection, automaticSearchSection, trackersSection, downloadClientsSection],
   },
-  { id: "access", label: "Access", sections: [addressSection, signInSection, apiKeySection] },
+  {
+    id: "access",
+    label: "Access",
+    sections: [addressSection, remoteAccessSection, signInSection, apiKeySection],
+  },
   {
     id: "system",
     label: "System",

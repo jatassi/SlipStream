@@ -5713,7 +5713,8 @@
           "language",
           "roots",
           "downloads",
-          "targets"
+          "targets",
+          "remote-access"
         ],
         "type": "string"
       },

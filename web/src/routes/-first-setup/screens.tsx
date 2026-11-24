@@ -19,6 +19,7 @@ import { getGetNodeConfigSuspenseQueryOptions } from "../../api/gen/query/system
 // oxlint-disable-next-line import/max-dependencies -- the table names every step's screen and what it reads
 import { getListContentTypesSuspenseQueryOptions } from "../../api/gen/query/works/works";
 import { getListCustomFormatsSuspenseQueryOptions } from "../../api/gen/query/formats/formats";
+import { getGetRemoteAccessSuspenseQueryOptions } from "../../api/gen/query/reachability/reachability";
 import { ensureQuery, freshQuery } from "../../api/query-client";
 import { AddressStep } from "./address-step";
 import { BackupStep } from "./backup-step";
@@ -27,6 +28,7 @@ import type { StepNav } from "./frame";
 import { LanguageStep } from "./language-step";
 import { MediaStep } from "./media-step";
 import { PasskeyStep } from "./passkey-step";
+import { RemoteAccessStep } from "./remote-access-step";
 import { RootsStep } from "./roots-step";
 import { TargetsStep } from "./targets-step";
 
@@ -148,5 +150,15 @@ export const screens = {
       ]);
     },
     Body: TargetsStep,
+  },
+  "remote-access": {
+    name: "Remote access",
+    title: "Remote access",
+    why: "Choose what you want to use away from home. SlipStream then checks whether players outside your home can connect to it.",
+    settings: "/nodes/remote-access",
+    load: async (queryClient) => {
+      await freshQuery(queryClient, getGetRemoteAccessSuspenseQueryOptions());
+    },
+    Body: RemoteAccessStep,
   },
 } satisfies { readonly [S in FirstrunStepID]: StepScreen };

@@ -3542,6 +3542,7 @@ export const FirstrunStepID = zod.enum([
   "roots",
   "downloads",
   "targets",
+  "remote-access",
 ]);
 
 export type FirstrunStepID = zod.input<typeof FirstrunStepID>;
