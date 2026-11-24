@@ -77,6 +77,7 @@ type World struct {
 	custom  []string
 	calls   []Call
 	wake    chan struct{}
+	fetch   func(ctx context.Context, path string, from netip.Addr) string
 }
 
 var events = []live.Event{
@@ -89,6 +90,10 @@ var events = []live.Event{
 type Config struct {
 	Timings reachability.Timings
 	Rand    *rand.Rand
+	// Fetch is how a tester's GET of an echo path from its public address
+	// reaches the Controller. Nil hands it to Echo as a request on the
+	// bound listener.
+	Fetch func(ctx context.Context, path string, from netip.Addr) string
 }
 
 // New is a World with each Node of b's facts paired and answering as its
@@ -104,6 +109,13 @@ func New(t *testing.T, b *judgetest.B, cfg Config) *World {
 		away:    map[role.NodeID]bool{},
 		removed: map[role.NodeID]bool{},
 		wake:    make(chan struct{}),
+		fetch:   cfg.Fetch,
+	}
+	if w.fetch == nil {
+		w.fetch = func(ctx context.Context, path string, from netip.Addr) string {
+			answer, _ := w.Reach.Echo(ctx, strings.TrimPrefix(path, reachability.EchoPath), api.Arrival{Listener: api.Bound, Source: from})
+			return answer
+		}
 	}
 	t.Cleanup(w.Hub.Close)
 	if f.Server != nil {
@@ -374,9 +386,8 @@ func (n node) attempt(ctx context.Context, s Site, req *netv1.DialRequest, a net
 	case judgetest.Something:
 		at.Body = []byte("<html>")
 	}
-	if id, ok := strings.CutPrefix(req.GetPath(), reachability.EchoPath); ok && s.Player == judgetest.Passed {
-		answer, _ := n.w.Reach.Echo(ctx, id, api.Arrival{Source: n.w.Rules.Public4(s.Facts.Observed())})
-		at.Body = []byte(answer)
+	if strings.HasPrefix(req.GetPath(), reachability.EchoPath) && s.Player == judgetest.Passed {
+		at.Body = []byte(n.w.fetch(ctx, req.GetPath(), n.w.Rules.Public4(s.Facts.Observed())))
 	}
 	return at
 }

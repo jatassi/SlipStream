@@ -118,6 +118,14 @@ func (o *Owner) CallAs(t *testing.T, method, path, body, session string) (status
 	return w.Code, w.Body.String()
 }
 
+// Send serves req as it was built, with its own context, peer and
+// headers, as one that came in on a listener.
+func (o *Owner) Send(req *http.Request) (status int, reply string) {
+	w := httptest.NewRecorder()
+	o.handler.ServeHTTP(w, req)
+	return w.Code, w.Body.String()
+}
+
 // Browse GETs path as the Admin's signed-in browser does, answering the
 // whole response.
 func (o *Owner) Browse(t *testing.T, path string) *http.Response {

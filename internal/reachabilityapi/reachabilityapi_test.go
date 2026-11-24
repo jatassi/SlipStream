@@ -4,18 +4,25 @@ import (
 	"context"
 	"encoding/json"
 	"math/rand/v2"
+	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 	"testing/synctest"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/reachability"
+	"github.com/jatassi/slipstream/internal/reachability/judge"
 	"github.com/jatassi/slipstream/internal/reachability/judge/judgetest"
 	"github.com/jatassi/slipstream/internal/reachability/reachabilitytest"
 	"github.com/jatassi/slipstream/internal/reachabilityapi"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -158,5 +165,103 @@ func TestAWorkerAnswersNoEcho(t *testing.T) {
 	o := ownertest.Serve(t, w.Lib, func(r *api.Router) { reachabilityapi.Routes(r, controller{}) })
 	if status, reply := o.CallAs(t, http.MethodGet, "/api/v1/remote-access/echo/"+strings.Repeat("a", 32), "", ""); status != http.StatusNotFound || codeOf(reply) != "echo_not_found" {
 		t.Fatalf("%d %s, want 404 echo_not_found", status, reply)
+	}
+}
+
+// servedBy is a Serve stream's connection from node.
+type servedBy struct {
+	net.Conn
+	node role.NodeID
+}
+
+func (s servedBy) ServedFor() role.NodeID { return s.node }
+
+// arrival is how a tester's echo fetch reaches the Controller: on the
+// bound listener, or through via's Serve stream, from source, which is
+// empty for the tester's public address.
+type arrival struct {
+	listener api.Listener
+	via      role.NodeID
+	source   string
+}
+
+// fetch serves a tester's echo fetch to *o as a arrives.
+func (a arrival) fetch(t *testing.T, o **ownertest.Owner) func(context.Context, string, netip.Addr) string {
+	return func(ctx context.Context, path string, from netip.Addr) string {
+		source := from.String()
+		if a.source != "" {
+			source = a.source
+		}
+		var req *http.Request
+		if a.listener == api.Bound {
+			req = httptest.NewRequestWithContext(api.OnListener(ctx, nil), http.MethodGet, path, nil)
+			req.RemoteAddr = netip.AddrPortFrom(netip.MustParseAddr(source), 50000).String()
+		} else {
+			req = httptest.NewRequestWithContext(api.OverLink(ctx, servedBy{node: a.via}), http.MethodGet, path, nil)
+			req.Header.Set("Forwarded", "for="+source)
+		}
+		status, reply := (*o).Send(req)
+		if status != http.StatusOK {
+			t.Errorf("the echo answered %d %s", status, reply)
+		}
+		return reply
+	}
+}
+
+// wantUI sets the Address to b's public address and wants the UI and
+// portal, which a check then runs on.
+func wantUI(t *testing.T, w *reachabilitytest.World, o *ownertest.Owner, b *judgetest.B) {
+	t.Helper()
+	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, "UPDATE identity_settings SET address = ? WHERE id = 1", b.Facts().Exposure.Public.String())
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity.AddressChangedEvent.Bind(w.Hub).Publish(t.Context(), identity.AddressChanged{})
+	if status, reply := o.Call(t, http.MethodPost, "/api/v1/remote-access/exposures", `{"kind":"ui-portal"}`); status != http.StatusCreated {
+		t.Fatalf("wanting the UI and portal: %d %s", status, reply)
+	}
+	synctest.Wait()
+}
+
+// A tester's echo fetch answers on the bound listener and through a
+// Serve stream, and the check counts it only where AcceptEcho allows:
+// never through the tester's own stream, and on a Direct route only from
+// the tester's public address or through another program on the origin.
+func TestTheEchoCountsByHowItArrived(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		shape   func() *judgetest.B
+		arrival arrival
+		tested  bool
+		fact    judge.FactID
+	}{
+		{name: "on the bound listener from the tester", shape: judgetest.OpenUI, arrival: arrival{listener: api.Bound}, tested: true},
+		{name: "through den's Serve stream from the tester", shape: func() *judgetest.B { return judgetest.OpenUI().Inside() }, arrival: arrival{listener: api.Served, via: judgetest.Den}, tested: true},
+		{name: "on the bound listener through Caddy", shape: func() *judgetest.B { return judgetest.OpenUI().Caddy().Loopback() }, arrival: arrival{listener: api.Bound, source: "127.0.0.1"}, tested: true, fact: judge.FactEchoThroughProgram},
+		{name: "through the tester's own Serve stream", shape: judgetest.OpenUI, arrival: arrival{listener: api.Served, via: judgetest.Seedbox}, fact: judge.FactEchoOwnStream},
+		{name: "on the bound listener over loopback with nothing in front", shape: judgetest.OpenUI, arrival: arrival{listener: api.Bound, source: "127.0.0.1"}, fact: judge.FactEchoSource},
+		{name: "on the bound listener from another address", shape: judgetest.OpenUI, arrival: arrival{listener: api.Bound, source: "198.51.100.20"}, fact: judge.FactEchoSource},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				b := c.shape()
+				var o *ownertest.Owner
+				w := reachabilitytest.New(t, b, reachabilitytest.Config{
+					Timings: reachability.DefaultTimings(),
+					Rand:    rand.New(rand.NewPCG(1, 2)), //nolint:gosec // a fixed draw the test replays
+					Fetch:   c.arrival.fetch(t, &o),
+				})
+				o = ownertest.Serve(t, w.Lib, func(r *api.Router) { reachabilityapi.Routes(r, controller{w.Reach}) })
+				wantUI(t, w, o, b)
+				rt := w.Route(t, "SlipStream UI and portal")
+				shown := judgetest.Shown(rt.Result)
+				if !rt.Judged || rt.Result.Tested != c.tested || (c.fact != "" && !slices.Contains(shown, c.fact)) {
+					t.Fatalf("judged %v, tested %v, facts %v; want tested %v showing %q", rt.Judged, rt.Result.Tested, shown, c.tested, c.fact)
+				}
+			})
+		})
 	}
 }
