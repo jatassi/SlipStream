@@ -507,7 +507,8 @@ func TestARoleWithNoIntentRunsWhileHeld(t *testing.T) {
 // TestANodeWideChannelRunsFromClaimUntilReset holds the wide probe on the
 // Controller and a Worker that hold no Role: it runs on both from their
 // first intent, whatever Roles the Worker then holds or drains, never shows
-// in their facts, and is released by a reset but not by a shutdown.
+// in their facts, and is released by a reset, before the reset returns,
+// but not by a shutdown.
 func TestANodeWideChannelRunsFromClaimUntilReset(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := newCluster(t, "", "")
@@ -538,9 +539,8 @@ func TestANodeWideChannelRunsFromClaimUntilReset(t *testing.T) {
 		if err := w.Reset(t.Context()); err != nil {
 			t.Fatal(err)
 		}
-		synctest.Wait()
 		if starts, releases := w.wide.Starts(), w.wide.Releases(); starts != 1 || releases != 1 {
-			t.Errorf("after the reset the Worker's wide probe started %d times and was released %d times, want once each", starts, releases)
+			t.Errorf("once the reset returned the Worker's wide probe started %d times and was released %d times, want once each", starts, releases)
 		}
 		self.stop()
 		if got := self.wide.Releases(); got != 0 {

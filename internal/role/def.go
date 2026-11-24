@@ -33,6 +33,10 @@ type Timings struct {
 	Stall      time.Duration `yaml:"stall"`
 	// Probe is how often a Node runs its probes again after its start.
 	Probe time.Duration `yaml:"probe"`
+	// Release bounds how long a removed Worker waits for its Roles and
+	// Node-wide channels to let go, such as deleting its router mappings,
+	// before it restarts.
+	Release time.Duration `yaml:"release"`
 }
 
 // Def binds a Role's name to its intent, facts and result messages.
