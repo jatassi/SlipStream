@@ -37,7 +37,8 @@ type Session struct {
 	LoadWait, LoadEvery time.Duration
 	// RunWait is how long a start or a stop the client asked for reads as
 	// asked while the product still lists the run before it, as
-	// qBittorrent lists a started torrent stopped for 1.5 s.
+	// qBittorrent does until its next refresh, up to 1.5 s later by
+	// default.
 	RunWait time.Duration
 	Log     *slog.Logger
 }

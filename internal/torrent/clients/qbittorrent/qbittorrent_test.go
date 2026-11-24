@@ -538,16 +538,16 @@ func TestQBittorrentReportsACheckedTorrentAsItWasAsked(t *testing.T) {
 	})
 }
 
-func TestQBittorrentKeepsTheFirstAddsRunWhenAColdOneAnswersADuplicate(t *testing.T) {
+func TestQBittorrentKeepsTheFirstAddsRunWhenADuplicateIsAnsweredAsAdded(t *testing.T) {
 	inEachVersion(t, func(t *testing.T, version string) {
-		r := newRig(t, fakeqbittorrent.Client{Version: version, Check: 2 * time.Second, Cold: true})
+		r := newRig(t, fakeqbittorrent.Client{Version: version, Check: 2 * time.Second, LateAdds: true})
 		c := r.session()
 		orchard := r.releases[0]
 		if err := c.Add(t.Context(), clients.Add{Metainfo: orchard.metainfo, Hash: orchard.hash, Label: slipstream, Paused: true}); err != nil {
 			t.Fatal(err)
 		}
 		if _, ok := r.poll(c, orchard); ok {
-			t.Fatal("a cold qBittorrent lists an add at once")
+			t.Fatal("a qBittorrent with late adds lists one at once")
 		}
 		r.add(c, orchard, "")
 		time.Sleep(time.Second)

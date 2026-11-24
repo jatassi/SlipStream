@@ -57,9 +57,10 @@ type client struct {
 	// stopped or started.
 	ran map[bencode.InfoHash]clients.Run
 	// asked is when Act asked for each torrent's run in ran that no
-	// listing has read yet. qBittorrent lists a started torrent stopped
-	// for about 1.5 s, so ran outlasts a listing of the run before it
-	// until the session's RunWait has passed.
+	// listing has read yet. qBittorrent lists a start and a stop at its
+	// next refresh, up to its refresh_interval later, 1.5 s by default, so
+	// ran outlasts a listing of the run before it until the session's
+	// RunWait has passed.
 	asked      map[bencode.InfoHash]time.Time
 	trackers   map[bencode.InfoHash]trackers
 	countdowns clients.Countdowns

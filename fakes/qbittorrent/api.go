@@ -149,8 +149,8 @@ const maxContent = 64 << 20
 // it doesn't exist. Automatic management is off, qBittorrent's default,
 // so a torrent with no save path goes to the default save path.
 // skip_checking, or seedMode from WebAPI 2.16.0, takes the files already
-// in the save path as complete. A Cold client from 5.2 answers a
-// duplicate as added and leaves the torrent as it was.
+// in the save path as complete. A client with LateAdds from 5.2 answers
+// a duplicate as added and leaves the torrent as it was.
 func (c *client) add(w http.ResponseWriter, r *http.Request, _ *session) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxContent)
 	if err := r.ParseMultipartForm(maxContent); err != nil { //nolint:gosec // the body is bounded above
@@ -190,7 +190,7 @@ func (c *client) add(w http.ResponseWriter, r *http.Request, _ *session) {
 			labels = []string{category}
 		}
 		t, duplicate, err := c.engine.Add(torrentclient.Add{Metainfo: meta, Folder: folder, Labels: labels, Paused: paused, Complete: complete})
-		if err != nil || duplicate && (!c.Cold || !c.version.v52) {
+		if err != nil || duplicate && (!c.LateAdds || !c.version.v52) {
 			failed++
 			continue
 		}
