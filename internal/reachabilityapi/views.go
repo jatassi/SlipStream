@@ -32,13 +32,13 @@ func strings[S ~string](ids []S) []string {
 }
 
 type remoteAccess struct {
-	NothingWanted bool             `json:"nothingWanted" doc:"Nothing is set up for use away from home: the page shows its Empty state"`
-	Status        status           `json:"status"`
-	Card          *card            `json:"card" doc:"The one recommendation, null when every route works and was tested"`
-	Routes        []route          `json:"routes" nullable:"false"`
-	LastRun       *lastRun         `json:"lastRun" doc:"Null before the first check"`
-	Suggestions   []suggestionView `json:"suggestions" nullable:"false"`
-	Nodes         []classLine      `json:"nodes" nullable:"false" doc:"One line per Node, the Controller first; empty while nothing is set up"`
+	NothingWanted bool                  `json:"nothingWanted" doc:"Nothing is set up for use away from home: the page shows its Empty state"`
+	Status        status                `json:"status"`
+	Card          api.Nullable[card]    `json:"card" doc:"The one recommendation, null when every route works and was tested"`
+	Routes        []route               `json:"routes" nullable:"false"`
+	LastRun       api.Nullable[lastRun] `json:"lastRun" doc:"Null before the first check"`
+	Suggestions   []suggestionView      `json:"suggestions" nullable:"false"`
+	Nodes         []classLine           `json:"nodes" nullable:"false" doc:"One line per Node, the Controller first; empty while nothing is set up"`
 }
 
 type status struct {
@@ -76,29 +76,29 @@ type exposureView struct {
 }
 
 type route struct {
-	Exposure exposureView `json:"exposure"`
-	Checked  bool         `json:"checked" doc:"False until the first check of this route finished"`
-	Route    string       `json:"route,omitempty" enum:"direct,own-proxy,through-relay,unplaced"`
-	Families string       `json:"families,omitempty" doc:"The families the route offers, as its tag"`
-	Verdict  string       `json:"verdict,omitempty" enum:"reachable,fixable,needs-relay"`
-	Tested   bool         `json:"tested" doc:"Every offered family was tested from outside"`
-	Folded   bool         `json:"folded" doc:"Reachable and tested: the route shows as one line"`
-	Card     string       `json:"card" enum:"none,untested,warn,fail"`
-	Fix      *fixView     `json:"fix" doc:"The step that fixes the deciding check, null with none"`
-	Skipped  *string      `json:"skipped" doc:"Why the route wasn't checked since its last result, null while its origin is in step"`
-	TestedBy string       `json:"testedBy,omitempty"`
-	JudgedAt *time.Time   `json:"judgedAt"`
-	Hops     []hopView    `json:"hops" nullable:"false"`
-	Facts    []factView   `json:"facts" nullable:"false"`
+	Exposure exposureView          `json:"exposure"`
+	Checked  bool                  `json:"checked" doc:"False until the first check of this route finished"`
+	Route    string                `json:"route,omitempty" enum:"direct,own-proxy,through-relay,unplaced"`
+	Families string                `json:"families,omitempty" doc:"The families the route offers, as its tag"`
+	Verdict  string                `json:"verdict,omitempty" enum:"reachable,fixable,needs-relay"`
+	Tested   bool                  `json:"tested" doc:"Every offered family was tested from outside"`
+	Folded   bool                  `json:"folded" doc:"Reachable and tested: the route shows as one line"`
+	Card     string                `json:"card" enum:"none,untested,warn,fail"`
+	Fix      api.Nullable[fixView] `json:"fix" doc:"The step that fixes the deciding check, null with none"`
+	Skipped  *string               `json:"skipped" doc:"Why the route wasn't checked since its last result, null while its origin is in step"`
+	TestedBy string                `json:"testedBy,omitempty"`
+	JudgedAt *time.Time            `json:"judgedAt"`
+	Hops     []hopView             `json:"hops" nullable:"false"`
+	Facts    []factView            `json:"facts" nullable:"false"`
 }
 
 type fixView struct {
-	ID      api.Enum[fixID] `json:"id"`
-	Title   string          `json:"title"`
-	Step    string          `json:"step"`
-	Command string          `json:"command,omitempty" doc:"The firewall command, when the fix carries one"`
-	Details string          `json:"details,omitempty"`
-	Action  *actionView     `json:"action" doc:"The fix's button, null with none"`
+	ID      api.Enum[fixID]          `json:"id"`
+	Title   string                   `json:"title"`
+	Step    string                   `json:"step"`
+	Command string                   `json:"command,omitempty" doc:"The firewall command, when the fix carries one"`
+	Details string                   `json:"details,omitempty"`
+	Action  api.Nullable[actionView] `json:"action" doc:"The fix's button, null with none"`
 }
 
 type actionView struct {
@@ -115,15 +115,15 @@ type hopView struct {
 }
 
 type checkView struct {
-	ID       api.Enum[checkID] `json:"id"`
-	Family   string            `json:"family,omitempty" enum:"ipv4,ipv6"`
-	Result   string            `json:"result" enum:"passes,fails,not-tested,not-used,not-reached"`
-	Points   string            `json:"points,omitempty" enum:"reachable,fixable,needs-relay" doc:"What a failing or untested result points to"`
-	Fact     bool              `json:"fact" doc:"Shown, never pointing: an overruled local guess or a connect-back"`
-	Meaning  string            `json:"meaning"`
-	Fix      *fixView          `json:"fix"`
-	Observed string            `json:"observed,omitempty"`
-	By       string            `json:"by,omitempty" doc:"The Node that saw it"`
+	ID       api.Enum[checkID]     `json:"id"`
+	Family   string                `json:"family,omitempty" enum:"ipv4,ipv6"`
+	Result   string                `json:"result" enum:"passes,fails,not-tested,not-used,not-reached"`
+	Points   string                `json:"points,omitempty" enum:"reachable,fixable,needs-relay" doc:"What a failing or untested result points to"`
+	Fact     bool                  `json:"fact" doc:"Shown, never pointing: an overruled local guess or a connect-back"`
+	Meaning  string                `json:"meaning"`
+	Fix      api.Nullable[fixView] `json:"fix"`
+	Observed string                `json:"observed,omitempty"`
+	By       string                `json:"by,omitempty" doc:"The Node that saw it"`
 }
 
 type factView struct {
@@ -173,10 +173,11 @@ func family(f *netmodel.Family) string {
 func fixViewOf(w reachability.Words, f judge.Fix) fixView {
 	v := fixView{ID: api.NewEnum[fixID](string(f.ID)), Title: w.Title(f), Step: w.Step(f), Command: reachability.Command(f), Details: w.Details(f)}
 	if a := f.Action; a != nil {
-		v.Action = &actionView{Kind: map[judge.ActionKind]string{judge.PairNode: "pair-node", judge.MapPorts: "map-ports"}[a.Kind], Label: reachability.ActionLabel(a.Kind)}
+		action := actionView{Kind: map[judge.ActionKind]string{judge.PairNode: "pair-node", judge.MapPorts: "map-ports"}[a.Kind], Label: reachability.ActionLabel(a.Kind)}
 		if !a.Node.IsZero() {
-			v.Action.NodeID = a.Node.String()
+			action.NodeID = a.Node.String()
 		}
+		v.Action = api.Some(action)
 	}
 	return v
 }
@@ -205,7 +206,7 @@ func routeOf(p reachability.Page, rt reachability.Route) route {
 	v.Families, v.Verdict, v.Tested, v.Folded, v.Card = reachability.Families(j.Offered), j.Verdict.String(), j.Tested, j.Folded(), j.Card().String()
 	v.TestedBy = w.TestedBy(j, rt.TestedBy)
 	if f := j.Fix(); f != nil {
-		v.Fix = new(fixViewOf(w, *f))
+		v.Fix = api.Some(fixViewOf(w, *f))
 	}
 	v.Facts = factViews(w, j.Facts)
 	for _, h := range j.Hops {
@@ -216,7 +217,7 @@ func routeOf(p reachability.Page, rt reachability.Route) route {
 				cv.Points = c.Points.String()
 			}
 			if c.Fix != nil {
-				cv.Fix = new(fixViewOf(w, *c.Fix))
+				cv.Fix = api.Some(fixViewOf(w, *c.Fix))
 			}
 			if !c.By.IsZero() {
 				cv.By = w.Node(c.By)
@@ -248,10 +249,11 @@ func pageOf(p reachability.Page) remoteAccess {
 	}
 	out.Card = cardOf(p)
 	if !p.LastRun.IsZero() {
-		out.LastRun = &lastRun{At: p.LastRun, Testers: []nodeName{}}
+		run := lastRun{At: p.LastRun, Testers: []nodeName{}}
 		for _, t := range p.Testers {
-			out.LastRun.Testers = append(out.LastRun.Testers, nodeName{NodeID: t.String(), Name: w.Node(t)})
+			run.Testers = append(run.Testers, nodeName{NodeID: t.String(), Name: w.Node(t)})
 		}
+		out.LastRun = api.Some(run)
 	}
 	for _, sg := range p.Suggestions {
 		v := suggestionView{Kind: reachability.KindName(sg.Kind), Subject: sg.Subject, Public: sg.Public, AddressPrivate: sg.AddressPrivate}
@@ -278,29 +280,29 @@ func lineOf(w reachability.Words, n reachability.NodeLine) string {
 
 // cardOf is the one recommendation: a route that needs a relay, else one
 // that needs a fix, else one that wasn't tested from outside.
-func cardOf(p reachability.Page) *card {
+func cardOf(p reachability.Page) api.Nullable[card] {
 	for _, want := range []judge.Card{judge.Fail, judge.Warn, judge.Untested} {
 		for _, rt := range p.Routes {
 			if !rt.Judged || rt.Result.Card() != want {
 				continue
 			}
-			return &card{Kind: want.String(), ExposureID: rt.Exposure.ID.String(), Subject: rt.Subject, Verdict: rt.Result.Verdict.String(), Fix: fixViewOf(p.Words, *rt.Result.Fix())}
+			return api.Some(card{Kind: want.String(), ExposureID: rt.Exposure.ID.String(), Subject: rt.Subject, Verdict: rt.Result.Verdict.String(), Fix: fixViewOf(p.Words, *rt.Result.Fix())})
 		}
 	}
-	return nil
+	return api.Nullable[card]{}
 }
 
 type nodeNetwork struct {
-	NodeID     string        `json:"nodeId" format:"uuid"`
-	Name       string        `json:"name"`
-	Line       string        `json:"line" doc:"The Node's class, in no signal color"`
-	Now        bool          `json:"now" doc:"Read on opening; false is the last stored look, for a Node that is away"`
-	ObservedAt *time.Time    `json:"observedAt"`
-	Interfaces []ifaceView   `json:"interfaces" nullable:"false"`
-	Listeners  []listenView  `json:"listeners" nullable:"false"`
-	Firewall   []ruleView    `json:"firewall" nullable:"false"`
-	Gateway    *gatewayView  `json:"gateway" doc:"Null when no router was asked"`
-	Mappings   []mappingView `json:"mappings" nullable:"false"`
+	NodeID     string                    `json:"nodeId" format:"uuid"`
+	Name       string                    `json:"name"`
+	Line       string                    `json:"line" doc:"The Node's class, in no signal color"`
+	Now        bool                      `json:"now" doc:"Read on opening; false is the last stored look, for a Node that is away"`
+	ObservedAt *time.Time                `json:"observedAt"`
+	Interfaces []ifaceView               `json:"interfaces" nullable:"false"`
+	Listeners  []listenView              `json:"listeners" nullable:"false"`
+	Firewall   []ruleView                `json:"firewall" nullable:"false"`
+	Gateway    api.Nullable[gatewayView] `json:"gateway" doc:"Null when no router was asked"`
+	Mappings   []mappingView             `json:"mappings" nullable:"false"`
 }
 
 type ifaceView struct {
@@ -368,7 +370,7 @@ func nodeNetworkOf(n reachability.NodeNetwork) nodeNetwork {
 		out.Firewall = append(out.Firewall, ruleView{Port: int(r.Port), Family: family(&r.Family), Policy: [...]string{"unknown", "allows", "blocks"}[r.Policy]})
 	}
 	if f.Gateway.Addr.IsValid() {
-		out.Gateway = &gatewayView{Address: f.Gateway.Addr.String(), WAN: addr(f.Gateway.WAN)}
+		out.Gateway = api.Some(gatewayView{Address: f.Gateway.Addr.String(), WAN: addr(f.Gateway.WAN)})
 	}
 	for _, m := range f.Mappings {
 		mv := mappingView{External: int(m.External), Internal: int(m.Internal), Permanent: m.Lifetime == 0}

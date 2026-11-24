@@ -15,7 +15,7 @@ export interface ReachabilityRoute {
   /** The families the route offers, as its tag */
   families?: string;
   /** The step that fixes the deciding check, null with none */
-  fix: ReachabilityFixView;
+  fix: ReachabilityFixView | null;
   /** Reachable and tested: the route shows as one line */
   folded: boolean;
   hops: ReachabilityHopView[];

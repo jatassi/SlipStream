@@ -42,6 +42,7 @@ test("the page tabs link to every section and mark the current one", async () =>
     ["Overview", `/nodes/${homeId}`],
     ["Roles", `/nodes/${homeId}/roles`],
     ["Web and API", `/nodes/${homeId}/web`],
+    ["Network", `/nodes/${homeId}/network`],
     ["Torrent client", `/nodes/${homeId}/torrent-client`],
     ["Searching", `/nodes/${homeId}/searching`],
     ["Backups", `/nodes/${homeId}/backups`],
@@ -196,6 +197,7 @@ test("on phone, a Node lists its sections, and each pushes with a back link to t
   ).toEqual([
     "Roles",
     "Web and API",
+    "Network",
     "Torrent client",
     "Searching",
     "Backups",
