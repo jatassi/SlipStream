@@ -1,5 +1,5 @@
 name: playwright
-description: Install the Playwright browsers and their system packages, with the packages' .deb files restored from the cache pushes to main save
+description: Install the Playwright browsers and their system packages, with the packages' .deb files restored from the cache that runs on main save
 inputs:
   browsers:
     description: The browsers to install; empty installs every browser the target's Playwright projects run
@@ -8,7 +8,7 @@ inputs:
     description: Cache key prefix for the .deb files, one per set of browsers on one architecture
     required: true
   save:
-    description: Whether a push to main saves the .deb files when they differ from the restored ones
+    description: Whether a run on main saves the .deb files when they differ from the restored ones
     default: "true"
 runs:
   using: composite
@@ -66,7 +66,7 @@ runs:
         cp /var/cache/apt/archives/*.deb "$DEBS"
         echo "key=$CACHE-$(ls "$DEBS" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
     - name: Save the browsers' system packages
-      if: inputs.save == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.install.outputs.key != steps.restore.outputs.cache-matched-key
+      if: inputs.save == 'true' && github.ref == 'refs/heads/main' && steps.install.outputs.key != steps.restore.outputs.cache-matched-key
       uses: actions/cache/save@v6
       with:
         path: ${{ runner.temp }}/playwright-debs
