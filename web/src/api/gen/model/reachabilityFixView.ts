@@ -3,7 +3,7 @@ import type { ReachabilityFixID } from "./reachabilityFixID.ts";
 
 export interface ReachabilityFixView {
   /** The fix's button, null with none */
-  action: ReachabilityActionView;
+  action: ReachabilityActionView | null;
   /** The firewall command, when the fix carries one */
   command?: string;
   details?: string;

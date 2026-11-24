@@ -20572,7 +20572,14 @@
             "type": "string"
           },
           "fix": {
-            "$ref": "#/components/schemas/ReachabilityFixView"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReachabilityFixView"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "$ref": "#/components/schemas/ReachabilityCheckID"
@@ -20812,7 +20819,14 @@
         "additionalProperties": false,
         "properties": {
           "action": {
-            "$ref": "#/components/schemas/ReachabilityActionView",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReachabilityActionView"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "The fix's button, null with none"
           },
           "command": {
@@ -21069,7 +21083,14 @@
             "type": "array"
           },
           "gateway": {
-            "$ref": "#/components/schemas/ReachabilityGatewayView",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReachabilityGatewayView"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Null when no router was asked"
           },
           "interfaces": {
@@ -21131,11 +21152,25 @@
         "additionalProperties": false,
         "properties": {
           "card": {
-            "$ref": "#/components/schemas/ReachabilityCard",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReachabilityCard"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "The one recommendation, null when every route works and was tested"
           },
           "lastRun": {
-            "$ref": "#/components/schemas/ReachabilityLastRun",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReachabilityLastRun"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Null before the first check"
           },
           "nodes": {
@@ -21206,7 +21241,14 @@
             "type": "string"
           },
           "fix": {
-            "$ref": "#/components/schemas/ReachabilityFixView",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReachabilityFixView"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "The step that fixes the deciding check, null with none"
           },
           "folded": {

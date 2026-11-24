@@ -7,7 +7,7 @@ import type { ReachabilityRuleView } from "./reachabilityRuleView.ts";
 export interface ReachabilityNodeNetwork {
   firewall: ReachabilityRuleView[];
   /** Null when no router was asked */
-  gateway: ReachabilityGatewayView;
+  gateway: ReachabilityGatewayView | null;
   interfaces: ReachabilityIfaceView[];
   /** The Node's class, in no signal color */
   line: string;

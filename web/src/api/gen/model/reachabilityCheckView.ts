@@ -10,7 +10,7 @@ export interface ReachabilityCheckView {
   /** Shown, never pointing: an overruled local guess or a connect-back */
   fact: boolean;
   family?: ReachabilityCheckViewFamily;
-  fix: ReachabilityFixView;
+  fix: ReachabilityFixView | null;
   id: ReachabilityCheckID;
   meaning: string;
   observed?: string;

@@ -10947,7 +10947,9 @@ export type ReachabilityFixID = zod.input<typeof ReachabilityFixID>;
 export type ReachabilityFixIDOutput = zod.output<typeof ReachabilityFixID>;
 
 export const ReachabilityFixView = zod.object({
-  action: ReachabilityActionView.describe("The fix's button, null with none"),
+  action: zod
+    .union([ReachabilityActionView, zod.null()])
+    .describe("The fix's button, null with none"),
   command: zod.string().exactOptional().describe("The firewall command, when the fix carries one"),
   details: zod.string().exactOptional(),
   id: ReachabilityFixID,
@@ -10998,7 +11000,7 @@ export const ReachabilityCheckView = zod.object({
   by: zod.string().exactOptional().describe("The Node that saw it"),
   fact: zod.boolean().describe("Shown, never pointing: an overruled local guess or a connect-back"),
   family: zod.enum(["ipv4", "ipv6"]).exactOptional(),
-  fix: ReachabilityFixView,
+  fix: zod.union([ReachabilityFixView, zod.null()]),
   id: ReachabilityCheckID,
   meaning: zod.string(),
   observed: zod.string().exactOptional(),
@@ -11185,7 +11187,9 @@ export type ReachabilityRuleViewOutput = zod.output<typeof ReachabilityRuleView>
 
 export const ReachabilityNodeNetwork = zod.object({
   firewall: zod.array(ReachabilityRuleView),
-  gateway: ReachabilityGatewayView.describe("Null when no router was asked"),
+  gateway: zod
+    .union([ReachabilityGatewayView, zod.null()])
+    .describe("Null when no router was asked"),
   interfaces: zod.array(ReachabilityIfaceView),
   line: zod.string().describe("The Node's class, in no signal color"),
   listeners: zod.array(ReachabilityListenView),
@@ -11207,7 +11211,9 @@ export const ReachabilityRoute = zod.object({
   exposure: ReachabilityExposureView,
   facts: zod.array(ReachabilityFactView),
   families: zod.string().exactOptional().describe("The families the route offers, as its tag"),
-  fix: ReachabilityFixView.describe("The step that fixes the deciding check, null with none"),
+  fix: zod
+    .union([ReachabilityFixView, zod.null()])
+    .describe("The step that fixes the deciding check, null with none"),
   folded: zod.boolean().describe("Reachable and tested: the route shows as one line"),
   hops: zod.array(ReachabilityHopView),
   judgedAt: zod.iso.datetime({ offset: true }).nullable(),
@@ -11259,10 +11265,10 @@ export type ReachabilitySuggestionView = zod.input<typeof ReachabilitySuggestion
 export type ReachabilitySuggestionViewOutput = zod.output<typeof ReachabilitySuggestionView>;
 
 export const ReachabilityRemoteAccess = zod.object({
-  card: ReachabilityCard.describe(
-    "The one recommendation, null when every route works and was tested",
-  ),
-  lastRun: ReachabilityLastRun.describe("Null before the first check"),
+  card: zod
+    .union([ReachabilityCard, zod.null()])
+    .describe("The one recommendation, null when every route works and was tested"),
+  lastRun: zod.union([ReachabilityLastRun, zod.null()]).describe("Null before the first check"),
   nodes: zod
     .array(ReachabilityClassLine)
     .describe("One line per Node, the Controller first; empty while nothing is set up"),
