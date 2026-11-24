@@ -217,6 +217,14 @@ func (c *Client) Configuration(ctx context.Context) (Configuration, error) {
 	return Configuration{MonitorDelay: time.Duration(*delay) * time.Second}, nil
 }
 
+// Fields is the top-level fields of the JSON object an authenticated GET
+// of path answers, for a route whose field names a kind keeps as data.
+func (c *Client) Fields(ctx context.Context, path string) (map[string]json.RawMessage, error) {
+	var out map[string]json.RawMessage
+	err := c.do(ctx, http.MethodGet, path, nil, true, nil, &out)
+	return out, err
+}
+
 // User is one server user.
 type User struct {
 	ID     string `json:"Id"`

@@ -29,6 +29,16 @@ func PlexMoveMeasured() bool { return plexkind.MoveMeasured() }
 // measures it.
 func PlexSameSectionPart() bool { return plexkind.SameSectionPart() }
 
+// ExposedMeasured is whether a recorded run confirmed the names Exposed
+// reads on kind n. Its conformance case skips until then.
+func ExposedMeasured(n link.KindName) bool {
+	if n == plexkind.Kind.About().Name {
+		return plexkind.ExposedMeasured()
+	}
+	k, _ := Kinds.Of(n)
+	return mbkind.ExposedMeasured(k)
+}
+
 // Port is how the Controller's sender runs one step on a server. A
 // link.Conn the Controller dials itself at the fallback address is one.
 type Port interface {

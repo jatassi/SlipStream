@@ -47,6 +47,9 @@ const (
 	// MediaServerLinkServiceAdvanceProcedure is the procedure name of the MediaServerLinkService's
 	// Advance RPC.
 	MediaServerLinkServiceAdvanceProcedure = "/slipstream.mediaserver.v1.MediaServerLinkService/Advance"
+	// MediaServerLinkServiceExposedProcedure is the procedure name of the MediaServerLinkService's
+	// Exposed RPC.
+	MediaServerLinkServiceExposedProcedure = "/slipstream.mediaserver.v1.MediaServerLinkService/Exposed"
 	// MediaServerControlServiceMediaServerSecretsProcedure is the procedure name of the
 	// MediaServerControlService's MediaServerSecrets RPC.
 	MediaServerControlServiceMediaServerSecretsProcedure = "/slipstream.mediaserver.v1.MediaServerControlService/MediaServerSecrets"
@@ -81,6 +84,13 @@ var (
 			Procedure:  MediaServerLinkServiceAdvanceProcedure,
 		}
 	})
+	mediaServerLinkServiceExposedSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_mediaserver_v1_mediaserver_proto.Services().ByName("MediaServerLinkService").Methods().ByName("Exposed"),
+			Procedure:  MediaServerLinkServiceExposedProcedure,
+		}
+	})
 )
 
 // MediaServerLinkServiceClient is a client for the slipstream.mediaserver.v1.MediaServerLinkService
@@ -99,6 +109,9 @@ type MediaServerLinkServiceClient interface {
 	SignIn(context.Context, *v1.SignInRequest) (*v1.SignInResponse, error)
 	// Advance runs one step of a Job on a server in this Node's intent.
 	Advance(context.Context, *v1.AdvanceRequest) (*v1.AdvanceResponse, error)
+	// Exposed reads what a server in this Node's intent reports about its
+	// use away from home. It writes nothing to the server.
+	Exposed(context.Context, *v1.ExposedRequest) (*v1.ExposedResponse, error)
 }
 
 // NewMediaServerLinkServiceClient constructs a client for the
@@ -124,6 +137,9 @@ type MediaServerLinkServiceHandler interface {
 	SignIn(context.Context, *v1.SignInRequest) (*v1.SignInResponse, error)
 	// Advance runs one step of a Job on a server in this Node's intent.
 	Advance(context.Context, *v1.AdvanceRequest) (*v1.AdvanceResponse, error)
+	// Exposed reads what a server in this Node's intent reports about its
+	// use away from home. It writes nothing to the server.
+	Exposed(context.Context, *v1.ExposedRequest) (*v1.ExposedResponse, error)
 }
 
 // RegisterMediaServerLinkServiceHandler registers svc as the
@@ -135,6 +151,7 @@ func RegisterMediaServerLinkServiceHandler(server *connect.Server, svc MediaServ
 		connect.Method{Spec: mediaServerLinkServiceCheckSpec(), Handler: adapter.check},
 		connect.Method{Spec: mediaServerLinkServiceSignInSpec(), Handler: adapter.signIn},
 		connect.Method{Spec: mediaServerLinkServiceAdvanceSpec(), Handler: adapter.advance},
+		connect.Method{Spec: mediaServerLinkServiceExposedSpec(), Handler: adapter.exposed},
 	)
 }
 
@@ -155,6 +172,10 @@ func (UnimplementedMediaServerLinkServiceHandler) SignIn(context.Context, *v1.Si
 
 func (UnimplementedMediaServerLinkServiceHandler) Advance(context.Context, *v1.AdvanceRequest) (*v1.AdvanceResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.mediaserver.v1.MediaServerLinkService.Advance is not implemented")
+}
+
+func (UnimplementedMediaServerLinkServiceHandler) Exposed(context.Context, *v1.ExposedRequest) (*v1.ExposedResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.mediaserver.v1.MediaServerLinkService.Exposed is not implemented")
 }
 
 type mediaServerLinkServiceClient struct {
@@ -188,6 +209,14 @@ func (c *mediaServerLinkServiceClient) SignIn(ctx context.Context, req *v1.SignI
 func (c *mediaServerLinkServiceClient) Advance(ctx context.Context, req *v1.AdvanceRequest) (*v1.AdvanceResponse, error) {
 	var res v1.AdvanceResponse
 	if err := c.client.CallUnary(ctx, mediaServerLinkServiceAdvanceSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *mediaServerLinkServiceClient) Exposed(ctx context.Context, req *v1.ExposedRequest) (*v1.ExposedResponse, error) {
+	var res v1.ExposedResponse
+	if err := c.client.CallUnary(ctx, mediaServerLinkServiceExposedSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -237,6 +266,18 @@ func (h mediaServerLinkServiceHandler) advance(ctx context.Context, _ connect.Sp
 		return err
 	}
 	res, err := h.svc.Advance(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h mediaServerLinkServiceHandler) exposed(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ExposedRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Exposed(ctx, &req)
 	if err != nil {
 		return err
 	}

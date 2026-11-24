@@ -166,12 +166,52 @@ type Server struct {
 	MachineIdentifier  string `json:"machineIdentifier"`
 	Version            string `json:"version"`
 	MyPlexSubscription bool   `json:"myPlexSubscription"`
+	MyPlexMappingState string `json:"myPlexMappingState"`
+	MyPlexSigninState  string `json:"myPlexSigninState"`
 }
 
 func (c *Client) Server(ctx context.Context) (Server, error) {
 	var out struct{ MediaContainer Server }
 	err := c.do(ctx, http.MethodGet, "/", nil, true, &out)
 	return out.MediaContainer, err
+}
+
+// Account is GET /myplex/account, whose root is MyPlex: the server's
+// plex.tv sign-in and its Remote Access check (recorded run 2026-11-24).
+type Account struct {
+	MappingState        string `json:"mappingState"`
+	MappingError        string `json:"mappingError"`
+	ReachabilityPending bool   `json:"reachabilityPending"`
+	SignInState         string `json:"signInState"`
+	PublicAddress       string `json:"publicAddress"`
+	PublicPort          uint16 `json:"publicPort"`
+	PrivateAddress      string `json:"privateAddress"`
+	PrivatePort         uint16 `json:"privatePort"`
+}
+
+func (c *Client) Account(ctx context.Context) (Account, error) {
+	var out struct{ MyPlex Account }
+	err := c.do(ctx, http.MethodGet, "/myplex/account", nil, true, &out)
+	return out.MyPlex, err
+}
+
+// Setting is one of GET /:/prefs's settings. Value is a JSON string, number
+// or boolean by Type: text, int or bool.
+type Setting struct {
+	ID    string          `json:"id"`
+	Type  string          `json:"type"`
+	Value json.RawMessage `json:"value"`
+}
+
+// Prefs is GET /:/prefs, which only reads.
+func (c *Client) Prefs(ctx context.Context) ([]Setting, error) {
+	var out struct {
+		MediaContainer struct {
+			Setting []Setting `json:"Setting"`
+		}
+	}
+	err := c.do(ctx, http.MethodGet, "/:/prefs", nil, true, &out)
+	return out.MediaContainer.Setting, err
 }
 
 // Section is one library section and its folders.
