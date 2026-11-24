@@ -1023,6 +1023,49 @@ func (q *Queries) ListLatestUnitsOfWorks(ctx context.Context, argWorks []works.W
 	return items, nil
 }
 
+const listMovedOn = `-- name: ListMovedOn :many
+SELECT torrent_id, dest_torrent_id FROM moves_unit
+WHERE torrent_id IN (/*SLICE:torrents*/?) AND phase IN ('cleanup', 'done') ORDER BY torrent_id
+`
+
+type ListMovedOnRow struct {
+	TorrentID     storage.UUID
+	DestTorrentID storage.UUID
+}
+
+func (q *Queries) ListMovedOn(ctx context.Context, torrents []storage.UUID) ([]ListMovedOnRow, error) {
+	query := listMovedOn
+	var queryParams []interface{}
+	if len(torrents) > 0 {
+		for _, v := range torrents {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:torrents*/?", strings.Repeat(",?", len(torrents))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:torrents*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMovedOnRow
+	for rows.Next() {
+		var i ListMovedOnRow
+		if err := rows.Scan(&i.TorrentID, &i.DestTorrentID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMovingTorrents = `-- name: ListMovingTorrents :many
 SELECT id, batch_id, seq, position, kind, work_id, content_type, torrent_id, from_root_id, from_node_id, from_client_id, to_root_id, to_node_id, to_client_id, to_folder, lane, phase, waiting, waiting_at, due_at, handoff, handoff_at, pass, switch_now_at, failure_code, failure_detail, failed_phase, keeps_copy, undone_at, reconcile, transfer_id, dest_torrent_id, pairs_with_unit_id, planned_bytes, planned_at, switched_at, cleaned_at, notes FROM moves_unit
 WHERE torrent_id IN (/*SLICE:torrents*/?) AND (phase IN ('queued', 'transfer', 'place', 'switch') OR keeps_copy = 1)
