@@ -1,10 +1,13 @@
 {
-  "commit": "ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9",
-  "date": "2026-11-06",
+  "commit": "46c468c443ff3ebb86fc99347d3a15885d41d1e1",
+  "date": "2026-11-19",
   "family": "",
   "files": {
     "myanonamouse.go": [
       "src/NzbDrone.Core/Indexers/Definitions/MyAnonamouse.cs"
+    ],
+    "stringconverter.go": [
+      "src/NzbDrone.Core/Datastore/Converters/StringConverter.cs"
     ]
   }
 }

@@ -1,5 +1,5 @@
 // Ported from Prowlarr's src/NzbDrone.Core/Indexers/Definitions/MyAnonamouse.cs
-// at ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9. Copyright the Prowlarr
+// at 46c468c443ff3ebb86fc99347d3a15885d41d1e1. Copyright the Prowlarr
 // contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
 
 package myanonamouse
@@ -290,7 +290,7 @@ func parseResponse(c *ix, r *port.IndexerResponse) ([]port.TorrentInfo, error) {
 
 		// SlipStream: a Release has no description, book title or author,
 		// so only the title carries the author.
-		title := item.Title
+		title := string(item.Title)
 
 		if strings.TrimSpace(item.AuthorInfo) != "" {
 			authors, err := orderedValues(item.AuthorInfo)
@@ -526,7 +526,7 @@ func (myAnonamouseSearchLanguage) Options() []port.Option {
 
 type myAnonamouseTorrent struct {
 	ID                serializer.STJInt  `json:"id"`
-	Title             string             `json:"title"`
+	Title             stringConverter    `json:"title"`
 	AuthorInfo        string             `json:"author_info"`
 	Description       string             `json:"description"`
 	LanguageCode      string             `json:"lang_code"`
