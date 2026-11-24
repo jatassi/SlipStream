@@ -94,3 +94,23 @@ test("a failing route leaves its fix to the card and its hops, whether or not th
   await expect.element(page.getByRole("region", { name: "Den Plex" })).toBeVisible();
   expect(page.getByText(forward.step, { exact: false }).elements()).toHaveLength(0);
 });
+
+test("with the Inspector open at 1440 wide, an own-proxy route's hops still run across", async () => {
+  await page.viewport(1440, 900);
+  const proxied: ReachabilityRoute = {
+    ...plexRoute,
+    route: "own-proxy",
+    hops: (["player", "dns", "proxy", "tls", "origin", "media-server"] as const).map((kind, i) => ({
+      kind,
+      worst: i < 3 ? "passes" : i === 3 ? "fails" : "not-reached",
+      checks: i === 3 ? [connectRefused] : [],
+      facts: [],
+    })),
+  };
+  open(cards.warn, [proxied]);
+  const hops = page.getByRole("list", { name: "Hops of Living room Plex" }).getByRole("button");
+  await userEvent.click(hops.first());
+  await expect.element(page.getByRole("complementary")).toBeVisible();
+  const tops = hops.elements().map((hop) => Math.round(hop.getBoundingClientRect().top));
+  expect(new Set(tops).size).toBe(1);
+});

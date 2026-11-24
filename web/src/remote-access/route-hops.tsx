@@ -46,19 +46,20 @@ function Mark({ hop }: { hop: ReachabilityHopView }) {
 }
 
 // The chain runs down in a narrow route and across in a wide one, so a
-// connector never ends a wrapped line.
+// connector never ends a wrapped line. 39rem holds an own-proxy route's six
+// hops, the widest drawn, so the chain stays across beside the Inspector.
 function Connector({ after, to }: { after: ReachabilityHopView; to: ReachabilityHopView }) {
   const signal = hopSignal(after);
   const line =
     to.worst === "not-reached"
-      ? "w-0 border-l-2 border-dashed border-hairline-strong @3xl:h-0 @3xl:border-t-2 @3xl:border-l-0"
+      ? "w-0 border-l-2 border-dashed border-hairline-strong @min-[39rem]:h-0 @min-[39rem]:border-t-2 @min-[39rem]:border-l-0"
       : signal === undefined
-        ? "w-0.5 bg-hairline-strong @3xl:h-0.5"
-        : `w-[3px] @3xl:h-[3px] ${signal === "fail" ? "bg-fail" : "bg-warn"}`;
+        ? "w-0.5 bg-hairline-strong @min-[39rem]:h-0.5"
+        : `w-[3px] @min-[39rem]:h-[3px] ${signal === "fail" ? "bg-fail" : "bg-warn"}`;
   return (
     <span
       aria-hidden="true"
-      className={`ml-5 h-3 shrink-0 @3xl:ml-0 @3xl:w-5 @3xl:self-center ${line}`}
+      className={`ml-5 h-3 shrink-0 @min-[39rem]:ml-0 @min-[39rem]:w-3 @min-[39rem]:self-center ${line}`}
     />
   );
 }
@@ -78,7 +79,7 @@ export function RouteHops({
     <div className="@container">
       <ol
         aria-label={`Hops of ${subject}`}
-        className="flex flex-col items-start @3xl:flex-row @3xl:flex-wrap @3xl:items-stretch @3xl:gap-y-2"
+        className="flex flex-col items-start @min-[39rem]:flex-row @min-[39rem]:flex-wrap @min-[39rem]:items-stretch @min-[39rem]:gap-y-2"
       >
         {hops.map((hop, index) => (
           <Fragment key={hop.kind}>
