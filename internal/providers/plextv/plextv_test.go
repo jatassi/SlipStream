@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"testing/synctest"
@@ -43,7 +44,10 @@ func newWorld(t *testing.T, serve serveFunc, account fakeplextv.Account, opts ..
 	t.Helper()
 	s := scenario.Scenario{Seed: "plextv"}
 	shared := fake.NewShared()
-	srv := fakeplex.Server{Name: "Den", Version: "1.43.5.11029", Identifier: "fake-plex-den", Owner: "jackson", Root: "/media"}
+	srv := fakeplex.Server{
+		Name: "Den", Version: "1.43.5.11029", Identifier: "fake-plex-den", Owner: "jackson", Root: "/media",
+		Published: []string{"https://203.0.113.9:32400", "https://[2001:db8::9]:32400"}, Custom: []string{"https://plex.example.test"},
+	}
 	var w world
 	w.plex = serve(t, fakeplex.Playing(srv), s, faketest.WithShared(shared), faketest.As("controller"))
 	fronts := fake.Fronts{{Target: "plex", Node: "world", Address: den}, {Target: "plex", Node: "controller", Address: w.plex.Address}, {Target: "plex", Node: "den", Address: den}}
@@ -183,7 +187,7 @@ func authFragment(t *testing.T, authURL string) url.Values {
 	return q
 }
 
-func TestServersListOneLocalConnectionPerNodeAndATokenOnlyTheServerTakes(t *testing.T) {
+func TestServersListEachConnectionTheRelayAndATokenOnlyTheServerTakes(t *testing.T) {
 	inEachTier(t, func(t *testing.T, serve serveFunc) {
 		w := newWorld(t, serve, fakeplextv.Account{Username: "jackson", PlexPass: true, Relay: true})
 		token := w.signIn(t)
@@ -192,15 +196,25 @@ func TestServersListOneLocalConnectionPerNodeAndATokenOnlyTheServerTakes(t *test
 			t.Fatalf("servers = %+v, %v", servers, err)
 		}
 		srv := servers[0]
-		var uris []string
-		for _, c := range srv.Connections {
-			if !c.Local {
-				t.Errorf("connection %s is not local", c.URI)
-			}
-			uris = append(uris, c.URI.String())
+		type conn struct {
+			URI, Address       string
+			Port               uint16
+			Local, Relay, IPv6 bool
 		}
-		if want := []string{w.plex.Address.URL(""), den.URL("")}; strings.Join(uris, " ") != strings.Join(want, " ") {
-			t.Errorf("connections = %v, want %v, the relay dropped", uris, want)
+		var got []conn
+		for _, c := range srv.Connections {
+			got = append(got, conn{c.URI.String(), c.Address, c.Port, c.Local, c.Relay, c.IPv6})
+		}
+		want := []conn{
+			{w.plex.Address.URL(""), "127.0.0.1", w.plex.Address.AddrPort.Port(), true, false, false},
+			{den.URL(""), "127.0.0.1", den.AddrPort.Port(), true, false, false},
+			{"https://203.0.113.9:32400", "203.0.113.9", 32400, false, false, false},
+			{"https://[2001:db8::9]:32400", "2001:db8::9", 32400, false, false, true},
+			{"https://plex.example.test", "plex.example.test", 443, false, false, false},
+			{"https://203-0-113-7.relay.plex.invalid:8443", "203.0.113.7", 8443, false, true, false},
+		}
+		if !slices.Equal(got, want) {
+			t.Errorf("connections = %+v, want %+v", got, want)
 		}
 		if srv.Identifier != "fake-plex-den" || !srv.Owned || len(srv.Token) != 20 || srv.Token == token.JWT {
 			t.Fatalf("server = %+v", srv)

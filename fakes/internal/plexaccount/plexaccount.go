@@ -1,10 +1,14 @@
 // Package plexaccount is the plex.tv account of one world: the fake-plex
 // servers it owns, which fake-plex-tv lists in resources, and the server
 // tokens fake-plex-tv issued, which fake-plex takes until a sign-out
-// revokes them. Both fakes reach it through the world's fake.Shared.
+// revokes them, and what each server publishes for use away from home:
+// fake-plex answers it in /myplex/account and /:/prefs, and fake-plex-tv
+// lists it in resources. Both fakes reach it through the world's
+// fake.Shared.
 package plexaccount
 
 import (
+	"net/netip"
 	"slices"
 	"sync"
 
@@ -21,6 +25,41 @@ type Server struct {
 	Name       string
 	Identifier string
 	Version    string
+	Remote     Remote
+}
+
+// Remote is what a server publishes for use away from home.
+type Remote struct {
+	// On is Remote Access, PublishServerOnPlexOnlineKey.
+	On bool
+	// Custom is customConnections, which plex.tv also lists as connections.
+	Custom []string
+	// Published are the connections plex.tv lists beside each Node's
+	// front.
+	Published []string
+	Mapping   Mapping
+}
+
+// Mapping is the state Plex's own check last left, in /myplex/account.
+type Mapping struct {
+	State   string
+	Error   string
+	Pending bool
+	Public  netip.AddrPort
+}
+
+// MappingOf is a Scenario's mapping state as Plex reports it: mapped,
+// failed, or pending, which the recorded run of 2026-11-24 saw as mapped
+// while reachabilityPending was true. Empty is a server Plex never
+// checked, which no run recorded and the fake reports as unknown.
+func MappingOf(state string, public netip.AddrPort) Mapping {
+	switch state {
+	case "mapped", "failed":
+		return Mapping{State: state, Public: public}
+	case "pending":
+		return Mapping{State: "mapped", Pending: true, Public: public}
+	}
+	return Mapping{State: "unknown"}
 }
 
 type Account struct {
@@ -53,6 +92,18 @@ func (a *Account) Servers() []Server {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return slices.Clone(a.servers)
+}
+
+// Server is the server named identifier, false when the account owns
+// none.
+func (a *Account) Server(identifier string) (Server, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	i := slices.IndexFunc(a.servers, func(s Server) bool { return s.Identifier == identifier })
+	if i < 0 {
+		return Server{}, false
+	}
+	return a.servers[i], true
 }
 
 // Grant makes token one the server named identifier takes.

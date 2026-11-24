@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"time"
 
@@ -99,6 +100,12 @@ type Server struct {
 	// or C:\Media.
 	Root     string
 	Sections []Section
+	// Remote is Remote Access. Custom is customConnections and Published
+	// the connections plex.tv lists beside each Node's front. Mapping is
+	// where Plex's own check left it: mapped, failed, pending or empty.
+	Remote            bool
+	Custom, Published []string
+	Mapping           string
 }
 
 // Section is one library section. Folders are its Locations, under Root.
@@ -130,7 +137,10 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	if !ok {
 		return serve(env, nil)
 	}
-	srv := &Server{Name: p.Name, Version: p.Version, Identifier: p.ID(40), Owner: plexAdmin, PlexPass: true, Root: p.Root}
+	srv := &Server{
+		Name: p.Name, Version: p.Version, Identifier: p.ID(40), Owner: plexAdmin, PlexPass: true, Root: p.Root,
+		Remote: p.Remote, Custom: p.Custom, Published: p.Published, Mapping: p.Mapping,
+	}
 	for i, l := range p.Libraries {
 		title, typ, ok := sectionOf(l.ContentType)
 		if !ok {
@@ -166,7 +176,10 @@ type server struct {
 func serve(env fake.Env, srv *Server) (fake.Server, error) {
 	s := &server{env: env, srv: srv, account: plexaccount.Of(env.Shared)}
 	if srv != nil {
-		s.account.Claim(plexaccount.Server{Target: fault.Target(env.Name), Name: srv.Name, Identifier: srv.Identifier, Version: srv.Version})
+		s.account.Claim(plexaccount.Server{
+			Target: fault.Target(env.Name), Name: srv.Name, Identifier: srv.Identifier, Version: srv.Version,
+			Remote: plexaccount.Remote{On: srv.Remote, Custom: srv.Custom, Published: srv.Published, Mapping: plexaccount.MappingOf(srv.Mapping, netip.AddrPort{})},
+		})
 		core, err := newCore(env, srv)
 		if err != nil {
 			return nil, err

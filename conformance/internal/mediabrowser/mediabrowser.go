@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/conformance/internal/mediaservers"
+	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/providers/jellyfin"
 	"github.com/jatassi/slipstream/internal/storing"
@@ -95,6 +96,12 @@ type Server struct {
 }
 
 var _ mediaservers.Server = (*Server)(nil)
+
+// Exposed is the kind's own read, with the target's key.
+func (s *Server) Exposed(ctx context.Context) (link.Exposed, error) {
+	k, _ := mediaserverlink.Kinds.Of(link.KindName(s.f.String()))
+	return k.Dial(link.Dialed{Address: s.tg.Address, Credential: link.Credential{APIKey: s.tg.Key}, DeviceID: App.DeviceID, HTTP: s.tg.HTTP}).Exposed(ctx)
+}
 
 // Shared is tg as the shared cases take it, with its server and its
 // library keys read from the server.

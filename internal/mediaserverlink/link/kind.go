@@ -121,6 +121,9 @@ type Conn interface {
 	// Watch keeps the push socket open and polls sessions every every until
 	// ctx ends, calling seen for each poll and each push.
 	Watch(ctx context.Context, every time.Duration, seen func(Seen)) error
+	// Exposed reads what the server reports about its use away from home.
+	// It writes nothing.
+	Exposed(ctx context.Context) (Exposed, error)
 }
 
 // Identity is who responds at an address.

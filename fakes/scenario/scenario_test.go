@@ -362,12 +362,14 @@ func TestParseRefuses(t *testing.T) {
 		},
 		{
 			"media servers",
-			"seed: x\nnodes:\n  - name: home\n    setup: controller\n    media_servers: [{kind: plex, name: P, sign_in: key, roots: [{folder: films}]}]\n" +
+			"seed: x\nnodes:\n  - name: home\n    setup: controller\n    media_servers: [{kind: plex, name: P, sign_in: key, roots: [{folder: films}], runs_on: attic, custom: [plex.example.test]}]\n" +
 				"  - name: den\n    setup: join\n    media_servers: [{kind: kodi, name: K}, {kind: plex, name: Q, users: [grace]}]\n" +
-				"  - name: nas\n    setup: join\n    roles: [storage, media-server-link]\n    media_servers: [{kind: jellyfin, name: J}]\n" +
+				"  - name: nas\n    setup: join\n    roles: [storage, media-server-link]\n    media_servers: [{kind: jellyfin, name: J, runs_on: nas, mapping: mapped, published: [\"https://jf.example.test\"]}]\n" +
 				"admin: {email: a@example.test, display_name: A, pin: \"1234\"}\n" +
 				"library: {roots: [{content_type: movie, folder: movies}]}\n",
 			"scenario x: media server P signs in with key, but Plex signs in only with the plex.tv PIN\n" +
+				"scenario x: media server P runs on attic, which isn't a Node\n" +
+				"scenario x: media server P publishes \"plex.example.test\", which isn't an http or https URL with a host\n" +
 				"scenario x: media server P holds root films, which the library doesn't name\n" +
 				"scenario x: media server P holds no library root\n" +
 				"scenario x: node den reaches media servers, but doesn't hold media-server-link\n" +
@@ -375,6 +377,7 @@ func TestParseRefuses(t *testing.T) {
 				"scenario x: node den reaches a second plex; the world plays at most one of each kind\n" +
 				"scenario x: media server Q lists users, which only Jellyfin and Emby take\n" +
 				"scenario x: media server Q holds no library root\n" +
+				"scenario x: media server J sets custom or mapping, which only Plex takes\n" +
 				"scenario x: media server J holds no library root",
 		},
 		{
