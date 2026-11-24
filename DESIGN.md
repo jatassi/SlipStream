@@ -877,7 +877,7 @@ The verdict chip names the verdict, Reachable, Fixable or Needs a relay, and tak
 The page leads with one recommendation card, mapped from the verdict that decides it:
 - **Needs a relay on a failing check:** a red standing Callout with the chip "Needs a relay", the subject and the fix, and no button until a Relay Node can be set up from here.
 - **Fixable on a failing check:** an amber standing Callout with the chip "Fixable", the subject, the fix and the fix's button as its Warn action, such as Turn on Open router ports automatically.
-- **Resting only on Not tested:** a neutral glass line with the subject, the step and a ghost "Pair a Node" button.
+- **Resting only on Not tested:** a neutral glass line with the subject, the step and a ghost "Add a Node" button.
 - **Every route Reachable and tested:** no card.
 
 ### Node canvas

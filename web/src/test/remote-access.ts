@@ -160,8 +160,8 @@ export const cards = {
     fix: {
       id: "not-tested",
       title: "Nothing outside your home has tested this route.",
-      step: "Pair a Node on another network, such as a VPS that isn't your proxy, to test it.",
-      action: { kind: "pair-node", label: "Pair a Node" },
+      step: "Add a Node on another network, such as a VPS that isn't your proxy, to test it.",
+      action: { kind: "pair-node", label: "Add a Node" },
     },
   },
 } as const satisfies Record<string, ReachabilityCard>;

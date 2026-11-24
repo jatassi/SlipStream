@@ -24,7 +24,7 @@ var (
 	WatchEvery = setting.Duration{
 		Key: "reachability.watchEvery", Label: "Look for network changes every",
 		Default: 5 * time.Minute, Min: time.Minute, Max: 24 * time.Hour, Step: time.Minute,
-		Floor: "STUN servers run by others ask clients not to ask more often.",
+		Floor: "Operators of public STUN servers ask clients not to send requests more often.",
 	}
 	ChangeWait = setting.Duration{
 		Key: "reachability.changeWait", Label: "Wait after a network change",

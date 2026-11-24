@@ -56,7 +56,7 @@ var fixes = map[judge.FixID]sentence{
 	judge.FixForwardNotSeen: {needs: needs(pNode, pPort, pLocalPort), may: needs(pLocalAddr),
 		title: fixed("SlipStream can't see your router's port forwards."),
 		step: func(w Words, p judge.Params) string {
-			return fmt.Sprintf("Forward TCP port %d to %s, port %d, then pair a Node outside your home to confirm it.", p.Port, w.where(p), p.LocalPort)
+			return fmt.Sprintf("Forward TCP port %d to %s, port %d, then add a Node outside your home to confirm it.", p.Port, w.where(p), p.LocalPort)
 		},
 		details: "If your provider shares your address (CGNAT), forwarding doesn't help."},
 	judge.FixManualForward: {needs: needs(pNode, pPort, pLocalPort), may: needs(pLocalAddr),
@@ -124,14 +124,14 @@ var fixes = map[judge.FixID]sentence{
 			return fmt.Sprintf("SlipStream can't read the firewall on %s.", w.Node(p.Node))
 		},
 		step: func(_ Words, p judge.Params) string {
-			return fmt.Sprintf("Allow TCP port %d in it, then pair a Node outside your home to confirm it.", p.Port)
+			return fmt.Sprintf("Allow TCP port %d in it, then add a Node outside your home to confirm it.", p.Port)
 		}},
 	judge.FixFirewallDocker: {needs: needs(pNode, pPort), may: needs(pTool, pFamily, pProgram),
 		title: func(_ Words, p judge.Params) string {
 			return fmt.Sprintf("Docker publishes port %d past ufw, so SlipStream can't read whether it's allowed.", p.Port)
 		},
 		step: func(w Words, p judge.Params) string {
-			return fmt.Sprintf("Allow TCP port %d to %s, then pair a Node outside your home to confirm it.", p.Port, w.Node(p.Node))
+			return fmt.Sprintf("Allow TCP port %d to %s, then add a Node outside your home to confirm it.", p.Port, w.Node(p.Node))
 		}},
 	judge.FixBind: {needs: needs(pNode),
 		title: func(w Words, p judge.Params) string {
@@ -156,7 +156,7 @@ var fixes = map[judge.FixID]sentence{
 		title: func(w Words, p judge.Params) string {
 			return fmt.Sprintf("SlipStream can't tell whether %s on %s accepts %s connections on port %d.", lower(program(p)), w.Node(p.Node), p.Family, p.Port)
 		},
-		step: fixed("Check that it listens on all networks, then pair a Node outside your home to confirm it.")},
+		step: fixed("Check that it listens on all networks, then add a Node outside your home to confirm it.")},
 	judge.FixPlainHTTP: {
 		title: fixed("The UI and portal use plain HTTP, so sign-ins cross the internet unencrypted."),
 		step:  fixed("Put SlipStream behind an HTTPS proxy and set Address to its https:// name.")},
@@ -292,10 +292,10 @@ var fixes = map[judge.FixID]sentence{
 		title: func(w Words, p judge.Params) string {
 			return fmt.Sprintf("SlipStream responded to %s's test, but couldn't confirm it came from outside your home.", w.Node(p.Tester))
 		},
-		step: fixed("Pair a Node on another network to test it.")},
+		step: fixed("Add a Node on another network to test it.")},
 	judge.FixNotTested: {
 		title: fixed("Nothing outside your home has tested this route."),
-		step:  fixed("Pair a Node on another network, such as a VPS that isn't your proxy, to test it.")},
+		step:  fixed("Add a Node on another network, such as a VPS that isn't your proxy, to test it.")},
 }
 
 var facts = map[judge.FactID]sentence{
@@ -340,13 +340,13 @@ var facts = map[judge.FactID]sentence{
 		if p.Prefix.IsValid() {
 			claim = p.Prefix.String()
 		}
-		return fmt.Sprintf("%s reports its public address as %s, but its link comes from %s, so it can't test this route.", w.Node(p.Tester), claim, p.Want)
+		return fmt.Sprintf("%s reports its public address as %s, but its connection comes from %s, so it can't test this route.", w.Node(p.Tester), claim, p.Want)
 	}},
 	judge.FactLinkUnconfirmed: {needs: needs(pTester, pReason), title: func(w Words, p judge.Params) string {
 		if p.Reason == judge.ReasonOtherFamily {
-			return fmt.Sprintf("SlipStream couldn't confirm %s's public address, because its link uses the other IP version.", w.Node(p.Tester))
+			return fmt.Sprintf("SlipStream couldn't confirm %s's public address, because its connection uses the other IP version.", w.Node(p.Tester))
 		}
-		return fmt.Sprintf("SlipStream couldn't confirm %s's public address, because its link to the Controller is over a private network.", w.Node(p.Tester))
+		return fmt.Sprintf("SlipStream couldn't confirm %s's public address, because its connection to the Controller is over a private network.", w.Node(p.Tester))
 	}},
 	judge.FactPlexRelayQuality: {title: fixed("Plex apps outside your home connect through Plex's own relay, which limits video quality.")},
 	judge.FactPlexMapping: {may: needs(pRaw), title: func(_ Words, p judge.Params) string {
@@ -365,10 +365,10 @@ var facts = map[judge.FactID]sentence{
 		return fmt.Sprintf("On %s, %s listens on port %d, and the service behind it listens on this machine only.", w.Node(p.Node), lower(program(p)), p.Port)
 	}},
 	judge.FactEchoThroughProgram: {needs: needs(pNode, pPort), may: needs(pProgram), title: func(w Words, p judge.Params) string {
-		return fmt.Sprintf("The test arrived through %s on %s, so SlipStream can't see the tester's address.", lower(program(p)), w.Node(p.Node))
+		return fmt.Sprintf("The test arrived through %s on %s, so SlipStream can't see which address it came from.", lower(program(p)), w.Node(p.Node))
 	}},
 	judge.FactEchoOwnStream: {needs: needs(pTester), title: func(w Words, p judge.Params) string {
-		return fmt.Sprintf("The test came back through %s's own link, so it doesn't show what players outside see.", w.Node(p.Tester))
+		return fmt.Sprintf("The test came back through %s's own connection to the Controller, so it doesn't show what players outside see.", w.Node(p.Tester))
 	}},
 	judge.FactEchoTesterAddress: {needs: needs(pTester, pAddr), title: func(w Words, p judge.Params) string {
 		return fmt.Sprintf("The test came from %s, an address on %s itself.", p.Addr, w.Node(p.Tester))
@@ -406,12 +406,12 @@ var meanings = map[judge.CheckID]string{
 	judge.CheckOriginFirewall: "The firewall allows the port.",
 	judge.CheckOriginClass:    "Players outside can connect through the router.",
 	judge.CheckOutsideConnect: "A Node outside your home can connect.",
-	judge.CheckConnectBack:    "The tester can connect to your home's public address.",
+	judge.CheckConnectBack:    "The testing Node can connect to your home's public address.",
 	judge.CheckTLSCertificate: "The certificate is for this name and hasn't expired.",
 	judge.CheckIdentity:       "The service at the address is the one you chose.",
 	judge.CheckHTTPPlain:      "The UI and portal use HTTPS.",
 	judge.CheckPlexCustomURL:  "Plex lists the public address.",
-	judge.CheckPlexMapping:    "Plex's own check from outside.",
+	judge.CheckPlexMapping:    "Plex's own check from outside passes.",
 }
 
 func fixed(s string) func(Words, judge.Params) string {
@@ -620,5 +620,5 @@ func Families(offered []netmodel.Family) string {
 
 // ActionLabel is a fix's button.
 func ActionLabel(k judge.ActionKind) string {
-	return map[judge.ActionKind]string{judge.PairNode: "Pair a Node", judge.MapPorts: "Turn on Open router ports automatically"}[k]
+	return map[judge.ActionKind]string{judge.PairNode: "Add a Node", judge.MapPorts: "Turn on Open router ports automatically"}[k]
 }

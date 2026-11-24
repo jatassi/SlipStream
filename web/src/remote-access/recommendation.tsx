@@ -34,7 +34,7 @@ function useAction(action: ReachabilityActionView | null, pair: () => void) {
  * The page's one recommendation. A route that needs a relay is a red card
  * with no button until a Relay Node can be set up here, a route a failing
  * check makes Fixable an amber card with its fix's button, and a route
- * nothing outside the home tested a neutral line offering to pair a Node.
+ * nothing outside the home tested a neutral line offering to add a Node.
  */
 export function Recommendation({ card, pair }: { card: ReachabilityCard; pair: () => void }) {
   const action = useAction(card.fix.action, pair);

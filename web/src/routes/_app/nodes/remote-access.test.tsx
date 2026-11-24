@@ -44,9 +44,9 @@ test("the map-ports fix turns on Open router ports automatically for its Node", 
     });
 });
 
-test("a route nothing outside tested offers to pair a Node and raises no signal", async () => {
+test("a route nothing outside tested offers to add a Node and raises no signal", async () => {
   open(cards.untested);
-  await userEvent.click(button("Pair a Node"));
+  await userEvent.click(button("Add a Node"));
   await expect
     .element(page.getByRole("status").filter({ hasText: "Living room Plex" }))
     .not.toBeInTheDocument();
