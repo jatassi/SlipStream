@@ -126,24 +126,46 @@ func (m moving) snapshotted(t *testing.T, file files.ID) map[link.ServerID]bool 
 
 const movingWords = "Saved every user's watch data before the Move. SlipStream sends this change once the Move finishes."
 
+// unscanned clears Vault's scan, as for a folder Den never scanned.
+func (m moving) unscanned(t *testing.T) {
+	t.Helper()
+	err := m.w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, "UPDATE mediaservers_mapping SET scanned_at = NULL WHERE root_id = ?", m.vault)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestAMoveToAnotherRootKeepsEveryUsersWatchData moves a file both of
 // Den's users watched from Shelves to Vault: SlipStream saves their data
 // before the copy, a disk pass keeps it, Den hears nothing while the
 // source still exists, and once the Move removed it Den holds the new
-// item with the same data and collection.
+// item with the same data and collection, also when Den never scanned
+// Vault and scans it first.
 func TestAMoveToAnotherRootKeepsEveryUsersWatchData(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		kind  string
 		apart bool
+		fresh bool
 	}{
-		{"Jellyfin, in one library", "jellyfin", false},
-		{"Jellyfin, across libraries", "jellyfin", true},
-		{"Emby, across libraries", "emby", true},
+		{"Jellyfin, in one library", "jellyfin", false, false},
+		{"Jellyfin, across libraries", "jellyfin", true, false},
+		{"Emby, across libraries", "emby", true, false},
+		{"Jellyfin, into a folder it never scanned", "jellyfin", true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				m := newMoving(t, tc.kind, tc.apart, p+"Trip/Trip.mkv", faust)
+				placed := []string{p + "Trip/Trip.mkv", faust}
+				if tc.fresh {
+					placed = placed[:1]
+				}
+				m := newMoving(t, tc.kind, tc.apart, placed...)
+				if tc.fresh {
+					m.unscanned(t)
+				}
 				srv := m.server(t)
 				v := m.viewerOf(t, m.flavor)
 				v.watch("Trip/Trip.mkv")

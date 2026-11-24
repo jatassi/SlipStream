@@ -504,9 +504,13 @@ type stepped struct {
 }
 
 // land writes c at the Job's new step: sent when its change ended, still
-// taken when the Job goes on, else due again at the step's wait.
+// taken when the Job goes on, else due again at the step's wait. A Fresh
+// Job's step is its mapping's, so its rows keep their own.
 func (st stepped) land(ctx context.Context, q *db.Queries, c queue.Change) error {
-	c.Step, c.StepAt, c.Problem = st.out.Job.Step, st.out.Job.At, nil
+	c.Problem = nil
+	if _, fresh := st.out.Job.Work.(link.Fresh); !fresh {
+		c.Step, c.StepAt = st.out.Job.Step, st.out.Job.At
+	}
 	if c.Step == link.StepNone {
 		c.StepAt = time.Time{}
 	}
