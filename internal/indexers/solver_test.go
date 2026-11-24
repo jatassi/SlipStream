@@ -25,13 +25,13 @@ import (
 )
 
 // solverNode is a Node whose solver /health responds status, or that
-// can't reach it when unreachable. It passes every Test and keeps the
-// solver each job carried.
+// can't reach it when unreachable. It passes every Test and keeps each
+// job.
 type solverNode struct {
 	mu          sync.Mutex
 	status      int
 	unreachable bool
-	carried     []*searching.Solver
+	jobs        []searching.Job
 }
 
 func (n *solverNode) ReachSolver(context.Context, searching.Solver) (int, error) {
@@ -46,14 +46,14 @@ func (n *solverNode) ReachSolver(context.Context, searching.Solver) (int, error)
 func (n *solverNode) Run(_ context.Context, j searching.Job) (searching.Poll, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.carried = append(n.carried, j.Solver)
+	n.jobs = append(n.jobs, j)
 	return searching.Poll{Answer: &searching.Answer{Report: &searching.Report{Capabilities: searching.Capabilities{Modes: map[string][]string{"search": {"q"}}}}}}, nil
 }
 
-func (n *solverNode) last() *searching.Solver {
+func (n *solverNode) last() searching.Job {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	return n.carried[len(n.carried)-1]
+	return n.jobs[len(n.jobs)-1]
 }
 
 type solverWorld struct {
@@ -98,8 +98,8 @@ func (w solverWorld) solver(t *testing.T) indexers.Solver {
 	return s
 }
 
-// tested is the solver the job of a Test carried.
-func (w solverWorld) tested(t *testing.T) *searching.Solver {
+// tested is the job of a Test.
+func (w solverWorld) tested(t *testing.T) searching.Job {
 	t.Helper()
 	if _, err := w.x.Test(t.Context(), identity.Admin{}, w.id, indexers.Typed{}); err != nil {
 		t.Fatal(err)
@@ -129,7 +129,7 @@ func TestAChallengeSolverSavesOnlyOnceItsNodeReachesIt(t *testing.T) {
 	if _, err := w.x.SetSolver(t.Context(), identity.Admin{}, w.home, "localhost:8191", nil); !errors.As(err, new(*indexers.SolverUnreachableError)) {
 		t.Errorf("SetSolver of an address with no scheme = %v, want SolverUnreachableError", err)
 	}
-	if s, carried := w.solver(t), w.tested(t); s.Address != "" || carried != nil {
+	if s, carried := w.solver(t), w.tested(t).Solver; s.Address != "" || carried != nil {
 		t.Fatalf("after refused saves the solver is %+v and a job carries %+v, want none", s, carried)
 	}
 	if _, err := w.x.SetSolver(t.Context(), identity.Admin{}, role.NodeID{UUID: storage.NewUUID()}, solverAddress, nil); !errors.Is(err, indexers.ErrNotSearching) {
@@ -148,13 +148,28 @@ func TestASavedChallengeSolverRidesEveryJobUntilRemoved(t *testing.T) {
 	if s, err := w.x.SetSolver(ctx, admin, w.home, solverAddress, &timeout); err != nil || s != (indexers.Solver{Address: solverAddress, Timeout: 45 * time.Second}) {
 		t.Fatalf("SetSolver of a reachable solver = %+v, %v; want it saved", s, err)
 	}
-	if s, carried := w.solver(t), w.tested(t); s.Address != solverAddress || carried == nil || *carried != (searching.Solver{Address: solverAddress, Timeout: 45 * time.Second}) {
+	if s, carried := w.solver(t), w.tested(t).Solver; s.Address != solverAddress || carried == nil || *carried != (searching.Solver{Address: solverAddress, Timeout: 45 * time.Second}) {
 		t.Fatalf("the saved solver is %+v and a job carries %+v, want the solver with its 45 s timeout", s, carried)
 	}
 	if _, err := w.x.SetSolver(ctx, admin, w.home, "", nil); err != nil {
 		t.Fatal(err)
 	}
-	if s, carried := w.solver(t), w.tested(t); s.Address != "" || carried != nil {
+	if s, carried := w.solver(t), w.tested(t).Solver; s.Address != "" || carried != nil {
 		t.Fatalf("after removing it the solver is %+v and a job carries %+v, want none", s, carried)
+	}
+}
+
+func TestAnIndexersQueryTimeoutRidesEveryJobUntilReset(t *testing.T) {
+	w := newSolverWorld(t)
+	if got := w.tested(t).QueryTimeout; got != 0 {
+		t.Fatalf("a job of an Indexer with no query timeout carries %s, want 0 for the Node's own", got)
+	}
+	for _, timeout := range []time.Duration{45 * time.Second, 0} {
+		if _, err := w.x.Update(t.Context(), identity.Admin{}, w.id, indexers.Edit{QueryTimeout: &timeout}, indexers.Typed{}); err != nil {
+			t.Fatal(err)
+		}
+		if got := w.tested(t).QueryTimeout; got != timeout {
+			t.Errorf("after saving a query timeout of %s a job carries %s", timeout, got)
+		}
 	}
 }

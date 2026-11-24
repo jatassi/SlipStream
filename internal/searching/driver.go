@@ -62,7 +62,10 @@ type Job struct {
 	RSS RSSReading
 	// Solver is the Node's Challenge solver, nil for none.
 	Solver *Solver
-	Call   Call
+	// QueryTimeout bounds each request to the Indexer, zero for
+	// Timings.Request.
+	QueryTimeout time.Duration
+	Call         Call
 }
 
 // Solver is a Node's Challenge solver: a service at Address that speaks

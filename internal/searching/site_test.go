@@ -53,7 +53,11 @@ func TestTheNodeKeepsToTheRequestTimeAndSize(t *testing.T) {
 		case "caps":
 			_, _ = w.Write([]byte(strings.Repeat("x", 8<<20+1)))
 		case "search":
-			<-r.Context().Done()
+			select {
+			case <-r.Context().Done():
+			case <-time.After(1500 * time.Millisecond):
+				_, _ = w.Write([]byte(`<rss><channel></channel></rss>`))
+			}
 		}
 	})
 	indexer := httptest.NewServer(mux)
@@ -63,8 +67,24 @@ func TestTheNodeKeepsToTheRequestTimeAndSize(t *testing.T) {
 	if got, want := outcome(run(t, n, address, "k", searching.TestCall{})), "*searching.Failing the Indexer's response is over 8388608 bytes"; got != want {
 		t.Errorf("an oversized caps = %s, want %s", got, want)
 	}
-	if got, want := outcome(run(t, n, address, "k", searching.SearchCall{Query: searching.Query{Mode: "search"}})), "*searching.Failing reach the Indexer: context deadline exceeded"; got != want {
-		t.Errorf("a slow search = %s, want %s", got, want)
+	for _, tc := range []struct {
+		timeout time.Duration
+		want    string
+	}{
+		{0, "*searching.Failing reach the Indexer: context deadline exceeded"},
+		{3 * time.Second, "ok"},
+	} {
+		job := searching.Job{
+			ID: t.Name() + "/" + tc.timeout.String(), Indexer: "i", Kind: searching.Torznab, Address: address, APIKey: "k", QueryTimeout: tc.timeout,
+			Call: searching.SearchCall{Query: searching.Query{Mode: "search"}},
+		}
+		poll, err := n.Run(t.Context(), job)
+		if err != nil || poll.Answer == nil {
+			t.Fatalf("Run = %+v, %v; want an answer within the hold", poll, err)
+		}
+		if got := outcome(*poll.Answer); got != tc.want {
+			t.Errorf("a 1.5 s search with a query timeout of %s = %s, want %s", tc.timeout, got, tc.want)
+		}
 	}
 }
 

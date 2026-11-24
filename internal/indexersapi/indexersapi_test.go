@@ -158,7 +158,7 @@ func fresh(feedHost, switches string, priority, revision int, categories string)
 		sentence = "Fixture Site is off."
 	}
 	return `{"id":"id1","name":"Fixture Site","kind":"torznab","homeNodeId":"id2",` + switches + `,"priority":` + strconv.Itoa(priority) +
-		`,"searchesAtOnce":2,"recentPaging":true,"categories":` + categories + `,"media":null,"allowNoSize":false,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
+		`,"searchesAtOnce":2,"queryTimeout":null,"recentPaging":true,"categories":` + categories + `,"media":null,"allowNoSize":false,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},` +
 		`"sentence":"` + sentence + `","fix":null,"signsIn":false,"trackerIds":["id3"],` +
 		`"waits":null,"session":null,"feedHost":"` + feedHost + `","definition":null,"port":null,` + modes + `,"notes":[],"rssFetch":null,"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
@@ -279,25 +279,32 @@ func TestAPatchChangesOnlyWhatItSends(t *testing.T) {
 	}
 }
 
-func TestSearchesAtOnceIsSetOnCreateAndPatchedBackToItsDefault(t *testing.T) {
+func TestSearchesAtOnceAndQueryTimeoutAreSetOnCreateAndPatchedBackToTheirDefaults(t *testing.T) {
 	s := serve(t, indexerstest.Alone(self), role.NodeID{})
-	body := strings.TrimSuffix(s.body(s.address(), s.key), "}") + `,"searchesAtOnce":4}`
+	for _, n := range []string{"0", "9", "301"} {
+		body := strings.TrimSuffix(s.body(s.address(), s.key), "}") + `,"queryTimeout":` + n + `}`
+		if code, reply := s.owner.Call(t, http.MethodPost, "/api/v1/indexers", body); code != http.StatusUnprocessableEntity {
+			t.Errorf("createIndexer with queryTimeout %s = %d %s, want 422", n, code, reply)
+		}
+	}
+	body := strings.TrimSuffix(s.body(s.address(), s.key), "}") + `,"searchesAtOnce":4,"queryTimeout":60}`
 	code, reply := s.owner.Call(t, http.MethodPost, "/api/v1/indexers", body)
-	if code != http.StatusCreated || !strings.Contains(reply, `"searchesAtOnce":4,`) {
-		t.Fatalf("createIndexer with 4 searches at once = %d %s, want 201 with 4", code, reply)
+	if code != http.StatusCreated || !strings.Contains(reply, `"searchesAtOnce":4,"queryTimeout":60,`) {
+		t.Fatalf("createIndexer with 4 searches at once and a 60 s query timeout = %d %s, want 201 with both", code, reply)
 	}
 	path := "/api/v1/indexers/" + ownertest.FirstID(reply)
 	host := site.Host("torznab")
-	at := func(n string, revision int) string {
-		return strings.Replace(fresh(host, on, 25, revision, "null"), `"searchesAtOnce":2,`, `"searchesAtOnce":`+n+`,`, 1)
+	at := func(n, timeout string, revision int) string {
+		return strings.Replace(fresh(host, on, 25, revision, "null"), `"searchesAtOnce":2,"queryTimeout":null,`,
+			`"searchesAtOnce":`+n+`,"queryTimeout":`+timeout+`,`, 1)
 	}
-	s.owner.Expect(t, http.MethodPatch, path, `{"searchesAtOnce":10}`, http.StatusOK, at("10", 2))
-	s.owner.Expect(t, http.MethodGet, path, "", http.StatusOK, at("10", 2))
-	s.owner.Expect(t, http.MethodPatch, path, `{"priority":5}`, http.StatusOK, strings.Replace(at("10", 3), `"priority":25`, `"priority":5`, 1))
-	s.owner.Expect(t, http.MethodPatch, path, `{"searchesAtOnce":null,"priority":null}`, http.StatusOK, at("2", 4))
-	for _, n := range []string{"0", "11"} {
-		if code, reply := s.owner.Call(t, http.MethodPatch, path, `{"searchesAtOnce":`+n+`}`); code != http.StatusUnprocessableEntity {
-			t.Errorf("patching searchesAtOnce to %s = %d %s, want 422", n, code, reply)
+	s.owner.Expect(t, http.MethodPatch, path, `{"searchesAtOnce":10,"queryTimeout":300}`, http.StatusOK, at("10", "300", 2))
+	s.owner.Expect(t, http.MethodGet, path, "", http.StatusOK, at("10", "300", 2))
+	s.owner.Expect(t, http.MethodPatch, path, `{"priority":5}`, http.StatusOK, strings.Replace(at("10", "300", 3), `"priority":25`, `"priority":5`, 1))
+	s.owner.Expect(t, http.MethodPatch, path, `{"searchesAtOnce":null,"queryTimeout":null,"priority":null}`, http.StatusOK, at("2", "null", 4))
+	for _, patch := range []string{`"searchesAtOnce":0`, `"searchesAtOnce":11`, `"queryTimeout":0`, `"queryTimeout":9`, `"queryTimeout":301`} {
+		if code, reply := s.owner.Call(t, http.MethodPatch, path, `{`+patch+`}`); code != http.StatusUnprocessableEntity {
+			t.Errorf("patching %s = %d %s, want 422", patch, code, reply)
 		}
 	}
 }

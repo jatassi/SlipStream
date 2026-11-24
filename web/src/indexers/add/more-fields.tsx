@@ -2,7 +2,7 @@ import type { NodesNode } from "../../api/gen/model";
 import { Details } from "../../ui/details";
 import { Switch } from "../../ui/switch";
 import { prioritySchema } from "../edit-values";
-import { LimitField } from "../fields/limit-field";
+import { LimitField, QueryTimeoutField } from "../fields/limit-field";
 import { Choices } from "./choices";
 import { type AddValues, type Source, listsRecent } from "./source";
 import type { AddForm } from "./use-add";
@@ -80,6 +80,7 @@ export function MoreFields({
             </form.AppField>
             <LimitField form={form} fields="searches" label="Searches" />
             <LimitField form={form} fields="grabs" label="Grabs" />
+            <QueryTimeoutField form={form} fields={{ queryTimeout: "queryTimeout" }} />
             <Switches form={form} source={source} />
           </div>
         </Details>

@@ -1,6 +1,7 @@
 package searching
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -41,6 +42,8 @@ type Site struct {
 	svc    *Service
 	run    *run
 	slot   *slot
+	// timeout bounds each request, zero for Timings.Request.
+	timeout time.Duration
 }
 
 // Purpose is what a request fetches, which sets its body cap.
@@ -166,7 +169,7 @@ func (s *Site) sendOnce(ctx context.Context, req *http.Request, o Send, j *jar) 
 		return nil, err
 	}
 	s.run.start()
-	ctx, cancel := context.WithTimeout(ctx, s.svc.cfg.Timings.Request)
+	ctx, cancel := context.WithTimeout(ctx, cmp.Or(s.timeout, s.svc.cfg.Timings.Request))
 	defer cancel()
 	cookies := len(j.Cookies(req.URL)) > 0
 	if held := s.slot.held(); held != nil && held.UserAgent != "" {

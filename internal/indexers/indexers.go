@@ -93,7 +93,10 @@ type Indexer struct {
 	// SearchesAtOnce is 1 to 10: how many background searches go to the
 	// Indexer at a time. A press gets one more.
 	SearchesAtOnce int
-	Source         Source
+	// QueryTimeout bounds each request to the Indexer, 10 s to 300 s, or
+	// zero for the Node's own request timeout.
+	QueryTimeout time.Duration
+	Source       Source
 	// Secrets is one sealed Secrets.
 	Secrets secret.Sealed
 	// FeedHost is shown in place of a feed's sealed address.
@@ -543,9 +546,10 @@ func indexerOf(row db.IndexersIndexer, summary *string, fetched storage.Time, pa
 	idx := Indexer{
 		ID: row.ID, Name: row.Name, Kind: Kind(row.Kind), Home: row.HomeNodeID, On: row.IsOn, AutoSearch: row.AutoSearch,
 		RSS: row.Rss, AllowFailover: row.AllowFailover, Priority: int(row.Priority), SearchesAtOnce: int(row.SearchesAtOnce),
-		Searches: Limit{Count: int(row.SearchLimit), Per: Window(row.SearchWindow)},
-		Grabs:    Limit{Count: int(row.GrabLimit), Per: Window(row.GrabWindow)},
-		Secrets:  row.SecretsSealed, FeedHost: deref(row.FeedHost), Pasted: pasted, Revision: row.Revision, Created: row.CreatedAt.Time(),
+		QueryTimeout: time.Duration(deref(row.QueryTimeoutSeconds)) * time.Second,
+		Searches:     Limit{Count: int(row.SearchLimit), Per: Window(row.SearchWindow)},
+		Grabs:        Limit{Count: int(row.GrabLimit), Per: Window(row.GrabWindow)},
+		Secrets:      row.SecretsSealed, FeedHost: deref(row.FeedHost), Pasted: pasted, Revision: row.Revision, Created: row.CreatedAt.Time(),
 	}
 	var err error
 	if idx.Source, err = sourceOf(row, summary, fetched); err != nil {
@@ -603,7 +607,7 @@ func row(idx Indexer, updated storage.Time) (db.InsertIndexerParams, error) {
 		Rss: idx.RSS, AllowFailover: idx.AllowFailover, Priority: int64(idx.Priority),
 		SearchLimit: int64(idx.Searches.Count), SearchWindow: string(window(idx.Searches.Per)),
 		GrabLimit: int64(idx.Grabs.Count), GrabWindow: string(window(idx.Grabs.Per)), SearchesAtOnce: int64(idx.SearchesAtOnce),
-		SecretsSealed: idx.Secrets, FeedHost: orNil(idx.FeedHost), Plain: "{}", Notes: "[]",
+		QueryTimeoutSeconds: orNil(int64(idx.QueryTimeout / time.Second)), SecretsSealed: idx.Secrets, FeedHost: orNil(idx.FeedHost), Plain: "{}", Notes: "[]",
 		Revision: idx.Revision, CreatedAt: storage.FromTime(idx.Created), UpdatedAt: updated,
 	}
 	switch s := idx.Source.(type) {
@@ -681,18 +685,20 @@ func decode(raw string, v any) error {
 	return nil
 }
 
-func deref(s *string) string {
-	if s == nil {
-		return ""
+func deref[T any](p *T) T {
+	if p == nil {
+		var zero T
+		return zero
 	}
-	return *s
+	return *p
 }
 
-func orNil(s string) *string {
-	if s == "" {
+func orNil[T comparable](v T) *T {
+	var zero T
+	if v == zero {
 		return nil
 	}
-	return &s
+	return &v
 }
 
 // open is idx's secrets in clear.

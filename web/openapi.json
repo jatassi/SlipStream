@@ -13664,6 +13664,16 @@
             "minimum": 1,
             "type": "integer"
           },
+          "queryTimeout": {
+            "description": "Seconds each request to it may take; null for the Node's default, 30",
+            "format": "int64",
+            "maximum": 300,
+            "minimum": 10,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "recentPaging": {
             "description": "Its feed lists older uploads by offset, so RSS sync can page back to the last one it read. Read by its last Test",
             "type": "boolean"
@@ -13756,6 +13766,7 @@
           "allowFailover",
           "priority",
           "searchesAtOnce",
+          "queryTimeout",
           "recentPaging",
           "categories",
           "media",
@@ -13932,6 +13943,16 @@
             "format": "int64",
             "maximum": 50,
             "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "queryTimeout": {
+            "description": "Seconds; null resets it to the Node's default, 30",
+            "format": "int64",
+            "maximum": 300,
+            "minimum": 10,
             "type": [
               "integer",
               "null"
@@ -14160,6 +14181,13 @@
             "format": "int64",
             "maximum": 50,
             "minimum": 1,
+            "type": "integer"
+          },
+          "queryTimeout": {
+            "description": "Seconds each request to it may take; absent for the Node's default, 30",
+            "format": "int64",
+            "maximum": 300,
+            "minimum": 10,
             "type": "integer"
           },
           "rss": {

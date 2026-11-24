@@ -126,6 +126,10 @@ sql:
             go_type:
               type: int64
               pointer: true
+          - column: indexers_indexer.query_timeout_seconds
+            go_type:
+              type: int64
+              pointer: true
           - column: indexers_node.solver_timeout_seconds
             go_type:
               type: int64

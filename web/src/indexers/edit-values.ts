@@ -67,6 +67,15 @@ export const searchesAtOnceSchema = z
   .regex(/^\d{1,2}$/u, "Enter a number from 1 to 10")
   .refine((value) => Number(value) >= 1 && Number(value) <= 10, "Enter a number from 1 to 10");
 
+export const queryTimeoutSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) =>
+      value === "" || (/^\d{1,3}$/u.test(value) && Number(value) >= 10 && Number(value) <= 300),
+    "Enter a number from 10 to 300, or leave it empty",
+  );
+
 /** A limit as the API takes it, from the form's count. */
 export const limitOf = (limit: z.output<typeof limitSchema>) => ({
   count: Number(limit.count),
@@ -86,6 +95,7 @@ export const editSchema = z.object({
   searches: limitSchema,
   grabs: limitSchema,
   searchesAtOnce: searchesAtOnceSchema,
+  queryTimeout: queryTimeoutSchema,
 });
 
 export type EditValues = z.input<typeof editSchema>;
@@ -115,6 +125,7 @@ export const valuesOf = (indexer: IndexersIndexer, settings?: SettingsForm): Edi
   searches: { count: String(indexer.searches.count), per: indexer.searches.per },
   grabs: { count: String(indexer.grabs.count), per: indexer.grabs.per },
   searchesAtOnce: String(indexer.searchesAtOnce),
+  queryTimeout: indexer.queryTimeout === null ? "" : String(indexer.queryTimeout),
 });
 
 /** The settings that changed: a plain one whose value differs, a sealed one replaced. */
@@ -133,7 +144,7 @@ function changedSettings(
   );
 }
 
-/** The limits and Searches at once that changed. */
+/** The limits, Searches at once and Query timeout that changed. */
 function pacingEdit(
   indexer: IndexersIndexer,
   next: z.output<typeof editSchema>,
@@ -149,6 +160,10 @@ function pacingEdit(
   }
   if (Number(next.searchesAtOnce) !== indexer.searchesAtOnce) {
     edit.searchesAtOnce = Number(next.searchesAtOnce);
+  }
+  const queryTimeout = next.queryTimeout === "" ? null : Number(next.queryTimeout);
+  if (queryTimeout !== indexer.queryTimeout) {
+    edit.queryTimeout = queryTimeout;
   }
   return edit;
 }

@@ -71,6 +71,12 @@ export interface IndexersNewIndexer {
    * @maximum 50
    */
   priority?: number;
+  /**
+   * Seconds each request to it may take; absent for the Node's default, 30
+   * @minimum 10
+   * @maximum 300
+   */
+  queryTimeout?: number;
   /** Defaults to on when omitted */
   rss?: boolean;
   searches?: IndexersLimit;

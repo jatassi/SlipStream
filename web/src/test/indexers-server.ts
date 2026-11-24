@@ -79,6 +79,7 @@ function edited(row: IndexersIndexer, edit: Edit): IndexersIndexer {
     grabs: limitOf(row.grabs, edit.grabs),
     searchesAtOnce:
       edit.searchesAtOnce === undefined ? row.searchesAtOnce : (edit.searchesAtOnce ?? 2),
+    queryTimeout: edit.queryTimeout === undefined ? row.queryTimeout : edit.queryTimeout,
     sentence: on ? row.sentence : `${row.name} is off.`,
     revision: row.revision + 1,
   };

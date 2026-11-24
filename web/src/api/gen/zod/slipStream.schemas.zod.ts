@@ -7749,6 +7749,9 @@ export type IndexersOutcomeOutput = zod.output<typeof IndexersOutcome>;
 
 export const indexersIndexerPriorityMax = 50;
 
+export const indexersIndexerQueryTimeoutMin = 10;
+export const indexersIndexerQueryTimeoutMax = 300;
+
 export const indexersIndexerSearchesAtOnceMax = 10;
 
 export const IndexersIndexer = zod.object({
@@ -7790,6 +7793,12 @@ export const IndexersIndexer = zod.object({
     .union([IndexersPortPin, zod.null()])
     .describe("The built-in site this Indexer uses; null for every other kind"),
   priority: zod.int().min(1).max(indexersIndexerPriorityMax).describe("Lower wins a tie"),
+  queryTimeout: zod
+    .int()
+    .min(indexersIndexerQueryTimeoutMin)
+    .max(indexersIndexerQueryTimeoutMax)
+    .nullable()
+    .describe("Seconds each request to it may take; null for the Node's default, 30"),
   recentPaging: zod
     .boolean()
     .describe(
@@ -7885,6 +7894,9 @@ export const indexersIndexerEditNameMax = 100;
 
 export const indexersIndexerEditPriorityMax = 50;
 
+export const indexersIndexerEditQueryTimeoutMin = 10;
+export const indexersIndexerEditQueryTimeoutMax = 300;
+
 export const indexersIndexerEditSearchesAtOnceMax = 10;
 
 export const IndexersIndexerEdit = zod.object({
@@ -7929,6 +7941,12 @@ export const IndexersIndexerEdit = zod.object({
     .max(indexersIndexerEditPriorityMax)
     .nullish()
     .describe("Null resets it to 25"),
+  queryTimeout: zod
+    .int()
+    .min(indexersIndexerEditQueryTimeoutMin)
+    .max(indexersIndexerEditQueryTimeoutMax)
+    .nullish()
+    .describe("Seconds; null resets it to the Node's default, 30"),
   rss: zod.boolean().nullish().describe("Null resets it to on"),
   searches: zod
     .union([IndexersLimit, zod.null()])
@@ -7977,6 +7995,9 @@ export const indexersNewIndexerPortMax = 200;
 
 export const indexersNewIndexerPriorityDefault = 25;
 export const indexersNewIndexerPriorityMax = 50;
+
+export const indexersNewIndexerQueryTimeoutMin = 10;
+export const indexersNewIndexerQueryTimeoutMax = 300;
 
 export const indexersNewIndexerSearchesAtOnceDefault = 2;
 export const indexersNewIndexerSearchesAtOnceMax = 10;
@@ -8051,6 +8072,12 @@ export const IndexersNewIndexer = zod.object({
     .min(1)
     .max(indexersNewIndexerPriorityMax)
     .default(indexersNewIndexerPriorityDefault),
+  queryTimeout: zod
+    .int()
+    .min(indexersNewIndexerQueryTimeoutMin)
+    .max(indexersNewIndexerQueryTimeoutMax)
+    .exactOptional()
+    .describe("Seconds each request to it may take; absent for the Node's default, 30"),
   rss: zod.boolean().exactOptional().describe("Defaults to on when omitted"),
   searches: IndexersLimit.exactOptional(),
   searchesAtOnce: zod

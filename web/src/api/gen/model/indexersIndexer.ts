@@ -54,6 +54,13 @@ export interface IndexersIndexer {
    * @maximum 50
    */
   priority: number;
+  /**
+   * Seconds each request to it may take; null for the Node's default, 30
+   * @minimum 10
+   * @maximum 300
+   * @nullable
+   */
+  queryTimeout: number | null;
   /** Its feed lists older uploads by offset, so RSS sync can page back to the last one it read. Read by its last Test */
   recentPaging: boolean;
   /** @minimum 1 */

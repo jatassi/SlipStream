@@ -179,12 +179,15 @@ test("a ported cookie site that takes no User-Agent asks only for the cookie, an
     )
     .toBeVisible();
   await userEvent.fill(page.getByRole("textbox", { name: "Cookie" }), "uid=7");
+  await userEvent.click(page.getByRole("button", { name: "Details" }));
+  await userEvent.fill(page.getByRole("textbox", { name: "Query timeout" }), "60");
   await userEvent.click(save());
   await added("TorrentDay");
   expect(posted(server.writes)).toEqual([
     expect.objectContaining({
       searches: { count: 100, per: "day" },
       grabs: { count: 20, per: "day" },
+      queryTimeout: 60,
       cookie: { cookie: "uid=7", userAgent: "" },
     }),
   ]);

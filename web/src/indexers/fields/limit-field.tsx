@@ -1,5 +1,5 @@
 import { withFieldGroup } from "../../ui/form";
-import { limitSchema } from "../edit-values";
+import { limitSchema, queryTimeoutSchema } from "../edit-values";
 import { Segmented } from "../../ui/segmented";
 
 const windows = [
@@ -44,6 +44,29 @@ export const LimitField = withFieldGroup({
           </group.Field>
         </div>
       </div>
+    );
+  },
+});
+
+/** How long each request to the Indexer may take, in seconds; empty is the Node's default. */
+export const QueryTimeoutField = withFieldGroup({
+  defaultValues: { queryTimeout: "" },
+  render: function QueryTimeout({ group }) {
+    return (
+      <group.AppField
+        name="queryTimeout"
+        validators={{
+          onSubmit: ({ value }) => queryTimeoutSchema.safeParse(value).error?.issues[0]?.message,
+        }}
+      >
+        {(field) => (
+          <field.TextField
+            label="Query timeout"
+            inputMode="numeric"
+            description="Seconds each request to this Indexer may take, from 10 to 300. Leave it empty for the default, 30 seconds."
+          />
+        )}
+      </group.AppField>
     );
   },
 });

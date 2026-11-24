@@ -51,7 +51,7 @@ Automatic search sits right after Indexers, because an Admin sets up Indexers fi
 
 "Wait for each Indexer up to" (`indexers.searchWait`) moved from its own "Searching" heading in Indexers to Automatic search, since it applies to every search. indexers still stores it under the same key. Indexers keeps the "Warnings" heading that holds how long an Indexer may fail before Health warns.
 
-A setting of one Indexer or one Target stays on its sheet. "Searches at once" sits on each Indexer's Edit sheet beside its limits. A Target's Hold, "Wait for a better release for", sits in that Target's editor under its own Hold section.
+A setting of one Indexer or one Target stays on its sheet. "Searches at once" sits on each Indexer's Edit sheet beside its limits. "Query timeout" sits beside the limits on the Edit sheet and under Details on the add form, never in a Settings section, because each Indexer stores its own. A Target's Hold, "Wait for a better release for", sits in that Target's editor under its own Hold section.
 
 "A client error fails its Grab after" sits in Download Clients under its own "Client errors" heading, after "When a Release counts as bad" and "Magnet links". It applies to every external Download Client, so it sits in the section and not on each client's sheet.
 
