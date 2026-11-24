@@ -226,10 +226,11 @@ type Placed struct {
 }
 
 // Place puts the file from at to under the root by a link, a clone or,
-// with allowCopy, a copy. Another file there is ErrOccupied. A place that
-// needs a copy without allowCopy is *NeedsCopyError, a clone or copy the
-// volume has no room for *NeedsSpaceError, and a NodePath outside the
-// Node's library roots and download folders *OutsideError.
+// with allowCopy, a copy. Another file there is ErrOccupied, and a source
+// that isn't there ErrSourceGone. A place that needs a copy without
+// allowCopy is *NeedsCopyError, a clone or copy the volume has no room for
+// *NeedsSpaceError, and a NodePath outside the Node's library roots and
+// download folders *OutsideError.
 func (r Remote) Place(ctx context.Context, at At, from Source, to Rel, allowCopy bool) (Placed, error) {
 	return r.place(ctx, at, from, to, allowCopy, false)
 }
@@ -268,13 +269,17 @@ func (r Remote) place(ctx context.Context, at At, from Source, to Rel, allowCopy
 }
 
 // PlaceAnswer is a place's error as the caller reads it across the wire:
-// *NeedsCopyError, *NeedsSpaceError and ErrOccupied keep their meaning.
+// *NeedsCopyError, *NeedsSpaceError, ErrOccupied and ErrSourceGone keep
+// their meaning.
 func PlaceAnswer(err error) error {
 	if d, ok := rpc.DetailOf[*storagev1.NeedsCopy](err); ok {
 		return &NeedsCopyError{Size: d.GetSize()}
 	}
 	if _, ok := rpc.DetailOf[*storagev1.NeedsSpace](err); ok {
 		return &NeedsSpaceError{}
+	}
+	if rpc.CodeOf(err) == rpc.CodeNotFound {
+		return fmt.Errorf("%w: %w", ErrSourceGone, err)
 	}
 	return occupied(err)
 }

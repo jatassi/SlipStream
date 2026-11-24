@@ -15,6 +15,9 @@ import (
 
 var ErrOccupied = errors.New("another file is at the target path")
 
+// ErrSourceGone is a place whose source file isn't there.
+var ErrSourceGone = errors.New("the file to place isn't there")
+
 // recaseSuffix names a file or folder midway through a case-only rename:
 // "<new name>.slipstream-recase" beside it.
 const recaseSuffix = ".slipstream-recase"
@@ -47,8 +50,12 @@ func (*NeedsSpaceError) Error() string { return "the target volume has no room f
 // allowCopy lets it. Any other refusal stops the ladder with its own
 // error. A file at rel with from's size and BLAKE3 counts as placed, by
 // Link when it is from itself and else by Copy, so placing again
-// converges; another file there is ErrOccupied, and is never removed.
+// converges; another file there is ErrOccupied, and is never removed. A
+// from that isn't there is ErrSourceGone.
 func (p placer) place(ctx context.Context, from string, rel Rel, allowCopy bool) (Info, Step, error) {
+	if _, err := p.d.Stat(ctx, from); errors.Is(err, fs.ErrNotExist) {
+		return nil, 0, fmt.Errorf("%w: %w", ErrSourceGone, err)
+	}
 	to := p.style.Under(p.root, rel)
 	if err := p.folders(ctx, Rel{}, rel); err != nil {
 		return nil, 0, err
