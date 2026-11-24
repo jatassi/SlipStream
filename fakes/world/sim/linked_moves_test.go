@@ -175,6 +175,28 @@ func TestAWorkMovesWithItsLinkedTorrent(t *testing.T) {
 	})
 }
 
+// TestATorrentsCopyListsByItsRelease parks the torrent unit's copy to
+// den: listTransfers answers while it runs and names its job by the
+// torrent's release, as a torrent unit has no Work.
+func TestATorrentsCopyListsByItsRelease(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		p := parkedAt(1)
+		l := grabLinked(t, simtest.OnSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
+		l.start(t)
+		<-p.reached
+		defer close(p.release)
+		listed := simtest.Decode[struct {
+			Transfers []struct {
+				JobName string `json:"jobName"`
+			} `json:"transfers"`
+		}](t, "listTransfers", l.w.API().Admin("home", http.MethodGet, "/api/v1/transfers", "")).Transfers
+		if len(listed) != 1 || !strings.HasPrefix(listed[0].JobName, "The.Quiet.Orchard.") {
+			t.Errorf("listTransfers lists %+v while the torrent copies, want its one copy named by its release", listed)
+		}
+	})
+}
+
 // TestABatchFinishesWhenItsLastCleanupEnds holds The Quiet Orchard's
 // Work unit before it finishes its cleanup until its torrent unit is done:
 // the batch reads unfinished and offers no way back until the Work's

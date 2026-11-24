@@ -166,7 +166,7 @@ func (m *Moves) copied([]string) {
 }
 
 // transferNames is the Names hook: each job's unit named by its Work's
-// label, read in r.
+// label, or a torrent unit by its release, read in r.
 func transferNames(ctx context.Context, r storage.Reader[file], jobs []string) (map[string]string, error) {
 	out := make(map[string]string, len(jobs))
 	for _, job := range jobs {
@@ -180,6 +180,14 @@ func transferNames(ctx context.Context, r storage.Reader[file], jobs []string) (
 		}
 		if err != nil {
 			return nil, err
+		}
+		if u.Torrent != nil {
+			src, err := titledSourceIn(ctx, r, u)
+			if err != nil {
+				return nil, err
+			}
+			out[job] = src.Name
+			continue
 		}
 		w, err := works.SummaryOf(ctx, r, u.Subject.Work)
 		if err != nil {
