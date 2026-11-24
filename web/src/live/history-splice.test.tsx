@@ -28,6 +28,7 @@ test("history.changed reads the first page once and puts the new entries on top 
 
   history.record(anEntry(81, new Date().toISOString()));
   history.record(anEntry(82, new Date().toISOString()));
+  expect({ clients: live.clients.length, closed: live.closed }).toEqual({ clients: 1, closed: [] });
   live.clients[0]?.send({ event: "history.changed", data: {} });
 
   await expect.poll(() => rows().all().length).toBe(82);
