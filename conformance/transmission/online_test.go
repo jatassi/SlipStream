@@ -21,7 +21,7 @@ import (
 func TestTransmissionConforms(t *testing.T) {
 	address := os.Getenv("TEST_ONLINE_TRANSMISSION_URL")
 	if address == "" {
-		t.Skip("TEST_ONLINE_TRANSMISSION_URL is not set until the online job runs Transmission's container image: https://github.com/jatassi/SlipStream/issues/155")
+		t.Skip("TEST_ONLINE_TRANSMISSION_URL is not set until the online job runs Transmission's container image: https://github.com/jatassi/SlipStream/issues/697")
 	}
 	seeded, interval := torrentfile.Online(t, os.Getenv("TEST_ONLINE_TRACKER_URL"), os.Getenv("TEST_ONLINE_TRACKER_INTERVAL"))
 	conformance.Run(t, conformance.Target{

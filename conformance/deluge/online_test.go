@@ -24,7 +24,7 @@ import (
 func TestDelugeConforms(t *testing.T) {
 	address := os.Getenv("TEST_ONLINE_DELUGE_URL")
 	if address == "" {
-		t.Skip("TEST_ONLINE_DELUGE_URL is not set until the online job runs Deluge's container image: https://github.com/jatassi/SlipStream/issues/155")
+		t.Skip("TEST_ONLINE_DELUGE_URL is not set until the online job runs Deluge's container image: https://github.com/jatassi/SlipStream/issues/697")
 	}
 	var daemon *clients.Daemon
 	if hostport := os.Getenv("TEST_ONLINE_DELUGE_DAEMON"); hostport != "" {

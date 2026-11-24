@@ -107,13 +107,13 @@ type Client struct {
 	// MoveFor is how long a finished torrent reads moving, as with an
 	// incomplete-files folder on, 0 for no move.
 	MoveFor time.Duration
+	// LateAdds plays what 4.6.7 and 5.3.0 sometimes do, for a reason not
+	// found: list an add a moment after they answer, and from 5.2 answer a
+	// duplicate add with a 200 that reports it added.
+	LateAdds bool
 	// Refresh is refresh_interval, how often it refreshes the torrent list,
-	// which shows a start only then: 1.5 s for 0.
+	// which shows a start or a stop only then: 1.5 s for 0.
 	Refresh time.Duration
-	// Cold plays qBittorrent just after its machine boots: it lists an
-	// add a tick after it answers, and from 5.2 answers a duplicate add
-	// with a 200 that reports it added.
-	Cold bool
 }
 
 // Playing is Fake playing clients, for a test that names them itself.
@@ -162,15 +162,17 @@ const (
 	name   = "qbittorrent"
 	apiDir = "/api/v2/"
 	banFor = time.Hour
-	// coldTick is how long a Cold client takes to list an add. The real
-	// one listed 3 ms after its answer.
-	coldTick = 10 * time.Millisecond
-	// startLag is how long a started torrent still lists stopped. The real
-	// 4.6.7 and 5.3.0 listed it started 1443 to 1520 ms after the call.
-	startLag = 1500 * time.Millisecond
+	// lateAdd is how long a client with LateAdds takes to list an add. The
+	// real one listed 3 ms after its answer.
+	lateAdd = 10 * time.Millisecond
+	// refresh is the default refresh_interval. The real 4.6.7 and 5.3.0
+	// list a start and a stop at their next refresh, 0 to 1.5 s after the
+	// call. The fake's stop takes effect at its next refresh, and its start
+	// after the whole interval, the longest the real one takes.
+	refresh = 1500 * time.Millisecond
 )
 
-func (c Client) refresh() time.Duration { return cmp.Or(c.Refresh, startLag) }
+func (c Client) refresh() time.Duration { return cmp.Or(c.Refresh, refresh) }
 
 type server struct {
 	clients map[string]*client
@@ -211,7 +213,7 @@ func serve(env fake.Env, clients []Client) (fake.Server, error) {
 			Client: c, version: v,
 			engine: torrentclient.New(torrentclient.Config{
 				Releases: env.Releases, Dir: c.Dir, Name: c.Folder, Windows: c.Windows, Rate: c.Rate, Slots: c.Slots, SeedRatio: c.SeedRatio, Check: c.Check,
-				StartLag: c.refresh(), ListAfter: map[bool]time.Duration{true: coldTick}[c.Cold],
+				Tick: c.refresh(), StartLag: c.refresh(), ListAfter: map[bool]time.Duration{true: lateAdd}[c.LateAdds],
 				Tracker: clientfake.Tracker(env, c.Node), PeerID: clientfake.PeerID("-qB4670-", c.Node),
 			}),
 			sessions: map[string]*session{}, failures: map[string]int{}, banned: map[string]time.Time{},

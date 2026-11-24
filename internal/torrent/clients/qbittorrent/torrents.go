@@ -112,9 +112,9 @@ func (c *client) DefaultFolder(ctx context.Context, label clients.Label) (string
 // Add posts the .torrent with its category, which qBittorrent creates
 // when it has none by that name. Automatic management is off whenever a
 // folder is sent, so the folder holds. A duplicate is a 409 from 5.2 and
-// "Fails." before: the next poll resolves both. Just after it starts,
-// 5.3 answers a duplicate with a 200 that reports it added, so a torrent
-// the client has listed or asked to run keeps that run.
+// "Fails." before: the next poll resolves both. 5.3 also answers a
+// duplicate with a 200 that reports it added, some of the time, so a
+// torrent the client has listed or asked to run keeps that run.
 func (c *client) Add(ctx context.Context, a clients.Add) error {
 	if err := c.versions(ctx); err != nil {
 		return err
