@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"golang.org/x/net/proxy"
@@ -185,11 +184,12 @@ func (n *Netfacts) certificate(chain []*x509.Certificate, name string) *netv1.Ce
 }
 
 // connectError is why a connection failed. The SOCKS5 client reports its
-// proxy's reply only as text.
+// proxy's reply only as text, so a refusal behind the outside dialer is
+// matched by its words.
 func connectError(err error) netv1.DialError {
 	var timeout interface{ Timeout() bool }
 	switch {
-	case errors.Is(err, syscall.ECONNREFUSED) || strings.HasSuffix(err.Error(), "connection refused"):
+	case errors.Is(err, refused) || strings.HasSuffix(err.Error(), "connection refused"):
 		return netv1.DialError_DIAL_ERROR_REFUSED
 	case errors.Is(err, context.DeadlineExceeded) || errors.As(err, &timeout) && timeout.Timeout():
 		return netv1.DialError_DIAL_ERROR_TIMEOUT
