@@ -11,6 +11,8 @@ export interface ReachabilityCheckView {
   fact: boolean;
   family?: ReachabilityCheckViewFamily;
   fix: ReachabilityFixView | null;
+  /** What a fact check that doesn't pass found */
+  found?: string;
   id: ReachabilityCheckID;
   meaning: string;
   observed?: string;

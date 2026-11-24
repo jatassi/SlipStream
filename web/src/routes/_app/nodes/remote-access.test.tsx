@@ -6,6 +6,7 @@ import { joinCodeServer } from "../../../test/join-codes";
 import { homeId } from "../../../test/nodes";
 import {
   cards,
+  connectBack,
   connectRefused,
   dnsA,
   forward,
@@ -63,8 +64,9 @@ test("a route nothing outside tested offers to add a Node and raises no signal",
 test.each([
   { hop: "DNS", check: dnsA, leads: dnsA.meaning, meaningShown: 1 },
   { hop: "Origin", check: connectRefused, leads: forward.step, meaningShown: 0 },
+  { hop: "Origin", check: connectBack, leads: connectBack.found, meaningShown: 0 },
 ])(
-  "the $hop hop's check says what passing means only when it passes",
+  "the $hop hop's $check.id check says what passing means only when it passes",
   async ({ hop, check, leads, meaningShown }) => {
     open(cards.warn);
     await userEvent.click(

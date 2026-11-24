@@ -121,6 +121,7 @@ type checkView struct {
 	Points   string                `json:"points,omitempty" enum:"reachable,fixable,needs-relay" doc:"What a failing or untested result points to"`
 	Fact     bool                  `json:"fact" doc:"Shown, never pointing: an overruled local guess or a connect-back"`
 	Meaning  string                `json:"meaning"`
+	Found    string                `json:"found,omitempty" doc:"What a fact check that doesn't pass found"`
 	Fix      api.Nullable[fixView] `json:"fix"`
 	Observed string                `json:"observed,omitempty"`
 	By       string                `json:"by,omitempty" doc:"The Node that saw it"`
@@ -218,6 +219,9 @@ func routeOf(p reachability.Page, rt reachability.Route) route {
 			}
 			if c.Fix != nil {
 				cv.Fix = api.Some(fixViewOf(w, *c.Fix))
+			}
+			if c.Found != nil {
+				cv.Found = w.FactText(*c.Found)
 			}
 			if !c.By.IsZero() {
 				cv.By = w.Node(c.By)

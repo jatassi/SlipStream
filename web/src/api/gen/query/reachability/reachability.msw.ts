@@ -296,6 +296,9 @@ export const getGetRemoteAccessResponseMock = (
               },
               null,
             ]),
+            ...(faker.datatype.boolean()
+              ? { found: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+              : {}),
             id: faker.helpers.arrayElement([
               "dns.a",
               "dns.aaaa",

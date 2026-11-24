@@ -68,6 +68,18 @@ export const connectRefused: ReachabilityCheckView = {
   by: "seedbox",
 };
 
+export const connectBack: ReachabilityCheckView = {
+  id: "outside.connect-back",
+  family: "ipv4",
+  result: "fails",
+  fact: true,
+  meaning: "The testing Node can connect to your home's public address.",
+  found: "seedbox couldn't connect to your home's public address, 203.0.113.9:32400.",
+  fix: null,
+  observed: "203.0.113.9:32400",
+  by: "seedbox",
+};
+
 /** Living room Plex Direct on home, its forward missing: Fixable on a failing check. */
 export const plexRoute: ReachabilityRoute = {
   exposure: {
@@ -100,7 +112,7 @@ export const plexRoute: ReachabilityRoute = {
       kind: "origin",
       worst: "fails",
       facts: [],
-      checks: [connectRefused],
+      checks: [connectRefused, connectBack],
     },
     { kind: "media-server", worst: "not-reached", checks: [], facts: [] },
   ],

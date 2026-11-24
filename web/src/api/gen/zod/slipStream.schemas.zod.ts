@@ -11002,6 +11002,7 @@ export const ReachabilityCheckView = zod.object({
   fact: zod.boolean().describe("Shown, never pointing: an overruled local guess or a connect-back"),
   family: zod.enum(["ipv4", "ipv6"]).exactOptional(),
   fix: zod.union([ReachabilityFixView, zod.null()]),
+  found: zod.string().exactOptional().describe("What a fact check that doesn't pass found"),
   id: ReachabilityCheckID,
   meaning: zod.string(),
   observed: zod.string().exactOptional(),

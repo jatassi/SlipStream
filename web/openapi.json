@@ -20582,6 +20582,10 @@
               }
             ]
           },
+          "found": {
+            "description": "What a fact check that doesn't pass found",
+            "type": "string"
+          },
           "id": {
             "$ref": "#/components/schemas/ReachabilityCheckID"
           },

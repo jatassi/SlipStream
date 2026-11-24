@@ -166,15 +166,15 @@ func (in *familyIn) forwardParams() Params {
 // cause is the first local reason a connection would fail, the same Fix
 // the row naming it returns, so two rows that name one cause give one
 // step.
-func (in *familyIn) cause() *Fix {
+func (in *familyIn) cause() (Verdict, *Fix) {
 	if !in.direct() {
 		switch {
 		case in.proxyLeg != nil && in.proxyLeg.Stage >= Connected:
-			return fix(FixProxyPort, Params{Port: in.publicPort, Addr: in.route.Proxy})
+			return Fixable, fix(FixProxyPort, Params{Port: in.publicPort, Addr: in.route.Proxy})
 		case in.listener.Loopback:
-			return in.bindFix()
+			return Fixable, in.bindFix()
 		}
-		return fix(FixProxyForward, Params{Addr: in.route.Proxy, Node: in.o.node, Port: in.port})
+		return Fixable, fix(FixProxyForward, Params{Addr: in.route.Proxy, Node: in.o.node, Port: in.port})
 	}
 	dns := rowDNSA
 	if in.fam == netmodel.IPv6 {
@@ -183,17 +183,17 @@ func (in *familyIn) cause() *Fix {
 	for _, r := range []row{dns, rowBind, rowFirewall, rowClass} {
 		if r.Applies(in) {
 			if o := r.Eval(in); o.Result != Passes && o.Fix != nil {
-				return o.Fix
+				return o.Points, o.Fix
 			}
 		}
 	}
 	switch {
 	case in.fam == netmodel.IPv6:
-		return fix(FixBrokenAAAA, Params{Host: in.host, Addr: in.route.Dialed[0], Port: in.publicPort, Node: in.o.node})
+		return Fixable, fix(FixBrokenAAAA, Params{Host: in.host, Addr: in.route.Dialed[0], Port: in.publicPort, Node: in.o.node})
 	case in.o.facts.Gateway.Addr.IsValid():
-		return fix(FixManualForward, in.forwardParams())
+		return Fixable, fix(FixManualForward, in.forwardParams())
 	}
-	return fix(FixNoGateway, Params{Node: in.o.node, Port: in.publicPort})
+	return Fixable, fix(FixNoGateway, Params{Node: in.o.node, Port: in.publicPort})
 }
 
 func (in *familyIn) bindFix() *Fix {

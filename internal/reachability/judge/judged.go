@@ -125,7 +125,10 @@ type Check struct {
 	Points   Verdict // what a Fails or NotTested result points to
 	Observed Value
 	Fix      *Fix
-	By       role.NodeID
+	// Found is what a fact check that doesn't pass found: a connect-back's
+	// failure.
+	Found *Fact
+	By    role.NodeID
 }
 
 type Hop struct {

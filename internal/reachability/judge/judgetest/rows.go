@@ -181,7 +181,7 @@ func Rows() []Row {
 			button(failing(judge.Fixable, true, judge.CheckOutsideConnect, v4, judge.FixMappablePlex, judge.Params{Node: Atlas}), judge.MapPorts)),
 		row("a permanent mapping", Mappable().Mapped(0).Tested(v4, Passed), with(reachable, judge.FactMappingPermanent)),
 		row("CGNAT", CGNAT().Tested(v4, Closed),
-			failing(judge.NeedsRelay, true, judge.CheckOriginClass, v4, judge.FixCGNAT, judge.Params{Node: Atlas, Program: "Plex"}, judge.FactPlexRelayQuality)),
+			failing(judge.NeedsRelay, true, judge.CheckOutsideConnect, v4, judge.FixCGNAT, judge.Params{Node: Atlas, Program: "Plex"}, judge.FactPlexRelayQuality)),
 		row("CGNAT with IPv6 that works", CGNAT().V6("2001:db8:1::20/64").Resolves("203.0.113.50", "2001:db8:1::20").Tested(v6, Passed),
 			failing(judge.NeedsRelay, false, judge.CheckOriginClass, v4, judge.FixCGNAT, judge.Params{Node: Atlas, Program: "Plex"}, judge.FactIPv6ViewersDirect)),
 		row("double NAT", DoubleNAT(),
@@ -352,6 +352,11 @@ func Shown(j judge.Judged) []judge.FactID {
 	for _, h := range j.Hops {
 		for _, f := range h.Facts {
 			out = append(out, f.ID)
+		}
+		for _, c := range h.Checks {
+			if c.Found != nil {
+				out = append(out, c.Found.ID)
+			}
 		}
 	}
 	return out

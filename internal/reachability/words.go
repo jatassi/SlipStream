@@ -395,7 +395,7 @@ var facts = map[judge.FactID]sentence{
 		return fmt.Sprintf("firewalld on %s allows port %d, and SlipStream can't read the other firewall rules.", w.Node(p.Node), p.Port)
 	}},
 	judge.FactConnectBack: {needs: needs(pTester, pAddr, pPort), title: func(w Words, p judge.Params) string {
-		return fmt.Sprintf("%s couldn't connect to %s either.", w.Node(p.Tester), netip.AddrPortFrom(p.Addr, p.Port))
+		return fmt.Sprintf("%s couldn't connect to your home's public address, %s.", w.Node(p.Tester), netip.AddrPortFrom(p.Addr, p.Port))
 	}},
 }
 
