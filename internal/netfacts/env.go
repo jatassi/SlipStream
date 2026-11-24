@@ -21,9 +21,10 @@ type Env struct {
 	// Sockets is what listens on each port. A port it can't read is left
 	// out, so it reads Unknown.
 	Sockets func(ctx context.Context, ports []uint16) ([]netmodel.Listener, error)
-	// Firewall answers each query. A reader that can't tell answers
-	// PolicyUnknown, never Allows.
-	Firewall func(ctx context.Context, qs []Query) ([]netmodel.Rule, error)
+	// Firewall answers each query for connections arriving on the egress
+	// interface, or on any active one when egress is empty. A reader that
+	// can't tell answers PolicyUnknown, never Allows.
+	Firewall func(ctx context.Context, egress string, qs []Query) ([]netmodel.Rule, error)
 	Packets  PacketNet
 	// Lookup is the OS resolver, used when the resolver entry is empty.
 	Lookup func(ctx context.Context, host string) ([]netip.Addr, error)
@@ -59,12 +60,12 @@ func OS(packets PacketNet) Env {
 			return Route{Iface: iface, Gateway: gw}, err
 		},
 		Sockets: host.Sockets,
-		Firewall: func(ctx context.Context, qs []Query) ([]netmodel.Rule, error) {
-			out := make([]netmodel.Rule, len(qs))
+		Firewall: func(ctx context.Context, egress string, qs []Query) ([]netmodel.Rule, error) {
+			asks := make([]netmodel.Rule, len(qs))
 			for i, q := range qs {
-				out[i] = host.Firewall(ctx, q.Port, q.Family)
+				asks[i] = netmodel.Rule{Port: q.Port, Family: q.Family}
 			}
-			return out, nil
+			return host.Firewall(ctx, egress, asks)
 		},
 		Packets: packets,
 		Lookup: func(ctx context.Context, name string) ([]netip.Addr, error) {

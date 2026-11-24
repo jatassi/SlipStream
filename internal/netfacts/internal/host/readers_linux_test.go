@@ -105,9 +105,14 @@ func TestTheDefaultGatewayIsTheInterfaces(t *testing.T) {
 // Without privilege no Linux firewall can be read whole, so the reader
 // never answers Allows.
 func TestTheFirewallReadsUnknown(t *testing.T) {
-	for _, fam := range []netmodel.Family{netmodel.IPv4, netmodel.IPv6} {
-		if got := Firewall(t.Context(), 32400, fam); got.Policy != netmodel.PolicyUnknown {
-			t.Errorf("%v reads %v, want unknown", fam, got.Policy)
+	asks := []netmodel.Rule{{Port: 32400, Family: netmodel.IPv4}, {Port: 32400, Family: netmodel.IPv6}}
+	got, err := Firewall(t.Context(), "eth0", asks)
+	if err != nil || len(got) != len(asks) {
+		t.Fatalf("Firewall = %+v, %v", got, err)
+	}
+	for _, r := range got {
+		if r.Policy != netmodel.PolicyUnknown {
+			t.Errorf("%v reads %v, want unknown", r.Family, r.Policy)
 		}
 	}
 }
