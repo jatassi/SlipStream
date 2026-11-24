@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/moves"
+	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -317,4 +318,127 @@ func TestALateImportMidCopyMovesTheUpgrade(t *testing.T) {
 		pause.Resume()
 		expectUpgradeMoved(t, w, batch, "movies-f", rel, b, wanted)
 	})
+}
+
+// playOrchard opens a play of The Quiet Orchard's film on Living room
+// Plex, a server whose play nothing ends.
+func playOrchard(t *testing.T, w movestest.World) {
+	t.Helper()
+	server, now := storage.NewUUID(), storage.FromTime(time.Now())
+	err := w.Node("home").Half().Library.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO mediaservers_server (id, kind, name, address, identity, version, reaching_node_id, secrets_sealed, created_at, updated_at)
+			SELECT ?, 'plex', 'Living room Plex', 'http://192.0.2.10:32400', 'plex-1', '1.41', id, x'00', ?, ? FROM nodes_node WHERE name = 'home'`, server, now, now); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO mediaservers_play (server_id, id, session_key, file_id, server_path, user_name, player, product, decision, started_at, last_seen_at)
+			SELECT ?, ?, 'session-1', id, '/media/Movies 4K/' || path, 'ada', 'Living room', 'Plex Web', 'direct_play', ?, ? FROM files_file WHERE path = ?`,
+			server, storage.NewUUID(), now, now, movestest.Film)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestAnImportDuringThePlayingWaitGoesBackBeforeSwitchNow imports the
+// upgrade of The Quiet Orchard's 720p film, replacing it, while its Move
+// to movies-f waits for a play to end, then the Admin presses Switch now:
+// the Move plans again from the source and ends done with the upgrade
+// alone in movies-f, and movies-e keeps neither film.
+func TestAnImportDuringThePlayingWaitGoesBackBeforeSwitchNow(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		w := movestest.LaunchUpgradable(t)
+		playOrchard(t, w)
+		batch := w.Start(t, "movies-f")
+		var unit string
+		waitsPlaying := func() bool {
+			b := simtest.Decode[struct {
+				Units []struct {
+					ID      string `json:"id"`
+					Waiting string `json:"waiting"`
+				} `json:"units"`
+			}](t, "getMove", w.API().Admin("home", http.MethodGet, "/api/v1/moves/"+batch.String(), ""))
+			unit = b.Units[0].ID
+			return b.Units[0].Waiting == string(moves.WaitPlaying)
+		}
+		simtest.Eventually(t, "the unit waits for the play to end", waitsPlaying)
+		rel, b := upgrade(t, w)
+		wanted := wantedReasons(t, w)
+		simtest.Eventually(t, "the unit waits for the play to end once the upgrade imported", waitsPlaying)
+		if r := w.API().Admin("home", http.MethodPost, "/api/v1/moves/units/"+unit+"/switch-now", ""); r.Status != http.StatusOK {
+			t.Fatalf("switchMoveUnitNow = %d %s, want 200", r.Status, r.Body)
+		}
+		expectUpgradeMoved(t, w, batch, "movies-f", rel, b, wanted)
+	})
+}
+
+// restore writes what a restore's Write does to the Moves it caught, and
+// to Reconciling, then starts home again, as a restore does.
+func restore(t *testing.T, w movestest.World) {
+	t.Helper()
+	err := w.Node("home").Half().Library.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if err := reconciling.Begin(ctx, tx, reconciling.BeginArgs{ID: "restore-1", Cause: reconciling.Restore, Backup: "nightly", TakenAt: time.Now()}); err != nil {
+			return err
+		}
+		if err := files.DropQueuedMoves(ctx, tx); err != nil {
+			return err
+		}
+		return moves.Restored(ctx, tx)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.Restart(t, movestest.Fault{Name: "restart"})
+}
+
+// expectReconciled checks batch's unit ends failed with want, or done
+// with The Quiet Orchard moved to movies-f when want is empty.
+func expectReconciled(t *testing.T, w movestest.World, batch moves.BatchID, want moves.FailureCode) {
+	t.Helper()
+	u := w.Ended(t, batch)
+	if want != "" {
+		if u.Phase != moves.PhaseFailed || u.Failure == nil || u.Failure.Code != want {
+			t.Fatalf("the unit ended %s %+v, want failed %s", u.Phase, u.Failure, want)
+		}
+		return
+	}
+	if u.Phase != moves.PhaseDone {
+		t.Fatalf("the unit ended %s %+v, want done", u.Phase, u.Failure)
+	}
+	w.Invariants(t, batch)
+	w.Moved(t, "movies-f")
+}
+
+// TestARestoreMidMoveReconcilesItsUnit restores home's library as The
+// Quiet Orchard's Move to movies-f has placed both files and not
+// switched, with the disks as the restored rows find them: a whole source
+// moves again, a gone source with a whole destination switches, and with
+// neither whole the unit fails source_gone.
+func TestARestoreMidMoveReconcilesItsUnit(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		gone map[string][]string
+		want moves.FailureCode
+	}{
+		{name: "the source whole"},
+		{name: "the destination whole", gone: map[string][]string{"movies-e": {movestest.Film, movestest.Subtitle}}},
+		{name: "neither whole", gone: map[string][]string{"movies-e": {movestest.Film}, "movies-f": {movestest.Film}}, want: moves.SourceGone},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				crash := movestest.CrashAt("switch")
+				w := movestest.Launch(t, crash.Option())
+				batch := w.Start(t, "movies-f")
+				crash.Reached(t)
+				for folder, rels := range tc.gone {
+					remove(t, w, folder, rels...)
+				}
+				restore(t, w)
+				expectReconciled(t, w, batch, tc.want)
+			})
+		})
+	}
 }
