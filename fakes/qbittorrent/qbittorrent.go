@@ -14,6 +14,7 @@
 package qbittorrent
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -106,6 +107,9 @@ type Client struct {
 	// MoveFor is how long a finished torrent reads moving, as with an
 	// incomplete-files folder on, 0 for no move.
 	MoveFor time.Duration
+	// Refresh is refresh_interval, how often it refreshes the torrent list,
+	// which shows a start only then: 1.5 s for 0.
+	Refresh time.Duration
 	// Cold plays qBittorrent just after its machine boots: it lists an
 	// add a tick after it answers, and from 5.2 answers a duplicate add
 	// with a 200 that reports it added.
@@ -166,6 +170,8 @@ const (
 	startLag = 1500 * time.Millisecond
 )
 
+func (c Client) refresh() time.Duration { return cmp.Or(c.Refresh, startLag) }
+
 type server struct {
 	clients map[string]*client
 }
@@ -205,7 +211,7 @@ func serve(env fake.Env, clients []Client) (fake.Server, error) {
 			Client: c, version: v,
 			engine: torrentclient.New(torrentclient.Config{
 				Releases: env.Releases, Dir: c.Dir, Name: c.Folder, Windows: c.Windows, Rate: c.Rate, Slots: c.Slots, SeedRatio: c.SeedRatio, Check: c.Check,
-				StartLag: startLag, ListAfter: map[bool]time.Duration{true: coldTick}[c.Cold],
+				StartLag: c.refresh(), ListAfter: map[bool]time.Duration{true: coldTick}[c.Cold],
 				Tracker: clientfake.Tracker(env, c.Node), PeerID: clientfake.PeerID("-qB4670-", c.Node),
 			}),
 			sessions: map[string]*session{}, failures: map[string]int{}, banned: map[string]time.Time{},

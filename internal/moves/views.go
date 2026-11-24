@@ -109,13 +109,7 @@ func (m *Moves) views(ctx context.Context, r storage.Reader[file], us []Unit) ([
 		if n.torrents, err = downloadclients.MoveSources(ctx, r, ts); err != nil {
 			return nil, err
 		}
-		dests := map[downloadclients.ID]downloadclients.ID{}
-		for _, u := range us {
-			if t := u.Torrent; t != nil && t.Arriving != nil {
-				dests[t.Torrent] = *t.Arriving
-			}
-		}
-		if err := titled(ctx, r, n.torrents, dests); err != nil {
+		if err := titled(ctx, r, n.torrents); err != nil {
 			return nil, err
 		}
 		if n.sides, err = sidesIn(ctx, r, us); err != nil {

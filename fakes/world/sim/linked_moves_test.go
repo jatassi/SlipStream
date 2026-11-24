@@ -172,6 +172,9 @@ func TestAWorkMovesWithItsLinkedTorrent(t *testing.T) {
 		if left := payloads(t, l.w.Node("den").DataDir().Path()); len(left) > 0 {
 			t.Errorf("den keeps %v after the Move back", left)
 		}
+		if _, torrent := l.ended(t, batch); torrent.Label != orchard {
+			t.Errorf("after the Move back the first Move's torrent is named %q, want its release %q", torrent.Label, orchard)
+		}
 	})
 }
 

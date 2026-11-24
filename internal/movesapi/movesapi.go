@@ -281,7 +281,7 @@ type batchRow struct {
 	Words       string         `json:"words" doc:"The batch in a sentence, such as 12 of 43 movies switched"`
 	CanRetry    bool           `json:"canRetry" doc:"A unit failed"`
 	CanCancel   bool           `json:"canCancel" doc:"A unit hasn't switched yet"`
-	CanMoveBack bool           `json:"canMoveBack" doc:"A unit moved"`
+	CanMoveBack bool           `json:"canMoveBack" doc:"The batch finished, and a unit it moved hasn't moved again since"`
 }
 
 func batchOf(b moves.BatchView) batchRow {

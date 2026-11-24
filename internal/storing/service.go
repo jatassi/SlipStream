@@ -443,6 +443,9 @@ func WireError(err error) error {
 	if errors.Is(err, ErrOccupied) {
 		return rpc.Errorf(rpc.CodeAlreadyExists, "%v", err)
 	}
+	if errors.Is(err, ErrSourceGone) {
+		return rpc.Errorf(rpc.CodeNotFound, "%v", err)
+	}
 	if nc, ok := errors.AsType[*NeedsCopyError](err); ok {
 		return rpc.ErrorWith(rpc.CodeFailedPrecondition, &storagev1.NeedsCopy{Size: nc.Size}, nc.Error())
 	}

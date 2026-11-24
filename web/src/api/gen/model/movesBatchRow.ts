@@ -4,7 +4,7 @@ import type { MovesBatchRowOrigin } from "./movesBatchRowOrigin.ts";
 export interface MovesBatchRow {
   /** A unit hasn't switched yet */
   canCancel: boolean;
-  /** A unit moved */
+  /** The batch finished, and a unit it moved hasn't moved again since */
   canMoveBack: boolean;
   /** A unit failed */
   canRetry: boolean;
