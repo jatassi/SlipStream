@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/netfacts"
 	"github.com/jatassi/slipstream/internal/netfacts/script"
 	"github.com/jatassi/slipstream/internal/netmodel"
+	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
 // A scripted Node reads its network from the script, and again each time
@@ -34,7 +35,7 @@ func TestAScriptedNodeReadsItsScript(t *testing.T) {
 	host.Sockets = func(context.Context, []uint16) ([]netmodel.Listener, error) {
 		return []netmodel.Listener{{Port: 32400, V4: netmodel.Yes}}, nil
 	}
-	n := netfacts.New(netfacts.Config{Env: netfacts.Scripted(path, host), Timings: timings(), Rules: netmodel.Rules{DocumentationGlobal: true}, Log: slog.New(slog.DiscardHandler)})
+	n := netfacts.New(netfacts.Config{Local: storagetest.Local(t, netfacts.Schema()), Env: netfacts.Scripted(path, host), Timings: timings(), Rules: netmodel.Rules{DocumentationGlobal: true}, Log: slog.New(slog.DiscardHandler)})
 	yes, no := netmodel.Yes, netmodel.No
 	for i, c := range []struct {
 		name      string

@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/netfacts"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	netv1 "github.com/jatassi/slipstream/internal/pb/slipstream/network/v1"
+	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
 // A lookup keeps each record type's own answer and rcode, through the
@@ -65,7 +66,7 @@ func TestResolveKeepsEachRecordsAnswer(t *testing.T) {
 		if c.origin != "" {
 			endpoints.Resolver = endpoint.Optional{endpoint.MustParseHostPort(srv.Sockets[c.origin].String())}
 		}
-		svc := netfacts.NewService(netfacts.New(netfacts.Config{Env: e, Endpoints: endpoints, Timings: timings(), Log: slog.New(slog.DiscardHandler)}))
+		svc := netfacts.NewService(netfacts.New(netfacts.Config{Local: storagetest.Local(t, netfacts.Schema()), Env: e, Endpoints: endpoints, Timings: timings(), Log: slog.New(slog.DiscardHandler)}))
 		res, err := svc.Resolve(t.Context(), &netv1.ResolveRequest{Host: c.host})
 		if err != nil {
 			t.Fatal(err)

@@ -373,6 +373,9 @@ func nodeNetworkOf(n reachability.NodeNetwork) nodeNetwork {
 		out.Gateway = api.Some(gatewayView{Address: f.Gateway.Addr.String(), WAN: addr(f.Gateway.WAN)})
 	}
 	for _, m := range f.Mappings {
+		if m.Refused != netmodel.RefusedNone {
+			continue
+		}
 		mv := mappingView{External: int(m.External), Internal: int(m.Internal), Permanent: m.Lifetime == 0}
 		if !m.Expires.IsZero() {
 			mv.Expires = &m.Expires

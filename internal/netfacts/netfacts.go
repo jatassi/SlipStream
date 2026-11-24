@@ -13,6 +13,8 @@ import (
 
 	"github.com/jatassi/slipstream/internal/netfacts/gateway"
 	"github.com/jatassi/slipstream/internal/netmodel"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
 type Config struct {
@@ -24,7 +26,11 @@ type Config struct {
 	HTTP *http.Client
 	// Roots verify a tested address's certificate; nil is the system's.
 	Roots *x509.CertPool
-	Log   *slog.Logger
+	// Local holds the router mappings this Node asked for.
+	Local *storage.DB[storage.Local]
+	// Node names this Node's UPnP entries.
+	Node role.NodeID
+	Log  *slog.Logger
 }
 
 // Netfacts is one Node's network facts: the passes that learn them, the
@@ -33,6 +39,7 @@ type Config struct {
 type Netfacts struct {
 	cfg     Config
 	gateway *gateway.Client
+	mapper  *mapper
 	// passing holds one pass at a time, so Reads that arrive together
 	// share it.
 	passing chan struct{}
@@ -40,6 +47,7 @@ type Netfacts struct {
 	mu       sync.Mutex
 	watching bool
 	stun     []string
+	maps     []Want
 	last     pass
 }
 
@@ -50,12 +58,21 @@ type pass struct {
 	egress     netmodel.Egress
 	gateway    netmodel.Gateway
 	stun       []netmodel.STUNAnswer
+	// router is the router the pass read, nil when it read none.
+	router *gateway.Target
 }
 
 func New(cfg Config) *Netfacts {
+	client := &gateway.Client{Packets: cfg.Env.Packets, HTTP: cfg.HTTP, Timings: gateway.Timings{Exchange: cfg.Timings.Gateway, SSDPWait: cfg.Timings.SSDPWait}}
 	return &Netfacts{
 		cfg:     cfg,
-		gateway: &gateway.Client{Packets: cfg.Env.Packets, HTTP: cfg.HTTP, Timings: gateway.Timings{Exchange: cfg.Timings.Gateway, SSDPWait: cfg.Timings.SSDPWait}},
+		gateway: client,
+		mapper: &mapper{
+			local: cfg.Local, client: client, description: "SlipStream " + cfg.Node.String(), timings: cfg.Timings,
+			at: func(ctx context.Context, at netip.AddrPort) (gateway.Target, error) {
+				return client.Toward(ctx, at, len(cfg.Endpoints.Gateway) > 0)
+			},
+		},
 		passing: make(chan struct{}, 1),
 	}
 }
@@ -83,7 +100,11 @@ func (n *Netfacts) Facts(ctx context.Context, ports []uint16, maxAge time.Durati
 		f = p.facts()
 	}
 	listeners, rules, err := n.listening(ctx, ports, f.Egress.Iface)
+	if err != nil {
+		return f, err
+	}
 	f.Listeners, f.Firewall = listeners, rules
+	f.Mappings, err = n.mapper.mappings(ctx)
 	return f, err
 }
 
@@ -137,11 +158,16 @@ func (n *Netfacts) pass(ctx context.Context) (pass, error) {
 				return pass{}, err
 			}
 			p.gateway.Addr = route.Gateway
+			p.router = &gw
 		}
 	}
 	n.mu.Lock()
 	n.last = p
+	maps := n.maps
 	n.mu.Unlock()
+	if err := n.mapper.reconcile(ctx, p.router, p.gateway.Protocols, maps, p.gateway.Forwards); err != nil {
+		n.cfg.Log.Warn("couldn't keep this Node's router mappings", "err", err.Error())
+	}
 	return p, nil
 }
 

@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/internal/host"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
 // osPackets opens this process's UDP sockets for netfacts.
@@ -35,8 +36,8 @@ func (osPackets) ListenUDP(_ context.Context, local netip.AddrPort) (*net.UDPCon
 
 // newNetwork is the half's network facts over the Env's readers, or over
 // the scripted readers' file under the Fake world's scripted-network
-// divergence.
-func (n *Node) newNetwork() *netfacts.Netfacts {
+// divergence. Its router mappings are self's, kept in local.
+func (n *Node) newNetwork(self role.NodeID, local *storage.DB[storage.Local]) *netfacts.Netfacts {
 	env := n.env.Network
 	env.Self = n.webListeners
 	if n.cfg.Network.Script != "" {
@@ -48,6 +49,8 @@ func (n *Node) newNetwork() *netfacts.Netfacts {
 		Timings:   n.cfg.Timings.Netfacts,
 		Rules:     netmodel.RulesOf(n.cfg.Network),
 		HTTP:      n.httpClient(n.env.Net.DialContext),
+		Local:     local,
+		Node:      self,
 		Log:       n.rootLog.With("subsystem", "netfacts"),
 	})
 }

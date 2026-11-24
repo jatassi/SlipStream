@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/netfacts"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/reachability"
@@ -80,6 +81,7 @@ func localSchemas() []storage.Schema[storage.Local] {
 		metadata.LocalSchema(),
 		artwork.Schema(),
 		storing.SidecarSchema(),
+		netfacts.Schema(),
 	}
 }
 

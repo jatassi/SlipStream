@@ -25,6 +25,7 @@ import (
 	netv1 "github.com/jatassi/slipstream/internal/pb/slipstream/network/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
 // holder is the network channel's holder half as Watch sees it: the
@@ -184,7 +185,7 @@ func TestAWatchedReadAsksEachSTUNServer(t *testing.T) {
 	} {
 		t.Run(c.origin, func(t *testing.T) {
 			e := endpoints(c.origin)
-			n := netfacts.New(netfacts.Config{Env: env(), Endpoints: e, Timings: timings(), Rules: netmodel.Rules{DocumentationGlobal: true}, Log: slog.New(slog.DiscardHandler)})
+			n := netfacts.New(netfacts.Config{Local: storagetest.Local(t, netfacts.Schema()), Env: env(), Endpoints: e, Timings: timings(), Rules: netmodel.Rules{DocumentationGlobal: true}, Log: slog.New(slog.DiscardHandler)})
 			h := watch(t, n)
 			h.intents <- &netv1.Intent{Watch: true, IntervalMs: time.Hour.Milliseconds()}
 			awaitFacts(t, h)
@@ -211,7 +212,7 @@ func TestAWatchedReadAsksEachSTUNServer(t *testing.T) {
 // Read, or any Read once the intent stops the watch, sends nothing.
 func TestReadsShareAPassAndALocalReadSendsNothing(t *testing.T) {
 	endpoints, stun := stunServers(t)
-	n := netfacts.New(netfacts.Config{Env: env(), Endpoints: endpoints("atlas"), Timings: timings(), Rules: netmodel.Rules{DocumentationGlobal: true}, Log: slog.New(slog.DiscardHandler)})
+	n := netfacts.New(netfacts.Config{Local: storagetest.Local(t, netfacts.Schema()), Env: env(), Endpoints: endpoints("atlas"), Timings: timings(), Rules: netmodel.Rules{DocumentationGlobal: true}, Log: slog.New(slog.DiscardHandler)})
 	h := watch(t, n)
 	h.intents <- &netv1.Intent{Watch: true, IntervalMs: time.Hour.Milliseconds()}
 	awaitFacts(t, h)
@@ -264,7 +265,7 @@ func TestTheWatchPublishesAChangeThatHeld(t *testing.T) {
 			mu.Unlock()
 		}
 		epoch := time.Now()
-		n := netfacts.New(netfacts.Config{Env: e, Timings: netfacts.DefaultTimings(), Rules: netmodel.Rules{DocumentationGlobal: true}, Log: slog.New(slog.DiscardHandler)})
+		n := netfacts.New(netfacts.Config{Local: storagetest.Local(t, netfacts.Schema()), Env: e, Timings: netfacts.DefaultTimings(), Rules: netmodel.Rules{DocumentationGlobal: true}, Log: slog.New(slog.DiscardHandler)})
 		h := watch(t, n)
 		h.intents <- &netv1.Intent{Watch: true, IntervalMs: time.Minute.Milliseconds(), WaitMs: (30 * time.Second).Milliseconds(), Stun: &netv1.StunList{}}
 		a, b, c := "2001:db8:1::/64", "2001:db8:2::/64", "2001:db8:3::/64"

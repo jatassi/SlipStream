@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/netfacts"
 	"github.com/jatassi/slipstream/internal/netmodel"
 	netv1 "github.com/jatassi/slipstream/internal/pb/slipstream/network/v1"
+	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
 // authority is a CA a test trusts and the leaves it signs.
@@ -109,7 +110,7 @@ func TestDialReportsHowFarEachConnectionGot(t *testing.T) {
 
 	tm := netfacts.DefaultTimings()
 	tm.ReadBytes = 16
-	svc := netfacts.NewService(netfacts.New(netfacts.Config{Env: env(), Timings: tm, Roots: ca.pool, Log: slog.New(slog.DiscardHandler)}))
+	svc := netfacts.NewService(netfacts.New(netfacts.Config{Local: storagetest.Local(t, netfacts.Schema()), Env: env(), Timings: tm, Roots: ca.pool, Log: slog.New(slog.DiscardHandler)}))
 	https, plain := netv1.Scheme_SCHEME_HTTPS, netv1.Scheme_SCHEME_HTTP
 	for _, c := range []struct {
 		name, server, sni, path string

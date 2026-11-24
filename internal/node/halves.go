@@ -466,8 +466,7 @@ func (n *Node) startController(ctx context.Context) error {
 	dispatch := rpc.NewDispatch(n.link, self, self, func(r role.Name) bool { return holding.Holds(r) })
 	cluster = rpc.NewCluster(dispatch, side)
 	n.mediaLink = n.newMediaLink()
-	n.network = n.newNetwork()
-	holding, local, copier, err := n.startHolding(ctx, role.InProcess(controls), dispatch, nil, nil)
+	holding, local, copier, err := n.startHolding(ctx, side.Self(), role.InProcess(controls), dispatch, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -1147,8 +1146,8 @@ func (n *Node) startWorker(ctx context.Context) error {
 	var holding *role.Holding
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, func(r role.Name) bool { return holding.Holds(r) })
 	n.mediaLink = n.newMediaLink()
-	n.network = n.newNetwork()
-	holding, local, copier, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), dispatch, []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)}, side.Remember)
+	rec, _ := side.Record()
+	holding, local, copier, err := n.startHolding(ctx, rec.NodeID, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), dispatch, []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)}, side.Remember)
 	if err != nil {
 		return err
 	}
@@ -1169,7 +1168,6 @@ func (n *Node) startWorker(ctx context.Context) error {
 	networkv1connect.NodeNetworkService.Mount(dispatch, netfacts.NewService(n.network))
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)
-	rec, _ := side.Record()
 	n.setHalf(&half{self: rec.NodeID, peers: side, dispatch: dispatch, holding: holding, serving: front, copier: copier})
 	n.link.Keep(controller)
 	n.claimed.Go("pairing", side.Run)
@@ -1210,13 +1208,15 @@ func (n *Node) mountSidecars(ctx context.Context, dispatch *rpc.Dispatch, local 
 // holding the half's own Roles beside every Node's, and the Node's
 // Transfers engine over local.db. Its Roles call the Controller through
 // dispatch. A Worker's holder hands superseded each Controller key its
-// node-scope intent names as replaced.
-func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatch *rpc.Dispatch, own []role.Held, superseded func([]link.SupersededProof)) (*role.Holding, *storage.DB[storage.Local], *transfers.Node, error) {
+// node-scope intent names as replaced. It builds the Node's network facts
+// over local.db, which keeps self's router mappings.
+func (n *Node) startHolding(ctx context.Context, self role.NodeID, upstream role.Upstream, dispatch *rpc.Dispatch, own []role.Held, superseded func([]link.SupersededProof)) (*role.Holding, *storage.DB[storage.Local], *transfers.Node, error) {
 	local, err := storage.OpenLocal(ctx, n.env.DataDir.LocalDB(), localSchemas(), n.cfg.Timings.Storage, n.rootLog.With("subsystem", "storage"))
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	n.claimed.OnStop("local.db", func(context.Context) error { return local.Close() })
+	n.network = n.newNetwork(self, local)
 	n.claimed.OnStop("torrent resume data", n.downloads.Shutdown(local))
 	copier := transfers.NewNode(transfers.NodeConfig{
 		Local:     local,

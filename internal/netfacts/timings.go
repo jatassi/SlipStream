@@ -23,19 +23,26 @@ type Timings struct {
 	// ConfirmFloor is the shortest wait before a change is observed again,
 	// whatever the intent asks.
 	ConfirmFloor time.Duration `yaml:"confirm_floor"`
+	// Mapping is the lifetime a router mapping is asked for.
+	Mapping time.Duration `yaml:"mapping"`
+	// RenewFraction is how far into a mapping's lifetime it is asked
+	// again, and how long a refusal waits before it is.
+	RenewFraction float64 `yaml:"renew_fraction"`
 }
 
 func DefaultTimings() Timings {
 	return Timings{
-		STUN:         2 * time.Second,
-		Gateway:      time.Second,
-		SSDPWait:     2 * time.Second,
-		Resolve:      5 * time.Second,
-		Connect:      10 * time.Second,
-		TLS:          10 * time.Second,
-		Read:         10 * time.Second,
-		ReadBytes:    64 << 10,
-		Pass:         15 * time.Second,
-		ConfirmFloor: 5 * time.Second,
+		STUN:          2 * time.Second,
+		Gateway:       time.Second,
+		SSDPWait:      2 * time.Second,
+		Resolve:       5 * time.Second,
+		Connect:       10 * time.Second,
+		TLS:           10 * time.Second,
+		Read:          10 * time.Second,
+		ReadBytes:     64 << 10,
+		Pass:          15 * time.Second,
+		ConfirmFloor:  5 * time.Second,
+		Mapping:       2 * time.Hour,
+		RenewFraction: 0.5,
 	}
 }

@@ -2,8 +2,10 @@ package netfacts
 
 import (
 	"context"
+	"slices"
 	"time"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/jatassi/slipstream/internal/netmodel"
@@ -65,13 +67,20 @@ func (w *watcher) stop() {
 // interval changed.
 func (w *watcher) take(ctx context.Context, next *netv1.Intent) {
 	changed := w.intent == nil || next.GetWatch() != w.intent.GetWatch() || next.GetIntervalMs() != w.intent.GetIntervalMs()
+	remap := w.intent != nil && !slices.EqualFunc(next.GetMap(), w.intent.GetMap(), func(a, b *netv1.MapWant) bool { return proto.Equal(a, b) })
 	w.intent = next
 	w.n.follow(next)
 	if !changed {
+		if remap && next.GetWatch() {
+			w.observe(ctx)
+		}
 		return
 	}
 	w.stop()
 	if !next.GetWatch() {
+		if err := w.n.Release(ctx); err != nil {
+			w.n.cfg.Log.Warn("couldn't delete this Node's router mappings", "err", err.Error())
+		}
 		if w.published == nil || w.published.Watched {
 			w.h.SetFacts(netmodel.SummaryOnWire(netmodel.Summary{}, time.Now()))
 			w.published = &netmodel.Summary{}
@@ -108,6 +117,10 @@ func (n *Netfacts) follow(i *netv1.Intent) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.watching = i.GetWatch()
+	n.maps = nil
+	for _, m := range i.GetMap() {
+		n.maps = append(n.maps, Want{External: uint16(m.GetExternal()), Internal: uint16(m.GetInternal())}) //nolint:gosec // G115: the Controller sends ports
+	}
 	n.stun = i.GetStun().GetServers()
 	if i.GetStun() == nil {
 		n.stun = nil
@@ -117,6 +130,20 @@ func (n *Netfacts) follow(i *netv1.Intent) {
 	}
 }
 
-// Release is the channel's release at removal: the watch holds nothing
-// past its run.
-func (n *Netfacts) Release(context.Context) error { return nil }
+// Release is the channel's release at removal, and the watch's when told
+// not to watch: it deletes every router mapping this Node holds, the
+// entries of the last router it read among them.
+func (n *Netfacts) Release(ctx context.Context) error {
+	n.mu.Lock()
+	router := n.last.router
+	n.mu.Unlock()
+	var listed []netmodel.Forward
+	if router != nil {
+		g, err := n.gateway.Read(ctx, *router, nil)
+		if err != nil {
+			return err
+		}
+		listed = g.Forwards
+	}
+	return n.mapper.reconcile(ctx, router, netmodel.Protocols{}, nil, listed)
+}
