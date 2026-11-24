@@ -188,10 +188,11 @@ var rowClass = row{ID: CheckOriginClass, Hop: OriginHop, Only: ptr(netmodel.IPv4
 				return passes()
 			case in.mappingRefused():
 				return notTested(Fixable, fix(FixManualForward, in.forwardParams()))
-			case in.plex():
-				return notTested(Fixable, fix(FixMappablePlex, Params{Node: node}))
 			}
 			fx := fix(FixMappable, Params{Node: node, Port: in.publicPort})
+			if in.plex() {
+				fx = fix(FixMappablePlex, Params{Node: node})
+			}
 			if in.forward() != nil {
 				fx.action(Action{Kind: MapPorts, Node: node})
 			}
