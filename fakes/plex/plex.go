@@ -180,11 +180,16 @@ type server struct {
 func serve(env fake.Env, srv *Server) (fake.Server, error) {
 	s := &server{env: env, srv: srv, account: plexaccount.Of(env.Shared)}
 	if srv != nil {
-		listen, _ := env.Fronts.Find(fault.Target(env.Name), srv.Node)
+		custom, published := srv.Custom, srv.Published
+		// With no front drawn for its Node, a URL with no port keeps its
+		// scheme's default.
+		if listen, ok := env.Fronts.Find(fault.Target(env.Name), srv.Node); ok {
+			custom, published = withPort(custom, listen.AddrPort.Port()), withPort(published, listen.AddrPort.Port())
+		}
 		s.account.Claim(plexaccount.Server{
 			Target: fault.Target(env.Name), Name: srv.Name, Identifier: srv.Identifier, Version: srv.Version, Node: srv.Node,
 			Remote: plexaccount.Remote{
-				On: srv.Remote, Custom: withPort(srv.Custom, listen.AddrPort.Port()), Published: withPort(srv.Published, listen.AddrPort.Port()),
+				On: srv.Remote, Custom: custom, Published: published,
 				Mapping: plexaccount.MappingOf(srv.Mapping, netip.AddrPort{}),
 			},
 		})
