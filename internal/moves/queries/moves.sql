@@ -23,10 +23,16 @@ UPDATE moves_batch SET finished_at = sqlc.arg(at) WHERE id = sqlc.arg(id) AND fi
 UPDATE moves_batch SET canceled_at = sqlc.arg(at) WHERE id = sqlc.arg(id) AND canceled_at IS NULL;
 
 -- name: CountBatchPhases :many
-SELECT kind, phase, count(*) AS n FROM moves_unit WHERE batch_id = sqlc.arg(batch_id) GROUP BY kind, phase ORDER BY kind, phase;
+-- back counts the done units no later Move of their Work or torrent
+-- moved again, as ListDoneUnitsOfBatch reads them.
+SELECT kind, phase, count(*) AS n, CAST(sum(phase = 'done' AND NOT EXISTS (SELECT 1 FROM moves_unit v WHERE v.seq > u.seq AND v.phase NOT IN ('failed', 'canceled')
+    AND (v.work_id = u.work_id OR v.torrent_id IN (u.torrent_id, u.dest_torrent_id)))) AS INTEGER) AS back
+FROM moves_unit u WHERE u.batch_id = sqlc.arg(batch_id) GROUP BY kind, phase ORDER BY kind, phase;
 
 -- name: CountBatchesPhases :many
-SELECT batch_id, kind, phase, count(*) AS n FROM moves_unit WHERE batch_id IN (sqlc.slice(ids)) GROUP BY batch_id, kind, phase ORDER BY batch_id, kind, phase;
+SELECT u.batch_id, u.kind, u.phase, count(*) AS n, CAST(sum(phase = 'done' AND NOT EXISTS (SELECT 1 FROM moves_unit v WHERE v.seq > u.seq AND v.phase NOT IN ('failed', 'canceled')
+    AND (v.work_id = u.work_id OR v.torrent_id IN (u.torrent_id, u.dest_torrent_id)))) AS INTEGER) AS back
+FROM moves_unit u WHERE u.batch_id IN (sqlc.slice(ids)) GROUP BY u.batch_id, u.kind, u.phase ORDER BY u.batch_id, u.kind, u.phase;
 
 -- name: ListBatchTypes :many
 SELECT DISTINCT batch_id, content_type FROM moves_unit WHERE batch_id IN (sqlc.slice(ids)) AND content_type IS NOT NULL ORDER BY batch_id, content_type;
@@ -68,7 +74,12 @@ SELECT * FROM moves_unit WHERE batch_id = sqlc.arg(batch_id) AND position > sqlc
 SELECT DISTINCT to_node_id FROM moves_unit WHERE batch_id = sqlc.arg(batch_id) ORDER BY to_node_id;
 
 -- name: ListDoneUnitsOfBatch :many
-SELECT * FROM moves_unit WHERE batch_id = sqlc.arg(batch_id) AND phase = 'done' ORDER BY position;
+-- The done units of a batch that no later Move of their Work or torrent
+-- moved again.
+SELECT * FROM moves_unit u WHERE u.batch_id = sqlc.arg(batch_id) AND phase = 'done'
+    AND NOT EXISTS (SELECT 1 FROM moves_unit v WHERE v.seq > u.seq AND v.phase NOT IN ('failed', 'canceled')
+    AND (v.work_id = u.work_id OR v.torrent_id IN (u.torrent_id, u.dest_torrent_id)))
+ORDER BY position;
 
 -- name: ListOpenUnitsOfBatch :many
 SELECT * FROM moves_unit WHERE batch_id = sqlc.arg(batch_id) AND phase IN ('queued', 'transfer', 'place', 'switch') ORDER BY position;

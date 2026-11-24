@@ -60,7 +60,8 @@ func startOver(w movestest.World, token string, confirm int) worldtest.Reply {
 // TestTheMovesAPIStartsOnceAndRefusesWhatItCannotDo previews and starts a
 // Move over HTTP, sees a stale count and an unknown token refused and a
 // replayed Start answer the same batch, then sees a finished unit refuse
-// a cancel, a switch now and a retry, and offer its Move back.
+// a cancel, a switch now and a retry, and offer its Move back until the
+// Move back moved the Work again.
 func TestTheMovesAPIStartsOnceAndRefusesWhatItCannotDo(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
@@ -91,6 +92,11 @@ func TestTheMovesAPIStartsOnceAndRefusesWhatItCannotDo(t *testing.T) {
 		back := simtest.Decode[previewReply](t, "previewMoveBack", w.API().Admin("home", http.MethodGet, "/api/v1/moves/"+batch+"/back", ""))
 		if back.Movable != 1 || back.Units[0].To.RootID != w.Roots["movies-e"].ID {
 			t.Errorf("the Move back is %+v, want one Work back to movies-e", back)
+		}
+		doneOver(t, w, startedOver(t, w, back.Token))
+		first := simtest.Decode[batchReply](t, "getMove", w.API().Admin("home", http.MethodGet, "/api/v1/moves/"+batch, ""))
+		if first.Batch.CanMoveBack {
+			t.Errorf("the first batch reads %+v after its Move back, want it unable to move back", first.Batch)
 		}
 	})
 }

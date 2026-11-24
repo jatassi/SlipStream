@@ -156,15 +156,18 @@ type BatchView struct {
 	Counts     map[Phase]int
 	// torrents is how many of Counts are torrent units.
 	torrents map[Phase]int
-	Total    int
+	// back is how many done units no later Move moved again.
+	back  int
+	Total int
 	// Words is its sentence, such as "12 of 43 movies switched".
 	Words                        string
 	CanRetry, CanCancel, CanBack bool
 }
 
-// count adds n units of kind in phase to b.
-func (b *BatchView) count(kind, phase string, n int64) {
+// count adds n units of kind in phase to b, back of them movable back.
+func (b *BatchView) count(kind, phase string, n, back int64) {
 	b.Counts[Phase(phase)] += int(n)
+	b.back += int(back)
 	if kind == "torrent" {
 		b.torrents[Phase(phase)] += int(n)
 	}
@@ -189,7 +192,7 @@ func (m *Moves) finish(b *BatchView, types []works.TypeID) {
 		return k
 	}
 	open := c[PhaseQueued] + c[PhaseTransfer] + c[PhasePlace] + c[PhaseSwitch]
-	b.CanRetry, b.CanCancel, b.CanBack = c[PhaseFailed] > 0, open > 0, b.FinishedAt != nil && c[PhaseDone] > 0
+	b.CanRetry, b.CanCancel, b.CanBack = c[PhaseFailed] > 0, open > 0, b.FinishedAt != nil && b.back > 0
 	if open+c[PhaseCleanup] > 0 {
 		b.Words = m.tally(types, of(PhaseCleanup, PhaseDone), all) + " switched"
 		return
@@ -251,7 +254,7 @@ func (m *Moves) List(ctx context.Context, after BatchID, limit int) ([]BatchView
 			out[i] = batchViewOf(row)
 			for _, c := range counts {
 				if c.BatchID == row.ID {
-					out[i].count(c.Kind, c.Phase, c.N)
+					out[i].count(c.Kind, c.Phase, c.N, c.Back)
 				}
 			}
 			m.finish(&out[i], types[row.ID])
@@ -302,7 +305,7 @@ func (m *Moves) Get(ctx context.Context, id BatchID, after, limit int) (BatchVie
 			return err
 		}
 		for _, c := range counts {
-			b.count(c.Kind, c.Phase, c.N)
+			b.count(c.Kind, c.Phase, c.N, c.Back)
 		}
 		types, err := typesOf(ctx, q, []BatchID{id})
 		if err != nil {

@@ -56,15 +56,20 @@ func (q *Queries) CancelBatch(ctx context.Context, arg CancelBatchParams) error 
 }
 
 const countBatchPhases = `-- name: CountBatchPhases :many
-SELECT kind, phase, count(*) AS n FROM moves_unit WHERE batch_id = ?1 GROUP BY kind, phase ORDER BY kind, phase
+SELECT kind, phase, count(*) AS n, CAST(sum(phase = 'done' AND NOT EXISTS (SELECT 1 FROM moves_unit v WHERE v.seq > u.seq AND v.phase NOT IN ('failed', 'canceled')
+    AND (v.work_id = u.work_id OR v.torrent_id IN (u.torrent_id, u.dest_torrent_id)))) AS INTEGER) AS back
+FROM moves_unit u WHERE u.batch_id = ?1 GROUP BY kind, phase ORDER BY kind, phase
 `
 
 type CountBatchPhasesRow struct {
 	Kind  string
 	Phase string
 	N     int64
+	Back  int64
 }
 
+// back counts the done units no later Move of their Work or torrent
+// moved again, as ListDoneUnitsOfBatch reads them.
 func (q *Queries) CountBatchPhases(ctx context.Context, batchID BatchID) ([]CountBatchPhasesRow, error) {
 	rows, err := q.db.QueryContext(ctx, countBatchPhases, batchID)
 	if err != nil {
@@ -74,7 +79,12 @@ func (q *Queries) CountBatchPhases(ctx context.Context, batchID BatchID) ([]Coun
 	var items []CountBatchPhasesRow
 	for rows.Next() {
 		var i CountBatchPhasesRow
-		if err := rows.Scan(&i.Kind, &i.Phase, &i.N); err != nil {
+		if err := rows.Scan(
+			&i.Kind,
+			&i.Phase,
+			&i.N,
+			&i.Back,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -89,7 +99,9 @@ func (q *Queries) CountBatchPhases(ctx context.Context, batchID BatchID) ([]Coun
 }
 
 const countBatchesPhases = `-- name: CountBatchesPhases :many
-SELECT batch_id, kind, phase, count(*) AS n FROM moves_unit WHERE batch_id IN (/*SLICE:ids*/?) GROUP BY batch_id, kind, phase ORDER BY batch_id, kind, phase
+SELECT u.batch_id, u.kind, u.phase, count(*) AS n, CAST(sum(phase = 'done' AND NOT EXISTS (SELECT 1 FROM moves_unit v WHERE v.seq > u.seq AND v.phase NOT IN ('failed', 'canceled')
+    AND (v.work_id = u.work_id OR v.torrent_id IN (u.torrent_id, u.dest_torrent_id)))) AS INTEGER) AS back
+FROM moves_unit u WHERE u.batch_id IN (/*SLICE:ids*/?) GROUP BY u.batch_id, u.kind, u.phase ORDER BY u.batch_id, u.kind, u.phase
 `
 
 type CountBatchesPhasesRow struct {
@@ -97,6 +109,7 @@ type CountBatchesPhasesRow struct {
 	Kind    string
 	Phase   string
 	N       int64
+	Back    int64
 }
 
 func (q *Queries) CountBatchesPhases(ctx context.Context, ids []BatchID) ([]CountBatchesPhasesRow, error) {
@@ -123,6 +136,7 @@ func (q *Queries) CountBatchesPhases(ctx context.Context, ids []BatchID) ([]Coun
 			&i.Kind,
 			&i.Phase,
 			&i.N,
+			&i.Back,
 		); err != nil {
 			return nil, err
 		}
@@ -730,9 +744,14 @@ func (q *Queries) ListCopyGrants(ctx context.Context, node role.NodeID) ([]ListC
 }
 
 const listDoneUnitsOfBatch = `-- name: ListDoneUnitsOfBatch :many
-SELECT id, batch_id, seq, position, kind, work_id, content_type, torrent_id, from_root_id, from_node_id, from_client_id, to_root_id, to_node_id, to_client_id, to_folder, lane, phase, waiting, waiting_at, due_at, handoff, handoff_at, pass, switch_now_at, failure_code, failure_detail, failed_phase, keeps_copy, undone_at, reconcile, transfer_id, dest_torrent_id, pairs_with_unit_id, planned_bytes, planned_at, switched_at, cleaned_at, notes FROM moves_unit WHERE batch_id = ?1 AND phase = 'done' ORDER BY position
+SELECT id, batch_id, seq, position, kind, work_id, content_type, torrent_id, from_root_id, from_node_id, from_client_id, to_root_id, to_node_id, to_client_id, to_folder, lane, phase, waiting, waiting_at, due_at, handoff, handoff_at, pass, switch_now_at, failure_code, failure_detail, failed_phase, keeps_copy, undone_at, reconcile, transfer_id, dest_torrent_id, pairs_with_unit_id, planned_bytes, planned_at, switched_at, cleaned_at, notes FROM moves_unit u WHERE u.batch_id = ?1 AND phase = 'done'
+    AND NOT EXISTS (SELECT 1 FROM moves_unit v WHERE v.seq > u.seq AND v.phase NOT IN ('failed', 'canceled')
+    AND (v.work_id = u.work_id OR v.torrent_id IN (u.torrent_id, u.dest_torrent_id)))
+ORDER BY position
 `
 
+// The done units of a batch that no later Move of their Work or torrent
+// moved again.
 func (q *Queries) ListDoneUnitsOfBatch(ctx context.Context, batchID BatchID) ([]MovesUnit, error) {
 	rows, err := q.db.QueryContext(ctx, listDoneUnitsOfBatch, batchID)
 	if err != nil {
