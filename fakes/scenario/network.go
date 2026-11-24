@@ -137,44 +137,56 @@ func (s Scenario) checkNetwork(add func(format string, args ...any)) {
 			add("node %s's site %q is not a network site", n.Name, n.Site)
 			continue
 		}
-		oneOf(add, "node "+n.Name+" bind", n.Bind, "", "all", "local")
-		for _, r := range n.Firewall {
-			oneOf(add, "node "+n.Name+" firewall service", r.Service, Services...)
-			oneOf(add, "node "+n.Name+" firewall family", r.Family, "ipv4", "ipv6")
-			oneOf(add, "node "+n.Name+" firewall policy", r.Policy, "allows", "blocks", "unknown", "docker")
-		}
-		for _, a := range n.Addresses {
-			if p, err := netip.ParsePrefix(a.Prefix); err != nil || !site.holds(p.Addr()) {
-				add("node %s's address %s is not inside site %s", n.Name, a.Prefix, site.Name)
-			}
-		}
+		n.checkNetwork(add, site)
 	}
 	for _, p := range s.Network.Proxies {
-		if _, err := netip.ParseAddr(p.Address); err != nil {
-			add("network proxy %s's address %q is not an IP address", p.Name, p.Address)
-		}
-		if p.Node != "" && !s.hasNode(p.Node) {
-			add("network proxy %s's node %s is not a node", p.Name, p.Node)
-		}
-		for _, r := range p.Routes {
-			oneOf(add, "network proxy "+p.Name+" service", r.Service, Services...)
-			if !s.hasNode(r.Node) {
-				add("network proxy %s routes %s to %s, which is not a node", p.Name, r.Host, r.Node)
-			}
-			if !strings.HasSuffix(r.Host, ".localhost") {
-				add("network proxy %s routes %s, which is not under .localhost", p.Name, r.Host)
-			}
-		}
+		p.check(add, s)
 	}
 	for _, r := range s.Network.DNS {
-		if !strings.HasSuffix(r.Name, ".localhost") {
-			add("network dns name %s is not under .localhost", r.Name)
+		r.check(add)
+	}
+}
+
+func (n Node) checkNetwork(add func(format string, args ...any), site Site) {
+	oneOf(add, "node "+n.Name+" bind", n.Bind, "", "all", "local")
+	for _, r := range n.Firewall {
+		oneOf(add, "node "+n.Name+" firewall service", r.Service, Services...)
+		oneOf(add, "node "+n.Name+" firewall family", r.Family, "ipv4", "ipv6")
+		oneOf(add, "node "+n.Name+" firewall policy", r.Policy, "allows", "blocks", "unknown", "docker")
+	}
+	for _, a := range n.Addresses {
+		if p, err := netip.ParsePrefix(a.Prefix); err != nil || !site.holds(p.Addr()) {
+			add("node %s's address %s is not inside site %s", n.Name, a.Prefix, site.Name)
 		}
-		oneOf(add, "network dns name "+r.Name+" answer", r.Answer, "", "nxdomain", "servfail", "aaaa-servfail")
-		for _, a := range slices.Concat(r.A, r.AAAA, r.Home) {
-			if _, err := netip.ParseAddr(a); err != nil {
-				add("network dns name %s's address %q is not an IP address", r.Name, a)
-			}
+	}
+}
+
+func (p Proxy) check(add func(format string, args ...any), s Scenario) {
+	if _, err := netip.ParseAddr(p.Address); err != nil {
+		add("network proxy %s's address %q is not an IP address", p.Name, p.Address)
+	}
+	if p.Node != "" && !s.hasNode(p.Node) {
+		add("network proxy %s's node %s is not a node", p.Name, p.Node)
+	}
+	for _, r := range p.Routes {
+		oneOf(add, "network proxy "+p.Name+" service", r.Service, Services...)
+		if !s.hasNode(r.Node) {
+			add("network proxy %s routes %s to %s, which is not a node", p.Name, r.Host, r.Node)
+		}
+		if !strings.HasSuffix(r.Host, ".localhost") {
+			add("network proxy %s routes %s, which is not under .localhost", p.Name, r.Host)
+		}
+	}
+}
+
+func (r Record) check(add func(format string, args ...any)) {
+	if !strings.HasSuffix(r.Name, ".localhost") {
+		add("network dns name %s is not under .localhost", r.Name)
+	}
+	oneOf(add, "network dns name "+r.Name+" answer", r.Answer, "", "nxdomain", "servfail", "aaaa-servfail")
+	for _, a := range slices.Concat(r.A, r.AAAA, r.Home) {
+		if _, err := netip.ParseAddr(a); err != nil {
+			add("network dns name %s's address %q is not an IP address", r.Name, a)
 		}
 	}
 }

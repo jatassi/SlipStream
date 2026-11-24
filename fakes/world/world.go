@@ -442,6 +442,7 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 	for _, f := range r.fakes {
 		f.env = fake.NewEnv(r.scenario, f.spec, r.log, r.faults, r.events)
 		f.env.Releases, f.env.Fronts, f.env.Files, f.env.Dir, f.env.Media, f.env.Shared = r.releases, r.table, r.runDir, r.fakeDir(f.spec.Name), r.mediaDir(), shared
+		f.env.Listeners = r.listening
 		if f.spec.TLS == fake.OwnTLS {
 			leaf, err := r.leaf(f.spec)
 			if err != nil {
@@ -464,6 +465,16 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 		})
 	}
 	return nil
+}
+
+// listening is where the Node named name listens as it runs now.
+func (r *Run) listening(name string) (node.Listeners, error) {
+	i := slices.IndexFunc(r.nodes, func(n *nodeRun) bool { return n.spec.Name == name })
+	if i < 0 {
+		return node.Listeners{}, fmt.Errorf("no node %s", name)
+	}
+	ready, err := r.nodes[i].life.Live()
+	return ready.Listeners, err
 }
 
 // server builds f and serves its fronts, or hands it its sockets.

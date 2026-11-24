@@ -89,7 +89,7 @@ type Link struct {
 
 // Read reads the file at path strictly.
 func Read(path string) (File, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: the file the Node's config names
 	if err != nil {
 		return File{}, fmt.Errorf("network script: %w", err)
 	}
