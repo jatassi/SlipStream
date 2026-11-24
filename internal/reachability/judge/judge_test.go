@@ -71,19 +71,7 @@ func decidingProps(t *testing.T, name string, j judge.Judged) {
 
 func checkProps(t *testing.T, name string, j judge.Judged) {
 	t.Helper()
-	points := map[string]judge.Verdict{}
-	for _, h := range j.Hops {
-		for _, c := range h.Checks {
-			if c.Fact || c.Fix == nil || c.Result != judge.Fails && c.Result != judge.NotTested {
-				continue
-			}
-			key := fmt.Sprintf("%v %s %+v", c.Family != nil && *c.Family == netmodel.IPv6, c.Fix.ID, c.Fix.Params)
-			if v, ok := points[key]; ok && v != c.Points {
-				t.Errorf("%s: %s points %v, and another check with its fix %s points %v", name, c.ID, c.Points, c.Fix.ID, v)
-			}
-			points[key] = c.Points
-		}
-	}
+	oneFixPointsOneWay(t, name, j)
 	for _, h := range j.Hops {
 		for _, c := range h.Checks {
 			if c.Family == nil {
@@ -95,6 +83,24 @@ func checkProps(t *testing.T, name string, j judge.Judged) {
 			if slices.Contains(localGuesses, c.ID) && !c.Fact && proven(j, *c.Family) {
 				t.Errorf("%s: %s of a proven family isn't a fact", name, c.ID)
 			}
+		}
+	}
+}
+
+// oneFixPointsOneWay: two checks naming one fix point to one verdict.
+func oneFixPointsOneWay(t *testing.T, name string, j judge.Judged) {
+	t.Helper()
+	points := map[string]judge.Verdict{}
+	for _, h := range j.Hops {
+		for _, c := range h.Checks {
+			if c.Fact || c.Fix == nil || c.Result != judge.Fails && c.Result != judge.NotTested {
+				continue
+			}
+			key := fmt.Sprintf("%v %s %+v", c.Family != nil && *c.Family == netmodel.IPv6, c.Fix.ID, c.Fix.Params)
+			if v, ok := points[key]; ok && v != c.Points {
+				t.Errorf("%s: %s points %v, and another check with its fix %s points %v", name, c.ID, c.Points, c.Fix.ID, v)
+			}
+			points[key] = c.Points
 		}
 	}
 }
