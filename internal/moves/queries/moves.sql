@@ -252,10 +252,11 @@ SELECT torrent_id, dest_torrent_id FROM moves_unit
 WHERE torrent_id IN (sqlc.slice(torrents)) AND phase IN ('cleanup', 'done') ORDER BY torrent_id;
 
 -- name: GetSettings :one
-SELECT needs_you_after_minutes, plex_bound_minutes FROM moves_settings WHERE id = 1;
+SELECT needs_you_after_minutes, plex_bound_minutes, check_bound_minutes FROM moves_settings WHERE id = 1;
 
 -- name: SetSettings :exec
-UPDATE moves_settings SET needs_you_after_minutes = sqlc.narg(needs_you_after_minutes), plex_bound_minutes = sqlc.narg(plex_bound_minutes) WHERE id = 1;
+UPDATE moves_settings SET needs_you_after_minutes = sqlc.narg(needs_you_after_minutes), plex_bound_minutes = sqlc.narg(plex_bound_minutes),
+    check_bound_minutes = sqlc.narg(check_bound_minutes) WHERE id = 1;
 
 -- name: LaneHeld :one
 SELECT EXISTS (SELECT 1 FROM moves_unit WHERE lane = sqlc.arg(lane) AND phase IN ('transfer', 'place'));

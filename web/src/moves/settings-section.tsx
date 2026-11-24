@@ -5,7 +5,7 @@ import { adoptMoveSettings } from "../live/adopt-move-settings";
 import { Section } from "../ui/section";
 import { SettingField, SettingGroup } from "../ui/setting-field";
 
-/** Settings > Library roots' "Moves" heading: when a waiting switch reaches Needs you, and how long the old files wait for Plex. */
+/** Settings > Library roots' "Moves" heading: when a waiting switch reaches Needs you, how long the old files wait for Plex, and how long a torrent waits for its destination's check. */
 export function MovesSettings() {
   const { settings } = useGetMoveSettingsSuspense().data;
   const queryClient = useQueryClient();

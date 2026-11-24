@@ -137,7 +137,7 @@ func doneOver(t *testing.T, w movestest.World, batch string) string {
 	return b.Units[0].ID
 }
 
-// TestTheMovesSettingsChangeByKeyAllOrNone reads the two Moves settings,
+// TestTheMovesSettingsChangeByKeyAllOrNone reads the Moves settings,
 // changes the Plex bound, and sees a value out of range refused with
 // nothing stored.
 func TestTheMovesSettingsChangeByKeyAllOrNone(t *testing.T) {
@@ -160,7 +160,7 @@ func TestTheMovesSettingsChangeByKeyAllOrNone(t *testing.T) {
 			t.Errorf("a Plex bound under a minute answered %s, want setting_out_of_range", code)
 		}
 		got := simtest.Decode[settings](t, "getMoveSettings", w.API().Admin("home", http.MethodGet, "/api/v1/moves/settings", ""))
-		want := map[string]int64{"moves.needsYouAfter": 3600, "moves.plexBound": 600}
+		want := map[string]int64{"moves.needsYouAfter": 3600, "moves.plexBound": 600, "moves.checkBound": 21600}
 		for _, read := range []settings{changed, got} {
 			if len(read.Settings) != len(want) {
 				t.Fatalf("the settings are %+v, want %v", read.Settings, want)

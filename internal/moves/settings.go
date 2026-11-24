@@ -21,11 +21,15 @@ var (
 		Key: "moves.plexBound", Label: "Delete the old files after Plex finds the new ones, or at most after",
 		Default: 30 * time.Minute, Min: time.Minute, Max: 24 * time.Hour, Step: time.Minute,
 	}
+	CheckBound = setting.Duration{
+		Key: "moves.checkBound", Label: "Give up on a destination check after",
+		Default: 6 * time.Hour, Min: 30 * time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute,
+	}
 )
 
-// Settings is the two stored settings, each its default while NULL.
+// Settings is the stored settings, each its default while NULL.
 type Settings struct {
-	NeedsYouAfter, PlexBound time.Duration
+	NeedsYouAfter, PlexBound, CheckBound time.Duration
 }
 
 func settingsIn(ctx context.Context, r storage.Reader[file]) (Settings, error) {
@@ -36,6 +40,7 @@ func settingsIn(ctx context.Context, r storage.Reader[file]) (Settings, error) {
 	return Settings{
 		NeedsYouAfter: NeedsYouAfter.Value(minutes(row.NeedsYouAfterMinutes)),
 		PlexBound:     PlexBound.Value(minutes(row.PlexBoundMinutes)),
+		CheckBound:    CheckBound.Value(minutes(row.CheckBoundMinutes)),
 	}, nil
 }
 
@@ -62,11 +67,16 @@ func (p panel) Fields(ctx context.Context) ([]setting.Field, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []setting.Field{NeedsYouAfter.Field(minutes(row.NeedsYouAfterMinutes)), PlexBound.Field(minutes(row.PlexBoundMinutes))}, nil
+	return []setting.Field{
+		NeedsYouAfter.Field(minutes(row.NeedsYouAfterMinutes)), PlexBound.Field(minutes(row.PlexBoundMinutes)),
+		CheckBound.Field(minutes(row.CheckBoundMinutes)),
+	}, nil
 }
 
 // Apply stores the patch in one Write, all or none, and wakes the units
-// that wait out the Plex bound so they judge it again.
+// that wait out the Plex bound so they judge it again. A unit waiting
+// for its destination's check judges the check bound again within
+// DownloadingEvery.
 func (p panel) Apply(ctx context.Context, patch setting.Patch) error {
 	err := p.m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
@@ -78,6 +88,7 @@ func (p panel) Apply(ctx context.Context, patch setting.Patch) error {
 		stored := map[string]func(json.RawMessage) error{
 			NeedsYouAfter.Key: inMinutes(NeedsYouAfter, &next.NeedsYouAfterMinutes),
 			PlexBound.Key:     inMinutes(PlexBound, &next.PlexBoundMinutes),
+			CheckBound.Key:    inMinutes(CheckBound, &next.CheckBoundMinutes),
 		}
 		for _, key := range slices.Sorted(maps.Keys(patch)) {
 			parse, ok := stored[key]

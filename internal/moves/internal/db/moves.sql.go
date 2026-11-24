@@ -280,18 +280,19 @@ func (q *Queries) GetBatch(ctx context.Context, id BatchID) (MovesBatch, error) 
 }
 
 const getSettings = `-- name: GetSettings :one
-SELECT needs_you_after_minutes, plex_bound_minutes FROM moves_settings WHERE id = 1
+SELECT needs_you_after_minutes, plex_bound_minutes, check_bound_minutes FROM moves_settings WHERE id = 1
 `
 
 type GetSettingsRow struct {
 	NeedsYouAfterMinutes *int64
 	PlexBoundMinutes     *int64
+	CheckBoundMinutes    *int64
 }
 
 func (q *Queries) GetSettings(ctx context.Context) (GetSettingsRow, error) {
 	row := q.db.QueryRowContext(ctx, getSettings)
 	var i GetSettingsRow
-	err := row.Scan(&i.NeedsYouAfterMinutes, &i.PlexBoundMinutes)
+	err := row.Scan(&i.NeedsYouAfterMinutes, &i.PlexBoundMinutes, &i.CheckBoundMinutes)
 	return i, err
 }
 
@@ -1960,16 +1961,18 @@ func (q *Queries) SetDue(ctx context.Context, arg SetDueParams) error {
 }
 
 const setSettings = `-- name: SetSettings :exec
-UPDATE moves_settings SET needs_you_after_minutes = ?1, plex_bound_minutes = ?2 WHERE id = 1
+UPDATE moves_settings SET needs_you_after_minutes = ?1, plex_bound_minutes = ?2,
+    check_bound_minutes = ?3 WHERE id = 1
 `
 
 type SetSettingsParams struct {
 	NeedsYouAfterMinutes *int64
 	PlexBoundMinutes     *int64
+	CheckBoundMinutes    *int64
 }
 
 func (q *Queries) SetSettings(ctx context.Context, arg SetSettingsParams) error {
-	_, err := q.db.ExecContext(ctx, setSettings, arg.NeedsYouAfterMinutes, arg.PlexBoundMinutes)
+	_, err := q.db.ExecContext(ctx, setSettings, arg.NeedsYouAfterMinutes, arg.PlexBoundMinutes, arg.CheckBoundMinutes)
 	return err
 }
 
