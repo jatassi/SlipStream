@@ -102,16 +102,23 @@ func digest(rec mediaservers.Record) []byte {
 	return h.Sum(nil)
 }
 
+// Named is an Exposure with the name the page shows it by.
+type Named struct {
+	Exposure
+	Subject string
+}
+
 // Want sets w up for use away from home and starts its first check.
-func (r *Reachability) Want(ctx context.Context, _ identity.Admin, w Wanted) (Exposure, error) {
+func (r *Reachability) Want(ctx context.Context, _ identity.Admin, w Wanted) (Named, error) {
 	e := Exposure{ID: judge.ExposureID{UUID: storage.NewUUID()}, Kind: w.Kind, WantedAt: r.now()}
 	if w.Kind == judge.MediaServer {
 		u, err := parsePublic(w.Public)
 		if err != nil {
-			return Exposure{}, err
+			return Named{}, err
 		}
 		e.Server, e.Public = w.Server, u
 	}
+	subject := uiSubject
 	err := r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		wanted, err := wantedIn(ctx, tx)
@@ -128,46 +135,66 @@ func (r *Reachability) Want(ctx context.Context, _ identity.Admin, w Wanted) (Ex
 			}
 			return q.DeleteDismissalUI(ctx)
 		}
-		return insertServer(ctx, tx, e, p)
+		subject, err = insertServer(ctx, tx, e, p)
+		return err
 	})
 	if err != nil {
-		return Exposure{}, err
+		return Named{}, err
 	}
 	r.touch(ctx)
 	r.changed(ctx, e.ID.UUID)
 	r.start(ctx, e.Unit())
-	return e, nil
+	return Named{Exposure: e, Subject: subject}, nil
 }
 
-// insertServer wants a Media Server Exposure with its record's digest.
-func insertServer(ctx context.Context, tx *storage.Tx[storage.Library], e Exposure, p db.InsertExposureParams) error {
+// insertServer wants a Media Server Exposure with its record's digest and
+// answers the server's name.
+func insertServer(ctx context.Context, tx *storage.Tx[storage.Library], e Exposure, p db.InsertExposureParams) (string, error) {
 	q := db.New(tx)
 	servers, err := mediaservers.ServersIn(ctx, tx)
 	if err != nil {
-		return err
+		return "", err
 	}
 	i := slices.IndexFunc(servers, func(s mediaservers.Record) bool { return s.ID == e.Server })
 	if i < 0 {
-		return ErrServerNotFound
+		return "", ErrServerNotFound
 	}
 	p.ServerID, p.Public = e.Server, new(e.Public.String())
 	if err := q.InsertExposure(ctx, p); err != nil {
-		return err
+		return "", err
 	}
 	if err := q.SetServerDigest(ctx, db.SetServerDigestParams{ID: e.ID, Digest: digest(servers[i])}); err != nil {
-		return err
+		return "", err
 	}
-	return q.DeleteDismissalServer(ctx, e.Server)
+	return servers[i].Name, q.DeleteDismissalServer(ctx, e.Server)
+}
+
+func subjectIn(ctx context.Context, rd storage.Reader[storage.Library], e Exposure) (string, error) {
+	if e.Kind == judge.UIPortal {
+		return uiSubject, nil
+	}
+	servers, err := mediaservers.ServersIn(ctx, rd)
+	if err != nil {
+		return "", err
+	}
+	i := slices.IndexFunc(servers, func(s mediaservers.Record) bool { return s.ID == e.Server })
+	if i < 0 {
+		return "", ErrServerNotFound
+	}
+	return servers[i].Name, nil
 }
 
 // SetPublic changes a Media Server Exposure's public address and checks
 // it again.
-func (r *Reachability) SetPublic(ctx context.Context, _ identity.Admin, id judge.ExposureID, public string) (Exposure, error) {
+func (r *Reachability) SetPublic(ctx context.Context, _ identity.Admin, id judge.ExposureID, public string) (Named, error) {
 	u, err := parsePublic(public)
 	if err != nil {
-		return Exposure{}, err
+		return Named{}, err
 	}
-	var e Exposure
+	var (
+		e       Exposure
+		subject string
+	)
 	err = r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		n, err := q.SetPublic(ctx, db.SetPublicParams{ID: id, Public: new(u.String())})
@@ -178,15 +205,19 @@ func (r *Reachability) SetPublic(ctx context.Context, _ identity.Admin, id judge
 			return ErrNotFound
 		}
 		row, err := q.GetExposure(ctx, id)
+		if err != nil {
+			return err
+		}
 		e = exposureOf(row)
+		subject, err = subjectIn(ctx, tx, e)
 		return err
 	})
 	if err != nil {
-		return Exposure{}, err
+		return Named{}, err
 	}
 	r.changed(ctx, id.UUID)
 	r.start(ctx, e.Unit())
-	return e, nil
+	return Named{Exposure: e, Subject: subject}, nil
 }
 
 // Unwant stops checking an Exposure and forgets its result.

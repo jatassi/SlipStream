@@ -30,7 +30,7 @@ func wantPlex(t *testing.T, w *reachabilitytest.World, b *judgetest.B, runsOn ro
 		t.Fatal(err)
 	}
 	synctest.Wait()
-	return e
+	return e.Exposure
 }
 
 func sent(calls []reachabilitytest.Call, node role.NodeID, method string) int {

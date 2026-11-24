@@ -61,6 +61,14 @@ func codeOf(reply string) string {
 	return p.Code
 }
 
+func subjectOf(reply string) string {
+	var e struct {
+		Subject string `json:"subject"`
+	}
+	_ = json.Unmarshal([]byte(reply), &e)
+	return e.Subject
+}
+
 func idOf(reply string) string {
 	var e struct {
 		ID string `json:"id"`
@@ -79,6 +87,8 @@ func TestEveryOperationAndProblem(t *testing.T) {
 		server := plex(t, w)
 		other := storage.NewUUID().String()
 		var exposure string
+		// The Exposure a write answers with is named.
+		subjects := map[string]string{"a Media Server": "Plex", "the UI and portal": "SlipStream UI and portal", "its address": "Plex"}
 		for _, c := range []struct {
 			name, method string
 			path, body   func() string
@@ -117,6 +127,9 @@ func TestEveryOperationAndProblem(t *testing.T) {
 			synctest.Wait()
 			if status != c.status || codeOf(reply) != c.code {
 				t.Fatalf("%s: %d %s, want %d %q", c.name, status, reply, c.status, c.code)
+			}
+			if want, ok := subjects[c.name]; ok && subjectOf(reply) != want {
+				t.Errorf("%s answered subject %q, want %q", c.name, subjectOf(reply), want)
 			}
 			if c.name == "a Media Server" {
 				exposure = idOf(reply)

@@ -170,7 +170,7 @@ func (h handlers) add(ctx context.Context, admin identity.Admin, in *addInput) (
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &exposureOutput{Body: exposureViewOf(e, "")}, nil
+	return &exposureOutput{Body: exposureViewOf(e.Exposure, e.Subject)}, nil
 }
 
 type idInput struct {
@@ -203,7 +203,7 @@ func (h handlers) edit(ctx context.Context, admin identity.Admin, in *editInput)
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &exposureOutput{Body: exposureViewOf(e, "")}, nil
+	return &exposureOutput{Body: exposureViewOf(e.Exposure, e.Subject)}, nil
 }
 
 func (h handlers) remove(ctx context.Context, admin identity.Admin, in *idInput) (*struct{}, error) {
