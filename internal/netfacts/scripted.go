@@ -74,7 +74,7 @@ func (s *scripted) sockets(ctx context.Context, ports []uint16) ([]netmodel.List
 	return listeners, err
 }
 
-func (s *scripted) firewall(_ context.Context, qs []Query) ([]netmodel.Rule, error) {
+func (s *scripted) firewall(_ context.Context, _ string, qs []Query) ([]netmodel.Rule, error) {
 	f, err := s.file()
 	if err != nil {
 		return nil, err

@@ -26,6 +26,8 @@ var procRoot = "/"
 // no link-layer header.
 const arphrdNone = "65534"
 
+func tunnels() (func(net.Interface) bool, error) { return tunnel, nil }
+
 func tunnel(i net.Interface) bool {
 	if i.Flags&net.FlagPointToPoint != 0 {
 		return true
@@ -68,7 +70,8 @@ func defaultGateway(table []byte, iface string) netip.Addr {
 	return netip.Addr{}
 }
 
-type socket struct {
+// procSocket is a listening socket in /proc/net/tcp or tcp6.
+type procSocket struct {
 	local netip.AddrPort
 	inode string
 }
@@ -77,64 +80,37 @@ type socket struct {
 const tcpListen = "0A"
 
 // Sockets is what listens on each port, from /proc/net/tcp and tcp6, with
-// its owner where /proc lets this process see it. A port nothing listens
-// on reads No for both families.
+// its owner where /proc lets this process see it.
 func Sockets(_ context.Context, ports []uint16) ([]netmodel.Listener, error) {
-	var socks []socket
+	socks, err := procSockets(ports)
+	return listenersOn(ports, socks), err
+}
+
+func procSockets(ports []uint16) ([]socket, error) {
+	var found []procSocket
 	for _, name := range []string{"tcp", "tcp6"} {
 		data, err := os.ReadFile(filepath.Join(procRoot, "proc", "net", name)) //nolint:gosec // G304: a /proc path
 		if err != nil {
 			return nil, fmt.Errorf("read the listening sockets: %w", err)
 		}
-		socks = append(socks, listening(data, ports)...)
+		found = append(found, listening(data, ports)...)
 	}
-	owners := ownersOf(socks)
-	dual := bindV6Only() == "0"
-	out := make([]netmodel.Listener, 0, len(ports))
-	for _, p := range ports {
-		out = append(out, listenerOn(p, socks, owners, dual))
+	owners := ownersOf(found)
+	v4 := netmodel.Unknown
+	if bindV6Only() == "0" {
+		v4 = netmodel.Yes
+	}
+	out := make([]socket, len(found))
+	for i, s := range found {
+		out[i] = socket{local: s.local, owner: owners[s.inode], v4: v4}
 	}
 	return out, nil
 }
 
-// listenerOn is what socks say listens on port p.
-func listenerOn(p uint16, socks []socket, owners map[string]string, dual bool) netmodel.Listener {
-	l := netmodel.Listener{Port: p, V4: netmodel.No, V6: netmodel.No, Loopback: true}
-	found := false
-	for _, s := range socks {
-		if s.local.Port() != p {
-			continue
-		}
-		found = true
-		if name := owners[s.inode]; name != "" {
-			l.Program.Name = name
-			l.Docker = l.Docker || name == "docker-proxy"
-		}
-		a := s.local.Addr()
-		if a.IsLoopback() || a.Unmap().IsLoopback() {
-			continue
-		}
-		l.Loopback = false
-		switch {
-		case a.Is4() || a.Is4In6():
-			l.V4 = netmodel.Yes
-		case a.IsUnspecified():
-			l.V6 = netmodel.Yes
-			if l.V4 != netmodel.Yes {
-				l.V4 = map[bool]netmodel.Tri{true: netmodel.Yes, false: netmodel.Unknown}[dual]
-			}
-		default:
-			l.V6 = netmodel.Yes
-		}
-	}
-	l.Loopback = l.Loopback && found
-	return l
-}
-
 // listening is the sockets in a /proc/net/tcp or tcp6 table that listen
 // on one of ports.
-func listening(table []byte, ports []uint16) []socket {
-	var out []socket
+func listening(table []byte, ports []uint16) []procSocket {
+	var out []procSocket
 	lines := bufio.NewScanner(bytes.NewReader(table))
 	for lines.Scan() {
 		f := strings.Fields(lines.Text())
@@ -143,7 +119,7 @@ func listening(table []byte, ports []uint16) []socket {
 		}
 		at, ok := procAddr(f[1])
 		if ok && slices.Contains(ports, at.Port()) {
-			out = append(out, socket{local: at, inode: f[9]})
+			out = append(out, procSocket{local: at, inode: f[9]})
 		}
 	}
 	return out
@@ -167,7 +143,7 @@ func procAddr(s string) (netip.AddrPort, bool) {
 
 // ownersOf names each socket's owning process by its inode, where this
 // process may read that process's descriptors.
-func ownersOf(socks []socket) map[string]string {
+func ownersOf(socks []procSocket) map[string]string {
 	want := map[string]bool{}
 	for _, s := range socks {
 		want["socket:["+s.inode+"]"] = true
@@ -201,6 +177,6 @@ func bindV6Only() string {
 // Firewall reads Unknown: nftables and ufw can't be read without
 // privilege, and an Allows from firewalld alone would hide every other
 // rule.
-func Firewall(_ context.Context, port uint16, fam netmodel.Family) netmodel.Rule {
-	return netmodel.Rule{Port: port, Family: fam}
+func Firewall(_ context.Context, _ string, asks []netmodel.Rule) ([]netmodel.Rule, error) {
+	return asks, nil
 }

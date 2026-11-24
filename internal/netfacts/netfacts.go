@@ -82,7 +82,7 @@ func (n *Netfacts) Facts(ctx context.Context, ports []uint16, maxAge time.Durati
 		}
 		f = p.facts()
 	}
-	listeners, rules, err := n.listening(ctx, ports)
+	listeners, rules, err := n.listening(ctx, ports, f.Egress.Iface)
 	f.Listeners, f.Firewall = listeners, rules
 	return f, err
 }
@@ -170,8 +170,9 @@ func (n *Netfacts) interfaces(ctx context.Context) ([]netmodel.Iface, error) {
 }
 
 // listening reads what listens on ports and what the firewall says of
-// each, with SlipStream's own listeners as the Node knows them.
-func (n *Netfacts) listening(ctx context.Context, ports []uint16) ([]netmodel.Listener, []netmodel.Rule, error) {
+// each for connections arriving on egress, with SlipStream's own
+// listeners as the Node knows them.
+func (n *Netfacts) listening(ctx context.Context, ports []uint16, egress string) ([]netmodel.Listener, []netmodel.Rule, error) {
 	if len(ports) == 0 {
 		return nil, nil, nil
 	}
@@ -190,7 +191,7 @@ func (n *Netfacts) listening(ctx context.Context, ports []uint16) ([]netmodel.Li
 	for _, p := range ports {
 		qs = append(qs, Query{Port: p, Family: netmodel.IPv4}, Query{Port: p, Family: netmodel.IPv6})
 	}
-	rules, err := n.cfg.Env.Firewall(ctx, qs)
+	rules, err := n.cfg.Env.Firewall(ctx, egress, qs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read the firewall: %w", err)
 	}

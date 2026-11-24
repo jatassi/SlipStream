@@ -127,7 +127,7 @@ func env() netfacts.Env {
 			return netfacts.Route{Iface: "eth0"}, nil
 		},
 		Sockets: func(context.Context, []uint16) ([]netmodel.Listener, error) { return nil, nil },
-		Firewall: func(_ context.Context, qs []netfacts.Query) ([]netmodel.Rule, error) {
+		Firewall: func(_ context.Context, _ string, qs []netfacts.Query) ([]netmodel.Rule, error) {
 			return make([]netmodel.Rule, len(qs)), nil
 		},
 		Packets: loopback{},
