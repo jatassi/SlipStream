@@ -19,3 +19,6 @@ The Reachability diagnostic gives each Exposure one verdict: Reachable, Fixable 
 - The Relay Node probes offered IPv6 addresses when it has IPv6 itself, and warns when a home service meant to be relayed answers directly over IPv6.
 - A change in a Node's published IPv6 address or its IPv6 class reruns that Node's diagnostic. Temporary address changes never do.
 - With "IPv6 is enough" on, the Player hop lists who is cut off: Roku, IPv4-only networks, Plex apps without the IPv6 toggle, and Plex servers without Plex Pass.
+- An untested verdict is Reachable only when local facts prove a way in, and it never raises Health. Only a failing check starts the wait before Health warns.
+- A Tester crosses the internet as a player does: a paired Node outside the home connects to the public address, and a Node on the home network never tests, since hairpin NAT would pass where a player fails.
+- A Route may run through the admin's own proxy, which SlipStream judges end to end: the proxy's address in DNS, its certificate, and the leg from the proxy to the Node that serves the Exposure.

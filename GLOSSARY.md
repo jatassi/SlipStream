@@ -264,14 +264,24 @@ _In UI_: "Relaying", and "Relay Node" for the Node.
 _Avoid_: Tunnel, proxy, gateway
 
 **Exposure**:
-One thing the admin makes reachable from the internet: the UI and portal, one Media Server, or one named port. The Reachability diagnostic gives each Exposure one verdict, and Remote access draws it as one route.
+One thing that the admin chooses to make reachable from the internet: the UI and portal, one Media Server, or one named port. Each has one public address. The Reachability diagnostic gives each Exposure one verdict, and Remote access draws it as one Route.
 _In UI_: none. Name the thing made reachable, such as the UI or Living room Plex.
 _Avoid_: Service, endpoint, forward
 
 **Reachability diagnostic**:
-The check that tells the admin whether each Exposure can be reached from the internet, over IPv4 and over any IPv6 address DNS or the Media Server offers, and what to do if not: open or map a port, stop offering an address that doesn't work, or turn on Relaying.
+The check that tells the admin whether each Exposure can be reached from the internet, over IPv4 and over any IPv6 address DNS or the Media Server offers, and what to do if not: open or map a port, put it behind HTTPS, stop offering an address that doesn't work, or turn on Relaying.
 _In UI_: "Reachability check".
 _Avoid_: Port check, firewall check, connectivity test
+
+**Route**:
+One Exposure's way in from a player outside the home: the hops from the player through DNS, TLS and any proxy to the Node that serves it. Remote access draws each Exposure as one Route.
+_In UI_: "Route".
+_Avoid_: Path
+
+**Tester**:
+The paired Node that connects to an Exposure's public address as a player would, from outside the home, so the Reachability diagnostic sees what a player sees. A Node on the home network never tests.
+_In UI_: none. Name the Node, such as "Tested from seedbox".
+_Avoid_: Prober, checker
 
 **Transfer**:
 A one-way copy of files from one Node to another for a job, such as a completed download going to the storage Node that imports it. The source keeps its copy, and the receiving Node is the destination.
