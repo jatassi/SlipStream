@@ -3,7 +3,6 @@ import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
 import { Defined } from "../ui/defined";
 import { VerdictChips } from "./chips";
-import { FixText } from "./fix";
 import { RouteHops } from "./route-hops";
 import { RouteMenu } from "./route-menu";
 import { routeKinds } from "./words";
@@ -36,13 +35,10 @@ function Heading({ route }: { route: ReachabilityRoute }) {
  */
 export function RouteCard({
   route,
-  recommended,
   selectedHop,
   onSelectHop,
 }: {
   route: ReachabilityRoute;
-  /** The page's card already gives this route's fix. */
-  recommended: boolean;
   selectedHop: number | undefined;
   onSelectHop: (index: number) => void;
 }) {
@@ -68,7 +64,6 @@ export function RouteCard({
               {fact.text}
             </p>
           ))}
-          {!recommended && route.fix !== null && <FixText fix={route.fix} />}
         </>
       )}
       {route.testedBy !== undefined && <p className="text-meta text-ink-3">{route.testedBy}</p>}

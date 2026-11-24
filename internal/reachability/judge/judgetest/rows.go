@@ -140,7 +140,7 @@ func Rows() []Row {
 		row("own proxy certificate expired for the UI", OwnProxy().UI("https://slipstream.proxy.fake.localhost").Tested(v4, Expired),
 			hops(failing(judge.Fixable, true, judge.CheckTLSCertificate, v4, judge.FixCertificate,
 				judge.Params{Host: "slipstream.proxy.fake.localhost", Date: Expires, Raw: "expired"}),
-				pass, pass, pass, fail, unreached, unreached)),
+				pass, pass, pass, fail, unreached)),
 		row("own proxy certificate for another name", OwnProxy().Tested(v4, WrongName),
 			failing(judge.Fixable, true, judge.CheckTLSCertificate, v4, judge.FixCertificate,
 				judge.Params{Host: "plex.proxy.fake.localhost", Date: Expires.AddDate(1, 0, 0), Raw: "wrong-name"})),

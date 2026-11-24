@@ -64,6 +64,13 @@ func Place(f Facts) Placement {
 			pl.Notes = append(pl.Notes, Fact{ID: FactSplitHorizon, Params: Params{Host: f.Exposure.Public.Hostname(), Addr: home}})
 		}
 	}
+	if f.Exposure.Kind == UIPortal {
+		// The UI and portal is SlipStream on the origin: its route ends there.
+		for fam, r := range pl.Routes {
+			r.Hops = slices.DeleteFunc(slices.Clone(r.Hops), func(k HopKind) bool { return k == MediaServerHop })
+			pl.Routes[fam] = r
+		}
+	}
 	return pl
 }
 

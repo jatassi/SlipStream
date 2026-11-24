@@ -868,6 +868,8 @@ Remote access draws each Exposure as a lane of hops, in the order a player's con
 - **Through your own proxy:** Player, DNS, Proxy, TLS, Origin and Media Server. The Proxy hop is the Admin's own server at the public address, which SlipStream doesn't run, so its checks read what a player sees there and the origin's bind and firewall are facts.
 - **Through the Relay Node:** Player, DNS, Relay, TLS, Node link, Origin and Media Server.
 
+The UI and portal is SlipStream on the origin, so its route ends at Origin, with no Media Server hop. A route's fix shows in the page's card and in its hops' checks, never again under its hops.
+
 A hop is a small `fill` tile joined by a 2px connector, and it takes the worst result of its checks. A failing hop takes the signal card of the verdict its failing checks point to, red for Needs a relay and amber for Fixable, with a 3px connector after it in that signal. A hop past a failure reads "not reached", with a dashed outline and a dashed connector. A passing hop carries a green check. A Not tested or Not used hop stays `fill` with no signal. Selecting a hop opens its checks in the Inspector in the desktop shell and a sheet on phone. Each check leads with its result and family, then what it means and its fix, with what was seen and the Node that saw it, and when, under Details.
 
 A route that is Reachable and was tested from outside folds to one line: its subject, its public address, its families tag, its route kind and the green Reachable chip. Every other route draws its hops.

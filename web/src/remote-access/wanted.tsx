@@ -39,7 +39,6 @@ export function Wanted({ page, pair }: { page: ReachabilityRemoteAccess; pair: (
             <RouteCard
               key={route.exposure.id}
               route={route}
-              recommended={route.exposure.id === page.card?.exposureId}
               selectedHop={selection?.exposureId === route.exposure.id ? selection.hop : undefined}
               onSelectHop={(hop) => {
                 setSelection({ exposureId: route.exposure.id, hop });

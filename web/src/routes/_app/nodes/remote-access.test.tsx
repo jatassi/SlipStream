@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { ReachabilityCard } from "../../../api/gen/model";
+import type { ReachabilityCard, ReachabilityRoute } from "../../../api/gen/model";
 import { joinCodeServer } from "../../../test/join-codes";
 import { homeId } from "../../../test/nodes";
 import {
@@ -10,13 +10,15 @@ import {
   connectRefused,
   dnsA,
   forward,
+  plexRoute,
   remoteAccessServer,
   wanted,
 } from "../../../test/remote-access";
 import { renderApp } from "../../../test/render-app";
 
-function open(card: ReachabilityCard | null) {
-  const server = remoteAccessServer(wanted(card));
+function open(card: ReachabilityCard | null, routes?: ReachabilityRoute[]) {
+  const shown = wanted(card);
+  const server = remoteAccessServer(routes === undefined ? shown : { ...shown, routes });
   renderApp({
     path: "/nodes/remote-access",
     handlers: [...server.handlers, ...joinCodeServer().handlers],
@@ -78,3 +80,17 @@ test.each([
     expect(page.getByText(check.meaning).elements()).toHaveLength(meaningShown);
   },
 );
+
+test("a failing route leaves its fix to the card and its hops, whether or not the card is its", async () => {
+  const other: ReachabilityRoute = {
+    ...plexRoute,
+    exposure: {
+      ...plexRoute.exposure,
+      id: "0199f3c0-3333-7000-8000-000000000009",
+      subject: "Den Plex",
+    },
+  };
+  open(cards.warn, [plexRoute, other]);
+  await expect.element(page.getByRole("region", { name: "Den Plex" })).toBeVisible();
+  expect(page.getByText(forward.step, { exact: false }).elements()).toHaveLength(0);
+});
