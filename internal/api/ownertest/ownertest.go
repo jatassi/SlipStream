@@ -106,6 +106,18 @@ func (o *Owner) CallSignedIn(t *testing.T, method, path, body string) (status in
 	return w.Code, w.Body.String()
 }
 
+// CallAs calls with session, such as a Member's from identitytest.Session,
+// or with no credential when session is empty.
+func (o *Owner) CallAs(t *testing.T, method, path, body, session string) (status int, reply string) {
+	t.Helper()
+	w := o.serve(t, method, path, body, func(r *http.Request) {
+		if session != "" {
+			r.Header.Set("Cookie", identity.CookieName+"="+session)
+		}
+	})
+	return w.Code, w.Body.String()
+}
+
 // Browse GETs path as the Admin's signed-in browser does, answering the
 // whole response.
 func (o *Owner) Browse(t *testing.T, path string) *http.Response {

@@ -1,0 +1,137 @@
+package reachabilityapi_test
+
+import (
+	"encoding/json"
+	"net/http"
+	"strings"
+	"testing"
+	"testing/synctest"
+
+	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/api/ownertest"
+	"github.com/jatassi/slipstream/internal/identity/identitytest"
+	"github.com/jatassi/slipstream/internal/reachability"
+	"github.com/jatassi/slipstream/internal/reachability/judge/judgetest"
+	"github.com/jatassi/slipstream/internal/reachability/reachabilitytest"
+	"github.com/jatassi/slipstream/internal/reachabilityapi"
+	"github.com/jatassi/slipstream/internal/storage"
+)
+
+type controller struct{ r *reachability.Reachability }
+
+func (c controller) Reachability() (*reachability.Reachability, bool) { return c.r, c.r != nil }
+
+func codeOf(reply string) string {
+	var p struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal([]byte(reply), &p)
+	return p.Code
+}
+
+func idOf(reply string) string {
+	var e struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal([]byte(reply), &e)
+	return e.ID
+}
+
+// Every operation in the order an Admin meets them, each problem
+// included. Each step's path and body may name what an earlier step made.
+func TestEveryOperationAndProblem(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		b := judgetest.Open().Inside()
+		w := reachabilitytest.New(t, b)
+		o := ownertest.Serve(t, w.Lib, func(r *api.Router) { reachabilityapi.Routes(r, controller{w.Reach}) })
+		plex := w.Plex(t, "Plex", judgetest.Atlas).String()
+		other := storage.NewUUID().String()
+		var exposure string
+		for _, c := range []struct {
+			name, method string
+			path, body   func() string
+			status       int
+			code         string
+		}{
+			{"nothing wanted reads empty", http.MethodGet, fixed("/api/v1/remote-access"), none, 200, ""},
+			{"a run with nothing wanted", http.MethodPost, fixed("/api/v1/remote-access/run"), none, 409, "nothing_wanted"},
+			{"no public address", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + plex + `"}`), 422, "public_required"},
+			{"a public address that isn't a URL", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + plex + `","public":"ftp://plex.example.org"}`), 422, "public_not_url"},
+			{"an unknown Media Server", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + other + `","public":"https://plex.example.org"}`), 404, "server_not_found"},
+			{"a Media Server", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + plex + `","public":"https://plex.example.org"}`), 201, ""},
+			{"the same Media Server again", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + plex + `","public":"https://plex.example.org"}`), 409, "exposure_exists"},
+			{"the UI and portal", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"ui-portal"}`), 201, ""},
+			{"an unknown Exposure's address", http.MethodPatch, fixed("/api/v1/remote-access/exposures/" + other), fixed(`{"public":"https://plex.example.org"}`), 404, "exposure_not_found"},
+			{"its address", http.MethodPatch, func() string { return "/api/v1/remote-access/exposures/" + exposure }, fixed(`{"public":"https://plex2.example.org"}`), 200, ""},
+			{"its address emptied", http.MethodPatch, func() string { return "/api/v1/remote-access/exposures/" + exposure }, fixed(`{"public":""}`), 422, "public_required"},
+			{"a run of an unknown Exposure", http.MethodPost, fixed("/api/v1/remote-access/run?exposure=" + other), none, 404, "exposure_not_found"},
+			{"a run of one", http.MethodPost, func() string { return "/api/v1/remote-access/run?exposure=" + exposure }, none, 202, ""},
+			{"the page", http.MethodGet, fixed("/api/v1/remote-access"), none, 200, ""},
+			{"an unknown Node's network", http.MethodGet, fixed("/api/v1/remote-access/nodes/" + other), none, 404, "node_not_found"},
+			{"den's network", http.MethodGet, fixed("/api/v1/remote-access/nodes/" + judgetest.Den.String()), none, 200, ""},
+			{"den's settings", http.MethodGet, fixed("/api/v1/remote-access/nodes/" + judgetest.Den.String() + "/settings"), none, 200, ""},
+			{"den's stable address inside the home", http.MethodPatch, fixed("/api/v1/remote-access/nodes/" + judgetest.Den.String() + "/settings"), fixed(`{"values":{"reachability.stableIPv6":"fd00::1"}}`), 422, "setting_out_of_range"},
+			{"den's stable address", http.MethodPatch, fixed("/api/v1/remote-access/nodes/" + judgetest.Den.String() + "/settings"), fixed(`{"values":{"reachability.stableIPv6":"2001:db8:1::30"}}`), 200, ""},
+			{"the settings", http.MethodGet, fixed("/api/v1/remote-access/settings"), none, 200, ""},
+			{"an unknown setting", http.MethodPatch, fixed("/api/v1/remote-access/settings"), fixed(`{"values":{"reachability.nothing":1}}`), 422, "unknown_setting"},
+			{"the warning's wait", http.MethodPatch, fixed("/api/v1/remote-access/settings"), fixed(`{"values":{"reachability.warnAfter":3600}}`), 200, ""},
+			{"an unknown suggestion", http.MethodPost, fixed("/api/v1/remote-access/suggestions/" + other + "/dismiss"), none, 404, "server_not_found"},
+			{"the UI and portal's suggestion", http.MethodPost, fixed("/api/v1/remote-access/suggestions/ui-portal/dismiss"), none, 204, ""},
+			{"an echo no check issued", http.MethodGet, fixed("/api/v1/remote-access/echo/" + strings.Repeat("0", 32)), none, 404, "echo_not_found"},
+			{"an unknown Exposure's removal", http.MethodDelete, fixed("/api/v1/remote-access/exposures/" + other), none, 404, "exposure_not_found"},
+			{"its removal", http.MethodDelete, func() string { return "/api/v1/remote-access/exposures/" + exposure }, none, 204, ""},
+		} {
+			status, reply := o.Call(t, c.method, c.path(), c.body())
+			synctest.Wait()
+			if status != c.status || codeOf(reply) != c.code {
+				t.Fatalf("%s: %d %s, want %d %q", c.name, status, reply, c.status, c.code)
+			}
+			if c.name == "a Media Server" {
+				exposure = idOf(reply)
+			}
+		}
+	})
+}
+
+func fixed(s string) func() string { return func() string { return s } }
+
+func none() string { return "" }
+
+// Every operation but the echo refuses a Member; the echo answers anyone.
+func TestOnlyTheEchoAnswersBelowAdmin(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := reachabilitytest.New(t, judgetest.Open())
+		o := ownertest.Serve(t, w.Lib, func(r *api.Router) { reachabilityapi.Routes(r, controller{w.Reach}) })
+		member := identitytest.Session(t, w.Lib, identitytest.Member(t, w.Lib, "member@example.test"))
+		id := storage.NewUUID().String()
+		for _, c := range []struct{ method, path string }{
+			{http.MethodGet, "/api/v1/remote-access"},
+			{http.MethodPost, "/api/v1/remote-access/exposures"},
+			{http.MethodPatch, "/api/v1/remote-access/exposures/" + id},
+			{http.MethodDelete, "/api/v1/remote-access/exposures/" + id},
+			{http.MethodPost, "/api/v1/remote-access/suggestions/ui-portal/dismiss"},
+			{http.MethodPost, "/api/v1/remote-access/run"},
+			{http.MethodGet, "/api/v1/remote-access/nodes/" + id},
+			{http.MethodGet, "/api/v1/remote-access/nodes/" + id + "/settings"},
+			{http.MethodPatch, "/api/v1/remote-access/nodes/" + id + "/settings"},
+			{http.MethodGet, "/api/v1/remote-access/settings"},
+			{http.MethodPatch, "/api/v1/remote-access/settings"},
+		} {
+			if status, reply := o.CallAs(t, c.method, c.path, "{}", member); status != http.StatusForbidden {
+				t.Fatalf("a Member's %s %s: %d %s, want 403", c.method, c.path, status, reply)
+			}
+		}
+		if status, reply := o.CallAs(t, http.MethodGet, "/api/v1/remote-access/echo/"+strings.Repeat("0", 32), "", ""); status != http.StatusNotFound || codeOf(reply) != "echo_not_found" {
+			t.Fatalf("nobody's echo: %d %s, want 404 echo_not_found", status, reply)
+		}
+	})
+}
+
+// On a Node that is no Controller the echo answers that the check ended.
+func TestAWorkerAnswersNoEcho(t *testing.T) {
+	w := reachabilitytest.New(t, judgetest.Open())
+	o := ownertest.Serve(t, w.Lib, func(r *api.Router) { reachabilityapi.Routes(r, controller{}) })
+	if status, reply := o.CallAs(t, http.MethodGet, "/api/v1/remote-access/echo/"+strings.Repeat("a", 32), "", ""); status != http.StatusNotFound || codeOf(reply) != "echo_not_found" {
+		t.Fatalf("%d %s, want 404 echo_not_found", status, reply)
+	}
+}
