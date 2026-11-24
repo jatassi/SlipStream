@@ -81,6 +81,12 @@ var divergences = []divergence{
 		spec:        "#174",
 	},
 	{
+		id:          "outside-dialer",
+		keyPatterns: []string{"http.trusted_proxies"},
+		reason:      "In a Scenario with a network, Nodes trust 127.0.0.1 as a proxy, so the X-Forwarded-For the outside dialer adds gives a Node the tester's scripted address.",
+		spec:        "#176",
+	},
+	{
 		id:          "fake-endpoints",
 		keyPatterns: []string{"endpoints.*"},
 		reason:      "Each boundary's endpoints point at its fake.",

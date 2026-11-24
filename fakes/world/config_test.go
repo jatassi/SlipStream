@@ -69,6 +69,14 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 			use(t, used, "catalog "+name, databaseSettings(setup.TCPPeers))
 		}
 	}
+	network, err := networkHome()
+	if err != nil {
+		t.Fatal(err)
+	}
+	endpoints := fakeEndpoints(network)
+	for i := range network.Nodes {
+		use(t, used, "the network home node "+network.Nodes[i].Name, settings(configKeys(t, network, i, listen, endpoints), nodeenv.World("ca.pem")))
+	}
 	var all []string
 	for _, d := range divergences {
 		all = append(all, d.id)
@@ -76,6 +84,26 @@ func TestEveryDivergenceIsUsedByTheCatalog(t *testing.T) {
 	if got := usedIDs(used); !reflect.DeepEqual(got, all) {
 		t.Fatalf("the catalog uses divergences %v of %v; delete the rest", got, all)
 	}
+}
+
+// networkHome is home with a network block, the Go-built Scenario that
+// plays every network fake until the catalog's remote Scenarios land: the
+// Controller behind a public router that forwards its web listener, and
+// seedbox on a VPS with no router.
+func networkHome() (scenario.Scenario, error) {
+	s, err := scenario.Load("home")
+	if err != nil {
+		return scenario.Scenario{}, err
+	}
+	s.Network = &scenario.Network{
+		Sites: []scenario.Site{
+			{Name: "lan", WAN: "public", Address: "203.0.113.9", Mapping: []string{"pcp", "nat-pmp", "upnp"}, Forwards: []scenario.Forward{{Node: "home", Service: "http"}}},
+			{Name: "vps", WAN: "none", Address: "192.0.2.44"},
+		},
+		DNS: []scenario.Record{{Name: "slipstream.home.localhost", A: []string{"203.0.113.9"}}},
+	}
+	s.Nodes[0].Site, s.Nodes[1].Site = "lan", "vps"
+	return s, nil
 }
 
 func use(t *testing.T, used map[string]bool, who string, s []setting) {
@@ -93,11 +121,15 @@ func fakeEndpoints(s scenario.Scenario) node.EndpointsBlock {
 	e := node.Defaults(contenttype.Set{}, install.Dev).Endpoints
 	at := fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:1"), TLS: true}
 	for _, spec := range fakes {
-		if spec.ContentType == "" || slices.Contains(s.ContentTypes(), spec.ContentType) {
+		if plays(spec, s) {
 			spec.Endpoints(&e, at)
 		}
 	}
 	return e
+}
+
+func plays(spec fake.Spec, s scenario.Scenario) bool {
+	return (spec.ContentType == "" || slices.Contains(s.ContentTypes(), spec.ContentType)) && (spec.Plays == nil || spec.Plays(s))
 }
 
 func configKeys(t *testing.T, s scenario.Scenario, i int, listen []string, endpoints node.EndpointsBlock) []node.Key {
@@ -143,7 +175,7 @@ func catalogPlan(t *testing.T, s scenario.Scenario) *fault.Plan {
 	}
 	plan := fault.NewPlan(planFronts(fakes, names, s.Releases, s.Leecher), nil)
 	for _, spec := range fakes {
-		if spec.NewUDP != nil {
+		if spec.NewUDP != nil || !plays(spec, s) {
 			continue
 		}
 		if _, err := spec.New(s, fake.NewEnv(s, spec, slog.New(slog.DiscardHandler), plan, discard{})); err != nil {
