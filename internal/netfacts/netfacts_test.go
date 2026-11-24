@@ -209,7 +209,9 @@ func TestAWatchedReadAsksEachSTUNServer(t *testing.T) {
 }
 
 // Reads share the last pass while it is younger than max_age; a local
-// Read, or any Read once the intent stops the watch, sends nothing.
+// Read, or any Read once the intent stops the watch, sends nothing. A
+// local Read while watching carries the last pass's STUN answers and
+// router.
 func TestReadsShareAPassAndALocalReadSendsNothing(t *testing.T) {
 	endpoints, stun := stunServers(t)
 	n := netfacts.New(netfacts.Config{Local: storagetest.Local(t, netfacts.Schema()), Env: env(), Endpoints: endpoints("atlas"), Timings: timings(), Rules: netmodel.Rules{DocumentationGlobal: true}, Log: slog.New(slog.DiscardHandler)})
@@ -224,11 +226,12 @@ func TestReadsShareAPassAndALocalReadSendsNothing(t *testing.T) {
 		stop    bool
 		sends   int
 		watched bool
+		stun    int
 	}{
-		{"a Read inside max_age", time.Hour, false, false, 0, true},
-		{"a Read with no max_age", 0, false, false, 2, true},
-		{"a local Read", 0, true, false, 0, false},
-		{"a Read once the watch stops", 0, false, true, 0, false},
+		{"a Read inside max_age", time.Hour, false, false, 0, true, 2},
+		{"a Read with no max_age", 0, false, false, 2, true, 2},
+		{"a local Read", 0, true, false, 0, false, 2},
+		{"a Read once the watch stops", 0, false, true, 0, false, 0},
 	} {
 		if c.stop {
 			h.intents <- &netv1.Intent{}
@@ -237,8 +240,9 @@ func TestReadsShareAPassAndALocalReadSendsNothing(t *testing.T) {
 		f, err := n.Facts(t.Context(), []uint16{8484}, c.maxAge, c.local)
 		got := len(stun.Records(t)) - sent
 		sent += got
-		if err != nil || got != c.sends || f.Watched != c.watched {
-			t.Errorf("%s sent %d STUN requests and read watched %t, %v; want %d and %t", c.name, got, f.Watched, err, c.sends, c.watched)
+		if err != nil || got != c.sends || f.Watched != c.watched || len(f.STUN) != c.stun {
+			t.Errorf("%s sent %d STUN requests and read watched %t with %d STUN answers, %v; want %d, %t and %d",
+				c.name, got, f.Watched, len(f.STUN), err, c.sends, c.watched, c.stun)
 		}
 	}
 	if last := h.published(); last[len(last)-1].GetWatched() {

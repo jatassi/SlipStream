@@ -80,10 +80,12 @@ func New(cfg Config) *Netfacts {
 // Facts reads this Node's facts: interfaces, STUN and the router from the
 // last full pass when it is younger than maxAge, else from a fresh one,
 // and listeners and firewall fresh for ports. Local, or while the watch's
-// intent says not to watch, nothing leaves the machine.
+// intent says not to watch, nothing leaves the machine: interfaces are
+// read fresh, and a local Read while watching carries the last pass's
+// egress, router and STUN answers.
 func (n *Netfacts) Facts(ctx context.Context, ports []uint16, maxAge time.Duration, local bool) (netmodel.NetworkFacts, error) {
 	n.mu.Lock()
-	watching := n.watching
+	watching, last := n.watching, n.last
 	n.mu.Unlock()
 	var f netmodel.NetworkFacts
 	if local || !watching {
@@ -92,6 +94,9 @@ func (n *Netfacts) Facts(ctx context.Context, ports []uint16, maxAge time.Durati
 			return f, err
 		}
 		f = netmodel.NetworkFacts{At: time.Now(), Interfaces: ifaces}
+		if watching {
+			f.Egress, f.Gateway, f.STUN = last.egress, last.gateway, last.stun
+		}
 	} else {
 		p, err := n.recent(ctx, maxAge)
 		if err != nil {
