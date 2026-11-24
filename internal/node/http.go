@@ -61,6 +61,7 @@ func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.
 	surface.Mount(r, s)
 	handler := serving.Front(r.Handler(), n.servingWorker)
 	srv := api.NewServer(handler, cfg.Timings.HTTP, log)
+	srv.ConnContext = api.OnListener
 	served := api.NewServer(handler, cfg.Timings.HTTP, log)
 	served.ConnContext = api.OverLink
 	n.stack.Go("http", func(context.Context) error {
