@@ -134,7 +134,7 @@ func plays(spec fake.Spec, s scenario.Scenario) bool {
 
 func configKeys(t *testing.T, s scenario.Scenario, i int, listen []string, endpoints node.EndpointsBlock) []node.Key {
 	t.Helper()
-	data, err := setup.Config(s, i, listen, netip.MustParseAddrPort("127.0.0.1:2"), endpoints)
+	data, err := setup.Config(s, i, listen, netip.MustParseAddrPort("127.0.0.1:2"), "", endpoints)
 	if err != nil {
 		t.Fatal(err)
 	}
