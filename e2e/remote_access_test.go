@@ -35,7 +35,7 @@ func TestRemoteAccess(t *testing.T) {
 		scenario string
 		edit     func(*scenario.Scenario)
 		// ui and plex are the routes' public addresses, each {port} the
-		// port atlas listens on; an empty ui wants no UI and portal.
+		// port the UI or Plex listens on; an empty ui wants no UI and portal.
 		ui, plex string
 		rows     []matrixRow
 	}{
@@ -53,7 +53,22 @@ func TestRemoteAccess(t *testing.T) {
 		},
 		{
 			name: "remote-mappable", scenario: "remote-mappable", plex: "http://plex.mappable.localhost:{port}",
-			rows: []matrixRow{{subject: plexName, want: verdict{"fixable", "outside.connect", "mappable-plex", "warn", false}}},
+			rows: []matrixRow{
+				{subject: plexName, want: verdict{"fixable", "outside.connect", "mappable-plex", "warn", false}},
+				{play: mapPorts("atlas", true), subject: plexName, want: verdict{"reachable", "", "", "none", true}, by: "seedbox", writes: []string{"pcp map"}},
+				{play: mapPorts("atlas", false), subject: plexName, want: verdict{"fixable", "outside.connect", "mappable-plex", "warn", false}, writes: []string{"pcp map", "pcp delete"}},
+				{play: mapPorts("atlas", true), subject: plexName, want: verdict{"reachable", "", "", "none", true}, by: "seedbox", writes: []string{"pcp map", "pcp delete", "pcp map"}},
+				{play: removePlex, writes: []string{"pcp map", "pcp delete", "pcp map", "pcp delete"}},
+			},
+		},
+		{
+			name: "remote-mappable on a Worker", scenario: "remote-mappable", plex: "http://plex.mappable.localhost:{port}",
+			edit: plexOnDen,
+			rows: []matrixRow{
+				{subject: plexName, want: verdict{"fixable", "outside.connect", "mappable-plex", "warn", false}},
+				{play: mapPorts("den", true), subject: plexName, want: verdict{"reachable", "", "", "none", true}, by: "seedbox", writes: []string{"pcp map"}},
+				{play: removeNode("den"), writes: []string{"pcp map", "pcp delete"}},
+			},
 		},
 		{
 			name: "remote-cgnat", scenario: "remote-cgnat", plex: "http://plex.cgnat.localhost:{port}",
@@ -112,7 +127,7 @@ func TestRemoteAccess(t *testing.T) {
 			w.a = api(t, w.run)
 			w.nothingWanted(t)
 			doctor(t, w.run)
-			w.want(t, c.ui, c.plex)
+			w.want(t, c.ui, c.plex, s.Nodes[0].MediaServers[0].RunsOn)
 			for _, r := range c.rows {
 				var since time.Time
 				if r.play != nil {
@@ -138,14 +153,18 @@ type verdict struct {
 }
 
 // matrixRow plays play, then waits until subject's route, judged after
-// the time play answers, reads want, carries facts, and has the check
-// fails names failing with its fix beside the deciding one.
+// the time play answers, reads want, carries facts, has the check fails
+// names failing with its fix beside the deciding one, and was tested from
+// outside by by; and until the routers' write requests are writes, each
+// its protocol and op, in order. An empty subject waits for writes alone.
 type matrixRow struct {
 	play    func(*testing.T, *remoteWorld) time.Time
 	subject string
 	want    verdict
 	facts   []string
 	fails   string
+	by      string
+	writes  []string
 }
 
 type remoteWorld struct {
@@ -183,6 +202,7 @@ type remoteCheck struct {
 	Points string  `json:"points"`
 	Fact   bool    `json:"fact"`
 	Fix    *idOnly `json:"fix"`
+	By     string  `json:"by"`
 }
 
 // failing are r's failing checks, each its id, /ipv6 for the IPv6
@@ -221,6 +241,18 @@ func (r remoteRoute) verdict() verdict {
 	return v
 }
 
+// testedBy is the Node whose connection from outside passed.
+func (r remoteRoute) testedBy() string {
+	for _, h := range r.Hops {
+		for _, c := range h.Checks {
+			if c.ID == "outside.connect" && c.Result == "passes" {
+				return c.By
+			}
+		}
+	}
+	return ""
+}
+
 func (r remoteRoute) facts() []string {
 	out := []string{}
 	for _, f := range r.Facts {
@@ -248,22 +280,51 @@ func (w *remoteWorld) route(t *testing.T, subject string) remoteRoute {
 }
 
 // await waits until r.subject's route, judged after since, reads r.want,
-// carries r.facts and fails r.fails.
+// carries r.facts, fails r.fails and was tested by r.by, and until the
+// routers took r.writes.
 func (w *remoteWorld) await(t *testing.T, r matrixRow, since time.Time) {
 	t.Helper()
 	var last remoteRoute
+	var writes []string
 	defer func() {
 		if t.Failed() {
-			t.Logf("%s's route last read %+v", r.subject, last)
+			t.Logf("%s's route last read %+v; the routers took %q", r.subject, last, writes)
 		}
 	}()
-	worldtest.Until(t, fmt.Sprintf("%s reads %+v", r.subject, r.want), func() (bool, error) {
+	worldtest.Until(t, fmt.Sprintf("%s reads %+v and the routers took %q", r.subject, r.want, r.writes), func() (bool, error) {
+		writes = w.writes(t)
+		if !slices.Equal(writes, r.writes) {
+			return false, nil
+		}
+		if r.subject == "" {
+			return true, nil
+		}
 		last = w.route(t, r.subject)
 		has := last.facts()
 		return last.Checked && last.JudgedAt.After(since) && last.verdict() == r.want &&
 			!slices.ContainsFunc(r.facts, func(f string) bool { return !slices.Contains(has, f) }) &&
-			(r.fails == "" || slices.Contains(last.failing(), r.fails)), nil
+			(r.fails == "" || slices.Contains(last.failing(), r.fails)) &&
+			(r.by == "" || last.testedBy() == r.by), nil
 	})
+}
+
+// writes are the write requests the routers took, each its protocol and
+// op, in order.
+func (w *remoteWorld) writes(t *testing.T) []string {
+	t.Helper()
+	recs, err := events.Select(w.run.Manifest().RunDir, events.Query{Kind: gateway.Requests.Kind, Match: map[string]string{"write": "true"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, rec := range recs {
+		var req gateway.Request
+		if err := json.Unmarshal(rec.Data, &req); err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, req.Protocol+" "+req.Op)
+	}
+	return out
 }
 
 // nothingWanted checks that with nothing wanted no Node sent a STUN or
@@ -281,9 +342,9 @@ func (w *remoteWorld) nothingWanted(t *testing.T) {
 	}
 }
 
-// want sets Address to ui and wants the UI and portal, then wants Plex at
-// plexAt.
-func (w *remoteWorld) want(t *testing.T, ui, plexAt string) {
+// want sets Address to ui and wants the UI and portal, then wants Plex,
+// which runs on plexOn, at plexAt.
+func (w *remoteWorld) want(t *testing.T, ui, plexAt, plexOn string) {
 	t.Helper()
 	m := w.run.Manifest()
 	if ui != "" {
@@ -293,7 +354,7 @@ func (w *remoteWorld) want(t *testing.T, ui, plexAt string) {
 		}
 		w.post(t, `{"kind":"ui-portal"}`)
 	}
-	i := slices.IndexFunc(m.Fronts, func(f world.Front) bool { return f.Target == plex.Fake.Name && f.Node == "atlas" })
+	i := slices.IndexFunc(m.Fronts, func(f world.Front) bool { return f.Target == plex.Fake.Name && f.Node == plexOn })
 	public := withPort(plexAt, netip.MustParseAddrPort(m.Fronts[i].Address).Port())
 	var servers struct {
 		Servers []idOnly `json:"servers"`
@@ -430,4 +491,56 @@ func plexMapping(state string) func(*testing.T, *remoteWorld) time.Time {
 		w.cue(t, plextv.PlexMapping.Name, `{"server":"`+plexName+`","state":"`+state+`"}`)
 		return w.runAgain(t)
 	}
+}
+
+// mapPorts sets node's "Open router ports automatically". The check that
+// change starts may read node's facts before node holds the intent that
+// maps or deletes, so once a router took that write it presses Run again.
+func mapPorts(node string, on bool) func(*testing.T, *remoteWorld) time.Time {
+	return func(t *testing.T, w *remoteWorld) time.Time {
+		took := len(w.writes(t))
+		body := fmt.Sprintf(`{"values":{"reachability.mapPorts":%t}}`, on)
+		if r := w.a.Admin("atlas", http.MethodPatch, "/api/v1/remote-access/nodes/"+w.a.Node(node).NodeID+"/settings", body); r.Status != http.StatusOK {
+			t.Fatalf("patchNodeNetworkSettings %s %s = %d %s", node, body, r.Status, r.Body)
+		}
+		worldtest.Until(t, "a router takes "+node+"'s next write", func() (bool, error) {
+			return len(w.writes(t)) > took, nil
+		})
+		return w.runAgain(t)
+	}
+}
+
+func removePlex(t *testing.T, w *remoteWorld) time.Time {
+	t.Helper()
+	if r := w.a.Admin("atlas", http.MethodDelete, "/api/v1/remote-access/exposures/"+w.plex, ""); r.Status != http.StatusNoContent {
+		t.Fatalf("removeExposure Plex = %d %s, want 204", r.Status, r.Body)
+	}
+	return time.Time{}
+}
+
+// removeNode removes the Worker node, and checks that a router took its
+// one delete before node restarted unpaired.
+func removeNode(node string) func(*testing.T, *remoteWorld) time.Time {
+	return func(t *testing.T, w *remoteWorld) time.Time {
+		was := w.a.Node(node)
+		if r := w.a.Admin("atlas", http.MethodDelete, "/api/v1/nodes/"+was.NodeID, ""); r.Status != http.StatusNoContent {
+			t.Fatalf("removeNode %s = %d %s, want 204", node, r.Status, r.Body)
+		}
+		dir := w.run.Manifest().RunDir
+		restarted, err := events.Wait(worldtest.Context(t), dir, events.Query{Kind: events.NodeRestarted, Node: node, Match: map[string]string{"oldPid": strconv.Itoa(was.PID)}})
+		if err != nil {
+			t.Fatalf("events.jsonl has no %s record for %s: %v", events.NodeRestarted, node, err)
+		}
+		deleted, err := events.Select(dir, events.Query{Kind: gateway.Requests.Kind, Node: node, Match: map[string]string{"op": "delete"}})
+		if err != nil || len(deleted) != 1 || deleted[0].Seq > restarted.Seq {
+			t.Fatalf("the routers hold %+v, %v from %s; want one delete before its restart at seq %d", deleted, err, node, restarted.Seq)
+		}
+		return time.Time{}
+	}
+}
+
+// plexOnDen runs Plex on den, a Worker in atlas's home.
+func plexOnDen(s *scenario.Scenario) {
+	s.Nodes[0].MediaServers[0].RunsOn = "den"
+	s.Nodes = append(s.Nodes, scenario.Node{Name: "den", Setup: scenario.SetupJoin, Site: "home", Firewall: s.Nodes[0].Firewall})
 }
