@@ -21279,7 +21279,7 @@
             "type": "string"
           },
           "skipped": {
-            "description": "Why the route wasn't checked since its last result, null while its origin is in step",
+            "description": "Why the route wasn't checked since its last result, null while the Node that serves it is online",
             "type": [
               "string",
               "null"

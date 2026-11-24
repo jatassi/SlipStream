@@ -23,7 +23,7 @@ export interface ReachabilityRoute {
   judgedAt: string | null;
   route?: ReachabilityRouteRoute;
   /**
-   * Why the route wasn't checked since its last result, null while its origin is in step
+   * Why the route wasn't checked since its last result, null while the Node that serves it is online
    * @nullable
    */
   skipped: string | null;

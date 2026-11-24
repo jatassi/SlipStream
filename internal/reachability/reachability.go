@@ -68,9 +68,9 @@ type Starter interface {
 }
 
 var (
-	ErrNotFound       = errors.New("no Exposure has this id")
+	ErrNotFound       = errors.New("no route has this id")
 	ErrExists         = errors.New("this is already set up for use away from home")
-	ErrPublicRequired = errors.New("a Media Server's Exposure needs its public address")
+	ErrPublicRequired = errors.New("a Media Server's route needs its public address")
 	ErrPublicNotURL   = errors.New("the public address isn't an http or https URL with a host")
 	ErrServerNotFound = errors.New("no Media Server has this id")
 	ErrNothingWanted  = errors.New("nothing is set up for use away from home")

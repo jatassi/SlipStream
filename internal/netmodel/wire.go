@@ -143,7 +143,7 @@ func ParseFacts(node role.NodeID, m *netv1.NetworkFacts, r Rules, now time.Time)
 	f := NetworkFacts{Node: node, At: time.UnixMilli(m.GetAtMs()), Watched: m.GetWatched()}
 	var errs []error
 	if m.GetAtMs() <= 0 || f.At.After(now.Add(aheadOfNow)) {
-		errs = append(errs, fmt.Errorf("observed time %d is not a time this Node could have read", m.GetAtMs()))
+		errs = append(errs, fmt.Errorf("observed time %d isn't a time this Node could have read", m.GetAtMs()))
 	}
 	fail := func(what string, err error) {
 		if err != nil {

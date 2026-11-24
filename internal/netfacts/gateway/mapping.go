@@ -15,7 +15,7 @@ import (
 
 // ErrNoAnswer is a router that stayed silent, or answered what isn't the
 // protocol: whether it took the request is unknown.
-var ErrNoAnswer = errors.New("the router didn't answer")
+var ErrNoAnswer = errors.New("the router didn't respond")
 
 // Ask is one TCP mapping asked of the router, from External on its
 // internet side to Internal on this Node, by Method.

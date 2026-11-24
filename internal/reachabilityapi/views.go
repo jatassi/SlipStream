@@ -85,7 +85,7 @@ type route struct {
 	Folded   bool                  `json:"folded" doc:"Reachable and tested: the route shows as one line"`
 	Card     string                `json:"card" enum:"none,untested,warn,fail"`
 	Fix      api.Nullable[fixView] `json:"fix" doc:"The step that fixes the deciding check, null with none"`
-	Skipped  *string               `json:"skipped" doc:"Why the route wasn't checked since its last result, null while its origin is in step"`
+	Skipped  *string               `json:"skipped" doc:"Why the route wasn't checked since its last result, null while the Node that serves it is online"`
 	TestedBy string                `json:"testedBy,omitempty"`
 	JudgedAt *time.Time            `json:"judgedAt"`
 	Hops     []hopView             `json:"hops" nullable:"false"`

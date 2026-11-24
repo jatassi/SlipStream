@@ -41,13 +41,13 @@ func (h handlers) open() *reachability.Reachability {
 
 var (
 	exposureExists   = api.NewCode(http.StatusConflict, "exposure_exists", "This is already set up for use away from home")
-	publicRequired   = api.NewCode(http.StatusUnprocessableEntity, "public_required", "Enter the address players outside your home use.")
-	publicNotURL     = api.NewCode(http.StatusUnprocessableEntity, "public_not_url", "Enter an http:// or https:// address with a host name.")
+	publicRequired   = api.NewCode(http.StatusUnprocessableEntity, "public_required", "Enter the address players outside your home use")
+	publicNotURL     = api.NewCode(http.StatusUnprocessableEntity, "public_not_url", "Enter an http:// or https:// address with a host name")
 	serverNotFound   = api.NewCode(http.StatusNotFound, "server_not_found", "No Media Server has this id")
 	exposureNotFound = api.NewCode(http.StatusNotFound, "exposure_not_found", "Nothing set up for use away from home has this id")
-	nothingWanted    = api.NewCode(http.StatusConflict, "nothing_wanted", "Nothing is set up for use away from home, so there is nothing to check.")
+	nothingWanted    = api.NewCode(http.StatusConflict, "nothing_wanted", "Nothing is set up for use away from home, so there is nothing to check")
 	nodeNotFound     = api.NewCode(http.StatusNotFound, "node_not_found", "No Node has this id")
-	echoNotFound     = api.NewCode(http.StatusNotFound, "echo_not_found", "This check has ended.")
+	echoNotFound     = api.NewCode(http.StatusNotFound, "echo_not_found", "This check has ended")
 )
 
 func answer(err error) error {

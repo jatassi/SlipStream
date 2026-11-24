@@ -11223,7 +11223,7 @@ export const ReachabilityRoute = zod.object({
     .string()
     .nullable()
     .describe(
-      "Why the route wasn't checked since its last result, null while its origin is in step",
+      "Why the route wasn't checked since its last result, null while the Node that serves it is online",
     ),
   tested: zod.boolean().describe("Every offered family was tested from outside"),
   testedBy: zod.string().exactOptional(),

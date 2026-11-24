@@ -176,7 +176,7 @@ type xmlDevice struct {
 func (c *Client) services(ctx context.Context, location *url.URL) ([]service, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, location.String(), http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("the router's description: %w", err)
+		return nil, fmt.Errorf("ask for the router's description: %w", err)
 	}
 	body, err := c.do(req)
 	if err != nil {
@@ -184,7 +184,7 @@ func (c *Client) services(ctx context.Context, location *url.URL) ([]service, er
 	}
 	var d description
 	if err := xml.Unmarshal(body, &d); err != nil {
-		return nil, fmt.Errorf("the router's description: %w", err)
+		return nil, fmt.Errorf("read the router's description: %w", err)
 	}
 	base := location
 	if b, err := url.Parse(d.Base); d.Base != "" && err == nil {
@@ -219,10 +219,10 @@ func (c *Client) do(req *http.Request) ([]byte, error) {
 	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(res.Body, descriptionLimit))
 	if err != nil {
-		return nil, fmt.Errorf("read the router's answer: %w", err)
+		return nil, fmt.Errorf("read the router's response: %w", err)
 	}
 	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusInternalServerError {
-		return nil, fmt.Errorf("the router answered %s", res.Status)
+		return nil, fmt.Errorf("the router responded with %s", res.Status)
 	}
 	return body, nil
 }
