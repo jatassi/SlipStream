@@ -168,3 +168,29 @@ func memberSession(t *testing.T, a *worldtest.API, as func(method, path, body st
 	}
 	return session
 }
+
+// TestFirstSetupAsksAboutRemoteAccessOnceThereIsASuggestion runs a world
+// whose Plex has Remote Access on, which SlipStream suggests for use away
+// from home. The first-run world above suggests nothing and never lists the
+// step.
+func TestFirstSetupAsksAboutRemoteAccessOnceThereIsASuggestion(t *testing.T) {
+	t.Parallel()
+	s, err := scenario.Load("media-servers")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Nodes[0].MediaServers[0].Remote = true
+	run := worldtest.LaunchScenario(t, s)
+	a := api(t, run)
+	var view struct {
+		Steps []struct {
+			ID    string `json:"id"`
+			State string `json:"state"`
+		} `json:"steps"`
+	}
+	decode(t, "getFirstRun", a.Admin("home", http.MethodGet, "/api/v1/first-run", ""), &view)
+	last := view.Steps[len(view.Steps)-1]
+	if last.ID != "remote-access" || last.State != "skipped" {
+		t.Errorf("first setup's last step = %+v, want remote-access skipped, as the world finished first setup", last)
+	}
+}
