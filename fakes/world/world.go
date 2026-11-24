@@ -86,6 +86,7 @@ type Run struct {
 	fronts    *front.Set
 	listeners []*front.Front
 	table     fake.Fronts
+	sink      *sink
 	releases  *releases.Catalog
 	seeders   *seeders.Seeders
 	nodes     []*nodeRun
@@ -229,6 +230,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		r.mintCA,
 		r.probeBinary,
 		func(ctx context.Context, undo *unwind) error { return r.bindFronts(ctx, undo, fakes) },
+		r.bindSink,
 		r.buildReleases,
 		r.writeFolders,
 		r.serveFakes,
@@ -568,6 +570,12 @@ func (r *Run) resolve(ctx context.Context, name, dir string, env []string) (node
 }
 
 func (r *Run) admit(name string, resolved node.Resolved, worldEnv []string) error {
+	for _, k := range resolved.Keys {
+		if i := slices.IndexFunc(emptyIsReal, func(e emptyEntry) bool { return e.key == k.Key }); i >= 0 && k.Value == "" {
+			e := emptyIsReal[i]
+			return fmt.Errorf("node %s: %s is empty, which means %s; add fake-%s or the world's sink", name, e.key, e.means, e.fake)
+		}
+	}
 	if len(resolved.Census) > 0 {
 		values := map[string]string{}
 		for _, k := range resolved.Keys {

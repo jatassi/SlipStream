@@ -20,15 +20,25 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-func TestDivergencesRefuseAPlantedKey(t *testing.T) {
-	r := &Run{used: map[string]bool{}}
-	resolved := node.Resolved{Keys: []node.Key{
-		{Key: "seed", Value: "first-run/home", Default: "", Source: "config.yaml"},
-		{Key: "torrent.dht", Value: "true", Default: "false", Source: "config.yaml"},
-	}, Census: []string{}}
-	err := r.admit("home", resolved, nodeenv.World("/runs/r1/ca.pem"))
-	if want := "node home sets torrent.dht, which the divergences list in fakes/world does not name"; err == nil || err.Error() != want {
-		t.Fatalf("err = %v, want %s", err, want)
+func TestAdmitRefuses(t *testing.T) {
+	seed := node.Key{Key: "seed", Value: "first-run/home", Default: "", Source: "config.yaml"}
+	for _, c := range []struct {
+		name string
+		key  node.Key
+		want string
+	}{
+		{"a key no divergence names", node.Key{Key: "torrent.dht", Value: "true", Default: "false", Source: "config.yaml"}, "node home sets torrent.dht, which the divergences list in fakes/world does not name"},
+		{"an empty gateway", node.Key{Key: "endpoints.network.gateway", Value: "", Default: ""}, "node home: endpoints.network.gateway is empty, which means the real gateway; add fake-gateway or the world's sink"},
+		{"an empty resolver", node.Key{Key: "endpoints.network.resolver", Value: "", Default: ""}, "node home: endpoints.network.resolver is empty, which means the OS resolver; add fake-dns or the world's sink"},
+		{"an empty outside dialer", node.Key{Key: "endpoints.network.outside_dialer", Value: "", Default: ""}, "node home: endpoints.network.outside_dialer is empty, which means connecting directly; add fake-outside or the world's sink"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			r := &Run{used: map[string]bool{}}
+			err := r.admit("home", node.Resolved{Keys: []node.Key{seed, c.key}, Census: []string{}}, nodeenv.World("/runs/r1/ca.pem"))
+			if err == nil || err.Error() != c.want {
+				t.Fatalf("err = %v, want %s", err, c.want)
+			}
+		})
 	}
 }
 

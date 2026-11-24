@@ -84,6 +84,13 @@ func MustParseHostPort(s string) HostPort {
 	return h
 }
 
+// Optional is a list of hosts that may be empty, where empty means the
+// section's own fallback, such as discovering the gateway, which the
+// field's doc names. Every other endpoint list must name a host.
+type Optional []HostPort
+
+func (Optional) MayBeEmpty() {}
+
 var (
 	errNotAbsolute = errors.New("not an absolute URL with a scheme and a host")
 	errNotHost     = errors.New("host is neither an IP literal nor a DNS name")

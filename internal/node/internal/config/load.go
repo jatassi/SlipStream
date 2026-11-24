@@ -336,6 +336,10 @@ func (l *loader) check(tree any) {
 	})
 }
 
+// mayBeEmpty is an endpoint list whose emptiness has a meaning.
+type mayBeEmpty interface{ MayBeEmpty() }
+
 func isEndpointList(leaf Leaf) bool {
-	return leaf.isList() && leaf.value.Type().Elem().Implements(reflect.TypeFor[hostnamer]())
+	return leaf.isList() && leaf.value.Type().Elem().Implements(reflect.TypeFor[hostnamer]()) &&
+		!leaf.value.Type().Implements(reflect.TypeFor[mayBeEmpty]())
 }

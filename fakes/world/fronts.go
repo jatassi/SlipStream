@@ -235,6 +235,9 @@ func (r *Run) endpoints(name string) (node.EndpointsBlock, error) {
 			}
 		}
 	}
+	if r.sink != nil {
+		e.Network = r.sink.quiet()
+	}
 	for _, t := range r.probe.ContentTypes {
 		for key, host := range browserOnly[t] {
 			e.ContentTypes.Set(t, key, host)
