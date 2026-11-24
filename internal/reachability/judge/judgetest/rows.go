@@ -81,6 +81,8 @@ type Want struct {
 	Facts    []judge.FactID // each shown somewhere on the route
 	// Action is the fix's button, asserted on the rows that name one.
 	Action *judge.Action
+	// Hops is each hop's worst result, asserted on the rows that name them.
+	Hops []judge.Result
 }
 
 type Row struct {
@@ -105,6 +107,8 @@ func Rows() []Row {
 	reachable := Want{Verdict: judge.Reachable, Tested: true, Card: judge.NoCard}
 	with := func(w Want, facts ...judge.FactID) Want { w.Facts = facts; return w }
 	button := func(w Want, k judge.ActionKind) Want { w.Action = &judge.Action{Kind: k, Node: Atlas}; return w }
+	hops := func(w Want, worst ...judge.Result) Want { w.Hops = worst; return w }
+	pass, fail, unreached := judge.Passes, judge.Fails, judge.NotReached
 	untested := func(v judge.Verdict, check judge.CheckID, fam netmodel.Family, fx judge.FixID, p judge.Params, facts ...judge.FactID) Want {
 		return Want{Verdict: v, Card: judge.Untested, Deciding: check, Family: fam, Fix: fx, Params: p, Facts: facts}
 	}
@@ -130,8 +134,13 @@ func Rows() []Row {
 		row("own proxy untested", OwnProxy(),
 			untested(judge.Fixable, judge.CheckOutsideConnect, v4, judge.FixNotTested, judge.Params{})),
 		row("own proxy certificate expired", OwnProxy().Tested(v4, Expired),
-			failing(judge.Fixable, false, judge.CheckTLSCertificate, v4, judge.FixCertificate,
-				judge.Params{Host: "plex.proxy.fake.localhost", Date: Expires, Raw: "expired"})),
+			hops(failing(judge.Fixable, false, judge.CheckTLSCertificate, v4, judge.FixCertificate,
+				judge.Params{Host: "plex.proxy.fake.localhost", Date: Expires, Raw: "expired"}),
+				pass, pass, pass, fail, unreached, unreached)),
+		row("own proxy certificate expired for the UI", OwnProxy().UI("https://slipstream.proxy.fake.localhost").Tested(v4, Expired),
+			hops(failing(judge.Fixable, false, judge.CheckTLSCertificate, v4, judge.FixCertificate,
+				judge.Params{Host: "slipstream.proxy.fake.localhost", Date: Expires, Raw: "expired"}),
+				pass, pass, pass, fail, unreached, unreached)),
 		row("own proxy certificate for another name", OwnProxy().Tested(v4, WrongName),
 			failing(judge.Fixable, false, judge.CheckTLSCertificate, v4, judge.FixCertificate,
 				judge.Params{Host: "plex.proxy.fake.localhost", Date: Expires.AddDate(1, 0, 0), Raw: "wrong-name"})),
@@ -140,8 +149,8 @@ func Rows() []Row {
 		row("Plex doesn't list the public URL", OwnProxy().Custom(proxyCustom).Tested(v4, Passed),
 			failing(judge.Fixable, true, judge.CheckPlexCustomURL, 0, judge.FixCustomURL, judge.Params{URL: "https://plex.proxy.fake.localhost"})),
 		row("paired proxy closed with its leg home open", PairedProxy().Tested(v4, Closed).ProxyLeg(true),
-			failing(judge.Fixable, false, judge.CheckOutsideConnect, v4, judge.FixProxyPort, judge.Params{Port: 443, Addr: ProxyIP},
-				judge.FactProxyLeg)),
+			hops(failing(judge.Fixable, false, judge.CheckOutsideConnect, v4, judge.FixProxyPort, judge.Params{Port: 443, Addr: ProxyIP},
+				judge.FactProxyLeg), fail, pass, fail, unreached, unreached, unreached)),
 		row("paired proxy and its leg home both closed", PairedProxy().Tested(v4, Closed).ProxyLeg(false),
 			failing(judge.Fixable, false, judge.CheckOutsideConnect, v4, judge.FixProxyForward, judge.Params{Addr: ProxyIP, Node: Atlas, Port: 32400})),
 		row("paired proxy closed and Plex on this machine only", PairedProxy().Loopback().Tested(v4, Closed).ProxyLeg(false),
@@ -309,6 +318,11 @@ func Check(t testing.TB, r Row) {
 			got.Action = fx.Action
 		}
 	}
+	if w.Hops != nil {
+		for _, h := range j.Hops {
+			got.Hops = append(got.Hops, h.Worst)
+		}
+	}
 	shown := Shown(j)
 	for _, id := range w.Facts {
 		if slices.Contains(shown, id) {
@@ -321,8 +335,8 @@ func Check(t testing.TB, r Row) {
 }
 
 func describe(w Want) string {
-	return fmt.Sprintf("%v tested=%v card=%v deciding=%s/%v fix=%s params=%+v facts=%v action=%+v",
-		w.Verdict, w.Tested, w.Card, w.Deciding, w.Family, w.Fix, w.Params, w.Facts, w.Action)
+	return fmt.Sprintf("%v tested=%v card=%v deciding=%s/%v fix=%s params=%+v facts=%v action=%+v hops=%v",
+		w.Verdict, w.Tested, w.Card, w.Deciding, w.Family, w.Fix, w.Params, w.Facts, w.Action, w.Hops)
 }
 
 // Shown is every fact on j's route: hop facts, the facts of fixes'

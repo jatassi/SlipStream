@@ -45,15 +45,22 @@ function Mark({ hop }: { hop: ReachabilityHopView }) {
   return null;
 }
 
+// The chain runs down in a narrow route and across in a wide one, so a
+// connector never ends a wrapped line.
 function Connector({ after, to }: { after: ReachabilityHopView; to: ReachabilityHopView }) {
   const signal = hopSignal(after);
   const line =
     to.worst === "not-reached"
-      ? "border-t-2 border-dashed border-hairline-strong"
+      ? "w-0 border-l-2 border-dashed border-hairline-strong @3xl:h-0 @3xl:border-t-2 @3xl:border-l-0"
       : signal === undefined
-        ? "h-0.5 bg-hairline-strong"
-        : `h-[3px] ${signal === "fail" ? "bg-fail" : "bg-warn"}`;
-  return <span aria-hidden="true" className={`w-5 shrink-0 self-center ${line}`} />;
+        ? "w-0.5 bg-hairline-strong @3xl:h-0.5"
+        : `w-[3px] @3xl:h-[3px] ${signal === "fail" ? "bg-fail" : "bg-warn"}`;
+  return (
+    <span
+      aria-hidden="true"
+      className={`ml-5 h-3 shrink-0 @3xl:ml-0 @3xl:w-5 @3xl:self-center ${line}`}
+    />
+  );
 }
 
 export function RouteHops({
@@ -68,34 +75,39 @@ export function RouteHops({
   onSelect: (index: number) => void;
 }) {
   return (
-    <ol aria-label={`Hops of ${subject}`} className="flex flex-wrap items-stretch gap-y-2">
-      {hops.map((hop, index) => (
-        <Fragment key={hop.kind}>
-          {index > 0 && <Connector after={hops[index - 1] ?? hop} to={hop} />}
-          <li className="flex">
-            <button
-              type="button"
-              aria-pressed={selected === index}
-              aria-label={`${hopNames[hop.kind]}: ${results[hop.worst]}`}
-              className={`${tile} ${tileLook(hop, selected === index)}`}
-              onClick={() => {
-                onSelect(index);
-              }}
-            >
-              <span className="inline-flex items-center gap-1.5 font-semibold">
-                <Mark hop={hop} />
-                {hopNames[hop.kind]}
-              </span>
-              {hop.worst === "not-reached" && (
-                <>
-                  {" "}
-                  <span className="text-meta">not reached</span>
-                </>
-              )}
-            </button>
-          </li>
-        </Fragment>
-      ))}
-    </ol>
+    <div className="@container">
+      <ol
+        aria-label={`Hops of ${subject}`}
+        className="flex flex-col items-start @3xl:flex-row @3xl:flex-wrap @3xl:items-stretch @3xl:gap-y-2"
+      >
+        {hops.map((hop, index) => (
+          <Fragment key={hop.kind}>
+            {index > 0 && <Connector after={hops[index - 1] ?? hop} to={hop} />}
+            <li className="flex">
+              <button
+                type="button"
+                aria-pressed={selected === index}
+                aria-label={`${hopNames[hop.kind]}: ${results[hop.worst]}`}
+                className={`${tile} ${tileLook(hop, selected === index)}`}
+                onClick={() => {
+                  onSelect(index);
+                }}
+              >
+                <span className="inline-flex items-center gap-1.5 font-semibold">
+                  <Mark hop={hop} />
+                  {hopNames[hop.kind]}
+                </span>
+                {hop.worst === "not-reached" && (
+                  <>
+                    {" "}
+                    <span className="text-meta">not reached</span>
+                  </>
+                )}
+              </button>
+            </li>
+          </Fragment>
+        ))}
+      </ol>
+    </div>
   );
 }

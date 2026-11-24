@@ -179,8 +179,7 @@ func shownRank(r Result) int {
 }
 
 // assemble lays the checks and facts on the routes' hops. A hop past a
-// failing one reads Not reached, except the Origin's facts about itself and
-// the Media Server's report.
+// failing one reads Not reached, except the Media Server's report.
 func assemble(pl Placement, cs []Check, facts []placedFact) []Hop {
 	var kinds []HopKind
 	for _, fam := range pl.Offered {
@@ -191,8 +190,8 @@ func assemble(pl Placement, cs []Check, facts []placedFact) []Hop {
 	hops := make([]Hop, len(kinds))
 	failed := false
 	for i, k := range kinds {
-		h := hopOf(k, cs, facts)
-		if failed && h.Worst == Passes && k != OriginHop && k != MediaServerHop {
+		h := hopOf(pl, k, cs, facts)
+		if failed && (h.Worst == NotUsed || h.Worst == Passes && k != MediaServerHop) {
 			h.Worst = NotReached
 		}
 		failed = failed || h.Worst == Fails && k != PlayerHop
@@ -201,10 +200,20 @@ func assemble(pl Placement, cs []Check, facts []placedFact) []Hop {
 	return hops
 }
 
-func hopOf(k HopKind, cs []Check, facts []placedFact) Hop {
+// on is whether c reads on hop k. The connection a tester makes on an own
+// proxy route is what a player sees at the proxy, so it reads on both the
+// Player and the Proxy hop.
+func (c Check) on(pl Placement, k HopKind) bool {
+	if k == ProxyHop && c.ID == CheckOutsideConnect && c.Family != nil {
+		return pl.Routes[*c.Family].Kind == OwnProxy
+	}
+	return c.Hop == k
+}
+
+func hopOf(pl Placement, k HopKind, cs []Check, facts []placedFact) Hop {
 	h := Hop{Kind: k, Worst: NotUsed}
 	for _, c := range cs {
-		if c.Hop != k {
+		if !c.on(pl, k) {
 			continue
 		}
 		h.Checks = append(h.Checks, c)
