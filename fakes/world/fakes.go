@@ -10,19 +10,24 @@ import (
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/musicmeta"
 	"github.com/jatassi/slipstream/fakes/deluge"
 	"github.com/jatassi/slipstream/fakes/dht"
+	fakedns "github.com/jatassi/slipstream/fakes/dns"
 	"github.com/jatassi/slipstream/fakes/emby"
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/gateway"
 	"github.com/jatassi/slipstream/fakes/gestdown"
 	"github.com/jatassi/slipstream/fakes/imagecdn"
 	"github.com/jatassi/slipstream/fakes/jellyfin"
 	"github.com/jatassi/slipstream/fakes/notifysink"
 	"github.com/jatassi/slipstream/fakes/omdb"
+	"github.com/jatassi/slipstream/fakes/outside"
 	"github.com/jatassi/slipstream/fakes/plex"
 	"github.com/jatassi/slipstream/fakes/plextv"
+	"github.com/jatassi/slipstream/fakes/proxy"
 	"github.com/jatassi/slipstream/fakes/qbittorrent"
 	"github.com/jatassi/slipstream/fakes/rtorrent"
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/smtp"
+	"github.com/jatassi/slipstream/fakes/stun"
 	"github.com/jatassi/slipstream/fakes/subdl"
 	"github.com/jatassi/slipstream/fakes/subsource"
 	"github.com/jatassi/slipstream/fakes/tmdb"
@@ -31,7 +36,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/tvdb"
 )
 
-var fakes = []fake.Spec{musicmeta.Fake, coverart.Fake, tmdb.Fake, tvdb.Fake, omdb.Fake, subdl.Fake, subdl.DL, subsource.Fake, gestdown.Fake, imagecdn.Fake, tracker.Fake, tracker.UDP, dht.Fake, site.Fake, catalog.Fake, challengesolver.Fake, smtp.Fake, qbittorrent.Fake, transmission.Fake, deluge.Fake, rtorrent.Fake, plex.Fake, jellyfin.Fake, emby.Fake, plextv.Fake, plextv.Auth, capturescript.Fake, notifysink.Fake}
+var fakes = []fake.Spec{musicmeta.Fake, coverart.Fake, tmdb.Fake, tvdb.Fake, omdb.Fake, subdl.Fake, subdl.DL, subsource.Fake, gestdown.Fake, imagecdn.Fake, tracker.Fake, tracker.UDP, dht.Fake, site.Fake, catalog.Fake, challengesolver.Fake, smtp.Fake, qbittorrent.Fake, transmission.Fake, deluge.Fake, rtorrent.Fake, plex.Fake, jellyfin.Fake, emby.Fake, plextv.Fake, plextv.Auth, capturescript.Fake, notifysink.Fake, stun.Fake, stun.Second, gateway.Fake, gateway.IGD, fakedns.Fake, outside.Fake, proxy.Fake}
 
 // Cues are the cues the world's fakes declare, each a name fakeworld cue
 // takes.

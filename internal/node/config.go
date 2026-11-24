@@ -29,6 +29,7 @@ import (
 	mslink "github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/moves"
+	"github.com/jatassi/slipstream/internal/netfacts"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -81,6 +82,7 @@ type EndpointsBlock struct {
 	Gestdown     gestdown.Endpoints   `yaml:"gestdown"`
 	PlexTV       plextv.Endpoints     `yaml:"plex_tv"`
 	Torrent      engine.Endpoints     `yaml:"torrent"`
+	Network      netfacts.Endpoints   `yaml:"network"`
 	Indexers     indexers.Endpoints   `yaml:"indexers"`
 	Notify       providers.Endpoints  `yaml:"notify"`
 	Searching    searching.Endpoints  `yaml:"searching"`
@@ -225,6 +227,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Gestdown:     gestdown.DefaultEndpoints(),
 			PlexTV:       plextv.DefaultEndpoints(),
 			Torrent:      engine.DefaultEndpoints(),
+			Network:      netfacts.DefaultEndpoints(),
 			Indexers:     indexers.DefaultEndpoints(),
 			Notify:       providers.DefaultEndpoints(),
 			ContentTypes: contentTypeEndpoints(types),
