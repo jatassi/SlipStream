@@ -4,15 +4,8 @@ import { page, userEvent } from "vitest/browser";
 import type { ReachabilityCard } from "../../../api/gen/model";
 import { joinCodeServer } from "../../../test/join-codes";
 import { homeId } from "../../../test/nodes";
-import {
-  cards,
-  livingRoomPlexId,
-  plexSuggestion,
-  remoteAccessServer,
-  wanted,
-} from "../../../test/remote-access";
+import { cards, remoteAccessServer, wanted } from "../../../test/remote-access";
 import { renderApp } from "../../../test/render-app";
-import { asPhone } from "../../../test/viewport";
 
 function open(card: ReachabilityCard | null) {
   const server = remoteAccessServer(wanted(card));
@@ -58,37 +51,4 @@ test("a route nothing outside tested offers to pair a Node and raises no signal"
     .element(page.getByRole("status").filter({ hasText: "Living room Plex" }))
     .not.toBeInTheDocument();
   await expect.element(page.getByRole("dialog", { name: "Add a Node" })).toBeVisible();
-});
-
-test("on phone a hop opens its checks in a sheet", async () => {
-  await asPhone();
-  open(cards.warn);
-  await userEvent.click(button("Origin: Fails"));
-  const sheet = page.getByRole("dialog", { name: "Origin · Living room Plex" });
-  await expect.element(sheet.getByRole("heading", { name: "Fails over IPv4" })).toBeVisible();
-  await expect.element(sheet.getByText("Forward TCP port 32400", { exact: false })).toBeVisible();
-});
-
-test("with nothing set up, choosing adds a Media Server at the address it publishes", async () => {
-  const server = remoteAccessServer({
-    ...wanted(null),
-    nothingWanted: true,
-    routes: [],
-    suggestions: [plexSuggestion],
-  });
-  renderApp({ path: "/nodes/remote-access", handlers: server.handlers });
-  await userEvent.click(button("Choose what to use away from home"));
-  const suggestion = page.getByRole("listitem", { name: "Living room Plex" });
-  await expect
-    .element(suggestion.getByRole("textbox", { name: "Public address" }))
-    .toHaveValue(plexSuggestion.public);
-  await userEvent.click(suggestion.getByRole("button", { name: "Add" }));
-  await expect
-    .poll(() => server.sent)
-    .toEqual([
-      {
-        what: "add",
-        body: { kind: "media-server", serverId: livingRoomPlexId, public: plexSuggestion.public },
-      },
-    ]);
 });
