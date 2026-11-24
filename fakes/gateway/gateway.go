@@ -35,7 +35,8 @@ import (
 var Requests = fake.CaptureSpec{Name: "gateway-requests", Kind: "gateway.request"}
 
 // Request is one request as its record holds it. Write is a request that
-// changes a mapping.
+// changes a mapping. A PCP or NAT-PMP map with lifetime 0 deletes one, so
+// its Op is delete.
 type Request struct {
 	Protocol string `json:"protocol"`
 	Op       string `json:"op"`
@@ -193,9 +194,9 @@ func (s *server) natPMP(ctx context.Context, origin string, gw netsite.Gateway, 
 		}
 		return append(head, gw.WAN.AsSlice()...)
 	case (op == 1 || op == 2) && len(p) >= 12:
-		s.requests.Record(ctx, Request{Protocol: "nat-pmp", Op: "map", Write: true})
 		transport := map[byte]string{1: "UDP", 2: "TCP"}[op]
 		internal, external, lifetime := binary.BigEndian.Uint16(p[4:]), binary.BigEndian.Uint16(p[6:]), binary.BigEndian.Uint32(p[8:])
+		s.requests.Record(ctx, Request{Protocol: "nat-pmp", Op: mapOp(lifetime), Write: true})
 		if lifetime == 0 {
 			s.site.Release(origin, func(m netsite.Mapping) bool {
 				return m.Node == origin && m.Transport == transport && m.Internal == internal
@@ -270,7 +271,7 @@ func (s *server) pcp(ctx context.Context, origin string, gw netsite.Gateway, p [
 		s.requests.Record(ctx, Request{Protocol: "pcp", Op: "announce"})
 		return reply(pcpSuccess, 0, nil)
 	case op == pcpMap && len(p) >= pcpHeader+pcpMapData:
-		s.requests.Record(ctx, Request{Protocol: "pcp", Op: "map", Write: true})
+		s.requests.Record(ctx, Request{Protocol: "pcp", Op: mapOp(lifetime), Write: true})
 		data := append([]byte(nil), p[pcpHeader:pcpHeader+pcpMapData]...)
 		transport := map[byte]string{6: "TCP", 17: "UDP"}[data[12]]
 		internal, external := binary.BigEndian.Uint16(data[16:]), binary.BigEndian.Uint16(data[18:])
@@ -293,6 +294,14 @@ func (s *server) pcp(ctx context.Context, origin string, gw netsite.Gateway, p [
 		return reply(pcpSuccess, lifetime, data)
 	}
 	return reply(pcpBadOpcode, 0, nil)
+}
+
+// mapOp is what a map request with lifetime asks.
+func mapOp(lifetime uint32) string {
+	if lifetime == 0 {
+		return "delete"
+	}
+	return "map"
 }
 
 // igdTypes are the search targets an IGD answers.
