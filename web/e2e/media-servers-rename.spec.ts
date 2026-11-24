@@ -86,7 +86,7 @@ test("a rename on Den Jellyfin keeps both users' watch data", async ({
   await renameWithQuality(world, work);
   const rename = change(page, "Den Jellyfin", "The Quiet Orchard (2021) - 1080p [WEBDL-1080p].mkv");
   await expect(rename).toContainText("Rename");
-  await expect(rename).toContainText("Sent the rename. Kept every user's watch data.", {
+  await expect(rename).toContainText("Sent the rename. Kept who watched it and each user's play count, resume position, favorite and rating.", {
     timeout: settles,
   });
   await expect(rename).toContainText(`From ${orchard}`);

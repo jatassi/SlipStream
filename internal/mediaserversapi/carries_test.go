@@ -183,7 +183,7 @@ func expectWords(t *testing.T, c mediaservers.ChangeView, state, words string) {
 }
 
 const (
-	keptWords  = "Sent the rename. Kept every user's watch data."
+	keptWords  = "Sent the rename. Kept who watched it and each user's play count, resume position, favorite and rating."
 	savedWords = "Saved who watched it and each user's play count, resume position, favorite and rating before the rename. SlipStream sends this change once the rename finishes."
 )
 
@@ -408,7 +408,7 @@ func TestAnUpgradeUnderANewNameKeepsEveryUsersWatchData(t *testing.T) {
 			t.Errorf("Den's queue holds %v, want the one replaced carry", got)
 		}
 		settle(5 * time.Minute)
-		expectWords(t, change(t, s.changes(t), "Trip/Trip - 2160p.mkv"), "sent", "Sent the replaced file. Kept every user's watch data.")
+		expectWords(t, change(t, s.changes(t), "Trip/Trip - 2160p.mkv"), "sent", "Sent the replaced file. Kept who watched it and each user's play count, resume position, favorite and rating.")
 		v.kept("Trip/Trip - 2160p.mkv")
 	})
 }

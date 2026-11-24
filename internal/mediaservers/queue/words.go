@@ -82,7 +82,7 @@ func (c Change) sent(to string) string {
 	case !c.Carry():
 		return s
 	case len(c.Lost) == 0:
-		return s + " Kept every user's watch data."
+		return s + " Kept who watched it and each user's play count, resume position, favorite and rating."
 	}
 	names := make([]string, len(c.Lost))
 	for i, l := range c.Lost {

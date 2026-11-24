@@ -25,7 +25,7 @@ func TestWordsSayWhatAChangeDidAndWhatItLost(t *testing.T) {
 		change queue.Change
 		want   string
 	}{
-		{sent(tb.change(link.ChangeMoved, "A>B", "f"), link.ResultAccepted), "Sent the rename. Kept every user's watch data."},
+		{sent(tb.change(link.ChangeMoved, "A>B", "f"), link.ResultAccepted), "Sent the rename. Kept who watched it and each user's play count, resume position, favorite and rating."},
 		{sent(tb.change(link.ChangeReplaced, "A>B", "f"), link.ResultAccepted, link.LostPlayCount, link.LostLastPlayed),
 			"Sent the replaced file. Lost: play count, last played."},
 		{sent(tb.change(link.ChangeMoved, "A>B", "f"), link.ResultConverted),
