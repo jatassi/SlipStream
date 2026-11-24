@@ -86,7 +86,7 @@ func Seed(t *testing.T, n int, opts ...sim.Option) World {
 	s.Timings.TMDB = tmdb.Timings{Interval: time.Millisecond, Burst: 100}
 	for i := range n {
 		m := gen.Movie(i)
-		name := fmt.Sprintf("Seeded %d (%s)", i, m.Dates[0].Date[:4])
+		name := fmt.Sprintf("%s (%s)", m.Title, m.Dates[0].Date[:4])
 		add(&s, []string{"movies-d", "movies-e"}[i%2], scenario.MediaFile{
 			Path:  fmt.Sprintf("%s {tmdb-%d}/%s.mkv", name, m.ID, name),
 			Video: scenario.MediaVideo{Width: 1920, Height: 1080, Seconds: 6, HDR: "sdr"},
