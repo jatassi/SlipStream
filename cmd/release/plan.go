@@ -46,7 +46,9 @@ type touched struct {
 // is CPU-bound, so it scales out across jobs rather than Playwright workers.
 // linux-arm64 runs it in two and darwin-arm64 in six: in one and five, a
 // shard's main pass took 23 of the job's 28 minutes and left the @alone pass
-// too little time to run.
+// too little time to run. darwin-arm64 gained a seventh with S48's Move
+// specs, whose Fake worlds of three Nodes put one shard of six past the
+// job's global timeout.
 // The e2e tier runs in three shards: in one job, the e2e package's processes
 // slowed the simulation package past go test's 20 minute limit under -race,
 // and in two, the simulation package's part with the subtitles tests ran
@@ -66,7 +68,7 @@ var lanes = []lane{
 	{kind: "lint-repo", tier: "lint", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "go", tier: "go", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 3}},
 	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 4, "linux-arm64": 4, "windows-amd64": 5, "darwin-arm64": 5}},
-	{kind: "browser", tier: "browser", shards: map[string]int{"linux-amd64": 6, "linux-arm64": 2, "windows-amd64": 4, "darwin-arm64": 6}},
+	{kind: "browser", tier: "browser", shards: map[string]int{"linux-amd64": 6, "linux-arm64": 2, "windows-amd64": 4, "darwin-arm64": 7}},
 	{kind: "component", tier: "component", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "diagram", tier: "component", shards: map[string]int{"linux-amd64": 1}, onlyWhen: func(t touched) bool { return t.diagram }},
 }
