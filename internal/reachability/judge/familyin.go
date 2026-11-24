@@ -132,8 +132,20 @@ func (in *familyIn) plexCounts() bool {
 	return pub.Port() == in.publicPort && slices.Contains(in.route.Dialed, pub.Addr())
 }
 
-func (in *familyIn) refusedOtherPort() bool {
-	return slices.ContainsFunc(in.o.facts.Mappings, func(m netmodel.Mapping) bool { return m.Refused == netmodel.OtherPort })
+// mappingRefused is SlipStream's mapping refused, granted on another
+// port or unanswered, so the step falls back to the manual forward.
+func (in *familyIn) mappingRefused() bool {
+	return slices.ContainsFunc(in.o.facts.Mappings, func(m netmodel.Mapping) bool { return m.Refused != netmodel.RefusedNone })
+}
+
+// forward is the forward SlipStream may map for this route on the origin's
+// router: a Direct IPv4 route from the machine that serves it, not a
+// reaching Node standing in, whose Media Server doesn't map its own port.
+func (in *familyIn) forward() *PortForward {
+	if in.fam != netmodel.IPv4 || !in.direct() || in.pl.Origin.IsZero() || in.pl.OriginLabel == Reaching || in.plexCounts() {
+		return nil
+	}
+	return &PortForward{External: in.publicPort, Internal: in.port}
 }
 
 // untestedPoints is what an untested family points to: Reachable on a

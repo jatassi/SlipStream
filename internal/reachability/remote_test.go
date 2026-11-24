@@ -1,6 +1,7 @@
 package reachability_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/netip"
 	"slices"
@@ -14,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/reachability/judge/judgetest"
 	"github.com/jatassi/slipstream/internal/reachability/reachabilitytest"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -348,5 +350,47 @@ func TestManyRoutesAreJudgedInsideTheUnitBound(t *testing.T) {
 			t.Fatalf("%d of 20 routes judged after %v", judged, reachability.DefaultTimings().Unit)
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// With "Open router ports automatically" on, the origin's intent maps the
+// forward each Direct route needs, unless the route goes through a proxy
+// or the origin only stands in for a Media Server on no Node. Turning it on checks the origin's routes again.
+func TestTheIntentMapsWhatADirectRouteNeeds(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		shape  func() *judgetest.B
+		runsOn role.NodeID
+		off    bool
+		want   []string
+	}{
+		{name: "a Direct route", shape: judgetest.Mappable, runsOn: judgetest.Atlas, want: []string{"32400>32400"}},
+		{name: "the setting off", shape: judgetest.Mappable, runsOn: judgetest.Atlas, off: true},
+		{name: "a route through a proxy", shape: judgetest.PairedProxy, runsOn: judgetest.Atlas},
+		{name: "a Media Server on no Node", shape: judgetest.Mappable},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				b := c.shape()
+				w := world(t, b)
+				wantPlex(t, w, b, c.runsOn)
+				w.Calls()
+				on := map[bool]string{false: "true", true: "false"}[c.off]
+				if err := w.Reach.NodePanel(judgetest.Atlas).Apply(t.Context(), setting.Patch{reachability.MapPorts.Key: json.RawMessage(on)}); err != nil {
+					t.Fatal(err)
+				}
+				synctest.Wait()
+				var got []string
+				for _, m := range w.Intent(t, judgetest.Atlas).GetMap() {
+					got = append(got, fmt.Sprintf("%d>%d", m.GetExternal(), m.GetInternal()))
+				}
+				if !slices.Equal(got, c.want) {
+					t.Errorf("atlas maps %v, want %v", got, c.want)
+				}
+				if sent(w.Calls(), judgetest.Atlas, "Read") == 0 {
+					t.Error("the setting's change didn't check atlas's routes again")
+				}
+			})
+		})
 	}
 }

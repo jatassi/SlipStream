@@ -79,6 +79,8 @@ type Want struct {
 	Fix      judge.FixID
 	Params   judge.Params
 	Facts    []judge.FactID // each shown somewhere on the route
+	// Action is the fix's button, asserted on the rows that name one.
+	Action *judge.Action
 }
 
 type Row struct {
@@ -102,6 +104,7 @@ func row(name string, b *B, w Want) Row { return Row{Name: name, Facts: b.Facts(
 func Rows() []Row {
 	reachable := Want{Verdict: judge.Reachable, Tested: true, Card: judge.NoCard}
 	with := func(w Want, facts ...judge.FactID) Want { w.Facts = facts; return w }
+	button := func(w Want, k judge.ActionKind) Want { w.Action = &judge.Action{Kind: k, Node: Atlas}; return w }
 	untested := func(v judge.Verdict, check judge.CheckID, fam netmodel.Family, fx judge.FixID, p judge.Params, facts ...judge.FactID) Want {
 		return Want{Verdict: v, Card: judge.Untested, Deciding: check, Family: fam, Fix: fx, Params: p, Facts: facts}
 	}
@@ -159,9 +162,11 @@ func Rows() []Row {
 		row("mappable with no mapping", Mappable(),
 			untested(judge.Fixable, judge.CheckOriginClass, v4, judge.FixMappablePlex, judge.Params{Node: Atlas})),
 		row("mappable UI with no mapping", Mappable().UI("https://slipstream.mappable.localhost:8484"),
-			untested(judge.Fixable, judge.CheckOriginClass, v4, judge.FixMappable, judge.Params{Node: Atlas, Port: 8484})),
+			button(untested(judge.Fixable, judge.CheckOriginClass, v4, judge.FixMappable, judge.Params{Node: Atlas, Port: 8484}), judge.MapPorts)),
 		row("mappable with SlipStream's mapping, untested", Mappable().Mapped(time.Hour), confirm),
-		row("mappable granted on another port", Mappable().RefusedOtherPort(),
+		row("mappable granted on another port", Mappable().Refused(netmodel.OtherPort),
+			untested(judge.Fixable, judge.CheckOriginClass, v4, judge.FixManualForward, forward())),
+		row("mappable and the router refuses SlipStream", Mappable().Refused(netmodel.NotAuthorized),
 			untested(judge.Fixable, judge.CheckOriginClass, v4, judge.FixManualForward, forward())),
 		row("mappable and closed from outside", Mappable().Tested(v4, Closed),
 			failing(judge.Fixable, false, judge.CheckOutsideConnect, v4, judge.FixMappablePlex, judge.Params{Node: Atlas})),
@@ -297,6 +302,9 @@ func Check(t testing.TB, r Row) {
 	}
 	if fx := j.Fix(); fx != nil {
 		got.Fix, got.Params = fx.ID, fx.Params
+		if w.Action != nil {
+			got.Action = fx.Action
+		}
 	}
 	shown := Shown(j)
 	for _, id := range w.Facts {
@@ -310,8 +318,8 @@ func Check(t testing.TB, r Row) {
 }
 
 func describe(w Want) string {
-	return fmt.Sprintf("%v tested=%v card=%v deciding=%s/%v fix=%s params=%+v facts=%v",
-		w.Verdict, w.Tested, w.Card, w.Deciding, w.Family, w.Fix, w.Params, w.Facts)
+	return fmt.Sprintf("%v tested=%v card=%v deciding=%s/%v fix=%s params=%+v facts=%v action=%+v",
+		w.Verdict, w.Tested, w.Card, w.Deciding, w.Family, w.Fix, w.Params, w.Facts, w.Action)
 }
 
 // Shown is every fact on j's route: hop facts, the facts of fixes'

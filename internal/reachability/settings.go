@@ -217,6 +217,23 @@ func (p nodePanel) Apply(ctx context.Context, patch setting.Patch) error {
 	}
 	p.r.network.Touch(p.node)
 	p.r.changed(ctx)
+	if _, ok := patch[MapPorts.Key]; ok {
+		return p.r.recheck(ctx, p.node)
+	}
+	return nil
+}
+
+// recheck runs node's units again with a fresh pass, which maps or
+// deletes what its intent now asks.
+func (r *Reachability) recheck(ctx context.Context, node role.NodeID) error {
+	r.mu.Lock()
+	r.freshAfter[node] = r.now()
+	r.mu.Unlock()
+	units, err := r.unitsOf(ctx, node)
+	if err != nil {
+		return err
+	}
+	r.start(ctx, units...)
 	return nil
 }
 

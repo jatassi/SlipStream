@@ -170,7 +170,14 @@ type Judged struct {
 	Tested   bool      // every offered family was tested from outside
 	Deciding *CheckRef // nil exactly when Verdict is Reachable and Tested
 	Facts    []Fact    // for the Exposure: ipv6-viewers-direct
+	// Forward is what "Open router ports automatically" maps on the
+	// origin's router for this route; nil when mapping can't serve it.
+	Forward *PortForward
 }
+
+// PortForward is a TCP forward on a router, from External on its internet
+// side to Internal on the origin.
+type PortForward struct{ External, Internal uint16 }
 
 // Check is the check ref names; the zero Check when there is none.
 func (j Judged) Check(ref CheckRef) Check {

@@ -186,12 +186,16 @@ var rowClass = row{ID: CheckOriginClass, Hop: OriginHop, Only: ptr(netmodel.IPv4
 			switch {
 			case in.liveMapping():
 				return passes()
-			case in.refusedOtherPort():
+			case in.mappingRefused():
 				return notTested(Fixable, fix(FixManualForward, in.forwardParams()))
 			case in.plex():
 				return notTested(Fixable, fix(FixMappablePlex, Params{Node: node}))
 			}
-			return notTested(Fixable, fix(FixMappable, Params{Node: node, Port: in.publicPort}))
+			fx := fix(FixMappable, Params{Node: node, Port: in.publicPort})
+			if in.forward() != nil {
+				fx.action(Action{Kind: MapPorts, Node: node})
+			}
+			return notTested(Fixable, fx)
 		case netmodel.CGNAT:
 			o := fails(NeedsRelay, fix(FixCGNAT, Params{Node: node, Program: in.subject()}))
 			if in.plex() {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -344,17 +345,21 @@ func (r *Reachability) maxAge(node role.NodeID) time.Duration {
 }
 
 // store writes the result, each Node's facts with Carry run again on the
-// row as it stands now, and the Media Server's facts, in one Write.
+// row as it stands now, and the Media Server's facts, in one Write. A
+// result that moves the forward a router maps re-derives the intents of
+// the origins it moved between.
 func (r *Reachability) store(ctx context.Context, g *gathered, j judge.Judged) error {
 	now := r.now()
-	return r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	var moved []role.NodeID
+	err := r.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		if _, err := q.GetExposure(ctx, j.Exposure); errors.Is(err, storage.ErrNoRows) {
 			return nil
 		} else if err != nil {
 			return err
 		}
-		if err := storeResult(ctx, q, j, now); err != nil {
+		var err error
+		if moved, err = storeResult(ctx, q, j, now); err != nil {
 			return err
 		}
 		for id, fresh := range g.fresh {
@@ -371,15 +376,34 @@ func (r *Reachability) store(ctx context.Context, g *gathered, j judge.Judged) e
 		}
 		return q.SetServerFacts(ctx, db.SetServerFactsParams{ID: j.Exposure, Facts: &doc, ObservedAt: storage.FromTime(now)})
 	})
+	if err == nil && len(moved) > 0 {
+		r.network.Touch(moved...)
+	}
+	return err
 }
 
-func storeResult(ctx context.Context, q *db.Queries, j judge.Judged, now time.Time) error {
+// storeResult upserts j's row, and answers the origins whose mapped
+// forward j moves: none while it stays as the last result left it.
+func storeResult(ctx context.Context, q *db.Queries, j judge.Judged, now time.Time) ([]role.NodeID, error) {
 	var prev time.Time
+	var last result
 	switch row, err := q.GetResult(ctx, j.Exposure); {
 	case err == nil:
 		prev = row.FailingAt.Time()
+		if last, err = resultOf(row); err != nil {
+			return nil, err
+		}
 	case !errors.Is(err, storage.ErrNoRows):
-		return err
+		return nil, err
+	}
+	var moved []role.NodeID
+	was, is := last.judged.Forward, j.Forward
+	if last.judged.Origin != j.Origin || (was == nil) != (is == nil) || was != nil && *was != *is {
+		for _, n := range []role.NodeID{last.judged.Origin, j.Origin} {
+			if !n.IsZero() && !slices.Contains(moved, n) {
+				moved = append(moved, n)
+			}
+		}
 	}
 	var testedBy role.NodeID
 	for _, fv := range j.Families {
@@ -390,9 +414,9 @@ func storeResult(ctx context.Context, q *db.Queries, j judge.Judged, now time.Ti
 	}
 	p, err := resultRow(j, now, nextFailingAt(prev, j, now), testedBy)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return q.UpsertResult(ctx, p)
+	return moved, q.UpsertResult(ctx, p)
 }
 
 func (r *Reachability) storeNode(ctx context.Context, q *db.Queries, id role.NodeID, fresh netmodel.NetworkFacts) error {

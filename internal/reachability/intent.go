@@ -3,11 +3,13 @@ package reachability
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	netv1 "github.com/jatassi/slipstream/internal/pb/slipstream/network/v1"
+	"github.com/jatassi/slipstream/internal/reachability/internal/db"
 	"github.com/jatassi/slipstream/internal/reachability/judge"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -15,9 +17,10 @@ import (
 )
 
 // Intent is one Node's network intent: whether it watches, how often, how
-// long a change must hold, and the STUN servers it asks (absent: its own).
-// A Node watches while it is the origin of a wanted Exposure or may test
-// one, so with nothing wanted no Node sends anything.
+// long a change must hold, the STUN servers it asks (absent: its own), and
+// with "Open router ports automatically" on, the forwards it maps. A Node
+// watches while it is the origin of a wanted Exposure or may test one, so
+// with nothing wanted no Node sends anything.
 func (r *Reachability) Intent(ctx context.Context, rd storage.Reader[storage.Library], node role.NodeID) (*netv1.Intent, error) {
 	wanted, err := wantedIn(ctx, rd)
 	if err != nil || len(wanted) == 0 {
@@ -38,7 +41,41 @@ func (r *Reachability) Intent(ctx context.Context, rd storage.Reader[storage.Lib
 	if s.stun != nil {
 		in.Stun = &netv1.StunList{Servers: *s.stun}
 	}
-	return in, nil
+	in.Map, err = mapsIn(ctx, rd, node)
+	return in, err
+}
+
+// mapsIn is the forwards node maps: with its "Open router ports
+// automatically" on, each wanted Exposure's whose last check found a Direct
+// route from node that mapping can serve, once per external port.
+func mapsIn(ctx context.Context, rd storage.Reader[storage.Library], node role.NodeID) ([]*netv1.MapWant, error) {
+	q := db.New(rd)
+	switch set, err := q.GetNodeSetting(ctx, node); {
+	case errors.Is(err, storage.ErrNoRows):
+		return nil, nil
+	case err != nil:
+		return nil, err
+	case set.MapPorts == nil || *set.MapPorts == 0:
+		return nil, nil
+	}
+	rows, err := q.ListResults(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []*netv1.MapWant
+	for _, row := range rows {
+		res, err := resultOf(row)
+		if err != nil {
+			return nil, err
+		}
+		fw := res.judged.Forward
+		if !res.read || res.judged.Origin != node || fw == nil ||
+			slices.ContainsFunc(out, func(m *netv1.MapWant) bool { return m.GetExternal() == uint32(fw.External) }) {
+			continue
+		}
+		out = append(out, &netv1.MapWant{External: uint32(fw.External), Internal: uint32(fw.Internal)})
+	}
+	return out, nil
 }
 
 // watches is whether node is the origin of an Exposure or a candidate to

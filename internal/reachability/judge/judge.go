@@ -22,12 +22,12 @@ func Judge(f Facts) Judged {
 		g.run(in6, rowDNSAAAA, true)
 	}
 	in4 := newFamilyIn(f, pl, netmodel.IPv4)
+	j := Judged{V: Version, Exposure: f.Exposure.ID, Placement: pl, Tested: tested, Forward: in4.forward()}
 	for _, r := range exposureRows {
 		if r.Applies(in4) {
 			g.run(in4, r, false)
 		}
 	}
-	j := Judged{V: Version, Exposure: f.Exposure.ID, Placement: pl, Tested: tested}
 	j.Verdict, j.Deciding = decide(g.checks, tested)
 	for i := range fams {
 		fams[i].Verdict = worst(g.checks, &fams[i].Family)

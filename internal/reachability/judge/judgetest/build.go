@@ -368,11 +368,11 @@ func (b *B) Mapped(lifetime time.Duration) *B {
 	})
 }
 
-// RefusedOtherPort makes the gateway grant another port than asked.
-func (b *B) RefusedOtherPort() *B {
+// Refused makes the gateway refuse SlipStream's mapping the way r says.
+func (b *B) Refused(r netmodel.MapRefusal) *B {
 	return b.atlas(func(nf *netmodel.NetworkFacts) {
 		p := b.f.Exposure.PublicPort()
-		nf.Mappings = []netmodel.Mapping{{Protocol: netmodel.MapPCP, External: p, Internal: p, Refused: netmodel.OtherPort}}
+		nf.Mappings = []netmodel.Mapping{{Protocol: netmodel.MapPCP, External: p, Internal: p, Refused: r}}
 	})
 }
 
