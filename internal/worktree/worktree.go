@@ -32,7 +32,10 @@ const CleanFingerprint = "clean"
 
 // Stamp returns the version, commit and fingerprint of the worktree at dir.
 func Stamp(ctx context.Context, dir string) (buildinfo.Stamp, error) {
-	version, err := git(ctx, dir, "describe", "--tags", "--always", "--match", "v[0-9]*")
+	// git abbreviates as few digits as its objects allow, so a full clone
+	// and a shallow one named a commit with different lengths. Twelve
+	// digits are as long as anything is likely to need.
+	version, err := git(ctx, dir, "describe", "--tags", "--always", "--abbrev=12", "--match", "v[0-9]*")
 	if err != nil {
 		return buildinfo.Stamp{}, err
 	}
