@@ -113,6 +113,7 @@ type session struct {
 	username, password string
 	apiKey             string
 	trackerEvery       time.Duration
+	runWait            time.Duration
 }
 
 // open is a session, at the fake's own address when s names none.
@@ -127,7 +128,7 @@ func (r *rig) open(s session) clients.Client {
 	}
 	return qbittorrent.Open(clients.Session{
 		HTTP: &http.Client{Transport: r.wire}, Address: a, Username: s.username,
-		Secrets: clients.Secrets{Password: s.password, APIKey: s.apiKey}, TrackerEvery: s.trackerEvery,
+		Secrets: clients.Secrets{Password: s.password, APIKey: s.apiKey}, TrackerEvery: s.trackerEvery, RunWait: s.runWait,
 		Call: 30 * time.Second, Log: slog.New(slog.NewTextHandler(r.t.Output(), &slog.HandlerOptions{Level: slog.LevelDebug})),
 	})
 }
@@ -514,6 +515,24 @@ func TestQBittorrentPausesAndResumesInItsVersionsWords(t *testing.T) {
 		time.Sleep(5 * time.Second)
 		if got := r.status(c, orchard); got.Run != clients.Started || got.Activity != clients.Downloading || got.Done != 300 {
 			t.Fatalf("resumed: %+v, want 300 bytes after the 2s check", got)
+		}
+	})
+}
+
+func TestQBittorrentReportsAStartAsAskedUntilItsSlowListShowsIt(t *testing.T) {
+	inEachVersion(t, func(t *testing.T, version string) {
+		r := newRig(t, fakeqbittorrent.Client{Version: version, Refresh: 8 * time.Second})
+		c := r.open(session{username: r.client.Username, password: r.client.Password, runWait: 5 * time.Second})
+		orchard := r.releases[0]
+		if err := c.Add(t.Context(), clients.Add{Metainfo: orchard.metainfo, Hash: orchard.hash, Label: slipstream, Paused: true}); err != nil {
+			t.Fatal(err)
+		}
+		r.act(c, clients.Resume, orchard)
+		for second := range 10 {
+			if got := r.status(c, orchard); got.Run != clients.Started {
+				t.Fatalf("%d s after its start with a refresh interval of 8 s: %+v, want started", second, got)
+			}
+			time.Sleep(time.Second)
 		}
 	})
 }

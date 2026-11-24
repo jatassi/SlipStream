@@ -110,6 +110,7 @@ func (c *client) preferences(w http.ResponseWriter, _ *http.Request, _ *session)
 		"max_ratio_enabled": c.SeedRatio > 0, "max_ratio": ratio, "max_ratio_act": int(c.AtLimit),
 		"max_seeding_time_enabled": false, "max_seeding_time": -1,
 		"queueing_enabled": c.Slots > 0, "max_active_downloads": c.Slots, "web_ui_port": c.Port,
+		"refresh_interval": c.refresh().Milliseconds(),
 	})
 }
 
