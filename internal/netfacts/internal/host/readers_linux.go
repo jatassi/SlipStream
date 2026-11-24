@@ -6,7 +6,9 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/netip"
 	"os"
@@ -83,6 +85,10 @@ func Sockets(_ context.Context, ports []uint16) ([]netmodel.Listener, error) {
 	var socks []socket
 	for _, name := range []string{"tcp", "tcp6"} {
 		data, err := os.ReadFile(filepath.Join(procRoot, "proc", "net", name)) //nolint:gosec // G304: a /proc path
+		if name == "tcp6" && errors.Is(err, fs.ErrNotExist) {
+			// A kernel booted with IPv6 off has no tcp6 table.
+			continue
+		}
 		if err != nil {
 			return nil, fmt.Errorf("read the listening sockets: %w", err)
 		}

@@ -60,6 +60,7 @@ func TestSocketsReadEachPortsFamilies(t *testing.T) {
 		name       string
 		tcp, tcp6  string
 		bindv6only string
+		noIPv6     bool
 		want       []netmodel.Listener
 	}{
 		{
@@ -74,6 +75,11 @@ func TestSocketsReadEachPortsFamilies(t *testing.T) {
 			},
 		},
 		{
+			name: "a kernel with IPv6 off", noIPv6: true,
+			tcp:  row(any4+port, "1"),
+			want: []netmodel.Listener{{Port: 8484, V4: yes, V6: no}, {Port: 32400, V4: no, V6: no}, {Port: 6881, V4: no, V6: no}, {Port: 1, V4: no, V6: no}},
+		},
+		{
 			name: "an IPv6 wildcard where bindv6only is set", bindv6only: "1",
 			tcp6: row(any6+plex, "7"),
 			want: []netmodel.Listener{{Port: 8484, V4: no, V6: no}, {Port: 32400, V4: unknown, V6: yes}, {Port: 6881, V4: no, V6: no}, {Port: 1, V4: no, V6: no}},
@@ -81,6 +87,11 @@ func TestSocketsReadEachPortsFamilies(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			proc(t, c.tcp, c.tcp6, c.bindv6only)
+			if c.noIPv6 {
+				if err := os.Remove(filepath.Join(procRoot, "proc", "net", "tcp6")); err != nil {
+					t.Fatal(err)
+				}
+			}
 			got, err := Sockets(t.Context(), []uint16{8484, 32400, 6881, 1})
 			if err != nil || !reflect.DeepEqual(got, c.want) {
 				t.Errorf("Sockets = %+v, %v; want %+v", got, err, c.want)
