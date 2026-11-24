@@ -120,9 +120,9 @@ func TestACheckCrossesTheWireUnchanged(t *testing.T) {
 // server that reports nothing beyond its address, and a refusal.
 func TestExposedCrossesTheWireUnchanged(t *testing.T) {
 	for name, x := range map[string]link.Exposed{
-		"recorded Plex": {
+		"Plex, as recorded": {
 			Local: netip.MustParseAddrPort("10.0.0.5:32400"), Remote: link.Yes, MappingRoot: "mapped",
-			Mapping: &link.PlexMapping{State: "mapped", Pending: true, Public: netip.MustParseAddrPort("73.197.219.151:32400")},
+			Mapping: &link.PlexMapping{State: "mapped", Pending: true, Public: netip.MustParseAddrPort("203.0.113.9:32400")},
 			Custom:  []string{"http://5.161.67.8:32400", "https://plex.atassi.org:443"}, IPv6: link.Yes,
 		},
 		"remote off, nothing mapped": {Remote: link.No, Mapping: &link.PlexMapping{State: "unknown"}, IPv6: link.No},

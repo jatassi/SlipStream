@@ -3,8 +3,8 @@
 // tokens fake-plex-tv issued, which fake-plex takes until a sign-out
 // revokes them, and what each server publishes for use away from home:
 // fake-plex answers it in /myplex/account and /:/prefs, and fake-plex-tv
-// lists it in resources and sets its mapping state. Both fakes reach it
-// through the world's fake.Shared.
+// lists it in resources. Both fakes reach it through the world's
+// fake.Shared.
 package plexaccount
 
 import (

@@ -34,7 +34,10 @@ var (
 )
 
 // ExposedMeasured is whether a run confirmed k's names.
-func ExposedMeasured(k link.Kind) bool { return k.(family).exposed.Measured }
+func ExposedMeasured(k link.Kind) bool {
+	f, ok := k.(family)
+	return ok && f.exposed.Measured
+}
 
 // Exposed reads the server's local address from /System/Info/Public and,
 // once measured, the rest from the kind's route.

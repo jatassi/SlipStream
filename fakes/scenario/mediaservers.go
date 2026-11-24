@@ -136,17 +136,7 @@ func (s Scenario) checkMediaServer(add func(format string, args ...any), m Media
 	if m.Kind == "plex" && len(m.Users) > 0 {
 		add("media server %s lists users, which only Jellyfin and Emby take", m.Name)
 	}
-	if m.Kind != "plex" && (len(m.Custom) > 0 || m.Mapping != "") {
-		add("media server %s sets custom or mapping, which only Plex takes", m.Name)
-	}
-	if m.RunsOn != "" && !slices.ContainsFunc(s.Nodes, func(n Node) bool { return n.Name == m.RunsOn }) {
-		add("media server %s runs on %s, which isn't a Node", m.Name, m.RunsOn)
-	}
-	for _, u := range slices.Concat(m.Custom, m.Published) {
-		if p, err := url.Parse(u); err != nil || (p.Scheme != "http" && p.Scheme != "https") || p.Hostname() == "" {
-			add("media server %s publishes %q, which isn't an http or https URL with a host", m.Name, u)
-		}
-	}
+	s.checkPublishing(add, m)
 	types := map[string]string{}
 	for _, h := range m.Roots {
 		i := slices.IndexFunc(s.Library.Roots, func(r LibraryRoot) bool { return r.Folder == h.Folder })
@@ -164,5 +154,20 @@ func (s Scenario) checkMediaServer(add func(format string, args ...any), m Media
 	}
 	if len(s.HeldRoots(m)) == 0 {
 		add("media server %s holds no library root", m.Name)
+	}
+}
+
+// checkPublishing checks where m runs and what it publishes.
+func (s Scenario) checkPublishing(add func(format string, args ...any), m MediaServerAt) {
+	if m.Kind != "plex" && (len(m.Custom) > 0 || m.Mapping != "") {
+		add("media server %s sets custom or mapping, which only Plex takes", m.Name)
+	}
+	if m.RunsOn != "" && !slices.ContainsFunc(s.Nodes, func(n Node) bool { return n.Name == m.RunsOn }) {
+		add("media server %s runs on %s, which isn't a Node", m.Name, m.RunsOn)
+	}
+	for _, u := range slices.Concat(m.Custom, m.Published) {
+		if p, err := url.Parse(u); err != nil || (p.Scheme != "http" && p.Scheme != "https") || p.Hostname() == "" {
+			add("media server %s publishes %q, which isn't an http or https URL with a host", m.Name, u)
+		}
 	}
 }
