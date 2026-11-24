@@ -23,8 +23,10 @@ require (
 	github.com/invopop/jsonschema v0.14.0
 	github.com/klauspost/compress v1.20.3
 	github.com/libp2p/go-yamux/v5 v5.1.0
+	github.com/miekg/dns v1.1.73
 	github.com/mmcdole/gofeed v1.5.0
 	github.com/nwaples/rardecode/v2 v2.4.6
+	github.com/pion/stun/v4 v4.0.1
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
@@ -67,9 +69,13 @@ require (
 	github.com/pb33f/go-yaml v0.1.1 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.2 // indirect
 	github.com/philhofer/fwd v1.2.1 // indirect
+	github.com/pion/dtls/v3 v3.1.9 // indirect
+	github.com/pion/logging v0.2.4 // indirect
+	github.com/pion/transport/v5 v5.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/sethvargo/go-retry v0.5.0 // indirect
 	github.com/tinylib/msgp v1.6.5 // indirect
+	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
