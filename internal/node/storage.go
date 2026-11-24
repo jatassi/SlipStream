@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/notifications"
+	"github.com/jatassi/slipstream/internal/reachability"
 	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -55,6 +56,7 @@ func LibrarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
 		files.Schema(),
 		subtitles.Schema(),
 		mediaservers.Schema(),
+		reachability.Schema(),
 		naming.Schema(),
 		imports.Schema(),
 		moves.Schema(),
