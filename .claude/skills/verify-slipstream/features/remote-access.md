@@ -56,6 +56,7 @@ Steps:
 
 ## Gotchas
 
-- Every verdict on `home` is untested, because its Nodes reach nothing outside. Verdicts tested from outside need a Scenario with a `network` block, which none in the catalog has yet.
+- Every verdict on `home` is untested, because its Nodes reach nothing outside. Verdicts tested from outside need a `remote-*` Scenario, whose `network` block the network fakes play. Ports are drawn at launch, so a public address names the port atlas listens on: `http://slipstream.open.localhost:<atlas's http port>` for Address on `remote-open`, and Plex's front for atlas as the Plex route's port. `remote-own-proxy` takes `https://slipstream.proxy.fake.localhost` and `https://plex.proxy.fake.localhost` as they are.
+- `fakeworld cue $RUN network '{"site":"home","wan":"203.0.113.10"}'` moves a site's address; a Node sees it on its next watch pass, at least a minute away, so set "Look for network changes every" to 60 and "Wait after a network change" to 0 first. Plex's own check runs every 15 seconds and leaves a `plextv.connect-back` event; `fakeworld cue $RUN plex-mapping '{"server":"Plex","state":"mapped"}'` sets its result instead, and `fakeworld fault set $RUN the-vps proxy@atlas tls=expired` (or `tls=wrong-name`, `status=401`) breaks the Admin's proxy as atlas reaches it.
 - A route is judged by a Scheduled task run, so read it after the run ends: `GET /api/v1/tasks` shows the Reachability check's last run.
 - The UI and portal's check is skipped until Settings > Address holds the https:// name outsiders use.
