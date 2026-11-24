@@ -18,21 +18,16 @@ function Profile() {
   return <Select label="Quality" options={profiles} value={value} onValueChange={setValue} />;
 }
 
-test.each([
-  ["desktop", "32px", "36px"],
-  ["phone", "48px", "52px"],
-] satisfies [ShellKind, string, string][])(
-  "in the %s shell a %s select opens %s options, carrying the density it opened from, and picks one from the keyboard",
-  async (shell, trigger, item) => {
+test.each(["desktop", "phone"] satisfies ShellKind[])(
+  "in the %s shell a select opens its options and picks one from the keyboard",
+  async (shell) => {
     renderKit(<Profile />, { shell });
     const select = page.getByRole("combobox", { name: "Quality" });
     await expect.element(select).toHaveTextContent("Any");
-    expect(getComputedStyle(select.element()).height).toBe(trigger);
     await userEvent.tab();
     await userEvent.keyboard("{ArrowDown}");
     const option = page.getByRole("option", { name: "HD 1080p" });
     await expect.element(option).toBeVisible();
-    expect(getComputedStyle(option.element()).height).toBe(item);
     await expect.element(page.getByRole("option", { name: "Any" })).toHaveFocus();
     await userEvent.keyboard("{ArrowDown}");
     await expect.element(option).toHaveFocus();

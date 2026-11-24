@@ -6,6 +6,7 @@ import type { WorksLevel } from "./worksLevel.ts";
 import type { WorksOpenIn } from "./worksOpenIn.ts";
 import type { WorksRating } from "./worksRating.ts";
 import type { WorksWebLink } from "./worksWebLink.ts";
+import type { WorksWorkMove } from "./worksWorkMove.ts";
 import type { WorksWorkProfile } from "./worksWorkProfile.ts";
 import type { WorksWorkRoot } from "./worksWorkRoot.ts";
 
@@ -36,6 +37,8 @@ export interface WorksWorkView {
   monitorAsides: boolean;
   /** Items a refresh adds arrive monitored, unless they sit in an aside level and monitorAsides is off */
   monitorNew: boolean;
+  /** Its Move in flight, or failed; null for none */
+  move: WorksWorkMove | null;
   /** A link to the Work on each Media Server that holds it */
   openIn: WorksOpenIn[];
   /** The Content Type's own options for the Work, in Edit's order; empty when it has none */

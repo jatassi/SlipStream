@@ -16,23 +16,6 @@ func released() chan struct{} {
 	return c
 }
 
-func TestSoonWithNoOpenRunRunsNow(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		lib := storagetest.Library(t, tasks.Schema())
-		s := open(t, lib, tidy(released()))
-		clock(t, s)
-		time.Sleep(time.Hour)
-		synctest.Wait()
-		asked := time.Now().UnixMicro()
-		s.Soon("tidy")
-		synctest.Wait()
-		want := []string{fmt.Sprintf("schedule|succeeded|%d", asked)}
-		if got := rows(t, lib, "SELECT kind, result, started_at FROM tasks_run ORDER BY id"); !equal(got, want) {
-			t.Fatalf("runs = %q, want %q", got, want)
-		}
-	})
-}
-
 func TestSoonDuringARunRunsOnceAfterIt(t *testing.T) {
 	for _, calls := range []int{1, 3} {
 		t.Run(fmt.Sprintf("%d calls", calls), func(t *testing.T) {

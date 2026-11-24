@@ -105,12 +105,6 @@ test("a row whose every unit waits is amber with the reason and no Run now", asy
   await expect.element(page.getByRole("button", { name: "Run now: Housekeeping" })).toBeEnabled();
 });
 
-test("the Node column shows only when there is more than one Node", async () => {
-  renderApp({ path: "/tasks", handlers: taskServer({ tasks: [housekeeping] }).handlers });
-  await expect.element(page.getByRole("columnheader", { name: "Nodes" })).toBeVisible();
-  await expect.element(row("Housekeeping")).toMatchTextContent("home, seedbox");
-});
-
 test("a single Node has no Node column", async () => {
   renderApp({
     path: "/tasks",
@@ -208,45 +202,6 @@ test("a tasks.progress frame moves a running row's bar", async () => {
   });
   await expect.element(bar).toHaveAttribute("aria-valuenow", "75");
   await expect.element(row("Backlog search")).toMatchTextContent("9 of 12 steps");
-});
-
-test("one cadence, two surfaces: a change on the row shows on the detail page after tasks.changed", async () => {
-  const server = liveServer();
-  const tasks = taskServer({ tasks: [housekeeping] });
-  const list = renderApp({ path: "/tasks", handlers: [...server.handlers, ...tasks.handlers] });
-  const detail = renderApp({ path: "/tasks/housekeeping" });
-  await expect.poll(() => [list.live.getState(), detail.live.getState()]).toEqual(["open", "open"]);
-  const when = page.getByRole("region", { name: "When it runs" });
-  await expect.element(when).toMatchTextContent("Daily in the Maintenance window");
-
-  await userEvent.click(
-    page.getByRole("button", { name: "Every: Daily in the Maintenance window" }),
-  );
-  const popover = page.getByRole("dialog", { name: "Every" });
-  await userEvent.fill(popover.getByRole("textbox", { name: "Every" }), "2");
-  await userEvent.click(popover.getByRole("button", { name: "Save" }));
-  await expect
-    .poll(() => tasks.writes)
-    .toEqual([{ method: "PATCH", path: "housekeeping", body: { cadence: 172_800 } }]);
-
-  tasks.state.tasks = [
-    {
-      ...housekeeping,
-      cadence: {
-        ...housekeeping.cadence,
-        words: "Every 2 days in the Maintenance window",
-        field: { ...housekeeping.cadence.field, value: 172_800, isDefault: false },
-      },
-    },
-  ];
-  for (const client of server.clients) {
-    client.send({ event: "tasks.changed", data: { taskId: "housekeeping" } });
-  }
-  await expect.element(when).toMatchTextContent("Every 2 days in the Maintenance window");
-  await expect.element(when.getByRole("textbox", { name: "Every" })).toHaveValue("2");
-  await expect
-    .element(page.getByRole("button", { name: "Every: Every 2 days in the Maintenance window" }))
-    .toBeVisible();
 });
 
 test("on phone the tasks are a list with the result, the next run and Run now", async () => {

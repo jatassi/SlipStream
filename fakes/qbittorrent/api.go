@@ -32,6 +32,7 @@ func (c *client) endpoints() map[string]endpoint {
 		"torrents/export":     {"", (*client).export},
 		"torrents/files":      {"", (*client).files},
 		"torrents/trackers":   {"", (*client).trackers},
+		"torrents/properties": {"", (*client).properties},
 		"torrents/delete":     {post, (*client).delete},
 		"torrents/recheck":    {post, each((*torrentclient.Engine).Verify)},
 		"torrents/reannounce": {post, each((*torrentclient.Engine).Announce)},
@@ -147,6 +148,9 @@ const maxContent = 64 << 20
 // add is torrents/add for .torrent files. The category is created when
 // it doesn't exist. Automatic management is off, qBittorrent's default,
 // so a torrent with no save path goes to the default save path.
+// skip_checking, or seedMode from WebAPI 2.16.0, takes the files already
+// in the save path as complete. A Cold client from 5.2 answers a
+// duplicate as added and leaves the torrent as it was.
 func (c *client) add(w http.ResponseWriter, r *http.Request, _ *session) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxContent)
 	if err := r.ParseMultipartForm(maxContent); err != nil { //nolint:gosec // the body is bounded above
@@ -154,11 +158,14 @@ func (c *client) add(w http.ResponseWriter, r *http.Request, _ *session) {
 		return
 	}
 	category, save := r.PostFormValue("category"), strings.TrimSpace(r.PostFormValue("savepath"))
-	stopped := "paused"
+	stopped, skip := "paused", "skip_checking"
 	if c.version.stop {
 		stopped = "stopped"
 	}
-	paused := parseBool(r.PostFormValue(stopped))
+	if c.version.seedMode {
+		skip = "seedMode"
+	}
+	paused, complete := parseBool(r.PostFormValue(stopped)), parseBool(r.PostFormValue(skip))
 	folder := save
 	switch {
 	case save == "":
@@ -182,8 +189,8 @@ func (c *client) add(w http.ResponseWriter, r *http.Request, _ *session) {
 		if category != "" {
 			labels = []string{category}
 		}
-		t, duplicate, err := c.engine.Add(meta, folder, labels, paused)
-		if err != nil || duplicate {
+		t, duplicate, err := c.engine.Add(torrentclient.Add{Metainfo: meta, Folder: folder, Labels: labels, Paused: paused, Complete: complete})
+		if err != nil || duplicate && (!c.Cold || !c.version.v52) {
 			failed++
 			continue
 		}
@@ -417,6 +424,25 @@ func (c *client) trackers(w http.ResponseWriter, r *http.Request, _ *session) {
 		out = append(out, map[string]any{"url": u, "tier": 0, "status": status, "msg": t.Tracker.Message, "num_peers": 0})
 	}
 	writeJSON(w, out)
+}
+
+// properties is torrents/properties, whose reannounce is the seconds
+// until the next announce.
+func (c *client) properties(w http.ResponseWriter, r *http.Request, _ *session) {
+	t, ok := c.torrentOf(w, r)
+	if !ok {
+		return
+	}
+	completion := int64(-1)
+	if !t.CompletedAt.IsZero() {
+		completion = t.CompletedAt.Unix()
+	}
+	writeJSON(w, map[string]any{
+		"hash": t.Hash.String(), "name": t.Name, "save_path": t.Folder, "total_size": t.Size,
+		"total_uploaded": t.Uploaded, "total_downloaded": t.Downloaded, "completion_date": completion,
+		"time_elapsed": int64((t.Downloading + t.Seeding).Seconds()), "seeding_time": int64(t.Seeding.Seconds()),
+		"reannounce": int64(t.NextAnnounce(time.Now()).Seconds()), "is_private": t.Private,
+	})
 }
 
 func readPart(f *multipart.FileHeader) ([]byte, error) {

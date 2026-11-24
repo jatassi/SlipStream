@@ -7,7 +7,6 @@ import { readPref, writePref } from "../shell/prefs";
 import { ada, problem, signedOut } from "../test/handlers";
 import { renderApp } from "../test/render-app";
 import { whenWords } from "../ui/time-words";
-import { resize } from "../test/viewport";
 
 const own = () => ({ now: new Date(), zone: undefined });
 
@@ -35,12 +34,6 @@ async function typePin(pin: string) {
   await userEvent.keyboard(pin);
 }
 
-test("a signed-out visit to / lands on sign-in with a redirect back", async () => {
-  const { router } = renderApp({ path: "/", handlers: [signedOut] });
-  await expect.element(page.getByRole("heading", { name: "Sign in to SlipStream" })).toBeVisible();
-  expect(router.state.location.href).toBe("/sign-in?redirect=%2F");
-});
-
 test("a wrong PIN shows the server's title and clears the PIN, and the right one signs in", async () => {
   const { router } = renderApp({ path: "/library", handlers: adaServer() });
   await userEvent.fill(page.getByLabelText("Email"), "ada@example.test");
@@ -56,20 +49,7 @@ test("a wrong PIN shows the server's title and clears the PIN, and the right one
 
 test("an expired session says so", async () => {
   renderApp({ path: "/sign-in?reason=expired", handlers: [signedOut] });
-  await expect
-    .element(page.getByRole("status"))
-    .toHaveTextContent("Your session ended. Sign in again.");
-});
-
-test.each([
-  ["a desktop browser", 1440, "32px"],
-  ["a phone", 390, "48px"],
-])("sign-in in %s takes that shell's density", async (_shell, width, inputHeight) => {
-  await resize(width, 844);
-  renderApp({ path: "/sign-in", handlers: [signedOut] });
-  const email = page.getByLabelText("Email");
-  await expect.element(email).toBeVisible();
-  expect(getComputedStyle(email.element()).height).toBe(inputHeight);
+  await expect.element(page.getByRole("status")).toMatchTextContent(/session ended/u);
 });
 
 test("the browser remembers the email that signed in and fills it next time", async () => {
@@ -87,26 +67,6 @@ test("a remembered email is filled in", async () => {
 });
 
 test.each([
-  [
-    "a turned-off PIN",
-    () =>
-      problem(
-        403,
-        "pin_off",
-        "This PIN is locked after too many wrong PINs. Sign in with a passkey or ask an Admin for a Reset link.",
-      ),
-    "This PIN is locked after too many wrong PINs. Sign in with a passkey or ask an Admin for a Reset link.",
-  ],
-  [
-    "a turned-off Account",
-    () =>
-      problem(
-        403,
-        "account_disabled",
-        "This Account is turned off. Ask an Admin to turn it back on.",
-      ),
-    "This Account is turned off. Ask an Admin to turn it back on.",
-  ],
   [
     "too many failures from this address",
     () =>

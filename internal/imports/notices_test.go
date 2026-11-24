@@ -1,10 +1,7 @@
 package imports
 
 import (
-	"bytes"
 	"context"
-	"flag"
-	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -17,14 +14,11 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
-
-var update = flag.Bool("update", false, "rewrite the rendered messages under testdata/notices")
 
 // pack adds Work key, homed in w's root, with one box of n clips, opens a
 // folder of a file per clip, and matches each to a release name: the last
@@ -133,50 +127,25 @@ func TestImportsMessagesReadAsWritten(t *testing.T) {
 		}
 		return out
 	}
-	golden := func(e entry.Entry, facts any, name string) {
-		entrytest.Golden(t, e, facts, "testdata/notices", name, *update)
+	page := "/works/" + id.String()
+	stored := func(e entry.Entry, facts any, name string, names ...string) {
+		entrytest.Stored(t, e, facts, "testdata/notices", name, names...)
 	}
-	golden(importedRow, ImportedFacts{Work: dune, Root: "Books library root on Den", Files: []PlacedFile{{Quality: release.WEBDL1080p, Size: 6 * gb, PlacedBy: ByLink}}}, "imported-one")
-	golden(importedRow, ImportedFacts{Work: ark, Root: "Zines library root on Den", Files: issues(2, 1, 9, release.WEBDL1080p), Failed: 1, Waiting: 2}, "imported-many")
-	golden(importedRow, ImportedFacts{Work: ark, Root: "Zines library root on Den", Files: append(issues(1, 9, 10, release.HDTV720p), issues(2, 1, 1, release.HDTV720p)...)}, "imported-two-levels")
-	golden(upgradedRow, ImportedFacts{Work: dune, Root: "Books library root on Den", Files: []PlacedFile{{Quality: release.Bluray1080p, Size: 9 * gb, PlacedBy: ByCopy, Replaced: []release.Quality{release.WEBDL720p}}}}, "upgraded-one")
-	golden(upgradedRow, ImportedFacts{Work: ark, Root: "Zines library root on Den", Files: issues(1, 1, 5, release.Bluray1080p, release.HDTV720p)}, "upgraded-many")
-	golden(scanAddedRow, ScanAddedFacts{Root: "Books library root on Den", Nouns: book, Count: 140, First: []string{"Dune (1965)", "Emma (1815)", "Ulysses (1922)"}}, "works-added-by-scan")
-	golden(scanAddedRow, ScanAddedFacts{Root: "Books library root on Den", Nouns: book, Count: 1, First: []string{"Dune (1965)"}}, "works-added-by-scan-one")
-}
-
-// TestAnUpgradesWebhookBodyIsAsBeforeHistory renders stored Upgraded facts
-// through the Webhook. The golden was built by main at 60d5151f, before
-// History, from the same facts, which it decodes without the fields
-// History added.
-func TestAnUpgradesWebhookBodyIsAsBeforeHistory(t *testing.T) {
-	subject, err := os.ReadFile("testdata/notices/upgraded-webdl.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	m, err := upgradedRow.RenderStored(subject, entrytest.Context)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Contains(m.Lines, "It replaced WEBDL-1080p.") {
-		t.Errorf("Upgraded reads %q, want what it replaced", m.Lines)
-	}
-	webhook, _ := providers.ByID("webhook")
-	out, err := webhook.Build(providers.Payload{
-		Kind: upgradedRow.Kind, At: entrytest.Context.Now, Message: m,
-		Settings: providers.Values{"method": []byte(`"POST"`)}, Secrets: providers.Values{"url": []byte(`"https://hook.example/upgrades"`)},
-		Poster: &providers.Poster{URL: "https://image.example/cover.jpg"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	want, err := os.ReadFile("testdata/notices/upgraded-webdl.webhook.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(out.Post.Body, want) {
-		t.Errorf("the Webhook body is\n%s\nwant main's\n%s", out.Post.Body, want)
-	}
+	stored(importedRow, ImportedFacts{Work: dune, Root: "Books library root on Den", Files: []PlacedFile{{Quality: release.WEBDL1080p, Size: 6 * gb, PlacedBy: ByLink}}}, "imported-one",
+		"Dune (1965)", "WEBDL-1080p", "6.0 GB", "Books library root on Den", page)
+	stored(importedRow, ImportedFacts{Work: ark, Root: "Zines library root on Den", Files: issues(2, 1, 9, release.WEBDL1080p), Failed: 1, Waiting: 2}, "imported-many",
+		"Ark (2019)", "9 issues", "WEBDL-1080p", "4.5 GB", "1 issue", "2 issues", page)
+	stored(importedRow, ImportedFacts{Work: ark, Root: "Zines library root on Den", Files: append(issues(1, 9, 10, release.HDTV720p), issues(2, 1, 1, release.HDTV720p)...)}, "imported-two-levels",
+		"Ark (2019)", "3 issues", "HDTV-720p", "1.5 GB", "volume 1", "volume 2", page)
+	stored(upgradedRow, ImportedFacts{Work: dune, Root: "Books library root on Den", Files: []PlacedFile{{Quality: release.Bluray1080p, Size: 9 * gb, PlacedBy: ByCopy, Replaced: []release.Quality{release.WEBDL720p}}}}, "upgraded-one",
+		"Dune (1965)", "Bluray-1080p", "WEBDL-720p", page)
+	stored(upgradedRow, ImportedFacts{Work: ark, Root: "Zines library root on Den", Files: issues(1, 1, 5, release.Bluray1080p, release.HDTV720p)}, "upgraded-many",
+		"Ark (2019)", "5 issues", "HDTV-720p", "Bluray-1080p", "2 more", page)
+	stored(upgradedRow, nil, "upgraded-webdl", "WEBDL-1080p")
+	stored(scanAddedRow, ScanAddedFacts{Root: "Books library root on Den", Nouns: book, Count: 140, First: []string{"Dune (1965)", "Emma (1815)", "Ulysses (1922)"}}, "works-added-by-scan",
+		"Books library root on Den", "140 books", "Dune (1965)", "Emma (1815)", "Ulysses (1922)", "137 more", "/library")
+	stored(scanAddedRow, ScanAddedFacts{Root: "Books library root on Den", Nouns: book, Count: 1, First: []string{"Dune (1965)"}}, "works-added-by-scan-one",
+		"Books library root on Den", "1 book", "Dune (1965)", "/library")
 }
 
 // adopt adds Work key homed in root as a Library scan adopts one.

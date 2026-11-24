@@ -109,6 +109,16 @@ type DownloadclientsTorrent struct {
 	Retry             *string
 	ClientErrorMs     int64
 	ClientErrorAt     storage.Time
+	ArrivingUnit      []byte
+	Arrival           *string
+	ArrivalReason     *string
+	ArrivedAt         storage.Time
+	StartAskedAt      storage.Time
+	StartUntilAt      storage.Time
+	PausedAt          storage.Time
+	AnnouncedAt       storage.Time
+	AnnounceDueAt     storage.Time
+	WatchAnnounce     int64
 }
 
 type DownloadclientsVolume struct {

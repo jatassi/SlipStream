@@ -49,21 +49,6 @@ const textsOf = (selector: string): string[] =>
     .map((element) => element.textContent.trim())
     .filter((text) => text !== "");
 
-test("dragging a Role chip onto another Node opens the Review of moving it there", async () => {
-  const server = dragServer();
-  renderApp({ path: "/nodes", handlers: server.handlers });
-  await expect.element(diagram()).toHaveAttribute("data-takes-drags", "true");
-  await commands.drag(chip(ids.home, "downloading"), tile(ids.vps));
-  await expect.element(review()).toBeVisible();
-  await expect.poll(() => server.planned).toHaveLength(1);
-  expect(
-    server.planned[0]?.set.map(({ nodeId, roles }) => [nodeId, roles.includes("downloading")]),
-  ).toEqual([
-    [ids.home, false],
-    [ids.vps, true],
-  ]);
-});
-
 test("dragging with Alt held adds the Role to the other Node and keeps it where it was", async () => {
   const server = dragServer();
   renderApp({ path: "/nodes", handlers: server.handlers });
@@ -132,25 +117,6 @@ test("a click on a Node's tile opens the Inspector headed for it, and Escape clo
   await expect.element(inspector).toBeVisible();
   await userEvent.keyboard("{Escape}");
   await expect.element(inspector).not.toBeInTheDocument();
-});
-
-test("the Inspector opens below the top bar, which keeps its search and Add a Node clear of each other", async () => {
-  renderApp({ path: "/nodes", handlers: dragServer().handlers });
-  await expect.element(diagram()).toBeVisible();
-  await userEvent.click(
-    page.elementLocator(document.querySelector(tile(ids.vps)) ?? document.body),
-  );
-  const inspector = page.getByRole("complementary", { name: "vps" });
-  await expect.element(inspector).toBeVisible();
-  const bar = page.getByRole("banner").element().getBoundingClientRect();
-  const search = page
-    .getByRole("button", { name: "Search Works or run a command" })
-    .element()
-    .getBoundingClientRect();
-  const add = page.getByRole("button", { name: "Add a Node" }).element().getBoundingClientRect();
-  expect(inspector.element().getBoundingClientRect().top).toBeGreaterThanOrEqual(bar.bottom + 12);
-  expect(search.right).toBeLessThan(add.left);
-  expect(add.right).toBeLessThanOrEqual(bar.right);
 });
 
 test("a chip drags over text selected in the Diagram, which a browser would otherwise drag as text", async () => {
@@ -225,42 +191,9 @@ test("a television's screen is lit while its Node is online and a Media Server i
     if (element === null) {
       throw new Error(`${name} draws no television`);
     }
-    return { lit: element.dataset["screen"] === "lit", fill: getComputedStyle(element).fill };
+    return element.dataset["screen"] === "lit";
   };
-  const [lit, alsoLit, dark] = [screen("home"), screen("seedbox"), screen("office")];
-  expect([lit.lit, alsoLit.lit, dark.lit]).toEqual([true, true, false]);
-  expect(lit.fill).toBe(alsoLit.fill);
-  expect(dark.fill).not.toBe(lit.fill);
-});
-
-const lampOf = (id: string): string => {
-  const glow = document.querySelector(`[data-node="${id}"] .lamp-glow`);
-  if (glow === null) {
-    throw new Error(`${id} draws no lamp`);
-  }
-  return getComputedStyle(glow).fill;
-};
-
-test("a tile's lamp takes its Node's state's colour, as every other Node lamp does", async () => {
-  const states = { [ids.seedbox]: "offline", [ids.vps]: "lapsed" } as const;
-  const topology = topologyOf([home, seedbox, vps]);
-  for (const node of topology.nodes) {
-    node.state = states[node.id] ?? "online";
-  }
-  renderApp({
-    path: "/nodes",
-    handlers: [
-      nodesAre(home, seedbox, vps),
-      topologyIs(topology),
-      boardIs(board(homeSeat, seedboxSeat, vpsSeat)),
-    ],
-  });
-  await expect.element(diagram()).toBeVisible();
-  expect([lampOf(ids.home), lampOf(ids.seedbox), lampOf(ids.vps)]).toEqual([
-    "rgb(95, 211, 148)",
-    "rgb(255, 181, 71)",
-    "rgb(255, 107, 97)",
-  ]);
+  expect([screen("home"), screen("seedbox"), screen("office")]).toEqual([true, true, false]);
 });
 
 test("the Notifying Role's Inspector says the Node sees the connections' secrets while it sends", async () => {

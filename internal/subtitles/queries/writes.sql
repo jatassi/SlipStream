@@ -26,3 +26,8 @@ DELETE FROM subtitles_parked WHERE id = sqlc.arg(id);
 
 -- name: GetGate :one
 SELECT sync_match, sync_max_offset_seconds, sync_framerates FROM subtitles_settings WHERE id = 1;
+
+-- name: ListWriting :many
+SELECT f.file_id FROM subtitles_file f
+WHERE f.file_id IN (sqlc.slice(ids)) AND (f.map_state = 'building' OR EXISTS (SELECT 1 FROM subtitles_write w WHERE w.file_id = f.file_id))
+ORDER BY f.file_id;

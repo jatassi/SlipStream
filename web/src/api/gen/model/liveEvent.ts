@@ -30,6 +30,7 @@ import type { LiveEventMediaServersRecovered } from "./liveEventMediaServersReco
 import type { LiveEventMediaServersSessionsChanged } from "./liveEventMediaServersSessionsChanged.ts";
 import type { LiveEventMediaServersUnhealthy } from "./liveEventMediaServersUnhealthy.ts";
 import type { LiveEventMetadataChanged } from "./liveEventMetadataChanged.ts";
+import type { LiveEventMovesChanged } from "./liveEventMovesChanged.ts";
 import type { LiveEventNamingChanged } from "./liveEventNamingChanged.ts";
 import type { LiveEventNodesChanged } from "./liveEventNodesChanged.ts";
 import type { LiveEventNodeSettingsChanged } from "./liveEventNodeSettingsChanged.ts";
@@ -89,6 +90,7 @@ export type LiveEvent =
   | LiveEventMediaServersSessionsChanged
   | LiveEventMediaServersUnhealthy
   | LiveEventMetadataChanged
+  | LiveEventMovesChanged
   | LiveEventNamingChanged
   | LiveEventNodeSettingsChanged
   | LiveEventNodesChanged

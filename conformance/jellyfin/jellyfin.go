@@ -26,7 +26,7 @@ type (
 	Played  = mediabrowser.Played
 	Disk    = mediaservers.Disk
 	DirDisk = mediaservers.DirDisk
-	Fresh   = mediaservers.Fresh
+	Library = mediaservers.Library
 )
 
 // Run runs every case against tg.

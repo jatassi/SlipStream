@@ -2,6 +2,7 @@ package storing
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -25,6 +26,9 @@ type Payloads interface {
 	// Path is where file index of torrent h lies on this Node, an error
 	// until the torrent finished here.
 	Path(h bencode.InfoHash, index int) (string, error)
+	// Arriving is where a payload file a Move placed in a Download
+	// Client's folder lies on this Node.
+	Arriving(a Arriving) (string, error)
 }
 
 type Config struct {
@@ -43,6 +47,11 @@ type Config struct {
 	ProbeTimeout time.Duration
 	// PathLimit is storage.path_limit, which the facts report.
 	PathLimit int64
+	// RemoveRetry is the first wait before a remove of a file another
+	// program holds open runs again, doubling, and RemoveBound how long
+	// after the first try it gives up: timings.moves.remove_retry and
+	// timings.moves.remove_bound.
+	RemoveRetry, RemoveBound time.Duration
 }
 
 // resampleEvery is the least time between two samples a placement asks
@@ -78,6 +87,9 @@ type Store struct {
 	// walks is each root's walk lock: a Walk page holds it to read, a
 	// case-only rename to write, so no page lists a name mid-rename.
 	walks map[storage.UUID]*sync.RWMutex
+	// ledger is the Sidecar ledger's local.db, which NewSidecars hands
+	// over once the Node's half opened it.
+	ledger ledgers
 }
 
 type judgment struct {
@@ -645,4 +657,40 @@ func timed[T any](ctx context.Context, s *Store, key string, fn func(context.Con
 		}
 	}()
 	return none, fmt.Errorf("%s hasn't responded within %s: %w", key, s.cfg.Timings.Stat, errUnresponsive)
+}
+
+// stat reads rel under dir in the stat deadline.
+func (s *Store) stat(ctx context.Context, dir string, rel Rel) (Info, error) {
+	p := s.host.Style.Under(dir, rel)
+	info, err := timed(ctx, s, dir, func(ctx context.Context) (Info, error) { return s.cfg.Disk.Stat(ctx, p) })
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return nil, err
+	case err != nil:
+		return nil, s.folderError(err)
+	case info.Dir():
+		return nil, fmt.Errorf("%s is a folder: %w", rel, fs.ErrNotExist)
+	}
+	return info, nil
+}
+
+// hash is the size and sha256 of the file rel under dir.
+func (s *Store) hash(ctx context.Context, dir string, rel Rel) (size int64, sha [32]byte, err error) {
+	if _, err := s.stat(ctx, dir, rel); err != nil {
+		return 0, [32]byte{}, err
+	}
+	f, err := s.cfg.Disk.Open(ctx, s.host.Style.Under(dir, rel))
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return 0, [32]byte{}, err
+		}
+		return 0, [32]byte{}, s.folderError(err)
+	}
+	defer func() { _ = f.Close() }()
+	h := sha256.New()
+	n, err := io.Copy(h, f)
+	if err != nil {
+		return 0, [32]byte{}, s.folderError(err)
+	}
+	return n, [32]byte(h.Sum(nil)), nil
 }

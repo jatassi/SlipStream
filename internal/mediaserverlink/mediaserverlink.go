@@ -20,6 +20,15 @@ var Kinds = link.Registry{
 	mbkind.Emby,
 }
 
+// PlexMoveMeasured is whether the recorded Plex run measured how Plex
+// takes a Move. The conformance cases that depend on it skip until then.
+func PlexMoveMeasured() bool { return plexkind.MoveMeasured() }
+
+// PlexSameSectionPart is whether Plex shows a copy in another folder of
+// the item's section as a second Part of the item, as the recorded run
+// measures it.
+func PlexSameSectionPart() bool { return plexkind.SameSectionPart() }
+
 // Port is how the Controller's sender runs one step on a server. A
 // link.Conn the Controller dials itself at the fallback address is one.
 type Port interface {

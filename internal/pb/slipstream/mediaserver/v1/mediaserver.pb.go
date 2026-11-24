@@ -1983,9 +1983,12 @@ type JobChange struct {
 	Kind    string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
 	Library string                 `protobuf:"bytes,3,opt,name=library,proto3" json:"library,omitempty"`
 	// path and from_path are server paths, joined on the Controller.
-	Path          string    `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
-	FromPath      string    `protobuf:"bytes,5,opt,name=from_path,json=fromPath,proto3" json:"from_path,omitempty"`
-	Snapshot      *Snapshot `protobuf:"bytes,6,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	Path     string    `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
+	FromPath string    `protobuf:"bytes,5,opt,name=from_path,json=fromPath,proto3" json:"from_path,omitempty"`
+	Snapshot *Snapshot `protobuf:"bytes,6,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	// from_library is the library from_path is in on a Move's carry, set
+	// only when the file moved from another root.
+	FromLibrary   string `protobuf:"bytes,7,opt,name=from_library,json=fromLibrary,proto3" json:"from_library,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2060,6 +2063,13 @@ func (x *JobChange) GetSnapshot() *Snapshot {
 		return x.Snapshot
 	}
 	return nil
+}
+
+func (x *JobChange) GetFromLibrary() string {
+	if x != nil {
+		return x.FromLibrary
+	}
+	return ""
 }
 
 type Refresh struct {
@@ -2896,14 +2906,15 @@ const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
 	"\x04step\x18\b \x01(\tR\x04step\x12 \n" +
 	"\fstep_unix_ms\x18\t \x01(\x03R\n" +
 	"stepUnixMsB\x06\n" +
-	"\x04work\"\xbb\x01\n" +
+	"\x04work\"\xde\x01\n" +
 	"\tJobChange\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x18\n" +
 	"\alibrary\x18\x03 \x01(\tR\alibrary\x12\x12\n" +
 	"\x04path\x18\x04 \x01(\tR\x04path\x12\x1b\n" +
 	"\tfrom_path\x18\x05 \x01(\tR\bfromPath\x12?\n" +
-	"\bsnapshot\x18\x06 \x01(\v2#.slipstream.mediaserver.v1.SnapshotR\bsnapshot\"I\n" +
+	"\bsnapshot\x18\x06 \x01(\v2#.slipstream.mediaserver.v1.SnapshotR\bsnapshot\x12!\n" +
+	"\ffrom_library\x18\a \x01(\tR\vfromLibrary\"I\n" +
 	"\aRefresh\x12>\n" +
 	"\achanges\x18\x01 \x03(\v2$.slipstream.mediaserver.v1.JobChangeR\achanges\"G\n" +
 	"\x05Carry\x12>\n" +

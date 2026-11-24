@@ -28,14 +28,20 @@ type Stager interface {
 	Staging(ctx context.Context, root storage.UUID, place int64, transfer storage.UUID) (string, error)
 }
 
+// DownloadStager is a download folder destination's gate on this Node:
+// the folder a Transfer stages in for the torrent's Download Client, or
+// why it can't stage yet. downloading.Node is one.
+type DownloadStager = engine.DownloadStager
+
 // NodeConfig builds a Node's half of Transfers. Every Node has one.
 type NodeConfig struct {
-	Local   *storage.DB[file]
-	Disk    storing.Disk
-	Link    *link.Link
-	Sources Opener
-	Roots   Stager
-	Timings Timings
+	Local     *storage.DB[file]
+	Disk      storing.Disk
+	Link      *link.Link
+	Sources   Opener
+	Roots     Stager
+	Downloads DownloadStager
+	Timings   Timings
 	// Retry is timings.backups.windows_retry: how long a rename or delete
 	// in a Backup folder retries a Windows sharing violation.
 	Retry time.Duration
@@ -51,11 +57,12 @@ type Node struct{ e *engine.Engine }
 func NewNode(cfg NodeConfig) *Node {
 	t := cfg.Timings
 	return &Node{e: engine.New(engine.Config{
-		Local:   cfg.Local,
-		Disk:    cfg.Disk,
-		Link:    cfg.Link,
-		Sources: cfg.Sources,
-		Roots:   cfg.Roots,
+		Local:     cfg.Local,
+		Disk:      cfg.Disk,
+		Link:      cfg.Link,
+		Sources:   cfg.Sources,
+		Roots:     cfg.Roots,
+		Downloads: cfg.Downloads,
 		Timings: engine.Timings{
 			Chunk: t.Chunk, Report: t.Report, Dial: t.Dial, Estimate: t.Estimate,
 			LanesStart: t.LanesStart, LanesGrow: t.LanesGrow, LanesGain: t.LanesGain, LanesMax: t.LanesMax, Ahead: t.Ahead,

@@ -29,9 +29,9 @@ function shownTorrents(queryClient: QueryClient): Set<string> {
 /**
  * Home reads its summary again for a change to what it shows: a Grab's
  * stage, an Import, a Work, a client's or Node's reach, Reconciling, a prune
- * of History, or Rows on Home. A progress tick changes no row's place, and a
- * Torrent's change reads the summary only when a shown Job holds it, so its
- * menu offers what the Torrent can do now.
+ * of History, a Move, or Rows on Home. A progress tick changes no row's
+ * place, and a Torrent's change reads the summary only when a shown Job
+ * holds it, so its menu offers what the Torrent can do now.
  */
 export const homeEffects = {
   "home.settings-changed": (_data, { refresh }) => {
@@ -50,6 +50,7 @@ export const homeEffects = {
   "nodes.changed": readHome(),
   "reconciling.changed": readHome(),
   "history.changed": readHome(),
+  "moves.changed": readHome(),
   "download-clients.changed": ({ clientIds }, { refresh }) => {
     if (clientIds.length > 0) {
       refresh(home);
@@ -76,6 +77,7 @@ export const withHome = (table: Omit<LiveEffects, "home.settings-changed">): Liv
   "nodes.changed": both(table["nodes.changed"], homeEffects["nodes.changed"]),
   "reconciling.changed": both(table["reconciling.changed"], homeEffects["reconciling.changed"]),
   "history.changed": both(table["history.changed"], homeEffects["history.changed"]),
+  "moves.changed": both(table["moves.changed"], homeEffects["moves.changed"]),
   "download-clients.changed": both(
     table["download-clients.changed"],
     homeEffects["download-clients.changed"],

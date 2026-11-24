@@ -275,6 +275,7 @@ func (m *MediaServers) take(ctx context.Context, id link.ServerID, indexAfter ti
 		if err != nil {
 			return err
 		}
+		d.MovedHold = k.About().MovedHold
 		s.next = d.Ready(d.Wait).Next
 		for _, j := range sendable(k.Plan(d)) {
 			if err := q.TakeChanges(ctx, db.TakeChangesParams{ServerID: id, Ids: jobIDs(j)}); err != nil {
@@ -373,26 +374,27 @@ func (m *MediaServers) due(ctx context.Context, q *db.Queries, row db.Mediaserve
 		return d, err
 	}
 	for _, c := range cs {
-		d.Rows = append(d.Rows, rowOf(c, folders[c.Root]))
+		d.Rows = append(d.Rows, rowOf(c, folders[c.Root], folders[c.Origin().Root]))
 	}
 	return d, nil
 }
 
-// rowOf is c as Plan reads it, at its server path under mp.
-func rowOf(c queue.Change, mp link.PlanMapping) link.Row {
+// rowOf is c as Plan reads it, at its server path under mp, and a carry's
+// origin under from, the source root's mapping on a Move.
+func rowOf(c queue.Change, mp, from link.PlanMapping) link.Row {
 	r := link.Row{
 		JobChange: link.JobChange{ID: c.ID, Kind: c.Kind, Library: mp.Library, Snapshot: c.Snapshot},
-		Root:      c.Root, Rel: c.Path, FromRel: c.From, Created: c.Created, NextAt: c.NextAt,
-		Step: c.Step, StepAt: c.StepAt, Attempts: c.Attempts, Pairing: c.Pairing(),
+		Root:      c.Root, FromRoot: c.FromRoot, Rel: c.Path, FromRel: c.From, SourceGone: c.SourceGone,
+		Created: c.Created, NextAt: c.NextAt, Step: c.Step, StepAt: c.StepAt, Attempts: c.Attempts, Pairing: c.Pairing(),
 	}
-	if mp.Folder.IsZero() {
-		return r
+	if c.Move() {
+		r.FromLibrary = from.Library
 	}
-	if c.Kind != link.ChangeLibrary {
+	if !mp.Folder.IsZero() && c.Kind != link.ChangeLibrary {
 		r.Path = mp.Folder.Join(c.Path)
 	}
-	if c.Carry() {
-		r.From = mp.Folder.Join(c.From)
+	if !from.Folder.IsZero() && c.Carry() {
+		r.From = from.Folder.Join(c.From)
 	}
 	return r
 }
@@ -502,9 +504,13 @@ type stepped struct {
 }
 
 // land writes c at the Job's new step: sent when its change ended, still
-// taken when the Job goes on, else due again at the step's wait.
+// taken when the Job goes on, else due again at the step's wait. A Fresh
+// Job's step is its mapping's, so its rows keep their own.
 func (st stepped) land(ctx context.Context, q *db.Queries, c queue.Change) error {
-	c.Step, c.StepAt, c.Problem = st.out.Job.Step, st.out.Job.At, nil
+	c.Problem = nil
+	if _, fresh := st.out.Job.Work.(link.Fresh); !fresh {
+		c.Step, c.StepAt = st.out.Job.Step, st.out.Job.At
+	}
 	if c.Step == link.StepNone {
 		c.StepAt = time.Time{}
 	}

@@ -14,6 +14,7 @@ export function TransferRow({ transfer, nodeId }: { transfer: TransfersTransfer;
     <li className="flex flex-col gap-1 px-4 py-3 not-first:shadow-[inset_0_1px_0_var(--color-hairline)]">
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <span className="min-w-0 truncate font-semibold text-ink-1">{transfer.jobName}</span>
+        {transfer.purpose === "move" && <span className="text-meta text-ink-3">Move</span>}
         {!copying && (
           <>
             <span className="text-meta text-ink-3">

@@ -45,8 +45,18 @@ func TestURLEncode(t *testing.T) {
 			t.Errorf("%s URLEncode(%q) = %q, want %q", tt.name, tt.in, got, tt.want)
 		}
 	}
-	if got := URLEncode("Привет"); got != "%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82" {
-		t.Errorf("URLEncode = %q", got)
+	latin1 := mustCharset(t, "iso-8859-1")
+	for _, tt := range []struct{ got, want string }{
+		{URLEncode("Привет"), "%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82"},
+		{UTF8.URLEncode(" "), "+"},
+		{UTF8.URLEncode("Kon-Tiki 2012"), "Kon-Tiki+2012"},
+		{URLEncode("K-On! S2"), "K-On!+S2"},
+		{latin1.URLEncode("Amélie"), "Am%E9lie"},
+		{UTF8.URLEncode(""), ""},
+	} {
+		if tt.got != tt.want {
+			t.Errorf("URLEncode = %q, want %q", tt.got, tt.want)
+		}
 	}
 }
 

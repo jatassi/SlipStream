@@ -1,6 +1,7 @@
 package link
 
 import (
+	"cmp"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/roots"
@@ -16,18 +17,25 @@ type Due struct {
 	Rows     []Row
 	Mappings []PlanMapping
 	// Wait is the server's Wait before sending.
-	Wait    time.Duration
-	Timings Timings
+	Wait time.Duration
+	// MovedHold is the kind's About.MovedHold.
+	MovedHold Step
+	Timings   Timings
 }
 
 // Row is one due change row.
 type Row struct {
 	JobChange
 	Root roots.ID
+	// FromRoot is the root FromRel is in on a Move's carry, zero otherwise.
+	FromRoot roots.ID
 	// Rel is the root-relative path, zero for a library change. FromRel is
 	// zero unless the row is a carry.
 	Rel, FromRel storing.Rel
-	Created      time.Time
+	// SourceGone is when the Move removed the files at FromRel, zero
+	// before and on every other row.
+	SourceGone time.Time
+	Created    time.Time
 	// NextAt is the row's next_attempt_at: a retry's backoff, or a step's
 	// timed wait.
 	NextAt time.Time
@@ -81,7 +89,7 @@ func (r Row) paths() []pathKey {
 	}
 	ps := []pathKey{{r.Root, r.Rel}}
 	if r.carry() {
-		ps = append(ps, pathKey{r.Root, r.FromRel})
+		ps = append(ps, pathKey{cmp.Or(r.FromRoot, r.Root), r.FromRel})
 	}
 	return ps
 }
@@ -120,7 +128,9 @@ func (p *Pick) wake(at time.Time) {
 // Ready applies the rules every kind shares, in this order:
 //
 //   - A row under a mapping that isn't shown and confirmed waits until the
-//     Admin confirms it.
+//     Admin confirms it. A Move's carry waits for both its roots' mappings.
+//   - A Move's carry at the kind's MovedHold waits until the Move removed
+//     its source files, which wakes the sender.
 //   - A row waits for its next_attempt_at, and either half of an upgrade
 //     waits until its partner folds in or Timings.UpgradePairing passes.
 //   - New rows wait until the oldest of them has waited wait.
@@ -149,12 +159,16 @@ func (d Due) Ready(wait time.Duration) Pick {
 }
 
 // holdUntilDue holds rows under a mapping that isn't shown and confirmed,
-// rows waiting on time, and new rows until the oldest has waited wait.
+// a Move's carry at MovedHold until its source is gone, rows waiting on
+// time, and new rows until the oldest has waited wait.
 func (d Due) holdUntilDue(maps map[roots.ID]PlanMapping, held []bool, wait time.Duration, p *Pick) {
 	var oldest time.Time
 	for i, r := range d.Rows {
-		m, ok := maps[r.Root]
-		if !ok || !m.Shown || !m.Confirmed {
+		if !confirmed(maps, r.Root) || !r.FromRoot.IsZero() && !confirmed(maps, r.FromRoot) {
+			held[i] = true
+			continue
+		}
+		if !r.FromRoot.IsZero() && r.Step == d.MovedHold && r.SourceGone.IsZero() {
 			held[i] = true
 			continue
 		}
@@ -174,6 +188,11 @@ func (d Due) holdUntilDue(maps map[roots.ID]PlanMapping, held []bool, wait time.
 		held[i] = held[i] || r.fresh()
 	}
 	p.wake(oldest.Add(wait))
+}
+
+func confirmed(maps map[roots.ID]PlanMapping, root roots.ID) bool {
+	m, ok := maps[root]
+	return ok && m.Shown && m.Confirmed
 }
 
 // holdFresh holds the ready rows that bring content into a mapping with

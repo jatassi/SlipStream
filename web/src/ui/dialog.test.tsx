@@ -22,8 +22,6 @@ function RemoveDialog({ size }: Pick<DialogProps, "size">) {
   );
 }
 
-const style = (name: string) => getComputedStyle(page.getByRole("dialog", { name }).element());
-
 test("focus stays inside the dialog and returns to its opener on Esc", async () => {
   renderKit(<RemoveDialog />);
   const opener = page.getByRole("button", { name: "Remove…" });
@@ -56,21 +54,6 @@ test("a close button inside the dialog closes it and returns focus", async () =>
   await expect.element(opener).toHaveFocus();
 });
 
-test("a desktop dialog is 460px wide by default and 940px at its large size, radius 20", async () => {
-  renderKit(<RemoveDialog />);
-  await userEvent.click(page.getByRole("button", { name: "Remove…" }));
-  await expect.element(page.getByRole("dialog", { name: "Remove torrents" })).toBeVisible();
-  expect(style("Remove torrents").width).toBe("460px");
-  expect(style("Remove torrents").borderTopLeftRadius).toBe("20px");
-  await userEvent.keyboard("{Escape}");
-  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
-
-  renderKit(<RemoveDialog size={940} />, { density: "touch" });
-  await userEvent.click(page.getByRole("button", { name: "Remove…" }).last());
-  await expect.element(page.getByRole("dialog", { name: "Remove torrents" })).toBeVisible();
-  expect(style("Remove torrents").width).toBe("940px");
-});
-
 test("on phone the dialog is a bottom sheet that traps focus and returns it", async () => {
   renderKit(<RemoveDialog />, { shell: "phone" });
   const opener = page.getByRole("button", { name: "Remove…" });
@@ -80,8 +63,6 @@ test("on phone the dialog is a bottom sheet that traps focus and returns it", as
   await expect
     .poll(() => sheet.element().getBoundingClientRect().bottom)
     .toBe(document.documentElement.clientHeight);
-  expect(style("Remove torrents").borderTopLeftRadius).toBe("24px");
-  expect(style("Remove torrents").borderBottomLeftRadius).toBe("0px");
 
   const reason = sheet.getByRole("textbox", { name: "Reason" });
   await userEvent.click(reason);

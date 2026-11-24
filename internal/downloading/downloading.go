@@ -113,6 +113,14 @@ type Timings struct {
 	ClientTrackers time.Duration `yaml:"client_trackers"`
 	// ClientCall bounds one call to a client.
 	ClientCall time.Duration `yaml:"client_call"`
+	// ClientLoadWait is how long a complete add to rTorrent waits for
+	// rTorrent to load the torrent, which it does after it responds, and
+	// ClientLoadEvery how often it asks.
+	ClientLoadWait  time.Duration `yaml:"client_load_wait"`
+	ClientLoadEvery time.Duration `yaml:"client_load_every"`
+	// ClientRunWait is how long a start or a stop sent to a client reads
+	// as sent while the client still lists the run before it.
+	ClientRunWait time.Duration `yaml:"client_run_wait"`
 	// ClientLiveFloor is the shortest gap between two polls of one client
 	// while an Admin watches.
 	ClientLiveFloor time.Duration `yaml:"client_live_floor"`
@@ -121,6 +129,12 @@ type Timings struct {
 	// Controller's own refuse a page past them.
 	HoldingsPage int `yaml:"holdings_page"`
 	HoldingsMax  int `yaml:"holdings_max"`
+	// ReplyWait is how long a Move's destination waits for a tracker to
+	// answer the start it asked for before it calls the start refused.
+	ReplyWait time.Duration `yaml:"reply_wait"`
+	// AnnounceWatchEvery is how often an external client is read for when
+	// the torrents a Move watches last announced.
+	AnnounceWatchEvery time.Duration `yaml:"announce_watch_every"`
 }
 
 // ErrorHeartbeat is how often a Node resends the report of a torrent its
@@ -140,8 +154,9 @@ func DefaultTimings() Timings {
 		ResolveHold: 20 * time.Second, ResolveLease: 2 * time.Minute, ResolveKeep: 2 * time.Minute,
 		ClientRetryMin: 5 * time.Second, ClientRetryMax: 5 * time.Minute, ClientRefusedRetry: 30 * time.Minute,
 		ClientGrace: time.Minute, ClientResendWait: 2 * time.Minute, ClientMissingShare: 50, ClientMissingFloor: 3,
-		ClientTrackers: time.Minute, ClientCall: 30 * time.Second, ClientLiveFloor: 2 * time.Second,
-		HoldingsPage: 1000, HoldingsMax: 100_000,
+		ClientTrackers: time.Minute, ClientCall: 30 * time.Second,
+		ClientLoadWait: 10 * time.Second, ClientLoadEvery: 250 * time.Millisecond, ClientRunWait: 5 * time.Second, ClientLiveFloor: 2 * time.Second,
+		HoldingsPage: 1000, HoldingsMax: 100_000, ReplyWait: 10 * time.Second, AnnounceWatchEvery: 5 * time.Second,
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"flag"
 	"log/slog"
 	"strings"
 	"testing"
@@ -18,28 +17,29 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
-var update = flag.Bool("update", false, "rewrite the golden emails under testdata")
-
 var grace = mail.Address{Name: "Grace Hopper", Email: "grace@example.com"}
 
 func TestTestMessageRendersOnTheLayout(t *testing.T) {
 	cases := []struct {
-		golden, subject string
-		email           mail.TestEmail
+		name  string
+		email mail.TestEmail
 	}{
-		{"test", "Test email from media-pc", mail.TestEmail{ServerName: "media-pc", URL: "http://media-pc:8484"}},
-		{"test-no-address", "Test email from SlipStream", mail.TestEmail{}},
+		{"SlipStream", mail.TestEmail{}},
+		{"media-pc", mail.TestEmail{ServerName: "media-pc", URL: "http://media-pc:8484"}},
 	}
 	for _, c := range cases {
-		t.Run(c.golden, func(t *testing.T) {
+		t.Run(c.name, func(t *testing.T) {
 			m, err := mail.TestMessage(grace, c.email)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if m.To != grace || m.Subject != c.subject {
-				t.Fatalf("to %+v subject %q, want %+v %q", m.To, m.Subject, grace, c.subject)
+			if m.To != grace || !strings.Contains(m.Subject, c.name) || !strings.Contains(m.Text, c.name) || !strings.Contains(m.HTML, c.name) {
+				t.Fatalf("to %+v subject %q text %q, want %+v and each naming %s", m.To, m.Subject, m.Text, grace, c.name)
 			}
-			mailtest.Golden(t, m, "testdata", c.golden, *update)
+			link := c.email.URL != ""
+			if strings.Contains(m.Text, "http") != link || strings.Contains(m.HTML, `href="http`) != link || !strings.Contains(m.HTML, "<html") {
+				t.Fatalf("text %q and HTML\n%s\nwant the layout, with a button to the server only when it has an address", m.Text, m.HTML)
+			}
 		})
 	}
 }

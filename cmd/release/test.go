@@ -182,9 +182,17 @@ func testE2E(ctx context.Context, root string, o testOptions) error {
 // testOnline runs every conformance suite against the real service it
 // checks. TEST_ONLINE_TMDB_KEY carries TMDB's key, TEST_ONLINE_TVDB_KEY
 // TVDB's and TEST_ONLINE_OMDB_KEY OMDb's; -update rewrites each suite's
-// shape.json.
+// shape.json, and runs only the suites that record one, since a test binary
+// that defines no -update fails on it.
 func testOnline(ctx context.Context, root string, o testOptions) error {
-	args := append([]string{"test", "-tags", "online", "-count=1", "./conformance/..."}, o.goArgs...)
+	pkgs := []string{"./conformance/..."}
+	if slices.Contains(o.goArgs, "-update") {
+		var err error
+		if pkgs, err = shapeSuites(ctx, root); err != nil {
+			return err
+		}
+	}
+	args := slices.Concat([]string{"test", "-tags", "online", "-count=1"}, pkgs, o.goArgs)
 	gotest := exec.CommandContext(ctx, "go", args...)
 	gotest.Dir = root
 	gotest.Stdout, gotest.Stderr = os.Stdout, os.Stderr
@@ -192,6 +200,27 @@ func testOnline(ctx context.Context, root string, o testOptions) error {
 		return fmt.Errorf("go test: %w", err)
 	}
 	return nil
+}
+
+// shapeSuites lists the conformance packages whose tests import the shape
+// package, which defines -update.
+func shapeSuites(ctx context.Context, root string) ([]string, error) {
+	const shapePkg = "github.com/jatassi/slipstream/conformance/internal/shape"
+	list := exec.CommandContext(ctx, "go", "list", "-tags", "online", "-f", "{{.ImportPath}}{{range .TestImports}} {{.}}{{end}}{{range .XTestImports}} {{.}}{{end}}", "./conformance/...")
+	list.Dir = root
+	list.Stderr = os.Stderr
+	out, err := list.Output()
+	if err != nil {
+		return nil, fmt.Errorf("go list: %w", err)
+	}
+	var pkgs []string
+	for line := range strings.Lines(string(out)) {
+		fields := strings.Fields(line)
+		if len(fields) > 1 && slices.Contains(fields[1:], shapePkg) {
+			pkgs = append(pkgs, fields[0])
+		}
+	}
+	return pkgs, nil
 }
 
 func testComponent(ctx context.Context, root string, _ testOptions) error {

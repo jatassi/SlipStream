@@ -8,7 +8,11 @@ import type { Clock } from "../ui/clock";
 import { whenWords } from "../ui/time-words";
 import type { Row, State } from "./model";
 
-export type TorrentAction = ActInputBodyAction;
+/** What an Admin asks of a Torrent: an action its Node runs, or a Move, which opens its Dialog. */
+export type TorrentAction = ActInputBodyAction | "move";
+
+/** An action its Node runs. */
+export type Acted = ActInputBodyAction;
 
 /** The Tracker a Torrent still owes seeding, by name, undefined while it isn't known. */
 export type Owing = { readonly tracker: string | undefined };
@@ -23,11 +27,16 @@ export type Subject = {
   readonly name: string;
   readonly owing?: Owing | undefined;
   readonly keptIn?: string | undefined;
+  /** Its Node and external client, which a Move starts its picker past. */
+  readonly nodeId?: string;
+  readonly clientId?: string | undefined;
 };
 
 export const subjectOf = (row: Row, name: string): Subject => ({
   id: row.id,
   name,
+  nodeId: row.nodeId,
+  clientId: row.clientId,
   owing: row.seeding?.state === "owing" ? { tracker: row.tracker?.name } : undefined,
   keptIn: row.deleteFiles ? undefined : row.clientName,
 });
@@ -50,6 +59,13 @@ export function wantedOf(row: Row): Wanted {
 
 const announcing = new Set<State>(["downloading", "seeding", "stalled", "tracker-error"]);
 
+/** A finished torrent its Node holds and no Move takes moves to another Download Client. */
+const movable = (row: Row) =>
+  row.move === null &&
+  row.lastKnown === undefined &&
+  row.done === row.size &&
+  row.state !== "checking";
+
 /**
  * The actions a Torrent offers, in menu order. Announce now needs the
  * Inspector's word that every announce URL accepts one now; a row has none.
@@ -70,6 +86,7 @@ export function menuFor(row: Row, trackersAccept = false): TorrentAction[] {
     wantedOf(row) === "started" ? "pause" : "resume",
     ...(announces ? (["announce"] as const) : []),
     ...(online && row.state !== "checking" ? (["recheck"] as const) : []),
+    ...(movable(row) ? (["move"] as const) : []),
     ...(row.held ? (["mark-failed"] as const) : []),
     "remove",
   ];
@@ -82,10 +99,11 @@ export const actionLabels: { readonly [A in TorrentAction]: string } = {
   recheck: "Recheck",
   retry: "Retry",
   "mark-failed": "Mark failed",
+  move: "Move to…",
   remove: "Remove",
 };
 
-const doing: { readonly [A in TorrentAction]: (subject: string) => string } = {
+const doing: { readonly [A in ActInputBodyAction]: (subject: string) => string } = {
   pause: (subject) => `Pausing ${subject}.`,
   resume: (subject) => `Resuming ${subject}.`,
   announce: (subject) => `Announcing ${subject}.`,
@@ -95,7 +113,7 @@ const doing: { readonly [A in TorrentAction]: (subject: string) => string } = {
   remove: (subject) => `Removing ${subject}.`,
 };
 
-const verbs: { readonly [A in TorrentAction]: string } = {
+const verbs: { readonly [A in ActInputBodyAction]: string } = {
   pause: "pause",
   resume: "resume",
   announce: "announce",
@@ -110,7 +128,7 @@ const torrents = (count: number) => `${count} ${count === 1 ? "torrent" : "torre
 type Refused = { readonly names: readonly string[]; readonly refusal: DownloadclientsRefusal };
 
 type Context = {
-  readonly action: TorrentAction;
+  readonly action: ActInputBodyAction;
   readonly work: (id: string) => string | undefined;
   readonly clock: Clock;
 };
@@ -150,11 +168,20 @@ const refusalWords: {
     `${names.join(", ")} failed in the torrent client and can't ${verbs[action]}. Remove it instead.`,
   not_retryable: ({ names }) =>
     `${names.join(", ")} can't be retried. Retry checks only a torrent that failed after it finished downloading.`,
+  moving: ({ names, refusal }) =>
+    names.length === 1
+      ? `${names[0]} is moving to ${movingTo(refusal)}. Cancel its Move in Activity, then try again.`
+      : `${torrents(names.length)} are moving to another Download Client. Cancel their Moves in Activity, then try again.`,
 };
+
+function movingTo({ client, node }: DownloadclientsRefusal): string {
+  if (client !== undefined && node !== undefined) return `${client} on ${node}`;
+  return client ?? node ?? "the built-in client";
+}
 
 // Refusals that say the same thing for every Torrent they hold group into one sentence.
 const groupKey = ({ code, workId, acceptsAt, client }: DownloadclientsRefusal) =>
-  [code, workId ?? "", acceptsAt ?? "", client ?? ""].join("\n");
+  code === "moving" ? code : [code, workId ?? "", acceptsAt ?? "", client ?? ""].join("\n");
 
 /** What an action's answer says: the Torrents it acts on, and why it refused any. */
 export function outcomeWords(

@@ -104,24 +104,20 @@ func TestACaptureRecordsTheOriginAndKeepsItsFiles(t *testing.T) {
 	}
 }
 
-func TestOnCueRefusesAnUndeclaredName(t *testing.T) {
-	spec := fixture.Fake
-	spec.Cues = nil
-	_, err := spec.New(scenario.Scenario{}, fake.NewEnv(scenario.Scenario{}, spec, slog.New(slog.DiscardHandler), nil, discard{}))
-	if want := "fake fixture declares no cue fixture-greet"; err == nil || err.Error() != want {
-		t.Fatalf("New = %v, want %s", err, want)
+func TestNewRefusesACueOrCaptureTheSpecDoesNotDeclare(t *testing.T) {
+	noCues, noCaptures := fixture.Fake, fixture.Fake
+	noCues.Cues, noCaptures.Captures = nil, nil
+	for spec, want := range map[*fake.Spec]string{
+		&noCues:     "fake fixture declares no cue fixture-greet",
+		&noCaptures: "fake fixture declares no capture visits",
+	} {
+		_, err := spec.New(scenario.Scenario{}, fake.NewEnv(scenario.Scenario{}, *spec, slog.New(slog.DiscardHandler), nil, discard{}))
+		if err == nil || err.Error() != want {
+			t.Errorf("New = %v, want %s", err, want)
+		}
 	}
 }
 
 type discard struct{}
 
 func (discard) Append(rec events.Record) (events.Record, error) { return rec, nil }
-
-func TestEnvCaptureRefusesAnUndeclaredName(t *testing.T) {
-	spec := fixture.Fake
-	spec.Captures = nil
-	_, err := spec.New(scenario.Scenario{}, fake.NewEnv(scenario.Scenario{}, spec, slog.New(slog.DiscardHandler), nil, nil))
-	if want := "fake fixture declares no capture visits"; err == nil || err.Error() != want {
-		t.Fatalf("New = %v, want %s", err, want)
-	}
-}

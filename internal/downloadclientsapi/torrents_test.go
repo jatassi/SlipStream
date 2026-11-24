@@ -34,6 +34,19 @@ type node struct {
 	// next, a pass of Transmission 4.1.1 while nil.
 	tests  []test
 	answer *dlv1.TestClientResponse
+	// looks are the Looks the Node ran, and lost the names it doesn't
+	// find.
+	looks []*dlv1.LookRequest
+	lost  map[string]bool
+}
+
+func (n *node) Look(_ context.Context, req *dlv1.LookRequest) (*dlv1.LookResponse, error) {
+	n.looks = append(n.looks, req)
+	res := &dlv1.LookResponse{}
+	for _, e := range req.GetEntries() {
+		res.Found = append(res.Found, !n.lost[e.GetName()])
+	}
+	return res, nil
 }
 
 func (n *node) Inspect(_ context.Context, req *dlv1.InspectRequest) (*dlv1.InspectResponse, error) {
@@ -148,13 +161,13 @@ func TestTheTorrentsListAnswersEachRowsWordsAndCountsEveryTorrent(t *testing.T) 
 	orchardRow := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Orchard","contentType":"fixture","workId":"id3","edition":"any","quality":"webdl-1080p",` +
 		`"state":"queued","hold":"slot","queuePosition":1,"severity":"none","tabs":["downloading","all"],"size":1000,"done":250,"uploaded":0,` +
 		`"ratio":0,"seedingSeconds":0,"announce":{"host":"beacon.test","status":"not_contacted"},` +
-		unjudged + `,"retryable":false,"held":true,"addedAt":"T"}`
+		unjudged + `,"retryable":false,"held":true,"addedAt":"T","move":null}`
 	w.o.Expect(t, http.MethodGet, "/api/v1/torrents?tab=downloading", "", http.StatusOK, `{"rows":[`+orchardRow+`],`+counts("id2"))
 
 	harborRow := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Harbor","contentType":"fixture","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"announce":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` + unjudged + `,` +
-		`"fault":{"kind":"unregistered","at":"T","sentence":"The tracker reports that this torrent is no longer registered."},"retryable":false,"held":false,"addedAt":"T"}`
+		`"fault":{"kind":"unregistered","at":"T","sentence":"The tracker reports that this torrent is no longer registered."},"retryable":false,"held":false,"addedAt":"T","move":null}`
 	w.o.Expect(t, http.MethodGet, "/api/v1/torrents?ids="+harbor.String(), "", http.StatusOK, `{"rows":[`+harborRow+`],`+counts("id2"))
 
 	var got struct {
@@ -193,7 +206,7 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 	want := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Harbor","contentType":"fixture","workId":"id3","quality":"hdtv-720p","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"announce":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` + unjudged + `,` +
-		`"fault":{"kind":"unregistered","at":"T","sentence":"The tracker reports that this torrent is no longer registered."},"retryable":false,"held":false,"addedAt":"T",` +
+		`"fault":{"kind":"unregistered","at":"T","sentence":"The tracker reports that this torrent is no longer registered."},"retryable":false,"held":false,"addedAt":"T","move":null,` +
 		`"downloaded":0,"activeSeconds":0,"infoHash":"` + w.hashes[harbor] + `","pieceSize":16384,"private":true,` +
 		`"trackers":[{"url":"https://beacon.test/announce/•••","tier":0,"status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
 		`{"url":"udp://backup.test:6969/announce","tier":1,"status":"working","answeredAt":"T","minIntervalSeconds":1800}],` +

@@ -31,7 +31,15 @@ type Session struct {
 	TrackerEvery time.Duration
 	// Call bounds each request.
 	Call time.Duration
-	Log  *slog.Logger
+	// LoadWait is how long rTorrent's complete add waits for rTorrent to
+	// load the torrent, which it does after it responds, and LoadEvery how
+	// often it asks.
+	LoadWait, LoadEvery time.Duration
+	// RunWait is how long a start or a stop the client asked for reads as
+	// asked while the product still lists the run before it, as
+	// qBittorrent lists a started torrent stopped for 1.5 s.
+	RunWait time.Duration
+	Log     *slog.Logger
 }
 
 // Secrets are the values sealed on the Controller and held in Node
@@ -83,6 +91,9 @@ type Client interface {
 	// Files is one torrent's files, in index order.
 	Files(ctx context.Context, h bencode.InfoHash) ([]File, error)
 	Act(ctx context.Context, a Act, hashes []bencode.InfoHash) error
+	// Announces is when each of hashes last announced, per tracker line,
+	// for the torrents a Move guards, stops or starts.
+	Announces(ctx context.Context, hashes []bencode.InfoHash) (map[bencode.InfoHash][]TrackerLine, error)
 	// Remove removes one torrent, deleting its data when data is set and
 	// the kind DeletesData. A kind that doesn't removes the torrent only,
 	// and the Node deletes its files.
@@ -115,6 +126,30 @@ type Add struct {
 	Folder string
 	Label  Label
 	Paused bool
+	// Complete adds over the files already in Folder, checking them in
+	// place of downloading: qBittorrent's skip_checking or, from WebAPI
+	// 2.16.0, seedMode, Deluge's seed_mode, and a check after the add in
+	// rTorrent and Transmission.
+	Complete bool
+}
+
+// TrackerLine is one tracker line's announces as the client reports them,
+// on the client's machine's clock.
+type TrackerLine struct {
+	// Index is the line's place in the metainfo's tracker list, 0 for a
+	// kind that reports one countdown for the whole torrent.
+	Index int
+	// Last is the tracker's last successful answer, zero while unknown.
+	// qBittorrent and Deluge report no such time: Last is the read at
+	// which the countdown to the next announce rose since the read
+	// before, so the first read is zero.
+	Last time.Time
+	// Next is when the next announce is due, zero while none is.
+	Next time.Time
+	// FailedAt is the tracker's last failed answer and Failure its reason,
+	// zero where the kind can't tell.
+	FailedAt time.Time
+	Failure  string
 }
 
 // Tested is what a passing Test learned.

@@ -14,10 +14,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
-	"testing/synctest"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/emby"
@@ -37,6 +37,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
+	"github.com/jatassi/slipstream/internal/mediaservers/queue"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
@@ -87,6 +88,8 @@ type World struct {
 	transitions []Transition
 	files       map[works.WorkID][]files.File
 	found       []mediaservers.Found
+	// placed is the file whose bytes sit at each Rel of each root.
+	placed map[queue.At]files.ID
 }
 
 // Schemas are the library schemas the Media Servers read.
@@ -101,7 +104,7 @@ func New(t *testing.T) *World {
 	w := &World{
 		Lib: storagetest.Library(t, Schemas()...), Sealer: secrettest.Sealer(t),
 		Home: role.NodeID{UUID: storage.NewUUID()}, Seedbox: role.NodeID{UUID: storage.NewUUID()},
-		net: &network{served: map[string]http.RoundTripper{}, down: map[string]stopper{}}, rehomed: make(chan struct{}, 1), files: map[works.WorkID][]files.File{}, hub: live.NewHub(hubEvents),
+		net: &network{served: map[string]http.RoundTripper{}, down: map[string]stopper{}}, rehomed: make(chan struct{}, 1), files: map[works.WorkID][]files.File{}, placed: map[queue.At]files.ID{}, hub: live.NewHub(hubEvents),
 	}
 	t.Cleanup(w.hub.Close)
 	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -113,7 +116,7 @@ func New(t *testing.T) *World {
 	}
 	cfg := rootstest.Config(t, w.Lib, contenttypetest.ID)
 	cfg.Describe = func(works.TypeID) (works.Description, bool) { return contenttypetest.Description, true }
-	cfg.Changed, cfg.Contents = rootsChanged{w}, empty{}
+	cfg.Changed, cfg.Contents, cfg.Rehomed = rootsChanged{w}, empty{}, rehomed{w}
 	if w.roots, err = roots.Open(t.Context(), cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +127,8 @@ func New(t *testing.T) *World {
 		HTTP: w.net.client(), Timings: Timings, PlexTV: plexTV,
 		Link:         w.links.service,
 		RootWords:    w.roots.WordsIn,
-		FileIDs:      noFiles,
+		FileIDs:      w.fileIDs,
+		FilePlaces:   w.filePlaces,
 		WorkFiles:    w.workFiles,
 		RootsChanged: func(context.Context) <-chan struct{} { return w.rehomed },
 		Tasks:        &cadences{},
@@ -280,7 +284,13 @@ func (w *World) Intent(t *testing.T, node role.NodeID) *msv1.Intent {
 // Root makes a fresh folder named name a library root on home.
 func (w *World) Root(t *testing.T, name string) roots.Root {
 	t.Helper()
-	v, err := w.roots.Create(t.Context(), identity.Admin{}, roots.NewRoot{ContentType: contenttypetest.ID, Node: w.Home, Path: folder(t, name)})
+	return w.RootOn(t, w.Home, name)
+}
+
+// RootOn makes a fresh folder named name a library root on node.
+func (w *World) RootOn(t *testing.T, node role.NodeID, name string) roots.Root {
+	t.Helper()
+	v, err := w.roots.Create(t.Context(), identity.Admin{}, roots.NewRoot{ContentType: contenttypetest.ID, Node: node, Path: folder(t, name)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,14 +298,13 @@ func (w *World) Root(t *testing.T, name string) roots.Root {
 }
 
 // Rehome moves root to a fresh folder named name on home, as an Admin
-// does, and waits until the Media Servers follow it.
+// does.
 func (w *World) Rehome(t *testing.T, root roots.ID, name string) {
 	t.Helper()
 	to := folder(t, name)
 	if _, err := w.roots.Rehome(t.Context(), identity.Admin{}, root, roots.Rehome{Path: &to}); err != nil {
 		t.Fatal(err)
 	}
-	synctest.Wait()
 }
 
 func folder(t *testing.T, name string) string {
@@ -323,6 +332,12 @@ func (e changedEvents) Publish(ctx context.Context, v mediaservers.Changed) {
 	mediaservers.ChangedEvent.Bind(e.w.hub).Publish(ctx, v)
 }
 
+type rehomed struct{ w *World }
+
+func (r rehomed) Rehomed(ctx context.Context, tx *storage.Tx[storage.Library], root roots.ID) error {
+	return r.w.ms.Rehomed(ctx, tx, root)
+}
+
 type rootsChanged struct{ w *World }
 
 func (e rootsChanged) Publish(context.Context, roots.Changed) {
@@ -332,10 +347,42 @@ func (e rootsChanged) Publish(context.Context, roots.Changed) {
 	}
 }
 
-// noFiles is files with no file at any path.
-func noFiles(context.Context, storage.Reader[storage.Library], roots.ID, []storing.Rel) (map[storing.Rel]files.ID, error) {
-	return nil, nil
+// Place is a new file whose bytes sit at rel in root, as files records
+// it.
+func (w *World) Place(root roots.ID, rel storing.Rel) files.ID {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	id := files.ID{UUID: storage.NewUUID()}
+	w.placed[queue.At{Root: root, Rel: rel}] = id
+	return id
 }
+
+func (w *World) fileIDs(_ context.Context, _ storage.Reader[storage.Library], root roots.ID, rels []storing.Rel) (map[storing.Rel]files.ID, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	out := map[storing.Rel]files.ID{}
+	for _, rel := range rels {
+		if id, ok := w.placed[queue.At{Root: root, Rel: rel}]; ok {
+			out[rel] = id
+		}
+	}
+	return out, nil
+}
+
+func (w *World) filePlaces(_ context.Context, _ storage.Reader[storage.Library], root roots.ID, fs []files.ID) (map[files.ID]storing.Rel, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	out := map[files.ID]storing.Rel{}
+	for at, id := range w.placed {
+		if at.Root == root && slices.Contains(fs, id) {
+			out[id] = at.Rel
+		}
+	}
+	return out, nil
+}
+
+// Moves is the Controller's Media Servers, for the calls a Move makes.
+func (w *World) Moves() *mediaservers.MediaServers { return w.ms }
 
 // empty is roots that record no files.
 type empty struct{}

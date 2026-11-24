@@ -11,7 +11,17 @@ import { type Acting, ActingDialogs } from "./acting-dialogs";
 import { RootsGroup, groupsOf } from "./roots-group";
 // oxlint-disable-next-line import/max-dependencies -- the page holds every block of Settings > Library roots
 import { StorageSettings } from "../health/storage-settings";
+import { MovesSettings } from "../moves/settings-section";
 import { StorageBlock } from "./storage-block";
+
+function Settings() {
+  return (
+    <>
+      <StorageSettings toLibraryRoots={false} />
+      <MovesSettings />
+    </>
+  );
+}
 
 export function LibraryRootsSection() {
   const { roots } = useListRootsSuspense().data;
@@ -52,14 +62,8 @@ export function LibraryRootsSection() {
         />
       ))}
       <StorageBlock volumes={volumes} roots={roots} nodes={nodes} />
-      <StorageSettings toLibraryRoots={false} />
-      <ActingDialogs
-        acting={acting}
-        roots={roots}
-        onClose={() => {
-          setActing(undefined);
-        }}
-      />
+      <Settings />
+      <ActingDialogs acting={acting} roots={roots} onAct={setActing} />
     </div>
   );
 }

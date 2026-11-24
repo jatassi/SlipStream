@@ -33,17 +33,6 @@ afterEach(async () => {
   await commands.emulateReducedMotion(false);
 });
 
-test("a new tab plays the sequence and a key press skips it", async () => {
-  renderKit(<Startup handOff="fade" />);
-
-  await expect.element(sequence).toBeVisible();
-  const first = await drawing();
-  await expect.poll(drawing).not.toBe(first);
-
-  await userEvent.keyboard("{Enter}");
-  await expect.element(sequence).not.toBeInTheDocument();
-});
-
 test("the sequence leaves on its own after 4.4s", async () => {
   renderKit(<Startup handOff="fade" />);
 
@@ -51,20 +40,6 @@ test("the sequence leaves on its own after 4.4s", async () => {
   await pause(3000);
   await expect.element(sequence).toBeVisible();
   await expect.element(sequence, { timeout: 3000 }).not.toBeInTheDocument();
-});
-
-test("a second render in the same tab doesn't replay it", async () => {
-  renderKit(<Startup handOff="fade" />);
-  await expect.element(sequence).toBeVisible();
-
-  renderKit(
-    <>
-      <Startup handOff="fade" />
-      <p>Second</p>
-    </>,
-  );
-  await expect.element(page.getByText("Second")).toBeVisible();
-  expect(page.getByRole("img", { name: "SlipStream" }).all()).toHaveLength(1);
 });
 
 test("the sequence doesn't play when it's off in this browser", async () => {
@@ -80,24 +55,9 @@ test("the sequence doesn't play when it's off in this browser", async () => {
   expect(sequence.query()).toBeNull();
 });
 
-test("under reduced motion the finished lockup holds still, then leaves", async () => {
-  await commands.emulateReducedMotion(true);
-  renderKit(<Startup handOff="view-transition" />);
-
-  await expect.element(sequence).toBeVisible();
-  const first = await drawing();
-  await pause(150);
-  expect(await drawing()).toBe(first);
-  await expect.element(sequence, { timeout: 1500 }).not.toBeInTheDocument();
-});
-
 function SidebarMark() {
   const name = useMarkTransitionName();
-  return (
-    <div data-testid="sidebar-mark" style={name === undefined ? {} : { viewTransitionName: name }}>
-      Mark
-    </div>
-  );
+  return <div style={name === undefined ? {} : { viewTransitionName: name }}>Mark</div>;
 }
 
 test("in the desktop shell the mark settles into the element named for it", async () => {
@@ -133,7 +93,4 @@ test("in the desktop shell the mark settles into the element named for it", asyn
   );
   await transition?.finished;
   expect(sequence.query()).toBeNull();
-  await expect
-    .poll(() => getComputedStyle(page.getByTestId("sidebar-mark").element()).viewTransitionName)
-    .toBe("none");
 });

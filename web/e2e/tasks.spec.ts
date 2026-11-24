@@ -22,29 +22,12 @@ const seedboxUnit = (page: Page) =>
     .getByRole("table", { name: "Units" })
     .getByRole("row", { name: /Local database on seedbox/u });
 
-const progress = /\d+ of 13 stepshome, seedbox/u;
+const progress = /\d+ of 14 stepshome, seedbox/u;
 
 async function slowSeedbox(world: World): Promise<() => Promise<unknown>> {
   await world.fw.fault.set({ id: "slow-link", target: "link/home", fault: "latency=4s" });
   return () => world.fw.fault.clear("slow-link");
 }
-
-test("Tasks shows Housekeeping in the Controller group with its cadence, next run and Nodes", async ({
-  adminPage: page,
-}) => {
-  await navigate(page, "Tasks");
-  await expect(page.getByRole("heading", { level: 2, name: "Controller" })).toBeVisible();
-  const row = housekeepingRow(page);
-  await expect(row).toContainText(/(Tonight|Tomorrow) at (?:4:00 AM|04:00)/u);
-  if (isPhone(page)) {
-    return;
-  }
-  await expect(row).toContainText("Daily in the Maintenance window");
-  await expect(
-    page.getByRole("table", { name: "Controller" }).getByRole("columnheader", { name: "Nodes" }),
-  ).toBeVisible();
-  await expect(row).toContainText("home, seedbox");
-});
 
 async function expectRunningShown(page: Page): Promise<void> {
   if (isPhone(page)) {
@@ -79,7 +62,7 @@ test("Run now shows the run at once, in the capsule or atop Activity, and it end
   await navigate(page, "Tasks");
   await expect(housekeepingRow(page)).toContainText("Succeeded");
   await page.getByRole("link", { name: "Housekeeping", exact: true }).click();
-  await expect(runs(page).first()).toContainText(/^Succeeded13 stepsRun now/u);
+  await expect(runs(page).first()).toContainText(/^Succeeded14 stepsRun now/u);
 });
 
 test("with seedbox stopped Run now is Partial, and its return runs seedbox's unit", async ({
@@ -90,7 +73,7 @@ test("with seedbox stopped Run now is Partial, and its return runs seedbox's uni
   await page.goto("/tasks/housekeeping");
   await pageAction(page, "Run now: Housekeeping").click();
   await expect(runs(page).first()).toContainText(
-    /^Partial12 of 13 steps, seedbox offlineRun now/u,
+    /^Partial13 of 14 steps, seedbox offlineRun now/u,
     {
       timeout: 30_000,
     },

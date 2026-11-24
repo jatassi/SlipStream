@@ -53,7 +53,7 @@ func (l *loop) changed(now time.Time) ([]*dlv1.TorrentReport, []*torrent) {
 	var sent []*torrent
 	for _, h := range slices.SortedFunc(maps.Keys(l.torrents), compareHashes) {
 		t := l.torrents[h]
-		r := t.report()
+		r := t.report(l.ledger, now)
 		if r == nil || t.id.IsZero() || proto.Equal(r, t.sent) {
 			continue
 		}
@@ -105,7 +105,7 @@ func compareIDs(a, b *torrent) int { return a.id.Compare(b.id) }
 // report is t's state as the Controller reads it, nil while there is
 // nothing to say: a torrent the engine doesn't hold and nothing holds
 // back.
-func (t *torrent) report() *dlv1.TorrentReport {
+func (t *torrent) report(ledger *announce.Ledger, now time.Time) *dlv1.TorrentReport {
 	if t.handle == 0 && t.failed == "" && t.state.Hold == plan.HoldNone {
 		return nil
 	}
@@ -117,6 +117,7 @@ func (t *torrent) report() *dlv1.TorrentReport {
 		Stalled:  t.state.Stalled,
 		Error:    t.failed,
 		Fault:    t.fault,
+		Arrival:  t.ask.Result(),
 	}
 	if !t.state.Until.IsZero() {
 		r.UntilUnixMs = t.state.Until.UnixMilli()
@@ -124,10 +125,27 @@ func (t *torrent) report() *dlv1.TorrentReport {
 	if !t.NeedsCheck && !t.checking() {
 		r.RetryCheckedUnixMs = t.retried
 	}
+	var detail []announce.Line
+	if t.watch {
+		detail = ledger.Detail(t.Hash, t.Private, now)
+	}
 	for _, tr := range t.trackers {
-		r.Trackers = append(r.Trackers, trackerLine(tr))
+		line := trackerLine(tr)
+		if i := slices.IndexFunc(detail, func(d announce.Line) bool { return d.Index == tr.Index }); i >= 0 {
+			line.AnsweredAtUnixMs, line.Stopped = unixMs(detail[i].Succeeded), detail[i].Stopped
+			line.NextAnnounceUnixMs = unixMs(tr.NextAnnounce)
+		}
+		r.Trackers = append(r.Trackers, line)
 	}
 	return r
+}
+
+// unixMs is t in unix milliseconds, 0 for the zero time.
+func unixMs(t time.Time) int64 {
+	if t.IsZero() {
+		return 0
+	}
+	return t.UnixMilli()
 }
 
 // fill adds to r what rides along with a change: the time, progress,
@@ -171,18 +189,25 @@ func (t *torrent) engineState() dlv1.EngineState {
 	return dlv1.EngineState_ENGINE_STATE_DOWNLOADING
 }
 
-// totals is t's counters at now: the engine's latest, with the clocks
-// run on since, as the engine reports a torrent only when something
-// besides its clocks moved.
-func (t *torrent) totals(now time.Time) *dlv1.TotalsRow {
+// counters is t's counters at now: the engine's latest, with the clocks
+// run on since while the engine runs it, as the engine reports a torrent
+// only when something besides its clocks moved. A pause still waiting on
+// its trackers runs.
+func (t *torrent) counters(now time.Time) engine.Totals {
 	tot := t.status.Totals
-	if t.Phase == plan.Running {
+	if t.Phase == plan.Running || t.Phase == plan.Pausing {
 		ran := now.Sub(t.statusAt)
 		tot.Active += ran
 		if t.Complete {
 			tot.Seeding += ran
 		}
 	}
+	return tot
+}
+
+// totals is t's counters at now as a totals row.
+func (t *torrent) totals(now time.Time) *dlv1.TotalsRow {
+	tot := t.counters(now)
 	row := &dlv1.TotalsRow{
 		Id: t.id.Bytes(), Uploaded: tot.Uploaded, Downloaded: tot.Downloaded,
 		ActiveSeconds: int64(tot.Active / time.Second), SeedingSeconds: int64(tot.Seeding / time.Second),

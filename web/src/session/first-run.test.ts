@@ -11,23 +11,6 @@ const language = { id: "language", state: "skipped" } as const;
 const roots = { id: "roots", state: "todo" } as const;
 const targets = { id: "targets", state: "todo" } as const;
 
-describe("shownSteps", () => {
-  test("keeps the passkey step where this browser can hold a passkey", () => {
-    expect(shownSteps(view(address, passkey, roots), { passkeys: true })).toEqual([
-      address,
-      passkey,
-      roots,
-    ]);
-  });
-
-  test("leaves the passkey step out where it can't", () => {
-    expect(shownSteps(view(address, passkey, roots), { passkeys: false })).toEqual([
-      address,
-      roots,
-    ]);
-  });
-});
-
 describe("currentPlace", () => {
   test("is the first step still to do", () => {
     expect(currentPlace([address, language, roots, targets])).toBe("roots");

@@ -20,9 +20,10 @@ func quoted(s string) string {
 // Add sends load.raw_start, or load.raw for a paused add, with
 // d.directory.set to the folder, so rTorrent adds the name of a
 // multi-file torrent as the other kinds do, and d.custom1.set to the
-// label. rTorrent loads the torrent after it responds, so the hash shows
-// on a later poll, and it drops a torrent it already holds without
-// running the commands.
+// label. rTorrent drops a torrent it already holds without running the
+// commands. A complete add then sends d.check_hash, which checks the
+// files on disk and leaves the torrent stopped: a stopped load reads 0
+// bytes done until a check or a start.
 func (c *client) Add(ctx context.Context, a clients.Add) error {
 	method := "load.raw_start"
 	if a.Paused {
@@ -33,8 +34,87 @@ func (c *client) Add(ctx context.Context, a clients.Add) error {
 		params = append(params, "d.directory.set="+quoted(a.Folder))
 	}
 	params = append(params, "d.custom1.set="+quoted(a.Label.String()))
-	_, err := c.send(ctx, method, params)
-	return err
+	if _, err := c.send(ctx, method, params); err != nil {
+		return err
+	}
+	if !a.Complete {
+		return nil
+	}
+	return c.checkLoaded(ctx, a.Hash)
+}
+
+// checkLoaded sends d.check_hash to h once rTorrent holds it, asking
+// each LoadEvery for LoadWait.
+func (c *client) checkLoaded(ctx context.Context, h bencode.InfoHash) error {
+	deadline := time.Now().Add(c.s.LoadWait)
+	for {
+		_, err := c.send(ctx, "d.check_hash", []any{target(h)})
+		if !missing(err) || !time.Now().Before(deadline) {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for rTorrent to load torrent %s: %w", h, ctx.Err())
+		case <-time.After(c.s.LoadEvery):
+		}
+	}
+}
+
+// Announces is one t.multicall per hash of each tracker's last success,
+// last failure and next announce. rTorrent gives no failure's reason per
+// tracker.
+func (c *client) Announces(ctx context.Context, hashes []bencode.InfoHash) (map[bencode.InfoHash][]clients.TrackerLine, error) {
+	calls := make([]call, len(hashes))
+	for i, h := range hashes {
+		calls[i] = call{method: "t.multicall", params: []any{target(h), "", "t.success_time_last=", "t.failed_time_last=", "t.activity_time_next="}}
+	}
+	results, err := c.multicall(ctx, calls)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[bencode.InfoHash][]clients.TrackerLine, len(hashes))
+	for i, h := range hashes {
+		switch err := asError(results[i]); {
+		case missing(err):
+			continue
+		case err != nil:
+			return nil, err
+		}
+		rows, ok := results[i].([]any)
+		if !ok {
+			return nil, fmt.Errorf("the client responded to t.multicall with %v", results[i])
+		}
+		lines, err := trackerLines(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[h] = lines
+	}
+	return out, nil
+}
+
+// trackerLines reads a t.multicall's rows of last success, last failure
+// and next announce.
+func trackerLines(rows []any) ([]clients.TrackerLine, error) {
+	lines := make([]clients.TrackerLine, len(rows))
+	for j, r := range rows {
+		row, ok := r.([]any)
+		if !ok || len(row) != 3 {
+			return nil, fmt.Errorf("the client responded to t.multicall with the row %v", r)
+		}
+		times := make([]time.Time, 3)
+		for k, x := range row {
+			n, ok := x.(int64)
+			if !ok {
+				return nil, fmt.Errorf("the client responded to t.multicall with the row %v", r)
+			}
+			if n > 0 {
+				times[k] = time.Unix(n, 0)
+			}
+		}
+		lines[j] = clients.TrackerLine{Index: j, Last: times[0], FailedAt: times[1], Next: times[2]}
+	}
+	return lines, nil
 }
 
 // fields are the d.* calls a poll makes for each hash.
@@ -157,13 +237,14 @@ func (v *values) count(method string) int {
 
 // status is a torrent in SlipStream's terms. d.state 0 is stopped, and a
 // started torrent that is neither active nor hashing is paused. rTorrent
-// has no queue and no moving state, so d.complete alone is finished.
+// has no queue and no moving state, so d.complete with no check running
+// is finished.
 // Seeding time counts from d.timestamp.finished.
 func status(v *values) clients.Status {
-	complete := v.num("d.complete") == 1
+	complete, hashing := v.num("d.complete") == 1, v.num("d.hashing") != 0
 	s := clients.Status{
 		Name: v.str("d.name"), Size: v.num("d.size_bytes"), Done: v.num("d.completed_bytes"),
-		Run: clients.Started, Activity: clients.Downloading, Finished: complete,
+		Run: clients.Started, Activity: clients.Downloading, Finished: complete && !hashing,
 		Folder: v.str("d.directory"), Label: v.str("d.custom1"), Private: v.num("d.is_private") == 1,
 		Counters: clients.Counters{Uploaded: v.num("d.up.total"), Downloaded: v.num("d.down.total")},
 		Rates: clients.Rates{
@@ -171,7 +252,6 @@ func status(v *values) clients.Status {
 			Peers: v.count("d.peers_connected"), Seeds: v.count("d.peers_complete"),
 		},
 	}
-	hashing := v.num("d.hashing") != 0
 	switch {
 	case hashing:
 		s.Activity = clients.Checking

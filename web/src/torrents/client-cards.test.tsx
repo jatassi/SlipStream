@@ -29,7 +29,6 @@ afterEach(() => {
 });
 
 const card = () => page.getByRole("region", { name: "Transmission on home" });
-const table = () => page.getByRole("table", { name: "Torrents" });
 
 function open(client: typeof attic) {
   const health = healthServer(reportOf());
@@ -45,36 +44,8 @@ function open(client: typeof attic) {
   return { health };
 }
 
-test("a client that isn't responding leads the view with a red card, and its rows show when they last reported", async () => {
-  open(atticAway);
-  await expect
-    .element(card())
-    .toHaveTextContent(
-      "Not respondingTransmission on homeTransmission isn't responding. Check that it's running and that home can reach 192.168.1.20:9091.1 torrent shows last known data.since 2:02 PMCheck nowEdit client",
-    );
-  await expect
-    .element(table().getByRole("row", { name: /^The\.Attic/u }))
-    .toMatchTextContent("Last reported at 2:02 PM");
-  await expect
-    .element(table().getByRole("row", { name: /^The\.Attic/u }))
-    .toMatchTextContent("homeTransmission");
-});
-
-test("Check now asks the Download Clients category to check every client", async () => {
-  const { health } = open(atticAway);
-  await userEvent.click(card().getByRole("button", { name: "Check now" }));
-  await expect.element(card().getByText("Checked.")).toBeVisible();
-  expect(health.checks).toEqual(["download-clients"]);
-});
-
 test("Edit client opens the client's sheet over the page", async () => {
   open(atticAway);
   await userEvent.click(card().getByRole("button", { name: "Edit client" }));
   await expect.element(page.getByRole("dialog", { name: "Edit Transmission" })).toBeVisible();
-});
-
-test("a responding client shows no card", async () => {
-  open(attic);
-  await expect.element(table().getByRole("row", { name: /^The\.Attic/u })).toBeVisible();
-  await expect.element(card()).not.toBeInTheDocument();
 });

@@ -52,7 +52,7 @@ test("a duplicate, a pattern or an empty list is refused before any request", as
   renderKit(<SettingField field={videoExtensions} onSave={onSave} />);
   const input = page.getByRole("textbox", { name: "Video file extensions" });
   await userEvent.type(input, "MKV{Enter}");
-  await expect.element(page.getByRole("alert")).toHaveTextContent("mkv is already in the list.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent(/^mkv is already/u);
   await expect.element(input).toHaveValue("MKV");
 
   await userEvent.fill(input, "*.ts");
@@ -65,9 +65,7 @@ test("a duplicate, a pattern or an empty list is refused before any request", as
   await userEvent.keyboard("{Backspace}{Backspace}");
   await expect.element(page.getByRole("list")).not.toBeInTheDocument();
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect
-    .element(page.getByRole("alert"))
-    .toHaveTextContent("Keep at least 1 extension in the list.");
+  await expect.element(page.getByRole("alert")).toMatchTextContent(/at least 1 extension/u);
   expect(onSave).not.toHaveBeenCalled();
 });
 

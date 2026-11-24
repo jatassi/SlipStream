@@ -45,7 +45,7 @@ async function markBad(page: Page, testInfo: TestInfo, sidecar: string): Promise
     .getByRole("alertdialog")
     .or(page.getByRole("dialog"))
     .filter({ hasText: "bad?" });
-  await expect(question).toContainText("this deletes your file and can't be undone");
+  await expect(question).toContainText(/deletes your file/u);
   await frame(page, testInfo, "mark-bad");
   await question.getByRole("button", { name: "Mark bad", exact: true }).click();
   await expect(

@@ -23,6 +23,9 @@ func Open(ctx context.Context, cfg Config) (*Files, error) {
 	if cfg.Subtitles == nil {
 		cfg.Subtitles = NoSubtitles{}
 	}
+	if cfg.Moves == nil {
+		cfg.Moves = NoMoves{}
+	}
 	if cfg.Queue == nil {
 		cfg.Queue = searches.None{}
 	}

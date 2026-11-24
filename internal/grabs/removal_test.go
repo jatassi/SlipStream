@@ -17,15 +17,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-var removals = []struct {
-	reason downloadclients.RemoveReason
-	code   grabs.Code
-}{
-	{downloadclients.ByAdmin, grabs.Removed},
-	{downloadclients.ByMarkFailed, grabs.MarkedFailed},
-	{downloadclients.NodeWrittenOff, grabs.NodeWrittenOff},
-}
-
 const seedingReport = `{"at":"2026-01-01T00:00:00Z","engine":"seeding","complete":true,"done":4096}`
 
 func downloadingGrab(t *testing.T, p *pipeline, report string) grabs.GrabID {
@@ -59,80 +50,39 @@ func torrentOf(t *testing.T, p *pipeline) downloadclients.ID {
 }
 
 // TestADownloadingGrabFailsOnceItsTorrentIsParted parts a downloading
-// Grab's complete Torrent for each reason before the Grabs read it, and
-// fails the Grab at downloading with that reason's code rather than
-// moving it on.
+// Grab's complete Torrent before the Grabs read it, and fails the Grab at
+// downloading by the cause it was parted for rather than moving it on. An
+// engine error keeps download_failed.
 func TestADownloadingGrabFailsOnceItsTorrentIsParted(t *testing.T) {
-	for _, r := range removals {
-		t.Run(string(r.reason), func(t *testing.T) {
-			synctest.Test(t, func(t *testing.T) {
-				p := newPipeline(t)
-				id := downloadingGrab(t, p, seedingReport)
-				now := storage.Now()
-				run(t, p.lib, sql(`UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = ?, parted_at = ?, freed = 0`, now, string(r.reason), now))
-
-				p.running()
-				time.Sleep(time.Second)
-
-				v := p.view(id)
-				if v.Stage != grabs.Failed || v.Failed.Stage != grabs.Downloading || v.Failed.Code != r.code {
-					t.Fatalf("the Grab is %s with %+v, want failed at downloading with %s", v.Stage, v.Failed, r.code)
-				}
-			})
-		})
-	}
-}
-
-// TestAGrabWhoseTorrentAnAdminMarkedFailedNamesThem parts a downloading
-// Grab's Torrent as Ada Okafor marked it failed, and fails the Grab
-// marked_failed in her name.
-func TestAGrabWhoseTorrentAnAdminMarkedFailedNamesThem(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		p := newPipeline(t)
-		id := downloadingGrab(t, p, seedingReport)
-		now := storage.Now()
-		run(t, p.lib, sql(`UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = 'mark_failed', removed_by_name = 'Ada Okafor',
-			parted_at = ?, freed = 0`, now, now))
-
-		p.running()
-		time.Sleep(time.Second)
-
-		v := p.view(id)
-		if v.Stage != grabs.Failed || v.Failed.Code != grabs.MarkedFailed || v.Failed.Message != "Ada Okafor marked its download failed." {
-			t.Fatalf("the Grab is %s with %+v, want failed marked_failed by Ada Okafor", v.Stage, v.Failed)
-		}
-	})
-}
-
-// TestAReleaseFaultOrACancelFailsADownloadingGrabByItsCause parts a
-// downloading Grab's Torrent for a release fault or another Grab's cancel,
-// and fails the Grab by that cause. An engine error keeps download_failed.
-func TestAReleaseFaultOrACancelFailsADownloadingGrabByItsCause(t *testing.T) {
 	for _, c := range []struct {
 		reason  downloadclients.RemoveReason
+		by      *string
 		fault   *string
 		code    grabs.Code
 		message string
 	}{
-		{downloadclients.ReleaseFaulted, new("unregistered"), grabs.ReleaseFault, "The tracker reports this Grab's torrent unregistered."},
-		{downloadclients.ReleaseFaulted, new("no_payload"), grabs.ReleaseFault, "This Grab's torrent never downloaded any data."},
-		{downloadclients.ReleaseFaulted, new("engine_error"), grabs.DownloadFailed, "The built-in client couldn't read this Grab's torrent."},
-		{downloadclients.Canceled, nil, grabs.Canceled, "This Grab's torrent was removed when another Grab of it was canceled."},
+		{downloadclients.ByAdmin, nil, nil, grabs.Removed, ""},
+		{downloadclients.ByMarkFailed, new("Ada Okafor"), nil, grabs.MarkedFailed, "Ada Okafor marked its download failed."},
+		{downloadclients.NodeWrittenOff, nil, nil, grabs.NodeWrittenOff, ""},
+		{downloadclients.ReleaseFaulted, nil, new("unregistered"), grabs.ReleaseFault, "The tracker reports this Grab's torrent unregistered."},
+		{downloadclients.ReleaseFaulted, nil, new("no_payload"), grabs.ReleaseFault, "This Grab's torrent never downloaded any data."},
+		{downloadclients.ReleaseFaulted, nil, new("engine_error"), grabs.DownloadFailed, "The built-in client couldn't read this Grab's torrent."},
+		{downloadclients.Canceled, nil, nil, grabs.Canceled, "This Grab's torrent was removed when another Grab of it was canceled."},
 	} {
-		t.Run(c.message, func(t *testing.T) {
+		t.Run(string(c.reason)+" "+string(c.code), func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				p := newPipeline(t)
 				id := downloadingGrab(t, p, seedingReport)
 				now := storage.Now()
-				run(t, p.lib, sql(`UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = ?, parted_at = ?, freed = 0,
-					fault = ?, fault_at = CASE WHEN ? IS NULL THEN NULL ELSE ? END`, now, string(c.reason), now, c.fault, c.fault, now))
+				run(t, p.lib, sql(`UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = ?, removed_by_name = ?, parted_at = ?, freed = 0,
+					fault = ?, fault_at = CASE WHEN ? IS NULL THEN NULL ELSE ? END`, now, string(c.reason), c.by, now, c.fault, c.fault, now))
 
 				p.running()
 				time.Sleep(time.Second)
 
 				v := p.view(id)
-				if v.Stage != grabs.Failed || v.Failed.Code != c.code || v.Failed.Message != c.message {
-					t.Fatalf("the Grab is %s with %+v, want failed with %s: %q", v.Stage, v.Failed, c.code, c.message)
+				if v.Stage != grabs.Failed || v.Failed.Stage != grabs.Downloading || v.Failed.Code != c.code || c.message != "" && v.Failed.Message != c.message {
+					t.Fatalf("the Grab is %s with %+v, want failed at downloading with %s: %q", v.Stage, v.Failed, c.code, c.message)
 				}
 			})
 		})

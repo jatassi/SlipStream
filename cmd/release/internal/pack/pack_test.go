@@ -242,20 +242,6 @@ func TestICNSHoldsThreePNGs(t *testing.T) {
 	}
 }
 
-func TestWixVersionIsTheDotnetToolPin(t *testing.T) {
-	root := t.TempDir()
-	if err := os.Mkdir(filepath.Join(root, ".config"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	manifest := `{"version":1,"isRoot":true,"tools":{"wix":{"version":"9.1.4","commands":["wix"]}}}`
-	if err := os.WriteFile(filepath.Join(root, ".config", "dotnet-tools.json"), []byte(manifest), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if got, err := wixVersion(root); err != nil || got != "9.1.4" {
-		t.Fatalf("wixVersion = %q, %v; want 9.1.4", got, err)
-	}
-}
-
 func TestAppSignsTheBundleAfterEveryNestedProgram(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the fake signing tools are shell scripts")

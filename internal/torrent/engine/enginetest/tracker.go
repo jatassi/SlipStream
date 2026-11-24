@@ -1,7 +1,14 @@
 package enginetest
 
 import (
+	"context"
+	"fmt"
+	"math"
+	"net/http"
+	"net/http/httptest"
+	neturl "net/url"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -24,6 +31,18 @@ type TrackerRules struct {
 	// a regular announce, and HoldStopped each answer to stopped, until the
 	// tracker is told to answer.
 	HoldStarted, HoldRegular, HoldStopped bool
+	// Forward, when set, answers each announce in place of the other
+	// rules, as the HTTP tracker it serves: the engine sends it the
+	// announce's query on the torrent's announce URL and reads its bencoded
+	// reply.
+	Forward http.Handler
+}
+
+// reply is a tracker's answer to one announce.
+type reply struct {
+	failure, warning      string
+	interval, minInterval time.Duration
+	swarm                 *engine.Swarm
 }
 
 // Announce is one announce a tracker received. Event is its event as on
@@ -209,22 +228,23 @@ func (r TrackerRules) Holds(event string) bool {
 func (a *announcing) answer(tr *tracker, event string) {
 	now := time.Now()
 	a.updating = false
-	if tr.rules.Failure != "" {
+	r := tr.replyTo(a.t, event)
+	if r.failure != "" {
 		a.fails++
 		a.next = now.Add(max(failRetry, min(retryCeiling, retryFloor+time.Duration(a.fails*a.fails)*retryFloor*backoffRatio/100)))
-		a.message, a.lastErr = tr.rules.Failure, errTrackerFailure
+		a.message, a.lastErr = r.failure, errTrackerFailure
 		if a.t.e.holds(a.t) {
-			a.t.e.emit(engine.TrackerFailed{Torrent: a.t.handle, Times: a.fails, Reason: tr.rules.Failure, Err: errTrackerFailure, At: now})
+			a.t.e.emit(engine.TrackerFailed{Torrent: a.t.handle, Times: a.fails, Reason: r.failure, Err: errTrackerFailure, At: now})
 		}
 	} else {
 		a.startSent = a.startSent || event == "started"
 		a.completeSent = a.completeSent || event == "completed"
 		a.fails = 0
-		a.next, a.min = now.Add(max(tr.rules.Interval, a.t.e.floor)), now.Add(tr.rules.MinInterval)
-		a.message, a.lastErr, a.swarm = tr.rules.Warning, nil, tr.rules.Swarm
+		a.next, a.min = now.Add(max(r.interval, a.t.e.floor)), now.Add(r.minInterval)
+		a.message, a.lastErr, a.swarm = r.warning, nil, r.swarm
 		if a.t.e.holds(a.t) {
-			if tr.rules.Warning != "" {
-				a.t.e.emit(engine.TrackerWarned{Torrent: a.t.handle, Message: tr.rules.Warning})
+			if r.warning != "" {
+				a.t.e.emit(engine.TrackerWarned{Torrent: a.t.handle, Message: r.warning})
 			}
 			a.t.e.emit(engine.TrackerReplied{Torrent: a.t.handle, At: now})
 		}
@@ -232,6 +252,72 @@ func (a *announcing) answer(tr *tracker, event string) {
 	}
 	a.schedule()
 	a.t.settle()
+}
+
+func (tr *tracker) replyTo(t *torrent, event string) reply {
+	if tr.rules.Forward == nil {
+		return reply{failure: tr.rules.Failure, warning: tr.rules.Warning, interval: tr.rules.Interval, minInterval: tr.rules.MinInterval, swarm: tr.rules.Swarm}
+	}
+	return forward(tr.rules.Forward, t, event)
+}
+
+// forward sends t's announce of event to h as libtorrent sends it over
+// HTTP, and reads h's answer.
+func forward(h http.Handler, t *torrent, event string) reply {
+	u, err := neturl.Parse(t.meta.Announce)
+	if err != nil {
+		return reply{failure: err.Error()}
+	}
+	t.fold()
+	q := u.Query()
+	q.Set("info_hash", string(t.meta.InfoHash[:]))
+	q.Set("peer_id", t.peerID)
+	q.Set("port", strconv.Itoa(int(t.e.listen.Port())))
+	q.Set("uploaded", strconv.FormatInt(t.totals.Uploaded, 10))
+	q.Set("downloaded", strconv.FormatInt(t.totals.Downloaded, 10))
+	q.Set("left", strconv.FormatInt(t.wanted-t.done, 10))
+	q.Set("compact", "1")
+	if event != "" {
+		q.Set("event", event)
+	}
+	u.RawQuery = q.Encode()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, u.String(), http.NoBody))
+	if rec.Code != http.StatusOK {
+		return reply{failure: fmt.Sprintf("HTTP %d", rec.Code)}
+	}
+	v, err := bencode.Decode(rec.Body.Bytes())
+	d, ok := v.(map[string]any)
+	if err != nil || !ok {
+		return reply{failure: "invalid bencoding"}
+	}
+	if f, ok := d["failure reason"].(string); ok {
+		return reply{failure: f}
+	}
+	r := reply{interval: seconds(d["interval"]), minInterval: seconds(d["min interval"])}
+	if w, ok := d["warning message"].(string); ok {
+		r.warning = w
+	}
+	seeders, sok := count(d["complete"])
+	leechers, lok := count(d["incomplete"])
+	if sok && lok {
+		r.swarm = &engine.Swarm{Seeders: seeders, Leechers: leechers}
+	}
+	return r
+}
+
+// count reads a swarm count as libtorrent does: a 32-bit int, else absent.
+func count(v any) (int, bool) {
+	n, ok := v.(int64)
+	if !ok || n < 0 || n > math.MaxInt32 {
+		return 0, false
+	}
+	return int(n), true
+}
+
+func seconds(v any) time.Duration {
+	n, _ := v.(int64)
+	return time.Duration(n) * time.Second
 }
 
 // reannounce moves the next announce as force_reannounce does: to delay

@@ -155,12 +155,16 @@ const (
 	// RefusedNotRetryable is Retry of a Torrent that isn't failed, that
 	// failed before it completed, or that an external client holds.
 	RefusedNotRetryable RefusalCode = "not_retryable"
+	// RefusedMoving is a Torrent a Move takes to another client, before
+	// its switch, or a Move's destination: Node and Client name where it
+	// moves.
+	RefusedMoving RefusalCode = "moving"
 )
 
 // RefusalCodes is every RefusalCode.
 var RefusalCodes = []RefusalCode{
 	RefusedNotFound, RefusedRemoved, RefusedImporting, RefusedNotHeld, RefusedNotThisRelease, RefusedReconciling, RefusedOffline,
-	RefusedClientAway, RefusedClientOff, RefusedWindow, RefusedNotRunning, RefusedFailed, RefusedNotRetryable,
+	RefusedClientAway, RefusedClientOff, RefusedWindow, RefusedNotRunning, RefusedFailed, RefusedNotRetryable, RefusedMoving,
 }
 
 type Refusal struct {
@@ -171,7 +175,9 @@ type Refusal struct {
 	// AcceptsAt is when an announce would be accepted, for RefusedWindow.
 	AcceptsAt time.Time
 	// Client and Node name the external client and its Node, for
-	// RefusedClientAway and RefusedClientOff.
+	// RefusedClientAway and RefusedClientOff, and where a Move takes it,
+	// for RefusedMoving: Client is "" for the built-in client, Node is ""
+	// for the Torrent's own Node.
 	Client, Node string
 }
 
@@ -264,7 +270,12 @@ func (c *Clients) want(ctx context.Context, a Action) ([]Result, *Preview, error
 		if results, err = c.refusedReconciling(ctx, tx, a.IDs); err != nil || results != nil {
 			return err
 		}
-		results, touched, err = c.WantIn(ctx, tx, a.IDs, wanted)
+		moving, err := c.refusedMoving(ctx, tx, a.IDs)
+		if err != nil {
+			return err
+		}
+		results, touched, err = c.WantIn(ctx, tx, unrefused(a.IDs, moving), wanted)
+		results = withRefused(a.IDs, results, moving)
 		return err
 	})
 	if err != nil {
@@ -411,7 +422,12 @@ func (c *Clients) removeIn(ctx context.Context, tx *storage.Tx[file], a Action, 
 			return refused, Touched{}, err
 		}
 	}
-	results, touched, err := c.RemoveIn(ctx, tx, a.IDs, reason, deleteFiles)
+	moving, err := c.refusedMoving(ctx, tx, a.IDs)
+	if err != nil {
+		return nil, Touched{}, err
+	}
+	results, touched, err := c.RemoveIn(ctx, tx, unrefused(a.IDs, moving), reason, deleteFiles)
+	results = withRefused(a.IDs, results, moving)
 	if err != nil || len(touched.ids) == 0 {
 		return results, touched, err
 	}
@@ -668,9 +684,13 @@ func (c *Clients) live(ctx context.Context, ids []ID) (results []Result, live []
 func (c *Clients) ask(ctx context.Context, a Action) ([]Result, *Preview, error) {
 	var rows acted
 	var names map[role.NodeID]string
+	var moving map[ID]*Refusal
 	err := c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
 		if rows, err = readActed(ctx, r, a.IDs); err != nil {
+			return err
+		}
+		if moving, err = c.refusedMoving(ctx, r, a.IDs); err != nil {
 			return err
 		}
 		names, err = namesIn(ctx, r)
@@ -684,6 +704,9 @@ func (c *Clients) ask(ctx context.Context, a Action) ([]Result, *Preview, error)
 	var nodes []role.NodeID
 	for i, id := range a.IDs {
 		results[i] = Result{ID: id, Refusal: rows.refusal(id)}
+		if results[i].Refusal == nil {
+			results[i].Refusal = moving[id]
+		}
 		if results[i].Refusal == nil {
 			results[i].Refusal = rows.askRefusal(id, c.reachOf(rows[id]), names)
 		}

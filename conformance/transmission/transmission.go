@@ -13,28 +13,40 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/conformance/internal/clientcases"
 	"github.com/jatassi/slipstream/conformance/internal/torrentfile"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/torrent/clients"
 	"github.com/jatassi/slipstream/internal/torrent/clients/transmission"
 )
 
+// Seeded is a torrent of one file with its payload.
+type Seeded = torrentfile.Seeded
+
 type Target struct {
 	// Address is the RPC address, as an Admin types it.
 	Address            string
 	Username, Password string
 	HTTP               *http.Client
-	// Folder is a folder the target saves to, as the target names it.
-	Folder string
-	Log    *slog.Logger
+	// Folder is a folder the target saves to, as the target names it,
+	// and NodeFolder the same folder as this machine sees it, where the
+	// suite writes the files a complete add takes.
+	Folder, NodeFolder string
+	// Seeded is a torrent the target announces to a tracker that answers
+	// it every Interval, with its payload.
+	Seeded   Seeded
+	Interval time.Duration
+	Log      *slog.Logger
 }
 
-// Run drives the Transmission client through every call SlipStream makes
-// and asserts what holds on both sides: Test reads a supported version
-// with no warnings, a paused add lands in the folder with the label, a
-// second add of it changes nothing, its one file is listed, it starts and
-// stops, and a remove with data drops it. A target with a password also
-// gets a wrong one refused.
+// Run drives the Transmission client through every call SlipStream
+// makes and asserts what holds on both sides: Test reads a supported
+// version with no warnings, a paused add lands in the folder with the
+// label, a second add of it changes nothing, its one file is listed, it
+// starts and stops, and a remove with data drops it. A target with a
+// password also gets a wrong one refused. A complete add over files on
+// disk finishes over a whole file and not over a short one, and a
+// started torrent's last announce reads the tracker's answer.
 func Run(t *testing.T, tgt Target) {
 	t.Helper()
 	label, err := clients.ParseLabel(clients.DefaultLabel, clients.Transmission)
@@ -50,6 +62,9 @@ func Run(t *testing.T, tgt Target) {
 	r.add(meta, name)
 	r.act()
 	r.remove()
+	t.Cleanup(func() { _ = r.c.Remove(context.WithoutCancel(t.Context()), tgt.Seeded.Hash, true) })
+	clientcases.CompleteAdd(t, r.c, label, clientcases.Folder{Client: tgt.Folder, Node: tgt.NodeFolder}, tgt.Seeded)
+	clientcases.LastAnnounce(t, r.c, tgt.Seeded.Hash, tgt.Interval)
 	if tgt.Password != "" {
 		_, err := r.open(tgt.Password+"-wrong").Test(t.Context(), label)
 		if p, ok := errors.AsType[*clients.Problem](err); !ok || p.Cause != clients.WrongCredentials {
@@ -112,7 +127,7 @@ func (r run) add(meta []byte, name string) {
 	if err := r.c.Add(ctx, clients.Add{Metainfo: meta, Hash: r.hash, Label: r.label}); err != nil {
 		r.t.Errorf("adding the torrent again: %v, want the duplicate ignored", err)
 	}
-	s, ok := r.poll()
+	s, ok := clientcases.PausedAdd(r.t, r.c, r.hash)
 	if !ok || s.Name != name || s.Label != r.label.String() || s.Folder != r.tgt.Folder || s.Run != clients.Paused || s.Finished || s.Size != torrentfile.Size || s.Done != 0 {
 		r.t.Errorf("after a paused add: %+v, %v, want %s paused in %s labeled %s with nothing done", s, ok, name, r.tgt.Folder, r.label)
 	}
@@ -131,12 +146,7 @@ func (r run) act() {
 	if s, _ := r.poll(); s.Run != clients.Started || s.Finished {
 		r.t.Errorf("after Resume: %+v, want started and not finished", s)
 	}
-	if err := r.c.Act(r.t.Context(), clients.Pause, []bencode.InfoHash{r.hash}); err != nil {
-		r.t.Errorf("Act(Pause): %v", err)
-	}
-	if s, _ := r.poll(); s.Run != clients.Paused {
-		r.t.Errorf("after Pause: %+v, want paused", s)
-	}
+	clientcases.Pause(r.t, r.c, r.hash)
 }
 
 func (r run) remove() {

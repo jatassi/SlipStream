@@ -267,6 +267,9 @@ message JobChange {
   string path = 4;
   string from_path = 5;
   Snapshot snapshot = 6;
+  // from_library is the library from_path is in on a Move's carry, set
+  // only when the file moved from another root.
+  string from_library = 7;
 }
 
 message Refresh {

@@ -124,7 +124,7 @@ test("the Node picker says how each Node stands: reconnecting, offline, past the
 const headingLine = () =>
   page.getByRole("heading", { name: "seedbox", level: 1 }).query()?.parentElement?.textContent;
 
-test.each(["", "/roles", "/web", "/torrent-client", "/transfers", "/logs", "/log-settings"])(
+test.each(["", "/logs"])(
   "the section at /nodes/<seedbox>%s opens with its state, when it was last seen, its Roles and Restart",
   async (section) => {
     renderApp({

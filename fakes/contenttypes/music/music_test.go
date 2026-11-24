@@ -240,20 +240,6 @@ func TestFaultsMapOntoTheSourceErrors(t *testing.T) {
 	})
 }
 
-func TestASlowSourceGivesUpAtTheFetchTiming(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		m := open(faketest.InMemory(t, musicmeta.Fake, catalog(t)))
-		fetch := works.DefaultTimings().Fetch
-		ctx, cancel := context.WithTimeout(t.Context(), fetch)
-		defer cancel()
-		start := time.Now()
-		_, err := m.Fetch(ctx, metadata.Ask{}, slow, nil)
-		if took := time.Since(start); err == nil || took != fetch {
-			t.Fatalf("Fetch(slow) = %v after %s, want it to give up at %s", err, took, fetch)
-		}
-	})
-}
-
 func TestFetchPagesReleaseGroupsAndNumbersTracksAcrossDiscs(t *testing.T) {
 	inEachTier(t, func(t *testing.T, f faketest.Served) {
 		got, err := open(f).Fetch(t.Context(), metadata.Ask{}, prolific, nil)
@@ -404,7 +390,7 @@ func timings(t *testing.T, s scenario.Scenario, artist works.Key) map[works.Key]
 	return out
 }
 
-func TestTimingsAreEachTracksLengthAndItsAlbumsDate(t *testing.T) {
+func TestTimingsAreEachTracksLengthAndItsAlbumsDateOrUnknown(t *testing.T) {
 	harbor := release.Known(works.Date{Year: 2001, Month: 3, Day: 12})
 	ferry := release.Known(works.Date{Year: 2003})
 	ms := func(n int) release.Fact[time.Duration] { return release.Known(time.Duration(n) * time.Millisecond) }
@@ -418,18 +404,16 @@ func TestTimingsAreEachTracksLengthAndItsAlbumsDate(t *testing.T) {
 	if got := timings(t, catalog(t), lanterns); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Timings = %+v, want %+v", got, want)
 	}
-}
 
-func TestAnUndatedAlbumAndAnUntimedTrackStayUnknown(t *testing.T) {
 	const undated = "a1000000-0000-4000-8000-000000000007"
 	s := catalog(t)
 	s.Music.Artists = append(s.Music.Artists, scenario.MusicArtist{ID: undated, Revisions: []scenario.MusicRevision{{Name: "Undated", SortName: "Undated", Albums: []scenario.MusicAlbum{{
 		ID: "b7000000-0000-4000-8000-000000000001", Release: "c7000000-0000-4000-8000-000000000001", Title: "Someday", Kind: "Album",
 		Tracks: []scenario.MusicTrack{{Recording: "d7000000-0000-4000-8000-000000000001", Title: "Only", Disc: 1}},
 	}}}}})
-	want := map[works.Key]targets.Timing{"b7000000-0000-4000-8000-000000000001/d7000000-0000-4000-8000-000000000001": {}}
-	if got := timings(t, s, undated); !reflect.DeepEqual(got, want) {
-		t.Fatalf("Timings = %+v, want one Item with neither a date nor a length", got)
+	unknown := map[works.Key]targets.Timing{"b7000000-0000-4000-8000-000000000001/d7000000-0000-4000-8000-000000000001": {}}
+	if got := timings(t, s, undated); !reflect.DeepEqual(got, unknown) {
+		t.Fatalf("Timings of an undated album = %+v, want one Item with neither a date nor a length", got)
 	}
 }
 

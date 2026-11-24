@@ -360,13 +360,36 @@ func TestDetailShowsEachTrackersAnswerAndWhenItAccepts(t *testing.T) {
 
 	got := l.Detail(h, true, at(time.Minute))
 	want := []announce.Line{
-		{Index: 0, Answered: at(time.Second), MinInterval: 30 * time.Minute, AcceptsAt: at(30 * time.Minute)},
-		{Index: 1, Answered: at(2 * time.Second), MinInterval: floor, AcceptsAt: at(floor)},
+		{Index: 0, Answered: at(time.Second), Succeeded: at(time.Second), MinInterval: 30 * time.Minute, AcceptsAt: at(30 * time.Minute)},
+		{Index: 1, Answered: at(2 * time.Second), Succeeded: at(2 * time.Second), MinInterval: floor, AcceptsAt: at(floor)},
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("Detail = %+v, want %+v", got, want)
 	}
 	if got := l.Detail(other, true, at(time.Minute)); len(got) != 0 {
 		t.Errorf("Detail of a torrent that never announced = %+v, want none", got)
+	}
+}
+
+// TestDetailKeepsTheLastSuccessAndReadsAnAnsweredStopped has a tracker
+// answer a started, fail an announce, then answer a stopped: the line's
+// success stays the started's answer through the failure, and only the
+// answered stopped reads stopped.
+func TestDetailKeepsTheLastSuccessAndReadsAnAnsweredStopped(t *testing.T) {
+	l := ledger()
+	l.Sent(h, beacon, announce.Started, at(0), true)
+	l.Answered(h, beacon, at(time.Second))
+	l.Sent(h, beacon, announce.None, at(time.Minute), true)
+	l.Failed(h, beacon, "Tracker is down for maintenance", time.Hour, at(time.Minute+time.Second))
+	if got := l.Detail(h, true, at(2*time.Minute))[0]; got.Succeeded != at(time.Second) || got.Answered != at(time.Minute+time.Second) || got.Stopped {
+		t.Fatalf("after a failure: %+v, want the started's answer kept as the success and no stop", got)
+	}
+	l.Sent(h, beacon, announce.Stopped, at(3*time.Minute), true)
+	if got := l.Detail(h, true, at(3*time.Minute))[0]; got.Stopped {
+		t.Fatalf("with the stopped unanswered: %+v, want no stop", got)
+	}
+	l.Answered(h, beacon, at(3*time.Minute+time.Second))
+	if got := l.Detail(h, true, at(4*time.Minute))[0]; !got.Stopped || got.Succeeded != at(3*time.Minute+time.Second) {
+		t.Fatalf("after the stopped's answer: %+v, want stopped", got)
 	}
 }

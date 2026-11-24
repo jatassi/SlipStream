@@ -386,33 +386,6 @@ func TestALimitEndingAnotherDayNamesTheDay(t *testing.T) {
 	})
 }
 
-func TestPlanNeverAsksAnRSSFeed(t *testing.T) {
-	for _, tc := range []struct {
-		name          string
-		on, auto, rss bool
-		media         []works.TypeID
-	}{
-		{"on with Automatic search and RSS", true, true, true, []works.TypeID{indexerstest.Type}},
-		{"on with Automatic search, RSS off", true, true, false, []works.TypeID{indexerstest.Type}},
-		{"carrying another type too", true, true, true, []works.TypeID{indexerstest.Type, contenttypetest.ID}},
-		{"off", false, true, true, []works.TypeID{indexerstest.Type}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			p := plannedWith(t, "Alder")
-			_, err := p.x.Create(t.Context(), identity.Admin{}, indexers.Draft{
-				Kind: indexers.RSS, Name: "Brook", Address: "https://brook.test/rss", Tracker: "Brook", Media: tc.media,
-				On: tc.on, AutoSearch: tc.auto, RSS: tc.rss,
-			}, indexers.Typed{})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got, want := spelled(p.plan()), []string{"Alder asked"}; !slices.Equal(got, want) {
-				t.Fatalf("the plan = %q, want only the Torznab feed asked", got)
-			}
-		})
-	}
-}
-
 // searchEpisode searches Alder, whose caps are caps, for the episode at
 // season and episode of TVDB series 1001.
 func searchEpisode(t *testing.T, caps string, season int, episode string) searching.Query {

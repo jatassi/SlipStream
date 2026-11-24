@@ -36,35 +36,25 @@ var windowsInput = Input{
 	Inputs:  native.Inputs{Tools: []native.Tool{{Programs: []string{"ffmpeg", "ffprobe"}}, {Programs: []string{"dovi_tool"}}}},
 }
 
-func TestSystemPackageFiles(t *testing.T) {
+func TestTemplatesMatchTheirGoldens(t *testing.T) {
 	for _, p := range []systemPackage{debPackage, rpmPackage} {
 		for script, text := range maintainerScripts(p) {
 			golden(t, p.kind.String()+"-"+script+".sh", text)
 		}
 	}
 	golden(t, "sysusers.conf", sysusers())
-}
 
-func TestAppImageFiles(t *testing.T) {
-	data := desktopData{installNames, desktopArgs}
-	golden(t, "AppRun", render("AppRun", data))
-	golden(t, "slipstream.desktop", render("slipstream.desktop", data))
-}
+	desktop := desktopData{installNames, desktopArgs}
+	golden(t, "AppRun", render("AppRun", desktop))
+	golden(t, "slipstream.desktop", render("slipstream.desktop", desktop))
 
-func TestDockerFiles(t *testing.T) {
-	data := dockerData{installNames, "1.2.0", imageDir}
-	golden(t, "Dockerfile", render("Dockerfile", data))
-	golden(t, "entrypoint", render("entrypoint", data))
-}
+	docker := dockerData{installNames, "1.2.0", imageDir}
+	golden(t, "Dockerfile", render("Dockerfile", docker))
+	golden(t, "entrypoint", render("entrypoint", docker))
 
-func TestInfoPlist(t *testing.T) {
-	in := Input{Version: "1.2.0-beta.1", Target: native.Target{Name: "darwin-arm64", GOOS: "darwin", MinOS: "macos 13.0"}}
-	golden(t, "Info.plist", infoPlist(in))
-}
+	golden(t, "Info.plist", infoPlist(Input{Version: "1.2.0-beta.1", Target: native.Target{Name: "darwin-arm64", GOOS: "darwin", MinOS: "macos 13.0"}}))
 
-func TestWixSource(t *testing.T) {
 	files := append(windowsInput.programs(), "install-kind", "LICENSE", "NOTICES.txt")
 	stage := filepath.FromSlash("/stage")
-	got := wixSource(windowsInput, stage, files)
-	golden(t, "SlipStream.wxs", strings.ReplaceAll(got, stage+string(filepath.Separator), "/stage/"))
+	golden(t, "SlipStream.wxs", strings.ReplaceAll(wixSource(windowsInput, stage, files), stage+string(filepath.Separator), "/stage/"))
 }

@@ -88,6 +88,11 @@ func TestTheFakeAnswersAsTMDBDoes(t *testing.T) {
 			{"/3/search/movie?query=orchard&primary_release_year=2020", none},
 			{"/3/search/movie?query=", none},
 			{"/3/movie/9000001", `200 OK {"adult":false,"backdrop_path":"/znm9omh75o26.jpg","belongs_to_collection":null,"genres":[],"id":9000001,"imdb_id":"tt9000001","original_language":"en","original_title":"The Quiet Orchard","overview":"","poster_path":"/znvorf0peat3.jpg","production_companies":[],"release_date":"2021-04-16","runtime":104,"status":"Released","tagline":"","title":"The Quiet Orchard","vote_average":0,"vote_count":0}` + "\n"},
+			{
+				"/3/movie/9000001?append_to_response=external_ids,release_dates",
+				`200 OK {"adult":false,"backdrop_path":"/znm9omh75o26.jpg","belongs_to_collection":null,"genres":[],"id":9000001,"imdb_id":"tt9000001","original_language":"en","original_title":"The Quiet Orchard","overview":"","poster_path":"/znvorf0peat3.jpg","production_companies":[],"release_date":"2021-04-16","runtime":104,"status":"Released","tagline":"","title":"The Quiet Orchard","vote_average":0,"vote_count":0,` +
+					`"external_ids":{"imdb_id":"tt9000001"},"release_dates":{"results":[{"iso_3166_1":"US","release_dates":[{"certification":"","descriptors":[],"iso_639_1":"","note":"","release_date":"2021-04-16T00:00:00.000Z","type":4}]}]}}` + "\n",
+			},
 			{"/3/movie/9000003", notFound},
 			{"/3/movie/orchard", notFound},
 			{"/3/tv/1", notFound},
@@ -110,16 +115,6 @@ func TestSearchReadsPagesOfTwenty(t *testing.T) {
 		if got := get(t, f, "/3/search/movie?query=orchard&page=2"); strings.Count(got, `"id":`) != 5 {
 			t.Errorf("page 2 holds %d results, want 5: %s", strings.Count(got, `"id":`), got)
 		}
-	})
-}
-
-func TestScenarioReleasedIsOneUSDigitalDate(t *testing.T) {
-	inBothTiers(t, load(t, "single-machine"), func(t *testing.T, f faketest.Served) {
-		check(t, f, []exchange{{
-			"/3/movie/9000001?append_to_response=external_ids,release_dates",
-			`200 OK {"adult":false,"backdrop_path":"/znm9omh75o26.jpg","belongs_to_collection":null,"genres":[],"id":9000001,"imdb_id":"tt9000001","original_language":"en","original_title":"The Quiet Orchard","overview":"","poster_path":"/znvorf0peat3.jpg","production_companies":[],"release_date":"2021-04-16","runtime":104,"status":"Released","tagline":"","title":"The Quiet Orchard","vote_average":0,"vote_count":0,` +
-				`"external_ids":{"imdb_id":"tt9000001"},"release_dates":{"results":[{"iso_3166_1":"US","release_dates":[{"certification":"","descriptors":[],"iso_639_1":"","note":"","release_date":"2021-04-16T00:00:00.000Z","type":4}]}]}}` + "\n",
-		}})
 	})
 }
 

@@ -41,6 +41,10 @@ var Versions = []string{"2.1"}
 
 const (
 	name = "deluge"
+	// tick is the libtorrent alert loop on which a pause takes effect:
+	// Deluge 2.2.0 read paused 11 ms after the call, and 96 ms after a
+	// recheck.
+	tick = 100 * time.Millisecond
 	// switchCue connects a Node's web UI to another of its daemons, as a
 	// person does in the web UI's connection manager.
 	switchCue = name + "-switch"
@@ -190,7 +194,8 @@ func serve(env fake.Env, clients []Client) (fake.Server, error) {
 			w.daemons = append(w.daemons, &daemon{
 				Daemon: d, id: hex.EncodeToString(sum[:16]), version: v, labels: labels, moveTo: map[bencode.InfoHash]string{}, paused: map[bencode.InfoHash]bool{},
 				engine: torrentclient.New(torrentclient.Config{
-					Releases: env.Releases, Dir: d.Dir, Name: d.Folder, Windows: d.Windows, Rate: d.Rate, Slots: d.Slots, SeedRatio: d.SeedRatio, Check: d.Check,
+					Releases: env.Releases, Dir: d.Dir, Name: d.Folder, Windows: d.Windows, Rate: d.Rate, Slots: d.Slots, SeedRatio: d.SeedRatio, Check: d.Check, Tick: tick,
+					Tracker: clientfake.Tracker(env, c.Node), PeerID: clientfake.PeerID("-DE211s-", c.Node+" "+d.Host),
 				}),
 			})
 		}

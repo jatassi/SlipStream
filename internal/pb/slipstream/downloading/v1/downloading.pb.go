@@ -283,6 +283,65 @@ func (Cause) EnumDescriptor() ([]byte, []int) {
 	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{3}
 }
 
+type ArrivalResult int32
+
+const (
+	ArrivalResult_ARRIVAL_RESULT_UNSPECIFIED ArrivalResult = 0
+	// ARRIVAL_RESULT_COMPLETE is a complete add whose check found every
+	// piece.
+	ArrivalResult_ARRIVAL_RESULT_COMPLETE     ArrivalResult = 1
+	ArrivalResult_ARRIVAL_RESULT_CHECK_FAILED ArrivalResult = 2
+	// ARRIVAL_RESULT_STARTED is a start a tracker answered within the
+	// reply wait.
+	ArrivalResult_ARRIVAL_RESULT_STARTED ArrivalResult = 3
+	ArrivalResult_ARRIVAL_RESULT_REFUSED ArrivalResult = 4
+)
+
+// Enum value maps for ArrivalResult.
+var (
+	ArrivalResult_name = map[int32]string{
+		0: "ARRIVAL_RESULT_UNSPECIFIED",
+		1: "ARRIVAL_RESULT_COMPLETE",
+		2: "ARRIVAL_RESULT_CHECK_FAILED",
+		3: "ARRIVAL_RESULT_STARTED",
+		4: "ARRIVAL_RESULT_REFUSED",
+	}
+	ArrivalResult_value = map[string]int32{
+		"ARRIVAL_RESULT_UNSPECIFIED":  0,
+		"ARRIVAL_RESULT_COMPLETE":     1,
+		"ARRIVAL_RESULT_CHECK_FAILED": 2,
+		"ARRIVAL_RESULT_STARTED":      3,
+		"ARRIVAL_RESULT_REFUSED":      4,
+	}
+)
+
+func (x ArrivalResult) Enum() *ArrivalResult {
+	p := new(ArrivalResult)
+	*p = x
+	return p
+}
+
+func (x ArrivalResult) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ArrivalResult) Descriptor() protoreflect.EnumDescriptor {
+	return file_slipstream_downloading_v1_downloading_proto_enumTypes[4].Descriptor()
+}
+
+func (ArrivalResult) Type() protoreflect.EnumType {
+	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[4]
+}
+
+func (x ArrivalResult) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ArrivalResult.Descriptor instead.
+func (ArrivalResult) EnumDescriptor() ([]byte, []int) {
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{4}
+}
+
 type Origin int32
 
 const (
@@ -316,11 +375,11 @@ func (x Origin) String() string {
 }
 
 func (Origin) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_downloading_v1_downloading_proto_enumTypes[4].Descriptor()
+	return file_slipstream_downloading_v1_downloading_proto_enumTypes[5].Descriptor()
 }
 
 func (Origin) Type() protoreflect.EnumType {
-	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[4]
+	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[5]
 }
 
 func (x Origin) Number() protoreflect.EnumNumber {
@@ -329,7 +388,7 @@ func (x Origin) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Origin.Descriptor instead.
 func (Origin) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{4}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{5}
 }
 
 type EngineState int32
@@ -371,11 +430,11 @@ func (x EngineState) String() string {
 }
 
 func (EngineState) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_downloading_v1_downloading_proto_enumTypes[5].Descriptor()
+	return file_slipstream_downloading_v1_downloading_proto_enumTypes[6].Descriptor()
 }
 
 func (EngineState) Type() protoreflect.EnumType {
-	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[5]
+	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[6]
 }
 
 func (x EngineState) Number() protoreflect.EnumNumber {
@@ -384,7 +443,7 @@ func (x EngineState) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use EngineState.Descriptor instead.
 func (EngineState) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{5}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{6}
 }
 
 // Hold is why a torrent the Node could run doesn't.
@@ -444,11 +503,11 @@ func (x Hold) String() string {
 }
 
 func (Hold) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_downloading_v1_downloading_proto_enumTypes[6].Descriptor()
+	return file_slipstream_downloading_v1_downloading_proto_enumTypes[7].Descriptor()
 }
 
 func (Hold) Type() protoreflect.EnumType {
-	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[6]
+	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[7]
 }
 
 func (x Hold) Number() protoreflect.EnumNumber {
@@ -457,7 +516,7 @@ func (x Hold) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Hold.Descriptor instead.
 func (Hold) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{6}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{7}
 }
 
 type TrackerStatus int32
@@ -502,11 +561,11 @@ func (x TrackerStatus) String() string {
 }
 
 func (TrackerStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_downloading_v1_downloading_proto_enumTypes[7].Descriptor()
+	return file_slipstream_downloading_v1_downloading_proto_enumTypes[8].Descriptor()
 }
 
 func (TrackerStatus) Type() protoreflect.EnumType {
-	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[7]
+	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[8]
 }
 
 func (x TrackerStatus) Number() protoreflect.EnumNumber {
@@ -515,7 +574,7 @@ func (x TrackerStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TrackerStatus.Descriptor instead.
 func (TrackerStatus) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{7}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{8}
 }
 
 type FaultKind int32
@@ -560,11 +619,11 @@ func (x FaultKind) String() string {
 }
 
 func (FaultKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_downloading_v1_downloading_proto_enumTypes[8].Descriptor()
+	return file_slipstream_downloading_v1_downloading_proto_enumTypes[9].Descriptor()
 }
 
 func (FaultKind) Type() protoreflect.EnumType {
-	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[8]
+	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[9]
 }
 
 func (x FaultKind) Number() protoreflect.EnumNumber {
@@ -573,7 +632,7 @@ func (x FaultKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FaultKind.Descriptor instead.
 func (FaultKind) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{8}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{9}
 }
 
 type Warning int32
@@ -612,11 +671,11 @@ func (x Warning) String() string {
 }
 
 func (Warning) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_downloading_v1_downloading_proto_enumTypes[9].Descriptor()
+	return file_slipstream_downloading_v1_downloading_proto_enumTypes[10].Descriptor()
 }
 
 func (Warning) Type() protoreflect.EnumType {
-	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[9]
+	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[10]
 }
 
 func (x Warning) Number() protoreflect.EnumNumber {
@@ -625,7 +684,7 @@ func (x Warning) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Warning.Descriptor instead.
 func (Warning) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{9}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{10}
 }
 
 type UnresolvedReason int32
@@ -673,11 +732,11 @@ func (x UnresolvedReason) String() string {
 }
 
 func (UnresolvedReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_downloading_v1_downloading_proto_enumTypes[10].Descriptor()
+	return file_slipstream_downloading_v1_downloading_proto_enumTypes[11].Descriptor()
 }
 
 func (UnresolvedReason) Type() protoreflect.EnumType {
-	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[10]
+	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[11]
 }
 
 func (x UnresolvedReason) Number() protoreflect.EnumNumber {
@@ -686,7 +745,7 @@ func (x UnresolvedReason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use UnresolvedReason.Descriptor instead.
 func (UnresolvedReason) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{10}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{11}
 }
 
 type Act int32
@@ -725,11 +784,11 @@ func (x Act) String() string {
 }
 
 func (Act) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_downloading_v1_downloading_proto_enumTypes[11].Descriptor()
+	return file_slipstream_downloading_v1_downloading_proto_enumTypes[12].Descriptor()
 }
 
 func (Act) Type() protoreflect.EnumType {
-	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[11]
+	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[12]
 }
 
 func (x Act) Number() protoreflect.EnumNumber {
@@ -738,7 +797,7 @@ func (x Act) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Act.Descriptor instead.
 func (Act) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{11}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{12}
 }
 
 // Refusal is why the Node didn't act on a torrent.
@@ -792,11 +851,11 @@ func (x Refusal) String() string {
 }
 
 func (Refusal) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_downloading_v1_downloading_proto_enumTypes[12].Descriptor()
+	return file_slipstream_downloading_v1_downloading_proto_enumTypes[13].Descriptor()
 }
 
 func (Refusal) Type() protoreflect.EnumType {
-	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[12]
+	return &file_slipstream_downloading_v1_downloading_proto_enumTypes[13]
 }
 
 func (x Refusal) Number() protoreflect.EnumNumber {
@@ -805,7 +864,7 @@ func (x Refusal) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Refusal.Descriptor instead.
 func (Refusal) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{12}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{13}
 }
 
 // Intent is what the Node acts on every pass and nothing more: a pause
@@ -1019,6 +1078,20 @@ type Torrent struct {
 	// pending, 0 for none: the Node clears its failure and checks its files,
 	// and wanted is paused in the same intent.
 	RetryAtUnixMs int64 `protobuf:"varint,6,opt,name=retry_at_unix_ms,json=retryAtUnixMs,proto3" json:"retry_at_unix_ms,omitempty"`
+	// start_asked_unix_ms is a Move's ask that this Node start the torrent
+	// and judge the start, the Controller's time of the ask, 0 for none.
+	// The Node echoes it in the torrent's arrival.
+	StartAskedUnixMs int64 `protobuf:"varint,7,opt,name=start_asked_unix_ms,json=startAskedUnixMs,proto3" json:"start_asked_unix_ms,omitempty"`
+	// watch_announce asks an external client's actor to read when the
+	// torrent last announced, for a Move's guard and stop.
+	WatchAnnounce bool `protobuf:"varint,8,opt,name=watch_announce,json=watchAnnounce,proto3" json:"watch_announce,omitempty"`
+	// arriving is a Move's destination. An external client adds it over
+	// the files the Move placed, checking them rather than downloading.
+	Arriving bool `protobuf:"varint,9,opt,name=arriving,proto3" json:"arriving,omitempty"`
+	// start_window_ms is how long from its receipt the Node may start the
+	// asked torrent and judge it. It pauses the torrent at the window's end
+	// while the ask is still open.
+	StartWindowMs int64 `protobuf:"varint,10,opt,name=start_window_ms,json=startWindowMs,proto3" json:"start_window_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1091,6 +1164,34 @@ func (x *Torrent) GetClientId() []byte {
 func (x *Torrent) GetRetryAtUnixMs() int64 {
 	if x != nil {
 		return x.RetryAtUnixMs
+	}
+	return 0
+}
+
+func (x *Torrent) GetStartAskedUnixMs() int64 {
+	if x != nil {
+		return x.StartAskedUnixMs
+	}
+	return 0
+}
+
+func (x *Torrent) GetWatchAnnounce() bool {
+	if x != nil {
+		return x.WatchAnnounce
+	}
+	return false
+}
+
+func (x *Torrent) GetArriving() bool {
+	if x != nil {
+		return x.Arriving
+	}
+	return false
+}
+
+func (x *Torrent) GetStartWindowMs() int64 {
+	if x != nil {
+		return x.StartWindowMs
 	}
 	return 0
 }
@@ -2694,8 +2795,11 @@ type TorrentReport struct {
 	// retry_checked_unix_ms is the Retry whose check ended, 0 before one
 	// did. done is what that check found.
 	RetryCheckedUnixMs int64 `protobuf:"varint,22,opt,name=retry_checked_unix_ms,json=retryCheckedUnixMs,proto3" json:"retry_checked_unix_ms,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// arrival is the Node's result for a Move's destination: its complete
+	// add's check, or its judged start.
+	Arrival       *Arrival `protobuf:"bytes,23,opt,name=arrival,proto3" json:"arrival,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TorrentReport) Reset() {
@@ -2882,6 +2986,90 @@ func (x *TorrentReport) GetRetryCheckedUnixMs() int64 {
 	return 0
 }
 
+func (x *TorrentReport) GetArrival() *Arrival {
+	if x != nil {
+		return x.Arrival
+	}
+	return nil
+}
+
+// Arrival is what a Move's destination Node found of its torrent.
+type Arrival struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// asked_unix_ms echoes the Torrent's start_asked_unix_ms for a started
+	// or refused, 0 for a complete add's result.
+	AskedUnixMs int64         `protobuf:"varint,1,opt,name=asked_unix_ms,json=askedUnixMs,proto3" json:"asked_unix_ms,omitempty"`
+	Result      ArrivalResult `protobuf:"varint,2,opt,name=result,proto3,enum=slipstream.downloading.v1.ArrivalResult" json:"result,omitempty"`
+	// reason is the tracker's failure reason, verbatim, or late, an ask
+	// whose window was under the reply wait at receipt, or no_answer, no
+	// tracker answer within the reply wait or the window, for a refused;
+	// the count of missing or short pieces for a check failed.
+	Reason string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	// announced_unix_ms is the tracker's answer to the started, for a
+	// started.
+	AnnouncedUnixMs int64 `protobuf:"varint,4,opt,name=announced_unix_ms,json=announcedUnixMs,proto3" json:"announced_unix_ms,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *Arrival) Reset() {
+	*x = Arrival{}
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Arrival) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Arrival) ProtoMessage() {}
+
+func (x *Arrival) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Arrival.ProtoReflect.Descriptor instead.
+func (*Arrival) Descriptor() ([]byte, []int) {
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *Arrival) GetAskedUnixMs() int64 {
+	if x != nil {
+		return x.AskedUnixMs
+	}
+	return 0
+}
+
+func (x *Arrival) GetResult() ArrivalResult {
+	if x != nil {
+		return x.Result
+	}
+	return ArrivalResult_ARRIVAL_RESULT_UNSPECIFIED
+}
+
+func (x *Arrival) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *Arrival) GetAnnouncedUnixMs() int64 {
+	if x != nil {
+		return x.AnnouncedUnixMs
+	}
+	return 0
+}
+
 // WantedChange is the wanted state the Node saw change in the client,
 // from the state it last applied.
 type WantedChange struct {
@@ -2894,7 +3082,7 @@ type WantedChange struct {
 
 func (x *WantedChange) Reset() {
 	*x = WantedChange{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[23]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2906,7 +3094,7 @@ func (x *WantedChange) String() string {
 func (*WantedChange) ProtoMessage() {}
 
 func (x *WantedChange) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[23]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2919,7 +3107,7 @@ func (x *WantedChange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WantedChange.ProtoReflect.Descriptor instead.
 func (*WantedChange) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{23}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *WantedChange) GetFrom() Wanted {
@@ -2945,13 +3133,23 @@ type TrackerLine struct {
 	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	// retry_at_unix_ms is set while status is error or unregistered.
 	RetryAtUnixMs int64 `protobuf:"varint,4,opt,name=retry_at_unix_ms,json=retryAtUnixMs,proto3" json:"retry_at_unix_ms,omitempty"`
+	// answered_at_unix_ms is the tracker's last successful answer, on the
+	// Node's clock, 0 before one or while no Move watches the torrent's
+	// announces.
+	AnsweredAtUnixMs int64 `protobuf:"varint,5,opt,name=answered_at_unix_ms,json=answeredAtUnixMs,proto3" json:"answered_at_unix_ms,omitempty"`
+	// next_announce_unix_ms is when the next announce to it is due, on the
+	// Node's clock, 0 while none is or nothing reads it.
+	NextAnnounceUnixMs int64 `protobuf:"varint,6,opt,name=next_announce_unix_ms,json=nextAnnounceUnixMs,proto3" json:"next_announce_unix_ms,omitempty"`
+	// stopped is a last announce that was a stopped the tracker answered.
+	// A client that can't tell leaves it false.
+	Stopped       bool `protobuf:"varint,7,opt,name=stopped,proto3" json:"stopped,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TrackerLine) Reset() {
 	*x = TrackerLine{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[24]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2963,7 +3161,7 @@ func (x *TrackerLine) String() string {
 func (*TrackerLine) ProtoMessage() {}
 
 func (x *TrackerLine) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[24]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2976,7 +3174,7 @@ func (x *TrackerLine) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrackerLine.ProtoReflect.Descriptor instead.
 func (*TrackerLine) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{24}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *TrackerLine) GetIndex() int32 {
@@ -3007,6 +3205,27 @@ func (x *TrackerLine) GetRetryAtUnixMs() int64 {
 	return 0
 }
 
+func (x *TrackerLine) GetAnsweredAtUnixMs() int64 {
+	if x != nil {
+		return x.AnsweredAtUnixMs
+	}
+	return 0
+}
+
+func (x *TrackerLine) GetNextAnnounceUnixMs() int64 {
+	if x != nil {
+		return x.NextAnnounceUnixMs
+	}
+	return 0
+}
+
+func (x *TrackerLine) GetStopped() bool {
+	if x != nil {
+		return x.Stopped
+	}
+	return false
+}
+
 type Completion struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Files         []*File                `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
@@ -3016,7 +3235,7 @@ type Completion struct {
 
 func (x *Completion) Reset() {
 	*x = Completion{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[25]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3028,7 +3247,7 @@ func (x *Completion) String() string {
 func (*Completion) ProtoMessage() {}
 
 func (x *Completion) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[25]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3041,7 +3260,7 @@ func (x *Completion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Completion.ProtoReflect.Descriptor instead.
 func (*Completion) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{25}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *Completion) GetFiles() []*File {
@@ -3062,7 +3281,7 @@ type File struct {
 
 func (x *File) Reset() {
 	*x = File{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[26]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3074,7 +3293,7 @@ func (x *File) String() string {
 func (*File) ProtoMessage() {}
 
 func (x *File) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[26]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3087,7 +3306,7 @@ func (x *File) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use File.ProtoReflect.Descriptor instead.
 func (*File) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{26}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *File) GetIndex() int32 {
@@ -3123,7 +3342,7 @@ type Fault struct {
 
 func (x *Fault) Reset() {
 	*x = Fault{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[27]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3135,7 +3354,7 @@ func (x *Fault) String() string {
 func (*Fault) ProtoMessage() {}
 
 func (x *Fault) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[27]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3148,7 +3367,7 @@ func (x *Fault) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Fault.ProtoReflect.Descriptor instead.
 func (*Fault) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{27}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *Fault) GetKind() FaultKind {
@@ -3174,7 +3393,7 @@ type Totals struct {
 
 func (x *Totals) Reset() {
 	*x = Totals{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[28]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3186,7 +3405,7 @@ func (x *Totals) String() string {
 func (*Totals) ProtoMessage() {}
 
 func (x *Totals) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[28]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3199,7 +3418,7 @@ func (x *Totals) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Totals.ProtoReflect.Descriptor instead.
 func (*Totals) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{28}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *Totals) GetRows() []*TotalsRow {
@@ -3230,7 +3449,7 @@ type TotalsRow struct {
 
 func (x *TotalsRow) Reset() {
 	*x = TotalsRow{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[29]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3242,7 +3461,7 @@ func (x *TotalsRow) String() string {
 func (*TotalsRow) ProtoMessage() {}
 
 func (x *TotalsRow) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[29]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3255,7 +3474,7 @@ func (x *TotalsRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TotalsRow.ProtoReflect.Descriptor instead.
 func (*TotalsRow) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{29}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *TotalsRow) GetId() []byte {
@@ -3319,7 +3538,7 @@ type Parted struct {
 
 func (x *Parted) Reset() {
 	*x = Parted{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[30]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3331,7 +3550,7 @@ func (x *Parted) String() string {
 func (*Parted) ProtoMessage() {}
 
 func (x *Parted) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[30]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3344,7 +3563,7 @@ func (x *Parted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Parted.ProtoReflect.Descriptor instead.
 func (*Parted) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{30}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Parted) GetId() []byte {
@@ -3361,6 +3580,558 @@ func (x *Parted) GetFreed() int64 {
 	return 0
 }
 
+type PlacePayloadRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// client_id is the destination Download Client, empty for the
+	// built-in one.
+	ClientId []byte `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	// content_type is the torrent's Content Type's name, empty for an
+	// adopted torrent.
+	ContentType string `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	InfoHash    []byte `protobuf:"bytes,3,opt,name=info_hash,json=infoHash,proto3" json:"info_hash,omitempty"`
+	// Types that are valid to be assigned to From:
+	//
+	//	*PlacePayloadRequest_Staged
+	//	*PlacePayloadRequest_Held
+	From isPlacePayloadRequest_From `protobuf_oneof:"from"`
+	// allow_copy lets a held payload's file be copied when link and clone
+	// both refuse. Without it the place fails with a NeedsCopy detail.
+	AllowCopy     bool `protobuf:"varint,6,opt,name=allow_copy,json=allowCopy,proto3" json:"allow_copy,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlacePayloadRequest) Reset() {
+	*x = PlacePayloadRequest{}
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlacePayloadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlacePayloadRequest) ProtoMessage() {}
+
+func (x *PlacePayloadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlacePayloadRequest.ProtoReflect.Descriptor instead.
+func (*PlacePayloadRequest) Descriptor() ([]byte, []int) {
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *PlacePayloadRequest) GetClientId() []byte {
+	if x != nil {
+		return x.ClientId
+	}
+	return nil
+}
+
+func (x *PlacePayloadRequest) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+func (x *PlacePayloadRequest) GetInfoHash() []byte {
+	if x != nil {
+		return x.InfoHash
+	}
+	return nil
+}
+
+func (x *PlacePayloadRequest) GetFrom() isPlacePayloadRequest_From {
+	if x != nil {
+		return x.From
+	}
+	return nil
+}
+
+func (x *PlacePayloadRequest) GetStaged() *StagedPayload {
+	if x != nil {
+		if x, ok := x.From.(*PlacePayloadRequest_Staged); ok {
+			return x.Staged
+		}
+	}
+	return nil
+}
+
+func (x *PlacePayloadRequest) GetHeld() *HeldPayload {
+	if x != nil {
+		if x, ok := x.From.(*PlacePayloadRequest_Held); ok {
+			return x.Held
+		}
+	}
+	return nil
+}
+
+func (x *PlacePayloadRequest) GetAllowCopy() bool {
+	if x != nil {
+		return x.AllowCopy
+	}
+	return false
+}
+
+type isPlacePayloadRequest_From interface {
+	isPlacePayloadRequest_From()
+}
+
+type PlacePayloadRequest_Staged struct {
+	Staged *StagedPayload `protobuf:"bytes,4,opt,name=staged,proto3,oneof"`
+}
+
+type PlacePayloadRequest_Held struct {
+	Held *HeldPayload `protobuf:"bytes,5,opt,name=held,proto3,oneof"`
+}
+
+func (*PlacePayloadRequest_Staged) isPlacePayloadRequest_From() {}
+
+func (*PlacePayloadRequest_Held) isPlacePayloadRequest_From() {}
+
+// StagedPayload is the files Transfer transfer_id staged for the torrent
+// on this Node.
+type StagedPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TransferId    []byte                 `protobuf:"bytes,1,opt,name=transfer_id,json=transferId,proto3" json:"transfer_id,omitempty"`
+	Files         []*StagedFile          `protobuf:"bytes,2,rep,name=files,proto3" json:"files,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StagedPayload) Reset() {
+	*x = StagedPayload{}
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StagedPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StagedPayload) ProtoMessage() {}
+
+func (x *StagedPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StagedPayload.ProtoReflect.Descriptor instead.
+func (*StagedPayload) Descriptor() ([]byte, []int) {
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *StagedPayload) GetTransferId() []byte {
+	if x != nil {
+		return x.TransferId
+	}
+	return nil
+}
+
+func (x *StagedPayload) GetFiles() []*StagedFile {
+	if x != nil {
+		return x.Files
+	}
+	return nil
+}
+
+// StagedFile is the Transfer's file at position, the torrent's file at
+// path, '/' separated as the metainfo names it.
+type StagedFile struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Position      int32                  `protobuf:"varint,1,opt,name=position,proto3" json:"position,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StagedFile) Reset() {
+	*x = StagedFile{}
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StagedFile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StagedFile) ProtoMessage() {}
+
+func (x *StagedFile) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StagedFile.ProtoReflect.Descriptor instead.
+func (*StagedFile) Descriptor() ([]byte, []int) {
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *StagedFile) GetPosition() int32 {
+	if x != nil {
+		return x.Position
+	}
+	return 0
+}
+
+func (x *StagedFile) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+// HeldPayload is the files of the torrent of the same info hash another
+// Download Client on this Node holds.
+type HeldPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Files         []*HeldFile            `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HeldPayload) Reset() {
+	*x = HeldPayload{}
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HeldPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HeldPayload) ProtoMessage() {}
+
+func (x *HeldPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HeldPayload.ProtoReflect.Descriptor instead.
+func (*HeldPayload) Descriptor() ([]byte, []int) {
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *HeldPayload) GetFiles() []*HeldFile {
+	if x != nil {
+		return x.Files
+	}
+	return nil
+}
+
+// HeldFile is the held torrent's file index, at path, '/' separated as
+// the metainfo names it.
+type HeldFile struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Index         int32                  `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HeldFile) Reset() {
+	*x = HeldFile{}
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HeldFile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HeldFile) ProtoMessage() {}
+
+func (x *HeldFile) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HeldFile.ProtoReflect.Descriptor instead.
+func (*HeldFile) Descriptor() ([]byte, []int) {
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *HeldFile) GetIndex() int32 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+func (x *HeldFile) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type DiscardPayloadRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// client_id is the destination Download Client, empty for the
+	// built-in one.
+	ClientId    []byte         `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	ContentType string         `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	InfoHash    []byte         `protobuf:"bytes,3,opt,name=info_hash,json=infoHash,proto3" json:"info_hash,omitempty"`
+	Files       []*DiscardFile `protobuf:"bytes,4,rep,name=files,proto3" json:"files,omitempty"`
+	// held: another Download Client on this Node holds the torrent, and a
+	// file that is its own file stays.
+	Held          bool `protobuf:"varint,5,opt,name=held,proto3" json:"held,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DiscardPayloadRequest) Reset() {
+	*x = DiscardPayloadRequest{}
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DiscardPayloadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DiscardPayloadRequest) ProtoMessage() {}
+
+func (x *DiscardPayloadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DiscardPayloadRequest.ProtoReflect.Descriptor instead.
+func (*DiscardPayloadRequest) Descriptor() ([]byte, []int) {
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *DiscardPayloadRequest) GetClientId() []byte {
+	if x != nil {
+		return x.ClientId
+	}
+	return nil
+}
+
+func (x *DiscardPayloadRequest) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+func (x *DiscardPayloadRequest) GetInfoHash() []byte {
+	if x != nil {
+		return x.InfoHash
+	}
+	return nil
+}
+
+func (x *DiscardPayloadRequest) GetFiles() []*DiscardFile {
+	if x != nil {
+		return x.Files
+	}
+	return nil
+}
+
+func (x *DiscardPayloadRequest) GetHeld() bool {
+	if x != nil {
+		return x.Held
+	}
+	return false
+}
+
+// DiscardFile is the torrent's file index, at path, '/' separated as the
+// metainfo names it, of size bytes.
+type DiscardFile struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Index         int32                  `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Size          int64                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DiscardFile) Reset() {
+	*x = DiscardFile{}
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DiscardFile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DiscardFile) ProtoMessage() {}
+
+func (x *DiscardFile) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DiscardFile.ProtoReflect.Descriptor instead.
+func (*DiscardFile) Descriptor() ([]byte, []int) {
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *DiscardFile) GetIndex() int32 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+func (x *DiscardFile) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *DiscardFile) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+type DiscardPayloadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DiscardPayloadResponse) Reset() {
+	*x = DiscardPayloadResponse{}
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DiscardPayloadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DiscardPayloadResponse) ProtoMessage() {}
+
+func (x *DiscardPayloadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DiscardPayloadResponse.ProtoReflect.Descriptor instead.
+func (*DiscardPayloadResponse) Descriptor() ([]byte, []int) {
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{39}
+}
+
+type PlacePayloadResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// folder is the folder the Download Client adds the torrent in, as the
+	// client sees it.
+	Folder        string `protobuf:"bytes,1,opt,name=folder,proto3" json:"folder,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlacePayloadResponse) Reset() {
+	*x = PlacePayloadResponse{}
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlacePayloadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlacePayloadResponse) ProtoMessage() {}
+
+func (x *PlacePayloadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlacePayloadResponse.ProtoReflect.Descriptor instead.
+func (*PlacePayloadResponse) Descriptor() ([]byte, []int) {
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *PlacePayloadResponse) GetFolder() string {
+	if x != nil {
+		return x.Folder
+	}
+	return ""
+}
+
 type LookRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// folder is an absolute folder on the Node.
@@ -3372,7 +4143,7 @@ type LookRequest struct {
 
 func (x *LookRequest) Reset() {
 	*x = LookRequest{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[31]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3384,7 +4155,7 @@ func (x *LookRequest) String() string {
 func (*LookRequest) ProtoMessage() {}
 
 func (x *LookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[31]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3397,7 +4168,7 @@ func (x *LookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookRequest.ProtoReflect.Descriptor instead.
 func (*LookRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{31}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *LookRequest) GetFolder() string {
@@ -3426,7 +4197,7 @@ type LookEntry struct {
 
 func (x *LookEntry) Reset() {
 	*x = LookEntry{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[32]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3438,7 +4209,7 @@ func (x *LookEntry) String() string {
 func (*LookEntry) ProtoMessage() {}
 
 func (x *LookEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[32]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3451,7 +4222,7 @@ func (x *LookEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookEntry.ProtoReflect.Descriptor instead.
 func (*LookEntry) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{32}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *LookEntry) GetName() string {
@@ -3478,7 +4249,7 @@ type LookResponse struct {
 
 func (x *LookResponse) Reset() {
 	*x = LookResponse{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[33]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3490,7 +4261,7 @@ func (x *LookResponse) String() string {
 func (*LookResponse) ProtoMessage() {}
 
 func (x *LookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[33]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3503,7 +4274,7 @@ func (x *LookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookResponse.ProtoReflect.Descriptor instead.
 func (*LookResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{33}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *LookResponse) GetFound() []bool {
@@ -3525,7 +4296,7 @@ type MetainfoRequest struct {
 
 func (x *MetainfoRequest) Reset() {
 	*x = MetainfoRequest{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[34]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3537,7 +4308,7 @@ func (x *MetainfoRequest) String() string {
 func (*MetainfoRequest) ProtoMessage() {}
 
 func (x *MetainfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[34]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3550,7 +4321,7 @@ func (x *MetainfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetainfoRequest.ProtoReflect.Descriptor instead.
 func (*MetainfoRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{34}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *MetainfoRequest) GetInfoHash() []byte {
@@ -3576,7 +4347,7 @@ type MetainfoResponse struct {
 
 func (x *MetainfoResponse) Reset() {
 	*x = MetainfoResponse{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[35]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3588,7 +4359,7 @@ func (x *MetainfoResponse) String() string {
 func (*MetainfoResponse) ProtoMessage() {}
 
 func (x *MetainfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[35]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3601,7 +4372,7 @@ func (x *MetainfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetainfoResponse.ProtoReflect.Descriptor instead.
 func (*MetainfoResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{35}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *MetainfoResponse) GetMetainfo() []byte {
@@ -3621,7 +4392,7 @@ type TestClientRequest struct {
 
 func (x *TestClientRequest) Reset() {
 	*x = TestClientRequest{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[36]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3633,7 +4404,7 @@ func (x *TestClientRequest) String() string {
 func (*TestClientRequest) ProtoMessage() {}
 
 func (x *TestClientRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[36]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3646,7 +4417,7 @@ func (x *TestClientRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestClientRequest.ProtoReflect.Descriptor instead.
 func (*TestClientRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{36}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *TestClientRequest) GetClient() *Client {
@@ -3676,7 +4447,7 @@ type TestClientResponse struct {
 
 func (x *TestClientResponse) Reset() {
 	*x = TestClientResponse{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[37]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3688,7 +4459,7 @@ func (x *TestClientResponse) String() string {
 func (*TestClientResponse) ProtoMessage() {}
 
 func (x *TestClientResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[37]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3701,7 +4472,7 @@ func (x *TestClientResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestClientResponse.ProtoReflect.Descriptor instead.
 func (*TestClientResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{37}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *TestClientResponse) GetAnswer() isTestClientResponse_Answer {
@@ -3763,7 +4534,7 @@ type Passed struct {
 
 func (x *Passed) Reset() {
 	*x = Passed{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[38]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3775,7 +4546,7 @@ func (x *Passed) String() string {
 func (*Passed) ProtoMessage() {}
 
 func (x *Passed) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[38]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3788,7 +4559,7 @@ func (x *Passed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Passed.ProtoReflect.Descriptor instead.
 func (*Passed) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{38}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *Passed) GetProduct() string {
@@ -3837,7 +4608,7 @@ type CheckClientsRequest struct {
 
 func (x *CheckClientsRequest) Reset() {
 	*x = CheckClientsRequest{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[39]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3849,7 +4620,7 @@ func (x *CheckClientsRequest) String() string {
 func (*CheckClientsRequest) ProtoMessage() {}
 
 func (x *CheckClientsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[39]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3862,7 +4633,7 @@ func (x *CheckClientsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckClientsRequest.ProtoReflect.Descriptor instead.
 func (*CheckClientsRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{39}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *CheckClientsRequest) GetIds() [][]byte {
@@ -3887,7 +4658,7 @@ type CheckClientsResponse struct {
 
 func (x *CheckClientsResponse) Reset() {
 	*x = CheckClientsResponse{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[40]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3899,7 +4670,7 @@ func (x *CheckClientsResponse) String() string {
 func (*CheckClientsResponse) ProtoMessage() {}
 
 func (x *CheckClientsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[40]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3912,7 +4683,7 @@ func (x *CheckClientsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckClientsResponse.ProtoReflect.Descriptor instead.
 func (*CheckClientsResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{40}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{50}
 }
 
 type ResolveRequest struct {
@@ -3931,7 +4702,7 @@ type ResolveRequest struct {
 
 func (x *ResolveRequest) Reset() {
 	*x = ResolveRequest{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[41]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3943,7 +4714,7 @@ func (x *ResolveRequest) String() string {
 func (*ResolveRequest) ProtoMessage() {}
 
 func (x *ResolveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[41]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3956,7 +4727,7 @@ func (x *ResolveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveRequest.ProtoReflect.Descriptor instead.
 func (*ResolveRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{41}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *ResolveRequest) GetInfoHash() []byte {
@@ -4003,7 +4774,7 @@ type ResolveResponse struct {
 
 func (x *ResolveResponse) Reset() {
 	*x = ResolveResponse{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[42]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4015,7 +4786,7 @@ func (x *ResolveResponse) String() string {
 func (*ResolveResponse) ProtoMessage() {}
 
 func (x *ResolveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[42]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4028,7 +4799,7 @@ func (x *ResolveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveResponse.ProtoReflect.Descriptor instead.
 func (*ResolveResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{42}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *ResolveResponse) GetAnswer() isResolveResponse_Answer {
@@ -4130,7 +4901,7 @@ type Searching struct {
 
 func (x *Searching) Reset() {
 	*x = Searching{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[43]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4142,7 +4913,7 @@ func (x *Searching) String() string {
 func (*Searching) ProtoMessage() {}
 
 func (x *Searching) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[43]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4155,7 +4926,7 @@ func (x *Searching) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Searching.ProtoReflect.Descriptor instead.
 func (*Searching) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{43}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *Searching) GetSinceUnixMs() int64 {
@@ -4189,7 +4960,7 @@ type Unresolved struct {
 
 func (x *Unresolved) Reset() {
 	*x = Unresolved{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[44]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4201,7 +4972,7 @@ func (x *Unresolved) String() string {
 func (*Unresolved) ProtoMessage() {}
 
 func (x *Unresolved) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[44]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4214,7 +4985,7 @@ func (x *Unresolved) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Unresolved.ProtoReflect.Descriptor instead.
 func (*Unresolved) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{44}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *Unresolved) GetReason() UnresolvedReason {
@@ -4255,7 +5026,7 @@ type Held struct {
 
 func (x *Held) Reset() {
 	*x = Held{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[45]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4267,7 +5038,7 @@ func (x *Held) String() string {
 func (*Held) ProtoMessage() {}
 
 func (x *Held) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[45]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4280,7 +5051,7 @@ func (x *Held) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Held.ProtoReflect.Descriptor instead.
 func (*Held) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{45}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{55}
 }
 
 // NotTaking is a client that takes no new torrent now.
@@ -4292,7 +5063,7 @@ type NotTaking struct {
 
 func (x *NotTaking) Reset() {
 	*x = NotTaking{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[46]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4304,7 +5075,7 @@ func (x *NotTaking) String() string {
 func (*NotTaking) ProtoMessage() {}
 
 func (x *NotTaking) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[46]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4317,7 +5088,7 @@ func (x *NotTaking) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotTaking.ProtoReflect.Descriptor instead.
 func (*NotTaking) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{46}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{56}
 }
 
 type SampleRequest struct {
@@ -4328,7 +5099,7 @@ type SampleRequest struct {
 
 func (x *SampleRequest) Reset() {
 	*x = SampleRequest{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[47]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4340,7 +5111,7 @@ func (x *SampleRequest) String() string {
 func (*SampleRequest) ProtoMessage() {}
 
 func (x *SampleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[47]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4353,7 +5124,7 @@ func (x *SampleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SampleRequest.ProtoReflect.Descriptor instead.
 func (*SampleRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{47}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{57}
 }
 
 type SampleResponse struct {
@@ -4365,7 +5136,7 @@ type SampleResponse struct {
 
 func (x *SampleResponse) Reset() {
 	*x = SampleResponse{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[48]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4377,7 +5148,7 @@ func (x *SampleResponse) String() string {
 func (*SampleResponse) ProtoMessage() {}
 
 func (x *SampleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[48]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4390,7 +5161,7 @@ func (x *SampleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SampleResponse.ProtoReflect.Descriptor instead.
 func (*SampleResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{48}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *SampleResponse) GetSampledAtUnixMs() int64 {
@@ -4409,7 +5180,7 @@ type WatchRequest struct {
 
 func (x *WatchRequest) Reset() {
 	*x = WatchRequest{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[49]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4421,7 +5192,7 @@ func (x *WatchRequest) String() string {
 func (*WatchRequest) ProtoMessage() {}
 
 func (x *WatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[49]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4434,7 +5205,7 @@ func (x *WatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchRequest.ProtoReflect.Descriptor instead.
 func (*WatchRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{49}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *WatchRequest) GetAfter() uint64 {
@@ -4463,7 +5234,7 @@ type WatchResponse struct {
 
 func (x *WatchResponse) Reset() {
 	*x = WatchResponse{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[50]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4475,7 +5246,7 @@ func (x *WatchResponse) String() string {
 func (*WatchResponse) ProtoMessage() {}
 
 func (x *WatchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[50]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4488,7 +5259,7 @@ func (x *WatchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchResponse.ProtoReflect.Descriptor instead.
 func (*WatchResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{50}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *WatchResponse) GetSample() uint64 {
@@ -4549,7 +5320,7 @@ type Live struct {
 
 func (x *Live) Reset() {
 	*x = Live{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[51]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4561,7 +5332,7 @@ func (x *Live) String() string {
 func (*Live) ProtoMessage() {}
 
 func (x *Live) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[51]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4574,7 +5345,7 @@ func (x *Live) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Live.ProtoReflect.Descriptor instead.
 func (*Live) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{51}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *Live) GetId() []byte {
@@ -4635,7 +5406,7 @@ type InspectRequest struct {
 
 func (x *InspectRequest) Reset() {
 	*x = InspectRequest{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[52]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4647,7 +5418,7 @@ func (x *InspectRequest) String() string {
 func (*InspectRequest) ProtoMessage() {}
 
 func (x *InspectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[52]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4660,7 +5431,7 @@ func (x *InspectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectRequest.ProtoReflect.Descriptor instead.
 func (*InspectRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{52}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *InspectRequest) GetId() []byte {
@@ -4685,7 +5456,7 @@ type InspectResponse struct {
 
 func (x *InspectResponse) Reset() {
 	*x = InspectResponse{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[53]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4697,7 +5468,7 @@ func (x *InspectResponse) String() string {
 func (*InspectResponse) ProtoMessage() {}
 
 func (x *InspectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[53]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4710,7 +5481,7 @@ func (x *InspectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectResponse.ProtoReflect.Descriptor instead.
 func (*InspectResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{53}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *InspectResponse) GetFiles() []*FileProgress {
@@ -4744,7 +5515,7 @@ type FileProgress struct {
 
 func (x *FileProgress) Reset() {
 	*x = FileProgress{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[54]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4756,7 +5527,7 @@ func (x *FileProgress) String() string {
 func (*FileProgress) ProtoMessage() {}
 
 func (x *FileProgress) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[54]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4769,7 +5540,7 @@ func (x *FileProgress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileProgress.ProtoReflect.Descriptor instead.
 func (*FileProgress) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{54}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *FileProgress) GetIndex() int32 {
@@ -4814,7 +5585,7 @@ type TrackerDetail struct {
 
 func (x *TrackerDetail) Reset() {
 	*x = TrackerDetail{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[55]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4826,7 +5597,7 @@ func (x *TrackerDetail) String() string {
 func (*TrackerDetail) ProtoMessage() {}
 
 func (x *TrackerDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[55]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4839,7 +5610,7 @@ func (x *TrackerDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrackerDetail.ProtoReflect.Descriptor instead.
 func (*TrackerDetail) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{55}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *TrackerDetail) GetIndex() int32 {
@@ -4915,7 +5686,7 @@ type ActRequest struct {
 
 func (x *ActRequest) Reset() {
 	*x = ActRequest{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[56]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4927,7 +5698,7 @@ func (x *ActRequest) String() string {
 func (*ActRequest) ProtoMessage() {}
 
 func (x *ActRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[56]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4940,7 +5711,7 @@ func (x *ActRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActRequest.ProtoReflect.Descriptor instead.
 func (*ActRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{56}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *ActRequest) GetAct() Act {
@@ -4967,7 +5738,7 @@ type ActResponse struct {
 
 func (x *ActResponse) Reset() {
 	*x = ActResponse{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[57]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4979,7 +5750,7 @@ func (x *ActResponse) String() string {
 func (*ActResponse) ProtoMessage() {}
 
 func (x *ActResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[57]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4992,7 +5763,7 @@ func (x *ActResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActResponse.ProtoReflect.Descriptor instead.
 func (*ActResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{57}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ActResponse) GetResults() []*ActResult {
@@ -5015,7 +5786,7 @@ type ActResult struct {
 
 func (x *ActResult) Reset() {
 	*x = ActResult{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[58]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5027,7 +5798,7 @@ func (x *ActResult) String() string {
 func (*ActResult) ProtoMessage() {}
 
 func (x *ActResult) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[58]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5040,7 +5811,7 @@ func (x *ActResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActResult.ProtoReflect.Descriptor instead.
 func (*ActResult) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{58}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *ActResult) GetId() []byte {
@@ -5073,7 +5844,7 @@ type FreesRequest struct {
 
 func (x *FreesRequest) Reset() {
 	*x = FreesRequest{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[59]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5085,7 +5856,7 @@ func (x *FreesRequest) String() string {
 func (*FreesRequest) ProtoMessage() {}
 
 func (x *FreesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[59]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5098,7 +5869,7 @@ func (x *FreesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FreesRequest.ProtoReflect.Descriptor instead.
 func (*FreesRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{59}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *FreesRequest) GetIds() [][]byte {
@@ -5118,7 +5889,7 @@ type FreesResponse struct {
 
 func (x *FreesResponse) Reset() {
 	*x = FreesResponse{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[60]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5130,7 +5901,7 @@ func (x *FreesResponse) String() string {
 func (*FreesResponse) ProtoMessage() {}
 
 func (x *FreesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[60]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5143,7 +5914,7 @@ func (x *FreesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FreesResponse.ProtoReflect.Descriptor instead.
 func (*FreesResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{60}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *FreesResponse) GetFreed() []*Freed {
@@ -5167,7 +5938,7 @@ type Freed struct {
 
 func (x *Freed) Reset() {
 	*x = Freed{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[61]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5179,7 +5950,7 @@ func (x *Freed) String() string {
 func (*Freed) ProtoMessage() {}
 
 func (x *Freed) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[61]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5192,7 +5963,7 @@ func (x *Freed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Freed.ProtoReflect.Descriptor instead.
 func (*Freed) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{61}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *Freed) GetId() []byte {
@@ -5225,7 +5996,7 @@ type TorrentRequest struct {
 
 func (x *TorrentRequest) Reset() {
 	*x = TorrentRequest{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[62]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5237,7 +6008,7 @@ func (x *TorrentRequest) String() string {
 func (*TorrentRequest) ProtoMessage() {}
 
 func (x *TorrentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[62]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5250,7 +6021,7 @@ func (x *TorrentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TorrentRequest.ProtoReflect.Descriptor instead.
 func (*TorrentRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{62}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *TorrentRequest) GetId() []byte {
@@ -5272,14 +6043,17 @@ type TorrentResponse struct {
 	ContentType string `protobuf:"bytes,4,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	// origin is an external torrent's origin as the Controller recorded it,
 	// unspecified before the Node first reported it.
-	Origin        Origin `protobuf:"varint,5,opt,name=origin,proto3,enum=slipstream.downloading.v1.Origin" json:"origin,omitempty"`
+	Origin Origin `protobuf:"varint,5,opt,name=origin,proto3,enum=slipstream.downloading.v1.Origin" json:"origin,omitempty"`
+	// seed_mode is a Move's built-in destination: the Node takes the files
+	// a Move placed in the torrent's folder as complete, with no check.
+	SeedMode      bool `protobuf:"varint,6,opt,name=seed_mode,json=seedMode,proto3" json:"seed_mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TorrentResponse) Reset() {
 	*x = TorrentResponse{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[63]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5291,7 +6065,7 @@ func (x *TorrentResponse) String() string {
 func (*TorrentResponse) ProtoMessage() {}
 
 func (x *TorrentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[63]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5304,7 +6078,7 @@ func (x *TorrentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TorrentResponse.ProtoReflect.Descriptor instead.
 func (*TorrentResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{63}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *TorrentResponse) GetMetainfo() []byte {
@@ -5342,6 +6116,13 @@ func (x *TorrentResponse) GetOrigin() Origin {
 	return Origin_ORIGIN_UNSPECIFIED
 }
 
+func (x *TorrentResponse) GetSeedMode() bool {
+	if x != nil {
+		return x.SeedMode
+	}
+	return false
+}
+
 type ClientSecretsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            []byte                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -5351,7 +6132,7 @@ type ClientSecretsRequest struct {
 
 func (x *ClientSecretsRequest) Reset() {
 	*x = ClientSecretsRequest{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[64]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5363,7 +6144,7 @@ func (x *ClientSecretsRequest) String() string {
 func (*ClientSecretsRequest) ProtoMessage() {}
 
 func (x *ClientSecretsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[64]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5376,7 +6157,7 @@ func (x *ClientSecretsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientSecretsRequest.ProtoReflect.Descriptor instead.
 func (*ClientSecretsRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{64}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *ClientSecretsRequest) GetId() []byte {
@@ -5397,7 +6178,7 @@ type ClientSecretsResponse struct {
 
 func (x *ClientSecretsResponse) Reset() {
 	*x = ClientSecretsResponse{}
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[65]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5409,7 +6190,7 @@ func (x *ClientSecretsResponse) String() string {
 func (*ClientSecretsResponse) ProtoMessage() {}
 
 func (x *ClientSecretsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[65]
+	mi := &file_slipstream_downloading_v1_downloading_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5422,7 +6203,7 @@ func (x *ClientSecretsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientSecretsResponse.ProtoReflect.Descriptor instead.
 func (*ClientSecretsResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{65}
+	return file_slipstream_downloading_v1_downloading_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *ClientSecretsResponse) GetSecrets() *Secrets {
@@ -5462,14 +6243,19 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\tpause_all\x18\v \x01(\bR\bpauseAll\"D\n" +
 	"\x0fHoldingsRequest\x12\x14\n" +
 	"\x05round\x18\x01 \x01(\x04R\x05round\x12\x1b\n" +
-	"\tpage_size\x18\x02 \x01(\rR\bpageSize\"\xcd\x01\n" +
+	"\tpage_size\x18\x02 \x01(\rR\bpageSize\"\xe7\x02\n" +
 	"\aTorrent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x1b\n" +
 	"\tinfo_hash\x18\x02 \x01(\fR\binfoHash\x129\n" +
 	"\x06wanted\x18\x03 \x01(\x0e2!.slipstream.downloading.v1.WantedR\x06wanted\x12\x14\n" +
 	"\x05order\x18\x04 \x01(\x03R\x05order\x12\x1b\n" +
 	"\tclient_id\x18\x05 \x01(\fR\bclientId\x12'\n" +
-	"\x10retry_at_unix_ms\x18\x06 \x01(\x03R\rretryAtUnixMs\"v\n" +
+	"\x10retry_at_unix_ms\x18\x06 \x01(\x03R\rretryAtUnixMs\x12-\n" +
+	"\x13start_asked_unix_ms\x18\a \x01(\x03R\x10startAskedUnixMs\x12%\n" +
+	"\x0ewatch_announce\x18\b \x01(\bR\rwatchAnnounce\x12\x1a\n" +
+	"\barriving\x18\t \x01(\bR\barriving\x12&\n" +
+	"\x0fstart_window_ms\x18\n" +
+	" \x01(\x03R\rstartWindowMs\"v\n" +
 	"\aDiscard\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x1b\n" +
 	"\tinfo_hash\x18\x02 \x01(\fR\binfoHash\x12!\n" +
@@ -5590,7 +6376,7 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x0fseeding_seconds\x18\x05 \x01(\x03R\x0eseedingSeconds\x12\x12\n" +
 	"\x04done\x18\x06 \x01(\x03R\x04done\"N\n" +
 	"\bTorrents\x12B\n" +
-	"\areports\x18\x01 \x03(\v2(.slipstream.downloading.v1.TorrentReportR\areports\"\xdd\a\n" +
+	"\areports\x18\x01 \x03(\v2(.slipstream.downloading.v1.TorrentReportR\areports\"\x9b\b\n" +
 	"\rTorrentReport\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x1c\n" +
 	"\n" +
@@ -5618,15 +6404,24 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x11import_at_unix_ms\x18\x13 \x01(\x03R\x0eimportAtUnixMs\x12%\n" +
 	"\x0equeue_position\x18\x14 \x01(\x05R\rqueuePosition\x12(\n" +
 	"\x10stopped_at_limit\x18\x15 \x01(\bR\x0estoppedAtLimit\x121\n" +
-	"\x15retry_checked_unix_ms\x18\x16 \x01(\x03R\x12retryCheckedUnixMs\"x\n" +
+	"\x15retry_checked_unix_ms\x18\x16 \x01(\x03R\x12retryCheckedUnixMs\x12<\n" +
+	"\aarrival\x18\x17 \x01(\v2\".slipstream.downloading.v1.ArrivalR\aarrival\"\xb3\x01\n" +
+	"\aArrival\x12\"\n" +
+	"\rasked_unix_ms\x18\x01 \x01(\x03R\vaskedUnixMs\x12@\n" +
+	"\x06result\x18\x02 \x01(\x0e2(.slipstream.downloading.v1.ArrivalResultR\x06result\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\x12*\n" +
+	"\x11announced_unix_ms\x18\x04 \x01(\x03R\x0fannouncedUnixMs\"x\n" +
 	"\fWantedChange\x125\n" +
 	"\x04from\x18\x01 \x01(\x0e2!.slipstream.downloading.v1.WantedR\x04from\x121\n" +
-	"\x02to\x18\x02 \x01(\x0e2!.slipstream.downloading.v1.WantedR\x02to\"\xa8\x01\n" +
+	"\x02to\x18\x02 \x01(\x0e2!.slipstream.downloading.v1.WantedR\x02to\"\xa4\x02\n" +
 	"\vTrackerLine\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x05R\x05index\x12@\n" +
 	"\x06status\x18\x02 \x01(\x0e2(.slipstream.downloading.v1.TrackerStatusR\x06status\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12'\n" +
-	"\x10retry_at_unix_ms\x18\x04 \x01(\x03R\rretryAtUnixMs\"C\n" +
+	"\x10retry_at_unix_ms\x18\x04 \x01(\x03R\rretryAtUnixMs\x12-\n" +
+	"\x13answered_at_unix_ms\x18\x05 \x01(\x03R\x10answeredAtUnixMs\x121\n" +
+	"\x15next_announce_unix_ms\x18\x06 \x01(\x03R\x12nextAnnounceUnixMs\x12\x18\n" +
+	"\astopped\x18\a \x01(\bR\astopped\"C\n" +
 	"\n" +
 	"Completion\x125\n" +
 	"\x05files\x18\x01 \x03(\v2\x1f.slipstream.downloading.v1.FileR\x05files\"D\n" +
@@ -5652,7 +6447,42 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x11announced_seconds\x18\a \x01(\x03R\x10announcedSeconds\".\n" +
 	"\x06Parted\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x14\n" +
-	"\x05freed\x18\x02 \x01(\x03R\x05freed\"e\n" +
+	"\x05freed\x18\x02 \x01(\x03R\x05freed\"\x9b\x02\n" +
+	"\x13PlacePayloadRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\fR\bclientId\x12!\n" +
+	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x1b\n" +
+	"\tinfo_hash\x18\x03 \x01(\fR\binfoHash\x12B\n" +
+	"\x06staged\x18\x04 \x01(\v2(.slipstream.downloading.v1.StagedPayloadH\x00R\x06staged\x12<\n" +
+	"\x04held\x18\x05 \x01(\v2&.slipstream.downloading.v1.HeldPayloadH\x00R\x04held\x12\x1d\n" +
+	"\n" +
+	"allow_copy\x18\x06 \x01(\bR\tallowCopyB\x06\n" +
+	"\x04from\"m\n" +
+	"\rStagedPayload\x12\x1f\n" +
+	"\vtransfer_id\x18\x01 \x01(\fR\n" +
+	"transferId\x12;\n" +
+	"\x05files\x18\x02 \x03(\v2%.slipstream.downloading.v1.StagedFileR\x05files\"<\n" +
+	"\n" +
+	"StagedFile\x12\x1a\n" +
+	"\bposition\x18\x01 \x01(\x05R\bposition\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"H\n" +
+	"\vHeldPayload\x129\n" +
+	"\x05files\x18\x01 \x03(\v2#.slipstream.downloading.v1.HeldFileR\x05files\"4\n" +
+	"\bHeldFile\x12\x14\n" +
+	"\x05index\x18\x01 \x01(\x05R\x05index\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"\xc6\x01\n" +
+	"\x15DiscardPayloadRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\fR\bclientId\x12!\n" +
+	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x1b\n" +
+	"\tinfo_hash\x18\x03 \x01(\fR\binfoHash\x12<\n" +
+	"\x05files\x18\x04 \x03(\v2&.slipstream.downloading.v1.DiscardFileR\x05files\x12\x12\n" +
+	"\x04held\x18\x05 \x01(\bR\x04held\"K\n" +
+	"\vDiscardFile\x12\x14\n" +
+	"\x05index\x18\x01 \x01(\x05R\x05index\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x12\n" +
+	"\x04size\x18\x03 \x01(\x03R\x04size\"\x18\n" +
+	"\x16DiscardPayloadResponse\".\n" +
+	"\x14PlacePayloadResponse\x12\x16\n" +
+	"\x06folder\x18\x01 \x01(\tR\x06folder\"e\n" +
 	"\vLookRequest\x12\x16\n" +
 	"\x06folder\x18\x01 \x01(\tR\x06folder\x12>\n" +
 	"\aentries\x18\x02 \x03(\v2$.slipstream.downloading.v1.LookEntryR\aentries\"3\n" +
@@ -5773,14 +6603,15 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x05bytes\x18\x02 \x01(\x03R\x05bytes\x12\x16\n" +
 	"\x06linked\x18\x03 \x01(\bR\x06linked\" \n" +
 	"\x0eTorrentRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\fR\x02id\"\xee\x01\n" +
+	"\x02id\x18\x01 \x01(\fR\x02id\"\x8b\x02\n" +
 	"\x0fTorrentResponse\x12\x1a\n" +
 	"\bmetainfo\x18\x01 \x01(\fR\bmetainfo\x12@\n" +
 	"\bbaseline\x18\x02 \x01(\v2$.slipstream.downloading.v1.TotalsRowR\bbaseline\x12\x1f\n" +
 	"\vsave_folder\x18\x03 \x01(\tR\n" +
 	"saveFolder\x12!\n" +
 	"\fcontent_type\x18\x04 \x01(\tR\vcontentType\x129\n" +
-	"\x06origin\x18\x05 \x01(\x0e2!.slipstream.downloading.v1.OriginR\x06origin\"&\n" +
+	"\x06origin\x18\x05 \x01(\x0e2!.slipstream.downloading.v1.OriginR\x06origin\x12\x1b\n" +
+	"\tseed_mode\x18\x06 \x01(\bR\bseedMode\"&\n" +
 	"\x14ClientSecretsRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\"\x80\x01\n" +
 	"\x15ClientSecretsResponse\x12<\n" +
@@ -5822,7 +6653,13 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x13CAUSE_DAEMON_NEEDED\x10\x0f\x12\x16\n" +
 	"\x12CAUSE_WRONG_DAEMON\x10\x10\x12\x12\n" +
 	"\x0eCAUSE_NOT_KEPT\x10\x11\x12\x16\n" +
-	"\x12CAUSE_MOST_MISSING\x10\x12*G\n" +
+	"\x12CAUSE_MOST_MISSING\x10\x12*\xa5\x01\n" +
+	"\rArrivalResult\x12\x1e\n" +
+	"\x1aARRIVAL_RESULT_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17ARRIVAL_RESULT_COMPLETE\x10\x01\x12\x1f\n" +
+	"\x1bARRIVAL_RESULT_CHECK_FAILED\x10\x02\x12\x1a\n" +
+	"\x16ARRIVAL_RESULT_STARTED\x10\x03\x12\x1a\n" +
+	"\x16ARRIVAL_RESULT_REFUSED\x10\x04*G\n" +
 	"\x06Origin\x12\x16\n" +
 	"\x12ORIGIN_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fORIGIN_ADDED\x10\x01\x12\x13\n" +
@@ -5877,7 +6714,7 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x13REFUSAL_NOT_RUNNING\x10\x02\x12\x12\n" +
 	"\x0eREFUSAL_WINDOW\x10\x03\x12\x12\n" +
 	"\x0eREFUSAL_FAILED\x10\x04\x12\x17\n" +
-	"\x13REFUSAL_CLIENT_AWAY\x10\x052\xf2\a\n" +
+	"\x13REFUSAL_CLIENT_AWAY\x10\x052\xda\t\n" +
 	"\x12DownloadingService\x12Z\n" +
 	"\x05Watch\x12'.slipstream.downloading.v1.WatchRequest\x1a(.slipstream.downloading.v1.WatchResponse\x12`\n" +
 	"\aInspect\x12).slipstream.downloading.v1.InspectRequest\x1a*.slipstream.downloading.v1.InspectResponse\x12T\n" +
@@ -5889,7 +6726,9 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"TestClient\x12,.slipstream.downloading.v1.TestClientRequest\x1a-.slipstream.downloading.v1.TestClientResponse\x12o\n" +
 	"\fCheckClients\x12..slipstream.downloading.v1.CheckClientsRequest\x1a/.slipstream.downloading.v1.CheckClientsResponse\x12c\n" +
 	"\bMetainfo\x12*.slipstream.downloading.v1.MetainfoRequest\x1a+.slipstream.downloading.v1.MetainfoResponse\x12W\n" +
-	"\x04Look\x12&.slipstream.downloading.v1.LookRequest\x1a'.slipstream.downloading.v1.LookResponse\x1a\x11\xc2\xf3\x18\r\x1a\vdownloading2\xf9\x01\n" +
+	"\x04Look\x12&.slipstream.downloading.v1.LookRequest\x1a'.slipstream.downloading.v1.LookResponse\x12o\n" +
+	"\fPlacePayload\x12..slipstream.downloading.v1.PlacePayloadRequest\x1a/.slipstream.downloading.v1.PlacePayloadResponse\x12u\n" +
+	"\x0eDiscardPayload\x120.slipstream.downloading.v1.DiscardPayloadRequest\x1a1.slipstream.downloading.v1.DiscardPayloadResponse\x1a\x11\xc2\xf3\x18\r\x1a\vdownloading2\xf9\x01\n" +
 	"\x19DownloadingControlService\x12`\n" +
 	"\aTorrent\x12).slipstream.downloading.v1.TorrentRequest\x1a*.slipstream.downloading.v1.TorrentResponse\x12r\n" +
 	"\rClientSecrets\x12/.slipstream.downloading.v1.ClientSecretsRequest\x1a0.slipstream.downloading.v1.ClientSecretsResponse\x1a\x06\xc2\xf3\x18\x02\b\x01B\x8a\x02\n" +
@@ -5907,183 +6746,205 @@ func file_slipstream_downloading_v1_downloading_proto_rawDescGZIP() []byte {
 	return file_slipstream_downloading_v1_downloading_proto_rawDescData
 }
 
-var file_slipstream_downloading_v1_downloading_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
-var file_slipstream_downloading_v1_downloading_proto_msgTypes = make([]protoimpl.MessageInfo, 66)
+var file_slipstream_downloading_v1_downloading_proto_enumTypes = make([]protoimpl.EnumInfo, 14)
+var file_slipstream_downloading_v1_downloading_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
 var file_slipstream_downloading_v1_downloading_proto_goTypes = []any{
-	(Wanted)(0),                   // 0: slipstream.downloading.v1.Wanted
-	(Kind)(0),                     // 1: slipstream.downloading.v1.Kind
-	(PollState)(0),                // 2: slipstream.downloading.v1.PollState
-	(Cause)(0),                    // 3: slipstream.downloading.v1.Cause
-	(Origin)(0),                   // 4: slipstream.downloading.v1.Origin
-	(EngineState)(0),              // 5: slipstream.downloading.v1.EngineState
-	(Hold)(0),                     // 6: slipstream.downloading.v1.Hold
-	(TrackerStatus)(0),            // 7: slipstream.downloading.v1.TrackerStatus
-	(FaultKind)(0),                // 8: slipstream.downloading.v1.FaultKind
-	(Warning)(0),                  // 9: slipstream.downloading.v1.Warning
-	(UnresolvedReason)(0),         // 10: slipstream.downloading.v1.UnresolvedReason
-	(Act)(0),                      // 11: slipstream.downloading.v1.Act
-	(Refusal)(0),                  // 12: slipstream.downloading.v1.Refusal
-	(*Intent)(nil),                // 13: slipstream.downloading.v1.Intent
-	(*HoldingsRequest)(nil),       // 14: slipstream.downloading.v1.HoldingsRequest
-	(*Torrent)(nil),               // 15: slipstream.downloading.v1.Torrent
-	(*Discard)(nil),               // 16: slipstream.downloading.v1.Discard
-	(*Client)(nil),                // 17: slipstream.downloading.v1.Client
-	(*ClientFolder)(nil),          // 18: slipstream.downloading.v1.ClientFolder
-	(*Daemon)(nil),                // 19: slipstream.downloading.v1.Daemon
-	(*Secrets)(nil),               // 20: slipstream.downloading.v1.Secrets
-	(*Settings)(nil),              // 21: slipstream.downloading.v1.Settings
-	(*Thresholds)(nil),            // 22: slipstream.downloading.v1.Thresholds
-	(*Facts)(nil),                 // 23: slipstream.downloading.v1.Facts
-	(*Volume)(nil),                // 24: slipstream.downloading.v1.Volume
-	(*Report)(nil),                // 25: slipstream.downloading.v1.Report
-	(*Holdings)(nil),              // 26: slipstream.downloading.v1.Holdings
-	(*Holding)(nil),               // 27: slipstream.downloading.v1.Holding
-	(*HoldingContent)(nil),        // 28: slipstream.downloading.v1.HoldingContent
-	(*ClientPoll)(nil),            // 29: slipstream.downloading.v1.ClientPoll
-	(*Problem)(nil),               // 30: slipstream.downloading.v1.Problem
-	(*Vanished)(nil),              // 31: slipstream.downloading.v1.Vanished
-	(*ClientTotals)(nil),          // 32: slipstream.downloading.v1.ClientTotals
-	(*ClientCounters)(nil),        // 33: slipstream.downloading.v1.ClientCounters
-	(*Torrents)(nil),              // 34: slipstream.downloading.v1.Torrents
-	(*TorrentReport)(nil),         // 35: slipstream.downloading.v1.TorrentReport
-	(*WantedChange)(nil),          // 36: slipstream.downloading.v1.WantedChange
-	(*TrackerLine)(nil),           // 37: slipstream.downloading.v1.TrackerLine
-	(*Completion)(nil),            // 38: slipstream.downloading.v1.Completion
-	(*File)(nil),                  // 39: slipstream.downloading.v1.File
-	(*Fault)(nil),                 // 40: slipstream.downloading.v1.Fault
-	(*Totals)(nil),                // 41: slipstream.downloading.v1.Totals
-	(*TotalsRow)(nil),             // 42: slipstream.downloading.v1.TotalsRow
-	(*Parted)(nil),                // 43: slipstream.downloading.v1.Parted
-	(*LookRequest)(nil),           // 44: slipstream.downloading.v1.LookRequest
-	(*LookEntry)(nil),             // 45: slipstream.downloading.v1.LookEntry
-	(*LookResponse)(nil),          // 46: slipstream.downloading.v1.LookResponse
-	(*MetainfoRequest)(nil),       // 47: slipstream.downloading.v1.MetainfoRequest
-	(*MetainfoResponse)(nil),      // 48: slipstream.downloading.v1.MetainfoResponse
-	(*TestClientRequest)(nil),     // 49: slipstream.downloading.v1.TestClientRequest
-	(*TestClientResponse)(nil),    // 50: slipstream.downloading.v1.TestClientResponse
-	(*Passed)(nil),                // 51: slipstream.downloading.v1.Passed
-	(*CheckClientsRequest)(nil),   // 52: slipstream.downloading.v1.CheckClientsRequest
-	(*CheckClientsResponse)(nil),  // 53: slipstream.downloading.v1.CheckClientsResponse
-	(*ResolveRequest)(nil),        // 54: slipstream.downloading.v1.ResolveRequest
-	(*ResolveResponse)(nil),       // 55: slipstream.downloading.v1.ResolveResponse
-	(*Searching)(nil),             // 56: slipstream.downloading.v1.Searching
-	(*Unresolved)(nil),            // 57: slipstream.downloading.v1.Unresolved
-	(*Held)(nil),                  // 58: slipstream.downloading.v1.Held
-	(*NotTaking)(nil),             // 59: slipstream.downloading.v1.NotTaking
-	(*SampleRequest)(nil),         // 60: slipstream.downloading.v1.SampleRequest
-	(*SampleResponse)(nil),        // 61: slipstream.downloading.v1.SampleResponse
-	(*WatchRequest)(nil),          // 62: slipstream.downloading.v1.WatchRequest
-	(*WatchResponse)(nil),         // 63: slipstream.downloading.v1.WatchResponse
-	(*Live)(nil),                  // 64: slipstream.downloading.v1.Live
-	(*InspectRequest)(nil),        // 65: slipstream.downloading.v1.InspectRequest
-	(*InspectResponse)(nil),       // 66: slipstream.downloading.v1.InspectResponse
-	(*FileProgress)(nil),          // 67: slipstream.downloading.v1.FileProgress
-	(*TrackerDetail)(nil),         // 68: slipstream.downloading.v1.TrackerDetail
-	(*ActRequest)(nil),            // 69: slipstream.downloading.v1.ActRequest
-	(*ActResponse)(nil),           // 70: slipstream.downloading.v1.ActResponse
-	(*ActResult)(nil),             // 71: slipstream.downloading.v1.ActResult
-	(*FreesRequest)(nil),          // 72: slipstream.downloading.v1.FreesRequest
-	(*FreesResponse)(nil),         // 73: slipstream.downloading.v1.FreesResponse
-	(*Freed)(nil),                 // 74: slipstream.downloading.v1.Freed
-	(*TorrentRequest)(nil),        // 75: slipstream.downloading.v1.TorrentRequest
-	(*TorrentResponse)(nil),       // 76: slipstream.downloading.v1.TorrentResponse
-	(*ClientSecretsRequest)(nil),  // 77: slipstream.downloading.v1.ClientSecretsRequest
-	(*ClientSecretsResponse)(nil), // 78: slipstream.downloading.v1.ClientSecretsResponse
+	(Wanted)(0),                    // 0: slipstream.downloading.v1.Wanted
+	(Kind)(0),                      // 1: slipstream.downloading.v1.Kind
+	(PollState)(0),                 // 2: slipstream.downloading.v1.PollState
+	(Cause)(0),                     // 3: slipstream.downloading.v1.Cause
+	(ArrivalResult)(0),             // 4: slipstream.downloading.v1.ArrivalResult
+	(Origin)(0),                    // 5: slipstream.downloading.v1.Origin
+	(EngineState)(0),               // 6: slipstream.downloading.v1.EngineState
+	(Hold)(0),                      // 7: slipstream.downloading.v1.Hold
+	(TrackerStatus)(0),             // 8: slipstream.downloading.v1.TrackerStatus
+	(FaultKind)(0),                 // 9: slipstream.downloading.v1.FaultKind
+	(Warning)(0),                   // 10: slipstream.downloading.v1.Warning
+	(UnresolvedReason)(0),          // 11: slipstream.downloading.v1.UnresolvedReason
+	(Act)(0),                       // 12: slipstream.downloading.v1.Act
+	(Refusal)(0),                   // 13: slipstream.downloading.v1.Refusal
+	(*Intent)(nil),                 // 14: slipstream.downloading.v1.Intent
+	(*HoldingsRequest)(nil),        // 15: slipstream.downloading.v1.HoldingsRequest
+	(*Torrent)(nil),                // 16: slipstream.downloading.v1.Torrent
+	(*Discard)(nil),                // 17: slipstream.downloading.v1.Discard
+	(*Client)(nil),                 // 18: slipstream.downloading.v1.Client
+	(*ClientFolder)(nil),           // 19: slipstream.downloading.v1.ClientFolder
+	(*Daemon)(nil),                 // 20: slipstream.downloading.v1.Daemon
+	(*Secrets)(nil),                // 21: slipstream.downloading.v1.Secrets
+	(*Settings)(nil),               // 22: slipstream.downloading.v1.Settings
+	(*Thresholds)(nil),             // 23: slipstream.downloading.v1.Thresholds
+	(*Facts)(nil),                  // 24: slipstream.downloading.v1.Facts
+	(*Volume)(nil),                 // 25: slipstream.downloading.v1.Volume
+	(*Report)(nil),                 // 26: slipstream.downloading.v1.Report
+	(*Holdings)(nil),               // 27: slipstream.downloading.v1.Holdings
+	(*Holding)(nil),                // 28: slipstream.downloading.v1.Holding
+	(*HoldingContent)(nil),         // 29: slipstream.downloading.v1.HoldingContent
+	(*ClientPoll)(nil),             // 30: slipstream.downloading.v1.ClientPoll
+	(*Problem)(nil),                // 31: slipstream.downloading.v1.Problem
+	(*Vanished)(nil),               // 32: slipstream.downloading.v1.Vanished
+	(*ClientTotals)(nil),           // 33: slipstream.downloading.v1.ClientTotals
+	(*ClientCounters)(nil),         // 34: slipstream.downloading.v1.ClientCounters
+	(*Torrents)(nil),               // 35: slipstream.downloading.v1.Torrents
+	(*TorrentReport)(nil),          // 36: slipstream.downloading.v1.TorrentReport
+	(*Arrival)(nil),                // 37: slipstream.downloading.v1.Arrival
+	(*WantedChange)(nil),           // 38: slipstream.downloading.v1.WantedChange
+	(*TrackerLine)(nil),            // 39: slipstream.downloading.v1.TrackerLine
+	(*Completion)(nil),             // 40: slipstream.downloading.v1.Completion
+	(*File)(nil),                   // 41: slipstream.downloading.v1.File
+	(*Fault)(nil),                  // 42: slipstream.downloading.v1.Fault
+	(*Totals)(nil),                 // 43: slipstream.downloading.v1.Totals
+	(*TotalsRow)(nil),              // 44: slipstream.downloading.v1.TotalsRow
+	(*Parted)(nil),                 // 45: slipstream.downloading.v1.Parted
+	(*PlacePayloadRequest)(nil),    // 46: slipstream.downloading.v1.PlacePayloadRequest
+	(*StagedPayload)(nil),          // 47: slipstream.downloading.v1.StagedPayload
+	(*StagedFile)(nil),             // 48: slipstream.downloading.v1.StagedFile
+	(*HeldPayload)(nil),            // 49: slipstream.downloading.v1.HeldPayload
+	(*HeldFile)(nil),               // 50: slipstream.downloading.v1.HeldFile
+	(*DiscardPayloadRequest)(nil),  // 51: slipstream.downloading.v1.DiscardPayloadRequest
+	(*DiscardFile)(nil),            // 52: slipstream.downloading.v1.DiscardFile
+	(*DiscardPayloadResponse)(nil), // 53: slipstream.downloading.v1.DiscardPayloadResponse
+	(*PlacePayloadResponse)(nil),   // 54: slipstream.downloading.v1.PlacePayloadResponse
+	(*LookRequest)(nil),            // 55: slipstream.downloading.v1.LookRequest
+	(*LookEntry)(nil),              // 56: slipstream.downloading.v1.LookEntry
+	(*LookResponse)(nil),           // 57: slipstream.downloading.v1.LookResponse
+	(*MetainfoRequest)(nil),        // 58: slipstream.downloading.v1.MetainfoRequest
+	(*MetainfoResponse)(nil),       // 59: slipstream.downloading.v1.MetainfoResponse
+	(*TestClientRequest)(nil),      // 60: slipstream.downloading.v1.TestClientRequest
+	(*TestClientResponse)(nil),     // 61: slipstream.downloading.v1.TestClientResponse
+	(*Passed)(nil),                 // 62: slipstream.downloading.v1.Passed
+	(*CheckClientsRequest)(nil),    // 63: slipstream.downloading.v1.CheckClientsRequest
+	(*CheckClientsResponse)(nil),   // 64: slipstream.downloading.v1.CheckClientsResponse
+	(*ResolveRequest)(nil),         // 65: slipstream.downloading.v1.ResolveRequest
+	(*ResolveResponse)(nil),        // 66: slipstream.downloading.v1.ResolveResponse
+	(*Searching)(nil),              // 67: slipstream.downloading.v1.Searching
+	(*Unresolved)(nil),             // 68: slipstream.downloading.v1.Unresolved
+	(*Held)(nil),                   // 69: slipstream.downloading.v1.Held
+	(*NotTaking)(nil),              // 70: slipstream.downloading.v1.NotTaking
+	(*SampleRequest)(nil),          // 71: slipstream.downloading.v1.SampleRequest
+	(*SampleResponse)(nil),         // 72: slipstream.downloading.v1.SampleResponse
+	(*WatchRequest)(nil),           // 73: slipstream.downloading.v1.WatchRequest
+	(*WatchResponse)(nil),          // 74: slipstream.downloading.v1.WatchResponse
+	(*Live)(nil),                   // 75: slipstream.downloading.v1.Live
+	(*InspectRequest)(nil),         // 76: slipstream.downloading.v1.InspectRequest
+	(*InspectResponse)(nil),        // 77: slipstream.downloading.v1.InspectResponse
+	(*FileProgress)(nil),           // 78: slipstream.downloading.v1.FileProgress
+	(*TrackerDetail)(nil),          // 79: slipstream.downloading.v1.TrackerDetail
+	(*ActRequest)(nil),             // 80: slipstream.downloading.v1.ActRequest
+	(*ActResponse)(nil),            // 81: slipstream.downloading.v1.ActResponse
+	(*ActResult)(nil),              // 82: slipstream.downloading.v1.ActResult
+	(*FreesRequest)(nil),           // 83: slipstream.downloading.v1.FreesRequest
+	(*FreesResponse)(nil),          // 84: slipstream.downloading.v1.FreesResponse
+	(*Freed)(nil),                  // 85: slipstream.downloading.v1.Freed
+	(*TorrentRequest)(nil),         // 86: slipstream.downloading.v1.TorrentRequest
+	(*TorrentResponse)(nil),        // 87: slipstream.downloading.v1.TorrentResponse
+	(*ClientSecretsRequest)(nil),   // 88: slipstream.downloading.v1.ClientSecretsRequest
+	(*ClientSecretsResponse)(nil),  // 89: slipstream.downloading.v1.ClientSecretsResponse
 }
 var file_slipstream_downloading_v1_downloading_proto_depIdxs = []int32{
-	15, // 0: slipstream.downloading.v1.Intent.torrents:type_name -> slipstream.downloading.v1.Torrent
-	16, // 1: slipstream.downloading.v1.Intent.discards:type_name -> slipstream.downloading.v1.Discard
-	21, // 2: slipstream.downloading.v1.Intent.settings:type_name -> slipstream.downloading.v1.Settings
-	22, // 3: slipstream.downloading.v1.Intent.thresholds:type_name -> slipstream.downloading.v1.Thresholds
-	17, // 4: slipstream.downloading.v1.Intent.clients:type_name -> slipstream.downloading.v1.Client
-	14, // 5: slipstream.downloading.v1.Intent.holdings:type_name -> slipstream.downloading.v1.HoldingsRequest
+	16, // 0: slipstream.downloading.v1.Intent.torrents:type_name -> slipstream.downloading.v1.Torrent
+	17, // 1: slipstream.downloading.v1.Intent.discards:type_name -> slipstream.downloading.v1.Discard
+	22, // 2: slipstream.downloading.v1.Intent.settings:type_name -> slipstream.downloading.v1.Settings
+	23, // 3: slipstream.downloading.v1.Intent.thresholds:type_name -> slipstream.downloading.v1.Thresholds
+	18, // 4: slipstream.downloading.v1.Intent.clients:type_name -> slipstream.downloading.v1.Client
+	15, // 5: slipstream.downloading.v1.Intent.holdings:type_name -> slipstream.downloading.v1.HoldingsRequest
 	0,  // 6: slipstream.downloading.v1.Torrent.wanted:type_name -> slipstream.downloading.v1.Wanted
 	1,  // 7: slipstream.downloading.v1.Client.kind:type_name -> slipstream.downloading.v1.Kind
-	18, // 8: slipstream.downloading.v1.Client.client_folders:type_name -> slipstream.downloading.v1.ClientFolder
-	19, // 9: slipstream.downloading.v1.Client.daemon:type_name -> slipstream.downloading.v1.Daemon
-	24, // 10: slipstream.downloading.v1.Facts.downloads:type_name -> slipstream.downloading.v1.Volume
-	34, // 11: slipstream.downloading.v1.Report.torrents:type_name -> slipstream.downloading.v1.Torrents
-	41, // 12: slipstream.downloading.v1.Report.totals:type_name -> slipstream.downloading.v1.Totals
-	43, // 13: slipstream.downloading.v1.Report.parted:type_name -> slipstream.downloading.v1.Parted
-	29, // 14: slipstream.downloading.v1.Report.client:type_name -> slipstream.downloading.v1.ClientPoll
-	31, // 15: slipstream.downloading.v1.Report.vanished:type_name -> slipstream.downloading.v1.Vanished
-	32, // 16: slipstream.downloading.v1.Report.client_totals:type_name -> slipstream.downloading.v1.ClientTotals
-	26, // 17: slipstream.downloading.v1.Report.holdings:type_name -> slipstream.downloading.v1.Holdings
-	27, // 18: slipstream.downloading.v1.Holdings.entries:type_name -> slipstream.downloading.v1.Holding
-	28, // 19: slipstream.downloading.v1.Holding.content:type_name -> slipstream.downloading.v1.HoldingContent
+	19, // 8: slipstream.downloading.v1.Client.client_folders:type_name -> slipstream.downloading.v1.ClientFolder
+	20, // 9: slipstream.downloading.v1.Client.daemon:type_name -> slipstream.downloading.v1.Daemon
+	25, // 10: slipstream.downloading.v1.Facts.downloads:type_name -> slipstream.downloading.v1.Volume
+	35, // 11: slipstream.downloading.v1.Report.torrents:type_name -> slipstream.downloading.v1.Torrents
+	43, // 12: slipstream.downloading.v1.Report.totals:type_name -> slipstream.downloading.v1.Totals
+	45, // 13: slipstream.downloading.v1.Report.parted:type_name -> slipstream.downloading.v1.Parted
+	30, // 14: slipstream.downloading.v1.Report.client:type_name -> slipstream.downloading.v1.ClientPoll
+	32, // 15: slipstream.downloading.v1.Report.vanished:type_name -> slipstream.downloading.v1.Vanished
+	33, // 16: slipstream.downloading.v1.Report.client_totals:type_name -> slipstream.downloading.v1.ClientTotals
+	27, // 17: slipstream.downloading.v1.Report.holdings:type_name -> slipstream.downloading.v1.Holdings
+	28, // 18: slipstream.downloading.v1.Holdings.entries:type_name -> slipstream.downloading.v1.Holding
+	29, // 19: slipstream.downloading.v1.Holding.content:type_name -> slipstream.downloading.v1.HoldingContent
 	2,  // 20: slipstream.downloading.v1.ClientPoll.state:type_name -> slipstream.downloading.v1.PollState
-	30, // 21: slipstream.downloading.v1.ClientPoll.problem:type_name -> slipstream.downloading.v1.Problem
+	31, // 21: slipstream.downloading.v1.ClientPoll.problem:type_name -> slipstream.downloading.v1.Problem
 	3,  // 22: slipstream.downloading.v1.Problem.cause:type_name -> slipstream.downloading.v1.Cause
-	19, // 23: slipstream.downloading.v1.Problem.daemons:type_name -> slipstream.downloading.v1.Daemon
-	33, // 24: slipstream.downloading.v1.ClientTotals.rows:type_name -> slipstream.downloading.v1.ClientCounters
-	35, // 25: slipstream.downloading.v1.Torrents.reports:type_name -> slipstream.downloading.v1.TorrentReport
-	5,  // 26: slipstream.downloading.v1.TorrentReport.engine:type_name -> slipstream.downloading.v1.EngineState
-	6,  // 27: slipstream.downloading.v1.TorrentReport.hold:type_name -> slipstream.downloading.v1.Hold
-	37, // 28: slipstream.downloading.v1.TorrentReport.trackers:type_name -> slipstream.downloading.v1.TrackerLine
-	38, // 29: slipstream.downloading.v1.TorrentReport.completion:type_name -> slipstream.downloading.v1.Completion
-	40, // 30: slipstream.downloading.v1.TorrentReport.fault:type_name -> slipstream.downloading.v1.Fault
-	42, // 31: slipstream.downloading.v1.TorrentReport.totals:type_name -> slipstream.downloading.v1.TotalsRow
-	4,  // 32: slipstream.downloading.v1.TorrentReport.origin:type_name -> slipstream.downloading.v1.Origin
-	36, // 33: slipstream.downloading.v1.TorrentReport.wanted_change:type_name -> slipstream.downloading.v1.WantedChange
+	20, // 23: slipstream.downloading.v1.Problem.daemons:type_name -> slipstream.downloading.v1.Daemon
+	34, // 24: slipstream.downloading.v1.ClientTotals.rows:type_name -> slipstream.downloading.v1.ClientCounters
+	36, // 25: slipstream.downloading.v1.Torrents.reports:type_name -> slipstream.downloading.v1.TorrentReport
+	6,  // 26: slipstream.downloading.v1.TorrentReport.engine:type_name -> slipstream.downloading.v1.EngineState
+	7,  // 27: slipstream.downloading.v1.TorrentReport.hold:type_name -> slipstream.downloading.v1.Hold
+	39, // 28: slipstream.downloading.v1.TorrentReport.trackers:type_name -> slipstream.downloading.v1.TrackerLine
+	40, // 29: slipstream.downloading.v1.TorrentReport.completion:type_name -> slipstream.downloading.v1.Completion
+	42, // 30: slipstream.downloading.v1.TorrentReport.fault:type_name -> slipstream.downloading.v1.Fault
+	44, // 31: slipstream.downloading.v1.TorrentReport.totals:type_name -> slipstream.downloading.v1.TotalsRow
+	5,  // 32: slipstream.downloading.v1.TorrentReport.origin:type_name -> slipstream.downloading.v1.Origin
+	38, // 33: slipstream.downloading.v1.TorrentReport.wanted_change:type_name -> slipstream.downloading.v1.WantedChange
 	0,  // 34: slipstream.downloading.v1.TorrentReport.run:type_name -> slipstream.downloading.v1.Wanted
-	0,  // 35: slipstream.downloading.v1.WantedChange.from:type_name -> slipstream.downloading.v1.Wanted
-	0,  // 36: slipstream.downloading.v1.WantedChange.to:type_name -> slipstream.downloading.v1.Wanted
-	7,  // 37: slipstream.downloading.v1.TrackerLine.status:type_name -> slipstream.downloading.v1.TrackerStatus
-	39, // 38: slipstream.downloading.v1.Completion.files:type_name -> slipstream.downloading.v1.File
-	8,  // 39: slipstream.downloading.v1.Fault.kind:type_name -> slipstream.downloading.v1.FaultKind
-	42, // 40: slipstream.downloading.v1.Totals.rows:type_name -> slipstream.downloading.v1.TotalsRow
-	45, // 41: slipstream.downloading.v1.LookRequest.entries:type_name -> slipstream.downloading.v1.LookEntry
-	17, // 42: slipstream.downloading.v1.TestClientRequest.client:type_name -> slipstream.downloading.v1.Client
-	20, // 43: slipstream.downloading.v1.TestClientRequest.secrets:type_name -> slipstream.downloading.v1.Secrets
-	51, // 44: slipstream.downloading.v1.TestClientResponse.passed:type_name -> slipstream.downloading.v1.Passed
-	30, // 45: slipstream.downloading.v1.TestClientResponse.failed:type_name -> slipstream.downloading.v1.Problem
-	9,  // 46: slipstream.downloading.v1.Passed.warnings:type_name -> slipstream.downloading.v1.Warning
-	19, // 47: slipstream.downloading.v1.Passed.daemons:type_name -> slipstream.downloading.v1.Daemon
-	56, // 48: slipstream.downloading.v1.ResolveResponse.searching:type_name -> slipstream.downloading.v1.Searching
-	57, // 49: slipstream.downloading.v1.ResolveResponse.unresolved:type_name -> slipstream.downloading.v1.Unresolved
-	58, // 50: slipstream.downloading.v1.ResolveResponse.held:type_name -> slipstream.downloading.v1.Held
-	59, // 51: slipstream.downloading.v1.ResolveResponse.not_taking:type_name -> slipstream.downloading.v1.NotTaking
-	10, // 52: slipstream.downloading.v1.Unresolved.reason:type_name -> slipstream.downloading.v1.UnresolvedReason
-	64, // 53: slipstream.downloading.v1.WatchResponse.rows:type_name -> slipstream.downloading.v1.Live
-	67, // 54: slipstream.downloading.v1.InspectResponse.files:type_name -> slipstream.downloading.v1.FileProgress
-	68, // 55: slipstream.downloading.v1.InspectResponse.trackers:type_name -> slipstream.downloading.v1.TrackerDetail
-	7,  // 56: slipstream.downloading.v1.TrackerDetail.status:type_name -> slipstream.downloading.v1.TrackerStatus
-	11, // 57: slipstream.downloading.v1.ActRequest.act:type_name -> slipstream.downloading.v1.Act
-	71, // 58: slipstream.downloading.v1.ActResponse.results:type_name -> slipstream.downloading.v1.ActResult
-	12, // 59: slipstream.downloading.v1.ActResult.refused:type_name -> slipstream.downloading.v1.Refusal
-	74, // 60: slipstream.downloading.v1.FreesResponse.freed:type_name -> slipstream.downloading.v1.Freed
-	42, // 61: slipstream.downloading.v1.TorrentResponse.baseline:type_name -> slipstream.downloading.v1.TotalsRow
-	4,  // 62: slipstream.downloading.v1.TorrentResponse.origin:type_name -> slipstream.downloading.v1.Origin
-	20, // 63: slipstream.downloading.v1.ClientSecretsResponse.secrets:type_name -> slipstream.downloading.v1.Secrets
-	62, // 64: slipstream.downloading.v1.DownloadingService.Watch:input_type -> slipstream.downloading.v1.WatchRequest
-	65, // 65: slipstream.downloading.v1.DownloadingService.Inspect:input_type -> slipstream.downloading.v1.InspectRequest
-	69, // 66: slipstream.downloading.v1.DownloadingService.Act:input_type -> slipstream.downloading.v1.ActRequest
-	72, // 67: slipstream.downloading.v1.DownloadingService.Frees:input_type -> slipstream.downloading.v1.FreesRequest
-	60, // 68: slipstream.downloading.v1.DownloadingService.Sample:input_type -> slipstream.downloading.v1.SampleRequest
-	54, // 69: slipstream.downloading.v1.DownloadingService.Resolve:input_type -> slipstream.downloading.v1.ResolveRequest
-	49, // 70: slipstream.downloading.v1.DownloadingService.TestClient:input_type -> slipstream.downloading.v1.TestClientRequest
-	52, // 71: slipstream.downloading.v1.DownloadingService.CheckClients:input_type -> slipstream.downloading.v1.CheckClientsRequest
-	47, // 72: slipstream.downloading.v1.DownloadingService.Metainfo:input_type -> slipstream.downloading.v1.MetainfoRequest
-	44, // 73: slipstream.downloading.v1.DownloadingService.Look:input_type -> slipstream.downloading.v1.LookRequest
-	75, // 74: slipstream.downloading.v1.DownloadingControlService.Torrent:input_type -> slipstream.downloading.v1.TorrentRequest
-	77, // 75: slipstream.downloading.v1.DownloadingControlService.ClientSecrets:input_type -> slipstream.downloading.v1.ClientSecretsRequest
-	63, // 76: slipstream.downloading.v1.DownloadingService.Watch:output_type -> slipstream.downloading.v1.WatchResponse
-	66, // 77: slipstream.downloading.v1.DownloadingService.Inspect:output_type -> slipstream.downloading.v1.InspectResponse
-	70, // 78: slipstream.downloading.v1.DownloadingService.Act:output_type -> slipstream.downloading.v1.ActResponse
-	73, // 79: slipstream.downloading.v1.DownloadingService.Frees:output_type -> slipstream.downloading.v1.FreesResponse
-	61, // 80: slipstream.downloading.v1.DownloadingService.Sample:output_type -> slipstream.downloading.v1.SampleResponse
-	55, // 81: slipstream.downloading.v1.DownloadingService.Resolve:output_type -> slipstream.downloading.v1.ResolveResponse
-	50, // 82: slipstream.downloading.v1.DownloadingService.TestClient:output_type -> slipstream.downloading.v1.TestClientResponse
-	53, // 83: slipstream.downloading.v1.DownloadingService.CheckClients:output_type -> slipstream.downloading.v1.CheckClientsResponse
-	48, // 84: slipstream.downloading.v1.DownloadingService.Metainfo:output_type -> slipstream.downloading.v1.MetainfoResponse
-	46, // 85: slipstream.downloading.v1.DownloadingService.Look:output_type -> slipstream.downloading.v1.LookResponse
-	76, // 86: slipstream.downloading.v1.DownloadingControlService.Torrent:output_type -> slipstream.downloading.v1.TorrentResponse
-	78, // 87: slipstream.downloading.v1.DownloadingControlService.ClientSecrets:output_type -> slipstream.downloading.v1.ClientSecretsResponse
-	76, // [76:88] is the sub-list for method output_type
-	64, // [64:76] is the sub-list for method input_type
-	64, // [64:64] is the sub-list for extension type_name
-	64, // [64:64] is the sub-list for extension extendee
-	0,  // [0:64] is the sub-list for field type_name
+	37, // 35: slipstream.downloading.v1.TorrentReport.arrival:type_name -> slipstream.downloading.v1.Arrival
+	4,  // 36: slipstream.downloading.v1.Arrival.result:type_name -> slipstream.downloading.v1.ArrivalResult
+	0,  // 37: slipstream.downloading.v1.WantedChange.from:type_name -> slipstream.downloading.v1.Wanted
+	0,  // 38: slipstream.downloading.v1.WantedChange.to:type_name -> slipstream.downloading.v1.Wanted
+	8,  // 39: slipstream.downloading.v1.TrackerLine.status:type_name -> slipstream.downloading.v1.TrackerStatus
+	41, // 40: slipstream.downloading.v1.Completion.files:type_name -> slipstream.downloading.v1.File
+	9,  // 41: slipstream.downloading.v1.Fault.kind:type_name -> slipstream.downloading.v1.FaultKind
+	44, // 42: slipstream.downloading.v1.Totals.rows:type_name -> slipstream.downloading.v1.TotalsRow
+	47, // 43: slipstream.downloading.v1.PlacePayloadRequest.staged:type_name -> slipstream.downloading.v1.StagedPayload
+	49, // 44: slipstream.downloading.v1.PlacePayloadRequest.held:type_name -> slipstream.downloading.v1.HeldPayload
+	48, // 45: slipstream.downloading.v1.StagedPayload.files:type_name -> slipstream.downloading.v1.StagedFile
+	50, // 46: slipstream.downloading.v1.HeldPayload.files:type_name -> slipstream.downloading.v1.HeldFile
+	52, // 47: slipstream.downloading.v1.DiscardPayloadRequest.files:type_name -> slipstream.downloading.v1.DiscardFile
+	56, // 48: slipstream.downloading.v1.LookRequest.entries:type_name -> slipstream.downloading.v1.LookEntry
+	18, // 49: slipstream.downloading.v1.TestClientRequest.client:type_name -> slipstream.downloading.v1.Client
+	21, // 50: slipstream.downloading.v1.TestClientRequest.secrets:type_name -> slipstream.downloading.v1.Secrets
+	62, // 51: slipstream.downloading.v1.TestClientResponse.passed:type_name -> slipstream.downloading.v1.Passed
+	31, // 52: slipstream.downloading.v1.TestClientResponse.failed:type_name -> slipstream.downloading.v1.Problem
+	10, // 53: slipstream.downloading.v1.Passed.warnings:type_name -> slipstream.downloading.v1.Warning
+	20, // 54: slipstream.downloading.v1.Passed.daemons:type_name -> slipstream.downloading.v1.Daemon
+	67, // 55: slipstream.downloading.v1.ResolveResponse.searching:type_name -> slipstream.downloading.v1.Searching
+	68, // 56: slipstream.downloading.v1.ResolveResponse.unresolved:type_name -> slipstream.downloading.v1.Unresolved
+	69, // 57: slipstream.downloading.v1.ResolveResponse.held:type_name -> slipstream.downloading.v1.Held
+	70, // 58: slipstream.downloading.v1.ResolveResponse.not_taking:type_name -> slipstream.downloading.v1.NotTaking
+	11, // 59: slipstream.downloading.v1.Unresolved.reason:type_name -> slipstream.downloading.v1.UnresolvedReason
+	75, // 60: slipstream.downloading.v1.WatchResponse.rows:type_name -> slipstream.downloading.v1.Live
+	78, // 61: slipstream.downloading.v1.InspectResponse.files:type_name -> slipstream.downloading.v1.FileProgress
+	79, // 62: slipstream.downloading.v1.InspectResponse.trackers:type_name -> slipstream.downloading.v1.TrackerDetail
+	8,  // 63: slipstream.downloading.v1.TrackerDetail.status:type_name -> slipstream.downloading.v1.TrackerStatus
+	12, // 64: slipstream.downloading.v1.ActRequest.act:type_name -> slipstream.downloading.v1.Act
+	82, // 65: slipstream.downloading.v1.ActResponse.results:type_name -> slipstream.downloading.v1.ActResult
+	13, // 66: slipstream.downloading.v1.ActResult.refused:type_name -> slipstream.downloading.v1.Refusal
+	85, // 67: slipstream.downloading.v1.FreesResponse.freed:type_name -> slipstream.downloading.v1.Freed
+	44, // 68: slipstream.downloading.v1.TorrentResponse.baseline:type_name -> slipstream.downloading.v1.TotalsRow
+	5,  // 69: slipstream.downloading.v1.TorrentResponse.origin:type_name -> slipstream.downloading.v1.Origin
+	21, // 70: slipstream.downloading.v1.ClientSecretsResponse.secrets:type_name -> slipstream.downloading.v1.Secrets
+	73, // 71: slipstream.downloading.v1.DownloadingService.Watch:input_type -> slipstream.downloading.v1.WatchRequest
+	76, // 72: slipstream.downloading.v1.DownloadingService.Inspect:input_type -> slipstream.downloading.v1.InspectRequest
+	80, // 73: slipstream.downloading.v1.DownloadingService.Act:input_type -> slipstream.downloading.v1.ActRequest
+	83, // 74: slipstream.downloading.v1.DownloadingService.Frees:input_type -> slipstream.downloading.v1.FreesRequest
+	71, // 75: slipstream.downloading.v1.DownloadingService.Sample:input_type -> slipstream.downloading.v1.SampleRequest
+	65, // 76: slipstream.downloading.v1.DownloadingService.Resolve:input_type -> slipstream.downloading.v1.ResolveRequest
+	60, // 77: slipstream.downloading.v1.DownloadingService.TestClient:input_type -> slipstream.downloading.v1.TestClientRequest
+	63, // 78: slipstream.downloading.v1.DownloadingService.CheckClients:input_type -> slipstream.downloading.v1.CheckClientsRequest
+	58, // 79: slipstream.downloading.v1.DownloadingService.Metainfo:input_type -> slipstream.downloading.v1.MetainfoRequest
+	55, // 80: slipstream.downloading.v1.DownloadingService.Look:input_type -> slipstream.downloading.v1.LookRequest
+	46, // 81: slipstream.downloading.v1.DownloadingService.PlacePayload:input_type -> slipstream.downloading.v1.PlacePayloadRequest
+	51, // 82: slipstream.downloading.v1.DownloadingService.DiscardPayload:input_type -> slipstream.downloading.v1.DiscardPayloadRequest
+	86, // 83: slipstream.downloading.v1.DownloadingControlService.Torrent:input_type -> slipstream.downloading.v1.TorrentRequest
+	88, // 84: slipstream.downloading.v1.DownloadingControlService.ClientSecrets:input_type -> slipstream.downloading.v1.ClientSecretsRequest
+	74, // 85: slipstream.downloading.v1.DownloadingService.Watch:output_type -> slipstream.downloading.v1.WatchResponse
+	77, // 86: slipstream.downloading.v1.DownloadingService.Inspect:output_type -> slipstream.downloading.v1.InspectResponse
+	81, // 87: slipstream.downloading.v1.DownloadingService.Act:output_type -> slipstream.downloading.v1.ActResponse
+	84, // 88: slipstream.downloading.v1.DownloadingService.Frees:output_type -> slipstream.downloading.v1.FreesResponse
+	72, // 89: slipstream.downloading.v1.DownloadingService.Sample:output_type -> slipstream.downloading.v1.SampleResponse
+	66, // 90: slipstream.downloading.v1.DownloadingService.Resolve:output_type -> slipstream.downloading.v1.ResolveResponse
+	61, // 91: slipstream.downloading.v1.DownloadingService.TestClient:output_type -> slipstream.downloading.v1.TestClientResponse
+	64, // 92: slipstream.downloading.v1.DownloadingService.CheckClients:output_type -> slipstream.downloading.v1.CheckClientsResponse
+	59, // 93: slipstream.downloading.v1.DownloadingService.Metainfo:output_type -> slipstream.downloading.v1.MetainfoResponse
+	57, // 94: slipstream.downloading.v1.DownloadingService.Look:output_type -> slipstream.downloading.v1.LookResponse
+	54, // 95: slipstream.downloading.v1.DownloadingService.PlacePayload:output_type -> slipstream.downloading.v1.PlacePayloadResponse
+	53, // 96: slipstream.downloading.v1.DownloadingService.DiscardPayload:output_type -> slipstream.downloading.v1.DiscardPayloadResponse
+	87, // 97: slipstream.downloading.v1.DownloadingControlService.Torrent:output_type -> slipstream.downloading.v1.TorrentResponse
+	89, // 98: slipstream.downloading.v1.DownloadingControlService.ClientSecrets:output_type -> slipstream.downloading.v1.ClientSecretsResponse
+	85, // [85:99] is the sub-list for method output_type
+	71, // [71:85] is the sub-list for method input_type
+	71, // [71:71] is the sub-list for extension type_name
+	71, // [71:71] is the sub-list for extension extendee
+	0,  // [0:71] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_downloading_v1_downloading_proto_init() }
@@ -6100,25 +6961,29 @@ func file_slipstream_downloading_v1_downloading_proto_init() {
 		(*Report_ClientTotals)(nil),
 		(*Report_Holdings)(nil),
 	}
-	file_slipstream_downloading_v1_downloading_proto_msgTypes[37].OneofWrappers = []any{
+	file_slipstream_downloading_v1_downloading_proto_msgTypes[32].OneofWrappers = []any{
+		(*PlacePayloadRequest_Staged)(nil),
+		(*PlacePayloadRequest_Held)(nil),
+	}
+	file_slipstream_downloading_v1_downloading_proto_msgTypes[47].OneofWrappers = []any{
 		(*TestClientResponse_Passed)(nil),
 		(*TestClientResponse_Failed)(nil),
 	}
-	file_slipstream_downloading_v1_downloading_proto_msgTypes[42].OneofWrappers = []any{
+	file_slipstream_downloading_v1_downloading_proto_msgTypes[52].OneofWrappers = []any{
 		(*ResolveResponse_Info)(nil),
 		(*ResolveResponse_Searching)(nil),
 		(*ResolveResponse_Unresolved)(nil),
 		(*ResolveResponse_Held)(nil),
 		(*ResolveResponse_NotTaking)(nil),
 	}
-	file_slipstream_downloading_v1_downloading_proto_msgTypes[55].OneofWrappers = []any{}
+	file_slipstream_downloading_v1_downloading_proto_msgTypes[65].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_downloading_v1_downloading_proto_rawDesc), len(file_slipstream_downloading_v1_downloading_proto_rawDesc)),
-			NumEnums:      13,
-			NumMessages:   66,
+			NumEnums:      14,
+			NumMessages:   76,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

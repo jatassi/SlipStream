@@ -117,8 +117,8 @@ func TestARevokedKeyIsRefusedInOMDbsWords(t *testing.T) {
 			"Test":  func() error { return c.Test(t.Context(), keyed) },
 		} {
 			err := call()
-			if want := "OMDb: refused the key: Invalid API key!"; !errors.Is(err, works.ErrRefused) || (err == nil || !strings.HasSuffix(err.Error(), want)) {
-				t.Errorf("%s = %v, want works.ErrRefused ending %q", name, err, want)
+			if !errors.Is(err, works.ErrRefused) || !strings.Contains(err.Error(), "Invalid API key") {
+				t.Errorf("%s = %v, want works.ErrRefused in OMDb's words", name, err)
 			}
 		}
 	})

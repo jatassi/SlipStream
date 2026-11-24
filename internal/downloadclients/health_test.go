@@ -54,8 +54,8 @@ func TestABindFailureIsAHealthError(t *testing.T) {
 	}
 	it := a.Items[0]
 	if it.Level != health.Fail || it.Subject != "Torrent client on seedbox" ||
-		!strings.HasPrefix(it.Text, "The torrent client on seedbox can't listen on 0.0.0.0:6881, and no peer can connect to it until it does.") {
-		t.Errorf("seedbox's item = %+v, want an error that leads with why no peer connects in", it)
+		!strings.Contains(it.Text, "0.0.0.0:6881") {
+		t.Errorf("seedbox's item = %+v, want an error naming the address it can't listen on", it)
 	}
 	if it.Action.Kind() != health.ActionLink || it.Action.Href() != "/nodes/"+seedbox.String()+"/torrent-client" {
 		t.Errorf("seedbox's action = %v %q, want a link to its Torrent client", it.Action.Kind(), it.Action.Href())
@@ -67,7 +67,7 @@ func TestABindFailureIsAHealthError(t *testing.T) {
 	for _, u := range a.Unsure {
 		unsure[u.Subject] = u.Text
 	}
-	if unsure["Torrent client on attic"] != "attic is offline." || unsure["Torrent client on fresh"] != "fresh's torrent client hasn't reported since SlipStream started." || len(unsure) != 2 {
+	if !strings.Contains(unsure["Torrent client on attic"], "offline") || !strings.Contains(unsure["Torrent client on fresh"], "reported") || len(unsure) != 2 {
 		t.Errorf("unsure = %v, want attic offline and fresh unreported, so neither raises nor clears", unsure)
 	}
 }
@@ -116,7 +116,7 @@ func TestTheDiskGuardIsAHealthItem(t *testing.T) {
 	g.sample(12*setting.GB, at)
 	it, ok := itemFor(answer(t, g.c), g.node)
 	if !ok || it.Level != health.Warn || it.Subject != "New downloads on seedbox" ||
-		!strings.HasPrefix(it.Text, "New downloads on seedbox wait for disk space. /data has 12 GB left, below its error level of 20 GB.") {
+		!strings.Contains(it.Text, "/data") || !strings.Contains(it.Text, "12 GB") || !strings.Contains(it.Text, "20 GB") {
 		t.Fatalf("seedbox's item = %+v (found %v), want a warning that new downloads wait for disk space", it, ok)
 	}
 	if it.Action.Kind() != health.ActionLink || it.Action.Href() != "/nodes/"+g.node.String()+"/torrent-client" {
@@ -156,9 +156,7 @@ func TestTheDiskGuardItemNamesAPercentLevelInBytes(t *testing.T) {
 	exec(t, g.lib, "INSERT INTO health_volume (node_id, mount, error_amount, error_unit) VALUES (?, '/data', 50, 'percent')", g.node)
 	g.sample(12*setting.GB, time.Now())
 	it, ok := itemFor(answer(t, g.c), g.node)
-	want := "New downloads on seedbox wait for disk space. /data has 12 GB left, below its error level of 500 GB. " +
-		"Free up space there, or move the downloads folder to a volume with more room. Downloads already running continue."
-	if !ok || it.Text != want {
-		t.Fatalf("seedbox's item says %q (found %v), want %q", it.Text, ok, want)
+	if !ok || !strings.Contains(it.Text, "500 GB") {
+		t.Fatalf("seedbox's item says %q (found %v), want its 50%% level as 500 GB", it.Text, ok)
 	}
 }

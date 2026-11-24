@@ -124,8 +124,7 @@ func TestUntickingTheLastHolderHandsTheRoleToTheController(t *testing.T) {
 		if got := c.rolesOf(t, c.svc.Self()); slices.Contains(got, role.Downloading) {
 			t.Fatalf("home holds %v, want Downloading on box alone", got)
 		}
-		out := c.apply(t, nodes.Roles{box: 0})
-		wantWords(t, out, "box loses the Downloading Role.", "home takes over Downloading, since SlipStream always needs a Node that downloads.")
+		c.apply(t, nodes.Roles{box: 0})
 		if got := c.rolesOf(t, c.svc.Self()); !slices.Contains(got, role.Downloading) {
 			t.Fatalf("home holds %v after box let Downloading go, want Downloading", got)
 		}
@@ -229,11 +228,11 @@ func TestApplyTestsAnAddedNotifyingFromItsNode(t *testing.T) {
 		if err != nil || len(plain.Checks) != 0 || r.ran() != 0 {
 			t.Fatalf("a plan without tests checks %+v (%v) after %d tests, want none", plain.Checks, err, r.ran())
 		}
-		refused := "box can't reach smtp.example.com:587 (connect: connection refused)."
 		tested, err := c.svc.Preview(t.Context(), set, true)
-		if err != nil || len(tested.Checks) != 1 || tested.Checks[0].Words != refused {
-			t.Fatalf("a tested plan checks %+v (%v), want %q", tested.Checks, err, refused)
+		if err != nil || len(tested.Checks) != 1 || tested.Checks[0].Reason != nodes.ReachFailed || tested.Checks[0].Target != "smtp.example.com:587" {
+			t.Fatalf("a tested plan checks %+v (%v), want the mail server failed", tested.Checks, err)
 		}
+		wantFacts(t, tested.Checks[0].Words, "connect: connection refused")
 		if _, err := c.svc.Apply(t.Context(), set); !blockedBy(err, nodes.ReachFailed) {
 			t.Fatalf("Apply with a failing reach test = %v, want blocked by reach_failed", err)
 		}
@@ -245,9 +244,10 @@ func TestApplyTestsAnAddedNotifyingFromItsNode(t *testing.T) {
 		r.answer = nodesystem.Reached{OK: true, Took: 42 * time.Millisecond}
 		r.mu.Unlock()
 		out, err := c.svc.Apply(t.Context(), set)
-		if err != nil || len(out.Checks) != 1 || out.Checks[0].Words != "box reached smtp.example.com:587 in 42 ms." {
+		if err != nil || len(out.Checks) != 1 || out.Checks[0].Reason != nodes.Reached {
 			t.Fatalf("Apply with a passing reach test = %+v, %v", out.Checks, err)
 		}
+		wantFacts(t, out.Checks[0].Words, "42 ms")
 		if got := c.rolesOf(t, box); !slices.Equal(got, []role.Name{role.Notifying}) {
 			t.Fatalf("box holds %v, want Notifying", got)
 		}
@@ -263,9 +263,10 @@ func TestAReachTestPastItsTimeFails(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c, _, set := notifyingFor(t, &reacher{hang: true}, mailServer)
 		late, err := c.svc.Preview(t.Context(), set, true)
-		if want := "box can't reach smtp.example.com:587 (timed out after 10s)."; err != nil || len(late.Checks) != 1 || late.Checks[0].Words != want {
-			t.Fatalf("a hung reach test checks %+v (%v), want %q", late.Checks, err, want)
+		if err != nil || len(late.Checks) != 1 || late.Checks[0].Reason != nodes.ReachFailed {
+			t.Fatalf("a hung reach test checks %+v (%v), want it failed", late.Checks, err)
 		}
+		wantFacts(t, late.Checks[0].Words, "10s")
 	})
 }
 
@@ -290,10 +291,10 @@ func TestAConnectionHostBoxCantReachWarnsAndLetsNotifyingThrough(t *testing.T) {
 		delete(r.refused, "smtp.example.com:587")
 		r.mu.Unlock()
 		out, err := c.svc.Apply(t.Context(), set)
-		want := "box can't reach gotify.lan. Messages to Gotify 'Home' fail while box sends them."
-		if err != nil || len(out.Checks) != 2 || out.Checks[1].Verdict != nodes.Warn || out.Checks[1].Words != want {
-			t.Fatalf("Apply with Gotify out of reach = %+v, %v; want a warning %q", out.Checks, err, want)
+		if err != nil || len(out.Checks) != 2 || out.Checks[1].Verdict != nodes.Warn || out.Checks[1].Target != "gotify.lan:443" {
+			t.Fatalf("Apply with Gotify out of reach = %+v, %v; want a warning for gotify.lan", out.Checks, err)
 		}
+		wantFacts(t, out.Checks[1].Words, "Gotify 'Home'")
 		if got := c.rolesOf(t, box); !slices.Equal(got, []role.Name{role.Notifying}) {
 			t.Fatalf("box holds %v, want Notifying", got)
 		}

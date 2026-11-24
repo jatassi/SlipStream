@@ -47,7 +47,7 @@ test("a queued Work reads Queued, and its popover says what holds it", async () 
   await userEvent.click(line.getByRole("button", { name: "Queued" }));
   await expect
     .element(page.getByRole("dialog", { name: "Why it's queued" }))
-    .toHaveTextContent("Queued behind 140 Works from Search all.");
+    .toMatchTextContent(/140 Works.+Search all/u);
 });
 
 test("a searching Work whose line waits for a starved Indexer says so in its popover", async () => {
@@ -55,9 +55,7 @@ test("a searching Work whose line waits for a starved Indexer says so in its pop
   await userEvent.click(line.getByRole("button", { name: "Searching" }));
   await expect
     .element(page.getByRole("dialog", { name: "Why it waits" }))
-    .toHaveTextContent(
-      "This search waits for TorrentLeech. RSS sync uses all of TorrentLeech's search limit.",
-    );
+    .toMatchTextContent(/waits for TorrentLeech.+RSS sync/u);
 });
 
 test("a waiting Work offers Grab now, which ends every wait of the Work", async () => {

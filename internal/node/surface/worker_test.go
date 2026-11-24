@@ -29,6 +29,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -102,6 +103,7 @@ func (worker) Tasks() (*tasks.Scheduler, bool) { return nil, false }
 
 func (worker) DownloadClients() (*downloadclients.Clients, bool) { return nil, false }
 func (worker) Transfers() (*transfers.Transfers, bool)           { return nil, false }
+func (worker) Moves() (*moves.Moves, bool)                       { return nil, false }
 func (worker) Backups() (*backups.Backups, bool)                 { return nil, false }
 
 func (worker) Health() (*health.Health, bool) { return nil, false }

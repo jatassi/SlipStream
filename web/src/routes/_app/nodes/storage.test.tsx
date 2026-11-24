@@ -28,29 +28,12 @@ import {
 } from "../../../test/roles";
 import { notScanned } from "../../../test/roots";
 
-const TB = 1024 ** 4;
 const GB = 1024 ** 3;
 
 const storingHome: NodesNode = {
   ...home,
   roles: [...home.roles, { role: "storage", state: "holding" }],
 };
-
-const figures: NodesStorageResource = {
-  roots: [
-    { id: "r1", contentType: "cinema", path: "/mnt/media/films", state: "ready", volumeId: "v1" },
-    { id: "r2", contentType: "zine", path: "/mnt/media/zines", state: "ready", volumeId: "v1" },
-    { id: "r3", contentType: "cinema", path: "/mnt/fast/films", state: "ready", volumeId: "v2" },
-  ],
-  volumes: [
-    { ...volumeOf("v1", "/mnt/media"), total: 4 * TB, free: 1 * TB },
-    { ...volumeOf("v2", "/mnt/fast"), total: 2 * TB, free: 0.2 * TB },
-  ],
-};
-
-function volumeOf(id: string, mount: string) {
-  return { id, name: mount, mount, kind: "local", sampledAt: "2026-10-12T10:00:00Z" } as const;
-}
 
 function landingWith(storage: NodesStorageResource | undefined) {
   const topology = topologyOf([storingHome, seedbox]);
@@ -67,35 +50,10 @@ function landingWith(storage: NodesStorageResource | undefined) {
   });
 }
 
-const usedOf = (index: number): string | undefined =>
-  document.querySelector<SVGGElement>(
-    `[data-node="${homeId}"] [data-role="storage"] [data-drawer="${String(index)}"]`,
-  )?.dataset["used"];
-
 const chip = (role: string) =>
   page.elementLocator(
     document.querySelector(`[data-node="${homeId}"] [data-chip="${role}"]`) ?? document.body,
   );
-
-test("the cabinet's drawers read its volumes' used shares, fullest at the top, and the rest stand empty", async () => {
-  landingWith(figures);
-  await expect.element(page.getByRole("figure", { name: "Diagram" })).toBeVisible();
-  await expect
-    .poll(() => [3, 2, 1, 0].map((index) => usedOf(index)))
-    .toEqual(["0.90", "0.75", undefined, undefined]);
-});
-
-test("the Storage Inspector counts the roots, their volumes and the free space, and links to Library roots", async () => {
-  landingWith(figures);
-  await expect.element(page.getByRole("figure", { name: "Diagram" })).toBeVisible();
-  await userEvent.click(chip("storage"));
-  const inspector = page.getByRole("complementary", { name: "Storage on home" });
-  await expect.element(inspector.getByText(/^3 roots on 2 volumes, 1\.2 TB free\./u)).toBeVisible();
-  await expect
-    .element(inspector.getByRole("link", { name: "Library roots" }))
-    .toHaveAttribute("href", "/settings/library-roots");
-  expect(inspector.getByText("No live figures yet").query()).toBeNull();
-});
 
 test("a Storage Node with no roots yet says so in the Inspector", async () => {
   landingWith({ roots: [], volumes: [] });

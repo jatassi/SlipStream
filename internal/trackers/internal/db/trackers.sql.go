@@ -47,6 +47,24 @@ func (q *Queries) ClearRoute(ctx context.Context, arg ClearRouteParams) error {
 	return err
 }
 
+const copyGoalRun = `-- name: CopyGoalRun :exec
+INSERT INTO trackers_goal_run (torrent_id, acted_at, action, kept)
+SELECT ?1, r.acted_at, r.action, r.kept FROM trackers_goal_run r WHERE r.torrent_id = ?2
+ON CONFLICT (torrent_id) DO NOTHING
+`
+
+type CopyGoalRunParams struct {
+	ToID   downloadclients.ID
+	FromID downloadclients.ID
+}
+
+// A Move's destination takes its source's goal run, so a goal that ran
+// doesn't run again on it.
+func (q *Queries) CopyGoalRun(ctx context.Context, arg CopyGoalRunParams) error {
+	_, err := q.db.ExecContext(ctx, copyGoalRun, arg.ToID, arg.FromID)
+	return err
+}
+
 const deleteGoalRuns = `-- name: DeleteGoalRuns :exec
 DELETE FROM trackers_goal_run WHERE torrent_id IN (/*SLICE:torrent_ids*/?)
 `
@@ -454,6 +472,32 @@ type RepointWindowsParams struct {
 
 func (q *Queries) RepointWindows(ctx context.Context, arg RepointWindowsParams) error {
 	_, err := q.db.ExecContext(ctx, repointWindows, arg.IntoID, arg.FromID)
+	return err
+}
+
+const rerouteClient = `-- name: RerouteClient :exec
+UPDATE trackers_route SET
+    built_in_on = CASE WHEN ?1 IS NULL THEN ?2 END,
+    client_id = ?1
+WHERE client_id = ?3 OR built_in_on = ?4
+`
+
+type RerouteClientParams struct {
+	ToClient   *downloadclients.ClientID
+	ToNode     *role.NodeID
+	FromClient *downloadclients.ClientID
+	FromNode   *role.NodeID
+}
+
+// A Move that takes a client's torrents takes the routes to it: to the
+// external client from_client, or to the built-in client on from_node.
+func (q *Queries) RerouteClient(ctx context.Context, arg RerouteClientParams) error {
+	_, err := q.db.ExecContext(ctx, rerouteClient,
+		arg.ToClient,
+		arg.ToNode,
+		arg.FromClient,
+		arg.FromNode,
+	)
 	return err
 }
 

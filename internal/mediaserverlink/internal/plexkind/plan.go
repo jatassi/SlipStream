@@ -13,7 +13,9 @@ import (
 // Carry per step the ready carries are at. A carry not yet confirmed holds
 // back every refresh of its source folder and every refresh of its
 // section as a whole, since Plex deletes an item whose folder is refreshed
-// before its new path is (recorded run 2026-11-14, case E).
+// before its new path is (recorded run 2026-11-14, case E). A Move's
+// carry still unconfirmed Timings.MovedConfirm after its source is gone
+// skips to its last step, which ends it lost.
 func (kind) Plan(d link.Due) []link.Job {
 	pick := d.Ready(d.Wait)
 	open := openCarries(d.Rows)
@@ -29,7 +31,7 @@ func (kind) Plan(d link.Due) []link.Job {
 				library = append(library, r)
 			}
 		case !r.From.IsZero():
-			carries = append(carries, r)
+			carries = append(carries, givenUp(r, d))
 		case !open.source(r):
 			refreshes = append(refreshes, r)
 		}
@@ -50,7 +52,7 @@ type opened struct{ rows []link.Row }
 func openCarries(rows []link.Row) opened {
 	var o opened
 	for _, r := range rows {
-		if !r.From.IsZero() && r.Step != link.StepConfirmed && r.Step != link.StepSourceScanned {
+		if !r.From.IsZero() && !slices.Contains([]link.Step{link.StepConfirmed, link.StepRestored, link.StepSourceScanned, link.StepSettled}, r.Step) {
 			o.rows = append(o.rows, r)
 		}
 	}
@@ -58,13 +60,13 @@ func openCarries(rows []link.Row) opened {
 }
 
 func (o opened) section(library string) bool {
-	return slices.ContainsFunc(o.rows, func(c link.Row) bool { return c.Library == library })
+	return slices.ContainsFunc(o.rows, func(c link.Row) bool { return c.Library == library || c.OldLibrary() == library })
 }
 
 // source is whether r's folder is the old folder of an open carry.
 func (o opened) source(r link.Row) bool {
 	return slices.ContainsFunc(o.rows, func(c link.Row) bool {
-		return c.Library == r.Library && c.From.Dir().Key() == r.Path.Dir().Key()
+		return c.OldLibrary() == r.Library && c.From.Dir().Key() == r.Path.Dir().Key()
 	})
 }
 
@@ -111,12 +113,24 @@ func changes(rows []link.Row) []link.JobChange {
 	return out
 }
 
-// carryJobs is one Carry per step the rows are at, in the order the rows
-// reach it, at the earliest time a row reached that step.
+// givenUp is r at StepRestored when it is a Move's carry Plex never
+// confirmed at its new path, Timings.MovedConfirm after both its source
+// was gone and it last refreshed its destination.
+func givenUp(r link.Row, d link.Due) link.Row {
+	if r.Move() && r.Step == link.StepScanned && !r.SourceGone.IsZero() &&
+		!d.Now.Before(latest(r.SourceGone, r.StepAt).Add(d.Timings.MovedConfirm)) {
+		r.Step = link.StepRestored
+	}
+	return r
+}
+
+// carryJobs is one Carry per step the rows are at, with a Move's carries
+// apart from the rest, in the order the rows reach it, at the earliest time
+// a row reached that step.
 func carryJobs(server link.ServerRef, rows []link.Row) []link.Job {
 	var jobs []link.Job
 	for _, r := range rows {
-		i := slices.IndexFunc(jobs, func(j link.Job) bool { return j.Step == r.Step })
+		i := slices.IndexFunc(jobs, func(j link.Job) bool { return j.Step == r.Step && movedJob(j) == r.Move() })
 		if i < 0 {
 			jobs = append(jobs, link.Job{Server: server, Work: link.Carry{}, Step: r.Step, At: r.StepAt})
 			i = len(jobs) - 1
@@ -127,6 +141,18 @@ func carryJobs(server link.ServerRef, rows []link.Row) []link.Job {
 		jobs[i].At = earliest(jobs[i].At, r.StepAt)
 	}
 	return jobs
+}
+
+func movedJob(j link.Job) bool {
+	w, _ := j.Work.(link.Carry)
+	return moved(w)
+}
+
+func latest(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
 }
 
 func earliest(a, b time.Time) time.Time {

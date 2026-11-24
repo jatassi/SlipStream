@@ -70,30 +70,3 @@ func TestTemplateParseRefusalNamesItsKey(t *testing.T) {
 		t.Fatalf("Parse error = %v, want a RangeError for %s", err, fileTemplate.Key)
 	}
 }
-
-func TestTemplateField(t *testing.T) {
-	for _, tc := range []struct {
-		name  string
-		field setting.TemplateField
-		want  string
-	}{
-		{
-			"a template at its default", fileTemplate.Field(nil),
-			`{"key":"show.naming.file.standard","label":"Standard file","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"template","value":"{Title} - {Target}","default":"{Title} - {Target}","field":"file.standard","plain":false}`,
-		},
-		{
-			"plain text, overridden", colonText.Field(ptr(" ~ ")),
-			`{"key":"show.naming.colonCustom","label":"Custom colon","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"template","value":" ~ ","default":" - ","field":"colonCustom","plain":true}`,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			b, err := json.Marshal(tc.field)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if string(b) != tc.want {
-				t.Fatalf("Field =\n%s\nwant\n%s", b, tc.want)
-			}
-		})
-	}
-}

@@ -15,12 +15,11 @@ type place struct {
 	folder  link.ServerPath
 }
 
-// places are the distinct folders of cs's paths, in the order cs names
-// them.
-func places(cs []link.JobChange, path func(link.JobChange) link.ServerPath) []place {
+// places are the distinct places of cs, in the order cs names them.
+func places(cs []link.JobChange, at func(link.JobChange) place) []place {
 	var out []place
 	for _, ch := range cs {
-		p := place{ch.Library, path(ch).Dir()}
+		p := at(ch)
 		if !slices.ContainsFunc(out, p.same) {
 			out = append(out, p)
 		}
@@ -30,9 +29,9 @@ func places(cs []link.JobChange, path func(link.JobChange) link.ServerPath) []pl
 
 func (p place) same(o place) bool { return p.library == o.library && p.folder.Key() == o.folder.Key() }
 
-func newPath(ch link.JobChange) link.ServerPath { return ch.Path }
+func newPlace(ch link.JobChange) place { return place{ch.Library, ch.Path.Dir()} }
 
-func oldPath(ch link.JobChange) link.ServerPath { return ch.From }
+func oldPlace(ch link.JobChange) place { return place{ch.OldLibrary(), ch.From.Dir()} }
 
 func (c *conn) refreshFolders(ctx context.Context, ps []place) error {
 	for _, p := range ps {
@@ -138,20 +137,26 @@ func (c *conn) holds(ctx context.Context, section string, folder link.ServerPath
 	return held, err
 }
 
-// groups are cs's indexes by section, in the order cs names the sections.
-func groups(cs []link.JobChange, keep func(link.JobChange) bool) (libraries []string, members map[string][]int) {
+// groups are the indexes of cs that keep answers true for, by the section
+// library names, in the order cs names the sections.
+func groups(cs []link.JobChange, library func(link.JobChange) string, keep func(link.JobChange) bool) (libraries []string, members map[string][]int) {
 	members = map[string][]int{}
 	for i, ch := range cs {
 		if !keep(ch) {
 			continue
 		}
-		if _, ok := members[ch.Library]; !ok {
-			libraries = append(libraries, ch.Library)
+		lib := library(ch)
+		if _, ok := members[lib]; !ok {
+			libraries = append(libraries, lib)
 		}
-		members[ch.Library] = append(members[ch.Library], i)
+		members[lib] = append(members[lib], i)
 	}
 	return libraries, members
 }
+
+func library(ch link.JobChange) string { return ch.Library }
+
+func all(link.JobChange) bool { return true }
 
 // snapshotOf is what an item carries: the account owner's watch data and
 // the item's collections.

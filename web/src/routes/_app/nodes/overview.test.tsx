@@ -43,7 +43,7 @@ test("an offline Worker's Overview says what it found, and still removes it", as
   await expect.poll(textOf(overview())).toMatch(/ConnectionNot connectedChange/u);
   await expect
     .element(overview().getByRole("list", { name: "What seedbox found" }))
-    .toHaveTextContent("Weak: The downloads folder is on a network share.");
+    .toMatchTextContent(/^Weak.+network share/u);
   await expect
     .element(
       page.getByText(

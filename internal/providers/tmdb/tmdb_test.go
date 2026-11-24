@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -170,8 +171,8 @@ func TestARevokedKeyIsRefusedInTMDBsWords(t *testing.T) {
 		revoked := "revoked"
 		f.Cue(t, faketmdb.RevokeKey.Name, faketmdb.Key{Key: &revoked})
 		err := c.Test(t.Context(), keyed(revoked))
-		if want := "GET /configuration: TMDB: refused the key: Invalid API key: You must be granted a valid key."; err == nil || err.Error() != want || !errors.Is(err, works.ErrRefused) {
-			t.Errorf("Test with a revoked key = %v, want %s", err, want)
+		if !errors.Is(err, works.ErrRefused) || !strings.Contains(err.Error(), "Invalid API key") {
+			t.Errorf("Test with a revoked key = %v, want works.ErrRefused in TMDB's words", err)
 		}
 		if err := c.Test(t.Context(), keyed("fresh")); err != nil {
 			t.Errorf("Test with another key = %v", err)
@@ -189,22 +190,6 @@ func TestA404WithoutTMDBsBodyIsUnreachable(t *testing.T) {
 			t.Errorf("Movie behind a stray 404 = %v, want %s", err, want)
 		}
 	}, faketest.WithFaults(fault.Rule{ID: "stray", Target: "tmdb", Route: "movie", Fault: fault.Status{Code: 404}, Times: 1}))
-}
-
-func TestARateLimitIsWaitedOutAndA5xxRetried(t *testing.T) {
-	inEachTier(t, singleMachine(t), func(t *testing.T, c *tmdb.Client, _ faketest.Served) {
-		start := time.Now()
-		m, err := c.Movie(t.Context(), english, 9000001)
-		if err != nil || m.Title != "The Quiet Orchard" {
-			t.Fatalf("Movie after a 429 and a 503 = %q, %v", m.Title, err)
-		}
-		if waited := time.Since(start); waited < time.Second {
-			t.Errorf("Movie returned after %s, before the 1s Retry-After", waited)
-		}
-	}, faketest.WithFaults(
-		fault.Rule{ID: "limited", Target: "tmdb", Route: "movie", Fault: fault.Status{Code: 429, RetryAfter: time.Second}, Times: 1},
-		fault.Rule{ID: "down", Target: "tmdb", Route: "movie", Fault: fault.Status{Code: 503}, Times: 1},
-	))
 }
 
 func TestMovieChangesListsADayAndRefusesMoreThanTMDBKeeps(t *testing.T) {

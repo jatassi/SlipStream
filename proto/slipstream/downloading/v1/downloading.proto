@@ -61,6 +61,20 @@ message Torrent {
   // pending, 0 for none: the Node clears its failure and checks its files,
   // and wanted is paused in the same intent.
   int64 retry_at_unix_ms = 6;
+  // start_asked_unix_ms is a Move's ask that this Node start the torrent
+  // and judge the start, the Controller's time of the ask, 0 for none.
+  // The Node echoes it in the torrent's arrival.
+  int64 start_asked_unix_ms = 7;
+  // watch_announce asks an external client's actor to read when the
+  // torrent last announced, for a Move's guard and stop.
+  bool watch_announce = 8;
+  // arriving is a Move's destination. An external client adds it over
+  // the files the Move placed, checking them rather than downloading.
+  bool arriving = 9;
+  // start_window_ms is how long from its receipt the Node may start the
+  // asked torrent and judge it. It pauses the torrent at the window's end
+  // while the ask is still open.
+  int64 start_window_ms = 10;
 }
 
 enum Wanted {
@@ -374,6 +388,37 @@ message TorrentReport {
   // retry_checked_unix_ms is the Retry whose check ended, 0 before one
   // did. done is what that check found.
   int64 retry_checked_unix_ms = 22;
+  // arrival is the Node's result for a Move's destination: its complete
+  // add's check, or its judged start.
+  Arrival arrival = 23;
+}
+
+// Arrival is what a Move's destination Node found of its torrent.
+message Arrival {
+  // asked_unix_ms echoes the Torrent's start_asked_unix_ms for a started
+  // or refused, 0 for a complete add's result.
+  int64 asked_unix_ms = 1;
+  ArrivalResult result = 2;
+  // reason is the tracker's failure reason, verbatim, or late, an ask
+  // whose window was under the reply wait at receipt, or no_answer, no
+  // tracker answer within the reply wait or the window, for a refused;
+  // the count of missing or short pieces for a check failed.
+  string reason = 3;
+  // announced_unix_ms is the tracker's answer to the started, for a
+  // started.
+  int64 announced_unix_ms = 4;
+}
+
+enum ArrivalResult {
+  ARRIVAL_RESULT_UNSPECIFIED = 0;
+  // ARRIVAL_RESULT_COMPLETE is a complete add whose check found every
+  // piece.
+  ARRIVAL_RESULT_COMPLETE = 1;
+  ARRIVAL_RESULT_CHECK_FAILED = 2;
+  // ARRIVAL_RESULT_STARTED is a start a tracker answered within the
+  // reply wait.
+  ARRIVAL_RESULT_STARTED = 3;
+  ARRIVAL_RESULT_REFUSED = 4;
 }
 
 enum Origin {
@@ -421,6 +466,16 @@ message TrackerLine {
   string message = 3;
   // retry_at_unix_ms is set while status is error or unregistered.
   int64 retry_at_unix_ms = 4;
+  // answered_at_unix_ms is the tracker's last successful answer, on the
+  // Node's clock, 0 before one or while no Move watches the torrent's
+  // announces.
+  int64 answered_at_unix_ms = 5;
+  // next_announce_unix_ms is when the next announce to it is due, on the
+  // Node's clock, 0 while none is or nothing reads it.
+  int64 next_announce_unix_ms = 6;
+  // stopped is a last announce that was a stopped the tracker answered.
+  // A client that can't tell leaves it false.
+  bool stopped = 7;
 }
 
 enum TrackerStatus {
@@ -528,6 +583,88 @@ service DownloadingService {
   // Look is whether each entry's file lies under folder at its size, in
   // the order asked, for the torrents no Node reported holding.
   rpc Look(LookRequest) returns (LookResponse);
+  // PlacePayload puts a Move's payload in the folder its destination
+  // Download Client keeps the torrent in: the files a Transfer staged on
+  // this Node, moved, or those of the torrent this Node holds, linked,
+  // cloned or copied. Placing again converges.
+  rpc PlacePayload(PlacePayloadRequest) returns (PlacePayloadResponse);
+  // DiscardPayload removes what a Move's place may have put in its
+  // destination Download Client's folder before any arriving Torrent
+  // recorded it: each file at its path there whose size is the
+  // torrent's. A file already gone is discarded.
+  rpc DiscardPayload(DiscardPayloadRequest) returns (DiscardPayloadResponse);
+}
+
+message PlacePayloadRequest {
+  // client_id is the destination Download Client, empty for the
+  // built-in one.
+  bytes client_id = 1;
+  // content_type is the torrent's Content Type's name, empty for an
+  // adopted torrent.
+  string content_type = 2;
+  bytes info_hash = 3;
+  oneof from {
+    StagedPayload staged = 4;
+    HeldPayload held = 5;
+  }
+  // allow_copy lets a held payload's file be copied when link and clone
+  // both refuse. Without it the place fails with a NeedsCopy detail.
+  bool allow_copy = 6;
+}
+
+// StagedPayload is the files Transfer transfer_id staged for the torrent
+// on this Node.
+message StagedPayload {
+  bytes transfer_id = 1;
+  repeated StagedFile files = 2;
+}
+
+// StagedFile is the Transfer's file at position, the torrent's file at
+// path, '/' separated as the metainfo names it.
+message StagedFile {
+  int32 position = 1;
+  string path = 2;
+}
+
+// HeldPayload is the files of the torrent of the same info hash another
+// Download Client on this Node holds.
+message HeldPayload {
+  repeated HeldFile files = 1;
+}
+
+// HeldFile is the held torrent's file index, at path, '/' separated as
+// the metainfo names it.
+message HeldFile {
+  int32 index = 1;
+  string path = 2;
+}
+
+message DiscardPayloadRequest {
+  // client_id is the destination Download Client, empty for the
+  // built-in one.
+  bytes client_id = 1;
+  string content_type = 2;
+  bytes info_hash = 3;
+  repeated DiscardFile files = 4;
+  // held: another Download Client on this Node holds the torrent, and a
+  // file that is its own file stays.
+  bool held = 5;
+}
+
+// DiscardFile is the torrent's file index, at path, '/' separated as the
+// metainfo names it, of size bytes.
+message DiscardFile {
+  int32 index = 1;
+  string path = 2;
+  int64 size = 3;
+}
+
+message DiscardPayloadResponse {}
+
+message PlacePayloadResponse {
+  // folder is the folder the Download Client adds the torrent in, as the
+  // client sees it.
+  string folder = 1;
 }
 
 message LookRequest {
@@ -831,6 +968,9 @@ message TorrentResponse {
   // origin is an external torrent's origin as the Controller recorded it,
   // unspecified before the Node first reported it.
   Origin origin = 5;
+  // seed_mode is a Move's built-in destination: the Node takes the files
+  // a Move placed in the torrent's folder as complete, with no check.
+  bool seed_mode = 6;
 }
 
 message ClientSecretsRequest {

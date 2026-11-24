@@ -369,6 +369,43 @@ export const getGetHomeResponseMock = (
             ...(faker.datatype.boolean()
               ? { lastKnownCause: faker.helpers.arrayElement(["node", "client", "off"] as const) }
               : {}),
+            move: faker.helpers.arrayElement([
+              {
+                batchId: faker.string.uuid(),
+                phase: faker.helpers.arrayElement([
+                  "queued",
+                  "transfer",
+                  "place",
+                  "switch",
+                  "failed",
+                ] as const),
+                toNodeId: faker.string.uuid(),
+                toNodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                unitId: faker.string.uuid(),
+                ...(faker.datatype.boolean()
+                  ? {
+                      waiting: faker.helpers.arrayElement([
+                        "pair_busy",
+                        "low_priority",
+                        "node_offline",
+                        "no_route",
+                        "space",
+                        "renames",
+                        "downloading",
+                        "importing",
+                        "open_files",
+                        "playing",
+                        "media_servers",
+                        "guard",
+                        "linked_torrent",
+                        "reconciling",
+                      ] as const),
+                    }
+                  : {}),
+                words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              },
+              null,
+            ]),
             name: faker.string.alpha({ length: { min: 10, max: 20 } }),
             nodeId: faker.string.uuid(),
             ...(faker.datatype.boolean()
@@ -527,6 +564,32 @@ export const getGetHomeResponseMock = (
   },
   needsYou: {
     failed: faker.number.int({ min: 0, max: 100 }),
+    moves: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        batchId: faker.string.uuid(),
+        kind: faker.helpers.arrayElement(["failed", "waiting"] as const),
+        ...(faker.datatype.boolean()
+          ? { since: faker.date.past().toISOString().slice(0, 19) + "Z" }
+          : {}),
+        switchNow: faker.datatype.boolean(),
+        unitId: faker.string.uuid(),
+        words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        work: {
+          backdropUrl: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+          contentType: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          failed: faker.datatype.boolean(),
+          id: faker.string.uuid(),
+          label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          posterUrl: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+        },
+      }),
+    ),
     rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         grab: {

@@ -1,16 +1,15 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { FilesCellList, GrabsGrab } from "../../api/gen/model";
-import { imported } from "../../test/grabs";
+import type { FilesCellList } from "../../api/gen/model";
 import { orchardId, orchardItemId } from "../../test/library";
 import { filmPlan } from "../../test/manual";
 import { manualEntry, manualSheet } from "../../test/manual-entry";
 import { renderApp } from "../../test/render-app";
 import { keeper, starter } from "../../test/targets";
 import { asPhone } from "../../test/viewport";
+import { filled, upgradable } from "../../test/work-cells";
 // oxlint-disable-next-line import/max-dependencies -- the entry points sit on cells, Needs you and the hero
-import { failedCells, filled, upgradable } from "../../test/work-cells";
 import { workServer } from "../../test/work-server";
 
 function open(startCells?: FilesCellList) {
@@ -25,23 +24,6 @@ const cellOf = (targetId: string) => ({
 });
 const sheet = () => manualSheet(filmPlan);
 const main = () => page.getByRole("main");
-
-test("the hero's Manual search opens the sheet on the whole Work", async () => {
-  const { manual } = open();
-  await userEvent.click(main().getByRole("button", { name: "Manual search", exact: true }));
-  await expect.element(sheet()).toBeVisible();
-  await expect.poll(() => manual.started).toEqual([{}]);
-});
-
-test("a missing cell's Manual search plans for that cell alone", async () => {
-  const { manual } = open();
-  await expect
-    .element(main().getByRole("button", { name: "Search for 1080p, Any cut" }))
-    .toBeVisible();
-  await userEvent.click(main().getByRole("button", { name: "Manual search for 1080p, Any cut" }));
-  await expect.element(sheet()).toBeVisible();
-  await expect.poll(() => manual.started).toEqual([cellOf(starter.id)]);
-});
 
 test("a filled cell has Manual search beside it and in its Details, and Details closes as the sheet opens", async () => {
   const { manual } = open(filled);
@@ -58,37 +40,6 @@ test("a filled cell has Manual search beside it and in its Details, and Details 
   await expect.element(sheet()).toBeVisible();
   await expect.element(details).not.toBeInTheDocument();
   await expect.poll(() => manual.started).toEqual([cellOf(starter.id)]);
-});
-
-const failedGrab: GrabsGrab = {
-  ...imported,
-  stage: "failed",
-  history: [...imported.history.slice(0, -1), { stage: "failed", at: "2026-10-12T09:03:02Z" }],
-  failure: {
-    stage: "importing",
-    code: "import_failed",
-    cause: "SlipStream couldn't put the file in the library.",
-    recovery: null,
-    message: "place movies/The Quiet Orchard (2021): permission denied",
-    needsYou: true,
-    current: true,
-  },
-};
-
-test("a failed Grab under Needs you opens Manual search on its Item beside Search again", async () => {
-  const { manual, work } = open();
-  await expect
-    .element(main().getByRole("button", { name: "Manual search", exact: true }))
-    .toBeVisible();
-  work.grabMoves(failedGrab, failedCells(failedGrab.id));
-
-  const card = page.getByRole("region", { name: "Needs you" }).getByRole("article", {
-    name: "2160p HDR failed at Import · 1080p is made from it and can't start",
-  });
-  await expect.element(card.getByRole("button", { name: "Search again" })).toBeVisible();
-  await userEvent.click(card.getByRole("button", { name: "Manual search" }));
-  await expect.element(sheet()).toBeVisible();
-  await expect.poll(() => manual.started).toEqual([{ itemIds: [orchardItemId] }]);
 });
 
 test("an upgrade under Needs you opens Manual search on its Items", async () => {

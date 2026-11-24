@@ -11,10 +11,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -25,7 +23,6 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/example/shelf"
-	"github.com/jatassi/slipstream/internal/storing"
 )
 
 // localListeners keep parallel Nodes off each other's ports, and the
@@ -497,6 +494,27 @@ func TestStopWithNoNodeFails(t *testing.T) {
 	}
 }
 
+// everyKeyReads checks each key reads from its own variable and, from its
+// default, holds that default. It answers the keys by name and every
+// endpoint with a default host, the census when no fake replaced one.
+func everyKeyReads(t *testing.T, all []node.Key) (keys map[string]node.Key, census []string) {
+	t.Helper()
+	keys = map[string]node.Key{}
+	for _, k := range all {
+		keys[k.Key] = k
+		if want := "SLIPSTREAM_" + strings.ToUpper(strings.ReplaceAll(k.Key, ".", "_")); k.Env != want {
+			t.Errorf("%s reads from %s, want %s", k.Key, k.Env, want)
+		}
+		if k.Source == "default" && k.Value != k.Default {
+			t.Errorf("%s from its default is %q, want its default %q", k.Key, k.Value, k.Default)
+		}
+		if strings.HasPrefix(k.Key, "endpoints.") && k.Default != "" {
+			census = append(census, k.Key)
+		}
+	}
+	return keys, census
+}
+
 func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 	t.Parallel()
 	dir := dataDir(t)
@@ -515,280 +533,18 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	limit := strconv.FormatInt(storing.PathLimit(), 10)
-	want := node.Resolved{
-		Keys: []node.Key{
-			{Key: "seed", Value: "fixed", Default: "", Source: "env", Env: "SLIPSTREAM_SEED"},
-			{Key: "name", Value: host, Default: host, Source: "default", Env: "SLIPSTREAM_NAME"},
-			{Key: "torrent.listen", Value: "0.0.0.0:6881", Default: "0.0.0.0:6881", Source: "default", Env: "SLIPSTREAM_TORRENT_LISTEN"},
-			{Key: "torrent.downloads", Value: "downloads", Default: "downloads", Source: "default", Env: "SLIPSTREAM_TORRENT_DOWNLOADS"},
-			{Key: "torrent.loopback_peers", Value: "false", Default: "false", Source: "default", Env: "SLIPSTREAM_TORRENT_LOOPBACK_PEERS"},
-			{Key: "http.listen", Value: "[::]:8484", Default: "[::]:8484", Source: "default", Env: "SLIPSTREAM_HTTP_LISTEN"},
-			{Key: "http.trusted_origins", Value: "", Default: "", Source: "default", Env: "SLIPSTREAM_HTTP_TRUSTED_ORIGINS"},
-			{Key: "http.ports_to_try", Value: "10", Default: "10", Source: "default", Env: "SLIPSTREAM_HTTP_PORTS_TO_TRY"},
-			{Key: "http.trusted_proxies", Value: "", Default: "", Source: "default", Env: "SLIPSTREAM_HTTP_TRUSTED_PROXIES"},
-			{Key: "link.listen", Value: "[::]:8485", Default: "[::]:8485", Source: "default", Env: "SLIPSTREAM_LINK_LISTEN"},
-			{Key: "link.advertise", Value: "", Default: "", Source: "default", Env: "SLIPSTREAM_LINK_ADVERTISE"},
-			{Key: "link.stream_window", Value: "16777216", Default: "16777216", Source: "default", Env: "SLIPSTREAM_LINK_STREAM_WINDOW"},
-			{Key: "join.code", Value: "", Default: "", Source: "default", Env: "SLIPSTREAM_JOIN_CODE"},
-			{Key: "log.level", Value: "info", Default: "info", Source: "default", Env: "SLIPSTREAM_LOG_LEVEL"},
-			{Key: "log.max_size_mb", Value: "10", Default: "10", Source: "default", Env: "SLIPSTREAM_LOG_MAX_SIZE_MB"},
-			{Key: "log.max_files", Value: "5", Default: "5", Source: "default", Env: "SLIPSTREAM_LOG_MAX_FILES"},
-			{Key: "log.max_age_days", Value: "30", Default: "30", Source: "default", Env: "SLIPSTREAM_LOG_MAX_AGE_DAYS"},
-			{Key: "log.compress", Value: "true", Default: "true", Source: "default", Env: "SLIPSTREAM_LOG_COMPRESS"},
-			{Key: "log.viewer_lines", Value: "2000", Default: "2000", Source: "default", Env: "SLIPSTREAM_LOG_VIEWER_LINES"},
-			{Key: "storage.path_limit", Value: limit, Default: limit, Source: "default", Env: "SLIPSTREAM_STORAGE_PATH_LIMIT"},
-			{Key: "backups.folder", Value: "backups", Default: "backups", Source: "default", Env: "SLIPSTREAM_BACKUPS_FOLDER"},
-			{Key: "endpoints.tmdb.api", Value: "https://api.themoviedb.org/3", Default: "https://api.themoviedb.org/3", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_API"},
-			{Key: "endpoints.tmdb.images", Value: "https://image.tmdb.org/t/p", Default: "https://image.tmdb.org/t/p", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_IMAGES"},
-			{Key: "endpoints.tmdb.key_page", Value: "https://www.themoviedb.org/settings/api", Default: "https://www.themoviedb.org/settings/api", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_KEY_PAGE"},
-			{Key: "endpoints.tvdb.api", Value: "https://api4.thetvdb.com/v4", Default: "https://api4.thetvdb.com/v4", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TVDB_API"},
-			{Key: "endpoints.tvdb.artwork", Value: "https://artworks.thetvdb.com", Default: "https://artworks.thetvdb.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TVDB_ARTWORK"},
-			{Key: "endpoints.tvdb.key_page", Value: "https://thetvdb.com/api-information", Default: "https://thetvdb.com/api-information", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TVDB_KEY_PAGE"},
-			{Key: "endpoints.omdb.api", Value: "https://www.omdbapi.com", Default: "https://www.omdbapi.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_OMDB_API"},
-			{Key: "endpoints.omdb.key_page", Value: "https://www.omdbapi.com/apikey.aspx", Default: "https://www.omdbapi.com/apikey.aspx", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_OMDB_KEY_PAGE"},
-			{Key: "endpoints.subdl.api", Value: "https://api.subdl.com", Default: "https://api.subdl.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_SUBDL_API"},
-			{Key: "endpoints.subdl.key_page", Value: "https://subdl.com/panel/api", Default: "https://subdl.com/panel/api", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_SUBDL_KEY_PAGE"},
-			{Key: "endpoints.subsource.api", Value: "https://api.subsource.net", Default: "https://api.subsource.net", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_SUBSOURCE_API"},
-			{Key: "endpoints.subsource.key_page", Value: "https://subsource.net/profile", Default: "https://subsource.net/profile", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_SUBSOURCE_KEY_PAGE"},
-			{Key: "endpoints.gestdown.api", Value: "https://api.gestdown.info", Default: "https://api.gestdown.info", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_GESTDOWN_API"},
-			{Key: "endpoints.plex_tv.api", Value: "https://clients.plex.tv", Default: "https://clients.plex.tv", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_PLEX_TV_API"},
-			{Key: "endpoints.plex_tv.auth", Value: "https://app.plex.tv/auth", Default: "https://app.plex.tv/auth", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_PLEX_TV_AUTH"},
-			{Key: "endpoints.plex_tv.desktop", Value: "https://app.plex.tv/desktop", Default: "https://app.plex.tv/desktop", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_PLEX_TV_DESKTOP"},
-			{Key: "endpoints.torrent.dht_routers", Value: "dht.libtorrent.org:25401,router.bittorrent.com:6881", Default: "dht.libtorrent.org:25401,router.bittorrent.com:6881", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TORRENT_DHT_ROUTERS"},
-			{Key: "endpoints.indexers.catalog", Value: "https://indexers.prowlarr.com/master", Default: "https://indexers.prowlarr.com/master", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG"},
-			{Key: "endpoints.notify.telegram", Value: "https://api.telegram.org", Default: "https://api.telegram.org", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_NOTIFY_TELEGRAM"},
-			{Key: "endpoints.notify.pushover", Value: "https://api.pushover.net", Default: "https://api.pushover.net", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_NOTIFY_PUSHOVER"},
-			{Key: "endpoints.notify.pushbullet", Value: "https://api.pushbullet.com", Default: "https://api.pushbullet.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_NOTIFY_PUSHBULLET"},
-			{Key: "endpoints.notify.ntfy", Value: "https://ntfy.sh", Default: "https://ntfy.sh", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_NOTIFY_NTFY"},
-			{Key: "endpoints.searching.sites", Value: "", Default: "", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_SEARCHING_SITES"},
-			{Key: "endpoints.content_types.movie.imdb", Value: "https://www.imdb.com", Default: "https://www.imdb.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MOVIE_IMDB"},
-			{Key: "endpoints.content_types.movie.tmdb_site", Value: "https://www.themoviedb.org", Default: "https://www.themoviedb.org", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MOVIE_TMDB_SITE"},
-			{Key: "endpoints.content_types.movie.trakt", Value: "https://trakt.tv", Default: "https://trakt.tv", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MOVIE_TRAKT"},
-			{Key: "endpoints.content_types.movie.youtube", Value: "https://www.youtube.com", Default: "https://www.youtube.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_MOVIE_YOUTUBE"},
-			{Key: "endpoints.content_types.series.tvdb_site", Value: "https://thetvdb.com", Default: "https://thetvdb.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_SERIES_TVDB_SITE"},
-			{Key: "endpoints.content_types.series.tmdb_site", Value: "https://www.themoviedb.org", Default: "https://www.themoviedb.org", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_SERIES_TMDB_SITE"},
-			{Key: "endpoints.content_types.series.imdb", Value: "https://www.imdb.com", Default: "https://www.imdb.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_SERIES_IMDB"},
-			{Key: "endpoints.content_types.series.trakt", Value: "https://trakt.tv", Default: "https://trakt.tv", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_SERIES_TRAKT"},
-			{Key: "endpoints.content_types.series.youtube", Value: "https://www.youtube.com", Default: "https://www.youtube.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_SERIES_YOUTUBE"},
-			{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml", Env: "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE"},
-			{Key: "timings.node.restart_lock_wait", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODE_RESTART_LOCK_WAIT"},
-			{Key: "timings.storage.busy_timeout", Value: "5s", Default: "5s", Source: "default", Env: "SLIPSTREAM_TIMINGS_STORAGE_BUSY_TIMEOUT"},
-			{Key: "timings.backups.scrypt", Value: "18", Default: "18", Source: "default", Env: "SLIPSTREAM_TIMINGS_BACKUPS_SCRYPT"},
-			{Key: "timings.backups.zstd_window", Value: "8388608", Default: "8388608", Source: "default", Env: "SLIPSTREAM_TIMINGS_BACKUPS_ZSTD_WINDOW"},
-			{Key: "timings.backups.zstd_memory", Value: "67108864", Default: "67108864", Source: "default", Env: "SLIPSTREAM_TIMINGS_BACKUPS_ZSTD_MEMORY"},
-			{Key: "timings.backups.windows_retry", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_BACKUPS_WINDOWS_RETRY"},
-			{Key: "timings.http.read_header", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HTTP_READ_HEADER"},
-			{Key: "timings.http.idle", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HTTP_IDLE"},
-			{Key: "timings.live.heartbeat", Value: "25s", Default: "25s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LIVE_HEARTBEAT"},
-			{Key: "timings.live.retry", Value: "3s", Default: "3s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LIVE_RETRY"},
-			{Key: "timings.link.handshake", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_HANDSHAKE"},
-			{Key: "timings.link.keepalive", Value: "25s", Default: "25s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_KEEPALIVE"},
-			{Key: "timings.link.write_timeout", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_WRITE_TIMEOUT"},
-			{Key: "timings.link.redial_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_REDIAL_MIN"},
-			{Key: "timings.link.redial_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_REDIAL_MAX"},
-			{Key: "timings.link.fallback_delay", Value: "300ms", Default: "300ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_FALLBACK_DELAY"},
-			{Key: "timings.link.log_poll", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_LOG_POLL"},
-			{Key: "timings.link.log_archive_ttl", Value: "10m0s", Default: "10m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_LOG_ARCHIVE_TTL"},
-			{Key: "timings.link.join_dial", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_JOIN_DIAL"},
-			{Key: "timings.link.await_dial", Value: "10m0s", Default: "10m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_LINK_AWAIT_DIAL"},
-			{Key: "timings.pairing.superseded_dial", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_PAIRING_SUPERSEDED_DIAL"},
-			{Key: "timings.pairing.unreachable_after", Value: "15m0s", Default: "15m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_PAIRING_UNREACHABLE_AFTER"},
-			{Key: "timings.role.restart_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_RESTART_MIN"},
-			{Key: "timings.role.restart_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_RESTART_MAX"},
-			{Key: "timings.role.beat", Value: "15s", Default: "15s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_BEAT"},
-			{Key: "timings.role.stall", Value: "45s", Default: "45s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_STALL"},
-			{Key: "timings.role.probe", Value: "10m0s", Default: "10m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_ROLE_PROBE"},
-			{Key: "timings.nodes.seen_persist", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_SEEN_PERSIST"},
-			{Key: "timings.nodes.blip", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_BLIP"},
-			{Key: "timings.nodes.settle", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_SETTLE"},
-			{Key: "timings.nodes.dial_invite", Value: "10m0s", Default: "10m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_DIAL_INVITE"},
-			{Key: "timings.nodes.dial_report", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_DIAL_REPORT"},
-			{Key: "timings.nodes.traffic", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_TRAFFIC"},
-			{Key: "timings.nodes.reach", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_REACH"},
-			{Key: "timings.nodes.unknown_nodes", Value: "50", Default: "50", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_UNKNOWN_NODES"},
-			{Key: "timings.nodes.unknown_for", Value: "24h0m0s", Default: "24h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NODES_UNKNOWN_FOR"},
-			{Key: "timings.works.fetch", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_WORKS_FETCH"},
-			{Key: "timings.indexers.job", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_JOB"},
-			{Key: "timings.indexers.poll", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_POLL"},
-			{Key: "timings.indexers.limited", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_LIMITED"},
-			{Key: "timings.indexers.ladder", Value: "1m0s,5m0s,15m0s,30m0s,1h0m0s,3h0m0s,6h0m0s,12h0m0s,24h0m0s", Default: "1m0s,5m0s,15m0s,30m0s,1h0m0s,3h0m0s,6h0m0s,12h0m0s,24h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_LADDER"},
-			{Key: "timings.indexers.package_share", Value: "25", Default: "25", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_PACKAGE_SHARE"},
-			{Key: "timings.indexers.catalog_request", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_CATALOG_REQUEST"},
-			{Key: "timings.indexers.captcha", Value: "5m0s", Default: "5m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_CAPTCHA"},
-			{Key: "timings.indexers.keep_queries", Value: "720h0m0s", Default: "720h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_KEEP_QUERIES"},
-			{Key: "timings.indexers.unanswered", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_UNANSWERED"},
-			{Key: "timings.indexers.rss_pages", Value: "10", Default: "10", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_RSS_PAGES"},
-			{Key: "timings.indexers.rss_page_items", Value: "1000", Default: "1000", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_RSS_PAGE_ITEMS"},
-			{Key: "timings.indexers.guid_bytes", Value: "512", Default: "512", Source: "default", Env: "SLIPSTREAM_TIMINGS_INDEXERS_GUID_BYTES"},
-			{Key: "timings.searching.request", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_REQUEST"},
-			{Key: "timings.searching.floor", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_FLOOR"},
-			{Key: "timings.searching.hold", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_HOLD"},
-			{Key: "timings.searching.job_cap", Value: "11m0s", Default: "11m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_JOB_CAP"},
-			{Key: "timings.searching.keep", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_KEEP"},
-			{Key: "timings.searching.results", Value: "1000", Default: "1000", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_RESULTS"},
-			{Key: "timings.searching.relogins", Value: "1", Default: "1", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_RELOGINS"},
-			{Key: "timings.transfers.chunk", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_CHUNK"},
-			{Key: "timings.transfers.report", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_REPORT"},
-			{Key: "timings.transfers.dial", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_DIAL"},
-			{Key: "timings.transfers.estimate", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_ESTIMATE"},
-			{Key: "timings.transfers.lanes_start", Value: "4", Default: "4", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_LANES_START"},
-			{Key: "timings.transfers.lanes_grow", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_LANES_GROW"},
-			{Key: "timings.transfers.lanes_gain", Value: "10", Default: "10", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_LANES_GAIN"},
-			{Key: "timings.transfers.lanes_max", Value: "16", Default: "16", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_LANES_MAX"},
-			{Key: "timings.transfers.ahead", Value: "4", Default: "4", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_AHEAD"},
-			{Key: "timings.transfers.sync_bytes", Value: "67108864", Default: "67108864", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_SYNC_BYTES"},
-			{Key: "timings.transfers.sync_every", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_SYNC_EVERY"},
-			{Key: "timings.transfers.retry_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_RETRY_MIN"},
-			{Key: "timings.transfers.retry_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_RETRY_MAX"},
-			{Key: "timings.transfers.damaged", Value: "4", Default: "4", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_DAMAGED"},
-			{Key: "timings.transfers.piece", Value: "65536", Default: "65536", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_PIECE"},
-			{Key: "timings.transfers.route_retry", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_ROUTE_RETRY"},
-			{Key: "timings.transfers.pair_write", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_PAIR_WRITE"},
-			{Key: "timings.transfers.changed", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_TRANSFERS_CHANGED"},
-			{Key: "timings.grabs.retry_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_RETRY_MIN"},
-			{Key: "timings.grabs.retry_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_RETRY_MAX"},
-			{Key: "timings.grabs.progress", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_PROGRESS"},
-			{Key: "timings.grabs.drain_batch", Value: "100", Default: "100", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_DRAIN_BATCH"},
-			{Key: "timings.grabs.starts_per_pass", Value: "50", Default: "50", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_STARTS_PER_PASS"},
-			{Key: "timings.grabs.backlog_chunk", Value: "500", Default: "500", Source: "default", Env: "SLIPSTREAM_TIMINGS_GRABS_BACKLOG_CHUNK"},
-			{Key: "timings.files.retry_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_FILES_RETRY_MIN"},
-			{Key: "timings.files.retry_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_FILES_RETRY_MAX"},
-			{Key: "timings.formats.match", Value: "100ms", Default: "100ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_FORMATS_MATCH"},
-			{Key: "timings.downloading.facts", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_FACTS"},
-			{Key: "timings.downloading.announce_floor", Value: "5m0s", Default: "5m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_ANNOUNCE_FLOOR"},
-			{Key: "timings.downloading.resume_save", Value: "5m0s", Default: "5m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_RESUME_SAVE"},
-			{Key: "timings.downloading.shutdown_save", Value: "15s", Default: "15s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_SHUTDOWN_SAVE"},
-			{Key: "timings.downloading.start_spread", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_START_SPREAD"},
-			{Key: "timings.downloading.announce_jitter", Value: "3m0s", Default: "3m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_ANNOUNCE_JITTER"},
-			{Key: "timings.downloading.totals_report", Value: "5m0s", Default: "5m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_TOTALS_REPORT"},
-			{Key: "timings.downloading.live_sample", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_LIVE_SAMPLE"},
-			{Key: "timings.downloading.route_check", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_ROUTE_CHECK"},
-			{Key: "timings.downloading.resolve_hold", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_RESOLVE_HOLD"},
-			{Key: "timings.downloading.resolve_lease", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_RESOLVE_LEASE"},
-			{Key: "timings.downloading.resolve_keep", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_RESOLVE_KEEP"},
-			{Key: "timings.downloading.client_retry_min", Value: "5s", Default: "5s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_RETRY_MIN"},
-			{Key: "timings.downloading.client_retry_max", Value: "5m0s", Default: "5m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_RETRY_MAX"},
-			{Key: "timings.downloading.client_refused_retry", Value: "30m0s", Default: "30m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_REFUSED_RETRY"},
-			{Key: "timings.downloading.client_grace", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_GRACE"},
-			{Key: "timings.downloading.client_resend_wait", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_RESEND_WAIT"},
-			{Key: "timings.downloading.client_missing_share", Value: "50", Default: "50", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_MISSING_SHARE"},
-			{Key: "timings.downloading.client_missing_floor", Value: "3", Default: "3", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_MISSING_FLOOR"},
-			{Key: "timings.downloading.client_trackers", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_TRACKERS"},
-			{Key: "timings.downloading.client_call", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_CALL"},
-			{Key: "timings.downloading.client_live_floor", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_CLIENT_LIVE_FLOOR"},
-			{Key: "timings.downloading.holdings_page", Value: "1000", Default: "1000", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_HOLDINGS_PAGE"},
-			{Key: "timings.downloading.holdings_max", Value: "100000", Default: "100000", Source: "default", Env: "SLIPSTREAM_TIMINGS_DOWNLOADING_HOLDINGS_MAX"},
-			{Key: "timings.media.probe", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_PROBE"},
-			{Key: "timings.mail.send", Value: "15s", Default: "15s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MAIL_SEND"},
-			{Key: "timings.serving.drain", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SERVING_DRAIN"},
-			{Key: "timings.storing.stat", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_STORING_STAT"},
-			{Key: "timings.sidecars.build_wait", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SIDECARS_BUILD_WAIT"},
-			{Key: "timings.sidecars.map_cap", Value: "1048576", Default: "1048576", Source: "default", Env: "SLIPSTREAM_TIMINGS_SIDECARS_MAP_CAP"},
-			{Key: "timings.sidecars.sidecar_cap", Value: "8388608", Default: "8388608", Source: "default", Env: "SLIPSTREAM_TIMINGS_SIDECARS_SIDECAR_CAP"},
-			{Key: "timings.sidecars.queue", Value: "64", Default: "64", Source: "default", Env: "SLIPSTREAM_TIMINGS_SIDECARS_QUEUE"},
-			{Key: "timings.sidecars.survey_batch", Value: "200", Default: "200", Source: "default", Env: "SLIPSTREAM_TIMINGS_SIDECARS_SURVEY_BATCH"},
-			{Key: "timings.subtitling.calls.attempts", Value: "3", Default: "3", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLING_CALLS_ATTEMPTS"},
-			{Key: "timings.subtitling.calls.try", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLING_CALLS_TRY"},
-			{Key: "timings.subtitling.calls.retry_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLING_CALLS_RETRY_MIN"},
-			{Key: "timings.subtitling.calls.retry_max", Value: "8s", Default: "8s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLING_CALLS_RETRY_MAX"},
-			{Key: "timings.subtitling.calls.wait", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLING_CALLS_WAIT"},
-			{Key: "timings.subtitling.fetch_cap", Value: "5242880", Default: "5242880", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLING_FETCH_CAP"},
-			{Key: "timings.subtitling.archive_cap", Value: "33554432", Default: "33554432", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLING_ARCHIVE_CAP"},
-			{Key: "timings.subtitling.archive_members", Value: "400", Default: "400", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLING_ARCHIVE_MEMBERS"},
-			{Key: "timings.subtitling.pack_members", Value: "24", Default: "24", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLING_PACK_MEMBERS"},
-			{Key: "timings.subtitling.pack_bytes", Value: "12582912", Default: "12582912", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLING_PACK_BYTES"},
-			{Key: "timings.subtitles.attempt_bound", Value: "10m0s", Default: "10m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_ATTEMPT_BOUND"},
-			{Key: "timings.subtitles.candidates_hold", Value: "15m0s", Default: "15m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_CANDIDATES_HOLD"},
-			{Key: "timings.subtitles.upload_hold", Value: "30m0s", Default: "30m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_UPLOAD_HOLD"},
-			{Key: "timings.subtitles.attempt_hold", Value: "15m0s", Default: "15m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_ATTEMPT_HOLD"},
-			{Key: "timings.subtitles.pack_hold", Value: "6h0m0s", Default: "6h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_PACK_HOLD"},
-			{Key: "timings.subtitles.upload_cap", Value: "5242880", Default: "5242880", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_UPLOAD_CAP"},
-			{Key: "timings.subtitles.drain_width", Value: "3", Default: "3", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_DRAIN_WIDTH"},
-			{Key: "timings.subtitles.reconcile_chunk", Value: "2000", Default: "2000", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_RECONCILE_CHUNK"},
-			{Key: "timings.subtitles.survey_batch", Value: "200", Default: "200", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_SURVEY_BATCH"},
-			{Key: "timings.subtitles.wake_delay", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_WAKE_DELAY"},
-			{Key: "timings.subtitles.keeper_poll", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_KEEPER_POLL"},
-			{Key: "timings.subtitles.map_retry_min", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_MAP_RETRY_MIN"},
-			{Key: "timings.subtitles.map_retry_max", Value: "168h0m0s", Default: "168h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_MAP_RETRY_MAX"},
-			{Key: "timings.subtitles.node_retry", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_NODE_RETRY"},
-			{Key: "timings.subtitles.remove_retry_min", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_REMOVE_RETRY_MIN"},
-			{Key: "timings.subtitles.remove_retry_max", Value: "24h0m0s", Default: "24h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_REMOVE_RETRY_MAX"},
-			{Key: "timings.subtitles.cue_margin", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_CUE_MARGIN"},
-			{Key: "timings.subtitles.max_pause", Value: "24h0m0s", Default: "24h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_MAX_PAUSE"},
-			{Key: "timings.subtitles.siblings", Value: "3", Default: "3", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_SIBLINGS"},
-			{Key: "timings.subtitles.sync.split_penalty", Value: "7", Default: "7", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_SYNC_SPLIT_PENALTY"},
-			{Key: "timings.subtitles.sync.length_penalty", Value: "0.25", Default: "0.25", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_SYNC_LENGTH_PENALTY"},
-			{Key: "timings.subtitles.sync.guard_max", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_SYNC_GUARD_MAX"},
-			{Key: "timings.subtitles.sync.prominence", Value: "0.9", Default: "0.9", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_SYNC_PROMINENCE"},
-			{Key: "timings.subtitles.sync.prominence_gap", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_SYNC_PROMINENCE_GAP"},
-			{Key: "timings.subtitles.sync.coverage", Value: "0.6", Default: "0.6", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_SYNC_COVERAGE"},
-			{Key: "timings.subtitles.sync.golden_tolerance", Value: "0.0005", Default: "0.0005", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_SYNC_GOLDEN_TOLERANCE"},
-			{Key: "timings.subtitles.sync.max_segments", Value: "8", Default: "8", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_SYNC_MAX_SEGMENTS"},
-			{Key: "timings.subtitles.sync.min_segment", Value: "3m0s", Default: "3m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_SYNC_MIN_SEGMENT"},
-			{Key: "timings.subtitles.sync.check_slack", Value: "2ms", Default: "2ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBTITLES_SYNC_CHECK_SLACK"},
-			{Key: "timings.metadata.attempts", Value: "3", Default: "3", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_ATTEMPTS"},
-			{Key: "timings.metadata.try", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_TRY"},
-			{Key: "timings.metadata.retry_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_RETRY_MIN"},
-			{Key: "timings.metadata.retry_max", Value: "8s", Default: "8s", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_RETRY_MAX"},
-			{Key: "timings.metadata.wait", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_WAIT"},
-			{Key: "timings.metadata.cache_entries", Value: "4096", Default: "4096", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_CACHE_ENTRIES"},
-			{Key: "timings.metadata.retest_min", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_RETEST_MIN"},
-			{Key: "timings.metadata.retest_max", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_RETEST_MAX"},
-			{Key: "timings.metadata.artwork_retry", Value: "5m0s", Default: "5m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_ARTWORK_RETRY"},
-			{Key: "timings.metadata.changes_pages", Value: "500", Default: "500", Source: "default", Env: "SLIPSTREAM_TIMINGS_METADATA_CHANGES_PAGES"},
-			{Key: "timings.tmdb.interval", Value: "50ms", Default: "50ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_TMDB_INTERVAL"},
-			{Key: "timings.tmdb.burst", Value: "20", Default: "20", Source: "default", Env: "SLIPSTREAM_TIMINGS_TMDB_BURST"},
-			{Key: "timings.tvdb.interval", Value: "100ms", Default: "100ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_TVDB_INTERVAL"},
-			{Key: "timings.tvdb.burst", Value: "10", Default: "10", Source: "default", Env: "SLIPSTREAM_TIMINGS_TVDB_BURST"},
-			{Key: "timings.omdb.interval", Value: "500ms", Default: "500ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_OMDB_INTERVAL"},
-			{Key: "timings.omdb.burst", Value: "1", Default: "1", Source: "default", Env: "SLIPSTREAM_TIMINGS_OMDB_BURST"},
-			{Key: "timings.subdl.interval", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBDL_INTERVAL"},
-			{Key: "timings.subdl.burst", Value: "1", Default: "1", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBDL_BURST"},
-			{Key: "timings.subdl.busy.every", Value: "5s", Default: "5s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBDL_BUSY_EVERY"},
-			{Key: "timings.subdl.busy.tries", Value: "5", Default: "5", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBDL_BUSY_TRIES"},
-			{Key: "timings.subsource.interval", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBSOURCE_INTERVAL"},
-			{Key: "timings.subsource.burst", Value: "1", Default: "1", Source: "default", Env: "SLIPSTREAM_TIMINGS_SUBSOURCE_BURST"},
-			{Key: "timings.gestdown.interval", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GESTDOWN_INTERVAL"},
-			{Key: "timings.gestdown.burst", Value: "1", Default: "1", Source: "default", Env: "SLIPSTREAM_TIMINGS_GESTDOWN_BURST"},
-			{Key: "timings.gestdown.refresh.every", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GESTDOWN_REFRESH_EVERY"},
-			{Key: "timings.gestdown.refresh.tries", Value: "3", Default: "3", Source: "default", Env: "SLIPSTREAM_TIMINGS_GESTDOWN_REFRESH_TRIES"},
-			{Key: "timings.gestdown.upstream", Value: "1h0m0s", Default: "1h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_GESTDOWN_UPSTREAM"},
-			{Key: "timings.health.retry", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HEALTH_RETRY"},
-			{Key: "timings.health.check", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_HEALTH_CHECK"},
-			{Key: "timings.media_servers.call", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_CALL"},
-			{Key: "timings.media_servers.keep_alive", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_KEEP_ALIVE"},
-			{Key: "timings.media_servers.reconnect_min", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_RECONNECT_MIN"},
-			{Key: "timings.media_servers.reconnect_max", Value: "1m0s", Default: "1m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_RECONNECT_MAX"},
-			{Key: "timings.media_servers.retry_min", Value: "10s", Default: "10s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_RETRY_MIN"},
-			{Key: "timings.media_servers.retry_max", Value: "15m0s", Default: "15m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_RETRY_MAX"},
-			{Key: "timings.media_servers.pin_poll", Value: "1s", Default: "1s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_PIN_POLL"},
-			{Key: "timings.media_servers.scan_end_poll", Value: "250ms", Default: "250ms", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_SCAN_END_POLL"},
-			{Key: "timings.media_servers.scan_end_poll_max", Value: "5s", Default: "5s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_SCAN_END_POLL_MAX"},
-			{Key: "timings.media_servers.scan_end_bound", Value: "2h0m0s", Default: "2h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_SCAN_END_BOUND"},
-			{Key: "timings.media_servers.moved_confirm", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_MOVED_CONFIRM"},
-			{Key: "timings.media_servers.moved_step", Value: "5m0s", Default: "5m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_MOVED_STEP"},
-			{Key: "timings.media_servers.step_poll", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_STEP_POLL"},
-			{Key: "timings.media_servers.rename_snapshot", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_RENAME_SNAPSHOT"},
-			{Key: "timings.media_servers.upgrade_pairing", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_UPGRADE_PAIRING"},
-			{Key: "timings.media_servers.section_folders", Value: "10", Default: "10", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_SECTION_FOLDERS"},
-			{Key: "timings.media_servers.session_cap", Value: "100", Default: "100", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_SESSION_CAP"},
-			{Key: "timings.media_servers.index_age", Value: "24h0m0s", Default: "24h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_INDEX_AGE"},
-			{Key: "timings.media_servers.sent_age", Value: "168h0m0s", Default: "168h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_SENT_AGE"},
-			{Key: "timings.media_servers.index_page", Value: "500", Default: "500", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_INDEX_PAGE"},
-			{Key: "timings.notifications.send", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NOTIFICATIONS_SEND"},
-			{Key: "timings.notifications.ladder", Value: "1m0s,5m0s,15m0s,30m0s,1h0m0s,3h0m0s,6h0m0s,12h0m0s", Default: "1m0s,5m0s,15m0s,30m0s,1h0m0s,3h0m0s,6h0m0s,12h0m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_NOTIFICATIONS_LADDER"},
-			{Key: "timings.housekeeping.prune_batch", Value: "1000", Default: "1000", Source: "default", Env: "SLIPSTREAM_TIMINGS_HOUSEKEEPING_PRUNE_BATCH"},
-		},
-		Census: []string{
-			"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.subdl.api", "endpoints.subdl.key_page", "endpoints.subsource.api", "endpoints.subsource.key_page", "endpoints.gestdown.api", "endpoints.plex_tv.api", "endpoints.plex_tv.auth", "endpoints.plex_tv.desktop", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.notify.telegram", "endpoints.notify.pushover", "endpoints.notify.pushbullet", "endpoints.notify.ntfy",
-			"endpoints.content_types.movie.imdb", "endpoints.content_types.movie.tmdb_site", "endpoints.content_types.movie.trakt", "endpoints.content_types.movie.youtube",
-			"endpoints.content_types.series.tvdb_site", "endpoints.content_types.series.tmdb_site", "endpoints.content_types.series.imdb", "endpoints.content_types.series.trakt", "endpoints.content_types.series.youtube",
-		},
-		ContentTypes: []string{"movie", "series"},
+	keys, census := everyKeyReads(t, got.Keys)
+	for _, want := range []node.Key{
+		{Key: "seed", Value: "fixed", Default: "", Source: "env", Env: "SLIPSTREAM_SEED"},
+		{Key: "name", Value: host, Default: host, Source: "default", Env: "SLIPSTREAM_NAME"},
+		{Key: "timings.node.stop_deadline", Value: "5s", Default: "30s", Source: "config.yaml", Env: "SLIPSTREAM_TIMINGS_NODE_STOP_DEADLINE"},
+	} {
+		if keys[want.Key] != want {
+			t.Errorf("config prints %+v, want %+v", keys[want.Key], want)
+		}
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("config = %+v, want %+v", got, want)
+	if !slices.Equal(got.Census, census) || !slices.Equal(got.ContentTypes, []string{"movie", "series"}) {
+		t.Errorf("census %v and Content Types %v, want every endpoint with a default host %v and movie, series", got.Census, got.ContentTypes, census)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "run")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("config started a Node: run dir %v", err)

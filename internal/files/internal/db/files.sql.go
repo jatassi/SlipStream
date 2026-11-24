@@ -1918,6 +1918,71 @@ func (q *Queries) ListReplacers(ctx context.Context) ([]ListReplacersRow, error)
 	return items, nil
 }
 
+const listSitsOfWorks = `-- name: ListSitsOfWorks :many
+SELECT f.id, f.work_id, f.root_id, f.path, m.sits, m.ring, f.size, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at
+FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.work_id IN (/*SLICE:work_ids*/?) ORDER BY f.id
+`
+
+type ListSitsOfWorksRow struct {
+	ID           FileID
+	WorkID       works.WorkID
+	RootID       roots.ID
+	Path         string
+	Sits         *string
+	Ring         storage.UUID
+	Size         int64
+	ModifiedAt   storage.Time
+	NodeFileID   *string
+	NodeVolumeID *string
+	GoneAt       storage.Time
+}
+
+func (q *Queries) ListSitsOfWorks(ctx context.Context, workIds []works.WorkID) ([]ListSitsOfWorksRow, error) {
+	query := listSitsOfWorks
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSitsOfWorksRow
+	for rows.Next() {
+		var i ListSitsOfWorksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.RootID,
+			&i.Path,
+			&i.Sits,
+			&i.Ring,
+			&i.Size,
+			&i.ModifiedAt,
+			&i.NodeFileID,
+			&i.NodeVolumeID,
+			&i.GoneAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTalliesSince = `-- name: ListTalliesSince :many
 SELECT import_id, CAST(min(json_array_length(replaced) > 0) AS INTEGER) AS upgraded FROM files_imported
 WHERE import_id IN (SELECT DISTINCT i.import_id FROM files_imported i INDEXED BY files_imported_at
@@ -2157,6 +2222,58 @@ func (q *Queries) PathTaken(ctx context.Context, arg PathTakenParams) (bool, err
 	return exists, err
 }
 
+const placesOf = `-- name: PlacesOf :many
+SELECT f.id, coalesce(m.sits, f.path) AS place FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.root_id = ?1 AND f.id IN (/*SLICE:ids*/?)
+ORDER BY f.id
+`
+
+type PlacesOfParams struct {
+	RootID roots.ID
+	Ids    []FileID
+}
+
+type PlacesOfRow struct {
+	ID    FileID
+	Place string
+}
+
+// Where the bytes of each of ids in a root sit: at its move's place while
+// one is pending, else at its path.
+func (q *Queries) PlacesOf(ctx context.Context, arg PlacesOfParams) ([]PlacesOfRow, error) {
+	query := placesOf
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.RootID)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PlacesOfRow
+	for rows.Next() {
+		var i PlacesOfRow
+		if err := rows.Scan(&i.ID, &i.Place); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const proofOfRoot = `-- name: ProofOfRoot :many
 SELECT CAST(coalesce(m.sits, f.path) AS TEXT) AS path
 FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
@@ -2380,6 +2497,31 @@ func (q *Queries) SetRing(ctx context.Context, arg SetRingParams) (int64, error)
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const switchFile = `-- name: SwitchFile :exec
+UPDATE files_file SET root_id = ?1, modified_at = ?2, node_file_id = ?3,
+    node_volume_id = ?4
+WHERE id = ?5
+`
+
+type SwitchFileParams struct {
+	RootID       roots.ID
+	ModifiedAt   storage.Time
+	NodeFileID   *string
+	NodeVolumeID *string
+	ID           FileID
+}
+
+func (q *Queries) SwitchFile(ctx context.Context, arg SwitchFileParams) error {
+	_, err := q.db.ExecContext(ctx, switchFile,
+		arg.RootID,
+		arg.ModifiedAt,
+		arg.NodeFileID,
+		arg.NodeVolumeID,
+		arg.ID,
+	)
+	return err
 }
 
 const updateScanned = `-- name: UpdateScanned :exec

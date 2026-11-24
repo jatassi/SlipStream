@@ -2,8 +2,11 @@ package clientfake
 
 import (
 	"cmp"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"path/filepath"
 
 	"github.com/jatassi/slipstream/fakes/fake"
@@ -78,4 +81,26 @@ func Entered(kind string) func(get func(path string) ([]byte, error)) ([]fake.En
 		}
 		return out, nil
 	}
+}
+
+// Tracker is fake-tracker's announce handler as the client on node
+// reaches it, through node's front. It answers 502 while the world runs
+// no fake-tracker.
+func Tracker(env fake.Env, node string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		v, _ := env.Shared.Get(fake.TrackerAnnounce)
+		h, ok := v.(http.Handler)
+		if !ok {
+			http.Error(w, "the world runs no fake-tracker", http.StatusBadGateway)
+			return
+		}
+		h.ServeHTTP(w, r.WithContext(fake.WithOrigin(r.Context(), node)))
+	})
+}
+
+// PeerID is the peer ID of the client on node whose product announces
+// with prefix, such as -qB4670-: prefix and 12 characters drawn from node.
+func PeerID(prefix, node string) string {
+	sum := sha256.Sum256([]byte(node))
+	return prefix + hex.EncodeToString(sum[:])[:20-len(prefix)]
 }

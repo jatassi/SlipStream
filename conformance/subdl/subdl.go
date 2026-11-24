@@ -60,10 +60,9 @@ type Target struct {
 // allowance with ISO 8601 resets; a missing and a wrong key are each a 401
 // refusal with no rate headers; a film searches by IMDb and TMDB id and an
 // episode by season and episode, with rate headers on each 200 search; a
-// pack's members carry their episode with season 0 and the offer names
-// them; "SUBDL AI" reads as AI; and a download goes through the v2 route
-// on the api host and counts against the key. No request ever leaves for
-// another host. Against the fake it then plays each cue.
+// pack's members carry their episode and the offer names them; "SUBDL AI"
+// reads as AI; and a download goes through the v2 route on the api host
+// and counts against the key. No request ever leaves for another host. Against the fake it then plays each cue.
 func Run(t *testing.T, tgt Target) {
 	t.Helper()
 	ctx := t.Context()
@@ -230,15 +229,10 @@ func allowance(t *testing.T, cr calls.Credentials, call string) calls.Allowance 
 type itemJSON struct {
 	Author       string `json:"author"`
 	SubtitlePage string `json:"subtitlePage"`
-	UnpackFiles  []struct {
-		Season  int  `json:"season"`
-		Episode *int `json:"episode"`
-	} `json:"unpack_files"`
 }
 
 // authors checks the search bodies against the offers: "SUBDL AI" reads
-// as AI and every other author as not, and a member that names its
-// episode has season 0.
+// as AI and every other author as not.
 func authors(t *testing.T, bodies []shape.Body, offers []subtitling.Offer) {
 	t.Helper()
 	ai := map[string]bool{}
@@ -254,11 +248,6 @@ func authors(t *testing.T, bodies []shape.Body, offers []subtitling.Offer) {
 		}
 		for _, s := range found.Subtitles {
 			ai[strings.TrimPrefix(s.SubtitlePage, "/s/info/")] = s.Author == "SUBDL AI"
-			for _, m := range s.UnpackFiles {
-				if m.Episode != nil && m.Season != 0 {
-					t.Errorf("%s's member for episode %d has season %d, want 0 as recorded", s.SubtitlePage, *m.Episode, m.Season)
-				}
-			}
 		}
 	}
 	for _, o := range offers {

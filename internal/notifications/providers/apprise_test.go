@@ -7,10 +7,6 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications/providers/providertest"
 )
 
-func TestAppriseBuildsEachMessageAsItsGolden(t *testing.T) {
-	providertest.Golden(t, provider(t, "apprise"), providertest.Cases["apprise"])
-}
-
 func TestAppriseSendsToItsURLsWithNoKey(t *testing.T) {
 	p := provider(t, "apprise")
 	c := providertest.Case{

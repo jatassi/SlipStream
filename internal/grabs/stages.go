@@ -228,6 +228,8 @@ func failOfGone(g downloadclients.Gone) fail {
 		return fail{Canceled, "This Grab's torrent was removed when another Grab of it was canceled."}
 	case downloadclients.Forgotten:
 		return fail{Restored, "No Node had this Grab's torrent after the restore, and an Admin chose to forget it."}
+	case downloadclients.Moved:
+		panic("grabs: a Move's switch repoints its source's Grabs in the Write that removes it")
 	}
 	panic("grabs: no failure for removal reason " + string(g.Reason))
 }
@@ -356,6 +358,12 @@ func (gr *Grabs) attach(ctx context.Context, tx *storage.Tx[file], g Grab, a adv
 // into.
 func RepointTracker(ctx context.Context, tx *storage.Tx[storage.Library], from, into indexers.TrackerID) error {
 	return db.New(tx).RepointTracker(ctx, db.RepointTrackerParams{IntoID: into, FromID: from})
+}
+
+// RepointTorrentIn moves every Grab of Torrent from, at every stage, to
+// Torrent to on node: a Move's switch.
+func RepointTorrentIn(ctx context.Context, tx *storage.Tx[storage.Library], from, to downloadclients.ID, node role.NodeID) error {
+	return db.New(tx).RepointAll(ctx, db.RepointAllParams{ToID: to, NodeID: node, UpdatedAt: storage.Now(), FromID: from})
 }
 
 // move writes o to g in tx, or fails with errLeft when g has left the
@@ -509,4 +517,14 @@ func (gr *Grabs) waitUntil(ctx context.Context, until time.Time) result {
 		return halted
 	}
 	return rerun
+}
+
+// TorrentsOfWorks is the torrents each of ws imported from, read in r.
+func TorrentsOfWorks(ctx context.Context, r storage.Reader[storage.Library], ws []works.WorkID) (map[works.WorkID][]downloadclients.ID, error) {
+	rows, err := db.New(r).ListTorrentsOfWorks(ctx, ws)
+	out := map[works.WorkID][]downloadclients.ID{}
+	for _, row := range rows {
+		out[row.WorkID] = append(out[row.WorkID], row.TorrentID)
+	}
+	return out, err
 }

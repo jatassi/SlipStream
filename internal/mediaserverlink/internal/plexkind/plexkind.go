@@ -1,9 +1,10 @@
 // Package plexkind is the Plex kind: how one Plex Media Server learns
 // about library changes. Plan groups a server's ready rows into folder
 // refreshes, section refreshes and carries. Advance runs one step of a
-// Job through the wire client in internal/providers/plex. Plex is never
-// written to: a carry reports in lost what Plex didn't carry by itself
-// (recorded run 2026-11-14, cases B to E).
+// Job through the wire client in internal/providers/plex. A carry reports
+// in lost what Plex didn't carry by itself (recorded run 2026-11-14, cases
+// B to E). The one write is a Move's collections, which a new item in
+// another section doesn't carry.
 package plexkind
 
 import (
@@ -24,7 +25,7 @@ var Kind link.Kind = kind{}
 type kind struct{}
 
 func (kind) About() link.About {
-	return link.About{Name: "plex", Label: "Plex", Form: link.SignInPlexPIN, Floor: link.MustVersion("1.43")}
+	return link.About{Name: "plex", Label: "Plex", Form: link.SignInPlexPIN, Floor: link.MustVersion("1.43"), MovedHold: link.StepRestored}
 }
 
 // OpenIn is the item in Plex's web app, which reaches the server through
@@ -133,7 +134,11 @@ func (c *conn) Advance(ctx context.Context, j link.Job) (link.Advanced, error) {
 	case link.Refresh:
 		a, err = run(ctx, c, refresh, j, w)
 	case link.Carry:
-		a, err = run(ctx, c, carry, j, w)
+		if moved(w) {
+			a, err = run(ctx, c, moveSteps, j, w)
+		} else {
+			a, err = run(ctx, c, carry, j, w)
+		}
 	case link.Rescan:
 		a, err = run(ctx, c, rescan, j, w)
 	case link.Fresh:

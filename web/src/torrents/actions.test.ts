@@ -1,11 +1,23 @@
 import { expect, test } from "vitest";
 
-import type { DownloadclientsRefusal, DownloadclientsTorrentRow } from "../api/gen/model";
+import type {
+  ActInputBodyAction,
+  DownloadclientsRefusal,
+  DownloadclientsTorrentRow,
+} from "../api/gen/model";
 import { torrent } from "../test/torrents";
-import { type TorrentAction, menuFor, outcomeWords, wantedOf } from "./actions";
+import { menuFor, outcomeWords, wantedOf } from "./actions";
 
 type Shape = Partial<DownloadclientsTorrentRow> & Pick<DownloadclientsTorrentRow, "state">;
 
+const moving = {
+  unitId: "u",
+  batchId: "b",
+  phase: "place",
+  toNodeId: "n",
+  toNodeName: "den",
+  words: "",
+} as const;
 const now = new Date("2026-10-20T12:00:00Z");
 const past = "2026-10-20T11:59:00Z";
 const later = "2026-10-20T12:30:00Z";
@@ -16,6 +28,18 @@ test.each<[string, Shape, boolean, string[]]>([
   [
     "a download pauses, rechecks and removes",
     { state: "downloading" },
+    reject,
+    ["pause", "recheck", "remove"],
+  ],
+  [
+    "a finished torrent moves to another Download Client",
+    { state: "seeding", done: 10, size: 10 },
+    reject,
+    ["pause", "recheck", "move", "remove"],
+  ],
+  [
+    "a moving torrent offers no second Move",
+    { state: "seeding", done: 10, size: 10, move: moving },
     reject,
     ["pause", "recheck", "remove"],
   ],
@@ -106,7 +130,7 @@ const orchard = { id: "a", name: "The Quiet Orchard" };
 const harvest = { id: "b", name: "Orchard Harvest" };
 const attic = { id: "c", name: "Attic Light" };
 const batman = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
-const context = (action: TorrentAction) => ({
+const context = (action: ActInputBodyAction) => ({
   action,
   work: (id: string) => (id === batman ? "The Batman" : undefined),
   clock: { now, zone: "UTC" },
@@ -149,7 +173,21 @@ test("a bulk action names what it did and groups what it refused alike", () => {
   });
 });
 
-test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
+test("several moving torrents are counted once, wherever they move", () => {
+  const { refused } = outcomeWords(
+    [
+      { id: "a", done: false, refusal: { code: "moving", node: "den" } },
+      { id: "b", done: false, refusal: { code: "moving", client: "qBittorrent" } },
+      { id: "c", done: false, refusal: { code: "moving", node: "den" } },
+    ],
+    [orchard, harvest, attic],
+    context("pause"),
+  );
+  expect(refused).toHaveLength(1);
+  expect(refused[0]).toMatch(/^3 torrents /u);
+});
+
+test.each<[string, DownloadclientsRefusal, ActInputBodyAction, string]>([
   [
     "an import names the Work it is finishing",
     { code: "importing", workId: batman },
@@ -191,6 +229,24 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     { code: "not_running" },
     "announce",
     "The Quiet Orchard isn't running, so it has nothing to announce.",
+  ],
+  [
+    "a torrent moving to another Node names the Node",
+    { code: "moving", node: "den" },
+    "resume",
+    "The Quiet Orchard is moving to den. Cancel its Move in Activity, then try again.",
+  ],
+  [
+    "a torrent moving to another client on its Node names the client",
+    { code: "moving", client: "qBittorrent" },
+    "pause",
+    "The Quiet Orchard is moving to qBittorrent. Cancel its Move in Activity, then try again.",
+  ],
+  [
+    "a torrent moving to another Node's client names both",
+    { code: "moving", client: "Transmission", node: "den" },
+    "remove",
+    "The Quiet Orchard is moving to Transmission on den. Cancel its Move in Activity, then try again.",
   ],
   [
     "a failed torrent can only go",

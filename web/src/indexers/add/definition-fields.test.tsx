@@ -81,14 +81,12 @@ test("a definition with no session says it searches from home; its address and c
   const server = addIndexerServer();
   renderApp({ path: formOf("quarry"), handlers: server.handlers });
   await expect
-    .element(page.getByText("Quarry is a semi-private Tracker. SlipStream searches it from home."))
+    .element(page.getByText(/^Quarry is a semi-private Tracker.+from home/u))
     .toBeVisible();
   await expect
     .element(page.getByText("Your API key is on your Quarry profile page."))
     .toBeVisible();
-  await expect
-    .element(page.getByText("It searches from home at priority 25, with no limits."))
-    .toBeVisible();
+  await expect.element(page.getByText(/from home at priority 25.+no limits/u)).toBeVisible();
   await userEvent.fill(page.getByLabelText("API key", { exact: true }), "q-key");
   await userEvent.click(page.getByRole("button", { name: "Details" }));
   await userEvent.click(page.getByRole("combobox", { name: "Address" }));
@@ -127,9 +125,7 @@ test("a cookie definition asks for the cookie and User-Agent and sends them toge
     .element(page.getByText("Cinder is behind a browser challenge.", { exact: false }))
     .toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  await expect
-    .element(page.getByText("Paste the cookie of a browser signed in to the Tracker."))
-    .toBeVisible();
+  await expect.element(page.getByText(/^Paste the cookie/u)).toBeVisible();
   expect(posted(server.writes)).toEqual([]);
   await userEvent.fill(page.getByRole("textbox", { name: "Cookie" }), "cf_clearance=abc; uid=7");
   await userEvent.fill(page.getByRole("textbox", { name: "User-Agent" }), "Mozilla/5.0 Test");

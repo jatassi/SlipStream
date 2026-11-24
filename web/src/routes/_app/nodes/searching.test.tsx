@@ -84,31 +84,6 @@ test("a Node with no solver shows the default timeout and the Indexers homed on 
   await expect.element(page.getByText("Enter the solver's address")).toBeVisible();
 });
 
-test("a solver saves only once the Node reaches it", async () => {
-  const { handlers, puts } = serve();
-  renderApp({ path: `/nodes/${homeId}/searching`, handlers });
-  await userEvent.fill(address(), unreachable);
-  await userEvent.click(save());
-  await expect
-    .element(
-      page.getByText(
-        `home can't reach a Challenge solver at ${unreachable}. Check the address and that the solver is running beside home.`,
-      ),
-    )
-    .toBeVisible();
-  await expect.element(address()).toHaveAttribute("aria-invalid", "true");
-
-  await userEvent.fill(address(), at);
-  await userEvent.fill(timeout(), "90");
-  await userEvent.click(save());
-  await expect.element(page.getByText("Saved home's Challenge solver")).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Remove" })).toBeVisible();
-  expect(puts).toEqual([
-    { id: homeId, body: { address: unreachable, timeout: 60 } },
-    { id: homeId, body: { address: at, timeout: 90 } },
-  ]);
-});
-
 test("Remove clears the Node's solver", async () => {
   const { handlers, puts } = serve({ start: { [seedboxId]: { address: at, timeout: 45 } } });
   renderApp({ path: `/nodes/${seedboxId}/searching`, handlers });

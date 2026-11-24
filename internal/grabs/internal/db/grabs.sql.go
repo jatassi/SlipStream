@@ -1984,6 +1984,52 @@ func (q *Queries) ListTargetsOfWorks(ctx context.Context, workIds []works.WorkID
 	return items, nil
 }
 
+const listTorrentsOfWorks = `-- name: ListTorrentsOfWorks :many
+SELECT DISTINCT work_id, torrent_id FROM grabs_grab
+WHERE work_id IN (/*SLICE:works*/?) AND stage = 'imported' AND torrent_id IS NOT NULL
+ORDER BY work_id, torrent_id
+`
+
+type ListTorrentsOfWorksRow struct {
+	WorkID    works.WorkID
+	TorrentID downloadclients.ID
+}
+
+// The torrents each of works imported from: a Move takes one with a Work
+// whose files are links to its payload.
+func (q *Queries) ListTorrentsOfWorks(ctx context.Context, argWorks []works.WorkID) ([]ListTorrentsOfWorksRow, error) {
+	query := listTorrentsOfWorks
+	var queryParams []interface{}
+	if len(argWorks) > 0 {
+		for _, v := range argWorks {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:works*/?", strings.Repeat(",?", len(argWorks))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:works*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTorrentsOfWorksRow
+	for rows.Next() {
+		var i ListTorrentsOfWorksRow
+		if err := rows.Scan(&i.WorkID, &i.TorrentID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const pruneGroup = `-- name: PruneGroup :exec
 DELETE FROM grabs_search WHERE id IN (
     SELECT s.id FROM grabs_search s
@@ -2050,6 +2096,29 @@ type RepointParams struct {
 // send-to moves every Grab downloading a Torrent with it.
 func (q *Queries) Repoint(ctx context.Context, arg RepointParams) error {
 	_, err := q.db.ExecContext(ctx, repoint,
+		arg.ToID,
+		arg.NodeID,
+		arg.UpdatedAt,
+		arg.FromID,
+	)
+	return err
+}
+
+const repointAll = `-- name: RepointAll :exec
+UPDATE grabs_grab SET torrent_id = ?1, node_id = ?2, updated_at = ?3
+WHERE torrent_id = ?4
+`
+
+type RepointAllParams struct {
+	ToID      downloadclients.ID
+	NodeID    role.NodeID
+	UpdatedAt storage.Time
+	FromID    downloadclients.ID
+}
+
+// A Move's switch moves every Grab of its torrent, at every stage.
+func (q *Queries) RepointAll(ctx context.Context, arg RepointAllParams) error {
+	_, err := q.db.ExecContext(ctx, repointAll,
 		arg.ToID,
 		arg.NodeID,
 		arg.UpdatedAt,

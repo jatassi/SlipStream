@@ -17,7 +17,7 @@ import (
 )
 
 const deleteAllPrepared = `-- name: DeleteAllPrepared :exec
-DELETE FROM mediaservers_change WHERE state = 'prepared'
+DELETE FROM mediaservers_change WHERE state = 'prepared' AND from_root_id IS NULL
 `
 
 func (q *Queries) DeleteAllPrepared(ctx context.Context) error {
@@ -35,16 +35,20 @@ func (q *Queries) DeleteChange(ctx context.Context, id link.ChangeID) error {
 }
 
 const deletePrepared = `-- name: DeletePrepared :exec
-DELETE FROM mediaservers_change WHERE file_id = ?1 AND state = 'prepared'
+DELETE FROM mediaservers_change WHERE file_id = ?1 AND state = 'prepared' AND from_root_id IS NULL
 `
 
+// DeletePrepared, DeleteStalePrepared and DeleteAllPrepared delete the
+// rows Prepare wrote for renames. A Move's prepared rows are PrepareMove's
+// and go only with DropMovePrepared or the Move's switch.
 func (q *Queries) DeletePrepared(ctx context.Context, fileID files.ID) error {
 	_, err := q.db.ExecContext(ctx, deletePrepared, fileID)
 	return err
 }
 
 const deleteStalePrepared = `-- name: DeleteStalePrepared :exec
-DELETE FROM mediaservers_change WHERE state = 'prepared' AND file_id NOT IN (/*SLICE:pending*/?)
+DELETE FROM mediaservers_change
+WHERE state = 'prepared' AND from_root_id IS NULL AND file_id NOT IN (/*SLICE:pending*/?)
 `
 
 // DeleteStalePrepared deletes the prepared rows of files no pending
@@ -66,13 +70,13 @@ func (q *Queries) DeleteStalePrepared(ctx context.Context, pending []files.ID) e
 
 const insertChange = `-- name: InsertChange :exec
 INSERT INTO mediaservers_change (
-    id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade,
-    state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem
+    id, server_id, kind, root_id, path, from_root_id, from_path, file_id, replaced_by, upgrade,
+    state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, source_gone_at, result, lost, problem
 ) VALUES (
     ?1, ?2, ?3, ?4, ?5, ?6,
     ?7, ?8, ?9, ?10, ?11, ?12,
     ?13, ?14, ?15, ?16, ?17,
-    ?18, ?19, ?20
+    ?18, ?19, ?20, ?21, ?22
 )
 `
 
@@ -82,6 +86,7 @@ type InsertChangeParams struct {
 	Kind          link.ChangeKind
 	RootID        roots.ID
 	Path          string
+	FromRootID    roots.ID
 	FromPath      *string
 	FileID        files.ID
 	ReplacedBy    files.ID
@@ -94,6 +99,7 @@ type InsertChangeParams struct {
 	NextAttemptAt storage.Time
 	CreatedAt     storage.Time
 	SentAt        storage.Time
+	SourceGoneAt  storage.Time
 	Result        *link.Result
 	Lost          string
 	Problem       *string
@@ -106,6 +112,7 @@ func (q *Queries) InsertChange(ctx context.Context, arg InsertChangeParams) erro
 		arg.Kind,
 		arg.RootID,
 		arg.Path,
+		arg.FromRootID,
 		arg.FromPath,
 		arg.FileID,
 		arg.ReplacedBy,
@@ -118,6 +125,7 @@ func (q *Queries) InsertChange(ctx context.Context, arg InsertChangeParams) erro
 		arg.NextAttemptAt,
 		arg.CreatedAt,
 		arg.SentAt,
+		arg.SourceGoneAt,
 		arg.Result,
 		arg.Lost,
 		arg.Problem,
@@ -126,7 +134,7 @@ func (q *Queries) InsertChange(ctx context.Context, arg InsertChangeParams) erro
 }
 
 const listChanges = `-- name: ListChanges :many
-SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change WHERE server_id = ?1 ORDER BY id DESC LIMIT ?2
+SELECT id, server_id, kind, root_id, path, from_root_id, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, source_gone_at, result, lost, problem FROM mediaservers_change WHERE server_id = ?1 ORDER BY id DESC LIMIT ?2
 `
 
 type ListChangesParams struct {
@@ -149,6 +157,7 @@ func (q *Queries) ListChanges(ctx context.Context, arg ListChangesParams) ([]Med
 			&i.Kind,
 			&i.RootID,
 			&i.Path,
+			&i.FromRootID,
 			&i.FromPath,
 			&i.FileID,
 			&i.ReplacedBy,
@@ -161,6 +170,7 @@ func (q *Queries) ListChanges(ctx context.Context, arg ListChangesParams) ([]Med
 			&i.NextAttemptAt,
 			&i.CreatedAt,
 			&i.SentAt,
+			&i.SourceGoneAt,
 			&i.Result,
 			&i.Lost,
 			&i.Problem,
@@ -179,7 +189,7 @@ func (q *Queries) ListChanges(ctx context.Context, arg ListChangesParams) ([]Med
 }
 
 const listChangesBefore = `-- name: ListChangesBefore :many
-SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change
+SELECT id, server_id, kind, root_id, path, from_root_id, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, source_gone_at, result, lost, problem FROM mediaservers_change
 WHERE server_id = ?1 AND id < ?2
 ORDER BY id DESC
 LIMIT ?3
@@ -206,6 +216,7 @@ func (q *Queries) ListChangesBefore(ctx context.Context, arg ListChangesBeforePa
 			&i.Kind,
 			&i.RootID,
 			&i.Path,
+			&i.FromRootID,
 			&i.FromPath,
 			&i.FileID,
 			&i.ReplacedBy,
@@ -218,6 +229,7 @@ func (q *Queries) ListChangesBefore(ctx context.Context, arg ListChangesBeforePa
 			&i.NextAttemptAt,
 			&i.CreatedAt,
 			&i.SentAt,
+			&i.SourceGoneAt,
 			&i.Result,
 			&i.Lost,
 			&i.Problem,
@@ -268,7 +280,7 @@ func (q *Queries) ListShowing(ctx context.Context, rootID roots.ID) ([]link.Serv
 }
 
 const listUnsent = `-- name: ListUnsent :many
-SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change
+SELECT id, server_id, kind, root_id, path, from_root_id, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, source_gone_at, result, lost, problem FROM mediaservers_change
 WHERE root_id = ?1 AND state <> 'sent'
     AND (path IN (/*SLICE:paths*/?) OR from_path IN (/*SLICE:origins*/?) OR file_id IN (/*SLICE:files*/?))
 ORDER BY created_at, id
@@ -326,6 +338,7 @@ func (q *Queries) ListUnsent(ctx context.Context, arg ListUnsentParams) ([]Media
 			&i.Kind,
 			&i.RootID,
 			&i.Path,
+			&i.FromRootID,
 			&i.FromPath,
 			&i.FileID,
 			&i.ReplacedBy,
@@ -338,6 +351,7 @@ func (q *Queries) ListUnsent(ctx context.Context, arg ListUnsentParams) ([]Media
 			&i.NextAttemptAt,
 			&i.CreatedAt,
 			&i.SentAt,
+			&i.SourceGoneAt,
 			&i.Result,
 			&i.Lost,
 			&i.Problem,
@@ -356,7 +370,7 @@ func (q *Queries) ListUnsent(ctx context.Context, arg ListUnsentParams) ([]Media
 }
 
 const openAtPaths = `-- name: OpenAtPaths :many
-SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change
+SELECT id, server_id, kind, root_id, path, from_root_id, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, source_gone_at, result, lost, problem FROM mediaservers_change
 WHERE server_id = ?1 AND root_id = ?2 AND from_path IS NULL
     AND state IN ('prepared', 'due') AND step IN ('none', 'snapshotted')
     AND path IN (/*SLICE:paths*/?)
@@ -396,6 +410,7 @@ func (q *Queries) OpenAtPaths(ctx context.Context, arg OpenAtPathsParams) ([]Med
 			&i.Kind,
 			&i.RootID,
 			&i.Path,
+			&i.FromRootID,
 			&i.FromPath,
 			&i.FileID,
 			&i.ReplacedBy,
@@ -408,6 +423,7 @@ func (q *Queries) OpenAtPaths(ctx context.Context, arg OpenAtPathsParams) ([]Med
 			&i.NextAttemptAt,
 			&i.CreatedAt,
 			&i.SentAt,
+			&i.SourceGoneAt,
 			&i.Result,
 			&i.Lost,
 			&i.Problem,
@@ -426,7 +442,7 @@ func (q *Queries) OpenAtPaths(ctx context.Context, arg OpenAtPathsParams) ([]Med
 }
 
 const openCarry = `-- name: OpenCarry :many
-SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change
+SELECT id, server_id, kind, root_id, path, from_root_id, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, source_gone_at, result, lost, problem FROM mediaservers_change
 WHERE server_id = ?1 AND file_id = ?2 AND from_path IS NOT NULL
     AND state IN ('prepared', 'due') AND step IN ('none', 'snapshotted')
 ORDER BY created_at, id
@@ -452,6 +468,7 @@ func (q *Queries) OpenCarry(ctx context.Context, arg OpenCarryParams) ([]Mediase
 			&i.Kind,
 			&i.RootID,
 			&i.Path,
+			&i.FromRootID,
 			&i.FromPath,
 			&i.FileID,
 			&i.ReplacedBy,
@@ -464,6 +481,7 @@ func (q *Queries) OpenCarry(ctx context.Context, arg OpenCarryParams) ([]Mediase
 			&i.NextAttemptAt,
 			&i.CreatedAt,
 			&i.SentAt,
+			&i.SourceGoneAt,
 			&i.Result,
 			&i.Lost,
 			&i.Problem,
@@ -482,7 +500,7 @@ func (q *Queries) OpenCarry(ctx context.Context, arg OpenCarryParams) ([]Mediase
 }
 
 const openPartner = `-- name: OpenPartner :many
-SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change
+SELECT id, server_id, kind, root_id, path, from_root_id, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, source_gone_at, result, lost, problem FROM mediaservers_change
 WHERE server_id = ?1 AND state IN ('prepared', 'due') AND step IN ('none', 'snapshotted')
     AND ((kind = 'added' AND upgrade = 1 AND file_id = ?2)
         OR (kind = 'removed' AND replaced_by = ?3))
@@ -512,6 +530,7 @@ func (q *Queries) OpenPartner(ctx context.Context, arg OpenPartnerParams) ([]Med
 			&i.Kind,
 			&i.RootID,
 			&i.Path,
+			&i.FromRootID,
 			&i.FromPath,
 			&i.FileID,
 			&i.ReplacedBy,
@@ -524,6 +543,7 @@ func (q *Queries) OpenPartner(ctx context.Context, arg OpenPartnerParams) ([]Med
 			&i.NextAttemptAt,
 			&i.CreatedAt,
 			&i.SentAt,
+			&i.SourceGoneAt,
 			&i.Result,
 			&i.Lost,
 			&i.Problem,
@@ -556,28 +576,34 @@ func (q *Queries) PruneSent(ctx context.Context, before storage.Time) (int64, er
 const updateChange = `-- name: UpdateChange :exec
 UPDATE mediaservers_change
 SET kind = ?1,
-    path = ?2,
-    from_path = ?3,
-    file_id = ?4,
-    replaced_by = ?5,
-    upgrade = ?6,
-    state = ?7,
-    step = ?8,
-    step_at = ?9,
-    snapshot = ?10,
-    attempts = ?11,
-    next_attempt_at = ?12,
-    sent_at = ?13,
-    result = ?14,
-    lost = ?15,
-    problem = ?16
-WHERE id = ?17
+    root_id = ?2,
+    path = ?3,
+    from_root_id = ?4,
+    from_path = ?5,
+    source_gone_at = ?6,
+    file_id = ?7,
+    replaced_by = ?8,
+    upgrade = ?9,
+    state = ?10,
+    step = ?11,
+    step_at = ?12,
+    snapshot = ?13,
+    attempts = ?14,
+    next_attempt_at = ?15,
+    sent_at = ?16,
+    result = ?17,
+    lost = ?18,
+    problem = ?19
+WHERE id = ?20
 `
 
 type UpdateChangeParams struct {
 	Kind          link.ChangeKind
+	RootID        roots.ID
 	Path          string
+	FromRootID    roots.ID
 	FromPath      *string
+	SourceGoneAt  storage.Time
 	FileID        files.ID
 	ReplacedBy    files.ID
 	Upgrade       bool
@@ -595,12 +621,16 @@ type UpdateChangeParams struct {
 }
 
 // UpdateChange writes every column a fold or a step moves. A row keeps
-// its id, server, root and age.
+// its id, server and age. Its roots move with a removal that a Move's
+// carry folds into, which lies at the carry's origin.
 func (q *Queries) UpdateChange(ctx context.Context, arg UpdateChangeParams) error {
 	_, err := q.db.ExecContext(ctx, updateChange,
 		arg.Kind,
+		arg.RootID,
 		arg.Path,
+		arg.FromRootID,
 		arg.FromPath,
+		arg.SourceGoneAt,
 		arg.FileID,
 		arg.ReplacedBy,
 		arg.Upgrade,

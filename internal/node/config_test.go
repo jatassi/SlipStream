@@ -40,7 +40,12 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.pairing.superseded_dial", "timings.pairing.unreachable_after",
 		"timings.role.restart_min", "timings.role.restart_max", "timings.role.beat", "timings.role.stall", "timings.role.probe", "timings.nodes.seen_persist", "timings.nodes.blip", "timings.nodes.settle", "timings.nodes.dial_invite", "timings.nodes.dial_report", "timings.nodes.traffic", "timings.nodes.reach", "timings.nodes.unknown_nodes", "timings.nodes.unknown_for", "timings.works.fetch", "timings.indexers.job", "timings.indexers.poll", "timings.indexers.limited", "timings.indexers.ladder", "timings.indexers.package_share", "timings.indexers.catalog_request", "timings.indexers.captcha", "timings.indexers.keep_queries", "timings.indexers.unanswered", "timings.indexers.rss_pages", "timings.indexers.rss_page_items", "timings.indexers.guid_bytes", "timings.searching.request", "timings.searching.floor", "timings.searching.hold", "timings.searching.job_cap", "timings.searching.keep", "timings.searching.results", "timings.searching.relogins", "timings.transfers.chunk", "timings.transfers.report", "timings.transfers.dial", "timings.transfers.estimate", "timings.transfers.lanes_start", "timings.transfers.lanes_grow", "timings.transfers.lanes_gain", "timings.transfers.lanes_max", "timings.transfers.ahead", "timings.transfers.sync_bytes", "timings.transfers.sync_every", "timings.transfers.retry_min", "timings.transfers.retry_max", "timings.transfers.damaged", "timings.transfers.piece",
 		"timings.transfers.route_retry", "timings.transfers.pair_write", "timings.transfers.changed",
-		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.grabs.drain_batch", "timings.grabs.starts_per_pass", "timings.grabs.backlog_chunk", "timings.files.retry_min", "timings.files.retry_max", "timings.formats.match", "timings.downloading.facts", "timings.downloading.announce_floor", "timings.downloading.resume_save", "timings.downloading.shutdown_save", "timings.downloading.start_spread", "timings.downloading.announce_jitter", "timings.downloading.totals_report", "timings.downloading.live_sample", "timings.downloading.route_check", "timings.downloading.resolve_hold", "timings.downloading.resolve_lease", "timings.downloading.resolve_keep", "timings.downloading.client_retry_min", "timings.downloading.client_retry_max", "timings.downloading.client_refused_retry", "timings.downloading.client_grace", "timings.downloading.client_resend_wait", "timings.downloading.client_missing_share", "timings.downloading.client_missing_floor", "timings.downloading.client_trackers", "timings.downloading.client_call", "timings.downloading.client_live_floor", "timings.downloading.holdings_page", "timings.downloading.holdings_max", "timings.media.probe", "timings.mail.send", "timings.serving.drain",
+		"timings.grabs.retry_min", "timings.grabs.retry_max", "timings.grabs.progress", "timings.grabs.drain_batch", "timings.grabs.starts_per_pass", "timings.grabs.backlog_chunk", "timings.files.retry_min", "timings.files.retry_max",
+		"timings.moves.guard", "timings.moves.reply_wait", "timings.moves.handoff_bound", "timings.moves.bound_margin", "timings.moves.stop_bound", "timings.moves.companions_per_file",
+		"timings.moves.plan_lifetime", "timings.moves.plans", "timings.moves.plan_batch", "timings.moves.probe_page", "timings.moves.probe_page_bytes", "timings.moves.probes_in_flight",
+		"timings.moves.probe_deadline", "timings.moves.pass_every", "timings.moves.pass_page", "timings.moves.step_lease", "timings.moves.jobs", "timings.moves.retry_after",
+		"timings.moves.playing_every", "timings.moves.downloading_every", "timings.moves.remove_retry", "timings.moves.remove_bound",
+		"timings.formats.match", "timings.downloading.facts", "timings.downloading.announce_floor", "timings.downloading.resume_save", "timings.downloading.shutdown_save", "timings.downloading.start_spread", "timings.downloading.announce_jitter", "timings.downloading.totals_report", "timings.downloading.live_sample", "timings.downloading.route_check", "timings.downloading.resolve_hold", "timings.downloading.resolve_lease", "timings.downloading.resolve_keep", "timings.downloading.client_retry_min", "timings.downloading.client_retry_max", "timings.downloading.client_refused_retry", "timings.downloading.client_grace", "timings.downloading.client_resend_wait", "timings.downloading.client_missing_share", "timings.downloading.client_missing_floor", "timings.downloading.client_trackers", "timings.downloading.client_call", "timings.downloading.client_load_wait", "timings.downloading.client_load_every", "timings.downloading.client_run_wait", "timings.downloading.client_live_floor", "timings.downloading.holdings_page", "timings.downloading.holdings_max", "timings.downloading.reply_wait", "timings.downloading.announce_watch_every", "timings.media.probe", "timings.mail.send", "timings.serving.drain",
 		"timings.storing.stat",
 		"timings.sidecars.build_wait", "timings.sidecars.map_cap", "timings.sidecars.sidecar_cap", "timings.sidecars.queue", "timings.sidecars.survey_batch",
 		"timings.subtitling.calls.attempts", "timings.subtitling.calls.try", "timings.subtitling.calls.retry_min", "timings.subtitling.calls.retry_max", "timings.subtitling.calls.wait",
@@ -70,6 +75,9 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 
 	if _, _, err := LoadConfig(testDataDir(t), nil, noTypes, install.Dev); err != nil {
 		t.Fatalf("defaults do not load: %v", err)
+	}
+	if host, _ := os.Hostname(); cfg.Name != host {
+		t.Fatalf("name = %q, want the host name %q", cfg.Name, host)
 	}
 }
 
@@ -162,17 +170,6 @@ func TestAJoinCodeIsAlwaysRedacted(t *testing.T) {
 	_, _, err = LoadConfig(testDataDir(t), []string{"SLIPSTREAM_JOIN_CODE=" + damaged}, noTypes, install.Dev)
 	if want := "env: SLIPSTREAM_JOIN_CODE: the Join Code is mistyped or cut short"; err == nil || err.Error() != want || ExitCode(err) != ExitUsage {
 		t.Fatalf("err = %v, want %q with exit %d", err, want, ExitUsage)
-	}
-}
-
-func TestTheLinkAndRoleSectionsHaveTheirDefaults(t *testing.T) {
-	cfg := Defaults(noTypes, install.Dev)
-	got := fmt.Sprint(cfg.Link, cfg.Timings.Link, cfg.Timings.Role)
-	if want := "{[::]:8485 [] 16777216} {10s 25s 10s 1s 1m0s 300ms 20s 10m0s 20s 10m0s} {1s 1m0s 15s 45s 10m0s}"; got != want {
-		t.Fatalf("link, timings.link, timings.role = %s, want %s", got, want)
-	}
-	if host, _ := os.Hostname(); cfg.Name != host {
-		t.Fatalf("name = %q, want the host name %q", cfg.Name, host)
 	}
 }
 

@@ -327,3 +327,49 @@ func (p placer) copy(ctx context.Context, from, to string) error {
 	}
 	return nil
 }
+
+// PlaceUnder places the file at from at rel under folder, a folder no
+// root names, by Place's ladder and with its convergence.
+func PlaceUnder(ctx context.Context, d Disk, folder, from string, rel Rel, allowCopy bool) (Info, Step, error) {
+	return placer{d: d, style: d.Host().Style, root: folder, walks: &sync.RWMutex{}}.place(ctx, from, rel, allowCopy)
+}
+
+// MoveUnder renames from to to, both under folder, a folder no root
+// names, as Move does without its companions.
+func MoveUnder(ctx context.Context, d Disk, folder string, from, to Rel) (Info, error) {
+	return placer{d: d, style: d.Host().Style, root: folder, walks: &sync.RWMutex{}}.moveFile(ctx, from, to)
+}
+
+// DiscardUnder removes the file of size bytes at rel under folder, a
+// folder no root names, then each folder above it that it leaves empty,
+// up to keep. A file of another size, or none, stays as it is.
+func DiscardUnder(ctx context.Context, d Disk, folder string, keep, rel Rel, size int64) error {
+	style := d.Host().Style
+	at := style.Under(folder, rel)
+	switch info, err := d.Stat(ctx, at); {
+	case errors.Is(err, fs.ErrNotExist):
+	case err != nil:
+		return err
+	case info.Dir() || info.Size() != size:
+		return nil
+	default:
+		if err := d.Remove(ctx, at); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+	}
+	for dir, _ := rel.split(); dir.s != "" && dir.s != keep.s; dir, _ = dir.split() {
+		entries, err := d.ReadDir(ctx, style.Under(folder, dir))
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			continue
+		case err != nil:
+			return err
+		case len(entries) > 0:
+			return nil
+		}
+		if err := d.Remove(ctx, style.Under(folder, dir)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+	}
+	return nil
+}

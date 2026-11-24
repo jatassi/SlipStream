@@ -1,0 +1,130 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  Three Nodes for S48 (Moves). The Controller home reaches the Media
+  Servers. The Worker seedbox pairs by Join Code and holds Searching,
+  Storage with movies-d and series-d, and Downloading with the built-in
+  client, qBittorrent 5.2 named Box and Deluge 2.1. The Worker den pairs
+  by Join Code and holds Storage with movies-e, series-e and movies-f,
+  which the simulation tier plays as a second volume, and Downloading with
+  the built-in client, Transmission 4.1 and rTorrent 0.16.
+  Living room Plex holds movies-d in its Movies section, movies-e and
+  movies-f in Movies 4K, and both series roots in TV Shows. Den Jellyfin
+  holds movies-d in Movies and movies-e and movies-f in Movies 4K. Den
+  Emby holds every movie root in one library. fake-tracker plays UNIT3D's
+  Rust announce with a 1 minute interval and a 3 second clear, and a
+  Move's guard waits 5 seconds, so a handoff runs in seconds.
+seed: moves
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [converting, subtitles, metadata, media-server-link, notifying, serving]
+    media_servers:
+      - kind: plex
+        name: Living room Plex
+        roots:
+          - {folder: movies-d}
+          - {folder: movies-e, library: Movies 4K}
+          - {folder: movies-f, library: Movies 4K}
+          - {folder: series-d}
+          - {folder: series-e}
+      - kind: jellyfin
+        name: Den Jellyfin
+        roots:
+          - {folder: movies-d}
+          - {folder: movies-e, library: Movies 4K}
+          - {folder: movies-f, library: Movies 4K}
+      - kind: emby
+        name: Den Emby
+        sign_in: admin
+        roots: [{folder: movies-d}, {folder: movies-e}, {folder: movies-f}]
+  - name: seedbox
+    setup: join
+    roles: [searching, storage, downloading]
+    download_clients:
+      - kind: qbittorrent
+        version: "5.3"
+        name: Box
+        username: ada
+        password: quiet-orchard
+        folder: /downloads
+        pair: true
+      - kind: deluge
+        version: "2.1"
+        password: quiet-orchard
+        folder: /downloads
+        pair: true
+  - name: den
+    setup: join
+    roles: [storage, downloading]
+    download_clients:
+      - kind: transmission
+        version: "4.1"
+        username: ada
+        password: quiet-orchard
+        folder: /downloads
+        pair: true
+      - kind: rtorrent
+        version: "0.16"
+        username: ada
+        password: quiet-orchard
+        folder: /srv/torrents
+        pair: true
+timings:
+  node:
+    stop_deadline: 15s
+  moves:
+    guard: 5s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+    - id: 9000002
+      imdb_id: tt9000002
+      title: Harbor Lights
+      released: 2019-09-06
+      runtime: 98m
+tvdb:
+  series:
+    - id: 9100201
+      name: The Tin Signal
+      status: continuing
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 9120101, number: 1, name: Static, aired: 2019-01-07}
+            - {id: 9120102, number: 2, name: Carrier Wave, aired: 2019-01-14}
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+  - name: Harbor.Lights.2019.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000002
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 7.6GiB
+tracker:
+  mode: unit3d
+  variant: rust
+  interval: 1m
+  min_interval: 40s
+  clear_after: 3s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots:
+    - {content_type: movie, folder: movies-d, node: seedbox}
+    - {content_type: series, folder: series-d, node: seedbox}
+    - {content_type: movie, folder: movies-e, node: den}
+    - {content_type: series, folder: series-e, node: den}
+    - {content_type: movie, folder: movies-f, node: den}
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab, home: seedbox}]

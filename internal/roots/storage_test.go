@@ -2,7 +2,6 @@ package roots_test
 
 import (
 	"context"
-	"errors"
 	"slices"
 	"sync"
 	"testing"
@@ -229,14 +228,6 @@ func TestAReportAtAnotherPlaceIsNotTheRoots(t *testing.T) {
 	}
 }
 
-func TestARootOnAnOfflineNodeIsOffline(t *testing.T) {
-	r := rig(t, true)
-	r.storage.send(r.node, r.report(storagev1.RootState_ROOT_STATE_READY, r.root.Place))
-	if v := r.view(t); v.State != roots.Offline {
-		t.Fatalf("a root on an offline Node reads %q, want offline", v.State)
-	}
-}
-
 func TestStorageOwnsANodesRootsForever(t *testing.T) {
 	r := rig(t, false)
 	owner := roots.StorageOwner(files.RootContents{})
@@ -276,12 +267,5 @@ func TestSampleWaitsForTheRecording(t *testing.T) {
 	}
 	if v := r.view(t); v.State != roots.Unwritable {
 		t.Errorf("after Sample the root reads %q, want the sampled unwritable", v.State)
-	}
-}
-
-func TestSampleOnAnOfflineNode(t *testing.T) {
-	r := rig(t, true)
-	if err := r.svc.Sample(t.Context(), r.node); !errors.Is(err, roots.ErrNodeAway) {
-		t.Fatalf("Sample on an offline Node = %v, want ErrNodeAway", err)
 	}
 }

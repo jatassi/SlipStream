@@ -124,7 +124,7 @@ func records(t *testing.T, f faketest.Served, kind string) []json.RawMessage {
 func reported(t *testing.T, f faketest.Served) []string {
 	t.Helper()
 	var out []string
-	for _, raw := range records(t, f, "jellyfin.report") {
+	for _, raw := range append(records(t, f, "jellyfin.report"), records(t, f, "emby.report")...) {
 		var r struct {
 			Updates []struct{ Path, UpdateType string }
 		}

@@ -4,4 +4,5 @@ export type HistoryGroupGroup =
   | "library"
   | "subtitles"
   | "health"
-  | "backups";
+  | "backups"
+  | "moves";

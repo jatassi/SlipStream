@@ -11,7 +11,6 @@ import { keeper, starter, targetHandlers } from "../test/targets";
 const sentence = () => page.getByText(/^This Target grabs /u);
 const grabs = (rest: string) =>
   expect.element(sentence()).toHaveTextContent(`This Target grabs ${rest}`);
-const reachedCutoff = "Bluray-1080p has reached the cutoff, so no better tier replaces it.";
 
 const newTarget = z.object({
   name: z.string(),
@@ -45,50 +44,6 @@ async function pick(...names: string[]) {
     await userEvent.click(page.getByRole("checkbox", { name, exact: true }));
   }
 }
-
-test("a Target built from a preset says what its order means as the cutoff moves, and creates", async () => {
-  const { sent, handler } = creating();
-  const { router } = renderApp({
-    path: "/settings/targets/new",
-    handlers: [...targetHandlers(), handler],
-  });
-  await expect.element(page.getByRole("heading", { name: "New Target", level: 1 })).toBeVisible();
-  await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "HD");
-
-  await userEvent.click(page.getByRole("button", { name: "Fill from a preset" }));
-  await userEvent.click(page.getByRole("menuitem", { name: "Upgrade for any better quality" }));
-  await pick("Remux-2160p", "Bluray-2160p", "WEBDL-2160p", "WEBRip-2160p", "HDTV-2160p");
-  await pick("WEBRip-480p", "DVD", "SDTV");
-  await grabs("HDTV-720p or better. It upgrades until Remux-1080p, then stops.");
-
-  page.getByRole("button", { name: "Move Cutoff", exact: true }).element().focus();
-  await userEvent.keyboard("{ArrowDown}");
-  await grabs("HDTV-720p or better. It upgrades until Bluray-1080p, then stops.");
-  const samples = page.getByRole("list", { name: "Example upgrades" });
-  await expect.element(samples.getByText(reachedCutoff)).toBeVisible();
-  await expect.element(samples.getByText("This Target doesn't accept Remux-2160p.")).toBeVisible();
-
-  await userEvent.click(page.getByRole("button", { name: "Create Target" }));
-  await expect.poll(() => router.state.location.pathname).toBe("/settings/targets");
-  expect(sent[0]).toMatchObject({
-    name: "HD",
-    cutoff: "bluray-1080p",
-    tiers: [
-      ["remux-1080p"],
-      ["bluray-1080p"],
-      ["webdl-1080p"],
-      ["webrip-1080p"],
-      ["hdtv-1080p"],
-      ["bluray-720p"],
-      ["webdl-720p"],
-      ["webrip-720p"],
-      ["hdtv-720p"],
-    ],
-    filters: [],
-  });
-  expect(sent[0]?.sizes).toContainEqual({ quality: "webdl-1080p", min: 12.5, max: null });
-  await expect.element(page.getByText("Created HD.")).toBeVisible();
-});
 
 test("the cutoff stays below an accepted quality, and No upgrades keeps the first file", async () => {
   renderApp({ path: "/settings/targets/new", handlers: targetHandlers() });

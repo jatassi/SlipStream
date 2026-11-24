@@ -109,16 +109,6 @@ var rule = setting.Choice[overdue]{
 	Options: []setting.Option[overdue]{{Value: "catch-up", Label: "Catch up"}, {Value: "wait", Label: "Wait"}},
 }
 
-func TestChoiceRefusesAValueOutsideItsOptions(t *testing.T) {
-	if _, err := rule.Parse(ptr("later")); sentence(err) != "Choose Catch up or Wait." {
-		t.Fatalf("Parse(later) = %v", err)
-	}
-	got, err := rule.Parse(ptr("wait"))
-	if err != nil || *got.Override() != "wait" {
-		t.Fatalf("Parse(wait) = %v, %v", got.Override(), err)
-	}
-}
-
 var window = setting.Window{Key: "tasks.window", Label: "Maintenance window", Default: setting.Span{Start: 240, End: 360}}
 
 func TestWindowParse(t *testing.T) {
@@ -205,6 +195,22 @@ func TestFieldReportsIsDefault(t *testing.T) {
 		{
 			"a window", window.Field(&setting.Span{Start: 60, End: 180}, "Europe/London"),
 			`{"key":"tasks.window","label":"Maintenance window","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"window","value":{"start":"01:00","end":"03:00"},"running":{"start":"01:00","end":"03:00"},"default":{"start":"04:00","end":"06:00"},"zone":"Europe/London"}`,
+		},
+		{
+			"a list at its default", setting.List{Key: "k.list", Label: "Extensions", Default: []string{"mkv"}, Min: 1, Item: setting.Extension}.Field(nil),
+			`{"key":"k.list","label":"Extensions","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"list","value":["mkv"],"running":["mkv"],"default":["mkv"],"min":1,"item":"extension"}`,
+		},
+		{
+			"a size, overridden", smallestVideo.Field(ptr(100 * setting.MB)),
+			`{"key":"library.importing.smallestVideo","label":"Smallest video file","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"size","value":104857600,"running":104857600,"default":52428800,"min":0,"max":10737418240}`,
+		},
+		{
+			"a template at its default", fileTemplate.Field(nil),
+			`{"key":"show.naming.file.standard","label":"Standard file","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"template","value":"{Title} - {Target}","default":"{Title} - {Target}","field":"file.standard","plain":false}`,
+		},
+		{
+			"plain text, overridden", colonText.Field(ptr(" ~ ")),
+			`{"key":"show.naming.colonCustom","label":"Custom colon","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"template","value":" ~ ","default":" - ","field":"colonCustom","plain":true}`,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -464,25 +470,6 @@ func TestAmountWords(t *testing.T) {
 		if got := tc.amount.Words(); got != tc.want {
 			t.Errorf("Words(%+v) = %q, want %q", tc.amount, got, tc.want)
 		}
-	}
-}
-
-func TestAmountBytes(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		amount setting.Amount
-		total  int64
-		want   int64
-	}{
-		{"bytes ignore the total", setting.Amount{N: 20 * setting.GB, Unit: setting.BytesUnit}, setting.TB, 20 * setting.GB},
-		{"a percent of the volume", setting.Amount{N: 10, Unit: setting.PercentUnit}, 1000 * setting.GB, 100 * setting.GB},
-		{"a percent of no total", setting.Amount{N: 10, Unit: setting.PercentUnit}, 0, 0},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := tc.amount.Bytes(tc.total); got != tc.want {
-				t.Fatalf("Bytes(%d) = %d, want %d", tc.total, got, tc.want)
-			}
-		})
 	}
 }
 

@@ -55,6 +55,8 @@ A setting of one Indexer or one Target stays on its sheet. "Searches at once" si
 
 "A client error fails its Grab after" sits in Download Clients under its own "Client errors" heading, after "When a Release counts as bad" and "Magnet links". It applies to every external Download Client, so it sits in the section and not on each client's sheet.
 
+Library roots holds the roots, then a "Moves" heading for the two settings that apply to every Move. The heading leads with "A moved Work switches to its new root once nobody is playing it and no job has its files open. SlipStream deletes the old files once Plex has found the new ones, or after the time below." Below that sit "Show a Move waiting to switch in Needs you after" and "Delete the old files after Plex finds the new ones, or at most after". Moves sit with the roots because a Move sends a Work from one root to another, and the Library roots page is where an Admin starts one for a whole root. The handoff guard, the plan's lifetime and the other Move limits are `Timings`, not settings.
+
 Importing sits after Library scan, which links to it, because a scan reads its Video file extensions. A download and a manual import read all three of its settings.
 
 Media Servers holds the settings that apply to every Plex, Jellyfin and Emby server: "Wait before sending", "Check sessions every", "Mark unhealthy after" and "Keep play history for", then the Plex sign-in's "Renew Plex sign-in every" and "Renew when less than this is left". The renewal schedule is the Plex sign-in task's frequency, so it shows on the Tasks page too. A server's own addresses and Nodes stay on that server's page under Settings, and its Path mappings under Path mappings. The Add sheet takes them when the server is added.

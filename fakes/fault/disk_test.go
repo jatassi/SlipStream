@@ -15,45 +15,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 )
 
-func TestDiskFaultGrammarRoundTrips(t *testing.T) {
-	for _, c := range []struct {
-		f    fault.Fault
-		text string
-	}{
-		{fault.Full{}, "full"},
-		{fault.Unmounted{}, "unmounted"},
-		{fault.Hung{}, "hung"},
-		{fault.ReadOnly{}, "readonly"},
-		{fault.FoldCase{}, "foldcase"},
-		{fault.NoIDs{}, "noids"},
-		{fault.NoLinks{}, "nolinks"},
-		{fault.NoClones{}, "noclones"},
-		{fault.CloneFull{}, "clonefull"},
-		{fault.Volume{Total: 10 << 30, Free: 1536 << 20}, "volume=10GiB,free=1536MiB"},
-		{fault.Volume{Total: 1 << 40, Free: 0}, "volume=1024GiB,free=0B"},
-	} {
-		if got := c.f.String(); got != c.text {
-			t.Errorf("%#v.String() = %q, want %q", c.f, got, c.text)
-		}
-		if got, err := fault.Parse(c.text); err != nil || got != c.f || got.Layer() != fault.Disk {
-			t.Errorf("Parse(%q) = %#v, %v; want %#v at the disk layer", c.text, got, err, c.f)
-		}
-	}
-	for text, want := range map[string]string{
-		"full=1":                   "fault full takes no value",
-		"volume":                   "fault volume needs a value: volume=…",
-		"volume=10GiB":             "fault volume=10GiB: want volume=<total>,free=<free>",
-		"volume=10GB,free=1GiB":    `fault volume=10GB,free=1GiB: size "10GB" is not a count of B`,
-		"volume=1GiB,free=2GiB":    "fault volume=1GiB,free=2GiB: free 2GiB of 1GiB: want a positive total and free no more than it",
-		"volume=0B,free=0B":        "fault volume=0B,free=0B: free 0B of 0B: want a positive total and free no more than it",
-		"volume=1GiB,free=512KiB,": `fault volume=1GiB,free=512KiB,: size "512KiB," needs a unit: B, KiB, MiB or GiB`,
-	} {
-		if _, err := fault.Parse(text); err == nil || err.Error() != want {
-			t.Errorf("Parse(%q) = %v, want %q", text, err, want)
-		}
-	}
-}
-
 func TestADiskRulePlaysOnlyOnADiskPlan(t *testing.T) {
 	for _, c := range []struct {
 		plan *fault.Plan

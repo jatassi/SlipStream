@@ -258,7 +258,7 @@ func TestEpisodeFilesStayWithTheirEpisodes(t *testing.T) {
 	both("once grabbed")
 
 	cue(t, w.run, "tvdb-move-episode", `{"id":100102,"season":3,"number":4}`)
-	moved := refreshSeries(t, w.a, v, `"outcome":"done"`)
+	moved := refreshSeries(t, w.a, v)
 	if at := moved.item(t, "100102"); at.ID != special || at.code() != "S03E04" {
 		t.Fatalf("A Winter Light once moved is %+v, want the same Item as S03E04", at)
 	}

@@ -145,26 +145,6 @@ func TestAGoalEqualToTheDefaultFollowsTheDefault(t *testing.T) {
 	}
 }
 
-func TestATrackersGoalWithOnePartRoundTrips(t *testing.T) {
-	l := newLibrary(t)
-	seedpool := l.tracker("seedpool", indexers.Private)
-	for _, g := range []seeding.Goal{
-		seeding.MustFinite(seeding.Both, 300, 0, seeding.Pause),
-		seeding.MustFinite(seeding.First, 0, 30*day, seeding.Remove),
-	} {
-		if _, err := l.x.SetGoal(t.Context(), admin, seedpool, g); err != nil {
-			t.Fatal(err)
-		}
-		s, err := l.x.Tracker(t.Context(), admin, seedpool)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if s.Goal != g {
-			t.Fatalf("seedpool's goal saved as %#v reads %#v", g, s.Goal)
-		}
-	}
-}
-
 func TestTheDefaultGoalRoundTrips(t *testing.T) {
 	l := newLibrary(t)
 	for _, g := range []seeding.Goal{

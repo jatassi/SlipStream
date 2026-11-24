@@ -66,44 +66,14 @@ func TestAnImportAndAFoundFileRecordTheNamesTheyCameWith(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := map[string]string{}
+	type came struct{ name, placedBy string }
+	got := map[string]came{}
 	for _, f := range listing.Files {
-		got[f.Path] = f.SourceName
+		got[f.Path] = came{f.SourceName, f.PlacedBy}
 	}
-	want := map[string]string{"Shelf w1/Shelf w1 - Scarf - HD.mkv": "Scarf.2020.1080p.WEB-DL.mkv", "Shelf w1/Mittens, as found.mkv": "Mittens, as found.mkv"}
+	want := map[string]came{"Shelf w1/Shelf w1 - Scarf - HD.mkv": {"Scarf.2020.1080p.WEB-DL.mkv", "copy"}, "Shelf w1/Mittens, as found.mkv": {"Mittens, as found.mkv", ""}}
 	if !maps.Equal(got, want) {
-		t.Fatalf("the Work's files came with the names %v, want the download's for the import and its own for the found file, %v", got, want)
-	}
-}
-
-func TestAnImportedFileListsHowItWasPlacedAndAFoundFileNothing(t *testing.T) {
-	l := open(t)
-	hd := l.target(t, "HD", []release.Quality{release.WEBDL1080p})
-	p := l.profile(t, "HD", hd)
-	tree := l.work(t, "w1", true, &p)
-	svc := l.files(files.NoGrabs{})
-	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := l.land(ctx, tx, svc, tree.ID, holdingOf(tree, 0, files.HoldingOf(storage.NewUUID(), ".mkv"), 5, read1080, release.WEBDL1080p))
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	l.scan(t, svc, files.Scan{Work: tree.ID, Root: l.root.ID, Found: []files.Found{
-		found(tree.Items[1].ID, release.WEBDL1080p, walked(t, "Shelf w1/Mittens, as found.mkv", 10, 1)),
-	}})
-
-	listing, err := svc.WorkFiles(t.Context(), admin, tree.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := map[string]string{}
-	for _, f := range listing.Files {
-		got[f.Path] = f.PlacedBy
-	}
-	want := map[string]string{"Shelf w1/Shelf w1 - Scarf - HD.mkv": "copy", "Shelf w1/Mittens, as found.mkv": ""}
-	if !maps.Equal(got, want) {
-		t.Fatalf("the Work's files list placed by %v, want the import's copy and nothing for the found file, %v", got, want)
+		t.Fatalf("the Work's files came as %v, want the download's name placed by copy for the import and its own name placed by nothing for the found file, %v", got, want)
 	}
 }
 

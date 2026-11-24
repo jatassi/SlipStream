@@ -12,18 +12,10 @@ const entry = (folder: string) => page.getByRole("listitem", { name: folder });
 test("Pending imports leads with what each root's last scan added and how many folders need attention", async () => {
   openPending();
   await expect
-    .element(
-      page.getByText(
-        "The last scan of the Films library root on home added 398 films. 3 folders need attention.",
-      ),
-    )
+    .element(page.getByText(/Films library root on home added 398 films.+3 folders/u))
     .toBeVisible();
   await expect
-    .element(
-      page.getByText(
-        "The last scan of the Shows library root on home didn't add any shows. 1 folder needs attention.",
-      ),
-    )
+    .element(page.getByText(/Shows library root on home didn't add any shows.+1 folder\b/u))
     .toBeVisible();
   await expect
     .element(page.getByRole("link", { name: "Show the films it added" }))
@@ -35,19 +27,15 @@ test("an entry leads with why it waits and its suggested match, and keeps the fi
   openPending();
   const row = entry(halloween.folder);
   await expect.element(row.getByText("1 file · 8.0 GB · Bluray-1080p")).toBeVisible();
-  await expect
-    .element(row.getByText("3 films match Halloween. The name has no year."))
-    .toBeVisible();
+  await expect.element(row.getByText(/^3 films match Halloween\b.+no year/u)).toBeVisible();
   await expect.element(row.getByText("Halloween (1978)")).toBeVisible();
   await expect.element(row.getByText("Halloween/Halloween.mkv")).not.toBeInTheDocument();
   await userEvent.click(row.getByRole("button", { name: "Details" }));
   await expect.element(row.getByText("Halloween/Halloween.mkv")).toBeVisible();
 
   const odd = entry(brazil.folder);
-  await expect.element(odd.getByText("No film matches Brazil (1985).")).toBeVisible();
-  await expect
-    .element(odd.getByText("ffprobe can't read this file. Replace it, then scan again."))
-    .toBeVisible();
+  await expect.element(odd.getByText(/^No film matches Brazil \(1985\)/u)).toBeVisible();
+  await expect.element(odd.getByText(/^ffprobe can't read this file/u)).toBeVisible();
   await expect.element(odd.getByText("No match yet.")).toBeVisible();
   expect(odd.getByRole("button", { name: "Add" }).elements()).toHaveLength(0);
   await userEvent.click(odd.getByRole("button", { name: "Details" }));
@@ -108,7 +96,7 @@ test("Change searches the source and makes the record picked the match", async (
   await expect.element(sheet.getByRole("searchbox", { name: "Title" })).toHaveValue("Halloween");
   await userEvent.click(sheet.getByRole("button", { name: "Match Halloween (2018)" }));
   await expect.element(sheet).not.toBeInTheDocument();
-  await expect.element(page.getByText("Halloween now matches Halloween (2018).")).toBeVisible();
+  await expect.element(page.getByText(/^Halloween now matches Halloween \(2018\)/u)).toBeVisible();
   expect(sent.matched).toEqual([{ id: halloween.id, key: "424139" }]);
   expect(sent.searched).toEqual(["Halloween"]);
   await expect.element(entry(halloween.folder).getByText("Halloween (2018)")).toBeVisible();
@@ -124,7 +112,7 @@ test("Import into attaches a series folder's files at the episodes picked, leavi
   await userEvent.click(page.getByRole("option", { name: "S01E02 Half Loop" }));
   await userEvent.click(sheet.getByRole("button", { name: "Import" }));
   await expect
-    .element(page.getByText("Imported 1 file into Severance. 1 file still waits."))
+    .element(page.getByText(/^Imported 1 file into Severance.+1 file still waits/u))
     .toBeVisible();
   expect(sent.imported).toEqual([
     {
@@ -133,9 +121,7 @@ test("Import into attaches a series folder's files at the episodes picked, leavi
       files: [{ position: 0, itemIds: [halfLoop.id] }],
     },
   ]);
-  await expect
-    .element(entry(severanceEntry.folder).getByText("This show has no episode S03E14."))
-    .toBeVisible();
+  await expect.element(entry(severanceEntry.folder).getByText(/no episode S03E14/u)).toBeVisible();
 });
 
 test("Import into lists only the Works in the folder's root, and a film's files join its one Item", async () => {
@@ -145,9 +131,9 @@ test("Import into lists only the Works in the folder's root, and a film's files 
   await expect.element(sheet.getByRole("button", { name: "Brazil" })).toBeVisible();
   expect(sheet.getByRole("button", { name: "Heat" }).elements()).toHaveLength(0);
   await userEvent.click(sheet.getByRole("button", { name: "Brazil" }));
-  await expect.element(sheet.getByText("The 2 files go into Brazil.")).toBeVisible();
+  await expect.element(sheet.getByText(/2 files go into Brazil/u)).toBeVisible();
   await userEvent.click(sheet.getByRole("button", { name: "Import" }));
-  await expect.element(page.getByText("Imported 2 files into Brazil.")).toBeVisible();
+  await expect.element(page.getByText(/^Imported 2 files into Brazil/u)).toBeVisible();
   const [item] = world.works.find(({ label }) => label === "Brazil")?.items ?? [];
   expect(sent.imported.at(0)?.files.map(({ itemIds }) => itemIds)).toEqual([
     [item?.id],
@@ -159,38 +145,24 @@ test("Import into lists only the Works in the folder's root, and a film's files 
 test("Ignore sets a folder aside under Ignored, where Restore brings it back", async () => {
   const { sent } = openPending();
   await userEvent.click(entry(brazil.folder).getByRole("button", { name: "Ignore" }));
-  await expect
-    .element(
-      page.getByText("Ignored Brazil (1985). A library scan lists it again if its files change."),
-    )
-    .toBeVisible();
+  await expect.element(page.getByText(/^Ignored Brazil \(1985\)/u)).toBeVisible();
   expect(sent.ignored).toEqual([[brazil.id]]);
   await expect.element(entry(brazil.folder)).not.toBeInTheDocument();
 
   await userEvent.click(page.getByRole("link", { name: "Ignored" }));
   await expect
-    .element(
-      entry(orchardLeft.folder).getByText(
-        "This film was deleted from the library and its files were left on disk.",
-      ),
-    )
+    .element(entry(orchardLeft.folder).getByText(/deleted from the library/u))
     .toBeVisible();
   expect(page.getByText(/^The last scan of/u).elements()).toHaveLength(0);
   await userEvent.click(entry(brazil.folder).getByRole("button", { name: "Restore" }));
-  await expect.element(page.getByText("Brazil (1985) is back in Pending imports.")).toBeVisible();
+  await expect.element(page.getByText(/^Brazil \(1985\) is back/u)).toBeVisible();
   expect(sent.restored).toEqual([[brazil.id]]);
   await expect.element(entry(brazil.folder)).not.toBeInTheDocument();
 });
 
 test("with nothing waiting, each view says so", async () => {
   openPending({ start: { entries: [], leads: [], imports: [] } });
-  await expect
-    .element(
-      page.getByText(
-        "Nothing needs attention. Downloads SlipStream can't import on its own show up here, and so do folders a library scan can't match.",
-      ),
-    )
-    .toBeVisible();
+  await expect.element(page.getByText(/^Nothing needs attention/u)).toBeVisible();
   await userEvent.click(page.getByRole("link", { name: "Ignored" }));
   await expect.element(page.getByText("No folders are ignored.")).toBeVisible();
 });

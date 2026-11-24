@@ -56,6 +56,7 @@ type external struct {
 	hash     bencode.InfoHash
 	id       storage.UUID
 	metainfo []byte
+	payload  []byte
 }
 
 // composite is a Node's Downloading Role over its built-in client and one
@@ -87,7 +88,11 @@ func (n *node) startComposite(version string, releaseSize int) *composite {
 	catalog := faketest.Catalog(t, releaseSize, "orchard", "lantern", "harbor")
 	c := &composite{n: n, daemon: d, rels: map[string]external{}, judged: map[string]bool{}}
 	for _, rel := range catalog.Releases {
-		x := external{name: rel.Name, hash: rel.InfoHash, id: storage.NewUUID(), metainfo: rel.Metainfo}
+		payload, err := os.ReadFile(rel.Disk(rel.Files[0]))
+		if err != nil {
+			t.Fatal(err)
+		}
+		x := external{name: rel.Name, hash: rel.InfoHash, id: storage.NewUUID(), metainfo: rel.Metainfo, payload: payload}
 		c.rels[rel.Name] = x
 		n.ctl.answer(x.id, &dlv1.TorrentResponse{Metainfo: rel.Metainfo, ContentType: "Movies"})
 	}
@@ -112,7 +117,7 @@ func (n *node) startComposite(version string, releaseSize int) *composite {
 		Volume: n.volume,
 	})
 	c.Node = downloading.NewNode(c.builtin, downloading.NodeConfig{
-		HTTP: c.served.Client, Timings: timings, Folder: c.judge,
+		HTTP: c.served.Client, Timings: timings, Folder: c.judge, Disk: n.disk,
 		Rand: rand.New(rand.NewPCG(3, 4)), Log: log, //nolint:gosec // seeded on purpose so tests replay
 	})
 	c.h = &holder{intents: make(chan role.Snapshot[*dlv1.Intent])}
@@ -442,4 +447,186 @@ func TestCheckClientsAnswersOnceThePollWithItsTokenIsInTheOutbox(t *testing.T) {
 			t.Errorf("polls = %v, want the first and then one carrying %q", polls, token)
 		}
 	})
+}
+
+// arrivingOrchard is orchard's Torrent for the built-in client as a Move's
+// arriving row, whose payload the Controller says lies in its folder.
+func (c *composite) arrivingOrchard(order int64) (*dlv1.Torrent, storage.UUID) {
+	rel := c.rels["orchard"]
+	id := storage.NewUUID()
+	c.n.ctl.answer(id, &dlv1.TorrentResponse{Metainfo: rel.metainfo, ContentType: "Movies", SeedMode: true})
+	return &dlv1.Torrent{Id: id.Bytes(), InfoHash: rel.hash[:], Wanted: dlv1.Wanted_WANTED_PAUSED, Order: order, Arriving: true}, id
+}
+
+func TestAHashInTwoClientsRoutesToItsLiveRow(t *testing.T) {
+	inEachTransmission(t, func(t *testing.T, version string) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		c := n.startComposite(version, 1000)
+		dst, _ := c.arrivingOrchard(1)
+		c.send(true, dst, c.orchard(2))
+		time.Sleep(30 * time.Second)
+		synctest.Wait()
+
+		h := c.rels["orchard"].hash
+		inClient := filepath.Join(c.daemon.Dir, "Movies", "orchard.mkv")
+		if got, err := c.Path(h, 0); err != nil || got != inClient {
+			t.Errorf("Path while the built-in row arrives = %q, %v; want the live file in the client %q", got, err, inClient)
+		}
+		if got, err := c.Open(source.Torrent{Hash: h, File: 0}); err != nil || got != inClient {
+			t.Errorf("Open while the built-in row arrives = %q, %v; want %q", got, err, inClient)
+		}
+
+		dst.Arriving, dst.Wanted = false, dlv1.Wanted_WANTED_STARTED
+		src := c.orchard(2)
+		src.Arriving = true
+		c.send(true, dst, src)
+		builtin := filepath.Join(n.dir, "Movies", h.String(), "orchard.mkv")
+		if got, err := c.Path(h, 0); err != nil || got != builtin {
+			t.Errorf("Path once the client's row arrives = %q, %v; want the built-in file %q", got, err, builtin)
+		}
+	})
+}
+
+func TestACompleteAddOverAShortFileReportsTheCheckFailed(t *testing.T) {
+	inEachTransmission(t, func(t *testing.T, version string) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		c := n.startComposite(version, 1000)
+		rel := c.rels["orchard"]
+		folder := filepath.Join(c.daemon.Dir, "Movies")
+		if err := os.MkdirAll(folder, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(folder, "orchard.mkv"), rel.payload[:len(rel.payload)/2], 0o600); err != nil {
+			t.Fatal(err)
+		}
+		arriving := c.orchard(1)
+		arriving.Arriving, arriving.Wanted = true, dlv1.Wanted_WANTED_PAUSED
+		c.send(true, arriving)
+		time.Sleep(time.Minute)
+		synctest.Wait()
+
+		want := &dlv1.Arrival{Result: dlv1.ArrivalResult_ARRIVAL_RESULT_CHECK_FAILED, Reason: "1"}
+		if got := c.h.latest(t, rel.id).GetArrival(); !proto.Equal(got, want) {
+			t.Errorf("arrival over a short file %v, want %v", got, want)
+		}
+	})
+}
+
+// placed has the Node place orchard, which the fake Transmission seeds,
+// into the built-in client's folder for it, and answers the placed file.
+func (c *composite) placed(t *testing.T, allowCopy bool) (string, error) {
+	t.Helper()
+	c.send(true, c.orchard(1))
+	time.Sleep(30 * time.Second)
+	synctest.Wait()
+	h := c.rels["orchard"].hash
+	res, err := c.PlacePayload(t.Context(), &dlv1.PlacePayloadRequest{
+		ContentType: "Movies", InfoHash: h[:], AllowCopy: allowCopy,
+		From: &dlv1.PlacePayloadRequest_Held{Held: &dlv1.HeldPayload{Files: []*dlv1.HeldFile{{Index: 0, Path: "orchard.mkv"}}}},
+	})
+	if err != nil {
+		return "", err
+	}
+	if want := filepath.Join(c.n.dir, "Movies", h.String()); res.GetFolder() != want {
+		t.Errorf("PlacePayload answered the folder %q, want %q", res.GetFolder(), want)
+	}
+	return filepath.Join(res.GetFolder(), "orchard.mkv"), nil
+}
+
+func TestPlacePayloadLinksOnOneVolumeAndCopiesAcrossVolumes(t *testing.T) {
+	disk := func(t *testing.T) storing.Disk {
+		d, err := storing.NewOSDisk(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	t.Run("one volume", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+			n.disk = disk(t)
+			c := n.startComposite(faketransmission.Versions[0], 1000)
+			got, err := c.placed(t, false)
+			if err != nil {
+				t.Fatalf("PlacePayload: %v", err)
+			}
+			if !sameFile(t, got, filepath.Join(c.daemon.Dir, "Movies", "orchard.mkv")) {
+				t.Errorf("the placed %s isn't a link to the client's file", got)
+			}
+		})
+	})
+	t.Run("across volumes", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+			n.disk = crossDisk{disk(t)}
+			c := n.startComposite(faketransmission.Versions[0], 1000)
+			if _, err := c.placed(t, false); err == nil {
+				t.Fatal("PlacePayload across volumes without a copy allowed placed, want it refused")
+			}
+			got, err := c.placed(t, true)
+			if err != nil {
+				t.Fatalf("PlacePayload with a copy allowed: %v", err)
+			}
+			if data, err := os.ReadFile(got); err != nil || !bytes.Equal(data, c.rels["orchard"].payload) || sameFile(t, got, filepath.Join(c.daemon.Dir, "Movies", "orchard.mkv")) {
+				t.Errorf("the placed %s reads %d bytes, %v; want a copy of orchard's %d", got, len(data), err, len(c.rels["orchard"].payload))
+			}
+		})
+	})
+}
+
+func TestPlacePayloadMovesAStagedFileIntoTheClientsFolderAndConverges(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		d, err := storing.NewOSDisk(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		n.disk = d
+		c := n.startComposite(faketransmission.Versions[0], 1000)
+		transfer := storage.NewUUID()
+		staged := filepath.Join(n.dir, storing.StagingDir, transfer.String(), "0.part")
+		if err := os.MkdirAll(filepath.Dir(staged), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		payload := c.rels["orchard"].payload
+		if err := os.WriteFile(staged, payload, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		h := c.rels["orchard"].hash
+		req := &dlv1.PlacePayloadRequest{
+			ContentType: "Movies", InfoHash: h[:],
+			From: &dlv1.PlacePayloadRequest_Staged{Staged: &dlv1.StagedPayload{TransferId: transfer.Bytes(), Files: []*dlv1.StagedFile{{Position: 0, Path: "orchard.mkv"}}}},
+		}
+		res, err := c.PlacePayload(t.Context(), req)
+		if err != nil {
+			t.Fatalf("PlacePayload: %v", err)
+		}
+		if _, err := c.PlacePayload(t.Context(), req); err != nil {
+			t.Fatalf("PlacePayload again once the file is placed: %v", err)
+		}
+		if data, err := os.ReadFile(filepath.Join(res.GetFolder(), "orchard.mkv")); err != nil || !bytes.Equal(data, payload) {
+			t.Errorf("the placed file reads %d bytes, %v; want orchard's %d", len(data), err, len(payload))
+		}
+		if _, err := os.Stat(staged); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("the staged file stat = %v, want it moved away", err)
+		}
+	})
+}
+
+type crossDisk struct{ storing.Disk }
+
+func (crossDisk) Link(context.Context, string, string) error  { return storing.ErrCrossDevice }
+func (crossDisk) Clone(context.Context, string, string) error { return errors.ErrUnsupported }
+
+func sameFile(t *testing.T, a, b string) bool {
+	t.Helper()
+	ai, err := os.Stat(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bi, err := os.Stat(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return os.SameFile(ai, bi)
 }

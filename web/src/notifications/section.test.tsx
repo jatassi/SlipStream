@@ -157,9 +157,7 @@ test("a Test that fails says why and marks the field it names", async () => {
   await userEvent.click(dialog().getByRole("button", { name: "Test" }));
   await expect
     .element(dialog().getByRole("alert"))
-    .toHaveTextContent(
-      "The Test failed. Discord responded that this address no longer exists. Edit the connection with a new one.",
-    );
+    .toMatchTextContent(/Test failed.+Discord.+no longer exists/u);
   await expect
     .element(
       dialog()

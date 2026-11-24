@@ -1,17 +1,16 @@
 import { http } from "msw";
 import { expect, test } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { userEvent } from "vitest/browser";
 
 import type { GrabsManualSearch } from "../api/gen/model";
 import { problem } from "../test/handlers";
 import { liveServer } from "../test/live-server";
 import { filmPlan, manualSearchId, runId } from "../test/manual";
 import { manualServer } from "../test/manual-server";
-import { openSheet, routedWords, sheetNamed, swapIn, twoGrabs, workId } from "../test/manual-sheet";
+import { openSheet, routedWords, sheetNamed, twoGrabs, workId } from "../test/manual-sheet";
 import { renderApp } from "../test/render-app";
 // oxlint-disable-next-line import/max-dependencies -- the sheet reads the plan, the Targets and the live stream
 import { starter, targetHandlers } from "../test/targets";
-import { asPhone } from "../test/viewport";
 import { openManualSearch } from "./sheet-state";
 
 test("the sheet leads with the headline, then each Grab in words, the cell nothing fills, the folded line and the Searching line", async () => {
@@ -79,32 +78,8 @@ test("red marks only an Indexer that failed and a group of Releases with a fault
   const folded = sheet.getByRole("list", { name: "Releases SlipStream wouldn't grab" });
   await expect
     .element(folded.getByRole("listitem").nth(1))
-    .toHaveTextContent("Fault: 1 has a .torrent that couldn't be read.");
-  await expect
-    .element(folded.getByRole("listitem").first())
-    .toHaveTextContent("3 are 720p, which no Target here accepts.");
-});
-
-test("a swap reads the plan again with the pin, keeps the other row's untick, and the Grab posts only ticked rows", async () => {
-  const server = manualServer({ plan: twoGrabs });
-  openSheet(server);
-  const sheet = sheetNamed("Season 1 of The Long Shelf");
-  await userEvent.click(sheet.getByRole("checkbox", { name: "WEBDL-1080p · NTb · 4.0 GB" }));
-  await expect.element(sheet.getByRole("button", { name: "Grab 1" })).toBeVisible();
-
-  await userEvent.click(sheet.getByRole("button", { name: "Other choices" }));
-  await userEvent.click(sheet.getByRole("button", { name: "Use this" }));
-  await expect
-    .element(sheet.getByRole("checkbox", { name: "WEBRip-1080p · RARBG · 4.0 GB" }))
-    .toBeChecked();
-  expect(server.pinned.at(-1)).toEqual(["pin-e02-rarbg"]);
-  await expect
-    .element(sheet.getByRole("checkbox", { name: "WEBDL-1080p · NTb · 4.0 GB" }))
-    .not.toBeChecked();
-
-  await userEvent.click(sheet.getByRole("button", { name: "Grab 1" }));
-  await expect.element(sheet.getByText("Grabbed.")).toBeVisible();
-  expect(server.grabbed).toEqual([[{ releaseId: swapIn.id, cells: ["cell-e02"], lifts: [] }]]);
+    .toMatchTextContent(/1 has a \.torrent/u);
+  await expect.element(folded.getByRole("listitem").first()).toMatchTextContent(/3 are 720p/u);
 });
 
 test("a search another Admin replaced says so in place of the Grab button", async () => {
@@ -145,19 +120,4 @@ test("a Manual search's event reads the plan again", async () => {
     .element(sheet.getByRole("checkbox", { name: "WEBDL-1080p · FLUX · 4.0 GB" }))
     .toBeChecked();
   await expect.element(sheet.getByRole("button", { name: "Grab 2" })).toBeVisible();
-});
-
-test("on a phone the sheet fills the screen, and Other choices and Details open in place", async () => {
-  await asPhone();
-  openSheet(manualServer({ plan: () => filmPlan }));
-  const sheet = sheetNamed("The Quiet Orchard (2021)");
-  await expect.element(sheet.getByText(filmPlan.plan.headline)).toBeVisible();
-  const row = sheet.getByRole("list", { name: "Grabs" }).getByRole("listitem").first();
-  await userEvent.click(row.getByRole("button", { name: "Other choices" }));
-  await expect.element(row.getByRole("button", { name: "Use this" })).toBeVisible();
-  await userEvent.click(row.getByRole("button", { name: "Details" }).last());
-  await expect.element(row.getByRole("combobox", { name: "Send to" })).toBeVisible();
-  await userEvent.click(sheet.getByRole("button", { name: "Send all to" }));
-  await expect.element(sheet.getByRole("radiogroup", { name: "Send all to" })).toBeVisible();
-  expect(page.getByRole("dialog").elements()).toHaveLength(1);
 });

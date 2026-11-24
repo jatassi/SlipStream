@@ -30,7 +30,7 @@ func engine(t *testing.T, cfg torrentclient.Config, names ...string) (*torrentcl
 
 func add(t *testing.T, e *torrentclient.Engine, r releases.Release, folder string) torrentclient.Torrent {
 	t.Helper()
-	got, duplicate, err := e.Add(r.Metainfo, folder, []string{"slipstream"}, false)
+	got, duplicate, err := e.Add(torrentclient.Add{Metainfo: r.Metainfo, Folder: folder, Labels: []string{"slipstream"}})
 	if err != nil || duplicate {
 		t.Fatalf("Add(%s) = %v, %v", r.Name, duplicate, err)
 	}
@@ -257,7 +257,7 @@ func TestTheEnginePlaysItsFaults(t *testing.T) {
 		if _, ok := e.Get(late.InfoHash); ok {
 			t.Error("a late add is listed at once")
 		}
-		if _, duplicate, _ := e.Add(late.Metainfo, "", nil, false); !duplicate {
+		if _, duplicate, _ := e.Add(torrentclient.Add{Metainfo: late.Metainfo}); !duplicate {
 			t.Error("adding a late torrent again isn't a duplicate")
 		}
 		time.Sleep(30 * time.Second)
@@ -303,7 +303,7 @@ func TestTheEngineChecksATorrentsDataBeforeItMoves(t *testing.T) {
 		e, c := engine(t, torrentclient.Config{Check: 3 * time.Second}, "orchard", "lantern")
 		started, stopped := c.Releases[0], c.Releases[1]
 		add(t, e, started, "")
-		if _, _, err := e.Add(stopped.Metainfo, "", nil, true); err != nil {
+		if _, _, err := e.Add(torrentclient.Add{Metainfo: stopped.Metainfo, Paused: true}); err != nil {
 			t.Fatal(err)
 		}
 		time.Sleep(2 * time.Second)

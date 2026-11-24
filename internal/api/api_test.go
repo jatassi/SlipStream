@@ -135,71 +135,50 @@ func TestRegisterRefusesAnOutputEmbeddingAnUnexportedStruct(t *testing.T) {
 
 var fixtureGone = NewCode(http.StatusGone, "fixture_gone", "The fixture is gone")
 
-func TestAnUndeclaredCodeAnswersInternal(t *testing.T) {
-	var log bytes.Buffer
-	r := newRouter(t, &log)
-	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture"},
-		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) { return nil, fixtureGone })
-	w := get(t, r.Handler(), "/api/v1/fixture")
-	if w.Code != http.StatusInternalServerError || w.Body.String() != internalBody {
-		t.Fatalf("got %d %q, want 500 %q", w.Code, w.Body, internalBody)
-	}
-	if !strings.Contains(log.String(), `level=ERROR msg="operation fixtureGet returned undeclared code fixture_gone" method=GET path=/api/v1/fixture`) {
-		t.Fatalf("log = %q", log.String())
-	}
-}
-
-func TestADeclaredCodeAnswersAsItself(t *testing.T) {
-	r := newRouter(t, &bytes.Buffer{})
-	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture", Errors: []*Code{fixtureGone}},
-		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) { return nil, fixtureGone })
-	w := get(t, r.Handler(), "/api/v1/fixture")
-	want := `{"status":410,"code":"fixture_gone","title":"The fixture is gone"}` + "\n"
-	if w.Code != http.StatusGone || w.Body.String() != want || w.Header().Get("Content-Type") != "application/problem+json" {
-		t.Fatalf("got %d %s %q, want 410 application/problem+json %q", w.Code, w.Header().Get("Content-Type"), w.Body, want)
-	}
-}
-
-func TestACodeBecauseAReasonAnswersItAsTheDetail(t *testing.T) {
-	r := newRouter(t, &bytes.Buffer{})
-	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture", Errors: []*Code{fixtureGone}},
-		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) {
-			return nil, fixtureGone.Because("it was moved")
+func TestAnErrorAnswersItsProblem(t *testing.T) {
+	for _, c := range []struct {
+		name     string
+		declared []*Code
+		err      error
+		status   int
+		body     string
+		log      string
+	}{
+		{
+			"an undeclared code answers internal", nil, fixtureGone, http.StatusInternalServerError, internalBody,
+			`level=ERROR msg="operation fixtureGet returned undeclared code fixture_gone" method=GET path=/api/v1/fixture`,
+		},
+		{
+			"a plain error is scrubbed and logged", nil, errors.New("secret /etc/path"), http.StatusInternalServerError, internalBody,
+			`level=ERROR msg="operation failed" method=GET path=/api/v1/fixture operation=fixtureGet error="secret /etc/path"`,
+		},
+		{"a declared code answers as itself", []*Code{fixtureGone}, fixtureGone, http.StatusGone, `{"status":410,"code":"fixture_gone","title":"The fixture is gone"}` + "\n", ""},
+		{
+			"a code because a reason answers it as the detail", []*Code{fixtureGone}, fixtureGone.Because("it was moved"), http.StatusGone,
+			`{"status":410,"code":"fixture_gone","title":"The fixture is gone","detail":"it was moved"}` + "\n", "",
+		},
+		{
+			"a logged code answers the detail and logs the cause", []*Code{fixtureGone}, fixtureGone.Logged(errors.New("dial tcp: no such host"), "The fixture moved."), http.StatusGone,
+			`{"status":410,"code":"fixture_gone","title":"The fixture is gone","detail":"The fixture moved."}` + "\n", "dial tcp: no such host",
+		},
+		{
+			"a code on a member answers it as a field error", []*Code{fixtureGone}, fixtureGone.On("log.level", "Debug, Info, Warn or Error."), http.StatusGone,
+			`{"status":410,"code":"fixture_gone","title":"The fixture is gone","detail":"Debug, Info, Warn or Error.","errors":[{"location":"body.log.level","message":"Debug, Info, Warn or Error."}]}` + "\n", "",
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			var log bytes.Buffer
+			r := newRouter(t, &log)
+			Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture", Errors: c.declared},
+				func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) { return nil, c.err })
+			w := get(t, r.Handler(), "/api/v1/fixture")
+			if w.Code != c.status || w.Body.String() != c.body || w.Header().Get("Content-Type") != "application/problem+json" {
+				t.Fatalf("got %d %s %q, want %d application/problem+json %q", w.Code, w.Header().Get("Content-Type"), w.Body, c.status, c.body)
+			}
+			if !strings.Contains(log.String(), c.log) {
+				t.Fatalf("log = %q, want it to hold %q", log.String(), c.log)
+			}
 		})
-	w := get(t, r.Handler(), "/api/v1/fixture")
-	want := `{"status":410,"code":"fixture_gone","title":"The fixture is gone","detail":"it was moved"}` + "\n"
-	if w.Code != http.StatusGone || w.Body.String() != want {
-		t.Fatalf("got %d %q, want 410 %q", w.Code, w.Body, want)
-	}
-}
-
-func TestALoggedCodeAnswersTheDetailAndLogsTheCause(t *testing.T) {
-	var log bytes.Buffer
-	r := newRouter(t, &log)
-	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture", Errors: []*Code{fixtureGone}},
-		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) {
-			return nil, fixtureGone.Logged(errors.New("dial tcp: no such host"), "The fixture moved.")
-		})
-	w := get(t, r.Handler(), "/api/v1/fixture")
-	want := `{"status":410,"code":"fixture_gone","title":"The fixture is gone","detail":"The fixture moved."}` + "\n"
-	if w.Code != http.StatusGone || w.Body.String() != want {
-		t.Fatalf("got %d %q, want 410 %q", w.Code, w.Body, want)
-	}
-	if !strings.Contains(log.String(), "dial tcp: no such host") {
-		t.Fatalf("log = %q, want the cause", log.String())
-	}
-}
-
-func TestACodeOnAMemberAnswersItAsAFieldError(t *testing.T) {
-	r := newRouter(t, &bytes.Buffer{})
-	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture", Errors: []*Code{fixtureGone}},
-		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) {
-			return nil, fixtureGone.On("log.level", "Debug, Info, Warn or Error.")
-		})
-	w := get(t, r.Handler(), "/api/v1/fixture")
-	want := `{"status":410,"code":"fixture_gone","title":"The fixture is gone","detail":"Debug, Info, Warn or Error.","errors":[{"location":"body.log.level","message":"Debug, Info, Warn or Error."}]}` + "\n"
-	if w.Code != http.StatusGone || w.Body.String() != want {
-		t.Fatalf("got %d %q, want 410 %q", w.Code, w.Body, want)
 	}
 }
 
@@ -284,22 +263,6 @@ func TestACodeCarryingMembersAnswersEachBesideItsOwnAndDocumentsThem(t *testing.
 	conflict := doc.Paths["/fixture"]["get"].Responses["409"].Content["application/problem+json"].Schema.AllOf
 	if len(conflict) != 2 || conflict[1].Properties["fresh"].Ref != "#/components/schemas/FixtureFresh" || !slices.Equal(conflict[1].Properties["cause"].Enum, []string{"late", "early"}) {
 		t.Fatalf("the 409 is documented as %+v, want the problem with fresh a FixtureFresh and cause late or early", conflict)
-	}
-}
-
-func TestAPlainErrorIsScrubbedAndLogged(t *testing.T) {
-	var log bytes.Buffer
-	r := newRouter(t, &log)
-	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture"},
-		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) {
-			return nil, errors.New("secret /etc/path")
-		})
-	w := get(t, r.Handler(), "/api/v1/fixture")
-	if w.Code != http.StatusInternalServerError || w.Body.String() != internalBody {
-		t.Fatalf("got %d %q, want 500 %q", w.Code, w.Body, internalBody)
-	}
-	if !strings.Contains(log.String(), `level=ERROR msg="operation failed" method=GET path=/api/v1/fixture operation=fixtureGet error="secret /etc/path"`) {
-		t.Fatalf("log = %q", log.String())
 	}
 }
 
@@ -456,16 +419,6 @@ func TestTheWebAppServesBrandFilesWithTheirTypes(t *testing.T) {
 		if got := get(t, h, target).Header().Get("Content-Type"); got != want {
 			t.Errorf("GET %s Content-Type = %q, want %q", target, got, want)
 		}
-	}
-}
-
-func TestAnUnembeddedWebAppPointsAtVite(t *testing.T) {
-	r := newRouter(t, &bytes.Buffer{})
-	r.services.Web = fstest.MapFS{}
-	w := get(t, r.Handler(), "/")
-	want := "This build doesn't include the web app. Use the Vite dev server.\n"
-	if w.Code != http.StatusNotFound || w.Body.String() != want {
-		t.Fatalf("GET / = %d %q, want 404 %q", w.Code, w.Body, want)
 	}
 }
 

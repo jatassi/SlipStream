@@ -9,13 +9,15 @@
 // backslashes and stores backslashes on Windows. A same-folder rename
 // keeps the ratingKey, a destination-first move carries the play count
 // and collections to a new item, and a source-first refresh with
-// autoEmptyTrash purges the item. Editions are their own items only under
+// autoEmptyTrash purges the item. A Move's copy-then-delete follows
+// MoveRules. Editions are their own items only under
 // Plex Pass. Every route but /identity answers 401 without a token the
 // server issued, the account's JWT included. It answers JSON whatever the
 // Accept header asks for.
 package plex
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net"
@@ -36,6 +38,12 @@ const name = "plex"
 
 // Versions are the versions this fake plays.
 var Versions = []string{"1.43.4.10903", "1.43.5.11029"}
+
+// MoveRules are what Plex 1.43.5.11029 did with a Move's copy-then-delete
+// (recorded run 2026-11-23): a copy in its section joins the item, a copy
+// in another section is a new item with the guid's watch data, and a
+// partial refresh of the vacated folder destroys the item.
+var MoveRules = mediaserver.MoveRules{SameSection: true, CrossSection: true, AfterDelete: true}
 
 // Fake is the Plex an Admin picks from plex.tv's resources, at every
 // Node's front. Its address is typed, so Endpoints sets nothing.
@@ -112,7 +120,8 @@ func Playing(srv Server) fake.Spec {
 }
 
 // newServer plays the Plex the Scenario names, or none, as fake-plex-tv's
-// account owns it, with a section per Content Type of the roots it holds.
+// account owns it, with a section per Content Type of the roots it holds
+// and per section a root names.
 func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	p, ok, err := serverfake.Playing(s, name, Versions)
 	if err != nil {
@@ -127,7 +136,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		if !ok {
 			return nil, fmt.Errorf("plex %s holds a %s root, and fake-plex plays no section of it", p.Name, l.ContentType)
 		}
-		srv.Sections = append(srv.Sections, Section{Key: strconv.Itoa(i + 1), Title: title, Type: typ, Folders: l.Folders, Scanned: true})
+		srv.Sections = append(srv.Sections, Section{Key: strconv.Itoa(i + 1), Title: cmp.Or(l.Name, title), Type: typ, Folders: l.Folders, Scanned: true})
 	}
 	return serve(env, srv)
 }
@@ -196,7 +205,7 @@ func newCore(env fake.Env, srv *Server) (*mediaserver.Server, error) {
 	}
 	return mediaserver.New(mediaserver.Behavior{
 		FreshSectionIgnores: true, StableKeyInFolder: true, PurgesVacated: !srv.KeepTrash, Editions: srv.PlexPass,
-		ScanTime: 250 * time.Millisecond,
+		ScanTime: 250 * time.Millisecond, Move: MoveRules,
 	}, mediaserver.Disk{Media: env.Media, Root: root}, libs), nil
 }
 

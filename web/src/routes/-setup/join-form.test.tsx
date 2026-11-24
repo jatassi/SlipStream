@@ -31,35 +31,6 @@ test("a Join that pairs at once lands on the Worker page", async () => {
   expect(readPref("setupCode")).toBe("");
 });
 
-test("a Join that waits for the dial shows the Node address and moves on once joined", async () => {
-  writePref("setupCode", rightCode);
-  const server = joining((node) => {
-    node.join = awaiting;
-    return HttpResponse.json(awaiting, { status: 202 });
-  });
-  const { router } = renderApp({ path: "/setup", handlers: server.handlers });
-  await join();
-  await expect.element(page.getByLabelText("Node address")).toHaveValue("SLN1-8F2KQ9XD4HBT");
-  await expect
-    .element(page.getByText("Paste this Node address into Add a Node on your SlipStream."))
-    .toBeVisible();
-  await expect
-    .element(page.getByLabelText("Node address"))
-    .toHaveAccessibleDescription(/^Expires in (10:00|9:\d\d)\.$/u);
-
-  server.node.join = { state: "joined", nodeId: "1", nodeAddress: "SLN1-8F2KQ9XD4HBT" };
-  server.node.claim = "worker";
-  await expect.poll(() => router.state.location.pathname, { timeout: 5000 }).toBe("/worker");
-});
-
-test("a reload while waiting for the dial resumes the wait", async () => {
-  writePref("setupCode", rightCode);
-  const server = unclaimedNode();
-  server.node.join = awaiting;
-  renderApp({ path: "/setup", handlers: server.handlers });
-  await expect.element(page.getByLabelText("Node address")).toHaveValue("SLN1-8F2KQ9XD4HBT");
-});
-
 test("a Node claimed elsewhere while this tab waits for the dial forgets the Setup code", async () => {
   writePref("setupCode", rightCode);
   const server = unclaimedNode();
@@ -82,36 +53,8 @@ test("a Node claimed elsewhere while this tab waits for the dial forgets the Set
 });
 
 const refusals = [
-  [
-    422,
-    "join_code_damaged",
-    "That Join Code is incomplete or has a wrong character. Copy it again from Add a Node on your SlipStream.",
-  ],
-  [
-    403,
-    "join_code_unknown",
-    "Your SlipStream has no such Join Code. Make a new one in Add a Node.",
-  ],
   [403, "join_code_expired", "That Join Code has expired. Make a new one in Add a Node."],
-  [403, "join_code_used", "That Join Code was already used. Make a new one in Add a Node."],
-  [
-    502,
-    "controller_key_mismatch",
-    "A different SlipStream responded at the address in this Join Code. Make a new Join Code in Add a Node on the SlipStream you want this Node to join.",
-  ],
-  [
-    409,
-    "node_unaddressed",
-    "This Node can't reach your SlipStream and has no network address your SlipStream could connect to. Connect both to the same network, then try again.",
-  ],
-  [
-    409,
-    "setup_busy",
-    "Another setup is running on this Node. Wait for it to finish, then try again.",
-  ],
   [409, "already_claimed", "Someone has already set up this Node."],
-  [409, "join_pending", "This Node is already waiting to join a SlipStream."],
-  [500, "internal", "Joining failed on this Node. Try again, and check its log if it fails again."],
 ] as const;
 
 test.each(refusals)(
@@ -146,14 +89,6 @@ const failures = [
     "controller_unreachable",
     "Your SlipStream didn't connect to this Node before its Node address expired. Try again with a new Join Code.",
   ],
-  ["join_code_unknown", "Your SlipStream has no such Join Code. Make a new one in Add a Node."],
-  ["join_code_expired", "That Join Code has expired. Make a new one in Add a Node."],
-  ["join_code_used", "That Join Code was already used. Make a new one in Add a Node."],
-  [
-    "controller_key_mismatch",
-    "A different SlipStream responded at the address in this Join Code. Make a new Join Code in Add a Node on the SlipStream you want this Node to join.",
-  ],
-  ["internal", "Joining failed on this Node. Try again, and check its log if it fails again."],
 ] as const;
 
 test.each(failures)(

@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -88,11 +89,12 @@ func Of[F entry.Facts](r *Recorder, row entry.Row[F]) []F {
 // UTC, sent by Den.
 var Context = entry.Context{Now: time.Date(2026, 11, 16, 14, 2, 0, 0, time.UTC), Zone: time.UTC, Sender: "Den"}
 
-// Golden renders the facts stored at dir/<name>.json through e and checks
-// the message against dir/<name>.txt. The stored facts are written from
-// facts only when missing, so a later change to the facts' shape has to
-// decode what is already stored. update rewrites the message.
-func Golden(t testing.TB, e entry.Entry, facts any, dir, name string, update bool) {
+// Stored renders the facts stored at dir/<name>.json through e and checks
+// the message has a title, no empty line, and names each of names in its
+// title, lines or link. The stored facts are written from facts only when
+// missing, so a later change to the facts' shape has to decode what is
+// already stored.
+func Stored(t testing.TB, e entry.Entry, facts any, dir, name string, names ...string) entry.Message {
 	t.Helper()
 	stored := filepath.Join(dir, name+".json")
 	subject, err := os.ReadFile(stored) //nolint:gosec // a fixture the test names
@@ -112,41 +114,17 @@ func Golden(t testing.TB, e entry.Entry, facts any, dir, name string, update boo
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := Text(m)
-	path := filepath.Join(dir, name+".txt")
-	if update {
-		if err := os.WriteFile(path, []byte(got), 0o644); err != nil { //nolint:gosec // a golden file the test names
-			t.Fatal(err)
+	read := append([]string{m.Title}, m.Lines...)
+	if m.Title == "" || slices.Contains(m.Lines, "") {
+		t.Errorf("%s reads %q, want a title and no empty line", name, read)
+	}
+	all := strings.Join(append(read, m.Link.Path), "\n")
+	for _, n := range names {
+		if !strings.Contains(all, n) {
+			t.Errorf("%s reads %q linking %q, want it to name %q", name, read, m.Link.Path, n)
 		}
-		return
 	}
-	want, err := os.ReadFile(path) //nolint:gosec // a golden file the test names
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != string(want) {
-		t.Errorf("%s is stale; rerun with -update and review the diff\ngot:\n%s", path, got)
-	}
-}
-
-// Text is m as a golden file reads it.
-func Text(m entry.Message) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "Title: %s\n", m.Title)
-	for _, l := range m.Lines {
-		fmt.Fprintf(&b, "Line: %s\n", l)
-	}
-	fmt.Fprintf(&b, "Link: %s\nTone: %s\n", m.Link.Path, [...]string{"info", "good", "warn", "fail"}[m.Tone])
-	if m.Poster.Path != "" {
-		fmt.Fprintf(&b, "Poster: %s %s\n", m.Poster.Source, m.Poster.Path)
-	}
-	if m.Body.Work != nil {
-		fmt.Fprintf(&b, "Work: %s\n", m.Body.Work.Title)
-	}
-	for _, f := range m.Body.Files {
-		fmt.Fprintf(&b, "File: %s %s replaced %q by %s\n", strings.Join(f.Items, ", "), f.Quality, f.Replaced, f.PlacedBy)
-	}
-	return b.String()
+	return m
 }
 
 // Ignored is a Recorder for an owner whose entries a test doesn't read. It

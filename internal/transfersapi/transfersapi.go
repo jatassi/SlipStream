@@ -48,7 +48,7 @@ var (
 
 type transfer struct {
 	ID              string      `json:"id" format:"uuid"`
-	Purpose         string      `json:"purpose" enum:"import,backup" doc:"The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller"`
+	Purpose         string      `json:"purpose" enum:"import,backup,move" doc:"The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller, and move copies a library file or a torrent's payload to another Node"`
 	Job             string      `json:"job" doc:"The id of the job that asked for it, such as its Grab's"`
 	JobName         string      `json:"jobName" doc:"The job's name, such as a Work's title and year"`
 	Source          end         `json:"source" doc:"The Node it copies from"`
@@ -71,7 +71,7 @@ type end struct {
 }
 
 type destination struct {
-	Kind     string `json:"kind" enum:"root,backup,backups_folder" doc:"root is a library root, backup a Backup destination, and backups_folder the Controller's Backups folder"`
+	Kind     string `json:"kind" enum:"root,backup,backups_folder,download_folder" doc:"root is a library root, backup a Backup destination, backups_folder the Controller's Backups folder, and download_folder a Download Client's folder"`
 	RootID   string `json:"rootId,omitempty" format:"uuid" doc:"The root, for root"`
 	BackupID string `json:"backupDestinationId,omitempty" pattern:"^[0-9a-f]{32}$" doc:"The Backup destination, for backup"`
 	Folder   string `json:"folder,omitempty" doc:"The folder on its Node, for backup and backups_folder"`
@@ -128,6 +128,8 @@ func transferOf(v transfers.View, jobName string, names map[role.NodeID]string) 
 		out.Destination = destination{Kind: "backup", BackupID: hex.EncodeToString(d.ID[:]), Folder: d.Folder, NodeID: d.Node.String(), NodeName: names[d.Node]}
 	case transfers.BackupsFolder:
 		out.Destination = destination{Kind: "backups_folder", Folder: d.Folder, NodeID: d.Node.String(), NodeName: names[d.Node]}
+	case transfers.DownloadFolder:
+		out.Destination = destination{Kind: "download_folder", NodeID: d.Node.String(), NodeName: names[d.Node]}
 	default:
 		panic("transfersapi: a destination of no known kind")
 	}

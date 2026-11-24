@@ -201,13 +201,23 @@ func deedOf(plan seeding.Plan) (deed, bool) {
 }
 
 // act does d to Torrent id in tx and records its goal run. A Torrent a
-// goal already paused has that run rewritten to the kept remove.
+// goal already paused has that run rewritten to the kept remove. A
+// Torrent a Move takes elsewhere has its Move canceled first: the goal
+// wins, and the destination never seeds.
 func (t *Trackers) act(ctx context.Context, tx *storage.Tx[file], id downloadclients.ID, d deed, ran seeding.Ran, now storage.Time) (downloadclients.Touched, error) {
 	ids := []downloadclients.ID{id}
+	moving, err := t.cfg.Moving.Moving(ctx, tx, ids)
+	if err != nil {
+		return downloadclients.Touched{}, err
+	}
+	if _, ok := moving[id]; ok {
+		if err := t.cfg.Moving.CancelIn(ctx, tx, id); err != nil {
+			return downloadclients.Touched{}, err
+		}
+	}
 	var (
 		results []downloadclients.Result
 		touched downloadclients.Touched
-		err     error
 	)
 	if d.action == seeding.Pause {
 		results, touched, err = t.cfg.Clients.WantIn(ctx, tx, ids, downloadclients.Paused)

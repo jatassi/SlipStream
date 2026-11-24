@@ -66,6 +66,11 @@ type Config struct {
 	// torrent a client stopped listing from being marked gone. Nil is
 	// NoKeeps.
 	Keeps Keeps
+	// Moving is the Moves under way. Nil is NoMoving.
+	Moving Moving
+	// Types names each Content Type's folder in an external client's
+	// download folder.
+	Types Describer
 	// HoldingsPage and HoldingsMax bound a Holdings round: pages of at
 	// most HoldingsPage torrents, and at most HoldingsMax in all.
 	HoldingsPage, HoldingsMax int
@@ -118,6 +123,9 @@ func New(cfg Config) *Clients {
 	if cfg.Keeps == nil {
 		cfg.Keeps = NoKeeps
 	}
+	if cfg.Moving == nil {
+		cfg.Moving = NoMoving
+	}
 	return &Clients{
 		cfg: cfg, pending: map[role.NodeID]*pending{}, moved: make(chan struct{}),
 		watching: watching{nodes: map[role.NodeID]*watched{}, moved: map[ID]Sample{}},
@@ -151,7 +159,7 @@ func (c *Clients) Apply(ctx context.Context, tx *storage.Tx[file], node role.Nod
 	q := db.New(tx)
 	switch k := rep.GetKind().(type) {
 	case *dlv1.Report_Torrents:
-		got.ids, got.touch, err = applyReports(ctx, q, node, k.Torrents.GetReports())
+		got.ids, got.touch, err = applyReports(ctx, q, node, k.Torrents.GetReports(), storage.Now())
 	case *dlv1.Report_Totals:
 		got.ids, err = applyTotals(ctx, tx, node, k.Totals.GetRows())
 	case *dlv1.Report_Parted:
@@ -242,9 +250,10 @@ func (c *Clients) wake() {
 	c.moved = make(chan struct{})
 }
 
-// applyReports records each report, and whether one changed a Torrent's
-// wanted state or settled its Retry.
-func applyReports(ctx context.Context, q *db.Queries, node role.NodeID, reports []*dlv1.TorrentReport) (ids []ID, touched bool, err error) {
+// applyReports records each report, received at the Controller's
+// received, and whether one changed a Torrent's wanted state or settled
+// its Retry.
+func applyReports(ctx context.Context, q *db.Queries, node role.NodeID, reports []*dlv1.TorrentReport, received storage.Time) (ids []ID, touched bool, err error) {
 	ids = make([]ID, 0, len(reports))
 	for _, r := range reports {
 		id, err := idOf(r.GetId())
@@ -259,6 +268,9 @@ func applyReports(ctx context.Context, q *db.Queries, node role.NodeID, reports 
 			continue
 		}
 		ids = append(ids, id)
+		if err := applyMove(ctx, q, node, id, r, received.Time()); err != nil {
+			return nil, false, err
+		}
 		changed, err := applyExternal(ctx, q, node, id, r)
 		if err != nil {
 			return nil, false, err

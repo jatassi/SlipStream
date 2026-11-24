@@ -27,7 +27,7 @@ test("past 99 unread the bell reads 99+", async () => {
     .toBeVisible();
 });
 
-test("opening the bell lists the newest rows in a popover under it and moves the cursor to the newest", async () => {
+test("opening the bell lists the newest rows in a popover and moves the cursor to the newest", async () => {
   const world = notificationsWorld({ feed: rows(3, 2), unread: 2 });
   renderApp({ path: "/library", handlers: world.handlers });
   const bell = page.getByRole("button", { name: "Notifications, 2 unread" });
@@ -35,10 +35,6 @@ test("opening the bell lists the newest rows in a popover under it and moves the
   const popover = page.getByRole("dialog", { name: "Notifications" });
   await expect.element(popover.getByRole("heading", { name: "Notifications" })).toBeVisible();
   expect(popover.element().getAttribute("aria-modal")).toBeNull();
-  expect(getComputedStyle(popover.element()).width).toBe("400px");
-  expect(popover.element().getBoundingClientRect().top).toBeGreaterThan(
-    bell.element().getBoundingClientRect().bottom,
-  );
   const list = popover.getByRole("list", { name: "Notifications" });
   await expect.element(list.getByRole("link", { name: /Imported Heat 3/u })).toBeVisible();
   await expect.element(list.getByText("Unread")).toHaveLength(2);

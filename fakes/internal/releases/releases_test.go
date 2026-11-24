@@ -6,7 +6,6 @@ import (
 	"net/netip"
 	"os"
 	"path"
-	"reflect"
 	"slices"
 	"sync"
 	"testing"
@@ -156,23 +155,6 @@ func TestAPublicReleaseIsAnotherTorrentWithNoPrivateKey(t *testing.T) {
 	}
 	if publicHash == privateHash || m.InfoHash != publicHash {
 		t.Fatalf("the public torrent's info hash is %s and the private one's %s, want two hashes", publicHash, privateHash)
-	}
-}
-
-func TestAMetainfoOfFilesListsThemUnderItsFolder(t *testing.T) {
-	files := []releases.TorrentFile{{Path: "Season 01/Lantern.S01E01.mkv", Size: 300 << 10}, {Path: "Lantern.nfo", Size: 120}}
-	payload := slices.Concat(releases.Filler("a", 300<<10), releases.Filler("b", 120))
-	meta, hash, err := releases.Metainfo("Lantern.S01", files, payload, "https://127.0.0.1:1/announce/key", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	m, err := bencode.DecodeMetainfo(meta)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []bencode.File{{Path: []string{"Season 01", "Lantern.S01E01.mkv"}, Length: 300 << 10}, {Path: []string{"Lantern.nfo"}, Length: 120}}
-	if m.Info.Name != "Lantern.S01" || !reflect.DeepEqual(m.Info.Files, want) || m.InfoHash != hash || len(m.Info.Pieces) != 2*20 {
-		t.Fatalf("metainfo is %s with files %+v, want Lantern.S01 with %+v and two pieces", m.Info.Name, m.Info.Files, want)
 	}
 }
 

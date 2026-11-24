@@ -193,8 +193,17 @@ func (w restoring) saveAll(t *testing.T, node string) {
 	for _, r := range w.reconciling(t, node).Roots {
 		roots = append(roots, `{"rootId":"`+r.ID+`"}`)
 	}
-	if r := w.a.Admin(node, http.MethodPost, "/api/v1/reconciling/rehome", `{"roots":[`+strings.Join(roots, ",")+`],"done":true}`); r.Status != http.StatusOK {
-		t.Fatalf("saveRehome = %d %s, want 200", r.Status, r.Body)
+	var out struct {
+		Roots []struct {
+			Refused *string `json:"refused"`
+		} `json:"roots"`
+	}
+	r := w.a.Admin(node, http.MethodPost, "/api/v1/reconciling/rehome", `{"roots":[`+strings.Join(roots, ",")+`],"done":true}`)
+	decode(t, "saveRehome", r, &out)
+	for _, saved := range out.Roots {
+		if saved.Refused != nil {
+			t.Fatalf("saveRehome = %s, want every root saved", r.Body)
+		}
 	}
 }
 
@@ -400,11 +409,12 @@ func TestTheOldControllerIsFencedThenJoinsAsAWorker(t *testing.T) {
 	}
 	act(t, w.run, "spare", world.StartNode)
 	w.controller(t, "spare")
-	// spare lists Harbor for review once it has looked for its files.
+	// spare lists Harbor for review, then looks for its files: the row is
+	// written before the look asks Harbor's Node.
 	var v reconcilingView
-	worldtest.Until(t, "spare lists Harbor for review", func() (bool, error) {
+	worldtest.Until(t, "spare lists Harbor for review and looks for its files", func() (bool, error) {
 		v = w.reconciling(t, "spare")
-		return len(v.Review) > 0, nil
+		return len(v.Review) > 0 && v.Review[0].Found != "not_looked", nil
 	})
 	if len(v.Review) != 1 || v.Review[0].Reason != "not_held" || v.Review[0].Found != "files" {
 		t.Fatalf("getReconciling's review list = %+v, want Harbor not held with its files found", v.Review)
