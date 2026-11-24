@@ -77,6 +77,31 @@ async function setWarningLevels(page: Page, volume: string): Promise<void> {
 const storageSummary = (warn: string, error: string) =>
   `A volume shows a warning below ${warn} free and an error below ${error}. Storage Nodes check each volume every 5 min, and again after each import.`;
 
+const categoryPhrases = [
+  ["Storage", "storage"],
+  ["Library", "the library"],
+  ["Nodes", "Nodes"],
+  ["Download Clients", "download clients"],
+  ["Media Servers", "Media Servers"],
+  ["Remote access", "remote access"],
+  ["Seeding", "torrents that still need seeding"],
+  ["Indexers", "Indexers"],
+  ["Subtitles", "subtitles"],
+  ["Scheduled tasks", "scheduled tasks"],
+  ["Backups", "Backups"],
+  ["Notifications", "notification connections"],
+] as const;
+
+const withoutCheckNow = [
+  "Library",
+  "Remote access",
+  "Seeding",
+  "Indexers",
+  "Scheduled tasks",
+  "Backups",
+  "Notifications",
+];
+
 async function calmPage(page: Page): Promise<void> {
   await expectHealthRow(page, "");
   await navigate(page, "Health");
@@ -86,32 +111,11 @@ async function calmPage(page: Page): Promise<void> {
       "Checked storage, the library, Nodes, download clients, Media Servers, remote access, torrents that still need seeding, Indexers, subtitles, scheduled tasks, Backups and notification connections",
     ),
   ).toBeVisible();
-  for (const [label, phrase] of [
-    ["Storage", "storage"],
-    ["Library", "the library"],
-    ["Nodes", "Nodes"],
-    ["Download Clients", "download clients"],
-    ["Media Servers", "Media Servers"],
-    ["Remote access", "remote access"],
-    ["Seeding", "torrents that still need seeding"],
-    ["Indexers", "Indexers"],
-    ["Subtitles", "subtitles"],
-    ["Scheduled tasks", "scheduled tasks"],
-    ["Backups", "Backups"],
-    ["Notifications", "notification connections"],
-  ] as const) {
+  for (const [label, phrase] of categoryPhrases) {
     // oxlint-disable-next-line no-await-in-loop -- one quiet line per category, in page order
     await expect(category(page, label)).toContainText(`Nothing is wrong with ${phrase}.`);
   }
-  for (const label of [
-    "Library",
-    "Remote access",
-    "Seeding",
-    "Indexers",
-    "Scheduled tasks",
-    "Backups",
-    "Notifications",
-  ]) {
+  for (const label of withoutCheckNow) {
     // oxlint-disable-next-line no-await-in-loop -- one quiet line per category, in page order
     await expect(category(page, label).getByRole("button", { name: /^Check now/u })).toHaveCount(0);
   }
