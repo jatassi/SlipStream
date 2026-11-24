@@ -84,7 +84,7 @@ func TestAUnitJudgesTheRouteFromTheNodesThatMayTestIt(t *testing.T) {
 			never: []role.NodeID{judgetest.Seedbox},
 		},
 		{
-			name: "a port closed from outside fails", shape: judgetest.Open, verdict: judge.Fixable,
+			name: "a port closed from outside fails, tested", shape: judgetest.Open, verdict: judge.Fixable, tested: true, testedBy: judgetest.Seedbox,
 			play: func(w *reachabilitytest.World) {
 				w.Site(judgetest.Seedbox, func(s *reachabilitytest.Site) { s.Player = judgetest.Closed })
 			},

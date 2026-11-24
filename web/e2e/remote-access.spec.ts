@@ -63,7 +63,7 @@ test("the UI and portal and Plex, set up through the Admin's own proxy, read Rea
 
   await world.fw.fault.set({ id: "the-vps", target: "proxy", node: "atlas", fault: "tls=expired" });
   await page.getByRole("button", { name: "Run again", exact: true }).click();
-  await expectVerdict(page, "Plex", "Fixable", false);
+  await expectVerdict(page, "Plex", "Fixable", true);
   await route(page, "Plex").getByRole("button", { name: "TLS: Fails" }).click();
   const tls = hopChecks(page, "TLS · Plex");
   await expect(tls.getByRole("heading", { name: /^Fails/u })).toBeVisible();

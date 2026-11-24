@@ -62,8 +62,9 @@ func (g *judging) run(in *familyIn, r row, perFamily bool) outcome {
 	return o
 }
 
-// family runs one family's rows. A passing outside test overrules every
-// local guess of the family into a fact.
+// family runs one family's rows. A family is tested once a tester's test
+// passes or fails, and only a passing one overrules every local guess of
+// the family into a fact.
 func (g *judging) family(in *familyIn) FamilyVerdict {
 	start := len(g.checks)
 	fv := FamilyVerdict{Family: in.fam}
@@ -75,11 +76,12 @@ func (g *judging) family(in *familyIn) FamilyVerdict {
 			fv.ByPlex = true
 		}
 	}
-	fv.Tested = fv.ByPlex || provenByTester(g.checks[start:])
+	proven := fv.ByPlex || provenByTester(g.checks[start:])
+	fv.Tested = proven || failedForTester(g.checks[start:])
 	if fv.Tested && !fv.ByPlex {
 		fv.Tester = in.player.Tester
 	}
-	if fv.Tested {
+	if proven {
 		for i := range g.checks[start:] {
 			c := &g.checks[start+i]
 			c.Fact = c.Fact || slices.ContainsFunc(familyRows, func(r row) bool { return r.LocalGuess && r.ID == c.ID })
@@ -103,6 +105,14 @@ func provenByTester(cs []Check) bool {
 	identity, _ := result(CheckIdentity)
 	tls, https := result(CheckTLSCertificate)
 	return connect == Passes && identity == Passes && (!https || tls == Passes)
+}
+
+// failedForTester is a tester's test that answered with a failure: the
+// family was tested, and nothing overrules a local guess.
+func failedForTester(cs []Check) bool {
+	return slices.ContainsFunc(cs, func(c Check) bool {
+		return c.Result == Fails && slices.Contains([]CheckID{CheckOutsideConnect, CheckTLSCertificate, CheckIdentity}, c.ID)
+	})
 }
 
 // open is a check that points: not a fact, and neither passing nor out of

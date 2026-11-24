@@ -152,13 +152,13 @@ type FamilyVerdict struct {
 	Family  netmodel.Family
 	Verdict Verdict
 	Tested  bool
-	Tester  role.NodeID // the Node whose test proved it, zero when Plex's check did
+	Tester  role.NodeID // the Node that tested it, zero when Plex's check did
 	ByPlex  bool
 }
 
 // Version is the Judged codec's version. A change to Judged's shape or
 // meaning raises it, and a row of another version reads as not judged yet.
-const Version = 1
+const Version = 2
 
 type Judged struct {
 	V        int
@@ -167,7 +167,7 @@ type Judged struct {
 	Hops     []Hop
 	Families []FamilyVerdict
 	Verdict  Verdict
-	Tested   bool      // every offered family was tested from outside
+	Tested   bool      // every offered family was tested from outside, passing or failing
 	Deciding *CheckRef // nil exactly when Verdict is Reachable and Tested
 	Facts    []Fact    // for the Exposure: ipv6-viewers-direct
 	// Forward is what "Open router ports automatically" maps on the
