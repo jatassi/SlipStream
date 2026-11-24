@@ -46,7 +46,8 @@ type HashFact struct {
 	// Removal is nil while it is live. A Removing Torrent's has no Parted.
 	Removal *Removal
 	// Continued is a removed Torrent whose hash an external client has
-	// held live since the removal, as a send-to leaves it.
+	// held live since the removal, as a send-to leaves it, or holds live
+	// after a Move took it there.
 	Continued bool
 }
 
@@ -88,7 +89,7 @@ func (c *Clients) HashFacts(ctx context.Context, r storage.Reader[file], hashes 
 				f.Removal.Parted = &Parted{At: h.PartedAt.Time()}
 			}
 			f.Continued = slices.ContainsFunc(adds, func(a db.ListExternalAddsRow) bool {
-				return bytes.Equal(a.InfoHash, h.InfoHash) && !a.AddedAt.Time().Before(f.Removal.At)
+				return bytes.Equal(a.InfoHash, h.InfoHash) && (f.Removal.Reason == Moved || !a.AddedAt.Time().Before(f.Removal.At))
 			})
 		}
 		out[row.InfoHash] = append(out[row.InfoHash], f)

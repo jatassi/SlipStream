@@ -50,19 +50,20 @@ var (
 // end is one Node's Transfers half on a linktest Node, with its own
 // local.db and a disk the test can fault.
 type end struct {
-	t       *testing.T
-	name    string
-	ln      *linktest.Node
-	lanes   *lateLanes
-	h       *holder
-	local   *storage.DB[storage.Local]
-	disk    storing.Disk
-	plan    *fault.Plan
-	dir     string
-	sources *sources
-	stager  *stager
-	timings transfers.Timings
-	hooks   transfers.Hooks
+	t         *testing.T
+	name      string
+	ln        *linktest.Node
+	lanes     *lateLanes
+	h         *holder
+	local     *storage.DB[storage.Local]
+	disk      storing.Disk
+	plan      *fault.Plan
+	dir       string
+	sources   *sources
+	stager    *stager
+	downloads *downloads
+	timings   transfers.Timings
+	hooks     transfers.Hooks
 
 	node *transfers.Node
 	stop context.CancelFunc
@@ -82,6 +83,7 @@ func newEnd(t *testing.T, name string) (*end, linktest.Side) {
 	}
 	e.disk = e.plan.Disk(base)
 	e.stager = &stager{dir: e.dir}
+	e.downloads = &downloads{dir: e.dir}
 	return e, linktest.Side{
 		LaneHandler: e.lanes,
 		Streams:     map[link.Kind]func(link.Key, link.Stream){link.KindTransfer: func(k link.Key, s link.Stream) { e.lanes.node().ServeStream(k, s) }},
@@ -92,7 +94,7 @@ func newEnd(t *testing.T, name string) (*end, linktest.Side) {
 // process starting does.
 func (e *end) start() {
 	e.node = transfers.NewNode(transfers.NodeConfig{
-		Local: e.local, Disk: e.disk, Link: e.ln.Link, Sources: e.sources, Roots: e.stager,
+		Local: e.local, Disk: e.disk, Link: e.ln.Link, Sources: e.sources, Roots: e.stager, Downloads: e.downloads,
 		Timings: e.timings, Hooks: e.hooks, Log: slog.New(slog.DiscardHandler),
 	})
 	e.lanes.set(e.node)
@@ -912,6 +914,7 @@ type sources struct {
 	mu     sync.Mutex
 	paths  map[source.Ref]string
 	absent map[source.Ref]error
+	asked  []source.Ref
 }
 
 func (s *sources) put(ref source.Ref, path string, absent error) {
@@ -924,9 +927,16 @@ func (s *sources) put(ref source.Ref, path string, absent error) {
 	s.paths[ref] = path
 }
 
+func (s *sources) opened() []source.Ref {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.asked)
+}
+
 func (s *sources) Open(ref source.Ref) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.asked = append(s.asked, ref)
 	if err := s.absent[ref]; err != nil {
 		return "", err
 	}
@@ -1001,4 +1011,112 @@ func sum(t *testing.T, path string) [32]byte {
 		t.Fatal(err)
 	}
 	return blake3.Sum256(b)
+}
+
+// downloads is a receiver's download folders: it stages each Transfer for
+// the built-in client under the end's folder.
+type downloads struct{ dir string }
+
+func (d *downloads) StageDownload(_ context.Context, client *[16]byte, _ string, _ bencode.InfoHash, id storage.UUID) (string, error) {
+	if client != nil {
+		return "", errors.New("this Node runs no such Download Client")
+	}
+	folder := filepath.Join(d.dir, "downloads", storing.StagingDir, id.String())
+	if err := os.MkdirAll(folder, 0o750); err != nil {
+		return "", err //nolint:wrapcheck // a test's gate
+	}
+	return folder, nil
+}
+
+// libraryFile is file i of tr sent as a library file, its ref's root and
+// path standing for where the sender's Store would resolve it.
+func (tr *transfer) libraryFile(i int) source.Library {
+	ref := source.Library{Root: [16]byte(root.Bytes()), Rel: "Heat (1995)/Heat." + strconv.Itoa(i) + ".mkv"}
+	tr.sender.sources.put(ref, tr.sender.source(i), nil)
+	tr.files[i].Source = &tv1.Source{Ref: &tv1.Source_Library{Library: &tv1.LibrarySource{Root: ref.Root[:], Rel: ref.Rel}}}
+	return ref
+}
+
+func TestALibraryFileArrivesWhole(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		_, w, _ := trio(t)
+		tr := newTransfer(t, w[0], w[1])
+		ref := tr.libraryFile(1)
+		w[0].start()
+		w[1].start()
+		tr.route(tv1.Route_ROUTE_RECEIVER_DIALS, 0)
+		tr.expectArrived()
+		if !slices.Contains(w[0].sources.opened(), source.Ref(ref)) {
+			t.Errorf("the sender opened %v, want the library file %v among them", w[0].sources.opened(), ref)
+		}
+	})
+}
+
+func TestASenderServesOnlyTheLibraryFileItsActiveNames(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		_, w, _ := trio(t)
+		tr := newTransferOf(t, w[0], w[1], sizes[:1])
+		tr.libraryFile(0)
+		w[0].start()
+		w[1].start()
+		tr.sender.h.set(&tv1.Intent{Active: []*tv1.Active{tr.active(tv1.Side_SIDE_SEND, tv1.Route_ROUTE_RECEIVER_DIALS)}}, role.Live)
+		forged := &tv1.LibrarySource{Root: root.Bytes(), Rel: "Ronin (1998)/Ronin.mkv"}
+		recv := tr.active(tv1.Side_SIDE_RECEIVE, tv1.Route_ROUTE_RECEIVER_DIALS)
+		recv.Files = []*tv1.File{{Position: 0, Size: tr.files[0].GetSize(), Source: &tv1.Source{Ref: &tv1.Source_Library{Library: forged}}}}
+		w[0].sources.put(source.Library{Root: [16]byte(root.Bytes()), Rel: forged.GetRel()}, w[0].source(0), nil)
+		tr.receiver.h.set(&tv1.Intent{Active: []*tv1.Active{recv}, Keep: []*tv1.Kept{tr.kept()}}, role.Live)
+		time.Sleep(time.Minute)
+		synctest.Wait()
+		if got := verified(w[1].h.results(), tr.id); len(got) != 0 {
+			t.Errorf("a file the sender's Active doesn't name was verified at %v", got)
+		}
+		for _, ref := range w[0].sources.opened() {
+			if lib, ok := ref.(source.Library); ok && lib.Rel == forged.GetRel() {
+				t.Fatalf("the sender opened %v, a file its Active doesn't name", ref)
+			}
+		}
+	})
+}
+
+func TestALibraryFileGoneFailsSourceGone(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		_, w, _ := trio(t)
+		tr := newTransferOf(t, w[0], w[1], sizes[:1])
+		ref := tr.libraryFile(0)
+		w[0].sources.put(ref, "", &source.Absent{Reason: source.Gone})
+		w[0].start()
+		w[1].start()
+		tr.route(tv1.Route_ROUTE_RECEIVER_DIALS, 0)
+		if f := w[1].h.awaitFailed(t, tr.id); f.GetCode() != tv1.Failed_CODE_SOURCE_GONE || f.GetPosition() != 0 {
+			t.Fatalf("a library file gone failed %v, want source_gone at file 0", f)
+		}
+	})
+}
+
+func TestATransferIntoADownloadFolderStagesInIt(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		_, w, _ := trio(t)
+		tr := newTransfer(t, w[0], w[1])
+		w[0].start()
+		w[1].start()
+		recv := tr.active(tv1.Side_SIDE_RECEIVE, tv1.Route_ROUTE_RECEIVER_DIALS)
+		recv.Destination = &tv1.Destination{Kind: &tv1.Destination_DownloadFolder{DownloadFolder: &tv1.DownloadFolder{ContentType: "films", InfoHash: make([]byte, 20)}}}
+		tr.sender.h.set(&tv1.Intent{Active: []*tv1.Active{tr.active(tv1.Side_SIDE_SEND, tv1.Route_ROUTE_RECEIVER_DIALS)}}, role.Live)
+		tr.receiver.h.set(&tv1.Intent{Active: []*tv1.Active{recv}, Keep: []*tv1.Kept{tr.kept()}}, role.Live)
+		w[1].h.await(t, "every file verified", func(rs []*tv1.Result, _ []*tv1.Facts) bool {
+			n := 0
+			for _, r := range rs {
+				if v := r.GetVerified(); v != nil && bytes.Equal(v.GetTransferId(), tr.id.Bytes()) && v.GetPlace() == 1 {
+					n++
+				}
+			}
+			return n == len(tr.files)
+		})
+		for i := range tr.files {
+			staged := filepath.Join(w[1].dir, "downloads", storing.StagingDir, tr.id.String(), strconv.Itoa(i)+".part")
+			if got, want := sum(t, staged), sum(t, w[0].source(i)); got != want {
+				t.Fatalf("file %d staged in the download folder hashes %x, want its source's %x", i, got, want)
+			}
+		}
+	})
 }

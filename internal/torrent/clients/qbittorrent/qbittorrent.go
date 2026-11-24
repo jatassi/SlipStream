@@ -32,11 +32,15 @@ const (
 // to stopped*.
 var stopSince, _ = clients.ParseVersion("2.11.0")
 
+// seedModeSince is the WebAPI version that replaced torrents/add's
+// skip_checking, which later versions ignore, with seedMode.
+var seedModeSince, _ = clients.ParseVersion("2.16.0")
+
 // Open starts a session with the qBittorrent at s.Address. It does no IO.
 func Open(s clients.Session) clients.Client { return open(s) }
 
 func open(s clients.Session) *client {
-	return &client{s: s, ran: map[bencode.InfoHash]clients.Run{}, trackers: map[bencode.InfoHash]trackers{}}
+	return &client{s: s, ran: map[bencode.InfoHash]clients.Run{}, asked: map[bencode.InfoHash]time.Time{}, trackers: map[bencode.InfoHash]trackers{}}
 }
 
 type client struct {
@@ -51,8 +55,14 @@ type client struct {
 	// ran is what each torrent was last seen or asked to do, since
 	// qBittorrent reports a torrent it checks as checking whether it was
 	// stopped or started.
-	ran      map[bencode.InfoHash]clients.Run
-	trackers map[bencode.InfoHash]trackers
+	ran map[bencode.InfoHash]clients.Run
+	// asked is when Act asked for each torrent's run in ran that no
+	// listing has read yet. qBittorrent lists a started torrent stopped
+	// for about 1.5 s, so ran outlasts a listing of the run before it
+	// until the session's RunWait has passed.
+	asked      map[bencode.InfoHash]time.Time
+	trackers   map[bencode.InfoHash]trackers
+	countdowns clients.Countdowns
 }
 
 // trackers is one torrent's tracker messages and when they were read.
@@ -208,6 +218,9 @@ func (c *client) versions(ctx context.Context) error {
 
 // renamed is a session past WebAPI 2.11.0's rename of pause to stop.
 func (c *client) renamed() bool { return !c.api.Less(stopSince) }
+
+// seedMode is a session past WebAPI 2.16.0's seedMode.
+func (c *client) seedMode() bool { return !c.api.Less(seedModeSince) }
 
 func (c *client) Version(ctx context.Context) (clients.Version, error) {
 	if err := c.versions(ctx); err != nil {

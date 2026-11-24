@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/clients"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 const addressHolder = `-- name: AddressHolder :one
@@ -39,7 +40,7 @@ func (q *Queries) AddressHolder(ctx context.Context, arg AddressHolderParams) (A
 
 const countLiveByClient = `-- name: CountLiveByClient :many
 SELECT client_id, count(*) AS torrents FROM downloadclients_torrent
-WHERE client_id IS NOT NULL AND removed_at IS NULL
+WHERE client_id IS NOT NULL AND removed_at IS NULL AND arriving_unit IS NULL
 GROUP BY client_id ORDER BY client_id
 `
 
@@ -320,6 +321,89 @@ func (q *Queries) ListClients(ctx context.Context) ([]DownloadclientsClient, err
 	return items, nil
 }
 
+const listHeldElsewhere = `-- name: ListHeldElsewhere :many
+SELECT t.name FROM downloadclients_torrent t
+WHERE t.client_id = ?1 AND t.parted_at IS NULL AND EXISTS (
+    SELECT 1 FROM downloadclients_torrent o
+    WHERE o.node_id = ?2 AND o.info_hash = t.info_hash AND o.parted_at IS NULL
+        AND o.arriving_unit IS NULL AND o.removed_reason IS NOT 'moved'
+)
+ORDER BY t.added_order
+`
+
+type ListHeldElsewhereParams struct {
+	ClientID *ClientID
+	NodeID   role.NodeID
+}
+
+// The client's Torrents whose info hash node already holds live.
+func (q *Queries) ListHeldElsewhere(ctx context.Context, arg ListHeldElsewhereParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listHeldElsewhere, arg.ClientID, arg.NodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLookable = `-- name: ListLookable :many
+SELECT id, name, content_type, metainfo, save_folder FROM downloadclients_torrent
+WHERE client_id = ?1 AND parted_at IS NULL AND removed_at IS NULL AND arriving_unit IS NULL
+ORDER BY added_order
+`
+
+type ListLookableRow struct {
+	ID          TorrentID
+	Name        string
+	ContentType *works.TypeID
+	Metainfo    []byte
+	SaveFolder  *string
+}
+
+// The client's live Torrents, whose files its new Node must find.
+func (q *Queries) ListLookable(ctx context.Context, clientID *ClientID) ([]ListLookableRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLookable, clientID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLookableRow
+	for rows.Next() {
+		var i ListLookableRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.ContentType,
+			&i.Metainfo,
+			&i.SaveFolder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listNodeClients = `-- name: ListNodeClients :many
 SELECT id, node_id, kind, name, address, address_key, username, secrets_sealed, label, folder, client_folders, daemon_host, daemon_port, check_every_seconds, import_delay_seconds, is_on, settings_version, poll_state, poll_since, poll_problem, poll_settings_version, poll_check, client_version, created_at, updated_at, deleted_at FROM downloadclients_client WHERE node_id = ?1 AND deleted_at IS NULL ORDER BY id
 `
@@ -418,6 +502,22 @@ func (q *Queries) NameTaken(ctx context.Context, arg NameTakenParams) (int64, er
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const rerecordClient = `-- name: RerecordClient :exec
+UPDATE downloadclients_torrent SET node_id = ?1
+WHERE client_id = ?2 AND parted_at IS NULL
+`
+
+type RerecordClientParams struct {
+	NodeID   role.NodeID
+	ClientID *ClientID
+}
+
+// The client's Torrents go with it to node, keeping their raw counters.
+func (q *Queries) RerecordClient(ctx context.Context, arg RerecordClientParams) error {
+	_, err := q.db.ExecContext(ctx, rerecordClient, arg.NodeID, arg.ClientID)
+	return err
 }
 
 const setPoll = `-- name: SetPoll :execrows

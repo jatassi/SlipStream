@@ -31,6 +31,18 @@ func (s *Store) sourcePath(ctx context.Context, src Source) (string, error) {
 		return p, nil
 	case NodePath:
 		return s.fence(ctx, src.Abs)
+	case Library:
+		dir, err := s.resolve(ctx, src.Root, false)
+		if err != nil {
+			return "", err
+		}
+		return s.host.Style.Under(dir, src.Rel), nil
+	case Arriving:
+		p, err := s.cfg.Payloads.Arriving(src)
+		if err != nil {
+			return "", rpc.Errorf(rpc.CodeUnavailable, "%v", err)
+		}
+		return p, nil
 	}
 	panic("storing: a source of no kind")
 }
@@ -42,7 +54,7 @@ func (s *Store) ListVideos(ctx context.Context, req *storagev1.ListVideosRequest
 	}
 	l, err := s.listVideos(ctx, req.GetPath(), videos)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	res := &storagev1.ListVideosResponse{Path: l.path}
 	if !l.root.IsZero() {
@@ -56,7 +68,7 @@ func (s *Store) ListVideos(ctx context.Context, req *storagev1.ListVideosRequest
 
 func (s *Store) RemoveSource(ctx context.Context, req *storagev1.RemoveSourceRequest) (*storagev1.RemoveSourceResponse, error) {
 	if err := s.removeSource(ctx, req.GetPath()); err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	return &storagev1.RemoveSourceResponse{}, nil
 }

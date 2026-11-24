@@ -63,11 +63,7 @@ type fixture struct {
 // mapping, a due change, an index entry, a play and a credential fetch.
 func seed(t *testing.T) fixture {
 	f := fixture{lib: open(t), node: storage.NewUUID(), root: storage.NewUUID(), server: storage.NewUUID(), file: storage.NewUUID()}
-	must(t, f.lib, "INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'Den', 0)", f.node)
-	must(t, f.lib, "INSERT INTO roots_root (id, content_type, node_id, path, is_default) VALUES (?, 'fixture', ?, '/media/movies', 1)", f.root, f.node)
-	must(t, f.lib, `INSERT INTO mediaservers_server (id, kind, name, address, identity, version, monitor_delay_ms,
-		reaching_node_id, device_id, secrets_sealed, created_at, updated_at)
-		VALUES (?, 'jellyfin', 'Den Jellyfin', 'http://den:8096', 'f4c1', '12.2.0', 60000, ?, 'd1', x'00', 1, 1)`, f.server, f.node)
+	seedServer(t, f)
 	must(t, f.lib, `INSERT INTO mediaservers_mapping (server_id, root_id, shown, server_folder, library_key, library_name,
 		library_folder, confirmed_at, confirmed_place) VALUES (?, ?, 1, '/media/movies', 'a', 'Movies', '/media/movies', 1, 1)`, f.server, f.root)
 	f.change(t, "added", "Heat/Heat.mkv", nil, "due", "none")
@@ -149,6 +145,16 @@ func TestAPlayIdNamesAPlayOnlyOnItsServer(t *testing.T) {
 		started_at, last_seen_at) VALUES (?, ?, 's2', '/x', 'Sam', 'TV', 'Plex', 'copy', 1, 1)`, f.server, id); err == nil {
 		t.Error("a play id was started twice on one server")
 	}
+}
+
+// seedServer adds f's Node, a root on it and a Jellyfin server.
+func seedServer(t *testing.T, f fixture) {
+	t.Helper()
+	must(t, f.lib, "INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'Den', 0)", f.node)
+	must(t, f.lib, "INSERT INTO roots_root (id, content_type, node_id, path, is_default) VALUES (?, 'fixture', ?, '/media/movies', 1)", f.root, f.node)
+	must(t, f.lib, `INSERT INTO mediaservers_server (id, kind, name, address, identity, version, monitor_delay_ms,
+		reaching_node_id, device_id, secrets_sealed, created_at, updated_at)
+		VALUES (?, 'jellyfin', 'Den Jellyfin', 'http://den:8096', 'f4c1', '12.2.0', 60000, ?, 'd1', x'00', 1, 1)`, f.server, f.node)
 }
 
 func TestTheSchemaRefusesAChangeNoFoldMakes(t *testing.T) {

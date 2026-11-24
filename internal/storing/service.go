@@ -37,7 +37,7 @@ func (s *Store) Browse(ctx context.Context, req *storagev1.BrowseRequest) (*stor
 	}
 	l, err := s.browse(ctx, req.GetPath(), req.GetShowHidden(), purpose)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	res := &storagev1.BrowseResponse{
 		Path: l.Path, Parent: l.Parent, Hidden: int64(l.Hidden), Service: l.Service,
@@ -64,7 +64,7 @@ func (s *Store) Browse(ctx context.Context, req *storagev1.BrowseRequest) (*stor
 func (s *Store) Suggest(ctx context.Context, req *storagev1.SuggestRequest) (*storagev1.SuggestResponse, error) {
 	paths, err := s.suggest(ctx, req.GetText())
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	return &storagev1.SuggestResponse{Paths: paths}, nil
 }
@@ -72,7 +72,7 @@ func (s *Store) Suggest(ctx context.Context, req *storagev1.SuggestRequest) (*st
 func (s *Store) MakeFolder(ctx context.Context, req *storagev1.MakeFolderRequest) (*storagev1.MakeFolderResponse, error) {
 	p, err := s.makeFolder(ctx, req.GetParent(), req.GetName())
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	return &storagev1.MakeFolderResponse{Path: p}, nil
 }
@@ -92,7 +92,7 @@ func (s *Store) Check(ctx context.Context, req *storagev1.CheckRequest) (*storag
 	}
 	c, err := s.check(ctx, req.GetPath(), purpose, others, purpose.writes())
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	res := &storagev1.CheckResponse{Path: c.Path}
 	if c.Volume != nil {
@@ -141,14 +141,14 @@ func (s *Store) Verify(ctx context.Context, req *storagev1.VerifyRequest) (*stor
 			return nil, err
 		}
 		if dir, err = s.resolve(ctx, root, false); err != nil {
-			return nil, wireError(err)
+			return nil, WireError(err)
 		}
 	default:
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "verify names neither a folder nor a root")
 	}
 	missing, err := s.verify(ctx, dir, files)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	res := &storagev1.VerifyResponse{}
 	for _, m := range missing {
@@ -173,6 +173,19 @@ func (s *Store) Place(ctx context.Context, req *storagev1.PlaceRequest) (*storag
 		from = Payload{InfoHash: h, FileIndex: int(src.Payload.GetFileIndex())}
 	case *storagev1.PlaceRequest_Path:
 		from = NodePath{Abs: src.Path}
+	case *storagev1.PlaceRequest_Library:
+		lib := Library{}
+		if lib.Root, err = rootID(src.Library.GetRootId()); err != nil {
+			return nil, err
+		}
+		if lib.Rel, err = relOf(src.Library.GetRel()); err != nil {
+			return nil, err
+		}
+		from = lib
+	case *storagev1.PlaceRequest_Arriving:
+		if from, err = arrivingOf(src.Arriving); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "a place names no source")
 	}
@@ -182,7 +195,12 @@ func (s *Store) Place(ctx context.Context, req *storagev1.PlaceRequest) (*storag
 	}
 	info, step, err := s.place(ctx, root, from, to, req.GetAllowCopy())
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
+	}
+	if req.GetLedger() {
+		if err := s.recordLedger(ctx, root, to); err != nil {
+			return nil, WireError(err)
+		}
 	}
 	return &storagev1.PlaceResponse{Size: info.Size(), Step: step.Wire(), Identity: identityOf(info)}, nil
 }
@@ -206,7 +224,12 @@ func (s *Store) Move(ctx context.Context, req *storagev1.MoveRequest) (*storagev
 	}
 	info, left, err := s.move(ctx, root, from, to, req.GetCarry(), videos)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
+	}
+	if req.GetLedger() {
+		if err := s.recordLedger(ctx, root, to); err != nil {
+			return nil, WireError(err)
+		}
 	}
 	res := &storagev1.MoveResponse{Size: info.Size(), Identity: identityOf(info)}
 	for _, l := range left {
@@ -241,7 +264,7 @@ func (s *Store) Survey(ctx context.Context, req *storagev1.SurveyRequest) (*stor
 	}
 	found, err := s.survey(ctx, root, planned, req.GetCompanions(), videos)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	res := &storagev1.SurveyResponse{}
 	for _, f := range found {
@@ -276,7 +299,7 @@ func (s *Store) Prune(ctx context.Context, req *storagev1.PruneRequest) (*storag
 	}
 	removed, err := s.prune(ctx, root, folder, keep)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	res := &storagev1.PruneResponse{}
 	for _, r := range removed {
@@ -295,7 +318,7 @@ func (s *Store) Remove(ctx context.Context, req *storagev1.RemoveRequest) (*stor
 		return nil, err
 	}
 	if err := s.remove(ctx, root, rel, req.GetRecursive()); err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	return &storagev1.RemoveResponse{}, nil
 }
@@ -311,7 +334,7 @@ func (s *Store) List(ctx context.Context, req *storagev1.ListRequest) (*storagev
 	}
 	names, err := s.list(ctx, root, folder)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	return &storagev1.ListResponse{Names: names}, nil
 }
@@ -335,7 +358,7 @@ func (s *Store) Walk(ctx context.Context, req *storagev1.WalkRequest) (*storagev
 	}
 	p, err := s.walk(ctx, root, after, limit, videos)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	res := &storagev1.WalkResponse{Next: []byte(strings.Join(p.next, "\x00")), CaseInsensitive: p.caseFold}
 	for _, f := range p.files {
@@ -361,7 +384,7 @@ func (s *Store) Probe(ctx context.Context, req *storagev1.ProbeRequest) (*storag
 		return nil, rpc.ErrorWith(rpc.CodeFailedPrecondition, &storagev1.Unprobed{Line: u.Line}, u.Error())
 	}
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	record, err := json.Marshal(r)
 	if err != nil {
@@ -400,10 +423,10 @@ func relOf(s string) (Rel, error) {
 	return rel, nil
 }
 
-// wireError is err as a handler answers it: a *FolderError, *NotReady,
+// WireError is err as a handler answers it: a *FolderError, *NotReady,
 // *OutsideError or ErrOccupied keeps its meaning across the wire, and any
 // other error is the call's as it is.
-func wireError(err error) error {
+func WireError(err error) error {
 	if oe, ok := errors.AsType[*OutsideError](err); ok {
 		return rpc.ErrorWith(rpc.CodeFailedPrecondition, &storagev1.Outside{Path: oe.Path}, oe.Error())
 	}

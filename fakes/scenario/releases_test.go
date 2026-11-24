@@ -137,6 +137,10 @@ func TestValidateChecksTheTracker(t *testing.T) {
 		{Mode: UNIT3D, AllowPeerIDs: []string{"-qB"}}:                                `tracker allow_peer_ids is for gazelle mode, not "unit3d"`,
 		{Mode: Gazelle, AllowPeerIDs: []string{"-LT", ""}}:                           "tracker allow_peer_ids lists an empty prefix, which allows every peer ID",
 		{Grace: -time.Minute}:                                                        "tracker grace -1m0s is negative",
+		{Mode: UNIT3D, Variant: "go"}:                                                `tracker variant "go" is not php or rust`,
+		{Variant: Rust}:                                                              `tracker variant is for unit3d mode, not ""`,
+		{ClearAfter: time.Minute}:                                                    `tracker clear_after is for unit3d mode, not ""`,
+		{Mode: UNIT3D, ClearAfter: -1}:                                               "tracker clear_after -1ns is negative",
 		{Sites: map[string]SiteRule{"brook": {MinSeedTime: time.Hour}}}:              `tracker sites names "brook", which states no rule`,
 		{Sites: map[string]SiteRule{"heron": {MinRatio: 1, MinSeedTime: time.Hour}}}: "tracker sites heron states a ratio and a seed time, and site heron states a seed time only",
 		{Sites: map[string]SiteRule{"tamarack": {MinSeedTime: 3 * time.Minute}}}:     "tracker sites tamarack states a seed time only, and site tamarack states a ratio and a seed time",
@@ -150,7 +154,7 @@ func TestValidateChecksTheTracker(t *testing.T) {
 	if err := s.Validate(); err != nil {
 		t.Errorf("Validate(%+v) = %v", s.Tracker, err)
 	}
-	s.Tracker = Tracker{Mode: UNIT3D, Prewarn: 2 * time.Minute, Grace: 2 * time.Minute, InactiveAfter: time.Minute, Sites: map[string]SiteRule{
+	s.Tracker = Tracker{Mode: UNIT3D, Variant: Rust, ClearAfter: 3 * time.Second, Prewarn: 2 * time.Minute, Grace: 2 * time.Minute, InactiveAfter: time.Minute, Sites: map[string]SiteRule{
 		"heron": {MinSeedTime: 3 * time.Minute}, "tamarack": {MinRatio: 1, MinSeedTime: 3 * time.Minute},
 	}}
 	if err := s.Validate(); err != nil {

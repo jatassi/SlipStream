@@ -24,7 +24,7 @@ UPDATE downloadclients_torrent SET
     raw_uploaded = ?5, raw_downloaded = ?6,
     raw_active_seconds = ?7, raw_seeding_seconds = ?8,
     totals_at = ?9
-WHERE id = ?10 AND node_id = ?11
+WHERE id = ?10 AND node_id = ?11 AND removed_reason IS NOT 'moved'
 `
 
 type AddCountedParams struct {
@@ -41,6 +41,7 @@ type AddCountedParams struct {
 	NodeID            role.NodeID
 }
 
+// As MergeTotals, a moved Torrent's totals are final.
 func (q *Queries) AddCounted(ctx context.Context, arg AddCountedParams) error {
 	_, err := q.db.ExecContext(ctx, addCounted,
 		arg.Uploaded,
@@ -129,7 +130,7 @@ func (q *Queries) ForgetTracker(ctx context.Context, trackerID *indexers.Tracker
 
 const getDetails = `-- name: GetDetails :one
 SELECT metainfo, save_folder FROM downloadclients_torrent
-WHERE id = ?1 AND parted_at IS NULL
+WHERE id = ?1 AND parted_at IS NULL AND arriving_unit IS NULL
 `
 
 type GetDetailsRow struct {
@@ -145,18 +146,20 @@ func (q *Queries) GetDetails(ctx context.Context, id TorrentID) (GetDetailsRow, 
 }
 
 const getFetched = `-- name: GetFetched :one
-SELECT node_id, metainfo, content_type, save_folder, removed_at, attached,
+SELECT node_id, client_id, metainfo, content_type, save_folder, removed_at, attached, arriving_unit IS NOT NULL AS arriving,
        uploaded, downloaded, active_seconds, seeding_seconds, announced_seconds
 FROM downloadclients_torrent WHERE id = ?1
 `
 
 type GetFetchedRow struct {
 	NodeID           role.NodeID
+	ClientID         *ClientID
 	Metainfo         []byte
 	ContentType      *works.TypeID
 	SaveFolder       *string
 	RemovedAt        storage.Time
 	Attached         *bool
+	Arriving         bool
 	Uploaded         int64
 	Downloaded       int64
 	ActiveSeconds    int64
@@ -169,11 +172,13 @@ func (q *Queries) GetFetched(ctx context.Context, id TorrentID) (GetFetchedRow, 
 	var i GetFetchedRow
 	err := row.Scan(
 		&i.NodeID,
+		&i.ClientID,
 		&i.Metainfo,
 		&i.ContentType,
 		&i.SaveFolder,
 		&i.RemovedAt,
 		&i.Attached,
+		&i.Arriving,
 		&i.Uploaded,
 		&i.Downloaded,
 		&i.ActiveSeconds,
@@ -185,7 +190,7 @@ func (q *Queries) GetFetched(ctx context.Context, id TorrentID) (GetFetchedRow, 
 
 const getInheritedTotals = `-- name: GetInheritedTotals :one
 SELECT uploaded, downloaded, active_seconds, seeding_seconds, announced_seconds, totals_at FROM downloadclients_torrent
-WHERE info_hash = ?1 AND removed_at IS NOT NULL
+WHERE info_hash = ?1 AND removed_at IS NOT NULL AND arriving_unit IS NULL
 ORDER BY removed_at DESC, added_order DESC
 LIMIT 1
 `
@@ -272,7 +277,7 @@ SELECT count(*) AS torrents,
        CAST(coalesce(sum(active_seconds), 0) AS INTEGER) AS active_seconds,
        CAST(coalesce(sum(seeding_seconds), 0) AS INTEGER) AS seeding_seconds
 FROM downloadclients_torrent
-WHERE node_id = ?1 AND client_id IS NULL AND removed_at IS NULL
+WHERE node_id = ?1 AND client_id IS NULL AND removed_at IS NULL AND arriving_unit IS NULL
 `
 
 type GetNodeTotalsRow struct {
@@ -513,7 +518,7 @@ func (q *Queries) InsertTorrent(ctx context.Context, arg InsertTorrentParams) er
 
 const listActed = `-- name: ListActed :many
 SELECT t.id, t.node_id, t.info_hash, t.removed_at, t.wanted, t.report, t.completion, t.client_id, t.attached,
-       coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on, c.poll_state
+       t.arriving_unit IS NOT NULL AS arriving, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on, c.poll_state
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.id IN (/*SLICE:ids*/?)
 ORDER BY t.id
@@ -529,6 +534,7 @@ type ListActedRow struct {
 	Completion *string
 	ClientID   *ClientID
 	Attached   *bool
+	Arriving   bool
 	ClientName string
 	ClientOn   bool
 	PollState  *string
@@ -563,6 +569,7 @@ func (q *Queries) ListActed(ctx context.Context, ids []TorrentID) ([]ListActedRo
 			&i.Completion,
 			&i.ClientID,
 			&i.Attached,
+			&i.Arriving,
 			&i.ClientName,
 			&i.ClientOn,
 			&i.PollState,
@@ -660,7 +667,8 @@ func (q *Queries) ListAttached(ctx context.Context, ids []TorrentID) ([]ListAtta
 }
 
 const listCountable = `-- name: ListCountable :many
-SELECT node_id, removed_at, wanted, report FROM downloadclients_torrent WHERE parted_at IS NULL ORDER BY node_id, added_order
+SELECT node_id, removed_at, wanted, report FROM downloadclients_torrent WHERE parted_at IS NULL AND arriving_unit IS NULL
+ORDER BY node_id, added_order
 `
 
 type ListCountableRow struct {
@@ -700,7 +708,7 @@ func (q *Queries) ListCountable(ctx context.Context) ([]ListCountableRow, error)
 
 const listDownloads = `-- name: ListDownloads :many
 SELECT id, size, wanted, report FROM downloadclients_torrent
-WHERE removed_at IS NULL AND completion IS NULL
+WHERE removed_at IS NULL AND completion IS NULL AND arriving_unit IS NULL
 ORDER BY added_order
 `
 
@@ -741,7 +749,7 @@ func (q *Queries) ListDownloads(ctx context.Context) ([]ListDownloadsRow, error)
 
 const listExternalAdds = `-- name: ListExternalAdds :many
 SELECT info_hash, added_at FROM downloadclients_torrent
-WHERE info_hash IN (/*SLICE:info_hashes*/?) AND client_id IS NOT NULL AND removed_at IS NULL
+WHERE info_hash IN (/*SLICE:info_hashes*/?) AND client_id IS NOT NULL AND removed_at IS NULL AND arriving_unit IS NULL
 ORDER BY info_hash, added_at
 `
 
@@ -751,7 +759,7 @@ type ListExternalAddsRow struct {
 }
 
 // When each live Torrent of the hashes that an external client holds was
-// added.
+// added, leaving out a Move's arriving one.
 func (q *Queries) ListExternalAdds(ctx context.Context, infoHashes [][]byte) ([]ListExternalAddsRow, error) {
 	query := listExternalAdds
 	var queryParams []interface{}
@@ -844,10 +852,10 @@ SELECT t.id, t.node_id, t.info_hash, t.name, t.size, t.private, t.trackers, t.co
        t.seeding_seconds, t.announced_seconds, t.totals_at, t.report, t.fault, t.fault_at, t.client_id, t.attached,
        t.completed_at, t.retry, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
-WHERE t.info_hash IN (/*SLICE:info_hashes*/?) AND t.client_id IS NULL
+WHERE t.info_hash IN (/*SLICE:info_hashes*/?) AND t.client_id IS NULL AND t.arriving_unit IS NULL
   AND (t.parted_at IS NULL OR t.id = (
       SELECT p.id FROM downloadclients_torrent AS p
-      WHERE p.info_hash = t.info_hash AND p.client_id IS NULL AND p.parted_at IS NOT NULL
+      WHERE p.info_hash = t.info_hash AND p.client_id IS NULL AND p.parted_at IS NOT NULL AND p.arriving_unit IS NULL
       ORDER BY p.removed_at DESC, p.added_order DESC
       LIMIT 1))
 ORDER BY t.added_order
@@ -961,7 +969,7 @@ SELECT t.id, t.node_id, t.info_hash, t.name, t.size, t.private, t.trackers, t.co
        t.seeding_seconds, t.announced_seconds, t.totals_at, t.report, t.fault, t.fault_at, t.client_id, t.attached,
        t.completed_at, t.retry, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
-WHERE t.parted_at IS NULL
+WHERE t.parted_at IS NULL AND t.arriving_unit IS NULL
   AND (NOT CAST(?1 AS INTEGER) OR t.tracker_id = ?2)
   AND (NOT CAST(?3 AS INTEGER) OR t.tracker_id IS NULL)
   AND (NOT CAST(?4 AS INTEGER) OR t.info_hash IN (/*SLICE:info_hashes*/?))
@@ -1082,7 +1090,7 @@ func (q *Queries) ListHeld(ctx context.Context, arg ListHeldParams) ([]ListHeldR
 
 const listHeldOfHash = `-- name: ListHeldOfHash :many
 SELECT id, node_id, removed_at FROM downloadclients_torrent
-WHERE info_hash = ?1 AND parted_at IS NULL
+WHERE info_hash = ?1 AND parted_at IS NULL AND arriving_unit IS NULL
 ORDER BY added_order
 `
 
@@ -1143,22 +1151,31 @@ func (q *Queries) ListHoldingNodes(ctx context.Context) ([]role.NodeID, error) {
 }
 
 const listIntent = `-- name: ListIntent :many
-SELECT id, client_id, info_hash, wanted, added_order, removed_at, delete_files, retry FROM downloadclients_torrent
+SELECT id, client_id, info_hash, wanted, added_order, removed_at, delete_files, retry,
+       arriving_unit IS NOT NULL AS arriving, start_asked_at, start_until_at, watch_announce
+FROM downloadclients_torrent
 WHERE node_id = ?1 AND parted_at IS NULL AND withheld_at IS NULL
+  AND (arriving_unit IS NULL OR client_id IS NOT NULL OR start_asked_at IS NOT NULL OR removed_at IS NOT NULL)
 ORDER BY added_order
 `
 
 type ListIntentRow struct {
-	ID          TorrentID
-	ClientID    *ClientID
-	InfoHash    []byte
-	Wanted      string
-	AddedOrder  int64
-	RemovedAt   storage.Time
-	DeleteFiles int64
-	Retry       *string
+	ID            TorrentID
+	ClientID      *ClientID
+	InfoHash      []byte
+	Wanted        string
+	AddedOrder    int64
+	RemovedAt     storage.Time
+	DeleteFiles   int64
+	Retry         *string
+	Arriving      bool
+	StartAskedAt  storage.Time
+	StartUntilAt  storage.Time
+	WatchAnnounce int64
 }
 
+// A Move's built-in arriving Torrent reaches its Node once asked to start,
+// or once removed; an external one from its insert, to be added complete.
 func (q *Queries) ListIntent(ctx context.Context, nodeID role.NodeID) ([]ListIntentRow, error) {
 	rows, err := q.db.QueryContext(ctx, listIntent, nodeID)
 	if err != nil {
@@ -1177,6 +1194,10 @@ func (q *Queries) ListIntent(ctx context.Context, nodeID role.NodeID) ([]ListInt
 			&i.RemovedAt,
 			&i.DeleteFiles,
 			&i.Retry,
+			&i.Arriving,
+			&i.StartAskedAt,
+			&i.StartUntilAt,
+			&i.WatchAnnounce,
 		); err != nil {
 			return nil, err
 		}
@@ -1278,7 +1299,8 @@ func (q *Queries) ListLiveOnNodeAfter(ctx context.Context, arg ListLiveOnNodeAft
 }
 
 const listRecorded = `-- name: ListRecorded :many
-SELECT t.id, t.node_id, t.info_hash, t.parted_at IS NOT NULL AS written_off FROM downloadclients_torrent t
+SELECT t.id, t.node_id, t.info_hash, t.parted_at IS NOT NULL AS written_off, t.arriving_unit IS NOT NULL AS arriving
+FROM downloadclients_torrent t
 WHERE t.info_hash IN (/*SLICE:info_hashes*/?) AND (t.parted_at IS NULL OR t.removed_reason = 'node_written_off' AND t.id = (
     SELECT n.id FROM downloadclients_torrent n WHERE n.info_hash = t.info_hash ORDER BY n.added_order DESC LIMIT 1))
 ORDER BY t.info_hash, t.parted_at IS NOT NULL
@@ -1289,9 +1311,10 @@ type ListRecordedRow struct {
 	NodeID     role.NodeID
 	InfoHash   []byte
 	WrittenOff bool
+	Arriving   bool
 }
 
-// Each hash's live Torrent, and the newest Torrent of a hash with no live
+// Each hash's live Torrents, and the newest Torrent of a hash with no live
 // one when its Node was written off.
 func (q *Queries) ListRecorded(ctx context.Context, infoHashes [][]byte) ([]ListRecordedRow, error) {
 	query := listRecorded
@@ -1317,6 +1340,7 @@ func (q *Queries) ListRecorded(ctx context.Context, infoHashes [][]byte) ([]List
 			&i.NodeID,
 			&i.InfoHash,
 			&i.WrittenOff,
+			&i.Arriving,
 		); err != nil {
 			return nil, err
 		}
@@ -1333,7 +1357,7 @@ func (q *Queries) ListRecorded(ctx context.Context, infoHashes [][]byte) ([]List
 
 const listSources = `-- name: ListSources :many
 SELECT info_hash, name, removed_reason, report FROM downloadclients_torrent
-WHERE node_id = ?1 AND info_hash IN (/*SLICE:hashes*/?)
+WHERE node_id = ?1 AND info_hash IN (/*SLICE:hashes*/?) AND arriving_unit IS NULL
 ORDER BY added_order
 `
 
@@ -1526,7 +1550,7 @@ UPDATE downloadclients_torrent SET
     seeding_seconds = MAX(seeding_seconds, CAST(?4 AS INTEGER)),
     announced_seconds = MAX(announced_seconds, CAST(?5 AS INTEGER)),
     totals_at = ?6
-WHERE id = ?7 AND node_id = ?8
+WHERE id = ?7 AND node_id = ?8 AND removed_reason IS NOT 'moved'
 `
 
 type MergeTotalsParams struct {
@@ -1540,6 +1564,8 @@ type MergeTotalsParams struct {
 	NodeID           role.NodeID
 }
 
+// A Move's switch carried a moved Torrent's totals as final, so a late
+// report of it changes nothing.
 func (q *Queries) MergeTotals(ctx context.Context, arg MergeTotalsParams) error {
 	_, err := q.db.ExecContext(ctx, mergeTotals,
 		arg.Uploaded,
@@ -1552,38 +1578,6 @@ func (q *Queries) MergeTotals(ctx context.Context, arg MergeTotalsParams) error 
 		arg.NodeID,
 	)
 	return err
-}
-
-const moveRecorded = `-- name: MoveRecorded :execrows
-UPDATE downloadclients_torrent SET
-    node_id = ?1, client_id = ?2,
-    attached = CASE WHEN ?2 IS NULL THEN NULL ELSE attached END,
-    raw_uploaded = CASE WHEN ?2 IS NULL THEN NULL ELSE raw_uploaded END,
-    raw_downloaded = CASE WHEN ?2 IS NULL THEN NULL ELSE raw_downloaded END,
-    raw_active_seconds = CASE WHEN ?2 IS NULL THEN NULL ELSE raw_active_seconds END,
-    raw_seeding_seconds = CASE WHEN ?2 IS NULL THEN NULL ELSE raw_seeding_seconds END,
-    removed_at = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE removed_at END,
-    removed_reason = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE removed_reason END,
-    parted_at = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE parted_at END,
-    freed = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE freed END
-WHERE id = ?3 AND (parted_at IS NULL AND removed_at IS NULL OR removed_reason = 'node_written_off')
-`
-
-type MoveRecordedParams struct {
-	NodeID   role.NodeID
-	ClientID *ClientID
-	ID       TorrentID
-}
-
-// A live Torrent, or one a write-off parted, moves to node and client with
-// its totals, Grab and reported_at. A built-in target holds no external
-// origin or raw counters.
-func (q *Queries) MoveRecorded(ctx context.Context, arg MoveRecordedParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, moveRecorded, arg.NodeID, arg.ClientID, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
 }
 
 const nextOrder = `-- name: NextOrder :one
@@ -1689,6 +1683,38 @@ func (q *Queries) RepointTracker(ctx context.Context, arg RepointTrackerParams) 
 	return err
 }
 
+const rerecord = `-- name: Rerecord :execrows
+UPDATE downloadclients_torrent SET
+    node_id = ?1, client_id = ?2,
+    attached = CASE WHEN ?2 IS NULL THEN NULL ELSE attached END,
+    raw_uploaded = CASE WHEN ?2 IS NULL THEN NULL ELSE raw_uploaded END,
+    raw_downloaded = CASE WHEN ?2 IS NULL THEN NULL ELSE raw_downloaded END,
+    raw_active_seconds = CASE WHEN ?2 IS NULL THEN NULL ELSE raw_active_seconds END,
+    raw_seeding_seconds = CASE WHEN ?2 IS NULL THEN NULL ELSE raw_seeding_seconds END,
+    removed_at = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE removed_at END,
+    removed_reason = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE removed_reason END,
+    parted_at = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE parted_at END,
+    freed = CASE WHEN removed_reason = 'node_written_off' THEN NULL ELSE freed END
+WHERE id = ?3 AND (parted_at IS NULL AND removed_at IS NULL OR removed_reason = 'node_written_off')
+`
+
+type RerecordParams struct {
+	NodeID   role.NodeID
+	ClientID *ClientID
+	ID       TorrentID
+}
+
+// A live Torrent, or one a write-off parted, moves to node and client with
+// its totals, Grab and reported_at. A built-in target holds no external
+// origin or raw counters.
+func (q *Queries) Rerecord(ctx context.Context, arg RerecordParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, rerecord, arg.NodeID, arg.ClientID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const setCompletion = `-- name: SetCompletion :exec
 UPDATE downloadclients_torrent SET completion = ?1, completed_at = ?2
 WHERE id = ?3 AND node_id = ?4 AND completion IS NULL
@@ -1729,7 +1755,7 @@ func (q *Queries) SetDone(ctx context.Context, arg SetDoneParams) error {
 
 const setFault = `-- name: SetFault :exec
 UPDATE downloadclients_torrent SET fault = ?1, fault_at = ?2
-WHERE id = ?3 AND node_id = ?4 AND fault IS NULL
+WHERE id = ?3 AND node_id = ?4 AND fault IS NULL AND arriving_unit IS NULL
 `
 
 type SetFaultParams struct {
@@ -1739,6 +1765,8 @@ type SetFaultParams struct {
 	NodeID  role.NodeID
 }
 
+// A Move's arriving Torrent never takes a release fault: its refusal is
+// the Move's.
 func (q *Queries) SetFault(ctx context.Context, arg SetFaultParams) error {
 	_, err := q.db.ExecContext(ctx, setFault,
 		arg.Fault,

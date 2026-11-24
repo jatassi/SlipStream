@@ -104,6 +104,8 @@ const (
 	ReleaseFaulted RemoveReason = "release_fault"
 	// Canceled is an Admin canceling a downloading Grab.
 	Canceled RemoveReason = "canceled"
+	// Moved is a Move's switch: the torrent seeds from its destination.
+	Moved RemoveReason = "moved"
 	// Forgotten is a Torrent on the review list an Admin forgot after a
 	// restore. It is stored as admin and read from its withheld_at, never
 	// written.
@@ -111,7 +113,7 @@ const (
 )
 
 // RemoveReasons is every RemoveReason, the list the schema's CHECK holds.
-var RemoveReasons = []RemoveReason{ByAdmin, ByMarkFailed, NodeWrittenOff, ByClient, ClientDeleted, GoalMet, ReleaseFaulted, Canceled}
+var RemoveReasons = []RemoveReason{ByAdmin, ByMarkFailed, NodeWrittenOff, ByClient, ClientDeleted, GoalMet, ReleaseFaulted, Canceled, Moved}
 
 // Removal is set when the Torrent leaves its Node's intent. It is Removing
 // until Parted: the Node confirmed, or a write-off ended the wait.
@@ -231,7 +233,8 @@ type Fault struct {
 
 // MergeTotals records a Node's totals for its Torrent id, keeping the
 // larger of each counter, so a resent or restarted report never lowers
-// them. An id that is not node's Torrent changes nothing.
+// them. An id that is not node's Torrent, or that a Move's switch
+// moved, changes nothing.
 func MergeTotals(ctx context.Context, tx *storage.Tx[file], node role.NodeID, id ID, t Totals) error {
 	return db.New(tx).MergeTotals(ctx, db.MergeTotalsParams{
 		Uploaded:         t.Uploaded,

@@ -229,7 +229,54 @@ func (c *client) Add(ctx context.Context, a clients.Add) error {
 	if res.Added != nil {
 		c.ran[a.Hash] = map[bool]clients.Run{false: clients.Started, true: clients.Paused}[a.Paused]
 	}
+	if a.Complete {
+		return c.Act(ctx, clients.Recheck, []bencode.InfoHash{a.Hash})
+	}
 	return nil
+}
+
+// Announces reads each torrent's tracker_stats.
+func (c *client) Announces(ctx context.Context, hashes []bencode.InfoHash) (map[bencode.InfoHash][]clients.TrackerLine, error) {
+	var res struct {
+		Torrents []struct {
+			Hash  string `json:"hash_string"`
+			Stats []struct {
+				Last      int64  `json:"last_announce_time"`
+				Succeeded bool   `json:"last_announce_succeeded"`
+				Result    string `json:"last_announce_result"`
+				Next      int64  `json:"next_announce_time"`
+			} `json:"tracker_stats"`
+		} `json:"torrents"`
+	}
+	if err := c.call(ctx, "torrent_get", map[string]any{"fields": fields{"hash_string", "tracker_stats"}, "ids": hashStrings(hashes)}, &res); err != nil {
+		return nil, err
+	}
+	out := make(map[bencode.InfoHash][]clients.TrackerLine, len(res.Torrents))
+	for _, t := range res.Torrents {
+		h, err := bencode.ParseInfoHash(t.Hash)
+		if err != nil {
+			return nil, fmt.Errorf("read the client's torrent_get: %w", err)
+		}
+		lines := make([]clients.TrackerLine, len(t.Stats))
+		for i, st := range t.Stats {
+			lines[i] = clients.TrackerLine{Index: i, Next: unixTime(st.Next)}
+			if st.Succeeded {
+				lines[i].Last = unixTime(st.Last)
+			} else if st.Last > 0 {
+				lines[i].FailedAt, lines[i].Failure = unixTime(st.Last), st.Result
+			}
+		}
+		out[h] = lines
+	}
+	return out, nil
+}
+
+// unixTime is a time in seconds, zero for 0.
+func unixTime(s int64) time.Time {
+	if s <= 0 {
+		return time.Time{}
+	}
+	return time.Unix(s, 0)
 }
 
 // torrent is one torrent_get row, by its snake_case names.

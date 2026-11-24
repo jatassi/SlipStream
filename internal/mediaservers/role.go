@@ -35,6 +35,9 @@ type MediaServers struct {
 	// contacted is the servers whose contact each Node's reports changed,
 	// published once they commit.
 	contacted pendingServers
+	// unconfirmed is the servers a re-home unconfirmed, published at the
+	// next roots.changed.
+	unconfirmed unconfirmed
 }
 
 type Config struct {
@@ -55,6 +58,9 @@ type Config struct {
 	// FileIDs is files.IDsAt: the file whose bytes sit at each path of a
 	// root.
 	FileIDs func(ctx context.Context, r storage.Reader[storage.Library], root roots.ID, rels []storing.Rel) (map[storing.Rel]files.ID, error)
+	// FilePlaces is files.PlacesOf: where the bytes of each file of a root
+	// sit.
+	FilePlaces func(ctx context.Context, r storage.Reader[storage.Library], root roots.ID, fs []files.ID) (map[files.ID]storing.Rel, error)
 	// WorkFiles is files.LeftIn of one Work: its files whose bytes sit at
 	// their paths.
 	WorkFiles func(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) ([]files.File, error)
@@ -157,15 +163,14 @@ func (m *MediaServers) Intent(ctx context.Context, r storage.Reader[storage.Libr
 // roster it names the Controller as the reaching Node of every server
 // whose reaching Node the Admin removed with a write-off, ends the plays
 // of a reaching Node away longer than Mark unhealthy after, and wakes
-// every sender to route again. At its start and at each roots.changed it
-// unconfirms the mappings of re-homed roots. After each Node's new facts
+// every sender to route again. At each roots.changed it publishes the
+// servers a re-home unconfirmed. After each Node's new facts
 // it writes when their open plays were last seen.
 func (m *MediaServers) Run(ctx context.Context) error {
 	rehomed := m.cfg.RootsChanged(ctx)
 	m.revert(ctx)
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	m.unconfirm(ctx)
 	for {
 		changed := m.cfg.Roster.Changed()
 		m.repoint(ctx)
@@ -188,7 +193,9 @@ func (m *MediaServers) Run(ctx context.Context) error {
 			case <-m.seen.wake:
 				m.writeSeen(ctx)
 			case <-rehomed:
-				m.unconfirm(ctx)
+				if ids := m.unconfirmed.take(); len(ids) > 0 {
+					m.changed(ctx, ids...)
+				}
 				wait = false
 			}
 		}

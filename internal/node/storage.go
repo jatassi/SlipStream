@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/notifications"
@@ -56,6 +57,7 @@ func LibrarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
 		mediaservers.Schema(),
 		naming.Schema(),
 		imports.Schema(),
+		moves.Schema(),
 		tasks.Schema(),
 		health.Schema(),
 		history.Schema(),

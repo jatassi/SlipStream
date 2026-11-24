@@ -31,7 +31,10 @@ type Target struct {
 	Disk Disk
 	// Fresh is a library never scanned with content, nil when the target
 	// has none, as a real server SlipStream may not create libraries on.
-	Fresh *Fresh
+	Fresh *Library
+	// Second is a scanned library beside Library, of its type, nil when
+	// the target has none.
+	Second *Library
 	// FreshTakesChange is a server that takes a change into a fresh library
 	// without a scan, as Emby did (#101 run 2).
 	FreshTakesChange bool
@@ -47,8 +50,9 @@ type Target struct {
 	Log   *slog.Logger
 }
 
-// Fresh is a library never scanned with content and its folder.
-type Fresh struct {
+// Library is a library, one of its folders as the server sees it, and
+// that folder on this machine.
+type Library struct {
 	Library string
 	Folder  link.ServerPath
 	Disk    Disk
@@ -68,6 +72,10 @@ type Server interface {
 	// before move, as SlipStream's Prepare does, since a server can find
 	// the move first.
 	Moved(ctx context.Context, library string, from, to []link.ServerPath, move func()) error
+	// CopyMoved copies the file at rel under from's folder to rel under
+	// to's, then deletes it from from, and tells the server, in the order
+	// the kind keeps watch data across libraries.
+	CopyMoved(ctx context.Context, from, to Library, rel storing.Rel) error
 	// SidecarRemoved tells the server a Sidecar beside video is gone.
 	SidecarRemoved(ctx context.Context, library string, video, sidecar link.ServerPath) error
 	// Scan starts a full scan of library, and ScanEnded is whether the
@@ -106,6 +114,19 @@ type Disk interface {
 	Place(rel storing.Rel) error
 	Move(from, to storing.Rel) error
 	Remove(rel storing.Rel) error
+	Open(rel storing.Rel) (io.ReadCloser, error)
+	// Write writes the file at rel from r.
+	Write(rel storing.Rel, r io.Reader) error
+}
+
+// Copy copies the file at rel on from's disk to rel on to's.
+func Copy(from, to Library, rel storing.Rel) error {
+	in, err := from.Disk.Open(rel)
+	if err != nil {
+		return fmt.Errorf("copy %s: %w", rel, err)
+	}
+	defer func() { _ = in.Close() }()
+	return to.Disk.Write(rel, in)
 }
 
 // DirDisk is a Disk on the local folder Dir. Each video is a copy of the
@@ -158,6 +179,26 @@ func (d DirDisk) Move(from, to storing.Rel) error {
 		return fmt.Errorf("move %s: %w", from, err)
 	}
 	return os.Rename(d.path(from), d.path(to)) //nolint:wrapcheck // the paths name themselves
+}
+
+func (d DirDisk) Open(rel storing.Rel) (io.ReadCloser, error) {
+	return os.Open(d.path(rel)) //nolint:wrapcheck // the path names itself
+}
+
+func (d DirDisk) Write(rel storing.Rel, r io.Reader) error {
+	file := d.path(rel)
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil { //nolint:gosec // the Media Server reads the folder, maybe as another user
+		return fmt.Errorf("write %s: %w", rel, err)
+	}
+	out, err := os.Create(file) //nolint:gosec // the suite's own folder
+	if err != nil {
+		return fmt.Errorf("write %s: %w", rel, err)
+	}
+	_, cerr := io.Copy(out, r)
+	if err := errors.Join(cerr, out.Close()); err != nil {
+		return fmt.Errorf("write %s: %w", rel, err)
+	}
+	return nil
 }
 
 func (d DirDisk) Remove(rel storing.Rel) error {

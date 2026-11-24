@@ -140,7 +140,7 @@ func changesOnWire(cs []link.JobChange) []*msv1.JobChange {
 	out := make([]*msv1.JobChange, len(cs))
 	for i, c := range cs {
 		out[i] = &msv1.JobChange{Id: idOnWire(c.ID.UUID), Kind: string(c.Kind), Library: c.Library,
-			Path: c.Path.String(), FromPath: c.From.String(), Snapshot: SnapshotOnWire(c.Snapshot)}
+			Path: c.Path.String(), FromPath: c.From.String(), FromLibrary: c.FromLibrary, Snapshot: SnapshotOnWire(c.Snapshot)}
 	}
 	return out
 }
@@ -175,7 +175,7 @@ func changeOf(m *msv1.JobChange) (link.JobChange, error) {
 		return link.JobChange{}, err
 	}
 	return link.JobChange{ID: link.ChangeID{UUID: id}, Kind: kind, Library: m.GetLibrary(), Path: path, From: from,
-		Snapshot: SnapshotOf(m.GetSnapshot())}, nil
+		FromLibrary: m.GetFromLibrary(), Snapshot: SnapshotOf(m.GetSnapshot())}, nil
 }
 
 // SnapshotOnWire is nil for a nil s: no item was at the old path.

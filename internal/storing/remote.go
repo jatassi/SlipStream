@@ -231,16 +231,34 @@ type Placed struct {
 // volume has no room for *NeedsSpaceError, and a NodePath outside the
 // Node's library roots and download folders *OutsideError.
 func (r Remote) Place(ctx context.Context, at At, from Source, to Rel, allowCopy bool) (Placed, error) {
-	req := &storagev1.PlaceRequest{RootId: at.Root.Bytes(), To: to.String(), AllowCopy: allowCopy}
+	return r.place(ctx, at, from, to, allowCopy, false)
+}
+
+// PlaceSidecar is Place for a Sidecar its source's ledger marked
+// SlipStream's: the Node records the placed file in the root's ledger.
+func (r Remote) PlaceSidecar(ctx context.Context, at At, from Source, to Rel, allowCopy bool) (Placed, error) {
+	return r.place(ctx, at, from, to, allowCopy, true)
+}
+
+func (r Remote) place(ctx context.Context, at At, from Source, to Rel, allowCopy, ledger bool) (Placed, error) {
+	req := &storagev1.PlaceRequest{RootId: at.Root.Bytes(), To: to.String(), AllowCopy: allowCopy, Ledger: ledger}
 	switch from := from.(type) {
 	case Payload:
 		req.Source = &storagev1.PlaceRequest_Payload{Payload: &storagev1.Payload{InfoHash: from.InfoHash[:], FileIndex: int64(from.FileIndex)}}
 	case NodePath:
 		req.Source = &storagev1.PlaceRequest_Path{Path: from.Abs}
+	case Library:
+		req.Source = &storagev1.PlaceRequest_Library{Library: &storagev1.LibrarySource{RootId: from.Root.Bytes(), Rel: from.Rel.String()}}
+	case Arriving:
+		a := &storagev1.ArrivingSource{ContentType: from.ContentType, InfoHash: from.InfoHash[:], Path: from.Path.String()}
+		if from.Client != nil {
+			a.ClientId = from.Client[:]
+		}
+		req.Source = &storagev1.PlaceRequest_Arriving{Arriving: a}
 	}
 	res, err := r(at.Node).Place(ctx, req)
 	if err != nil {
-		return Placed{}, placeAnswer(err)
+		return Placed{}, PlaceAnswer(err)
 	}
 	step, err := steps.parse(res.GetStep())
 	if err != nil {
@@ -249,7 +267,9 @@ func (r Remote) Place(ctx context.Context, at At, from Source, to Rel, allowCopy
 	return Placed{Size: res.GetSize(), Step: step, Seen: seenOf(res.GetIdentity())}, nil
 }
 
-func placeAnswer(err error) error {
+// PlaceAnswer is a place's error as the caller reads it across the wire:
+// *NeedsCopyError, *NeedsSpaceError and ErrOccupied keep their meaning.
+func PlaceAnswer(err error) error {
 	if d, ok := rpc.DetailOf[*storagev1.NeedsCopy](err); ok {
 		return &NeedsCopyError{Size: d.GetSize()}
 	}
@@ -272,6 +292,16 @@ func (r Remote) Move(ctx context.Context, at At, from, to Rel, carry bool, video
 		return Placed{}, fmt.Errorf("a companion left: %w", err)
 	}
 	return Placed{Size: res.GetSize(), Step: Rename, Seen: seenOf(res.GetIdentity()), Left: left}, nil
+}
+
+// MoveSidecar renames the Sidecar from to to within the root, as Move
+// without carry, and records it at to in the root's ledger.
+func (r Remote) MoveSidecar(ctx context.Context, at At, from, to Rel, videos media.Videos) (Placed, error) {
+	res, err := r(at.Node).Move(ctx, &storagev1.MoveRequest{RootId: at.Root.Bytes(), From: from.String(), To: to.String(), VideoExtensions: videos.Extensions(), Ledger: true})
+	if err != nil {
+		return Placed{}, occupied(err)
+	}
+	return Placed{Size: res.GetSize(), Step: Rename, Seen: seenOf(res.GetIdentity())}, nil
 }
 
 // Survey answers each planned rename within the root, in batches of 2000:

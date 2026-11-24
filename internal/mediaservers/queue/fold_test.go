@@ -17,19 +17,35 @@ import (
 
 var at = time.Date(2026, 11, 14, 14, 2, 3, 0, time.UTC)
 
-// table is one server's mediaservers_change rows. It reads the open rows a
-// change meets as the service does, and applies the ops under the partial
-// unique indexes.
+// table is one server's mediaservers_change rows, in a root and in dest,
+// a Move's destination root. It reads the open rows a change meets as the
+// service does, and applies the ops under the partial unique indexes.
 type table struct {
-	t      *testing.T
-	server link.ServerID
-	root   roots.ID
-	files  map[string]files.ID
-	rows   []queue.Change
+	t          *testing.T
+	server     link.ServerID
+	root, dest roots.ID
+	files      map[string]files.ID
+	rows       []queue.Change
 }
 
 func newTable(t *testing.T) *table {
-	return &table{t: t, server: link.ServerID{UUID: storage.NewUUID()}, root: roots.ID{UUID: storage.NewUUID()}, files: map[string]files.ID{}}
+	return &table{t: t, server: link.ServerID{UUID: storage.NewUUID()}, root: roots.ID{UUID: storage.NewUUID()},
+		dest: roots.ID{UUID: storage.NewUUID()}, files: map[string]files.ID{}}
+}
+
+// at is a path of root, or of dest for "d:P".
+func (tb *table) at(s string) queue.At {
+	if p, ok := strings.CutPrefix(s, "d:"); ok {
+		return queue.At{Root: tb.dest, Rel: rel(tb.t, p)}
+	}
+	return queue.At{Root: tb.root, Rel: rel(tb.t, s)}
+}
+
+func (tb *table) name(a queue.At) string {
+	if a.Root == tb.dest {
+		return "d:" + a.Rel.String()
+	}
+	return a.Rel.String()
 }
 
 func (tb *table) file(name string) files.ID {
@@ -54,17 +70,27 @@ func rel(t *testing.T, s string) storing.Rel {
 	return r
 }
 
-// change is a new due change. path is "P" or "X>P" for a carry from X.
+// change is a new due change. path is "P" or "X>P" for a carry from X,
+// each "d:" prefixed in dest.
 func (tb *table) change(kind link.ChangeKind, path, file string) queue.Change {
 	from, to, carry := strings.Cut(path, ">")
 	if !carry {
 		from, to = "", path
 	}
-	return queue.Change{
-		ID: link.ChangeID{UUID: storage.NewUUID()}, Server: tb.server, Kind: kind, Root: tb.root,
-		Path: rel(tb.t, to), From: rel(tb.t, from), File: tb.file(file), State: queue.Due, Step: link.StepNone,
+	dst := tb.at(to)
+	c := queue.Change{
+		ID: link.ChangeID{UUID: storage.NewUUID()}, Server: tb.server, Kind: kind, Root: dst.Root,
+		Path: dst.Rel, File: tb.file(file), State: queue.Due, Step: link.StepNone,
 		NextAt: at, Created: at.Add(time.Duration(len(tb.rows)) * time.Second),
 	}
+	if carry {
+		src := tb.at(from)
+		c.From = src.Rel
+		if src.Root != dst.Root {
+			c.FromRoot = src.Root
+		}
+	}
+	return c
 }
 
 func (tb *table) upgrade(c queue.Change) queue.Change {
@@ -79,7 +105,7 @@ func (tb *table) doomed(c queue.Change) queue.Change {
 }
 
 func (tb *table) open(in queue.Change) queue.Open {
-	o := queue.Open{AtPath: map[storing.Rel]queue.Change{}}
+	o := queue.Open{AtPath: map[queue.At]queue.Change{}}
 	for _, r := range tb.rows {
 		if r.Foldable() && r.Carry() && r.File == in.File {
 			o.Carry = &r
@@ -87,14 +113,14 @@ func (tb *table) open(in queue.Change) queue.Open {
 	}
 	paths := in.Paths()
 	if o.Carry != nil {
-		paths = append(paths, o.Carry.From)
+		paths = append(paths, o.Carry.Origin())
 	}
 	for _, r := range tb.rows {
 		if !r.Foldable() {
 			continue
 		}
-		if !r.Carry() && slices.Contains(paths, r.Path) {
-			o.AtPath[r.Path] = r
+		if !r.Carry() && slices.Contains(paths, r.At()) {
+			o.AtPath[r.At()] = r
 		}
 		if in.Kind == link.ChangeRemoved && !in.ReplacedBy.IsZero() && r.Kind == link.ChangeAdded && r.Upgrade && r.File == in.ReplacedBy ||
 			in.Kind == link.ChangeAdded && r.Kind == link.ChangeRemoved && r.ReplacedBy == in.File {
@@ -133,14 +159,14 @@ func (tb *table) apply(ops []queue.Op) {
 // or mediaservers_change_open_carry.
 func (tb *table) indexes() {
 	tb.t.Helper()
-	paths, carries := map[storing.Rel]int{}, map[files.ID]int{}
+	paths, carries := map[queue.At]int{}, map[files.ID]int{}
 	for _, r := range tb.rows {
 		switch {
 		case !r.Foldable():
 		case r.Carry():
 			carries[r.File]++
 		default:
-			paths[r.Path]++
+			paths[r.At()]++
 		}
 	}
 	for p, n := range paths {
@@ -164,9 +190,9 @@ func show(tb *table, c queue.Change) string {
 		}
 		return "?"
 	}
-	s := string(c.Kind) + " " + c.Path.String()
+	s := string(c.Kind) + " " + tb.name(c.At())
 	if c.Carry() {
-		s = string(c.Kind) + " " + c.From.String() + ">" + c.Path.String()
+		s = string(c.Kind) + " " + tb.name(c.Origin()) + ">" + tb.name(c.At())
 	}
 	if !c.File.IsZero() {
 		s += " " + name(c.File)
@@ -247,6 +273,12 @@ func TestTheSpecsMergeRules(t *testing.T) {
 		{"a removed carry folds before the row at its origin", [][3]string{{"moved", "A>B", "f"}, {"added", "A", "g"}, {"removed", "B", "f"}}, []string{"replaced A g"}},
 		{"sidecars on one path fold apart from the video", [][3]string{{"added", "A.mkv", "f"}, {"sidecar_added", "A.en.srt", "s"}, {"sidecar_removed", "A.en.srt", "s"}}, []string{"added A.mkv f"}},
 		{"library refreshes of a root fold into one", [][3]string{{"library", "", ""}, {"library", "", ""}}, []string{"library "}},
+		{"a Move then a rename back to the same Rel keeps the carry", [][3]string{{"moved", "A>d:A", "f"}, {"moved", "d:A>d:B", "f"}, {"moved", "d:B>d:A", "f"}}, []string{"moved A>d:A f"}},
+		{"a Move then removed is removed in the source root", [][3]string{{"moved", "A>d:A", "f"}, {"removed", "d:A", "f"}}, []string{"removed A f"}},
+		{"a Move back to its root is nothing", [][3]string{{"moved", "A>d:A", "f"}, {"moved", "d:A>A", "f"}}, nil},
+		{"a rename then a Move keeps the rename's origin", [][3]string{{"moved", "A>B", "f"}, {"moved", "B>d:B", "f"}}, []string{"moved A>d:B f"}},
+		{"added then a Move is added in the destination", [][3]string{{"added", "A", "f"}, {"moved", "A>d:A", "f"}}, []string{"added d:A f"}},
+		{"a Move then added in the source root keeps both", [][3]string{{"moved", "A>d:A", "f"}, {"added", "A", "g"}}, []string{"moved A>d:A f", "added A g"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			tb := newTable(t)

@@ -24,6 +24,9 @@ type move struct {
 	// ring is the cycle of renames the move is in, zero for a straight
 	// move.
 	ring storage.UUID
+	// held is a move of a Work a Move holds, whose bytes aren't in holding
+	// mid-ring: the queue starts none of it.
+	held bool
 }
 
 func moveOf(row db.ListMovesRow) move {

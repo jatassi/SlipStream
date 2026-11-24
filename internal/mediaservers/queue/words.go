@@ -26,24 +26,29 @@ var lost = map[link.Loss]string{
 }
 
 // Words is the sentence the API shows for c: what it did and what it lost,
-// or what it waits for.
-func (c Change) Words() string {
+// or what it waits for. to is how copy names c's root, which a Move's
+// change names.
+func (c Change) Words(to string) string {
+	what := "rename"
+	if c.Move() {
+		what = "Move"
+	}
 	switch c.State {
 	case Prepared:
 		switch {
 		case c.Snapshot != nil:
-			return "Saved every user's watch data before the rename. SlipStream sends this change once the rename finishes."
+			return "Saved every user's watch data before the " + what + ". SlipStream sends this change once the " + what + " finishes."
 		case len(c.Lost) > 0:
-			return "SlipStream couldn't save the watch data before the rename. It tries again when it sends this change."
+			return "SlipStream couldn't save the watch data before the " + what + ". It tries again when it sends this change."
 		}
-		return "SlipStream sends this change once the rename finishes."
+		return "SlipStream sends this change once the " + what + " finishes."
 	case Sending:
 		return "SlipStream is sending this change."
 	case Due:
 		return c.waiting()
 	case Sent:
 	}
-	return c.sent()
+	return c.sent(to)
 }
 
 func (c Change) waiting() string {
@@ -59,7 +64,7 @@ func (c Change) waiting() string {
 	return "This change is waiting to be sent."
 }
 
-func (c Change) sent() string {
+func (c Change) sent(to string) string {
 	switch c.Result {
 	case link.ResultCovered:
 		return "A refresh of the whole library covered this change."
@@ -68,6 +73,9 @@ func (c Change) sent() string {
 	case link.ResultAccepted:
 	}
 	s := did[c.Kind]
+	if c.Move() {
+		s = "Sent the Move to " + to + "."
+	}
 	switch {
 	case !c.Carry():
 		return s

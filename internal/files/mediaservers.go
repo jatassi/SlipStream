@@ -20,8 +20,8 @@ const (
 	PathReplaced
 	// PathRemoved is bytes gone from Path for good.
 	PathRemoved
-	// PathMoved is bytes gone from From to Path: a finished rename, or a
-	// scan's moved file.
+	// PathMoved is bytes gone from From to Path: a finished rename, a
+	// scan's moved file, or a Move's switch from FromRoot to Root.
 	PathMoved
 	// PathUnmoved is a rename put back: the bytes are at Path, where they
 	// were before Prepare saw the rename.
@@ -34,6 +34,9 @@ type PathChange struct {
 	Kind PathChangeKind
 	File ID
 	Root roots.ID
+	// FromRoot is, on a PathMoved, the root From is in when a Move switched
+	// the file to Root. Zero for a move inside Root.
+	FromRoot roots.ID
 	// Path is where the bytes are now, or for PathRemoved where they were.
 	Path storing.Rel
 	// From is where a PathMoved's bytes were.
@@ -81,10 +84,12 @@ func (NoMediaServers) Prepare(context.Context, []Rename) {}
 
 // fact is what a Write did to one file's bytes: from the path of its root
 // they sat at before to the one they sit at after, "" for neither.
+// fromRoot is set when they sat at from in another root, a Move's switch.
 // resized is bytes changed in place.
 type fact struct {
 	file       ID
 	root       roots.ID
+	fromRoot   roots.ID
 	from, to   string
 	resized    bool
 	replacedBy ID
@@ -102,6 +107,7 @@ func shown(p string) string {
 func (x fact) change() (PathChange, bool, error) {
 	from, to := shown(x.from), shown(x.to)
 	c := PathChange{File: x.file, Root: x.root, ReplacedBy: x.replacedBy}
+	moved := !x.fromRoot.IsZero() && x.fromRoot != x.root
 	at := to
 	switch {
 	case from == "" && to == "":
@@ -110,12 +116,15 @@ func (x fact) change() (PathChange, bool, error) {
 		c.Kind = PathAdded
 	case to == "":
 		c.Kind, at = PathRemoved, from
-	case from == to && x.resized:
+	case from == to && x.resized && !moved:
 		c.Kind = PathReplaced
-	case from == to:
+	case from == to && !moved:
 		c.Kind = PathUnmoved
 	default:
 		c.Kind = PathMoved
+		if moved {
+			c.FromRoot = x.fromRoot
+		}
 		var err error
 		if c.From, err = storing.ParseRel(from); err != nil {
 			return c, false, err
@@ -225,6 +234,23 @@ func IDsAt(ctx context.Context, r storage.Reader[file], root roots.ID, rels []st
 			return nil, err
 		}
 		out[rel] = row.ID
+	}
+	return out, nil
+}
+
+// PlacesOf reads, in r, where the bytes of each of fs in root sit: at its
+// move's place while one is pending, else at its path. A file not in root
+// is left out.
+func PlacesOf(ctx context.Context, r storage.Reader[file], root roots.ID, fs []ID) (map[ID]storing.Rel, error) {
+	rows, err := db.New(r).PlacesOf(ctx, db.PlacesOfParams{RootID: root, Ids: fs})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[ID]storing.Rel, len(rows))
+	for _, row := range rows {
+		if out[row.ID], err = storing.ParseRel(row.Place); err != nil {
+			return nil, err
+		}
 	}
 	return out, nil
 }

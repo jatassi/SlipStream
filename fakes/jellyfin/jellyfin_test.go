@@ -42,23 +42,30 @@ func server(version string, delay time.Duration) jellyfin.Server {
 		Libraries: []jellyfin.Library{
 			{Name: "Movies", Type: "movies", Folders: []string{"/media/Movies", "/media/New"}, Scanned: true},
 			{Name: "Fresh", Type: "movies", Folders: []string{"/media/Fresh"}},
+			{Name: "Movies 4K", Type: "movies", Folders: []string{"/media/Movies 4K"}, Scanned: true},
 		},
 	}
 }
 
-// seeded is a media dir whose Movies folder holds one film, so it was
-// scanned with content, and whose New and Fresh folders are empty.
+// seeded is a media dir whose Movies and Movies 4K folders each hold one
+// film, so they were scanned with content, and whose New and Fresh
+// folders are empty.
 func seeded(t *testing.T) string {
 	t.Helper()
 	media := t.TempDir()
-	file := filepath.Join(media, "Movies", "Metropolis (1927)", "Metropolis (1927).mkv")
-	for _, dir := range []string{filepath.Dir(file), filepath.Join(media, "New"), filepath.Join(media, "Fresh")} {
+	for _, dir := range []string{filepath.Join(media, "New"), filepath.Join(media, "Fresh")} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := os.WriteFile(file, []byte("Metropolis"), 0o600); err != nil {
-		t.Fatal(err)
+	for _, lib := range []string{"Movies", "Movies 4K"} {
+		file := filepath.Join(media, lib, "Metropolis (1927)", "Metropolis (1927).mkv")
+		if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file, []byte("Metropolis "+lib), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return media
 }
@@ -78,7 +85,8 @@ func target(t *testing.T, f faketest.Served, settle, bound time.Duration) confor
 		Address: f.Address.URL(""), Key: "conformance-key", HTTP: f.Client,
 		Library: "Movies", Folder: path(t, "/media/Movies"),
 		Disk:      conformance.DirDisk{Dir: filepath.Join(f.Media, "Movies")},
-		Fresh:     &conformance.Fresh{Library: "Fresh", Folder: path(t, "/media/Fresh"), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "Fresh")}},
+		Fresh:     &conformance.Library{Library: "Fresh", Folder: path(t, "/media/Fresh"), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "Fresh")}},
+		Second:    &conformance.Library{Library: "Movies 4K", Folder: path(t, "/media/Movies 4K"), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "Movies 4K")}},
 		FreshRoot: &conformance.Root{Folder: path(t, "/media/New"), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "New")}},
 		Admin:     &conformance.Admin{User: "jackson", Password: "conformance-password"},
 		Play: func(t *testing.T, p link.ServerPath, d link.Decision) (conformance.Played, func()) {

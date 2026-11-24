@@ -22,6 +22,8 @@ type Work struct {
 	// Options are the Work's level folder switch and its type's own
 	// options.
 	Options works.OptionsChange
+	// Move is its Move in flight or failed, nil for none.
+	Move *Moving
 }
 
 // Work reads Work id and what its page shows beside it from one snapshot,
@@ -46,6 +48,9 @@ func (l *Library) Work(ctx context.Context, _ identity.Admin, id works.WorkID) (
 			return err
 		}
 		out = Work{Tree: tree, Links: l.cfg.Works.Links(tree), Profile: goals.Profile, Timings: timings, Options: options}
+		if out.Move, err = l.cfg.Moves.Of(ctx, r, id); err != nil {
+			return err
+		}
 		root, err := roots.OfWork(ctx, r, id)
 		switch {
 		case errors.Is(err, roots.ErrNoRoot):

@@ -93,7 +93,19 @@ message Destination {
     // one file to its Backup name once it verifies.
     BackupPlace backup = 2;
     BackupPlace backups_folder = 3;
+    // download_folder is a torrent payload's folder in a Download Client
+    // on the receiver, which the receiver resolves and stages in.
+    DownloadFolder download_folder = 4;
   }
+}
+
+// DownloadFolder is the folder a Download Client keeps the torrent with
+// info_hash in: client_id names an external client, empty for the
+// built-in one, and content_type is empty for an adopted torrent.
+message DownloadFolder {
+  bytes client_id = 1;
+  string content_type = 2;
+  bytes info_hash = 3;
 }
 
 // BackupPlace is the Backup name in a Backup folder the intent lists.
@@ -123,7 +135,16 @@ message Source {
     // backup is a Backup the sender opens only in a Backup folder its
     // intent lists, by its Backup name.
     BackupPlace backup = 3;
+    // library is a file in a library root the sender holds, which it
+    // opens only while its Storage intent lists the root.
+    LibrarySource library = 4;
   }
+}
+
+// LibrarySource is the file at rel, '/' separated, under the root.
+message LibrarySource {
+  bytes root = 1;
+  string rel = 2;
 }
 
 // PathSource is a file at an absolute path on the sender, which it opens

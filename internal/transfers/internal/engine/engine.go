@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/link"
 	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -46,6 +47,13 @@ type Opener interface {
 // no bytes.
 type Stager interface {
 	Staging(ctx context.Context, root storage.UUID, place int64, transfer storage.UUID) (string, error)
+}
+
+// DownloadStager is the gate of a download folder destination on this
+// Node: the folder a Transfer stages in for d's client, or why it can't
+// stage yet.
+type DownloadStager interface {
+	StageDownload(ctx context.Context, client *[16]byte, contentType string, hash bencode.InfoHash, transfer storage.UUID) (string, error)
 }
 
 // Link opens lanes: TLS lanes for routes 1 and 2, and kind-2 streams on
@@ -87,14 +95,15 @@ type Hooks struct {
 }
 
 type Config struct {
-	Local   *storage.DB[storage.Local]
-	Disk    storing.Disk
-	Link    Link
-	Sources Opener
-	Roots   Stager
-	Timings Timings
-	Hooks   Hooks
-	Log     *slog.Logger
+	Local     *storage.DB[storage.Local]
+	Disk      storing.Disk
+	Link      Link
+	Sources   Opener
+	Roots     Stager
+	Downloads DownloadStager
+	Timings   Timings
+	Hooks     Hooks
+	Log       *slog.Logger
 }
 
 // Engine follows one Node's transfers intent.

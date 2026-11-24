@@ -7,6 +7,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storing"
 )
 
@@ -54,8 +55,8 @@ func effectOf(k link.ChangeKind) ([4]link.ChangeKind, effect) {
 // Open is every foldable row of one server that a new change can fold into.
 type Open struct {
 	// AtPath holds the refresh rows at the change's paths and at the origin
-	// of its file's carry. The library row of a root sits at the zero path.
-	AtPath map[storing.Rel]Change
+	// of its file's carry. The library row of a root sits at its zero path.
+	AtPath map[At]Change
 	// Carry is the foldable carry of the change's file.
 	Carry *Change
 	// Partner is the other half of an upgrade. For a removed with
@@ -106,7 +107,7 @@ func Reopen(back Change, newer *Change) []Op {
 	}
 	r.was = append(r.was, *newer)
 	r.now = []Change{back}
-	open := Open{AtPath: map[storing.Rel]Change{back.Path: back}}
+	open := Open{AtPath: map[At]Change{back.At(): back}}
 	if back.Carry() {
 		open = Open{Carry: &back}
 	}
@@ -179,7 +180,7 @@ func (r *rows) fold(open Open, in Change) {
 
 // library keeps one library row per root: a second adds nothing.
 func (r *rows) library(open Open, in Change) {
-	if c, ok := open.AtPath[storing.Rel{}]; ok {
+	if c, ok := open.AtPath[At{Root: in.Root}]; ok {
 		r.read(c)
 		return
 	}
@@ -198,7 +199,7 @@ func (r *rows) refresh(open Open, in Change) {
 			row, ok := r.at(open, gone(*c, in), true)
 			r.pair(open, row, ok)
 			return
-		case c.Path == in.Path:
+		case c.At() == in.At():
 			if e == replace {
 				c.Kind = link.ChangeReplaced
 				r.put(*c)
@@ -211,11 +212,13 @@ func (r *rows) refresh(open Open, in Change) {
 }
 
 // gone is in, the removal of a carry's file, at the carry's origin: the
-// path the server holds the item at. Any row there came after the file
-// left it, so gone folds as the earlier change.
+// path the server holds the item at, in the root the item was in. Any row
+// there came after the file left it, so gone folds as the earlier change.
 func gone(carry, in Change) Change {
 	c := carry
-	c.Kind, c.Path, c.From = link.ChangeRemoved, carry.From, storing.Rel{}
+	o := carry.Origin()
+	c.Kind, c.Root, c.Path, c.FromRoot, c.From = link.ChangeRemoved, o.Root, o.Rel, roots.ID{}, storing.Rel{}
+	c.SourceGone = time.Time{}
 	c.File, c.ReplacedBy = in.File, in.ReplacedBy
 	c.State, c.Step, c.StepAt, c.Snapshot = Due, link.StepNone, time.Time{}, nil
 	return c
@@ -236,7 +239,7 @@ func (r *rows) prepared(open Open, c Change) {
 // the earlier when first. It reports the row in became, false when the two
 // folded to nothing.
 func (r *rows) at(open Open, in Change, first bool) (Change, bool) {
-	e, ok := open.AtPath[in.Path]
+	e, ok := open.AtPath[in.At()]
 	if !ok {
 		r.put(in)
 		return in, true
@@ -309,36 +312,38 @@ func (r *rows) pair(open Open, c Change, ok bool) {
 	r.put(j)
 }
 
-// move folds in, a rename of a file from in.From to in.Path.
+// move folds in, a rename of a file from in.From to in.Path, or a Move of
+// it from in.FromRoot to in.Root. A carry keeps its origin, so a file moved
+// back to the path and root the server holds its item at needs no carry.
 func (r *rows) move(open Open, in Change) {
 	if c := open.Carry; c != nil {
 		r.read(*c)
 		switch {
 		case c.State == Prepared:
-			c.State, c.Path = Due, in.Path
-			r.put(*c)
-		case in.Path != c.From:
-			c.Path = in.Path
-			r.put(*c)
+			c.State = Due
+			r.put(c.movedTo(in.At()))
+		case in.At() != c.Origin():
+			r.put(c.movedTo(in.At()))
 		case c.Kind == link.ChangeMoved:
 			r.drop(c.ID)
 		default:
 			back := *c
-			back.Path, back.From = c.From, storing.Rel{}
-			back.Step, back.StepAt, back.Snapshot = link.StepNone, time.Time{}, nil
+			o := c.Origin()
+			back.Root, back.Path, back.FromRoot, back.From = o.Root, o.Rel, roots.ID{}, storing.Rel{}
+			back.Step, back.StepAt, back.Snapshot, back.SourceGone = link.StepNone, time.Time{}, nil, time.Time{}
 			r.at(open, back, false)
 		}
 		return
 	}
-	if e, ok := open.AtPath[in.From]; ok && e.Kind != link.ChangeRemoved {
+	if e, ok := open.AtPath[in.Origin()]; ok && e.Kind != link.ChangeRemoved {
 		r.read(e)
 		if e.Kind == link.ChangeAdded {
-			e.Path = in.Path
+			e.Root, e.Path = in.Root, in.Path
 			r.at(open, e, false)
 			return
 		}
-		e.From, e.Path = in.From, in.Path
-		r.put(e)
+		e.From = in.From
+		r.put(e.movedTo(in.At()))
 		return
 	}
 	r.put(in)

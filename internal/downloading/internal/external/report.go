@@ -5,6 +5,7 @@ import (
 	"context"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -64,6 +65,7 @@ func (s *state) reportOf(t *track, now time.Time) *dlv1.TorrentReport {
 		Id: t.id.Bytes(), Engine: dlv1.EngineState_ENGINE_STATE_DOWNLOADING, Complete: st.Finished,
 		Error: st.LocalError, Fault: t.fault, Origin: t.origin(), Run: runOnWire[st.Run],
 		QueuePosition: int32(st.QueuePosition), StoppedAtLimit: st.StoppedAtLimit, //nolint:gosec // a queue position fits
+		Arrival: arrivalOf(t),
 		Stalled: stalled(t.lastGrowth, now, s.share.StalledAfter, st.Run == clients.Started && st.Activity == clients.Downloading, st.Finished),
 	}
 	switch {
@@ -91,7 +93,39 @@ func (s *state) reportOf(t *track, now time.Time) *dlv1.TorrentReport {
 		}
 		r.Trackers = append(r.Trackers, line)
 	}
+	for _, ln := range t.lines {
+		i := slices.IndexFunc(r.Trackers, func(l *dlv1.TrackerLine) bool { return int(l.GetIndex()) == ln.Index })
+		if i < 0 {
+			r.Trackers = append(r.Trackers, &dlv1.TrackerLine{Index: int32(ln.Index), Status: dlv1.TrackerStatus_TRACKER_STATUS_WORKING}) //nolint:gosec // a tracker index fits
+			i = len(r.Trackers) - 1
+		}
+		r.Trackers[i].AnsweredAtUnixMs, r.Trackers[i].NextAnnounceUnixMs = unixMs(ln.Last), unixMs(ln.Next)
+	}
 	return r
+}
+
+// arrivalOf is t's arrival: its open start ask's result, or for a Move's
+// destination its complete add's check once it ended.
+func arrivalOf(t *track) *dlv1.Arrival {
+	st := t.status
+	switch {
+	case t.ask != nil:
+		return t.ask.Result()
+	case !t.arriving || st.Activity == clients.Checking || t.pieceLength == 0:
+		return nil
+	case st.Finished:
+		return &dlv1.Arrival{Result: dlv1.ArrivalResult_ARRIVAL_RESULT_COMPLETE}
+	}
+	missing := (st.Size - st.Done + t.pieceLength - 1) / t.pieceLength
+	return &dlv1.Arrival{Result: dlv1.ArrivalResult_ARRIVAL_RESULT_CHECK_FAILED, Reason: strconv.FormatInt(max(missing, 1), 10)}
+}
+
+// unixMs is t in unix milliseconds, 0 for the zero time.
+func unixMs(t time.Time) int64 {
+	if t.IsZero() {
+		return 0
+	}
+	return t.UnixMilli()
 }
 
 func countersOf(t *track) *dlv1.ClientCounters {
@@ -254,10 +288,12 @@ type published struct {
 	// answers is the client's polls succeeding.
 	answers bool
 	byHash  map[bencode.InfoHash]heldFiles
-	folder  string
-	live    []*dlv1.Live
-	down    int64
-	up      int64
+	// folder is the download folder as this Node sees it, and
+	// clientFolder as the client does, both "" until known.
+	folder, clientFolder string
+	live                 []*dlv1.Live
+	down                 int64
+	up                   int64
 }
 
 type heldFiles struct {
@@ -271,7 +307,7 @@ func (s *state) publish() {
 	p := &published{polled: s.polled, answers: s.answers(), byHash: make(map[bencode.InfoHash]heldFiles, len(s.tracks))}
 	base := cmp.Or(s.share.Client.GetFolder(), s.defaultFolder)
 	if f, _, ok := s.folders.OnNode(base, filepath.Separator); base != "" && ok {
-		p.folder = f
+		p.folder, p.clientFolder = f, base
 	}
 	for _, t := range s.sorted() {
 		p.byHash[t.hash] = s.heldOf(t)

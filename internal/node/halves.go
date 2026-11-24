@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"errors"
+	"maps"
 	"net"
 	"net/http"
 	"net/netip"
@@ -35,6 +36,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
@@ -80,6 +82,7 @@ import (
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/trackers"
 	"github.com/jatassi/slipstream/internal/transfers"
+	"github.com/jatassi/slipstream/internal/transfers/source"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -149,6 +152,8 @@ type half struct {
 	// and receives this Node's, on every Node.
 	transfers *transfers.Transfers
 	copier    *transfers.Node
+	// moves drives every Move, on a Controller.
+	moves *moves.Moves
 	// serving proxies to the Controller while a Worker holds Serving.
 	serving *serving.Worker
 }
@@ -171,6 +176,7 @@ func (n *Node) startController(ctx context.Context) error {
 		cluster      *rpc.Cluster
 		homes        *roots.Roots
 		seeding      *trackers.Trackers
+		mover        *moves.Moves
 		pipeline     *grabs.Grabs
 		scheduler    *tasks.Scheduler
 		meta         *metadata.Metadata
@@ -193,7 +199,9 @@ func (n *Node) startController(ctx context.Context) error {
 		Rehome: func(ctx context.Context, by identity.Admin, id roots.ID, h roots.Rehome) (roots.View, error) {
 			return homes.Rehome(ctx, by, id, h)
 		},
-		Scan: func(ctx context.Context, ids []roots.ID) error { return found.ScanRoots(ctx, ids) },
+		Scan:  func(ctx context.Context, ids []roots.ID) error { return found.ScanRoots(ctx, ids) },
+		Ready: func(ctx context.Context) ([]roots.Root, error) { return homes.Ready(ctx) },
+		Hub:   n.hub,
 		Ending: func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			return pipeline.DecideFetching(ctx, tx)
 		},
@@ -214,6 +222,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Changed: reconciling.ChangedEvent.Bind(n.hub),
 		Log:     n.rootLog.With("subsystem", "reconciling"),
 	})
+	var tree *works.Works
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
 		Touch:        func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
@@ -230,6 +239,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Uses:      imports.Uses{TorrentUses: grabs.TorrentUses{}},
 		Blocklist: grabs.BlocklistOn{Reconciling: reconciling.Blocked, Changes: grabs.BlocklistChangedEvent.Bind(n.hub)},
 		Seeding:   lateSeeder{&seeding},
+		Moving:    lateMoves{&mover},
+		Types:     lateTypes{&tree},
 		Live: downloadclients.LiveConfig{
 			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },
 			Event:   downloadclients.LiveEvent.Bind(n.hub),
@@ -252,6 +263,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Reconciling:     reconciling.Blocked,
 		Changed:         trackers.SeedingChangedEvent.Bind(n.hub),
 		TrackersChanged: indexers.TrackersEvent.Bind(n.hub),
+		Moving:          lateMoves{&mover},
 	})
 	downloads = downloading.Def.Serve(downloadclients.Derive{Keeps: keeper, HoldingsPage: n.cfg.Timings.Downloading.HoldingsPage}.Intent, clients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)
@@ -263,8 +275,16 @@ func (n *Node) startController(ctx context.Context) error {
 		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
 			return roots.DestinationsIn(ctx, r, ids, stored, side)
 		},
-		RootsMoved:   func() <-chan struct{} { return homes.Watch() },
-		Readiness:    clients.ReadinessIn,
+		RootsMoved: func() <-chan struct{} { return homes.Watch() },
+		Readiness: func(ctx context.Context, rd storage.Reader[storage.Library], node role.NodeID, refs []source.Ref) (map[source.Ref]source.Readiness, error) {
+			out, err := clients.ReadinessIn(ctx, rd, node, refs)
+			if err != nil {
+				return nil, err
+			}
+			library, err := roots.LibraryReadiness(ctx, rd, refs)
+			maps.Copy(out, library)
+			return out, err
+		},
 		Moved:        clients.Moved,
 		LowWait:      backups.CopyWaitLimitIn,
 		Paused:       whileReconciling,
@@ -288,7 +308,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Link: func(node role.NodeID) mediaserverv1connect.MediaServerLinkServiceHandler {
 			return mediaserverv1connect.MediaServerLinkService.On(cluster, node)
 		},
-		FileIDs: files.IDsAt,
+		FileIDs:    files.IDsAt,
+		FilePlaces: files.PlacesOf,
 		WorkFiles: func(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) ([]files.File, error) {
 			return files.LeftIn(ctx, r, []works.WorkID{work})
 		},
@@ -426,11 +447,11 @@ func (n *Node) startController(ctx context.Context) error {
 	subtitlesv1connect.SubtitlesService.Mount(dispatch, n.subtitlesHolder(client))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
-	storagev1connect.StorageService.Mount(dispatch, n.store)
-	storagev1connect.FolderService.Mount(dispatch, n.store)
 	if err := n.mountSidecars(ctx, dispatch, local); err != nil {
 		return err
 	}
+	storagev1connect.StorageService.Mount(dispatch, n.store)
+	storagev1connect.FolderService.Mount(dispatch, n.store)
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
@@ -460,7 +481,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	tree, err := works.Open(ctx, works.Config{
+	tree, err = works.Open(ctx, works.Config{
 		Library:      lib.db,
 		Catalogs:     contenttype.Project(opened, func(t contenttype.Library) works.Catalog { return t }),
 		Source:       meta,
@@ -553,16 +574,19 @@ func (n *Node) startController(ctx context.Context) error {
 		Folders: func(id role.NodeID) storagev1connect.FolderServiceHandler {
 			return storagev1connect.FolderService.On(cluster, id)
 		},
-		Arrivals: arrivals,
-		Contents: files.RootContents{},
-		Inflight: imports.RootImports{},
-		Videos:   imports.Videos,
-		Changed:  roots.ChangedEvent.Bind(n.hub),
-		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
-		Cadence:  clients.CadenceChanged,
-		Names:    side.Names,
-		Describe: tree.Describe,
-		Log:      n.rootLog.With("subsystem", "roots"),
+		Arrivals:    arrivals,
+		Contents:    files.RootContents{},
+		Inflight:    imports.RootImports{},
+		Busy:        rootBusy,
+		Reconciling: reconciling.Blocked,
+		Rehomed:     servers,
+		Videos:      imports.Videos,
+		Changed:     roots.ChangedEvent.Bind(n.hub),
+		Volumes:     roots.VolumesChangedEvent.Bind(n.hub),
+		Cadence:     clients.CadenceChanged,
+		Names:       side.Names,
+		Describe:    tree.Describe,
+		Log:         n.rootLog.With("subsystem", "roots"),
 	})
 	if err != nil {
 		return err
@@ -585,6 +609,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Timings:     n.cfg.Timings.Files,
 		Rand:        n.filesRand,
 		Reconciling: reconciling.Blocked,
+		Moves:       moves.FilesHooks{},
+		Homes:       homes,
 		Log:         n.rootLog.With("subsystem", "files"),
 	})
 	if err != nil {
@@ -686,6 +712,7 @@ func (n *Node) startController(ctx context.Context) error {
 			return mediav1connect.MediaService.On(cluster, node)
 		},
 		Transfers:    copies,
+		OtherCopies:  moves.OtherCopies,
 		Grabs:        pipeline,
 		Timings:      imports.Timings{RetryMin: n.cfg.Timings.Grabs.RetryMin, RetryMax: n.cfg.Timings.Grabs.RetryMax},
 		Rand:         n.importsRand,
@@ -697,19 +724,36 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
 	pipeline.Register(found.Importer())
+	mover = moves.New(moves.Config{
+		Library: lib.db, Works: tree, Files: shelf, Roots: homes, Disk: homes, Imports: found, Transfers: copies, MediaServers: servers,
+		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
+			return roots.DestinationsIn(ctx, r, ids, stored, side)
+		},
+		Writing: subtitles.Writing, Roster: side, Videos: imports.Videos, Reconciling: reconciling.Blocked, Hub: n.hub,
+		Changed: moves.ChangedEvent.Bind(n.hub), FilesChanged: files.ChangedEvent.Bind(n.hub),
+		Touch:   func(nodes ...role.NodeID) { stored.Touch(nodes...) },
+		Clients: clients,
+		Downloading: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
+			return downloadingv1connect.DownloadingService.On(cluster, id)
+		},
+		Repoint: grabs.RepointTorrentIn, CopyGoalRun: trackers.CopyGoalRunIn, Reroute: trackers.RerouteIn,
+		Recorder: n.history.Recorder("moves", moves.Entries()), Timings: n.cfg.Timings.Moves, BeforeStep: n.env.Test.BeforeMoveStep,
+		Clock: time.Now, Log: n.rootLog.With("subsystem", "moves"),
+	})
+	copies.Register(mover.Purpose())
 	front := home.New(home.Config{
-		Library: lib.db, Grabs: pipeline, Imports: found, Works: tree, Files: shelf, Clients: clients,
+		Library: lib.db, Moves: mover, Grabs: pipeline, Imports: found, Works: tree, Files: shelf, Clients: clients,
 		Changed: home.SettingsChangedEvent.Bind(n.hub),
 	})
 	if err := found.Carry(ctx); err != nil {
 		return err
 	}
-	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue,
+	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue, Moves: mover.Hooks().Library,
 		History: n.history.Recorder("library", library.Entries()), Subtitles: subtitler,
 	})
 	cat.Seal()
 
-	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
+	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found, Transfers: copies, Moves: mover}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
 		Library: lib.db,
 		Catalog: append(catalog(housekeeping.Config{
@@ -721,7 +765,7 @@ func (n *Node) startController(ctx context.Context) error {
 			},
 			Keep:  n.history,
 			Batch: n.cfg.Timings.Housekeeping.PruneBatch,
-			Steps: housekeepingSteps(registry, servers, n.history, pipeline, found, shelf, subtitler),
+			Steps: append(housekeepingSteps(registry, servers, n.history, pipeline, found, shelf, subtitler), moves.Retention(lib.db)),
 			Reconciling: func(ctx context.Context) (paused bool, err error) {
 				err = lib.db.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 					paused, err = reconciling.Blocked(ctx, r)
@@ -780,6 +824,7 @@ func (n *Node) startController(ctx context.Context) error {
 
 		transfers: copies,
 		copier:    copier,
+		moves:     mover,
 	}
 	if h.health, err = n.openHealth(ctx, lib.db, h); err != nil {
 		return err
@@ -796,6 +841,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("backup copies", kept.Run)
 	n.claimed.Go("media servers", servers.Run)
 	n.claimed.Go("files", shelf.Run)
+	n.claimed.Go("moves", mover.Run)
 	n.claimed.Go("subtitles", subtitler.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.claimed.Go("library scan", found.Run)
@@ -905,6 +951,14 @@ func (t lateTasks) SetCadence(ctx context.Context, id tasks.TaskID, v setting.St
 // lateSeeder is the Trackers' seeder once they are made: the download
 // clients are made before them, since the Trackers read Torrents through
 // them.
+// lateTypes is the Content Types once the Works open, which open after
+// the Download Clients.
+type lateTypes struct{ works **works.Works }
+
+func (t lateTypes) Describe(id works.TypeID) (works.Description, bool) {
+	return (*t.works).Describe(id)
+}
+
 type lateSeeder struct{ trackers **trackers.Trackers }
 
 func (s lateSeeder) Judge(ctx context.Context, r storage.Reader[storage.Library], rows []downloadclients.Row) (map[downloadclients.ID]downloadclients.Judged, error) {
@@ -913,6 +967,26 @@ func (s lateSeeder) Judge(ctx context.Context, r storage.Reader[storage.Library]
 
 func (s lateSeeder) EndlessUnits(ctx context.Context, r storage.Reader[storage.Library], node role.NodeID) (int64, error) {
 	return (*s.trackers).Seeder().EndlessUnits(ctx, r, node)
+}
+
+// lateMoves is the Moves once they are made: downloadclients and
+// trackers are made first.
+type lateMoves struct{ moves **moves.Moves }
+
+func (l lateMoves) Moving(ctx context.Context, r storage.Reader[storage.Library], ids []downloadclients.ID) (map[downloadclients.ID]downloadclients.MovingTo, error) {
+	return (*l.moves).Moving(ctx, r, ids)
+}
+
+func (l lateMoves) CancelIn(ctx context.Context, tx *storage.Tx[storage.Library], id downloadclients.ID) error {
+	return (*l.moves).CancelIn(ctx, tx, id)
+}
+
+func (l lateMoves) MovesOf(ctx context.Context, r storage.Reader[storage.Library], ids []downloadclients.ID) (map[downloadclients.ID]downloadclients.Move, error) {
+	return (*l.moves).MovesOf(ctx, r, ids)
+}
+
+func (l lateMoves) UsesClient(ctx context.Context, r storage.Reader[storage.Library], client downloadclients.ClientID) (int64, error) {
+	return (*l.moves).UsesClient(ctx, r, client)
 }
 
 // today is the time now in the Controller's zone.
@@ -1046,11 +1120,11 @@ func (n *Node) startWorker(ctx context.Context) error {
 	subtitlesv1connect.SubtitlesService.Mount(dispatch, n.subtitlesHolder(client))
 	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
-	storagev1connect.StorageService.Mount(dispatch, n.store)
-	storagev1connect.FolderService.Mount(dispatch, n.store)
 	if err := n.mountSidecars(ctx, dispatch, local); err != nil {
 		return err
 	}
+	storagev1connect.StorageService.Mount(dispatch, n.store)
+	storagev1connect.FolderService.Mount(dispatch, n.store)
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
@@ -1102,15 +1176,16 @@ func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatc
 	n.claimed.OnStop("local.db", func(context.Context) error { return local.Close() })
 	n.claimed.OnStop("torrent resume data", n.downloads.Shutdown(local))
 	copier := transfers.NewNode(transfers.NodeConfig{
-		Local:   local,
-		Disk:    n.disk,
-		Link:    n.link,
-		Sources: n.downloading,
-		Roots:   n.store,
-		Timings: n.cfg.Timings.Transfers,
-		Retry:   n.cfg.Timings.Backups.WindowsRetry,
-		Hooks:   n.env.Test.Transfers,
-		Log:     n.rootLog.With("subsystem", "transfers"),
+		Local:     local,
+		Disk:      n.disk,
+		Link:      n.link,
+		Sources:   opener{store: n.store, torrents: n.downloading},
+		Roots:     n.store,
+		Downloads: n.downloading,
+		Timings:   n.cfg.Timings.Transfers,
+		Retry:     n.cfg.Timings.Backups.WindowsRetry,
+		Hooks:     n.env.Test.Transfers,
+		Log:       n.rootLog.With("subsystem", "transfers"),
 	})
 	holding, err := role.NewHolding(ctx, role.HoldingConfig{
 		Local:      local,
@@ -1298,4 +1373,46 @@ func lookOn(ctx context.Context, cluster *rpc.Cluster, node role.NodeID, folder 
 	}
 	res, err := downloadingv1connect.DownloadingService.On(cluster, node).Look(ctx, req)
 	return res.GetFound(), err
+}
+
+// opener serves a Transfer's sources on this Node: a library file from
+// the root that holds it, read even while the Node drains its Storage,
+// and every other source from its Download Client.
+type opener struct {
+	store    *storing.Store
+	torrents transfers.Opener
+}
+
+func (o opener) Open(ref source.Ref) (string, error) {
+	lib, ok := ref.(source.Library)
+	if !ok {
+		return o.torrents.Open(ref)
+	}
+	rel, err := storing.ParseRel(lib.Rel)
+	if err != nil {
+		return "", &source.Absent{Reason: source.Gone, Detail: err.Error()}
+	}
+	root, err := storage.UUIDFromBytes(lib.Root[:])
+	if err != nil {
+		return "", err
+	}
+	return o.store.OpenLibrary(context.Background(), root, rel)
+}
+
+// rootBusy is what uses root: the open Moves naming it, the unfinished
+// Imports into it and the live Transfers into or out of it.
+func rootBusy(ctx context.Context, r storage.Reader[storage.Library], root roots.ID) (roots.Busy, error) {
+	movesIn, err := moves.Busy(ctx, r, root)
+	if err != nil {
+		return roots.Busy{}, err
+	}
+	importsIn, err := imports.RootImports{}.Into(ctx, r, root, nil)
+	if err != nil {
+		return roots.Busy{}, err
+	}
+	transfersIn, err := transfers.UsingRoot(ctx, r, root)
+	if err != nil {
+		return roots.Busy{}, err
+	}
+	return roots.Busy{Moves: int(movesIn), Imports: int(importsIn), Transfers: transfersIn}, nil
 }

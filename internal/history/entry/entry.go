@@ -17,7 +17,7 @@ import (
 type Kind string
 
 // Group is a kind's History filter group and where its toggle sits in a
-// connection's event list. History has exactly six.
+// connection's event list. History has exactly seven.
 type Group string
 
 const (
@@ -27,12 +27,13 @@ const (
 	Subtitles Group = "subtitles"
 	Health    Group = "health"
 	Backups   Group = "backups"
+	Moves     Group = "moves"
 )
 
-var groupLabels = map[Group]string{Grabs: "Grabs", Imports: "Imports", Library: "Library", Subtitles: "Subtitles", Health: "Health", Backups: "Backups"}
+var groupLabels = map[Group]string{Grabs: "Grabs", Imports: "Imports", Library: "Library", Subtitles: "Subtitles", Health: "Health", Backups: "Backups", Moves: "Moves"}
 
 // Groups is History's groups in filter order.
-func Groups() []Group { return []Group{Grabs, Imports, Library, Subtitles, Health, Backups} }
+func Groups() []Group { return []Group{Grabs, Imports, Library, Subtitles, Health, Backups, Moves} }
 
 // Label is g's name on History's filter.
 func (g Group) Label() string { return groupLabels[g] }

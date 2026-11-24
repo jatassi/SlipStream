@@ -167,3 +167,34 @@ func TestTheAnnouncedSecondsANodeReportsFillItsTorrent(t *testing.T) {
 		t.Errorf("a new Torrent of the removed one's hash starts from %v announced, want its 1h30m", got)
 	}
 }
+
+// TestALateCountersReportLeavesASwitchedSourcesTotals switches the
+// Orchard from Transmission to den once Transmission counted a minute of
+// seeding, then Transmission's next counters land, twice: the switch
+// carried the source's final totals, so both Torrents keep them.
+func TestALateCountersReportLeavesASwitchedSourcesTotals(t *testing.T) {
+	s := newMediaServer(t)
+	id := s.send(t, "Orchard")
+	den := addNode(t, s.lib, "den")
+	counters := func(up, seeding int64) *dlv1.Report {
+		return clientTotals(&dlv1.ClientCounters{Id: id.Bytes(), Uploaded: up, SeedingSeconds: seeding})
+	}
+	s.report(t, s.node, counters(9000, 3600))
+	s.report(t, s.node, counters(9500, 3660))
+	var arriving dc.ID
+	write(t, s.lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		if arriving, err = dc.InsertArriving(ctx, tx, dc.Arriving{Unit: [16]byte(storage.NewUUID().Bytes()), From: id, Node: den}); err != nil {
+			return err
+		}
+		return s.c.SwitchIn(ctx, tx, id, arriving)
+	})
+	for range 2 {
+		s.report(t, s.node, counters(9800, 3665))
+	}
+	for _, torrent := range []dc.ID{id, arriving} {
+		if got := totalsOf(t, s.lib, torrent); got.Uploaded != 500 || got.Seeding != time.Minute {
+			t.Errorf("Torrent %s has %d uploaded and %s seeding after the late counters, want the switch's 500 and 1m0s", torrent, got.Uploaded, got.Seeding)
+		}
+	}
+}

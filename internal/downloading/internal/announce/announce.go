@@ -60,8 +60,11 @@ type line struct {
 	// awaited is the announce the tracker has yet to answer, nil once it
 	// answered.
 	awaited *announcement
-	// answer is when the tracker last answered.
-	answer       time.Time
+	// answer is when the tracker last answered, and succeeded when it
+	// last answered with no failure.
+	answer, succeeded time.Time
+	// last is the event of the last announce that went out.
+	last         Event
 	unregistered time.Time
 	// seeded is the last seeder announce the tracker accepted that a later
 	// one credits seed time from, nil when there is none.
@@ -79,8 +82,11 @@ type announcement struct {
 // Line is the policy's view of one tracker of a torrent.
 type Line struct {
 	Index int
-	// Answered is the tracker's last answer, zero before one.
-	Answered time.Time
+	// Answered is the tracker's last answer, zero before one, and
+	// Succeeded its last answer with no failure.
+	Answered, Succeeded time.Time
+	// Stopped is a last announce that was a stopped the tracker answered.
+	Stopped bool
 	// MinInterval is the tracker's min interval, or the policy's stand-in
 	// until the tracker replied with one.
 	MinInterval time.Duration
@@ -101,7 +107,7 @@ func New(r *rand.Rand, jitter, floor time.Duration) *Ledger {
 // complete when complete.
 func (l *Ledger) Sent(h bencode.InfoHash, t Tracker, ev Event, at time.Time, complete bool) {
 	ln := l.line(h, t)
-	ln.sent[ev] = at
+	ln.sent[ev], ln.last = at, ev
 	ln.awaited = &announcement{event: ev, at: at, seeder: complete || ev == Completed}
 	minInterval := l.minInterval(ln)
 	open := ln.open(at, minInterval)
@@ -138,6 +144,7 @@ func (l *Ledger) Answered(h bencode.InfoHash, t Tracker, at time.Time) time.Dura
 	ln := l.line(h, t)
 	a := ln.awaited
 	ln.answered(at)
+	ln.succeeded = later(ln.succeeded, at)
 	if a == nil {
 		return 0
 	}
@@ -185,7 +192,10 @@ func (l *Ledger) Detail(h bencode.InfoHash, private bool, now time.Time) []Line 
 	out := make([]Line, 0, len(lines))
 	for _, index := range slices.Sorted(maps.Keys(lines)) {
 		ln := lines[index]
-		out = append(out, Line{Index: index, Answered: ln.answer, MinInterval: l.minInterval(ln), AcceptsAt: l.acceptsLine(ln, None, private, now)})
+		out = append(out, Line{
+			Index: index, Answered: ln.answer, Succeeded: ln.succeeded, Stopped: ln.last == Stopped && ln.awaited == nil && !ln.answer.IsZero(),
+			MinInterval: l.minInterval(ln), AcceptsAt: l.acceptsLine(ln, None, private, now),
+		})
 	}
 	return out
 }

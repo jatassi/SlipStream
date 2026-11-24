@@ -19,12 +19,12 @@ import (
 	"github.com/jatassi/slipstream/internal/providers/plex"
 )
 
-// Disk, DirDisk and Fresh are the shared suite's, for the tests outside
+// Disk, DirDisk and Library are the shared suite's, for the tests outside
 // conformance that build a Target.
 type (
 	Disk    = mediaservers.Disk
 	DirDisk = mediaservers.DirDisk
-	Fresh   = mediaservers.Fresh
+	Library = mediaservers.Library
 )
 
 // Target is the Plex under test.
@@ -38,8 +38,10 @@ type Target struct {
 	Section string
 	Folder  link.ServerPath
 	Disk    Disk
-	Fresh   *Fresh
-	Play    func(t *testing.T, p link.ServerPath, d link.Decision) (stop func())
+	Fresh   *Library
+	// Second is a scanned section beside Section, of its type.
+	Second *Library
+	Play   func(t *testing.T, p link.ServerPath, d link.Decision) (stop func())
 	// Fake runs the cases that would destroy a real server's watch data.
 	Fake          bool
 	Settle, Bound time.Duration
@@ -62,7 +64,7 @@ func Run(t *testing.T, tg Target) {
 	c := tg.client(t, tg.Token)
 	shared := mediaservers.Target{
 		Kind: "plex", Server: &server{c: c, tg: tg, scans: map[string]scanMark{}},
-		Library: tg.Section, Folder: tg.Folder, Disk: tg.Disk, Fresh: tg.Fresh, Play: tg.Play,
+		Library: tg.Section, Folder: tg.Folder, Disk: tg.Disk, Fresh: tg.Fresh, Second: tg.Second, Play: tg.Play,
 		Settle: tg.Settle, Bound: tg.Bound, Log: tg.Log,
 	}
 	mediaservers.Shared(t, shared)
@@ -206,10 +208,12 @@ func MovedDestinationThenSource(t *testing.T, tg Target, shared mediaservers.Tar
 	kept(t, after, 1)
 }
 
-// SourceFirstPurges is case E, which a real server's watch data can't
+// SourceFirstPurges is case E, which a real server's collections can't
 // afford: with autoEmptyTrash on, a refresh of the vacated folder first
-// deletes the item, and the destination's new item has no play count and
-// no collection.
+// deletes the item, and the destination's new item gets the play count
+// back by guid but no collection (recorded run 2026-11-23, case 4; the
+// 2026-11-14 run's destination was an edition, which has its own watch
+// data).
 func SourceFirstPurges(t *testing.T, tg Target, shared mediaservers.Target) {
 	if !tg.Fake {
 		mediaservers.Skip(t, "source first destroys watch data; recorded run 2026-11-14 case E is the real server's result")
@@ -230,7 +234,9 @@ func SourceFirstPurges(t *testing.T, tg Target, shared mediaservers.Target) {
 	if err := c.RefreshPath(t.Context(), plex.ID(tg.Section), f.At(to).Dir().String()); err != nil {
 		t.Fatal(err)
 	}
-	kept(t, f.Found(to), 0)
+	if now := f.Found(to); now.PlayCount != 1 || len(now.Collections) != 0 {
+		t.Fatalf("item %s has play count %d and collections %v, want 1 and none", now.Key, now.PlayCount, now.Collections)
+	}
 }
 
 // BackslashPaths is case A on a Windows server: a refresh path with

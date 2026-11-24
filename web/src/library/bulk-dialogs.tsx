@@ -1,11 +1,12 @@
 import type { WorksContentType } from "../api/gen/model";
+import { MoveDialog } from "../moves/move-dialog";
 import { DeleteDialog } from "../works/actions/delete-dialog";
 import { ProfileDialog } from "../works/actions/profile-dialog";
 import { RootDialog } from "../works/actions/root-dialog";
 import { MonitoringDialog } from "../works/monitoring/monitoring-dialog";
 import type { LibraryWork } from "./rows";
 
-export type BulkDialogKind = "profile" | "root" | "monitoring" | "delete";
+export type BulkDialogKind = "profile" | "root" | "move" | "monitoring" | "delete";
 
 /** The open bulk dialog, drawn fresh each time it opens so it starts from the defaults. */
 export function BulkDialog({
@@ -41,6 +42,9 @@ export function BulkDialog({
         onOpenChange={close}
       />
     );
+  }
+  if (kind === "move") {
+    return <MoveDialog type={type} works={picked} origin="bulk" open onOpenChange={close} />;
   }
   if (kind === "root") {
     return <RootDialog type={type} works={picked} open onOpenChange={close} />;

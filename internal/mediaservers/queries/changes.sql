@@ -30,22 +30,26 @@ ORDER BY created_at, id;
 
 -- name: InsertChange :exec
 INSERT INTO mediaservers_change (
-    id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade,
-    state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem
+    id, server_id, kind, root_id, path, from_root_id, from_path, file_id, replaced_by, upgrade,
+    state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, source_gone_at, result, lost, problem
 ) VALUES (
-    sqlc.arg(id), sqlc.arg(server_id), sqlc.arg(kind), sqlc.arg(root_id), sqlc.arg(path), sqlc.narg(from_path),
-    sqlc.arg(file_id), sqlc.arg(replaced_by), sqlc.arg(upgrade), sqlc.arg(state), sqlc.arg(step), sqlc.arg(step_at),
-    sqlc.narg(snapshot), sqlc.arg(attempts), sqlc.arg(next_attempt_at), sqlc.arg(created_at), sqlc.arg(sent_at),
-    sqlc.narg(result), sqlc.arg(lost), sqlc.narg(problem)
+    sqlc.arg(id), sqlc.arg(server_id), sqlc.arg(kind), sqlc.arg(root_id), sqlc.arg(path), sqlc.arg(from_root_id),
+    sqlc.narg(from_path), sqlc.arg(file_id), sqlc.arg(replaced_by), sqlc.arg(upgrade), sqlc.arg(state), sqlc.arg(step),
+    sqlc.arg(step_at), sqlc.narg(snapshot), sqlc.arg(attempts), sqlc.arg(next_attempt_at), sqlc.arg(created_at),
+    sqlc.arg(sent_at), sqlc.arg(source_gone_at), sqlc.narg(result), sqlc.arg(lost), sqlc.narg(problem)
 );
 
 -- UpdateChange writes every column a fold or a step moves. A row keeps
--- its id, server, root and age.
+-- its id, server and age. Its roots move with a removal that a Move's
+-- carry folds into, which lies at the carry's origin.
 -- name: UpdateChange :exec
 UPDATE mediaservers_change
 SET kind = sqlc.arg(kind),
+    root_id = sqlc.arg(root_id),
     path = sqlc.arg(path),
+    from_root_id = sqlc.arg(from_root_id),
     from_path = sqlc.narg(from_path),
+    source_gone_at = sqlc.arg(source_gone_at),
     file_id = sqlc.arg(file_id),
     replaced_by = sqlc.arg(replaced_by),
     upgrade = sqlc.arg(upgrade),
@@ -73,16 +77,20 @@ WHERE root_id = sqlc.arg(root_id) AND state <> 'sent'
     AND (path IN (sqlc.slice(paths)) OR from_path IN (sqlc.slice(origins)) OR file_id IN (sqlc.slice(files)))
 ORDER BY created_at, id;
 
+-- DeletePrepared, DeleteStalePrepared and DeleteAllPrepared delete the
+-- rows Prepare wrote for renames. A Move's prepared rows are PrepareMove's
+-- and go only with DropMovePrepared or the Move's switch.
 -- name: DeletePrepared :exec
-DELETE FROM mediaservers_change WHERE file_id = sqlc.arg(file_id) AND state = 'prepared';
+DELETE FROM mediaservers_change WHERE file_id = sqlc.arg(file_id) AND state = 'prepared' AND from_root_id IS NULL;
 
 -- DeleteStalePrepared deletes the prepared rows of files no pending
 -- rename names any more: a plan cancelled or replaced.
 -- name: DeleteStalePrepared :exec
-DELETE FROM mediaservers_change WHERE state = 'prepared' AND file_id NOT IN (sqlc.slice(pending));
+DELETE FROM mediaservers_change
+WHERE state = 'prepared' AND from_root_id IS NULL AND file_id NOT IN (sqlc.slice(pending));
 
 -- name: DeleteAllPrepared :exec
-DELETE FROM mediaservers_change WHERE state = 'prepared';
+DELETE FROM mediaservers_change WHERE state = 'prepared' AND from_root_id IS NULL;
 
 -- name: ListChanges :many
 SELECT * FROM mediaservers_change WHERE server_id = sqlc.arg(server_id) ORDER BY id DESC LIMIT sqlc.arg(n);

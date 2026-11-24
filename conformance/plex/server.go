@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"time"
 
 	"github.com/jatassi/slipstream/conformance/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/providers/plex"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 // server drives a Plex through the wire client, the way the Plex kind
@@ -106,6 +108,65 @@ func (s *server) Moved(ctx context.Context, library string, from, to []link.Serv
 		return slices.ContainsFunc(dest, func(d link.ServerPath) bool { return d.Key() == f.Key() })
 	})
 	return s.refresh(ctx, library, src)
+}
+
+// CopyMoved copies the file, refreshes its folder in the destination
+// section and writes the source item's collections onto the new item, as
+// the Plex Move does, since collections never follow a new ratingKey
+// (recorded run 2026-11-23, case 1). Then it deletes the source and
+// refreshes the vacated folder in the source section.
+func (s *server) CopyMoved(ctx context.Context, from, to mediaservers.Library, rel storing.Rel) error {
+	src, ok, err := s.find(ctx, from.Library, from.Folder.Join(rel))
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("no item at %s", from.Folder.Join(rel))
+	}
+	if err := mediaservers.Copy(from, to, rel); err != nil {
+		return err
+	}
+	if err := s.refresh(ctx, to.Library, []link.ServerPath{to.Folder.Join(rel).Dir()}); err != nil {
+		return err
+	}
+	dst, err := s.appeared(ctx, to.Library, to.Folder.Join(rel))
+	if err != nil {
+		return err
+	}
+	var titles []string
+	for _, c := range slices.Concat(dst.Collections, src.Collections) {
+		if !slices.Contains(titles, c.Tag) {
+			titles = append(titles, c.Tag)
+		}
+	}
+	if err := s.c.SetCollections(ctx, dst.RatingKey, plex.TypeOf(dst.Type), titles); err != nil {
+		return err
+	}
+	if err := from.Disk.Remove(rel); err != nil {
+		return err
+	}
+	return s.refresh(ctx, from.Library, []link.ServerPath{from.Folder.Join(rel).Dir()})
+}
+
+// appeared waits for the item at p, which a real server scans in under a
+// second (recorded run 2026-11-23).
+func (s *server) appeared(ctx context.Context, library string, p link.ServerPath) (plex.Metadata, error) {
+	tick := time.NewTicker(250 * time.Millisecond)
+	defer tick.Stop()
+	deadline := time.After(30 * time.Second)
+	for {
+		m, ok, err := s.find(ctx, library, p)
+		if err != nil || ok {
+			return m, err
+		}
+		select {
+		case <-tick.C:
+		case <-deadline:
+			return plex.Metadata{}, fmt.Errorf("no item at %s after 30 s", p)
+		case <-ctx.Done():
+			return plex.Metadata{}, fmt.Errorf("wait for an item at %s: %w", p, ctx.Err())
+		}
+	}
 }
 
 func (s *server) SidecarRemoved(ctx context.Context, library string, video, _ link.ServerPath) error {

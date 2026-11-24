@@ -203,6 +203,8 @@ type Hub struct {
 type watcher struct {
 	names map[string]bool
 	woken chan struct{}
+	// tap is set on a Tap's watcher, which also keeps the messages.
+	tap *Tap
 }
 
 // NewHub builds a hub over every declared event. It panics on a duplicate
@@ -254,6 +256,65 @@ func (h *Hub) Watch(ctx context.Context, events ...Event) <-chan struct{} {
 	return w.woken
 }
 
+// tapped is the most messages a Tap keeps between two Takes; past it the
+// Tap keeps none and reports them lost.
+const tapped = 1024
+
+// Tap is a Watch that keeps the payloads: Go code that follows events and
+// acts on what each names.
+type Tap struct {
+	w    *watcher
+	mu   sync.Mutex
+	kept []Message
+	lost bool
+}
+
+// Tap follows events until ctx ends.
+func (h *Hub) Tap(ctx context.Context, events ...Event) *Tap {
+	t := &Tap{}
+	w := &watcher{names: map[string]bool{}, woken: make(chan struct{}, 1), tap: t}
+	t.w = w
+	for _, e := range events {
+		h.mustDeclare(e)
+		w.names[e.Name()] = true
+	}
+	h.mu.Lock()
+	h.watchers[w] = struct{}{}
+	h.mu.Unlock()
+	context.AfterFunc(ctx, func() {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		delete(h.watchers, w)
+	})
+	return t
+}
+
+// Woken receives after one or more messages arrive.
+func (t *Tap) Woken() <-chan struct{} { return t.w.woken }
+
+// Take is the messages since the last Take, oldest first. lost is whether
+// more arrived than a Tap keeps, so the caller can't know what each named.
+func (t *Tap) Take() (msgs []Message, lost bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	msgs, lost = t.kept, t.lost
+	t.kept, t.lost = nil, false
+	return msgs, lost
+}
+
+func (t *Tap) keep(m Message) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.lost {
+		return
+	}
+	if len(t.kept) == tapped {
+		t.kept, t.lost = nil, true
+		return
+	}
+	t.kept = append(t.kept, m)
+}
+
 // Events is every event the hub carries, its control events included,
 // ordered by name.
 func (h *Hub) Events() []Event {
@@ -281,6 +342,9 @@ func (h *Hub) publish(ctx context.Context, e Event, account storage.UUID, data a
 	h.wake()
 	for w := range h.watchers {
 		if w.names[e.Name()] {
+			if w.tap != nil {
+				w.tap.keep(Message{ID: h.head, Name: e.Name(), Data: data})
+			}
 			select {
 			case w.woken <- struct{}{}:
 			default:

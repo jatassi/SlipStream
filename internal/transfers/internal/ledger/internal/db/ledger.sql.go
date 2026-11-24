@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -25,6 +26,19 @@ func (q *Queries) CountUnplaced(ctx context.Context, transferID local.TransferID
 	return count, err
 }
 
+const countUsingRoot = `-- name: CountUsingRoot :one
+SELECT count(*) FROM transfers_record r
+WHERE r.destination_root = ?1
+    OR EXISTS (SELECT 1 FROM transfers_file f WHERE f.transfer_id = r.id AND f.source_root = ?1 AND f.placed = 0 AND f.dropped = 0)
+`
+
+func (q *Queries) CountUsingRoot(ctx context.Context, root *roots.ID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUsingRoot, root)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteTransfer = `-- name: DeleteTransfer :exec
 DELETE FROM transfers_record WHERE id = ?1
 `
@@ -35,7 +49,7 @@ func (q *Queries) DeleteTransfer(ctx context.Context, id local.TransferID) error
 }
 
 const filesOf = `-- name: FilesOf :many
-SELECT transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, size, verified_place, placed, dropped FROM transfers_file WHERE transfer_id = ?1 ORDER BY position
+SELECT transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, source_root, size, verified_place, placed, dropped FROM transfers_file WHERE transfer_id = ?1 ORDER BY position
 `
 
 func (q *Queries) FilesOf(ctx context.Context, transferID local.TransferID) ([]TransfersFile, error) {
@@ -57,6 +71,7 @@ func (q *Queries) FilesOf(ctx context.Context, transferID local.TransferID) ([]T
 			&i.FileIndex,
 			&i.Path,
 			&i.SourceFolder,
+			&i.SourceRoot,
 			&i.Size,
 			&i.VerifiedPlace,
 			&i.Placed,
@@ -87,7 +102,7 @@ func (q *Queries) GetNodeSettings(ctx context.Context, nodeID role.NodeID) (Tran
 }
 
 const getTransfer = `-- name: GetTransfer :one
-SELECT id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, priority, created_at, failure_code, failure_position, failure_detail FROM transfers_record WHERE id = ?1
+SELECT id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, destination_client, destination_content_type, destination_info_hash, priority, created_at, failure_code, failure_position, failure_detail FROM transfers_record WHERE id = ?1
 `
 
 func (q *Queries) GetTransfer(ctx context.Context, id local.TransferID) (TransfersRecord, error) {
@@ -103,6 +118,9 @@ func (q *Queries) GetTransfer(ctx context.Context, id local.TransferID) (Transfe
 		&i.DestinationBackup,
 		&i.DestinationNode,
 		&i.DestinationFolder,
+		&i.DestinationClient,
+		&i.DestinationContentType,
+		&i.DestinationInfoHash,
 		&i.Priority,
 		&i.CreatedAt,
 		&i.FailureCode,
@@ -113,8 +131,9 @@ func (q *Queries) GetTransfer(ctx context.Context, id local.TransferID) (Transfe
 }
 
 const insertFile = `-- name: InsertFile :exec
-INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, size)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, source_root, size)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
+    ?9, ?10, ?11)
 `
 
 type InsertFileParams struct {
@@ -127,6 +146,7 @@ type InsertFileParams struct {
 	FileIndex    *int64
 	Path         *string
 	SourceFolder *string
+	SourceRoot   []byte
 	Size         int64
 }
 
@@ -141,29 +161,35 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 		arg.FileIndex,
 		arg.Path,
 		arg.SourceFolder,
+		arg.SourceRoot,
 		arg.Size,
 	)
 	return err
 }
 
 const insertTransfer = `-- name: InsertTransfer :exec
-INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, priority, created_at)
+INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder,
+    destination_client, destination_content_type, destination_info_hash, priority, created_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
-    ?7, ?8, ?9, ?10, ?11)
+    ?7, ?8, ?9, ?10, ?11,
+    ?12, ?13, ?14)
 `
 
 type InsertTransferParams struct {
-	ID                local.TransferID
-	Purpose           string
-	Job               string
-	SourceNode        role.NodeID
-	DestinationKind   string
-	DestinationRoot   *roots.ID
-	DestinationBackup []byte
-	DestinationNode   role.NodeID
-	DestinationFolder *string
-	Priority          string
-	CreatedAt         storage.Time
+	ID                     local.TransferID
+	Purpose                string
+	Job                    string
+	SourceNode             role.NodeID
+	DestinationKind        string
+	DestinationRoot        *roots.ID
+	DestinationBackup      []byte
+	DestinationNode        role.NodeID
+	DestinationFolder      *string
+	DestinationClient      []byte
+	DestinationContentType *string
+	DestinationInfoHash    []byte
+	Priority               string
+	CreatedAt              storage.Time
 }
 
 func (q *Queries) InsertTransfer(ctx context.Context, arg InsertTransferParams) error {
@@ -177,14 +203,61 @@ func (q *Queries) InsertTransfer(ctx context.Context, arg InsertTransferParams) 
 		arg.DestinationBackup,
 		arg.DestinationNode,
 		arg.DestinationFolder,
+		arg.DestinationClient,
+		arg.DestinationContentType,
+		arg.DestinationInfoHash,
 		arg.Priority,
 		arg.CreatedAt,
 	)
 	return err
 }
 
+const librarySending = `-- name: LibrarySending :many
+SELECT DISTINCT source_root, path FROM transfers_file
+WHERE source_kind = 'library' AND placed = 0 AND dropped = 0 AND path IN (/*SLICE:paths*/?)
+ORDER BY source_root, path
+`
+
+type LibrarySendingRow struct {
+	SourceRoot []byte
+	Path       *string
+}
+
+func (q *Queries) LibrarySending(ctx context.Context, paths []*string) ([]LibrarySendingRow, error) {
+	query := librarySending
+	var queryParams []interface{}
+	if len(paths) > 0 {
+		for _, v := range paths {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:paths*/?", strings.Repeat(",?", len(paths))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:paths*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LibrarySendingRow
+	for rows.Next() {
+		var i LibrarySendingRow
+		if err := rows.Scan(&i.SourceRoot, &i.Path); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFiles = `-- name: ListFiles :many
-SELECT transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, size, verified_place, placed, dropped FROM transfers_file ORDER BY transfer_id, position
+SELECT transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, source_root, size, verified_place, placed, dropped FROM transfers_file ORDER BY transfer_id, position
 `
 
 func (q *Queries) ListFiles(ctx context.Context) ([]TransfersFile, error) {
@@ -206,6 +279,7 @@ func (q *Queries) ListFiles(ctx context.Context) ([]TransfersFile, error) {
 			&i.FileIndex,
 			&i.Path,
 			&i.SourceFolder,
+			&i.SourceRoot,
 			&i.Size,
 			&i.VerifiedPlace,
 			&i.Placed,
@@ -313,7 +387,7 @@ func (q *Queries) ListTransferIDs(ctx context.Context) ([]local.TransferID, erro
 }
 
 const listTransfers = `-- name: ListTransfers :many
-SELECT id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, priority, created_at, failure_code, failure_position, failure_detail FROM transfers_record ORDER BY created_at, id
+SELECT id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, destination_client, destination_content_type, destination_info_hash, priority, created_at, failure_code, failure_position, failure_detail FROM transfers_record ORDER BY created_at, id
 `
 
 func (q *Queries) ListTransfers(ctx context.Context) ([]TransfersRecord, error) {
@@ -335,6 +409,9 @@ func (q *Queries) ListTransfers(ctx context.Context) ([]TransfersRecord, error) 
 			&i.DestinationBackup,
 			&i.DestinationNode,
 			&i.DestinationFolder,
+			&i.DestinationClient,
+			&i.DestinationContentType,
+			&i.DestinationInfoHash,
 			&i.Priority,
 			&i.CreatedAt,
 			&i.FailureCode,

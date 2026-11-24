@@ -102,3 +102,6 @@ ORDER BY work_id;
 -- name: DeleteAllVolumes :exec
 -- A restore's samples were taken by the old Controller's machine.
 DELETE FROM roots_volume;
+
+-- name: ListWorksOfRootAfter :many
+SELECT work_id FROM roots_work WHERE root_id = sqlc.arg(root_id) AND (sqlc.narg(after) IS NULL OR work_id > sqlc.narg(after)) ORDER BY work_id LIMIT sqlc.arg(n);

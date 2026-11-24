@@ -15,11 +15,11 @@ import (
 var ErrWorksToType = errors.New("the root's Works can go only to a root of their Content Type")
 
 // InUseError is a root that can't go while it holds live files, doomed
-// ones counted, or Grabs are in flight into it.
-type InUseError struct{ Files, Grabs int64 }
+// ones counted, Grabs are in flight into it or a Move uses it.
+type InUseError struct{ Files, Grabs, Moves int64 }
 
 func (e *InUseError) Error() string {
-	return fmt.Sprintf("the root holds %d files and %d Grabs in flight", e.Files, e.Grabs)
+	return fmt.Sprintf("the root holds %d files and %d Grabs in flight, and %d Moves use it", e.Files, e.Grabs, e.Moves)
 }
 
 // Delete takes root id out of the library and leaves its folder and
@@ -89,8 +89,12 @@ func (r *Roots) inUse(ctx context.Context, tx *storage.Tx[file], id ID, homed []
 	if err != nil {
 		return err
 	}
-	if files := use[id].Files; files > 0 || grabs > 0 {
-		return &InUseError{Files: files, Grabs: grabs}
+	busy, err := r.cfg.Busy(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	if files := use[id].Files; files > 0 || grabs > 0 || busy.Moves > 0 {
+		return &InUseError{Files: files, Grabs: grabs, Moves: int64(busy.Moves)}
 	}
 	return nil
 }

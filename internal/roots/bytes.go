@@ -3,6 +3,7 @@ package roots
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
@@ -21,6 +22,32 @@ func (r *Roots) Place(ctx context.Context, root ID, to storing.Rel, from storing
 	}
 	placed, err := r.cfg.Remote.Place(ctx, at, from, to, allowCopy)
 	return placed, r.waiting(ctx, at.Node, err)
+}
+
+// PlaceSidecar is Place for a Sidecar its source's ledger marks
+// SlipStream's: the Node records the placed file in root's ledger.
+func (r *Roots) PlaceSidecar(ctx context.Context, root ID, to storing.Rel, from storing.Source, allowCopy bool) (storing.Placed, error) {
+	at, err := r.at(ctx, root)
+	if err != nil {
+		return storing.Placed{}, err
+	}
+	placed, err := r.cfg.Remote.PlaceSidecar(ctx, at, from, to, allowCopy)
+	return placed, r.waiting(ctx, at.Node, err)
+}
+
+// MoveSidecar renames the Sidecar from to to within root on its Node,
+// and records it at to in root's ledger.
+func (r *Roots) MoveSidecar(ctx context.Context, root ID, from, to storing.Rel) (storing.Placed, error) {
+	at, err := r.at(ctx, root)
+	if err != nil {
+		return storing.Placed{}, err
+	}
+	videos, err := r.cfg.Videos(ctx, r.cfg.Library)
+	if err != nil {
+		return storing.Placed{}, err
+	}
+	moved, err := r.cfg.Remote.MoveSidecar(ctx, at, from, to, videos)
+	return moved, r.waiting(ctx, at.Node, err)
 }
 
 // Move renames from to to within root on its Node, and with carry from's
@@ -149,6 +176,28 @@ func (r *Roots) RemoveAll(ctx context.Context, root ID, rel storing.Rel) error {
 		return err
 	}
 	return r.cfg.Remote.RemoveAll(ctx, at, rel)
+}
+
+// RemoveIf removes rel from root on its Node only while its size and
+// modified time, to the millisecond, are the ones asked, answering
+// whether it was removed, gone or changed.
+func (r *Roots) RemoveIf(ctx context.Context, root ID, rel storing.Rel, size int64, modified time.Time) (storing.Removal, error) {
+	at, err := r.at(ctx, root)
+	if err != nil {
+		return 0, err
+	}
+	return r.cfg.Remote.RemoveIf(ctx, at, rel, size, modified)
+}
+
+// ProbeMove reads one page of a Move plan on node, its companions by the
+// Admin's video file extensions.
+func (r *Roots) ProbeMove(ctx context.Context, node role.NodeID, p storing.ProbeMove) (storing.Probed, error) {
+	videos, err := r.cfg.Videos(ctx, r.cfg.Library)
+	if err != nil {
+		return storing.Probed{}, err
+	}
+	p.Videos = videos
+	return r.cfg.Remote.ProbeMove(ctx, node, p)
 }
 
 func (r *Roots) ListHeld(ctx context.Context, root ID, folder storing.HeldFolder) ([]string, error) {

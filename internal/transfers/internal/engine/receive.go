@@ -178,9 +178,12 @@ func (r *run) stage() error {
 	rx := r.rx
 	var folder string
 	var err error
-	if r.spec.backup != nil {
+	switch d := r.spec.download; {
+	case r.spec.backup != nil:
 		folder, err = r.e.backupStaging(r.ctx, r.spec.backup, r.spec.id)
-	} else {
+	case d != nil:
+		folder, err = r.e.cfg.Downloads.StageDownload(r.ctx, d.Client, d.ContentType, d.InfoHash, r.spec.id.UUID)
+	default:
 		folder, err = r.e.cfg.Roots.Staging(r.ctx, r.spec.root, r.spec.place, r.spec.id.UUID)
 	}
 	if err != nil || rx.folder != "" {

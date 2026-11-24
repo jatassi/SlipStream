@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/trackers/internal/db"
 	"github.com/jatassi/slipstream/internal/trackers/seeding"
 )
 
@@ -86,14 +87,47 @@ type Config struct {
 	// restore, which holds every goal. It reads the snapshot each goal is
 	// judged in.
 	Reconciling func(ctx context.Context, r storage.Reader[file]) (bool, error)
-	Changed     Publisher[SeedingChanged]
+	// Moving is the Moves under way. Nil is NoMoving.
+	Moving  Moving
+	Changed Publisher[SeedingChanged]
 	// TrackersChanged publishes trackers.changed when a Tracker is removed.
 	TrackersChanged Publisher[indexers.TrackerChanged]
 }
 
 type Trackers struct{ cfg Config }
 
-func New(cfg Config) *Trackers { return &Trackers{cfg: cfg} }
+func New(cfg Config) *Trackers {
+	if cfg.Moving == nil {
+		cfg.Moving = NoMoving
+	}
+	return &Trackers{cfg: cfg}
+}
+
+// Moving is what a seeding goal asks of S48 (Moves).
+type Moving interface {
+	Moving(ctx context.Context, r storage.Reader[file], ids []downloadclients.ID) (map[downloadclients.ID]downloadclients.MovingTo, error)
+	// CancelIn cancels the Move of source id in tx, its handoff rolled
+	// back first, so a goal's act on the source wins.
+	CancelIn(ctx context.Context, tx *storage.Tx[file], id downloadclients.ID) error
+}
+
+// NoMoving moves nothing.
+var NoMoving Moving = noMoving{}
+
+type noMoving struct{}
+
+func (noMoving) Moving(context.Context, storage.Reader[file], []downloadclients.ID) (map[downloadclients.ID]downloadclients.MovingTo, error) {
+	return nil, nil
+}
+
+func (noMoving) CancelIn(context.Context, *storage.Tx[file], downloadclients.ID) error { return nil }
+
+// CopyGoalRunIn gives a Move's destination to its source's goal run in
+// tx, a Move's switch: a goal that paused the source, and an Admin's
+// resume after it, follow the torrent.
+func CopyGoalRunIn(ctx context.Context, tx *storage.Tx[file], from, to downloadclients.ID) error {
+	return db.New(tx).CopyGoalRun(ctx, db.CopyGoalRunParams{ToID: to, FromID: from})
+}
 
 // saved tells Admins that id's seeding changed, nil for the default goal
 // or the settings, and asks the Seeding goals task to run on it soon.

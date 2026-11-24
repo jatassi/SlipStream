@@ -56,6 +56,8 @@ manual-search The.Lantern.Keepers.S02E08.1080p.WEB-DL.H264-FKW f5bc82bec3ef729b3
 manual-search The.Lantern.Keepers.S02E10.1080p.WEB-DL.H264-NTb ec464c38c6d5d7893ca0e89eac52c90479f98d8b
 manual-search The.Lantern.Keepers.S02.1080p.WEB-DL.H264-FKW 0b6fa895847da916ccb536e1c62465189d5c6ab4
 media-servers The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW 777b61e014660c64c26f4be8c007cc386375a873
+moves The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW 777b61e014660c64c26f4be8c007cc386375a873
+moves Harbor.Lights.2019.1080p.WEB-DL.H264-FKW ea8bbde0351757cd765d96adb5755c6e6b8d36e2
 offline-destination The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW 777b61e014660c64c26f4be8c007cc386375a873
 pack-beats-singles The.Copper.Coast.S01E01-E09.1080p.WEB-DL.H264-NTB f2e71c7cb57d92de8215539f052893129bf19b91
 pack-beats-singles The.Copper.Coast.S01E01.1080p.BluRay.x264-FKW 2e90afa93635ce71904da5f09d523432f730d382

@@ -11,7 +11,8 @@
 // HTTP 200, a fault included. A load.raw or load.raw_start is queued and
 // the torrent shows from the next request on, as rTorrent loads it on a
 // later pass of its main loop, and a duplicate or a load whose command
-// fails loads nothing. d.erase never deletes data. nginx's auth_basic
+// fails loads nothing. A stopped load checks nothing until d.check_hash,
+// whatever resume data its metainfo carries. d.erase never deletes data. nginx's auth_basic
 // answers 401 to a request without the right username and password, with
 // no lockout.
 package rtorrent
@@ -64,8 +65,9 @@ type Client struct {
 	Dir, Folder string
 	// Rate is how many bytes a second each torrent moves.
 	Rate int64
-	// Check is how long hashing a torrent takes, on its add and on a
-	// d.check_hash, 0 for at once.
+	// Check is how long hashing a torrent takes, on a started load and on
+	// a d.check_hash, 0 for at once. A stopped load holds 0 bytes done
+	// until a d.check_hash, as rTorrent 0.16.28 does.
 	Check time.Duration
 }
 
@@ -159,6 +161,7 @@ func serve(env fake.Env, clients []Client) (fake.Server, error) {
 		}
 		s.clients[c.Node] = &rtorrent{Client: c, version: v, held: map[bencode.InfoHash]*held{}, engine: torrentclient.New(torrentclient.Config{
 			Releases: env.Releases, Dir: c.Dir, Name: c.Folder, Rate: c.Rate, Check: c.Check,
+			Tracker: clientfake.Tracker(env, c.Node), PeerID: clientfake.PeerID("-lt0E00-", c.Node),
 		})}
 	}
 	engineOf := func(node string) (*torrentclient.Engine, bool) {
@@ -316,7 +319,7 @@ func (c *rtorrent) loadQueued() {
 		if l.label != "" {
 			labels = []string{l.label}
 		}
-		_, duplicate, err := c.engine.Add(l.metainfo, l.folder, labels, !l.start)
+		_, duplicate, err := c.engine.Add(torrentclient.Add{Metainfo: l.metainfo, Folder: l.folder, Labels: labels, Paused: !l.start, Unchecked: !l.start})
 		if err != nil || duplicate {
 			continue
 		}

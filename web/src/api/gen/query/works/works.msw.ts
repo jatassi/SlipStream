@@ -2395,6 +2395,45 @@ export const getAddWorkResponseMock = (
     ),
     monitorAsides: faker.datatype.boolean(),
     monitorNew: faker.datatype.boolean(),
+    move: faker.helpers.arrayElement([
+      {
+        batchId: faker.string.uuid(),
+        phase: faker.helpers.arrayElement([
+          "queued",
+          "transfer",
+          "place",
+          "switch",
+          "cleanup",
+          "failed",
+          "canceled",
+        ] as const),
+        toNodeId: faker.string.uuid(),
+        toNodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        unitId: faker.string.uuid(),
+        ...(faker.datatype.boolean()
+          ? {
+              waiting: faker.helpers.arrayElement([
+                "pair_busy",
+                "low_priority",
+                "node_offline",
+                "no_route",
+                "space",
+                "renames",
+                "downloading",
+                "importing",
+                "open_files",
+                "playing",
+                "media_servers",
+                "guard",
+                "linked_torrent",
+                "reconciling",
+              ] as const),
+            }
+          : {}),
+        words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      null,
+    ]),
     openIn: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
@@ -3636,6 +3675,45 @@ export const getGetWorkResponseMock = (
   })),
   monitorAsides: faker.datatype.boolean(),
   monitorNew: faker.datatype.boolean(),
+  move: faker.helpers.arrayElement([
+    {
+      batchId: faker.string.uuid(),
+      phase: faker.helpers.arrayElement([
+        "queued",
+        "transfer",
+        "place",
+        "switch",
+        "cleanup",
+        "failed",
+        "canceled",
+      ] as const),
+      toNodeId: faker.string.uuid(),
+      toNodeName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      unitId: faker.string.uuid(),
+      ...(faker.datatype.boolean()
+        ? {
+            waiting: faker.helpers.arrayElement([
+              "pair_busy",
+              "low_priority",
+              "node_offline",
+              "no_route",
+              "space",
+              "renames",
+              "downloading",
+              "importing",
+              "open_files",
+              "playing",
+              "media_servers",
+              "guard",
+              "linked_torrent",
+              "reconciling",
+            ] as const),
+          }
+        : {}),
+      words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
   openIn: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),

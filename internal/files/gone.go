@@ -24,7 +24,19 @@ type OnRootFiles struct {
 	Held  []storing.Rel
 }
 
-// OnRoot reads root's files and held paths in r.
+// OnRoot is the free OnRoot with S48 (Moves)' reserved paths among the
+// held ones, which a scan must not claim.
+func (f *Files) OnRoot(ctx context.Context, r storage.Reader[file], root roots.ID) (OnRootFiles, error) {
+	out, err := OnRoot(ctx, r, root)
+	if err != nil {
+		return OnRootFiles{}, err
+	}
+	reserved, err := f.cfg.Moves.Reserved(ctx, r, []roots.ID{root})
+	out.Held = append(out.Held, reserved[root]...)
+	return out, err
+}
+
+// OnRoot reads root's files and the paths files' disk queue holds in r.
 func OnRoot(ctx context.Context, r storage.Reader[file], root roots.ID) (OnRootFiles, error) {
 	q := db.New(r)
 	rows, err := q.ScannedOfRoot(ctx, root)

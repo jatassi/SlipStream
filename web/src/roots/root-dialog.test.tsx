@@ -1,8 +1,8 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { openRoots } from "../test/roots-page";
-import { filmsRoot, media, serveRoots } from "../test/roots";
+import { act, openRoots } from "../test/roots-page";
+import { filmsRoot, media, refused, serveRoots } from "../test/roots";
 
 test("a folder the root rules refuse says why in words and keeps Add off", async () => {
   serveRoots({
@@ -41,4 +41,21 @@ test("a second root of a type offers to become its default", async () => {
   ]);
 });
 
-/** A re-home that reports its check halfway, holds until released, finds 3 files missing, then forgets them. */
+test("Edit on a root that Moves, Imports and Transfers use says what to wait for", async () => {
+  const { world } = serveRoots();
+  world.rehome = () =>
+    refused(409, "root_busy", "Moves, Imports or Transfers are using this root", {
+      busy: { moves: 3, imports: 1, transfers: 2 },
+    });
+  openRoots();
+  await act(filmsRoot, "Edit");
+  const dialog = page.getByRole("dialog", { name: "Edit the Films root" });
+  const folder = dialog.getByRole("textbox", { name: "Folder" });
+  await userEvent.clear(folder);
+  await userEvent.type(folder, "/srv/new/films");
+  await expect
+    .element(dialog.getByText("This folder is on /srv/media, 1.2 TB free."))
+    .toBeVisible();
+  await userEvent.click(dialog.getByRole("button", { name: "Save" }));
+  await expect.element(dialog.getByText(/3 Moves, 1 Import and 2 Transfers/u)).toBeVisible();
+});

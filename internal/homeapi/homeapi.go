@@ -55,15 +55,26 @@ type job struct {
 }
 
 type needsYou struct {
-	Rows    []need `json:"rows" nullable:"false" doc:"Newest first, at most Rows on Home"`
-	Failed  int    `json:"failed" minimum:"0" maximum:"100" doc:"Failed Grabs that need attention, counted up to 100; 100 means 100 or more"`
-	Waiting int    `json:"waiting" minimum:"0" doc:"Grabs that wait on an Admin"`
+	Rows    []need     `json:"rows" nullable:"false" doc:"Newest first, at most Rows on Home"`
+	Moves   []moveNeed `json:"moves" nullable:"false" doc:"Moves that failed, or waited past the moves.needsYouAfter setting, newest first, at most Rows on Home"`
+	Failed  int        `json:"failed" minimum:"0" maximum:"100" doc:"Failed Grabs that need attention, counted up to 100; 100 means 100 or more"`
+	Waiting int        `json:"waiting" minimum:"0" doc:"Grabs that wait on an Admin"`
 }
 
 type need struct {
 	Grab grabsapi.Grab                      `json:"grab"`
 	Work work                               `json:"work"`
 	Wait api.Nullable[filesapi.WaitingNeed] `json:"wait" doc:"What it waits on, as the Work page words it; null for a failed Grab"`
+}
+
+type moveNeed struct {
+	UnitID    string     `json:"unitId" format:"uuid"`
+	BatchID   string     `json:"batchId" format:"uuid"`
+	Kind      string     `json:"kind" enum:"failed,waiting"`
+	Work      work       `json:"work"`
+	Words     string     `json:"words" doc:"What happened and what to do, such as Heat (1995) has waited 1 hour to switch to den. Someone is playing it on a Media Server."`
+	Since     *time.Time `json:"since,omitempty" doc:"When it began to wait; absent for a failed Move"`
+	SwitchNow bool       `json:"switchNow" doc:"Whether Switch now can end its wait"`
 }
 
 type recent struct {
@@ -189,6 +200,16 @@ func summaryOf(m artwork.Minter, s home.Summary) summary {
 				Kind: files.NeedWaiting, Grab: n.ID.UUID, Code: w.Code, ClientError: w.ClientError, Hold: w.Hold,
 			}))
 		}
+	}
+	out.NeedsYou.Moves = make([]moveNeed, len(s.Moves))
+	for i, n := range s.Moves {
+		row := moveNeed{UnitID: n.Unit.String(), BatchID: n.Batch.String(), Kind: "waiting", Work: workOf(m, n.Work, s.Works), Words: n.Words, SwitchNow: n.SwitchNow}
+		if n.Failure != nil {
+			row.Kind = "failed"
+		} else {
+			row.Since = n.Since
+		}
+		out.NeedsYou.Moves[i] = row
 	}
 	for i, a := range s.Recent.Arrivals {
 		out.Recent.Rows[i] = arrival{ImportID: a.Import.String(), Work: workOf(m, a.Work, s.Works), At: a.At, Words: a.Words}

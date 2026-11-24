@@ -16,9 +16,11 @@ const (
 	TorrentKind Kind = "torrent"
 	PathKind    Kind = "path"
 	BackupKind  Kind = "backup"
+	LibraryKind Kind = "library"
 )
 
-// Ref names one file a sender reads: a Torrent, a Path or a Backup. Refs are
+// Ref names one file a sender reads: a Torrent, a Path, a Backup or a
+// Library file. Refs are
 // comparable, so they key maps.
 type Ref interface {
 	Kind() Kind
@@ -49,6 +51,17 @@ type Backup struct{ Folder, Name string }
 
 func (Backup) Kind() Kind { return BackupKind }
 func (Backup) ref()       {}
+
+// Library is the file at Rel, '/' separated, in the library root Root on
+// the source Node. The Node opens it only while its Storage intent lists
+// the root, and parses Rel as storing does.
+type Library struct {
+	Root [16]byte
+	Rel  string
+}
+
+func (Library) Kind() Kind { return LibraryKind }
+func (Library) ref()       {}
 
 // Reason is why a sender can't read a source.
 type Reason uint8

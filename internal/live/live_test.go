@@ -426,3 +426,26 @@ func pending(woken <-chan struct{}) int {
 		}
 	}
 }
+
+func TestTapKeepsWhatEachPublishNamed(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		h, p := newHub(t)
+		tap := h.Tap(t.Context(), nodesChangedEvent)
+		p.notices.Publish(t.Context(), notice{Text: "hi"})
+		p.nodes.Publish(t.Context(), nodesChanged{Node: "seedbox"})
+		p.nodes.Publish(t.Context(), nodesChanged{Node: "home"})
+		if got := pending(tap.Woken()); got != 1 {
+			t.Fatalf("two publishes woke the tap %d times, want 1", got)
+		}
+		msgs, lost := tap.Take()
+		if lost || len(msgs) != 2 || msgs[0].Data != (nodesChanged{Node: "seedbox"}) || msgs[1].Data != (nodesChanged{Node: "home"}) {
+			t.Fatalf("Take = %+v, %v; want seedbox then home", msgs, lost)
+		}
+		for range 1025 {
+			p.nodes.Publish(t.Context(), nodesChanged{Node: "den"})
+		}
+		if msgs, lost := tap.Take(); !lost || msgs != nil {
+			t.Fatalf("after 1,025 publishes Take = %d messages, lost %v; want none, lost", len(msgs), lost)
+		}
+	})
+}

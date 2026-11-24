@@ -23,7 +23,7 @@ type Timings struct {
 	ScanEndPoll    time.Duration `yaml:"scan_end_poll"`
 	ScanEndPollMax time.Duration `yaml:"scan_end_poll_max"`
 	// ScanEndBound is how long the fresh folder rule waits for a scan to
-	// end.
+	// end, and a Plex Move for its source section's scan.
 	ScanEndBound time.Duration `yaml:"scan_end_bound"`
 	// MovedConfirm bounds the wait, past the monitor delay, for a carry's
 	// new item to appear.

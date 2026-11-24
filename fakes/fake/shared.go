@@ -26,3 +26,9 @@ func (s *Shared) Get(key string) (any, bool) {
 	v, ok := s.values[key]
 	return v, ok
 }
+
+// TrackerAnnounce is the key of fake-tracker's announce handler, an
+// http.Handler, in a world's Shared. The fake Download Clients announce
+// through it with their Node as the request's origin, as that Node's
+// front would carry them.
+const TrackerAnnounce = "tracker-announce"

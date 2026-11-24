@@ -9,6 +9,7 @@ import type { NodeChoice } from "./client-fields";
 import { kindOf } from "./client-form";
 import { ClientSheetButton } from "./client-sheet";
 import { DeleteClientButton } from "./delete-client";
+import { MoveClientButton } from "./move-client-chooser";
 import { RoutedHere } from "./routed-here";
 import { StatusLine } from "./status-line";
 
@@ -57,6 +58,9 @@ export function ExternalRow({
           kinds={kinds}
           nodes={nodes}
         />
+        {client.torrents > 0 && nodes.length > 1 && (
+          <MoveClientButton client={client} kinds={kinds} nodes={nodes} />
+        )}
         <DeleteClientButton client={client} />
       </div>
     </li>

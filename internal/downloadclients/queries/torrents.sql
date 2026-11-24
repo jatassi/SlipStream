@@ -1,4 +1,6 @@
 -- name: MergeTotals :exec
+-- A Move's switch carried a moved Torrent's totals as final, so a late
+-- report of it changes nothing.
 UPDATE downloadclients_torrent SET
     uploaded = MAX(uploaded, CAST(sqlc.arg(uploaded) AS INTEGER)),
     downloaded = MAX(downloaded, CAST(sqlc.arg(downloaded) AS INTEGER)),
@@ -6,7 +8,7 @@ UPDATE downloadclients_torrent SET
     seeding_seconds = MAX(seeding_seconds, CAST(sqlc.arg(seeding_seconds) AS INTEGER)),
     announced_seconds = MAX(announced_seconds, CAST(sqlc.arg(announced_seconds) AS INTEGER)),
     totals_at = sqlc.arg(totals_at)
-WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id);
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND removed_reason IS NOT 'moved';
 
 -- name: GetNodeSettings :one
 SELECT * FROM downloadclients_node WHERE node_id = ?;
@@ -48,12 +50,12 @@ SELECT metainfo FROM downloadclients_torrent WHERE info_hash = sqlc.arg(info_has
 
 -- name: ListHeldOfHash :many
 SELECT id, node_id, removed_at FROM downloadclients_torrent
-WHERE info_hash = sqlc.arg(info_hash) AND parted_at IS NULL
+WHERE info_hash = sqlc.arg(info_hash) AND parted_at IS NULL AND arriving_unit IS NULL
 ORDER BY added_order;
 
 -- name: GetInheritedTotals :one
 SELECT uploaded, downloaded, active_seconds, seeding_seconds, announced_seconds, totals_at FROM downloadclients_torrent
-WHERE info_hash = sqlc.arg(info_hash) AND removed_at IS NOT NULL
+WHERE info_hash = sqlc.arg(info_hash) AND removed_at IS NOT NULL AND arriving_unit IS NULL
 ORDER BY removed_at DESC, added_order DESC
 LIMIT 1;
 
@@ -80,12 +82,17 @@ ORDER BY t.id;
 
 -- name: ListSources :many
 SELECT info_hash, name, removed_reason, report FROM downloadclients_torrent
-WHERE node_id = sqlc.arg(node_id) AND info_hash IN (sqlc.slice(hashes))
+WHERE node_id = sqlc.arg(node_id) AND info_hash IN (sqlc.slice(hashes)) AND arriving_unit IS NULL
 ORDER BY added_order;
 
 -- name: ListIntent :many
-SELECT id, client_id, info_hash, wanted, added_order, removed_at, delete_files, retry FROM downloadclients_torrent
+-- A Move's built-in arriving Torrent reaches its Node once asked to start,
+-- or once removed; an external one from its insert, to be added complete.
+SELECT id, client_id, info_hash, wanted, added_order, removed_at, delete_files, retry,
+       arriving_unit IS NOT NULL AS arriving, start_asked_at, start_until_at, watch_announce
+FROM downloadclients_torrent
 WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL AND withheld_at IS NULL
+  AND (arriving_unit IS NULL OR client_id IS NOT NULL OR start_asked_at IS NOT NULL OR removed_at IS NOT NULL)
 ORDER BY added_order;
 
 -- name: ListKept :many
@@ -95,7 +102,7 @@ ORDER BY added_order;
 
 -- name: ListDownloads :many
 SELECT id, size, wanted, report FROM downloadclients_torrent
-WHERE removed_at IS NULL AND completion IS NULL
+WHERE removed_at IS NULL AND completion IS NULL AND arriving_unit IS NULL
 ORDER BY added_order;
 
 -- name: CountHeld :one
@@ -126,8 +133,10 @@ UPDATE downloadclients_torrent SET client_error_ms = 0, client_error_at = NULL
 WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND client_error_at IS NOT NULL;
 
 -- name: SetFault :exec
+-- A Move's arriving Torrent never takes a release fault: its refusal is
+-- the Move's.
 UPDATE downloadclients_torrent SET fault = sqlc.arg(fault), fault_at = sqlc.arg(fault_at)
-WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND fault IS NULL;
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND fault IS NULL AND arriving_unit IS NULL;
 
 -- name: SetSaveFolder :exec
 UPDATE downloadclients_torrent SET save_folder = sqlc.arg(save_folder)
@@ -142,7 +151,7 @@ UPDATE downloadclients_torrent SET parted_at = sqlc.arg(parted_at), freed = sqlc
 WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND removed_at IS NOT NULL AND parted_at IS NULL;
 
 -- name: GetFetched :one
-SELECT node_id, metainfo, content_type, save_folder, removed_at, attached,
+SELECT node_id, client_id, metainfo, content_type, save_folder, removed_at, attached, arriving_unit IS NOT NULL AS arriving,
        uploaded, downloaded, active_seconds, seeding_seconds, announced_seconds
 FROM downloadclients_torrent WHERE id = sqlc.arg(id);
 
@@ -161,7 +170,7 @@ WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL;
 
 -- name: ListActed :many
 SELECT t.id, t.node_id, t.info_hash, t.removed_at, t.wanted, t.report, t.completion, t.client_id, t.attached,
-       coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on, c.poll_state
+       t.arriving_unit IS NOT NULL AS arriving, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on, c.poll_state
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.id IN (sqlc.slice(ids))
 ORDER BY t.id;
@@ -199,7 +208,7 @@ SELECT t.id, t.node_id, t.info_hash, t.name, t.size, t.private, t.trackers, t.co
        t.seeding_seconds, t.announced_seconds, t.totals_at, t.report, t.fault, t.fault_at, t.client_id, t.attached,
        t.completed_at, t.retry, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
-WHERE t.parted_at IS NULL
+WHERE t.parted_at IS NULL AND t.arriving_unit IS NULL
   AND (NOT CAST(sqlc.arg(by_tracker) AS INTEGER) OR t.tracker_id = sqlc.narg(tracker_id))
   AND (NOT CAST(sqlc.arg(no_tracker) AS INTEGER) OR t.tracker_id IS NULL)
   AND (NOT CAST(sqlc.arg(by_hash) AS INTEGER) OR t.info_hash IN (sqlc.slice(info_hashes)))
@@ -214,19 +223,19 @@ SELECT t.id, t.node_id, t.info_hash, t.name, t.size, t.private, t.trackers, t.co
        t.seeding_seconds, t.announced_seconds, t.totals_at, t.report, t.fault, t.fault_at, t.client_id, t.attached,
        t.completed_at, t.retry, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
-WHERE t.info_hash IN (sqlc.slice(info_hashes)) AND t.client_id IS NULL
+WHERE t.info_hash IN (sqlc.slice(info_hashes)) AND t.client_id IS NULL AND t.arriving_unit IS NULL
   AND (t.parted_at IS NULL OR t.id = (
       SELECT p.id FROM downloadclients_torrent AS p
-      WHERE p.info_hash = t.info_hash AND p.client_id IS NULL AND p.parted_at IS NOT NULL
+      WHERE p.info_hash = t.info_hash AND p.client_id IS NULL AND p.parted_at IS NOT NULL AND p.arriving_unit IS NULL
       ORDER BY p.removed_at DESC, p.added_order DESC
       LIMIT 1))
 ORDER BY t.added_order;
 
 -- name: ListExternalAdds :many
 -- When each live Torrent of the hashes that an external client holds was
--- added.
+-- added, leaving out a Move's arriving one.
 SELECT info_hash, added_at FROM downloadclients_torrent
-WHERE info_hash IN (sqlc.slice(info_hashes)) AND client_id IS NOT NULL AND removed_at IS NULL
+WHERE info_hash IN (sqlc.slice(info_hashes)) AND client_id IS NOT NULL AND removed_at IS NULL AND arriving_unit IS NULL
 ORDER BY info_hash, added_at;
 
 -- name: ListTrackerHashes :many
@@ -234,7 +243,7 @@ SELECT DISTINCT info_hash FROM downloadclients_torrent WHERE tracker_id = sqlc.a
 
 -- name: GetDetails :one
 SELECT metainfo, save_folder FROM downloadclients_torrent
-WHERE id = sqlc.arg(id) AND parted_at IS NULL;
+WHERE id = sqlc.arg(id) AND parted_at IS NULL AND arriving_unit IS NULL;
 
 -- name: GetNodeTotals :one
 SELECT count(*) AS torrents,
@@ -243,7 +252,7 @@ SELECT count(*) AS torrents,
        CAST(coalesce(sum(active_seconds), 0) AS INTEGER) AS active_seconds,
        CAST(coalesce(sum(seeding_seconds), 0) AS INTEGER) AS seeding_seconds
 FROM downloadclients_torrent
-WHERE node_id = sqlc.arg(node_id) AND client_id IS NULL AND removed_at IS NULL;
+WHERE node_id = sqlc.arg(node_id) AND client_id IS NULL AND removed_at IS NULL AND arriving_unit IS NULL;
 
 -- name: SetTrackerIfNone :exec
 UPDATE downloadclients_torrent SET tracker_id = sqlc.arg(tracker_id) WHERE id = sqlc.arg(id) AND tracker_id IS NULL;
@@ -291,13 +300,14 @@ SELECT raw_uploaded, raw_downloaded, raw_active_seconds, raw_seeding_seconds FRO
 WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND client_id IS NOT NULL;
 
 -- name: AddCounted :exec
+-- As MergeTotals, a moved Torrent's totals are final.
 UPDATE downloadclients_torrent SET
     uploaded = uploaded + sqlc.arg(uploaded), downloaded = downloaded + sqlc.arg(downloaded),
     active_seconds = active_seconds + sqlc.arg(active_seconds), seeding_seconds = seeding_seconds + sqlc.arg(seeding_seconds),
     raw_uploaded = sqlc.arg(raw_uploaded), raw_downloaded = sqlc.arg(raw_downloaded),
     raw_active_seconds = sqlc.arg(raw_active_seconds), raw_seeding_seconds = sqlc.arg(raw_seeding_seconds),
     totals_at = sqlc.arg(totals_at)
-WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id);
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND removed_reason IS NOT 'moved';
 
 -- name: GetRetarget :one
 SELECT node_id, client_id, info_hash, metainfo, content_type, adopted, tracker_id, reported_at, removed_at FROM downloadclients_torrent
@@ -327,9 +337,10 @@ INSERT INTO downloadclients_torrent (
 );
 
 -- name: ListRecorded :many
--- Each hash's live Torrent, and the newest Torrent of a hash with no live
+-- Each hash's live Torrents, and the newest Torrent of a hash with no live
 -- one when its Node was written off.
-SELECT t.id, t.node_id, t.info_hash, t.parted_at IS NOT NULL AS written_off FROM downloadclients_torrent t
+SELECT t.id, t.node_id, t.info_hash, t.parted_at IS NOT NULL AS written_off, t.arriving_unit IS NOT NULL AS arriving
+FROM downloadclients_torrent t
 WHERE t.info_hash IN (sqlc.slice(info_hashes)) AND (t.parted_at IS NULL OR t.removed_reason = 'node_written_off' AND t.id = (
     SELECT n.id FROM downloadclients_torrent n WHERE n.info_hash = t.info_hash ORDER BY n.added_order DESC LIMIT 1))
 ORDER BY t.info_hash, t.parted_at IS NOT NULL;
@@ -341,7 +352,7 @@ WHERE node_id = sqlc.arg(node_id) AND added_order > sqlc.arg(after) AND removed_
 ORDER BY added_order
 LIMIT sqlc.arg(page);
 
--- name: MoveRecorded :execrows
+-- name: Rerecord :execrows
 -- A live Torrent, or one a write-off parted, moves to node and client with
 -- its totals, Grab and reported_at. A built-in target holds no external
 -- origin or raw counters.
@@ -368,4 +379,5 @@ UPDATE downloadclients_torrent SET withheld_at = NULL WHERE id IN (sqlc.slice(id
 SELECT node_id, metainfo, save_folder FROM downloadclients_torrent WHERE id = sqlc.arg(id);
 
 -- name: ListCountable :many
-SELECT node_id, removed_at, wanted, report FROM downloadclients_torrent WHERE parted_at IS NULL ORDER BY node_id, added_order;
+SELECT node_id, removed_at, wanted, report FROM downloadclients_torrent WHERE parted_at IS NULL AND arriving_unit IS NULL
+ORDER BY node_id, added_order;

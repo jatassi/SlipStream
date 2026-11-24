@@ -264,6 +264,7 @@ export const getListNotificationEventsResponseMock = (
         "subtitles",
         "health",
         "backups",
+        "moves",
         "system",
       ] as const),
       id: faker.string.alpha({ length: { min: 10, max: 20 } }),

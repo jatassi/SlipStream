@@ -112,6 +112,7 @@ export function useBulkActions(
       ? [{ ...plain, label: "Set monitoring…", oneTypeOnly: true, onSelect: open("monitoring") }]
       : []),
     { ...plain, label: "Change Profile…", oneTypeOnly: true, onSelect: open("profile") },
+    { ...more, label: "Move to…", oneTypeOnly: true, onSelect: open("move") },
     { ...more, label: "Set library root…", oneTypeOnly: true, onSelect: open("root") },
     {
       ...more,

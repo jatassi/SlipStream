@@ -105,7 +105,9 @@ func (c *client) DefaultFolder(ctx context.Context, label clients.Label) (string
 // Add posts the .torrent with its category, which qBittorrent creates
 // when it has none by that name. Automatic management is off whenever a
 // folder is sent, so the folder holds. A duplicate is a 409 from 5.2 and
-// "Fails." before: the next poll resolves both.
+// "Fails." before: the next poll resolves both. Just after it starts,
+// 5.3 answers a duplicate with a 200 that reports it added, so a torrent
+// the client has listed or asked to run keeps that run.
 func (c *client) Add(ctx context.Context, a clients.Add) error {
 	if err := c.versions(ctx); err != nil {
 		return err
@@ -115,6 +117,13 @@ func (c *client) Add(ctx context.Context, a clients.Add) error {
 		stopped = "stopped"
 	}
 	fields := [][2]string{{"category", a.Label.String()}, {stopped, strconv.FormatBool(a.Paused)}}
+	if a.Complete {
+		skip := "skip_checking"
+		if c.seedMode() {
+			skip = "seedMode"
+		}
+		fields = append(fields, [2]string{skip, "true"})
+	}
 	if a.Folder != "" {
 		fields = append(fields, [2]string{"savepath", a.Folder}, [2]string{"autoTMM", "false"})
 	}
@@ -141,7 +150,9 @@ func (c *client) Add(ctx context.Context, a clients.Add) error {
 	case res.Status == http.StatusConflict, res.Status == http.StatusOK && string(res.Body) == "Fails.":
 		return nil
 	case res.Status == http.StatusOK:
-		c.ran[a.Hash] = map[bool]clients.Run{false: clients.Started, true: clients.Paused}[a.Paused]
+		if _, held := c.ran[a.Hash]; !held {
+			c.ran[a.Hash] = map[bool]clients.Run{false: clients.Started, true: clients.Paused}[a.Paused]
+		}
 		return nil
 	case res.Status == http.StatusUnsupportedMediaType:
 		return fmt.Errorf("the client refused the torrent: %s", res.Body)
@@ -233,7 +244,8 @@ func (c *client) Export(ctx context.Context, h bencode.InfoHash) ([]byte, error)
 }
 
 // report is one torrents/info row by its hash, the run state a check
-// hides taken from what the torrent was last seen or asked to do.
+// hides taken from what the torrent was last seen or asked to do, and a
+// run Act asked for kept until a listing reads it or RunWait passes.
 func (c *client) report(ctx context.Context, t torrent) (bencode.InfoHash, clients.Status, error) {
 	h, err := bencode.ParseInfoHash(t.Hash)
 	if err != nil {
@@ -243,8 +255,16 @@ func (c *client) report(ctx context.Context, t torrent) (bencode.InfoHash, clien
 	if err != nil {
 		return h, clients.Status{}, err
 	}
-	if run, ok := c.ran[h]; ok && s.Activity == clients.Checking {
-		s.Run = run
+	if run, ok := c.ran[h]; ok {
+		at, asked := c.asked[h]
+		switch {
+		case s.Activity == clients.Checking:
+			s.Run = run
+		case asked && s.Run != run && time.Since(at) < c.s.RunWait:
+			s.Run = run
+		default:
+			delete(c.asked, h)
+		}
 	}
 	c.ran[h] = s.Run
 	s.Trackers, err = c.trackersOf(ctx, h, t.State)
@@ -380,6 +400,32 @@ func (c *client) Files(ctx context.Context, h bencode.InfoHash) ([]clients.File,
 	return files, nil
 }
 
+// Announces reads torrents/properties' reannounce, the seconds to the
+// next announce, for each hash, and derives the last announce from it
+// rising. A hash the client doesn't list is missing from the map.
+func (c *client) Announces(ctx context.Context, hashes []bencode.InfoHash) (map[bencode.InfoHash][]clients.TrackerLine, error) {
+	left := make(map[bencode.InfoHash]time.Duration, len(hashes))
+	for _, h := range hashes {
+		var p struct {
+			Reannounce int64 `json:"reannounce"`
+		}
+		res, err := c.do(ctx, get("torrents/properties", url.Values{"hash": {h.String()}}))
+		switch {
+		case err != nil:
+			return nil, err
+		case res.Status == http.StatusNotFound:
+			continue
+		case res.Status != http.StatusOK:
+			return nil, fmt.Errorf("the client responded to torrents/properties with status %d", res.Status)
+		}
+		if err := json.Unmarshal(res.Body, &p); err != nil {
+			return nil, fmt.Errorf("read the client's torrents/properties: %w", err)
+		}
+		left[h] = time.Duration(p.Reannounce) * time.Second
+	}
+	return c.countdowns.Read(left, time.Now()), nil
+}
+
 // acts is each Act's call before WebAPI 2.11.0 and from it.
 var acts = map[clients.Act][2]string{
 	clients.Pause: {"pause", "stop"}, clients.Resume: {"resume", "start"},
@@ -398,15 +444,21 @@ func (c *client) Act(ctx context.Context, a clients.Act, hashes []bencode.InfoHa
 		return err
 	}
 	if run, ok := map[clients.Act]clients.Run{clients.Pause: clients.Paused, clients.Resume: clients.Started}[a]; ok {
+		now := time.Now()
 		for _, h := range hashes {
-			c.ran[h] = run
+			c.ran[h], c.asked[h] = run, now
 		}
 	}
 	return nil
 }
 
 func (c *client) Remove(ctx context.Context, h bencode.InfoHash, data bool) error {
-	return c.act(ctx, post("torrents/delete", url.Values{"hashes": {h.String()}, "deleteFiles": {strconv.FormatBool(data)}}))
+	if err := c.act(ctx, post("torrents/delete", url.Values{"hashes": {h.String()}, "deleteFiles": {strconv.FormatBool(data)}})); err != nil {
+		return err
+	}
+	delete(c.ran, h)
+	delete(c.asked, h)
+	return nil
 }
 
 func joinHashes(hashes []bencode.InfoHash) string {

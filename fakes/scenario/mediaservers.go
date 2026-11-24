@@ -8,7 +8,8 @@ import (
 
 // MediaServer is a Plex, Jellyfin or Emby the world adds through the API
 // as an Admin would, reached from the Node that lists it. Its fake plays
-// one library per Content Type of the roots it holds, every folder under
+// one library per Content Type of the roots it holds, unless a root names
+// a library of its own, every folder under
 // the server's own media folder: /media, or D:\Media on Windows. The world
 // types the reaching Node's front as its address and the Controller's
 // front as its fallback, then saves the Path mappings the server's
@@ -43,6 +44,10 @@ type MediaServerRoot struct {
 	// Hidden saves the root's mapping as not shown, so the server gets no
 	// changes for it.
 	Hidden bool `yaml:"hidden,omitempty"`
+	// Library is the name of the library or section that holds the root,
+	// beside the one its Content Type's other roots share. Roots naming
+	// one library share it.
+	Library string `yaml:"library,omitempty"`
 }
 
 // MediaServerKinds are the kinds a Scenario's server names.
@@ -116,10 +121,20 @@ func (s Scenario) checkMediaServer(add func(format string, args ...any), m Media
 	if m.Kind == "plex" && len(m.Users) > 0 {
 		add("media server %s lists users, which only Jellyfin and Emby take", m.Name)
 	}
+	types := map[string]string{}
 	for _, h := range m.Roots {
-		if !slices.ContainsFunc(s.Library.Roots, func(r LibraryRoot) bool { return r.Folder == h.Folder }) {
+		i := slices.IndexFunc(s.Library.Roots, func(r LibraryRoot) bool { return r.Folder == h.Folder })
+		if i < 0 {
 			add("media server %s holds root %s, which the library doesn't name", m.Name, h.Folder)
+			continue
 		}
+		if h.Library == "" {
+			continue
+		}
+		if typ, ok := types[h.Library]; ok && typ != s.Library.Roots[i].ContentType {
+			add("media server %s puts roots of %s and %s in library %s; a library holds one Content Type", m.Name, typ, s.Library.Roots[i].ContentType, h.Library)
+		}
+		types[h.Library] = s.Library.Roots[i].ContentType
 	}
 	if len(s.HeldRoots(m)) == 0 {
 		add("media server %s holds no library root", m.Name)

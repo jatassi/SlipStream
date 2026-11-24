@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from "react";
 
 import { Button } from "./button";
-import { Dialog } from "./dialog";
+import { Dialog, type DialogProps } from "./dialog";
 import { useShell } from "./shell-context";
 import { SignalLine } from "./signal-line";
 
@@ -11,6 +11,7 @@ export type ConfirmDialogProps = {
   /** The button that closes it unchanged; its own words where Cancel would name the confirm. */
   dismissLabel?: string;
   look?: "primary" | "fail";
+  size?: DialogProps["size"];
   confirmDisabled?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -49,6 +50,7 @@ export function ConfirmDialog({
   confirmLabel,
   dismissLabel = "Cancel",
   look = "primary",
+  size,
   confirmDisabled = false,
   open,
   children,
@@ -57,7 +59,7 @@ export function ConfirmDialog({
   const { busy, failure, confirm, close } = useConfirm(handlers);
   const stacked = useShell() === "phone";
   return (
-    <Dialog title={title} open={open} onOpenChange={close}>
+    <Dialog title={title} {...(size && { size })} open={open} onOpenChange={close}>
       <div className="flex flex-col gap-4 text-ink-2">
         {children}
         {failure === undefined ? null : (

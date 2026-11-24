@@ -26,7 +26,7 @@ var carry = []step[link.Carry]{
 // snapshot reads each change's item at its old path. A change with none
 // keeps a nil Snapshot and ends converted.
 func snapshot(ctx context.Context, c *conn, _ link.Job, w *link.Carry) (did, error) {
-	libraries, members := groups(w.Changes, func(ch link.JobChange) bool { return ch.Snapshot == nil })
+	libraries, members := groups(w.Changes, link.JobChange.OldLibrary, func(ch link.JobChange) bool { return ch.Snapshot == nil })
 	for _, lib := range libraries {
 		paths := make([]link.ServerPath, len(members[lib]))
 		for n, i := range members[lib] {
@@ -47,7 +47,7 @@ func snapshot(ctx context.Context, c *conn, _ link.Job, w *link.Carry) (did, err
 }
 
 func scanDestinations(ctx context.Context, c *conn, _ link.Job, w *link.Carry) (did, error) {
-	return did{}, c.refreshFolders(ctx, places(w.Changes, newPath))
+	return did{}, c.refreshFolders(ctx, places(w.Changes, newPlace))
 }
 
 // confirmAtNewPath waits, up to Timings.MovedConfirm after the
@@ -73,8 +73,8 @@ func confirmAtNewPath(ctx context.Context, c *conn, j link.Job, w *link.Carry) (
 // scanSources refreshes each source folder no destination shares, then
 // compares each item at its new path with its snapshot.
 func scanSources(ctx context.Context, c *conn, _ link.Job, w *link.Carry) (did, error) {
-	dest := places(w.Changes, newPath)
-	src := slices.DeleteFunc(places(w.Changes, oldPath), func(p place) bool { return slices.ContainsFunc(dest, p.same) })
+	dest := places(w.Changes, newPlace)
+	src := slices.DeleteFunc(places(w.Changes, oldPlace), func(p place) bool { return slices.ContainsFunc(dest, p.same) })
 	if err := c.refreshFolders(ctx, src); err != nil {
 		return did{}, err
 	}
@@ -82,8 +82,14 @@ func scanSources(ctx context.Context, c *conn, _ link.Job, w *link.Carry) (did, 
 	if err != nil {
 		return did{}, err
 	}
+	return compared(w.Changes, found), nil
+}
+
+// compared ends each of cs against the item found at its new path:
+// converted with no snapshot, else accepted with what didn't carry.
+func compared(cs []link.JobChange, found map[string]plex.Metadata) did {
 	var d did
-	for _, ch := range w.Changes {
+	for _, ch := range cs {
 		m, ok := found[ch.Path.Key()]
 		if ok {
 			d.learned = append(d.learned, entry(ch.Library, ch.Path, m))
@@ -98,7 +104,7 @@ func scanSources(ctx context.Context, c *conn, _ link.Job, w *link.Carry) (did, 
 		}
 		d.outcomes = append(d.outcomes, link.Outcome{Change: ch.ID, Result: link.ResultAccepted, Lost: lost(*ch.Snapshot, now)})
 	}
-	return d, nil
+	return d
 }
 
 // atNew is the item at each snapshotted change's new path, by path key.
@@ -121,7 +127,7 @@ func (c *conn) atNew(ctx context.Context, cs []link.JobChange) (map[string]plex.
 		}
 		rest = append(rest, ch)
 	}
-	libraries, members := groups(rest, func(link.JobChange) bool { return true })
+	libraries, members := groups(rest, library, all)
 	for _, lib := range libraries {
 		paths := make([]link.ServerPath, len(members[lib]))
 		for n, i := range members[lib] {

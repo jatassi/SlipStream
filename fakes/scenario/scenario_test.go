@@ -143,7 +143,7 @@ func shelfSeries() *TVDB {
 
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
 	_, err := Load("office")
-	if want := "scenario office is not in the catalog (auto-search, busy-feed, catalog-sites, cgnat-home, dead-controller, external-clients, external-kinds, fault-loop, first-run, five-indexers-one-late, full-backups-folder, gone-with-rss, hold, home, hostile-worker, imports, indexers, limited-tracker, low-space-warning, low-space, magnets, manual-search, media-servers, movies, music, offline-destination, pack-beats-singles, packs, ported-sites, repair, restore-in-place-after-grab, scale, seedbox-nas, seeding-routing, seeding, series-files-scale, series-scale, series, serving, showcase, single-machine, sizes, subtitles, targets, torrents)"; err == nil || err.Error() != want {
+	if want := "scenario office is not in the catalog (auto-search, busy-feed, catalog-sites, cgnat-home, dead-controller, external-clients, external-kinds, fault-loop, first-run, five-indexers-one-late, full-backups-folder, gone-with-rss, hold, home, hostile-worker, imports, indexers, limited-tracker, low-space-warning, low-space, magnets, manual-search, media-servers, moves, movies, music, offline-destination, pack-beats-singles, packs, ported-sites, repair, restore-in-place-after-grab, scale, seedbox-nas, seeding-routing, seeding, series-files-scale, series-scale, series, serving, showcase, single-machine, sizes, subtitles, targets, torrents)"; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}
 }
@@ -376,6 +376,14 @@ func TestParseRefuses(t *testing.T) {
 				"scenario x: media server Q lists users, which only Jellyfin and Emby take\n" +
 				"scenario x: media server Q holds no library root\n" +
 				"scenario x: media server J holds no library root",
+		},
+		{
+			"media server libraries",
+			"seed: x\nnodes:\n  - name: home\n    setup: controller\n" +
+				"    media_servers: [{kind: plex, name: P, roots: [{folder: movies, library: Mixed}, {folder: tv, library: Mixed}]}]\n" +
+				"admin: {email: a@example.test, display_name: A, pin: \"1234\"}\n" +
+				"library: {roots: [{content_type: movie, folder: movies}, {content_type: series, folder: tv}]}\n",
+			"scenario x: media server P puts roots of movie and series in library Mixed; a library holds one Content Type",
 		},
 		{
 			"automatic search out of range",

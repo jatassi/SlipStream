@@ -21,6 +21,9 @@ func (v View) Reason(names map[role.NodeID]string) string {
 	case NeedsSpace:
 		return fmt.Sprintf("Waiting for %s free on %s (%s).", setting.Amount{N: v.Space.Need, Unit: setting.BytesUnit}.Words(), names[v.Space.Node], v.Space.Volume)
 	case Waiting:
+		if _, ok := v.Destination.(DownloadFolder); ok && v.Wait.Kind == FolderNotReady {
+			return fmt.Sprintf("Waiting for the Download Client's folder on %s.", names[v.Wait.Node])
+		}
 		return v.Wait.words(names, source, dest)
 	case Copying, Failed:
 	}

@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/conformance/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/providers/jellyfin"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 // Target is the Jellyfin or Emby under test.
@@ -36,8 +37,9 @@ type Target struct {
 	Library string
 	Folder  link.ServerPath
 	Disk    mediaservers.Disk
-	// Fresh is a library never scanned with content, by name.
-	Fresh *mediaservers.Fresh
+	// Fresh is a library never scanned with content, and Second a scanned
+	// library beside Library of its type, each by name.
+	Fresh, Second *mediaservers.Library
 	// FreshRoot is a folder of Library never scanned with content, beside
 	// Folder, nil when the target has none.
 	FreshRoot *Root
@@ -112,11 +114,7 @@ func Shared(t *testing.T, kind link.KindName, f jellyfin.Flavor, tg Target) (med
 		Kind: kind, Server: s, Library: s.LibraryKey(t, tg.Library), Folder: tg.Folder, Disk: tg.Disk,
 		FreshTakesChange: f == jellyfin.Emby, Settle: tg.Settle, Bound: tg.Bound, Log: tg.Log,
 	}
-	if tg.Fresh != nil {
-		fresh := *tg.Fresh
-		fresh.Library = s.LibraryKey(t, fresh.Library)
-		shared.Fresh = &fresh
-	}
+	shared.Fresh, shared.Second = s.keyed(t, tg.Fresh), s.keyed(t, tg.Second)
 	if tg.Play != nil {
 		shared.Play = func(t *testing.T, p link.ServerPath, d link.Decision) func() {
 			played, stop := tg.Play(t, p, d)
@@ -127,6 +125,17 @@ func Shared(t *testing.T, kind link.KindName, f jellyfin.Flavor, tg Target) (med
 		}
 	}
 	return shared, s
+}
+
+// keyed is l with its library's key for its name, nil for nil.
+func (s *Server) keyed(t *testing.T, l *mediaservers.Library) *mediaservers.Library {
+	t.Helper()
+	if l == nil {
+		return nil
+	}
+	out := *l
+	out.Library = s.LibraryKey(t, l.Library)
+	return &out
 }
 
 // User is the administrator whose data the cases read.
@@ -214,16 +223,33 @@ type snapshot struct {
 
 // Moved runs the carry: snapshotted, old_removed, new_found, restored.
 func (s *Server) Moved(ctx context.Context, library string, from, to []link.ServerPath, move func()) error {
-	snaps, err := s.snapshot(ctx, library, from)
+	return s.carry(ctx, library, library, from, to, func() error { move(); return nil })
+}
+
+// CopyMoved runs the carry across libraries, the file copied and its
+// source deleted between the snapshot and the reports.
+func (s *Server) CopyMoved(ctx context.Context, from, to mediaservers.Library, rel storing.Rel) error {
+	return s.carry(ctx, from.Library, to.Library, []link.ServerPath{from.Folder.Join(rel)}, []link.ServerPath{to.Folder.Join(rel)}, func() error {
+		if err := mediaservers.Copy(from, to, rel); err != nil {
+			return err
+		}
+		return from.Disk.Remove(rel)
+	})
+}
+
+func (s *Server) carry(ctx context.Context, fromLib, toLib string, from, to []link.ServerPath, move func() error) error {
+	snaps, err := s.snapshot(ctx, fromLib, from)
 	if err != nil {
 		return err
 	}
-	move()
+	if err := move(); err != nil {
+		return err
+	}
 	if err := s.report(ctx, jellyfin.Deleted, from); err != nil {
 		return err
 	}
 	for _, p := range from {
-		if err := s.wait(ctx, library, p, false); err != nil {
+		if err := s.wait(ctx, fromLib, p, false); err != nil {
 			return err
 		}
 	}
@@ -231,10 +257,10 @@ func (s *Server) Moved(ctx context.Context, library string, from, to []link.Serv
 		return err
 	}
 	for i, p := range to {
-		if err := s.wait(ctx, library, p, true); err != nil {
+		if err := s.wait(ctx, toLib, p, true); err != nil {
 			return err
 		}
-		it, _, err := s.find(ctx, library, p)
+		it, _, err := s.find(ctx, toLib, p)
 		if err != nil {
 			return err
 		}

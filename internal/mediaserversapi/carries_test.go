@@ -35,15 +35,23 @@ type viewer struct {
 	t          *testing.T
 	c          *wire.Client
 	ada, guest string
+	// emby sets a favorite apart, as Emby keeps it through a UserData
+	// write.
+	emby bool
 }
 
 func (s shelf) viewer(t *testing.T) viewer {
+	t.Helper()
+	return s.viewerOf(t, wire.Jellyfin)
+}
+
+func (s shelf) viewerOf(t *testing.T, flavor wire.Flavor) viewer {
 	t.Helper()
 	base, err := url.Parse(s.den.Address.URL(""))
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := viewer{t: t, c: wire.New(base, wire.Jellyfin, denKey, wire.App{Client: "test", Device: "test", DeviceID: "test", Version: "1"}, s.den.Client)}
+	v := viewer{t: t, emby: flavor == wire.Emby, c: wire.New(base, flavor, denKey, wire.App{Client: "test", Device: "test", DeviceID: "test", Version: "1"}, s.den.Client)}
 	users, err := v.c.Users(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -58,14 +66,18 @@ func (s shelf) viewer(t *testing.T) viewer {
 	return v
 }
 
-// item is the id of Den's item at path, a path under Shelves.
+// item is the id of Den's item at path, a path under Shelves or, from
+// "/", any path Den names.
 func (v viewer) item(path string) string {
 	v.t.Helper()
+	if !strings.HasPrefix(path, "/") {
+		path = p + path
+	}
 	page, err := v.c.Items(v.t.Context(), wire.Query{User: v.ada, Recursive: true})
 	if err != nil {
 		v.t.Fatal(err)
 	}
-	i := slices.IndexFunc(page.Items, func(it wire.Item) bool { return it.Path == p+path })
+	i := slices.IndexFunc(page.Items, func(it wire.Item) bool { return it.Path == path })
 	if i < 0 {
 		v.t.Fatalf("Den holds no item at %s", path)
 	}
@@ -90,6 +102,11 @@ func (v viewer) guestAt(path string, at int64) {
 	v.t.Helper()
 	if err := v.c.SetUserData(v.t.Context(), v.guest, v.item(path), wire.UserData{PlaybackPositionTicks: at, IsFavorite: true}); err != nil {
 		v.t.Fatal(err)
+	}
+	if v.emby {
+		if err := v.c.SetFavorite(v.t.Context(), v.guest, v.item(path), true); err != nil {
+			v.t.Fatal(err)
+		}
 	}
 }
 

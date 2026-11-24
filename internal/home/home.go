@@ -1,5 +1,6 @@
 // Package home owns Home's one setting, Rows on Home, and reads what Home
-// shows of the Grabs, the Imports and their Works in one snapshot.
+// shows of the Grabs, the Imports, the Moves and their Works in one
+// snapshot.
 package home
 
 import (
@@ -10,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -23,8 +25,14 @@ type Publisher[T any] interface {
 	Publish(ctx context.Context, v T)
 }
 
+// Moves is the Moves that need the Admin: *moves.Moves.
+type Moves interface {
+	NeedsYou(ctx context.Context, r storage.Reader[file], limit int) ([]moves.Need, error)
+}
+
 type Config struct {
 	Library *storage.DB[file]
+	Moves   Moves
 	Grabs   *grabs.Grabs
 	Imports *imports.Imports
 	Works   *works.Works

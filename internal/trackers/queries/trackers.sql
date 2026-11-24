@@ -93,6 +93,14 @@ ON CONFLICT (tracker_id, home_node_id) DO UPDATE SET built_in_on = excluded.buil
 -- name: ClearRoute :exec
 DELETE FROM trackers_route WHERE tracker_id = sqlc.arg(tracker_id) AND home_node_id = sqlc.arg(home_node_id);
 
+-- name: RerouteClient :exec
+-- A Move that takes a client's torrents takes the routes to it: to the
+-- external client from_client, or to the built-in client on from_node.
+UPDATE trackers_route SET
+    built_in_on = CASE WHEN sqlc.narg(to_client) IS NULL THEN sqlc.arg(to_node) END,
+    client_id = sqlc.narg(to_client)
+WHERE client_id = sqlc.narg(from_client) OR built_in_on = sqlc.narg(from_node);
+
 -- name: RepointRoutes :exec
 UPDATE OR IGNORE trackers_route SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sqlc.arg(from_id);
 
@@ -103,3 +111,10 @@ VALUES (sqlc.arg(torrent_id), sqlc.arg(acted_at), sqlc.arg(action), sqlc.narg(ke
 -- name: KeepGoalRun :exec
 UPDATE trackers_goal_run SET action = 'remove', kept = sqlc.arg(kept), acted_at = sqlc.arg(acted_at)
 WHERE torrent_id = sqlc.arg(torrent_id) AND action = 'pause';
+
+-- name: CopyGoalRun :exec
+-- A Move's destination takes its source's goal run, so a goal that ran
+-- doesn't run again on it.
+INSERT INTO trackers_goal_run (torrent_id, acted_at, action, kept)
+SELECT sqlc.arg(to_id), r.acted_at, r.action, r.kept FROM trackers_goal_run r WHERE r.torrent_id = sqlc.arg(from_id)
+ON CONFLICT (torrent_id) DO NOTHING;

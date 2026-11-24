@@ -90,21 +90,18 @@ func TestEveryWarningAndRefusalHasASentence(t *testing.T) {
 		}
 	}
 	for _, got := range []string{
-		dc.Unreached("Media server"), dc.InUse("Media server"), dc.HasTorrents("Transmission", 12, false), dc.HasTorrents("Transmission", 12, true),
+		dc.Unreached("Media server"), dc.InUse("Media server"), dc.HasTorrents("Transmission", 12),
+		dc.FilesMissing("Media server", 3), dc.MovesUse("Transmission", 2), dc.HeldOnNode("Media server", []string{"Orchard", "Harbor"}),
 		dc.GrabsToRefused(&dc.GrabsToError{Name: "Transmission", Off: true}, "Media server"),
 		dc.GrabsToRefused(&dc.GrabsToError{Name: "Transmission"}, "Media server"),
 	} {
 		readsAsWritten(t, "refusal", got)
 	}
 	for _, n := range []int{1, 2} {
-		kept, moving := dc.HasTorrents("Transmission", n, false), dc.HasTorrents("Transmission", n, true)
-		for _, got := range []string{kept, moving} {
-			if !strings.Contains(got, "Transmission") || !strings.Contains(got, strconv.Itoa(n)+" torrent") {
-				t.Errorf("%d held torrents read %q, want the client and the count", n, got)
+		for _, got := range []string{dc.HasTorrents("Transmission", n), dc.MovesUse("Transmission", int64(n))} {
+			if !strings.Contains(got, "Transmission") || !strings.Contains(got, strconv.Itoa(n)+" ") {
+				t.Errorf("a refusal over %d reads %q, want the client and the count", n, got)
 			}
-		}
-		if kept == moving {
-			t.Errorf("a delete and a move with %d torrents both read %q, want each to say what blocks it", n, kept)
 		}
 	}
 }

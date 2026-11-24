@@ -22,16 +22,26 @@ var carry = steps[link.Carry]{
 	{link.StepRestored, restore},
 }
 
-func wantAt(cs []link.JobChange, at func(link.JobChange) link.ServerPath) want {
+// wantAt is each change's path that at names, in the library that path is
+// in: a Move's old path is in its FromLibrary.
+func wantAt(cs []link.JobChange, at side) want {
 	w := want{}
 	for _, ch := range cs {
-		w.add(ch.Library, at(ch))
+		w.add(at.library(ch), at.path(ch))
 	}
 	return w
 }
 
-func from(ch link.JobChange) link.ServerPath { return ch.From }
-func to(ch link.JobChange) link.ServerPath   { return ch.Path }
+// side is one end of a carry: its path and the library the path is in.
+type side struct {
+	path    func(link.JobChange) link.ServerPath
+	library func(link.JobChange) string
+}
+
+var (
+	from = side{func(ch link.JobChange) link.ServerPath { return ch.From }, link.JobChange.OldLibrary}
+	to   = side{func(ch link.JobChange) link.ServerPath { return ch.Path }, func(ch link.JobChange) string { return ch.Library }}
+)
 
 // kept are the changes whose old path held an item.
 func kept(cs []link.JobChange) []link.JobChange {
@@ -126,7 +136,7 @@ func pathsOf(cs []link.JobChange, at func(link.JobChange) link.ServerPath) []lin
 
 func reportOld(ctx context.Context, c *conn, j link.Job, w link.Carry) (link.Advanced, error) {
 	if old := kept(w.Changes); len(old) > 0 {
-		if err := reportPaths(ctx, c, jellyfin.Deleted, pathsOf(old, from)); err != nil {
+		if err := reportPaths(ctx, c, jellyfin.Deleted, pathsOf(old, from.path)); err != nil {
 			return link.Advanced{}, err
 		}
 	}
@@ -156,7 +166,7 @@ func reportNew(ctx context.Context, c *conn, j link.Job, w link.Carry) (link.Adv
 	if len(still) > 0 && !c.past(j, c.d.Timings.MovedStep) {
 		return waitFor(j, c.d.Timings.StepPoll), nil
 	}
-	if err := reportPaths(ctx, c, jellyfin.Created, pathsOf(w.Changes, to)); err != nil {
+	if err := reportPaths(ctx, c, jellyfin.Created, pathsOf(w.Changes, to.path)); err != nil {
 		return link.Advanced{}, err
 	}
 	a := link.Advanced{}
@@ -167,7 +177,7 @@ func reportNew(ctx context.Context, c *conn, j link.Job, w link.Carry) (link.Adv
 	}
 	for _, ch := range old {
 		if _, there := still.at(ch.From); !there {
-			a.Learned = append(a.Learned, link.IndexEntry{Path: ch.From, Library: ch.Library, Gone: true})
+			a.Learned = append(a.Learned, link.IndexEntry{Path: ch.From, Library: ch.OldLibrary(), Gone: true})
 		}
 	}
 	w.Changes = old

@@ -71,14 +71,14 @@ func (s *Sidecars) BuildSpeechMap(ctx context.Context, req *storagev1.BuildSpeec
 	}
 	dir, err := s.store.resolve(ctx, root, false)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
-	info, err := s.stat(ctx, dir, rel)
+	info, err := s.store.stat(ctx, dir, rel)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, wireError(s.store.folderError(err))
+		return nil, WireError(s.store.folderError(err))
 	}
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	id := identityOfInfo(info)
 	row, ok, err := s.mapRow(ctx, file)
@@ -276,14 +276,14 @@ func (s *Sidecars) ReadSpeechMap(ctx context.Context, req *storagev1.ReadSpeechM
 	stale := &storagev1.ReadSpeechMapResponse{Stale: true}
 	dir, err := s.store.resolve(ctx, root, false)
 	if err != nil {
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
-	info, err := s.stat(ctx, dir, rel)
+	info, err := s.store.stat(ctx, dir, rel)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return stale, nil
 	case err != nil:
-		return nil, wireError(err)
+		return nil, WireError(err)
 	}
 	now := identityOfInfo(info)
 	if !now.Same(Identity{Seen: seenOf(req.GetIdentity()), Size: req.GetSize()}) {

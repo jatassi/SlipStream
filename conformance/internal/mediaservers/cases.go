@@ -32,11 +32,14 @@ func (tg Target) Case(t *testing.T) *Files {
 	return f
 }
 
-// InFresh is f's files in the target's fresh library.
-func (f *Files) InFresh() *Files {
-	f.disk, f.lib, f.root = f.tg.Fresh.Disk, f.tg.Fresh.Library, f.tg.Fresh.Folder
+// In is f's files in l, such as the target's fresh or second library.
+func (f *Files) In(l Library) *Files {
+	f.disk, f.lib, f.root = l.Disk, l.Library, l.Folder
 	return f
 }
+
+// Library is the library f's files are in.
+func (f *Files) Library() Library { return Library{Library: f.lib, Folder: f.root, Disk: f.disk} }
 
 // Rel is the video, or with ext a Sidecar, of the movie title in a
 // folder of its own.
@@ -214,11 +217,34 @@ func Shared(t *testing.T, tg Target) {
 		{"Identity", Identity}, {"LibrariesAndFolders", LibrariesAndFolders}, {"AddedShowsUp", AddedShowsUp},
 		{"ReplacedKeepsItem", ReplacedKeepsItem}, {"RemovedLeaves", RemovedLeaves}, {"FreshFolderNeedsScan", FreshFolderNeedsScan},
 		{"ScanEndSignal", ScanEndSignal}, {"CarryKeepsWatchData", CarryKeepsWatchData}, {"SidecarRemoved", SidecarRemoved},
-		{"Sessions", Sessions},
+		{"Sessions", Sessions}, {"CopyMovedLands", CopyMovedLands},
 	} {
 		cases = append(cases, Case{Name: c.name, Run: func(t *testing.T) { c.run(t, tg) }})
 	}
+	cases = append(cases, moveCases(tg)...)
 	Each(t, cases)
+}
+
+// CopyMovedLands copies a file into the second library and deletes it
+// from the first: the server then holds it in the second and not in the
+// first.
+func CopyMovedLands(t *testing.T, tg Target) {
+	if tg.Second == nil {
+		Skip(t, "the target has no second library")
+	}
+	from, to := tg.Case(t), tg.Case(t).In(*tg.Second)
+	defer from.Clear()
+	defer to.Clear()
+	r := Rel(t, "Copied", ".mkv")
+	from.Place(r)
+	from.Tell(r)
+	from.Found(r)
+	if err := tg.Server.CopyMoved(t.Context(), from.Library(), to.Library(), r); err != nil {
+		t.Fatal(err)
+	}
+	to.rels = append(to.rels, r)
+	to.Found(r)
+	from.Gone(r)
 }
 
 func Identity(t *testing.T, tg Target) {
@@ -288,7 +314,7 @@ func FreshFolderNeedsScan(t *testing.T, tg Target) {
 	if tg.Fresh == nil {
 		Skip(t, "a real server's fresh library is a recorded manual run, since SlipStream creates no library")
 	}
-	f := tg.Case(t).InFresh()
+	f := tg.Case(t).In(*tg.Fresh)
 	defer f.Clear()
 	r := Rel(t, "Fresh", ".mkv")
 	f.Place(r)

@@ -475,12 +475,13 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	n.subtitlesRand = streams.Stream("subtitles")
 	n.cacheRand = streams.Stream("metadata-cache")
 	n.notificationsRand = streams.Stream("notifications")
+	if n.disk, err = n.env.Disk(n.env.DataDir.Path()); err != nil {
+		return 0, "", fmt.Errorf("open the disk: %w", err)
+	}
 	if err := n.startTorrent(cfg, l, streams.Stream("torrent"), streams.Stream("download-clients")); err != nil {
 		return 0, "", err
 	}
-	if err := n.startStorage(cfg); err != nil {
-		return 0, "", err
-	}
+	n.startStorage(cfg)
 	// The claimed half stops before the torrent engine closes under it.
 	n.claimed = n.stack.Sub("claimed")
 	if err := n.restoreFromEnv(ctx); err != nil {
@@ -579,6 +580,7 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand, clientsRand *
 			return n.store.JudgeClientFolder(ctx, path, write)
 		},
 		Holds: func(path string) bool { return n.store.Holds(context.Background(), path) },
+		Disk:  n.disk,
 		Rand:  clientsRand,
 		Log:   n.rootLog.With("subsystem", "download clients"),
 	})
@@ -595,17 +597,12 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand, clientsRand *
 func OSDisk(data string) (storing.Disk, error) { return storing.NewOSDisk(data) }
 
 // startStorage opens the Node's Storage over its Disk, claimed or not.
-func (n *Node) startStorage(cfg Config) error {
-	disk, err := n.env.Disk(n.env.DataDir.Path())
-	if err != nil {
-		return fmt.Errorf("open the disk: %w", err)
-	}
-	n.disk = disk
+func (n *Node) startStorage(cfg Config) {
 	n.store = storing.NewStore(storing.Config{
-		Disk: disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Torrents: n.downloading.Torrents, Timings: cfg.Timings.Storing,
+		Disk: n.disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Torrents: n.downloading.Torrents, Timings: cfg.Timings.Storing,
 		Prober: n.env.Media, ProbeTimeout: cfg.Timings.Media.Probe, PathLimit: cfg.Storage.PathLimit,
+		RemoveRetry: cfg.Timings.Moves.RemoveRetry, RemoveBound: cfg.Timings.Moves.RemoveBound,
 	})
-	return nil
 }
 
 // checkpoint ends the startup early once the Node is asked to stop or fails.

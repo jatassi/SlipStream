@@ -623,6 +623,39 @@ func (q *Queries) ListWorksOfRoot(ctx context.Context, rootID RootID) ([]works.W
 	return items, nil
 }
 
+const listWorksOfRootAfter = `-- name: ListWorksOfRootAfter :many
+SELECT work_id FROM roots_work WHERE root_id = ?1 AND (?2 IS NULL OR work_id > ?2) ORDER BY work_id LIMIT ?3
+`
+
+type ListWorksOfRootAfterParams struct {
+	RootID RootID
+	After  interface{}
+	N      int64
+}
+
+func (q *Queries) ListWorksOfRootAfter(ctx context.Context, arg ListWorksOfRootAfterParams) ([]works.WorkID, error) {
+	rows, err := q.db.QueryContext(ctx, listWorksOfRootAfter, arg.RootID, arg.After, arg.N)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []works.WorkID
+	for rows.Next() {
+		var work_id works.WorkID
+		if err := rows.Scan(&work_id); err != nil {
+			return nil, err
+		}
+		items = append(items, work_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWorksOfRootAmong = `-- name: ListWorksOfRootAmong :many
 SELECT work_id FROM roots_work
 WHERE root_id = ?1 AND work_id IN (/*SLICE:work_ids*/?)

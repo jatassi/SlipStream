@@ -66,6 +66,9 @@ func (l *Library) Delete(ctx context.Context, by identity.Admin, ws []works.Work
 				return nil, err
 			}
 		}
+		if err := l.cfg.Moves.CancelOf(ctx, tx, c.removed); err != nil {
+			return nil, err
+		}
 		if err := l.cfg.Imports.EndOf(ctx, tx, c.removed); err != nil || len(c.removed) == 0 {
 			return c.removed, err
 		}
@@ -75,6 +78,7 @@ func (l *Library) Delete(ctx context.Context, by identity.Admin, ws []works.Work
 		return DeletePlan{}, nil, err
 	}
 	l.cfg.Imports.Touch()
+	l.cfg.Moves.Poke()
 	l.cfg.Roots.Publish(ctx, c.roots)
 	if d.Files == DeleteFiles {
 		l.cfg.Files.Poke()

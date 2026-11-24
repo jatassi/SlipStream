@@ -5,4 +5,5 @@ export type NotificationsEventGroup =
   | "subtitles"
   | "health"
   | "backups"
+  | "moves"
   | "system";

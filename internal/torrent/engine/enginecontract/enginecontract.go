@@ -79,6 +79,7 @@ func Run(t *testing.T, h Harness) {
 	}{
 		{"AddWaitsPausedUntilResume", addWaitsPausedUntilResume},
 		{"AnAddFromResumeDataSkipsTheCheck", anAddFromResumeDataSkipsTheCheck},
+		{"ASeedModeAddSeedsWithoutACheck", aSeedModeAddSeedsWithoutACheck},
 		{"TheBaselineRaisesCounters", theBaselineRaisesCounters},
 		{"PauseSendsStoppedOnlyAfterStartedWasAnswered", pauseSendsStoppedOnlyAfterStartedWasAnswered},
 		{"RemoveKeepsTheFiles", removeKeepsTheFiles},
@@ -159,6 +160,27 @@ func anAddFromResumeDataSkipsTheCheck(t *testing.T, h Harness) {
 	}
 	if !atLeast(s.Totals, baseline) || s.Totals.Uploaded != baseline.Uploaded || s.Totals.Downloaded != baseline.Downloaded {
 		t.Fatalf("the torrent added from resume data counts %+v, want the %+v its resume data holds", s.Totals, baseline)
+	}
+}
+
+func aSeedModeAddSeedsWithoutACheck(t *testing.T, h Harness) {
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	rel := release(t, "Arriving", "")
+	baseline := engine.Totals{Uploaded: 1000, Downloaded: 2000, Active: time.Hour}
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true, Baseline: baseline})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	s := awaitStatus(t, h, e, r, th, func(s engine.Status) bool { return s.State == engine.StateSeeding })
+	if checked(r.seen, th) {
+		t.Fatalf("the seed-mode add checked its files: events %+v", r.seen)
+	}
+	if s.Done != int64(len(rel.payload)) || s.Wanted != s.Done {
+		t.Fatalf("the seed-mode add reads %d of %d bytes done, want all %d", s.Done, s.Wanted, len(rel.payload))
+	}
+	if !atLeast(s.Totals, baseline) || s.Totals.Uploaded != baseline.Uploaded || s.Totals.Downloaded != baseline.Downloaded {
+		t.Fatalf("the seed-mode add counts %+v, want the baseline %+v", s.Totals, baseline)
 	}
 }
 

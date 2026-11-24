@@ -59,6 +59,9 @@ type NodeConfig struct {
 	// Holds is whether an absolute path lies in a root this Node holds or
 	// in one of its downloads folders, the only places Open reads a path.
 	Holds func(path string) bool
+	// Disk is the Node's disk, which PlacePayload places a Move's payload
+	// on.
+	Disk storing.Disk
 	// Rand is the stream every actor draws its backoff from.
 	Rand *rand.Rand
 	Log  *slog.Logger
@@ -84,12 +87,29 @@ type Node struct {
 }
 
 // routes is which external client holds each Torrent of one intent, by
-// Torrent id and by info hash. A Torrent in neither is the built-in
-// client's. The Node key makes byHash a function.
+// Torrent id, and which client serves each info hash's files. A Torrent
+// byID doesn't name is the built-in client's. A Move holds a hash in two
+// clients of one Node, so byHash prefers a live Torrent to a Move's
+// arriving one and either to a Discard.
 type routes struct {
 	byID   map[storage.UUID]storage.UUID
-	byHash map[bencode.InfoHash]storage.UUID
+	byHash map[bencode.InfoHash]route
 }
+
+// route is the client that serves a hash's files, the built-in one when
+// external is false, and how strongly the intent says so.
+type route struct {
+	client   storage.UUID
+	external bool
+	rank     int
+}
+
+// The ranks of a hash's routes: a higher one wins.
+const (
+	rankDiscard = iota
+	rankArriving
+	rankLive
+)
 
 func NewNode(builtin *Client, cfg NodeConfig) *Node {
 	cfg.Rand = rand.New(&lockedSource{r: cfg.Rand}) //nolint:gosec // the Node's seeded stream, shared by the actors
@@ -193,26 +213,32 @@ func shareOf(shares map[storage.UUID]*external.Share, id []byte) *external.Share
 }
 
 func routesOf(in *dlv1.Intent) *routes {
-	r := &routes{byID: map[storage.UUID]storage.UUID{}, byHash: map[bencode.InfoHash]storage.UUID{}}
-	add := func(id, hash, client []byte) {
-		c, err := storage.UUIDFromBytes(client)
-		if err != nil {
-			return
+	r := &routes{byID: map[storage.UUID]storage.UUID{}, byHash: map[bencode.InfoHash]route{}}
+	add := func(id, hash, client []byte, rank int) {
+		rt := route{rank: rank}
+		if len(client) > 0 {
+			c, err := storage.UUIDFromBytes(client)
+			if err != nil {
+				return
+			}
+			rt.client, rt.external = c, true
+			if u, err := storage.UUIDFromBytes(id); err == nil {
+				r.byID[u] = c
+			}
 		}
-		if u, err := storage.UUIDFromBytes(id); err == nil {
-			r.byID[u] = c
+		if was, ok := r.byHash[bencode.InfoHash(hash)]; !ok || rank > was.rank {
+			r.byHash[bencode.InfoHash(hash)] = rt
 		}
-		r.byHash[bencode.InfoHash(hash)] = c
 	}
 	for _, t := range in.GetTorrents() {
-		if len(t.GetClientId()) > 0 {
-			add(t.GetId(), t.GetInfoHash(), t.GetClientId())
+		rank := rankLive
+		if t.GetArriving() {
+			rank = rankArriving
 		}
+		add(t.GetId(), t.GetInfoHash(), t.GetClientId(), rank)
 	}
 	for _, d := range in.GetDiscards() {
-		if len(d.GetClientId()) > 0 {
-			add(d.GetId(), d.GetInfoHash(), d.GetClientId())
-		}
+		add(d.GetId(), d.GetInfoHash(), d.GetClientId(), rankDiscard)
 	}
 	return r
 }
@@ -256,8 +282,8 @@ func (n *Node) actorConfig(id storage.UUID, kind clients.Kind, open func(clients
 		Timings: external.Timings{
 			RetryMin: t.ClientRetryMin, RetryMax: t.ClientRetryMax, RefusedRetry: t.ClientRefusedRetry, Grace: t.ClientGrace,
 			ResendWait: t.ClientResendWait, MissingShare: t.ClientMissingShare, MissingFloor: t.ClientMissingFloor,
-			Trackers: t.ClientTrackers, Call: t.ClientCall, LiveFloor: t.ClientLiveFloor, LiveSample: t.LiveSample, TotalsReport: t.TotalsReport,
-			ErrorHeartbeat: ErrorHeartbeat,
+			Trackers: t.ClientTrackers, Call: t.ClientCall, LoadWait: t.ClientLoadWait, LoadEvery: t.ClientLoadEvery, RunWait: t.ClientRunWait, LiveFloor: t.ClientLiveFloor, LiveSample: t.LiveSample, TotalsReport: t.TotalsReport,
+			ErrorHeartbeat: ErrorHeartbeat, ReplyWait: t.ReplyWait, AnnounceWatch: t.AnnounceWatchEvery,
 		},
 		Local: local, Holder: h, Control: ctl,
 		Rand: n.cfg.Rand,
@@ -446,11 +472,11 @@ func (n *Node) Resolve(ctx context.Context, req *dlv1.ResolveRequest) (*dlv1.Res
 // Path is the external client's that holds h, the built-in client's for
 // any other.
 func (n *Node) Path(h bencode.InfoHash, index int) (string, error) {
-	c, ok := n.routes.Load().byHash[h]
-	if !ok {
+	rt := n.routes.Load().byHash[h]
+	if !rt.external {
 		return n.builtin.Path(h, index)
 	}
-	a := n.actor(c)
+	a := n.actor(rt.client)
 	if a == nil {
 		return "", ErrNotPresent
 	}
@@ -462,7 +488,8 @@ func (n *Node) Path(h bencode.InfoHash, index int) (string, error) {
 }
 
 // Open is the external client's that holds a Torrent, the built-in
-// client's for any other, and openPath's for a Path.
+// client's for any other, and openPath's for a Path. A source of any
+// other kind is no file a Download Client holds.
 func (n *Node) Open(ref source.Ref) (string, error) {
 	var r source.Torrent
 	switch ref := ref.(type) {
@@ -470,12 +497,14 @@ func (n *Node) Open(ref source.Ref) (string, error) {
 		return n.openPath(ref.Abs)
 	case source.Torrent:
 		r = ref
+	default:
+		return "", &source.Absent{Reason: source.Failed, Detail: "it isn't a file a Download Client holds"}
 	}
-	c, ok := n.routes.Load().byHash[r.Hash]
-	if !ok {
+	rt := n.routes.Load().byHash[r.Hash]
+	if !rt.external {
 		return n.builtin.Open(ref)
 	}
-	a := n.actor(c)
+	a := n.actor(rt.client)
 	if a == nil {
 		return "", &source.Absent{Reason: source.NotReady, Detail: "this Node can't reach the torrent's Download Client yet"}
 	}
@@ -594,7 +623,8 @@ func (n *Node) draft(kind clients.Kind, c *dlv1.Client, secrets *dlv1.Secrets) (
 	s := clients.Session{
 		HTTP: n.cfg.HTTP, Address: address, Username: c.GetUsername(),
 		Secrets:      clients.Secrets{Password: secrets.GetPassword(), APIKey: secrets.GetApiKey()},
-		TrackerEvery: n.cfg.Timings.ClientTrackers, Call: n.cfg.Timings.ClientCall, Log: n.cfg.Log,
+		TrackerEvery: n.cfg.Timings.ClientTrackers, Call: n.cfg.Timings.ClientCall,
+		LoadWait: n.cfg.Timings.ClientLoadWait, LoadEvery: n.cfg.Timings.ClientLoadEvery, RunWait: n.cfg.Timings.ClientRunWait, Log: n.cfg.Log,
 	}
 	if d := c.GetDaemon(); d != nil {
 		s.Daemon = &clients.Daemon{Host: d.GetHost(), Port: int(d.GetPort())}

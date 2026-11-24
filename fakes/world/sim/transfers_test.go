@@ -2,13 +2,12 @@ package sim_test
 
 import (
 	"errors"
-	"io/fs"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -301,29 +300,53 @@ func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 
 func moviesRoot(t *testing.T, w *sim.World) simtest.RootRow {
 	t.Helper()
-	roots := simtest.Decode[struct {
+	rows := simtest.Decode[struct {
 		Roots []simtest.RootRow `json:"roots"`
 	}](t, "listRoots", w.API().Admin("home", http.MethodGet, "/api/v1/roots", "")).Roots
-	if len(roots) != 1 {
-		t.Fatalf("listRoots = %+v, want the movies root", roots)
+	if len(rows) != 1 {
+		t.Fatalf("listRoots = %+v, want the movies root", rows)
 	}
-	return roots[0]
+	return rows[0]
 }
 
 func rehome(t *testing.T, w *sim.World, root simtest.RootRow, to, path string) {
 	t.Helper()
-	body := `{"nodeId":"` + w.API().Node(to).NodeID + `","path":` + strconv.Quote(path) + `}`
-	if r := w.API().Admin("home", http.MethodPatch, "/api/v1/roots/"+root.ID, body); r.Status != http.StatusOK {
+	if r := rehomeReply(w, root, to, path); r.Status != http.StatusOK {
 		t.Fatalf("rehomeRoot onto %s = %d %s, want 200", to, r.Status, r.Body)
 	}
 }
 
-// TestARootRehomedMidTransferTakesTheFileWhereItIsNow re-homes nas's root
-// while seedbox sends: onto home at a copy of its folder, the Transfer
-// starts again at home and the file lands there; onto seedbox, which
-// downloaded it, the Transfer stops and the file is linked to the
-// download, with no copy.
-func TestARootRehomedMidTransferTakesTheFileWhereItIsNow(t *testing.T) {
+// rehomeRefusedMidImport asks to re-home root while one Import sends its
+// file over one Transfer into it, and expects the refusal that leaves the
+// root where it was.
+func rehomeRefusedMidImport(t *testing.T, w *sim.World, root simtest.RootRow, to, path string) {
+	t.Helper()
+	const want = `{"status":409,"code":"root_busy","title":"Moves, Imports or Transfers are using this root","busy":{"moves":0,"imports":1,"transfers":1}}`
+	if r := rehomeReply(w, root, to, path); r.Status != http.StatusConflict || strings.TrimSpace(r.Body) != want {
+		t.Fatalf("rehomeRoot onto %s mid-Import = %d %s, want 409 %s", to, r.Status, r.Body, want)
+	}
+}
+
+func rehomeReply(w *sim.World, root simtest.RootRow, to, path string) worldtest.Reply {
+	body := `{"nodeId":"` + w.API().Node(to).NodeID + `","path":` + strconv.Quote(path) + `}`
+	return w.API().Admin("home", http.MethodPatch, "/api/v1/roots/"+root.ID, body)
+}
+
+// expectRootAt checks root is on to, at path.
+func expectRootAt(t *testing.T, w *sim.World, root simtest.RootRow, to, path string) {
+	t.Helper()
+	got := simtest.RootAt(t, w.API(), path)
+	if got.ID != root.ID || got.NodeID != w.API().Node(to).NodeID {
+		t.Fatalf("the root reads %+v, want %s on %s", got, root.ID, to)
+	}
+}
+
+// TestARootIsNotRehomedMidTransfer asks to re-home nas's root while
+// seedbox sends it a file: the re-home is refused and the root stays on
+// nas. Once the file lands the re-home goes through: onto home at a copy
+// of its folder, which holds the file, or onto seedbox, which downloaded
+// it, at the same folder.
+func TestARootIsNotRehomedMidTransfer(t *testing.T) {
 	t.Parallel()
 	t.Run("onto home", func(t *testing.T) {
 		t.Parallel()
@@ -336,6 +359,11 @@ func TestARootRehomedMidTransferTakesTheFileWhereItIsNow(t *testing.T) {
 			<-p.reached
 			root := moviesRoot(t, w)
 			moved := filepath.Join(t.TempDir(), "movies")
+			rehomeRefusedMidImport(t, w, root, "home", moved)
+			expectRootAt(t, w, root, "nas", root.Path)
+			close(p.release)
+			simtest.ExpectImported(t, simtest.Await(t, w))
+			simtest.Eventually(t, "nas deletes what it staged", func() bool { return len(staging(t, w)) == 0 })
 			if err := os.CopyFS(moved, os.DirFS(root.Path)); err != nil {
 				t.Fatal(err)
 			}
@@ -343,9 +371,7 @@ func TestARootRehomedMidTransferTakesTheFileWhereItIsNow(t *testing.T) {
 				t.Fatal(err)
 			}
 			rehome(t, w, root, "home", moved)
-			close(p.release)
-			g := simtest.Await(t, w)
-			simtest.ExpectImported(t, g)
+			expectRootAt(t, w, root, "home", moved)
 			rel, err := filepath.Rel("movies", filepath.FromSlash(placed))
 			if err != nil {
 				t.Fatal(err)
@@ -354,7 +380,6 @@ func TestARootRehomedMidTransferTakesTheFileWhereItIsNow(t *testing.T) {
 			if err != nil || blake3.Sum256(data) != blake3.Sum256(sim.Payload(release)) {
 				t.Fatalf("home's root holds %d bytes (%v), want the release payload", len(data), err)
 			}
-			simtest.Eventually(t, "nas deletes what it staged", func() bool { return len(staging(t, w)) == 0 })
 		})
 	})
 	t.Run("onto seedbox", func(t *testing.T) {
@@ -367,36 +392,13 @@ func TestARootRehomedMidTransferTakesTheFileWhereItIsNow(t *testing.T) {
 			simtest.Search(t, w, simtest.AddOrchard(t, w))
 			<-p.reached
 			root := moviesRoot(t, w)
-			rehome(t, w, root, "seedbox", root.Path)
-			g := simtest.Await(t, w)
+			rehomeRefusedMidImport(t, w, root, "seedbox", root.Path)
+			expectRootAt(t, w, root, "nas", root.Path)
 			close(p.release)
-			simtest.ExpectImported(t, g)
+			simtest.ExpectImported(t, simtest.Await(t, w))
+			rehome(t, w, root, "seedbox", root.Path)
+			expectRootAt(t, w, root, "seedbox", root.Path)
 			expectPlaced(t, w)
-			linked, err := os.Stat(filepath.Join(w.Manifest().MediaDir, filepath.FromSlash(placed)))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !slices.ContainsFunc(downloads(t, w), func(d os.FileInfo) bool { return os.SameFile(d, linked) }) {
-				t.Fatal("the placed file isn't seedbox's download linked: the Transfer copied it")
-			}
 		})
 	})
-}
-
-// downloads is every file in seedbox's downloads folder.
-func downloads(t *testing.T, w *sim.World) []os.FileInfo {
-	t.Helper()
-	var out []os.FileInfo
-	err := filepath.WalkDir(w.Node("seedbox").DataDir().Resolve("downloads"), func(_ string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		info, err := d.Info()
-		out = append(out, info)
-		return err //nolint:wrapcheck // the test reports it as is
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return out
 }

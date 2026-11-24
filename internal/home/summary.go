@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -20,9 +21,12 @@ import (
 type Summary struct {
 	grabs.Pipeline
 	Recent imports.Recent
-	// Works is every Work a Job, Need or Arrival names.
+	// Works is every Work a Job, Need, Arrival or Move names.
 	Works    map[works.WorkID]Work
 	Torrents map[downloadclients.ID]downloadclients.Row
+	// Moves is the Moves that need the Admin, newest first, at most Rows
+	// on Home.
+	Moves []moves.Need
 }
 
 // Work is a Work as a Home row shows it.
@@ -52,6 +56,9 @@ func (s *Service) Read(ctx context.Context, _ identity.Admin, since time.Time) (
 		if out.Recent, err = s.cfg.Imports.Recent(ctx, r, rows, since); err != nil {
 			return err
 		}
+		if out.Moves, err = s.cfg.Moves.NeedsYou(ctx, r, rows); err != nil {
+			return err
+		}
 		if out.Works, err = s.worksOf(ctx, r, out); err != nil {
 			return err
 		}
@@ -79,6 +86,9 @@ func (s *Service) worksOf(ctx context.Context, r storage.Reader[file], sum Summa
 	}
 	for _, a := range sum.Recent.Arrivals {
 		add(a.Work)
+	}
+	for _, n := range sum.Moves {
+		add(n.Work)
 	}
 	if len(ids) == 0 {
 		return map[works.WorkID]Work{}, nil

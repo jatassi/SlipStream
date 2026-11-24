@@ -1722,6 +1722,29 @@
         ],
         "type": "object"
       },
+      "DownloadclientsFilesMissing": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "description": "The torrents whose files the new Node didn't find",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "first": {
+            "description": "The first 20 of them, in the order SlipStream added them",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsMissingTorrent"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "count",
+          "first"
+        ],
+        "type": "object"
+      },
       "DownloadclientsHitAndRun": {
         "additionalProperties": false,
         "properties": {
@@ -1976,6 +1999,23 @@
           "at",
           "rows",
           "downloads"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsMissingTorrent": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "torrentId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "torrentId",
+          "name"
         ],
         "type": "object"
       },
@@ -2275,7 +2315,7 @@
             "type": "string"
           },
           "client": {
-            "description": "client_away and client_off: the external client's name",
+            "description": "client_away and client_off: the external client's name; moving: the external client it moves to, absent for the built-in client",
             "type": "string"
           },
           "code": {
@@ -2292,12 +2332,13 @@
               "window",
               "not_running",
               "failed",
-              "not_retryable"
+              "not_retryable",
+              "moving"
             ],
             "type": "string"
           },
           "node": {
-            "description": "client_away and client_off: the name of the external client's Node",
+            "description": "client_away and client_off: the name of the external client's Node; moving: the Node it moves to, absent for its own Node",
             "type": "string"
           },
           "workId": {
@@ -2897,6 +2938,17 @@
             "description": "Its Node responded, so trackers and files are live. Otherwise they are from its last report",
             "type": "boolean"
           },
+          "move": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsTorrentMove"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its Move in flight, or failed with its copy kept; null for none"
+          },
           "name": {
             "description": "The release's name in its metainfo, shown for a Torrent whose Work was deleted",
             "type": "string"
@@ -3095,7 +3147,8 @@
           "seeding",
           "retryable",
           "held",
-          "addedAt"
+          "addedAt",
+          "move"
         ],
         "type": "object"
       },
@@ -3151,6 +3204,69 @@
         "required": [
           "rows",
           "counts"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsTorrentMove": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "queued",
+              "transfer",
+              "place",
+              "switch",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "toNodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "toNodeName": {
+            "type": "string"
+          },
+          "unitId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "waiting": {
+            "description": "What it waits for; absent while it waits for nothing",
+            "enum": [
+              "pair_busy",
+              "low_priority",
+              "node_offline",
+              "no_route",
+              "space",
+              "renames",
+              "downloading",
+              "importing",
+              "open_files",
+              "playing",
+              "media_servers",
+              "guard",
+              "linked_torrent",
+              "reconciling"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "description": "What it does now, such as Copying to den",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unitId",
+          "batchId",
+          "phase",
+          "toNodeId",
+          "toNodeName",
+          "words"
         ],
         "type": "object"
       },
@@ -3255,6 +3371,17 @@
               "off"
             ],
             "type": "string"
+          },
+          "move": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsTorrentMove"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its Move in flight, or failed with its copy kept; null for none"
           },
           "name": {
             "description": "The release's name in its metainfo, shown for a Torrent whose Work was deleted",
@@ -3425,7 +3552,8 @@
           "seeding",
           "retryable",
           "held",
-          "addedAt"
+          "addedAt",
+          "move"
         ],
         "type": "object"
       },
@@ -10308,7 +10436,8 @@
               "library",
               "subtitles",
               "health",
-              "backups"
+              "backups",
+              "moves"
             ],
             "type": "string"
           },
@@ -10434,7 +10563,8 @@
               "library",
               "subtitles",
               "health",
-              "backups"
+              "backups",
+              "moves"
             ],
             "type": "string"
           },
@@ -10718,6 +10848,51 @@
         ],
         "type": "object"
       },
+      "HomeMoveNeed": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "failed",
+              "waiting"
+            ],
+            "type": "string"
+          },
+          "since": {
+            "description": "When it began to wait; absent for a failed Move",
+            "format": "date-time",
+            "type": "string"
+          },
+          "switchNow": {
+            "description": "Whether Switch now can end its wait",
+            "type": "boolean"
+          },
+          "unitId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "words": {
+            "description": "What happened and what to do, such as Heat (1995) has waited 1 hour to switch to den. Someone is playing it on a Media Server.",
+            "type": "string"
+          },
+          "work": {
+            "$ref": "#/components/schemas/HomeWork"
+          }
+        },
+        "required": [
+          "unitId",
+          "batchId",
+          "kind",
+          "work",
+          "words",
+          "switchNow"
+        ],
+        "type": "object"
+      },
       "HomeNeed": {
         "additionalProperties": false,
         "properties": {
@@ -10756,6 +10931,13 @@
             "minimum": 0,
             "type": "integer"
           },
+          "moves": {
+            "description": "Moves that failed, or waited past the moves.needsYouAfter setting, newest first, at most Rows on Home",
+            "items": {
+              "$ref": "#/components/schemas/HomeMoveNeed"
+            },
+            "type": "array"
+          },
           "rows": {
             "description": "Newest first, at most Rows on Home",
             "items": {
@@ -10772,6 +10954,7 @@
         },
         "required": [
           "rows",
+          "moves",
           "failed",
           "waiting"
         ],
@@ -16360,6 +16543,822 @@
         ],
         "type": "object"
       },
+      "MovesBatchList": {
+        "additionalProperties": false,
+        "properties": {
+          "batches": {
+            "description": "Open ones first, then newest first",
+            "items": {
+              "$ref": "#/components/schemas/MovesBatchRow"
+            },
+            "type": "array"
+          },
+          "next": {
+            "description": "The after of the next page; absent on the last",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batches"
+        ],
+        "type": "object"
+      },
+      "MovesBatchPage": {
+        "additionalProperties": false,
+        "properties": {
+          "batch": {
+            "$ref": "#/components/schemas/MovesBatchRow"
+          },
+          "next": {
+            "description": "The after of the next page; absent on the last",
+            "format": "int64",
+            "type": "integer"
+          },
+          "units": {
+            "description": "In the batch's order",
+            "items": {
+              "$ref": "#/components/schemas/MovesMoveUnit"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "batch",
+          "units"
+        ],
+        "type": "object"
+      },
+      "MovesBatchRow": {
+        "additionalProperties": false,
+        "properties": {
+          "canCancel": {
+            "description": "A unit hasn't switched yet",
+            "type": "boolean"
+          },
+          "canMoveBack": {
+            "description": "A unit moved",
+            "type": "boolean"
+          },
+          "canRetry": {
+            "description": "A unit failed",
+            "type": "boolean"
+          },
+          "canceledAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "counts": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "description": "Units per phase",
+            "type": "object"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "finishedAt": {
+            "description": "When its last unit ended; absent while one runs",
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "work",
+              "bulk",
+              "root",
+              "drain",
+              "client",
+              "torrent"
+            ],
+            "type": "string"
+          },
+          "total": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "words": {
+            "description": "The batch in a sentence, such as 12 of 43 movies switched",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "origin",
+          "createdAt",
+          "counts",
+          "total",
+          "words",
+          "canRetry",
+          "canCancel",
+          "canMoveBack"
+        ],
+        "type": "object"
+      },
+      "MovesCanceledMoves": {
+        "additionalProperties": false,
+        "properties": {
+          "canceled": {
+            "description": "Units canceled before their switch",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "switched": {
+            "description": "Units that had already switched, which stay",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "words": {
+            "description": "The toast, such as Canceled 31 Moves. 12 movies already switched stay on den.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "canceled",
+          "switched",
+          "words"
+        ],
+        "type": "object"
+      },
+      "MovesChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "batchIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unitIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "workIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "batchIds",
+          "unitIds",
+          "workIds"
+        ],
+        "type": "object"
+      },
+      "MovesClientTo": {
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "description": "The external Download Client; absent for the Node's built-in client",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The Node of the Download Client whose every torrent moves",
+            "format": "uuid",
+            "type": "string"
+          },
+          "to": {
+            "$ref": "#/components/schemas/MovesSide",
+            "description": "The Download Client they move to"
+          }
+        },
+        "required": [
+          "nodeId",
+          "to"
+        ],
+        "type": "object"
+      },
+      "MovesDropped": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "torrentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "words": {
+            "description": "Why it stays",
+            "type": "string"
+          },
+          "workId": {
+            "description": "A Work unit's; the zero id for a torrent",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "name",
+          "words"
+        ],
+        "type": "object"
+      },
+      "MovesFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "source_gone",
+              "source_failed",
+              "damaged",
+              "source_written_off",
+              "destination_gone",
+              "destination_check_failed",
+              "switch_refused",
+              "destination_unreachable"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "words"
+        ],
+        "type": "object"
+      },
+      "MovesMoveAsk": {
+        "additionalProperties": false,
+        "properties": {
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/MovesClientTo"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "options": {
+            "$ref": "#/components/schemas/MovesMoveOptions"
+          },
+          "origin": {
+            "description": "Where the Admin starts it: a Work's page, the Library's bulk bar, a root's row, a Node's drain, a Download Client, or the Torrent table",
+            "enum": [
+              "work",
+              "bulk",
+              "root",
+              "drain",
+              "client",
+              "torrent"
+            ],
+            "type": "string"
+          },
+          "roots": {
+            "items": {
+              "$ref": "#/components/schemas/MovesRootTo"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "torrents": {
+            "items": {
+              "$ref": "#/components/schemas/MovesTorrentTo"
+            },
+            "maxItems": 10000,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "works": {
+            "description": "At least one Work, root, torrent or client",
+            "items": {
+              "$ref": "#/components/schemas/MovesWorkTo"
+            },
+            "maxItems": 10000,
+            "type": "array"
+          }
+        },
+        "required": [
+          "origin",
+          "works"
+        ],
+        "type": "object"
+      },
+      "MovesMoveOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "deleteEmptiedRoots": {
+            "description": "Delete each root the Move empties, once every unit ends",
+            "type": "boolean"
+          },
+          "includeLinkedTorrents": {
+            "description": "Also move the seeding torrent a Work's files are linked to",
+            "type": "boolean"
+          },
+          "repointRouting": {
+            "description": "Have each Tracker's new Grabs go to the client its torrents move to",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "MovesMovePreview": {
+        "additionalProperties": false,
+        "properties": {
+          "button": {
+            "description": "The Start button's label, such as Move 41 of 43",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "homed": {
+            "description": "Works without files the Start homes in their new root",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "movable": {
+            "description": "The units that aren't red, which a Start confirms",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "recommendation": {
+            "description": "The preview in a sentence, such as Move 41 of 43 movies to den. 2 can't move: The Office and Heat.",
+            "type": "string"
+          },
+          "token": {
+            "description": "Names the preview for its Start",
+            "type": "string"
+          },
+          "total": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "units": {
+            "items": {
+              "$ref": "#/components/schemas/MovesPreviewUnit"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "token",
+          "expiresAt",
+          "recommendation",
+          "button",
+          "movable",
+          "total",
+          "homed",
+          "units"
+        ],
+        "type": "object"
+      },
+      "MovesMoveSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "settings": {
+            "description": "When a waiting switch shows in Needs you, then how long the old files wait for Plex",
+            "items": {
+              "$ref": "#/components/schemas/SettingField"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "settings"
+        ],
+        "type": "object"
+      },
+      "MovesMoveSettingsValues": {
+        "additionalProperties": false,
+        "properties": {
+          "values": {
+            "additionalProperties": {},
+            "description": "Each setting's new value by key, all or none; null resets one to its default",
+            "type": "object"
+          }
+        },
+        "required": [
+          "values"
+        ],
+        "type": "object"
+      },
+      "MovesMoveUnit": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MovesFailure"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it failed; null unless it failed"
+          },
+          "from": {
+            "$ref": "#/components/schemas/MovesPlace"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "work",
+              "torrent"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "notes": {
+            "description": "What it recorded for the Admin, as sentences",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "phase": {
+            "enum": [
+              "queued",
+              "transfer",
+              "place",
+              "switch",
+              "cleanup",
+              "done",
+              "failed",
+              "canceled"
+            ],
+            "type": "string"
+          },
+          "switchNow": {
+            "description": "Whether Switch now can end its wait",
+            "type": "boolean"
+          },
+          "to": {
+            "$ref": "#/components/schemas/MovesPlace"
+          },
+          "torrentId": {
+            "description": "A torrent unit's",
+            "format": "uuid",
+            "type": "string"
+          },
+          "undone": {
+            "description": "A failed or canceled Move removed what it placed",
+            "type": "boolean"
+          },
+          "waiting": {
+            "description": "What it waits for; absent while it waits for nothing",
+            "enum": [
+              "pair_busy",
+              "low_priority",
+              "node_offline",
+              "no_route",
+              "space",
+              "renames",
+              "downloading",
+              "importing",
+              "open_files",
+              "playing",
+              "media_servers",
+              "guard",
+              "linked_torrent",
+              "reconciling"
+            ],
+            "type": "string"
+          },
+          "waitingSince": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "words": {
+            "description": "What it does now, such as Copying to den",
+            "type": "string"
+          },
+          "workId": {
+            "description": "A Work unit's; the zero id for a torrent",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "batchId",
+          "kind",
+          "workId",
+          "name",
+          "contentType",
+          "phase",
+          "from",
+          "to",
+          "bytes",
+          "failure",
+          "undone",
+          "switchNow",
+          "notes",
+          "words"
+        ],
+        "type": "object"
+      },
+      "MovesPlace": {
+        "additionalProperties": false,
+        "properties": {
+          "client": {
+            "description": "A torrent's Download Client, such as qBittorrent or the built-in client",
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeName": {
+            "type": "string"
+          },
+          "root": {
+            "description": "The library root in words, such as Movies library root on den; empty for a torrent",
+            "type": "string"
+          },
+          "rootId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId",
+          "nodeName",
+          "rootId",
+          "root"
+        ],
+        "type": "object"
+      },
+      "MovesPreviewUnit": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "description": "Bytes that copy; a hard link or a clone copies none",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "from": {
+            "$ref": "#/components/schemas/MovesPlace"
+          },
+          "key": {
+            "description": "Stable per unit inside the preview, such as work:\u003cid\u003e or torrent:\u003cid\u003e",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "work",
+              "torrent"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reasons": {
+            "description": "Each check worse than green",
+            "items": {
+              "$ref": "#/components/schemas/MovesReason"
+            },
+            "type": "array"
+          },
+          "to": {
+            "$ref": "#/components/schemas/MovesPlace"
+          },
+          "torrentId": {
+            "description": "A torrent unit's",
+            "format": "uuid",
+            "type": "string"
+          },
+          "verdict": {
+            "description": "green moves, amber moves with a note, red stays",
+            "enum": [
+              "green",
+              "amber",
+              "red"
+            ],
+            "type": "string"
+          },
+          "workId": {
+            "description": "A Work unit's; the zero id for a torrent",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "name",
+          "workId",
+          "from",
+          "to",
+          "verdict",
+          "reasons",
+          "bytes"
+        ],
+        "type": "object"
+      },
+      "MovesReason": {
+        "additionalProperties": false,
+        "properties": {
+          "check": {
+            "enum": [
+              "space",
+              "names",
+              "folder",
+              "destination",
+              "media_servers",
+              "waits",
+              "moving",
+              "probe",
+              "torrent",
+              "hit_and_run"
+            ],
+            "type": "string"
+          },
+          "code": {
+            "description": "Stable per reason, such as space_error or mapping_missing",
+            "type": "string"
+          },
+          "color": {
+            "enum": [
+              "amber",
+              "red"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "check",
+          "color",
+          "code",
+          "words"
+        ],
+        "type": "object"
+      },
+      "MovesRootTo": {
+        "additionalProperties": false,
+        "properties": {
+          "rootId": {
+            "description": "The library root whose every Work moves",
+            "format": "uuid",
+            "type": "string"
+          },
+          "to": {
+            "description": "The library root they move to",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rootId",
+          "to"
+        ],
+        "type": "object"
+      },
+      "MovesSide": {
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "description": "An external Download Client; absent for the Node's built-in client",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId"
+        ],
+        "type": "object"
+      },
+      "MovesStartAsk": {
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
+      },
+      "MovesStartedMoves": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "dropped": {
+            "description": "The preview's units that can't move now; empty for a Start sent again",
+            "items": {
+              "$ref": "#/components/schemas/MovesDropped"
+            },
+            "type": "array"
+          },
+          "started": {
+            "description": "The units the batch moves",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batchId",
+          "started",
+          "dropped"
+        ],
+        "type": "object"
+      },
+      "MovesTorrentTo": {
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "description": "The external Download Client it moves to; absent for the Node's built-in client",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The Node of the Download Client it moves to",
+            "format": "uuid",
+            "type": "string"
+          },
+          "torrentId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "torrentId",
+          "nodeId"
+        ],
+        "type": "object"
+      },
+      "MovesWorkTo": {
+        "additionalProperties": false,
+        "properties": {
+          "rootId": {
+            "description": "The library root it moves to",
+            "format": "uuid",
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "rootId"
+        ],
+        "type": "object"
+      },
       "MovingOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -18887,6 +19886,7 @@
               "subtitles",
               "health",
               "backups",
+              "moves",
               "system"
             ],
             "type": "string"
@@ -20121,6 +21121,35 @@
         },
         "type": "object"
       },
+      "RootsBusy": {
+        "additionalProperties": false,
+        "properties": {
+          "imports": {
+            "description": "The Imports into it that haven't finished",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "moves": {
+            "description": "The Moves from it or into it that haven't finished",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "transfers": {
+            "description": "The Transfers into it or sending a file from it",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "moves",
+          "imports",
+          "transfers"
+        ],
+        "type": "object"
+      },
       "RootsChanged": {
         "additionalProperties": false,
         "properties": {
@@ -20197,11 +21226,17 @@
             "description": "The Grabs in flight for its Works or into it",
             "format": "int64",
             "type": "integer"
+          },
+          "moves": {
+            "description": "The Moves from it or into it that haven't finished",
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
           "files",
-          "grabs"
+          "grabs",
+          "moves"
         ],
         "type": "object"
       },
@@ -27180,11 +28215,12 @@
             "type": "string"
           },
           "kind": {
-            "description": "root is a library root, backup a Backup destination, and backups_folder the Controller's Backups folder",
+            "description": "root is a library root, backup a Backup destination, backups_folder the Controller's Backups folder, and download_folder a Download Client's folder",
             "enum": [
               "root",
               "backup",
-              "backups_folder"
+              "backups_folder",
+              "download_folder"
             ],
             "type": "string"
           },
@@ -27410,10 +28446,11 @@
             "type": "string"
           },
           "purpose": {
-            "description": "The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller",
+            "description": "The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller, and move copies a library file or a torrent's payload to another Node",
             "enum": [
               "import",
-              "backup"
+              "backup",
+              "move"
             ],
             "type": "string"
           },
@@ -29867,6 +30904,71 @@
         ],
         "type": "object"
       },
+      "WorksWorkMove": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "queued",
+              "transfer",
+              "place",
+              "switch",
+              "cleanup",
+              "failed",
+              "canceled"
+            ],
+            "type": "string"
+          },
+          "toNodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "toNodeName": {
+            "type": "string"
+          },
+          "unitId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "waiting": {
+            "description": "What it waits for; absent while it waits for nothing",
+            "enum": [
+              "pair_busy",
+              "low_priority",
+              "node_offline",
+              "no_route",
+              "space",
+              "renames",
+              "downloading",
+              "importing",
+              "open_files",
+              "playing",
+              "media_servers",
+              "guard",
+              "linked_torrent",
+              "reconciling"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "description": "What it does now, such as Copying to den",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unitId",
+          "batchId",
+          "phase",
+          "toNodeId",
+          "toNodeName",
+          "words"
+        ],
+        "type": "object"
+      },
       "WorksWorkProfile": {
         "additionalProperties": false,
         "properties": {
@@ -29983,6 +31085,17 @@
             "description": "Items a refresh adds arrive monitored, unless they sit in an aside level and monitorAsides is off",
             "type": "boolean"
           },
+          "move": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorksWorkMove"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its Move in flight, or failed; null for none"
+          },
           "openIn": {
             "description": "A link to the Work on each Media Server that holds it",
             "items": {
@@ -30036,6 +31149,7 @@
           "levelFolders",
           "options",
           "openIn",
+          "move",
           "fields",
           "ratings",
           "artwork",
@@ -42756,6 +43870,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/MovesChanged"
+                          },
+                          "event": {
+                            "const": "moves.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event moves.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/NamingChanged"
                           },
                           "event": {
@@ -44315,14 +45455,19 @@
                         "code": {
                           "enum": [
                             "download_client_address_taken",
+                            "download_client_files_missing",
                             "download_client_has_torrents",
                             "download_client_in_use",
+                            "download_client_moving",
                             "download_client_name_taken",
                             "node_not_downloading",
                             "superseded",
                             "worker_node"
                           ],
                           "type": "string"
+                        },
+                        "missing": {
+                          "$ref": "#/components/schemas/DownloadclientsFilesMissing"
                         }
                       },
                       "type": "object"
@@ -48634,12 +49779,12 @@
             }
           },
           {
-            "description": "Only these groups; left out, all six",
+            "description": "Only these groups; left out, all seven",
             "explode": false,
             "in": "query",
             "name": "groups",
             "schema": {
-              "description": "Only these groups; left out, all six",
+              "description": "Only these groups; left out, all seven",
               "items": {
                 "enum": [
                   "grabs",
@@ -48647,7 +49792,8 @@
                   "library",
                   "subtitles",
                   "health",
-                  "backups"
+                  "backups",
+                  "moves"
                 ],
                 "type": "string"
               },
@@ -63942,6 +65088,2135 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/moves": {
+      "get": {
+        "operationId": "listMoves",
+        "parameters": [
+          {
+            "description": "The last batch of the page before",
+            "explode": false,
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "description": "The last batch of the page before",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovesBatchList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "move_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the Moves' batches, open ones first",
+        "tags": [
+          "moves"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "post": {
+        "operationId": "startMoves",
+        "parameters": [
+          {
+            "description": "The movable count the preview showed",
+            "explode": false,
+            "in": "query",
+            "name": "confirm",
+            "required": true,
+            "schema": {
+              "description": "The movable count the preview showed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MovesStartAsk"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovesStartedMoves"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "move_plan_changed",
+                            "nothing_to_move",
+                            "reconciling",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "move_plan_expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Start a previewed Move. A Start sent again returns the same batch",
+        "tags": [
+          "moves"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/moves/preview": {
+      "post": {
+        "operationId": "previewMoves",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MovesMoveAsk"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovesMovePreview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_not_found",
+                            "root_not_found",
+                            "torrent_not_found",
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "move_ask_empty"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Preview moving Works to other library roots, or torrents to other Download Clients: a verdict for each, and a token to start it with",
+        "tags": [
+          "moves"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/moves/settings": {
+      "get": {
+        "operationId": "getMoveSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovesMoveSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get the Moves settings of Settings \u003e Library roots",
+        "tags": [
+          "moves"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "patchMoveSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MovesMoveSettingsValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovesMoveSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range",
+                            "unknown_setting"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change the Moves settings by key, all or none",
+        "tags": [
+          "moves"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/moves/units/{unitId}/cancel": {
+      "post": {
+        "operationId": "cancelMoveUnit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "unitId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovesMoveUnit"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "move_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "unit_switched",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Cancel a unit of a Move before its switch. It removes what it placed",
+        "tags": [
+          "moves"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/moves/units/{unitId}/retry": {
+      "post": {
+        "operationId": "retryMoveUnit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "unitId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovesMoveUnit"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "move_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "unit_not_failed",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Queue a failed unit of a Move again",
+        "tags": [
+          "moves"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/moves/units/{unitId}/switch-now": {
+      "post": {
+        "operationId": "switchMoveUnitNow",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "unitId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovesMoveUnit"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "move_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "switch_not_waiting",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Switch a unit waiting for playback or a Media Server without waiting longer",
+        "tags": [
+          "moves"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/moves/{batchId}": {
+      "get": {
+        "operationId": "getMove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batchId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The last unit's position on the page before; -1 for the first page",
+            "explode": false,
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "default": -1,
+              "description": "The last unit's position on the page before; -1 for the first page",
+              "format": "int64",
+              "minimum": -1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovesBatchPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "move_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Move's batch with a page of its units",
+        "tags": [
+          "moves"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/moves/{batchId}/back": {
+      "get": {
+        "operationId": "previewMoveBack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batchId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovesMovePreview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "move_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Preview moving a Move's Works back to the roots they left, and its torrents back to the Download Clients they left",
+        "tags": [
+          "moves"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/moves/{batchId}/cancel": {
+      "post": {
+        "operationId": "cancelMoves",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batchId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovesCanceledMoves"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "move_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Cancel every unit of a Move that hasn't switched. Each one removes what it placed",
+        "tags": [
+          "moves"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/naming": {
       "get": {
         "operationId": "listNaming",
@@ -78337,10 +81612,14 @@
                     },
                     {
                       "properties": {
+                        "busy": {
+                          "$ref": "#/components/schemas/RootsBusy"
+                        },
                         "code": {
                           "enum": [
                             "node_not_storage",
                             "rehome_missing",
+                            "root_busy",
                             "superseded",
                             "worker_node"
                           ],

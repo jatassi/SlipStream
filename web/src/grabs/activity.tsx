@@ -1,13 +1,15 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-import type { GrabsGrab } from "../api/gen/model";
+import type { GrabsGrab, MovesBatchRow } from "../api/gen/model";
+import { MovesSection } from "../moves/activity-band";
 import { Button } from "../ui/button";
 import { Empty } from "../ui/empty";
 import { Section } from "../ui/section";
 import { GrabFailure } from "./failure-cards";
 import { GrabTable, useTorrentOf } from "./grab-table";
 import { JobsStatus } from "./jobs-status";
+// oxlint-disable-next-line import/max-dependencies -- Activity lays out its Needs you, Moves and Jobs sections and their empty state
 import { type FailedGrab, needsYou, withoutReplacedFailures } from "./stages";
 
 function Failed({
@@ -57,15 +59,17 @@ function JobsTable({
 
 export function ActivityBody({
   grabs: all,
+  moves,
   labels,
   filter,
 }: {
   grabs: readonly GrabsGrab[];
+  moves: readonly MovesBatchRow[];
   labels: ReadonlyMap<string, string>;
   filter?: ReactNode;
 }) {
   const grabs = withoutReplacedFailures(all);
-  if (grabs.length === 0) {
+  if (grabs.length === 0 && moves.length === 0) {
     return (
       <Empty
         look="sheet"
@@ -85,10 +89,15 @@ export function ActivityBody({
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <JobsStatus grabs={grabs} failed={failed} />
+        <JobsStatus
+          grabs={grabs}
+          failed={failed}
+          moves={moves.filter(({ finishedAt }) => finishedAt === undefined).length}
+        />
         {filter}
       </div>
       {failed.length > 0 && <Failed grabs={failed} work={work} />}
+      <MovesSection batches={moves} />
       {jobs.length > 0 && <JobsTable jobs={jobs} work={work} labels={labels} />}
     </>
   );

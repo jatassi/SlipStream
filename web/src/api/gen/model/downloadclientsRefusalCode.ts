@@ -11,4 +11,5 @@ export type DownloadclientsRefusalCode =
   | "window"
   | "not_running"
   | "failed"
-  | "not_retryable";
+  | "not_retryable"
+  | "moving";

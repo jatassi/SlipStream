@@ -116,20 +116,29 @@ func (m *MediaServers) preps(ctx context.Context, q *db.Queries, rs []files.Rena
 	return out, nil
 }
 
+// prepFor is an empty prep on row's server, with no port while the
+// server is held.
+func (m *MediaServers) prepFor(ctx context.Context, q *db.Queries, row db.MediaserversServer, k link.Kind) (*prep, error) {
+	p := &prep{job: link.Job{
+		Server: link.ServerRef{ID: row.ID, Kind: row.Kind, Identity: row.Identity, SettingsVersion: row.SettingsVersion},
+		Step:   link.StepNone,
+	}}
+	var err error
+	if v := routeOf(m.up(row.ReachingNodeID), row.Fallback); v != viaHold {
+		p.port, err = m.port(ctx, q, row, k, v)
+	}
+	return p, err
+}
+
 func (m *MediaServers) prepOf(ctx context.Context, q *db.Queries, id link.ServerID, rs []files.Rename, now time.Time) (*prep, error) {
 	row, err := q.GetServer(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	k, _ := m.cfg.Kinds.Of(row.Kind)
-	p := &prep{job: link.Job{
-		Server: link.ServerRef{ID: row.ID, Kind: row.Kind, Identity: row.Identity, SettingsVersion: row.SettingsVersion},
-		Step:   link.StepNone,
-	}}
-	if v := routeOf(m.up(row.ReachingNodeID), row.Fallback); v != viaHold {
-		if p.port, err = m.port(ctx, q, row, k, v); err != nil {
-			return nil, err
-		}
+	p, err := m.prepFor(ctx, q, row, k)
+	if err != nil {
+		return nil, err
 	}
 	mappings, err := q.ListMappings(ctx, id)
 	if err != nil {
