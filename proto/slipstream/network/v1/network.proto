@@ -1,0 +1,307 @@
+// The network Node-wide channel and NodeNetworkService, for S51
+// (Reachability diagnostic). The channel carries whether a Node watches
+// its network and, back, a summary of what it saw; the service answers
+// the Controller's reads of one Node's full facts, its lookups of a public
+// name, and its connections from that Node as a player makes them. Every
+// Node serves the service, the Controller included.
+syntax = "proto3";
+
+package slipstream.network.v1;
+
+import "slipstream/node/v1/options.proto";
+
+// Intent is whether this Node watches its network and how.
+message Intent {
+  bool watch = 1;
+  int64 interval_ms = 2;
+  // wait_ms is how long a change must hold before the Node publishes it.
+  int64 wait_ms = 3;
+  // stun is absent for the Node's own endpoints.network.stun entry.
+  StunList stun = 4;
+  // map is the ports the Node maps on its gateway.
+  repeated MapWant map = 5;
+}
+
+// StunList is the STUN servers to ask, as host:port. Empty asks none.
+message StunList {
+  repeated string servers = 1;
+}
+
+// MapWant is one TCP port to map.
+message MapWant {
+  uint32 external = 1;
+  uint32 internal = 2;
+}
+
+// Facts is the summary the Node publishes once a change held. revision is
+// a digest of class, public4 and prefixes6 only.
+message Facts {
+  bool watched = 1;
+  Class4 class = 2;
+  bytes public4 = 3;
+  // prefixes6 is the global /64s, 8 bytes each, sorted.
+  repeated bytes prefixes6 = 4;
+  bytes revision = 5;
+  int64 observed_at_ms = 6;
+}
+
+enum Class4 {
+  CLASS4_UNSPECIFIED = 0;
+  CLASS4_OPEN = 1;
+  CLASS4_THROUGH_VPN = 2;
+  CLASS4_CGNAT = 3;
+  CLASS4_DOUBLE_NAT = 4;
+  CLASS4_MAPPABLE = 5;
+  CLASS4_BEHIND_ROUTER = 6;
+}
+
+service NodeNetworkService {
+  option (slipstream.node.v1.served_by) = {every_node: true};
+  // Read answers the Node's full facts. Listeners and firewall are read
+  // fresh for ports; the rest comes from the last full pass when it is
+  // younger than max_age_ms.
+  rpc Read(ReadRequest) returns (ReadResponse);
+  // Resolve looks up host's A and AAAA records as this Node sees them.
+  rpc Resolve(ResolveRequest) returns (ResolveResponse);
+  // Dial connects from this Node as a player would, and answers how far
+  // each address got. A failed connection is an answer, not an error.
+  rpc Dial(DialRequest) returns (DialResponse);
+}
+
+message ReadRequest {
+  repeated uint32 ports = 1;
+  // max_age_ms reuses the last STUN and gateway pass when it is younger; 0
+  // asks for a fresh pass.
+  int64 max_age_ms = 2;
+  // local_only reads interfaces, listeners and firewall only, and sends
+  // nothing off the machine.
+  bool local_only = 3;
+}
+
+message ReadResponse {
+  NetworkFacts facts = 1;
+}
+
+message ResolveRequest {
+  string host = 1;
+}
+
+message ResolveResponse {
+  repeated bytes a = 1;
+  repeated bytes aaaa = 2;
+  DNSError error_a = 3;
+  DNSError error_aaaa = 4;
+  // os_resolver is set when the Node asked its OS resolver, which tells no
+  // SERVFAIL from a timeout.
+  bool os_resolver = 5;
+}
+
+enum DNSError {
+  DNS_ERROR_UNSPECIFIED = 0;
+  DNS_ERROR_NXDOMAIN = 1;
+  DNS_ERROR_SERVFAIL = 2;
+  DNS_ERROR_TIMEOUT = 3;
+  DNS_ERROR_NO_RESOLVER = 4;
+}
+
+message DialRequest {
+  oneof target {
+    string host = 1;
+    // addr is a connect-back address the Controller vetted.
+    bytes addr = 2;
+  }
+  uint32 port = 3;
+  Family family = 4;
+  Scheme scheme = 5;
+  // sni is the public host, for an addr target over HTTPS.
+  string sni = 6;
+  string path = 7;
+}
+
+enum Family {
+  FAMILY_UNSPECIFIED = 0;
+  FAMILY_IPV4 = 1;
+  FAMILY_IPV6 = 2;
+}
+
+enum Scheme {
+  SCHEME_UNSPECIFIED = 0;
+  SCHEME_HTTP = 1;
+  SCHEME_HTTPS = 2;
+}
+
+message DialResponse {
+  repeated Attempt attempts = 1;
+  // error is set when host didn't resolve, so no address was tried.
+  DNSError error = 2;
+}
+
+// Attempt is how far one address got.
+message Attempt {
+  bytes addr = 1;
+  Stage stage = 2;
+  DialError error = 3;
+  // tls is the chain the server sent, whatever its validity.
+  Certificate tls = 4;
+  int32 status = 5;
+  // location_host is a redirect's host, which the Node doesn't follow.
+  string location_host = 6;
+  // body is at most timings.netfacts.read_bytes.
+  bytes body = 7;
+}
+
+// Stage is the last step an attempt finished.
+enum Stage {
+  STAGE_UNSPECIFIED = 0;
+  STAGE_RESOLVED = 1;
+  STAGE_CONNECTED = 2;
+  STAGE_TLS = 3;
+  STAGE_HTTP = 4;
+}
+
+enum DialError {
+  DIAL_ERROR_UNSPECIFIED = 0;
+  DIAL_ERROR_REFUSED = 1;
+  DIAL_ERROR_TIMEOUT = 2;
+  DIAL_ERROR_UNREACHABLE = 3;
+  DIAL_ERROR_TLS = 4;
+  DIAL_ERROR_HTTP = 5;
+}
+
+message Certificate {
+  TLSProblem problem = 1;
+  repeated string names = 2;
+  int64 not_after_ms = 3;
+}
+
+enum TLSProblem {
+  TLS_PROBLEM_UNSPECIFIED = 0;
+  TLS_PROBLEM_EXPIRED = 1;
+  TLS_PROBLEM_WRONG_NAME = 2;
+  TLS_PROBLEM_UNTRUSTED = 3;
+  TLS_PROBLEM_HANDSHAKE = 4;
+}
+
+// NetworkFacts is one Node's facts. The Controller keeps the addresses a
+// Node had before; a Node never sends them.
+message NetworkFacts {
+  int64 at_ms = 1;
+  bool watched = 2;
+  repeated Iface interfaces = 3;
+  Egress egress = 4;
+  Gateway gateway = 5;
+  repeated STUNAnswer stun = 6;
+  repeated Listener listeners = 7;
+  repeated Rule firewall = 8;
+  repeated Mapping mappings = 9;
+}
+
+enum Tri {
+  TRI_UNSPECIFIED = 0;
+  TRI_YES = 1;
+  TRI_NO = 2;
+}
+
+message Iface {
+  string name = 1;
+  int32 index = 2;
+  bool tunnel = 3;
+  repeated IfaceAddr addrs = 4;
+}
+
+message IfaceAddr {
+  bytes addr = 1;
+  uint32 bits = 2;
+  Tri temporary = 3;
+  Tri deprecated = 4;
+}
+
+message Egress {
+  string iface = 1;
+  bytes local = 2;
+}
+
+message Gateway {
+  bytes addr = 1;
+  Tri pcp = 2;
+  Tri nat_pmp = 3;
+  Tri upnp = 4;
+  bytes wan = 5;
+  repeated Forward forwards = 6;
+}
+
+message Forward {
+  uint32 external = 1;
+  bytes client = 2;
+  uint32 internal = 3;
+}
+
+message STUNAnswer {
+  string server = 1;
+  bytes mapped_addr = 2;
+  uint32 mapped_port = 3;
+  STUNError error = 4;
+}
+
+enum STUNError {
+  STUN_ERROR_UNSPECIFIED = 0;
+  STUN_ERROR_TIMEOUT = 1;
+  STUN_ERROR_REFUSED = 2;
+  STUN_ERROR_NO_ANSWER = 3;
+}
+
+message Listener {
+  uint32 port = 1;
+  string program = 2;
+  bool slipstream = 3;
+  Tri v4 = 4;
+  Tri v6 = 5;
+  bool loopback = 6;
+  bool docker = 7;
+}
+
+enum Tool {
+  TOOL_UNSPECIFIED = 0;
+  TOOL_WINDOWS_DEFENDER = 1;
+  TOOL_SOCKET_FILTER = 2;
+  TOOL_FIREWALLD = 3;
+  TOOL_UFW = 4;
+}
+
+enum Policy {
+  POLICY_UNSPECIFIED = 0;
+  POLICY_ALLOWS = 1;
+  POLICY_BLOCKS = 2;
+}
+
+message Rule {
+  Tool tool = 1;
+  uint32 port = 2;
+  Family family = 3;
+  Policy policy = 4;
+  bool partial = 5;
+  string because = 6;
+}
+
+enum MapProtocol {
+  MAP_PROTOCOL_UNSPECIFIED = 0;
+  MAP_PROTOCOL_PCP = 1;
+  MAP_PROTOCOL_NAT_PMP = 2;
+  MAP_PROTOCOL_UPNP = 3;
+}
+
+enum MapRefusal {
+  MAP_REFUSAL_UNSPECIFIED = 0;
+  MAP_REFUSAL_NOT_AUTHORIZED = 1;
+  MAP_REFUSAL_OTHER_PORT = 2;
+  MAP_REFUSAL_NO_ANSWER = 3;
+}
+
+message Mapping {
+  MapProtocol protocol = 1;
+  uint32 external = 2;
+  uint32 internal = 3;
+  int64 lifetime_ms = 4;
+  int64 expires_at_ms = 5;
+  MapRefusal refused = 6;
+}
