@@ -239,6 +239,79 @@
           "backups_folder": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "site": {
+            "type": "string"
+          },
+          "addresses": {
+            "items": {
+              "properties": {
+                "prefix": {
+                  "type": "string"
+                },
+                "temporary": {
+                  "type": "boolean"
+                },
+                "deprecated": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "prefix"
+              ]
+            },
+            "type": "array"
+          },
+          "tunnel": {
+            "type": "boolean"
+          },
+          "firewall": {
+            "items": {
+              "properties": {
+                "service": {
+                  "type": "string",
+                  "enum": [
+                    "http",
+                    "plex",
+                    "jellyfin",
+                    "emby"
+                  ]
+                },
+                "family": {
+                  "type": "string",
+                  "enum": [
+                    "ipv4",
+                    "ipv6"
+                  ]
+                },
+                "policy": {
+                  "type": "string",
+                  "enum": [
+                    "allows",
+                    "blocks",
+                    "unknown",
+                    "docker"
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "service",
+                "family",
+                "policy"
+              ]
+            },
+            "type": "array"
+          },
+          "bind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "local"
+            ]
           }
         },
         "additionalProperties": false,
@@ -3350,6 +3423,224 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "network": {
+      "properties": {
+        "sites": {
+          "items": {
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,15}$"
+              },
+              "wan": {
+                "type": "string",
+                "enum": [
+                  "public",
+                  "cgnat",
+                  "private",
+                  "empty",
+                  "none"
+                ]
+              },
+              "address": {
+                "type": "string"
+              },
+              "gateway": {
+                "type": "string"
+              },
+              "mapping": {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "pcp",
+                    "nat-pmp",
+                    "upnp"
+                  ]
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "refuse": {
+                "type": "string",
+                "enum": [
+                  "606",
+                  "725",
+                  "refuse",
+                  "other-port"
+                ]
+              },
+              "prefix6": {
+                "type": "string"
+              },
+              "firewall6": {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "closed"
+                ]
+              },
+              "upstream": {
+                "type": "string",
+                "enum": [
+                  "forwarded",
+                  "closed"
+                ]
+              },
+              "resolver": {
+                "type": "string",
+                "enum": [
+                  "outside",
+                  "split"
+                ]
+              },
+              "stun": {
+                "type": "string",
+                "enum": [
+                  "varying",
+                  "timeout"
+                ]
+              },
+              "forwards": {
+                "items": {
+                  "properties": {
+                    "node": {
+                      "type": "string"
+                    },
+                    "service": {
+                      "type": "string",
+                      "enum": [
+                        "http",
+                        "plex",
+                        "jellyfin",
+                        "emby"
+                      ]
+                    },
+                    "listed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "node",
+                    "service"
+                  ]
+                },
+                "type": "array"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "name",
+              "wan",
+              "address"
+            ]
+          },
+          "type": "array",
+          "minItems": 1
+        },
+        "proxies": {
+          "items": {
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "address": {
+                "type": "string"
+              },
+              "node": {
+                "type": "string"
+              },
+              "routes": {
+                "items": {
+                  "properties": {
+                    "host": {
+                      "type": "string"
+                    },
+                    "node": {
+                      "type": "string"
+                    },
+                    "service": {
+                      "type": "string",
+                      "enum": [
+                        "http",
+                        "plex",
+                        "jellyfin",
+                        "emby"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "host",
+                    "node",
+                    "service"
+                  ]
+                },
+                "type": "array",
+                "minItems": 1
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "name",
+              "address",
+              "routes"
+            ]
+          },
+          "type": "array"
+        },
+        "dns": {
+          "items": {
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "a": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "aaaa": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "home": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "answer": {
+                "type": "string",
+                "enum": [
+                  "nxdomain",
+                  "servfail",
+                  "aaaa-servfail"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "name"
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "sites"
+      ]
     },
     "faults": {
       "items": {

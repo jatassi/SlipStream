@@ -67,6 +67,8 @@ type Scenario struct {
 	// Library is what the world creates on the controller Node after
 	// setting it up.
 	Library *Library `yaml:"library,omitempty"`
+	// Network is the world outside the Nodes; nil runs no network fake.
+	Network *Network `yaml:"network,omitempty"`
 	// Faults are the fault rules the world sets at launch, before any Node
 	// starts, as fakeworld fault set would.
 	Faults []fault.Rule `yaml:"faults,omitempty"`
@@ -110,6 +112,20 @@ type Node struct {
 	// so a run can give the Backups folder a volume of its own. Empty
 	// leaves the default.
 	BackupsFolder string `jsonschema:"pattern=^[a-z][a-z0-9-]*$" yaml:"backups_folder,omitempty"`
+	// Site is the network site the Node sits in, required with a network
+	// block.
+	Site string `yaml:"site,omitempty"`
+	// Addresses are the Node's scripted interface addresses; empty is one
+	// LAN address, or its site's address on a site with no router.
+	Addresses []NodeAddress `yaml:"addresses,omitempty"`
+	// Tunnel has the Node's traffic to the internet leave by a VPN tunnel.
+	Tunnel bool `yaml:"tunnel,omitempty"`
+	// Firewall is the Node's host firewall; a service and family it
+	// doesn't list allows and reads unknown.
+	Firewall []FirewallRule `yaml:"firewall,omitempty"`
+	// Bind is what SlipStream's web listener accepts: all, or local for
+	// this machine only.
+	Bind string `jsonschema:"enum=all,enum=local" yaml:"bind,omitempty"`
 }
 
 const MaxNodes = 31
@@ -214,6 +230,7 @@ func (s Scenario) Validate() error {
 		s.checkWorks(add)
 	}
 	s.checkMediaServers(add)
+	s.checkNetwork(add)
 	checkFaults(add, s.Faults)
 	if problems != nil {
 		return errors.New(strings.Join(problems, "\n"))
