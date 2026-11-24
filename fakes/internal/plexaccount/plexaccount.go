@@ -25,7 +25,10 @@ type Server struct {
 	Name       string
 	Identifier string
 	Version    string
-	Remote     Remote
+	// Node is the Node the server runs on, whose site's address is its
+	// public address.
+	Node   string
+	Remote Remote
 }
 
 // Remote is what a server publishes for use away from home.
@@ -104,6 +107,15 @@ func (a *Account) Server(identifier string) (Server, bool) {
 		return Server{}, false
 	}
 	return a.servers[i], true
+}
+
+// SetMapping records m as the server named identifier's mapping state.
+func (a *Account) SetMapping(identifier string, m Mapping) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if i := slices.IndexFunc(a.servers, func(s Server) bool { return s.Identifier == identifier }); i >= 0 {
+		a.servers[i].Remote.Mapping = m
+	}
 }
 
 // Grant makes token one the server named identifier takes.
