@@ -1,7 +1,9 @@
 package reachabilityapi_test
 
 import (
+	"context"
 	"encoding/json"
+	"math/rand/v2"
 	"net/http"
 	"strings"
 	"testing"
@@ -16,6 +18,29 @@ import (
 	"github.com/jatassi/slipstream/internal/reachabilityapi"
 	"github.com/jatassi/slipstream/internal/storage"
 )
+
+func world(t *testing.T, b *judgetest.B) *reachabilitytest.World {
+	t.Helper()
+	return reachabilitytest.New(t, b, reachabilitytest.Config{
+		Timings: reachability.DefaultTimings(),
+		Rand:    rand.New(rand.NewPCG(1, 2)), //nolint:gosec // a fixed draw the test replays
+	})
+}
+
+// plex adds a Plex on atlas.
+func plex(t *testing.T, w *reachabilitytest.World) string {
+	t.Helper()
+	id := storage.NewUUID()
+	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO mediaservers_server (id, kind, name, address, identity, version, reaching_node_id, secrets_sealed, created_at, updated_at)
+			VALUES (?, 'plex', 'Plex', 'http://192.168.1.20:32400', ?, '1.43.5', ?, x'00', 1, 1)`, id, reachabilitytest.Identity, judgetest.Atlas)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id.String()
+}
 
 type controller struct{ r *reachability.Reachability }
 
@@ -42,9 +67,9 @@ func idOf(reply string) string {
 func TestEveryOperationAndProblem(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		b := judgetest.Open().Inside()
-		w := reachabilitytest.New(t, b)
+		w := world(t, b)
 		o := ownertest.Serve(t, w.Lib, func(r *api.Router) { reachabilityapi.Routes(r, controller{w.Reach}) })
-		plex := w.Plex(t, "Plex", judgetest.Atlas).String()
+		server := plex(t, w)
 		other := storage.NewUUID().String()
 		var exposure string
 		for _, c := range []struct {
@@ -55,11 +80,11 @@ func TestEveryOperationAndProblem(t *testing.T) {
 		}{
 			{"nothing wanted reads empty", http.MethodGet, fixed("/api/v1/remote-access"), none, 200, ""},
 			{"a run with nothing wanted", http.MethodPost, fixed("/api/v1/remote-access/run"), none, 409, "nothing_wanted"},
-			{"no public address", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + plex + `"}`), 422, "public_required"},
-			{"a public address that isn't a URL", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + plex + `","public":"ftp://plex.example.org"}`), 422, "public_not_url"},
+			{"no public address", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + server + `"}`), 422, "public_required"},
+			{"a public address that isn't a URL", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + server + `","public":"ftp://plex.example.org"}`), 422, "public_not_url"},
 			{"an unknown Media Server", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + other + `","public":"https://plex.example.org"}`), 404, "server_not_found"},
-			{"a Media Server", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + plex + `","public":"https://plex.example.org"}`), 201, ""},
-			{"the same Media Server again", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + plex + `","public":"https://plex.example.org"}`), 409, "exposure_exists"},
+			{"a Media Server", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + server + `","public":"https://plex.example.org"}`), 201, ""},
+			{"the same Media Server again", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"media-server","serverId":"` + server + `","public":"https://plex.example.org"}`), 409, "exposure_exists"},
 			{"the UI and portal", http.MethodPost, fixed("/api/v1/remote-access/exposures"), fixed(`{"kind":"ui-portal"}`), 201, ""},
 			{"an unknown Exposure's address", http.MethodPatch, fixed("/api/v1/remote-access/exposures/" + other), fixed(`{"public":"https://plex.example.org"}`), 404, "exposure_not_found"},
 			{"its address", http.MethodPatch, func() string { return "/api/v1/remote-access/exposures/" + exposure }, fixed(`{"public":"https://plex2.example.org"}`), 200, ""},
@@ -100,7 +125,7 @@ func none() string { return "" }
 // Every operation but the echo refuses a Member; the echo answers anyone.
 func TestOnlyTheEchoAnswersBelowAdmin(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		w := reachabilitytest.New(t, judgetest.Open())
+		w := world(t, judgetest.Open())
 		o := ownertest.Serve(t, w.Lib, func(r *api.Router) { reachabilityapi.Routes(r, controller{w.Reach}) })
 		member := identitytest.Session(t, w.Lib, identitytest.Member(t, w.Lib, "member@example.test"))
 		id := storage.NewUUID().String()
@@ -129,7 +154,7 @@ func TestOnlyTheEchoAnswersBelowAdmin(t *testing.T) {
 
 // On a Node that is no Controller the echo answers that the check ended.
 func TestAWorkerAnswersNoEcho(t *testing.T) {
-	w := reachabilitytest.New(t, judgetest.Open())
+	w := world(t, judgetest.Open())
 	o := ownertest.Serve(t, w.Lib, func(r *api.Router) { reachabilityapi.Routes(r, controller{}) })
 	if status, reply := o.CallAs(t, http.MethodGet, "/api/v1/remote-access/echo/"+strings.Repeat("a", 32), "", ""); status != http.StatusNotFound || codeOf(reply) != "echo_not_found" {
 		t.Fatalf("%d %s, want 404 echo_not_found", status, reply)

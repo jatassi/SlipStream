@@ -264,7 +264,7 @@ _In UI_: "Relaying", and "Relay Node" for the Node.
 _Avoid_: Tunnel, proxy, gateway
 
 **Exposure**:
-One thing that the admin chooses to make reachable from the internet: the UI and portal, one Media Server, or one named port. Each has one public address. The Reachability diagnostic gives each Exposure one verdict, and Remote access draws it as one Route.
+One thing that the admin chooses to make reachable from the internet, each at one public address: the UI and portal, one Media Server, or one named port. The Reachability diagnostic gives each Exposure one verdict, and Remote access draws it as one Route.
 _In UI_: none. Name the thing made reachable, such as the UI or Living room Plex.
 _Avoid_: Service, endpoint, forward
 

@@ -63,8 +63,9 @@ type World struct {
 	Tasks *tasks.Scheduler
 	Admin identity.Admin
 	Rules netmodel.Rules
-
-	hub *live.Hub
+	// Hub carries the events Remote access follows, for a test that
+	// changes a record to publish.
+	Hub *live.Hub
 
 	mu      sync.Mutex
 	sites   map[role.NodeID]Site
@@ -81,21 +82,28 @@ var events = []live.Event{
 	tasks.ChangedEvent, tasks.ProgressEvent,
 }
 
+// Config is what a test chooses for a World: the Node's timings and the
+// task runner's draw.
+type Config struct {
+	Timings reachability.Timings
+	Rand    *rand.Rand
+}
+
 // New is a World with each Node of b's facts paired and answering as its
 // Site. atlas is the Controller.
-func New(t *testing.T, b *judgetest.B) *World {
+func New(t *testing.T, b *judgetest.B, cfg Config) *World {
 	t.Helper()
 	f := b.Facts()
 	w := &World{
 		Lib:     storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), roots.Schema(), mediaservers.Schema(), tasks.Schema(), reachability.Schema()),
 		Rules:   f.Rules,
-		hub:     live.NewHub(events),
+		Hub:     live.NewHub(events),
 		sites:   map[role.NodeID]Site{},
 		away:    map[role.NodeID]bool{},
 		removed: map[role.NodeID]bool{},
 		wake:    make(chan struct{}),
 	}
-	t.Cleanup(w.hub.Close)
+	t.Cleanup(w.Hub.Close)
 	if f.Server != nil {
 		w.custom = f.Server.Custom
 	}
@@ -123,7 +131,7 @@ func New(t *testing.T, b *judgetest.B) *World {
 	}
 	var scheduler *tasks.Scheduler
 	w.Reach = reachability.New(reachability.Config{
-		Library: w.Lib, Hub: w.hub, Log: slog.New(slog.NewTextHandler(t.Output(), nil)), Roster: roster{w},
+		Library: w.Lib, Hub: w.Hub, Log: slog.New(slog.NewTextHandler(t.Output(), nil)), Roster: roster{w},
 		Tasks: late{&scheduler},
 		Network: func(id role.NodeID) networkv1connect.NodeNetworkServiceHandler {
 			return node{w, id}
@@ -132,9 +140,9 @@ func New(t *testing.T, b *judgetest.B) *World {
 		Rules:        w.Rules,
 		LinkSource:   func(_ string, remote netip.AddrPort) netip.Addr { return remote.Addr() },
 		WebPort:      func() uint16 { return 8484 },
-		Timings:      reachability.DefaultTimings(),
+		Timings:      cfg.Timings,
 		Zone:         time.UTC,
-		Changed:      reachability.ChangedEvent.Bind(w.hub),
+		Changed:      reachability.ChangedEvent.Bind(w.Hub),
 		Now:          time.Now,
 	})
 	network := netmodel.Def.Serve(w.Reach.Intent, w.Reach.Apply)
@@ -142,8 +150,7 @@ func New(t *testing.T, b *judgetest.B) *World {
 	w.Reach.Serve(network)
 	scheduler, err = tasks.Open(t.Context(), tasks.Config{
 		Library: w.Lib, Catalog: []tasks.Task{w.Reach.Task()}, Roster: taskRoster{w}, Zone: time.UTC,
-		Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // a fixed draw the test replays
-		Hub:  w.hub, Changed: tasks.ChangedEvent.Bind(w.hub), Progressed: tasks.ProgressEvent.Bind(w.hub),
+		Rand: cfg.Rand, Hub: w.Hub, Changed: tasks.ChangedEvent.Bind(w.Hub), Progressed: tasks.ProgressEvent.Bind(w.Hub),
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return false, nil },
 		Log:         slog.New(slog.NewTextHandler(t.Output(), nil)),
 	})
@@ -169,65 +176,15 @@ func run(t *testing.T, fn func(context.Context) error) {
 	})
 }
 
-func (w *World) exec(t *testing.T, sql string, args ...any) {
+// Removed marks node removed, as the roster does once its row is a
+// tombstone.
+func (w *World) Removed(t *testing.T, id role.NodeID) {
 	t.Helper()
-	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, sql, args...)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-// Count is how many rows from, such as a table and its WHERE, holds.
-func (w *World) Count(t *testing.T, from string, args ...any) int {
-	t.Helper()
-	var n int
-	if err := w.Lib.QueryRowContext(t.Context(), "SELECT count(*) FROM "+from, args...).Scan(&n); err != nil {
-		t.Fatal(err)
-	}
-	return n
-}
-
-// Address sets SlipStream's Address.
-func (w *World) Address(t *testing.T, addr string) {
-	t.Helper()
-	w.exec(t, "UPDATE identity_settings SET address = ? WHERE id = 1", addr)
-	identity.AddressChangedEvent.Bind(w.hub).Publish(t.Context(), identity.AddressChanged{})
-}
-
-// Plex adds a Plex Media Server reached through atlas that runs on
-// runsOn, zero for none.
-func (w *World) Plex(t *testing.T, name string, runsOn role.NodeID) link.ServerID {
-	t.Helper()
-	id := link.ServerID{UUID: storage.NewUUID()}
-	var on any
-	if !runsOn.IsZero() {
-		on = runsOn
-	}
-	w.exec(t, `INSERT INTO mediaservers_server (id, kind, name, address, identity, version, reaching_node_id, runs_on_node_id, secrets_sealed, created_at, updated_at)
-		VALUES (?, 'plex', ?, 'http://192.168.1.20:32400', ?, '1.43.5', ?, ?, x'00', 1, 1)`, id, name, Identity, judgetest.Atlas, on)
-	mediaservers.ChangedEvent.Bind(w.hub).Publish(t.Context(), mediaservers.Changed{})
-	return id
-}
-
-// RemoveServer deletes a Media Server's record, as its removal does.
-func (w *World) RemoveServer(t *testing.T, id link.ServerID) {
-	t.Helper()
-	w.exec(t, "DELETE FROM mediaservers_server WHERE id = ?", id)
-	mediaservers.ChangedEvent.Bind(w.hub).Publish(t.Context(), mediaservers.Changed{})
-}
-
-// RemoveNode unpairs node.
-func (w *World) RemoveNode(t *testing.T, id role.NodeID) {
-	t.Helper()
-	w.exec(t, "UPDATE nodes_node SET removed_at = 1, removed_key = public_key, public_key = NULL WHERE id = ?", id)
 	w.mu.Lock()
 	w.removed[id] = true
 	w.mu.Unlock()
 	w.changed()
-	nodes.ChangedEvent.Bind(w.hub).Publish(t.Context(), nodes.Changed{})
+	nodes.ChangedEvent.Bind(w.Hub).Publish(t.Context(), nodes.Changed{})
 }
 
 // Away takes node out of step, or brings it back.

@@ -21,7 +21,7 @@ import (
 // its first check.
 func wantPlex(t *testing.T, w *reachabilitytest.World, b *judgetest.B, runsOn role.NodeID) reachability.Exposure {
 	t.Helper()
-	id := w.Plex(t, "Plex", runsOn)
+	id := plex(t, w, "Plex", runsOn)
 	synctest.Wait()
 	e, err := w.Reach.Want(t.Context(), w.Admin, reachability.Wanted{Kind: judge.MediaServer, Server: id, Public: b.Facts().Exposure.Public.String()})
 	if err != nil {
@@ -79,7 +79,7 @@ func TestAUnitJudgesTheRouteFromTheNodesThatMayTestIt(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				b := c.shape()
-				w := reachabilitytest.New(t, b)
+				w := world(t, b)
 				if c.play != nil {
 					c.play(w)
 				}
@@ -103,8 +103,8 @@ func TestAUnitJudgesTheRouteFromTheNodesThatMayTestIt(t *testing.T) {
 func TestTheUIAndPortalIsProvedByItsEcho(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		b := judgetest.OpenUI()
-		w := reachabilitytest.New(t, b)
-		w.Address(t, b.Facts().Exposure.Public.String())
+		w := world(t, b)
+		address(t, w, b.Facts().Exposure.Public.String())
 		if _, err := w.Reach.Want(t.Context(), w.Admin, reachability.Wanted{Kind: judge.UIPortal}); err != nil {
 			t.Fatal(err)
 		}
@@ -118,8 +118,8 @@ func TestTheUIAndPortalIsProvedByItsEcho(t *testing.T) {
 
 func TestNothingWantedSendsNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		w := reachabilitytest.New(t, judgetest.Open().Inside())
-		w.Plex(t, "Plex", judgetest.Atlas)
+		w := world(t, judgetest.Open().Inside())
+		plex(t, w, "Plex", judgetest.Atlas)
 		synctest.Wait()
 		w.Page(t)
 		if calls := w.Calls(); len(calls) > 0 {
@@ -138,7 +138,7 @@ func TestNothingWantedSendsNothing(t *testing.T) {
 func TestAWorkerChangesOnlyItsOwnRow(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		b := judgetest.Open().Inside()
-		w := reachabilitytest.New(t, b)
+		w := world(t, b)
 		w.Site(judgetest.Seedbox, func(s *reachabilitytest.Site) { s.Claims = judgetest.Den })
 		wantPlex(t, w, b, judgetest.Atlas)
 		w.Away(judgetest.Den, true)
@@ -158,7 +158,7 @@ func TestAWorkerChangesOnlyItsOwnRow(t *testing.T) {
 func TestAnOfflineOriginIsCheckedOnItsReturn(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		b := judgetest.Open().Inside()
-		w := reachabilitytest.New(t, b)
+		w := world(t, b)
 		w.Away(judgetest.Den, true)
 		wantPlex(t, w, b, judgetest.Den)
 		if rt := w.Route(t, "Plex"); rt.Judged {
@@ -181,7 +181,7 @@ func TestAnOfflineOriginIsCheckedOnItsReturn(t *testing.T) {
 func TestANetworkChangeRerunsOncePerWatchInterval(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		b := judgetest.Open()
-		w := reachabilitytest.New(t, b)
+		w := world(t, b)
 		wantPlex(t, w, b, judgetest.Atlas)
 		w.Calls()
 		w.Reach.Noted(judgetest.Atlas, string(role.Network))
@@ -211,7 +211,7 @@ func TestANetworkChangeRerunsOncePerWatchInterval(t *testing.T) {
 func TestAStaleAOutlivesAWorkerRestart(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		b := judgetest.Open()
-		w := reachabilitytest.New(t, b)
+		w := world(t, b)
 		wantPlex(t, w, b, judgetest.Atlas)
 		moved := netip.MustParseAddr("203.0.113.50")
 		w.Site(judgetest.Atlas, func(s *reachabilitytest.Site) {
@@ -243,7 +243,7 @@ func items(t *testing.T, w *reachabilitytest.World) health.Answer {
 func TestHealthFollowsAFailingRoute(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		b := judgetest.Open().Inside()
-		w := reachabilitytest.New(t, b)
+		w := world(t, b)
 		closed := func(s *reachabilitytest.Site) { s.Player = judgetest.Closed }
 		w.Site(judgetest.Seedbox, closed)
 		e := wantPlex(t, w, b, judgetest.Den)
@@ -280,24 +280,24 @@ func TestHealthFollowsAFailingRoute(t *testing.T) {
 func TestRemovalsForgetWhatTheyTook(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		b := judgetest.Open().Inside()
-		w := reachabilitytest.New(t, b)
-		id := w.Plex(t, "Plex", judgetest.Atlas)
+		w := world(t, b)
+		id := plex(t, w, "Plex", judgetest.Atlas)
 		synctest.Wait()
 		if _, err := w.Reach.Want(t.Context(), w.Admin, reachability.Wanted{Kind: judge.MediaServer, Server: id, Public: b.Facts().Exposure.Public.String()}); err != nil {
 			t.Fatal(err)
 		}
 		synctest.Wait()
-		if n := w.Count(t, "reachability_node"); n != 3 {
+		if n := count(t, w, "reachability_node"); n != 3 {
 			t.Fatalf("%d Node rows, want 3", n)
 		}
-		w.RemoveNode(t, judgetest.Den)
+		removeNode(t, w, judgetest.Den)
 		synctest.Wait()
-		if n := w.Count(t, "reachability_node WHERE node_id = ?", judgetest.Den); n != 0 {
+		if n := count(t, w, "reachability_node WHERE node_id = ?", judgetest.Den); n != 0 {
 			t.Fatal("den's row outlived its removal")
 		}
-		w.RemoveServer(t, id)
+		removeServer(t, w, id)
 		synctest.Wait()
-		if p := w.Page(t); !p.NothingWanted() || w.Count(t, "reachability_result") != 0 {
+		if p := w.Page(t); !p.NothingWanted() || count(t, w, "reachability_result") != 0 {
 			t.Fatalf("routes %v after the Media Server's removal, want none", p.Routes)
 		}
 		if w.Intent(t, judgetest.Atlas).GetWatch() {
@@ -313,9 +313,9 @@ func TestManyRoutesAreJudgedInsideTheUnitBound(t *testing.T) {
 		t.Skip("the scale test runs without -short")
 	}
 	b := judgetest.PairedProxy().Inside().Outside()
-	w := reachabilitytest.New(t, b)
+	w := world(t, b)
 	for i := range 20 {
-		id := w.Plex(t, fmt.Sprintf("Plex %d", i), judgetest.Atlas)
+		id := plex(t, w, fmt.Sprintf("Plex %d", i), judgetest.Atlas)
 		if _, err := w.Reach.Want(t.Context(), w.Admin, reachability.Wanted{Kind: judge.MediaServer, Server: id, Public: fmt.Sprintf("https://plex%d.example.org", i)}); err != nil {
 			t.Fatal(err)
 		}
