@@ -18,6 +18,7 @@ import type {
   SettingCountField,
   SettingDurationField,
   SettingFolderField,
+  SettingIPField,
   SettingListField,
   SettingPortField,
   SettingRateField,
@@ -1595,7 +1596,7 @@ export const getGetImportingSettingsResponseSettingListFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
-    item: faker.helpers.arrayElement(["extension"] as const),
+    item: faker.helpers.arrayElement(["extension", "host-port"] as const),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["list"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1653,6 +1654,43 @@ export const getGetImportingSettingsResponseSettingSizeFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetImportingSettingsResponseSettingIPFieldMock = (
+  overrideResponse: Partial<SettingIPField> = {},
+): SettingIPField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    family: faker.helpers.arrayElement(["any", "ipv6"] as const),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["ip"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  },
+  ...overrideResponse,
+});
+
 export const getGetImportingSettingsResponseMock = (
   overrideResponse: Partial<Extract<ImportsImportingSettings, object>> = {},
 ): ImportsImportingSettings => ({
@@ -1671,6 +1709,7 @@ export const getGetImportingSettingsResponseMock = (
       { ...getGetImportingSettingsResponseSettingTemplateFieldMock() },
       { ...getGetImportingSettingsResponseSettingListFieldMock() },
       { ...getGetImportingSettingsResponseSettingSizeFieldMock() },
+      { ...getGetImportingSettingsResponseSettingIPFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -2072,7 +2111,7 @@ export const getUpdateImportingSettingsResponseSettingListFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
-    item: faker.helpers.arrayElement(["extension"] as const),
+    item: faker.helpers.arrayElement(["extension", "host-port"] as const),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["list"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -2130,6 +2169,43 @@ export const getUpdateImportingSettingsResponseSettingSizeFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateImportingSettingsResponseSettingIPFieldMock = (
+  overrideResponse: Partial<SettingIPField> = {},
+): SettingIPField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    family: faker.helpers.arrayElement(["any", "ipv6"] as const),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["ip"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateImportingSettingsResponseMock = (
   overrideResponse: Partial<Extract<ImportsImportingSettings, object>> = {},
 ): ImportsImportingSettings => ({
@@ -2148,6 +2224,7 @@ export const getUpdateImportingSettingsResponseMock = (
       { ...getUpdateImportingSettingsResponseSettingTemplateFieldMock() },
       { ...getUpdateImportingSettingsResponseSettingListFieldMock() },
       { ...getUpdateImportingSettingsResponseSettingSizeFieldMock() },
+      { ...getUpdateImportingSettingsResponseSettingIPFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -2557,7 +2634,7 @@ export const getGetLibraryScanSettingsResponseSettingListFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
-    item: faker.helpers.arrayElement(["extension"] as const),
+    item: faker.helpers.arrayElement(["extension", "host-port"] as const),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["list"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -2615,6 +2692,43 @@ export const getGetLibraryScanSettingsResponseSettingSizeFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetLibraryScanSettingsResponseSettingIPFieldMock = (
+  overrideResponse: Partial<SettingIPField> = {},
+): SettingIPField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    family: faker.helpers.arrayElement(["any", "ipv6"] as const),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["ip"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  },
+  ...overrideResponse,
+});
+
 export const getGetLibraryScanSettingsResponseMock = (
   overrideResponse: Partial<Extract<ImportsSettings, object>> = {},
 ): ImportsSettings => ({
@@ -2633,6 +2747,7 @@ export const getGetLibraryScanSettingsResponseMock = (
       { ...getGetLibraryScanSettingsResponseSettingTemplateFieldMock() },
       { ...getGetLibraryScanSettingsResponseSettingListFieldMock() },
       { ...getGetLibraryScanSettingsResponseSettingSizeFieldMock() },
+      { ...getGetLibraryScanSettingsResponseSettingIPFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -3034,7 +3149,7 @@ export const getUpdateLibraryScanSettingsResponseSettingListFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
-    item: faker.helpers.arrayElement(["extension"] as const),
+    item: faker.helpers.arrayElement(["extension", "host-port"] as const),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["list"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -3092,6 +3207,43 @@ export const getUpdateLibraryScanSettingsResponseSettingSizeFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateLibraryScanSettingsResponseSettingIPFieldMock = (
+  overrideResponse: Partial<SettingIPField> = {},
+): SettingIPField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    family: faker.helpers.arrayElement(["any", "ipv6"] as const),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["ip"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateLibraryScanSettingsResponseMock = (
   overrideResponse: Partial<Extract<ImportsSettings, object>> = {},
 ): ImportsSettings => ({
@@ -3110,6 +3262,7 @@ export const getUpdateLibraryScanSettingsResponseMock = (
       { ...getUpdateLibraryScanSettingsResponseSettingTemplateFieldMock() },
       { ...getUpdateLibraryScanSettingsResponseSettingListFieldMock() },
       { ...getUpdateLibraryScanSettingsResponseSettingSizeFieldMock() },
+      { ...getUpdateLibraryScanSettingsResponseSettingIPFieldMock() },
     ]),
   ),
   ...overrideResponse,

@@ -201,6 +201,14 @@ func TestFieldReportsIsDefault(t *testing.T) {
 			`{"key":"k.list","label":"Extensions","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"list","value":["mkv"],"running":["mkv"],"default":["mkv"],"min":1,"item":"extension"}`,
 		},
 		{
+			"an empty IP address", setting.IP{Key: "reachability.stableIPv6", Label: "Stable IPv6 address", Family: setting.IPv6Only}.Field(nil),
+			`{"key":"reachability.stableIPv6","label":"Stable IPv6 address","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"ip","value":null,"running":null,"default":null,"family":"ipv6"}`,
+		},
+		{
+			"a list of servers", setting.List{Key: "reachability.stunServers", Label: "STUN servers", Item: setting.HostPort}.Field(&[]string{"stun.example.org:3478"}),
+			`{"key":"reachability.stunServers","label":"STUN servers","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"list","value":["stun.example.org:3478"],"running":["stun.example.org:3478"],"default":[],"min":0,"item":"host-port"}`,
+		},
+		{
 			"a size, overridden", smallestVideo.Field(ptr(100 * setting.MB)),
 			`{"key":"library.importing.smallestVideo","label":"Smallest video file","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"size","value":104857600,"running":104857600,"default":52428800,"min":0,"max":10737418240}`,
 		},

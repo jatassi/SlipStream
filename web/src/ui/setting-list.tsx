@@ -18,6 +18,44 @@ import {
 
 type Written = { entry: string } | { refused: string };
 
+const highestPort = 65_535;
+
+const dnsName =
+  /^(?=.{1,253}\.?$)(?:[\da-z](?:[\da-z-]{0,61}[\da-z])?\.)*[\da-z](?:[\da-z-]{0,61}[\da-z])?\.?$/u;
+
+/** A host is a DNS name, an IPv4 address or an IPv6 address in brackets. */
+function isHost(host: string): boolean {
+  if (host.startsWith("[") && host.endsWith("]")) {
+    return /^[\d.:a-f]+$/u.test(host.slice(1, -1)) && host.includes(":");
+  }
+  return dnsName.test(host);
+}
+
+/** Writes a server as its host in lowercase, an IPv6 address in brackets, and its port. */
+function writeHostPort(typed: string): Written {
+  const text = typed.trim().toLowerCase();
+  if (text === "") {
+    return { refused: "A server can't be blank." };
+  }
+  const bareIPv6 = /^[\d.:a-f]+$/u.test(text) && text.split(":").length > 2;
+  if (bareIPv6 || (!text.includes(":") && isHost(text))) {
+    const host = bareIPv6 ? `[${text}]` : text;
+    return { refused: `Add a port, such as ${host}:3478.` };
+  }
+  const at = text.lastIndexOf(":");
+  const host = text.slice(0, at);
+  const port = text.slice(at + 1);
+  if (!isHost(host) || !/^\d{1,5}$/u.test(port)) {
+    return {
+      refused: `"${typed.trim()}" isn't a server's name or IP address and port, such as stun.example.org:3478.`,
+    };
+  }
+  if (Number(port) < 1 || Number(port) > highestPort) {
+    return { refused: "Use a port between 1 and 65535." };
+  }
+  return { entry: `${host}:${String(Number(port))}` };
+}
+
 const items: {
   readonly [I in SettingListFieldItem]: {
     noun: Noun;
@@ -39,6 +77,11 @@ const items: {
             refused: `"${typed.trim()}" isn't an extension. Use letters and digits only, such as mkv.`,
           };
     },
+  },
+  "host-port": {
+    noun: { one: "server", many: "servers" },
+    adding: "Add a server",
+    write: writeHostPort,
   },
 };
 

@@ -9,6 +9,7 @@ import type {
   SettingCountField,
   SettingDurationField,
   SettingFolderField,
+  SettingIPField,
   SettingListField,
   SettingPortField,
   SettingRateField,
@@ -35,6 +36,7 @@ export type Fields = {
   template: SettingTemplateField;
   list: SettingListField;
   size: SettingSizeField;
+  ip: SettingIPField;
 };
 
 export type Values = {
@@ -51,6 +53,7 @@ export type Values = {
   template: string;
   list: string[];
   size: number;
+  ip: string;
 };
 
 export type SettingKind = keyof Fields;

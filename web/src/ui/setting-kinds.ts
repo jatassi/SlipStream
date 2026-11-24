@@ -1,5 +1,5 @@
 import { folderKind } from "../folders/setting-folder";
-import { addressKind } from "./setting-address";
+import { addressKind, ipKind } from "./setting-address";
 import { countKind, durationKind, portKind } from "./setting-amounts";
 import type { Kind, SettingKind } from "./setting-kind";
 import { listKind } from "./setting-list";
@@ -23,4 +23,5 @@ export const kinds: { readonly [K in SettingKind]: Kind<K> } = {
   template: templateKind,
   list: listKind,
   size: sizeKind,
+  ip: ipKind,
 };

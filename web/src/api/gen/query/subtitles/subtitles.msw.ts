@@ -9,6 +9,7 @@ import type {
   SettingCountField,
   SettingDurationField,
   SettingFolderField,
+  SettingIPField,
   SettingListField,
   SettingPortField,
   SettingRateField,
@@ -533,7 +534,7 @@ export const getGetSubtitleNodeSettingsResponseSettingListFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
-    item: faker.helpers.arrayElement(["extension"] as const),
+    item: faker.helpers.arrayElement(["extension", "host-port"] as const),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["list"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -591,6 +592,43 @@ export const getGetSubtitleNodeSettingsResponseSettingSizeFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetSubtitleNodeSettingsResponseSettingIPFieldMock = (
+  overrideResponse: Partial<SettingIPField> = {},
+): SettingIPField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    family: faker.helpers.arrayElement(["any", "ipv6"] as const),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["ip"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  },
+  ...overrideResponse,
+});
+
 export const getGetSubtitleNodeSettingsResponseMock = (
   overrideResponse: Partial<Extract<SubtitlesNodeSettings, object>> = {},
 ): SubtitlesNodeSettings => ({
@@ -609,6 +647,7 @@ export const getGetSubtitleNodeSettingsResponseMock = (
       { ...getGetSubtitleNodeSettingsResponseSettingTemplateFieldMock() },
       { ...getGetSubtitleNodeSettingsResponseSettingListFieldMock() },
       { ...getGetSubtitleNodeSettingsResponseSettingSizeFieldMock() },
+      { ...getGetSubtitleNodeSettingsResponseSettingIPFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -1010,7 +1049,7 @@ export const getUpdateSubtitleNodeSettingsResponseSettingListFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
-    item: faker.helpers.arrayElement(["extension"] as const),
+    item: faker.helpers.arrayElement(["extension", "host-port"] as const),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["list"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1068,6 +1107,43 @@ export const getUpdateSubtitleNodeSettingsResponseSettingSizeFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateSubtitleNodeSettingsResponseSettingIPFieldMock = (
+  overrideResponse: Partial<SettingIPField> = {},
+): SettingIPField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    family: faker.helpers.arrayElement(["any", "ipv6"] as const),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["ip"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateSubtitleNodeSettingsResponseMock = (
   overrideResponse: Partial<Extract<SubtitlesNodeSettings, object>> = {},
 ): SubtitlesNodeSettings => ({
@@ -1086,6 +1162,7 @@ export const getUpdateSubtitleNodeSettingsResponseMock = (
       { ...getUpdateSubtitleNodeSettingsResponseSettingTemplateFieldMock() },
       { ...getUpdateSubtitleNodeSettingsResponseSettingListFieldMock() },
       { ...getUpdateSubtitleNodeSettingsResponseSettingSizeFieldMock() },
+      { ...getUpdateSubtitleNodeSettingsResponseSettingIPFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -1800,7 +1877,7 @@ export const getGetSubtitleSettingsResponseSettingListFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
-    item: faker.helpers.arrayElement(["extension"] as const),
+    item: faker.helpers.arrayElement(["extension", "host-port"] as const),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["list"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1858,6 +1935,43 @@ export const getGetSubtitleSettingsResponseSettingSizeFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetSubtitleSettingsResponseSettingIPFieldMock = (
+  overrideResponse: Partial<SettingIPField> = {},
+): SettingIPField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    family: faker.helpers.arrayElement(["any", "ipv6"] as const),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["ip"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  },
+  ...overrideResponse,
+});
+
 export const getGetSubtitleSettingsResponseMock = (
   overrideResponse: Partial<Extract<SubtitlesSubtitleSettings, object>> = {},
 ): SubtitlesSubtitleSettings => ({
@@ -1906,6 +2020,7 @@ export const getGetSubtitleSettingsResponseMock = (
       { ...getGetSubtitleSettingsResponseSettingTemplateFieldMock() },
       { ...getGetSubtitleSettingsResponseSettingListFieldMock() },
       { ...getGetSubtitleSettingsResponseSettingSizeFieldMock() },
+      { ...getGetSubtitleSettingsResponseSettingIPFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -2307,7 +2422,7 @@ export const getUpdateSubtitleSettingsResponseSettingListFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
-    item: faker.helpers.arrayElement(["extension"] as const),
+    item: faker.helpers.arrayElement(["extension", "host-port"] as const),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["list"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -2365,6 +2480,43 @@ export const getUpdateSubtitleSettingsResponseSettingSizeFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateSubtitleSettingsResponseSettingIPFieldMock = (
+  overrideResponse: Partial<SettingIPField> = {},
+): SettingIPField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    family: faker.helpers.arrayElement(["any", "ipv6"] as const),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["ip"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateSubtitleSettingsResponseMock = (
   overrideResponse: Partial<Extract<SubtitlesSubtitleSettings, object>> = {},
 ): SubtitlesSubtitleSettings => ({
@@ -2413,6 +2565,7 @@ export const getUpdateSubtitleSettingsResponseMock = (
       { ...getUpdateSubtitleSettingsResponseSettingTemplateFieldMock() },
       { ...getUpdateSubtitleSettingsResponseSettingListFieldMock() },
       { ...getUpdateSubtitleSettingsResponseSettingSizeFieldMock() },
+      { ...getUpdateSubtitleSettingsResponseSettingIPFieldMock() },
     ]),
   ),
   ...overrideResponse,
