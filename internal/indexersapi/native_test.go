@@ -130,7 +130,7 @@ func TestAPortsFormAndCatalogEntry(t *testing.T) {
 func TestANativeIndexerIsAddedFromItsPortAndShownWithIt(t *testing.T) {
 	s := serve(t, indexerstest.Alone(self), role.NodeID{})
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers", `{"kind":"native","name":"Lantern","port":"lantern","values":{"passkey":"pk1","codecs":"1,5"}}`, http.StatusCreated,
-		`{"id":"id1","name":"Lantern","kind":"native","homeNodeId":"id2","on":true,"automaticSearch":true,"rss":true,"allowFailover":false,"priority":25,"searchesAtOnce":2,"recentPaging":false,"categories":null,"media":null,"allowNoSize":false,`+
+		`{"id":"id1","name":"Lantern","kind":"native","homeNodeId":"id2","on":true,"automaticSearch":true,"rss":true,"allowFailover":false,"priority":25,"searchesAtOnce":2,"queryTimeout":null,"recentPaging":false,"categories":null,"media":null,"allowNoSize":false,`+
 			`"searches":{"count":150,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},`+
 			`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},`+
 			`"sentence":"Lantern is working.","fix":null,"signsIn":false,"trackerIds":["id3"],"waits":null,"session":null,"feedHost":null,"definition":null,`+

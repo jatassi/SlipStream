@@ -70,6 +70,13 @@ export interface IndexersIndexerEdit {
    */
   priority?: number | null;
   /**
+   * Seconds; null resets it to the Node's default, 30
+   * @minimum 10
+   * @maximum 300
+   * @nullable
+   */
+  queryTimeout?: number | null;
+  /**
    * Null resets it to on
    * @nullable
    */

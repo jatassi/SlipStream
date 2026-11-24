@@ -62,7 +62,7 @@ func (x *Indexers) prepare(ctx context.Context, q QueryID, idx Indexer, u Use, n
 	}
 	w := searching.Job{
 		ID: q.String(), Indexer: idx.ID.String(), Revision: idx.Revision, Kind: kindOnWire[idx.Kind], Address: secrets.Address,
-		APIKey: secrets.APIKey, Session: session, Solver: solver.onWire(), Call: c,
+		APIKey: secrets.APIKey, Session: session, Solver: solver.onWire(), QueryTimeout: idx.QueryTimeout, Call: c,
 	}
 	if f, ok := idx.Source.(Feed); ok {
 		w.RSS = f.Reading

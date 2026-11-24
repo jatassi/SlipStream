@@ -31,7 +31,7 @@ func (x *Indexers) drafted(ctx context.Context, d Draft) (Indexer, *searching.Se
 	idx := Indexer{
 		ID: ID{UUID: storage.NewUUID()}, Name: d.Name, Kind: cmp.Or(d.Kind, Torznab), Home: home, On: d.On, AutoSearch: d.AutoSearch, RSS: d.RSS,
 		AllowFailover: d.AllowFailover, Priority: cmp.Or(d.Priority, DefaultPriority), Categories: d.Categories, Media: d.Media,
-		Searches: d.Searches, Grabs: d.Grabs, SearchesAtOnce: cmp.Or(d.SearchesAtOnce, DefaultSearchesAtOnce), Pasted: d.Cookie != nil, Revision: 1, Created: storage.Now().Time(),
+		Searches: d.Searches, Grabs: d.Grabs, SearchesAtOnce: cmp.Or(d.SearchesAtOnce, DefaultSearchesAtOnce), QueryTimeout: d.QueryTimeout, Pasted: d.Cookie != nil, Revision: 1, Created: storage.Now().Time(),
 	}
 	secrets := Secrets{Address: d.Address, APIKey: d.APIKey}
 	switch idx.Kind {

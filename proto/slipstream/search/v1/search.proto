@@ -71,6 +71,9 @@ message Site {
   // port is the id of the ported site a native Indexer runs, empty for
   // every other kind.
   string port = 12;
+  // query_timeout_ms bounds each request to the Indexer, 0 for this
+  // Node's own request timeout.
+  int64 query_timeout_ms = 13;
 }
 
 message Definition {

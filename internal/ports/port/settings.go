@@ -1,5 +1,5 @@
 // Ported from Prowlarr's src/NzbDrone.Core/Annotations/FieldDefinitionAttribute.cs, src/NzbDrone.Core/Indexers/Settings/CookieTorrentBaseSettings.cs, src/NzbDrone.Core/Indexers/Settings/NoAuthTorrentBaseSettings.cs, src/NzbDrone.Core/Indexers/Settings/UserPassTorrentBaseSettings.cs
-// at ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9. Copyright the Prowlarr
+// at 7ee91a13fa5eb6bb4d03579b2df48a96150acbfc. Copyright the Prowlarr
 // contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
 
 package port

@@ -57,6 +57,7 @@ type Draft struct {
 	Grabs         Limit
 	// SearchesAtOnce is DefaultSearchesAtOnce when 0.
 	SearchesAtOnce int
+	QueryTimeout   time.Duration
 }
 
 // Edit is a change to a saved Indexer: nil leaves a field. Categories
@@ -76,6 +77,8 @@ type Edit struct {
 	Media                              *[]works.TypeID
 	AllowNoSize                        *bool
 	Cookie                             *PastedCookie
+	// QueryTimeout set to zero resets it to the Node's own.
+	QueryTimeout *time.Duration
 }
 
 // tested reports whether e changes a field the Test reads.
@@ -206,7 +209,7 @@ func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit,
 		n, err := db.New(tx).UpdateIndexer(ctx, db.UpdateIndexerParams{
 			Name: p.Name, HomeNodeID: p.HomeNodeID, IsOn: p.IsOn, AutoSearch: p.AutoSearch, Rss: p.Rss, AllowFailover: p.AllowFailover,
 			Priority: p.Priority, Categories: p.Categories, Media: p.Media, SearchLimit: p.SearchLimit, SearchWindow: p.SearchWindow,
-			SearchesAtOnce: p.SearchesAtOnce, GrabLimit: p.GrabLimit, GrabWindow: p.GrabWindow, BaseAddress: p.BaseAddress, Plain: p.Plain, SecretsSealed: p.SecretsSealed,
+			SearchesAtOnce: p.SearchesAtOnce, QueryTimeoutSeconds: p.QueryTimeoutSeconds, GrabLimit: p.GrabLimit, GrabWindow: p.GrabWindow, BaseAddress: p.BaseAddress, Plain: p.Plain, SecretsSealed: p.SecretsSealed,
 			FeedHost: p.FeedHost, TrackerName: p.TrackerName, AllowNoSize: p.AllowNoSize, RssReading: p.RssReading, Caps: p.Caps, Revision: p.Revision,
 			UpdatedAt: now, ID: id,
 		})
@@ -264,6 +267,7 @@ func (x *Indexers) edited(ctx context.Context, idx Indexer, e Edit) (Indexer, er
 	set(&idx.AllowFailover, e.AllowFailover)
 	set(&idx.Priority, e.Priority)
 	set(&idx.SearchesAtOnce, e.SearchesAtOnce)
+	set(&idx.QueryTimeout, e.QueryTimeout)
 	set(&idx.Categories, e.Categories)
 	set(&idx.Searches, e.Searches)
 	set(&idx.Grabs, e.Grabs)

@@ -40,37 +40,38 @@ type IndexersDefinition struct {
 }
 
 type IndexersIndexer struct {
-	ID             IndexerID
-	Name           string
-	Kind           string
-	HomeNodeID     role.NodeID
-	IsOn           bool
-	AutoSearch     bool
-	Rss            bool
-	AllowFailover  bool
-	Priority       int64
-	Categories     *string
-	Media          *string
-	SearchLimit    int64
-	SearchWindow   string
-	GrabLimit      int64
-	GrabWindow     string
-	DefinitionID   *string
-	DefinitionSha  *string
-	PortID         *string
-	BaseAddress    *string
-	Plain          string
-	SecretsSealed  secret.Sealed
-	FeedHost       *string
-	TrackerName    *string
-	AllowNoSize    bool
-	RssReading     *string
-	Caps           string
-	Notes          string
-	Revision       int64
-	CreatedAt      storage.Time
-	UpdatedAt      storage.Time
-	SearchesAtOnce int64
+	ID                  IndexerID
+	Name                string
+	Kind                string
+	HomeNodeID          role.NodeID
+	IsOn                bool
+	AutoSearch          bool
+	Rss                 bool
+	AllowFailover       bool
+	Priority            int64
+	Categories          *string
+	Media               *string
+	SearchLimit         int64
+	SearchWindow        string
+	GrabLimit           int64
+	GrabWindow          string
+	DefinitionID        *string
+	DefinitionSha       *string
+	PortID              *string
+	BaseAddress         *string
+	Plain               string
+	SecretsSealed       secret.Sealed
+	FeedHost            *string
+	TrackerName         *string
+	AllowNoSize         bool
+	RssReading          *string
+	Caps                string
+	Notes               string
+	Revision            int64
+	CreatedAt           storage.Time
+	UpdatedAt           storage.Time
+	SearchesAtOnce      int64
+	QueryTimeoutSeconds *int64
 }
 
 type IndexersNode struct {

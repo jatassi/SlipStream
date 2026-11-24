@@ -117,7 +117,7 @@ func encodeJob(j Job) *searchv1.Job {
 	w := &searchv1.Job{Id: j.ID, Site: &searchv1.Site{
 		IndexerId: j.Indexer, Revision: j.Revision, Kind: onWire(kindOnWire, j.Kind), Address: j.Address,
 		Settings: j.Settings, ApiKey: j.APIKey, Session: encodeSession(j.Session), Categories: int32s(j.Categories),
-		Rss: encodeReading(j.RSS), Port: j.Port,
+		Rss: encodeReading(j.RSS), Port: j.Port, QueryTimeoutMs: j.QueryTimeout.Milliseconds(),
 	}}
 	if d := j.Definition; d != nil {
 		w.Site.Definition = &searchv1.Definition{Yaml: d.YAML, Sha: d.SHA}
@@ -153,7 +153,7 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 	j := Job{
 		ID: w.GetId(), Indexer: s.GetIndexerId(), Revision: s.GetRevision(), Kind: kindOnWire[s.GetKind()], Address: s.GetAddress(),
 		Settings: s.GetSettings(), APIKey: s.GetApiKey(), Session: decodeSession(s.GetSession()), Categories: ints(s.GetCategories()),
-		RSS: decodeReading(s.GetRss()), Port: s.GetPort(),
+		RSS: decodeReading(s.GetRss()), Port: s.GetPort(), QueryTimeout: time.Duration(s.GetQueryTimeoutMs()) * time.Millisecond,
 	}
 	if d := s.GetDefinition(); d != nil {
 		j.Definition = &Definition{YAML: d.GetYaml(), SHA: d.GetSha()}
@@ -166,6 +166,9 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 	}
 	if j.ID == "" {
 		return Job{}, nil, errors.New("the job has no id")
+	}
+	if j.QueryTimeout < 0 {
+		return Job{}, nil, fmt.Errorf("the query timeout is %s, below 0", j.QueryTimeout)
 	}
 	address, err := httpURL(j.Address)
 	if err != nil {
@@ -198,7 +201,7 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 	}
 	site := &Site{
 		Indexer: j.Indexer, Revision: j.Revision, Address: address, Settings: j.Settings, APIKey: j.APIKey, Categories: j.Categories, RSS: j.RSS,
-		Port: j.Port, solver: j.Solver,
+		Port: j.Port, solver: j.Solver, timeout: j.QueryTimeout,
 	}
 	if t, ok := j.Call.(TestCall); ok {
 		site.Code = t.Code

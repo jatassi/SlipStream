@@ -98,21 +98,37 @@ test("Edit saves the priority and a limit without testing", async () => {
   ]);
 });
 
-test("Edit saves Searches at once from 1 to 10", async () => {
+test("Edit saves Searches at once from 1 to 10 and a Query timeout from 10 to 300 seconds", async () => {
   const server = indexersServer();
   renderApp({ path: pageOf(prowlarrId), handlers: server.handlers });
   await userEvent.click(page.getByRole("button", { name: "Edit" }));
   const atOnce = dialog().getByRole("textbox", { name: "Searches at once" });
+  const timeout = dialog().getByRole("textbox", { name: "Query timeout" });
   await expect.element(atOnce).toHaveValue("2");
+  await expect.element(timeout).toHaveValue("");
   await userEvent.fill(atOnce, "11");
   await userEvent.click(dialog().getByRole("button", { name: "Save" }));
   await expect.element(dialog().getByText("Enter a number from 1 to 10")).toBeVisible();
-  expect(server.writes).toEqual([]);
   await userEvent.fill(atOnce, "4");
+  await userEvent.fill(timeout, "9");
+  await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+  await expect
+    .element(dialog().getByText("Enter a number from 10 to 300, or leave it empty"))
+    .toBeVisible();
+  expect(server.writes).toEqual([]);
+  await userEvent.fill(timeout, "60");
   await userEvent.click(dialog().getByRole("button", { name: "Save" }));
   await expect
     .poll(() => server.writes)
-    .toEqual([{ method: "PATCH", id: prowlarrId, body: { searchesAtOnce: 4 } }]);
+    .toEqual([{ method: "PATCH", id: prowlarrId, body: { searchesAtOnce: 4, queryTimeout: 60 } }]);
+  server.writes.length = 0;
+  await userEvent.click(page.getByRole("button", { name: "Edit" }));
+  await expect.element(timeout).toHaveValue("60");
+  await userEvent.clear(timeout);
+  await userEvent.click(dialog().getByRole("button", { name: "Save" }));
+  await expect
+    .poll(() => server.writes)
+    .toEqual([{ method: "PATCH", id: prowlarrId, body: { queryTimeout: null } }]);
 });
 
 test("moving an Indexer that signs in warns of the new address, then saves its home", async () => {

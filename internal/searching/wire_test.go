@@ -79,10 +79,14 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 	}
 }
 
-func TestARecentCallBelowOffset0IsRefused(t *testing.T) {
-	job := Job{ID: "f", Indexer: "b", Kind: Torznab, Address: "https://site.test/torznab", Call: RecentCall{Offset: -1}}
-	if _, _, err := decodeJob(encodeJob(job)); err == nil {
-		t.Fatal("a recent call at offset -1 came across, want it refused")
+func TestAJobBelowZeroIsRefused(t *testing.T) {
+	for _, job := range []Job{
+		{ID: "f", Indexer: "b", Kind: Torznab, Address: "https://site.test/torznab", Call: RecentCall{Offset: -1}},
+		{ID: "f", Indexer: "b", Kind: Torznab, Address: "https://site.test/torznab", QueryTimeout: -time.Second, Call: SearchCall{}},
+	} {
+		if _, _, err := decodeJob(encodeJob(job)); err == nil {
+			t.Errorf("%+v came across, want it refused", job)
+		}
 	}
 }
 

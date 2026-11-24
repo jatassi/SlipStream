@@ -479,9 +479,12 @@ type Site struct {
 	Categories []int32 `protobuf:"varint,11,rep,packed,name=categories,proto3" json:"categories,omitempty"`
 	// port is the id of the ported site a native Indexer runs, empty for
 	// every other kind.
-	Port          string `protobuf:"bytes,12,opt,name=port,proto3" json:"port,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Port string `protobuf:"bytes,12,opt,name=port,proto3" json:"port,omitempty"`
+	// query_timeout_ms bounds each request to the Indexer, 0 for this
+	// Node's own request timeout.
+	QueryTimeoutMs int64 `protobuf:"varint,13,opt,name=query_timeout_ms,json=queryTimeoutMs,proto3" json:"query_timeout_ms,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Site) Reset() {
@@ -596,6 +599,13 @@ func (x *Site) GetPort() string {
 		return x.Port
 	}
 	return ""
+}
+
+func (x *Site) GetQueryTimeoutMs() int64 {
+	if x != nil {
+		return x.QueryTimeoutMs
+	}
+	return 0
 }
 
 type Definition struct {
@@ -2617,7 +2627,7 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\x05fetch\x18\x05 \x01(\v2\x1f.slipstream.search.v1.FetchCallH\x00R\x05fetch\x124\n" +
 	"\x04test\x18\x06 \x01(\v2\x1e.slipstream.search.v1.TestCallH\x00R\x04test\x12=\n" +
 	"\acaptcha\x18\a \x01(\v2!.slipstream.search.v1.CaptchaCallH\x00R\acaptchaB\x06\n" +
-	"\x04call\"\xc0\x04\n" +
+	"\x04call\"\xea\x04\n" +
 	"\x04Site\x12\x1d\n" +
 	"\n" +
 	"indexer_id\x18\x01 \x01(\tR\tindexerId\x12\x1a\n" +
@@ -2636,7 +2646,8 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\n" +
 	"categories\x18\v \x03(\x05R\n" +
 	"categories\x12\x12\n" +
-	"\x04port\x18\f \x01(\tR\x04port\x1a;\n" +
+	"\x04port\x18\f \x01(\tR\x04port\x12(\n" +
+	"\x10query_timeout_ms\x18\r \x01(\x03R\x0equeryTimeoutMs\x1a;\n" +
 	"\rSettingsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"2\n" +

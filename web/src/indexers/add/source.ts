@@ -30,6 +30,7 @@ export type AddValues = {
   priority: string;
   searches: LimitValues;
   grabs: LimitValues;
+  queryTimeout: string;
   on: boolean;
   automaticSearch: boolean;
   rss: boolean;
@@ -69,6 +70,7 @@ export function startValues(source: Source, home: NodesNode | undefined, name = 
     priority: "25",
     searches: port === null ? noLimit : limitValuesOf(port.searches),
     grabs: port === null ? noLimit : limitValuesOf(port.grabs),
+    queryTimeout: "",
     on: true,
     automaticSearch: true,
     rss: listsRecent(source),
@@ -114,6 +116,7 @@ const sharedOf = (values: AddValues, homeShown: boolean) => ({
   priority: Number(values.priority),
   searches: limitOf(limitSchema.parse(values.searches)),
   grabs: limitOf(limitSchema.parse(values.grabs)),
+  ...(values.queryTimeout.trim() !== "" && { queryTimeout: Number(values.queryTimeout) }),
   on: values.on,
   automaticSearch: values.automaticSearch,
   rss: values.rss,
