@@ -1,10 +1,13 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { drainWorld, homeFilms, seedboxFilms } from "../test/drain";
+import { drainWorld, fullerFilms, homeFilms, homeFilmsVolume, seedboxFilms } from "../test/drain";
+import { mediaLevels } from "../test/health-levels";
 import { homeId, seedboxId } from "../test/nodes";
 
 const dialog = () => page.getByRole("dialog", { name: "Review the change" });
+const option = (path: string) =>
+  page.getByRole("option", { name: new RegExp(`${path} on home`, "u") });
 
 async function review() {
   await userEvent.click(page.getByRole("checkbox", { name: "Downloading", exact: true }));
@@ -48,4 +51,20 @@ test("a drain's Review left alone applies the Roles and starts no Move", async (
   await expect.element(dialog()).not.toBeInTheDocument();
   expect(sent.order).toEqual(["roles"]);
   expect(sent.previews).toEqual([]);
+});
+
+test("a drain's Review defaults to the root with the most free space above its Warning level, and its picker shows a root's level", async () => {
+  const sent = drainWorld([
+    { ...mediaLevels, ...homeFilmsVolume, warnBytes: 3 * 1024 ** 4, level: "warn" },
+  ]);
+  await review();
+  await userEvent.click(
+    dialog().getByRole("checkbox", { name: "Also move seedbox's library files and torrents" }),
+  );
+  await expect
+    .poll(() => sent.previews.at(-1))
+    .toMatchObject({ roots: [{ rootId: seedboxFilms.id, to: fullerFilms.id }] });
+  await userEvent.click(dialog().getByRole("combobox", { name: `Move ${seedboxFilms.path} to` }));
+  await expect.element(option(homeFilms.path).getByText("Warning", { exact: true })).toBeVisible();
+  expect(option(fullerFilms.path).getByText("Warning", { exact: true }).query()).toBeNull();
 });

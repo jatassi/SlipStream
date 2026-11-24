@@ -101,6 +101,7 @@ type Shelf struct {
 	root    roots.ID
 	homes   map[works.WorkID]roots.ID
 	years   map[works.WorkID]int
+	claimed map[works.WorkID][]ID
 	folders map[string][]works.WorkID
 	ids     map[ID][]works.WorkID
 	titles  map[string][]works.WorkID
@@ -109,7 +110,7 @@ type Shelf struct {
 // NewShelf indexes ws, and the folder of each of the root's recorded
 // files, gone ones included.
 func NewShelf(root roots.ID, ws []Shelved, recorded []Recorded) *Shelf {
-	s := &Shelf{root: root, homes: map[works.WorkID]roots.ID{}, years: map[works.WorkID]int{}, folders: map[string][]works.WorkID{}, ids: map[ID][]works.WorkID{}, titles: map[string][]works.WorkID{}}
+	s := &Shelf{root: root, homes: map[works.WorkID]roots.ID{}, years: map[works.WorkID]int{}, claimed: map[works.WorkID][]ID{}, folders: map[string][]works.WorkID{}, ids: map[ID][]works.WorkID{}, titles: map[string][]works.WorkID{}}
 	for _, r := range recorded {
 		folder, _ := workFolder(r.Path.String())
 		index(s.folders, norm.NFC.String(folder), r.Work)
@@ -123,7 +124,7 @@ func NewShelf(root roots.ID, ws []Shelved, recorded []Recorded) *Shelf {
 // Add takes a Work the unit just added, so a later group of the same unit
 // sees it.
 func (s *Shelf) Add(w Shelved) {
-	s.homes[w.Work], s.years[w.Work] = w.Root, w.Claim.Year
+	s.homes[w.Work], s.years[w.Work], s.claimed[w.Work] = w.Root, w.Claim.Year, w.Claim.IDs
 	for _, id := range w.Claim.IDs {
 		index(s.ids, id, w.Work)
 	}
@@ -160,7 +161,8 @@ const (
 
 // Match applies the library rules in order: a recorded file in folder, an
 // id tag, then the title and year. A hint with no year matches by title
-// only when exactly one Work has that title.
+// only when exactly one Work has that title. A Work that claims another id
+// of a provider the hint tags never matches by title.
 func (s *Shelf) Match(folder string, h Hint) Matched {
 	if w, ok := one(s.folders[norm.NFC.String(folder)]); ok {
 		return s.matched(w, ByFolder)
@@ -176,14 +178,21 @@ func (s *Shelf) Match(folder string, h Hint) Matched {
 	if w, ok := one(tagged); ok {
 		return s.matched(w, ByTag)
 	}
-	titled := s.titles[Fold(h.Title)]
-	if h.Year != 0 {
-		titled = slices.DeleteFunc(slices.Clone(titled), func(w works.WorkID) bool { return s.years[w] != h.Year })
-	}
+	titled := slices.DeleteFunc(slices.Clone(s.titles[Fold(h.Title)]), func(w works.WorkID) bool {
+		return (h.Year != 0 && s.years[w] != h.Year) || s.contradicts(w, h.IDs)
+	})
 	if w, ok := one(titled); ok {
 		return s.matched(w, ByTitle)
 	}
 	return Matched{}
+}
+
+// contradicts reports whether w claims an id of a provider ids name with
+// another value.
+func (s *Shelf) contradicts(w works.WorkID, ids []ID) bool {
+	return slices.ContainsFunc(ids, func(id ID) bool {
+		return slices.ContainsFunc(s.claimed[w], func(c ID) bool { return c.Provider == id.Provider && c.Value != id.Value })
+	})
 }
 
 func (s *Shelf) matched(w works.WorkID, r Rule) Matched {
