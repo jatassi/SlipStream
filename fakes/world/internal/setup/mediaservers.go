@@ -66,6 +66,9 @@ func addMediaServer(ctx context.Context, c *http.Client, s scenario.Scenario, cl
 	controllerNode := s.Nodes[slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Setup == scenario.SetupController })].Name
 	reaching := claims.Members[slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Name == p.Node })].ID
 	body := nodeapi.NewMediaServer{Kind: p.Kind, Name: p.Name, Address: w.Front(p.Node, p.Kind), ReachingNodeID: reaching}
+	if p.RunsOn != "" {
+		body.RunsOnNodeID = claims.Members[slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Name == p.RunsOn })].ID
+	}
 	if !p.NoFallback && p.Node != controllerNode {
 		body.FallbackAddress = w.Front(controllerNode, p.Kind)
 	}

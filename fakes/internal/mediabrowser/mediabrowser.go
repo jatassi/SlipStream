@@ -60,6 +60,13 @@ type Server struct {
 	// as /media or D:\Media.
 	Root      string
 	Libraries []Library
+	// Remote is Jellyfin's EnableRemoteAccess and IPv6 its EnableIPv6.
+	// Published are the addresses the server publishes: Jellyfin's
+	// published server addresses, Emby's WAN address then its remote
+	// addresses. The names are unconfirmed until a run against the product
+	// records them.
+	Remote, IPv6 bool
+	Published    []string
 }
 
 // User is one server user. The first administrator owns the watch data a
@@ -286,6 +293,7 @@ func ServeScenario(env fake.Env, p Product, s scenario.Scenario, versions []stri
 	srv := &Server{
 		Name: played.Name, Version: played.Version, ID: played.ID(32), Keys: []string{played.Key()},
 		Users: []User{{Name: serverfake.Admin, Password: serverfake.AdminPassword, Admin: true}}, Root: played.Root,
+		Remote: played.Remote, Published: played.Published,
 	}
 	for _, u := range played.Users {
 		srv.Users = append(srv.Users, User{Name: u})

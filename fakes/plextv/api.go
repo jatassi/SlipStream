@@ -3,6 +3,9 @@ package plextv
 import (
 	"encoding/json"
 	"net/http"
+	"net/netip"
+	"net/url"
+	"slices"
 	"strconv"
 	"time"
 
@@ -170,6 +173,16 @@ func (s *state) resources(w http.ResponseWriter, r *http.Request) {
 				"uri": f.Address.URL(""), "local": true, "relay": false, "IPv6": false,
 			})
 		}
+		ipv6 := r.URL.Query().Get("includeIPv6") == "1"
+		for _, u := range slices.Concat(srv.Remote.Published, srv.Remote.Custom) {
+			if c, ok := published(u); ok && (ipv6 || !c["IPv6"].(bool)) {
+				connections = append(connections, c)
+			}
+		}
+		public := "127.0.0.1"
+		if p := srv.Remote.Mapping.Public; p.IsValid() {
+			public = p.Addr().String()
+		}
 		if relay {
 			connections = append(connections, map[string]any{
 				"protocol": "https", "address": "203.0.113.7", "port": 8443, "uri": "https://203-0-113-7.relay.plex.invalid:8443",
@@ -178,13 +191,36 @@ func (s *state) resources(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, map[string]any{
 			"name": srv.Name, "product": "Plex Media Server", "productVersion": srv.Version, "clientIdentifier": srv.Identifier,
-			"provides": "server", "ownerId": nil, "sourceTitle": nil, "publicAddress": "127.0.0.1", "accessToken": token,
+			"provides": "server", "ownerId": nil, "sourceTitle": nil, "publicAddress": public, "accessToken": token,
 			"searchEnabled": true, "createdAt": "2021-06-12T00:38:10Z", "lastSeenAt": time.Now().UTC().Format(time.RFC3339),
 			"owned": true, "home": false, "synced": false, "relay": relay, "presence": false, "httpsRequired": false,
 			"publicAddressMatches": true, "dnsRebindingProtection": false, "natLoopbackSupported": true, "connections": connections,
 		})
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// published is a connection plex.tv lists for a URL the server publishes,
+// false for one that doesn't parse. Its address is its host, which is a
+// name for a custom URL, and it is local when that host is a private
+// address, as the recorded run's ULA connection was.
+func published(u string) (map[string]any, bool) {
+	p, err := url.Parse(u)
+	if err != nil {
+		return nil, false
+	}
+	port := map[string]int{"http": 80, "https": 443}[p.Scheme]
+	if p.Port() != "" {
+		if port, err = strconv.Atoi(p.Port()); err != nil {
+			return nil, false
+		}
+	}
+	ip, err := netip.ParseAddr(p.Hostname())
+	isIP := err == nil
+	return map[string]any{
+		"protocol": p.Scheme, "address": p.Hostname(), "port": port, "uri": u,
+		"local": isIP && (ip.IsPrivate() || ip.IsLoopback()), "relay": false, "IPv6": isIP && ip.Is6() && !ip.Is4In6(),
+	}, true
 }
 
 func (s *state) nonce(w http.ResponseWriter, _ *http.Request) {

@@ -366,10 +366,10 @@ type Connection struct {
 // relay and IPv6 connections, its other devices left out.
 func (c *Client) Servers(ctx context.Context, jwt string) ([]Server, error) {
 	var out []struct {
-		Name             string `json:"name"`
-		ProductVersion   string `json:"productVersion"`
-		ClientIdentifier string `json:"clientIdentifier"`
-		Provides         string `json:"provides"`
+		Name                 string `json:"name"`
+		ProductVersion       string `json:"productVersion"`
+		ClientIdentifier     string `json:"clientIdentifier"`
+		Provides             string `json:"provides"`
 		Owned                bool   `json:"owned"`
 		AccessToken          string `json:"accessToken"`
 		PublicAddress        string `json:"publicAddress"`

@@ -88,6 +88,8 @@ type Server interface {
 	// Watched plays item once and puts it in the collection name.
 	Watched(ctx context.Context, item, name string) error
 	Sessions(ctx context.Context) ([]link.Session, error)
+	// Exposed is what the kind reads of the server's use away from home.
+	Exposed(ctx context.Context) (link.Exposed, error)
 }
 
 // Told is one file a case tells the server about. Gone is a file no
