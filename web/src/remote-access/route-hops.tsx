@@ -86,7 +86,12 @@ export function RouteHops({
                 <Mark hop={hop} />
                 {hopNames[hop.kind]}
               </span>
-              {hop.worst === "not-reached" && <span className="text-meta">not reached</span>}
+              {hop.worst === "not-reached" && (
+                <>
+                  {" "}
+                  <span className="text-meta">not reached</span>
+                </>
+              )}
             </button>
           </li>
         </Fragment>

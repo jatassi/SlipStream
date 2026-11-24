@@ -8,13 +8,12 @@ export function ClassLines({ nodes }: { nodes: readonly ReachabilityClassLine[] 
   return (
     <List label="Each Node's network">
       {nodes.map((node) => (
-        <li key={node.nodeId}>
-          <ListRow
-            title={node.line}
-            wrap
-            render={<Link to="/nodes/$nodeId/network" params={{ nodeId: node.nodeId }} />}
-          />
-        </li>
+        <ListRow
+          key={node.nodeId}
+          title={node.line}
+          wrap
+          render={<Link to="/nodes/$nodeId/network" params={{ nodeId: node.nodeId }} />}
+        />
       ))}
     </List>
   );
