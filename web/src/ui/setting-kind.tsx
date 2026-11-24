@@ -88,10 +88,14 @@ export const controlRow =
 
 export const unitLook = "text-body text-ink-2 in-data-[density=touch]:text-body-touch";
 
-export const defaultHint = (field: Setting, words: string): string =>
-  field.defaultFrom === undefined
-    ? `Default ${words}.`
+export const defaultHint = (field: Setting, words: string): string => {
+  if (field.defaultFrom === undefined) {
+    return `Default ${words}.`;
+  }
+  return words === ""
+    ? `Default from ${field.defaultFrom}.`
     : `Default ${words}, from ${field.defaultFrom}.`;
+};
 
 export function SaveButton({ shown, busy }: { shown: boolean; busy: boolean }) {
   return shown || busy ? (

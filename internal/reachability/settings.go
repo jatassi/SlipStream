@@ -82,7 +82,7 @@ func (p panel) Fields(ctx context.Context) ([]setting.Field, error) {
 		return nil, err
 	}
 	list := STUNServers.Field(s.stun)
-	list.DefaultFrom = "Each Node's own STUN servers"
+	list.DefaultFrom = "each Node's own STUN servers"
 	return []setting.Field{WarnAfter.Field(row.WarnAfterSeconds), WatchEvery.Field(row.WatchEverySeconds), ChangeWait.Field(row.ChangeWaitSeconds), list}, nil
 }
 
