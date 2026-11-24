@@ -143,7 +143,7 @@ func shelfSeries() *TVDB {
 
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
 	_, err := Load("office")
-	if want := "scenario office is not in the catalog (auto-search, busy-feed, catalog-sites, cgnat-home, dead-controller, external-clients, external-kinds, fault-loop, first-run, five-indexers-one-late, full-backups-folder, gone-with-rss, hold, home, hostile-worker, imports, indexers, limited-tracker, low-space-warning, low-space, magnets, manual-search, media-servers, moves, movies, music, offline-destination, pack-beats-singles, packs, ported-sites, repair, restore-in-place-after-grab, scale, seedbox-nas, seeding-routing, seeding, series-files-scale, series-scale, series, serving, showcase, single-machine, sizes, subtitles, targets, torrents)"; err == nil || err.Error() != want {
+	if want := "scenario office is not in the catalog (auto-search, busy-feed, catalog-sites, cgnat-home, dead-controller, external-clients, external-kinds, fault-loop, first-run, five-indexers-one-late, full-backups-folder, gone-with-rss, hold, home, hostile-worker, imports, indexers, limited-tracker, low-space-warning, low-space, magnets, manual-search, media-servers, moves, movies, music, offline-destination, pack-beats-singles, packs, ported-sites, remote-cgnat, remote-double-nat, remote-ipv6, remote-mappable, remote-open, remote-own-proxy, remote-single-machine, remote-vpn, repair, restore-in-place-after-grab, scale, seedbox-nas, seeding-routing, seeding, series-files-scale, series-scale, series, serving, showcase, single-machine, sizes, subtitles, targets, torrents)"; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}
 }
