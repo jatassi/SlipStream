@@ -17,6 +17,8 @@ var did = map[link.ChangeKind]string{
 	link.ChangeLibrary:         "Refreshed the whole library.",
 }
 
+const watchData = "play count, resume position, favorite and rating"
+
 var lost = map[link.Loss]string{
 	link.LostWatchState:  "watch state",
 	link.LostPlayCount:   "play count",
@@ -37,9 +39,9 @@ func (c Change) Words(to string) string {
 	case Prepared:
 		switch {
 		case c.Snapshot != nil:
-			return "Saved every user's watch data before the " + what + ". SlipStream sends this change once the " + what + " finishes."
+			return "Saved who watched it and each user's " + watchData + " before the " + what + ". SlipStream sends this change once the " + what + " finishes."
 		case len(c.Lost) > 0:
-			return "SlipStream couldn't save the watch data before the " + what + ". It tries again when it sends this change."
+			return "SlipStream couldn't save who watched it or each user's " + watchData + " before the " + what + ". It tries again when it sends this change."
 		}
 		return "SlipStream sends this change once the " + what + " finishes."
 	case Sending:

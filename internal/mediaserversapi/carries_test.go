@@ -184,7 +184,7 @@ func expectWords(t *testing.T, c mediaservers.ChangeView, state, words string) {
 
 const (
 	keptWords  = "Sent the rename. Kept every user's watch data."
-	savedWords = "Saved every user's watch data before the rename. SlipStream sends this change once the rename finishes."
+	savedWords = "Saved who watched it and each user's play count, resume position, favorite and rating before the rename. SlipStream sends this change once the rename finishes."
 )
 
 // TestARenameKeepsEveryUsersWatchData renames a file both of Den's users
@@ -303,7 +303,7 @@ func TestARenameSnapshotsAtSendWhenDenWasDown(t *testing.T) {
 				up := s.w.Down(t, host)
 				s.prepare(t, rename(t, trip, "Trip/Trip.mkv>Trip/Trip (2024).mkv"))
 				ch := change(t, s.changes(t), "Trip/Trip (2024).mkv")
-				expectWords(t, ch, "prepared", "SlipStream couldn't save the watch data before the rename. It tries again when it sends this change.")
+				expectWords(t, ch, "prepared", "SlipStream couldn't save who watched it or each user's play count, resume position, favorite and rating before the rename. It tries again when it sends this change.")
 				if !slices.Equal(ch.Lost, []string{"watch_state", "collections"}) {
 					t.Errorf("the prepared change lists %v as lost", ch.Lost)
 				}
