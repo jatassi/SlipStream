@@ -19,6 +19,8 @@ type run struct {
 	cancel     context.CancelFunc
 	restarting bool
 	stopping   bool
+	// kept is a Role a reset stopped: it keeps what it holds.
+	kept bool
 }
 
 var errReturned = errors.New("returned while the Role was still held")
@@ -68,7 +70,12 @@ func (h *Holding) reconcile(ctx context.Context, roles *sync.WaitGroup) {
 			roles.Go(func() {
 				defer cancel()
 				h.keep(rctx, held, r)
-				h.release(ctx, held)
+				h.mu.Lock()
+				kept := r.kept
+				h.mu.Unlock()
+				if !kept {
+					h.release(ctx, held)
+				}
 				h.mu.Lock()
 				delete(h.runs, held.name)
 				h.wake()

@@ -654,8 +654,8 @@ func TestAReturningWorkerStartsNoRoleItsControllerTookAway(t *testing.T) {
 }
 
 // TestAResetWorkerForgetsItsCachedIntent resets a Worker cut off from its
-// Controller: the probe stops and is released, and a restart on the same
-// local.db holds nothing until a Controller sends it an intent.
+// Controller: the probe stops and keeps what it holds, and a restart on
+// the same local.db holds nothing until a Controller sends it an intent.
 func TestAResetWorkerForgetsItsCachedIntent(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := newCluster(t, "", "")
@@ -674,8 +674,8 @@ func TestAResetWorkerForgetsItsCachedIntent(t *testing.T) {
 			t.Fatal(err)
 		}
 		synctest.Wait()
-		if w.Holds(roletest.Name) || w.probe.Releases() != 1 {
-			t.Fatalf("after the reset the Worker holds the probe %v and released it %d times, want not held and released once", w.Holds(roletest.Name), w.probe.Releases())
+		if w.Holds(roletest.Name) || w.probe.Releases() != 0 {
+			t.Fatalf("after the reset the Worker holds the probe %v and released it %d times, want not held and never released", w.Holds(roletest.Name), w.probe.Releases())
 		}
 		w.stop()
 		again := c.startWorker(t, local)

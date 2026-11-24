@@ -1179,9 +1179,9 @@ func (n *Node) startWorker(ctx context.Context) error {
 
 // removed answers the Controller's removal of this Worker: the holder
 // half forgets its cached intents, so its Roles stop and a later Join
-// can't resume them, waits a bounded time for them to let go, such as the
-// network channel deleting its router mappings, and the Node restarts
-// Unclaimed.
+// can't resume them, waits a bounded time for its Node-wide channels to
+// let go, such as the network channel deleting its router mappings, and
+// the Node restarts Unclaimed.
 func (n *Node) removed(ctx context.Context) {
 	if h := n.half.Load(); h != nil {
 		ctx, cancel := context.WithTimeout(ctx, n.cfg.Timings.Role.Release)
