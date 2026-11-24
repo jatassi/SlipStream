@@ -342,14 +342,24 @@ type Server struct {
 	// Token is the server's own accessToken. The server takes it and the
 	// account's JWT it refuses, while plex.tv refuses it.
 	Token string
-	// Connections are in plex.tv's order, with no relay connection.
+	// PublicAddress is the address plex.tv last saw the server at, and
+	// PublicAddressMatches whether this client's is the same.
+	PublicAddress        string
+	PublicAddressMatches bool
+	// Connections are in plex.tv's order, relays included.
 	Connections []Connection
 }
 
 type Connection struct {
-	URI   *url.URL
-	Local bool
-	IPv6  bool
+	URI *url.URL
+	// Protocol, Address and Port are what plex.tv lists apart from URI:
+	// Address is an IP, IPv6 included, or a custom URL's host name.
+	Protocol string
+	Address  string
+	Port     uint16
+	Local    bool
+	Relay    bool
+	IPv6     bool
 }
 
 // Servers are the account's servers from resources, asked with HTTPS,
@@ -360,13 +370,18 @@ func (c *Client) Servers(ctx context.Context, jwt string) ([]Server, error) {
 		ProductVersion   string `json:"productVersion"`
 		ClientIdentifier string `json:"clientIdentifier"`
 		Provides         string `json:"provides"`
-		Owned            bool   `json:"owned"`
-		AccessToken      string `json:"accessToken"`
-		Connections      []struct {
-			URI   string `json:"uri"`
-			Local bool   `json:"local"`
-			Relay bool   `json:"relay"`
-			IPv6  bool   `json:"IPv6"`
+		Owned                bool   `json:"owned"`
+		AccessToken          string `json:"accessToken"`
+		PublicAddress        string `json:"publicAddress"`
+		PublicAddressMatches bool   `json:"publicAddressMatches"`
+		Connections          []struct {
+			URI      string `json:"uri"`
+			Protocol string `json:"protocol"`
+			Address  string `json:"address"`
+			Port     uint16 `json:"port"`
+			Local    bool   `json:"local"`
+			Relay    bool   `json:"relay"`
+			IPv6     bool   `json:"IPv6"`
 		} `json:"connections"`
 	}
 	q := url.Values{"includeHttps": {"1"}, "includeRelay": {"1"}, "includeIPv6": {"1"}}
@@ -378,16 +393,18 @@ func (c *Client) Servers(ctx context.Context, jwt string) ([]Server, error) {
 		if !strings.Contains(r.Provides, "server") {
 			continue
 		}
-		s := Server{Name: r.Name, Identifier: r.ClientIdentifier, Version: r.ProductVersion, Owned: r.Owned, Token: r.AccessToken}
+		s := Server{
+			Name: r.Name, Identifier: r.ClientIdentifier, Version: r.ProductVersion, Owned: r.Owned, Token: r.AccessToken,
+			PublicAddress: r.PublicAddress, PublicAddressMatches: r.PublicAddressMatches,
+		}
 		for _, conn := range r.Connections {
-			if conn.Relay {
-				continue
-			}
 			u, err := url.Parse(conn.URI)
 			if err != nil {
 				return nil, fmt.Errorf("plex.tv listed server %s with connection %q: %w", r.Name, conn.URI, err)
 			}
-			s.Connections = append(s.Connections, Connection{URI: u, Local: conn.Local, IPv6: conn.IPv6})
+			s.Connections = append(s.Connections, Connection{
+				URI: u, Protocol: conn.Protocol, Address: conn.Address, Port: conn.Port, Local: conn.Local, Relay: conn.Relay, IPv6: conn.IPv6,
+			})
 		}
 		servers = append(servers, s)
 	}

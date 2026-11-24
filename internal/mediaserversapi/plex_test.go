@@ -48,8 +48,13 @@ type plexRig struct {
 
 func newPlexRig(t *testing.T) plexRig {
 	t.Helper()
+	return newPlexRigOf(t, fakeplextv.Account{Username: "plex-admin", PlexPass: true})
+}
+
+func newPlexRigOf(t *testing.T, a fakeplextv.Account) plexRig {
+	t.Helper()
 	r := newRig(t)
-	return plexRig{rig: r, plex: r.w.Plex(t, livingRoom, fakeplextv.Account{Username: "plex-admin", PlexPass: true})}
+	return plexRig{rig: r, plex: r.w.Plex(t, livingRoom, a)}
 }
 
 func decode[T any](t *testing.T, body string) T {
@@ -199,6 +204,30 @@ func expectReached(t *testing.T, c mediaservers.PlexConnection, uri string, ok b
 			t.Errorf("%s from %s responded: %t", c.URI, from.NodeID, from.OK)
 		}
 	}
+}
+
+// TestARelayIsNeverListedOrPicked signs in to an account whose resources
+// list a relay to the server: the Add sheet lists only the two Nodes'
+// connections, and Add saves home's.
+func TestARelayIsNeverListedOrPicked(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newPlexRigOf(t, fakeplextv.Account{Username: "plex-admin", PlexPass: true, Relay: true})
+		r.signIn(t)
+		out := decode[struct {
+			Servers []mediaservers.PlexServerView `json:"servers"`
+		}](t, r.expect(t, http.MethodGet, servers+"/plex/servers", "", http.StatusOK))
+		if len(out.Servers) != 1 || len(out.Servers[0].Connections) != 2 {
+			t.Fatalf("the account lists %+v", out.Servers)
+		}
+		for _, c := range out.Servers[0].Connections {
+			if c.URI != homeConn && c.URI != seedboxConn {
+				t.Errorf("the Add sheet lists %s", c.URI)
+			}
+		}
+		if v := r.addPlex(t, r.w.Home.String()); v.Address != homeConn || v.FallbackAddress != "" {
+			t.Errorf("the server saved at %s, falling back to %q", v.Address, v.FallbackAddress)
+		}
+	})
 }
 
 // TestAddPlexPicksTheFirstConnectionThatResponds saves the local

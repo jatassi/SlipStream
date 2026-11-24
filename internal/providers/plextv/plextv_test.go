@@ -183,7 +183,7 @@ func authFragment(t *testing.T, authURL string) url.Values {
 	return q
 }
 
-func TestServersListOneLocalConnectionPerNodeAndATokenOnlyTheServerTakes(t *testing.T) {
+func TestServersListOneLocalConnectionPerNodeTheRelayAndATokenOnlyTheServerTakes(t *testing.T) {
 	inEachTier(t, func(t *testing.T, serve serveFunc) {
 		w := newWorld(t, serve, fakeplextv.Account{Username: "jackson", PlexPass: true, Relay: true})
 		token := w.signIn(t)
@@ -194,13 +194,13 @@ func TestServersListOneLocalConnectionPerNodeAndATokenOnlyTheServerTakes(t *test
 		srv := servers[0]
 		var uris []string
 		for _, c := range srv.Connections {
-			if !c.Local {
-				t.Errorf("connection %s is not local", c.URI)
+			if c.Local == c.Relay || c.Port == 0 || c.Address == "" {
+				t.Errorf("connection %+v", c)
 			}
 			uris = append(uris, c.URI.String())
 		}
-		if want := []string{w.plex.Address.URL(""), den.URL("")}; strings.Join(uris, " ") != strings.Join(want, " ") {
-			t.Errorf("connections = %v, want %v, the relay dropped", uris, want)
+		if want := []string{w.plex.Address.URL(""), den.URL(""), "https://203-0-113-7.relay.plex.invalid:8443"}; strings.Join(uris, " ") != strings.Join(want, " ") {
+			t.Errorf("connections = %v, want %v, the relay last", uris, want)
 		}
 		if srv.Identifier != "fake-plex-den" || !srv.Owned || len(srv.Token) != 20 || srv.Token == token.JWT {
 			t.Fatalf("server = %+v", srv)
