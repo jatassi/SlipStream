@@ -27,7 +27,7 @@ type Field interface {
 func (a About) about() About { return a }
 
 // Kinds is every kind of Field, once each.
-var Kinds = []Field{DurationField{}, CountField{}, ChoiceField{}, WindowField{}, PortField{}, SwitchField{}, RateField{}, AddressField{}, FolderField{}, SpaceField{}, TemplateField{}, ListField{}, SizeField{}}
+var Kinds = []Field{DurationField{}, CountField{}, ChoiceField{}, WindowField{}, ListenField{}, SwitchField{}, RateField{}, AddressField{}, FolderField{}, SpaceField{}, TemplateField{}, ListField{}, SizeField{}, IPField{}}
 
 // DurationField is a Duration on the wire, in seconds.
 type DurationField struct {
@@ -85,13 +85,19 @@ type Times struct {
 	End   string `json:"end" doc:"HH:MM, before start when the window crosses midnight"`
 }
 
-// PortField is a Port on the wire.
-type PortField struct {
+// ListenField is a Listen on the wire.
+type ListenField struct {
 	About
-	Kind    string `json:"kind" enum:"port"`
-	Value   int64  `json:"value"`
-	Running int64  `json:"running"`
-	Default int64  `json:"default"`
+	Kind    string   `json:"kind" enum:"listen"`
+	Value   ListenAt `json:"value"`
+	Running ListenAt `json:"running"`
+	Default ListenAt `json:"default"`
+}
+
+type ListenAt struct {
+	Host    string `json:"host" enum:"all,local,other" doc:"all is every network, local is this machine only, other is an address set in config.yaml or the environment"`
+	Port    int64  `json:"port"`
+	Address string `json:"address" doc:"The address and port, such as [::]:8484"`
 }
 
 // SwitchField is a Switch on the wire.

@@ -4,7 +4,7 @@ import { page, userEvent } from "vitest/browser";
 import type {
   SettingChoiceField,
   SettingCountField,
-  SettingPortField,
+  SettingListenField,
   SettingSwitchField,
 } from "../api/gen/model";
 import { renderKit } from "../test/render-kit";
@@ -12,16 +12,18 @@ import { SettingField } from "./setting-field";
 
 const about = { source: "config.yaml", applies: "live", pendingRestart: false } as const;
 
-const port: SettingPortField = {
+const allNetworks = { host: "all", port: 8484, address: "[::]:8484" } as const;
+
+const listen: SettingListenField = {
   ...about,
   key: "http.listen",
-  label: "Port",
-  kind: "port",
+  label: "Listen on",
+  kind: "listen",
   applies: "restart",
   isDefault: true,
-  value: 8484,
-  running: 8484,
-  default: 8484,
+  value: allNetworks,
+  running: allNetworks,
+  default: allNetworks,
 };
 
 const daysKept: SettingCountField = {
@@ -72,7 +74,7 @@ const saving = () => vi.fn<(value: unknown) => Promise<unknown>>(() => Promise.r
 test("each Node kind is a control named for its setting", async () => {
   renderKit(
     <>
-      <SettingField field={port} onSave={saving()} />
+      <SettingField field={listen} onSave={saving()} />
       <SettingField field={daysKept} onSave={saving()} />
       <SettingField field={compress} onSave={saving()} />
       <SettingField field={level} onSave={saving()} />
@@ -84,10 +86,10 @@ test("each Node kind is a control named for its setting", async () => {
   await expect.element(page.getByRole("combobox", { name: "Level" })).toHaveTextContent("Info");
 });
 
-test("a port shows its default and refuses one out of range", async () => {
+test("a listen address shows its default, refuses a port out of range and saves an address", async () => {
   const onSave = saving();
-  renderKit(<SettingField field={port} onSave={onSave} />);
-  await expect.element(page.getByText("Default 8484.")).toBeVisible();
+  renderKit(<SettingField field={listen} onSave={onSave} />);
+  await expect.element(page.getByText("Default All networks, port 8484.")).toBeVisible();
   await expect.element(page.getByText("Applies after restart.")).toBeVisible();
   const input = page.getByRole("textbox", { name: "Port" });
   await userEvent.fill(input, "70000");
@@ -96,15 +98,48 @@ test("a port shows its default and refuses one out of range", async () => {
   expect(onSave).not.toHaveBeenCalled();
 
   await userEvent.fill(input, "9000");
+  await userEvent.click(page.getByRole("radio", { name: "This machine only" }));
   await userEvent.click(page.getByRole("button", { name: "Save" }));
-  expect(onSave).toHaveBeenCalledExactlyOnceWith(9000);
+  expect(onSave).toHaveBeenCalledExactlyOnceWith("[::1]:9000");
+});
+
+test("the All networks warning shows only once All networks is chosen in place of this machine only", async () => {
+  const local = { host: "local", port: 8484, address: "[::1]:8484" } as const;
+  const onSave = saving();
+  renderKit(
+    <SettingField
+      field={{ ...listen, isDefault: false, value: local, running: local }}
+      onSave={onSave}
+    />,
+  );
+  const warning = page.getByText(/Over IPv6/u);
+  await expect.element(page.getByRole("radio", { name: "This machine only" })).toBeChecked();
+  expect(warning.query()).toBeNull();
+
+  await userEvent.click(page.getByRole("radio", { name: "All networks" }));
+  await expect.element(warning).toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Save" }));
+  expect(onSave).toHaveBeenCalledExactlyOnceWith("[::]:8484");
+});
+
+test("an address set by hand in config.yaml keeps its host and saves a new port", async () => {
+  const handSet = { host: "other", port: 8484, address: "192.168.1.20:8484" } as const;
+  const onSave = saving();
+  renderKit(
+    <SettingField field={{ ...listen, value: handSet, running: handSet }} onSave={onSave} />,
+  );
+  await expect.element(page.getByText("192.168.1.20", { exact: true })).toBeVisible();
+  expect(page.getByRole("radio").query()).toBeNull();
+  await userEvent.fill(page.getByRole("textbox", { name: "Port" }), "9000");
+  await userEvent.click(page.getByRole("button", { name: "Save" }));
+  expect(onSave).toHaveBeenCalledExactlyOnceWith("192.168.1.20:9000");
 });
 
 test("a key set by the environment is locked and names its variable", async () => {
   renderKit(
     <>
       <SettingField
-        field={{ ...port, source: "env", lockedBy: "SLIPSTREAM_HTTP_LISTEN", isDefault: false }}
+        field={{ ...listen, source: "env", lockedBy: "SLIPSTREAM_HTTP_LISTEN", isDefault: false }}
         onSave={saving()}
       />
       <SettingField

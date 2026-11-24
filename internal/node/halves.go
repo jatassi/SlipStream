@@ -1308,7 +1308,7 @@ type claimStreams struct{ n *Node }
 func (c claimStreams) serve(peer link.Key, s link.Stream) {
 	if h := c.n.half.Load(); h != nil && h.nodes != nil {
 		if id, ok := h.nodes.NodeOf(peer); ok && h.nodes.Serves(role.Serving, id) {
-			c.n.served.Offer(s)
+			c.n.served.Offer(id, s)
 			return
 		}
 	}

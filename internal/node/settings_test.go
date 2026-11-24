@@ -63,7 +63,7 @@ func TestTheNodeSettingsTableReadsItsDefaultsFromDefaults(t *testing.T) {
 	downloads := jsonText(t, filepath.Join(testDataPath, "downloads"))
 	folder := jsonText(t, filepath.Join(testDataPath, "backups"))
 	want := `[` +
-		`{"key":"http.listen","label":"Port","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"port","value":8484,"running":8484,"default":8484},` +
+		`{"key":"http.listen","label":"Listen on","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"listen","value":{"host":"all","port":8484,"address":"[::]:8484"},"running":{"host":"all","port":8484,"address":"[::]:8484"},"default":{"host":"all","port":8484,"address":"[::]:8484"}},` +
 		`{"key":"http.ports_to_try","label":"Ports to try","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"count","value":1,"running":1,"default":1,"min":1,"max":100,"unit":{"one":"port","many":"ports"}},` +
 		`{"key":"log.level","label":"Level","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"choice","value":"info","running":"info","default":"info","options":[{"value":"debug","label":"Debug"},{"value":"info","label":"Info"},{"value":"warn","label":"Warn"},{"value":"error","label":"Error"}]},` +
 		`{"key":"log.max_size_mb","label":"Rotate at","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":10,"running":10,"default":10,"min":1,"max":1000,"unit":{"one":"MB","many":"MB"}},` +
@@ -204,6 +204,14 @@ func TestSetRefusesAndChangesNothing(t *testing.T) {
 		name:    "the web port on the Node link's port",
 		changes: []nodesystem.Change{{Key: "http.listen", Value: nodesystem.Number(8485)}},
 		want:    nodesystem.Refusal{Key: "http.listen", Reason: nodesystem.PortUsedByNode, Sentence: "8485"},
+	}, {
+		name:    "the web address with no port",
+		changes: []nodesystem.Change{{Key: "http.listen", Value: nodesystem.Word("[::1]")}},
+		want:    nodesystem.Refusal{Key: "http.listen", Reason: nodesystem.OutOfRange},
+	}, {
+		name:    "the web address on port 0",
+		changes: []nodesystem.Change{{Key: "http.listen", Value: nodesystem.Word("[::1]:0")}},
+		want:    nodesystem.Refusal{Key: "http.listen", Reason: nodesystem.OutOfRange},
 	}} {
 		t.Run(c.name, func(t *testing.T) {
 			f := testConfigFile(t, yaml, c.dotEnv)

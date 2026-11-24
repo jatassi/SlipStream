@@ -9,8 +9,9 @@ import type {
   SettingCountField,
   SettingDurationField,
   SettingFolderField,
+  SettingIPField,
   SettingListField,
-  SettingPortField,
+  SettingListenField,
   SettingRateField,
   SettingSizeField,
   SettingSpaceField,
@@ -26,7 +27,7 @@ export type Fields = {
   count: SettingCountField;
   choice: SettingChoiceField;
   window: SettingWindowField;
-  port: SettingPortField;
+  listen: SettingListenField;
   switch: SettingSwitchField;
   rate: SettingRateField;
   address: SettingAddressField;
@@ -35,6 +36,7 @@ export type Fields = {
   template: SettingTemplateField;
   list: SettingListField;
   size: SettingSizeField;
+  ip: SettingIPField;
 };
 
 export type Values = {
@@ -42,7 +44,7 @@ export type Values = {
   count: number;
   choice: string;
   window: SettingTimes;
-  port: number;
+  listen: string;
   switch: boolean;
   rate: number;
   address: string;
@@ -51,6 +53,7 @@ export type Values = {
   template: string;
   list: string[];
   size: number;
+  ip: string;
 };
 
 export type SettingKind = keyof Fields;

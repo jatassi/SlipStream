@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -27,6 +28,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identityapi"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail/mailtest"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -161,7 +163,7 @@ func (n *node) do(c call) *httptest.ResponseRecorder {
 		req.Header.Set("Cookie", identity.CookieName+"="+c.session)
 	}
 	if c.overLink {
-		req = req.WithContext(api.OverLink(req.Context(), nil))
+		req = req.WithContext(api.OverLink(req.Context(), servedConn{}))
 	}
 	w := httptest.NewRecorder()
 	n.h.ServeHTTP(w, req)
@@ -506,3 +508,8 @@ func TestReconfirmedSessionRefusesTheAPIKey(t *testing.T) {
 	lapsed := call{method: http.MethodGet, target: "/api/v1/fixture-session", session: identitytest.LapsedSession(t, n.lib, admin)}
 	expect(t, n.do(lapsed), 403, problem(403, "needs_reconfirm", "Confirm it's you to continue"))
 }
+
+// servedConn is a Serve stream's connection as api.OverLink reads it.
+type servedConn struct{ net.Conn }
+
+func (servedConn) ServedFor() role.NodeID { return role.NodeID{} }

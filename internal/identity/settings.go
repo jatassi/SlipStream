@@ -12,6 +12,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity/internal/db"
 	"github.com/jatassi/slipstream/internal/setting"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
 const day = 24 * time.Hour
@@ -169,7 +170,12 @@ func pinLimitsHold(o SignInOverrides, offChanged bool) error {
 
 // Address is the address links are built on, zero until set.
 func (s *Service) Address(ctx context.Context, _ Admin) (Address, error) {
-	set, err := readSettings(ctx, db.New(s.lib))
+	return AddressIn(ctx, s.lib)
+}
+
+// AddressIn is the Address as rd reads it, zero until set.
+func AddressIn(ctx context.Context, rd storage.Reader[storage.Library]) (Address, error) {
+	set, err := readSettings(ctx, db.New(rd))
 	return set.Address, err
 }
 
@@ -215,7 +221,13 @@ func ParseAddress(s string) (Address, error) {
 	return Address{origin: scheme + "://" + host}, nil
 }
 
-func (a Address) IsZero() bool   { return a.origin == "" }
+func (a Address) IsZero() bool { return a.origin == "" }
+
+// URL is the address as a URL with a scheme and a host.
+func (a Address) URL() *url.URL {
+	scheme, host, _ := strings.Cut(a.origin, "://")
+	return &url.URL{Scheme: scheme, Host: host}
+}
 func (a Address) String() string { return a.origin }
 
 // Host is the address's host without its port, which emails call the

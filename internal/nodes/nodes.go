@@ -388,6 +388,19 @@ func (s *Service) Key(node ID) (link.Key, bool) {
 	return key, ok
 }
 
+// Remote is the remote address of node's live Node link and whether the
+// Controller dialed it, false while no session is up. Dialed by the
+// Worker, it is the Worker's source after any NAT. Dialed by the
+// Controller, it is the address the Controller connected to.
+func (s *Service) Remote(node ID) (addr netip.AddrPort, controllerDialed, ok bool) {
+	key, known := s.Key(node)
+	if !known {
+		return netip.AddrPort{}, false, false
+	}
+	session, isLive := s.cfg.Link.State(key).(link.Live)
+	return session.Remote, session.Dialed, isLive
+}
+
 // Admit pins every Worker in the roster, tells a key only a tombstone
 // holds that it was removed, and lets any other key only Pair.
 func (s *Service) Admit(key link.Key) link.Admission {

@@ -14,6 +14,10 @@ var videoExtensions = setting.List{
 	Min:     1, Item: setting.Extension,
 }
 
+var stunServers = setting.List{Key: "reachability.stunServers", Label: "STUN servers", Item: setting.HostPort}
+
+var stableIPv6 = setting.IP{Key: "reachability.stableIPv6", Label: "Stable IPv6 address", Family: setting.IPv6Only}
+
 var smallestVideo = setting.Size{
 	Key: "library.importing.smallestVideo", Label: "Smallest video file",
 	Default: 50 * setting.MB, Min: 0, Max: 10 * setting.GB,
@@ -22,19 +26,28 @@ var smallestVideo = setting.Size{
 func TestListParse(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
+		list    setting.List
 		entries []string
 		want    []string
 		refusal string
 	}{
-		{"written lowercase with no leading dot, in order", []string{" .MKV", "Mp4", "m2ts"}, []string{"mkv", "mp4", "m2ts"}, ""},
-		{"empty", []string{}, nil, "Keep at least 1 extension in the list."},
-		{"a blank entry", []string{"mkv", " . "}, nil, "An extension can't be blank."},
-		{"the same extension twice once written", []string{"mkv", ".MKV"}, nil, "mkv is in the list twice. Remove one."},
-		{"a pattern", []string{"*.mkv"}, nil, `"*.mkv" isn't an extension. Use letters and digits only, such as mkv.`},
-		{"a path", []string{`movies\a.mkv`}, nil, `"movies\a.mkv" isn't an extension. Use letters and digits only, such as mkv.`},
+		{"written lowercase with no leading dot, in order", videoExtensions, []string{" .MKV", "Mp4", "m2ts"}, []string{"mkv", "mp4", "m2ts"}, ""},
+		{"empty", videoExtensions, []string{}, nil, "Keep at least 1 extension in the list."},
+		{"a blank entry", videoExtensions, []string{"mkv", " . "}, nil, "An extension can't be blank."},
+		{"the same extension twice once written", videoExtensions, []string{"mkv", ".MKV"}, nil, "mkv is in the list twice. Remove one."},
+		{"a pattern", videoExtensions, []string{"*.mkv"}, nil, `"*.mkv" isn't an extension. Use letters and digits only, such as mkv.`},
+		{"a path", videoExtensions, []string{`movies\a.mkv`}, nil, `"movies\a.mkv" isn't an extension. Use letters and digits only, such as mkv.`},
+		{"servers written in lowercase, IPv6 in brackets", stunServers, []string{" STUN.Example.org:3478", "[2001:DB8::1]:19302", "192.0.2.7:3478"}, []string{"stun.example.org:3478", "[2001:db8::1]:19302", "192.0.2.7:3478"}, ""},
+		{"no servers", stunServers, []string{}, []string{}, ""},
+		{"a server with no port", stunServers, []string{"stun.example.org"}, nil, "Add a port, such as stun.example.org:3478."},
+		{"an IPv6 server with no port", stunServers, []string{"2001:db8::1"}, nil, "Add a port, such as [2001:db8::1]:3478."},
+		{"a server on port 0", stunServers, []string{"stun.example.org:0"}, nil, "Use a port between 1 and 65535."},
+		{"a URL", stunServers, []string{"stun://stun.example.org:3478"}, nil, `"stun://stun.example.org:3478" isn't a server's name or IP address and port, such as stun.example.org:3478.`},
+		{"a blank server", stunServers, []string{" "}, nil, "A server can't be blank."},
+		{"the same server twice once written", stunServers, []string{"stun.example.org:3478", "STUN.example.org:3478"}, nil, "stun.example.org:3478 is in the list twice. Remove one."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := videoExtensions.Parse(&tc.entries)
+			got, err := tc.list.Parse(&tc.entries)
 			if tc.refusal != "" {
 				if s := sentence(err); s != tc.refusal {
 					t.Fatalf("refusal = %q, want %q", s, tc.refusal)
@@ -79,7 +92,7 @@ func TestSizeParse(t *testing.T) {
 	}
 }
 
-func TestListAndSizeRoundTripTheirWireValue(t *testing.T) {
+func TestListSizeAndIPRoundTripTheirWireValue(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		parse   func(json.RawMessage) (string, error)
@@ -95,6 +108,15 @@ func TestListAndSizeRoundTripTheirWireValue(t *testing.T) {
 		{"a size as words", stored(smallestVideo.ParseJSON), `"100 MB"`, "", "Bytes, as a whole number."},
 		{"a size out of range", stored(smallestVideo.ParseJSON), `11811160064`, "", "Between 0 MB and 10 GB."},
 		{"null resets a size", stored(smallestVideo.ParseJSON), `null`, "reset", ""},
+		{"an IPv6 address", stored(stableIPv6.ParseJSON), `" 2001:DB8::20 "`, "2001:db8::20", ""},
+		{"a blank IP address empties it", stored(stableIPv6.ParseJSON), `""`, "reset", ""},
+		{"null empties an IP address", stored(stableIPv6.ParseJSON), `null`, "reset", ""},
+		{"an IPv4 address where IPv6 only", stored(stableIPv6.ParseJSON), `"192.0.2.20"`, "", "192.0.2.20 is an IPv4 address. Use an IPv6 address, such as 2001:db8::20."},
+		{"an IPv4-mapped address where IPv6 only", stored(stableIPv6.ParseJSON), `"::ffff:192.0.2.20"`, "", "192.0.2.20 is an IPv4 address. Use an IPv6 address, such as 2001:db8::20."},
+		{"an address with a zone", stored(stableIPv6.ParseJSON), `"fe80::1%eth0"`, "", "Leave out the zone, the part from %eth0."},
+		{"a name", stored(stableIPv6.ParseJSON), `"atlas.lan"`, "", `"atlas.lan" isn't an IP address. Use an IPv6 address, such as 2001:db8::20.`},
+		{"an IPv4 address where any family", stored(setting.IP{Key: "k.ip", Family: setting.AnyFamily}.ParseJSON), `"192.0.2.20"`, "192.0.2.20", ""},
+		{"an IP address as a number", stored(stableIPv6.ParseJSON), `20`, "", "An IP address, as a string."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := tc.parse(json.RawMessage(tc.raw))
