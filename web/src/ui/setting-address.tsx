@@ -2,11 +2,15 @@ import { Field } from "@base-ui/react/field";
 import { Input } from "@base-ui/react/input";
 import { useState } from "react";
 
+import type { SettingListenAt, SettingListenAtHost } from "../api/gen/model";
+import { Segmented } from "./segmented";
 import {
+  AmountInput,
   type ControlProps,
   type Draft,
   type Kind,
   SaveButton,
+  controlRow,
   defaultHint,
   inputLook,
   labelLook,
@@ -130,4 +134,126 @@ export const addressKind: Kind<"address"> = {
   words: (field) => field.value,
   hints: (field) => [defaultHint(field, field.default)],
   Control: AddressControl,
+};
+
+const portRange = "Between 1 and 65535.";
+function parsePort(amount: string): { value: number } | { refused: string } {
+  if (!/^\d+$/u.test(amount.trim())) {
+    return { refused: portRange };
+  }
+  const port = Number(amount);
+  return port < 1 || port > highestPort ? { refused: portRange } : { value: port };
+}
+
+const listenHosts: readonly { value: SettingListenAtHost; label: string }[] = [
+  { value: "all", label: "All networks" },
+  { value: "local", label: "This machine only" },
+];
+
+/** The host part of at's address, which a save keeps. */
+const hostOf = (at: SettingListenAt): string => at.address.slice(0, at.address.lastIndexOf(":"));
+
+const hostAddress = (host: SettingListenAtHost, saved: SettingListenAt): string =>
+  host === "all" ? "[::]" : host === "local" ? "[::1]" : hostOf(saved);
+
+const listenWords = (at: SettingListenAt): string =>
+  at.host === "other"
+    ? at.address
+    : `${listenHosts.find((option) => option.value === at.host)?.label ?? at.host}, port ${String(at.port)}`;
+
+/** Shown once All networks is chosen in place of this machine only, before the save. */
+function AllNetworksWarning() {
+  return (
+    <p className="text-meta text-ink-2 in-data-[density=touch]:text-body-touch">
+      Other devices on your network can open SlipStream. Over IPv6, your router may also let devices
+      outside your home in.
+    </p>
+  );
+}
+
+/** The host choice, or a host set by hand in config.yaml, which shows read-only. */
+function HostPicker({
+  label,
+  saved,
+  host,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  saved: SettingListenAt;
+  host: SettingListenAtHost;
+  disabled: boolean;
+  onChange: (host: SettingListenAtHost) => void;
+}) {
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      <span aria-hidden={saved.host !== "other"} className={labelLook}>
+        {label}
+      </span>
+      {saved.host === "other" ? (
+        <span className={unitLook}>{hostOf(saved)}</span>
+      ) : (
+        <Segmented
+          label={label}
+          options={listenHosts}
+          value={host}
+          disabled={disabled}
+          onValueChange={onChange}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Where the web server listens and its port. */
+function ListenControl({ field, busy, invalid, disabled, submit, onEdit }: ControlProps<"listen">) {
+  const saved = field.value;
+  const [host, setHost] = useState(saved.host);
+  const [amount, setAmount] = useState(String(saved.port));
+  const edited =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      onEdit();
+    };
+  return (
+    <form
+      onSubmit={onSubmit(() => {
+        const port = parsePort(amount);
+        submit(
+          "refused" in port ? port : { value: `${hostAddress(host, saved)}:${String(port.value)}` },
+        );
+      })}
+      className="flex flex-col items-start gap-3"
+    >
+      <HostPicker
+        label={field.label}
+        saved={saved}
+        host={host}
+        disabled={disabled || busy}
+        onChange={edited(setHost)}
+      />
+      <div className={controlRow}>
+        <AmountInput
+          label="Port"
+          value={amount}
+          invalid={invalid}
+          disabled={disabled}
+          inputMode="numeric"
+          onChange={edited(setAmount)}
+        />
+        <SaveButton
+          shown={host !== saved.host || amount.trim() !== String(saved.port)}
+          busy={busy}
+        />
+      </div>
+      {host === "all" && saved.host === "local" && <AllNetworksWarning />}
+    </form>
+  );
+}
+
+export const listenKind: Kind<"listen"> = {
+  words: (field) => listenWords(field.value),
+  hints: (field) => [defaultHint(field, listenWords(field.default))],
+  Control: ListenControl,
 };

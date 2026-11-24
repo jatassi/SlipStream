@@ -22469,8 +22469,9 @@
             "count": "#/components/schemas/SettingCountField",
             "duration": "#/components/schemas/SettingDurationField",
             "folder": "#/components/schemas/SettingFolderField",
+            "ip": "#/components/schemas/SettingIPField",
             "list": "#/components/schemas/SettingListField",
-            "port": "#/components/schemas/SettingPortField",
+            "listen": "#/components/schemas/SettingListenField",
             "rate": "#/components/schemas/SettingRateField",
             "size": "#/components/schemas/SettingSizeField",
             "space": "#/components/schemas/SettingSpaceField",
@@ -22494,7 +22495,7 @@
             "$ref": "#/components/schemas/SettingWindowField"
           },
           {
-            "$ref": "#/components/schemas/SettingPortField"
+            "$ref": "#/components/schemas/SettingListenField"
           },
           {
             "$ref": "#/components/schemas/SettingSwitchField"
@@ -22519,6 +22520,9 @@
           },
           {
             "$ref": "#/components/schemas/SettingSizeField"
+          },
+          {
+            "$ref": "#/components/schemas/SettingIPField"
           }
         ]
       },
@@ -22609,6 +22613,99 @@
         ],
         "type": "object"
       },
+      "SettingIPField": {
+        "additionalProperties": false,
+        "properties": {
+          "applies": {
+            "enum": [
+              "live",
+              "restart"
+            ],
+            "type": "string"
+          },
+          "default": {
+            "description": "Always null: the setting is empty by default",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "defaultFrom": {
+            "description": "Where the default comes from, when it is another setting's value",
+            "type": "string"
+          },
+          "family": {
+            "description": "Which addresses the setting takes: any IP address, or IPv6 only",
+            "enum": [
+              "any",
+              "ipv6"
+            ],
+            "type": "string"
+          },
+          "isDefault": {
+            "description": "The setting has no override; Reset to default leaves it unchanged",
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "ip"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "lockedBy": {
+            "description": "The environment variable that sets the value; the control is read-only",
+            "type": "string"
+          },
+          "pendingRestart": {
+            "description": "The saved value differs from the running one until the Node restarts",
+            "type": "boolean"
+          },
+          "running": {
+            "description": "The address, or null when it is empty",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "enum": [
+              "database",
+              "default",
+              "config.yaml",
+              ".env",
+              "env"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "description": "The address, or null when it is empty",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "running",
+          "default",
+          "family",
+          "key",
+          "label",
+          "source",
+          "applies",
+          "isDefault",
+          "pendingRestart"
+        ],
+        "type": "object"
+      },
       "SettingListField": {
         "additionalProperties": false,
         "properties": {
@@ -22634,9 +22731,10 @@
             "type": "boolean"
           },
           "item": {
-            "description": "What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv",
+            "description": "What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv; a host-port is a server's name or IP address and its port, such as stun.example.org:3478",
             "enum": [
-              "extension"
+              "extension",
+              "host-port"
             ],
             "type": "string"
           },
@@ -22705,23 +22803,35 @@
         ],
         "type": "object"
       },
-      "SettingNoun": {
+      "SettingListenAt": {
         "additionalProperties": false,
         "properties": {
-          "many": {
+          "address": {
+            "description": "The address and port, such as [::]:8484",
             "type": "string"
           },
-          "one": {
+          "host": {
+            "description": "all is every network, local is this machine only, other is an address set in config.yaml or the environment",
+            "enum": [
+              "all",
+              "local",
+              "other"
+            ],
             "type": "string"
+          },
+          "port": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
-          "one",
-          "many"
+          "host",
+          "port",
+          "address"
         ],
         "type": "object"
       },
-      "SettingPortField": {
+      "SettingListenField": {
         "additionalProperties": false,
         "properties": {
           "applies": {
@@ -22732,8 +22842,7 @@
             "type": "string"
           },
           "default": {
-            "format": "int64",
-            "type": "integer"
+            "$ref": "#/components/schemas/SettingListenAt"
           },
           "defaultFrom": {
             "description": "Where the default comes from, when it is another setting's value",
@@ -22748,7 +22857,7 @@
           },
           "kind": {
             "enum": [
-              "port"
+              "listen"
             ],
             "type": "string"
           },
@@ -22764,8 +22873,7 @@
             "type": "boolean"
           },
           "running": {
-            "format": "int64",
-            "type": "integer"
+            "$ref": "#/components/schemas/SettingListenAt"
           },
           "source": {
             "enum": [
@@ -22778,8 +22886,7 @@
             "type": "string"
           },
           "value": {
-            "format": "int64",
-            "type": "integer"
+            "$ref": "#/components/schemas/SettingListenAt"
           }
         },
         "required": [
@@ -22793,6 +22900,22 @@
           "applies",
           "isDefault",
           "pendingRestart"
+        ],
+        "type": "object"
+      },
+      "SettingNoun": {
+        "additionalProperties": false,
+        "properties": {
+          "many": {
+            "type": "string"
+          },
+          "one": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "one",
+          "many"
         ],
         "type": "object"
       },

@@ -384,9 +384,22 @@ export const SettingWindowField = zod.object({
 export type SettingWindowField = zod.input<typeof SettingWindowField>;
 export type SettingWindowFieldOutput = zod.output<typeof SettingWindowField>;
 
-export const SettingPortField = zod.object({
+export const SettingListenAt = zod.object({
+  address: zod.string().describe("The address and port, such as [::]:8484"),
+  host: zod
+    .enum(["all", "local", "other"])
+    .describe(
+      "all is every network, local is this machine only, other is an address set in config.yaml or the environment",
+    ),
+  port: zod.int(),
+});
+
+export type SettingListenAt = zod.input<typeof SettingListenAt>;
+export type SettingListenAtOutput = zod.output<typeof SettingListenAt>;
+
+export const SettingListenField = zod.object({
   applies: zod.enum(["live", "restart"]),
-  default: zod.int(),
+  default: SettingListenAt,
   defaultFrom: zod
     .string()
     .exactOptional()
@@ -395,7 +408,7 @@ export const SettingPortField = zod.object({
     .boolean()
     .describe("The setting has no override; Reset to default leaves it unchanged"),
   key: zod.string(),
-  kind: zod.enum(["port"]),
+  kind: zod.enum(["listen"]),
   label: zod.string(),
   lockedBy: zod
     .string()
@@ -404,13 +417,13 @@ export const SettingPortField = zod.object({
   pendingRestart: zod
     .boolean()
     .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int(),
+  running: SettingListenAt,
   source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.int(),
+  value: SettingListenAt,
 });
 
-export type SettingPortField = zod.input<typeof SettingPortField>;
-export type SettingPortFieldOutput = zod.output<typeof SettingPortField>;
+export type SettingListenField = zod.input<typeof SettingListenField>;
+export type SettingListenFieldOutput = zod.output<typeof SettingListenField>;
 
 export const SettingSwitchField = zod.object({
   applies: zod.enum(["live", "restart"]),
@@ -611,9 +624,9 @@ export const SettingListField = zod.object({
     .boolean()
     .describe("The setting has no override; Reset to default leaves it unchanged"),
   item: zod
-    .enum(["extension"])
+    .enum(["extension", "host-port"])
     .describe(
-      "What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv",
+      "What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv; a host-port is a server's name or IP address and its port, such as stun.example.org:3478",
     ),
   key: zod.string(),
   kind: zod.enum(["list"]),
@@ -664,12 +677,43 @@ export const SettingSizeField = zod.object({
 export type SettingSizeField = zod.input<typeof SettingSizeField>;
 export type SettingSizeFieldOutput = zod.output<typeof SettingSizeField>;
 
+export const SettingIPField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string().nullable().describe("Always null: the setting is empty by default"),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  family: zod
+    .enum(["any", "ipv6"])
+    .describe("Which addresses the setting takes: any IP address, or IPv6 only"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["ip"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.string().nullable().describe("The address, or null when it is empty"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string().nullable().describe("The address, or null when it is empty"),
+});
+
+export type SettingIPField = zod.input<typeof SettingIPField>;
+export type SettingIPFieldOutput = zod.output<typeof SettingIPField>;
+
 export const SettingField = zod.discriminatedUnion("kind", [
   SettingDurationField,
   SettingCountField,
   SettingChoiceField,
   SettingWindowField,
-  SettingPortField,
+  SettingListenField,
   SettingSwitchField,
   SettingRateField,
   SettingAddressField,
@@ -678,6 +722,7 @@ export const SettingField = zod.discriminatedUnion("kind", [
   SettingTemplateField,
   SettingListField,
   SettingSizeField,
+  SettingIPField,
 ]);
 
 export type SettingField = zod.input<typeof SettingField>;

@@ -296,7 +296,7 @@ func admitMiddleware[P any](r *Router, level Level[P], fenced bool) func(huma.Co
 			writeProblem(w, code.problem())
 			return
 		}
-		c, ok := r.caller(w, req, level.authenticates)
+		c, arrival, ok := r.caller(w, req, level.authenticates)
 		if !ok {
 			return
 		}
@@ -305,7 +305,7 @@ func admitMiddleware[P any](r *Router, level Level[P], fenced bool) func(huma.Co
 				writeProblem(w, Superseded.problem())
 				return
 			}
-			next(huma.WithValue(ctx, principalKey{}, p))
+			next(huma.WithValue(huma.WithValue(ctx, principalKey{}, p), arrivalKey{}, arrival))
 		})
 		if err == nil {
 			return

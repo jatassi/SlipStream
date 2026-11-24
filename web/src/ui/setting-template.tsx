@@ -56,3 +56,39 @@ export const templateKind: Kind<"template"> = {
   hints: (field) => [defaultHint(field, `"${field.default}"`)],
   Control: TemplateControl,
 };
+
+/** An IP address as typed, blank to empty it; the setting's owner judges it on save. */
+function IPControl({ field, busy, invalid, disabled, submit, onEdit }: ControlProps<"ip">) {
+  const saved = field.value ?? "";
+  const [text, setText] = useState(saved);
+  return (
+    <form
+      onSubmit={onSubmit(() => {
+        submit({ value: text.trim() });
+      })}
+      className="flex flex-wrap items-end gap-2"
+    >
+      <Field.Root invalid={invalid} disabled={disabled} className="flex flex-col gap-1.5">
+        <Field.Label className={labelLook}>{field.label}</Field.Label>
+        <Input
+          inputMode="text"
+          autoComplete="off"
+          spellCheck={false}
+          value={text}
+          onValueChange={(next) => {
+            setText(next);
+            onEdit();
+          }}
+          className={`w-72 max-w-full ${inputLook}`}
+        />
+      </Field.Root>
+      <SaveButton shown={text.trim() !== saved} busy={busy} />
+    </form>
+  );
+}
+
+export const ipKind: Kind<"ip"> = {
+  words: (field) => field.value ?? "None",
+  hints: () => ["Empty by default."],
+  Control: IPControl,
+};

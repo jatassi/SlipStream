@@ -73,20 +73,21 @@ func (r *Router) crossOriginProtection(next http.Handler) http.Handler {
 	})
 }
 
-// caller resolves req's Caller once its operation is known. A public
+// caller resolves req's Caller and Arrival once its operation is known. A public
 // operation's caller presents nothing, so it never reads or slides a
 // session, whatever cookie or key the request carries. Neither does any
 // caller of a Node whose library.db is closed, which holds no session or
 // API key to match.
-func (r *Router) caller(w http.ResponseWriter, req *http.Request, authenticates bool) (identity.Caller, bool) {
+func (r *Router) caller(w http.ResponseWriter, req *http.Request, authenticates bool) (identity.Caller, Arrival, bool) {
 	addr, https := proxies(r.services.TrustedProxies).clientOf(req)
+	arrival := arrivalOf(req, addr)
 	creds := identity.Request{Address: addr, HTTPS: https, Host: req.Host, UserAgent: req.UserAgent()}
 	if !authenticates {
-		return creds.Unauthenticated(), true
+		return creds.Unauthenticated(), arrival, true
 	}
 	ids, open := r.services.Node.Identity()
 	if !open {
-		return creds.Unauthenticated(), true
+		return creds.Unauthenticated(), arrival, true
 	}
 	creds.APIKey = req.Header.Get(apiKeyHeader)
 	if c, err := req.Cookie(identity.CookieName); err == nil {
@@ -96,12 +97,12 @@ func (r *Router) caller(w http.ResponseWriter, req *http.Request, authenticates 
 	if err != nil {
 		r.logFailure(req.Context(), "authentication failed", "method", req.Method, "path", req.URL.Path, "error", err)
 		writeProblem(w, Internal.problem())
-		return identity.Caller{}, false
+		return identity.Caller{}, Arrival{}, false
 	}
 	if cookie != nil {
 		http.SetCookie(w, cookie)
 	}
-	return caller, true
+	return caller, arrival, true
 }
 
 // contentTypes covers the extensions Go's built-in MIME table lacks, which
