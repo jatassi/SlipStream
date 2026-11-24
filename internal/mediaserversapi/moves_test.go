@@ -124,7 +124,7 @@ func (m moving) snapshotted(t *testing.T, file files.ID) map[link.ServerID]bool 
 	return out
 }
 
-const movingWords = "Saved every user's watch data before the Move. SlipStream sends this change once the Move finishes."
+const movingWords = "Saved who watched it and each user's play count, resume position, favorite and rating before the Move. SlipStream sends this change once the Move finishes."
 
 // unscanned clears Vault's scan, as for a folder Den never scanned.
 func (m moving) unscanned(t *testing.T) {
@@ -183,7 +183,7 @@ func TestAMoveToAnotherRootKeepsEveryUsersWatchData(t *testing.T) {
 				m.sourceGone(t, trip, rel)
 				settle(5 * time.Minute)
 				sent := change(t, m.changes(t), "Trip/Trip.mkv")
-				if sent.State != "sent" || !strings.HasPrefix(sent.Words, "Sent the Move to ") || !strings.HasSuffix(sent.Words, "Vault on home. Kept every user's watch data.") {
+				if sent.State != "sent" || !strings.HasPrefix(sent.Words, "Sent the Move to ") || !strings.HasSuffix(sent.Words, "Vault on home. Kept who watched it and each user's play count, resume position, favorite and rating.") {
 					t.Errorf("the Move's change is %s: %q", sent.State, sent.Words)
 				}
 				expectReported(t, m.den, "Deleted "+p+"Trip/Trip.mkv", "Created "+vault+"/Trip/Trip.mkv")

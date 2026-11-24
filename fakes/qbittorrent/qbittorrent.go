@@ -14,6 +14,7 @@
 package qbittorrent
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -110,6 +111,9 @@ type Client struct {
 	// found: list an add a moment after they answer, and from 5.2 answer a
 	// duplicate add with a 200 that reports it added.
 	LateAdds bool
+	// Refresh is refresh_interval, how often it refreshes the torrent list,
+	// which shows a start or a stop only then: 1.5 s for 0.
+	Refresh time.Duration
 }
 
 // Playing is Fake playing clients, for a test that names them itself.
@@ -168,6 +172,8 @@ const (
 	refresh = 1500 * time.Millisecond
 )
 
+func (c Client) refresh() time.Duration { return cmp.Or(c.Refresh, refresh) }
+
 type server struct {
 	clients map[string]*client
 }
@@ -207,7 +213,7 @@ func serve(env fake.Env, clients []Client) (fake.Server, error) {
 			Client: c, version: v,
 			engine: torrentclient.New(torrentclient.Config{
 				Releases: env.Releases, Dir: c.Dir, Name: c.Folder, Windows: c.Windows, Rate: c.Rate, Slots: c.Slots, SeedRatio: c.SeedRatio, Check: c.Check,
-				Tick: refresh, StartLag: refresh, ListAfter: map[bool]time.Duration{true: lateAdd}[c.LateAdds],
+				Tick: c.refresh(), StartLag: c.refresh(), ListAfter: map[bool]time.Duration{true: lateAdd}[c.LateAdds],
 				Tracker: clientfake.Tracker(env, c.Node), PeerID: clientfake.PeerID("-qB4670-", c.Node),
 			}),
 			sessions: map[string]*session{}, failures: map[string]int{}, banned: map[string]time.Time{},

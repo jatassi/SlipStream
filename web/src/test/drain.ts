@@ -2,6 +2,7 @@ import { HttpResponse, http } from "msw";
 
 import type {
   DownloadclientsClientsList,
+  HealthVolume,
   MovesMovePreview,
   MovesStartedMoves,
   NodesNode,
@@ -36,7 +37,10 @@ export const homeFilms: RootsRoot = {
   volumeId: "sdb1",
 };
 
-const fullerFilms: RootsRoot = {
+/** The volume homeFilms is on. */
+export const homeFilmsVolume = { id: "sdb1", mount: "/mnt/films", free: 2 * 1024 ** 4 } as const;
+
+export const fullerFilms: RootsRoot = {
   ...homeFilms,
   id: "0199f0a1-1111-7000-8000-0000000000e2",
   path: "/mnt/full",
@@ -118,10 +122,32 @@ const started: MovesStartedMoves = {
   dropped: [],
 };
 
+const homeVolumes: RootsVolumeList = {
+  nodes: [
+    {
+      nodeId: homeId,
+      live: true,
+      volumes: [
+        { ...mediaVolume, ...homeFilmsVolume, rootIds: [homeFilms.id] },
+        {
+          ...mediaVolume,
+          id: "sdc1",
+          mount: "/mnt/full",
+          free: 1024 ** 3,
+          rootIds: [fullerFilms.id],
+        },
+      ],
+    },
+  ],
+};
+
 const served = (path: string, body: object) => http.get(path, () => HttpResponse.json(body));
 
-/** seedbox draining Storage and Downloading on its Roles page, with every Move request it was sent. */
-export function drainWorld() {
+/**
+ * seedbox draining Storage and Downloading on its Roles page, with every
+ * Move request it was sent. levelled is Health's figures for home's volumes.
+ */
+export function drainWorld(levelled: readonly HealthVolume[] = []) {
   const sent = { previews: [] as unknown[], starts: [] as unknown[], order: [] as string[] };
   renderApp({
     path: `/nodes/${seedboxId}/roles`,
@@ -136,24 +162,14 @@ export function drainWorld() {
       served("*/api/v1/roots", {
         roots: [seedboxFilms, homeFilms, fullerFilms],
       } satisfies RootsRootList),
-      served("*/api/v1/volumes", {
-        nodes: [
-          {
-            nodeId: homeId,
-            live: true,
-            volumes: [
-              { ...mediaVolume, id: "sdb1", free: 2 * 1024 ** 4, rootIds: [homeFilms.id] },
-              { ...mediaVolume, id: "sdc1", free: 1024 ** 3, rootIds: [fullerFilms.id] },
-            ],
-          },
-        ],
-      } satisfies RootsVolumeList),
+      served("*/api/v1/volumes", homeVolumes),
       served("*/api/v1/download-clients", {
         cards: [homeCard, seedboxCard],
         thresholds,
         orphans: [],
         kinds: [],
       } satisfies DownloadclientsClientsList),
+      served("*/api/v1/system/health/volumes", { volumes: levelled, notReporting: [] }),
       served("*/api/v1/content-types", { contentTypes: [cinema] } satisfies WorksContentTypeList),
       http.post("*/api/v1/moves/preview", async ({ request }) => {
         sent.previews.push(await request.json());

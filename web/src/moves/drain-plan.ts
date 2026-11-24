@@ -1,5 +1,6 @@
 import type {
   DownloadclientsClientCard as Card,
+  HealthVolume,
   MovesMoveAsk,
   MovesMovePreview,
   NodesNamed,
@@ -7,6 +8,7 @@ import type {
   RootsNodeVolumes,
   RootsRoot,
 } from "../api/gen/model";
+import { healthOfRoot } from "../roots/storage-block";
 import { type Side, firstOther, sideBody } from "./client-move-dialog";
 
 /** The Node a change of Roles drains of Storage or Downloading while it still has their work. */
@@ -40,18 +42,32 @@ const freeOn = (root: RootsRoot, volumes: readonly RootsNodeVolumes[]) =>
     .find(({ nodeId }) => nodeId === root.nodeId)
     ?.volumes.find(({ rootIds }) => rootIds.includes(root.id))?.free ?? 0;
 
-/** The ready roots of root's Content Type on other Nodes, most free space first. */
-const destinationsOf = (
+/** The bytes free on root's volume above its Warning level, all of them while Health has no level for it. */
+const aboveWarning = (
   root: RootsRoot,
-  roots: readonly RootsRoot[],
   volumes: readonly RootsNodeVolumes[],
-) =>
-  roots
+  levelled: readonly HealthVolume[],
+) => freeOn(root, volumes) - (healthOfRoot(root, volumes, levelled)?.warnBytes ?? 0);
+
+/** The ready roots of root's Content Type on other Nodes, most free space above the Warning level first. */
+const destinationsOf = (root: RootsRoot, listed: Listed) =>
+  listed.roots
     .filter(
       (to) =>
         to.contentType === root.contentType && to.nodeId !== root.nodeId && to.state === "ready",
     )
-    .toSorted((a, b) => freeOn(b, volumes) - freeOn(a, volumes));
+    .toSorted(
+      (a, b) =>
+        aboveWarning(b, listed.volumes, listed.levelled) -
+        aboveWarning(a, listed.volumes, listed.levelled),
+    );
+
+export type Listed = {
+  readonly roots: readonly RootsRoot[];
+  readonly volumes: readonly RootsNodeVolumes[];
+  readonly levelled: readonly HealthVolume[];
+  readonly cards: readonly Card[];
+};
 
 /** The Node's own Download Clients: its built-in one, then each external one. */
 const clientsOf = (card: Card | undefined): { side: Side; name: string }[] =>
@@ -87,25 +103,17 @@ export type ClientPair = {
 
 /**
  * Each source root and client of the drained Node with where it goes: the
- * Admin's pick, else the root with the most free space and the first
- * client on another Node.
+ * Admin's pick, else the root with the most free space above its Warning
+ * level and the first client on another Node.
  */
-export function pairsOf(
-  draining: Draining,
-  picks: Picks,
-  listed: {
-    roots: readonly RootsRoot[];
-    volumes: readonly RootsNodeVolumes[];
-    cards: readonly Card[];
-  },
-) {
+export function pairsOf(draining: Draining, picks: Picks, listed: Listed) {
   const { node } = draining;
   const others = listed.cards.filter(({ nodeId }) => nodeId !== node.id);
   const roots: RootPair[] = draining.storage
     ? listed.roots
         .filter(({ nodeId }) => nodeId === node.id)
         .map((root) => {
-          const options = destinationsOf(root, listed.roots, listed.volumes);
+          const options = destinationsOf(root, listed);
           return { root, options, to: picks.roots[root.id] ?? options[0]?.id };
         })
     : [];

@@ -18,6 +18,8 @@ import (
 	"testing/synctest"
 	"time"
 
+	"golang.org/x/text/unicode/norm"
+
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
@@ -375,6 +377,30 @@ func TestAFirstScanAddsTheWorksItIsSureOfAndAnUnchangedRootReadsNothing(t *testi
 		s.expectWorks(films...)
 		if n := s.count("SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL"); n != 1 {
 			t.Fatalf("Pending imports hold %d entries after a scan of the unchanged root, want 1", n)
+		}
+	})
+}
+
+// TestTwoMoviesOfOneTitleAndYearEachJoinTheirTag stocks two folders
+// named "The Painted Déjà Vu (1962)" with different TMDB tags, the second
+// spelled in NFD as macOS writes it: the scan adds each movie with the
+// file its tag names, never both files to the first movie by its title.
+func TestTwoMoviesOfOneTitleAndYearEachJoinTheirTag(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		twins := []scenario.TMDBMovie{
+			{ID: 9100011, IMDbID: "tt9100011", Title: "The Painted Déjà Vu", Released: "1962-05-04", Runtime: 95 * time.Minute},
+			{ID: 9100012, IMDbID: "tt9100012", Title: "The Painted Déjà Vu", Released: "1962-10-12", Runtime: 102 * time.Minute},
+		}
+		s := shelve(t, func(sc *scenario.Scenario) { sc.TMDB.Movies = append(sc.TMDB.Movies, twins...) })
+		s.put(fileOf(twins[0]), 4096, hd)
+		s.put(norm.NFD.String(fileOf(twins[1])), 4097, hd)
+		expectScanned(t, s.scan(), "succeeded", succeeded)
+		for _, m := range twins {
+			q := fmt.Sprintf("SELECT count(*) FROM files_file f JOIN movie_movie m ON m.work_id = f.work_id WHERE m.tmdb_id = %d", m.ID)
+			if n := s.count(q); n != 1 {
+				t.Errorf("TMDB %d's movie holds %d files, want its own one", m.ID, n)
+			}
 		}
 	})
 }

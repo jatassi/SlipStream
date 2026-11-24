@@ -1,5 +1,5 @@
 import type {
-  HealthVolumeList,
+  HealthVolume,
   NodesNode,
   RootsNodeVolumes,
   RootsRoot,
@@ -12,8 +12,23 @@ import { Section } from "../ui/section";
 import { NotReporting } from "./not-reporting";
 import { VolumeRow } from "./volume-row";
 
-const healthOf = (levelled: HealthVolumeList, nodeId: string, { mount }: RootsRootVolume) =>
-  levelled.volumes.find((volume) => volume.nodeId === nodeId && volume.mount === mount);
+const healthOf = (
+  levelled: readonly HealthVolume[],
+  nodeId: string,
+  { mount }: Pick<RootsRootVolume, "mount">,
+) => levelled.find((volume) => volume.nodeId === nodeId && volume.mount === mount);
+
+/** The Health figures of the volume root sits on, undefined while no Node reports it. */
+export function healthOfRoot(
+  root: RootsRoot,
+  volumes: readonly RootsNodeVolumes[],
+  levelled: readonly HealthVolume[],
+): HealthVolume | undefined {
+  const volume = volumes
+    .find(({ nodeId }) => nodeId === root.nodeId)
+    ?.volumes.find(({ id }) => id === root.volumeId);
+  return volume === undefined ? undefined : healthOf(levelled, root.nodeId, volume);
+}
 
 /**
  * Each volume that holds a root, grouped by its Node: how full it is, its
@@ -53,7 +68,7 @@ export function StorageBlock({
                       <VolumeRow
                         key={volume.id}
                         volume={volume}
-                        health={healthOf(levelled, group.nodeId, volume)}
+                        health={healthOf(levelled.volumes, group.nodeId, volume)}
                         live={group.live}
                         roots={roots}
                       />

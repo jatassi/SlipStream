@@ -57,7 +57,14 @@ type preferences struct {
 	RatioOn    bool `json:"max_ratio_enabled"`
 	SeedingOn  bool `json:"max_seeding_time_enabled"`
 	InactiveOn bool `json:"max_inactive_seeding_time_enabled"`
+	// Refresh is refresh_interval in milliseconds: qBittorrent lists a
+	// start or a stop only at its next refresh of the torrent list.
+	Refresh int64 `json:"refresh_interval"`
 }
+
+// refreshMargin is how long past a refresh interval a run Act asked for
+// still reads as asked, for the listing that shows it to arrive.
+const refreshMargin = time.Second
 
 func (p preferences) removesAtLimit() bool {
 	return (p.RatioAct == 1 || p.RatioAct == 3) && (p.RatioOn || p.SeedingOn || p.InactiveOn)
@@ -245,7 +252,7 @@ func (c *client) Export(ctx context.Context, h bencode.InfoHash) ([]byte, error)
 
 // report is one torrents/info row by its hash, the run state a check
 // hides taken from what the torrent was last seen or asked to do, and a
-// run Act asked for kept until a listing reads it or RunWait passes.
+// run Act asked for kept until a listing reads it or its hold passes.
 func (c *client) report(ctx context.Context, t torrent) (bencode.InfoHash, clients.Status, error) {
 	h, err := bencode.ParseInfoHash(t.Hash)
 	if err != nil {
@@ -256,11 +263,11 @@ func (c *client) report(ctx context.Context, t torrent) (bencode.InfoHash, clien
 		return h, clients.Status{}, err
 	}
 	if run, ok := c.ran[h]; ok {
-		at, asked := c.asked[h]
+		until, asked := c.asked[h]
 		switch {
 		case s.Activity == clients.Checking:
 			s.Run = run
-		case asked && s.Run != run && time.Since(at) < c.s.RunWait:
+		case asked && s.Run != run && time.Now().Before(until):
 			s.Run = run
 		default:
 			delete(c.asked, h)
@@ -436,6 +443,15 @@ func (c *client) Act(ctx context.Context, a clients.Act, hashes []bencode.InfoHa
 	if err := c.versions(ctx); err != nil {
 		return err
 	}
+	run, runs := map[clients.Act]clients.Run{clients.Pause: clients.Paused, clients.Resume: clients.Started}[a]
+	hold := c.s.RunWait
+	if runs {
+		p, err := c.preferences(ctx)
+		if err != nil {
+			return err
+		}
+		hold = max(hold, time.Duration(p.Refresh)*time.Millisecond+refreshMargin)
+	}
 	call := acts[a][0]
 	if c.renamed() {
 		call = acts[a][1]
@@ -443,10 +459,10 @@ func (c *client) Act(ctx context.Context, a clients.Act, hashes []bencode.InfoHa
 	if err := c.act(ctx, post("torrents/"+call, url.Values{"hashes": {joinHashes(hashes)}})); err != nil {
 		return err
 	}
-	if run, ok := map[clients.Act]clients.Run{clients.Pause: clients.Paused, clients.Resume: clients.Started}[a]; ok {
-		now := time.Now()
+	if runs {
+		until := time.Now().Add(hold)
 		for _, h := range hashes {
-			c.ran[h], c.asked[h] = run, now
+			c.ran[h], c.asked[h] = run, until
 		}
 	}
 	return nil

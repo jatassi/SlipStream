@@ -32,6 +32,7 @@ type MovesSetting struct {
 	ID                   Singleton
 	NeedsYouAfterMinutes *int64
 	PlexBoundMinutes     *int64
+	CheckBoundMinutes    *int64
 }
 
 type MovesUnit struct {
