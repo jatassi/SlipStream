@@ -1,5 +1,6 @@
 import { type Ref, useImperativeHandle, useState } from "react";
 
+import { useListHealthVolumesSuspense } from "../api/gen/query/health/health";
 import { useListDownloadClientsSuspense } from "../api/gen/query/downloadclients/downloadclients";
 import { useListRootsSuspense, useListVolumesSuspense } from "../api/gen/query/roots/roots";
 import { Checkbox } from "../ui/checkbox";
@@ -22,6 +23,7 @@ export function DrainSection({ draining, ref }: { draining: Draining; ref: Ref<D
   const listed = {
     roots: useListRootsSuspense().data.roots,
     volumes: useListVolumesSuspense().data.nodes,
+    levelled: useListHealthVolumesSuspense().data.volumes,
     cards: useListDownloadClientsSuspense().data.cards,
   };
   const [on, setOn] = useState(false);
