@@ -108,7 +108,7 @@ func (c *Client) forwards(ctx context.Context, s service, wanted []uint16) []net
 func forward(external uint16, args map[string]string) netmodel.Forward {
 	internal, _ := strconv.ParseUint(args["NewInternalPort"], 10, 16)
 	client, _ := netip.ParseAddr(args["NewInternalClient"])
-	return netmodel.Forward{External: external, Client: client, Internal: uint16(internal)}
+	return netmodel.Forward{External: external, Client: client, Internal: uint16(internal), Description: args["NewPortMappingDescription"]}
 }
 
 // search sends one M-SEARCH and answers the LOCATION of the first answer

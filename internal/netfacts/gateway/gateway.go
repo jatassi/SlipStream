@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"fmt"
 	"net"
 	"net/http"
 	"net/netip"
@@ -88,25 +87,7 @@ func (c *Client) Read(ctx context.Context, gw Target, wanted []uint16) (netmodel
 // exchange sends req to at and answers the first reply, nil when none
 // comes inside the exchange bound.
 func (c *Client) exchange(ctx context.Context, at netip.AddrPort, req []byte) ([]byte, error) {
-	conn, err := c.Packets.DialUDP(ctx, at)
-	if err != nil {
-		return nil, fmt.Errorf("open a socket to the router: %w", err)
-	}
-	defer func() { _ = conn.Close() }()
-	if _, err := conn.Write(req); err != nil {
-		return nil, nil
-	}
-	deadline := time.Now().Add(c.Timings.Exchange)
-	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
-		deadline = d
-	}
-	_ = conn.SetReadDeadline(deadline)
-	buf := make([]byte, 1100)
-	n, err := conn.Read(buf)
-	if err != nil {
-		return nil, nil
-	}
-	return buf[:n], nil
+	return c.exchangeFrom(ctx, at, func(netip.Addr) []byte { return req })
 }
 
 const (
