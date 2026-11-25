@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -36,6 +37,9 @@ type lane struct {
 	// run has timed. A lane without a shardTime runs one job per target.
 	shardTime     time.Duration
 	defaultShards int
+	// maxShardTime, when set, is the longest test step a budget may trim
+	// the lane's shards to, in place of the job-wide maxShardTime.
+	maxShardTime time.Duration
 	// onlyWhen, when set, keeps the lane off a run that does not run every
 	// target unless the change touches what the lane checks.
 	onlyWhen func(touched) bool
@@ -75,7 +79,10 @@ var lanes = []lane{
 	{kind: "build", limit: 45},
 	{kind: "lint", tier: "lint", targets: []string{"linux-amd64", "windows-amd64", "darwin-arm64"}, limit: 20},
 	{kind: "go", tier: "go", shardTime: 10 * time.Minute, defaultShards: 4, limit: 30},
-	{kind: "e2e", tier: "e2e", shardTime: 20 * time.Minute, defaultShards: 4, limit: 45},
+	// An e2e shard trimmed past 20 minutes runs its heaviest packages
+	// together on 4 CPUs, which takes a part of fakes/world/sim past go
+	// test's 25 minute -timeout (PR #708's first merge check).
+	{kind: "e2e", tier: "e2e", shardTime: 20 * time.Minute, maxShardTime: 20 * time.Minute, defaultShards: 4, limit: 45},
 	{kind: "browser", tier: "browser", targets: []string{"linux-amd64", "darwin-arm64"}, playwright: true, shardTime: 30 * time.Minute, defaultShards: 4, limit: 45},
 	{kind: "component", tier: "component", playwright: true, targets: []string{"linux-amd64"}, limit: 20},
 	{kind: "diagram", tier: "component", playwright: true, targets: []string{"linux-amd64"}, onlyWhen: func(t touched) bool { return t.diagram }, limit: 15},
@@ -587,7 +594,7 @@ func (l lane) sized(t plannedTarget, r recorded) sized {
 	default:
 		s.load = r.seconds / l.shardTime.Seconds()
 		s.shards = max(1, int(math.Ceil(s.load)))
-		s.floor = int(math.Ceil(r.seconds / maxShardTime.Seconds()))
+		s.floor = int(math.Ceil(r.seconds / cmp.Or(l.maxShardTime, maxShardTime).Seconds()))
 	}
 	return s
 }
