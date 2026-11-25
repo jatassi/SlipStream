@@ -66,7 +66,7 @@ const run: Pick<
   notes: [],
 };
 
-const pressed: GrabsSearchQueued = {
+const orchardPressed: GrabsSearchQueued = {
   groups: [
     { key: run.groupKey ?? "", label: orchard.label, itemIds: [orchardItemId], state: "queued" },
   ],
@@ -241,6 +241,7 @@ type WorkServerOptions = {
   readonly files?: FilesFileList;
   /** What the search queue is doing for the Work. */
   readonly queue?: GrabsWorkSearching;
+  readonly pressed?: GrabsSearchQueued;
 };
 
 /**
@@ -253,6 +254,7 @@ export function workServer({
   startCells = missing,
   files,
   queue: queued = aWorkSearching({ groups: [] }),
+  pressed = orchardPressed,
 }: WorkServerOptions = {}) {
   let cells = startCells;
   let searches: GrabsSearchList = { searches: [] };

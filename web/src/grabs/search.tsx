@@ -10,17 +10,22 @@ import { lowered } from "../works/monitoring/labels";
 import { queuedToast } from "./search-words";
 import { useReadSearchingNow } from "./searching-query";
 
-/** What a press of Search names in its toast: a count of Items by noun, or a Work's or Item's name. */
-export type Searched = { readonly count: number; readonly item: Noun } | { readonly name: string };
+/** What a press of Search names in its toast: a count of the Items it queued by noun, or a Work's or Item's name. */
+export type Searched = { readonly item: Noun } | { readonly name: string };
 
-const searchedWords = (searched: Searched): string =>
-  "name" in searched ? searched.name : countWords(searched.count, lowered(searched.item));
+const searchedWords = (searched: Searched, answer: GrabsSearchQueued): string =>
+  "name" in searched
+    ? searched.name
+    : countWords(
+        new Set(answer.groups.flatMap(({ itemIds }) => itemIds)).size,
+        lowered(searched.item),
+      );
 
 /** Queues a search of a Work, or of the levels and Items a scope names, and toasts what it queued. */
 export function useStartSearch() {
   const readNow = useReadSearchingNow();
   const announce = async (workId: string, answer: GrabsSearchQueued, searched: Searched) => {
-    toast(queuedToast(answer, await readNow(workId), searchedWords(searched)));
+    toast(queuedToast(answer, await readNow(workId), searchedWords(searched, answer)));
   };
   const search = useSearchWork({
     mutation: {

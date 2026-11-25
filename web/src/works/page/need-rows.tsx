@@ -31,7 +31,7 @@ export function Upgrades({
                 size="small"
                 busy={search.isPending}
                 onClick={() => {
-                  search.start(naming.work.id, itemsSearched(naming, need.itemIds), {
+                  search.start(naming.work.id, itemsSearched(naming), {
                     levelIds: [],
                     itemIds: need.itemIds,
                   });
@@ -52,10 +52,8 @@ export function Upgrades({
   );
 }
 
-const itemsSearched = (naming: Naming, itemIds: readonly string[]) =>
-  naming.type.items === "one"
-    ? { name: naming.work.label }
-    : { count: itemIds.length, item: naming.type.item };
+const itemsSearched = (naming: Naming) =>
+  naming.type.items === "one" ? { name: naming.work.label } : { item: naming.type.item };
 
 /** Missing Items whose group's last search found nothing, with when SlipStream searches them next, as the hero reads that group. */
 export function NotFound({
@@ -83,7 +81,7 @@ export function NotFound({
                   size="small"
                   busy={search.isPending}
                   onClick={() => {
-                    search.start(naming.work.id, itemsSearched(naming, need.itemIds), {
+                    search.start(naming.work.id, itemsSearched(naming), {
                       levelIds: [],
                       itemIds: need.itemIds,
                     });
