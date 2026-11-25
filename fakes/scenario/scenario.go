@@ -33,6 +33,10 @@ type Scenario struct {
 	// Members are the Accounts beside the Admin. The world makes each
 	// through a Signup link the Admin issues.
 	Members []Member `yaml:"members,omitempty"`
+	// PlexAccounts are plex.tv accounts fake-plex-tv holds beside the
+	// Admin's and the Members', which no Account has signed in with, for a
+	// person who joins during the run.
+	PlexAccounts []PlexAccount `yaml:"plex_accounts,omitempty"`
 	// Mail saves fakes/smtp as the Controller's email setting.
 	Mail bool `yaml:"mail,omitempty"`
 	// Notify are the notification connections the world adds on the
@@ -88,6 +92,11 @@ type Member struct {
 	DisplayName string `jsonschema:"required"                   yaml:"display_name"`
 	PIN         string `jsonschema:"required,pattern=^[0-9]{4}$" yaml:"pin"`
 	Admin       bool   `yaml:"admin,omitempty"`
+	// Plex is the Member's plex.tv account, which fake-plex-tv holds.
+	Plex *PlexAccount `yaml:"plex,omitempty"`
+	// Access is the Member's access to the Scenario's Media Servers, which
+	// the world drives to each state once the servers are added.
+	Access []MemberAccess `yaml:"access,omitempty"`
 }
 
 type Node struct {
@@ -259,6 +268,7 @@ func (s Scenario) checkMembers(add func(format string, args ...any)) {
 			add("member %s pin %q is not four digits", m.Email, m.PIN)
 		}
 	}
+	s.checkAccess(add)
 }
 
 func (s Scenario) checkNotify(add func(format string, args ...any)) {

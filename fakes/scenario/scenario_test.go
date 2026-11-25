@@ -389,6 +389,27 @@ func TestParseRefuses(t *testing.T) {
 			"scenario x: media server P puts roots of movie and series in library Mixed; a library holds one Content Type",
 		},
 		{
+			"member access",
+			"seed: x\nnodes:\n  - name: home\n    setup: controller\n" +
+				"    media_servers: [{kind: plex, name: P, show_to_members: true}, {kind: jellyfin, name: J}, {kind: emby, name: E, show_to_members: true}]\n" +
+				"admin: {email: a@example.test, display_name: A, pin: \"1234\"}\n" +
+				"plex_accounts: [{username: noor, email: noor@example.test}]\n" +
+				"members:\n" +
+				"  - {email: b@example.test, display_name: B, pin: \"1111\", access: [{server: P, state: waiting}, {server: J, state: active}]}\n" +
+				"  - email: c@example.test\n    display_name: C\n    pin: \"2222\"\n    plex: {username: Noor, email: c@example.test}\n" +
+				"    access: [{server: P, state: removed}, {server: E, state: shared}, {server: Z, state: offered}, {server: E, state: offered}, {server: P, state: gone}]\n" +
+				"library: {roots: [{content_type: movie, folder: movies}]}\n",
+			"scenario x: member b@example.test access to P is waiting, so plex is required\n" +
+				"scenario x: member b@example.test has access to J, which isn't shown to members\n" +
+				"scenario x: plex account Noor is listed twice\n" +
+				"scenario x: member c@example.test access to P is removed, which only Jellyfin and Emby take\n" +
+				"scenario x: member c@example.test access to E is shared, which only Plex takes\n" +
+				"scenario x: member c@example.test has access to Z, which no node reaches\n" +
+				"scenario x: member c@example.test lists access to E twice\n" +
+				`scenario x: member c@example.test access to P is "gone", not one of [offered waiting shared active removed]` + "\n" +
+				"scenario x: member c@example.test lists access to P twice",
+		},
+		{
 			"automatic search out of range",
 			"seed: x\nadmin: {email: a@example.test, display_name: A, pin: \"1234\"}\nnodes: [{name: home, setup: controller}]\n" +
 				"library:\n  roots: [{content_type: movie, folder: movies}]\n" +

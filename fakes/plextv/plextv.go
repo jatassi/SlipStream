@@ -128,8 +128,19 @@ func Playing(admin Account, members ...Account) fake.Spec {
 	return spec
 }
 
+// newServer holds the Admin's account with Plex Pass, each Scenario
+// Member's account and the Scenario's other plex.tv accounts.
 func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
-	return serve(s, env, []Account{{Username: "plex-admin", PlexPass: true}})
+	accounts := []Account{{Username: "plex-admin", PlexPass: true}}
+	for _, m := range s.Members {
+		if m.Plex != nil {
+			accounts = append(accounts, Account{Username: m.Plex.Username, Email: m.Plex.Email})
+		}
+	}
+	for _, a := range s.PlexAccounts {
+		accounts = append(accounts, Account{Username: a.Username, Email: a.Email})
+	}
+	return serve(s, env, accounts)
 }
 
 // person is an account as plex.tv keeps it, with the id and uuid it
