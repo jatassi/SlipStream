@@ -627,11 +627,46 @@ type goTestLog struct {
 	timings  timings
 	// output holds each running package's output outside its tests.
 	output map[string][]string
-	run    results
+	// timeouts holds the panic and the running tests a package's -timeout
+	// printed. test2json gives them to whichever test wrote last, which
+	// among parallel tests can be one that already passed.
+	timeouts map[string]*goTimeout
+	run      results
+}
+
+// goTimeout is what go test's -timeout panic says: its first line and the
+// tests it lists as running.
+type goTimeout struct {
+	panic   string
+	running []string
+	// listing is true while the lines are the running tests.
+	listing bool
+}
+
+// goRunningTest is a line of the -timeout panic's running tests.
+var goRunningTest = regexp.MustCompile(`^\t\t(\S+) \(`)
+
+// timeout records a -timeout panic's lines as they come.
+func (l *goTestLog) timeout(pkg, output string) {
+	t := l.timeouts[pkg]
+	switch {
+	case strings.HasPrefix(output, "panic: test timed out"):
+		l.timeouts[pkg] = &goTimeout{panic: strings.TrimSpace(output)}
+	case t == nil:
+	case strings.TrimSpace(output) == "running tests:":
+		t.listing = true
+	case t.listing:
+		m := goRunningTest.FindStringSubmatch(output)
+		if m == nil {
+			t.listing = false
+			return
+		}
+		t.running = append(t.running, m[1])
+	}
 }
 
 func newGoTestLog(w io.Writer) *goTestLog {
-	return &goTestLog{w: w, held: map[string][]string{}, subtests: map[string]float64{}, timings: timings{Packages: map[string]packageTimings{}}, output: map[string][]string{}}
+	return &goTestLog{w: w, held: map[string][]string{}, subtests: map[string]float64{}, timings: timings{Packages: map[string]packageTimings{}}, output: map[string][]string{}, timeouts: map[string]*goTimeout{}}
 }
 
 func (l *goTestLog) Write(p []byte) (int, error) {
@@ -664,6 +699,9 @@ func (l *goTestLog) line(line []byte) error {
 		return l.print(string(line))
 	}
 	key := e.Package + "\x00" + e.Test
+	if e.Action == "output" {
+		l.timeout(e.Package, e.Output)
+	}
 	switch {
 	case e.Action == "build-output":
 		return l.print(e.Output)
@@ -687,20 +725,46 @@ func (l *goTestLog) line(line []byte) error {
 		return l.release(func(k string) bool { return k == key })
 	case e.Test == "" && slices.Contains([]string{"pass", "fail", "skip"}, e.Action):
 		l.record(e)
-		prefix := e.Package + "\x00"
-		output := l.output[e.Package]
-		delete(l.output, e.Package)
-		if e.Action == "fail" {
-			l.packageFailed(e.Package, output)
-			return l.release(func(k string) bool { return strings.HasPrefix(k, prefix) })
-		}
+		return l.packageEnded(e.Package, e.Action == "fail")
+	}
+	return nil
+}
+
+// packageEnded settles a package's tests once go test reports the package.
+func (l *goTestLog) packageEnded(pkg string, failed bool) error {
+	prefix := pkg + "\x00"
+	output := l.output[pkg]
+	delete(l.output, pkg)
+	timeout := l.timeouts[pkg]
+	delete(l.timeouts, pkg)
+	if !failed {
 		for k := range l.held {
 			if strings.HasPrefix(k, prefix) {
 				delete(l.held, k)
 			}
 		}
+		return nil
 	}
-	return nil
+	if timeout != nil {
+		if err := l.timedOut(pkg, timeout); err != nil {
+			return err
+		}
+	}
+	l.packageFailed(pkg, output)
+	return l.release(func(k string) bool { return strings.HasPrefix(k, prefix) })
+}
+
+// timedOut records each test a package's -timeout panic lists as running,
+// with the panic, and prints them, since their output may have gone to a
+// test that passed.
+func (l *goTestLog) timedOut(pkg string, t *goTimeout) error {
+	for _, test := range t.running {
+		f := failure{Package: pkg, Test: test, Message: t.panic}
+		l.run.failed = slices.DeleteFunc(l.run.failed, func(o failure) bool { return o.key() == f.key() })
+		l.run.failed = append(l.run.failed, f)
+		delete(l.held, f.key())
+	}
+	return l.print(t.panic + "\nrunning tests:\n\t" + strings.Join(t.running, "\n\t") + "\n")
 }
 
 // packageFailed records the tests still running when their package

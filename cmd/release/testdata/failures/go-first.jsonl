@@ -82,3 +82,52 @@
 {"Time":"2026-11-25T02:10:38.954379372Z","Action":"output","Package":"github.com/jatassi/slipstream/stall","Test":"TestHangs","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/testing/testing.go:2260 +0x4d4\n"}
 {"Time":"2026-11-25T02:10:38.954468529Z","Action":"output","Package":"github.com/jatassi/slipstream/stall","Output":"FAIL\tgithub.com/jatassi/slipstream/stall\t5.007s\n","OutputType":"frame"}
 {"Time":"2026-11-25T02:10:38.954481488Z","Action":"fail","Package":"github.com/jatassi/slipstream/stall","Elapsed":5.007}
+{"Time":"2026-11-25T08:04:20.110440321Z","Action":"start","Package":"github.com/jatassi/slipstream/crowd"}
+{"Time":"2026-11-25T08:04:20.113455045Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Output":"-test.shuffle 2\n"}
+{"Time":"2026-11-25T08:04:20.113535495Z","Action":"run","Package":"github.com/jatassi/slipstream/crowd","Test":"TestHang"}
+{"Time":"2026-11-25T08:04:20.113538482Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestHang","Output":"=== RUN   TestHang\n","OutputType":"frame"}
+{"Time":"2026-11-25T08:04:20.11354615Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestHang","Output":"=== PAUSE TestHang\n","OutputType":"frame"}
+{"Time":"2026-11-25T08:04:20.113549259Z","Action":"pause","Package":"github.com/jatassi/slipstream/crowd","Test":"TestHang"}
+{"Time":"2026-11-25T08:04:20.113560124Z","Action":"run","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast"}
+{"Time":"2026-11-25T08:04:20.113562245Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"=== RUN   TestFast\n","OutputType":"frame"}
+{"Time":"2026-11-25T08:04:20.113589668Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"=== PAUSE TestFast\n","OutputType":"frame"}
+{"Time":"2026-11-25T08:04:20.113592501Z","Action":"pause","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast"}
+{"Time":"2026-11-25T08:04:20.113612635Z","Action":"cont","Package":"github.com/jatassi/slipstream/crowd","Test":"TestHang"}
+{"Time":"2026-11-25T08:04:20.11361528Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestHang","Output":"=== CONT  TestHang\n","OutputType":"frame"}
+{"Time":"2026-11-25T08:04:20.113619143Z","Action":"cont","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast"}
+{"Time":"2026-11-25T08:04:20.113620791Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"=== CONT  TestFast\n","OutputType":"frame"}
+{"Time":"2026-11-25T08:04:20.113646106Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"--- PASS: TestFast (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-11-25T08:04:21.116368433Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"panic: test timed out after 1s\n"}
+{"Time":"2026-11-25T08:04:21.116419746Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\trunning tests:\n"}
+{"Time":"2026-11-25T08:04:21.116422949Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\t\tTestHang (1s)\n"}
+{"Time":"2026-11-25T08:04:21.116424765Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\n"}
+{"Time":"2026-11-25T08:04:21.116427604Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"goroutine 33 [running]:\n"}
+{"Time":"2026-11-25T08:04:21.116429715Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"testing.(*M).startAlarm.func1()\n"}
+{"Time":"2026-11-25T08:04:21.116432208Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/testing/testing.go:2961 +0x34a\n"}
+{"Time":"2026-11-25T08:04:21.11643915Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"created by time.goFunc\n"}
+{"Time":"2026-11-25T08:04:21.11644156Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/time/sleep.go:182 +0x2d\n"}
+{"Time":"2026-11-25T08:04:21.116443428Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\n"}
+{"Time":"2026-11-25T08:04:21.116447571Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"goroutine 1 [chan receive]:\n"}
+{"Time":"2026-11-25T08:04:21.116450421Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"testing.tRunner.func1()\n"}
+{"Time":"2026-11-25T08:04:21.116452617Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/testing/testing.go:2144 +0x425\n"}
+{"Time":"2026-11-25T08:04:21.11645471Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"testing.tRunner(0x2096abfee008, 0x2096abfa2bc8)\n"}
+{"Time":"2026-11-25T08:04:21.116457132Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/testing/testing.go:2201 +0x123\n"}
+{"Time":"2026-11-25T08:04:21.116459494Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"testing.runTests({0x555014, 0x2}, {0x555014, 0x2}, 0x2096abfae2e8, {0x6f7b30, 0x2, 0x2}, {0xc2b9c38146c2a690, 0x3b9f2342, ...})\n"}
+{"Time":"2026-11-25T08:04:21.11648259Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/testing/testing.go:2742 +0x510\n"}
+{"Time":"2026-11-25T08:04:21.116484995Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"testing.(*M).Run(0x2096abfac780)\n"}
+{"Time":"2026-11-25T08:04:21.116487317Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/testing/testing.go:2602 +0x6af\n"}
+{"Time":"2026-11-25T08:04:21.116490707Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"main.main()\n"}
+{"Time":"2026-11-25T08:04:21.11649258Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\t_testmain.go:48 +0x9b\n"}
+{"Time":"2026-11-25T08:04:21.116494804Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\n"}
+{"Time":"2026-11-25T08:04:21.116496508Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"goroutine 20 [sleep]:\n"}
+{"Time":"2026-11-25T08:04:21.116498262Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"time.Sleep(0xdf8475800)\n"}
+{"Time":"2026-11-25T08:04:21.116500346Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/runtime/time.go:368 +0x165\n"}
+{"Time":"2026-11-25T08:04:21.116504984Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"github.com/jatassi/slipstream/crowd.TestHang(0x2096abfee248?)\n"}
+{"Time":"2026-11-25T08:04:21.116507305Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\t/src/crowd/crowd_test.go:4 +0x25\n"}
+{"Time":"2026-11-25T08:04:21.116509227Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"testing.tRunner(0x2096abfee248, 0x6dc4b0)\n"}
+{"Time":"2026-11-25T08:04:21.116511325Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/testing/testing.go:2195 +0xea\n"}
+{"Time":"2026-11-25T08:04:21.116513242Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"created by testing.(*T).Run in goroutine 1\n"}
+{"Time":"2026-11-25T08:04:21.116515385Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/testing/testing.go:2260 +0x4d4\n"}
+{"Time":"2026-11-25T08:04:21.11876996Z","Action":"pass","Package":"github.com/jatassi/slipstream/crowd","Test":"TestFast","Elapsed":0}
+{"Time":"2026-11-25T08:04:21.118805694Z","Action":"output","Package":"github.com/jatassi/slipstream/crowd","Output":"FAIL\tgithub.com/jatassi/slipstream/crowd\t1.008s\n","OutputType":"frame"}
+{"Time":"2026-11-25T08:04:21.118826922Z","Action":"fail","Package":"github.com/jatassi/slipstream/crowd","Elapsed":1.008}

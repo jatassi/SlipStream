@@ -100,8 +100,9 @@ func TestFailedTestsReachTheAnnotations(t *testing.T) {
 			want: []string{
 				"::error file=widget/widget_test.go,line=13,title=github.com/jatassi/slipstream/widget%3A TestCounts (flaky)::count = 2, want 3",
 				"::error file=widget/widget_test.go,line=19,title=github.com/jatassi/slipstream/widget%3A TestShapes/circle (failed again)::radius = 0, want 1",
-				"::error title=github.com/jatassi/slipstream/widget%3A TestPanics (failed again)::panic: assignment to entry in nil map [recovered, repanicked]",
+				"::error title=github.com/jatassi/slipstream/crowd%3A TestHang::panic: test timed out after 1s",
 				"::error title=github.com/jatassi/slipstream/stall%3A TestHangs::panic: test timed out after 5s",
+				"::error title=github.com/jatassi/slipstream/widget%3A TestPanics (failed again)::panic: assignment to entry in nil map [recovered, repanicked]",
 			},
 		},
 		{
