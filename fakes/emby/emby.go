@@ -32,7 +32,7 @@ const name = "emby"
 // Versions are the versions this fake plays.
 var Versions = []string{"4.10.1.0"}
 
-var reports, scans, items = mediabrowser.Captures(name)
+var reports, scans, items, users = mediabrowser.Captures(name)
 
 var (
 	// Reports records each path report a front took.
@@ -41,6 +41,8 @@ var (
 	Scans = scans
 	// Items records each item the server added, changed or removed.
 	Items = items
+	// Users records every user and its policy after each change.
+	Users = users
 )
 
 // Fake is the Emby an Admin adds by address, at every Node's front. Its
@@ -51,7 +53,7 @@ var Fake = fake.Spec{
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.OnlineSuite("emby"),
 	Cues:      mediabrowser.Cues(name),
-	Captures:  []fake.CaptureSpec{Reports, Scans, Items},
+	Captures:  []fake.CaptureSpec{Reports, Scans, Items, Users},
 	Entered:   serverfake.Entered(name),
 }
 
@@ -65,12 +67,15 @@ var product = mediabrowser.Product{
 }
 
 type (
-	Server  = mediabrowser.Server
-	User    = mediabrowser.User
-	Library = mediabrowser.Library
-	Play    = mediabrowser.Play
-	Played  = mediabrowser.Played
-	Stop    = mediabrowser.Stop
+	Server     = mediabrowser.Server
+	User       = mediabrowser.User
+	UserList   = mediabrowser.UserList
+	UserRecord = mediabrowser.UserRecord
+	FailNext   = mediabrowser.FailNext
+	Library    = mediabrowser.Library
+	Play       = mediabrowser.Play
+	Played     = mediabrowser.Played
+	Stop       = mediabrowser.Stop
 )
 
 // Playing is Fake playing srv, for a test that names it.

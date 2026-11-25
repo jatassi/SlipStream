@@ -225,15 +225,6 @@ func (c *Client) Fields(ctx context.Context, path string) (map[string]json.RawMe
 	return out, err
 }
 
-// User is one server user.
-type User struct {
-	ID     string `json:"Id"`
-	Name   string `json:"Name"`
-	Policy struct {
-		IsAdministrator bool `json:"IsAdministrator"`
-	} `json:"Policy"`
-}
-
 // Auth is a user signing in: the access token and who it is.
 type Auth struct {
 	AccessToken string `json:"AccessToken"`
@@ -252,12 +243,6 @@ func (c *Client) AuthenticateByName(ctx context.Context, user, password string) 
 // Logout ends the session the client's token is.
 func (c *Client) Logout(ctx context.Context) error {
 	return c.do(ctx, http.MethodPost, "/Sessions/Logout", nil, true, nil, nil)
-}
-
-func (c *Client) Users(ctx context.Context) ([]User, error) {
-	var out []User
-	err := c.do(ctx, http.MethodGet, "/Users", nil, true, nil, &out)
-	return out, err
 }
 
 // Key is one API key.
@@ -292,9 +277,12 @@ func (c *Client) RevokeKey(ctx context.Context, key string) error {
 // VirtualFolder is one library and its folders as the server's OS names
 // them. ItemID is the library's item, the parent of its items.
 type VirtualFolder struct {
-	Name            string   `json:"Name"`
-	CollectionType  string   `json:"CollectionType"`
-	ItemID          string   `json:"ItemId"`
+	Name           string `json:"Name"`
+	CollectionType string `json:"CollectionType"`
+	ItemID         string `json:"ItemId"`
+	// GUID is Emby's second id for the library, which differs from
+	// ItemID there. Jellyfin sends none.
+	GUID            string   `json:"Guid"`
 	Locations       []string `json:"Locations"`
 	RefreshStatus   string   `json:"RefreshStatus"`
 	RefreshProgress *float64 `json:"RefreshProgress"`
