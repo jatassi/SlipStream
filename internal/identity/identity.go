@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/netip"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity/internal/db"
@@ -97,6 +98,7 @@ type Service struct {
 	shadow     *shadowLedger
 	limiter    *limiter
 	ceremonies *passkey.Ceremonies
+	granter    atomic.Pointer[Granter]
 }
 
 // New builds the dummy hash an unknown email verifies against. It reads no

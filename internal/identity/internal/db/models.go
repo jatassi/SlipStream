@@ -45,6 +45,7 @@ type IdentityLink struct {
 	ExpiresAt      storage.Time
 	EndedAt        storage.Time
 	EndReason      sql.NullString
+	Grants         *string
 }
 
 type IdentityPasskey struct {

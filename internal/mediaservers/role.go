@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -79,6 +80,15 @@ type Config struct {
 	// Zone is the Controller's, for the times copy names.
 	Zone *time.Location
 	Log  *slog.Logger
+	// Mail sends the Member emails whose outcome the caller waits for, and
+	// Outbox those to the Admins that go out after the response.
+	Mail   mail.Sender
+	Outbox *mail.Outbox
+	// Admins is every enabled Admin's address:
+	// identity.EnabledAdminAddresses.
+	Admins func(ctx context.Context) ([]mail.Address, error)
+	// PlexFacts is what the recorded Plex run settled: plextv.Recorded.
+	PlexFacts plextv.Facts
 }
 
 // Publisher is one of the Media Servers' live events, bound to the hub.

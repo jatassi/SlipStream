@@ -114,3 +114,42 @@ sql:
             go_type:
               type: bool
               pointer: true
+          - column: mediaservers_server.members_see
+            go_type: bool
+          - column: mediaservers_member_access.id
+            go_type:
+              type: AccessID
+          - column: "*.account_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/identity
+              type: AccountID
+          - column: mediaservers_member_access.offered_by
+            go_type:
+              import: github.com/jatassi/slipstream/internal/identity
+              type: AccountID
+          - column: mediaservers_member_access.way
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaservers/access
+              type: Way
+          - column: mediaservers_member_access.state
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaservers/access
+              type: State
+          - column: mediaservers_member_access.by_hand
+            go_type: bool
+          - column: mediaservers_member_access.plex_home
+            go_type: bool
+          - column: "*.plex_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/providers/plextv
+              type: AccountID
+              pointer: true
+          - column: mediaservers_member_access.shared_server_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/providers/plextv
+              type: ShareID
+              pointer: true
+          - column: mediaservers_member_access.problem_code
+            go_type:
+              type: ProblemCode
+              pointer: true

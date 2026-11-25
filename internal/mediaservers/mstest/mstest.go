@@ -33,6 +33,8 @@ import (
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/mail"
+	"github.com/jatassi/slipstream/internal/mail/mailtest"
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
@@ -74,7 +76,10 @@ type World struct {
 	Home, Seedbox role.NodeID
 	Service       mediaservers.Service
 	// Renewal is the Plex sign-in task, run as the scheduler runs it.
-	Renewal  tasks.Task
+	Renewal tasks.Task
+	// Mail captures every email the Media Servers send, waited or through
+	// the Outbox.
+	Mail     *mailtest.Sender
 	ms       *mediaservers.MediaServers
 	net      *network
 	links    *links
@@ -122,6 +127,9 @@ func New(t *testing.T) *World {
 	}
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
 	w.links = newLinks(t, w, mediaserverlink.Config{Kinds: mediaserverlink.Kinds, HTTP: w.net.client(), Timings: Timings, Log: log})
+	w.Mail = mailtest.New()
+	outbox := mail.NewOutbox(w.Mail, log)
+	t.Cleanup(func() { _ = outbox.Close(context.Background()) })
 	ms := mediaservers.New(mediaservers.Config{
 		Library: w.Lib, Sealer: w.Sealer, Roster: roster{w.Home, w.Seedbox, w.links}, Kinds: mediaserverlink.Kinds,
 		HTTP: w.net.client(), Timings: Timings, PlexTV: plexTV,
@@ -140,6 +148,12 @@ func New(t *testing.T) *World {
 		Facts: w.links.factsOf,
 		Zone:  time.UTC,
 		Log:   log,
+		Admins: func(ctx context.Context) ([]mail.Address, error) {
+			return identity.EnabledAdminAddresses(ctx, w.Lib)
+		},
+		Mail:      w.Mail,
+		Outbox:    outbox,
+		PlexFacts: plextv.Recorded,
 	})
 	w.ms, w.Service, w.Renewal = ms, ms.Service(), ms.RenewalTask()
 	ctx, cancel := context.WithCancel(context.Background())
