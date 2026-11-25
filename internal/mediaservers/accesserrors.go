@@ -10,9 +10,6 @@ import (
 var (
 	ErrAccessNotFound    = errors.New("no Media Server access has this id")
 	ErrNoMemberLibraries = errors.New("no library for Members is picked while Show to Members is on")
-	// ErrNotYet is an operation whose lane of S43 (Member access to Media
-	// Servers) isn't built yet. Its method sits in a notyet_*.go file.
-	ErrNotYet = errors.New("not built yet")
 )
 
 // AccessStateError is an operation that can't start from the row's state:

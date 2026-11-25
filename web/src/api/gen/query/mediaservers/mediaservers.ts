@@ -29,7 +29,6 @@ import type {
   CheckMediaServerAccess409,
   CheckMediaServerAccess422,
   CheckMediaServerAccess500,
-  CheckMediaServerAccess501,
   CheckMediaServerAccess502,
   CheckMyMediaServerAccess401,
   CheckMyMediaServerAccess403,
@@ -37,7 +36,6 @@ import type {
   CheckMyMediaServerAccess409,
   CheckMyMediaServerAccess422,
   CheckMyMediaServerAccess500,
-  CheckMyMediaServerAccess501,
   CheckMyMediaServerAccess502,
   ConfirmMediaServerIdentity401,
   ConfirmMediaServerIdentity403,
@@ -62,7 +60,6 @@ import type {
   GetMemberPlexSignIn409,
   GetMemberPlexSignIn422,
   GetMemberPlexSignIn500,
-  GetMemberPlexSignIn501,
   GetPlexAccount401,
   GetPlexAccount403,
   GetPlexAccount409,
@@ -82,7 +79,6 @@ import type {
   LinkMediaServerUser409,
   LinkMediaServerUser422,
   LinkMediaServerUser500,
-  LinkMediaServerUser501,
   LinkMediaServerUser502,
   LinkUserInputBody,
   ListMediaServerAccess401,
@@ -91,7 +87,6 @@ import type {
   ListMediaServerAccess409,
   ListMediaServerAccess422,
   ListMediaServerAccess500,
-  ListMediaServerAccess501,
   ListMediaServerAccessParams,
   ListMediaServerChanges401,
   ListMediaServerChanges403,
@@ -129,7 +124,6 @@ import type {
   ListMediaServerUsers409,
   ListMediaServerUsers422,
   ListMediaServerUsers500,
-  ListMediaServerUsers501,
   ListMediaServerUsers502,
   ListMediaServers401,
   ListMediaServers403,
@@ -139,7 +133,6 @@ import type {
   ListMyMediaServerAccess403,
   ListMyMediaServerAccess409,
   ListMyMediaServerAccess500,
-  ListMyMediaServerAccess501,
   ListPlexServers401,
   ListPlexServers403,
   ListPlexServers409,
@@ -153,7 +146,6 @@ import type {
   MakeMediaServerAccount409,
   MakeMediaServerAccount422,
   MakeMediaServerAccount500,
-  MakeMediaServerAccount501,
   MakeMediaServerAccount502,
   MappingsOutputBody,
   MarkMediaServerAccessAdded401,
@@ -162,7 +154,6 @@ import type {
   MarkMediaServerAccessAdded409,
   MarkMediaServerAccessAdded422,
   MarkMediaServerAccessAdded500,
-  MarkMediaServerAccessAdded501,
   MediaserversAccessList,
   MediaserversAccountView,
   MediaserversActed,
@@ -191,7 +182,6 @@ import type {
   OfferMediaServer409,
   OfferMediaServer422,
   OfferMediaServer500,
-  OfferMediaServer501,
   OfferMediaServer502,
   PlexServersOutputBody,
   RefreshMediaServer401,
@@ -212,14 +202,12 @@ import type {
   RemoveMediaServerAccess409,
   RemoveMediaServerAccess422,
   RemoveMediaServerAccess500,
-  RemoveMediaServerAccess501,
   ReplacePlexAccount401,
   ReplacePlexAccount403,
   ReplacePlexAccount404,
   ReplacePlexAccount409,
   ReplacePlexAccount422,
   ReplacePlexAccount500,
-  ReplacePlexAccount501,
   SaveMediaServerMappings401,
   SaveMediaServerMappings403,
   SaveMediaServerMappings404,
@@ -237,7 +225,6 @@ import type {
   ShareMediaServerAccess409,
   ShareMediaServerAccess422,
   ShareMediaServerAccess500,
-  ShareMediaServerAccess501,
   ShareMediaServerAccess502,
   SignInToMediaServer401,
   SignInToMediaServer403,
@@ -254,7 +241,6 @@ import type {
   StartMemberPlexSignIn403,
   StartMemberPlexSignIn409,
   StartMemberPlexSignIn500,
-  StartMemberPlexSignIn501,
   StartMemberPlexSignIn502,
   StartPlexSignIn401,
   StartPlexSignIn403,
@@ -274,7 +260,6 @@ import type {
   UpdateMediaServer409,
   UpdateMediaServer422,
   UpdateMediaServer500,
-  UpdateMediaServer501,
   UpdateMediaServer502,
   UpdateMediaServerSettings401,
   UpdateMediaServerSettings403,
@@ -285,7 +270,6 @@ import type {
   UseAnotherPlexAccount403,
   UseAnotherPlexAccount409,
   UseAnotherPlexAccount500,
-  UseAnotherPlexAccount501,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -335,7 +319,6 @@ export const getListMyMediaServerAccessSuspenseQueryOptions = <
     | ListMyMediaServerAccess403
     | ListMyMediaServerAccess409
     | ListMyMediaServerAccess500
-    | ListMyMediaServerAccess501
   >,
 >(options?: {
   query?: Partial<
@@ -372,7 +355,6 @@ export type ListMyMediaServerAccessSuspenseQueryError = ErrorType<
   | ListMyMediaServerAccess403
   | ListMyMediaServerAccess409
   | ListMyMediaServerAccess500
-  | ListMyMediaServerAccess501
 >;
 
 export function useListMyMediaServerAccessSuspense<
@@ -382,7 +364,6 @@ export function useListMyMediaServerAccessSuspense<
     | ListMyMediaServerAccess403
     | ListMyMediaServerAccess409
     | ListMyMediaServerAccess500
-    | ListMyMediaServerAccess501
   >,
 >(
   options: {
@@ -400,7 +381,6 @@ export function useListMyMediaServerAccessSuspense<
     | ListMyMediaServerAccess403
     | ListMyMediaServerAccess409
     | ListMyMediaServerAccess500
-    | ListMyMediaServerAccess501
   >,
 >(
   options?: {
@@ -418,7 +398,6 @@ export function useListMyMediaServerAccessSuspense<
     | ListMyMediaServerAccess403
     | ListMyMediaServerAccess409
     | ListMyMediaServerAccess500
-    | ListMyMediaServerAccess501
   >,
 >(
   options?: {
@@ -440,7 +419,6 @@ export function useListMyMediaServerAccessSuspense<
     | ListMyMediaServerAccess403
     | ListMyMediaServerAccess409
     | ListMyMediaServerAccess500
-    | ListMyMediaServerAccess501
   >,
 >(
   options?: {
@@ -485,7 +463,6 @@ export const getUseAnotherPlexAccountMutationOptions = <
     | UseAnotherPlexAccount403
     | UseAnotherPlexAccount409
     | UseAnotherPlexAccount500
-    | UseAnotherPlexAccount501
   >,
   TContext = unknown,
 >(options?: {
@@ -528,7 +505,6 @@ export type UseAnotherPlexAccountMutationError = ErrorType<
   | UseAnotherPlexAccount403
   | UseAnotherPlexAccount409
   | UseAnotherPlexAccount500
-  | UseAnotherPlexAccount501
 >;
 
 /**
@@ -540,7 +516,6 @@ export const useUseAnotherPlexAccount = <
     | UseAnotherPlexAccount403
     | UseAnotherPlexAccount409
     | UseAnotherPlexAccount500
-    | UseAnotherPlexAccount501
   >,
   TContext = unknown,
 >(
@@ -581,7 +556,6 @@ export const getStartMemberPlexSignInMutationOptions = <
     | StartMemberPlexSignIn403
     | StartMemberPlexSignIn409
     | StartMemberPlexSignIn500
-    | StartMemberPlexSignIn501
     | StartMemberPlexSignIn502
   >,
   TContext = unknown,
@@ -625,7 +599,6 @@ export type StartMemberPlexSignInMutationError = ErrorType<
   | StartMemberPlexSignIn403
   | StartMemberPlexSignIn409
   | StartMemberPlexSignIn500
-  | StartMemberPlexSignIn501
   | StartMemberPlexSignIn502
 >;
 
@@ -638,7 +611,6 @@ export const useStartMemberPlexSignIn = <
     | StartMemberPlexSignIn403
     | StartMemberPlexSignIn409
     | StartMemberPlexSignIn500
-    | StartMemberPlexSignIn501
     | StartMemberPlexSignIn502
   >,
   TContext = unknown,
@@ -686,7 +658,6 @@ export const getGetMemberPlexSignInSuspenseQueryOptions = <
     | GetMemberPlexSignIn409
     | GetMemberPlexSignIn422
     | GetMemberPlexSignIn500
-    | GetMemberPlexSignIn501
   >,
 >(
   id: number,
@@ -725,7 +696,6 @@ export type GetMemberPlexSignInSuspenseQueryError = ErrorType<
   | GetMemberPlexSignIn409
   | GetMemberPlexSignIn422
   | GetMemberPlexSignIn500
-  | GetMemberPlexSignIn501
 >;
 
 export function useGetMemberPlexSignInSuspense<
@@ -737,7 +707,6 @@ export function useGetMemberPlexSignInSuspense<
     | GetMemberPlexSignIn409
     | GetMemberPlexSignIn422
     | GetMemberPlexSignIn500
-    | GetMemberPlexSignIn501
   >,
 >(
   id: number,
@@ -758,7 +727,6 @@ export function useGetMemberPlexSignInSuspense<
     | GetMemberPlexSignIn409
     | GetMemberPlexSignIn422
     | GetMemberPlexSignIn500
-    | GetMemberPlexSignIn501
   >,
 >(
   id: number,
@@ -779,7 +747,6 @@ export function useGetMemberPlexSignInSuspense<
     | GetMemberPlexSignIn409
     | GetMemberPlexSignIn422
     | GetMemberPlexSignIn500
-    | GetMemberPlexSignIn501
   >,
 >(
   id: number,
@@ -804,7 +771,6 @@ export function useGetMemberPlexSignInSuspense<
     | GetMemberPlexSignIn409
     | GetMemberPlexSignIn422
     | GetMemberPlexSignIn500
-    | GetMemberPlexSignIn501
   >,
 >(
   id: number,
@@ -875,7 +841,6 @@ export const getMakeMediaServerAccountMutationOptions = <
     | MakeMediaServerAccount409
     | MakeMediaServerAccount422
     | MakeMediaServerAccount500
-    | MakeMediaServerAccount501
     | MakeMediaServerAccount502
   >,
   TContext = unknown,
@@ -923,7 +888,6 @@ export type MakeMediaServerAccountMutationError = ErrorType<
   | MakeMediaServerAccount409
   | MakeMediaServerAccount422
   | MakeMediaServerAccount500
-  | MakeMediaServerAccount501
   | MakeMediaServerAccount502
 >;
 export type MakeMediaServerAccountMutationVariables = {
@@ -942,7 +906,6 @@ export const useMakeMediaServerAccount = <
     | MakeMediaServerAccount409
     | MakeMediaServerAccount422
     | MakeMediaServerAccount500
-    | MakeMediaServerAccount501
     | MakeMediaServerAccount502
   >,
   TContext = unknown,
@@ -992,7 +955,6 @@ export const getCheckMyMediaServerAccessMutationOptions = <
     | CheckMyMediaServerAccess409
     | CheckMyMediaServerAccess422
     | CheckMyMediaServerAccess500
-    | CheckMyMediaServerAccess501
     | CheckMyMediaServerAccess502
   >,
   TContext = unknown,
@@ -1040,7 +1002,6 @@ export type CheckMyMediaServerAccessMutationError = ErrorType<
   | CheckMyMediaServerAccess409
   | CheckMyMediaServerAccess422
   | CheckMyMediaServerAccess500
-  | CheckMyMediaServerAccess501
   | CheckMyMediaServerAccess502
 >;
 export type CheckMyMediaServerAccessMutationVariables = { accessId: string };
@@ -1056,7 +1017,6 @@ export const useCheckMyMediaServerAccess = <
     | CheckMyMediaServerAccess409
     | CheckMyMediaServerAccess422
     | CheckMyMediaServerAccess500
-    | CheckMyMediaServerAccess501
     | CheckMyMediaServerAccess502
   >,
   TContext = unknown,
@@ -1129,7 +1089,6 @@ export const getOfferMediaServerMutationOptions = <
     | OfferMediaServer409
     | OfferMediaServer422
     | OfferMediaServer500
-    | OfferMediaServer501
     | OfferMediaServer502
   >,
   TContext = unknown,
@@ -1177,7 +1136,6 @@ export type OfferMediaServerMutationError = ErrorType<
   | OfferMediaServer409
   | OfferMediaServer422
   | OfferMediaServer500
-  | OfferMediaServer501
   | OfferMediaServer502
 >;
 export type OfferMediaServerMutationVariables = {
@@ -1197,7 +1155,6 @@ export const useOfferMediaServer = <
     | OfferMediaServer409
     | OfferMediaServer422
     | OfferMediaServer500
-    | OfferMediaServer501
     | OfferMediaServer502
   >,
   TContext = unknown,
@@ -1518,7 +1475,6 @@ export const getListMediaServerAccessSuspenseQueryOptions = <
     | ListMediaServerAccess409
     | ListMediaServerAccess422
     | ListMediaServerAccess500
-    | ListMediaServerAccess501
   >,
 >(
   params?: ListMediaServerAccessParams,
@@ -1559,7 +1515,6 @@ export type ListMediaServerAccessSuspenseQueryError = ErrorType<
   | ListMediaServerAccess409
   | ListMediaServerAccess422
   | ListMediaServerAccess500
-  | ListMediaServerAccess501
 >;
 
 export function useListMediaServerAccessSuspense<
@@ -1571,7 +1526,6 @@ export function useListMediaServerAccessSuspense<
     | ListMediaServerAccess409
     | ListMediaServerAccess422
     | ListMediaServerAccess500
-    | ListMediaServerAccess501
   >,
 >(
   params: undefined | ListMediaServerAccessParams,
@@ -1592,7 +1546,6 @@ export function useListMediaServerAccessSuspense<
     | ListMediaServerAccess409
     | ListMediaServerAccess422
     | ListMediaServerAccess500
-    | ListMediaServerAccess501
   >,
 >(
   params?: ListMediaServerAccessParams,
@@ -1613,7 +1566,6 @@ export function useListMediaServerAccessSuspense<
     | ListMediaServerAccess409
     | ListMediaServerAccess422
     | ListMediaServerAccess500
-    | ListMediaServerAccess501
   >,
 >(
   params?: ListMediaServerAccessParams,
@@ -1638,7 +1590,6 @@ export function useListMediaServerAccessSuspense<
     | ListMediaServerAccess409
     | ListMediaServerAccess422
     | ListMediaServerAccess500
-    | ListMediaServerAccess501
   >,
 >(
   params?: ListMediaServerAccessParams,
@@ -1687,7 +1638,6 @@ export const getRemoveMediaServerAccessMutationOptions = <
     | RemoveMediaServerAccess409
     | RemoveMediaServerAccess422
     | RemoveMediaServerAccess500
-    | RemoveMediaServerAccess501
   >,
   TContext = unknown,
 >(options?: {
@@ -1734,7 +1684,6 @@ export type RemoveMediaServerAccessMutationError = ErrorType<
   | RemoveMediaServerAccess409
   | RemoveMediaServerAccess422
   | RemoveMediaServerAccess500
-  | RemoveMediaServerAccess501
 >;
 export type RemoveMediaServerAccessMutationVariables = { id: string };
 
@@ -1749,7 +1698,6 @@ export const useRemoveMediaServerAccess = <
     | RemoveMediaServerAccess409
     | RemoveMediaServerAccess422
     | RemoveMediaServerAccess500
-    | RemoveMediaServerAccess501
   >,
   TContext = unknown,
 >(
@@ -1798,7 +1746,6 @@ export const getCheckMediaServerAccessMutationOptions = <
     | CheckMediaServerAccess409
     | CheckMediaServerAccess422
     | CheckMediaServerAccess500
-    | CheckMediaServerAccess501
     | CheckMediaServerAccess502
   >,
   TContext = unknown,
@@ -1846,7 +1793,6 @@ export type CheckMediaServerAccessMutationError = ErrorType<
   | CheckMediaServerAccess409
   | CheckMediaServerAccess422
   | CheckMediaServerAccess500
-  | CheckMediaServerAccess501
   | CheckMediaServerAccess502
 >;
 export type CheckMediaServerAccessMutationVariables = { id: string };
@@ -1862,7 +1808,6 @@ export const useCheckMediaServerAccess = <
     | CheckMediaServerAccess409
     | CheckMediaServerAccess422
     | CheckMediaServerAccess500
-    | CheckMediaServerAccess501
     | CheckMediaServerAccess502
   >,
   TContext = unknown,
@@ -1934,7 +1879,6 @@ export const getLinkMediaServerUserMutationOptions = <
     | LinkMediaServerUser409
     | LinkMediaServerUser422
     | LinkMediaServerUser500
-    | LinkMediaServerUser501
     | LinkMediaServerUser502
   >,
   TContext = unknown,
@@ -1982,7 +1926,6 @@ export type LinkMediaServerUserMutationError = ErrorType<
   | LinkMediaServerUser409
   | LinkMediaServerUser422
   | LinkMediaServerUser500
-  | LinkMediaServerUser501
   | LinkMediaServerUser502
 >;
 export type LinkMediaServerUserMutationVariables = { id: string; data: LinkUserInputBody };
@@ -1998,7 +1941,6 @@ export const useLinkMediaServerUser = <
     | LinkMediaServerUser409
     | LinkMediaServerUser422
     | LinkMediaServerUser500
-    | LinkMediaServerUser501
     | LinkMediaServerUser502
   >,
   TContext = unknown,
@@ -2049,7 +1991,6 @@ export const getMarkMediaServerAccessAddedMutationOptions = <
     | MarkMediaServerAccessAdded409
     | MarkMediaServerAccessAdded422
     | MarkMediaServerAccessAdded500
-    | MarkMediaServerAccessAdded501
   >,
   TContext = unknown,
 >(options?: {
@@ -2096,7 +2037,6 @@ export type MarkMediaServerAccessAddedMutationError = ErrorType<
   | MarkMediaServerAccessAdded409
   | MarkMediaServerAccessAdded422
   | MarkMediaServerAccessAdded500
-  | MarkMediaServerAccessAdded501
 >;
 export type MarkMediaServerAccessAddedMutationVariables = { id: string };
 
@@ -2111,7 +2051,6 @@ export const useMarkMediaServerAccessAdded = <
     | MarkMediaServerAccessAdded409
     | MarkMediaServerAccessAdded422
     | MarkMediaServerAccessAdded500
-    | MarkMediaServerAccessAdded501
   >,
   TContext = unknown,
 >(
@@ -2182,7 +2121,6 @@ export const getShareMediaServerAccessMutationOptions = <
     | ShareMediaServerAccess409
     | ShareMediaServerAccess422
     | ShareMediaServerAccess500
-    | ShareMediaServerAccess501
     | ShareMediaServerAccess502
   >,
   TContext = unknown,
@@ -2230,7 +2168,6 @@ export type ShareMediaServerAccessMutationError = ErrorType<
   | ShareMediaServerAccess409
   | ShareMediaServerAccess422
   | ShareMediaServerAccess500
-  | ShareMediaServerAccess501
   | ShareMediaServerAccess502
 >;
 export type ShareMediaServerAccessMutationVariables = { id: string; data: ShareAccessInputBody };
@@ -2246,7 +2183,6 @@ export const useShareMediaServerAccess = <
     | ShareMediaServerAccess409
     | ShareMediaServerAccess422
     | ShareMediaServerAccess500
-    | ShareMediaServerAccess501
     | ShareMediaServerAccess502
   >,
   TContext = unknown,
@@ -2918,7 +2854,6 @@ export const getReplacePlexAccountMutationOptions = <
     | ReplacePlexAccount409
     | ReplacePlexAccount422
     | ReplacePlexAccount500
-    | ReplacePlexAccount501
   >,
   TContext = unknown,
 >(options?: {
@@ -2965,7 +2900,6 @@ export type ReplacePlexAccountMutationError = ErrorType<
   | ReplacePlexAccount409
   | ReplacePlexAccount422
   | ReplacePlexAccount500
-  | ReplacePlexAccount501
 >;
 export type ReplacePlexAccountMutationVariables = { id: number };
 
@@ -2980,7 +2914,6 @@ export const useReplacePlexAccount = <
     | ReplacePlexAccount409
     | ReplacePlexAccount422
     | ReplacePlexAccount500
-    | ReplacePlexAccount501
   >,
   TContext = unknown,
 >(
@@ -3883,7 +3816,6 @@ export const getUpdateMediaServerMutationOptions = <
     | UpdateMediaServer409
     | UpdateMediaServer422
     | UpdateMediaServer500
-    | UpdateMediaServer501
     | UpdateMediaServer502
   >,
   TContext = unknown,
@@ -3931,7 +3863,6 @@ export type UpdateMediaServerMutationError = ErrorType<
   | UpdateMediaServer409
   | UpdateMediaServer422
   | UpdateMediaServer500
-  | UpdateMediaServer501
   | UpdateMediaServer502
 >;
 export type UpdateMediaServerMutationVariables = { id: string; data: MediaserversPatchBody };
@@ -3947,7 +3878,6 @@ export const useUpdateMediaServer = <
     | UpdateMediaServer409
     | UpdateMediaServer422
     | UpdateMediaServer500
-    | UpdateMediaServer501
     | UpdateMediaServer502
   >,
   TContext = unknown,
@@ -5178,7 +5108,6 @@ export const getListMediaServerUsersSuspenseQueryOptions = <
     | ListMediaServerUsers409
     | ListMediaServerUsers422
     | ListMediaServerUsers500
-    | ListMediaServerUsers501
     | ListMediaServerUsers502
   >,
 >(
@@ -5218,7 +5147,6 @@ export type ListMediaServerUsersSuspenseQueryError = ErrorType<
   | ListMediaServerUsers409
   | ListMediaServerUsers422
   | ListMediaServerUsers500
-  | ListMediaServerUsers501
   | ListMediaServerUsers502
 >;
 
@@ -5231,7 +5159,6 @@ export function useListMediaServerUsersSuspense<
     | ListMediaServerUsers409
     | ListMediaServerUsers422
     | ListMediaServerUsers500
-    | ListMediaServerUsers501
     | ListMediaServerUsers502
   >,
 >(
@@ -5253,7 +5180,6 @@ export function useListMediaServerUsersSuspense<
     | ListMediaServerUsers409
     | ListMediaServerUsers422
     | ListMediaServerUsers500
-    | ListMediaServerUsers501
     | ListMediaServerUsers502
   >,
 >(
@@ -5275,7 +5201,6 @@ export function useListMediaServerUsersSuspense<
     | ListMediaServerUsers409
     | ListMediaServerUsers422
     | ListMediaServerUsers500
-    | ListMediaServerUsers501
     | ListMediaServerUsers502
   >,
 >(
@@ -5301,7 +5226,6 @@ export function useListMediaServerUsersSuspense<
     | ListMediaServerUsers409
     | ListMediaServerUsers422
     | ListMediaServerUsers500
-    | ListMediaServerUsers501
     | ListMediaServerUsers502
   >,
 >(
