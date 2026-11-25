@@ -9,6 +9,11 @@ import { renderApp } from "../test/render-app";
 
 const rows = () => page.getByRole("main").getByRole("listitem");
 
+// A role query over 80 rows holds the page for half a second, longer on a
+// busy runner, so a poll of it starves the render it waits for. The tests
+// wait on an entry's words and count the rows once.
+const entry = (id: number) => page.getByText(new RegExp(`Orchard ${id}$`, "u"));
+
 test("history.changed reads the first page once and puts the new entries on top of every page loaded", async () => {
   const live = liveServer();
   const history = historyServer(entriesFrom(80, 80, new Date(Date.now() - 60_000)));
@@ -22,8 +27,9 @@ test("history.changed reads the first page once and puts the new entries on top 
   });
   await synced(app);
   await userEvent.click(page.getByRole("button", { name: "Load more" }));
-  await expect.poll(() => rows().all().length).toBe(80);
+  await expect.element(entry(1)).toBeInTheDocument();
   await expect.poll(() => app.queryClient.isFetching()).toBe(0);
+  expect(rows().all()).toHaveLength(80);
   const [lists, summaries] = [history.asked.length, history.summaries.length];
 
   history.record(anEntry(81, new Date().toISOString()));
@@ -31,8 +37,10 @@ test("history.changed reads the first page once and puts the new entries on top 
   expect({ clients: live.clients.length, closed: live.closed }).toEqual({ clients: 1, closed: [] });
   live.clients[0]?.send({ event: "history.changed", data: {} });
 
-  await expect.poll(() => rows().all().length).toBe(82);
-  await expect.element(rows().nth(0)).toMatchTextContent(/Orchard 82/u);
+  await expect.element(entry(82)).toBeInTheDocument();
+  const shown = rows().elements();
+  expect(shown).toHaveLength(82);
+  expect(shown[0]).toContainElement(entry(82).element());
   await expect.poll(() => history.summaries.length).toBe(summaries + 1);
   expect(history.asked.slice(lists).map((asked) => asked.get("before"))).toEqual([null]);
 });
