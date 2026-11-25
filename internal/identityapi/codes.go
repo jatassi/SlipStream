@@ -28,7 +28,6 @@ var (
 	passkeyFailed      = api.NewCode(http.StatusUnauthorized, "passkey_failed", "The passkey couldn't be verified")
 	notShownToMembers  = api.NewCode(http.StatusConflict, "not_shown_to_members", "The Media Server isn't shown to Members")
 	plexHomeNotPlex    = api.NewCode(http.StatusUnprocessableEntity, "plex_home_not_plex", "Plex Home is a choice for Plex servers only")
-	notBuilt           = api.NewCode(http.StatusNotImplemented, "not_built_yet", "This part of SlipStream isn't built yet")
 )
 
 var pinChecked = []*api.Code{pinWrong, pinWait.Code, pinOff, tooManyAttempts.Code}
@@ -56,6 +55,12 @@ var errorCodes = []struct {
 // answer is the one map from identity's errors to codes. An operation lists
 // in its Op the codes it may produce.
 func answer(err error) error {
+	if e, ok := errors.AsType[*identity.NotGrantableError](err); ok {
+		if e.Why == identity.NotPlexWay {
+			return plexHomeNotPlex.Because(e.Name + " isn't a Plex server, so it has no Plex Home. Offer it without Plex Home.")
+		}
+		return notShownToMembers.Because(e.Name + " isn't shown to Members. Turn on Show to Members on its page first.")
+	}
 	if wait, ok := errors.AsType[*identity.WaitError](err); ok {
 		if wait.Kind == identity.TooManyAttempts {
 			return tooManyAttempts.Until(wait.Until)

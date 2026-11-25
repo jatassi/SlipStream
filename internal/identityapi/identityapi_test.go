@@ -43,6 +43,8 @@ type node struct {
 	code  string
 	hub   *live.Hub
 	start string
+	// grants is the Granter the Node was given.
+	grants *granter
 }
 
 var fixtureAdmin = struct{ ID, Path string }{"getFixture", "/fixture"}
@@ -54,6 +56,8 @@ type nodeOptions struct {
 	setupOpen bool
 	// zone is the Node's zone, UTC when nil.
 	zone *time.Location
+	// ungranted leaves the Node with no Granter.
+	ungranted bool
 }
 
 func newNode(t *testing.T) *node { return newNodeWith(t, nodeOptions{}) }
@@ -61,7 +65,7 @@ func newNode(t *testing.T) *node { return newNodeWith(t, nodeOptions{}) }
 func newNodeWith(t *testing.T, o nodeOptions) *node {
 	t.Helper()
 	ctx := t.Context()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), offersSchema)
 	keys, err := secret.Open(ctx, lib, filepath.Join(t.TempDir(), secret.KeyFile))
 	if err != nil {
 		t.Fatal(err)
@@ -71,6 +75,10 @@ func newNodeWith(t *testing.T, o nodeOptions) *node {
 	svc, err := identity.New(ctx, identity.Config{Library: lib, Pepper: keys.PINPepper(), Sealer: keys.Sealer(), Hub: hub, Mail: sent, Outbox: outbox})
 	if err != nil {
 		t.Fatal(err)
+	}
+	grants := newGranter(lib)
+	if !o.ungranted {
+		svc.SetGranter(grants)
 	}
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
 	gate, code, err := identity.NewGate(ctx, identitytest.Node{Service: svc, SetupOpen: o.setupOpen}.Claim, log)
@@ -91,7 +99,7 @@ func newNodeWith(t *testing.T, o nodeOptions) *node {
 		func(context.Context, identity.Admin, *struct{}) (*struct{}, error) { return &struct{}{}, nil })
 	api.Register(r.Owner("fixturesession", api.ReconfirmedSession), api.ReconfirmedSession, api.Op{ID: "getSessionFixture", Method: http.MethodGet, Path: "/fixture-session"},
 		func(context.Context, identity.Admin, *struct{}) (*struct{}, error) { return &struct{}{}, nil })
-	return &node{t: t, mail: sent, lib: lib, h: r.Handler(), doc: r.Document(), code: code, hub: hub, start: head(t, hub)}
+	return &node{t: t, mail: sent, lib: lib, h: r.Handler(), doc: r.Document(), code: code, hub: hub, start: head(t, hub), grants: grants}
 }
 
 // head is the id of the hub's newest event, which a subscription with no
