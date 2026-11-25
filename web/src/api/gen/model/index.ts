@@ -673,8 +673,6 @@ export * from "./createSignupLink422.ts";
 export * from "./createSignupLink422Code.ts";
 export * from "./createSignupLink500.ts";
 export * from "./createSignupLink500Code.ts";
-export * from "./createSignupLink501.ts";
-export * from "./createSignupLink501Code.ts";
 export * from "./createTarget401.ts";
 export * from "./createTarget401Code.ts";
 export * from "./createTarget403.ts";
