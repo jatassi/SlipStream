@@ -35,12 +35,18 @@ var den = fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:32401")}
 // account, and a plex.tv client for a new device key.
 type world struct {
 	api, auth, plex faketest.Served
+	endpoints       plextv.Endpoints
 	client          *plextv.Client
 }
 
 type serveFunc func(t testing.TB, spec fake.Spec, s scenario.Scenario, opts ...faketest.Option) faketest.Served
 
 func newWorld(t *testing.T, serve serveFunc, account fakeplextv.Account, opts ...faketest.Option) world {
+	t.Helper()
+	return newWorldOf(t, serve, fakeplextv.Playing(account), opts...)
+}
+
+func newWorldOf(t *testing.T, serve serveFunc, tv fake.Spec, opts ...faketest.Option) world {
 	t.Helper()
 	s := scenario.Scenario{Seed: "plextv"}
 	shared := fake.NewShared()
@@ -51,18 +57,18 @@ func newWorld(t *testing.T, serve serveFunc, account fakeplextv.Account, opts ..
 	var w world
 	w.plex = serve(t, fakeplex.Playing(srv), s, faketest.WithShared(shared), faketest.As("controller"))
 	fronts := fake.Fronts{{Target: "plex", Node: "world", Address: den}, {Target: "plex", Node: "controller", Address: w.plex.Address}, {Target: "plex", Node: "den", Address: den}}
-	w.api = serve(t, fakeplextv.Playing(account), s, append(opts, faketest.WithShared(shared), faketest.WithFronts(fronts))...)
+	w.api = serve(t, tv, s, append(opts, faketest.WithShared(shared), faketest.WithFronts(fronts))...)
 	w.auth = serve(t, fakeplextv.Auth, s, faketest.WithShared(shared))
 	_, key, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := plextv.Endpoints{
+	w.endpoints = plextv.Endpoints{
 		API:     endpoint.MustParseURL(w.api.Address.URL("")),
 		Auth:    endpoint.MustParseURL(w.auth.Address.URL("/auth")),
 		Desktop: endpoint.MustParseURL("https://app.plex.invalid/desktop"),
 	}
-	w.client = plextv.New(e, headers, key, w.api.Client)
+	w.client = plextv.New(w.endpoints, headers, key, w.api.Client)
 	return w
 }
 
@@ -96,10 +102,10 @@ func (w world) fetch(t *testing.T, method, to string, form url.Values) page {
 	return page{status: resp.StatusCode, location: resp.Header.Get("Location")}
 }
 
-// submit posts form to the sign-in page's path.
-func (w world) submit(t *testing.T, path string, form url.Values) page {
+// approve posts form to the sign-in page's Allow.
+func (w world) approve(t *testing.T, form url.Values) page {
 	t.Helper()
-	return w.fetch(t, http.MethodPost, w.auth.Address.URL(path), form)
+	return w.fetch(t, http.MethodPost, w.auth.Address.URL("/auth/approve"), form)
 }
 
 // signIn runs the PIN flow, the Admin allowing it on the sign-in page,
@@ -110,7 +116,7 @@ func (w world) signIn(t *testing.T) plextv.Token {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p := w.submit(t, "/auth/approve", url.Values{"code": {pin.Code}, "forwardUrl": {forward}}); p.status != http.StatusSeeOther {
+	if p := w.approve(t, url.Values{"code": {pin.Code}, "forwardUrl": {forward}}); p.status != http.StatusSeeOther {
 		t.Fatalf("approve: status %d", p.status)
 	}
 	token, ok, err := w.client.PollPin(t.Context(), pin.ID)
@@ -159,7 +165,7 @@ func TestPinSignInReturnsToForwardURLWithNoQuery(t *testing.T) {
 		if fragment.Get("clientID") != headers.ClientID || fragment.Get("code") != pin.Code || fragment.Get("forwardUrl") != forward {
 			t.Fatalf("auth URL fragment = %v", fragment)
 		}
-		back := w.submit(t, "/auth/approve", url.Values{"code": {fragment.Get("code")}, "forwardUrl": {fragment.Get("forwardUrl")}})
+		back := w.approve(t, url.Values{"code": {fragment.Get("code")}, "forwardUrl": {fragment.Get("forwardUrl")}})
 		if back.status != http.StatusSeeOther || back.location != forward {
 			t.Fatalf("after approval: status %d to %q, want %q with no query", back.status, back.location, forward)
 		}
@@ -321,7 +327,7 @@ func TestExpiredPin(t *testing.T) {
 			t.Fatal(err)
 		}
 		w.api.Cue(t, fakeplextv.ExpirePins.Name, struct{}{})
-		if p := w.submit(t, "/auth/approve", url.Values{"code": {pin.Code}, "forwardUrl": {forward}}); p.status != http.StatusNotFound {
+		if p := w.approve(t, url.Values{"code": {pin.Code}, "forwardUrl": {forward}}); p.status != http.StatusNotFound {
 			t.Errorf("approve an expired PIN: status %d, want 404", p.status)
 		}
 		if _, _, err := w.client.PollPin(t.Context(), pin.ID); !plextv.Expired(err) {
@@ -346,4 +352,61 @@ func TestRateLimitedPollCarriesItsWait(t *testing.T) {
 			t.Fatalf("poll after the limit: %v", err)
 		}
 	})
+}
+
+// TestAMemberSignsInWithALegacyPin approves a Member's legacy PIN on the
+// sign-in page's account picker: the token is the Member's own, a second
+// sign-in's token lives beside it, and signing one out leaves the other
+// and the Admin's JWT working.
+func TestAMemberSignsInWithALegacyPin(t *testing.T) {
+	inEachTier(t, func(t *testing.T, serve serveFunc) {
+		w := newWorldOf(t, serve, fakeplextv.Playing(fakeplextv.Account{Username: "jackson", PlexPass: true}, fakeplextv.Account{Username: "ana", Email: "ana@example.test"}))
+		jwt := w.signIn(t).JWT
+		admin, err := w.client.User(t.Context(), jwt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		member := plextv.NewMember(w.endpoints, plex.Headers{ClientID: "slipstream-member-ana", Product: "SlipStream"}, w.api.Client)
+		first, second := w.memberSignIn(t, member, "ana"), w.memberSignIn(t, member, "ana")
+		for _, token := range []plextv.MemberToken{first, second} {
+			u, err := member.User(t.Context(), token)
+			if err != nil || u.Username != "ana" || u.Email != "ana@example.test" || u.PlexPass || u.ID == 0 || u.ID == admin.ID || u.UUID == "" || u.UUID == admin.UUID {
+				t.Fatalf("member user = %+v, %v, want ana apart from the Admin %+v", u, err, admin)
+			}
+		}
+		if err := member.SignOut(t.Context(), first); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := member.User(t.Context(), first); !plextv.Refused(err) {
+			t.Errorf("user with the signed-out token: %v, want 401", err)
+		}
+		if _, err := member.User(t.Context(), second); err != nil {
+			t.Errorf("user with the other token after one signed out: %v", err)
+		}
+		if _, err := w.client.Servers(t.Context(), jwt); err != nil {
+			t.Errorf("the Admin's servers after a Member signed out: %v", err)
+		}
+	})
+}
+
+// memberSignIn runs member's legacy PIN, the account named username
+// allowing it on the sign-in page, and answers the Member's token.
+func (w world) memberSignIn(t *testing.T, member *plextv.Member, username string) plextv.MemberToken {
+	t.Helper()
+	pin, err := member.CreateLegacyPin(t.Context())
+	if err != nil || len(pin.Code) != 25 {
+		t.Fatalf("legacy PIN = %+v, %v, want a strong code", pin, err)
+	}
+	if _, ok, err := member.PollLegacyPin(t.Context(), pin.ID); ok || err != nil {
+		t.Fatalf("poll before approval = %v, %v, want waiting", ok, err)
+	}
+	code := authFragment(t, member.AuthURL(pin.Code, forward)).Get("code")
+	if p := w.approve(t, url.Values{"code": {code}, "account": {username}, "forwardUrl": {forward}}); p.status != http.StatusSeeOther {
+		t.Fatalf("approve as %s: status %d", username, p.status)
+	}
+	token, ok, err := member.PollLegacyPin(t.Context(), pin.ID)
+	if err != nil || !ok || len(token.Reveal()) != 20 {
+		t.Fatalf("poll after approval = %v, %v, want a 20-character token", ok, err)
+	}
+	return token
 }
