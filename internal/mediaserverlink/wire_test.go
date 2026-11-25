@@ -3,14 +3,26 @@ package mediaserverlink_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/netip"
+	"net/url"
+	"os"
+	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
+	"testing/synctest"
 	"time"
+
+	fakeemby "github.com/jatassi/slipstream/fakes/emby"
+	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	fakejellyfin "github.com/jatassi/slipstream/fakes/jellyfin"
+	"github.com/jatassi/slipstream/fakes/scenario"
 
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
+	wire "github.com/jatassi/slipstream/internal/providers/jellyfin"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -204,4 +216,142 @@ func TestRemoteKeepsAServersFailureApartFromTheLinks(t *testing.T) {
 func problemIs(err error, want *link.ServerError) bool {
 	p, ok := link.ServerProblem(err)
 	return ok && p == want.Problem
+}
+
+// worker plays the reaching Node's Members over users, as the holder's
+// handler does.
+type worker struct{ users link.Users }
+
+func (w worker) Members(ctx context.Context, req *msv1.MembersRequest) (*msv1.MembersResponse, error) {
+	return mediaserverlink.MembersOnWire(ctx, w.users, req)
+}
+
+const denServerID = "ddc0b5b7f2824180aae9f2f245dd00ca"
+
+// served is Den on fake p with a Movies and a Shows library, and jackson
+// its administrator.
+func served(t *testing.T, p link.Kind) (faketest.Served, link.Conn, *wire.Client) {
+	t.Helper()
+	media := t.TempDir()
+	for _, dir := range []string{"Movies", "Shows"} {
+		if err := os.MkdirAll(filepath.Join(media, dir), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	const key = "den-key"
+	flavor, spec, version := wire.Jellyfin, fakejellyfin.Playing, "12.4.0"
+	if p.About().Name == "emby" {
+		flavor, spec, version = wire.Emby, fakeemby.Playing, "4.10.1.0"
+	}
+	f := faketest.InMemory(t, spec(fakejellyfin.Server{
+		Name: "Den", Version: version, ID: denServerID, Keys: []string{key},
+		Users: []fakejellyfin.User{{Name: "jackson", Password: "admin-password", Admin: true}},
+		Root:  "/media",
+		Libraries: []fakejellyfin.Library{
+			{Name: "Movies", Type: "movies", Folders: []string{"/media/Movies"}},
+			{Name: "Shows", Type: "tvshows", Folders: []string{"/media/Shows"}},
+		},
+	}), scenario.Scenario{Seed: "members"}, faketest.WithMedia(media), faketest.As("Den"))
+	base, err := url.Parse(f.Address.URL(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := p.Dial(link.Dialed{
+		Server:  link.ServerRef{ID: link.ServerID{UUID: storage.NewUUID()}, Kind: p.About().Name, Identity: denServerID},
+		Address: f.Address.URL(""), Credential: link.Credential{APIKey: key}, DeviceID: "den-device", HTTP: f.Client, Timings: link.DefaultTimings(),
+	})
+	return f, conn, wire.New(base, flavor, key, wire.App{Client: "test", Device: "test", DeviceID: "test", Version: "1"}, f.Client)
+}
+
+// held is the user id as the server holds it: its name, flags and
+// folders, and whether pw signs it in, or gone.
+func held(t *testing.T, admin *wire.Client, id string, pw link.Password) string {
+	t.Helper()
+	all, err := admin.Users(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(all, func(u wire.User) bool { return u.ID == id })
+	if i < 0 {
+		return "gone"
+	}
+	u := all[i]
+	_, err = admin.AuthenticateByName(t.Context(), u.Name, pw.Reveal())
+	p := u.Policy
+	return fmt.Sprintf("%s admin=%t disabled=%t all=%t folders=%v signs-in=%t", u.Name, p.IsAdministrator, p.IsDisabled, p.EnableAllFolders, p.EnabledFolders, err == nil)
+}
+
+// TestUsersCrossTheWireToTheServer runs each users call through
+// RemoteUsers and the Worker's MembersOnWire on Jellyfin and Emby, and
+// reads after each what the server now holds.
+func TestUsersCrossTheWireToTheServer(t *testing.T) {
+	for _, name := range []link.KindName{"jellyfin", "emby"} {
+		t.Run(string(name), func(t *testing.T) { synctest.Test(t, func(t *testing.T) { crossUsers(t, name) }) })
+	}
+}
+
+// answered is whether err is what ok accepts, or nil with no ok.
+func answered(err error, ok func(error) bool) bool {
+	if ok == nil {
+		return err == nil
+	}
+	return ok(err)
+}
+
+func takenName(err error) bool {
+	r, ok := errors.AsType[*link.NameRefusedError](err)
+	return ok && r.Taken && r.Reply != ""
+}
+
+func crossUsers(t *testing.T, name link.KindName) {
+	t.Helper()
+	pw, err := link.NewPassword("sam-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	k, _ := mediaserverlink.Kinds.Of(name)
+	_, conn, admin := served(t, k)
+	direct, _ := mediaserverlink.UsersOf(conn)
+	users := mediaserverlink.RemoteUsers(worker{direct}, link.ServerRef{ID: link.ServerID{UUID: storage.NewUUID()}})
+	vfs, err := admin.Libraries(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	movies, folder := vfs[0].ItemID, map[bool]string{true: vfs[0].GUID, false: vfs[0].ItemID}[name == "emby"]
+	sam, err := users.CreateUser(t.Context(), "slipstream-0123456789ab")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range []struct {
+		name string
+		call func() error
+		ok   func(error) bool
+		want string
+	}{
+		{"restrict", func() error { return users.Restrict(t.Context(), sam, []string{movies}) }, nil,
+			"slipstream-0123456789ab admin=false disabled=false all=false folders=[" + folder + "] signs-in=false"},
+		{"set the password", func() error { return users.SetPassword(t.Context(), sam, pw) }, nil,
+			"slipstream-0123456789ab admin=false disabled=false all=false folders=[" + folder + "] signs-in=true"},
+		{"rename", func() error { return users.Rename(t.Context(), sam, "sam") }, nil,
+			"sam admin=false disabled=false all=false folders=[" + folder + "] signs-in=true"},
+		{"rename to a taken name", func() error { return users.Rename(t.Context(), sam, "Jackson") }, takenName,
+			"sam admin=false disabled=false all=false folders=[" + folder + "] signs-in=true"},
+		{"restrict a user the server lacks", func() error { return users.Restrict(t.Context(), "f00d", []string{movies}) }, link.Gone,
+			"sam admin=false disabled=false all=false folders=[" + folder + "] signs-in=true"},
+		{"disable", func() error { return users.Disable(t.Context(), sam) }, nil,
+			"sam admin=false disabled=true all=false folders=[" + folder + "] signs-in=false"},
+		{"delete", func() error { return users.DeleteUser(t.Context(), sam) }, nil, "gone"},
+		{"delete again", func() error { return users.DeleteUser(t.Context(), sam) }, nil, "gone"},
+	} {
+		if err := step.call(); !answered(err, step.ok) {
+			t.Errorf("%s answered %v", step.name, err)
+		}
+		if got := held(t, admin, sam, pw); got != step.want {
+			t.Errorf("after %s the server holds %q, want %q", step.name, got, step.want)
+		}
+	}
+	listed, err := users.ListUsers(t.Context())
+	if err != nil || len(listed) != 1 || listed[0] != (link.User{ID: listed[0].ID, Name: "jackson", Administrator: true}) {
+		t.Errorf("listed %+v, %v; want only jackson", listed, err)
+	}
 }

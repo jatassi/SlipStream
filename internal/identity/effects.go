@@ -14,6 +14,7 @@ import (
 type effects struct {
 	// now is the Write's one clock reading.
 	now      storage.Time
+	tx       *storage.Tx[file]
 	ended    []endedSession
 	regated  []AccountID
 	sessions map[AccountID]struct{}
@@ -22,6 +23,7 @@ type effects struct {
 	links    bool
 	address  bool
 	notices  []mail.Message
+	after    []func(context.Context)
 }
 
 type endedSession struct {
@@ -71,13 +73,18 @@ func (fx *effects) addressChanged() { fx.address = true }
 // waits for.
 func (fx *effects) notice(m mail.Message) { fx.notices = append(fx.notices, m) }
 
+// afterCommit records f to run once the Write commits, after everything
+// else it plays.
+func (fx *effects) afterCommit(f func(context.Context)) { fx.after = append(fx.after, f) }
+
 // write is identity's only lib.Write. It holds the last-Admin rule: no
 // Write may take a Library that has an enabled Admin to none. After commit
 // it ends the sessions' streams, then re-gated Accounts' streams, then
-// publishes, then posts the notices.
+// publishes, then posts the notices, then runs what afterCommit recorded.
 func (s *Service) write(ctx context.Context, fn func(ctx context.Context, q *db.Queries, fx *effects) error) error {
 	fx := &effects{now: storage.Now(), sessions: map[AccountID]struct{}{}, passkeys: map[AccountID]struct{}{}}
 	err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		fx.tx = tx
 		q := db.New(tx)
 		before, err := q.CountEnabledAdmins(ctx)
 		if err != nil {
@@ -121,6 +128,9 @@ func (s *Service) write(ctx context.Context, fn func(ctx context.Context, q *db.
 	}
 	for _, m := range fx.notices {
 		s.outbox.Post(m)
+	}
+	for _, f := range fx.after {
+		f(ctx)
 	}
 	return nil
 }

@@ -39,6 +39,7 @@ type MediaServers struct {
 	// unconfirmed is the servers a re-home unconfirmed, published at the
 	// next roots.changed.
 	unconfirmed unconfirmed
+	turns       turns
 }
 
 type Config struct {

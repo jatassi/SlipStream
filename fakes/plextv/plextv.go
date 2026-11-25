@@ -18,7 +18,10 @@
 // client identifier, whose approval gives a 20-character legacy token
 // with no expiry, as the run of 2026-11-25 met it. Two tokens of one
 // account coexist, and DELETE /api/v2/users/signout ends only the one it
-// carries.
+// carries. The Admin's shares, the invites they leave, the Plex Home and
+// a Member's accept follow the same run. plextv-web, plex.tv's own host,
+// serves the share, its removal, the invite's cancel and the Home
+// changes, and plextv the listings and the accept.
 package plextv
 
 import (
@@ -89,8 +92,8 @@ var Fake = fake.Spec{
 		e.PlexTV.Desktop = endpoint.MustParseURL("https://app.plex.invalid/desktop")
 	},
 	Online:   fake.NoOnlineRun("plex.tv needs a signed-in account; the JWT flow is a recorded manual run"),
-	Cues:     []fake.CueSpec{Approve, ExpirePins, SignOut, PlexPass, PlexMapping},
-	Captures: []fake.CaptureSpec{ConnectBacks},
+	Cues:     []fake.CueSpec{Approve, ExpirePins, SignOut, PlexPass, PlexMapping, RefuseNextShare, RefuseNextAccept, SignOutMember, HomeFull},
+	Captures: []fake.CaptureSpec{ConnectBacks, Invites},
 }
 
 // Auth is plex.tv's sign-in page, over plain HTTP at 127.0.0.1, so every
@@ -186,6 +189,7 @@ type state struct {
 	// site is the world's network, nil in a Scenario with none.
 	site         *netsite.Model
 	connectBacks *fake.Capture
+	sharing
 }
 
 type issued struct {
@@ -247,6 +251,7 @@ func serve(sc scenario.Scenario, env fake.Env, accounts []Account) (fake.Server,
 
 func (s *state) cues(env fake.Env) error {
 	return errors.Join(
+		s.sharingCues(env),
 		fake.OnCue(env, Approve.Name, func(_ context.Context, a struct {
 			Code    string `json:"code"`
 			Account string `json:"account"`

@@ -123,7 +123,8 @@ message IndexHint {
 }
 
 // MediaServerLinkService runs on a Node that holds Media Server link. No
-// call but CheckRequest and SignInRequest carries a secret.
+// call but CheckRequest, SignInRequest and MembersRequest's
+// member_password carries a secret.
 service MediaServerLinkService {
   option (slipstream.node.v1.served_by) = {role: "media-server-link"};
   // Reach reads the identity at an address with no credential: Plex
@@ -142,6 +143,10 @@ service MediaServerLinkService {
   // Exposed reads what a server in this Node's intent reports about its
   // use away from home. It writes nothing to the server.
   rpc Exposed(ExposedRequest) returns (ExposedResponse);
+  // Members makes, changes and lists the users of a Jellyfin or Emby
+  // server in this Node's intent for Media Server access, with the API key
+  // this Node holds. The rpc layer logs no request body.
+  rpc Members(MembersRequest) returns (MembersResponse);
 }
 
 // MediaServerControlService runs on the Controller.
@@ -369,4 +374,70 @@ message IndexEntry {
   string library = 2;
   ItemKey item = 3;
   bool gone = 4;
+}
+
+// MembersRequest is one call of link.Users on a server in the Node's
+// intent.
+message MembersRequest {
+  bytes server_id = 1;
+  // settings_version is as on AdvanceRequest.
+  int64 settings_version = 2;
+  oneof op {
+    CreateUser create_user = 3;
+    RestrictUser restrict_user = 4;
+    // member_password is the Member's chosen password, in this one call,
+    // never stored or logged.
+    MemberPassword member_password = 5;
+    RenameUser rename_user = 6;
+    // disable_user is the user's id.
+    string disable_user = 7;
+    // delete_user is the user's id.
+    string delete_user = 8;
+    ListUsers list_users = 9;
+  }
+}
+
+message CreateUser {
+  string name = 1;
+}
+
+message RestrictUser {
+  string user_id = 1;
+  repeated string library_keys = 2;
+}
+
+message MemberPassword {
+  string user_id = 1;
+  string password = 2;
+}
+
+message RenameUser {
+  string user_id = 1;
+  string name = 2;
+}
+
+message ListUsers {}
+
+message ServerUser {
+  string id = 1;
+  string name = 2;
+  bool administrator = 3;
+  bool disabled = 4;
+}
+
+message MembersResponse {
+  // user_id answers create_user.
+  string user_id = 1;
+  // users answers list_users.
+  repeated ServerUser users = 2;
+  // name_refused is the server's 400 about a name, for create_user and
+  // rename_user.
+  NameRefused name_refused = 3;
+  // problem is set when the server failed the call.
+  Problem problem = 4;
+}
+
+message NameRefused {
+  bool taken = 1;
+  string reply = 2;
 }

@@ -46,7 +46,7 @@ func newRig(t *testing.T) rig {
 	t.Helper()
 	w := mstest.New(t)
 	h := &atomic.Pointer[health.Health]{}
-	return rig{w: w, health: h, o: ownertest.Serve(t, w.Lib, func(r *api.Router) {
+	return rig{w: w, health: h, o: ownertest.ServeOver(t, w.Lib, w.Identity, func(r *api.Router) {
 		mediaserversapi.Routes(r, w)
 		healthapi.Routes(r, watch{h})
 	})}
@@ -221,5 +221,47 @@ func TestSettingsRefuseAMarginNoLongerThanTheCadence(t *testing.T) {
 		status, body := r.o.Call(t, http.MethodPatch, servers+"/settings", `{"values":{"mediaServers.renewMargin":86400}}`)
 		expectProblem(t, status, body, http.StatusUnprocessableEntity, `"code":"renew_margin_too_short"`,
 			`\"Renew when the sign-in expires within\" must be longer than \"Renew Plex sign-in every\", which is 1 day.`)
+	})
+}
+
+// TestShowToMembersPicksTheShownLibraries turns on Show to Members for
+// Den: refused while no Path mapping shows a library, then Shelves, the
+// library behind the shown mapping, becomes Den's library for Members.
+// An offer doesn't count as a Member who can watch, and the last library
+// can't be taken away while Den is shown.
+func TestShowToMembersPicksTheShownLibraries(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newRig(t)
+		r.w.Jellyfin(t, host, den(floorVer))
+		root := r.w.Root(t, "Shelves")
+		id := r.add(t)
+		status, body := r.o.Call(t, http.MethodPatch, servers+"/"+id, `{"membersSee":true}`)
+		expectProblem(t, status, body, http.StatusUnprocessableEntity, `"code":"no_member_libraries"`)
+		status, body = r.o.Call(t, http.MethodPut, servers+"/"+id+"/mappings",
+			`{"mappings":[{"rootId":"`+root.ID.String()+`","shown":true,"serverFolder":"`+shelves+`"}]}`)
+		expectProblem(t, status, body, http.StatusOK, `"confirmed":true`)
+		status, body = r.o.Call(t, http.MethodPatch, servers+"/"+id, `{"membersSee":true}`)
+		expectProblem(t, status, body, http.StatusOK, `"membersSee":true`, `"name":"Shelves"`, `"memberCount":0`)
+
+		if status, body := r.offer(t, r.w.Member(t, "sam").ID, id, false); status != http.StatusOK {
+			t.Fatalf("offer Den = %d %s", status, body)
+		}
+		if body := r.expectOK(t, servers+"/"+id); !strings.Contains(body, `"memberCount":0`) {
+			t.Errorf("Den with one offer reads %s, want no Member who can watch", body)
+		}
+		status, body = r.o.Call(t, http.MethodPatch, servers+"/"+id, `{"memberLibraries":[]}`)
+		expectProblem(t, status, body, http.StatusUnprocessableEntity, `"code":"no_member_libraries"`)
+	})
+}
+
+// TestAPlexServerTakesNoAddressForMembers sets an Address for Members on
+// the Plex server, whose apps find it through the Member's Plex account.
+func TestAPlexServerTakesNoAddressForMembers(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newPlexRig(t)
+		r.signIn(t)
+		id := r.addPlex(t, r.w.Home.String()).ID
+		status, body := r.o.Call(t, http.MethodPatch, servers+"/"+id, `{"memberAddress":"https://plex.example.test"}`)
+		expectProblem(t, status, body, http.StatusUnprocessableEntity, `"location":"body.memberAddress"`)
 	})
 }

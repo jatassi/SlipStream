@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -16,7 +17,8 @@ import (
 )
 
 func (s *state) routes() fake.Routes {
-	return fake.Routes{
+	routes := s.sharingRoutes()
+	maps.Copy(routes, fake.Routes{
 		"pins":      {Pattern: "POST /api/v2/pins", Handler: s.createPin},
 		"pin":       {Pattern: "GET /api/v2/pins/{id}", Handler: s.pollPin},
 		"user":      {Pattern: "GET /api/v2/user", Handler: s.user},
@@ -24,7 +26,8 @@ func (s *state) routes() fake.Routes {
 		"nonce":     {Pattern: "GET /api/v2/auth/nonce", Handler: s.nonce},
 		"token":     {Pattern: "POST /api/v2/auth/token", Handler: s.renew},
 		"signout":   {Pattern: "DELETE /api/v2/users/signout", Handler: s.signOut},
-	}
+	})
+	return routes
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

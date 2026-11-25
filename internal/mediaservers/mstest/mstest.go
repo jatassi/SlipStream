@@ -32,6 +32,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/mail/mailtest"
@@ -71,8 +72,11 @@ var Timings = link.Timings{
 
 // World is the Media Servers of home, with seedbox paired.
 type World struct {
-	Lib           *storage.DB[storage.Library]
-	Sealer        *secret.Sealer
+	Lib    *storage.DB[storage.Library]
+	Sealer *secret.Sealer
+	// Identity is the Accounts, whose Signup links and deletes reach the
+	// Media Servers through their Granter.
+	Identity      *identity.Service
 	Home, Seedbox role.NodeID
 	Service       mediaservers.Service
 	// Renewal is the Plex sign-in task, run as the scheduler runs it.
@@ -100,7 +104,7 @@ type World struct {
 // Schemas are the library schemas the Media Servers read.
 func Schemas() []storage.Schema[storage.Library] {
 	return []storage.Schema[storage.Library]{
-		secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), roots.Schema(), mediaservers.Schema(), health.Schema(),
+		secret.Schema(), identity.Schema(), mail.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), roots.Schema(), mediaservers.Schema(), health.Schema(),
 	}
 }
 
@@ -157,6 +161,14 @@ func New(t *testing.T) *World {
 		PlexFacts: plextv.Recorded,
 	})
 	w.ms, w.Service, w.Renewal = ms, ms.Service(), ms.RenewalTask()
+	keys, err := secret.Open(t.Context(), w.Lib, filepath.Join(t.TempDir(), secret.KeyFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Identity, err = identity.New(t.Context(), identity.Config{Library: w.Lib, Pepper: keys.PINPepper(), Sealer: w.Sealer, Hub: identitytest.Hub(t)}); err != nil {
+		t.Fatal(err)
+	}
+	w.Identity.SetGranter(ms.Granter())
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -170,6 +182,19 @@ func New(t *testing.T) *World {
 	w.links.start(w.Home)
 	w.links.start(w.Seedbox)
 	return w
+}
+
+// Member is a Member's Account and a fresh session of it.
+type Member struct {
+	ID      identity.AccountID
+	Session string
+}
+
+// Member adds a Member whose email is name@example.test.
+func (w *World) Member(t *testing.T, name string) Member {
+	t.Helper()
+	id := identitytest.Member(t, w.Lib, name+"@example.test")
+	return Member{ID: id, Session: identitytest.Session(t, w.Lib, id)}
 }
 
 // MediaServers is the Media Servers, as the API asks a Controller for them.

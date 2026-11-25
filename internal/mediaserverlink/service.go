@@ -108,3 +108,16 @@ func (s linkService) Exposed(ctx context.Context, req *msv1.ExposedRequest) (*ms
 	}
 	return ExposedOnWire(conn.Exposed(ctx))
 }
+
+// Members runs one users call on a server of this Node's intent.
+func (s linkService) Members(ctx context.Context, req *msv1.MembersRequest) (*msv1.MembersResponse, error) {
+	_, conn, err := s.saved(ctx, req.GetServerId(), req.GetSettingsVersion())
+	if err != nil {
+		return nil, err
+	}
+	users, ok := UsersOf(conn)
+	if !ok {
+		return nil, rpc.Errorf(rpc.CodeFailedPrecondition, "this kind of Media Server has no users SlipStream can make")
+	}
+	return MembersOnWire(ctx, users, req)
+}

@@ -43,7 +43,38 @@ type serverGrant struct {
 }
 
 func pendingOf(l identity.PendingLink) pendingLink {
-	return pendingLink{ID: l.ID.String(), Email: l.Email, IssuedBy: l.IssuedBy, IssuedAt: l.IssuedAt, ExpiresAt: l.ExpiresAt, MediaServers: []grantedServer{}}
+	servers := make([]grantedServer, len(l.Offers.MediaServers))
+	for i, g := range l.Offers.MediaServers {
+		servers[i] = grantedServer{Server: g.Server.String(), Name: g.Name, Kind: g.Kind, Present: g.Present, Shown: g.Shown, PlexHome: g.PlexHome}
+	}
+	return pendingLink{ID: l.ID.String(), Email: l.Email, IssuedBy: l.IssuedBy, IssuedAt: l.IssuedAt, ExpiresAt: l.ExpiresAt, MediaServers: servers}
+}
+
+// offeredOf is what a Signup link's page names: the servers still shown
+// to Members.
+func offeredOf(d *identity.Described) *[]offeredServer {
+	if d == nil {
+		return nil
+	}
+	out := []offeredServer{}
+	for _, g := range d.MediaServers {
+		if g.Present && g.Shown {
+			out = append(out, offeredServer{Name: g.Name, Kind: g.Kind})
+		}
+	}
+	return &out
+}
+
+func grantsOf(in []serverGrant) (identity.Grants, error) {
+	var g identity.Grants
+	for _, s := range in {
+		id, err := storage.ParseUUID(s.Server)
+		if err != nil {
+			return g, notShownToMembers
+		}
+		g.MediaServers = append(g.MediaServers, identity.ServerGrant{Server: id, PlexHome: s.PlexHome})
+	}
+	return g, nil
 }
 
 type pendingLinks struct {
@@ -166,15 +197,16 @@ func signupIssued(i identity.Issued, err error) (*signupIssuedOutput, error) {
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &signupIssuedOutput{Body: issuedSignupLink{Link: pendingOf(i.Link), URL: i.URL, Email: mailapi.OutcomeOf(i.Mail)}}, nil
+	return &signupIssuedOutput{Body: issuedSignupLink{Link: pendingOf(i.Link), URL: i.URL, Email: mailapi.OutcomeOf(i.Mail), Dropped: i.Dropped}}, nil
 }
 
 func issueSignupLink(lib Library) func(context.Context, identity.Admin, *newSignupLinkInput) (*signupIssuedOutput, error) {
 	return func(ctx context.Context, a identity.Admin, in *newSignupLinkInput) (*signupIssuedOutput, error) {
-		if len(in.Body.MediaServers) > 0 {
-			return nil, notBuilt
+		g, err := grantsOf(in.Body.MediaServers)
+		if err != nil {
+			return nil, err
 		}
-		return signupIssued(open(lib).IssueSignupLink(ctx, a, in.Body.Email))
+		return signupIssued(open(lib).IssueSignupLink(ctx, a, in.Body.Email, g))
 	}
 }
 
@@ -271,7 +303,7 @@ func viewLink(lib Library, k identity.LinkKind) func(context.Context, identity.A
 			return nil, err
 		}
 		return &linkViewOutput{Body: api.NewOneOf[linkView](liveLink{
-			State: "live", AdminName: live.AdminName, Email: live.Email, ServerName: live.ServerName, ExpiresAt: live.ExpiresAt,
+			State: "live", AdminName: live.AdminName, Email: live.Email, ServerName: live.ServerName, ExpiresAt: live.ExpiresAt, MediaServers: offeredOf(live.Offers),
 		})}, nil
 	}
 }

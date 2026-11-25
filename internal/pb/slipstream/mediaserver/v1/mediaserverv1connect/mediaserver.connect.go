@@ -50,6 +50,9 @@ const (
 	// MediaServerLinkServiceExposedProcedure is the procedure name of the MediaServerLinkService's
 	// Exposed RPC.
 	MediaServerLinkServiceExposedProcedure = "/slipstream.mediaserver.v1.MediaServerLinkService/Exposed"
+	// MediaServerLinkServiceMembersProcedure is the procedure name of the MediaServerLinkService's
+	// Members RPC.
+	MediaServerLinkServiceMembersProcedure = "/slipstream.mediaserver.v1.MediaServerLinkService/Members"
 	// MediaServerControlServiceMediaServerSecretsProcedure is the procedure name of the
 	// MediaServerControlService's MediaServerSecrets RPC.
 	MediaServerControlServiceMediaServerSecretsProcedure = "/slipstream.mediaserver.v1.MediaServerControlService/MediaServerSecrets"
@@ -91,6 +94,13 @@ var (
 			Procedure:  MediaServerLinkServiceExposedProcedure,
 		}
 	})
+	mediaServerLinkServiceMembersSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_mediaserver_v1_mediaserver_proto.Services().ByName("MediaServerLinkService").Methods().ByName("Members"),
+			Procedure:  MediaServerLinkServiceMembersProcedure,
+		}
+	})
 )
 
 // MediaServerLinkServiceClient is a client for the slipstream.mediaserver.v1.MediaServerLinkService
@@ -112,6 +122,10 @@ type MediaServerLinkServiceClient interface {
 	// Exposed reads what a server in this Node's intent reports about its
 	// use away from home. It writes nothing to the server.
 	Exposed(context.Context, *v1.ExposedRequest) (*v1.ExposedResponse, error)
+	// Members makes, changes and lists the users of a Jellyfin or Emby
+	// server in this Node's intent for Media Server access, with the API key
+	// this Node holds. The rpc layer logs no request body.
+	Members(context.Context, *v1.MembersRequest) (*v1.MembersResponse, error)
 }
 
 // NewMediaServerLinkServiceClient constructs a client for the
@@ -140,6 +154,10 @@ type MediaServerLinkServiceHandler interface {
 	// Exposed reads what a server in this Node's intent reports about its
 	// use away from home. It writes nothing to the server.
 	Exposed(context.Context, *v1.ExposedRequest) (*v1.ExposedResponse, error)
+	// Members makes, changes and lists the users of a Jellyfin or Emby
+	// server in this Node's intent for Media Server access, with the API key
+	// this Node holds. The rpc layer logs no request body.
+	Members(context.Context, *v1.MembersRequest) (*v1.MembersResponse, error)
 }
 
 // RegisterMediaServerLinkServiceHandler registers svc as the
@@ -152,6 +170,7 @@ func RegisterMediaServerLinkServiceHandler(server *connect.Server, svc MediaServ
 		connect.Method{Spec: mediaServerLinkServiceSignInSpec(), Handler: adapter.signIn},
 		connect.Method{Spec: mediaServerLinkServiceAdvanceSpec(), Handler: adapter.advance},
 		connect.Method{Spec: mediaServerLinkServiceExposedSpec(), Handler: adapter.exposed},
+		connect.Method{Spec: mediaServerLinkServiceMembersSpec(), Handler: adapter.members},
 	)
 }
 
@@ -176,6 +195,10 @@ func (UnimplementedMediaServerLinkServiceHandler) Advance(context.Context, *v1.A
 
 func (UnimplementedMediaServerLinkServiceHandler) Exposed(context.Context, *v1.ExposedRequest) (*v1.ExposedResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.mediaserver.v1.MediaServerLinkService.Exposed is not implemented")
+}
+
+func (UnimplementedMediaServerLinkServiceHandler) Members(context.Context, *v1.MembersRequest) (*v1.MembersResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.mediaserver.v1.MediaServerLinkService.Members is not implemented")
 }
 
 type mediaServerLinkServiceClient struct {
@@ -217,6 +240,14 @@ func (c *mediaServerLinkServiceClient) Advance(ctx context.Context, req *v1.Adva
 func (c *mediaServerLinkServiceClient) Exposed(ctx context.Context, req *v1.ExposedRequest) (*v1.ExposedResponse, error) {
 	var res v1.ExposedResponse
 	if err := c.client.CallUnary(ctx, mediaServerLinkServiceExposedSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *mediaServerLinkServiceClient) Members(ctx context.Context, req *v1.MembersRequest) (*v1.MembersResponse, error) {
+	var res v1.MembersResponse
+	if err := c.client.CallUnary(ctx, mediaServerLinkServiceMembersSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -278,6 +309,18 @@ func (h mediaServerLinkServiceHandler) exposed(ctx context.Context, _ connect.Sp
 		return err
 	}
 	res, err := h.svc.Exposed(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h mediaServerLinkServiceHandler) members(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.MembersRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Members(ctx, &req)
 	if err != nil {
 		return err
 	}

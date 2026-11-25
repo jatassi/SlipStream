@@ -10,4 +10,5 @@ A Member offered a Plex server signs in to Plex once from SlipStream. SlipStream
 ## Consequences
 
 - SlipStream keeps a Member's token as long as a share waits for them, with no limit, because no share can be accepted without it.
+- The token coexists with the Member's other Plex sign-ins: the recorded Plex run of 25 November 2026 held two legacy tokens for one account, both working on clients.plex.tv and plex.tv. SlipStream's sign-in never signs the Member out of their own apps.
 - How long plex.tv honours a legacy token, and whether signing it out revokes only that token, is measured by the recorded Plex run on 3 December 2026. Its answer lands here.

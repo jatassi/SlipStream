@@ -2,9 +2,11 @@ package identityapi_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -42,17 +44,19 @@ func (n *node) setAddress(session string) {
 
 type issuedLink struct {
 	Link struct {
-		ID        string    `json:"id"`
-		Email     string    `json:"email"`
-		IssuedBy  string    `json:"issuedBy"`
-		IssuedAt  time.Time `json:"issuedAt"`
-		ExpiresAt time.Time `json:"expiresAt"`
+		ID           string            `json:"id"`
+		Email        string            `json:"email"`
+		IssuedBy     string            `json:"issuedBy"`
+		IssuedAt     time.Time         `json:"issuedAt"`
+		ExpiresAt    time.Time         `json:"expiresAt"`
+		MediaServers []json.RawMessage `json:"mediaServers"`
 	} `json:"link"`
 	URL   string `json:"url"`
 	Email struct {
 		Outcome string `json:"outcome"`
 		Detail  string `json:"detail"`
 	} `json:"email"`
+	Dropped []string `json:"dropped"`
 }
 
 func decode[T any](t *testing.T, w *httptest.ResponseRecorder, status int) T {
@@ -116,10 +120,11 @@ func TestASignupLinksLife(t *testing.T) {
 	_, a := n.claimed()
 	expect(t, n.as(a, http.MethodPost, "/api/v1/signup-links", `{"email":"grace@example.com"}`), 409, addressUnset)
 	n.setAddress(a)
-	expect(t, n.as(a, http.MethodPost, "/api/v1/signup-links", `{"email":"grace@example.com","mediaServers":[{"server":"`+storage.NewUUID().String()+`"}]}`), 501,
-		problem(501, "not_built_yet", "This part of SlipStream isn't built yet"))
-
-	first := n.issueSignup(a, " Grace@Example.com ")
+	den := n.grants.add(server{name: "Den", kind: "Plex", shown: true, plex: true})
+	attic := n.grants.add(server{name: "Attic", kind: "Jellyfin", shown: true})
+	cellar := n.grants.add(server{name: "Cellar", kind: "Emby", shown: true})
+	first := decode[issuedLink](t, n.as(a, http.MethodPost, "/api/v1/signup-links", `{"email":" Grace@Example.com ","mediaServers":[`+
+		`{"server":"`+den.String()+`","plexHome":true},{"server":"`+attic.String()+`"},{"server":"`+cellar.String()+`"}]}`), http.StatusCreated)
 	if first.Link.Email != "grace@example.com" || first.Link.IssuedBy != "Admin" || first.Email.Outcome != "sent" ||
 		!first.Link.ExpiresAt.Equal(first.Link.IssuedAt.Add(7*24*time.Hour)) {
 		t.Fatalf("issued %+v", first)
@@ -129,13 +134,23 @@ func TestASignupLinksLife(t *testing.T) {
 	if invite.Subject != "Admin invited you to slipstream.example.com" || !strings.Contains(invite.Text, "Make your Account: "+first.URL+"\n") {
 		t.Fatalf("the Signup email = %q %q", invite.Subject, invite.Text)
 	}
+	offered := func(id storage.UUID, name, kind string, shown, plexHome bool) string {
+		return fmt.Sprintf(`{"server":%q,"name":%q,"kind":%q,"present":true,"shown":%t,"plexHome":%t}`, id.String(), name, kind, shown, plexHome)
+	}
+	n.grants.change(cellar, func(s *server) { s.shown = false })
 	expect(t, n.as(a, http.MethodGet, "/api/v1/signup-links/"+first.Link.ID, ""), 200,
 		`{"link":{"id":"`+first.Link.ID+`","email":"grace@example.com","issuedBy":"Admin","issuedAt":"`+first.Link.IssuedAt.Format(time.RFC3339Nano)+
-			`","expiresAt":"`+first.Link.ExpiresAt.Format(time.RFC3339Nano)+`","mediaServers":[]},"url":"`+first.URL+`"}`+"\n")
+			`","expiresAt":"`+first.Link.ExpiresAt.Format(time.RFC3339Nano)+`","mediaServers":[`+
+			offered(den, "Den", "Plex", true, true)+`,`+offered(attic, "Attic", "Jellyfin", true, false)+`,`+offered(cellar, "Cellar", "Emby", false, false)+
+			`]},"url":"`+first.URL+`"}`+"\n")
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/signup-links/by-token/" + firstToken}), 200,
-		`{"state":"live","adminName":"Admin","email":"grace@example.com","serverName":"slipstream.example.com","expiresAt":"`+first.Link.ExpiresAt.Format(time.RFC3339Nano)+`"}`+"\n")
+		`{"state":"live","adminName":"Admin","email":"grace@example.com","serverName":"slipstream.example.com","expiresAt":"`+first.Link.ExpiresAt.Format(time.RFC3339Nano)+
+			`","mediaServers":[{"name":"Den","kind":"Plex"},{"name":"Attic","kind":"Jellyfin"}]}`+"\n")
 
 	second := decode[issuedLink](t, n.as(a, http.MethodPost, "/api/v1/signup-links/"+first.Link.ID+"/resend", ""), http.StatusCreated)
+	if !slices.Equal(second.Dropped, []string{"Cellar"}) || len(second.Link.MediaServers) != 2 {
+		t.Fatalf("Send again with Cellar hidden = dropped %q offering %d, want Cellar dropped and 2 offered", second.Dropped, len(second.Link.MediaServers))
+	}
 	resent := n.mail.Wait(t, "grace@example.com")
 	if !strings.Contains(resent.Text, "This replaces the link sent on ") {
 		t.Fatalf("the resent email doesn't say it replaces the first:\n%s", resent.Text)
@@ -154,6 +169,17 @@ func TestASignupLinksLife(t *testing.T) {
 	}
 
 	secondToken := tokenOf(t, second.URL)
+	n.grants.change(attic, func(s *server) { s.refuses = true })
+	if w := n.join(secondToken); w.Code != http.StatusInternalServerError {
+		t.Fatalf("joining while Attic refuses = %d %s", w.Code, w.Body)
+	}
+	if got := view(n, "signup", secondToken); !strings.HasPrefix(got, `{"state":"live"`) {
+		t.Fatalf("the link after a refused offer = %s, want live", got)
+	}
+	if got := n.offered(); len(got) != 0 {
+		t.Fatalf("offers after a refused offer = %q, want none: Den's rolls back with the Account", got)
+	}
+	n.grants.change(attic, func(s *server) { s.refuses = false })
 	w := n.join(secondToken)
 	got := decode[struct {
 		Account struct {
@@ -166,6 +192,9 @@ func TestASignupLinksLife(t *testing.T) {
 	}](t, w, http.StatusOK)
 	if got.Account.Email != "grace@example.com" || got.Account.Admin || got.PINRequired || got.PasskeyPrompt {
 		t.Fatalf("joined %+v", got)
+	}
+	if offers, afters := n.offered(), n.afters(); !slices.Equal(offers, []string{"Attic", "Den"}) || !slices.Equal(afters, []int{2}) {
+		t.Fatalf("Grace's offers = %q, afters saw %v; want Attic and Den, and one after seeing both committed", offers, afters)
 	}
 	expect(t, n.getSession(sessionOf(t, w)), 200,
 		`{"account":{"id":"`+got.Account.ID+`","email":"grace@example.com","displayName":"Grace Hopper","admin":false},"pinRequired":false,"keyPrompt":"ask"}`+"\n")
@@ -180,6 +209,30 @@ func TestASignupLinksLife(t *testing.T) {
 	expect(t, n.as(a, http.MethodGet, "/api/v1/signup-links", ""), 200, `{"links":[]}`+"\n")
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/signup-links/by-token/made-up"}), 200, unknownLink)
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/reset-links/by-token/" + secondToken}), 200, unknownLink)
+}
+
+func TestIssuingRefusesAServerItCantOffer(t *testing.T) {
+	n := newNode(t)
+	_, a := n.claimed()
+	n.setAddress(a)
+	attic := n.grants.add(server{name: "Attic", kind: "Jellyfin", shown: true})
+	loft := n.grants.add(server{name: "Loft", kind: "Emby"})
+	gone := storage.NewUUID()
+	for _, c := range []struct {
+		grant, code, names string
+		status             int
+	}{
+		{grant: `{"server":"` + loft.String() + `"}`, status: 409, code: "not_shown_to_members", names: "Loft"},
+		{grant: `{"server":"` + gone.String() + `"}`, status: 409, code: "not_shown_to_members", names: gone.String()},
+		{grant: `{"server":"` + attic.String() + `","plexHome":true}`, status: 422, code: "plex_home_not_plex", names: "Attic"},
+	} {
+		w := n.as(a, http.MethodPost, "/api/v1/signup-links", `{"email":"grace@example.com","mediaServers":[`+c.grant+`]}`)
+		got := decode[struct{ Code, Detail string }](t, w, c.status)
+		if got.Code != c.code || !strings.HasPrefix(got.Detail, c.names+" ") {
+			t.Fatalf("issuing with %s = %+v, want %s naming %s", c.grant, got, c.code, c.names)
+		}
+	}
+	expect(t, n.as(a, http.MethodGet, "/api/v1/signup-links", ""), 200, `{"links":[]}`+"\n")
 }
 
 func TestACanceledLinkIsWithdrawn(t *testing.T) {
@@ -233,7 +286,9 @@ func TestTwoTabsRacingOneLinkMakeOneAccount(t *testing.T) {
 	n := newNode(t)
 	_, a := n.claimed()
 	n.setAddress(a)
-	token := tokenOf(t, n.issueSignup(a, "grace@example.com").URL)
+	den := n.grants.add(server{name: "Den", kind: "Plex", shown: true, plex: true})
+	issued := decode[issuedLink](t, n.as(a, http.MethodPost, "/api/v1/signup-links", `{"email":"grace@example.com","mediaServers":[{"server":"`+den.String()+`"}]}`), http.StatusCreated)
+	token := tokenOf(t, issued.URL)
 	var wg sync.WaitGroup
 	codes := make([]int, 2)
 	bodies := make([]string, 2)
@@ -253,6 +308,9 @@ func TestTwoTabsRacingOneLinkMakeOneAccount(t *testing.T) {
 	}
 	if got := view(n, "signup", token); !strings.HasPrefix(got, `{"state":"dead","reason":"used"`) {
 		t.Fatalf("the raced link = %s", got)
+	}
+	if offers, afters := n.offered(), n.afters(); !slices.Equal(offers, []string{"Den"}) || !slices.Equal(afters, []int{1}) {
+		t.Fatalf("offers after the race = %q, afters saw %v; want Den once", offers, afters)
 	}
 }
 

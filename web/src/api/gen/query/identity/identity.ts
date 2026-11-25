@@ -49,7 +49,6 @@ import type {
   CreateSignupLink409,
   CreateSignupLink422,
   CreateSignupLink500,
-  CreateSignupLink501,
   DeleteAccount401,
   DeleteAccount403,
   DeleteAccount404,
@@ -4773,7 +4772,6 @@ export const getCreateSignupLinkMutationOptions = <
     | CreateSignupLink409
     | CreateSignupLink422
     | CreateSignupLink500
-    | CreateSignupLink501
   >,
   TContext = unknown,
 >(options?: {
@@ -4819,7 +4817,6 @@ export type CreateSignupLinkMutationError = ErrorType<
   | CreateSignupLink409
   | CreateSignupLink422
   | CreateSignupLink500
-  | CreateSignupLink501
 >;
 export type CreateSignupLinkMutationVariables = { data: NewSignupLinkInputBody };
 
@@ -4833,7 +4830,6 @@ export const useCreateSignupLink = <
     | CreateSignupLink409
     | CreateSignupLink422
     | CreateSignupLink500
-    | CreateSignupLink501
   >,
   TContext = unknown,
 >(

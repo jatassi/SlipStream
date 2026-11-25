@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 
 import { isProblem } from "../../api/errors";
 import { useRedeemSignupLink } from "../../api/gen/query/identity/identity";
@@ -7,9 +8,10 @@ import { submitErrors, useAppForm } from "../../ui/form";
 import type { Flow } from "./signup-steps";
 import type { StepProps } from "./steps";
 
-/** Makes the Account and signs in, so the steps after it run on the new session. */
-export function Pin({ flow, next }: StepProps<Flow>) {
+/** Makes the Account and signs in, then carries on at `/welcome` on the new session. */
+export function Pin({ flow }: StepProps<Flow>) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const join = useRedeemSignupLink();
   const form = useAppForm({
     defaultValues: { pin: "" },
@@ -20,7 +22,12 @@ export function Pin({ flow, next }: StepProps<Flow>) {
           data: { displayName: flow.displayName, pin: value.pin },
         });
         markSignedIn(queryClient, joined);
-        next();
+        await navigate({
+          to: "/welcome/$step",
+          params: { step: flow.welcome.step },
+          state: { signup: { shown: flow.welcome.before } },
+          replace: true,
+        });
       } catch (error) {
         if (isProblem(error, "link_dead")) {
           flow.linkDied();

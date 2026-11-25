@@ -95,6 +95,7 @@ func Over(t *testing.T, lib *storage.DB[storage.Library], keyFile string, timing
 	if err != nil {
 		t.Fatal(err)
 	}
+	id.SetGranter(identity.NoGrants{})
 	w := &World{
 		t: t, Lib: lib, Identity: id, Courier: newCourier(), Words: map[providers.ReasonCode]string{},
 		sealer: keys.Sealer(), log: &lockedBuffer{}, timings: timings, owners: owners,
