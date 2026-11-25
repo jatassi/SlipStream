@@ -224,7 +224,7 @@ func (m *MediaServers) poll(ctx context.Context, id int64, w *pinWait, now time.
 	err = m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return db.New(tx).SignInToPlex(ctx, db.SignInToPlexParams{
 			JwtSealed: m.cfg.Sealer.Seal([]byte(token.JWT), jwtColumn.Single()), JwtExpiresAt: storage.FromTime(token.Expires),
-			AccountName: &name, PlexPass: &user.PlexPass, SignedInAt: storage.Now(),
+			AccountName: &name, PlexPass: &user.PlexPass, PlexID: &user.ID, SignedInAt: storage.Now(),
 		})
 	})
 	if err != nil {

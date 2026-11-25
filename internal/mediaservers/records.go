@@ -431,6 +431,9 @@ func (s service) Update(ctx context.Context, id link.ServerID, p Patch) (ServerV
 	if err != nil {
 		return ServerView{}, err
 	}
+	if err := patchMembers(p); err != nil {
+		return ServerView{}, err
+	}
 	row := sv.row
 	next, cred := p.onto(row, sv.cred)
 	runsOn := &next.RunsOnNodeID

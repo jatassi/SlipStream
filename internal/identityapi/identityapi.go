@@ -439,7 +439,7 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/signup-links",
 		Summary: "Issue a Signup link for an email, email it, and return it to copy",
 		Status:  http.StatusCreated,
-		Errors:  []*api.Code{addressUnset, accountExists},
+		Errors:  []*api.Code{addressUnset, accountExists, notShownToMembers, plexHomeNotPlex, notBuilt},
 	}, issueSignupLink(lib))
 
 	api.Register(o, api.Reconfirmed, api.Op{

@@ -26,6 +26,9 @@ var (
 	passkeyNotFound    = api.NewCode(http.StatusNotFound, "passkey_not_found", "You have no passkey with that id")
 	passkeyUnavailable = api.NewCode(http.StatusConflict, "passkey_unavailable", "You have no passkey for this address, or passkeys don't work here. Sign in with your PIN.")
 	passkeyFailed      = api.NewCode(http.StatusUnauthorized, "passkey_failed", "The passkey couldn't be verified")
+	notShownToMembers  = api.NewCode(http.StatusConflict, "not_shown_to_members", "The Media Server isn't shown to Members")
+	plexHomeNotPlex    = api.NewCode(http.StatusUnprocessableEntity, "plex_home_not_plex", "Plex Home is a choice for Plex servers only")
+	notBuilt           = api.NewCode(http.StatusNotImplemented, "not_built_yet", "This part of SlipStream isn't built yet")
 )
 
 var pinChecked = []*api.Code{pinWrong, pinWait.Code, pinOff, tooManyAttempts.Code}

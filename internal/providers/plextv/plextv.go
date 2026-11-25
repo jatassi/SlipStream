@@ -15,6 +15,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -54,14 +55,20 @@ const renewScope = "username,email,friendly_name"
 // Client is plex.tv for one device: its key signs every device JWT, and
 // h.ClientID is the client identifier plex.tv knows the key by.
 type Client struct {
-	e    Endpoints
-	h    plex.Headers
-	key  ed25519.PrivateKey
-	http *http.Client
+	t   transport
+	key ed25519.PrivateKey
 }
 
 func New(e Endpoints, h plex.Headers, key ed25519.PrivateKey, c *http.Client) *Client {
-	return &Client{e: e, h: h, key: key, http: c}
+	return &Client{t: transport{e: e, h: h, http: c}, key: key}
+}
+
+// transport is plex.tv's wire for one client identifier, which the
+// Admin's Client and a Member's client share.
+type transport struct {
+	e    Endpoints
+	h    plex.Headers
+	http *http.Client
 }
 
 // JWK is the device key's public half as plex.tv takes it.
@@ -112,7 +119,7 @@ func (c *Client) sign(nonce, scope string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("encode the device JWT header: %w", err)
 	}
-	payload, err := json.Marshal(deviceClaims{Aud: "plex.tv", Iss: c.h.ClientID, Iat: now.Unix(), Exp: now.Add(deviceJWTLife).Unix(), Nonce: nonce, Scope: scope})
+	payload, err := json.Marshal(deviceClaims{Aud: "plex.tv", Iss: c.t.h.ClientID, Iat: now.Unix(), Exp: now.Add(deviceJWTLife).Unix(), Nonce: nonce, Scope: scope})
 	if err != nil {
 		return "", fmt.Errorf("encode the device JWT claims: %w", err)
 	}
@@ -162,56 +169,84 @@ func RateLimited(err error) (time.Duration, bool) {
 	return e.RetryAfter, true
 }
 
-func (c *Client) do(ctx context.Context, method, path string, q url.Values, token string, body, out any) error {
-	u := c.e.API.JoinPath(path)
+// request is one call to route: the values of its path's {name}s in
+// pairs, the query, the token, and a body sent as JSON.
+type request struct {
+	route route
+	vars  []string
+	query url.Values
+	token string
+	body  any
+}
+
+// do sends req and decodes the response into out, nil for a response with
+// no body.
+func (t transport) do(ctx context.Context, req request, out any) error {
+	r := req.route
+	ref, err := url.Parse(strings.NewReplacer(req.vars...).Replace(r.path))
+	if err != nil {
+		return fmt.Errorf("plex.tv %s %s: %w", r.method, r.path, err)
+	}
+	u := r.host(t.e).JoinPath(ref.Path)
+	q := ref.Query()
+	for k, v := range req.query {
+		q[k] = v
+	}
 	u.RawQuery = q.Encode()
 	var in io.Reader = http.NoBody
-	if body != nil {
-		b, err := json.Marshal(body)
+	if req.body != nil {
+		b, err := json.Marshal(req.body)
 		if err != nil {
-			return fmt.Errorf("plex.tv %s %s: %w", method, path, err)
+			return fmt.Errorf("plex.tv %s %s: %w", r.method, ref.Path, err)
 		}
 		in = bytes.NewReader(b)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, u.String(), in)
+	hr, err := http.NewRequestWithContext(ctx, r.method, u.String(), in)
 	if err != nil {
-		return fmt.Errorf("plex.tv %s %s: %w", method, path, err)
+		return fmt.Errorf("plex.tv %s %s: %w", r.method, ref.Path, err)
 	}
-	c.header(req.Header)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+	t.header(hr.Header, r.format)
+	if req.body != nil {
+		hr.Header.Set("Content-Type", "application/json")
 	}
-	if token != "" {
-		req.Header.Set("X-Plex-Token", token)
+	if req.token != "" {
+		hr.Header.Set("X-Plex-Token", req.token)
 	}
-	resp, err := c.http.Do(req)
+	resp, err := t.http.Do(hr)
 	if err != nil {
-		return fmt.Errorf("plex.tv %s %s: %w", method, path, err)
+		return fmt.Errorf("plex.tv %s %s: %w", r.method, ref.Path, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
-		return fmt.Errorf("plex.tv %s %s: read the response: %w", method, path, err)
+		return fmt.Errorf("plex.tv %s %s: read the response: %w", r.method, ref.Path, err)
 	}
 	if resp.StatusCode/100 != 2 {
-		return fmt.Errorf("plex.tv %s %s: %w", method, path, responseError(resp, raw))
+		return fmt.Errorf("plex.tv %s %s: %w", r.method, ref.Path, responseError(resp, raw))
 	}
-	if err := json.Unmarshal(raw, out); err != nil {
-		return fmt.Errorf("plex.tv %s %s: decode the response: %w", method, path, err)
+	if out == nil {
+		return nil
+	}
+	decode := json.Unmarshal
+	if r.format == formatXML {
+		decode = xml.Unmarshal
+	}
+	if err := decode(raw, out); err != nil {
+		return fmt.Errorf("plex.tv %s %s: decode the response: %w", r.method, ref.Path, err)
 	}
 	return nil
 }
 
-func (c *Client) header(h http.Header) {
-	h.Set("Accept", "application/json")
+func (t transport) header(h http.Header, f format) {
+	h.Set("Accept", map[format]string{formatJSON: "application/json", formatXML: "application/xml"}[f])
 	for k, v := range map[string]string{
-		"X-Plex-Client-Identifier": c.h.ClientID,
-		"X-Plex-Product":           c.h.Product,
-		"X-Plex-Version":           c.h.Version,
-		"X-Plex-Platform":          c.h.Platform,
-		"X-Plex-Platform-Version":  c.h.PlatformVersion,
-		"X-Plex-Device":            c.h.Device,
-		"X-Plex-Device-Name":       c.h.DeviceName,
+		"X-Plex-Client-Identifier": t.h.ClientID,
+		"X-Plex-Product":           t.h.Product,
+		"X-Plex-Version":           t.h.Version,
+		"X-Plex-Platform":          t.h.Platform,
+		"X-Plex-Platform-Version":  t.h.PlatformVersion,
+		"X-Plex-Device":            t.h.Device,
+		"X-Plex-Device-Name":       t.h.DeviceName,
 	} {
 		if v != "" {
 			h.Set(k, v)
@@ -257,16 +292,18 @@ type pinBody struct {
 // CreatePin is a new strong PIN tied to the device's public key.
 func (c *Client) CreatePin(ctx context.Context) (Pin, error) {
 	var out pinBody
-	err := c.do(ctx, http.MethodPost, "/api/v2/pins", nil, "", map[string]any{"jwk": c.jwk(), "strong": true}, &out)
+	err := c.t.do(ctx, request{route: routes[pin], body: map[string]any{"jwk": c.jwk(), "strong": true}}, &out)
 	return Pin{ID: out.ID, Code: out.Code, ExpiresAt: out.ExpiresAt}, err
 }
 
 // AuthURL is the page where the Admin approves code. Afterwards plex.tv
 // opens forward again with no query string, so the page there can't learn
 // the PIN from its address.
-func (c *Client) AuthURL(code, forward string) string {
-	q := url.Values{"clientID": {c.h.ClientID}, "code": {code}, "forwardUrl": {forward}, "context[device][product]": {c.h.Product}}
-	return c.e.Auth.String() + "#?" + q.Encode()
+func (c *Client) AuthURL(code, forward string) string { return c.t.authURL(code, forward) }
+
+func (t transport) authURL(code, forward string) string {
+	q := url.Values{"clientID": {t.h.ClientID}, "code": {code}, "forwardUrl": {forward}, "context[device][product]": {t.h.Product}}
+	return t.e.Auth.String() + "#?" + q.Encode()
 }
 
 // PollPin is the Plex JWT once the Admin approved the PIN, and false while
@@ -277,7 +314,7 @@ func (c *Client) PollPin(ctx context.Context, id int64) (Token, bool, error) {
 		return Token{}, false, err
 	}
 	var out pinBody
-	if err := c.do(ctx, http.MethodGet, "/api/v2/pins/"+strconv.FormatInt(id, 10), url.Values{"deviceJWT": {device}}, "", nil, &out); err != nil {
+	if err := c.t.do(ctx, request{route: routes[pollPin], vars: pinVars(id), query: url.Values{"deviceJWT": {device}}}, &out); err != nil {
 		return Token{}, false, err
 	}
 	if out.AuthToken == nil {
@@ -313,23 +350,33 @@ func parseToken(jwt string) (Token, error) {
 	return Token{JWT: jwt, Expires: time.Unix(claims.Exp, 0)}, nil
 }
 
+func pinVars(id int64) []string { return []string{"{pin}", strconv.FormatInt(id, 10)} }
+
 // User is the signed-in account.
 type User struct {
+	ID       AccountID
+	UUID     string
 	Username string
+	Email    string
 	Title    string
 	PlexPass bool
 }
 
-func (c *Client) User(ctx context.Context, jwt string) (User, error) {
+func (c *Client) User(ctx context.Context, jwt string) (User, error) { return c.t.user(ctx, jwt) }
+
+func (t transport) user(ctx context.Context, token string) (User, error) {
 	var out struct {
-		Username     string `json:"username"`
-		Title        string `json:"title"`
+		ID           AccountID `json:"id"`
+		UUID         string    `json:"uuid"`
+		Username     string    `json:"username"`
+		Email        string    `json:"email"`
+		Title        string    `json:"title"`
 		Subscription struct {
 			Active bool `json:"active"`
 		} `json:"subscription"`
 	}
-	err := c.do(ctx, http.MethodGet, "/api/v2/user", nil, jwt, nil, &out)
-	return User{Username: out.Username, Title: out.Title, PlexPass: out.Subscription.Active}, err
+	err := t.do(ctx, request{route: routes[user], token: token}, &out)
+	return User{ID: out.ID, UUID: out.UUID, Username: out.Username, Email: out.Email, Title: out.Title, PlexPass: out.Subscription.Active}, err
 }
 
 // Server is a Plex Media Server the account can reach.
@@ -385,7 +432,7 @@ func (c *Client) Servers(ctx context.Context, jwt string) ([]Server, error) {
 		} `json:"connections"`
 	}
 	q := url.Values{"includeHttps": {"1"}, "includeRelay": {"1"}, "includeIPv6": {"1"}}
-	if err := c.do(ctx, http.MethodGet, "/api/v2/resources", q, jwt, nil, &out); err != nil {
+	if err := c.t.do(ctx, request{route: routes[resources], query: q, token: jwt}, &out); err != nil {
 		return nil, err
 	}
 	var servers []Server
@@ -419,7 +466,7 @@ func (c *Client) Renew(ctx context.Context) (Token, error) {
 	var nonce struct {
 		Nonce string `json:"nonce"`
 	}
-	if err := c.do(ctx, http.MethodGet, "/api/v2/auth/nonce", nil, "", nil, &nonce); err != nil {
+	if err := c.t.do(ctx, request{route: routes[authNonce]}, &nonce); err != nil {
 		return Token{}, err
 	}
 	var out struct {
@@ -429,7 +476,7 @@ func (c *Client) Renew(ctx context.Context) (Token, error) {
 	if err != nil {
 		return Token{}, err
 	}
-	if err := c.do(ctx, http.MethodPost, "/api/v2/auth/token", nil, "", map[string]string{"jwt": jwt}, &out); err != nil {
+	if err := c.t.do(ctx, request{route: routes[authToken], body: map[string]string{"jwt": jwt}}, &out); err != nil {
 		return Token{}, err
 	}
 	return parseToken(out.AuthToken)

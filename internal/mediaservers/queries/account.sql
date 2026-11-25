@@ -11,6 +11,7 @@ SET jwt_sealed = sqlc.arg(jwt_sealed),
     jwt_expires_at = sqlc.arg(jwt_expires_at),
     account_name = sqlc.arg(account_name),
     plex_pass = sqlc.arg(plex_pass),
+    plex_id = sqlc.arg(plex_id),
     signed_in_at = sqlc.arg(signed_in_at),
     renewed_at = NULL,
     refused_at = NULL
@@ -23,6 +24,12 @@ SET jwt_sealed = sqlc.arg(jwt_sealed),
     renewed_at = sqlc.arg(renewed_at),
     refused_at = NULL
 WHERE id = 1;
+
+-- name: RefreshPlexAccount :exec
+UPDATE mediaservers_plex_account
+SET plex_pass = sqlc.arg(plex_pass),
+    plex_id = sqlc.arg(plex_id)
+WHERE id = 1 AND jwt_sealed IS NOT NULL;
 
 -- name: RefusePlex :execrows
 UPDATE mediaservers_plex_account

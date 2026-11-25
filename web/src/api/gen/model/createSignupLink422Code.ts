@@ -1,1 +1,1 @@
-export type CreateSignupLink422Code = "invalid";
+export type CreateSignupLink422Code = "invalid" | "plex_home_not_plex";

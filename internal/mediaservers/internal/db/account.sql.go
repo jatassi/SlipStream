@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -116,6 +117,23 @@ func (q *Queries) ListPlexServers(ctx context.Context) ([]MediaserversServer, er
 	return items, nil
 }
 
+const refreshPlexAccount = `-- name: RefreshPlexAccount :exec
+UPDATE mediaservers_plex_account
+SET plex_pass = ?1,
+    plex_id = ?2
+WHERE id = 1 AND jwt_sealed IS NOT NULL
+`
+
+type RefreshPlexAccountParams struct {
+	PlexPass *bool
+	PlexID   *plextv.AccountID
+}
+
+func (q *Queries) RefreshPlexAccount(ctx context.Context, arg RefreshPlexAccountParams) error {
+	_, err := q.db.ExecContext(ctx, refreshPlexAccount, arg.PlexPass, arg.PlexID)
+	return err
+}
+
 const refusePlex = `-- name: RefusePlex :execrows
 UPDATE mediaservers_plex_account
 SET refused_at = ?1
@@ -156,7 +174,8 @@ SET jwt_sealed = ?1,
     jwt_expires_at = ?2,
     account_name = ?3,
     plex_pass = ?4,
-    signed_in_at = ?5,
+    plex_id = ?5,
+    signed_in_at = ?6,
     renewed_at = NULL,
     refused_at = NULL
 WHERE id = 1
@@ -167,6 +186,7 @@ type SignInToPlexParams struct {
 	JwtExpiresAt storage.Time
 	AccountName  *string
 	PlexPass     *bool
+	PlexID       *plextv.AccountID
 	SignedInAt   storage.Time
 }
 
@@ -176,6 +196,7 @@ func (q *Queries) SignInToPlex(ctx context.Context, arg SignInToPlexParams) erro
 		arg.JwtExpiresAt,
 		arg.AccountName,
 		arg.PlexPass,
+		arg.PlexID,
 		arg.SignedInAt,
 	)
 	return err

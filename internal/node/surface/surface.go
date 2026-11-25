@@ -123,6 +123,8 @@ var Events = []live.Event{
 	mediaservers.UnhealthyEvent,
 	mediaservers.RecoveredEvent,
 	mediaservers.ItemsFoundEvent,
+	mediaservers.AccessChangedEvent,
+	mediaservers.MyAccessChangedEvent,
 	reachability.ChangedEvent,
 	notifications.ChangedEvent,
 	notifications.SeenEvent,

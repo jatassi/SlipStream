@@ -22,7 +22,12 @@ func (s *server) routes() fake.Routes {
 		"set-config":     {Pattern: "POST /System/Configuration", Handler: s.guard(elevated, s.setConfig)},
 		"authenticate":   {Pattern: "POST /Users/AuthenticateByName", Handler: s.guard(public, s.authenticate)},
 		"logout":         {Pattern: "POST /Sessions/Logout", Handler: s.guard(signedIn, s.logout)},
-		"users":          {Pattern: "GET /Users", Handler: s.guard(elevated, s.users)},
+		"users":          {Pattern: "GET /Users", Handler: s.guard(elevated, s.listUsers)},
+		"create-user":    {Pattern: "POST /Users/New", Handler: s.guard(elevated, s.createUser)},
+		"user":           {Pattern: "GET /Users/{id}", Handler: s.guard(elevated, s.withUser(s.getUser))},
+		"update-user":    {Pattern: "POST /Users/{id}", Handler: s.guard(elevated, s.withUser(s.updateUser))},
+		"user-policy":    {Pattern: "POST /Users/{id}/Policy", Handler: s.guard(elevated, s.withUser(s.setPolicy))},
+		"delete-user":    {Pattern: "DELETE /Users/{id}", Handler: s.guard(elevated, s.withUser(s.deleteUser))},
 		"keys":           {Pattern: "GET /Auth/Keys", Handler: s.guard(elevated, s.listKeys)},
 		"create-key":     {Pattern: "POST /Auth/Keys", Handler: s.guard(elevated, s.createKey)},
 		"revoke-key":     {Pattern: "DELETE /Auth/Keys/{key}", Handler: s.guard(elevated, s.revokeKey)},
@@ -48,6 +53,7 @@ func (s *server) routes() fake.Routes {
 		r["played"] = fake.Route{Pattern: "POST /UserPlayedItems/{id}", Handler: s.guard(signedIn, s.markPlayed)}
 		r["socket"] = fake.Route{Pattern: "GET /socket", Handler: s.socket}
 		r["network"] = fake.Route{Pattern: "GET /System/Configuration/network", Handler: s.guard(elevated, s.network)}
+		r["user-password"] = fake.Route{Pattern: "POST /Users/Password", Handler: s.guard(elevated, s.setPassword)}
 	} else {
 		r["libraries"] = fake.Route{Pattern: "GET /Library/VirtualFolders/Query", Handler: s.guard(signedIn, s.libraries)}
 		r["item-refresh"] = fake.Route{Pattern: "POST /Items/{id}/Refresh", Handler: s.guard(elevated, s.refreshItem)}
@@ -56,6 +62,11 @@ func (s *server) routes() fake.Routes {
 		r["unfavorite"] = fake.Route{Pattern: "DELETE /Users/{user}/FavoriteItems/{id}", Handler: s.guard(signedIn, s.favorite(false))}
 		r["socket"] = fake.Route{Pattern: "GET /embywebsocket", Handler: s.socket}
 		r["system-info"] = fake.Route{Pattern: "GET /System/Info", Handler: s.guard(elevated, s.systemInfo)}
+		r["user-password"] = fake.Route{Pattern: "POST /Users/{id}/Password", Handler: s.guard(elevated, s.withUser(s.setEmbyPassword))}
+	}
+	for name, route := range r {
+		route.Handler = s.failing(name, route.Handler)
+		r[name] = route
 	}
 	return r
 }
@@ -142,7 +153,7 @@ func (s *server) libraries(w http.ResponseWriter, _ *http.Request, _ caller) {
 		}
 		switch {
 		case s.p.Flavor == Emby:
-			v["Id"], v["Guid"] = l.Key, l.Key
+			v["Id"], v["Guid"] = l.Key, libraryGUID(l.Key)
 		case l.Scan.Running:
 			v["RefreshStatus"], v["RefreshProgress"] = "Active", 0
 		default:
@@ -275,15 +286,18 @@ func (s *server) task(w http.ResponseWriter, r *http.Request, _ caller) {
 
 // asUser is the user a call reads data as: the userId it names, else the
 // signed-in user, else the server's owner for a key.
-func (s *server) asUser(c caller, uid string) (string, bool) {
-	if uid != "" {
-		u, ok := s.userByID(uid)
-		return u.Name, ok
+func (s *server) asUser(c caller, uid string) (user, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	uid = either(uid, c.user)
+	if uid == "" {
+		return s.owner(), true
 	}
-	if c.user != "" {
-		return c.user, true
+	u, ok := s.userAt(uid)
+	if !ok {
+		return user{}, false
 	}
-	return s.owner(), true
+	return *u, true
 }
 
 func (s *server) items(w http.ResponseWriter, r *http.Request, c caller) {
@@ -301,7 +315,7 @@ func (s *server) userItems(w http.ResponseWriter, r *http.Request, c caller) {
 // the film. Jellyfin has no Path filter and lists alternate versions only
 // in the primary item's MediaSources.
 func (s *server) listItems(w http.ResponseWriter, r *http.Request, c caller, uid string) {
-	user, ok := s.asUser(c, uid)
+	u, ok := s.asUser(c, uid)
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -316,10 +330,10 @@ func (s *server) listItems(w http.ResponseWriter, r *http.Request, c caller, uid
 		}
 	}
 	for _, it := range s.allItems() {
-		if !s.picked(it, parent, types, q) {
+		if !s.sees(u, it.Library) || !s.picked(it, parent, types, q) {
 			continue
 		}
-		out = append(out, s.renderItem(it, user))
+		out = append(out, s.renderItem(it, u.id))
 	}
 	total := len(out)
 	start, _ := strconv.Atoi(q.Get("StartIndex"))
@@ -392,8 +406,8 @@ func (s *server) renderCollection(name string) map[string]any {
 
 func ticks(d time.Duration) int64 { return int64(d / 100) }
 
-func (s *server) renderUserData(user string, it mediaserver.Item) map[string]any {
-	d := s.core.UserData(user, it.Key)
+func (s *server) renderUserData(uid string, it mediaserver.Item) map[string]any {
+	d := s.core.UserData(uid, it.Key)
 	out := map[string]any{
 		"PlaybackPositionTicks": ticks(d.Position), "PlayCount": d.PlayCount, "IsFavorite": d.Favorite,
 		"Played": d.Played, "Key": it.Key, "ItemId": it.Key,
@@ -412,7 +426,7 @@ func providerIDs(it mediaserver.Item) map[string]string {
 	return out
 }
 
-func (s *server) renderItem(it mediaserver.Item, user string) map[string]any {
+func (s *server) renderItem(it mediaserver.Item, uid string) map[string]any {
 	var sources []map[string]any
 	for _, p := range it.Parts {
 		if p.Missing {
@@ -439,7 +453,7 @@ func (s *server) renderItem(it mediaserver.Item, user string) map[string]any {
 	m := map[string]any{
 		"Name": it.Title, "ServerId": s.srv.ID, "Id": it.Key, "Path": path, "Type": itemType(it), "IsFolder": false,
 		"MediaType": "Video", "LocationType": "FileSystem", "VideoType": "VideoFile", "ProviderIds": providerIDs(it),
-		"MediaSources": nonNil(sources), "UserData": s.renderUserData(user, it), "ImageTags": map[string]any{},
+		"MediaSources": nonNil(sources), "UserData": s.renderUserData(uid, it), "ImageTags": map[string]any{},
 	}
 	if it.Year > 0 {
 		m["ProductionYear"] = it.Year
@@ -462,23 +476,23 @@ func (s *server) userItem(w http.ResponseWriter, r *http.Request, c caller) {
 }
 
 func (s *server) oneItem(w http.ResponseWriter, r *http.Request, c caller, uid string) {
-	user, ok := s.asUser(c, uid)
+	u, ok := s.asUser(c, uid)
 	it, found := s.core.Item(r.PathValue("id"))
-	if !ok || !found {
+	if !ok || !found || !s.sees(u, it.Library) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	writeJSON(w, s.renderItem(it, user))
+	writeJSON(w, s.renderItem(it, u.id))
 }
 
 func (s *server) getUserData(w http.ResponseWriter, r *http.Request, c caller) {
-	user, ok := s.asUser(c, r.URL.Query().Get("userId"))
+	u, ok := s.asUser(c, r.URL.Query().Get("userId"))
 	it, found := s.core.Item(r.PathValue("id"))
 	if !ok || !found {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	writeJSON(w, s.renderUserData(user, it))
+	writeJSON(w, s.renderUserData(u.id, it))
 }
 
 func (s *server) setUserData(w http.ResponseWriter, r *http.Request, c caller) {
@@ -492,7 +506,7 @@ func (s *server) userItemData(w http.ResponseWriter, r *http.Request, c caller) 
 // writeUserData sets the fields the body names on the user's data. Emby
 // 4.10 keeps the favorite it had (online run 2026-11-14).
 func (s *server) writeUserData(w http.ResponseWriter, r *http.Request, c caller, uid string) {
-	user, ok := s.asUser(c, uid)
+	u, ok := s.asUser(c, uid)
 	it, found := s.core.Item(r.PathValue("id"))
 	if !ok || !found {
 		w.WriteHeader(http.StatusNotFound)
@@ -509,7 +523,7 @@ func (s *server) writeUserData(w http.ResponseWriter, r *http.Request, c caller,
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	d := s.core.UserData(user, it.Key)
+	d := s.core.UserData(u.id, it.Key)
 	if in.PlaybackPositionTicks != nil {
 		d.Position = time.Duration(*in.PlaybackPositionTicks) * 100
 	}
@@ -525,8 +539,8 @@ func (s *server) writeUserData(w http.ResponseWriter, r *http.Request, c caller,
 	if in.LastPlayedDate != nil {
 		d.LastPlayed = *in.LastPlayedDate
 	}
-	s.core.SetUserData(user, it.Key, d)
-	writeJSON(w, s.renderUserData(user, it))
+	s.core.SetUserData(u.id, it.Key, d)
+	writeJSON(w, s.renderUserData(u.id, it))
 }
 
 // markPlayed marks the item played. Jellyfin counts a play and stamps
@@ -536,35 +550,35 @@ func (s *server) markPlayed(w http.ResponseWriter, r *http.Request, c caller) {
 	if s.p.Flavor == Emby {
 		uid = r.PathValue("user")
 	}
-	user, ok := s.asUser(c, uid)
+	u, ok := s.asUser(c, uid)
 	it, found := s.core.Item(r.PathValue("id"))
 	if !ok || !found {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	d := s.core.UserData(user, it.Key)
+	d := s.core.UserData(u.id, it.Key)
 	d.Played = true
 	if s.p.Flavor != Emby {
 		d.PlayCount, d.LastPlayed = d.PlayCount+1, time.Now()
 	}
-	s.core.SetUserData(user, it.Key, d)
-	writeJSON(w, s.renderUserData(user, it))
+	s.core.SetUserData(u.id, it.Key, d)
+	writeJSON(w, s.renderUserData(u.id, it))
 }
 
 // favorite is Emby's FavoriteItems: POST marks the item a favorite of the
 // user and DELETE unmarks it.
 func (s *server) favorite(on bool) func(http.ResponseWriter, *http.Request, caller) {
 	return func(w http.ResponseWriter, r *http.Request, c caller) {
-		user, ok := s.asUser(c, r.PathValue("user"))
+		u, ok := s.asUser(c, r.PathValue("user"))
 		it, found := s.core.Item(r.PathValue("id"))
 		if !ok || !found {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		d := s.core.UserData(user, it.Key)
+		d := s.core.UserData(u.id, it.Key)
 		d.Favorite = on
-		s.core.SetUserData(user, it.Key, d)
-		writeJSON(w, s.renderUserData(user, it))
+		s.core.SetUserData(u.id, it.Key, d)
+		writeJSON(w, s.renderUserData(u.id, it))
 	}
 }
 

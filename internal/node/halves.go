@@ -332,6 +332,8 @@ func (n *Node) startController(ctx context.Context) error {
 			Unhealthy:       mediaservers.UnhealthyEvent.Bind(n.hub),
 			Recovered:       mediaservers.RecoveredEvent.Bind(n.hub),
 			ItemsFound:      mediaservers.ItemsFoundEvent.Bind(n.hub),
+			AccessChanged:   mediaservers.AccessChangedEvent.Bind(n.hub),
+			MyAccessChanged: mediaservers.MyAccessChangedEvent.Bind(n.hub),
 		},
 		Touch: func(nodes ...role.NodeID) { linked.Touch(nodes...) },
 		Facts: func(node role.NodeID) (*msv1.Facts, bool) { return linked.Facts(node) },

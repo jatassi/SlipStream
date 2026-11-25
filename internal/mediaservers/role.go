@@ -96,13 +96,21 @@ type Publisher[T any] interface {
 	Publish(ctx context.Context, v T)
 }
 
-// Events are the five live events, bound once at the composition root.
+// AccountPublisher is one of the Media Servers' live events for one
+// Account, bound to the hub.
+type AccountPublisher[T any] interface {
+	Publish(ctx context.Context, account storage.UUID, v T)
+}
+
+// Events are the seven live events, bound once at the composition root.
 type Events struct {
 	Changed         Publisher[Changed]
 	SessionsChanged Publisher[SessionsChanged]
 	Unhealthy       Publisher[WentUnhealthy]
 	Recovered       Publisher[Recovered]
 	ItemsFound      Publisher[Found]
+	AccessChanged   Publisher[AccessChanged]
+	MyAccessChanged AccountPublisher[MyAccessChanged]
 }
 
 // Roster is what MediaServers reads of the roster.

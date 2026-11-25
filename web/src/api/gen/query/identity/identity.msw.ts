@@ -199,6 +199,17 @@ export const getGetEmailLinkByTokenResponseIdentityLiveLinkMock = (
       : {}),
     email: faker.internet.email(),
     expiresAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    ...(faker.datatype.boolean()
+      ? {
+          mediaServers: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          })),
+        }
+      : {}),
     serverName: faker.string.alpha({ length: { min: 10, max: 20 } }),
     state: faker.helpers.arrayElement(["live"] as const),
   },
@@ -1022,6 +1033,17 @@ export const getGetResetLinkByTokenResponseIdentityLiveLinkMock = (
       : {}),
     email: faker.internet.email(),
     expiresAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    ...(faker.datatype.boolean()
+      ? {
+          mediaServers: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          })),
+        }
+      : {}),
     serverName: faker.string.alpha({ length: { min: 10, max: 20 } }),
     state: faker.helpers.arrayElement(["live"] as const),
   },
@@ -1159,6 +1181,17 @@ export const getListSignupLinksResponseMock = (
     ...(faker.datatype.boolean()
       ? { issuedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
+    mediaServers: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => ({
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      plexHome: faker.datatype.boolean(),
+      present: faker.datatype.boolean(),
+      server: faker.string.uuid(),
+      shown: faker.datatype.boolean(),
+    })),
   })),
   ...overrideResponse,
 });
@@ -1166,6 +1199,12 @@ export const getListSignupLinksResponseMock = (
 export const getCreateSignupLinkResponseMock = (
   overrideResponse: Partial<Extract<IdentityIssuedSignupLink, object>> = {},
 ): IdentityIssuedSignupLink => ({
+  dropped: faker.helpers.arrayElement([
+    Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    null,
+  ]),
   email: {
     ...(faker.datatype.boolean()
       ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -1180,6 +1219,17 @@ export const getCreateSignupLinkResponseMock = (
     ...(faker.datatype.boolean()
       ? { issuedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
+    mediaServers: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => ({
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      plexHome: faker.datatype.boolean(),
+      present: faker.datatype.boolean(),
+      server: faker.string.uuid(),
+      shown: faker.datatype.boolean(),
+    })),
   },
   url: faker.internet.url(),
   ...overrideResponse,
@@ -1194,6 +1244,17 @@ export const getGetSignupLinkByTokenResponseIdentityLiveLinkMock = (
       : {}),
     email: faker.internet.email(),
     expiresAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    ...(faker.datatype.boolean()
+      ? {
+          mediaServers: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          })),
+        }
+      : {}),
     serverName: faker.string.alpha({ length: { min: 10, max: 20 } }),
     state: faker.helpers.arrayElement(["live"] as const),
   },
@@ -1254,6 +1315,17 @@ export const getGetSignupLinkResponseMock = (
     ...(faker.datatype.boolean()
       ? { issuedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
+    mediaServers: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => ({
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      plexHome: faker.datatype.boolean(),
+      present: faker.datatype.boolean(),
+      server: faker.string.uuid(),
+      shown: faker.datatype.boolean(),
+    })),
   },
   url: faker.internet.url(),
   ...overrideResponse,
@@ -1262,6 +1334,12 @@ export const getGetSignupLinkResponseMock = (
 export const getResendSignupLinkResponseMock = (
   overrideResponse: Partial<Extract<IdentityIssuedSignupLink, object>> = {},
 ): IdentityIssuedSignupLink => ({
+  dropped: faker.helpers.arrayElement([
+    Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    null,
+  ]),
   email: {
     ...(faker.datatype.boolean()
       ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -1276,6 +1354,17 @@ export const getResendSignupLinkResponseMock = (
     ...(faker.datatype.boolean()
       ? { issuedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
+    mediaServers: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => ({
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      plexHome: faker.datatype.boolean(),
+      present: faker.datatype.boolean(),
+      server: faker.string.uuid(),
+      shown: faker.datatype.boolean(),
+    })),
   },
   url: faker.internet.url(),
   ...overrideResponse,

@@ -6561,6 +6561,24 @@ export const IdentityEmailChangeStarted = zod.object({
 export type IdentityEmailChangeStarted = zod.input<typeof IdentityEmailChangeStarted>;
 export type IdentityEmailChangeStartedOutput = zod.output<typeof IdentityEmailChangeStarted>;
 
+export const IdentityGrantedServer = zod.object({
+  kind: zod.string().describe("The kind's product name, such as Plex"),
+  name: zod.string(),
+  plexHome: zod
+    .boolean()
+    .describe("Plex only: the Member joins the Plex Home rather than as a friend"),
+  present: zod.boolean().describe("False once the server is removed"),
+  server: zod.uuid(),
+  shown: zod
+    .boolean()
+    .describe(
+      "Whether Show to Members is on. A server that is off isn't offered when the link is used",
+    ),
+});
+
+export type IdentityGrantedServer = zod.input<typeof IdentityGrantedServer>;
+export type IdentityGrantedServerOutput = zod.output<typeof IdentityGrantedServer>;
+
 export const IdentityIssuedResetLink = zod.object({
   email: MailOutcome,
   url: zod.url().describe("The link itself, shown only in this response"),
@@ -6578,12 +6596,19 @@ export const IdentityPendingLink = zod.object({
     .string()
     .exactOptional()
     .describe("The Admin who issued it; absent for the API key"),
+  mediaServers: zod.array(IdentityGrantedServer).describe("The Media Servers the link offers"),
 });
 
 export type IdentityPendingLink = zod.input<typeof IdentityPendingLink>;
 export type IdentityPendingLinkOutput = zod.output<typeof IdentityPendingLink>;
 
 export const IdentityIssuedSignupLink = zod.object({
+  dropped: zod
+    .array(zod.string())
+    .nullish()
+    .describe(
+      "Send again only: the Media Servers the old link offered that the new one doesn't, because they are removed or no longer shown to Members",
+    ),
   email: MailOutcome,
   link: IdentityPendingLink,
   url: zod.url().describe("The link itself, to copy"),
@@ -6591,6 +6616,14 @@ export const IdentityIssuedSignupLink = zod.object({
 
 export type IdentityIssuedSignupLink = zod.input<typeof IdentityIssuedSignupLink>;
 export type IdentityIssuedSignupLinkOutput = zod.output<typeof IdentityIssuedSignupLink>;
+
+export const IdentityOfferedServer = zod.object({
+  kind: zod.string().describe("The kind's product name, such as Plex"),
+  name: zod.string(),
+});
+
+export type IdentityOfferedServer = zod.input<typeof IdentityOfferedServer>;
+export type IdentityOfferedServerOutput = zod.output<typeof IdentityOfferedServer>;
 
 export const IdentityLiveLink = zod.object({
   adminName: zod
@@ -6601,6 +6634,12 @@ export const IdentityLiveLink = zod.object({
     .email()
     .describe("Where the link went: the Account's email, or the new one it confirms"),
   expiresAt: zod.iso.datetime({ offset: true }),
+  mediaServers: zod
+    .array(IdentityOfferedServer)
+    .exactOptional()
+    .describe(
+      "Signup links only: the Media Servers the link offers that are still shown to Members. Absent on Reset and email links",
+    ),
   serverName: zod.string(),
   state: zod.enum(["live"]),
 });
@@ -6675,6 +6714,17 @@ export const IdentityRegeneratedAPIKey = zod.object({
 
 export type IdentityRegeneratedAPIKey = zod.input<typeof IdentityRegeneratedAPIKey>;
 export type IdentityRegeneratedAPIKeyOutput = zod.output<typeof IdentityRegeneratedAPIKey>;
+
+export const IdentityServerGrant = zod.object({
+  plexHome: zod
+    .boolean()
+    .exactOptional()
+    .describe("Plex only: add the Member to the Plex Home rather than as a friend"),
+  server: zod.uuid().describe("A Media Server shown to Members"),
+});
+
+export type IdentityServerGrant = zod.input<typeof IdentityServerGrant>;
+export type IdentityServerGrantOutput = zod.output<typeof IdentityServerGrant>;
 
 export const IdentitySession = zod.object({
   account: IdentityAccount,
@@ -8325,6 +8375,19 @@ export const LibraryScanSettingsInputBody = zod.object({
 export type LibraryScanSettingsInputBody = zod.input<typeof LibraryScanSettingsInputBody>;
 export type LibraryScanSettingsInputBodyOutput = zod.output<typeof LibraryScanSettingsInputBody>;
 
+export const linkUserInputBodyUserIdMax = 256;
+
+export const LinkUserInputBody = zod.object({
+  userId: zod
+    .string()
+    .min(1)
+    .max(linkUserInputBodyUserIdMax)
+    .describe("A user id from listMediaServerUsers"),
+});
+
+export type LinkUserInputBody = zod.input<typeof LinkUserInputBody>;
+export type LinkUserInputBodyOutput = zod.output<typeof LinkUserInputBody>;
+
 export const LiveAccessChanged = zod.object({});
 
 export type LiveAccessChanged = zod.input<typeof LiveAccessChanged>;
@@ -8381,6 +8444,28 @@ export const MailSettingsPatch = zod.object({
 
 export type MailSettingsPatch = zod.input<typeof MailSettingsPatch>;
 export type MailSettingsPatchOutput = zod.output<typeof MailSettingsPatch>;
+
+export const makeAccountInputBodyPasswordMax = 1024;
+
+export const makeAccountInputBodyUsernameMax = 100;
+
+export const MakeAccountInputBody = zod.object({
+  password: zod
+    .string()
+    .min(1)
+    .max(makeAccountInputBodyPasswordMax)
+    .describe(
+      "Write-only. The Member's password for the server's app, set on the server and never stored",
+    ),
+  username: zod
+    .string()
+    .min(1)
+    .max(makeAccountInputBodyUsernameMax)
+    .describe("The name the Member signs in to the server's app with"),
+});
+
+export type MakeAccountInputBody = zod.input<typeof MakeAccountInputBody>;
+export type MakeAccountInputBodyOutput = zod.output<typeof MakeAccountInputBody>;
 
 export const makeFolderInputBodyNameMax = 255;
 
@@ -8454,6 +8539,140 @@ export const MappingsOutputBody = zod.object({
 export type MappingsOutputBody = zod.input<typeof MappingsOutputBody>;
 export type MappingsOutputBodyOutput = zod.output<typeof MappingsOutputBody>;
 
+export const MediaserversAccessChanged = zod.object({});
+
+export type MediaserversAccessChanged = zod.input<typeof MediaserversAccessChanged>;
+export type MediaserversAccessChangedOutput = zod.output<typeof MediaserversAccessChanged>;
+
+export const MediaserversAccessServer = zod.object({
+  access: zod
+    .enum(["plex_tv", "users", "users_linked"])
+    .describe(
+      "How Members get access: plex_tv through a Plex share, users with a user the Member makes or the Admin links, users_linked with a user the Admin links",
+    ),
+  id: zod.uuid(),
+  kind: MediaserversKind,
+  name: zod.string(),
+});
+
+export type MediaserversAccessServer = zod.input<typeof MediaserversAccessServer>;
+export type MediaserversAccessServerOutput = zod.output<typeof MediaserversAccessServer>;
+
+export const MediaserversAccessMember = zod.object({
+  accountId: zod
+    .uuid()
+    .exactOptional()
+    .describe("Absent once the Account is deleted and the row waits for its removal"),
+  disabled: zod.boolean().describe("Whether the Account is turned off"),
+  email: zod.email().exactOptional().describe("Absent once the Account is deleted"),
+  name: zod.string(),
+});
+
+export type MediaserversAccessMember = zod.input<typeof MediaserversAccessMember>;
+export type MediaserversAccessMemberOutput = zod.output<typeof MediaserversAccessMember>;
+
+export const MediaserversPlexPart = zod.object({
+  byHand: zod.boolean().describe("The Admin shared the server in Plex and marked it as added"),
+  email: zod
+    .email()
+    .exactOptional()
+    .describe("The Member's Plex email; absent until the Member signs in to Plex"),
+  plexHome: zod
+    .boolean()
+    .describe("Offered as, or added to, the Plex Home rather than as a friend"),
+  username: zod
+    .string()
+    .exactOptional()
+    .describe("The Member's Plex username; absent until the Member signs in to Plex"),
+});
+
+export type MediaserversPlexPart = zod.input<typeof MediaserversPlexPart>;
+export type MediaserversPlexPartOutput = zod.output<typeof MediaserversPlexPart>;
+
+export const MediaserversAccessProblem = zod.object({
+  code: zod.enum([
+    "plex_refused",
+    "plex_libraries_short",
+    "username_taken",
+    "server_refused",
+    "media_server_unreached",
+    "failed",
+  ]),
+  detail: zod
+    .string()
+    .exactOptional()
+    .describe("The reply of plex.tv or the server, when there was one"),
+});
+
+export type MediaserversAccessProblem = zod.input<typeof MediaserversAccessProblem>;
+export type MediaserversAccessProblemOutput = zod.output<typeof MediaserversAccessProblem>;
+
+export const MediaserversUserPart = zod.object({
+  username: zod.string(),
+});
+
+export type MediaserversUserPart = zod.input<typeof MediaserversUserPart>;
+export type MediaserversUserPartOutput = zod.output<typeof MediaserversUserPart>;
+
+export const MediaserversAccessView = zod.object({
+  actions: zod
+    .array(
+      zod.enum([
+        "shareFriend",
+        "shareHome",
+        "markAdded",
+        "check",
+        "link",
+        "offer",
+        "retryRemove",
+        "remove",
+      ]),
+    )
+    .describe("What this Admin may start on the row, in the order the screen shows them"),
+  changedAt: zod.iso.datetime({ offset: true }),
+  id: zod.uuid(),
+  libraries: zod
+    .array(zod.string())
+    .describe("The server's libraries for Members by name, for sharing by hand"),
+  member: MediaserversAccessMember,
+  needsYou: zod
+    .boolean()
+    .describe(
+      "Whether the row waits on an Admin: a share to make or accept, or a removal to try again",
+    ),
+  plex: MediaserversPlexPart.exactOptional().describe("Plex rows only"),
+  problem: MediaserversAccessProblem.exactOptional().describe(
+    "The last call that failed on the row; absent once a move succeeds",
+  ),
+  server: MediaserversAccessServer,
+  state: zod.enum(["offered", "waiting", "shared", "making", "active", "removing", "removed"]),
+  user: MediaserversUserPart.exactOptional().describe(
+    "Jellyfin and Emby rows with a user on the server",
+  ),
+});
+
+export type MediaserversAccessView = zod.input<typeof MediaserversAccessView>;
+export type MediaserversAccessViewOutput = zod.output<typeof MediaserversAccessView>;
+
+export const MediaserversAccessList = zod.object({
+  offerable: zod
+    .array(MediaserversAccessServer)
+    .nullish()
+    .describe("With account: the servers shown to Members that the Member has no access to yet"),
+  plexHomeUsed: zod
+    .boolean()
+    .describe(
+      "Whether a Member is in the Plex Home through SlipStream: a shared or active row added to Plex Home",
+    ),
+  plexPass: zod
+    .boolean()
+    .describe("Whether SlipStream's Plex account has Plex Pass, which Add to Plex Home needs"),
+  rows: zod.array(MediaserversAccessView).describe("The rows under Needs you first, then the rest"),
+});
+
+export type MediaserversAccessList = zod.input<typeof MediaserversAccessList>;
+export type MediaserversAccessListOutput = zod.output<typeof MediaserversAccessList>;
+
 export const MediaserversAccountView = zod.object({
   expiresAt: zod.iso.datetime({ offset: true }).describe("When the sign-in expires unless renewed"),
   name: zod.string().describe("The Plex account's name"),
@@ -8465,6 +8684,18 @@ export const MediaserversAccountView = zod.object({
 
 export type MediaserversAccountView = zod.input<typeof MediaserversAccountView>;
 export type MediaserversAccountViewOutput = zod.output<typeof MediaserversAccountView>;
+
+export const MediaserversActed = zod.object({
+  mail: MailOutcome.exactOptional().describe(
+    "What became of the email telling the Member they can watch, when the operation sent one",
+  ),
+  row: MediaserversAccessView.exactOptional().describe(
+    "The row after the operation; absent when it deleted the row",
+  ),
+});
+
+export type MediaserversActed = zod.input<typeof MediaserversActed>;
+export type MediaserversActedOutput = zod.output<typeof MediaserversActed>;
 
 export const mediaserversChangeViewAttemptsMin = 0;
 
@@ -8597,6 +8828,18 @@ export const MediaserversFound = zod.object({
 export type MediaserversFound = zod.input<typeof MediaserversFound>;
 export type MediaserversFoundOutput = zod.output<typeof MediaserversFound>;
 
+export const MediaserversHowToWatch = zod.object({
+  address: zod
+    .url()
+    .exactOptional()
+    .describe("The server's Address for Members; absent on Plex, and when the Admin set none"),
+  app: zod.string().describe("The app to get: Plex, Jellyfin or Emby"),
+  signInAs: zod.string().describe("The Plex username, or the username on the server"),
+});
+
+export type MediaserversHowToWatch = zod.input<typeof MediaserversHowToWatch>;
+export type MediaserversHowToWatchOutput = zod.output<typeof MediaserversHowToWatch>;
+
 export const MediaserversLibraryView = zod.object({
   folders: zod.array(zod.string()).describe("Each library folder as the server names it"),
   key: zod.string(),
@@ -8615,6 +8858,22 @@ export const MediaserversLibraries = zod.object({
 
 export type MediaserversLibraries = zod.input<typeof MediaserversLibraries>;
 export type MediaserversLibrariesOutput = zod.output<typeof MediaserversLibraries>;
+
+export const mediaserversLibraryChoiceKeyMax = 256;
+
+export const mediaserversLibraryChoiceNameMax = 256;
+
+export const MediaserversLibraryChoice = zod.object({
+  key: zod
+    .string()
+    .min(1)
+    .max(mediaserversLibraryChoiceKeyMax)
+    .describe("Plex's section key, or the Jellyfin or Emby library ItemId"),
+  name: zod.string().min(1).max(mediaserversLibraryChoiceNameMax),
+});
+
+export type MediaserversLibraryChoice = zod.input<typeof MediaserversLibraryChoice>;
+export type MediaserversLibraryChoiceOutput = zod.output<typeof MediaserversLibraryChoice>;
 
 export const mediaserversMappingInputServerFolderMax = 4096;
 
@@ -8642,9 +8901,87 @@ export const MediaserversMappingsBody = zod.object({
 export type MediaserversMappingsBody = zod.input<typeof MediaserversMappingsBody>;
 export type MediaserversMappingsBodyOutput = zod.output<typeof MediaserversMappingsBody>;
 
+export const MediaserversMemberPin = zod.object({
+  authUrl: zod
+    .url()
+    .describe("Open it in a new tab, or in this one on a phone, where the Member signs in to Plex"),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  pinId: zod.int(),
+});
+
+export type MediaserversMemberPin = zod.input<typeof MediaserversMemberPin>;
+export type MediaserversMemberPinOutput = zod.output<typeof MediaserversMemberPin>;
+
+export const MediaserversMemberPinState = zod.object({
+  refusal: zod
+    .enum(["plex_account_taken", "plex_account_owner", "plex_account_other"])
+    .exactOptional()
+    .describe("Set when state is refused"),
+  state: zod.enum(["waiting", "expired", "signed_in", "refused"]),
+});
+
+export type MediaserversMemberPinState = zod.input<typeof MediaserversMemberPinState>;
+export type MediaserversMemberPinStateOutput = zod.output<typeof MediaserversMemberPinState>;
+
+export const MediaserversMyPlex = zod.object({
+  username: zod.string(),
+});
+
+export type MediaserversMyPlex = zod.input<typeof MediaserversMyPlex>;
+export type MediaserversMyPlexOutput = zod.output<typeof MediaserversMyPlex>;
+
+export const MediaserversMyServer = zod.object({
+  access: zod.enum(["plex_tv", "users", "users_linked"]),
+  label: zod.string().describe("The kind's product name, such as Jellyfin"),
+  name: zod.string(),
+});
+
+export type MediaserversMyServer = zod.input<typeof MediaserversMyServer>;
+export type MediaserversMyServerOutput = zod.output<typeof MediaserversMyServer>;
+
+export const MediaserversMyAccessRow = zod.object({
+  actions: zod
+    .array(zod.enum(["check", "anotherPlex", "makeAccount"]))
+    .describe("What the Member may start on the row"),
+  adminName: zod.string().describe("The Admin to ask about this server"),
+  howToWatch: MediaserversHowToWatch.exactOptional().describe("Absent while pending"),
+  id: zod.uuid(),
+  pending: zod.boolean().describe("Whether the Member still has something to do or wait for"),
+  server: MediaserversMyServer,
+  state: zod.enum(["offered", "waiting", "shared", "making", "active"]),
+});
+
+export type MediaserversMyAccessRow = zod.input<typeof MediaserversMyAccessRow>;
+export type MediaserversMyAccessRowOutput = zod.output<typeof MediaserversMyAccessRow>;
+
+export const MediaserversMyAccess = zod.object({
+  mailSetUp: zod
+    .boolean()
+    .describe("Whether SlipStream can send email, so the Member hears when a share is made"),
+  plex: MediaserversMyPlex.exactOptional().describe(
+    "The Plex account the Member signed in to Plex as; absent before a sign-in",
+  ),
+  plexPassLine: zod
+    .boolean()
+    .describe(
+      "Whether How to watch carries Plex's Plex Pass rule: the Member has a Plex row and SlipStream's Plex account has no Plex Pass",
+    ),
+  rows: zod.array(MediaserversMyAccessRow).describe("In the Admin's server order"),
+});
+
+export type MediaserversMyAccess = zod.input<typeof MediaserversMyAccess>;
+export type MediaserversMyAccessOutput = zod.output<typeof MediaserversMyAccess>;
+
+export const MediaserversMyAccessChanged = zod.object({});
+
+export type MediaserversMyAccessChanged = zod.input<typeof MediaserversMyAccessChanged>;
+export type MediaserversMyAccessChangedOutput = zod.output<typeof MediaserversMyAccessChanged>;
+
 export const mediaserversPatchBodyAddressMax = 2048;
 
 export const mediaserversPatchBodyApiKeyMax = 1024;
+
+export const mediaserversPatchBodyMemberLibrariesMax = 1000;
 
 export const mediaserversPatchBodyNameMax = 100;
 
@@ -8660,6 +8997,23 @@ export const MediaserversPatchBody = zod.object({
     ),
   browserAddress: zod.string().nullish().describe("null to hide the Open in button"),
   fallbackAddress: zod.string().nullish().describe("null to use address"),
+  memberAddress: zod
+    .string()
+    .nullish()
+    .describe("Jellyfin and Emby: the address How to watch gives Members; null to give none"),
+  memberLibraries: zod
+    .array(MediaserversLibraryChoice)
+    .max(mediaserversPatchBodyMemberLibrariesMax)
+    .exactOptional()
+    .describe(
+      "The Libraries for Members, from listMediaServerLibraries; never empty while membersSee is on",
+    ),
+  membersSee: zod
+    .boolean()
+    .exactOptional()
+    .describe(
+      "Show to Members. Turning it on the first time picks the libraries behind the shown Path mappings, unless memberLibraries names others",
+    ),
   name: zod.string().min(1).max(mediaserversPatchBodyNameMax).exactOptional(),
   reachingNodeId: zod.uuid().exactOptional(),
   runsOnNodeId: zod.string().nullish().describe("A Node id; null when the server runs on no Node"),
@@ -8710,7 +9064,11 @@ export type MediaserversPlexPin = zod.input<typeof MediaserversPlexPin>;
 export type MediaserversPlexPinOutput = zod.output<typeof MediaserversPlexPin>;
 
 export const MediaserversPlexPinState = zod.object({
-  state: zod.enum(["waiting", "expired", "signed_in"]),
+  state: zod
+    .enum(["waiting", "expired", "signed_in", "other_account"])
+    .describe(
+      "other_account is a sign-in as a Plex account other than the one SlipStream is signed in to, which replacePlexAccount confirms",
+    ),
 });
 
 export type MediaserversPlexPinState = zod.input<typeof MediaserversPlexPinState>;
@@ -8747,6 +9105,14 @@ export const MediaserversRouteTest = zod.object({
 export type MediaserversRouteTest = zod.input<typeof MediaserversRouteTest>;
 export type MediaserversRouteTestOutput = zod.output<typeof MediaserversRouteTest>;
 
+export const MediaserversServerUser = zod.object({
+  id: zod.string().describe("The server's user id"),
+  name: zod.string(),
+});
+
+export type MediaserversServerUser = zod.input<typeof MediaserversServerUser>;
+export type MediaserversServerUserOutput = zod.output<typeof MediaserversServerUser>;
+
 export const MediaserversState = zod.object({
   level: zod.enum(["ok", "warn", "fail"]),
   words: zod
@@ -8768,6 +9134,8 @@ export type MediaserversUnhealthy = zod.input<typeof MediaserversUnhealthy>;
 export type MediaserversUnhealthyOutput = zod.output<typeof MediaserversUnhealthy>;
 
 export const mediaserversServerViewMappingsNeededMin = 0;
+
+export const mediaserversServerViewMemberCountMin = 0;
 
 export const MediaserversServerView = zod.object({
   address: zod
@@ -8809,6 +9177,22 @@ export const MediaserversServerView = zod.object({
     .int()
     .min(mediaserversServerViewMappingsNeededMin)
     .describe("Roots with shown true and no confirmed Path mapping"),
+  memberAddress: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "Jellyfin and Emby: the address How to watch gives Members; absent when the Admin set none",
+    ),
+  memberCount: zod
+    .int()
+    .min(mediaserversServerViewMemberCountMin)
+    .describe("How many Members can watch on the server"),
+  memberLibraries: zod
+    .array(MediaserversLibraryChoice)
+    .describe("The Libraries for Members: what a Member's access covers"),
+  membersSee: zod
+    .boolean()
+    .describe("Show to Members: whether Members may be offered access to the server"),
   name: zod.string(),
   plexPass: zod
     .boolean()
@@ -9708,8 +10092,15 @@ export type NewPINInputBodyOutput = zod.output<typeof NewPINInputBody>;
 
 export const newSignupLinkInputBodyEmailMax = 254;
 
+export const newSignupLinkInputBodyMediaServersMax = 100;
+
 export const NewSignupLinkInputBody = zod.object({
   email: zod.email().max(newSignupLinkInputBodyEmailMax),
+  mediaServers: zod
+    .array(IdentityServerGrant)
+    .max(newSignupLinkInputBodyMediaServersMax)
+    .nullish()
+    .describe("The Media Servers to offer the new Member, each shown to Members"),
 });
 
 export type NewSignupLinkInputBody = zod.input<typeof NewSignupLinkInputBody>;
@@ -10768,6 +11159,16 @@ export const NotificationsTestPassed = zod.object({
 
 export type NotificationsTestPassed = zod.input<typeof NotificationsTestPassed>;
 export type NotificationsTestPassedOutput = zod.output<typeof NotificationsTestPassed>;
+
+export const OfferInputBody = zod.object({
+  plexHome: zod
+    .boolean()
+    .exactOptional()
+    .describe("Plex only: add the Member to the Plex Home rather than as a friend"),
+});
+
+export type OfferInputBody = zod.input<typeof OfferInputBody>;
+export type OfferInputBodyOutput = zod.output<typeof OfferInputBody>;
 
 export const openRestoreInputBodyPassphraseMax = 1024;
 
@@ -12096,6 +12497,13 @@ export const SendToInputBody = zod.object({
 export type SendToInputBody = zod.input<typeof SendToInputBody>;
 export type SendToInputBodyOutput = zod.output<typeof SendToInputBody>;
 
+export const ServerUsersOutputBody = zod.object({
+  users: zod.array(MediaserversServerUser),
+});
+
+export type ServerUsersOutputBody = zod.input<typeof ServerUsersOutputBody>;
+export type ServerUsersOutputBodyOutput = zod.output<typeof ServerUsersOutputBody>;
+
 export const ServersOutputBody = zod.object({
   servers: zod.array(MediaserversServerView).describe("By name"),
 });
@@ -12148,6 +12556,17 @@ export const SettingsOutputBody = zod.object({
 
 export type SettingsOutputBody = zod.input<typeof SettingsOutputBody>;
 export type SettingsOutputBodyOutput = zod.output<typeof SettingsOutputBody>;
+
+export const ShareAccessInputBody = zod.object({
+  as: zod
+    .enum(["friend", "home"])
+    .describe(
+      "friend shares the Libraries for Members; home also adds the Member to the Plex Home",
+    ),
+});
+
+export type ShareAccessInputBody = zod.input<typeof ShareAccessInputBody>;
+export type ShareAccessInputBodyOutput = zod.output<typeof ShareAccessInputBody>;
 
 export const ShellAlerts = zod.object({
   health: zod
@@ -15856,6 +16275,18 @@ export const LiveEventLiveSessionEnded = zod.object({
 export type LiveEventLiveSessionEnded = zod.input<typeof LiveEventLiveSessionEnded>;
 export type LiveEventLiveSessionEndedOutput = zod.output<typeof LiveEventLiveSessionEnded>;
 
+export const LiveEventMediaServersAccessChanged = zod.object({
+  event: zod.enum(["media-servers.access-changed"]),
+  data: MediaserversAccessChanged,
+});
+
+export type LiveEventMediaServersAccessChanged = zod.input<
+  typeof LiveEventMediaServersAccessChanged
+>;
+export type LiveEventMediaServersAccessChangedOutput = zod.output<
+  typeof LiveEventMediaServersAccessChanged
+>;
+
 export const LiveEventMediaServersChanged = zod.object({
   event: zod.enum(["media-servers.changed"]),
   data: MediaserversChanged,
@@ -15872,6 +16303,18 @@ export const LiveEventMediaServersItemsFound = zod.object({
 export type LiveEventMediaServersItemsFound = zod.input<typeof LiveEventMediaServersItemsFound>;
 export type LiveEventMediaServersItemsFoundOutput = zod.output<
   typeof LiveEventMediaServersItemsFound
+>;
+
+export const LiveEventMediaServersMyAccessChanged = zod.object({
+  event: zod.enum(["media-servers.my-access-changed"]),
+  data: MediaserversMyAccessChanged,
+});
+
+export type LiveEventMediaServersMyAccessChanged = zod.input<
+  typeof LiveEventMediaServersMyAccessChanged
+>;
+export type LiveEventMediaServersMyAccessChangedOutput = zod.output<
+  typeof LiveEventMediaServersMyAccessChanged
 >;
 
 export const LiveEventMediaServersRecovered = zod.object({
@@ -16165,8 +16608,10 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventLiveAccessChanged,
   LiveEventLiveResync,
   LiveEventLiveSessionEnded,
+  LiveEventMediaServersAccessChanged,
   LiveEventMediaServersChanged,
   LiveEventMediaServersItemsFound,
+  LiveEventMediaServersMyAccessChanged,
   LiveEventMediaServersRecovered,
   LiveEventMediaServersSessionsChanged,
   LiveEventMediaServersUnhealthy,

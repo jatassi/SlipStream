@@ -142,7 +142,8 @@ func New(t *testing.T) *World {
 		Tasks:        &cadences{},
 		Events: mediaservers.Events{
 			Changed: changedEvents{w}, SessionsChanged: sessionsEvents{w}, Unhealthy: unhealthyEvents{w}, Recovered: recoveredEvents{w},
-			ItemsFound: foundEvents{w},
+			ItemsFound: foundEvents{w}, AccessChanged: mediaservers.AccessChangedEvent.Bind(w.hub),
+			MyAccessChanged: mediaservers.MyAccessChangedEvent.Bind(w.hub),
 		},
 		Touch: w.links.touch,
 		Facts: w.links.factsOf,

@@ -12,7 +12,13 @@
 // it, and it returns to forwardUrl with no query string, as a popup or a
 // redirect alike. After a sign-out the account's JWTs and its server
 // tokens get 401 and a renewal 422. A JWT plex.tv issued keeps working
-// after a renewal until it expires.
+// after a renewal until it expires. The world holds the Admin's account,
+// which owns the servers, and Members' accounts, each with its own id and
+// uuid. A Member's device makes a strong PIN with no key, polled by its
+// client identifier, whose approval gives a 20-character legacy token
+// with no expiry, as the run of 2026-11-25 met it. Two tokens of one
+// account coexist, and DELETE /api/v2/users/signout ends only the one it
+// carries.
 package plextv
 
 import (
@@ -41,18 +47,21 @@ const (
 	jwtLife = 7 * 24 * time.Hour
 	// strongCode is a strong PIN's code length, 25 in the recorded run.
 	strongCode = 25
+	// legacyToken is a legacy token's length, 20 in the run of 2026-11-25.
+	legacyToken = 20
 )
 
 var (
-	// Approve approves {"code": "…"} as the Admin would on the sign-in
-	// page, or with no code the newest waiting PIN. It answers the code.
+	// Approve approves {"code": "…", "account": "<username>"} as that
+	// account would on the sign-in page, the Admin's when it names none, or
+	// with no code the newest waiting PIN. It answers the code.
 	Approve = fake.CueSpec{Name: "plextv-approve"}
 	// ExpirePins ends every PIN's life now.
 	ExpirePins = fake.CueSpec{Name: "plextv-expire-pins"}
-	// SignOut is the Admin removing every device from the account on
+	// SignOut is the Admin removing every device from their account on
 	// plex.tv: its JWTs and server tokens get 401, its renewals 422.
 	SignOut = fake.CueSpec{Name: "plextv-sign-out"}
-	// PlexPass sets the account's subscription to {"active": bool}.
+	// PlexPass sets the Admin's subscription to {"active": bool}.
 	PlexPass = fake.CueSpec{Name: "plextv-plex-pass"}
 	// PlexMapping sets where Plex's own check of a server's public address
 	// left it, {"server": "<name>", "state": "mapped"}, or failed or
@@ -95,30 +104,45 @@ var Auth = fake.Spec{
 	Online: fake.NoOnlineRun("the plex.tv sign-in page is a browser page; the JWT flow is a recorded manual run"),
 }
 
-// Account is the one plex.tv account a world signs in to.
+// Account is a plex.tv account a world holds.
 type Account struct {
 	Username string
+	// Email is username@plex.invalid when empty.
+	Email    string
 	PlexPass bool
-	// Relay lists a relay connection to each server when resources asks
-	// for relays. The recorded run's server listed none.
+	// Relay lists a relay connection to each of the Admin's servers when
+	// resources asks for relays. The recorded run's server listed none.
 	Relay bool
 }
 
-// Playing is Fake signing in to a, for a test that names it.
-func Playing(a Account) fake.Spec {
+// Playing is Fake holding the Admin's account, which owns the servers,
+// and members' accounts, for a test that names them.
+func Playing(admin Account, members ...Account) fake.Spec {
 	spec := Fake
-	spec.New = func(s scenario.Scenario, env fake.Env) (fake.Server, error) { return serve(s, env, a) }
+	spec.New = func(s scenario.Scenario, env fake.Env) (fake.Server, error) {
+		return serve(s, env, append([]Account{admin}, members...))
+	}
 	return spec
 }
 
 func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
-	return serve(s, env, Account{Username: "plex-admin", PlexPass: true})
+	return serve(s, env, []Account{{Username: "plex-admin", PlexPass: true}})
 }
 
-// device is a device key plex.tv registered when its PIN was approved.
-// A sign-in after a sign-out registers the key again as a new device.
+// person is an account as plex.tv keeps it, with the id and uuid it
+// gave.
+type person struct {
+	Account
+	id   int64
+	uuid string
+}
+
+// device is a client plex.tv registered when its PIN was approved, with
+// the key a JWT PIN carried and none for a legacy PIN. A sign-in after a
+// sign-out registers the key again as a new device.
 type device struct {
 	clientID string
+	account  *person
 	key      ed25519.PublicKey
 	kid      string
 	revoked  bool
@@ -131,25 +155,29 @@ type pin struct {
 	code     string
 	clientID string
 	product  string
-	jwk      jwk
-	created  time.Time
-	expires  time.Time
-	// token is the Plex JWT once the Admin approved, "" while it waits.
+	// jwk is the device key a JWT PIN carried, zero on a legacy PIN.
+	jwk     jwk
+	created time.Time
+	expires time.Time
+	// token is the Plex JWT, or the legacy token, once its account
+	// approved, "" while it waits.
 	token string
 }
 
 // state is plex.tv for one world: what the API and the sign-in page
 // share.
 type state struct {
-	mu      sync.Mutex
-	account Account
-	key     ed25519.PrivateKey
-	draw    *rand.Rand
-	fronts  fake.Fronts
-	owned   *plexaccount.Account
-	pins    map[int64]*pin
-	devices map[string]*device
-	// issued is the device and expiry of each Plex JWT plex.tv signed.
+	mu sync.Mutex
+	// accounts are the world's accounts, the Admin's first.
+	accounts []*person
+	key      ed25519.PrivateKey
+	draw     *rand.Rand
+	fronts   fake.Fronts
+	owned    *plexaccount.Account
+	pins     map[int64]*pin
+	devices  map[string]*device
+	// issued is the device and expiry of each token plex.tv gave: a Plex
+	// JWT, or a legacy token, which never expires.
 	issued map[string]issued
 	nonces map[string]bool
 	// cued are the servers whose mapping a cue or the Scenario set, which
@@ -179,7 +207,7 @@ func stateOf(shared *fake.Shared) *state {
 	return s
 }
 
-func serve(sc scenario.Scenario, env fake.Env, a Account) (fake.Server, error) {
+func serve(sc scenario.Scenario, env fake.Env, accounts []Account) (fake.Server, error) {
 	s := stateOf(env.Shared)
 	draw := env.Streams.Stream("plextv")
 	var seed [ed25519.SeedSize]byte
@@ -187,7 +215,14 @@ func serve(sc scenario.Scenario, env fake.Env, a Account) (fake.Server, error) {
 		binary.LittleEndian.PutUint64(seed[i:], draw.Uint64())
 	}
 	s.mu.Lock()
-	s.account, s.key, s.draw, s.fronts = a, ed25519.NewKeyFromSeed(seed[:]), draw, env.Fronts
+	s.key, s.draw, s.fronts = ed25519.NewKeyFromSeed(seed[:]), draw, env.Fronts
+	s.accounts = nil
+	for _, a := range accounts {
+		if a.Email == "" {
+			a.Email = a.Username + "@plex.invalid"
+		}
+		s.accounts = append(s.accounts, &person{Account: a, id: 10_000_000 + draw.Int64N(90_000_000), uuid: s.word(16)})
+	}
 	s.mu.Unlock()
 	if err := s.cues(env); err != nil {
 		return nil, err
@@ -213,9 +248,10 @@ func serve(sc scenario.Scenario, env fake.Env, a Account) (fake.Server, error) {
 func (s *state) cues(env fake.Env) error {
 	return errors.Join(
 		fake.OnCue(env, Approve.Name, func(_ context.Context, a struct {
-			Code string `json:"code"`
+			Code    string `json:"code"`
+			Account string `json:"account"`
 		}) (any, error) {
-			code, err := s.approve(a.Code)
+			code, err := s.approve(a.Code, a.Account)
 			return map[string]string{"code": code}, err
 		}),
 		fake.OnCue(env, ExpirePins.Name, func(context.Context, struct{}) (any, error) {
@@ -232,10 +268,12 @@ func (s *state) cues(env fake.Env) error {
 		fake.OnCue(env, SignOut.Name, func(context.Context, struct{}) (any, error) {
 			s.mu.Lock()
 			defer s.mu.Unlock()
-			for _, d := range s.devices {
-				d.revoked = true
-				for _, token := range d.tokens {
-					s.owned.Revoke(token)
+			for _, is := range s.issued {
+				if d := is.device; d.account == s.admin() {
+					d.revoked = true
+					for _, token := range d.tokens {
+						s.owned.Revoke(token)
+					}
 				}
 			}
 			return nil, nil
@@ -263,7 +301,7 @@ func (s *state) cues(env fake.Env) error {
 		}) (any, error) {
 			s.mu.Lock()
 			defer s.mu.Unlock()
-			s.account.PlexPass = a.Active
+			s.admin().PlexPass = a.Active
 			return nil, nil
 		}),
 	)
@@ -271,11 +309,23 @@ func (s *state) cues(env fake.Env) error {
 
 var errNoPin = errors.New("no PIN with that code is waiting")
 
-// approve signs the account in on the PIN with code, or with code "" on
-// the newest waiting PIN, and answers its code.
-func (s *state) approve(code string) (string, error) {
+// admin is the account that owns the servers, which s.mu holds.
+func (s *state) admin() *person { return s.accounts[0] }
+
+// approve signs the account named username in on the PIN with code, the
+// Admin when username is "", or with code "" on the newest waiting PIN,
+// and answers its code.
+func (s *state) approve(code, username string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	a := s.admin()
+	if username != "" {
+		i := slices.IndexFunc(s.accounts, func(p *person) bool { return p.Username == username })
+		if i < 0 {
+			return "", fmt.Errorf("plex.tv holds no account %q", username)
+		}
+		a = s.accounts[i]
+	}
 	now := time.Now()
 	var p *pin
 	for _, q := range s.pins {
@@ -286,7 +336,12 @@ func (s *state) approve(code string) (string, error) {
 	if p == nil {
 		return "", errNoPin
 	}
-	d := &device{clientID: p.clientID, key: p.jwk.key, kid: p.jwk.Kid, tokens: map[string]string{}}
+	d := &device{clientID: p.clientID, account: a, key: p.jwk.key, kid: p.jwk.Kid, tokens: map[string]string{}}
+	if p.legacy() {
+		p.token = s.word(legacyToken)
+		s.issued[p.token] = issued{device: d}
+		return p.code, nil
+	}
 	s.devices[d.kid] = d
 	p.token = s.mint(d, now)
 	return p.code, nil
@@ -296,7 +351,7 @@ func (s *state) approve(code string) (string, error) {
 func (s *state) mint(d *device, now time.Time) string {
 	token := signJWT(s.key, map[string]any{
 		"aud": []string{"plex.tv", d.clientID}, "iss": "plex.tv", "iat": now.Unix(), "exp": now.Add(jwtLife).Unix(),
-		"nonce": s.word(32), "thumbprint": d.kid, "user": map[string]any{"id": 1, "uuid": s.word(16)},
+		"nonce": s.word(32), "thumbprint": d.kid, "user": map[string]any{"id": d.account.id, "uuid": d.account.uuid},
 	})
 	s.issued[token] = issued{device: d, expires: now.Add(jwtLife)}
 	return token
@@ -312,3 +367,7 @@ func (s *state) word(n int) string {
 	}
 	return string(b)
 }
+
+// legacy is whether p is a PIN with no device key, whose approval gives a
+// legacy token.
+func (p *pin) legacy() bool { return p.jwk.key == nil }
