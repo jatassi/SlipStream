@@ -25,7 +25,7 @@ func (q *Queries) EraseExpiredSignupTokens(ctx context.Context, now storage.Time
 
 const getLinkByHash = `-- name: GetLinkByHash :one
 SELECT
-    l.id, l.kind, l.token_hash, l.token_sealed, l.email, l.account_id, l.remove_passkeys, l.issued_by, l.issued_at, l.expires_at, l.ended_at, l.end_reason,
+    l.id, l.kind, l.token_hash, l.token_sealed, l.email, l.account_id, l.remove_passkeys, l.issued_by, l.issued_at, l.expires_at, l.ended_at, l.end_reason, l.grants,
     COALESCE(issuer.display_name, '') AS issuer_name
 FROM identity_link AS l
 LEFT JOIN identity_account AS issuer ON issuer.id = l.issued_by
@@ -45,6 +45,7 @@ type GetLinkByHashRow struct {
 	ExpiresAt      storage.Time
 	EndedAt        storage.Time
 	EndReason      sql.NullString
+	Grants         *string
 	IssuerName     string
 }
 
@@ -64,6 +65,7 @@ func (q *Queries) GetLinkByHash(ctx context.Context, tokenHash []byte) (GetLinkB
 		&i.ExpiresAt,
 		&i.EndedAt,
 		&i.EndReason,
+		&i.Grants,
 		&i.IssuerName,
 	)
 	return i, err
@@ -76,6 +78,7 @@ SELECT
     l.token_sealed,
     l.issued_at,
     l.expires_at,
+    l.grants,
     COALESCE(issuer.display_name, '') AS issuer_name
 FROM identity_link AS l
 LEFT JOIN identity_account AS issuer ON issuer.id = l.issued_by
@@ -93,6 +96,7 @@ type GetLiveSignupLinkRow struct {
 	TokenSealed secret.Sealed
 	IssuedAt    storage.Time
 	ExpiresAt   storage.Time
+	Grants      *string
 	IssuerName  string
 }
 
@@ -105,16 +109,18 @@ func (q *Queries) GetLiveSignupLink(ctx context.Context, arg GetLiveSignupLinkPa
 		&i.TokenSealed,
 		&i.IssuedAt,
 		&i.ExpiresAt,
+		&i.Grants,
 		&i.IssuerName,
 	)
 	return i, err
 }
 
 const insertLink = `-- name: InsertLink :exec
-INSERT INTO identity_link (id, kind, token_hash, token_sealed, email, account_id, remove_passkeys, issued_by, issued_at, expires_at)
+INSERT INTO identity_link (id, kind, token_hash, token_sealed, email, account_id, remove_passkeys, issued_by, issued_at, expires_at, grants)
 VALUES (
     ?1, ?2, ?3, ?4, ?5,
-    ?6, ?7, ?8, ?9, ?10
+    ?6, ?7, ?8, ?9, ?10,
+    ?11
 )
 `
 
@@ -129,6 +135,7 @@ type InsertLinkParams struct {
 	IssuedBy       AccountID
 	IssuedAt       storage.Time
 	ExpiresAt      storage.Time
+	Grants         *string
 }
 
 func (q *Queries) InsertLink(ctx context.Context, arg InsertLinkParams) error {
@@ -143,6 +150,7 @@ func (q *Queries) InsertLink(ctx context.Context, arg InsertLinkParams) error {
 		arg.IssuedBy,
 		arg.IssuedAt,
 		arg.ExpiresAt,
+		arg.Grants,
 	)
 	return err
 }
@@ -153,6 +161,7 @@ SELECT
     l.email,
     l.issued_at,
     l.expires_at,
+    l.grants,
     COALESCE(issuer.display_name, '') AS issuer_name
 FROM identity_link AS l
 LEFT JOIN identity_account AS issuer ON issuer.id = l.issued_by
@@ -165,6 +174,7 @@ type ListLiveSignupLinksRow struct {
 	Email      string
 	IssuedAt   storage.Time
 	ExpiresAt  storage.Time
+	Grants     *string
 	IssuerName string
 }
 
@@ -182,6 +192,7 @@ func (q *Queries) ListLiveSignupLinks(ctx context.Context, now storage.Time) ([]
 			&i.Email,
 			&i.IssuedAt,
 			&i.ExpiresAt,
+			&i.Grants,
 			&i.IssuerName,
 		); err != nil {
 			return nil, err
@@ -201,7 +212,7 @@ const redeemLink = `-- name: RedeemLink :one
 UPDATE identity_link
 SET ended_at = ?1, end_reason = 'used', token_sealed = NULL
 WHERE token_hash = ?2 AND kind = ?3 AND ended_at IS NULL AND expires_at > ?1
-RETURNING id, kind, token_hash, token_sealed, email, account_id, remove_passkeys, issued_by, issued_at, expires_at, ended_at, end_reason
+RETURNING id, kind, token_hash, token_sealed, email, account_id, remove_passkeys, issued_by, issued_at, expires_at, ended_at, end_reason, grants
 `
 
 type RedeemLinkParams struct {
@@ -226,6 +237,7 @@ func (q *Queries) RedeemLink(ctx context.Context, arg RedeemLinkParams) (Identit
 		&i.ExpiresAt,
 		&i.EndedAt,
 		&i.EndReason,
+		&i.Grants,
 	)
 	return i, err
 }
