@@ -130,7 +130,7 @@ func (s *server) serve(ctx context.Context, c net.Conn) {
 	}
 	rec.Node, rec.Service, rec.Proxy = arrival.Service.Node, arrival.Service.Kind, arrival.Proxy
 	s.connections.Record(ctx, rec)
-	up, err := new(net.Dialer).DialContext(ctx, "tcp", at.String())
+	up, err := netsite.Dialer.DialContext(ctx, "tcp", at.String())
 	if err != nil {
 		reply(c, replyRefused)
 		return
