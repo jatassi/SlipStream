@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -298,21 +299,73 @@ func TestAnAdminChangesAnEmailDirectlyAndTheOldAddressIsTold(t *testing.T) {
 	}
 }
 
+// offeredGrace is Grace, joined by a Signup link offering Den, with her
+// session.
+func (n *node) offeredGrace(admin string) (id, session string) {
+	n.t.Helper()
+	den := n.grants.add(server{name: "Den", kind: "Plex", shown: true, plex: true})
+	issued := decode[issuedLink](n.t, n.as(admin, http.MethodPost, "/api/v1/signup-links", `{"email":"grace@example.com","mediaServers":[{"server":"`+den.String()+`"}]}`), http.StatusCreated)
+	w := n.join(tokenOf(n.t, issued.URL))
+	return decode[struct {
+		Account struct {
+			ID string `json:"id"`
+		} `json:"account"`
+	}](n.t, w, http.StatusOK).Account.ID, sessionOf(n.t, w)
+}
+
 func TestDeletingAnAccountEndsItsSessionsAndFreesItsEmail(t *testing.T) {
 	n := newNode(t)
 	_, a := n.claimed()
 	n.setAddress(a)
-	grace, g := n.grace(a)
+	grace, g := n.offeredGrace(a)
 	sub := n.stream(grace, g)
 	expect(t, n.as(a, http.MethodDelete, "/api/v1/accounts/"+grace, ""), 204, "")
+	if got, want := n.steps(), []string{"leaving with the Account", "done without the Account"}; !slices.Equal(got, want) {
+		t.Fatalf("the Granter saw %q, want %q", got, want)
+	}
 	if got := ending(t, sub); got != "live.session-ended revoked" {
 		t.Fatalf("Grace's stream = %q, want revoked", got)
+	}
+	if got := n.offered(); len(got) != 0 {
+		t.Fatalf("offers after the delete = %q, want none", got)
 	}
 	expect(t, n.getSession(g), 401, signedOut)
 	expect(t, n.signIn("grace@example.com", "1357"), 401, pinWrong)
 	expect(t, n.as(a, http.MethodDelete, "/api/v1/accounts/"+grace, ""), 404, accountNotFound)
+	if got := n.steps(); len(got) != 2 {
+		t.Fatalf("deleting a deleted Account reached the Granter: %q", got)
+	}
 	if w := n.as(a, http.MethodPost, "/api/v1/signup-links", `{"email":"grace@example.com"}`); w.Code != http.StatusCreated {
 		t.Fatalf("a new Signup link for the freed email = %d %s", w.Code, w.Body)
+	}
+}
+
+func TestADeleteTheGranterCantStartKeepsTheAccount(t *testing.T) {
+	for _, c := range []struct {
+		name          string
+		ungranted     bool
+		refuseLeaving bool
+		steps         []string
+	}{
+		{name: "no Granter", ungranted: true},
+		{name: "Leaving fails", refuseLeaving: true, steps: []string{"leaving with the Account"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			n := newNodeWith(t, nodeOptions{ungranted: c.ungranted})
+			_, a := n.claimed()
+			n.setAddress(a)
+			grace, g := n.grace(a)
+			n.grants.refuseLeaving = c.refuseLeaving
+			if w := n.as(a, http.MethodDelete, "/api/v1/accounts/"+grace, ""); w.Code != http.StatusInternalServerError {
+				t.Fatalf("deleting Grace = %d %s, want 500", w.Code, w.Body)
+			}
+			if got := n.steps(); !slices.Equal(got, c.steps) {
+				t.Fatalf("the Granter saw %q, want %q", got, c.steps)
+			}
+			if w := n.getSession(g); w.Code != http.StatusOK {
+				t.Fatalf("Grace's session after a refused delete = %d %s", w.Code, w.Body)
+			}
+		})
 	}
 }
 
