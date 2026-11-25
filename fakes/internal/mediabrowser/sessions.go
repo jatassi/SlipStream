@@ -3,6 +3,7 @@ package mediabrowser
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -26,11 +27,18 @@ const (
 
 var playMethods = map[link.Decision]string{link.DecisionDirectPlay: "DirectPlay", link.DecisionCopy: "Transcode", link.DecisionTranscode: "Transcode"}
 
+// renderSession renders sess, whose User is the id the play cue looked
+// up by name.
 func (s *server) renderSession(sess mediaserver.Session) map[string]any {
-	owner := sess.User
-	item := s.renderItem(sess.Item, owner)
+	s.mu.Lock()
+	name := ""
+	if u, ok := s.userAt(sess.User); ok {
+		name = u.name
+	}
+	s.mu.Unlock()
+	item := s.renderItem(sess.Item, sess.User)
 	m := map[string]any{
-		"Id": sess.Key, "UserId": userID(sess.User), "UserName": sess.User, "Client": either(sess.Product, s.p.ProductName+" Web"),
+		"Id": sess.Key, "UserId": sess.User, "UserName": name, "Client": either(sess.Product, s.p.ProductName+" Web"),
 		"DeviceName": sess.Player, "DeviceId": "fake-player-" + sess.Key, "RemoteEndPoint": "192.168.1.30", "IsActive": true,
 		"NowPlayingItem": item,
 		"PlayState":      map[string]any{"PlayMethod": playMethods[sess.Decision], "PositionTicks": 0, "MediaSourceId": id("source " + sess.Path.String())},
@@ -252,8 +260,8 @@ func (p *push) event(ctx context.Context, e mediaserver.Event) bool {
 }
 
 // Play is a play cue's arguments: a session on the file at Path, as the
-// server stores it. On Emby its transcode shows only once the player
-// reports its playback.
+// server stores it, by the user named User. On Emby its transcode shows
+// only once the player reports its playback.
 type Play struct {
 	Path     string        `json:"path"`
 	User     string        `json:"user"`
@@ -275,7 +283,7 @@ type Stop struct {
 	Session string `json:"session"`
 }
 
-func (s *server) cues() error {
+func (s *server) cues(routes fake.Routes) error {
 	n := s.p.Name
 	if err := fake.OnCue(s.env, n+"-play", func(_ context.Context, a Play) (any, error) {
 		p, err := link.ParsePath(a.Path)
@@ -285,8 +293,14 @@ func (s *server) cues() error {
 		if _, err := link.ParseDecision(string(a.Decision)); err != nil {
 			return nil, err
 		}
+		s.mu.Lock()
+		u, ok := s.userNamed(a.User, nil)
+		s.mu.Unlock()
+		if !ok {
+			return nil, fmt.Errorf("%s has no user %s", s.srv.Name, a.User)
+		}
 		sess, err := s.core.Start(mediaserver.Play{
-			Path: p, User: a.User, Player: a.Player, Product: a.Product, Decision: a.Decision, Reasons: a.Reasons,
+			Path: p, User: u.id, Player: a.Player, Product: a.Product, Decision: a.Decision, Reasons: a.Reasons,
 			Hardware: a.Hardware, Unreported: s.p.Flavor == Emby,
 		})
 		if err != nil {
@@ -307,7 +321,18 @@ func (s *server) cues() error {
 	}); err != nil {
 		return err
 	}
-	return fake.OnCue(s.env, n+"-scan", func(context.Context, struct{}) (any, error) {
+	if err := fake.OnCue(s.env, n+"-scan", func(context.Context, struct{}) (any, error) {
 		return map[string]any{"started": s.core.RefreshAll()}, nil
+	}); err != nil {
+		return err
+	}
+	return fake.OnCue(s.env, n+"-fail-next", func(_ context.Context, a FailNext) (any, error) {
+		if _, ok := routes[a.Route]; !ok {
+			return nil, fmt.Errorf("fake %s has no route %s", n, a.Route)
+		}
+		s.mu.Lock()
+		s.failNext[a.Route] = true
+		s.mu.Unlock()
+		return map[string]string{"failing": a.Route}, nil
 	})
 }

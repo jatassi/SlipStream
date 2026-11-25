@@ -88,16 +88,17 @@ type Library struct {
 }
 
 // Captures are a Product's capture specs.
-func Captures(name string) (reports, scans, items fake.CaptureSpec) {
+func Captures(name string) (reports, scans, items, users fake.CaptureSpec) {
 	return fake.CaptureSpec{Name: name + "-reports", Kind: name + ".report"},
 		fake.CaptureSpec{Name: name + "-scans", Kind: name + ".scan"},
-		fake.CaptureSpec{Name: name + "-items", Kind: name + ".item"}
+		fake.CaptureSpec{Name: name + "-items", Kind: name + ".item"},
+		fake.CaptureSpec{Name: name + "-users", Kind: name + ".users"}
 }
 
-// Cues are a Product's cue specs: a playback, its stop, a restart and the
-// server's own scheduled scan.
+// Cues are a Product's cue specs: a playback, its stop, a restart, the
+// server's own scheduled scan, and a 500 on a route's next call.
 func Cues(name string) []fake.CueSpec {
-	return []fake.CueSpec{{Name: name + "-play"}, {Name: name + "-stop"}, {Name: name + "-restart"}, {Name: name + "-scan"}}
+	return []fake.CueSpec{{Name: name + "-play"}, {Name: name + "-stop"}, {Name: name + "-restart"}, {Name: name + "-scan"}, {Name: name + "-fail-next"}}
 }
 
 // Report is a reports record's data: one POST /Library/Media/Updated.
@@ -133,15 +134,19 @@ type server struct {
 	reports *fake.Capture
 	scans   *fake.Capture
 	itemLog *fake.Capture
+	userLog *fake.Capture
 
-	mu      sync.Mutex
-	keys    []string
-	keyApps []keyApp
-	tokens  map[string]session
-	minted  int
+	mu       sync.Mutex
+	keys     []string
+	keyApps  []keyApp
+	tokens   map[string]session
+	users    []*user
+	failNext map[string]bool
+	minted   int
 }
 
-// session is a user's access token and the DeviceId it signed in with.
+// session is a user's access token, by the user's id, and the DeviceId it
+// signed in with.
 type session struct {
 	user   string
 	device string
@@ -149,8 +154,9 @@ type session struct {
 
 // Serve is the fake for p playing srv, nil for a world that names none.
 func Serve(env fake.Env, p Product, srv *Server) (fake.Server, error) {
-	s := &server{env: env, p: p, srv: srv, tokens: map[string]session{}}
-	reports, scans, items := Captures(p.Name)
+	s := &server{env: env, p: p, srv: srv, tokens: map[string]session{}, failNext: map[string]bool{}}
+	reports, scans, items, users := Captures(p.Name)
+	routes := s.routes()
 	var err error
 	if s.reports, err = env.Capture(reports.Name); err != nil {
 		return nil, err
@@ -163,14 +169,20 @@ func Serve(env fake.Env, p Product, srv *Server) (fake.Server, error) {
 			return nil, err
 		}
 		s.keys = append(s.keys, srv.Keys...)
+		for _, u := range srv.Users {
+			s.addUser(u.Name, u.Password, u.Admin)
+		}
 		if s.itemLog, err = env.Capture(items.Name); err != nil {
 			return nil, err
 		}
-		if err := s.cues(); err != nil {
+		if s.userLog, err = env.Capture(users.Name); err != nil {
+			return nil, err
+		}
+		if err := s.cues(routes); err != nil {
 			return nil, err
 		}
 	}
-	s.http = fake.HTTP(env, s.routes())
+	s.http = fake.HTTP(env, routes)
 	return s, nil
 }
 
@@ -182,7 +194,12 @@ func id(seed string) string {
 
 func libraryKey(name string) string { return id("library " + name) }
 
-func userID(name string) string { return id("user " + name) }
+// libraryGUID is Emby's Guid for the library key, in Guid form so it
+// can't be taken for the ItemId.
+func libraryGUID(key string) string {
+	h := id("guid " + key)
+	return h[:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:]
+}
 
 func collectionID(name string) string { return id("collection " + name) }
 
@@ -209,29 +226,11 @@ func newCore(env fake.Env, p Product, srv *Server) (*mediaserver.Server, error) 
 	return mediaserver.New(b, mediaserver.Disk{Media: env.Media, Root: root}, libs), nil
 }
 
-// mint is a new access token.
-func (s *server) mint() string {
+// mint is a new id for what, such as a token or a user. The caller
+// holds s.mu.
+func (s *server) mint(what string) string {
 	s.minted++
-	return id("token " + s.srv.ID + " " + strconv.Itoa(s.minted))
-}
-
-// owner is the first administrator, whose data a key's calls read.
-func (s *server) owner() string {
-	for _, u := range s.srv.Users {
-		if u.Admin {
-			return u.Name
-		}
-	}
-	return ""
-}
-
-func (s *server) userByID(uid string) (User, bool) {
-	for _, u := range s.srv.Users {
-		if userID(u.Name) == uid {
-			return u, true
-		}
-	}
-	return User{}, false
+	return id(what + " " + s.srv.ID + " " + strconv.Itoa(s.minted))
 }
 
 // Serve returns once the recorder has stopped too, so no capture writes
