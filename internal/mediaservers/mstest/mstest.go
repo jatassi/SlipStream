@@ -175,6 +175,13 @@ func New(t *testing.T) *World {
 	if w.Identity, err = identity.New(t.Context(), identity.Config{Library: w.Lib, Pepper: keys.PINPepper(), Sealer: w.Sealer, Hub: identitytest.Hub(t)}); err != nil {
 		t.Fatal(err)
 	}
+	address, err := identity.ParseAddress("https://media.example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Identity.SetAddress(t.Context(), identity.Admin{}, address); err != nil {
+		t.Fatal(err)
+	}
 	w.boot()
 	t.Cleanup(func() { w.halt() })
 	w.links.start(w.Home)

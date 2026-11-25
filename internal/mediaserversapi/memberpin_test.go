@@ -3,6 +3,7 @@ package mediaserversapi_test
 import (
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -218,6 +219,27 @@ func TestAnAdminSignInAsAnotherPlexAccountAsksFirst(t *testing.T) {
 		}
 		if _, held := r.w.PlexTVUser(t, r.w.MemberPinToken(t, r.sam.ID, samPin.ID)); held {
 			t.Error("plex.tv still holds Sam's token")
+		}
+	})
+}
+
+// TestAPlexSignInEmailsTheAdminsThePlexAccountToAdd signs Sam in to Plex
+// with a Plex server offered: the Admin gets the Plex account to share
+// with and a link to the Accounts page.
+func TestAPlexSignInEmailsTheAdminsThePlexAccountToAdd(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newMemberRig(t)
+		if status, body := r.offer(t, r.sam.ID, r.server, false); status != http.StatusOK {
+			t.Fatalf("offer = %d %s", status, body)
+		}
+		if state := r.memberSignIn(t, r.sam, samOnPlex.Username); state.State != mediaservers.PinSignedIn {
+			t.Fatalf("Sam's Plex sign-in is %+v", state)
+		}
+		msg := r.w.Mail.Wait(t, "ada@example.test")
+		for _, want := range []string{samOnPlex.Username, samOnPlex.Email, "https://media.example.com/accounts"} {
+			if !strings.Contains(msg.Text, want) {
+				t.Errorf("the email's text lacks %q:\n%s", want, msg.Text)
+			}
 		}
 	})
 }
